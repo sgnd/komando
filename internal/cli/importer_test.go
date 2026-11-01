@@ -91,3 +91,32 @@ func TestImportKomandoIsDefensive(t *testing.T) {
 		t.Error("imported recipes must count as changes")
 	}
 }
+
+func TestImportFileZillaRcloneDBeaver(t *testing.T) {
+	fz, err := importFileZilla(writeTemp(t, "sitemanager.xml", `<?xml version="1.0"?><FileZilla3><Servers>
+<Server><Host>web.example</Host><Port>2222</Port><Protocol>1</Protocol><User>deploy</User><Pass encoding="base64">czNjcmV0</Pass><Name>Web</Name></Server>
+<Folder><Server><Host>ftp.example</Host><Port>21</Port><Protocol>0</Protocol><User>x</User><Name>Old FTP</Name></Server></Folder>
+</Servers></FileZilla3>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fz.Hosts) != 1 || fz.Hosts[0].Name != "web" || fz.Hosts[0].Port != 2222 || fz.Secrets["web-pass"] != "s3cret" || len(fz.Notes) != 1 {
+		t.Errorf("filezilla: %+v %v %v", fz.Hosts, len(fz.Secrets), fz.Notes)
+	}
+	rc, err := importRclone(writeTemp(t, "rclone.conf", "[box]\ntype = sftp\nhost = box.lan\nuser = me\nkey_file = ~/.ssh/id_ed25519\n\n[b2]\ntype = b2\naccount = x\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rc.Hosts) != 1 || rc.Hosts[0].Address != "box.lan" || len(rc.Notes) != 1 {
+		t.Errorf("rclone: %+v %v", rc.Hosts, rc.Notes)
+	}
+	db, err := importDBeaver(writeTemp(t, "data-sources.json", `{"connections":{
+		"postgres-1":{"name":"Shop prod","provider":"postgresql","configuration":{"host":"db.lan","port":"5432","database":"shop","user":"app"}},
+		"x":{"name":"Mongo","provider":"mongodb","configuration":{}}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(db.Conns) != 1 || db.Conns[0].Name != "shop-prod" || db.Conns[0].URL != "postgres://app@db.lan:5432/shop" {
+		t.Errorf("dbeaver: %+v", db.Conns)
+	}
+}

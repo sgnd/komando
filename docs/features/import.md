@@ -21,6 +21,9 @@ komando import env ./shop/.env --group shop   # DATABASE_URL, REDIS_URL, ... fro
 | `env` | a `.env` file | a conn for each value that is a database, cache or storage URL |
 | `kubeconfig` | `~/.kube/config` | a Kubernetes conn per context |
 | `docker` | `~/.docker/config.json` (and credential helpers) | registry conns |
+| `filezilla` | FileZilla's `sitemanager.xml` | servers (SFTP sites; FTP ones are listed) |
+| `rclone` | `rclone.conf` | servers (SFTP remotes) |
+| `dbeaver` | DBeaver's `data-sources.json` | database conns (set the passwords afterwards) |
 | `komando` | a file from `komando export` | servers, conns and recipes |
 
 - Passwords found in these files go to the vault as `<name>-pass`. They
@@ -29,6 +32,10 @@ komando import env ./shop/.env --group shop   # DATABASE_URL, REDIS_URL, ... fro
   happens to have the same name gets the next free name (`shop-2`).
 - What komando cannot import is listed, with the reason: for example a
   `.pgpass` line with `*`, or a URL kind komando does not know.
+
+Termius and TablePlus have no open export format. From Termius, export your
+hosts as an SSH config and use `komando import ssh-config FILE`; for
+databases, put their URLs in a `.env` file and use `komando import env FILE`.
 
 ## Move to another computer
 

@@ -13,6 +13,12 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   the current folder; a changed file is kept as `SKILL.md.bak`. The same
   skill lives in `skills/komando/` for `npx skills add sgnd/komando`.
 
+### More import sources
+
+- `komando import filezilla` (SFTP sites, passwords to the vault), `rclone`
+  (SFTP remotes) and `dbeaver` (PostgreSQL, MySQL/MariaDB and SQLite
+  connections).
+
 ### Fixes from review
 
 - `cluster run` must start with the command (a leading flag could hide a
