@@ -54,6 +54,7 @@ var rules = []driver.Rule{
 	{ID: "redis-kill", Reason: "kills clients or shuts the server down"},
 	{ID: "redis-acl", Reason: "changes users or permissions"},
 	{ID: "redis-scripts", Reason: "deletes stored scripts or functions"},
+	{ID: "redis-script-run", Reason: "runs a server-side script komando cannot inspect (EVAL, EVALSHA, FCALL)"},
 }
 
 // Rules lists the rules Classify can report.
@@ -98,6 +99,7 @@ var destructive = map[string]string{
 	"KEYS": "redis-blocking", "SAVE": "redis-blocking", "DEBUG": "redis-blocking",
 	"SHUTDOWN": "redis-kill", "REPLICAOF": "redis-server-config", "SLAVEOF": "redis-server-config",
 	"FAILOVER": "redis-server-config", "MIGRATE": "redis-flush",
+	"EVAL": "redis-script-run", "EVALSHA": "redis-script-run", "FCALL": "redis-script-run",
 }
 
 var destructiveSub = map[string]map[string]string{
@@ -133,6 +135,9 @@ func Classify(args []string) driver.Verdict {
 	}
 	if id, ok := destructive[cmd]; ok {
 		return flag(id)
+	}
+	if cmd == "DEL" || cmd == "UNLINK" { // same as `cache rm`
+		return driver.DataDelete()
 	}
 	if id, ok := destructiveSub[cmd][sub]; ok {
 		return flag(id)
@@ -345,6 +350,9 @@ func texts(items []string) []any {
 func text(s string) any {
 	return driver.JSONValue([]byte(s))
 }
+
+// CmdErr maps a redis error to a komando error code.
+func CmdErr(err error) error { return cmdErr(err) }
 
 func cmdErr(err error) error {
 	var oe *out.Error

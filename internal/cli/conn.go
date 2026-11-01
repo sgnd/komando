@@ -435,7 +435,13 @@ func openAccess(ctx context.Context, st *store.State, c *store.Conn) (*access, e
 	if a.ssh, err = sshx.Dial(cctx, st, h, sshOpts(st)); err != nil {
 		return nil, err
 	}
-	a.Dial = a.ssh.DialContext
+	a.Dial = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		c, err := a.ssh.DialContext(ctx, network, addr)
+		if err != nil {
+			return nil, err
+		}
+		return sshx.WithDeadlines(c), nil
+	}
 	return a, nil
 }
 

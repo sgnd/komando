@@ -82,7 +82,7 @@ func dbQueryCmd() *cobra.Command {
 
 func (f *dbFlags) bind(c *cobra.Command) {
 	c.Flags().BoolVar(&f.write, "write", false, "allow changes (runs in a normal transaction; combine with --dry-run to roll back)")
-	c.Flags().IntVar(&f.limit, "limit", 500, "max rows returned per statement (0 = no limit; output size is capped by --max-output too)")
+	c.Flags().IntVarP(&f.limit, "limit", "n", 500, "max rows returned per statement (0 = no limit; output size is capped by --max-output too)")
 	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite); repeat in order")
 }
 

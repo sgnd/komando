@@ -28,11 +28,12 @@ func cacheCmd() *cobra.Command {
 		Aliases: []string{"redis"},
 		Short:   "Read and change Redis/Valkey caches safely",
 		Long: `Work with a redis conn (see ` + "`komando conn`" + `). get, keys and info only read.
-set and del change data (protected conns need --yes). ` + "`cache run`" + ` sends any
-command, but only reads unless --write; commands that flush, block or
-reconfigure the server also need --allow-dangerous.`,
+set changes data (protected conns need --yes); rm deletes keys, so it also
+needs --allow-dangerous. ` + "`cache run`" + ` sends any command, but only reads unless
+--write; commands that flush, block, run scripts or reconfigure the server
+also need --allow-dangerous.`,
 	}
-	c.AddCommand(cacheGetCmd(), cacheKeysCmd(), cacheInfoCmd(), cacheSetCmd(), cacheDelCmd(), cacheRunCmd())
+	c.AddCommand(cacheGetCmd(), cacheKeysCmd(), cacheInfoCmd(), cacheSetCmd(), cacheRmCmd(), cacheRunCmd())
 	return c
 }
 
@@ -102,7 +103,7 @@ func cacheGetCmd() *cobra.Command {
 				})
 		},
 	}
-	c.Flags().Int64Var(&limit, "limit", 100, "max items shown for hashes, lists, sets and sorted sets")
+	c.Flags().Int64VarP(&limit, "limit", "n", 100, "max items shown for hashes, lists, sets and sorted sets")
 	return c
 }
 
@@ -128,8 +129,9 @@ func (l keyList) Text() string {
 func cacheKeysCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
-		Use:   "keys CONN [PATTERN]",
-		Short: "List keys matching a pattern (uses SCAN, safe on big caches)",
+		Use:     "keys CONN [PATTERN]",
+		Aliases: []string{"ls"},
+		Short:   "List keys matching a pattern (uses SCAN, safe on big caches)",
 		Example: `  komando cache keys cache 'session:*'
   komando cache keys cache --limit 1000`,
 		Args: cobra.RangeArgs(1, 2),
@@ -149,7 +151,7 @@ func cacheKeysCmd() *cobra.Command {
 				})
 		},
 	}
-	c.Flags().IntVar(&limit, "limit", 100, "max keys returned")
+	c.Flags().IntVarP(&limit, "limit", "n", 100, "max keys returned")
 	return c
 }
 
@@ -189,7 +191,7 @@ func cacheSetCmd() *cobra.Command {
 			return withCache(cmd.Context(), "cache.set", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1]},
 				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
 					if err := rc.Set(cmd.Context(), args[1], args[2], ttl).Err(); err != nil {
-						return nil, err
+						return nil, cachex.CmdErr(err)
 					}
 					return map[string]any{"conn": c.Name, "key": args[1], "ttl_seconds": int64(ttl / time.Second)}, nil
 				})
@@ -199,20 +201,20 @@ func cacheSetCmd() *cobra.Command {
 	return c
 }
 
-func cacheDelCmd() *cobra.Command {
+func cacheRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "del CONN KEY...",
-		Aliases: []string{"rm"},
-		Short:   "Delete keys by exact name (no patterns)",
-		Example: `  komando cache del cache session:42 session:43`,
+		Use:     "rm CONN KEY...",
+		Aliases: []string{"del", "delete", "remove"},
+		Short:   "Delete keys by exact name (no patterns; needs --allow-dangerous)",
+		Example: `  komando cache rm cache session:42 session:43 --allow-dangerous`,
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keys := args[1:]
-			return withCache(cmd.Context(), "cache.del", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"keys": keys},
+			return withCache(cmd.Context(), "cache.rm", args[0], driver.DataDelete(), map[string]any{"keys": keys},
 				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
 					n, err := rc.Del(cmd.Context(), keys...).Result()
 					if err != nil {
-						return nil, err
+						return nil, cachex.CmdErr(err)
 					}
 					return map[string]any{"conn": c.Name, "deleted": n, "keys": keys}, nil
 				})
@@ -239,7 +241,8 @@ func cacheRunCmd() *cobra.Command {
 					"this command may change data (or is not known to be a read); re-run with --write",
 					"%s needs --write", strings.ToUpper(command[0]))
 				if len(v.RuleIDs) > 0 {
-					e.Message += " (and --allow-dangerous: " + strings.Join(v.Reasons, "; ") + ")"
+					e.Message += " and --allow-dangerous: " + strings.Join(v.Reasons, "; ")
+					e.Hint = "confirm with the user first; for listing keys use `komando cache keys` instead of KEYS"
 				}
 				rec["error"], rec["conns"] = e.Code, []string{args[0]}
 				audit(st, "cache.run", nil, "", false, rec)

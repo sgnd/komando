@@ -56,18 +56,24 @@ are idempotent, so retries are safe.
 ```bash
 komando conn list                                   # known databases
 komando db schema <conn> [table...]                 # tables, then columns/indexes
-komando db query <conn> "select ..."                # read-only transaction, always safe
+komando db query <conn> "select ..."                # read-only transaction: data cannot change
 komando db query <conn> "... where id = $1" --arg 42   # values as arguments, not pasted
 komando db query <conn> --write --dry-run "update ..."  # runs, reports rows_affected, rolls back
 komando db query <conn> --write "update ..."            # commits
 ```
 
 Caches work the same way: `komando cache get|keys|info <conn>` read,
-`cache set|del` change (with seatbelts), `komando cache run <conn> -- CMD ...`
-only reads unless `--write`. Never use `KEYS` (use `cache keys`, it SCANs).
+`cache set` changes, `cache rm` deletes (needs `--allow-dangerous`), and
+`komando cache run <conn> -- CMD ...` only reads unless `--write`. Never use
+`KEYS` (use `cache keys`, it SCANs).
 
-Buckets: `komando storage ls|get|link <conn> ...` read, `storage put|rm`
-change. Keys are relative to the conn's folder.
+Buckets: `komando storage ls|download <conn> ...` read, `storage upload|link`
+change or share, `storage rm` deletes (needs `--allow-dangerous`). Keys are
+relative to the conn's folder.
+
+`--dry-run` never changes anything. In `db` it runs the SQL inside a
+transaction and rolls it back (sequences still advance); in `cache` and
+`storage` nothing is sent.
 
 Without `--write` the database itself refuses changes. `WRITE_REQUIRES_FLAG`
 (exit 6) means the SQL writes: dry-run it, then ask the human before

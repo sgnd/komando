@@ -251,9 +251,12 @@ that a conn uses with `--via` cannot be removed until the conn is changed.
 
 ## Query a database
 
-`komando db` runs SQL on a conn. **It cannot change anything unless you add
-`--write`**: without it, the query runs in a read-only transaction and the
-database itself refuses changes.
+`komando db` runs SQL on a conn. **It does not change your data unless you
+add `--write`**: without it, the query runs in a read-only transaction and
+the database itself refuses changes. A few admin functions that a read-only
+transaction does not stop (ending sessions, reading server files, `dblink`)
+are blocked by komando's own checks. These checks catch mistakes; for real
+limits, give komando a database user with only the rights it needs.
 
 ```bash
 komando db schema prod-db                     # what tables are there?
@@ -298,7 +301,7 @@ reads stdin).
 
 ```bash
 komando db dump prod-db --to prod-2026-11-02.sql.gz      # backup to a file on this computer
-komando db restore staging-db --from prod-2026-11-02.sql.gz --write --allow-dangerous
+komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous
 ```
 
 - The backup file always lands on **this computer**, readable only by you.
@@ -310,9 +313,14 @@ komando db restore staging-db --from prod-2026-11-02.sql.gz --write --allow-dang
   (`komando pkg install web1 postgresql-client`).
 - The password goes to the tool through its environment, never on its
   command line, so other users of the server cannot see it.
-- A restore can overwrite data, so it needs `--write` and `--allow-dangerous`
-  (and `--yes` on a protected conn). PostgreSQL restores run in one
-  transaction: if anything fails, nothing changes.
+- A restore can overwrite data, so it needs `--allow-dangerous` (and `--yes`
+  on a protected conn). PostgreSQL restores run in one transaction: if
+  anything fails, nothing changes.
+- Before sending anything, komando reads the whole file. A file with client
+  commands that could run programs or read files (`\!`, `system`, `\i`) is
+  refused; real dumps never contain them.
+- For MySQL conns with `?tls=...`, the same TLS setting is passed to
+  `mysqldump`/`mysql` (MySQL and MariaDB clients both work).
 - SQLite: `dump` copies the database file (`--to backup.db`). To restore,
   stop the app and copy the file back.
 - Big databases take time: there is no timeout unless you pass `--timeout`.
@@ -327,7 +335,7 @@ komando cache info cache                      # version, memory, clients
 komando cache keys cache 'session:*'          # list keys (safe on big caches)
 komando cache get cache session:42            # any type: value, type, time to live
 komando cache set cache maintenance on --ttl 30m
-komando cache del cache session:42
+komando cache rm cache session:42 --allow-dangerous   # deleting needs --allow-dangerous
 ```
 
 Anything else goes through `cache run`. **It only reads unless you add
@@ -338,8 +346,9 @@ komando cache run cache -- HGETALL user:42
 komando cache run cache --write -- EXPIRE session:42 3600
 ```
 
-Commands that wipe, block or reconfigure the server (`FLUSHALL`, `KEYS`,
-`CONFIG SET`, `SHUTDOWN`, ...) also need `--allow-dangerous`. A protected
+Commands that delete, wipe, block, run scripts or reconfigure the server
+(`DEL`, `FLUSHALL`, `KEYS`, `EVAL`, `CONFIG SET`, `SHUTDOWN`, ...) also need
+`--allow-dangerous`. A protected
 conn needs `--yes` for every change. Redis cannot undo, so `--dry-run` only
 shows that a change would be allowed; nothing is sent.
 
@@ -354,17 +363,18 @@ komando secret set backups-secret               # the secret access key
 komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:backups-secret
 
 komando storage ls backups                      # one level; --recursive for everything
-komando storage get backups 2026/app.sql.gz     # download into the current folder
-komando storage put backups ./app.sql.gz 2026/app.sql.gz
+komando storage download backups 2026/app.sql.gz            # into the current folder
+komando storage upload backups ./app.sql.gz 2026/app.sql.gz
 komando storage link backups 2026/app.sql.gz --expires 24h   # temporary download link
-komando storage rm backups 2026/old.sql.gz
+komando storage rm backups 2026/old.sql.gz --allow-dangerous
 ```
 
 - Downloads never overwrite a file; the file is readable only by you.
-- `put` replaces an object with the same key (the result says
-  `"replaced": true`). `rm` takes exact keys only: no folders, no patterns.
-- A protected conn needs `--yes` for `put` and `rm`. `--dry-run` shows that
-  the change would be allowed and sends nothing.
+- `upload` replaces an object with the same key (the result says
+  `"replaced": true`). `rm` takes exact keys only, no folders or patterns,
+  and needs `--allow-dangerous` because deleted objects are gone.
+- A protected conn needs `--yes` for `upload`, `rm` and `link`. `--dry-run`
+  shows that the change would be allowed and sends nothing.
 - Keys cannot leave the conn's folder (`../` is refused).
 - A link works for anyone who has it until it expires. Share it like a
   password. It is not written to the history.

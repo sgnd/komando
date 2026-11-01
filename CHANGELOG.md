@@ -17,22 +17,23 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   DELETE/UPDATE without WHERE, ...) needs `--allow-dangerous`; protected
   conns need `--yes`. Results are structured rows, safe for JSON.
 - `komando storage` (alias `s3`) for S3 and S3-compatible storage (MinIO, R2,
-  Wasabi, Spaces, B2, Garage): `ls`, `get` (to a file, never overwriting),
-  `put`, `rm` (exact keys only), and `link` for temporary download links.
-  Keys stay inside the conn's folder.
+  Wasabi, Spaces, B2, Garage): `ls`, `download` (to a file, never
+  overwriting), `upload`, `rm` (exact keys only, needs `--allow-dangerous`),
+  and `link` for temporary download links. Keys stay inside the conn's folder.
 - `komando policy list` shows the SQL and Redis rules; `komando policy check
   --for KIND` rates a SQL query or Redis command.
 - MySQL and MariaDB conns for `komando db`.
 - `komando db dump` and `db restore`: backups to and from a file on this
   computer, using pg_dump/psql or mysqldump/mysql on the `--via` server (or
   locally). The password never appears on a command line; files are 0600 and
-  never overwritten; restores need `--write --allow-dangerous`.
+  never overwritten; restores need `--allow-dangerous` and refuse files with
+  client commands (`\!`, `system`). MySQL `tls=` settings carry over.
 - `komando config set audit_sql full|hash|off` controls how SQL text is kept
   in the audit log.
 - `komando cache` for Redis/Valkey: `get` (any type, with TTL), `keys` (SCAN,
-  never KEYS), `info`, `set`, `del`, and `run` for any command, read-only
-  unless `--write`. Flushing, blocking and server-reconfiguring commands
-  need `--allow-dangerous`.
+  never KEYS), `info`, `set`, `rm`, and `run` for any command, read-only
+  unless `--write`. Deleting, flushing, blocking, scripts and
+  server-reconfiguring commands need `--allow-dangerous`.
 
 ## [0.1.0]
 
