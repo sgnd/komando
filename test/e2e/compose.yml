@@ -1,4 +1,5 @@
-# bastion is reachable from the host; target is only reachable through bastion.
+# bastion is reachable from the host; target and the data services are only
+# reachable through bastion (komando conns use --via bastion).
 services:
   bastion:
     build: .
@@ -13,6 +14,23 @@ services:
     ports: ["127.0.0.1:2223:22"]
     networks: [public]
     hostname: direct
+  pg:
+    image: postgres:17-alpine  # same major version as the client in Debian 13
+    environment: { POSTGRES_USER: app, POSTGRES_PASSWORD: apppass, POSTGRES_DB: app }
+    networks: [private]
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "app"], interval: 2s, retries: 30 }
+  maria:
+    image: mariadb:11.8.9
+    environment: { MARIADB_USER: shop, MARIADB_PASSWORD: shoppass, MARIADB_DATABASE: shop, MARIADB_ROOT_PASSWORD: rootpass }
+    networks: [private]
+    healthcheck: { test: ["CMD", "healthcheck.sh", "--connect"], interval: 2s, retries: 30 }
+  redis:
+    image: redis:8.10.3
+    command: ["redis-server", "--requirepass", "redispass"]
+    networks: [private]
+  s3:
+    build: garage
+    networks: [private]
 networks:
   public: {}
   private: { internal: true }

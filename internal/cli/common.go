@@ -1,19 +1,21 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"regexp"
-	"slices"
-	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -23,6 +25,30 @@ import (
 )
 
 func loadState() (*store.State, error) { return store.Load() }
+
+// rmAliases are the other words people type for rm. Every rm command
+// accepts them (docs/design/ux.md, section 1).
+var rmAliases = []string{"remove", "delete", "del"}
+
+// applyConventions applies the rules every command shares, so a new command
+// cannot forget them. TestConventions checks the rest.
+func applyConventions(c *cobra.Command) {
+	if c.Name() == "rm" {
+		c.Aliases = rmAliases
+	}
+	for _, sub := range c.Commands() {
+		applyConventions(sub)
+	}
+}
+
+// aliasFlag keeps an old flag name working after a rename: old is hidden,
+// shares the value of now, and prints a note on stderr when used. Old names
+// stay for one minor release (docs/design/ux.md, section 10).
+func aliasFlag(fs *pflag.FlagSet, old, now string) {
+	f := fs.Lookup(now)
+	fs.AddFlag(&pflag.Flag{Name: old, Value: f.Value, DefValue: f.DefValue, NoOptDefVal: f.NoOptDefVal, Usage: f.Usage})
+	_ = fs.MarkDeprecated(old, "use --"+now)
+}
 
 func dur(flag time.Duration, setting string, def time.Duration) time.Duration {
 	if flag > 0 {
@@ -58,125 +84,6 @@ func parallelism(st *store.State) int {
 		return g.parallel
 	}
 	return st.Settings.Parallel
-}
-
-// resolveTargets expands a selector expression into hosts (sorted, unique).
-func resolveTargets(st *store.State, expr string) ([]*store.Host, error) {
-	hosts, err := resolveExpr(expr, func(sel string) ([]*store.Host, error) { return matchSelector(st, sel) },
-		func(h *store.Host) string { return h.Name })
-	if err != nil {
-		return nil, err
-	}
-	if len(hosts) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "TARGET_EMPTY", "run `komando host list` to see hosts, groups and tags", "target %q matched no hosts", expr)
-	}
-	return hosts, nil
-}
-
-// resolveExpr applies a comma-separated selector expression ("a,b,!c") using
-// match for each part. The result is sorted by name and may be empty.
-func resolveExpr[T any](expr string, match func(sel string) ([]T, error), name func(T) string) ([]T, error) {
-	expr = strings.TrimSpace(expr)
-	if expr == "" {
-		return nil, out.Usage("empty target")
-	}
-	include := map[string]T{}
-	exclude := map[string]bool{}
-	for _, raw := range strings.Split(expr, ",") {
-		sel := strings.TrimSpace(raw)
-		if sel == "" {
-			continue
-		}
-		neg := strings.HasPrefix(sel, "!")
-		sel = strings.TrimPrefix(sel, "!")
-		matched, err := match(sel)
-		if err != nil {
-			return nil, err
-		}
-		for _, it := range matched {
-			if neg {
-				exclude[name(it)] = true
-			} else {
-				include[name(it)] = it
-			}
-		}
-	}
-	var res []T
-	for n, it := range include {
-		if !exclude[n] {
-			res = append(res, it)
-		}
-	}
-	sort.Slice(res, func(i, j int) bool { return name(res[i]) < name(res[j]) })
-	return res, nil
-}
-
-// selAttrs is what pattern selectors look at; hosts and conns both have it.
-type selAttrs struct {
-	name   string
-	groups []string
-	tags   []string
-	labels map[string]string
-}
-
-// matchPattern applies the pattern selectors (all, @group, tag:, label:,
-// glob) to items. ok is false when sel is a plain name.
-func matchPattern[T any](items []T, attrs func(T) selAttrs, sel string) (res []T, ok bool) {
-	has := func(list []string, v string) bool {
-		return slices.ContainsFunc(list, func(x string) bool { return strings.EqualFold(x, v) })
-	}
-	var f func(a selAttrs) bool
-	switch {
-	case sel == "all" || sel == "*":
-		f = func(selAttrs) bool { return true }
-	case strings.HasPrefix(sel, "@"):
-		f = func(a selAttrs) bool { return has(a.groups, sel[1:]) }
-	case strings.HasPrefix(sel, "tag:"):
-		f = func(a selAttrs) bool { return has(a.tags, sel[4:]) }
-	case strings.HasPrefix(sel, "label:"):
-		k, v, _ := strings.Cut(sel[6:], "=")
-		f = func(a selAttrs) bool { return a.labels[k] == v }
-	case strings.ContainsAny(sel, "*?["):
-		f = func(a selAttrs) bool { ok, _ := path.Match(sel, a.name); return ok }
-	default:
-		return nil, false
-	}
-	for _, it := range items {
-		if f(attrs(it)) {
-			res = append(res, it)
-		}
-	}
-	return res, true
-}
-
-func hostAttrs(h *store.Host) selAttrs { return selAttrs{h.Name, h.Groups, h.Tags, h.Labels} }
-
-func matchSelector(st *store.State, sel string) ([]*store.Host, error) {
-	if res, ok := matchPattern(st.SortedHosts(), hostAttrs, sel); ok {
-		return res, nil
-	}
-	if h, ok := st.Hosts[sel]; ok {
-		return []*store.Host{h}, nil
-	}
-	if strings.Contains(sel, "@") {
-		h, err := sshx.ParseAdhoc(sel)
-		if err == nil {
-			return []*store.Host{h}, nil
-		}
-	}
-	return nil, out.NotFound("host", sel)
-}
-
-// singleHost resolves a selector that must match exactly one host.
-func singleHost(st *store.State, expr string) (*store.Host, error) {
-	hs, err := resolveTargets(st, expr)
-	if err != nil {
-		return nil, err
-	}
-	if len(hs) != 1 {
-		return nil, out.Usage("target %q matched %d hosts; this command needs exactly one", expr, len(hs))
-	}
-	return hs[0], nil
 }
 
 func toErr(err error) *out.Error {
@@ -239,8 +146,9 @@ func withClient(ctx context.Context, st *store.State, h *store.Host, fn func(c *
 
 // guard enforces the safety policy before anything mutating runs.
 func guard(st *store.State, hosts []*store.Host, command string, mutating bool) error {
+	names := hostNames(hosts)
 	if command != "" {
-		if hits := policy.Check(command, st.Settings.ExtraDenyPattern); len(hits) > 0 && !g.allowDangerous {
+		if hits := policy.Check(command, st.Settings.ExtraDenyPattern); len(hits) > 0 && !g.allowDangerous && !confirmDangerous(names, hits[0].Reason) {
 			ids := make([]string, len(hits))
 			reasons := make([]string, len(hits))
 			for i, h := range hits {
@@ -254,11 +162,11 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 	if mutating && !g.yes {
 		var prot []string
 		for _, h := range hosts {
-			if h.Protected {
+			if protectedHost(st, h) {
 				prot = append(prot, h.Name)
 			}
 		}
-		if len(prot) > 0 {
+		if len(prot) > 0 && !confirmProtected(prot) {
 			return out.Errf(out.ExitPolicy, "PROTECTED_HOST",
 				"protected hosts require explicit confirmation: re-run with --yes after verifying intent",
 				"mutating action targets protected host(s): %s", strings.Join(prot, ", "))
@@ -270,8 +178,12 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 // guardConns is guard for conns. The driver classifies the operation first;
 // destructive needs --allow-dangerous, and any change to a protected conn
 // needs --yes. Exit code and codes match guard so agents handle both alike.
-func guardConns(conns []*store.Conn, v driver.Verdict) error {
-	if v.Risk >= driver.RiskDestructive && !g.allowDangerous {
+func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
+	names := make([]string, len(conns))
+	for i, c := range conns {
+		names[i] = c.Name
+	}
+	if v.Risk >= driver.RiskDestructive && !g.allowDangerous && !confirmDangerous(names, strings.Join(v.Reasons, "; ")) {
 		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 			"if this is truly intended, confirm with the user and re-run with --allow-dangerous (try --dry-run first)",
 			"operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; "))
@@ -279,17 +191,134 @@ func guardConns(conns []*store.Conn, v driver.Verdict) error {
 	if v.Risk >= driver.RiskWrite && !g.yes {
 		var prot []string
 		for _, c := range conns {
-			if c.Protected {
+			if protectedConn(st, c) {
 				prot = append(prot, c.Name)
 			}
 		}
-		if len(prot) > 0 {
+		if len(prot) > 0 && !confirmProtected(prot) {
 			return out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
 				"protected conns require explicit confirmation: re-run with --yes after verifying intent",
 				"%s action targets protected conn(s): %s", v.Risk, strings.Join(prot, ", "))
 		}
 	}
 	return nil
+}
+
+// protectedHost is true when h is marked protected, or when a protected
+// inventory host has the same address and port: otherwise an ad-hoc
+// user@address or a second name for the same server would get around
+// protection. Names are compared as written; komando does not resolve DNS.
+func protectedHost(st *store.State, h *store.Host) bool {
+	if h.Protected {
+		return true
+	}
+	for _, o := range st.Hosts {
+		if o.Protected && strings.EqualFold(o.Address, h.Address) && o.EffectivePort() == h.EffectivePort() {
+			return true
+		}
+	}
+	return false
+}
+
+// protectedConn is protectedHost for conns: a conn pointing at the same
+// server, file or bucket as a protected conn is protected too.
+func protectedConn(st *store.State, c *store.Conn) bool {
+	if c.Protected {
+		return true
+	}
+	if st == nil {
+		return false
+	}
+	key := func(c *store.Conn) string {
+		t, err := driver.Parse(c.URL)
+		if err != nil {
+			return ""
+		}
+		switch {
+		case t.Kind.File:
+			return "file " + t.Path
+		case t.Bucket != "":
+			return "bucket " + strings.ToLower(t.Address) + "/" + t.Bucket
+		}
+		return t.Kind.Family + " " + strings.ToLower(t.Address)
+	}
+	k := key(c)
+	for _, o := range st.Conns {
+		if o.Protected && k != "" && key(o) == k {
+			return true
+		}
+	}
+	return false
+}
+
+// interactive is true when a human sits at a terminal: stdin and stderr are
+// both terminals. Agents and scripts never are, so they still need --yes and
+// --allow-dangerous (docs/design/ux.md, section 6).
+var interactive = func() bool {
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd()))
+}
+
+// ask prints question on stderr and reads one line from the terminal.
+func ask(question string) string {
+	fmt.Fprint(os.Stderr, question)
+	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	return strings.TrimSpace(line)
+}
+
+// confirmProtected asks a human at the terminal to confirm a change to
+// protected targets. A yes counts as --yes for the rest of this command.
+func confirmProtected(names []string) bool {
+	return confirmYes(fmt.Sprintf("%s %s protected. Change it anyway?", strings.Join(names, ", "), map[bool]string{true: "is", false: "are"}[len(names) == 1]))
+}
+
+// confirmYes asks a [y/N] question at the terminal. The answer covers this
+// question only; it does not turn on --yes for later checks.
+func confirmYes(question string) bool {
+	if g.dryRun || !interactive() {
+		return false
+	}
+	a := strings.ToLower(ask(question + " [y/N] "))
+	return a == "y" || a == "yes"
+}
+
+// guardSafety: changes that weaken komando's own safety checks (no audit
+// log, no host key check, fewer deny rules) need --yes, so an agent cannot
+// switch them off by itself.
+func guardSafety(what string) error {
+	if g.yes || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
+		return nil
+	}
+	return out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what)
+}
+
+// confirmDangerous asks a human at the terminal to confirm a destructive
+// action by typing the target's name (or how many targets there are), so a
+// reflex "y" is not enough.
+func confirmDangerous(names []string, reason string) bool {
+	if g.dryRun || !interactive() {
+		return false
+	}
+	want, what := "yes", "yes"
+	switch {
+	case len(names) == 1:
+		want, what = names[0], "the name "+names[0]
+	case len(names) > 1:
+		want, what = fmt.Sprint(len(names)), fmt.Sprintf("%d (the number of targets)", len(names))
+	}
+	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
+	return ask("Type "+what+" to continue: ") == want
+}
+
+// guardProtection stops a way around protection: removing a protected
+// target from the inventory, or turning its protection off, would let the
+// next command skip --yes, so it needs --yes itself. kind is host or conn.
+func guardProtection(kind, action string, names []string) error {
+	if len(names) == 0 || g.yes || confirmProtected(names) {
+		return nil
+	}
+	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET"}[kind]
+	return out.Errf(out.ExitPolicy, code, "re-run with --yes after the user confirms",
+		"%s protected %s(s): %s", action, kind, strings.Join(names, ", "))
 }
 
 func hostNames(hs []*store.Host) []string {

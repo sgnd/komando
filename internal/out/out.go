@@ -66,6 +66,15 @@ type Meta struct {
 	Version    string `json:"version"`
 	DurationMS int64  `json:"duration_ms"`
 	DryRun     bool   `json:"dry_run,omitempty"`
+	// Skipped lists targets a selector picked that this command cannot work
+	// with (a database picked by `exec @prod`, a server by `db query @prod`).
+	Skipped []Skipped `json:"skipped,omitempty"`
+}
+
+type Skipped struct {
+	Name   string `json:"name"`
+	Kind   string `json:"kind"` // host, or the conn kind (postgres, redis, ...)
+	Reason string `json:"reason"`
 }
 
 // Printer is configured once by the root command.
@@ -76,6 +85,7 @@ type Printer struct {
 	Start   time.Time
 	DryRun  bool
 	W       io.Writer
+	skipped []Skipped
 }
 
 var P = &Printer{Format: "json", W: os.Stdout, Start: time.Now()}
@@ -84,7 +94,16 @@ var P = &Printer{Format: "json", W: os.Stdout, Start: time.Now()}
 type Texter interface{ Text() string }
 
 func (p *Printer) meta() Meta {
-	return Meta{Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun}
+	return Meta{Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped}
+}
+
+// Skip records a target the command leaves out. It is reported in
+// meta.skipped, and on stderr in text mode.
+func (p *Printer) Skip(s Skipped) {
+	p.skipped = append(p.skipped, s)
+	if p.Format == "text" {
+		fmt.Fprintf(os.Stderr, "skipped %s (%s): %s\n", s.Name, s.Kind, s.Reason)
+	}
 }
 
 // Success prints data. A non-nil softErr marks the envelope not-ok but still

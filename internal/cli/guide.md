@@ -1,6 +1,6 @@
 # komando — playbook for AI agents
 
-You manage real servers. Be precise, observe before you act, and prefer the
+You manage real servers, databases, caches and storage. Be precise, observe before you act, and prefer the
 smallest change that works. When its output is piped (as when you run it),
 every komando command prints exactly one JSON object on stdout; pass `-o json`
 to be explicit. Branch on `ok`, `error.code` and the process exit code.
@@ -8,10 +8,9 @@ to be explicit. Branch on `ok`, `error.code` and the process exit code.
 ## 1. Orient yourself
 
 ```bash
-komando host list                     # what servers exist (names, groups, tags, protected)
-komando conn list                     # databases komando knows (kind, where, --via host)
-komando group list                    # groups/tags -> member hosts
-komando host test all                 # who is reachable, which user, passwordless sudo?
+komando list                          # servers and conns: name, kind, where, groups, protected
+komando group list                    # groups/tags -> members (servers and conns)
+komando test all                      # what is reachable; which user, passwordless sudo?
 komando facts <target>                # OS, package manager, tools, CPU/mem/disk, load
 komando schema --compact              # every command (use `komando schema <cmd>` for flags)
 ```
@@ -21,9 +20,12 @@ whether to use apt or dnf, whether systemd/docker exist, and how full the disk i
 
 ## 2. Targets
 
-`web1` · `web-*` · `@group` · `tag:prod` · `label:dc=jkt` · `all` ·
-`user@1.2.3.4:22` (ad-hoc) · combine with commas, exclude with `!`:
-`@web,!web-3`. Check what a selector matches with `komando host list --target '<expr>'`.
+`web1` · `web-*` · `@group` · `tag:prod` · `label:dc=jkt` · `kind:host|db|cache|storage|postgres|...` ·
+`all` · `user@1.2.3.4:22` (ad-hoc server) · combine with commas, exclude with `!`:
+`@web,!web-3`. A target picks servers and conns together. Each command uses
+what it can work with and lists the rest in `meta.skipped`; if nothing fits,
+`NO_MATCHING_TARGETS` says which command to use. Check what a target picks
+with `komando list '<expr>'`.
 
 ## 3. Read before you write
 
@@ -33,7 +35,7 @@ whether to use apt or dnf, whether systemd/docker exist, and how full the disk i
 | Any read-only shell command  | `komando exec <t> --read-only -- '<cmd>'` |
 | Logs                         | `komando logs <t> --unit nginx --since -30m --grep 'error'` |
 | Service state (structured)   | `komando svc status <t> nginx` |
-| File content                 | `komando fs cat <t> /etc/nginx/nginx.conf -n` |
+| File content                 | `komando fs cat <t> /etc/nginx/nginx.conf --line-numbers` |
 | Ports / connectivity         | `komando net ports <t>` · `komando net check <t> db:5432` |
 | Containers                   | `komando docker ps <t>` · `komando docker logs <t> api --since 10m` |
 | More diagnostics             | `komando ops list` then `komando ops run <recipe> <t>` |
@@ -51,7 +53,37 @@ whether to use apt or dnf, whether systemd/docker exist, and how full the disk i
 Writes are atomic (temp file + rename). `fs write --if-changed` and `cron set`
 are idempotent, so retries are safe.
 
-## 5. Long-running work
+## 5. Databases
+
+```bash
+komando conn list                                   # known databases
+komando db schema <conn> [table...]                 # tables, then columns/indexes
+komando db query <conn> "select ..."                # read-only transaction: data cannot change
+komando db query <conn> "... where id = $1" --arg 42   # values as arguments, not pasted
+komando db query <conn> --write --dry-run "update ..."  # runs, reports rows_affected, rolls back
+komando db query <conn> --write "update ..."            # commits
+```
+
+Caches work the same way: `komando cache get|keys|info <conn>` read,
+`cache set` changes, `cache rm` deletes (needs `--allow-dangerous`), and
+`komando cache run <conn> -- CMD ...` only reads unless `--write`. Never use
+`KEYS` (use `cache keys`, it SCANs).
+
+Buckets: `komando storage ls|download <conn> ...` read, `storage upload|link`
+change or share, `storage rm` deletes (needs `--allow-dangerous`). Keys are
+relative to the conn's folder.
+
+`--dry-run` never changes anything. In `db` it runs the SQL inside a
+transaction and rolls it back (sequences still advance); in `cache` and
+`storage` nothing is sent.
+
+Without `--write` the database itself refuses changes. `WRITE_REQUIRES_FLAG`
+(exit 6) means the SQL writes: dry-run it, then ask the human before
+`--write` on anything that matters. Never `BEGIN`/`COMMIT` yourself. Do not
+run `psql`/`mysql` through `exec`: you lose the read-only guarantee,
+structured rows, and the password leaks into the server's process list.
+
+## 6. Long-running work
 
 Anything that may exceed ~2 minutes (upgrades, backups, builds, migrations):
 
@@ -61,32 +93,40 @@ komando job logs <id> --offset <next_offset>     # read only new output
 komando job wait <id> --wait-timeout 10m         # blocks; exit code mirrors the job
 ```
 
-## 6. Guardrails (do not fight them)
+## 7. Guardrails (do not fight them)
 
 - `POLICY_BLOCKED` (exit 6): the command looks destructive (rm -rf /, mkfs, reboot,
   DROP DATABASE, curl|sh, firewall flush, stopping sshd ...). Stop and ask the human.
   Only re-run with `--allow-dangerous` after explicit human approval.
 - `PROTECTED_HOST` / `PROTECTED_TARGET` (exit 6): host or conn is marked production. Get confirmation, then `--yes`.
-  Read-only work needs no confirmation: declare it with `--read-only`.
+  Read-only work needs no confirmation: declare it with `--read-only`. Removing,
+  replacing or unprotecting a protected target also needs confirmation.
+- `SAFETY_SETTING` (exit 6): the change turns a seatbelt off (audit log, host
+  key checks, a deny rule). Ask the human; never do it to get around a block.
+- Snippets count as changes unless saved with `--read-only`.
+- Never put a secret value in a command line: `komando secret set NAME` reads it
+  from `--from-env VAR` or stdin.
 - `HOSTKEY_MISMATCH` (exit 4): possible man-in-the-middle. Never auto-fix; report to the human.
 - Never print secrets. Credentials are references (`secret:NAME`, `env:VAR`), not values.
 - Everything is recorded in `komando audit`. Set `KOMANDO_ACTOR=<your-name>`.
 
-## 7. Error codes → what to do
+## 8. Error codes → what to do
 
 | exit | code examples                     | action |
 |------|-----------------------------------|--------|
 | 2    | USAGE                             | fix flags; see `komando schema <cmd>` |
-| 3    | HOST_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | list inventory / check path |
+| 3    | TARGET_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | `komando list`; the hint suggests the closest name |
+| 3    | NO_MATCHING_TARGETS               | use the command the hint names (e.g. `db` for a database) |
 | 4    | AUTH_FAILED, CONNECTION_REFUSED, HOSTKEY_* | follow `error.hint`; do not retry blindly |
 | 5    | FAILED / PARTIAL_FAILURE          | read `data.results[].stderr` and `exit_code` per host |
-| 6    | POLICY_BLOCKED, PROTECTED_HOST    | ask the human |
+| 5    | DB_ERROR                          | fix the SQL; check `db schema` |
+| 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, WRITE_REQUIRES_FLAG | ask the human |
 | 7    | TIMEOUT, CONNECT_TIMEOUT          | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file, use exact unique `--old` text |
 
 Every error carries `error.hint` with the next step. Read it.
 
-## 8. Output size
+## 9. Output size
 
 Per-stream output is capped (default 256 KiB, `--max-output`); truncation is
 flagged with `stdout_truncated`. Prefer filtering on the server (`--grep`,

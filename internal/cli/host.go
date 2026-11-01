@@ -29,6 +29,9 @@ func validName(kind, n string) error {
 	if !nameRe.MatchString(n) {
 		return out.Usage("invalid %s name %q (letters, digits, . _ -; max 63)", kind, n)
 	}
+	if (kind == "host" || kind == "conn") && strings.EqualFold(n, "all") {
+		return out.Usage("%q cannot be a %s name: as a target it means everything", n, kind)
+	}
 	return nil
 }
 
@@ -123,11 +126,8 @@ func hostAddCmd() *cobra.Command {
 			now := time.Now().UTC()
 			h.CreatedAt, h.UpdatedAt = now, now
 			err = store.Update(func(s *store.State) error {
-				if _, ok := s.Hosts[name]; ok && !force {
-					return out.Errf(out.ExitConflict, "HOST_EXISTS", "use `komando host edit` or pass --force to replace", "host %q already exists", name)
-				}
-				if _, ok := s.Conns[name]; ok {
-					return nameTaken("conn", name)
+				if err := checkNewName(s, "host", name, force); err != nil {
+					return err
 				}
 				if h.Key != "" {
 					if _, ok := s.Keys[h.Key]; !ok {
@@ -146,7 +146,8 @@ func hostAddCmd() *cobra.Command {
 		},
 	}
 	f.bind(c, false)
-	c.Flags().BoolVar(&force, "force", false, "replace an existing host")
+	c.Flags().BoolVar(&force, "overwrite", false, "replace an existing host with the same name")
+	aliasFlag(c.Flags(), "force", "overwrite")
 	return c
 }
 
@@ -165,6 +166,7 @@ func hostEditCmd() *cobra.Command {
 				if !ok {
 					return out.NotFound("host", args[0])
 				}
+				wasProtected := h.Protected
 				fl := cmd.Flags()
 				set := func(name string, dst *string, v string) {
 					if fl.Changed(name) {
@@ -222,12 +224,17 @@ func hostEditCmd() *cobra.Command {
 						return out.Usage("cannot unset %q", u)
 					}
 				}
+				if wasProtected && !h.Protected {
+					if err := guardProtection("host", "turning off protection of", []string{h.Name}); err != nil {
+						return err
+					}
+				}
 				if rename != "" && rename != h.Name {
 					if err := validName("host", rename); err != nil {
 						return err
 					}
-					if kind, ok := s.NameTaken(rename); ok {
-						return nameTaken(kind, rename)
+					if kind, existing, ok := s.FindName(rename); ok && existing != h.Name {
+						return nameTaken(kind, existing)
 					}
 					delete(s.Hosts, h.Name)
 					old := h.Name
@@ -379,15 +386,18 @@ func hostShowCmd() *cobra.Command {
 
 func hostRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "rm NAME...",
-		Aliases: []string{"remove", "delete"},
-		Short:   "Remove host(s) from the inventory (does not touch the server)",
-		Args:    cobra.MinimumNArgs(1),
+		Use:   "rm NAME...",
+		Short: "Remove host(s) from the inventory (does not touch the server)",
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := store.Update(func(s *store.State) error {
+				var prot []string
 				for _, n := range args {
 					if _, ok := s.Hosts[n]; !ok {
 						return out.NotFound("host", n)
+					}
+					if s.Hosts[n].Protected {
+						prot = append(prot, n)
 					}
 					for _, c := range s.SortedConns() {
 						if c.Via == n {
@@ -396,6 +406,9 @@ func hostRmCmd() *cobra.Command {
 								"host %q is the --via host of conn %q", n, c.Name)
 						}
 					}
+				}
+				if err := guardProtection("host", "removing", prot); err != nil {
+					return err
 				}
 				for _, n := range args {
 					delete(s.Hosts, n)
@@ -478,8 +491,7 @@ func hostImportCmd() *cobra.Command {
 					if h == nil || h.Name == "" || h.Address == "" {
 						continue
 					}
-					_, isConn := s.Conns[h.Name]
-					if _, ok := s.Hosts[h.Name]; isConn || ok && !overwrite {
+					if validName("host", h.Name) != nil || checkNewName(s, "host", h.Name, overwrite) != nil {
 						skipped = append(skipped, h.Name)
 						continue
 					}
@@ -700,25 +712,27 @@ func hostTestCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-				t0 := time.Now()
-				o, _, err := sshx.Output(ctx, c, `printf '%s\n%s\n' "$(id -un)" "$(hostname)"; sudo -n true >/dev/null 2>&1 && echo sudo-ok || echo sudo-no`, 20*time.Second)
-				if err != nil {
-					return nil, err
-				}
-				lines := strings.Split(o, "\n")
-				r := testResult{OK: true, LatencyMS: time.Since(t0).Milliseconds(), ServerVersion: string(c.ServerVersion())}
-				if len(lines) >= 3 {
-					r.RemoteUser, r.Hostname = lines[0], lines[1]
-					b := lines[2] == "sudo-ok"
-					r.SudoNoPasswd = &b
-				}
-				return r, nil
-			})
-			return printTestResults(res)
+			return printTestResults(fanout(cmd.Context(), st, hosts, testHost))
 		},
 	}
 	return c
+}
+
+// testHost logs in and checks who we are and whether sudo needs a password.
+func testHost(ctx context.Context, c *sshx.Client) (any, error) {
+	t0 := time.Now()
+	o, _, err := sshx.Output(ctx, c, `printf '%s\n%s\n' "$(id -un)" "$(hostname)"; sudo -n true >/dev/null 2>&1 && echo sudo-ok || echo sudo-no`, 20*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(o, "\n")
+	r := testResult{OK: true, LatencyMS: time.Since(t0).Milliseconds(), ServerVersion: string(c.ServerVersion())}
+	if len(lines) >= 3 {
+		r.RemoteUser, r.Hostname = lines[0], lines[1]
+		b := lines[2] == "sudo-ok"
+		r.SudoNoPasswd = &b
+	}
+	return r, nil
 }
 
 func printTestResults(res []outcome) error {
@@ -869,7 +883,7 @@ func groupCmd() *cobra.Command {
 	c := &cobra.Command{Use: "group", Aliases: []string{"groups"}, Short: "List groups and manage membership"}
 	c.AddCommand(&cobra.Command{
 		Use:   "list",
-		Short: "List groups and tags with their member hosts",
+		Short: "List groups and tags with their members (servers and conns)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			st, err := loadState()
@@ -877,12 +891,23 @@ func groupCmd() *cobra.Command {
 				return err
 			}
 			groups, tags := map[string][]string{}, map[string][]string{}
-			for _, h := range st.SortedHosts() {
-				for _, gr := range h.Groups {
-					groups[gr] = append(groups[gr], h.Name)
+			add := func(name string, gs, ts []string) {
+				for _, gr := range gs {
+					groups[gr] = append(groups[gr], name)
 				}
-				for _, t := range h.Tags {
-					tags[t] = append(tags[t], h.Name)
+				for _, t := range ts {
+					tags[t] = append(tags[t], name)
+				}
+			}
+			for _, h := range st.SortedHosts() {
+				add(h.Name, h.Groups, h.Tags)
+			}
+			for _, c := range st.SortedConns() {
+				add(c.Name, c.Groups, c.Tags)
+			}
+			for _, m := range []map[string][]string{groups, tags} {
+				for k := range m {
+					sort.Strings(m[k])
 				}
 			}
 			out.P.Print("group.list", map[string]any{"groups": groups, "tags": tags}, nil)
@@ -892,36 +917,42 @@ func groupCmd() *cobra.Command {
 	member := func(use string, addTo bool) *cobra.Command {
 		return &cobra.Command{
 			Use:   use + " GROUP TARGET",
-			Short: map[bool]string{true: "Add hosts matching TARGET to GROUP", false: "Remove hosts matching TARGET from GROUP"}[addTo],
+			Short: map[bool]string{true: "Add servers and conns matching TARGET to GROUP", false: "Remove servers and conns matching TARGET from GROUP"}[addTo],
 			Args:  cobra.ExactArgs(2),
 			RunE: func(cmd *cobra.Command, args []string) error {
-				var changed []string
+				change := func(gs []string) []string {
+					if addTo {
+						return dedupe(append(gs, args[0]))
+					}
+					return remove(gs, []string{args[0]})
+				}
+				hosts, conns := []string{}, []string{}
 				err := store.Update(func(s *store.State) error {
-					hosts, err := resolveTargets(s, args[1])
+					sel, err := resolveSelection(s, args[1])
 					if err != nil {
 						return err
 					}
-					for _, h := range hosts {
-						if h2, ok := s.Hosts[h.Name]; ok {
-							if addTo {
-								h2.Groups = dedupe(append(h2.Groups, args[0]))
-							} else {
-								h2.Groups = remove(h2.Groups, []string{args[0]})
-							}
-							changed = append(changed, h.Name)
+					for _, h := range sel.Hosts {
+						if h2, ok := s.Hosts[h.Name]; ok { // not ad-hoc
+							h2.Groups = change(h2.Groups)
+							hosts = append(hosts, h.Name)
 						}
+					}
+					for _, c := range sel.Conns {
+						c.Groups = change(c.Groups)
+						conns = append(conns, c.Name)
 					}
 					return nil
 				})
 				if err != nil {
 					return err
 				}
-				out.P.Print("group."+use, map[string]any{"group": args[0], "hosts": changed}, nil)
+				out.P.Print("group."+use, map[string]any{"group": args[0], "hosts": hosts, "conns": conns}, nil)
 				return nil
 			},
 		}
 	}
-	c.AddCommand(member("add", true), member("remove", false))
+	c.AddCommand(member("add", true), member("rm", false))
 	return c
 }
 

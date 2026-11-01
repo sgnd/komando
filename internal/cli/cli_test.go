@@ -9,6 +9,12 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
+func TestMain(m *testing.M) {
+	// never wait for a confirmation prompt, even when run from a terminal
+	interactive = func() bool { return false }
+	os.Exit(m.Run())
+}
+
 func testState() *store.State {
 	s := &store.State{Hosts: map[string]*store.Host{}}
 	add := func(name string, groups, tags []string, labels map[string]string) {

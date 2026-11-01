@@ -3,22 +3,25 @@
 [![CI](https://github.com/sgnd/komando/actions/workflows/ci.yml/badge.svg)](https://github.com/sgnd/komando/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Biarkan AI agent merawat server Anda — dengan aman, lewat command line.**
+**Satu command line yang aman untuk semua pekerjaan DevOps — server, database, cache, storage, dan lainnya. Untuk Anda dan AI agent Anda.**
 
 🇬🇧 [English](README.md)
 
-Biasanya server dikelola dengan aplikasi seperti Termius: login, ketik
-perintah, ulangi. **komando** mengerjakan hal yang sama dalam bentuk yang bisa
-dipakai dengan baik oleh AI agent (Claude Code, Codex, atau bot Anda sendiri):
+Biasanya kita memakai banyak alat sekaligus: Termius untuk server, TablePlus
+untuk database, `redis-cli` untuk cache, web console untuk storage, `kubectl`
+untuk cluster. Masing-masing punya login, perintah, dan cara merusaknya
+sendiri. **komando** menyatukannya di balik satu command line yang bisa
+dipakai dengan baik oleh Anda maupun AI agent (Claude Code, Codex, atau bot
+Anda sendiri):
 
-- **Mengingat server Anda**, seperti buku kontak.
+- **Mengingat semua yang Anda kelola** dalam satu daftar: server, database, cache, storage.
 - **Mengunci password** di brankas terenkripsi. AI tidak pernah melihatnya.
 - **Jawaban jelas**: teks mudah dibaca untuk Anda, data terstruktur (JSON) untuk AI.
-- **Punya sabuk pengaman**: perintah berbahaya diblokir, server produksi bisa dilindungi.
+- **Punya sabuk pengaman**: hanya membaca kecuali Anda minta lain, perintah berbahaya diblokir, produksi bisa dilindungi.
 - **Mencatat riwayat** semua yang dikerjakan.
 
 ```
-Anda ──minta──▶ AI agent ──▶ komando ──SSH──▶ server Anda
+Anda ──minta──▶ AI agent ──▶ komando ──▶ server, database, cache, storage, ...
 ```
 
 Tanpa jendela, tanpa menu. Cukup perintah.
@@ -78,38 +81,67 @@ diubah di sana kecuali perintahnya memakai `--yes` ("ya, saya yakin"):
 komando host edit web1 --protected
 ```
 
+### Database dan cache
+
+Tambahkan dengan cara yang sama, pakai nama. Database privat dijangkau lewat
+server (`--via`), jadi tidak perlu dibuka ke internet:
+
+```bash
+komando secret set app-db-pass
+komando conn add app-db postgres://app@10.0.0.5:5432/app \
+  --via web1 --password-ref secret:app-db-pass --protected
+
+komando db schema app-db                          # ada tabel apa saja?
+komando db query app-db "select count(*) from users"
+komando cache info my-cache                       # cache Redis, ditambah dengan conn add
+```
+
+Query hanya membaca kecuali Anda menambahkan `--write`. Coba perubahan dulu
+dengan `--write --dry-run`: perintahnya dijalankan, hasilnya ditampilkan,
+lalu dibatalkan (rollback).
+
 ## Serahkan ke AI agent Anda
 
 Salin isi [`AGENTS.md`](AGENTS.md) ke file instruksi agent Anda (Codex:
 `AGENTS.md`, Claude Code: `CLAUDE.md`, di folder tempat Anda bekerja), atau
 cukup katakan ke agent:
 
-> Gunakan CLI `komando` untuk mengelola server saya. Jalankan `komando guide`
+> Gunakan CLI `komando` untuk mengelola server dan database saya. Jalankan `komando guide`
 > dulu dan ikuti petunjuknya. Jangan pernah memakai `--allow-dangerous` atau
 > `--yes` tanpa bertanya kepada saya.
 
 Lalu cukup minta: *"Kenapa web1 lambat?"*, *"Update semua server"*,
-*"Perpanjang sertifikat di web2"*.
+*"Berapa user yang daftar hari ini?"*, *"Perpanjang sertifikat di web2"*.
 
 ## Bisa apa saja?
 
 | Tugas | Perintah |
 |-------|----------|
+| Melihat dan mengecek semuanya sekaligus (server dan conn) | `list`, `test` |
 | Menyimpan daftar server dan cara login | `host`, `group`, `key`, `secret` |
 | Menjalankan perintah di satu atau banyak server | `exec`, `script`, `job` (tugas lama) |
 | Membaca, mengubah, dan menyalin file | `fs`, `cp` |
 | Cek kesehatan (39 pemeriksaan siap pakai) | `facts`, `ops` |
 | Mengelola service, log, Docker, software, user, jadwal | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
 | Tes jaringan, menjangkau server privat | `net`, `tunnel` |
+| Menyimpan daftar database, cache, dan storage | `conn` |
+| Query dan backup database (PostgreSQL, MySQL, SQLite) | `db` |
+| Membaca dan mengubah cache (Redis, Valkey) | `cache` |
+| Melihat, mengunduh, dan mengunggah file di object storage (S3, MinIO, R2, ...) | `storage` |
 | Melihat riwayat dan aturan keamanan | `audit`, `policy` |
 
-Panduan lengkap per tugas: **[docs/usage.md](docs/usage.md)** (bahasa Inggris
+Berikutnya: cluster (Kubernetes, k3s, Swarm), container
+registry, FTP, dan impor konfigurasi yang sudah Anda punya (kubeconfig,
+`.pgpass`, profil AWS, ...). Lihat [roadmap](docs/design/vision.md).
+
+Panduan lengkap per tugas, satu halaman per fitur: **[docs/features](docs/features/README.md)** (bahasa Inggris
 sederhana). Bantuan untuk perintah apa pun: `komando <perintah> --help`.
 
 ## Keamanan, dalam satu menit
 
-- Perintah seperti `rm -rf /`, `reboot`, atau `DROP DATABASE` **diblokir** kecuali diizinkan manusia.
-- Server **protected** menolak perubahan tanpa `--yes` (perintah bertanda `--read-only` tetap boleh melihat).
+- Perintah seperti `rm -rf /`, `reboot`, `DROP TABLE`, atau `FLUSHALL` **diblokir** kecuali diizinkan manusia.
+- Server dan database **protected** menolak perubahan tanpa `--yes` (melihat tetap boleh; tandai perintah `exec` dengan `--read-only`).
+- Query database dan perintah cache **hanya membaca** kecuali Anda menambahkan `--write`. Untuk database, database itu sendiri yang menegakkannya.
 - `--dry-run` menampilkan apa yang *akan* terjadi.
 - Edit file hanya mengubah teks yang Anda sebut, tidak pernah meninggalkan file setengah jadi, dan bisa menyimpan backup.
 - Jika identitas server berubah, komando **menolak terhubung**.
@@ -122,6 +154,9 @@ sederhana). Bantuan untuk perintah apa pun: `komando <perintah> --help`.
 | Server | Komputer (biasanya di cloud) yang menjalankan aplikasi Anda. |
 | Terminal / CLI | Jendela tempat mengetik perintah, bukan klik-klik. |
 | SSH | Cara aman untuk login dan mengendalikan server Linux dari jauh. |
+| Database | Tempat aplikasi menyimpan datanya dalam tabel (PostgreSQL, MySQL, SQLite). |
+| Cache | Penyimpanan cepat dan sementara untuk mempercepat aplikasi (Redis). |
+| Conn | Istilah komando untuk apa pun yang Anda hubungkan selain server: database, cache, atau bucket storage. |
 | AI agent | AI yang bisa menjalankan perintah sendiri untuk menyelesaikan tugas. |
 | SSH key | Sepasang file sebagai bukti identitas; lebih aman dari password. |
 | Flag | Opsi tambahan pada perintah, seperti `--yes` atau `--dry-run`. |

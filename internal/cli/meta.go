@@ -7,12 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/sgnd/komando/internal/cachex"
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
@@ -159,7 +162,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 
 func auditCmd() *cobra.Command {
 	var limit int
-	var host, command string
+	var target, command string
 	var failed bool
 	c := &cobra.Command{
 		Use:   "audit",
@@ -172,6 +175,14 @@ func auditCmd() *cobra.Command {
 				return nil
 			}
 			defer f.Close()
+			var names map[string]bool
+			if target != "" {
+				st, err := loadState()
+				if err != nil {
+					return err
+				}
+				names = targetNames(st, target)
+			}
 			var all []map[string]any
 			sc := bufio.NewScanner(f)
 			sc.Buffer(make([]byte, 1<<20), 16<<20)
@@ -186,12 +197,12 @@ func auditCmd() *cobra.Command {
 				if failed && e["ok"] == true {
 					continue
 				}
-				if host != "" {
+				if target != "" {
 					hs, _ := e["hosts"].([]any)
 					cs, _ := e["conns"].([]any)
 					match := false
 					for _, h := range append(hs, cs...) {
-						if h == host {
+						if n, ok := h.(string); ok && names[n] {
 							match = true
 						}
 					}
@@ -209,7 +220,8 @@ func auditCmd() *cobra.Command {
 		},
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 50, "last N entries")
-	c.Flags().StringVar(&host, "host", "", "filter by host or conn name")
+	c.Flags().StringVar(&target, "target", "", "only entries for these servers or conns (a selector, e.g. @prod)")
+	aliasFlag(c.Flags(), "host", "target")
 	c.Flags().StringVar(&command, "command", "", "filter by command prefix (e.g. exec, svc.)")
 	c.Flags().BoolVar(&failed, "failed", false, "only failed/blocked actions")
 	return c
@@ -235,7 +247,7 @@ func configCmd() *cobra.Command {
 	})
 	c.AddCommand(&cobra.Command{
 		Use:   "set KEY VALUE",
-		Short: "Set host_key_policy|default_user|default_timeout|connect_timeout|parallel|max_output_bytes|audit",
+		Short: "Set host_key_policy|default_user|default_timeout|connect_timeout|parallel|max_output_bytes|audit|audit_sql",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var res store.Settings
@@ -245,6 +257,12 @@ func configCmd() *cobra.Command {
 				case "host_key_policy":
 					if v != "accept-new" && v != "strict" && v != "off" {
 						return out.Usage("host_key_policy: accept-new|strict|off")
+					}
+					rank := map[string]int{"off": 0, "accept-new": 1, "": 1, "strict": 2}
+					if rank[v] < rank[s.Settings.HostKeyPolicy] {
+						if err := guardSafety("loosening server identity checks to " + v); err != nil {
+							return err
+						}
 					}
 					s.Settings.HostKeyPolicy = v
 				case "default_user":
@@ -269,7 +287,26 @@ func configCmd() *cobra.Command {
 						s.Settings.MaxOutputBytes = n
 					}
 				case "audit":
-					s.Settings.Audit = v == "true" || v == "on" || v == "1"
+					on, ok := map[string]bool{"true": true, "on": true, "1": true, "false": false, "off": false, "0": false}[strings.ToLower(v)]
+					if !ok {
+						return out.Usage("audit: on|off")
+					}
+					if !on && s.Settings.Audit {
+						if err := guardSafety("turning off the audit log"); err != nil {
+							return err
+						}
+					}
+					s.Settings.Audit = on
+				case "audit_sql":
+					if v != "full" && v != "hash" && v != "off" {
+						return out.Usage("audit_sql: full|hash|off (hash keeps a SHA-256 so repeated queries can be matched without storing their text)")
+					}
+					if v == "off" && s.Settings.AuditSQL != "off" {
+						if err := guardSafety("leaving SQL out of the audit log"); err != nil {
+							return err
+						}
+					}
+					s.Settings.AuditSQL = v
 				default:
 					return out.Usage("unknown setting %q", args[0])
 				}
@@ -303,25 +340,45 @@ func policyCmd() *cobra.Command {
 			for _, r := range policy.Rules() {
 				rules = append(rules, map[string]string{"id": r.ID, "reason": r.Reason, "pattern": policy.Pattern(r)})
 			}
-			out.P.Print("policy.list", map[string]any{"builtin": rules, "custom": st.Settings.ExtraDenyPattern,
-				"note": "guardrails catch common accidents; they are not a security boundary. Protected hosts additionally need --yes for any mutating action."}, nil)
+			out.P.Print("policy.list", map[string]any{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "sql": driver.SQLRules(), "redis": cachex.Rules(), "data": driver.DataRules(),
+				"note": "guardrails catch common accidents; they are not a security boundary. Protected hosts and conns additionally need --yes for any mutating action. " +
+					"SQL without --write also runs in a read-only transaction, so the database itself refuses writes."}, nil)
 			return nil
 		},
 	})
-	c.AddCommand(&cobra.Command{
+	var kind string
+	check := &cobra.Command{
 		Use:   "check COMMAND",
-		Short: "Test whether a command would be blocked",
-		Args:  cobra.MinimumNArgs(1),
+		Short: "Test whether a shell command would be blocked, or rate SQL/Redis with --for KIND",
+		Example: `  komando policy check 'rm -rf /var/www'
+  komando policy check --for postgres 'delete from users'
+  komando policy check --for redis FLUSHALL`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
+			switch kind {
+			case "":
+			case "redis":
+				out.P.Print("policy.check", cachex.Classify(args), nil)
+				return nil
+			default:
+				plan, err := driver.ClassifySQL(kind, strings.Join(args, " "))
+				if err != nil {
+					return err
+				}
+				out.P.Print("policy.check", plan, nil)
+				return nil
+			}
 			hits := policy.Check(strings.Join(args, " "), st.Settings.ExtraDenyPattern)
 			out.P.Print("policy.check", map[string]any{"blocked": len(hits) > 0, "matches": hits}, nil)
 			return nil
 		},
-	})
+	}
+	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: postgres, mysql, sqlite or redis")
+	c.AddCommand(check)
 	c.AddCommand(&cobra.Command{
 		Use:     "deny REGEX",
 		Short:   "Add a custom deny pattern (Go regexp)",
@@ -351,6 +408,11 @@ func policyCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var pats []string
 			err := store.Update(func(s *store.State) error {
+				if slices.Contains(s.Settings.ExtraDenyPattern, args[0]) {
+					if err := guardSafety("removing the deny rule " + args[0]); err != nil {
+						return err
+					}
+				}
 				s.Settings.ExtraDenyPattern = remove(s.Settings.ExtraDenyPattern, args)
 				pats = s.Settings.ExtraDenyPattern
 				return nil

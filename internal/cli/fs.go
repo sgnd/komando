@@ -112,7 +112,7 @@ func fsLsCmd() *cobra.Command {
 	var recursive bool
 	var maxEntries int
 	c := &cobra.Command{
-		Use:   "ls HOST PATH",
+		Use:   "ls TARGET PATH",
 		Short: "List a remote directory",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -166,7 +166,7 @@ func fsLsCmd() *cobra.Command {
 		},
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "include dotfiles")
-	c.Flags().BoolVarP(&recursive, "recursive", "R", false, "walk recursively")
+	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "walk recursively")
 	c.Flags().IntVar(&maxEntries, "max", 1000, "max entries returned")
 	return c
 }
@@ -174,7 +174,7 @@ func fsLsCmd() *cobra.Command {
 func fsStatCmd() *cobra.Command {
 	var hash bool
 	c := &cobra.Command{
-		Use:   "stat HOST PATH",
+		Use:   "stat TARGET PATH",
 		Short: "Stat a remote path (exists:false instead of an error when missing)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -263,9 +263,9 @@ func fsCatCmd() *cobra.Command {
 	var head, tail int
 	var numbered bool
 	c := &cobra.Command{
-		Use:     "cat HOST PATH",
+		Use:     "cat TARGET PATH",
 		Aliases: []string{"read"},
-		Short:   "Read a remote file (with --head/--tail/--number for agents)",
+		Short:   "Read a remote file (with --head/--tail/--line-numbers for agents)",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			res, _, _, err := oneHost(cmd.Context(), args[0], func(_ *store.State, c *sshx.Client, sc *sftp.Client) (any, error) {
@@ -312,7 +312,8 @@ func fsCatCmd() *cobra.Command {
 	c.Flags().Int64Var(&maxBytes, "max-bytes", 1<<20, "max bytes to read")
 	c.Flags().IntVar(&head, "head", 0, "only first N lines")
 	c.Flags().IntVar(&tail, "tail", 0, "only last N lines")
-	c.Flags().BoolVarP(&numbered, "number", "n", false, "prefix line numbers")
+	c.Flags().BoolVar(&numbered, "line-numbers", false, "prefix line numbers")
+	aliasFlag(c.Flags(), "number", "line-numbers")
 	return c
 }
 
@@ -448,7 +449,7 @@ func fsWriteCmd() *cobra.Command {
 	var content, from string
 	var appendMode, ifChanged bool
 	c := &cobra.Command{
-		Use:   "write HOST PATH",
+		Use:   "write TARGET PATH",
 		Short: "Write a remote file atomically (content from --content, --from FILE, or stdin)",
 		Example: `  komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup
   komando fs write web1 /srv/app/config.yml --from ./config.yml --if-changed`,
@@ -541,7 +542,7 @@ func fsReplaceCmd() *cobra.Command {
 	var oldS, newS string
 	var all, isRegex bool
 	c := &cobra.Command{
-		Use:   "replace HOST PATH --old TEXT --new TEXT",
+		Use:   "replace TARGET PATH --old TEXT --new TEXT",
 		Short: "Edit a remote file by exact (or --regex) replacement; fails if not found or ambiguous",
 		Example: `  komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup
   komando fs replace web1 /etc/ssh/sshd_config --regex --old '(?m)^#?PasswordAuthentication .*$' --new 'PasswordAuthentication no' --sudo`,
@@ -707,7 +708,11 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 	for name, help := range boolFlags {
 		v := new(bool)
 		vals[name] = v
-		c.Flags().BoolVar(v, name, false, help)
+		if name == "recursive" {
+			c.Flags().BoolVarP(v, name, "r", false, help)
+		} else {
+			c.Flags().BoolVar(v, name, false, help)
+		}
 	}
 	return c
 }
