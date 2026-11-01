@@ -188,7 +188,7 @@ Tunnel berjalan di latar dan memegang jalurnya (VPN dan bastion) selama hidup.
 | 1 | `vpn up/down/status`, sesi di latar per VPN dengan putus otomatis; kind `tailscale` | ✅ (tailscale belum dites dengan tailnet sungguhan) |
 | 2 | Keluarga openconnect (GlobalProtect, Fortinet, AnyConnect, Pulse, F5) lewat `ocproxy`; `doctor` mengecek kliennya; `VPN_LOGIN_REQUIRED` untuk VPN dengan MFA | ✅ (belum dites dengan server VPN sungguhan) |
 | 3 | OpenVPN/Pritunl di container Docker, tanpa mengubah jaringan laptop; `--os-mode` opsional | ✅ dites dengan server OpenVPN sungguhan (`make e2e-openvpn`) |
-| 4 | L2TP/IPsec dan VPN bawaan OS lewat `system --service` (scutil/nmcli); peringatan subnet bentrok untuk OpenVPN mode OS | ✅ sebagian: deteksi bentrok yang lebih lengkap (membaca rute) belum |
+| 4 | L2TP/IPsec dan VPN bawaan OS lewat `system --service` (scutil/nmcli); peringatan subnet bentrok untuk OpenVPN mode OS | ✅ peringatan bentrok membandingkan tabel rute sebelum dan sesudah tersambung |
 
 ## Keputusan pemilik
 

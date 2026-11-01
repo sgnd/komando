@@ -383,6 +383,24 @@ func vpnUpCmd() *cobra.Command {
 				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "kind": v.Kind, "would_connect": true}, nil)
 				return nil
 			}
+			// VPNs that change this computer's routes get a before/after
+			// comparison, so two networks that claim the same addresses are
+			// reported instead of silently breaking one of them
+			osLevel := (v.Kind == "openvpn" && v.OSMode) || (v.Kind == "system" && v.Service != "")
+			var before []netx.Route
+			if osLevel {
+				before, _ = netx.Routes()
+			}
+			clashes := func() []string {
+				if !osLevel || before == nil {
+					return nil
+				}
+				after, err := netx.Routes()
+				if err != nil {
+					return nil
+				}
+				return netx.Clashes(before, after)
+			}
 			if !netx.Kinds[v.Kind].Session && v.Kind != "wireguard" { // wireguard may keep a session to skip handshakes
 				if v.Kind == "system" && v.Service != "" {
 					if err := systemVPN(v, true); err != nil {
@@ -393,24 +411,20 @@ func vpnUpCmd() *cobra.Command {
 				if !r.OK {
 					return r.Error
 				}
-				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "note": v.Kind + " VPNs connect for each command; nothing stays running"}, nil)
-				return nil
-			}
-			var warn []string
-			if v.Kind == "openvpn" {
-				for _, x := range st.Sessions {
-					if xv := st.Vpns[x.Vpn]; xv != nil && xv.OSMode && netx.SessionAlive(x) {
-						warn = append(warn, "OpenVPN "+x.Vpn+" is also connected; if both use the same addresses, one will not work")
-					}
+				res := map[string]any{"vpn": v.Name, "note": v.Kind + " VPNs connect for each command; nothing stays running"}
+				if w := clashes(); len(w) > 0 {
+					res["warnings"] = w
 				}
+				out.P.Print("vpn.up", res, nil)
+				return nil
 			}
 			s, err := startSession(cmd.Context(), st, v, interactive())
 			if err != nil {
 				return err
 			}
 			res := map[string]any{"vpn": v.Name, "session": s}
-			if len(warn) > 0 {
-				res["warnings"] = warn
+			if w := clashes(); len(w) > 0 {
+				res["warnings"] = w
 			}
 			out.P.Print("vpn.up", res, nil)
 			return nil

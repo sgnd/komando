@@ -4,6 +4,14 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Subnet clashes
+
+- `vpn up` for VPNs that change the computer's routes (OpenVPN
+  `--os-mode`, system VPNs with `--service`) compares the routing table
+  before and after and warns when the new routes overlap ones another
+  interface already had (two networks claiming the same addresses). The
+  other kinds never touch the computer's routes, so they cannot clash.
+
 ### Output contract 1
 
 - Every JSON answer carries `meta.contract: 1`, and `komando schema` says
