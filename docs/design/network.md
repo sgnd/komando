@@ -1,6 +1,6 @@
 # Rancangan: jaringan — bastion, forwarding, dan banyak VPN sekaligus
 
-Status: **sebagian dibangun, 2026-11-02.** Sudah ada: `--via` untuk semua
+Status: **dibangun, 2026-11-02** (lihat [Rencana bertahap](#rencana-bertahap)). Sudah ada: `--via` untuk semua
 target, `tunnel start TARGET`, dan `komando vpn` dengan kind `wireguard`,
 `socks`, `system` (lihat [docs/features/vpn.md](../features/vpn.md)). Sisanya
 rancangan. Tujuan besarnya ada di [vision.md](vision.md), aturan perintah di
@@ -184,11 +184,11 @@ Tunnel berjalan di latar dan memegang jalurnya (VPN dan bastion) selama hidup.
 
 | Fase | Isi | Status |
 |---|---|---|
-| 0 | `--via` untuk semua target, `tunnel start TARGET`, `vpn add/show/rm`, kind `wireguard`/`socks`/`system`, VPN di `list`/`test`/selector | ✅ |
-| 1 | `vpn up/down/status`, sesi di latar per VPN dengan putus otomatis; kind `tailscale` (kalau anggaran biner cukup) | |
-| 2 | Keluarga openconnect: GlobalProtect, Fortinet, AnyConnect, Pulse/Ivanti, F5 (userspace lewat `--script-tun`); `doctor` mengecek kliennya; `VPN_LOGIN_REQUIRED` untuk VPN dengan MFA | |
-| 3 | OpenVPN/Pritunl (`minivpn` atau mode OS) | |
-| 4 | L2TP/IPsec dan VPN bawaan OS; deteksi subnet bentrok | |
+| 0 | `--via` untuk semua target, `tunnel start TARGET`, `vpn add/show/rm`, kind `wireguard`/`socks`/`system`, VPN di `list`/`test`/selector | ✅ dites end-to-end |
+| 1 | `vpn up/down/status`, sesi di latar per VPN dengan putus otomatis; kind `tailscale` | ✅ (tailscale belum dites dengan tailnet sungguhan) |
+| 2 | Keluarga openconnect (GlobalProtect, Fortinet, AnyConnect, Pulse, F5) lewat `ocproxy`; `doctor` mengecek kliennya; `VPN_LOGIN_REQUIRED` untuk VPN dengan MFA | ✅ (belum dites dengan server VPN sungguhan) |
+| 3 | OpenVPN/Pritunl di container Docker, tanpa mengubah jaringan laptop; `--os-mode` opsional | ✅ dites dengan server OpenVPN sungguhan (`make e2e-openvpn`) |
+| 4 | L2TP/IPsec dan VPN bawaan OS lewat `system --service` (scutil/nmcli); peringatan subnet bentrok untuk OpenVPN mode OS | ✅ sebagian: deteksi bentrok yang lebih lengkap (membaca rute) belum |
 
 ## Keputusan pemilik
 

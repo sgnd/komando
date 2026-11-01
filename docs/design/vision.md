@@ -1,6 +1,6 @@
 # Visi dan roadmap komando
 
-Status: **disetujui, 2026-11-02** (lihat [Keputusan](#keputusan-dan-pertanyaan-terbuka)). Dokumen ini menggantikan tujuan lama ("CLI SSH
+Status: **disetujui, 2026-11-02; v0.2–v0.7 selesai** (lihat [Keputusan](#keputusan-dan-pertanyaan-terbuka)). Dokumen ini menggantikan tujuan lama ("CLI SSH
 untuk AI agent") dengan tujuan baru. Rancangan per fitur tetap di dokumen
 masing-masing, misalnya [resources-and-db.md](resources-and-db.md).
 
@@ -196,11 +196,11 @@ apa yang akan dibuat, dan entri yang sudah ada tidak ditimpa kecuali dengan
 | Rilis | Isi | Tujuan yang dicapai |
 |---|---|---|
 | **v0.2** ✅ | `db`, `cache`, `storage` (S3), satu inventaris (`list`, `test`, selector untuk semua), aturan UX, positioning baru | 1, 3, 4 |
-| **v0.3** | Hapus tumpang tindih ([ux.md](ux.md#11-tidak-ada-fitur-yang-tumpang-tindih)); `--via` untuk semua target, `tunnel start TARGET`; `komando import` (ssh-config, pgpass, mycnf, aws, env) dan `export` | 1, 4 |
-| **v0.4** | `komando vpn` sebagai pengelola klien VPN yang menyambung sendiri: WireGuard/SOCKS/system ✅, lalu sesi `vpn up/down/status`, Tailscale, keluarga openconnect (GlobalProtect, Fortinet, AnyConnect, Pulse, F5), OpenVPN/Pritunl, L2TP; MFA ([network.md](network.md)) | 1, 3, 4 |
-| **v0.5** | `cluster` untuk k8s: status, ls (pods/deploy/svc/nodes), logs, describe, `apply --dry-run` (server-side), rollout restart/scale, `run -- <kubectl>`; import `kubeconfig` | 2, 3 |
-| **v0.6** | `registry` (ls repos/tags, inspect digest, rm tag, copy); `cluster` untuk swarm; import `docker` | 3 |
-| **v0.7** | `storage` untuk ftp/ftps/sftp-only; ref secret eksternal (`op:`, `vault:`, `aws-sm:`); `db shell`; import filezilla/rclone/termius/tableplus | 3, 4 |
+| **v0.3** ✅ | Tumpang tindih dihapus (`--via` untuk semua, `upload`/`download`, `recipe`, alias `host/conn list/test`, `logs`); `tunnel start TARGET`; `komando import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, dbeaver, komando) dan `export`; `logs --follow` | 1, 4 |
+| **v0.4** ✅ | `komando vpn`: WireGuard di dalam proses; SOCKS; OpenVPN/Pritunl di container Docker (jaringan laptop tidak berubah; `--os-mode` opsional); GlobalProtect/Fortinet/AnyConnect/Pulse/F5 lewat openconnect+ocproxy; Tailscale userspace; VPN OS lewat `--service`; sesi `vpn up/down/status`, putus otomatis saat idle; MFA selalu oleh manusia | 1, 3, 4 |
+| **v0.5** ✅ | `cluster` untuk Kubernetes (API langsung, lewat `--via`/VPN) dan Docker Swarm: status, ls, get, logs, apply, restart, scale, rm, `run` | 2, 3 |
+| **v0.6** ✅ | `registry` (ls, inspect, rm, copy) | 3 |
+| **v0.7** ✅ | `storage` untuk FTP/FTPS/SFTP; ref secret eksternal (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`); `db shell` | 3, 4 |
 | **v1.0** | Kontrak dibekukan (`schema` versi 1), semua family lulus checklist, dokumentasi lengkap dua bahasa | semua |
 
 Kandidat setelah v1.0, dinilai dengan kriteria di bawah: DNS (Cloudflare,
