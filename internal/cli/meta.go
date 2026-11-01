@@ -188,8 +188,9 @@ func auditCmd() *cobra.Command {
 				}
 				if host != "" {
 					hs, _ := e["hosts"].([]any)
+					cs, _ := e["conns"].([]any)
 					match := false
-					for _, h := range hs {
+					for _, h := range append(hs, cs...) {
 						if h == host {
 							match = true
 						}
@@ -208,7 +209,7 @@ func auditCmd() *cobra.Command {
 		},
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 50, "last N entries")
-	c.Flags().StringVar(&host, "host", "", "filter by host")
+	c.Flags().StringVar(&host, "host", "", "filter by host or conn name")
 	c.Flags().StringVar(&command, "command", "", "filter by command prefix (e.g. exec, svc.)")
 	c.Flags().BoolVar(&failed, "failed", false, "only failed/blocked actions")
 	return c

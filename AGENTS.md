@@ -8,7 +8,7 @@ agent manage servers through the `komando` CLI.
 1. Use `komando` for all server work. Do not call `ssh`/`scp` directly.
 2. At the start of a session run `komando guide` and follow it.
    Use `komando schema <command>` when unsure about flags.
-3. Look before you change: `komando host list`, `komando facts <target>`,
+3. Look before you change: `komando host list`, `komando conn list`, `komando facts <target>`,
    then read logs/config/status.
 4. Before any change, run it once with `--dry-run`. Declare read-only
    commands with `--read-only`.

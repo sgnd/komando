@@ -9,6 +9,7 @@ to be explicit. Branch on `ok`, `error.code` and the process exit code.
 
 ```bash
 komando host list                     # what servers exist (names, groups, tags, protected)
+komando conn list                     # databases komando knows (kind, where, --via host)
 komando group list                    # groups/tags -> member hosts
 komando host test all                 # who is reachable, which user, passwordless sudo?
 komando facts <target>                # OS, package manager, tools, CPU/mem/disk, load
@@ -65,7 +66,7 @@ komando job wait <id> --wait-timeout 10m         # blocks; exit code mirrors the
 - `POLICY_BLOCKED` (exit 6): the command looks destructive (rm -rf /, mkfs, reboot,
   DROP DATABASE, curl|sh, firewall flush, stopping sshd ...). Stop and ask the human.
   Only re-run with `--allow-dangerous` after explicit human approval.
-- `PROTECTED_HOST` (exit 6): host is marked production. Get confirmation, then `--yes`.
+- `PROTECTED_HOST` / `PROTECTED_TARGET` (exit 6): host or conn is marked production. Get confirmation, then `--yes`.
   Read-only work needs no confirmation: declare it with `--read-only`.
 - `HOSTKEY_MISMATCH` (exit 4): possible man-in-the-middle. Never auto-fix; report to the human.
 - Never print secrets. Credentials are references (`secret:NAME`, `env:VAR`), not values.

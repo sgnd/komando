@@ -126,6 +126,9 @@ func hostAddCmd() *cobra.Command {
 				if _, ok := s.Hosts[name]; ok && !force {
 					return out.Errf(out.ExitConflict, "HOST_EXISTS", "use `komando host edit` or pass --force to replace", "host %q already exists", name)
 				}
+				if _, ok := s.Conns[name]; ok {
+					return nameTaken("conn", name)
+				}
 				if h.Key != "" {
 					if _, ok := s.Keys[h.Key]; !ok {
 						return out.NotFound("key", h.Key)
@@ -223,8 +226,8 @@ func hostEditCmd() *cobra.Command {
 					if err := validName("host", rename); err != nil {
 						return err
 					}
-					if _, ok := s.Hosts[rename]; ok {
-						return out.Errf(out.ExitConflict, "HOST_EXISTS", "", "host %q already exists", rename)
+					if kind, ok := s.NameTaken(rename); ok {
+						return nameTaken(kind, rename)
 					}
 					delete(s.Hosts, h.Name)
 					old := h.Name
@@ -239,6 +242,11 @@ func hostEditCmd() *cobra.Command {
 								}
 							}
 							o.Jump = strings.Join(parts, ",")
+						}
+					}
+					for _, c := range s.Conns {
+						if c.Via == old {
+							c.Via = rename
 						}
 					}
 				}
@@ -381,6 +389,13 @@ func hostRmCmd() *cobra.Command {
 					if _, ok := s.Hosts[n]; !ok {
 						return out.NotFound("host", n)
 					}
+					for _, c := range s.SortedConns() {
+						if c.Via == n {
+							return out.Errf(out.ExitConflict, "HOST_IN_USE",
+								fmt.Sprintf("change it first: `komando conn edit %s --via OTHER` (or --unset via)", c.Name),
+								"host %q is the --via host of conn %q", n, c.Name)
+						}
+					}
 				}
 				for _, n := range args {
 					delete(s.Hosts, n)
@@ -463,7 +478,8 @@ func hostImportCmd() *cobra.Command {
 					if h == nil || h.Name == "" || h.Address == "" {
 						continue
 					}
-					if _, ok := s.Hosts[h.Name]; ok && !overwrite {
+					_, isConn := s.Conns[h.Name]
+					if _, ok := s.Hosts[h.Name]; isConn || ok && !overwrite {
 						skipped = append(skipped, h.Name)
 						continue
 					}
