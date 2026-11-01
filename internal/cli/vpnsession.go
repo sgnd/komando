@@ -120,6 +120,20 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 	if err != nil {
 		return nil, err
 	}
+	// one start at a time per VPN: two commands that both need it would
+	// otherwise each start one and leak the first
+	lock, err := os.OpenFile(filepath.Join(dir, v.Name+".lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	defer lock.Close()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+		return nil, err
+	}
+	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+	if s := netx.LiveSession(v); s != nil {
+		return s, nil // another command started it meanwhile
+	}
 	logFile := filepath.Join(dir, v.Name+".log")
 	password := ""
 	if v.KeyRef != "" && v.Kind != "wireguard" {
@@ -137,6 +151,9 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 			return nil, err
 		}
 		s.PID, s.Socks = pid, addr
+		if self, err := os.Executable(); err == nil {
+			s.Exe = filepath.Base(self)
+		}
 	case v.Kind == "tailscale":
 		port, err := freePort()
 		if err != nil {
@@ -153,14 +170,19 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if err != nil {
 			return nil, err
 		}
-		s.PID, s.Socks = pid, fmt.Sprintf("127.0.0.1:%d", port)
+		s.PID, s.Socks, s.Exe = pid, fmt.Sprintf("127.0.0.1:%d", port), "tailscaled"
 		if !waitFor(10*time.Second, func() bool { _, err := os.Stat(sock); return err == nil }) {
 			netx.StopSession(s)
 			return nil, netx.Down(v, fmt.Errorf("tailscaled did not start; see %s", logFile))
 		}
 		args := []string{"--socket=" + sock, "up", "--hostname=komando-" + v.Name, "--timeout=" + timeout.String()}
-		if password != "" {
-			args = append(args, "--authkey="+password)
+		if password != "" { // through a file, so the key never shows in ps
+			keyFile := filepath.Join(state, "authkey")
+			if err := os.WriteFile(keyFile, []byte(password), 0o600); err != nil {
+				return nil, err
+			}
+			defer os.Remove(keyFile)
+			args = append(args, "--auth-key=file:"+keyFile)
 		}
 		if v.Server != "" {
 			args = append(args, "--login-server="+v.Server)
@@ -188,7 +210,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if !interactive {
 			args = append(args, "--non-inter", "--passwd-on-stdin")
 		}
-		oc := exec.CommandContext(ctx, "openconnect", append(args, v.Portal)...)
+		oc := exec.CommandContext(ctx, "openconnect", append(args, "--", v.Portal)...)
 		if interactive {
 			oc.Stdin, oc.Stdout, oc.Stderr = os.Stdin, os.Stderr, os.Stderr // the login and MFA prompts
 		} else {
@@ -204,8 +226,10 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 			return nil, netx.Down(v, fmt.Errorf("openconnect: %v (see %s)", err, logFile))
 		}
 		b, _ := os.ReadFile(pidFile)
-		s.PID, _ = strconv.Atoi(strings.TrimSpace(string(b)))
-		s.Socks = fmt.Sprintf("127.0.0.1:%d", port)
+		if s.PID, err = strconv.Atoi(strings.TrimSpace(string(b))); err != nil || s.PID <= 1 {
+			return nil, netx.Down(v, fmt.Errorf("openconnect wrote no pid; it may still run, see %s", logFile))
+		}
+		s.Socks, s.Exe = fmt.Sprintf("127.0.0.1:%d", port), "openconnect"
 		if !waitFor(10*time.Second, func() bool { return listening(s.Socks) }) {
 			netx.StopSession(s)
 			return nil, netx.Down(v, fmt.Errorf("ocproxy did not open its SOCKS port"))
@@ -236,7 +260,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 			args = append(args, "--auth-user-pass", auth)
 		}
 		if !interactive {
-			args = append([]string{"-n"}, args...) // only works with a sudo rule for openvpn
+			args = append([]string{"-n"}, args...) // works only while sudo remembers the person's password
 		}
 		sd := exec.CommandContext(ctx, "sudo", args...)
 		sd.Stdin, sd.Stdout, sd.Stderr = os.Stdin, os.Stderr, os.Stderr
@@ -247,11 +271,17 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 			}
 			return nil, netx.Down(v, fmt.Errorf("openvpn: %v", err))
 		}
-		s.Sudo = true
+		s.Sudo, s.Exe = true, "openvpn"
 		waitFor(10*time.Second, func() bool { _, err := os.Stat(pidFile); return err == nil })
 		b, _ := os.ReadFile(pidFile)
-		s.PID, _ = strconv.Atoi(strings.TrimSpace(string(b)))
-		if !waitFor(timeout, func() bool { return listening(v.Check) }) {
+		if s.PID, err = strconv.Atoi(strings.TrimSpace(string(b))); err != nil || s.PID <= 1 {
+			return nil, netx.Down(v, fmt.Errorf("openvpn wrote no pid; check `sudo ps ax | grep openvpn` and %s", logFile))
+		}
+		ok := waitFor(timeout, func() bool { return listening(v.Check) })
+		// openvpn has read them (and keeps the login in memory)
+		_ = os.Remove(cfgFile)
+		_ = os.Remove(filepath.Join(dir, v.Name+".auth"))
+		if !ok {
 			netx.StopSession(s)
 			return nil, netx.Down(v, fmt.Errorf("%s did not answer after connecting (see %s)", v.Check, logFile))
 		}
@@ -291,7 +321,7 @@ func spawnServe(name, logFile string) (int, string, error) {
 		return 0, "", err
 	}
 	c := exec.Command(self, "vpn", "serve", name)
-	c.Env = os.Environ()
+	c.Env = vault.SelfEnv()
 	pid, err := background(c, logFile)
 	if err != nil {
 		return 0, "", err
@@ -349,6 +379,10 @@ func vpnUpCmd() *cobra.Command {
 				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": s}, nil)
 				return nil
 			}
+			if g.dryRun {
+				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "kind": v.Kind, "would_connect": true}, nil)
+				return nil
+			}
 			if !netx.Kinds[v.Kind].Session && v.Kind != "wireguard" { // wireguard may keep a session to skip handshakes
 				if v.Kind == "system" && v.Service != "" {
 					if err := systemVPN(v, true); err != nil {
@@ -360,10 +394,6 @@ func vpnUpCmd() *cobra.Command {
 					return r.Error
 				}
 				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "note": v.Kind + " VPNs connect for each command; nothing stays running"}, nil)
-				return nil
-			}
-			if g.dryRun {
-				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "kind": v.Kind}, nil)
 				return nil
 			}
 			var warn []string
@@ -408,6 +438,10 @@ func vpnDownCmd() *cobra.Command {
 			if len(names) == 0 {
 				return out.Usage("give VPN names or --all")
 			}
+			if g.dryRun {
+				out.P.Print("vpn.down", map[string]any{"would_disconnect": names}, nil)
+				return nil
+			}
 			var down []string
 			for _, n := range names {
 				v, ok := st.Vpns[n]
@@ -415,7 +449,16 @@ func vpnDownCmd() *cobra.Command {
 					return out.NotFound("vpn", n)
 				}
 				if s := st.Sessions[n]; s != nil {
-					netx.StopSession(s)
+					err := netx.StopSession(s)
+					if errors.Is(err, netx.ErrNeedsSudo) && interactive() {
+						k := exec.Command("sudo", "kill", strconv.Itoa(s.PID)) // the person types the sudo password
+						k.Stdin, k.Stdout, k.Stderr = os.Stdin, os.Stderr, os.Stderr
+						err = k.Run()
+					}
+					if err != nil {
+						return out.Errf(out.ExitError, "VPN_STOP_FAILED", "run `komando vpn down "+n+"` in a terminal (it needs sudo)",
+							"could not disconnect %s: %v", n, err)
+					}
 					down = append(down, n)
 				} else if v.Kind == "system" && v.Service != "" {
 					if err := systemVPN(v, false); err != nil {
@@ -523,7 +566,12 @@ func vpnServeCmd() *cobra.Command {
 			for {
 				c, err := ln.Accept()
 				if err != nil {
-					_ = store.Update(func(s *store.State) error { delete(s.Sessions, v.Name); return nil })
+					_ = store.Update(func(s *store.State) error {
+						if x := s.Sessions[v.Name]; x != nil && x.PID == os.Getpid() { // not a newer session's entry
+							delete(s.Sessions, v.Name)
+						}
+						return nil
+					})
 					return nil
 				}
 				last.Store(time.Now().Unix())
@@ -537,7 +585,7 @@ func vpnServeCmd() *cobra.Command {
 var ovpnFiles embed.FS
 
 // ovpnImage names the container image; bump it when ovpn/ changes.
-const ovpnImage = "komando-openvpn:1"
+const ovpnImage = "komando-openvpn:2"
 
 // ensureOVPNImage builds komando's OpenVPN image once, from files inside
 // the komando binary (Alpine's openvpn and dante packages).
@@ -620,5 +668,8 @@ func openvpnContainer(ctx context.Context, v *store.Vpn, dir, password string, s
 	if !waitFor(10*time.Second, func() bool { return listening(s.Socks) }) {
 		return fail("the SOCKS port did not open")
 	}
+	// OpenVPN has read the config and login; do not leave them on disk
+	_ = os.Remove(filepath.Join(mount, "config.ovpn"))
+	_ = os.Remove(filepath.Join(mount, "auth"))
 	return nil
 }

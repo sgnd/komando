@@ -557,6 +557,45 @@ func importKomando(path string) (*importPlan, error) {
 	}
 	p := newPlan()
 	p.Hosts, p.Conns, p.Recipes, p.Vpns = f.Hosts, f.Conns, f.Recipes, f.Vpns
+	// An export file may come from someone else. Nothing in it may point at
+	// secrets or files that are already on this computer (a server of theirs
+	// with password_ref secret:prod-db-pass would receive that password),
+	// and nothing may skip a safety check.
+	ref := func(owner, what string, r *string) {
+		name, ok := strings.CutPrefix(*r, "secret:")
+		if *r == "" || (ok && name != "") {
+			if _, err := vault.Get(name); !ok || err != nil {
+				return // a secret: name that is not set here yet: set it after importing
+			}
+		}
+		p.Notes = append(p.Notes, fmt.Sprintf("%s: dropped %s %q (imports may only name secrets that do not exist yet; set it yourself)", owner, what, *r))
+		*r = ""
+	}
+	for _, h := range p.Hosts {
+		ref(h.Name, "password_ref", &h.PasswordRef)
+		ref(h.Name, "sudo_ref", &h.SudoRef)
+	}
+	for _, c := range p.Conns {
+		ref(c.Name, "password_ref", &c.PasswordRef)
+	}
+	var vpns []*store.Vpn
+	for _, v := range p.Vpns {
+		ref(v.Name, "key_ref", &v.KeyRef)
+		ref(v.Name, "psk_ref", &v.PSKRef)
+		ref(v.Name, "config_ref", &v.ConfigRef)
+		if strings.HasPrefix(v.Portal, "-") || strings.HasPrefix(v.Address, "-") || strings.HasPrefix(v.Service, "-") {
+			p.Notes = append(p.Notes, v.Name+": skipped, a setting starts with '-'")
+			continue
+		}
+		vpns = append(vpns, v)
+	}
+	p.Vpns = vpns
+	for _, r := range p.Recipes {
+		if r.ReadOnly {
+			r.ReadOnly = false
+			p.Notes = append(p.Notes, r.Name+": imported as a change; mark it read-only yourself with `recipe add --read-only --overwrite`")
+		}
+	}
 	if len(f.Secrets) > 0 {
 		p.Notes = append(p.Notes, "passwords are not in export files; set them with `komando secret set NAME` for: "+strings.Join(f.Secrets, ", "))
 	}

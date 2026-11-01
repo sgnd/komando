@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/scrypt"
@@ -43,6 +44,34 @@ type Info struct {
 
 func vaultPath() string { return store.Path("vault.json") }
 
+var (
+	passMu sync.Mutex
+	pass   string
+)
+
+// Passphrase returns $KOMANDO_VAULT_PASS and removes it from this process's
+// environment, so programs komando starts (kubectl, credential plugins,
+// VPN clients, docker) never inherit it.
+func Passphrase() string {
+	passMu.Lock()
+	defer passMu.Unlock()
+	if p, ok := os.LookupEnv("KOMANDO_VAULT_PASS"); ok {
+		pass = p
+		_ = os.Unsetenv("KOMANDO_VAULT_PASS")
+	}
+	return pass
+}
+
+// SelfEnv is the environment for komando's own background processes
+// (`vpn serve`, `tunnel serve`), which need the vault.
+func SelfEnv() []string {
+	env := os.Environ()
+	if p := Passphrase(); p != "" {
+		env = append(env, "KOMANDO_VAULT_PASS="+p)
+	}
+	return env
+}
+
 func load() (*file, error) {
 	if err := store.EnsureHome(); err != nil {
 		return nil, err
@@ -52,7 +81,7 @@ func load() (*file, error) {
 	if errors.Is(err, os.ErrNotExist) {
 		f.Salt = make([]byte, 16)
 		_, _ = rand.Read(f.Salt)
-		if os.Getenv("KOMANDO_VAULT_PASS") != "" {
+		if Passphrase() != "" {
 			f.Mode = "passphrase"
 		} else {
 			f.Mode = "keyfile"
@@ -83,7 +112,7 @@ func (f *file) aead() (cipher.AEAD, error) {
 	var secret []byte
 	switch f.Mode {
 	case "passphrase":
-		p := os.Getenv("KOMANDO_VAULT_PASS")
+		p := Passphrase()
 		if p == "" {
 			return nil, errors.New("vault is passphrase-protected: set KOMANDO_VAULT_PASS")
 		}

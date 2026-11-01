@@ -15,6 +15,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -88,8 +89,9 @@ func LiveSession(v *store.Vpn) *store.VpnSession {
 	}
 	idle, _ := time.ParseDuration(st.Settings.VpnIdle)
 	if !SessionAlive(s) || (idle > 0 && time.Since(s.LastUsed) > idle) {
-		StopSession(s)
-		_ = store.Update(func(st *store.State) error { delete(st.Sessions, v.Name); return nil })
+		if StopSession(s) == nil {
+			_ = store.Update(func(st *store.State) error { delete(st.Sessions, v.Name); return nil })
+		}
 		return nil
 	}
 	_ = store.Update(func(st *store.State) error {
@@ -126,25 +128,76 @@ func SessionAlive(s *store.VpnSession) bool {
 		b, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", s.Container).Output()
 		return err == nil && strings.TrimSpace(string(b)) == "true"
 	}
-	return Alive(s.PID)
+	return Alive(s.PID) && isProgram(s.PID, s.Exe)
+}
+
+// isProgram checks that pid still runs the expected program: after a
+// crash the pid may belong to something else, which must not be signalled.
+func isProgram(pid int, exe string) bool {
+	if exe == "" {
+		return true
+	}
+	b, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output()
+	if err != nil {
+		return false
+	}
+	name := filepath.Base(strings.TrimSpace(string(b)))
+	want := exe
+	if len(want) > 15 { // Linux shortens comm to 15 characters
+		want = want[:15]
+	}
+	return name != "" && strings.HasPrefix(name, want)
+}
+
+// ReapIdle closes sessions unused for longer than vpn_idle. It runs at
+// the start of every komando command, so sessions do not stay up forever.
+func ReapIdle() {
+	st, err := store.Load()
+	if err != nil || len(st.Sessions) == 0 {
+		return
+	}
+	idle, err := time.ParseDuration(st.Settings.VpnIdle)
+	if err != nil || idle <= 0 {
+		return
+	}
+	for name, s := range st.Sessions {
+		if time.Since(s.LastUsed) > idle && StopSession(s) == nil {
+			_ = store.Update(func(st *store.State) error {
+				if x := st.Sessions[name]; x != nil && x.PID == s.PID && x.Container == s.Container {
+					delete(st.Sessions, name)
+				}
+				return nil
+			})
+		}
+	}
 }
 
 // StopSession ends a session's process or container (through sudo for
-// OS-mode ones).
-func StopSession(s *store.VpnSession) {
+// OS-mode ones). A session that is no longer running is already stopped.
+// It reports an error when it could not stop it; the caller keeps the
+// session then.
+func StopSession(s *store.VpnSession) error {
 	if s.Container != "" {
-		_ = exec.Command("docker", "rm", "-f", s.Container).Run()
-		return
+		if b, err := exec.Command("docker", "rm", "-f", s.Container).CombinedOutput(); err != nil && SessionAlive(s) {
+			return fmt.Errorf("docker rm %s: %v %s", s.Container, err, strings.TrimSpace(string(b)))
+		}
+		return nil
 	}
-	if s.PID <= 1 {
-		return
+	if !SessionAlive(s) {
+		return nil
 	}
 	if s.Sudo {
-		_ = exec.Command("sudo", "-n", "kill", strconv.Itoa(s.PID)).Run()
-		return
+		if err := exec.Command("sudo", "-n", "kill", strconv.Itoa(s.PID)).Run(); err != nil {
+			return ErrNeedsSudo
+		}
+		return nil
 	}
-	_ = Terminate(s.PID)
+	return Terminate(s.PID)
 }
+
+// ErrNeedsSudo means an OS-mode session runs as root and sudo wants a
+// password; a person must run `komando vpn down` in a terminal.
+var ErrNeedsSudo = errors.New("the VPN runs as root and stopping it needs sudo")
 
 func socksDialer(v *store.Vpn, addr string, timeout time.Duration) (Dialer, error) {
 	d, err := proxy.SOCKS5("tcp", addr, nil, &net.Dialer{Timeout: timeout})

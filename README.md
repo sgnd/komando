@@ -100,7 +100,18 @@ Queries only read unless you add `--write`. Try a change first with
 
 ## Give it to your AI agent
 
-Copy the text of [`AGENTS.md`](AGENTS.md) into your agent's instructions
+One command teaches your AI agents (Claude Code, Codex, Cursor, Gemini CLI)
+to use komando, for every project on this computer:
+
+```bash
+komando guide install
+```
+
+It adds the komando *skill*: a short note the agent reads by itself whenever
+a task touches a server, database, cache or storage. Restart the agent after
+it. Run it again after you update komando.
+
+Other agents: copy the text of [`AGENTS.md`](AGENTS.md) into your agent's instructions
 file (Codex: `AGENTS.md`, Claude Code: `CLAUDE.md`, in the folder you work in),
 or simply tell your agent:
 

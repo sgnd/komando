@@ -32,5 +32,6 @@ reference is `komando schema`.
 - One feature per file. A new feature gets its own page and a row above.
 - Write for beginners: short sentences, a real example first, then details.
 - Update the page in the same commit as the feature, together with
-  `komando guide` (`internal/cli/guide.md`) and `CHANGELOG.md`.
+  `komando guide` (`internal/cli/guide.md`), the agent skill
+  (`internal/cli/skill.md`, copied to `skills/komando/SKILL.md`) and `CHANGELOG.md`.
 - The rules for commands and flags are in [docs/design/ux.md](../design/ux.md).

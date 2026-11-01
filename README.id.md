@@ -102,7 +102,19 @@ lalu dibatalkan (rollback).
 
 ## Serahkan ke AI agent Anda
 
-Salin isi [`AGENTS.md`](AGENTS.md) ke file instruksi agent Anda (Codex:
+Satu perintah mengajari AI agent Anda (Claude Code, Codex, Cursor, Gemini CLI)
+memakai komando, untuk semua proyek di komputer ini:
+
+```bash
+komando guide install
+```
+
+Perintah ini memasang *skill* komando: catatan singkat yang dibaca agent
+dengan sendirinya setiap kali tugasnya menyentuh server, database, cache, atau
+storage. Mulai ulang agent setelahnya. Jalankan lagi setelah Anda memperbarui
+komando.
+
+Agent lain: salin isi [`AGENTS.md`](AGENTS.md) ke file instruksi agent Anda (Codex:
 `AGENTS.md`, Claude Code: `CLAUDE.md`, di folder tempat Anda bekerja), atau
 cukup katakan ke agent:
 

@@ -4,6 +4,38 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Agent skill
+
+- `komando guide install` adds the komando skill (`SKILL.md`, the Agent
+  Skills format) to `~/.claude/skills` (Claude Code) and `~/.agents/skills`
+  (Codex, Cursor, Gemini CLI). Agents then reach for komando by themselves
+  on server, database, cache and storage tasks. `--project` installs into
+  the current folder; a changed file is kept as `SKILL.md.bak`. The same
+  skill lives in `skills/komando/` for `npx skills add sgnd/komando`.
+
+### Fixes from review
+
+- `cluster run` must start with the command (a leading flag could hide a
+  delete behind a "get"); kubectl and docker commands are rated by verb and
+  subcommand (`auth reconcile`, `service rm`, `system prune` ...), the
+  destructive-command policy sees them unquoted, and `--dry-run=server` goes
+  right after the verb (never into `exec ... --`).
+- `import komando` drops references to secrets or files that already exist
+  on this computer and imports recipes as changes, so a file from someone
+  else cannot send your passwords to their server or skip `--yes`.
+- OpenVPN configs pass only an allowlist of client settings, with keys
+  inline; nothing that runs programs or reads/writes files by path.
+- KOMANDO_VAULT_PASS is removed from the environment at start, so kubectl,
+  credential plugins, VPN clients and docker never inherit it.
+- VPN sessions: a reused pid is never signalled, a failed stop (sudo) is
+  reported and the session kept, idle sessions close at the next komando
+  command, two commands cannot start the same VPN twice, config and login
+  files are deleted once connected, the Tailscale auth key no longer shows
+  in `ps`, and `vpn up/down/rm --dry-run` change nothing.
+- `label:KEY` without a value picks targets that have the label (it picked
+  those without it). kubectl secrets are hidden in the audit log;
+  `cluster rm`/`registry rm --dry-run` report what would be blocked.
+
 ### OpenVPN without touching your computer's network
 
 - `openvpn` (and `pritunl`) VPNs run in a small Docker container, built

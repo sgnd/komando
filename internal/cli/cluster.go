@@ -22,6 +22,7 @@ import (
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -116,6 +117,10 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 		return err
 	}
 	if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{name}}); err != nil {
+		if g.dryRun {
+			out.P.Print(name, map[string]any{"conn": t.conn.Name, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
+			return nil
+		}
 		return err
 	}
 	k, done, err := kubeClient(ctx, st, t.conn)
@@ -800,10 +805,48 @@ func clusterRmCmd() *cobra.Command {
 	return c
 }
 
-// kubectl verbs that only read; anything else needs --write.
-var kubectlReads = []string{"get", "describe", "logs", "top", "explain", "version", "api-resources", "api-versions",
-	"cluster-info", "events", "auth", "diff", "wait"}
-var kubectlDangerous = []string{"delete", "drain", "replace", "patch", "taint", "certificate", "cordon", "uncordon"}
+// classifyKubectl rates a kubectl command by its verb (args[0]) and, where
+// the verb alone says too little, its subcommand.
+func classifyKubectl(args []string) driver.Risk {
+	verb, sub := strings.ToLower(args[0]), ""
+	if len(args) > 1 {
+		sub = strings.ToLower(args[1])
+	}
+	switch {
+	case oneOf(verb, "get", "describe", "logs", "top", "explain", "version", "api-resources", "api-versions",
+		"cluster-info", "events", "diff", "wait"):
+		return driver.RiskRead
+	case verb == "auth" && oneOf(sub, "can-i", "whoami"):
+		return driver.RiskRead
+	case verb == "rollout" && oneOf(sub, "status", "history"):
+		return driver.RiskRead
+	case verb == "config" && oneOf(sub, "view", "get-contexts", "current-context"):
+		return driver.RiskRead
+	case oneOf(verb, "delete", "drain", "replace", "patch", "taint", "certificate", "cordon", "uncordon", "exec",
+		"cp", "attach", "debug", "proxy", "port-forward"):
+		return driver.RiskDestructive // exec/cp/debug run anything inside the cluster
+	}
+	return driver.RiskWrite
+}
+
+// classifyDocker rates a docker command on a Swarm manager.
+func classifyDocker(args []string) driver.Risk {
+	verb, sub := strings.ToLower(args[0]), ""
+	if len(args) > 1 {
+		sub = strings.ToLower(args[1])
+	}
+	group := oneOf(verb, "service", "stack", "node", "secret", "config", "network", "volume", "container", "image", "system", "swarm")
+	switch {
+	case !group && oneOf(verb, "ps", "images", "info", "version", "inspect", "logs", "stats", "top", "events"):
+		return driver.RiskRead
+	case group && oneOf(sub, "ls", "ps", "inspect", "logs", "services", "df", "info", "events"):
+		return driver.RiskRead
+	case oneOf(sub, "rm", "prune", "leave", "demote", "kill") || oneOf(verb, "rm", "rmi", "kill", "prune") ||
+		(verb == "swarm" && oneOf(sub, "leave", "init", "join")):
+		return driver.RiskDestructive
+	}
+	return driver.RiskWrite
+}
 
 func clusterRunCmd() *cobra.Command {
 	var write bool
@@ -828,22 +871,23 @@ need --write; delete, drain and other risky verbs also need
 			if err != nil {
 				return err
 			}
-			verb := ""
-			for _, a := range args[1:] {
-				if !strings.HasPrefix(a, "-") {
-					verb = strings.ToLower(a)
-					break
-				}
+			// The command must start with its verb: a leading flag could
+			// hide the real verb behind a flag value (-n get delete ...).
+			if strings.HasPrefix(args[1], "-") {
+				return out.Usage("start with the command (e.g. `-- get pods -n shop`); put flags after it")
 			}
-			risk := driver.RiskWrite
-			switch {
-			case oneOf(verb, kubectlReads...) || (t.host != nil && oneOf(verb, "ps", "ls", "inspect", "logs", "info", "version")):
-				risk = driver.RiskRead
-			case oneOf(verb, kubectlDangerous...) || (t.host != nil && oneOf(verb, "rm", "prune", "leave", "demote")):
+			var risk driver.Risk
+			if t.host != nil {
+				risk = classifyDocker(args[1:])
+			} else {
+				risk = classifyKubectl(args[1:])
+			}
+			verb := strings.ToLower(args[1])
+			tool := map[bool]string{true: "docker", false: "kubectl"}[t.host != nil]
+			// the destructive-command policy sees the words as typed (quoting
+			// them for the shell would hide them from its patterns)
+			if hits := policy.Check(strings.Join(append([]string{tool}, args[1:]...), " "), st.Settings.ExtraDenyPattern); len(hits) > 0 {
 				risk = driver.RiskDestructive
-			}
-			if t.host == nil && verb == "rollout" && len(args) > 2 && oneOf(strings.ToLower(args[2]), "status", "history") {
-				risk = driver.RiskRead
 			}
 			if risk > driver.RiskRead && !write {
 				return out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "this changes the cluster; re-run with --write (try --dry-run first)",
@@ -855,7 +899,7 @@ need --write; delete, drain and other risky verbs also need
 					line += " " + sshx.Q(a)
 				}
 				if risk == driver.RiskDestructive && !g.allowDangerous {
-					return guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{verb}})
+					return guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
 				}
 				return runOne(cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
 			}
@@ -921,10 +965,16 @@ func runKubectl(ctx context.Context, st *store.State, c *store.Conn, args []stri
 	if err := os.WriteFile(path, kc, 0o600); err != nil {
 		return err
 	}
-	kargs := append([]string{"--kubeconfig", path}, args...)
+	kargs := []string{"--kubeconfig", path, args[0]}
 	if g.dryRun && risk > driver.RiskRead {
+		// right after the verb, so it can never become an argument of a
+		// command run inside a pod (exec ... -- CMD)
+		if oneOf(strings.ToLower(args[0]), "exec", "cp", "attach", "debug", "proxy", "port-forward", "run") {
+			return out.Usage("kubectl %s cannot be dry-run", args[0])
+		}
 		kargs = append(kargs, "--dry-run=server")
 	}
+	kargs = append(kargs, args[1:]...)
 	k := exec.CommandContext(ctx, "kubectl", kargs...)
 	var stdout, stderr bytes.Buffer
 	k.Stdout, k.Stderr = &stdout, &stderr
@@ -941,7 +991,7 @@ func runKubectl(ctx context.Context, st *store.State, c *store.Conn, args []stri
 		}
 	}
 	if risk > driver.RiskRead {
-		audit(st, "cluster.run", nil, "kubectl "+strings.Join(args, " "), code == 0, map[string]any{"conns": []string{c.Name}, "risk": risk.String()})
+		audit(st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args), " "), code == 0, map[string]any{"conns": []string{c.Name}, "risk": risk.String()})
 	}
 	if out.P.Format == "text" {
 		if code != 0 {
@@ -1000,6 +1050,30 @@ func importKubeconfig(path string) (*importPlan, error) {
 		}
 	}
 	return p, nil
+}
+
+// redactArgs hides values that may be secrets (--from-literal=k=v,
+// --password=..., --token ...) before arguments reach the audit log.
+func redactArgs(args []string) []string {
+	res := make([]string, len(args))
+	hideNext := false
+	for i, a := range args {
+		low := strings.ToLower(a)
+		switch {
+		case hideNext:
+			res[i], hideNext = "(hidden)", false
+		case strings.Contains(low, "literal") || strings.Contains(low, "password") || strings.Contains(low, "token") ||
+			strings.Contains(low, "secret"):
+			if k, _, ok := strings.Cut(a, "="); ok {
+				res[i] = k + "=(hidden)"
+			} else {
+				res[i], hideNext = a, strings.HasPrefix(a, "-")
+			}
+		default:
+			res[i] = a
+		}
+	}
+	return res
 }
 
 // forwardLocal listens on a free local port and forwards each connection

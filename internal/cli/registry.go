@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/url"
 	"os/exec"
 	"strings"
 
@@ -45,6 +46,10 @@ func withRegistry(ctx context.Context, name, expr string, risk driver.Risk, extr
 		return err
 	}
 	if err := guardConns(st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"registry"}, Reasons: []string{name}}); err != nil {
+		if g.dryRun {
+			out.P.Print(name, map[string]any{"conn": c.Name, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
+			return nil
+		}
 		return err
 	}
 	a, err := openAccess(ctx, st, c)
@@ -230,8 +235,8 @@ func importDocker(path string) (*importPlan, error) {
 		if host == "docker.io" {
 			name = p.name("dockerhub")
 		}
-		u := fmt.Sprintf("registry://%s:%s@%s", user, pass, host)
-		p.addConn(name, u, server)
+		u := url.URL{Scheme: "registry", User: url.UserPassword(user, pass), Host: host}
+		p.addConn(name, u.String(), server)
 	}
 	return p, nil
 }

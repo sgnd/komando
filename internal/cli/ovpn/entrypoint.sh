@@ -3,7 +3,7 @@
 # tunnel, then serve SOCKS5 on :1080 through it.
 set -e
 AUTH=""
-if [ -s /vpn/auth ]; then AUTH="--auth-user-pass /vpn/auth --auth-nocache"; fi
+if [ -s /vpn/auth ]; then AUTH="--auth-user-pass /vpn/auth"  # kept in memory; komando deletes the file once connected; fi
 openvpn --config /vpn/config.ovpn $AUTH --script-security 2 --up /etc/komando/up.sh \
   --log /tmp/openvpn.log --daemon --writepid /tmp/openvpn.pid
 i=0

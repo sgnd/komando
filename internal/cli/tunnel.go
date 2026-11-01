@@ -25,6 +25,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // Tunnels run as detached background komando processes so that an agent's
@@ -183,7 +184,7 @@ func tunnelStartCmd() *cobra.Command {
 			p := exec.Command(self, pargs...)
 			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
 			p.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-			p.Env = os.Environ()
+			p.Env = vault.SelfEnv()
 			if err := p.Start(); err != nil {
 				return err
 			}

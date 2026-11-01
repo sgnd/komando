@@ -248,3 +248,66 @@ func TestViaChain(t *testing.T) {
 		t.Errorf("renameStep: %q", got)
 	}
 }
+
+func TestClusterRunClassification(t *testing.T) {
+	k := map[string]driver.Risk{
+		"get pods":                 driver.RiskRead,
+		"auth can-i list pods":     driver.RiskRead,
+		"auth reconcile -f x.yaml": driver.RiskWrite,
+		"rollout status deploy/a":  driver.RiskRead,
+		"rollout undo deploy/a":    driver.RiskWrite,
+		"delete node w1":           driver.RiskDestructive,
+		"exec deploy/a -- sh":      driver.RiskDestructive,
+		"apply -f x.yaml":          driver.RiskWrite,
+	}
+	for cmd, want := range k {
+		if got := classifyKubectl(strings.Fields(cmd)); got != want {
+			t.Errorf("kubectl %s: %v, want %v", cmd, got, want)
+		}
+	}
+	d := map[string]driver.Risk{
+		"service ps web":           driver.RiskRead,
+		"service ls":               driver.RiskRead,
+		"ps":                       driver.RiskRead,
+		"service rm web":           driver.RiskDestructive,
+		"system prune -a":          driver.RiskDestructive,
+		"stack rm shop":            driver.RiskDestructive,
+		"service update --force x": driver.RiskWrite,
+	}
+	for cmd, want := range d {
+		if got := classifyDocker(strings.Fields(cmd)); got != want {
+			t.Errorf("docker %s: %v, want %v", cmd, got, want)
+		}
+	}
+}
+
+func TestCheckOVPN(t *testing.T) {
+	good := "client\ndev tun\nproto udp\nremote vpn.example 1194\nremote-cert-tls server\nauth-user-pass\n<ca>\nx\n</ca>\n<key>\ny\n</key>\n"
+	if err := checkOVPN(good); err != nil {
+		t.Errorf("a plain client config must pass: %v", err)
+	}
+	for _, bad := range []string{
+		"up /tmp/x.sh", `"script-security" 2`, "config /etc/other.conf", "management 127.0.0.1 7505",
+		"writepid /etc/cron.d/x", "log /etc/passwd", "auth-user-pass /etc/shadow", "ca /etc/ssl/key.pem",
+		"plugin /usr/lib/x.so", "iproute /tmp/ip", "<script>\nx\n</script>",
+	} {
+		if err := checkOVPN("client\n" + bad + "\n"); err == nil {
+			t.Errorf("%q must be refused", bad)
+		}
+	}
+}
+
+func TestLabelWithoutValue(t *testing.T) {
+	st := testConnState()
+	sel, err := resolveSelection(st, "label:dc")
+	if err != nil || len(sel.Hosts) != 3 {
+		t.Fatalf("label:dc must pick the 3 hosts that have the label, got %v %v", hostNames(sel.Hosts), err)
+	}
+}
+
+func TestRedactArgs(t *testing.T) {
+	got := strings.Join(redactArgs([]string{"create", "secret", "generic", "x", "--from-literal=password=hunter2", "--token", "abc"}), " ")
+	if strings.Contains(got, "hunter2") || strings.Contains(got, "abc") {
+		t.Errorf("secrets left in: %s", got)
+	}
+}

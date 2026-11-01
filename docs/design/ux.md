@@ -47,6 +47,7 @@ komando storage upload backups ./dump.sql.gz
 | `start` / `stop` / `restart` | hidupkan, matikan, mulai ulang | — | write |
 | `dump` / `restore` | backup dan pulihkan | — | write / destructive |
 | `import` / `export` | pindah konfigurasi masuk dan keluar | — | — |
+| `install` | pasang file komando ke folder program lain (skill untuk AI agent: `guide install`) | — | write (file lokal) |
 
 Aturan: **`rm` selalu kata utamanya.** `remove`, `delete`, dan `del` hanya
 alias, supaya siapa pun yang mengetiknya tetap berhasil.

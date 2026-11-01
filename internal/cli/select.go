@@ -212,8 +212,14 @@ func matchPattern[T any](items []T, attrs func(T) selAttrs, sel string) (res []T
 	case strings.HasPrefix(sel, "tag:"):
 		f = func(a selAttrs) bool { return has(a.tags, sel[4:]) }
 	case strings.HasPrefix(sel, "label:"):
-		k, v, _ := strings.Cut(sel[6:], "=")
-		f = func(a selAttrs) bool { return a.labels[k] == v }
+		k, v, withValue := strings.Cut(sel[6:], "=")
+		f = func(a selAttrs) bool {
+			got, has := a.labels[k]
+			if !withValue { // label:env = everything that has the label
+				return has
+			}
+			return has && got == v
+		}
 	case strings.ContainsAny(sel, "*?["):
 		f = func(a selAttrs) bool { ok, _ := path.Match(sel, a.name); return ok }
 	default:

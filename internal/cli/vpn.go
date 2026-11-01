@@ -48,16 +48,68 @@ Kinds (also: pritunl = openvpn; l2tp, ipsec, ikev2 = system):
 	return c
 }
 
-// openvpnScripts are .ovpn directives that run programs. OpenVPN runs as
-// root, so komando refuses configs that use them.
-var openvpnScripts = []string{"up", "down", "route-up", "route-pre-down", "ipchange", "script-security",
-	"client-connect", "client-disconnect", "learn-address", "tls-verify", "auth-user-pass-verify", "plugin", "setenv-safe"}
+// ovpnAllowed are the .ovpn client directives komando passes on. OpenVPN
+// may run as root (--os-mode), so anything that runs programs, writes or
+// reads files by path, or opens a management port is refused. Keys and
+// certificates must be inline (<ca>...</ca>), never a path.
+var ovpnAllowed = map[string]bool{
+	"client": true, "dev": true, "dev-type": true, "proto": true, "remote": true, "remote-random": true, "port": true,
+	"rport": true, "resolv-retry": true, "nobind": true, "persist-key": true, "persist-tun": true, "float": true,
+	"remote-cert-tls": true, "verify-x509-name": true, "ns-cert-type": true, "key-direction": true,
+	"cipher": true, "data-ciphers": true, "data-ciphers-fallback": true, "ncp-ciphers": true, "auth": true,
+	"tls-client": true, "tls-version-min": true, "tls-version-max": true, "tls-cipher": true, "tls-ciphersuites": true,
+	"auth-user-pass": true, "auth-retry": true, "auth-nocache": true, "static-challenge": true,
+	"comp-lzo": true, "compress": true, "allow-compression": true, "verb": true, "mute": true, "mute-replay-warnings": true,
+	"reneg-sec": true, "tun-mtu": true, "tun-mtu-extra": true, "mssfix": true, "fragment": true, "mtu-disc": true,
+	"keepalive": true, "ping": true, "ping-restart": true, "ping-exit": true, "inactive": true, "hand-window": true,
+	"pull": true, "pull-filter": true, "route-nopull": true, "route": true, "route-delay": true, "route-metric": true,
+	"redirect-gateway": true, "topology": true, "setenv": true, "ignore-unknown-option": true,
+	"server-poll-timeout": true, "connect-retry": true, "connect-retry-max": true, "connect-timeout": true,
+	"explicit-exit-notify": true, "push-peer-info": true, "sndbuf": true, "rcvbuf": true, "txqueuelen": true,
+	"block-outside-dns": true, "dhcp-option": true, "tun-ipv6": true, "replay-window": true, "nice": true,
+	// inline only (checked below)
+	"ca": true, "cert": true, "key": true, "tls-auth": true, "tls-crypt": true, "tls-crypt-v2": true,
+	"pkcs12": true, "extra-certs": true, "secret": true,
+}
+
+var ovpnInline = []string{"ca", "cert", "key", "tls-auth", "tls-crypt", "tls-crypt-v2", "pkcs12", "extra-certs", "secret"}
 
 func checkOVPN(cfg string) error {
+	inBlock := ""
 	for n, line := range strings.Split(cfg, "\n") {
-		f := strings.Fields(strings.TrimSpace(line))
-		if len(f) > 0 && slices.Contains(openvpnScripts, strings.TrimLeft(strings.ToLower(f[0]), "-")) {
-			return fmt.Errorf("line %d: %q runs a program as root; komando does not allow it", n+1, f[0])
+		line = strings.TrimSpace(line)
+		if inBlock != "" {
+			if strings.EqualFold(line, "</"+inBlock+">") {
+				inBlock = ""
+			}
+			continue
+		}
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+			continue
+		}
+		if strings.HasPrefix(line, "<") && strings.HasSuffix(line, ">") && !strings.HasPrefix(line, "</") {
+			tag := strings.ToLower(strings.Trim(line, "<>"))
+			if !oneOf(tag, ovpnInline...) && tag != "connection" {
+				return fmt.Errorf("line %d: inline block <%s> is not allowed", n+1, tag)
+			}
+			if tag != "connection" {
+				inBlock = tag
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "</connection") {
+			continue
+		}
+		f := strings.Fields(line)
+		name := strings.ToLower(strings.Trim(strings.TrimLeft(f[0], "-"), `"'`))
+		if !ovpnAllowed[name] {
+			return fmt.Errorf("line %d: %q is not allowed (komando passes only client settings; nothing that runs programs or reads/writes files)", n+1, f[0])
+		}
+		if oneOf(name, ovpnInline...) && (len(f) < 2 || f[1] != "[inline]") && len(f) > 1 {
+			return fmt.Errorf("line %d: %s must be inline (<%s>...</%s>), not a file path", n+1, name, name, name)
+		}
+		if name == "auth-user-pass" && len(f) > 1 {
+			return fmt.Errorf("line %d: auth-user-pass must not name a file; komando passes the login itself", n+1)
 		}
 	}
 	return nil
@@ -166,6 +218,9 @@ func vpnAddCmd() *cobra.Command {
 			case k.Protocol != "": // the openconnect family
 				if err = need("portal", portal != ""); err != nil {
 					return err
+				}
+				if strings.HasPrefix(portal, "-") {
+					return out.Usage("--portal must be a server name or URL")
 				}
 				v.Portal = portal
 				used["user"], used["password-ref"] = true, true
@@ -285,6 +340,10 @@ func vpnRmCmd() *cobra.Command {
 		Short: "Remove a VPN from komando (its keys stay in the vault until `komando secret rm`)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if g.dryRun {
+				out.P.Print("vpn.rm", map[string]any{"would_remove": args[0]}, nil)
+				return nil
+			}
 			err := store.Update(func(s *store.State) error {
 				if _, ok := s.Vpns[args[0]]; !ok {
 					return out.NotFound("vpn", args[0])
@@ -293,7 +352,9 @@ func vpnRmCmd() *cobra.Command {
 					return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first", "VPN %s is on the --via path of %s", args[0], strings.Join(users, ", "))
 				}
 				if sess := s.Sessions[args[0]]; sess != nil {
-					netx.StopSession(sess)
+					if err := netx.StopSession(sess); err != nil {
+						return out.Errf(out.ExitError, "VPN_STOP_FAILED", "disconnect it first with `komando vpn down "+args[0]+"`", "%v", err)
+					}
 					delete(s.Sessions, args[0])
 				}
 				delete(s.Vpns, args[0])

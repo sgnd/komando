@@ -19,8 +19,10 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 var Version = "dev"
@@ -135,6 +137,10 @@ Start here:  komando guide      (agent playbook)
 			out.P.Version = Version
 			out.P.DryRun = g.dryRun
 			out.P.Start = time.Now()
+			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
+			if cmd.Name() != "serve" {
+				netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
+			}
 			if g.hostKeyPolicy == "off" {
 				return guardSafety("--host-key-policy off (no server identity check)")
 			}
