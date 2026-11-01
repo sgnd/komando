@@ -4,6 +4,13 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### OpenVPN without touching your computer's network
+
+- `openvpn` (and `pritunl`) VPNs run in a small Docker container, built
+  once from files inside komando, and are reached through a local SOCKS
+  port, like the other VPN kinds: several at once, no sudo, no route
+  changes. `--os-mode` keeps the old way (sudo, system routes).
+
 ### Password managers (v0.7)
 
 - `--password-ref` also takes `op://...` (1Password), `vault:PATH#FIELD`

@@ -16,7 +16,6 @@ import (
 
 	"github.com/sgnd/komando/internal/cachex"
 	"github.com/sgnd/komando/internal/driver"
-	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
@@ -471,7 +470,7 @@ func doctorCmd() *cobra.Command {
 			_, sshErr := exec.LookPath("ssh")
 			checks = append(checks, check{"openssh_client", sshErr == nil, "optional; komando has a built-in SSH client"})
 			for _, v := range st.SortedVpns() { // programs the registered VPNs need
-				for _, bin := range netx.Kinds[v.Kind].Client {
+				for _, bin := range vpnClients(v) {
 					_, err := exec.LookPath(bin)
 					checks = append(checks, check{"vpn:" + v.Name + ":" + bin, err == nil,
 						map[bool]string{true: "installed", false: installHint(bin)}[err == nil]})

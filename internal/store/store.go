@@ -148,6 +148,7 @@ type Vpn struct {
 	KeyRef    string            `json:"key_ref,omitempty"`    // password, private key or auth key, as secret:/env:/file:
 	PSKRef    string            `json:"psk_ref,omitempty"`    // wireguard: preshared key, if any
 	MFA       bool              `json:"mfa,omitempty"`        // a human must log in (`vpn up`); never automated
+	OSMode    bool              `json:"os_mode,omitempty"`    // openvpn: run on the computer itself (sudo, changes routes)
 	Check     string            `json:"check,omitempty"`      // host:port that answers only through the VPN
 	Groups    []string          `json:"groups,omitempty"`
 	Tags      []string          `json:"tags,omitempty"`
@@ -161,8 +162,9 @@ type Vpn struct {
 type VpnSession struct {
 	Vpn       string    `json:"vpn"`
 	PID       int       `json:"pid"`
-	Socks     string    `json:"socks,omitempty"` // local SOCKS5 address; empty when the OS routes the traffic
-	Sudo      bool      `json:"sudo,omitempty"`  // the process runs as root (OS mode)
+	Socks     string    `json:"socks,omitempty"`     // local SOCKS5 address; empty when the OS routes the traffic
+	Container string    `json:"container,omitempty"` // the Docker container holding the VPN (openvpn)
+	Sudo      bool      `json:"sudo,omitempty"`      // the process runs as root (OS mode)
 	LogFile   string    `json:"log_file,omitempty"`
 	StartedAt time.Time `json:"started_at"`
 	LastUsed  time.Time `json:"last_used"`

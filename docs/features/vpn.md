@@ -48,5 +48,25 @@ komando vpn rm office            # refused while something still uses it
 If a `system` VPN is not connected, commands that need it stop with
 `VPN_DOWN` and say which VPN to connect.
 
-More VPN types (OpenVPN, GlobalProtect, Fortinet, AnyConnect, Tailscale,
-...) are planned in [docs/design/network.md](../design/network.md).
+## More kinds
+
+```bash
+komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
+komando vpn add client-x globalprotect --portal vpn.client.com --user budi --mfa
+komando vpn add tailnet tailscale --password-ref secret:ts-authkey
+komando vpn up client-x          # a person logs in (MFA); later commands reuse it
+komando vpn status
+komando vpn down --all
+```
+
+| Kind | How it runs | Your computer's network changes? |
+|------|-------------|----------------------------------|
+| `openvpn` (and `pritunl`) | in a small Docker container; komando reaches it through a local port | no |
+| `openvpn --os-mode` | on your computer, with sudo | yes |
+| `globalprotect`, `fortinet`, `anyconnect`, `pulse`, `f5` | `openconnect` with `ocproxy` (`brew install openconnect ocproxy`) | no |
+| `tailscale` | `tailscaled` in user-space mode | no |
+
+VPNs with `--mfa` need a person: `komando vpn up NAME` asks for the login,
+and later commands (and agents) reuse that connection. komando never
+answers MFA itself. A connection unused for 30 minutes is closed
+(`komando config set vpn_idle 1h` to change).

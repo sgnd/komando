@@ -66,7 +66,7 @@ func checkOVPN(cfg string) error {
 func vpnAddCmd() *cobra.Command {
 	var config, address, portal, service, server, user, passwordRef, check, notes string
 	var groups, tags []string
-	var overwrite, mfa bool
+	var overwrite, mfa, osMode bool
 	c := &cobra.Command{
 		Use:   "add NAME KIND",
 		Short: "Add a VPN (see `komando vpn --help` for the kinds)",
@@ -186,9 +186,12 @@ func vpnAddCmd() *cobra.Command {
 				if err := checkOVPN(text); err != nil {
 					return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "remove that line from the .ovpn file", "%s: %v", config, err)
 				}
-				v.ConfigRef = "secret:" + name + "-config"
+				v.ConfigRef, v.OSMode = "secret:"+name+"-config", osMode
 				secrets[name+"-config"] = text
 				used["user"], used["password-ref"] = true, true
+			}
+			if osMode && kind != "openvpn" {
+				return out.Usage("--os-mode is for openvpn")
 			}
 			for flag, val := range map[string]string{"config": config, "address": address, "portal": portal, "service": service,
 				"server": server, "user": user, "password-ref": passwordRef} {
@@ -246,6 +249,7 @@ func vpnAddCmd() *cobra.Command {
 	f.StringVar(&server, "server", "", "tailscale: a Headscale login server URL")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
 	f.StringVar(&passwordRef, "password-ref", "", "password (tailscale: auth key) as secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
+	f.BoolVar(&osMode, "os-mode", false, "openvpn: run it on this computer with sudo instead of in a Docker container (changes this computer's network)")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only `vpn up` by a human connects it")
 	f.StringVar(&check, "check", "", "host:port reachable only through this VPN (used by `komando test`, needed for system and openvpn)")
 	f.StringSliceVarP(&groups, "group", "g", nil, "group(s)")

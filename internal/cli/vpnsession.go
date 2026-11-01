@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"embed"
 	"errors"
 	"fmt"
 	"log"
@@ -76,8 +77,16 @@ func listening(addr string) bool {
 	return err == nil
 }
 
+// vpnClients are the programs a VPN needs on this computer.
+func vpnClients(v *store.Vpn) []string {
+	if v.Kind == "openvpn" && v.OSMode {
+		return []string{"openvpn", "sudo"}
+	}
+	return netx.Kinds[v.Kind].Client
+}
+
 func clientMissing(v *store.Vpn) error {
-	for _, bin := range netx.Kinds[v.Kind].Client {
+	for _, bin := range vpnClients(v) {
 		if _, err := exec.LookPath(bin); err != nil {
 			return out.Errf(out.ExitNotFound, "VPN_CLIENT_MISSING", installHint(bin),
 				"%s VPNs need the %s program, which is not installed", v.Kind, bin)
@@ -89,6 +98,9 @@ func clientMissing(v *store.Vpn) error {
 func installHint(bin string) string {
 	pkg := map[string]string{"ocproxy": "ocproxy", "openconnect": "openconnect", "openvpn": "openvpn",
 		"tailscaled": "tailscale", "tailscale": "tailscale"}[bin]
+	if bin == "docker" {
+		return "install Docker (Docker Desktop or Colima); or add the VPN with --os-mode to run OpenVPN on this computer (changes its network)"
+	}
 	if runtime.GOOS == "darwin" {
 		return "install it with `brew install " + pkg + "`"
 	}
@@ -197,6 +209,10 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if !waitFor(10*time.Second, func() bool { return listening(s.Socks) }) {
 			netx.StopSession(s)
 			return nil, netx.Down(v, fmt.Errorf("ocproxy did not open its SOCKS port"))
+		}
+	case v.Kind == "openvpn" && !v.OSMode:
+		if err := openvpnContainer(ctx, v, dir, password, s, timeout); err != nil {
+			return nil, err
 		}
 	case v.Kind == "openvpn":
 		cfg, err := vault.Resolve(v.ConfigRef)
@@ -353,7 +369,7 @@ func vpnUpCmd() *cobra.Command {
 			var warn []string
 			if v.Kind == "openvpn" {
 				for _, x := range st.Sessions {
-					if xv := st.Vpns[x.Vpn]; xv != nil && xv.Kind == "openvpn" && netx.Alive(x.PID) {
+					if xv := st.Vpns[x.Vpn]; xv != nil && xv.OSMode && netx.SessionAlive(x) {
 						warn = append(warn, "OpenVPN "+x.Vpn+" is also connected; if both use the same addresses, one will not work")
 					}
 				}
@@ -449,7 +465,7 @@ func vpnStatusCmd() *cobra.Command {
 			rows := []vpnStatusRow{}
 			for _, v := range st.SortedVpns() {
 				r := vpnStatusRow{Name: v.Name, Kind: v.Kind, MFA: v.MFA, UsedBy: vpnUsers(st, v.Name)}
-				if s := st.Sessions[v.Name]; s != nil && netx.Alive(s.PID) {
+				if s := st.Sessions[v.Name]; s != nil && netx.SessionAlive(s) {
 					r.Up, r.Since, r.LastUsed, r.Socks = true, s.StartedAt, s.LastUsed, s.Socks
 				}
 				rows = append(rows, r)
@@ -515,4 +531,94 @@ func vpnServeCmd() *cobra.Command {
 			}
 		},
 	}
+}
+
+//go:embed ovpn/Dockerfile ovpn/entrypoint.sh ovpn/up.sh ovpn/sockd.conf
+var ovpnFiles embed.FS
+
+// ovpnImage names the container image; bump it when ovpn/ changes.
+const ovpnImage = "komando-openvpn:1"
+
+// ensureOVPNImage builds komando's OpenVPN image once, from files inside
+// the komando binary (Alpine's openvpn and dante packages).
+func ensureOVPNImage(ctx context.Context) error {
+	if exec.CommandContext(ctx, "docker", "image", "inspect", ovpnImage).Run() == nil {
+		return nil
+	}
+	dir, err := os.MkdirTemp("", "komando-ovpn-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	for _, f := range []string{"Dockerfile", "entrypoint.sh", "up.sh", "sockd.conf"} {
+		b, _ := ovpnFiles.ReadFile("ovpn/" + f)
+		if err := os.WriteFile(filepath.Join(dir, f), b, 0o644); err != nil {
+			return err
+		}
+	}
+	fmt.Fprintln(os.Stderr, "building the OpenVPN container image (once)...")
+	b, err := exec.CommandContext(ctx, "docker", "build", "-q", "-t", ovpnImage, dir).CombinedOutput()
+	if err != nil {
+		return out.Errf(out.ExitError, "VPN_IMAGE", "check that Docker runs (`docker info`)", "building %s: %v: %s", ovpnImage, err, strings.TrimSpace(string(b)))
+	}
+	return nil
+}
+
+// openvpnContainer runs OpenVPN in a container with a SOCKS port on
+// 127.0.0.1, so only komando's connections use the VPN.
+func openvpnContainer(ctx context.Context, v *store.Vpn, dir, password string, s *store.VpnSession, timeout time.Duration) error {
+	cfg, err := vault.Resolve(v.ConfigRef)
+	if err != nil {
+		return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "add the VPN again with --config", "VPN %s: %v", v.Name, err)
+	}
+	if err := checkOVPN(cfg); err != nil {
+		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "add the VPN again without that line", "VPN %s: %v", v.Name, err)
+	}
+	if err := ensureOVPNImage(ctx); err != nil {
+		return err
+	}
+	mount := filepath.Join(dir, v.Name+"-openvpn")
+	if err := os.MkdirAll(mount, 0o700); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(mount, "config.ovpn"), []byte(cfg), 0o600); err != nil {
+		return err
+	}
+	auth := ""
+	if v.User != "" {
+		auth = v.User + "\n" + password + "\n"
+	}
+	if err := os.WriteFile(filepath.Join(mount, "auth"), []byte(auth), 0o600); err != nil {
+		return err
+	}
+	port, err := freePort()
+	if err != nil {
+		return err
+	}
+	name := "komando-vpn-" + v.Name
+	_ = exec.Command("docker", "rm", "-f", name).Run()
+	run := exec.CommandContext(ctx, "docker", "run", "-d", "--name", name,
+		"--cap-add", "NET_ADMIN", "--device", "/dev/net/tun",
+		"--add-host", "host.docker.internal:host-gateway",
+		"-p", fmt.Sprintf("127.0.0.1:%d:1080", port), "-v", mount+":/vpn:ro", ovpnImage)
+	if b, err := run.CombinedOutput(); err != nil {
+		return netx.Down(v, fmt.Errorf("docker run: %v: %s", err, strings.TrimSpace(string(b))))
+	}
+	s.Container, s.Socks = name, fmt.Sprintf("127.0.0.1:%d", port)
+	fail := func(why string) error {
+		logs, _ := exec.Command("docker", "logs", "--tail", "20", name).CombinedOutput()
+		_ = exec.Command("docker", "rm", "-f", name).Run()
+		return netx.Down(v, fmt.Errorf("%s: %s", why, strings.TrimSpace(string(logs))))
+	}
+	ready := waitFor(timeout, func() bool {
+		b, _ := exec.Command("docker", "logs", name).CombinedOutput()
+		return strings.Contains(string(b), "OPENVPN_READY") || strings.Contains(string(b), "OPENVPN_FAILED") || !netx.SessionAlive(s)
+	})
+	if b, _ := exec.Command("docker", "logs", name).CombinedOutput(); !ready || !strings.Contains(string(b), "OPENVPN_READY") {
+		return fail("OpenVPN did not connect")
+	}
+	if !waitFor(10*time.Second, func() bool { return listening(s.Socks) }) {
+		return fail("the SOCKS port did not open")
+	}
+	return nil
 }

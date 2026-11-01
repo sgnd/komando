@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"sort"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -51,7 +52,7 @@ var Kinds = map[string]Kind{
 	"anyconnect":    {Desc: "Cisco AnyConnect / ocserv", Session: true, Client: []string{"openconnect", "ocproxy"}, Protocol: "anyconnect"},
 	"pulse":         {Desc: "Pulse Secure / Ivanti Connect Secure", Session: true, Client: []string{"openconnect", "ocproxy"}, Protocol: "pulse"},
 	"f5":            {Desc: "F5 BIG-IP SSL VPN", Session: true, Client: []string{"openconnect", "ocproxy"}, Protocol: "f5"},
-	"openvpn":       {Desc: "OpenVPN, also Pritunl profiles (runs as root through sudo; changes routes)", Session: true, Client: []string{"openvpn", "sudo"}},
+	"openvpn":       {Desc: "OpenVPN, also Pritunl profiles (runs in a Docker container; --os-mode runs it on the computer with sudo)", Session: true, Client: []string{"docker"}},
 }
 
 // KindNames lists the kinds, sorted.
@@ -86,7 +87,7 @@ func LiveSession(v *store.Vpn) *store.VpnSession {
 		return nil
 	}
 	idle, _ := time.ParseDuration(st.Settings.VpnIdle)
-	if !Alive(s.PID) || (idle > 0 && time.Since(s.LastUsed) > idle) {
+	if !SessionAlive(s) || (idle > 0 && time.Since(s.LastUsed) > idle) {
 		StopSession(s)
 		_ = store.Update(func(st *store.State) error { delete(st.Sessions, v.Name); return nil })
 		return nil
@@ -119,8 +120,22 @@ func Terminate(pid int) error {
 	return syscall.Kill(pid, syscall.SIGTERM)
 }
 
-// StopSession ends a session's process (through sudo for OS-mode ones).
+// SessionAlive reports whether a session's process or container runs.
+func SessionAlive(s *store.VpnSession) bool {
+	if s.Container != "" {
+		b, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", s.Container).Output()
+		return err == nil && strings.TrimSpace(string(b)) == "true"
+	}
+	return Alive(s.PID)
+}
+
+// StopSession ends a session's process or container (through sudo for
+// OS-mode ones).
 func StopSession(s *store.VpnSession) {
+	if s.Container != "" {
+		_ = exec.Command("docker", "rm", "-f", s.Container).Run()
+		return
+	}
 	if s.PID <= 1 {
 		return
 	}
