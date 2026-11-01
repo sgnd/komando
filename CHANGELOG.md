@@ -86,6 +86,33 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   (HashiCorp Vault), `aws-sm:NAME[#KEY]` (AWS Secrets Manager) and
   `gcp-sm:NAME[@PROJECT]` (Google Secret Manager). komando runs that tool's
   CLI when it needs the value and never stores it.
+### Registry copy (v0.6)
+
+- `komando registry copy SRC:IMAGE DST:[IMAGE]` copies an image between
+  registries or repositories with every platform, keeping the digest.
+  Layers already at the destination are skipped, layers within one registry
+  are mounted, credentials never go to another host (e.g. an upload
+  redirect), and only the destination is guarded (`--yes` when protected).
+
+### Database shell (v0.7)
+
+- `komando db shell CONN` opens psql, mysql or sqlite3 on this computer,
+  connected through the conn's `--via` path, with the password in the
+  client's environment. Read-only unless `--write` (PostgreSQL
+  default_transaction_read_only, MySQL session READ ONLY, sqlite3
+  -readonly); protected conns need `--yes` for `--write`. PostgreSQL keeps
+  verifying the certificate's host name through the forward (PGHOSTADDR).
+  For people only: without a terminal it refuses with NEEDS_TERMINAL.
+
+### File servers in storage (v0.7)
+
+- `komando storage` also works with FTPS (`ftps://`, TLS on control and data
+  connections), SFTP (`sftp://`, for shell-less accounts; host keys checked
+  like SSH hosts) and FTP (`ftp://`, refused without `?insecure=1` because
+  it sends the password unencrypted). ls, download, upload and rm behave as
+  for buckets; uploads go to a temporary name and are renamed into place,
+  creating missing folders; keys cannot leave the conn's folder. All of it
+  works through `--via` bastions and VPNs.
 
 ### Container registries (v0.6)
 

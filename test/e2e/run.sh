@@ -5,6 +5,11 @@
 #   make e2e            (or)   test/e2e/run.sh
 #
 # Needs: docker (with compose), go, python3. Set KEEP=1 to keep containers.
+#
+# Several runs can share one machine (e.g. one per git worktree) when each
+# sets its own project name and host ports:
+#   E2E_PROJECT=komando-e2e-b E2E_SSH_BASTION=3222 E2E_SSH_DIRECT=3223 \
+#   E2E_SSH_SWARM=3224 E2E_REGISTRY=6005 E2E_SOCKS=19080 make e2e
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -13,13 +18,16 @@ K="$ROOT/bin/komando"
 KOMANDO_HOME="$(mktemp -d)"
 export KOMANDO_HOME
 export KOMANDO_ACTOR="e2e"
-PROJECT=komando-e2e
+PROJECT=${E2E_PROJECT:-komando-e2e}
+export E2E_SSH_BASTION=${E2E_SSH_BASTION:-2222} E2E_SSH_DIRECT=${E2E_SSH_DIRECT:-2223}
+export E2E_SSH_SWARM=${E2E_SSH_SWARM:-2224} E2E_REGISTRY=${E2E_REGISTRY:-5005}
+E2E_SOCKS=${E2E_SOCKS:-18080}
 PASS=0
 FAIL=0
 
 cleanup() {
   [ "${KEEP:-0}" = 1 ] || docker compose -p "$PROJECT" -f "$E2E/compose.yml" down -v >/dev/null 2>&1 || true
-  pkill -f "komando tunnel serve" >/dev/null 2>&1 || true
+  "$K" tunnel stop --all >/dev/null 2>&1 || true # only this run's tunnels
   rm -rf "$KOMANDO_HOME"
 }
 trap cleanup EXIT
@@ -38,13 +46,13 @@ echo "==> build"
 echo "==> start containers"
 docker compose -p "$PROJECT" -f "$E2E/compose.yml" up -d --build --wait >/dev/null 2>&1 \
   || docker compose -p "$PROJECT" -f "$E2E/compose.yml" up -d --build >/dev/null
-for _ in $(seq 1 30); do nc -z 127.0.0.1 2222 2>/dev/null && nc -z 127.0.0.1 2223 2>/dev/null && break; sleep 1; done
+for _ in $(seq 1 30); do nc -z 127.0.0.1 "$E2E_SSH_BASTION" 2>/dev/null && nc -z 127.0.0.1 "$E2E_SSH_DIRECT" 2>/dev/null && break; sleep 1; done
 sleep 1
 
 echo "==> inventory & vault"
 echo -n agentpass | $K secret set agent-pass >/dev/null
-$K host add bastion agent@127.0.0.1:2222 --password-ref secret:agent-pass -g lab >/dev/null
-$K host add direct agent@127.0.0.1:2223 --password-ref secret:agent-pass -g lab -t test >/dev/null
+$K host add bastion "agent@127.0.0.1:$E2E_SSH_BASTION" --password-ref secret:agent-pass -g lab >/dev/null
+$K host add direct "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent-pass -g lab -t test >/dev/null
 $K host add target agent@target --via bastion --password-ref secret:agent-pass -g lab --protected >/dev/null
 check "host list count" 3 "$($K host list | jget 'd["data"]["count"]')"
 check "secret never printed" False "$($K secret get agent-pass | jget '"value" in d["data"]')"
@@ -158,6 +166,19 @@ check "storage ls via bastion" 2026/obj.txt "$($K storage ls bucket --recursive 
 q $K storage download bucket 2026/obj.txt --to "$TMP/obj-back.txt"
 check "storage round trip" backup-data "$(cat "$TMP/obj-back.txt")"
 
+# file servers through the bastion: SFTP (shell-less account) and FTPS (TLS required)
+echo -n deploypass | $K secret set files-pass >/dev/null
+q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref secret:files-pass
+q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref secret:files-pass
+for c in files-sftp files-ftps; do
+  q $K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt
+  check "$c upload creates folders" 2026/11/obj.txt "$($K storage ls "$c" --recursive | jget '[o["key"] for o in d["data"]["objects"] if not o.get("dir")][0]')"
+  check "$c upload replaces" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["data"]["replaced"]')"
+  q $K storage download "$c" 2026/11/obj.txt --to "$TMP/$c.txt"
+  check "$c round trip" backup-data "$(cat "$TMP/$c.txt")"
+  set +e; $K storage rm "$c" 2026/11/obj.txt >/dev/null; check "$c rm needs --allow-dangerous" 6 $?; set -e
+done
+
 # one inventory: targets pick servers and conns together
 echo "==> servers and conns together"
 q $K group add stack 'bastion,pg,cache'
@@ -207,7 +228,7 @@ q $K cluster rm lab-k3s deployment web --allow-dangerous
 
 # Docker Swarm (a one-node manager, Docker-in-Docker, over SSH)
 echo "==> cluster (Docker Swarm)"
-q $K host add swarm1 agent@127.0.0.1:2224 --password-ref secret:agent-pass
+q $K host add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --password-ref secret:agent-pass
 for _ in $(seq 1 60); do $K exec swarm1 --read-only -- docker node ls >/dev/null 2>&1 && break; sleep 2; done
 check "swarm status" True "$($K cluster status swarm1 | jget 'd["data"]["results"][0]["ok"]')"
 cat > "$TMP/stack.yml" <<'YAML'
@@ -226,19 +247,21 @@ q $K cluster rm swarm1 stack e2e --allow-dangerous
 
 # container registry (registry:2 on the private network, through the bastion)
 echo "==> registry"
-docker tag busybox:1.37 127.0.0.1:5005/tools/busybox:1.37 && docker push -q 127.0.0.1:5005/tools/busybox:1.37 >/dev/null
+docker tag busybox:1.37 "127.0.0.1:$E2E_REGISTRY"/tools/busybox:1.37 && docker push -q "127.0.0.1:$E2E_REGISTRY"/tools/busybox:1.37 >/dev/null
 q $K conn add reg 'registry://e2e@registry:5000?tls=false' --via bastion
 check "registry catalog" True "$($K registry ls reg | jget '"tools/busybox" in d["data"]["repositories"]')"
 check "registry tags" 1.37 "$($K registry ls reg tools/busybox | jget 'd["data"]["tags"][0]')"
 check "registry inspect digest" True "$($K registry inspect reg tools/busybox:1.37 | jget 'd["data"]["digest"].startswith("sha256:")')"
+q $K registry copy reg:tools/busybox:1.37 reg:mirror/busybox:stable
+check "registry copy keeps the digest" "$($K registry inspect reg tools/busybox:1.37 | jget 'd["data"]["digest"]')" "$($K registry inspect reg mirror/busybox:stable | jget 'd["data"]["digest"]')"
 set +e; $K registry rm reg tools/busybox:1.37 >/dev/null; check "registry rm needs --allow-dangerous" 6 $?; set -e
 q $K registry rm reg tools/busybox:1.37 --allow-dangerous
 check "registry rm removed it" REGISTRY_NOT_FOUND "$($K registry inspect reg tools/busybox:1.37 | jget 'd["error"]["code"]' || true)"
 
 # VPNs: a SOCKS proxy (komando's own, through the bastion) and an OS VPN check
 echo "==> VPNs"
-q $K tunnel start bastion -D 127.0.0.1:18080
-q $K vpn add lab socks --address 127.0.0.1:18080 --check pg:5432
+q $K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"
+q $K vpn add lab socks --address "127.0.0.1:$E2E_SOCKS" --check pg:5432
 q $K conn add pg-lab 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref secret:pg-pass
 check "db through a SOCKS VPN" 1 "$($K db query pg-lab 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K host add target-lab agent@target --via lab --password-ref secret:agent-pass

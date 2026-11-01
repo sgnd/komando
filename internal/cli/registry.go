@@ -30,7 +30,7 @@ func registryCmd() *cobra.Command {
 or ` + "`komando import docker`" + ` (from ~/.docker/config.json). ls and inspect
 only read; rm deletes an image and needs --allow-dangerous.`,
 	}
-	c.AddCommand(registryLsCmd(), registryInspectCmd(), registryRmCmd())
+	c.AddCommand(registryLsCmd(), registryInspectCmd(), registryCopyCmd(), registryRmCmd())
 	return c
 }
 
@@ -52,20 +52,11 @@ func withRegistry(ctx context.Context, name, expr string, risk driver.Risk, extr
 		}
 		return err
 	}
-	a, err := openAccess(ctx, st, c)
+	rc, closeRC, err := openRegistry(ctx, st, c)
 	if err != nil {
 		return err
 	}
-	defer a.Close()
-	host, port, _ := net.SplitHostPort(a.Target.Address)
-	if port != "443" {
-		host = a.Target.Address
-	}
-	var dial func(ctx context.Context, network, addr string) (net.Conn, error)
-	if a.Dial != nil {
-		dial = a.Dial
-	}
-	rc := registry.New(host, a.Target.TLS == "false", a.Target.User, a.Password, dial)
+	defer closeRC()
 	res, err := fn(ctx, c, rc)
 	if err != nil {
 		err = registryErr(err)
@@ -82,6 +73,23 @@ func withRegistry(ctx context.Context, name, expr string, risk driver.Risk, extr
 	}
 	out.P.Print(name, res, nil)
 	return nil
+}
+
+// openRegistry makes a client for a registry conn, through its --via path.
+func openRegistry(ctx context.Context, st *store.State, c *store.Conn) (*registry.Client, func(), error) {
+	a, err := openAccess(ctx, st, c)
+	if err != nil {
+		return nil, nil, err
+	}
+	host, port, _ := net.SplitHostPort(a.Target.Address)
+	if port != "443" {
+		host = a.Target.Address
+	}
+	var dial func(ctx context.Context, network, addr string) (net.Conn, error)
+	if a.Dial != nil {
+		dial = a.Dial
+	}
+	return registry.New(host, a.Target.TLS == "false", a.Target.User, a.Password, dial), a.Close, nil
 }
 
 func registryErr(err error) error {

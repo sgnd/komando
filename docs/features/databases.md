@@ -94,6 +94,28 @@ Seatbelts:
 SQL from a file: `komando db query prod-db --file report.sql` (`--file -`
 reads stdin).
 
+### Interactive shell (for people)
+
+```bash
+komando db shell staging-db           # psql / mysql / sqlite3, starts read-only
+komando db shell staging-db --write   # allow changes
+komando db shell prod-db --yes        # any shell on a protected conn needs --yes
+```
+
+`db shell` opens the database's own client on this computer, already
+connected (through the conn's `--via` path when it has one). The session is
+read-only unless you add `--write`: the database refuses changes, just like
+`db query`. That protects against accidents only: inside the client a
+person can switch read-only off (and shell escapes such as `\!` see the
+password), which is why a protected conn needs `--yes` even for a read-only
+shell. The password reaches the client through its environment, never its
+command line. Ctrl-C goes to the client (to cancel a query), not to komando.
+
+You need the client installed here: `psql` (package `postgresql-client`),
+`mysql` (`mysql-client` or `mariadb-client`) or `sqlite3`. It is for people
+at a terminal; agents and scripts get `NEEDS_TERMINAL` and use `db query`,
+which returns JSON and checks every statement.
+
 ### Backups
 
 ```bash

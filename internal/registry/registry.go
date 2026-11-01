@@ -60,31 +60,49 @@ func (e *Error) Error() string { return fmt.Sprintf("%s (%d): %s", e.Code, e.Sta
 // Do sends a request with auth, retrying once with a token if the registry
 // asks for one.
 func (c *Client) Do(ctx context.Context, method, path string, q url.Values, accept string) (*http.Response, error) {
-	scope := scopeFor(path, method)
+	u := *c.Base
+	u.Path, u.RawQuery = path, q.Encode()
+	return c.Send(ctx, method, &u, accept, "", nil, 0)
+}
+
+// Send is Do for any URL on the registry (upload locations are absolute)
+// and with an optional body. A body cannot be sent twice, so callers get
+// the token first with a body-less request in the same scope.
+func (c *Client) Send(ctx context.Context, method string, u *url.URL, accept, contentType string, body io.Reader, size int64) (*http.Response, error) {
+	scope := scopeFor(u.Path, method)
+	// credentials go only to this registry, over its own scheme (never
+	// downgraded to http), whatever an upload Location says
+	sameHost := u.Scheme == c.Base.Scheme && hostPort(u) == hostPort(c.Base)
 	for attempt := 0; attempt < 2; attempt++ {
-		u := *c.Base
-		u.Path, u.RawQuery = path, q.Encode()
-		req, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
+		req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
 		if err != nil {
 			return nil, err
+		}
+		if body != nil {
+			req.ContentLength = size
 		}
 		req.Header.Set("User-Agent", "komando")
 		if accept != "" {
 			req.Header.Set("Accept", accept)
 		}
+		if contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
 		c.mu.Lock()
 		tok := c.tokens[scope]
 		c.mu.Unlock()
-		if tok != "" {
+		switch {
+		case !sameHost:
+		case tok != "":
 			req.Header.Set("Authorization", "Bearer "+tok)
-		} else if c.User != "" {
+		case c.User != "":
 			req.SetBasicAuth(c.User, c.Password)
 		}
 		resp, err := c.http.Do(req)
 		if err != nil {
 			return nil, err
 		}
-		if resp.StatusCode == 401 && attempt == 0 {
+		if resp.StatusCode == 401 && attempt == 0 && body == nil {
 			challenge := resp.Header.Get("WWW-Authenticate")
 			resp.Body.Close()
 			if !strings.HasPrefix(strings.ToLower(challenge), "bearer ") {
@@ -119,8 +137,21 @@ func (c *Client) Do(ctx context.Context, method, path string, q url.Values, acce
 	return nil, &Error{Status: 401, Code: "UNAUTHORIZED", Message: "the registry refused the token"}
 }
 
-// scopeFor is the token scope a path needs: repository:NAME:pull (or
-// delete), or registry:catalog:*.
+// hostPort is u's host with the scheme's default port made explicit, so
+// "ghcr.io" and "ghcr.io:443" are the same place.
+func hostPort(u *url.URL) string {
+	if u.Port() != "" {
+		return strings.ToLower(u.Host)
+	}
+	port := "443"
+	if u.Scheme == "http" {
+		port = "80"
+	}
+	return strings.ToLower(net.JoinHostPort(u.Hostname(), port))
+}
+
+// scopeFor is the token scope a path needs: repository:NAME:pull (push for
+// uploads, delete for deletes), or registry:catalog:*.
 func scopeFor(path, method string) string {
 	if path == "/v2/_catalog" {
 		return "registry:catalog:*"
@@ -129,8 +160,11 @@ func scopeFor(path, method string) string {
 	for _, sep := range []string{"/manifests/", "/tags/list", "/blobs/"} {
 		if i := strings.Index(rest, sep); i > 0 {
 			action := "pull"
-			if method == "DELETE" {
+			switch method {
+			case "DELETE":
 				action = "delete"
+			case "POST", "PUT", "PATCH":
+				action = "pull,push"
 			}
 			return "repository:" + rest[:i] + ":" + action
 		}
@@ -148,6 +182,10 @@ func (c *Client) token(ctx context.Context, challenge, scope string) (string, er
 	realm, err := url.Parse(params["realm"])
 	if err != nil || realm.Host == "" {
 		return "", fmt.Errorf("bad auth challenge %q", challenge)
+	}
+	if realm.Scheme != "https" && c.Base.Scheme == "https" {
+		// the password would travel in clear to the token service
+		return "", &Error{Status: 401, Code: "UNAUTHORIZED", Message: "the registry's token service is not https: " + realm.String()}
 	}
 	q := realm.Query()
 	if params["service"] != "" {
