@@ -138,9 +138,12 @@ func isProgram(pid int, exe string) bool {
 	if exe == "" {
 		return true
 	}
-	b, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output()
+	// Linux: /proc/PID/comm (no ps needed in small images); others: ps
+	b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/comm")
 	if err != nil {
-		return false
+		if b, err = exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output(); err != nil {
+			return false
+		}
 	}
 	name := filepath.Base(strings.TrimSpace(string(b)))
 	want := exe

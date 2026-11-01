@@ -4,6 +4,16 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### VPN clients tested against real servers
+
+- `make e2e-vpnclients` runs, all in Docker: ocserv (the AnyConnect
+  protocol, the path the whole openconnect family uses) and Headscale with
+  a Tailscale node. komando connects on demand, `--mfa` VPNs ask for a
+  person, the Tailscale auth key is on no command line, and `vpn down`
+  stops the clients.
+- Session checks read the process name from /proc on Linux (small images
+  have no `ps`, which made every session look dead).
+
 ### Subnet clashes
 
 - `vpn up` for VPNs that change the computer's routes (OpenVPN

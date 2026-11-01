@@ -185,8 +185,8 @@ Tunnel berjalan di latar dan memegang jalurnya (VPN dan bastion) selama hidup.
 | Fase | Isi | Status |
 |---|---|---|
 | 0 | `--via` untuk semua target, `tunnel start TARGET`, `vpn add/show/rm`, kind `wireguard`/`socks`/`system`, VPN di `list`/`test`/selector | ✅ dites end-to-end |
-| 1 | `vpn up/down/status`, sesi di latar per VPN dengan putus otomatis; kind `tailscale` | ✅ (tailscale belum dites dengan tailnet sungguhan) |
-| 2 | Keluarga openconnect (GlobalProtect, Fortinet, AnyConnect, Pulse, F5) lewat `ocproxy`; `doctor` mengecek kliennya; `VPN_LOGIN_REQUIRED` untuk VPN dengan MFA | ✅ (belum dites dengan server VPN sungguhan) |
+| 1 | `vpn up/down/status`, sesi di latar per VPN dengan putus otomatis; kind `tailscale` | ✅ dites dengan Headscale sungguhan (`make e2e-vpnclients`) |
+| 2 | Keluarga openconnect (GlobalProtect, Fortinet, AnyConnect, Pulse, F5) lewat `ocproxy`; `doctor` mengecek kliennya; `VPN_LOGIN_REQUIRED` untuk VPN dengan MFA | ✅ dites dengan ocserv (protokol AnyConnect) sungguhan; protokol lain memakai jalur kode yang sama |
 | 3 | OpenVPN/Pritunl di container Docker, tanpa mengubah jaringan laptop; `--os-mode` opsional | ✅ dites dengan server OpenVPN sungguhan (`make e2e-openvpn`) |
 | 4 | L2TP/IPsec dan VPN bawaan OS lewat `system --service` (scutil/nmcli); peringatan subnet bentrok untuk OpenVPN mode OS | ✅ peringatan bentrok membandingkan tabel rute sebelum dan sesudah tersambung |
 
