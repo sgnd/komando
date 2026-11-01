@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
@@ -303,25 +304,39 @@ func policyCmd() *cobra.Command {
 			for _, r := range policy.Rules() {
 				rules = append(rules, map[string]string{"id": r.ID, "reason": r.Reason, "pattern": policy.Pattern(r)})
 			}
-			out.P.Print("policy.list", map[string]any{"builtin": rules, "custom": st.Settings.ExtraDenyPattern,
-				"note": "guardrails catch common accidents; they are not a security boundary. Protected hosts additionally need --yes for any mutating action."}, nil)
+			out.P.Print("policy.list", map[string]any{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "sql": driver.SQLRules(),
+				"note": "guardrails catch common accidents; they are not a security boundary. Protected hosts and conns additionally need --yes for any mutating action. " +
+					"SQL without --write also runs in a read-only transaction, so the database itself refuses writes."}, nil)
 			return nil
 		},
 	})
-	c.AddCommand(&cobra.Command{
+	var sqlKind string
+	check := &cobra.Command{
 		Use:   "check COMMAND",
-		Short: "Test whether a command would be blocked",
-		Args:  cobra.MinimumNArgs(1),
+		Short: "Test whether a shell command would be blocked, or classify SQL with --sql KIND",
+		Example: `  komando policy check 'rm -rf /var/www'
+  komando policy check --sql postgres 'delete from users'`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
+			if sqlKind != "" {
+				plan, err := driver.ClassifySQL(sqlKind, strings.Join(args, " "))
+				if err != nil {
+					return err
+				}
+				out.P.Print("policy.check", plan, nil)
+				return nil
+			}
 			hits := policy.Check(strings.Join(args, " "), st.Settings.ExtraDenyPattern)
 			out.P.Print("policy.check", map[string]any{"blocked": len(hits) > 0, "matches": hits}, nil)
 			return nil
 		},
-	})
+	}
+	check.Flags().StringVar(&sqlKind, "sql", "", "classify the argument as SQL for this conn kind (postgres, mysql, sqlite)")
+	c.AddCommand(check)
 	c.AddCommand(&cobra.Command{
 		Use:     "deny REGEX",
 		Short:   "Add a custom deny pattern (Go regexp)",

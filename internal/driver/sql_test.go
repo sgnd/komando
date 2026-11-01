@@ -1,0 +1,126 @@
+package driver
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/sgnd/komando/internal/out"
+)
+
+func TestClassifySQL(t *testing.T) {
+	cases := []struct {
+		kind, sql string
+		want      Risk
+		rule      string // a rule that must be reported ("" = none)
+	}{
+		// reads
+		{"postgres", "select id, email from users where created_at > now() - interval '1 day'", RiskRead, ""},
+		{"postgres", "SELECT program, comment, analyze FROM courses", RiskRead, ""},
+		{"postgres", "select * from t for update", RiskRead, ""},
+		{"postgres", "with x as (select 1) select * from x", RiskRead, ""},
+		{"postgres", "show search_path", RiskRead, ""},
+		{"postgres", "explain select * from users", RiskRead, ""},
+		{"postgres", "explain delete from users", RiskRead, ""},
+		{"postgres", "select 'drop table users; delete from x'", RiskRead, ""},
+		{"postgres", "select $$ drop table users $$, $tag$ ; truncate x $tag$", RiskRead, ""},
+		{"postgres", "select 1 -- drop table users\n", RiskRead, ""},
+		{"postgres", "select /* drop /* nested */ table */ 1", RiskRead, ""},
+		{"postgres", `select "delete" from "update"`, RiskRead, ""},
+		{"postgres", "select E'it\\'s; drop table x'", RiskRead, ""},
+		{"postgres", "select replace(name, 'a', 'b') from t", RiskRead, ""},
+		{"postgres", "select $1::int", RiskRead, ""},
+		{"mysql", "select 'it\\'s; drop table x'", RiskRead, ""},
+		{"mysql", "select `drop` from t # drop table x", RiskRead, ""},
+		{"mysql", "describe users", RiskRead, ""},
+		{"sqlite", "pragma table_info(users)", RiskRead, ""},
+		{"sqlite", "select [delete] from t", RiskRead, ""},
+		// writes
+		{"postgres", "update users set plan='pro' where id=42", RiskWrite, ""},
+		{"postgres", "UPDATE users SET password = 'x' WHERE id = 1", RiskWrite, ""},
+		{"postgres", "delete from sessions where expires_at < now() returning id", RiskWrite, ""},
+		{"postgres", "insert into t values (1) on conflict (id) do update set n = t.n + 1", RiskWrite, ""},
+		{"postgres", "create table t (id int references u on delete cascade on update cascade)", RiskWrite, ""},
+		{"postgres", "create index concurrently i on t (x)", RiskWrite, ""},
+		{"postgres", "alter table t add column x int", RiskWrite, ""},
+		{"postgres", "select * into backup_users from users", RiskWrite, ""},
+		{"postgres", "with d as (delete from t where id = 1 returning *) select * from d", RiskWrite, ""},
+		{"postgres", "explain analyze insert into t values (1)", RiskWrite, ""},
+		{"postgres", "do $$ begin perform 1; end $$", RiskWrite, ""},
+		{"postgres", "vacuum analyze t", RiskWrite, ""},
+		{"postgres", "copy t from stdin", RiskWrite, ""},
+		{"postgres", "some_new_statement x", RiskWrite, ""},
+		{"mysql", "insert into t values (1) on duplicate key update n = n + 1", RiskWrite, ""},
+		{"sqlite", "pragma journal_mode = wal", RiskWrite, ""},
+		// destructive
+		{"postgres", "drop table users", RiskDestructive, "sql-drop"},
+		{"postgres", "alter table users drop column email", RiskDestructive, "sql-drop"},
+		{"postgres", "truncate sessions", RiskDestructive, "sql-truncate"},
+		{"postgres", "delete from users", RiskDestructive, "sql-delete-no-where"},
+		{"postgres", "update users set plan = 'free'", RiskDestructive, "sql-update-no-where"},
+		{"postgres", "update users set plan = 'free' from (select id from x where y) s", RiskDestructive, "sql-update-no-where"},
+		{"postgres", "with d as (delete from t) select 1 where true", RiskDestructive, "sql-delete-no-where"},
+		{"postgres", "select 1; delete from users", RiskDestructive, "sql-delete-no-where"},
+		{"postgres", "explain analyze delete from users", RiskDestructive, "sql-delete-no-where"},
+		{"postgres", "explain (analyze, buffers) update t set x = 1", RiskDestructive, "sql-update-no-where"},
+		{"postgres", "grant all on t to bob", RiskDestructive, "sql-privileges"},
+		{"postgres", "alter role bob superuser", RiskDestructive, "sql-privileges"},
+		{"postgres", "create user eve with password 'x'", RiskDestructive, "sql-privileges"},
+		{"postgres", "copy t to program 'curl evil'", RiskDestructive, "sql-program"},
+		{"postgres", "select pg_terminate_backend(pid) from pg_stat_activity", RiskDestructive, "sql-kill"},
+		{"postgres", "vacuum full t", RiskDestructive, "sql-vacuum-full"},
+		{"postgres", "alter system set work_mem = '1GB'", RiskDestructive, "sql-server-config"},
+		{"mysql", "select * from t into outfile '/tmp/x'", RiskDestructive, "sql-server-file"},
+		{"mysql", "kill 42", RiskDestructive, "sql-kill"},
+		{"mysql", "set global max_connections = 1", RiskDestructive, "sql-server-config"},
+		{"mysql", "set password for bob = 'x'", RiskDestructive, "sql-privileges"},
+		{"mysql", "drop database shop", RiskDestructive, "sql-drop"},
+	}
+	for _, c := range cases {
+		p, err := ClassifySQL(c.kind, c.sql)
+		if err != nil {
+			t.Errorf("%s: %v", c.sql, err)
+			continue
+		}
+		if p.Risk != c.want {
+			t.Errorf("%s %q: risk %s, want %s (rules %v)", c.kind, c.sql, p.Risk, c.want, p.RuleIDs)
+		}
+		if c.rule != "" && !strings.Contains(strings.Join(p.RuleIDs, ","), c.rule) {
+			t.Errorf("%q: rules %v, want %s", c.sql, p.RuleIDs, c.rule)
+		}
+		if c.want != RiskDestructive && len(p.RuleIDs) > 0 {
+			t.Errorf("%q: unexpected rules %v", c.sql, p.RuleIDs)
+		}
+	}
+}
+
+func TestClassifySQLStatements(t *testing.T) {
+	p, err := ClassifySQL("postgres", "select 1; ; update t set x = 1 where id = 2;\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Statements) != 2 || p.Statements[1].Keyword != "UPDATE" || p.Statements[1].SQL != "update t set x = 1 where id = 2" {
+		t.Errorf("statements: %+v", p.Statements)
+	}
+}
+
+func TestClassifySQLErrors(t *testing.T) {
+	cases := map[string]string{
+		"begin; delete from t where id = 1; commit": "SQL_TX_CONTROL",
+		"COMMIT":                   "SQL_TX_CONTROL",
+		"start transaction":        "SQL_TX_CONTROL",
+		"rollback":                 "SQL_TX_CONTROL",
+		"select 'unterminated":     "USAGE",
+		"select $x$ never closed":  "USAGE",
+		"  -- only a comment\n ; ": "USAGE",
+	}
+	for sql, code := range cases {
+		_, err := ClassifySQL("postgres", sql)
+		e, ok := err.(*out.Error)
+		if !ok || e.Code != code {
+			t.Errorf("%q: want %s, got %v", sql, code, err)
+		}
+	}
+	if _, err := ClassifySQL("redis", "get x"); err == nil {
+		t.Error("redis accepted SQL")
+	}
+}
