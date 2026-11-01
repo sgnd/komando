@@ -31,6 +31,11 @@ services:
   s3:
     build: garage
     networks: [private]
+  registry:
+    image: registry:2
+    environment: { REGISTRY_STORAGE_DELETE_ENABLED: "true" }
+    ports: ["127.0.0.1:5005:5000"]  # only to push the test image; komando reaches it through bastion
+    networks: [private, public]
   k3s:
     image: rancher/k3s:v1.33.5-k3s1
     command: ["server", "--tls-san", "k3s", "--disable", "traefik", "--disable", "metrics-server", "--disable", "servicelb"]

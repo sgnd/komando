@@ -1,0 +1,30 @@
+# Container registries
+
+See what images a registry holds and clean up old ones: Docker Hub, GHCR,
+GitLab, Harbor, ECR, or your own `registry:2`. [All features](README.md)
+
+## Add a registry
+
+```bash
+komando import docker                         # registries you are logged in to (~/.docker/config.json)
+komando secret set ghcr-token                 # or add one by hand
+komando conn add ghcr registry://myuser@ghcr.io --password-ref secret:ghcr-token
+komando conn add local 'registry://me@registry.lan:5000?tls=false' --via bastion   # no TLS, behind a bastion
+```
+
+The password is usually an access token with read (and, to delete, delete)
+rights.
+
+## Use it
+
+```bash
+komando registry ls harbor                    # repositories (Docker Hub and GHCR do not allow this)
+komando registry ls ghcr myorg/api            # tags of one repository
+komando registry inspect ghcr myorg/api:1.4.2 # digest, size, platforms, created, labels
+komando registry rm harbor myorg/api:old --allow-dangerous
+```
+
+- `rm` deletes the image the tag points at, so every other tag on the same
+  image goes too. The disk space comes back after the registry's garbage
+  collection.
+- A protected registry conn also needs `--yes` to delete.

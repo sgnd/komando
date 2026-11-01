@@ -48,7 +48,7 @@ type Verdict struct {
 // Kind is a resource type komando knows.
 type Kind struct {
 	Name        string   `json:"name"`
-	Family      string   `json:"family"` // the command that works with it: db | cache | storage | cluster
+	Family      string   `json:"family"` // the command that works with it: db | cache | storage | cluster | registry
 	Schemes     []string `json:"schemes"`
 	DefaultPort int      `json:"default_port,omitempty"`
 	File        bool     `json:"file,omitempty"` // a local file, not a network service
@@ -70,6 +70,8 @@ func init() {
 		Example: "rediss://default@cache.internal:6379/0 (rediss = TLS)"})
 	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
 		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
+	register(Kind{Name: "registry", Family: "registry", Schemes: []string{"registry", "oci"}, DefaultPort: 443,
+		Example: "registry://myuser@ghcr.io (Docker Hub: registry://myuser@docker.io; no TLS: ?tls=false)"})
 	register(Kind{Name: "s3", Family: "storage", Schemes: []string{"s3"},
 		Example: "s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1"})
 }
@@ -177,7 +179,7 @@ func Parse(raw string) (Target, error) {
 	t.Address = net.JoinHostPort(u.Hostname(), strconv.Itoa(port))
 	t.User = u.User.Username()
 	t.Database = strings.TrimPrefix(u.Path, "/")
-	if k.Name == "mysql" {
+	if k.Name == "mysql" || k.Name == "registry" {
 		t.TLS = u.Query().Get("tls")
 	}
 	if k.Name == "redis" {

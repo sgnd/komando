@@ -4,6 +4,14 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Container registries (v0.6)
+
+- `komando registry ls|inspect|rm` for Docker Hub, GHCR, GitLab, Harbor,
+  ECR and registry:2 over the OCI Distribution API (basic and token auth),
+  through `--via` paths and VPNs. `rm` deletes by digest and needs
+  `--allow-dangerous`. `komando import docker` reads
+  `~/.docker/config.json`, including credential helpers.
+
 ### Clusters (v0.5)
 
 - `komando cluster` for Kubernetes (a k8s conn) and Docker Swarm (a manager
