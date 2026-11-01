@@ -3,7 +3,7 @@
 services:
   bastion:
     build: .
-    ports: ["127.0.0.1:2222:22"]
+    ports: ["127.0.0.1:${E2E_SSH_BASTION:-2222}:22"]
     networks: [public, private]
   target:
     build: .
@@ -11,7 +11,7 @@ services:
     hostname: target
   direct:
     build: .
-    ports: ["127.0.0.1:2223:22"]
+    ports: ["127.0.0.1:${E2E_SSH_DIRECT:-2223}:22"]
     networks: [public]
     hostname: direct
   pg:
@@ -34,7 +34,7 @@ services:
   registry:
     image: registry:2
     environment: { REGISTRY_STORAGE_DELETE_ENABLED: "true" }
-    ports: ["127.0.0.1:5005:5000"]  # only to push the test image; komando reaches it through bastion
+    ports: ["127.0.0.1:${E2E_REGISTRY:-5005}:5000"]  # only to push the test image; komando reaches it through bastion
     networks: [private, public]
   k3s:
     image: rancher/k3s:v1.33.5-k3s1
