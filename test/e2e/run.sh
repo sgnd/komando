@@ -225,6 +225,8 @@ q $K conn add reg 'registry://e2e@registry:5000?tls=false' --via bastion
 check "registry catalog" True "$($K registry ls reg | jget '"tools/busybox" in d["data"]["repositories"]')"
 check "registry tags" 1.37 "$($K registry ls reg tools/busybox | jget 'd["data"]["tags"][0]')"
 check "registry inspect digest" True "$($K registry inspect reg tools/busybox:1.37 | jget 'd["data"]["digest"].startswith("sha256:")')"
+q $K registry copy reg:tools/busybox:1.37 reg:mirror/busybox:stable
+check "registry copy keeps the digest" "$($K registry inspect reg tools/busybox:1.37 | jget 'd["data"]["digest"]')" "$($K registry inspect reg mirror/busybox:stable | jget 'd["data"]["digest"]')"
 set +e; $K registry rm reg tools/busybox:1.37 >/dev/null; check "registry rm needs --allow-dangerous" 6 $?; set -e
 q $K registry rm reg tools/busybox:1.37 --allow-dangerous
 check "registry rm removed it" REGISTRY_NOT_FOUND "$($K registry inspect reg tools/busybox:1.37 | jget 'd["error"]["code"]' || true)"

@@ -49,6 +49,14 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   (HashiCorp Vault), `aws-sm:NAME[#KEY]` (AWS Secrets Manager) and
   `gcp-sm:NAME[@PROJECT]` (Google Secret Manager). komando runs that tool's
   CLI when it needs the value and never stores it.
+### Registry copy (v0.6)
+
+- `komando registry copy SRC:IMAGE DST:[IMAGE]` copies an image between
+  registries or repositories with every platform, keeping the digest.
+  Layers already at the destination are skipped, layers within one registry
+  are mounted, credentials never go to another host (e.g. an upload
+  redirect), and only the destination is guarded (`--yes` when protected).
+
 ### Database shell (v0.7)
 
 - `komando db shell CONN` opens psql, mysql or sqlite3 on this computer,
