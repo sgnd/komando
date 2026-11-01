@@ -2,7 +2,9 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"text/tabwriter"
@@ -37,7 +39,7 @@ func dbCmd() *cobra.Command {
 read-only transaction, so nothing can change. With --write, try --dry-run
 first: it runs the SQL and rolls it back, showing how many rows would change.`,
 	}
-	c.AddCommand(dbQueryCmd(), dbSchemaCmd(), dbExplainCmd())
+	c.AddCommand(dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbDumpCmd(), dbRestoreCmd())
 	return c
 }
 
@@ -369,7 +371,15 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	if err != nil {
 		return err
 	}
-	rec := map[string]any{"conns": []string{c.Name}, "risk": plan.Risk.String(), "write": f.write, "sql": query}
+	rec := map[string]any{"conns": []string{c.Name}, "risk": plan.Risk.String(), "write": f.write}
+	switch st.Settings.AuditSQL {
+	case "hash":
+		sum := sha256.Sum256([]byte(query))
+		rec["sql_sha256"] = hex.EncodeToString(sum[:])
+	case "off":
+	default:
+		rec["sql"] = query
+	}
 	if len(f.args) > 0 {
 		rec["args"] = len(f.args) // values may be personal data; record only how many
 	}

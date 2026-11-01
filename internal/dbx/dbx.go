@@ -176,7 +176,7 @@ func Run(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, o Op
 			if err := setTimeout(ctx, conn, kind, o.Timeout, false); err != nil {
 				return nil, queryErr(kind, ctx, err)
 			}
-			if err := runStatement(ctx, conn, st, o, &budget, &r); err != nil {
+			if err := runStatement(ctx, conn, kind, st, o, &budget, &r); err != nil {
 				return nil, queryErr(kind, ctx, err)
 			}
 			res.Results = append(res.Results, r)
@@ -196,7 +196,7 @@ func Run(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, o Op
 	}
 	for _, st := range plan.Statements {
 		r := StatementResult{SQL: st.SQL, Keyword: st.Keyword, Risk: st.Risk.String()}
-		if err := runStatement(ctx, tx, st, o, &budget, &r); err != nil {
+		if err := runStatement(ctx, tx, kind, st, o, &budget, &r); err != nil {
 			return nil, queryErr(kind, ctx, err)
 		}
 		res.Results = append(res.Results, r)
@@ -242,7 +242,7 @@ func setTimeout(ctx context.Context, q querier, kind string, d time.Duration, in
 	return nil
 }
 
-func runStatement(ctx context.Context, q querier, st driver.Statement, o Options, budget *int, r *StatementResult) error {
+func runStatement(ctx context.Context, q querier, kind string, st driver.Statement, o Options, budget *int, r *StatementResult) error {
 	if !st.Rows {
 		res, err := q.ExecContext(ctx, st.SQL, o.Args...)
 		if err != nil {
@@ -284,6 +284,9 @@ func runStatement(ctx context.Context, q querier, st driver.Statement, o Options
 		}
 		row := make([]any, len(vals))
 		for i, v := range vals {
+			if kind == "mysql" {
+				v = mysqlValue(v, cts[i].DatabaseTypeName())
+			}
 			row[i] = JSONValue(v)
 		}
 		if o.MaxBytes > 0 {

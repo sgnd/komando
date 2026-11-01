@@ -236,7 +236,7 @@ func configCmd() *cobra.Command {
 	})
 	c.AddCommand(&cobra.Command{
 		Use:   "set KEY VALUE",
-		Short: "Set host_key_policy|default_user|default_timeout|connect_timeout|parallel|max_output_bytes|audit",
+		Short: "Set host_key_policy|default_user|default_timeout|connect_timeout|parallel|max_output_bytes|audit|audit_sql",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var res store.Settings
@@ -271,6 +271,11 @@ func configCmd() *cobra.Command {
 					}
 				case "audit":
 					s.Settings.Audit = v == "true" || v == "on" || v == "1"
+				case "audit_sql":
+					if v != "full" && v != "hash" && v != "off" {
+						return out.Usage("audit_sql: full|hash|off (hash keeps a SHA-256 so repeated queries can be matched without storing their text)")
+					}
+					s.Settings.AuditSQL = v
 				default:
 					return out.Usage("unknown setting %q", args[0])
 				}

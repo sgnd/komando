@@ -207,8 +207,15 @@ komando tunnel stop --all
 ## Databases (conns)
 
 A **conn** is a database komando knows about, the way a host is a server
-you know about. The kind (PostgreSQL, MySQL, SQLite) comes from the start of
-the URL. Run `komando conn kinds` to see them all.
+you know about. The kind comes from the start of the URL:
+
+| Kind       | URL example |
+|------------|-------------|
+| PostgreSQL | `postgres://app@10.0.0.5:5432/app?sslmode=require` |
+| MySQL / MariaDB | `mysql://shop@db.internal:3306/shop?tls=true` |
+| SQLite     | `sqlite:///var/lib/app.db` (a file on this computer) |
+
+Run `komando conn kinds` to see them all.
 
 Never put the password in the URL; komando refuses it. Store it in the vault
 instead:
@@ -278,6 +285,29 @@ Seatbelts:
 
 SQL from a file: `komando db query prod-db --file report.sql` (`--file -`
 reads stdin).
+
+### Backups
+
+```bash
+komando db dump prod-db --to prod-2026-11-02.sql.gz      # backup to a file on this computer
+komando db restore staging-db --from prod-2026-11-02.sql.gz --write --allow-dangerous
+```
+
+- The backup file always lands on **this computer**, readable only by you.
+  An existing file is never overwritten.
+- komando uses the database's own tools: `pg_dump`/`psql` (package
+  `postgresql-client`) or `mysqldump`/`mysql` (`mysql-client`). They run on
+  the conn's `--via` server when it has one, otherwise here. If they are
+  missing, the error tells you what to install
+  (`komando pkg install web1 postgresql-client`).
+- The password goes to the tool through its environment, never on its
+  command line, so other users of the server cannot see it.
+- A restore can overwrite data, so it needs `--write` and `--allow-dangerous`
+  (and `--yes` on a protected conn). PostgreSQL restores run in one
+  transaction: if anything fails, nothing changes.
+- SQLite: `dump` copies the database file (`--to backup.db`). To restore,
+  stop the app and copy the file back.
+- Big databases take time: there is no timeout unless you pass `--timeout`.
 
 ## Network checks
 
@@ -382,13 +412,14 @@ komando config show
 komando config set parallel 20
 komando config set default_timeout 10m
 komando config set host_key_policy strict    # accept-new (default) | strict | off
+komando config set audit_sql hash            # full (default) | hash | off: keep SQL text out of the history
 ```
 
 Everything is stored in `~/.komando/` (change with `KOMANDO_HOME`):
 
 | File | Contains |
 |------|----------|
-| `state.json` | servers, keys, settings |
+| `state.json` | servers, conns, keys, settings |
 | `vault.json`, `vault.key` | encrypted secrets and their key |
 | `keys/` | SSH keys made by `komando key gen` |
 | `known_hosts` | remembered server fingerprints |

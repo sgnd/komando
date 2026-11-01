@@ -18,6 +18,13 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   conns need `--yes`. Results are structured rows, safe for JSON.
 - `komando policy list` shows the SQL rules; `komando policy check --sql KIND`
   classifies a query.
+- MySQL and MariaDB conns for `komando db`.
+- `komando db dump` and `db restore`: backups to and from a file on this
+  computer, using pg_dump/psql or mysqldump/mysql on the `--via` server (or
+  locally). The password never appears on a command line; files are 0600 and
+  never overwritten; restores need `--write --allow-dangerous`.
+- `komando config set audit_sql full|hash|off` controls how SQL text is kept
+  in the audit log.
 
 ## [0.1.0]
 

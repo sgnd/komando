@@ -53,7 +53,7 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 	case "sqlite":
 		tables, err = sqliteSchema(ctx, tx, names)
 	case "mysql":
-		tables, err = mysqlSchema(tx, names)
+		tables, err = mysqlSchema(ctx, tx, names)
 	}
 	if err != nil {
 		return nil, queryErr(kind, ctx, err)

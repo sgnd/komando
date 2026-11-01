@@ -30,18 +30,20 @@ var sqlRules = []Rule{
 	{"sql-kill", "kills sessions or shuts the server down"},
 	{"sql-vacuum-full", "VACUUM FULL locks and rewrites tables"},
 	{"sql-server-config", "changes server-wide configuration"},
+	{"db-restore", "restoring a backup can overwrite existing data"},
 }
 
 // SQLRules lists the rules ClassifySQL can report.
 func SQLRules() []Rule { return append([]Rule(nil), sqlRules...) }
 
-func sqlRule(id string) Rule {
+// RuleReason is the human explanation of a rule ID.
+func RuleReason(id string) string {
 	for _, r := range sqlRules {
 		if r.ID == id {
-			return r
+			return r.Reason
 		}
 	}
-	return Rule{ID: id}
+	return id
 }
 
 // Statement is one classified SQL statement.
@@ -234,7 +236,7 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 			if !seen[id] {
 				seen[id] = true
 				plan.RuleIDs = append(plan.RuleIDs, id)
-				plan.Reasons = append(plan.Reasons, sqlRule(id).Reason)
+				plan.Reasons = append(plan.Reasons, RuleReason(id))
 			}
 		}
 	}

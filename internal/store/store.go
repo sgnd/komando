@@ -110,6 +110,7 @@ type Settings struct {
 	MaxOutputBytes   int      `json:"max_output_bytes"`
 	ExtraDenyPattern []string `json:"extra_deny_patterns,omitempty"`
 	Audit            bool     `json:"audit"`
+	AuditSQL         string   `json:"audit_sql"` // full | hash | off: how SQL text is kept in the audit log
 }
 
 func DefaultSettings() Settings {
@@ -120,6 +121,7 @@ func DefaultSettings() Settings {
 		Parallel:       10,
 		MaxOutputBytes: 256 * 1024,
 		Audit:          true,
+		AuditSQL:       "full",
 	}
 }
 
@@ -208,6 +210,9 @@ func (s *State) init() {
 	}
 	if s.Settings.Parallel == 0 {
 		s.Settings.Parallel = d.Parallel
+	}
+	if s.Settings.AuditSQL == "" {
+		s.Settings.AuditSQL = d.AuditSQL
 	}
 	if s.Settings.MaxOutputBytes == 0 {
 		s.Settings.MaxOutputBytes = d.MaxOutputBytes

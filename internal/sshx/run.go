@@ -200,3 +200,36 @@ func Output(ctx context.Context, c *Client, cmd string, timeout time.Duration) (
 	}
 	return strings.TrimRight(r.Stdout, "\n"), r.ExitCode, nil
 }
+
+// Pipe runs cmd and streams stdin and stdout without buffering them, for
+// transfers too large for Run (database dumps). stderr is kept up to 64 KiB
+// for error messages. It returns the remote exit code.
+func Pipe(ctx context.Context, c *Client, cmd string, stdin io.Reader, stdout io.Writer) (int, string, error) {
+	sess, err := c.NewSession()
+	if err != nil {
+		return -1, "", err
+	}
+	defer sess.Close()
+	stderr := &limitedBuf{max: 64 << 10, name: "stderr"}
+	sess.Stdin, sess.Stdout, sess.Stderr = stdin, stdout, stderr
+	if err := sess.Start(cmd); err != nil {
+		return -1, "", err
+	}
+	done := make(chan error, 1)
+	go func() { done <- sess.Wait() }()
+	select {
+	case err = <-done:
+	case <-ctx.Done():
+		_ = sess.Signal(ssh.SIGTERM)
+		sess.Close()
+		return -1, stderr.buf.String(), ctx.Err()
+	}
+	var ee *ssh.ExitError
+	switch {
+	case err == nil:
+		return 0, stderr.buf.String(), nil
+	case errors.As(err, &ee):
+		return ee.ExitStatus(), stderr.buf.String(), nil
+	}
+	return -1, stderr.buf.String(), err
+}
