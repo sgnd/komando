@@ -154,8 +154,64 @@ func renderText(data any) string {
 	var v any
 	_ = json.Unmarshal(b, &v)
 	var sb strings.Builder
+	if m, ok := v.(map[string]any); ok {
+		if rs, ok := m["results"].([]any); ok {
+			writeResults(&sb, rs, m["summary"])
+			return sb.String()
+		}
+	}
 	writeAny(&sb, v, "")
 	return sb.String()
+}
+
+// writeResults renders multi-host results as one block per host:
+//
+//	● web1  ok
+//	  key: value
+func writeResults(sb *strings.Builder, rs []any, summary any) {
+	for _, r := range rs {
+		m, ok := r.(map[string]any)
+		if !ok {
+			writeAny(sb, r, "")
+			continue
+		}
+		status := "ok"
+		if m["ok"] == false {
+			status = "FAILED"
+		}
+		fmt.Fprintf(sb, "● %v  %s\n", m["host"], status)
+		rest := map[string]any{}
+		for k, val := range m {
+			if k != "host" && k != "ok" {
+				rest[k] = val
+			}
+		}
+		switch d := rest["data"].(type) {
+		case string:
+			delete(rest, "data")
+			sb.WriteString(indentLines(d, "  "))
+		case map[string]any:
+			delete(rest, "data")
+			for k, val := range d {
+				rest[k] = val
+			}
+		}
+		if rest["exit_code"] == float64(0) {
+			delete(rest, "exit_code")
+		}
+		writeAny(sb, rest, "  ")
+	}
+	if s, ok := summary.(map[string]any); ok {
+		fmt.Fprintf(sb, "\n%v ok, %v failed\n", scalar(s["ok"]), scalar(s["failed"]))
+	}
+}
+
+func indentLines(s, prefix string) string {
+	s = strings.TrimRight(s, "\n")
+	if s == "" {
+		return ""
+	}
+	return prefix + strings.ReplaceAll(s, "\n", "\n"+prefix) + "\n"
 }
 
 func writeAny(sb *strings.Builder, v any, indent string) {
@@ -167,6 +223,13 @@ func writeAny(sb *strings.Builder, v any, indent string) {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
+			if t[k] == nil {
+				continue
+			}
+			if inline, ok := scalarList(t[k]); ok {
+				fmt.Fprintf(sb, "%s%s: %s\n", indent, k, inline)
+				continue
+			}
 			switch c := t[k].(type) {
 			case map[string]any, []any:
 				fmt.Fprintf(sb, "%s%s:\n", indent, k)
@@ -179,8 +242,9 @@ func writeAny(sb *strings.Builder, v any, indent string) {
 		for _, item := range t {
 			switch item.(type) {
 			case map[string]any:
-				fmt.Fprintf(sb, "%s-\n", indent)
-				writeAny(sb, item, indent+"  ")
+				var sub strings.Builder
+				writeAny(&sub, item, indent+"  ")
+				sb.WriteString(strings.Replace(sub.String(), indent+"  ", indent+"- ", 1))
 			default:
 				fmt.Fprintf(sb, "%s- %v\n", indent, scalar(item))
 			}
@@ -198,4 +262,24 @@ func scalar(v any) any {
 		return int64(f)
 	}
 	return v
+}
+
+// scalarList renders a list of plain values on one line ("a, b, c").
+func scalarList(v any) (string, bool) {
+	l, ok := v.([]any)
+	if !ok {
+		return "", false
+	}
+	parts := make([]string, 0, len(l))
+	for _, x := range l {
+		switch x.(type) {
+		case map[string]any, []any:
+			return "", false
+		}
+		parts = append(parts, fmt.Sprint(scalar(x)))
+	}
+	if len(parts) == 0 {
+		return "-", true
+	}
+	return strings.Join(parts, ", "), true
 }

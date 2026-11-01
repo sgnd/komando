@@ -1,302 +1,141 @@
 # komando
 
-**"Remote control" berbasis command line untuk server Anda, dibuat khusus untuk AI agent.**
+[![CI](https://github.com/sgnd/komando/actions/workflows/ci.yml/badge.svg)](https://github.com/sgnd/komando/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-🇬🇧 [Read in English](README.md)
+**Biarkan AI agent merawat server Anda — dengan aman, lewat command line.**
 
----
+🇬🇧 [English](README.md)
 
-## Ini apa, dalam bahasa sederhana?
+Biasanya server dikelola dengan aplikasi seperti Termius: login, ketik
+perintah, ulangi. **komando** mengerjakan hal yang sama dalam bentuk yang bisa
+dipakai dengan baik oleh AI agent (Claude Code, Codex, atau bot Anda sendiri):
 
-Bayangkan Anda punya beberapa komputer di cloud ("server") yang menjalankan
-website, database, atau aplikasi Anda. Biasanya, untuk merawatnya, seseorang
-membuka aplikasi seperti **Termius** atau **PuTTY**, login ke tiap server, lalu
-mengetik perintah satu per satu.
-
-**komando** mengerjakan hal yang sama, tetapi dirancang agar **asisten AI**
-(seperti Claude Code, Codex, atau bot buatan Anda) bisa melakukannya untuk Anda
-— dengan aman:
-
-- 📒 **Mengingat semua server Anda** — seperti buku kontak di HP, tapi untuk server.
-- 🔑 **Menyimpan password dan kunci di brankas terenkripsi.** AI hanya melihat
-  *nama*-nya, misalnya `secret:db-password`, tidak pernah isi password-nya.
-- 🧾 **Setiap jawaban terstruktur** (JSON), jadi AI paham persis apa yang
-  terjadi, bukan menebak-nebak dari teks yang berantakan.
-- 🛑 **Punya "sabuk pengaman".** Perintah berbahaya (menghapus disk, reboot,
-  menghapus database) diblokir kecuali manusia mengizinkan secara eksplisit.
-  Server produksi bisa ditandai *protected* (dilindungi).
-- 📜 **Mencatat buku harian.** Semua aksi dicatat, sehingga Anda bisa melihat
-  apa yang dilakukan AI, di server mana, dan berhasil atau tidak.
-
-Semuanya **100% command line** — tanpa jendela, tanpa menu, tanpa layar
-interaktif. Itulah yang dibutuhkan AI agent.
+- **Mengingat server Anda**, seperti buku kontak.
+- **Mengunci password** di brankas terenkripsi. AI tidak pernah melihatnya.
+- **Jawaban jelas**: teks mudah dibaca untuk Anda, data terstruktur (JSON) untuk AI.
+- **Punya sabuk pengaman**: perintah berbahaya diblokir, server produksi bisa dilindungi.
+- **Mencatat riwayat** semua yang dikerjakan.
 
 ```
- Anda ──minta──▶ AI agent ──menjalankan──▶ komando ──SSH──▶ server Anda
-                     ▲                        │
-                     └────── hasil JSON ◀─────┘
+Anda ──minta──▶ AI agent ──▶ komando ──SSH──▶ server Anda
 ```
 
-## Bisa apa saja?
-
-| Bidang | Perintah | Contoh |
-|--------|----------|--------|
-| Daftar server (inventory) | `host`, `group` | tambah server, impor dari `~/.ssh/config`, tes koneksi |
-| Kunci & password | `key`, `secret` | buat SSH key, pasang ke server, brankas terenkripsi |
-| Jalankan perintah | `exec`, `script` | di satu server atau 100 server sekaligus (paralel) |
-| Tugas lama | `job` | mulai backup, cek hasilnya nanti |
-| File | `fs`, `cp` | baca/ubah konfigurasi dengan aman, upload/download |
-| Tunnel | `tunnel` | akses database privat lewat server gateway |
-| Cek kesehatan | `facts`, `ops` | 39 resep siap pakai: disk, memori, port, sertifikat, update… |
-| Service | `svc`, `logs` | start/stop/restart, baca log |
-| Docker | `docker` | container, log, compose |
-| Paket | `pkg` | install/upgrade di Linux apa pun (apt, dnf, yum, apk, zypper, pacman) |
-| Jaringan | `net` | "apakah server ini bisa menjangkau database?", cek HTTP, port terbuka |
-| User & cron | `user`, `cron` | buat akun, jadwalkan tugas |
-| Untuk AI | `guide`, `schema`, `audit`, `policy` | petunjuk kerja, referensi lengkap, riwayat |
+Tanpa jendela, tanpa menu. Cukup perintah.
 
 ## Instalasi
 
-Butuh [Go](https://go.dev/dl/) versi 1.26 atau lebih baru.
+Buka terminal (macOS: aplikasi **Terminal**; Linux: terminal Anda; Windows:
+pasang [WSL](https://learn.microsoft.com/windows/wsl/install) dulu) lalu tempel:
 
 ```bash
-go install github.com/sgnd/komando/cmd/komando@latest
+curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
 ```
 
-Atau build dari folder ini:
-
-```bash
-make build        # hasilnya ./bin/komando
-```
-
-Cek apakah sudah jalan:
+Cek apakah berhasil:
 
 ```bash
 komando version
 ```
 
-## Mulai dalam 5 menit
+Cara lain: unduh file dari halaman
+[Releases](https://github.com/sgnd/komando/releases), atau baca skripnya dulu
+dengan `curl -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/install.sh`
+lalu jalankan `sh install.sh`. Developer yang punya Go bisa memakai
+`go install github.com/sgnd/komando/cmd/komando@latest`.
 
-**1. Tambahkan server.** Ganti dengan user dan alamat server Anda.
+## Langkah pertama
+
+Anda butuh **nama user** dan **alamat IP** server. Penyedia hosting Anda
+menampilkannya di dashboard. Di bawah ini, `ubuntu` dan `203.0.113.10` hanya
+contoh; ganti dengan milik Anda.
 
 ```bash
-komando host add web1 ubuntu@203.0.113.10 --group web
+# 1. Tambahkan server dan beri nama singkat (web1)
+komando host add web1 ubuntu@203.0.113.10
+
+# 2. Cek apakah bisa terhubung
+komando host test web1
+
+# 3. Tanyakan sesuatu
+komando facts web1            # server ini apa?
+komando ops run health web1   # sehat atau tidak?
+komando exec web1 -- uptime   # jalankan perintah apa saja
 ```
 
-Sudah punya `~/.ssh/config`? Impor semuanya sekaligus:
+Login pakai password? Simpan sekali saja. Anda mengetiknya, tidak ada yang
+tampil di layar, dan disimpan terenkripsi:
 
 ```bash
-komando host import --ssh-config ~/.ssh/config
-```
-
-**2. Beri tahu cara login.** Jika Anda biasa login dengan SSH key, langsung
-jalan (komando membaca `~/.ssh/id_ed25519` dan ssh-agent Anda). Jika memakai
-password, simpan dulu di brankas — setelah itu tidak akan pernah ditampilkan lagi:
-
-```bash
-echo -n 'password-saya' | komando secret set web1-pass
+komando secret set web1-pass
 komando host edit web1 --password-ref secret:web1-pass
 ```
 
-Lebih baik lagi: buat kunci dan pasang ke server, supaya tidak perlu password:
-
-```bash
-komando key gen deploy
-komando key deploy deploy web1 --set-default
-```
-
-**3. Tes koneksi.**
-
-```bash
-komando host test web1
-```
-
-**4. Coba tanya sesuatu.**
-
-```bash
-komando facts web1                 # OS apa, memori/disk berapa, tool apa saja
-komando ops run health web1        # cek kesehatan cepat
-komando exec web1 -- uptime        # perintah apa pun
-```
-
-Lebih suka teks biasa daripada JSON? Tambahkan `-o text`:
-
-```bash
-komando -o text exec web1 -- df -h
-```
-
-**5. Tandai server produksi sebagai protected.**
+Tandai server produksi sebagai protected. Setelah itu tidak ada yang bisa
+diubah di sana kecuali perintahnya memakai `--yes` ("ya, saya yakin"):
 
 ```bash
 komando host edit web1 --protected
 ```
 
-Sekarang setiap aksi yang *mengubah* sesuatu di `web1` wajib memakai `--yes`.
+## Serahkan ke AI agent Anda
 
-## Menghubungkan AI agent Anda
+Salin isi [`AGENTS.md`](AGENTS.md) ke file instruksi agent Anda (Codex:
+`AGENTS.md`, Claude Code: `CLAUDE.md`, di folder tempat Anda bekerja), atau
+cukup katakan ke agent:
 
-Beri tahu agent untuk memakai komando. Untuk Claude Code, Codex, dan
-kebanyakan agent, salin [`AGENTS.md`](AGENTS.md) ke project Anda (atau tempel
-ke instruksi agent). Versi singkatnya:
+> Gunakan CLI `komando` untuk mengelola server saya. Jalankan `komando guide`
+> dulu dan ikuti petunjuknya. Jangan pernah memakai `--allow-dangerous` atau
+> `--yes` tanpa bertanya kepada saya.
 
-> Gunakan CLI `komando` untuk mengelola server. Jalankan `komando guide` dulu
-> dan ikuti petunjuknya. Jangan pernah memakai `--allow-dangerous` atau `--yes`
-> tanpa bertanya kepada saya.
+Lalu cukup minta: *"Kenapa web1 lambat?"*, *"Update semua server"*,
+*"Perpanjang sertifikat di web2"*.
 
-Agent bisa belajar sendiri:
+## Bisa apa saja?
 
-```bash
-komando guide            # cara kerja yang aman (langkah demi langkah)
-komando schema           # semua perintah dan opsi, dalam format mesin
-```
+| Tugas | Perintah |
+|-------|----------|
+| Menyimpan daftar server dan cara login | `host`, `group`, `key`, `secret` |
+| Menjalankan perintah di satu atau banyak server | `exec`, `script`, `job` (tugas lama) |
+| Membaca, mengubah, dan menyalin file | `fs`, `cp` |
+| Cek kesehatan (39 pemeriksaan siap pakai) | `facts`, `ops` |
+| Mengelola service, log, Docker, software, user, jadwal | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
+| Tes jaringan, menjangkau server privat | `net`, `tunnel` |
+| Melihat riwayat dan aturan keamanan | `audit`, `policy` |
 
-Beri nama agar riwayat mencatat siapa melakukan apa:
+Panduan lengkap per tugas: **[docs/usage.md](docs/usage.md)** (bahasa Inggris
+sederhana). Bantuan untuk perintah apa pun: `komando <perintah> --help`.
 
-```bash
-export KOMANDO_ACTOR=claude
-komando audit            # lihat aksi terakhir
-```
+## Keamanan, dalam satu menit
 
-## Contoh sehari-hari
+- Perintah seperti `rm -rf /`, `reboot`, atau `DROP DATABASE` **diblokir** kecuali diizinkan manusia.
+- Server **protected** menolak perubahan tanpa `--yes` (perintah bertanda `--read-only` tetap boleh melihat).
+- `--dry-run` menampilkan apa yang *akan* terjadi.
+- Edit file hanya mengubah teks yang Anda sebut, tidak pernah meninggalkan file setengah jadi, dan bisa menyimpan backup.
+- Jika identitas server berubah, komando **menolak terhubung**.
+- Semuanya tercatat: `komando audit`.
 
-```bash
-# Server mana yang disknya hampir penuh?
-komando ops run disk @web
-
-# Kenapa website lambat? Lihat error 30 menit terakhir
-komando logs web1 --unit nginx --since -30m --grep 'error|crit'
-
-# Ubah satu baris konfigurasi, simpan backup, lalu reload
-komando fs replace web1 /etc/nginx/nginx.conf \
-  --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup
-komando ops run nginx-test web1
-komando svc reload web1 nginx
-
-# Upload file ke semua web server
-komando cp ./release.tar.gz @web:/tmp/
-
-# Mulai backup yang lama, cek nanti
-komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
-komando job wait <job-id>
-
-# Akses database privat lewat gateway ("bastion")
-komando host add db1 admin@10.0.0.5 --jump bastion
-komando tunnel start db1 -L 15432:localhost:5432
-# sekarang hubungkan aplikasi database Anda ke localhost:15432
-
-# Kapan sertifikat HTTPS kedaluwarsa?
-komando ops run cert-expiry web1 --param name=example.com
-```
-
-## Memilih server ("target")
-
-Kebanyakan perintah butuh *target* — server mana yang mau dikerjakan:
-
-| Anda menulis | Artinya |
-|--------------|---------|
-| `web1` | server bernama web1 |
-| `web-*` | semua server yang namanya diawali `web-` |
-| `@web` | semua server di grup `web` |
-| `tag:prod` | semua server dengan tag `prod` |
-| `label:dc=jkt` | semua server dengan label `dc=jkt` |
-| `all` | semua server |
-| `@web,!web3` | grup web kecuali web3 |
-| `root@1.2.3.4:22` | server sekali pakai yang tidak ada di daftar |
-
-## Bagaimana komando menjaga keamanan
-
-| Sabuk pengaman | Yang terjadi |
-|----------------|--------------|
-| Filter perintah berbahaya | `rm -rf /`, `mkfs`, `reboot`, `DROP DATABASE`, `curl … \| sh`, hapus firewall, mematikan SSH, dan lainnya diblokir (exit code 6). Lihat `komando policy list`. |
-| Server protected | Mengubah apa pun wajib `--yes`. Membaca selalu boleh dengan `--read-only`. |
-| Dry run | `--dry-run` menampilkan persis apa yang *akan* dijalankan, dan apakah akan diblokir. |
-| Edit aman | `fs replace` hanya mengubah jika teks lama muncul tepat satu kali; penulisan atomik; `--backup` menyimpan file lama. |
-| Brankas terenkripsi | Password dienkripsi (AES-256-GCM). AI hanya melihat referensi, bukan isinya. |
-| Cek identitas server | Koneksi pertama mengingat "sidik jari" server. Jika berubah (kemungkinan serangan), komando menolak terhubung (`HOSTKEY_MISMATCH`). |
-| Log audit | Setiap aksi ditulis ke `~/.komando/audit.jsonl`. |
-
-> Filter ini menangkap kecelakaan umum; **bukan** batas keamanan yang sempurna.
-> Berikan agent user SSH yang hanya punya izin yang benar-benar dibutuhkan.
-
-## Memahami hasil
-
-Setiap perintah mencetak satu objek JSON:
-
-```json
-{
-  "ok": false,
-  "command": "exec",
-  "data": { "results": [ { "host": "web1", "ok": false, "exit_code": 3, "stdout": "…", "stderr": "…" } ] },
-  "error": { "code": "FAILED", "message": "host web1 failed", "hint": "inspect per-host results in data.results" },
-  "meta": { "version": "0.1.0", "duration_ms": 211 }
-}
-```
-
-- `ok` — apakah semuanya berhasil?
-- `data` — jawaban sebenarnya.
-- `error.hint` — **langkah selanjutnya yang disarankan**. Selalu baca ini.
-
-Exit code: `0` sukses · `1` error · `2` salah pemakaian · `3` tidak ditemukan ·
-`4` gagal konek/login · `5` perintah gagal di server · `6` diblokir demi
-keamanan · `7` timeout · `8` syarat edit tidak terpenuhi.
-
-## Kamus istilah (untuk pemula)
+## Istilah singkat
 
 | Istilah | Arti |
 |---------|------|
-| **Server** | Komputer, biasanya di data center atau cloud, yang menjalankan aplikasi Anda. |
-| **SSH** | Protokol "remote control" yang aman untuk login ke server Linux. |
-| **CLI** | Command-line interface: mengetik perintah, bukan klik-klik. |
-| **AI agent** | AI yang bisa menjalankan tool/perintah sendiri untuk menyelesaikan tugas. |
-| **Inventory** | Daftar server Anda dan cara menjangkaunya. |
-| **SSH key** | Sepasang file sebagai bukti identitas, lebih aman dari password. Bagian *private* tetap di Anda; bagian *public* dipasang di server. |
-| **Vault / secret** | Penyimpanan terenkripsi untuk password. |
-| **sudo** | Menjalankan perintah sebagai administrator (root). |
-| **Jump host / bastion** | Server gerbang yang dilewati untuk menjangkau server privat. |
-| **Tunnel / port forwarding** | Membuat layanan di server (mis. database) seolah-olah ada di komputer Anda. |
-| **SOCKS proxy** | Tunnel untuk banyak tujuan sekaligus (`tunnel -D`). |
-| **Host key / fingerprint** | "KTP" server. Jika berubah tiba-tiba = tanda bahaya. |
-| **systemd / service** | Cara Linux menjalankan dan menjaga program latar belakang (nginx, database…). |
-| **Job** | Tugas panjang yang dibiarkan berjalan di server sementara Anda mengerjakan hal lain. |
-| **Exit code** | Angka hasil sebuah program: 0 = sukses, selain itu = ada masalah. |
-| **JSON** | Format teks terstruktur yang mudah dibaca program (dan AI). |
-| **Idempotent** | Aman dijalankan dua kali: jalankan kedua tidak mengubah apa-apa lagi. |
+| Server | Komputer (biasanya di cloud) yang menjalankan aplikasi Anda. |
+| Terminal / CLI | Jendela tempat mengetik perintah, bukan klik-klik. |
+| SSH | Cara aman untuk login dan mengendalikan server Linux dari jauh. |
+| AI agent | AI yang bisa menjalankan perintah sendiri untuk menyelesaikan tugas. |
+| SSH key | Sepasang file sebagai bukti identitas; lebih aman dari password. |
+| Flag | Opsi tambahan pada perintah, seperti `--yes` atau `--dry-run`. |
+| sudo | Menjalankan perintah sebagai administrator (root). |
+| JSON | Teks terstruktur yang mudah dibaca program. |
+| Bastion / jump host | Server gerbang untuk menjangkau server privat. |
+| Tunnel | Membuat layanan di server (mis. database) muncul di komputer Anda. |
+| Exit code | Angka hasil program: 0 = sukses, selain itu = ada masalah. |
 
-## Mengatasi masalah
+## Kontribusi
 
-| Kode error | Biasanya berarti | Coba |
-|------------|------------------|------|
-| `AUTH_FAILED` | user, kunci, atau password salah | `komando host show NAMA`, `komando key deploy` |
-| `CONNECTION_REFUSED` / `CONNECT_TIMEOUT` | server mati, port salah, firewall | cek alamat/port, `--connect-timeout 30s` |
-| `HOSTKEY_MISMATCH` | server di-install ulang — atau ada yang menyadap | pastikan ke penyedia server, lalu `komando host trust NAMA --reset` |
-| `SECRET_UNRESOLVED` | password/env var yang dirujuk tidak ada | `komando secret list` |
-| `sudo: a password is required` | sudo butuh password | `komando host edit NAMA --sudo-ref secret:NAMA` |
-| `POLICY_BLOCKED` | terlihat merusak | periksa ulang, lalu (manusia) `--allow-dangerous` |
-
-Jalankan `komando doctor` untuk mengecek setup lokal Anda.
-
-## Data disimpan di mana?
-
-Semuanya ada di `~/.komando/` (bisa diubah dengan `KOMANDO_HOME`):
-`state.json` (server, kunci, pengaturan), `vault.json` + `vault.key` (secret
-terenkripsi), `keys/` (SSH key yang dibuat), `known_hosts`, `audit.jsonl`.
-Backup folder ini dan jaga kerahasiaannya.
-
-## Struktur project (untuk kontributor)
-
-```
-cmd/komando/        titik masuk program
-internal/cli/       semua perintah (satu file per bidang: host.go, exec.go, fs.go, …)
-internal/sshx/      koneksi SSH, jump host, autentikasi, menjalankan perintah
-internal/store/     menyimpan state ke ~/.komando
-internal/vault/     secret terenkripsi
-internal/policy/    aturan perintah berbahaya
-internal/out/       format JSON dan exit code
-test/e2e/           uji end-to-end nyata memakai server SSH di Docker
-```
-
-Lihat [CONTRIBUTING.md](CONTRIBUTING.md). Test: `make test` (cepat) dan
-`make e2e` (butuh Docker).
+Laporan bug, ide, dan pull request sangat diterima — dalam Bahasa Indonesia
+atau English. Lihat [CONTRIBUTING.md](CONTRIBUTING.md). Masalah keamanan:
+[SECURITY.md](SECURITY.md).
 
 ## Lisensi
 

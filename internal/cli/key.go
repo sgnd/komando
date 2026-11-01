@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/pem"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -367,8 +369,8 @@ Values are never printed unless 'secret get --reveal' is used.`,
 	}
 	set := &cobra.Command{
 		Use:     "set NAME [VALUE]",
-		Short:   "Store a secret (value from arg, --from-env VAR, or stdin)",
-		Example: "  echo -n 's3cret' | komando secret set web1-sudo\n  komando secret set db-pass --from-env DB_PASS",
+		Short:   "Store a secret (asks for it hidden; or from --from-env VAR or stdin)",
+		Example: "  komando secret set web1-pass          # type it, nothing is shown\n  komando secret set db-pass --from-env DB_PASS\n  printf %s \"$TOKEN\" | komando secret set api-token",
 		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validName("secret", args[0]); err != nil {
@@ -389,8 +391,23 @@ Values are never printed unless 'secret get --reveal' is used.`,
 				if err != nil {
 					return err
 				}
+				if b != nil && len(strings.TrimSpace(string(b))) == 0 {
+					return out.Usage("empty value on stdin")
+				}
 				if b == nil {
-					return out.Usage("provide VALUE, --from-env or pipe the value on stdin")
+					// a human at a terminal: ask with hidden input (agents never have a TTY)
+					if !term.IsTerminal(int(os.Stdin.Fd())) {
+						return out.Usage("provide VALUE, --from-env or pipe the value on stdin")
+					}
+					fmt.Fprintf(os.Stderr, "Value for %s (hidden): ", args[0])
+					b, err = term.ReadPassword(int(os.Stdin.Fd()))
+					fmt.Fprintln(os.Stderr)
+					if err != nil {
+						return err
+					}
+					if len(b) == 0 {
+						return out.Usage("empty value")
+					}
 				}
 				v = strings.TrimRight(string(b), "\r\n")
 			}

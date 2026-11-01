@@ -34,8 +34,9 @@ Each area has its own file in `internal/cli/` (`host.go`, `exec.go`, `fs.go`,
 `job.go`, `tunnel.go`, `modules.go`, …). Follow these rules — they are what
 makes komando usable by AI agents:
 
-1. **One JSON envelope on stdout**, always via `out.P.Print`. No other prints
-   to stdout (use stderr for human-only noise).
+1. **Print results only via `out.P.Print`.** It writes one JSON envelope when
+   piped (agents) and readable text in a terminal (humans). Give a result type
+   a `Text() string` method if the generic text view is not clear enough.
 2. **Never prompt.** Missing input is an error with a `hint`.
 3. **Typed errors**: `out.Errf(exitCode, "UPPER_SNAKE_CODE", "hint: what to do next", "message")`.
    Reuse existing codes and exit codes (see `internal/out/out.go`).
@@ -51,10 +52,16 @@ makes komando usable by AI agents:
 
 - `gofmt` and `go vet` must pass (`make lint`).
 - Keep dependencies minimal; komando is a single static binary.
-- Write docs for beginners: if you add a feature, add one plain-language line
-  to both `README.md` and `README.id.md`.
+- Keep it simple. Prefer a small, obvious solution over a clever one.
+- Write for beginners. New features go in [`docs/usage.md`](docs/usage.md);
+  only the most important ones also get a line in `README.md` and `README.id.md`.
+
+## Releasing (maintainers)
+
+1. Move the `Unreleased` notes in [`CHANGELOG.md`](CHANGELOG.md) under a new version.
+2. `git tag v0.2.0 && git push origin v0.2.0`
+3. GitHub Actions builds the binaries and publishes the release.
 
 ## Reporting security issues
 
-Please do not open a public issue for vulnerabilities; contact the maintainers
-privately first.
+See [SECURITY.md](SECURITY.md). Please do not open a public issue.

@@ -1,0 +1,25 @@
+# Push a tag like v0.2.0 to publish binaries on the Releases page.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make test
+      - run: make dist VERSION=${{ github.ref_name }}
+      - run: gh release create "${{ github.ref_name }}" dist/* --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

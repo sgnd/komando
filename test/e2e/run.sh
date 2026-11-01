@@ -10,7 +10,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 E2E="$ROOT/test/e2e"
 K="$ROOT/bin/komando"
-export KOMANDO_HOME="$(mktemp -d)"
+KOMANDO_HOME="$(mktemp -d)"
+export KOMANDO_HOME
 export KOMANDO_ACTOR="e2e"
 PROJECT=komando-e2e
 PASS=0
@@ -37,7 +38,7 @@ echo "==> build"
 echo "==> start containers"
 docker compose -p "$PROJECT" -f "$E2E/compose.yml" up -d --build --wait >/dev/null 2>&1 \
   || docker compose -p "$PROJECT" -f "$E2E/compose.yml" up -d --build >/dev/null
-for i in $(seq 1 30); do nc -z 127.0.0.1 2222 2>/dev/null && nc -z 127.0.0.1 2223 2>/dev/null && break; sleep 1; done
+for _ in $(seq 1 30); do nc -z 127.0.0.1 2222 2>/dev/null && nc -z 127.0.0.1 2223 2>/dev/null && break; sleep 1; done
 sleep 1
 
 echo "==> inventory & vault"

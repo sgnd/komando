@@ -10,18 +10,20 @@ import (
 	"errors"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
-var Version = "0.1.0"
+var Version = "dev"
 
 type globalFlags struct {
 	output         string
@@ -45,7 +47,17 @@ type exitCode int
 func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
 
 func Execute() int {
+	if Version == "dev" {
+		// `go install ...@v1.2.3` records the module version in the binary
+		if bi, ok := debug.ReadBuildInfo(); ok && isRelease(bi.Main.Version) {
+			Version = bi.Main.Version
+		}
+	}
 	out.P.Version = Version
+	// errors raised before flag parsing still need the right format
+	if f, ok := outputFormat(os.Getenv("KOMANDO_OUTPUT")); ok {
+		out.P.Format = f
+	}
 	root := newRoot()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -93,7 +105,8 @@ func newRoot() *cobra.Command {
 		Short: "Agent-first SSH & server operations CLI (Termius for AI agents)",
 		Long: `komando lets AI agents (and humans) manage fleets of servers from a pure CLI.
 
-Every command prints one JSON envelope on stdout:
+When piped (how agents call it) every command prints one JSON envelope on
+stdout; in an interactive terminal it prints readable text (force with -o json|text):
   {"ok":true,"command":"exec","data":{...},"meta":{...}}
   {"ok":false,"command":"exec","error":{"code":"AUTH_FAILED","message":"...","hint":"..."}}
 
@@ -109,10 +122,11 @@ Start here:  komando guide      (agent playbook)
 		SilenceErrors: true,
 		Version:       Version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if g.output != "json" && g.output != "text" {
-				return out.Usage("--output must be json or text")
+			f, ok := outputFormat(g.output)
+			if !ok {
+				return out.Usage("--output must be auto, json or text")
 			}
-			out.P.Format = g.output
+			out.P.Format = f
 			out.P.Pretty = g.pretty
 			out.P.Version = Version
 			out.P.DryRun = g.dryRun
@@ -121,11 +135,11 @@ Start here:  komando guide      (agent playbook)
 		},
 	}
 	pf := root.PersistentFlags()
-	defOut := "json"
+	defOut := "auto"
 	if v := os.Getenv("KOMANDO_OUTPUT"); v != "" {
 		defOut = v
 	}
-	pf.StringVarP(&g.output, "output", "o", defOut, "output format: json|text (env KOMANDO_OUTPUT)")
+	pf.StringVarP(&g.output, "output", "o", defOut, "auto|json|text; auto = text in a terminal, JSON when piped (env KOMANDO_OUTPUT)")
 	pf.BoolVar(&g.pretty, "pretty", false, "indent JSON output")
 	pf.BoolVar(&g.dryRun, "dry-run", false, "show what would run without changing anything")
 	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm mutating actions on protected hosts")
@@ -173,4 +187,25 @@ func versionCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// outputFormat resolves auto|json|text. "auto" (or empty) means text for a
+// human at a terminal and JSON for programs reading a pipe.
+func outputFormat(v string) (string, bool) {
+	switch v {
+	case "json", "text":
+		return v, true
+	case "", "auto":
+		if term.IsTerminal(int(os.Stdout.Fd())) {
+			return "text", true
+		}
+		return "json", true
+	}
+	return "", false
+}
+
+// isRelease reports whether a module version is a real tag (not a local or
+// pseudo version).
+func isRelease(v string) bool {
+	return strings.HasPrefix(v, "v") && !strings.HasPrefix(v, "v0.0.0-") && !strings.Contains(v, "+")
 }

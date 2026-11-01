@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
@@ -335,5 +334,3 @@ func snippetCmd() *cobra.Command {
 	c.AddCommand(add, list, rm, run)
 	return c
 }
-
-var _ = fmt.Sprint

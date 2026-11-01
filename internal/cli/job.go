@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -488,5 +487,3 @@ func jobRmCmd() *cobra.Command {
 	c.Flags().BoolVar(&keepRemote, "keep-remote", false, "keep the remote log directory")
 	return c
 }
-
-var _ = fmt.Sprintf

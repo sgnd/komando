@@ -291,7 +291,7 @@ func finish(command string, data any, sum fleetSummary, worstExit int) error {
 	var soft *out.Error
 	if sum.Failed > 0 {
 		soft = &out.Error{Code: "PARTIAL_FAILURE", Message: fmt.Sprintf("%d of %d host(s) failed: %s", sum.Failed, sum.Total, strings.Join(sum.FailedHosts, ", ")),
-			Hint: "inspect per-host results in data.results", Exit: worstExit}
+			Hint: "see the per-host results (data.results) for exit codes and stderr", Exit: worstExit}
 		if sum.Total == 1 {
 			soft.Code = "FAILED"
 			soft.Message = "host " + sum.FailedHosts[0] + " failed"

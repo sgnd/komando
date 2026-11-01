@@ -26,7 +26,7 @@ agent manage servers through the `komando` CLI.
 ## Setup for the human
 
 ```bash
-export KOMANDO_ACTOR=claude    # name shown in `komando audit`
+export KOMANDO_ACTOR=claude    # name shown in `komando audit` (add to ~/.zshrc or ~/.bashrc to keep it)
 komando host list              # make sure your servers are there
 komando host edit <prod-host> --protected
 ```
