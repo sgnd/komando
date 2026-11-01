@@ -222,6 +222,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 			res := map[string]any{
 				"name":     "komando",
 				"version":  Version,
+				"contract": out.Contract,
 				"commands": cmds,
 			}
 			if start == root {

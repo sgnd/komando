@@ -267,6 +267,24 @@ bukan menyalin semua fitur alat itu, tapi tiga jalur yang sama di semua area:
 Jalur 2 dan 3 tidak dihitung tumpang tindih dengan jalur 1: itu pintu darurat
 yang sengaja ada, dengan pengaman yang sama.
 
+## 13. Kontrak output (v1.0)
+
+Agent bergantung pada bentuk output komando, jadi bentuk itu dibekukan
+sebagai **kontrak versi 1** (`meta.contract` di setiap jawaban,
+`contract` di `komando schema`).
+
+Di dalam satu versi kontrak:
+
+- Envelope (`ok`, `command`, `data`, `error`, `meta`), nama field, kode error
+  dan exit code **tidak pernah diganti atau dihapus**. Yang boleh hanya
+  menambah: field baru, kode error baru, perintah baru.
+- Nama perintah dan flag yang diganti tetap jalan sebagai alias (lihat
+  bagian 10), jadi skrip lama tidak rusak.
+- Perubahan yang merusak (mengganti nama field, mengubah arti exit code)
+  menaikkan `meta.contract` ke 2 dan ditulis di CHANGELOG.
+
+`TestConventions` dan tes e2e menjaga sebagian dari aturan ini.
+
 ## Daftar edge case
 
 Checklist ini dipakai untuk setiap fitur dan setiap review.

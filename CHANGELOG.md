@@ -4,6 +4,12 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Output contract 1
+
+- Every JSON answer carries `meta.contract: 1`, and `komando schema` says
+  `contract: 1`. Within a contract, field names, error codes and exit codes
+  are only added, never renamed or removed (docs/design/ux.md, section 13).
+
 ### Agent skill
 
 - `komando guide install` adds the komando skill (`SKILL.md`, the Agent

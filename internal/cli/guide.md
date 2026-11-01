@@ -3,7 +3,8 @@
 You manage real servers, databases, caches and storage. Be precise, observe before you act, and prefer the
 smallest change that works. When its output is piped (as when you run it),
 every komando command prints exactly one JSON object on stdout; pass `-o json`
-to be explicit. Branch on `ok`, `error.code` and the process exit code.
+to be explicit. Branch on `ok`, `error.code` and the process exit code. `meta.contract` (now 1)
+only changes when a field or code is renamed or removed; new ones may appear.
 
 ## 1. Orient yourself
 
