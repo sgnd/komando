@@ -31,6 +31,7 @@ type importPlan struct {
 	Hosts   []*store.Host
 	Conns   []*store.Conn
 	Recipes []*store.Snippet
+	Vpns    []*store.Vpn
 	Secrets map[string]string
 	Notes   []string // things in the source komando did not import, and why
 }
@@ -107,6 +108,7 @@ type importResult struct {
 	File     string       `json:"file"`
 	Hosts    []string     `json:"hosts"`
 	Conns    []string     `json:"conns"`
+	Vpns     []string     `json:"vpns"`
 	Recipes  []string     `json:"recipes"`
 	Secrets  []string     `json:"secrets"` // vault names stored (never values)
 	Skipped  []importSkip `json:"skipped"`
@@ -114,7 +116,7 @@ type importResult struct {
 }
 
 func applyImport(source, file string, plan *importPlan, groups []string, overwrite bool) error {
-	res := importResult{Source: source, File: file, Hosts: []string{}, Conns: []string{}, Recipes: []string{},
+	res := importResult{Source: source, File: file, Hosts: []string{}, Conns: []string{}, Vpns: []string{}, Recipes: []string{},
 		Secrets: []string{}, Skipped: []importSkip{}, NotFound: plan.Notes}
 	if res.NotFound == nil {
 		res.NotFound = []string{}
@@ -132,6 +134,18 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 			return toErr(err).Message
 		}
 		return ""
+	}
+	var vpns []*store.Vpn
+	for _, v := range plan.Vpns {
+		if r := skip("vpn", v.Name); r != "" {
+			res.Skipped = append(res.Skipped, importSkip{v.Name, r})
+			continue
+		}
+		vpns = append(vpns, v)
+		res.Vpns = append(res.Vpns, v.Name)
+	}
+	for _, v := range vpns { // so hosts and conns can use them with --via
+		st.Vpns[v.Name] = v
 	}
 	var hosts []*store.Host
 	for _, h := range plan.Hosts {
@@ -211,6 +225,10 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 		for _, r := range recipes {
 			s.Snippets[r.Name] = r
 		}
+		for _, v := range vpns {
+			v.CreatedAt, v.UpdatedAt = now, now
+			s.Vpns[v.Name] = v
+		}
 		return nil
 	})
 	if err != nil {
@@ -235,6 +253,7 @@ func (r importResult) Text() string {
 	}
 	line("servers "+verb, r.Hosts)
 	line("conns "+verb, r.Conns)
+	line("VPNs "+verb, r.Vpns)
 	line("recipes "+verb, r.Recipes)
 	line("passwords stored in the vault", r.Secrets)
 	for _, s := range r.Skipped {
@@ -509,6 +528,7 @@ type exportFile struct {
 	Format  string           `json:"format"` // komando-export/1
 	Hosts   []*store.Host    `json:"hosts"`
 	Conns   []*store.Conn    `json:"conns"`
+	Vpns    []*store.Vpn     `json:"vpns"`
 	Recipes []*store.Snippet `json:"recipes"`
 	Secrets []string         `json:"secrets_needed"` // vault names the refs use
 }
@@ -534,7 +554,7 @@ func importKomando(path string) (*importPlan, error) {
 		return nil, out.Usage("%s has format %q; this komando reads %s", path, f.Format, exportFormat)
 	}
 	p := newPlan()
-	p.Hosts, p.Conns, p.Recipes = f.Hosts, f.Conns, f.Recipes
+	p.Hosts, p.Conns, p.Recipes, p.Vpns = f.Hosts, f.Conns, f.Recipes, f.Vpns
 	if len(f.Secrets) > 0 {
 		p.Notes = append(p.Notes, "passwords are not in export files; set them with `komando secret set NAME` for: "+strings.Join(f.Secrets, ", "))
 	}
@@ -556,14 +576,21 @@ func exportCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			sel := selection{Hosts: st.SortedHosts(), Conns: st.SortedConns()}
+			sel := selection{Hosts: st.SortedHosts(), Conns: st.SortedConns(), Vpns: st.SortedVpns()}
 			if len(args) == 1 {
 				if sel, err = resolveSelection(st, args[0]); err != nil {
 					return err
 				}
 			}
-			f := exportFile{Format: exportFormat, Hosts: sel.Hosts, Conns: sel.Conns, Recipes: []*store.Snippet{}, Secrets: []string{}}
 			need := map[string]bool{}
+			f := exportFile{Format: exportFormat, Hosts: sel.Hosts, Conns: sel.Conns, Vpns: sel.Vpns, Recipes: []*store.Snippet{}, Secrets: []string{}}
+			for _, v := range sel.Vpns {
+				for _, r := range []string{v.KeyRef, v.PSKRef} {
+					if n, ok := strings.CutPrefix(r, "secret:"); ok {
+						need[n] = true
+					}
+				}
+			}
 			for _, h := range sel.Hosts {
 				for _, r := range []string{h.PasswordRef, h.SudoRef} {
 					if n, ok := strings.CutPrefix(r, "secret:"); ok {
@@ -600,7 +627,7 @@ func exportCmd() *cobra.Command {
 			if err := writeAtomic(to, func(tmp string) error { return os.WriteFile(tmp, append(b, '\n'), 0o600) }); err != nil {
 				return err
 			}
-			out.P.Print("export", map[string]any{"file": to, "hosts": len(f.Hosts), "conns": len(f.Conns), "recipes": len(f.Recipes), "secrets_needed": f.Secrets}, nil)
+			out.P.Print("export", map[string]any{"file": to, "hosts": len(f.Hosts), "conns": len(f.Conns), "vpns": len(f.Vpns), "recipes": len(f.Recipes), "secrets_needed": f.Secrets}, nil)
 			return nil
 		},
 	}

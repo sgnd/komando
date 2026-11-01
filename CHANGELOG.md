@@ -4,6 +4,16 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### VPNs (v0.4, first part)
+
+- `komando vpn add NAME wireguard|socks|system`. A VPN goes first in a
+  `--via` path (`--via office,bastion`) for servers, conns and tunnels.
+  WireGuard runs inside komando for that command only: several VPNs at
+  once, overlapping subnets, no admin rights, no change to the computer's
+  network. Keys go to the vault. `system` checks an OS VPN is connected
+  (`VPN_DOWN` if not). `list`, `test`, targets (`kind:vpn`), groups and
+  `export`/`import` include VPNs; a VPN in use cannot be removed.
+
 ### One command per job (v0.3)
 
 - `--via` for servers too: `host add db1 ... --via bastion` (chains like

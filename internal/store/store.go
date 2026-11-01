@@ -131,9 +131,29 @@ func DefaultSettings() Settings {
 	}
 }
 
+// Vpn is a network komando opens inside its own process to reach targets
+// (docs/design/network.md). Keys live in the vault, referenced by KeyRef.
+type Vpn struct {
+	Name      string            `json:"name"`
+	Kind      string            `json:"kind"`              // wireguard | socks | system
+	Config    string            `json:"config,omitempty"`  // wireguard: the wg-quick file without its keys
+	Address   string            `json:"address,omitempty"` // socks: host:port of the proxy
+	User      string            `json:"user,omitempty"`    // socks: user name, if the proxy wants one
+	KeyRef    string            `json:"key_ref,omitempty"` // wireguard: private key; socks: password
+	PSKRef    string            `json:"psk_ref,omitempty"` // wireguard: preshared key, if any
+	Check     string            `json:"check,omitempty"`   // system: host:port that answers only when connected
+	Groups    []string          `json:"groups,omitempty"`
+	Tags      []string          `json:"tags,omitempty"`
+	Labels    map[string]string `json:"labels,omitempty"`
+	Notes     string            `json:"notes,omitempty"`
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedAt time.Time         `json:"updated_at"`
+}
+
 type State struct {
 	Hosts    map[string]*Host    `json:"hosts"`
 	Conns    map[string]*Conn    `json:"conns,omitempty"`
+	Vpns     map[string]*Vpn     `json:"vpns,omitempty"`
 	Keys     map[string]*Key     `json:"keys"`
 	Snippets map[string]*Snippet `json:"snippets"`
 	Jobs     map[string]*Job     `json:"jobs"`
@@ -197,6 +217,9 @@ func (s *State) init() {
 	}
 	if s.Conns == nil {
 		s.Conns = map[string]*Conn{}
+	}
+	if s.Vpns == nil {
+		s.Vpns = map[string]*Vpn{}
 	}
 	if s.Keys == nil {
 		s.Keys = map[string]*Key{}
@@ -299,6 +322,15 @@ func (s *State) SortedConns() []*Conn {
 	return cs
 }
 
+func (s *State) SortedVpns() []*Vpn {
+	vs := make([]*Vpn, 0, len(s.Vpns))
+	for _, v := range s.Vpns {
+		vs = append(vs, v)
+	}
+	sort.Slice(vs, func(i, j int) bool { return vs[i].Name < vs[j].Name })
+	return vs
+}
+
 // NameTaken reports whether a host or conn already uses name. Hosts and conns
 // share one namespace so selectors stay unambiguous.
 func (s *State) NameTaken(name string) (kind string, taken bool) {
@@ -317,6 +349,11 @@ func (s *State) FindName(name string) (kind, existing string, found bool) {
 	for n := range s.Conns {
 		if strings.EqualFold(n, name) {
 			return "conn", n, true
+		}
+	}
+	for n := range s.Vpns {
+		if strings.EqualFold(n, name) {
+			return "vpn", n, true
 		}
 	}
 	return "", "", false

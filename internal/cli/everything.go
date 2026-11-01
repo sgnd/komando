@@ -49,9 +49,11 @@ func (l targetList) Text() string {
 func keepOnly(sel selection, only string) selection {
 	switch only {
 	case "host":
-		sel.Conns = nil
+		sel.Conns, sel.Vpns = nil, nil
 	case "conn":
-		sel.Hosts = nil
+		sel.Hosts, sel.Vpns = nil, nil
+	case "vpn":
+		sel.Hosts, sel.Conns = nil, nil
 	}
 	return sel
 }
@@ -63,7 +65,7 @@ func listCmdFor(only string) *cobra.Command {
 	c := &cobra.Command{
 		Use:     "list [TARGET]",
 		Aliases: []string{"ls"},
-		Short:   "List servers and conns together (everything, or what TARGET picks)",
+		Short:   "List servers, conns and VPNs together (everything, or what TARGET picks)",
 		Example: "  komando list\n  komando list @prod\n  komando list kind:db",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -74,7 +76,7 @@ func listCmdFor(only string) *cobra.Command {
 			if len(args) == 1 {
 				target = args[0]
 			}
-			sel := selection{Hosts: st.SortedHosts(), Conns: st.SortedConns()}
+			sel := selection{Hosts: st.SortedHosts(), Conns: st.SortedConns(), Vpns: st.SortedVpns()}
 			if target != "" {
 				if sel, err = resolveSelection(st, target); err != nil {
 					return err
@@ -94,6 +96,10 @@ func listCmdFor(only string) *cobra.Command {
 				}
 				l.Targets = append(l.Targets, targetRow{Name: c.Name, Kind: c.Kind, Where: where, Via: c.Via,
 					Groups: c.Groups, Tags: c.Tags, Protected: c.Protected})
+			}
+			for _, v := range sel.Vpns {
+				l.Targets = append(l.Targets, targetRow{Name: v.Name, Kind: "vpn:" + v.Kind, Where: vpnWhere(v),
+					Groups: v.Groups, Tags: v.Tags})
 			}
 			l.Count = len(l.Targets)
 			out.P.Print("list", l, nil)
@@ -148,7 +154,7 @@ func testCmdFor(only string) *cobra.Command {
 	return &cobra.Command{
 		Use:     "test TARGET",
 		Aliases: []string{"ping"},
-		Short:   "Check that servers and conns can be reached and logged in to",
+		Short:   "Check that servers, conns and VPNs can be reached and logged in to",
 		Example: "  komando test @prod\n  komando test all",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -160,7 +166,7 @@ func testCmdFor(only string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if sel = keepOnly(sel, only); len(sel.Hosts)+len(sel.Conns) == 0 {
+			if sel = keepOnly(sel, only); len(sel.Hosts)+len(sel.Conns)+len(sel.Vpns) == 0 {
 				return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "use `komando test "+args[0]+"` to test everything it picks",
 					"target %q picked no %ss", args[0], only)
 			}
@@ -177,6 +183,9 @@ func testCmdFor(only string) *cobra.Command {
 				res = append(res, r)
 			}
 			res = append(res, testConns(cmd.Context(), st, sel.Conns)...)
+			for _, v := range sel.Vpns {
+				res = append(res, testVpn(cmd.Context(), st, v))
+			}
 
 			data := testData{Results: res}
 			worst := 0

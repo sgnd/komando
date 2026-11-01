@@ -29,7 +29,7 @@ func validName(kind, n string) error {
 	if !nameRe.MatchString(n) {
 		return out.Usage("invalid %s name %q (letters, digits, . _ -; max 63)", kind, n)
 	}
-	if (kind == "host" || kind == "conn") && strings.EqualFold(n, "all") {
+	if (kind == "host" || kind == "conn" || kind == "vpn") && strings.EqualFold(n, "all") {
 		return out.Usage("%q cannot be a %s name: as a target it means everything", n, kind)
 	}
 	return nil
@@ -790,6 +790,9 @@ func groupCmd() *cobra.Command {
 			for _, c := range st.SortedConns() {
 				add(c.Name, c.Groups, c.Tags)
 			}
+			for _, v := range st.SortedVpns() {
+				add(v.Name, v.Groups, v.Tags)
+			}
 			for _, m := range []map[string][]string{groups, tags} {
 				for k := range m {
 					sort.Strings(m[k])
@@ -826,6 +829,10 @@ func groupCmd() *cobra.Command {
 					for _, c := range sel.Conns {
 						c.Groups = change(c.Groups)
 						conns = append(conns, c.Name)
+					}
+					for _, v := range sel.Vpns {
+						v.Groups = change(v.Groups)
+						conns = append(conns, v.Name)
 					}
 					return nil
 				})

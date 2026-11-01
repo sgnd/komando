@@ -125,6 +125,7 @@ Lalu cukup minta: *"Kenapa web1 lambat?"*, *"Update semua server"*,
 | Cek kesehatan (39 pemeriksaan siap pakai) | `facts`, `recipe` |
 | Mengelola service, log, Docker, software, user, jadwal | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
 | Tes jaringan, menjangkau server privat | `net`, `tunnel` |
+| Menjangkau yang ada di balik VPN, beberapa sekaligus tanpa pindah-pindah | `vpn`, `--via` |
 | Menyimpan daftar database, cache, dan storage | `conn` |
 | Query dan backup database (PostgreSQL, MySQL, SQLite) | `db` |
 | Membaca dan mengubah cache (Redis, Valkey) | `cache` |

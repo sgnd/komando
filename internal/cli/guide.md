@@ -28,6 +28,10 @@ what it can work with and lists the rest in `meta.skipped`; if nothing fits,
 `NO_MATCHING_TARGETS` says which command to use. Check what a target picks
 with `komando list '<expr>'`.
 
+VPNs: `komando list kind:vpn`. A target behind a VPN has it first in its
+`--via`; komando connects it by itself. `VPN_DOWN` means a VPN the computer
+runs itself is not connected: ask the human to connect it.
+
 ## 3. Read before you write
 
 | Need                         | Command |

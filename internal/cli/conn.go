@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -91,7 +93,7 @@ func checkConn(s *store.State, c *store.Conn) (driver.Target, error) {
 		if t.Kind.File {
 			return t, out.Usage("%s conns are local files; --via is not supported", t.Kind.Name)
 		}
-		if _, err := viaHost(s, c.Via); err != nil {
+		if _, _, err := resolveVia(s, c.Via); err != nil {
 			return t, err
 		}
 	}
@@ -353,11 +355,15 @@ type access struct {
 	Password string
 	Dial     func(ctx context.Context, network, addr string) (net.Conn, error)
 	ssh      *sshx.Client
+	vpn      io.Closer
 }
 
 func (a *access) Close() {
 	if a.ssh != nil {
 		a.ssh.Close()
+	}
+	if a.vpn != nil {
+		a.vpn.Close()
 	}
 }
 
@@ -374,9 +380,17 @@ func openAccess(ctx context.Context, st *store.State, c *store.Conn) (*access, e
 	if c.Via == "" {
 		return a, nil
 	}
-	h, err := viaHost(st, c.Via)
+	h, vpn, err := resolveVia(st, c.Via)
 	if err != nil {
 		return nil, err
+	}
+	if vpn != nil {
+		d, closer, err := netx.Open(ctx, vpn, sshOpts(st).ConnectTimeout)
+		if err != nil {
+			return nil, err
+		}
+		a.Dial, a.vpn = d, closer
+		return a, nil
 	}
 	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
 	defer cancel()
@@ -393,26 +407,39 @@ func openAccess(ctx context.Context, st *store.State, c *store.Conn) (*access, e
 	return a, nil
 }
 
-// viaHost turns a --via chain ("bastion,db1") into the host to dial: the
-// last step, reached through the steps before it. A chain given here
-// replaces that host's own --via; a single host keeps its own.
-func viaHost(st *store.State, via string) (*store.Host, error) {
+// resolveVia turns a --via chain ("office,bastion,db1") into what to dial:
+// the last host, reached through the steps before it (sshx opens a VPN
+// first step itself), or, when the path is only a VPN, that VPN. A chain
+// given here replaces the last host's own --via; a single host keeps its own.
+func resolveVia(st *store.State, via string) (*store.Host, *store.Vpn, error) {
 	steps := viaChain(via)
 	if len(steps) == 0 {
-		return nil, out.Usage("empty --via")
+		return nil, nil, out.Usage("empty --via")
 	}
-	for _, s := range steps {
+	for i, s := range steps {
+		if _, ok := st.Vpns[s]; ok {
+			if i > 0 {
+				return nil, nil, out.Errf(out.ExitUsage, "VIA_ORDER", "put the VPN first: --via "+s+","+steps[0],
+					"a VPN can only be the first step of a --via path")
+			}
+			continue
+		}
 		if _, ok := st.Hosts[s]; !ok {
-			return nil, out.NotFound("host", s)
+			return nil, nil, out.Errf(out.ExitNotFound, "VIA_NOT_FOUND", "--via takes server and VPN names; see `komando list`",
+				"no server or VPN named %q", s)
 		}
 	}
-	h := st.Hosts[steps[len(steps)-1]]
+	last := steps[len(steps)-1]
+	if v, ok := st.Vpns[last]; ok {
+		return nil, v, nil
+	}
+	h := st.Hosts[last]
 	if len(steps) > 1 {
 		cp := *h
 		cp.Via = strings.Join(steps[:len(steps)-1], ",")
 		h = &cp
 	}
-	return h, nil
+	return h, nil, nil
 }
 
 func resolvePassword(c *store.Conn) (string, error) {

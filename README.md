@@ -122,6 +122,7 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 | Check health (39 ready-made checks) | `facts`, `recipe` |
 | Manage services, logs, Docker, software, users, schedules | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
 | Test the network, reach private servers | `net`, `tunnel` |
+| Reach things behind VPNs, several at once without switching | `vpn`, `--via` |
 | Keep a list of databases, caches and storage | `conn` |
 | Query and back up databases (PostgreSQL, MySQL, SQLite) | `db` |
 | Read and change caches (Redis, Valkey) | `cache` |

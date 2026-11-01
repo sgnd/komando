@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -131,17 +132,28 @@ func tunnelStartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if v, ok := st.Vpns[args[0]]; ok && via == "" {
+				via = v.Name // a tunnel into a VPN: -L or -D through it
+			}
 			var h *store.Host
+			var vpn *store.Vpn
 			if via != "" {
-				h, err = viaHost(st, via)
+				h, vpn, err = resolveVia(st, via)
 			} else {
 				h, err = singleHost(st, args[0])
 			}
 			if err != nil {
 				return err
 			}
+			if vpn != nil && kind == "remote" {
+				return out.Usage("-R needs a server at the end of the path; a VPN cannot listen for you")
+			}
+			hostName := via
+			if h != nil {
+				hostName = h.Name
+			}
 			if g.dryRun {
-				out.P.Print("tunnel.start", map[string]any{"host": h.Name, "conn": conn, "kind": kind, "spec": spec}, nil)
+				out.P.Print("tunnel.start", map[string]any{"host": hostName, "via": via, "conn": conn, "kind": kind, "spec": spec}, nil)
 				return nil
 			}
 			id := newID("t")
@@ -149,7 +161,7 @@ func tunnelStartCmd() *cobra.Command {
 			if err := os.MkdirAll(store.Path("tunnels"), 0o700); err != nil {
 				return err
 			}
-			t := &store.Tunnel{ID: id, Host: h.Name, Via: via, Conn: conn, Kind: kind, Spec: spec, LogFile: logPath, StartedAt: time.Now().UTC()}
+			t := &store.Tunnel{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, LogFile: logPath, StartedAt: time.Now().UTC()}
 			if err := store.Update(func(s *store.State) error { s.Tunnels[id] = t; return nil }); err != nil {
 				return err
 			}
@@ -191,8 +203,8 @@ func tunnelStartCmd() *cobra.Command {
 				s := string(b)
 				if i := strings.Index(s, "READY "); i >= 0 {
 					addr := strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0])
-					audit(st, "tunnel.start", []string{h.Name}, "", true, map[string]any{"kind": kind, "spec": spec, "id": id})
-					out.P.Print("tunnel.start", map[string]any{"id": id, "host": h.Name, "conn": conn, "kind": kind, "spec": spec, "listen": addr, "pid": pid, "log": logPath}, nil)
+					audit(st, "tunnel.start", []string{hostName}, "", true, map[string]any{"kind": kind, "spec": spec, "id": id})
+					out.P.Print("tunnel.start", map[string]any{"id": id, "host": hostName, "via": via, "conn": conn, "kind": kind, "spec": spec, "listen": addr, "pid": pid, "log": logPath}, nil)
 					return nil
 				}
 				if i := strings.Index(s, "ERROR "); i >= 0 {
@@ -349,8 +361,9 @@ func tunnelServeCmd() *cobra.Command {
 				return fail(fmt.Errorf("tunnel %s not found", args[0]))
 			}
 			var h *store.Host
+			var vpn *store.Vpn
 			if t.Via != "" {
-				h, err = viaHost(st, t.Via)
+				h, vpn, err = resolveVia(st, t.Via)
 			} else {
 				h, err = singleHost(st, t.Host)
 			}
@@ -363,12 +376,19 @@ func tunnelServeCmd() *cobra.Command {
 			}
 			ctx := cmd.Context()
 			cm := &connMgr{ctx: ctx, st: st, h: h}
-			c, err := cm.get()
-			if err != nil {
+			if vpn != nil {
+				d, closer, err := netx.Open(ctx, vpn, sshOpts(st).ConnectTimeout)
+				if err != nil {
+					return fail(err)
+				}
+				defer closer.Close()
+				cm.vpnDial = d
+			} else if _, err := cm.get(); err != nil {
 				return fail(err)
 			}
 			var ln net.Listener
 			if spec.Kind == "remote" {
+				c, _ := cm.get()
 				ln, err = c.Listen("tcp", spec.BindAddr)
 			} else {
 				ln, err = net.Listen("tcp", spec.BindAddr)
@@ -418,11 +438,12 @@ func tunnelServeCmd() *cobra.Command {
 
 // connMgr reconnects the SSH client when it drops (local/dynamic forwards).
 type connMgr struct {
-	mu  sync.Mutex
-	ctx context.Context
-	st  *store.State
-	h   *store.Host
-	c   *sshx.Client
+	mu      sync.Mutex
+	ctx     context.Context
+	st      *store.State
+	h       *store.Host
+	c       *sshx.Client
+	vpnDial netx.Dialer // set when the path is only a VPN
 }
 
 func (m *connMgr) get() (*sshx.Client, error) {
@@ -440,6 +461,11 @@ func (m *connMgr) get() (*sshx.Client, error) {
 }
 
 func (m *connMgr) dial(addr string) (net.Conn, error) {
+	if m.vpnDial != nil {
+		ctx, cancel := context.WithTimeout(m.ctx, sshOpts(m.st).ConnectTimeout)
+		defer cancel()
+		return m.vpnDial(ctx, "tcp", addr)
+	}
 	for attempt := 0; attempt < 2; attempt++ {
 		c, err := m.get()
 		if err != nil {

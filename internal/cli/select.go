@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -22,6 +23,7 @@ import (
 type selection struct {
 	Hosts []*store.Host
 	Conns []*store.Conn
+	Vpns  []*store.Vpn
 }
 
 // resolveSelection expands a selector expression ("@web,tag:prod,!web-2")
@@ -30,21 +32,28 @@ func resolveSelection(st *store.State, expr string) (selection, error) {
 	type item struct {
 		h *store.Host
 		c *store.Conn
+		v *store.Vpn
 	}
 	name := func(it item) string {
-		if it.h != nil {
+		switch {
+		case it.h != nil:
 			return it.h.Name
+		case it.c != nil:
+			return it.c.Name
 		}
-		return it.c.Name
+		return it.v.Name
 	}
 	items, err := resolveExpr(expr, func(sel string) ([]item, error) {
 		var res []item
-		hs, cs, err := matchSelector(st, sel)
-		for _, h := range hs {
+		m, err := matchSelector(st, sel)
+		for _, h := range m.Hosts {
 			res = append(res, item{h: h})
 		}
-		for _, c := range cs {
+		for _, c := range m.Conns {
 			res = append(res, item{c: c})
+		}
+		for _, v := range m.Vpns {
+			res = append(res, item{v: v})
 		}
 		return res, err
 	}, name)
@@ -53,10 +62,13 @@ func resolveSelection(st *store.State, expr string) (selection, error) {
 	}
 	var sel selection
 	for _, it := range items {
-		if it.h != nil {
+		switch {
+		case it.h != nil:
 			sel.Hosts = append(sel.Hosts, it.h)
-		} else {
+		case it.c != nil:
 			sel.Conns = append(sel.Conns, it.c)
+		default:
+			sel.Vpns = append(sel.Vpns, it.v)
 		}
 	}
 	if len(items) == 0 {
@@ -107,45 +119,62 @@ func resolveExpr[T any](expr string, match func(sel string) ([]T, error), name f
 	return res, nil
 }
 
-// matchSelector applies one selector (no commas, no "!") to hosts and conns.
-func matchSelector(st *store.State, sel string) ([]*store.Host, []*store.Conn, error) {
+// matchSelector applies one selector (no commas, no "!") to hosts, conns
+// and VPNs.
+func matchSelector(st *store.State, sel string) (selection, error) {
 	if k, ok := strings.CutPrefix(sel, "kind:"); ok {
 		return matchKind(st, k)
 	}
 	if hs, ok := matchPattern(st.SortedHosts(), hostAttrs, sel); ok {
 		cs, _ := matchPattern(st.SortedConns(), connAttrs, sel)
-		return hs, cs, nil
+		vs, _ := matchPattern(st.SortedVpns(), vpnAttrs, sel)
+		return selection{hs, cs, vs}, nil
 	}
 	if h, ok := st.Hosts[sel]; ok {
-		return []*store.Host{h}, nil, nil
+		return selection{Hosts: []*store.Host{h}}, nil
 	}
 	if c, ok := st.Conns[sel]; ok {
-		return nil, []*store.Conn{c}, nil
+		return selection{Conns: []*store.Conn{c}}, nil
+	}
+	if v, ok := st.Vpns[sel]; ok {
+		return selection{Vpns: []*store.Vpn{v}}, nil
 	}
 	if strings.Contains(sel, "@") {
 		if h, err := sshx.ParseAdhoc(sel); err == nil {
-			return []*store.Host{h}, nil, nil
+			return selection{Hosts: []*store.Host{h}}, nil
 		}
 	}
-	return nil, nil, targetNotFound(st, sel)
+	return selection{}, targetNotFound(st, sel)
 }
 
-// matchKind picks by type: kind:host, a conn kind (kind:postgres) or the
-// command a conn works with (kind:db, kind:cache, kind:storage).
-func matchKind(st *store.State, k string) ([]*store.Host, []*store.Conn, error) {
+// matchKind picks by type: kind:host, kind:conn, kind:vpn, a conn kind
+// (kind:postgres), the command a conn works with (kind:db, kind:cache,
+// kind:storage) or a VPN kind (kind:wireguard).
+func matchKind(st *store.State, k string) (selection, error) {
 	k = strings.ToLower(k)
-	if k == "host" || k == "server" {
-		return st.SortedHosts(), nil, nil
+	switch k {
+	case "host", "server":
+		return selection{Hosts: st.SortedHosts()}, nil
+	case "conn":
+		return selection{Conns: st.SortedConns()}, nil
+	case "vpn":
+		return selection{Vpns: st.SortedVpns()}, nil
 	}
-	if k == "conn" {
-		return nil, st.SortedConns(), nil
+	if _, ok := netx.Kinds[k]; ok {
+		var vs []*store.Vpn
+		for _, v := range st.SortedVpns() {
+			if v.Kind == k {
+				vs = append(vs, v)
+			}
+		}
+		return selection{Vpns: vs}, nil
 	}
 	known := false
 	for _, kd := range driver.Kinds() {
 		known = known || kd.Name == k || kd.Family == k
 	}
 	if !known {
-		return nil, nil, out.Usage("unknown kind %q: use host, conn, a conn kind (see `komando conn kinds`) or db, cache, storage", k)
+		return selection{}, out.Usage("unknown kind %q: use host, conn, vpn, a conn kind (see `komando conn kinds`) or db, cache, storage", k)
 	}
 	var cs []*store.Conn
 	for _, c := range st.SortedConns() {
@@ -153,7 +182,7 @@ func matchKind(st *store.State, k string) ([]*store.Host, []*store.Conn, error) 
 			cs = append(cs, c)
 		}
 	}
-	return nil, cs, nil
+	return selection{Conns: cs}, nil
 }
 
 // selAttrs is what pattern selectors look at; hosts and conns both have it.
@@ -166,6 +195,7 @@ type selAttrs struct {
 
 func hostAttrs(h *store.Host) selAttrs { return selAttrs{h.Name, h.Groups, h.Tags, h.Labels} }
 func connAttrs(c *store.Conn) selAttrs { return selAttrs{c.Name, c.Groups, c.Tags, c.Labels} }
+func vpnAttrs(v *store.Vpn) selAttrs   { return selAttrs{v.Name, v.Groups, v.Tags, v.Labels} }
 
 // matchPattern applies the pattern selectors (all, @group, tag:, label:,
 // glob) to items. ok is false when sel is a plain name.
@@ -207,11 +237,14 @@ func targetNotFound(st *store.State, sel string) error {
 	for _, c := range st.SortedConns() {
 		names = append(names, c.Name)
 	}
-	hint := "run `komando list` to see servers and conns"
+	for _, v := range st.SortedVpns() {
+		names = append(names, v.Name)
+	}
+	hint := "run `komando list` to see servers, conns and VPNs"
 	if s := closest(sel, names); s != "" {
 		hint = fmt.Sprintf("did you mean %q? (%s)", s, hint)
 	}
-	return out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", hint, "no server or conn named %q", sel)
+	return out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", hint, "no server, conn or VPN named %q", sel)
 }
 
 // closestSelector suggests a group or tag for a misspelled @group or tag:
@@ -231,6 +264,14 @@ func closestSelector(st *store.State, expr string) string {
 			groups[g] = true
 		}
 		for _, t := range c.Tags {
+			tags[t] = true
+		}
+	}
+	for _, v := range st.SortedVpns() {
+		for _, g := range v.Groups {
+			groups[g] = true
+		}
+		for _, t := range v.Tags {
 			tags[t] = true
 		}
 	}
@@ -303,6 +344,14 @@ func useFor(h *store.Host, c *store.Conn) string {
 	return fmt.Sprintf("a %s conn: use `komando %s`", c.Kind, connFamily(c))
 }
 
+// skipVpns reports the VPNs a selector picked; no command acts on a VPN
+// directly, they are used through --via.
+func skipVpns(vs []*store.Vpn) {
+	for _, v := range vs {
+		out.P.Skip(out.Skipped{Name: v.Name, Kind: "vpn", Reason: "a VPN: use it in a --via path"})
+	}
+}
+
 // renameNotFound keeps the older, more specific not-found codes for
 // commands that work with one type only.
 func renameNotFound(err error, code string) error {
@@ -321,11 +370,12 @@ func resolveTargets(st *store.State, expr string) ([]*store.Host, error) {
 		return nil, renameNotFound(err, "HOST_NOT_FOUND")
 	}
 	if len(sel.Hosts) == 0 {
-		return nil, noMatch(expr, "servers", nil, sel.Conns)
+		return nil, noMatch(expr, "servers", selection{Conns: sel.Conns, Vpns: sel.Vpns})
 	}
 	for _, c := range sel.Conns {
 		out.P.Skip(out.Skipped{Name: c.Name, Kind: c.Kind, Reason: useFor(nil, c)})
 	}
+	skipVpns(sel.Vpns)
 	return sel.Hosts, nil
 }
 
@@ -337,29 +387,36 @@ func resolveConns(st *store.State, expr string) ([]*store.Conn, error) {
 		return nil, renameNotFound(err, "CONN_NOT_FOUND")
 	}
 	if len(sel.Conns) == 0 {
-		return nil, noMatch(expr, "conns", sel.Hosts, nil)
+		return nil, noMatch(expr, "conns", selection{Hosts: sel.Hosts, Vpns: sel.Vpns})
 	}
 	for _, h := range sel.Hosts {
 		out.P.Skip(out.Skipped{Name: h.Name, Kind: "host", Reason: useFor(h, nil)})
 	}
+	skipVpns(sel.Vpns)
 	return sel.Conns, nil
 }
 
 // noMatch is the error when a selector picked targets, but none this
 // command can work with. The hint names the command that can.
-func noMatch(expr, want string, hs []*store.Host, cs []*store.Conn) error {
+func noMatch(expr, want string, sel selection) error {
 	var picked []string
 	hint := ""
-	for _, h := range hs {
+	for _, h := range sel.Hosts {
 		picked = append(picked, h.Name+" (server)")
 		if hint == "" {
 			hint = h.Name + " is " + useFor(h, nil)
 		}
 	}
-	for _, c := range cs {
+	for _, c := range sel.Conns {
 		picked = append(picked, fmt.Sprintf("%s (%s)", c.Name, c.Kind))
 		if hint == "" {
 			hint = c.Name + " is " + useFor(nil, c)
+		}
+	}
+	for _, v := range sel.Vpns {
+		picked = append(picked, v.Name+" (vpn)")
+		if hint == "" {
+			hint = v.Name + " is a VPN: use it in a --via path"
 		}
 	}
 	return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", hint,
@@ -378,6 +435,9 @@ func targetNames(st *store.State, expr string) map[string]bool {
 		}
 		for _, c := range sel.Conns {
 			names[c.Name] = true
+		}
+		for _, v := range sel.Vpns {
+			names[v.Name] = true
 		}
 		return names
 	}
@@ -433,7 +493,7 @@ func singleConn(st *store.State, expr, family string) (*store.Conn, error) {
 		skip = append(skip, out.Skipped{Name: h.Name, Kind: "host", Reason: useFor(h, nil)})
 	}
 	if len(match) == 0 {
-		return nil, noMatch(expr, family+" conns", sel.Hosts, sel.Conns)
+		return nil, noMatch(expr, family+" conns", sel)
 	}
 	if len(match) != 1 {
 		names := make([]string, len(match))
@@ -446,6 +506,7 @@ func singleConn(st *store.State, expr, family string) (*store.Conn, error) {
 	for _, s := range skip {
 		out.P.Skip(s)
 	}
+	skipVpns(sel.Vpns)
 	t, err := driver.Parse(match[0].URL)
 	if err != nil {
 		return nil, err

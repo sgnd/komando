@@ -176,6 +176,20 @@ TUN=$($K tunnel start pg | jget 'd["data"]["listen"]')
 check "tunnel to a conn by name" 0 "$(nc -z "${TUN%:*}" "${TUN##*:}"; echo $?)"
 q $K tunnel stop --all
 
+# VPNs: a SOCKS proxy (komando's own, through the bastion) and an OS VPN check
+echo "==> VPNs"
+q $K tunnel start bastion -D 127.0.0.1:18080
+q $K vpn add lab socks --address 127.0.0.1:18080 --check pg:5432
+q $K conn add pg-lab 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref secret:pg-pass
+check "db through a SOCKS VPN" 1 "$($K db query pg-lab 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K host add target-lab agent@target --via lab --password-ref secret:agent-pass
+check "ssh through a SOCKS VPN" target "$($K exec target-lab --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "vpn test" 1 "$($K test kind:vpn | jget 'd["data"]["summary"]["ok"]')"
+q $K vpn add corp system --check 127.0.0.1:1
+check "system VPN down says so" VPN_DOWN "$($K db query pg-lab 'select 1' >/dev/null; $K test corp | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
+set +e; $K vpn rm lab >/dev/null; check "VPN in use cannot be removed" 8 $?; set -e
+q $K tunnel stop --all
+
 # no way around protection
 q $K snippet add touch-it 'touch /tmp/komando-e2e'
 check "recipe list has built-ins and saved" True "$($K recipe list | jget 'any(r["builtin"] for r in d["data"]["recipes"]) and any(not r["builtin"] for r in d["data"]["recipes"])')"
