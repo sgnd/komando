@@ -94,6 +94,24 @@ Seatbelts:
 SQL from a file: `komando db query prod-db --file report.sql` (`--file -`
 reads stdin).
 
+### Interactive shell (for people)
+
+```bash
+komando db shell prod-db              # psql / mysql / sqlite3, read-only
+komando db shell staging-db --write   # allow changes (protected conns need --yes)
+```
+
+`db shell` opens the database's own client on this computer, already
+connected (through the conn's `--via` path when it has one). The session is
+read-only unless you add `--write`: the database refuses changes, just like
+`db query`. The password reaches the client through its environment, never
+its command line.
+
+You need the client installed here: `psql` (package `postgresql-client`),
+`mysql` (`mysql-client` or `mariadb-client`) or `sqlite3`. It is for people
+at a terminal; agents and scripts get `NEEDS_TERMINAL` and use `db query`,
+which returns JSON and checks every statement.
+
 ### Backups
 
 ```bash

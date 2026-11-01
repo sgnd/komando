@@ -49,6 +49,16 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   (HashiCorp Vault), `aws-sm:NAME[#KEY]` (AWS Secrets Manager) and
   `gcp-sm:NAME[@PROJECT]` (Google Secret Manager). komando runs that tool's
   CLI when it needs the value and never stores it.
+### Database shell (v0.7)
+
+- `komando db shell CONN` opens psql, mysql or sqlite3 on this computer,
+  connected through the conn's `--via` path, with the password in the
+  client's environment. Read-only unless `--write` (PostgreSQL
+  default_transaction_read_only, MySQL session READ ONLY, sqlite3
+  -readonly); protected conns need `--yes` for `--write`. PostgreSQL keeps
+  verifying the certificate's host name through the forward (PGHOSTADDR).
+  For people only: without a terminal it refuses with NEEDS_TERMINAL.
+
 ### File servers in storage (v0.7)
 
 - `komando storage` also works with FTPS (`ftps://`, TLS on control and data

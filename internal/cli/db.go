@@ -37,7 +37,7 @@ func dbCmd() *cobra.Command {
 read-only transaction, so nothing can change. With --write, try --dry-run
 first: it runs the SQL and rolls it back, showing how many rows would change.`,
 	}
-	c.AddCommand(dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbDumpCmd(), dbRestoreCmd())
+	c.AddCommand(dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
 	return c
 }
 

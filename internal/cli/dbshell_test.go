@@ -1,0 +1,80 @@
+package cli
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/store"
+)
+
+func shellFor(t *testing.T, url, addr string, write bool) ([]string, []string) {
+	t.Helper()
+	tg, err := driver.Parse(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	argv, env, err := shellCommand(&store.Conn{URL: url}, tg, "s3cret-pw", addr, write)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return argv, env
+}
+
+func has(list []string, want string) bool {
+	for _, s := range list {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
+
+func TestShellCommand(t *testing.T) {
+	t.Setenv("KOMANDO_VAULT_PASS", "vault-pass")
+
+	argv, env := shellFor(t, "postgres://app@db.internal:5432/app?sslmode=verify-full", "127.0.0.1:50123", false)
+	for _, want := range []string{"PGHOST=db.internal", "PGHOSTADDR=127.0.0.1", "PGPORT=50123", "PGSSLMODE=verify-full",
+		"PGPASSWORD=s3cret-pw", "PGOPTIONS=-c default_transaction_read_only=on"} {
+		if !has(env, want) {
+			t.Errorf("postgres env lacks %s", want)
+		}
+	}
+	if strings.Contains(strings.Join(argv, " "), "s3cret-pw") {
+		t.Error("password on the command line")
+	}
+	if _, env := shellFor(t, "postgres://app@db.internal:5432/app", "db.internal:5432", true); has(env, "PGOPTIONS=-c default_transaction_read_only=on") || has(env, "PGHOSTADDR=db.internal") {
+		t.Errorf("--write or direct connection set extra options: %v", env)
+	}
+
+	argv, env = shellFor(t, "mysql://shop@db.internal:3306/shop", "db.internal:3306", false)
+	if !has(argv, "--init-command=SET SESSION TRANSACTION READ ONLY") || !has(env, "MYSQL_PWD=s3cret-pw") || argv[len(argv)-1] != "shop" {
+		t.Errorf("mysql: %v", argv)
+	}
+	if argv, _ := shellFor(t, "sqlite:///tmp/app.db", "", false); !has(argv, "-readonly") {
+		t.Errorf("sqlite: %v", argv)
+	}
+	if argv, _ := shellFor(t, "sqlite:///tmp/app.db", "", true); has(argv, "-readonly") {
+		t.Errorf("sqlite --write: %v", argv)
+	}
+	for _, e := range env {
+		if strings.HasPrefix(e, "KOMANDO_VAULT_PASS=") {
+			t.Error("vault passphrase passed to the client")
+		}
+	}
+
+	tg, _ := driver.Parse("mysql://shop@db.internal:3306/shop?tls=true")
+	if _, _, err := shellCommand(&store.Conn{}, tg, "x", "127.0.0.1:5000", false); err == nil || toErr(err).Code != "TLS_THROUGH_FORWARD" {
+		t.Errorf("mysql TLS through a forward: %v", err)
+	}
+}
+
+func TestDBShellNeedsTerminal(t *testing.T) {
+	saved := interactive
+	defer func() { interactive = saved }()
+	interactive = func() bool { return false }
+	if err := runDBShell(context.Background(), "x", false); err == nil || toErr(err).Code != "NEEDS_TERMINAL" {
+		t.Errorf("want NEEDS_TERMINAL, got %v", err)
+	}
+}
