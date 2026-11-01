@@ -1,7 +1,14 @@
 # Rancangan: resource non-SSH dan `komando db`
 
-Status: **Fase 1 dan 2 selesai** (`komando conn`; `komando db query/schema/explain`
-untuk PostgreSQL dan SQLite). Fase berikutnya ada di [Rencana bertahap](#rencana-bertahap).
+Tujuan besar dan roadmap semua family ada di [vision.md](vision.md).
+
+Status: **Fase 1–5 selesai**: `komando conn`; `komando db` untuk PostgreSQL,
+MySQL dan SQLite (query, schema, explain, dump, restore, `audit_sql`);
+`komando cache` (Redis/Valkey); `komando storage` (S3, nama perintahnya
+`storage`, bukan `s3`). Tambahan keamanan dari review: aturan `sql-opaque`
+(DO/CALL/PREPARE/EXECUTE), `sql-remote` (dblink), penolakan komentar MySQL
+`/*! */` dan server dengan aturan string non-default, serta pemeriksaan file
+restore dari perintah klien. Rencana selanjutnya ada di [vision.md](vision.md).
 
 Keputusan yang diambil saat Fase 2:
 
