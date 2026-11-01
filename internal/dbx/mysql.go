@@ -51,6 +51,11 @@ func openMySQL(rawURL string, t driver.Target, password string, dial DialFunc) (
 	return sql.OpenDB(conn), nil
 }
 
+func isUnknownVariable(err error) bool {
+	var me *mysql.MySQLError
+	return errors.As(err, &me) && me.Number == 1193
+}
+
 func isMySQLAuth(err error) bool {
 	var me *mysql.MySQLError
 	return errors.As(err, &me) && (me.Number == 1045 || me.Number == 1044 || me.Number == 1698)
@@ -64,7 +69,7 @@ func mysqlErr(err error) error {
 	switch me.Number {
 	case 1792: // ER_CANT_EXECUTE_IN_READ_ONLY_TRANSACTION
 		return writeRequired("statement")
-	case 3024: // ER_QUERY_TIMEOUT (max_execution_time)
+	case 3024, 1969: // query timeout: MySQL max_execution_time, MariaDB max_statement_time
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "narrow the query (WHERE, LIMIT) or raise --timeout", "%s", me.Message)
 	}
 	return out.Errf(out.ExitRemote, "DB_ERROR", "fix the SQL; `komando db schema CONN TABLE` shows columns and types", "%s (error %d)", me.Message, me.Number)

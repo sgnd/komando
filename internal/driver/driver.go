@@ -101,6 +101,7 @@ type Target struct {
 	Prefix   string `json:"prefix,omitempty"`   // s3: keys are relative to this
 	Region   string `json:"region,omitempty"`   // s3
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
+	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false)
 }
 
 // Where is the address or path, for display.
@@ -168,6 +169,9 @@ func Parse(raw string) (Target, error) {
 	t.Address = net.JoinHostPort(u.Hostname(), strconv.Itoa(port))
 	t.User = u.User.Username()
 	t.Database = strings.TrimPrefix(u.Path, "/")
+	if k.Name == "mysql" {
+		t.TLS = u.Query().Get("tls")
+	}
 	if k.Name == "redis" {
 		t.Secure = strings.EqualFold(u.Scheme, "rediss")
 		if t.Database == "" {

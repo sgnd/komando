@@ -26,11 +26,25 @@ var sqlRules = []Rule{
 	{"sql-update-no-where", "UPDATE without WHERE changes every row"},
 	{"sql-privileges", "changes users, roles or privileges"},
 	{"sql-program", "runs a program on the database server (COPY ... PROGRAM)"},
-	{"sql-server-file", "writes a file on the database server"},
+	{"sql-server-file", "reads or writes files on the database server"},
 	{"sql-kill", "kills sessions or shuts the server down"},
 	{"sql-vacuum-full", "VACUUM FULL locks and rewrites tables"},
 	{"sql-server-config", "changes server-wide configuration"},
+	{"sql-opaque", "runs code komando cannot inspect (DO, CALL, PREPARE/EXECUTE)"},
+	{"sql-remote", "runs SQL over another connection that the read-only transaction does not cover (dblink)"},
 	{"db-restore", "restoring a backup can overwrite existing data"},
+}
+
+var dataRules = []Rule{
+	{"data-delete", "deletes data that cannot be recovered (cache keys, stored objects)"},
+}
+
+// DataRules lists rules for named delete actions (cache rm, storage rm).
+func DataRules() []Rule { return append([]Rule(nil), dataRules...) }
+
+// DataDelete is the verdict for deleting cache keys or stored objects.
+func DataDelete() Verdict {
+	return Verdict{Risk: RiskDestructive, RuleIDs: []string{"data-delete"}, Reasons: []string{dataRules[0].Reason}}
 }
 
 // SQLRules lists the rules ClassifySQL can report.
@@ -61,10 +75,12 @@ type Statement struct {
 type SQLPlan struct {
 	Statements []Statement `json:"statements"`
 	Verdict
+	kind string
 }
 
 type token struct {
 	word  string // upper-cased keyword or identifier; "" for punctuation
+	ident string // upper-cased content of a quoted identifier ("pg_terminate_backend")
 	punct byte
 	depth int
 	pos   int // byte offset in the statement
@@ -74,11 +90,12 @@ type token struct {
 // Postgres has E” strings and dollar quoting, SQLite accepts [names].
 type dialect struct {
 	backslash, dollar, backtick, bracket bool
+	execComments                         bool // MySQL runs the text inside /*! ... */
 }
 
 var dialects = map[string]dialect{
 	"postgres": {dollar: true},
-	"mysql":    {backslash: true, backtick: true},
+	"mysql":    {backslash: true, backtick: true, execComments: true},
 	"sqlite":   {backtick: true, bracket: true},
 }
 
@@ -104,6 +121,11 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 				i++
 			}
 		case c == '/' && i+1 < n && sql[i+1] == '*':
+			if d.execComments && i+2 < n && (sql[i+2] == '!' || sql[i+2] == 'M' && i+3 < n && sql[i+3] == '!') {
+				return nil, nil, out.Errf(out.ExitUsage, "SQL_HIDDEN_CODE",
+					"write the statement without /*! ... */: MySQL runs what is inside, so komando cannot check it",
+					"executable comments (/*! ... */) are not allowed")
+			}
 			level := 0
 			for i < n {
 				if i+1 < n && sql[i] == '/' && sql[i+1] == '*' {
@@ -127,7 +149,8 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 			if c == '[' {
 				closeCh = ']'
 			}
-			esc := d.backslash || (c == '\'' && i > 0 && (sql[i-1] == 'E' || sql[i-1] == 'e') && (i < 2 || !isWord(sql[i-2])))
+			// MySQL escapes with backslash only inside '' and "", never in `names`
+			esc := d.backslash && c != '`' || (c == '\'' && i > 0 && (sql[i-1] == 'E' || sql[i-1] == 'e') && (i < 2 || !isWord(sql[i-2])))
 			j := i + 1
 			for ; j < n; j++ {
 				if esc && sql[j] == '\\' {
@@ -145,8 +168,8 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 			if j >= n {
 				return nil, nil, out.Usage("unterminated %c quote in SQL", c)
 			}
-			if c != '\'' { // quoted identifier: keep as a word so it is not a keyword
-				cur = append(cur, token{word: "\x00ident", depth: depth, pos: i - start})
+			if c != '\'' { // quoted identifier: never a keyword, but still a function name
+				cur = append(cur, token{word: "\x00ident", ident: strings.ToUpper(sql[i+1 : j]), depth: depth, pos: i - start})
 			} else {
 				cur = append(cur, token{punct: '\'', depth: depth, pos: i - start})
 			}
@@ -219,7 +242,7 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 	if len(texts) == 0 {
 		return SQLPlan{}, out.Usage("no SQL statement given")
 	}
-	plan := SQLPlan{Statements: []Statement{}}
+	plan := SQLPlan{Statements: []Statement{}, kind: kind}
 	seen := map[string]bool{}
 	for i, ts := range toks {
 		risk, rules, err := classifyStatement(ts)
@@ -228,7 +251,7 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 		}
 		kw := firstWord(ts)
 		plan.Statements = append(plan.Statements, Statement{SQL: texts[i], Keyword: kw, Risk: risk,
-			Rows: returnsRows(kw, ts), NoTx: noTx(kind, kw, ts), Unknown: !readFirst[kw] && !writeFirst[kw]})
+			Rows: returnsRows(kw, ts), NoTx: noTx(kind, kw, ts), Unknown: !readFirst[kw] && !writeFirst[kw] && !opaqueFirst[kw]})
 		if risk > plan.Risk {
 			plan.Risk = risk
 		}
@@ -243,15 +266,18 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 	return plan, nil
 }
 
-// NeedsWrite reports whether a statement is known to change something.
-// Unknown statements (often typos) may still run without --write: the
-// read-only transaction refuses them if they do write, and the database
-// gives a better error for a typo than komando can.
+// NeedsWrite reports whether a statement must not run without --write.
+// Unknown statements (often typos) that are not otherwise flagged may run
+// in PostgreSQL and SQLite, whose read-only mode refuses them if they do
+// write, and whose error for a typo is clearer than komando's. MySQL's
+// read-only transaction does not cover admin statements, so there an
+// unknown statement needs --write.
 func (p SQLPlan) NeedsWrite() bool {
 	for _, s := range p.Statements {
-		if s.Risk > RiskRead && !s.Unknown {
-			return true
+		if s.Risk == RiskRead || s.Unknown && s.Risk == RiskWrite && p.kind != "mysql" {
+			continue
 		}
+		return true
 	}
 	return false
 }
@@ -286,7 +312,7 @@ func noTx(kind, kw string, ts []token) bool {
 		return (kw == "CREATE" || kw == "DROP" || kw == "REINDEX") && hasWord(ts, "CONCURRENTLY")
 	case "mysql":
 		switch kw {
-		case "CREATE", "ALTER", "DROP", "RENAME", "TRUNCATE", "GRANT", "REVOKE", "LOCK", "UNLOCK", "INSTALL", "UNINSTALL", "OPTIMIZE", "REPAIR", "ANALYZE", "FLUSH", "RESET", "LOAD":
+		case "PREPARE", "EXECUTE", "CALL", "CREATE", "ALTER", "DROP", "RENAME", "TRUNCATE", "GRANT", "REVOKE", "LOCK", "UNLOCK", "INSTALL", "UNINSTALL", "OPTIMIZE", "REPAIR", "ANALYZE", "FLUSH", "RESET", "LOAD":
 			return true
 		}
 	case "sqlite":
@@ -316,13 +342,38 @@ var txControl = map[string]bool{
 
 // dangerousFuncs have side effects a read-only transaction does not stop.
 var dangerousFuncs = map[string]string{
-	"PG_TERMINATE_BACKEND": "sql-kill",
-	"PG_CANCEL_BACKEND":    "sql-kill",
-	"PG_RELOAD_CONF":       "sql-server-config",
-	"PG_PROMOTE":           "sql-kill",
-	"LO_EXPORT":            "sql-server-file",
-	"DBLINK_EXEC":          "sql-program",
+	"PG_TERMINATE_BACKEND": "sql-kill", "PG_CANCEL_BACKEND": "sql-kill", "PG_PROMOTE": "sql-kill",
+	"PG_RELOAD_CONF": "sql-server-config", "PG_ROTATE_LOGFILE": "sql-server-config", "PG_SWITCH_WAL": "sql-server-config",
+	"PG_CREATE_RESTORE_POINT": "sql-server-config", "PG_WAL_REPLAY_PAUSE": "sql-server-config", "PG_WAL_REPLAY_RESUME": "sql-server-config",
+	"PG_DROP_REPLICATION_SLOT": "sql-server-config", "PG_CREATE_PHYSICAL_REPLICATION_SLOT": "sql-server-config",
+	"PG_CREATE_LOGICAL_REPLICATION_SLOT": "sql-server-config", "PG_STAT_RESET": "sql-server-config",
+	"SET_CONFIG": "sql-server-config",
+	"LO_EXPORT":  "sql-server-file", "LO_IMPORT": "sql-server-file", "PG_READ_FILE": "sql-server-file",
+	"PG_READ_BINARY_FILE": "sql-server-file", "PG_FILE_WRITE": "sql-server-file", "PG_FILE_UNLINK": "sql-server-file",
+	"PG_FILE_RENAME": "sql-server-file", "LOAD_FILE": "sql-server-file",
+	"SYS_EXEC": "sql-program", "SYS_EVAL": "sql-program",
 }
+
+// funcRule rates a function call by name; prefixes cover function families.
+func funcRule(name string) (string, bool) {
+	if id, ok := dangerousFuncs[name]; ok {
+		return id, true
+	}
+	switch {
+	case strings.HasPrefix(name, "DBLINK"):
+		return "sql-remote", true
+	case strings.HasPrefix(name, "PG_STAT_RESET"), strings.HasPrefix(name, "PG_REPLICATION_ORIGIN_"):
+		return "sql-server-config", true
+	}
+	return "", false
+}
+
+// opaqueFirst are statements whose real effect is hidden from komando.
+var opaqueFirst = map[string]bool{"DO": true, "CALL": true, "PREPARE": true, "EXECUTE": true, "EXEC": true}
+
+// stringRules are settings that change how SQL text is parsed. komando's
+// checks assume the defaults, so changing them is refused.
+var stringRules = map[string]bool{"STANDARD_CONFORMING_STRINGS": true, "BACKSLASH_QUOTE": true, "ESCAPE_STRING_WARNING": true, "SQL_MODE": true}
 
 // writeFirst are statements that change something when they lead.
 var writeFirst = map[string]bool{
@@ -368,6 +419,15 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 		}
 		return classifyStatement(inner)
 	}
+	if first == "SET" || first == "RESET" {
+		for _, t := range ts {
+			if stringRules[t.word] {
+				return 0, nil, out.Errf(out.ExitUsage, "SQL_STRING_RULES",
+					"leave this setting alone: komando checks SQL with the server's default string rules",
+					"changing %s is not allowed in komando db", strings.ToLower(t.word))
+			}
+		}
+	}
 	risk := RiskWrite
 	if readFirst[first] {
 		risk = RiskRead
@@ -394,17 +454,25 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 	case "GRANT", "REVOKE":
 		flag("sql-privileges")
 	case "CREATE", "ALTER", "RENAME":
-		if second == "ROLE" || second == "USER" {
+		if second == "ROLE" || second == "USER" || second == "DEFAULT" && first == "ALTER" {
 			flag("sql-privileges")
 		}
 		if first == "ALTER" && second == "SYSTEM" {
 			flag("sql-server-config")
 		}
 	case "SET":
-		switch second {
-		case "PASSWORD":
+		if second == "PASSWORD" {
 			flag("sql-privileges")
-		case "GLOBAL", "PERSIST", "PERSIST_ONLY":
+		}
+		if hasWord(ts, "GLOBAL") || hasWord(ts, "PERSIST") || hasWord(ts, "PERSIST_ONLY") { // also @@global.x
+			flag("sql-server-config")
+		}
+	case "DO", "CALL", "PREPARE", "EXECUTE", "EXEC":
+		flag("sql-opaque")
+	case "STOP", "CHANGE", "PURGE":
+		flag("sql-server-config") // MySQL replication and binary logs
+	case "START":
+		if second != "TRANSACTION" {
 			flag("sql-server-config")
 		}
 	case "KILL", "SHUTDOWN":
@@ -416,6 +484,12 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 	case "COPY":
 		if hasWord(ts, "PROGRAM") {
 			flag("sql-program")
+		}
+		for i, t := range ts { // COPY t TO '/file' or FROM '/file' (not STDIN/STDOUT)
+			if (t.word == "TO" || t.word == "FROM") && t.depth == 0 && i+1 < len(ts) && ts[i+1].punct == '\'' {
+				flag("sql-server-file")
+				break
+			}
 		}
 	}
 	for i, t := range ts {
@@ -448,7 +522,11 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 				}
 			}
 		default:
-			if id, ok := dangerousFuncs[t.word]; ok && i+1 < len(ts) && ts[i+1].punct == '(' {
+			name := t.word
+			if t.ident != "" {
+				name = t.ident
+			}
+			if id, ok := funcRule(name); ok && i+1 < len(ts) && ts[i+1].punct == '(' {
 				flag(id)
 			}
 		}

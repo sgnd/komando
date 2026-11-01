@@ -45,7 +45,6 @@ func TestClassifySQL(t *testing.T) {
 		{"postgres", "select * into backup_users from users", RiskWrite, ""},
 		{"postgres", "with d as (delete from t where id = 1 returning *) select * from d", RiskWrite, ""},
 		{"postgres", "explain analyze insert into t values (1)", RiskWrite, ""},
-		{"postgres", "do $$ begin perform 1; end $$", RiskWrite, ""},
 		{"postgres", "vacuum analyze t", RiskWrite, ""},
 		{"postgres", "copy t from stdin", RiskWrite, ""},
 		{"postgres", "some_new_statement x", RiskWrite, ""},
@@ -74,6 +73,20 @@ func TestClassifySQL(t *testing.T) {
 		{"mysql", "set global max_connections = 1", RiskDestructive, "sql-server-config"},
 		{"mysql", "set password for bob = 'x'", RiskDestructive, "sql-privileges"},
 		{"mysql", "drop database shop", RiskDestructive, "sql-drop"},
+		// review findings: each of these once passed with fewer flags than it needs
+		{"postgres", "do $$ begin perform 1; end $$", RiskDestructive, "sql-opaque"},
+		{"postgres", "PREPARE p AS SELECT pg_terminate_backend(123); EXECUTE p", RiskDestructive, "sql-opaque"},
+		{"postgres", `SELECT "pg_terminate_backend"(1)`, RiskDestructive, "sql-kill"},
+		{"postgres", "SELECT * FROM dblink('dbname=app', 'DROP TABLE users') AS t(s text)", RiskDestructive, "sql-remote"},
+		{"postgres", "select pg_rotate_logfile()", RiskDestructive, "sql-server-config"},
+		{"postgres", "copy users to '/tmp/users.csv'", RiskDestructive, "sql-server-file"},
+		{"postgres", "copy users from '/etc/passwd'", RiskDestructive, "sql-server-file"},
+		{"postgres", "alter default privileges grant select on tables to public", RiskDestructive, "sql-privileges"},
+		{"postgres", "call cleanup()", RiskDestructive, "sql-opaque"},
+		{"mysql", "SET @@global.max_connections = 1", RiskDestructive, "sql-server-config"},
+		{"mysql", "DELETE FROM users AS `x\\` # ` WHERE id = 1", RiskDestructive, "sql-delete-no-where"},
+		{"mysql", "stop replica", RiskDestructive, "sql-server-config"},
+		{"mysql", "select load_file('/etc/passwd')", RiskDestructive, "sql-server-file"},
 	}
 	for _, c := range cases {
 		p, err := ClassifySQL(c.kind, c.sql)
@@ -110,6 +123,7 @@ func TestNeedsWrite(t *testing.T) {
 		"select 1; selec 2":                   false,
 		"insert into t values (1)":            true,
 		"selec 1; delete from t where id = 1": true,
+		"PREPARE p AS SELECT pg_terminate_backend(1); EXECUTE p": true,
 	} {
 		p, err := ClassifySQL("postgres", sql)
 		if err != nil {
@@ -121,21 +135,43 @@ func TestNeedsWrite(t *testing.T) {
 	}
 }
 
+func TestNeedsWriteMySQLUnknown(t *testing.T) {
+	p, _ := ClassifySQL("mysql", "flush_unknown_admin_thing")
+	if !p.NeedsWrite() {
+		t.Error("unknown MySQL statement ran without --write")
+	}
+	if p, _ := ClassifySQL("mysql", "prepare s from 'drop table t'"); !p.Statements[0].NoTx {
+		t.Error("MySQL PREPARE must not run in a dry run")
+	}
+}
+
 func TestClassifySQLErrors(t *testing.T) {
 	cases := map[string]string{
 		"begin; delete from t where id = 1; commit": "SQL_TX_CONTROL",
-		"COMMIT":                   "SQL_TX_CONTROL",
-		"start transaction":        "SQL_TX_CONTROL",
-		"rollback":                 "SQL_TX_CONTROL",
-		"select 'unterminated":     "USAGE",
-		"select $x$ never closed":  "USAGE",
-		"  -- only a comment\n ; ": "USAGE",
+		"COMMIT":                                "SQL_TX_CONTROL",
+		"start transaction":                     "SQL_TX_CONTROL",
+		"rollback":                              "SQL_TX_CONTROL",
+		"select 'unterminated":                  "USAGE",
+		"select $x$ never closed":               "USAGE",
+		"SET standard_conforming_strings = off": "SQL_STRING_RULES",
+		"reset backslash_quote":                 "SQL_STRING_RULES",
+		"  -- only a comment\n ; ":              "USAGE",
 	}
 	for sql, code := range cases {
 		_, err := ClassifySQL("postgres", sql)
 		e, ok := err.(*out.Error)
 		if !ok || e.Code != code {
 			t.Errorf("%q: want %s, got %v", sql, code, err)
+		}
+	}
+	for sql, code := range map[string]string{
+		"/*!DROP*/ TABLE users":        "SQL_HIDDEN_CODE",
+		"select /*M!100000 1 */ 2":     "SQL_HIDDEN_CODE",
+		"set sql_mode = 'ANSI_QUOTES'": "SQL_STRING_RULES",
+	} {
+		_, err := ClassifySQL("mysql", sql)
+		if e, ok := err.(*out.Error); !ok || e.Code != code {
+			t.Errorf("mysql %q: want %s, got %v", sql, code, err)
 		}
 	}
 	if _, err := ClassifySQL("redis", "get x"); err == nil {

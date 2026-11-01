@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -29,6 +30,29 @@ type dumpTool struct {
 	dump, restore []string
 	passwordEnv   string
 	pkg           string // Debian/Ubuntu package that provides the tools, for hints
+	tls           string // mysql: the URL's tls= setting, mapped to client flags at run time
+}
+
+// mysqlTLSFlags maps the URL's tls= setting to the client's flags. MySQL
+// and MariaDB clients spell them differently; version is `--version` output.
+func mysqlTLSFlags(tls, version string) []string {
+	if tls == "" {
+		return nil
+	}
+	if strings.Contains(version, "MariaDB") {
+		return map[string][]string{
+			"true":        {"--ssl", "--ssl-verify-server-cert"},
+			"skip-verify": {"--ssl", "--skip-ssl-verify-server-cert"},
+			"preferred":   {"--ssl"},
+			"false":       {"--skip-ssl"},
+		}[tls]
+	}
+	return map[string][]string{
+		"true":        {"--ssl-mode=VERIFY_IDENTITY"},
+		"skip-verify": {"--ssl-mode=REQUIRED"},
+		"preferred":   {"--ssl-mode=PREFERRED"},
+		"false":       {"--ssl-mode=DISABLED"},
+	}[tls]
 }
 
 func toolsFor(c *store.Conn, t driver.Target) (dumpTool, error) {
@@ -41,6 +65,9 @@ func toolsFor(c *store.Conn, t driver.Target) (dumpTool, error) {
 			passwordEnv: "PGPASSWORD", pkg: "postgresql-client",
 		}, nil
 	case "mysql":
+		if t.Database == "" {
+			return dumpTool{}, out.Usage("the conn URL has no database name; add it (mysql://user@host:3306/NAME) to dump or restore")
+		}
 		host, port, _ := net.SplitHostPort(t.Address)
 		conn := []string{"--host", host, "--port", port}
 		if t.User != "" {
@@ -50,6 +77,7 @@ func toolsFor(c *store.Conn, t driver.Target) (dumpTool, error) {
 			dump:        append(append([]string{"mysqldump"}, conn...), "--single-transaction", "--routines", "--triggers", "--no-tablespaces", t.Database),
 			restore:     append(append([]string{"mysql"}, conn...), t.Database),
 			passwordEnv: "MYSQL_PWD", pkg: "mysql-client",
+			tls: t.TLS,
 		}, nil
 	}
 	return dumpTool{}, out.Usage("%s conns have no dump tool", t.Kind.Name)
@@ -80,25 +108,25 @@ overwritten. The file holds your data: it is created readable only by you.`,
 
 func dbRestoreCmd() *cobra.Command {
 	var from string
-	var write bool
 	c := &cobra.Command{
 		Use:   "restore CONN --from FILE",
-		Short: "Load a SQL backup into a database (needs --write and --allow-dangerous)",
+		Short: "Load a SQL backup into a database (needs --allow-dangerous)",
 		Long: `Runs the SQL in FILE (from ` + "`db dump`" + ` or any plain SQL file; .gz is read
 compressed) with psql or mysql. A restore can overwrite existing data, so it
-needs --write and --allow-dangerous, plus --yes on a protected conn.
-PostgreSQL restores run in one transaction: on any error nothing changes.`,
-		Example: `  komando db restore staging-db --from prod-2026-11-02.sql.gz --write --allow-dangerous`,
+needs --allow-dangerous, plus --yes on a protected conn. The whole file is
+checked first: client commands that could run programs (\! or system) are
+refused. PostgreSQL restores run in one transaction: on any error nothing
+changes.`,
+		Example: `  komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if from == "" {
 				return out.Usage("--from FILE is required")
 			}
-			return runRestore(cmd.Context(), args[0], from, write)
+			return runRestore(cmd.Context(), args[0], from)
 		},
 	}
 	c.Flags().StringVar(&from, "from", "", "SQL file on this computer")
-	c.Flags().BoolVar(&write, "write", false, "confirm that the restore changes the database")
 	return c
 }
 
@@ -216,7 +244,7 @@ func runDump(ctx context.Context, connExpr, to string) error {
 	return finishTransfer(st, "db.dump", data, rec, err)
 }
 
-func runRestore(ctx context.Context, connExpr, from string, write bool) error {
+func runRestore(ctx context.Context, connExpr, from string) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -240,9 +268,6 @@ func runRestore(ctx context.Context, connExpr, from string, write bool) error {
 	if err != nil {
 		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "cannot read %s: %v", from, err)
 	}
-	if !write {
-		return out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "a restore changes the database; add --write (and --allow-dangerous, since it can overwrite data)", "restore needs --write")
-	}
 	if err := guardConns([]*store.Conn{c}, driver.Verdict{Risk: driver.RiskDestructive,
 		RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}); err != nil {
 		return err
@@ -252,17 +277,28 @@ func runRestore(ctx context.Context, connExpr, from string, write bool) error {
 		runsOn = c.Via
 	}
 	data := transferData{Conn: c.Name, File: from, Bytes: fi.Size(), Tool: tool.restore, RunsOn: runsOn, DryRun: g.dryRun}
+	// check the whole file before sending any of it: a stream cut short
+	// would let psql commit what it had received
+	if err := withBackup(from, func(r io.Reader) error { return driver.CheckRestore(t.Kind.Name, r) }); err != nil {
+		return err
+	}
 	if g.dryRun {
 		out.P.Print("db.restore", data, nil)
 		return nil
 	}
-	f, err := os.Open(from)
+	err = withBackup(from, func(r io.Reader) error { return runTool(ctx, st, c, tool, tool.restore, r, io.Discard) })
+	return finishTransfer(st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from}, err)
+}
+
+// withBackup opens a backup file (decompressing .gz) and passes it to fn.
+func withBackup(path string, fn func(io.Reader) error) error {
+	f, err := os.Open(path)
 	if err != nil {
-		return err
+		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "cannot read %s: %v", path, err)
 	}
 	defer f.Close()
 	var r io.Reader = f
-	if strings.HasSuffix(from, ".gz") {
+	if strings.HasSuffix(path, ".gz") {
 		gz, err := gzip.NewReader(f)
 		if err != nil {
 			return out.Errf(out.ExitUsage, "BAD_FILE", "the file ends in .gz but is not gzip data", "%v", err)
@@ -270,8 +306,7 @@ func runRestore(ctx context.Context, connExpr, from string, write bool) error {
 		defer gz.Close()
 		r = gz
 	}
-	err = runTool(ctx, st, c, tool, tool.restore, r, io.Discard)
-	return finishTransfer(st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from}, err)
+	return fn(r)
 }
 
 func finishTransfer(st *store.State, name string, data transferData, rec map[string]any, err error) error {
@@ -292,30 +327,33 @@ func finishTransfer(st *store.State, name string, data transferData, rec map[str
 	return nil
 }
 
-// writeAtomic lets fill write a temp file next to path (mode 0600), then
-// renames it into place, so a failed backup never leaves a partial file.
+// writeAtomic lets fill write a temp file inside a private (0700) folder
+// next to path, then links it into place. A failed transfer never leaves a
+// partial file, nobody else can read the file while it is written, and an
+// existing path is never replaced, even one created meanwhile.
 func writeAtomic(path string, fill func(tmp string) error) error {
-	f, err := os.CreateTemp(filepath.Dir(path), ".komando-*.tmp")
+	dir, err := os.MkdirTemp(filepath.Dir(path), ".komando-*")
 	if err != nil {
 		return out.Errf(out.ExitError, "FILE_ERROR", "check that the folder exists and is writable", "%v", err)
 	}
-	tmp := f.Name()
+	defer os.RemoveAll(dir)
+	tmp := filepath.Join(dir, "data")
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
 	f.Close()
-	if err := os.Chmod(tmp, 0o600); err != nil {
-		os.Remove(tmp)
-		return err
-	}
 	if err := fill(tmp); err != nil {
-		os.Remove(tmp)
 		return err
 	}
 	if err := os.Chmod(tmp, 0o600); err != nil {
-		os.Remove(tmp)
 		return err
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-		return err
+	if err := os.Link(tmp, path); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick a new file name; existing files are never overwritten", "%s already exists", path)
+		}
+		return out.Errf(out.ExitError, "FILE_ERROR", "", "%v", err)
 	}
 	return nil
 }
@@ -327,6 +365,9 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, tool dumpTool,
 	if err != nil {
 		return err
 	}
+	if strings.ContainsAny(password, "\r\n") {
+		return out.Errf(out.ExitUsage, "BAD_SECRET", "store the password again without line breaks (`komando secret set NAME`)", "the password for %s contains a line break", c.Name)
+	}
 	if g.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, g.timeout)
@@ -334,6 +375,17 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, tool dumpTool,
 	}
 	if stdin == nil {
 		stdin = strings.NewReader("")
+	}
+	if tool.tls != "" { // the URL asks for TLS: pass it on in this client's own flags
+		var version bytes.Buffer
+		if err := runTool(ctx, st, c, dumpTool{passwordEnv: tool.passwordEnv, pkg: tool.pkg}, []string{argv[0], "--version"}, nil, &version); err != nil {
+			return err
+		}
+		flags := mysqlTLSFlags(tool.tls, version.String())
+		if flags == nil {
+			return out.Usage("tls=%s in the conn URL cannot be passed to %s; use true, skip-verify, preferred or false", tool.tls, argv[0])
+		}
+		argv = append(append([]string{argv[0]}, flags...), argv[1:]...)
 	}
 	if c.Via == "" {
 		if _, err := exec.LookPath(argv[0]); err != nil {
@@ -378,7 +430,7 @@ IFS= read -r KOMANDO_PW; %s=$KOMANDO_PW; export %s; unset KOMANDO_PW; exec %s`,
 			"%s is not installed on %s", argv[0], c.Via)
 	}
 	if code != 0 {
-		return out.Errf(out.ExitRemote, "TOOL_FAILED", "read the message; `komando conn test "+c.Name+"` checks reachability", "%s failed on %s (exit %d): %s", argv[0], c.Via, code, lastLines(stderr, 5))
+		return out.Errf(out.ExitRemote, "TOOL_FAILED", toolHint(stderr, c.Name), "%s failed on %s (exit %d): %s", argv[0], c.Via, code, lastLines(stderr, 5))
 	}
 	return nil
 }
@@ -389,9 +441,24 @@ func toolErr(ctx context.Context, tool, where, stderr string, err error) error {
 	}
 	var ee *exec.ExitError
 	if errors.As(err, &ee) {
-		return out.Errf(out.ExitRemote, "TOOL_FAILED", "read the message; `komando conn test NAME` checks reachability", "%s failed on %s (exit %d): %s", tool, where, ee.ExitCode(), lastLines(stderr, 5))
+		return out.Errf(out.ExitRemote, "TOOL_FAILED", toolHint(stderr, "NAME"), "%s failed on %s (exit %d): %s", tool, where, ee.ExitCode(), lastLines(stderr, 5))
 	}
 	return out.Errf(out.ExitError, "TOOL_FAILED", "", "%s on %s: %v", tool, where, err)
+}
+
+// toolHint explains the failures people actually hit with dump tools.
+func toolHint(stderr, conn string) string {
+	switch {
+	case strings.Contains(stderr, "server version mismatch"):
+		return "pg_dump is older than the server; install a postgresql-client at least as new as the server where the tool runs"
+	case strings.Contains(stderr, "unrecognized configuration parameter"):
+		return "the backup was made by a newer pg_dump than this server understands; restore it into a server of that version or newer (the restore ran in one transaction, so nothing changed)"
+	case strings.Contains(stderr, "already exists"):
+		return "the database already has these tables; restore into an empty database, or drop them first (PostgreSQL restores run in one transaction, so nothing changed)"
+	case strings.Contains(stderr, "Access denied"), strings.Contains(stderr, "password authentication failed"):
+		return "check the user in the conn URL and its --password-ref (`komando conn show " + conn + "`)"
+	}
+	return "read the message; `komando conn test " + conn + "` checks reachability"
 }
 
 func lastLines(s string, n int) string {

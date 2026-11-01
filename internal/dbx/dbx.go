@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -64,7 +66,13 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 			q.Add("_pragma", "query_only(1)")
 		}
 		var err error
-		if db, err = sql.Open("sqlite", "file:"+t.Path+"?"+q.Encode()); err != nil {
+		path := t.Path
+		if strings.HasPrefix(path, "~/") { // same as `conn test`
+			if home, err := os.UserHomeDir(); err == nil {
+				path = filepath.Join(home, path[2:])
+			}
+		}
+		if db, err = sql.Open("sqlite", "file:"+path+"?"+q.Encode()); err != nil {
 			return nil, err
 		}
 	default:
@@ -75,7 +83,44 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		db.Close()
 		return nil, connectErr(t, err)
 	}
+	if err := checkStringRules(ctx, db, t.Kind.Name); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return db, nil
+}
+
+// checkStringRules makes sure the server parses quotes the way komando's
+// SQL classifier does; otherwise a statement could hide its real effect
+// inside what komando takes for a string.
+func checkStringRules(ctx context.Context, db *sql.DB, kind string) error {
+	var bad string
+	switch kind {
+	case "postgres":
+		var v string
+		if err := db.QueryRowContext(ctx, "SHOW standard_conforming_strings").Scan(&v); err != nil {
+			return connectErr(driver.Target{}, err)
+		}
+		if v != "on" {
+			bad = "standard_conforming_strings is off"
+		}
+	case "mysql":
+		var mode string
+		if err := db.QueryRowContext(ctx, "SELECT @@SESSION.sql_mode").Scan(&mode); err != nil {
+			return connectErr(driver.Target{}, err)
+		}
+		for _, m := range []string{"NO_BACKSLASH_ESCAPES", "ANSI_QUOTES", "ANSI"} {
+			if strings.Contains(","+mode+",", ","+m+",") {
+				bad = "sql_mode contains " + m
+			}
+		}
+	}
+	if bad != "" {
+		return out.Errf(out.ExitPolicy, "SQL_STRING_RULES",
+			"komando checks SQL with the default quoting rules; use a database user or connection without this setting",
+			"this connection parses strings differently (%s)", bad)
+	}
+	return nil
 }
 
 // Options control one Run.
@@ -234,6 +279,9 @@ func setTimeout(ctx context.Context, q querier, kind string, d time.Duration, in
 		return err
 	case "mysql":
 		_, err := q.ExecContext(ctx, fmt.Sprintf("SET SESSION max_execution_time = %d", ms))
+		if isUnknownVariable(err) { // MariaDB names it differently, in seconds
+			_, err = q.ExecContext(ctx, fmt.Sprintf("SET SESSION max_statement_time = %.3f", d.Seconds()))
+		}
 		return err
 	}
 	return nil
