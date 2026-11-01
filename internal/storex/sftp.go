@@ -43,7 +43,7 @@ func (b *sftpBucket) path(rel string) (string, error) {
 }
 
 func (b *sftpBucket) List(_ context.Context, prefix string, recursive bool, limit int) ([]Object, bool, error) {
-	if prefix != "" {
+	if strings.Trim(prefix, "/") != "" {
 		if _, err := keyIn(b.prefix, prefix); err != nil {
 			return nil, false, err
 		}
@@ -148,13 +148,24 @@ func (b *sftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ 
 	}
 	_ = b.c.Chmod(tmp, mode)
 	if err := b.c.PosixRename(tmp, p); err != nil {
-		// servers without the posix-rename extension cannot rename over a file
-		if rerr := b.c.Remove(p); rerr == nil || errors.Is(rerr, os.ErrNotExist) {
-			err = b.c.Rename(tmp, p)
+		// servers without the posix-rename extension cannot rename over a
+		// file: try a plain rename, then remove the old file only if it
+		// exists, and once it is gone never delete the upload
+		if err = b.c.Rename(tmp, p); err == nil {
+			return nil
 		}
-		if err != nil {
+		if _, serr := b.c.Stat(p); serr != nil {
 			_ = b.c.Remove(tmp)
 			return sftpErr(err)
+		}
+		if rerr := b.c.Remove(p); rerr != nil {
+			_ = b.c.Remove(tmp)
+			return sftpErr(err)
+		}
+		if rerr := b.c.Rename(tmp, p); rerr != nil {
+			return out.Errf(out.ExitRemote, "UPLOAD_NOT_RENAMED",
+				"the old file was removed; the new content is on the server as "+tmp+": rename it by hand",
+				"could not rename the upload into place: %v", rerr)
 		}
 	}
 	return nil

@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 )
 
 // CopyResult says what a Copy did.
@@ -21,6 +22,15 @@ type CopyResult struct {
 	BlobsMounted int    `json:"blobs_mounted"`      // linked without copying (same registry)
 	Bytes        int64  `json:"bytes"`              // uploaded
 	Replaced     bool   `json:"replaced,omitempty"` // the destination tag pointed elsewhere
+}
+
+var digestRe = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
+
+func checkDigest(d string) error {
+	if !digestRe.MatchString(d) {
+		return fmt.Errorf("unsupported or malformed digest %q", d)
+	}
+	return nil
 }
 
 type descriptor struct {
@@ -79,6 +89,11 @@ func copyManifest(ctx context.Context, src *Client, srcRepo, ref string, dst *Cl
 	if d := resp.Header.Get("Docker-Content-Digest"); d != "" && d != digest {
 		return "", fmt.Errorf("manifest digest mismatch: registry says %s, content is %s", d, digest)
 	}
+	// asked for by digest (a pinned image, or an index's child): the
+	// content must be exactly that, whatever the registry's headers say
+	if digestRe.MatchString(ref) && ref != digest {
+		return "", fmt.Errorf("manifest %s has content with digest %s", ref, digest)
+	}
 	var m manifestDoc
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return "", fmt.Errorf("unreadable manifest: %w", err)
@@ -89,6 +104,9 @@ func copyManifest(ctx context.Context, src *Client, srcRepo, ref string, dst *Cl
 	}
 	// an index: copy each platform's manifest by digest first
 	for _, child := range m.Manifests {
+		if err := checkDigest(child.Digest); err != nil {
+			return "", err
+		}
 		if _, err := copyManifest(ctx, src, srcRepo, child.Digest, dst, dstRepo, child.Digest, res); err != nil {
 			return "", err
 		}
@@ -98,6 +116,9 @@ func copyManifest(ctx context.Context, src *Client, srcRepo, ref string, dst *Cl
 		blobs = append([]descriptor{*m.Config}, blobs...)
 	}
 	for _, b := range blobs {
+		if err := checkDigest(b.Digest); err != nil {
+			return "", err
+		}
 		if err := copyBlob(ctx, src, srcRepo, dst, dstRepo, b, res); err != nil {
 			return "", err
 		}

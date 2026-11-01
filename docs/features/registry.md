@@ -29,7 +29,8 @@ komando registry rm harbor myorg/api:old --allow-dangerous
 - `copy` takes `CONN:IMAGE` on both sides, like `komando cp`. It copies every
   platform of a multi-platform image and keeps the digest, so signatures and
   pinned deployments stay valid. Layers the destination already has are
-  skipped; within one registry they are linked instead of copied. Only the
+  skipped; within one registry they are linked instead of copied where the
+registry allows it (otherwise copied). Only the
   destination changes, so only a protected destination needs `--yes`. The
   result says `"replaced": true` when the destination tag pointed to another
   image.

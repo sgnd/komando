@@ -97,6 +97,7 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 	}
 	if g.dryRun {
 		data.DryRun = true
+		audit(st, "registry.copy", nil, "", true, rec)
 		out.P.Print("registry.copy", data, nil)
 		return nil
 	}

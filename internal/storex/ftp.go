@@ -99,7 +99,7 @@ func (b *ftpBucket) path(rel string) (string, error) {
 }
 
 func (b *ftpBucket) List(_ context.Context, prefix string, recursive bool, limit int) ([]Object, bool, error) {
-	if prefix != "" {
+	if strings.Trim(prefix, "/") != "" {
 		if _, err := keyIn(b.prefix, prefix); err != nil {
 			return nil, false, err
 		}
@@ -164,13 +164,31 @@ func (b *ftpBucket) Exists(_ context.Context, key string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if _, err := b.c.FileSize(p); err != nil {
-		if isNotFound(err) {
+	if _, err := b.c.FileSize(p); err == nil {
+		return true, nil
+	} else if !isNotFound(err) && !isNotImplemented(err) {
+		return false, ftpErr(err, driver.Target{})
+	}
+	// SIZE says no (or is not supported): confirm with a listing of the folder
+	entries, err := b.c.List(path.Dir(p))
+	if err != nil {
+		// a missing folder is 550 on most servers, 501 on some
+		if isNotFound(err) || isNotImplemented(err) {
 			return false, nil
 		}
 		return false, ftpErr(err, driver.Target{})
 	}
-	return true, nil
+	for _, e := range entries {
+		if e.Name == path.Base(p) && e.Type != ftp.EntryTypeFolder {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func isNotImplemented(err error) bool {
+	var te *textproto.Error
+	return errors.As(err, &te) && (te.Code == ftp.StatusNotImplemented || te.Code == ftp.StatusCommandNotImplemented || te.Code == ftp.StatusBadArguments)
 }
 
 // Put uploads to a temporary name and renames it into place, so a failed
@@ -194,13 +212,21 @@ func (b *ftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ s
 		return ftpErr(err, driver.Target{})
 	}
 	if err := b.c.Rename(tmp, p); err != nil {
-		// some servers refuse to rename over an existing file
-		if derr := b.c.Delete(p); derr == nil {
-			err = b.c.Rename(tmp, p)
-		}
-		if err != nil {
+		// some servers refuse to rename over an existing file: remove the old
+		// one only if it exists, and once it is gone never delete the upload
+		exists, xerr := b.Exists(context.Background(), key)
+		if xerr != nil || !exists {
 			_ = b.c.Delete(tmp)
 			return ftpErr(err, driver.Target{})
+		}
+		if derr := b.c.Delete(p); derr != nil {
+			_ = b.c.Delete(tmp)
+			return ftpErr(err, driver.Target{})
+		}
+		if rerr := b.c.Rename(tmp, p); rerr != nil {
+			return out.Errf(out.ExitRemote, "UPLOAD_NOT_RENAMED",
+				"the old file was removed; the new content is on the server as "+tmp+": rename it by hand",
+				"could not rename the upload into place: %v", rerr)
 		}
 	}
 	return nil

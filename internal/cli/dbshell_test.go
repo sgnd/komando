@@ -70,6 +70,25 @@ func TestShellCommand(t *testing.T) {
 	}
 }
 
+func TestDBShellDryRunContactsNothing(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	saved, savedG := interactive, g
+	defer func() { interactive, g = saved, savedG }()
+	interactive = func() bool { return true }
+	g.dryRun = true
+	err := store.Update(func(st *store.State) error {
+		st.Conns["far"] = &store.Conn{Name: "far", Kind: "postgres", URL: "postgres://app@10.255.255.1/app", Via: "no-such-host"}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// the --via host does not exist: any attempt to open it would fail
+	if err := runDBShell(context.Background(), "far", false); err != nil {
+		t.Fatalf("dry run tried to connect: %v", err)
+	}
+}
+
 func TestDBShellNeedsTerminal(t *testing.T) {
 	saved := interactive
 	defer func() { interactive = saved }()

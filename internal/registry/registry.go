@@ -70,7 +70,9 @@ func (c *Client) Do(ctx context.Context, method, path string, q url.Values, acce
 // the token first with a body-less request in the same scope.
 func (c *Client) Send(ctx context.Context, method string, u *url.URL, accept, contentType string, body io.Reader, size int64) (*http.Response, error) {
 	scope := scopeFor(u.Path, method)
-	sameHost := u.Host == c.Base.Host // credentials never go to another host
+	// credentials go only to this registry, over its own scheme (never
+	// downgraded to http), whatever an upload Location says
+	sameHost := u.Scheme == c.Base.Scheme && hostPort(u) == hostPort(c.Base)
 	for attempt := 0; attempt < 2; attempt++ {
 		req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
 		if err != nil {
@@ -135,6 +137,19 @@ func (c *Client) Send(ctx context.Context, method string, u *url.URL, accept, co
 	return nil, &Error{Status: 401, Code: "UNAUTHORIZED", Message: "the registry refused the token"}
 }
 
+// hostPort is u's host with the scheme's default port made explicit, so
+// "ghcr.io" and "ghcr.io:443" are the same place.
+func hostPort(u *url.URL) string {
+	if u.Port() != "" {
+		return strings.ToLower(u.Host)
+	}
+	port := "443"
+	if u.Scheme == "http" {
+		port = "80"
+	}
+	return strings.ToLower(net.JoinHostPort(u.Hostname(), port))
+}
+
 // scopeFor is the token scope a path needs: repository:NAME:pull (push for
 // uploads, delete for deletes), or registry:catalog:*.
 func scopeFor(path, method string) string {
@@ -167,6 +182,10 @@ func (c *Client) token(ctx context.Context, challenge, scope string) (string, er
 	realm, err := url.Parse(params["realm"])
 	if err != nil || realm.Host == "" {
 		return "", fmt.Errorf("bad auth challenge %q", challenge)
+	}
+	if realm.Scheme != "https" && c.Base.Scheme == "https" {
+		// the password would travel in clear to the token service
+		return "", &Error{Status: 401, Code: "UNAUTHORIZED", Message: "the registry's token service is not https: " + realm.String()}
 	}
 	q := realm.Query()
 	if params["service"] != "" {

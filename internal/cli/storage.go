@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"mime"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -100,9 +98,7 @@ func openBucket(ctx context.Context, st *store.State, c *store.Conn) (storex.Buc
 	if t.Kind.Name == "sftp" {
 		// an SFTP server is an SSH host without a shell: dial it like one, so
 		// host keys, keys/agent and the --via chain work exactly as for hosts
-		hostname, port, _ := net.SplitHostPort(t.Address)
-		p, _ := strconv.Atoi(port)
-		h := &store.Host{Name: c.Name, Address: hostname, Port: p, User: t.User, PasswordRef: c.PasswordRef, Via: c.Via}
+		h := sftpHost(c)
 		cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
 		defer cancel()
 		sc, err := sshx.Dial(cctx, st, h, sshOpts(st))

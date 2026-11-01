@@ -18,7 +18,9 @@ import (
 )
 
 // db shell opens the database's own client for a person at a terminal. Like
-// db query it is read-only unless --write; agents use db query instead,
+// db query it starts read-only unless --write, but inside the client a
+// person can switch that off, so it guards against accidents only; a
+// protected conn needs --yes for any shell. Agents use db query instead,
 // which returns JSON and classifies every statement.
 
 func dbShellCmd() *cobra.Command {
@@ -28,8 +30,10 @@ func dbShellCmd() *cobra.Command {
 		Short: "Open psql, mysql or sqlite3 on a conn (read-only unless --write; for people, not agents)",
 		Long: `Opens the database's own interactive client on this computer, connected to
 CONN, through its --via path when it has one. The password goes to the client
-through its environment. The session is read-only unless --write (protected
-conns then need --yes). Agents and scripts use ` + "`komando db query`" + ` instead.
+through its environment. The session starts read-only unless --write; that
+guards against accidents, but the client can switch it off, so a protected
+conn needs --yes for any shell. Agents and scripts use ` + "`komando db query`" + `
+instead.
 
 Needs the client installed here: psql (postgresql-client), mysql
 (mysql-client or mariadb-client) or sqlite3.`,
@@ -62,12 +66,20 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 	if err != nil {
 		return err
 	}
-	if write {
+	// a person can turn read-only off inside the client, so any shell on a
+	// protected conn is treated like a change
+	if write || protectedConn(st, c) {
 		if err := guardConns(st, []*store.Conn{c}, driver.Verdict{Risk: driver.RiskWrite}); err != nil {
 			return err
 		}
 	}
-	rec := map[string]any{"conns": []string{c.Name}, "write": write}
+	client := map[string]string{"postgres": "psql", "mysql": "mysql", "sqlite": "sqlite3"}[t.Kind.Name]
+	rec := map[string]any{"conns": []string{c.Name}, "write": write, "client": client}
+	if g.dryRun { // before any VPN, SSH or database contact
+		audit(st, "db.shell", nil, "", true, rec)
+		out.P.Print("db.shell", map[string]any{"conn": c.Name, "client": client, "via": c.Via, "write": write, "dry_run": true}, nil)
+		return nil
+	}
 	fail := func(err error) error {
 		rec["error"] = toErr(err).Code
 		audit(st, "db.shell", nil, "", false, rec)
@@ -82,7 +94,9 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 	}
 	defer a.Close()
 	if a.Dial != nil && !t.Kind.File {
-		local, stop, err := forwardLocal(ctx, a.Dial, t.Address)
+		// Ctrl-C belongs to the client (it cancels a query); the forward must
+		// outlive komando's own interrupt handling
+		local, stop, err := forwardLocal(context.WithoutCancel(ctx), a.Dial, t.Address)
 		if err != nil {
 			return fail(err)
 		}
@@ -93,12 +107,6 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 	if err != nil {
 		return fail(err)
 	}
-	rec["client"] = argv[0]
-	if g.dryRun {
-		audit(st, "db.shell", nil, "", true, rec)
-		out.P.Print("db.shell", map[string]any{"conn": c.Name, "client": argv, "write": write, "dry_run": true}, nil)
-		return nil
-	}
 	if _, err := exec.LookPath(argv[0]); err != nil {
 		pkg := map[string]string{"psql": "postgresql-client", "mysql": "mysql-client (or mariadb-client)", "sqlite3": "sqlite3"}[argv[0]]
 		return fail(out.Errf(out.ExitNotFound, "TOOL_MISSING", "install "+pkg+" on this computer", "%s is not installed here", argv[0]))
@@ -108,7 +116,7 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 		mode = "read-write"
 	}
 	fmt.Fprintf(os.Stderr, "komando: %s session on %s (%s)\n", argv[0], c.Name, mode)
-	p := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	p := exec.Command(argv[0], argv[1:]...) // not tied to ctx: Ctrl-C must not kill the session
 	p.Env, p.Stdin, p.Stdout, p.Stderr = env, os.Stdin, os.Stdout, os.Stderr
 	err = p.Run()
 	var ee *exec.ExitError
@@ -158,7 +166,8 @@ func shellCommand(c *store.Conn, t driver.Target, password, addr string, write b
 
 	case "mysql":
 		host, port, _ := net.SplitHostPort(addr)
-		if host != strings.Split(t.Address, ":")[0] && t.TLS == "true" {
+		server, _, _ := net.SplitHostPort(t.Address)
+		if host != server && t.TLS == "true" {
 			return nil, nil, out.Errf(out.ExitUsage, "TLS_THROUGH_FORWARD",
 				"use `komando db query` (it verifies the certificate through --via), or reach the server without --via",
 				"the mysql client cannot verify the server certificate's name through a local forward")

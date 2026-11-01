@@ -171,3 +171,42 @@ func TestCopyMultiPlatform(t *testing.T) {
 		t.Error("copying a missing tag succeeded")
 	}
 }
+
+func TestCopyRefusesWrongContent(t *testing.T) {
+	src, srcSrv := newFake()
+	defer srcSrv.Close()
+	_, dstSrv := newFake()
+	defer dstSrv.Close()
+	cfg := src.addBlob("app", []byte("cfg"))
+	good := src.addManifest("app", "img", "application/vnd.oci.image.manifest.v1+json", manifestDoc{Config: &cfg})
+	src.addManifest("app", "1.0", "application/vnd.oci.image.index.v1+json",
+		manifestDoc{Manifests: []descriptor{{Digest: good}}})
+	// the registry serves different bytes under the child's digest
+	src.manifests["app@"+good] = []byte(`{"mediaType":"application/vnd.oci.image.manifest.v1+json","layers":[]}`)
+	if _, err := Copy(context.Background(), client(t, srcSrv), "app", "1.0", client(t, dstSrv), "app", "1.0"); err == nil {
+		t.Error("tampered child manifest was copied")
+	}
+	src.addManifest("app", "2.0", "application/vnd.oci.image.index.v1+json",
+		manifestDoc{Manifests: []descriptor{{Digest: "sha256:../../../v2/_catalog"}}})
+	if _, err := Copy(context.Background(), client(t, srcSrv), "app", "2.0", client(t, dstSrv), "app", "2.0"); err == nil {
+		t.Error("malformed digest was used")
+	}
+}
+
+func TestHostPort(t *testing.T) {
+	for _, c := range []struct {
+		a, b string
+		same bool
+	}{
+		{"https://ghcr.io/x", "https://ghcr.io:443/y", true},
+		{"http://reg:5000/x", "http://reg:5000/y", true},
+		{"https://reg/x", "http://reg/y", false},
+		{"https://reg/x", "https://other/y", false},
+	} {
+		a, _ := url.Parse(c.a)
+		b, _ := url.Parse(c.b)
+		if (hostPort(a) == hostPort(b) && a.Scheme == b.Scheme) != c.same {
+			t.Errorf("%s vs %s", c.a, c.b)
+		}
+	}
+}
