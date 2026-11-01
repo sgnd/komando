@@ -251,14 +251,19 @@ func TestViaChain(t *testing.T) {
 
 func TestClusterRunClassification(t *testing.T) {
 	k := map[string]driver.Risk{
-		"get pods":                 driver.RiskRead,
-		"auth can-i list pods":     driver.RiskRead,
-		"auth reconcile -f x.yaml": driver.RiskWrite,
-		"rollout status deploy/a":  driver.RiskRead,
-		"rollout undo deploy/a":    driver.RiskWrite,
-		"delete node w1":           driver.RiskDestructive,
-		"exec deploy/a -- sh":      driver.RiskDestructive,
-		"apply -f x.yaml":          driver.RiskWrite,
+		"get pods":                       driver.RiskRead,
+		"auth can-i list pods":           driver.RiskRead,
+		"auth reconcile -f x.yaml":       driver.RiskWrite,
+		"rollout status deploy/a":        driver.RiskRead,
+		"rollout undo deploy/a":          driver.RiskWrite,
+		"delete node w1":                 driver.RiskDestructive,
+		"exec deploy/a -- sh":            driver.RiskDestructive,
+		"apply -f x.yaml":                driver.RiskWrite,
+		"apply -f x.yaml --prune -l a=b": driver.RiskDestructive,
+		"scale deploy/a --replicas=0":    driver.RiskDestructive,
+		"config view --raw":              driver.RiskDestructive,
+		"create clusterrolebinding x --clusterrole=cluster-admin": driver.RiskDestructive,
+		"edit deploy/a": driver.RiskDestructive,
 	}
 	for cmd, want := range k {
 		if got := classifyKubectl(strings.Fields(cmd)); got != want {
@@ -266,13 +271,25 @@ func TestClusterRunClassification(t *testing.T) {
 		}
 	}
 	d := map[string]driver.Risk{
-		"service ps web":           driver.RiskRead,
-		"service ls":               driver.RiskRead,
-		"ps":                       driver.RiskRead,
-		"service rm web":           driver.RiskDestructive,
-		"system prune -a":          driver.RiskDestructive,
-		"stack rm shop":            driver.RiskDestructive,
-		"service update --force x": driver.RiskWrite,
+		"service ps web":                     driver.RiskRead,
+		"service ls":                         driver.RiskRead,
+		"ps":                                 driver.RiskRead,
+		"service rm web":                     driver.RiskDestructive,
+		"system prune -a":                    driver.RiskDestructive,
+		"stack rm shop":                      driver.RiskDestructive,
+		"service update --force x":           driver.RiskWrite,
+		"exec -it c sh":                      driver.RiskDestructive,
+		"run --privileged -v /:/h alpine":    driver.RiskDestructive,
+		"stack deploy -c x --prune s":        driver.RiskDestructive,
+		"node update --availability drain n": driver.RiskDestructive,
+	}
+	for _, bad := range []string{"get pods --server=https://evil", "get pods --kubeconfig /tmp/x", "get pods -s https://e", "delete x --dry-run=none", "get pods --token t"} {
+		if checkKubectlFlags(strings.Fields(bad)) == nil {
+			t.Errorf("%q must be refused", bad)
+		}
+	}
+	if checkKubectlFlags(strings.Fields("exec deploy/a -- curl --server x")) != nil {
+		t.Error("flags after -- belong to the pod command")
 	}
 	for cmd, want := range d {
 		if got := classifyDocker(strings.Fields(cmd)); got != want {
@@ -290,6 +307,7 @@ func TestCheckOVPN(t *testing.T) {
 		"up /tmp/x.sh", `"script-security" 2`, "config /etc/other.conf", "management 127.0.0.1 7505",
 		"writepid /etc/cron.d/x", "log /etc/passwd", "auth-user-pass /etc/shadow", "ca /etc/ssl/key.pem",
 		"plugin /usr/lib/x.so", "iproute /tmp/ip", "<script>\nx\n</script>",
+		"<ca>\nx\n</ca>x\nscript-security 2", "<ca>\nx\n", "<ca>\n</ca> up /tmp/x",
 	} {
 		if err := checkOVPN("client\n" + bad + "\n"); err == nil {
 			t.Errorf("%q must be refused", bad)

@@ -26,6 +26,30 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   (SFTP remotes) and `dbeaver` (PostgreSQL, MySQL/MariaDB and SQLite
   connections).
 
+### Fixes from the second review
+
+- OpenVPN container: the entrypoint parsed again (a comment had swallowed
+  `fi`; a test now checks every embedded script), the SOCKS port listens
+  only on the container's network and needs a random per-connection
+  login, the container runs with only the capabilities it needs and
+  no-new-privileges, and config/login files are removed also when
+  connecting fails. Tested against a real OpenVPN server
+  (`make e2e-openvpn`).
+- .ovpn inline blocks end the way OpenVPN ends them, so text after `</ca>`
+  can no longer smuggle in directives; an unclosed block is refused.
+- `cluster run` refuses flags that would send the conn's credentials to
+  another cluster or identity (`--server`, `--kubeconfig`, `--token`,
+  `--context`, `--as` ...) and user `--dry-run` values; `config view` (it
+  can print credentials), `edit`, `apply --prune`, scaling to 0, role
+  bindings, privileged `run`, and docker `exec`/`run`/`cp`, `--prune` and
+  node drains are rated dangerous.
+- VPN sessions: stops take the VPN's lock and check it is still the same
+  session; sessions in use (a long `logs --follow`) stay fresh; containers
+  are tracked by ID and labelled with their komando home; OS-mode OpenVPN
+  writes its pid to /var/run and logs to syslog.
+- Imports keep a secret reference only when that secret really does not
+  exist (not when the vault is locked).
+
 ### Fixes from review
 
 - `cluster run` must start with the command (a leading flag could hide a

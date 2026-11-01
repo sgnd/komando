@@ -205,6 +205,25 @@ set +e; $K cluster run lab-k3s -- delete deploy web >/dev/null; check "cluster r
 check "cluster run reads through bastion" True "$($K cluster run lab-k3s -- get deploy web -o name | jget '"deployment.apps/web" in d["data"]["stdout"]')"
 q $K cluster rm lab-k3s deployment web --allow-dangerous
 
+# Docker Swarm (a one-node manager, Docker-in-Docker, over SSH)
+echo "==> cluster (Docker Swarm)"
+q $K host add swarm1 agent@127.0.0.1:2224 --password-ref secret:agent-pass
+for _ in $(seq 1 60); do $K exec swarm1 --read-only -- docker node ls >/dev/null 2>&1 && break; sleep 2; done
+check "swarm status" True "$($K cluster status swarm1 | jget 'd["data"]["results"][0]["ok"]')"
+cat > "$TMP/stack.yml" <<'YAML'
+services:
+  web:
+    image: busybox:1.37
+    command: ["sleep", "86400"]
+YAML
+q $K cluster apply swarm1 --file "$TMP/stack.yml" --stack e2e
+check "swarm services" True "$($K cluster ls swarm1 services | jget 'any(r["Name"]=="e2e_web" for r in d["data"]["results"][0]["data"])')"
+q $K cluster scale swarm1 service/e2e_web 2
+check "swarm scale" True "$($K cluster ls swarm1 services | jget 'any(r["Replicas"].endswith("/2") for r in d["data"]["results"][0]["data"])')"
+check "swarm run reads" True "$($K cluster run swarm1 -- service ls | jget 'd["data"]["results"][0]["ok"]')"
+set +e; $K cluster run swarm1 --write -- service rm e2e_web >/dev/null; check "swarm run rm needs --allow-dangerous" 6 $?; set -e
+q $K cluster rm swarm1 stack e2e --allow-dangerous
+
 # container registry (registry:2 on the private network, through the bastion)
 echo "==> registry"
 docker tag busybox:1.37 127.0.0.1:5005/tools/busybox:1.37 && docker push -q 127.0.0.1:5005/tools/busybox:1.37 >/dev/null

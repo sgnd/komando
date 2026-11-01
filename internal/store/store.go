@@ -162,10 +162,12 @@ type Vpn struct {
 type VpnSession struct {
 	Vpn       string    `json:"vpn"`
 	PID       int       `json:"pid"`
-	Socks     string    `json:"socks,omitempty"`     // local SOCKS5 address; empty when the OS routes the traffic
-	Container string    `json:"container,omitempty"` // the Docker container holding the VPN (openvpn)
-	Exe       string    `json:"exe,omitempty"`       // the program the pid must still be, so a reused pid is never signalled
-	Sudo      bool      `json:"sudo,omitempty"`      // the process runs as root (OS mode)
+	Socks     string    `json:"socks,omitempty"`      // local SOCKS5 address; empty when the OS routes the traffic
+	Container string    `json:"container,omitempty"`  // the Docker container ID holding the VPN (openvpn)
+	SocksUser string    `json:"socks_user,omitempty"` // login for the container's SOCKS port, random per session
+	SocksPass string    `json:"socks_pass,omitempty"`
+	Exe       string    `json:"exe,omitempty"`  // the program the pid must still be, so a reused pid is never signalled
+	Sudo      bool      `json:"sudo,omitempty"` // the process runs as root (OS mode)
 	LogFile   string    `json:"log_file,omitempty"`
 	StartedAt time.Time `json:"started_at"`
 	LastUsed  time.Time `json:"last_used"`

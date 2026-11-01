@@ -77,18 +77,25 @@ var ovpnInline = []string{"ca", "cert", "key", "tls-auth", "tls-crypt", "tls-cry
 func checkOVPN(cfg string) error {
 	inBlock := ""
 	for n, line := range strings.Split(cfg, "\n") {
-		line = strings.TrimSpace(line)
 		if inBlock != "" {
-			if strings.EqualFold(line, "</"+inBlock+">") {
+			// OpenVPN ends the block at the first line that starts (after
+			// leading blanks) with the closing tag; text after it would be
+			// read as directives, so it is refused
+			rest, closes := strings.CutPrefix(strings.TrimLeft(line, " \t"), "</"+inBlock+">")
+			if closes {
+				if strings.TrimSpace(rest) != "" {
+					return fmt.Errorf("line %d: text after </%s>", n+1, inBlock)
+				}
 				inBlock = ""
 			}
 			continue
 		}
+		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
 			continue
 		}
 		if strings.HasPrefix(line, "<") && strings.HasSuffix(line, ">") && !strings.HasPrefix(line, "</") {
-			tag := strings.ToLower(strings.Trim(line, "<>"))
+			tag := strings.Trim(line, "<>") // OpenVPN matches tags case-sensitively
 			if !oneOf(tag, ovpnInline...) && tag != "connection" {
 				return fmt.Errorf("line %d: inline block <%s> is not allowed", n+1, tag)
 			}
@@ -111,6 +118,9 @@ func checkOVPN(cfg string) error {
 		if name == "auth-user-pass" && len(f) > 1 {
 			return fmt.Errorf("line %d: auth-user-pass must not name a file; komando passes the login itself", n+1)
 		}
+	}
+	if inBlock != "" {
+		return fmt.Errorf("<%s> is never closed", inBlock)
 	}
 	return nil
 }

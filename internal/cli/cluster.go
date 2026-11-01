@@ -805,14 +805,53 @@ func clusterRmCmd() *cobra.Command {
 	return c
 }
 
-// classifyKubectl rates a kubectl command by its verb (args[0]) and, where
-// the verb alone says too little, its subcommand.
+// kubectlForbidden are flags that would point kubectl at another cluster or
+// identity than the conn's (sending the conn's credentials elsewhere), or
+// undo komando's own --dry-run. They are refused in `cluster run`.
+var kubectlForbidden = []string{"--kubeconfig", "--server", "-s", "--token", "--context", "--cluster", "--user",
+	"--certificate-authority", "--client-certificate", "--client-key", "--insecure-skip-tls-verify",
+	"--tls-server-name", "--username", "--password", "--as", "--as-group", "--as-uid", "--dry-run"}
+
+func checkKubectlFlags(args []string) error {
+	for _, a := range args {
+		name, _, _ := strings.Cut(a, "=")
+		if oneOf(name, kubectlForbidden...) {
+			return out.Usage("%s is not allowed in cluster run: the conn decides the cluster and identity (and komando adds --dry-run itself)", name)
+		}
+		if a == "--" {
+			break // what follows belongs to a command run in a pod
+		}
+	}
+	return nil
+}
+
+// hasFlag reports whether args (up to "--") contain one of the flags.
+func hasFlag(args []string, flags ...string) bool {
+	for _, a := range args {
+		if a == "--" {
+			return false
+		}
+		if name, _, _ := strings.Cut(a, "="); oneOf(name, flags...) {
+			return true
+		}
+	}
+	return false
+}
+
+// classifyKubectl rates a kubectl command by its verb (args[0]), its
+// subcommand and the flags that change what it does.
 func classifyKubectl(args []string) driver.Risk {
 	verb, sub := strings.ToLower(args[0]), ""
 	if len(args) > 1 {
 		sub = strings.ToLower(args[1])
 	}
+	joined := " " + strings.Join(args, " ") + " "
 	switch {
+	case verb == "config":
+		if oneOf(sub, "get-contexts", "current-context") {
+			return driver.RiskRead
+		}
+		return driver.RiskDestructive // config view --raw prints the credentials
 	case oneOf(verb, "get", "describe", "logs", "top", "explain", "version", "api-resources", "api-versions",
 		"cluster-info", "events", "diff", "wait"):
 		return driver.RiskRead
@@ -820,30 +859,37 @@ func classifyKubectl(args []string) driver.Risk {
 		return driver.RiskRead
 	case verb == "rollout" && oneOf(sub, "status", "history"):
 		return driver.RiskRead
-	case verb == "config" && oneOf(sub, "view", "get-contexts", "current-context"):
-		return driver.RiskRead
-	case oneOf(verb, "delete", "drain", "replace", "patch", "taint", "certificate", "cordon", "uncordon", "exec",
-		"cp", "attach", "debug", "proxy", "port-forward"):
-		return driver.RiskDestructive // exec/cp/debug run anything inside the cluster
+	case oneOf(verb, "delete", "drain", "replace", "patch", "edit", "taint", "certificate", "cordon", "uncordon",
+		"exec", "cp", "attach", "debug", "proxy", "port-forward"):
+		return driver.RiskDestructive // exec/cp/debug run anything inside the cluster; edit patches like patch
+	case verb == "apply" && hasFlag(args, "--prune", "--force"),
+		verb == "scale" && (strings.Contains(joined, "--replicas=0 ") || strings.Contains(joined, "--replicas 0 ")),
+		verb == "create" && oneOf(sub, "clusterrolebinding", "rolebinding", "token", "clusterrole"),
+		verb == "set" && sub == "subject",
+		verb == "run" && (hasFlag(args, "--overrides", "--privileged") || strings.Contains(joined, "hostPID")):
+		return driver.RiskDestructive // deletes, outages, or more rights than the conn has
 	}
 	return driver.RiskWrite
 }
 
-// classifyDocker rates a docker command on a Swarm manager.
+// classifyDocker rates a docker command on a Swarm manager by verb,
+// subcommand and flags.
 func classifyDocker(args []string) driver.Risk {
 	verb, sub := strings.ToLower(args[0]), ""
 	if len(args) > 1 {
 		sub = strings.ToLower(args[1])
 	}
-	group := oneOf(verb, "service", "stack", "node", "secret", "config", "network", "volume", "container", "image", "system", "swarm")
+	group := oneOf(verb, "service", "stack", "node", "secret", "config", "network", "volume", "container", "image", "system", "swarm", "compose")
 	switch {
 	case !group && oneOf(verb, "ps", "images", "info", "version", "inspect", "logs", "stats", "top", "events"):
 		return driver.RiskRead
 	case group && oneOf(sub, "ls", "ps", "inspect", "logs", "services", "df", "info", "events"):
 		return driver.RiskRead
-	case oneOf(sub, "rm", "prune", "leave", "demote", "kill") || oneOf(verb, "rm", "rmi", "kill", "prune") ||
-		(verb == "swarm" && oneOf(sub, "leave", "init", "join")):
-		return driver.RiskDestructive
+	case oneOf(sub, "rm", "prune", "leave", "demote", "kill", "down") || oneOf(verb, "rm", "rmi", "kill", "prune", "exec", "run", "cp") ||
+		verb == "swarm" || (verb == "container" && oneOf(sub, "exec", "run", "cp")) ||
+		(verb == "stack" && sub == "deploy" && hasFlag(args, "--prune")) ||
+		(verb == "node" && sub == "update" && hasFlag(args, "--availability", "--role")):
+		return driver.RiskDestructive // deletes, drains, or runs anything (exec/run/cp) like kubectl exec
 	}
 	return driver.RiskWrite
 }
@@ -880,6 +926,9 @@ need --write; delete, drain and other risky verbs also need
 			if t.host != nil {
 				risk = classifyDocker(args[1:])
 			} else {
+				if err := checkKubectlFlags(args[1:]); err != nil {
+					return err
+				}
 				risk = classifyKubectl(args[1:])
 			}
 			verb := strings.ToLower(args[1])
@@ -907,6 +956,10 @@ need --write; delete, drain and other risky verbs also need
 				return out.Errf(out.ExitNotFound, "KUBECTL_MISSING", "install kubectl (https://kubernetes.io/docs/tasks/tools/)", "cluster run needs kubectl on this computer")
 			}
 			if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"kubectl " + verb}}); err != nil {
+				if g.dryRun {
+					out.P.Print("cluster.run", map[string]any{"conn": t.conn.Name, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
+					return nil
+				}
 				return err
 			}
 			return runKubectl(cmd.Context(), st, t.conn, args[1:], risk)

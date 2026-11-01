@@ -5,7 +5,7 @@ LDFLAGS := -s -w -X github.com/sgnd/komando/internal/cli.Version=$(VERSION)
 
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
-.PHONY: help build install test e2e lint dist clean
+.PHONY: help build install test e2e e2e-openvpn lint dist clean
 
 help: ## Show this help
 	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
@@ -21,6 +21,9 @@ test: ## Fast unit tests
 
 e2e: ## End-to-end tests against Docker SSH servers
 	test/e2e/run.sh
+
+e2e-openvpn: ## OpenVPN-in-a-container test against a throwaway OpenVPN server
+	test/e2e/openvpn/run.sh
 
 lint: ## gofmt + go vet
 	@test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)

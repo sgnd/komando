@@ -138,7 +138,7 @@ Start here:  komando guide      (agent playbook)
 			out.P.DryRun = g.dryRun
 			out.P.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
-			if cmd.Name() != "serve" {
+			if cmd.Name() != "serve" && !g.dryRun {
 				netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
 			}
 			if g.hostKeyPolicy == "off" {

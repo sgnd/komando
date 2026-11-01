@@ -2,7 +2,9 @@ package cli
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -122,17 +124,15 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 	}
 	// one start at a time per VPN: two commands that both need it would
 	// otherwise each start one and leak the first
-	lock, err := os.OpenFile(filepath.Join(dir, v.Name+".lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	unlock, err := netx.Lock(v.Name)
 	if err != nil {
 		return nil, err
 	}
-	defer lock.Close()
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
-		return nil, err
-	}
-	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
-	if s := netx.LiveSession(v); s != nil {
-		return s, nil // another command started it meanwhile
+	defer unlock()
+	if cur, err := store.Load(); err == nil {
+		if s := cur.Sessions[v.Name]; s != nil && netx.SessionAlive(s) {
+			return s, nil // another command started it meanwhile
+		}
 	}
 	logFile := filepath.Join(dir, v.Name+".log")
 	password := ""
@@ -246,18 +246,22 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if err := checkOVPN(cfg); err != nil {
 			return nil, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "add the VPN again without that line", "VPN %s: %v", v.Name, err)
 		}
-		cfgFile, pidFile := filepath.Join(dir, v.Name+".ovpn"), filepath.Join(dir, v.Name+".pid")
+		// root writes its pid and log only where the user cannot plant a
+		// symlink: /var/run and syslog
+		cfgFile, pidFile := filepath.Join(dir, v.Name+".ovpn"), "/var/run/komando-openvpn-"+v.Name+".pid"
+		authFile := filepath.Join(dir, v.Name+".auth")
+		defer os.Remove(cfgFile) // openvpn reads both at start; never leave them, also on failure
+		defer os.Remove(authFile)
 		if err := os.WriteFile(cfgFile, []byte(cfg), 0o600); err != nil {
 			return nil, err
 		}
-		_ = os.Remove(pidFile)
-		args := []string{"openvpn", "--config", cfgFile, "--daemon", "komando-" + v.Name, "--writepid", pidFile, "--log", logFile}
+		args := []string{"openvpn", "--config", cfgFile, "--daemon", "komando-" + v.Name, "--writepid", pidFile, "--syslog", "komando-" + v.Name}
+		logFile = "the system log (komando-" + v.Name + ")"
 		if v.User != "" {
-			auth := filepath.Join(dir, v.Name+".auth")
-			if err := os.WriteFile(auth, []byte(v.User+"\n"+password+"\n"), 0o600); err != nil {
+			if err := os.WriteFile(authFile, []byte(v.User+"\n"+password+"\n"), 0o600); err != nil {
 				return nil, err
 			}
-			args = append(args, "--auth-user-pass", auth)
+			args = append(args, "--auth-user-pass", authFile)
 		}
 		if !interactive {
 			args = append([]string{"-n"}, args...) // works only while sudo remembers the person's password
@@ -277,11 +281,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if s.PID, err = strconv.Atoi(strings.TrimSpace(string(b))); err != nil || s.PID <= 1 {
 			return nil, netx.Down(v, fmt.Errorf("openvpn wrote no pid; check `sudo ps ax | grep openvpn` and %s", logFile))
 		}
-		ok := waitFor(timeout, func() bool { return listening(v.Check) })
-		// openvpn has read them (and keeps the login in memory)
-		_ = os.Remove(cfgFile)
-		_ = os.Remove(filepath.Join(dir, v.Name+".auth"))
-		if !ok {
+		if !waitFor(timeout, func() bool { return listening(v.Check) }) {
 			netx.StopSession(s)
 			return nil, netx.Down(v, fmt.Errorf("%s did not answer after connecting (see %s)", v.Check, logFile))
 		}
@@ -585,7 +585,7 @@ func vpnServeCmd() *cobra.Command {
 var ovpnFiles embed.FS
 
 // ovpnImage names the container image; bump it when ovpn/ changes.
-const ovpnImage = "komando-openvpn:2"
+const ovpnImage = "komando-openvpn:4"
 
 // ensureOVPNImage builds komando's OpenVPN image once, from files inside
 // the komando binary (Alpine's openvpn and dante packages).
@@ -629,47 +629,66 @@ func openvpnContainer(ctx context.Context, v *store.Vpn, dir, password string, s
 	if err := os.MkdirAll(mount, 0o700); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(mount, "config.ovpn"), []byte(cfg), 0o600); err != nil {
+	// OpenVPN reads these once at start; they never stay on disk, also not
+	// when connecting fails
+	cfgFile, authFile, envFile := filepath.Join(mount, "config.ovpn"), filepath.Join(mount, "auth"), filepath.Join(dir, v.Name+".env")
+	defer os.Remove(cfgFile)
+	defer os.Remove(authFile)
+	defer os.Remove(envFile)
+	if err := os.WriteFile(cfgFile, []byte(cfg), 0o600); err != nil {
 		return err
 	}
 	auth := ""
 	if v.User != "" {
 		auth = v.User + "\n" + password + "\n"
 	}
-	if err := os.WriteFile(filepath.Join(mount, "auth"), []byte(auth), 0o600); err != nil {
+	if err := os.WriteFile(authFile, []byte(auth), 0o600); err != nil {
+		return err
+	}
+	// a random login for the container's SOCKS port, passed in a file so it
+	// is not on any command line
+	s.SocksUser, s.SocksPass = "k"+randHex(6), randHex(24)
+	if err := os.WriteFile(envFile, []byte("KOMANDO_SOCKS_USER="+s.SocksUser+"\nKOMANDO_SOCKS_PASS="+s.SocksPass+"\n"), 0o600); err != nil {
 		return err
 	}
 	port, err := freePort()
 	if err != nil {
 		return err
 	}
-	name := "komando-vpn-" + v.Name
-	_ = exec.Command("docker", "rm", "-f", name).Run()
+	// the name is unique per komando home, so two homes never touch each other's container
+	name := "komando-vpn-" + v.Name + "-" + randHex(4)
 	run := exec.CommandContext(ctx, "docker", "run", "-d", "--name", name,
-		"--cap-add", "NET_ADMIN", "--device", "/dev/net/tun",
-		"--add-host", "host.docker.internal:host-gateway",
+		"--label", "komando.home="+store.Home(), "--label", "komando.vpn="+v.Name,
+		"--cap-drop", "ALL", "--cap-add", "NET_ADMIN", "--cap-add", "SETUID", "--cap-add", "SETGID",
+		"--cap-add", "CHOWN", "--cap-add", "DAC_OVERRIDE", "--cap-add", "FOWNER",
+		"--security-opt", "no-new-privileges", "--device", "/dev/net/tun", "--env-file", envFile,
 		"-p", fmt.Sprintf("127.0.0.1:%d:1080", port), "-v", mount+":/vpn:ro", ovpnImage)
-	if b, err := run.CombinedOutput(); err != nil {
+	b, err := run.CombinedOutput()
+	if err != nil {
 		return netx.Down(v, fmt.Errorf("docker run: %v: %s", err, strings.TrimSpace(string(b))))
 	}
-	s.Container, s.Socks = name, fmt.Sprintf("127.0.0.1:%d", port)
+	s.Container, s.Socks = strings.TrimSpace(string(b)), fmt.Sprintf("127.0.0.1:%d", port)
 	fail := func(why string) error {
-		logs, _ := exec.Command("docker", "logs", "--tail", "20", name).CombinedOutput()
-		_ = exec.Command("docker", "rm", "-f", name).Run()
+		logs, _ := exec.Command("docker", "logs", "--tail", "20", s.Container).CombinedOutput()
+		_ = exec.Command("docker", "rm", "-f", s.Container).Run()
 		return netx.Down(v, fmt.Errorf("%s: %s", why, strings.TrimSpace(string(logs))))
 	}
-	ready := waitFor(timeout, func() bool {
-		b, _ := exec.Command("docker", "logs", name).CombinedOutput()
-		return strings.Contains(string(b), "OPENVPN_READY") || strings.Contains(string(b), "OPENVPN_FAILED") || !netx.SessionAlive(s)
+	logs := func() string { b, _ := exec.Command("docker", "logs", s.Container).CombinedOutput(); return string(b) }
+	waitFor(timeout, func() bool {
+		l := logs()
+		return strings.Contains(l, "OPENVPN_READY") || strings.Contains(l, "OPENVPN_FAILED") || !netx.SessionAlive(s)
 	})
-	if b, _ := exec.Command("docker", "logs", name).CombinedOutput(); !ready || !strings.Contains(string(b), "OPENVPN_READY") {
+	if !strings.Contains(logs(), "OPENVPN_READY") {
 		return fail("OpenVPN did not connect")
 	}
 	if !waitFor(10*time.Second, func() bool { return listening(s.Socks) }) {
 		return fail("the SOCKS port did not open")
 	}
-	// OpenVPN has read the config and login; do not leave them on disk
-	_ = os.Remove(filepath.Join(mount, "config.ovpn"))
-	_ = os.Remove(filepath.Join(mount, "auth"))
 	return nil
+}
+
+func randHex(n int) string {
+	b := make([]byte, n)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }

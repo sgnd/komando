@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -570,7 +571,7 @@ func importKomando(path string) (*importPlan, error) {
 	ref := func(owner, what string, r *string) {
 		name, ok := strings.CutPrefix(*r, "secret:")
 		if *r == "" || (ok && name != "") {
-			if _, err := vault.Get(name); !ok || err != nil {
+			if _, err := vault.Get(name); !ok || errors.Is(err, vault.ErrNotFound) {
 				return // a secret: name that is not set here yet: set it after importing
 			}
 		}
