@@ -35,3 +35,6 @@ reference is `komando schema`.
   `komando guide` (`internal/cli/guide.md`), the agent skill
   (`internal/cli/skill.md`, copied to `skills/komando/SKILL.md`) and `CHANGELOG.md`.
 - The rules for commands and flags are in [docs/design/ux.md](../design/ux.md).
+- Every page has an Indonesian translation in id/ with the same name; update both in the same commit.
+
+🇮🇩 [Bahasa Indonesia](id/README.md)
