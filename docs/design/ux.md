@@ -355,7 +355,6 @@ dijaga oleh `TestConventions` (`internal/cli/conventions_test.go`).
 | 22 | P0 | `config set audit off`, `host_key_policy off`, `--host-key-policy off`, `policy allow` tanpa konfirmasi; `audit tru` mematikan audit | ✅ Butuh `--yes`; nilai on/off ketat |
 
 Berikutnya:
-- `logs --follow` (`-f`) untuk log yang terus berjalan.
 - Prompt di terminal muncul saat file lock state dipegang, jadi komando lain
   menunggu jawaban manusia. Tanya dulu sebelum mengambil lock, lalu cek ulang.
 - `snippet add --read-only --overwrite` bisa mengganti snippet milik orang
@@ -365,7 +364,5 @@ Berikutnya:
   `db.internal` dan `10.0.0.5` dianggap berbeda.
 - Perintah satu target menolak selector yang memilih banyak dengan pesan
   yang sama di semua tempat (sudah, lewat `singleHost`/`singleConn`).
-- `fs rm --recursive` sebaiknya dianggap destructive (`--allow-dangerous`),
-  sama seperti `storage rm` dan `cache rm`.
 - `db query` ke banyak database sekaligus (`@prod` yang berisi beberapa
   database) belum didukung; sekarang ditolak dengan pesan jelas.

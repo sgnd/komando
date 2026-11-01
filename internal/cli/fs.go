@@ -692,6 +692,10 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 			for k, v := range vals {
 				fl[k] = *v
 			}
+			if strings.HasPrefix(use, "rm ") && fl["recursive"] && !g.allowDangerous {
+				return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a folder and everything in it would be gone; confirm with the user, then add --allow-dangerous",
+					"rm --recursive deletes whole folders")
+			}
 			if strings.HasPrefix(use, "rm ") && !g.allowDangerous {
 				for _, p := range args[1:] {
 					if cp := path.Clean(p); cp == "/" || cp == "." || cp == "~" || strings.Count(cp, "/") <= 1 && strings.HasPrefix(cp, "/") {

@@ -13,6 +13,13 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   the current folder; a changed file is kept as `SKILL.md.bak`. The same
   skill lives in `skills/komando/` for `npx skills add sgnd/komando`.
 
+### Logs and files
+
+- `komando logs ... --follow` (`-f`) keeps printing new lines until Ctrl-C;
+  in a terminal they show as plain lines (marked by server when there are
+  several), for agents as NDJSON events.
+- `fs rm --recursive` needs `--allow-dangerous`, like `storage rm`.
+
 ### More import sources
 
 - `komando import filezilla` (SFTP sites, passwords to the vault), `rclone`

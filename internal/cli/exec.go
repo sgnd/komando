@@ -240,9 +240,26 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		r := req
 		if o.stream {
 			host := c.Host.Name
+			many := len(hosts) > 1
 			r.Stream = func(stream string, chunk []byte) {
 				mu.Lock()
 				defer mu.Unlock()
+				if out.P.Format == "text" { // a person: plain lines, marked by server when there are several
+					w := os.Stdout
+					if stream == "stderr" {
+						w = os.Stderr
+					}
+					for _, line := range strings.SplitAfter(string(chunk), "\n") {
+						if line == "" {
+							continue
+						}
+						if many {
+							line = "[" + host + "] " + line
+						}
+						fmt.Fprint(w, line)
+					}
+					return
+				}
 				out.P.Event(map[string]any{"event": "output", "host": host, "stream": stream, "data": string(chunk)})
 			}
 		}
@@ -290,7 +307,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		}
 	}
 	audit(st, name, hostNames(hosts), command, data.Summary.Failed == 0, map[string]any{"exit_codes": codes, "sudo": req.Sudo})
-	if o.stream {
+	if o.stream && out.P.Format != "text" {
 		out.P.Event(map[string]any{"event": "done", "summary": data.Summary})
 	}
 	return finish(name, data, data.Summary, worst)

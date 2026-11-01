@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -161,7 +163,7 @@ func svcLogsCmd() *cobra.Command {
 type logOpts struct {
 	unit, file, container, since, until, grep, priority string
 	lines                                               int
-	sudo                                                bool
+	sudo, follow                                        bool
 }
 
 func (o *logOpts) bind(c *cobra.Command, sources bool) {
@@ -178,6 +180,7 @@ func (o *logOpts) bind(c *cobra.Command, sources bool) {
 	f.IntVarP(&o.lines, "limit", "n", 200, "max lines (from the end)")
 	aliasFlag(f, "lines", "limit")
 	f.BoolVarP(&o.sudo, "sudo", "s", false, "read via sudo")
+	f.BoolVarP(&o.follow, "follow", "f", false, "keep printing new lines until Ctrl-C")
 }
 
 func (o *logOpts) build() (string, error) {
@@ -185,6 +188,25 @@ func (o *logOpts) build() (string, error) {
 	grep := ""
 	if o.grep != "" {
 		grep = " | grep -iE -- " + sshx.Q(o.grep)
+	}
+	if o.follow {
+		if grep != "" {
+			grep = " | grep --line-buffered -iE -- " + sshx.Q(o.grep)
+		}
+		switch {
+		case o.container != "":
+			return "docker logs --timestamps --tail " + n + " -f " + sshx.Q(o.container) + " 2>&1" + grep, nil
+		case o.file != "":
+			return "tail -n " + n + " -F -- " + sshx.Q(o.file) + grep, nil
+		}
+		c := "journalctl --no-pager -o short-iso -n " + n + " -f"
+		if o.unit != "" {
+			c += " -u " + sshx.Q(o.unit)
+		}
+		if o.priority != "" {
+			c += " -p " + sshx.Q(o.priority)
+		}
+		return c + grep, nil
 	}
 	switch {
 	case o.container != "":
@@ -242,6 +264,9 @@ func logsCmd() *cobra.Command {
 			command, err := lo.build()
 			if err != nil {
 				return err
+			}
+			if lo.follow {
+				return followLogs(cmd.Context(), args[0], command, lo.sudo)
 			}
 			return runOne(cmd.Context(), "logs", args[0], command, lo.sudo, false)
 		},
@@ -750,4 +775,12 @@ func cronCmd() *cobra.Command {
 	}
 	c.AddCommand(list, set, rm)
 	return c
+}
+
+// followLogs streams a log command until Ctrl-C (or --timeout, if given).
+func followLogs(ctx context.Context, target, command string, sudo bool) error {
+	if g.timeout == 0 {
+		g.timeout = 24 * time.Hour // the person stops it with Ctrl-C
+	}
+	return runFleet(ctx, "logs", target, command, nil, execOpts{sudo: sudo, stream: true}, false)
 }

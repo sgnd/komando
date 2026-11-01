@@ -11,6 +11,7 @@ komando svc list web1 --failed
 
 komando logs web1 --unit nginx --since -30m --grep 'error|crit'
 komando logs web1 --file /var/log/syslog -n 100 --sudo
+komando logs web1 --unit nginx --follow       # keep watching; Ctrl-C to stop
 
 komando docker ps web1
 komando logs web1 --container api --since 10m

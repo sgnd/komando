@@ -230,6 +230,10 @@ check "system VPN down says so" VPN_DOWN "$($K db query pg-lab 'select 1' >/dev/
 set +e; $K vpn rm lab >/dev/null; check "VPN in use cannot be removed" 8 $?; set -e
 q $K tunnel stop --all
 
+# logs --follow streams until stopped (here by --timeout)
+check "logs --follow streams" True "$($K logs direct --file /etc/hostname --follow --timeout 3s | head -1 | jget '"direct" in d["data"]')"
+set +e; $K fs rm direct /tmp/somedir --recursive >/dev/null; check "fs rm -r needs --allow-dangerous" 6 $?; set -e
+
 # no way around protection
 q $K snippet add touch-it 'touch /tmp/komando-e2e'
 check "recipe list has built-ins and saved" True "$($K recipe list | jget 'any(r["builtin"] for r in d["data"]["recipes"]) and any(not r["builtin"] for r in d["data"]["recipes"])')"
