@@ -13,6 +13,7 @@ agent manage servers through the `komando` CLI.
 4. Before any change, run it once with `--dry-run`. Declare read-only
    commands with `--read-only`.
 5. Edit files with `komando fs replace ... --backup`, never with `sed -i` over `exec`.
+   Query databases with `komando db query`, never `psql`/`mysql` over `exec`.
 6. Use `komando job start` for anything that may take more than ~2 minutes.
 7. **Never** add `--allow-dangerous` or `--yes` on your own. If a command is
    blocked (`POLICY_BLOCKED`, `PROTECTED_HOST`, exit code 6), stop, explain

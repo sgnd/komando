@@ -154,6 +154,7 @@ Start here:  komando guide      (agent playbook)
 	root.AddGroup(
 		&cobra.Group{ID: "inv", Title: "Inventory & credentials:"},
 		&cobra.Group{ID: "run", Title: "Remote execution:"},
+		&cobra.Group{ID: "data", Title: "Databases, caches & storage:"},
 		&cobra.Group{ID: "ops", Title: "DevOps modules:"},
 		&cobra.Group{ID: "meta", Title: "Agent helpers & config:"},
 	)
@@ -165,6 +166,7 @@ Start here:  komando guide      (agent playbook)
 	}
 	add("inv", hostCmd(), connCmd(), groupCmd(), keyCmd(), secretCmd())
 	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), cpCmd(), tunnelCmd(), shellCmd(), snippetCmd())
+	add("data", dbCmd())
 	add("ops", factsCmd(), opsCmd(), svcCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd())
 	add("meta", schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), versionCmd())
 	root.InitDefaultHelpCmd()

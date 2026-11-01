@@ -11,6 +11,13 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - Hosts and conns share one name space. Removing a host that a conn uses
   with `--via` is refused (`HOST_IN_USE`); renaming a host updates its conns.
 - `komando audit --host` also matches conn names.
+- `komando db query/schema/explain` for PostgreSQL and SQLite. Read-only by
+  default (the database enforces it); `--write` to change data, `--write
+  --dry-run` to try it and roll back. Destructive SQL (DROP, TRUNCATE,
+  DELETE/UPDATE without WHERE, ...) needs `--allow-dangerous`; protected
+  conns need `--yes`. Results are structured rows, safe for JSON.
+- `komando policy list` shows the SQL rules; `komando policy check --sql KIND`
+  classifies a query.
 
 ## [0.1.0]
 

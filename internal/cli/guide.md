@@ -51,7 +51,24 @@ whether to use apt or dnf, whether systemd/docker exist, and how full the disk i
 Writes are atomic (temp file + rename). `fs write --if-changed` and `cron set`
 are idempotent, so retries are safe.
 
-## 5. Long-running work
+## 5. Databases
+
+```bash
+komando conn list                                   # known databases
+komando db schema <conn> [table...]                 # tables, then columns/indexes
+komando db query <conn> "select ..."                # read-only transaction, always safe
+komando db query <conn> "... where id = $1" --arg 42   # values as arguments, not pasted
+komando db query <conn> --write --dry-run "update ..."  # runs, reports rows_affected, rolls back
+komando db query <conn> --write "update ..."            # commits
+```
+
+Without `--write` the database itself refuses changes. `WRITE_REQUIRES_FLAG`
+(exit 6) means the SQL writes: dry-run it, then ask the human before
+`--write` on anything that matters. Never `BEGIN`/`COMMIT` yourself. Do not
+run `psql`/`mysql` through `exec`: you lose the read-only guarantee,
+structured rows, and the password leaks into the server's process list.
+
+## 6. Long-running work
 
 Anything that may exceed ~2 minutes (upgrades, backups, builds, migrations):
 
@@ -61,7 +78,7 @@ komando job logs <id> --offset <next_offset>     # read only new output
 komando job wait <id> --wait-timeout 10m         # blocks; exit code mirrors the job
 ```
 
-## 6. Guardrails (do not fight them)
+## 7. Guardrails (do not fight them)
 
 - `POLICY_BLOCKED` (exit 6): the command looks destructive (rm -rf /, mkfs, reboot,
   DROP DATABASE, curl|sh, firewall flush, stopping sshd ...). Stop and ask the human.
@@ -72,7 +89,7 @@ komando job wait <id> --wait-timeout 10m         # blocks; exit code mirrors the
 - Never print secrets. Credentials are references (`secret:NAME`, `env:VAR`), not values.
 - Everything is recorded in `komando audit`. Set `KOMANDO_ACTOR=<your-name>`.
 
-## 7. Error codes → what to do
+## 8. Error codes → what to do
 
 | exit | code examples                     | action |
 |------|-----------------------------------|--------|
@@ -80,13 +97,14 @@ komando job wait <id> --wait-timeout 10m         # blocks; exit code mirrors the
 | 3    | HOST_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | list inventory / check path |
 | 4    | AUTH_FAILED, CONNECTION_REFUSED, HOSTKEY_* | follow `error.hint`; do not retry blindly |
 | 5    | FAILED / PARTIAL_FAILURE          | read `data.results[].stderr` and `exit_code` per host |
-| 6    | POLICY_BLOCKED, PROTECTED_HOST    | ask the human |
+| 5    | DB_ERROR                          | fix the SQL; check `db schema` |
+| 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, WRITE_REQUIRES_FLAG | ask the human |
 | 7    | TIMEOUT, CONNECT_TIMEOUT          | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file, use exact unique `--old` text |
 
 Every error carries `error.hint` with the next step. Read it.
 
-## 8. Output size
+## 9. Output size
 
 Per-stream output is capped (default 256 KiB, `--max-output`); truncation is
 flagged with `stdout_truncated`. Prefer filtering on the server (`--grep`,

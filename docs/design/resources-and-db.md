@@ -1,7 +1,25 @@
 # Rancangan: resource non-SSH dan `komando db`
 
-Status: **Fase 1 selesai** (`komando conn`, `internal/driver`, `guardConns`).
-Fase 2 (`komando db`) belum dimulai.
+Status: **Fase 1 dan 2 selesai** (`komando conn`; `komando db query/schema/explain`
+untuk PostgreSQL dan SQLite). Fase berikutnya ada di [Rencana bertahap](#rencana-bertahap).
+
+Keputusan yang diambil saat Fase 2:
+
+- Output `db query` selalu `data.results[]`, satu entri per statement, supaya
+  bentuknya sama untuk satu atau banyak statement. Statement yang mengembalikan
+  baris punya `columns`, `rows` (boleh kosong) dan `row_count`; yang mengubah
+  baris punya `rows_affected`; DDL tidak punya keduanya.
+- Parameter memakai `--arg VALUE` berurutan (`$1`/`?`), bukan `--param k=v`,
+  karena itulah yang dipahami driver. Audit hanya mencatat jumlahnya.
+- Statement yang tidak dikenal (sering typo) tetap dikirim tanpa `--write`:
+  transaksi read-only yang menolaknya kalau ternyata menulis, dan pesan error
+  database lebih jelas untuk typo.
+- Statement yang tidak bisa di-rollback (`VACUUM`, `CREATE INDEX CONCURRENTLY`,
+  DDL MySQL) harus dikirim sendirian; dry-run hanya melaporkannya.
+- `--dry-run` tanpa `--write` tetap menjalankan query baca (tidak ada yang berubah).
+- SQLite: `--write` boleh membuat file baru; tanpa `--write` file dibuka
+  `mode=ro` + `query_only`.
+- Timestamp selalu UTC; bilangan bulat > 2^53, NaN dan Infinity jadi string.
 
 Keputusan yang diambil saat Fase 1:
 
@@ -233,11 +251,16 @@ nanti kurang, pertimbangkan `pg_query_go` (cgo, berat) atau
   "data": {
     "conn": "prod-db",
     "risk": "read",
-    "columns": [{"name": "id", "type": "int8"}, {"name": "email", "type": "text"}],
-    "rows": [[1, "a@x.io"], [2, "b@x.io"]],
-    "row_count": 2,
-    "truncated": false,
-    "rows_affected": null
+    "write": false,
+    "results": [{
+      "sql": "select id, email from users limit 2",
+      "keyword": "SELECT",
+      "risk": "read",
+      "columns": [{"name": "id", "type": "int8"}, {"name": "email", "type": "text"}],
+      "rows": [[1, "a@x.io"], [2, "b@x.io"]],
+      "row_count": 2
+    }],
+    "committed": false
   },
   "meta": {"version": "…", "duration_ms": 41}
 }

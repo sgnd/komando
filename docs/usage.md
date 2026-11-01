@@ -13,6 +13,7 @@ A task-by-task guide. New here? Start with the [README](../README.md).
 - [Services, logs, Docker, packages](#services-logs-docker-packages)
 - [Reach private servers (tunnels)](#reach-private-servers-tunnels)
 - [Databases (conns)](#databases-conns)
+- [Query a database](#query-a-database)
 - [Network checks](#network-checks)
 - [Users and scheduled jobs](#users-and-scheduled-jobs)
 - [Saved commands (snippets)](#saved-commands-snippets)
@@ -233,8 +234,50 @@ Conns use the same selectors as hosts (`@group`, `tag:prod`, `*-db`, `all`)
 and share their names: a host and a conn cannot both be called `db1`. A host
 that a conn uses with `--via` cannot be removed until the conn is changed.
 
-Running queries (`komando db`) is planned; see the
-[design note](design/resources-and-db.md).
+## Query a database
+
+`komando db` runs SQL on a conn. **It cannot change anything unless you add
+`--write`**: without it, the query runs in a read-only transaction and the
+database itself refuses changes.
+
+```bash
+komando db schema prod-db                     # what tables are there?
+komando db schema prod-db users               # columns, types, indexes of one table
+komando db query prod-db "select id, email from users order by id desc limit 10"
+komando db explain prod-db "select * from orders where user_id = 42"
+```
+
+Use `--arg` for values instead of pasting them into the SQL (`$1`, `$2` in
+PostgreSQL; `?` in MySQL and SQLite):
+
+```bash
+komando db query prod-db "select * from users where email = $1" --arg bob@example.com
+```
+
+**Changing data** takes two steps. First a dry run: the SQL really runs, you
+see how many rows it touches, then everything is rolled back.
+
+```bash
+komando db query prod-db --write --dry-run "update users set plan = 'pro' where id = 42"
+komando db query prod-db --write "update users set plan = 'pro' where id = 42"
+```
+
+Seatbelts:
+
+- A protected conn also needs `--yes` for `--write`.
+- Destructive SQL needs `--allow-dangerous`: `DROP`, `TRUNCATE`, `DELETE` or
+  `UPDATE` without `WHERE`, privilege changes, and a few more
+  (`komando policy list` shows them; `komando policy check --sql postgres "..."`
+  tests a query).
+- `BEGIN`/`COMMIT` are refused: komando runs everything in one transaction.
+- A few statements cannot be rolled back (`VACUUM`, `CREATE INDEX
+  CONCURRENTLY`, MySQL DDL). They must be sent alone, and a dry run only
+  reports them.
+- Queries stop after 30 seconds (`--timeout 2m` for more) and return at most
+  500 rows (`--limit`).
+
+SQL from a file: `komando db query prod-db --file report.sql` (`--file -`
+reads stdin).
 
 ## Network checks
 

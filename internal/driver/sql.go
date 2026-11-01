@@ -49,6 +49,9 @@ type Statement struct {
 	SQL     string `json:"sql"`
 	Keyword string `json:"keyword"`
 	Risk    Risk   `json:"risk"`
+	Rows    bool   `json:"-"`                 // returns a result set (SELECT, RETURNING, SHOW, ...)
+	NoTx    bool   `json:"no_tx,omitempty"`   // cannot run inside a transaction, so cannot be rolled back
+	Unknown bool   `json:"unknown,omitempty"` // keyword not recognised; rated write to be safe
 }
 
 // SQLPlan is the result of ClassifySQL: the statements and the overall
@@ -222,7 +225,8 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 			return SQLPlan{}, err
 		}
 		kw := firstWord(ts)
-		plan.Statements = append(plan.Statements, Statement{SQL: texts[i], Keyword: kw, Risk: risk})
+		plan.Statements = append(plan.Statements, Statement{SQL: texts[i], Keyword: kw, Risk: risk,
+			Rows: returnsRows(kw, ts), NoTx: noTx(kind, kw, ts), Unknown: !readFirst[kw] && !writeFirst[kw]})
 		if risk > plan.Risk {
 			plan.Risk = risk
 		}
@@ -235,6 +239,58 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 		}
 	}
 	return plan, nil
+}
+
+// NeedsWrite reports whether a statement is known to change something.
+// Unknown statements (often typos) may still run without --write: the
+// read-only transaction refuses them if they do write, and the database
+// gives a better error for a typo than komando can.
+func (p SQLPlan) NeedsWrite() bool {
+	for _, s := range p.Statements {
+		if s.Risk > RiskRead && !s.Unknown {
+			return true
+		}
+	}
+	return false
+}
+
+func returnsRows(kw string, ts []token) bool {
+	switch kw {
+	case "SET", "USE":
+		return false
+	case "PRAGMA":
+		return !hasPunct(ts, '=')
+	}
+	return readFirst[kw] || hasWord(ts, "RETURNING")
+}
+
+// noTx reports statements that cannot run inside a transaction block (or,
+// in MySQL, commit it implicitly). They can never be rolled back.
+func noTx(kind, kw string, ts []token) bool {
+	second := ""
+	if len(ts) > 1 {
+		second = ts[1].word
+	}
+	switch kind {
+	case "postgres":
+		switch kw {
+		case "VACUUM":
+			return true
+		case "CREATE", "DROP", "ALTER":
+			if second == "DATABASE" || second == "TABLESPACE" || second == "SYSTEM" || second == "SUBSCRIPTION" {
+				return true
+			}
+		}
+		return (kw == "CREATE" || kw == "DROP" || kw == "REINDEX") && hasWord(ts, "CONCURRENTLY")
+	case "mysql":
+		switch kw {
+		case "CREATE", "ALTER", "DROP", "RENAME", "TRUNCATE", "GRANT", "REVOKE", "LOCK", "UNLOCK", "INSTALL", "UNINSTALL", "OPTIMIZE", "REPAIR", "ANALYZE", "FLUSH", "RESET", "LOAD":
+			return true
+		}
+	case "sqlite":
+		return kw == "VACUUM"
+	}
+	return false
 }
 
 func firstWord(ts []token) string {

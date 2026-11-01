@@ -103,6 +103,24 @@ func TestClassifySQLStatements(t *testing.T) {
 	}
 }
 
+func TestNeedsWrite(t *testing.T) {
+	for sql, want := range map[string]bool{
+		"selec 1":                             false, // typo: let the database explain
+		"select 1":                            false,
+		"select 1; selec 2":                   false,
+		"insert into t values (1)":            true,
+		"selec 1; delete from t where id = 1": true,
+	} {
+		p, err := ClassifySQL("postgres", sql)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.NeedsWrite() != want {
+			t.Errorf("%q: NeedsWrite %v, want %v", sql, !want, want)
+		}
+	}
+}
+
 func TestClassifySQLErrors(t *testing.T) {
 	cases := map[string]string{
 		"begin; delete from t where id = 1; commit": "SQL_TX_CONTROL",
