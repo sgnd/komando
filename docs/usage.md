@@ -76,25 +76,39 @@ komando host edit web1 --sudo-ref secret:web1-sudo
 References can also point to an environment variable (`env:MY_VAR`) or a
 file (`file:/path`).
 
-## Pick which servers to use
+## Pick what to work on
 
-Most commands take a *target*:
+Most commands take a *target*. A target picks servers and conns (databases,
+caches, storage) together:
 
 | Write | Meaning |
 |-------|---------|
-| `web1` | one server |
+| `web1` | one server or conn, by name |
 | `web-*` | names starting with `web-` |
-| `@web` | everyone in group `web` |
-| `tag:prod` | everyone tagged `prod` |
-| `label:dc=jkt` | everyone with label `dc=jkt` |
-| `all` | every server |
-| `@web,!web3` | combine with `,` and leave out with `!` |
+| `@prod` | everything in group `prod` |
+| `tag:prod` | everything tagged `prod` |
+| `label:dc=jkt` | everything with label `dc=jkt` |
+| `kind:db` | every database (also `kind:host`, `kind:cache`, `kind:storage`, `kind:postgres`, ...) |
+| `all` | everything |
+| `@prod,!web3` | combine with `,` and leave out with `!` |
 | `root@1.2.3.4:22` | a one-off server not in your list |
 
-Groups, tags and labels are set when adding or editing a server:
-`komando host edit web1 --add-group web --add-tag prod --label dc=jkt`.
+Each command uses what it can work with and says what it left out. For
+example `komando exec @prod -- uptime` runs on the servers in `prod` and lists
+the databases under "skipped"; `komando db query @prod "..."` does the
+opposite. If a target picks nothing the command can use, the error says which
+command to use instead.
 
-Preview what a target matches: `komando host list --target '@web,!web3'`.
+Groups, tags and labels are set when adding or editing:
+`komando host edit web1 --add-group prod --add-tag web --label dc=jkt`, or
+for many at once, `komando group add prod 'web-*'`.
+
+See what a target picks, and check that all of it is reachable:
+
+```bash
+komando list @prod       # servers and conns in one list
+komando test @prod       # can komando reach and log in to each one?
+```
 
 ## Run commands
 
@@ -117,7 +131,7 @@ komando ops list                 # 39 ready-made checks
 komando ops run health @web
 komando ops run disk all
 komando ops run top-mem web1
-komando ops run cert-expiry web1 --param name=example.com
+komando ops run cert-expiry web1 --var name=example.com
 komando ops run updates all
 ```
 
@@ -245,8 +259,9 @@ komando conn edit prod-db --add-tag critical
 komando conn rm old-db                # only forgets it; the database is untouched
 ```
 
-Conns use the same selectors as hosts (`@group`, `tag:prod`, `*-db`, `all`)
-and share their names: a host and a conn cannot both be called `db1`. A host
+Conns use the same targets as servers (`@group`, `tag:prod`, `*-db`, `all`)
+and share their names: a host and a conn cannot both be called `db1` (or
+`DB1`: names ignore upper and lower case). A host
 that a conn uses with `--via` cannot be removed until the conn is changed.
 
 ## Query a database
@@ -405,11 +420,12 @@ komando cron rm db1 nightly-backup
 ## Saved commands (snippets)
 
 Save a command once and reuse it. `{{app}}` is a blank you fill in with
-`--var app=...`. `--mutating` marks it as one that changes things, so
-protected servers will ask for `--yes`.
+`--var app=...`. komando treats a snippet as a change, so protected servers
+ask for `--yes`, unless you save it with `--read-only` because it only looks.
 
 ```bash
-komando snippet add restart-app 'systemctl restart {{app}}' --sudo --mutating
+komando snippet add restart-app 'systemctl restart {{app}}' --sudo
+komando snippet add disk 'df -h {{path=/}}' --read-only
 komando snippet run restart-app @web --var app=shop
 ```
 
@@ -418,7 +434,9 @@ komando snippet run restart-app @web --var app=shop
 | Seatbelt | What it does |
 |----------|--------------|
 | Dangerous-command filter | Blocks `rm -rf /`, `mkfs`, `reboot`, `DROP DATABASE`, `curl … \| sh` *on your servers*, firewall flush, stopping SSH and more. See `komando policy list`. |
-| Protected servers | Changes need `--yes`. Commands that only look (not change) can say so with `--read-only` and run without `--yes`. |
+| Protected servers and conns | Changes need `--yes`. Commands that only look (not change) can say so with `--read-only` and run without `--yes`. Removing a protected one, replacing it, or turning protection off needs `--yes` too. Anything at the same address (a `user@address` target, a second name, a second conn to the same database server) is protected as well. |
+| Safety settings | Turning off the audit log or server identity checks, or removing a deny rule, needs `--yes`. |
+| Asking a human | When you type a command yourself in a terminal, komando asks instead of failing: `[y/N]` for protected targets, and typing the target's name for dangerous commands. Agents and scripts never see these questions; they need the flags. |
 | Dry run | `--dry-run` shows what would run and whether it would be blocked. |
 | Safe edits | Atomic writes, exact-match replace, optional `.bak` backups. |
 | Encrypted vault | Passwords are AES-256-GCM encrypted. Only names are ever shown. |
@@ -426,6 +444,9 @@ komando snippet run restart-app @web --var app=shop
 | History | Every action is in `komando audit`. |
 
 Overriding a block needs `--allow-dangerous` — a human decision.
+Secrets are never accepted as command arguments (they would land in your
+shell history): `komando secret set NAME` asks for the value, or use
+`--from-env VAR` or a pipe.
 Add your own rules with `komando policy deny 'REGEX'`.
 
 > The filter catches common accidents; it is not a complete security
@@ -447,7 +468,9 @@ runs komando, it gets one JSON object instead. Force either with `-o text` or
 }
 ```
 
-`error.hint` always says what to try next.
+`error.hint` always says what to try next. When a target picked things the
+command cannot work with, `meta.skipped` lists them with the reason (also
+when the command then fails).
 
 | Exit code | Meaning |
 |-----------|---------|
@@ -473,6 +496,10 @@ The full machine-readable reference is `komando schema`.
 | `SECRET_UNRESOLVED` | stored password or env var missing | `komando secret list` |
 | `sudo: a password is required` | sudo needs a password | `komando host edit NAME --sudo-ref secret:NAME` |
 | `POLICY_BLOCKED` | looks destructive | double-check; a human may add `--allow-dangerous` |
+| `PROTECTED_HOST` / `PROTECTED_TARGET` | a change to something marked protected | a human may add `--yes` |
+| `SAFETY_SETTING` | a change that turns a seatbelt off | a human may add `--yes` |
+| `NO_MATCHING_TARGETS` | the target picked only things this command can't use | follow the hint (e.g. use `komando db` for a database) |
+| `TARGET_NOT_FOUND` / `TARGET_EMPTY` | a typo in a name, group or tag | the hint suggests the closest match; `komando list` |
 | `TIMEOUT` | took too long | `--timeout 30m` or use `komando job start` |
 
 `komando doctor` checks your local setup.
@@ -483,7 +510,7 @@ The full machine-readable reference is `komando schema`.
 komando config show
 komando config set parallel 20
 komando config set default_timeout 10m
-komando config set host_key_policy strict    # accept-new (default) | strict | off
+komando config set host_key_policy strict    # accept-new (default) | strict | off (off needs --yes)
 komando config set audit_sql hash            # full (default) | hash | off: keep SQL text out of the history
 ```
 

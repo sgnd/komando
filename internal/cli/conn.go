@@ -24,6 +24,29 @@ import (
 // and selector syntax of hosts, and reach private networks through a host
 // (--via) without opening a local port.
 
+// checkNewName is the name check for add: the name may be replaced only by
+// the same type with exactly the same name (with --overwrite).
+func checkNewName(s *store.State, kind, name string, overwrite bool) error {
+	k, existing, ok := s.FindName(name)
+	switch {
+	case !ok:
+		return nil
+	case k != kind || existing != name:
+		return nameTaken(k, existing)
+	case !overwrite:
+		return out.Errf(out.ExitConflict, strings.ToUpper(kind)+"_EXISTS", fmt.Sprintf("use `komando %s edit` or pass --overwrite to replace it", kind),
+			"%s %q already exists", kind, name)
+	}
+	// replacing drops the protected mark, so it counts as changing it
+	if h, ok := s.Hosts[name]; ok && h.Protected {
+		return guardProtection("host", "replacing", []string{name})
+	}
+	if c, ok := s.Conns[name]; ok && c.Protected {
+		return guardProtection("conn", "replacing", []string{name})
+	}
+	return nil
+}
+
 func nameTaken(kind, name string) error {
 	return out.Errf(out.ExitConflict, "NAME_TAKEN", fmt.Sprintf("pick another name; hosts and conns share one name space (see `komando %s show %s`)", kind, name),
 		"name %q is already used by a %s", name, kind)
@@ -130,11 +153,8 @@ func connAddCmd() *cobra.Command {
 			now := time.Now().UTC()
 			cn.CreatedAt, cn.UpdatedAt = now, now
 			err = store.Update(func(s *store.State) error {
-				if _, ok := s.Conns[name]; ok && !force {
-					return out.Errf(out.ExitConflict, "CONN_EXISTS", "use `komando conn edit` or pass --force to replace", "conn %q already exists", name)
-				}
-				if _, ok := s.Hosts[name]; ok {
-					return nameTaken("host", name)
+				if err := checkNewName(s, "conn", name, force); err != nil {
+					return err
 				}
 				if _, err := checkConn(s, cn); err != nil {
 					return err
@@ -151,7 +171,8 @@ func connAddCmd() *cobra.Command {
 		},
 	}
 	f.bind(c, false)
-	c.Flags().BoolVar(&force, "force", false, "replace an existing conn")
+	c.Flags().BoolVar(&force, "overwrite", false, "replace an existing conn with the same name")
+	aliasFlag(c.Flags(), "force", "overwrite")
 	return c
 }
 
@@ -170,6 +191,7 @@ func connEditCmd() *cobra.Command {
 				if !ok {
 					return out.NotFound("conn", args[0])
 				}
+				wasProtected := cn.Protected
 				fl := cmd.Flags()
 				set := func(name string, dst *string, v string) {
 					if fl.Changed(name) {
@@ -205,6 +227,11 @@ func connEditCmd() *cobra.Command {
 						return out.Usage("cannot unset %q", u)
 					}
 				}
+				if wasProtected && !cn.Protected {
+					if err := guardProtection("conn", "turning off protection of", []string{cn.Name}); err != nil {
+						return err
+					}
+				}
 				if _, err := checkConn(s, cn); err != nil {
 					return err
 				}
@@ -212,8 +239,8 @@ func connEditCmd() *cobra.Command {
 					if err := validName("conn", rename); err != nil {
 						return err
 					}
-					if kind, ok := s.NameTaken(rename); ok {
-						return nameTaken(kind, rename)
+					if kind, existing, ok := s.FindName(rename); ok && existing != cn.Name {
+						return nameTaken(kind, existing)
 					}
 					delete(s.Conns, cn.Name)
 					cn.Name = rename
@@ -235,28 +262,6 @@ func connEditCmd() *cobra.Command {
 	c.Flags().StringVar(&url, "url", "", "new URL (the kind may change with the scheme)")
 	c.Flags().StringVar(&rename, "rename", "", "rename the conn")
 	return c
-}
-
-func connAttrs(c *store.Conn) selAttrs { return selAttrs{c.Name, c.Groups, c.Tags, c.Labels} }
-
-// resolveConns expands a selector expression into conns (sorted, unique).
-func resolveConns(st *store.State, expr string) ([]*store.Conn, error) {
-	conns, err := resolveExpr(expr, func(sel string) ([]*store.Conn, error) {
-		if res, ok := matchPattern(st.SortedConns(), connAttrs, sel); ok {
-			return res, nil
-		}
-		if c, ok := st.Conns[sel]; ok {
-			return []*store.Conn{c}, nil
-		}
-		return nil, out.NotFound("conn", sel)
-	}, func(c *store.Conn) string { return c.Name })
-	if err != nil {
-		return nil, err
-	}
-	if len(conns) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "TARGET_EMPTY", "run `komando conn list` to see conns, groups and tags", "target %q matched no conns", expr)
-	}
-	return conns, nil
 }
 
 type connRow struct {
@@ -343,16 +348,22 @@ func connShowCmd() *cobra.Command {
 
 func connRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "rm NAME...",
-		Aliases: []string{"remove", "delete"},
-		Short:   "Remove conn(s) from the inventory (does not touch the resource)",
-		Args:    cobra.MinimumNArgs(1),
+		Use:   "rm NAME...",
+		Short: "Remove conn(s) from the inventory (does not touch the resource)",
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := store.Update(func(s *store.State) error {
+				var prot []string
 				for _, n := range args {
 					if _, ok := s.Conns[n]; !ok {
 						return out.NotFound("conn", n)
 					}
+					if s.Conns[n].Protected {
+						prot = append(prot, n)
+					}
+				}
+				if err := guardProtection("conn", "removing", prot); err != nil {
+					return err
 				}
 				for _, n := range args {
 					delete(s.Conns, n)

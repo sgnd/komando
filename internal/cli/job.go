@@ -306,7 +306,8 @@ func jobLogsCmd() *cobra.Command {
 		},
 	}
 	c.Flags().Int64Var(&offset, "offset", 0, "byte offset to read from (use next_offset from the previous call)")
-	c.Flags().Int64Var(&limit, "limit", 256<<10, "max bytes to return")
+	c.Flags().Int64Var(&limit, "max-bytes", 256<<10, "max bytes to return")
+	aliasFlag(c.Flags(), "limit", "max-bytes")
 	c.Flags().IntVar(&tail, "tail", 0, "return only the last N lines instead")
 	return c
 }
@@ -406,7 +407,7 @@ func jobKillCmd() *cobra.Command {
 }
 
 func jobListCmd() *cobra.Command {
-	var host string
+	var target string
 	var refresh bool
 	c := &cobra.Command{
 		Use:   "list",
@@ -417,9 +418,13 @@ func jobListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			var names map[string]bool
+			if target != "" {
+				names = targetNames(st, target)
+			}
 			var jobs []*store.Job
 			for _, j := range st.Jobs {
-				if host == "" || j.Host == host {
+				if target == "" || names[j.Host] {
 					jobs = append(jobs, j)
 				}
 			}
@@ -451,7 +456,8 @@ func jobListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().StringVar(&host, "host", "", "filter by host")
+	c.Flags().StringVar(&target, "target", "", "only jobs on these servers (a selector, e.g. @web)")
+	aliasFlag(c.Flags(), "host", "target")
 	c.Flags().BoolVar(&refresh, "refresh", false, "query each host for live state")
 	return c
 }

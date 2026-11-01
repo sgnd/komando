@@ -55,7 +55,7 @@ func withStorage(ctx context.Context, name, connExpr string, v driver.Verdict, r
 		return err
 	}
 	if v.Risk > driver.RiskRead {
-		if err := guardConns([]*store.Conn{c}, v); err != nil {
+		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
 		if g.dryRun {
@@ -227,7 +227,6 @@ func storageUploadCmd() *cobra.Command {
 func storageRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "rm CONN KEY...",
-		Aliases: []string{"delete", "del", "remove"},
 		Short:   "Delete objects by exact key (no patterns or folders; needs --allow-dangerous)",
 		Example: `  komando storage rm backups tmp/old.sql.gz --allow-dangerous`,
 		Args:    cobra.MinimumNArgs(2),

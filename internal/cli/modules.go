@@ -168,14 +168,15 @@ func (o *logOpts) bind(c *cobra.Command, sources bool) {
 	f := c.Flags()
 	if sources {
 		f.StringVarP(&o.unit, "unit", "u", "", "systemd unit (journalctl)")
-		f.StringVarP(&o.file, "file", "f", "", "log file path")
+		f.StringVar(&o.file, "file", "", "log file path")
 		f.StringVar(&o.container, "container", "", "docker container name/id")
 	}
 	f.StringVar(&o.since, "since", "", "start time, e.g. -1h, '2026-01-02 10:00', today")
 	f.StringVar(&o.until, "until", "", "end time (journal/docker)")
-	f.StringVarP(&o.grep, "grep", "g", "", "only lines matching this extended regex (case-insensitive)")
+	f.StringVar(&o.grep, "grep", "", "only lines matching this extended regex (case-insensitive)")
 	f.StringVarP(&o.priority, "priority", "p", "", "journal priority: emerg..debug, e.g. err")
-	f.IntVarP(&o.lines, "lines", "n", 200, "max lines (from the end)")
+	f.IntVarP(&o.lines, "limit", "n", 200, "max lines (from the end)")
+	aliasFlag(f, "lines", "limit")
 	f.BoolVarP(&o.sudo, "sudo", "s", false, "read via sudo")
 }
 
@@ -429,6 +430,8 @@ func pkgCmd() *cobra.Command {
 		Aliases: []string{"package", "packages"},
 		Short:   "Package management across apt/dnf/yum/apk/zypper/pacman (auto-detected)",
 	}
+	var noSudo bool
+	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
 	mk := func(action, short string, needPkgs, mutating, sudo bool) *cobra.Command {
 		use := action + " TARGET"
 		if needPkgs {
@@ -455,13 +458,15 @@ func pkgCmd() *cobra.Command {
 					}
 				}
 				command := "ACTION=" + action + " PKGS=" + sshx.Q(strings.Join(args[1:], " ")) + "; " + pkgShell
-				return runOne(cmd.Context(), "pkg."+action, args[0], command, sudo, mutating)
+				return runOne(cmd.Context(), "pkg."+action, args[0], command, sudo && !noSudo, mutating)
 			},
 		}
 	}
+	pkgRm := mk("remove", "Remove packages", true, true, true) // "remove" is what the package managers call it
+	pkgRm.Use = "rm TARGET PACKAGE..."
 	c.AddCommand(
 		mk("install", "Install packages", true, true, true),
-		mk("remove", "Remove packages", true, true, true),
+		pkgRm,
 		mk("update", "Refresh package index", false, true, true),
 		mk("upgrade", "Upgrade all or the given packages", false, true, true),
 		mk("upgradable", "List pending upgrades", false, false, false),
@@ -569,7 +574,9 @@ func netCmd() *cobra.Command {
 // ----------------------------------------------------------------- user ---
 
 func userCmd() *cobra.Command {
-	c := &cobra.Command{Use: "user", Aliases: []string{"users"}, Short: "Linux user accounts: list, add (with SSH key & sudo), lock, delete"}
+	c := &cobra.Command{Use: "user", Aliases: []string{"users"}, Short: "Linux user accounts: list, add (with SSH key & sudo), lock, rm"}
+	var noSudo bool
+	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
 	var all bool
 	list := &cobra.Command{
 		Use:   "list TARGET",
@@ -639,7 +646,7 @@ func userCmd() *cobra.Command {
 					"chown " + q + ": \"$h/.ssh/authorized_keys\"; chmod 600 \"$h/.ssh/authorized_keys\"; ")
 			}
 			sb.WriteString("id " + q)
-			return runOne(cmd.Context(), "user.add", args[0], sb.String(), true, true)
+			return runOne(cmd.Context(), "user.add", args[0], sb.String(), !noSudo, true)
 		},
 	}
 	add.Flags().StringVar(&pubKey, "pubkey", "", "public key line to authorize")
@@ -652,12 +659,12 @@ func userCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			q := sshx.Q(args[1])
-			return runOne(cmd.Context(), "user.lock", args[0], "usermod -L -e 1 "+q+" && echo locked "+q, true, true)
+			return runOne(cmd.Context(), "user.lock", args[0], "usermod -L -e 1 "+q+" && echo locked "+q, !noSudo, true)
 		},
 	}
 	var removeHome bool
 	del := &cobra.Command{
-		Use:   "delete TARGET USERNAME",
+		Use:   "rm TARGET USERNAME",
 		Short: "Delete a user (dangerous: requires --allow-dangerous)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -665,7 +672,7 @@ func userCmd() *cobra.Command {
 			if removeHome {
 				c += "-r "
 			}
-			return runOne(cmd.Context(), "user.delete", args[0], c+sshx.Q(args[1]), true, true)
+			return runOne(cmd.Context(), "user.rm", args[0], c+sshx.Q(args[1]), !noSudo, true)
 		},
 	}
 	del.Flags().BoolVar(&removeHome, "remove-home", false, "also delete home directory")

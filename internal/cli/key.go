@@ -368,7 +368,7 @@ $KOMANDO_VAULT_PASS if set at first use, otherwise a random vault.key file.
 Values are never printed unless 'secret get --reveal' is used.`,
 	}
 	set := &cobra.Command{
-		Use:     "set NAME [VALUE]",
+		Use:     "set NAME",
 		Short:   "Store a secret (asks for it hidden; or from --from-env VAR or stdin)",
 		Example: "  komando secret set web1-pass          # type it, nothing is shown\n  komando secret set db-pass --from-env DB_PASS\n  printf %s \"$TOKEN\" | komando secret set api-token",
 		Args:    cobra.RangeArgs(1, 2),
@@ -376,11 +376,16 @@ Values are never printed unless 'secret get --reveal' is used.`,
 			if err := validName("secret", args[0]); err != nil {
 				return err
 			}
+			if len(args) == 2 {
+				// A value on the command line lands in shell history and in
+				// `ps` for every user on the machine.
+				return out.Errf(out.ExitUsage, "SECRET_IN_ARGS",
+					fmt.Sprintf("run `komando secret set %s` and type it (hidden), use --from-env VAR, or pipe it on stdin", args[0]),
+					"refusing a secret value on the command line: it would be saved in shell history")
+			}
 			var v string
 			fromEnv, _ := cmd.Flags().GetString("from-env")
 			switch {
-			case len(args) == 2:
-				v = args[1]
 			case fromEnv != "":
 				var ok bool
 				if v, ok = os.LookupEnv(fromEnv); !ok {
@@ -397,7 +402,7 @@ Values are never printed unless 'secret get --reveal' is used.`,
 				if b == nil {
 					// a human at a terminal: ask with hidden input (agents never have a TTY)
 					if !term.IsTerminal(int(os.Stdin.Fd())) {
-						return out.Usage("provide VALUE, --from-env or pipe the value on stdin")
+						return out.Usage("no value: use --from-env VAR or pipe the value on stdin")
 					}
 					fmt.Fprintf(os.Stderr, "Value for %s (hidden): ", args[0])
 					b, err = term.ReadPassword(int(os.Stdin.Fd()))

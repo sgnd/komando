@@ -74,12 +74,15 @@ type Key struct {
 }
 
 type Snippet struct {
-	Name        string    `json:"name"`
-	Command     string    `json:"command"`
-	Description string    `json:"description,omitempty"`
-	Sudo        bool      `json:"sudo,omitempty"`
-	Mutating    bool      `json:"mutating,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
+	Name        string `json:"name"`
+	Command     string `json:"command"`
+	Description string `json:"description,omitempty"`
+	Sudo        bool   `json:"sudo,omitempty"`
+	// ReadOnly snippets skip the protected-host check. Everything else counts
+	// as a change, so snippets saved before this field existed are treated
+	// as changes too.
+	ReadOnly  bool      `json:"read_only,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Job struct {
@@ -290,13 +293,24 @@ func (s *State) SortedConns() []*Conn {
 // NameTaken reports whether a host or conn already uses name. Hosts and conns
 // share one namespace so selectors stay unambiguous.
 func (s *State) NameTaken(name string) (kind string, taken bool) {
-	if _, ok := s.Hosts[name]; ok {
-		return "host", true
+	kind, _, taken = s.FindName(name)
+	return kind, taken
+}
+
+// FindName finds the host or conn whose name equals name, ignoring case, so
+// "Web1" and "web1" cannot both exist. existing is the name as stored.
+func (s *State) FindName(name string) (kind, existing string, found bool) {
+	for n := range s.Hosts {
+		if strings.EqualFold(n, name) {
+			return "host", n, true
+		}
 	}
-	if _, ok := s.Conns[name]; ok {
-		return "conn", true
+	for n := range s.Conns {
+		if strings.EqualFold(n, name) {
+			return "conn", n, true
+		}
 	}
-	return "", false
+	return "", "", false
 }
 
 func contains(list []string, v string) bool {

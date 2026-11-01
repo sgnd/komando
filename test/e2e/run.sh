@@ -158,6 +158,22 @@ check "storage ls via bastion" 2026/obj.txt "$($K storage ls bucket --recursive 
 q $K storage download bucket 2026/obj.txt --to "$TMP/obj-back.txt"
 check "storage round trip" backup-data "$(cat "$TMP/obj-back.txt")"
 
+# one inventory: targets pick servers and conns together
+echo "==> servers and conns together"
+q $K group add stack 'bastion,pg,cache'
+check "list @stack has both" "bastion,cache,pg" "$($K list @stack | jget '",".join(t["name"] for t in d["data"]["targets"])')"
+check "test @stack checks both" 3 "$($K test @stack | jget 'd["data"]["summary"]["ok"]')"
+check "exec @stack skips conns" "cache,pg" "$($K exec @stack --read-only -- true | jget '",".join(s["name"] for s in d["meta"]["skipped"])')"
+check "db query @stack finds pg" 1 "$($K db query @stack 'select 1 as n' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "cache on a database says use db" NO_MATCHING_TARGETS "$($K cache info pg | jget 'd["error"]["code"]' || true)"
+
+# no way around protection
+q $K snippet add touch-it 'touch /tmp/komando-e2e'
+set +e; $K snippet run touch-it target >/dev/null; check "snippet on protected host needs --yes" 6 $?; set -e
+set +e; $K host rm target >/dev/null; check "removing a protected host needs --yes" 6 $?; set -e
+set +e; $K config set audit off >/dev/null; check "turning off audit needs --yes" 6 $?; set -e
+set +e; $K secret set leaked hunter2 >/dev/null; check "secret value as argument refused" 2 $?; set -e
+
 # no secret value may reach the state file or the audit log
 LEAKS=$(cat "$KOMANDO_HOME/state.json" "$KOMANDO_HOME/audit.jsonl" | { grep -c -E 'apppass|shoppass|redispass' || true; })
 check "no passwords in state or audit" 0 "$LEAKS"

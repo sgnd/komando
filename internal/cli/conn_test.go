@@ -12,7 +12,11 @@ func testConnState() *store.State {
 	s := testState()
 	s.Conns = map[string]*store.Conn{}
 	add := func(name, url string, groups, tags []string, protected bool) {
-		s.Conns[name] = &store.Conn{Name: name, URL: url, Groups: groups, Tags: tags, Protected: protected}
+		t, err := driver.Parse(url)
+		if err != nil {
+			panic(err)
+		}
+		s.Conns[name] = &store.Conn{Name: name, Kind: t.Kind.Name, URL: url, Groups: groups, Tags: tags, Protected: protected}
 	}
 	add("prod-db", "postgres://app@10.0.0.5/app", []string{"db"}, []string{"prod"}, true)
 	add("shop-db", "mysql://shop@db.lan/shop", []string{"db"}, []string{"prod"}, false)
@@ -45,12 +49,12 @@ func TestResolveConns(t *testing.T) {
 			t.Errorf("%s: got %s want %s", expr, got, want)
 		}
 	}
-	// hosts and conns do not leak into each other's selectors
-	if _, err := resolveConns(st, "web-1"); err == nil || toErr(err).Code != "CONN_NOT_FOUND" {
-		t.Errorf("expected CONN_NOT_FOUND, got %v", err)
+	// a server name given to a conn command says which command to use
+	if _, err := resolveConns(st, "web-1"); err == nil || toErr(err).Code != "NO_MATCHING_TARGETS" {
+		t.Errorf("expected NO_MATCHING_TARGETS, got %v", err)
 	}
-	if hs, _ := resolveTargets(st, "@db"); len(hs) != 1 || hs[0].Name != "db-1" {
-		t.Errorf("host selector picked up conns: %v", hostNames(hs))
+	if _, err := resolveConns(st, "nope"); err == nil || toErr(err).Code != "CONN_NOT_FOUND" {
+		t.Errorf("expected CONN_NOT_FOUND, got %v", err)
 	}
 	if _, err := resolveConns(st, "@nope"); err == nil || toErr(err).Code != "TARGET_EMPTY" {
 		t.Errorf("expected TARGET_EMPTY, got %v", err)
@@ -81,7 +85,7 @@ func TestGuardConns(t *testing.T) {
 	defer func() { g = saved }()
 	for _, c := range cases {
 		g.yes, g.allowDangerous = c.yes, c.allow
-		err := guardConns(c.conns, c.v)
+		err := guardConns(nil, c.conns, c.v)
 		got := ""
 		if err != nil {
 			got = toErr(err).Code
@@ -119,5 +123,97 @@ func TestCheckConn(t *testing.T) {
 	}
 	if kind, taken := st.NameTaken("web-1"); !taken || kind != "host" {
 		t.Errorf("NameTaken(web-1) = %s,%v", kind, taken)
+	}
+}
+
+func TestSelectionPicksHostsAndConns(t *testing.T) {
+	st := testConnState()
+	names := func(sel selection) string {
+		var n []string
+		for _, h := range sel.Hosts {
+			n = append(n, h.Name)
+		}
+		for _, c := range sel.Conns {
+			n = append(n, c.Name)
+		}
+		return strings.Join(n, ",")
+	}
+	cases := map[string]string{
+		"@db":                    "db-1,prod-db,shop-db",
+		"tag:prod":               "db-1,web-1,web-2,prod-db,shop-db",
+		"tag:prod,!kind:host":    "prod-db,shop-db",
+		"kind:db":                "dev-db,prod-db,shop-db",
+		"kind:postgres":          "prod-db",
+		"kind:host,!@web":        "db-1,dev-1",
+		"web-1,prod-db":          "web-1,prod-db",
+		"all,!kind:db,!tag:prod": "dev-1",
+	}
+	for expr, want := range cases {
+		sel, err := resolveSelection(st, expr)
+		if err != nil {
+			t.Errorf("%s: %v", expr, err)
+			continue
+		}
+		if got := names(sel); got != want {
+			t.Errorf("%s: got %s want %s", expr, got, want)
+		}
+	}
+	if _, err := resolveSelection(st, "kind:nosuch"); err == nil || toErr(err).Code != "USAGE" {
+		t.Errorf("expected USAGE for an unknown kind, got %v", err)
+	}
+	if _, err := resolveSelection(st, "prod-bd"); err == nil || !strings.Contains(toErr(err).Hint, `"prod-db"`) {
+		t.Errorf("expected a did-you-mean hint, got %v", err)
+	}
+}
+
+func TestActionCommandsUseWhatTheyCan(t *testing.T) {
+	st := testConnState()
+	// exec @db runs on the server and skips the databases
+	if hs, err := resolveTargets(st, "@db"); err != nil || len(hs) != 1 || hs[0].Name != "db-1" {
+		t.Errorf("@db for servers: %v %v", hostNames(hs), err)
+	}
+	// db query kind:postgres finds the one database
+	if c, err := singleConn(st, "kind:postgres", "db"); err != nil || c.Name != "prod-db" {
+		t.Errorf("kind:postgres for db: %v %v", c, err)
+	}
+	// two databases in @db: db query needs exactly one
+	if _, err := singleConn(st, "@db", "db"); err == nil || toErr(err).Code != "USAGE" {
+		t.Errorf("expected USAGE for two databases, got %v", err)
+	}
+	// only servers picked: the hint says to use exec
+	_, err := singleConn(st, "@web", "db")
+	if e := toErr(err); err == nil || e.Code != "NO_MATCHING_TARGETS" || !strings.Contains(e.Hint, "komando exec") {
+		t.Errorf("expected NO_MATCHING_TARGETS with an exec hint, got %v", err)
+	}
+	// a database given to a cache command points to `komando db`
+	_, err = singleConn(st, "prod-db", "cache")
+	if e := toErr(err); err == nil || e.Code != "NO_MATCHING_TARGETS" || !strings.Contains(e.Hint, "komando db") {
+		t.Errorf("expected a hint to use komando db, got %v", err)
+	}
+}
+
+func TestProtectionFollowsTheAddress(t *testing.T) {
+	st := testConnState()
+	st.Hosts["web-1"].Protected = true
+	adhoc, _, err := matchSelector(st, "root@web-1.lan:22")
+	if err != nil || len(adhoc) != 1 {
+		t.Fatalf("ad-hoc host: %v %v", adhoc, err)
+	}
+	if !protectedHost(st, adhoc[0]) {
+		t.Error("an ad-hoc host at a protected address must count as protected")
+	}
+	if protectedHost(st, &store.Host{Name: "x", Address: "web-1.lan", Port: 2222}) {
+		t.Error("another port on the same address is a different server")
+	}
+	// prod-db is protected; a second conn to the same server is too
+	alias := &store.Conn{Name: "scratch", Kind: "postgres", URL: "postgres://other@10.0.0.5/otherdb"}
+	if !protectedConn(st, alias) {
+		t.Error("a conn to a protected database server must count as protected")
+	}
+	if protectedConn(st, &store.Conn{Name: "x", Kind: "postgres", URL: "postgres://app@10.0.0.6/app"}) {
+		t.Error("a different server is not protected")
+	}
+	if err := guardConns(st, []*store.Conn{alias}, driver.Verdict{Risk: driver.RiskWrite}); err == nil || toErr(err).Code != "PROTECTED_TARGET" {
+		t.Errorf("expected PROTECTED_TARGET for the alias, got %v", err)
 	}
 }

@@ -72,6 +72,12 @@ func init() {
 		Example: "s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1"})
 }
 
+// Lookup returns the kind with this name.
+func Lookup(name string) (Kind, bool) {
+	k, ok := kinds[name]
+	return k, ok
+}
+
 // Kinds lists the known kinds, sorted by name.
 func Kinds() []Kind {
 	res := make([]Kind, 0, len(kinds))

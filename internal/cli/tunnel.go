@@ -84,7 +84,7 @@ func parseTunnel(kind, spec string) (tunnelSpec, error) {
 func tunnelStartCmd() *cobra.Command {
 	var l, r, d string
 	c := &cobra.Command{
-		Use:   "start HOST (-L spec | -R spec | -D spec)",
+		Use:   "start TARGET (-L spec | -R spec | -D spec)",
 		Short: "Start a background tunnel; returns its ID and bound address",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -134,6 +134,9 @@ func tunnelStartCmd() *cobra.Command {
 			pargs := []string{"tunnel", "serve", id}
 			if g.hostKeyPolicy != "" {
 				pargs = append(pargs, "--host-key-policy", g.hostKeyPolicy)
+				if g.hostKeyPolicy == "off" {
+					pargs = append(pargs, "--yes") // checked by this command already
+				}
 			}
 			p := exec.Command(self, pargs...)
 			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil

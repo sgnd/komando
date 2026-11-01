@@ -57,7 +57,7 @@ func withCache(ctx context.Context, name, connExpr string, v driver.Verdict, rec
 		return err
 	}
 	if v.Risk > driver.RiskRead {
-		if err := guardConns([]*store.Conn{c}, v); err != nil {
+		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
 		if g.dryRun {
@@ -204,7 +204,6 @@ func cacheSetCmd() *cobra.Command {
 func cacheRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "rm CONN KEY...",
-		Aliases: []string{"del", "delete", "remove"},
 		Short:   "Delete keys by exact name (no patterns; needs --allow-dangerous)",
 		Example: `  komando cache rm cache session:42 session:43 --allow-dangerous`,
 		Args:    cobra.MinimumNArgs(2),

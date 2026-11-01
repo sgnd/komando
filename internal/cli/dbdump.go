@@ -268,7 +268,7 @@ func runRestore(ctx context.Context, connExpr, from string) error {
 	if err != nil {
 		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "cannot read %s: %v", from, err)
 	}
-	if err := guardConns([]*store.Conn{c}, driver.Verdict{Risk: driver.RiskDestructive,
+	if err := guardConns(st, []*store.Conn{c}, driver.Verdict{Risk: driver.RiskDestructive,
 		RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}); err != nil {
 		return err
 	}

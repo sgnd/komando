@@ -3,22 +3,24 @@
 [![CI](https://github.com/sgnd/komando/actions/workflows/ci.yml/badge.svg)](https://github.com/sgnd/komando/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Let an AI agent take care of your servers — safely, from the command line.**
+**One safe command line for all your DevOps work — servers, databases, caches, storage and more. For you and your AI agent.**
 
 🇮🇩 [Bahasa Indonesia](README.id.md)
 
-People usually manage servers with apps like Termius: log in, type commands,
-repeat. **komando** does the same job in a form AI agents (Claude Code, Codex,
-your own bot) can use well:
+Most people juggle many tools: Termius for servers, TablePlus for databases,
+`redis-cli` for caches, a web console for storage, `kubectl` for clusters.
+Each has its own logins, its own commands and its own way to break things.
+**komando** puts them behind one command line, built so that both you and
+AI agents (Claude Code, Codex, your own bot) can use it well:
 
-- **Remembers your servers**, like a contact list.
+- **Remembers everything you manage** in one list: servers, databases, caches, storage.
 - **Keeps passwords locked** in an encrypted vault. The AI never sees them.
 - **Gives clear answers**: readable text for you, structured data (JSON) for the AI.
-- **Has seatbelts**: dangerous commands are blocked, production servers can be protected.
+- **Has seatbelts**: read-only unless you say otherwise, dangerous commands are blocked, production can be protected.
 - **Keeps a history** of everything that was done.
 
 ```
-You ──ask──▶ AI agent ──▶ komando ──SSH──▶ your servers
+You ──ask──▶ AI agent ──▶ komando ──▶ servers, databases, caches, storage, ...
 ```
 
 No windows, no menus. Just commands.
@@ -78,37 +80,66 @@ unless the command includes `--yes` (a deliberate "yes, I'm sure"):
 komando host edit web1 --protected
 ```
 
+### Databases and caches
+
+Add them the same way, by name. A private database is reached through a
+server (`--via`), so it never has to be open to the internet:
+
+```bash
+komando secret set app-db-pass
+komando conn add app-db postgres://app@10.0.0.5:5432/app \
+  --via web1 --password-ref secret:app-db-pass --protected
+
+komando db schema app-db                          # what tables are there?
+komando db query app-db "select count(*) from users"
+komando cache info my-cache                       # a Redis cache, added with conn add
+```
+
+Queries only read unless you add `--write`. Try a change first with
+`--write --dry-run`: it runs, shows what would change, and is rolled back.
+
 ## Give it to your AI agent
 
 Copy the text of [`AGENTS.md`](AGENTS.md) into your agent's instructions
 file (Codex: `AGENTS.md`, Claude Code: `CLAUDE.md`, in the folder you work in),
 or simply tell your agent:
 
-> Use the `komando` CLI to manage my servers. Run `komando guide` first and
+> Use the `komando` CLI to manage my servers and databases. Run `komando guide` first and
 > follow it. Never use `--allow-dangerous` or `--yes` without asking me.
 
-Then just ask: *"Why is web1 slow?"*, *"Update all servers"*, *"Renew the
-certificate on web2"*.
+Then just ask: *"Why is web1 slow?"*, *"Update all servers"*, *"How many
+users signed up today?"*, *"Renew the certificate on web2"*.
 
 ## What it can do
 
 | Task | Commands |
 |------|----------|
+| See and check everything at once (servers and conns) | `list`, `test` |
 | Keep a list of servers and how to log in | `host`, `group`, `key`, `secret` |
 | Run commands on one or many servers | `exec`, `script`, `job` (long tasks) |
 | Read, edit and copy files | `fs`, `cp` |
 | Check health (39 ready-made checks) | `facts`, `ops` |
 | Manage services, logs, Docker, software, users, schedules | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
 | Test the network, reach private servers | `net`, `tunnel` |
+| Keep a list of databases, caches and storage | `conn` |
+| Query and back up databases (PostgreSQL, MySQL, SQLite) | `db` |
+| Read and change caches (Redis, Valkey) | `cache` |
+| Browse, download and upload files in object storage (S3, MinIO, R2, ...) | `storage` |
 | See history and safety rules | `audit`, `policy` |
+
+Coming next: clusters (Kubernetes, k3s, Swarm),
+container registries, FTP, and importing what you already have (kubeconfig,
+`.pgpass`, AWS profiles, ...). See the
+[roadmap](docs/design/vision.md) (in Bahasa Indonesia).
 
 Every task, step by step: **[docs/usage.md](docs/usage.md)**.
 Help for any command: `komando <command> --help`.
 
 ## Safety, in one minute
 
-- Commands like `rm -rf /`, `reboot` or `DROP DATABASE` are **blocked** unless a human allows them.
-- **Protected** servers refuse changes without `--yes` (commands marked `--read-only` may still look).
+- Commands like `rm -rf /`, `reboot`, `DROP TABLE` or `FLUSHALL` are **blocked** unless a human allows them.
+- **Protected** servers and databases refuse changes without `--yes` (looking is still allowed; mark `exec` commands with `--read-only`).
+- Database queries and cache commands **only read** unless you add `--write`. For databases, the database itself enforces it.
 - `--dry-run` shows what *would* happen.
 - File edits change exactly the text you name, never leave a half-written file, and can keep a backup.
 - If a server's identity changes, komando **refuses to connect**.
@@ -121,6 +152,9 @@ Help for any command: `komando <command> --help`.
 | Server | A computer (usually in the cloud) that runs your apps. |
 | Terminal / CLI | A window where you type commands instead of clicking. |
 | SSH | The secure way to log in to and control a Linux server remotely. |
+| Database | Where an app keeps its data in tables (PostgreSQL, MySQL, SQLite). |
+| Cache | A fast, temporary store an app uses to speed things up (Redis). |
+| Conn | komando's word for anything you connect to that isn't a server: a database, cache or storage bucket. |
 | AI agent | An AI that can run commands by itself to finish a task. |
 | SSH key | A pair of files that proves who you are; safer than a password. |
 | Flag | An option added to a command, like `--yes` or `--dry-run`. |

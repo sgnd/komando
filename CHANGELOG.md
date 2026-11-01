@@ -35,6 +35,57 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   unless `--write`. Deleting, flushing, blocking, scripts and
   server-reconfiguring commands need `--allow-dangerous`.
 
+### Everything in one place
+
+- Targets pick servers and conns together: `@prod` is everything in the
+  `prod` group. Each command uses what it can work with and lists the rest
+  in `meta.skipped`; when nothing fits, `NO_MATCHING_TARGETS` names the right
+  command. New selector `kind:` (`kind:host`, `kind:db`, `kind:postgres`, ...).
+  Typos get a "did you mean" hint. Unknown names now report
+  `TARGET_NOT_FOUND` from commands that take both kinds.
+- `komando list [TARGET]` and `komando test TARGET` show and check servers
+  and conns together. `group add/rm` and `group list` include conns.
+
+### Safety
+
+- Snippets count as changes, so protected servers need `--yes`, unless saved
+  with `--read-only`. Snippets saved before this release are treated as
+  changes too. `snippet add --mutating` is no longer needed.
+- `komando secret set NAME VALUE` is refused (`SECRET_IN_ARGS`): a value on
+  the command line lands in shell history. Type it, pipe it, or use
+  `--from-env`.
+- Removing, replacing (`add --overwrite`) or unprotecting a protected server
+  or conn needs `--yes`.
+- Protection follows the address: an ad-hoc `user@address`, a second host
+  name for the same address and port, or a second conn to the same database
+  server, file or bucket counts as protected too.
+- Turning off the audit log or `audit_sql`, loosening host key checks
+  (setting, or `--host-key-policy off`), and removing a deny rule need `--yes`
+  (`SAFETY_SETTING`). `config set audit` accepts only on/off values.
+- A person typing in a terminal is asked instead of getting an error: `[y/N]`
+  for protected targets, and typing the target's name for dangerous
+  commands. Agents and scripts still need `--yes` / `--allow-dangerous`.
+- Names ignore upper and lower case (`Web1` and `web1` cannot both exist),
+  and `all` cannot be a name. `host import` skips invalid names.
+
+### One way to say each thing
+
+Old names keep working for one release and print a note.
+
+- `rm` everywhere: `group remove`, `pkg remove` and `user delete` are now
+  `rm`; every `rm` also accepts `remove`, `delete` and `del`.
+- `--overwrite` replaces `--force` (`host add`, `conn add`, `snippet add`).
+- `--var` replaces `--param` (`ops run`).
+- `--target` replaces `--host` (`audit`, `job list`) and takes any target.
+- `-n, --limit` replaces `--lines` (`logs`, `svc logs`, `docker logs`).
+  `fs cat -n` (line numbers) is now `--line-numbers`; `job logs --limit`
+  (bytes) is now `--max-bytes`.
+- `-r` is the only short flag for `--recursive` (`fs ls` used `-R`).
+- `logs --file` and `--grep` lose their short flags: `-g` now means only
+  `--group`, and `-f` in `logs` is kept free for a future `--follow`.
+- `pkg` and `user` accept `--no-sudo`.
+- Usage lines say `TARGET` everywhere (was `HOST` in `fs`, `shell`, `tunnel`).
+
 ## [0.1.0]
 
 First release.

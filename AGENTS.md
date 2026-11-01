@@ -8,7 +8,7 @@ agent manage servers through the `komando` CLI.
 1. Use `komando` for all server work. Do not call `ssh`/`scp` directly.
 2. At the start of a session run `komando guide` and follow it.
    Use `komando schema <command>` when unsure about flags.
-3. Look before you change: `komando host list`, `komando conn list`, `komando facts <target>`,
+3. Look before you change: `komando list`, `komando test <target>`, `komando facts <target>`,
    then read logs/config/status.
 4. Before any change, run it once with `--dry-run`. Declare read-only
    shell commands with `--read-only`. `db query` and `cache run` are the
@@ -17,7 +17,8 @@ agent manage servers through the `komando` CLI.
    Query databases with `komando db query`, never `psql`/`mysql` over `exec`.
 6. Use `komando job start` for anything that may take more than ~2 minutes.
 7. **Never** add `--allow-dangerous` or `--yes` on your own. If a command is
-   blocked (`POLICY_BLOCKED`, `PROTECTED_HOST`, exit code 6), stop, explain
+   blocked (`POLICY_BLOCKED`, `PROTECTED_HOST`, `PROTECTED_TARGET`,
+   `SAFETY_SETTING`, exit code 6), stop, explain
    what you want to do and why, and wait for the human's explicit approval.
 8. **Never** "fix" `HOSTKEY_MISMATCH` yourself — report it.
 9. Never reveal secrets (`komando secret get --reveal`) unless the human asks.

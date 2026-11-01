@@ -114,9 +114,11 @@ stdout; in an interactive terminal it prints readable text (force with -o json|t
 Exit codes: 0 ok, 1 error, 2 usage, 3 not found, 4 connect/auth, 5 remote non-zero,
             6 policy blocked, 7 timeout, 8 precondition/conflict.
 
-Targets (for exec, fs, svc, ops, ...): host name, glob (web-*), @group, tag:NAME,
-label:key=value, all, user@addr:port (ad-hoc). Combine with commas; prefix ! to exclude.
-Conns (for db, cache, storage): a conn name from ` + "`komando conn list`" + `.
+Targets: a server or conn name, glob (web-*), @group, tag:NAME, label:key=value,
+kind:KIND (host, db, cache, storage, postgres, ...), all, or user@addr:port (an
+ad-hoc server). Combine with commas; prefix ! to exclude. A target picks servers
+and conns together: each command uses the ones it works with and lists the rest
+in meta.skipped. See them all with ` + "`komando list`" + `.
 
 Start here:  komando guide      (agent playbook)
              komando schema     (machine-readable command reference)`,
@@ -133,6 +135,9 @@ Start here:  komando guide      (agent playbook)
 			out.P.Version = Version
 			out.P.DryRun = g.dryRun
 			out.P.Start = time.Now()
+			if g.hostKeyPolicy == "off" {
+				return guardSafety("--host-key-policy off (no server identity check)")
+			}
 			return nil
 		},
 	}
@@ -144,7 +149,7 @@ Start here:  komando guide      (agent playbook)
 	pf.StringVarP(&g.output, "output", "o", defOut, "auto|json|text; auto = text in a terminal, JSON when piped (env KOMANDO_OUTPUT)")
 	pf.BoolVar(&g.pretty, "pretty", false, "indent JSON output")
 	pf.BoolVar(&g.dryRun, "dry-run", false, "show what would run without changing anything")
-	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm mutating actions on protected hosts")
+	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm changes to protected servers and conns, and to safety settings")
 	pf.BoolVar(&g.allowDangerous, "allow-dangerous", false, "allow commands matching destructive-command policy")
 	pf.DurationVar(&g.timeout, "timeout", 0, "per-host command timeout (default from settings, 5m)")
 	pf.DurationVar(&g.connectTimeout, "connect-timeout", 0, "SSH connect timeout (default from settings, 15s)")
@@ -166,11 +171,12 @@ Start here:  komando guide      (agent playbook)
 			root.AddCommand(c)
 		}
 	}
-	add("inv", hostCmd(), connCmd(), groupCmd(), keyCmd(), secretCmd())
+	add("inv", listCmd(), testCmd(), hostCmd(), connCmd(), groupCmd(), keyCmd(), secretCmd())
 	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), cpCmd(), tunnelCmd(), shellCmd(), snippetCmd())
 	add("data", dbCmd(), cacheCmd(), storageCmd())
 	add("ops", factsCmd(), opsCmd(), svcCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd())
 	add("meta", schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), versionCmd())
+	applyConventions(root)
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
 	for _, c := range root.Commands() {

@@ -226,24 +226,6 @@ func qualified(t dbx.Table) string {
 
 // singleConn resolves a selector that must match exactly one conn of the
 // given family (db, cache, storage).
-func singleConn(st *store.State, expr, family string) (*store.Conn, error) {
-	cs, err := resolveConns(st, expr)
-	if err != nil {
-		return nil, err
-	}
-	if len(cs) != 1 {
-		return nil, out.Usage("target %q matched %d conns; this command needs exactly one", expr, len(cs))
-	}
-	t, err := driver.Parse(cs[0].URL)
-	if err != nil {
-		return nil, err
-	}
-	if err := t.Need(family); err != nil {
-		return nil, err
-	}
-	return cs[0], nil
-}
-
 func dbTimeout() time.Duration {
 	if g.timeout > 0 {
 		return g.timeout
@@ -381,7 +363,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		return fail(e)
 	}
 	if f.write {
-		if err := guardConns([]*store.Conn{c}, plan.Verdict); err != nil {
+		if err := guardConns(st, []*store.Conn{c}, plan.Verdict); err != nil {
 			return fail(err)
 		}
 	}

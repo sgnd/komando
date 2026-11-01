@@ -8,10 +8,9 @@ to be explicit. Branch on `ok`, `error.code` and the process exit code.
 ## 1. Orient yourself
 
 ```bash
-komando host list                     # what servers exist (names, groups, tags, protected)
-komando conn list                     # databases komando knows (kind, where, --via host)
-komando group list                    # groups/tags -> member hosts
-komando host test all                 # who is reachable, which user, passwordless sudo?
+komando list                          # servers and conns: name, kind, where, groups, protected
+komando group list                    # groups/tags -> members (servers and conns)
+komando test all                      # what is reachable; which user, passwordless sudo?
 komando facts <target>                # OS, package manager, tools, CPU/mem/disk, load
 komando schema --compact              # every command (use `komando schema <cmd>` for flags)
 ```
@@ -21,9 +20,12 @@ whether to use apt or dnf, whether systemd/docker exist, and how full the disk i
 
 ## 2. Targets
 
-`web1` · `web-*` · `@group` · `tag:prod` · `label:dc=jkt` · `all` ·
-`user@1.2.3.4:22` (ad-hoc) · combine with commas, exclude with `!`:
-`@web,!web-3`. Check what a selector matches with `komando host list --target '<expr>'`.
+`web1` · `web-*` · `@group` · `tag:prod` · `label:dc=jkt` · `kind:host|db|cache|storage|postgres|...` ·
+`all` · `user@1.2.3.4:22` (ad-hoc server) · combine with commas, exclude with `!`:
+`@web,!web-3`. A target picks servers and conns together. Each command uses
+what it can work with and lists the rest in `meta.skipped`; if nothing fits,
+`NO_MATCHING_TARGETS` says which command to use. Check what a target picks
+with `komando list '<expr>'`.
 
 ## 3. Read before you write
 
@@ -33,7 +35,7 @@ whether to use apt or dnf, whether systemd/docker exist, and how full the disk i
 | Any read-only shell command  | `komando exec <t> --read-only -- '<cmd>'` |
 | Logs                         | `komando logs <t> --unit nginx --since -30m --grep 'error'` |
 | Service state (structured)   | `komando svc status <t> nginx` |
-| File content                 | `komando fs cat <t> /etc/nginx/nginx.conf -n` |
+| File content                 | `komando fs cat <t> /etc/nginx/nginx.conf --line-numbers` |
 | Ports / connectivity         | `komando net ports <t>` · `komando net check <t> db:5432` |
 | Containers                   | `komando docker ps <t>` · `komando docker logs <t> api --since 10m` |
 | More diagnostics             | `komando ops list` then `komando ops run <recipe> <t>` |
@@ -97,7 +99,13 @@ komando job wait <id> --wait-timeout 10m         # blocks; exit code mirrors the
   DROP DATABASE, curl|sh, firewall flush, stopping sshd ...). Stop and ask the human.
   Only re-run with `--allow-dangerous` after explicit human approval.
 - `PROTECTED_HOST` / `PROTECTED_TARGET` (exit 6): host or conn is marked production. Get confirmation, then `--yes`.
-  Read-only work needs no confirmation: declare it with `--read-only`.
+  Read-only work needs no confirmation: declare it with `--read-only`. Removing,
+  replacing or unprotecting a protected target also needs confirmation.
+- `SAFETY_SETTING` (exit 6): the change turns a seatbelt off (audit log, host
+  key checks, a deny rule). Ask the human; never do it to get around a block.
+- Snippets count as changes unless saved with `--read-only`.
+- Never put a secret value in a command line: `komando secret set NAME` reads it
+  from `--from-env VAR` or stdin.
 - `HOSTKEY_MISMATCH` (exit 4): possible man-in-the-middle. Never auto-fix; report to the human.
 - Never print secrets. Credentials are references (`secret:NAME`, `env:VAR`), not values.
 - Everything is recorded in `komando audit`. Set `KOMANDO_ACTOR=<your-name>`.
@@ -107,11 +115,12 @@ komando job wait <id> --wait-timeout 10m         # blocks; exit code mirrors the
 | exit | code examples                     | action |
 |------|-----------------------------------|--------|
 | 2    | USAGE                             | fix flags; see `komando schema <cmd>` |
-| 3    | HOST_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | list inventory / check path |
+| 3    | TARGET_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | `komando list`; the hint suggests the closest name |
+| 3    | NO_MATCHING_TARGETS               | use the command the hint names (e.g. `db` for a database) |
 | 4    | AUTH_FAILED, CONNECTION_REFUSED, HOSTKEY_* | follow `error.hint`; do not retry blindly |
 | 5    | FAILED / PARTIAL_FAILURE          | read `data.results[].stderr` and `exit_code` per host |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
-| 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, WRITE_REQUIRES_FLAG | ask the human |
+| 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, WRITE_REQUIRES_FLAG | ask the human |
 | 7    | TIMEOUT, CONNECT_TIMEOUT          | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file, use exact unique `--old` text |
 

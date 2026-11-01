@@ -166,7 +166,7 @@ func render(tmpl string, defaults map[string]string, vars map[string]string) (st
 		return m
 	})
 	if len(missing) > 0 {
-		return "", out.Usage("missing parameter(s): %s (pass --param NAME=VALUE for ops, --var NAME=VALUE for snippets)", strings.Join(dedupe(missing), ", "))
+		return "", out.Usage("missing parameter(s): %s (pass --var NAME=VALUE)", strings.Join(dedupe(missing), ", "))
 	}
 	return res, nil
 }
@@ -199,7 +199,7 @@ func opsCmd() *cobra.Command {
 	run := &cobra.Command{
 		Use:     "run RECIPE TARGET",
 		Short:   "Run a recipe on hosts",
-		Example: "  komando ops run health @web\n  komando ops run cert-expiry web1 --param name=example.com\n  komando ops run big-dirs db1 --param path=/var --param depth=1",
+		Example: "  komando ops run health @web\n  komando ops run cert-expiry web1 --var name=example.com\n  komando ops run big-dirs db1 --var path=/var --var depth=1",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var r *recipe
@@ -222,7 +222,8 @@ func opsCmd() *cobra.Command {
 			return runFleet(cmd.Context(), "ops."+r.Name, args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo}, r.Mutating)
 		},
 	}
-	run.Flags().StringArrayVar(&params, "param", nil, "recipe parameter NAME=VALUE (repeatable)")
+	run.Flags().StringArrayVar(&params, "var", nil, "recipe parameter NAME=VALUE (repeatable)")
+	aliasFlag(run.Flags(), "param", "var")
 	run.Flags().BoolVar(&noSudo, "no-sudo", false, "do not elevate even if the recipe prefers sudo")
 	c.AddCommand(list, run)
 	return c
@@ -237,20 +238,21 @@ func snippetCmd() *cobra.Command {
 		Short:   "Saved, parameterised commands ({{var}} or {{var=default}}) shared by humans and agents",
 	}
 	var desc string
-	var sudo, mutating, force bool
+	var sudo, readOnly, mutating, overwrite bool
 	add := &cobra.Command{
-		Use:     "add NAME COMMAND",
-		Short:   "Save a snippet",
-		Example: `  komando snippet add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --sudo --mutating`,
-		Args:    cobra.ExactArgs(2),
+		Use:   "add NAME COMMAND",
+		Short: "Save a snippet",
+		Example: `  komando snippet add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --sudo
+  komando snippet add disk-usage 'df -h {{path=/}}' --read-only`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validName("snippet", args[0]); err != nil {
 				return err
 			}
-			s := &store.Snippet{Name: args[0], Command: args[1], Description: desc, Sudo: sudo, Mutating: mutating, CreatedAt: time.Now().UTC()}
+			s := &store.Snippet{Name: args[0], Command: args[1], Description: desc, Sudo: sudo, ReadOnly: readOnly && !mutating, CreatedAt: time.Now().UTC()}
 			err := store.Update(func(st *store.State) error {
-				if _, ok := st.Snippets[s.Name]; ok && !force {
-					return out.Errf(out.ExitConflict, "SNIPPET_EXISTS", "pass --force to overwrite", "snippet %q exists", s.Name)
+				if _, ok := st.Snippets[s.Name]; ok && !overwrite {
+					return out.Errf(out.ExitConflict, "SNIPPET_EXISTS", "pass --overwrite to replace it", "snippet %q exists", s.Name)
 				}
 				st.Snippets[s.Name] = s
 				return nil
@@ -264,8 +266,11 @@ func snippetCmd() *cobra.Command {
 	}
 	add.Flags().StringVar(&desc, "desc", "", "description")
 	add.Flags().BoolVar(&sudo, "sudo", false, "run with sudo")
-	add.Flags().BoolVar(&mutating, "mutating", false, "mark as changing state (protected hosts then need --yes)")
-	add.Flags().BoolVar(&force, "force", false, "overwrite")
+	add.Flags().BoolVar(&readOnly, "read-only", false, "the snippet only reads, so protected hosts don't need --yes")
+	add.Flags().BoolVar(&mutating, "mutating", false, "")
+	add.Flags().MarkDeprecated("mutating", "snippets count as changes unless saved with --read-only")
+	add.Flags().BoolVar(&overwrite, "overwrite", false, "replace a snippet with the same name")
+	aliasFlag(add.Flags(), "force", "overwrite")
 
 	list := &cobra.Command{
 		Use:   "list",
@@ -327,7 +332,7 @@ func snippetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runFleet(cmd.Context(), "snippet."+s.Name, args[1], command, nil, execOpts{sudo: s.Sudo}, s.Mutating)
+			return runFleet(cmd.Context(), "snippet."+s.Name, args[1], command, nil, execOpts{sudo: s.Sudo}, !s.ReadOnly)
 		},
 	}
 	run.Flags().StringArrayVar(&vars, "var", nil, "template variable NAME=VALUE (repeatable)")

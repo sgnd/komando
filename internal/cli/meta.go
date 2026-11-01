@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -161,7 +162,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 
 func auditCmd() *cobra.Command {
 	var limit int
-	var host, command string
+	var target, command string
 	var failed bool
 	c := &cobra.Command{
 		Use:   "audit",
@@ -174,6 +175,14 @@ func auditCmd() *cobra.Command {
 				return nil
 			}
 			defer f.Close()
+			var names map[string]bool
+			if target != "" {
+				st, err := loadState()
+				if err != nil {
+					return err
+				}
+				names = targetNames(st, target)
+			}
 			var all []map[string]any
 			sc := bufio.NewScanner(f)
 			sc.Buffer(make([]byte, 1<<20), 16<<20)
@@ -188,12 +197,12 @@ func auditCmd() *cobra.Command {
 				if failed && e["ok"] == true {
 					continue
 				}
-				if host != "" {
+				if target != "" {
 					hs, _ := e["hosts"].([]any)
 					cs, _ := e["conns"].([]any)
 					match := false
 					for _, h := range append(hs, cs...) {
-						if h == host {
+						if n, ok := h.(string); ok && names[n] {
 							match = true
 						}
 					}
@@ -211,7 +220,8 @@ func auditCmd() *cobra.Command {
 		},
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 50, "last N entries")
-	c.Flags().StringVar(&host, "host", "", "filter by host or conn name")
+	c.Flags().StringVar(&target, "target", "", "only entries for these servers or conns (a selector, e.g. @prod)")
+	aliasFlag(c.Flags(), "host", "target")
 	c.Flags().StringVar(&command, "command", "", "filter by command prefix (e.g. exec, svc.)")
 	c.Flags().BoolVar(&failed, "failed", false, "only failed/blocked actions")
 	return c
@@ -248,6 +258,12 @@ func configCmd() *cobra.Command {
 					if v != "accept-new" && v != "strict" && v != "off" {
 						return out.Usage("host_key_policy: accept-new|strict|off")
 					}
+					rank := map[string]int{"off": 0, "accept-new": 1, "": 1, "strict": 2}
+					if rank[v] < rank[s.Settings.HostKeyPolicy] {
+						if err := guardSafety("loosening server identity checks to " + v); err != nil {
+							return err
+						}
+					}
 					s.Settings.HostKeyPolicy = v
 				case "default_user":
 					s.Settings.DefaultUser = v
@@ -271,10 +287,24 @@ func configCmd() *cobra.Command {
 						s.Settings.MaxOutputBytes = n
 					}
 				case "audit":
-					s.Settings.Audit = v == "true" || v == "on" || v == "1"
+					on, ok := map[string]bool{"true": true, "on": true, "1": true, "false": false, "off": false, "0": false}[strings.ToLower(v)]
+					if !ok {
+						return out.Usage("audit: on|off")
+					}
+					if !on && s.Settings.Audit {
+						if err := guardSafety("turning off the audit log"); err != nil {
+							return err
+						}
+					}
+					s.Settings.Audit = on
 				case "audit_sql":
 					if v != "full" && v != "hash" && v != "off" {
 						return out.Usage("audit_sql: full|hash|off (hash keeps a SHA-256 so repeated queries can be matched without storing their text)")
+					}
+					if v == "off" && s.Settings.AuditSQL != "off" {
+						if err := guardSafety("leaving SQL out of the audit log"); err != nil {
+							return err
+						}
 					}
 					s.Settings.AuditSQL = v
 				default:
@@ -378,6 +408,11 @@ func policyCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var pats []string
 			err := store.Update(func(s *store.State) error {
+				if slices.Contains(s.Settings.ExtraDenyPattern, args[0]) {
+					if err := guardSafety("removing the deny rule " + args[0]); err != nil {
+						return err
+					}
+				}
 				s.Settings.ExtraDenyPattern = remove(s.Settings.ExtraDenyPattern, args)
 				pats = s.Settings.ExtraDenyPattern
 				return nil
