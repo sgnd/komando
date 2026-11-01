@@ -4,6 +4,8 @@
 package vault
 
 import (
+	"bytes"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -11,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -172,11 +175,43 @@ func List() ([]Info, error) {
 	return out, nil
 }
 
+// Refs are the kinds of secret reference komando understands, with an
+// example each, for help texts and errors.
+var Refs = []string{
+	"secret:NAME (komando's vault)",
+	"env:VAR",
+	"file:PATH",
+	"op://VAULT/ITEM/FIELD (1Password CLI)",
+	"vault:PATH#FIELD (HashiCorp Vault CLI, KV)",
+	"aws-sm:NAME[#JSON_KEY] (AWS Secrets Manager)",
+	"gcp-sm:NAME[@PROJECT] (Google Secret Manager)",
+}
+
+// ValidRef reports whether ref has a known form.
+func ValidRef(ref string) bool {
+	for _, p := range []string{"secret:", "env:", "file:", "op://", "vault:", "aws-sm:", "gcp-sm:"} {
+		if strings.HasPrefix(ref, p) && len(ref) > len(p) {
+			return true
+		}
+	}
+	return false
+}
+
+// RefHelp is the hint for an invalid reference.
+func RefHelp() string { return "use one of: " + strings.Join(Refs, ", ") }
+
 // Resolve turns a reference into a value:
 //
-//	secret:<name>  -> vault entry
-//	env:<VAR>      -> environment variable
-//	file:<path>    -> file contents (trailing newline trimmed)
+//	secret:<name>        -> komando's vault
+//	env:<VAR>            -> environment variable
+//	file:<path>          -> file contents (trailing newline trimmed)
+//	op://v/item/field    -> `op read` (1Password CLI, signed in)
+//	vault:path#field     -> `vault kv get -field` (HashiCorp Vault CLI, VAULT_ADDR and a token set)
+//	aws-sm:name[#key]    -> `aws secretsmanager get-secret-value` (a JSON key when given)
+//	gcp-sm:name[@project]-> `gcloud secrets versions access latest`
+//
+// The external ones run that tool, so its login (and any MFA) stays with the
+// person; komando never stores those values.
 func Resolve(ref string) (string, error) {
 	switch {
 	case ref == "":
@@ -192,6 +227,73 @@ func Resolve(ref string) (string, error) {
 	case strings.HasPrefix(ref, "file:"):
 		b, err := os.ReadFile(strings.TrimPrefix(ref, "file:"))
 		return strings.TrimRight(string(b), "\r\n"), err
+	case strings.HasPrefix(ref, "op://"):
+		return external("op", "read", "--no-newline", ref)
+	case strings.HasPrefix(ref, "vault:"):
+		path, field, ok := strings.Cut(strings.TrimPrefix(ref, "vault:"), "#")
+		if !ok || field == "" {
+			return "", fmt.Errorf("vault: references need #FIELD, e.g. vault:secret/shop#db_password")
+		}
+		return external("vault", "kv", "get", "-field="+field, path)
+	case strings.HasPrefix(ref, "aws-sm:"):
+		name, key, _ := strings.Cut(strings.TrimPrefix(ref, "aws-sm:"), "#")
+		v, err := external("aws", "secretsmanager", "get-secret-value", "--secret-id", name, "--query", "SecretString", "--output", "text")
+		if err != nil || key == "" {
+			return v, err
+		}
+		return jsonKey(v, key)
+	case strings.HasPrefix(ref, "gcp-sm:"):
+		name, project, _ := strings.Cut(strings.TrimPrefix(ref, "gcp-sm:"), "@")
+		args := []string{"secrets", "versions", "access", "latest", "--secret=" + name}
+		if project != "" {
+			args = append(args, "--project="+project)
+		}
+		return external("gcloud", args...)
 	}
-	return "", fmt.Errorf("invalid secret reference %q (use secret:NAME, env:VAR or file:PATH)", ref)
+	return "", fmt.Errorf("invalid secret reference %q (%s)", ref, RefHelp())
+}
+
+// external runs a secret manager's CLI and returns its output. The value
+// is never logged; errors carry the tool's message, which names no secret.
+func external(tool string, args ...string) (string, error) {
+	if _, err := exec.LookPath(tool); err != nil {
+		return "", fmt.Errorf("%s is not installed (needed for this secret reference)", tool)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	c := exec.CommandContext(ctx, tool, args...)
+	var stderr bytes.Buffer
+	c.Stderr = &stderr
+	out, err := c.Output()
+	if err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if len(msg) > 300 {
+			msg = msg[:300]
+		}
+		return "", fmt.Errorf("%s: %s (is it signed in?)", tool, firstLine(msg, err.Error()))
+	}
+	return strings.TrimRight(string(out), "\r\n"), nil
+}
+
+func firstLine(s, fallback string) string {
+	if s == "" {
+		return fallback
+	}
+	return strings.SplitN(s, "\n", 2)[0]
+}
+
+func jsonKey(doc, key string) (string, error) {
+	var m map[string]any
+	if err := json.Unmarshal([]byte(doc), &m); err != nil {
+		return "", fmt.Errorf("the secret is not JSON, so #%s does not apply", key)
+	}
+	v, ok := m[key]
+	if !ok {
+		return "", fmt.Errorf("the secret has no key %q", key)
+	}
+	if s, ok := v.(string); ok {
+		return s, nil
+	}
+	b, _ := json.Marshal(v)
+	return string(b), nil
 }

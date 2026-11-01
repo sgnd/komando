@@ -50,3 +50,26 @@ komando host edit web1 --sudo-ref secret:web1-sudo
 
 References can also point to an environment variable (`env:MY_VAR`) or a
 file (`file:/path`).
+
+## Passwords from your password manager
+
+Every `--password-ref` (servers, conns, VPNs) can point at the password
+manager your team already uses, instead of komando's own vault:
+
+| Reference | Reads it with |
+|-----------|---------------|
+| `secret:NAME` | komando's vault (`komando secret set NAME`) |
+| `env:VAR` | an environment variable |
+| `file:PATH` | a file |
+| `op://Vault/Item/field` | 1Password CLI (`op`) |
+| `vault:secret/shop#db_password` | HashiCorp Vault CLI (`vault kv get`) |
+| `aws-sm:shop/db#password` | AWS Secrets Manager (`aws`); `#key` picks a JSON field |
+| `gcp-sm:db-pass@my-project` | Google Secret Manager (`gcloud`) |
+
+```bash
+komando conn add shop-db postgres://app@db.lan/shop --password-ref op://Shop/shop-db/password
+```
+
+komando runs that tool when it needs the password and never stores the
+value. The tool must be installed and signed in; its login (and any MFA)
+stays with you.

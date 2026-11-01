@@ -98,8 +98,8 @@ func vpnAddCmd() *cobra.Command {
 				}
 			}
 			for _, r := range []string{passwordRef} {
-				if r != "" && !strings.HasPrefix(r, "secret:") && !strings.HasPrefix(r, "env:") && !strings.HasPrefix(r, "file:") {
-					return out.Usage("--password-ref must be secret:NAME, env:VAR or file:PATH")
+				if r != "" && !vault.ValidRef(r) {
+					return out.Usage("invalid --password-ref %q: %s", r, vault.RefHelp())
 				}
 			}
 			v := &store.Vpn{Name: name, Kind: kind, Check: check, User: user, KeyRef: passwordRef, MFA: mfa,
@@ -245,7 +245,7 @@ func vpnAddCmd() *cobra.Command {
 	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings, so `vpn up` can connect it")
 	f.StringVar(&server, "server", "", "tailscale: a Headscale login server URL")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
-	f.StringVar(&passwordRef, "password-ref", "", "password (tailscale: auth key) as secret:NAME | env:VAR | file:PATH")
+	f.StringVar(&passwordRef, "password-ref", "", "password (tailscale: auth key) as secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only `vpn up` by a human connects it")
 	f.StringVar(&check, "check", "", "host:port reachable only through this VPN (used by `komando test`, needed for system and openvpn)")
 	f.StringSliceVarP(&groups, "group", "g", nil, "group(s)")

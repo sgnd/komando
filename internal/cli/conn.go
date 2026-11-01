@@ -63,7 +63,7 @@ type connFlags struct {
 func (f *connFlags) bind(c *cobra.Command, edit bool) {
 	fl := c.Flags()
 	fl.StringVar(&f.via, "via", "", "reach it through these host(s) (bastions), comma-separated chain; no local port is opened")
-	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH")
+	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (shown to agents in conn show)")
 	fl.BoolVar(&f.protected, "protected", false, "require --yes for any change (production safety)")
 	if edit {
@@ -97,8 +97,8 @@ func checkConn(s *store.State, c *store.Conn) (driver.Target, error) {
 			return t, err
 		}
 	}
-	if r := c.PasswordRef; r != "" && !strings.HasPrefix(r, "secret:") && !strings.HasPrefix(r, "env:") && !strings.HasPrefix(r, "file:") {
-		return t, out.Usage("invalid --password-ref %q (use secret:NAME, env:VAR or file:PATH)", r)
+	if r := c.PasswordRef; r != "" && !vault.ValidRef(r) {
+		return t, out.Usage("invalid --password-ref %q: %s", r, vault.RefHelp())
 	}
 	return t, nil
 }

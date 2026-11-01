@@ -4,6 +4,13 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Password managers (v0.7)
+
+- `--password-ref` also takes `op://...` (1Password), `vault:PATH#FIELD`
+  (HashiCorp Vault), `aws-sm:NAME[#KEY]` (AWS Secrets Manager) and
+  `gcp-sm:NAME[@PROJECT]` (Google Secret Manager). komando runs that tool's
+  CLI when it needs the value and never stores it.
+
 ### Container registries (v0.6)
 
 - `komando registry ls|inspect|rm` for Docker Hub, GHCR, GitLab, Harbor,
