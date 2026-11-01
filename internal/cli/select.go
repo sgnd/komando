@@ -137,12 +137,15 @@ func matchKind(st *store.State, k string) ([]*store.Host, []*store.Conn, error) 
 	if k == "host" || k == "server" {
 		return st.SortedHosts(), nil, nil
 	}
+	if k == "conn" {
+		return nil, st.SortedConns(), nil
+	}
 	known := false
 	for _, kd := range driver.Kinds() {
 		known = known || kd.Name == k || kd.Family == k
 	}
 	if !known {
-		return nil, nil, out.Usage("unknown kind %q: use host, a conn kind (see `komando conn kinds`) or db, cache, storage", k)
+		return nil, nil, out.Usage("unknown kind %q: use host, conn, a conn kind (see `komando conn kinds`) or db, cache, storage", k)
 	}
 	var cs []*store.Conn
 	for _, c := range st.SortedConns() {
@@ -384,6 +387,17 @@ func targetNames(st *store.State, expr string) map[string]bool {
 		}
 	}
 	return names
+}
+
+// viaChain splits a --via value ("vpn1,bastion") into its steps.
+func viaChain(via string) []string {
+	var steps []string
+	for _, s := range strings.Split(via, ",") {
+		if s = strings.TrimSpace(s); s != "" {
+			steps = append(steps, s)
+		}
+	}
+	return steps
 }
 
 // singleHost resolves a selector that must pick exactly one server.

@@ -239,12 +239,12 @@ Tumpang tindih yang ada sekarang, dan keputusannya:
 
 | Sekarang | Keputusan |
 |---|---|
-| `host --jump` dan `conn --via` | `--via` untuk semua; `--jump` jadi alias ([network.md](network.md)) |
-| `host test`, `conn test`, `test` | `test` saja; `host test`/`conn test` jadi alias untuk `test` |
-| `host list`, `conn list`, `list` | `list` saja; `host list`/`conn list` jadi alias untuk `list kind:host` / `list kind:conn` |
-| `svc logs`, `docker logs`, `logs --unit/--container` | `logs` saja; `svc logs` dan `docker logs` jadi alias |
-| `ops run` (resep bawaan) dan `snippet run` (resep sendiri) | satu `snippet`: resep bawaan adalah snippet bawaan yang tidak bisa diubah; `ops` jadi alias |
-| `cp` (server) dan `storage upload/download` | satu pasang kata kerja `upload`/`download` untuk semua target yang menyimpan file (server lewat SFTP, storage, nanti FTP); `cp` jadi alias |
+| `host --jump` dan `conn --via` | ✅ `--via` untuk semua; `--jump` jadi alias ([network.md](network.md)) |
+| `host test`, `conn test`, `test` | ✅ `test` saja; `host test`/`conn test` = `test` untuk satu jenis |
+| `host list`, `conn list`, `list` | ✅ `list` saja; `host list`/`conn list` = `list kind:host` / `list kind:conn` |
+| `svc logs`, `docker logs`, `logs --unit/--container` | ✅ `logs` saja; `svc logs` dan `docker logs` jadi alias |
+| `ops run` (resep bawaan) dan `snippet run` (resep sendiri) | ✅ satu `recipe` (kata yang lebih mudah dipahami); `ops` dan `snippet` jadi nama lain |
+| `cp` (server) dan `storage upload/download` | ✅ `upload`/`download` untuk server (SFTP) dan storage; `cp` dan `storage upload/download` jadi alias |
 | `group add/rm` dan `edit --add-group/--rm-group` | tetap keduanya (banyak vs satu), kode yang sama |
 
 ## 12. Semua fitur CLI asli bisa dipakai

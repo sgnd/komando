@@ -141,7 +141,7 @@ func svcLogsCmd() *cobra.Command {
 	var lo logOpts
 	c := &cobra.Command{
 		Use:   "logs TARGET UNIT",
-		Short: "journalctl for a unit (shortcut for `komando logs --unit`)",
+		Short: "Same as `komando logs TARGET --unit UNIT`",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lo.unit = args[1]
@@ -286,7 +286,7 @@ func dockerCmd() *cobra.Command {
 	var lo logOpts
 	logs := &cobra.Command{
 		Use:   "logs TARGET CONTAINER",
-		Short: "Container logs (--since, --grep, -n)",
+		Short: "Same as `komando logs TARGET --container NAME`",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lo.container = args[1]

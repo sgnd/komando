@@ -4,6 +4,24 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### One command per job (v0.3)
+
+- `--via` for servers too: `host add db1 ... --via bastion` (chains like
+  `--via bastion,db1`). `--jump` still works; state files move `jump` to
+  `via` on load. Conns take `--via` chains as well, and a host on anyone's
+  `--via` path cannot be removed (`HOST_IN_USE`).
+- `komando upload` and `komando download` work for servers (SFTP, many at
+  once) and storage conns. `cp` and `storage upload/download` are the same
+  commands spelled the old way.
+- `komando recipe` is one list of built-in and saved commands. `ops` and
+  `snippet` are other names for it; saved recipes cannot reuse built-in
+  names, and marking an existing recipe read-only needs `--yes`.
+- `host list/test` and `conn list/test` are `komando list/test` limited to
+  servers or conns (new selector `kind:conn`); `svc logs` and `docker logs`
+  are `komando logs` with `--unit` or `--container`.
+- `komando tunnel start CONN` opens a local port to a conn through its
+  `--via` path, for apps like TablePlus or psql (`--port` to choose it).
+
 - `komando conn`: an inventory of databases (PostgreSQL, MySQL, SQLite) next
   to hosts. Add, edit, list, show, remove and test them; reach private ones
   through a host with `--via`. Passwords are refused in URLs and live in the

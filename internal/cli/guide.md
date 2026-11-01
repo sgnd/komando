@@ -31,21 +31,21 @@ with `komando list '<expr>'`.
 
 | Need                         | Command |
 |------------------------------|---------|
-| Quick health                 | `komando ops run health <t>` |
+| Quick health                 | `komando recipe run health <t>` |
 | Any read-only shell command  | `komando exec <t> --read-only -- '<cmd>'` |
 | Logs                         | `komando logs <t> --unit nginx --since -30m --grep 'error'` |
 | Service state (structured)   | `komando svc status <t> nginx` |
 | File content                 | `komando fs cat <t> /etc/nginx/nginx.conf --line-numbers` |
 | Ports / connectivity         | `komando net ports <t>` · `komando net check <t> db:5432` |
-| Containers                   | `komando docker ps <t>` · `komando docker logs <t> api --since 10m` |
-| More diagnostics             | `komando ops list` then `komando ops run <recipe> <t>` |
+| Containers                   | `komando docker ps <t>` · `komando logs <t> --container api --since 10m` |
+| More diagnostics             | `komando recipe list` then `komando recipe run <name> <t>` |
 
 ## 4. Change things safely
 
 1. Preview: add `--dry-run` to see the exact remote command and whether it would be blocked.
 2. Edit config with `fs replace` (exact match, fails on 0 or >1 matches) and `--backup`:
    `komando fs replace web1 /etc/nginx/nginx.conf --old '...' --new '...' --sudo --backup`
-3. Validate before reload: `komando ops run nginx-test web1` (or `sshd -t`, `apachectl configtest`).
+3. Validate before reload: `komando recipe run nginx-test web1` (or `sshd -t`, `apachectl configtest`).
 4. Apply: `komando svc reload web1 nginx` → re-check `svc status`.
 5. Roll back from `PATH.bak` if validation fails.
 6. Roll out to fleets gradually: one host first, then `--parallel` small batches, `--fail-fast`.
@@ -56,7 +56,7 @@ are idempotent, so retries are safe.
 ## 5. Databases
 
 ```bash
-komando conn list                                   # known databases
+komando list kind:conn                                   # known databases
 komando db schema <conn> [table...]                 # tables, then columns/indexes
 komando db query <conn> "select ..."                # read-only transaction: data cannot change
 komando db query <conn> "... where id = $1" --arg 42   # values as arguments, not pasted
@@ -69,7 +69,7 @@ Caches work the same way: `komando cache get|keys|info <conn>` read,
 `komando cache run <conn> -- CMD ...` only reads unless `--write`. Never use
 `KEYS` (use `cache keys`, it SCANs).
 
-Buckets: `komando storage ls|download <conn> ...` read, `storage upload|link`
+Buckets: `komando storage ls <conn>` and `komando download <conn> KEY` read, `komando upload <conn> FILE` and `storage link`
 change or share, `storage rm` deletes (needs `--allow-dangerous`). Keys are
 relative to the conn's folder.
 

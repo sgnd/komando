@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"strings"
-	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -61,7 +60,7 @@ type connFlags struct {
 
 func (f *connFlags) bind(c *cobra.Command, edit bool) {
 	fl := c.Flags()
-	fl.StringVar(&f.via, "via", "", "host to reach the resource through (SSH, no local port opened)")
+	fl.StringVar(&f.via, "via", "", "reach it through these host(s) (bastions), comma-separated chain; no local port is opened")
 	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH")
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (shown to agents in conn show)")
 	fl.BoolVar(&f.protected, "protected", false, "require --yes for any change (production safety)")
@@ -92,8 +91,8 @@ func checkConn(s *store.State, c *store.Conn) (driver.Target, error) {
 		if t.Kind.File {
 			return t, out.Usage("%s conns are local files; --via is not supported", t.Kind.Name)
 		}
-		if _, ok := s.Hosts[c.Via]; !ok {
-			return t, out.NotFound("host", c.Via)
+		if _, err := viaHost(s, c.Via); err != nil {
+			return t, err
 		}
 	}
 	if r := c.PasswordRef; r != "" && !strings.HasPrefix(r, "secret:") && !strings.HasPrefix(r, "env:") && !strings.HasPrefix(r, "file:") {
@@ -114,7 +113,7 @@ resource is only reachable from a server.
 
 Conns share names and selectors (@group, tag:x, glob, all) with hosts.`,
 	}
-	c.AddCommand(connAddCmd(), connEditCmd(), connListCmd(), connShowCmd(), connRmCmd(), connTestCmd(), connKindsCmd())
+	c.AddCommand(connAddCmd(), connEditCmd(), alias(listCmdFor("conn"), "list kind:conn"), connShowCmd(), connRmCmd(), alias(testCmdFor("conn"), "test"), connKindsCmd())
 	return c
 }
 
@@ -264,68 +263,6 @@ func connEditCmd() *cobra.Command {
 	return c
 }
 
-type connRow struct {
-	Name      string   `json:"name"`
-	Kind      string   `json:"kind"`
-	Where     string   `json:"where"`
-	Via       string   `json:"via,omitempty"`
-	Groups    []string `json:"groups,omitempty"`
-	Tags      []string `json:"tags,omitempty"`
-	Protected bool     `json:"protected,omitempty"`
-}
-
-type connList struct {
-	Count int       `json:"count"`
-	Conns []connRow `json:"conns"`
-}
-
-func (l connList) Text() string {
-	var sb strings.Builder
-	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAME\tKIND\tWHERE\tVIA\tGROUPS\tTAGS\tPROTECTED")
-	for _, c := range l.Conns {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%v\n", c.Name, c.Kind, c.Where, dash(c.Via), dash(strings.Join(c.Groups, ",")), dash(strings.Join(c.Tags, ",")), c.Protected)
-	}
-	tw.Flush()
-	return sb.String()
-}
-
-func connListCmd() *cobra.Command {
-	var target string
-	c := &cobra.Command{
-		Use:     "list",
-		Aliases: []string{"ls"},
-		Short:   "List conns (optionally filtered by a target selector)",
-		Example: "  komando conn list --target @shop,tag:prod",
-		Args:    cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			conns := st.SortedConns()
-			if target != "" {
-				if conns, err = resolveConns(st, target); err != nil {
-					return err
-				}
-			}
-			l := connList{Conns: []connRow{}}
-			for _, c := range conns {
-				where := c.URL
-				if t, err := driver.Parse(c.URL); err == nil {
-					where = t.Where()
-				}
-				l.Conns = append(l.Conns, connRow{c.Name, c.Kind, where, c.Via, c.Groups, c.Tags, c.Protected})
-			}
-			l.Count = len(l.Conns)
-			out.P.Print("conn.list", l, nil)
-			return nil
-		},
-	}
-	c.Flags().StringVar(&target, "target", "", "selector filter (@group, tag:x, glob, ...)")
-	return c
-}
-
 func connShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show NAME",
@@ -437,9 +374,9 @@ func openAccess(ctx context.Context, st *store.State, c *store.Conn) (*access, e
 	if c.Via == "" {
 		return a, nil
 	}
-	h, ok := st.Hosts[c.Via]
-	if !ok {
-		return nil, out.NotFound("host", c.Via)
+	h, err := viaHost(st, c.Via)
+	if err != nil {
+		return nil, err
 	}
 	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
 	defer cancel()
@@ -454,6 +391,28 @@ func openAccess(ctx context.Context, st *store.State, c *store.Conn) (*access, e
 		return sshx.WithDeadlines(c), nil
 	}
 	return a, nil
+}
+
+// viaHost turns a --via chain ("bastion,db1") into the host to dial: the
+// last step, reached through the steps before it. A chain given here
+// replaces that host's own --via; a single host keeps its own.
+func viaHost(st *store.State, via string) (*store.Host, error) {
+	steps := viaChain(via)
+	if len(steps) == 0 {
+		return nil, out.Usage("empty --via")
+	}
+	for _, s := range steps {
+		if _, ok := st.Hosts[s]; !ok {
+			return nil, out.NotFound("host", s)
+		}
+	}
+	h := st.Hosts[steps[len(steps)-1]]
+	if len(steps) > 1 {
+		cp := *h
+		cp.Via = strings.Join(steps[:len(steps)-1], ",")
+		h = &cp
+	}
+	return h, nil
 }
 
 func resolvePassword(c *store.Conn) (string, error) {
@@ -479,80 +438,6 @@ type connTestResult struct {
 	Check     string     `json:"check,omitempty"` // tcp | file
 	LatencyMS int64      `json:"latency_ms,omitempty"`
 	Error     *out.Error `json:"error,omitempty"`
-}
-
-type connSummary struct {
-	Total       int      `json:"total"`
-	OK          int      `json:"ok"`
-	Failed      int      `json:"failed"`
-	FailedConns []string `json:"failed_conns,omitempty"`
-}
-
-func connTestCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "test TARGET",
-		Aliases: []string{"ping"},
-		Short:   "Check that conns are reachable (TCP, through --via if set) and their password reference resolves",
-		Example: "  komando conn test all\n  komando conn test prod-db",
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			conns, err := resolveConns(st, args[0])
-			if err != nil {
-				return err
-			}
-			res := make([]connTestResult, len(conns))
-			sem := make(chan struct{}, max(1, parallelism(st)))
-			var wg sync.WaitGroup
-			for i, c := range conns {
-				wg.Add(1)
-				go func(i int, c *store.Conn) {
-					defer wg.Done()
-					sem <- struct{}{}
-					defer func() { <-sem }()
-					res[i] = testConn(cmd.Context(), st, c)
-				}(i, c)
-			}
-			wg.Wait()
-
-			data := struct {
-				Results []connTestResult `json:"results"`
-				Summary connSummary      `json:"summary"`
-			}{Results: res}
-			worst := 0
-			for _, r := range res {
-				if r.OK {
-					data.Summary.OK++
-					continue
-				}
-				data.Summary.Failed++
-				data.Summary.FailedConns = append(data.Summary.FailedConns, r.Conn)
-				worst = worse(worst, r.Error.Exit)
-			}
-			data.Summary.Total = len(res)
-			var soft *out.Error
-			if data.Summary.Failed > 0 {
-				soft = &out.Error{Code: "PARTIAL_FAILURE", Message: fmt.Sprintf("%d of %d conn(s) failed: %s", data.Summary.Failed, data.Summary.Total, strings.Join(data.Summary.FailedConns, ", ")),
-					Hint: "see the per-conn results (data.results) for error codes and hints", Exit: worst}
-				if data.Summary.Total == 1 {
-					soft.Code, soft.Message = "FAILED", "conn "+data.Summary.FailedConns[0]+" failed"
-				}
-			}
-			names := make([]string, len(conns))
-			for i, c := range conns {
-				names[i] = c.Name
-			}
-			audit(st, "conn.test", nil, "", soft == nil, map[string]any{"conns": names})
-			out.P.Print("conn.test", data, soft)
-			if soft != nil {
-				return exitCode(worst)
-			}
-			return nil
-		},
-	}
 }
 
 func testConn(ctx context.Context, st *store.State, c *store.Conn) connTestResult {

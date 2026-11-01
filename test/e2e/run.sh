@@ -45,7 +45,7 @@ echo "==> inventory & vault"
 echo -n agentpass | $K secret set agent-pass >/dev/null
 $K host add bastion agent@127.0.0.1:2222 --password-ref secret:agent-pass -g lab >/dev/null
 $K host add direct agent@127.0.0.1:2223 --password-ref secret:agent-pass -g lab -t test >/dev/null
-$K host add target agent@target --jump bastion --password-ref secret:agent-pass -g lab --protected >/dev/null
+$K host add target agent@target --via bastion --password-ref secret:agent-pass -g lab --protected >/dev/null
 check "host list count" 3 "$($K host list | jget 'd["data"]["count"]')"
 check "secret never printed" False "$($K secret get agent-pass | jget '"value" in d["data"]')"
 
@@ -167,8 +167,18 @@ check "exec @stack skips conns" "cache,pg" "$($K exec @stack --read-only -- true
 check "db query @stack finds pg" 1 "$($K db query @stack 'select 1 as n' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "cache on a database says use db" NO_MATCHING_TARGETS "$($K cache info pg | jget 'd["error"]["code"]' || true)"
 
+# one verb pair for files, and tunnels to conns by name
+echo hello-upload > "$TMP/up.txt"
+q $K upload direct "$TMP/up.txt" /tmp/up.txt
+q $K download direct /tmp/up.txt --to "$TMP/down/"
+check "upload/download to a server" hello-upload "$(cat "$TMP/down/up.txt")"
+TUN=$($K tunnel start pg | jget 'd["data"]["listen"]')
+check "tunnel to a conn by name" 0 "$(nc -z "${TUN%:*}" "${TUN##*:}"; echo $?)"
+q $K tunnel stop --all
+
 # no way around protection
 q $K snippet add touch-it 'touch /tmp/komando-e2e'
+check "recipe list has built-ins and saved" True "$($K recipe list | jget 'any(r["builtin"] for r in d["data"]["recipes"]) and any(not r["builtin"] for r in d["data"]["recipes"])')"
 set +e; $K snippet run touch-it target >/dev/null; check "snippet on protected host needs --yes" 6 $?; set -e
 set +e; $K host rm target >/dev/null; check "removing a protected host needs --yes" 6 $?; set -e
 set +e; $K config set audit off >/dev/null; check "turning off audit needs --yes" 6 $?; set -e

@@ -35,8 +35,8 @@ connects through web1 over SSH by itself: no tunnel to start, no port opened
 on your computer.
 
 ```bash
-komando conn list                     # all conns
-komando conn test all                 # reachable? does the password reference work?
+komando list kind:conn                     # all conns
+komando test kind:conn                 # reachable? does the password reference work?
 komando conn edit prod-db --add-tag critical
 komando conn rm old-db                # only forgets it; the database is untouched
 ```

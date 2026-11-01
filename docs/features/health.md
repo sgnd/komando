@@ -6,12 +6,12 @@ Find out what a server is and whether it is healthy. [All features](README.md)
 
 ```bash
 komando facts web1               # OS, CPU, memory, disk, IPs, installed tools
-komando ops list                 # 39 ready-made checks
-komando ops run health @web
-komando ops run disk all
-komando ops run top-mem web1
-komando ops run cert-expiry web1 --var name=example.com
-komando ops run updates all
+komando recipe list                 # 39 ready-made checks
+komando recipe run health @web
+komando recipe run disk all
+komando recipe run top-mem web1
+komando recipe run cert-expiry web1 --var name=example.com
+komando recipe run updates all
 ```
 
 ## Network checks

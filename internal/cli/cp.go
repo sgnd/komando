@@ -15,7 +15,6 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
-	"github.com/sgnd/komando/internal/store"
 )
 
 // splitRemote parses "TARGET:/path". Local paths (./x, /x, x) return ok=false.
@@ -41,12 +40,23 @@ type xferStats struct {
 	Error  *out.Error `json:"error,omitempty"`
 }
 
+type cpOpts struct {
+	recursive, sudo, mkdirs bool
+	mode                    string
+}
+
+func (o *cpOpts) bind(c *cobra.Command) {
+	c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "copy directories recursively")
+	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, "upload: install into place via sudo (single file)")
+	c.Flags().BoolVarP(&o.mkdirs, "parents", "p", false, "upload: create parent directories")
+	c.Flags().StringVar(&o.mode, "mode", "", "upload: file mode, e.g. 0755")
+}
+
 func cpCmd() *cobra.Command {
-	var recursive, sudo, mkdirs bool
-	var mode string
+	var o cpOpts
 	c := &cobra.Command{
 		Use:   "cp SRC DST",
-		Short: "Copy files between local and remote (SFTP). Upload fans out to many hosts",
+		Short: "Same as `komando upload`/`download`, written SRC DST with TARGET:PATH",
 		Long: `Remote paths are written TARGET:PATH. Uploads accept any target selector
 (@group, tag:x, ...) and run in parallel. Downloads from several hosts go to
 DST/<host>/... . Single-file transfers report sha256 for verification.`,
@@ -56,10 +66,6 @@ DST/<host>/... . Single-file transfers report sha256 for verification.`,
   komando cp @web:/etc/nginx/nginx.conf ./configs/`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
 			srcT, srcP, srcRemote := splitRemote(args[0])
 			dstT, dstP, dstRemote := splitRemote(args[1])
 			switch {
@@ -67,76 +73,89 @@ DST/<host>/... . Single-file transfers report sha256 for verification.`,
 				return out.Usage("remote-to-remote copy is not supported; download then upload")
 			case !srcRemote && !dstRemote:
 				return out.Usage("one side must be remote (TARGET:PATH)")
+			case dstRemote:
+				return runCp(cmd.Context(), "cp", dstT, dstP, srcP, true, o)
 			}
-			var hosts []*store.Host
-			if dstRemote {
-				hosts, err = resolveTargets(st, dstT)
-			} else {
-				hosts, err = resolveTargets(st, srcT)
-			}
-			if err != nil {
-				return err
-			}
-			if dstRemote {
-				if err := guard(st, hosts, "", true); err != nil {
-					return err
-				}
-				if _, err := os.Stat(srcP); err != nil {
-					return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "", "local %s: %v", srcP, err)
-				}
-			}
-			if g.dryRun {
-				out.P.Print("cp", map[string]any{"src": args[0], "dst": args[1], "hosts": hostNames(hosts), "direction": map[bool]string{true: "upload", false: "download"}[dstRemote]}, nil)
-				return nil
-			}
-			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-				sc, err := sftpClient(c)
-				if err != nil {
-					return nil, err
-				}
-				defer sc.Close()
-				if dstRemote {
-					return upload(ctx, c, sc, srcP, dstP, recursive, sudo, mkdirs, mode)
-				}
-				local := dstP
-				if len(hosts) > 1 {
-					local = filepath.Join(dstP, c.Host.Name) + string(os.PathSeparator)
-					if err := os.MkdirAll(local, 0o755); err != nil {
-						return nil, err
-					}
-				}
-				return download(sc, srcP, local, recursive)
-			})
-			data := struct {
-				Results []xferStats  `json:"results"`
-				Summary fleetSummary `json:"summary"`
-			}{}
-			worst := 0
-			for _, o := range res {
-				s := xferStats{Host: o.Host.Name}
-				if o.Err != nil {
-					s.Error = toErr(o.Err)
-					worst = worse(worst, s.Error.Exit)
-					data.Summary.Failed++
-					data.Summary.FailedHosts = append(data.Summary.FailedHosts, s.Host)
-				} else {
-					v := o.Value.(xferStats)
-					v.Host, v.OK = s.Host, true
-					s = v
-					data.Summary.OK++
-				}
-				data.Results = append(data.Results, s)
-			}
-			data.Summary.Total = len(res)
-			audit(st, "cp", hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": args[0], "dst": args[1]})
-			return finish("cp", data, data.Summary, worst)
+			return runCp(cmd.Context(), "cp", srcT, srcP, dstP, false, o)
 		},
 	}
-	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "copy directories recursively")
-	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "upload: install into place via sudo (single file)")
-	c.Flags().BoolVarP(&mkdirs, "parents", "p", false, "upload: create parent directories")
-	c.Flags().StringVar(&mode, "mode", "", "upload: file mode, e.g. 0755")
+	o.bind(c)
 	return c
+}
+
+// runCp copies between this computer and the servers target picks, over
+// SFTP: local to remote when up is true, else remote to local.
+func runCp(ctx context.Context, name, target, remote, local string, up bool, o cpOpts) error {
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	hosts, err := resolveTargets(st, target)
+	if err != nil {
+		return err
+	}
+	dstRemote := up
+	srcP, dstP := local, remote
+	if !up {
+		srcP, dstP = remote, local
+	}
+	src, dst := local, target+":"+remote
+	if !up {
+		src, dst = dst, src
+	}
+	if dstRemote {
+		if err := guard(st, hosts, "", true); err != nil {
+			return err
+		}
+		if _, err := os.Stat(srcP); err != nil {
+			return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "", "local %s: %v", srcP, err)
+		}
+	}
+	if g.dryRun {
+		out.P.Print(name, map[string]any{"src": src, "dst": dst, "hosts": hostNames(hosts), "direction": map[bool]string{true: "upload", false: "download"}[dstRemote]}, nil)
+		return nil
+	}
+	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		sc, err := sftpClient(c)
+		if err != nil {
+			return nil, err
+		}
+		defer sc.Close()
+		if dstRemote {
+			return upload(ctx, c, sc, srcP, dstP, o.recursive, o.sudo, o.mkdirs, o.mode)
+		}
+		local := dstP
+		if len(hosts) > 1 {
+			local = filepath.Join(dstP, c.Host.Name) + string(os.PathSeparator)
+			if err := os.MkdirAll(local, 0o755); err != nil {
+				return nil, err
+			}
+		}
+		return download(sc, srcP, local, o.recursive)
+	})
+	data := struct {
+		Results []xferStats  `json:"results"`
+		Summary fleetSummary `json:"summary"`
+	}{}
+	worst := 0
+	for _, o := range res {
+		s := xferStats{Host: o.Host.Name}
+		if o.Err != nil {
+			s.Error = toErr(o.Err)
+			worst = worse(worst, s.Error.Exit)
+			data.Summary.Failed++
+			data.Summary.FailedHosts = append(data.Summary.FailedHosts, s.Host)
+		} else {
+			v := o.Value.(xferStats)
+			v.Host, v.OK = s.Host, true
+			s = v
+			data.Summary.OK++
+		}
+		data.Results = append(data.Results, s)
+	}
+	data.Summary.Total = len(res)
+	audit(st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
+	return finish(name, data, data.Summary, worst)
 }
 
 func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst string, recursive, sudo, mkdirs bool, mode string) (xferStats, error) {

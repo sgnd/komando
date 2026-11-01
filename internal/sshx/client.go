@@ -101,11 +101,11 @@ func resolveChain(st *store.State, h *store.Host, seen map[string]bool) ([]*stor
 		return nil, out.Errf(out.ExitUsage, "JUMP_CYCLE", "fix the jump setting with `komando host edit`", "jump host cycle detected at %q", h.Name)
 	}
 	seen[h.Name] = true
-	if h.Jump == "" {
+	if h.Via == "" {
 		return []*store.Host{h}, nil
 	}
 	var hops []*store.Host
-	for _, j := range strings.Split(h.Jump, ",") {
+	for _, j := range strings.Split(h.Via, ",") {
 		j = strings.TrimSpace(j)
 		jh, ok := st.Hosts[j]
 		if !ok {

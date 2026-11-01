@@ -57,11 +57,11 @@ examples; replace them with yours.
 komando host add web1 ubuntu@203.0.113.10
 
 # 2. Check that it works
-komando host test web1
+komando test web1
 
 # 3. Ask something
 komando facts web1            # what is this server?
-komando ops run health web1   # is it healthy?
+komando recipe run health web1   # is it healthy?
 komando exec web1 -- uptime   # run any command
 ```
 
@@ -117,14 +117,14 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 | See and check everything at once (servers and conns) | `list`, `test` |
 | Keep a list of servers and how to log in | `host`, `group`, `key`, `secret` |
 | Run commands on one or many servers | `exec`, `script`, `job` (long tasks) |
-| Read, edit and copy files | `fs`, `cp` |
-| Check health (39 ready-made checks) | `facts`, `ops` |
+| Read, edit and copy files | `fs`, `upload`, `download` |
+| Check health (39 ready-made checks) | `facts`, `recipe` |
 | Manage services, logs, Docker, software, users, schedules | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
 | Test the network, reach private servers | `net`, `tunnel` |
 | Keep a list of databases, caches and storage | `conn` |
 | Query and back up databases (PostgreSQL, MySQL, SQLite) | `db` |
 | Read and change caches (Redis, Valkey) | `cache` |
-| Browse, download and upload files in object storage (S3, MinIO, R2, ...) | `storage` |
+| Browse, download and upload files in object storage (S3, MinIO, R2, ...) | `storage`, `upload`, `download` |
 | See history and safety rules | `audit`, `policy` |
 
 Coming next: clusters (Kubernetes, k3s, Swarm),

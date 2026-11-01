@@ -41,6 +41,23 @@ func applyConventions(c *cobra.Command) {
 	}
 }
 
+func dash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
+}
+
+// alias marks c as the per-area spelling of a shared command (`host list`
+// for `list kind:host`). It keeps working and says so in its help, so there
+// is one implementation and one name to learn (docs/design/ux.md, section 11).
+func alias(c *cobra.Command, shared string) *cobra.Command {
+	c.Short = "Same as `komando " + shared + "`"
+	c.Long = ""
+	c.Example = ""
+	return c
+}
+
 // aliasFlag keeps an old flag name working after a rename: old is hidden,
 // shares the value of now, and prints a note on stderr when used. Old names
 // stay for one minor release (docs/design/ux.md, section 10).

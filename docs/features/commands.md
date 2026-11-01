@@ -29,14 +29,17 @@ komando job kill <id>
 komando job list
 ```
 
-## Saved commands (snippets)
+## Recipes (ready-made and saved commands)
 
 Save a command once and reuse it. `{{app}}` is a blank you fill in with
-`--var app=...`. komando treats a snippet as a change, so protected servers
-ask for `--yes`, unless you save it with `--read-only` because it only looks.
+`--var app=...`. Your recipes sit next to the built-in ones (`health`,
+`disk`, `cert-expiry`, ...) in `komando recipe list`. komando treats a recipe
+as a change, so protected servers ask for `--yes`, unless you save it with
+`--read-only` because it only looks. (`ops` and `snippet` are other names for
+`recipe`.)
 
 ```bash
-komando snippet add restart-app 'systemctl restart {{app}}' --sudo
-komando snippet add disk 'df -h {{path=/}}' --read-only
-komando snippet run restart-app @web --var app=shop
+komando recipe add restart-app 'systemctl restart {{app}}' --sudo
+komando recipe add disk 'df -h {{path=/}}' --read-only
+komando recipe run restart-app @web --var app=shop
 ```

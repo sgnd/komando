@@ -147,37 +147,12 @@ func storageDownloadCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "download CONN KEY",
 		Aliases: []string{"get"},
-		Short:   "Download an object to a file on this computer (never overwrites)",
+		Short:   "Same as `komando download CONN KEY`",
 		Example: `  komando storage download backups db/app-2026-11-02.sql.gz
   komando storage download backups reports/q3.pdf --to ~/Downloads/q3.pdf`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dest := to
-			if dest == "" {
-				dest = path.Base(args[1])
-			}
-			if _, err := os.Stat(dest); err == nil {
-				return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name with --to; downloads never overwrite", "%s already exists", dest)
-			}
-			return withStorage(cmd.Context(), "storage.download", args[0], driver.Verdict{}, map[string]any{"key": args[1], "file": dest},
-				func(ctx context.Context, c *store.Conn, s *storex.Store) (any, error) {
-					var n int64
-					err := writeAtomic(dest, func(tmp string) error {
-						f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_TRUNC, 0o600)
-						if err != nil {
-							return err
-						}
-						defer f.Close()
-						if n, err = s.Get(ctx, args[1], f); err != nil {
-							return err
-						}
-						return f.Sync()
-					})
-					if err != nil {
-						return nil, err
-					}
-					return transferData{Conn: c.Name, File: dest, Bytes: n, RunsOn: "local"}, nil
-				})
+			return storageDownload(cmd.Context(), "storage.download", args[0], args[1], to)
 		},
 	}
 	c.Flags().StringVar(&to, "to", "", "file to create (default: the key's file name in the current folder)")
@@ -188,37 +163,16 @@ func storageUploadCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "upload CONN FILE [KEY]",
 		Aliases: []string{"put"},
-		Short:   "Upload a file (replaces an object with the same key)",
+		Short:   "Same as `komando upload CONN FILE [KEY]`",
 		Example: `  komando storage upload backups prod-2026-11-02.sql.gz
   komando storage upload backups ./report.pdf reports/2026/q3.pdf`,
 		Args: cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			file := args[1]
-			key := filepath.Base(file)
+			key := ""
 			if len(args) == 3 {
 				key = args[2]
 			}
-			fi, err := os.Stat(file)
-			if err != nil || fi.IsDir() {
-				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders are not uploaded)", "cannot upload %s", file)
-			}
-			return withStorage(cmd.Context(), "storage.upload", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": key, "file": file, "bytes": fi.Size()},
-				func(ctx context.Context, c *store.Conn, s *storex.Store) (any, error) {
-					replaced, err := s.Exists(ctx, key)
-					if err != nil {
-						return nil, err
-					}
-					f, err := os.Open(file)
-					if err != nil {
-						return nil, err
-					}
-					defer f.Close()
-					ct := mime.TypeByExtension(filepath.Ext(file))
-					if err := s.Put(ctx, key, f, fi.Size(), ct); err != nil {
-						return nil, err
-					}
-					return map[string]any{"conn": c.Name, "key": key, "bytes": fi.Size(), "replaced": replaced}, nil
-				})
+			return storageUpload(cmd.Context(), "storage.upload", args[0], args[1], key)
 		},
 	}
 	return c
@@ -296,3 +250,61 @@ type linkData struct {
 }
 
 func (d linkData) Text() string { return d.URL + "\n" }
+
+// storageDownload saves one object to a new local file (never overwriting).
+func storageDownload(ctx context.Context, name, conn, key, to string) error {
+	dest := to
+	if dest == "" {
+		dest = path.Base(key)
+	}
+	if _, err := os.Stat(dest); err == nil {
+		return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name with --to; downloads never overwrite", "%s already exists", dest)
+	}
+	return withStorage(ctx, name, conn, driver.Verdict{}, map[string]any{"key": key, "file": dest},
+		func(ctx context.Context, c *store.Conn, s *storex.Store) (any, error) {
+			var n int64
+			err := writeAtomic(dest, func(tmp string) error {
+				f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_TRUNC, 0o600)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				if n, err = s.Get(ctx, key, f); err != nil {
+					return err
+				}
+				return f.Sync()
+			})
+			if err != nil {
+				return nil, err
+			}
+			return transferData{Conn: c.Name, File: dest, Bytes: n, RunsOn: "local"}, nil
+		})
+}
+
+// storageUpload uploads one local file; key defaults to the file's name.
+func storageUpload(ctx context.Context, name, conn, file, key string) error {
+	if key == "" {
+		key = filepath.Base(file)
+	}
+	fi, err := os.Stat(file)
+	if err != nil || fi.IsDir() {
+		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders are not uploaded)", "cannot upload %s", file)
+	}
+	return withStorage(ctx, name, conn, driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": key, "file": file, "bytes": fi.Size()},
+		func(ctx context.Context, c *store.Conn, s *storex.Store) (any, error) {
+			replaced, err := s.Exists(ctx, key)
+			if err != nil {
+				return nil, err
+			}
+			f, err := os.Open(file)
+			if err != nil {
+				return nil, err
+			}
+			defer f.Close()
+			ct := mime.TypeByExtension(filepath.Ext(file))
+			if err := s.Put(ctx, key, f, fi.Size(), ct); err != nil {
+				return nil, err
+			}
+			return map[string]any{"conn": c.Name, "key": key, "bytes": fi.Size(), "replaced": replaced}, nil
+		})
+}

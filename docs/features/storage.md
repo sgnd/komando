@@ -11,8 +11,8 @@ komando secret set backups-secret               # the secret access key
 komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:backups-secret
 
 komando storage ls backups                      # one level; --recursive for everything
-komando storage download backups 2026/app.sql.gz            # into the current folder
-komando storage upload backups ./app.sql.gz 2026/app.sql.gz
+komando download backups 2026/app.sql.gz            # into the current folder
+komando upload backups ./app.sql.gz 2026/app.sql.gz
 komando storage link backups 2026/app.sql.gz --expires 24h   # temporary download link
 komando storage rm backups 2026/old.sql.gz --allow-dangerous
 ```

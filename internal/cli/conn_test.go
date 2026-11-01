@@ -217,3 +217,24 @@ func TestProtectionFollowsTheAddress(t *testing.T) {
 		t.Errorf("expected PROTECTED_TARGET for the alias, got %v", err)
 	}
 }
+
+func TestViaChain(t *testing.T) {
+	st := testConnState()
+	st.Hosts["db-1"].Via = "web-2"
+	h, err := viaHost(st, "web-1,db-1")
+	if err != nil || h.Name != "db-1" || h.Via != "web-1" {
+		t.Fatalf("chain: got %v via %q, %v", h, h.Via, err)
+	}
+	if st.Hosts["db-1"].Via != "web-2" {
+		t.Error("a chain must not change the stored host")
+	}
+	if h, _ := viaHost(st, "db-1"); h.Via != "web-2" {
+		t.Error("a single host keeps its own --via")
+	}
+	if _, err := viaHost(st, "web-1,nope"); err == nil || toErr(err).Code != "HOST_NOT_FOUND" {
+		t.Errorf("expected HOST_NOT_FOUND, got %v", err)
+	}
+	if got := renameStep("a, web-1 ,b", "web-1", "web-9"); got != "a,web-9,b" {
+		t.Errorf("renameStep: %q", got)
+	}
+}

@@ -7,14 +7,14 @@ One page per feature, task by task. New here? Start with the
 |---------|-----------------|----------|
 | [Servers](servers.md) | add servers, log in with keys or passwords | `host`, `key`, `secret` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |
-| [Running commands](commands.md) | run commands and scripts, long tasks, saved commands | `exec`, `script`, `job`, `snippet`, `shell` |
-| [Health and network checks](health.md) | what is this server, is it healthy, can it reach X | `facts`, `ops`, `net` |
-| [Files](files.md) | read, edit and copy files safely | `fs`, `cp` |
+| [Running commands](commands.md) | run commands and scripts, long tasks, saved commands | `exec`, `script`, `job`, `recipe`, `shell` |
+| [Health and network checks](health.md) | what is this server, is it healthy, can it reach X | `facts`, `recipe`, `net` |
+| [Files](files.md) | read, edit and copy files safely | `fs`, `upload`, `download` |
 | [Services, logs, Docker, packages, users](system.md) | day-to-day administration | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
-| [Private servers and tunnels](tunnels.md) | reach servers and services that are not on the internet | `--via`, `--jump`, `tunnel` |
+| [Private servers and tunnels](tunnels.md) | reach servers and services that are not on the internet | `--via`, `tunnel` |
 | [Databases](databases.md) | query, back up and restore PostgreSQL, MySQL, SQLite | `conn`, `db` |
 | [Caches](caches.md) | read and change Redis and Valkey | `cache` |
-| [Object storage](storage.md) | browse, download and upload S3 and compatibles | `storage` |
+| [Object storage](storage.md) | browse, download and upload S3 and compatibles | `storage`, `upload`, `download` |
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit` |
 | [Results and errors](output.md) | JSON and text output, exit codes, common errors | — |
 | [Settings and files](settings.md) | settings, and where komando keeps its data | `config`, `doctor` |

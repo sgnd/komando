@@ -31,8 +31,8 @@ Also: `fs mkdir`, `fs mv`, `fs chmod`, `fs rm`.
 Remote paths are written `TARGET:PATH`.
 
 ```bash
-komando cp ./release.tar.gz @web:/tmp/            # upload to many servers
-komando cp -r ./site web1:/var/www/site
-komando cp web1:/var/log/nginx/error.log ./logs/  # download
-komando cp @web:/etc/nginx/nginx.conf ./configs/  # → ./configs/<server>/nginx.conf
+komando upload @web ./release.tar.gz /tmp/release.tar.gz    # to many servers at once
+komando upload web1 ./site /var/www/site -r
+komando download web1 /var/log/nginx/error.log --to ./logs/
+komando download @web /etc/nginx/nginx.conf --to ./configs/  # → ./configs/<server>/nginx.conf
 ```

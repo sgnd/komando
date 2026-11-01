@@ -7,10 +7,10 @@ Add servers, log in with keys or passwords, and keep the list tidy. [All feature
 ```bash
 komando host add web1 ubuntu@203.0.113.10                 # name + user@address
 komando host add web2 ubuntu@203.0.113.11 --group web --tag prod
-komando host add db1 admin@10.0.0.5 --jump bastion         # reached through "bastion"
+komando host add db1 admin@10.0.0.5 --via bastion         # reached through "bastion"
 komando host import --ssh-config ~/.ssh/config             # import what you already have
-komando host list                                          # see them all
-komando host test all                                      # can we log in everywhere?
+komando list                                          # see them all
+komando test all                                      # can we log in everywhere?
 ```
 
 Change or remove later:

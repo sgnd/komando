@@ -23,7 +23,8 @@ type Host struct {
 	Identity    string            `json:"identity,omitempty"`     // path to a private key file
 	PasswordRef string            `json:"password_ref,omitempty"` // secret:<name> or env:<VAR>
 	SudoRef     string            `json:"sudo_ref,omitempty"`     // sudo password ref (secret:/env:)
-	Jump        string            `json:"jump,omitempty"`         // host name or comma-separated chain
+	Via         string            `json:"via,omitempty"`          // the way there: host name(s), comma-separated chain
+	OldJump     string            `json:"jump,omitempty"`         // before v0.3; moved to Via on load
 	Groups      []string          `json:"groups,omitempty"`
 	Tags        []string          `json:"tags,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
@@ -97,7 +98,9 @@ type Job struct {
 type Tunnel struct {
 	ID        string    `json:"id"`
 	Host      string    `json:"host"`
-	Kind      string    `json:"kind"` // local | remote | dynamic
+	Via       string    `json:"via,omitempty"`  // the --via chain when forwarding to a conn
+	Conn      string    `json:"conn,omitempty"` // the conn this tunnel leads to
+	Kind      string    `json:"kind"`           // local | remote | dynamic
 	Spec      string    `json:"spec"`
 	PID       int       `json:"pid"`
 	LogFile   string    `json:"log_file"`
@@ -185,6 +188,12 @@ func Load() (*State, error) {
 func (s *State) init() {
 	if s.Hosts == nil {
 		s.Hosts = map[string]*Host{}
+	}
+	for _, h := range s.Hosts {
+		if h.OldJump != "" && h.Via == "" {
+			h.Via = h.OldJump
+		}
+		h.OldJump = ""
 	}
 	if s.Conns == nil {
 		s.Conns = map[string]*Conn{}
