@@ -9,11 +9,13 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
@@ -60,11 +62,25 @@ func parallelism(st *store.State) int {
 
 // resolveTargets expands a selector expression into hosts (sorted, unique).
 func resolveTargets(st *store.State, expr string) ([]*store.Host, error) {
+	hosts, err := resolveExpr(expr, func(sel string) ([]*store.Host, error) { return matchSelector(st, sel) },
+		func(h *store.Host) string { return h.Name })
+	if err != nil {
+		return nil, err
+	}
+	if len(hosts) == 0 {
+		return nil, out.Errf(out.ExitNotFound, "TARGET_EMPTY", "run `komando host list` to see hosts, groups and tags", "target %q matched no hosts", expr)
+	}
+	return hosts, nil
+}
+
+// resolveExpr applies a comma-separated selector expression ("a,b,!c") using
+// match for each part. The result is sorted by name and may be empty.
+func resolveExpr[T any](expr string, match func(sel string) ([]T, error), name func(T) string) ([]T, error) {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
 		return nil, out.Usage("empty target")
 	}
-	include := map[string]*store.Host{}
+	include := map[string]T{}
 	exclude := map[string]bool{}
 	for _, raw := range strings.Split(expr, ",") {
 		sel := strings.TrimSpace(raw)
@@ -73,55 +89,71 @@ func resolveTargets(st *store.State, expr string) ([]*store.Host, error) {
 		}
 		neg := strings.HasPrefix(sel, "!")
 		sel = strings.TrimPrefix(sel, "!")
-		matched, err := matchSelector(st, sel)
+		matched, err := match(sel)
 		if err != nil {
 			return nil, err
 		}
-		for _, h := range matched {
+		for _, it := range matched {
 			if neg {
-				exclude[h.Name] = true
+				exclude[name(it)] = true
 			} else {
-				include[h.Name] = h
+				include[name(it)] = it
 			}
 		}
 	}
-	var hosts []*store.Host
-	for n, h := range include {
+	var res []T
+	for n, it := range include {
 		if !exclude[n] {
-			hosts = append(hosts, h)
+			res = append(res, it)
 		}
 	}
-	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
-	if len(hosts) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "TARGET_EMPTY", "run `komando host list` to see hosts, groups and tags", "target %q matched no hosts", expr)
-	}
-	return hosts, nil
+	sort.Slice(res, func(i, j int) bool { return name(res[i]) < name(res[j]) })
+	return res, nil
 }
 
-func matchSelector(st *store.State, sel string) ([]*store.Host, error) {
-	var res []*store.Host
-	each := func(f func(h *store.Host) bool) []*store.Host {
-		for _, h := range st.SortedHosts() {
-			if f(h) {
-				res = append(res, h)
-			}
-		}
-		return res
+// selAttrs is what pattern selectors look at; hosts and conns both have it.
+type selAttrs struct {
+	name   string
+	groups []string
+	tags   []string
+	labels map[string]string
+}
+
+// matchPattern applies the pattern selectors (all, @group, tag:, label:,
+// glob) to items. ok is false when sel is a plain name.
+func matchPattern[T any](items []T, attrs func(T) selAttrs, sel string) (res []T, ok bool) {
+	has := func(list []string, v string) bool {
+		return slices.ContainsFunc(list, func(x string) bool { return strings.EqualFold(x, v) })
 	}
+	var f func(a selAttrs) bool
 	switch {
 	case sel == "all" || sel == "*":
-		return each(func(*store.Host) bool { return true }), nil
+		f = func(selAttrs) bool { return true }
 	case strings.HasPrefix(sel, "@"):
-		g := sel[1:]
-		return each(func(h *store.Host) bool { return h.InGroup(g) }), nil
+		f = func(a selAttrs) bool { return has(a.groups, sel[1:]) }
 	case strings.HasPrefix(sel, "tag:"):
-		t := sel[4:]
-		return each(func(h *store.Host) bool { return h.HasTag(t) }), nil
+		f = func(a selAttrs) bool { return has(a.tags, sel[4:]) }
 	case strings.HasPrefix(sel, "label:"):
 		k, v, _ := strings.Cut(sel[6:], "=")
-		return each(func(h *store.Host) bool { return h.Labels[k] == v }), nil
+		f = func(a selAttrs) bool { return a.labels[k] == v }
 	case strings.ContainsAny(sel, "*?["):
-		return each(func(h *store.Host) bool { ok, _ := path.Match(sel, h.Name); return ok }), nil
+		f = func(a selAttrs) bool { ok, _ := path.Match(sel, a.name); return ok }
+	default:
+		return nil, false
+	}
+	for _, it := range items {
+		if f(attrs(it)) {
+			res = append(res, it)
+		}
+	}
+	return res, true
+}
+
+func hostAttrs(h *store.Host) selAttrs { return selAttrs{h.Name, h.Groups, h.Tags, h.Labels} }
+
+func matchSelector(st *store.State, sel string) ([]*store.Host, error) {
+	if res, ok := matchPattern(st.SortedHosts(), hostAttrs, sel); ok {
+		return res, nil
 	}
 	if h, ok := st.Hosts[sel]; ok {
 		return []*store.Host{h}, nil
@@ -235,6 +267,31 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 	return nil
 }
 
+// guardConns is guard for conns. The driver classifies the operation first;
+// destructive needs --allow-dangerous, and any change to a protected conn
+// needs --yes. Exit code and codes match guard so agents handle both alike.
+func guardConns(conns []*store.Conn, v driver.Verdict) error {
+	if v.Risk >= driver.RiskDestructive && !g.allowDangerous {
+		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
+			"if this is truly intended, confirm with the user and re-run with --allow-dangerous (try --dry-run first)",
+			"operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; "))
+	}
+	if v.Risk >= driver.RiskWrite && !g.yes {
+		var prot []string
+		for _, c := range conns {
+			if c.Protected {
+				prot = append(prot, c.Name)
+			}
+		}
+		if len(prot) > 0 {
+			return out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
+				"protected conns require explicit confirmation: re-run with --yes after verifying intent",
+				"%s action targets protected conn(s): %s", v.Risk, strings.Join(prot, ", "))
+		}
+	}
+	return nil
+}
+
 func hostNames(hs []*store.Host) []string {
 	n := make([]string, len(hs))
 	for i, h := range hs {
@@ -251,10 +308,12 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 	rec := map[string]any{
 		"ts":      time.Now().UTC().Format(time.RFC3339Nano),
 		"command": command,
-		"hosts":   hosts,
 		"ok":      ok,
 		"dry_run": g.dryRun,
 		"actor":   actor(),
+	}
+	if hosts != nil {
+		rec["hosts"] = hosts
 	}
 	if remote != "" {
 		rec["remote"] = remote

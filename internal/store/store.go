@@ -1,5 +1,5 @@
-// Package store persists komando state (inventory, keys, snippets, jobs,
-// tunnels, settings) as JSON files under $KOMANDO_HOME (default ~/.komando).
+// Package store persists komando state (inventory, conns, keys, snippets,
+// jobs, tunnels, settings) as JSON files under $KOMANDO_HOME (default ~/.komando).
 package store
 
 import (
@@ -43,6 +43,24 @@ func (h *Host) EffectivePort() int {
 
 func (h *Host) InGroup(g string) bool { return contains(h.Groups, g) }
 func (h *Host) HasTag(t string) bool  { return contains(h.Tags, t) }
+
+// Conn is a non-SSH resource (database, cache, ...) reached directly or
+// through an SSH host. The URL never holds a password; see PasswordRef.
+type Conn struct {
+	Name        string            `json:"name"`
+	Kind        string            `json:"kind"` // postgres | mysql | sqlite
+	URL         string            `json:"url"`
+	PasswordRef string            `json:"password_ref,omitempty"` // secret:<name>, env:<VAR> or file:<path>
+	Via         string            `json:"via,omitempty"`          // host used to reach the resource
+	Groups      []string          `json:"groups,omitempty"`
+	Tags        []string          `json:"tags,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Options     map[string]string `json:"options,omitempty"` // kind-specific settings
+	Protected   bool              `json:"protected,omitempty"`
+	Notes       string            `json:"notes,omitempty"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
+}
 
 type Key struct {
 	Name          string    `json:"name"`
@@ -107,6 +125,7 @@ func DefaultSettings() Settings {
 
 type State struct {
 	Hosts    map[string]*Host    `json:"hosts"`
+	Conns    map[string]*Conn    `json:"conns,omitempty"`
 	Keys     map[string]*Key     `json:"keys"`
 	Snippets map[string]*Snippet `json:"snippets"`
 	Jobs     map[string]*Job     `json:"jobs"`
@@ -161,6 +180,9 @@ func Load() (*State, error) {
 func (s *State) init() {
 	if s.Hosts == nil {
 		s.Hosts = map[string]*Host{}
+	}
+	if s.Conns == nil {
+		s.Conns = map[string]*Conn{}
 	}
 	if s.Keys == nil {
 		s.Keys = map[string]*Key{}
@@ -249,6 +271,27 @@ func (s *State) SortedHosts() []*Host {
 	}
 	sort.Slice(hs, func(i, j int) bool { return hs[i].Name < hs[j].Name })
 	return hs
+}
+
+func (s *State) SortedConns() []*Conn {
+	cs := make([]*Conn, 0, len(s.Conns))
+	for _, c := range s.Conns {
+		cs = append(cs, c)
+	}
+	sort.Slice(cs, func(i, j int) bool { return cs[i].Name < cs[j].Name })
+	return cs
+}
+
+// NameTaken reports whether a host or conn already uses name. Hosts and conns
+// share one namespace so selectors stay unambiguous.
+func (s *State) NameTaken(name string) (kind string, taken bool) {
+	if _, ok := s.Hosts[name]; ok {
+		return "host", true
+	}
+	if _, ok := s.Conns[name]; ok {
+		return "conn", true
+	}
+	return "", false
 }
 
 func contains(list []string, v string) bool {

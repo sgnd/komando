@@ -12,6 +12,7 @@ A task-by-task guide. New here? Start with the [README](../README.md).
 - [Long tasks](#long-tasks)
 - [Services, logs, Docker, packages](#services-logs-docker-packages)
 - [Reach private servers (tunnels)](#reach-private-servers-tunnels)
+- [Databases (conns)](#databases-conns)
 - [Network checks](#network-checks)
 - [Users and scheduled jobs](#users-and-scheduled-jobs)
 - [Saved commands (snippets)](#saved-commands-snippets)
@@ -201,6 +202,39 @@ komando tunnel start bastion -D 1080   # a SOCKS proxy: set your browser to loca
 komando tunnel list
 komando tunnel stop --all
 ```
+
+## Databases (conns)
+
+A **conn** is a database komando knows about, the way a host is a server
+you know about. The kind (PostgreSQL, MySQL, SQLite) comes from the start of
+the URL. Run `komando conn kinds` to see them all.
+
+Never put the password in the URL; komando refuses it. Store it in the vault
+instead:
+
+```bash
+komando secret set prod-db-pass
+komando conn add prod-db postgres://app@10.0.0.5:5432/app \
+  --via web1 --password-ref secret:prod-db-pass --protected
+```
+
+`--via web1` means "the database is only reachable from web1". komando
+connects through web1 over SSH by itself: no tunnel to start, no port opened
+on your computer.
+
+```bash
+komando conn list                     # all conns
+komando conn test all                 # reachable? does the password reference work?
+komando conn edit prod-db --add-tag critical
+komando conn rm old-db                # only forgets it; the database is untouched
+```
+
+Conns use the same selectors as hosts (`@group`, `tag:prod`, `*-db`, `all`)
+and share their names: a host and a conn cannot both be called `db1`. A host
+that a conn uses with `--via` cannot be removed until the conn is changed.
+
+Running queries (`komando db`) is planned; see the
+[design note](design/resources-and-db.md).
 
 ## Network checks
 

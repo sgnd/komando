@@ -4,6 +4,14 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+- `komando conn`: an inventory of databases (PostgreSQL, MySQL, SQLite) next
+  to hosts. Add, edit, list, show, remove and test them; reach private ones
+  through a host with `--via`. Passwords are refused in URLs and live in the
+  vault. First step toward `komando db` (see `docs/design/resources-and-db.md`).
+- Hosts and conns share one name space. Removing a host that a conn uses
+  with `--via` is refused (`HOST_IN_USE`); renaming a host updates its conns.
+- `komando audit --host` also matches conn names.
+
 ## [0.1.0]
 
 First release.

@@ -48,6 +48,9 @@ makes komando usable by AI agents:
 7. Add a unit test for pure logic and, when it touches SSH, a check in
    `test/e2e/run.sh`.
 
+Bigger features start as a design note in [`docs/design/`](docs/design/)
+(for example [resources and `komando db`](docs/design/resources-and-db.md)).
+
 ## Style
 
 - `gofmt` and `go vet` must pass (`make lint`).
