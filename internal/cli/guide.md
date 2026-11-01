@@ -1,6 +1,6 @@
 # komando — playbook for AI agents
 
-You manage real servers. Be precise, observe before you act, and prefer the
+You manage real servers, databases, caches and storage. Be precise, observe before you act, and prefer the
 smallest change that works. When its output is piped (as when you run it),
 every komando command prints exactly one JSON object on stdout; pass `-o json`
 to be explicit. Branch on `ok`, `error.code` and the process exit code.

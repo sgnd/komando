@@ -102,8 +102,9 @@ func commandName(c *cobra.Command) string {
 func newRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "komando",
-		Short: "Agent-first SSH & server operations CLI (Termius for AI agents)",
-		Long: `komando lets AI agents (and humans) manage fleets of servers from a pure CLI.
+		Short: "One safe command line for DevOps: servers, databases, caches and storage",
+		Long: `komando is one safe command line for DevOps work: servers (SSH), databases,
+caches and storage, for AI agents and humans alike.
 
 When piped (how agents call it) every command prints one JSON envelope on
 stdout; in an interactive terminal it prints readable text (force with -o json|text):
@@ -115,6 +116,7 @@ Exit codes: 0 ok, 1 error, 2 usage, 3 not found, 4 connect/auth, 5 remote non-ze
 
 Targets (for exec, fs, svc, ops, ...): host name, glob (web-*), @group, tag:NAME,
 label:key=value, all, user@addr:port (ad-hoc). Combine with commas; prefix ! to exclude.
+Conns (for db, cache, storage): a conn name from ` + "`komando conn list`" + `.
 
 Start here:  komando guide      (agent playbook)
              komando schema     (machine-readable command reference)`,
