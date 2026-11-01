@@ -128,14 +128,16 @@ komando test kind:vpn
 
 ## MFA
 
-- **TOTP** (kode 6 digit dari aplikasi authenticator): secret TOTP boleh
-  disimpan di vault (opt-in), sehingga komando bisa membuat kodenya sendiri.
-- **Push notification dan login SAML lewat browser** tidak bisa dan tidak boleh
-  diotomasi. Manusia menjalankan `komando vpn up vpn-b` sekali (browser
-  terbuka atau menunggu persetujuan di HP), lalu agent memakai sesi itu.
+Keputusan pemilik (2026-11-02): **MFA selalu dilakukan manusia.**
+
+- komando **tidak** menyimpan secret TOTP dan **tidak** membuat kode MFA.
+- Manusia menjalankan `komando vpn up NAME` (password + MFA, atau login SSO
+  lewat browser). Agent dan perintah berikutnya memakai sesi itu.
 - Kalau sesi habis, perintah agent gagal dengan `VPN_LOGIN_REQUIRED` dan hint
-  "minta manusia menjalankan `komando vpn up vpn-b`". **Agent tidak pernah
-  menjawab MFA.**
+  "minta manusia menjalankan `komando vpn up NAME`". Agent tidak pernah
+  menjawab MFA.
+- VPN tanpa MFA (kunci WireGuard, OpenVPN yang hanya pakai password) tetap
+  boleh tersambung otomatis saat dibutuhkan.
 
 ## Forwarding untuk aplikasi di laptop
 
@@ -184,13 +186,13 @@ Tunnel berjalan di latar dan memegang jalurnya (VPN dan bastion) selama hidup.
 |---|---|---|
 | 0 | `--via` untuk semua target, `tunnel start TARGET`, `vpn add/show/rm`, kind `wireguard`/`socks`/`system`, VPN di `list`/`test`/selector | ✅ |
 | 1 | `vpn up/down/status`, sesi di latar per VPN dengan putus otomatis; kind `tailscale` (kalau anggaran biner cukup) | |
-| 2 | Keluarga openconnect: GlobalProtect, Fortinet, AnyConnect, Pulse/Ivanti, F5 (userspace lewat `--script-tun`); `doctor` mengecek kliennya; MFA TOTP dan `VPN_LOGIN_REQUIRED` | |
+| 2 | Keluarga openconnect: GlobalProtect, Fortinet, AnyConnect, Pulse/Ivanti, F5 (userspace lewat `--script-tun`); `doctor` mengecek kliennya; `VPN_LOGIN_REQUIRED` untuk VPN dengan MFA | |
 | 3 | OpenVPN/Pritunl (`minivpn` atau mode OS) | |
 | 4 | L2TP/IPsec dan VPN bawaan OS; deteksi subnet bentrok | |
 
-## Pertanyaan terbuka untuk pemilik
+## Keputusan pemilik
 
-1. **Mode OS yang butuh admin sekali** (untuk OpenVPN/Pritunl dan L2TP kalau
-   tidak ada klien userspace yang cukup): boleh, atau hanya VPN tanpa admin?
-2. **Secret TOTP di vault** untuk MFA otomatis: boleh (opt-in per VPN), atau
-   MFA harus selalu dilakukan manusia?
+1. **Mode OS boleh** (2026-11-02): OpenVPN/Pritunl dan L2TP/IPsec boleh
+   memakai helper kecil yang dipasang sekali dengan sudo.
+2. **MFA selalu oleh manusia** (2026-11-02): tidak ada secret TOTP di vault;
+   lihat bagian [MFA](#mfa).
