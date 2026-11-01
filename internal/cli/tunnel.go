@@ -1,0 +1,473 @@
+package cli
+
+import (
+	"bufio"
+	"context"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"os"
+	"os/exec"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/store"
+)
+
+// Tunnels run as detached background komando processes so that an agent's
+// tool call returns immediately while the forward stays up.
+
+func tunnelCmd() *cobra.Command {
+	c := &cobra.Command{
+		Use:     "tunnel",
+		Aliases: []string{"forward", "pf"},
+		Short:   "Background port forwarding: local (-L), remote (-R), SOCKS5 (-D)",
+		Long: `Specs:
+  -L [bind:]LPORT:RHOST:RPORT   local port -> RHOST:RPORT as seen from the server
+  -R [rbind:]RPORT:LHOST:LPORT  server port -> LHOST:LPORT on this machine
+  -D [bind:]PORT                SOCKS5 proxy through the server
+LPORT/PORT 0 picks a free port; the chosen address is returned.`,
+		Example: `  komando tunnel start db1 -L 15432:localhost:5432
+  komando tunnel start bastion -D 1080
+  komando tunnel list
+  komando tunnel stop t1102-...`,
+	}
+	c.AddCommand(tunnelStartCmd(), tunnelListCmd(), tunnelStopCmd(), tunnelServeCmd())
+	return c
+}
+
+type tunnelSpec struct {
+	Kind       string
+	BindAddr   string
+	TargetAddr string
+}
+
+func parseTunnel(kind, spec string) (tunnelSpec, error) {
+	parts := strings.Split(spec, ":")
+	t := tunnelSpec{Kind: kind}
+	switch kind {
+	case "local", "remote":
+		switch len(parts) {
+		case 3:
+			t.BindAddr = "127.0.0.1:" + parts[0]
+			t.TargetAddr = net.JoinHostPort(parts[1], parts[2])
+		case 4:
+			t.BindAddr = net.JoinHostPort(parts[0], parts[1])
+			t.TargetAddr = net.JoinHostPort(parts[2], parts[3])
+		default:
+			return t, out.Usage("invalid forward spec %q", spec)
+		}
+	case "dynamic":
+		switch len(parts) {
+		case 1:
+			t.BindAddr = "127.0.0.1:" + parts[0]
+		case 2:
+			t.BindAddr = net.JoinHostPort(parts[0], parts[1])
+		default:
+			return t, out.Usage("invalid SOCKS spec %q", spec)
+		}
+	}
+	return t, nil
+}
+
+func tunnelStartCmd() *cobra.Command {
+	var l, r, d string
+	c := &cobra.Command{
+		Use:   "start HOST (-L spec | -R spec | -D spec)",
+		Short: "Start a background tunnel; returns its ID and bound address",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			n := 0
+			kind, spec := "", ""
+			for k, v := range map[string]string{"local": l, "remote": r, "dynamic": d} {
+				if v != "" {
+					n++
+					kind, spec = k, v
+				}
+			}
+			if n != 1 {
+				return out.Usage("exactly one of -L, -R, -D is required")
+			}
+			if _, err := parseTunnel(kind, spec); err != nil {
+				return err
+			}
+			st, err := loadState()
+			if err != nil {
+				return err
+			}
+			h, err := singleHost(st, args[0])
+			if err != nil {
+				return err
+			}
+			if g.dryRun {
+				out.P.Print("tunnel.start", map[string]any{"host": h.Name, "kind": kind, "spec": spec}, nil)
+				return nil
+			}
+			id := newID("t")
+			logPath := store.Path("tunnels", id+".log")
+			if err := os.MkdirAll(store.Path("tunnels"), 0o700); err != nil {
+				return err
+			}
+			t := &store.Tunnel{ID: id, Host: h.Name, Kind: kind, Spec: spec, LogFile: logPath, StartedAt: time.Now().UTC()}
+			if err := store.Update(func(s *store.State) error { s.Tunnels[id] = t; return nil }); err != nil {
+				return err
+			}
+			self, err := os.Executable()
+			if err != nil {
+				return err
+			}
+			lf, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+			if err != nil {
+				return err
+			}
+			pargs := []string{"tunnel", "serve", id}
+			if g.hostKeyPolicy != "" {
+				pargs = append(pargs, "--host-key-policy", g.hostKeyPolicy)
+			}
+			p := exec.Command(self, pargs...)
+			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
+			p.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+			p.Env = os.Environ()
+			if err := p.Start(); err != nil {
+				return err
+			}
+			lf.Close()
+			pid := p.Process.Pid
+			_ = p.Process.Release()
+			_ = store.Update(func(s *store.State) error {
+				if x, ok := s.Tunnels[id]; ok {
+					x.PID = pid
+				}
+				return nil
+			})
+			// wait for READY / ERROR from the child
+			deadline := time.Now().Add(sshOpts(st).ConnectTimeout + 5*time.Second)
+			for time.Now().Before(deadline) {
+				b, _ := os.ReadFile(logPath)
+				s := string(b)
+				if i := strings.Index(s, "READY "); i >= 0 {
+					addr := strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0])
+					audit(st, "tunnel.start", []string{h.Name}, "", true, map[string]any{"kind": kind, "spec": spec, "id": id})
+					out.P.Print("tunnel.start", map[string]any{"id": id, "host": h.Name, "kind": kind, "spec": spec, "listen": addr, "pid": pid, "log": logPath}, nil)
+					return nil
+				}
+				if i := strings.Index(s, "ERROR "); i >= 0 {
+					_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
+					return out.Errf(out.ExitConnect, "TUNNEL_FAILED", "", "%s", strings.TrimSpace(s[i+6:]))
+				}
+				time.Sleep(150 * time.Millisecond)
+			}
+			_ = syscall.Kill(pid, syscall.SIGTERM)
+			_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
+			return out.Errf(out.ExitTimeout, "TUNNEL_TIMEOUT", "see log "+logPath, "tunnel did not become ready")
+		},
+	}
+	c.Flags().StringVarP(&l, "local", "L", "", "local forward [bind:]LPORT:RHOST:RPORT")
+	c.Flags().StringVarP(&r, "remote", "R", "", "remote forward [rbind:]RPORT:LHOST:LPORT")
+	c.Flags().StringVarP(&d, "dynamic", "D", "", "SOCKS5 proxy [bind:]PORT")
+	return c
+}
+
+func alive(pid int) bool {
+	return pid > 0 && syscall.Kill(pid, 0) == nil
+}
+
+func tunnelListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List tunnels with liveness; dead entries are pruned",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			type row struct {
+				*store.Tunnel
+				Alive  bool   `json:"alive"`
+				Listen string `json:"listen,omitempty"`
+			}
+			rows := []row{}
+			var dead []string
+			st, err := loadState()
+			if err != nil {
+				return err
+			}
+			for _, t := range st.Tunnels {
+				r := row{Tunnel: t, Alive: alive(t.PID)}
+				if b, err := os.ReadFile(t.LogFile); err == nil {
+					if i := strings.Index(string(b), "READY "); i >= 0 {
+						r.Listen = strings.TrimSpace(strings.SplitN(string(b)[i+6:], "\n", 2)[0])
+					}
+				}
+				if !r.Alive {
+					dead = append(dead, t.ID)
+				}
+				rows = append(rows, r)
+			}
+			sort.Slice(rows, func(i, j int) bool { return rows[i].StartedAt.Before(rows[j].StartedAt) })
+			if len(dead) > 0 {
+				_ = store.Update(func(s *store.State) error {
+					for _, id := range dead {
+						delete(s.Tunnels, id)
+					}
+					return nil
+				})
+			}
+			out.P.Print("tunnel.list", map[string]any{"count": len(rows), "tunnels": rows}, nil)
+			return nil
+		},
+	}
+}
+
+func tunnelStopCmd() *cobra.Command {
+	var all bool
+	c := &cobra.Command{
+		Use:   "stop [ID...]",
+		Short: "Stop tunnel(s) (--all for every tunnel)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !all && len(args) == 0 {
+				return out.Usage("give tunnel IDs or --all")
+			}
+			stopped := []string{}
+			err := store.Update(func(s *store.State) error {
+				ids := args
+				if all {
+					ids = nil
+					for id := range s.Tunnels {
+						ids = append(ids, id)
+					}
+				}
+				for _, id := range ids {
+					t, ok := s.Tunnels[id]
+					if !ok {
+						return out.NotFound("tunnel", id)
+					}
+					if alive(t.PID) {
+						_ = syscall.Kill(t.PID, syscall.SIGTERM)
+					}
+					delete(s.Tunnels, id)
+					stopped = append(stopped, id)
+				}
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+			out.P.Print("tunnel.stop", map[string]any{"stopped": stopped}, nil)
+			return nil
+		},
+	}
+	c.Flags().BoolVar(&all, "all", false, "stop all tunnels")
+	return c
+}
+
+// tunnelServeCmd is the hidden daemon entry point.
+func tunnelServeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "serve ID",
+		Hidden: true,
+		Args:   cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			logger := log.New(os.Stdout, "", log.LstdFlags)
+			fail := func(err error) error {
+				fmt.Printf("ERROR %v\n", err)
+				return exitCode(1)
+			}
+			st, err := loadState()
+			if err != nil {
+				return fail(err)
+			}
+			t, ok := st.Tunnels[args[0]]
+			if !ok {
+				return fail(fmt.Errorf("tunnel %s not found", args[0]))
+			}
+			h, err := singleHost(st, t.Host)
+			if err != nil {
+				return fail(err)
+			}
+			spec, err := parseTunnel(t.Kind, t.Spec)
+			if err != nil {
+				return fail(err)
+			}
+			ctx := cmd.Context()
+			cm := &connMgr{ctx: ctx, st: st, h: h}
+			c, err := cm.get()
+			if err != nil {
+				return fail(err)
+			}
+			var ln net.Listener
+			if spec.Kind == "remote" {
+				ln, err = c.Listen("tcp", spec.BindAddr)
+			} else {
+				ln, err = net.Listen("tcp", spec.BindAddr)
+			}
+			if err != nil {
+				return fail(err)
+			}
+			fmt.Printf("READY %s\n", ln.Addr().String())
+			go func() { <-ctx.Done(); ln.Close() }()
+			for {
+				conn, err := ln.Accept()
+				if err != nil {
+					if ctx.Err() != nil {
+						return nil
+					}
+					if spec.Kind == "remote" {
+						return fail(fmt.Errorf("remote listener closed: %v", err))
+					}
+					logger.Printf("accept: %v", err)
+					continue
+				}
+				go func(conn net.Conn) {
+					defer conn.Close()
+					switch spec.Kind {
+					case "local":
+						rc, err := cm.dial(spec.TargetAddr)
+						if err != nil {
+							logger.Printf("dial %s: %v", spec.TargetAddr, err)
+							return
+						}
+						pipe(conn, rc)
+					case "remote":
+						lc, err := net.DialTimeout("tcp", spec.TargetAddr, 10*time.Second)
+						if err != nil {
+							logger.Printf("dial local %s: %v", spec.TargetAddr, err)
+							return
+						}
+						pipe(conn, lc)
+					case "dynamic":
+						socks5(conn, cm, logger)
+					}
+				}(conn)
+			}
+		},
+	}
+}
+
+// connMgr reconnects the SSH client when it drops (local/dynamic forwards).
+type connMgr struct {
+	mu  sync.Mutex
+	ctx context.Context
+	st  *store.State
+	h   *store.Host
+	c   *sshx.Client
+}
+
+func (m *connMgr) get() (*sshx.Client, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.c != nil {
+		return m.c, nil
+	}
+	c, err := sshx.Dial(m.ctx, m.st, m.h, sshOpts(m.st))
+	if err != nil {
+		return nil, err
+	}
+	m.c = c
+	return c, nil
+}
+
+func (m *connMgr) dial(addr string) (net.Conn, error) {
+	for attempt := 0; attempt < 2; attempt++ {
+		c, err := m.get()
+		if err != nil {
+			return nil, err
+		}
+		conn, err := c.Dial("tcp", addr)
+		if err == nil {
+			return conn, nil
+		}
+		var oe *net.OpError
+		if errors.As(err, &oe) || strings.Contains(err.Error(), "open failed") {
+			return nil, err // remote refused: connection itself is fine
+		}
+		m.mu.Lock()
+		if m.c == c {
+			m.c.Close()
+			m.c = nil
+		}
+		m.mu.Unlock()
+	}
+	return nil, errors.New("ssh reconnect failed")
+}
+
+func pipe(a, b net.Conn) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	cp := func(dst, src net.Conn) {
+		defer wg.Done()
+		_, _ = io.Copy(dst, src)
+		if cw, ok := dst.(interface{ CloseWrite() error }); ok {
+			_ = cw.CloseWrite()
+		} else {
+			dst.Close()
+		}
+	}
+	go cp(a, b)
+	go cp(b, a)
+	wg.Wait()
+	b.Close()
+}
+
+// socks5 implements the no-auth CONNECT subset of RFC 1928.
+func socks5(conn net.Conn, cm *connMgr, logger *log.Logger) {
+	r := bufio.NewReader(conn)
+	hdr := make([]byte, 2)
+	if _, err := io.ReadFull(r, hdr); err != nil || hdr[0] != 5 {
+		return
+	}
+	methods := make([]byte, hdr[1])
+	if _, err := io.ReadFull(r, methods); err != nil {
+		return
+	}
+	conn.Write([]byte{5, 0})
+	req := make([]byte, 4)
+	if _, err := io.ReadFull(r, req); err != nil || req[1] != 1 {
+		conn.Write([]byte{5, 7, 0, 1, 0, 0, 0, 0, 0, 0})
+		return
+	}
+	var host string
+	switch req[3] {
+	case 1:
+		b := make([]byte, 4)
+		io.ReadFull(r, b)
+		host = net.IP(b).String()
+	case 3:
+		l, _ := r.ReadByte()
+		b := make([]byte, l)
+		io.ReadFull(r, b)
+		host = string(b)
+	case 4:
+		b := make([]byte, 16)
+		io.ReadFull(r, b)
+		host = net.IP(b).String()
+	default:
+		conn.Write([]byte{5, 8, 0, 1, 0, 0, 0, 0, 0, 0})
+		return
+	}
+	pb := make([]byte, 2)
+	if _, err := io.ReadFull(r, pb); err != nil {
+		return
+	}
+	addr := net.JoinHostPort(host, strconv.Itoa(int(binary.BigEndian.Uint16(pb))))
+	rc, err := cm.dial(addr)
+	if err != nil {
+		logger.Printf("socks dial %s: %v", addr, err)
+		conn.Write([]byte{5, 5, 0, 1, 0, 0, 0, 0, 0, 0})
+		return
+	}
+	conn.Write([]byte{5, 0, 0, 1, 0, 0, 0, 0, 0, 0})
+	if n := r.Buffered(); n > 0 {
+		b, _ := r.Peek(n)
+		rc.Write(b)
+	}
+	pipe(conn, rc)
+}

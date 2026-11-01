@@ -1,0 +1,18 @@
+# bastion is reachable from the host; target is only reachable through bastion.
+services:
+  bastion:
+    build: .
+    ports: ["127.0.0.1:2222:22"]
+    networks: [public, private]
+  target:
+    build: .
+    networks: [private]
+    hostname: target
+  direct:
+    build: .
+    ports: ["127.0.0.1:2223:22"]
+    networks: [public]
+    hostname: direct
+networks:
+  public: {}
+  private: { internal: true }
