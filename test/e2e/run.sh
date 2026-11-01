@@ -100,6 +100,68 @@ $K cron set direct t1 'true' --schedule '@daily' >/dev/null
 check "cron set idempotent" 1 "$($K cron set direct t1 'true' --schedule '@daily' >/dev/null; $K cron list direct | jget 'len(d["data"]["results"][0]["data"])')"
 check "audit recorded" True "$($K audit -n 200 | jget 'd["data"]["count"] > 10')"
 
+echo "==> conns through bastion (db, cache, storage)"
+q() { local o; o=$("$@") || { echo "  step failed: ${*:2}"; echo "$o" | head -c 600; echo; return 1; }; }
+for _ in $(seq 1 60); do docker compose -p "$PROJECT" -f "$E2E/compose.yml" ps --format '{{.Health}}' pg maria 2>/dev/null | grep -qv healthy || break; sleep 1; done
+G() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T s3 /garage "$@" 2>/dev/null; }
+NODE=$(G status | awk '/^[0-9a-f]{16}/{print $1; exit}')
+G layout assign -z dc1 -c 1G "$NODE" >/dev/null && G layout apply --version 1 >/dev/null
+G bucket create backups >/dev/null && G key create komando > "$TMP/s3key" && G bucket allow --read --write --owner backups --key komando >/dev/null
+S3ID=$(awk '/Key ID/{print $3}' "$TMP/s3key")
+echo -n apppass | $K secret set pg-pass >/dev/null
+echo -n shoppass | $K secret set maria-pass >/dev/null
+echo -n redispass | $K secret set redis-pass >/dev/null
+awk '/Secret key/{printf "%s", $3}' "$TMP/s3key" | $K secret set s3-secret >/dev/null
+q $K conn add pg 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-pass
+q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
+q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref secret:redis-pass
+q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref secret:s3-secret
+check "conn test via bastion" 4 "$($K conn test all | jget 'd["data"]["summary"]["ok"]')"
+
+# postgres: write, read-only enforcement, dump, destroy, restore
+q $K db query pg --write "create table t(id int primary key, name text); create sequence s; insert into t values (1, 'a'), (2, 'b')"
+check "pg read via bastion" 2 "$($K db query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+set +e
+$K db query pg "insert into t values (3, 'c')" >/dev/null; check "pg write needs --write" 6 $?
+$K db query pg "select nextval('s')" >/dev/null; check "pg read-only enforced by server" 6 $?
+$K db query pg --write "drop table t" >/dev/null; check "pg drop needs --allow-dangerous" 6 $?
+set -e
+check "pg dry run rolls back" 2 "$($K db query pg --write --dry-run 'delete from t where id > 0' >/dev/null; $K db query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K db dump pg --to "$TMP/pg.sql.gz"
+check "pg dump is private" 600 "$(stat -c %a "$TMP/pg.sql.gz" 2>/dev/null || stat -f %Lp "$TMP/pg.sql.gz")"
+q $K db query pg --write --allow-dangerous "drop table t; drop sequence s"
+q $K db restore pg --from "$TMP/pg.sql.gz" --allow-dangerous
+check "pg restore brings rows back" 2 "$($K db query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+
+# mariadb (protected): --yes, dump and restore through bastion
+set +e; $K db query maria --write "create table p(id int primary key)" >/dev/null; check "protected conn needs --yes" 6 $?; set -e
+q $K db query maria --write --yes "create table p(id int primary key, name varchar(10))"
+q $K db query maria --write --yes "insert into p values (1, 'kopi'), (2, 'teh')"
+check "maria typed ints" 1 "$($K db query maria 'select id from p order by id' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K db dump maria --to "$TMP/maria.sql"
+q $K db query maria --write --yes --allow-dangerous "drop table p"
+q $K db restore maria --from "$TMP/maria.sql" --yes --allow-dangerous
+check "maria restore brings rows back" 2 "$($K db query maria 'select count(*) from p' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+
+# redis
+q $K cache set cache greeting halo --ttl 1h
+check "cache get via bastion" halo "$($K cache get cache greeting | jget 'd["data"]["value"]')"
+set +e
+$K cache run cache -- FLUSHALL >/dev/null; check "cache flushall blocked" 6 $?
+$K cache rm cache greeting >/dev/null; check "cache rm needs --allow-dangerous" 6 $?
+set -e
+
+# storage
+echo backup-data > "$TMP/obj.txt"
+q $K storage upload bucket "$TMP/obj.txt" 2026/obj.txt
+check "storage ls via bastion" 2026/obj.txt "$($K storage ls bucket --recursive | jget 'd["data"]["objects"][0]["key"]')"
+q $K storage download bucket 2026/obj.txt --to "$TMP/obj-back.txt"
+check "storage round trip" backup-data "$(cat "$TMP/obj-back.txt")"
+
+# no secret value may reach the state file or the audit log
+LEAKS=$(cat "$KOMANDO_HOME/state.json" "$KOMANDO_HOME/audit.jsonl" | { grep -c -E 'apppass|shoppass|redispass' || true; })
+check "no passwords in state or audit" 0 "$LEAKS"
+
 echo
 echo "passed: $PASS  failed: $FAIL"
 [ "$FAIL" -eq 0 ]
