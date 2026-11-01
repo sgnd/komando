@@ -390,7 +390,7 @@ func (l kindList) Text() string {
 	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
 	fmt.Fprintln(tw, "KIND\tCOMMANDS\tURL EXAMPLE")
 	for _, k := range l.Kinds {
-		fmt.Fprintf(tw, "%s\tkomando %s\t%s\n", k.Name, driver.Families[k.Family], k.Example)
+		fmt.Fprintf(tw, "%s\tkomando %s\t%s\n", k.Name, k.Family, k.Example)
 	}
 	tw.Flush()
 	return sb.String()

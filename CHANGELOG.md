@@ -16,6 +16,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   --dry-run` to try it and roll back. Destructive SQL (DROP, TRUNCATE,
   DELETE/UPDATE without WHERE, ...) needs `--allow-dangerous`; protected
   conns need `--yes`. Results are structured rows, safe for JSON.
+- `komando storage` (alias `s3`) for S3 and S3-compatible storage (MinIO, R2,
+  Wasabi, Spaces, B2, Garage): `ls`, `get` (to a file, never overwriting),
+  `put`, `rm` (exact keys only), and `link` for temporary download links.
+  Keys stay inside the conn's folder.
 - `komando policy list` shows the SQL and Redis rules; `komando policy check
   --for KIND` rates a SQL query or Redis command.
 - MySQL and MariaDB conns for `komando db`.

@@ -42,7 +42,7 @@ func withCache(ctx context.Context, name, connExpr string, v driver.Verdict, rec
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "redis")
+	c, err := singleConn(st, connExpr, "cache")
 	if err != nil {
 		return err
 	}

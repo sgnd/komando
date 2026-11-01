@@ -136,7 +136,7 @@ func runDump(ctx context.Context, connExpr, to string) error {
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "sql")
+	c, err := singleConn(st, connExpr, "db")
 	if err != nil {
 		return err
 	}
@@ -221,7 +221,7 @@ func runRestore(ctx context.Context, connExpr, from string, write bool) error {
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "sql")
+	c, err := singleConn(st, connExpr, "db")
 	if err != nil {
 		return err
 	}

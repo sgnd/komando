@@ -100,7 +100,7 @@ func dbExplainCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			c, err := singleConn(st, args[0], "sql")
+			c, err := singleConn(st, args[0], "db")
 			if err != nil {
 				return err
 			}
@@ -144,7 +144,7 @@ func dbSchemaCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			c, err := singleConn(st, args[0], "sql")
+			c, err := singleConn(st, args[0], "db")
 			if err != nil {
 				return err
 			}
@@ -225,7 +225,7 @@ func qualified(t dbx.Table) string {
 }
 
 // singleConn resolves a selector that must match exactly one conn of the
-// given family (sql, redis, s3).
+// given family (db, cache, storage).
 func singleConn(st *store.State, expr, family string) (*store.Conn, error) {
 	cs, err := resolveConns(st, expr)
 	if err != nil {
@@ -346,7 +346,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "sql")
+	c, err := singleConn(st, connExpr, "db")
 	if err != nil {
 		return err
 	}

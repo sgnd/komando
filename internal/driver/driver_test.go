@@ -57,7 +57,7 @@ func TestParseRejects(t *testing.T) {
 
 func TestParseRedisAndS3(t *testing.T) {
 	r, err := Parse("rediss://default@cache.internal/2")
-	if err != nil || r.Kind.Family != "redis" || r.Address != "cache.internal:6379" || r.Database != "2" || !r.Secure || r.User != "default" {
+	if err != nil || r.Kind.Family != "cache" || r.Address != "cache.internal:6379" || r.Database != "2" || !r.Secure || r.User != "default" {
 		t.Errorf("redis: %+v %v", r, err)
 	}
 	if r, _ := Parse("redis://cache"); r.Database != "0" || r.Secure {
@@ -73,7 +73,7 @@ func TestParseRedisAndS3(t *testing.T) {
 	if s, _ := Parse("s3://KEY@logs?region=eu-west-1"); s.Address != "s3.eu-west-1.amazonaws.com:443" || !s.Secure || s.Prefix != "" {
 		t.Errorf("s3 aws default: %+v", s)
 	}
-	if err := s.Need("sql"); err == nil || err.(*out.Error).Code != "WRONG_KIND" {
+	if err := s.Need("db"); err == nil || err.(*out.Error).Code != "WRONG_KIND" {
 		t.Errorf("Need: %v", err)
 	}
 }

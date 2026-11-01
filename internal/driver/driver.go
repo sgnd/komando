@@ -48,30 +48,27 @@ type Verdict struct {
 // Kind is a resource type komando knows.
 type Kind struct {
 	Name        string   `json:"name"`
-	Family      string   `json:"family"` // sql | redis | s3: which commands work with it
+	Family      string   `json:"family"` // the command that works with it: db | cache | storage
 	Schemes     []string `json:"schemes"`
 	DefaultPort int      `json:"default_port,omitempty"`
 	File        bool     `json:"file,omitempty"` // a local file, not a network service
 	Example     string   `json:"example"`
 }
 
-// Families name the command for each family, for hints.
-var Families = map[string]string{"sql": "db", "redis": "cache", "s3": "s3"}
-
 var kinds = map[string]Kind{}
 
 func register(k Kind) { kinds[k.Name] = k }
 
 func init() {
-	register(Kind{Name: "postgres", Family: "sql", Schemes: []string{"postgres", "postgresql"}, DefaultPort: 5432,
+	register(Kind{Name: "postgres", Family: "db", Schemes: []string{"postgres", "postgresql"}, DefaultPort: 5432,
 		Example: "postgres://app@10.0.0.5:5432/app?sslmode=require"})
-	register(Kind{Name: "mysql", Family: "sql", Schemes: []string{"mysql", "mariadb"}, DefaultPort: 3306,
+	register(Kind{Name: "mysql", Family: "db", Schemes: []string{"mysql", "mariadb"}, DefaultPort: 3306,
 		Example: "mysql://shop@db.internal:3306/shop?tls=true"})
-	register(Kind{Name: "sqlite", Family: "sql", Schemes: []string{"sqlite", "sqlite3"}, File: true,
+	register(Kind{Name: "sqlite", Family: "db", Schemes: []string{"sqlite", "sqlite3"}, File: true,
 		Example: "sqlite:///var/lib/app.db"})
-	register(Kind{Name: "redis", Family: "redis", Schemes: []string{"redis", "rediss"}, DefaultPort: 6379,
+	register(Kind{Name: "redis", Family: "cache", Schemes: []string{"redis", "rediss"}, DefaultPort: 6379,
 		Example: "rediss://default@cache.internal:6379/0 (rediss = TLS)"})
-	register(Kind{Name: "s3", Family: "s3", Schemes: []string{"s3"},
+	register(Kind{Name: "s3", Family: "storage", Schemes: []string{"s3"},
 		Example: "s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1"})
 }
 
@@ -223,13 +220,14 @@ func parseS3(u *url.URL, t Target) (Target, error) {
 	return t, nil
 }
 
-// Need checks that t belongs to family, with a hint naming the right command.
+// Need checks that t belongs to family (a command name: db, cache,
+// storage), with a hint naming the right command.
 func (t Target) Need(family string) error {
 	if t.Kind.Family == family {
 		return nil
 	}
-	return out.Errf(out.ExitUsage, "WRONG_KIND", fmt.Sprintf("use `komando %s` for %s conns", Families[t.Kind.Family], t.Kind.Name),
-		"this command works with %s conns, not %s", family, t.Kind.Name)
+	return out.Errf(out.ExitUsage, "WRONG_KIND", fmt.Sprintf("use `komando %s` for %s conns", t.Kind.Family, t.Kind.Name),
+		"`komando %s` does not work with %s conns", family, t.Kind.Name)
 }
 
 func hasPasswordParam(q url.Values) bool {

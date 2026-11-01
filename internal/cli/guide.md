@@ -66,6 +66,9 @@ Caches work the same way: `komando cache get|keys|info <conn>` read,
 `cache set|del` change (with seatbelts), `komando cache run <conn> -- CMD ...`
 only reads unless `--write`. Never use `KEYS` (use `cache keys`, it SCANs).
 
+Buckets: `komando storage ls|get|link <conn> ...` read, `storage put|rm`
+change. Keys are relative to the conn's folder.
+
 Without `--write` the database itself refuses changes. `WRITE_REQUIRES_FLAG`
 (exit 6) means the SQL writes: dry-run it, then ask the human before
 `--write` on anything that matters. Never `BEGIN`/`COMMIT` yourself. Do not

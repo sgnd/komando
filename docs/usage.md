@@ -15,6 +15,7 @@ A task-by-task guide. New here? Start with the [README](../README.md).
 - [Databases (conns)](#databases-conns)
 - [Query a database](#query-a-database)
 - [Caches (Redis)](#caches-redis)
+- [Object storage (S3)](#object-storage-s3)
 - [Network checks](#network-checks)
 - [Users and scheduled jobs](#users-and-scheduled-jobs)
 - [Saved commands (snippets)](#saved-commands-snippets)
@@ -341,6 +342,34 @@ Commands that wipe, block or reconfigure the server (`FLUSHALL`, `KEYS`,
 `CONFIG SET`, `SHUTDOWN`, ...) also need `--allow-dangerous`. A protected
 conn needs `--yes` for every change. Redis cannot undo, so `--dry-run` only
 shows that a change would be allowed; nothing is sent.
+
+## Object storage (S3)
+
+`komando storage` works with S3 and every S3-compatible service (MinIO,
+Cloudflare R2, Wasabi, DigitalOcean Spaces, Backblaze B2, Garage). Add the
+bucket as a conn; the folder in the URL limits the conn to that folder.
+
+```bash
+komando secret set backups-secret               # the secret access key
+komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:backups-secret
+
+komando storage ls backups                      # one level; --recursive for everything
+komando storage get backups 2026/app.sql.gz     # download into the current folder
+komando storage put backups ./app.sql.gz 2026/app.sql.gz
+komando storage link backups 2026/app.sql.gz --expires 24h   # temporary download link
+komando storage rm backups 2026/old.sql.gz
+```
+
+- Downloads never overwrite a file; the file is readable only by you.
+- `put` replaces an object with the same key (the result says
+  `"replaced": true`). `rm` takes exact keys only: no folders, no patterns.
+- A protected conn needs `--yes` for `put` and `rm`. `--dry-run` shows that
+  the change would be allowed and sends nothing.
+- Keys cannot leave the conn's folder (`../` is refused).
+- A link works for anyone who has it until it expires. Share it like a
+  password. It is not written to the history.
+- Safest setup: give komando an access key that can only do what you need
+  (read-only for reports, one bucket only). The service then enforces it.
 
 ## Network checks
 
