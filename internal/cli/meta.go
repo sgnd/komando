@@ -16,6 +16,7 @@ import (
 
 	"github.com/sgnd/komando/internal/cachex"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
@@ -247,7 +248,7 @@ func configCmd() *cobra.Command {
 	})
 	c.AddCommand(&cobra.Command{
 		Use:   "set KEY VALUE",
-		Short: "Set host_key_policy|default_user|default_timeout|connect_timeout|parallel|max_output_bytes|audit|audit_sql",
+		Short: "Set host_key_policy|default_user|default_timeout|connect_timeout|parallel|max_output_bytes|audit|audit_sql|vpn_idle",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var res store.Settings
@@ -297,6 +298,11 @@ func configCmd() *cobra.Command {
 						}
 					}
 					s.Settings.Audit = on
+				case "vpn_idle":
+					if _, err := parseDur(v); err != nil {
+						return out.Usage("invalid duration %q", v)
+					}
+					s.Settings.VpnIdle = v
 				case "audit_sql":
 					if v != "full" && v != "hash" && v != "off" {
 						return out.Usage("audit_sql: full|hash|off (hash keeps a SHA-256 so repeated queries can be matched without storing their text)")
@@ -464,6 +470,13 @@ func doctorCmd() *cobra.Command {
 			}
 			_, sshErr := exec.LookPath("ssh")
 			checks = append(checks, check{"openssh_client", sshErr == nil, "optional; komando has a built-in SSH client"})
+			for _, v := range st.SortedVpns() { // programs the registered VPNs need
+				for _, bin := range netx.Kinds[v.Kind].Client {
+					_, err := exec.LookPath(bin)
+					checks = append(checks, check{"vpn:" + v.Name + ":" + bin, err == nil,
+						map[bool]string{true: "installed", false: installHint(bin)}[err == nil]})
+				}
+			}
 			checks = append(checks, check{"platform", true, runtime.GOOS + "/" + runtime.GOARCH})
 			ok := true
 			for _, c := range checks {

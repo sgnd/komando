@@ -117,6 +117,7 @@ type Settings struct {
 	ExtraDenyPattern []string `json:"extra_deny_patterns,omitempty"`
 	Audit            bool     `json:"audit"`
 	AuditSQL         string   `json:"audit_sql"` // full | hash | off: how SQL text is kept in the audit log
+	VpnIdle          string   `json:"vpn_idle"`  // a VPN session unused this long is disconnected
 }
 
 func DefaultSettings() Settings {
@@ -128,6 +129,7 @@ func DefaultSettings() Settings {
 		MaxOutputBytes: 256 * 1024,
 		Audit:          true,
 		AuditSQL:       "full",
+		VpnIdle:        "30m",
 	}
 }
 
@@ -135,13 +137,18 @@ func DefaultSettings() Settings {
 // (docs/design/network.md). Keys live in the vault, referenced by KeyRef.
 type Vpn struct {
 	Name      string            `json:"name"`
-	Kind      string            `json:"kind"`              // wireguard | socks | system
-	Config    string            `json:"config,omitempty"`  // wireguard: the wg-quick file without its keys
-	Address   string            `json:"address,omitempty"` // socks: host:port of the proxy
-	User      string            `json:"user,omitempty"`    // socks: user name, if the proxy wants one
-	KeyRef    string            `json:"key_ref,omitempty"` // wireguard: private key; socks: password
-	PSKRef    string            `json:"psk_ref,omitempty"` // wireguard: preshared key, if any
-	Check     string            `json:"check,omitempty"`   // system: host:port that answers only when connected
+	Kind      string            `json:"kind"`                 // see netx.Kinds
+	Config    string            `json:"config,omitempty"`     // wireguard: the wg-quick file without its keys
+	ConfigRef string            `json:"config_ref,omitempty"` // openvpn: the whole .ovpn, kept in the vault (it may hold keys)
+	Address   string            `json:"address,omitempty"`    // socks: host:port of the proxy
+	Portal    string            `json:"portal,omitempty"`     // openconnect kinds: the VPN server or portal
+	Service   string            `json:"service,omitempty"`    // system: the OS VPN's name, to connect it with `vpn up`
+	Server    string            `json:"server,omitempty"`     // tailscale: a Headscale login server
+	User      string            `json:"user,omitempty"`       // user name, if the VPN wants one
+	KeyRef    string            `json:"key_ref,omitempty"`    // password, private key or auth key, as secret:/env:/file:
+	PSKRef    string            `json:"psk_ref,omitempty"`    // wireguard: preshared key, if any
+	MFA       bool              `json:"mfa,omitempty"`        // a human must log in (`vpn up`); never automated
+	Check     string            `json:"check,omitempty"`      // host:port that answers only through the VPN
 	Groups    []string          `json:"groups,omitempty"`
 	Tags      []string          `json:"tags,omitempty"`
 	Labels    map[string]string `json:"labels,omitempty"`
@@ -150,15 +157,27 @@ type Vpn struct {
 	UpdatedAt time.Time         `json:"updated_at"`
 }
 
+// VpnSession is a VPN kept up in the background between commands.
+type VpnSession struct {
+	Vpn       string    `json:"vpn"`
+	PID       int       `json:"pid"`
+	Socks     string    `json:"socks,omitempty"` // local SOCKS5 address; empty when the OS routes the traffic
+	Sudo      bool      `json:"sudo,omitempty"`  // the process runs as root (OS mode)
+	LogFile   string    `json:"log_file,omitempty"`
+	StartedAt time.Time `json:"started_at"`
+	LastUsed  time.Time `json:"last_used"`
+}
+
 type State struct {
-	Hosts    map[string]*Host    `json:"hosts"`
-	Conns    map[string]*Conn    `json:"conns,omitempty"`
-	Vpns     map[string]*Vpn     `json:"vpns,omitempty"`
-	Keys     map[string]*Key     `json:"keys"`
-	Snippets map[string]*Snippet `json:"snippets"`
-	Jobs     map[string]*Job     `json:"jobs"`
-	Tunnels  map[string]*Tunnel  `json:"tunnels"`
-	Settings Settings            `json:"settings"`
+	Hosts    map[string]*Host       `json:"hosts"`
+	Conns    map[string]*Conn       `json:"conns,omitempty"`
+	Vpns     map[string]*Vpn        `json:"vpns,omitempty"`
+	Sessions map[string]*VpnSession `json:"vpn_sessions,omitempty"`
+	Keys     map[string]*Key        `json:"keys"`
+	Snippets map[string]*Snippet    `json:"snippets"`
+	Jobs     map[string]*Job        `json:"jobs"`
+	Tunnels  map[string]*Tunnel     `json:"tunnels"`
+	Settings Settings               `json:"settings"`
 }
 
 func Home() string {
@@ -221,6 +240,9 @@ func (s *State) init() {
 	if s.Vpns == nil {
 		s.Vpns = map[string]*Vpn{}
 	}
+	if s.Sessions == nil {
+		s.Sessions = map[string]*VpnSession{}
+	}
 	if s.Keys == nil {
 		s.Keys = map[string]*Key{}
 	}
@@ -245,6 +267,9 @@ func (s *State) init() {
 	}
 	if s.Settings.Parallel == 0 {
 		s.Settings.Parallel = d.Parallel
+	}
+	if s.Settings.VpnIdle == "" {
+		s.Settings.VpnIdle = d.VpnIdle
 	}
 	if s.Settings.AuditSQL == "" {
 		s.Settings.AuditSQL = d.AuditSQL

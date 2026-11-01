@@ -213,7 +213,7 @@ func tunnelStartCmd() *cobra.Command {
 				}
 				time.Sleep(150 * time.Millisecond)
 			}
-			_ = syscall.Kill(pid, syscall.SIGTERM)
+			_ = netx.Terminate(pid)
 			_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
 			return out.Errf(out.ExitTimeout, "TUNNEL_TIMEOUT", "see log "+logPath, "tunnel did not become ready")
 		},
@@ -322,7 +322,7 @@ func tunnelStopCmd() *cobra.Command {
 						return out.NotFound("tunnel", id)
 					}
 					if alive(t.PID) {
-						_ = syscall.Kill(t.PID, syscall.SIGTERM)
+						_ = netx.Terminate(t.PID)
 					}
 					delete(s.Tunnels, id)
 					stopped = append(stopped, id)

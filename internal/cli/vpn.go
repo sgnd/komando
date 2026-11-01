@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -24,67 +23,114 @@ import (
 
 func vpnCmd() *cobra.Command {
 	var kinds []string
-	for k, d := range netx.Kinds {
-		kinds = append(kinds, fmt.Sprintf("  %-10s %s", k, d))
+	for _, k := range netx.KindNames() {
+		kinds = append(kinds, fmt.Sprintf("  %-13s %s", k, netx.Kinds[k].Desc))
 	}
-	sort.Strings(kinds)
 	c := &cobra.Command{
 		Use:   "vpn",
-		Short: "VPNs to reach servers and databases through (WireGuard, SOCKS, or your computer's own VPN)",
-		Long: `Add a VPN once, then use it as the first step of --via:
+		Short: "VPNs komando connects by itself when a --via path needs them (several at once)",
+		Long: `Add a VPN once, then put it first in --via. A command that needs it
+connects it, using the login stored in the vault:
 
   komando vpn add office wireguard --config ~/Downloads/office.conf
-  komando host add db1 admin@10.0.0.5 --via office
-  komando conn add app-db postgres://app@10.0.0.9/app --via office,bastion
+  komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
+  komando host add app admin@10.0.0.5 --via office,bastion
+  komando exec app -- uptime
 
-WireGuard runs inside komando, only for the commands that need it, so
-several VPNs work at the same time and your computer's network never
-changes.
+VPNs with --mfa need a person: run ` + "`komando vpn up NAME`" + ` once and later
+commands (and agents) reuse that session. komando never answers MFA.
 
-Kinds:
+Kinds (also: pritunl = openvpn; l2tp, ipsec, ikev2 = system):
 ` + strings.Join(kinds, "\n"),
 	}
-	c.AddCommand(vpnAddCmd(), vpnShowCmd(), vpnRmCmd(),
+	c.AddCommand(vpnAddCmd(), vpnShowCmd(), vpnRmCmd(), vpnUpCmd(), vpnDownCmd(), vpnStatusCmd(), vpnServeCmd(),
 		alias(listCmdFor("vpn"), "list kind:vpn"), alias(testCmdFor("vpn"), "test"))
 	return c
 }
 
+// openvpnScripts are .ovpn directives that run programs. OpenVPN runs as
+// root, so komando refuses configs that use them.
+var openvpnScripts = []string{"up", "down", "route-up", "route-pre-down", "ipchange", "script-security",
+	"client-connect", "client-disconnect", "learn-address", "tls-verify", "auth-user-pass-verify", "plugin", "setenv-safe"}
+
+func checkOVPN(cfg string) error {
+	for n, line := range strings.Split(cfg, "\n") {
+		f := strings.Fields(strings.TrimSpace(line))
+		if len(f) > 0 && slices.Contains(openvpnScripts, strings.TrimLeft(strings.ToLower(f[0]), "-")) {
+			return fmt.Errorf("line %d: %q runs a program as root; komando does not allow it", n+1, f[0])
+		}
+	}
+	return nil
+}
+
 func vpnAddCmd() *cobra.Command {
-	var config, address, user, passwordRef, check, notes string
+	var config, address, portal, service, server, user, passwordRef, check, notes string
 	var groups, tags []string
-	var overwrite bool
+	var overwrite, mfa bool
 	c := &cobra.Command{
 		Use:   "add NAME KIND",
-		Short: "Add a VPN (wireguard, socks or system)",
+		Short: "Add a VPN (see `komando vpn --help` for the kinds)",
 		Example: `  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
-  komando vpn add lab socks --address 127.0.0.1:1080
-  komando vpn add corp system --check 10.20.0.1:443`,
+  komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
+  komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
+  komando vpn add tailnet tailscale --password-ref secret:ts-authkey
+  komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
+  komando vpn add lab socks --address 127.0.0.1:1080`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, kind := args[0], strings.ToLower(args[1])
+			switch kind {
+			case "pritunl":
+				kind = "openvpn"
+			case "l2tp", "ipsec", "ikev2":
+				kind = "system"
+			}
 			if err := validName("vpn", name); err != nil {
 				return err
 			}
-			if _, ok := netx.Kinds[kind]; !ok {
-				return out.Usage("unknown VPN kind %q (wireguard, socks or system)", kind)
+			k, ok := netx.Kinds[kind]
+			if !ok {
+				return out.Usage("unknown VPN kind %q (see `komando vpn --help`)", kind)
 			}
 			if check != "" {
 				if _, _, err := net.SplitHostPort(check); err != nil {
 					return out.Usage("--check must be host:port")
 				}
 			}
-			v := &store.Vpn{Name: name, Kind: kind, Check: check, Groups: dedupe(groups), Tags: dedupe(tags), Notes: notes}
-			secrets := map[string]string{}
-			switch kind {
-			case "wireguard":
-				if config == "" {
-					return out.Usage("wireguard needs --config FILE (the .conf file your VPN provider gives you)")
+			for _, r := range []string{passwordRef} {
+				if r != "" && !strings.HasPrefix(r, "secret:") && !strings.HasPrefix(r, "env:") && !strings.HasPrefix(r, "file:") {
+					return out.Usage("--password-ref must be secret:NAME, env:VAR or file:PATH")
 				}
+			}
+			v := &store.Vpn{Name: name, Kind: kind, Check: check, User: user, KeyRef: passwordRef, MFA: mfa,
+				Groups: dedupe(groups), Tags: dedupe(tags), Notes: notes}
+			used := map[string]bool{}
+			need := func(flag string, ok bool) error {
+				used[flag] = true
+				if !ok {
+					return out.Usage("%s needs --%s", kind, flag)
+				}
+				return nil
+			}
+			secrets := map[string]string{}
+			readConfig := func() (string, error) {
 				b, err := os.ReadFile(expandHome(config))
 				if err != nil {
-					return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of the .conf file", "%v", err)
+					return "", out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of the VPN's config file", "%v", err)
 				}
-				clean, priv, psk, err := netx.StripWGKeys(string(b))
+				return string(b), nil
+			}
+			var err error
+			switch {
+			case kind == "wireguard":
+				if err = need("config", config != ""); err != nil {
+					return err
+				}
+				text, err := readConfig()
+				if err != nil {
+					return err
+				}
+				clean, priv, psk, err := netx.StripWGKeys(text)
 				if err != nil {
 					return out.Errf(out.ExitUsage, "VPN_CONFIG", "check the file is a WireGuard (wg-quick) config", "%s: %v", config, err)
 				}
@@ -94,24 +140,61 @@ func vpnAddCmd() *cobra.Command {
 					v.PSKRef = "secret:" + name + "-psk"
 					secrets[name+"-psk"] = psk
 				}
-			case "socks":
+				used["password-ref"] = passwordRef == ""
+			case kind == "socks":
+				if err = need("address", address != ""); err != nil {
+					return err
+				}
 				if _, _, err := net.SplitHostPort(address); err != nil {
-					return out.Usage("socks needs --address host:port of the proxy")
+					return out.Usage("--address must be host:port")
 				}
-				v.Address, v.User, v.KeyRef = address, user, passwordRef
+				v.Address = address
+				used["user"], used["password-ref"] = true, true
 				if user != "" && passwordRef == "" {
-					return out.Usage("--user needs --password-ref secret:NAME (the proxy's password)")
+					return out.Usage("--user needs --password-ref (the proxy's password)")
 				}
-			case "system":
-				if check == "" {
-					return out.Usage("system needs --check host:port: something that answers only while the VPN is connected")
+			case kind == "system":
+				if err = need("check", check != ""); err != nil {
+					return err
 				}
+				v.Service, used["service"] = service, true
+			case kind == "tailscale":
+				v.Server, used["server"], used["password-ref"] = server, true, true
+				if passwordRef == "" {
+					v.MFA = true // no auth key: a person logs in through the browser
+				}
+			case k.Protocol != "": // the openconnect family
+				if err = need("portal", portal != ""); err != nil {
+					return err
+				}
+				v.Portal = portal
+				used["user"], used["password-ref"] = true, true
+				if passwordRef == "" {
+					v.MFA = true // without a stored password a person types it
+				}
+			case kind == "openvpn":
+				if err = need("config", config != ""); err != nil {
+					return err
+				}
+				if err = need("check", check != ""); err != nil {
+					return err
+				}
+				text, err := readConfig()
+				if err != nil {
+					return err
+				}
+				if err := checkOVPN(text); err != nil {
+					return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "remove that line from the .ovpn file", "%s: %v", config, err)
+				}
+				v.ConfigRef = "secret:" + name + "-config"
+				secrets[name+"-config"] = text
+				used["user"], used["password-ref"] = true, true
 			}
-			if kind != "socks" && (address != "" || user != "") {
-				return out.Usage("--address and --user are for socks")
-			}
-			if kind != "wireguard" && config != "" {
-				return out.Usage("--config is for wireguard")
+			for flag, val := range map[string]string{"config": config, "address": address, "portal": portal, "service": service,
+				"server": server, "user": user, "password-ref": passwordRef} {
+				if val != "" && !used[flag] {
+					return out.Usage("--%s is not used by %s VPNs", flag, kind)
+				}
 			}
 			now := time.Now().UTC()
 			v.CreatedAt, v.UpdatedAt = now, now
@@ -119,10 +202,7 @@ func vpnAddCmd() *cobra.Command {
 				out.P.Print("vpn.add", v, nil)
 				return nil
 			}
-			err := store.Update(func(s *store.State) error {
-				return checkNewName(s, "vpn", name, overwrite)
-			})
-			if err != nil {
+			if err := store.Update(func(s *store.State) error { return checkNewName(s, "vpn", name, overwrite) }); err != nil {
 				return err
 			}
 			for n, val := range secrets {
@@ -139,21 +219,35 @@ func vpnAddCmd() *cobra.Command {
 			}); err != nil {
 				return err
 			}
-			audit(nil, "vpn.add", []string{name}, "", true, map[string]any{"kind": kind})
+			audit(nil, "vpn.add", []string{name}, "", true, map[string]any{"kind": kind, "mfa": v.MFA})
 			res := map[string]any{"vpn": v}
-			if kind == "wireguard" {
-				res["note"] = "the private key is now in the vault (" + v.KeyRef + "); " + config + " still holds it, so delete that file if you no longer need it"
+			var notes []string
+			if len(secrets) > 0 && config != "" {
+				notes = append(notes, config+" still holds the keys that are now in the vault; delete it if you no longer need it")
+			}
+			if v.MFA {
+				notes = append(notes, "a person logs in with `komando vpn up "+name+"`; later commands reuse that session")
+			}
+			if len(k.Client) > 0 {
+				notes = append(notes, "needs "+strings.Join(k.Client, " and ")+" installed (`komando doctor` checks)")
+			}
+			if len(notes) > 0 {
+				res["notes"] = notes
 			}
 			out.P.Print("vpn.add", res, nil)
 			return nil
 		},
 	}
 	f := c.Flags()
-	f.StringVar(&config, "config", "", "wireguard: the wg-quick .conf file (keys go to the vault)")
+	f.StringVar(&config, "config", "", "wireguard: the .conf file; openvpn: the .ovpn file (both kept in the vault)")
 	f.StringVar(&address, "address", "", "socks: host:port of the proxy")
-	f.StringVar(&user, "user", "", "socks: user name, if the proxy needs one")
-	f.StringVar(&passwordRef, "password-ref", "", "socks: the proxy password as secret:NAME | env:VAR | file:PATH")
-	f.StringVar(&check, "check", "", "host:port reachable only through this VPN, used by `komando test`")
+	f.StringVar(&portal, "portal", "", "globalprotect, fortinet, anyconnect, pulse, f5: the VPN server or portal")
+	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings, so `vpn up` can connect it")
+	f.StringVar(&server, "server", "", "tailscale: a Headscale login server URL")
+	f.StringVar(&user, "user", "", "user name for the VPN login")
+	f.StringVar(&passwordRef, "password-ref", "", "password (tailscale: auth key) as secret:NAME | env:VAR | file:PATH")
+	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only `vpn up` by a human connects it")
+	f.StringVar(&check, "check", "", "host:port reachable only through this VPN (used by `komando test`, needed for system and openvpn)")
 	f.StringSliceVarP(&groups, "group", "g", nil, "group(s)")
 	f.StringSliceVarP(&tags, "tag", "t", nil, "tag(s)")
 	f.StringVar(&notes, "notes", "", "free-form notes")
@@ -193,6 +287,10 @@ func vpnRmCmd() *cobra.Command {
 				}
 				if users := vpnUsers(s, args[0]); len(users) > 0 {
 					return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first", "VPN %s is on the --via path of %s", args[0], strings.Join(users, ", "))
+				}
+				if sess := s.Sessions[args[0]]; sess != nil {
+					netx.StopSession(sess)
+					delete(s.Sessions, args[0])
 				}
 				delete(s.Vpns, args[0])
 				return nil
