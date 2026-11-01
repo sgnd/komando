@@ -116,7 +116,7 @@ func TestJSONValue(t *testing.T) {
 		{int64(42), "42"},
 	}
 	for _, c := range cases {
-		b, _ := json.Marshal(JSONValue(c.in))
+		b, _ := json.Marshal(driver.JSONValue(c.in))
 		if string(b) != c.want {
 			t.Errorf("%v: got %s want %s", c.in, b, c.want)
 		}

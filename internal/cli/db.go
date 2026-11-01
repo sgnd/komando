@@ -15,9 +15,7 @@ import (
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
-	"github.com/sgnd/komando/internal/vault"
 )
 
 // Database commands. Safety, in order:
@@ -256,41 +254,18 @@ func dbTimeout() time.Duration {
 // openDB connects to c, through its --via host when set. The returned
 // function closes the database and the SSH connection.
 func openDB(ctx context.Context, st *store.State, c *store.Conn, readOnly bool) (*sql.DB, func(), error) {
-	t, err := driver.Parse(c.URL)
+	a, err := openAccess(ctx, st, c)
 	if err != nil {
 		return nil, nil, err
-	}
-	password, err := vault.Resolve(c.PasswordRef)
-	if err != nil {
-		return nil, nil, out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", "store it with `komando secret set NAME` or fix the conn's --password-ref", "password reference %s: %v", c.PasswordRef, err)
 	}
 	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
 	defer cancel()
-	var dial dbx.DialFunc
-	var ssh *sshx.Client
-	if c.Via != "" {
-		h, ok := st.Hosts[c.Via]
-		if !ok {
-			return nil, nil, out.NotFound("host", c.Via)
-		}
-		if ssh, err = sshx.Dial(cctx, st, h, sshOpts(st)); err != nil {
-			return nil, nil, err
-		}
-		dial = ssh.DialContext
-	}
-	db, err := dbx.Open(cctx, c.URL, t, password, dial, readOnly, "komando/"+actor())
+	db, err := dbx.Open(cctx, c.URL, a.Target, a.Password, a.Dial, readOnly, "komando/"+actor())
 	if err != nil {
-		if ssh != nil {
-			ssh.Close()
-		}
+		a.Close()
 		return nil, nil, err
 	}
-	return db, func() {
-		db.Close()
-		if ssh != nil {
-			ssh.Close()
-		}
-	}, nil
+	return db, func() { db.Close(); a.Close() }, nil
 }
 
 type queryData struct {

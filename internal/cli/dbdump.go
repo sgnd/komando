@@ -18,7 +18,6 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
-	"github.com/sgnd/komando/internal/vault"
 )
 
 // Backups always land on (and restore from) this computer. The database's
@@ -324,9 +323,9 @@ func writeAtomic(path string, fill func(tmp string) error) error {
 // runTool runs argv with the conn's password in tool.passwordEnv, on the
 // --via host or locally, streaming stdin and stdout.
 func runTool(ctx context.Context, st *store.State, c *store.Conn, tool dumpTool, argv []string, stdin io.Reader, stdout io.Writer) error {
-	password, err := vault.Resolve(c.PasswordRef)
+	password, err := resolvePassword(c)
 	if err != nil {
-		return out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", "store it with `komando secret set NAME` or fix the conn's --password-ref", "password reference %s: %v", c.PasswordRef, err)
+		return err
 	}
 	if g.timeout > 0 {
 		var cancel context.CancelFunc

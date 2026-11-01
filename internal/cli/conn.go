@@ -396,6 +396,61 @@ func (l kindList) Text() string {
 	return sb.String()
 }
 
+// --- access ----------------------------------------------------------------
+
+// access is what every conn command needs: the parsed URL, the password and
+// a dialer that goes through the --via host (nil Dial = connect directly).
+type access struct {
+	Target   driver.Target
+	Password string
+	Dial     func(ctx context.Context, network, addr string) (net.Conn, error)
+	ssh      *sshx.Client
+}
+
+func (a *access) Close() {
+	if a.ssh != nil {
+		a.ssh.Close()
+	}
+}
+
+func openAccess(ctx context.Context, st *store.State, c *store.Conn) (*access, error) {
+	t, err := driver.Parse(c.URL)
+	if err != nil {
+		return nil, err
+	}
+	password, err := resolvePassword(c)
+	if err != nil {
+		return nil, err
+	}
+	a := &access{Target: t, Password: password}
+	if c.Via == "" {
+		return a, nil
+	}
+	h, ok := st.Hosts[c.Via]
+	if !ok {
+		return nil, out.NotFound("host", c.Via)
+	}
+	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
+	defer cancel()
+	if a.ssh, err = sshx.Dial(cctx, st, h, sshOpts(st)); err != nil {
+		return nil, err
+	}
+	a.Dial = a.ssh.DialContext
+	return a, nil
+}
+
+func resolvePassword(c *store.Conn) (string, error) {
+	p, err := vault.Resolve(c.PasswordRef)
+	if err == nil {
+		return p, nil
+	}
+	hint := "store it with `komando secret set NAME` or fix the conn's --password-ref"
+	if errors.Is(err, vault.ErrNotFound) {
+		return "", out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", hint, "password reference %s: %v", c.PasswordRef, err)
+	}
+	return "", out.Errf(out.ExitError, "SECRET_UNRESOLVED", hint, "password reference %s: %v", c.PasswordRef, err)
+}
+
 // --- connectivity ----------------------------------------------------------
 
 type connTestResult struct {
@@ -489,52 +544,31 @@ func testConn(ctx context.Context, st *store.State, c *store.Conn) connTestResul
 		r.OK, r.Error = false, toErr(err)
 		return r
 	}
-	t, err := driver.Parse(c.URL)
+	if t, err := driver.Parse(c.URL); err == nil {
+		r.Where = t.Where()
+	}
+	t0 := time.Now()
+	a, err := openAccess(ctx, st, c)
 	if err != nil {
 		return fail(err)
 	}
-	r.Where = t.Where()
-	if c.PasswordRef != "" {
-		if _, err := vault.Resolve(c.PasswordRef); err != nil {
-			hint := "store it with `komando secret set NAME` or fix --password-ref"
-			if errors.Is(err, vault.ErrNotFound) {
-				return fail(out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", hint, "password reference %s: %v", c.PasswordRef, err))
-			}
-			return fail(out.Errf(out.ExitError, "SECRET_UNRESOLVED", hint, "password reference %s: %v", c.PasswordRef, err))
-		}
-	}
-	t0 := time.Now()
-	if t.Kind.File {
+	defer a.Close()
+	if a.Target.Kind.File {
 		r.Check = "file"
-		if _, err := os.Stat(expandHome(t.Path)); err != nil {
+		if _, err := os.Stat(expandHome(a.Target.Path)); err != nil {
 			return fail(out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "check the path in the conn URL (`komando conn edit "+c.Name+" --url ...`)", "%v", err))
 		}
 	} else {
 		r.Check = "tcp"
-		timeout := sshOpts(st).ConnectTimeout
-		dctx, cancel := context.WithTimeout(ctx, timeout)
+		dctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
 		defer cancel()
-		var nc net.Conn
-		if c.Via != "" {
-			h, ok := st.Hosts[c.Via]
-			if !ok {
-				return fail(out.NotFound("host", c.Via))
-			}
-			sc, err := sshx.Dial(dctx, st, h, sshOpts(st))
-			if err != nil {
-				return fail(err)
-			}
-			defer sc.Close()
-			nc, err = sc.DialContext(dctx, "tcp", t.Address)
-			if err != nil {
-				return fail(unreachable(c, t, err))
-			}
-		} else {
-			var d net.Dialer
-			nc, err = d.DialContext(dctx, "tcp", t.Address)
-			if err != nil {
-				return fail(unreachable(c, t, err))
-			}
+		dial := a.Dial
+		if dial == nil {
+			dial = (&net.Dialer{}).DialContext
+		}
+		nc, err := dial(dctx, "tcp", a.Target.Address)
+		if err != nil {
+			return fail(unreachable(c, a.Target, err))
 		}
 		nc.Close()
 	}

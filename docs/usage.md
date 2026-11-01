@@ -14,6 +14,7 @@ A task-by-task guide. New here? Start with the [README](../README.md).
 - [Reach private servers (tunnels)](#reach-private-servers-tunnels)
 - [Databases (conns)](#databases-conns)
 - [Query a database](#query-a-database)
+- [Caches (Redis)](#caches-redis)
 - [Network checks](#network-checks)
 - [Users and scheduled jobs](#users-and-scheduled-jobs)
 - [Saved commands (snippets)](#saved-commands-snippets)
@@ -280,7 +281,7 @@ Seatbelts:
 - A protected conn also needs `--yes` for `--write`.
 - Destructive SQL needs `--allow-dangerous`: `DROP`, `TRUNCATE`, `DELETE` or
   `UPDATE` without `WHERE`, privilege changes, and a few more
-  (`komando policy list` shows them; `komando policy check --sql postgres "..."`
+  (`komando policy list` shows them; `komando policy check --for postgres "..."`
   tests a query).
 - `BEGIN`/`COMMIT` are refused: komando runs everything in one transaction.
 - A few statements cannot be rolled back (`VACUUM`, `CREATE INDEX
@@ -314,6 +315,32 @@ komando db restore staging-db --from prod-2026-11-02.sql.gz --write --allow-dang
 - SQLite: `dump` copies the database file (`--to backup.db`). To restore,
   stop the app and copy the file back.
 - Big databases take time: there is no timeout unless you pass `--timeout`.
+
+## Caches (Redis)
+
+`komando cache` works with Redis and compatible caches (Valkey, KeyDB,
+Dragonfly) added with `komando conn add`.
+
+```bash
+komando cache info cache                      # version, memory, clients
+komando cache keys cache 'session:*'          # list keys (safe on big caches)
+komando cache get cache session:42            # any type: value, type, time to live
+komando cache set cache maintenance on --ttl 30m
+komando cache del cache session:42
+```
+
+Anything else goes through `cache run`. **It only reads unless you add
+`--write`:**
+
+```bash
+komando cache run cache -- HGETALL user:42
+komando cache run cache --write -- EXPIRE session:42 3600
+```
+
+Commands that wipe, block or reconfigure the server (`FLUSHALL`, `KEYS`,
+`CONFIG SET`, `SHUTDOWN`, ...) also need `--allow-dangerous`. A protected
+conn needs `--yes` for every change. Redis cannot undo, so `--dry-run` only
+shows that a change would be allowed; nothing is sent.
 
 ## Network checks
 
