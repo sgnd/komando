@@ -119,6 +119,7 @@ Lalu cukup minta: *"Kenapa web1 lambat?"*, *"Update semua server"*,
 |-------|----------|
 | Melihat dan mengecek semuanya sekaligus (server dan conn) | `list`, `test` |
 | Menyimpan daftar server dan cara login | `host`, `group`, `key`, `secret` |
+| Membawa yang sudah ada (ssh config, .pgpass, my.cnf, .env) atau pindah komputer | `import`, `export` |
 | Menjalankan perintah di satu atau banyak server | `exec`, `script`, `job` (tugas lama) |
 | Membaca, mengubah, dan menyalin file | `fs`, `upload`, `download` |
 | Cek kesehatan (39 pemeriksaan siap pakai) | `facts`, `recipe` |

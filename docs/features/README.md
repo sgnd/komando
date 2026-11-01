@@ -6,6 +6,7 @@ One page per feature, task by task. New here? Start with the
 | Feature | What you can do | Commands |
 |---------|-----------------|----------|
 | [Servers](servers.md) | add servers, log in with keys or passwords | `host`, `key`, `secret` |
+| [Moving in and moving computers](import.md) | import ssh config, .pgpass, my.cnf, .env; export to another computer | `import`, `export` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |
 | [Running commands](commands.md) | run commands and scripts, long tasks, saved commands | `exec`, `script`, `job`, `recipe`, `shell` |
 | [Health and network checks](health.md) | what is this server, is it healthy, can it reach X | `facts`, `recipe`, `net` |

@@ -365,7 +365,7 @@ func hostImportCmd() *cobra.Command {
 	var overwrite bool
 	c := &cobra.Command{
 		Use:   "import",
-		Short: "Import hosts from ~/.ssh/config or a komando JSON export",
+		Short: "Same as `komando import ssh-config` (hosts only)",
 		Example: `  komando host import --ssh-config ~/.ssh/config --group imported
   komando host import --json fleet.json --overwrite`,
 		Args: cobra.NoArgs,
@@ -594,7 +594,7 @@ func hostExportCmd() *cobra.Command {
 	var target string
 	c := &cobra.Command{
 		Use:   "export",
-		Short: "Export hosts as JSON (re-importable with `host import --json`)",
+		Short: "Hosts only, as JSON for `host import --json` (`komando export` saves everything)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			st, err := loadState()

@@ -171,7 +171,7 @@ Start here:  komando guide      (agent playbook)
 			root.AddCommand(c)
 		}
 	}
-	add("inv", listCmd(), testCmd(), hostCmd(), connCmd(), groupCmd(), keyCmd(), secretCmd())
+	add("inv", listCmd(), testCmd(), importCmd(), exportCmd(), hostCmd(), connCmd(), groupCmd(), keyCmd(), secretCmd())
 	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), tunnelCmd(), shellCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), storageCmd())
 	add("ops", factsCmd(), svcCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd())

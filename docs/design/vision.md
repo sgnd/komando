@@ -45,7 +45,7 @@ Per commit `39d2e68` (± 11.500 baris Go, biner 26 MB):
 | `storage` (S3: ls/get/put/rm/link) | ✅ selesai |
 | Cluster, registry, ftp, VPN, secret backend eksternal | ❌ belum ada |
 | Satu inventaris: selector universal, `komando list`, `komando test` | ✅ selesai |
-| Migrasi | ⚠️ baru `host import` (`~/.ssh/config`, JSON) |
+| Migrasi | ✅ `import` (ssh-config, pgpass, mycnf, env, komando) dan `export` |
 
 **Kekuatan.** Fondasinya sudah benar untuk tujuan universal. Kontrak output,
 exit code, guard berbasis risiko (`read`/`write`/`destructive`), `--via HOST`

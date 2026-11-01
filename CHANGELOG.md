@@ -19,6 +19,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - `host list/test` and `conn list/test` are `komando list/test` limited to
   servers or conns (new selector `kind:conn`); `svc logs` and `docker logs`
   are `komando logs` with `--unit` or `--container`.
+- `komando import SOURCE` brings in `ssh-config`, `pgpass`, `mycnf`, `env`
+  (.env URLs) and `komando` export files; passwords go to the vault, re-imports
+  change nothing, and what cannot be imported is listed. `komando export`
+  saves servers, conns and recipes (no passwords) to move computers.
 - `komando tunnel start CONN` opens a local port to a conn through its
   `--via` path, for apps like TablePlus or psql (`--port` to choose it).
 

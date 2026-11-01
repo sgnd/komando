@@ -11,6 +11,7 @@ to be explicit. Branch on `ok`, `error.code` and the process exit code.
 komando list                          # servers and conns: name, kind, where, groups, protected
 komando group list                    # groups/tags -> members (servers and conns)
 komando test all                      # what is reachable; which user, passwordless sudo?
+komando import ssh-config --dry-run   # (with the human) bring in existing servers and databases
 komando facts <target>                # OS, package manager, tools, CPU/mem/disk, load
 komando schema --compact              # every command (use `komando schema <cmd>` for flags)
 ```

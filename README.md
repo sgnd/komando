@@ -116,6 +116,7 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 |------|----------|
 | See and check everything at once (servers and conns) | `list`, `test` |
 | Keep a list of servers and how to log in | `host`, `group`, `key`, `secret` |
+| Bring in what you have (ssh config, .pgpass, my.cnf, .env) or move computers | `import`, `export` |
 | Run commands on one or many servers | `exec`, `script`, `job` (long tasks) |
 | Read, edit and copy files | `fs`, `upload`, `download` |
 | Check health (39 ready-made checks) | `facts`, `recipe` |
