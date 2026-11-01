@@ -102,7 +102,7 @@ func dbExplainCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			c, err := singleConn(st, args[0])
+			c, err := singleConn(st, args[0], "sql")
 			if err != nil {
 				return err
 			}
@@ -146,7 +146,7 @@ func dbSchemaCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			c, err := singleConn(st, args[0])
+			c, err := singleConn(st, args[0], "sql")
 			if err != nil {
 				return err
 			}
@@ -226,14 +226,22 @@ func qualified(t dbx.Table) string {
 	return t.Schema + "." + t.Name
 }
 
-// singleConn resolves a selector that must match exactly one conn.
-func singleConn(st *store.State, expr string) (*store.Conn, error) {
+// singleConn resolves a selector that must match exactly one conn of the
+// given family (sql, redis, s3).
+func singleConn(st *store.State, expr, family string) (*store.Conn, error) {
 	cs, err := resolveConns(st, expr)
 	if err != nil {
 		return nil, err
 	}
 	if len(cs) != 1 {
 		return nil, out.Usage("target %q matched %d conns; this command needs exactly one", expr, len(cs))
+	}
+	t, err := driver.Parse(cs[0].URL)
+	if err != nil {
+		return nil, err
+	}
+	if err := t.Need(family); err != nil {
+		return nil, err
 	}
 	return cs[0], nil
 }
@@ -363,7 +371,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr)
+	c, err := singleConn(st, connExpr, "sql")
 	if err != nil {
 		return err
 	}

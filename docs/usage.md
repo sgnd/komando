@@ -206,14 +206,20 @@ komando tunnel stop --all
 
 ## Databases (conns)
 
-A **conn** is a database komando knows about, the way a host is a server
-you know about. The kind comes from the start of the URL:
+A **conn** is a database, cache or storage bucket komando knows about, the
+way a host is a server you know about. The kind comes from the start of the
+URL:
 
 | Kind       | URL example |
 |------------|-------------|
 | PostgreSQL | `postgres://app@10.0.0.5:5432/app?sslmode=require` |
 | MySQL / MariaDB | `mysql://shop@db.internal:3306/shop?tls=true` |
 | SQLite     | `sqlite:///var/lib/app.db` (a file on this computer) |
+| Redis / Valkey | `redis://default@cache.internal:6379/0` (`rediss://` for TLS) |
+| S3 and compatible (MinIO, R2, Wasabi, ...) | `s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1` |
+
+For S3 the user part is the access key ID; the secret key goes in the vault
+like a password (`--password-ref secret:NAME`). Leave out `endpoint` for AWS.
 
 Run `komando conn kinds` to see them all.
 

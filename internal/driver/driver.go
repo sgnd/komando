@@ -1,5 +1,6 @@
 // Package driver describes the kinds of non-SSH resources komando can talk
-// to (databases first) and the risk levels its safety checks work with.
+// to (databases, caches, object storage) and the risk levels its safety
+// checks work with.
 package driver
 
 import (
@@ -47,19 +48,31 @@ type Verdict struct {
 // Kind is a resource type komando knows.
 type Kind struct {
 	Name        string   `json:"name"`
+	Family      string   `json:"family"` // sql | redis | s3: which commands work with it
 	Schemes     []string `json:"schemes"`
 	DefaultPort int      `json:"default_port,omitempty"`
 	File        bool     `json:"file,omitempty"` // a local file, not a network service
+	Example     string   `json:"example"`
 }
+
+// Families name the command for each family, for hints.
+var Families = map[string]string{"sql": "db", "redis": "cache", "s3": "s3"}
 
 var kinds = map[string]Kind{}
 
 func register(k Kind) { kinds[k.Name] = k }
 
 func init() {
-	register(Kind{Name: "postgres", Schemes: []string{"postgres", "postgresql"}, DefaultPort: 5432})
-	register(Kind{Name: "mysql", Schemes: []string{"mysql"}, DefaultPort: 3306})
-	register(Kind{Name: "sqlite", Schemes: []string{"sqlite", "sqlite3"}, File: true})
+	register(Kind{Name: "postgres", Family: "sql", Schemes: []string{"postgres", "postgresql"}, DefaultPort: 5432,
+		Example: "postgres://app@10.0.0.5:5432/app?sslmode=require"})
+	register(Kind{Name: "mysql", Family: "sql", Schemes: []string{"mysql", "mariadb"}, DefaultPort: 3306,
+		Example: "mysql://shop@db.internal:3306/shop?tls=true"})
+	register(Kind{Name: "sqlite", Family: "sql", Schemes: []string{"sqlite", "sqlite3"}, File: true,
+		Example: "sqlite:///var/lib/app.db"})
+	register(Kind{Name: "redis", Family: "redis", Schemes: []string{"redis", "rediss"}, DefaultPort: 6379,
+		Example: "rediss://default@cache.internal:6379/0 (rediss = TLS)"})
+	register(Kind{Name: "s3", Family: "s3", Schemes: []string{"s3"},
+		Example: "s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1"})
 }
 
 // Kinds lists the known kinds, sorted by name.
@@ -83,22 +96,29 @@ func kindNames() string {
 // Target is a parsed conn URL.
 type Target struct {
 	Kind     Kind   `json:"kind"`
-	Address  string `json:"address,omitempty"` // host:port for network kinds
-	Path     string `json:"path,omitempty"`    // file path for file kinds
-	User     string `json:"user,omitempty"`
-	Database string `json:"database,omitempty"`
+	Address  string `json:"address,omitempty"`  // host:port for network kinds (s3: the endpoint)
+	Path     string `json:"path,omitempty"`     // file path for file kinds
+	User     string `json:"user,omitempty"`     // s3: the access key ID (not secret)
+	Database string `json:"database,omitempty"` // SQL database name, or redis DB number
+	Bucket   string `json:"bucket,omitempty"`   // s3
+	Prefix   string `json:"prefix,omitempty"`   // s3: keys are relative to this
+	Region   string `json:"region,omitempty"`   // s3
+	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
 }
 
 // Where is the address or path, for display.
 func (t Target) Where() string {
-	if t.Kind.File {
+	switch {
+	case t.Kind.File:
 		return t.Path
+	case t.Bucket != "":
+		return strings.TrimSuffix(t.Bucket+"/"+t.Prefix, "/") + " @ " + t.Address
 	}
 	return t.Address
 }
 
-// passwordParams are query parameters that would carry a password.
-var passwordParams = []string{"password", "pass", "pwd", "sslpassword"}
+// passwordParams are query parameters that would carry a password or key.
+var passwordParams = []string{"password", "pass", "pwd", "sslpassword", "secret", "secret_key", "secretkey", "aws_secret_access_key"}
 
 // Parse reads a conn URL such as postgres://app@db.internal:5432/app or
 // sqlite:///var/lib/app.db. The kind comes from the scheme. URLs that carry
@@ -126,6 +146,9 @@ func Parse(raw string) (Target, error) {
 			"conn URLs must not contain a password")
 	}
 	t := Target{Kind: k}
+	if k.Name == "s3" {
+		return parseS3(u, t)
+	}
 	if k.File {
 		t.Path = u.Opaque
 		if t.Path == "" {
@@ -148,7 +171,65 @@ func Parse(raw string) (Target, error) {
 	t.Address = net.JoinHostPort(u.Hostname(), strconv.Itoa(port))
 	t.User = u.User.Username()
 	t.Database = strings.TrimPrefix(u.Path, "/")
+	if k.Name == "redis" {
+		t.Secure = strings.EqualFold(u.Scheme, "rediss")
+		if t.Database == "" {
+			t.Database = "0"
+		}
+		if n, err := strconv.Atoi(t.Database); err != nil || n < 0 {
+			return Target{}, out.Usage("redis URL path must be a database number, e.g. redis://cache:6379/0")
+		}
+	}
 	return t, nil
+}
+
+// parseS3 reads s3://ACCESS_KEY_ID@bucket/prefix?endpoint=URL&region=R. The
+// endpoint defaults to AWS; any S3-compatible service (MinIO, R2, Wasabi,
+// Spaces) works with its own endpoint.
+func parseS3(u *url.URL, t Target) (Target, error) {
+	t.Bucket = u.Host
+	if t.Bucket == "" || strings.Contains(t.Bucket, ":") {
+		return Target{}, out.Usage("s3 URL needs a bucket: s3://ACCESS_KEY_ID@bucket/prefix?endpoint=https://...")
+	}
+	t.User = u.User.Username()
+	t.Prefix = strings.Trim(u.Path, "/")
+	if t.Prefix != "" {
+		t.Prefix += "/"
+	}
+	q := u.Query()
+	t.Region = q.Get("region")
+	endpoint := q.Get("endpoint")
+	if endpoint == "" {
+		endpoint = "https://s3.amazonaws.com"
+		if t.Region != "" {
+			endpoint = "https://s3." + t.Region + ".amazonaws.com"
+		}
+	}
+	e, err := url.Parse(endpoint)
+	if err != nil || e.Host == "" || (e.Scheme != "https" && e.Scheme != "http") {
+		return Target{}, out.Usage("s3 endpoint must be a URL like https://minio.internal:9000")
+	}
+	t.Secure = e.Scheme == "https"
+	port := e.Port()
+	if port == "" {
+		port = map[bool]string{true: "443", false: "80"}[t.Secure]
+	}
+	t.Address = net.JoinHostPort(e.Hostname(), port)
+	for k := range q {
+		if k != "endpoint" && k != "region" {
+			return Target{}, out.Usage("unknown s3 URL option %q (known: endpoint, region)", k)
+		}
+	}
+	return t, nil
+}
+
+// Need checks that t belongs to family, with a hint naming the right command.
+func (t Target) Need(family string) error {
+	if t.Kind.Family == family {
+		return nil
+	}
+	return out.Errf(out.ExitUsage, "WRONG_KIND", fmt.Sprintf("use `komando %s` for %s conns", Families[t.Kind.Family], t.Kind.Name),
+		"this command works with %s conns, not %s", family, t.Kind.Name)
 }
 
 func hasPasswordParam(q url.Values) bool {
@@ -164,6 +245,9 @@ func hasPasswordParam(q url.Values) bool {
 
 // Describe is a short human label, e.g. "postgres app@db.internal:5432/app".
 func (t Target) Describe() string {
+	if t.Bucket != "" {
+		return t.Kind.Name + " " + t.Where()
+	}
 	if t.Kind.File {
 		return fmt.Sprintf("%s %s", t.Kind.Name, t.Path)
 	}

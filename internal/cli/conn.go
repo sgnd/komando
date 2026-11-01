@@ -83,9 +83,9 @@ func connCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "conn",
 		Aliases: []string{"conns"},
-		Short:   "Manage non-SSH resources such as databases (add, edit, test)",
-		Long: `A conn is a database (or other service) komando talks to directly. The kind
-comes from the URL scheme. Passwords never go in the URL: store them with
+		Short:   "Manage databases, caches and storage buckets (add, edit, test)",
+		Long: `A conn is a database, cache or storage bucket komando talks to directly. The
+kind comes from the URL scheme (` + "`komando conn kinds`" + ` lists them). Passwords never go in the URL: store them with
 ` + "`komando secret set`" + ` and pass --password-ref. Use --via HOST when the
 resource is only reachable from a server.
 
@@ -103,7 +103,9 @@ func connAddCmd() *cobra.Command {
 		Short: "Add a conn (kind is taken from the URL scheme)",
 		Example: `  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected
   komando conn add shop mysql://shop@db.internal/shop --group shop
-  komando conn add local sqlite:///var/lib/app.db`,
+  komando conn add local sqlite:///var/lib/app.db
+  komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:redis-pass
+  komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:s3-secret`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -373,10 +375,25 @@ func connKindsCmd() *cobra.Command {
 		Short: "List the resource kinds komando knows and their URL schemes",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			out.P.Print("conn.kinds", map[string]any{"kinds": driver.Kinds()}, nil)
+			out.P.Print("conn.kinds", kindList{Kinds: driver.Kinds()}, nil)
 			return nil
 		},
 	}
+}
+
+type kindList struct {
+	Kinds []driver.Kind `json:"kinds"`
+}
+
+func (l kindList) Text() string {
+	var sb strings.Builder
+	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
+	fmt.Fprintln(tw, "KIND\tCOMMANDS\tURL EXAMPLE")
+	for _, k := range l.Kinds {
+		fmt.Fprintf(tw, "%s\tkomando %s\t%s\n", k.Name, driver.Families[k.Family], k.Example)
+	}
+	tw.Flush()
+	return sb.String()
 }
 
 // --- connectivity ----------------------------------------------------------
