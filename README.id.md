@@ -134,7 +134,7 @@ Berikutnya: cluster (Kubernetes, k3s, Swarm), container
 registry, FTP, dan impor konfigurasi yang sudah Anda punya (kubeconfig,
 `.pgpass`, profil AWS, ...). Lihat [roadmap](docs/design/vision.md).
 
-Panduan lengkap per tugas: **[docs/usage.md](docs/usage.md)** (bahasa Inggris
+Panduan lengkap per tugas, satu halaman per fitur: **[docs/features](docs/features/README.md)** (bahasa Inggris
 sederhana). Bantuan untuk perintah apa pun: `komando <perintah> --help`.
 
 ## Keamanan, dalam satu menit

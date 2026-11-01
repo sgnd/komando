@@ -217,10 +217,54 @@ dijalankan berikutnya).
 - `komando` tanpa argumen: tiga langkah pertama, bukan dinding teks.
 - Setiap perintah punya minimal satu contoh nyata di `--help`.
 - Completion shell melengkapi nama host, conn, grup, dan tag dari inventaris.
-- `komando guide` (untuk agent) dan `docs/usage.md` (untuk manusia) selalu
+- `komando guide` (untuk agent) dan `docs/features/` (untuk manusia, satu file per fitur) selalu
   diperbarui di commit yang sama dengan fiturnya.
 - Perubahan nama perintah atau flag: yang lama tetap jalan sebagai alias
   selama satu rilis minor, dengan peringatan di stderr, lalu dihapus.
+
+## 11. Tidak ada fitur yang tumpang tindih
+
+Keputusan pemilik (2026-11-02). **Satu kebutuhan, satu perintah.** Sebelum
+menambah perintah atau flag, cek dulu apakah sudah ada yang melakukannya.
+Kalau sudah ada, perluas yang lama. Jangan buat yang baru.
+
+- Satu konsep punya satu nama di semua area (mis. jalur = `--via`, bukan
+  `--via` di sini dan `--jump` di sana).
+- Versi "per area" dari perintah umum hanya boleh ada sebagai **alias** yang
+  memanggil perintah umum. Tidak boleh ada dua implementasi.
+- Yang berbeda karena **skala** (satu item vs banyak sekaligus) boleh ada,
+  tapi keduanya memakai kode yang sama.
+
+Tumpang tindih yang ada sekarang, dan keputusannya:
+
+| Sekarang | Keputusan |
+|---|---|
+| `host --jump` dan `conn --via` | `--via` untuk semua; `--jump` jadi alias ([network.md](network.md)) |
+| `host test`, `conn test`, `test` | `test` saja; `host test`/`conn test` jadi alias untuk `test` |
+| `host list`, `conn list`, `list` | `list` saja; `host list`/`conn list` jadi alias untuk `list kind:host` / `list kind:conn` |
+| `svc logs`, `docker logs`, `logs --unit/--container` | `logs` saja; `svc logs` dan `docker logs` jadi alias |
+| `ops run` (resep bawaan) dan `snippet run` (resep sendiri) | satu `snippet`: resep bawaan adalah snippet bawaan yang tidak bisa diubah; `ops` jadi alias |
+| `cp` (server) dan `storage upload/download` | satu pasang kata kerja `upload`/`download` untuk semua target yang menyimpan file (server lewat SFTP, storage, nanti FTP); `cp` jadi alias |
+| `group add/rm` dan `edit --add-group/--rm-group` | tetap keduanya (banyak vs satu), kode yang sama |
+
+## 12. Semua fitur CLI asli bisa dipakai
+
+Keputusan pemilik (2026-11-02): komando harus sekuat alat aslinya. Caranya
+bukan menyalin semua fitur alat itu, tapi tiga jalur yang sama di semua area:
+
+1. **Perintah yang dipahami** (`db schema`, `cache get`, `storage ls`): output
+   terstruktur, aman, mudah dipakai. Untuk 80% pekerjaan harian.
+2. **Jalur mentah dengan bahasa aslinya**, tetap diklasifikasi, read-only
+   default, dan diaudit: `exec` (shell), `db query` (SQL apa pun), `cache run`
+   (perintah Redis apa pun), nanti `cluster run -- <argumen kubectl>`. Apa pun
+   yang bisa dilakukan alat aslinya bisa dilakukan lewat sini.
+3. **Alat asli di laptop, lewat jalur komando**: `komando tunnel start
+   app-db` memberi port lokal untuk TablePlus/`psql`, dan `komando shell`
+   untuk SSH interaktif. Nanti `komando db shell app-db` membuka `psql`/`mysql`
+   dengan password dari vault dan jalur `--via`, tanpa password di layar.
+
+Jalur 2 dan 3 tidak dihitung tumpang tindih dengan jalur 1: itu pintu darurat
+yang sengaja ada, dengan pengaman yang sama.
 
 ## Daftar edge case
 

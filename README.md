@@ -132,7 +132,7 @@ container registries, FTP, and importing what you already have (kubeconfig,
 `.pgpass`, AWS profiles, ...). See the
 [roadmap](docs/design/vision.md) (in Bahasa Indonesia).
 
-Every task, step by step: **[docs/usage.md](docs/usage.md)**.
+Every task, step by step, one page per feature: **[docs/features](docs/features/README.md)**.
 Help for any command: `komando <command> --help`.
 
 ## Safety, in one minute
@@ -161,7 +161,7 @@ Help for any command: `komando <command> --help`.
 | sudo | Running a command as the administrator. |
 | JSON | Structured text that programs read easily. |
 
-More in the [glossary](docs/usage.md#glossary).
+More in the [glossary](docs/features/glossary.md).
 
 ## Contributing
 

@@ -56,7 +56,7 @@ Bigger features start as a design note in [`docs/design/`](docs/design/)
 - `gofmt` and `go vet` must pass (`make lint`).
 - Keep dependencies minimal; komando is a single static binary.
 - Keep it simple. Prefer a small, obvious solution over a clever one.
-- Write for beginners. New features go in [`docs/usage.md`](docs/usage.md);
+- Write for beginners. New features get their own page in [`docs/features/`](docs/features/README.md);
   only the most important ones also get a line in `README.md` and `README.id.md`.
 
 ## Releasing (maintainers)
