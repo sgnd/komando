@@ -42,6 +42,13 @@ services:
     privileged: true
     tmpfs: ["/run", "/var/run"]
     networks: [private, public]  # k3s needs a default route; no port is published, so it is still reached through bastion
+  sftp:
+    image: atmoz/sftp:alpine
+    command: ["deploy:deploypass:::uploads"]
+    networks: [private]
+  ftps:
+    build: ftps
+    networks: [private]
 networks:
   public: {}
   private: { internal: true }

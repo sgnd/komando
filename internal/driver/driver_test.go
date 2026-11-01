@@ -78,6 +78,33 @@ func TestParseRedisAndS3(t *testing.T) {
 	}
 }
 
+func TestParseFileStores(t *testing.T) {
+	cases := []struct{ in, kind, addr, prefix string }{
+		{"ftps://deploy@files.example.com/public_html", "ftps", "files.example.com:21", "public_html/"},
+		{"ftps://deploy@files.example.com:2121/?tls=skip-verify", "ftps", "files.example.com:2121", ""},
+		{"ftp://deploy@10.0.0.9/www?insecure=1", "ftp", "10.0.0.9:21", "www/"},
+		{"sftp://deploy@files.example.com/uploads/in", "sftp", "files.example.com:22", "uploads/in/"},
+	}
+	for _, c := range cases {
+		tg, err := Parse(c.in)
+		if err != nil || tg.Kind.Name != c.kind || tg.Kind.Family != "storage" || tg.Address != c.addr || tg.Prefix != c.prefix || tg.User != "deploy" {
+			t.Errorf("%s: %+v %v", c.in, tg, err)
+		}
+	}
+	for in, code := range map[string]string{
+		"ftp://deploy@files.example.com/www":        "INSECURE_PROTOCOL",
+		"ftps://files.example.com/":                 "USAGE",
+		"sftp://deploy:pw@files.example.com/":       "URL_HAS_PASSWORD",
+		"ftps://deploy@files.example.com/?tls=nope": "USAGE",
+		"sftp://deploy@files.example.com/?x=1":      "USAGE",
+	} {
+		_, err := Parse(in)
+		if e, ok := err.(*out.Error); !ok || e.Code != code {
+			t.Errorf("%s: want %s, got %v", in, code, err)
+		}
+	}
+}
+
 func TestRiskJSON(t *testing.T) {
 	b, _ := json.Marshal(Verdict{Risk: RiskDestructive})
 	if string(b) != `{"risk":"destructive"}` {

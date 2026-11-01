@@ -49,6 +49,15 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   (HashiCorp Vault), `aws-sm:NAME[#KEY]` (AWS Secrets Manager) and
   `gcp-sm:NAME[@PROJECT]` (Google Secret Manager). komando runs that tool's
   CLI when it needs the value and never stores it.
+### File servers in storage (v0.7)
+
+- `komando storage` also works with FTPS (`ftps://`, TLS on control and data
+  connections), SFTP (`sftp://`, for shell-less accounts; host keys checked
+  like SSH hosts) and FTP (`ftp://`, refused without `?insecure=1` because
+  it sends the password unencrypted). ls, download, upload and rm behave as
+  for buckets; uploads go to a temporary name and are renamed into place,
+  creating missing folders; keys cannot leave the conn's folder. All of it
+  works through `--via` bastions and VPNs.
 
 ### Container registries (v0.6)
 

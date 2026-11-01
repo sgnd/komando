@@ -16,7 +16,7 @@ One page per feature, task by task. New here? Start with the
 | [VPNs](vpn.md) | reach targets through WireGuard, SOCKS or your own VPN, several at once | `vpn`, `--via` |
 | [Databases](databases.md) | query, back up and restore PostgreSQL, MySQL, SQLite | `conn`, `db` |
 | [Caches](caches.md) | read and change Redis and Valkey | `cache` |
-| [Object storage](storage.md) | browse, download and upload S3 and compatibles | `storage`, `upload`, `download` |
+| [Storage](storage.md) | browse, download and upload files in S3 buckets and on FTPS/SFTP/FTP servers | `storage`, `upload`, `download` |
 | [Clusters](cluster.md) | Kubernetes and Docker Swarm: status, list, logs, apply, restart, scale | `cluster` |
 | [Container registries](registry.md) | list repositories and tags, inspect images, delete old ones | `registry` |
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit` |

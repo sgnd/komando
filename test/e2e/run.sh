@@ -158,6 +158,19 @@ check "storage ls via bastion" 2026/obj.txt "$($K storage ls bucket --recursive 
 q $K storage download bucket 2026/obj.txt --to "$TMP/obj-back.txt"
 check "storage round trip" backup-data "$(cat "$TMP/obj-back.txt")"
 
+# file servers through the bastion: SFTP (shell-less account) and FTPS (TLS required)
+echo -n deploypass | $K secret set files-pass >/dev/null
+q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref secret:files-pass
+q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref secret:files-pass
+for c in files-sftp files-ftps; do
+  q $K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt
+  check "$c upload creates folders" 2026/11/obj.txt "$($K storage ls "$c" --recursive | jget '[o["key"] for o in d["data"]["objects"] if not o.get("dir")][0]')"
+  check "$c upload replaces" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["data"]["replaced"]')"
+  q $K storage download "$c" 2026/11/obj.txt --to "$TMP/$c.txt"
+  check "$c round trip" backup-data "$(cat "$TMP/$c.txt")"
+  set +e; $K storage rm "$c" 2026/11/obj.txt >/dev/null; check "$c rm needs --allow-dangerous" 6 $?; set -e
+done
+
 # one inventory: targets pick servers and conns together
 echo "==> servers and conns together"
 q $K group add stack 'bastion,pg,cache'

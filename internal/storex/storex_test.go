@@ -11,7 +11,8 @@ func TestKeyStaysInsidePrefix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := Open(tg, "secret", nil, 0)
+	b, err := OpenS3(tg, "secret", nil, 0)
+	s := b.(*s3Bucket)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,7 @@
-// Package storex talks to S3-compatible object storage (AWS S3, MinIO,
-// Cloudflare R2, Wasabi, DigitalOcean Spaces, Backblaze B2). Keys are
-// relative to the conn's prefix, so a conn can be limited to one folder.
+// Package storex gives `komando storage` one interface over S3-compatible
+// object storage (AWS S3, MinIO, R2, Wasabi, Spaces, B2), FTP/FTPS and
+// SFTP. Keys are relative to the conn's folder, so a conn can be limited to
+// one folder, and no key may leave it.
 package storex
 
 import (
@@ -24,8 +25,38 @@ import (
 // DialFunc opens a TCP connection, possibly through an SSH host.
 type DialFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 
-// Store is one bucket (and prefix) of a conn.
-type Store struct {
+// Bucket is one storage conn: a bucket or a folder on a file server.
+type Bucket interface {
+	// List returns entries under prefix: one level, or everything with
+	// recursive. more is true when limit was hit.
+	List(ctx context.Context, prefix string, recursive bool, limit int) (objs []Object, more bool, err error)
+	Get(ctx context.Context, key string, w io.Writer) (int64, error)
+	Exists(ctx context.Context, key string) (bool, error)
+	// Put stores r at key, replacing any old object; size is -1 if unknown.
+	Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error
+	Remove(ctx context.Context, key string) error
+	// Link makes a temporary download URL; file servers have none.
+	Link(ctx context.Context, key string, expires time.Duration) (*url.URL, error)
+	Close() error
+}
+
+// keyIn joins a key relative to the conn with the conn's folder, refusing
+// keys that try to leave it.
+func keyIn(prefix, rel string) (string, error) {
+	rel = strings.TrimPrefix(rel, "/")
+	if rel == "" {
+		return "", out.Usage("empty key")
+	}
+	for _, part := range strings.Split(rel, "/") {
+		if part == ".." {
+			return "", out.Usage("key %q leaves the conn's folder", rel)
+		}
+	}
+	return prefix + rel, nil
+}
+
+// s3Bucket is a bucket (and prefix) on S3-compatible storage.
+type s3Bucket struct {
 	c      *minio.Client
 	bucket string
 	prefix string
@@ -36,8 +67,8 @@ func init() {
 	minio.MaxRetry = 2
 }
 
-// Open prepares a client; it does not contact the server.
-func Open(t driver.Target, secret string, dial DialFunc, timeout time.Duration) (*Store, error) {
+// OpenS3 prepares a client; it does not contact the server.
+func OpenS3(t driver.Target, secret string, dial DialFunc, timeout time.Duration) (Bucket, error) {
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.ResponseHeaderTimeout = timeout
 	if dial != nil {
@@ -53,25 +84,14 @@ func Open(t driver.Target, secret string, dial DialFunc, timeout time.Duration) 
 	if err != nil {
 		return nil, out.Usage("invalid storage settings: %v", err)
 	}
-	return &Store{c: c, bucket: t.Bucket, prefix: t.Prefix}, nil
+	return &s3Bucket{c: c, bucket: t.Bucket, prefix: t.Prefix}, nil
 }
 
-// Key turns a key relative to the conn into the full object key. It
-// refuses keys that try to leave the conn's prefix.
-func (s *Store) Key(rel string) (string, error) {
-	rel = strings.TrimPrefix(rel, "/")
-	if rel == "" {
-		return "", out.Usage("empty key")
-	}
-	for _, part := range strings.Split(rel, "/") {
-		if part == ".." {
-			return "", out.Usage("key %q leaves the conn's folder", rel)
-		}
-	}
-	return s.prefix + rel, nil
-}
+func (s *s3Bucket) Key(rel string) (string, error) { return keyIn(s.prefix, rel) }
 
-func (s *Store) rel(full string) string { return strings.TrimPrefix(full, s.prefix) }
+func (s *s3Bucket) rel(full string) string { return strings.TrimPrefix(full, s.prefix) }
+
+func (s *s3Bucket) Close() error { return nil }
 
 // Object is one listed object (or, with Dir, a folder).
 type Object struct {
@@ -83,7 +103,7 @@ type Object struct {
 
 // List returns objects under prefix. Without recursive it lists one level
 // and returns sub-folders as Dir entries. more is true when the limit was hit.
-func (s *Store) List(ctx context.Context, prefix string, recursive bool, limit int) (objs []Object, more bool, err error) {
+func (s *s3Bucket) List(ctx context.Context, prefix string, recursive bool, limit int) (objs []Object, more bool, err error) {
 	full := s.prefix + strings.TrimPrefix(prefix, "/")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -105,7 +125,7 @@ func (s *Store) List(ctx context.Context, prefix string, recursive bool, limit i
 }
 
 // Get writes an object to w and returns its size.
-func (s *Store) Get(ctx context.Context, key string, w io.Writer) (int64, error) {
+func (s *s3Bucket) Get(ctx context.Context, key string, w io.Writer) (int64, error) {
 	full, err := s.Key(key)
 	if err != nil {
 		return 0, err
@@ -123,7 +143,7 @@ func (s *Store) Get(ctx context.Context, key string, w io.Writer) (int64, error)
 }
 
 // Exists reports whether key exists (to tell a new upload from a replace).
-func (s *Store) Exists(ctx context.Context, key string) (bool, error) {
+func (s *s3Bucket) Exists(ctx context.Context, key string) (bool, error) {
 	full, err := s.Key(key)
 	if err != nil {
 		return false, err
@@ -139,7 +159,7 @@ func (s *Store) Exists(ctx context.Context, key string) (bool, error) {
 }
 
 // Put uploads r (size bytes, -1 if unknown) to key.
-func (s *Store) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
+func (s *s3Bucket) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
 	full, err := s.Key(key)
 	if err != nil {
 		return err
@@ -149,7 +169,7 @@ func (s *Store) Put(ctx context.Context, key string, r io.Reader, size int64, co
 }
 
 // Remove deletes one object. Deleting a missing key is not an error in S3.
-func (s *Store) Remove(ctx context.Context, key string) error {
+func (s *s3Bucket) Remove(ctx context.Context, key string) error {
 	full, err := s.Key(key)
 	if err != nil {
 		return err
@@ -158,7 +178,7 @@ func (s *Store) Remove(ctx context.Context, key string) error {
 }
 
 // Link makes a temporary download URL that works without credentials.
-func (s *Store) Link(ctx context.Context, key string, expires time.Duration) (*url.URL, error) {
+func (s *s3Bucket) Link(ctx context.Context, key string, expires time.Duration) (*url.URL, error) {
 	full, err := s.Key(key)
 	if err != nil {
 		return nil, err
