@@ -46,6 +46,7 @@ var importSources = []importSource{
 	{"pgpass", "~/.pgpass", "PostgreSQL databases and their passwords", importPgpass},
 	{"mycnf", "~/.my.cnf", "MySQL/MariaDB databases from [client] sections", importMycnf},
 	{"env", ".env", "database, cache and storage URLs (DATABASE_URL, REDIS_URL, ...)", importEnv},
+	{"kubeconfig", "~/.kube/config", "Kubernetes clusters, one conn per context", importKubeconfig},
 	{"komando", "", "a file made by `komando export` (moving to another computer)", importKomando},
 }
 

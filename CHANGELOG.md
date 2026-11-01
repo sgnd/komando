@@ -4,6 +4,18 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Clusters (v0.5)
+
+- `komando cluster` for Kubernetes (a k8s conn) and Docker Swarm (a manager
+  server) with the same verbs: `status`, `ls`, `get` (Secret values hidden),
+  `logs`, `apply` (server-side; `--dry-run` asks the server), `restart`,
+  `scale` (to 0 needs `--allow-dangerous`), `rm` (needs `--allow-dangerous`)
+  and `run` for any kubectl or docker command (read-only unless `--write`).
+  The Kubernetes API is called directly (no client-go), through `--via`
+  paths and VPNs; `cluster run` gives kubectl a private kubeconfig and a
+  local tunnel. `komando import kubeconfig` adds one conn per context and
+  keeps each context's credentials in the vault.
+
 ### VPNs (v0.4, first part)
 
 - `komando vpn add NAME wireguard|socks|system`. A VPN goes first in a

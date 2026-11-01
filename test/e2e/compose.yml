@@ -31,6 +31,12 @@ services:
   s3:
     build: garage
     networks: [private]
+  k3s:
+    image: rancher/k3s:v1.33.5-k3s1
+    command: ["server", "--tls-san", "k3s", "--disable", "traefik", "--disable", "metrics-server", "--disable", "servicelb"]
+    privileged: true
+    tmpfs: ["/run", "/var/run"]
+    networks: [private, public]  # k3s needs a default route; no port is published, so it is still reached through bastion
 networks:
   public: {}
   private: { internal: true }

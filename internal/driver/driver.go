@@ -48,7 +48,7 @@ type Verdict struct {
 // Kind is a resource type komando knows.
 type Kind struct {
 	Name        string   `json:"name"`
-	Family      string   `json:"family"` // the command that works with it: db | cache | storage
+	Family      string   `json:"family"` // the command that works with it: db | cache | storage | cluster
 	Schemes     []string `json:"schemes"`
 	DefaultPort int      `json:"default_port,omitempty"`
 	File        bool     `json:"file,omitempty"` // a local file, not a network service
@@ -68,6 +68,8 @@ func init() {
 		Example: "sqlite:///var/lib/app.db"})
 	register(Kind{Name: "redis", Family: "cache", Schemes: []string{"redis", "rediss"}, DefaultPort: 6379,
 		Example: "rediss://default@cache.internal:6379/0 (rediss = TLS)"})
+	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
+		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
 	register(Kind{Name: "s3", Family: "storage", Schemes: []string{"s3"},
 		Example: "s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1"})
 }

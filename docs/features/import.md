@@ -19,6 +19,7 @@ komando import env ./shop/.env --group shop   # DATABASE_URL, REDIS_URL, ... fro
 | `pgpass` | `~/.pgpass` | PostgreSQL conns |
 | `mycnf` | `~/.my.cnf` `[client]` sections | MySQL/MariaDB conns |
 | `env` | a `.env` file | a conn for each value that is a database, cache or storage URL |
+| `kubeconfig` | `~/.kube/config` | a Kubernetes conn per context |
 | `komando` | a file from `komando export` | servers, conns and recipes |
 
 - Passwords found in these files go to the vault as `<name>-pass`. They

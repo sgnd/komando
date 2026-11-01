@@ -129,6 +129,7 @@ Lalu cukup minta: *"Kenapa web1 lambat?"*, *"Update semua server"*,
 | Menyimpan daftar database, cache, dan storage | `conn` |
 | Query dan backup database (PostgreSQL, MySQL, SQLite) | `db` |
 | Membaca dan mengubah cache (Redis, Valkey) | `cache` |
+| Kubernetes dan Docker Swarm: status, log, apply, restart, scale | `cluster` |
 | Melihat, mengunduh, dan mengunggah file di object storage (S3, MinIO, R2, ...) | `storage`, `upload`, `download` |
 | Melihat riwayat dan aturan keamanan | `audit`, `policy` |
 

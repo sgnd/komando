@@ -176,6 +176,35 @@ TUN=$($K tunnel start pg | jget 'd["data"]["listen"]')
 check "tunnel to a conn by name" 0 "$(nc -z "${TUN%:*}" "${TUN##*:}"; echo $?)"
 q $K tunnel stop --all
 
+# Kubernetes (k3s on the private network, reached through the bastion)
+echo "==> cluster (k3s through the bastion)"
+for _ in $(seq 1 60); do docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T k3s kubectl get nodes 2>/dev/null | grep -q " Ready" && break; sleep 2; done
+docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T k3s cat /etc/rancher/k3s/k3s.yaml | sed 's#https://127.0.0.1:6443#https://k3s:6443#; s#: default$#: lab-k3s#' > "$TMP/kubeconfig"
+q $K import kubeconfig "$TMP/kubeconfig"
+q $K conn edit lab-k3s --via bastion
+check "cluster status through bastion" 1 "$($K cluster status lab-k3s | jget 'd["data"]["nodes_ready"]')"
+cat > "$TMP/app.yaml" <<'YAML'
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: web, namespace: default }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: web } }
+  template:
+    metadata: { labels: { app: web } }
+    spec: { containers: [ { name: web, image: "rancher/mirrored-pause:3.6" } ] }
+YAML
+check "apply --dry-run changes nothing" "K8S_NOT_FOUND" "$($K cluster apply lab-k3s --file "$TMP/app.yaml" --dry-run >/dev/null; $K cluster get lab-k3s deploy web | jget 'd["error"]["code"]' || true)"
+q $K cluster apply lab-k3s --file "$TMP/app.yaml"
+check "apply then list" web "$($K cluster ls lab-k3s deployments | jget 'd["data"]["items"][0]["name"]')"
+q $K cluster scale lab-k3s deployment/web 2
+check "scale" 2 "$($K cluster get lab-k3s deploy web | jget 'd["data"]["spec"]["replicas"]')"
+set +e; $K cluster scale lab-k3s deployment/web 0 >/dev/null; check "scale to 0 needs --allow-dangerous" 6 $?; set -e
+q $K cluster restart lab-k3s deployment/web
+set +e; $K cluster run lab-k3s -- delete deploy web >/dev/null; check "cluster run delete needs --write" 6 $?; set -e
+check "cluster run reads through bastion" True "$($K cluster run lab-k3s -- get deploy web -o name | jget '"deployment.apps/web" in d["data"]["stdout"]')"
+q $K cluster rm lab-k3s deployment web --allow-dangerous
+
 # VPNs: a SOCKS proxy (komando's own, through the bastion) and an OS VPN check
 echo "==> VPNs"
 q $K tunnel start bastion -D 127.0.0.1:18080

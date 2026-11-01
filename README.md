@@ -126,6 +126,7 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 | Keep a list of databases, caches and storage | `conn` |
 | Query and back up databases (PostgreSQL, MySQL, SQLite) | `db` |
 | Read and change caches (Redis, Valkey) | `cache` |
+| Kubernetes and Docker Swarm: status, logs, apply, restart, scale | `cluster` |
 | Browse, download and upload files in object storage (S3, MinIO, R2, ...) | `storage`, `upload`, `download` |
 | See history and safety rules | `audit`, `policy` |
 

@@ -88,6 +88,12 @@ Without `--write` the database itself refuses changes. `WRITE_REQUIRES_FLAG`
 run `psql`/`mysql` through `exec`: you lose the read-only guarantee,
 structured rows, and the password leaks into the server's process list.
 
+Clusters: `komando cluster status|ls|get|logs <conn>` read; `apply` (try
+`--dry-run`, the server checks it), `restart` and `scale` change; `rm` and
+scaling to 0 need `--allow-dangerous`. `komando cluster run <conn> -- <kubectl
+args>` for anything else (needs `--write` to change). Namespaces are
+`--namespace`.
+
 ## 6. Long-running work
 
 Anything that may exceed ~2 minutes (upgrades, backups, builds, migrations):
