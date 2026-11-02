@@ -1,7 +1,6 @@
 # Contributing to komando
 
-Thanks for helping! 🇮🇩 Kontribusi dalam Bahasa Indonesia juga sangat diterima —
-issue dan pull request boleh ditulis dalam Bahasa Indonesia atau English.
+Thanks for helping! Please write issues, pull requests and docs in English.
 
 ## Get started in 3 commands
 
@@ -53,17 +52,21 @@ Bigger features start as a design note in [`docs/design/`](docs/design/)
 
 ## Style
 
-- `gofmt` and `go vet` must pass (`make lint`).
+- `gofmt`, `go vet` and `staticcheck` must pass (`make lint`).
 - Keep dependencies minimal; komando is a single static binary.
 - Keep it simple. Prefer a small, obvious solution over a clever one.
 - Write for beginners. New features get their own page in [`docs/features/`](docs/features/README.md);
-  only the most important ones also get a line in `README.md` and `README.id.md`.
+  only the most important ones also get a line in `README.md`.
 
 ## Releasing (maintainers)
 
 1. Move the `Unreleased` notes in [`CHANGELOG.md`](CHANGELOG.md) under a new version.
 2. `git tag v0.2.0 && git push origin v0.2.0`
 3. GitHub Actions builds the binaries and publishes the release.
+
+## Code of conduct
+
+Be kind; see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Reporting security issues
 

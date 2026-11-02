@@ -3,6 +3,8 @@ BIN := bin/komando
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X github.com/sgnd/komando/internal/cli.Version=$(VERSION)
 
+STATICCHECK := v0.8.2
+
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
 .PHONY: help build install test e2e e2e-openvpn e2e-vpnclients lint dist clean
@@ -28,9 +30,10 @@ e2e-openvpn: ## OpenVPN-in-a-container test against a throwaway OpenVPN server
 e2e-vpnclients: ## openconnect (ocserv) and Tailscale (Headscale) VPN kinds against real servers, in Docker
 	test/e2e/vpnclients/run.sh
 
-lint: ## gofmt + go vet
+lint: ## gofmt + go vet + staticcheck
 	@test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)
 	go vet ./...
+	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK) ./...
 
 dist: ## Build release archives + checksums into ./dist
 	rm -rf dist && mkdir -p dist

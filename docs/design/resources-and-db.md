@@ -1,99 +1,99 @@
-# Rancangan: resource non-SSH dan `komando db`
+# Design: non-SSH resources and `komando db`
 
-Tujuan besar dan roadmap semua family ada di [vision.md](vision.md).
+The big goal and the roadmap for all families are in [vision.md](vision.md).
 
-Status: **Fase 1–5 selesai**: `komando conn`; `komando db` untuk PostgreSQL,
-MySQL dan SQLite (query, schema, explain, dump, restore, `audit_sql`);
-`komando cache` (Redis/Valkey); `komando storage` (S3, nama perintahnya
-`storage`, bukan `s3`). Tambahan keamanan dari review: aturan `sql-opaque`
-(DO/CALL/PREPARE/EXECUTE), `sql-remote` (dblink), penolakan komentar MySQL
-`/*! */` dan server dengan aturan string non-default, serta pemeriksaan file
-restore dari perintah klien. Rencana selanjutnya ada di [vision.md](vision.md).
+Status: **Phases 1–5 done**: `komando conn`; `komando db` for PostgreSQL,
+MySQL and SQLite (query, schema, explain, dump, restore, `audit_sql`);
+`komando cache` (Redis/Valkey); `komando storage` (S3, the command name is
+`storage`, not `s3`). Extra safety from review: the `sql-opaque` rule
+(DO/CALL/PREPARE/EXECUTE), `sql-remote` (dblink), refusing MySQL comments
+`/*! */` and servers with non-default string rules, and checking restore
+files for client commands. The next plans are in [vision.md](vision.md).
 
-Keputusan yang diambil saat Fase 2:
+Decisions made during Phase 2:
 
-- Output `db query` selalu `data.results[]`, satu entri per statement, supaya
-  bentuknya sama untuk satu atau banyak statement. Statement yang mengembalikan
-  baris punya `columns`, `rows` (boleh kosong) dan `row_count`; yang mengubah
-  baris punya `rows_affected`; DDL tidak punya keduanya.
-- Parameter memakai `--arg VALUE` berurutan (`$1`/`?`), bukan `--param k=v`,
-  karena itulah yang dipahami driver. Audit hanya mencatat jumlahnya.
-- Statement yang tidak dikenal (sering typo) tetap dikirim tanpa `--write`:
-  transaksi read-only yang menolaknya kalau ternyata menulis, dan pesan error
-  database lebih jelas untuk typo.
-- Statement yang tidak bisa di-rollback (`VACUUM`, `CREATE INDEX CONCURRENTLY`,
-  DDL MySQL) harus dikirim sendirian; dry-run hanya melaporkannya.
-- `--dry-run` tanpa `--write` tetap menjalankan query baca (tidak ada yang berubah).
-- SQLite: `--write` boleh membuat file baru; tanpa `--write` file dibuka
+- `db query` output is always `data.results[]`, one entry per statement, so
+  the shape is the same for one or many statements. Statements that return
+  rows have `columns`, `rows` (may be empty) and `row_count`; those that change
+  rows have `rows_affected`; DDL has neither.
+- Parameters use positional `--arg VALUE` (`$1`/`?`), not `--param k=v`,
+  because that is what the drivers understand. The audit only records how many there are.
+- Unknown statements (often typos) are still sent without `--write`:
+  the read-only transaction refuses them if they turn out to write, and the database
+  error message is clearer for typos.
+- Statements that cannot be rolled back (`VACUUM`, `CREATE INDEX CONCURRENTLY`,
+  MySQL DDL) must be sent alone; dry-run only reports them.
+- `--dry-run` without `--write` still runs read queries (nothing changes).
+- SQLite: `--write` may create a new file; without `--write` the file is opened
   `mode=ro` + `query_only`.
-- Timestamp selalu UTC; bilangan bulat > 2^53, NaN dan Infinity jadi string.
+- Timestamps are always UTC; integers > 2^53, NaN and Infinity become strings.
 
-Keputusan yang diambil saat Fase 1:
+Decisions made during Phase 1:
 
-- Nama perintah `conn`. Kind diambil dari skema URL, jadi bentuknya
-  `conn add NAME URL` (tanpa argumen KIND). Lihat `komando conn kinds`.
-- `PROTECTED_HOST` tetap untuk host; conn memakai `PROTECTED_TARGET`.
-  Tidak ada breaking change.
-- Nama unik di antara host dan conn (`NAME_TAKEN`). Selector-nya tetap
-  terpisah: `@db` di `exec` hanya memilih host.
-- `conn test` di Fase 1 hanya mengecek TCP (atau keberadaan file untuk
-  SQLite) dan bahwa `--password-ref` bisa dibaca. Login ke DB datang di Fase 2.
-- Host yang dipakai sebagai `--via` tidak bisa dihapus (`HOST_IN_USE`);
-  rename host ikut memperbarui `Via` di conn.
+- The command name is `conn`. The kind is taken from the URL scheme, so the form is
+  `conn add NAME URL` (no KIND argument). See `komando conn kinds`.
+- `PROTECTED_HOST` stays for hosts; conns use `PROTECTED_TARGET`.
+  No breaking change.
+- Names are unique across hosts and conns (`NAME_TAKEN`). Their selectors stay
+  separate: `@db` in `exec` only picks hosts.
+- `conn test` in Phase 1 only checks TCP (or that the file exists for
+  SQLite) and that `--password-ref` can be read. Logging in to the DB comes in Phase 2.
+- A host used as `--via` cannot be removed (`HOST_IN_USE`);
+  renaming a host also updates `Via` in conns.
 
-## Latar belakang
+## Background
 
-Sekarang komando hanya mengenal satu jenis target, yaitu **host SSH**. Semua
-lapisan amannya terikat ke host:
+Right now komando knows only one kind of target: the **SSH host**. All
+its safety layers are tied to the host:
 
-| Lapisan | Di mana sekarang |
+| Layer | Where it is now |
 |---|---|
-| Inventaris | `store.Host` di `state.json` |
-| Kredensial | `PasswordRef` → `vault.Resolve` (`secret:`, `env:`, `file:`) |
-| Seatbelt | `guard()` di `internal/cli/common.go`: `policy.Check` (regex atas perintah shell) + `Protected` butuh `--yes` |
-| Dry-run | flag global `--dry-run` |
-| Output | envelope JSON + exit code stabil (`internal/out`) |
+| Inventory | `store.Host` in `state.json` |
+| Credentials | `PasswordRef` → `vault.Resolve` (`secret:`, `env:`, `file:`) |
+| Seatbelt | `guard()` in `internal/cli/common.go`: `policy.Check` (regex over shell commands) + `Protected` needs `--yes` |
+| Dry-run | global flag `--dry-run` |
+| Output | JSON envelope + stable exit codes (`internal/out`) |
 | Audit | `audit()` → `audit.jsonl` |
 
-Agent juga perlu bicara ke database, cache, dan object storage. Hari ini
-caranya `komando exec web1 -- psql -c "..."`. Cara itu punya tiga masalah:
+Agents also need to talk to databases, caches, and object storage. Today
+the way to do it is `komando exec web1 -- psql -c "..."`. That way has three problems:
 
-1. **Output tidak terstruktur.** Agent harus mem-parse tabel teks dari `psql`.
-2. **Seatbelt lemah.** Regex `db-drop` hanya menangkap `DROP DATABASE`.
-   `DELETE FROM users;` (tanpa `WHERE`) lolos.
-3. **Password DB bocor.** Password masuk ke command line atau env di server,
-   lalu ke `audit.jsonl`.
+1. **The output is not structured.** The agent has to parse text tables from `psql`.
+2. **The seatbelt is weak.** The `db-drop` regex only catches `DROP DATABASE`.
+   `DELETE FROM users;` (without `WHERE`) gets through.
+3. **The DB password leaks.** The password goes into the command line or env on the server,
+   and then into `audit.jsonl`.
 
-Tujuan rancangan ini: membawa **lapisan aman yang sama** ke resource non-SSH,
-dimulai dari database.
+The goal of this design: bring **the same safety layer** to non-SSH resources,
+starting with databases.
 
-## Bukan tujuan
+## Non-goals
 
-- Menjadi klien DB lengkap (REPL, migrasi, ORM). Untuk itu sudah ada
+- Becoming a full DB client (REPL, migrations, ORM). For that there is already
   `psql`/`usql`.
-- Mengubah `host` yang sudah ada. Tidak ada migrasi `state.json` yang
-  merusak.
-- Dalam fase ini: redis, s3, dan API cloud. Itu disiapkan lewat abstraksinya
-  saja.
+- Changing the existing `host`. There is no breaking `state.json`
+  migration.
+- In this phase: redis, s3, and cloud APIs. Only their abstraction is
+  prepared.
 
-## Bagian 1: abstraksi resource (`conn`)
+## Part 1: resource abstraction (`conn`)
 
-### Model data
+### Data model
 
-Tambah satu map baru di `store.State`, di samping `Hosts`:
+Add one new map to `store.State`, next to `Hosts`:
 
 ```go
 type Conn struct {
     Name        string            `json:"name"`
-    Kind        string            `json:"kind"`               // postgres | mysql | sqlite | (nanti: redis, s3)
-    URL         string            `json:"url"`                // TANPA password, mis. postgres://app@db.internal:5432/app?sslmode=require
-    PasswordRef string            `json:"password_ref,omitempty"` // secret:/env:/file:, sama dengan Host
-    Via         string            `json:"via,omitempty"`      // nama host SSH untuk menjangkau resource ini
+    Kind        string            `json:"kind"`               // postgres | mysql | sqlite | (later: redis, s3)
+    URL         string            `json:"url"`                // WITHOUT a password, e.g. postgres://app@db.internal:5432/app?sslmode=require
+    PasswordRef string            `json:"password_ref,omitempty"` // secret:/env:/file:, same as Host
+    Via         string            `json:"via,omitempty"`      // name of the SSH host used to reach this resource
     Groups      []string          `json:"groups,omitempty"`
     Tags        []string          `json:"tags,omitempty"`
     Labels      map[string]string `json:"labels,omitempty"`
     Protected   bool              `json:"protected,omitempty"`
-    Options     map[string]string `json:"options,omitempty"`  // per-kind: statement_timeout, row_limit, ...
+    Options     map[string]string `json:"options,omitempty"`  // per kind: statement_timeout, row_limit, ...
     Notes       string            `json:"notes,omitempty"`
     CreatedAt   time.Time         `json:"created_at"`
     UpdatedAt   time.Time         `json:"updated_at"`
@@ -103,84 +103,84 @@ type Conn struct {
 Conns map[string]*Conn `json:"conns"`
 ```
 
-Aturan:
+Rules:
 
-- **Nama unik di antara host dan conn.** Dengan begitu, nanti satu selector
-  (`@prod`, `tag:x`) bisa dipakai untuk keduanya tanpa ambigu.
-- **URL tidak boleh berisi password.** Kalau `conn add` menerima
-  `postgres://u:pass@...`, tolak dengan `USAGE` dan hint
-  `komando secret set NAME` lalu `--password-ref secret:NAME`. Jangan simpan
-  diam-diam.
-- `Via` memakai rantai `Jump` yang sudah ada. `sshx.Dial(via)` lalu
-  `client.Dial("tcp", addr)` di dalam proses. **Tidak perlu tunnel di latar
-  belakang dan tidak ada port lokal yang terbuka.**
+- **Names are unique across hosts and conns.** That way, later one selector
+  (`@prod`, `tag:x`) can be used for both without ambiguity.
+- **The URL must not contain a password.** If `conn add` receives
+  `postgres://u:pass@...`, refuse it with `USAGE` and the hint
+  `komando secret set NAME` then `--password-ref secret:NAME`. Do not save it
+  silently.
+- `Via` uses the existing `Jump` chain. `sshx.Dial(via)` then
+  `client.Dial("tcp", addr)` inside the process. **No background tunnel is
+  needed and no local port is opened.**
 
-### Perintah
+### Commands
 
 ```
 komando conn add NAME URL [--via HOST] [--password-ref REF] [--group G] [--tag T] [--protected]
 komando conn list [SELECTOR]
-komando conn edit NAME ...           # flag sama dengan add, plus --add-tag/--rm-tag
+komando conn edit NAME ...           # same flags as add, plus --add-tag/--rm-tag
 komando conn rm NAME
-komando conn test SELECTOR           # connect + ping + versi server
+komando conn test SELECTOR           # connect + ping + server version
 ```
 
-Bentuknya disamakan dengan `host`, supaya agent yang sudah kenal `host` langsung
-paham.
+The shape matches `host`, so an agent that already knows `host` understands it
+right away.
 
-### Driver dan klasifikasi risiko
+### Drivers and risk classification
 
-Paket baru `internal/driver`:
+New package `internal/driver`:
 
 ```go
 type Risk int
 
 const (
-    RiskRead        Risk = iota // tidak mengubah apa pun
-    RiskWrite                   // mengubah data
-    RiskDestructive             // sulit/tidak bisa dibatalkan
+    RiskRead        Risk = iota // changes nothing
+    RiskWrite                   // changes data
+    RiskDestructive             // hard or impossible to undo
 )
 
 type Verdict struct {
     Risk   Risk
-    Rules  []policy.Rule // aturan yang cocok (untuk pesan error)
+    Rules  []policy.Rule // matching rules (for error messages)
     Reason string
 }
 ```
 
-Setiap kind mengimplementasikan:
+Every kind implements:
 
-- `Classify(op) Verdict`: dipanggil **sebelum** apa pun dikirim ke server.
-- `Dial(ctx, conn, dialer)`: membuka koneksi, opsional lewat SSH.
+- `Classify(op) Verdict`: called **before** anything is sent to the server.
+- `Dial(ctx, conn, dialer)`: opens the connection, optionally through SSH.
 
-Lalu `guard()` digeneralisasi menjadi satu tempat keputusan untuk semua kind:
+Then `guard()` is generalized into one decision point for all kinds:
 
-| Risk | Conn biasa | Conn `--protected` |
+| Risk | Normal conn | `--protected` conn |
 |---|---|---|
-| read | jalan | jalan |
-| write | jalan | butuh `--yes` (`PROTECTED_HOST` → dibuat umum: `PROTECTED_TARGET`) |
-| destructive | butuh `--allow-dangerous` (`POLICY_BLOCKED`) | butuh `--allow-dangerous` **dan** `--yes` |
+| read | runs | runs |
+| write | runs | needs `--yes` (`PROTECTED_HOST` → made general: `PROTECTED_TARGET`) |
+| destructive | needs `--allow-dangerous` (`POLICY_BLOCKED`) | needs `--allow-dangerous` **and** `--yes` |
 
-Exit code dan kode error memakai yang sudah ada (6 untuk policy). Agent tidak
-perlu belajar kontrak baru.
+Exit codes and error codes reuse the existing ones (6 for policy). Agents do not
+need to learn a new contract.
 
-> Catatan kompatibilitas: ganti nama `PROTECTED_HOST` → `PROTECTED_TARGET`
-> adalah perubahan kontrak. Usulan: pertahankan `PROTECTED_HOST` untuk host,
-> pakai `PROTECTED_TARGET` hanya untuk conn. Perlu diputuskan (lihat
-> [Pertanyaan terbuka](#pertanyaan-terbuka)).
+> Compatibility note: renaming `PROTECTED_HOST` → `PROTECTED_TARGET`
+> is a contract change. Proposal: keep `PROTECTED_HOST` for hosts,
+> use `PROTECTED_TARGET` only for conns. Needs a decision (see
+> [Open questions](#open-questions)).
 
-## Bagian 2: `komando db`
+## Part 2: `komando db`
 
-### Perintah
+### Commands
 
 ```
 komando db query  CONN [SQL | -f FILE | -] [--write] [--limit N] [--param k=v ...]
-komando db schema CONN [TABLE...]          # tabel, kolom, tipe, index, perkiraan jumlah baris
-komando db explain CONN SQL                # EXPLAIN (tanpa ANALYZE kecuali --analyze --write)
-komando db dump   CONN --to PATH           # fase 3, lewat job
+komando db schema CONN [TABLE...]          # tables, columns, types, indexes, estimated row counts
+komando db explain CONN SQL                # EXPLAIN (no ANALYZE unless --analyze --write)
+komando db dump   CONN --to PATH           # phase 3, through job
 ```
 
-Contoh:
+Examples:
 
 ```bash
 komando conn add prod-db postgres://app@10.0.0.5:5432/app \
@@ -192,64 +192,64 @@ komando db query prod-db --write --dry-run "update users set plan='pro' where id
 komando db query prod-db --write --yes "update users set plan='pro' where id=42"
 ```
 
-### Read-only sebagai default, ditegakkan oleh DB-nya sendiri
+### Read-only by default, enforced by the DB itself
 
-Ini keputusan terpenting: **`db query` tanpa `--write` berjalan di transaksi
-read-only di sisi server.**
+This is the most important decision: **`db query` without `--write` runs in a
+read-only transaction on the server side.**
 
 - Postgres: `BEGIN READ ONLY` … `ROLLBACK`
 - MySQL: `START TRANSACTION READ ONLY` … `ROLLBACK`
-- SQLite: buka dengan `mode=ro`
+- SQLite: open with `mode=ro`
 
-Jadi walaupun klasifikasi SQL keliru, server tetap menolak penulisan. Regex
-dan parser hanya menjadi **lapisan kedua** untuk pesan error yang jelas,
-bukan satu-satunya pengaman. Ini juga sejalan dengan catatan di
-`komando policy`: guardrail bukan batas keamanan.
+So even if the SQL classification is wrong, the server still refuses writes. The regex
+and parser are only a **second layer** for clear error messages,
+not the only safeguard. This also matches the note in
+`komando policy`: guardrails are not a security boundary.
 
-Kalau query read-only ditolak server (mis. Postgres `25006
-read_only_sql_transaction`), kembalikan:
+If a read-only query is refused by the server (e.g. Postgres `25006
+read_only_sql_transaction`), return:
 
 ```json
 {"code":"WRITE_REQUIRES_FLAG","hint":"this statement modifies data; re-run with --write (try --dry-run first)"}
 ```
 
-dengan exit 6.
+with exit 6.
 
-### Klasifikasi SQL (untuk `--write`)
+### SQL classification (for `--write`)
 
-Klasifikasi dilakukan per statement, setelah komentar dan string literal
-dibuang:
+Classification is done per statement, after comments and string literals
+are removed:
 
-| Kelas | Contoh |
+| Class | Examples |
 |---|---|
-| read | `SELECT`, `WITH … SELECT`, `SHOW`, `EXPLAIN` (tanpa ANALYZE), `DESCRIBE` |
+| read | `SELECT`, `WITH … SELECT`, `SHOW`, `EXPLAIN` (without ANALYZE), `DESCRIBE` |
 | write | `INSERT`, `UPDATE … WHERE`, `DELETE … WHERE`, `CREATE TABLE/INDEX`, `ALTER … ADD` |
-| destructive | `DROP`, `TRUNCATE`, `UPDATE`/`DELETE` **tanpa `WHERE`**, `ALTER … DROP`, `GRANT`, `REVOKE`, `ALTER ROLE/USER`, `VACUUM FULL`, `COPY … TO PROGRAM` |
-| tidak dikenal | dianggap **write** |
+| destructive | `DROP`, `TRUNCATE`, `UPDATE`/`DELETE` **without `WHERE`**, `ALTER … DROP`, `GRANT`, `REVOKE`, `ALTER ROLE/USER`, `VACUUM FULL`, `COPY … TO PROGRAM` |
+| unknown | treated as **write** |
 
-- **Multi-statement** (`a; b`): risikonya diambil dari yang tertinggi. Di MySQL,
-  multi-statement dimatikan di driver (`multiStatements=false`), kecuali
-  lewat `-f FILE --write`.
-- Aturan-aturan ini didaftarkan sebagai `policy.Rule` dengan ID seperti
-  `sql-drop`, `sql-delete-no-where`, dan seterusnya, supaya muncul di
-  `komando policy` dan bisa dirujuk di pesan error.
+- **Multi-statement** (`a; b`): the risk is taken from the highest one. In MySQL,
+  multi-statement is turned off in the driver (`multiStatements=false`), except
+  through `-f FILE --write`.
+- These rules are registered as `policy.Rule` with IDs such as
+  `sql-drop`, `sql-delete-no-where`, and so on, so they show up in
+  `komando policy` and can be referred to in error messages.
 
-Parser: mulai dengan tokenizer kecil buatan sendiri (keyword pertama + cek
-`WHERE` di level atas). Jangan langsung menarik parser SQL penuh. Kalau
-nanti kurang, pertimbangkan `pg_query_go` (cgo, berat) atau
-`vitess/sqlparser` (khusus MySQL).
+Parser: start with a small home-made tokenizer (first keyword + a check for
+top-level `WHERE`). Do not pull in a full SQL parser right away. If
+it turns out not to be enough later, consider `pg_query_go` (cgo, heavy) or
+`vitess/sqlparser` (MySQL only).
 
 ### Dry-run
 
-- `--write --dry-run` di Postgres: jalankan di dalam `BEGIN`, laporkan
-  `rows_affected` (dan `RETURNING` kalau ada), lalu `ROLLBACK`. Dry-run
-  sungguhan, bukan sekadar menampilkan rencana.
-- Di MySQL, DDL melakukan auto-commit. Jadi untuk DDL, dry-run hanya
-  mengembalikan klasifikasi dan tidak mengeksekusi apa pun. DML tetap
-  di-rollback seperti Postgres.
-- Output selalu menyertakan `"dry_run": true` dan `"rolled_back": true`.
+- `--write --dry-run` in Postgres: run inside `BEGIN`, report
+  `rows_affected` (and `RETURNING` if present), then `ROLLBACK`. A real
+  dry-run, not just showing a plan.
+- In MySQL, DDL auto-commits. So for DDL, dry-run only
+  returns the classification and executes nothing. DML is still
+  rolled back like in Postgres.
+- The output always includes `"dry_run": true` and `"rolled_back": true`.
 
-### Bentuk output
+### Output shape
 
 ```json
 {
@@ -273,101 +273,101 @@ nanti kurang, pertimbangkan `pg_query_go` (cgo, berat) atau
 }
 ```
 
-- `rows` berupa array of arrays, lebih hemat token dibanding array of objects.
-- `--limit` default 500. Batas byte memakai `max_output_bytes` yang sudah ada.
-  Kalau terpotong, `truncated: true` dan hint menyarankan `LIMIT`/`WHERE`.
-- Tipe data: timestamp → RFC3339, `bytea`/BLOB → `{"base64": "…"}`, numeric
-  besar → string (supaya presisi tidak hilang di JSON).
-- `-o text` menampilkan tabel biasa lewat `Texter`.
+- `rows` is an array of arrays, which uses fewer tokens than an array of objects.
+- `--limit` defaults to 500. The byte limit uses the existing `max_output_bytes`.
+  If cut, `truncated: true` and the hint suggests `LIMIT`/`WHERE`.
+- Data types: timestamp → RFC3339, `bytea`/BLOB → `{"base64": "…"}`, large
+  numeric → string (so precision is not lost in JSON).
+- `-o text` shows a plain table through `Texter`.
 
-### Timeout dan beban
+### Timeouts and load
 
-- `statement_timeout` (Postgres) / `max_execution_time` (MySQL) diset dari
-  `--timeout`, default 30 detik untuk `db query` (bukan 5 menit seperti
+- `statement_timeout` (Postgres) / `max_execution_time` (MySQL) is set from
+  `--timeout`, default 30 seconds for `db query` (not 5 minutes like
   `exec`).
-- Satu koneksi per perintah, tanpa pool. komando adalah CLI yang berumur
-  pendek.
-- `application_name = komando/<actor>` supaya terlihat di
+- One connection per command, no pool. komando is a short-lived
+  CLI.
+- `application_name = komando/<actor>` so it is visible in
   `pg_stat_activity`.
 
 ### Audit
 
-Satu baris per perintah, memakai `audit()` yang sudah ada:
+One line per command, using the existing `audit()`:
 
 ```json
 {"command":"db.query","conns":["prod-db"],"risk":"write","sql":"update users set plan='pro' where id=42","rows_affected":1,"ok":true,"dry_run":false,"actor":"claude"}
 ```
 
-- Password tidak pernah masuk (URL disimpan tanpa password).
-- SQL bisa mengandung data sensitif. Tambah setting
+- The password never goes in (the URL is stored without a password).
+- SQL can contain sensitive data. Add the setting
   `audit_sql: full | hash | off`, default `full`.
-- Parameter `--param` disimpan sebagai nama saja, tanpa nilainya.
+- `--param` parameters are stored as names only, without their values.
 
-### Error
+### Errors
 
-| Situasi | Kode | Exit |
+| Situation | Code | Exit |
 |---|---|---|
-| Conn tidak ada | `CONN_NOT_FOUND` | 3 |
-| Gagal konek / auth DB | `DB_CONNECT` / `DB_AUTH` | 4 |
-| Host `--via` gagal | error SSH yang sudah ada (`HOSTKEY_MISMATCH`, …) | 4 |
-| Error SQL (syntax, constraint) | `DB_ERROR` + `sqlstate` di `data` | 5 |
-| Diblok policy | `POLICY_BLOCKED` / `WRITE_REQUIRES_FLAG` / `PROTECTED_TARGET` | 6 |
+| Conn does not exist | `CONN_NOT_FOUND` | 3 |
+| DB connect / auth failed | `DB_CONNECT` / `DB_AUTH` | 4 |
+| `--via` host failed | the existing SSH errors (`HOSTKEY_MISMATCH`, …) | 4 |
+| SQL error (syntax, constraint) | `DB_ERROR` + `sqlstate` in `data` | 5 |
+| Blocked by policy | `POLICY_BLOCKED` / `WRITE_REQUIRES_FLAG` / `PROTECTED_TARGET` | 6 |
 | Timeout | `TIMEOUT` | 7 |
 
-Setiap error membawa `hint`, sesuai aturan yang sudah ada.
+Every error carries a `hint`, following the existing rules.
 
-### Dependensi
+### Dependencies
 
-| Kind | Library | Catatan |
+| Kind | Library | Notes |
 |---|---|---|
-| postgres | `github.com/jackc/pgx/v5` | murni Go, `DialFunc` bisa diarahkan ke SSH |
-| mysql | `github.com/go-sql-driver/mysql` | `RegisterDialContext` untuk SSH |
-| sqlite | `modernc.org/sqlite` | murni Go, tanpa cgo; berguna untuk tes dan file lokal |
+| postgres | `github.com/jackc/pgx/v5` | pure Go, `DialFunc` can be pointed at SSH |
+| mysql | `github.com/go-sql-driver/mysql` | `RegisterDialContext` for SSH |
+| sqlite | `modernc.org/sqlite` | pure Go, no cgo; useful for tests and local files |
 
-Biner akan membesar beberapa MB. Kalau ini jadi masalah, driver bisa
-dipisah dengan build tag (`-tags nodb`).
+The binary will grow by a few MB. If this becomes a problem, the drivers can be
+split out with a build tag (`-tags nodb`).
 
-**Alternatif yang ditolak:** menjalankan `psql`/`mysql` di server lewat
-`exec`. Cara ini tanpa dependensi, tapi butuh klien terpasang di server,
-outputnya teks, dan password harus dikirim ke server. Bisa tetap ditawarkan
-sebagai fallback `--via-cli` kalau ada permintaan.
+**Rejected alternative:** running `psql`/`mysql` on the server through
+`exec`. This way has no dependencies, but it needs the client installed on the server,
+the output is text, and the password has to be sent to the server. It can still be offered
+as a `--via-cli` fallback if someone asks for it.
 
-## Bagian 3: perubahan di bagian lain
+## Part 3: changes elsewhere
 
-- `komando guide`: tambah bagian "database: lihat schema dulu, query
-  read-only, `--write --dry-run`, baru `--write`".
-- `komando schema`: otomatis ikut karena memakai cobra.
-- `komando policy`: tampilkan aturan SQL, dikelompokkan per kind.
-- `AGENTS.md`: tambah aturan "jangan pakai `exec … psql`, pakai `komando db`".
-- `docs/usage.md`: bagian baru "Databases".
-- Tes: unit test untuk tokenizer SQL (tabel kasus: komentar, string berisi
-  `;`, CTE, `DELETE` tanpa `WHERE`). Tes integrasi memakai SQLite, lalu
-  Postgres dan MySQL di CI lewat service container.
+- `komando guide`: add a section "database: look at the schema first, query
+  read-only, `--write --dry-run`, only then `--write`".
+- `komando schema`: included automatically because it uses cobra.
+- `komando policy`: show the SQL rules, grouped by kind.
+- `AGENTS.md`: add the rule "do not use `exec … psql`, use `komando db`".
+- `docs/usage.md`: a new "Databases" section.
+- Tests: unit tests for the SQL tokenizer (case table: comments, strings containing
+  `;`, CTEs, `DELETE` without `WHERE`). Integration tests use SQLite, then
+  Postgres and MySQL in CI through service containers.
 
-## Rencana bertahap
+## Phased plan
 
-| Fase | Isi | Hasil |
+| Phase | Contents | Result |
 |---|---|---|
-| 1 | `store.Conn`, `conn add/list/edit/rm/test`, `internal/driver`, generalisasi `guard()` | fondasi; belum ada query |
-| 2 | `db query/schema/explain` untuk postgres + sqlite, read-only, `--write`, dry-run rollback, `--via` | fitur utama |
-| 3 | mysql, `db dump`/`restore` via `job`, `audit_sql` | lengkap untuk DB |
-| 4 | kind `redis` (`cache get/keys/ttl/info`; blok `FLUSHALL`, `KEYS *` di protected) | membuktikan abstraksinya untuk kind kedua |
-| 5 | kind `s3` | — |
+| 1 | `store.Conn`, `conn add/list/edit/rm/test`, `internal/driver`, generalized `guard()` | foundation; no queries yet |
+| 2 | `db query/schema/explain` for postgres + sqlite, read-only, `--write`, dry-run rollback, `--via` | main feature |
+| 3 | mysql, `db dump`/`restore` via `job`, `audit_sql` | complete for DBs |
+| 4 | `redis` kind (`cache get/keys/ttl/info`; block `FLUSHALL`, `KEYS *` on protected) | proves the abstraction for a second kind |
+| 5 | `s3` kind | — |
 
-Fase 4 sengaja diletakkan sebelum S3. Redis juga butuh `--via` dan klasifikasi
-per perintah, jadi menjadi tes yang bagus untuk melihat apakah abstraksi
-`driver` sudah tepat.
+Phase 4 is placed before S3 on purpose. Redis also needs `--via` and per-command
+classification, so it is a good test of whether the `driver`
+abstraction is right.
 
-## Pertanyaan terbuka
+## Open questions
 
-1. **Nama perintah:** `conn`, `resource`, atau `db add` langsung (tanpa
-   abstraksi umum)? Rancangan ini memilih `conn` karena pendek dan generik.
-2. **Kode error protected:** pertahankan `PROTECTED_HOST` untuk host dan
-   tambah `PROTECTED_TARGET` untuk conn, atau samakan semuanya (breaking)?
-3. **Selector bersama:** apakah `komando conn test @prod` dan
-   `komando exec @prod` sebaiknya berbagi grup yang sama? Rancangan ini
-   menyiapkannya (nama unik), tapi belum mengaktifkannya.
-4. **Default `audit_sql`:** `full` (mudah di-debug) atau `hash` (lebih aman
-   untuk data pribadi)?
-5. **Ukuran biner:** apakah naik kira-kira 5–8 MB bisa diterima, atau driver
-   DB perlu jadi build terpisah?
+1. **Command name:** `conn`, `resource`, or `db add` directly (with no general
+   abstraction)? This design picks `conn` because it is short and generic.
+2. **Protected error code:** keep `PROTECTED_HOST` for hosts and
+   add `PROTECTED_TARGET` for conns, or make them all the same (breaking)?
+3. **Shared selectors:** should `komando conn test @prod` and
+   `komando exec @prod` share the same groups? This design
+   prepares for it (unique names), but does not turn it on yet.
+4. **`audit_sql` default:** `full` (easy to debug) or `hash` (safer
+   for personal data)?
+5. **Binary size:** is an increase of roughly 5–8 MB acceptable, or do the DB
+   drivers need to be a separate build?

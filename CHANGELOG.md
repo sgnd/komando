@@ -4,6 +4,13 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Project
+
+- Added a code of conduct, Dependabot updates, CODEOWNERS and `.editorconfig`.
+  `make lint` now also runs staticcheck.
+- Docs are English only: removed `README.id.md` and `docs/features/id/`, and
+  translated the design notes in `docs/design/`.
+
 ### Cloud access (gap analysis, phase 5)
 
 - `host add|edit --proxy-command CMD` reaches a server through a program on

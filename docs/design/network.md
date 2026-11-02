@@ -1,198 +1,198 @@
-# Rancangan: jaringan — bastion, forwarding, dan banyak VPN sekaligus
+# Design: networking — bastions, forwarding, and many VPNs at once
 
-Status: **dibangun, 2026-11-02** (lihat [Rencana bertahap](#rencana-bertahap)). Sudah ada: `--via` untuk semua
-target, `tunnel start TARGET`, dan `komando vpn` dengan kind `wireguard`,
-`socks`, `system` (lihat [docs/features/vpn.md](../features/vpn.md)). Sisanya
-rancangan. Tujuan besarnya ada di [vision.md](vision.md), aturan perintah di
+Status: **built, 2026-11-02** (see [Phased plan](#phased-plan)). Already done: `--via` for all
+targets, `tunnel start TARGET`, and `komando vpn` with the kinds `wireguard`,
+`socks`, `system` (see [docs/features/vpn.md](../features/vpn.md)). The rest is
+design. The big goal is in [vision.md](vision.md), the command rules in
 [ux.md](ux.md).
 
-**Klarifikasi pemilik (2026-11-02):** komando juga **pengelola klien VPN**.
-VPN A bisa OpenVPN, B GlobalProtect, C Pritunl, D Fortinet, E L2TP, dan
-seterusnya. Kredensialnya disimpan di komando (vault). Saat sebuah perintah
-butuh target di balik VPN, komando **menyambungkan VPN itu sendiri**, lalu
-menjangkau resource-nya. Contoh: `komando exec app -- uptime` → `app` butuh
-`vpn-a` (OpenVPN) → sambungkan → SSH ke bastion → SSH ke app, dalam satu
-perintah. Beberapa VPN bisa dibutuhkan bersamaan (app lewat VPN A, database
-lewat VPN B).
+**Owner clarification (2026-11-02):** komando is also a **VPN client manager**.
+VPN A can be OpenVPN, B GlobalProtect, C Pritunl, D Fortinet, E L2TP, and
+so on. Their credentials are stored in komando (the vault). When a command
+needs a target behind a VPN, komando **connects that VPN itself**, then
+reaches the resource. Example: `komando exec app -- uptime` → `app` needs
+`vpn-a` (OpenVPN) → connect → SSH to the bastion → SSH to app, in one
+command. Several VPNs can be needed at the same time (app through VPN A, the database
+through VPN B).
 
-## Masalah
+## Problem
 
-Satu laptop sering perlu menjangkau banyak project sekaligus:
+One laptop often needs to reach many projects at once:
 
-- Project A: server di belakang bastion SSH.
-- Project B: database di jaringan privat, hanya lewat WireGuard kantor.
-- Project C: cluster di Tailscale milik klien.
-- Project D: VPN perusahaan (OpenVPN, Cisco AnyConnect, FortiClient, GlobalProtect).
+- Project A: servers behind an SSH bastion.
+- Project B: a database on a private network, only reachable through the office WireGuard.
+- Project C: a cluster on a client's Tailscale.
+- Project D: a corporate VPN (OpenVPN, Cisco AnyConnect, FortiClient, GlobalProtect).
 
-Dengan VPN biasa, VPN dipasang di level **sistem operasi**. Akibatnya:
+With a normal VPN, the VPN is set up at the **operating system** level. As a result:
 
-1. Biasanya hanya satu VPN yang bisa aktif. Kita harus pindah-pindah VPN.
-2. Dua VPN sering memakai subnet yang sama (`10.0.0.0/8`), jadi rutenya bentrok.
-3. Semua lalu lintas laptop ikut berubah, bukan hanya yang untuk project itu.
-4. Butuh hak admin, dan AI agent tidak bisa (dan tidak boleh) mengurusnya.
+1. Usually only one VPN can be active. We have to keep switching VPNs.
+2. Two VPNs often use the same subnet (`10.0.0.0/8`), so their routes clash.
+3. All of the laptop's traffic changes too, not only the traffic for that project.
+4. It needs admin rights, and an AI agent cannot (and must not) handle that.
 
-## Ide utama: jaringan per koneksi, di dalam proses komando
+## Main idea: networking per connection, inside the komando process
 
-komando sudah melakukan ini untuk bastion: `--via web1` membuka SSH ke
-`web1`, lalu menyambung ke database **dari dalam proses komando**. Tidak ada
-port lokal yang terbuka dan tidak ada rute sistem yang berubah.
+komando already does this for bastions: `--via web1` opens SSH to
+`web1`, then connects to the database **from inside the komando process**. No
+local port is opened and no system route changes.
 
-Ide yang sama diperluas ke VPN: komando menjalankan VPN **di dalam prosesnya
-sendiri** (userspace), hanya untuk koneksi yang membutuhkannya, lalu
-menutupnya saat perintah selesai.
+The same idea is extended to VPNs: komando runs the VPN **inside its own
+process** (userspace), only for the connections that need it, then
+closes it when the command finishes.
 
 ```
 komando db query app-db ...
    └─ app-db --via office-vpn,bastion
-        ├─ WireGuard "office-vpn" (di dalam proses, tanpa mengubah rute laptop)
-        └─ SSH ke "bastion" lewat VPN itu
-             └─ TCP ke database dari bastion
+        ├─ WireGuard "office-vpn" (inside the process, without changing the laptop's routes)
+        └─ SSH to "bastion" through that VPN
+             └─ TCP to the database from the bastion
 ```
 
-Hasilnya:
+The result:
 
-- **Banyak VPN aktif sekaligus**, satu per target. Tidak perlu pindah-pindah.
-- **Subnet yang bentrok tidak masalah**, karena tiap target punya jalurnya sendiri.
-- **Tanpa hak admin**, tanpa mengubah jaringan laptop. Lalu lintas lain tidak terpengaruh.
-- AI agent bisa memakainya dengan aman, karena kuncinya ada di vault.
+- **Many VPNs active at once**, one per target. No need to keep switching.
+- **Clashing subnets are not a problem**, because each target has its own path.
+- **No admin rights**, no change to the laptop's network. Other traffic is not affected.
+- AI agents can use it safely, because the keys are in the vault.
 
-## Satu konsep: `--via`
+## One concept: `--via`
 
-Hari ini ada dua flag untuk hal yang sama: `host --jump` dan `conn --via`.
-Sesuai aturan "tidak ada fitur yang tumpang tindih", keduanya disatukan
-menjadi **`--via`** untuk semua target. `--jump` tetap diterima sebagai
-alias selama satu rilis.
+Today there are two flags for the same thing: `host --jump` and `conn --via`.
+Following the rule "no overlapping features", both are merged
+into **`--via`** for all targets. `--jump` is still accepted as an
+alias for one release.
 
-`--via` berisi rantai jalur, dari laptop ke tujuan, dipisah koma:
+`--via` holds a chain of hops, from the laptop to the destination, separated by commas:
 
 ```bash
-komando host add db1 admin@10.0.0.5 --via bastion            # SSH bastion (sudah ada)
-komando host add db1 admin@10.0.0.5 --via office-vpn         # lewat VPN
-komando conn add app-db postgres://app@10.0.0.9/app --via office-vpn,bastion   # VPN, lalu bastion
+komando host add db1 admin@10.0.0.5 --via bastion            # SSH bastion (already exists)
+komando host add db1 admin@10.0.0.5 --via office-vpn         # through a VPN
+komando conn add app-db postgres://app@10.0.0.9/app --via office-vpn,bastion   # VPN, then bastion
 ```
 
-Setiap langkah di rantai adalah sebuah host (bastion SSH) atau sebuah VPN.
+Each step in the chain is a host (SSH bastion) or a VPN.
 
-## Perintah `komando vpn`
+## The `komando vpn` command
 
-`vpn` berbagi ruang nama dengan `host` dan `conn`; semua selector,
-`komando list`, dan `komando test` ikut bekerja dengannya.
+`vpn` shares the namespace with `host` and `conn`; all selectors,
+`komando list`, and `komando test` work with it too.
 
 ```bash
-komando vpn add vpn-a openvpn --config kantor.ovpn --user budi --password-ref secret:vpn-a
-komando vpn add vpn-b globalprotect --portal vpn.klien.com --user budi --password-ref secret:vpn-b
-komando vpn add office wireguard --config ~/Downloads/office.conf     # sudah ada
-komando vpn add lab socks --address 127.0.0.1:1080                    # sudah ada
+komando vpn add vpn-a openvpn --config office.ovpn --user alice --password-ref secret:vpn-a
+komando vpn add vpn-b globalprotect --portal vpn.client.example.com --user alice --password-ref secret:vpn-b
+komando vpn add office wireguard --config ~/Downloads/office.conf     # already exists
+komando vpn add lab socks --address 127.0.0.1:1080                    # already exists
 
 komando host edit app --via vpn-a,bastion
 komando conn edit app-db --via vpn-b
-komando exec app -- uptime          # vpn-a tersambung sendiri, lalu bastion, lalu app
+komando exec app -- uptime          # vpn-a connects by itself, then bastion, then app
 
-komando vpn up vpn-b                # sambungkan manual (mis. untuk login MFA)
-komando vpn status                  # mana yang tersambung, sejak kapan, dipakai siapa
+komando vpn up vpn-b                # connect manually (e.g. for an MFA login)
+komando vpn status                  # which are connected, since when, used by whom
 komando vpn down vpn-b
 komando test kind:vpn
 ```
 
-## Dua mode
+## Two modes
 
-| Mode | Kind | Cara kerja | Admin? | Banyak sekaligus? |
+| Mode | Kind | How it works | Admin? | Many at once? |
 |---|---|---|---|---|
-| **Userspace** | `wireguard` ✅ | wireguard-go + netstack di dalam proses | tidak | ya, subnet bentrok aman |
-| | `socks` ✅ | proxy SOCKS5 yang sudah ada | tidak | ya |
-| | `tailscale` | `tsnet` (Tailscale/Headscale) di dalam proses | tidak | ya |
-| | `globalprotect`, `fortinet`, `anyconnect`, `pulse`, `f5` | `openconnect --protocol=… --script-tun` + `ocproxy`/`tunsocks`: klien berjalan di samping komando dan menyediakan SOCKS lokal, tanpa membuat interface jaringan | tidak | ya |
-| **Mode OS** | `openvpn` (termasuk profil Pritunl) | evaluasi dulu klien Go userspace (`ooni/minivpn`, eksperimental); kalau tidak cukup, `openvpn` dijalankan oleh helper kecil | sekali (helper dipasang dengan sudo) | terbatas |
-| | `l2tp` / IPsec | strongSwan + xl2tpd (Linux), VPN bawaan (macOS/Windows) | sekali | terbatas |
-| | `system` ✅ | VPN yang sudah tersambung di komputer; komando hanya mengecek | sesuai kliennya | sesuai OS |
+| **Userspace** | `wireguard` ✅ | wireguard-go + netstack inside the process | no | yes, clashing subnets are safe |
+| | `socks` ✅ | an existing SOCKS5 proxy | no | yes |
+| | `tailscale` | `tsnet` (Tailscale/Headscale) inside the process | no | yes |
+| | `globalprotect`, `fortinet`, `anyconnect`, `pulse`, `f5` | `openconnect --protocol=… --script-tun` + `ocproxy`/`tunsocks`: the client runs next to komando and provides a local SOCKS, without creating a network interface | no | yes |
+| **OS mode** | `openvpn` (including Pritunl profiles) | first evaluate a userspace Go client (`ooni/minivpn`, experimental); if it is not enough, `openvpn` is run by a small helper | once (the helper is installed with sudo) | limited |
+| | `l2tp` / IPsec | strongSwan + xl2tpd (Linux), built-in VPN (macOS/Windows) | once | limited |
+| | `system` ✅ | a VPN that is already connected on the computer; komando only checks it | depends on the client | depends on the OS |
 
-- Mode OS bisa bentrok kalau dua VPN memakai subnet yang sama. komando harus
-  **mendeteksi dan memperingatkan** sebelum menyambung, bukan diam-diam
-  merusak rute.
-- Klien VPN (`openconnect`, `openvpn`, strongSwan) harus terpasang, kecuali
-  WireGuard dan Tailscale yang ada di dalam komando. `komando doctor`
-  mengecek klien yang dibutuhkan VPN yang terdaftar dan memberi cara
-  memasangnya.
+- OS mode can clash if two VPNs use the same subnet. komando must
+  **detect and warn** before connecting, not silently
+  break routes.
+- VPN clients (`openconnect`, `openvpn`, strongSwan) must be installed, except
+  WireGuard and Tailscale, which are built into komando. `komando doctor`
+  checks the clients that the registered VPNs need and shows how to
+  install them.
 
-## Sesi VPN
+## VPN sessions
 
-- **Sambung otomatis.** Perintah yang `--via`-nya dimulai dengan VPN
-  menyambungkannya kalau belum tersambung.
-- **Satu sesi di latar per VPN** (seperti `tunnel`), dipakai bersama oleh
-  perintah-perintah berikutnya supaya tidak login ulang setiap kali. Sesi
-  diputus sendiri setelah tidak dipakai (default 30 menit, bisa diatur).
-  WireGuard tetap bisa di dalam proses per perintah karena tidak ada login.
-- `vpn up`, `vpn down`, `vpn status` untuk kendali manual.
-- Audit mencatat kapan VPN tersambung dan diputus, oleh siapa, dan untuk
-  perintah apa.
+- **Automatic connect.** A command whose `--via` starts with a VPN
+  connects it if it is not connected yet.
+- **One background session per VPN** (like `tunnel`), shared by
+  the following commands so they do not log in again every time. The session
+  disconnects by itself after it is not used (default 30 minutes, configurable).
+  WireGuard can still run inside the process per command because there is no login.
+- `vpn up`, `vpn down`, `vpn status` for manual control.
+- The audit records when a VPN connects and disconnects, by whom, and for
+  which command.
 
 ## MFA
 
-Keputusan pemilik (2026-11-02): **MFA selalu dilakukan manusia.**
+Owner decision (2026-11-02): **MFA is always done by a person.**
 
-- komando **tidak** menyimpan secret TOTP dan **tidak** membuat kode MFA.
-- Manusia menjalankan `komando vpn up NAME` (password + MFA, atau login SSO
-  lewat browser). Agent dan perintah berikutnya memakai sesi itu.
-- Kalau sesi habis, perintah agent gagal dengan `VPN_LOGIN_REQUIRED` dan hint
-  "minta manusia menjalankan `komando vpn up NAME`". Agent tidak pernah
-  menjawab MFA.
-- VPN tanpa MFA (kunci WireGuard, OpenVPN yang hanya pakai password) tetap
-  boleh tersambung otomatis saat dibutuhkan.
+- komando does **not** store TOTP secrets and does **not** generate MFA codes.
+- A person runs `komando vpn up NAME` (password + MFA, or SSO login
+  through the browser). The agent and later commands use that session.
+- If the session expires, the agent's command fails with `VPN_LOGIN_REQUIRED` and the hint
+  "ask a person to run `komando vpn up NAME`". The agent never
+  answers MFA.
+- VPNs without MFA (WireGuard keys, OpenVPN with only a password) may still
+  connect automatically when needed.
 
-## Forwarding untuk aplikasi di laptop
+## Forwarding for apps on the laptop
 
-`--via` hanya untuk koneksi komando sendiri. Untuk aplikasi lain (TablePlus,
-DBeaver, browser, `psql`), `komando tunnel` membuka port di laptop. Ini
-diperluas supaya bisa memakai **nama target**, bukan alamat:
+`--via` is only for komando's own connections. For other apps (TablePlus,
+DBeaver, a browser, `psql`), `komando tunnel` opens a port on the laptop. This
+is extended so it can use the **target name**, not an address:
 
 ```bash
-komando tunnel start app-db                 # localhost:<port> → app-db, lewat --via-nya
-komando tunnel start app-db --local 15432   # pilih port lokal
-komando tunnel start web1 -L 8080:localhost:80   # bentuk lama tetap jalan
-komando tunnel start office -D 1080         # SOCKS lewat VPN: browser "di dalam" jaringan kantor
+komando tunnel start app-db                 # localhost:<port> → app-db, through its --via
+komando tunnel start app-db --local 15432   # choose the local port
+komando tunnel start web1 -L 8080:localhost:80   # the old form still works
+komando tunnel start office -D 1080         # SOCKS through the VPN: the browser is "inside" the office network
 ```
 
-Tunnel berjalan di latar dan memegang jalurnya (VPN dan bastion) selama hidup.
-`komando tunnel list` menunjukkan target, port lokal, dan jalurnya.
+The tunnel runs in the background and holds its path (VPN and bastion) while it is alive.
+`komando tunnel list` shows the target, the local port, and the path.
 
-## Keamanan
+## Safety
 
-- Kunci VPN (WireGuard private key, Tailscale auth key) **hanya di vault**.
-  `vpn add --config` membaca file, memindahkan kuncinya ke vault, dan
-  menyimpan sisanya tanpa kunci. File asli tidak diubah.
-- Tunnel dan proxy hanya mendengarkan di `127.0.0.1`, kecuali diberi
-  `--bind` (butuh `--yes`).
-- Protected mengikuti alamat di dalam jaringan VPN yang sama (lihat
-  `protectedHost`). Alamat yang sama di VPN yang berbeda adalah server yang
-  berbeda.
-- Audit mencatat jalur (`via`) setiap perintah.
-- komando tidak pernah mengubah rute, DNS, atau firewall laptop.
+- VPN keys (WireGuard private key, Tailscale auth key) are **only in the vault**.
+  `vpn add --config` reads the file, moves the key into the vault, and
+  stores the rest without the key. The original file is not changed.
+- Tunnels and proxies only listen on `127.0.0.1`, unless given
+  `--bind` (needs `--yes`).
+- Protected follows the address within the same VPN network (see
+  `protectedHost`). The same address on a different VPN is a different
+  server.
+- The audit records the path (`via`) of every command.
+- komando never changes the laptop's routes, DNS, or firewall.
 
-## Edge case
+## Edge cases
 
-- Dua VPN memakai subnet yang sama: aman, karena tiap target punya jalurnya sendiri.
-- DNS di dalam VPN (`db.internal`): resolver userspace memakai DNS dari konfigurasi VPN.
-- VPN putus di tengah perintah: error `VPN_DOWN` atau `TIMEOUT` dengan nama VPN-nya.
-- Handshake WireGuard lambat di koneksi pertama: `--connect-timeout` berlaku untuk seluruh rantai.
-- Rantai melingkar (`a --via b`, `b --via a`): ditolak saat `add`/`edit`.
-- Menghapus VPN yang masih dipakai `--via`: ditolak (`IN_USE`), sama seperti host.
-- MTU kecil di VPN bertumpuk: pakai MTU dari konfigurasi; bisa diubah per VPN.
-- Ukuran biner: `tsnet` cukup besar, tapi ukuran biner tidak dibatasi
-  (lihat [vision.md](vision.md#aturan-teknis)).
+- Two VPNs use the same subnet: safe, because each target has its own path.
+- DNS inside the VPN (`db.internal`): the userspace resolver uses the DNS from the VPN configuration.
+- VPN drops in the middle of a command: a `VPN_DOWN` or `TIMEOUT` error with the VPN's name.
+- Slow WireGuard handshake on the first connection: `--connect-timeout` applies to the whole chain.
+- Circular chains (`a --via b`, `b --via a`): refused at `add`/`edit`.
+- Removing a VPN that is still used by `--via`: refused (`IN_USE`), the same as for hosts.
+- Small MTU on stacked VPNs: use the MTU from the configuration; it can be changed per VPN.
+- Binary size: `tsnet` is quite large, but binary size is not limited
+  (see [vision.md](vision.md#technical-rules)).
 
-## Rencana bertahap
+## Phased plan
 
-| Fase | Isi | Status |
+| Phase | Contents | Status |
 |---|---|---|
-| 0 | `--via` untuk semua target, `tunnel start TARGET`, `vpn add/show/rm`, kind `wireguard`/`socks`/`system`, VPN di `list`/`test`/selector | ✅ dites end-to-end |
-| 1 | `vpn up/down/status`, sesi di latar per VPN dengan putus otomatis; kind `tailscale` | ✅ dites dengan Headscale sungguhan (`make e2e-vpnclients`) |
-| 2 | Keluarga openconnect (GlobalProtect, Fortinet, AnyConnect, Pulse, F5) lewat `ocproxy`; `doctor` mengecek kliennya; `VPN_LOGIN_REQUIRED` untuk VPN dengan MFA | ✅ dites dengan ocserv (protokol AnyConnect) sungguhan; protokol lain memakai jalur kode yang sama |
-| 3 | OpenVPN/Pritunl di container Docker, tanpa mengubah jaringan laptop; `--os-mode` opsional | ✅ dites dengan server OpenVPN sungguhan (`make e2e-openvpn`) |
-| 4 | L2TP/IPsec dan VPN bawaan OS lewat `system --service` (scutil/nmcli); peringatan subnet bentrok untuk OpenVPN mode OS | ✅ peringatan bentrok membandingkan tabel rute sebelum dan sesudah tersambung |
+| 0 | `--via` for all targets, `tunnel start TARGET`, `vpn add/show/rm`, kinds `wireguard`/`socks`/`system`, VPNs in `list`/`test`/selectors | ✅ tested end-to-end |
+| 1 | `vpn up/down/status`, a background session per VPN with automatic disconnect; `tailscale` kind | ✅ tested with a real Headscale (`make e2e-vpnclients`) |
+| 2 | The openconnect family (GlobalProtect, Fortinet, AnyConnect, Pulse, F5) through `ocproxy`; `doctor` checks their clients; `VPN_LOGIN_REQUIRED` for VPNs with MFA | ✅ tested with a real ocserv (AnyConnect protocol); the other protocols use the same code path |
+| 3 | OpenVPN/Pritunl in a Docker container, without changing the laptop's network; `--os-mode` optional | ✅ tested with a real OpenVPN server (`make e2e-openvpn`) |
+| 4 | L2TP/IPsec and built-in OS VPNs through `system --service` (scutil/nmcli); clashing-subnet warning for OpenVPN in OS mode | ✅ the clash warning compares the route table before and after connecting |
 
-## Keputusan pemilik
+## Owner decisions
 
-1. **Mode OS boleh** (2026-11-02): OpenVPN/Pritunl dan L2TP/IPsec boleh
-   memakai helper kecil yang dipasang sekali dengan sudo.
-2. **MFA selalu oleh manusia** (2026-11-02): tidak ada secret TOTP di vault;
-   lihat bagian [MFA](#mfa).
+1. **OS mode is allowed** (2026-11-02): OpenVPN/Pritunl and L2TP/IPsec may
+   use a small helper installed once with sudo.
+2. **MFA is always done by a person** (2026-11-02): no TOTP secrets in the vault;
+   see the [MFA](#mfa) section.
