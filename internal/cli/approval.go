@@ -60,6 +60,12 @@ func resetApproval() {
 	approval.asked, approval.allowed, approval.why = false, false, ""
 }
 
+func allowedByPerson() bool {
+	approval.Lock()
+	defer approval.Unlock()
+	return approval.allowed
+}
+
 // yesOK reports whether --yes counts. dangerOK and revealOK do the same for
 // --allow-dangerous and --reveal. Call them only where the flag would let
 // something through, so an agent's window appears only when it matters.

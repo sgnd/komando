@@ -347,6 +347,7 @@ func auditCmd() *cobra.Command {
 			return nil
 		},
 	}
+	c.AddCommand(auditVerifyCmd())
 	c.Flags().IntVarP(&limit, "limit", "n", 50, "last N entries")
 	c.Flags().StringVar(&target, "target", "", "only entries for these servers or conns (a selector, e.g. @prod)")
 	aliasFlag(c.Flags(), "host", "target")
@@ -568,7 +569,7 @@ func policyCmd() *cobra.Command {
 func doctorCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
-		Short: "Check the local setup (state dir, vault, ssh-agent, keys, inventory)",
+		Short: "Check the local setup (state dir, vault, ssh-agent, keys, inventory) and its security",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			type check struct {
@@ -624,11 +625,17 @@ func doctorCmd() *cobra.Command {
 					ok = false
 				}
 			}
+			security := securityChecks(st)
+			for _, c := range security {
+				if !c.OK {
+					ok = false
+				}
+			}
 			var soft *out.Error
 			if !ok {
 				soft = out.Errf(out.ExitError, "DOCTOR_FAILED", "fix the failing checks above", "some checks failed")
 			}
-			out.P.Print("doctor", map[string]any{"checks": checks}, soft)
+			out.P.Print("doctor", map[string]any{"checks": checks, "security": security}, soft)
 			if soft != nil {
 				return exitCode(1)
 			}

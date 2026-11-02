@@ -454,6 +454,21 @@ mkdir -p "$TMP/home"
 q env HOME="$TMP/home" "$K" guide install
 check "guide install adds the Claude Code guard" True "$(jget '"guide guard" in json.dumps(d["hooks"]["PreToolUse"])' < "$TMP/home/.claude/settings.json")"
 
+echo "==> audit chain and doctor"
+check "audit chain intact" True "$($K audit verify | jget 'd["data"]["ok"]')"
+check "audit names the agent" True "$($K audit -n 200 | jget 'any(e.get("agent") == "Claude Code" for e in d["data"]["entries"])')"
+cp "$KOMANDO_HOME/audit.jsonl" "$TMP/audit.bak"
+python3 - "$KOMANDO_HOME/audit.jsonl" <<'PY'
+import sys
+p = sys.argv[1]
+lines = open(p).read().splitlines()
+lines[len(lines) // 2] = lines[len(lines) // 2].replace('{', '{"edited":1,', 1)
+open(p, "w").write("\n".join(lines) + "\n")
+PY
+check "edited audit record found" AUDIT_TAMPERED "$($K audit verify | jget 'd["error"]["code"]' || true)"
+cp "$TMP/audit.bak" "$KOMANDO_HOME/audit.jsonl"
+check "doctor checks security" True "$($K doctor | jget 'any(c["name"] == "security:audit_chain" and c["ok"] for c in d["data"]["security"])')"
+
 # no secret value may reach the state file or the audit log
 LEAKS=$(cat "$KOMANDO_HOME/state.json" "$KOMANDO_HOME/audit.jsonl" | { grep -c -E 'apppass|shoppass|redispass' || true; })
 check "no passwords in state or audit" 0 "$LEAKS"

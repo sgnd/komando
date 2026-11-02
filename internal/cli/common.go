@@ -3,7 +3,6 @@ package cli
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -384,16 +383,16 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 	if remote != "" {
 		rec["remote"] = remote
 	}
+	if a := agentName(); a != "" {
+		rec["agent"] = a // who typed it: an AI agent
+		if allowedByPerson() {
+			rec["allowed_by_person"] = true // in komando's window
+		}
+	}
 	for k, v := range extra {
 		rec[k] = v
 	}
-	b, _ := json.Marshal(rec)
-	f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	f.Write(append(b, '\n'))
+	_ = appendAudit(rec)
 }
 
 func actor() string {

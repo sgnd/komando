@@ -1,6 +1,6 @@
 # Safety
 
-The seatbelts, and what to do when one stops you. [All features](README.md)
+The seatbelts, and what to do when one stops you. [All features](README.md) · [Security standards](security-standards.md)
 
 | Seatbelt | What it does |
 |----------|--------------|
@@ -17,7 +17,7 @@ The seatbelts, and what to do when one stops you. [All features](README.md)
 | Encrypted vault | Passwords are AES-256-GCM encrypted. Only names are ever shown, and only a person at a terminal can see a value (`secret get --reveal`). |
 | Hidden in output | If a vault secret shows up in what a server sends back (a `.env` file, a log line, `env`), komando prints `[secret:NAME]` instead, also when it is base64- or URL-encoded. Values shorter than 6 characters are not hidden. |
 | Server identity | A changed server fingerprint stops the connection (`HOSTKEY_MISMATCH`). |
-| History | Every action is in `komando audit`. If the audit log cannot be written, komando refuses to run (`AUDIT_UNAVAILABLE`); `komando doctor` shows why. |
+| History | Every action is in `komando audit`, with the AI agent that asked and whether a person allowed it. Each record carries the hash of the one before, so `komando audit verify` (and `doctor`) notice an edited, added or removed record. If the audit log cannot be written, komando refuses to run (`AUDIT_UNAVAILABLE`); `komando doctor` shows why. |
 
 Overriding a block needs `--allow-dangerous` — a human decision.
 Secrets are never accepted as command arguments (they would land in your

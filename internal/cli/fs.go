@@ -667,7 +667,9 @@ func fsReplaceCmd() *cobra.Command {
 				}
 			case strings.Contains(oldS, out.Hidden):
 				// a line an AI agent saw masked: [hidden] stands for the value
-				re = regexp.MustCompile(hiddenPattern(oldS))
+				if re, err = regexp.Compile(hiddenPattern(oldS)); err != nil {
+					return out.Usage("--old: %v", err)
+				}
 				newS = strings.ReplaceAll(newS, "$", "$$")
 			}
 			st, err := loadState()

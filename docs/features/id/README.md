@@ -22,6 +22,7 @@ Satu halaman per fitur, tugas demi tugas. Baru di sini? Mulai dari
 | [Cluster](cluster.md) | Kubernetes dan Docker Swarm: status, daftar, log, apply, restart, scale | `cluster` |
 | [Container registry](registry.md) | melihat daftar repository dan tag, memeriksa image, menghapus yang lama | `registry` |
 | [Keamanan](safety.md) | sabuk pengaman, dan apa yang harus dilakukan saat salah satunya menghentikan Anda | `policy`, `audit` |
+| [Standar keamanan](security-standards.md) | seberapa jauh komando memenuhi OWASP, NIST, ISO 27001 dan SLSA | `doctor`, `audit verify` |
 | [Hasil dan error](output.md) | output JSON dan teks, exit code, error yang sering muncul | — |
 | [Pengaturan dan file](settings.md) | pengaturan, dan tempat komando menyimpan datanya | `config`, `doctor` |
 | [Istilah](glossary.md) | kata-kata yang dipakai, dalam bahasa sederhana | — |

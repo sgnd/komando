@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // asAgent runs the rest of a test as Claude Code, with a person who answers
@@ -273,5 +274,84 @@ func TestInstallGuardHook(t *testing.T) {
 	}
 	if _, err := installGuardHook(p, "komando", false); err == nil {
 		t.Error("broken settings must be left alone")
+	}
+}
+
+func TestAuditChain(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	if err := os.MkdirAll(store.Home(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// a record from before the chain, then chained ones
+	if err := os.WriteFile(store.Path("audit.jsonl"), []byte(`{"command":"old"}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []string{"a", "b", "c"} {
+		audit(nil, c, nil, "", true, nil)
+	}
+	r, err := verifyAudit()
+	if err != nil || !r.OK || r.Entries != 4 || r.Chained != 3 {
+		t.Fatalf("intact: %+v %v", r, err)
+	}
+	b, _ := os.ReadFile(store.Path("audit.jsonl"))
+	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
+	for name, edit := range map[string][]string{
+		"edited":  {lines[0], lines[1], strings.Replace(lines[2], `"ok":true`, `"ok":false`, 1), lines[3]},
+		"removed": {lines[0], lines[1], lines[3]},
+		"added":   {lines[0], lines[1], `{"command":"x"}`, lines[2], lines[3]},
+	} {
+		if err := os.WriteFile(store.Path("audit.jsonl"), []byte(strings.Join(edit, "\n")+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if r, _ := verifyAudit(); r.OK {
+			t.Errorf("%s record not detected", name)
+		}
+	}
+}
+
+func TestAuditRecordsTheAgent(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	_ = os.MkdirAll(store.Home(), 0o700)
+	asAgent(t, true, true)
+	g.yes = true
+	defer func() { g.yes = false }()
+	yesOK()
+	audit(nil, "x", nil, "", true, nil)
+	b, _ := os.ReadFile(store.Path("audit.jsonl"))
+	if !strings.Contains(string(b), `"agent":"Claude Code"`) || !strings.Contains(string(b), `"allowed_by_person":true`) {
+		t.Errorf("record: %s", b)
+	}
+}
+
+func TestPlainConn(t *testing.T) {
+	for u, warn := range map[string]bool{
+		"postgres://app@db.internal/app":                     true,
+		"postgres://app@db.internal/app?sslmode=require":     true,
+		"postgres://app@db.internal/app?sslmode=verify-full": false,
+		"postgres://app@127.0.0.1:5432/app?sslmode=disable":  false,
+		"mysql://app@db.internal/app?tls=true":               false,
+		"mysql://app@db.internal/app":                        true,
+		"redis://cache.internal:6379":                        true,
+		"rediss://cache.internal:6379":                       false,
+		"ftp://deploy@files.example.com/www?insecure=1":      true,
+		"sqlite:///var/lib/app.db":                           false,
+	} {
+		if got := plainConn(&store.Conn{Name: "c", URL: u}) != ""; got != warn {
+			t.Errorf("%s: warn=%v", u, got)
+		}
+	}
+	if plainConn(&store.Conn{Name: "c", URL: "postgres://app@db.internal/app", Via: "bastion"}) != "" {
+		t.Error("through an SSH tunnel")
+	}
+}
+
+func TestLooseFiles(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	_ = os.Chmod(store.Home(), 0o700)
+	if err := os.WriteFile(store.Path("vault.key"), []byte("k"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if l := looseFiles(); len(l) != 1 || !strings.HasSuffix(l[0], "vault.key") {
+		t.Errorf("loose: %v", l)
 	}
 }

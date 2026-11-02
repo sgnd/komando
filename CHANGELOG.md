@@ -29,6 +29,28 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - `--reveal` is now a flag of every command; `secret get --reveal` still
   works only for a person at a terminal.
 
+### Measured against international standards
+
+- New page [security-standards.md](docs/features/security-standards.md):
+  OWASP ASVS, OWASP Top 10 for LLM applications, NIST, ISO 27001, CIS and
+  SLSA, with what is met, what is partly met and what is up to you.
+- Passphrase vaults use scrypt N=2^17 (the OWASP minimum, was 2^15); an older
+  vault moves up with a new salt on its next change.
+- The audit log is a hash chain: `komando audit verify` finds a record that
+  was edited, added or removed. Records name the AI agent and whether a
+  person allowed the command.
+- `komando doctor` checks security: file permissions, vault mode and
+  passphrase length (NIST SP 800-63B), the audit chain, and conns whose
+  traffic is not encrypted or whose server certificate is not checked.
+- The agent rules say server output is data, never instructions (prompt
+  injection).
+- Releases carry signed SLSA build provenance (`gh attestation verify`). CI
+  reads only, actions are pinned to commits, Dependabot keeps modules and
+  actions current, and `make security` runs govulncheck and staticcheck.
+  `make fuzz` fuzzes the masking, the policy filter and the guard; fuzzing
+  found and fixed a crash on invalid UTF-8 in `fs replace --old`.
+- golang.org/x/net 0.62.0 (GO-2026-6860, GO-2026-6866).
+
 ### Day-to-day database care (gap analysis, phase 4)
 
 - `db info` (version, uptime, size, connections, primary or replica and

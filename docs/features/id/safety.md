@@ -1,6 +1,6 @@
 # Keamanan
 
-Sabuk pengaman, dan apa yang harus dilakukan saat salah satunya menghentikan Anda. [Semua fitur](README.md)
+Sabuk pengaman, dan apa yang harus dilakukan saat salah satunya menghentikan Anda. [Semua fitur](README.md) · [Standar keamanan](security-standards.md)
 
 | Sabuk pengaman | Fungsinya |
 |----------------|-----------|
@@ -17,7 +17,7 @@ Sabuk pengaman, dan apa yang harus dilakukan saat salah satunya menghentikan And
 | Vault terenkripsi | Password dienkripsi dengan AES-256-GCM. Yang pernah ditampilkan hanya namanya, dan hanya orang di terminal yang bisa melihat nilainya (`secret get --reveal`). |
 | Disembunyikan di output | Kalau secret dari vault muncul di kiriman server (file `.env`, baris log, `env`), komando menampilkan `[secret:NAME]`, juga saat nilainya di-encode base64 atau URL. Nilai yang lebih pendek dari 6 karakter tidak disembunyikan. |
 | Identitas server | Fingerprint server yang berubah menghentikan koneksi (`HOSTKEY_MISMATCH`). |
-| Riwayat | Semua tindakan tercatat di `komando audit`. Kalau log audit tidak bisa ditulis, komando menolak berjalan (`AUDIT_UNAVAILABLE`); `komando doctor` menunjukkan sebabnya. |
+| Riwayat | Semua tindakan tercatat di `komando audit`, termasuk AI agent yang meminta dan apakah manusia mengizinkannya. Tiap catatan membawa hash catatan sebelumnya, jadi `komando audit verify` (dan `doctor`) mengetahui catatan yang diubah, ditambah, atau dihapus. Kalau log audit tidak bisa ditulis, komando menolak berjalan (`AUDIT_UNAVAILABLE`); `komando doctor` menunjukkan sebabnya. |
 
 Menembus blokir butuh `--allow-dangerous` — itu keputusan manusia.
 Secret tidak pernah diterima sebagai argumen perintah (nanti tersimpan di

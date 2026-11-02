@@ -20,6 +20,7 @@ One page per feature, task by task. New here? Start with the
 | [Clusters](cluster.md) | Kubernetes and Docker Swarm: status, list, logs, apply, restart, scale | `cluster` |
 | [Container registries](registry.md) | list repositories and tags, inspect images, delete old ones | `registry` |
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit` |
+| [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit verify` |
 | [Results and errors](output.md) | JSON and text output, exit codes, common errors | — |
 | [Settings and files](settings.md) | settings, and where komando keeps its data | `config`, `doctor` |
 | [Glossary](glossary.md) | the words, in plain language | — |
