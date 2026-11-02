@@ -89,10 +89,16 @@ Host web
   ProxyJump bastion
 Host bastion
   HostName bastion.example.com
+  ServerAliveInterval 30
+Host ec2
+  HostName i-0abc
+  ProxyCommand aws ssm start-session --target %h
+Match host *.internal
+  User ops
 Host *
   User fallback
 `), 0o600)
-	hosts, err := parseSSHConfig(cfg)
+	hosts, notes, err := parseSSHConfig(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,6 +114,13 @@ Host *
 	}
 	if by["extra"] == nil || by["extra"].Address != "9.9.9.9" {
 		t.Error("Include not followed")
+	}
+	joined := strings.Join(notes, "\n")
+	if !strings.Contains(joined, "Match block") || !strings.Contains(joined, "ec2: not carried over: proxycommand") {
+		t.Errorf("notes must report Match and ProxyCommand, got %q", notes)
+	}
+	if strings.Contains(joined, "serveraliveinterval") || strings.Contains(joined, "bastion:") {
+		t.Errorf("harmless directives must not be reported: %q", notes)
 	}
 }
 

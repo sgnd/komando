@@ -60,6 +60,12 @@ check "reveal needs a person" REVEAL_NEEDS_HUMAN "$($K secret get agent-pass --r
 check "secret in use cannot be removed" SECRET_IN_USE "$($K secret rm agent-pass | jget 'd["error"]["code"]' || true)"
 check "plain password refused as a ref" USAGE "$($K host add bad "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref agentpass | jget 'd["error"]["code"]' || true)"
 
+check "completion lists the inventory" True "$($K __complete exec '' 2>/dev/null | grep -qx direct && echo True || echo False)"
+check "schema knows kind: selectors" True "$($K schema | jget '"kind:KIND" in d["data"]["target_selectors"]')"
+chmod 400 "$KOMANDO_HOME/audit.jsonl"
+check "no audit, no change" AUDIT_UNAVAILABLE "$($K host add nope "agent@127.0.0.1:$E2E_SSH_DIRECT" | jget 'd["error"]["code"]' || true)"
+chmod 600 "$KOMANDO_HOME/audit.jsonl"
+
 echo "==> connectivity (incl. jump host)"
 check "host test all ok" 3 "$($K host test @lab | jget 'd["data"]["summary"]["ok"]')"
 
@@ -114,6 +120,13 @@ echo "==> jobs"
 JID=$($K job start direct -- 'echo a; sleep 1; echo b' | jget 'd["data"]["jobs"][0]["id"]')
 check "job wait ok" exited "$($K job wait "$JID" --interval 1s | jget 'd["data"]["state"]')"
 check "job logs" "a b" "$($K job logs "$JID" | jget '" ".join(d["data"]["content"].split())')"
+check "exec gets a vault secret as env" match "$($K exec direct -e P=secret:agent-pass -- 'test "$P" = agentpass && echo match' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+JID=$($K job start direct -e P=secret:agent-pass -- 'test "$P" = agentpass && echo job-match' | jget 'd["data"]["jobs"][0]["id"]')
+$K job wait "$JID" --interval 1s >/dev/null
+check "job gets a vault secret as env" True "$($K job logs "$JID" | jget '"job-match" in d["data"]["content"]')"
+check "job env file is deleted" False "$($K fs stat direct ".komando/jobs/$JID/env" | jget 'd["data"]["exists"]')"
+$K fs write direct /home/agent/t/app.env --content 'DB_PASSWORD=agentpass' >/dev/null
+check "secret values hidden in output" "DB_PASSWORD=[secret:agent-pass]" "$($K fs cat direct /home/agent/t/app.env | jget 'd["data"]["content"].strip()')"
 
 echo "==> keys"
 $K key gen deploy >/dev/null
@@ -151,6 +164,14 @@ q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref 
 q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref secret:redis-pass
 q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref secret:s3-secret
 check "conn test via bastion" 4 "$($K conn test all | jget 'd["data"]["summary"]["ok"]')"
+check "conn test logs in" login "$($K conn test pg | jget 'd["data"]["results"][0]["detail"]["check"]')"
+echo -n wrongpass | $K secret set pg-wrong >/dev/null
+q $K conn add pg-wrong 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-wrong
+check "conn test catches a wrong password" False "$($K conn test pg-wrong | jget 'd["data"]["results"][0]["ok"]' || true)"
+q $K conn rm pg-wrong
+q $K conn edit pg --option statement_timeout=1s
+check "conn statement_timeout option is used" TIMEOUT "$($K db query pg 'select pg_sleep(3)' | jget 'd["error"]["code"]' || true)"
+q $K conn edit pg --option statement_timeout=
 
 # postgres: write, read-only enforcement, dump, destroy, restore
 q $K db query pg --write "create table t(id int primary key, name text); create sequence s; insert into t values (1, 'a'), (2, 'b')"
@@ -246,6 +267,7 @@ spec:
     spec: { containers: [ { name: web, image: "rancher/mirrored-pause:3.6" } ] }
 YAML
 check "apply --dry-run changes nothing" "K8S_NOT_FOUND" "$($K cluster apply lab-k3s --file "$TMP/app.yaml" --dry-run >/dev/null; $K cluster get lab-k3s deploy web | jget 'd["error"]["code"]' || true)"
+check "apply --dry-run shows the change" create "$($K cluster apply lab-k3s --file "$TMP/app.yaml" --dry-run | jget 'd["data"]["changes"][0]["action"]')"
 q $K cluster apply lab-k3s --file "$TMP/app.yaml"
 check "apply then list" web "$($K cluster ls lab-k3s deployments | jget 'd["data"]["items"][0]["name"]')"
 q $K cluster scale lab-k3s deployment/web 2
@@ -288,6 +310,7 @@ check "registry inspect digest" True "$($K registry inspect reg tools/busybox:1.
 q $K registry copy reg:tools/busybox:1.37 reg:mirror/busybox:stable
 check "registry copy keeps the digest" "$($K registry inspect reg tools/busybox:1.37 | jget 'd["data"]["digest"]')" "$($K registry inspect reg mirror/busybox:stable | jget 'd["data"]["digest"]')"
 set +e; $K registry rm reg tools/busybox:1.37 >/dev/null; check "registry rm needs --allow-dangerous" 6 $?; set -e
+check "registry rm names the tags it takes" True "$($K registry rm reg tools/busybox:1.37 --allow-dangerous --dry-run | jget '"1.37" in d["data"]["tags"]')"
 q $K registry rm reg tools/busybox:1.37 --allow-dangerous
 check "registry rm removed it" REGISTRY_NOT_FOUND "$($K registry inspect reg tools/busybox:1.37 | jget 'd["error"]["code"]' || true)"
 

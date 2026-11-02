@@ -454,6 +454,7 @@ Values are never printed unless 'secret get --reveal' is used.`,
 			}
 			res := map[string]any{"name": args[0], "exists": true, "length": len(v)}
 			if reveal {
+				out.P.NoRedact = true // the person asked for this value
 				res["value"] = v
 				audit(nil, "secret.reveal", nil, "", true, map[string]any{"secret": args[0]})
 			}

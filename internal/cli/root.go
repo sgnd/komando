@@ -104,6 +104,52 @@ func commandName(c *cobra.Command) string {
 	return strings.ReplaceAll(p, " ", ".")
 }
 
+// vaultValues returns every vault secret by name, so output can hide them
+// (a remote .env, a log line). A vault that cannot be opened hides nothing.
+func vaultValues() map[string]string {
+	list, err := vault.List()
+	if err != nil {
+		return nil
+	}
+	m := make(map[string]string, len(list))
+	for _, i := range list {
+		if v, err := vault.Get(i.Name); err == nil {
+			m[i.Name] = v
+		}
+	}
+	return m
+}
+
+// localReads change nothing anywhere, so they run even when the audit log
+// is broken; that is how a person finds out what is wrong.
+var localReads = map[string]bool{
+	"version": true, "help": true, "completion": true, "schema": true, "guide": true, "doctor": true,
+	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true,
+	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
+	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
+	"tunnel.list": true, "job.list": true,
+}
+
+// checkAuditWritable refuses to run when the audit log is on but cannot be
+// written: changes must not happen without a record (docs/design/ux.md §6).
+func checkAuditWritable(cmd *cobra.Command) error {
+	name := commandName(cmd)
+	top, _, _ := strings.Cut(name, ".")
+	if g.dryRun || cmd.Hidden || name == "komando" || localReads[name] || top == "help" || top == "completion" {
+		return nil
+	}
+	st, err := store.Load()
+	if err != nil || !st.Settings.Audit {
+		return nil // a broken state file shows its own error in the command
+	}
+	f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions (`komando doctor` checks them); nothing was run",
+			"the audit log cannot be written: %v", err)
+	}
+	return f.Close()
+}
+
 func newRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "komando",
@@ -142,13 +188,14 @@ Start here:  komando guide      (agent playbook)
 			store.DryRun = g.dryRun
 			out.P.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
+			out.P.Secrets = vaultValues
 			if cmd.Name() != "serve" && !g.dryRun {
 				netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
 			}
 			if g.hostKeyPolicy == "off" {
 				return guardSafety("--host-key-policy off (no server identity check)")
 			}
-			return nil
+			return checkAuditWritable(cmd)
 		},
 	}
 	pf := root.PersistentFlags()
@@ -187,6 +234,7 @@ Start here:  komando guide      (agent playbook)
 	add("ops", factsCmd(), svcCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd())
 	add("meta", schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), versionCmd())
 	applyConventions(root)
+	addCompletion(root)
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
 	for _, c := range root.Commands() {

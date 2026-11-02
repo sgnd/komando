@@ -90,18 +90,34 @@ func jobStartCmd() *cobra.Command {
 			}
 			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 				id := newID("j")
-				inner, _, err := sshx.BuildCommand(c, sshx.RunRequest{Command: command, Env: env, Dir: dir})
+				// The exports go to a private file the job reads and deletes:
+				// a job runs for long, and its command line is visible to
+				// every user on the server (ps), secrets included.
+				exports, err := sshx.EnvExports(c, env)
 				if err != nil {
 					return nil, err
+				}
+				inner, _, err := sshx.BuildCommand(c, sshx.RunRequest{Command: command, Dir: dir, NoEnv: true})
+				if err != nil {
+					return nil, err
+				}
+				if exports != "" {
+					inner = `. "$1"; rm -f "$1"; ` + inner
 				}
 				if sudo {
 					if c.Host.SudoRef != "" {
 						return nil, out.Usage("jobs cannot feed a sudo password; use passwordless sudo or `komando exec --sudo`")
 					}
-					inner = "sudo -n sh -c " + sshx.Q(inner)
+					inner = "sudo -n sh -c " + sshx.Q(inner) + ` sh "$d/env"`
+				} else {
+					inner = "sh -c " + sshx.Q(inner) + ` sh "$d/env"`
 				}
 				wrapper := "( " + inner + " ); echo $? > \"$d/exit\""
-				script := `d="` + jobDir(id) + `"; mkdir -p "$d" && printf '%s\n' ` + sshx.Q(command) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
+				envFile := ""
+				if exports != "" {
+					envFile = `(umask 077; printf '%s' ` + sshx.Q(exports) + ` > "$d/env") && `
+				}
+				script := `d="` + jobDir(id) + `"; mkdir -p "$d" && ` + envFile + `printf '%s\n' ` + sshx.Q(command) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
 					`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & ` +
 					`else nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
 				o, code, err := sshx.Output(ctx, c, script, 30*time.Second)

@@ -48,6 +48,13 @@ that a conn uses with `--via` cannot be removed until the conn is changed.
 
 ## Query a database
 
+A query stops after 30 seconds unless `--timeout` says otherwise. To give one
+database its own limit, set it on the conn:
+
+```bash
+komando conn edit prod-db --option statement_timeout=10s
+```
+
 `komando db` runs SQL on a conn. **It does not change your data unless you
 add `--write`**: without it, the query runs in a read-only transaction and
 the database itself refuses changes. A few admin functions that a read-only

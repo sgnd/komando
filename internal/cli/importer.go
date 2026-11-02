@@ -367,12 +367,13 @@ func readSource(path string) ([]byte, error) {
 }
 
 func importSSHConfig(path string) (*importPlan, error) {
-	hosts, err := parseSSHConfig(path)
+	hosts, notes, err := parseSSHConfig(path)
 	if err != nil {
 		return nil, err
 	}
 	p := newPlan()
 	p.Hosts = hosts
+	p.Notes = append(p.Notes, notes...)
 	return p, nil
 }
 

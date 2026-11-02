@@ -256,7 +256,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 						if many {
 							line = "[" + host + "] " + line
 						}
-						fmt.Fprint(w, line)
+						fmt.Fprint(w, out.P.Redact(line))
 					}
 					return
 				}

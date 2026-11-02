@@ -10,9 +10,10 @@ Sabuk pengaman, dan apa yang harus dilakukan saat salah satunya menghentikan And
 | Bertanya ke manusia | Saat Anda sendiri mengetik perintah di terminal, komando bertanya alih-alih gagal: `[y/N]` untuk target protected, dan mengetik nama target untuk perintah berbahaya. Agent dan skrip tidak pernah melihat pertanyaan ini; mereka butuh flag-nya. |
 | Dry run | `--dry-run` menampilkan apa yang akan dijalankan dan apakah akan diblokir. |
 | Edit yang aman | Penulisan atomik, ganti hanya jika teksnya cocok persis, backup `.bak` opsional. |
-| Vault terenkripsi | Password dienkripsi dengan AES-256-GCM. Yang pernah ditampilkan hanya namanya. |
+| Vault terenkripsi | Password dienkripsi dengan AES-256-GCM. Yang pernah ditampilkan hanya namanya, dan hanya orang di terminal yang bisa melihat nilainya (`secret get --reveal`). |
+| Disembunyikan di output | Kalau secret dari vault muncul di kiriman server (file `.env`, baris log, `env`), komando menampilkan `[secret:NAME]`. Nilai yang lebih pendek dari 6 karakter tidak disembunyikan. |
 | Identitas server | Fingerprint server yang berubah menghentikan koneksi (`HOSTKEY_MISMATCH`). |
-| Riwayat | Semua tindakan tercatat di `komando audit`. |
+| Riwayat | Semua tindakan tercatat di `komando audit`. Kalau log audit tidak bisa ditulis, komando menolak berjalan (`AUDIT_UNAVAILABLE`); `komando doctor` menunjukkan sebabnya. |
 
 Menembus blokir butuh `--allow-dangerous` — itu keputusan manusia.
 Secret tidak pernah diterima sebagai argumen perintah (nanti tersimpan di

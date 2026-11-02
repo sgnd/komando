@@ -50,6 +50,13 @@ diubah.
 
 ## Query database
 
+Query berhenti setelah 30 detik kecuali `--timeout` menyebut lain. Untuk
+memberi satu database batasnya sendiri, setel di conn-nya:
+
+```bash
+komando conn edit prod-db --option statement_timeout=10s
+```
+
 `komando db` menjalankan SQL di sebuah conn. **Perintah ini tidak mengubah
 data Anda kecuali Anda menambahkan `--write`**: tanpa itu, query berjalan
 dalam transaksi read-only dan database itu sendiri yang menolak perubahan.

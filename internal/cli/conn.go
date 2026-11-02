@@ -13,6 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cachex"
+	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
@@ -462,7 +464,8 @@ type connTestResult struct {
 	Kind      string     `json:"kind,omitempty"`
 	Where     string     `json:"where,omitempty"`
 	Via       string     `json:"via,omitempty"`
-	Check     string     `json:"check,omitempty"` // tcp | file
+	Check     string     `json:"check,omitempty"`   // login (db, cache, registry) | tcp | file
+	Version   string     `json:"version,omitempty"` // server version, when the login check reads it
 	LatencyMS int64      `json:"latency_ms,omitempty"`
 	Error     *out.Error `json:"error,omitempty"`
 }
@@ -501,8 +504,58 @@ func testConn(ctx context.Context, st *store.State, c *store.Conn) connTestResul
 		}
 		nc.Close()
 	}
+	// reaching the port is not enough: log in like the real commands do
+	if err := loginCheck(ctx, st, c, a, &r); err != nil {
+		return fail(err)
+	}
 	r.OK, r.LatencyMS = true, time.Since(t0).Milliseconds()
 	return r
+}
+
+// loginCheck logs in to db, cache and registry conns with their stored
+// password and reads the server version where that is cheap. Other kinds
+// keep the reachability check (`cluster status` logs in to clusters).
+func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, r *connTestResult) error {
+	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
+	defer cancel()
+	switch a.Target.Kind.Family {
+	case "db":
+		db, err := dbx.Open(cctx, c.URL, a.Target, a.Password, a.Dial, true, "komando/"+actor())
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		q := map[string]string{"postgres": "select version()", "mysql": "select version()", "sqlite": "select sqlite_version()"}[a.Target.Kind.Name]
+		if q != "" {
+			_ = db.QueryRowContext(cctx, q).Scan(&r.Version)
+		}
+	case "cache":
+		rc, err := cachex.Open(cctx, a.Target, a.Password, a.Dial, sshOpts(st).ConnectTimeout)
+		if err != nil {
+			return err
+		}
+		defer rc.Close()
+		if info, err := rc.Info(cctx, "server").Result(); err == nil {
+			for _, l := range strings.Split(info, "\n") {
+				if v, ok := strings.CutPrefix(strings.TrimSpace(l), "redis_version:"); ok {
+					r.Version = v
+				}
+			}
+		}
+	case "registry":
+		rg, closeFn, err := openRegistry(cctx, st, c)
+		if err != nil {
+			return err
+		}
+		defer closeFn()
+		if err := rg.Ping(cctx); err != nil {
+			return registryErr(err)
+		}
+	default:
+		return nil
+	}
+	r.Check = "login"
+	return nil
 }
 
 func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {

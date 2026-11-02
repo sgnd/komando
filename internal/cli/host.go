@@ -392,6 +392,7 @@ func hostImportCmd() *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var hosts []*store.Host
+			var notes []string
 			switch {
 			case jsonFile != "":
 				b, err := readFileOrStdin(jsonFile)
@@ -432,7 +433,7 @@ func hostImportCmd() *cobra.Command {
 					sshConfig = filepath.Join(home, ".ssh", "config")
 				}
 				var err error
-				hosts, err = parseSSHConfig(sshConfig)
+				hosts, notes, err = parseSSHConfig(sshConfig)
 				if err != nil {
 					return err
 				}
@@ -462,7 +463,11 @@ func hostImportCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "host.import", added, "", true, nil)
-			out.P.Print("host.import", map[string]any{"imported": added, "skipped_existing": skipped}, nil)
+			res := map[string]any{"imported": added, "skipped_existing": skipped}
+			if len(notes) > 0 {
+				res["notes"] = notes
+			}
+			out.P.Print("host.import", res, nil)
 			return nil
 		},
 	}
@@ -482,12 +487,35 @@ func readFileOrStdin(p string) ([]byte, error) {
 
 // parseSSHConfig understands Host, HostName, User, Port, IdentityFile,
 // ProxyJump and Include. Wildcard Host patterns become defaults.
-func parseSSHConfig(path string) ([]*store.Host, error) {
+// sshUsed are the ssh_config directives komando turns into host settings.
+// sshHarmless change nothing komando needs (its own client already behaves
+// that way or the option only tunes OpenSSH). Anything else is reported
+// after an import, so a setting is never dropped silently.
+var sshUsed = set("hostname user port identityfile proxyjump")
+var sshHarmless = set(`serveraliveinterval serveralivecountmax addkeystoagent usekeychain identitiesonly
+stricthostkeychecking userknownhostsfile globalknownhostsfile loglevel compression controlmaster controlpath
+controlpersist connecttimeout tcpkeepalive visualhostkey hashknownhosts preferredauthentications
+pubkeyauthentication passwordauthentication kbdinteractiveauthentication updatehostkeys canonicalizehostname
+checkhostip batchmode`)
+
+func set(words string) map[string]bool {
+	m := map[string]bool{}
+	for _, w := range strings.Fields(words) {
+		m[w] = true
+	}
+	return m
+}
+
+// parseSSHConfig reads an OpenSSH config into hosts. notes lists what it
+// could not carry over (Match blocks, ProxyCommand, ...), per host.
+func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error) {
 	type block struct {
 		patterns []string
 		opts     map[string]string
+		raw      map[string]string // directive names as written, for notes
 	}
 	var blocks []*block
+	matches := 0
 	var read func(p string, depth int) error
 	read = func(p string, depth int) error {
 		if depth > 5 {
@@ -522,15 +550,17 @@ func parseSSHConfig(path string) ([]*store.Host, error) {
 					}
 				}
 			case "host":
-				cur = &block{patterns: strings.Fields(val), opts: map[string]string{}}
+				cur = &block{patterns: strings.Fields(val), opts: map[string]string{}, raw: map[string]string{}}
 				blocks = append(blocks, cur)
 			case "match":
 				cur = nil
+				matches++
 			default:
 				if cur != nil {
 					k := strings.ToLower(key)
 					if _, set := cur.opts[k]; !set { // first value wins, like ssh
 						cur.opts[k] = strings.Trim(val, `"`)
+						cur.raw[k] = key
 					}
 				}
 			}
@@ -538,9 +568,11 @@ func parseSSHConfig(path string) ([]*store.Host, error) {
 		return sc.Err()
 	}
 	if err := read(path, 0); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var hosts []*store.Host
+	if matches > 0 {
+		notes = append(notes, fmt.Sprintf("%d Match block(s) skipped: komando cannot evaluate Match; add those settings to the hosts with `komando host edit`", matches))
+	}
 	for _, b := range blocks {
 		for _, pat := range b.patterns {
 			if strings.ContainsAny(pat, "*?!") {
@@ -575,10 +607,24 @@ func parseSSHConfig(path string) ([]*store.Host, error) {
 			if h.Via == "none" {
 				h.Via = ""
 			}
+			var dropped []string
+			for k := range opts {
+				if !sshUsed[k] && !sshHarmless[k] {
+					dropped = append(dropped, k)
+				}
+			}
+			if len(dropped) > 0 {
+				sort.Strings(dropped)
+				hint := ""
+				if slices.Contains(dropped, "proxycommand") {
+					hint = " (ProxyCommand is not supported; use --via with a bastion or VPN)"
+				}
+				notes = append(notes, fmt.Sprintf("%s: not carried over: %s%s", name, strings.Join(dropped, ", "), hint))
+			}
 			hosts = append(hosts, h)
 		}
 	}
-	return hosts, nil
+	return hosts, notes, nil
 }
 
 func blockMatches(patterns []string, host string) bool {

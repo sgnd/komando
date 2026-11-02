@@ -252,6 +252,16 @@ func (c *Client) getJSON(ctx context.Context, path string, q url.Values, accept 
 	return resp.Header, json.NewDecoder(io.LimitReader(resp.Body, 16<<20)).Decode(v)
 }
 
+// Ping checks that the registry answers and accepts the login (GET /v2/).
+func (c *Client) Ping(ctx context.Context) error {
+	resp, err := c.Do(ctx, "GET", "/v2/", nil, "")
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}
+
 // Catalog lists repositories (registries like Docker Hub do not allow it).
 func (c *Client) Catalog(ctx context.Context, limit int) ([]string, error) {
 	return c.pages(ctx, "/v2/_catalog", "repositories", limit)

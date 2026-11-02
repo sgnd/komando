@@ -10,9 +10,10 @@ The seatbelts, and what to do when one stops you. [All features](README.md)
 | Asking a human | When you type a command yourself in a terminal, komando asks instead of failing: `[y/N]` for protected targets, and typing the target's name for dangerous commands. Agents and scripts never see these questions; they need the flags. |
 | Dry run | `--dry-run` shows what would run and whether it would be blocked. |
 | Safe edits | Atomic writes, exact-match replace, optional `.bak` backups. |
-| Encrypted vault | Passwords are AES-256-GCM encrypted. Only names are ever shown. |
+| Encrypted vault | Passwords are AES-256-GCM encrypted. Only names are ever shown, and only a person at a terminal can see a value (`secret get --reveal`). |
+| Hidden in output | If a vault secret shows up in what a server sends back (a `.env` file, a log line, `env`), komando prints `[secret:NAME]` instead. Values shorter than 6 characters are not hidden. |
 | Server identity | A changed server fingerprint stops the connection (`HOSTKEY_MISMATCH`). |
-| History | Every action is in `komando audit`. |
+| History | Every action is in `komando audit`. If the audit log cannot be written, komando refuses to run (`AUDIT_UNAVAILABLE`); `komando doctor` shows why. |
 
 Overriding a block needs `--allow-dangerous` — a human decision.
 Secrets are never accepted as command arguments (they would land in your

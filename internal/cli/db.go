@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -154,7 +155,7 @@ func dbSchemaCmd() *cobra.Command {
 				return err
 			}
 			defer closeDB()
-			tables, err := dbx.Schema(cmd.Context(), db, c.Kind, args[1:], dbTimeout())
+			tables, err := dbx.Schema(cmd.Context(), db, c.Kind, args[1:], connTimeout(c))
 			audit(st, "db.schema", nil, "", err == nil, map[string]any{"conns": []string{c.Name}})
 			if err != nil {
 				return err
@@ -230,6 +231,23 @@ func qualified(t dbx.Table) string {
 func dbTimeout() time.Duration {
 	if g.timeout > 0 {
 		return g.timeout
+	}
+	return dbDefaultTimeout
+}
+
+// connTimeout is dbTimeout with the conn's own statement_timeout option
+// (`conn edit NAME --option statement_timeout=10s`); --timeout still wins.
+func connTimeout(c *store.Conn) time.Duration {
+	if g.timeout > 0 {
+		return g.timeout
+	}
+	if v := c.Options["statement_timeout"]; v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+		if ms, err := strconv.Atoi(v); err == nil && ms > 0 { // Postgres style: milliseconds
+			return time.Duration(ms) * time.Millisecond
+		}
 	}
 	return dbDefaultTimeout
 }
@@ -378,7 +396,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		args[i] = a
 	}
 	res, err := dbx.Run(ctx, db, c.Kind, plan, dbx.Options{Write: f.write, DryRun: g.dryRun, Limit: f.limit,
-		MaxBytes: maxOutput(st), Timeout: dbTimeout(), Args: args})
+		MaxBytes: maxOutput(st), Timeout: connTimeout(c), Args: args})
 	if err != nil {
 		return fail(err)
 	}

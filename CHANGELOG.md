@@ -4,6 +4,38 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Secrets stay out of sight; dry runs show the change (gap analysis, phase 1)
+
+- Vault secrets are hidden in everything komando prints: a remote `.env`,
+  a log line or `env` output shows `[secret:NAME]` instead of the value
+  (values of 6 characters or more). `secret get --reveal` still shows it
+  to a person.
+- `--env KEY=secret:NAME` (exec, script, job, host `--env`) fills the value
+  in from the vault on the way to the server, so an agent never handles it.
+  Jobs get their exports from a private file that is deleted at start, not
+  on a command line other users can see.
+- `cluster apply --dry-run` shows each object's change (`create`, `change`
+  or `none`) as a diff; Secret values stay hidden.
+- `registry rm` lists every tag that goes with the image, in the dry run
+  too.
+
+### Promises kept (gap analysis, phase 1)
+
+- The audit log fails closed: when it cannot be written, commands that
+  could change something are refused (`AUDIT_UNAVAILABLE`); `doctor`
+  checks it.
+- `komando test` logs in to databases, caches and registries (and reports
+  the server version) instead of only opening the port.
+- Shell completion fills in server, conn and VPN names, `@groups`, `tag:`
+  and saved names from the inventory.
+- `komando schema` lists every selector (`kind:`, servers and conns) and
+  every secret reference form.
+- `import ssh-config` reports what it did not carry over (Match blocks,
+  ProxyCommand, ...) instead of dropping it silently.
+- `conn edit --option statement_timeout=10s` is used by `db query` and
+  `db schema`.
+- docs/design/vision.md shows the real status of every family.
+
 ### Safer file edits, downloads and tunnels (gap analysis, phase 1)
 
 - `fs write|replace --validate CMD` checks the new file before it goes

@@ -33,7 +33,9 @@ pemula, dan seterusnya) tetap berlaku untuk semuanya.
 
 ## Review kondisi sekarang
 
-Per commit `39d2e68` (± 11.500 baris Go, biner 26 MB):
+Per `feat/v0.3` setelah fase 1 analisis gap (± 22.000 baris Go, biner rilis
+± 35 MB). Daftar lengkap apa yang masih kurang ada di
+[gap/README.md](gap/README.md).
 
 | Area | Status |
 |---|---|
@@ -42,8 +44,11 @@ Per commit `39d2e68` (± 11.500 baris Go, biner 26 MB):
 | Lapisan aman: policy, protected, dry-run, cek host key, audit, JSON envelope + exit code | ✅ matang |
 | `conn` + `db` (PostgreSQL, MySQL, SQLite; query/schema/explain/dump/restore; `audit_sql`) | ✅ selesai |
 | `cache` (Redis, Valkey) | ✅ selesai |
-| `storage` (S3: ls/get/put/rm/link) | ✅ selesai |
-| Cluster, registry, ftp, VPN, secret backend eksternal | ❌ belum ada |
+| `storage` (S3, FTP/FTPS, SFTP: ls/download/upload/rm/link) | ✅ selesai |
+| `cluster` (Kubernetes, Docker Swarm) | ✅ selesai (rollout/rollback/diff: lihat gap) |
+| `registry` (ls, inspect, rm, copy) | ✅ selesai |
+| `vpn` (WireGuard, OpenVPN, openconnect, Tailscale, SOCKS, VPN OS) | ✅ selesai |
+| Ref secret eksternal (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`) | ✅ selesai |
 | Satu inventaris: selector universal, `komando list`, `komando test` | ✅ selesai |
 | Migrasi | ✅ `import` (ssh-config, pgpass, mycnf, env, komando) dan `export` |
 
@@ -91,11 +96,11 @@ Nama perintah selalu berupa **kategori**, bukan nama produk.
 | `exec`, `fs`, `cp`, `svc`, `docker`, ... | host | SSH (Linux) | ✅ |
 | `db` | sql | postgres, mysql/mariadb, sqlite; nanti: mssql, clickhouse | ✅ |
 | `cache` | kv | redis, valkey, keydb, dragonfly; nanti: memcached | ✅ |
-| `storage` | object/file | s3 (AWS, MinIO, R2, Spaces, Wasabi, B2), ftp/ftps; nanti: gcs, azblob, webdav | ✅ s3, 📋 ftp |
-| `cluster` | orchestrator | k8s (k3s, EKS, GKE, AKS, kind), swarm; nanti: nomad | 📋 |
-| `registry` | oci | Docker Hub, GHCR, GitLab, Harbor, ECR, registry:2 | 📋 |
-| `secret` | secret | vault lokal; ref eksternal: `op:`, `vault:`, `aws-sm:`, `gcp-sm:` | ✅ lokal, 📋 eksternal |
-| `vpn` | jalur | wireguard ✅, socks ✅, system ✅; berikutnya tailscale, GlobalProtect/Fortinet/AnyConnect/Pulse/F5 (openconnect), OpenVPN/Pritunl, L2TP/IPsec. komando menyambungkan VPN sendiri saat dibutuhkan `--via` | ⏳ ([network.md](network.md)) |
+| `storage` | object/file | s3 (AWS, MinIO, R2, Spaces, Wasabi, B2), ftp/ftps, sftp; nanti: gcs, azblob, webdav | ✅ |
+| `cluster` | orchestrator | k8s (k3s, EKS, GKE, AKS, kind), swarm; nanti: nomad | ✅ |
+| `registry` | oci | Docker Hub, GHCR, GitLab, Harbor, registry:2; ECR butuh token yang diperbarui (lihat gap) | ✅ |
+| `secret` | secret | vault lokal; ref eksternal: `op://`, `vault:`, `aws-sm:`, `gcp-sm:` | ✅ |
+| `vpn` | jalur | wireguard, socks, system, tailscale, GlobalProtect/Fortinet/AnyConnect/Pulse/F5 (openconnect), OpenVPN/Pritunl, L2TP/IPsec (system). komando menyambungkan VPN sendiri saat dibutuhkan `--via` | ✅ ([network.md](network.md)) |
 
 Keputusan (disetujui 2026-11-02):
 

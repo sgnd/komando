@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -693,6 +694,7 @@ func clusterApplyCmd() *cobra.Command {
 					q.Set("dryRun", "All")
 				}
 				var applied []string
+				var changes []objectChange
 				for _, d := range docs {
 					r, err := k.ResourceFor(ctx, d.APIVersion, d.Kind)
 					if err != nil {
@@ -702,18 +704,76 @@ func clusterApplyCmd() *cobra.Command {
 					if r.IsNamespaced() {
 						space = firstNonEmpty(d.Namespace, ns, k.Namespace)
 					}
-					if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, d.Name), q, d.JSON, "application/apply-patch+yaml"); err != nil {
+					path := r.ObjectPath(space, d.Name)
+					name := strings.ToLower(d.Kind) + "/" + d.Name
+					var before []byte
+					if g.dryRun { // the live object, to diff against what the server would make
+						before, err = k.Do(ctx, "GET", path, nil, nil, "")
+						var ae *kube.APIError
+						if err != nil && !(errors.As(err, &ae) && ae.Code == 404) {
+							return nil, fmt.Errorf("%s: %w", name, err)
+						}
+					}
+					after, err := k.Do(ctx, "PATCH", path, q, d.JSON, "application/apply-patch+yaml")
+					if err != nil {
 						return nil, fmt.Errorf("%s/%s: %w", d.Kind, d.Name, err)
 					}
-					applied = append(applied, strings.ToLower(d.Kind)+"/"+d.Name)
+					applied = append(applied, name)
+					if g.dryRun {
+						changes = append(changes, diffObject(name, before, after))
+					}
 				}
-				return map[string]any{"conn": t.conn.Name, "applied": applied, "dry_run": g.dryRun}, nil
+				res := map[string]any{"conn": t.conn.Name, "applied": applied, "dry_run": g.dryRun}
+				if g.dryRun {
+					res["changes"] = changes
+				}
+				return res, nil
 			})
 		},
 	}
 	c.Flags().StringVar(&file, "file", "", "YAML file ('-' for stdin)")
 	c.Flags().StringVar(&stack, "stack", "", "Swarm: the stack name")
 	nsFlags(c, &ns, nil)
+	return c
+}
+
+// objectChange is one object in `cluster apply --dry-run`: what the server
+// would do with it, and the difference as a unified diff of YAML.
+type objectChange struct {
+	Object string `json:"object"`
+	Action string `json:"action"` // create | change | none
+	Diff   string `json:"diff,omitempty"`
+}
+
+func diffObject(name string, before, after []byte) objectChange {
+	c := objectChange{Object: name, Action: "change"}
+	text := func(b []byte) string {
+		if len(b) == 0 {
+			return ""
+		}
+		var o map[string]any
+		if json.Unmarshal(b, &o) != nil {
+			return ""
+		}
+		delete(o, "status")
+		if m, ok := o["metadata"].(map[string]any); ok {
+			for _, f := range []string{"managedFields", "resourceVersion", "generation", "uid", "creationTimestamp", "selfLink"} {
+				delete(m, f)
+			}
+		}
+		redact(o) // Secret values never reach the output, not even in a diff
+		y, _ := yaml.Marshal(o)
+		return string(y)
+	}
+	old, upd := text(before), text(after)
+	switch {
+	case before == nil:
+		c.Action = "create"
+	case old == upd:
+		c.Action = "none"
+		return c
+	}
+	c.Diff = unifiedDiff(old, upd, 3)
 	return c
 }
 

@@ -22,6 +22,7 @@ type RunRequest struct {
 	Sudo      bool
 	SudoUser  string
 	Env       map[string]string
+	NoEnv     bool // leave out the exports (job start writes them to a private file instead)
 	Dir       string
 	Stdin     []byte
 	Timeout   time.Duration
@@ -53,6 +54,42 @@ var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 // goes into the command line unquoted, so anything else could inject a command.
 func ValidEnvKey(k string) bool { return envKeyRe.MatchString(k) }
 
+// EnvExports is the "export K='v'; " prefix for the host's env and extra.
+// A value written secret:NAME is read from the vault here, so it never
+// passes through the agent (and output hides vault values too).
+func EnvExports(c *Client, extra map[string]string) (string, error) {
+	env := map[string]string{}
+	if c != nil && c.Host != nil {
+		for k, v := range c.Host.Env {
+			env[k] = v
+		}
+	}
+	for k, v := range extra {
+		env[k] = v
+	}
+	keys := make([]string, 0, len(env))
+	for k := range env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var sb strings.Builder
+	for _, k := range keys {
+		if !ValidEnvKey(k) {
+			return "", fmt.Errorf("environment variable name %q is not valid (use letters, digits and _)", k)
+		}
+		v := env[k]
+		if strings.HasPrefix(v, "secret:") {
+			s, err := vault.Resolve(v)
+			if err != nil {
+				return "", err
+			}
+			v = s
+		}
+		sb.WriteString("export " + k + "=" + Q(v) + "; ")
+	}
+	return sb.String(), nil
+}
+
 // sudoPrompt and sudoReady let Run tell, from stderr, whether sudo asks for
 // the password and when the command itself has started. The password is
 // written only after the prompt, and the command's stdin only after the
@@ -67,25 +104,12 @@ const (
 // sudoPass is the sudo password Run feeds on request, or nil.
 func BuildCommand(c *Client, r RunRequest) (cmd string, sudoPass []byte, err error) {
 	var sb strings.Builder
-	env := map[string]string{}
-	if c != nil && c.Host != nil {
-		for k, v := range c.Host.Env {
-			env[k] = v
+	if !r.NoEnv {
+		exports, err := EnvExports(c, r.Env)
+		if err != nil {
+			return "", nil, err
 		}
-	}
-	for k, v := range r.Env {
-		env[k] = v
-	}
-	keys := make([]string, 0, len(env))
-	for k := range env {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		if !ValidEnvKey(k) {
-			return "", nil, fmt.Errorf("environment variable name %q is not valid (use letters, digits and _)", k)
-		}
-		sb.WriteString("export " + k + "=" + Q(env[k]) + "; ")
+		sb.WriteString(exports)
 	}
 	if r.Dir != "" {
 		sb.WriteString("cd " + Q(r.Dir) + " && ")
