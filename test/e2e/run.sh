@@ -18,6 +18,10 @@ K="$ROOT/bin/komando"
 KOMANDO_HOME="$(mktemp -d)"
 export KOMANDO_HOME
 export KOMANDO_ACTOR="e2e"
+# this script is a script, even when an AI agent starts it; the agent
+# checks below say so on purpose (and never open an approval window)
+unset CLAUDECODE GEMINI_CLI CODEX_SANDBOX CODEX_THREAD_ID CURSOR_AGENT KOMANDO_AGENT AI_AGENT
+A() { CLAUDECODE=1 KOMANDO_NO_DIALOG=1 "$K" "$@"; }
 PROJECT=${E2E_PROJECT:-komando-e2e}
 export E2E_SSH_BASTION=${E2E_SSH_BASTION:-2222} E2E_SSH_DIRECT=${E2E_SSH_DIRECT:-2223}
 export E2E_SSH_SWARM=${E2E_SSH_SWARM:-2224} E2E_REGISTRY=${E2E_REGISTRY:-5005}
@@ -424,6 +428,31 @@ set +e; $K snippet run touch-it target >/dev/null; check "snippet on protected h
 set +e; $K host rm target >/dev/null; check "removing a protected host needs --yes" 6 $?; set -e
 set +e; $K config set audit off >/dev/null; check "turning off audit needs --yes" 6 $?; set -e
 set +e; $K secret set leaked hunter2 >/dev/null; check "secret value as argument refused" 2 $?; set -e
+
+echo "==> AI agents"
+set +e; A exec target --yes -- 'touch /tmp/x' >/dev/null; check "agent --yes needs a person (no screen)" 6 $?; set -e
+check "agent is told to ask the user" True "$(A exec target --yes -- 'touch /tmp/x' | jget '"own terminal" in d["error"]["hint"]' || true)"
+check "agent --allow-dangerous needs a person" POLICY_BLOCKED "$(A fs rm direct /tmp/somedir --recursive --allow-dangerous | jget 'd["error"]["code"]' || true)"
+q $K fs write direct /home/agent/app/.env -p --content "$(printf 'DB_HOST=db\nDB_PASSWORD=hunter22\nAPI_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123456789\n')"
+echo 'hello' | $K fs write direct /home/agent/app/readme.txt >/dev/null
+check "a script sees the file as it is" True "$($K fs cat direct /home/agent/app/.env | jget '"hunter22" in d["data"]["content"]')"
+check "an agent sees [hidden]" "True False False" "$(A fs cat direct /home/agent/app/.env | jget '"DB_PASSWORD=[hidden]" in d["data"]["content"], "hunter22" in json.dumps(d), "ghp_" in json.dumps(d)')"
+check "agent exec output is masked" False "$(A exec direct --read-only -- cat /home/agent/app/.env | jget '"hunter22" in json.dumps(d)')"
+check "agent text output is masked" 0 "$(A exec direct --read-only -o text -- cat /home/agent/app/.env | { grep -c hunter22 || true; })"
+check "agent --reveal without a person stays masked" False "$(A fs cat direct /home/agent/app/.env --reveal | jget '"hunter22" in json.dumps(d)')"
+check "masked text is never written back" HIDDEN_VALUE "$(A fs write direct /home/agent/app/.env --content 'DB_PASSWORD=[hidden]' | jget 'd["error"]["code"]' || true)"
+q A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}'
+check "agent sets a hidden value from the vault" True "$($K fs cat direct /home/agent/app/.env | jget '"DB_PASSWORD=[secret:ops-pass]" in d["data"]["content"] and "DB_HOST=db" in d["data"]["content"]')"
+check "agent cannot copy .env here" SENSITIVE_FILE "$(A download direct /home/agent/app/.env --to "$TMP/" | jget 'd["error"]["code"]' || true)"
+q A download direct /home/agent/app --to "$TMP/agentcopy" -r
+check "agent folder copy leaves .env behind" "False True" "$(python3 -c "import os; print(os.path.exists('$TMP/agentcopy/.env'), os.path.exists('$TMP/agentcopy/readme.txt'))")"
+check "agent secret get --reveal refused" REVEAL_NEEDS_HUMAN "$(A secret get ops-pass --reveal | jget 'd["error"]["code"]' || true)"
+check "guard stops reading the vault" deny "$(printf '{"tool_name":"Read","tool_input":{"file_path":"%s/.komando/vault.key"}}' "$HOME" | $K guide guard | jget 'd["hookSpecificOutput"]["permissionDecision"]')"
+check "guard stops ssh around komando" deny "$(echo '{"tool_name":"Bash","tool_input":{"command":"ssh web1 cat .env"}}' | $K guide guard | jget 'd["hookSpecificOutput"]["permissionDecision"]')"
+check "guard lets komando through" "" "$(echo '{"tool_name":"Bash","tool_input":{"command":"komando fs cat web1 /srv/.env"}}' | $K guide guard)"
+mkdir -p "$TMP/home"
+q env HOME="$TMP/home" "$K" guide install
+check "guide install adds the Claude Code guard" True "$(jget '"guide guard" in json.dumps(d["hooks"]["PreToolUse"])' < "$TMP/home/.claude/settings.json")"
 
 # no secret value may reach the state file or the audit log
 LEAKS=$(cat "$KOMANDO_HOME/state.json" "$KOMANDO_HOME/audit.jsonl" | { grep -c -E 'apppass|shoppass|redispass' || true; })

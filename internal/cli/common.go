@@ -170,7 +170,7 @@ func withClient(ctx context.Context, st *store.State, h *store.Host, fn func(c *
 func guard(st *store.State, hosts []*store.Host, command string, mutating bool) error {
 	names := hostNames(hosts)
 	if command != "" {
-		if hits := policy.Check(command, st.Settings.ExtraDenyPattern); len(hits) > 0 && !g.allowDangerous && !confirmDangerous(names, hits[0].Reason) {
+		if hits := policy.Check(command, st.Settings.ExtraDenyPattern); len(hits) > 0 && !dangerOK() && !confirmDangerous(names, hits[0].Reason) {
 			ids := make([]string, len(hits))
 			reasons := make([]string, len(hits))
 			for i, h := range hits {
@@ -181,14 +181,14 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 				"command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; "))
 		}
 	}
-	if mutating && !g.yes {
+	if mutating {
 		var prot []string
 		for _, h := range hosts {
 			if protectedHost(st, h) {
 				prot = append(prot, h.Name)
 			}
 		}
-		if len(prot) > 0 && !confirmProtected(prot) {
+		if len(prot) > 0 && !yesOK() && !confirmProtected(prot) {
 			return out.Errf(out.ExitPolicy, "PROTECTED_HOST",
 				"protected hosts require explicit confirmation: re-run with --yes after verifying intent",
 				"mutating action targets protected host(s): %s", strings.Join(prot, ", "))
@@ -205,19 +205,19 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 	for i, c := range conns {
 		names[i] = c.Name
 	}
-	if v.Risk >= driver.RiskDestructive && !g.allowDangerous && !confirmDangerous(names, strings.Join(v.Reasons, "; ")) {
+	if v.Risk >= driver.RiskDestructive && !dangerOK() && !confirmDangerous(names, strings.Join(v.Reasons, "; ")) {
 		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 			"if this is truly intended, confirm with the user and re-run with --allow-dangerous (try --dry-run first)",
 			"operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; "))
 	}
-	if v.Risk >= driver.RiskWrite && !g.yes {
+	if v.Risk >= driver.RiskWrite {
 		var prot []string
 		for _, c := range conns {
 			if protectedConn(st, c) {
 				prot = append(prot, c.Name)
 			}
 		}
-		if len(prot) > 0 && !confirmProtected(prot) {
+		if len(prot) > 0 && !yesOK() && !confirmProtected(prot) {
 			return out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
 				"protected conns require explicit confirmation: re-run with --yes after verifying intent",
 				"%s action targets protected conn(s): %s", v.Risk, strings.Join(prot, ", "))
@@ -289,10 +289,10 @@ func sftpHost(c *store.Conn) *store.Host {
 }
 
 // interactive is true when a human sits at a terminal: stdin and stderr are
-// both terminals. Agents and scripts never are, so they still need --yes and
+// both terminals and no AI agent runs komando. Agents and scripts never are, so they still need --yes and
 // --allow-dangerous (docs/design/ux.md, section 6).
 var interactive = func() bool {
-	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd()))
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())) && !isAgent()
 }
 
 // ask prints question on stderr and reads one line from the terminal.
@@ -322,7 +322,7 @@ func confirmYes(question string) bool {
 // log, no host key check, fewer deny rules) need --yes, so an agent cannot
 // switch them off by itself.
 func guardSafety(what string) error {
-	if g.yes || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
+	if yesOK() || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
 		return nil
 	}
 	return out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what)
@@ -350,7 +350,7 @@ func confirmDangerous(names []string, reason string) bool {
 // target from the inventory, or turning its protection off, would let the
 // next command skip --yes, so it needs --yes itself. kind is host or conn.
 func guardProtection(kind, action string, names []string) error {
-	if len(names) == 0 || g.yes || confirmProtected(names) {
+	if len(names) == 0 || yesOK() || confirmProtected(names) {
 		return nil
 	}
 	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET"}[kind]

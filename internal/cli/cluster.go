@@ -785,7 +785,7 @@ func clusterScaleCmd() *cobra.Command {
 				risk = driver.RiskDestructive // stopping every replica is an outage
 			}
 			if t.host != nil {
-				if n == 0 && !g.allowDangerous {
+				if n == 0 && !dangerOK() {
 					return guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-scale-zero"}, Reasons: []string{"scaling to 0 stops the service"}})
 				}
 				return runOne(cmd.Context(), "cluster.scale", t.host.Name, "docker service scale --detach "+sshx.Q(name+"="+args[2]), false, true)
@@ -998,7 +998,7 @@ func clusterRmCmd() *cobra.Command {
 				if typ != "service" && typ != "stack" {
 					return out.Usage("Swarm removes a service or a stack")
 				}
-				if !g.allowDangerous {
+				if !dangerOK() {
 					return guardConns(st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"cluster-rm"}, Reasons: []string{"removes " + typ + " " + args[2]}})
 				}
 				return runOne(cmd.Context(), "cluster.rm", t.host.Name, "docker "+typ+" rm "+sshx.Q(args[2]), false, true)
@@ -1203,7 +1203,7 @@ need --write; delete, drain and other risky verbs also need
 				for _, a := range args[1:] {
 					line += " " + sshx.Q(a)
 				}
-				if risk == driver.RiskDestructive && !g.allowDangerous {
+				if risk == driver.RiskDestructive && !dangerOK() {
 					return guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
 				}
 				return runOne(cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
@@ -1290,9 +1290,11 @@ func runKubectl(ctx context.Context, st *store.State, c *store.Conn, name string
 	k := exec.CommandContext(ctx, "kubectl", kargs...)
 	var stdout, stderr bytes.Buffer
 	k.Stdout, k.Stderr = &stdout, &stderr
-	if out.P.Format == "text" {
+	// an AI agent's output is masked, so it never goes straight to the screen
+	passthrough := out.P.Format == "text" && !out.P.Mask
+	if passthrough {
 		k.Stdout, k.Stderr, k.Stdin = os.Stdout, os.Stderr, os.Stdin
-	} else if live {
+	} else if live && out.P.Format != "text" {
 		k.Stdout, k.Stderr = os.Stderr, os.Stderr // keep stdout for the one JSON answer
 	}
 	runErr := k.Run()
@@ -1308,6 +1310,10 @@ func runKubectl(ctx context.Context, st *store.State, c *store.Conn, name string
 		audit(st, name, nil, "kubectl "+strings.Join(redactArgs(args), " "), code == 0, map[string]any{"conns": []string{c.Name}, "risk": risk.String()})
 	}
 	if out.P.Format == "text" {
+		if !passthrough {
+			fmt.Fprint(os.Stdout, out.P.Redact(stdout.String()))
+			fmt.Fprint(os.Stderr, out.P.Redact(stderr.String()))
+		}
 		if code != 0 {
 			return exitCode(out.ExitRemote)
 		}

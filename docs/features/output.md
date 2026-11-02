@@ -55,6 +55,8 @@ has to change, `meta.contract` goes up and the changelog says what changed.
 | `POLICY_BLOCKED` | looks destructive | double-check; a human may add `--allow-dangerous` |
 | `PROTECTED_HOST` / `PROTECTED_TARGET` | a change to something marked protected | a human may add `--yes` |
 | `SAFETY_SETTING` | a change that turns a seatbelt off | a human may add `--yes` |
+| `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a human may allow `--reveal` |
+| `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`, set a secret with `{{secret:NAME}}` |
 | `NO_MATCHING_TARGETS` | the target picked only things this command can't use | follow the hint (e.g. use `komando db` for a database) |
 | `TARGET_NOT_FOUND` / `TARGET_EMPTY` | a typo in a name, group or tag | the hint suggests the closest match; `komando list` |
 | `TIMEOUT` | took too long | `--timeout 30m` or use `komando job start` |

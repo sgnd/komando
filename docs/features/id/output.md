@@ -57,6 +57,8 @@ diganti namanya tetap jalan sebagai alias. Kalau suatu saat harus berubah,
 | `POLICY_BLOCKED` | kelihatannya merusak | periksa lagi; manusia boleh menambahkan `--allow-dangerous` |
 | `PROTECTED_HOST` / `PROTECTED_TARGET` | perubahan pada sesuatu yang ditandai protected | manusia boleh menambahkan `--yes` |
 | `SAFETY_SETTING` | perubahan yang mematikan sabuk pengaman | manusia boleh menambahkan `--yes` |
+| `SENSITIVE_FILE` | AI agent mencoba menyalin file rahasia (`.env`, private key) ke sini | baca dengan `komando fs cat` (nilainya disamarkan); manusia boleh mengizinkan `--reveal` |
+| `HIDDEN_VALUE` | teksnya berisi `[hidden]` atau `[secret:NAME]` | ubah satu baris dengan `fs replace`, isi secret dengan `{{secret:NAME}}` |
 | `NO_MATCHING_TARGETS` | target hanya memilih hal-hal yang tidak bisa dipakai perintah ini | ikuti hint-nya (mis. pakai `komando db` untuk database) |
 | `TARGET_NOT_FOUND` / `TARGET_EMPTY` | salah ketik di nama, grup, atau tag | hint-nya menyarankan yang paling mirip; `komando list` |
 | `TIMEOUT` | terlalu lama | `--timeout 30m` atau pakai `komando job start` |

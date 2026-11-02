@@ -435,7 +435,7 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
 
 // guardDelete: --delete removes files for good, like `storage rm`.
 func guardDelete(o syncOpts) error {
-	if o.delete && !g.allowDangerous && !g.dryRun {
+	if o.delete && !dangerOK() && !g.dryRun {
 		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "check the list with --dry-run, confirm with the user, then add --allow-dangerous",
 			"--delete removes files in the destination that the source does not have")
 	}
@@ -495,6 +495,10 @@ func syncDown(ctx context.Context, name, target, remote, local string, o syncOpt
 	}
 	if err := guardDelete(o); err != nil {
 		return err
+	}
+	if isAgent() && !revealOK() {
+		// files that are secrets by name stay where they are (sensitive.go)
+		o.exclude = append(o.exclude, sensitiveGlobs...)
 	}
 	dst := localSide{root: local}
 	if storage {

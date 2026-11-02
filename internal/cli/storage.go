@@ -499,6 +499,9 @@ func (d linkData) Text() string { return d.URL + "\n" }
 
 // storageDownload saves one object to a new local file (never overwriting).
 func storageDownload(ctx context.Context, name, conn, key, to string) error {
+	if err := guardSensitiveCopy(key); err != nil {
+		return err
+	}
 	dest := to
 	if dest == "" {
 		dest = path.Base(key)
