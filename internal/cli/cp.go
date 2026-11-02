@@ -41,8 +41,8 @@ type xferStats struct {
 }
 
 type cpOpts struct {
-	recursive, sudo, mkdirs bool
-	mode                    string
+	recursive, sudo, mkdirs, overwrite bool
+	mode                               string
 }
 
 func (o *cpOpts) bind(c *cobra.Command) {
@@ -50,6 +50,7 @@ func (o *cpOpts) bind(c *cobra.Command) {
 	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, "upload: install into place via sudo (single file)")
 	c.Flags().BoolVarP(&o.mkdirs, "parents", "p", false, "upload: create parent directories")
 	c.Flags().StringVar(&o.mode, "mode", "", "upload: file mode, e.g. 0755")
+	c.Flags().BoolVar(&o.overwrite, "overwrite", false, "download: replace files that already exist on this computer")
 }
 
 func cpCmd() *cobra.Command {
@@ -131,7 +132,7 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 				return nil, err
 			}
 		}
-		return download(sc, srcP, local, o.recursive)
+		return download(sc, srcP, local, o.recursive, o.overwrite)
 	})
 	data := struct {
 		Results []xferStats  `json:"results"`
@@ -230,7 +231,11 @@ func fileModeOctal(m os.FileMode) string {
 	return string([]byte{digits[(p>>6)&7], digits[(p>>3)&7], digits[p&7]})
 }
 
-func download(sc *sftp.Client, src, dst string, recursive bool) (xferStats, error) {
+// download copies src from the server to dst on this computer. Files that
+// already exist stay as they are unless overwrite is set, and every file is
+// written to a temporary name first, so an interrupted download never
+// leaves half a file behind.
+func download(sc *sftp.Client, src, dst string, recursive, overwrite bool) (xferStats, error) {
 	fi, err := sc.Stat(src)
 	if err != nil {
 		return xferStats{}, fsErr(src, err)
@@ -242,7 +247,7 @@ func download(sc *sftp.Client, src, dst string, recursive bool) (xferStats, erro
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return xferStats{}, err
 		}
-		n, sum, err := fetchFile(sc, src, dst, fi.Mode().Perm())
+		n, sum, err := fetchFile(sc, src, dst, fi.Mode().Perm(), overwrite)
 		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum}, err
 	}
 	if !recursive {
@@ -255,6 +260,10 @@ func download(sc *sftp.Client, src, dst string, recursive bool) (xferStats, erro
 			return st, fsErr(w.Path(), w.Err())
 		}
 		rel := strings.TrimPrefix(strings.TrimPrefix(w.Path(), src), "/")
+		if rel != "" && !filepath.IsLocal(filepath.FromSlash(rel)) {
+			// names come from the server: never let one point outside dst
+			return st, out.Errf(out.ExitRemote, "UNSAFE_PATH", "", "server sent the path %q, which leads outside %s", w.Path(), dst)
+		}
 		lp := filepath.Join(dst, filepath.FromSlash(rel))
 		if w.Stat().IsDir() {
 			if err := os.MkdirAll(lp, 0o755); err != nil {
@@ -265,7 +274,7 @@ func download(sc *sftp.Client, src, dst string, recursive bool) (xferStats, erro
 		if !w.Stat().Mode().IsRegular() {
 			continue
 		}
-		n, _, err := fetchFile(sc, w.Path(), lp, w.Stat().Mode().Perm())
+		n, _, err := fetchFile(sc, w.Path(), lp, w.Stat().Mode().Perm(), overwrite)
 		if err != nil {
 			return st, err
 		}
@@ -275,18 +284,59 @@ func download(sc *sftp.Client, src, dst string, recursive bool) (xferStats, erro
 	return st, nil
 }
 
-func fetchFile(sc *sftp.Client, src, dst string, perm os.FileMode) (int64, string, error) {
+func fetchFile(sc *sftp.Client, src, dst string, perm os.FileMode, overwrite bool) (int64, string, error) {
+	if _, err := os.Lstat(dst); err == nil && !overwrite {
+		return 0, "", fileExists(dst)
+	}
 	in, err := sc.Open(src)
 	if err != nil {
 		return 0, "", fsErr(src, err)
 	}
 	defer in.Close()
-	o, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm|0o200)
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".komando-download-*")
 	if err != nil {
 		return 0, "", err
 	}
-	defer o.Close()
+	defer os.Remove(tmp.Name()) // no-op once it has been moved into place
 	h := sha256.New()
-	n, err := io.Copy(io.MultiWriter(o, h), in)
-	return n, hex.EncodeToString(h.Sum(nil)), err
+	n, err := io.Copy(io.MultiWriter(tmp, h), in)
+	if err == nil {
+		err = tmp.Chmod(perm | 0o200)
+	}
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return 0, "", err
+	}
+	if overwrite {
+		err = os.Rename(tmp.Name(), dst)
+	} else {
+		err = placeNew(tmp.Name(), dst)
+	}
+	if err != nil {
+		return 0, "", err
+	}
+	return n, hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// placeNew moves tmp to dst only if dst does not exist yet. A hard link
+// fails atomically when dst exists; file systems without hard links fall
+// back to a check and a rename.
+func placeNew(tmp, dst string) error {
+	err := os.Link(tmp, dst)
+	if err == nil {
+		return nil
+	}
+	if os.IsExist(err) {
+		return fileExists(dst)
+	}
+	if _, serr := os.Lstat(dst); serr == nil {
+		return fileExists(dst)
+	}
+	return os.Rename(tmp, dst)
+}
+
+func fileExists(p string) error {
+	return out.Errf(out.ExitConflict, "FILE_EXISTS", "choose another --to, remove the file, or pass --overwrite", "%s already exists on this computer", p)
 }

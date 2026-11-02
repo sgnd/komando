@@ -4,6 +4,18 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Safer file edits, downloads and tunnels (gap analysis, phase 1)
+
+- `fs write|replace --validate CMD` checks the new file before it goes
+  into place (`%s` is its path, e.g. `visudo -cf %s`, `sshd -t -f %s`). If
+  the check fails the old file stays (`VALIDATION_FAILED`).
+- `fs write --dry-run` shows the change as a diff.
+- Downloads from servers never replace a file on this computer
+  (`FILE_EXISTS`; `--overwrite` to replace), are written under a temporary
+  name first, and refuse server paths that lead outside the destination.
+- `tunnel start` asks for `--yes` before listening on anything but
+  loopback (`OPEN_BIND`), as docs/design/network.md promised.
+
 ### Secrets and risk ratings (gap analysis, phase 1)
 
 - `secret get --reveal` works only for a person at a terminal

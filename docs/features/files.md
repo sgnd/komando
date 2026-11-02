@@ -24,6 +24,15 @@ Write a whole file (atomic; `--if-changed` skips identical content):
 komando fs write web1 /etc/app/.env --from ./app.env --sudo --mode 0640 --if-changed
 ```
 
+`--dry-run` shows the change as a diff. `--validate` checks the new file
+before it goes into place; `%s` is its path. If the check fails, the old file
+stays as it was (`VALIDATION_FAILED`), so a typo cannot lock you out:
+
+```bash
+komando fs write web1 /etc/sudoers.d/deploy --from ./deploy.sudoers --sudo --validate 'visudo -cf %s'
+komando fs replace web1 /etc/ssh/sshd_config --old 'PermitRootLogin yes' --new 'PermitRootLogin no' --sudo --validate 'sshd -t -f %s'
+```
+
 Also: `fs mkdir`, `fs mv`, `fs chmod`, `fs rm`.
 
 ## Copy files
@@ -36,3 +45,8 @@ komando upload web1 ./site /var/www/site -r
 komando download web1 /var/log/nginx/error.log --to ./logs/
 komando download @web /etc/nginx/nginx.conf --to ./configs/  # → ./configs/<server>/nginx.conf
 ```
+
+Downloads never replace a file that is already on your computer
+(`FILE_EXISTS`); add `--overwrite` when you mean to. A download is written
+under a temporary name first, so a broken connection never leaves half a
+file.

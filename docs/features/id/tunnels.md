@@ -37,6 +37,10 @@ komando tunnel start app-db --port 15432    # pilih port sendiri
 Arahkan aplikasi ke alamat itu dengan user dan password database. Tunnel
 tetap hidup di latar belakang sampai `komando tunnel stop`.
 
+Tunnel mendengarkan di `127.0.0.1`, jadi hanya komputer Anda yang bisa
+memakainya. Untuk alamat lain (`-L 0.0.0.0:8080:...`), tambahkan `--yes`:
+siapa pun di jaringan itu bisa memakai tunnel tanpa login.
+
 ## Tunnel untuk aplikasi lain
 
 Tunnel membuat layanan di server muncul di komputer Anda sendiri. Tunnel

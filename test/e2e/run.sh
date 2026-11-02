@@ -81,6 +81,11 @@ check "fs replace applied" "worker_connections 4096;" "$($K fs cat direct /etc/a
 set +e; $K fs replace direct /etc/app/app.conf --old 'missing' --new 'x' --sudo >/dev/null; check "fs replace no match -> 8" 8 $?; set -e
 $K fs write direct /home/agent/t/x.txt --content hello -p >/dev/null
 check "fs write idempotent" False "$($K fs write direct /home/agent/t/x.txt --content hello --if-changed | jget 'd["data"]["changed"]')"
+check "fs write dry-run shows the diff" True "$($K fs write direct /home/agent/t/x.txt --content hello2 --dry-run | jget '"+hello2" in d["data"]["diff"]')"
+check "fs write --validate refuses bad content" VALIDATION_FAILED "$($K fs write direct /home/agent/t/v.txt --content bad --validate 'grep -q good %s' | jget 'd["error"]["code"]' || true)"
+check "refused file was not written" False "$($K fs stat direct /home/agent/t/v.txt | jget 'd["data"]["exists"]')"
+check "fs write --sudo --validate (visudo)" VALIDATION_FAILED "$($K fs write direct /etc/sudoers.d/e2e --content 'not a sudoers line' --sudo --validate 'visudo -cf %s' | jget 'd["error"]["code"]' || true)"
+check "sudo still works after refused edit" root "$($K exec direct --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 
 echo "==> cp"
 TMP="$(mktemp -d)"; echo payload > "$TMP/f"
@@ -120,6 +125,7 @@ echo "==> tunnel"
 LISTEN=$($K tunnel start target -L 0:localhost:22 | jget 'd["data"]["listen"]')
 check "tunnel reaches private ssh" SSH-2.0 "$(nc -w 2 127.0.0.1 "${LISTEN##*:}" </dev/null | head -1 | cut -c1-7)"
 $K tunnel stop --all >/dev/null
+check "open bind needs --yes" OPEN_BIND "$($K tunnel start target -L 0.0.0.0:0:localhost:22 | jget 'd["error"]["code"]' || true)"
 
 echo "==> modules"
 check "facts os" debian "$($K facts direct | jget 'd["data"]["results"][0]["data"]["os"]')"
@@ -214,6 +220,9 @@ echo hello-upload > "$TMP/up.txt"
 q $K upload direct "$TMP/up.txt" /tmp/up.txt
 q $K download direct /tmp/up.txt --to "$TMP/down/"
 check "upload/download to a server" hello-upload "$(cat "$TMP/down/up.txt")"
+check "download never replaces a local file" FILE_EXISTS "$($K download direct /tmp/up.txt --to "$TMP/down/" | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
+q $K download direct /tmp/up.txt --to "$TMP/down/" --overwrite
+check "no temporary files left" 0 "$(ls -A "$TMP/down" | grep -c komando-download || true)"
 TUN=$($K tunnel start pg | jget 'd["data"]["listen"]')
 check "tunnel to a conn by name" 0 "$(nc -z "${TUN%:*}" "${TUN##*:}"; echo $?)"
 q $K tunnel stop --all

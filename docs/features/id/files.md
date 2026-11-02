@@ -24,6 +24,16 @@ Menulis seluruh file (atomik; `--if-changed` melewati isi yang sama persis):
 komando fs write web1 /etc/app/.env --from ./app.env --sudo --mode 0640 --if-changed
 ```
 
+`--dry-run` menampilkan perubahannya sebagai diff. `--validate` memeriksa
+file baru sebelum dipasang; `%s` adalah path-nya. Kalau pemeriksaan gagal,
+file lama tidak berubah (`VALIDATION_FAILED`), jadi salah ketik tidak bisa
+mengunci Anda dari server:
+
+```bash
+komando fs write web1 /etc/sudoers.d/deploy --from ./deploy.sudoers --sudo --validate 'visudo -cf %s'
+komando fs replace web1 /etc/ssh/sshd_config --old 'PermitRootLogin yes' --new 'PermitRootLogin no' --sudo --validate 'sshd -t -f %s'
+```
+
 Juga: `fs mkdir`, `fs mv`, `fs chmod`, `fs rm`.
 
 ## Menyalin file
@@ -36,3 +46,8 @@ komando upload web1 ./site /var/www/site -r
 komando download web1 /var/log/nginx/error.log --to ./logs/
 komando download @web /etc/nginx/nginx.conf --to ./configs/  # → ./configs/<server>/nginx.conf
 ```
+
+Download tidak pernah menimpa file yang sudah ada di komputer Anda
+(`FILE_EXISTS`); tambahkan `--overwrite` kalau memang itu maksudnya. File
+ditulis dengan nama sementara dulu, jadi koneksi yang putus tidak pernah
+meninggalkan file setengah jadi.

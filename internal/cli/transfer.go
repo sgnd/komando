@@ -77,7 +77,7 @@ to the file's name (servers: in the login user's home folder).`,
 
 func downloadCmd() *cobra.Command {
 	var to string
-	var recursive bool
+	var recursive, overwrite bool
 	c := &cobra.Command{
 		Use:   "download TARGET PATH",
 		Short: "Download a file from servers (SFTP) or from storage (S3) to this computer",
@@ -103,10 +103,11 @@ downloads never overwrite a file.`,
 			if dest == "" {
 				dest = "."
 			}
-			return runCp(cmd.Context(), "download", args[0], args[1], dest, false, cpOpts{recursive: recursive})
+			return runCp(cmd.Context(), "download", args[0], args[1], dest, false, cpOpts{recursive: recursive, overwrite: overwrite})
 		},
 	}
 	c.Flags().StringVar(&to, "to", "", "where to save it (default: the current folder)")
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "servers: download a folder")
+	c.Flags().BoolVar(&overwrite, "overwrite", false, "servers: replace files that already exist on this computer")
 	return c
 }

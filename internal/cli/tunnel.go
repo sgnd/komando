@@ -56,6 +56,28 @@ type tunnelSpec struct {
 	TargetAddr string
 }
 
+// guardBind asks for --yes before a tunnel listens on anything but this
+// computer's loopback (or, for -R, the server's): other machines on the
+// network could then use it, without a login (docs/design/network.md).
+func guardBind(t tunnelSpec) error {
+	host, _, err := net.SplitHostPort(t.BindAddr)
+	if err != nil || host == "localhost" {
+		return nil
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return nil
+	}
+	if g.yes {
+		return nil
+	}
+	where := "this computer"
+	if t.Kind == "remote" {
+		where = "the server"
+	}
+	return out.Errf(out.ExitPolicy, "OPEN_BIND", "keep the default 127.0.0.1, or re-run with --yes if other machines should reach it",
+		"the tunnel would listen on %s of %s, open to its network", host, where)
+}
+
 func parseTunnel(kind, spec string) (tunnelSpec, error) {
 	parts := strings.Split(spec, ":")
 	t := tunnelSpec{Kind: kind}
@@ -126,7 +148,11 @@ func tunnelStartCmd() *cobra.Command {
 			if n != 1 {
 				return out.Usage("exactly one of -L, -R, -D is required")
 			}
-			if _, err := parseTunnel(kind, spec); err != nil {
+			ts, err := parseTunnel(kind, spec)
+			if err != nil {
+				return err
+			}
+			if err := guardBind(ts); err != nil {
 				return err
 			}
 			st, err := loadState()
