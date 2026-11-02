@@ -282,7 +282,7 @@ func (r importResult) Text() string {
 // renameImported gives c the first free name based on its own, moving its
 // password to the matching vault name.
 func renameImported(st *store.State, plan *importPlan, c *store.Conn) {
-	base, name := c.Name, c.Name
+	base, name := c.Name, ""
 	for i := 2; ; i++ {
 		name = fmt.Sprintf("%s-%d", base, i)
 		if _, _, taken := st.FindName(name); !taken {
@@ -367,12 +367,13 @@ func readSource(path string) ([]byte, error) {
 }
 
 func importSSHConfig(path string) (*importPlan, error) {
-	hosts, err := parseSSHConfig(path)
+	hosts, notes, err := parseSSHConfig(path)
 	if err != nil {
 		return nil, err
 	}
 	p := newPlan()
 	p.Hosts = hosts
+	p.Notes = append(p.Notes, notes...)
 	return p, nil
 }
 
@@ -581,6 +582,11 @@ func importKomando(path string) (*importPlan, error) {
 	for _, h := range p.Hosts {
 		ref(h.Name, "password_ref", &h.PasswordRef)
 		ref(h.Name, "sudo_ref", &h.SudoRef)
+		if h.ProxyCommand != "" {
+			// a proxy command runs on this computer: never take one from a file
+			p.Notes = append(p.Notes, fmt.Sprintf("%s: dropped proxy_command %q (it would run on this computer; set it yourself with `komando host edit %s --proxy-command ...`)", h.Name, h.ProxyCommand, h.Name))
+			h.ProxyCommand = ""
+		}
 	}
 	for _, c := range p.Conns {
 		ref(c.Name, "password_ref", &c.PasswordRef)

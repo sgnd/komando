@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -25,7 +26,7 @@ import (
 
 func keyCmd() *cobra.Command {
 	c := &cobra.Command{Use: "key", Aliases: []string{"keys", "keychain"}, Short: "SSH keychain: generate, register, deploy to servers, list"}
-	c.AddCommand(keyGenCmd(), keyAddCmd(), keyListCmd(), keyShowCmd(), keyRmCmd(), keyDeployCmd(), keyEditCmd())
+	c.AddCommand(keyGenCmd(), keyAddCmd(), keyListCmd(), keyShowCmd(), keyRmCmd(), keyDeployCmd(), keyRevokeCmd(), keyEditCmd())
 	return c
 }
 
@@ -82,12 +83,14 @@ func keyGenCmd() *cobra.Command {
 				if _, ok := s.Keys[name]; ok {
 					return out.Errf(out.ExitConflict, "KEY_EXISTS", "choose another name or `komando key rm` first", "key %q exists", name)
 				}
-				if err := os.WriteFile(path, pem.EncodeToMemory(block), 0o600); err != nil {
-					return err
-				}
 				pubLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub))) + " " + comment
-				if err := os.WriteFile(path+".pub", []byte(pubLine+"\n"), 0o644); err != nil {
-					return err
+				if !g.dryRun {
+					if err := os.WriteFile(path, pem.EncodeToMemory(block), 0o600); err != nil {
+						return err
+					}
+					if err := os.WriteFile(path+".pub", []byte(pubLine+"\n"), 0o644); err != nil {
+						return err
+					}
 				}
 				k = &store.Key{Name: name, Path: path, Type: pub.Type(), PublicKey: pubLine, Fingerprint: ssh.FingerprintSHA256(pub), Managed: true, CreatedAt: time.Now().UTC()}
 				s.Keys[name] = k
@@ -256,7 +259,7 @@ func keyRmCmd() *cobra.Command {
 						return out.Errf(out.ExitConflict, "KEY_IN_USE", "reassign hosts with `komando host edit HOST --key OTHER`", "key used by host %s", h.Name)
 					}
 				}
-				if deleteFile && k.Managed {
+				if deleteFile && k.Managed && !g.dryRun {
 					os.Remove(k.Path)
 					os.Remove(k.Path + ".pub")
 				}
@@ -416,6 +419,10 @@ Values are never printed unless 'secret get --reveal' is used.`,
 				}
 				v = strings.TrimRight(string(b), "\r\n")
 			}
+			if g.dryRun {
+				out.P.Print("secret.set", map[string]any{"name": args[0], "ref": "secret:" + args[0], "would_set": true}, nil)
+				return nil
+			}
 			if err := vault.Set(args[0], v); err != nil {
 				return err
 			}
@@ -438,8 +445,16 @@ Values are never printed unless 'secret get --reveal' is used.`,
 				return err
 			}
 			reveal, _ := cmd.Flags().GetBool("reveal")
+			if reveal && !interactive() {
+				// agents never see passwords (docs/design/vision.md); a person at
+				// a terminal can still pipe the value, e.g. into pbcopy
+				return out.Errf(out.ExitPolicy, "REVEAL_NEEDS_HUMAN",
+					"ask a person to run `komando secret get "+args[0]+" --reveal` in a terminal; to use the secret in a command, reference it (secret:"+args[0]+") instead",
+					"--reveal only works for a person at a terminal")
+			}
 			res := map[string]any{"name": args[0], "exists": true, "length": len(v)}
 			if reveal {
+				out.P.NoRedact = true // the person asked for this value
 				res["value"] = v
 				audit(nil, "secret.reveal", nil, "", true, map[string]any{"secret": args[0]})
 			}
@@ -466,15 +481,64 @@ Values are never printed unless 'secret get --reveal' is used.`,
 		Short: "Delete a secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			st, err := loadState()
+			if err != nil {
+				return err
+			}
+			if users := secretUsers(st, args[0]); len(users) > 0 {
+				return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first (e.g. `komando host edit NAME --password-ref ...`)",
+					"secret %s is used by %s", args[0], strings.Join(users, ", "))
+			}
+			if g.dryRun {
+				list, err := vault.List()
+				if err != nil {
+					return err
+				}
+				if !slices.ContainsFunc(list, func(i vault.Info) bool { return i.Name == args[0] }) {
+					return out.NotFound("secret", args[0])
+				}
+				out.P.Print("secret.rm", map[string]any{"would_remove": args[0]}, nil)
+				return nil
+			}
 			if err := vault.Delete(args[0]); err == vault.ErrNotFound {
 				return out.NotFound("secret", args[0])
 			} else if err != nil {
 				return err
 			}
+			audit(st, "secret.rm", nil, "", true, map[string]any{"secret": args[0]})
 			out.P.Print("secret.rm", map[string]any{"removed": args[0]}, nil)
 			return nil
 		},
 	}
 	c.AddCommand(set, get, list, rm)
 	return c
+}
+
+// secretUsers lists the servers, conns, keys and VPNs whose references point
+// at the vault secret name.
+func secretUsers(st *store.State, name string) []string {
+	ref := "secret:" + name
+	var users []string
+	for _, h := range st.Hosts {
+		if h.PasswordRef == ref || h.SudoRef == ref {
+			users = append(users, "host "+h.Name)
+		}
+	}
+	for _, c := range st.Conns {
+		if c.PasswordRef == ref {
+			users = append(users, "conn "+c.Name)
+		}
+	}
+	for _, k := range st.Keys {
+		if k.PassphraseRef == ref {
+			users = append(users, "key "+k.Name)
+		}
+	}
+	for _, v := range st.Vpns {
+		if v.KeyRef == ref || v.PSKRef == ref || v.ConfigRef == ref {
+			users = append(users, "vpn "+v.Name)
+		}
+	}
+	sort.Strings(users)
+	return users
 }

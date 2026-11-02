@@ -23,6 +23,18 @@ func TestCheck(t *testing.T) {
 		"crontab -r",
 		"docker system prune -a --volumes",
 		"kubectl delete ns prod",
+		"#!/bin/sh\necho hi\nreboot",
+		"echo hi\r\nshutdown -h now",
+		"/sbin/reboot",
+		"/usr/sbin/shutdown -r now",
+		"nohup reboot",
+		`rm -rf "/"`,
+		"rm -rf '/'",
+		"rm -rf -- /",
+		"rm --recursive --force /",
+		"rm -rf /etc/*",
+		"rm -rf /var/lib",
+		"rm -Rf /usr/local/",
 	}
 	for _, c := range blocked {
 		if len(Check(c, nil)) == 0 {
@@ -39,6 +51,11 @@ func TestCheck(t *testing.T) {
 		"grep -r reboot /var/log",
 		"curl -sS https://example.com -o out.html",
 		"echo shutdown-script.sh",
+		"echo reboot",
+		"echo hi\necho reboot",
+		`grep "rm -rf /" notes.txt`,
+		"rm -rf /var/lib/app/cache",
+		"rm -rf -- /tmp/build",
 	}
 	for _, c := range allowed {
 		if hits := Check(c, nil); len(hits) != 0 {

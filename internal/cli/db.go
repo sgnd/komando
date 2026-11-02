@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -37,7 +39,7 @@ func dbCmd() *cobra.Command {
 read-only transaction, so nothing can change. With --write, try --dry-run
 first: it runs the SQL and rolls it back, showing how many rows would change.`,
 	}
-	c.AddCommand(dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
+	c.AddCommand(dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
 	return c
 }
 
@@ -153,7 +155,7 @@ func dbSchemaCmd() *cobra.Command {
 				return err
 			}
 			defer closeDB()
-			tables, err := dbx.Schema(cmd.Context(), db, c.Kind, args[1:], dbTimeout())
+			tables, err := dbx.Schema(cmd.Context(), db, c.Kind, args[1:], connTimeout(c))
 			audit(st, "db.schema", nil, "", err == nil, map[string]any{"conns": []string{c.Name}})
 			if err != nil {
 				return err
@@ -213,6 +215,9 @@ func (d schemaData) Text() string {
 		for _, ix := range t.Indexes {
 			fmt.Fprintf(&sb, "  index %s\n", dash(ix.Definition))
 		}
+		for _, c := range t.Constraints {
+			fmt.Fprintf(&sb, "  %s %s: %s\n", c.Type, c.Name, c.Definition)
+		}
 	}
 	return sb.String()
 }
@@ -229,6 +234,23 @@ func qualified(t dbx.Table) string {
 func dbTimeout() time.Duration {
 	if g.timeout > 0 {
 		return g.timeout
+	}
+	return dbDefaultTimeout
+}
+
+// connTimeout is dbTimeout with the conn's own statement_timeout option
+// (`conn edit NAME --option statement_timeout=10s`); --timeout still wins.
+func connTimeout(c *store.Conn) time.Duration {
+	if g.timeout > 0 {
+		return g.timeout
+	}
+	if v := c.Options["statement_timeout"]; v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+		if ms, err := strconv.Atoi(v); err == nil && ms > 0 { // Postgres style: milliseconds
+			return time.Duration(ms) * time.Millisecond
+		}
 	}
 	return dbDefaultTimeout
 }
@@ -343,7 +365,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		rec["sql_sha256"] = hex.EncodeToString(sum[:])
 	case "off":
 	default:
-		rec["sql"] = query
+		rec["sql"] = redactSQL(query)
 	}
 	if len(f.args) > 0 {
 		rec["args"] = len(f.args) // values may be personal data; record only how many
@@ -377,7 +399,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		args[i] = a
 	}
 	res, err := dbx.Run(ctx, db, c.Kind, plan, dbx.Options{Write: f.write, DryRun: g.dryRun, Limit: f.limit,
-		MaxBytes: maxOutput(st), Timeout: dbTimeout(), Args: args})
+		MaxBytes: maxOutput(st), Timeout: connTimeout(c), Args: args})
 	if err != nil {
 		return fail(err)
 	}
@@ -392,4 +414,14 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	audit(st, name, nil, "", true, rec)
 	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
 	return nil
+}
+
+// sqlSecret matches the password literal in CREATE/ALTER USER and ROLE,
+// SET PASSWORD and PASSWORD() so the audit log never stores it:
+// PASSWORD 'x' (Postgres), IDENTIFIED [WITH plugin] BY 'x', SET PASSWORD
+// [FOR u] = 'x' (MySQL).
+var sqlSecret = regexp.MustCompile(`(?is)(\bPASSWORD\s*(?:FOR\s+\S+\s*)?=?\s*\(?\s*|\bIDENTIFIED\s+(?:WITH\s+\S+\s+)?BY\s+)('(?:[^'\\]|''|\\.)*'|"(?:[^"\\]|""|\\.)*"|\$[A-Za-z_]*\$.*?\$[A-Za-z_]*\$)`)
+
+func redactSQL(q string) string {
+	return sqlSecret.ReplaceAllString(q, "${1}'***'")
 }

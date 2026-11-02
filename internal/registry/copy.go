@@ -65,6 +65,11 @@ func Copy(ctx context.Context, src *Client, srcRepo, ref string, dst *Client, ds
 	return res, err
 }
 
+// Digest returns the digest a tag points at, with a HEAD request.
+func (c *Client) Digest(ctx context.Context, repo, ref string) (string, error) {
+	return headDigest(ctx, c, repo, ref)
+}
+
 func headDigest(ctx context.Context, c *Client, repo, ref string) (string, error) {
 	resp, err := c.Do(ctx, "HEAD", "/v2/"+repo+"/manifests/"+ref, nil, Accept)
 	if err != nil {

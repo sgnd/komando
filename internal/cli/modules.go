@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -85,6 +86,24 @@ func svcStatusCmd() *cobra.Command {
 	}
 }
 
+// guardDocker rates a docker command line the way `cluster run` rates one
+// on a Swarm manager: reads stay reads, and deleting or running anything
+// (rm, volume rm, prune, run, exec) needs --allow-dangerous.
+func guardDocker(args []string) (mutating bool, err error) {
+	if len(args) == 0 {
+		return true, nil
+	}
+	risk := classifyDocker(args)
+	if risk >= driver.RiskDestructive && !g.allowDangerous {
+		st, err := loadState()
+		if err != nil {
+			return true, err
+		}
+		return true, guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"docker"}, Reasons: []string{"docker " + strings.Join(args, " ")}})
+	}
+	return risk > driver.RiskRead, nil
+}
+
 func svcActionCmd(action string) *cobra.Command {
 	var noSudo bool
 	c := &cobra.Command{
@@ -93,11 +112,15 @@ func svcActionCmd(action string) *cobra.Command {
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			units := quoteAll(args[1:])
+			unitFlags := make([]string, 0, len(args)-1)
+			for _, u := range args[1:] {
+				unitFlags = append(unitFlags, "-u "+sshx.Q(u))
+			}
 			command := "systemctl " + action + " -- " + units + " && systemctl show --no-pager -p Id,ActiveState,SubState,UnitFileState -- " + units
 			if action == "restart" || action == "start" || action == "reload" {
 				// give units a moment and surface the failure reason
 				command = "systemctl " + action + " -- " + units + "; rc=$?; sleep 1; systemctl show --no-pager -p Id,ActiveState,SubState,UnitFileState,Result -- " + units +
-					"; if [ $rc -ne 0 ]; then journalctl -n 20 --no-pager -o cat -u " + strings.Join(args[1:], " -u ") + " 2>/dev/null; fi; exit $rc"
+					"; if [ $rc -ne 0 ]; then journalctl -n 20 --no-pager -o cat " + strings.Join(unitFlags, " ") + " 2>/dev/null; fi; exit $rc"
 			}
 			return runOne(cmd.Context(), "svc."+action, args[0], command, !noSudo, true)
 		},
@@ -147,11 +170,7 @@ func svcLogsCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lo.unit = args[1]
-			command, err := lo.build()
-			if err != nil {
-				return err
-			}
-			return runOne(cmd.Context(), "svc.logs", args[0], command, lo.sudo, false)
+			return runLogs(cmd.Context(), "svc.logs", args[0], &lo, lo.sudo)
 		},
 	}
 	lo.bind(c, false)
@@ -261,18 +280,24 @@ func logsCmd() *cobra.Command {
   komando logs app1 --container api --since 10m`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command, err := lo.build()
-			if err != nil {
-				return err
-			}
-			if lo.follow {
-				return followLogs(cmd.Context(), args[0], command, lo.sudo)
-			}
-			return runOne(cmd.Context(), "logs", args[0], command, lo.sudo, false)
+			return runLogs(cmd.Context(), "logs", args[0], &lo, lo.sudo)
 		},
 	}
 	lo.bind(c, true)
 	return c
+}
+
+// runLogs reads logs once, or streams them with --follow. `svc logs` and
+// `docker logs` go through here too, so -f behaves the same everywhere.
+func runLogs(ctx context.Context, name, target string, lo *logOpts, sudo bool) error {
+	command, err := lo.build()
+	if err != nil {
+		return err
+	}
+	if lo.follow {
+		return followLogs(ctx, target, command, sudo)
+	}
+	return runOne(ctx, name, target, command, sudo, false)
 }
 
 // --------------------------------------------------------------- docker ---
@@ -304,6 +329,9 @@ func dockerCmd() *cobra.Command {
 			Short: "docker " + action,
 			Args:  cobra.MinimumNArgs(2),
 			RunE: func(cmd *cobra.Command, args []string) error {
+				if _, err := guardDocker(append([]string{action}, args[1:]...)); err != nil {
+					return err
+				}
 				return runOne(cmd.Context(), "docker."+action, args[0], "docker "+action+" "+quoteAll(args[1:]), sudo, true)
 			},
 		})
@@ -315,8 +343,7 @@ func dockerCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lo.container = args[1]
-			command, _ := lo.build()
-			return runOne(cmd.Context(), "docker.logs", args[0], command, sudo, false)
+			return runLogs(cmd.Context(), "docker.logs", args[0], &lo, sudo)
 		},
 	}
 	lo.bind(logs, false)
@@ -370,6 +397,12 @@ func dockerCmd() *cobra.Command {
 			sub := strings.Join(args[1:], " ")
 			c += " " + sub + " 2>&1"
 			ro := strings.HasPrefix(sub, "ps") || strings.HasPrefix(sub, "logs") || strings.HasPrefix(sub, "config") || strings.HasPrefix(sub, "ls")
+			// down with volumes or images deletes data; plain down only stops
+			if args[1] == "down" && hasFlag(args[2:], "-v", "--volumes", "--rmi") {
+				if _, err := guardDocker([]string{"volume", "rm"}); err != nil {
+					return err
+				}
+			}
 			return runOne(cmd.Context(), "docker.compose", args[0], c, sudo, !ro)
 		},
 	}
@@ -380,7 +413,11 @@ func dockerCmd() *cobra.Command {
 		Short: "Any docker subcommand (policy still applies)",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOne(cmd.Context(), "docker.raw", args[0], "docker "+strings.Join(args[1:], " "), sudo, true)
+			mutating, err := guardDocker(args[1:])
+			if err != nil {
+				return err
+			}
+			return runOne(cmd.Context(), "docker.raw", args[0], "docker "+strings.Join(args[1:], " "), sudo, mutating)
 		},
 	}
 	c.AddCommand(logs, inspect, execC, compose, raw)

@@ -23,6 +23,7 @@ import (
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 //go:embed guide.md
@@ -241,16 +242,19 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 					"8": "precondition failed (e.g. replace text not found / ambiguous)",
 				}
 				res["target_selectors"] = map[string]string{
-					"NAME":           "a host from the inventory",
+					"NAME":           "a server, conn or VPN from the inventory",
 					"glob":           "web-* or db-?",
-					"@GROUP":         "all hosts in a group",
-					"tag:TAG":        "all hosts with a tag",
-					"label:KEY=VAL":  "all hosts with a label",
-					"all":            "every host",
-					"user@addr:port": "ad-hoc host not in the inventory",
+					"@GROUP":         "everything in a group (servers and conns)",
+					"tag:TAG":        "everything with a tag",
+					"label:KEY=VAL":  "everything with a label (label:KEY = any value)",
+					"kind:KIND":      "by type: host, conn, vpn, a conn kind (postgres, redis, s3, ...), a command family (db, cache, storage, cluster, registry) or a VPN kind",
+					"all":            "everything in the inventory",
+					"user@addr:port": "ad-hoc server not in the inventory",
 					"a,b,!c":         "union of selectors, ! excludes",
 				}
-				res["secret_refs"] = "secret:NAME (vault) | env:VAR | file:PATH"
+				res["selector_note"] = "a selector picks servers and conns together; each command uses the ones it works with and lists the rest in meta.skipped"
+				res["secret_refs"] = strings.Join(vault.Refs, " | ") // a string since contract 1
+				res["secret_ref_list"] = vault.Refs
 				res["env"] = map[string]string{
 					"KOMANDO_HOME":       "state directory (default ~/.komando)",
 					"KOMANDO_OUTPUT":     "default output format json|text",
@@ -475,6 +479,9 @@ func policyCmd() *cobra.Command {
 			switch kind {
 			case "":
 			case "redis":
+				if len(args) == 1 { // one quoted argument: "CLIENT LIST"
+					args = strings.Fields(args[0])
+				}
 				out.P.Print("policy.check", cachex.Classify(args), nil)
 				return nil
 			default:
@@ -559,6 +566,16 @@ func doctorCmd() *cobra.Command {
 			if err != nil {
 				out.P.Print("doctor", map[string]any{"checks": checks}, toErr(err))
 				return exitCode(1)
+			}
+			if st.Settings.Audit {
+				f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+				detail := store.Path("audit.jsonl")
+				if err == nil {
+					f.Close()
+				} else {
+					detail = err.Error() + " (changes are refused until this is fixed)"
+				}
+				checks = append(checks, check{"audit_log", err == nil, detail})
 			}
 			checks = append(checks, check{"hosts", len(st.Hosts) > 0, strconv.Itoa(len(st.Hosts)) + " host(s); add with `komando host add` or `komando host import`"})
 			checks = append(checks, check{"keys", true, strconv.Itoa(len(st.Keys)) + " key(s) in keychain"})

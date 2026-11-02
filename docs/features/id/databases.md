@@ -50,6 +50,13 @@ diubah.
 
 ## Query database
 
+Query berhenti setelah 30 detik kecuali `--timeout` menyebut lain. Untuk
+memberi satu database batasnya sendiri, setel di conn-nya:
+
+```bash
+komando conn edit prod-db --option statement_timeout=10s
+```
+
 `komando db` menjalankan SQL di sebuah conn. **Perintah ini tidak mengubah
 data Anda kecuali Anda menambahkan `--write`**: tanpa itu, query berjalan
 dalam transaksi read-only dan database itu sendiri yang menolak perubahan.
@@ -126,7 +133,24 @@ manusia di terminal; agent dan skrip mendapat `NEEDS_TERMINAL` dan memakai
 
 ```bash
 komando db dump prod-db --to prod-2026-11-02.sql.gz      # backup ke file di komputer ini
+komando db dump prod-db --to prod.dump --format custom   # arsip PostgreSQL (terkompresi, pg_restore)
+komando db dump prod-db --to orders.sql --table public.orders
+komando db dump prod-db --to schema.sql --schema-only
 komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous
+komando db restore staging-db --from prod.dump --allow-dangerous  # arsip diteruskan ke pg_restore
+```
+
+Merawat database:
+
+```bash
+komando db info prod-db                  # versi, uptime, ukuran, koneksi, primary atau replica
+komando db activity prod-db              # yang sedang jalan: pid, user, berapa lama, query-nya
+komando db locks prod-db                 # siapa menunggu, dan sesi yang memegang lock
+komando db sizes prod-db -n 10           # database, tabel dan index terbesar
+komando db kill prod-db 4821 --dry-run   # query mana yang akan dihentikan
+komando db kill prod-db 4821             # batalkan query itu (client tetap tersambung)
+komando db kill prod-db 4821 --session --allow-dangerous   # putuskan seluruh koneksi
+komando db schema prod-db orders         # kolom, index, foreign key dan check
 ```
 
 - File backup selalu disimpan di **komputer ini**, hanya bisa dibaca oleh

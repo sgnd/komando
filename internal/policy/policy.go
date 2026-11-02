@@ -1,5 +1,7 @@
 // Package policy detects destructive commands so an agent cannot wreck a
 // server by accident. Blocked commands need an explicit --allow-dangerous.
+// It is a guardrail against mistakes, not a sandbox: a determined user can
+// always write a command it does not recognise.
 package policy
 
 import (
@@ -14,14 +16,14 @@ type Rule struct {
 }
 
 var builtin = []struct{ id, pattern, reason string }{
-	{"rm-root", `\brm\s+(-[a-zA-Z]*[rf][a-zA-Z]*\s+)+(--no-preserve-root\s+)?(/|/\*|~|\$HOME)(\s|$|;|&)`, "recursive delete of / or home"},
-	{"rm-system-dir", `\brm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+)+/(etc|usr|var|boot|bin|sbin|lib|lib64|opt|srv|home|root)/?(\s|$|;|&)`, "recursive delete of a system directory"},
+	{"rm-root", `\brm\s+` + rmOpts + `+(/|/\*|~|~/\*|\$HOME)(\s|$|;|&)`, "recursive delete of / or home"},
+	{"rm-system-dir", `\brm\s+` + rmOpts + `+/(etc|usr|var|boot|bin|sbin|lib|lib64|opt|srv|home|root|var/lib|usr/(bin|sbin|lib|lib64|local))/?\*?(\s|$|;|&)`, "recursive delete of a system directory"},
 	{"mkfs", `\bmkfs(\.\w+)?\b`, "formats a filesystem"},
 	{"dd-device", `\bdd\b.*\bof=/dev/(sd|nvme|vd|xvd|hd|mmcblk|disk)`, "writes raw data to a block device"},
 	{"redirect-device", `>\s*/dev/(sd|nvme|vd|xvd|hd)[a-z0-9]*`, "overwrites a block device"},
 	{"wipefs", `\b(wipefs|shred|sgdisk\s+(-Z|--zap-all)|blkdiscard)\b`, "wipes disks or partition tables"},
 	{"fdisk", `\b(fdisk|parted|sfdisk)\b`, "edits partition tables"},
-	{"power", `(^|[;&|(]\s*|\bsudo\s+(-\S+\s+)*)(shutdown|poweroff|halt|reboot|init\s+[06])(\s|$|;|&|\))`, "powers off or reboots the server"},
+	{"power", `(^|[;&|(]\s*|\b(sudo|doas|nohup|exec|env|nice|setsid)\s+(-\S+\s+)*)((/usr)?/s?bin/)?(shutdown|poweroff|halt|reboot|init\s+[06])(\s|$|;|&|\))`, "powers off or reboots the server"},
 	{"power-systemctl", `\bsystemctl\s+(poweroff|reboot|halt|kexec)\b`, "powers off or reboots the server"},
 	{"fork-bomb", `:\(\)\s*\{\s*:\|:&\s*\};:`, "fork bomb"},
 	{"chmod-root", `\bchmod\s+(-[a-zA-Z]*R[a-zA-Z]*\s+)+[0-7]{3,4}\s+/(\s|$)`, "recursive chmod of /"},
@@ -37,6 +39,10 @@ var builtin = []struct{ id, pattern, reason string }{
 	{"userdel", `\b(userdel|deluser)\b`, "deletes a user account"},
 }
 
+// rmOpts matches one option of rm: short flags with r or f, the long forms,
+// and the "--" end-of-options marker.
+const rmOpts = `(-[a-zA-Z]*[rRf][a-zA-Z]*\s+|--(recursive|force|no-preserve-root|one-file-system|verbose)\s+|--\s+)`
+
 var compiled []Rule
 
 func init() {
@@ -49,7 +55,7 @@ func init() {
 // settings (raw regexps).
 func Check(cmd string, extra []string) []Rule {
 	hits := []Rule{}
-	norm := strings.Join(strings.Fields(cmd), " ")
+	norm := Normalize(cmd)
 	for _, r := range compiled {
 		if r.re.MatchString(norm) {
 			hits = append(hits, r)
@@ -62,6 +68,31 @@ func Check(cmd string, extra []string) []Rule {
 		}
 	}
 	return hits
+}
+
+// Normalize prepares a command for matching: line breaks become ";" (the
+// shell treats both as command separators), runs of white space become one
+// space, and a word that is entirely quoted ("/" or '/') loses its quotes.
+func Normalize(cmd string) string {
+	cmd = strings.ReplaceAll(cmd, "\r\n", "\n")
+	lines := strings.Split(cmd, "\n")
+	var words []string
+	for i, line := range lines {
+		f := strings.Fields(line)
+		if len(f) == 0 {
+			continue
+		}
+		if i > 0 && len(words) > 0 {
+			words = append(words, ";")
+		}
+		for _, w := range f {
+			if len(w) >= 2 && (w[0] == '"' || w[0] == '\'') && w[len(w)-1] == w[0] && !strings.ContainsRune(w[1:len(w)-1], rune(w[0])) {
+				w = w[1 : len(w)-1]
+			}
+			words = append(words, w)
+		}
+	}
+	return strings.Join(words, " ")
 }
 
 func Rules() []Rule {

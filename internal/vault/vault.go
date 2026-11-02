@@ -143,6 +143,9 @@ func (f *file) aead() (cipher.AEAD, error) {
 }
 
 func Set(name, value string) error {
+	if store.DryRun {
+		return store.ErrDryRun
+	}
 	f, err := load()
 	if err != nil {
 		return err
@@ -180,6 +183,9 @@ func Get(name string) (string, error) {
 }
 
 func Delete(name string) error {
+	if store.DryRun {
+		return store.ErrDryRun
+	}
 	f, err := load()
 	if err != nil {
 		return err

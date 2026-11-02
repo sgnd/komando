@@ -15,6 +15,10 @@ komando script @web ./deploy.sh --arg v1.2.3     # run a local script remotely
 Useful options: `--timeout 10m`, `--parallel 20`, `--fail-fast`,
 `-e KEY=VALUE`, `-C /some/dir`, `--stream` (live output).
 
+A password for the remote command comes from the vault, so it is never
+typed or shown: `-e DB_PASS=secret:prod-db`. komando fills in the value on
+the way to the server.
+
 ## Long tasks
 
 Anything slow (backups, upgrades, builds) runs as a *job* that keeps going

@@ -16,7 +16,21 @@ komando download backups 2026/app.sql.gz            # into the current folder
 komando upload backups ./app.sql.gz 2026/app.sql.gz
 komando storage link backups 2026/app.sql.gz --expires 24h   # temporary download link
 komando storage rm backups 2026/old.sql.gz --allow-dangerous
+komando storage cat backups logs/app.log --tail 50   # read a text object without downloading it
 ```
+
+Folders and cleanups:
+
+```bash
+komando upload backups ./reports reports -r          # a folder: new and changed files
+komando download backups reports -r --to ./reports   # a prefix: files already here stay
+komando sync ./site backups:site --exclude '*.tmp'   # keep a folder in step (see Files)
+komando storage rm backups --prefix daily/ --older-than 30d --dry-run   # old backups, listed
+komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous
+```
+
+`storage rm --prefix` refuses to remove more than `--limit` objects
+(default 1000); check the dry-run list and raise it if that is what you mean.
 
 - Downloads never overwrite a file; the file is readable only by you.
 - `upload` replaces an object with the same key (the result says
@@ -29,6 +43,20 @@ komando storage rm backups 2026/old.sql.gz --allow-dangerous
   password. It is not written to the history.
 - Safest setup: give komando an access key that can only do what you need
   (read-only for reports, one bucket only). The service then enforces it.
+
+## AWS logins (SSO, roles, temporary keys)
+
+Instead of a stored key, a conn can use an AWS CLI profile. komando asks
+`aws configure export-credentials` for the profile's current keys each
+time, so SSO and assumed roles work as you set them up:
+
+```bash
+komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
+```
+
+When an SSO login has expired, the answer is `AWS_LOGIN_REQUIRED`: a person
+runs `aws sso login --profile prod` once. Amazon ECR registries work the same
+way (see Registries).
 
 ## File servers (FTPS, SFTP, FTP)
 

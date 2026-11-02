@@ -4,6 +4,176 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Cloud access (gap analysis, phase 5)
+
+- `host add|edit --proxy-command CMD` reaches a server through a program on
+  this computer, like OpenSSH's ProxyCommand (`%h %p %r %n`): AWS SSM, GCP
+  IAP, Cloudflare Access, Teleport. `--ssm` sets the AWS Systems Manager
+  command (the address is the instance ID). Conns can use such a host as
+  `--via` (RDS behind SSM). `import ssh-config` keeps ProxyCommand; imports
+  of export files drop it.
+- S3 conns can log in with an AWS CLI profile (`--option aws_profile=NAME`):
+  SSO, assumed roles and temporary keys work as configured in the aws CLI.
+  An expired SSO login answers `AWS_LOGIN_REQUIRED`.
+- Amazon ECR registries get a fresh login from the aws CLI each time
+  (logins last 12 hours), with the same `aws_profile` option.
+
+### Day-to-day database care (gap analysis, phase 4)
+
+- `db info` (version, uptime, size, connections, primary or replica and
+  replay lag), `db activity [--all]`, `db locks` (who waits on whom),
+  `db sizes` (databases, biggest tables and indexes) for PostgreSQL and
+  MySQL/MariaDB; `db info` and `db sizes` for SQLite too.
+- `db kill CONN PID` cancels a running query; `--session` ends the
+  connection and needs `--allow-dangerous`. `--dry-run` shows the session.
+- `db schema TABLE` shows foreign keys, checks and unique constraints.
+- `db dump --format custom` writes a PostgreSQL archive; `db restore`
+  recognises it and uses pg_restore (in one transaction). `--table` and
+  `--schema-only` narrow a dump (PostgreSQL and MySQL).
+
+### Bulk transfer (gap analysis, phase 3)
+
+- `komando sync SRC DST` keeps a folder in step between this computer and
+  servers (many at once) or storage, sending only new and changed files.
+  `--exclude` skips names and paths; `--delete` removes what the source no
+  longer has (needs `--allow-dangerous`); `--dry-run` lists every file.
+- Storage: `upload -r` sends a folder, `download -r` fetches a prefix
+  (existing local files stay unless `--overwrite`), `storage cat` reads a
+  text object (`--head`, `--tail`), and `storage rm --prefix [--older-than
+  30d]` cleans up old objects with a list first and a `--limit`.
+- Uploads to servers stream the file: a backup of any size no longer has to
+  fit in memory.
+- `key revoke KEY TARGET` removes a public key from authorized_keys on many
+  servers (`--user` for another account); revoking the key komando logs in
+  with needs `--allow-dangerous`.
+
+### Cluster deploy cycle (gap analysis, phase 2)
+
+- `cluster deploy TARGET TYPE/NAME --image IMAGE [--wait]` puts out a new
+  image on Kubernetes (deployment, statefulset, daemonset) or Swarm.
+- `cluster status TARGET TYPE/NAME [--wait]` tells whether a rollout has
+  finished, and waits for it (`ROLLOUT_FAILED`, `ROLLOUT_TIMEOUT`).
+- `cluster history` lists a deployment's revisions with their images;
+  `cluster rollback [--to N] [--wait]` goes back (Swarm: to the previous
+  version).
+- `cluster status TARGET` names every problem: CrashLoopBackOff and other
+  container waits, deployments short of replicas, nodes not ready or under
+  pressure (`healthy`, `problems`).
+- `cluster describe` (state, conditions, containers or pods, events) and
+  `cluster events [--warnings] [--for TYPE/NAME]`.
+- `cluster ls -l SELECTOR`, and useful columns for ingresses, volume claims
+  and volumes, jobs, cron jobs, autoscalers, config maps, events and
+  namespaces.
+- `cluster logs` reads a workload (`deploy/api`) or a label (`-l app=api`)
+  across its pods, and follows with `-f` (Kubernetes and Swarm).
+- `cluster exec` runs a command in a pod with the destructive-command
+  check (`--read-only` for looks); `cluster forward` reaches a pod or
+  service port on 127.0.0.1.
+
+### Secrets stay out of sight; dry runs show the change (gap analysis, phase 1)
+
+- Vault secrets are hidden in everything komando prints: a remote `.env`,
+  a log line or `env` output shows `[secret:NAME]` instead of the value
+  (values of 6 characters or more). `secret get --reveal` still shows it
+  to a person.
+- `--env KEY=secret:NAME` (exec, script, job, host `--env`) fills the value
+  in from the vault on the way to the server, so an agent never handles it.
+  Jobs get their exports from a private file that is deleted at start, not
+  on a command line other users can see.
+- `cluster apply --dry-run` shows each object's change (`create`, `change`
+  or `none`) as a diff; Secret values stay hidden.
+- `registry rm` lists every tag that goes with the image, in the dry run
+  too.
+
+### Promises kept (gap analysis, phase 1)
+
+- The audit log fails closed: when it cannot be written, commands that
+  could change something are refused (`AUDIT_UNAVAILABLE`); `doctor`
+  checks it.
+- `komando test` logs in to databases, caches and registries (and reports
+  the server version) instead of only opening the port.
+- Shell completion fills in server, conn and VPN names, `@groups`, `tag:`
+  and saved names from the inventory.
+- `komando schema` lists every selector (`kind:`, servers and conns) and
+  every secret reference form.
+- `import ssh-config` reports what it did not carry over (Match blocks,
+  ProxyCommand, ...) instead of dropping it silently.
+- `conn edit --option statement_timeout=10s` is used by `db query` and
+  `db schema`.
+- docs/design/vision.md shows the real status of every family.
+
+### Safer file edits, downloads and tunnels (gap analysis, phase 1)
+
+- `fs write|replace --validate CMD` checks the new file before it goes
+  into place (`%s` is its path, e.g. `visudo -cf %s`, `sshd -t -f %s`). If
+  the check fails the old file stays (`VALIDATION_FAILED`).
+- `fs write --dry-run` shows the change as a diff.
+- Downloads from servers never replace a file on this computer
+  (`FILE_EXISTS`; `--overwrite` to replace), are written under a temporary
+  name first, and refuse server paths that lead outside the destination.
+- `tunnel start` asks for `--yes` before listening on anything but
+  loopback (`OPEN_BIND`), as docs/design/network.md promised.
+
+### Secrets and risk ratings (gap analysis, phase 1)
+
+- `secret get --reveal` works only for a person at a terminal
+  (`REVEAL_NEEDS_HUMAN` for agents and scripts); commands refer to secrets
+  as `secret:NAME` instead.
+- `secret rm` refuses a secret that a server, conn, key or VPN still uses
+  (`SECRET_IN_USE`) and is written to the audit log.
+- `host add|edit --password-ref/--sudo-ref` refuse a password typed where a
+  reference belongs; before, it was stored and printed as plain text.
+- `cluster run -- get secret ... -o yaml|json|jsonpath` needs
+  `--allow-dangerous`: those formats print the secret values. The default
+  table (names and key counts) stays a read.
+- `docker raw` and `docker rm` are rated like `cluster run` on a Swarm
+  manager: reads stay reads, and `rm`, `volume rm`, `prune`, `run`, `exec`
+  need `--allow-dangerous`; so does `docker compose down -v/--rmi`.
+- `cache run`: `GETDEL`, `RENAME` and `EXPIRE` to zero or the past delete
+  keys, so they need `--allow-dangerous` like `DEL`. Read commands of
+  RedisJSON, RediSearch, RedisTimeSeries and RedisBloom count as reads;
+  `ACL LOG RESET` is a write.
+- `db query`: passwords in `CREATE/ALTER USER|ROLE ... PASSWORD`,
+  `IDENTIFIED BY` and `SET PASSWORD` are replaced with `'***'` in the audit
+  log.
+- `svc logs -f` and `docker logs -f` stream like `logs -f` (they waited for
+  the timeout before).
+- `registry ls` follows every page of the repository list (it read only the
+  first).
+
+### Safety fixes from a full review
+
+- `--dry-run` now changes nothing on every command. Inventory commands
+  (`host`, `conn`, `group`, `key`, `policy`, `config`, `recipe`) show the
+  result without saving it, and `job kill`, `job rm`, `tunnel stop`,
+  `key gen`, `key rm --delete-file`, `secret set` and `secret rm` only
+  report what they would do. Before, some of them made the change while
+  the answer and the audit log said `dry_run: true`.
+- `.ovpn` profiles may not use `setenv opt ...`: OpenVPN runs the rest of
+  that line as an option, which got past the allowlist (for example
+  `setenv opt up /bin/sh`).
+- The destructive-command policy checks each line of a script, so a
+  `reboot` on its own line is caught. It also catches `/sbin/reboot`,
+  `nohup reboot`, `rm -rf "/"`, `rm -rf -- /`, `rm --recursive --force /`,
+  `rm -rf /etc/*` and `rm -rf /var/lib`.
+- `--env` names must be shell variable names (`A-Z`, `0-9`, `_`). A name
+  like `X;reboot;Y` used to run as a command, past the policy check.
+- `svc restart|start|reload` quotes unit names in its `journalctl` call.
+- The sudo password (`--sudo-ref`) is sent only when sudo asks for it.
+  When sudo did not ask (NOPASSWD, or a recent sudo), the password went to
+  the command's stdin, and `script` printed it in its error output.
+- `db query` on MySQL: `--` starts a comment only before white space, as
+  in MySQL itself, so `SELECT 1 --1, LOAD_FILE(...)` is no longer rated a
+  read. `SET TRANSACTION`, `SET SESSION CHARACTERISTICS`,
+  `transaction_read_only` and `SET autocommit` are refused, because they
+  switch off or end the read-only transaction.
+- `fs write|replace|upload --sudo` reads the existing file mode as root.
+  Before, a file the SSH user could not see (`/etc/sudoers.d`, `/root`)
+  became 0644. The staged copy in `/tmp` is now private (0600) and is
+  removed when the connection fails.
+- `fs write --append` refuses files over 64 MiB (FILE_TOO_LARGE) instead
+  of cutting them to 64 MiB.
+
 ### VPN clients tested against real servers
 
 - `make e2e-vpnclients` runs, all in Docker: ocserv (the AnyConnect

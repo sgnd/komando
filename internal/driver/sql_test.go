@@ -32,6 +32,8 @@ func TestClassifySQL(t *testing.T) {
 		{"mysql", "select 'it\\'s; drop table x'", RiskRead, ""},
 		{"mysql", "select `drop` from t # drop table x", RiskRead, ""},
 		{"mysql", "describe users", RiskRead, ""},
+		{"mysql", "select 1 -- drop table users", RiskRead, ""},
+		{"mysql", "select 1 --\tdrop table users", RiskRead, ""},
 		{"sqlite", "pragma table_info(users)", RiskRead, ""},
 		{"sqlite", "select [delete] from t", RiskRead, ""},
 		// writes
@@ -69,6 +71,8 @@ func TestClassifySQL(t *testing.T) {
 		{"postgres", "vacuum full t", RiskDestructive, "sql-vacuum-full"},
 		{"postgres", "alter system set work_mem = '1GB'", RiskDestructive, "sql-server-config"},
 		{"mysql", "select * from t into outfile '/tmp/x'", RiskDestructive, "sql-server-file"},
+		{"mysql", "SELECT 1 --1, LOAD_FILE('/etc/passwd')", RiskDestructive, "sql-server-file"},
+		{"mysql", "select 1 --1 into outfile '/tmp/x'", RiskDestructive, "sql-server-file"},
 		{"mysql", "kill 42", RiskDestructive, "sql-kill"},
 		{"mysql", "set global max_connections = 1", RiskDestructive, "sql-server-config"},
 		{"mysql", "set password for bob = 'x'", RiskDestructive, "sql-privileges"},
@@ -155,7 +159,10 @@ func TestClassifySQLErrors(t *testing.T) {
 		"select $x$ never closed":               "USAGE",
 		"SET standard_conforming_strings = off": "SQL_STRING_RULES",
 		"reset backslash_quote":                 "SQL_STRING_RULES",
-		"  -- only a comment\n ; ":              "USAGE",
+		"SET TRANSACTION READ WRITE; select 1":  "SQL_TX_CONTROL",
+		"set session characteristics as transaction read write": "SQL_TX_CONTROL",
+		"set transaction_read_only = off":                       "SQL_TX_CONTROL",
+		"  -- only a comment\n ; ":                              "USAGE",
 	}
 	for sql, code := range cases {
 		_, err := ClassifySQL("postgres", sql)
@@ -168,6 +175,8 @@ func TestClassifySQLErrors(t *testing.T) {
 		"/*!DROP*/ TABLE users":        "SQL_HIDDEN_CODE",
 		"select /*M!100000 1 */ 2":     "SQL_HIDDEN_CODE",
 		"set sql_mode = 'ANSI_QUOTES'": "SQL_STRING_RULES",
+		"set autocommit=1; select 1":   "SQL_TX_CONTROL",
+		"SET @@autocommit = 0":         "SQL_TX_CONTROL",
 	} {
 		_, err := ClassifySQL("mysql", sql)
 		if e, ok := err.(*out.Error); !ok || e.Code != code {

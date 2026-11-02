@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
@@ -321,42 +322,74 @@ type writeOpts struct {
 	sudo, backup, mkdirs bool
 	mode                 string
 	owner                string
+	validate             string // command run on the new file (%s) before it goes into place
+}
+
+// validateCmd puts the quoted temporary path where --validate has %s.
+func (o writeOpts) validateCmd(tmp string) string {
+	return strings.ReplaceAll(o.validate, "%s", sshx.Q(tmp))
+}
+
+func validateFailed(stderr string) error {
+	return out.Errf(out.ExitConflict, "VALIDATION_FAILED", "the file was not changed; fix the content and try again",
+		"--validate rejected the new file: %s", strings.TrimSpace(stderr))
 }
 
 // writeRemote writes data atomically (temp file + rename) and returns info.
 func writeRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, data []byte, o writeOpts) (map[string]any, error) {
-	res := map[string]any{"path": p, "bytes": len(data)}
-	sum := sha256.Sum256(data)
-	res["sha256"] = hex.EncodeToString(sum[:])
+	return writeRemoteFrom(ctx, c, sc, p, bytes.NewReader(data), o)
+}
+
+// writeRemoteFrom is writeRemote for a stream: the content goes to the
+// server as it is read, so files of any size never sit in memory.
+func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, src io.Reader, o writeOpts) (map[string]any, error) {
+	res := map[string]any{"path": p}
+	h := sha256.New()
+	copyIn := func(f io.Writer) error {
+		n, err := io.Copy(io.MultiWriter(f, h), src)
+		res["bytes"], res["sha256"] = n, hex.EncodeToString(h.Sum(nil))
+		return err
+	}
 	dir := path.Dir(p)
 	mode := o.mode
-	// preserve the existing mode when not specified
-	if mode == "" {
-		if fi, err := sc.Stat(p); err == nil {
-			mode = fmt.Sprintf("%04o", fi.Mode().Perm())
-		} else {
-			mode = "0644"
+	if mode != "" {
+		if _, err := strconv.ParseUint(mode, 8, 32); err != nil {
+			return nil, out.Usage("invalid --mode %q", mode)
 		}
-	}
-	perm, err := strconv.ParseUint(mode, 8, 32)
-	if err != nil {
-		return nil, out.Usage("invalid --mode %q", mode)
 	}
 	tmpName := fmt.Sprintf(".komando-%d-%s", time.Now().UnixNano(), path.Base(p))
 	if o.sudo {
 		// stage in the user's tmp then sudo install into place
 		tmp := path.Join("/tmp", tmpName)
-		f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+		f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
 		if err != nil {
 			return nil, fsErr(tmp, err)
 		}
-		if _, err := f.Write(data); err != nil {
+		// only the SSH user may read the staged content (it can be a secret)
+		if err := f.Chmod(0o600); err != nil {
 			f.Close()
+			sc.Remove(tmp)
+			return nil, fsErr(tmp, err)
+		}
+		if err := copyIn(f); err != nil {
+			f.Close()
+			sc.Remove(tmp)
 			return nil, err
 		}
 		f.Close()
 		var sb strings.Builder
 		sb.WriteString("set -e; ")
+		// keep the mode of the existing file; read it as root, because the SSH
+		// user often cannot see into the directory (/etc/sudoers.d, /root)
+		if mode == "" {
+			sb.WriteString("m=$(stat -c %a " + sshx.Q(p) + " 2>/dev/null || echo 644); ")
+		} else {
+			sb.WriteString("m=" + mode + "; ")
+		}
+		if o.validate != "" {
+			// exit 97 tells komando the check failed, not the install
+			sb.WriteString("if ! ( " + o.validateCmd(tmp) + " ) >&2; then rm -f " + sshx.Q(tmp) + "; exit 97; fi; ")
+		}
 		if o.mkdirs {
 			sb.WriteString("mkdir -p " + sshx.Q(dir) + "; ")
 		}
@@ -367,19 +400,23 @@ func writeRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string,
 		owner := o.owner
 		if owner == "" {
 			sb.WriteString("o=$(stat -c %u:%g " + sshx.Q(p) + " 2>/dev/null || echo 0:0); ")
-			sb.WriteString("install -m " + mode + " -o \"${o%:*}\" -g \"${o#*:}\" " + sshx.Q(tmp) + " " + sshx.Q(p) + "; ")
+			sb.WriteString("install -m \"$m\" -o \"${o%:*}\" -g \"${o#*:}\" " + sshx.Q(tmp) + " " + sshx.Q(p) + "; ")
 		} else {
 			u, gr, _ := strings.Cut(owner, ":")
-			sb.WriteString("install -m " + mode + " -o " + sshx.Q(u))
+			sb.WriteString("install -m \"$m\" -o " + sshx.Q(u))
 			if gr != "" {
 				sb.WriteString(" -g " + sshx.Q(gr))
 			}
 			sb.WriteString(" " + sshx.Q(tmp) + " " + sshx.Q(p) + "; ")
 		}
-		sb.WriteString("rm -f " + sshx.Q(tmp))
+		sb.WriteString("rm -f " + sshx.Q(tmp) + "; echo \"$m\"")
 		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: sb.String(), Sudo: true, Timeout: time.Minute, MaxOutput: 64 << 10})
 		if err != nil {
+			_ = sc.Remove(tmp)
 			return nil, err
+		}
+		if r.ExitCode == 97 && o.validate != "" {
+			return nil, validateFailed(r.Stderr)
 		}
 		if r.ExitCode != 0 {
 			_ = sc.Remove(tmp)
@@ -388,9 +425,21 @@ func writeRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string,
 		if o.backup {
 			res["backup"] = p + ".bak"
 		}
+		if m := strings.TrimSpace(r.Stdout); m != "" {
+			mode = fmt.Sprintf("%04s", m)
+		}
 		res["mode"] = mode
 		return res, nil
 	}
+	// preserve the existing mode when not specified
+	if mode == "" {
+		if fi, err := sc.Stat(p); err == nil {
+			mode = fmt.Sprintf("%04o", fi.Mode().Perm())
+		} else {
+			mode = "0644"
+		}
+	}
+	perm, _ := strconv.ParseUint(mode, 8, 32)
 	if o.mkdirs {
 		if err := sc.MkdirAll(dir); err != nil {
 			return nil, fsErr(dir, err)
@@ -409,13 +458,23 @@ func writeRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string,
 	if err != nil {
 		return nil, fsErr(tmp, err)
 	}
-	if _, err := f.Write(data); err != nil {
+	if err := copyIn(f); err != nil {
 		f.Close()
 		sc.Remove(tmp)
 		return nil, err
 	}
 	f.Close()
 	_ = sc.Chmod(tmp, os.FileMode(perm))
+	if o.validate != "" {
+		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: o.validateCmd(tmp), Timeout: time.Minute, MaxOutput: 64 << 10})
+		if err != nil || r.ExitCode != 0 {
+			sc.Remove(tmp)
+			if err != nil {
+				return nil, err
+			}
+			return nil, validateFailed(r.Stderr + r.Stdout)
+		}
+	}
 	if err := sc.PosixRename(tmp, p); err != nil {
 		if err2 := sc.Rename(tmp, p); err2 != nil {
 			sc.Remove(tmp)
@@ -480,11 +539,43 @@ func fsWriteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := guard(st, []*store.Host{h}, "", true); err != nil {
+			if err := checkValidate(o.validate); err != nil {
+				return err
+			}
+			if err := guard(st, []*store.Host{h}, o.validate, true); err != nil {
 				return err
 			}
 			if g.dryRun {
-				out.P.Print("fs.write", map[string]any{"host": h.Name, "path": args[1], "bytes": len(data), "append": appendMode, "sudo": o.sudo}, nil)
+				// read the current file (read-only) so the preview shows the change
+				res := map[string]any{"host": h.Name, "path": args[1], "bytes": len(data), "append": appendMode, "sudo": o.sudo}
+				err := withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
+					sc, err := sftpClient(c)
+					if err != nil {
+						return err
+					}
+					defer sc.Close()
+					old, trunc, rerr := readRemote(cmd.Context(), c, sc, args[1], o.sudo, 1<<20)
+					switch {
+					case rerr != nil && toErr(rerr).Code == "PATH_NOT_FOUND":
+						old, res["exists"] = nil, false
+					case rerr != nil:
+						return rerr
+					case trunc || !utf8.Valid(old) || !utf8.Valid(data):
+						res["diff_skipped"] = "file larger than 1 MiB or not text"
+						return nil
+					}
+					updated := data
+					if appendMode {
+						updated = append(append([]byte(nil), old...), data...)
+					}
+					res["changed"] = !bytes.Equal(old, updated)
+					res["diff"] = unifiedDiff(string(old), string(updated), 2)
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				out.P.Print("fs.write", res, nil)
 				return nil
 			}
 			var res map[string]any
@@ -495,11 +586,14 @@ func fsWriteCmd() *cobra.Command {
 				}
 				defer sc.Close()
 				if appendMode || ifChanged {
-					old, _, rerr := readRemote(cmd.Context(), c, sc, args[1], o.sudo, 64<<20)
+					old, trunc, rerr := readRemote(cmd.Context(), c, sc, args[1], o.sudo, 64<<20)
 					if rerr != nil && toErr(rerr).Code != "PATH_NOT_FOUND" {
 						return rerr
 					}
 					if appendMode {
+						if trunc {
+							return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, e.g. `cat >> FILE`", "file larger than 64MiB")
+						}
 						data = append(old, data...)
 					}
 					if ifChanged && rerr == nil && bytes.Equal(old, data) {
@@ -535,6 +629,7 @@ func bindWriteOpts(c *cobra.Command, o *writeOpts) {
 	c.Flags().BoolVarP(&o.mkdirs, "parents", "p", false, "create parent directories")
 	c.Flags().StringVar(&o.mode, "mode", "", "file mode, e.g. 0640 (default: keep existing or 0644)")
 	c.Flags().StringVar(&o.owner, "owner", "", "owner[:group] (requires --sudo)")
+	c.Flags().StringVar(&o.validate, "validate", "", "check the new file before it goes into place; %s is its path (e.g. 'visudo -cf %s', 'nginx -t -c %s')")
 }
 
 func fsReplaceCmd() *cobra.Command {
@@ -566,7 +661,10 @@ func fsReplaceCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := guard(st, []*store.Host{h}, "", true); err != nil {
+			if err := checkValidate(o.validate); err != nil {
+				return err
+			}
+			if err := guard(st, []*store.Host{h}, o.validate, true); err != nil {
 				return err
 			}
 			var res map[string]any
@@ -759,4 +857,11 @@ func fsChmodCmd() *cobra.Command {
 		}
 		return "chmod " + r + sshx.Q(a[0]) + " -- " + quoteAll(a[1:])
 	}, map[string]string{"recursive": "recurse"})
+}
+
+func checkValidate(v string) error {
+	if v != "" && !strings.Contains(v, "%s") {
+		return out.Usage("--validate needs %%s where the new file's path goes, e.g. --validate 'visudo -cf %%s'")
+	}
+	return nil
 }

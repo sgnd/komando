@@ -15,6 +15,13 @@ komando conn add local 'registry://me@registry.lan:5000?tls=false' --via bastion
 Password-nya biasanya access token dengan hak baca (hak tulis untuk menyalin
 ke registry itu, hak hapus untuk menghapus).
 
+Login Amazon ECR berlaku 12 jam, jadi komando mengambil yang baru dari aws
+CLI setiap kali (`aws ecr get-login-password`); jangan isi `--password-ref`:
+
+```bash
+komando conn add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws.com --option aws_profile=prod
+```
+
 ## Memakainya
 
 ```bash

@@ -263,7 +263,14 @@ func TestClusterRunClassification(t *testing.T) {
 		"scale deploy/a --replicas=0":    driver.RiskDestructive,
 		"config view --raw":              driver.RiskDestructive,
 		"create clusterrolebinding x --clusterrole=cluster-admin": driver.RiskDestructive,
-		"edit deploy/a": driver.RiskDestructive,
+		"edit deploy/a":                              driver.RiskDestructive,
+		"get secrets -n shop":                        driver.RiskRead,
+		"get secret db -o wide":                      driver.RiskRead,
+		"get secret db -o yaml":                      driver.RiskDestructive,
+		"get secrets/db -ojson":                      driver.RiskDestructive,
+		"get pods,secrets --output=json":             driver.RiskDestructive,
+		"get secret db -o=jsonpath={.data.password}": driver.RiskDestructive,
+		"get pods -o yaml":                           driver.RiskRead,
 	}
 	for cmd, want := range k {
 		if got := classifyKubectl(strings.Fields(cmd)); got != want {
@@ -282,6 +289,11 @@ func TestClusterRunClassification(t *testing.T) {
 		"run --privileged -v /:/h alpine":    driver.RiskDestructive,
 		"stack deploy -c x --prune s":        driver.RiskDestructive,
 		"node update --availability drain n": driver.RiskDestructive,
+		"volume rm data":                     driver.RiskDestructive,
+		"volume ls":                          driver.RiskRead,
+		"rm -f -v web":                       driver.RiskDestructive,
+		"inspect web":                        driver.RiskRead,
+		"pull nginx":                         driver.RiskWrite,
 	}
 	for _, bad := range []string{"get pods --server=https://evil", "get pods --kubeconfig /tmp/x", "get pods -s https://e", "delete x --dry-run=none", "get pods --token t"} {
 		if checkKubectlFlags(strings.Fields(bad)) == nil {
@@ -308,6 +320,7 @@ func TestCheckOVPN(t *testing.T) {
 		"writepid /etc/cron.d/x", "log /etc/passwd", "auth-user-pass /etc/shadow", "ca /etc/ssl/key.pem",
 		"plugin /usr/lib/x.so", "iproute /tmp/ip", "<script>\nx\n</script>",
 		"<ca>\nx\n</ca>x\nscript-security 2", "<ca>\nx\n", "<ca>\n</ca> up /tmp/x",
+		"setenv opt up /tmp/x.sh", `setenv "OPT" script-security 2`,
 	} {
 		if err := checkOVPN("client\n" + bad + "\n"); err == nil {
 			t.Errorf("%q must be refused", bad)

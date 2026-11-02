@@ -39,8 +39,9 @@ If `komando` is not installed, stop and ask the human to install it:
 6. **Never** "fix" `HOSTKEY_MISMATCH` yourself: report it, it may be an attack.
 7. `VPN_LOGIN_REQUIRED` or `VPN_DOWN`: ask the human to run
    `komando vpn up <name>`. Logins with a code (MFA) are always done by a human.
-8. Never reveal secrets (`komando secret get --reveal`) unless the human asks,
-   and never put a secret value on a command line.
+8. Secret values are for people only: `secret get --reveal` works only at a
+   terminal (`REVEAL_NEEDS_HUMAN` otherwise). Refer to secrets as
+   `secret:NAME`, and never put a secret value on a command line.
 9. On every failure read `error.hint`: it says what to do next.
 10. When done, summarize what you changed, on which targets, and how to roll
     back (`komando audit --limit 20` helps).

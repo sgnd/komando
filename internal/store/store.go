@@ -15,24 +15,28 @@ import (
 )
 
 type Host struct {
-	Name        string            `json:"name"`
-	Address     string            `json:"address"`
-	Port        int               `json:"port,omitempty"`
-	User        string            `json:"user,omitempty"`
-	Key         string            `json:"key,omitempty"`          // name of a key in the keychain
-	Identity    string            `json:"identity,omitempty"`     // path to a private key file
-	PasswordRef string            `json:"password_ref,omitempty"` // secret:<name> or env:<VAR>
-	SudoRef     string            `json:"sudo_ref,omitempty"`     // sudo password ref (secret:/env:)
-	Via         string            `json:"via,omitempty"`          // the way there: host name(s), comma-separated chain
-	OldJump     string            `json:"jump,omitempty"`         // before v0.3; moved to Via on load
-	Groups      []string          `json:"groups,omitempty"`
-	Tags        []string          `json:"tags,omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Env         map[string]string `json:"env,omitempty"` // exported before every command
-	Protected   bool              `json:"protected,omitempty"`
-	Notes       string            `json:"notes,omitempty"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
+	Name        string `json:"name"`
+	Address     string `json:"address"`
+	Port        int    `json:"port,omitempty"`
+	User        string `json:"user,omitempty"`
+	Key         string `json:"key,omitempty"`          // name of a key in the keychain
+	Identity    string `json:"identity,omitempty"`     // path to a private key file
+	PasswordRef string `json:"password_ref,omitempty"` // secret:<name> or env:<VAR>
+	SudoRef     string `json:"sudo_ref,omitempty"`     // sudo password ref (secret:/env:)
+	Via         string `json:"via,omitempty"`          // the way there: host name(s), comma-separated chain
+	// ProxyCommand is a program on this computer whose stdin and stdout
+	// carry the SSH connection (OpenSSH ProxyCommand): aws ssm start-session,
+	// gcloud compute start-iap-tunnel, cloudflared access ssh. %h %p %r %n.
+	ProxyCommand string            `json:"proxy_command,omitempty"`
+	OldJump      string            `json:"jump,omitempty"` // before v0.3; moved to Via on load
+	Groups       []string          `json:"groups,omitempty"`
+	Tags         []string          `json:"tags,omitempty"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	Env          map[string]string `json:"env,omitempty"` // exported before every command
+	Protected    bool              `json:"protected,omitempty"`
+	Notes        string            `json:"notes,omitempty"`
+	CreatedAt    time.Time         `json:"created_at"`
+	UpdatedAt    time.Time         `json:"updated_at"`
 }
 
 func (h *Host) EffectivePort() int {
@@ -284,9 +288,24 @@ func (s *State) init() {
 	}
 }
 
+// DryRun makes Update apply fn to a copy that is never saved. The CLI sets
+// it for --dry-run, so a command shows the result of its change (and its
+// validation errors) without making it.
+var DryRun bool
+
+// ErrDryRun is returned by writes that cannot be simulated (the vault).
+var ErrDryRun = errors.New("this command cannot preview its change; nothing was changed")
+
 // Update loads state under an exclusive file lock, applies fn and saves
 // atomically. Safe for concurrent komando processes (parallel agents).
 func Update(fn func(s *State) error) error {
+	if DryRun {
+		s, err := Load()
+		if err != nil {
+			return err
+		}
+		return fn(s)
+	}
 	if err := ensureHome(); err != nil {
 		return err
 	}

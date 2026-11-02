@@ -75,7 +75,13 @@ SMEMBERS SISMEMBER SMISMEMBER SCARD SRANDMEMBER SINTER SUNION SDIFF SINTERCARD Z
 ZRANGEBYLEX ZREVRANGE ZREVRANGEBYSCORE ZREVRANGEBYLEX ZSCORE ZMSCORE ZCARD ZCOUNT ZLEXCOUNT ZRANK ZREVRANK
 ZRANDMEMBER ZINTER ZUNION ZDIFF ZINTERCARD XRANGE XREVRANGE XLEN XPENDING BITCOUNT BITPOS GETBIT BITFIELD_RO
 PFCOUNT GEOPOS GEODIST GEOHASH GEOSEARCH GEORADIUS_RO GEORADIUSBYMEMBER_RO INFO DBSIZE PING ECHO TIME LASTSAVE
-ROLE RANDOMKEY TOUCH LCS SORT_RO EVAL_RO EVALSHA_RO FCALL_RO DUMP COMMAND`)
+ROLE RANDOMKEY TOUCH LCS SORT_RO EVAL_RO EVALSHA_RO FCALL_RO DUMP COMMAND
+JSON.GET JSON.MGET JSON.TYPE JSON.STRLEN JSON.ARRLEN JSON.ARRINDEX JSON.OBJKEYS JSON.OBJLEN JSON.RESP
+FT.SEARCH FT.AGGREGATE FT.INFO FT._LIST FT.EXPLAIN FT.EXPLAINCLI FT.PROFILE FT.TAGVALS FT.SPELLCHECK
+FT.DICTDUMP FT.SYNDUMP TS.GET TS.MGET TS.RANGE TS.REVRANGE TS.MRANGE TS.MREVRANGE TS.INFO TS.QUERYINDEX
+BF.EXISTS BF.MEXISTS BF.INFO BF.CARD CF.EXISTS CF.MEXISTS CF.COUNT CF.INFO CMS.QUERY CMS.INFO TOPK.QUERY
+TOPK.LIST TOPK.INFO TOPK.COUNT TDIGEST.INFO TDIGEST.MIN TDIGEST.MAX TDIGEST.QUANTILE TDIGEST.CDF
+TDIGEST.RANK TDIGEST.REVRANK TDIGEST.BYRANK TDIGEST.BYREVRANK TDIGEST.TRIMMED_MEAN`)
 
 // read-only subcommands of otherwise mixed commands
 var readSub = map[string]map[string]bool{
@@ -136,8 +142,12 @@ func Classify(args []string) driver.Verdict {
 	if id, ok := destructive[cmd]; ok {
 		return flag(id)
 	}
-	if cmd == "DEL" || cmd == "UNLINK" { // same as `cache rm`
+	if cmd == "DEL" || cmd == "UNLINK" || cmd == "GETDEL" || cmd == "RENAME" || expiresNow(cmd, args) {
+		// same as `cache rm`: the key (or RENAME's target) is gone afterwards
 		return driver.DataDelete()
+	}
+	if cmd == "ACL" && sub == "LOG" && len(args) > 2 && strings.EqualFold(args[2], "RESET") {
+		return driver.Verdict{Risk: driver.RiskWrite}
 	}
 	if id, ok := destructiveSub[cmd][sub]; ok {
 		return flag(id)
@@ -146,6 +156,27 @@ func Classify(args []string) driver.Verdict {
 		return driver.Verdict{Risk: driver.RiskRead}
 	}
 	return driver.Verdict{Risk: driver.RiskWrite}
+}
+
+// expiresNow reports EXPIRE/PEXPIRE with a time of zero or less, and
+// EXPIREAT/PEXPIREAT with a time in the past: Redis deletes the key at once.
+func expiresNow(cmd string, args []string) bool {
+	if len(args) < 3 {
+		return false
+	}
+	n, err := strconv.ParseInt(args[2], 10, 64)
+	if err != nil {
+		return false
+	}
+	switch cmd {
+	case "EXPIRE", "PEXPIRE":
+		return n <= 0
+	case "EXPIREAT":
+		return n <= time.Now().Unix()
+	case "PEXPIREAT":
+		return n <= time.Now().UnixMilli()
+	}
+	return false
 }
 
 // Value is a key with its type, time to live and (part of) its content.

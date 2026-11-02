@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -95,5 +97,45 @@ func TestDBShellNeedsTerminal(t *testing.T) {
 	interactive = func() bool { return false }
 	if err := runDBShell(context.Background(), "x", false); err == nil || toErr(err).Code != "NEEDS_TERMINAL" {
 		t.Errorf("want NEEDS_TERMINAL, got %v", err)
+	}
+}
+
+func TestRedactSQL(t *testing.T) {
+	for in, want := range map[string]string{
+		"CREATE USER app WITH PASSWORD 's3cret'":                      "CREATE USER app WITH PASSWORD '***'",
+		"alter role app encrypted password 'it''s'":                   "alter role app encrypted password '***'",
+		"CREATE USER 'a'@'%' IDENTIFIED BY 'p@ss'":                    "CREATE USER 'a'@'%' IDENTIFIED BY '***'",
+		"ALTER USER a IDENTIFIED WITH mysql_native_password BY \"x\"": "ALTER USER a IDENTIFIED WITH mysql_native_password BY '***'",
+		"SET PASSWORD FOR 'a'@'%' = 'new'":                            "SET PASSWORD FOR 'a'@'%' = '***'",
+		"select * from users where name = 'password'":                 "select * from users where name = 'password'",
+		"ALTER ROLE x PASSWORD $$p$$":                                 "ALTER ROLE x PASSWORD '***'",
+	} {
+		if got := redactSQL(in); got != want {
+			t.Errorf("redactSQL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestDumpOpts(t *testing.T) {
+	pg, err := dumpOpts{format: "custom", schemaOnly: true, tables: []string{"public.a"}}.args("postgres", []string{"pg_dump", "--dbname", "u"})
+	if err != nil || strings.Join(pg, " ") != "pg_dump --dbname u --format=custom --schema-only --table=public.a" {
+		t.Errorf("postgres: %v %v", pg, err)
+	}
+	my, err := dumpOpts{schemaOnly: true, tables: []string{"orders"}}.args("mysql", []string{"mysqldump", "--host", "h", "shop"})
+	if err != nil || strings.Join(my, " ") != "mysqldump --host h --no-data shop orders" {
+		t.Errorf("mysql: %v %v", my, err)
+	}
+	if _, err := (dumpOpts{format: "custom"}).args("mysql", []string{"mysqldump", "shop"}); err == nil {
+		t.Error("custom format is PostgreSQL only")
+	}
+	dir := t.TempDir()
+	arch, plain := filepath.Join(dir, "a.dump"), filepath.Join(dir, "a.sql")
+	os.WriteFile(arch, []byte("PGDMP\x01\x0e"), 0o600)
+	os.WriteFile(plain, []byte("-- SQL"), 0o600)
+	if ok, _ := isPgArchive(arch); !ok {
+		t.Error("PGDMP file not recognised")
+	}
+	if ok, _ := isPgArchive(plain); ok {
+		t.Error("plain SQL taken for an archive")
 	}
 }

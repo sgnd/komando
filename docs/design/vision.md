@@ -33,7 +33,9 @@ pemula, dan seterusnya) tetap berlaku untuk semuanya.
 
 ## Review kondisi sekarang
 
-Per commit `39d2e68` (± 11.500 baris Go, biner 26 MB):
+Per `feat/v0.3` setelah fase 1 analisis gap (± 22.000 baris Go, biner rilis
+± 35 MB). Daftar lengkap apa yang masih kurang ada di
+[gap/README.md](gap/README.md).
 
 | Area | Status |
 |---|---|
@@ -42,8 +44,11 @@ Per commit `39d2e68` (± 11.500 baris Go, biner 26 MB):
 | Lapisan aman: policy, protected, dry-run, cek host key, audit, JSON envelope + exit code | ✅ matang |
 | `conn` + `db` (PostgreSQL, MySQL, SQLite; query/schema/explain/dump/restore; `audit_sql`) | ✅ selesai |
 | `cache` (Redis, Valkey) | ✅ selesai |
-| `storage` (S3: ls/get/put/rm/link) | ✅ selesai |
-| Cluster, registry, ftp, VPN, secret backend eksternal | ❌ belum ada |
+| `storage` (S3, FTP/FTPS, SFTP: ls/download/upload/rm/link) | ✅ selesai |
+| `cluster` (Kubernetes, Docker Swarm) | ✅ selesai (rollout/rollback/diff: lihat gap) |
+| `registry` (ls, inspect, rm, copy) | ✅ selesai |
+| `vpn` (WireGuard, OpenVPN, openconnect, Tailscale, SOCKS, VPN OS) | ✅ selesai |
+| Ref secret eksternal (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`) | ✅ selesai |
 | Satu inventaris: selector universal, `komando list`, `komando test` | ✅ selesai |
 | Migrasi | ✅ `import` (ssh-config, pgpass, mycnf, env, komando) dan `export` |
 
@@ -91,11 +96,11 @@ Nama perintah selalu berupa **kategori**, bukan nama produk.
 | `exec`, `fs`, `cp`, `svc`, `docker`, ... | host | SSH (Linux) | ✅ |
 | `db` | sql | postgres, mysql/mariadb, sqlite; nanti: mssql, clickhouse | ✅ |
 | `cache` | kv | redis, valkey, keydb, dragonfly; nanti: memcached | ✅ |
-| `storage` | object/file | s3 (AWS, MinIO, R2, Spaces, Wasabi, B2), ftp/ftps; nanti: gcs, azblob, webdav | ✅ s3, 📋 ftp |
-| `cluster` | orchestrator | k8s (k3s, EKS, GKE, AKS, kind), swarm; nanti: nomad | 📋 |
-| `registry` | oci | Docker Hub, GHCR, GitLab, Harbor, ECR, registry:2 | 📋 |
-| `secret` | secret | vault lokal; ref eksternal: `op:`, `vault:`, `aws-sm:`, `gcp-sm:` | ✅ lokal, 📋 eksternal |
-| `vpn` | jalur | wireguard ✅, socks ✅, system ✅; berikutnya tailscale, GlobalProtect/Fortinet/AnyConnect/Pulse/F5 (openconnect), OpenVPN/Pritunl, L2TP/IPsec. komando menyambungkan VPN sendiri saat dibutuhkan `--via` | ⏳ ([network.md](network.md)) |
+| `storage` | object/file | s3 (AWS, MinIO, R2, Spaces, Wasabi, B2), ftp/ftps, sftp; nanti: gcs, azblob, webdav | ✅ |
+| `cluster` | orchestrator | k8s (k3s, EKS, GKE, AKS, kind), swarm; nanti: nomad | ✅ |
+| `registry` | oci | Docker Hub, GHCR, GitLab, Harbor, registry:2; ECR butuh token yang diperbarui (lihat gap) | ✅ |
+| `secret` | secret | vault lokal; ref eksternal: `op://`, `vault:`, `aws-sm:`, `gcp-sm:` | ✅ |
+| `vpn` | jalur | wireguard, socks, system, tailscale, GlobalProtect/Fortinet/AnyConnect/Pulse/F5 (openconnect), OpenVPN/Pritunl, L2TP/IPsec (system). komando menyambungkan VPN sendiri saat dibutuhkan `--via` | ✅ ([network.md](network.md)) |
 
 Keputusan (disetujui 2026-11-02):
 
@@ -182,10 +187,11 @@ apa yang akan dibuat, dan entri yang sudah ada tidak ditimpa kecuali dengan
   kubeconfig (tanpa client-go). Registry: OCI Distribution API. Swarm: Docker
   Engine API lewat socket di host SSH. S3: client ringan (`minio-go` atau
   signer SigV4 sendiri), bukan AWS SDK penuh.
-- **Anggaran biner: ≤ 40 MB, satu biner untuk semua orang** (tanpa build
-  `lite`/`full`; satu biner lebih mudah dipasang dan didukung). Kalau
-  terlewati, kurangi dependensi dulu; build tag (`-tags nok8s`) hanya jalan
-  terakhir, dan tidak memakai sistem plugin.
+- **Satu biner untuk semua orang, tanpa batas ukuran** (tanpa build
+  `lite`/`full`; satu biner lebih mudah dipasang dan didukung). Ukuran biner
+  tidak dibatasi: fitur yang dibutuhkan sehari-hari lebih penting. Tetap
+  pilih dependensi yang wajar (client ringan bila ada) dan tanpa sistem
+  plugin.
 - **Tanpa pool dan tanpa daemon.** Satu koneksi per perintah. Tunnel dan job
   tetap jadi satu-satunya proses di latar belakang.
 - Tes integrasi per family di CI memakai service container (postgres, redis,
@@ -214,7 +220,7 @@ Family baru hanya ditambahkan kalau **semua** ini terpenuhi:
 
 1. Masuk ke model `conn` + kind + verb yang sudah ada, tanpa konsep baru.
 2. Bisa diberi read-only default dan klasifikasi risk yang jujur.
-3. Bisa dibangun tanpa cgo dan tanpa SDK yang membuat biner melewati anggaran.
+3. Bisa dibangun tanpa cgo (pure Go).
 4. Ada kebutuhan nyata: dipakai sehari-hari, bukan hanya "ada baiknya".
 5. Ada orang yang mau merawatnya: tes integrasi di CI dan dokumentasi.
 
@@ -234,7 +240,7 @@ Family baru hanya ditambahkan kalau **semua** ini terpenuhi:
 | 1 | `storage` atau `s3`? | ✅ `storage`. Semua nama perintah memakai bahasa manusia; nama produk jadi alias. |
 | 2 | Satu `cluster`, atau `k8s`/`swarm` terpisah? | ✅ Satu `cluster`. Verb umum langsung di bawahnya; fitur khusus engine di `cluster k8s ...` / `cluster swarm ...`. |
 | 3 | Apakah `@prod` memilih host dan conn sekaligus? | ✅ Ya, semuanya. Aturan lengkapnya di [ux.md](ux.md#2-target-dan-selector-berlaku-untuk-host-dan-conn). |
-| 4 | Anggaran biner? | ✅ Ikuti best practice: satu biner, ≤ 40 MB, pure Go. |
+| 4 | Anggaran biner? | ✅ Satu biner, pure Go, **tanpa batas ukuran** (batas 40 MB dihapus). |
 | 5 | TUI? | ✅ Tidak. CLI murni. |
 
 ### Contoh nomor 3

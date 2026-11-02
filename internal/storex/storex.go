@@ -69,6 +69,12 @@ func init() {
 
 // OpenS3 prepares a client; it does not contact the server.
 func OpenS3(t driver.Target, secret string, dial DialFunc, timeout time.Duration) (Bucket, error) {
+	return OpenS3Creds(t, t.User, secret, "", dial, timeout)
+}
+
+// OpenS3Creds is OpenS3 with explicit credentials, including the session
+// token of temporary ones (SSO, an assumed role).
+func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial DialFunc, timeout time.Duration) (Bucket, error) {
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.ResponseHeaderTimeout = timeout
 	if dial != nil {
@@ -76,7 +82,7 @@ func OpenS3(t driver.Target, secret string, dial DialFunc, timeout time.Duration
 		tr.Proxy = nil // the --via host is the way out
 	}
 	c, err := minio.New(t.Address, &minio.Options{
-		Creds:     credentials.NewStaticV4(t.User, secret, ""),
+		Creds:     credentials.NewStaticV4(accessKey, secret, sessionToken),
 		Secure:    t.Secure,
 		Region:    t.Region,
 		Transport: tr,

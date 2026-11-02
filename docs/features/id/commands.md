@@ -15,6 +15,10 @@ komando script @web ./deploy.sh --arg v1.2.3     # jalankan skrip lokal di serve
 Opsi yang berguna: `--timeout 10m`, `--parallel 20`, `--fail-fast`,
 `-e KEY=VALUE`, `-C /some/dir`, `--stream` (output langsung).
 
+Password untuk perintah di server diambil dari vault, jadi tidak pernah
+diketik atau terlihat: `-e DB_PASS=secret:prod-db`. komando mengisi nilainya
+dalam perjalanan ke server.
+
 ## Tugas lama
 
 Apa pun yang lambat (backup, upgrade, build) berjalan sebagai *job* yang

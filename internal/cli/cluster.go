@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -197,17 +198,21 @@ scale and apply change the cluster (protected targets need --yes; try
 --dry-run); rm needs --allow-dangerous. Anything else: ` + "`cluster run`" + `
 passes the native kubectl or docker command, read-only unless --write.`,
 	}
-	c.AddCommand(clusterStatusCmd(), clusterLsCmd(), clusterGetCmd(), clusterLogsCmd(), clusterRestartCmd(),
+	c.AddCommand(clusterStatusCmd(), clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterExecCmd(), clusterForwardCmd(), clusterRestartCmd(),
 		clusterScaleCmd(), clusterApplyCmd(), clusterRmCmd(), clusterRunCmd())
 	return c
 }
 
 func clusterStatusCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "status TARGET",
-		Short:   "Version, nodes, and what is not healthy",
-		Example: "  komando cluster status prod-k8s\n  komando cluster status swarm-manager",
-		Args:    cobra.ExactArgs(1),
+	var ns string
+	var wait bool
+	c := &cobra.Command{
+		Use:   "status TARGET [TYPE/NAME]",
+		Short: "Version, nodes, and what is not healthy; with TYPE/NAME, whether it finished rolling out",
+		Example: `  komando cluster status prod-k8s
+  komando cluster status prod-k8s deployment/api --namespace shop --wait
+  komando cluster status swarm-manager service/web --wait`,
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
@@ -216,6 +221,9 @@ func clusterStatusCmd() *cobra.Command {
 			t, err := resolveCluster(st, args[0])
 			if err != nil {
 				return err
+			}
+			if len(args) == 2 {
+				return rolloutStatus(cmd.Context(), t, args[1], ns, wait)
 			}
 			if t.host != nil {
 				return swarmRead(cmd.Context(), "cluster.status", t,
@@ -226,31 +234,134 @@ func clusterStatusCmd() *cobra.Command {
 				if err := k.Get(ctx, "/version", nil, &ver); err != nil {
 					return nil, err
 				}
-				var nodes, pods struct {
+				var nodes, pods, deploys struct {
 					Items []map[string]any `json:"items"`
 				}
 				if err := k.Get(ctx, "/api/v1/nodes", nil, &nodes); err != nil {
 					return nil, err
 				}
-				if err := k.Get(ctx, "/api/v1/pods", url.Values{"fieldSelector": {"status.phase!=Running,status.phase!=Succeeded"}}, &pods); err != nil {
+				if err := k.Get(ctx, "/api/v1/pods", url.Values{"limit": {"5000"}}, &pods); err != nil {
+					return nil, err
+				}
+				if err := k.Get(ctx, "/apis/apps/v1/deployments", url.Values{"limit": {"2000"}}, &deploys); err != nil {
 					return nil, err
 				}
 				ready := 0
+				problems := []map[string]string{}
+				problem := func(obj, reason string) {
+					problems = append(problems, map[string]string{"object": obj, "problem": reason})
+				}
 				for _, n := range nodes.Items {
+					name := "node/" + str(n["metadata"].(map[string]any)["name"])
 					if nodeReady(n) == "Ready" {
 						ready++
+					} else {
+						problem(name, "not ready")
+					}
+					for _, c := range nodeConditions(n) {
+						problem(name, c)
 					}
 				}
-				var bad []string
+				bad := []string{}
 				for _, p := range pods.Items {
 					m := p["metadata"].(map[string]any)
-					bad = append(bad, fmt.Sprint(m["namespace"], "/", m["name"]))
+					name := str(m["namespace"]) + "/" + str(m["name"])
+					st, _ := p["status"].(map[string]any)
+					phase := str(st["phase"])
+					down := phase != "Running" && phase != "Succeeded"
+					if down {
+						bad = append(bad, name)
+					}
+					// a crash-looping pod is still "Running": look at its containers
+					if reason := podTrouble(st); reason != "" {
+						problem("pod/"+name, reason)
+					} else if down {
+						problem("pod/"+name, strings.ToLower(phase))
+					}
+				}
+				for _, d := range deploys.Items {
+					m, _ := d["metadata"].(map[string]any)
+					spec, _ := d["spec"].(map[string]any)
+					st, _ := d["status"].(map[string]any)
+					want, _ := spec["replicas"].(float64)
+					have, _ := st["readyReplicas"].(float64)
+					if have < want {
+						problem("deployment/"+str(m["namespace"])+"/"+str(m["name"]), fmt.Sprintf("%d of %d replicas ready", int(have), int(want)))
+					}
 				}
 				return map[string]any{"conn": t.conn.Name, "version": ver["gitVersion"], "nodes": len(nodes.Items),
-					"nodes_ready": ready, "pods_not_running": bad}, nil
+					"nodes_ready": ready, "pods_not_running": bad, "healthy": len(problems) == 0, "problems": problems}, nil
 			})
 		},
 	}
+	nsFlags(c, &ns, nil)
+	c.Flags().BoolVar(&wait, "wait", false, "with TYPE/NAME: wait until it has rolled out (--timeout, default 5m)")
+	return c
+}
+
+// rolloutStatus reports whether one workload has rolled out, and with wait
+// stays until it has (or failed, or --timeout passed).
+func rolloutStatus(ctx context.Context, t clusterTarget, ref, ns string, wait bool) error {
+	typ, name, err := splitRef(ref)
+	if err != nil {
+		return err
+	}
+	d := time.Duration(0)
+	if wait {
+		d = rolloutWait()
+	}
+	if t.host != nil {
+		res, err := swarmWait(ctx, t, name, d)
+		if err != nil && res == nil {
+			return err
+		}
+		out.P.Print("cluster.status", res, softErr(err))
+		return exitFor(err)
+	}
+	return withKube(ctx, "cluster.status", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
+		r, err := k.Resource(ctx, typ)
+		if err != nil {
+			return nil, out.Usage("%v", err)
+		}
+		if !oneOf(r.KindName(), "Deployment", "StatefulSet", "DaemonSet") {
+			return nil, out.Usage("rollout status works on deployments, statefulsets and daemonsets")
+		}
+		return waitRollout(ctx, k, r, firstNonEmpty(ns, k.Namespace), name, d)
+	})
+}
+
+// podTrouble names what is wrong with a pod's containers: waiting with a
+// reason (CrashLoopBackOff, ImagePullBackOff, ...) or crashed and not ready.
+func podTrouble(st map[string]any) string {
+	cs, _ := st["containerStatuses"].([]any)
+	ics, _ := st["initContainerStatuses"].([]any)
+	for _, c := range append(ics, cs...) {
+		m, _ := c.(map[string]any)
+		state, _ := m["state"].(map[string]any)
+		if w, ok := state["waiting"].(map[string]any); ok {
+			if r := str(w["reason"]); r != "" && r != "ContainerCreating" && r != "PodInitializing" {
+				return str(m["name"]) + ": " + r
+			}
+		}
+		if t, ok := state["terminated"].(map[string]any); ok && str(t["reason"]) != "Completed" && m["ready"] != true {
+			return str(m["name"]) + ": " + firstNonEmpty(str(t["reason"]), "terminated")
+		}
+	}
+	return ""
+}
+
+// nodeConditions lists pressure conditions that are on (MemoryPressure, ...).
+func nodeConditions(n map[string]any) []string {
+	st, _ := n["status"].(map[string]any)
+	conds, _ := st["conditions"].([]any)
+	var on []string
+	for _, c := range conds {
+		m, _ := c.(map[string]any)
+		if m["type"] != "Ready" && m["status"] == "True" {
+			on = append(on, str(m["type"]))
+		}
+	}
+	return on
 }
 
 func nodeReady(n map[string]any) string {
@@ -318,8 +429,104 @@ func summarize(kind string, o map[string]any) map[string]any {
 		row["type"] = o["type"]
 		data, _ := o["data"].(map[string]any)
 		row["keys"] = len(data)
+	case "ConfigMap":
+		data, _ := o["data"].(map[string]any)
+		row["keys"] = len(data)
+	case "Namespace":
+		row["status"] = st["phase"]
+	case "Ingress":
+		var hosts []string
+		rules, _ := spec["rules"].([]any)
+		for _, r := range rules {
+			if h, _ := r.(map[string]any)["host"].(string); h != "" {
+				hosts = append(hosts, h)
+			}
+		}
+		row["hosts"] = strings.Join(hosts, ",")
+		row["class"] = spec["ingressClassName"]
+		lb, _ := st["loadBalancer"].(map[string]any)
+		var addrs []string
+		ing, _ := lb["ingress"].([]any)
+		for _, i := range ing {
+			im, _ := i.(map[string]any)
+			addrs = append(addrs, firstNonEmpty(str(im["ip"]), str(im["hostname"])))
+		}
+		row["address"] = strings.Join(addrs, ",")
+	case "PersistentVolumeClaim":
+		row["status"] = st["phase"]
+		row["volume"] = spec["volumeName"]
+		row["storage_class"] = spec["storageClassName"]
+		if c, ok := st["capacity"].(map[string]any); ok {
+			row["capacity"] = c["storage"]
+		}
+	case "PersistentVolume":
+		row["status"] = st["phase"]
+		if c, ok := spec["capacity"].(map[string]any); ok {
+			row["capacity"] = c["storage"]
+		}
+		if ref, ok := spec["claimRef"].(map[string]any); ok {
+			row["claim"] = fmt.Sprint(ref["namespace"], "/", ref["name"])
+		}
+		row["reclaim"] = spec["persistentVolumeReclaimPolicy"]
+	case "Job":
+		want := 1
+		if c, ok := spec["completions"]; ok {
+			want = num(c)
+		}
+		row["completions"] = fmt.Sprintf("%d/%d", num(st["succeeded"]), want)
+		row["active"], row["failed"] = num(st["active"]), num(st["failed"])
+		row["status"] = jobState(st)
+	case "CronJob":
+		row["schedule"], row["suspended"] = spec["schedule"], spec["suspend"] == true
+		row["last_schedule"] = age(str(st["lastScheduleTime"]))
+		active, _ := st["active"].([]any)
+		row["active"] = len(active)
+	case "HorizontalPodAutoscaler":
+		row["min"], row["max"] = num(spec["minReplicas"]), num(spec["maxReplicas"])
+		row["current"], row["desired"] = num(st["currentReplicas"]), num(st["desiredReplicas"])
+		if ref, ok := spec["scaleTargetRef"].(map[string]any); ok {
+			row["target"] = strings.ToLower(fmt.Sprint(ref["kind"])) + "/" + fmt.Sprint(ref["name"])
+		}
+	case "Event":
+		for k, v := range eventRow(o) {
+			row[k] = v
+		}
 	}
 	return row
+}
+
+// jobState reads a Job's conditions: complete, failed or running.
+func jobState(st map[string]any) string {
+	conds, _ := st["conditions"].([]any)
+	for _, c := range conds {
+		m, _ := c.(map[string]any)
+		if m["status"] == "True" && (m["type"] == "Complete" || m["type"] == "Failed") {
+			return strings.ToLower(fmt.Sprint(m["type"]))
+		}
+	}
+	return "running"
+}
+
+// eventRow is the useful part of an Event: what happened to which object,
+// how often, and when last.
+func eventRow(o map[string]any) map[string]any {
+	inv, _ := o["involvedObject"].(map[string]any)
+	last := firstNonEmpty(str(o["lastTimestamp"]), str(o["eventTime"]), str(o["firstTimestamp"]))
+	if m, ok := o["metadata"].(map[string]any); ok && last == "" {
+		last = str(m["creationTimestamp"])
+	}
+	count, _ := o["count"].(float64)
+	return map[string]any{
+		"type": o["type"], "reason": o["reason"], "message": o["message"], "count": int(count),
+		"object": strings.ToLower(str(inv["kind"])) + "/" + str(inv["name"]), "last": last, "last_age": age(last),
+	}
+}
+
+func str(v any) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
 }
 
 // redact keeps the keys of a Secret and drops their values: secret values
@@ -350,7 +557,7 @@ func nsFlags(c *cobra.Command, ns *string, all *bool) {
 }
 
 func clusterLsCmd() *cobra.Command {
-	var ns string
+	var ns, selector string
 	var all bool
 	var limit int
 	c := &cobra.Command{
@@ -379,6 +586,12 @@ func clusterLsCmd() *cobra.Command {
 				if q == "" {
 					return out.Usage("Swarm lists services, nodes, tasks or stacks")
 				}
+				if selector != "" {
+					if !strings.HasPrefix(strings.ToLower(args[1]), "service") && !strings.HasPrefix(strings.ToLower(args[1]), "node") {
+						return out.Usage("on Swarm, --selector works for services and nodes")
+					}
+					q = strings.Replace(q, " --format", " --filter "+sshx.Q("label="+selector)+" --format", 1)
+				}
 				return swarmRead(cmd.Context(), "cluster.ls", t, q)
 			}
 			return withKube(cmd.Context(), "cluster.ls", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
@@ -393,6 +606,9 @@ func clusterLsCmd() *cobra.Command {
 				q := url.Values{}
 				if limit > 0 {
 					q.Set("limit", strconv.Itoa(limit))
+				}
+				if selector != "" {
+					q.Set("labelSelector", selector)
 				}
 				var list struct {
 					Items    []map[string]any `json:"items"`
@@ -420,6 +636,7 @@ func clusterLsCmd() *cobra.Command {
 	}
 	nsFlags(c, &ns, &all)
 	c.Flags().IntVarP(&limit, "limit", "n", 500, "max items")
+	c.Flags().StringVarP(&selector, "selector", "l", "", "only objects with these labels, e.g. app=api or 'tier in (web,api)'")
 	return c
 }
 
@@ -462,68 +679,11 @@ func clusterGetCmd() *cobra.Command {
 	return c
 }
 
-func clusterLogsCmd() *cobra.Command {
-	var ns, container, since string
-	var limit int
-	var previous bool
-	c := &cobra.Command{
-		Use:   "logs TARGET POD|SERVICE",
-		Short: "Logs of a pod (Kubernetes) or a service (Swarm)",
-		Example: `  komando cluster logs prod-k8s api-7d9f-x2 --namespace shop --since 10m
-  komando cluster logs swarm-manager web -n 100`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			t, err := resolveCluster(st, args[0])
-			if err != nil {
-				return err
-			}
-			if t.host != nil {
-				c := "docker service logs --no-trunc --timestamps --tail " + strconv.Itoa(limit)
-				if since != "" {
-					c += " --since " + sshx.Q(since)
-				}
-				return runOne(cmd.Context(), "cluster.logs", t.host.Name, c+" "+sshx.Q(args[1])+" 2>&1", false, false)
-			}
-			return withKube(cmd.Context(), "cluster.logs", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-				q := url.Values{"tailLines": {strconv.Itoa(limit)}, "timestamps": {"true"}}
-				if container != "" {
-					q.Set("container", container)
-				}
-				if previous {
-					q.Set("previous", "true")
-				}
-				if since != "" {
-					d, err := time.ParseDuration(strings.TrimPrefix(since, "-"))
-					if err != nil {
-						return nil, out.Usage("--since takes a duration like 10m or 2h")
-					}
-					q.Set("sinceSeconds", strconv.Itoa(int(d.Seconds())))
-				}
-				space := firstNonEmpty(ns, k.Namespace)
-				b, err := k.Do(ctx, "GET", "/api/v1/namespaces/"+url.PathEscape(space)+"/pods/"+url.PathEscape(args[1])+"/log", q, nil, "")
-				if err != nil {
-					return nil, err
-				}
-				return logText{Pod: args[1], Namespace: space, Logs: string(b)}, nil
-			})
-		},
-	}
-	nsFlags(c, &ns, nil)
-	c.Flags().StringVarP(&container, "container", "c", "", "container in the pod")
-	c.Flags().StringVar(&since, "since", "", "only newer than this, e.g. 10m")
-	c.Flags().IntVarP(&limit, "limit", "n", 200, "max lines (from the end)")
-	c.Flags().BoolVar(&previous, "previous", false, "the previous run of a restarted container")
-	return c
-}
-
 type logText struct {
-	Pod       string `json:"pod"`
-	Namespace string `json:"namespace"`
-	Logs      string `json:"logs"`
+	Pod       string   `json:"pod"`
+	Namespace string   `json:"namespace"`
+	Logs      string   `json:"logs"`
+	Pods      []string `json:"pods,omitempty"` // when several pods were read
 }
 
 func (l logText) Text() string { return l.Logs }
@@ -693,6 +853,7 @@ func clusterApplyCmd() *cobra.Command {
 					q.Set("dryRun", "All")
 				}
 				var applied []string
+				var changes []objectChange
 				for _, d := range docs {
 					r, err := k.ResourceFor(ctx, d.APIVersion, d.Kind)
 					if err != nil {
@@ -702,18 +863,76 @@ func clusterApplyCmd() *cobra.Command {
 					if r.IsNamespaced() {
 						space = firstNonEmpty(d.Namespace, ns, k.Namespace)
 					}
-					if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, d.Name), q, d.JSON, "application/apply-patch+yaml"); err != nil {
+					path := r.ObjectPath(space, d.Name)
+					name := strings.ToLower(d.Kind) + "/" + d.Name
+					var before []byte
+					if g.dryRun { // the live object, to diff against what the server would make
+						before, err = k.Do(ctx, "GET", path, nil, nil, "")
+						var ae *kube.APIError
+						if err != nil && !(errors.As(err, &ae) && ae.Code == 404) {
+							return nil, fmt.Errorf("%s: %w", name, err)
+						}
+					}
+					after, err := k.Do(ctx, "PATCH", path, q, d.JSON, "application/apply-patch+yaml")
+					if err != nil {
 						return nil, fmt.Errorf("%s/%s: %w", d.Kind, d.Name, err)
 					}
-					applied = append(applied, strings.ToLower(d.Kind)+"/"+d.Name)
+					applied = append(applied, name)
+					if g.dryRun {
+						changes = append(changes, diffObject(name, before, after))
+					}
 				}
-				return map[string]any{"conn": t.conn.Name, "applied": applied, "dry_run": g.dryRun}, nil
+				res := map[string]any{"conn": t.conn.Name, "applied": applied, "dry_run": g.dryRun}
+				if g.dryRun {
+					res["changes"] = changes
+				}
+				return res, nil
 			})
 		},
 	}
 	c.Flags().StringVar(&file, "file", "", "YAML file ('-' for stdin)")
 	c.Flags().StringVar(&stack, "stack", "", "Swarm: the stack name")
 	nsFlags(c, &ns, nil)
+	return c
+}
+
+// objectChange is one object in `cluster apply --dry-run`: what the server
+// would do with it, and the difference as a unified diff of YAML.
+type objectChange struct {
+	Object string `json:"object"`
+	Action string `json:"action"` // create | change | none
+	Diff   string `json:"diff,omitempty"`
+}
+
+func diffObject(name string, before, after []byte) objectChange {
+	c := objectChange{Object: name, Action: "change"}
+	text := func(b []byte) string {
+		if len(b) == 0 {
+			return ""
+		}
+		var o map[string]any
+		if json.Unmarshal(b, &o) != nil {
+			return ""
+		}
+		delete(o, "status")
+		if m, ok := o["metadata"].(map[string]any); ok {
+			for _, f := range []string{"managedFields", "resourceVersion", "generation", "uid", "creationTimestamp", "selfLink"} {
+				delete(m, f)
+			}
+		}
+		redact(o) // Secret values never reach the output, not even in a diff
+		y, _ := yaml.Marshal(o)
+		return string(y)
+	}
+	old, upd := text(before), text(after)
+	switch {
+	case before == nil:
+		c.Action = "create"
+	case old == upd:
+		c.Action = "none"
+		return c
+	}
+	c.Diff = unifiedDiff(old, upd, 3)
 	return c
 }
 
@@ -852,6 +1071,8 @@ func classifyKubectl(args []string) driver.Risk {
 			return driver.RiskRead
 		}
 		return driver.RiskDestructive // config view --raw prints the credentials
+	case verb == "get" && getsSecretValues(args[1:]):
+		return driver.RiskDestructive // -o yaml/json/jsonpath on Secrets prints their values
 	case oneOf(verb, "get", "describe", "logs", "top", "explain", "version", "api-resources", "api-versions",
 		"cluster-info", "events", "diff", "wait"):
 		return driver.RiskRead
@@ -870,6 +1091,41 @@ func classifyKubectl(args []string) driver.Risk {
 		return driver.RiskDestructive // deletes, outages, or more rights than the conn has
 	}
 	return driver.RiskWrite
+}
+
+// getsSecretValues reports whether `kubectl get` args ask for Secrets with
+// an output format that includes their data. The default table and -o
+// wide/name show only names and key counts.
+func getsSecretValues(args []string) bool {
+	secrets, values := false, false
+	for i := 0; i < len(args); i++ {
+		a := strings.ToLower(args[i])
+		format := ""
+		switch {
+		case a == "-o" || a == "--output":
+			if i+1 < len(args) {
+				format = strings.ToLower(args[i+1])
+				i++
+			}
+		case strings.HasPrefix(a, "--output="):
+			format = strings.TrimPrefix(a, "--output=")
+		case strings.HasPrefix(a, "-o"):
+			format = strings.TrimPrefix(strings.TrimPrefix(a, "-o"), "=")
+		case strings.HasPrefix(a, "-"):
+			continue
+		default:
+			for _, r := range strings.Split(a, ",") {
+				r, _, _ = strings.Cut(r, "/")
+				if oneOf(r, "secret", "secrets") || strings.HasPrefix(r, "secrets.") || strings.HasPrefix(r, "secret.") {
+					secrets = true
+				}
+			}
+		}
+		if format != "" && !oneOf(format, "wide", "name") {
+			values = true
+		}
+	}
+	return secrets && values
 }
 
 // classifyDocker rates a docker command on a Swarm manager by verb,
@@ -962,7 +1218,7 @@ need --write; delete, drain and other risky verbs also need
 				}
 				return err
 			}
-			return runKubectl(cmd.Context(), st, t.conn, args[1:], risk)
+			return runKubectl(cmd.Context(), st, t.conn, "cluster.run", args[1:], risk, false)
 		},
 	}
 	c.Flags().BoolVar(&write, "write", false, "allow commands that change the cluster")
@@ -972,7 +1228,10 @@ need --write; delete, drain and other risky verbs also need
 // runKubectl runs kubectl with a private kubeconfig. When the conn has a
 // --via path, a local tunnel leads to the API and the kubeconfig points at
 // it (keeping the real server name for TLS).
-func runKubectl(ctx context.Context, st *store.State, c *store.Conn, args []string, risk driver.Risk) error {
+// runKubectl runs kubectl on this computer with the conn's kubeconfig (a
+// private temporary file) and its --via path. live connects kubectl to the
+// terminal even in JSON mode (port-forward runs until Ctrl-C).
+func runKubectl(ctx context.Context, st *store.State, c *store.Conn, name string, args []string, risk driver.Risk, live bool) error {
 	a, err := openAccess(ctx, st, c)
 	if err != nil {
 		return err
@@ -1033,6 +1292,8 @@ func runKubectl(ctx context.Context, st *store.State, c *store.Conn, args []stri
 	k.Stdout, k.Stderr = &stdout, &stderr
 	if out.P.Format == "text" {
 		k.Stdout, k.Stderr, k.Stdin = os.Stdout, os.Stderr, os.Stdin
+	} else if live {
+		k.Stdout, k.Stderr = os.Stderr, os.Stderr // keep stdout for the one JSON answer
 	}
 	runErr := k.Run()
 	code := 0
@@ -1044,7 +1305,7 @@ func runKubectl(ctx context.Context, st *store.State, c *store.Conn, args []stri
 		}
 	}
 	if risk > driver.RiskRead {
-		audit(st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args), " "), code == 0, map[string]any{"conns": []string{c.Name}, "risk": risk.String()})
+		audit(st, name, nil, "kubectl "+strings.Join(redactArgs(args), " "), code == 0, map[string]any{"conns": []string{c.Name}, "risk": risk.String()})
 	}
 	if out.P.Format == "text" {
 		if code != 0 {
@@ -1054,10 +1315,10 @@ func runKubectl(ctx context.Context, st *store.State, c *store.Conn, args []stri
 	}
 	data := map[string]any{"conn": c.Name, "exit_code": code, "stdout": stdout.String(), "stderr": stderr.String()}
 	if code != 0 {
-		out.P.Print("cluster.run", data, &out.Error{Code: "FAILED", Message: "kubectl exited " + strconv.Itoa(code), Exit: out.ExitRemote})
+		out.P.Print(name, data, &out.Error{Code: "FAILED", Message: "kubectl exited " + strconv.Itoa(code), Exit: out.ExitRemote})
 		return exitCode(out.ExitRemote)
 	}
-	out.P.Print("cluster.run", data, nil)
+	out.P.Print(name, data, nil)
 	return nil
 }
 

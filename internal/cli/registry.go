@@ -89,7 +89,17 @@ func openRegistry(ctx context.Context, st *store.State, c *store.Conn) (*registr
 	if a.Dial != nil {
 		dial = a.Dial
 	}
-	return registry.New(host, a.Target.TLS == "false", a.Target.User, a.Password, dial), a.Close, nil
+	user, password := a.Target.User, a.Password
+	if region := ecrRegion(strings.TrimSuffix(host, ":443")); region != "" && c.PasswordRef == "" {
+		// Amazon ECR logins last 12 hours: get a fresh one each time
+		tok, err := ecrToken(ctx, firstNonEmpty(awsProfile(c), "default"), region)
+		if err != nil {
+			a.Close()
+			return nil, nil, err
+		}
+		user, password = "AWS", tok
+	}
+	return registry.New(host, a.Target.TLS == "false", user, password, dial), a.Close, nil
 }
 
 func registryErr(err error) error {
@@ -185,14 +195,22 @@ func registryRmCmd() *cobra.Command {
 					if m.Digest == "" {
 						return nil, out.Errf(out.ExitRemote, "REGISTRY_ERROR", "", "the registry did not say the image's digest")
 					}
+					// deleting by digest removes every tag on it: name them all
+					tags, checked, more := tagsOn(ctx, r, repo, m.Digest)
+					res := map[string]any{"conn": c.Name, "tags": tags}
+					if more {
+						res["tags_note"] = fmt.Sprintf("only the first %d tags were checked; others may point at this image too", checked)
+					}
 					if g.dryRun {
-						return map[string]any{"conn": c.Name, "would_delete": repo + "@" + m.Digest, "dry_run": true}, nil
+						res["would_delete"], res["dry_run"] = repo+"@"+m.Digest, true
+						return res, nil
 					}
 					if err := r.Delete(ctx, repo, m.Digest); err != nil {
 						return nil, err
 					}
-					return map[string]any{"conn": c.Name, "deleted": repo + "@" + m.Digest,
-						"note": "the space comes back after the registry's garbage collection"}, nil
+					res["deleted"] = repo + "@" + m.Digest
+					res["note"] = "the space comes back after the registry's garbage collection"
+					return res, nil
 				})
 		},
 	}
@@ -261,4 +279,24 @@ func credHelper(helper, server string) (string, string, error) {
 		return "", "", err
 	}
 	return r.Username, r.Secret, nil
+}
+
+// tagsOn lists the tags of repo that point at digest, checking at most 200
+// tags (one HEAD request each). more is true when the repo has more tags.
+func tagsOn(ctx context.Context, r *registry.Client, repo, digest string) (tags []string, checked int, more bool) {
+	const max = 200
+	all, err := r.Tags(ctx, repo, max+1)
+	if err != nil {
+		return nil, 0, false
+	}
+	if len(all) > max {
+		all, more = all[:max], true
+	}
+	tags = []string{}
+	for _, t := range all {
+		if d, err := r.Digest(ctx, repo, t); err == nil && d == digest {
+			tags = append(tags, t)
+		}
+	}
+	return tags, len(all), more
 }

@@ -56,6 +56,15 @@ $K host add direct "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent
 $K host add target agent@target --via bastion --password-ref secret:agent-pass -g lab --protected >/dev/null
 check "host list count" 3 "$($K host list | jget 'd["data"]["count"]')"
 check "secret never printed" False "$($K secret get agent-pass | jget '"value" in d["data"]')"
+check "reveal needs a person" REVEAL_NEEDS_HUMAN "$($K secret get agent-pass --reveal </dev/null | jget 'd["error"]["code"]' || true)"
+check "secret in use cannot be removed" SECRET_IN_USE "$($K secret rm agent-pass | jget 'd["error"]["code"]' || true)"
+check "plain password refused as a ref" USAGE "$($K host add bad "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref agentpass | jget 'd["error"]["code"]' || true)"
+
+check "completion lists the inventory" True "$($K __complete exec '' 2>/dev/null | grep -qx direct && echo True || echo False)"
+check "schema knows kind: selectors" True "$($K schema | jget '"kind:KIND" in d["data"]["target_selectors"]')"
+chmod 400 "$KOMANDO_HOME/audit.jsonl"
+check "no audit, no change" AUDIT_UNAVAILABLE "$($K host add nope "agent@127.0.0.1:$E2E_SSH_DIRECT" | jget 'd["error"]["code"]' || true)"
+chmod 600 "$KOMANDO_HOME/audit.jsonl"
 
 echo "==> connectivity (incl. jump host)"
 check "host test all ok" 3 "$($K host test @lab | jget 'd["data"]["summary"]["ok"]')"
@@ -78,9 +87,31 @@ check "fs replace applied" "worker_connections 4096;" "$($K fs cat direct /etc/a
 set +e; $K fs replace direct /etc/app/app.conf --old 'missing' --new 'x' --sudo >/dev/null; check "fs replace no match -> 8" 8 $?; set -e
 $K fs write direct /home/agent/t/x.txt --content hello -p >/dev/null
 check "fs write idempotent" False "$($K fs write direct /home/agent/t/x.txt --content hello --if-changed | jget 'd["data"]["changed"]')"
+check "fs write dry-run shows the diff" True "$($K fs write direct /home/agent/t/x.txt --content hello2 --dry-run | jget '"+hello2" in d["data"]["diff"]')"
+check "fs write --validate refuses bad content" VALIDATION_FAILED "$($K fs write direct /home/agent/t/v.txt --content bad --validate 'grep -q good %s' | jget 'd["error"]["code"]' || true)"
+check "refused file was not written" False "$($K fs stat direct /home/agent/t/v.txt | jget 'd["data"]["exists"]')"
+check "fs write --sudo --validate (visudo)" VALIDATION_FAILED "$($K fs write direct /etc/sudoers.d/e2e --content 'not a sudoers line' --sudo --validate 'visudo -cf %s' | jget 'd["error"]["code"]' || true)"
+check "sudo still works after refused edit" root "$($K exec direct --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 
 echo "==> cp"
 TMP="$(mktemp -d)"; echo payload > "$TMP/f"
+
+echo "==> sudo password"
+echo -n opspass | $K secret set ops-pass >/dev/null
+$K host add ops "ops@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:ops-pass --sudo-ref secret:ops-pass >/dev/null
+printf '#!/bin/sh\nwhoami\n' > "$TMP/who.sh"
+check "sudo with password" root "$($K exec ops --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "sudo password then stdin" payload "$($K exec ops --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "script with sudo password" root "$($K script ops "$TMP/who.sh" --sudo | jget 'd["data"]["results"][0]["stdout"].strip()')"
+# sudo never asks on a NOPASSWD host, so the password must not reach the command
+$K host edit direct --sudo-ref secret:agent-pass >/dev/null
+check "unasked sudo password not leaked" False "$($K script direct "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
+check "unasked sudo password not in stdin" payload "$($K exec direct --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
+$K host edit direct --unset sudo-ref >/dev/null
+$K host rm ops >/dev/null
+$K exec direct --sudo -- 'mkdir -m 700 /etc/private && install -m 600 /dev/null /etc/private/token' >/dev/null
+$K fs write direct /etc/private/token --content s3cret --sudo >/dev/null
+check "fs write --sudo keeps a mode the user cannot see" 600 "$($K exec direct --sudo -- stat -c %a /etc/private/token | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "upload to group" 3 "$($K cp "$TMP/f" @lab:/tmp/f --yes | jget 'd["data"]["summary"]["ok"]')"
 $K cp '@lab:/tmp/f' "$TMP/down" >/dev/null
 check "download per host" payload "$(cat "$TMP/down/target/f")"
@@ -89,17 +120,39 @@ echo "==> jobs"
 JID=$($K job start direct -- 'echo a; sleep 1; echo b' | jget 'd["data"]["jobs"][0]["id"]')
 check "job wait ok" exited "$($K job wait "$JID" --interval 1s | jget 'd["data"]["state"]')"
 check "job logs" "a b" "$($K job logs "$JID" | jget '" ".join(d["data"]["content"].split())')"
+check "exec gets a vault secret as env" match "$($K exec direct -e P=secret:agent-pass -- 'test "$P" = agentpass && echo match' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+JID=$($K job start direct -e P=secret:agent-pass -- 'test "$P" = agentpass && echo job-match' | jget 'd["data"]["jobs"][0]["id"]')
+$K job wait "$JID" --interval 1s >/dev/null
+check "job gets a vault secret as env" True "$($K job logs "$JID" | jget '"job-match" in d["data"]["content"]')"
+check "job env file is deleted" False "$($K fs stat direct ".komando/jobs/$JID/env" | jget 'd["data"]["exists"]')"
+$K fs write direct /home/agent/t/app.env --content 'DB_PASSWORD=agentpass' >/dev/null
+check "secret values hidden in output" "DB_PASSWORD=[secret:agent-pass]" "$($K fs cat direct /home/agent/t/app.env | jget 'd["data"]["content"].strip()')"
 
 echo "==> keys"
 $K key gen deploy >/dev/null
 check "key deploy" 3 "$($K key deploy deploy @lab --set-default --yes | jget 'd["data"]["summary"]["ok"]')"
 $K host edit direct --unset password-ref >/dev/null
 check "key-only login" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "revoking the login key needs --allow-dangerous" POLICY_BLOCKED "$($K key revoke deploy direct | jget 'd["error"]["code"]' || true)"
+$K key gen leaver >/dev/null
+$K key deploy leaver direct >/dev/null
+check "key revoke --dry-run counts" 1 "$($K key revoke leaver direct --dry-run | jget 'd["data"]["results"][0]["would_remove"]')"
+check "key revoke removes it" 1 "$($K key revoke leaver direct | jget 'd["data"]["results"][0]["removed"]')"
+check "other keys stay" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+$K host add pc "agent@127.0.0.1" --port "$E2E_SSH_DIRECT" --key deploy --proxy-command 'nc %h %p' >/dev/null
+check "proxy command carries ssh" ok "$($K exec pc -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "ssh-command shows the proxy" True "$($K host ssh-command pc | jget '"ProxyCommand=nc %h %p" in d["data"]["argv"]')"
+check "proxy and --via do not mix" USAGE "$($K host add pc2 agent@127.0.0.1 --via bastion --proxy-command 'nc %h %p' | jget 'd["error"]["code"]' || true)"
+$K host add ssm1 ec2-user@i-0abc123 --ssm >/dev/null
+check "--ssm sets the AWS proxy" True "$($K host show ssm1 | jget '"AWS-StartSSHSession" in d["data"]["proxy_command"]')"
+$K host rm pc ssm1 >/dev/null
+check "revoke a public key line" 0 "$($K key revoke "$(cat "$KOMANDO_HOME/keys/leaver.pub")" direct | jget 'd["data"]["results"][0]["removed"]')"
 
 echo "==> tunnel"
 LISTEN=$($K tunnel start target -L 0:localhost:22 | jget 'd["data"]["listen"]')
 check "tunnel reaches private ssh" SSH-2.0 "$(nc -w 2 127.0.0.1 "${LISTEN##*:}" </dev/null | head -1 | cut -c1-7)"
 $K tunnel stop --all >/dev/null
+check "open bind needs --yes" OPEN_BIND "$($K tunnel start target -L 0.0.0.0:0:localhost:22 | jget 'd["error"]["code"]' || true)"
 
 echo "==> modules"
 check "facts os" debian "$($K facts direct | jget 'd["data"]["results"][0]["data"]["os"]')"
@@ -125,6 +178,14 @@ q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref 
 q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref secret:redis-pass
 q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref secret:s3-secret
 check "conn test via bastion" 4 "$($K conn test all | jget 'd["data"]["summary"]["ok"]')"
+check "conn test logs in" login "$($K conn test pg | jget 'd["data"]["results"][0]["detail"]["check"]')"
+echo -n wrongpass | $K secret set pg-wrong >/dev/null
+q $K conn add pg-wrong 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-wrong
+check "conn test catches a wrong password" False "$($K conn test pg-wrong | jget 'd["data"]["results"][0]["ok"]' || true)"
+q $K conn rm pg-wrong
+q $K conn edit pg --option statement_timeout=1s
+check "conn statement_timeout option is used" TIMEOUT "$($K db query pg 'select pg_sleep(3)' | jget 'd["error"]["code"]' || true)"
+q $K conn edit pg --option statement_timeout=
 
 # postgres: write, read-only enforcement, dump, destroy, restore
 q $K db query pg --write "create table t(id int primary key, name text); create sequence s; insert into t values (1, 'a'), (2, 'b')"
@@ -140,6 +201,26 @@ check "pg dump is private" 600 "$(stat -c %a "$TMP/pg.sql.gz" 2>/dev/null || sta
 q $K db query pg --write --allow-dangerous "drop table t; drop sequence s"
 q $K db restore pg --from "$TMP/pg.sql.gz" --allow-dangerous
 check "pg restore brings rows back" 2 "$($K db query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "db info" primary "$($K db info pg | jget 'd["data"]["role"]')"
+check "db sizes lists the table" True "$($K db sizes pg | jget 'any(r["name"]=="t" for r in d["data"]["tables"])')"
+check "db locks answers" 0 "$($K db locks pg | jget 'd["data"]["count"]')"
+q $K db query pg --write "create table t2(id int primary key, t_id int references t(id) on delete cascade); insert into t2 values (1, 1)"
+check "db schema shows foreign keys" "foreign key" "$($K db schema pg t2 | jget 'd["data"]["tables"][0]["constraints"][0]["type"]')"
+($K db query pg 'select pg_sleep(30)' --timeout 60s > "$TMP/slow.json" 2>&1 &)
+for _ in $(seq 1 20); do PID=$($K db activity pg | jget '[s["pid"] for s in d["data"]["sessions"] if "pg_sleep" in (s.get("query") or "")][0]' 2>/dev/null) && break; sleep 1; done
+check "db activity sees the slow query" True "$([ -n "$PID" ] && echo True || echo False)"
+check "db kill --dry-run names the query" True "$($K db kill pg "$PID" --dry-run | jget '"pg_sleep" in d["data"]["session"]["query"]')"
+check "db kill --session needs --allow-dangerous" POLICY_BLOCKED "$($K db kill pg "$PID" --session | jget 'd["error"]["code"]' || true)"
+check "db kill cancels it" "cancel query" "$($K db kill pg "$PID" | jget 'd["data"]["done"]')"
+for _ in $(seq 1 10); do grep -q '"ok"' "$TMP/slow.json" 2>/dev/null && break; sleep 1; done
+check "the cancelled query stopped" False "$(jget 'd["ok"]' < "$TMP/slow.json")"
+q $K db dump pg --to "$TMP/t2.dump" --format custom --table public.t2
+check "custom dump is a pg archive" PGDMP "$(head -c 5 "$TMP/t2.dump")"
+q $K db query pg --write --allow-dangerous "drop table t2"
+q $K db restore pg --from "$TMP/t2.dump" --allow-dangerous
+check "pg_restore brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K db dump pg --to "$TMP/schema.sql" --schema-only
+check "schema-only dump has no rows" 0 "$(grep -c "COPY public.t " "$TMP/schema.sql" || true)"
 
 # mariadb (protected): --yes, dump and restore through bastion
 set +e; $K db query maria --write "create table p(id int primary key)" >/dev/null; check "protected conn needs --yes" 6 $?; set -e
@@ -150,6 +231,10 @@ q $K db dump maria --to "$TMP/maria.sql"
 q $K db query maria --write --yes --allow-dangerous "drop table p"
 q $K db restore maria --from "$TMP/maria.sql" --yes --allow-dangerous
 check "maria restore brings rows back" 2 "$($K db query maria 'select count(*) from p' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "maria db info" primary "$($K db info maria | jget 'd["data"]["role"]')"
+check "maria db sizes" True "$($K db sizes maria | jget 'any(r["name"]=="p" for r in d["data"]["tables"])')"
+check "maria db activity answers" True "$($K db activity maria --all | jget '"sessions" in d["data"]')"
+check "maria db locks names the missing privilege" DB_PRIVILEGE "$($K db locks maria | jget 'd["error"]["code"]' || true)"
 
 # redis
 q $K cache set cache greeting halo --ttl 1h
@@ -157,6 +242,7 @@ check "cache get via bastion" halo "$($K cache get cache greeting | jget 'd["dat
 set +e
 $K cache run cache -- FLUSHALL >/dev/null; check "cache flushall blocked" 6 $?
 $K cache rm cache greeting >/dev/null; check "cache rm needs --allow-dangerous" 6 $?
+$K cache run cache --write -- GETDEL greeting >/dev/null; check "cache GETDEL needs --allow-dangerous" 6 $?
 set -e
 
 # storage
@@ -165,6 +251,24 @@ q $K storage upload bucket "$TMP/obj.txt" 2026/obj.txt
 check "storage ls via bastion" 2026/obj.txt "$($K storage ls bucket --recursive | jget 'd["data"]["objects"][0]["key"]')"
 q $K storage download bucket 2026/obj.txt --to "$TMP/obj-back.txt"
 check "storage round trip" backup-data "$(cat "$TMP/obj-back.txt")"
+mkdir -p "$TMP/fakebin"
+printf '#!/bin/sh\necho "{\\"Version\\":1,\\"AccessKeyId\\":\\"%s\\",\\"SecretAccessKey\\":\\"%s\\"}"\n' "$S3ID" "$(awk '/Secret key/{printf "%s", $3}' "$TMP/s3key")" > "$TMP/fakebin/aws"
+chmod +x "$TMP/fakebin/aws"
+q $K conn add bucket-aws "s3://backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --option aws_profile=e2e
+check "s3 with aws_profile credentials" 2026/obj.txt "$(PATH="$TMP/fakebin:$PATH" $K storage ls bucket-aws --recursive | jget 'd["data"]["objects"][0]["key"]')"
+check "aws_profile without the aws CLI" AWS_CLI_MISSING "$(PATH=/usr/bin:/bin $K storage ls bucket-aws | jget 'd["error"]["code"]' || true)"
+q $K conn rm bucket-aws
+mkdir -p "$TMP/tree/sub" && echo one > "$TMP/tree/a.txt" && echo two > "$TMP/tree/sub/b.txt" && echo skip > "$TMP/tree/c.tmp"
+check "upload -r to storage" 3 "$($K upload bucket "$TMP/tree" tree -r | jget 'd["data"]["copied"]')"
+check "sync to storage sends nothing new" 0 "$($K sync "$TMP/tree" bucket:tree --exclude '*.tmp' | jget 'd["data"]["copied"] + d["data"]["updated"]')"
+check "storage cat --tail" two "$($K storage cat bucket tree/sub/b.txt --tail 1 | jget 'd["data"]["content"].strip()')"
+q $K download bucket tree -r --to "$TMP/tree-back"
+check "download -r from storage" two "$(cat "$TMP/tree-back/sub/b.txt")"
+check "download -r keeps local files" True "$(echo changed > "$TMP/tree-back/a.txt"; $K download bucket tree -r --to "$TMP/tree-back" | jget 'd["data"]["kept"] >= 1')"
+check "rm --prefix --dry-run lists" True "$($K storage rm bucket --prefix tree/ --dry-run | jget 'd["data"]["count"] >= 2')"
+check "rm --prefix needs --allow-dangerous" POLICY_BLOCKED "$($K storage rm bucket --prefix tree/ | jget 'd["error"]["code"]' || true)"
+check "rm --older-than leaves new objects" 0 "$($K storage rm bucket --prefix tree/ --older-than 30d --allow-dangerous | jget 'd["data"]["count"]')"
+check "rm --prefix removes them" True "$($K storage rm bucket --prefix tree/ --allow-dangerous | jget 'd["data"]["count"] >= 2')"
 
 # file servers through the bastion: SFTP (shell-less account) and FTPS (TLS required)
 echo -n deploypass | $K secret set files-pass >/dev/null
@@ -193,6 +297,18 @@ echo hello-upload > "$TMP/up.txt"
 q $K upload direct "$TMP/up.txt" /tmp/up.txt
 q $K download direct /tmp/up.txt --to "$TMP/down/"
 check "upload/download to a server" hello-upload "$(cat "$TMP/down/up.txt")"
+check "download never replaces a local file" FILE_EXISTS "$($K download direct /tmp/up.txt --to "$TMP/down/" | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
+q $K download direct /tmp/up.txt --to "$TMP/down/" --overwrite
+check "no temporary files left" 0 "$(ls -A "$TMP/down" | grep -c komando-download || true)"
+dd if=/dev/urandom of="$TMP/big.bin" bs=1048576 count=40 2>/dev/null
+check "large upload is streamed intact" "$(shasum -a 256 "$TMP/big.bin" | cut -c1-64)" "$($K upload direct "$TMP/big.bin" /tmp/big.bin | jget 'd["data"]["results"][0]["sha256"]')"
+check "sync to a server" 2 "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' | jget 'd["data"]["results"][0]["copied"]')"
+check "sync again sends nothing" 0 "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' | jget 'd["data"]["results"][0]["copied"] + d["data"]["results"][0]["updated"]')"
+rm "$TMP/tree/sub/b.txt"
+check "sync --delete needs --allow-dangerous" POLICY_BLOCKED "$($K sync "$TMP/tree" direct:/home/agent/site --delete | jget 'd["error"]["code"]' || true)"
+check "sync --delete --dry-run lists it" sub/b.txt "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' --delete --dry-run | jget '[a["path"] for a in d["data"]["results"][0]["actions"] if a["op"]=="delete"][0]')"
+check "sync --delete removes it" 1 "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' --delete --allow-dangerous | jget 'd["data"]["results"][0]["deleted"]')"
+check "sync from a server" one "$($K sync direct:/home/agent/site "$TMP/site-back" >/dev/null; cat "$TMP/site-back/a.txt")"
 TUN=$($K tunnel start pg | jget 'd["data"]["listen"]')
 check "tunnel to a conn by name" 0 "$(nc -z "${TUN%:*}" "${TUN##*:}"; echo $?)"
 q $K tunnel stop --all
@@ -216,14 +332,47 @@ spec:
     spec: { containers: [ { name: web, image: "rancher/mirrored-pause:3.6" } ] }
 YAML
 check "apply --dry-run changes nothing" "K8S_NOT_FOUND" "$($K cluster apply lab-k3s --file "$TMP/app.yaml" --dry-run >/dev/null; $K cluster get lab-k3s deploy web | jget 'd["error"]["code"]' || true)"
+check "apply --dry-run shows the change" create "$($K cluster apply lab-k3s --file "$TMP/app.yaml" --dry-run | jget 'd["data"]["changes"][0]["action"]')"
 q $K cluster apply lab-k3s --file "$TMP/app.yaml"
 check "apply then list" web "$($K cluster ls lab-k3s deployments | jget 'd["data"]["items"][0]["name"]')"
+check "ls -l picks by label" "True 0" "$($K cluster ls lab-k3s pods -l app=web | jget 'd["data"]["count"] >= 1') $($K cluster ls lab-k3s pods -l app=nope | jget 'd["data"]["count"]')"
+check "events for an object" True "$($K cluster events lab-k3s --for deployment/web | jget 'd["data"]["count"] > 0')"
+check "describe lists the pods" True "$($K cluster describe lab-k3s deployment web | jget 'len(d["data"]["pods"]) > 0')"
+cat > "$TMP/broken.yaml" <<'YAML'
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: broken, namespace: default }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: broken } }
+  template:
+    metadata: { labels: { app: broken } }
+    spec: { containers: [ { name: app, image: "komando.invalid/none:0" } ] }
+YAML
+q $K cluster apply lab-k3s --file "$TMP/broken.yaml"
+for _ in $(seq 1 45); do $K cluster status lab-k3s | jget 'any("ImagePull" in p["problem"] or "ErrImage" in p["problem"] for p in d["data"]["problems"])' | grep -q True && break; sleep 2; done
+check "status names a bad image" True "$($K cluster status lab-k3s | jget 'any(("ImagePull" in p["problem"] or "ErrImage" in p["problem"]) and "broken" in p["object"] for p in d["data"]["problems"])')"
+check "status counts the deployment short" True "$($K cluster status lab-k3s | jget 'any(p["object"]=="deployment/default/broken" for p in d["data"]["problems"])')"
+check "describe shows the container reason" True "$($K cluster describe lab-k3s pod "$($K cluster ls lab-k3s pods -l app=broken | jget 'd["data"]["items"][0]["name"]')" | jget '"Err" in str(d["data"]["containers"][0].get("reason")) or "ImagePull" in str(d["data"]["containers"][0].get("reason"))')"
+q $K cluster rm lab-k3s deployment broken --allow-dangerous
 q $K cluster scale lab-k3s deployment/web 2
 check "scale" 2 "$($K cluster get lab-k3s deploy web | jget 'd["data"]["spec"]["replicas"]')"
 set +e; $K cluster scale lab-k3s deployment/web 0 >/dev/null; check "scale to 0 needs --allow-dangerous" 6 $?; set -e
 q $K cluster restart lab-k3s deployment/web
 set +e; $K cluster run lab-k3s -- delete deploy web >/dev/null; check "cluster run delete needs --write" 6 $?; set -e
+check "cluster run secret values need --allow-dangerous" POLICY_BLOCKED "$($K cluster run lab-k3s --write -- get secrets -A -o yaml | jget 'd["error"]["code"]' || true)"
 check "cluster run reads through bastion" True "$($K cluster run lab-k3s -- get deploy web -o name | jget '"deployment.apps/web" in d["data"]["stdout"]')"
+check "rollout status --wait" True "$($K cluster status lab-k3s deployment/web --wait --timeout 90s | jget 'd["data"]["rolled_out"]')"
+check "deploy a bad image times out" ROLLOUT_TIMEOUT "$($K cluster deploy lab-k3s deployment/web --image komando.invalid/none:1 --wait --timeout 20s | jget 'd["error"]["code"]' || true)"
+check "history keeps the revisions" True "$($K cluster history lab-k3s deployment/web | jget 'len(d["data"]["revisions"]) >= 2 and d["data"]["revisions"][0]["images"] == ["komando.invalid/none:1"]')"
+check "rollback brings the old image back" "rancher/mirrored-pause:3.6" "$($K cluster rollback lab-k3s deployment/web --wait --timeout 90s | jget 'd["data"]["images"][0]')"
+check "rolled back and healthy" True "$($K cluster status lab-k3s deployment/web | jget 'd["data"]["rolled_out"]')"
+check "logs of a workload" True "$($K cluster logs lab-k3s deploy/web | jget '"pod" in d["data"]')"
+check "logs by label" True "$($K cluster logs lab-k3s -l app=web | jget '"logs" in d["data"]')"
+check "logs -f stops at --timeout" True "$($K cluster logs lab-k3s deploy/web -f --timeout 3s | tail -1 | jget 'd["data"]["followed"]')"
+check "exec in a pod needs --read-only or a change" True "$($K cluster exec lab-k3s deploy/web --read-only --dry-run -- cat /etc/hostname | jget '"kubectl exec deploy/web" in d["data"]["would_run"]')"
+check "exec checks the policy" POLICY_BLOCKED "$($K cluster exec lab-k3s deploy/web -- rm -rf / | jget 'd["error"]["code"]' || true)"
+check "forward runs on 127.0.0.1" True "$($K cluster forward lab-k3s deploy/web 18099:80 --dry-run | jget '"--address 127.0.0.1" in d["data"]["would_run"]')"
 q $K cluster rm lab-k3s deployment web --allow-dangerous
 
 # Docker Swarm (a one-node manager, Docker-in-Docker, over SSH)
@@ -241,8 +390,13 @@ q $K cluster apply swarm1 --file "$TMP/stack.yml" --stack e2e
 check "swarm services" True "$($K cluster ls swarm1 services | jget 'any(r["Name"]=="e2e_web" for r in d["data"]["results"][0]["data"])')"
 q $K cluster scale swarm1 service/e2e_web 2
 check "swarm scale" True "$($K cluster ls swarm1 services | jget 'any(r["Replicas"].endswith("/2") for r in d["data"]["results"][0]["data"])')"
+check "swarm status --wait" True "$($K cluster status swarm1 service/e2e_web --wait --timeout 90s | jget 'd["data"]["rolled_out"]')"
+check "swarm rollback --wait" 1/1 "$($K cluster rollback swarm1 service/e2e_web --wait --timeout 90s | jget 'd["data"]["replicas"]')"
+check "swarm logs -f stops at --timeout" True "$($K cluster logs swarm1 e2e_web -f --timeout 3s >/dev/null; echo True)"
 check "swarm run reads" True "$($K cluster run swarm1 -- service ls | jget 'd["data"]["results"][0]["ok"]')"
 set +e; $K cluster run swarm1 --write -- service rm e2e_web >/dev/null; check "swarm run rm needs --allow-dangerous" 6 $?; set -e
+check "docker raw volume rm needs --allow-dangerous" POLICY_BLOCKED "$($K docker raw swarm1 -- volume rm nothing | jget 'd["error"]["code"]' || true)"
+check "docker raw reads stay reads" True "$($K docker raw swarm1 -- volume ls | jget 'd["data"]["results"][0]["ok"]')"
 q $K cluster rm swarm1 stack e2e --allow-dangerous
 
 # container registry (registry:2 on the private network, through the bastion)
@@ -255,6 +409,7 @@ check "registry inspect digest" True "$($K registry inspect reg tools/busybox:1.
 q $K registry copy reg:tools/busybox:1.37 reg:mirror/busybox:stable
 check "registry copy keeps the digest" "$($K registry inspect reg tools/busybox:1.37 | jget 'd["data"]["digest"]')" "$($K registry inspect reg mirror/busybox:stable | jget 'd["data"]["digest"]')"
 set +e; $K registry rm reg tools/busybox:1.37 >/dev/null; check "registry rm needs --allow-dangerous" 6 $?; set -e
+check "registry rm names the tags it takes" True "$($K registry rm reg tools/busybox:1.37 --allow-dangerous --dry-run | jget '"1.37" in d["data"]["tags"]')"
 q $K registry rm reg tools/busybox:1.37 --allow-dangerous
 check "registry rm removed it" REGISTRY_NOT_FOUND "$($K registry inspect reg tools/busybox:1.37 | jget 'd["error"]["code"]' || true)"
 

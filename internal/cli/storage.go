@@ -1,15 +1,20 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"mime"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
@@ -39,7 +44,7 @@ conn URL. ls and download only read. upload changes files and link shares one
 servers go to a temporary name first, so a failed upload leaves nothing half
 written.`,
 	}
-	c.AddCommand(storageLsCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
+	c.AddCommand(storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
 	return c
 }
 
@@ -119,7 +124,17 @@ func openBucket(ctx context.Context, st *store.State, c *store.Conn) (storex.Buc
 	var b storex.Bucket
 	switch t.Kind.Name {
 	case "s3":
-		b, err = storex.OpenS3(a.Target, a.Password, a.Dial, dbTimeout())
+		if profile := awsProfile(c); profile != "" {
+			// SSO, an assumed role or temporary keys, as the aws CLI has them now
+			cr, cerr := awsCredentials(ctx, profile)
+			if cerr != nil {
+				a.Close()
+				return nil, cerr
+			}
+			b, err = storex.OpenS3Creds(a.Target, cr.AccessKeyID, cr.SecretAccessKey, cr.SessionToken, a.Dial, dbTimeout())
+		} else {
+			b, err = storex.OpenS3(a.Target, a.Password, a.Dial, dbTimeout())
+		}
 	default: // ftp, ftps
 		b, err = storex.OpenFTP(ctx, a.Target, a.Password, a.Dial, dbTimeout())
 	}
@@ -234,37 +249,223 @@ func storageUploadCmd() *cobra.Command {
 }
 
 func storageRmCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "rm CONN KEY...",
-		Short:   "Delete objects by exact key (no patterns or folders; needs --allow-dangerous)",
-		Example: `  komando storage rm backups tmp/old.sql.gz --allow-dangerous`,
-		Args:    cobra.MinimumNArgs(2),
+	var prefix, olderThan string
+	var limit int
+	c := &cobra.Command{
+		Use:   "rm CONN [KEY...]",
+		Short: "Delete objects by exact key, or everything under --prefix (optionally --older-than); needs --allow-dangerous",
+		Long: `Without --prefix, rm takes exact keys (no patterns). With --prefix it removes
+every object under that folder, or with --older-than only the ones older
+than that (30d, 12h): the usual cleanup of old backups. --dry-run lists them
+first; --limit (default 1000) refuses to go on when more would be removed.`,
+		Example: `  komando storage rm backups tmp/old.sql.gz --allow-dangerous
+  komando storage rm backups --prefix daily/ --older-than 30d --dry-run
+  komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keys := args[1:]
+			if prefix == "" && olderThan != "" {
+				return out.Usage("--older-than goes with --prefix (use --prefix / for the whole conn)")
+			}
+			if prefix == "" && len(keys) == 0 {
+				return out.Usage("give exact keys, or --prefix FOLDER/")
+			}
+			if prefix != "" && len(keys) > 0 {
+				return out.Usage("give keys or --prefix, not both")
+			}
 			for _, k := range keys {
 				if strings.HasSuffix(k, "/") || strings.ContainsAny(k, "*?") {
-					return out.Usage("%q looks like a folder or pattern; rm takes exact keys (see `komando storage ls`)", k)
+					return out.Usage("%q looks like a folder or pattern; use --prefix for folders (see `komando storage ls`)", k)
 				}
 			}
-			rec := map[string]any{"keys": keys}
+			var age time.Duration
+			if olderThan != "" {
+				var err error
+				if age, err = parseAge(olderThan); err != nil {
+					return err
+				}
+			}
+			rec := map[string]any{"keys": keys, "prefix": prefix, "older_than": olderThan}
+			if prefix != "" {
+				// list first, even in a dry run: the answer is the list
+				return storageRmPrefix(cmd.Context(), args[0], folderKey(prefix), age, limit, rec)
+			}
 			return withStorage(cmd.Context(), "storage.rm", args[0], driver.DataDelete(), rec,
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
-					var done []string
-					for _, k := range keys {
-						if err := s.Remove(ctx, k); err != nil {
-							rec["deleted"] = done
-							e := toErr(err)
-							if len(done) > 0 {
-								e.Message += fmt.Sprintf(" (already deleted: %s)", strings.Join(done, ", "))
-							}
-							return nil, e
-						}
-						done = append(done, k)
+					done, err := removeKeys(ctx, s, keys)
+					rec["deleted"] = done
+					if err != nil {
+						return nil, err
 					}
 					return map[string]any{"conn": c.Name, "deleted": done}, nil
 				})
 		},
 	}
+	c.Flags().StringVar(&prefix, "prefix", "", "remove everything under this folder (e.g. daily/; / for the whole conn)")
+	c.Flags().StringVar(&olderThan, "older-than", "", "with --prefix: only objects older than this (30d, 12h, 90m)")
+	c.Flags().IntVarP(&limit, "limit", "n", 1000, "refuse when more than this many objects would be removed")
+	return c
+}
+
+// parseAge reads durations with days (30d) as well as Go units (12h).
+func parseAge(s string) (time.Duration, error) {
+	if d, ok := strings.CutSuffix(s, "d"); ok {
+		if n, err := strconv.Atoi(d); err == nil && n > 0 {
+			return time.Duration(n) * 24 * time.Hour, nil
+		}
+	}
+	if d, err := time.ParseDuration(s); err == nil && d > 0 {
+		return d, nil
+	}
+	return 0, out.Usage("--older-than takes an age like 30d, 12h or 90m")
+}
+
+func removeKeys(ctx context.Context, s storex.Bucket, keys []string) ([]string, error) {
+	done := []string{}
+	for _, k := range keys {
+		if err := s.Remove(ctx, k); err != nil {
+			e := toErr(err)
+			if len(done) > 0 {
+				e.Message += fmt.Sprintf(" (already deleted: %d)", len(done))
+			}
+			return done, e
+		}
+		done = append(done, k)
+	}
+	return done, nil
+}
+
+// storageRmPrefix lists what is under prefix (and older than age), shows
+// it in a dry run, and removes it otherwise.
+func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Duration, limit int, rec map[string]any) error {
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	c, err := singleConn(st, connExpr, "storage")
+	if err != nil {
+		return err
+	}
+	if !g.dryRun {
+		if err := guardConns(st, []*store.Conn{c}, driver.DataDelete()); err != nil {
+			return err
+		}
+	}
+	b, err := openBucket(ctx, st, c)
+	if err != nil {
+		return err
+	}
+	defer b.Close()
+	objs, more, err := b.List(ctx, prefix, true, 1_000_000)
+	if err != nil {
+		return err
+	}
+	if more {
+		return out.Usage("more than a million objects under %q; use a narrower --prefix", prefix)
+	}
+	cutoff := time.Now().Add(-age)
+	var keys []string
+	var total int64
+	for _, o := range objs {
+		if o.Dir || (age > 0 && !o.Modified.Before(cutoff)) {
+			continue
+		}
+		keys = append(keys, o.Key)
+		total += o.Size
+	}
+	sort.Strings(keys)
+	res := map[string]any{"conn": c.Name, "prefix": prefix, "count": len(keys), "bytes": total}
+	if len(keys) > limit {
+		res["keys"] = keys[:limit]
+		out.P.Print("storage.rm", res, out.Errf(out.ExitConflict, "TOO_MANY", fmt.Sprintf("narrow --prefix or --older-than, or raise --limit above %d after checking the list", len(keys)),
+			"%d objects match, more than --limit %d", len(keys), limit))
+		return exitCode(out.ExitConflict)
+	}
+	if g.dryRun {
+		res["would_delete"], res["dry_run"] = keys, true
+		out.P.Print("storage.rm", res, nil)
+		return nil
+	}
+	done, err := removeKeys(ctx, b, keys)
+	rec["conns"], rec["deleted"] = []string{c.Name}, len(done)
+	audit(st, "storage.rm", nil, "", err == nil, rec)
+	if err != nil {
+		return err
+	}
+	res["deleted"] = done
+	out.P.Print("storage.rm", res, nil)
+	return nil
+}
+
+func storageCatCmd() *cobra.Command {
+	var head, tail int
+	var maxBytes int64
+	c := &cobra.Command{
+		Use:   "cat CONN KEY",
+		Short: "Show an object's content (text); --head/--tail N lines, at most --max-bytes",
+		Example: `  komando storage cat backups logs/app-2026-11-02.log --tail 50
+  komando storage cat config prod/app.env`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return withStorage(cmd.Context(), "storage.cat", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
+				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
+					w := &capWriter{max: maxBytes}
+					if tail > 0 {
+						w.max = 64 << 20 // the end needs the whole object; keep it bounded
+					}
+					if _, err := s.Get(ctx, args[1], w); err != nil && !w.capped { // stopping at the limit is not a failure
+						return nil, err
+					}
+					text, truncated := w.buf.String(), w.capped
+					if !utf8.ValidString(text) {
+						return nil, out.Errf(out.ExitConflict, "NOT_TEXT", "download it with `komando storage download`", "%s is not text", args[1])
+					}
+					lines := strings.SplitAfter(text, "\n")
+					if len(lines) > 0 && lines[len(lines)-1] == "" {
+						lines = lines[:len(lines)-1]
+					}
+					switch {
+					case head > 0 && len(lines) > head:
+						lines, truncated = lines[:head], true
+					case tail > 0 && len(lines) > tail:
+						lines = lines[len(lines)-tail:]
+					}
+					return catData{Conn: c.Name, Key: args[1], Content: strings.Join(lines, ""), Truncated: truncated}, nil
+				})
+		},
+	}
+	c.Flags().IntVar(&head, "head", 0, "only the first N lines")
+	c.Flags().IntVar(&tail, "tail", 0, "only the last N lines")
+	c.Flags().Int64Var(&maxBytes, "max-bytes", 1<<20, "read at most this much (default 1 MiB)")
+	return c
+}
+
+type catData struct {
+	Conn      string `json:"conn"`
+	Key       string `json:"key"`
+	Content   string `json:"content"`
+	Truncated bool   `json:"truncated,omitempty"`
+}
+
+func (d catData) Text() string { return d.Content }
+
+var errCapped = errors.New("komando: read limit reached")
+
+// capWriter keeps the first max bytes and then stops the download.
+type capWriter struct {
+	buf    bytes.Buffer
+	max    int64
+	capped bool
+}
+
+func (w *capWriter) Write(p []byte) (int, error) {
+	room := w.max - int64(w.buf.Len())
+	if int64(len(p)) > room {
+		w.buf.Write(p[:max(room, 0)])
+		w.capped = true
+		return int(max(room, 0)), errCapped
+	}
+	return w.buf.Write(p)
 }
 
 func storageLinkCmd() *cobra.Command {

@@ -73,7 +73,7 @@ func jobStartCmd() *cobra.Command {
 			if err := guard(st, hosts, command, !readOnly); err != nil {
 				return err
 			}
-			env, err := parseKV(envs)
+			env, err := parseEnv(envs)
 			if err != nil {
 				return err
 			}
@@ -90,18 +90,34 @@ func jobStartCmd() *cobra.Command {
 			}
 			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 				id := newID("j")
-				inner, _, err := sshx.BuildCommand(c, sshx.RunRequest{Command: command, Env: env, Dir: dir})
+				// The exports go to a private file the job reads and deletes:
+				// a job runs for long, and its command line is visible to
+				// every user on the server (ps), secrets included.
+				exports, err := sshx.EnvExports(c, env)
 				if err != nil {
 					return nil, err
+				}
+				inner, _, err := sshx.BuildCommand(c, sshx.RunRequest{Command: command, Dir: dir, NoEnv: true})
+				if err != nil {
+					return nil, err
+				}
+				if exports != "" {
+					inner = `. "$1"; rm -f "$1"; ` + inner
 				}
 				if sudo {
 					if c.Host.SudoRef != "" {
 						return nil, out.Usage("jobs cannot feed a sudo password; use passwordless sudo or `komando exec --sudo`")
 					}
-					inner = "sudo -n sh -c " + sshx.Q(inner)
+					inner = "sudo -n sh -c " + sshx.Q(inner) + ` sh "$d/env"`
+				} else {
+					inner = "sh -c " + sshx.Q(inner) + ` sh "$d/env"`
 				}
 				wrapper := "( " + inner + " ); echo $? > \"$d/exit\""
-				script := `d="` + jobDir(id) + `"; mkdir -p "$d" && printf '%s\n' ` + sshx.Q(command) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
+				envFile := ""
+				if exports != "" {
+					envFile = `(umask 077; printf '%s' ` + sshx.Q(exports) + ` > "$d/env") && `
+				}
+				script := `d="` + jobDir(id) + `"; mkdir -p "$d" && ` + envFile + `printf '%s\n' ` + sshx.Q(command) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
 					`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & ` +
 					`else nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
 				o, code, err := sshx.Output(ctx, c, script, 30*time.Second)
@@ -386,6 +402,10 @@ func jobKillCmd() *cobra.Command {
 			}
 			p := strconv.Itoa(j.PID)
 			script := "kill -" + sshx.Q(strings.TrimPrefix(strings.ToUpper(sig), "SIG")) + " -- -" + p + " 2>/dev/null || kill -" + sshx.Q(strings.TrimPrefix(strings.ToUpper(sig), "SIG")) + " " + p
+			if g.dryRun {
+				out.P.Print("job.kill", map[string]any{"job": j.ID, "host": h.Name, "would_run": script}, nil)
+				return nil
+			}
 			var r *sshx.RunResult
 			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
 				r, err = sshx.Run(cmd.Context(), c, sshx.RunRequest{Command: script, Timeout: 30 * time.Second, MaxOutput: 4096})
@@ -475,7 +495,7 @@ func jobRmCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if !keepRemote {
+				if !keepRemote && !g.dryRun {
 					_ = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
 						_, _, err := sshx.Output(cmd.Context(), c, `rm -rf "`+jobDir(j.ID)+`"`, 30*time.Second)
 						return err

@@ -3,6 +3,7 @@
 package out
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -93,6 +95,64 @@ type Printer struct {
 	DryRun  bool
 	W       io.Writer
 	skipped []Skipped
+
+	// Secrets returns the secret values (by name) that must never appear in
+	// output: remote files, logs and command output that happen to contain
+	// one show [secret:NAME] instead. It is called once, on first use.
+	Secrets  func() map[string]string
+	NoRedact bool // `secret get --reveal`: a person asked for the value
+	once     sync.Once
+	hide     []hidden
+}
+
+type hidden struct{ raw, json, label string }
+
+// minSecret is the shortest value hidden: shorter ones would match
+// ordinary words and garble output.
+const minSecret = 6
+
+func (p *Printer) load() {
+	p.once.Do(func() {
+		if p.Secrets == nil {
+			return
+		}
+		for name, v := range p.Secrets() {
+			if len(v) < minSecret {
+				continue
+			}
+			var b bytes.Buffer
+			enc := json.NewEncoder(&b)
+			enc.SetEscapeHTML(false)
+			_ = enc.Encode(v)
+			j := strings.TrimSuffix(strings.TrimSpace(b.String()), `"`)
+			p.hide = append(p.hide, hidden{raw: v, json: strings.TrimPrefix(j, `"`), label: "[secret:" + name + "]"})
+		}
+		// longest first, so a secret that contains another is hidden whole
+		sort.Slice(p.hide, func(i, j int) bool { return len(p.hide[i].raw) > len(p.hide[j].raw) })
+	})
+}
+
+// Redact hides secret values in plain text.
+func (p *Printer) Redact(s string) string {
+	if p.NoRedact {
+		return s
+	}
+	p.load()
+	for _, h := range p.hide {
+		s = strings.ReplaceAll(s, h.raw, h.label)
+	}
+	return s
+}
+
+func (p *Printer) redactJSON(b []byte) []byte {
+	if p.NoRedact {
+		return b
+	}
+	p.load()
+	for _, h := range p.hide {
+		b = bytes.ReplaceAll(b, []byte(h.json), []byte(h.label))
+	}
+	return b
 }
 
 var P = &Printer{Format: "json", W: os.Stdout, Start: time.Now()}
@@ -119,16 +179,16 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 	env := Envelope{OK: softErr == nil, Command: command, Data: data, Error: softErr, Meta: p.meta()}
 	if p.Format == "text" {
 		if t, ok := data.(Texter); ok {
-			s := t.Text()
+			s := p.Redact(t.Text())
 			fmt.Fprint(p.W, s)
 			if s != "" && !strings.HasSuffix(s, "\n") {
 				fmt.Fprintln(p.W)
 			}
 		} else if data != nil {
-			fmt.Fprint(p.W, renderText(data))
+			fmt.Fprint(p.W, p.Redact(renderText(data)))
 		}
 		if softErr != nil {
-			fmt.Fprintf(os.Stderr, "error: %s\n", softErr.Message)
+			fmt.Fprintf(os.Stderr, "error: %s\n", p.Redact(softErr.Message))
 			if softErr.Hint != "" {
 				fmt.Fprintf(os.Stderr, "hint: %s\n", softErr.Hint)
 			}
@@ -144,7 +204,7 @@ func (p *Printer) Fail(command string, err error) int {
 		e = &Error{Code: "ERROR", Message: err.Error(), Exit: ExitError}
 	}
 	if p.Format == "text" {
-		fmt.Fprintf(os.Stderr, "error [%s]: %s\n", e.Code, e.Message)
+		fmt.Fprintf(os.Stderr, "error [%s]: %s\n", e.Code, p.Redact(e.Message))
 		if e.Hint != "" {
 			fmt.Fprintf(os.Stderr, "hint: %s\n", e.Hint)
 		}
@@ -155,19 +215,23 @@ func (p *Printer) Fail(command string, err error) int {
 }
 
 func (p *Printer) writeJSON(v any) {
-	enc := json.NewEncoder(p.W)
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)
 	if p.Pretty {
 		enc.SetIndent("", "  ")
 	}
 	_ = enc.Encode(v)
+	_, _ = p.W.Write(p.redactJSON(b.Bytes()))
 }
 
 // NDJSON emits one streaming event line (used by --stream / follow modes).
 func (p *Printer) Event(v any) {
-	enc := json.NewEncoder(p.W)
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)
 	_ = enc.Encode(v)
+	_, _ = p.W.Write(p.redactJSON(b.Bytes()))
 }
 
 // renderText is a generic fallback: JSON round-trip into maps and print

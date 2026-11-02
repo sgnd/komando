@@ -21,6 +21,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 var nameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`)
@@ -37,6 +38,8 @@ func validName(kind, n string) error {
 
 type hostFlags struct {
 	address, user, key, identity, passwordRef, sudoRef, jump, notes string
+	proxyCommand                                                    string
+	ssm                                                             bool
 	port                                                            int
 	groups, tags, labels, env                                       []string
 	protected                                                       bool
@@ -54,6 +57,8 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.sudoRef, "sudo-ref", "", "sudo password reference: secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	fl.StringVar(&f.jump, "via", "", "reach it through these host(s) (bastions), comma-separated chain")
 	aliasFlag(fl, "jump", "via")
+	fl.StringVar(&f.proxyCommand, "proxy-command", "", "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)")
+	fl.BoolVar(&f.ssm, "ssm", false, "reach it through AWS Systems Manager: the address is the instance ID (needs the aws CLI and its session-manager-plugin)")
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (shown to agents in host show)")
 	fl.BoolVar(&f.protected, "protected", false, "require --yes for mutating actions (production safety)")
 	if edit {
@@ -63,7 +68,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove tag(s)")
 		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (empty value removes)")
 		fl.StringSliceVar(&f.env, "env", nil, "set env KEY=VALUE exported before commands (empty value removes)")
-		fl.StringSliceVar(&f.unset, "unset", nil, "clear fields: user,key,identity,password-ref,sudo-ref,via,notes,port,protected")
+		fl.StringSliceVar(&f.unset, "unset", nil, "clear fields: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected")
 	} else {
 		fl.StringSliceVarP(&f.groups, "group", "g", nil, "group(s)")
 		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tag(s)")
@@ -93,7 +98,7 @@ func hostAddCmd() *cobra.Command {
 				return err
 			}
 			h := &store.Host{Name: name, Address: f.address, Port: f.port, User: f.user, Key: f.key, Identity: f.identity,
-				PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
+				PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, ProxyCommand: f.proxyCommand, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
 				Protected: f.protected, Notes: f.notes}
 			if len(args) == 2 {
 				a, err := sshx.ParseAdhoc(args[1])
@@ -111,11 +116,17 @@ func hostAddCmd() *cobra.Command {
 			if h.Address == "" {
 				return out.Usage("address required: pass user@address[:port] or --address")
 			}
+			if f.ssm {
+				h.ProxyCommand = ssmProxy
+			}
+			if err := checkHostRefs(h); err != nil {
+				return err
+			}
 			var err error
 			if h.Labels, err = parseKV(f.labels); err != nil {
 				return err
 			}
-			if h.Env, err = parseKV(f.env); err != nil {
+			if h.Env, err = parseEnv(f.env); err != nil {
 				return err
 			}
 			if len(h.Labels) == 0 {
@@ -181,12 +192,19 @@ func hostEditCmd() *cobra.Command {
 				set("password-ref", &h.PasswordRef, f.passwordRef)
 				set("sudo-ref", &h.SudoRef, f.sudoRef)
 				set("via", &h.Via, f.jump)
+				set("proxy-command", &h.ProxyCommand, f.proxyCommand)
+				if f.ssm {
+					h.ProxyCommand = ssmProxy
+				}
 				set("notes", &h.Notes, f.notes)
 				if fl.Changed("port") {
 					h.Port = f.port
 				}
 				if fl.Changed("protected") {
 					h.Protected = f.protected
+				}
+				if err := checkHostRefs(h); err != nil {
+					return err
 				}
 				if h.Key != "" {
 					if _, ok := s.Keys[h.Key]; !ok {
@@ -199,6 +217,9 @@ func hostEditCmd() *cobra.Command {
 					return err
 				}
 				if err := applyKV(&h.Env, f.env); err != nil {
+					return err
+				}
+				if err := checkEnvKeys(h.Env); err != nil {
 					return err
 				}
 				for _, u := range f.unset {
@@ -215,6 +236,8 @@ func hostEditCmd() *cobra.Command {
 						h.SudoRef = ""
 					case "via", "jump":
 						h.Via = ""
+					case "proxy-command":
+						h.ProxyCommand = ""
 					case "notes":
 						h.Notes = ""
 					case "port":
@@ -263,6 +286,25 @@ func hostEditCmd() *cobra.Command {
 	f.bind(c, true)
 	c.Flags().StringVar(&rename, "rename", "", "rename the host")
 	return c
+}
+
+// ssmProxy reaches an EC2 instance (the host's address is its ID) through
+// AWS Systems Manager, as AWS documents for SSH; the aws CLI picks the
+// profile and region from its usual settings (AWS_PROFILE, AWS_REGION).
+const ssmProxy = "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p"
+
+// checkHostRefs refuses a password typed where a reference belongs
+// (--password-ref hunter2 would be stored and printed as plain text).
+func checkHostRefs(h *store.Host) error {
+	if h.ProxyCommand != "" && h.Via != "" {
+		return out.Usage("a host takes --proxy-command or --via, not both (put the proxy on the first host of the --via chain)")
+	}
+	for _, r := range []struct{ flag, ref string }{{"--password-ref", h.PasswordRef}, {"--sudo-ref", h.SudoRef}} {
+		if r.ref != "" && !vault.ValidRef(r.ref) {
+			return out.Usage("invalid %s: it takes a reference, not the password itself (%s); store the password with `komando secret set NAME` first", r.flag, vault.RefHelp())
+		}
+	}
+	return nil
 }
 
 func applyKV(m *map[string]string, pairs []string) error {
@@ -371,6 +413,7 @@ func hostImportCmd() *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var hosts []*store.Host
+			var notes []string
 			switch {
 			case jsonFile != "":
 				b, err := readFileOrStdin(jsonFile)
@@ -411,7 +454,7 @@ func hostImportCmd() *cobra.Command {
 					sshConfig = filepath.Join(home, ".ssh", "config")
 				}
 				var err error
-				hosts, err = parseSSHConfig(sshConfig)
+				hosts, notes, err = parseSSHConfig(sshConfig)
 				if err != nil {
 					return err
 				}
@@ -441,7 +484,11 @@ func hostImportCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "host.import", added, "", true, nil)
-			out.P.Print("host.import", map[string]any{"imported": added, "skipped_existing": skipped}, nil)
+			res := map[string]any{"imported": added, "skipped_existing": skipped}
+			if len(notes) > 0 {
+				res["notes"] = notes
+			}
+			out.P.Print("host.import", res, nil)
 			return nil
 		},
 	}
@@ -461,12 +508,35 @@ func readFileOrStdin(p string) ([]byte, error) {
 
 // parseSSHConfig understands Host, HostName, User, Port, IdentityFile,
 // ProxyJump and Include. Wildcard Host patterns become defaults.
-func parseSSHConfig(path string) ([]*store.Host, error) {
+// sshUsed are the ssh_config directives komando turns into host settings.
+// sshHarmless change nothing komando needs (its own client already behaves
+// that way or the option only tunes OpenSSH). Anything else is reported
+// after an import, so a setting is never dropped silently.
+var sshUsed = set("hostname user port identityfile proxyjump proxycommand")
+var sshHarmless = set(`serveraliveinterval serveralivecountmax addkeystoagent usekeychain identitiesonly
+stricthostkeychecking userknownhostsfile globalknownhostsfile loglevel compression controlmaster controlpath
+controlpersist connecttimeout tcpkeepalive visualhostkey hashknownhosts preferredauthentications
+pubkeyauthentication passwordauthentication kbdinteractiveauthentication updatehostkeys canonicalizehostname
+checkhostip batchmode`)
+
+func set(words string) map[string]bool {
+	m := map[string]bool{}
+	for _, w := range strings.Fields(words) {
+		m[w] = true
+	}
+	return m
+}
+
+// parseSSHConfig reads an OpenSSH config into hosts. notes lists what it
+// could not carry over (Match blocks, ProxyCommand, ...), per host.
+func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error) {
 	type block struct {
 		patterns []string
 		opts     map[string]string
+		raw      map[string]string // directive names as written, for notes
 	}
 	var blocks []*block
+	matches := 0
 	var read func(p string, depth int) error
 	read = func(p string, depth int) error {
 		if depth > 5 {
@@ -501,15 +571,17 @@ func parseSSHConfig(path string) ([]*store.Host, error) {
 					}
 				}
 			case "host":
-				cur = &block{patterns: strings.Fields(val), opts: map[string]string{}}
+				cur = &block{patterns: strings.Fields(val), opts: map[string]string{}, raw: map[string]string{}}
 				blocks = append(blocks, cur)
 			case "match":
 				cur = nil
+				matches++
 			default:
 				if cur != nil {
 					k := strings.ToLower(key)
 					if _, set := cur.opts[k]; !set { // first value wins, like ssh
 						cur.opts[k] = strings.Trim(val, `"`)
+						cur.raw[k] = key
 					}
 				}
 			}
@@ -517,9 +589,11 @@ func parseSSHConfig(path string) ([]*store.Host, error) {
 		return sc.Err()
 	}
 	if err := read(path, 0); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var hosts []*store.Host
+	if matches > 0 {
+		notes = append(notes, fmt.Sprintf("%d Match block(s) skipped: komando cannot evaluate Match; add those settings to the hosts with `komando host edit`", matches))
+	}
 	for _, b := range blocks {
 		for _, pat := range b.patterns {
 			if strings.ContainsAny(pat, "*?!") {
@@ -542,6 +616,9 @@ func parseSSHConfig(path string) ([]*store.Host, error) {
 				continue
 			}
 			h := &store.Host{Name: name, Address: opts["hostname"], User: opts["user"], Via: opts["proxyjump"]}
+			if pc := opts["proxycommand"]; pc != "" && !strings.EqualFold(pc, "none") && h.Via == "" {
+				h.ProxyCommand = pc // your own ssh config: the same program runs as with ssh
+			}
 			if h.Address == "" {
 				h.Address = pat
 			}
@@ -554,10 +631,20 @@ func parseSSHConfig(path string) ([]*store.Host, error) {
 			if h.Via == "none" {
 				h.Via = ""
 			}
+			var dropped []string
+			for k := range opts {
+				if !sshUsed[k] && !sshHarmless[k] {
+					dropped = append(dropped, k)
+				}
+			}
+			if len(dropped) > 0 {
+				sort.Strings(dropped)
+				notes = append(notes, fmt.Sprintf("%s: not carried over: %s", name, strings.Join(dropped, ", ")))
+			}
 			hosts = append(hosts, h)
 		}
 	}
-	return hosts, nil
+	return hosts, notes, nil
 }
 
 func blockMatches(patterns []string, host string) bool {
@@ -744,12 +831,22 @@ func hostSSHArgsCmd() *cobra.Command {
 				}
 				parts = append(parts, "-J", strings.Join(js, ","))
 			}
+			if h.ProxyCommand != "" {
+				parts = append(parts, "-o", "ProxyCommand="+h.ProxyCommand) // ssh fills in %h %p itself
+			}
 			dest := h.Address
 			if h.User != "" {
 				dest = h.User + "@" + dest
 			}
 			parts = append(parts, dest)
-			out.P.Print("host.ssh-command", sshCmdResult{Argv: parts, Command: strings.Join(parts, " ")}, nil)
+			line := make([]string, len(parts))
+			for i, p := range parts {
+				line[i] = p
+				if strings.ContainsAny(p, " '\"$") {
+					line[i] = sshx.Q(p)
+				}
+			}
+			out.P.Print("host.ssh-command", sshCmdResult{Argv: parts, Command: strings.Join(line, " ")}, nil)
 			return nil
 		},
 	}

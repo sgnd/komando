@@ -48,6 +48,13 @@ that a conn uses with `--via` cannot be removed until the conn is changed.
 
 ## Query a database
 
+A query stops after 30 seconds unless `--timeout` says otherwise. To give one
+database its own limit, set it on the conn:
+
+```bash
+komando conn edit prod-db --option statement_timeout=10s
+```
+
 `komando db` runs SQL on a conn. **It does not change your data unless you
 add `--write`**: without it, the query runs in a read-only transaction and
 the database itself refuses changes. A few admin functions that a read-only
@@ -116,11 +123,28 @@ You need the client installed here: `psql` (package `postgresql-client`),
 at a terminal; agents and scripts get `NEEDS_TERMINAL` and use `db query`,
 which returns JSON and checks every statement.
 
+### Look after a database
+
+```bash
+komando db info prod-db                  # version, uptime, size, connections, primary or replica
+komando db activity prod-db              # what runs now: pid, user, how long, the query
+komando db locks prod-db                 # who waits, and the session holding the lock
+komando db sizes prod-db -n 10           # databases, biggest tables and indexes
+komando db kill prod-db 4821 --dry-run   # which query it would stop
+komando db kill prod-db 4821             # cancel that query (the client stays connected)
+komando db kill prod-db 4821 --session --allow-dangerous   # end the whole connection
+komando db schema prod-db orders         # columns, indexes, foreign keys and checks
+```
+
 ### Backups
 
 ```bash
 komando db dump prod-db --to prod-2026-11-02.sql.gz      # backup to a file on this computer
+komando db dump prod-db --to prod.dump --format custom   # PostgreSQL archive (compressed, pg_restore)
+komando db dump prod-db --to orders.sql --table public.orders
+komando db dump prod-db --to schema.sql --schema-only
 komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous
+komando db restore staging-db --from prod.dump --allow-dangerous  # an archive goes to pg_restore
 ```
 
 - The backup file always lands on **this computer**, readable only by you.

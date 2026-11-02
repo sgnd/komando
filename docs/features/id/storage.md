@@ -17,7 +17,21 @@ komando download backups 2026/app.sql.gz            # ke folder saat ini
 komando upload backups ./app.sql.gz 2026/app.sql.gz
 komando storage link backups 2026/app.sql.gz --expires 24h   # link unduhan sementara
 komando storage rm backups 2026/old.sql.gz --allow-dangerous
+komando storage cat backups logs/app.log --tail 50   # baca objek teks tanpa mengunduhnya
 ```
+
+Folder dan pembersihan:
+
+```bash
+komando upload backups ./reports reports -r          # satu folder: file baru dan yang berubah
+komando download backups reports -r --to ./reports   # satu prefix: file yang sudah ada tetap
+komando sync ./site backups:site --exclude '*.tmp'   # menyamakan isi folder (lihat File)
+komando storage rm backups --prefix daily/ --older-than 30d --dry-run   # backup lama, didaftar
+komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous
+```
+
+`storage rm --prefix` menolak menghapus lebih dari `--limit` objek (default
+1000); periksa daftar dry-run dan naikkan batasnya kalau memang itu maksudnya.
 
 - Unduhan tidak pernah menimpa file; file-nya hanya bisa dibaca oleh Anda.
 - `upload` mengganti objek dengan key yang sama (hasilnya menyebut
@@ -33,6 +47,21 @@ komando storage rm backups 2026/old.sql.gz --allow-dangerous
 - Setup paling aman: beri komando access key yang hanya bisa melakukan yang
   Anda butuhkan (hanya-baca untuk laporan, satu bucket saja). Layanannya
   sendiri yang kemudian menegakkannya.
+
+## Login AWS (SSO, role, kunci sementara)
+
+Selain kunci yang disimpan, conn bisa memakai profile AWS CLI. komando
+meminta kunci terkini profile itu ke `aws configure export-credentials`
+setiap kali, jadi SSO dan role yang di-assume bekerja seperti yang Anda
+atur:
+
+```bash
+komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
+```
+
+Kalau login SSO sudah kedaluwarsa, jawabannya `AWS_LOGIN_REQUIRED`: orang
+menjalankan `aws sso login --profile prod` sekali. Registry Amazon ECR
+bekerja dengan cara yang sama (lihat Registry).
 
 ## File server (FTPS, SFTP, FTP)
 

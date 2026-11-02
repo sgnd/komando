@@ -91,11 +91,12 @@ type token struct {
 type dialect struct {
 	backslash, dollar, backtick, bracket bool
 	execComments                         bool // MySQL runs the text inside /*! ... */
+	dashSpace                            bool // MySQL: "--" starts a comment only before white space ("1 --1" is 1 - -1)
 }
 
 var dialects = map[string]dialect{
 	"postgres": {dollar: true},
-	"mysql":    {backslash: true, backtick: true, execComments: true},
+	"mysql":    {backslash: true, backtick: true, execComments: true, dashSpace: true},
 	"sqlite":   {backtick: true, bracket: true},
 }
 
@@ -116,7 +117,7 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 	for i := 0; i < n; {
 		c := sql[i]
 		switch {
-		case c == '-' && i+1 < n && sql[i+1] == '-', c == '#' && d.backslash:
+		case c == '-' && i+1 < n && sql[i+1] == '-' && (!d.dashSpace || i+2 >= n || sql[i+2] <= ' '), c == '#' && d.backslash:
 			for i < n && sql[i] != '\n' {
 				i++
 			}
@@ -373,6 +374,13 @@ var opaqueFirst = map[string]bool{"DO": true, "CALL": true, "PREPARE": true, "EX
 
 // stringRules are settings that change how SQL text is parsed. komando's
 // checks assume the defaults, so changing them is refused.
+// txSettings would switch off the read-only transaction komando runs (SET
+// TRANSACTION READ WRITE) or commit it early (SET autocommit in MySQL).
+var txSettings = map[string]bool{
+	"TRANSACTION": true, "CHARACTERISTICS": true, "TRANSACTION_READ_ONLY": true, "DEFAULT_TRANSACTION_READ_ONLY": true,
+	"TX_READ_ONLY": true, "AUTOCOMMIT": true, "COMPLETION_TYPE": true,
+}
+
 var stringRules = map[string]bool{"STANDARD_CONFORMING_STRINGS": true, "BACKSLASH_QUOTE": true, "ESCAPE_STRING_WARNING": true, "SQL_MODE": true}
 
 // writeFirst are statements that change something when they lead.
@@ -421,6 +429,11 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 	}
 	if first == "SET" || first == "RESET" {
 		for _, t := range ts {
+			if txSettings[t.word] {
+				return 0, nil, out.Errf(out.ExitUsage, "SQL_TX_CONTROL",
+					"leave transactions to komando: without --write it runs a read-only transaction, with --write one transaction that --dry-run rolls back",
+					"changing %s is not allowed in komando db", strings.ToLower(t.word))
+			}
 			if stringRules[t.word] {
 				return 0, nil, out.Errf(out.ExitUsage, "SQL_STRING_RULES",
 					"leave this setting alone: komando checks SQL with the server's default string rules",

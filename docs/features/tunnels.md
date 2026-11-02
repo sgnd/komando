@@ -34,6 +34,10 @@ komando tunnel start app-db --port 15432    # pick the port yourself
 Point the app at that address with the database user and password. The
 tunnel stays up in the background until `komando tunnel stop`.
 
+Tunnels listen on `127.0.0.1`, so only your computer can use them. To listen
+on another address (`-L 0.0.0.0:8080:...`), add `--yes`: anyone on that
+network can then use the tunnel without logging in.
+
 ## Tunnels for other apps
 
 A tunnel makes a service on a server appear on your own computer. Tunnels
