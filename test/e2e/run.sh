@@ -133,6 +133,13 @@ $K key gen deploy >/dev/null
 check "key deploy" 3 "$($K key deploy deploy @lab --set-default --yes | jget 'd["data"]["summary"]["ok"]')"
 $K host edit direct --unset password-ref >/dev/null
 check "key-only login" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "revoking the login key needs --allow-dangerous" POLICY_BLOCKED "$($K key revoke deploy direct | jget 'd["error"]["code"]' || true)"
+$K key gen leaver >/dev/null
+$K key deploy leaver direct >/dev/null
+check "key revoke --dry-run counts" 1 "$($K key revoke leaver direct --dry-run | jget 'd["data"]["results"][0]["would_remove"]')"
+check "key revoke removes it" 1 "$($K key revoke leaver direct | jget 'd["data"]["results"][0]["removed"]')"
+check "other keys stay" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "revoke a public key line" 0 "$($K key revoke "$(cat "$KOMANDO_HOME/keys/leaver.pub")" direct | jget 'd["data"]["results"][0]["removed"]')"
 
 echo "==> tunnel"
 LISTEN=$($K tunnel start target -L 0:localhost:22 | jget 'd["data"]["listen"]')
@@ -213,6 +220,17 @@ q $K storage upload bucket "$TMP/obj.txt" 2026/obj.txt
 check "storage ls via bastion" 2026/obj.txt "$($K storage ls bucket --recursive | jget 'd["data"]["objects"][0]["key"]')"
 q $K storage download bucket 2026/obj.txt --to "$TMP/obj-back.txt"
 check "storage round trip" backup-data "$(cat "$TMP/obj-back.txt")"
+mkdir -p "$TMP/tree/sub" && echo one > "$TMP/tree/a.txt" && echo two > "$TMP/tree/sub/b.txt" && echo skip > "$TMP/tree/c.tmp"
+check "upload -r to storage" 3 "$($K upload bucket "$TMP/tree" tree -r | jget 'd["data"]["copied"]')"
+check "sync to storage sends nothing new" 0 "$($K sync "$TMP/tree" bucket:tree --exclude '*.tmp' | jget 'd["data"]["copied"] + d["data"]["updated"]')"
+check "storage cat --tail" two "$($K storage cat bucket tree/sub/b.txt --tail 1 | jget 'd["data"]["content"].strip()')"
+q $K download bucket tree -r --to "$TMP/tree-back"
+check "download -r from storage" two "$(cat "$TMP/tree-back/sub/b.txt")"
+check "download -r keeps local files" True "$(echo changed > "$TMP/tree-back/a.txt"; $K download bucket tree -r --to "$TMP/tree-back" | jget 'd["data"]["kept"] >= 1')"
+check "rm --prefix --dry-run lists" True "$($K storage rm bucket --prefix tree/ --dry-run | jget 'd["data"]["count"] >= 2')"
+check "rm --prefix needs --allow-dangerous" POLICY_BLOCKED "$($K storage rm bucket --prefix tree/ | jget 'd["error"]["code"]' || true)"
+check "rm --older-than leaves new objects" 0 "$($K storage rm bucket --prefix tree/ --older-than 30d --allow-dangerous | jget 'd["data"]["count"]')"
+check "rm --prefix removes them" True "$($K storage rm bucket --prefix tree/ --allow-dangerous | jget 'd["data"]["count"] >= 2')"
 
 # file servers through the bastion: SFTP (shell-less account) and FTPS (TLS required)
 echo -n deploypass | $K secret set files-pass >/dev/null
@@ -244,6 +262,15 @@ check "upload/download to a server" hello-upload "$(cat "$TMP/down/up.txt")"
 check "download never replaces a local file" FILE_EXISTS "$($K download direct /tmp/up.txt --to "$TMP/down/" | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
 q $K download direct /tmp/up.txt --to "$TMP/down/" --overwrite
 check "no temporary files left" 0 "$(ls -A "$TMP/down" | grep -c komando-download || true)"
+dd if=/dev/urandom of="$TMP/big.bin" bs=1048576 count=40 2>/dev/null
+check "large upload is streamed intact" "$(shasum -a 256 "$TMP/big.bin" | cut -c1-64)" "$($K upload direct "$TMP/big.bin" /tmp/big.bin | jget 'd["data"]["results"][0]["sha256"]')"
+check "sync to a server" 2 "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' | jget 'd["data"]["results"][0]["copied"]')"
+check "sync again sends nothing" 0 "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' | jget 'd["data"]["results"][0]["copied"] + d["data"]["results"][0]["updated"]')"
+rm "$TMP/tree/sub/b.txt"
+check "sync --delete needs --allow-dangerous" POLICY_BLOCKED "$($K sync "$TMP/tree" direct:/home/agent/site --delete | jget 'd["error"]["code"]' || true)"
+check "sync --delete --dry-run lists it" sub/b.txt "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' --delete --dry-run | jget '[a["path"] for a in d["data"]["results"][0]["actions"] if a["op"]=="delete"][0]')"
+check "sync --delete removes it" 1 "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' --delete --allow-dangerous | jget 'd["data"]["results"][0]["deleted"]')"
+check "sync from a server" one "$($K sync direct:/home/agent/site "$TMP/site-back" >/dev/null; cat "$TMP/site-back/a.txt")"
 TUN=$($K tunnel start pg | jget 'd["data"]["listen"]')
 check "tunnel to a conn by name" 0 "$(nc -z "${TUN%:*}" "${TUN##*:}"; echo $?)"
 q $K tunnel stop --all

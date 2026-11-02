@@ -35,6 +35,22 @@ komando fs replace web1 /etc/ssh/sshd_config --old 'PermitRootLogin yes' --new '
 
 Also: `fs mkdir`, `fs mv`, `fs chmod`, `fs rm`.
 
+## Keep a folder in step (sync)
+
+`sync` sends only what is new or changed, so the second run is quick. One
+side is a folder here; the other is servers (many at once) or storage:
+
+```bash
+komando sync ./site @web:/var/www/site --exclude .git --dry-run   # every file it would touch
+komando sync ./site @web:/var/www/site --exclude .git
+komando sync ./site web1:/var/www/site --delete --allow-dangerous # also remove what ./site no longer has
+komando sync web1:/var/log/app ./logs/web1                         # the other way
+komando sync ./backups backups:2026/                               # into a storage conn
+```
+
+A file counts as changed when its size differs or it is newer in the
+source. Each file is written under a temporary name and moved into place.
+
 ## Copy files
 
 Remote paths are written `TARGET:PATH`.

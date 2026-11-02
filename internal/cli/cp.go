@@ -171,18 +171,20 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 		dst = path.Join(dst, filepath.Base(src))
 	}
 	if !fi.IsDir() {
-		b, err := os.ReadFile(src)
+		f, err := os.Open(src)
 		if err != nil {
 			return xferStats{}, err
 		}
+		defer f.Close()
 		if mode == "" {
 			mode = "0" + strings.TrimPrefix(fileModeOctal(fi.Mode()), "0")
 		}
-		r, err := writeRemote(ctx, c, sc, dst, b, writeOpts{sudo: sudo, mkdirs: mkdirs, mode: mode})
+		// streamed: a multi-GB backup never sits in memory
+		r, err := writeRemoteFrom(ctx, c, sc, dst, f, writeOpts{sudo: sudo, mkdirs: mkdirs, mode: mode})
 		if err != nil {
 			return xferStats{}, err
 		}
-		return xferStats{Files: 1, Bytes: int64(len(b)), Dest: dst, SHA256: r["sha256"].(string)}, nil
+		return xferStats{Files: 1, Bytes: r["bytes"].(int64), Dest: dst, SHA256: r["sha256"].(string)}, nil
 	}
 	if !recursive {
 		return xferStats{}, out.Usage("%s is a directory; pass -r", src)

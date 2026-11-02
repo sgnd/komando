@@ -17,7 +17,21 @@ komando download backups 2026/app.sql.gz            # ke folder saat ini
 komando upload backups ./app.sql.gz 2026/app.sql.gz
 komando storage link backups 2026/app.sql.gz --expires 24h   # link unduhan sementara
 komando storage rm backups 2026/old.sql.gz --allow-dangerous
+komando storage cat backups logs/app.log --tail 50   # baca objek teks tanpa mengunduhnya
 ```
+
+Folder dan pembersihan:
+
+```bash
+komando upload backups ./reports reports -r          # satu folder: file baru dan yang berubah
+komando download backups reports -r --to ./reports   # satu prefix: file yang sudah ada tetap
+komando sync ./site backups:site --exclude '*.tmp'   # menyamakan isi folder (lihat File)
+komando storage rm backups --prefix daily/ --older-than 30d --dry-run   # backup lama, didaftar
+komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous
+```
+
+`storage rm --prefix` menolak menghapus lebih dari `--limit` objek (default
+1000); periksa daftar dry-run dan naikkan batasnya kalau memang itu maksudnya.
 
 - Unduhan tidak pernah menimpa file; file-nya hanya bisa dibaca oleh Anda.
 - `upload` mengganti objek dengan key yang sama (hasilnya menyebut

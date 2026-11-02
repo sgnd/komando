@@ -42,6 +42,17 @@ komando key gen deploy
 komando key deploy deploy @web --set-default
 ```
 
+Saat seseorang keluar, atau sebuah key diganti, hapus di semua server
+sekaligus. Bisa memakai key dari keychain, file `.pub`, atau baris key-nya:
+
+```bash
+komando key revoke ~/keys/budi.pub @prod --dry-run   # berapa baris per server
+komando key revoke ~/keys/budi.pub @prod
+komando key revoke old-deploy @web --user deploy     # file milik user lain (sudo)
+```
+
+Mencabut key yang dipakai komando sendiri untuk login butuh `--allow-dangerous`.
+
 **sudo butuh password?**
 
 ```bash

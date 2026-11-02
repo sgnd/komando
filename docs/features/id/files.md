@@ -36,6 +36,23 @@ komando fs replace web1 /etc/ssh/sshd_config --old 'PermitRootLogin yes' --new '
 
 Juga: `fs mkdir`, `fs mv`, `fs chmod`, `fs rm`.
 
+## Menyamakan isi folder (sync)
+
+`sync` hanya mengirim yang baru atau berubah, jadi jalankan kedua kalinya
+cepat. Satu sisi adalah folder di sini; sisi lain adalah server (banyak
+sekaligus) atau storage:
+
+```bash
+komando sync ./site @web:/var/www/site --exclude .git --dry-run   # setiap file yang akan disentuh
+komando sync ./site @web:/var/www/site --exclude .git
+komando sync ./site web1:/var/www/site --delete --allow-dangerous # juga hapus yang tidak ada lagi di ./site
+komando sync web1:/var/log/app ./logs/web1                         # arah sebaliknya
+komando sync ./backups backups:2026/                               # ke conn storage
+```
+
+File dianggap berubah kalau ukurannya beda atau lebih baru di sumber. Setiap
+file ditulis dengan nama sementara lalu dipindahkan ke tempatnya.
+
 ## Menyalin file
 
 Path di server ditulis `TARGET:PATH`.

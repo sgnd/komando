@@ -41,6 +41,17 @@ komando key gen deploy
 komando key deploy deploy @web --set-default
 ```
 
+When someone leaves, or a key is replaced, remove it everywhere at once. It
+takes a key from the keychain, a `.pub` file, or the key line itself:
+
+```bash
+komando key revoke ~/keys/budi.pub @prod --dry-run   # how many lines per server
+komando key revoke ~/keys/budi.pub @prod
+komando key revoke old-deploy @web --user deploy     # another user's file (sudo)
+```
+
+Revoking the key komando itself logs in with needs `--allow-dangerous`.
+
 **sudo needs a password?**
 
 ```bash

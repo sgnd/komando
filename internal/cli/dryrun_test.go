@@ -12,6 +12,7 @@ import (
 func TestDryRunChangesNothing(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	defer func() { g.dryRun, store.DryRun = false, false }() // flags are package globals
 	run := func(args ...string) error {
 		root := newRoot()
 		root.SetArgs(append([]string{"-o", "json"}, args...))

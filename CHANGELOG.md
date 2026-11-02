@@ -4,6 +4,22 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Bulk transfer (gap analysis, phase 3)
+
+- `komando sync SRC DST` keeps a folder in step between this computer and
+  servers (many at once) or storage, sending only new and changed files.
+  `--exclude` skips names and paths; `--delete` removes what the source no
+  longer has (needs `--allow-dangerous`); `--dry-run` lists every file.
+- Storage: `upload -r` sends a folder, `download -r` fetches a prefix
+  (existing local files stay unless `--overwrite`), `storage cat` reads a
+  text object (`--head`, `--tail`), and `storage rm --prefix [--older-than
+  30d]` cleans up old objects with a list first and a `--limit`.
+- Uploads to servers stream the file: a backup of any size no longer has to
+  fit in memory.
+- `key revoke KEY TARGET` removes a public key from authorized_keys on many
+  servers (`--user` for another account); revoking the key komando logs in
+  with needs `--allow-dangerous`.
+
 ### Cluster deploy cycle (gap analysis, phase 2)
 
 - `cluster deploy TARGET TYPE/NAME --image IMAGE [--wait]` puts out a new

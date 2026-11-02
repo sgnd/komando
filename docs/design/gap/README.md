@@ -75,6 +75,16 @@ workload, per label dan `-f`, `cluster exec` (dengan cek policy dan
 `--read-only`) dan `cluster forward`. Diff sebelum apply sudah ada sejak
 Fase 1. Lolos e2e 140/140 di k3s dan Docker Swarm.
 
+## Status Fase 3 (selesai)
+
+Transfer massal dari bagian 3: `komando sync` (server banyak sekaligus,
+storage, dan komputer ini; hanya file baru dan berubah; `--exclude`,
+`--delete`, dry-run per file), `upload -r` dan `download -r` untuk storage,
+`storage cat`, `storage rm --prefix --older-than` dengan `--limit`, upload
+ke server secara streaming (file sebesar apa pun), dan `key revoke`. Verb
+`sync` yang dijanjikan vision.md (bagian 1 nomor 9) sekarang ada. Lolos
+e2e 161/161.
+
 Tabel di bawah ini adalah keadaan **sebelum** Fase 1.
 
 ## 1. Janji di dokumen yang belum dipenuhi kode (kerjakan dulu)

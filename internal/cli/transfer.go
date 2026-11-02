@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -60,8 +61,12 @@ to the file's name (servers: in the login user's home folder).`,
 				return err
 			}
 			if storage {
-				if o.recursive || o.sudo || o.mkdirs || o.mode != "" {
-					return out.Usage("-r, --sudo, -p and --mode are for servers; storage takes one file")
+				if o.sudo || o.mkdirs || o.mode != "" {
+					return out.Usage("--sudo, -p and --mode are for servers")
+				}
+				if o.recursive {
+					// a folder: sent like `komando sync`, new and changed files only
+					return syncUp(cmd.Context(), "upload", args[1], args[0], dest, syncOpts{})
 				}
 				return storageUpload(cmd.Context(), "upload", args[0], args[1], dest)
 			}
@@ -95,7 +100,12 @@ downloads never overwrite a file.`,
 			}
 			if storage {
 				if recursive {
-					return out.Usage("-r is for servers; storage downloads one object")
+					dest := to
+					if dest == "" {
+						dest = path.Base(strings.TrimSuffix(args[1], "/"))
+					}
+					// files already here stay unless --overwrite
+					return syncDown(cmd.Context(), "download", args[0], args[1], dest, syncOpts{onlyNew: !overwrite})
 				}
 				return storageDownload(cmd.Context(), "download", args[0], args[1], to)
 			}
@@ -107,7 +117,7 @@ downloads never overwrite a file.`,
 		},
 	}
 	c.Flags().StringVar(&to, "to", "", "where to save it (default: the current folder)")
-	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "servers: download a folder")
-	c.Flags().BoolVar(&overwrite, "overwrite", false, "servers: replace files that already exist on this computer")
+	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "download a folder (servers) or every object under a prefix (storage)")
+	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace files that already exist on this computer")
 	return c
 }

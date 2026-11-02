@@ -337,9 +337,19 @@ func validateFailed(stderr string) error {
 
 // writeRemote writes data atomically (temp file + rename) and returns info.
 func writeRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, data []byte, o writeOpts) (map[string]any, error) {
-	res := map[string]any{"path": p, "bytes": len(data)}
-	sum := sha256.Sum256(data)
-	res["sha256"] = hex.EncodeToString(sum[:])
+	return writeRemoteFrom(ctx, c, sc, p, bytes.NewReader(data), o)
+}
+
+// writeRemoteFrom is writeRemote for a stream: the content goes to the
+// server as it is read, so files of any size never sit in memory.
+func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, src io.Reader, o writeOpts) (map[string]any, error) {
+	res := map[string]any{"path": p}
+	h := sha256.New()
+	copyIn := func(f io.Writer) error {
+		n, err := io.Copy(io.MultiWriter(f, h), src)
+		res["bytes"], res["sha256"] = n, hex.EncodeToString(h.Sum(nil))
+		return err
+	}
 	dir := path.Dir(p)
 	mode := o.mode
 	if mode != "" {
@@ -361,7 +371,7 @@ func writeRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string,
 			sc.Remove(tmp)
 			return nil, fsErr(tmp, err)
 		}
-		if _, err := f.Write(data); err != nil {
+		if err := copyIn(f); err != nil {
 			f.Close()
 			sc.Remove(tmp)
 			return nil, err
@@ -448,7 +458,7 @@ func writeRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string,
 	if err != nil {
 		return nil, fsErr(tmp, err)
 	}
-	if _, err := f.Write(data); err != nil {
+	if err := copyIn(f); err != nil {
 		f.Close()
 		sc.Remove(tmp)
 		return nil, err
