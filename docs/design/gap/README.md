@@ -35,10 +35,10 @@ dibandingkan; hasilnya [coverage-tambahan.md](coverage-tambahan.md).
 | [Storage dan registry](storage-registry.md) | aws s3, mc, rclone, s3cmd, gsutil, azcopy, lftp, crane, skopeo, regctl, oras, cosign, trivy | 26 | 19 | 81 | 12 | 10 |
 | [Kubernetes, Swarm, Docker](cluster-docker.md) | kubectl, k9s, stern, helm, kustomize, docker, compose, lazydocker, Swarm CLI | 46 | 83 | 43 | 11 | 23 |
 | [VPN, secret, UX platform](vpn-secrets-platform.md) | wg, openvpn, openconnect, tailscale, SSM, cloudflared, op, Vault, sops, gh, aws, kubectl, gcloud | 68 | 40 | 81 | 8 | 10 |
-| [Bidang tambahan](coverage-tambahan.md) | macOS/BSD host, perangkat jaringan, IPMI/Redfish, Proxmox, cloud VM, DNS provider, pm2/supervisor, restic/borg, SMART/RAID/ZFS, fail2ban, redaksi output, siklus inventaris dasar | 6 | 4 | 56 | 0 | 1 |
-| **Total** | | **316** | **258** | **443** | **59** | **69** |
+| [Bidang tambahan](coverage-tambahan.md) | macOS/BSD host, perangkat jaringan, IPMI/Redfish, Proxmox, cloud VM, DNS provider, pm2/supervisor, restic/borg, SMART/RAID/ZFS, fail2ban, redaksi output, siklus inventaris dasar, Terraform/IaC | 6 | 3 | 57 | 1 | 1 |
+| **Total** | | **316** | **257** | **444** | **60** | **69** |
 
-Total 1.076 kemampuan. Setelah verifikasi per baris, 59 baris dikoreksi
+Total 1.077 kemampuan. Setelah verifikasi per baris, 59 baris dikoreksi
 (status, bukti, atau prioritas); tidak ada temuan P1 yang ternyata salah.
 
 Kesimpulan singkat: fondasi komando (inventaris, `exec`, `fs`, keamanan, VPN,
@@ -71,8 +71,9 @@ belum mengikuti. Ini yang paling membingungkan pengguna dan agent.
 Bug yang ditemukan di jalan:
 - `registry ls` (catalog) hanya membaca satu halaman, padahal `Tags` sudah
   mengikuti header `Link`. Daftar repository bisa terpotong tanpa peringatan.
-- `docker logs -f` memakai `runOne`, bukan `followLogs` (`modules.go:323`),
-  jadi output ditahan sampai timeout. `logs --container -f` sudah benar.
+- `docker logs -f` dan `svc logs -f` memakai `runOne`, bukan `followLogs`
+  (`modules.go:323`, `modules.go:158`), jadi output ditahan sampai timeout.
+  `logs --container -f` dan `logs --unit -f` sudah benar.
 - `conn edit --option statement_timeout=10s` (contoh di help `conn edit`)
   diterima tapi tidak dipakai; hanya `cluster` yang membaca opsi conn.
 - `exec -P 10` lewat satu bastion membuka 10 login sekaligus ke bastion
@@ -190,11 +191,12 @@ sendiri mencatatnya "belum ada").
   "Verifikasi per baris", dan status di keduanya sama untuk setiap baris.
   Lima baris yang memakai `|` di dalam backtick (misalnya
   `--type ed25519|rsa`) merusak tabel di GitHub; sudah di-escape.
-- **[coverage-tambahan.md](coverage-tambahan.md) kini punya "Verifikasi per
-  baris"** untuk 66 barisnya. Setiap baris dicek dengan grep di `internal/` dan
-  daftar recipe; hasil grep yang tidak nol dibaca satu per satu (semuanya
-  tidak terkait, kecuali yang memang disebut di baris itu). Satu bukti
-  diperbaiki: `user list` memakai `getent passwd` lewat NSS.
+- **[coverage-tambahan.md](coverage-tambahan.md) dicek ulang oleh pemeriksa
+  independen yang membaca kode langsung** (bukan grep), untuk 67 barisnya.
+  Hasilnya: K2 (SSSD/FreeIPA) turun ke TIDAK ADA, baris N4 (Terraform/IaC,
+  NON-GOAL) ditambahkan karena belum ada baris pembandingnya, dan bukti di 10
+  baris diperbaiki. Dari 27 area "Sudah tercakup", 25 benar-benar punya baris
+  pembanding dan 2 diperbaiki (build image, Terraform/IaC).
 - **Semua 178 perintah komando dipetakan secara ketat** ke baris perbandingan:
   baris yang menyebut perintah itu di dalam backtick **dan** punya tool
   pembanding (lihat [lampiran](#lampiran-peta-178-perintah-ke-baris-perbandingan)).
@@ -203,10 +205,6 @@ sendiri mencatatnya "belum ada").
   `vpn show/rm`, `recipe rm` dan semua alias (area T), lalu `guide install`,
   `secret list` dan `storage download` disebut eksplisit di baris yang sudah
   ada, lengkap dengan tool pembandingnya.
-- **27 area "Sudah tercakup"** di coverage-tambahan.md (65 hal) dicocokkan satu
-  per satu ke baris tabel di bagian laporan yang dirujuk; semuanya ditemukan.
-  Tiga rujukan (Terraform/IaC, GitOps, helm install) sebelumnya menunjuk ke
-  paragraf README dan kini menunjuk ke baris tabelnya.
 
 ## Urutan yang disarankan
 
