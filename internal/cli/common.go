@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +41,23 @@ func applyConventions(c *cobra.Command) {
 	for _, sub := range c.Commands() {
 		applyConventions(sub)
 	}
+}
+
+func dash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
+}
+
+// alias marks c as the per-area spelling of a shared command (`host list`
+// for `list kind:host`). It keeps working and says so in its help, so there
+// is one implementation and one name to learn (docs/design/ux.md, section 11).
+func alias(c *cobra.Command, shared string) *cobra.Command {
+	c.Short = "Same as `komando " + shared + "`"
+	c.Long = ""
+	c.Example = ""
+	return c
 }
 
 // aliasFlag keeps an old flag name working after a rename: old is hidden,
@@ -248,7 +267,22 @@ func protectedConn(st *store.State, c *store.Conn) bool {
 			return true
 		}
 	}
+	// an SFTP conn is an SSH server: protected when a protected host is it
+	if h := sftpHost(c); h != nil && protectedHost(st, h) {
+		return true
+	}
 	return false
+}
+
+// sftpHost is the SSH host an sftp:// conn points at, or nil for other kinds.
+func sftpHost(c *store.Conn) *store.Host {
+	t, err := driver.Parse(c.URL)
+	if err != nil || t.Kind.Name != "sftp" {
+		return nil
+	}
+	hostname, port, _ := net.SplitHostPort(t.Address)
+	p, _ := strconv.Atoi(port)
+	return &store.Host{Name: c.Name, Address: hostname, Port: p, User: t.User, PasswordRef: c.PasswordRef, Via: c.Via}
 }
 
 // interactive is true when a human sits at a terminal: stdin and stderr are

@@ -171,88 +171,119 @@ func render(tmpl string, defaults map[string]string, vars map[string]string) (st
 	return res, nil
 }
 
-func opsCmd() *cobra.Command {
+// --------------------------------------------------------------- recipe ---
+
+// A recipe is a saved command with {{blanks}}. The built-in ones (health,
+// disk, certs, ...) and the ones people save live in one list, under one
+// command. `ops` and `snippet` are other names for it (docs/design/ux.md,
+// section 11).
+
+type recipeRow struct {
+	Name     string            `json:"name"`
+	Builtin  bool              `json:"builtin"`
+	Category string            `json:"category,omitempty"`
+	Desc     string            `json:"description,omitempty"`
+	Command  string            `json:"command"`
+	Sudo     bool              `json:"sudo,omitempty"`
+	ReadOnly bool              `json:"read_only"`
+	Params   map[string]string `json:"params,omitempty"`
+}
+
+func builtinRecipe(name string) *recipe {
+	for i := range recipes {
+		if recipes[i].Name == name {
+			return &recipes[i]
+		}
+	}
+	return nil
+}
+
+// findRecipe looks up a saved recipe first, then a built-in one.
+func findRecipe(st *store.State, name string) (recipeRow, bool) {
+	if s, ok := st.Snippets[name]; ok {
+		return recipeRow{Name: s.Name, Desc: s.Description, Command: s.Command, Sudo: s.Sudo, ReadOnly: s.ReadOnly}, true
+	}
+	if r := builtinRecipe(name); r != nil {
+		return recipeRow{Name: r.Name, Builtin: true, Category: r.Category, Desc: r.Desc, Command: r.Cmd, Sudo: r.Sudo, ReadOnly: !r.Mutating, Params: r.Params}, true
+	}
+	return recipeRow{}, false
+}
+
+func recipeCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:     "ops",
-		Aliases: []string{"recipe", "diag"},
-		Short:   "Built-in DevOps recipe library (health, disk, ports, oom, certs, updates, ...)",
+		Use:     "recipe",
+		Aliases: []string{"recipes", "ops", "snippet", "snippets", "diag"},
+		Short:   "Ready-made and saved commands: health, disk, certs, ... plus your own ({{blank}} to fill in)",
 	}
-	list := &cobra.Command{
-		Use:   "list",
-		Short: "List recipes (filter with --category)",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			cat, _ := cmd.Flags().GetString("category")
-			var rs []recipe
-			for _, r := range recipes {
-				if cat == "" || r.Category == cat {
-					rs = append(rs, r)
-				}
-			}
-			out.P.Print("ops.list", map[string]any{"count": len(rs), "recipes": rs}, nil)
-			return nil
-		},
-	}
-	list.Flags().String("category", "", "filter by category")
-	var params []string
-	var noSudo bool
-	run := &cobra.Command{
-		Use:     "run RECIPE TARGET",
-		Short:   "Run a recipe on hosts",
-		Example: "  komando ops run health @web\n  komando ops run cert-expiry web1 --var name=example.com\n  komando ops run big-dirs db1 --var path=/var --var depth=1",
-		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			var r *recipe
-			for i := range recipes {
-				if recipes[i].Name == args[0] {
-					r = &recipes[i]
-				}
-			}
-			if r == nil {
-				return out.NotFound("recipe", args[0]).WithHint("run `komando ops list`")
-			}
-			vars, err := parseKV(params)
-			if err != nil {
-				return err
-			}
-			command, err := render(r.Cmd, r.Params, vars)
-			if err != nil {
-				return err
-			}
-			return runFleet(cmd.Context(), "ops."+r.Name, args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo}, r.Mutating)
-		},
-	}
-	run.Flags().StringArrayVar(&params, "var", nil, "recipe parameter NAME=VALUE (repeatable)")
-	aliasFlag(run.Flags(), "param", "var")
-	run.Flags().BoolVar(&noSudo, "no-sudo", false, "do not elevate even if the recipe prefers sudo")
-	c.AddCommand(list, run)
+	c.AddCommand(recipeListCmd(), recipeAddCmd(), recipeRmCmd(), recipeRunCmd())
 	return c
 }
 
-// -------------------------------------------------------------- snippets ---
-
-func snippetCmd() *cobra.Command {
+func recipeListCmd() *cobra.Command {
+	var category string
 	c := &cobra.Command{
-		Use:     "snippet",
-		Aliases: []string{"snippets", "snip"},
-		Short:   "Saved, parameterised commands ({{var}} or {{var=default}}) shared by humans and agents",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List built-in and saved recipes (filter with --category)",
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			st, err := loadState()
+			if err != nil {
+				return err
+			}
+			rows := []recipeRow{}
+			for _, s := range st.Snippets {
+				if r, _ := findRecipe(st, s.Name); category == "" || category == "saved" {
+					rows = append(rows, r)
+				}
+			}
+			for _, b := range recipes {
+				if r, _ := findRecipe(st, b.Name); r.Builtin && (category == "" || category == b.Category) {
+					rows = append(rows, r)
+				}
+			}
+			sort.SliceStable(rows, func(i, j int) bool {
+				if rows[i].Builtin != rows[j].Builtin {
+					return !rows[i].Builtin // saved first
+				}
+				return rows[i].Name < rows[j].Name
+			})
+			out.P.Print("recipe.list", map[string]any{"count": len(rows), "recipes": rows}, nil)
+			return nil
+		},
 	}
+	c.Flags().StringVar(&category, "category", "", "only this category (or \"saved\" for your own)")
+	return c
+}
+
+func recipeAddCmd() *cobra.Command {
 	var desc string
 	var sudo, readOnly, mutating, overwrite bool
-	add := &cobra.Command{
+	c := &cobra.Command{
 		Use:   "add NAME COMMAND",
-		Short: "Save a snippet",
-		Example: `  komando snippet add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --sudo
-  komando snippet add disk-usage 'df -h {{path=/}}' --read-only`,
+		Short: "Save a recipe; {{name}} is a blank, {{name=default}} has a default",
+		Example: `  komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --sudo
+  komando recipe add disk-usage 'df -h {{path=/}}' --read-only`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := validName("snippet", args[0]); err != nil {
+			if err := validName("recipe", args[0]); err != nil {
 				return err
+			}
+			if builtinRecipe(args[0]) != nil {
+				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "pick another name; see `komando recipe list`", "%q is a built-in recipe", args[0])
 			}
 			s := &store.Snippet{Name: args[0], Command: args[1], Description: desc, Sudo: sudo, ReadOnly: readOnly && !mutating, CreatedAt: time.Now().UTC()}
 			err := store.Update(func(st *store.State) error {
-				if _, ok := st.Snippets[s.Name]; ok && !overwrite {
-					return out.Errf(out.ExitConflict, "SNIPPET_EXISTS", "pass --overwrite to replace it", "snippet %q exists", s.Name)
+				old, ok := st.Snippets[s.Name]
+				if ok && !overwrite {
+					return out.Errf(out.ExitConflict, "RECIPE_EXISTS", "pass --overwrite to replace it", "recipe %q exists", s.Name)
+				}
+				// marking someone's recipe read-only lets it skip --yes on
+				// protected servers, so replacing one that way needs --yes
+				if ok && !old.ReadOnly && s.ReadOnly {
+					if err := guardSafety("marking the existing recipe " + s.Name + " read-only"); err != nil {
+						return err
+					}
 				}
 				st.Snippets[s.Name] = s
 				return nil
@@ -260,44 +291,33 @@ func snippetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("snippet.add", s, nil)
+			audit(nil, "recipe.add", nil, s.Command, true, map[string]any{"recipe": s.Name, "read_only": s.ReadOnly})
+			out.P.Print("recipe.add", s, nil)
 			return nil
 		},
 	}
-	add.Flags().StringVar(&desc, "desc", "", "description")
-	add.Flags().BoolVar(&sudo, "sudo", false, "run with sudo")
-	add.Flags().BoolVar(&readOnly, "read-only", false, "the snippet only reads, so protected hosts don't need --yes")
-	add.Flags().BoolVar(&mutating, "mutating", false, "")
-	add.Flags().MarkDeprecated("mutating", "snippets count as changes unless saved with --read-only")
-	add.Flags().BoolVar(&overwrite, "overwrite", false, "replace a snippet with the same name")
-	aliasFlag(add.Flags(), "force", "overwrite")
+	c.Flags().StringVar(&desc, "desc", "", "description")
+	c.Flags().BoolVar(&sudo, "sudo", false, "run with sudo")
+	c.Flags().BoolVar(&readOnly, "read-only", false, "the recipe only reads, so protected servers don't need --yes")
+	c.Flags().BoolVar(&mutating, "mutating", false, "")
+	_ = c.Flags().MarkDeprecated("mutating", "recipes count as changes unless saved with --read-only")
+	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace a recipe with the same name")
+	aliasFlag(c.Flags(), "force", "overwrite")
+	return c
+}
 
-	list := &cobra.Command{
-		Use:   "list",
-		Short: "List snippets",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			var ss []*store.Snippet
-			for _, s := range st.Snippets {
-				ss = append(ss, s)
-			}
-			sort.Slice(ss, func(i, j int) bool { return ss[i].Name < ss[j].Name })
-			out.P.Print("snippet.list", map[string]any{"count": len(ss), "snippets": ss}, nil)
-			return nil
-		},
-	}
-	rm := &cobra.Command{
+func recipeRmCmd() *cobra.Command {
+	return &cobra.Command{
 		Use:   "rm NAME",
-		Short: "Delete a snippet",
+		Short: "Delete a saved recipe",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if builtinRecipe(args[0]) != nil {
+				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "built-in recipes cannot be removed", "%q is a built-in recipe", args[0])
+			}
 			err := store.Update(func(st *store.State) error {
 				if _, ok := st.Snippets[args[0]]; !ok {
-					return out.NotFound("snippet", args[0])
+					return out.NotFound("recipe", args[0])
 				}
 				delete(st.Snippets, args[0])
 				return nil
@@ -305,37 +325,42 @@ func snippetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("snippet.rm", map[string]any{"removed": args[0]}, nil)
+			out.P.Print("recipe.rm", map[string]any{"removed": args[0]}, nil)
 			return nil
 		},
 	}
+}
+
+func recipeRunCmd() *cobra.Command {
 	var vars []string
-	run := &cobra.Command{
+	var noSudo bool
+	c := &cobra.Command{
 		Use:     "run NAME TARGET",
-		Short:   "Run a snippet on hosts",
-		Example: "  komando snippet run deploy-app @web --var app=shop",
+		Short:   "Run a recipe on servers",
+		Example: "  komando recipe run health @web\n  komando recipe run cert-expiry web1 --var name=example.com\n  komando recipe run deploy-app @web --var app=shop",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			s, ok := st.Snippets[args[0]]
+			r, ok := findRecipe(st, args[0])
 			if !ok {
-				return out.NotFound("snippet", args[0])
+				return out.NotFound("recipe", args[0])
 			}
 			kv, err := parseKV(vars)
 			if err != nil {
 				return err
 			}
-			command, err := render(s.Command, nil, kv)
+			command, err := render(r.Command, r.Params, kv)
 			if err != nil {
 				return err
 			}
-			return runFleet(cmd.Context(), "snippet."+s.Name, args[1], command, nil, execOpts{sudo: s.Sudo}, !s.ReadOnly)
+			return runFleet(cmd.Context(), "recipe."+r.Name, args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo}, !r.ReadOnly)
 		},
 	}
-	run.Flags().StringArrayVar(&vars, "var", nil, "template variable NAME=VALUE (repeatable)")
-	c.AddCommand(add, list, rm, run)
+	c.Flags().StringArrayVar(&vars, "var", nil, "fill in a blank: NAME=VALUE (repeatable)")
+	aliasFlag(c.Flags(), "param", "var")
+	c.Flags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo even if the recipe asks for it")
 	return c
 }

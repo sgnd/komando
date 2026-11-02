@@ -9,10 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -29,7 +29,7 @@ func validName(kind, n string) error {
 	if !nameRe.MatchString(n) {
 		return out.Usage("invalid %s name %q (letters, digits, . _ -; max 63)", kind, n)
 	}
-	if (kind == "host" || kind == "conn") && strings.EqualFold(n, "all") {
+	if (kind == "host" || kind == "conn" || kind == "vpn") && strings.EqualFold(n, "all") {
 		return out.Usage("%q cannot be a %s name: as a target it means everything", n, kind)
 	}
 	return nil
@@ -50,9 +50,10 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.user, "user", "", "login user")
 	fl.StringVar(&f.key, "key", "", "keychain key name (see `komando key`)")
 	fl.StringVar(&f.identity, "identity", "", "path to a private key file")
-	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH")
-	fl.StringVar(&f.sudoRef, "sudo-ref", "", "sudo password reference: secret:NAME | env:VAR | file:PATH")
-	fl.StringVar(&f.jump, "jump", "", "jump host name(s) or user@host:port, comma-separated chain")
+	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
+	fl.StringVar(&f.sudoRef, "sudo-ref", "", "sudo password reference: secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
+	fl.StringVar(&f.jump, "via", "", "reach it through these host(s) (bastions), comma-separated chain")
+	aliasFlag(fl, "jump", "via")
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (shown to agents in host show)")
 	fl.BoolVar(&f.protected, "protected", false, "require --yes for mutating actions (production safety)")
 	if edit {
@@ -62,7 +63,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove tag(s)")
 		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (empty value removes)")
 		fl.StringSliceVar(&f.env, "env", nil, "set env KEY=VALUE exported before commands (empty value removes)")
-		fl.StringSliceVar(&f.unset, "unset", nil, "clear fields: user,key,identity,password-ref,sudo-ref,jump,notes,port,protected")
+		fl.StringSliceVar(&f.unset, "unset", nil, "clear fields: user,key,identity,password-ref,sudo-ref,via,notes,port,protected")
 	} else {
 		fl.StringSliceVarP(&f.groups, "group", "g", nil, "group(s)")
 		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tag(s)")
@@ -73,7 +74,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 
 func hostCmd() *cobra.Command {
 	c := &cobra.Command{Use: "host", Aliases: []string{"hosts"}, Short: "Manage the server inventory (add, edit, import ~/.ssh/config, test, trust)"}
-	c.AddCommand(hostAddCmd(), hostEditCmd(), hostListCmd(), hostShowCmd(), hostRmCmd(), hostImportCmd(), hostExportCmd(), hostTestCmd(), hostTrustCmd(), hostSSHArgsCmd())
+	c.AddCommand(hostAddCmd(), hostEditCmd(), alias(listCmdFor("host"), "list kind:host"), hostShowCmd(), hostRmCmd(), hostImportCmd(), hostExportCmd(), alias(testCmdFor("host"), "test"), hostTrustCmd(), hostSSHArgsCmd())
 	return c
 }
 
@@ -84,7 +85,7 @@ func hostAddCmd() *cobra.Command {
 		Use:   "add NAME [user@address[:port]]",
 		Short: "Add a host",
 		Example: `  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
-  komando host add db1 --address db.internal --user root --jump bastion --protected`,
+  komando host add db1 --address db.internal --user root --via bastion --protected`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -92,7 +93,7 @@ func hostAddCmd() *cobra.Command {
 				return err
 			}
 			h := &store.Host{Name: name, Address: f.address, Port: f.port, User: f.user, Key: f.key, Identity: f.identity,
-				PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Jump: f.jump, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
+				PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
 				Protected: f.protected, Notes: f.notes}
 			if len(args) == 2 {
 				a, err := sshx.ParseAdhoc(args[1])
@@ -179,7 +180,7 @@ func hostEditCmd() *cobra.Command {
 				set("identity", &h.Identity, f.identity)
 				set("password-ref", &h.PasswordRef, f.passwordRef)
 				set("sudo-ref", &h.SudoRef, f.sudoRef)
-				set("jump", &h.Jump, f.jump)
+				set("via", &h.Via, f.jump)
 				set("notes", &h.Notes, f.notes)
 				if fl.Changed("port") {
 					h.Port = f.port
@@ -212,8 +213,8 @@ func hostEditCmd() *cobra.Command {
 						h.PasswordRef = ""
 					case "sudo-ref":
 						h.SudoRef = ""
-					case "jump":
-						h.Jump = ""
+					case "via", "jump":
+						h.Via = ""
 					case "notes":
 						h.Notes = ""
 					case "port":
@@ -240,21 +241,11 @@ func hostEditCmd() *cobra.Command {
 					old := h.Name
 					h.Name = rename
 					s.Hosts[rename] = h
-					for _, o := range s.Hosts { // keep jump references valid
-						if o.Jump != "" {
-							parts := strings.Split(o.Jump, ",")
-							for i, p := range parts {
-								if strings.TrimSpace(p) == old {
-									parts[i] = rename
-								}
-							}
-							o.Jump = strings.Join(parts, ",")
-						}
+					for _, o := range s.Hosts { // keep --via references valid
+						o.Via = renameStep(o.Via, old, rename)
 					}
 					for _, c := range s.Conns {
-						if c.Via == old {
-							c.Via = rename
-						}
+						c.Via = renameStep(c.Via, old, rename)
 					}
 				}
 				h.UpdatedAt = time.Now().UTC()
@@ -298,72 +289,6 @@ func applyKV(m *map[string]string, pairs []string) error {
 	return nil
 }
 
-type hostRow struct {
-	Name      string   `json:"name"`
-	Address   string   `json:"address"`
-	Port      int      `json:"port"`
-	User      string   `json:"user,omitempty"`
-	Groups    []string `json:"groups,omitempty"`
-	Tags      []string `json:"tags,omitempty"`
-	Jump      string   `json:"jump,omitempty"`
-	Protected bool     `json:"protected,omitempty"`
-}
-
-type hostList struct {
-	Count int       `json:"count"`
-	Hosts []hostRow `json:"hosts"`
-}
-
-func (l hostList) Text() string {
-	var sb strings.Builder
-	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAME\tADDRESS\tUSER\tGROUPS\tTAGS\tJUMP\tPROTECTED")
-	for _, h := range l.Hosts {
-		fmt.Fprintf(tw, "%s\t%s:%d\t%s\t%s\t%s\t%s\t%v\n", h.Name, h.Address, h.Port, dash(h.User), dash(strings.Join(h.Groups, ",")), dash(strings.Join(h.Tags, ",")), dash(h.Jump), h.Protected)
-	}
-	tw.Flush()
-	return sb.String()
-}
-
-func dash(s string) string {
-	if s == "" {
-		return "-"
-	}
-	return s
-}
-
-func hostListCmd() *cobra.Command {
-	var target string
-	c := &cobra.Command{
-		Use:     "list",
-		Aliases: []string{"ls"},
-		Short:   "List hosts (optionally filtered by a target selector)",
-		Example: "  komando host list --target @web,tag:prod",
-		Args:    cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			hosts := st.SortedHosts()
-			if target != "" {
-				if hosts, err = resolveTargets(st, target); err != nil {
-					return err
-				}
-			}
-			l := hostList{Hosts: []hostRow{}}
-			for _, h := range hosts {
-				l.Hosts = append(l.Hosts, hostRow{h.Name, h.Address, h.EffectivePort(), h.User, h.Groups, h.Tags, h.Jump, h.Protected})
-			}
-			l.Count = len(l.Hosts)
-			out.P.Print("host.list", l, nil)
-			return nil
-		},
-	}
-	c.Flags().StringVar(&target, "target", "", "selector filter (@group, tag:x, glob, ...)")
-	return c
-}
-
 func hostShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show NAME",
@@ -399,8 +324,15 @@ func hostRmCmd() *cobra.Command {
 					if s.Hosts[n].Protected {
 						prot = append(prot, n)
 					}
+					for _, o := range s.SortedHosts() {
+						if o.Name != n && slices.Contains(viaChain(o.Via), n) {
+							return out.Errf(out.ExitConflict, "HOST_IN_USE",
+								fmt.Sprintf("change it first: `komando host edit %s --via OTHER` (or --unset via)", o.Name),
+								"host %q is on the --via path of host %q", n, o.Name)
+						}
+					}
 					for _, c := range s.SortedConns() {
-						if c.Via == n {
+						if slices.Contains(viaChain(c.Via), n) {
 							return out.Errf(out.ExitConflict, "HOST_IN_USE",
 								fmt.Sprintf("change it first: `komando conn edit %s --via OTHER` (or --unset via)", c.Name),
 								"host %q is the --via host of conn %q", n, c.Name)
@@ -433,7 +365,7 @@ func hostImportCmd() *cobra.Command {
 	var overwrite bool
 	c := &cobra.Command{
 		Use:   "import",
-		Short: "Import hosts from ~/.ssh/config or a komando JSON export",
+		Short: "Same as `komando import ssh-config` (hosts only)",
 		Example: `  komando host import --ssh-config ~/.ssh/config --group imported
   komando host import --json fleet.json --overwrite`,
 		Args: cobra.NoArgs,
@@ -609,7 +541,7 @@ func parseSSHConfig(path string) ([]*store.Host, error) {
 			if !nameRe.MatchString(name) {
 				continue
 			}
-			h := &store.Host{Name: name, Address: opts["hostname"], User: opts["user"], Jump: opts["proxyjump"]}
+			h := &store.Host{Name: name, Address: opts["hostname"], User: opts["user"], Via: opts["proxyjump"]}
 			if h.Address == "" {
 				h.Address = pat
 			}
@@ -619,8 +551,8 @@ func parseSSHConfig(path string) ([]*store.Host, error) {
 			if id := opts["identityfile"]; id != "" {
 				h.Identity = expandHome(id)
 			}
-			if h.Jump == "none" {
-				h.Jump = ""
+			if h.Via == "none" {
+				h.Via = ""
 			}
 			hosts = append(hosts, h)
 		}
@@ -662,7 +594,7 @@ func hostExportCmd() *cobra.Command {
 	var target string
 	c := &cobra.Command{
 		Use:   "export",
-		Short: "Export hosts as JSON (re-importable with `host import --json`)",
+		Short: "Hosts only, as JSON for `host import --json` (`komando export` saves everything)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			st, err := loadState()
@@ -696,28 +628,6 @@ type testResult struct {
 	Error         *out.Error `json:"error,omitempty"`
 }
 
-func hostTestCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:     "test TARGET",
-		Aliases: []string{"ping"},
-		Short:   "Check SSH reachability + auth for one or many hosts",
-		Example: "  komando host test all",
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			hosts, err := resolveTargets(st, args[0])
-			if err != nil {
-				return err
-			}
-			return printTestResults(fanout(cmd.Context(), st, hosts, testHost))
-		},
-	}
-	return c
-}
-
 // testHost logs in and checks who we are and whether sudo needs a password.
 func testHost(ctx context.Context, c *sshx.Client) (any, error) {
 	t0 := time.Now()
@@ -735,37 +645,12 @@ func testHost(ctx context.Context, c *sshx.Client) (any, error) {
 	return r, nil
 }
 
-func printTestResults(res []outcome) error {
-	data := struct {
-		Results []testResult `json:"results"`
-		Summary fleetSummary `json:"summary"`
-	}{}
-	worst := 0
-	for _, o := range res {
-		var r testResult
-		if o.Err != nil {
-			e := toErr(o.Err)
-			r = testResult{Host: o.Host.Name, Error: e}
-			data.Summary.Failed++
-			data.Summary.FailedHosts = append(data.Summary.FailedHosts, o.Host.Name)
-			worst = worse(worst, e.Exit)
-		} else {
-			r = o.Value.(testResult)
-			r.Host = o.Host.Name
-			data.Summary.OK++
-		}
-		data.Results = append(data.Results, r)
-	}
-	data.Summary.Total = len(res)
-	return finish("host.test", data, data.Summary, worst)
-}
-
 func hostTrustCmd() *cobra.Command {
 	var reset bool
 	c := &cobra.Command{
 		Use:   "trust NAME",
 		Short: "Pin (or re-pin with --reset) a host's SSH key in komando's known_hosts",
-		Long:  "Fetches the host key directly (not through jump hosts) and stores it. Use --reset after a legitimate server rebuild.",
+		Long:  "Fetches the host key directly (not through --via hosts) and stores it. Use --reset after a legitimate server rebuild.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -784,7 +669,7 @@ func hostTrustCmd() *cobra.Command {
 				}
 			}
 			var key ssh.PublicKey
-			if h.Jump == "" {
+			if h.Via == "" {
 				key, err = sshx.ScanHostKey(cmd.Context(), addr, sshOpts(st).ConnectTimeout)
 				if err != nil {
 					return out.Errf(out.ExitConnect, "KEYSCAN_FAILED", "", "cannot fetch host key from %s: %v", addr, err)
@@ -841,9 +726,9 @@ func hostSSHArgsCmd() *cobra.Command {
 			} else if k, ok := st.Keys[h.Key]; ok {
 				parts = append(parts, "-i", k.Path)
 			}
-			if h.Jump != "" {
+			if h.Via != "" {
 				var js []string
-				for _, j := range strings.Split(h.Jump, ",") {
+				for _, j := range strings.Split(h.Via, ",") {
 					if jh, ok := st.Hosts[strings.TrimSpace(j)]; ok {
 						s := jh.Address
 						if jh.User != "" {
@@ -905,6 +790,9 @@ func groupCmd() *cobra.Command {
 			for _, c := range st.SortedConns() {
 				add(c.Name, c.Groups, c.Tags)
 			}
+			for _, v := range st.SortedVpns() {
+				add(v.Name, v.Groups, v.Tags)
+			}
 			for _, m := range []map[string][]string{groups, tags} {
 				for k := range m {
 					sort.Strings(m[k])
@@ -942,6 +830,10 @@ func groupCmd() *cobra.Command {
 						c.Groups = change(c.Groups)
 						conns = append(conns, c.Name)
 					}
+					for _, v := range sel.Vpns {
+						v.Groups = change(v.Groups)
+						conns = append(conns, v.Name)
+					}
 					return nil
 				})
 				if err != nil {
@@ -954,6 +846,17 @@ func groupCmd() *cobra.Command {
 	}
 	c.AddCommand(member("add", true), member("rm", false))
 	return c
+}
+
+// renameStep replaces a renamed host in a --via chain.
+func renameStep(via, old, now string) string {
+	steps := viaChain(via)
+	for i, s := range steps {
+		if s == old {
+			steps[i] = now
+		}
+	}
+	return strings.Join(steps, ",")
 }
 
 func dedupe(in []string) []string {

@@ -62,7 +62,14 @@ type Envelope struct {
 	Meta    Meta   `json:"meta"`
 }
 
+// Contract is the version of komando's output contract: the envelope,
+// field names, error codes and exit codes. Within one contract, fields
+// and codes are only added, never renamed or removed; a breaking change
+// raises it (docs/design/ux.md, section 13).
+const Contract = 1
+
 type Meta struct {
+	Contract   int    `json:"contract"`
 	Version    string `json:"version"`
 	DurationMS int64  `json:"duration_ms"`
 	DryRun     bool   `json:"dry_run,omitempty"`
@@ -94,7 +101,7 @@ var P = &Printer{Format: "json", W: os.Stdout, Start: time.Now()}
 type Texter interface{ Text() string }
 
 func (p *Printer) meta() Meta {
-	return Meta{Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped}
+	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped}
 }
 
 // Skip records a target the command leaves out. It is reported in

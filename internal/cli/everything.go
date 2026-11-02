@@ -21,7 +21,7 @@ type targetRow struct {
 	Name      string   `json:"name"`
 	Kind      string   `json:"kind"` // host, or the conn kind
 	Where     string   `json:"where"`
-	Via       string   `json:"via,omitempty"` // jump host or --via host
+	Via       string   `json:"via,omitempty"` // the --via path (bastions)
 	Groups    []string `json:"groups,omitempty"`
 	Tags      []string `json:"tags,omitempty"`
 	Protected bool     `json:"protected"`
@@ -44,11 +44,28 @@ func (l targetList) Text() string {
 	return sb.String()
 }
 
-func listCmd() *cobra.Command {
-	return &cobra.Command{
+// only narrows list and test to one type: "host", "conn", or "" for both.
+// `host list`, `conn test` and the like are these commands with only set.
+func keepOnly(sel selection, only string) selection {
+	switch only {
+	case "host":
+		sel.Conns, sel.Vpns = nil, nil
+	case "conn":
+		sel.Hosts, sel.Vpns = nil, nil
+	case "vpn":
+		sel.Hosts, sel.Conns = nil, nil
+	}
+	return sel
+}
+
+func listCmd() *cobra.Command { return listCmdFor("") }
+
+func listCmdFor(only string) *cobra.Command {
+	var target string
+	c := &cobra.Command{
 		Use:     "list [TARGET]",
 		Aliases: []string{"ls"},
-		Short:   "List servers and conns together (everything, or what TARGET picks)",
+		Short:   "List servers, conns and VPNs together (everything, or what TARGET picks)",
 		Example: "  komando list\n  komando list @prod\n  komando list kind:db",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -56,16 +73,20 @@ func listCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			sel := selection{Hosts: st.SortedHosts(), Conns: st.SortedConns()}
 			if len(args) == 1 {
-				if sel, err = resolveSelection(st, args[0]); err != nil {
+				target = args[0]
+			}
+			sel := selection{Hosts: st.SortedHosts(), Conns: st.SortedConns(), Vpns: st.SortedVpns()}
+			if target != "" {
+				if sel, err = resolveSelection(st, target); err != nil {
 					return err
 				}
 			}
+			sel = keepOnly(sel, only)
 			l := targetList{Targets: []targetRow{}}
 			for _, h := range sel.Hosts {
 				l.Targets = append(l.Targets, targetRow{Name: h.Name, Kind: "host",
-					Where: fmt.Sprintf("%s:%d", h.Address, h.EffectivePort()), Via: h.Jump,
+					Where: fmt.Sprintf("%s:%d", h.Address, h.EffectivePort()), Via: h.Via,
 					Groups: h.Groups, Tags: h.Tags, Protected: h.Protected})
 			}
 			for _, c := range sel.Conns {
@@ -76,11 +97,18 @@ func listCmd() *cobra.Command {
 				l.Targets = append(l.Targets, targetRow{Name: c.Name, Kind: c.Kind, Where: where, Via: c.Via,
 					Groups: c.Groups, Tags: c.Tags, Protected: c.Protected})
 			}
+			for _, v := range sel.Vpns {
+				l.Targets = append(l.Targets, targetRow{Name: v.Name, Kind: "vpn:" + v.Kind, Where: vpnWhere(v),
+					Groups: v.Groups, Tags: v.Tags})
+			}
 			l.Count = len(l.Targets)
 			out.P.Print("list", l, nil)
 			return nil
 		},
 	}
+	c.Flags().StringVar(&target, "target", "", "same as the TARGET argument")
+	_ = c.Flags().MarkHidden("target")
+	return c
 }
 
 type targetTest struct {
@@ -120,11 +148,13 @@ func (d testData) Text() string {
 	return sb.String()
 }
 
-func testCmd() *cobra.Command {
+func testCmd() *cobra.Command { return testCmdFor("") }
+
+func testCmdFor(only string) *cobra.Command {
 	return &cobra.Command{
 		Use:     "test TARGET",
 		Aliases: []string{"ping"},
-		Short:   "Check that servers and conns can be reached and logged in to",
+		Short:   "Check that servers, conns and VPNs can be reached and logged in to",
 		Example: "  komando test @prod\n  komando test all",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -135,6 +165,10 @@ func testCmd() *cobra.Command {
 			sel, err := resolveSelection(st, args[0])
 			if err != nil {
 				return err
+			}
+			if sel = keepOnly(sel, only); len(sel.Hosts)+len(sel.Conns)+len(sel.Vpns) == 0 {
+				return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "use `komando test "+args[0]+"` to test everything it picks",
+					"target %q picked no %ss", args[0], only)
 			}
 			var res []targetTest
 			for _, o := range fanout(cmd.Context(), st, sel.Hosts, testHost) {
@@ -149,6 +183,9 @@ func testCmd() *cobra.Command {
 				res = append(res, r)
 			}
 			res = append(res, testConns(cmd.Context(), st, sel.Conns)...)
+			for _, v := range sel.Vpns {
+				res = append(res, testVpn(cmd.Context(), st, v))
+			}
 
 			data := testData{Results: res}
 			worst := 0

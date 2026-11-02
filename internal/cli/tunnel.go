@@ -20,9 +20,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // Tunnels run as detached background komando processes so that an agent's
@@ -83,11 +86,35 @@ func parseTunnel(kind, spec string) (tunnelSpec, error) {
 
 func tunnelStartCmd() *cobra.Command {
 	var l, r, d string
+	var port int
 	c := &cobra.Command{
 		Use:   "start TARGET (-L spec | -R spec | -D spec)",
 		Short: "Start a background tunnel; returns its ID and bound address",
-		Args:  cobra.ExactArgs(1),
+		Long: `With a conn name and no -L/-R/-D, the tunnel leads to that conn through its
+--via path: point your database app or psql at the local address it prints.`,
+		Example: `  komando tunnel start app-db               # localhost:<free port> -> app-db
+  komando tunnel start app-db --port 15432
+  komando tunnel start web1 -L 8080:localhost:80
+  komando tunnel start bastion -D 1080       # SOCKS proxy`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			conn, via := "", ""
+			if l == "" && r == "" && d == "" {
+				st, err := loadState()
+				if err != nil {
+					return err
+				}
+				c, err := tunnelConn(st, args[0])
+				if err != nil {
+					return err
+				}
+				t, err := driver.Parse(c.URL)
+				if err != nil {
+					return err
+				}
+				conn, via = c.Name, c.Via
+				l = fmt.Sprintf("127.0.0.1:%d:%s", port, t.Address)
+			}
 			n := 0
 			kind, spec := "", ""
 			for k, v := range map[string]string{"local": l, "remote": r, "dynamic": d} {
@@ -106,12 +133,28 @@ func tunnelStartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			h, err := singleHost(st, args[0])
+			if v, ok := st.Vpns[args[0]]; ok && via == "" {
+				via = v.Name // a tunnel into a VPN: -L or -D through it
+			}
+			var h *store.Host
+			var vpn *store.Vpn
+			if via != "" {
+				h, vpn, err = resolveVia(st, via)
+			} else {
+				h, err = singleHost(st, args[0])
+			}
 			if err != nil {
 				return err
 			}
+			if vpn != nil && kind == "remote" {
+				return out.Usage("-R needs a server at the end of the path; a VPN cannot listen for you")
+			}
+			hostName := via
+			if h != nil {
+				hostName = h.Name
+			}
 			if g.dryRun {
-				out.P.Print("tunnel.start", map[string]any{"host": h.Name, "kind": kind, "spec": spec}, nil)
+				out.P.Print("tunnel.start", map[string]any{"host": hostName, "via": via, "conn": conn, "kind": kind, "spec": spec}, nil)
 				return nil
 			}
 			id := newID("t")
@@ -119,7 +162,7 @@ func tunnelStartCmd() *cobra.Command {
 			if err := os.MkdirAll(store.Path("tunnels"), 0o700); err != nil {
 				return err
 			}
-			t := &store.Tunnel{ID: id, Host: h.Name, Kind: kind, Spec: spec, LogFile: logPath, StartedAt: time.Now().UTC()}
+			t := &store.Tunnel{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, LogFile: logPath, StartedAt: time.Now().UTC()}
 			if err := store.Update(func(s *store.State) error { s.Tunnels[id] = t; return nil }); err != nil {
 				return err
 			}
@@ -141,7 +184,7 @@ func tunnelStartCmd() *cobra.Command {
 			p := exec.Command(self, pargs...)
 			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
 			p.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-			p.Env = os.Environ()
+			p.Env = vault.SelfEnv()
 			if err := p.Start(); err != nil {
 				return err
 			}
@@ -161,8 +204,8 @@ func tunnelStartCmd() *cobra.Command {
 				s := string(b)
 				if i := strings.Index(s, "READY "); i >= 0 {
 					addr := strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0])
-					audit(st, "tunnel.start", []string{h.Name}, "", true, map[string]any{"kind": kind, "spec": spec, "id": id})
-					out.P.Print("tunnel.start", map[string]any{"id": id, "host": h.Name, "kind": kind, "spec": spec, "listen": addr, "pid": pid, "log": logPath}, nil)
+					audit(st, "tunnel.start", []string{hostName}, "", true, map[string]any{"kind": kind, "spec": spec, "id": id})
+					out.P.Print("tunnel.start", map[string]any{"id": id, "host": hostName, "via": via, "conn": conn, "kind": kind, "spec": spec, "listen": addr, "pid": pid, "log": logPath}, nil)
 					return nil
 				}
 				if i := strings.Index(s, "ERROR "); i >= 0 {
@@ -171,7 +214,7 @@ func tunnelStartCmd() *cobra.Command {
 				}
 				time.Sleep(150 * time.Millisecond)
 			}
-			_ = syscall.Kill(pid, syscall.SIGTERM)
+			_ = netx.Terminate(pid)
 			_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
 			return out.Errf(out.ExitTimeout, "TUNNEL_TIMEOUT", "see log "+logPath, "tunnel did not become ready")
 		},
@@ -179,7 +222,33 @@ func tunnelStartCmd() *cobra.Command {
 	c.Flags().StringVarP(&l, "local", "L", "", "local forward [bind:]LPORT:RHOST:RPORT")
 	c.Flags().StringVarP(&r, "remote", "R", "", "remote forward [rbind:]RPORT:LHOST:LPORT")
 	c.Flags().StringVarP(&d, "dynamic", "D", "", "SOCKS5 proxy [bind:]PORT")
+	c.Flags().IntVar(&port, "port", 0, "with a conn: the local port (default: a free one)")
 	return c
+}
+
+// tunnelConn finds the conn a tunnel leads to. Only conns reached through
+// --via need one; the others are already reachable from this computer.
+func tunnelConn(st *store.State, expr string) (*store.Conn, error) {
+	sel, err := resolveSelection(st, expr)
+	if err != nil {
+		return nil, err
+	}
+	if len(sel.Hosts) > 0 || len(sel.Conns) != 1 {
+		return nil, out.Usage("give -L, -R or -D for a server, or the name of one conn")
+	}
+	c := sel.Conns[0]
+	t, err := driver.Parse(c.URL)
+	if err != nil {
+		return nil, err
+	}
+	if t.Kind.File {
+		return nil, out.Usage("%s is a local file; it needs no tunnel", c.Name)
+	}
+	if c.Via == "" {
+		return nil, out.Errf(out.ExitUsage, "NO_TUNNEL_NEEDED", "connect to "+t.Address+" directly",
+			"%s has no --via, so it is reachable without a tunnel", c.Name)
+	}
+	return c, nil
 }
 
 func alive(pid int) bool {
@@ -254,7 +323,7 @@ func tunnelStopCmd() *cobra.Command {
 						return out.NotFound("tunnel", id)
 					}
 					if alive(t.PID) {
-						_ = syscall.Kill(t.PID, syscall.SIGTERM)
+						_ = netx.Terminate(t.PID)
 					}
 					delete(s.Tunnels, id)
 					stopped = append(stopped, id)
@@ -292,7 +361,13 @@ func tunnelServeCmd() *cobra.Command {
 			if !ok {
 				return fail(fmt.Errorf("tunnel %s not found", args[0]))
 			}
-			h, err := singleHost(st, t.Host)
+			var h *store.Host
+			var vpn *store.Vpn
+			if t.Via != "" {
+				h, vpn, err = resolveVia(st, t.Via)
+			} else {
+				h, err = singleHost(st, t.Host)
+			}
 			if err != nil {
 				return fail(err)
 			}
@@ -302,12 +377,19 @@ func tunnelServeCmd() *cobra.Command {
 			}
 			ctx := cmd.Context()
 			cm := &connMgr{ctx: ctx, st: st, h: h}
-			c, err := cm.get()
-			if err != nil {
+			if vpn != nil {
+				d, closer, err := netx.Open(ctx, vpn, sshOpts(st).ConnectTimeout)
+				if err != nil {
+					return fail(err)
+				}
+				defer closer.Close()
+				cm.vpnDial = d
+			} else if _, err := cm.get(); err != nil {
 				return fail(err)
 			}
 			var ln net.Listener
 			if spec.Kind == "remote" {
+				c, _ := cm.get()
 				ln, err = c.Listen("tcp", spec.BindAddr)
 			} else {
 				ln, err = net.Listen("tcp", spec.BindAddr)
@@ -357,11 +439,12 @@ func tunnelServeCmd() *cobra.Command {
 
 // connMgr reconnects the SSH client when it drops (local/dynamic forwards).
 type connMgr struct {
-	mu  sync.Mutex
-	ctx context.Context
-	st  *store.State
-	h   *store.Host
-	c   *sshx.Client
+	mu      sync.Mutex
+	ctx     context.Context
+	st      *store.State
+	h       *store.Host
+	c       *sshx.Client
+	vpnDial netx.Dialer // set when the path is only a VPN
 }
 
 func (m *connMgr) get() (*sshx.Client, error) {
@@ -379,6 +462,11 @@ func (m *connMgr) get() (*sshx.Client, error) {
 }
 
 func (m *connMgr) dial(addr string) (net.Conn, error) {
+	if m.vpnDial != nil {
+		ctx, cancel := context.WithTimeout(m.ctx, sshOpts(m.st).ConnectTimeout)
+		defer cancel()
+		return m.vpnDial(ctx, "tcp", addr)
+	}
 	for attempt := 0; attempt < 2; attempt++ {
 		c, err := m.get()
 		if err != nil {

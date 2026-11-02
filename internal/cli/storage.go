@@ -11,27 +11,33 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/storex"
 )
 
-// Storage commands work with S3-compatible buckets. Like files on a server:
-// ls and get read, put and rm change (protected conns need --yes), and
-// downloads never overwrite a local file.
+// Storage commands work with S3-compatible buckets and FTP/FTPS/SFTP
+// folders through one interface. Like files on a server: ls and download
+// read, upload and rm change (protected conns need --yes), and downloads
+// never overwrite a local file.
 
 func storageCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "storage",
 		Aliases: []string{"s3"},
-		Short:   "Object storage (S3, MinIO, R2, Wasabi, ...): list, download, upload, share",
-		Long: `Work with a storage conn (see ` + "`komando conn`" + `). Keys are relative to the
-folder in the conn URL. ls and download only read. upload changes the bucket
-and link shares an object (protected conns need --yes for both); rm deletes,
-so it also needs --allow-dangerous. Downloads never overwrite a local file.`,
+		Short:   "Files in buckets and on file servers (S3, MinIO, R2, FTPS, SFTP): list, download, upload, share",
+		Long: `Work with a storage conn (see ` + "`komando conn`" + `): an S3-compatible bucket, or a
+folder on an FTPS, FTP or SFTP server. Keys are relative to the folder in the
+conn URL. ls and download only read. upload changes files and link shares one
+(S3 only; protected conns need --yes for both); rm deletes, so it also needs
+--allow-dangerous. Downloads never overwrite a local file, and uploads to file
+servers go to a temporary name first, so a failed upload leaves nothing half
+written.`,
 	}
 	c.AddCommand(storageLsCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
 	return c
@@ -39,7 +45,7 @@ so it also needs --allow-dangerous. Downloads never overwrite a local file.`,
 
 // withStorage resolves the conn, applies the seatbelts for v, runs fn and
 // audits the action. Dry runs of changes stop before contacting the server.
-func withStorage(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn func(ctx context.Context, c *store.Conn, s *storex.Store) (any, error)) error {
+func withStorage(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error)) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -64,20 +70,16 @@ func withStorage(ctx context.Context, name, connExpr string, v driver.Verdict, r
 			return nil
 		}
 	}
-	a, err := openAccess(ctx, st, c)
-	if err != nil {
-		return fail(err)
-	}
-	defer a.Close()
-	s, err := storex.Open(a.Target, a.Password, a.Dial, dbTimeout())
-	if err != nil {
-		return fail(err)
-	}
 	if g.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, g.timeout)
 		defer cancel()
 	}
+	s, err := openBucket(ctx, st, c)
+	if err != nil {
+		return fail(err)
+	}
+	defer s.Close()
 	data, err := fn(ctx, c, s)
 	if err != nil {
 		return fail(err)
@@ -85,6 +87,59 @@ func withStorage(ctx context.Context, name, connExpr string, v driver.Verdict, r
 	audit(st, name, nil, "", true, rec)
 	out.P.Print(name, data, nil)
 	return nil
+}
+
+// openBucket connects to a storage conn of any kind.
+func openBucket(ctx context.Context, st *store.State, c *store.Conn) (storex.Bucket, error) {
+	t, err := driver.Parse(c.URL)
+	if err != nil {
+		return nil, err
+	}
+	if t.Kind.Name == "sftp" {
+		// an SFTP server is an SSH host without a shell: dial it like one, so
+		// host keys, keys/agent and the --via chain work exactly as for hosts
+		h := sftpHost(c)
+		cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
+		defer cancel()
+		sc, err := sshx.Dial(cctx, st, h, sshOpts(st))
+		if err != nil {
+			return nil, err
+		}
+		cl, err := sftp.NewClient(sc.Client)
+		if err != nil {
+			sc.Close()
+			return nil, out.Errf(out.ExitConnect, "STORAGE_CONNECT", "the server accepted SSH but offers no SFTP", "%v", err)
+		}
+		return storex.NewSFTP(cl, t.Prefix, sc.Close), nil
+	}
+	a, err := openAccess(ctx, st, c)
+	if err != nil {
+		return nil, err
+	}
+	var b storex.Bucket
+	switch t.Kind.Name {
+	case "s3":
+		b, err = storex.OpenS3(a.Target, a.Password, a.Dial, dbTimeout())
+	default: // ftp, ftps
+		b, err = storex.OpenFTP(ctx, a.Target, a.Password, a.Dial, dbTimeout())
+	}
+	if err != nil {
+		a.Close()
+		return nil, err
+	}
+	return closeBoth{b, a.Close}, nil
+}
+
+// closeBoth closes a bucket and then the connection path it uses.
+type closeBoth struct {
+	storex.Bucket
+	after func()
+}
+
+func (c closeBoth) Close() error {
+	err := c.Bucket.Close()
+	c.after()
+	return err
 }
 
 type objectList struct {
@@ -128,7 +183,7 @@ func storageLsCmd() *cobra.Command {
 				prefix = args[1]
 			}
 			return withStorage(cmd.Context(), "storage.ls", args[0], driver.Verdict{}, map[string]any{"prefix": prefix},
-				func(ctx context.Context, c *store.Conn, s *storex.Store) (any, error) {
+				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					objs, more, err := s.List(ctx, prefix, recursive, limit)
 					if err != nil {
 						return nil, err
@@ -147,37 +202,12 @@ func storageDownloadCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "download CONN KEY",
 		Aliases: []string{"get"},
-		Short:   "Download an object to a file on this computer (never overwrites)",
+		Short:   "Same as `komando download CONN KEY`",
 		Example: `  komando storage download backups db/app-2026-11-02.sql.gz
   komando storage download backups reports/q3.pdf --to ~/Downloads/q3.pdf`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dest := to
-			if dest == "" {
-				dest = path.Base(args[1])
-			}
-			if _, err := os.Stat(dest); err == nil {
-				return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name with --to; downloads never overwrite", "%s already exists", dest)
-			}
-			return withStorage(cmd.Context(), "storage.download", args[0], driver.Verdict{}, map[string]any{"key": args[1], "file": dest},
-				func(ctx context.Context, c *store.Conn, s *storex.Store) (any, error) {
-					var n int64
-					err := writeAtomic(dest, func(tmp string) error {
-						f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_TRUNC, 0o600)
-						if err != nil {
-							return err
-						}
-						defer f.Close()
-						if n, err = s.Get(ctx, args[1], f); err != nil {
-							return err
-						}
-						return f.Sync()
-					})
-					if err != nil {
-						return nil, err
-					}
-					return transferData{Conn: c.Name, File: dest, Bytes: n, RunsOn: "local"}, nil
-				})
+			return storageDownload(cmd.Context(), "storage.download", args[0], args[1], to)
 		},
 	}
 	c.Flags().StringVar(&to, "to", "", "file to create (default: the key's file name in the current folder)")
@@ -188,37 +218,16 @@ func storageUploadCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "upload CONN FILE [KEY]",
 		Aliases: []string{"put"},
-		Short:   "Upload a file (replaces an object with the same key)",
+		Short:   "Same as `komando upload CONN FILE [KEY]`",
 		Example: `  komando storage upload backups prod-2026-11-02.sql.gz
   komando storage upload backups ./report.pdf reports/2026/q3.pdf`,
 		Args: cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			file := args[1]
-			key := filepath.Base(file)
+			key := ""
 			if len(args) == 3 {
 				key = args[2]
 			}
-			fi, err := os.Stat(file)
-			if err != nil || fi.IsDir() {
-				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders are not uploaded)", "cannot upload %s", file)
-			}
-			return withStorage(cmd.Context(), "storage.upload", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": key, "file": file, "bytes": fi.Size()},
-				func(ctx context.Context, c *store.Conn, s *storex.Store) (any, error) {
-					replaced, err := s.Exists(ctx, key)
-					if err != nil {
-						return nil, err
-					}
-					f, err := os.Open(file)
-					if err != nil {
-						return nil, err
-					}
-					defer f.Close()
-					ct := mime.TypeByExtension(filepath.Ext(file))
-					if err := s.Put(ctx, key, f, fi.Size(), ct); err != nil {
-						return nil, err
-					}
-					return map[string]any{"conn": c.Name, "key": key, "bytes": fi.Size(), "replaced": replaced}, nil
-				})
+			return storageUpload(cmd.Context(), "storage.upload", args[0], args[1], key)
 		},
 	}
 	return c
@@ -239,7 +248,7 @@ func storageRmCmd() *cobra.Command {
 			}
 			rec := map[string]any{"keys": keys}
 			return withStorage(cmd.Context(), "storage.rm", args[0], driver.DataDelete(), rec,
-				func(ctx context.Context, c *store.Conn, s *storex.Store) (any, error) {
+				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					var done []string
 					for _, k := range keys {
 						if err := s.Remove(ctx, k); err != nil {
@@ -275,7 +284,7 @@ protected conn needs --yes. The link itself is not stored in the audit log.`,
 			}
 			// a link opens data to anyone who has it: treat it like a change
 			return withStorage(cmd.Context(), "storage.link", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1], "expires": expires.String()},
-				func(ctx context.Context, c *store.Conn, s *storex.Store) (any, error) {
+				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					u, err := s.Link(ctx, args[1], expires)
 					if err != nil {
 						return nil, err
@@ -296,3 +305,61 @@ type linkData struct {
 }
 
 func (d linkData) Text() string { return d.URL + "\n" }
+
+// storageDownload saves one object to a new local file (never overwriting).
+func storageDownload(ctx context.Context, name, conn, key, to string) error {
+	dest := to
+	if dest == "" {
+		dest = path.Base(key)
+	}
+	if _, err := os.Stat(dest); err == nil {
+		return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name with --to; downloads never overwrite", "%s already exists", dest)
+	}
+	return withStorage(ctx, name, conn, driver.Verdict{}, map[string]any{"key": key, "file": dest},
+		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
+			var n int64
+			err := writeAtomic(dest, func(tmp string) error {
+				f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_TRUNC, 0o600)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				if n, err = s.Get(ctx, key, f); err != nil {
+					return err
+				}
+				return f.Sync()
+			})
+			if err != nil {
+				return nil, err
+			}
+			return transferData{Conn: c.Name, File: dest, Bytes: n, RunsOn: "local"}, nil
+		})
+}
+
+// storageUpload uploads one local file; key defaults to the file's name.
+func storageUpload(ctx context.Context, name, conn, file, key string) error {
+	if key == "" {
+		key = filepath.Base(file)
+	}
+	fi, err := os.Stat(file)
+	if err != nil || fi.IsDir() {
+		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders are not uploaded)", "cannot upload %s", file)
+	}
+	return withStorage(ctx, name, conn, driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": key, "file": file, "bytes": fi.Size()},
+		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
+			replaced, err := s.Exists(ctx, key)
+			if err != nil {
+				return nil, err
+			}
+			f, err := os.Open(file)
+			if err != nil {
+				return nil, err
+			}
+			defer f.Close()
+			ct := mime.TypeByExtension(filepath.Ext(file))
+			if err := s.Put(ctx, key, f, fi.Size(), ct); err != nil {
+				return nil, err
+			}
+			return map[string]any{"conn": c.Name, "key": key, "bytes": fi.Size(), "replaced": replaced}, nil
+		})
+}

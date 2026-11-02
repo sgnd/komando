@@ -1,7 +1,19 @@
 # Rancangan: jaringan — bastion, forwarding, dan banyak VPN sekaligus
 
-Status: **rancangan, 2026-11-02.** Belum dibangun. Tujuan besarnya ada di
-[vision.md](vision.md), aturan perintah di [ux.md](ux.md).
+Status: **dibangun, 2026-11-02** (lihat [Rencana bertahap](#rencana-bertahap)). Sudah ada: `--via` untuk semua
+target, `tunnel start TARGET`, dan `komando vpn` dengan kind `wireguard`,
+`socks`, `system` (lihat [docs/features/vpn.md](../features/vpn.md)). Sisanya
+rancangan. Tujuan besarnya ada di [vision.md](vision.md), aturan perintah di
+[ux.md](ux.md).
+
+**Klarifikasi pemilik (2026-11-02):** komando juga **pengelola klien VPN**.
+VPN A bisa OpenVPN, B GlobalProtect, C Pritunl, D Fortinet, E L2TP, dan
+seterusnya. Kredensialnya disimpan di komando (vault). Saat sebuah perintah
+butuh target di balik VPN, komando **menyambungkan VPN itu sendiri**, lalu
+menjangkau resource-nya. Contoh: `komando exec app -- uptime` → `app` butuh
+`vpn-a` (OpenVPN) → sambungkan → SSH ke bastion → SSH ke app, dalam satu
+perintah. Beberapa VPN bisa dibutuhkan bersamaan (app lewat VPN A, database
+lewat VPN B).
 
 ## Masalah
 
@@ -63,42 +75,69 @@ Setiap langkah di rantai adalah sebuah host (bastion SSH) atau sebuah VPN.
 
 ## Perintah `komando vpn`
 
-Kata benda baru dengan bahasa manusia: `vpn`. Bentuknya sama dengan `host`
-dan `conn`, dan namanya berbagi ruang nama dengan keduanya. Semua selector,
+`vpn` berbagi ruang nama dengan `host` dan `conn`; semua selector,
 `komando list`, dan `komando test` ikut bekerja dengannya.
 
 ```bash
-komando vpn add office wireguard --config ~/Downloads/office.conf   # kunci privat masuk vault
-komando vpn add client-x tailscale --auth-key-ref secret:client-x-ts
-komando vpn add corp system --check 10.20.0.1:443                   # VPN yang dipasang di OS
-komando vpn add lab socks --address 127.0.0.1:1080                  # proxy SOCKS5 yang sudah ada
+komando vpn add vpn-a openvpn --config kantor.ovpn --user budi --password-ref secret:vpn-a
+komando vpn add vpn-b globalprotect --portal vpn.klien.com --user budi --password-ref secret:vpn-b
+komando vpn add office wireguard --config ~/Downloads/office.conf     # sudah ada
+komando vpn add lab socks --address 127.0.0.1:1080                    # sudah ada
 
-komando vpn list
-komando vpn test office            # bisa tersambung? alamat apa yang terjangkau?
-komando vpn rm office
+komando host edit app --via vpn-a,bastion
+komando conn edit app-db --via vpn-b
+komando exec app -- uptime          # vpn-a tersambung sendiri, lalu bastion, lalu app
+
+komando vpn up vpn-b                # sambungkan manual (mis. untuk login MFA)
+komando vpn status                  # mana yang tersambung, sejak kapan, dipakai siapa
+komando vpn down vpn-b
+komando test kind:vpn
 ```
 
-| Kind | Cara kerja | Butuh admin? | Banyak sekaligus? |
-|---|---|---|---|
-| `wireguard` | wireguard-go + netstack userspace, di dalam proses | tidak | ya |
-| `tailscale` | `tsnet` (Tailscale/Headscale) userspace, di dalam proses | tidak | ya |
-| `socks` | proxy SOCKS5/HTTP yang sudah berjalan | tidak | ya |
-| `system` | VPN di OS (OpenVPN, AnyConnect, FortiClient, GlobalProtect, IPsec) | sesuai klien VPN-nya | sesuai OS |
+## Dua mode
 
-### Kenapa `system` tidak dijalankan oleh komando
+| Mode | Kind | Cara kerja | Admin? | Banyak sekaligus? |
+|---|---|---|---|---|
+| **Userspace** | `wireguard` ✅ | wireguard-go + netstack di dalam proses | tidak | ya, subnet bentrok aman |
+| | `socks` ✅ | proxy SOCKS5 yang sudah ada | tidak | ya |
+| | `tailscale` | `tsnet` (Tailscale/Headscale) di dalam proses | tidak | ya |
+| | `globalprotect`, `fortinet`, `anyconnect`, `pulse`, `f5` | `openconnect --protocol=… --script-tun` + `ocproxy`/`tunsocks`: klien berjalan di samping komando dan menyediakan SOCKS lokal, tanpa membuat interface jaringan | tidak | ya |
+| **Mode OS** | `openvpn` (termasuk profil Pritunl) | evaluasi dulu klien Go userspace (`ooni/minivpn`, eksperimental); kalau tidak cukup, `openvpn` dijalankan oleh helper kecil | sekali (helper dipasang dengan sudo) | terbatas |
+| | `l2tp` / IPsec | strongSwan + xl2tpd (Linux), VPN bawaan (macOS/Windows) | sekali | terbatas |
+| | `system` ✅ | VPN yang sudah tersambung di komputer; komando hanya mengecek | sesuai kliennya | sesuai OS |
 
-OpenVPN, AnyConnect, FortiClient, dan GlobalProtect tidak punya klien Go
-murni yang matang, dan menjalankannya butuh hak admin serta mengubah rute
-laptop. Itu bertentangan dengan "aman sebagai default" dan "satu biner pure
-Go". Jadi untuk kind `system`, komando:
+- Mode OS bisa bentrok kalau dua VPN memakai subnet yang sama. komando harus
+  **mendeteksi dan memperingatkan** sebelum menyambung, bukan diam-diam
+  merusak rute.
+- Klien VPN (`openconnect`, `openvpn`, strongSwan) harus terpasang, kecuali
+  WireGuard dan Tailscale yang ada di dalam komando. `komando doctor`
+  mengecek klien yang dibutuhkan VPN yang terdaftar dan memberi cara
+  memasangnya.
 
-- mengecek apakah VPN itu sudah tersambung (`--check host:port`) sebelum
-  memakai target yang membutuhkannya;
-- kalau belum, gagal dengan `VPN_DOWN` dan hint yang jelas ("sambungkan VPN
-  `corp` dulu"), bukan timeout yang membingungkan.
+## Sesi VPN
 
-Kalau ada bastion yang bisa dijangkau lewat VPN itu, sarankan memakai
-WireGuard/Tailscale atau bastion SSH, supaya tidak perlu pindah-pindah lagi.
+- **Sambung otomatis.** Perintah yang `--via`-nya dimulai dengan VPN
+  menyambungkannya kalau belum tersambung.
+- **Satu sesi di latar per VPN** (seperti `tunnel`), dipakai bersama oleh
+  perintah-perintah berikutnya supaya tidak login ulang setiap kali. Sesi
+  diputus sendiri setelah tidak dipakai (default 30 menit, bisa diatur).
+  WireGuard tetap bisa di dalam proses per perintah karena tidak ada login.
+- `vpn up`, `vpn down`, `vpn status` untuk kendali manual.
+- Audit mencatat kapan VPN tersambung dan diputus, oleh siapa, dan untuk
+  perintah apa.
+
+## MFA
+
+Keputusan pemilik (2026-11-02): **MFA selalu dilakukan manusia.**
+
+- komando **tidak** menyimpan secret TOTP dan **tidak** membuat kode MFA.
+- Manusia menjalankan `komando vpn up NAME` (password + MFA, atau login SSO
+  lewat browser). Agent dan perintah berikutnya memakai sesi itu.
+- Kalau sesi habis, perintah agent gagal dengan `VPN_LOGIN_REQUIRED` dan hint
+  "minta manusia menjalankan `komando vpn up NAME`". Agent tidak pernah
+  menjawab MFA.
+- VPN tanpa MFA (kunci WireGuard, OpenVPN yang hanya pakai password) tetap
+  boleh tersambung otomatis saat dibutuhkan.
 
 ## Forwarding untuk aplikasi di laptop
 
@@ -143,9 +182,17 @@ Tunnel berjalan di latar dan memegang jalurnya (VPN dan bastion) selama hidup.
 
 ## Rencana bertahap
 
-| Fase | Isi |
-|---|---|
-| 1 | `--via` untuk host (`--jump` jadi alias); `tunnel start TARGET` untuk conn; rantai melingkar dan `IN_USE` |
-| 2 | `komando vpn` dengan kind `wireguard` dan `socks`; `vpn test`; masuk `list`/`test`/selector |
-| 3 | kind `system` (`--check`, `VPN_DOWN`) |
-| 4 | kind `tailscale` (kalau anggaran biner cukup) |
+| Fase | Isi | Status |
+|---|---|---|
+| 0 | `--via` untuk semua target, `tunnel start TARGET`, `vpn add/show/rm`, kind `wireguard`/`socks`/`system`, VPN di `list`/`test`/selector | ✅ dites end-to-end |
+| 1 | `vpn up/down/status`, sesi di latar per VPN dengan putus otomatis; kind `tailscale` | ✅ dites dengan Headscale sungguhan (`make e2e-vpnclients`) |
+| 2 | Keluarga openconnect (GlobalProtect, Fortinet, AnyConnect, Pulse, F5) lewat `ocproxy`; `doctor` mengecek kliennya; `VPN_LOGIN_REQUIRED` untuk VPN dengan MFA | ✅ dites dengan ocserv (protokol AnyConnect) sungguhan; protokol lain memakai jalur kode yang sama |
+| 3 | OpenVPN/Pritunl di container Docker, tanpa mengubah jaringan laptop; `--os-mode` opsional | ✅ dites dengan server OpenVPN sungguhan (`make e2e-openvpn`) |
+| 4 | L2TP/IPsec dan VPN bawaan OS lewat `system --service` (scutil/nmcli); peringatan subnet bentrok untuk OpenVPN mode OS | ✅ peringatan bentrok membandingkan tabel rute sebelum dan sesudah tersambung |
+
+## Keputusan pemilik
+
+1. **Mode OS boleh** (2026-11-02): OpenVPN/Pritunl dan L2TP/IPsec boleh
+   memakai helper kecil yang dipasang sekali dengan sudo.
+2. **MFA selalu oleh manusia** (2026-11-02): tidak ada secret TOTP di vault;
+   lihat bagian [MFA](#mfa).

@@ -4,6 +4,192 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### VPN clients tested against real servers
+
+- `make e2e-vpnclients` runs, all in Docker: ocserv (the AnyConnect
+  protocol, the path the whole openconnect family uses) and Headscale with
+  a Tailscale node. komando connects on demand, `--mfa` VPNs ask for a
+  person, the Tailscale auth key is on no command line, and `vpn down`
+  stops the clients.
+- Session checks read the process name from /proc on Linux (small images
+  have no `ps`, which made every session look dead).
+
+### Subnet clashes
+
+- `vpn up` for VPNs that change the computer's routes (OpenVPN
+  `--os-mode`, system VPNs with `--service`) compares the routing table
+  before and after and warns when the new routes overlap ones another
+  interface already had (two networks claiming the same addresses). The
+  other kinds never touch the computer's routes, so they cannot clash.
+
+### Output contract 1
+
+- Every JSON answer carries `meta.contract: 1`, and `komando schema` says
+  `contract: 1`. Within a contract, field names, error codes and exit codes
+  are only added, never renamed or removed (docs/design/ux.md, section 13).
+
+### Agent skill
+
+- `komando guide install` adds the komando skill (`SKILL.md`, the Agent
+  Skills format) to `~/.claude/skills` (Claude Code) and `~/.agents/skills`
+  (Codex, Cursor, Gemini CLI). Agents then reach for komando by themselves
+  on server, database, cache and storage tasks. `--project` installs into
+  the current folder; a changed file is kept as `SKILL.md.bak`. The same
+  skill lives in `skills/komando/` for `npx skills add sgnd/komando`.
+
+### Logs and files
+
+- `komando logs ... --follow` (`-f`) keeps printing new lines until Ctrl-C;
+  in a terminal they show as plain lines (marked by server when there are
+  several), for agents as NDJSON events.
+- `fs rm --recursive` needs `--allow-dangerous`, like `storage rm`.
+
+### More import sources
+
+- `komando import filezilla` (SFTP sites, passwords to the vault), `rclone`
+  (SFTP remotes) and `dbeaver` (PostgreSQL, MySQL/MariaDB and SQLite
+  connections).
+
+### Fixes from the second review
+
+- OpenVPN container: the entrypoint parsed again (a comment had swallowed
+  `fi`; a test now checks every embedded script), the SOCKS port listens
+  only on the container's network and needs a random per-connection
+  login, the container runs with only the capabilities it needs and
+  no-new-privileges, and config/login files are removed also when
+  connecting fails. Tested against a real OpenVPN server
+  (`make e2e-openvpn`).
+- .ovpn inline blocks end the way OpenVPN ends them, so text after `</ca>`
+  can no longer smuggle in directives; an unclosed block is refused.
+- `cluster run` refuses flags that would send the conn's credentials to
+  another cluster or identity (`--server`, `--kubeconfig`, `--token`,
+  `--context`, `--as` ...) and user `--dry-run` values; `config view` (it
+  can print credentials), `edit`, `apply --prune`, scaling to 0, role
+  bindings, privileged `run`, and docker `exec`/`run`/`cp`, `--prune` and
+  node drains are rated dangerous.
+- VPN sessions: stops take the VPN's lock and check it is still the same
+  session; sessions in use (a long `logs --follow`) stay fresh; containers
+  are tracked by ID and labelled with their komando home; OS-mode OpenVPN
+  writes its pid to /var/run and logs to syslog.
+- Imports keep a secret reference only when that secret really does not
+  exist (not when the vault is locked).
+
+### Fixes from review
+
+- `cluster run` must start with the command (a leading flag could hide a
+  delete behind a "get"); kubectl and docker commands are rated by verb and
+  subcommand (`auth reconcile`, `service rm`, `system prune` ...), the
+  destructive-command policy sees them unquoted, and `--dry-run=server` goes
+  right after the verb (never into `exec ... --`).
+- `import komando` drops references to secrets or files that already exist
+  on this computer and imports recipes as changes, so a file from someone
+  else cannot send your passwords to their server or skip `--yes`.
+- OpenVPN configs pass only an allowlist of client settings, with keys
+  inline; nothing that runs programs or reads/writes files by path.
+- KOMANDO_VAULT_PASS is removed from the environment at start, so kubectl,
+  credential plugins, VPN clients and docker never inherit it.
+- VPN sessions: a reused pid is never signalled, a failed stop (sudo) is
+  reported and the session kept, idle sessions close at the next komando
+  command, two commands cannot start the same VPN twice, config and login
+  files are deleted once connected, the Tailscale auth key no longer shows
+  in `ps`, and `vpn up/down/rm --dry-run` change nothing.
+- `label:KEY` without a value picks targets that have the label (it picked
+  those without it). kubectl secrets are hidden in the audit log;
+  `cluster rm`/`registry rm --dry-run` report what would be blocked.
+
+### OpenVPN without touching your computer's network
+
+- `openvpn` (and `pritunl`) VPNs run in a small Docker container, built
+  once from files inside komando, and are reached through a local SOCKS
+  port, like the other VPN kinds: several at once, no sudo, no route
+  changes. `--os-mode` keeps the old way (sudo, system routes).
+
+### Password managers (v0.7)
+
+- `--password-ref` also takes `op://...` (1Password), `vault:PATH#FIELD`
+  (HashiCorp Vault), `aws-sm:NAME[#KEY]` (AWS Secrets Manager) and
+  `gcp-sm:NAME[@PROJECT]` (Google Secret Manager). komando runs that tool's
+  CLI when it needs the value and never stores it.
+### Registry copy (v0.6)
+
+- `komando registry copy SRC:IMAGE DST:[IMAGE]` copies an image between
+  registries or repositories with every platform, keeping the digest.
+  Layers already at the destination are skipped, layers within one registry
+  are mounted, credentials never go to another host (e.g. an upload
+  redirect), and only the destination is guarded (`--yes` when protected).
+
+### Database shell (v0.7)
+
+- `komando db shell CONN` opens psql, mysql or sqlite3 on this computer,
+  connected through the conn's `--via` path, with the password in the
+  client's environment. Read-only unless `--write` (PostgreSQL
+  default_transaction_read_only, MySQL session READ ONLY, sqlite3
+  -readonly); protected conns need `--yes` for `--write`. PostgreSQL keeps
+  verifying the certificate's host name through the forward (PGHOSTADDR).
+  For people only: without a terminal it refuses with NEEDS_TERMINAL.
+
+### File servers in storage (v0.7)
+
+- `komando storage` also works with FTPS (`ftps://`, TLS on control and data
+  connections), SFTP (`sftp://`, for shell-less accounts; host keys checked
+  like SSH hosts) and FTP (`ftp://`, refused without `?insecure=1` because
+  it sends the password unencrypted). ls, download, upload and rm behave as
+  for buckets; uploads go to a temporary name and are renamed into place,
+  creating missing folders; keys cannot leave the conn's folder. All of it
+  works through `--via` bastions and VPNs.
+
+### Container registries (v0.6)
+
+- `komando registry ls|inspect|rm` for Docker Hub, GHCR, GitLab, Harbor,
+  ECR and registry:2 over the OCI Distribution API (basic and token auth),
+  through `--via` paths and VPNs. `rm` deletes by digest and needs
+  `--allow-dangerous`. `komando import docker` reads
+  `~/.docker/config.json`, including credential helpers.
+
+### Clusters (v0.5)
+
+- `komando cluster` for Kubernetes (a k8s conn) and Docker Swarm (a manager
+  server) with the same verbs: `status`, `ls`, `get` (Secret values hidden),
+  `logs`, `apply` (server-side; `--dry-run` asks the server), `restart`,
+  `scale` (to 0 needs `--allow-dangerous`), `rm` (needs `--allow-dangerous`)
+  and `run` for any kubectl or docker command (read-only unless `--write`).
+  The Kubernetes API is called directly (no client-go), through `--via`
+  paths and VPNs; `cluster run` gives kubectl a private kubeconfig and a
+  local tunnel. `komando import kubeconfig` adds one conn per context and
+  keeps each context's credentials in the vault.
+
+### VPNs (v0.4, first part)
+
+- `komando vpn add NAME wireguard|socks|system`. A VPN goes first in a
+  `--via` path (`--via office,bastion`) for servers, conns and tunnels.
+  WireGuard runs inside komando for that command only: several VPNs at
+  once, overlapping subnets, no admin rights, no change to the computer's
+  network. Keys go to the vault. `system` checks an OS VPN is connected
+  (`VPN_DOWN` if not). `list`, `test`, targets (`kind:vpn`), groups and
+  `export`/`import` include VPNs; a VPN in use cannot be removed.
+
+### One command per job (v0.3)
+
+- `--via` for servers too: `host add db1 ... --via bastion` (chains like
+  `--via bastion,db1`). `--jump` still works; state files move `jump` to
+  `via` on load. Conns take `--via` chains as well, and a host on anyone's
+  `--via` path cannot be removed (`HOST_IN_USE`).
+- `komando upload` and `komando download` work for servers (SFTP, many at
+  once) and storage conns. `cp` and `storage upload/download` are the same
+  commands spelled the old way.
+- `komando recipe` is one list of built-in and saved commands. `ops` and
+  `snippet` are other names for it; saved recipes cannot reuse built-in
+  names, and marking an existing recipe read-only needs `--yes`.
+- `host list/test` and `conn list/test` are `komando list/test` limited to
+  servers or conns (new selector `kind:conn`); `svc logs` and `docker logs`
+  are `komando logs` with `--unit` or `--container`.
+- `komando import SOURCE` brings in `ssh-config`, `pgpass`, `mycnf`, `env`
+  (.env URLs) and `komando` export files; passwords go to the vault, re-imports
+  change nothing, and what cannot be imported is listed. `komando export`
+  saves servers, conns and recipes (no passwords) to move computers.
+- `komando tunnel start CONN` opens a local port to a conn through its
+  `--via` path, for apps like TablePlus or psql (`--port` to choose it).
+
 - `komando conn`: an inventory of databases (PostgreSQL, MySQL, SQLite) next
   to hosts. Add, edit, list, show, remove and test them; reach private ones
   through a host with `--via`. Passwords are refused in URLs and live in the

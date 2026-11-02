@@ -47,6 +47,7 @@ komando storage upload backups ./dump.sql.gz
 | `start` / `stop` / `restart` | hidupkan, matikan, mulai ulang | — | write |
 | `dump` / `restore` | backup dan pulihkan | — | write / destructive |
 | `import` / `export` | pindah konfigurasi masuk dan keluar | — | — |
+| `install` | pasang file komando ke folder program lain (skill untuk AI agent: `guide install`) | — | write (file lokal) |
 
 Aturan: **`rm` selalu kata utamanya.** `remove`, `delete`, dan `del` hanya
 alias, supaya siapa pun yang mengetiknya tetap berhasil.
@@ -239,12 +240,12 @@ Tumpang tindih yang ada sekarang, dan keputusannya:
 
 | Sekarang | Keputusan |
 |---|---|
-| `host --jump` dan `conn --via` | `--via` untuk semua; `--jump` jadi alias ([network.md](network.md)) |
-| `host test`, `conn test`, `test` | `test` saja; `host test`/`conn test` jadi alias untuk `test` |
-| `host list`, `conn list`, `list` | `list` saja; `host list`/`conn list` jadi alias untuk `list kind:host` / `list kind:conn` |
-| `svc logs`, `docker logs`, `logs --unit/--container` | `logs` saja; `svc logs` dan `docker logs` jadi alias |
-| `ops run` (resep bawaan) dan `snippet run` (resep sendiri) | satu `snippet`: resep bawaan adalah snippet bawaan yang tidak bisa diubah; `ops` jadi alias |
-| `cp` (server) dan `storage upload/download` | satu pasang kata kerja `upload`/`download` untuk semua target yang menyimpan file (server lewat SFTP, storage, nanti FTP); `cp` jadi alias |
+| `host --jump` dan `conn --via` | ✅ `--via` untuk semua; `--jump` jadi alias ([network.md](network.md)) |
+| `host test`, `conn test`, `test` | ✅ `test` saja; `host test`/`conn test` = `test` untuk satu jenis |
+| `host list`, `conn list`, `list` | ✅ `list` saja; `host list`/`conn list` = `list kind:host` / `list kind:conn` |
+| `svc logs`, `docker logs`, `logs --unit/--container` | ✅ `logs` saja; `svc logs` dan `docker logs` jadi alias |
+| `ops run` (resep bawaan) dan `snippet run` (resep sendiri) | ✅ satu `recipe` (kata yang lebih mudah dipahami); `ops` dan `snippet` jadi nama lain |
+| `cp` (server) dan `storage upload/download` | ✅ `upload`/`download` untuk server (SFTP) dan storage; `cp` dan `storage upload/download` jadi alias |
 | `group add/rm` dan `edit --add-group/--rm-group` | tetap keduanya (banyak vs satu), kode yang sama |
 
 ## 12. Semua fitur CLI asli bisa dipakai
@@ -265,6 +266,24 @@ bukan menyalin semua fitur alat itu, tapi tiga jalur yang sama di semua area:
 
 Jalur 2 dan 3 tidak dihitung tumpang tindih dengan jalur 1: itu pintu darurat
 yang sengaja ada, dengan pengaman yang sama.
+
+## 13. Kontrak output (v1.0)
+
+Agent bergantung pada bentuk output komando, jadi bentuk itu dibekukan
+sebagai **kontrak versi 1** (`meta.contract` di setiap jawaban,
+`contract` di `komando schema`).
+
+Di dalam satu versi kontrak:
+
+- Envelope (`ok`, `command`, `data`, `error`, `meta`), nama field, kode error
+  dan exit code **tidak pernah diganti atau dihapus**. Yang boleh hanya
+  menambah: field baru, kode error baru, perintah baru.
+- Nama perintah dan flag yang diganti tetap jalan sebagai alias (lihat
+  bagian 10), jadi skrip lama tidak rusak.
+- Perubahan yang merusak (mengganti nama field, mengubah arti exit code)
+  menaikkan `meta.contract` ke 2 dan ditulis di CHANGELOG.
+
+`TestConventions` dan tes e2e menjaga sebagian dari aturan ini.
 
 ## Daftar edge case
 
@@ -354,7 +373,6 @@ dijaga oleh `TestConventions` (`internal/cli/conventions_test.go`).
 | 22 | P0 | `config set audit off`, `host_key_policy off`, `--host-key-policy off`, `policy allow` tanpa konfirmasi; `audit tru` mematikan audit | ✅ Butuh `--yes`; nilai on/off ketat |
 
 Berikutnya:
-- `logs --follow` (`-f`) untuk log yang terus berjalan.
 - Prompt di terminal muncul saat file lock state dipegang, jadi komando lain
   menunggu jawaban manusia. Tanya dulu sebelum mengambil lock, lalu cek ulang.
 - `snippet add --read-only --overwrite` bisa mengganti snippet milik orang
@@ -364,7 +382,5 @@ Berikutnya:
   `db.internal` dan `10.0.0.5` dianggap berbeda.
 - Perintah satu target menolak selector yang memilih banyak dengan pesan
   yang sama di semua tempat (sudah, lewat `singleHost`/`singleConn`).
-- `fs rm --recursive` sebaiknya dianggap destructive (`--allow-dangerous`),
-  sama seperti `storage rm` dan `cache rm`.
 - `db query` ke banyak database sekaligus (`@prod` yang berisi beberapa
   database) belum didukung; sekarang ditolak dengan pesan jelas.

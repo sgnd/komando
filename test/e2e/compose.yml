@@ -3,7 +3,7 @@
 services:
   bastion:
     build: .
-    ports: ["127.0.0.1:2222:22"]
+    ports: ["127.0.0.1:${E2E_SSH_BASTION:-2222}:22"]
     networks: [public, private]
   target:
     build: .
@@ -11,7 +11,7 @@ services:
     hostname: target
   direct:
     build: .
-    ports: ["127.0.0.1:2223:22"]
+    ports: ["127.0.0.1:${E2E_SSH_DIRECT:-2223}:22"]
     networks: [public]
     hostname: direct
   pg:
@@ -30,6 +30,29 @@ services:
     networks: [private]
   s3:
     build: garage
+    networks: [private]
+  registry:
+    image: registry:2
+    environment: { REGISTRY_STORAGE_DELETE_ENABLED: "true" }
+    ports: ["127.0.0.1:${E2E_REGISTRY:-5005}:5000"]  # only to push the test image; komando reaches it through bastion
+    networks: [private, public]
+  swarm:
+    build: swarm
+    privileged: true
+    ports: ["127.0.0.1:${E2E_SSH_SWARM:-2224}:22"]
+    networks: [public]
+  k3s:
+    image: rancher/k3s:v1.33.5-k3s1
+    command: ["server", "--tls-san", "k3s", "--disable", "traefik", "--disable", "metrics-server", "--disable", "servicelb"]
+    privileged: true
+    tmpfs: ["/run", "/var/run"]
+    networks: [private, public]  # k3s needs a default route; no port is published, so it is still reached through bastion
+  sftp:
+    image: atmoz/sftp:alpine
+    command: ["deploy:deploypass:::uploads"]
+    networks: [private]
+  ftps:
+    build: ftps
     networks: [private]
 networks:
   public: {}

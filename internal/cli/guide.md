@@ -3,7 +3,8 @@
 You manage real servers, databases, caches and storage. Be precise, observe before you act, and prefer the
 smallest change that works. When its output is piped (as when you run it),
 every komando command prints exactly one JSON object on stdout; pass `-o json`
-to be explicit. Branch on `ok`, `error.code` and the process exit code.
+to be explicit. Branch on `ok`, `error.code` and the process exit code. `meta.contract` (now 1)
+only changes when a field or code is renamed or removed; new ones may appear.
 
 ## 1. Orient yourself
 
@@ -11,6 +12,7 @@ to be explicit. Branch on `ok`, `error.code` and the process exit code.
 komando list                          # servers and conns: name, kind, where, groups, protected
 komando group list                    # groups/tags -> members (servers and conns)
 komando test all                      # what is reachable; which user, passwordless sudo?
+komando import ssh-config --dry-run   # (with the human) bring in existing servers and databases
 komando facts <target>                # OS, package manager, tools, CPU/mem/disk, load
 komando schema --compact              # every command (use `komando schema <cmd>` for flags)
 ```
@@ -27,25 +29,29 @@ what it can work with and lists the rest in `meta.skipped`; if nothing fits,
 `NO_MATCHING_TARGETS` says which command to use. Check what a target picks
 with `komando list '<expr>'`.
 
+VPNs: `komando list kind:vpn`. A target behind a VPN has it first in its
+`--via`; komando connects it by itself. `VPN_DOWN` means a VPN the computer
+runs itself is not connected: ask the human to connect it.
+
 ## 3. Read before you write
 
 | Need                         | Command |
 |------------------------------|---------|
-| Quick health                 | `komando ops run health <t>` |
+| Quick health                 | `komando recipe run health <t>` |
 | Any read-only shell command  | `komando exec <t> --read-only -- '<cmd>'` |
 | Logs                         | `komando logs <t> --unit nginx --since -30m --grep 'error'` |
 | Service state (structured)   | `komando svc status <t> nginx` |
 | File content                 | `komando fs cat <t> /etc/nginx/nginx.conf --line-numbers` |
 | Ports / connectivity         | `komando net ports <t>` · `komando net check <t> db:5432` |
-| Containers                   | `komando docker ps <t>` · `komando docker logs <t> api --since 10m` |
-| More diagnostics             | `komando ops list` then `komando ops run <recipe> <t>` |
+| Containers                   | `komando docker ps <t>` · `komando logs <t> --container api --since 10m` |
+| More diagnostics             | `komando recipe list` then `komando recipe run <name> <t>` |
 
 ## 4. Change things safely
 
 1. Preview: add `--dry-run` to see the exact remote command and whether it would be blocked.
 2. Edit config with `fs replace` (exact match, fails on 0 or >1 matches) and `--backup`:
    `komando fs replace web1 /etc/nginx/nginx.conf --old '...' --new '...' --sudo --backup`
-3. Validate before reload: `komando ops run nginx-test web1` (or `sshd -t`, `apachectl configtest`).
+3. Validate before reload: `komando recipe run nginx-test web1` (or `sshd -t`, `apachectl configtest`).
 4. Apply: `komando svc reload web1 nginx` → re-check `svc status`.
 5. Roll back from `PATH.bak` if validation fails.
 6. Roll out to fleets gradually: one host first, then `--parallel` small batches, `--fail-fast`.
@@ -56,7 +62,7 @@ are idempotent, so retries are safe.
 ## 5. Databases
 
 ```bash
-komando conn list                                   # known databases
+komando list kind:conn                                   # known databases
 komando db schema <conn> [table...]                 # tables, then columns/indexes
 komando db query <conn> "select ..."                # read-only transaction: data cannot change
 komando db query <conn> "... where id = $1" --arg 42   # values as arguments, not pasted
@@ -69,7 +75,7 @@ Caches work the same way: `komando cache get|keys|info <conn>` read,
 `komando cache run <conn> -- CMD ...` only reads unless `--write`. Never use
 `KEYS` (use `cache keys`, it SCANs).
 
-Buckets: `komando storage ls|download <conn> ...` read, `storage upload|link`
+Buckets: `komando storage ls <conn>` and `komando download <conn> KEY` read, `komando upload <conn> FILE` and `storage link`
 change or share, `storage rm` deletes (needs `--allow-dangerous`). Keys are
 relative to the conn's folder.
 
@@ -82,6 +88,12 @@ Without `--write` the database itself refuses changes. `WRITE_REQUIRES_FLAG`
 `--write` on anything that matters. Never `BEGIN`/`COMMIT` yourself. Do not
 run `psql`/`mysql` through `exec`: you lose the read-only guarantee,
 structured rows, and the password leaks into the server's process list.
+
+Clusters: `komando cluster status|ls|get|logs <conn>` read; `apply` (try
+`--dry-run`, the server checks it), `restart` and `scale` change; `rm` and
+scaling to 0 need `--allow-dangerous`. `komando cluster run <conn> -- <kubectl
+args>` for anything else (needs `--write` to change). Namespaces are
+`--namespace`.
 
 ## 6. Long-running work
 

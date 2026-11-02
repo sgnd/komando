@@ -58,11 +58,11 @@ contoh; ganti dengan milik Anda.
 komando host add web1 ubuntu@203.0.113.10
 
 # 2. Cek apakah bisa terhubung
-komando host test web1
+komando test web1
 
 # 3. Tanyakan sesuatu
 komando facts web1            # server ini apa?
-komando ops run health web1   # sehat atau tidak?
+komando recipe run health web1   # sehat atau tidak?
 komando exec web1 -- uptime   # jalankan perintah apa saja
 ```
 
@@ -102,7 +102,19 @@ lalu dibatalkan (rollback).
 
 ## Serahkan ke AI agent Anda
 
-Salin isi [`AGENTS.md`](AGENTS.md) ke file instruksi agent Anda (Codex:
+Satu perintah mengajari AI agent Anda (Claude Code, Codex, Cursor, Gemini CLI)
+memakai komando, untuk semua proyek di komputer ini:
+
+```bash
+komando guide install
+```
+
+Perintah ini memasang *skill* komando: catatan singkat yang dibaca agent
+dengan sendirinya setiap kali tugasnya menyentuh server, database, cache, atau
+storage. Mulai ulang agent setelahnya. Jalankan lagi setelah Anda memperbarui
+komando.
+
+Agent lain: salin isi [`AGENTS.md`](AGENTS.md) ke file instruksi agent Anda (Codex:
 `AGENTS.md`, Claude Code: `CLAUDE.md`, di folder tempat Anda bekerja), atau
 cukup katakan ke agent:
 
@@ -119,15 +131,19 @@ Lalu cukup minta: *"Kenapa web1 lambat?"*, *"Update semua server"*,
 |-------|----------|
 | Melihat dan mengecek semuanya sekaligus (server dan conn) | `list`, `test` |
 | Menyimpan daftar server dan cara login | `host`, `group`, `key`, `secret` |
+| Membawa yang sudah ada (ssh config, .pgpass, my.cnf, .env) atau pindah komputer | `import`, `export` |
 | Menjalankan perintah di satu atau banyak server | `exec`, `script`, `job` (tugas lama) |
-| Membaca, mengubah, dan menyalin file | `fs`, `cp` |
-| Cek kesehatan (39 pemeriksaan siap pakai) | `facts`, `ops` |
+| Membaca, mengubah, dan menyalin file | `fs`, `upload`, `download` |
+| Cek kesehatan (39 pemeriksaan siap pakai) | `facts`, `recipe` |
 | Mengelola service, log, Docker, software, user, jadwal | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
 | Tes jaringan, menjangkau server privat | `net`, `tunnel` |
+| Menjangkau yang ada di balik VPN, beberapa sekaligus tanpa pindah-pindah | `vpn`, `--via` |
 | Menyimpan daftar database, cache, dan storage | `conn` |
 | Query dan backup database (PostgreSQL, MySQL, SQLite) | `db` |
 | Membaca dan mengubah cache (Redis, Valkey) | `cache` |
-| Melihat, mengunduh, dan mengunggah file di object storage (S3, MinIO, R2, ...) | `storage` |
+| Kubernetes dan Docker Swarm: status, log, apply, restart, scale | `cluster` |
+| Container registry: tag, detail image, bersih-bersih | `registry` |
+| Melihat, mengunduh, dan mengunggah file di object storage (S3, MinIO, R2, ...) | `storage`, `upload`, `download` |
 | Melihat riwayat dan aturan keamanan | `audit`, `policy` |
 
 Berikutnya: cluster (Kubernetes, k3s, Swarm), container

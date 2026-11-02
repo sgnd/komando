@@ -1,7 +1,9 @@
 # Instructions for AI agents: managing servers with komando
 
-Copy this file into a project (or your agent's system prompt) to let an AI
-agent manage servers through the `komando` CLI.
+Claude Code, Codex, Cursor and Gemini CLI: run `komando guide install` instead;
+it installs these rules as a skill. For other agents, copy this file into a
+project (or your agent's system prompt) to let an AI agent manage servers
+through the `komando` CLI.
 
 ## Rules
 
@@ -29,7 +31,8 @@ agent manage servers through the `komando` CLI.
 ## Setup for the human
 
 ```bash
+komando guide install     # teach Claude Code, Codex, Cursor, Gemini CLI to use komando
 export KOMANDO_ACTOR=claude    # name shown in `komando audit` (add to ~/.zshrc or ~/.bashrc to keep it)
-komando host list              # make sure your servers are there
+komando list              # make sure your servers are there
 komando host edit <prod-host> --protected
 ```

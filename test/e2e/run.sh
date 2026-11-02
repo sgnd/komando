@@ -5,6 +5,11 @@
 #   make e2e            (or)   test/e2e/run.sh
 #
 # Needs: docker (with compose), go, python3. Set KEEP=1 to keep containers.
+#
+# Several runs can share one machine (e.g. one per git worktree) when each
+# sets its own project name and host ports:
+#   E2E_PROJECT=komando-e2e-b E2E_SSH_BASTION=3222 E2E_SSH_DIRECT=3223 \
+#   E2E_SSH_SWARM=3224 E2E_REGISTRY=6005 E2E_SOCKS=19080 make e2e
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -13,13 +18,16 @@ K="$ROOT/bin/komando"
 KOMANDO_HOME="$(mktemp -d)"
 export KOMANDO_HOME
 export KOMANDO_ACTOR="e2e"
-PROJECT=komando-e2e
+PROJECT=${E2E_PROJECT:-komando-e2e}
+export E2E_SSH_BASTION=${E2E_SSH_BASTION:-2222} E2E_SSH_DIRECT=${E2E_SSH_DIRECT:-2223}
+export E2E_SSH_SWARM=${E2E_SSH_SWARM:-2224} E2E_REGISTRY=${E2E_REGISTRY:-5005}
+E2E_SOCKS=${E2E_SOCKS:-18080}
 PASS=0
 FAIL=0
 
 cleanup() {
   [ "${KEEP:-0}" = 1 ] || docker compose -p "$PROJECT" -f "$E2E/compose.yml" down -v >/dev/null 2>&1 || true
-  pkill -f "komando tunnel serve" >/dev/null 2>&1 || true
+  "$K" tunnel stop --all >/dev/null 2>&1 || true # only this run's tunnels
   rm -rf "$KOMANDO_HOME"
 }
 trap cleanup EXIT
@@ -38,14 +46,14 @@ echo "==> build"
 echo "==> start containers"
 docker compose -p "$PROJECT" -f "$E2E/compose.yml" up -d --build --wait >/dev/null 2>&1 \
   || docker compose -p "$PROJECT" -f "$E2E/compose.yml" up -d --build >/dev/null
-for _ in $(seq 1 30); do nc -z 127.0.0.1 2222 2>/dev/null && nc -z 127.0.0.1 2223 2>/dev/null && break; sleep 1; done
+for _ in $(seq 1 30); do nc -z 127.0.0.1 "$E2E_SSH_BASTION" 2>/dev/null && nc -z 127.0.0.1 "$E2E_SSH_DIRECT" 2>/dev/null && break; sleep 1; done
 sleep 1
 
 echo "==> inventory & vault"
 echo -n agentpass | $K secret set agent-pass >/dev/null
-$K host add bastion agent@127.0.0.1:2222 --password-ref secret:agent-pass -g lab >/dev/null
-$K host add direct agent@127.0.0.1:2223 --password-ref secret:agent-pass -g lab -t test >/dev/null
-$K host add target agent@target --jump bastion --password-ref secret:agent-pass -g lab --protected >/dev/null
+$K host add bastion "agent@127.0.0.1:$E2E_SSH_BASTION" --password-ref secret:agent-pass -g lab >/dev/null
+$K host add direct "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent-pass -g lab -t test >/dev/null
+$K host add target agent@target --via bastion --password-ref secret:agent-pass -g lab --protected >/dev/null
 check "host list count" 3 "$($K host list | jget 'd["data"]["count"]')"
 check "secret never printed" False "$($K secret get agent-pass | jget '"value" in d["data"]')"
 
@@ -158,6 +166,19 @@ check "storage ls via bastion" 2026/obj.txt "$($K storage ls bucket --recursive 
 q $K storage download bucket 2026/obj.txt --to "$TMP/obj-back.txt"
 check "storage round trip" backup-data "$(cat "$TMP/obj-back.txt")"
 
+# file servers through the bastion: SFTP (shell-less account) and FTPS (TLS required)
+echo -n deploypass | $K secret set files-pass >/dev/null
+q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref secret:files-pass
+q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref secret:files-pass
+for c in files-sftp files-ftps; do
+  q $K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt
+  check "$c upload creates folders" 2026/11/obj.txt "$($K storage ls "$c" --recursive | jget '[o["key"] for o in d["data"]["objects"] if not o.get("dir")][0]')"
+  check "$c upload replaces" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["data"]["replaced"]')"
+  q $K storage download "$c" 2026/11/obj.txt --to "$TMP/$c.txt"
+  check "$c round trip" backup-data "$(cat "$TMP/$c.txt")"
+  set +e; $K storage rm "$c" 2026/11/obj.txt >/dev/null; check "$c rm needs --allow-dangerous" 6 $?; set -e
+done
+
 # one inventory: targets pick servers and conns together
 echo "==> servers and conns together"
 q $K group add stack 'bastion,pg,cache'
@@ -167,8 +188,97 @@ check "exec @stack skips conns" "cache,pg" "$($K exec @stack --read-only -- true
 check "db query @stack finds pg" 1 "$($K db query @stack 'select 1 as n' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "cache on a database says use db" NO_MATCHING_TARGETS "$($K cache info pg | jget 'd["error"]["code"]' || true)"
 
+# one verb pair for files, and tunnels to conns by name
+echo hello-upload > "$TMP/up.txt"
+q $K upload direct "$TMP/up.txt" /tmp/up.txt
+q $K download direct /tmp/up.txt --to "$TMP/down/"
+check "upload/download to a server" hello-upload "$(cat "$TMP/down/up.txt")"
+TUN=$($K tunnel start pg | jget 'd["data"]["listen"]')
+check "tunnel to a conn by name" 0 "$(nc -z "${TUN%:*}" "${TUN##*:}"; echo $?)"
+q $K tunnel stop --all
+
+# Kubernetes (k3s on the private network, reached through the bastion)
+echo "==> cluster (k3s through the bastion)"
+for _ in $(seq 1 60); do docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T k3s kubectl get nodes 2>/dev/null | grep -q " Ready" && break; sleep 2; done
+docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T k3s cat /etc/rancher/k3s/k3s.yaml | sed 's#https://127.0.0.1:6443#https://k3s:6443#; s#: default$#: lab-k3s#' > "$TMP/kubeconfig"
+q $K import kubeconfig "$TMP/kubeconfig"
+q $K conn edit lab-k3s --via bastion
+check "cluster status through bastion" 1 "$($K cluster status lab-k3s | jget 'd["data"]["nodes_ready"]')"
+cat > "$TMP/app.yaml" <<'YAML'
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: web, namespace: default }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: web } }
+  template:
+    metadata: { labels: { app: web } }
+    spec: { containers: [ { name: web, image: "rancher/mirrored-pause:3.6" } ] }
+YAML
+check "apply --dry-run changes nothing" "K8S_NOT_FOUND" "$($K cluster apply lab-k3s --file "$TMP/app.yaml" --dry-run >/dev/null; $K cluster get lab-k3s deploy web | jget 'd["error"]["code"]' || true)"
+q $K cluster apply lab-k3s --file "$TMP/app.yaml"
+check "apply then list" web "$($K cluster ls lab-k3s deployments | jget 'd["data"]["items"][0]["name"]')"
+q $K cluster scale lab-k3s deployment/web 2
+check "scale" 2 "$($K cluster get lab-k3s deploy web | jget 'd["data"]["spec"]["replicas"]')"
+set +e; $K cluster scale lab-k3s deployment/web 0 >/dev/null; check "scale to 0 needs --allow-dangerous" 6 $?; set -e
+q $K cluster restart lab-k3s deployment/web
+set +e; $K cluster run lab-k3s -- delete deploy web >/dev/null; check "cluster run delete needs --write" 6 $?; set -e
+check "cluster run reads through bastion" True "$($K cluster run lab-k3s -- get deploy web -o name | jget '"deployment.apps/web" in d["data"]["stdout"]')"
+q $K cluster rm lab-k3s deployment web --allow-dangerous
+
+# Docker Swarm (a one-node manager, Docker-in-Docker, over SSH)
+echo "==> cluster (Docker Swarm)"
+q $K host add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --password-ref secret:agent-pass
+for _ in $(seq 1 60); do $K exec swarm1 --read-only -- docker node ls >/dev/null 2>&1 && break; sleep 2; done
+check "swarm status" True "$($K cluster status swarm1 | jget 'd["data"]["results"][0]["ok"]')"
+cat > "$TMP/stack.yml" <<'YAML'
+services:
+  web:
+    image: busybox:1.37
+    command: ["sleep", "86400"]
+YAML
+q $K cluster apply swarm1 --file "$TMP/stack.yml" --stack e2e
+check "swarm services" True "$($K cluster ls swarm1 services | jget 'any(r["Name"]=="e2e_web" for r in d["data"]["results"][0]["data"])')"
+q $K cluster scale swarm1 service/e2e_web 2
+check "swarm scale" True "$($K cluster ls swarm1 services | jget 'any(r["Replicas"].endswith("/2") for r in d["data"]["results"][0]["data"])')"
+check "swarm run reads" True "$($K cluster run swarm1 -- service ls | jget 'd["data"]["results"][0]["ok"]')"
+set +e; $K cluster run swarm1 --write -- service rm e2e_web >/dev/null; check "swarm run rm needs --allow-dangerous" 6 $?; set -e
+q $K cluster rm swarm1 stack e2e --allow-dangerous
+
+# container registry (registry:2 on the private network, through the bastion)
+echo "==> registry"
+docker pull -q busybox:1.37 >/dev/null && docker tag busybox:1.37 "127.0.0.1:$E2E_REGISTRY"/tools/busybox:1.37 && docker push -q "127.0.0.1:$E2E_REGISTRY"/tools/busybox:1.37 >/dev/null
+q $K conn add reg 'registry://e2e@registry:5000?tls=false' --via bastion
+check "registry catalog" True "$($K registry ls reg | jget '"tools/busybox" in d["data"]["repositories"]')"
+check "registry tags" 1.37 "$($K registry ls reg tools/busybox | jget 'd["data"]["tags"][0]')"
+check "registry inspect digest" True "$($K registry inspect reg tools/busybox:1.37 | jget 'd["data"]["digest"].startswith("sha256:")')"
+q $K registry copy reg:tools/busybox:1.37 reg:mirror/busybox:stable
+check "registry copy keeps the digest" "$($K registry inspect reg tools/busybox:1.37 | jget 'd["data"]["digest"]')" "$($K registry inspect reg mirror/busybox:stable | jget 'd["data"]["digest"]')"
+set +e; $K registry rm reg tools/busybox:1.37 >/dev/null; check "registry rm needs --allow-dangerous" 6 $?; set -e
+q $K registry rm reg tools/busybox:1.37 --allow-dangerous
+check "registry rm removed it" REGISTRY_NOT_FOUND "$($K registry inspect reg tools/busybox:1.37 | jget 'd["error"]["code"]' || true)"
+
+# VPNs: a SOCKS proxy (komando's own, through the bastion) and an OS VPN check
+echo "==> VPNs"
+q $K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"
+q $K vpn add lab socks --address "127.0.0.1:$E2E_SOCKS" --check pg:5432
+q $K conn add pg-lab 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref secret:pg-pass
+check "db through a SOCKS VPN" 1 "$($K db query pg-lab 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K host add target-lab agent@target --via lab --password-ref secret:agent-pass
+check "ssh through a SOCKS VPN" target "$($K exec target-lab --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "vpn test" 1 "$($K test kind:vpn | jget 'd["data"]["summary"]["ok"]')"
+q $K vpn add corp system --check 127.0.0.1:1
+check "system VPN down says so" VPN_DOWN "$($K db query pg-lab 'select 1' >/dev/null; $K test corp | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
+set +e; $K vpn rm lab >/dev/null; check "VPN in use cannot be removed" 8 $?; set -e
+q $K tunnel stop --all
+
+# logs --follow streams until stopped (here by --timeout)
+check "logs --follow streams" True "$($K logs direct --file /etc/hostname --follow --timeout 3s | head -1 | jget '"direct" in d["data"]')"
+set +e; $K fs rm direct /tmp/somedir --recursive >/dev/null; check "fs rm -r needs --allow-dangerous" 6 $?; set -e
+
 # no way around protection
 q $K snippet add touch-it 'touch /tmp/komando-e2e'
+check "recipe list has built-ins and saved" True "$($K recipe list | jget 'any(r["builtin"] for r in d["data"]["recipes"]) and any(not r["builtin"] for r in d["data"]["recipes"])')"
 set +e; $K snippet run touch-it target >/dev/null; check "snippet on protected host needs --yes" 6 $?; set -e
 set +e; $K host rm target >/dev/null; check "removing a protected host needs --yes" 6 $?; set -e
 set +e; $K config set audit off >/dev/null; check "turning off audit needs --yes" 6 $?; set -e

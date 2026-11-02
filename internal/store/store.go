@@ -23,7 +23,8 @@ type Host struct {
 	Identity    string            `json:"identity,omitempty"`     // path to a private key file
 	PasswordRef string            `json:"password_ref,omitempty"` // secret:<name> or env:<VAR>
 	SudoRef     string            `json:"sudo_ref,omitempty"`     // sudo password ref (secret:/env:)
-	Jump        string            `json:"jump,omitempty"`         // host name or comma-separated chain
+	Via         string            `json:"via,omitempty"`          // the way there: host name(s), comma-separated chain
+	OldJump     string            `json:"jump,omitempty"`         // before v0.3; moved to Via on load
 	Groups      []string          `json:"groups,omitempty"`
 	Tags        []string          `json:"tags,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
@@ -97,7 +98,9 @@ type Job struct {
 type Tunnel struct {
 	ID        string    `json:"id"`
 	Host      string    `json:"host"`
-	Kind      string    `json:"kind"` // local | remote | dynamic
+	Via       string    `json:"via,omitempty"`  // the --via chain when forwarding to a conn
+	Conn      string    `json:"conn,omitempty"` // the conn this tunnel leads to
+	Kind      string    `json:"kind"`           // local | remote | dynamic
 	Spec      string    `json:"spec"`
 	PID       int       `json:"pid"`
 	LogFile   string    `json:"log_file"`
@@ -114,6 +117,7 @@ type Settings struct {
 	ExtraDenyPattern []string `json:"extra_deny_patterns,omitempty"`
 	Audit            bool     `json:"audit"`
 	AuditSQL         string   `json:"audit_sql"` // full | hash | off: how SQL text is kept in the audit log
+	VpnIdle          string   `json:"vpn_idle"`  // a VPN session unused this long is disconnected
 }
 
 func DefaultSettings() Settings {
@@ -125,17 +129,60 @@ func DefaultSettings() Settings {
 		MaxOutputBytes: 256 * 1024,
 		Audit:          true,
 		AuditSQL:       "full",
+		VpnIdle:        "30m",
 	}
 }
 
+// Vpn is a network komando opens inside its own process to reach targets
+// (docs/design/network.md). Keys live in the vault, referenced by KeyRef.
+type Vpn struct {
+	Name      string            `json:"name"`
+	Kind      string            `json:"kind"`                 // see netx.Kinds
+	Config    string            `json:"config,omitempty"`     // wireguard: the wg-quick file without its keys
+	ConfigRef string            `json:"config_ref,omitempty"` // openvpn: the whole .ovpn, kept in the vault (it may hold keys)
+	Address   string            `json:"address,omitempty"`    // socks: host:port of the proxy
+	Portal    string            `json:"portal,omitempty"`     // openconnect kinds: the VPN server or portal
+	Service   string            `json:"service,omitempty"`    // system: the OS VPN's name, to connect it with `vpn up`
+	Server    string            `json:"server,omitempty"`     // tailscale: a Headscale login server
+	User      string            `json:"user,omitempty"`       // user name, if the VPN wants one
+	KeyRef    string            `json:"key_ref,omitempty"`    // password, private key or auth key, as secret:/env:/file:
+	PSKRef    string            `json:"psk_ref,omitempty"`    // wireguard: preshared key, if any
+	MFA       bool              `json:"mfa,omitempty"`        // a human must log in (`vpn up`); never automated
+	OSMode    bool              `json:"os_mode,omitempty"`    // openvpn: run on the computer itself (sudo, changes routes)
+	Check     string            `json:"check,omitempty"`      // host:port that answers only through the VPN
+	Groups    []string          `json:"groups,omitempty"`
+	Tags      []string          `json:"tags,omitempty"`
+	Labels    map[string]string `json:"labels,omitempty"`
+	Notes     string            `json:"notes,omitempty"`
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedAt time.Time         `json:"updated_at"`
+}
+
+// VpnSession is a VPN kept up in the background between commands.
+type VpnSession struct {
+	Vpn       string    `json:"vpn"`
+	PID       int       `json:"pid"`
+	Socks     string    `json:"socks,omitempty"`      // local SOCKS5 address; empty when the OS routes the traffic
+	Container string    `json:"container,omitempty"`  // the Docker container ID holding the VPN (openvpn)
+	SocksUser string    `json:"socks_user,omitempty"` // login for the container's SOCKS port, random per session
+	SocksPass string    `json:"socks_pass,omitempty"`
+	Exe       string    `json:"exe,omitempty"`  // the program the pid must still be, so a reused pid is never signalled
+	Sudo      bool      `json:"sudo,omitempty"` // the process runs as root (OS mode)
+	LogFile   string    `json:"log_file,omitempty"`
+	StartedAt time.Time `json:"started_at"`
+	LastUsed  time.Time `json:"last_used"`
+}
+
 type State struct {
-	Hosts    map[string]*Host    `json:"hosts"`
-	Conns    map[string]*Conn    `json:"conns,omitempty"`
-	Keys     map[string]*Key     `json:"keys"`
-	Snippets map[string]*Snippet `json:"snippets"`
-	Jobs     map[string]*Job     `json:"jobs"`
-	Tunnels  map[string]*Tunnel  `json:"tunnels"`
-	Settings Settings            `json:"settings"`
+	Hosts    map[string]*Host       `json:"hosts"`
+	Conns    map[string]*Conn       `json:"conns,omitempty"`
+	Vpns     map[string]*Vpn        `json:"vpns,omitempty"`
+	Sessions map[string]*VpnSession `json:"vpn_sessions,omitempty"`
+	Keys     map[string]*Key        `json:"keys"`
+	Snippets map[string]*Snippet    `json:"snippets"`
+	Jobs     map[string]*Job        `json:"jobs"`
+	Tunnels  map[string]*Tunnel     `json:"tunnels"`
+	Settings Settings               `json:"settings"`
 }
 
 func Home() string {
@@ -186,8 +233,20 @@ func (s *State) init() {
 	if s.Hosts == nil {
 		s.Hosts = map[string]*Host{}
 	}
+	for _, h := range s.Hosts {
+		if h.OldJump != "" && h.Via == "" {
+			h.Via = h.OldJump
+		}
+		h.OldJump = ""
+	}
 	if s.Conns == nil {
 		s.Conns = map[string]*Conn{}
+	}
+	if s.Vpns == nil {
+		s.Vpns = map[string]*Vpn{}
+	}
+	if s.Sessions == nil {
+		s.Sessions = map[string]*VpnSession{}
 	}
 	if s.Keys == nil {
 		s.Keys = map[string]*Key{}
@@ -213,6 +272,9 @@ func (s *State) init() {
 	}
 	if s.Settings.Parallel == 0 {
 		s.Settings.Parallel = d.Parallel
+	}
+	if s.Settings.VpnIdle == "" {
+		s.Settings.VpnIdle = d.VpnIdle
 	}
 	if s.Settings.AuditSQL == "" {
 		s.Settings.AuditSQL = d.AuditSQL
@@ -290,6 +352,15 @@ func (s *State) SortedConns() []*Conn {
 	return cs
 }
 
+func (s *State) SortedVpns() []*Vpn {
+	vs := make([]*Vpn, 0, len(s.Vpns))
+	for _, v := range s.Vpns {
+		vs = append(vs, v)
+	}
+	sort.Slice(vs, func(i, j int) bool { return vs[i].Name < vs[j].Name })
+	return vs
+}
+
 // NameTaken reports whether a host or conn already uses name. Hosts and conns
 // share one namespace so selectors stay unambiguous.
 func (s *State) NameTaken(name string) (kind string, taken bool) {
@@ -308,6 +379,11 @@ func (s *State) FindName(name string) (kind, existing string, found bool) {
 	for n := range s.Conns {
 		if strings.EqualFold(n, name) {
 			return "conn", n, true
+		}
+	}
+	for n := range s.Vpns {
+		if strings.EqualFold(n, name) {
+			return "vpn", n, true
 		}
 	}
 	return "", "", false

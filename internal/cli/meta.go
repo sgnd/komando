@@ -4,8 +4,11 @@ import (
 	"bufio"
 	_ "embed"
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strconv"
@@ -30,7 +33,7 @@ type textBlob string
 func (t textBlob) Text() string { return string(t) }
 
 func guideCmd() *cobra.Command {
-	return &cobra.Command{
+	c := &cobra.Command{
 		Use:   "guide",
 		Short: "Playbook for AI agents: workflow, safety rules, recipes (read this first)",
 		Args:  cobra.NoArgs,
@@ -43,6 +46,110 @@ func guideCmd() *cobra.Command {
 			return nil
 		},
 	}
+	c.AddCommand(guideInstallCmd())
+	return c
+}
+
+// skillText is the komando agent skill (SKILL.md, the Agent Skills format).
+// skills/komando/SKILL.md in the repository is a copy of it.
+//
+//go:embed skill.md
+var skillText string
+
+// skillDirs are the folders AI agents read skills from: Claude Code reads
+// .claude/skills, Codex, Cursor, Gemini CLI and others read .agents/skills.
+var skillDirs = []string{".claude/skills", ".agents/skills"}
+
+type skillFile struct {
+	Path   string `json:"path"`
+	Action string `json:"action"` // created | updated | unchanged
+	Backup string `json:"backup,omitempty"`
+}
+
+func guideInstallCmd() *cobra.Command {
+	var project bool
+	c := &cobra.Command{
+		Use:   "install",
+		Short: "Teach your AI agents komando: add the komando skill for Claude Code, Codex, Cursor, Gemini CLI",
+		Long: `Adds the komando skill (komando/SKILL.md) to the folders AI agents read
+skills from: ~/.claude/skills (Claude Code) and ~/.agents/skills (Codex,
+Cursor, Gemini CLI and others). The agent then uses komando by itself whenever
+a task touches a server, database, cache or storage.
+
+Safe to run again, for example after an update: a changed file is kept as
+SKILL.md.bak. Remove the skill by deleting the komando folders.`,
+		Example: `  komando guide install             # for every project on this computer
+  komando guide install --project   # only for the folder you are in
+  komando guide install --dry-run   # show where it would go`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			base, err := os.UserHomeDir()
+			if project {
+				base, err = os.Getwd()
+			}
+			if err != nil {
+				return out.Errf(out.ExitError, "NO_FOLDER", "", "cannot find the folder to install into: %v", err)
+			}
+			var files []skillFile
+			for _, d := range skillDirs {
+				f, err := installSkill(filepath.Join(base, d, "komando", "SKILL.md"), g.dryRun)
+				if err != nil {
+					return out.Errf(out.ExitError, "WRITE_FAILED", "check that you may write to this folder", "%v", err)
+				}
+				files = append(files, f)
+			}
+			out.P.Print("guide.install", skillResult{Files: files}, nil)
+			return nil
+		},
+	}
+	c.Flags().BoolVar(&project, "project", false, "install into the current folder instead of your home folder")
+	return c
+}
+
+type skillResult struct {
+	Files []skillFile `json:"files"`
+}
+
+func (r skillResult) Text() string {
+	var b strings.Builder
+	for _, f := range r.Files {
+		b.WriteString(f.Action + "  " + f.Path + "\n")
+		if f.Backup != "" {
+			b.WriteString("  old version kept as " + f.Backup + "\n")
+		}
+	}
+	b.WriteString("Restart your AI agent so it sees the skill.")
+	return b.String()
+}
+
+func installSkill(path string, dryRun bool) (skillFile, error) {
+	f := skillFile{Path: path, Action: "created"}
+	old, err := os.ReadFile(path)
+	switch {
+	case err == nil && string(old) == skillText:
+		f.Action = "unchanged"
+		return f, nil
+	case err == nil:
+		f.Action, f.Backup = "updated", path+".bak"
+	case !errors.Is(err, fs.ErrNotExist):
+		return f, err
+	}
+	if dryRun {
+		return f, nil
+	}
+	if f.Backup != "" {
+		if err := os.WriteFile(f.Backup, old, 0o644); err != nil {
+			return f, err
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return f, err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(skillText), 0o644); err != nil {
+		return f, err
+	}
+	return f, os.Rename(tmp, path)
 }
 
 // ---------------------------------------------------------------- schema ---
@@ -115,6 +222,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 			res := map[string]any{
 				"name":     "komando",
 				"version":  Version,
+				"contract": out.Contract,
 				"commands": cmds,
 			}
 			if start == root {
@@ -247,7 +355,7 @@ func configCmd() *cobra.Command {
 	})
 	c.AddCommand(&cobra.Command{
 		Use:   "set KEY VALUE",
-		Short: "Set host_key_policy|default_user|default_timeout|connect_timeout|parallel|max_output_bytes|audit|audit_sql",
+		Short: "Set host_key_policy|default_user|default_timeout|connect_timeout|parallel|max_output_bytes|audit|audit_sql|vpn_idle",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var res store.Settings
@@ -297,6 +405,11 @@ func configCmd() *cobra.Command {
 						}
 					}
 					s.Settings.Audit = on
+				case "vpn_idle":
+					if _, err := parseDur(v); err != nil {
+						return out.Usage("invalid duration %q", v)
+					}
+					s.Settings.VpnIdle = v
 				case "audit_sql":
 					if v != "full" && v != "hash" && v != "off" {
 						return out.Usage("audit_sql: full|hash|off (hash keeps a SHA-256 so repeated queries can be matched without storing their text)")
@@ -464,6 +577,13 @@ func doctorCmd() *cobra.Command {
 			}
 			_, sshErr := exec.LookPath("ssh")
 			checks = append(checks, check{"openssh_client", sshErr == nil, "optional; komando has a built-in SSH client"})
+			for _, v := range st.SortedVpns() { // programs the registered VPNs need
+				for _, bin := range vpnClients(v) {
+					_, err := exec.LookPath(bin)
+					checks = append(checks, check{"vpn:" + v.Name + ":" + bin, err == nil,
+						map[bool]string{true: "installed", false: installHint(bin)}[err == nil]})
+				}
+			}
 			checks = append(checks, check{"platform", true, runtime.GOOS + "/" + runtime.GOARCH})
 			ok := true
 			for _, c := range checks {

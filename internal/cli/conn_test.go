@@ -106,7 +106,7 @@ func TestCheckConn(t *testing.T) {
 		t.Errorf("valid conn rejected: %v (kind %q)", err, ok.Kind)
 	}
 	bad := map[string]*store.Conn{
-		"HOST_NOT_FOUND":   {URL: "postgres://app@db/app", Via: "nope"},
+		"VIA_NOT_FOUND":    {URL: "postgres://app@db/app", Via: "nope"},
 		"USAGE":            {URL: "sqlite:///tmp/a.db", Via: "web-1"},
 		"URL_HAS_PASSWORD": {URL: "postgres://app:pw@db/app"},
 	}
@@ -195,11 +195,11 @@ func TestActionCommandsUseWhatTheyCan(t *testing.T) {
 func TestProtectionFollowsTheAddress(t *testing.T) {
 	st := testConnState()
 	st.Hosts["web-1"].Protected = true
-	adhoc, _, err := matchSelector(st, "root@web-1.lan:22")
-	if err != nil || len(adhoc) != 1 {
-		t.Fatalf("ad-hoc host: %v %v", adhoc, err)
+	m, err := matchSelector(st, "root@web-1.lan:22")
+	if err != nil || len(m.Hosts) != 1 {
+		t.Fatalf("ad-hoc host: %v %v", m.Hosts, err)
 	}
-	if !protectedHost(st, adhoc[0]) {
+	if !protectedHost(st, m.Hosts[0]) {
 		t.Error("an ad-hoc host at a protected address must count as protected")
 	}
 	if protectedHost(st, &store.Host{Name: "x", Address: "web-1.lan", Port: 2222}) {
@@ -215,5 +215,117 @@ func TestProtectionFollowsTheAddress(t *testing.T) {
 	}
 	if err := guardConns(st, []*store.Conn{alias}, driver.Verdict{Risk: driver.RiskWrite}); err == nil || toErr(err).Code != "PROTECTED_TARGET" {
 		t.Errorf("expected PROTECTED_TARGET for the alias, got %v", err)
+	}
+}
+
+func TestViaChain(t *testing.T) {
+	st := testConnState()
+	st.Hosts["db-1"].Via = "web-2"
+	h, _, err := resolveVia(st, "web-1,db-1")
+	if err != nil || h.Name != "db-1" || h.Via != "web-1" {
+		t.Fatalf("chain: got %v via %q, %v", h, h.Via, err)
+	}
+	if st.Hosts["db-1"].Via != "web-2" {
+		t.Error("a chain must not change the stored host")
+	}
+	if h, _, _ := resolveVia(st, "db-1"); h.Via != "web-2" {
+		t.Error("a single host keeps its own --via")
+	}
+	if _, _, err := resolveVia(st, "web-1,nope"); err == nil || toErr(err).Code != "VIA_NOT_FOUND" {
+		t.Errorf("expected VIA_NOT_FOUND, got %v", err)
+	}
+	st.Vpns = map[string]*store.Vpn{"office": {Name: "office", Kind: "socks", Address: "127.0.0.1:1"}}
+	if h, v, err := resolveVia(st, "office,web-1"); err != nil || v != nil || h.Via != "office" {
+		t.Errorf("vpn then host: %v %v %v", h, v, err)
+	}
+	if h, v, err := resolveVia(st, "office"); err != nil || h != nil || v == nil {
+		t.Errorf("vpn only: %v %v %v", h, v, err)
+	}
+	if _, _, err := resolveVia(st, "web-1,office"); err == nil || toErr(err).Code != "VIA_ORDER" {
+		t.Errorf("expected VIA_ORDER, got %v", err)
+	}
+	if got := renameStep("a, web-1 ,b", "web-1", "web-9"); got != "a,web-9,b" {
+		t.Errorf("renameStep: %q", got)
+	}
+}
+
+func TestClusterRunClassification(t *testing.T) {
+	k := map[string]driver.Risk{
+		"get pods":                       driver.RiskRead,
+		"auth can-i list pods":           driver.RiskRead,
+		"auth reconcile -f x.yaml":       driver.RiskWrite,
+		"rollout status deploy/a":        driver.RiskRead,
+		"rollout undo deploy/a":          driver.RiskWrite,
+		"delete node w1":                 driver.RiskDestructive,
+		"exec deploy/a -- sh":            driver.RiskDestructive,
+		"apply -f x.yaml":                driver.RiskWrite,
+		"apply -f x.yaml --prune -l a=b": driver.RiskDestructive,
+		"scale deploy/a --replicas=0":    driver.RiskDestructive,
+		"config view --raw":              driver.RiskDestructive,
+		"create clusterrolebinding x --clusterrole=cluster-admin": driver.RiskDestructive,
+		"edit deploy/a": driver.RiskDestructive,
+	}
+	for cmd, want := range k {
+		if got := classifyKubectl(strings.Fields(cmd)); got != want {
+			t.Errorf("kubectl %s: %v, want %v", cmd, got, want)
+		}
+	}
+	d := map[string]driver.Risk{
+		"service ps web":                     driver.RiskRead,
+		"service ls":                         driver.RiskRead,
+		"ps":                                 driver.RiskRead,
+		"service rm web":                     driver.RiskDestructive,
+		"system prune -a":                    driver.RiskDestructive,
+		"stack rm shop":                      driver.RiskDestructive,
+		"service update --force x":           driver.RiskWrite,
+		"exec -it c sh":                      driver.RiskDestructive,
+		"run --privileged -v /:/h alpine":    driver.RiskDestructive,
+		"stack deploy -c x --prune s":        driver.RiskDestructive,
+		"node update --availability drain n": driver.RiskDestructive,
+	}
+	for _, bad := range []string{"get pods --server=https://evil", "get pods --kubeconfig /tmp/x", "get pods -s https://e", "delete x --dry-run=none", "get pods --token t"} {
+		if checkKubectlFlags(strings.Fields(bad)) == nil {
+			t.Errorf("%q must be refused", bad)
+		}
+	}
+	if checkKubectlFlags(strings.Fields("exec deploy/a -- curl --server x")) != nil {
+		t.Error("flags after -- belong to the pod command")
+	}
+	for cmd, want := range d {
+		if got := classifyDocker(strings.Fields(cmd)); got != want {
+			t.Errorf("docker %s: %v, want %v", cmd, got, want)
+		}
+	}
+}
+
+func TestCheckOVPN(t *testing.T) {
+	good := "client\ndev tun\nproto udp\nremote vpn.example 1194\nremote-cert-tls server\nauth-user-pass\n<ca>\nx\n</ca>\n<key>\ny\n</key>\n"
+	if err := checkOVPN(good); err != nil {
+		t.Errorf("a plain client config must pass: %v", err)
+	}
+	for _, bad := range []string{
+		"up /tmp/x.sh", `"script-security" 2`, "config /etc/other.conf", "management 127.0.0.1 7505",
+		"writepid /etc/cron.d/x", "log /etc/passwd", "auth-user-pass /etc/shadow", "ca /etc/ssl/key.pem",
+		"plugin /usr/lib/x.so", "iproute /tmp/ip", "<script>\nx\n</script>",
+		"<ca>\nx\n</ca>x\nscript-security 2", "<ca>\nx\n", "<ca>\n</ca> up /tmp/x",
+	} {
+		if err := checkOVPN("client\n" + bad + "\n"); err == nil {
+			t.Errorf("%q must be refused", bad)
+		}
+	}
+}
+
+func TestLabelWithoutValue(t *testing.T) {
+	st := testConnState()
+	sel, err := resolveSelection(st, "label:dc")
+	if err != nil || len(sel.Hosts) != 3 {
+		t.Fatalf("label:dc must pick the 3 hosts that have the label, got %v %v", hostNames(sel.Hosts), err)
+	}
+}
+
+func TestRedactArgs(t *testing.T) {
+	got := strings.Join(redactArgs([]string{"create", "secret", "generic", "x", "--from-literal=password=hunter2", "--token", "abc"}), " ")
+	if strings.Contains(got, "hunter2") || strings.Contains(got, "abc") {
+		t.Errorf("secrets left in: %s", got)
 	}
 }

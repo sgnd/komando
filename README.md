@@ -57,11 +57,11 @@ examples; replace them with yours.
 komando host add web1 ubuntu@203.0.113.10
 
 # 2. Check that it works
-komando host test web1
+komando test web1
 
 # 3. Ask something
 komando facts web1            # what is this server?
-komando ops run health web1   # is it healthy?
+komando recipe run health web1   # is it healthy?
 komando exec web1 -- uptime   # run any command
 ```
 
@@ -100,7 +100,18 @@ Queries only read unless you add `--write`. Try a change first with
 
 ## Give it to your AI agent
 
-Copy the text of [`AGENTS.md`](AGENTS.md) into your agent's instructions
+One command teaches your AI agents (Claude Code, Codex, Cursor, Gemini CLI)
+to use komando, for every project on this computer:
+
+```bash
+komando guide install
+```
+
+It adds the komando *skill*: a short note the agent reads by itself whenever
+a task touches a server, database, cache or storage. Restart the agent after
+it. Run it again after you update komando.
+
+Other agents: copy the text of [`AGENTS.md`](AGENTS.md) into your agent's instructions
 file (Codex: `AGENTS.md`, Claude Code: `CLAUDE.md`, in the folder you work in),
 or simply tell your agent:
 
@@ -116,15 +127,19 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 |------|----------|
 | See and check everything at once (servers and conns) | `list`, `test` |
 | Keep a list of servers and how to log in | `host`, `group`, `key`, `secret` |
+| Bring in what you have (ssh config, .pgpass, my.cnf, .env) or move computers | `import`, `export` |
 | Run commands on one or many servers | `exec`, `script`, `job` (long tasks) |
-| Read, edit and copy files | `fs`, `cp` |
-| Check health (39 ready-made checks) | `facts`, `ops` |
+| Read, edit and copy files | `fs`, `upload`, `download` |
+| Check health (39 ready-made checks) | `facts`, `recipe` |
 | Manage services, logs, Docker, software, users, schedules | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
 | Test the network, reach private servers | `net`, `tunnel` |
+| Reach things behind VPNs, several at once without switching | `vpn`, `--via` |
 | Keep a list of databases, caches and storage | `conn` |
 | Query and back up databases (PostgreSQL, MySQL, SQLite) | `db` |
 | Read and change caches (Redis, Valkey) | `cache` |
-| Browse, download and upload files in object storage (S3, MinIO, R2, ...) | `storage` |
+| Kubernetes and Docker Swarm: status, logs, apply, restart, scale | `cluster` |
+| Container registries: tags, image details, clean up | `registry` |
+| Browse, download and upload files in object storage (S3, MinIO, R2, ...) | `storage`, `upload`, `download` |
 | See history and safety rules | `audit`, `policy` |
 
 Coming next: clusters (Kubernetes, k3s, Swarm),

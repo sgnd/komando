@@ -1,0 +1,25 @@
+# VPN clients against real servers: ocserv (openconnect family) and
+# Headscale (Tailscale). Nothing is published to the host.
+services:
+  ocserv:
+    build: { context: ., dockerfile: Dockerfile.ocserv }
+    cap_add: [NET_ADMIN]
+    devices: ["/dev/net/tun"]
+    volumes: ["certs:/certs"]
+    hostname: ocserv
+  headscale:
+    image: headscale/headscale:0.26.1
+    command: ["serve"]
+    volumes: ["./headscale.yaml:/etc/headscale/config.yaml:ro"]
+    tmpfs: ["/var/lib/headscale", "/var/run/headscale"]
+    hostname: headscale
+  peer:
+    image: tailscale/tailscale:v1.86.2
+    entrypoint: ["sh", "-c", "sleep infinity"]
+    hostname: peer
+  client:
+    build: { context: ., dockerfile: Dockerfile.client }
+    entrypoint: ["sh", "-c", "sleep infinity"]
+    volumes: ["certs:/certs:ro", "${KOMANDO_BIN}:/usr/local/bin/komando:ro"]
+volumes:
+  certs: {}

@@ -100,7 +100,7 @@ Host *
 	for _, h := range hosts {
 		by[h.Name] = h
 	}
-	if w := by["web"]; w == nil || w.Address != "10.0.0.1" || w.Port != 2200 || w.User != "deploy" || w.Jump != "bastion" {
+	if w := by["web"]; w == nil || w.Address != "10.0.0.1" || w.Port != 2200 || w.User != "deploy" || w.Via != "bastion" {
 		t.Errorf("web parsed wrong: %+v", w)
 	}
 	if b := by["bastion"]; b == nil || b.User != "fallback" {

@@ -19,8 +19,10 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 var Version = "dev"
@@ -135,6 +137,10 @@ Start here:  komando guide      (agent playbook)
 			out.P.Version = Version
 			out.P.DryRun = g.dryRun
 			out.P.Start = time.Now()
+			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
+			if cmd.Name() != "serve" && !g.dryRun {
+				netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
+			}
 			if g.hostKeyPolicy == "off" {
 				return guardSafety("--host-key-policy off (no server identity check)")
 			}
@@ -171,10 +177,10 @@ Start here:  komando guide      (agent playbook)
 			root.AddCommand(c)
 		}
 	}
-	add("inv", listCmd(), testCmd(), hostCmd(), connCmd(), groupCmd(), keyCmd(), secretCmd())
-	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), cpCmd(), tunnelCmd(), shellCmd(), snippetCmd())
-	add("data", dbCmd(), cacheCmd(), storageCmd())
-	add("ops", factsCmd(), opsCmd(), svcCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd())
+	add("inv", listCmd(), testCmd(), importCmd(), exportCmd(), hostCmd(), connCmd(), vpnCmd(), groupCmd(), keyCmd(), secretCmd())
+	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), tunnelCmd(), shellCmd(), recipeCmd())
+	add("data", dbCmd(), cacheCmd(), storageCmd(), clusterCmd(), registryCmd())
+	add("ops", factsCmd(), svcCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd())
 	add("meta", schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), versionCmd())
 	applyConventions(root)
 	root.InitDefaultHelpCmd()

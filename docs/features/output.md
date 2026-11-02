@@ -36,6 +36,13 @@ when the command then fails).
 
 The full machine-readable reference is `komando schema`.
 
+## Will my scripts keep working?
+
+Every JSON answer has `meta.contract` (now `1`). Within a contract, komando
+only adds fields, error codes and commands; it never renames or removes
+them, and renamed commands and flags keep working as aliases. If that ever
+has to change, `meta.contract` goes up and the changelog says what changed.
+
 ## Troubleshooting
 
 | Error | Usually means | Try |

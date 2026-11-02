@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
 
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -35,6 +37,7 @@ type Client struct {
 	*ssh.Client
 	Host  *store.Host
 	chain []*ssh.Client
+	vpn   io.Closer // the VPN the chain starts with, if any
 }
 
 func (c *Client) Close() error {
@@ -42,20 +45,36 @@ func (c *Client) Close() error {
 	for i := len(c.chain) - 1; i >= 0; i-- {
 		c.chain[i].Close()
 	}
+	if c.vpn != nil {
+		c.vpn.Close()
+	}
 	return err
 }
 
-// Dial connects to h, honouring its jump chain.
+// Dial connects to h, honouring its --via chain. A chain may start with a
+// VPN; it is opened inside this process for this connection only.
 func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Client, error) {
-	hops, err := resolveChain(st, h, map[string]bool{})
+	vpn, hops, err := resolveChain(st, h, map[string]bool{})
 	if err != nil {
 		return nil, err
+	}
+	first := (&net.Dialer{Timeout: o.ConnectTimeout}).DialContext
+	var vpnCloser io.Closer
+	if vpn != nil {
+		d, c, err := netx.Open(ctx, vpn, o.ConnectTimeout)
+		if err != nil {
+			return nil, err
+		}
+		first, vpnCloser = d, c
 	}
 	var chain []*ssh.Client
 	var prev *ssh.Client
 	closeAll := func() {
 		for i := len(chain) - 1; i >= 0; i-- {
 			chain[i].Close()
+		}
+		if vpnCloser != nil {
+			vpnCloser.Close()
 		}
 	}
 	for i, hop := range hops {
@@ -67,7 +86,7 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 		addr := net.JoinHostPort(hop.Address, strconv.Itoa(hop.EffectivePort()))
 		var c *ssh.Client
 		if prev == nil {
-			c, err = dialDirect(ctx, addr, cfg, o.ConnectTimeout)
+			c, err = dialDirect(ctx, first, addr, cfg, o.ConnectTimeout)
 		} else {
 			c, err = dialVia(ctx, prev, addr, cfg, o.ConnectTimeout)
 		}
@@ -80,7 +99,7 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 		}
 		prev = c
 	}
-	cl := &Client{Client: prev, Host: h, chain: chain}
+	cl := &Client{Client: prev, Host: h, chain: chain, vpn: vpnCloser}
 	go keepalive(cl)
 	return cl, nil
 }
@@ -95,34 +114,51 @@ func keepalive(c *Client) {
 	}
 }
 
-// resolveChain returns [jump1, jump2, ..., target].
-func resolveChain(st *store.State, h *store.Host, seen map[string]bool) ([]*store.Host, error) {
+// resolveChain returns the VPN the path starts with (or nil) and the SSH
+// hops [via1, via2, ..., target].
+func resolveChain(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, []*store.Host, error) {
 	if seen[h.Name] {
-		return nil, out.Errf(out.ExitUsage, "JUMP_CYCLE", "fix the jump setting with `komando host edit`", "jump host cycle detected at %q", h.Name)
+		return nil, nil, out.Errf(out.ExitUsage, "VIA_CYCLE", "fix the --via setting with `komando host edit`", "--via cycle detected at %q", h.Name)
 	}
 	seen[h.Name] = true
-	if h.Jump == "" {
-		return []*store.Host{h}, nil
+	if h.Via == "" {
+		return nil, []*store.Host{h}, nil
 	}
+	var vpn *store.Vpn
 	var hops []*store.Host
-	for _, j := range strings.Split(h.Jump, ",") {
+	for _, j := range strings.Split(h.Via, ",") {
 		j = strings.TrimSpace(j)
+		if v, ok := st.Vpns[j]; ok {
+			if vpn != nil || len(hops) > 0 {
+				return nil, nil, out.Errf(out.ExitUsage, "VIA_ORDER", "put the VPN first: --via "+j+",bastion",
+					"%s: a VPN can only be the first step of a --via path", h.Name)
+			}
+			vpn = v
+			continue
+		}
 		jh, ok := st.Hosts[j]
 		if !ok {
 			// allow ad-hoc user@host:port jump specs
 			adhoc, err := ParseAdhoc(j)
 			if err != nil {
-				return nil, out.NotFound("host", j)
+				return nil, nil, out.NotFound("host", j)
 			}
 			jh = adhoc
 		}
-		sub, err := resolveChain(st, jh, seen)
+		subVPN, sub, err := resolveChain(st, jh, seen)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		if subVPN != nil {
+			if vpn != nil || len(hops) > 0 {
+				return nil, nil, out.Errf(out.ExitUsage, "VIA_ORDER", "a path can use one VPN, as its first step",
+					"%s: the --via path reaches VPN %s after another step", h.Name, subVPN.Name)
+			}
+			vpn = subVPN
 		}
 		hops = append(hops, sub...)
 	}
-	return append(hops, h), nil
+	return vpn, append(hops, h), nil
 }
 
 // ParseAdhoc parses user@host:port into a transient host.
@@ -146,9 +182,8 @@ func ParseAdhoc(s string) (*store.Host, error) {
 	return h, nil
 }
 
-func dialDirect(ctx context.Context, addr string, cfg *ssh.ClientConfig, timeout time.Duration) (*ssh.Client, error) {
-	d := net.Dialer{Timeout: timeout}
-	conn, err := d.DialContext(ctx, "tcp", addr)
+func dialDirect(ctx context.Context, dial netx.Dialer, addr string, cfg *ssh.ClientConfig, timeout time.Duration) (*ssh.Client, error) {
+	conn, err := dial(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -426,7 +461,7 @@ func ScanHostKey(ctx context.Context, addr string, timeout time.Duration) (ssh.P
 		},
 		Timeout: timeout,
 	}
-	_, err := dialDirect(ctx, addr, cfg, timeout)
+	_, err := dialDirect(ctx, (&net.Dialer{Timeout: timeout}).DialContext, addr, cfg, timeout)
 	if got != nil {
 		return got, nil
 	}
