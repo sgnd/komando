@@ -97,3 +97,19 @@ func TestDBShellNeedsTerminal(t *testing.T) {
 		t.Errorf("want NEEDS_TERMINAL, got %v", err)
 	}
 }
+
+func TestRedactSQL(t *testing.T) {
+	for in, want := range map[string]string{
+		"CREATE USER app WITH PASSWORD 's3cret'":                      "CREATE USER app WITH PASSWORD '***'",
+		"alter role app encrypted password 'it''s'":                   "alter role app encrypted password '***'",
+		"CREATE USER 'a'@'%' IDENTIFIED BY 'p@ss'":                    "CREATE USER 'a'@'%' IDENTIFIED BY '***'",
+		"ALTER USER a IDENTIFIED WITH mysql_native_password BY \"x\"": "ALTER USER a IDENTIFIED WITH mysql_native_password BY '***'",
+		"SET PASSWORD FOR 'a'@'%' = 'new'":                            "SET PASSWORD FOR 'a'@'%' = '***'",
+		"select * from users where name = 'password'":                 "select * from users where name = 'password'",
+		"ALTER ROLE x PASSWORD $$p$$":                                 "ALTER ROLE x PASSWORD '***'",
+	} {
+		if got := redactSQL(in); got != want {
+			t.Errorf("redactSQL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

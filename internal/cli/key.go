@@ -445,6 +445,13 @@ Values are never printed unless 'secret get --reveal' is used.`,
 				return err
 			}
 			reveal, _ := cmd.Flags().GetBool("reveal")
+			if reveal && !interactive() {
+				// agents never see passwords (docs/design/vision.md); a person at
+				// a terminal can still pipe the value, e.g. into pbcopy
+				return out.Errf(out.ExitPolicy, "REVEAL_NEEDS_HUMAN",
+					"ask a person to run `komando secret get "+args[0]+" --reveal` in a terminal; to use the secret in a command, reference it (secret:"+args[0]+") instead",
+					"--reveal only works for a person at a terminal")
+			}
 			res := map[string]any{"name": args[0], "exists": true, "length": len(v)}
 			if reveal {
 				res["value"] = v
@@ -473,6 +480,14 @@ Values are never printed unless 'secret get --reveal' is used.`,
 		Short: "Delete a secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			st, err := loadState()
+			if err != nil {
+				return err
+			}
+			if users := secretUsers(st, args[0]); len(users) > 0 {
+				return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first (e.g. `komando host edit NAME --password-ref ...`)",
+					"secret %s is used by %s", args[0], strings.Join(users, ", "))
+			}
 			if g.dryRun {
 				list, err := vault.List()
 				if err != nil {
@@ -489,10 +504,40 @@ Values are never printed unless 'secret get --reveal' is used.`,
 			} else if err != nil {
 				return err
 			}
+			audit(st, "secret.rm", nil, "", true, map[string]any{"secret": args[0]})
 			out.P.Print("secret.rm", map[string]any{"removed": args[0]}, nil)
 			return nil
 		},
 	}
 	c.AddCommand(set, get, list, rm)
 	return c
+}
+
+// secretUsers lists the servers, conns, keys and VPNs whose references point
+// at the vault secret name.
+func secretUsers(st *store.State, name string) []string {
+	ref := "secret:" + name
+	var users []string
+	for _, h := range st.Hosts {
+		if h.PasswordRef == ref || h.SudoRef == ref {
+			users = append(users, "host "+h.Name)
+		}
+	}
+	for _, c := range st.Conns {
+		if c.PasswordRef == ref {
+			users = append(users, "conn "+c.Name)
+		}
+	}
+	for _, k := range st.Keys {
+		if k.PassphraseRef == ref {
+			users = append(users, "key "+k.Name)
+		}
+	}
+	for _, v := range st.Vpns {
+		if v.KeyRef == ref || v.PSKRef == ref || v.ConfigRef == ref {
+			users = append(users, "vpn "+v.Name)
+		}
+	}
+	sort.Strings(users)
+	return users
 }

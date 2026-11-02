@@ -197,7 +197,7 @@ func (c *WGConfig) UAPI() (string, error) {
 		if p.Endpoint != "" {
 			addr, err := net.ResolveUDPAddr("udp", p.Endpoint)
 			if err != nil {
-				return "", fmt.Errorf("Endpoint %s: %w", p.Endpoint, err)
+				return "", fmt.Errorf("peer endpoint %s: %w", p.Endpoint, err)
 			}
 			fmt.Fprintf(&sb, "endpoint=%s\n", addr.String())
 		}

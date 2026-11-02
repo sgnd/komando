@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -343,7 +344,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		rec["sql_sha256"] = hex.EncodeToString(sum[:])
 	case "off":
 	default:
-		rec["sql"] = query
+		rec["sql"] = redactSQL(query)
 	}
 	if len(f.args) > 0 {
 		rec["args"] = len(f.args) // values may be personal data; record only how many
@@ -392,4 +393,14 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	audit(st, name, nil, "", true, rec)
 	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
 	return nil
+}
+
+// sqlSecret matches the password literal in CREATE/ALTER USER and ROLE,
+// SET PASSWORD and PASSWORD() so the audit log never stores it:
+// PASSWORD 'x' (Postgres), IDENTIFIED [WITH plugin] BY 'x', SET PASSWORD
+// [FOR u] = 'x' (MySQL).
+var sqlSecret = regexp.MustCompile(`(?is)(\bPASSWORD\s*(?:FOR\s+\S+\s*)?=?\s*\(?\s*|\bIDENTIFIED\s+(?:WITH\s+\S+\s+)?BY\s+)('(?:[^'\\]|''|\\.)*'|"(?:[^"\\]|""|\\.)*"|\$[A-Za-z_]*\$.*?\$[A-Za-z_]*\$)`)
+
+func redactSQL(q string) string {
+	return sqlSecret.ReplaceAllString(q, "${1}'***'")
 }

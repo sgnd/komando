@@ -23,7 +23,8 @@ through the `komando` CLI.
    `SAFETY_SETTING`, exit code 6), stop, explain
    what you want to do and why, and wait for the human's explicit approval.
 8. **Never** "fix" `HOSTKEY_MISMATCH` yourself — report it.
-9. Never reveal secrets (`komando secret get --reveal`) unless the human asks.
+9. Secret values are for people only: `secret get --reveal` works only at a
+   terminal. Refer to secrets as `secret:NAME`.
 10. Read `error.hint` on every failure; it says what to do next.
 11. After finishing, summarize what you changed, on which hosts, and how to
     roll back (`komando audit --limit 20` helps).

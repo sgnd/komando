@@ -21,6 +21,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 var nameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`)
@@ -111,6 +112,9 @@ func hostAddCmd() *cobra.Command {
 			if h.Address == "" {
 				return out.Usage("address required: pass user@address[:port] or --address")
 			}
+			if err := checkHostRefs(h); err != nil {
+				return err
+			}
 			var err error
 			if h.Labels, err = parseKV(f.labels); err != nil {
 				return err
@@ -187,6 +191,9 @@ func hostEditCmd() *cobra.Command {
 				}
 				if fl.Changed("protected") {
 					h.Protected = f.protected
+				}
+				if err := checkHostRefs(h); err != nil {
+					return err
 				}
 				if h.Key != "" {
 					if _, ok := s.Keys[h.Key]; !ok {
@@ -266,6 +273,17 @@ func hostEditCmd() *cobra.Command {
 	f.bind(c, true)
 	c.Flags().StringVar(&rename, "rename", "", "rename the host")
 	return c
+}
+
+// checkHostRefs refuses a password typed where a reference belongs
+// (--password-ref hunter2 would be stored and printed as plain text).
+func checkHostRefs(h *store.Host) error {
+	for _, r := range []struct{ flag, ref string }{{"--password-ref", h.PasswordRef}, {"--sudo-ref", h.SudoRef}} {
+		if r.ref != "" && !vault.ValidRef(r.ref) {
+			return out.Usage("invalid %s: it takes a reference, not the password itself (%s); store the password with `komando secret set NAME` first", r.flag, vault.RefHelp())
+		}
+	}
+	return nil
 }
 
 func applyKV(m *map[string]string, pairs []string) error {

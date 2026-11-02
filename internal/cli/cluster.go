@@ -852,6 +852,8 @@ func classifyKubectl(args []string) driver.Risk {
 			return driver.RiskRead
 		}
 		return driver.RiskDestructive // config view --raw prints the credentials
+	case verb == "get" && getsSecretValues(args[1:]):
+		return driver.RiskDestructive // -o yaml/json/jsonpath on Secrets prints their values
 	case oneOf(verb, "get", "describe", "logs", "top", "explain", "version", "api-resources", "api-versions",
 		"cluster-info", "events", "diff", "wait"):
 		return driver.RiskRead
@@ -870,6 +872,41 @@ func classifyKubectl(args []string) driver.Risk {
 		return driver.RiskDestructive // deletes, outages, or more rights than the conn has
 	}
 	return driver.RiskWrite
+}
+
+// getsSecretValues reports whether `kubectl get` args ask for Secrets with
+// an output format that includes their data. The default table and -o
+// wide/name show only names and key counts.
+func getsSecretValues(args []string) bool {
+	secrets, values := false, false
+	for i := 0; i < len(args); i++ {
+		a := strings.ToLower(args[i])
+		format := ""
+		switch {
+		case a == "-o" || a == "--output":
+			if i+1 < len(args) {
+				format = strings.ToLower(args[i+1])
+				i++
+			}
+		case strings.HasPrefix(a, "--output="):
+			format = strings.TrimPrefix(a, "--output=")
+		case strings.HasPrefix(a, "-o"):
+			format = strings.TrimPrefix(strings.TrimPrefix(a, "-o"), "=")
+		case strings.HasPrefix(a, "-"):
+			continue
+		default:
+			for _, r := range strings.Split(a, ",") {
+				r, _, _ = strings.Cut(r, "/")
+				if oneOf(r, "secret", "secrets") || strings.HasPrefix(r, "secrets.") || strings.HasPrefix(r, "secret.") {
+					secrets = true
+				}
+			}
+		}
+		if format != "" && !oneOf(format, "wide", "name") {
+			values = true
+		}
+	}
+	return secrets && values
 }
 
 // classifyDocker rates a docker command on a Swarm manager by verb,

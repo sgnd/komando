@@ -254,29 +254,33 @@ func (c *Client) getJSON(ctx context.Context, path string, q url.Values, accept 
 
 // Catalog lists repositories (registries like Docker Hub do not allow it).
 func (c *Client) Catalog(ctx context.Context, limit int) ([]string, error) {
-	var r struct {
-		Repositories []string `json:"repositories"`
-	}
-	_, err := c.getJSON(ctx, "/v2/_catalog", url.Values{"n": {fmt.Sprint(limit)}}, "", &r)
-	return r.Repositories, err
+	return c.pages(ctx, "/v2/_catalog", "repositories", limit)
 }
 
 // Tags lists a repository's tags.
 func (c *Client) Tags(ctx context.Context, repo string, limit int) ([]string, error) {
+	return c.pages(ctx, "/v2/"+repo+"/tags/list", "tags", limit)
+}
+
+// pages reads a paged list, following the Link header, up to limit items.
+func (c *Client) pages(ctx context.Context, path, field string, limit int) ([]string, error) {
 	var all []string
 	q := url.Values{"n": {fmt.Sprint(min(limit, 1000))}}
-	path := "/v2/" + repo + "/tags/list"
 	for len(all) < limit {
-		var r struct {
-			Tags []string `json:"tags"`
-		}
+		var r map[string]json.RawMessage
 		h, err := c.getJSON(ctx, path, q, "", &r)
 		if err != nil {
 			return nil, err
 		}
-		all = append(all, r.Tags...)
+		var items []string
+		if raw, ok := r[field]; ok && string(raw) != "null" {
+			if err := json.Unmarshal(raw, &items); err != nil {
+				return nil, err
+			}
+		}
+		all = append(all, items...)
 		next := nextLink(h.Get("Link"))
-		if next == nil {
+		if next == nil || len(items) == 0 {
 			break
 		}
 		path, q = next.Path, next.Query()

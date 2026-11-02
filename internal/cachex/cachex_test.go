@@ -37,6 +37,19 @@ func TestClassify(t *testing.T) {
 		{"ACL SETUSER eve on >pw", driver.RiskDestructive, "redis-acl"},
 		{"SCRIPT FLUSH", driver.RiskDestructive, "redis-scripts"},
 		{"REPLICAOF evil 6379", driver.RiskDestructive, "redis-server-config"},
+		{"GETDEL k", driver.RiskDestructive, "data-delete"},
+		{"RENAME a b", driver.RiskDestructive, "data-delete"},
+		{"RENAMENX a b", driver.RiskWrite, ""},
+		{"EXPIRE k 0", driver.RiskDestructive, "data-delete"},
+		{"pexpire k -1", driver.RiskDestructive, "data-delete"},
+		{"EXPIREAT k 1", driver.RiskDestructive, "data-delete"},
+		{"EXPIREAT k 99999999999", driver.RiskWrite, ""},
+		{"ACL LOG", driver.RiskRead, ""},
+		{"ACL LOG RESET", driver.RiskWrite, ""},
+		{"JSON.GET doc $", driver.RiskRead, ""},
+		{"FT.SEARCH idx hello", driver.RiskRead, ""},
+		{"TS.RANGE t - +", driver.RiskRead, ""},
+		{"JSON.SET doc $ 1", driver.RiskWrite, ""},
 	}
 	for _, c := range cases {
 		v := Classify(strings.Fields(c.cmd))

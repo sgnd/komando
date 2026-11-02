@@ -475,6 +475,9 @@ func policyCmd() *cobra.Command {
 			switch kind {
 			case "":
 			case "redis":
+				if len(args) == 1 { // one quoted argument: "CLIENT LIST"
+					args = strings.Fields(args[0])
+				}
 				out.P.Print("policy.check", cachex.Classify(args), nil)
 				return nil
 			default:

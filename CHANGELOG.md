@@ -4,6 +4,33 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Secrets and risk ratings (gap analysis, phase 1)
+
+- `secret get --reveal` works only for a person at a terminal
+  (`REVEAL_NEEDS_HUMAN` for agents and scripts); commands refer to secrets
+  as `secret:NAME` instead.
+- `secret rm` refuses a secret that a server, conn, key or VPN still uses
+  (`SECRET_IN_USE`) and is written to the audit log.
+- `host add|edit --password-ref/--sudo-ref` refuse a password typed where a
+  reference belongs; before, it was stored and printed as plain text.
+- `cluster run -- get secret ... -o yaml|json|jsonpath` needs
+  `--allow-dangerous`: those formats print the secret values. The default
+  table (names and key counts) stays a read.
+- `docker raw` and `docker rm` are rated like `cluster run` on a Swarm
+  manager: reads stay reads, and `rm`, `volume rm`, `prune`, `run`, `exec`
+  need `--allow-dangerous`; so does `docker compose down -v/--rmi`.
+- `cache run`: `GETDEL`, `RENAME` and `EXPIRE` to zero or the past delete
+  keys, so they need `--allow-dangerous` like `DEL`. Read commands of
+  RedisJSON, RediSearch, RedisTimeSeries and RedisBloom count as reads;
+  `ACL LOG RESET` is a write.
+- `db query`: passwords in `CREATE/ALTER USER|ROLE ... PASSWORD`,
+  `IDENTIFIED BY` and `SET PASSWORD` are replaced with `'***'` in the audit
+  log.
+- `svc logs -f` and `docker logs -f` stream like `logs -f` (they waited for
+  the timeout before).
+- `registry ls` follows every page of the repository list (it read only the
+  first).
+
 ### Safety fixes from a full review
 
 - `--dry-run` now changes nothing on every command. Inventory commands
