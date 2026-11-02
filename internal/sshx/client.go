@@ -85,9 +85,30 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 		}
 		addr := net.JoinHostPort(hop.Address, strconv.Itoa(hop.EffectivePort()))
 		var c *ssh.Client
-		if prev == nil {
+		switch {
+		case hop.ProxyCommand != "" && (prev != nil || vpn != nil):
+			closeAll()
+			return nil, out.Errf(out.ExitUsage, "PROXY_NOT_FIRST", "a proxy command can only start a path; put that host first in --via",
+				"%s has a proxy command but is reached through another hop", hop.Name)
+		case hop.ProxyCommand != "":
+			// the program carries the connection (aws ssm, gcloud iap, cloudflared)
+			pc, perr := dialProxy(hop)
+			if perr != nil {
+				closeAll()
+				return nil, perr
+			}
+			c, err = handshake(pc, addr, cfg, o.ConnectTimeout)
+			if err != nil {
+				pc.Close()
+				if tail := pc.stderrTail(); tail != "" {
+					closeAll()
+					return nil, out.Errf(out.ExitConnect, "PROXY_FAILED", "run the proxy command by hand to see why: komando host ssh-command "+hop.Name,
+						"%s: %v; the proxy command said: %s", hop.Name, classify(hop.Name, err), tail)
+				}
+			}
+		case prev == nil:
 			c, err = dialDirect(ctx, first, addr, cfg, o.ConnectTimeout)
-		} else {
+		default:
 			c, err = dialVia(ctx, prev, addr, cfg, o.ConnectTimeout)
 		}
 		if err != nil {

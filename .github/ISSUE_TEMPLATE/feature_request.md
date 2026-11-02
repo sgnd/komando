@@ -4,7 +4,7 @@ about: Suggest an idea
 labels: enhancement
 ---
 
-<!-- English or Bahasa Indonesia are both fine. -->
+<!-- Please write in English. -->
 
 **What do you want to do?** (the task, not the solution)
 

@@ -122,8 +122,11 @@ Host *
 		t.Error("Include not followed")
 	}
 	joined := strings.Join(notes, "\n")
-	if !strings.Contains(joined, "Match block") || !strings.Contains(joined, "ec2: not carried over: proxycommand") {
-		t.Errorf("notes must report Match and ProxyCommand, got %q", notes)
+	if !strings.Contains(joined, "Match block") || strings.Contains(joined, "proxycommand") {
+		t.Errorf("notes must report Match, and ProxyCommand is carried over now: %q", notes)
+	}
+	if e := by["ec2"]; e == nil || e.ProxyCommand != "aws ssm start-session --target %h" {
+		t.Errorf("ProxyCommand not carried over: %+v", e)
 	}
 	if strings.Contains(joined, "serveraliveinterval") || strings.Contains(joined, "bastion:") {
 		t.Errorf("harmless directives must not be reported: %q", notes)

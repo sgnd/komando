@@ -19,6 +19,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -38,6 +39,8 @@ func validName(kind, n string) error {
 
 type hostFlags struct {
 	address, user, key, identity, passwordRef, sudoRef, jump, notes string
+	proxyCommand                                                    string
+	ssm                                                             bool
 	port                                                            int
 	groups, tags, labels, env                                       []string
 	protected                                                       bool
@@ -55,6 +58,8 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.sudoRef, "sudo-ref", "", "sudo password reference: secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	fl.StringVar(&f.jump, "via", "", "reach it through these host(s) (bastions), comma-separated chain")
 	aliasFlag(fl, "jump", "via")
+	fl.StringVar(&f.proxyCommand, "proxy-command", "", "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)")
+	fl.BoolVar(&f.ssm, "ssm", false, "reach it through AWS Systems Manager: the address is the instance ID (needs the aws CLI and its session-manager-plugin)")
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (shown to agents in host show)")
 	fl.BoolVar(&f.protected, "protected", false, "require --yes for mutating actions (production safety)")
 	if edit {
@@ -64,7 +69,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove tag(s)")
 		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (empty value removes)")
 		fl.StringSliceVar(&f.env, "env", nil, "set env KEY=VALUE exported before commands (empty value removes)")
-		fl.StringSliceVar(&f.unset, "unset", nil, "clear fields: user,key,identity,password-ref,sudo-ref,via,notes,port,protected")
+		fl.StringSliceVar(&f.unset, "unset", nil, "clear fields: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected")
 	} else {
 		fl.StringSliceVarP(&f.groups, "group", "g", nil, "group(s)")
 		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tag(s)")
@@ -93,8 +98,11 @@ func hostAddCmd() *cobra.Command {
 			if err := validName("host", name); err != nil {
 				return err
 			}
+			if err := guardProxyCommand(f.proxyCommand); err != nil {
+				return err
+			}
 			h := &store.Host{Name: name, Address: f.address, Port: f.port, User: f.user, Key: f.key, Identity: f.identity,
-				PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
+				PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, ProxyCommand: f.proxyCommand, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
 				Protected: f.protected, Notes: f.notes}
 			if len(args) == 2 {
 				a, err := sshx.ParseAdhoc(args[1])
@@ -111,6 +119,9 @@ func hostAddCmd() *cobra.Command {
 			}
 			if h.Address == "" {
 				return out.Usage("address required: pass user@address[:port] or --address")
+			}
+			if f.ssm {
+				h.ProxyCommand = ssmProxy
 			}
 			if err := checkHostRefs(h); err != nil {
 				return err
@@ -165,6 +176,9 @@ func hostEditCmd() *cobra.Command {
 		Example: `  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := guardProxyCommand(f.proxyCommand); err != nil {
+				return err
+			}
 			var res *store.Host
 			err := store.Update(func(s *store.State) error {
 				h, ok := s.Hosts[args[0]]
@@ -185,6 +199,10 @@ func hostEditCmd() *cobra.Command {
 				set("password-ref", &h.PasswordRef, f.passwordRef)
 				set("sudo-ref", &h.SudoRef, f.sudoRef)
 				set("via", &h.Via, f.jump)
+				set("proxy-command", &h.ProxyCommand, f.proxyCommand)
+				if f.ssm {
+					h.ProxyCommand = ssmProxy
+				}
 				set("notes", &h.Notes, f.notes)
 				if fl.Changed("port") {
 					h.Port = f.port
@@ -225,6 +243,8 @@ func hostEditCmd() *cobra.Command {
 						h.SudoRef = ""
 					case "via", "jump":
 						h.Via = ""
+					case "proxy-command":
+						h.ProxyCommand = ""
 					case "notes":
 						h.Notes = ""
 					case "port":
@@ -275,9 +295,35 @@ func hostEditCmd() *cobra.Command {
 	return c
 }
 
+// ssmProxy reaches an EC2 instance (the host's address is its ID) through
+// AWS Systems Manager, as AWS documents for SSH; the aws CLI picks the
+// profile and region from its usual settings (AWS_PROFILE, AWS_REGION).
+const ssmProxy = "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p"
+
+// guardProxyCommand: a proxy command runs on this computer each time komando
+// connects, outside the agent guard's view. It passes the policy filter, and
+// from an AI agent it needs a person's yes (--yes, then the window). --ssm
+// sets komando's own command and needs neither.
+func guardProxyCommand(cmd string) error {
+	if cmd == "" {
+		return nil
+	}
+	if hits := policy.Check(cmd, nil); len(hits) > 0 && !dangerOK() {
+		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a proxy command only carries the connection, e.g. `aws ssm start-session ...`",
+			"--proxy-command matches destructive rules: %s", hits[0].Reason)
+	}
+	if isAgent() {
+		return guardSafety("--proxy-command runs `" + cmd + "` on this computer whenever komando connects")
+	}
+	return nil
+}
+
 // checkHostRefs refuses a password typed where a reference belongs
 // (--password-ref hunter2 would be stored and printed as plain text).
 func checkHostRefs(h *store.Host) error {
+	if h.ProxyCommand != "" && h.Via != "" {
+		return out.Usage("a host takes --proxy-command or --via, not both (put the proxy on the first host of the --via chain)")
+	}
 	for _, r := range []struct{ flag, ref string }{{"--password-ref", h.PasswordRef}, {"--sudo-ref", h.SudoRef}} {
 		if r.ref != "" && !vault.ValidRef(r.ref) {
 			return out.Usage("invalid %s: it takes a reference, not the password itself (%s); store the password with `komando secret set NAME` first", r.flag, vault.RefHelp())
@@ -491,7 +537,7 @@ func readFileOrStdin(p string) ([]byte, error) {
 // sshHarmless change nothing komando needs (its own client already behaves
 // that way or the option only tunes OpenSSH). Anything else is reported
 // after an import, so a setting is never dropped silently.
-var sshUsed = set("hostname user port identityfile proxyjump")
+var sshUsed = set("hostname user port identityfile proxyjump proxycommand")
 var sshHarmless = set(`serveraliveinterval serveralivecountmax addkeystoagent usekeychain identitiesonly
 stricthostkeychecking userknownhostsfile globalknownhostsfile loglevel compression controlmaster controlpath
 controlpersist connecttimeout tcpkeepalive visualhostkey hashknownhosts preferredauthentications
@@ -595,6 +641,9 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 				continue
 			}
 			h := &store.Host{Name: name, Address: opts["hostname"], User: opts["user"], Via: opts["proxyjump"]}
+			if pc := opts["proxycommand"]; pc != "" && !strings.EqualFold(pc, "none") && h.Via == "" {
+				h.ProxyCommand = pc // your own ssh config: the same program runs as with ssh
+			}
 			if h.Address == "" {
 				h.Address = pat
 			}
@@ -615,11 +664,7 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 			}
 			if len(dropped) > 0 {
 				sort.Strings(dropped)
-				hint := ""
-				if slices.Contains(dropped, "proxycommand") {
-					hint = " (ProxyCommand is not supported; use --via with a bastion or VPN)"
-				}
-				notes = append(notes, fmt.Sprintf("%s: not carried over: %s%s", name, strings.Join(dropped, ", "), hint))
+				notes = append(notes, fmt.Sprintf("%s: not carried over: %s", name, strings.Join(dropped, ", ")))
 			}
 			hosts = append(hosts, h)
 		}
@@ -811,12 +856,22 @@ func hostSSHArgsCmd() *cobra.Command {
 				}
 				parts = append(parts, "-J", strings.Join(js, ","))
 			}
+			if h.ProxyCommand != "" {
+				parts = append(parts, "-o", "ProxyCommand="+h.ProxyCommand) // ssh fills in %h %p itself
+			}
 			dest := h.Address
 			if h.User != "" {
 				dest = h.User + "@" + dest
 			}
 			parts = append(parts, dest)
-			out.P.Print("host.ssh-command", sshCmdResult{Argv: parts, Command: strings.Join(parts, " ")}, nil)
+			line := make([]string, len(parts))
+			for i, p := range parts {
+				line[i] = p
+				if strings.ContainsAny(p, " '\"$") {
+					line[i] = sshx.Q(p)
+				}
+			}
+			out.P.Print("host.ssh-command", sshCmdResult{Argv: parts, Command: strings.Join(line, " ")}, nil)
 			return nil
 		},
 	}

@@ -89,6 +89,6 @@ organisation.
 ```bash
 komando doctor          # security: permissions, vault, audit chain, unencrypted conns
 komando audit verify    # nobody edited the audit log
-make security           # govulncheck + staticcheck (in the source)
+make lint security      # staticcheck, govulncheck (in the source)
 make fuzz               # fuzz the parsers that read untrusted text
 ```

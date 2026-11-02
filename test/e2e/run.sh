@@ -143,6 +143,13 @@ $K key deploy leaver direct >/dev/null
 check "key revoke --dry-run counts" 1 "$($K key revoke leaver direct --dry-run | jget 'd["data"]["results"][0]["would_remove"]')"
 check "key revoke removes it" 1 "$($K key revoke leaver direct | jget 'd["data"]["results"][0]["removed"]')"
 check "other keys stay" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+$K host add pc "agent@127.0.0.1" --port "$E2E_SSH_DIRECT" --key deploy --proxy-command 'nc %h %p' >/dev/null
+check "proxy command carries ssh" ok "$($K exec pc -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "ssh-command shows the proxy" True "$($K host ssh-command pc | jget '"ProxyCommand=nc %h %p" in d["data"]["argv"]')"
+check "proxy and --via do not mix" USAGE "$($K host add pc2 agent@127.0.0.1 --via bastion --proxy-command 'nc %h %p' | jget 'd["error"]["code"]' || true)"
+$K host add ssm1 ec2-user@i-0abc123 --ssm >/dev/null
+check "--ssm sets the AWS proxy" True "$($K host show ssm1 | jget '"AWS-StartSSHSession" in d["data"]["proxy_command"]')"
+$K host rm pc ssm1 >/dev/null
 check "revoke a public key line" 0 "$($K key revoke "$(cat "$KOMANDO_HOME/keys/leaver.pub")" direct | jget 'd["data"]["results"][0]["removed"]')"
 
 echo "==> tunnel"
@@ -248,6 +255,13 @@ q $K storage upload bucket "$TMP/obj.txt" 2026/obj.txt
 check "storage ls via bastion" 2026/obj.txt "$($K storage ls bucket --recursive | jget 'd["data"]["objects"][0]["key"]')"
 q $K storage download bucket 2026/obj.txt --to "$TMP/obj-back.txt"
 check "storage round trip" backup-data "$(cat "$TMP/obj-back.txt")"
+mkdir -p "$TMP/fakebin"
+printf '#!/bin/sh\necho "{\\"Version\\":1,\\"AccessKeyId\\":\\"%s\\",\\"SecretAccessKey\\":\\"%s\\"}"\n' "$S3ID" "$(awk '/Secret key/{printf "%s", $3}' "$TMP/s3key")" > "$TMP/fakebin/aws"
+chmod +x "$TMP/fakebin/aws"
+q $K conn add bucket-aws "s3://backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --option aws_profile=e2e
+check "s3 with aws_profile credentials" 2026/obj.txt "$(PATH="$TMP/fakebin:$PATH" $K storage ls bucket-aws --recursive | jget 'd["data"]["objects"][0]["key"]')"
+check "aws_profile without the aws CLI" AWS_CLI_MISSING "$(PATH=/usr/bin:/bin $K storage ls bucket-aws | jget 'd["error"]["code"]' || true)"
+q $K conn rm bucket-aws
 mkdir -p "$TMP/tree/sub" && echo one > "$TMP/tree/a.txt" && echo two > "$TMP/tree/sub/b.txt" && echo skip > "$TMP/tree/c.tmp"
 check "upload -r to storage" 3 "$($K upload bucket "$TMP/tree" tree -r | jget 'd["data"]["copied"]')"
 check "sync to storage sends nothing new" 0 "$($K sync "$TMP/tree" bucket:tree --exclude '*.tmp' | jget 'd["data"]["copied"] + d["data"]["updated"]')"

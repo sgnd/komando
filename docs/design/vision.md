@@ -1,260 +1,260 @@
-# Visi dan roadmap komando
+# komando vision and roadmap
 
-Status: **disetujui, 2026-11-02; v0.2–v0.7 selesai** (lihat [Keputusan](#keputusan-dan-pertanyaan-terbuka)). Dokumen ini menggantikan tujuan lama ("CLI SSH
-untuk AI agent") dengan tujuan baru. Rancangan per fitur tetap di dokumen
-masing-masing, misalnya [resources-and-db.md](resources-and-db.md).
+Status: **approved, 2026-11-02; v0.2–v0.7 done** (see [Decisions](#decisions-and-open-questions)). This document replaces the old goal ("an SSH CLI
+for AI agents") with a new goal. The design for each feature stays in its own
+document, for example [resources-and-db.md](resources-and-db.md).
 
-## Visi
+## Vision
 
-> **komando adalah satu client universal untuk semua pekerjaan devops:
-> server, database, cache, object storage, cluster, registry, secrets, dan
-> file. Satu inventaris, satu cara pakai, satu lapisan aman. Bisa dipakai
-> manusia dan AI agent.**
+> **komando is one universal client for all devops work:
+> servers, databases, caches, object storage, clusters, registries, secrets, and
+> files. One inventory, one way of working, one safety layer. Usable by
+> people and AI agents.**
 
-Bayangkan Termius + TablePlus + Lens + Cyberduck + `docker`/`kubectl`/`aws s3`
-digabung jadi satu CLI. Semua perintahnya mengikuti aturan yang sama, dan
-password tidak pernah terlihat oleh AI.
+Imagine Termius + TablePlus + Lens + Cyberduck + `docker`/`kubectl`/`aws s3`
+merged into one CLI. All its commands follow the same rules, and
+passwords are never visible to the AI.
 
-## Empat tujuan
+## Four goals
 
-| # | Tujuan | Artinya, dan cara mengukurnya |
+| # | Goal | What it means, and how to measure it |
 |---|---|---|
-| 1 | **Client universal** | Satu inventaris (`host` + `conn`) untuk semua jenis target. Bisa diukur: kind baru cukup didaftarkan di `internal/driver`, tanpa membuat model atau flag baru. |
-| 2 | **Fitur devops yang kaya** | Setiap family punya perintah yang benar-benar dipakai sehari-hari: lihat, cari, baca, ubah, backup, dan pulihkan. Fitur yang jarang dipakai tidak ditambahkan. |
-| 3 | **Mengelola banyak hal** | Server, database, cache, object storage, cluster (k8s/k3s/swarm), secrets, ftp/sftp, container registry, dan kind lain yang lolos [kriteria](#kriteria-menambah-family). |
-| 4 | **Berguna, mudah dipakai, mudah migrasi** | Lima menit pertama langsung berguna. Semua perintah memakai pola yang sama, dan konfigurasi yang sudah ada bisa diimpor sekali jalan. Tidak ada lock-in: state berupa JSON biasa yang bisa diekspor. |
+| 1 | **Universal client** | One inventory (`host` + `conn`) for every kind of target. Measurable: a new kind only needs to be registered in `internal/driver`, without creating a new model or new flags. |
+| 2 | **Rich devops features** | Every family has the commands that are really used day to day: view, search, read, change, back up, and restore. Rarely used features are not added. |
+| 3 | **Manage many things** | Servers, databases, caches, object storage, clusters (k8s/k3s/swarm), secrets, ftp/sftp, container registries, and other kinds that pass the [criteria](#criteria-for-adding-a-family). |
+| 4 | **Useful, easy to use, easy to migrate to** | Useful in the first five minutes. All commands use the same pattern, and existing configuration can be imported in one go. No lock-in: state is plain JSON that can be exported. |
 
-Dua prinsip tambahan dari pemilik (2026-11-02): **tidak ada fitur yang
-tumpang tindih**, dan **semua fitur CLI asli tetap bisa dipakai** lewat
-komando. Aturannya ada di [ux.md](ux.md) bagian 11 dan 12.
+Two extra principles from the owner (2026-11-02): **no overlapping
+features**, and **every native CLI feature can still be used** through
+komando. The rules are in [ux.md](ux.md) sections 11 and 12.
 
-Prinsip desain (KISS, secure by default, tanpa flag yang membingungkan, ramah
-pemula, dan seterusnya) tetap berlaku untuk semuanya.
+The design principles (KISS, secure by default, no confusing flags, beginner
+friendly, and so on) still apply to everything.
 
-## Review kondisi sekarang
+## Review of the current state
 
-Per `feat/v0.3` setelah fase 1 analisis gap (± 22.000 baris Go, biner rilis
-± 35 MB). Daftar lengkap apa yang masih kurang ada di
+As of `feat/v0.3` after phase 1 of the gap analysis (± 22,000 lines of Go, release binary
+± 35 MB). The full list of what is still missing is in
 [gap/README.md](gap/README.md).
 
 | Area | Status |
 |---|---|
-| Server (SSH): inventaris, key, vault, exec paralel, job, fs aman, cp/SFTP, tunnel, shell | ✅ matang |
-| Modul devops di atas SSH: svc, logs, docker, pkg, cron, user, net, facts, 39 recipe `ops` | ✅ matang |
-| Lapisan aman: policy, protected, dry-run, cek host key, audit, JSON envelope + exit code | ✅ matang |
-| `conn` + `db` (PostgreSQL, MySQL, SQLite; query/schema/explain/dump/restore; `audit_sql`) | ✅ selesai |
-| `cache` (Redis, Valkey) | ✅ selesai |
-| `storage` (S3, FTP/FTPS, SFTP: ls/download/upload/rm/link) | ✅ selesai |
-| `cluster` (Kubernetes, Docker Swarm) | ✅ selesai (rollout/rollback/diff: lihat gap) |
-| `registry` (ls, inspect, rm, copy) | ✅ selesai |
-| `vpn` (WireGuard, OpenVPN, openconnect, Tailscale, SOCKS, VPN OS) | ✅ selesai |
-| Ref secret eksternal (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`) | ✅ selesai |
-| Satu inventaris: selector universal, `komando list`, `komando test` | ✅ selesai |
-| Migrasi | ✅ `import` (ssh-config, pgpass, mycnf, env, komando) dan `export` |
+| Server (SSH): inventory, keys, vault, parallel exec, jobs, safe fs, cp/SFTP, tunnel, shell | ✅ mature |
+| Devops modules on top of SSH: svc, logs, docker, pkg, cron, user, net, facts, 39 `ops` recipes | ✅ mature |
+| Safety layer: policy, protected, dry-run, host key check, audit, JSON envelope + exit codes | ✅ mature |
+| `conn` + `db` (PostgreSQL, MySQL, SQLite; query/schema/explain/dump/restore; `audit_sql`) | ✅ done |
+| `cache` (Redis, Valkey) | ✅ done |
+| `storage` (S3, FTP/FTPS, SFTP: ls/download/upload/rm/link) | ✅ done |
+| `cluster` (Kubernetes, Docker Swarm) | ✅ done (rollout/rollback/diff: see gap) |
+| `registry` (ls, inspect, rm, copy) | ✅ done |
+| `vpn` (WireGuard, OpenVPN, openconnect, Tailscale, SOCKS, OS VPN) | ✅ done |
+| External secret refs (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`) | ✅ done |
+| One inventory: universal selectors, `komando list`, `komando test` | ✅ done |
+| Migration | ✅ `import` (ssh-config, pgpass, mycnf, env, komando) and `export` |
 
-**Kekuatan.** Fondasinya sudah benar untuk tujuan universal. Kontrak output,
-exit code, guard berbasis risiko (`read`/`write`/`destructive`), `--via HOST`
-tanpa port lokal, dan referensi secret (`secret:`/`env:`/`file:`) semuanya
-umum, bukan khusus SSH. Fase `db` membuktikan pola ini bisa dipakai di luar
+**Strengths.** The foundation is already right for the universal goal. The output contract,
+exit codes, risk-based guards (`read`/`write`/`destructive`), `--via HOST`
+without a local port, and secret references (`secret:`/`env:`/`file:`) are all
+general, not specific to SSH. The `db` phase proved this pattern works outside
 SSH.
 
-**Celah yang perlu ditutup sebelum menambah banyak family:**
+**Gaps to close before adding many families:**
 
-1. **Positioning.** README dan `--help` masih bilang "manage fleets of servers"
-   dan "like Termius". Itu terlalu sempit untuk tujuan baru.
-2. **Nama perintah per family belum punya aturan.** `Families` memetakan
-   `s3 → s3`, padahal family lain diberi nama kategori (`db`, `cache`). Kalau
-   tidak diatur sekarang, top-level akan jadi campuran nama produk dan
-   kategori.
-3. **Verb belum seragam antar-family.** `db` punya `query/schema/dump`. Family
-   lain perlu pola verb yang sama supaya pengguna tidak belajar ulang.
-4. **Migrasi masih terpecah per perintah** (`host import`). Untuk banyak sumber
-   (kubeconfig, pgpass, aws, filezilla, ...) perlu satu pintu.
-5. **Ukuran biner.** Ukurannya sudah 26 MB. SDK berat (client-go, AWS SDK
-   penuh) bisa menggandakannya. Perlu aturan dependensi.
-6. ~~**Selector `@group` hanya memilih host.**~~ Selesai: selector memilih
-   server dan conn sekaligus (lihat [ux.md](ux.md)).
+1. **Positioning.** The README and `--help` still say "manage fleets of servers"
+   and "like Termius". That is too narrow for the new goal.
+2. **Command names per family have no rule yet.** `Families` maps
+   `s3 → s3`, while other families are given category names (`db`, `cache`). If
+   this is not settled now, the top level will become a mix of product names and
+   categories.
+3. **Verbs are not uniform across families yet.** `db` has `query/schema/dump`. Other
+   families need the same verb pattern so users do not have to learn again.
+4. **Migration is still split per command** (`host import`). For many sources
+   (kubeconfig, pgpass, aws, filezilla, ...) we need one entry point.
+5. **Binary size.** It is already 26 MB. Heavy SDKs (client-go, the full AWS SDK)
+   could double it. We need a dependency rule.
+6. ~~**The `@group` selector only picks hosts.**~~ Done: selectors pick
+   servers and conns together (see [ux.md](ux.md)).
 
-## Model inti
+## Core model
 
-Semua fitur harus masuk ke empat konsep ini. Kalau tidak bisa, berarti
-fiturnya belum siap.
+Every feature must fit into these four concepts. If it cannot, the
+feature is not ready yet.
 
 ```
-target   = host (SSH, bisa exec)  |  conn (semua yang lain, punya kind)
-kind     = produk konkret: postgres, redis, s3, k8s, ftp, oci, ...
-family   = kelompok kind dengan verb yang sama  →  satu perintah top-level
-risk     = read | write | destructive  →  guard yang sama untuk semua
+target   = host (SSH, can exec)  |  conn (everything else, has a kind)
+kind     = concrete product: postgres, redis, s3, k8s, ftp, oci, ...
+family   = group of kinds with the same verbs  →  one top-level command
+risk     = read | write | destructive  →  the same guard for all
 ```
 
-### Family dan perintahnya
+### Families and their commands
 
-Nama perintah selalu berupa **kategori**, bukan nama produk.
+Command names are always a **category**, not a product name.
 
-| Perintah | Family | Kind | Status |
+| Command | Family | Kind | Status |
 |---|---|---|---|
 | `exec`, `fs`, `cp`, `svc`, `docker`, ... | host | SSH (Linux) | ✅ |
-| `db` | sql | postgres, mysql/mariadb, sqlite; nanti: mssql, clickhouse | ✅ |
-| `cache` | kv | redis, valkey, keydb, dragonfly; nanti: memcached | ✅ |
-| `storage` | object/file | s3 (AWS, MinIO, R2, Spaces, Wasabi, B2), ftp/ftps, sftp; nanti: gcs, azblob, webdav | ✅ |
-| `cluster` | orchestrator | k8s (k3s, EKS, GKE, AKS, kind), swarm; nanti: nomad | ✅ |
-| `registry` | oci | Docker Hub, GHCR, GitLab, Harbor, registry:2; ECR butuh token yang diperbarui (lihat gap) | ✅ |
-| `secret` | secret | vault lokal; ref eksternal: `op://`, `vault:`, `aws-sm:`, `gcp-sm:` | ✅ |
-| `vpn` | jalur | wireguard, socks, system, tailscale, GlobalProtect/Fortinet/AnyConnect/Pulse/F5 (openconnect), OpenVPN/Pritunl, L2TP/IPsec (system). komando menyambungkan VPN sendiri saat dibutuhkan `--via` | ✅ ([network.md](network.md)) |
+| `db` | sql | postgres, mysql/mariadb, sqlite; later: mssql, clickhouse | ✅ |
+| `cache` | kv | redis, valkey, keydb, dragonfly; later: memcached | ✅ |
+| `storage` | object/file | s3 (AWS, MinIO, R2, Spaces, Wasabi, B2), ftp/ftps, sftp; later: gcs, azblob, webdav | ✅ |
+| `cluster` | orchestrator | k8s (k3s, EKS, GKE, AKS, kind), swarm; later: nomad | ✅ |
+| `registry` | oci | Docker Hub, GHCR, GitLab, Harbor, registry:2; ECR needs a refreshed token (see gap) | ✅ |
+| `secret` | secret | local vault; external refs: `op://`, `vault:`, `aws-sm:`, `gcp-sm:` | ✅ |
+| `vpn` | path | wireguard, socks, system, tailscale, GlobalProtect/Fortinet/AnyConnect/Pulse/F5 (openconnect), OpenVPN/Pritunl, L2TP/IPsec (system). komando connects the VPN itself when `--via` needs it | ✅ ([network.md](network.md)) |
 
-Keputusan (disetujui 2026-11-02):
+Decisions (approved 2026-11-02):
 
-- **Nama perintah memakai bahasa manusia**, bukan nama produk, supaya mudah
-  diingat: `storage`, `cache`, `cluster`, `registry`. Nama produk boleh jadi
-  alias (`s3`, `redis`, `sql`).
+- **Command names use human words**, not product names, so they are easy to
+  remember: `storage`, `cache`, `cluster`, `registry`. Product names may be
+  aliases (`s3`, `redis`, `sql`).
 
-- **`s3` diganti jadi `storage`.** Nama ini mencakup S3 dan FTP dengan verb
-  yang sama (`ls/get/put/rm/sync`). Pengguna tidak perlu tahu protokolnya.
-- **SFTP tetap lewat host** (`cp`, `fs`). Akun yang hanya punya SFTP tanpa shell
-  (misalnya hosting) didaftarkan sebagai conn `sftp://` di `storage`.
-- **Swarm masuk `cluster`, bukan `docker`.** `docker` tetap untuk satu host.
-  `cluster` untuk orkestrator. Verb yang ada di semua engine langsung di bawah
-  `cluster` dan bekerja di cluster mana pun, karena conn sudah tahu kind-nya
-  (`komando cluster status prod`, `komando cluster logs prod api`). Hal yang
-  hanya ada di satu engine masuk sub-perintah engine itu
+- **`s3` is renamed to `storage`.** This name covers S3 and FTP with the same
+  verbs (`ls/get/put/rm/sync`). Users do not need to know the protocol.
+- **SFTP stays under host** (`cp`, `fs`). Accounts that only have SFTP without a shell
+  (for example hosting) are registered as an `sftp://` conn in `storage`.
+- **Swarm goes into `cluster`, not `docker`.** `docker` stays for a single host.
+  `cluster` is for orchestrators. Verbs that exist in every engine sit directly under
+  `cluster` and work on any cluster, because the conn already knows its kind
+  (`komando cluster status prod`, `komando cluster logs prod api`). Things that
+  exist in only one engine go into that engine's subcommand
   (`komando cluster k8s ...`, `komando cluster swarm ...`).
 
-### Verb yang sama di semua family
+### The same verbs in every family
 
-Daftar kata kerja dan flag yang berlaku ada di [ux.md](ux.md). Tabel di bawah
-ini ringkasannya.
+The list of verbs and flags in effect is in [ux.md](ux.md). The table below
+is a summary.
 
-| Verb | Arti | Risk default |
+| Verb | Meaning | Default risk |
 |---|---|---|
-| `list` / `ls` | daftar isi (tabel, key, objek, pod, tag) | read |
-| `get` / `show` | baca satu item | read |
-| `schema` / `info` / `status` | struktur dan kondisi | read |
-| `logs` | log (pod, service) | read |
-| `put` / `set` / `apply` | ubah, wajib `--dry-run` dulu | write |
-| `rm` / `delete` | hapus | destructive |
-| `dump` / `restore` / `sync` | backup, pindah data; lewat `job` kalau lama | write |
-| `run` | perintah mentah family itu (SQL, redis cmd), diklasifikasi | sesuai klasifikasi |
+| `list` / `ls` | list contents (tables, keys, objects, pods, tags) | read |
+| `get` / `show` | read one item | read |
+| `schema` / `info` / `status` | structure and state | read |
+| `logs` | logs (pod, service) | read |
+| `put` / `set` / `apply` | change, `--dry-run` required first | write |
+| `rm` / `delete` | remove | destructive |
+| `dump` / `restore` / `sync` | back up, move data; through `job` if it takes long | write |
+| `run` | that family's raw command (SQL, redis cmd), classified | per classification |
 
-Flag yang sama di semua family: `--write`, `--dry-run`, `--yes`,
-`--allow-dangerous`, `--via`, `--limit`, `--timeout`, `-o`. Flag ini tidak
-boleh berubah arti di family mana pun.
+Flags that are the same in every family: `--write`, `--dry-run`, `--yes`,
+`--allow-dangerous`, `--via`, `--limit`, `--timeout`, `-o`. These flags must
+never change meaning in any family.
 
-### Kontrak keamanan per family
+### Safety contract per family
 
-Sebuah family baru dianggap selesai kalau semua poin ini terpenuhi:
+A new family counts as done when all of these points are met:
 
-- [ ] Terdaftar sebagai kind di `internal/driver` (skema URL, port, contoh)
-- [ ] `conn add/test` jalan, termasuk `--via HOST`
-- [ ] Password hanya lewat ref; ditolak kalau ada di URL
-- [ ] Read-only default, sebaiknya **ditegakkan oleh servernya sendiri** (read-only
-      transaction, token read-only, k8s `--dry-run=server`), bukan hanya oleh
-      klasifikasi
-- [ ] Klasifikasi risk sebelum apa pun dikirim; aturannya muncul di `komando policy`
-- [ ] `--dry-run` yang nyata, atau laporan jujur kalau tidak bisa
+- [ ] Registered as a kind in `internal/driver` (URL scheme, port, example)
+- [ ] `conn add/test` works, including `--via HOST`
+- [ ] Passwords only through refs; refused if they are in the URL
+- [ ] Read-only by default, preferably **enforced by the server itself** (read-only
+      transaction, read-only token, k8s `--dry-run=server`), not only by
+      classification
+- [ ] Risk classification before anything is sent; the rules show up in `komando policy`
+- [ ] A real `--dry-run`, or an honest report if that is not possible
 - [ ] Protected → `--yes`; destructive → `--allow-dangerous`
-- [ ] Satu baris audit per perintah, tanpa secret
-- [ ] Output JSON terstruktur + teks yang mudah dibaca
-- [ ] Bagian di `komando guide`, halaman sendiri di `docs/features/`, dan importer kalau ada sumber umum
+- [ ] One audit line per command, without secrets
+- [ ] Structured JSON output + easy-to-read text
+- [ ] A section in `komando guide`, its own page in `docs/features/`, and an importer if there is a common source
 
-## Migrasi: satu pintu masuk
+## Migration: one entry point
 
 ```
 komando import SOURCE [FILE] [--dry-run] [--group G]
-komando export [--to FILE]          # semua inventaris, tanpa secret (atau terenkripsi)
+komando export [--to FILE]          # the whole inventory, without secrets (or encrypted)
 ```
 
-| SOURCE | Membaca | Hasil |
+| SOURCE | Reads | Result |
 |---|---|---|
-| `ssh-config` | `~/.ssh/config` | host (sudah ada di `host import`) |
-| `kubeconfig` | `~/.kube/config` | conn `k8s` per context |
-| `pgpass`, `mycnf` | `~/.pgpass`, `~/.my.cnf` | conn `db` + password ke vault |
-| `aws` | `~/.aws/config` + `credentials` | conn `storage` + key ke vault |
-| `docker` | `~/.docker/config.json` | conn `registry` (memakai credential helper kalau ada) |
-| `rclone` | `rclone.conf` | conn `storage` |
-| `filezilla` | `sitemanager.xml` | conn `storage` (ftp/sftp) |
-| `termius`, `tableplus`, `dbeaver` | file ekspor masing-masing | host/conn |
-| `env` | file `.env` (`DATABASE_URL`, `REDIS_URL`, ...) | conn |
-| `komando` | file `export` | semuanya (pindah mesin) |
+| `ssh-config` | `~/.ssh/config` | host (already in `host import`) |
+| `kubeconfig` | `~/.kube/config` | a `k8s` conn per context |
+| `pgpass`, `mycnf` | `~/.pgpass`, `~/.my.cnf` | `db` conn + password into the vault |
+| `aws` | `~/.aws/config` + `credentials` | `storage` conn + key into the vault |
+| `docker` | `~/.docker/config.json` | `registry` conn (uses the credential helper if there is one) |
+| `rclone` | `rclone.conf` | `storage` conn |
+| `filezilla` | `sitemanager.xml` | `storage` conn (ftp/sftp) |
+| `termius`, `tableplus`, `dbeaver` | each tool's export file | host/conn |
+| `env` | `.env` file (`DATABASE_URL`, `REDIS_URL`, ...) | conn |
+| `komando` | `export` file | everything (moving to another machine) |
 
-Aturannya: secret yang diimpor **selalu masuk vault**, `--dry-run` menampilkan
-apa yang akan dibuat, dan entri yang sudah ada tidak ditimpa kecuali dengan
-`--overwrite`. `host import` tetap jalan sebagai alias.
+The rules: imported secrets **always go into the vault**, `--dry-run` shows
+what will be created, and existing entries are not overwritten except with
+`--overwrite`. `host import` keeps working as an alias.
 
-## Aturan teknis
+## Technical rules
 
-- **Pure Go, tanpa cgo, satu biner.** Ini sudah berlaku dan dipertahankan.
-- **Bicara langsung ke API, bukan lewat SDK raksasa.** k8s: REST API +
-  kubeconfig (tanpa client-go). Registry: OCI Distribution API. Swarm: Docker
-  Engine API lewat socket di host SSH. S3: client ringan (`minio-go` atau
-  signer SigV4 sendiri), bukan AWS SDK penuh.
-- **Satu biner untuk semua orang, tanpa batas ukuran** (tanpa build
-  `lite`/`full`; satu biner lebih mudah dipasang dan didukung). Ukuran biner
-  tidak dibatasi: fitur yang dibutuhkan sehari-hari lebih penting. Tetap
-  pilih dependensi yang wajar (client ringan bila ada) dan tanpa sistem
-  plugin.
-- **Tanpa pool dan tanpa daemon.** Satu koneksi per perintah. Tunnel dan job
-  tetap jadi satu-satunya proses di latar belakang.
-- Tes integrasi per family di CI memakai service container (postgres, redis,
+- **Pure Go, no cgo, one binary.** This is already in effect and is kept.
+- **Talk directly to the API, not through a giant SDK.** k8s: REST API +
+  kubeconfig (no client-go). Registry: OCI Distribution API. Swarm: Docker
+  Engine API through the socket on the SSH host. S3: a light client (`minio-go` or
+  our own SigV4 signer), not the full AWS SDK.
+- **One binary for everyone, no size limit** (no
+  `lite`/`full` builds; one binary is easier to install and support). Binary size
+  is not limited: features needed day to day matter more. Still
+  choose reasonable dependencies (a light client when there is one) and no plugin
+  system.
+- **No pool and no daemon.** One connection per command. Tunnels and jobs
+  stay the only background processes.
+- Integration tests per family in CI use service containers (postgres, redis,
   minio, k3s, registry:2).
 
 ## Roadmap
 
-| Rilis | Isi | Tujuan yang dicapai |
+| Release | Contents | Goals reached |
 |---|---|---|
-| **v0.2** ✅ | `db`, `cache`, `storage` (S3), satu inventaris (`list`, `test`, selector untuk semua), aturan UX, positioning baru | 1, 3, 4 |
-| **v0.3** ✅ | Tumpang tindih dihapus (`--via` untuk semua, `upload`/`download`, `recipe`, alias `host/conn list/test`, `logs`); `tunnel start TARGET`; `komando import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, dbeaver, komando) dan `export`; `logs --follow` | 1, 4 |
-| **v0.4** ✅ | `komando vpn`: WireGuard di dalam proses; SOCKS; OpenVPN/Pritunl di container Docker (jaringan laptop tidak berubah; `--os-mode` opsional); GlobalProtect/Fortinet/AnyConnect/Pulse/F5 lewat openconnect+ocproxy; Tailscale userspace; VPN OS lewat `--service`; sesi `vpn up/down/status`, putus otomatis saat idle; MFA selalu oleh manusia | 1, 3, 4 |
-| **v0.5** ✅ | `cluster` untuk Kubernetes (API langsung, lewat `--via`/VPN) dan Docker Swarm: status, ls, get, logs, apply, restart, scale, rm, `run` | 2, 3 |
+| **v0.2** ✅ | `db`, `cache`, `storage` (S3), one inventory (`list`, `test`, selectors for everything), UX rules, new positioning | 1, 3, 4 |
+| **v0.3** ✅ | Overlaps removed (`--via` for everything, `upload`/`download`, `recipe`, `host/conn list/test` aliases, `logs`); `tunnel start TARGET`; `komando import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, dbeaver, komando) and `export`; `logs --follow` | 1, 4 |
+| **v0.4** ✅ | `komando vpn`: WireGuard in-process; SOCKS; OpenVPN/Pritunl in a Docker container (the laptop's network does not change; `--os-mode` optional); GlobalProtect/Fortinet/AnyConnect/Pulse/F5 through openconnect+ocproxy; Tailscale userspace; OS VPN through `--service`; `vpn up/down/status` sessions, automatic disconnect when idle; MFA always done by a person | 1, 3, 4 |
+| **v0.5** ✅ | `cluster` for Kubernetes (direct API, through `--via`/VPN) and Docker Swarm: status, ls, get, logs, apply, restart, scale, rm, `run` | 2, 3 |
 | **v0.6** ✅ | `registry` (ls, inspect, rm, copy) | 3 |
-| **v0.7** ✅ | `storage` untuk FTP/FTPS/SFTP; ref secret eksternal (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`); `db shell` | 3, 4 |
-| **v1.0** | Kontrak dibekukan (`schema` versi 1), semua family lulus checklist, dokumentasi lengkap dua bahasa | semua |
+| **v0.7** ✅ | `storage` for FTP/FTPS/SFTP; external secret refs (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`); `db shell` | 3, 4 |
+| **v1.0** | Contract frozen (`schema` version 1), every family passes the checklist, complete documentation in English (the project is English-only; the Indonesian translations were removed) | all |
 
-Kandidat setelah v1.0, dinilai dengan kriteria di bawah: DNS (Cloudflare,
-Route 53), message queue (RabbitMQ, Kafka, NATS), search (Elasticsearch,
-OpenSearch), query metrics (Prometheus), sertifikat/ACME, VM cloud
-(DigitalOcean, Hetzner, AWS EC2), dan mongodb.
+Candidates after v1.0, judged by the criteria below: DNS (Cloudflare,
+Route 53), message queues (RabbitMQ, Kafka, NATS), search (Elasticsearch,
+OpenSearch), metrics queries (Prometheus), certificates/ACME, cloud VMs
+(DigitalOcean, Hetzner, AWS EC2), and mongodb.
 
-## Kriteria menambah family
+## Criteria for adding a family
 
-Family baru hanya ditambahkan kalau **semua** ini terpenuhi:
+A new family is only added when **all** of these are met:
 
-1. Masuk ke model `conn` + kind + verb yang sudah ada, tanpa konsep baru.
-2. Bisa diberi read-only default dan klasifikasi risk yang jujur.
-3. Bisa dibangun tanpa cgo (pure Go).
-4. Ada kebutuhan nyata: dipakai sehari-hari, bukan hanya "ada baiknya".
-5. Ada orang yang mau merawatnya: tes integrasi di CI dan dokumentasi.
+1. It fits the existing `conn` + kind + verb model, with no new concepts.
+2. It can have read-only by default and an honest risk classification.
+3. It can be built without cgo (pure Go).
+4. There is a real need: used day to day, not just "nice to have".
+5. Someone is willing to maintain it: integration tests in CI and documentation.
 
-## Bukan tujuan
+## Non-goals
 
-- Mengganti alat lengkap (`psql`, `kubectl`, `terraform`, `helm`). komando
-  menangani 80% pekerjaan harian dengan aman. Sisanya tetap bisa dikerjakan
-  lewat `exec` di host atau alat aslinya.
-- Infrastructure as Code, provisioning cloud, atau GitOps.
-- GUI, TUI, sistem plugin, atau daemon/server. komando tetap CLI murni.
-- Monitoring atau alerting yang berjalan terus-menerus.
+- Replacing full tools (`psql`, `kubectl`, `terraform`, `helm`). komando
+  handles 80% of daily work safely. The rest can still be done
+  through `exec` on a host or with the original tool.
+- Infrastructure as Code, cloud provisioning, or GitOps.
+- GUI, TUI, plugin system, or daemon/server. komando stays a pure CLI.
+- Monitoring or alerting that runs continuously.
 
-## Keputusan dan pertanyaan terbuka
+## Decisions and open questions
 
-| # | Pertanyaan | Keputusan |
+| # | Question | Decision |
 |---|---|---|
-| 1 | `storage` atau `s3`? | ✅ `storage`. Semua nama perintah memakai bahasa manusia; nama produk jadi alias. |
-| 2 | Satu `cluster`, atau `k8s`/`swarm` terpisah? | ✅ Satu `cluster`. Verb umum langsung di bawahnya; fitur khusus engine di `cluster k8s ...` / `cluster swarm ...`. |
-| 3 | Apakah `@prod` memilih host dan conn sekaligus? | ✅ Ya, semuanya. Aturan lengkapnya di [ux.md](ux.md#2-target-dan-selector-berlaku-untuk-host-dan-conn). |
-| 4 | Anggaran biner? | ✅ Satu biner, pure Go, **tanpa batas ukuran** (batas 40 MB dihapus). |
-| 5 | TUI? | ✅ Tidak. CLI murni. |
+| 1 | `storage` or `s3`? | ✅ `storage`. All command names use human words; product names become aliases. |
+| 2 | One `cluster`, or separate `k8s`/`swarm`? | ✅ One `cluster`. General verbs sit directly under it; engine-specific features in `cluster k8s ...` / `cluster swarm ...`. |
+| 3 | Does `@prod` pick hosts and conns together? | ✅ Yes, everything. The full rules are in [ux.md](ux.md#2-targets-and-selectors-apply-to-hosts-and-conns). |
+| 4 | Binary budget? | ✅ One binary, pure Go, **no size limit** (the 40 MB limit was removed). |
+| 5 | TUI? | ✅ No. Pure CLI. |
 
-### Contoh nomor 3
+### Example for number 3
 
 ```bash
 komando host add web1 ubuntu@10.0.0.2 --group prod
 komando conn add app-db postgres://app@10.0.0.5/app --group prod
 
-komando list @prod                  # server dan conn di prod, dalam satu daftar
-komando test @prod                  # cek semuanya bisa dihubungi
-komando exec @prod -- uptime        # jalan di web1; app-db dilaporkan di "skipped"
-komando db query @prod "select 1"   # jalan di app-db; web1 dilaporkan di "skipped"
+komando list @prod                  # servers and conns in prod, in one list
+komando test @prod                  # check that all of them can be reached
+komando exec @prod -- uptime        # runs on web1; app-db is reported in "skipped"
+komando db query @prod "select 1"   # runs on app-db; web1 is reported in "skipped"
 ```
 
-Mulai sekarang, keputusan teknis dan UX diambil berdasarkan best practice dan
-dicatat di [ux.md](ux.md). Pemilik produk menentukan arah (apa yang dikelola
-komando dan untuk siapa).
+From now on, technical and UX decisions are made based on best practice and
+recorded in [ux.md](ux.md). The product owner sets the direction (what komando
+manages and for whom).

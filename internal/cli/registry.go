@@ -89,7 +89,17 @@ func openRegistry(ctx context.Context, st *store.State, c *store.Conn) (*registr
 	if a.Dial != nil {
 		dial = a.Dial
 	}
-	return registry.New(host, a.Target.TLS == "false", a.Target.User, a.Password, dial), a.Close, nil
+	user, password := a.Target.User, a.Password
+	if region := ecrRegion(strings.TrimSuffix(host, ":443")); region != "" && c.PasswordRef == "" {
+		// Amazon ECR logins last 12 hours: get a fresh one each time
+		tok, err := ecrToken(ctx, firstNonEmpty(awsProfile(c), "default"), region)
+		if err != nil {
+			a.Close()
+			return nil, nil, err
+		}
+		user, password = "AWS", tok
+	}
+	return registry.New(host, a.Target.TLS == "false", user, password, dial), a.Close, nil
 }
 
 func registryErr(err error) error {

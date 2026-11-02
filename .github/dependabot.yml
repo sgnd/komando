@@ -1,5 +1,5 @@
-# Keep Go modules and GitHub Actions up to date (OpenSSF Scorecard:
-# Dependency-Update-Tool). Security fixes arrive as their own pull requests.
+# Opens weekly pull requests that update Go modules and GitHub Actions.
+# Updates are grouped so each week brings at most one PR per ecosystem.
 version: 2
 updates:
   - package-ecosystem: gomod
@@ -9,7 +9,11 @@ updates:
     groups:
       go:
         patterns: ["*"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

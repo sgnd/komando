@@ -124,7 +124,17 @@ func openBucket(ctx context.Context, st *store.State, c *store.Conn) (storex.Buc
 	var b storex.Bucket
 	switch t.Kind.Name {
 	case "s3":
-		b, err = storex.OpenS3(a.Target, a.Password, a.Dial, dbTimeout())
+		if profile := awsProfile(c); profile != "" {
+			// SSO, an assumed role or temporary keys, as the aws CLI has them now
+			cr, cerr := awsCredentials(ctx, profile)
+			if cerr != nil {
+				a.Close()
+				return nil, cerr
+			}
+			b, err = storex.OpenS3Creds(a.Target, cr.AccessKeyID, cr.SecretAccessKey, cr.SessionToken, a.Dial, dbTimeout())
+		} else {
+			b, err = storex.OpenS3(a.Target, a.Password, a.Dial, dbTimeout())
+		}
 	default: // ftp, ftps
 		b, err = storex.OpenFTP(ctx, a.Target, a.Password, a.Dial, dbTimeout())
 	}

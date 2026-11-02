@@ -46,10 +46,33 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   injection).
 - Releases carry signed SLSA build provenance (`gh attestation verify`). CI
   reads only, actions are pinned to commits, Dependabot keeps modules and
-  actions current, and `make security` runs govulncheck and staticcheck.
+  actions current, and `make security` runs govulncheck.
   `make fuzz` fuzzes the masking, the policy filter and the guard; fuzzing
   found and fixed a crash on invalid UTF-8 in `fs replace --old`.
 - golang.org/x/net 0.62.0 (GO-2026-6860, GO-2026-6866).
+- `--proxy-command` runs a program on this computer on every connection, so
+  it passes the policy filter, and an AI agent needs a person's yes to set it.
+
+### Project
+
+- Added a code of conduct, Dependabot updates, CODEOWNERS and `.editorconfig`.
+  `make lint` now also runs staticcheck.
+- Docs are English only: removed `README.id.md` and `docs/features/id/`, and
+  translated the design notes in `docs/design/`.
+
+### Cloud access (gap analysis, phase 5)
+
+- `host add|edit --proxy-command CMD` reaches a server through a program on
+  this computer, like OpenSSH's ProxyCommand (`%h %p %r %n`): AWS SSM, GCP
+  IAP, Cloudflare Access, Teleport. `--ssm` sets the AWS Systems Manager
+  command (the address is the instance ID). Conns can use such a host as
+  `--via` (RDS behind SSM). `import ssh-config` keeps ProxyCommand; imports
+  of export files drop it.
+- S3 conns can log in with an AWS CLI profile (`--option aws_profile=NAME`):
+  SSO, assumed roles and temporary keys work as configured in the aws CLI.
+  An expired SSO login answers `AWS_LOGIN_REQUIRED`.
+- Amazon ECR registries get a fresh login from the aws CLI each time
+  (logins last 12 hours), with the same `aws_profile` option.
 
 ### Day-to-day database care (gap analysis, phase 4)
 
