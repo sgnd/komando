@@ -48,6 +48,24 @@ yang aman. Gap terbesar ada di tiga tempat: **siklus deploy di cluster**
 file besar), dan **pekerjaan DBA harian** (aktivitas, lock, ukuran, backup
 format custom).
 
+## Status Fase 1 (selesai)
+
+Fase 1 menutup janji dokumen dan celah keamanan di bagian 1 dan 2, dalam tiga
+commit (`fa38148`, `0c3eb85`, `23d1f97`), masing-masing lolos gofmt, vet,
+staticcheck, `go test -race` dan e2e Docker (100, 108, 120 cek).
+
+- **Bagian 1:** nomor 1–8 dan 12 selesai. Nomor 9 (`sync`) pindah ke Fase 3,
+  nomor 10 (ECR) ke Fase 5, nomor 11 (import termius/tableplus/aws,
+  memcached) ke fase berikutnya.
+- **Bagian 2:** semua 12 selesai. Upload ke server tetap menimpa file
+  (seperti `storage upload` dan `fs write`); yang tidak menimpa tanpa
+  `--overwrite` adalah download ke komputer ini.
+- **Bug yang ditemukan di jalan:** catalog registry, `docker logs -f`,
+  `svc logs -f` dan opsi `statement_timeout` selesai. Fan-out login ke
+  bastion (`exec -P 10`) belum.
+
+Tabel di bawah ini adalah keadaan **sebelum** Fase 1.
+
 ## 1. Janji di dokumen yang belum dipenuhi kode (kerjakan dulu)
 
 Ini bukan fitur baru. Dokumen komando sudah menjanjikannya, tapi kodenya
