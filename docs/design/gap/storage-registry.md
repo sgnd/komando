@@ -25,7 +25,7 @@ Kutipan non-goal yang dipakai (vision.md, "Bukan tujuan"):
 - NG-b: "Infrastructure as Code, provisioning cloud, atau GitOps."
 - NG-c: "GUI, TUI, sistem plugin, atau daemon/server. komando tetap CLI murni."
 - NG-d: "Monitoring atau alerting yang berjalan terus-menerus."
-- Aturan teknis: "Tanpa pool dan tanpa daemon", "Pure Go, tanpa cgo", "Anggaran biner: ≤ 40 MB".
+- Aturan teknis: "Tanpa pool dan tanpa daemon", "Pure Go, tanpa cgo". (Batas ukuran biner 40 MB sudah dihapus pemilik.)
 
 ---
 
@@ -38,11 +38,11 @@ Kutipan non-goal yang dipakai (vision.md, "Bukan tujuan"):
 | Pagination / lanjut dari token (`--starting-token`, `--start-after`) | `aws s3api list-objects-v2`, `mc ls` | TIDAK ADA | Hanya `--limit`; daftar >limit tidak bisa dilanjutkan, hanya "narrow the prefix". Bucket besar tidak bisa dibaca habis oleh agent | P2 — agent tidak bisa iterasi bucket besar |
 | Ringkasan total ukuran/jumlah (`--summarize`, `du`, `size`) | `aws s3 ls --summarize --human-readable`, `mc du`, `rclone size`, `gsutil du -s` | TIDAK ADA | `ls` hanya `count`; tidak ada total byte. Workaround: `ls -r -o json` + jumlahkan sendiri | P2 — cek kapasitas backup sering |
 | Tree | `mc tree`, `rclone tree` | TIDAK ADA | | P3 |
-| Download satu objek | `aws s3 cp s3://.. .`, `mc cp`, `rclone copy`, `s3cmd get`, `gsutil cp`, `azcopy copy`, `lftp get`, `curl ftp://` | ADA | `download CONN KEY [--to]`, atomik, tidak menimpa file (`FILE_EXISTS`), mode 0600 | - |
+| Download satu objek | `aws s3 cp s3://.. .`, `mc cp`, `rclone copy`, `s3cmd get`, `gsutil cp`, `azcopy copy`, `lftp get`, `curl ftp://` | ADA | `download CONN KEY [--to]` (alias `storage download`), atomik, tidak menimpa file (`FILE_EXISTS`), mode 0600 | - |
 | Download folder/prefix rekursif | `aws s3 cp --recursive`, `mc cp -r`, `rclone copy`, `lftp mirror`, `s3cmd get -r`, `azcopy --recursive` | TIDAK ADA | `download -r` ke storage ditolak: "-r is for servers; storage downloads one object" (`transfer.go`) | **P1** — restore backup/folder situs harian; agent harus loop per key |
 | Upload satu file | `aws s3 cp`, `mc cp`, `rclone copyto`, `s3cmd put`, `lftp put`, `curl -T` | ADA | `upload CONN FILE [KEY]`, `replaced:true`, content-type dari ekstensi; FTP/SFTP lewat nama sementara lalu rename | - |
 | Upload folder rekursif | `aws s3 cp --recursive`, `mc cp -r`, `rclone copy`, `lftp mirror -R`, `azcopy`, `s3cmd put -r` | TIDAK ADA | `upload` ke storage menolak `-r`: "storage takes one file"; `storageUpload` menolak direktori | **P1** — deploy situs ke FTPS/S3 static hosting, upload folder backup |
-| Upload dari stdin / download ke stdout (stream, pipe) | `aws s3 cp - s3://..`, `aws s3 cp s3://.. -`, `mc pipe`, `mc cat`, `rclone rcat`/`cat`, `gsutil cat` | TIDAK ADA | `upload` butuh file reguler (`os.Stat` + `!IsDir`); `--to -` akan membuat file bernama `-` | P2 — `db dump | upload` tanpa file sementara |
+| Upload dari stdin / download ke stdout (stream, pipe) | `aws s3 cp - s3://..`, `aws s3 cp s3://.. -`, `mc pipe`, `mc cat`, `rclone rcat`/`cat`, `gsutil cat` | TIDAK ADA | `upload` butuh file reguler (`os.Stat` + `!IsDir`); `--to -` akan membuat file bernama `-` | P2 — `db dump \| upload` tanpa file sementara |
 | Baca isi objek di terminal (`cat` dengan head/tail/limit) | `mc cat`, `mc head`, `rclone cat --head/--tail`, `gsutil cat -r`, `aws s3 cp .. -` | TIDAK ADA | Ada `fs cat --head/--tail` untuk host, tidak ada `storage cat`. Agent harus download ke file lalu baca | **P1** — pola agent (baca log/konfig di bucket/FTP) sama seperti `fs cat` |
 | Stat/head satu objek (ukuran, ETag, content-type, metadata, version-id, storage class) | `aws s3api head-object`, `mc stat`, `rclone lsjson --stat`, `gsutil stat`, `s3cmd info` | TIDAK ADA | Hanya `Exists()` internal; `ls` memberi size+modified | P2 — verifikasi upload/backup |
 | Verifikasi checksum (MD5/ETag/sha256) | `rclone check`, `rclone md5sum/hashsum`, `aws s3api --checksum-algorithm`, `gsutil hash`, `fs stat --sha256` | SEBAGIAN | Host: `cp` laporkan sha256 (1 file), `fs stat --sha256`. Storage: tidak ada hash di hasil `upload`/`download` | P2 — integritas backup |
@@ -52,7 +52,7 @@ Kutipan non-goal yang dipakai (vision.md, "Bukan tujuan"):
 | Progress bar / laju transfer di stderr | `aws s3 cp` (progress), `mc`, `rclone -P`, `azcopy` | TIDAK ADA | ux.md edge case: "file sangat besar (progress di stderr)" belum dibuat | P2 — manusia menunggu tanpa umpan balik |
 | Transfer paralel (banyak file sekaligus) | `aws s3 --max-concurrent-requests`, `rclone --transfers`, `lftp mirror -P`, `azcopy` | TIDAK ADA (storage) | Host `upload @group` paralel per host; storage hanya 1 objek per perintah | P2 (bergantung pada recursive/sync) |
 | Bandwidth limit | `rclone --bwlimit`, `aws s3 --max-bandwidth`, `lftp net:limit-rate`, `rsync --bwlimit` | TIDAK ADA | | P3 |
-| Transfer lama di latar belakang | `azcopy jobs`, `rclone rc`/`--daemon` | TIDAK ADA | `job start` hanya di host remote; storage jalan di laptop, dibatasi `--timeout`. Workaround: `job start` di host yang punya `aws`/`rclone` | P2 |
+| Transfer lama di latar belakang | `azcopy jobs`, `rclone rc`/`--daemon` | TIDAK ADA | `job start` hanya di host remote; storage jalan di laptop dan perintah harus menunggu sampai selesai (batas waktu hanya bila `--timeout` diberi, tanpa default untuk storage). Workaround: `job start` di host yang punya `aws`/`rclone` | P2 |
 | Hapus objek tepat | `aws s3 rm`, `mc rm`, `rclone deletefile`, `s3cmd del`, `lftp rm` | ADA | `storage rm CONN KEY... --allow-dangerous`; protected butuh `--yes`; sebagian gagal melaporkan `already deleted` | - |
 | Hapus prefix/folder rekursif, pola, atau berdasarkan umur (`--older-than`) | `aws s3 rm --recursive --exclude/--include`, `mc rm -r --older-than`, `rclone delete --min-age`, `rclone purge`, `s3cmd del -r`, `lftp rm -r` | TIDAK ADA (sengaja) | `rm` menolak `/` di akhir dan `*?`: "rm takes exact keys". Pembersihan backup lama harus `ls` + daftar key manual | **P1** — retensi backup harian; perlu versi aman: preview jumlah/daftar di `--dry-run`, `--allow-dangerous`, batas maksimum |
 | Dry-run untuk perubahan | `aws s3 --dryrun`, `rclone --dry-run`, `mc mirror --dry-run`, `rsync -n` | SEBAGIAN | `--dry-run` di `upload`/`rm`/`link` hanya "nothing sent: the change would be allowed"; tidak cek apakah key ada / akan ditimpa / berapa byte | P2 — dry-run jujur untuk sync/rm massal |
@@ -85,7 +85,7 @@ Kutipan non-goal yang dipakai (vision.md, "Bukan tujuan"):
 | Presigned download URL | `aws s3 presign`, `mc share download`, `rclone link`, `gsutil signurl`, `az storage blob generate-sas` | ADA | `storage link --expires` (maks 168h), risk write, protected butuh `--yes`, URL tidak masuk audit, `content-disposition: attachment` | - |
 | Presigned upload URL (PUT/POST) | `mc share upload`, `aws s3api` presign put, SAS write | TIDAK ADA | | P3 |
 | Link publik permanen (objek publik) | `aws s3api put-object-acl --acl public-read`, `mc anonymous set` | TIDAK ADA | Juga lihat ACL/policy (NON-GOAL di bawah) | P3 |
-| Link untuk FTP/SFTP | (tidak lazim) | NON-GOAL/tidak relevan | `noLinks`: "File servers have no temporary links" | - |
+| Link untuk FTP/SFTP | (tidak lazim) | TIDAK ADA (tidak relevan) | Bukan non-goal di vision.md (tidak ada di "Bukan tujuan"); protokol FTP/SFTP memang tidak punya link sementara. `noLinks` menolak dengan jujur: "FTP/SFTP servers have no temporary download links" | P3 |
 | Batasi conn ke prefix | IAM policy, `rclone` remote dengan path | ADA | Folder di URL conn, `keyIn` menolak `..` | - |
 
 ## D. Storage: fitur S3 lanjutan (objek)
@@ -124,11 +124,11 @@ Kutipan non-goal yang dipakai (vision.md, "Bukan tujuan"):
 | Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
 |---|---|---|---|---|
 | AWS S3 | `aws s3`, `mc`, `rclone`, `s3cmd` | ADA | `s3://KEY@bucket/prefix?region=` (endpoint default AWS) | - |
-| S3-kompatibel: MinIO, R2, Wasabi, Spaces, Backblaze B2 (S3 API), Garage, Ceph RGW | `mc`, `rclone`, `aws --endpoint-url` | ADA | `?endpoint=https://...`; dites e2e dengan MinIO (`test/e2e/compose.yml`) | - |
+| S3-kompatibel: MinIO, R2, Wasabi, Spaces, Backblaze B2 (S3 API), Garage, Ceph RGW | `mc`, `rclone`, `aws --endpoint-url` | ADA | `?endpoint=https://...`; dites e2e dengan Garage (`test/e2e/run.sh`, `test/e2e/garage/`), bukan MinIO | - |
 | Path-style vs virtual-host diatur eksplisit | `aws configure set s3.addressing_style`, `mc --path`, `rclone force_path_style` | SEBAGIAN | minio-go BucketLookupAuto; tidak ada opsi URL (`path_style` ditolak: "known: endpoint, region") | P3 |
 | Self-signed TLS untuk endpoint S3 (MinIO internal) | `mc --insecure`, `aws --no-verify-ssl`, `rclone --no-check-certificate` | TIDAK ADA | Tidak ada `tls=skip-verify`/CA kustom untuk s3 (ada untuk ftps). Workaround: endpoint `http://` lewat `--via` | P2 — MinIO on-prem dengan CA internal umum |
 | Google Cloud Storage native (service account, OAuth) | `gsutil`, `gcloud storage`, `rclone gcs` | SEBAGIAN | Lewat S3 interop (HMAC key, endpoint `https://storage.googleapis.com`) kemungkinan jalan; tanpa service-account JSON. vision: "nanti: gcs" | P2 |
-| Azure Blob Storage | `az storage blob`, `azcopy`, `rclone azureblob` | TIDAK ADA | vision: "nanti: ... azblob"; perlu client REST ringan (SharedKey/SAS), bukan SDK penuh (anggaran biner) | P2 |
+| Azure Blob Storage | `az storage blob`, `azcopy`, `rclone azureblob` | TIDAK ADA | vision: "nanti: ... azblob"; perlu client REST ringan (SharedKey/SAS), bukan SDK penuh (ukuran biner tidak lagi dibatasi, tapi client ringan tetap lebih sederhana) | P2 |
 | WebDAV (Nextcloud, ownCloud, hosting) | `rclone webdav`, `curl`, `cadaver` | TIDAK ADA | vision: "nanti: webdav" | P2 |
 | SFTP (akun tanpa shell) | `sftp`, `lftp sftp://`, `rclone sftp` | ADA | `sftp://` sebagai conn storage, host key dicek, key/agent/password, `--via` | - |
 | FTPS explicit (AUTH TLS) | `lftp`, `curl --ssl-reqd`, `ncftp` | ADA | `ftps://`, TLS 1.2+, session resume, `?tls=skip-verify` | - |
@@ -175,7 +175,7 @@ Kutipan non-goal yang dipakai (vision.md, "Bukan tujuan"):
 | Daftar manifest tanpa tag (untagged) | Harbor/ECR API, `regctl` (tidak langsung) | TIDAK ADA | Distribution API tidak punya endpoint standar | P3 |
 | Referrers (signature, SBOM, attestation terlampir) | `oras discover`, `regctl artifact tree`, `cosign tree` | TIDAK ADA | Atestasi di index dilewati (`platform.os == "unknown"`) | P3 |
 | Cek rate limit Docker Hub | `curl` header `ratelimit-remaining`, `regctl` | TIDAK ADA | ux.md edge case menyebut "rate limit Docker Hub" | P3 |
-| Cek login/akses | `docker login`, `crane auth`, `skopeo login` | ADA | `komando test CONN` / `conn test` | - |
+| Cek login/akses | `docker login`, `crane auth`, `skopeo login` | SEBAGIAN | `komando test CONN` / `conn test` hanya membuka koneksi TCP ke registry (`testConn`, `Check = "tcp"`), tidak login. Password/token yang salah baru ketahuan saat `registry ls`/`inspect` | P2 — agent mengira conn sehat padahal token kedaluwarsa (lihat juga ECR 12 jam) |
 
 ## I. Registry: menulis dan menyalin
 
@@ -223,10 +223,10 @@ Kutipan non-goal yang dipakai (vision.md, "Bukan tujuan"):
 
 | Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
 |---|---|---|---|---|
-| Verifikasi signature (cosign/notation) | `cosign verify`, `notation verify` | TIDAK ADA | Sigstore SDK berat untuk anggaran ≤40 MB; workaround `exec cosign` di host | P2 — verifikasi sebelum deploy (cek "apakah image ini ditandatangani" via referrers bisa ringan) |
+| Verifikasi signature (cosign/notation) | `cosign verify`, `notation verify` | TIDAK ADA | Sigstore SDK berat (ukuran biner tidak lagi dibatasi); workaround `exec cosign` di host | P2 — verifikasi sebelum deploy (cek "apakah image ini ditandatangani" via referrers bisa ringan) |
 | Tanda tangan image | `cosign sign`, `notation sign` | NON-GOAL | NG-a; pekerjaan CI, kunci penandatangan bukan untuk agent harian | - |
 | Lihat SBOM / attestation | `cosign download sbom/attestation`, `oras discover`, `docker buildx imagetools inspect --format '{{json .SBOM}}'` | TIDAK ADA | | P3 |
-| Scan kerentanan image | `trivy image`, `grype`, Harbor/ECR scan | TIDAK ADA | DB kerentanan besar + scanner berat → melanggar anggaran biner; workaround `exec trivy` di host. Membaca hasil scan Harbor/ECR (API) bisa P3 | P3 (scan sendiri mendekati NON-GOAL NG-a) |
+| Scan kerentanan image | `trivy image`, `grype`, Harbor/ECR scan | TIDAK ADA | DB kerentanan besar + scanner berat (perlu unduh DB terus-menerus); workaround `exec trivy` di host. Membaca hasil scan Harbor/ECR (API) bisa P3 | P3 (scan sendiri mendekati NON-GOAL NG-a) |
 | Analisis layer interaktif | `dive` | NON-GOAL | NG-c "TUI" | - |
 
 ---
@@ -237,20 +237,25 @@ Kutipan non-goal yang dipakai (vision.md, "Bukan tujuan"):
 2. `registry rm --dry-run` tidak menyebut tag lain yang ikut terhapus (lihat J).
 3. S3 tidak mendukung session token sama sekali (`NewStaticV4(..., "")`), jadi kredensial AWS SSO/STS tidak bisa dipakai (lihat G).
 4. `fileTarget`/`cp`: storage dan host punya verb sama (`upload`/`download`) tetapi flag `-r` hanya untuk host; desain sync/recursive sebaiknya menyatukan keduanya.
-5. `bin/komando` 51 MB adalah build dev tanpa strip; build rilis (`-s -w -trimpath`, CGO_ENABLED=0) **34,7 MB**: masih di bawah anggaran 40 MB, tapi sisa ruang hanya ~5 MB. Cek anggaran sebelum menambah Azure/GCS/cosign.
+5. `bin/komando` 51 MB adalah build dev tanpa strip; build rilis (`-s -w -trimpath`, CGO_ENABLED=0) **34,7 MB**. Ukuran biner tidak lagi dibatasi, jadi Azure/GCS/cosign tidak terhalang ukuran.
 6. Import FileZilla dan rclone hanya SFTP, padahal storage sudah mendukung FTP/FTPS/S3 (lihat G).
+7. `komando test` / `conn test` untuk conn registry dan storage hanya membuka koneksi TCP (`testConn`, `internal/cli/conn.go`); login tidak dicoba. Kredensial yang salah atau token yang kedaluwarsa baru ketahuan saat perintah sungguhan (lihat H, "Cek login/akses").
 
 ## Hitungan status
 
+Sudah dikoreksi setelah verifikasi per baris (lihat bagian terakhir).
+
 | Status | Jumlah baris |
 |---|---|
-| ADA | 27 |
-| SEBAGIAN | 18 |
-| TIDAK ADA | 80 |
-| NON-GOAL | 13 |
+| ADA | 26 |
+| SEBAGIAN | 19 |
+| TIDAK ADA | 81 |
+| NON-GOAL | 12 |
 | **Total** | **138** |
 
-Prioritas untuk gap (SEBAGIAN + TIDAK ADA): P1 = 10, P2 = 44, P3 = 49 (beberapa baris NON-GOAL juga diberi P3 bila sebagian kecilnya masih masuk akal).
+Baris berstatus ganda dihitung menurut status pertamanya: "ADA (implisit)" sebagai ADA, "TIDAK ADA (storage/sengaja/tidak relevan)" sebagai TIDAK ADA, "NON-GOAL (sebagian)" dan "NON-GOAL (ubah) / TIDAK ADA (baca)" sebagai NON-GOAL.
+
+Prioritas untuk gap (SEBAGIAN + TIDAK ADA, 100 baris): P1 = 10, P2 = 44, P3 = 46. Di luar itu 4 baris lain juga diberi P3 (multipart "ADA (implisit)" untuk pengaturannya, dan 3 baris NON-GOAL yang sebagian kecilnya masih masuk akal).
 
 ## 10 gap P1 teratas
 
@@ -266,3 +271,150 @@ Prioritas untuk gap (SEBAGIAN + TIDAK ADA): P1 = 10, P2 = 44, P3 = 49 (beberapa 
 | 8 | `Catalog` mengikuti pagination `Link` | Hasil terpotong diam-diam = jawaban salah untuk agent |
 | 9 | `registry rm` (dan `--dry-run`) menyebut semua tag yang ikut terhapus | Keamanan destructive |
 | 10 | Pembersihan tag registry: simpan N terbaru / lebih tua dari X, dengan pratinjau | Docs menjanjikan "clean up old ones"; keluhan harian registry penuh |
+
+## Verifikasi per baris
+
+Setiap baris di bagian A–L dicek ulang terhadap kode di commit `4784fc9` (bukan dari teks "Bukti" lama). Singkatan path: `cli/` = `internal/cli/`, `storex/` = `internal/storex/`, `reg/` = `internal/registry/`, `driver.go` = `internal/driver/driver.go`. "grep X: 0 hasil" berarti pencarian di `internal/` (tanpa `_test.go`) tidak menemukan apa pun. Subperintah `storage` hanya `ls`, `download`, `upload`, `rm`, `link` (`cli/storage.go:42`); subperintah `registry` hanya `ls`, `inspect`, `copy`, `rm` (`cli/registry.go:33`); tidak ada recipe bawaan untuk storage/registry (`recipe list`: 39 recipe, grep rclone/aws s3/skopeo/crane/cosign/trivy: 0 hasil).
+
+| # | Kemampuan (singkat) | Status akhir | Hasil cek | Bukti di kode |
+|---|---|---|---|---|
+| 1 | List satu level | ADA | Benar | `cli/storage.go:170` (`ls CONN [PREFIX]`), DIR di `cli/storage.go:157`; `storex/storex.go:111` |
+| 2 | List rekursif | ADA | Benar | `cli/storage.go:195-196` (`-r`, `--limit` 1000), `more` `cli/storage.go:165` |
+| 3 | Pagination / token lanjut | TIDAK ADA | Benar | `storex/storex.go:111` tanpa `StartAfter`; grep `StartAfter\|starting-token\|continuation`: 0 hasil |
+| 4 | Total ukuran (`du`/`--summarize`) | TIDAK ADA | Benar | `objectList` hanya `Count` (`cli/storage.go:145-151`); grep `summarize`: 0 hasil di storage |
+| 5 | Tree | TIDAK ADA | Benar | grep `"tree"`: 0 hasil |
+| 6 | Download satu objek | ADA | Benar | `cli/storage.go:311-336` (`FILE_EXISTS` :316, `writeAtomic` :321); 0600 di `cli/dbdump.go:341` |
+| 7 | Download prefix rekursif | TIDAK ADA | Benar | `cli/transfer.go:98` "-r is for servers; storage downloads one object" |
+| 8 | Upload satu file | ADA | Benar | `cli/storage.go:339-365` (`replaced` :350, mime :359); temp+rename `storex/ftp.go:209`, `storex/sftp.go:150` |
+| 9 | Upload folder rekursif | TIDAK ADA | Benar | `cli/transfer.go:64`; `fi.IsDir()` ditolak `cli/storage.go:345` |
+| 10 | Stream stdin/stdout | TIDAK ADA | Benar | `os.Stat` + `IsDir` `cli/storage.go:344-345`; `--to` langsung dipakai sebagai nama file `cli/storage.go:312-321` |
+| 11 | `storage cat` | TIDAK ADA | Benar | Tidak ada subperintah `cat` (`cli/storage.go:42`); `fs cat --head` hanya host `cli/fs.go:313` |
+| 12 | Stat/head objek | TIDAK ADA | Benar | Hanya `Exists` internal `storex/storex.go:146`; tidak ada subperintah `stat` |
+| 13 | Verifikasi checksum | SEBAGIAN | Benar | Host: `cli/cp.go:62`, `cli/fs.go:215`; storage: hasil upload/download tanpa hash `cli/storage.go:335,363` |
+| 14 | Multipart file besar | ADA (implisit) | Benar | `storex/storex.go:167` `PutObject` dengan ukuran; grep `PartSize\|NumThreads`: 0 hasil |
+| 15 | Bersihkan multipart yatim | TIDAK ADA | Benar | grep `ListIncompleteUploads\|RemoveIncompleteUpload\|AbortMultipart`: 0 hasil |
+| 16 | Resume transfer | TIDAK ADA | Benar | `storex/storex.go:67` `MaxRetry = 2`; tidak ada offset/range di `Get` |
+| 17 | Progress di stderr | TIDAK ADA | Benar | grep `progress` di `internal/`: 0 hasil; ux.md:321 |
+| 18 | Transfer paralel (storage) | TIDAK ADA | Benar | Satu objek per perintah `cli/storage.go:339`; paralel hanya `runCp` host `cli/cp.go:88` |
+| 19 | Bandwidth limit | TIDAK ADA | Benar | grep `bwlimit\|RateLimit\|rate.Limit`: 0 hasil |
+| 20 | Transfer lama di latar | TIDAK ADA | Dikoreksi (bukti): "dibatasi `--timeout`" → batas hanya bila `--timeout` diberi | `cli/storage.go:73` (`if g.timeout > 0`); `cli/root.go:164` default 0 |
+| 21 | Hapus objek tepat | ADA | Benar | `cli/storage.go:236-266`, `DataDelete` :250, `already deleted` :258 |
+| 22 | Hapus prefix/pola/umur | TIDAK ADA (sengaja) | Benar | `cli/storage.go:246` "rm takes exact keys" |
+| 23 | Dry-run perubahan | SEBAGIAN | Benar | `cli/storage.go:67-70` "nothing sent: the change would be allowed" (tanpa cek server) |
+| 24 | Include/exclude | TIDAK ADA | Benar | Flag `ls` hanya `-r`,`-n` `cli/storage.go:195-196`; grep `exclude` di storage: 0 hasil |
+| 25 | Cari objek | TIDAK ADA | Benar | Tidak ada subperintah `find`; tidak ada filter umur/ukuran di `List` `storex/storex.go:31` |
+| 26 | Rename/move objek | TIDAK ADA | Benar | Interface `Bucket` tanpa Move `storex/storex.go:28-41`; `Rename` hanya untuk temp upload |
+| 27 | Copy server-side | TIDAK ADA | Benar | grep `CopyObject\|ComposeObject`: 0 hasil |
+| 28 | Copy antar conn/area | TIDAK ADA | Benar | `cli/cp.go:73` "remote-to-remote copy is not supported" |
+| 29 | Buat folder kosong | SEBAGIAN | Benar | Otomatis saat upload `storex/ftp.go:206`, `storex/sftp.go:126`; tidak ada `storage mkdir` |
+| 30 | chmod/chown file server | TIDAK ADA | Benar | `Chmod` hanya internal saat upload `storex/sftp.go:149`; `fs chmod` hanya host |
+| 31 | Symlink/owner di listing | TIDAK ADA | Benar | `Object{Key,Size,Modified,Dir}` `storex/storex.go:97-102` |
+| 32 | Sync lokal ↔ bucket/FTP | TIDAK ADA | Benar | Tidak ada subperintah `sync`; janji di vision.md:107 dan :130 |
+| 33 | Sync ke host SSH (delta) | SEBAGIAN | Benar | `upload -r` lewat `runCp` `cli/cp.go:88` tanpa skip/delete (grep `skip\|unchanged` di cp.go: 0 hasil); `--if-changed` 1 file `cli/fs.go:550` |
+| 34 | Sync dua arah | TIDAK ADA | Benar | grep `bisync`: 0 hasil |
+| 35 | Mirror bucket ke bucket | TIDAK ADA | Benar | grep `mirror` di storage: 0 hasil; copy antar conn ditolak `cli/cp.go:73` |
+| 36 | Watch/continuous mirror | NON-GOAL | Benar | vision.md:227 (daemon/server), :228 (berjalan terus-menerus) |
+| 37 | Diff/check | TIDAK ADA | Benar | Tidak ada subperintah; grep `diff\|check` di storage: 0 hasil |
+| 38 | Dedupe | TIDAK ADA | Benar | grep `dedupe`: 0 hasil |
+| 39 | `--size-only`/`--checksum` | TIDAK ADA | Benar | grep `size-only`: 0 hasil |
+| 40 | Presigned download URL | ADA | Benar | `cli/storage.go:270-295` (maks 168h :282, RiskWrite :286); `storex/storex.go:189-190` |
+| 41 | Presigned upload URL | TIDAK ADA | Benar | grep `PresignedPut\|PresignedPost`: 0 hasil |
+| 42 | Link publik permanen | TIDAK ADA | Benar | grep `acl\|anonymous` di storex: 0 hasil |
+| 43 | Link FTP/SFTP | TIDAK ADA (tidak relevan) | Dikoreksi: NON-GOAL → TIDAK ADA (P3) | Tidak ada di vision.md "Bukan tujuan" (:221-228); `storex/ftp.go:244,249`, `storex/sftp.go:190` |
+| 44 | Batasi conn ke prefix | ADA | Benar | `storex/storex.go:45-56` (`..` ditolak) |
+| 45 | Content-Type saat upload | SEBAGIAN | Benar | `cli/storage.go:359` `mime.TypeByExtension`; tidak ada flag `upload` (`cli/storage.go:217-234`) |
+| 46 | Cache-Control/metadata | TIDAK ADA | Benar | `PutObjectOptions{ContentType}` saja `storex/storex.go:167`; grep `CacheControl\|UserMetadata`: 0 hasil |
+| 47 | Storage class | TIDAK ADA | Benar | grep `StorageClass\|storage-class`: 0 hasil |
+| 48 | Restore Glacier | TIDAK ADA | Benar | grep `RestoreObject\|restore-object`: 0 hasil |
+| 49 | SSE-KMS/SSE-C | TIDAK ADA | Benar | grep `ServerSideEncryption\|encrypt.` di storex: 0 hasil |
+| 50 | Enkripsi sisi klien | TIDAK ADA | Benar | grep `crypt` di storex: 0 hasil selain `crypto/tls` |
+| 51 | Object tagging | TIDAK ADA | Benar | grep `Tagging`: 0 hasil |
+| 52 | ACL objek | TIDAK ADA | Benar | grep `ACL\|acl` di storex: 0 hasil |
+| 53 | Versioning objek | TIDAK ADA | Benar | grep `VersionID\|WithVersions`: 0 hasil; ux.md:331 |
+| 54 | Object lock | TIDAK ADA | Benar | grep `Retention\|LegalHold`: 0 hasil |
+| 55 | Requester pays/accel | TIDAK ADA | Benar | Opsi URL s3 hanya `endpoint`,`region` `driver.go:293` |
+| 56 | S3 Select | TIDAK ADA | Benar | grep `SelectObjectContent`: 0 hasil |
+| 57 | Daftar bucket | TIDAK ADA | Benar | `driver.go:265` "s3 URL needs a bucket"; grep `ListBuckets`: 0 hasil |
+| 58 | `mb`/`rb` | NON-GOAL (sebagian) | Benar | vision.md:226 (provisioning cloud); grep `MakeBucket\|RemoveBucket`: 0 hasil |
+| 59 | Bucket policy/CORS/lifecycle | NON-GOAL (ubah) / TIDAK ADA (baca) | Benar | vision.md:226; grep `GetBucketPolicy\|Lifecycle`: 0 hasil |
+| 60 | Versioning on/off bucket | NON-GOAL | Benar | vision.md:226 |
+| 61 | Info bucket | TIDAK ADA | Benar | `testConn` hanya TCP `cli/conn.go:491,498` |
+| 62 | Admin MinIO | NON-GOAL (sebagian) | Benar | vision.md:223 (mengganti alat lengkap) |
+| 63 | Mount filesystem | NON-GOAL | Benar | vision.md:227 (daemon/server), :180 (tanpa cgo) |
+| 64 | Serve | NON-GOAL | Benar | vision.md:227 |
+| 65 | Analisis interaktif (ncdu) | NON-GOAL | Benar | vision.md:227 (TUI), keputusan #5 vision.md:238 |
+| 66 | AWS S3 | ADA | Benar | `driver.go:276` endpoint default AWS |
+| 67 | S3-kompatibel | ADA | Dikoreksi (bukti): e2e memakai Garage, bukan MinIO | `driver.go:274-293`; `test/e2e/run.sh:143` (`region=garage`), compose tanpa MinIO |
+| 68 | Path-style eksplisit | SEBAGIAN | Benar | `storex/storex.go:78-83` tanpa `BucketLookup`; `driver.go:293` |
+| 69 | Self-signed TLS S3 | TIDAK ADA | Benar | `storex/storex.go:71-84` tanpa `TLSClientConfig`; `InsecureSkipVerify` hanya di `storex/ftp.go:40` dan `internal/kube` |
+| 70 | GCS native | SEBAGIAN | Benar | Hanya kind `s3` `driver.go:75`; grep `gcs\|googleapis`: 0 hasil; vision.md:94 |
+| 71 | Azure Blob | TIDAK ADA | Benar | grep `azblob\|azure`: 0 hasil |
+| 72 | WebDAV | TIDAK ADA | Benar | grep `webdav`: 0 hasil; kind storage hanya s3/ftps/ftp/sftp `driver.go:75-82` |
+| 73 | SFTP tanpa shell | ADA | Benar | `cli/storage.go:98-115` (sshx.Dial, host key), `driver.go:81` |
+| 74 | FTPS explicit | ADA | Benar | `storex/ftp.go:39-43,72`; `driver.go:251` |
+| 75 | FTPS implicit | TIDAK ADA | Benar | Hanya `DialWithExplicitTLS` `storex/ftp.go:72`; grep `DialWithImplicitTLS`: 0 hasil |
+| 76 | FTP polos | ADA | Benar | `driver.go:243` `INSECURE_PROTOCOL` tanpa `?insecure=1` |
+| 77 | FTP active/EPSV off | TIDAK ADA | Benar | grep `DisableEPSV\|ActiveMode`: 0 hasil |
+| 78 | SMB/CIFS | TIDAK ADA | Benar | grep `smb`: 0 hasil |
+| 79 | Google Drive/Dropbox/… | TIDAK ADA | Benar | Tidak ada kind (`driver.go:62-82`) |
+| 80 | Swift/HDFS/backend lain | TIDAK ADA | Benar | grep `swift\|hdfs`: 0 hasil |
+| 81 | Access key + secret vault | ADA | Benar | `storex/storex.go:79`; `--password-ref` `cli/conn.go:66` |
+| 82 | Kredensial sementara AWS | TIDAK ADA | Benar | `storex/storex.go:79` `NewStaticV4(t.User, secret, "")`; grep `SessionToken\|AssumeRole\|NewIAM\|AWS_PROFILE`: 0 hasil |
+| 83 | Import `~/.aws` | TIDAK ADA | Benar | `importSources` `cli/importer.go:48-58` tanpa `aws`; direncanakan vision.md:166 |
+| 84 | Import rclone S3/FTP | SEBAGIAN | Benar | `cli/importer.go:771` hanya `sftp`, lainnya "is not imported" :783 |
+| 85 | Import FileZilla FTP/FTPS | SEBAGIAN | Benar | `cli/importer.go:711` `Protocol != 1` dilewati |
+| 86 | Import `mc`/`.s3cfg` | TIDAK ADA | Benar | `cli/importer.go:48-58`; grep `mc/config\|s3cfg`: 0 hasil |
+| 87 | Import S3 URL dari `.env` | ADA | Benar | `cli/importer.go:499,508` (semua skema kind, termasuk `s3`) |
+| 88 | Lewat bastion/VPN | ADA | Benar | S3 `storex/storex.go:73-75`; FTP data conn `storex/ftp.go:50-69`; SFTP `cli/storage.go:103` |
+| 89 | Protected/`--yes`/audit | ADA | Benar | `cli/storage.go:64` guardConns, audit :68 dan :87 (juga untuk ls/download) |
+| 90 | Read-only di server | SEBAGIAN | Benar | Hanya anjuran `docs/features/storage.md:30`; tidak ada mode read-only per conn |
+| 91 | Unduhan aman (0600, atomik) | ADA | Benar | `cli/storage.go:316,321`; `cli/dbdump.go:334-349` |
+| 92 | Upload no-clobber | SEBAGIAN | Benar | `replaced` sesudahnya `cli/storage.go:350,363`; grep `no-clobber\|if-none-match\|ignore-existing`: 0 hasil |
+| 93 | Daftar repository (catalog) | SEBAGIAN | Benar | `reg/registry.go:256-262` satu permintaan `n=limit`, tanpa `nextLink`; output tanpa `more` `cli/registry.go:137-141` |
+| 94 | Daftar tag | ADA | Benar | `reg/registry.go:265-290` (`nextLink` :278) |
+| 95 | Tag + digest/tanggal/filter | TIDAK ADA | Benar | `Tags` hanya nama `reg/registry.go:265`; `ls` hanya `-n` `cli/registry.go:151` |
+| 96 | Inspect image | ADA | Benar | `cli/registry.go:155`, `reg/registry.go:319-372` |
+| 97 | Digest saja | ADA | Benar | `reg/registry.go:340` `Docker-Content-Digest` |
+| 98 | Config lengkap | TIDAK ADA | Benar | Hanya `Created`, `OS`, `Arch`, `Labels` `reg/registry.go:356-368` |
+| 99 | Manifest mentah | TIDAK ADA | Benar | `inspect` tanpa flag `cli/registry.go:155-168`; grep `raw` di registry: 0 hasil |
+| 100 | Inspect per platform | TIDAK ADA | Benar | Index hanya daftar platform `reg/registry.go:341-349`; grep `--platform`: 0 hasil |
+| 101 | Layer & history | TIDAK ADA | Benar | Hanya jumlah + total ukuran `reg/registry.go:350-353` |
+| 102 | Ambil blob/file | TIDAK ADA | Benar | Tidak ada subperintah (`cli/registry.go:33`); grep `export\|blob get`: 0 hasil |
+| 103 | Manifest tanpa tag | TIDAK ADA | Benar | Tidak ada endpoint selain catalog/tags/manifests/blobs `reg/registry.go:155-175` |
+| 104 | Referrers | TIDAK ADA | Benar | Atestasi dilewati `reg/registry.go:342`; grep `referrers`: 0 hasil di registry |
+| 105 | Rate limit Docker Hub | TIDAK ADA | Benar | grep `ratelimit-remaining`: 0 hasil; ux.md:333 |
+| 106 | Cek login/akses | SEBAGIAN | Dikoreksi: ADA → SEBAGIAN (P2) | `cli/conn.go:470-504`: `testConn` hanya `dial(tcp)` :491,498, tanpa permintaan `/v2/` |
+| 107 | Copy antar registry | ADA | Benar | `cli/registrycopy.go:16-133`; skip `reg/copy.go:21`, mount :150, replaced :56; `--yes` :91, `--dry-run` :99 |
+| 108 | Retag registry sama | ADA | Benar | Mount blob `reg/copy.go:146-158`; contoh `cli/registrycopy.go:30` |
+| 109 | Copy platform tertentu | TIDAK ADA | Benar | `copy` tanpa flag `cli/registrycopy.go:16-36` |
+| 110 | Copy semua tag / sync | TIDAK ADA | Benar | `cobra.ExactArgs(2)`, satu image `cli/registrycopy.go:31`; grep `all-tags`: 0 hasil |
+| 111 | Copy ikut signature/SBOM | TIDAK ADA | Benar | grep `referrers\|\.sig`: 0 hasil di `reg/copy.go` |
+| 112 | Push dari laptop | TIDAK ADA | Benar | Tidak ada subperintah push; host: `docker raw` `cli/modules.go:383` |
+| 113 | Pull/export tarball | TIDAK ADA | Benar | grep `docker-archive\|oci-layout`: 0 hasil |
+| 114 | Pull image di server | ADA | Benar | `docker pull` `cli/modules.go:304` |
+| 115 | Login registry di server tanpa membuka secret | TIDAK ADA | Benar | grep `password-stdin\|imagePullSecret\|docker login`: 0 hasil |
+| 116 | Mutasi image | NON-GOAL | Benar | vision.md:223 (mengganti alat lengkap) |
+| 117 | Buat index multi-arch | TIDAK ADA | Benar | grep `index create\|imagetools`: 0 hasil |
+| 118 | Artefak OCI | TIDAK ADA | Benar | Tidak ada push/pull file; `copy` menyalin manifest `reg/copy.go:77` |
+| 119 | Buat repository (ECR) | TIDAK ADA | Benar | grep `CreateRepository\|create-repository`: 0 hasil |
+| 120 | Hapus image | ADA | Benar | `cli/registry.go:171-199` (resolve via `Inspect`, catatan GC :195), `reg/registry.go:375` |
+| 121 | Peringatan tag ikut hilang | SEBAGIAN | Benar | `cli/registry.go:189` `would_delete: repo@digest` saja; help `cli/registry.go:174` menyebut "every tag" |
+| 122 | Untag saja | TIDAK ADA | Benar | `Delete` selalu manifest by digest `reg/registry.go:375-382` |
+| 123 | Pembersihan massal tag | TIDAK ADA | Benar | `rm` `cobra.ExactArgs(2)` `cli/registry.go:176`; janji docs `docs/features/registry.md:3-4` |
+| 124 | Garbage collection | TIDAK ADA | Benar | grep `garbage-collect`: 0 hasil (hanya catatan teks `cli/registry.go:195`) |
+| 125 | Retention/immutable tags | NON-GOAL | Benar | vision.md:226 |
+| 126 | Basic + bearer token | ADA | Benar | `reg/registry.go:63-130`, scope `:155`, realm non-https ditolak `:186` |
+| 127 | Registry tanpa TLS / self-signed | SEBAGIAN | Benar | `?tls=false` `cli/registry.go:92`, `reg/registry.go:38`; transport tanpa `TLSClientConfig` `reg/registry.go:43` |
+| 128 | AWS ECR token | SEBAGIAN | Benar | grep `GetAuthorizationToken\|SigV4\|ecr`: 0 hasil (hanya komentar `reg/registry.go:2`); klaim di `docs/features/registry.md:4` |
+| 129 | Google AR/GCR | SEBAGIAN | Benar | Hanya basic/bearer `reg/registry.go:99,203`; grep `oauth2accesstoken\|_json_key`: 0 hasil |
+| 130 | Azure ACR | SEBAGIAN | Benar | Hanya basic/bearer standar; grep `acr\|aad`: 0 hasil di registry |
+| 131 | Credential helper runtime | SEBAGIAN | Benar | `credHelper` hanya dari `importDocker` `cli/registry.go:232,252` |
+| 132 | Fitur khusus Harbor | TIDAK ADA | Benar | grep `harbor` di kode: hanya komentar/contoh |
+| 133 | Listing GHCR/Docker Hub | TIDAK ADA | Benar | Hint 405 `cli/registry.go:105` |
+| 134 | Verifikasi signature | TIDAK ADA | Benar | grep `cosign\|notation\|sigstore`: 0 hasil |
+| 135 | Tanda tangan image | NON-GOAL | Benar | vision.md:223 |
+| 136 | Lihat SBOM/attestation | TIDAK ADA | Benar | grep `sbom\|attestation`: 0 hasil (hanya komentar atestasi `reg/registry.go:342-343`) |
+| 137 | Scan kerentanan | TIDAK ADA | Benar | grep `trivy\|grype`: 0 hasil |
+| 138 | Analisis layer interaktif | NON-GOAL | Benar | vision.md:227 (TUI), :238 |
+
+Ringkasan verifikasi: 138 baris dicek, 4 dikoreksi (2 status, 2 bukti). Status: #43 NON-GOAL → TIDAK ADA (P3), #106 ADA → SEBAGIAN (P2). Bukti: #20 (`--timeout` tanpa default untuk storage), #67 (e2e memakai Garage, bukan MinIO). Prioritas P1 tetap 10 baris.

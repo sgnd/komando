@@ -177,8 +177,8 @@ Tunnel berjalan di latar dan memegang jalurnya (VPN dan bastion) selama hidup.
 - Rantai melingkar (`a --via b`, `b --via a`): ditolak saat `add`/`edit`.
 - Menghapus VPN yang masih dipakai `--via`: ditolak (`IN_USE`), sama seperti host.
 - MTU kecil di VPN bertumpuk: pakai MTU dari konfigurasi; bisa diubah per VPN.
-- Ukuran biner: `tsnet` cukup besar. Kalau anggaran 40 MB terlewati, Tailscale
-  ditunda atau diganti dengan `socks` lewat `tailscale serve`.
+- Ukuran biner: `tsnet` cukup besar, tapi ukuran biner tidak dibatasi
+  (lihat [vision.md](vision.md#aturan-teknis)).
 
 ## Rencana bertahap
 

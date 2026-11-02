@@ -182,10 +182,11 @@ apa yang akan dibuat, dan entri yang sudah ada tidak ditimpa kecuali dengan
   kubeconfig (tanpa client-go). Registry: OCI Distribution API. Swarm: Docker
   Engine API lewat socket di host SSH. S3: client ringan (`minio-go` atau
   signer SigV4 sendiri), bukan AWS SDK penuh.
-- **Anggaran biner: ≤ 40 MB, satu biner untuk semua orang** (tanpa build
-  `lite`/`full`; satu biner lebih mudah dipasang dan didukung). Kalau
-  terlewati, kurangi dependensi dulu; build tag (`-tags nok8s`) hanya jalan
-  terakhir, dan tidak memakai sistem plugin.
+- **Satu biner untuk semua orang, tanpa batas ukuran** (tanpa build
+  `lite`/`full`; satu biner lebih mudah dipasang dan didukung). Ukuran biner
+  tidak dibatasi: fitur yang dibutuhkan sehari-hari lebih penting. Tetap
+  pilih dependensi yang wajar (client ringan bila ada) dan tanpa sistem
+  plugin.
 - **Tanpa pool dan tanpa daemon.** Satu koneksi per perintah. Tunnel dan job
   tetap jadi satu-satunya proses di latar belakang.
 - Tes integrasi per family di CI memakai service container (postgres, redis,
@@ -214,7 +215,7 @@ Family baru hanya ditambahkan kalau **semua** ini terpenuhi:
 
 1. Masuk ke model `conn` + kind + verb yang sudah ada, tanpa konsep baru.
 2. Bisa diberi read-only default dan klasifikasi risk yang jujur.
-3. Bisa dibangun tanpa cgo dan tanpa SDK yang membuat biner melewati anggaran.
+3. Bisa dibangun tanpa cgo (pure Go).
 4. Ada kebutuhan nyata: dipakai sehari-hari, bukan hanya "ada baiknya".
 5. Ada orang yang mau merawatnya: tes integrasi di CI dan dokumentasi.
 
@@ -234,7 +235,7 @@ Family baru hanya ditambahkan kalau **semua** ini terpenuhi:
 | 1 | `storage` atau `s3`? | ✅ `storage`. Semua nama perintah memakai bahasa manusia; nama produk jadi alias. |
 | 2 | Satu `cluster`, atau `k8s`/`swarm` terpisah? | ✅ Satu `cluster`. Verb umum langsung di bawahnya; fitur khusus engine di `cluster k8s ...` / `cluster swarm ...`. |
 | 3 | Apakah `@prod` memilih host dan conn sekaligus? | ✅ Ya, semuanya. Aturan lengkapnya di [ux.md](ux.md#2-target-dan-selector-berlaku-untuk-host-dan-conn). |
-| 4 | Anggaran biner? | ✅ Ikuti best practice: satu biner, ≤ 40 MB, pure Go. |
+| 4 | Anggaran biner? | ✅ Satu biner, pure Go, **tanpa batas ukuran** (batas 40 MB dihapus). |
 | 5 | TUI? | ✅ Tidak. CLI murni. |
 
 ### Contoh nomor 3
