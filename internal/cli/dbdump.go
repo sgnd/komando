@@ -28,6 +28,7 @@ import (
 
 type dumpTool struct {
 	dump, restore []string
+	restoreCustom []string // postgres: pg_restore for --format custom archives
 	passwordEnv   string
 	pkg           string // Debian/Ubuntu package that provides the tools, for hints
 	tls           string // mysql: the URL's tls= setting, mapped to client flags at run time
@@ -60,9 +61,10 @@ func toolsFor(c *store.Conn, t driver.Target) (dumpTool, error) {
 	case "postgres":
 		// libpq accepts the conn URL as is (it never contains a password)
 		return dumpTool{
-			dump:        []string{"pg_dump", "--dbname", c.URL},
-			restore:     []string{"psql", "--dbname", c.URL, "--single-transaction", "--set", "ON_ERROR_STOP=1", "--quiet", "--no-psqlrc"},
-			passwordEnv: "PGPASSWORD", pkg: "postgresql-client",
+			dump:          []string{"pg_dump", "--dbname", c.URL},
+			restore:       []string{"psql", "--dbname", c.URL, "--single-transaction", "--set", "ON_ERROR_STOP=1", "--quiet", "--no-psqlrc"},
+			restoreCustom: []string{"pg_restore", "--dbname", c.URL, "--single-transaction", "--exit-on-error", "--no-password"},
+			passwordEnv:   "PGPASSWORD", pkg: "postgresql-client",
 		}, nil
 	case "mysql":
 		if t.Database == "" {
@@ -83,26 +85,74 @@ func toolsFor(c *store.Conn, t driver.Target) (dumpTool, error) {
 	return dumpTool{}, out.Usage("%s conns have no dump tool", t.Kind.Name)
 }
 
+// dumpOpts narrows or reshapes a dump.
+type dumpOpts struct {
+	format     string // plain (SQL) or custom (pg_dump -Fc)
+	schemaOnly bool
+	tables     []string
+}
+
+// args adds the options to the tool's command line.
+func (o dumpOpts) args(kind string, base []string) ([]string, error) {
+	argv := append([]string(nil), base...)
+	switch kind {
+	case "postgres":
+		if o.format == "custom" {
+			argv = append(argv, "--format=custom")
+		}
+		if o.schemaOnly {
+			argv = append(argv, "--schema-only")
+		}
+		for _, t := range o.tables {
+			argv = append(argv, "--table="+t)
+		}
+	case "mysql":
+		if o.format == "custom" {
+			return nil, out.Usage("--format custom is a PostgreSQL archive; MySQL dumps are SQL")
+		}
+		if o.schemaOnly {
+			argv = append(argv[:len(argv)-1], "--no-data", argv[len(argv)-1])
+		}
+		argv = append(argv, o.tables...) // mysqldump DB TABLE...
+	}
+	return argv, nil
+}
+
 func dbDumpCmd() *cobra.Command {
 	var to string
+	var o dumpOpts
 	c := &cobra.Command{
 		Use:   "dump CONN --to FILE",
 		Short: "Back up a database to a file on this computer (.gz to compress)",
 		Long: `Runs pg_dump or mysqldump (on the conn's --via host when set, otherwise here)
 and saves plain SQL to FILE on this computer. FILE ending in .gz is compressed.
-SQLite conns are copied as a database file instead. An existing FILE is never
+PostgreSQL can also write its own archive with --format custom (compressed,
+restored with pg_restore). --table and --schema-only narrow the dump. SQLite
+conns are copied as a database file instead. An existing FILE is never
 overwritten. The file holds your data: it is created readable only by you.`,
 		Example: `  komando db dump prod-db --to prod-2026-11-02.sql.gz
+  komando db dump prod-db --to prod.dump --format custom
+  komando db dump prod-db --to orders.sql --table public.orders --table public.order_items
+  komando db dump prod-db --to schema.sql --schema-only
   komando db dump local --to backup.db`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if to == "" {
 				return out.Usage("--to FILE is required")
 			}
-			return runDump(cmd.Context(), args[0], to)
+			if o.format != "plain" && o.format != "custom" {
+				return out.Usage("--format is plain (SQL) or custom (PostgreSQL archive)")
+			}
+			if o.format == "custom" && strings.HasSuffix(to, ".gz") {
+				return out.Usage("a custom archive is already compressed; drop the .gz")
+			}
+			return runDump(cmd.Context(), args[0], to, o)
 		},
 	}
 	c.Flags().StringVar(&to, "to", "", "file to create on this computer")
+	c.Flags().StringVar(&o.format, "format", "plain", "plain (SQL) or custom (PostgreSQL archive for pg_restore)")
+	c.Flags().BoolVar(&o.schemaOnly, "schema-only", false, "tables, indexes and functions, no rows")
+	c.Flags().StringArrayVar(&o.tables, "table", nil, "only this table (repeatable; SCHEMA.TABLE on PostgreSQL)")
 	return c
 }
 
@@ -110,9 +160,10 @@ func dbRestoreCmd() *cobra.Command {
 	var from string
 	c := &cobra.Command{
 		Use:   "restore CONN --from FILE",
-		Short: "Load a SQL backup into a database (needs --allow-dangerous)",
+		Short: "Load a backup into a database: SQL, .sql.gz or a PostgreSQL archive (needs --allow-dangerous)",
 		Long: `Runs the SQL in FILE (from ` + "`db dump`" + ` or any plain SQL file; .gz is read
-compressed) with psql or mysql. A restore can overwrite existing data, so it
+compressed) with psql or mysql. A PostgreSQL archive (` + "`db dump --format custom`" + `)
+is recognised by its content and loaded with pg_restore. A restore can overwrite existing data, so it
 needs --allow-dangerous, plus --yes on a protected conn. The whole file is
 checked first: client commands that could run programs (\! or system) are
 refused. PostgreSQL restores run in one transaction: on any error nothing
@@ -159,7 +210,7 @@ func humanBytes(n int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
 }
 
-func runDump(ctx context.Context, connExpr, to string) error {
+func runDump(ctx context.Context, connExpr, to string, o dumpOpts) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -183,6 +234,9 @@ func runDump(ctx context.Context, connExpr, to string) error {
 	rec := map[string]any{"conns": []string{c.Name}, "file": to}
 
 	if t.Kind.File { // sqlite: a consistent copy of the database file
+		if o.format == "custom" || o.schemaOnly || len(o.tables) > 0 {
+			return out.Usage("sqlite backups copy the whole database file; --format, --schema-only and --table do not apply")
+		}
 		if strings.HasSuffix(to, ".gz") {
 			return out.Usage("sqlite backups are database files; drop the .gz")
 		}
@@ -212,6 +266,9 @@ func runDump(ctx context.Context, connExpr, to string) error {
 
 	tool, err := toolsFor(c, t)
 	if err != nil {
+		return err
+	}
+	if tool.dump, err = o.args(t.Kind.Name, tool.dump); err != nil {
 		return err
 	}
 	data.Tool = tool.dump
@@ -276,18 +333,40 @@ func runRestore(ctx context.Context, connExpr, from string) error {
 	if c.Via != "" {
 		runsOn = c.Via
 	}
-	data := transferData{Conn: c.Name, File: from, Bytes: fi.Size(), Tool: tool.restore, RunsOn: runsOn, DryRun: g.dryRun}
-	// check the whole file before sending any of it: a stream cut short
-	// would let psql commit what it had received
-	if err := withBackup(from, func(r io.Reader) error { return driver.CheckRestore(t.Kind.Name, r) }); err != nil {
+	argv := tool.restore
+	custom, err := isPgArchive(from)
+	if err != nil {
 		return err
 	}
+	if custom {
+		if tool.restoreCustom == nil {
+			return out.Usage("%s is a PostgreSQL archive; restore it into a PostgreSQL conn", from)
+		}
+		argv = tool.restoreCustom // pg_restore: an archive holds no client commands to check
+	} else if err := withBackup(from, func(r io.Reader) error { return driver.CheckRestore(t.Kind.Name, r) }); err != nil {
+		// check the whole file before sending any of it: a stream cut short
+		// would let psql commit what it had received
+		return err
+	}
+	data := transferData{Conn: c.Name, File: from, Bytes: fi.Size(), Tool: argv, RunsOn: runsOn, DryRun: g.dryRun}
 	if g.dryRun {
 		out.P.Print("db.restore", data, nil)
 		return nil
 	}
-	err = withBackup(from, func(r io.Reader) error { return runTool(ctx, st, c, tool, tool.restore, r, io.Discard) })
+	err = withBackup(from, func(r io.Reader) error { return runTool(ctx, st, c, tool, argv, r, io.Discard) })
 	return finishTransfer(st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from}, err)
+}
+
+// isPgArchive reports whether path is a pg_dump custom archive ("PGDMP").
+func isPgArchive(path string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "cannot read %s: %v", path, err)
+	}
+	defer f.Close()
+	head := make([]byte, 5)
+	n, _ := io.ReadFull(f, head)
+	return string(head[:n]) == "PGDMP", nil
 }
 
 // withBackup opens a backup file (decompressing .gz) and passes it to fn.

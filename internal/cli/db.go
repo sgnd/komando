@@ -39,7 +39,7 @@ func dbCmd() *cobra.Command {
 read-only transaction, so nothing can change. With --write, try --dry-run
 first: it runs the SQL and rolls it back, showing how many rows would change.`,
 	}
-	c.AddCommand(dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
+	c.AddCommand(dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
 	return c
 }
 
@@ -214,6 +214,9 @@ func (d schemaData) Text() string {
 		tw.Flush()
 		for _, ix := range t.Indexes {
 			fmt.Fprintf(&sb, "  index %s\n", dash(ix.Definition))
+		}
+		for _, c := range t.Constraints {
+			fmt.Fprintf(&sb, "  %s %s: %s\n", c.Type, c.Name, c.Definition)
 		}
 	}
 	return sb.String()

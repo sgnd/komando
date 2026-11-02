@@ -194,6 +194,26 @@ check "pg dump is private" 600 "$(stat -c %a "$TMP/pg.sql.gz" 2>/dev/null || sta
 q $K db query pg --write --allow-dangerous "drop table t; drop sequence s"
 q $K db restore pg --from "$TMP/pg.sql.gz" --allow-dangerous
 check "pg restore brings rows back" 2 "$($K db query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "db info" primary "$($K db info pg | jget 'd["data"]["role"]')"
+check "db sizes lists the table" True "$($K db sizes pg | jget 'any(r["name"]=="t" for r in d["data"]["tables"])')"
+check "db locks answers" 0 "$($K db locks pg | jget 'd["data"]["count"]')"
+q $K db query pg --write "create table t2(id int primary key, t_id int references t(id) on delete cascade); insert into t2 values (1, 1)"
+check "db schema shows foreign keys" "foreign key" "$($K db schema pg t2 | jget 'd["data"]["tables"][0]["constraints"][0]["type"]')"
+($K db query pg 'select pg_sleep(30)' --timeout 60s > "$TMP/slow.json" 2>&1 &)
+for _ in $(seq 1 20); do PID=$($K db activity pg | jget '[s["pid"] for s in d["data"]["sessions"] if "pg_sleep" in (s.get("query") or "")][0]' 2>/dev/null) && break; sleep 1; done
+check "db activity sees the slow query" True "$([ -n "$PID" ] && echo True || echo False)"
+check "db kill --dry-run names the query" True "$($K db kill pg "$PID" --dry-run | jget '"pg_sleep" in d["data"]["session"]["query"]')"
+check "db kill --session needs --allow-dangerous" POLICY_BLOCKED "$($K db kill pg "$PID" --session | jget 'd["error"]["code"]' || true)"
+check "db kill cancels it" "cancel query" "$($K db kill pg "$PID" | jget 'd["data"]["done"]')"
+for _ in $(seq 1 10); do grep -q '"ok"' "$TMP/slow.json" 2>/dev/null && break; sleep 1; done
+check "the cancelled query stopped" False "$(jget 'd["ok"]' < "$TMP/slow.json")"
+q $K db dump pg --to "$TMP/t2.dump" --format custom --table public.t2
+check "custom dump is a pg archive" PGDMP "$(head -c 5 "$TMP/t2.dump")"
+q $K db query pg --write --allow-dangerous "drop table t2"
+q $K db restore pg --from "$TMP/t2.dump" --allow-dangerous
+check "pg_restore brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K db dump pg --to "$TMP/schema.sql" --schema-only
+check "schema-only dump has no rows" 0 "$(grep -c "COPY public.t " "$TMP/schema.sql" || true)"
 
 # mariadb (protected): --yes, dump and restore through bastion
 set +e; $K db query maria --write "create table p(id int primary key)" >/dev/null; check "protected conn needs --yes" 6 $?; set -e
@@ -204,6 +224,10 @@ q $K db dump maria --to "$TMP/maria.sql"
 q $K db query maria --write --yes --allow-dangerous "drop table p"
 q $K db restore maria --from "$TMP/maria.sql" --yes --allow-dangerous
 check "maria restore brings rows back" 2 "$($K db query maria 'select count(*) from p' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "maria db info" primary "$($K db info maria | jget 'd["data"]["role"]')"
+check "maria db sizes" True "$($K db sizes maria | jget 'any(r["name"]=="p" for r in d["data"]["tables"])')"
+check "maria db activity answers" True "$($K db activity maria --all | jget '"sessions" in d["data"]')"
+check "maria db locks names the missing privilege" DB_PRIVILEGE "$($K db locks maria | jget 'd["error"]["code"]' || true)"
 
 # redis
 q $K cache set cache greeting halo --ttl 1h

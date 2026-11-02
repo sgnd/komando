@@ -85,6 +85,15 @@ ke server secara streaming (file sebesar apa pun), dan `key revoke`. Verb
 `sync` yang dijanjikan vision.md (bagian 1 nomor 9) sekarang ada. Lolos
 e2e 161/161.
 
+## Status Fase 4 (selesai)
+
+DBA harian dari bagian 3: `db info`, `db activity`, `db locks` (MySQL tanpa
+hak PROCESS mendapat `DB_PRIVILEGE` dengan petunjuk), `db sizes`,
+`db kill` (batalkan query; `--session` butuh `--allow-dangerous`), foreign
+key dan constraint di `db schema`, `db dump --format custom` dengan
+`pg_restore` otomatis, serta `--table` dan `--schema-only`. Kelola user dan
+role masih lewat `db query --write`. Lolos e2e 177/177.
+
 Tabel di bawah ini adalah keadaan **sebelum** Fase 1.
 
 ## 1. Janji di dokumen yang belum dipenuhi kode (kerjakan dulu)

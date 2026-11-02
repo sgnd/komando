@@ -18,6 +18,14 @@ type Table struct {
 	RowEstimate *int64        `json:"row_estimate,omitempty"`
 	Columns     []TableColumn `json:"columns,omitempty"`
 	Indexes     []Index       `json:"indexes,omitempty"`
+	// Constraints are foreign keys, checks and unique constraints.
+	Constraints []Constraint `json:"constraints,omitempty"`
+}
+
+type Constraint struct {
+	Name       string `json:"name"`
+	Type       string `json:"type"` // foreign key | check | unique | exclusion
+	Definition string `json:"definition"`
 }
 
 type TableColumn struct {
@@ -54,6 +62,9 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 		tables, err = sqliteSchema(ctx, tx, names)
 	case "mysql":
 		tables, err = mysqlSchema(ctx, tx, names)
+	}
+	if err == nil && len(names) > 0 {
+		err = addConstraints(ctx, tx, kind, tables)
 	}
 	if err != nil {
 		return nil, queryErr(kind, ctx, err)
@@ -210,4 +221,62 @@ func sqliteSchema(ctx context.Context, tx *sql.Tx, names []string) ([]Table, err
 		idx.Close()
 	}
 	return tables, nil
+}
+
+// addConstraints fills Constraints of the described tables: what the table
+// points at (foreign keys) and what it checks.
+func addConstraints(ctx context.Context, tx *sql.Tx, kind string, tables []Table) error {
+	for i := range tables {
+		t := &tables[i]
+		if t.Type != "table" {
+			continue
+		}
+		var rows *sql.Rows
+		var err error
+		switch kind {
+		case "postgres":
+			rows, err = tx.QueryContext(ctx, `
+SELECT conname, CASE contype WHEN 'f' THEN 'foreign key' WHEN 'c' THEN 'check' WHEN 'u' THEN 'unique' ELSE 'exclusion' END,
+       pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE conrelid = (quote_ident($1) || '.' || quote_ident($2))::regclass AND contype IN ('f', 'c', 'u', 'x')
+ORDER BY 2, 1`, t.Schema, t.Name)
+		case "mysql":
+			rows, err = tx.QueryContext(ctx, `
+SELECT k.constraint_name, 'foreign key',
+       CONCAT('FOREIGN KEY (', GROUP_CONCAT(k.column_name ORDER BY k.ordinal_position SEPARATOR ', '), ') REFERENCES ',
+              k.referenced_table_name, '(', GROUP_CONCAT(k.referenced_column_name ORDER BY k.ordinal_position SEPARATOR ', '), ')',
+              ' ON DELETE ', r.delete_rule, ' ON UPDATE ', r.update_rule)
+FROM information_schema.key_column_usage k
+JOIN information_schema.referential_constraints r
+  ON r.constraint_schema = k.constraint_schema AND r.constraint_name = k.constraint_name
+WHERE k.table_schema = DATABASE() AND k.table_name = ? AND k.referenced_table_name IS NOT NULL
+GROUP BY k.constraint_name, k.referenced_table_name, r.delete_rule, r.update_rule
+ORDER BY 1`, t.Name)
+		case "sqlite":
+			rows, err = tx.QueryContext(ctx, `
+SELECT 'fk_' || id, 'foreign key',
+       'FOREIGN KEY (' || group_concat("from", ', ') || ') REFERENCES ' || "table" || '(' || group_concat("to", ', ') || ')' ||
+       ' ON DELETE ' || on_delete || ' ON UPDATE ' || on_update
+FROM pragma_foreign_key_list(?) GROUP BY id ORDER BY id`, t.Name)
+		default:
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var c Constraint
+			if err := rows.Scan(&c.Name, &c.Type, &c.Definition); err != nil {
+				rows.Close()
+				return err
+			}
+			t.Constraints = append(t.Constraints, c)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

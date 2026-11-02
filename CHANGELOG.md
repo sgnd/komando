@@ -4,6 +4,19 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Day-to-day database care (gap analysis, phase 4)
+
+- `db info` (version, uptime, size, connections, primary or replica and
+  replay lag), `db activity [--all]`, `db locks` (who waits on whom),
+  `db sizes` (databases, biggest tables and indexes) for PostgreSQL and
+  MySQL/MariaDB; `db info` and `db sizes` for SQLite too.
+- `db kill CONN PID` cancels a running query; `--session` ends the
+  connection and needs `--allow-dangerous`. `--dry-run` shows the session.
+- `db schema TABLE` shows foreign keys, checks and unique constraints.
+- `db dump --format custom` writes a PostgreSQL archive; `db restore`
+  recognises it and uses pg_restore (in one transaction). `--table` and
+  `--schema-only` narrow a dump (PostgreSQL and MySQL).
+
 ### Bulk transfer (gap analysis, phase 3)
 
 - `komando sync SRC DST` keeps a folder in step between this computer and
