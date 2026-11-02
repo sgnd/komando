@@ -48,6 +48,21 @@ komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous
   Anda butuhkan (hanya-baca untuk laporan, satu bucket saja). Layanannya
   sendiri yang kemudian menegakkannya.
 
+## Login AWS (SSO, role, kunci sementara)
+
+Selain kunci yang disimpan, conn bisa memakai profile AWS CLI. komando
+meminta kunci terkini profile itu ke `aws configure export-credentials`
+setiap kali, jadi SSO dan role yang di-assume bekerja seperti yang Anda
+atur:
+
+```bash
+komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
+```
+
+Kalau login SSO sudah kedaluwarsa, jawabannya `AWS_LOGIN_REQUIRED`: orang
+menjalankan `aws sso login --profile prod` sekali. Registry Amazon ECR
+bekerja dengan cara yang sama (lihat Registry).
+
 ## File server (FTPS, SFTP, FTP)
 
 Web hosting dan sistem lama sering hanya memberi akses file. Tambahkan

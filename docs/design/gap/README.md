@@ -94,6 +94,17 @@ key dan constraint di `db schema`, `db dump --format custom` dengan
 `pg_restore` otomatis, serta `--table` dan `--schema-only`. Kelola user dan
 role masih lewat `db query --write`. Lolos e2e 177/177.
 
+## Status Fase 5 (selesai)
+
+Akses cloud dari bagian 3: `host --proxy-command` (seperti ProxyCommand
+OpenSSH: AWS SSM, GCP IAP, Cloudflare Access, Teleport) dengan jalan pintas
+`--ssm`, sehingga conn seperti RDS bisa memakai host itu sebagai `--via`;
+`import ssh-config` kini membawa ProxyCommand (bagian 1 nomor 7). Conn S3
+bisa login dengan profile AWS CLI (`--option aws_profile`: SSO, role,
+kunci sementara), dan registry ECR mendapat login baru dari aws CLI setiap
+kali (bagian 1 nomor 10). Klien SSM bawaan tanpa aws CLI belum dibuat.
+Lolos e2e 183/183.
+
 Tabel di bawah ini adalah keadaan **sebelum** Fase 1.
 
 ## 1. Janji di dokumen yang belum dipenuhi kode (kerjakan dulu)

@@ -582,6 +582,11 @@ func importKomando(path string) (*importPlan, error) {
 	for _, h := range p.Hosts {
 		ref(h.Name, "password_ref", &h.PasswordRef)
 		ref(h.Name, "sudo_ref", &h.SudoRef)
+		if h.ProxyCommand != "" {
+			// a proxy command runs on this computer: never take one from a file
+			p.Notes = append(p.Notes, fmt.Sprintf("%s: dropped proxy_command %q (it would run on this computer; set it yourself with `komando host edit %s --proxy-command ...`)", h.Name, h.ProxyCommand, h.Name))
+			h.ProxyCommand = ""
+		}
 	}
 	for _, c := range p.Conns {
 		ref(c.Name, "password_ref", &c.PasswordRef)

@@ -4,6 +4,20 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Cloud access (gap analysis, phase 5)
+
+- `host add|edit --proxy-command CMD` reaches a server through a program on
+  this computer, like OpenSSH's ProxyCommand (`%h %p %r %n`): AWS SSM, GCP
+  IAP, Cloudflare Access, Teleport. `--ssm` sets the AWS Systems Manager
+  command (the address is the instance ID). Conns can use such a host as
+  `--via` (RDS behind SSM). `import ssh-config` keeps ProxyCommand; imports
+  of export files drop it.
+- S3 conns can log in with an AWS CLI profile (`--option aws_profile=NAME`):
+  SSO, assumed roles and temporary keys work as configured in the aws CLI.
+  An expired SSO login answers `AWS_LOGIN_REQUIRED`.
+- Amazon ECR registries get a fresh login from the aws CLI each time
+  (logins last 12 hours), with the same `aws_profile` option.
+
 ### Day-to-day database care (gap analysis, phase 4)
 
 - `db info` (version, uptime, size, connections, primary or replica and

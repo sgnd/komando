@@ -15,6 +15,13 @@ komando conn add local 'registry://me@registry.lan:5000?tls=false' --via bastion
 The password is usually an access token with read rights (write rights to
 copy into it, delete rights to delete).
 
+Amazon ECR logins last 12 hours, so komando gets a fresh one from the aws
+CLI each time (`aws ecr get-login-password`); leave out `--password-ref`:
+
+```bash
+komando conn add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws.com --option aws_profile=prod
+```
+
 ## Use it
 
 ```bash

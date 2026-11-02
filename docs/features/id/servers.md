@@ -21,6 +21,24 @@ komando host edit web1 --protected        # produksi: perubahan butuh --yes
 komando host rm web2
 ```
 
+## Server tanpa port SSH terbuka (AWS SSM, GCP IAP, Cloudflare)
+
+Kalau server dijangkau lewat alat cloud, bukan port SSH biasa, beri komando
+perintah alat itu, seperti `ProxyCommand` di OpenSSH (`%h` alamat, `%p`
+port, `%r` user):
+
+```bash
+komando host add web1 ec2-user@i-0abc123 --ssm     # AWS Systems Manager: alamatnya instance ID
+komando host add vm1 me@vm1 --proxy-command 'gcloud compute start-iap-tunnel %h %p --listen-on-stdin --zone europe-west1-b'
+komando host add box me@ssh.example.com --proxy-command 'cloudflared access ssh --hostname %h'
+komando conn add rds postgres://app@mydb.xyz.rds.amazonaws.com/app --via web1   # database di baliknya
+```
+
+Alatnya harus terpasang dan sudah login di komputer ini (untuk `--ssm`: aws
+CLI dan session-manager-plugin). `import ssh-config` membawa baris
+`ProxyCommand`; `import` dari file export membuangnya, karena perintah itu
+menjalankan program di komputer Anda.
+
 ## Login tanpa mengetik password
 
 Jika Anda sudah bisa login dengan `ssh` dari komputer ini, komando biasanya

@@ -21,6 +21,24 @@ komando host edit web1 --protected        # production: changes need --yes
 komando host rm web2
 ```
 
+## Servers with no open SSH port (AWS SSM, GCP IAP, Cloudflare)
+
+When a server is reached through a cloud tool instead of a plain SSH port,
+give komando that tool's command, as in OpenSSH's `ProxyCommand` (`%h` is
+the address, `%p` the port, `%r` the user):
+
+```bash
+komando host add web1 ec2-user@i-0abc123 --ssm     # AWS Systems Manager: the address is the instance ID
+komando host add vm1 me@vm1 --proxy-command 'gcloud compute start-iap-tunnel %h %p --listen-on-stdin --zone europe-west1-b'
+komando host add box me@ssh.example.com --proxy-command 'cloudflared access ssh --hostname %h'
+komando conn add rds postgres://app@mydb.xyz.rds.amazonaws.com/app --via web1   # a database behind it
+```
+
+The tool must be installed and logged in on this computer (for `--ssm`: the
+aws CLI and its session-manager-plugin). `import ssh-config` keeps
+`ProxyCommand` lines; `import` of an export file drops them, because they
+run programs on your computer.
+
 ## Log in without typing passwords
 
 If you can already log in with `ssh` on this computer, komando usually just

@@ -44,6 +44,20 @@ komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous
 - Safest setup: give komando an access key that can only do what you need
   (read-only for reports, one bucket only). The service then enforces it.
 
+## AWS logins (SSO, roles, temporary keys)
+
+Instead of a stored key, a conn can use an AWS CLI profile. komando asks
+`aws configure export-credentials` for the profile's current keys each
+time, so SSO and assumed roles work as you set them up:
+
+```bash
+komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
+```
+
+When an SSO login has expired, the answer is `AWS_LOGIN_REQUIRED`: a person
+runs `aws sso login --profile prod` once. Amazon ECR registries work the same
+way (see Registries).
+
 ## File servers (FTPS, SFTP, FTP)
 
 Web hosting and older systems often give you only file access. Add the
