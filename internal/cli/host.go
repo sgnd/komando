@@ -115,7 +115,7 @@ func hostAddCmd() *cobra.Command {
 			if h.Labels, err = parseKV(f.labels); err != nil {
 				return err
 			}
-			if h.Env, err = parseKV(f.env); err != nil {
+			if h.Env, err = parseEnv(f.env); err != nil {
 				return err
 			}
 			if len(h.Labels) == 0 {
@@ -199,6 +199,9 @@ func hostEditCmd() *cobra.Command {
 					return err
 				}
 				if err := applyKV(&h.Env, f.env); err != nil {
+					return err
+				}
+				if err := checkEnvKeys(h.Env); err != nil {
 					return err
 				}
 				for _, u := range f.unset {

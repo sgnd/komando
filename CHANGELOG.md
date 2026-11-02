@@ -4,6 +4,39 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Safety fixes from a full review
+
+- `--dry-run` now changes nothing on every command. Inventory commands
+  (`host`, `conn`, `group`, `key`, `policy`, `config`, `recipe`) show the
+  result without saving it, and `job kill`, `job rm`, `tunnel stop`,
+  `key gen`, `key rm --delete-file`, `secret set` and `secret rm` only
+  report what they would do. Before, some of them made the change while
+  the answer and the audit log said `dry_run: true`.
+- `.ovpn` profiles may not use `setenv opt ...`: OpenVPN runs the rest of
+  that line as an option, which got past the allowlist (for example
+  `setenv opt up /bin/sh`).
+- The destructive-command policy checks each line of a script, so a
+  `reboot` on its own line is caught. It also catches `/sbin/reboot`,
+  `nohup reboot`, `rm -rf "/"`, `rm -rf -- /`, `rm --recursive --force /`,
+  `rm -rf /etc/*` and `rm -rf /var/lib`.
+- `--env` names must be shell variable names (`A-Z`, `0-9`, `_`). A name
+  like `X;reboot;Y` used to run as a command, past the policy check.
+- `svc restart|start|reload` quotes unit names in its `journalctl` call.
+- The sudo password (`--sudo-ref`) is sent only when sudo asks for it.
+  When sudo did not ask (NOPASSWD, or a recent sudo), the password went to
+  the command's stdin, and `script` printed it in its error output.
+- `db query` on MySQL: `--` starts a comment only before white space, as
+  in MySQL itself, so `SELECT 1 --1, LOAD_FILE(...)` is no longer rated a
+  read. `SET TRANSACTION`, `SET SESSION CHARACTERISTICS`,
+  `transaction_read_only` and `SET autocommit` are refused, because they
+  switch off or end the read-only transaction.
+- `fs write|replace|upload --sudo` reads the existing file mode as root.
+  Before, a file the SSH user could not see (`/etc/sudoers.d`, `/root`)
+  became 0644. The staged copy in `/tmp` is now private (0600) and is
+  removed when the connection fails.
+- `fs write --append` refuses files over 64 MiB (FILE_TOO_LARGE) instead
+  of cutting them to 64 MiB.
+
 ### VPN clients tested against real servers
 
 - `make e2e-vpnclients` runs, all in Docker: ocserv (the AnyConnect

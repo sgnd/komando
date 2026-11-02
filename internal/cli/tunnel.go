@@ -322,7 +322,7 @@ func tunnelStopCmd() *cobra.Command {
 					if !ok {
 						return out.NotFound("tunnel", id)
 					}
-					if alive(t.PID) {
+					if alive(t.PID) && !g.dryRun {
 						_ = netx.Terminate(t.PID)
 					}
 					delete(s.Tunnels, id)

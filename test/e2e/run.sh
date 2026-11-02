@@ -81,6 +81,23 @@ check "fs write idempotent" False "$($K fs write direct /home/agent/t/x.txt --co
 
 echo "==> cp"
 TMP="$(mktemp -d)"; echo payload > "$TMP/f"
+
+echo "==> sudo password"
+echo -n opspass | $K secret set ops-pass >/dev/null
+$K host add ops "ops@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:ops-pass --sudo-ref secret:ops-pass >/dev/null
+printf '#!/bin/sh\nwhoami\n' > "$TMP/who.sh"
+check "sudo with password" root "$($K exec ops --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "sudo password then stdin" payload "$($K exec ops --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "script with sudo password" root "$($K script ops "$TMP/who.sh" --sudo | jget 'd["data"]["results"][0]["stdout"].strip()')"
+# sudo never asks on a NOPASSWD host, so the password must not reach the command
+$K host edit direct --sudo-ref secret:agent-pass >/dev/null
+check "unasked sudo password not leaked" False "$($K script direct "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
+check "unasked sudo password not in stdin" payload "$($K exec direct --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
+$K host edit direct --unset sudo-ref >/dev/null
+$K host rm ops >/dev/null
+$K exec direct --sudo -- 'mkdir -m 700 /etc/private && install -m 600 /dev/null /etc/private/token' >/dev/null
+$K fs write direct /etc/private/token --content s3cret --sudo >/dev/null
+check "fs write --sudo keeps a mode the user cannot see" 600 "$($K exec direct --sudo -- stat -c %a /etc/private/token | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "upload to group" 3 "$($K cp "$TMP/f" @lab:/tmp/f --yes | jget 'd["data"]["summary"]["ok"]')"
 $K cp '@lab:/tmp/f' "$TMP/down" >/dev/null
 check "download per host" payload "$(cat "$TMP/down/target/f")"

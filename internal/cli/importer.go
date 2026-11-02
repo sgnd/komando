@@ -282,7 +282,7 @@ func (r importResult) Text() string {
 // renameImported gives c the first free name based on its own, moving its
 // password to the matching vault name.
 func renameImported(st *store.State, plan *importPlan, c *store.Conn) {
-	base, name := c.Name, c.Name
+	base, name := c.Name, ""
 	for i := 2; ; i++ {
 		name = fmt.Sprintf("%s-%d", base, i)
 		if _, _, taken := st.FindName(name); !taken {

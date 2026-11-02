@@ -113,6 +113,9 @@ func toErr(err error) *out.Error {
 	if errors.As(err, &e) {
 		return e
 	}
+	if errors.Is(err, store.ErrDryRun) {
+		return &out.Error{Code: "DRY_RUN_UNSUPPORTED", Message: err.Error(), Hint: "run it again without --dry-run to make the change", Exit: out.ExitUsage}
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return &out.Error{Code: "TIMEOUT", Message: err.Error(), Exit: out.ExitTimeout}
 	}
@@ -465,6 +468,25 @@ func parseKV(pairs []string) (map[string]string, error) {
 		m[k] = v
 	}
 	return m, nil
+}
+
+// parseEnv is parseKV for environment variables: keys must be shell names,
+// because they are exported on the remote side unquoted.
+func parseEnv(pairs []string) (map[string]string, error) {
+	m, err := parseKV(pairs)
+	if err != nil {
+		return nil, err
+	}
+	return m, checkEnvKeys(m)
+}
+
+func checkEnvKeys(m map[string]string) error {
+	for k := range m {
+		if !sshx.ValidEnvKey(k) {
+			return out.Usage("environment variable name %q is not valid: use letters, digits and _, not starting with a digit", k)
+		}
+	}
+	return nil
 }
 
 func parseDur(s string) (time.Duration, error) { return time.ParseDuration(s) }

@@ -73,7 +73,7 @@ func jobStartCmd() *cobra.Command {
 			if err := guard(st, hosts, command, !readOnly); err != nil {
 				return err
 			}
-			env, err := parseKV(envs)
+			env, err := parseEnv(envs)
 			if err != nil {
 				return err
 			}
@@ -386,6 +386,10 @@ func jobKillCmd() *cobra.Command {
 			}
 			p := strconv.Itoa(j.PID)
 			script := "kill -" + sshx.Q(strings.TrimPrefix(strings.ToUpper(sig), "SIG")) + " -- -" + p + " 2>/dev/null || kill -" + sshx.Q(strings.TrimPrefix(strings.ToUpper(sig), "SIG")) + " " + p
+			if g.dryRun {
+				out.P.Print("job.kill", map[string]any{"job": j.ID, "host": h.Name, "would_run": script}, nil)
+				return nil
+			}
 			var r *sshx.RunResult
 			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
 				r, err = sshx.Run(cmd.Context(), c, sshx.RunRequest{Command: script, Timeout: 30 * time.Second, MaxOutput: 4096})
@@ -475,7 +479,7 @@ func jobRmCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if !keepRemote {
+				if !keepRemote && !g.dryRun {
 					_ = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
 						_, _, err := sshx.Output(cmd.Context(), c, `rm -rf "`+jobDir(j.ID)+`"`, 30*time.Second)
 						return err

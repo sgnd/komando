@@ -76,6 +76,9 @@ func Execute() int {
 		name = commandName(cmd)
 	}
 	var oe *out.Error
+	if errors.Is(err, store.ErrDryRun) {
+		err = toErr(err)
+	}
 	if !errors.As(err, &oe) && isUsageErr(err) {
 		err = out.Usage("%s", err.Error())
 	}
@@ -136,6 +139,7 @@ Start here:  komando guide      (agent playbook)
 			out.P.Pretty = g.pretty
 			out.P.Version = Version
 			out.P.DryRun = g.dryRun
+			store.DryRun = g.dryRun
 			out.P.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
 			if cmd.Name() != "serve" && !g.dryRun {

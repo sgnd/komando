@@ -308,6 +308,7 @@ func TestCheckOVPN(t *testing.T) {
 		"writepid /etc/cron.d/x", "log /etc/passwd", "auth-user-pass /etc/shadow", "ca /etc/ssl/key.pem",
 		"plugin /usr/lib/x.so", "iproute /tmp/ip", "<script>\nx\n</script>",
 		"<ca>\nx\n</ca>x\nscript-security 2", "<ca>\nx\n", "<ca>\n</ca> up /tmp/x",
+		"setenv opt up /tmp/x.sh", `setenv "OPT" script-security 2`,
 	} {
 		if err := checkOVPN("client\n" + bad + "\n"); err == nil {
 			t.Errorf("%q must be refused", bad)

@@ -115,6 +115,10 @@ func checkOVPN(cfg string) error {
 		if oneOf(name, ovpnInline...) && (len(f) < 2 || f[1] != "[inline]") && len(f) > 1 {
 			return fmt.Errorf("line %d: %s must be inline (<%s>...</%s>), not a file path", n+1, name, name, name)
 		}
+		if name == "setenv" && len(f) > 1 && strings.EqualFold(strings.Trim(f[1], `"'`), "opt") {
+			// OpenVPN runs "setenv opt X ..." as option X, which would get past this list
+			return fmt.Errorf("line %d: \"setenv opt\" is not allowed (OpenVPN runs the rest of the line as an option)", n+1)
+		}
 		if name == "auth-user-pass" && len(f) > 1 {
 			return fmt.Errorf("line %d: auth-user-pass must not name a file; komando passes the login itself", n+1)
 		}

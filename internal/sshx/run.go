@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -44,9 +47,25 @@ func Q(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }
 
+var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// ValidEnvKey reports whether k can be exported as a shell variable. The key
+// goes into the command line unquoted, so anything else could inject a command.
+func ValidEnvKey(k string) bool { return envKeyRe.MatchString(k) }
+
+// sudoPrompt and sudoReady let Run tell, from stderr, whether sudo asks for
+// the password and when the command itself has started. The password is
+// written only after the prompt, and the command's stdin only after the
+// ready mark, so neither ends up in the other.
+const (
+	sudoPrompt = "[komando-sudo-password]"
+	sudoReady  = "\x1ekomando-sudo-ok"
+)
+
 // BuildCommand assembles the final remote shell line: env exports, cd,
 // sudo wrapping. Exposed so --dry-run can show exactly what would run.
-func BuildCommand(c *Client, r RunRequest) (cmd string, stdinPrefix []byte, err error) {
+// sudoPass is the sudo password Run feeds on request, or nil.
+func BuildCommand(c *Client, r RunRequest) (cmd string, sudoPass []byte, err error) {
 	var sb strings.Builder
 	env := map[string]string{}
 	if c != nil && c.Host != nil {
@@ -63,6 +82,9 @@ func BuildCommand(c *Client, r RunRequest) (cmd string, stdinPrefix []byte, err 
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
+		if !ValidEnvKey(k) {
+			return "", nil, fmt.Errorf("environment variable name %q is not valid (use letters, digits and _)", k)
+		}
 		sb.WriteString("export " + k + "=" + Q(env[k]) + "; ")
 	}
 	if r.Dir != "" {
@@ -82,7 +104,8 @@ func BuildCommand(c *Client, r RunRequest) (cmd string, stdinPrefix []byte, err 
 		if err != nil {
 			return "", nil, err
 		}
-		return "sudo -S -p '' " + userPart + "sh -c " + Q(inner), []byte(pw + "\n"), nil
+		inner = `printf '\036komando-sudo-ok\n' >&2; ` + inner
+		return "sudo -S -p " + Q(sudoPrompt) + " " + userPart + "sh -c " + Q(inner), []byte(pw + "\n"), nil
 	}
 	return "sudo -n " + userPart + "sh -c " + Q(inner), nil, nil
 }
@@ -122,7 +145,7 @@ func (l *limitedBuf) Write(p []byte) (int, error) {
 // that is reported in RunResult.ExitCode. err is for transport failures.
 func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 	start := time.Now()
-	cmd, prefix, err := BuildCommand(c, r)
+	cmd, sudoPass, err := BuildCommand(c, r)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +160,20 @@ func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 	stdout := &limitedBuf{max: r.MaxOutput, name: "stdout", stream: r.Stream}
 	stderr := &limitedBuf{max: r.MaxOutput, name: "stderr", stream: r.Stream}
 	sess.Stdout, sess.Stderr = stdout, stderr
-	if len(prefix) > 0 || r.Stdin != nil {
-		sess.Stdin = io.MultiReader(bytes.NewReader(prefix), bytes.NewReader(r.Stdin))
+	var gate *sudoGate
+	switch {
+	case sudoPass != nil:
+		if r.PTY { // a terminal merges stderr into stdout
+			gate = newSudoGate(stdout, sudoPass, r.Stdin)
+			sess.Stdout = gate
+		} else {
+			gate = newSudoGate(stderr, sudoPass, r.Stdin)
+			sess.Stderr = gate
+		}
+		defer gate.close()
+		sess.Stdin = gate.stdin
+	case r.Stdin != nil:
+		sess.Stdin = bytes.NewReader(r.Stdin)
 	}
 	if err := sess.Start(cmd); err != nil {
 		return nil, err
@@ -183,6 +218,9 @@ func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 			return nil, err
 		}
 	}
+	if gate != nil {
+		gate.flush()
+	}
 	res.Stdout, res.Stderr = stdout.buf.String(), stderr.buf.String()
 	if strings.HasPrefix(res.Stderr, "sudo: a password is required") || strings.Contains(res.Stderr, "sudo: a terminal is required") {
 		res.Stderr += "\n[komando] hint: sudo needs a password; set it with `komando host edit <host> --sudo-ref secret:NAME`"
@@ -190,6 +228,112 @@ func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 	res.StdoutTruncated, res.StderrTruncated = stdout.truncated, stderr.truncated
 	res.DurationMS = time.Since(start).Milliseconds()
 	return res, nil
+}
+
+// sudoGate sits on the stderr of a "sudo -S" session. It answers the first
+// password prompt, releases the command's stdin once the ready mark shows
+// that sudo let the command start, and removes both markers from stderr.
+type sudoGate struct {
+	mu      sync.Mutex
+	out     io.Writer
+	pending []byte
+	ready   bool
+	prompts int
+	events  chan bool // true = ready, false = prompt
+	done    chan struct{}
+	stdin   *io.PipeReader
+	pw      *io.PipeWriter
+}
+
+func newSudoGate(out io.Writer, pass, stdin []byte) *sudoGate {
+	pr, pw := io.Pipe()
+	g := &sudoGate{out: out, events: make(chan bool, 4), done: make(chan struct{}), stdin: pr, pw: pw}
+	go func() {
+		defer pw.Close()
+		for {
+			select {
+			case <-g.done:
+				return
+			case ready := <-g.events:
+				if ready {
+					_, _ = pw.Write(stdin)
+					return
+				}
+				if _, err := pw.Write(pass); err != nil {
+					return
+				}
+			}
+		}
+	}()
+	return g
+}
+
+func (g *sudoGate) Write(p []byte) (int, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.ready {
+		return g.out.Write(p)
+	}
+	g.pending = append(g.pending, p...)
+	for {
+		if i := bytes.Index(g.pending, []byte(sudoPrompt)); i >= 0 {
+			g.pending = append(g.pending[:i], g.pending[i+len(sudoPrompt):]...)
+			g.prompts++
+			if g.prompts > 1 {
+				// the password was wrong: give sudo end of input instead of a hang
+				g.pw.Close()
+			} else {
+				g.signal(false)
+			}
+			continue
+		}
+		if i := bytes.Index(g.pending, []byte(sudoReady)); i >= 0 {
+			j := i + len(sudoReady)
+			if j < len(g.pending) && g.pending[j] == '\r' {
+				j++
+			}
+			if j == len(g.pending) {
+				return len(p), nil // the line break may still come
+			}
+			if g.pending[j] == '\n' {
+				j++
+			}
+			g.pending = append(g.pending[:i], g.pending[j:]...)
+			g.ready = true
+			g.signal(true)
+			rest := g.pending
+			g.pending = nil
+			if _, err := g.out.Write(rest); err != nil {
+				return 0, err
+			}
+		}
+		return len(p), nil
+	}
+}
+
+func (g *sudoGate) signal(ready bool) {
+	select {
+	case g.events <- ready:
+	default:
+	}
+}
+
+// flush passes on what sudo wrote when the command never started.
+func (g *sudoGate) flush() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if i := bytes.Index(g.pending, []byte(sudoReady)); i >= 0 {
+		g.pending = g.pending[:i] // only a "\r" can follow the mark here
+	}
+	if len(g.pending) > 0 {
+		_, _ = g.out.Write(g.pending)
+		g.pending = nil
+	}
+}
+
+func (g *sudoGate) close() {
+	close(g.done)
+	g.stdin.Close()
 }
 
 // Output is a convenience for internal probes: run and return trimmed stdout.

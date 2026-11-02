@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -82,12 +83,14 @@ func keyGenCmd() *cobra.Command {
 				if _, ok := s.Keys[name]; ok {
 					return out.Errf(out.ExitConflict, "KEY_EXISTS", "choose another name or `komando key rm` first", "key %q exists", name)
 				}
-				if err := os.WriteFile(path, pem.EncodeToMemory(block), 0o600); err != nil {
-					return err
-				}
 				pubLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub))) + " " + comment
-				if err := os.WriteFile(path+".pub", []byte(pubLine+"\n"), 0o644); err != nil {
-					return err
+				if !g.dryRun {
+					if err := os.WriteFile(path, pem.EncodeToMemory(block), 0o600); err != nil {
+						return err
+					}
+					if err := os.WriteFile(path+".pub", []byte(pubLine+"\n"), 0o644); err != nil {
+						return err
+					}
 				}
 				k = &store.Key{Name: name, Path: path, Type: pub.Type(), PublicKey: pubLine, Fingerprint: ssh.FingerprintSHA256(pub), Managed: true, CreatedAt: time.Now().UTC()}
 				s.Keys[name] = k
@@ -256,7 +259,7 @@ func keyRmCmd() *cobra.Command {
 						return out.Errf(out.ExitConflict, "KEY_IN_USE", "reassign hosts with `komando host edit HOST --key OTHER`", "key used by host %s", h.Name)
 					}
 				}
-				if deleteFile && k.Managed {
+				if deleteFile && k.Managed && !g.dryRun {
 					os.Remove(k.Path)
 					os.Remove(k.Path + ".pub")
 				}
@@ -416,6 +419,10 @@ Values are never printed unless 'secret get --reveal' is used.`,
 				}
 				v = strings.TrimRight(string(b), "\r\n")
 			}
+			if g.dryRun {
+				out.P.Print("secret.set", map[string]any{"name": args[0], "ref": "secret:" + args[0], "would_set": true}, nil)
+				return nil
+			}
 			if err := vault.Set(args[0], v); err != nil {
 				return err
 			}
@@ -466,6 +473,17 @@ Values are never printed unless 'secret get --reveal' is used.`,
 		Short: "Delete a secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if g.dryRun {
+				list, err := vault.List()
+				if err != nil {
+					return err
+				}
+				if !slices.ContainsFunc(list, func(i vault.Info) bool { return i.Name == args[0] }) {
+					return out.NotFound("secret", args[0])
+				}
+				out.P.Print("secret.rm", map[string]any{"would_remove": args[0]}, nil)
+				return nil
+			}
 			if err := vault.Delete(args[0]); err == vault.ErrNotFound {
 				return out.NotFound("secret", args[0])
 			} else if err != nil {

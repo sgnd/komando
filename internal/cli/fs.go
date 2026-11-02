@@ -330,33 +330,40 @@ func writeRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string,
 	res["sha256"] = hex.EncodeToString(sum[:])
 	dir := path.Dir(p)
 	mode := o.mode
-	// preserve the existing mode when not specified
-	if mode == "" {
-		if fi, err := sc.Stat(p); err == nil {
-			mode = fmt.Sprintf("%04o", fi.Mode().Perm())
-		} else {
-			mode = "0644"
+	if mode != "" {
+		if _, err := strconv.ParseUint(mode, 8, 32); err != nil {
+			return nil, out.Usage("invalid --mode %q", mode)
 		}
-	}
-	perm, err := strconv.ParseUint(mode, 8, 32)
-	if err != nil {
-		return nil, out.Usage("invalid --mode %q", mode)
 	}
 	tmpName := fmt.Sprintf(".komando-%d-%s", time.Now().UnixNano(), path.Base(p))
 	if o.sudo {
 		// stage in the user's tmp then sudo install into place
 		tmp := path.Join("/tmp", tmpName)
-		f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+		f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
 		if err != nil {
+			return nil, fsErr(tmp, err)
+		}
+		// only the SSH user may read the staged content (it can be a secret)
+		if err := f.Chmod(0o600); err != nil {
+			f.Close()
+			sc.Remove(tmp)
 			return nil, fsErr(tmp, err)
 		}
 		if _, err := f.Write(data); err != nil {
 			f.Close()
+			sc.Remove(tmp)
 			return nil, err
 		}
 		f.Close()
 		var sb strings.Builder
 		sb.WriteString("set -e; ")
+		// keep the mode of the existing file; read it as root, because the SSH
+		// user often cannot see into the directory (/etc/sudoers.d, /root)
+		if mode == "" {
+			sb.WriteString("m=$(stat -c %a " + sshx.Q(p) + " 2>/dev/null || echo 644); ")
+		} else {
+			sb.WriteString("m=" + mode + "; ")
+		}
 		if o.mkdirs {
 			sb.WriteString("mkdir -p " + sshx.Q(dir) + "; ")
 		}
@@ -367,18 +374,19 @@ func writeRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string,
 		owner := o.owner
 		if owner == "" {
 			sb.WriteString("o=$(stat -c %u:%g " + sshx.Q(p) + " 2>/dev/null || echo 0:0); ")
-			sb.WriteString("install -m " + mode + " -o \"${o%:*}\" -g \"${o#*:}\" " + sshx.Q(tmp) + " " + sshx.Q(p) + "; ")
+			sb.WriteString("install -m \"$m\" -o \"${o%:*}\" -g \"${o#*:}\" " + sshx.Q(tmp) + " " + sshx.Q(p) + "; ")
 		} else {
 			u, gr, _ := strings.Cut(owner, ":")
-			sb.WriteString("install -m " + mode + " -o " + sshx.Q(u))
+			sb.WriteString("install -m \"$m\" -o " + sshx.Q(u))
 			if gr != "" {
 				sb.WriteString(" -g " + sshx.Q(gr))
 			}
 			sb.WriteString(" " + sshx.Q(tmp) + " " + sshx.Q(p) + "; ")
 		}
-		sb.WriteString("rm -f " + sshx.Q(tmp))
+		sb.WriteString("rm -f " + sshx.Q(tmp) + "; echo \"$m\"")
 		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: sb.String(), Sudo: true, Timeout: time.Minute, MaxOutput: 64 << 10})
 		if err != nil {
+			_ = sc.Remove(tmp)
 			return nil, err
 		}
 		if r.ExitCode != 0 {
@@ -388,9 +396,21 @@ func writeRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string,
 		if o.backup {
 			res["backup"] = p + ".bak"
 		}
+		if m := strings.TrimSpace(r.Stdout); m != "" {
+			mode = fmt.Sprintf("%04s", m)
+		}
 		res["mode"] = mode
 		return res, nil
 	}
+	// preserve the existing mode when not specified
+	if mode == "" {
+		if fi, err := sc.Stat(p); err == nil {
+			mode = fmt.Sprintf("%04o", fi.Mode().Perm())
+		} else {
+			mode = "0644"
+		}
+	}
+	perm, _ := strconv.ParseUint(mode, 8, 32)
 	if o.mkdirs {
 		if err := sc.MkdirAll(dir); err != nil {
 			return nil, fsErr(dir, err)
@@ -495,11 +515,14 @@ func fsWriteCmd() *cobra.Command {
 				}
 				defer sc.Close()
 				if appendMode || ifChanged {
-					old, _, rerr := readRemote(cmd.Context(), c, sc, args[1], o.sudo, 64<<20)
+					old, trunc, rerr := readRemote(cmd.Context(), c, sc, args[1], o.sudo, 64<<20)
 					if rerr != nil && toErr(rerr).Code != "PATH_NOT_FOUND" {
 						return rerr
 					}
 					if appendMode {
+						if trunc {
+							return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, e.g. `cat >> FILE`", "file larger than 64MiB")
+						}
 						data = append(old, data...)
 					}
 					if ifChanged && rerr == nil && bytes.Equal(old, data) {

@@ -93,11 +93,15 @@ func svcActionCmd(action string) *cobra.Command {
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			units := quoteAll(args[1:])
+			unitFlags := make([]string, 0, len(args)-1)
+			for _, u := range args[1:] {
+				unitFlags = append(unitFlags, "-u "+sshx.Q(u))
+			}
 			command := "systemctl " + action + " -- " + units + " && systemctl show --no-pager -p Id,ActiveState,SubState,UnitFileState -- " + units
 			if action == "restart" || action == "start" || action == "reload" {
 				// give units a moment and surface the failure reason
 				command = "systemctl " + action + " -- " + units + "; rc=$?; sleep 1; systemctl show --no-pager -p Id,ActiveState,SubState,UnitFileState,Result -- " + units +
-					"; if [ $rc -ne 0 ]; then journalctl -n 20 --no-pager -o cat -u " + strings.Join(args[1:], " -u ") + " 2>/dev/null; fi; exit $rc"
+					"; if [ $rc -ne 0 ]; then journalctl -n 20 --no-pager -o cat " + strings.Join(unitFlags, " ") + " 2>/dev/null; fi; exit $rc"
 			}
 			return runOne(cmd.Context(), "svc."+action, args[0], command, !noSudo, true)
 		},

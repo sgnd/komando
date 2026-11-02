@@ -284,9 +284,24 @@ func (s *State) init() {
 	}
 }
 
+// DryRun makes Update apply fn to a copy that is never saved. The CLI sets
+// it for --dry-run, so a command shows the result of its change (and its
+// validation errors) without making it.
+var DryRun bool
+
+// ErrDryRun is returned by writes that cannot be simulated (the vault).
+var ErrDryRun = errors.New("this command cannot preview its change; nothing was changed")
+
 // Update loads state under an exclusive file lock, applies fn and saves
 // atomically. Safe for concurrent komando processes (parallel agents).
 func Update(fn func(s *State) error) error {
+	if DryRun {
+		s, err := Load()
+		if err != nil {
+			return err
+		}
+		return fn(s)
+	}
 	if err := ensureHome(); err != nil {
 		return err
 	}
