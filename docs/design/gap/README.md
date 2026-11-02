@@ -64,6 +64,17 @@ staticcheck, `go test -race` dan e2e Docker (100, 108, 120 cek).
   `svc logs -f` dan opsi `statement_timeout` selesai. Fan-out login ke
   bastion (`exec -P 10`) belum.
 
+## Status Fase 2 (selesai)
+
+Siklus deploy cluster dari bagian 3: `cluster deploy` (ganti image),
+`cluster status TYPE/NAME --wait` (status rollout), `cluster history` dan
+`cluster rollback`, `cluster status` yang menyebut CrashLoopBackOff, replika
+kurang dan node bermasalah, `cluster describe`, `cluster events`,
+`cluster ls -l` dengan kolom untuk lebih banyak kind, `cluster logs` per
+workload, per label dan `-f`, `cluster exec` (dengan cek policy dan
+`--read-only`) dan `cluster forward`. Diff sebelum apply sudah ada sejak
+Fase 1. Lolos e2e 140/140 di k3s dan Docker Swarm.
+
 Tabel di bawah ini adalah keadaan **sebelum** Fase 1.
 
 ## 1. Janji di dokumen yang belum dipenuhi kode (kerjakan dulu)

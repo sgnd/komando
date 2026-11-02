@@ -285,6 +285,27 @@ func (c *Client) bearer(ctx context.Context) (string, error) {
 
 // Do sends a request; path is relative to the server ("/api/v1/...").
 func (c *Client) Do(ctx context.Context, method, path string, q url.Values, body []byte, contentType string) ([]byte, error) {
+	resp, err := c.send(ctx, method, path, q, body, contentType)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return io.ReadAll(io.LimitReader(resp.Body, 64<<20))
+}
+
+// Stream sends a GET and returns the body as it arrives (follow=true logs).
+// The caller closes it.
+func (c *Client) Stream(ctx context.Context, path string, q url.Values) (io.ReadCloser, error) {
+	resp, err := c.send(ctx, "GET", path, q, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	return resp.Body, nil
+}
+
+// send makes the request with the context's credentials. Error statuses
+// come back as *APIError with the body already read and closed.
+func (c *Client) send(ctx context.Context, method, path string, q url.Values, body []byte, contentType string) (*http.Response, error) {
 	u := *c.Base
 	u.Path = strings.TrimSuffix(u.Path, "/") + path
 	u.RawQuery = q.Encode()
@@ -310,12 +331,9 @@ func (c *Client) Do(ctx context.Context, method, path string, q url.Values, body
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	b, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
-	if err != nil {
-		return nil, err
-	}
 	if resp.StatusCode >= 300 {
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 		var st struct {
 			Reason  string `json:"reason"`
 			Message string `json:"message"`
@@ -329,7 +347,7 @@ func (c *Client) Do(ctx context.Context, method, path string, q url.Values, body
 		}
 		return nil, &APIError{Code: resp.StatusCode, Reason: st.Reason, Message: st.Message}
 	}
-	return b, nil
+	return resp, nil
 }
 
 // Get decodes a GET into v.

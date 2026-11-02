@@ -4,6 +4,29 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Cluster deploy cycle (gap analysis, phase 2)
+
+- `cluster deploy TARGET TYPE/NAME --image IMAGE [--wait]` puts out a new
+  image on Kubernetes (deployment, statefulset, daemonset) or Swarm.
+- `cluster status TARGET TYPE/NAME [--wait]` tells whether a rollout has
+  finished, and waits for it (`ROLLOUT_FAILED`, `ROLLOUT_TIMEOUT`).
+- `cluster history` lists a deployment's revisions with their images;
+  `cluster rollback [--to N] [--wait]` goes back (Swarm: to the previous
+  version).
+- `cluster status TARGET` names every problem: CrashLoopBackOff and other
+  container waits, deployments short of replicas, nodes not ready or under
+  pressure (`healthy`, `problems`).
+- `cluster describe` (state, conditions, containers or pods, events) and
+  `cluster events [--warnings] [--for TYPE/NAME]`.
+- `cluster ls -l SELECTOR`, and useful columns for ingresses, volume claims
+  and volumes, jobs, cron jobs, autoscalers, config maps, events and
+  namespaces.
+- `cluster logs` reads a workload (`deploy/api`) or a label (`-l app=api`)
+  across its pods, and follows with `-f` (Kubernetes and Swarm).
+- `cluster exec` runs a command in a pod with the destructive-command
+  check (`--read-only` for looks); `cluster forward` reaches a pod or
+  service port on 127.0.0.1.
+
 ### Secrets stay out of sight; dry runs show the change (gap analysis, phase 1)
 
 - Vault secrets are hidden in everything komando prints: a remote `.env`,
