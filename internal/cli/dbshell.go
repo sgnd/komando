@@ -2,42 +2,47 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
 	"errors"
-	"net"
-	"net/url"
+	"fmt"
+	"io"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
+	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
-// db shell opens the database's own client for a person at a terminal. Like
-// db query it starts read-only unless --write, but inside the client a
-// person can switch that off, so it guards against accidents only; a
-// protected conn needs --yes for any shell. Agents use db query instead,
-// which returns JSON and classifies every statement.
+// db shell is komando's own SQL shell for a person at a terminal: no psql,
+// mysql or sqlite3 needed. Every statement goes through the same checks as
+// db query (classified, read-only unless --write, destructive SQL needs
+// --allow-dangerous) and is audited. Agents use db query instead.
 
 func dbShellCmd() *cobra.Command {
 	var write bool
 	c := &cobra.Command{
 		Use:   "shell CONN",
-		Short: "Open psql, mysql or sqlite3 on a conn (read-only unless --write; for people, not agents)",
-		Long: `Opens the database's own interactive client on this computer, connected to
-CONN, through its --via path when it has one. The password goes to the client
-through its environment. The session starts read-only unless --write; that
-guards against accidents, but the client can switch it off, so a protected
-conn needs --yes for any shell. Agents and scripts use ` + "`komando db query`" + `
-instead.
+		Short: "Interactive SQL shell on a conn (read-only unless --write; for people, not agents)",
+		Long: `Opens komando's own SQL shell on CONN (PostgreSQL, MySQL/MariaDB or SQLite),
+through its --via path when it has one. Nothing else needs to be installed.
 
-Needs the client installed here: psql (postgresql-client), mysql
-(mysql-client or mariadb-client) or sqlite3.`,
+Each statement ends with ; and runs with the checks of db query: read-only
+unless the shell was started with --write, destructive statements only with
+--allow-dangerous, and every statement is audited. A statement runs in its
+own transaction. A protected conn asks first.
+
+Inside: \q quits, \? lists the commands, \d [TABLE] shows tables or one
+table, \l databases, \dn schemas, \du roles, \x switches expanded rows,
+\timing shows how long each statement took, \i FILE runs a file, and a
+statement ending in \G is shown expanded. Up and down arrows recall lines.`,
 		Example: `  komando db shell prod-db
   komando db shell staging-db --write`,
 		Args: cobra.ExactArgs(1),
@@ -67,209 +72,327 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 	if err != nil {
 		return err
 	}
-	// a person can turn read-only off inside the client, so any shell on a
-	// protected conn is treated like a change
+	// a protected conn asks before any shell: inside, anything can be typed
 	if write || protectedConn(st, c) {
 		if err := guardConns(st, []*store.Conn{c}, driver.Verdict{Risk: driver.RiskWrite}); err != nil {
 			return err
 		}
 	}
-	client := map[string]string{"postgres": "psql", "mysql": "mysql", "sqlite": "sqlite3"}[t.Kind.Name]
-	rec := map[string]any{"conns": []string{c.Name}, "write": write, "client": client}
+	rec := map[string]any{"conns": []string{c.Name}, "write": write, "client": "komando"}
 	if g.dryRun { // before any VPN, SSH or database contact
 		audit(st, "db.shell", nil, "", true, rec)
-		out.P.Print("db.shell", map[string]any{"conn": c.Name, "client": client, "via": c.Via, "write": write, "dry_run": true}, nil)
+		out.P.Print("db.shell", map[string]any{"conn": c.Name, "kind": t.Kind.Name, "via": c.Via, "write": write, "dry_run": true}, nil)
 		return nil
 	}
-	fail := func(err error) error {
-		rec["error"] = toErr(err).Code
-		audit(st, "db.shell", nil, "", false, rec)
-		return err
-	}
-
-	// check for the client before any SSH or VPN contact
-	if _, err := exec.LookPath(client); err != nil {
-		return fail(out.Errf(out.ExitNotFound, "TOOL_MISSING", clientInstallHint(runtime.GOOS, linuxDistro(), client, c.Name),
-			"%s is not installed on this computer", client))
-	}
-
 	mode := "read-only"
 	if write {
 		mode = "read-write"
 	}
-	showStatus(statusLine{What: client, Target: c.Name, Detail: mode, Route: connRoute(st, c), Protected: protectedConn(st, c)})
-
-	// reach the server: directly, or through a local port forwarded over --via
-	addr := t.Address
-	a, err := openAccess(ctx, st, c)
+	showStatus(statusLine{What: t.Kind.Name, Target: c.Name, Detail: mode, Route: connRoute(st, c), Protected: protectedConn(st, c)})
+	db, closeDB, err := openDB(ctx, st, c, !write)
 	if err != nil {
-		return fail(err)
+		audit(st, "db.shell", nil, "", false, map[string]any{"conns": []string{c.Name}, "error": toErr(err).Code})
+		return err
 	}
-	defer a.Close()
-	if a.Dial != nil && !t.Kind.File {
-		// Ctrl-C belongs to the client (it cancels a query); the forward must
-		// outlive komando's own interrupt handling
-		local, stop, err := forwardLocal(context.WithoutCancel(ctx), a.Dial, t.Address)
-		if err != nil {
-			return fail(err)
-		}
-		defer stop()
-		addr = local
-	}
-	argv, env, err := shellCommand(c, t, a.Password, addr, write)
-	if err != nil {
-		return fail(err)
-	}
-	p := exec.Command(argv[0], argv[1:]...) // not tied to ctx: Ctrl-C must not kill the session
-	p.Env, p.Stdin, p.Stdout, p.Stderr = env, os.Stdin, os.Stdout, os.Stderr
-	started := time.Now()
-	err = p.Run()
-	var ee *exec.ExitError
-	if err == nil || errors.As(err, &ee) {
-		code := 0
-		if ee != nil {
-			code = ee.ExitCode()
-		}
-		showExit(c.Name, code, false, time.Since(started))
-	}
-	if errors.As(err, &ee) {
-		rec["exit_code"] = ee.ExitCode()
-		audit(st, "db.shell", nil, "", false, rec)
-		return exitCode(out.ExitRemote)
-	}
-	if err != nil {
-		return fail(out.Errf(out.ExitError, "TOOL_FAILED", "", "%s: %v", argv[0], err))
-	}
+	defer closeDB()
 	audit(st, "db.shell", nil, "", true, rec)
+
+	fd := int(os.Stdin.Fd())
+	old, err := term.MakeRaw(fd)
+	if err != nil {
+		return err
+	}
+	defer term.Restore(fd, old)
+	tty := struct {
+		io.Reader
+		io.Writer
+	}{os.Stdin, os.Stdout}
+	started := time.Now()
+	tm := term.NewTerminal(tty, "")
+	if w, h, err := term.GetSize(fd); err == nil {
+		tm.SetSize(w, h)
+	}
+	sh := &sqlShell{db: db, st: st, conn: c, kind: c.Kind, write: write, term: tm}
+	sh.run(ctx)
+	term.Restore(fd, old)
+	showExit(c.Name, 0, false, time.Since(started))
 	return nil
 }
 
-// shellCommand builds the client's argv and environment. addr is where to
-// connect: the server itself, or the local end of a --via forward.
-func shellCommand(c *store.Conn, t driver.Target, password, addr string, write bool) ([]string, []string, error) {
-	env := childEnv()
-	switch t.Kind.Name {
-	case "sqlite":
-		argv := []string{"sqlite3"}
-		if !write {
-			argv = append(argv, "-readonly")
-		}
-		return append(argv, expandHome(t.Path)), env, nil
-
-	case "postgres":
-		host, _, _ := net.SplitHostPort(t.Address)
-		ahost, aport, _ := net.SplitHostPort(addr)
-		env = append(env, "PGHOST="+host, "PGPORT="+aport, "PGUSER="+t.User, "PGDATABASE="+t.Database,
-			"PGPASSWORD="+password, "PGAPPNAME=komando/"+actor())
-		if ahost != host {
-			// through a forward: connect to the local port, but keep the real
-			// host name so TLS still verifies the server's certificate
-			env = append(env, "PGHOSTADDR="+ahost)
-		}
-		if u, err := url.Parse(c.URL); err == nil {
-			if m := u.Query().Get("sslmode"); m != "" {
-				env = append(env, "PGSSLMODE="+m)
-			}
-		}
-		if !write {
-			env = append(env, "PGOPTIONS=-c default_transaction_read_only=on")
-		}
-		return []string{"psql"}, env, nil
-
-	case "mysql":
-		host, port, _ := net.SplitHostPort(addr)
-		server, _, _ := net.SplitHostPort(t.Address)
-		if host != server && t.TLS == "true" {
-			return nil, nil, out.Errf(out.ExitUsage, "TLS_THROUGH_FORWARD",
-				"use `komando db query` (it verifies the certificate through --via), or reach the server without --via",
-				"the mysql client cannot verify the server certificate's name through a local forward")
-		}
-		argv := []string{"mysql", "--host", host, "--port", port}
-		if t.User != "" {
-			argv = append(argv, "--user", t.User)
-		}
-		if t.TLS != "" {
-			version, _ := exec.Command("mysql", "--version").Output()
-			flags := mysqlTLSFlags(t.TLS, string(version))
-			if flags == nil {
-				return nil, nil, out.Usage("tls=%s in the conn URL cannot be passed to mysql; use true, skip-verify, preferred or false", t.TLS)
-			}
-			argv = append(argv, flags...)
-		}
-		if !write {
-			argv = append(argv, "--init-command=SET SESSION TRANSACTION READ ONLY")
-		}
-		if t.Database != "" {
-			argv = append(argv, t.Database)
-		}
-		return argv, append(env, "MYSQL_PWD="+password), nil
+// sqlShell reads statements from a terminal and runs them.
+type sqlShell struct {
+	db       *sql.DB
+	st       *store.State
+	conn     *store.Conn
+	kind     string
+	write    bool
+	expanded bool
+	timing   bool
+	term     interface {
+		ReadLine() (string, error)
+		SetPrompt(string)
+		io.Writer
 	}
-	return nil, nil, out.Usage("%s conns have no shell", t.Kind.Name)
 }
 
-// clientInstallHint says how to install a database client (psql, mysql,
-// sqlite3) on this computer. goos is runtime.GOOS; distro is ID and ID_LIKE
-// from /etc/os-release on Linux ("ubuntu debian").
-func clientInstallHint(goos, distro, client, conn string) string {
-	pkgs := map[string]map[string]string{
-		"darwin": {
-			"psql":    "brew install libpq, then brew link --force libpq (or add $(brew --prefix libpq)/bin to PATH)",
-			"mysql":   "brew install mysql-client, then add $(brew --prefix mysql-client)/bin to PATH",
-			"sqlite3": "brew install sqlite",
-		},
-		"debian": {"psql": "sudo apt install postgresql-client", "mysql": "sudo apt install default-mysql-client", "sqlite3": "sudo apt install sqlite3"},
-		"fedora": {"psql": "sudo dnf install postgresql", "mysql": "sudo dnf install mysql", "sqlite3": "sudo dnf install sqlite"},
-		"alpine": {"psql": "sudo apk add postgresql-client", "mysql": "sudo apk add mysql-client", "sqlite3": "sudo apk add sqlite"},
-		"arch":   {"psql": "sudo pacman -S postgresql-libs", "mysql": "sudo pacman -S mariadb-clients", "sqlite3": "sudo pacman -S sqlite"},
-	}
-	family := goos
-	if goos == "linux" {
-		family = ""
-		for _, id := range strings.Fields(distro) {
-			switch id {
-			case "debian", "ubuntu":
-				family = "debian"
-			case "fedora", "rhel", "centos", "rocky", "almalinux":
-				family = "fedora"
-			case "alpine", "arch":
-				family = id
-			}
-			if family != "" {
-				break
-			}
-		}
-	}
-	how := pkgs[family][client]
-	if how == "" {
-		what := map[string]string{"psql": "the PostgreSQL client (psql)", "mysql": "the MySQL or MariaDB client (mysql)", "sqlite3": "sqlite3"}[client]
-		how = "install " + what + " with your package manager"
-	}
-	return how + "; or run SQL now with `komando db query " + conn + " 'select 1'`"
+func (s *sqlShell) printf(format string, a ...any) {
+	fmt.Fprintf(s.term, format, a...)
 }
 
-// linuxDistro is ID and ID_LIKE from /etc/os-release, or "" elsewhere.
-func linuxDistro() string {
-	b, err := os.ReadFile("/etc/os-release")
-	if err != nil {
-		return ""
+func (s *sqlShell) prompt(cont bool) {
+	p := s.conn.Name
+	if s.write {
+		p += " (write)"
 	}
-	var ids []string
-	for _, line := range strings.Split(string(b), "\n") {
-		if k, v, ok := strings.Cut(line, "="); ok && (k == "ID" || k == "ID_LIKE") {
-			ids = append(ids, strings.Fields(strings.Trim(v, `"'`))...)
-		}
+	if cont {
+		s.term.SetPrompt(strings.Repeat(" ", len(p)-1) + "-> ")
+		return
 	}
-	return strings.Join(ids, " ")
+	s.term.SetPrompt(p + "> ")
 }
 
-// childEnv is this process's environment without komando's own secrets.
-func childEnv() []string {
-	var env []string
-	for _, e := range os.Environ() {
-		if strings.HasPrefix(e, "KOMANDO_VAULT_PASS=") {
+func (s *sqlShell) run(ctx context.Context) {
+	s.printf("komando SQL shell on %s (%s). \\? for help, \\q to quit.\n", s.conn.Name, s.kind)
+	var buf strings.Builder
+	for {
+		s.prompt(buf.Len() > 0)
+		line, err := s.term.ReadLine()
+		if err != nil { // Ctrl-D or Ctrl-C
+			if buf.Len() > 0 {
+				buf.Reset()
+				s.printf("(input cleared)\n")
+				continue
+			}
+			s.printf("\n")
+			return
+		}
+		trimmed := strings.TrimSpace(line)
+		if buf.Len() == 0 && (trimmed == "quit" || trimmed == "exit") {
+			return
+		}
+		if buf.Len() == 0 && strings.HasPrefix(trimmed, `\`) {
+			if s.meta(ctx, trimmed) {
+				return
+			}
 			continue
 		}
-		env = append(env, e)
+		if buf.Len() > 0 {
+			buf.WriteString("\n")
+		}
+		buf.WriteString(line)
+		text := strings.TrimSpace(buf.String())
+		expanded := false
+		if strings.HasSuffix(text, `\G`) {
+			text, expanded = strings.TrimSpace(strings.TrimSuffix(text, `\G`)), true
+		} else if !statementDone(text) {
+			continue
+		}
+		buf.Reset()
+		if text == "" || text == ";" {
+			continue
+		}
+		s.exec(ctx, text, expanded || s.expanded)
 	}
-	return env
+}
+
+// meta runs a backslash command; true means quit.
+func (s *sqlShell) meta(ctx context.Context, line string) bool {
+	cmd, arg, _ := strings.Cut(line, " ")
+	arg = strings.TrimSpace(arg)
+	switch cmd {
+	case `\q`, `\quit`:
+		return true
+	case `\?`, `\h`, `\help`:
+		s.printf("%s", shellHelp)
+	case `\x`:
+		s.expanded = !s.expanded
+		s.printf("Expanded display is %s.\n", map[bool]string{true: "on", false: "off"}[s.expanded])
+	case `\timing`:
+		s.timing = !s.timing
+		s.printf("Timing is %s.\n", map[bool]string{true: "on", false: "off"}[s.timing])
+	case `\conninfo`:
+		s.printf("Connected to %s (%s), %s.\n", s.conn.Name, s.kind, map[bool]string{true: "read-write", false: "read-only"}[s.write])
+	case `\d`, `\dt`, `\d+`:
+		var names []string
+		if arg != "" {
+			names = []string{arg}
+		}
+		tables, err := dbx.Schema(ctx, s.db, s.kind, names, connTimeout(s.conn))
+		if err != nil {
+			s.printf("error: %s\n", toErr(err).Message)
+			return false
+		}
+		if len(tables) == 0 {
+			s.printf("Did not find any relation%s.\n", map[bool]string{true: " named " + arg, false: "s"}[arg != ""])
+			return false
+		}
+		s.printf("%s", schemaData{Tables: tables}.Text())
+	case `\l`, `\list`:
+		s.exec(ctx, map[string]string{"postgres": "SELECT datname AS name FROM pg_database WHERE NOT datistemplate ORDER BY 1",
+			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list"}[s.kind], s.expanded)
+	case `\dn`:
+		s.exec(ctx, map[string]string{"postgres": "SELECT nspname AS name FROM pg_namespace WHERE nspname NOT LIKE 'pg\\_%' AND nspname <> 'information_schema' ORDER BY 1",
+			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list"}[s.kind], s.expanded)
+	case `\du`:
+		q := map[string]string{"postgres": "SELECT rolname AS role, rolsuper AS superuser, rolcanlogin AS login FROM pg_roles WHERE rolname NOT LIKE 'pg\\_%' ORDER BY 1",
+			"mysql": "SELECT user, host FROM mysql.user ORDER BY 1, 2"}[s.kind]
+		if q == "" {
+			s.printf("SQLite has no roles.\n")
+			return false
+		}
+		s.exec(ctx, q, s.expanded)
+	case `\i`, `\include`:
+		b, err := os.ReadFile(expandHome(arg))
+		if err != nil {
+			s.printf("error: %v\n", err)
+			return false
+		}
+		s.exec(ctx, string(b), s.expanded)
+	default:
+		s.printf("Invalid command %s. Try \\? for help.\n", cmd)
+	}
+	return false
+}
+
+const shellHelp = `  \q            quit (also quit, exit, Ctrl-D)
+  \d [TABLE]    tables, or one table's columns, indexes and constraints
+  \l            databases
+  \dn           schemas
+  \du           roles
+  \x            switch expanded rows on and off (or end a statement with \G)
+  \timing       show how long each statement took
+  \i FILE       run the statements in FILE
+  \conninfo     where you are connected
+`
+
+// exec classifies, checks, runs and audits one input.
+func (s *sqlShell) exec(ctx context.Context, text string, expanded bool) {
+	plan, err := driver.ClassifySQL(s.kind, text)
+	if err != nil {
+		s.printf("error: %s\n", toErr(err).Message)
+		return
+	}
+	if !s.write && plan.NeedsWrite() {
+		s.printf("error: this %s statement changes data; the shell is read-only (start it with --write)\n", plan.Risk)
+		return
+	}
+	if plan.Risk >= driver.RiskDestructive && !dangerOK() {
+		s.printf("error: refused: %s (start the shell with --allow-dangerous if this is intended)\n", strings.Join(plan.Reasons, "; "))
+		return
+	}
+	rec := map[string]any{"conns": []string{s.conn.Name}, "risk": plan.Risk.String(), "write": s.write, "shell": true}
+	switch s.st.Settings.AuditSQL {
+	case "hash":
+		sum := sha256.Sum256([]byte(text))
+		rec["sql_sha256"] = hex.EncodeToString(sum[:])
+	case "off":
+	default:
+		rec["sql"] = redactSQL(text)
+	}
+	start := time.Now()
+	res, err := dbx.Run(ctx, s.db, s.kind, plan, dbx.Options{Write: s.write, Limit: 10000, MaxBytes: 64 << 20, Timeout: connTimeout(s.conn)})
+	took := time.Since(start)
+	if err != nil {
+		rec["error"] = toErr(err).Code
+		audit(s.st, "db.shell", nil, "", false, rec)
+		e := toErr(err)
+		s.printf("error: %s\n", e.Message)
+		var oe *out.Error
+		if errors.As(err, &oe) && oe.Hint != "" {
+			s.printf("hint: %s\n", oe.Hint)
+		}
+		return
+	}
+	audit(s.st, "db.shell", nil, "", true, rec)
+	if expanded {
+		s.printf("%s", expandedText(res))
+	} else {
+		s.printf("%s", queryData{Conn: s.conn.Name, Result: res}.Text())
+	}
+	if s.timing {
+		s.printf("Time: %.3f ms\n", float64(took.Microseconds())/1000)
+	}
+}
+
+// expandedText shows each row as "column | value" lines, like psql's \x.
+func expandedText(res *dbx.Result) string {
+	var b strings.Builder
+	for _, r := range res.Results {
+		if r.Columns == nil {
+			b.WriteString(queryData{Result: &dbx.Result{Results: []dbx.StatementResult{r}}}.Text())
+			continue
+		}
+		w := 0
+		for _, c := range r.Columns {
+			w = max(w, displayWidth(c.Name))
+		}
+		for i, row := range r.Rows {
+			fmt.Fprintf(&b, "-[ RECORD %d ]%s\n", i+1, strings.Repeat("-", max(4, w)))
+			for j, v := range row {
+				fmt.Fprintf(&b, "%s%s | %s\n", r.Columns[j].Name, strings.Repeat(" ", w-displayWidth(r.Columns[j].Name)), cellText(v, true))
+			}
+		}
+		fmt.Fprintf(&b, "(%d row%s)\n", r.RowCount, plural(r.RowCount))
+	}
+	return b.String()
+}
+
+// statementDone reports whether text ends with ; outside quotes, quoted
+// names, dollar quotes and comments.
+func statementDone(text string) bool {
+	last := byte(0)
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		switch {
+		case c == '\'' || c == '"' || c == '`':
+			j := i + 1
+			for j < len(text) {
+				if text[j] == '\\' && c != '"' {
+					j += 2
+					continue
+				}
+				if text[j] == c {
+					if j+1 < len(text) && text[j+1] == c { // doubled quote
+						j += 2
+						continue
+					}
+					break
+				}
+				j++
+			}
+			if j >= len(text) {
+				return false // still inside the quote
+			}
+			i, last = j, c
+		case c == '-' && i+1 < len(text) && text[i+1] == '-', c == '#':
+			for i < len(text) && text[i] != '\n' {
+				i++
+			}
+		case c == '/' && i+1 < len(text) && text[i+1] == '*':
+			end := strings.Index(text[i+2:], "*/")
+			if end < 0 {
+				return false
+			}
+			i += end + 3
+		case c == '$':
+			j := i + 1
+			for j < len(text) && (text[j] == '_' || text[j] >= 'a' && text[j] <= 'z' || text[j] >= 'A' && text[j] <= 'Z' || text[j] >= '0' && text[j] <= '9') {
+				j++
+			}
+			if j < len(text) && text[j] == '$' {
+				tag := text[i : j+1]
+				end := strings.Index(text[j+1:], tag)
+				if end < 0 {
+					return false
+				}
+				i, last = j+end+len(tag), '$'
+				continue
+			}
+			last = c
+		case c == ' ' || c == '\t' || c == '\n' || c == '\r':
+		default:
+			last = c
+		}
+	}
+	return last == ';'
 }

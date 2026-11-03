@@ -221,6 +221,10 @@ q $K conn add pg-bw 'postgres://app@pg:5432/app?sslmode=disable' --via bastion -
 check "db password from Vaultwarden (bw://)" 1 "$("${BWENV[@]}" $K db query pg-bw 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]' || true)"
 check "wrong Bitwarden master password is named" True "$(env PATH=/usr/bin:/bin KOMANDO_BW_SERVER="http://127.0.0.1:$E2E_VW" KOMANDO_BW_EMAIL=e2e@example.com KOMANDO_BW_PASSWORD=nope $K db query pg-bw 'select 1' | jget '"bitwarden" in json.dumps(d)' || true)"
 q $K conn rm pg-bw
+# db shell is komando's own SQL shell: no psql or mysql on PATH
+check "db shell on PostgreSQL" 42 "$(ptyrun 'select 41 + 1 as answer;\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | tr -d '\r' | grep -E '^ *42 *$' | tr -d ' ' | head -1 || true)"
+check "db shell is read-only" True "$(ptyrun 'create table nope(x int);\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | grep -q 'the shell is read-only' && echo True)"
+check "db shell \\d lists tables" True "$(ptyrun '\d\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | grep -q 'table\|relation' && echo True)"
 q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
 q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref secret:redis-pass
 q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref secret:s3-secret
@@ -409,7 +413,7 @@ set +e; $K cluster scale lab-k3s deployment/web 0 >/dev/null; check "scale to 0 
 q $K cluster restart lab-k3s deployment/web
 set +e; $K cluster run lab-k3s -- delete deploy web >/dev/null; check "cluster run delete needs --write" 6 $?; set -e
 check "cluster run secret values need --allow-dangerous" POLICY_BLOCKED "$($K cluster run lab-k3s --write -- get secrets -A -o yaml | jget 'd["error"]["code"]' || true)"
-check "cluster run reads through bastion" True "$($K cluster run lab-k3s -- get deploy web -o name | jget '"deployment.apps/web" in d["data"]["stdout"]')"
+check "cluster run reads through bastion" True "$(env PATH=/usr/bin:/bin $K cluster run lab-k3s -- get deploy web -o name | jget '"deployment.apps/web" in d["data"]["stdout"]')"
 check "rollout status --wait" True "$($K cluster status lab-k3s deployment/web --wait --timeout 90s | jget 'd["data"]["rolled_out"]')"
 check "deploy a bad image times out" ROLLOUT_TIMEOUT "$($K cluster deploy lab-k3s deployment/web --image komando.invalid/none:1 --wait --timeout 20s | jget 'd["error"]["code"]' || true)"
 check "history keeps the revisions" True "$($K cluster history lab-k3s deployment/web | jget 'len(d["data"]["revisions"]) >= 2 and d["data"]["revisions"][0]["images"] == ["komando.invalid/none:1"]')"
@@ -418,9 +422,80 @@ check "rolled back and healthy" True "$($K cluster status lab-k3s deployment/web
 check "logs of a workload" True "$($K cluster logs lab-k3s deploy/web | jget '"object" in d["data"]')"
 check "logs by label" True "$($K cluster logs lab-k3s -l app=web | jget '"logs" in d["data"]')"
 check "logs -f stops at --timeout" True "$($K cluster logs lab-k3s deploy/web -f --timeout 3s | tail -1 | jget 'd["data"]["followed"]')"
-check "exec in a pod needs --read-only or a change" True "$($K cluster exec lab-k3s deploy/web --read-only --dry-run -- cat /etc/hostname | jget '"kubectl exec deploy/web" in d["data"]["would_run"]')"
+check "exec in a pod needs --read-only or a change" True "$($K cluster exec lab-k3s deploy/web --read-only --dry-run -- cat /etc/hostname | jget '"exec deploy/web" in d["data"]["would_run"]')"
 check "exec checks the policy" POLICY_BLOCKED "$($K cluster exec lab-k3s deploy/web -- rm -rf / | jget 'd["error"]["code"]' || true)"
 check "forward runs on 127.0.0.1" True "$($K cluster forward lab-k3s deploy/web 18099:80 --dry-run | jget '"--address 127.0.0.1" in d["data"]["would_run"]')"
+# exec and port-forward for real, with no kubectl on PATH
+cat > "$TMP/tools.yaml" <<'YAML'
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: tools, namespace: default }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: tools } }
+  template:
+    metadata: { labels: { app: tools } }
+    spec:
+      containers:
+        - name: tools
+          image: busybox:1.37
+          command: ["sh", "-c", "mkdir -p /www && echo hello-from-pod > /www/index.html && exec httpd -f -p 8080 -h /www"]
+          ports: [{ name: http, containerPort: 8080 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: tools, namespace: default }
+spec:
+  selector: { app: tools }
+  ports: [{ port: 80, targetPort: http }]
+YAML
+q $K cluster apply lab-k3s --file "$TMP/tools.yaml"
+$K cluster status lab-k3s deployment/tools --wait --timeout 120s >/dev/null || true
+NOKUBE=(env PATH=/usr/bin:/bin)
+check "exec without kubectl" hello-from-pod "$("${NOKUBE[@]}" $K cluster exec lab-k3s deploy/tools --read-only -- cat /www/index.html | jget 'd["data"]["stdout"].strip()' || true)"
+check "exec keeps stdout, stderr and the exit code" "3 out err" "$("${NOKUBE[@]}" $K cluster exec lab-k3s deploy/tools --read-only -- sh -c 'echo out; echo err >&2; exit 3' | jget 'str(d["data"]["exit_code"]) + " " + d["data"]["stdout"].strip() + " " + d["data"]["stderr"].strip()' || true)"
+"${NOKUBE[@]}" $K cluster forward lab-k3s deploy/tools 18099:8080 --timeout 20s >/dev/null 2>&1 &
+"${NOKUBE[@]}" $K cluster forward lab-k3s svc/tools 18098:80 --timeout 20s >/dev/null 2>&1 &
+for _ in $(seq 1 20); do curl -sf http://127.0.0.1:18099/ >/dev/null && curl -sf http://127.0.0.1:18098/ >/dev/null && break; sleep 1; done
+check "forward a pod port without kubectl" hello-from-pod "$(curl -sf http://127.0.0.1:18099/ || true)"
+check "forward a service port to its named target port" hello-from-pod "$(curl -sf http://127.0.0.1:18098/ || true)"
+check "two connections through one forward" "hello-from-pod hello-from-pod" "$(curl -sf http://127.0.0.1:18099/ || true) $(curl -sf http://127.0.0.1:18099/ || true)"
+wait
+check "cluster shell needs a person" NEEDS_TERMINAL "$($K cluster shell lab-k3s deploy/tools </dev/null | jget 'd["error"]["code"]' || true)"
+check "cluster shell for a person" hello-from-pod "$(ptyrun 'cat /www/index.html; exit\n' env NO_COLOR=1 "$K" cluster shell lab-k3s deploy/tools | tr -d '\r' | grep -x hello-from-pod | head -1 || true)"
+# cluster run is komando's own kubectl: every verb here runs with no kubectl on PATH
+KR() { "${NOKUBE[@]}" $K cluster run lab-k3s "$@"; }
+KS() { KR "$@" | jget 'd["data"]["stdout"]' || true; }
+check "run: get prints the server's table" True "$(KS -- get pods -l app=tools | python3 -c 'import sys; s=sys.stdin.read(); print(s.startswith("NAME") and "READY" in s and "STATUS" in s and "tools-" in s)')"
+check "run: get -o jsonpath" tools "$(KS -- get deploy tools -o 'jsonpath={.metadata.name}')"
+check "run: get -o custom-columns" True "$(KS -- get svc tools -o 'custom-columns=PORT:.spec.ports[0].port' | grep -qx 80 && echo True)"
+check "run: describe" True "$(KS -- describe deploy tools | grep -q 'deployment/tools' && echo True)"
+check "run: api-resources" True "$(KS -- api-resources | grep -q '^deployments ' && echo True)"
+check "run: version" True "$(KS -- version | grep -q 'Server Version: v1\.' && echo True)"
+check "run: auth can-i" yes "$(KS -- auth can-i get pods | tr -d '\n')"
+check "run: explain a field" True "$(KS -- explain deployment.spec.replicas | grep -q 'FIELD: replicas <integer>' && echo True)"
+check "run: wait for a condition" True "$(KS -- wait deploy/tools --for=condition=Available --timeout=60s | grep -q 'condition met' && echo True)"
+check "run: rollout status" True "$(KS -- rollout status deploy/tools | grep -q 'rolled out' && echo True)"
+check "run: exec" hello-from-pod "$(KS --write --allow-dangerous -- exec deploy/tools -- cat /www/index.html | tr -d '\n')"
+q KR --write -- create configmap e2e-cfg --from-literal=color=blue
+check "run: create configmap, read it back" blue "$(KS -- get cm e2e-cfg -o 'jsonpath={.data.color}')"
+q KR --write -- label cm e2e-cfg tier=test
+check "run: label" test "$(KS -- get cm e2e-cfg -o 'jsonpath={.metadata.labels.tier}')"
+check "run: label refuses to overwrite" 5 "$(KR --write -- label cm e2e-cfg tier=other >/dev/null; echo $?)"
+q KR --write --allow-dangerous -- patch cm e2e-cfg --type merge -p '{"data":{"color":"green"}}'
+check "run: patch" green "$(KS -- get cm e2e-cfg -o 'jsonpath={.data.color}')"
+check "run: delete needs --allow-dangerous" 6 "$(KR --write -- delete cm e2e-cfg >/dev/null; echo $?)"
+q KR --write --allow-dangerous -- delete cm e2e-cfg
+check "run: deleted is not found" K8S_NOT_FOUND "$(KR -- get cm e2e-cfg | jget 'd["error"]["code"]' || true)"
+echo "copied in" > "$TMP/cp-in.txt"
+POD=$(KS -- get pods -l app=tools -o 'jsonpath={.items[0].metadata.name}')
+q KR --write --allow-dangerous -- cp "$TMP/cp-in.txt" "$POD:/tmp/cp-in.txt"
+q KR --write --allow-dangerous -- cp "$POD:/tmp/cp-in.txt" "$TMP/cp-back.txt"
+check "run: cp there and back" "copied in" "$(cat "$TMP/cp-back.txt" 2>/dev/null)"
+check "run: diff a change exits 1" 5 "$(sed 's/replicas: 1/replicas: 2/' "$TMP/tools.yaml" > "$TMP/tools2.yaml"; KR -- diff -f "$TMP/tools2.yaml" >/dev/null; echo $?)"
+check "run: scale" 2 "$(KR --write -- scale deploy/tools --replicas=2 >/dev/null; KS -- get deploy tools -o 'jsonpath={.spec.replicas}')"
+q $K cluster rm lab-k3s deployment tools --allow-dangerous
+q $K cluster rm lab-k3s service tools --allow-dangerous
 q $K cluster rm lab-k3s deployment web --allow-dangerous
 
 # Docker Swarm (a one-node manager, Docker-in-Docker, over SSH)

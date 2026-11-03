@@ -16,6 +16,35 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - New error codes `AWS_PROFILE_NOT_FOUND` and `AWS_FAILED`;
   `AWS_CLI_MISSING` no longer happens.
 
+### Built in: komando's own kubectl and SQL shell
+
+- `cluster run` no longer needs kubectl: komando understands the kubectl
+  commands itself and prints what kubectl prints (server-side tables, wide,
+  name, json, yaml, jsonpath, custom-columns, watch) for get, describe,
+  logs, events, top, explain, version, api-resources, api-versions,
+  cluster-info, auth, wait, rollout, apply, diff, create, replace, delete,
+  patch, label, annotate, scale, set image, cordon, uncordon, drain, taint,
+  run, exec, cp, debug, certificate and config. The read-only default and
+  the risk checks are unchanged; port-forward and `exec -it` point at
+  `cluster forward` and `cluster shell`.
+- `db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB and
+  SQLite (no psql, mysql or sqlite3): each statement gets db query's checks
+  and is audited; `\d`, `\l`, `\dn`, `\du`, `\x`, `\G`, `\timing`, `\i`.
+  `TOOL_MISSING` and `TLS_THROUGH_FORWARD` no longer happen for it.
+
+### Built in: Kubernetes exec, shell and port-forward (no kubectl)
+
+- `cluster exec` and `cluster forward` speak Kubernetes' streaming
+  protocols over WebSocket themselves. `cluster forward svc/NAME` maps the
+  service port to the pod's target port (by number or name), like kubectl.
+- New `cluster shell TARGET POD|TYPE/NAME [-- COMMAND]`: an interactive
+  terminal in a pod for people, with the status lines and the protected
+  question of `komando shell`.
+- EKS and GKE tokens (`aws eks get-token`, `aws-iam-authenticator`,
+  `gke-gcloud-auth-plugin` in a kubeconfig) are made by komando.
+- `cluster exec --dry-run` and `cluster forward --dry-run` describe the
+  call without "kubectl" in `would_run`, and add `pod`, `command`, `local`.
+
 ### Built in: Bitwarden, KeePass, 1Password Connect
 
 - New `bw://ITEM/FIELD` for Bitwarden and Vaultwarden: komando logs in,

@@ -1,6 +1,7 @@
 // Package kube talks to the Kubernetes API directly over HTTPS, from one
 // kubeconfig context, without client-go. It covers what komando's cluster
-// commands need: discovery, get/list, logs, patch and server-side apply.
+// commands need: discovery, get/list, logs, patch, server-side apply, and
+// exec and port-forward over WebSocket (stream.go).
 package kube
 
 import (
@@ -10,6 +11,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -17,12 +19,16 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/sgnd/komando/internal/cloud"
 )
 
 // Config is the part of a kubeconfig komando uses.
@@ -261,6 +267,13 @@ func (c *Client) bearer(ctx context.Context) (string, error) {
 		return c.token, nil
 	}
 	e := c.ctx.User.Exec
+	if tok, ok, err := builtinToken(ctx, e); ok {
+		if err != nil {
+			return "", err
+		}
+		c.token = tok
+		return tok, nil
+	}
 	cmd := exec.CommandContext(ctx, e.Command, e.Args...)
 	cmd.Env = os.Environ()
 	for _, kv := range e.Env {
@@ -307,6 +320,10 @@ func (c *Client) Stream(ctx context.Context, path string, q url.Values) (io.Read
 // send makes the request with the context's credentials. Error statuses
 // come back as *APIError with the body already read and closed.
 func (c *Client) send(ctx context.Context, method, path string, q url.Values, body []byte, contentType string) (*http.Response, error) {
+	return c.sendAccept(ctx, method, path, q, body, contentType, "application/json")
+}
+
+func (c *Client) sendAccept(ctx context.Context, method, path string, q url.Values, body []byte, contentType, accept string) (*http.Response, error) {
 	u := *c.Base
 	u.Path = strings.TrimSuffix(u.Path, "/") + path
 	u.RawQuery = q.Encode()
@@ -314,7 +331,7 @@ func (c *Client) send(ctx context.Context, method, path string, q url.Values, bo
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept", accept)
 	req.Header.Set("User-Agent", "komando")
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -367,6 +384,8 @@ type ResourceType struct {
 	Name       string // plural: deployments
 	Kind       string
 	Namespaced bool
+	ShortNames []string
+	Verbs      []string
 }
 
 func (c *Client) discover(ctx context.Context) error {
@@ -381,6 +400,7 @@ func (c *Client) discover(ctx context.Context) error {
 				Kind       string   `json:"kind"`
 				Namespaced bool     `json:"namespaced"`
 				ShortNames []string `json:"shortNames"`
+				Verbs      []string `json:"verbs"`
 			} `json:"resources"`
 		}
 		if c.Get(ctx, gvPath, nil, &list) != nil {
@@ -390,7 +410,7 @@ func (c *Client) discover(ctx context.Context) error {
 			if strings.Contains(r.Name, "/") {
 				continue // subresources
 			}
-			res := ResourceType{Path: gvPath, Name: r.Name, Kind: r.Kind, Namespaced: r.Namespaced}
+			res := ResourceType{Path: gvPath, Name: r.Name, Kind: r.Kind, Namespaced: r.Namespaced, ShortNames: r.ShortNames, Verbs: r.Verbs}
 			c.discovery[gv+"/"+r.Kind] = res
 			group, version, grouped := strings.Cut(gv, "/")
 			for _, alias := range append([]string{r.Name, strings.ToLower(r.Kind)}, r.ShortNames...) {
@@ -515,3 +535,142 @@ func (r ResourceType) ObjectPath(ns, name string) string {
 
 func (r ResourceType) IsNamespaced() bool { return r.Namespaced }
 func (r ResourceType) KindName() string   { return r.Kind }
+
+// builtinToken makes the tokens of the common credential plugins without
+// running them: `aws eks get-token`, aws-iam-authenticator and
+// gke-gcloud-auth-plugin. ok is false for any other plugin, which then runs
+// as the kubeconfig says.
+func builtinToken(ctx context.Context, e *ExecAuth) (tok string, ok bool, err error) {
+	env := map[string]string{}
+	for _, kv := range e.Env {
+		env[kv.Name] = kv.Value
+	}
+	arg := func(names ...string) string {
+		for i, a := range e.Args {
+			for _, n := range names {
+				if a == n && i+1 < len(e.Args) {
+					return e.Args[i+1]
+				}
+				if strings.HasPrefix(a, n+"=") {
+					return strings.TrimPrefix(a, n+"=")
+				}
+			}
+		}
+		return ""
+	}
+	profile := firstNonEmpty(arg("--profile"), env["AWS_PROFILE"], os.Getenv("AWS_PROFILE"))
+	switch filepath.Base(e.Command) {
+	case "aws":
+		if !slices.Contains(e.Args, "eks") || !slices.Contains(e.Args, "get-token") {
+			return "", false, nil
+		}
+		cluster := arg("--cluster-name", "--cluster-id")
+		if cluster == "" {
+			return "", true, errors.New("aws eks get-token in the kubeconfig names no --cluster-name")
+		}
+		tok, err := cloud.EKSToken(ctx, profile, firstNonEmpty(arg("--region"), env["AWS_REGION"], env["AWS_DEFAULT_REGION"]), cluster, arg("--role-arn"))
+		return tok, true, err
+	case "aws-iam-authenticator":
+		cluster := arg("-i", "--cluster-id")
+		if cluster == "" {
+			return "", false, nil
+		}
+		tok, err := cloud.EKSToken(ctx, profile, firstNonEmpty(arg("--region"), env["AWS_REGION"]), cluster, arg("-r", "--role"))
+		return tok, true, err
+	case "gke-gcloud-auth-plugin":
+		tok, err := cloud.GCPAccessToken(ctx)
+		return tok, true, err
+	}
+	return "", false, nil
+}
+
+// Table is the server-side table the API prints for a list or an object,
+// the same columns kubectl shows.
+type Table struct {
+	ColumnDefinitions []struct {
+		Name     string `json:"name"`
+		Priority int    `json:"priority"`
+	} `json:"columnDefinitions"`
+	Rows []struct {
+		Cells  []any `json:"cells"`
+		Object struct {
+			Metadata struct {
+				Name      string `json:"name"`
+				Namespace string `json:"namespace"`
+			} `json:"metadata"`
+		} `json:"object"`
+	} `json:"rows"`
+}
+
+// Table asks for path as a table (with each row's metadata).
+func (c *Client) Table(ctx context.Context, path string, q url.Values) (*Table, error) {
+	if q == nil {
+		q = url.Values{}
+	}
+	q.Set("includeObject", "Metadata")
+	resp, err := c.sendAccept(ctx, "GET", path, q, nil, "", "application/json;as=Table;v=v1;g=meta.k8s.io,application/json;as=Table;v=v1beta1;g=meta.k8s.io,application/json")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var t Table
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<20)).Decode(&t); err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// Group is the API group of r ("" for the core group, "apps", ...).
+func (r ResourceType) Group() string {
+	p := strings.TrimPrefix(r.Path, "/apis/")
+	if p == r.Path {
+		return ""
+	}
+	g, _, _ := strings.Cut(p, "/")
+	return g
+}
+
+// Version is r's API version ("v1", ...).
+func (r ResourceType) Version() string {
+	return r.Path[strings.LastIndex(r.Path, "/")+1:]
+}
+
+// APIVersion is what objects of r carry in apiVersion ("v1", "apps/v1").
+func (r ResourceType) APIVersion() string {
+	if g := r.Group(); g != "" {
+		return g + "/" + r.Version()
+	}
+	return r.Version()
+}
+
+// Resources lists every resource type the cluster serves, once each.
+func (c *Client) Resources(ctx context.Context) ([]ResourceType, error) {
+	if err := c.discover(ctx); err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	var out []ResourceType
+	for k, r := range c.discovery {
+		if strings.HasPrefix(k, "name:") || seen[r.Path+"/"+r.Name] {
+			continue
+		}
+		seen[r.Path+"/"+r.Name] = true
+		out = append(out, r)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Path < out[j].Path
+	})
+	return out, nil
+}
+
+// Watch streams change events (one JSON object per line) for path.
+func (c *Client) Watch(ctx context.Context, path string, q url.Values) (io.ReadCloser, error) {
+	if q == nil {
+		q = url.Values{}
+	}
+	q.Set("watch", "true")
+	return c.Stream(ctx, path, q)
+}

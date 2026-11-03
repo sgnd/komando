@@ -129,27 +129,34 @@ In text output, tables line up also with CJK characters and emoji.
 ### Interactive shell (for people)
 
 ```bash
-komando db shell staging-db           # psql / mysql / sqlite3, starts read-only
+komando db shell staging-db           # komando's own SQL shell, starts read-only
 komando db shell staging-db --write   # allow changes
 komando db shell prod-db --yes        # any shell on a protected conn needs --yes
 ```
 
-`db shell` opens the database's own client on this computer, already
-connected (through the conn's `--via` path when it has one). The session is
-read-only unless you add `--write`: the database refuses changes, just like
-`db query`. That protects against accidents only: inside the client a
-person can switch read-only off (and shell escapes such as `\!` see the
-password), which is why a protected conn needs `--yes` even for a read-only
-shell. The password reaches the client through its environment, never its
-command line. Ctrl-C goes to the client (to cancel a query), not to komando.
+`db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB and
+SQLite: nothing else needs to be installed. It connects through the conn's
+`--via` path, and every statement gets the checks of `db query`: read-only
+unless you started it with `--write`, destructive statements only with
+`--allow-dangerous`, and each one is in the audit log. A statement ends with
+`;` and runs in its own transaction.
 
-You need the client installed here: `psql`, `mysql` or `sqlite3`. When it
-is missing, the error says how to install it on this system (macOS:
-`brew install libpq`, `brew install mysql-client`; Debian/Ubuntu:
-`sudo apt install postgresql-client`, `default-mysql-client`, `sqlite3`;
-Fedora/RHEL: `sudo dnf install postgresql`, `mysql`). It is for people
-at a terminal; agents and scripts get `NEEDS_TERMINAL` and use `db query`,
-which returns JSON and checks every statement.
+```
+app-db> select id, name
+     -> from users limit 2;
+ id | name
+----+------
+  1 | ana
+  2 | budi
+(2 rows)
+app-db> \q
+```
+
+Inside: `\q` quits, `\?` lists the commands, `\d [TABLE]` shows tables or
+one table, `\l` databases, `\dn` schemas, `\du` roles, `\x` expanded rows (or
+end a statement with `\G`), `\timing`, `\i FILE`. Up and down arrows recall
+lines. It is for people at a terminal; agents and scripts get
+`NEEDS_TERMINAL` and use `db query`, which returns JSON.
 
 ### Look after a database
 

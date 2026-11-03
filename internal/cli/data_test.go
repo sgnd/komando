@@ -141,26 +141,6 @@ func TestWriteReplacing(t *testing.T) {
 	}
 }
 
-func TestClientInstallHint(t *testing.T) {
-	cases := []struct{ goos, distro, client, want string }{
-		{"darwin", "", "psql", "brew install libpq"},
-		{"darwin", "", "mysql", "brew install mysql-client"},
-		{"darwin", "", "sqlite3", "brew install sqlite"},
-		{"linux", "ubuntu debian", "psql", "sudo apt install postgresql-client"},
-		{"linux", "debian", "mysql", "sudo apt install default-mysql-client"},
-		{"linux", "rocky rhel centos fedora", "psql", "sudo dnf install postgresql"},
-		{"linux", "fedora", "mysql", "sudo dnf install mysql"},
-		{"linux", "", "sqlite3", "with your package manager"},
-		{"windows", "", "psql", "with your package manager"},
-	}
-	for _, c := range cases {
-		h := clientInstallHint(c.goos, c.distro, c.client, "pg")
-		if !strings.Contains(h, c.want) || !strings.Contains(h, "komando db query pg 'select 1'") {
-			t.Errorf("%s %s %s: %s", c.goos, c.distro, c.client, h)
-		}
-	}
-}
-
 func TestToolFailedCodes(t *testing.T) {
 	for stderr, code := range map[string]string{
 		`pg_dump: error: FATAL:  password authentication failed for user "app"`: "DB_AUTH",

@@ -45,11 +45,11 @@ OpenVPN 3 library) does not qualify.
 | Secrets `op://` | `op` CLI | own client for the 1Password Connect REST API (documented, self-hosted). The 1Password Go SDK is **not** used: its core is a prebuilt WebAssembly module, not open source. A personal 1Password account has no documented open API, so `op://` without Connect is removed | M |
 | New: `bw://` (Bitwarden, Vaultwarden) and `kdbx:` (KeePass, KeePassXC files) | — | own clients: Bitwarden's documented API, the open KDBX file format | M |
 | Conns with `aws_profile` (RDS IAM tokens, S3 profiles) | `aws` CLI | AWS SDK for Go v2: profiles, SSO cache, assume-role  ✅ | S |
-| EKS / GKE tokens in a kubeconfig | `aws eks get-token`, `gke-gcloud-auth-plugin` | built in for these two; other `exec` plugins still run as configured  | M |
-| `cluster exec`, `cluster cp` | `kubectl` | Kubernetes exec over WebSocket (`v5.channel.k8s.io`), SPDY for older clusters  | M |
-| `cluster forward`, `tunnel` to a pod | `kubectl` | port-forward over WebSocket where the cluster allows it, SPDY otherwise  | M |
-| `cluster run` (any kubectl verb) | `kubectl` | own implementation of the kubectl verbs that work on any resource, through API discovery: get, describe, apply (server-side), delete, patch, label, annotate, explain, api-resources, auth can-i, top, wait, events, rollout. kubectl plugins (krew) are not covered | L |
-| `db shell` | `psql`, `mysql`, `sqlite3` | komando's own SQL shell on the drivers it already has | L |
+| EKS / GKE tokens in a kubeconfig | `aws eks get-token`, `gke-gcloud-auth-plugin` | built in for these two; other `exec` plugins still run as configured  ✅ | M |
+| `cluster exec`, `cluster cp` | `kubectl` | Kubernetes exec over WebSocket (`v5.channel.k8s.io`), SPDY for older clusters  ✅ | M |
+| `cluster forward`, `tunnel` to a pod | `kubectl` | port-forward over WebSocket where the cluster allows it, SPDY otherwise  ✅ | M |
+| `cluster run` (any kubectl verb) | `kubectl` | own implementation of the kubectl verbs that work on any resource, through API discovery: get, describe, apply (server-side), delete, patch, label, annotate, explain, api-resources, auth can-i, top, wait, events, rollout. kubectl plugins (krew) are not covered ✅ | L |
+| `db shell` | `psql`, `mysql`, `sqlite3` | komando's own SQL shell on the drivers it already has ✅ | L |
 | `db dump` / `db restore` on this computer | `pg_dump`, `pg_restore`, `mysqldump`, `mysql` | built-in dump and restore (plain SQL); through `--via` the server's own tools stay the first choice | L (PostgreSQL), M (MySQL), S (SQLite) |
 | AWS SSM as a proxy | `aws ssm start-session` + session-manager-plugin | SSM Session Manager protocol over WebSocket, via the AWS SDK | M |
 | OpenVPN / Pritunl | Docker, or `openvpn` with sudo | komando's own OpenVPN client in Go, on the same userspace network stack WireGuard uses | XL |
