@@ -21,6 +21,10 @@ run inside komando cannot be used by OpenSSH: use `komando shell NAME`.
 `komando host trust NAME --reset` forgets and re-pins a server's key after a
 rebuild; with `--dry-run` it only counts the pinned entries.
 
+`komando host rm` (and `conn rm`) takes names or a target: `host rm 'tmp-*'`
+or `host rm @old --dry-run` lists what it would remove. Protected ones need
+`--yes`, and a server that another one still reaches through `--via` stays.
+
 ## Add servers
 
 ```bash

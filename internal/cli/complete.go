@@ -38,6 +38,9 @@ func addCompletion(c *cobra.Command) {
 		w = strings.Trim(w, "[]")
 		variadic = strings.HasSuffix(w, "...")
 		w = strings.TrimSuffix(w, "...")
+		if i := strings.LastIndex(w, "|"); i >= 0 {
+			w = w[i+1:] // NAME|TARGET: complete targets
+		}
 		if w == "NAME" {
 			w = c.Parent().Name()
 		}

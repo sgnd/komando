@@ -85,3 +85,87 @@ func shortAlias(fs *pflag.FlagSet, name, short, of string) {
 	f := fs.Lookup(of)
 	fs.AddFlag(&pflag.Flag{Name: name, Shorthand: short, Value: f.Value, DefValue: f.DefValue, Usage: "same as --" + of})
 }
+
+// isSelector: arg is a selector (@group, glob, tag:, label:, kind:, all,
+// a list) rather than one name.
+func isSelector(arg string) bool {
+	return arg == "all" || strings.ContainsAny(arg, "@*?[,!") || strings.HasPrefix(arg, "tag:") ||
+		strings.HasPrefix(arg, "label:") || strings.HasPrefix(arg, "kind:")
+}
+
+// rmHosts turns rm arguments (names or selectors) into inventory hosts,
+// each once, in order. Ad-hoc user@host targets are not in the inventory.
+func rmHosts(s *store.State, args []string) ([]*store.Host, error) {
+	var res []*store.Host
+	seen := map[string]bool{}
+	add := func(h *store.Host) {
+		if !seen[h.Name] {
+			seen[h.Name] = true
+			res = append(res, h)
+		}
+	}
+	for _, a := range args {
+		if h, err := findHost(s, a); err == nil {
+			add(h)
+			continue
+		} else if !isSelector(a) {
+			return nil, err
+		}
+		sel, err := resolveSelection(s, a)
+		if err != nil {
+			return nil, err
+		}
+		n := 0
+		for _, h := range sel.Hosts {
+			if inv, ok := s.Hosts[h.Name]; ok && inv == h {
+				add(h)
+				n++
+			}
+		}
+		if n == 0 {
+			return nil, out.Errf(out.ExitNotFound, "HOST_NOT_FOUND", "run `komando list "+a+"` to see what it picks", "target %q picked no servers in the inventory", a)
+		}
+	}
+	return res, nil
+}
+
+// rmConns is rmHosts for conns.
+func rmConns(s *store.State, args []string) ([]*store.Conn, error) {
+	var res []*store.Conn
+	seen := map[string]bool{}
+	for _, a := range args {
+		var cs []*store.Conn
+		if c, err := findConn(s, a); err == nil {
+			cs = []*store.Conn{c}
+		} else if !isSelector(a) {
+			return nil, err
+		} else {
+			sel, err := resolveSelection(s, a)
+			if err != nil {
+				return nil, err
+			}
+			if cs = sel.Conns; len(cs) == 0 {
+				return nil, out.Errf(out.ExitNotFound, "CONN_NOT_FOUND", "run `komando list "+a+"` to see what it picks", "target %q picked no conns", a)
+			}
+		}
+		for _, c := range cs {
+			if !seen[c.Name] {
+				seen[c.Name] = true
+				res = append(res, c)
+			}
+		}
+	}
+	return res, nil
+}
+
+// rmResult is what host rm and conn rm print.
+type rmResult struct {
+	Removed []string `json:"removed"`
+}
+
+func (r rmResult) Text() string {
+	if g.dryRun {
+		return "would remove: " + strings.Join(r.Removed, ", ")
+	}
+	return "removed: " + strings.Join(r.Removed, ", ")
+}

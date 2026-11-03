@@ -437,3 +437,37 @@ func TestInvDoctorInventory(t *testing.T) {
 		t.Errorf("fails %d warns %d: %+v", fails, warns, cs)
 	}
 }
+
+func TestInvRmSelector(t *testing.T) {
+	invHome(t)
+	if e := wantCode(t, "TARGET_EMPTY", "test", "all"); !strings.Contains(e.Hint, "host add") {
+		t.Errorf("empty inventory hint: %q", e.Hint)
+	}
+	mustRun(t, "host", "add", "tmp-1", "u@10.0.0.1", "-g", "old")
+	mustRun(t, "host", "add", "tmp-2", "u@10.0.0.2", "-g", "old", "--via", "tmp-1")
+	mustRun(t, "host", "add", "keep", "u@10.0.0.3", "--via", "tmp-1")
+	mustRun(t, "host", "add", "prod", "u@10.0.0.4", "-g", "old", "--protected")
+	wantCode(t, "HOST_IN_USE", "host", "rm", "tmp-*") // keep still goes through tmp-1
+	mustRun(t, "host", "edit", "keep", "--unset", "via")
+	wantCode(t, "PROTECTED_HOST", "host", "rm", "@old")
+	d := mustRun(t, "host", "rm", "@old", "--dry-run")
+	if got := d["removed"].([]any); len(got) != 3 {
+		t.Errorf("dry-run lists all: %v", got)
+	}
+	mustRun(t, "host", "rm", "tmp-*")
+	if d := mustRun(t, "list"); d["count"].(float64) != 2 {
+		t.Errorf("tmp-* removed: %v", d)
+	}
+	mustRun(t, "conn", "add", "r1", "redis://default@10.0.0.7:6379/0")
+	mustRun(t, "conn", "add", "r2", "redis://default@10.0.0.8:6379/0")
+	if d := mustRun(t, "conn", "rm", "kind:redis"); len(d["removed"].([]any)) != 2 {
+		t.Errorf("conn rm selector: %v", d)
+	}
+	wantCode(t, "HOST_NOT_FOUND", "host", "rm", "nosuch")
+}
+
+func TestInvEmptyListText(t *testing.T) {
+	if s := (targetList{Targets: []targetRow{}, empty: true}).Text(); !strings.Contains(s, "No servers or conns yet") {
+		t.Errorf("text: %q", s)
+	}
+}

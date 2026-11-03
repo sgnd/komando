@@ -498,22 +498,23 @@ func hostShowCmd() *cobra.Command {
 
 func hostRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm NAME...",
+		Use:   "rm NAME|TARGET...",
 		Short: "Remove host(s) from the inventory (does not touch the server)",
-		Args:  cobra.MinimumNArgs(1),
+		Example: `  komando host rm web3
+  komando host rm @old --dry-run     # what a selector would remove
+  komando host rm 'tmp-*'`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var names []string
 			err := store.Update(func(s *store.State) error {
 				var prot []string
 				batch := map[string]bool{}
-				for _, n := range args {
-					h, err := findHost(s, n)
-					if err != nil {
-						return err
-					}
-					if !batch[h.Name] {
-						names = append(names, h.Name)
-					}
+				hosts, err := rmHosts(s, args)
+				if err != nil {
+					return err
+				}
+				for _, h := range hosts {
+					names = append(names, h.Name)
 					batch[h.Name] = true
 					if h.Protected {
 						prot = append(prot, h.Name)
@@ -548,7 +549,7 @@ func hostRmCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "host.rm", names, "", true, nil)
-			out.P.Print("host.rm", map[string]any{"removed": names}, nil)
+			out.P.Print("host.rm", rmResult{Removed: names}, nil)
 			return nil
 		},
 	}

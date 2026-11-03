@@ -328,19 +328,21 @@ func connShowCmd() *cobra.Command {
 
 func connRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm NAME...",
+		Use:   "rm NAME|TARGET...",
 		Short: "Remove conn(s) from the inventory (does not touch the resource)",
-		Args:  cobra.MinimumNArgs(1),
+		Example: `  komando conn rm shop-2
+  komando conn rm kind:redis --dry-run`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var names []string
 			err := store.Update(func(s *store.State) error {
 				var prot []string
 				names = nil
-				for _, n := range args {
-					c, err := findConn(s, n)
-					if err != nil {
-						return err
-					}
+				conns, err := rmConns(s, args)
+				if err != nil {
+					return err
+				}
+				for _, c := range conns {
 					names = append(names, c.Name)
 					if c.Protected {
 						prot = append(prot, c.Name)
@@ -358,7 +360,7 @@ func connRmCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "conn.rm", nil, "", true, map[string]any{"conns": names})
-			out.P.Print("conn.rm", map[string]any{"removed": names}, nil)
+			out.P.Print("conn.rm", rmResult{Removed: names}, nil)
 			return nil
 		},
 	}

@@ -35,6 +35,11 @@ q $K host add t-e2einv3 agent@10.9.9.1
 q $K host add t-e2einv4 agent@10.9.9.2 --via t-e2einv3
 check "rm a via host alone" HOST_IN_USE "$($K host rm t-e2einv3 | code)"
 check "rm both together" ok "$($K host rm t-e2einv3 t-e2einv4 | code)"
+q $K host add t-e2einv6 agent@10.9.9.6
+q $K host add t-e2einv7 agent@10.9.9.7
+check "rm a selector --dry-run lists it" 2 "$($K host rm 't-e2einv*' --dry-run | jget 'len(d["data"]["removed"])')"
+check "rm a selector" ok "$($K host rm 't-e2einv*' | code)"
+check "rm @group with a protected host" PROTECTED_HOST "$($K host rm @lab | code)"
 
 # host trust --reset --dry-run changes nothing
 N1=$($K host trust direct --reset --dry-run | jget 'd["data"]["would_remove_entries"]')

@@ -32,9 +32,16 @@ type targetRow struct {
 type targetList struct {
 	Count   int         `json:"count"`
 	Targets []targetRow `json:"targets"`
+	empty   bool        // the inventory itself is empty
 }
 
+// emptyInventory is what a person reads when there is nothing yet.
+const emptyInventory = "No servers or conns yet. Add one: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)"
+
 func (l targetList) Text() string {
+	if l.empty {
+		return emptyInventory + "\n"
+	}
 	var sb strings.Builder
 	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
 	fmt.Fprintln(tw, "NAME\tKIND\tWHERE\tVIA\tGROUPS\tTAGS\tPROTECTED")
@@ -85,7 +92,7 @@ func listCmdFor(only string) *cobra.Command {
 				}
 			}
 			sel = keepOnly(sel, only)
-			l := targetList{Targets: []targetRow{}}
+			l := targetList{Targets: []targetRow{}, empty: len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0}
 			for _, h := range sel.Hosts {
 				l.Targets = append(l.Targets, targetRow{Name: h.Name, Kind: "host",
 					Where: net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())), Via: h.Via,

@@ -75,7 +75,9 @@ func resolveSelection(st *store.State, expr string) (selection, error) {
 	}
 	if len(items) == 0 {
 		hint := "run `komando list` to see servers, conns, groups and tags"
-		if s := closestSelector(st, expr); s != "" {
+		if len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0 {
+			hint = "the inventory is empty. Add a server: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)"
+		} else if s := closestSelector(st, expr); s != "" {
 			hint = fmt.Sprintf("did you mean %q? (%s)", s, hint)
 		}
 		msg := fmt.Sprintf("target %q matched nothing", expr)
