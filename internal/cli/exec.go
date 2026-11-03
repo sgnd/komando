@@ -55,7 +55,7 @@ func (d execData) Text() string {
 					for _, line := range strings.SplitAfter(strings.TrimRight(r.Stderr, "\n"), "\n") {
 						sb.WriteString("[stderr] " + strings.TrimRight(line, "\n") + "\n")
 					}
-				} else {
+				} else if r.Error == nil || r.Error.Message != strings.TrimSpace(r.Stderr) { // else the closing line says it
 					fmt.Fprint(os.Stderr, out.SafeText(out.P.Redact(r.Stderr)))
 				}
 			}

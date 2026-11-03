@@ -570,7 +570,7 @@ func jobRmCmd() *cobra.Command {
 	var keepRemote, force bool
 	c := &cobra.Command{
 		Use:   "rm JOB_ID...",
-		Short: "Forget jobs and delete their remote log directories (a running job needs `job kill` or --force)",
+		Short: "Forget jobs and delete their remote log directories (a running job needs `job kill` or --kill)",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			removed := []string{}
@@ -586,7 +586,7 @@ func jobRmCmd() *cobra.Command {
 					}
 					if s.State == "running" {
 						if !force {
-							return out.Errf(out.ExitConflict, "JOB_RUNNING", "stop it first with `komando job kill "+id+"`, or pass --force to kill and remove it",
+							return out.Errf(out.ExitConflict, "JOB_RUNNING", "stop it first with `komando job kill "+id+"`, or pass --kill to stop and remove it",
 								"job %s is still running", id)
 						}
 						if !g.dryRun {
@@ -619,7 +619,7 @@ func jobRmCmd() *cobra.Command {
 		},
 	}
 	c.Flags().BoolVar(&keepRemote, "keep-remote", false, "keep the remote log directory")
-	c.Flags().BoolVar(&force, "force", false, "kill a running job first")
+	c.Flags().BoolVar(&force, "kill", false, "kill a running job first, then remove it")
 	return c
 }
 
