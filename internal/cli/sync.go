@@ -2,8 +2,8 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"mime"
