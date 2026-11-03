@@ -531,6 +531,12 @@ func fsWriteCmd() *cobra.Command {
 					return out.Usage("provide --content, --from FILE, or pipe data on stdin")
 				}
 			}
+			if out.HasHidden(string(data)) {
+				return hiddenValueErr()
+			}
+			if data, err = expandSecretRefsBytes(data); err != nil {
+				return err
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -646,12 +652,25 @@ func fsReplaceCmd() *cobra.Command {
 			if oldS == "" {
 				return out.Usage("--old is required")
 			}
+			if out.HasHidden(newS) {
+				return hiddenValueErr()
+			}
+			newS, err := expandSecretRefs(newS)
+			if err != nil {
+				return err
+			}
 			var re *regexp.Regexp
-			if isRegex {
-				var err error
+			switch {
+			case isRegex:
 				if re, err = regexp.Compile(oldS); err != nil {
 					return out.Usage("invalid regex: %v", err)
 				}
+			case strings.Contains(oldS, out.Hidden):
+				// a line an AI agent saw masked: [hidden] stands for the value
+				if re, err = regexp.Compile(hiddenPattern(oldS)); err != nil {
+					return out.Usage("--old: %v", err)
+				}
+				newS = strings.ReplaceAll(newS, "$", "$$")
 			}
 			st, err := loadState()
 			if err != nil {
@@ -790,13 +809,13 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 			for k, v := range vals {
 				fl[k] = *v
 			}
-			if strings.HasPrefix(use, "rm ") && fl["recursive"] && !g.allowDangerous {
+			if strings.HasPrefix(use, "rm ") && fl["recursive"] && !dangerOK() {
 				return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a folder and everything in it would be gone; confirm with the user, then add --allow-dangerous",
 					"rm --recursive deletes whole folders")
 			}
-			if strings.HasPrefix(use, "rm ") && !g.allowDangerous {
+			if strings.HasPrefix(use, "rm ") {
 				for _, p := range args[1:] {
-					if cp := path.Clean(p); cp == "/" || cp == "." || cp == "~" || strings.Count(cp, "/") <= 1 && strings.HasPrefix(cp, "/") {
+					if cp := path.Clean(p); (cp == "/" || cp == "." || cp == "~" || strings.Count(cp, "/") <= 1 && strings.HasPrefix(cp, "/")) && !dangerOK() {
 						return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "pass --allow-dangerous if truly intended",
 							"refusing to remove top-level path %q", p)
 					}

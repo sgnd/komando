@@ -3,9 +3,12 @@ BIN := bin/komando
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X github.com/sgnd/komando/internal/cli.Version=$(VERSION)
 
+STATICCHECK := v0.8.2
+GOVULNCHECK := v1.9.0
+
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
-.PHONY: help build install test e2e e2e-openvpn e2e-vpnclients lint dist clean
+.PHONY: help build install test security fuzz e2e e2e-openvpn e2e-vpnclients lint dist clean
 
 help: ## Show this help
 	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
@@ -28,9 +31,20 @@ e2e-openvpn: ## OpenVPN-in-a-container test against a throwaway OpenVPN server
 e2e-vpnclients: ## openconnect (ocserv) and Tailscale (Headscale) VPN kinds against real servers, in Docker
 	test/e2e/vpnclients/run.sh
 
-lint: ## gofmt + go vet
+security: ## Known vulnerabilities in the code and its modules (govulncheck)
+	go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK) ./...
+
+fuzz: ## Fuzz the parsers that see untrusted text, 30s each
+	go test ./internal/out -run '^$$' -fuzz '^FuzzMaskJSON$$' -fuzztime 30s
+	go test ./internal/out -run '^$$' -fuzz '^FuzzMaskSecrets$$' -fuzztime 30s
+	go test ./internal/policy -run '^$$' -fuzz '^FuzzCheck$$' -fuzztime 30s
+	go test ./internal/cli -run '^$$' -fuzz '^FuzzGuard$$' -fuzztime 30s
+	go test ./internal/cli -run '^$$' -fuzz '^FuzzHiddenPattern$$' -fuzztime 30s
+
+lint: ## gofmt + go vet + staticcheck
 	@test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)
 	go vet ./...
+	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK) ./...
 
 dist: ## Build release archives + checksums into ./dist
 	rm -rf dist && mkdir -p dist

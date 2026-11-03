@@ -419,6 +419,9 @@ Values are never printed unless 'secret get --reveal' is used.`,
 				}
 				v = strings.TrimRight(string(b), "\r\n")
 			}
+			if out.HasHidden(v) {
+				return hiddenValueErr()
+			}
 			if g.dryRun {
 				out.P.Print("secret.set", map[string]any{"name": args[0], "ref": "secret:" + args[0], "would_set": true}, nil)
 				return nil
@@ -444,7 +447,7 @@ Values are never printed unless 'secret get --reveal' is used.`,
 			if err != nil {
 				return err
 			}
-			reveal, _ := cmd.Flags().GetBool("reveal")
+			reveal := g.reveal
 			if reveal && !interactive() {
 				// agents never see passwords (docs/design/vision.md); a person at
 				// a terminal can still pipe the value, e.g. into pbcopy
@@ -462,7 +465,6 @@ Values are never printed unless 'secret get --reveal' is used.`,
 			return nil
 		},
 	}
-	get.Flags().Bool("reveal", false, "include the plaintext value")
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List secret names",

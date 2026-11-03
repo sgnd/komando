@@ -4,10 +4,12 @@ package out
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -101,8 +103,11 @@ type Printer struct {
 	// one show [secret:NAME] instead. It is called once, on first use.
 	Secrets  func() map[string]string
 	NoRedact bool // `secret get --reveal`: a person asked for the value
-	once     sync.Once
-	hide     []hidden
+	// Mask also hides values that look like passwords, keys and tokens
+	// (mask.go). It is on for AI agents.
+	Mask bool
+	once sync.Once
+	hide []hidden
 }
 
 type hidden struct{ raw, json, label string }
@@ -125,7 +130,15 @@ func (p *Printer) load() {
 			enc.SetEscapeHTML(false)
 			_ = enc.Encode(v)
 			j := strings.TrimSuffix(strings.TrimSpace(b.String()), `"`)
-			p.hide = append(p.hide, hidden{raw: v, json: strings.TrimPrefix(j, `"`), label: "[secret:" + name + "]"})
+			label := "[secret:" + name + "]"
+			p.hide = append(p.hide, hidden{raw: v, json: strings.TrimPrefix(j, `"`), label: label})
+			// the same value as it often travels: base64 (HTTP basic auth,
+			// Kubernetes secrets) and URL-encoded (connection strings)
+			for _, enc := range []string{base64.StdEncoding.EncodeToString([]byte(v)), url.QueryEscape(v)} {
+				if enc != v {
+					p.hide = append(p.hide, hidden{raw: enc, json: enc, label: label})
+				}
+			}
 		}
 		// longest first, so a secret that contains another is hidden whole
 		sort.Slice(p.hide, func(i, j int) bool { return len(p.hide[i].raw) > len(p.hide[j].raw) })
@@ -141,6 +154,9 @@ func (p *Printer) Redact(s string) string {
 	for _, h := range p.hide {
 		s = strings.ReplaceAll(s, h.raw, h.label)
 	}
+	if p.Mask {
+		s = MaskSecrets(s)
+	}
 	return s
 }
 
@@ -151,6 +167,9 @@ func (p *Printer) redactJSON(b []byte) []byte {
 	p.load()
 	for _, h := range p.hide {
 		b = bytes.ReplaceAll(b, []byte(h.json), []byte(h.label))
+	}
+	if p.Mask {
+		b = maskJSON(b)
 	}
 	return b
 }

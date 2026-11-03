@@ -5,8 +5,6 @@
 
 **One safe command line for all your DevOps work — servers, databases, caches, storage and more. For you and your AI agent.**
 
-🇮🇩 [Bahasa Indonesia](README.id.md)
-
 Most people juggle many tools: Termius for servers, TablePlus for databases,
 `redis-cli` for caches, a web console for storage, `kubectl` for clusters.
 Each has its own logins, its own commands and its own way to break things.
@@ -145,7 +143,7 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 Coming next: clusters (Kubernetes, k3s, Swarm),
 container registries, FTP, and importing what you already have (kubeconfig,
 `.pgpass`, AWS profiles, ...). See the
-[roadmap](docs/design/vision.md) (in Bahasa Indonesia).
+[roadmap](docs/design/vision.md).
 
 Every task, step by step, one page per feature: **[docs/features](docs/features/README.md)**.
 Help for any command: `komando <command> --help`.
@@ -180,8 +178,7 @@ More in the [glossary](docs/features/glossary.md).
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome — in English or Bahasa
-Indonesia. See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues:
+Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues:
 [SECURITY.md](SECURITY.md).
 
 ## License

@@ -10,7 +10,7 @@ services:
   headscale:
     image: headscale/headscale:0.26.1
     command: ["serve"]
-    volumes: ["./headscale.yaml:/etc/headscale/config.yaml:ro"]
+    volumes: ["./headscale.yml:/etc/headscale/config.yaml:ro"]
     tmpfs: ["/var/lib/headscale", "/var/run/headscale"]
     hostname: headscale
   peer:

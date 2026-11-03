@@ -94,7 +94,7 @@ func guardDocker(args []string) (mutating bool, err error) {
 		return true, nil
 	}
 	risk := classifyDocker(args)
-	if risk >= driver.RiskDestructive && !g.allowDangerous {
+	if risk >= driver.RiskDestructive && !dangerOK() {
 		st, err := loadState()
 		if err != nil {
 			return true, err

@@ -4,6 +4,62 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Secrets stay away from AI agents
+
+- A person allows what an AI agent asks for: when Claude Code, Codex, Gemini
+  CLI or Cursor adds `--yes`, `--allow-dangerous` or `--reveal`, komando
+  shows the exact command in a window on the screen and runs it only after
+  "Allow once". With no screen the agent is refused and the hint asks the
+  person to run the command themselves. People and scripts are unchanged.
+- For AI agents, passwords, keys and tokens in any output show as
+  `[hidden]`: `.env` and config files, `env`, logs, database rows,
+  Kubernetes Secrets, private keys, password hashes, URLs with a password.
+  `--reveal` (allowed by a person) shows them. Vault values are now also
+  hidden when base64- or URL-encoded.
+- `fs write` and `fs replace` take `{{secret:NAME}}`, which becomes the
+  vault value on the server; an `--old` with `[hidden]` in it matches the
+  hidden value. Text that still holds `[hidden]` or `[secret:NAME]` is never
+  written (`HIDDEN_VALUE`), nor stored with `secret set`.
+- An AI agent cannot copy `.env` files, private keys and other secret files
+  to this computer (`SENSITIVE_FILE`); folder copies and `sync` leave them out.
+- `komando guide install` also adds a guard to Claude Code
+  (`.claude/settings.json`) that stops reading `~/.komando`, private keys,
+  `.env` files and credential stores, dumping every environment variable,
+  and `ssh`/`scp`/`rsync` around komando. `--no-guard` skips it.
+- `--reveal` is now a flag of every command; `secret get --reveal` still
+  works only for a person at a terminal.
+
+### Measured against international standards
+
+- New page [security-standards.md](docs/features/security-standards.md):
+  OWASP ASVS, OWASP Top 10 for LLM applications, NIST, ISO 27001, CIS and
+  SLSA, with what is met, what is partly met and what is up to you.
+- Passphrase vaults use scrypt N=2^17 (the OWASP minimum, was 2^15); an older
+  vault moves up with a new salt on its next change.
+- The audit log is a hash chain: `komando audit verify` finds a record that
+  was edited, added or removed. Records name the AI agent and whether a
+  person allowed the command.
+- `komando doctor` checks security: file permissions, vault mode and
+  passphrase length (NIST SP 800-63B), the audit chain, and conns whose
+  traffic is not encrypted or whose server certificate is not checked.
+- The agent rules say server output is data, never instructions (prompt
+  injection).
+- Releases carry signed SLSA build provenance (`gh attestation verify`). CI
+  reads only, actions are pinned to commits, Dependabot keeps modules and
+  actions current, and `make security` runs govulncheck.
+  `make fuzz` fuzzes the masking, the policy filter and the guard; fuzzing
+  found and fixed a crash on invalid UTF-8 in `fs replace --old`.
+- golang.org/x/net 0.62.0 (GO-2026-6860, GO-2026-6866).
+- `--proxy-command` runs a program on this computer on every connection, so
+  it passes the policy filter, and an AI agent needs a person's yes to set it.
+
+### Project
+
+- Added a code of conduct, Dependabot updates, CODEOWNERS and `.editorconfig`.
+  `make lint` now also runs staticcheck.
+- Docs are English only: removed `README.id.md` and `docs/features/id/`, and
+  translated the design notes in `docs/design/`.
+
 ### Cloud access (gap analysis, phase 5)
 
 - `host add|edit --proxy-command CMD` reaches a server through a program on

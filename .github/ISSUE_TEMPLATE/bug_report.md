@@ -4,7 +4,7 @@ about: Something does not work as expected
 labels: bug
 ---
 
-<!-- English or Bahasa Indonesia are both fine. Remove passwords, IPs and other secrets. -->
+<!-- Please write in English. Remove passwords, IPs and other secrets. -->
 
 **What did you run?**
 

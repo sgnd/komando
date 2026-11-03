@@ -47,7 +47,7 @@ func guideCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.AddCommand(guideInstallCmd())
+	c.AddCommand(guideInstallCmd(), guideGuardCmd())
 	return c
 }
 
@@ -68,7 +68,7 @@ type skillFile struct {
 }
 
 func guideInstallCmd() *cobra.Command {
-	var project bool
+	var project, noGuard bool
 	c := &cobra.Command{
 		Use:   "install",
 		Short: "Teach your AI agents komando: add the komando skill for Claude Code, Codex, Cursor, Gemini CLI",
@@ -77,8 +77,15 @@ skills from: ~/.claude/skills (Claude Code) and ~/.agents/skills (Codex,
 Cursor, Gemini CLI and others). The agent then uses komando by itself whenever
 a task touches a server, database, cache or storage.
 
+It also adds a guard to Claude Code (.claude/settings.json): before Claude
+reads a file or runs a shell command on this computer, komando checks it and
+stops the ones that would read secrets: ~/.komando, private keys, .env files,
+credential stores, all environment variables at once, or ssh around komando.
+Skip it with --no-guard.
+
 Safe to run again, for example after an update: a changed file is kept as
-SKILL.md.bak. Remove the skill by deleting the komando folders.`,
+.bak. Remove the skill by deleting the komando folders, and the guard by
+deleting its entry under hooks in .claude/settings.json.`,
 		Example: `  komando guide install             # for every project on this computer
   komando guide install --project   # only for the folder you are in
   komando guide install --dry-run   # show where it would go`,
@@ -99,11 +106,20 @@ SKILL.md.bak. Remove the skill by deleting the komando folders.`,
 				}
 				files = append(files, f)
 			}
+			if !noGuard {
+				// Claude Code asks komando before each tool call (guard.go)
+				f, err := installGuardHook(filepath.Join(base, ".claude", "settings.json"), komandoPath(), g.dryRun)
+				if err != nil {
+					return out.Errf(out.ExitError, "WRITE_FAILED", "fix the file, or pass --no-guard to skip the guard", "%v", err)
+				}
+				files = append(files, f)
+			}
 			out.P.Print("guide.install", skillResult{Files: files}, nil)
 			return nil
 		},
 	}
 	c.Flags().BoolVar(&project, "project", false, "install into the current folder instead of your home folder")
+	c.Flags().BoolVar(&noGuard, "no-guard", false, "do not add the guard that keeps Claude Code away from secret files on this computer")
 	return c
 }
 
@@ -331,6 +347,7 @@ func auditCmd() *cobra.Command {
 			return nil
 		},
 	}
+	c.AddCommand(auditVerifyCmd())
 	c.Flags().IntVarP(&limit, "limit", "n", 50, "last N entries")
 	c.Flags().StringVar(&target, "target", "", "only entries for these servers or conns (a selector, e.g. @prod)")
 	aliasFlag(c.Flags(), "host", "target")
@@ -552,7 +569,7 @@ func policyCmd() *cobra.Command {
 func doctorCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
-		Short: "Check the local setup (state dir, vault, ssh-agent, keys, inventory)",
+		Short: "Check the local setup (state dir, vault, ssh-agent, keys, inventory) and its security",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			type check struct {
@@ -608,11 +625,17 @@ func doctorCmd() *cobra.Command {
 					ok = false
 				}
 			}
+			security := securityChecks(st)
+			for _, c := range security {
+				if !c.OK {
+					ok = false
+				}
+			}
 			var soft *out.Error
 			if !ok {
 				soft = out.Errf(out.ExitError, "DOCTOR_FAILED", "fix the failing checks above", "some checks failed")
 			}
-			out.P.Print("doctor", map[string]any{"checks": checks}, soft)
+			out.P.Print("doctor", map[string]any{"checks": checks, "security": security}, soft)
 			if soft != nil {
 				return exitCode(1)
 			}

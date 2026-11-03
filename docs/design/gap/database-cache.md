@@ -1,621 +1,621 @@
-# Gap analysis: database dan cache (komando `feat/v0.3`, commit 4784fc9)
+# Gap analysis: databases and caches (komando `feat/v0.3`, commit 4784fc9)
 
-Cakupan: `komando db` (postgres, mysql/mariadb, sqlite), `komando cache` (redis/valkey/keydb/dragonfly),
-dan engine data yang belum didukung. Dibandingkan dengan psql, pgcli, mysql, mycli, sqlite3, usql,
+Scope: `komando db` (postgres, mysql/mariadb, sqlite), `komando cache` (redis/valkey/keydb/dragonfly),
+and data engines that are not supported yet. Compared with psql, pgcli, mysql, mycli, sqlite3, usql,
 DBeaver/DataGrip, pg_dump/pg_restore/pg_dumpall, mysqldump/mydumper, pg_activity/pg_top, pgbench,
 golang-migrate/dbmate/Flyway/Atlas/sqitch, PgBouncer admin, redis-cli, RedisInsight, memcached tools,
-mongosh, sqlcmd, sqlplus, clickhouse-client, cqlsh, curl ke Elasticsearch/OpenSearch, influx, cockroach,
+mongosh, sqlcmd, sqlplus, clickhouse-client, cqlsh, curl to Elasticsearch/OpenSearch, influx, cockroach,
 aws dynamodb, kcat/kafka-topics, rabbitmqadmin, nats, etcdctl, consul.
 
-Metode: membaca `internal/cli/db.go`, `dbdump.go`, `dbshell.go`, `cache.go`, `conn.go`, `everything.go`,
+Method: read `internal/cli/db.go`, `dbdump.go`, `dbshell.go`, `cache.go`, `conn.go`, `everything.go`,
 `meta.go`, `ops.go`, `internal/dbx/*`, `internal/cachex/cachex.go`, `internal/driver/*`, docs
 (`vision.md`, `resources-and-db.md`, `ux.md`, `features/databases.md`, `features/caches.md`), plus
-`bin/komando ... --help` dan `komando policy check --for ...` (offline, tanpa koneksi ke server mana pun).
+`bin/komando ... --help` and `komando policy check --for ...` (offline, with no connection to any server).
 
-## Legenda
+## Legend
 
-- **ADA**: ada perintah/flag first-class yang aman dan terstruktur.
-- **SEBAGIAN**: bisa, tapi lewat jalur mentah (`db query`, `cache run`, `exec`, `db shell`, `tunnel`) atau fiturnya kurang lengkap. Kolom catatan menyebut apa yang kurang.
-- **TIDAK ADA**: tidak ada jalur yang wajar di komando (workaround di luar komando disebut kalau ada).
-- **NON-GOAL**: sengaja tidak dibuat; alasan dikutip dari dokumen desain.
-- Prioritas: **P1** kebutuhan harian / keamanan / penghambat agent; **P2** berguna; **P3** niche. Baris ADA dan NON-GOAL diberi `-`.
+- **PRESENT**: there is a safe, structured, first-class command/flag.
+- **PARTIAL**: possible, but through a raw path (`db query`, `cache run`, `exec`, `db shell`, `tunnel`) or the feature is incomplete. The notes column says what is missing.
+- **MISSING**: no reasonable path in komando (a workaround outside komando is named if there is one).
+- **NON-GOAL**: deliberately not built; the reason is quoted from the design documents.
+- Priority: **P1** daily need / security / agent blocker; **P2** useful; **P3** niche. PRESENT and NON-GOAL rows get `-`.
 
-Kutipan non-goal yang dipakai berulang:
+Non-goal quotes used repeatedly:
 
-- **NG-1** (vision.md, Bukan tujuan): "Mengganti alat lengkap (`psql`, `kubectl`, `terraform`, `helm`). komando menangani 80% pekerjaan harian dengan aman. Sisanya tetap bisa dikerjakan lewat `exec` di host atau alat aslinya."
-- **NG-2** (resources-and-db.md, Bukan tujuan): "Menjadi klien DB lengkap (REPL, migrasi, ORM). Untuk itu sudah ada `psql`/`usql`."
-- **NG-3** (vision.md): "GUI, TUI, sistem plugin, atau daemon/server. komando tetap CLI murni."
-- **NG-4** (vision.md): "Monitoring atau alerting yang berjalan terus-menerus."
-- **NG-5** (vision.md, Aturan teknis): "Tanpa pool dan tanpa daemon. Satu koneksi per perintah."
-- **NG-6** (vision.md): "Infrastructure as Code, provisioning cloud, atau GitOps."
+- **NG-1** (vision.md, Non-goals): "Replacing full tools (`psql`, `kubectl`, `terraform`, `helm`). komando handles 80% of daily work safely. The rest can still be done through `exec` on the host or the original tool."
+- **NG-2** (resources-and-db.md, Non-goals): "Being a full DB client (REPL, migrations, ORM). `psql`/`usql` already exist for that."
+- **NG-3** (vision.md): "GUI, TUI, plugin system, or daemon/server. komando stays a pure CLI."
+- **NG-4** (vision.md): "Monitoring or alerting that runs continuously."
+- **NG-5** (vision.md, Technical rules): "No pool and no daemon. One connection per command."
+- **NG-6** (vision.md): "Infrastructure as Code, cloud provisioning, or GitOps."
 
-Fakta teknis yang memengaruhi prioritas:
+Technical facts that affect priority:
 
-- Ukuran biner: build rilis (`-s -w -trimpath`, CGO_ENABLED=0) **34,7 MB** (`bin/komando` 51 MB di repo adalah build dev tanpa strip). Ukuran biner tidak lagi dibatasi (keputusan pemilik), jadi driver baru (Mongo, MSSQL, ClickHouse, Cassandra) dinilai dari kebutuhan harian, bukan ukuran.
-- `db dump/restore` memakai `pg_dump`/`psql`/`mysqldump`/`mysql` eksternal (di laptop atau di host `--via`), bukan Go murni.
+- Binary size: the release build (`-s -w -trimpath`, CGO_ENABLED=0) is **34.7 MB** (`bin/komando` at 51 MB in the repo is an unstripped dev build). Binary size is no longer capped (owner decision), so new drivers (Mongo, MSSQL, ClickHouse, Cassandra) are judged by daily need, not size.
+- `db dump/restore` uses external `pg_dump`/`psql`/`mysqldump`/`mysql` (on the laptop or on the `--via` host), not pure Go.
 
 ---
 
-## 1. Koneksi dan inventaris database
+## 1. Database connections and inventory
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Daftarkan DB dengan URL, password di vault | psql (`PG*` env, `.pgpass`), mysql (`.my.cnf`), usql, DBeaver | ADA | `conn add NAME URL --password-ref secret:X`; URL berpassword ditolak (`URL_HAS_PASSWORD`, `driver.Parse`) | - |
-| PostgreSQL | psql, pgcli | ADA | kind `postgres`/`postgresql` (pgx v5, Go murni) | - |
-| MySQL / MariaDB | mysql, mycli, mariadb | ADA | kind `mysql`/`mariadb`; MariaDB `max_statement_time` fallback (`dbx.setTimeout`) | - |
-| SQLite (file lokal) | sqlite3 | ADA | `sqlite:///path` (modernc, tanpa cgo); `mode=ro` + `query_only` tanpa `--write` | - |
-| SQLite di server remote (file di host SSH) | sqlite3 via ssh | TIDAK ADA | `conn.go:94` "conns are local files; --via is not supported". Workaround: `exec host -- sqlite3 ...` (tanpa klasifikasi SQL) atau `download` lalu query lokal | P2 (SQLite di VPS kecil umum: app Rails/Django/PocketBase) |
-| Jangkau DB lewat bastion (`--via`), tanpa port lokal | ssh -L + psql, DBeaver SSH tunnel | ADA | `conn add --via HOST`; dial di dalam proses (pgx `DialFunc`, mysql `RegisterDialContext`) | - |
-| Jangkau DB lewat VPN | DBeaver + VPN OS | ADA | `--via office,bastion` (VPN kinds) | - |
-| TLS Postgres (sslmode, sslrootcert, client cert) | psql `sslmode`/`sslrootcert`/`sslcert` | SEBAGIAN | pgx membaca semua parameter `ssl*` dari URL. Tapi `db shell` hanya meneruskan `PGSSLMODE` (`dbshell.go`), bukan `sslrootcert`/`sslcert`; `db dump` meneruskan URL utuh ke `pg_dump` (ok). Path cert berupa file lokal, tidak lewat vault | P2 |
-| TLS MySQL dengan CA sendiri / client cert | mysql `--ssl-ca`, `--ssl-cert` | SEBAGIAN | Hanya `tls=` true, false, skip-verify, preferred (`dbx/mysql.go`); CA kustom butuh `mysql.RegisterTLSConfig` yang tidak dipakai. Edge case ux.md: "TLS dengan sertifikat self-signed: opsi eksplisit per conn" | P2 (RDS/Azure/self-hosted dengan CA privat) |
-| Unix socket lokal (`/var/run/postgresql`, `mysql.sock`) | psql, mysql | TIDAK ADA | `driver.Parse` mewajibkan hostname. Workaround: TCP ke 127.0.0.1 lewat `--via` server itu | P3 |
-| Login IAM / token cloud (RDS IAM, Cloud SQL IAM, Azure AD) | aws rds generate-db-auth-token + psql, cloud-sql-proxy | TIDAK ADA | Ref secret statis saja (`secret:`/`env:`/`file:`/`aws-sm:`...). Token 15 menit perlu dibuat per koneksi | P2 (makin umum di AWS/GCP; cocok dengan model ref `aws-rds-iam:`) |
-| `pg_service.conf` / `~/.pgpass` / `~/.my.cnf` | psql, mysql | ADA | `komando import pgpass`, `import mycnf`, `import env`, `import dbeaver` (importer.go). `pg_service.conf` tidak diimpor | - (pg_service: P3) |
-| Cek koneksi **dan login** + versi server | `pg_isready`, `psql -c 'select 1'`, `redis-cli ping` | SEBAGIAN | **Bug/celah**: `komando test` untuk conn hanya membuka TCP (`conn.go testConn`, `Check: "tcp"`) dan mengecek ref password bisa dibaca. Login, auth, nama DB salah, TLS, dan versi server tidak dicek, padahal `--help` bilang "reached and logged in to" dan resources-and-db.md menjanjikan "connect + ping + versi server" | **P1** (agent mengandalkan `test` sebelum bekerja; error auth baru muncul belakangan) |
-| Query ke banyak DB sekaligus (`db query @prod`) | usql (tidak), skrip loop, DataGrip "run on multiple" | TIDAK ADA | Ditolak dengan pesan jelas (`singleConn`; ux.md "Berikutnya") | P2 (cek versi/ukuran di 20 DB tenant; selector universal sudah ada) |
-| Pilih DB lain di server yang sama tanpa conn baru | psql `\c dbname`, mysql `USE` | SEBAGIAN | `USE` di mysql hanya untuk satu perintah; tidak ada `--database` override. Workaround: conn baru per DB | P3 |
-| Replika baca / routing read-only ke replica | pgcli? (tidak), aplikasi | TIDAK ADA | Workaround: conn terpisah untuk replica (`--tag replica`) | P3 |
-| Postgres-wire lain: CockroachDB, YugabyteDB, Neon, Supabase, Timescale, Redshift, AlloyDB | cockroach sql, psql | SEBAGIAN | Query lewat `postgres://` kemungkinan jalan (pgx, `SHOW standard_conforming_strings`, `BEGIN READ ONLY`). Belum diuji; `db schema` memakai `pg_class` (CockroachDB mendukung sebagian), `db dump` dengan `pg_dump` tidak didukung CockroachDB; Redshift tidak mendukung semua katalog | P2 (perlu tes + catatan kompatibilitas) |
-| MySQL-wire lain: TiDB, Vitess/PlanetScale, Aurora, SingleStore | mysql | SEBAGIAN | Lewat `mysql://`; belum diuji (PlanetScale: `START TRANSACTION READ ONLY` didukung; `mysqldump` ke Vitess terbatas) | P3 |
+| Register a DB with a URL, password in the vault | psql (`PG*` env, `.pgpass`), mysql (`.my.cnf`), usql, DBeaver | PRESENT | `conn add NAME URL --password-ref secret:X`; a URL with a password is rejected (`URL_HAS_PASSWORD`, `driver.Parse`) | - |
+| PostgreSQL | psql, pgcli | PRESENT | kind `postgres`/`postgresql` (pgx v5, pure Go) | - |
+| MySQL / MariaDB | mysql, mycli, mariadb | PRESENT | kind `mysql`/`mariadb`; MariaDB `max_statement_time` fallback (`dbx.setTimeout`) | - |
+| SQLite (local file) | sqlite3 | PRESENT | `sqlite:///path` (modernc, no cgo); `mode=ro` + `query_only` without `--write` | - |
+| SQLite on a remote server (file on an SSH host) | sqlite3 via ssh | MISSING | `conn.go:94` "conns are local files; --via is not supported". Workaround: `exec host -- sqlite3 ...` (no SQL classification) or `download` and then query locally | P2 (SQLite on small VPSes is common: Rails/Django/PocketBase apps) |
+| Reach a DB through a bastion (`--via`), with no local port | ssh -L + psql, DBeaver SSH tunnel | PRESENT | `conn add --via HOST`; dial inside the process (pgx `DialFunc`, mysql `RegisterDialContext`) | - |
+| Reach a DB through a VPN | DBeaver + OS VPN | PRESENT | `--via office,bastion` (VPN kinds) | - |
+| Postgres TLS (sslmode, sslrootcert, client cert) | psql `sslmode`/`sslrootcert`/`sslcert` | PARTIAL | pgx reads all `ssl*` parameters from the URL. But `db shell` only passes `PGSSLMODE` (`dbshell.go`), not `sslrootcert`/`sslcert`; `db dump` passes the full URL to `pg_dump` (ok). Cert paths are local files, not from the vault | P2 |
+| MySQL TLS with own CA / client cert | mysql `--ssl-ca`, `--ssl-cert` | PARTIAL | Only `tls=` true, false, skip-verify, preferred (`dbx/mysql.go`); a custom CA needs `mysql.RegisterTLSConfig`, which is not used. ux.md edge case: "TLS with self-signed certificates: explicit option per conn" | P2 (RDS/Azure/self-hosted with a private CA) |
+| Local Unix socket (`/var/run/postgresql`, `mysql.sock`) | psql, mysql | MISSING | `driver.Parse` requires a hostname. Workaround: TCP to 127.0.0.1 through `--via` that server | P3 |
+| IAM login / cloud token (RDS IAM, Cloud SQL IAM, Azure AD) | aws rds generate-db-auth-token + psql, cloud-sql-proxy | MISSING | Static secret refs only (`secret:`/`env:`/`file:`/`aws-sm:`...). A 15-minute token must be made per connection | P2 (more and more common on AWS/GCP; fits the ref model as `aws-rds-iam:`) |
+| `pg_service.conf` / `~/.pgpass` / `~/.my.cnf` | psql, mysql | PRESENT | `komando import pgpass`, `import mycnf`, `import env`, `import dbeaver` (importer.go). `pg_service.conf` is not imported | - (pg_service: P3) |
+| Check connection **and login** + server version | `pg_isready`, `psql -c 'select 1'`, `redis-cli ping` | PARTIAL | **Bug/gap**: `komando test` for a conn only opens TCP (`conn.go testConn`, `Check: "tcp"`) and checks that the password ref can be read. Login, auth, wrong DB name, TLS and server version are not checked, even though `--help` says "reached and logged in to" and resources-and-db.md promises "connect + ping + server version" | **P1** (agents rely on `test` before working; auth errors only show up later) |
+| Query many DBs at once (`db query @prod`) | usql (no), loop scripts, DataGrip "run on multiple" | MISSING | Rejected with a clear message (`singleConn`; ux.md "Next") | P2 (check version/size on 20 tenant DBs; the universal selector already exists) |
+| Pick another DB on the same server without a new conn | psql `\c dbname`, mysql `USE` | PARTIAL | `USE` in mysql only lasts for one command; there is no `--database` override. Workaround: a new conn per DB | P3 |
+| Read replica / read-only routing to a replica | pgcli? (no), application | MISSING | Workaround: a separate conn for the replica (`--tag replica`) | P3 |
+| Other Postgres-wire: CockroachDB, YugabyteDB, Neon, Supabase, Timescale, Redshift, AlloyDB | cockroach sql, psql | PARTIAL | Queries through `postgres://` probably work (pgx, `SHOW standard_conforming_strings`, `BEGIN READ ONLY`). Not tested yet; `db schema` uses `pg_class` (CockroachDB supports part of it), `db dump` with `pg_dump` is not supported by CockroachDB; Redshift does not support all catalogs | P2 (needs tests + compatibility notes) |
+| Other MySQL-wire: TiDB, Vitess/PlanetScale, Aurora, SingleStore | mysql | PARTIAL | Through `mysql://`; not tested yet (PlanetScale: `START TRANSACTION READ ONLY` is supported; `mysqldump` to Vitess is limited) | P3 |
 
-## 2. Menjalankan query
+## 2. Running queries
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Jalankan SQL apa pun | psql `-c`, mysql `-e`, sqlite3, usql | ADA | `db query CONN "SQL"` | - |
-| Read-only default, ditegakkan server | (tidak ada di psql; DBeaver "read-only connection") | ADA | `BEGIN READ ONLY` / `START TRANSACTION READ ONLY` / sqlite `mode=ro` (`dbx.Run`) | - |
-| Klasifikasi risiko sebelum kirim | (tidak ada) | ADA | `driver.ClassifySQL`; aturan `sql-drop`, `sql-delete-no-where`, `sql-kill`, dll.; `policy check --for postgres "..."` | - |
-| Dry-run tulis dengan rollback | (manual BEGIN/ROLLBACK) | ADA | `--write --dry-run` → `rows_affected` + `rolled_back` | - |
-| SQL dari file / stdin | psql `-f`, `\i`, mysql `< file` | ADA | `--file FILE`, `--file -` | - |
-| Parameter binding | psql `\bind` (16+), `-v` | ADA | `--arg` berurutan (`$1`/`?`), hanya untuk 1 statement | - |
-| Variabel bernama / substitusi (`:var`, `\set`) | psql `-v`, `\set`, `\gset` | TIDAK ADA | Hanya `--arg` posisi; `\gset` (hasil → variabel) tidak ada | P3 |
-| Multi-statement dalam satu transaksi atomik | psql `--single-transaction` | ADA | Satu `db query` = satu transaksi; `BEGIN/COMMIT` ditolak (`SQL_TX_CONTROL`) | - |
-| Transaksi interaktif lintas perintah (BEGIN … periksa … COMMIT) | psql, mysql REPL | NON-GOAL | NG-5 "Satu koneksi per perintah"; desain sengaja (resources-and-db.md). Pengganti: `--write --dry-run` lalu `--write` | - |
-| Savepoint | psql | NON-GOAL | `SAVEPOINT` ditolak (`txControl`); konsekuensi model satu transaksi | - |
-| Statement non-transaksional (VACUUM, CREATE INDEX CONCURRENTLY, DDL MySQL) | psql | ADA | Harus dikirim sendirian; dry-run hanya melapor (`Statement.NoTx`) | - |
-| Timeout query | psql `statement_timeout`, mysql `max_execution_time` | ADA | `--timeout` (default 30 detik), di-set di server | - |
-| `lock_timeout` (jangan menunggu lock lama) | psql `SET lock_timeout` | SEBAGIAN | Tidak di-set; hanya `statement_timeout`. ux.md edge case "db: lock lama (`lock_timeout`)" belum ditutup. Bisa manual `SET lock_timeout` dalam query yang sama | P2 (DDL di produksi bisa antre di belakang lock dan memblok semua query lain selama 30 detik) |
-| `idle_in_transaction_session_timeout`, `application_name` | psql | ADA | `application_name = komando/<actor>` (terlihat di `pg_stat_activity`); transaksi selalu ditutup per perintah | - |
-| Batalkan query (Ctrl-C) | psql Ctrl-C | ADA | context cancel + timeout server | - |
-| EXPLAIN / EXPLAIN ANALYZE | psql, pgcli, DataGrip | ADA | `db explain [--analyze]` (Postgres `ANALYZE, BUFFERS`; MySQL `EXPLAIN ANALYZE`; SQLite `QUERY PLAN`) | - |
-| EXPLAIN format JSON / visualisasi (explain.dalibo, pev2) | psql, DataGrip | SEBAGIAN | Bisa `db query "explain (format json) ..."`; tidak ada flag `--format json` atau ringkasan node terlambat | P3 |
-| `\gexec` (jalankan hasil query sebagai SQL) | psql | TIDAK ADA | Disengaja tidak ada (berbahaya untuk agent); bisa dua langkah manual | P3 |
-| `\watch` (ulang query tiap N detik) | psql `\watch`, `watch` | TIDAK ADA | Tidak ada `--repeat/--interval`. Mode terus-menerus bertabrakan dengan NG-4; versi terbatas (`--repeat 5 --interval 2s`) masih cocok | P3 |
-| `\timing` | psql, mysql | ADA | `meta.duration_ms` di setiap jawaban (total, bukan per statement) | - |
-| Pengaman MySQL `--safe-updates` | mysql `--safe-updates` | ADA | Setara/lebih kuat: `sql-update-no-where`, `sql-delete-no-where` | - |
-| Hasil per statement terstruktur | (tidak ada di psql) | ADA | `data.results[]` dengan `columns`, `rows`, `row_count`, `rows_affected` | - |
-| Tipe data aman JSON (bigint, numeric, bytea, timestamp UTC) | — | ADA | `driver.JSONValue`; > 2^53 jadi string, biner → `{"base64":...}` | - |
+| Run any SQL | psql `-c`, mysql `-e`, sqlite3, usql | PRESENT | `db query CONN "SQL"` | - |
+| Read-only by default, enforced by the server | (not in psql; DBeaver "read-only connection") | PRESENT | `BEGIN READ ONLY` / `START TRANSACTION READ ONLY` / sqlite `mode=ro` (`dbx.Run`) | - |
+| Risk classification before sending | (none) | PRESENT | `driver.ClassifySQL`; rules `sql-drop`, `sql-delete-no-where`, `sql-kill`, etc.; `policy check --for postgres "..."` | - |
+| Write dry-run with rollback | (manual BEGIN/ROLLBACK) | PRESENT | `--write --dry-run` → `rows_affected` + `rolled_back` | - |
+| SQL from a file / stdin | psql `-f`, `\i`, mysql `< file` | PRESENT | `--file FILE`, `--file -` | - |
+| Parameter binding | psql `\bind` (16+), `-v` | PRESENT | positional `--arg` (`$1`/`?`), only for 1 statement | - |
+| Named variables / substitution (`:var`, `\set`) | psql `-v`, `\set`, `\gset` | MISSING | Only positional `--arg`; `\gset` (result → variable) does not exist | P3 |
+| Multiple statements in one atomic transaction | psql `--single-transaction` | PRESENT | One `db query` = one transaction; `BEGIN/COMMIT` is rejected (`SQL_TX_CONTROL`) | - |
+| Interactive transaction across commands (BEGIN … inspect … COMMIT) | psql, mysql REPL | NON-GOAL | NG-5 "One connection per command"; deliberate design (resources-and-db.md). Replacement: `--write --dry-run` then `--write` | - |
+| Savepoint | psql | NON-GOAL | `SAVEPOINT` is rejected (`txControl`); a consequence of the one-transaction model | - |
+| Non-transactional statements (VACUUM, CREATE INDEX CONCURRENTLY, MySQL DDL) | psql | PRESENT | Must be sent alone; dry-run only reports (`Statement.NoTx`) | - |
+| Query timeout | psql `statement_timeout`, mysql `max_execution_time` | PRESENT | `--timeout` (default 30 seconds), set on the server | - |
+| `lock_timeout` (do not wait long for a lock) | psql `SET lock_timeout` | PARTIAL | Not set; only `statement_timeout`. ux.md edge case "db: long lock (`lock_timeout`)" is not closed yet. You can run `SET lock_timeout` manually in the same query | P2 (DDL in production can queue behind a lock and block all other queries for 30 seconds) |
+| `idle_in_transaction_session_timeout`, `application_name` | psql | PRESENT | `application_name = komando/<actor>` (visible in `pg_stat_activity`); the transaction is always closed per command | - |
+| Cancel a query (Ctrl-C) | psql Ctrl-C | PRESENT | context cancel + server timeout | - |
+| EXPLAIN / EXPLAIN ANALYZE | psql, pgcli, DataGrip | PRESENT | `db explain [--analyze]` (Postgres `ANALYZE, BUFFERS`; MySQL `EXPLAIN ANALYZE`; SQLite `QUERY PLAN`) | - |
+| EXPLAIN in JSON format / visualization (explain.dalibo, pev2) | psql, DataGrip | PARTIAL | Possible with `db query "explain (format json) ..."`; no `--format json` flag or summary of slowest nodes | P3 |
+| `\gexec` (run query results as SQL) | psql | MISSING | Deliberately absent (dangerous for agents); can be done in two manual steps | P3 |
+| `\watch` (repeat a query every N seconds) | psql `\watch`, `watch` | MISSING | No `--repeat/--interval`. A continuous mode conflicts with NG-4; a limited version (`--repeat 5 --interval 2s`) still fits | P3 |
+| `\timing` | psql, mysql | PRESENT | `meta.duration_ms` in every answer (total, not per statement) | - |
+| MySQL `--safe-updates` safeguard | mysql `--safe-updates` | PRESENT | Equal/stronger: `sql-update-no-where`, `sql-delete-no-where` | - |
+| Structured result per statement | (not in psql) | PRESENT | `data.results[]` with `columns`, `rows`, `row_count`, `rows_affected` | - |
+| JSON-safe data types (bigint, numeric, bytea, timestamp UTC) | — | PRESENT | `driver.JSONValue`; > 2^53 becomes a string, binary → `{"base64":...}` | - |
 
-## 3. Output, paging, ekspor, impor data
+## 3. Output, paging, data export and import
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Output tabel teks | psql aligned, mysql table | ADA | `-o text` (tabwriter, potong sel > 80 karakter) | - |
-| Output JSON | usql `-J`, psql `\pset format json` (17+) | ADA | `-o json` (envelope stabil) | - |
-| Mode expanded / vertikal (`\x`, `\G`) | psql `\x`, mysql `\G`, pgcli | TIDAK ADA | Tabel lebar terpotong di terminal; tidak ada `-o vertical` | P3 |
-| Ekspor CSV/TSV/Markdown | psql `\copy ... csv`, `--csv`, sqlite3 `.mode csv`, DBeaver export, mycli `--csv` | TIDAK ADA | `-o` hanya `auto`, `json`, `text`. Workaround: `-o json` lalu jq `@csv` | P2 (permintaan "kirim data ini sebagai CSV" sangat umum) |
-| Ekspor hasil besar ke file (streaming, tanpa batas 500 baris / 256 KiB) | psql `\copy (query) TO file`, `\o file`, DBeaver export | SEBAGIAN | `--limit 0` + `--max-output` besar; semua ditampung di memori dan dicetak sekali. `COPY ... TO STDOUT` tidak didukung lewat `database/sql` | P2 |
-| Paging hasil (offset/cursor, "halaman berikutnya") | pgcli pager, DataGrip, psql `FETCH` | SEBAGIAN | `truncated: true` + hint; tidak ada `--offset`/cursor; agent harus menulis `LIMIT/OFFSET` sendiri | P3 |
-| Pager untuk manusia (`less`) | psql/pgcli pager | SEBAGIAN | Pipe ke `less` aman (SIGPIPE ditangani, ux.md); tidak otomatis | P3 |
-| Impor CSV ke tabel | psql `\copy FROM`, mysql `LOAD DATA LOCAL INFILE`, sqlite3 `.import`, DBeaver import | TIDAK ADA | `COPY FROM STDIN` tidak bisa lewat `db query`; `LOAD DATA LOCAL` tidak diaktifkan di driver. Workaround: generate INSERT lalu `--file --write` | P2 |
-| Salin data antar DB (tabel A di prod → staging) | DBeaver data transfer, pg_dump `-t` \| psql | TIDAK ADA | Workaround: `db dump` (seluruh DB) lalu `db restore` | P3 |
-| Simpan output ke file | psql `\o`, `-o file` | ADA | Redirect shell; JSON stabil | - |
+| Text table output | psql aligned, mysql table | PRESENT | `-o text` (tabwriter, cuts cells > 80 characters) | - |
+| JSON output | usql `-J`, psql `\pset format json` (17+) | PRESENT | `-o json` (stable envelope) | - |
+| Expanded / vertical mode (`\x`, `\G`) | psql `\x`, mysql `\G`, pgcli | MISSING | Wide tables are cut off in the terminal; there is no `-o vertical` | P3 |
+| CSV/TSV/Markdown export | psql `\copy ... csv`, `--csv`, sqlite3 `.mode csv`, DBeaver export, mycli `--csv` | MISSING | `-o` only has `auto`, `json`, `text`. Workaround: `-o json` then jq `@csv` | P2 (the request "send this data as CSV" is very common) |
+| Export large results to a file (streaming, without the 500 rows / 256 KiB limit) | psql `\copy (query) TO file`, `\o file`, DBeaver export | PARTIAL | `--limit 0` + a large `--max-output`; everything is held in memory and printed at once. `COPY ... TO STDOUT` is not supported through `database/sql` | P2 |
+| Result paging (offset/cursor, "next page") | pgcli pager, DataGrip, psql `FETCH` | PARTIAL | `truncated: true` + hint; no `--offset`/cursor; the agent must write `LIMIT/OFFSET` itself | P3 |
+| Pager for humans (`less`) | psql/pgcli pager | PARTIAL | Piping to `less` is safe (SIGPIPE is handled, ux.md); not automatic | P3 |
+| Import CSV into a table | psql `\copy FROM`, mysql `LOAD DATA LOCAL INFILE`, sqlite3 `.import`, DBeaver import | MISSING | `COPY FROM STDIN` does not work through `db query`; `LOAD DATA LOCAL` is not enabled in the driver. Workaround: generate INSERTs then `--file --write` | P2 |
+| Copy data between DBs (table A in prod → staging) | DBeaver data transfer, pg_dump `-t` \| psql | MISSING | Workaround: `db dump` (whole DB) then `db restore` | P3 |
+| Save output to a file | psql `\o`, `-o file` | PRESENT | Shell redirect; stable JSON | - |
 
-## 4. Introspeksi schema (setara meta-command psql / sqlite3 / mysql)
+## 4. Schema introspection (equivalent to psql / sqlite3 / mysql meta-commands)
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Daftar tabel/view + perkiraan baris (`\dt`, `.tables`, `SHOW TABLES`) | psql, sqlite3, mysql | ADA | `db schema CONN` (tabel, view, matview, foreign table; `row_estimate`) | - |
-| Kolom, tipe, null, default, PK (`\d tabel`, `.schema`, `DESCRIBE`) | psql, sqlite3, mysql | ADA | `db schema CONN TABLE...` | - |
-| Index (definisi) | psql `\d`, `\di` | ADA | `indexes[].definition` | - |
-| Foreign key / relasi | psql `\d`, DataGrip diagram | SEBAGIAN | `dbx.Table` tidak punya FK (`dbx/schema.go:14-21`). Hanya lewat jalur mentah: `db query` ke `information_schema.table_constraints`/`pg_constraint` (read) | **P1** (agent butuh relasi untuk JOIN yang benar dan untuk menilai dampak DELETE/ON DELETE CASCADE) |
-| Constraint unique/check, exclusion | psql `\d` | SEBAGIAN | Unique hanya tersirat dari definisi index; CHECK/exclusion tidak ada di `db schema`, hanya lewat `db query` ke `pg_constraint` / `information_schema.check_constraints` | P2 |
-| Trigger | psql `\d`, `SHOW TRIGGERS` | SEBAGIAN | Tidak ada di `db schema`; hanya lewat `db query` (`information_schema.triggers`, `SHOW TRIGGERS`, dinilai read). Penting saat menilai efek samping UPDATE/DELETE | P2 |
-| Daftar schema/namespace (`\dn`) | psql | SEBAGIAN | Nama schema muncul per tabel; tidak ada daftar schema (yang kosong tidak terlihat) | P3 |
-| Daftar database di server (`\l`, `SHOW DATABASES`) | psql, mysql | SEBAGIAN | Lewat `db query "select datname from pg_database"`; MySQL `db schema` hanya `DATABASE()` saat ini | P2 |
-| Fungsi/prosedur (`\df`, `SHOW PROCEDURE STATUS`) | psql, mysql | SEBAGIAN | Lewat `db query` ke katalog | P3 |
-| Sequence (`\ds`), tipe/enum (`\dT`), extension (`\dx`) | psql | SEBAGIAN | Lewat `db query`; enum penting untuk menulis INSERT yang valid | P3 |
-| Definisi view (`\d+ view`, `SHOW CREATE VIEW`) | psql, mysql | SEBAGIAN | Lewat `db query "select pg_get_viewdef(...)"` / `SHOW CREATE VIEW` | P3 |
-| DDL lengkap satu tabel (`SHOW CREATE TABLE`, `pg_dump -s -t`) | mysql, pg_dump | SEBAGIAN | MySQL: `db query "show create table x"` (read). Postgres: tidak ada fungsi bawaan; `db dump` tidak punya `--schema-only -t` | P2 |
-| Ukuran tabel/index (`\dt+`, `\di+`) | psql | SEBAGIAN | Lewat `db query` (`pg_total_relation_size`, `information_schema.tables.data_length`). Tidak ada kolom ukuran di `db schema` | P2 |
-| Komentar tabel/kolom (`\d+`, `COMMENT`) | psql, DataGrip | SEBAGIAN | Tidak ada di `db schema`; lewat `db query` (`obj_description`/`col_description`, `information_schema.columns.column_comment`). Komentar sering berisi arti kolom: berguna untuk agent | P3 |
-| Partisi | psql `\d+` | SEBAGIAN | Tabel partisi (`relkind p`) tampil sebagai `table`; hubungan parent/child tidak | P3 |
-| Hak akses per tabel (`\dp`, `SHOW GRANTS`) | psql, mysql | SEBAGIAN | Lewat `db query` | P3 |
-| Cari tabel/kolom berdasarkan nama di semua schema | DataGrip search, pgcli completion | SEBAGIAN | `db schema` lalu filter jq; kolom hanya untuk tabel yang disebut | P3 |
-| Diagram ER | DBeaver, DataGrip | NON-GOAL | NG-3 (bukan GUI) | - |
+| List tables/views + estimated rows (`\dt`, `.tables`, `SHOW TABLES`) | psql, sqlite3, mysql | PRESENT | `db schema CONN` (table, view, matview, foreign table; `row_estimate`) | - |
+| Columns, types, null, default, PK (`\d table`, `.schema`, `DESCRIBE`) | psql, sqlite3, mysql | PRESENT | `db schema CONN TABLE...` | - |
+| Indexes (definition) | psql `\d`, `\di` | PRESENT | `indexes[].definition` | - |
+| Foreign keys / relations | psql `\d`, DataGrip diagram | PARTIAL | `dbx.Table` has no FK (`dbx/schema.go:14-21`). Only through the raw path: `db query` to `information_schema.table_constraints`/`pg_constraint` (read) | **P1** (agents need relations to write correct JOINs and to judge the impact of DELETE/ON DELETE CASCADE) |
+| Unique/check constraints, exclusion | psql `\d` | PARTIAL | Unique is only implied by the index definition; CHECK/exclusion is not in `db schema`, only through `db query` to `pg_constraint` / `information_schema.check_constraints` | P2 |
+| Triggers | psql `\d`, `SHOW TRIGGERS` | PARTIAL | Not in `db schema`; only through `db query` (`information_schema.triggers`, `SHOW TRIGGERS`, classified read). Important when judging side effects of UPDATE/DELETE | P2 |
+| List schemas/namespaces (`\dn`) | psql | PARTIAL | The schema name shows per table; there is no schema list (empty ones are not visible) | P3 |
+| List databases on the server (`\l`, `SHOW DATABASES`) | psql, mysql | PARTIAL | Through `db query "select datname from pg_database"`; MySQL `db schema` only shows the current `DATABASE()` | P2 |
+| Functions/procedures (`\df`, `SHOW PROCEDURE STATUS`) | psql, mysql | PARTIAL | Through `db query` to the catalog | P3 |
+| Sequences (`\ds`), types/enums (`\dT`), extensions (`\dx`) | psql | PARTIAL | Through `db query`; enums matter for writing valid INSERTs | P3 |
+| View definition (`\d+ view`, `SHOW CREATE VIEW`) | psql, mysql | PARTIAL | Through `db query "select pg_get_viewdef(...)"` / `SHOW CREATE VIEW` | P3 |
+| Full DDL of one table (`SHOW CREATE TABLE`, `pg_dump -s -t`) | mysql, pg_dump | PARTIAL | MySQL: `db query "show create table x"` (read). Postgres: no built-in function; `db dump` has no `--schema-only -t` | P2 |
+| Table/index size (`\dt+`, `\di+`) | psql | PARTIAL | Through `db query` (`pg_total_relation_size`, `information_schema.tables.data_length`). No size column in `db schema` | P2 |
+| Table/column comments (`\d+`, `COMMENT`) | psql, DataGrip | PARTIAL | Not in `db schema`; through `db query` (`obj_description`/`col_description`, `information_schema.columns.column_comment`). Comments often explain what a column means: useful for agents | P3 |
+| Partitions | psql `\d+` | PARTIAL | Partitioned tables (`relkind p`) show as `table`; the parent/child relation does not | P3 |
+| Per-table privileges (`\dp`, `SHOW GRANTS`) | psql, mysql | PARTIAL | Through `db query` | P3 |
+| Search tables/columns by name across all schemas | DataGrip search, pgcli completion | PARTIAL | `db schema` then filter with jq; columns only for named tables | P3 |
+| ER diagram | DBeaver, DataGrip | NON-GOAL | NG-3 (not a GUI) | - |
 
-## 5. Kenyamanan klien interaktif
+## 5. Interactive client comfort
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| REPL interaktif | psql, mysql, sqlite3, pgcli, mycli, usql | ADA (lewat alat asli) | `db shell CONN` membuka psql/mysql/sqlite3 dengan password dari vault dan jalur `--via`, read-only default (`PGOPTIONS=-c default_transaction_read_only=on`, `--init-command=SET SESSION TRANSACTION READ ONLY`, `-readonly`). REPL buatan sendiri = NG-2 | - |
-| REPL dengan pgcli/mycli/usql/litecli | pgcli, mycli, usql | SEBAGIAN | `db shell` hanya memanggil psql/mysql/sqlite3. Workaround: `tunnel start CONN` lalu pgcli ke port lokal (password harus dimasukkan manual) | P3 (`--client pgcli`) |
-| Autocomplete SQL | pgcli, mycli, DataGrip | NON-GOAL | NG-2/NG-3; tersedia via `db shell` + pgcli | - |
-| Riwayat query | psql `~/.psql_history`, pgcli history, DataGrip | SEBAGIAN | `komando audit --command db.query` mencatat SQL (kalau `audit_sql=full`), aktor, hasil. Tidak ada "jalankan ulang entri N" | P3 |
-| Query tersimpan / favorit (named queries) | pgcli `\ns`/`\n`, mycli favorites, DBeaver scripts, usql | TIDAK ADA | `recipe` hanya untuk shell di host (ops.go), bukan SQL ke conn. Workaround: file `.sql` + `--file` | P2 (agent dan tim butuh "cek antrean", "user terbaru" yang aman dipakai ulang; `recipe` sudah ada sebagai konsep) |
-| Edit query di `$EDITOR` (`\e`) | psql, pgcli | NON-GOAL | NG-2 (tersedia via `db shell`) | - |
-| `\!` shell escape | psql | NON-GOAL | Sengaja diblok di restore; di `db shell` tercatat sebagai risiko (docs) | - |
-| Bantuan sintaks (`\h`) | psql, mysql `help` | NON-GOAL | Alat asli via `db shell` | - |
+| Interactive REPL | psql, mysql, sqlite3, pgcli, mycli, usql | PRESENT (through the original tool) | `db shell CONN` opens psql/mysql/sqlite3 with the password from the vault and the `--via` path, read-only by default (`PGOPTIONS=-c default_transaction_read_only=on`, `--init-command=SET SESSION TRANSACTION READ ONLY`, `-readonly`). A home-made REPL = NG-2 | - |
+| REPL with pgcli/mycli/usql/litecli | pgcli, mycli, usql | PARTIAL | `db shell` only calls psql/mysql/sqlite3. Workaround: `tunnel start CONN` then pgcli to the local port (the password must be typed manually) | P3 (`--client pgcli`) |
+| SQL autocomplete | pgcli, mycli, DataGrip | NON-GOAL | NG-2/NG-3; available via `db shell` + pgcli | - |
+| Query history | psql `~/.psql_history`, pgcli history, DataGrip | PARTIAL | `komando audit --command db.query` records the SQL (if `audit_sql=full`), actor and result. There is no "rerun entry N" | P3 |
+| Saved / favorite queries (named queries) | pgcli `\ns`/`\n`, mycli favorites, DBeaver scripts, usql | MISSING | `recipe` is only for shell on a host (ops.go), not SQL to a conn. Workaround: a `.sql` file + `--file` | P2 (agents and teams need safe, reusable "check the queue", "latest users"; `recipe` already exists as a concept) |
+| Edit a query in `$EDITOR` (`\e`) | psql, pgcli | NON-GOAL | NG-2 (available via `db shell`) | - |
+| `\!` shell escape | psql | NON-GOAL | Deliberately blocked in restore; in `db shell` it is noted as a risk (docs) | - |
+| Syntax help (`\h`) | psql, mysql `help` | NON-GOAL | Original tool via `db shell` | - |
 
-## 6. Backup dan restore
+## 6. Backup and restore
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Dump satu DB ke file lokal (plain SQL, gzip) | pg_dump, mysqldump | ADA | `db dump CONN --to FILE[.gz]`; file 0600, tidak menimpa, atomik | - |
-| Dump SQLite konsisten | sqlite3 `.backup`, `.dump` | ADA | `VACUUM INTO` (file DB, bukan teks SQL). `.dump` teks: tidak ada | - |
-| Format custom/directory/tar (`pg_dump -Fc/-Fd/-Ft`) | pg_dump, pg_restore | TIDAK ADA | Hanya plain SQL (`toolsFor`). Format custom adalah praktik standar Postgres (restore selektif, paralel, kompresi) | **P1** (backup Postgres produksi hampir selalu `-Fc`; file dari tim lain tidak bisa dipulihkan) |
-| Restore format custom (`pg_restore`) | pg_restore | TIDAK ADA | `db restore` hanya menjalankan SQL lewat `psql` | **P1** (pasangan dari baris di atas) |
-| Dump paralel (`-j`), mydumper/myloader | pg_dump `-Fd -j`, mydumper | TIDAK ADA | | P3 |
-| Schema saja / data saja (`-s`, `-a`, `--no-data`) | pg_dump, mysqldump | TIDAK ADA | | P2 (dump schema untuk review/diff sangat umum) |
-| Pilih/kecualikan tabel atau schema (`-t`, `-T`, `-n`, `--ignore-table`) | pg_dump, mysqldump | TIDAK ADA | | P2 (kecualikan tabel log raksasa) |
-| Globals/role (`pg_dumpall --globals-only`), semua DB | pg_dumpall, mysqldump `--all-databases` | TIDAK ADA | | P3 |
-| Opsi restore: `--clean`, `--create`, `--no-owner`, `--no-acl` | pg_restore, psql | TIDAK ADA | Restore dari prod ke staging sering gagal karena owner/role berbeda; tidak ada `--no-owner` | P2 |
-| Restore satu transaksi + cek file berbahaya | psql `--single-transaction` | ADA | `--single-transaction ON_ERROR_STOP=1` (hanya Postgres, `dbdump.go:64`; restore MySQL tidak atomik karena DDL auto-commit); file dengan `\!`, `\i`, `system` ditolak (`driver/restore.go`) | - |
-| Pengaman restore (destructive + protected) | — | ADA | `--allow-dangerous`, `--yes` di conn protected | - |
-| Kompresi zstd/lz4, level | pg_dump `-Z zstd`, gzip | SEBAGIAN | Hanya `.gz` | P3 |
-| Dump langsung ke storage (S3) atau tetap di server | pg_dump \| aws s3 cp | SEBAGIAN | File selalu ke laptop; dua langkah `db dump` lalu `storage upload` (DB besar lewat laptop = lambat). Workaround: `job start host -- 'pg_dump ...'` (password harus diurus sendiri) | P2 |
-| Dump/restore DB besar sebagai job di latar (progress, lanjut setelah putus) | `nohup pg_dump`, `komando job` | TIDAK ADA | `db dump` berjalan di depan, tanpa progress, tanpa detach; AGENTS.md aturan 6 menyuruh `job` untuk > 2 menit tapi `job` tidak bisa menjalankan `db dump` | P2 |
-| Dump dengan klien Go murni (tanpa pg_dump terpasang) | — | TIDAK ADA | Butuh `postgresql-client`/`mysql-client` di laptop atau host `--via`; versi pg_dump < server → gagal (hint ada) | P3 |
-| Backup terjadwal + retensi | pgBackRest, cron | NON-GOAL | NG-5 (tanpa daemon); bisa `cron set` di host | - |
+| Dump one DB to a local file (plain SQL, gzip) | pg_dump, mysqldump | PRESENT | `db dump CONN --to FILE[.gz]`; file 0600, does not overwrite, atomic | - |
+| Consistent SQLite dump | sqlite3 `.backup`, `.dump` | PRESENT | `VACUUM INTO` (a DB file, not SQL text). Text `.dump`: not available | - |
+| Custom/directory/tar format (`pg_dump -Fc/-Fd/-Ft`) | pg_dump, pg_restore | MISSING | Only plain SQL (`toolsFor`). The custom format is standard Postgres practice (selective restore, parallel, compression) | **P1** (production Postgres backups are almost always `-Fc`; files from other teams cannot be restored) |
+| Restore custom format (`pg_restore`) | pg_restore | MISSING | `db restore` only runs SQL through `psql` | **P1** (the pair of the row above) |
+| Parallel dump (`-j`), mydumper/myloader | pg_dump `-Fd -j`, mydumper | MISSING | | P3 |
+| Schema only / data only (`-s`, `-a`, `--no-data`) | pg_dump, mysqldump | MISSING | | P2 (a schema dump for review/diff is very common) |
+| Include/exclude tables or schemas (`-t`, `-T`, `-n`, `--ignore-table`) | pg_dump, mysqldump | MISSING | | P2 (exclude giant log tables) |
+| Globals/roles (`pg_dumpall --globals-only`), all DBs | pg_dumpall, mysqldump `--all-databases` | MISSING | | P3 |
+| Restore options: `--clean`, `--create`, `--no-owner`, `--no-acl` | pg_restore, psql | MISSING | Restoring from prod to staging often fails because owners/roles differ; there is no `--no-owner` | P2 |
+| Single-transaction restore + dangerous file check | psql `--single-transaction` | PRESENT | `--single-transaction ON_ERROR_STOP=1` (Postgres only, `dbdump.go:64`; MySQL restore is not atomic because DDL auto-commits); files with `\!`, `\i`, `system` are rejected (`driver/restore.go`) | - |
+| Restore safeguards (destructive + protected) | — | PRESENT | `--allow-dangerous`, `--yes` on a protected conn | - |
+| zstd/lz4 compression, level | pg_dump `-Z zstd`, gzip | PARTIAL | Only `.gz` | P3 |
+| Dump straight to storage (S3) or keep it on the server | pg_dump \| aws s3 cp | PARTIAL | The file always goes to the laptop; two steps `db dump` then `storage upload` (a large DB through the laptop = slow). Workaround: `job start host -- 'pg_dump ...'` (you must handle the password yourself) | P2 |
+| Dump/restore a large DB as a background job (progress, resume after disconnect) | `nohup pg_dump`, `komando job` | MISSING | `db dump` runs in the foreground, with no progress and no detach; AGENTS.md rule 6 says to use `job` for > 2 minutes, but `job` cannot run `db dump` | P2 |
+| Dump with a pure Go client (no pg_dump installed) | — | MISSING | Needs `postgresql-client`/`mysql-client` on the laptop or the `--via` host; pg_dump version < server → fails (there is a hint) | P3 |
+| Scheduled backup + retention | pgBackRest, cron | NON-GOAL | NG-5 (no daemon); can use `cron set` on the host | - |
 | PITR / WAL archiving / base backup (pgBackRest, Barman, wal-g, xtrabackup) | pgBackRest, wal-g | NON-GOAL | NG-1 | - |
-| Verifikasi backup (list isi, `pg_restore -l`) | pg_restore `-l` | TIDAK ADA | | P3 |
+| Backup verification (list contents, `pg_restore -l`) | pg_restore `-l` | MISSING | | P3 |
 
-## 7. Operasional dan diagnosis (DBA harian)
+## 7. Operations and diagnosis (daily DBA)
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Ringkasan server: versi, uptime, ukuran DB, koneksi/max_connections, role primary/replica | `\conninfo`, `SELECT version()`, `mysqladmin status`, pg_activity header | SEBAGIAN | Tidak ada `db info`/`db status` (padahal `cache info` ada dan ux.md mendaftarkan verb `status`/`info`). Recipe `postgres-status`/`mysql-status` jalan di host via `sudo -u postgres psql`, bukan di conn. Workaround: `db query` | **P1** (langkah pertama setiap insiden; konsistensi verb antar family) |
-| Aktivitas / query yang sedang jalan | pg_activity, pg_top, `SHOW PROCESSLIST`, mytop | SEBAGIAN | `db query "select ... from pg_stat_activity"` (read). Tidak ada perintah first-class yang menyaring query lama/idle in transaction | **P1** |
-| Lock dan siapa memblok siapa | pg_activity (blocking), `pg_blocking_pids`, `sys.innodb_lock_waits` | SEBAGIAN | Lewat `db query`; query lock tree cukup rumit untuk ditulis ulang tiap kali | **P1** |
-| Hentikan query / sesi | `pg_cancel_backend`, `pg_terminate_backend`, MySQL `KILL` | SEBAGIAN | `db query --write --allow-dangerous "select pg_terminate_backend(123)"` (aturan `sql-kill`). Tidak ada `db kill PID` dengan dry-run yang menampilkan query yang akan dihentikan dan beda cancel vs terminate | **P1** |
-| Query lambat / statistik query (`pg_stat_statements`, slow log, `performance_schema`) | pg_stat_statements, pt-query-digest, PMM | SEBAGIAN | Lewat `db query` kalau extension terpasang | P2 |
-| Ukuran DB / tabel / index terbesar | psql `\l+`, `\dt+`, pg_activity | SEBAGIAN | Lewat `db query` | **P1** (disk penuh adalah insiden harian; `db schema` sudah menampilkan baris tapi tidak ukuran) |
-| Bloat, dead tuples, autovacuum terakhir | pgstattuple, check_postgres, pg_activity | SEBAGIAN | Lewat `db query` (`pg_stat_user_tables`) | P3 |
-| Index tak terpakai / index hilang | pg_stat_user_indexes, pghero | SEBAGIAN | Lewat `db query` | P3 |
-| Cache hit ratio, statistik IO | pghero, pg_activity | SEBAGIAN | Lewat `db query` | P3 |
-| Status replikasi dan lag | `pg_stat_replication`, `SHOW REPLICA STATUS`, orchestrator | SEBAGIAN | Lewat `db query` (`SHOW REPLICA STATUS` dinilai read) | P2 |
-| Slot replikasi (logical/physical) | psql | SEBAGIAN | Baca lewat `db query`; drop/create diblok `sql-server-config` (butuh `--allow-dangerous`) | P3 |
-| Konfigurasi server (`SHOW ALL`, `pg_settings`, `SHOW VARIABLES`) | psql, mysql | SEBAGIAN | Baca lewat `db query`; ubah global = `sql-server-config` (destructive). Tidak ada ringkasan "setting yang beda dari default" | P3 |
-| VACUUM / ANALYZE / REINDEX / OPTIMIZE TABLE | psql, mysqlcheck | ADA (lewat jalur mentah) | `db query --write "vacuum analyze t"` (noTx, harus sendirian); `VACUUM FULL` diblok `sql-vacuum-full` | - |
-| Wraparound / umur XID | check_postgres | SEBAGIAN | Lewat `db query` | P3 |
-| Benchmark (pgbench, sysbench, mysqlslap) | pgbench | TIDAK ADA | Tidak masuk 80% harian; bisa `exec host -- pgbench` | P3 |
-| Monitoring berkelanjutan / dashboard (pg_activity live, PMM) | pg_activity, pg_top | NON-GOAL | NG-4 dan NG-3 (TUI) | - |
-| Pemeriksaan kesehatan DB berisi saran (pghero-style "checks") | pghero, pg_doctor | TIDAK ADA | Bisa jadi `recipe` SQL bawaan (lihat bagian 5) | P2 |
+| Server summary: version, uptime, DB size, connections/max_connections, primary/replica role | `\conninfo`, `SELECT version()`, `mysqladmin status`, pg_activity header | PARTIAL | There is no `db info`/`db status` (even though `cache info` exists and ux.md lists the verbs `status`/`info`). The `postgres-status`/`mysql-status` recipes run on the host via `sudo -u postgres psql`, not on the conn. Workaround: `db query` | **P1** (first step of every incident; verb consistency across families) |
+| Activity / running queries | pg_activity, pg_top, `SHOW PROCESSLIST`, mytop | PARTIAL | `db query "select ... from pg_stat_activity"` (read). No first-class command that filters long-running/idle in transaction queries | **P1** |
+| Locks and who blocks whom | pg_activity (blocking), `pg_blocking_pids`, `sys.innodb_lock_waits` | PARTIAL | Through `db query`; the lock tree query is complex to rewrite every time | **P1** |
+| Stop a query / session | `pg_cancel_backend`, `pg_terminate_backend`, MySQL `KILL` | PARTIAL | `db query --write --allow-dangerous "select pg_terminate_backend(123)"` (rule `sql-kill`). No `db kill PID` with a dry-run that shows the query to be stopped and the difference between cancel and terminate | **P1** |
+| Slow queries / query statistics (`pg_stat_statements`, slow log, `performance_schema`) | pg_stat_statements, pt-query-digest, PMM | PARTIAL | Through `db query` if the extension is installed | P2 |
+| Biggest DBs / tables / indexes | psql `\l+`, `\dt+`, pg_activity | PARTIAL | Through `db query` | **P1** (a full disk is a daily incident; `db schema` already shows rows but not size) |
+| Bloat, dead tuples, last autovacuum | pgstattuple, check_postgres, pg_activity | PARTIAL | Through `db query` (`pg_stat_user_tables`) | P3 |
+| Unused indexes / missing indexes | pg_stat_user_indexes, pghero | PARTIAL | Through `db query` | P3 |
+| Cache hit ratio, IO statistics | pghero, pg_activity | PARTIAL | Through `db query` | P3 |
+| Replication status and lag | `pg_stat_replication`, `SHOW REPLICA STATUS`, orchestrator | PARTIAL | Through `db query` (`SHOW REPLICA STATUS` is classified read) | P2 |
+| Replication slots (logical/physical) | psql | PARTIAL | Read through `db query`; drop/create is blocked by `sql-server-config` (needs `--allow-dangerous`) | P3 |
+| Server configuration (`SHOW ALL`, `pg_settings`, `SHOW VARIABLES`) | psql, mysql | PARTIAL | Read through `db query`; changing globals = `sql-server-config` (destructive). No summary of "settings that differ from the default" | P3 |
+| VACUUM / ANALYZE / REINDEX / OPTIMIZE TABLE | psql, mysqlcheck | PRESENT (through the raw path) | `db query --write "vacuum analyze t"` (noTx, must be alone); `VACUUM FULL` is blocked by `sql-vacuum-full` | - |
+| Wraparound / XID age | check_postgres | PARTIAL | Through `db query` | P3 |
+| Benchmark (pgbench, sysbench, mysqlslap) | pgbench | MISSING | Not part of the daily 80%; can use `exec host -- pgbench` | P3 |
+| Continuous monitoring / dashboard (pg_activity live, PMM) | pg_activity, pg_top | NON-GOAL | NG-4 and NG-3 (TUI) | - |
+| DB health check with advice (pghero-style "checks") | pghero, pg_doctor | MISSING | Could become a built-in SQL `recipe` (see section 5) | P2 |
 
-## 8. User, role, dan hak akses
+## 8. Users, roles and privileges
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Daftar user/role dan atributnya (`\du`, `mysql.user`) | psql, mysql | SEBAGIAN | Lewat `db query` | P2 |
-| Buat user / ubah password / grant / revoke | psql, mysql, DataGrip | SEBAGIAN | `db query --write --allow-dangerous "create user ..."` (aturan `sql-privileges`). **Celah keamanan**: password di `CREATE USER ... PASSWORD '...'` / `ALTER ROLE ... PASSWORD` ikut tercatat utuh di `audit.jsonl` saat `audit_sql=full` (default), padahal `--arg` tidak bisa dipakai di DDL Postgres. Tidak ada redaksi literal password dan tidak ada cara mengambil password dari vault (`secret:`) | **P1** (keamanan: secret bocor ke audit log; "buat user read-only untuk aplikasi/komando" adalah tugas umum dan docs sendiri menyarankan user khusus berhak minimal) |
-| Template "user read-only untuk komando/agent" | — | TIDAK ADA | docs/features/databases.md: "give komando a database user with only the rights it needs", tapi tidak ada bantuan membuatnya | P2 |
-| Lihat grant efektif satu user (`SHOW GRANTS FOR`, `\dp`) | mysql, psql | SEBAGIAN | Lewat `db query` | P3 |
-| Row-level security, policy | psql | SEBAGIAN | Lewat `db query`; `CREATE POLICY` dinilai write (bukan privileges) | P3 |
+| List users/roles and their attributes (`\du`, `mysql.user`) | psql, mysql | PARTIAL | Through `db query` | P2 |
+| Create user / change password / grant / revoke | psql, mysql, DataGrip | PARTIAL | `db query --write --allow-dangerous "create user ..."` (rule `sql-privileges`). **Security gap**: the password in `CREATE USER ... PASSWORD '...'` / `ALTER ROLE ... PASSWORD` is recorded in full in `audit.jsonl` when `audit_sql=full` (the default), and `--arg` cannot be used in Postgres DDL. There is no redaction of password literals and no way to take the password from the vault (`secret:`) | **P1** (security: secret leaks into the audit log; "create a read-only user for the app/komando" is a common task, and the docs themselves suggest a dedicated least-privilege user) |
+| Template "read-only user for komando/agent" | — | MISSING | docs/features/databases.md: "give komando a database user with only the rights it needs", but there is no help to create one | P2 |
+| See effective grants of one user (`SHOW GRANTS FOR`, `\dp`) | mysql, psql | PARTIAL | Through `db query` | P3 |
+| Row-level security, policies | psql | PARTIAL | Through `db query`; `CREATE POLICY` is classified write (not privileges) | P3 |
 
-## 9. Migrasi schema dan schema diff
+## 9. Schema migrations and schema diff
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Alat migrasi berversi (up/down, tabel versi) | golang-migrate, dbmate, Flyway, Liquibase, Atlas, sqitch, goose | NON-GOAL | NG-2 "Menjadi klien DB lengkap (REPL, migrasi, ORM)". Pengganti: `db query --file m.sql --write --dry-run` lalu `--write` (atomik di Postgres) | - |
-| Jalankan berkas migrasi yang sudah ada dengan aman (dry-run per file, urutan) | dbmate `--dry-run`?, Atlas `migrate apply --dry-run` | SEBAGIAN | Satu file per perintah dengan `--file`; DDL MySQL tidak bisa dry-run. Tidak ada "jalankan folder" | P3 |
-| Status migrasi (versi terpasang) | migrate `version`, Flyway `info` | SEBAGIAN | Lewat `db query "select * from schema_migrations"` | P3 |
-| Schema diff dua DB (prod vs staging) | Atlas `schema diff`, migra, pgquarrel, mysqldiff, DataGrip compare | TIDAK ADA | Workaround: `db schema -o json` dua conn lalu `diff`/jq (hanya kolom/index tabel yang disebut) | P2 (deteksi drift sebelum deploy; `db schema` JSON sudah 70% jalan) |
-| Generate migrasi dari diff | Atlas, migra | NON-GOAL | NG-2/NG-6 | - |
-| Lint migrasi (operasi yang mengunci tabel) | squawk, Atlas lint | SEBAGIAN | Klasifikasi risiko menangkap DROP/TRUNCATE/ALTER DROP, tidak menangkap `ALTER TABLE ... ADD COLUMN ... DEFAULT volatile`, index tanpa CONCURRENTLY, dll. | P3 |
+| Versioned migration tool (up/down, version table) | golang-migrate, dbmate, Flyway, Liquibase, Atlas, sqitch, goose | NON-GOAL | NG-2 "Being a full DB client (REPL, migrations, ORM)". Replacement: `db query --file m.sql --write --dry-run` then `--write` (atomic in Postgres) | - |
+| Run existing migration files safely (dry-run per file, order) | dbmate `--dry-run`?, Atlas `migrate apply --dry-run` | PARTIAL | One file per command with `--file`; MySQL DDL cannot be dry-run. No "run a folder" | P3 |
+| Migration status (installed version) | migrate `version`, Flyway `info` | PARTIAL | Through `db query "select * from schema_migrations"` | P3 |
+| Schema diff of two DBs (prod vs staging) | Atlas `schema diff`, migra, pgquarrel, mysqldiff, DataGrip compare | MISSING | Workaround: `db schema -o json` on two conns then `diff`/jq (only columns/indexes of named tables) | P2 (detect drift before deploy; `db schema` JSON is already 70% of the way) |
+| Generate migrations from a diff | Atlas, migra | NON-GOAL | NG-2/NG-6 | - |
+| Migration lint (operations that lock tables) | squawk, Atlas lint | PARTIAL | Risk classification catches DROP/TRUNCATE/ALTER DROP, but not `ALTER TABLE ... ADD COLUMN ... DEFAULT volatile`, indexes without CONCURRENTLY, etc. | P3 |
 
-## 10. Connection pooler dan proxy
+## 10. Connection poolers and proxies
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Konsol admin PgBouncer (`SHOW POOLS`, `SHOW STATS`, `PAUSE`, `RELOAD`) | psql ke db `pgbouncer` | TIDAK ADA | Konsol PgBouncer tidak menerima `BEGIN READ ONLY` dan pemeriksaan `SHOW standard_conforming_strings` saat `dbx.Open`, jadi `db query` hampir pasti gagal. Workaround: `exec host -- psql -p 6432 pgbouncer -c 'show pools'` | P3 |
-| Query lewat PgBouncer mode transaction (aplikasi DB biasa) | psql | SEBAGIAN | Kemungkinan jalan (satu transaksi per perintah cocok); pgx stdlib memakai prepared statement yang bermasalah di PgBouncer < 1.21 mode transaction. Belum diuji/didokumentasikan | P2 |
-| ProxySQL admin, pgpool, Odyssey | mysql ke port admin | TIDAK ADA | | P3 |
-| Pool koneksi di sisi komando | — | NON-GOAL | NG-5 "Tanpa pool dan tanpa daemon" | - |
+| PgBouncer admin console (`SHOW POOLS`, `SHOW STATS`, `PAUSE`, `RELOAD`) | psql to db `pgbouncer` | MISSING | The PgBouncer console does not accept `BEGIN READ ONLY` or the `SHOW standard_conforming_strings` check during `dbx.Open`, so `db query` will almost certainly fail. Workaround: `exec host -- psql -p 6432 pgbouncer -c 'show pools'` | P3 |
+| Query through PgBouncer in transaction mode (normal app DB) | psql | PARTIAL | Probably works (one transaction per command fits); pgx stdlib uses prepared statements, which are a problem in PgBouncer < 1.21 transaction mode. Not tested/documented yet | P2 |
+| ProxySQL admin, pgpool, Odyssey | mysql to the admin port | MISSING | | P3 |
+| Connection pool on the komando side | — | NON-GOAL | NG-5 "No pool and no daemon" | - |
 
-## 11. Keamanan dan audit khusus DB
+## 11. DB-specific security and audit
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Audit setiap query (siapa, apa, hasil) | pgaudit (sisi server), DataGrip log | ADA | `audit_sql`: full, hash, off; `--arg` hanya dicatat jumlahnya | - |
-| Redaksi data sensitif di SQL audit (literal password, PII) | — | TIDAK ADA | Hanya pilihan semua/hash/tidak ada. Lihat bagian 8 | **P1** (gabung dengan baris CREATE USER) |
-| Blok fungsi berbahaya di read-only (dblink, pg_read_file, COPY PROGRAM, lo_export) | — | ADA | `sql-remote`, `sql-server-file`, `sql-program` | - |
-| Tolak setting parsing string non-default (bypass klasifikasi) | — | ADA | `checkStringRules`, `SQL_STRING_RULES` | - |
-| Konfirmasi ketik nama saat restore/drop di terminal | DataGrip "production" warning | ADA | `confirmDangerous` (`common.go:334`): di terminal tanpa `--allow-dangerous` diminta mengetik nama conn; conn protected minta `[y/N]` (`confirmProtected`) | - |
-| Batas jumlah baris yang diubah (`--max-rows-affected`) | (tidak umum; Atlas/ pt-archiver) | TIDAK ADA | `--dry-run` menunjukkan jumlahnya, tapi `--write` tanpa dry-run tidak punya batas pengaman (mis. UPDATE dengan WHERE yang salah menyentuh 1 juta baris) | P2 (lapisan aman murah untuk agent) |
-| Masking kolom sensitif di output | DataGrip, Satori, pg_anonymizer | TIDAK ADA | `conn --option` sudah ada tapi tidak dipakai kind db | P3 |
-| Opsi per conn yang dijanjikan (`statement_timeout`, `row_limit`) | — | TIDAK ADA | resources-and-db.md: "Options ... per-kind: statement_timeout, row_limit"; `conn --option` hanya dipakai `cluster` (namespace, `cluster.go:78`). Contoh di `conn edit --help` (`--option statement_timeout=10s`, `conn.go:186`) menyesatkan: diterima tapi diabaikan | P3 |
+| Audit every query (who, what, result) | pgaudit (server side), DataGrip log | PRESENT | `audit_sql`: full, hash, off; for `--arg` only the count is recorded | - |
+| Redaction of sensitive data in audit SQL (password literals, PII) | — | MISSING | Only the choice of all/hash/nothing. See section 8 | **P1** (merge with the CREATE USER row) |
+| Block dangerous functions in read-only (dblink, pg_read_file, COPY PROGRAM, lo_export) | — | PRESENT | `sql-remote`, `sql-server-file`, `sql-program` | - |
+| Reject non-default string-parsing settings (classification bypass) | — | PRESENT | `checkStringRules`, `SQL_STRING_RULES` | - |
+| Type-the-name confirmation on restore/drop at a terminal | DataGrip "production" warning | PRESENT | `confirmDangerous` (`common.go:334`): at a terminal without `--allow-dangerous` you are asked to type the conn name; a protected conn asks `[y/N]` (`confirmProtected`) | - |
+| Limit on the number of changed rows (`--max-rows-affected`) | (not common; Atlas/ pt-archiver) | MISSING | `--dry-run` shows the count, but `--write` without a dry-run has no safety limit (e.g. an UPDATE with a wrong WHERE touches 1 million rows) | P2 (a cheap safety layer for agents) |
+| Masking sensitive columns in output | DataGrip, Satori, pg_anonymizer | MISSING | `conn --option` already exists but is not used by db kinds | P3 |
+| Promised per-conn options (`statement_timeout`, `row_limit`) | — | MISSING | resources-and-db.md: "Options ... per-kind: statement_timeout, row_limit"; `conn --option` is only used by `cluster` (namespace, `cluster.go:78`). The example in `conn edit --help` (`--option statement_timeout=10s`, `conn.go:186`) is misleading: it is accepted but ignored | P3 |
 
 ---
 
-## 12. Cache: koneksi dan topologi
+## 12. Cache: connections and topology
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Redis/Valkey/KeyDB/Dragonfly standalone | redis-cli, valkey-cli | ADA | kind `redis` (`redis://`, `rediss://`), go-redis v9 | - |
-| Garnet, Upstash, ElastiCache/Memorystore non-cluster | redis-cli | ADA (kemungkinan) | Protokol sama; belum diuji | - |
-| Redis Cluster (MOVED/ASK, ElastiCache cluster mode, `redis-cli -c`) | redis-cli `-c` | TIDAK ADA | `redis.NewClient` tunggal; perintah ke slot lain mendapat `MOVED` (ux.md edge case "Redis cluster (`MOVED`)"). `cache keys` hanya men-scan satu node | P2 (umum di ElastiCache/Azure besar) |
-| Sentinel (temukan master) | redis-cli `-p 26379`, `SENTINEL get-master-addr-by-name` | SEBAGIAN | Hanya jalur mentah: conn ke port sentinel lalu `cache run --write -- SENTINEL get-master-addr-by-name X` (`SENTINEL` tidak dikenal `cachex.Classify`, jadi dinilai write). Tidak ada conn yang sadar sentinel (cari master otomatis, ikut failover); ux.md edge case "sentinel" belum ditutup | P2 |
-| ACL user + password | redis-cli `--user`, `--pass` | ADA | user di URL, password via ref | - |
-| TLS default (rediss) | redis-cli `--tls` | ADA | `MinVersion TLS1.2`, SNI | - |
-| TLS CA sendiri / skip-verify / client cert (`--cacert`, `--insecure`, `--cert`) | redis-cli | TIDAK ADA | `cachex.Open` hanya `ServerName`; tidak ada opsi URL. Redis self-hosted dengan sertifikat privat tidak bisa dipakai | P2 |
-| Pilih DB (`-n`, `SELECT`) | redis-cli `-n` | SEBAGIAN | Nomor DB dari path URL; `SELECT` lewat `cache run` dinilai write dan tidak berguna (satu perintah per koneksi). Tidak ada `--db N` per perintah | P3 |
-| Lewat bastion/VPN (`--via`) | ssh -L + redis-cli | ADA | `a.Dial` | - |
-| Unix socket | redis-cli `-s` | TIDAK ADA | | P3 |
-| Cek login (bukan hanya TCP) | `redis-cli ping` | SEBAGIAN | Sama dengan bagian 1: `komando test` hanya TCP; `cache info` melakukan PING+AUTH | **P1** (gabung dengan baris test di bagian 1) |
-| REPL interaktif | redis-cli | TIDAK ADA | `db shell` tidak punya padanan `cache shell`. Workaround: `tunnel start CONN` + `redis-cli` (password manual). ux.md bagian 12 jalur 3 ("alat asli di laptop lewat jalur komando") belum ada untuk cache | P3 |
+| Redis/Valkey/KeyDB/Dragonfly standalone | redis-cli, valkey-cli | PRESENT | kind `redis` (`redis://`, `rediss://`), go-redis v9 | - |
+| Garnet, Upstash, ElastiCache/Memorystore non-cluster | redis-cli | PRESENT (probably) | Same protocol; not tested yet | - |
+| Redis Cluster (MOVED/ASK, ElastiCache cluster mode, `redis-cli -c`) | redis-cli `-c` | MISSING | A single `redis.NewClient`; commands for another slot get `MOVED` (ux.md edge case "Redis cluster (`MOVED`)"). `cache keys` only scans one node | P2 (common on large ElastiCache/Azure) |
+| Sentinel (find the master) | redis-cli `-p 26379`, `SENTINEL get-master-addr-by-name` | PARTIAL | Only the raw path: a conn to the sentinel port then `cache run --write -- SENTINEL get-master-addr-by-name X` (`SENTINEL` is not known to `cachex.Classify`, so it is classified write). There is no sentinel-aware conn (find the master automatically, follow failover); ux.md edge case "sentinel" is not closed yet | P2 |
+| ACL user + password | redis-cli `--user`, `--pass` | PRESENT | user in the URL, password via ref | - |
+| TLS by default (rediss) | redis-cli `--tls` | PRESENT | `MinVersion TLS1.2`, SNI | - |
+| TLS with own CA / skip-verify / client cert (`--cacert`, `--insecure`, `--cert`) | redis-cli | MISSING | `cachex.Open` only sets `ServerName`; no URL options. Self-hosted Redis with a private certificate cannot be used | P2 |
+| Pick a DB (`-n`, `SELECT`) | redis-cli `-n` | PARTIAL | DB number from the URL path; `SELECT` through `cache run` is classified write and is useless (one command per connection). No per-command `--db N` | P3 |
+| Through a bastion/VPN (`--via`) | ssh -L + redis-cli | PRESENT | `a.Dial` | - |
+| Unix socket | redis-cli `-s` | MISSING | | P3 |
+| Login check (not just TCP) | `redis-cli ping` | PARTIAL | Same as section 1: `komando test` only checks TCP; `cache info` does PING+AUTH | **P1** (merge with the test row in section 1) |
+| Interactive REPL | redis-cli | MISSING | `db shell` has no `cache shell` counterpart. Workaround: `tunnel start CONN` + `redis-cli` (password typed manually). ux.md section 12 path 3 ("original tool on the laptop through the komando path") does not exist for cache yet | P3 |
 
-## 13. Cache: membaca dan menjelajah
+## 13. Cache: reading and browsing
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Baca key tipe apa pun + TTL + ukuran | redis-cli `GET/HGETALL/...`, RedisInsight browser | ADA | `cache get` (string/hash/list/set/zset/stream, batas `--limit`, biner → base64) | - |
-| Tipe modul (RedisJSON, TimeSeries, Bloom) | RedisInsight | SEBAGIAN | `cache get` mengembalikan `value: null`; `cache run -- JSON.GET k` **dinilai write** (perintah tak dikenal) jadi butuh `--write` untuk sekadar membaca | P2 (aturan baca modul umum: `JSON.GET/MGET`, `FT.SEARCH/INFO`, `TS.RANGE/GET`, `BF.EXISTS`) |
-| Daftar key dengan pola (SCAN, aman) | redis-cli `--scan --pattern` | ADA | `cache keys CONN 'pat*' --limit` (SCAN, tidak pernah KEYS) | - |
-| Filter key per tipe (`SCAN TYPE`) | redis-cli `--scan --type` (7+) | SEBAGIAN | `cache keys` tidak punya `--type` (`cachex.Keys`); lewat jalur mentah `cache run -- SCAN 0 MATCH 'x:*' TYPE hash COUNT 1000` (read), kursor diulang manual | P3 |
-| Hitung key yang cocok pola / per prefix | RedisInsight "tree view", redis-rdb-tools | TIDAK ADA | `cache keys` berhenti di `--limit`; jumlah total tidak diketahui | P3 |
-| Jumlah key per DB | redis-cli `INFO keyspace`, `DBSIZE` | ADA | `cache info` (bagian keyspace) / `cache run -- DBSIZE` | - |
-| INFO server terstruktur per section | redis-cli `INFO` | ADA | `cache info CONN [SECTION]` → map per section | - |
-| TTL / PTTL / OBJECT / MEMORY USAGE | redis-cli | ADA | TTL di `cache get`; lainnya lewat `cache run` (dinilai read) | - |
-| Baca stream (XRANGE, XINFO, XPENDING) | redis-cli | ADA | `cache get` (stream) dan `cache run` (read) | - |
-| `XREAD` non-blocking | redis-cli | SEBAGIAN | Dinilai write (tidak ada di daftar read) karena bisa `BLOCK`; `XREAD` tanpa BLOCK seharusnya read | P3 |
+| Read a key of any type + TTL + size | redis-cli `GET/HGETALL/...`, RedisInsight browser | PRESENT | `cache get` (string/hash/list/set/zset/stream, `--limit` cap, binary → base64) | - |
+| Module types (RedisJSON, TimeSeries, Bloom) | RedisInsight | PARTIAL | `cache get` returns `value: null`; `cache run -- JSON.GET k` **is classified write** (unknown command), so it needs `--write` just to read | P2 (read rules for common modules: `JSON.GET/MGET`, `FT.SEARCH/INFO`, `TS.RANGE/GET`, `BF.EXISTS`) |
+| List keys by pattern (SCAN, safe) | redis-cli `--scan --pattern` | PRESENT | `cache keys CONN 'pat*' --limit` (SCAN, never KEYS) | - |
+| Filter keys by type (`SCAN TYPE`) | redis-cli `--scan --type` (7+) | PARTIAL | `cache keys` has no `--type` (`cachex.Keys`); through the raw path `cache run -- SCAN 0 MATCH 'x:*' TYPE hash COUNT 1000` (read), cursor repeated manually | P3 |
+| Count keys matching a pattern / per prefix | RedisInsight "tree view", redis-rdb-tools | MISSING | `cache keys` stops at `--limit`; the total count is unknown | P3 |
+| Number of keys per DB | redis-cli `INFO keyspace`, `DBSIZE` | PRESENT | `cache info` (keyspace section) / `cache run -- DBSIZE` | - |
+| Structured INFO per section | redis-cli `INFO` | PRESENT | `cache info CONN [SECTION]` → map per section | - |
+| TTL / PTTL / OBJECT / MEMORY USAGE | redis-cli | PRESENT | TTL in `cache get`; the rest through `cache run` (classified read) | - |
+| Read streams (XRANGE, XINFO, XPENDING) | redis-cli | PRESENT | `cache get` (stream) and `cache run` (read) | - |
+| Non-blocking `XREAD` | redis-cli | PARTIAL | Classified write (not in the read list) because it can `BLOCK`; `XREAD` without BLOCK should be read | P3 |
 
-## 14. Cache: menulis per tipe data
+## 14. Cache: writing per data type
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Set string + TTL | redis-cli `SET ... EX` | ADA | `cache set CONN KEY VALUE --ttl` | - |
-| Set dengan NX/XX/KEEPTTL/GET | redis-cli | SEBAGIAN | Lewat `cache run --write -- SET k v NX` | P3 |
-| Nilai dari file/stdin (biner, JSON besar) | redis-cli `-x` | TIDAK ADA | `cache set` hanya argumen; tidak ada `--file`/stdin | P3 |
-| Ubah TTL / persist (`EXPIRE`, `PERSIST`) | redis-cli | SEBAGIAN | `cache run --write -- EXPIRE k 3600`; tidak ada `cache expire`/`cache set --ttl` untuk key yang sudah ada | P3 |
-| Hash/list/set/zset/stream (HSET, LPUSH, SADD, ZADD, XADD, HDEL, SREM ...) | redis-cli, RedisInsight editor | SEBAGIAN | Semua lewat `cache run --write`; first-class hanya string | P3 |
-| Rename/copy key | redis-cli `RENAME`, `COPY` | SEBAGIAN | `cache run --write`. `RENAME` diam-diam menimpa key tujuan tapi hanya dinilai write (lihat bagian 17) | P3 |
-| Hapus key tepat | redis-cli `DEL/UNLINK` | ADA | `cache rm` (`--allow-dangerous`) | - |
-| Hapus berdasarkan pola (invalidasi prefix: `--scan --pattern 'x:*' \| xargs DEL`) | redis-cli pipeline | TIDAK ADA | `cache rm` sengaja tanpa pola. Workaround: `cache keys` lalu `cache rm k1 k2 ...` (dibatasi `--limit`, panjang argv). Bisa dibuat aman: `--dry-run` menunjukkan jumlah + contoh, `--allow-dangerous`, UNLINK bertahap | P2 (invalidasi cache per prefix adalah pekerjaan harian setelah deploy) |
-| Flush DB | redis-cli `FLUSHDB` | ADA (lewat jalur mentah) | `cache run --write --allow-dangerous -- FLUSHDB` (aturan `redis-flush`) | - |
-| Dry-run tulis | — | SEBAGIAN | Jujur dilaporkan: Redis tidak bisa rollback, `--dry-run` hanya mengecek izin (`withCache`). Tidak menampilkan nilai lama / apakah key ada | P3 |
+| Set string + TTL | redis-cli `SET ... EX` | PRESENT | `cache set CONN KEY VALUE --ttl` | - |
+| Set with NX/XX/KEEPTTL/GET | redis-cli | PARTIAL | Through `cache run --write -- SET k v NX` | P3 |
+| Value from a file/stdin (binary, large JSON) | redis-cli `-x` | MISSING | `cache set` only takes arguments; no `--file`/stdin | P3 |
+| Change TTL / persist (`EXPIRE`, `PERSIST`) | redis-cli | PARTIAL | `cache run --write -- EXPIRE k 3600`; no `cache expire`/`cache set --ttl` for an existing key | P3 |
+| Hash/list/set/zset/stream (HSET, LPUSH, SADD, ZADD, XADD, HDEL, SREM ...) | redis-cli, RedisInsight editor | PARTIAL | All through `cache run --write`; only strings are first-class | P3 |
+| Rename/copy a key | redis-cli `RENAME`, `COPY` | PARTIAL | `cache run --write`. `RENAME` silently overwrites the target key but is only classified write (see section 17) | P3 |
+| Delete exact keys | redis-cli `DEL/UNLINK` | PRESENT | `cache rm` (`--allow-dangerous`) | - |
+| Delete by pattern (prefix invalidation: `--scan --pattern 'x:*' \| xargs DEL`) | redis-cli pipeline | MISSING | `cache rm` deliberately has no pattern. Workaround: `cache keys` then `cache rm k1 k2 ...` (limited by `--limit` and argv length). Can be made safe: `--dry-run` shows the count + examples, `--allow-dangerous`, UNLINK in batches | P2 (invalidating the cache per prefix is daily work after a deploy) |
+| Flush DB | redis-cli `FLUSHDB` | PRESENT (through the raw path) | `cache run --write --allow-dangerous -- FLUSHDB` (rule `redis-flush`) | - |
+| Write dry-run | — | PARTIAL | Reported honestly: Redis cannot roll back, `--dry-run` only checks permission (`withCache`). It does not show the old value / whether the key exists | P3 |
 
-## 15. Cache: diagnosis dan operasi server
+## 15. Cache: diagnosis and server operations
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Key terbesar (`--bigkeys`) | redis-cli `--bigkeys` | TIDAK ADA | Workaround: `cache keys` + `cache run -- MEMORY USAGE` per key (lambat, dibatasi). Masuk akal sebagai `cache keys --sort size` / `cache big` dengan SCAN | P2 (insiden memori penuh/eviction umum) |
-| Memori per key (`--memkeys`, `--memkeys-samples`) | redis-cli | TIDAK ADA | Sama dengan di atas | P2 |
-| Hot keys (`--hotkeys`, LFU) | redis-cli `--hotkeys` | TIDAK ADA | `OBJECT FREQ` per key lewat `cache run` | P3 |
-| Latensi (`--latency`, `--latency-history`, `--intrinsic-latency`) | redis-cli | SEBAGIAN | `LATENCY LATEST/HISTORY/DOCTOR` lewat `cache run` (read). Latensi sisi klien tidak ada (`test` hanya TCP) | P3 |
-| Statistik bergulir (`--stat`) | redis-cli `--stat` | NON-GOAL | NG-4 (pemantauan terus-menerus); snapshot ada di `cache info` | - |
-| Slowlog | redis-cli `SLOWLOG GET` | ADA (lewat jalur mentah) | `cache run -- SLOWLOG GET 20` (read); `SLOWLOG RESET` = write | - |
-| MONITOR (lihat semua perintah) | redis-cli `MONITOR` | TIDAK ADA | `cache run -- MONITOR` dinilai write dan `Do()` hanya membaca satu balasan. Versi terbatas waktu (`--duration 5s`) berguna untuk debug; versi terus-menerus = NG-4. Perhatian: MONITOR membocorkan nilai (PII/secret) | P3 |
-| Daftar klien | redis-cli `CLIENT LIST` | ADA (lewat jalur mentah) | `cache run -- CLIENT LIST` (read; teks mentah, tidak diparse jadi tabel) | - |
-| Kill klien | redis-cli `CLIENT KILL` | ADA (lewat jalur mentah) | `cache run --write --allow-dangerous -- CLIENT KILL ...` (`redis-kill`) | - |
-| Lihat config (`CONFIG GET`) | redis-cli | ADA (lewat jalur mentah) | read | - |
-| Ubah config (`CONFIG SET maxmemory`) | redis-cli | ADA (lewat jalur mentah) | `redis-server-config` (destructive) | - |
-| Replikasi (role, lag, `INFO replication`) | redis-cli | ADA | `cache info CONN replication` | - |
-| Memory doctor / stats | redis-cli `MEMORY DOCTOR` | ADA (lewat jalur mentah) | read | - |
-| Persistensi: BGSAVE, LASTSAVE, BGREWRITEAOF | redis-cli | ADA (lewat jalur mentah) | `BGSAVE` dinilai write; `SAVE` diblok (`redis-blocking`) | - |
-| `DEBUG` (sleep, object, reload) | redis-cli | ADA (lewat jalur mentah) | `redis-blocking`, butuh `--allow-dangerous` | - |
-| Ulangi perintah (`-r N -i S`) | redis-cli `-r`, `-i` | TIDAK ADA | | P3 |
-| Cek kesehatan dengan saran (eviction, fragmentasi, maxmemory tidak diset, persistence mati) | RedisInsight "Database analysis" | TIDAK ADA | `cache info` hanya angka mentah; tidak ada ringkasan `warnings[]` | P2 (agent perlu interpretasi; murah dari INFO) |
+| Biggest keys (`--bigkeys`) | redis-cli `--bigkeys` | MISSING | Workaround: `cache keys` + `cache run -- MEMORY USAGE` per key (slow, limited). Makes sense as `cache keys --sort size` / `cache big` with SCAN | P2 (memory-full/eviction incidents are common) |
+| Memory per key (`--memkeys`, `--memkeys-samples`) | redis-cli | MISSING | Same as above | P2 |
+| Hot keys (`--hotkeys`, LFU) | redis-cli `--hotkeys` | MISSING | `OBJECT FREQ` per key through `cache run` | P3 |
+| Latency (`--latency`, `--latency-history`, `--intrinsic-latency`) | redis-cli | PARTIAL | `LATENCY LATEST/HISTORY/DOCTOR` through `cache run` (read). Client-side latency is missing (`test` only checks TCP) | P3 |
+| Rolling statistics (`--stat`) | redis-cli `--stat` | NON-GOAL | NG-4 (continuous monitoring); a snapshot is in `cache info` | - |
+| Slowlog | redis-cli `SLOWLOG GET` | PRESENT (through the raw path) | `cache run -- SLOWLOG GET 20` (read); `SLOWLOG RESET` = write | - |
+| MONITOR (see all commands) | redis-cli `MONITOR` | MISSING | `cache run -- MONITOR` is classified write and `Do()` only reads one reply. A time-limited version (`--duration 5s`) is useful for debugging; a continuous version = NG-4. Warning: MONITOR leaks values (PII/secrets) | P3 |
+| List clients | redis-cli `CLIENT LIST` | PRESENT (through the raw path) | `cache run -- CLIENT LIST` (read; raw text, not parsed into a table) | - |
+| Kill clients | redis-cli `CLIENT KILL` | PRESENT (through the raw path) | `cache run --write --allow-dangerous -- CLIENT KILL ...` (`redis-kill`) | - |
+| See config (`CONFIG GET`) | redis-cli | PRESENT (through the raw path) | read | - |
+| Change config (`CONFIG SET maxmemory`) | redis-cli | PRESENT (through the raw path) | `redis-server-config` (destructive) | - |
+| Replication (role, lag, `INFO replication`) | redis-cli | PRESENT | `cache info CONN replication` | - |
+| Memory doctor / stats | redis-cli `MEMORY DOCTOR` | PRESENT (through the raw path) | read | - |
+| Persistence: BGSAVE, LASTSAVE, BGREWRITEAOF | redis-cli | PRESENT (through the raw path) | `BGSAVE` is classified write; `SAVE` is blocked (`redis-blocking`) | - |
+| `DEBUG` (sleep, object, reload) | redis-cli | PRESENT (through the raw path) | `redis-blocking`, needs `--allow-dangerous` | - |
+| Repeat a command (`-r N -i S`) | redis-cli `-r`, `-i` | MISSING | | P3 |
+| Health check with advice (eviction, fragmentation, maxmemory not set, persistence off) | RedisInsight "Database analysis" | MISSING | `cache info` only gives raw numbers; there is no `warnings[]` summary | P2 (agents need interpretation; cheap to derive from INFO) |
 
 ## 16. Cache: pub/sub, scripting, cluster admin
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| PUBLISH | redis-cli | ADA (lewat jalur mentah) | `cache run --write -- PUBLISH ch msg` | - |
-| SUBSCRIBE / PSUBSCRIBE (dengar N pesan atau N detik) | redis-cli `SUBSCRIBE` | TIDAK ADA | Butuh mode streaming; versi terbatas (`--count`, `--duration`) cocok dengan CLI, versi terus-menerus = NG-4 | P3 |
-| `PUBSUB CHANNELS/NUMSUB` | redis-cli | ADA (lewat jalur mentah) | read | - |
-| EVAL / EVALSHA / FCALL | redis-cli `--eval` | ADA (lewat jalur mentah) | `redis-script-run` (destructive: tidak bisa diinspeksi); `EVAL_RO` read | - |
-| `--eval file.lua` | redis-cli | TIDAK ADA | Skrip harus inline di argv | P3 |
-| Admin cluster (`CLUSTER NODES/INFO`, `--cluster check/fix/rebalance/reshard`) | redis-cli `--cluster` | SEBAGIAN | `CLUSTER INFO/NODES` read lewat `cache run` ke satu node; `--cluster fix/reshard` tidak ada (NG-1) | P3 |
-| Sentinel admin (`SENTINEL masters`, failover) | redis-cli | SEBAGIAN | Lewat `cache run --write -- SENTINEL ...` ke conn port sentinel. Membaca pun butuh `--write`, dan `SENTINEL FAILOVER/REMOVE/SET` hanya dinilai write (tidak butuh `--allow-dangerous`) | P3 |
+| PUBLISH | redis-cli | PRESENT (through the raw path) | `cache run --write -- PUBLISH ch msg` | - |
+| SUBSCRIBE / PSUBSCRIBE (listen for N messages or N seconds) | redis-cli `SUBSCRIBE` | MISSING | Needs a streaming mode; a limited version (`--count`, `--duration`) fits a CLI, a continuous version = NG-4 | P3 |
+| `PUBSUB CHANNELS/NUMSUB` | redis-cli | PRESENT (through the raw path) | read | - |
+| EVAL / EVALSHA / FCALL | redis-cli `--eval` | PRESENT (through the raw path) | `redis-script-run` (destructive: cannot be inspected); `EVAL_RO` read | - |
+| `--eval file.lua` | redis-cli | MISSING | The script must be inline in argv | P3 |
+| Cluster admin (`CLUSTER NODES/INFO`, `--cluster check/fix/rebalance/reshard`) | redis-cli `--cluster` | PARTIAL | `CLUSTER INFO/NODES` read through `cache run` to one node; `--cluster fix/reshard` is not available (NG-1) | P3 |
+| Sentinel admin (`SENTINEL masters`, failover) | redis-cli | PARTIAL | Through `cache run --write -- SENTINEL ...` to a conn on the sentinel port. Even reading needs `--write`, and `SENTINEL FAILOVER/REMOVE/SET` is only classified write (does not need `--allow-dangerous`) | P3 |
 
-## 17. Cache: backup, bulk, migrasi data
+## 17. Cache: backup, bulk, data migration
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Backup RDB ke laptop (`redis-cli --rdb`) | redis-cli `--rdb` | TIDAK ADA | vision.md tujuan 2: setiap family punya "backup, dan pulihkan"; `cache` tidak punya `dump`/`restore` | P2 |
-| Ekspor/impor key (DUMP/RESTORE, JSON) per pola | redis-dump, RIOT, RedisInsight bulk | TIDAK ADA | `DUMP` read & `RESTORE` write ada lewat `cache run`, satu per satu | P3 |
-| Mass insert (`--pipe`) | redis-cli `--pipe` | TIDAK ADA | | P3 |
-| Salin antar instance (`MIGRATE`, RIOT, redis-shake) | redis-cli, redis-shake | SEBAGIAN | `MIGRATE` diblok sebagai `redis-flush` (destructive) lewat `cache run` | P3 |
+| RDB backup to the laptop (`redis-cli --rdb`) | redis-cli `--rdb` | MISSING | vision.md goal 2: every family has "backup, and restore"; `cache` has no `dump`/`restore` | P2 |
+| Export/import keys (DUMP/RESTORE, JSON) by pattern | redis-dump, RIOT, RedisInsight bulk | MISSING | `DUMP` read & `RESTORE` write exist through `cache run`, one by one | P3 |
+| Mass insert (`--pipe`) | redis-cli `--pipe` | MISSING | | P3 |
+| Copy between instances (`MIGRATE`, RIOT, redis-shake) | redis-cli, redis-shake | PARTIAL | `MIGRATE` is blocked as `redis-flush` (destructive) through `cache run` | P3 |
 
-## 18. Temuan keamanan/konsistensi pada klasifikasi cache
+## 18. Security/consistency findings in cache classification
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Perintah yang menghapus data diperlakukan sama dengan `DEL` | — | SEBAGIAN | `GETDEL`, `HDEL`, `SREM`, `ZREMRANGEBY*`, `LTRIM`, `EXPIRE k 0`, `RESTORE ... REPLACE`, `RENAME` (menimpa tujuan), `SET` di atas key lain tipe dinilai **write**, sedangkan `DEL/UNLINK` dan `cache rm` butuh `--allow-dangerous` (`cachex.Classify`). Minimal `GETDEL`, `RENAME` ke key yang ada, dan `EXPIRE/PEXPIRE` ≤ 0 setara `data-delete` | P2 |
-| `policy check --for redis "CLIENT LIST"` (satu argumen berkutip) | — | SEBAGIAN | Bug kecil: tanpa dipecah per kata dinilai `write`; `-- CLIENT LIST` dinilai `read` (`meta.go` memberi `args` mentah ke `cachex.Classify`). Untuk SQL argumen digabung, jadi dua jalur berbeda | P3 |
-| Perintah baca modul dan baca biasa yang belum terdaftar (`XREAD`, `JSON.GET`, `FT.SEARCH`, `TS.RANGE`, `HELLO`, `CLIENT NO-TOUCH`) | — | SEBAGIAN | Dinilai write sehingga agent harus memakai `--write` untuk membaca; ini melemahkan makna `--write` di audit | P2 |
+| Commands that delete data are treated the same as `DEL` | — | PARTIAL | `GETDEL`, `HDEL`, `SREM`, `ZREMRANGEBY*`, `LTRIM`, `EXPIRE k 0`, `RESTORE ... REPLACE`, `RENAME` (overwrites the target), `SET` over a key of another type are classified **write**, while `DEL/UNLINK` and `cache rm` need `--allow-dangerous` (`cachex.Classify`). At least `GETDEL`, `RENAME` to an existing key, and `EXPIRE/PEXPIRE` ≤ 0 should equal `data-delete` | P2 |
+| `policy check --for redis "CLIENT LIST"` (one quoted argument) | — | PARTIAL | Small bug: without splitting into words it is classified `write`; `-- CLIENT LIST` is classified `read` (`meta.go` passes raw `args` to `cachex.Classify`). For SQL the arguments are joined, so the two paths differ | P3 |
+| Module reads and plain reads that are not registered yet (`XREAD`, `JSON.GET`, `FT.SEARCH`, `TS.RANGE`, `HELLO`, `CLIENT NO-TOUCH`) | — | PARTIAL | Classified write, so agents must use `--write` to read; this weakens the meaning of `--write` in the audit | P2 |
 
 ## 19. Memcached
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| get/set/delete, stats, stats items/slabs, flush_all | telnet, memcached-tool, memcdump, mcrouter | TIDAK ADA | vision.md tabel family: `cache` "nanti: memcached". Protokol teks sederhana, client Go murni kecil (`gomemcache`), cocok dengan `cache get/set/rm/info`; tidak ada SCAN (`keys` terbatas lewat `lru_crawler metadump`) | P2 (masih umum di WordPress/PHP/legacy; biaya biner kecil) |
+| get/set/delete, stats, stats items/slabs, flush_all | telnet, memcached-tool, memcdump, mcrouter | MISSING | vision.md family table: `cache` "later: memcached". Simple text protocol, small pure Go client (`gomemcache`), fits `cache get/set/rm/info`; no SCAN (`keys` limited through `lru_crawler metadump`) | P2 (still common in WordPress/PHP/legacy; small binary cost) |
 
 ---
 
-## 20. Engine data yang belum didukung
+## 20. Data engines not supported yet
 
-Penilaian memakai kriteria vision.md "Kriteria menambah family" (masuk model conn+kind+verb, read-only default jujur, Go murni, kebutuhan harian, ada perawat). Ukuran biner tidak lagi dibatasi.
+The assessment uses the vision.md criteria "Criteria for adding a family" (fits the conn+kind+verb model, honest read-only default, pure Go, daily need, has a maintainer). Binary size is no longer capped.
 
-| Kemampuan | Tools pembanding | Status komando | Bukti/catatan | Prioritas |
+| Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| MongoDB (find, aggregate, count, indexes, stats, currentOp, killOp, mongodump/restore) | mongosh, mongodump, Compass | TIDAK ADA | vision.md: kandidat setelah v1.0 ("dan mongodb"). Driver resmi Go murni tapi besar (+~6-8 MB); read-only bisa lewat `readPreference` + user read, tidak ada transaksi read-only setara, jadi klasifikasi (`find`/`aggregate` tanpa `$out/$merge`) jadi lapisan utama. Workaround: `exec host -- mongosh --eval` | P2 (DB non-SQL paling populer) |
-| Microsoft SQL Server / Azure SQL | sqlcmd, Azure Data Studio | TIDAK ADA | vision.md: `db` "nanti: mssql". `go-mssqldb` Go murni; read-only: `SET TRANSACTION ISOLATION ... ` tidak memblok tulis, perlu `ApplicationIntent=ReadOnly`/user read + klasifikasi T-SQL (dialek `[ ]`, `GO`) | P2 |
-| Oracle | sqlplus, SQLcl | TIDAK ADA | `go-ora` Go murni; `SET TRANSACTION READ ONLY` ada. Jarang di target pengguna komando (devops kecil/menengah) | P3 |
-| ClickHouse | clickhouse-client | TIDAK ADA | vision.md: `db` "nanti: clickhouse". `clickhouse-go` Go murni; read-only lewat setting `readonly=1` (ditegakkan server, cocok dengan kontrak) | P2 |
-| Cassandra / ScyllaDB | cqlsh, nodetool | TIDAK ADA | `gocql` Go murni; tidak ada read-only transaksi; harus via klasifikasi CQL + role read | P3 |
-| Elasticsearch / OpenSearch (health, indices, search, mapping, snapshot, hapus index) | curl, elasticsearch-cli, opensearch-cli, Kibana Dev Tools | TIDAK ADA | vision.md: kandidat setelah v1.0 "search (Elasticsearch, OpenSearch)". REST API (tanpa SDK) cocok dengan aturan teknis; risk per method+path jelas (GET read, DELETE index destructive) | P2 (sangat umum untuk log/search; murah di biner) |
-| InfluxDB / TimescaleDB / Prometheus | influx CLI, promtool | SEBAGIAN | Timescale = postgres (ADA lewat `db`). Influx: TIDAK ADA. Prometheus disebut sebagai kandidat "query metrics" di vision.md (domain lain) | P3 |
-| CockroachDB | cockroach sql | SEBAGIAN | Lihat bagian 1 (postgres-wire, belum diuji; `db dump` tidak cocok, CRDB memakai `BACKUP`) | P3 |
-| MariaDB khusus (Galera status `wsrep_%`, `mariadb-dump`, `max_statement_time`, sequences, system-versioned tables) | mariadb, mariadb-dump | SEBAGIAN | Skema `mariadb://`, timeout MariaDB, flag TLS MariaDB untuk dump ada. Galera/wsrep lewat `db query "show status like 'wsrep%'"`. `mariadb-dump` (nama biner baru di 11.x, `mysqldump` jadi symlink dan mungkin hilang) belum dideteksi | P3 |
-| DynamoDB | aws dynamodb, NoSQL Workbench | TIDAK ADA | SigV4 sendiri sudah ada untuk S3 (bisa dipakai ulang); read = GetItem/Query/Scan. Kebutuhan harian pengguna devops self-hosted rendah | P3 |
-| Kafka (topics, consumer groups + lag, produce/consume N pesan, reset offset) | kcat, kafka-topics, kafka-consumer-groups, kafkactl | TIDAK ADA | vision.md: kandidat setelah v1.0 "message queue (RabbitMQ, Kafka, NATS)". `franz-go` Go murni. Consumer lag adalah kebutuhan insiden harian di tim yang memakai Kafka | P2 |
-| RabbitMQ (queues, depth, consumers, purge, publish, shovel) | rabbitmqadmin, rabbitmqctl | TIDAK ADA | Kandidat vision.md. Management HTTP API (tanpa SDK); purge/delete queue = destructive | P2 |
-| NATS / JetStream (streams, consumers, pub/sub, KV) | nats CLI | TIDAK ADA | Kandidat vision.md; `nats.go` Go murni | P3 |
-| etcd (get/put/del prefix, member list, endpoint health, snapshot) | etcdctl | TIDAK ADA | `go.etcd.io/etcd/client` menarik gRPC (besar). Dipakai di k8s self-managed; snapshot etcd adalah backup kritikal | P3 |
-| Consul KV / catalog / health | consul CLI | TIDAK ADA | HTTP API sederhana; KV mirip `cache` | P3 |
-| DuckDB / file Parquet lokal | duckdb CLI | TIDAK ADA | Butuh cgo (melanggar "Pure Go, tanpa cgo") | P3 |
-| Data warehouse cloud (BigQuery, Snowflake, Redshift, Databricks) | bq, snowsql | TIDAK ADA | Redshift lewat postgres-wire (belum diuji); BigQuery/Snowflake butuh SDK besar | P3 |
-| Neo4j / graph DB | cypher-shell | TIDAK ADA | | P3 |
-| Valkey/KeyDB/Dragonfly | valkey-cli | ADA | kind `redis` (docs/features/caches.md) | - |
-| Provisioning DB terkelola (buat RDS/Cloud SQL, ubah ukuran) | aws rds, gcloud sql | NON-GOAL | NG-6 "Infrastructure as Code, provisioning cloud" | - |
+| MongoDB (find, aggregate, count, indexes, stats, currentOp, killOp, mongodump/restore) | mongosh, mongodump, Compass | MISSING | vision.md: candidate after v1.0 ("and mongodb"). The official driver is pure Go but large (+~6-8 MB); read-only is possible through `readPreference` + a read user, there is no equivalent read-only transaction, so classification (`find`/`aggregate` without `$out/$merge`) becomes the main layer. Workaround: `exec host -- mongosh --eval` | P2 (the most popular non-SQL DB) |
+| Microsoft SQL Server / Azure SQL | sqlcmd, Azure Data Studio | MISSING | vision.md: `db` "later: mssql". `go-mssqldb` is pure Go; read-only: `SET TRANSACTION ISOLATION ... ` does not block writes, needs `ApplicationIntent=ReadOnly`/a read user + T-SQL classification (dialect `[ ]`, `GO`) | P2 |
+| Oracle | sqlplus, SQLcl | MISSING | `go-ora` is pure Go; `SET TRANSACTION READ ONLY` exists. Rare among komando's target users (small/medium devops) | P3 |
+| ClickHouse | clickhouse-client | MISSING | vision.md: `db` "later: clickhouse". `clickhouse-go` is pure Go; read-only through the `readonly=1` setting (enforced by the server, fits the contract) | P2 |
+| Cassandra / ScyllaDB | cqlsh, nodetool | MISSING | `gocql` is pure Go; no read-only transactions; must rely on CQL classification + a read role | P3 |
+| Elasticsearch / OpenSearch (health, indices, search, mapping, snapshot, delete index) | curl, elasticsearch-cli, opensearch-cli, Kibana Dev Tools | MISSING | vision.md: candidate after v1.0 "search (Elasticsearch, OpenSearch)". REST API (no SDK) fits the technical rules; risk per method+path is clear (GET read, DELETE index destructive) | P2 (very common for logs/search; cheap in binary size) |
+| InfluxDB / TimescaleDB / Prometheus | influx CLI, promtool | PARTIAL | Timescale = postgres (PRESENT through `db`). Influx: MISSING. Prometheus is named as a "query metrics" candidate in vision.md (another domain) | P3 |
+| CockroachDB | cockroach sql | PARTIAL | See section 1 (postgres-wire, not tested yet; `db dump` does not fit, CRDB uses `BACKUP`) | P3 |
+| MariaDB-specific (Galera status `wsrep_%`, `mariadb-dump`, `max_statement_time`, sequences, system-versioned tables) | mariadb, mariadb-dump | PARTIAL | The `mariadb://` scheme, MariaDB timeout and MariaDB TLS flags for dump exist. Galera/wsrep through `db query "show status like 'wsrep%'"`. `mariadb-dump` (the new binary name in 11.x; `mysqldump` becomes a symlink and may disappear) is not detected yet | P3 |
+| DynamoDB | aws dynamodb, NoSQL Workbench | MISSING | Own SigV4 already exists for S3 (can be reused); read = GetItem/Query/Scan. Daily need among self-hosted devops users is low | P3 |
+| Kafka (topics, consumer groups + lag, produce/consume N messages, reset offsets) | kcat, kafka-topics, kafka-consumer-groups, kafkactl | MISSING | vision.md: candidate after v1.0 "message queue (RabbitMQ, Kafka, NATS)". `franz-go` is pure Go. Consumer lag is a daily incident need in teams that use Kafka | P2 |
+| RabbitMQ (queues, depth, consumers, purge, publish, shovel) | rabbitmqadmin, rabbitmqctl | MISSING | vision.md candidate. Management HTTP API (no SDK); purge/delete queue = destructive | P2 |
+| NATS / JetStream (streams, consumers, pub/sub, KV) | nats CLI | MISSING | vision.md candidate; `nats.go` is pure Go | P3 |
+| etcd (get/put/del prefix, member list, endpoint health, snapshot) | etcdctl | MISSING | `go.etcd.io/etcd/client` pulls in gRPC (large). Used in self-managed k8s; an etcd snapshot is a critical backup | P3 |
+| Consul KV / catalog / health | consul CLI | MISSING | Simple HTTP API; KV is similar to `cache` | P3 |
+| DuckDB / local Parquet files | duckdb CLI | MISSING | Needs cgo (breaks "Pure Go, no cgo") | P3 |
+| Cloud data warehouses (BigQuery, Snowflake, Redshift, Databricks) | bq, snowsql | MISSING | Redshift through postgres-wire (not tested yet); BigQuery/Snowflake need large SDKs | P3 |
+| Neo4j / graph DBs | cypher-shell | MISSING | | P3 |
+| Valkey/KeyDB/Dragonfly | valkey-cli | PRESENT | kind `redis` (docs/features/caches.md) | - |
+| Managed DB provisioning (create RDS/Cloud SQL, resize) | aws rds, gcloud sql | NON-GOAL | NG-6 "Infrastructure as Code, cloud provisioning" | - |
 
 ---
 
-## Ringkasan hitungan
+## Count summary
 
-Dihitung dari semua baris tabel di atas (bagian 1-20):
+Counted from all table rows above (sections 1-20):
 
-| Status | Jumlah |
+| Status | Count |
 |---|---|
-| ADA (termasuk "ADA (lewat jalur mentah)", "ADA (lewat alat asli)", "ADA (kemungkinan)") | 66 |
-| SEBAGIAN | 71 |
-| TIDAK ADA | 67 |
+| PRESENT (including "PRESENT (through the raw path)", "PRESENT (through the original tool)", "PRESENT (probably)") | 66 |
+| PARTIAL | 71 |
+| MISSING | 67 |
 | NON-GOAL | 15 |
-| **Total kemampuan** | **219** |
+| **Total capabilities** | **219** |
 
-Gap berprioritas (SEBAGIAN + TIDAK ADA): P1 = 12 baris (10 gap unik: cek login db dan cache digabung, redaksi audit dan CREATE USER digabung), P2 = 47, P3 = 79.
-Rincian: SEBAGIAN = 9 P1 + 19 P2 + 43 P3; TIDAK ADA = 3 P1 + 28 P2 + 36 P3.
-Hitungan ini sudah memakai hasil verifikasi per baris di bagian akhir (7 baris pindah dari TIDAK ADA ke SEBAGIAN; prioritas tidak berubah).
+Prioritized gaps (PARTIAL + MISSING): P1 = 12 rows (10 unique gaps: db and cache login checks merged, audit redaction and CREATE USER merged), P2 = 47, P3 = 79.
+Breakdown: PARTIAL = 9 P1 + 19 P2 + 43 P3; MISSING = 3 P1 + 28 P2 + 36 P3.
+These counts already use the per-row verification results in the final section (7 rows moved from MISSING to PARTIAL; priorities did not change).
 
-## Top P1 (urut dampak)
+## Top P1 (by impact)
 
-1. **`komando test` untuk db/cache hanya cek TCP**, bukan login/versi, padahal help dan desain menjanjikan login (`conn.go testConn`). Agent tidak bisa memverifikasi kredensial, nama DB, dan TLS sebelum bekerja.
-2. **Password di `CREATE USER/ALTER ROLE ... PASSWORD` tercatat utuh di `audit.jsonl`** (default `audit_sql=full`), dan tidak ada cara memakai `secret:` di SQL. Perlu redaksi literal password + `db` user helper.
-3. **`db info`/`db status`**: versi, uptime, ukuran DB, koneksi vs max, primary/replica. `cache info` sudah ada; `db` belum (verb `status/info` di ux.md).
-4. **Aktivitas sesi** (pg_stat_activity / PROCESSLIST) first-class, dengan filter query lama dan idle-in-transaction.
-5. **Lock dan rantai blocking** (`pg_blocking_pids`, `innodb_lock_waits`).
-6. **`db kill PID`** (cancel vs terminate) dengan dry-run yang menampilkan query yang akan dihentikan; sekarang hanya lewat `select pg_terminate_backend()` + `--allow-dangerous`.
-7. **Ukuran DB/tabel/index terbesar** (insiden disk penuh); `db schema` tidak punya kolom ukuran.
-8. **Foreign key (dan relasi) di `db schema`**: penting agar agent menulis JOIN yang benar dan menilai efek cascade.
-9. **`pg_dump -Fc` (format custom)** di `db dump`: standar backup Postgres produksi.
-10. **`pg_restore`** untuk file custom/directory di `db restore`.
+1. **`komando test` for db/cache only checks TCP**, not login/version, even though the help and the design promise login (`conn.go testConn`). Agents cannot verify credentials, DB name and TLS before working.
+2. **The password in `CREATE USER/ALTER ROLE ... PASSWORD` is recorded in full in `audit.jsonl`** (default `audit_sql=full`), and there is no way to use `secret:` in SQL. Needs password literal redaction + a `db` user helper.
+3. **`db info`/`db status`**: version, uptime, DB size, connections vs max, primary/replica. `cache info` already exists; `db` does not yet (verbs `status/info` in ux.md).
+4. **Session activity** (pg_stat_activity / PROCESSLIST) as first-class, with filters for long-running queries and idle-in-transaction.
+5. **Locks and blocking chains** (`pg_blocking_pids`, `innodb_lock_waits`).
+6. **`db kill PID`** (cancel vs terminate) with a dry-run that shows the query to be stopped; today it only works through `select pg_terminate_backend()` + `--allow-dangerous`.
+7. **Biggest DBs/tables/indexes** (full-disk incidents); `db schema` has no size column.
+8. **Foreign keys (and relations) in `db schema`**: important so agents write correct JOINs and judge cascade effects.
+9. **`pg_dump -Fc` (custom format)** in `db dump`: the standard for production Postgres backups.
+10. **`pg_restore`** for custom/directory files in `db restore`.
 
-Catatan tambahan di luar tabel prioritas: ukuran biner tidak lagi dibatasi, jadi engine baru (Mongo, MSSQL, ClickHouse, Kafka) dipilih dari kebutuhan harian; family berbasis HTTP (Elasticsearch/OpenSearch, RabbitMQ, Consul) tetap paling sederhana dibuat.
+Extra note outside the priority table: binary size is no longer capped, so new engines (Mongo, MSSQL, ClickHouse, Kafka) are chosen by daily need; HTTP-based families (Elasticsearch/OpenSearch, RabbitMQ, Consul) are still the simplest to build.
 
-## Verifikasi per baris
+## Per-row verification
 
-Setiap baris di atas dicek ulang terhadap kode (`internal/cli`, `internal/dbx`, `internal/cachex`, `internal/driver`), `bin/komando ... --help` (offline) dan dokumen desain. Aturan yang dipakai konsisten: kemampuan yang bisa dijalankan lewat `db query`/`cache run` milik komando sendiri = SEBAGIAN; kemampuan yang butuh alat lain di host (`exec host -- pgbench`, `tunnel` + klien eksternal) tetap TIDAK ADA, sesuai baris lain di laporan ini. Nomor baris kode merujuk commit 4784fc9.
+Every row above was checked again against the code (`internal/cli`, `internal/dbx`, `internal/cachex`, `internal/driver`), `bin/komando ... --help` (offline) and the design documents. The rule used is consistent: a capability that can be run through komando's own `db query`/`cache run` = PARTIAL; a capability that needs another tool on the host (`exec host -- pgbench`, `tunnel` + external client) stays MISSING, as in the other rows of this report. Code line numbers refer to commit 4784fc9.
 
-| # | Kemampuan (singkat) | Status akhir | Hasil cek | Bukti di kode |
+| # | Capability (short) | Final status | Check result | Evidence in code |
 |---|---|---|---|---|
-| 1 | Daftarkan DB, password di vault | ADA | Benar | `conn.go:66` `--password-ref`; `driver/driver.go:159` `URL_HAS_PASSWORD` |
-| 2 | PostgreSQL | ADA | Benar | `driver.go:63` skema postgres/postgresql; `dbx/dbx.go:37-53` pgx stdlib |
-| 3 | MySQL / MariaDB | ADA | Benar | `driver.go:65` skema mysql/mariadb; `dbx/dbx.go:282-283` fallback `max_statement_time` |
-| 4 | SQLite lokal | ADA | Benar | `dbx/dbx.go:59-67` `mode=ro` + `query_only(1)`; modernc (`dbx.go:23`) |
-| 5 | SQLite di host remote | TIDAK ADA | Benar | `conn.go:93-94` "--via is not supported" |
-| 6 | DB lewat bastion `--via` | ADA | Benar | `dbx/dbx.go:45-48` `DialFunc`; `dbx/mysql.go:43-46` `RegisterDialContext` |
-| 7 | DB lewat VPN | ADA | Benar | `conn.go:387-393` `netx.Open` untuk VPN di `--via` |
-| 8 | TLS Postgres | SEBAGIAN | Benar | `dbshell.go:157-160` hanya `PGSSLMODE`; `dbdump.go:63` URL utuh ke pg_dump |
-| 9 | TLS MySQL CA sendiri | SEBAGIAN | Benar | `dbx/mysql.go:37-38` `tls=` apa adanya; grep `RegisterTLSConfig`: 0 hasil |
-| 10 | Unix socket DB | TIDAK ADA | Benar | `driver.go:181-182` URL wajib host |
-| 11 | Login IAM / token cloud | TIDAK ADA | Benar | `conn.go:66` daftar ref statis; grep `rds-iam`/`generate-db-auth`: 0 hasil |
-| 12 | pgpass / my.cnf / pg_service | ADA | Benar | `komando import --help`: pgpass, mycnf, env, dbeaver; grep `pg_service`: 0 hasil |
-| 13 | Cek koneksi + login | SEBAGIAN | Benar | `conn.go:490-502` hanya dial TCP; `everything.go:157` help "logged in to" |
-| 14 | Query banyak DB | TIDAK ADA | Benar | `select.go:504-510` `singleConn` menolak >1 conn |
-| 15 | Pilih DB lain | SEBAGIAN | Benar | `driver/sql.go:336` `USE` read; tidak ada flag `--database` di `db.go:83-87` |
-| 16 | Replika baca | TIDAK ADA | Benar | grep `replica` di dbx/cli db: 0 hasil |
-| 17 | Postgres-wire lain | SEBAGIAN | Benar | `dbx/dbx.go:101` `SHOW standard_conforming_strings`; `test/e2e/compose.yml` hanya postgres/mariadb/redis |
-| 18 | MySQL-wire lain | SEBAGIAN | Benar | `test/e2e/compose.yml:23` hanya mariadb; tidak ada tes TiDB/Vitess |
-| 19 | Jalankan SQL | ADA | Benar | `db.go:50-81` `db query` |
-| 20 | Read-only default | ADA | Benar | `dbx/dbx.go:231` `ReadOnly: !o.Write`; sqlite `mode=ro` |
-| 21 | Klasifikasi risiko | ADA | Benar | `driver/sql.go:234` `ClassifySQL`; `meta.go:481` `policy check --for` |
-| 22 | Dry-run rollback | ADA | Benar | `dbx/dbx.go:246-256` rollback + `rolled_back` |
-| 23 | SQL dari file/stdin | ADA | Benar | `db.go:79` `--file`, `-` = stdin |
-| 24 | Parameter binding | ADA | Benar | `db.go:86` `--arg`; `dbx/dbx.go:194-195` satu statement |
-| 25 | Variabel bernama | TIDAK ADA | Benar | `db.go:83-87` hanya `--arg`; grep `\set`/`gset`: 0 hasil |
-| 26 | Multi-statement atomik | ADA | Benar | `dbx/dbx.go:231-251` satu tx; `driver/sql.go:418-421` `SQL_TX_CONTROL` |
-| 27 | Transaksi interaktif | NON-GOAL | Benar | vision.md:189 "Satu koneksi per perintah" + Bukan tujuan vision.md:223 (alat asli); resources-and-db.md:72 |
-| 28 | Savepoint | NON-GOAL | Benar | `driver/sql.go:339-342` `SAVEPOINT` di `txControl`; basis vision.md:189 + :223 |
-| 29 | Statement non-transaksional | ADA | Benar | `driver/sql.go:298-323` `noTx`; `dbx/dbx.go:200-212` |
-| 30 | Timeout query | ADA | Benar | `db.go:29` default 30 s; `dbx/dbx.go:267-288` `statement_timeout`/`max_execution_time` |
-| 31 | lock_timeout | SEBAGIAN | Benar | grep `lock_timeout` di Go: 0 hasil; ux.md:329 |
-| 32 | application_name | ADA | Benar | `dbx/dbx.go:50-51`; `db.go:245` `komando/<actor>` |
-| 33 | Batalkan query | ADA | Benar | `root.go:64` `signal.NotifyContext`; `dbx/dbx.go:189-192` |
-| 34 | EXPLAIN | ADA | Benar | `db.go:89-133` `db explain --analyze` |
-| 35 | EXPLAIN JSON | SEBAGIAN | Benar | `db.go:107-126` hanya prefix tetap; tidak ada `--format` |
-| 36 | \gexec | TIDAK ADA | Benar | grep `gexec`: 0 hasil |
-| 37 | \watch | TIDAK ADA | Benar | `db.go:83-87` tidak ada `--repeat/--interval` |
-| 38 | \timing | ADA | Benar | `out/out.go:74` `duration_ms` di meta |
-| 39 | --safe-updates | ADA | Benar | `driver/sql.go:525-526` `sql-update-no-where`/`sql-delete-no-where` |
-| 40 | Hasil per statement | ADA | Benar | `dbx/dbx.go:145-172` `StatementResult` |
-| 41 | Tipe aman JSON | ADA | Benar | `driver/value.go:15-45` `JSONValue` |
-| 42 | Output tabel teks | ADA | Benar | `db.go:302-311` tabwriter, potong >80 |
-| 43 | Output JSON | ADA | Benar | `root.go:159` `-o auto|json|text` |
-| 44 | Mode vertikal | TIDAK ADA | Benar | `root.go:136` hanya auto/json/text; grep `vertical`: 0 hasil |
-| 45 | Ekspor CSV | TIDAK ADA | Benar | `root.go:136`; grep `csv` di Go: 0 hasil |
-| 46 | Ekspor hasil besar | SEBAGIAN | Benar | `dbx/dbx.go:322-343` semua baris di memori; `root.go:168` `--max-output` |
-| 47 | Paging hasil | SEBAGIAN | Benar | `dbx/dbx.go:323-325` `truncated`; tidak ada `--offset` |
-| 48 | Pager less | SEBAGIAN | Benar | ux.md:314; tidak ada pager otomatis |
-| 49 | Impor CSV | TIDAK ADA | Benar | `dbx/mysql.go:39-40` param lain jadi variabel sesi (LOAD DATA LOCAL tidak aktif); grep `CopyFrom`: 0 hasil |
-| 50 | Salin data antar DB | TIDAK ADA | Benar | `dbdump.go:63,77` dump seluruh DB saja |
-| 51 | Simpan output ke file | ADA | Benar | redirect shell; envelope `out` stabil |
-| 52 | Daftar tabel + estimasi baris | ADA | Benar | `dbx/schema.go:93-101` relkind r,p,v,m,f + `reltuples` |
-| 53 | Kolom/tipe/null/default/PK | ADA | Benar | `dbx/schema.go:122-130`, `mysql.go:131-133`, `schema.go:182` |
-| 54 | Index | ADA | Benar | `dbx/schema.go:143`, `mysql.go:146-149` |
-| 55 | Foreign key | SEBAGIAN | Dikoreksi: TIDAK ADA→SEBAGIAN | `dbx/schema.go:14-21` tanpa FK; jalur mentah `db query` ke `pg_constraint` (SELECT = read, `driver/sql.go:335`) |
-| 56 | Constraint check/exclusion | SEBAGIAN | Dikoreksi: TIDAK ADA→SEBAGIAN | grep `pg_constraint`/`check_constraints`: 0 hasil; bisa lewat `db query` (read) |
-| 57 | Trigger | SEBAGIAN | Dikoreksi: TIDAK ADA→SEBAGIAN | grep `trigger` di dbx: 0 hasil; `SHOW TRIGGERS` read (`driver/sql.go:335`) |
-| 58 | Daftar schema | SEBAGIAN | Benar | `dbx/schema.go:15` schema per tabel; tidak ada query `pg_namespace` terpisah |
-| 59 | Daftar database | SEBAGIAN | Benar | `dbx/mysql.go:103` `DATABASE()` saja |
-| 60 | Fungsi/prosedur | SEBAGIAN | Benar | tidak ada di `dbx/schema.go`; `db query` read |
-| 61 | Sequence/enum/extension | SEBAGIAN | Benar | tidak ada di `dbx/schema.go`; `db query` read |
-| 62 | Definisi view | SEBAGIAN | Benar | tidak ada di `dbx/schema.go`; `db query` read |
-| 63 | DDL lengkap satu tabel | SEBAGIAN | Benar | `dbdump.go:63` pg_dump tanpa `-s -t`; grep `schema-only`: 0 hasil |
-| 64 | Ukuran tabel/index | SEBAGIAN | Benar | `dbx/schema.go:14-21` tanpa kolom ukuran |
-| 65 | Komentar tabel/kolom | SEBAGIAN | Dikoreksi: TIDAK ADA→SEBAGIAN | grep `col_description`/`column_comment`: 0 hasil; bisa lewat `db query` (read) |
-| 66 | Partisi | SEBAGIAN | Benar | `dbx/schema.go:96,99` relkind `p` jadi `table` |
-| 67 | Hak akses per tabel | SEBAGIAN | Benar | tidak ada di `dbx`; `SHOW GRANTS` read |
-| 68 | Cari tabel/kolom | SEBAGIAN | Benar | `dbx/schema.go:120-121` kolom hanya untuk tabel yang disebut |
-| 69 | Diagram ER | NON-GOAL | Benar | vision.md:227 "GUI, TUI ..." (Bukan tujuan) |
-| 70 | REPL interaktif | ADA (lewat alat asli) | Benar | `dbshell.go:137-196` psql/mysql/sqlite3 read-only |
-| 71 | REPL pgcli/mycli | SEBAGIAN | Benar | `dbshell.go:76` hanya psql/mysql/sqlite3; `tunnel start --help` conn |
-| 72 | Autocomplete SQL | NON-GOAL | Benar | resources-and-db.md:72 (REPL); vision.md:227 |
-| 73 | Riwayat query | SEBAGIAN | Benar | `db.go:340-346` SQL di audit; `audit --command` |
-| 74 | Query tersimpan | TIDAK ADA | Benar | `recipe run` hanya "on servers" (`recipe --help`); `ops.go:106-144` shell |
-| 75 | $EDITOR | NON-GOAL | Benar | resources-and-db.md:72; vision.md:223 |
-| 76 | \! shell escape | NON-GOAL | Benar | `driver/restore.go:83-88`; docs/features/databases.md:109; vision.md:223 |
-| 77 | \h bantuan | NON-GOAL | Benar | vision.md:223 (alat asli); resources-and-db.md:72 |
-| 78 | Dump ke file + gzip | ADA | Benar | `dbdump.go:222-243`, `writeAtomic` `dbdump.go:334-359` 0600, tanpa timpa |
-| 79 | Dump SQLite | ADA | Benar | `dbdump.go:185-210` `VACUUM INTO` |
-| 80 | pg_dump -Fc/-Fd/-Ft | TIDAK ADA | Benar | `dbdump.go:63` tanpa `-F`; grep `"-F`: 0 hasil |
-| 81 | pg_restore | TIDAK ADA | Benar | `dbdump.go:64` psql; grep `pg_restore` di Go: 0 hasil |
-| 82 | Dump paralel | TIDAK ADA | Benar | `dbdump.go:63,77` tanpa `-j`; grep `mydumper`: 0 hasil |
-| 83 | Schema/data saja | TIDAK ADA | Benar | `dbdump.go:105` hanya `--to`; grep `schema-only`: 0 hasil |
-| 84 | Pilih/kecualikan tabel | TIDAK ADA | Benar | `dbdump.go:105` hanya `--to` |
-| 85 | Globals/semua DB | TIDAK ADA | Benar | grep `pg_dumpall`/`all-databases`: 0 hasil |
-| 86 | Opsi restore | TIDAK ADA | Benar | `dbdump.go:129` hanya `--from`; grep `no-owner`: 0 hasil |
-| 87 | Restore satu transaksi + cek file | ADA | Dikoreksi: bukti (tambah: hanya Postgres) | `dbdump.go:64` (psql), `dbdump.go:78` mysql tanpa transaksi; `driver/restore.go:26-96` |
-| 88 | Pengaman restore | ADA | Benar | `dbdump.go:271-274` destructive `db-restore`; `common.go:203-227` |
-| 89 | Kompresi zstd/lz4 | SEBAGIAN | Benar | `dbdump.go:230,301` hanya `.gz` |
-| 90 | Dump langsung ke S3/server | SEBAGIAN | Benar | `dbdump.go:24-27` selalu ke komputer ini |
-| 91 | Dump sebagai job | TIDAK ADA | Benar | `job start --help`: perintah shell di host, bukan `db dump` |
-| 92 | Dump Go murni | TIDAK ADA | Benar | `dbdump.go:390-395` `TOOL_MISSING` |
-| 93 | Backup terjadwal | NON-GOAL | Benar | vision.md:189, :227 (daemon); `cron set` ada |
-| 94 | PITR/WAL | NON-GOAL | Benar | vision.md:223 (alat lengkap) |
-| 95 | Verifikasi backup | TIDAK ADA | Benar | grep `pg_restore`: 0 hasil |
-| 96 | Ringkasan server db | SEBAGIAN | Benar | `db.go:40` tanpa info/status; `ops.go:138-139` recipe di host; ux.md:38 |
-| 97 | Aktivitas sesi | SEBAGIAN | Benar | `db.go:40` tanpa perintah aktivitas |
-| 98 | Lock/blocking | SEBAGIAN | Benar | grep `pg_blocking_pids`/`lock_waits`: 0 hasil |
-| 99 | Hentikan query/sesi | SEBAGIAN | Benar | `driver/sql.go:346,491-492` `sql-kill`; tidak ada `db kill` |
-| 100 | Query lambat | SEBAGIAN | Benar | tidak ada perintah; `db query` read |
-| 101 | Ukuran DB terbesar | SEBAGIAN | Benar | `dbx/schema.go:14-21` tanpa ukuran |
-| 102 | Bloat/autovacuum | SEBAGIAN | Benar | `db query` read; tidak ada perintah |
-| 103 | Index tak terpakai | SEBAGIAN | Benar | `db query` read; tidak ada perintah |
-| 104 | Cache hit ratio | SEBAGIAN | Benar | `db query` read; tidak ada perintah |
-| 105 | Replikasi/lag | SEBAGIAN | Benar | `driver/sql.go:335` `SHOW` read |
-| 106 | Slot replikasi | SEBAGIAN | Benar | `driver/sql.go:349-350` slot -> `sql-server-config` |
-| 107 | Konfigurasi server | SEBAGIAN | Benar | `driver/sql.go:480-481,473-474` SET GLOBAL/ALTER SYSTEM destructive |
-| 108 | VACUUM/ANALYZE | ADA (lewat jalur mentah) | Benar | `driver/sql.go:306-307` noTx; `:493-495` `sql-vacuum-full` |
-| 109 | Wraparound XID | SEBAGIAN | Benar | `db query` read; tidak ada perintah |
-| 110 | Benchmark | TIDAK ADA | Benar | grep `pgbench`/`sysbench`: 0 hasil |
-| 111 | Monitoring berkelanjutan | NON-GOAL | Benar | vision.md:228 dan :227 (TUI) |
-| 112 | Health check DB | TIDAK ADA | Benar | `db.go:40` tanpa checks |
-| 113 | Daftar user/role | SEBAGIAN | Benar | `db query` read; tidak ada perintah |
-| 114 | Buat user / password di audit | SEBAGIAN | Benar | `driver/sql.go:470-471` `sql-privileges`; `db.go:346` SQL utuh; `store.go:131` default `full`; `common.go:387-396` tanpa redaksi |
-| 115 | Template user read-only | TIDAK ADA | Benar | docs/features/databases.md:56; tidak ada perintah |
-| 116 | Grant efektif | SEBAGIAN | Benar | `SHOW GRANTS` read; tidak ada perintah |
-| 117 | RLS / policy | SEBAGIAN | Benar | `driver/sql.go:469-472` `CREATE POLICY` hanya write |
-| 118 | Alat migrasi | NON-GOAL | Benar | resources-and-db.md:72 "migrasi" |
-| 119 | Jalankan file migrasi | SEBAGIAN | Benar | `db.go:79` satu `--file`; `driver/sql.go:316` DDL MySQL noTx |
-| 120 | Status migrasi | SEBAGIAN | Benar | `db query` read |
-| 121 | Schema diff | TIDAK ADA | Benar | grep `diff` di dbx/cli db: 0 hasil |
-| 122 | Generate migrasi | NON-GOAL | Benar | resources-and-db.md:72; vision.md:226 |
-| 123 | Lint migrasi | SEBAGIAN | Benar | `driver/sql.go:462-546` tidak ada aturan lock/CONCURRENTLY |
-| 124 | PgBouncer admin | TIDAK ADA | Benar | `dbx/dbx.go:86-89,101` cek string rules saat Open |
-| 125 | Lewat PgBouncer transaction | SEBAGIAN | Benar | `dbx/dbx.go:53` pgx stdlib default; tanpa tes |
-| 126 | ProxySQL/pgpool | TIDAK ADA | Benar | grep `proxysql`/`pgpool`: 0 hasil |
-| 127 | Pool koneksi | NON-GOAL | Benar | vision.md:189 "Tanpa pool"; `dbx/dbx.go:81` 1 koneksi |
-| 128 | Audit query | ADA | Benar | `db.go:340-350`; `meta.go:417-422` audit_sql |
-| 129 | Redaksi SQL audit | TIDAK ADA | Benar | `db.go:340-347` full/hash/off saja; grep `redact` di db: 0 hasil |
-| 130 | Blok fungsi berbahaya | ADA | Benar | `driver/sql.go:345-370` `sql-remote`, `sql-server-file`, `sql-program` |
-| 131 | Tolak string rules | ADA | Benar | `dbx/dbx.go:96-124` `SQL_STRING_RULES` |
-| 132 | Konfirmasi ketik nama | ADA | Dikoreksi: bukti ux.md backlog→kode | `common.go:208,334-347` `confirmDangerous` |
-| 133 | --max-rows-affected | TIDAK ADA | Benar | grep `max-rows-affected`: 0 hasil |
-| 134 | Masking kolom | TIDAK ADA | Benar | grep `mask` di dbx/cli db: 0 hasil |
-| 135 | Opsi per conn | TIDAK ADA | Dikoreksi: bukti (tambah contoh help menyesatkan) | `cluster.go:78` satu-satunya pemakai `Options`; `conn.go:186` contoh `statement_timeout` |
-| 136 | Redis/Valkey standalone | ADA | Benar | `driver.go:69-70`; `cachex.go:27-47` go-redis |
-| 137 | Garnet/Upstash/ElastiCache | ADA (kemungkinan) | Benar | protokol sama; tanpa tes (`test/e2e/compose.yml:28` redis saja) |
-| 138 | Redis Cluster | TIDAK ADA | Benar | `cachex.go:41` `redis.NewClient`; grep `ClusterClient`: 0 hasil |
-| 139 | Sentinel cari master | SEBAGIAN | Dikoreksi: TIDAK ADA→SEBAGIAN | `cachex.go:123-148` `SENTINEL` dinilai write, `cache run --write` mengirimnya; grep `sentinel` di Go: 0 hasil |
-| 140 | ACL user + password | ADA | Benar | `cachex.go:30` `Username`, `Password` |
-| 141 | TLS rediss | ADA | Benar | `cachex.go:34-36` TLS1.2 + `ServerName` |
-| 142 | TLS CA sendiri | TIDAK ADA | Benar | `cachex.go:36` hanya `ServerName` |
-| 143 | Pilih DB redis | SEBAGIAN | Benar | `cachex.go:28` DB dari URL; `SELECT` tidak dikenal = write |
-| 144 | Redis lewat --via | ADA | Benar | `cachex.go:38-40` `o.Dialer` |
-| 145 | Unix socket redis | TIDAK ADA | Benar | `driver.go:181-182` wajib host |
-| 146 | Cek login cache | SEBAGIAN | Benar | `conn.go:490-502` TCP; `cachex.go:42` PING di `cache info` |
-| 147 | REPL cache | TIDAK ADA | Benar | `cache.go:36` tanpa `shell` |
-| 148 | cache get semua tipe | ADA | Benar | `cachex.go:162-246` |
-| 149 | Tipe modul | SEBAGIAN | Benar | `cachex.go:242-243` `value: nil`; `JSON.GET` tidak di `readCmds` (`cachex.go:72-78`) |
-| 150 | cache keys SCAN | ADA | Benar | `cachex.go:249-271` SCAN |
-| 151 | SCAN TYPE | SEBAGIAN | Dikoreksi: TIDAK ADA→SEBAGIAN | `cachex.go:256` tanpa TYPE; `SCAN` read (`cachex.go:72`) lewat `cache run` |
-| 152 | Hitung key per pola | TIDAK ADA | Benar | `cachex.go:261-263` berhenti di limit |
-| 153 | Jumlah key per DB | ADA | Benar | `cachex.go:77` `DBSIZE`, `INFO` read |
-| 154 | INFO terstruktur | ADA | Benar | `cachex.go:274-303` |
-| 155 | TTL/OBJECT/MEMORY | ADA | Benar | `cachex.go:72,84-85` read |
-| 156 | Baca stream | ADA | Benar | `cachex.go:76,89` XRANGE/XPENDING/XINFO read; `:231-241` |
-| 157 | XREAD | SEBAGIAN | Benar | `XREAD` tidak di `readCmds` (`cachex.go:72-78`) |
-| 158 | Set string + TTL | ADA | Benar | `cache.go:182-202` |
-| 159 | SET NX/XX | SEBAGIAN | Benar | `cache.go:224-262` `cache run --write` |
-| 160 | Nilai dari file | TIDAK ADA | Benar | `cache.go:189` `ExactArgs(3)`, tanpa `--file` |
-| 161 | EXPIRE/PERSIST | SEBAGIAN | Benar | `cache.go:231` contoh `EXPIRE` via `cache run --write` |
-| 162 | Tulis hash/list/set | SEBAGIAN | Benar | `cache.go:36` hanya `set` string |
-| 163 | Rename/copy | SEBAGIAN | Benar | `RENAME` tidak di `destructive` (`cachex.go:97-103`) = write |
-| 164 | Hapus key tepat | ADA | Benar | `cache.go:204-222` `DataDelete` |
-| 165 | Hapus per pola | TIDAK ADA | Benar | `cache.go:207` "no patterns" |
-| 166 | Flush DB | ADA (lewat jalur mentah) | Benar | `cachex.go:98` `redis-flush` |
-| 167 | Dry-run tulis cache | SEBAGIAN | Benar | `cache.go:63-66` "nothing sent" |
-| 168 | bigkeys | TIDAK ADA | Benar | grep `bigkeys`: 0 hasil |
-| 169 | memkeys | TIDAK ADA | Benar | grep `memkeys`: 0 hasil |
-| 170 | hotkeys | TIDAK ADA | Benar | grep `hotkeys`: 0 hasil; `OBJECT FREQ` read (`cachex.go:85`) |
-| 171 | Latensi | SEBAGIAN | Benar | `cachex.go:87` LATENCY read; `conn.go:491` test TCP |
-| 172 | --stat | NON-GOAL | Benar | vision.md:228 |
-| 173 | Slowlog | ADA (lewat jalur mentah) | Benar | `cachex.go:86` GET read; RESET = write |
-| 174 | MONITOR | TIDAK ADA | Benar | `MONITOR` tidak terdaftar = write; `cachex.go:311` satu `Do()` |
-| 175 | CLIENT LIST | ADA (lewat jalur mentah) | Benar | `cachex.go:83` read |
-| 176 | CLIENT KILL | ADA (lewat jalur mentah) | Benar | `cachex.go:107` `redis-kill` |
-| 177 | CONFIG GET | ADA (lewat jalur mentah) | Benar | `cachex.go:82` read |
-| 178 | CONFIG SET | ADA (lewat jalur mentah) | Benar | `cachex.go:106` `redis-server-config` |
-| 179 | Replikasi INFO | ADA | Benar | `cache.go:158-180` `cache info CONN replication` |
-| 180 | MEMORY DOCTOR | ADA (lewat jalur mentah) | Benar | `cachex.go:84` read |
-| 181 | BGSAVE/SAVE | ADA (lewat jalur mentah) | Benar | `cachex.go:99` SAVE `redis-blocking`; BGSAVE tidak terdaftar = write |
-| 182 | DEBUG | ADA (lewat jalur mentah) | Benar | `cachex.go:99` `redis-blocking` |
-| 183 | Ulangi perintah | TIDAK ADA | Benar | `cache.go:224-262` tanpa `-r/-i` |
-| 184 | Health check cache | TIDAK ADA | Benar | `cachex.go:274-303` hanya angka mentah |
-| 185 | PUBLISH | ADA (lewat jalur mentah) | Benar | tidak terdaftar = write, `cache run --write` |
-| 186 | SUBSCRIBE | TIDAK ADA | Benar | `cachex.go:311` `Do()` satu balasan |
-| 187 | PUBSUB CHANNELS | ADA (lewat jalur mentah) | Benar | `cachex.go:93` read |
-| 188 | EVAL/FCALL | ADA (lewat jalur mentah) | Benar | `cachex.go:102` `redis-script-run`; `:78` `EVAL_RO` read |
-| 189 | --eval file | TIDAK ADA | Benar | `cache.go:224-262` tanpa `--file` |
-| 190 | Admin cluster | SEBAGIAN | Benar | `cachex.go:88` CLUSTER INFO/NODES read; tanpa `--cluster` |
-| 191 | Sentinel admin | SEBAGIAN | Dikoreksi: TIDAK ADA→SEBAGIAN | `SENTINEL` tidak di `destructive`/`readCmds` (`cachex.go:72-113`) = write |
-| 192 | Backup RDB | TIDAK ADA | Benar | `cache.go:36` tanpa dump/restore; vision.md:23 |
-| 193 | Ekspor/impor per pola | TIDAK ADA | Benar | `cachex.go:78` DUMP read; RESTORE = write; tanpa bulk |
-| 194 | Mass insert | TIDAK ADA | Benar | grep `pipe` di cachex/cache.go: 0 hasil |
-| 195 | MIGRATE | SEBAGIAN | Benar | `cachex.go:101` `MIGRATE`→`redis-flush` |
-| 196 | Hapus data = write | SEBAGIAN | Benar | `cachex.go:139-148` hanya DEL/UNLINK `DataDelete` |
-| 197 | policy check redis berkutip | SEBAGIAN | Benar | `meta.go:478` `cachex.Classify(args)` vs `:481` `strings.Join` |
-| 198 | Baca modul belum terdaftar | SEBAGIAN | Benar | `cachex.go:72-95` tanpa XREAD/JSON.GET/HELLO/NO-TOUCH |
-| 199 | Memcached | TIDAK ADA | Benar | grep `memcache`: 0 hasil; vision.md:93 |
-| 200 | MongoDB | TIDAK ADA | Benar | grep `mongo` di Go: hanya `ops.go:32` deteksi alat; vision.md:209 |
-| 201 | MSSQL | TIDAK ADA | Benar | grep `mssql`: 0 hasil; vision.md:92 |
-| 202 | Oracle | TIDAK ADA | Benar | grep `go-ora`/`oracle`: 0 hasil |
-| 203 | ClickHouse | TIDAK ADA | Benar | grep `clickhouse`: 0 hasil; vision.md:92 |
-| 204 | Cassandra | TIDAK ADA | Benar | grep `cassandra`/`gocql`: 0 hasil |
-| 205 | Elasticsearch | TIDAK ADA | Benar | grep `elastic`/`opensearch`: 0 hasil; vision.md:207-208 |
-| 206 | Influx/Timescale/Prometheus | SEBAGIAN | Benar | grep `influx`: 0 hasil; Timescale = kind postgres |
-| 207 | CockroachDB | SEBAGIAN | Benar | lihat baris 17; grep `cockroach`: 0 hasil |
-| 208 | MariaDB khusus | SEBAGIAN | Benar | `dbdump.go:42-48` flag TLS MariaDB; `:77` `mysqldump`; grep `mariadb-dump`: 0 hasil |
-| 209 | DynamoDB | TIDAK ADA | Benar | grep `dynamodb`: 0 hasil |
-| 210 | Kafka | TIDAK ADA | Benar | grep `kafka`: 0 hasil; vision.md:207 |
-| 211 | RabbitMQ | TIDAK ADA | Benar | grep `rabbit`: 0 hasil; vision.md:207 |
-| 212 | NATS | TIDAK ADA | Benar | grep `nats`: 0 hasil |
-| 213 | etcd | TIDAK ADA | Benar | grep `etcd`: 0 hasil |
-| 214 | Consul | TIDAK ADA | Benar | grep `consul`: 0 hasil |
-| 215 | DuckDB | TIDAK ADA | Benar | grep `duckdb`: 0 hasil; vision.md:180 tanpa cgo |
-| 216 | Warehouse cloud | TIDAK ADA | Benar | grep `bigquery`/`snowflake`: 0 hasil |
-| 217 | Neo4j | TIDAK ADA | Benar | grep `neo4j`: 0 hasil |
-| 218 | Valkey/KeyDB/Dragonfly | ADA | Benar | `driver.go:69`; docs/features/caches.md:5-6 |
-| 219 | Provisioning DB | NON-GOAL | Benar | vision.md:226 "provisioning cloud" |
+| 1 | Register DB, password in vault | PRESENT | Correct | `conn.go:66` `--password-ref`; `driver/driver.go:159` `URL_HAS_PASSWORD` |
+| 2 | PostgreSQL | PRESENT | Correct | `driver.go:63` postgres/postgresql scheme; `dbx/dbx.go:37-53` pgx stdlib |
+| 3 | MySQL / MariaDB | PRESENT | Correct | `driver.go:65` mysql/mariadb scheme; `dbx/dbx.go:282-283` `max_statement_time` fallback |
+| 4 | Local SQLite | PRESENT | Correct | `dbx/dbx.go:59-67` `mode=ro` + `query_only(1)`; modernc (`dbx.go:23`) |
+| 5 | SQLite on remote host | MISSING | Correct | `conn.go:93-94` "--via is not supported" |
+| 6 | DB through bastion `--via` | PRESENT | Correct | `dbx/dbx.go:45-48` `DialFunc`; `dbx/mysql.go:43-46` `RegisterDialContext` |
+| 7 | DB through VPN | PRESENT | Correct | `conn.go:387-393` `netx.Open` for VPN in `--via` |
+| 8 | Postgres TLS | PARTIAL | Correct | `dbshell.go:157-160` only `PGSSLMODE`; `dbdump.go:63` full URL to pg_dump |
+| 9 | MySQL TLS own CA | PARTIAL | Correct | `dbx/mysql.go:37-38` `tls=` as is; grep `RegisterTLSConfig`: 0 results |
+| 10 | DB Unix socket | MISSING | Correct | `driver.go:181-182` URL requires host |
+| 11 | IAM login / cloud token | MISSING | Correct | `conn.go:66` static ref list; grep `rds-iam`/`generate-db-auth`: 0 results |
+| 12 | pgpass / my.cnf / pg_service | PRESENT | Correct | `komando import --help`: pgpass, mycnf, env, dbeaver; grep `pg_service`: 0 results |
+| 13 | Connection + login check | PARTIAL | Correct | `conn.go:490-502` only TCP dial; `everything.go:157` help "logged in to" |
+| 14 | Query many DBs | MISSING | Correct | `select.go:504-510` `singleConn` rejects >1 conn |
+| 15 | Pick another DB | PARTIAL | Correct | `driver/sql.go:336` `USE` read; no `--database` flag in `db.go:83-87` |
+| 16 | Read replica | MISSING | Correct | grep `replica` in dbx/cli db: 0 results |
+| 17 | Other Postgres-wire | PARTIAL | Correct | `dbx/dbx.go:101` `SHOW standard_conforming_strings`; `test/e2e/compose.yml` only postgres/mariadb/redis |
+| 18 | Other MySQL-wire | PARTIAL | Correct | `test/e2e/compose.yml:23` only mariadb; no TiDB/Vitess tests |
+| 19 | Run SQL | PRESENT | Correct | `db.go:50-81` `db query` |
+| 20 | Read-only default | PRESENT | Correct | `dbx/dbx.go:231` `ReadOnly: !o.Write`; sqlite `mode=ro` |
+| 21 | Risk classification | PRESENT | Correct | `driver/sql.go:234` `ClassifySQL`; `meta.go:481` `policy check --for` |
+| 22 | Dry-run rollback | PRESENT | Correct | `dbx/dbx.go:246-256` rollback + `rolled_back` |
+| 23 | SQL from file/stdin | PRESENT | Correct | `db.go:79` `--file`, `-` = stdin |
+| 24 | Parameter binding | PRESENT | Correct | `db.go:86` `--arg`; `dbx/dbx.go:194-195` one statement |
+| 25 | Named variables | MISSING | Correct | `db.go:83-87` only `--arg`; grep `\set`/`gset`: 0 results |
+| 26 | Atomic multi-statement | PRESENT | Correct | `dbx/dbx.go:231-251` one tx; `driver/sql.go:418-421` `SQL_TX_CONTROL` |
+| 27 | Interactive transaction | NON-GOAL | Correct | vision.md:189 "One connection per command" + Non-goals vision.md:223 (original tool); resources-and-db.md:72 |
+| 28 | Savepoint | NON-GOAL | Correct | `driver/sql.go:339-342` `SAVEPOINT` in `txControl`; based on vision.md:189 + :223 |
+| 29 | Non-transactional statement | PRESENT | Correct | `driver/sql.go:298-323` `noTx`; `dbx/dbx.go:200-212` |
+| 30 | Query timeout | PRESENT | Correct | `db.go:29` default 30 s; `dbx/dbx.go:267-288` `statement_timeout`/`max_execution_time` |
+| 31 | lock_timeout | PARTIAL | Correct | grep `lock_timeout` in Go: 0 results; ux.md:329 |
+| 32 | application_name | PRESENT | Correct | `dbx/dbx.go:50-51`; `db.go:245` `komando/<actor>` |
+| 33 | Cancel query | PRESENT | Correct | `root.go:64` `signal.NotifyContext`; `dbx/dbx.go:189-192` |
+| 34 | EXPLAIN | PRESENT | Correct | `db.go:89-133` `db explain --analyze` |
+| 35 | EXPLAIN JSON | PARTIAL | Correct | `db.go:107-126` only a fixed prefix; no `--format` |
+| 36 | \gexec | MISSING | Correct | grep `gexec`: 0 results |
+| 37 | \watch | MISSING | Correct | `db.go:83-87` no `--repeat/--interval` |
+| 38 | \timing | PRESENT | Correct | `out/out.go:74` `duration_ms` in meta |
+| 39 | --safe-updates | PRESENT | Correct | `driver/sql.go:525-526` `sql-update-no-where`/`sql-delete-no-where` |
+| 40 | Result per statement | PRESENT | Correct | `dbx/dbx.go:145-172` `StatementResult` |
+| 41 | JSON-safe types | PRESENT | Correct | `driver/value.go:15-45` `JSONValue` |
+| 42 | Text table output | PRESENT | Correct | `db.go:302-311` tabwriter, cut >80 |
+| 43 | JSON output | PRESENT | Correct | `root.go:159` `-o auto|json|text` |
+| 44 | Vertical mode | MISSING | Correct | `root.go:136` only auto/json/text; grep `vertical`: 0 results |
+| 45 | CSV export | MISSING | Correct | `root.go:136`; grep `csv` in Go: 0 results |
+| 46 | Large result export | PARTIAL | Correct | `dbx/dbx.go:322-343` all rows in memory; `root.go:168` `--max-output` |
+| 47 | Result paging | PARTIAL | Correct | `dbx/dbx.go:323-325` `truncated`; no `--offset` |
+| 48 | less pager | PARTIAL | Correct | ux.md:314; no automatic pager |
+| 49 | CSV import | MISSING | Correct | `dbx/mysql.go:39-40` other params become session variables (LOAD DATA LOCAL not enabled); grep `CopyFrom`: 0 results |
+| 50 | Copy data between DBs | MISSING | Correct | `dbdump.go:63,77` whole-DB dump only |
+| 51 | Save output to file | PRESENT | Correct | shell redirect; stable `out` envelope |
+| 52 | List tables + row estimate | PRESENT | Correct | `dbx/schema.go:93-101` relkind r,p,v,m,f + `reltuples` |
+| 53 | Columns/types/null/default/PK | PRESENT | Correct | `dbx/schema.go:122-130`, `mysql.go:131-133`, `schema.go:182` |
+| 54 | Indexes | PRESENT | Correct | `dbx/schema.go:143`, `mysql.go:146-149` |
+| 55 | Foreign keys | PARTIAL | Corrected: MISSING→PARTIAL | `dbx/schema.go:14-21` no FK; raw path `db query` to `pg_constraint` (SELECT = read, `driver/sql.go:335`) |
+| 56 | Check/exclusion constraints | PARTIAL | Corrected: MISSING→PARTIAL | grep `pg_constraint`/`check_constraints`: 0 results; possible through `db query` (read) |
+| 57 | Triggers | PARTIAL | Corrected: MISSING→PARTIAL | grep `trigger` in dbx: 0 results; `SHOW TRIGGERS` read (`driver/sql.go:335`) |
+| 58 | List schemas | PARTIAL | Correct | `dbx/schema.go:15` schema per table; no separate `pg_namespace` query |
+| 59 | List databases | PARTIAL | Correct | `dbx/mysql.go:103` `DATABASE()` only |
+| 60 | Functions/procedures | PARTIAL | Correct | not in `dbx/schema.go`; `db query` read |
+| 61 | Sequences/enums/extensions | PARTIAL | Correct | not in `dbx/schema.go`; `db query` read |
+| 62 | View definition | PARTIAL | Correct | not in `dbx/schema.go`; `db query` read |
+| 63 | Full DDL of one table | PARTIAL | Correct | `dbdump.go:63` pg_dump without `-s -t`; grep `schema-only`: 0 results |
+| 64 | Table/index size | PARTIAL | Correct | `dbx/schema.go:14-21` no size column |
+| 65 | Table/column comments | PARTIAL | Corrected: MISSING→PARTIAL | grep `col_description`/`column_comment`: 0 results; possible through `db query` (read) |
+| 66 | Partitions | PARTIAL | Correct | `dbx/schema.go:96,99` relkind `p` becomes `table` |
+| 67 | Per-table privileges | PARTIAL | Correct | not in `dbx`; `SHOW GRANTS` read |
+| 68 | Search tables/columns | PARTIAL | Correct | `dbx/schema.go:120-121` columns only for named tables |
+| 69 | ER diagram | NON-GOAL | Correct | vision.md:227 "GUI, TUI ..." (Non-goals) |
+| 70 | Interactive REPL | PRESENT (through the original tool) | Correct | `dbshell.go:137-196` psql/mysql/sqlite3 read-only |
+| 71 | pgcli/mycli REPL | PARTIAL | Correct | `dbshell.go:76` only psql/mysql/sqlite3; `tunnel start --help` conn |
+| 72 | SQL autocomplete | NON-GOAL | Correct | resources-and-db.md:72 (REPL); vision.md:227 |
+| 73 | Query history | PARTIAL | Correct | `db.go:340-346` SQL in audit; `audit --command` |
+| 74 | Saved queries | MISSING | Correct | `recipe run` only "on servers" (`recipe --help`); `ops.go:106-144` shell |
+| 75 | $EDITOR | NON-GOAL | Correct | resources-and-db.md:72; vision.md:223 |
+| 76 | \! shell escape | NON-GOAL | Correct | `driver/restore.go:83-88`; docs/features/databases.md:109; vision.md:223 |
+| 77 | \h help | NON-GOAL | Correct | vision.md:223 (original tool); resources-and-db.md:72 |
+| 78 | Dump to file + gzip | PRESENT | Correct | `dbdump.go:222-243`, `writeAtomic` `dbdump.go:334-359` 0600, no overwrite |
+| 79 | SQLite dump | PRESENT | Correct | `dbdump.go:185-210` `VACUUM INTO` |
+| 80 | pg_dump -Fc/-Fd/-Ft | MISSING | Correct | `dbdump.go:63` without `-F`; grep `"-F`: 0 results |
+| 81 | pg_restore | MISSING | Correct | `dbdump.go:64` psql; grep `pg_restore` in Go: 0 results |
+| 82 | Parallel dump | MISSING | Correct | `dbdump.go:63,77` without `-j`; grep `mydumper`: 0 results |
+| 83 | Schema/data only | MISSING | Correct | `dbdump.go:105` only `--to`; grep `schema-only`: 0 results |
+| 84 | Include/exclude tables | MISSING | Correct | `dbdump.go:105` only `--to` |
+| 85 | Globals/all DBs | MISSING | Correct | grep `pg_dumpall`/`all-databases`: 0 results |
+| 86 | Restore options | MISSING | Correct | `dbdump.go:129` only `--from`; grep `no-owner`: 0 results |
+| 87 | Single-transaction restore + file check | PRESENT | Corrected: evidence (added: Postgres only) | `dbdump.go:64` (psql), `dbdump.go:78` mysql without a transaction; `driver/restore.go:26-96` |
+| 88 | Restore safeguards | PRESENT | Correct | `dbdump.go:271-274` destructive `db-restore`; `common.go:203-227` |
+| 89 | zstd/lz4 compression | PARTIAL | Correct | `dbdump.go:230,301` only `.gz` |
+| 90 | Dump straight to S3/server | PARTIAL | Correct | `dbdump.go:24-27` always to this computer |
+| 91 | Dump as a job | MISSING | Correct | `job start --help`: shell command on the host, not `db dump` |
+| 92 | Pure Go dump | MISSING | Correct | `dbdump.go:390-395` `TOOL_MISSING` |
+| 93 | Scheduled backup | NON-GOAL | Correct | vision.md:189, :227 (daemon); `cron set` exists |
+| 94 | PITR/WAL | NON-GOAL | Correct | vision.md:223 (full tools) |
+| 95 | Backup verification | MISSING | Correct | grep `pg_restore`: 0 results |
+| 96 | DB server summary | PARTIAL | Correct | `db.go:40` no info/status; `ops.go:138-139` recipe on the host; ux.md:38 |
+| 97 | Session activity | PARTIAL | Correct | `db.go:40` no activity command |
+| 98 | Locks/blocking | PARTIAL | Correct | grep `pg_blocking_pids`/`lock_waits`: 0 results |
+| 99 | Stop query/session | PARTIAL | Correct | `driver/sql.go:346,491-492` `sql-kill`; no `db kill` |
+| 100 | Slow queries | PARTIAL | Correct | no command; `db query` read |
+| 101 | Biggest DBs | PARTIAL | Correct | `dbx/schema.go:14-21` no size |
+| 102 | Bloat/autovacuum | PARTIAL | Correct | `db query` read; no command |
+| 103 | Unused indexes | PARTIAL | Correct | `db query` read; no command |
+| 104 | Cache hit ratio | PARTIAL | Correct | `db query` read; no command |
+| 105 | Replication/lag | PARTIAL | Correct | `driver/sql.go:335` `SHOW` read |
+| 106 | Replication slots | PARTIAL | Correct | `driver/sql.go:349-350` slot -> `sql-server-config` |
+| 107 | Server configuration | PARTIAL | Correct | `driver/sql.go:480-481,473-474` SET GLOBAL/ALTER SYSTEM destructive |
+| 108 | VACUUM/ANALYZE | PRESENT (through the raw path) | Correct | `driver/sql.go:306-307` noTx; `:493-495` `sql-vacuum-full` |
+| 109 | XID wraparound | PARTIAL | Correct | `db query` read; no command |
+| 110 | Benchmark | MISSING | Correct | grep `pgbench`/`sysbench`: 0 results |
+| 111 | Continuous monitoring | NON-GOAL | Correct | vision.md:228 and :227 (TUI) |
+| 112 | DB health check | MISSING | Correct | `db.go:40` no checks |
+| 113 | List users/roles | PARTIAL | Correct | `db query` read; no command |
+| 114 | Create user / password in audit | PARTIAL | Correct | `driver/sql.go:470-471` `sql-privileges`; `db.go:346` full SQL; `store.go:131` default `full`; `common.go:387-396` no redaction |
+| 115 | Read-only user template | MISSING | Correct | docs/features/databases.md:56; no command |
+| 116 | Effective grants | PARTIAL | Correct | `SHOW GRANTS` read; no command |
+| 117 | RLS / policy | PARTIAL | Correct | `driver/sql.go:469-472` `CREATE POLICY` only write |
+| 118 | Migration tool | NON-GOAL | Correct | resources-and-db.md:72 "migrations" |
+| 119 | Run migration files | PARTIAL | Correct | `db.go:79` one `--file`; `driver/sql.go:316` MySQL DDL noTx |
+| 120 | Migration status | PARTIAL | Correct | `db query` read |
+| 121 | Schema diff | MISSING | Correct | grep `diff` in dbx/cli db: 0 results |
+| 122 | Generate migrations | NON-GOAL | Correct | resources-and-db.md:72; vision.md:226 |
+| 123 | Migration lint | PARTIAL | Correct | `driver/sql.go:462-546` no lock/CONCURRENTLY rules |
+| 124 | PgBouncer admin | MISSING | Correct | `dbx/dbx.go:86-89,101` string rules check during Open |
+| 125 | Through PgBouncer transaction mode | PARTIAL | Correct | `dbx/dbx.go:53` pgx stdlib default; no tests |
+| 126 | ProxySQL/pgpool | MISSING | Correct | grep `proxysql`/`pgpool`: 0 results |
+| 127 | Connection pool | NON-GOAL | Correct | vision.md:189 "No pool"; `dbx/dbx.go:81` 1 connection |
+| 128 | Query audit | PRESENT | Correct | `db.go:340-350`; `meta.go:417-422` audit_sql |
+| 129 | Audit SQL redaction | MISSING | Correct | `db.go:340-347` full/hash/off only; grep `redact` in db: 0 results |
+| 130 | Block dangerous functions | PRESENT | Correct | `driver/sql.go:345-370` `sql-remote`, `sql-server-file`, `sql-program` |
+| 131 | Reject string rules | PRESENT | Correct | `dbx/dbx.go:96-124` `SQL_STRING_RULES` |
+| 132 | Type-the-name confirmation | PRESENT | Corrected: evidence ux.md backlog→code | `common.go:208,334-347` `confirmDangerous` |
+| 133 | --max-rows-affected | MISSING | Correct | grep `max-rows-affected`: 0 results |
+| 134 | Column masking | MISSING | Correct | grep `mask` in dbx/cli db: 0 results |
+| 135 | Per-conn options | MISSING | Corrected: evidence (added misleading help example) | `cluster.go:78` the only user of `Options`; `conn.go:186` `statement_timeout` example |
+| 136 | Redis/Valkey standalone | PRESENT | Correct | `driver.go:69-70`; `cachex.go:27-47` go-redis |
+| 137 | Garnet/Upstash/ElastiCache | PRESENT (probably) | Correct | same protocol; no tests (`test/e2e/compose.yml:28` redis only) |
+| 138 | Redis Cluster | MISSING | Correct | `cachex.go:41` `redis.NewClient`; grep `ClusterClient`: 0 results |
+| 139 | Sentinel find master | PARTIAL | Corrected: MISSING→PARTIAL | `cachex.go:123-148` `SENTINEL` classified write, `cache run --write` sends it; grep `sentinel` in Go: 0 results |
+| 140 | ACL user + password | PRESENT | Correct | `cachex.go:30` `Username`, `Password` |
+| 141 | TLS rediss | PRESENT | Correct | `cachex.go:34-36` TLS1.2 + `ServerName` |
+| 142 | TLS own CA | MISSING | Correct | `cachex.go:36` only `ServerName` |
+| 143 | Pick redis DB | PARTIAL | Correct | `cachex.go:28` DB from URL; `SELECT` unknown = write |
+| 144 | Redis through --via | PRESENT | Correct | `cachex.go:38-40` `o.Dialer` |
+| 145 | Redis Unix socket | MISSING | Correct | `driver.go:181-182` host required |
+| 146 | Cache login check | PARTIAL | Correct | `conn.go:490-502` TCP; `cachex.go:42` PING in `cache info` |
+| 147 | Cache REPL | MISSING | Correct | `cache.go:36` no `shell` |
+| 148 | cache get all types | PRESENT | Correct | `cachex.go:162-246` |
+| 149 | Module types | PARTIAL | Correct | `cachex.go:242-243` `value: nil`; `JSON.GET` not in `readCmds` (`cachex.go:72-78`) |
+| 150 | cache keys SCAN | PRESENT | Correct | `cachex.go:249-271` SCAN |
+| 151 | SCAN TYPE | PARTIAL | Corrected: MISSING→PARTIAL | `cachex.go:256` no TYPE; `SCAN` read (`cachex.go:72`) through `cache run` |
+| 152 | Count keys per pattern | MISSING | Correct | `cachex.go:261-263` stops at limit |
+| 153 | Number of keys per DB | PRESENT | Correct | `cachex.go:77` `DBSIZE`, `INFO` read |
+| 154 | Structured INFO | PRESENT | Correct | `cachex.go:274-303` |
+| 155 | TTL/OBJECT/MEMORY | PRESENT | Correct | `cachex.go:72,84-85` read |
+| 156 | Read streams | PRESENT | Correct | `cachex.go:76,89` XRANGE/XPENDING/XINFO read; `:231-241` |
+| 157 | XREAD | PARTIAL | Correct | `XREAD` not in `readCmds` (`cachex.go:72-78`) |
+| 158 | Set string + TTL | PRESENT | Correct | `cache.go:182-202` |
+| 159 | SET NX/XX | PARTIAL | Correct | `cache.go:224-262` `cache run --write` |
+| 160 | Value from file | MISSING | Correct | `cache.go:189` `ExactArgs(3)`, no `--file` |
+| 161 | EXPIRE/PERSIST | PARTIAL | Correct | `cache.go:231` `EXPIRE` example via `cache run --write` |
+| 162 | Write hash/list/set | PARTIAL | Correct | `cache.go:36` only string `set` |
+| 163 | Rename/copy | PARTIAL | Correct | `RENAME` not in `destructive` (`cachex.go:97-103`) = write |
+| 164 | Delete exact keys | PRESENT | Correct | `cache.go:204-222` `DataDelete` |
+| 165 | Delete by pattern | MISSING | Correct | `cache.go:207` "no patterns" |
+| 166 | Flush DB | PRESENT (through the raw path) | Correct | `cachex.go:98` `redis-flush` |
+| 167 | Cache write dry-run | PARTIAL | Correct | `cache.go:63-66` "nothing sent" |
+| 168 | bigkeys | MISSING | Correct | grep `bigkeys`: 0 results |
+| 169 | memkeys | MISSING | Correct | grep `memkeys`: 0 results |
+| 170 | hotkeys | MISSING | Correct | grep `hotkeys`: 0 results; `OBJECT FREQ` read (`cachex.go:85`) |
+| 171 | Latency | PARTIAL | Correct | `cachex.go:87` LATENCY read; `conn.go:491` test TCP |
+| 172 | --stat | NON-GOAL | Correct | vision.md:228 |
+| 173 | Slowlog | PRESENT (through the raw path) | Correct | `cachex.go:86` GET read; RESET = write |
+| 174 | MONITOR | MISSING | Correct | `MONITOR` not registered = write; `cachex.go:311` one `Do()` |
+| 175 | CLIENT LIST | PRESENT (through the raw path) | Correct | `cachex.go:83` read |
+| 176 | CLIENT KILL | PRESENT (through the raw path) | Correct | `cachex.go:107` `redis-kill` |
+| 177 | CONFIG GET | PRESENT (through the raw path) | Correct | `cachex.go:82` read |
+| 178 | CONFIG SET | PRESENT (through the raw path) | Correct | `cachex.go:106` `redis-server-config` |
+| 179 | Replication INFO | PRESENT | Correct | `cache.go:158-180` `cache info CONN replication` |
+| 180 | MEMORY DOCTOR | PRESENT (through the raw path) | Correct | `cachex.go:84` read |
+| 181 | BGSAVE/SAVE | PRESENT (through the raw path) | Correct | `cachex.go:99` SAVE `redis-blocking`; BGSAVE not registered = write |
+| 182 | DEBUG | PRESENT (through the raw path) | Correct | `cachex.go:99` `redis-blocking` |
+| 183 | Repeat command | MISSING | Correct | `cache.go:224-262` no `-r/-i` |
+| 184 | Cache health check | MISSING | Correct | `cachex.go:274-303` only raw numbers |
+| 185 | PUBLISH | PRESENT (through the raw path) | Correct | not registered = write, `cache run --write` |
+| 186 | SUBSCRIBE | MISSING | Correct | `cachex.go:311` `Do()` one reply |
+| 187 | PUBSUB CHANNELS | PRESENT (through the raw path) | Correct | `cachex.go:93` read |
+| 188 | EVAL/FCALL | PRESENT (through the raw path) | Correct | `cachex.go:102` `redis-script-run`; `:78` `EVAL_RO` read |
+| 189 | --eval file | MISSING | Correct | `cache.go:224-262` no `--file` |
+| 190 | Cluster admin | PARTIAL | Correct | `cachex.go:88` CLUSTER INFO/NODES read; no `--cluster` |
+| 191 | Sentinel admin | PARTIAL | Corrected: MISSING→PARTIAL | `SENTINEL` not in `destructive`/`readCmds` (`cachex.go:72-113`) = write |
+| 192 | RDB backup | MISSING | Correct | `cache.go:36` no dump/restore; vision.md:23 |
+| 193 | Export/import by pattern | MISSING | Correct | `cachex.go:78` DUMP read; RESTORE = write; no bulk |
+| 194 | Mass insert | MISSING | Correct | grep `pipe` in cachex/cache.go: 0 results |
+| 195 | MIGRATE | PARTIAL | Correct | `cachex.go:101` `MIGRATE`→`redis-flush` |
+| 196 | Data delete = write | PARTIAL | Correct | `cachex.go:139-148` only DEL/UNLINK `DataDelete` |
+| 197 | Quoted redis policy check | PARTIAL | Correct | `meta.go:478` `cachex.Classify(args)` vs `:481` `strings.Join` |
+| 198 | Unregistered module reads | PARTIAL | Correct | `cachex.go:72-95` no XREAD/JSON.GET/HELLO/NO-TOUCH |
+| 199 | Memcached | MISSING | Correct | grep `memcache`: 0 results; vision.md:93 |
+| 200 | MongoDB | MISSING | Correct | grep `mongo` in Go: only `ops.go:32` tool detection; vision.md:209 |
+| 201 | MSSQL | MISSING | Correct | grep `mssql`: 0 results; vision.md:92 |
+| 202 | Oracle | MISSING | Correct | grep `go-ora`/`oracle`: 0 results |
+| 203 | ClickHouse | MISSING | Correct | grep `clickhouse`: 0 results; vision.md:92 |
+| 204 | Cassandra | MISSING | Correct | grep `cassandra`/`gocql`: 0 results |
+| 205 | Elasticsearch | MISSING | Correct | grep `elastic`/`opensearch`: 0 results; vision.md:207-208 |
+| 206 | Influx/Timescale/Prometheus | PARTIAL | Correct | grep `influx`: 0 results; Timescale = kind postgres |
+| 207 | CockroachDB | PARTIAL | Correct | see row 17; grep `cockroach`: 0 results |
+| 208 | MariaDB-specific | PARTIAL | Correct | `dbdump.go:42-48` MariaDB TLS flags; `:77` `mysqldump`; grep `mariadb-dump`: 0 results |
+| 209 | DynamoDB | MISSING | Correct | grep `dynamodb`: 0 results |
+| 210 | Kafka | MISSING | Correct | grep `kafka`: 0 results; vision.md:207 |
+| 211 | RabbitMQ | MISSING | Correct | grep `rabbit`: 0 results; vision.md:207 |
+| 212 | NATS | MISSING | Correct | grep `nats`: 0 results |
+| 213 | etcd | MISSING | Correct | grep `etcd`: 0 results |
+| 214 | Consul | MISSING | Correct | grep `consul`: 0 results |
+| 215 | DuckDB | MISSING | Correct | grep `duckdb`: 0 results; vision.md:180 no cgo |
+| 216 | Cloud warehouse | MISSING | Correct | grep `bigquery`/`snowflake`: 0 results |
+| 217 | Neo4j | MISSING | Correct | grep `neo4j`: 0 results |
+| 218 | Valkey/KeyDB/Dragonfly | PRESENT | Correct | `driver.go:69`; docs/features/caches.md:5-6 |
+| 219 | DB provisioning | NON-GOAL | Correct | vision.md:226 "cloud provisioning" |

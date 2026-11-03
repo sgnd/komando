@@ -56,8 +56,9 @@ in_client sh -c "printf %s '$KEY' | komando secret set ts-key" >/dev/null
 in_client komando vpn add tailnet tailscale --server http://headscale:8080 --password-ref secret:ts-key --check "$PEER_IP:7000" >/dev/null
 [ "$(in_client komando test tailnet | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "tailscale connects"
 ok "tailscale connects on demand and reaches a tailnet node ($PEER_IP)"
-# the key comes in through the environment, so this check's own command line does not hold it
-"${DC[@]}" exec -T -e "K=$KEY" client sh -c '! cat /proc/[0-9]*/cmdline 2>/dev/null | tr "\\0" " " | grep -qF -- "$K"' || fail "auth key visible in a command line"
+# the key comes in through the environment and grep reads it from a file, so this check's own
+# command lines (including grep's, which cat may read) never hold it
+"${DC[@]}" exec -T -e "K=$KEY" client sh -c 'f=$(mktemp) && printf %s "$K" > "$f" || exit 1; cat /proc/[0-9]*/cmdline 2>/dev/null | tr "\\0" " " | grep -qFf "$f"; r=$?; rm -f "$f"; [ "$r" = 1 ]' || fail "auth key visible in a command line"
 ok "the auth key is not on any command line"
 in_client komando vpn down tailnet >/dev/null
 gone tailscaled || fail "tailscaled left running"
