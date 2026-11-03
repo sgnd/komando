@@ -343,17 +343,28 @@ func recipeAddCmd() *cobra.Command {
 				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "pick another name; see `komando recipe list`", "%q is a built-in recipe", args[0])
 			}
 			s := &store.Snippet{Name: args[0], Command: args[1], Description: desc, Sudo: sudo, ReadOnly: readOnly && !mutating, CreatedAt: time.Now().UTC()}
-			err := store.Update(func(st *store.State) error {
+			// marking someone's recipe read-only lets it skip --yes on
+			// protected servers, so replacing one that way needs --yes. A
+			// person is asked before the state is locked (other komando
+			// commands would wait for the answer), then it is checked again.
+			makesReadOnly := func(st *store.State) bool {
 				old, ok := st.Snippets[s.Name]
-				if ok && !overwrite {
+				return ok && !old.ReadOnly && s.ReadOnly
+			}
+			approved := false
+			if st0, err := loadState(); err == nil && overwrite && makesReadOnly(st0) {
+				if err := guardSafety("marking the existing recipe " + s.Name + " read-only"); err != nil {
+					return err
+				}
+				approved = true
+			}
+			err := store.Update(func(st *store.State) error {
+				if _, ok := st.Snippets[s.Name]; ok && !overwrite {
 					return out.Errf(out.ExitConflict, "RECIPE_EXISTS", "pass --overwrite to replace it", "recipe %q exists", s.Name)
 				}
-				// marking someone's recipe read-only lets it skip --yes on
-				// protected servers, so replacing one that way needs --yes
-				if ok && !old.ReadOnly && s.ReadOnly {
-					if err := guardSafety("marking the existing recipe " + s.Name + " read-only"); err != nil {
-						return err
-					}
+				if makesReadOnly(st) && !approved {
+					return out.Errf(out.ExitConflict, "RECIPE_CHANGED", "run the command again",
+						"recipe %q changed while komando was starting", s.Name)
 				}
 				st.Snippets[s.Name] = s
 				return nil

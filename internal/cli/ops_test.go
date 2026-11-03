@@ -4,6 +4,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -382,5 +383,48 @@ func TestRebootNeedsAllowDangerous(t *testing.T) {
 	err := run("reboot", "web1")
 	if e := toErr(err); e == nil || e.Code != "POLICY_BLOCKED" {
 		t.Errorf("reboot without --allow-dangerous: %v", err)
+	}
+}
+
+// Replacing a recipe with a read-only one needs --yes; for an AI agent the
+// person is asked on the screen, and that happens while the state file is
+// free, so other komando commands do not wait for the answer.
+func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	run := func(args ...string) error {
+		root := newRoot()
+		root.SetArgs(append([]string{"-o", "json"}, args...))
+		return root.Execute()
+	}
+	if err := run("recipe", "add", "du", "du -sh /srv"); err != nil {
+		t.Fatal(err)
+	}
+	if e := toErr(run("recipe", "add", "du", "du -sh /srv", "--read-only", "--overwrite")); e == nil || e.Code != "SAFETY_SETTING" {
+		t.Fatalf("read-only over a normal recipe without --yes: %v", e)
+	}
+	t.Setenv("CLAUDECODE", "1") // an agent: the approval window asks
+	saved := askOnScreen
+	defer func() { askOnScreen = saved; g.yes = false; resetApproval() }()
+	lockFree := false
+	askOnScreen = func(string) (bool, bool) {
+		done := make(chan error, 1)
+		go func() { done <- store.Update(func(*store.State) error { return nil }) }()
+		select {
+		case <-done:
+			lockFree = true
+		case <-time.After(2 * time.Second):
+		}
+		return true, true
+	}
+	if err := run("recipe", "add", "du", "du -sh /srv", "--read-only", "--overwrite", "--yes"); err != nil {
+		t.Fatal(err)
+	}
+	if !lockFree {
+		t.Error("the approval window was shown while the state was locked")
+	}
+	st, _ := store.Load()
+	if !st.Snippets["du"].ReadOnly {
+		t.Error("the recipe was not replaced")
 	}
 }

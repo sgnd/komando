@@ -373,11 +373,6 @@ are guarded by `TestConventions` (`internal/cli/conventions_test.go`).
 | 22 | P0 | `config set audit off`, `host_key_policy off`, `--host-key-policy off`, `policy allow` without confirmation; `audit tru` turned off the audit | ✅ Needs `--yes`; strict on/off values |
 
 Next:
-- The terminal prompt appears while the state file lock is held, so other komando
-  processes wait for the person's answer. Ask first before taking the lock, then check again.
-- `snippet add --read-only --overwrite` can change someone else's snippet
-  into read-only. Replacing a snippet should need `--yes`, and
-  `read_only` should be recorded in the audit.
 - Protected-follows-the-address compares address text, without DNS:
   `db.internal` and `10.0.0.5` are treated as different.
 - Single-target commands refuse a selector that picks many, with the
