@@ -350,6 +350,9 @@ func TestJobWaitRetriesOnlyBrokenConnections(t *testing.T) {
 		out.Errf(out.ExitConnect, "AUTH_FAILED", "", "x"):           false,
 		out.Errf(out.ExitConnect, "HOSTKEY_MISMATCH", "", "x"):      false,
 		out.Errf(out.ExitNotFound, "JOB_NOT_FOUND", "", "x"):        false,
+		// seen when sessions are cut at random moments
+		errors.New("ssh: unexpected packet in response to channel open: <nil>"): true,
+		out.Errf(out.ExitConnect, "CONNECTION_LOST", "", "x"):                   true,
 	} {
 		if transient(err) != want {
 			t.Errorf("transient(%v) = %v", err, !want)

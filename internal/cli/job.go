@@ -213,9 +213,16 @@ func fetchStatus(ctx context.Context, c *sshx.Client, j *store.Job, tail int) (*
 	if tail > 0 {
 		script += `; echo ---TAIL---; tail -n ` + strconv.Itoa(tail) + ` "$d/out.log" 2>/dev/null`
 	}
+	// the last line says the answer is whole: a connection cut halfway leaves
+	// it out, and half an answer must never read as "the job is lost"
+	script += "; echo " + statusEnd
 	o, _, err := sshx.Output(ctx, c, script, 30*time.Second)
 	if err != nil {
 		return nil, err
+	}
+	o, whole := strings.CutSuffix(strings.TrimRight(o, "\n"), statusEnd)
+	if !whole {
+		return nil, out.Errf(out.ExitConnect, "CONNECTION_LOST", "try again; the job keeps running on the server", "the connection to %s broke while reading the job's status", j.Host)
 	}
 	head, tailOut, _ := strings.Cut(o, "---TAIL---\n")
 	lines := strings.Split(strings.TrimSpace(head), "\n")
@@ -763,10 +770,15 @@ func transient(err error) bool {
 		return e.Code != "AUTH_FAILED" && !strings.HasPrefix(e.Code, "HOSTKEY")
 	}
 	m := strings.ToLower(err.Error())
-	for _, s := range []string{"eof", "connection reset", "broken pipe", "closed network connection", "i/o timeout", "connection lost"} {
+	// (seen when a session is cut at random moments: the handshake or the
+	// opening of a channel meets a connection that is already gone)
+	for _, s := range []string{"eof", "connection reset", "broken pipe", "closed network connection", "i/o timeout", "connection lost", "unexpected packet", "handshake failed"} {
 		if strings.Contains(m, s) {
 			return true
 		}
 	}
 	return false
 }
+
+// statusEnd is the last line of fetchStatus's answer (see there).
+const statusEnd = "---KOMANDO-STATUS-END---"
