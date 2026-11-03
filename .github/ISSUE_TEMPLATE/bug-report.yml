@@ -1,0 +1,42 @@
+name: Bug report
+description: A komando command did not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Please write in English. Remove passwords, IP addresses and other secrets before you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: The komando command you ran, and its output. An AI agent can paste this for you.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: komando version
+      description: Run `komando version`
+      placeholder: v0.3.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Your computer's OS
+      placeholder: macOS 15.5, Ubuntu 24.04, Windows 11 with WSL
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: What komando talked to (if it matters)
+      description: The server OS, database, cache, storage or cluster, and its version
+      placeholder: Ubuntu 24.04 server, PostgreSQL 17, Redis 7.4

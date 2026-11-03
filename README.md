@@ -1,7 +1,7 @@
 # komando
 
 [![CI](https://github.com/sgnd/komando/actions/workflows/ci.yml/badge.svg)](https://github.com/sgnd/komando/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **One safe command line for all your DevOps work — servers, databases, caches, storage and more. For you and your AI agent.**
 
@@ -140,10 +140,7 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 | Browse, download and upload files in object storage (S3, MinIO, R2, ...) | `storage`, `upload`, `download` |
 | See history and safety rules | `audit`, `policy` |
 
-Coming next: clusters (Kubernetes, k3s, Swarm),
-container registries, FTP, and importing what you already have (kubeconfig,
-`.pgpass`, AWS profiles, ...). See the
-[roadmap](docs/design/vision.md).
+What comes next: see the [roadmap](docs/design/vision.md).
 
 Every task, step by step, one page per feature: **[docs/features](docs/features/README.md)**.
 Help for any command: `komando <command> --help`.

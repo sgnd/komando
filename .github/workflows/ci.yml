@@ -1,27 +1,37 @@
+# Checks that run on GitHub after every push to main and every pull request.
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch: # adds a "Run workflow" button on GitHub
+  workflow_call: # release.yml runs these checks before every release
+
+permissions:
+  contents: read
 
 jobs:
+  # 1. Formatting, go vet, staticcheck, unit tests, and a build.
   test:
+    name: Lint and unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - run: make lint
       - run: make test
       - run: make build
 
+  # 2. Real SSH, databases, caches and storage in Docker.
   e2e:
+    name: End-to-end tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - run: make e2e
