@@ -2,6 +2,7 @@ package cli
 
 import (
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -171,6 +172,68 @@ func render(tmpl string, defaults map[string]string, vars map[string]string) (st
 	return res, nil
 }
 
+// recipeBlanks lists the {{blanks}} of a recipe, sorted.
+func recipeBlanks(r recipeRow) []string {
+	seen := map[string]bool{}
+	for _, m := range tmplRe.FindAllStringSubmatch(r.Command, -1) {
+		seen[m[1]] = true
+	}
+	for k := range r.Params {
+		seen[k] = true
+	}
+	names := make([]string, 0, len(seen))
+	for k := range seen {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// checkVars refuses a --var the recipe has no blank for (a typo would
+// otherwise run the recipe with its default).
+func checkVars(r recipeRow, kv map[string]string) error {
+	blanks := recipeBlanks(r)
+	for k := range kv {
+		if !slices.Contains(blanks, k) {
+			has := "it has no blanks"
+			if len(blanks) > 0 {
+				has = "its blanks: " + strings.Join(blanks, ", ")
+			}
+			return out.Errf(out.ExitUsage, "UNKNOWN_VAR", "see the recipe with `komando recipe list`",
+				"recipe %s has no blank named %q (%s)", r.Name, k, has)
+		}
+	}
+	return nil
+}
+
+type recipeList struct {
+	Count   int         `json:"count"`
+	Recipes []recipeRow `json:"recipes"`
+}
+
+func (l recipeList) Text() string {
+	rows := [][]string{}
+	for _, r := range l.Recipes {
+		cat := r.Category
+		if !r.Builtin {
+			cat = "saved"
+		}
+		ro := "no"
+		if r.ReadOnly {
+			ro = "yes"
+		}
+		desc := r.Desc
+		if desc == "" {
+			desc = r.Command
+		}
+		if b := recipeBlanks(r); len(b) > 0 {
+			desc += " [" + strings.Join(b, ", ") + "]"
+		}
+		rows = append(rows, []string{r.Name, cat, ro, desc})
+	}
+	return textTable([]string{"name", "category", "read-only", "description"}, rows)
+}
+
 // --------------------------------------------------------------- recipe ---
 
 // A recipe is a saved command with {{blanks}}. The built-in ones (health,
@@ -248,7 +311,7 @@ func recipeListCmd() *cobra.Command {
 				}
 				return rows[i].Name < rows[j].Name
 			})
-			out.P.Print("recipe.list", map[string]any{"count": len(rows), "recipes": rows}, nil)
+			out.P.Print("recipe.list", recipeList{Count: len(rows), Recipes: rows}, nil)
 			return nil
 		},
 	}
@@ -325,6 +388,10 @@ func recipeRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if g.dryRun {
+				out.P.Print("recipe.rm", map[string]any{"would_remove": args[0]}, nil)
+				return nil
+			}
 			out.P.Print("recipe.rm", map[string]any{"removed": args[0]}, nil)
 			return nil
 		},
@@ -350,6 +417,9 @@ func recipeRunCmd() *cobra.Command {
 			}
 			kv, err := parseKV(vars)
 			if err != nil {
+				return err
+			}
+			if err := checkVars(r, kv); err != nil {
 				return err
 			}
 			command, err := render(r.Command, r.Params, kv)

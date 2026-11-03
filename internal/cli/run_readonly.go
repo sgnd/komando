@@ -125,7 +125,12 @@ func segmentWrite(words []string) string {
 		}
 	}
 	if subs, ok := writeSubs[cmd]; ok {
-		for _, a := range args {
+		for k := 0; k < len(args); k++ {
+			a := args[k]
+			if cmd == "git" && (a == "-C" || a == "-c") {
+				k++ // an option with a value
+				continue
+			}
 			for _, s := range subs {
 				if a == s || strings.HasPrefix(a, s+"=") {
 					return cmd + " " + a
@@ -187,16 +192,15 @@ func shellSegments(s string) (segs [][]string, redirect string) {
 		}
 		words = nil
 	}
-	pendingRedirect := false
+	pendingAt := -1 // a > was seen: the next word is its file
 	checkRedirect := func() {
-		// the word after a > is the file
-		if pendingRedirect && len(words) > 0 {
-			t := words[len(words)-1]
+		if pendingAt >= 0 && len(words) > pendingAt {
+			t := words[pendingAt]
 			if t != "/dev/null" && !strings.HasPrefix(t, "&") && redirect == "" {
 				redirect = "> " + t
 			}
-			words = words[:len(words)-1]
-			pendingRedirect = false
+			words = append(words[:pendingAt], words[pendingAt+1:]...)
+			pendingAt = -1
 		}
 	}
 	for i := 0; i < len(s); i++ {
@@ -238,6 +242,8 @@ func shellSegments(s string) (segs [][]string, redirect string) {
 			checkRedirect()
 			endSeg()
 		case c == '$' && i+1 < len(s) && s[i+1] == '(':
+			endWord()
+			checkRedirect()
 			endSeg()
 			i++
 		case c == '>':
@@ -257,7 +263,7 @@ func shellSegments(s string) (segs [][]string, redirect string) {
 				}
 				continue
 			}
-			pendingRedirect = true
+			pendingAt = len(words)
 		case c == '<':
 			endWord()
 		default:

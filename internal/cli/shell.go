@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -20,7 +21,14 @@ func shellCmd() *cobra.Command {
 		Use:     "shell TARGET",
 		Aliases: []string{"ssh", "connect"},
 		Short:   "Interactive login shell (humans only; agents use exec/job)",
-		Args:    cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				// `ssh host command` runs a command in ssh; here that is exec
+				return out.Errf(out.ExitUsage, "USAGE", "run a command with `komando exec "+args[0]+" -- "+strings.Join(args[1:], " ")+"`",
+					"komando %s opens an interactive shell and takes no command", cmd.CalledAs())
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fd := int(os.Stdin.Fd())
 			if !term.IsTerminal(fd) {
