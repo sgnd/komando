@@ -33,47 +33,34 @@ friendly, and so on) still apply to everything.
 
 ## Review of the current state
 
-As of `feat/v0.3` after phase 1 of the gap analysis (± 22,000 lines of Go, release binary
-± 35 MB). The full list of what is still missing is in
-[gap/README.md](gap/README.md).
+As of `main` after v0.7 and the built-in work ([built-in.md](built-in.md)).
+What is still open is listed in [built-in.md](built-in.md#where-it-stands-2026-11-03)
+(programs not yet replaced) and [gap/README.md](gap/README.md) (features
+compared with other tools).
 
 | Area | Status |
 |---|---|
-| Server (SSH): inventory, keys, vault, parallel exec, jobs, safe fs, cp/SFTP, tunnel, shell | ✅ mature |
-| Devops modules on top of SSH: svc, logs, docker, pkg, cron, user, net, facts, 39 `ops` recipes | ✅ mature |
+| Server (SSH): inventory, keys, vault, parallel exec, jobs, safe fs, upload/download/sync, tunnel, shell | ✅ mature |
+| Devops modules on top of SSH: svc, logs, docker, pkg, cron, user, net, facts, `recipe` | ✅ mature |
 | Safety layer: policy, protected, dry-run, host key check, audit, JSON envelope + exit codes | ✅ mature |
-| `conn` + `db` (PostgreSQL, MySQL, SQLite; query/schema/explain/dump/restore; `audit_sql`) | ✅ done |
+| `conn` + `db` (PostgreSQL, MySQL, SQLite; query/schema/explain/dump/restore/shell; `audit_sql`) | ✅ done, dump/restore/shell built in |
 | `cache` (Redis, Valkey) | ✅ done |
-| `storage` (S3, FTP/FTPS, SFTP: ls/download/upload/rm/link) | ✅ done |
-| `cluster` (Kubernetes, Docker Swarm) | ✅ done (rollout/rollback/diff: see gap) |
+| `storage` (S3, FTP/FTPS, SFTP: ls/download/upload/rm/link/sync) | ✅ done |
+| `cluster` (Kubernetes, Docker Swarm) | ✅ done, `cluster run`/exec/forward built in (no kubectl) |
 | `registry` (ls, inspect, rm, copy) | ✅ done |
-| `vpn` (WireGuard, OpenVPN, openconnect, Tailscale, SOCKS, OS VPN) | ✅ done |
-| External secret refs (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`) | ✅ done |
+| `vpn` (WireGuard, OpenVPN/Pritunl, AnyConnect, Tailscale, SOCKS, OS VPN; Fortinet, GlobalProtect, F5 experimental) | ✅ done, built in (Pulse still through openconnect) |
+| Secret refs (`vault:`, `aws-sm:`, `gcp-sm:`, `op://` through 1Password Connect, `bw://`, `kdbx:`) | ✅ done, built in |
 | One inventory: universal selectors, `komando list`, `komando test` | ✅ done |
-| Migration | ✅ `import` (ssh-config, pgpass, mycnf, env, komando) and `export` |
+| Migration | ✅ `import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, dbeaver, komando) and `export` |
 
-**Strengths.** The foundation is already right for the universal goal. The output contract,
-exit codes, risk-based guards (`read`/`write`/`destructive`), `--via HOST`
-without a local port, and secret references (`secret:`/`env:`/`file:`) are all
-general, not specific to SSH. The `db` phase proved this pattern works outside
-SSH.
+**Strengths.** The output contract, exit codes, risk-based guards
+(`read`/`write`/`destructive`), `--via` without a local port, and secret
+references are general, not specific to SSH. Every family uses them.
 
-**Gaps to close before adding many families:**
-
-1. **Positioning.** The README and `--help` still say "manage fleets of servers"
-   and "like Termius". That is too narrow for the new goal.
-2. **Command names per family have no rule yet.** `Families` maps
-   `s3 → s3`, while other families are given category names (`db`, `cache`). If
-   this is not settled now, the top level will become a mix of product names and
-   categories.
-3. **Verbs are not uniform across families yet.** `db` has `query/schema/dump`. Other
-   families need the same verb pattern so users do not have to learn again.
-4. **Migration is still split per command** (`host import`). For many sources
-   (kubeconfig, pgpass, aws, filezilla, ...) we need one entry point.
-5. **Binary size.** It is already 26 MB. Heavy SDKs (client-go, the full AWS SDK)
-   could double it. We need a dependency rule.
-6. ~~**The `@group` selector only picks hosts.**~~ Done: selectors pick
-   servers and conns together (see [ux.md](ux.md)).
+The gaps this section once listed (narrow positioning, product names as
+command names, verbs that differ per family, migration split per command,
+binary size, selectors that picked only hosts) are all closed: see the
+decisions below and [ux.md](ux.md).
 
 ## Core model
 
@@ -99,8 +86,8 @@ Command names are always a **category**, not a product name.
 | `storage` | object/file | s3 (AWS, MinIO, R2, Spaces, Wasabi, B2), ftp/ftps, sftp; later: gcs, azblob, webdav | ✅ |
 | `cluster` | orchestrator | k8s (k3s, EKS, GKE, AKS, kind), swarm; later: nomad | ✅ |
 | `registry` | oci | Docker Hub, GHCR, GitLab, Harbor, registry:2; ECR needs a refreshed token (see gap) | ✅ |
-| `secret` | secret | local vault; external refs: `op://`, `vault:`, `aws-sm:`, `gcp-sm:` | ✅ |
-| `vpn` | path | wireguard, socks, system, tailscale, GlobalProtect/Fortinet/AnyConnect/Pulse/F5 (openconnect), OpenVPN/Pritunl, L2TP/IPsec (system). komando connects the VPN itself when `--via` needs it | ✅ ([network.md](network.md)) |
+| `secret` | secret | local vault; external refs: `vault:`, `aws-sm:`, `gcp-sm:`, `op://` (1Password Connect), `bw://`, `kdbx:` | ✅ |
+| `vpn` | path | wireguard, socks, system, tailscale, OpenVPN/Pritunl, AnyConnect, Fortinet/GlobalProtect/F5 (experimental), Pulse (still openconnect), L2TP/IPsec (system). komando connects the VPN itself, with its own clients, when `--via` needs it | ✅ ([network.md](network.md), [built-in.md](built-in.md)) |
 
 Decisions (approved 2026-11-02):
 
@@ -203,10 +190,11 @@ what will be created, and existing entries are not overwritten except with
 |---|---|---|
 | **v0.2** ✅ | `db`, `cache`, `storage` (S3), one inventory (`list`, `test`, selectors for everything), UX rules, new positioning | 1, 3, 4 |
 | **v0.3** ✅ | Overlaps removed (`--via` for everything, `upload`/`download`, `recipe`, `host/conn list/test` aliases, `logs`); `tunnel start TARGET`; `komando import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, dbeaver, komando) and `export`; `logs --follow` | 1, 4 |
-| **v0.4** ✅ | `komando vpn`: WireGuard in-process; SOCKS; OpenVPN/Pritunl in a Docker container (the laptop's network does not change; `--os-mode` optional); GlobalProtect/Fortinet/AnyConnect/Pulse/F5 through openconnect+ocproxy; Tailscale userspace; OS VPN through `--service`; `vpn up/down/status` sessions, automatic disconnect when idle; MFA always done by a person | 1, 3, 4 |
+| **v0.4** ✅ | `komando vpn`: WireGuard in-process; SOCKS; OpenVPN/Pritunl and the openconnect family (both later replaced by built-in clients); Tailscale userspace; OS VPN through `--service`; `vpn up/down/status` sessions, automatic disconnect when idle; MFA always done by a person | 1, 3, 4 |
 | **v0.5** ✅ | `cluster` for Kubernetes (direct API, through `--via`/VPN) and Docker Swarm: status, ls, get, logs, apply, restart, scale, rm, `run` | 2, 3 |
 | **v0.6** ✅ | `registry` (ls, inspect, rm, copy) | 3 |
 | **v0.7** ✅ | `storage` for FTP/FTPS/SFTP; external secret refs (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`); `db shell` | 3, 4 |
+| **Built in** ✅ | Features work with the komando binary alone (no Docker, kubectl, psql/pg_dump, openvpn, openconnect, aws/vault/gcloud/op CLIs), fully open source; what is left is in [built-in.md](built-in.md#where-it-stands-2026-11-03) | 1, 4 |
 | **v1.0** | Contract frozen (`schema` version 1), every family passes the checklist, complete documentation in English (the project is English-only; the Indonesian translations were removed) | all |
 
 Candidates after v1.0, judged by the criteria below: DNS (Cloudflare,

@@ -1,9 +1,8 @@
 # Design: networking — bastions, forwarding, and many VPNs at once
 
-Status: **built, 2026-11-02** (see [Phased plan](#phased-plan)). Already done: `--via` for all
-targets, `tunnel start TARGET`, and `komando vpn` with the kinds `wireguard`,
-`socks`, `system` (see [docs/features/vpn.md](../features/vpn.md)). The rest is
-design. The big goal is in [vision.md](vision.md), the command rules in
+Status: **built, 2026-11-02; VPN clients built in since 2026-11-03** (see
+[Phased plan](#phased-plan) and [built-in.md](built-in.md)). How to use it:
+[docs/features/vpn.md](../features/vpn.md). The big goal is in [vision.md](vision.md), the command rules in
 [ux.md](ux.md).
 
 **Owner clarification (2026-11-02):** komando is also a **VPN client manager**.
@@ -100,19 +99,21 @@ komando test kind:vpn
 |---|---|---|---|---|
 | **Userspace** | `wireguard` ✅ | wireguard-go + netstack inside the process | no | yes, clashing subnets are safe |
 | | `socks` ✅ | an existing SOCKS5 proxy | no | yes |
-| | `tailscale` | `tsnet` (Tailscale/Headscale) inside the process | no | yes |
-| | `globalprotect`, `fortinet`, `anyconnect`, `pulse`, `f5` | `openconnect --protocol=… --script-tun` + `ocproxy`/`tunsocks`: the client runs next to komando and provides a local SOCKS, without creating a network interface | no | yes |
-| **OS mode** | `openvpn` (including Pritunl profiles) | first evaluate a userspace Go client (`ooni/minivpn`, experimental); if it is not enough, `openvpn` is run by a small helper | once (the helper is installed with sudo) | limited |
+| | `tailscale` ✅ | `tsnet` (Tailscale/Headscale) inside the process | no | yes |
+| | `openvpn` (including Pritunl profiles) ✅ | komando's own OpenVPN client on the same userspace stack ([built-in.md](built-in.md)) | no | yes |
+| | `anyconnect` ✅, `fortinet`, `globalprotect`, `f5` (experimental) | komando's own clients on the userspace stack | no | yes |
+| | `pulse` | `openconnect --protocol=pulse` + `ocproxy`, until komando's own client is released | no | yes |
+| **OS mode** | `openvpn --os-mode` | deprecated: the `openvpn` program with sudo | once | limited |
 | | `l2tp` / IPsec | strongSwan + xl2tpd (Linux), built-in VPN (macOS/Windows) | once | limited |
 | | `system` ✅ | a VPN that is already connected on the computer; komando only checks it | depends on the client | depends on the OS |
 
 - OS mode can clash if two VPNs use the same subnet. komando must
   **detect and warn** before connecting, not silently
   break routes.
-- VPN clients (`openconnect`, `openvpn`, strongSwan) must be installed, except
-  WireGuard and Tailscale, which are built into komando. `komando doctor`
-  checks the clients that the registered VPNs need and shows how to
-  install them.
+- Every userspace kind is built into komando except `pulse`, which still
+  needs `openconnect` and `ocproxy`. L2TP/IPsec uses the VPN the operating
+  system already has. `komando doctor` checks what the registered VPNs need
+  and shows how to install it.
 
 ## VPN sessions
 
@@ -186,13 +187,14 @@ The tunnel runs in the background and holds its path (VPN and bastion) while it 
 |---|---|---|
 | 0 | `--via` for all targets, `tunnel start TARGET`, `vpn add/show/rm`, kinds `wireguard`/`socks`/`system`, VPNs in `list`/`test`/selectors | ✅ tested end-to-end |
 | 1 | `vpn up/down/status`, a background session per VPN with automatic disconnect; `tailscale` kind | ✅ tested with a real Headscale (`make e2e-vpnclients`) |
-| 2 | The openconnect family (GlobalProtect, Fortinet, AnyConnect, Pulse, F5) through `ocproxy`; `doctor` checks their clients; `VPN_LOGIN_REQUIRED` for VPNs with MFA | ✅ tested with a real ocserv (AnyConnect protocol); the other protocols use the same code path |
-| 3 | OpenVPN/Pritunl in a Docker container, without changing the laptop's network; `--os-mode` optional | ✅ tested with a real OpenVPN server (`make e2e-openvpn`) |
+| 2 | The openconnect family (GlobalProtect, Fortinet, AnyConnect, Pulse, F5) through `ocproxy`; `doctor` checks their clients; `VPN_LOGIN_REQUIRED` for VPNs with MFA | ✅ then replaced by built-in clients, except Pulse ([built-in.md](built-in.md)) |
+| 3 | OpenVPN/Pritunl without changing the laptop's network | ✅ first in a Docker container, now komando's own client (`make e2e-openvpn`) |
 | 4 | L2TP/IPsec and built-in OS VPNs through `system --service` (scutil/nmcli); clashing-subnet warning for OpenVPN in OS mode | ✅ the clash warning compares the route table before and after connecting |
 
 ## Owner decisions
 
-1. **OS mode is allowed** (2026-11-02): OpenVPN/Pritunl and L2TP/IPsec may
-   use a small helper installed once with sudo.
+1. **OS mode is allowed** (2026-11-02): L2TP/IPsec may use the operating
+   system's VPN. For OpenVPN it is replaced by the built-in client
+   (2026-11-03, [built-in.md](built-in.md)); `--os-mode` is deprecated.
 2. **MFA is always done by a person** (2026-11-02): no TOTP secrets in the vault;
    see the [MFA](#mfa) section.

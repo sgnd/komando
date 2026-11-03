@@ -1,5 +1,11 @@
 # Extra coverage: areas not yet compared in the five gap reports
 
+> **Snapshot of `feat/v0.3` (commit 4784fc9), 2026-11-02.** Many MISSING and
+> PARTIAL rows below were done in Phases 1–5 and the built-in work, and no
+> feature needs kubectl, psql, the aws CLI or openvpn any more (only Pulse
+> VPNs still use openconnect).
+> Current status: [README.md](README.md#still-open).
+
 The five reports in this folder compare komando (`feat/v0.3`, commit 4784fc9)
 with the tools in each field. This document looks for **what was
 missed**: tools and daily devops work that do not appear in any
