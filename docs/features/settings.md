@@ -68,7 +68,7 @@ readable only by you (folder 0700, files 0600).
 | `audit.jsonl` | history of every action |
 | `vpn/` | VPN logs and the state of built-in VPN clients |
 | `tunnels/` | logs of background tunnels |
-| `bitwarden-device` | the device id komando shows to Bitwarden (always in `~/.komando`) |
+| `bitwarden-device` | the device id komando shows to Bitwarden or Vaultwarden |
 
 Back this folder up and keep it private. If other people or backups can
 reach it, set `KOMANDO_VAULT_PASS` to a passphrase of 15 or more characters
