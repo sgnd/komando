@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/url"
 	"os"
@@ -310,6 +311,14 @@ func (f *fakeBucket) Get(_ context.Context, key string, w io.Writer) (int64, err
 	return int64(n), err
 }
 func (f *fakeBucket) Exists(context.Context, string) (bool, error) { return true, nil }
+func (f *fakeBucket) Stat(_ context.Context, key string) (storex.Object, error) {
+	for _, o := range f.objs {
+		if o.Key == key {
+			return o, nil
+		}
+	}
+	return storex.Object{}, errors.New("not found")
+}
 func (f *fakeBucket) Put(context.Context, string, io.Reader, int64, string) error {
 	return nil
 }
