@@ -512,6 +512,13 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 	if st != nil && !st.Settings.Audit {
 		return
 	}
+	if st == nil { // always recorded (turning the audit off, too); read where else it goes
+		if s, err := store.Load(); err == nil {
+			auditSyslog = s.Settings.AuditSyslog
+		}
+	} else {
+		auditSyslog = st.Settings.AuditSyslog
+	}
 	rec := map[string]any{
 		"ts":      time.Now().UTC().Format(time.RFC3339Nano),
 		"command": command,

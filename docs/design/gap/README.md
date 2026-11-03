@@ -135,7 +135,7 @@ P1 features, all from before Phase 1) are done, except:
 - **Cluster**: commands to many clusters at once (`@group`), read-only helm (list/status/history), capacity (`top` is done through `cluster run`), redaction of `docker inspect` and `compose config`.
 - **Database**: new engines (MongoDB most requested; HTTP-based ones like Elasticsearch/OpenSearch, RabbitMQ, Consul are cheapest for binary size), Redis Cluster/Sentinel, TLS with your own CA, schema migrations.
 - **Storage**: GCS, Azure Blob, WebDAV; self-signed TLS for S3/registry (filezilla/rclone import is done).
-- **Platform**: `--debug`/verbose, CSV output, Homebrew, signed releases + SBOM, Windows build, MCP server, dynamic inventory from the cloud (EC2, GCP, DO, Hetzner), send audit to syslog/SIEM, time filter in `audit`.
+- **Platform**: `--debug`/verbose, CSV output, Homebrew, signed releases + SBOM, Windows build, MCP server, dynamic inventory from the cloud (EC2, GCP, DO, Hetzner), time filter in `audit` (sending the audit to syslog/SIEM is done).
 
 ## 5. What is deliberately not built (NON-GOAL)
 

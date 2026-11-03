@@ -127,6 +127,29 @@ var settings = []setting{
 			st.Settings.AuditSQL = v
 			return nil
 		}},
+	{"audit_syslog", "udp://HOST:514 | tcp://HOST:514 | tls://HOST:6514 | off", "also send each audit record to a log server (syslog, RFC 5424); changing it needs --yes",
+		func(s *store.Settings) string {
+			if s.AuditSyslog == "" {
+				return "off"
+			}
+			return s.AuditSyslog
+		},
+		func(st *store.State, v string) error {
+			if strings.EqualFold(v, "off") {
+				v = ""
+			}
+			if _, _, err := syslogTarget(v); err != nil {
+				return err
+			}
+			if v != st.Settings.AuditSyslog {
+				// where the audit goes, or that it stops going there: a person decides
+				if err := guardSafety("sending the audit log to " + firstNonEmpty(v, "no log server")); err != nil {
+					return err
+				}
+			}
+			st.Settings.AuditSyslog = v
+			return nil
+		}},
 	{"vpn_idle", "duration, 0 = never", "a VPN kept up with `vpn up` is closed after this long unused",
 		func(s *store.Settings) string { return s.VpnIdle },
 		func(st *store.State, v string) (err error) {

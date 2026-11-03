@@ -23,6 +23,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   for PostgreSQL and MySQL/MariaDB. Passwords come from a secret reference
   and are never shown or audited; PostgreSQL gets a SCRAM-SHA-256 verifier
   computed by komando, so the password never reaches the server.
+- `komando config set audit_syslog tls://HOST:6514` (or `udp://`, `tcp://`):
+  each audit record also goes to a log server or SIEM, as RFC 5424 syslog.
+  Changing it needs `--yes`.
 - `komando svc daemon-reload TARGET`: reloads unit files after you write
   one, and names units that still need a reload.
 
