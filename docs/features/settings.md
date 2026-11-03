@@ -36,6 +36,7 @@ Everything is stored in `~/.komando/` (change with `KOMANDO_HOME`):
 | `keys/` | SSH keys made by `komando key gen` |
 | `known_hosts` | remembered server fingerprints |
 | `audit.jsonl` | history of every action |
+| `bitwarden-device` | this computer's device id for Bitwarden/Vaultwarden |
 
 Back this folder up and keep it private. Set `KOMANDO_VAULT_PASS` before
 the first secret if you prefer a passphrase over the `vault.key` file.
