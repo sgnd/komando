@@ -478,7 +478,7 @@ apt:update) apt-get update -q ;;
 apt:upgrade) if [ -n "$PKGS" ]; then apt-get install -y -q --only-upgrade $PKGS; else apt-get upgrade -y -q; fi ;;
 apt:upgradable) t=$(stat -c %Y /var/lib/apt/lists/*Release 2>/dev/null | sort -n | tail -n 1); echo "# index-age: $([ -n "$t" ] && echo $(( $(date +%s) - t )) || echo never)" >&2
   apt list --upgradable 2>/dev/null | tail -n +2 ;;
-apt:simulate) if [ -n "$PKGS" ]; then apt-get -s install --only-upgrade $PKGS; else apt-get -s upgrade; fi | grep '^Inst ' ;;
+apt:simulate) s=$(if [ -n "$PKGS" ]; then apt-get -s install --only-upgrade $PKGS; else apt-get -s upgrade; fi) || exit $?; printf '%s\n' "$s" | grep '^Inst ' || true ;;
 dnf:install|yum:install) $PM install -y $PKGS ;;
 dnf:remove|yum:remove) $PM remove -y $PKGS ;;
 dnf:update|yum:update) $PM makecache -q ;;

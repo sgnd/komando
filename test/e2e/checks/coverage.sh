@@ -78,7 +78,7 @@ q $K user unlock direct "$C-u"
 q $K user rm direct "$C-u" --remove-home --allow-dangerous
 check "user rm" False "$($K user list direct | has "$C-u")"
 q $K cron set direct "$C-c" true --schedule @daily
-check "cron rm" True "$($K cron rm direct "$C-c" | has 'removed 1')"
+check "cron rm" 1 "$($K cron rm direct "$C-c" | jget 'd["data"]["results"][0]["data"]["removed"]')"
 check "net dns" True "$($K net dns direct localhost | ok)"
 check "net http" True "$($K net http bastion http://registry:5000/v2/ | jget 'd["data"]["results"][0]["data"]["code"] in (200, 401)')"
 check "net ports" True "$($K net ports direct | jget 'any(r["port"] == 22 for r in d["data"]["results"][0]["data"])')"
