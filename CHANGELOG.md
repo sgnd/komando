@@ -15,6 +15,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - `komando import aws`: one S3 storage conn per bucket of each profile in
   `~/.aws/config` (and the credentials file). The conns use the profile, so
   no key is copied and SSO or roles keep working.
+- memcached conns (`memcached://`, `memcacheds://` for TLS, the text
+  protocol's login): `cache get`, `set`, `rm`, `keys`, `info` and `run` work
+  like they do for Redis, with the same safety rules (`flush_all` needs
+  `--allow-dangerous`). komando speaks the protocol itself.
 - `komando svc daemon-reload TARGET`: reloads unit files after you write
   one, and names units that still need a reload.
 

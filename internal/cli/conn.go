@@ -575,17 +575,17 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 			_ = db.QueryRowContext(cctx, q).Scan(&r.Version)
 		}
 	case "cache":
-		rc, err := cachex.Open(cctx, a.Target, a.Password, a.Dial, sshOpts(st).ConnectTimeout)
+		rc, err := cachex.OpenStore(cctx, a.Target, a.Password, a.Dial, sshOpts(st).ConnectTimeout)
 		if err != nil {
 			return err
 		}
 		defer rc.Close()
-		if info, err := rc.Info(cctx, "server").Result(); err == nil {
-			for _, l := range strings.Split(info, "\n") {
-				if v, ok := strings.CutPrefix(strings.TrimSpace(l), "redis_version:"); ok {
-					r.Version = v
-				}
-			}
+		section := "server"
+		if a.Target.Kind.Name == "memcached" {
+			section = ""
+		}
+		if info, err := rc.Info(cctx, section); err == nil {
+			r.Version = cachex.SummarizeFor(a.Target.Kind.Name, info).Version
 		}
 	case "registry":
 		rg, closeFn, err := openRegistry(cctx, st, c)

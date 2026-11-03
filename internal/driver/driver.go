@@ -68,6 +68,8 @@ func init() {
 		Example: "sqlite:///var/lib/app.db"})
 	register(Kind{Name: "redis", Family: "cache", Schemes: []string{"redis", "rediss"}, DefaultPort: 6379,
 		Example: "rediss://default@cache.internal:6379/0 (rediss = TLS)"})
+	register(Kind{Name: "memcached", Family: "cache", Schemes: []string{"memcached", "memcacheds"}, DefaultPort: 11211,
+		Example: "memcached://cache.internal:11211 (memcacheds = TLS)"})
 	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
 		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
 	register(Kind{Name: "registry", Family: "registry", Schemes: []string{"registry", "oci"}, DefaultPort: 443,
@@ -192,6 +194,12 @@ func Parse(raw string) (Target, error) {
 	t.Database = strings.TrimPrefix(u.Path, "/")
 	if k.Name == "mysql" || k.Name == "registry" {
 		t.TLS = u.Query().Get("tls")
+	}
+	if k.Name == "memcached" {
+		t.Secure = strings.EqualFold(u.Scheme, "memcacheds")
+		if t.Database != "" {
+			return Target{}, out.Usage("memcached has no databases: drop %q from the URL", "/"+t.Database)
+		}
 	}
 	if k.Name == "redis" {
 		t.Secure = strings.EqualFold(u.Scheme, "rediss")

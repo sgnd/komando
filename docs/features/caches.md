@@ -1,6 +1,6 @@
 # Caches
 
-Read and change Redis and Valkey safely. [All features](README.md)
+Read and change Redis, Valkey and memcached safely. [All features](README.md)
 
 `komando cache` works with Redis and compatible caches (Valkey, KeyDB,
 Dragonfly) added with `komando conn add`.
@@ -14,6 +14,22 @@ komando cache set cache maintenance on --ttl 30m    # --ttl takes 30m, 24h, 7d
 komando cache rm cache session:42 --dry-run   # which of these keys exist
 komando cache rm cache session:42 --allow-dangerous   # deleting needs --allow-dangerous
 ```
+
+## memcached
+
+The same commands work with memcached (`komando conn add mc
+memcached://cache.internal:11211`; `memcacheds://` for TLS; a user and
+`--password-ref` for a server started with `memcached -Y`):
+
+- `get` shows the value and, on memcached 1.6 and newer, its time to live.
+- `keys` lists keys with memcached's LRU crawler (on by default since 1.5).
+- `info` summarises `stats`; `info mc items` (or `slabs`, `settings`,
+  `sizes`, `conns`) shows one raw section.
+- `run` sends one command line, read-only unless `--write`; `flush_all` and
+  commands that change or stop the server also need `--allow-dangerous`.
+  Storing goes through `cache set`.
+
+## Any other command
 
 Anything else goes through `cache run`. **It only reads unless you add
 `--write`:**

@@ -123,7 +123,7 @@ experimental VPN clients and SSM sessions): [built-in.md](../built-in.md).
 Sections 1–3 of the first version (doc promises, security holes and daily
 P1 features, all from before Phase 1) are done, except:
 
-- `import termius`, `import tableplus` and a `memcached` kind
+- `import termius` and `import tableplus`
   (Termius and TablePlus have no open export format; see
   [import.md](../../features/import.md)).
 - `exec -P 10` through one bastion opens one bastion login per host; a

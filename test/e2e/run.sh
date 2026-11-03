@@ -301,6 +301,25 @@ $K cache rm cache greeting >/dev/null; check "cache rm needs --allow-dangerous" 
 $K cache run cache --write -- GETDEL greeting >/dev/null; check "cache GETDEL needs --allow-dangerous" 6 $?
 set -e
 
+# memcached (with a login), through the bastion
+printf mcpass | $K secret set mc-pass >/dev/null
+q $K conn add mc 'memcached://e2e@memcached:11211' --password-ref secret:mc-pass --via bastion
+q $K cache set mc greeting halo --ttl 1h
+check "memcached get via bastion, with its time to live" "halo True" "$($K cache get mc greeting | jget 'd["data"]["value"] + " " + str(d["data"]["ttl_seconds"] > 3500)')"
+check "memcached keys" "['greeting']" "$($K cache keys mc 'greet*' | jget 'd["data"]["keys"]')"
+check "memcached info summary" True "$($K cache info mc | jget 'd["data"]["summary"]["version"].endswith("(memcached)")')"
+check "memcached run reads" True "$($K cache run mc -- stats | jget 'any("curr_items" in l for l in d["data"]["reply"])')"
+set +e
+$K cache run mc -- flush_all >/dev/null; check "memcached flush_all blocked" 6 $?
+$K cache rm mc greeting >/dev/null; check "memcached rm needs --allow-dangerous" 6 $?
+set -e
+check "memcached rm --dry-run names the key" "['greeting']" "$($K cache rm mc greeting --dry-run | jget 'd["data"]["would_delete"]')"
+q $K cache rm mc greeting --allow-dangerous
+check "memcached key gone" KEY_NOT_FOUND "$($K cache get mc greeting | jget 'd["error"]["code"]' || true)"
+printf wrong | $K secret set mc-pass >/dev/null
+check "memcached wrong password is named" CACHE_AUTH "$($K cache info mc | jget 'd["error"]["code"]' || true)"
+q $K conn rm mc
+
 # storage
 echo backup-data > "$TMP/obj.txt"
 q $K storage upload bucket "$TMP/obj.txt" 2026/obj.txt

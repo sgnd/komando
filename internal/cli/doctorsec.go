@@ -134,6 +134,10 @@ func plainConn(c *store.Conn) string {
 		if !t.Secure {
 			return "travels unencrypted: use rediss://"
 		}
+	case "memcached":
+		if !t.Secure {
+			return "travels unencrypted: use memcacheds:// (memcached with TLS)"
+		}
 	case "ftp":
 		return "travels unencrypted (passwords too): use ftps:// or sftp://"
 	case "ftps":
