@@ -56,6 +56,24 @@ func AWSCredentials(ctx context.Context, profile string) (aws.Credentials, error
 	return c, nil
 }
 
+// AWSProfileAccess is what a profile in the given config and credentials
+// files gives: its current keys, region and custom endpoint ("" for AWS).
+func AWSProfileAccess(ctx context.Context, profile, configFile, credsFile string) (aws.Credentials, string, string, error) {
+	opts := []func(*config.LoadOptions) error{config.WithSharedConfigProfile(profile),
+		config.WithSharedConfigFiles([]string{configFile}), config.WithSharedCredentialsFiles([]string{credsFile})}
+	cfg, err := config.LoadDefaultConfig(ctx, opts...)
+	if err != nil {
+		return aws.Credentials{}, "", "", awsErr(err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	c, err := cfg.Credentials.Retrieve(ctx)
+	if err != nil {
+		return aws.Credentials{}, "", "", awsErr(err)
+	}
+	return c, cfg.Region, aws.ToString(cfg.BaseEndpoint), nil
+}
+
 // AWSSecret reads a Secrets Manager secret (name or ARN) as text.
 func AWSSecret(ctx context.Context, id string) (string, error) {
 	cfg, err := AWSConfig(ctx, "", "")

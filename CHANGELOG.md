@@ -12,6 +12,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - `komando registry prune CONN REPO --keep N [--older-than 30d] [--match RE]`:
   deletes old images, never one a kept tag points at (`latest` always
   stays). `registry inspect` now gives a multi-platform image's build date.
+- `komando import aws`: one S3 storage conn per bucket of each profile in
+  `~/.aws/config` (and the credentials file). The conns use the profile, so
+  no key is copied and SSO or roles keep working.
 - `komando svc daemon-reload TARGET`: reloads unit files after you write
   one, and names units that still need a reload.
 
