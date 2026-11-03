@@ -135,6 +135,12 @@ func keepalive(c *Client) {
 	}
 }
 
+// Route is the way to h: the VPN it starts with (or nil) and the SSH hops,
+// ending with h itself. It reads the inventory only; nothing is dialed.
+func Route(st *store.State, h *store.Host) (*store.Vpn, []*store.Host, error) {
+	return resolveChain(st, h, map[string]bool{})
+}
+
 // resolveChain returns the VPN the path starts with (or nil) and the SSH
 // hops [via1, via2, ..., target].
 func resolveChain(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, []*store.Host, error) {

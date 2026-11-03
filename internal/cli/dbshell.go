@@ -3,13 +3,13 @@ package cli
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -93,6 +93,12 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 			"%s is not installed on this computer", client))
 	}
 
+	mode := "read-only"
+	if write {
+		mode = "read-write"
+	}
+	showStatus(statusLine{What: client, Target: c.Name, Detail: mode, Route: connRoute(st, c), Protected: protectedConn(st, c)})
+
 	// reach the server: directly, or through a local port forwarded over --via
 	addr := t.Address
 	a, err := openAccess(ctx, st, c)
@@ -114,15 +120,18 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 	if err != nil {
 		return fail(err)
 	}
-	mode := "read-only"
-	if write {
-		mode = "read-write"
-	}
-	fmt.Fprintf(os.Stderr, "komando: %s session on %s (%s)\n", argv[0], c.Name, mode)
 	p := exec.Command(argv[0], argv[1:]...) // not tied to ctx: Ctrl-C must not kill the session
 	p.Env, p.Stdin, p.Stdout, p.Stderr = env, os.Stdin, os.Stdout, os.Stderr
+	started := time.Now()
 	err = p.Run()
 	var ee *exec.ExitError
+	if err == nil || errors.As(err, &ee) {
+		code := 0
+		if ee != nil {
+			code = ee.ExitCode()
+		}
+		showExit(c.Name, code, false, time.Since(started))
+	}
 	if errors.As(err, &ee) {
 		rec["exit_code"] = ee.ExitCode()
 		audit(st, "db.shell", nil, "", false, rec)

@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
@@ -65,9 +66,19 @@ func runShell(ctx context.Context, target string) error {
 		out.P.Print("shell", map[string]any{"host": h.Name, "address": h.Address, "user": h.User, "via": h.Via, "protected": protected, "dry_run": true}, nil)
 		return nil
 	}
+	who := h.Address
+	if h.User != "" {
+		who = h.User + "@" + h.Address
+	}
+	if who == h.Name {
+		who = "" // an ad-hoc user@address target says it already
+	}
+	showStatus(statusLine{What: "shell", Target: h.Name, Detail: who, Route: hostRoute(st, h), Protected: protected})
 	fd := int(os.Stdin.Fd())
 	audit(st, "shell", []string{h.Name}, "", true, nil)
-	return withClient(ctx, st, h, func(c *sshx.Client) error {
+	var started time.Time
+	code, lost := 0, false
+	err = withClient(ctx, st, h, func(c *sshx.Client) error {
 		sess, err := c.NewSession()
 		if err != nil {
 			return err
@@ -100,10 +111,18 @@ func runShell(ctx context.Context, target string) error {
 		if err := sess.Shell(); err != nil {
 			return err
 		}
+		started = time.Now()
 		err = sess.Wait()
 		if ee, ok := err.(*ssh.ExitError); ok {
-			return exitCode(ee.ExitStatus())
+			code = ee.ExitStatus()
+			return exitCode(code)
 		}
+		lost = err != nil
 		return err
 	})
+	// after the callback: the terminal is out of raw mode again
+	if !started.IsZero() {
+		showExit(h.Name, code, lost, time.Since(started))
+	}
+	return err
 }

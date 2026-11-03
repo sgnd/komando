@@ -42,8 +42,16 @@ func init() {
 		if !ok {
 			return out.NotFound("vpn", name)
 		}
-		_, err = startSession(ctx, st, v, false)
-		return err
+		if _, err = startSession(ctx, st, v, false); err != nil {
+			return err
+		}
+		// started by a command, not by `vpn up`: say it now stays up
+		if idle, _ := time.ParseDuration(st.Settings.VpnIdle); idle > 0 {
+			noticef("vpn %s connected; it stays up until unused for %s (`komando vpn down %s` stops it)", name, humanAge(idle), name)
+		} else {
+			noticef("vpn %s connected; it stays up until `komando vpn down %s`", name, name)
+		}
+		return nil
 	}
 }
 

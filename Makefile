@@ -40,6 +40,7 @@ fuzz: ## Fuzz the parsers that see untrusted text, 30s each
 	go test ./internal/policy -run '^$$' -fuzz '^FuzzCheck$$' -fuzztime 30s
 	go test ./internal/cli -run '^$$' -fuzz '^FuzzGuard$$' -fuzztime 30s
 	go test ./internal/cli -run '^$$' -fuzz '^FuzzHiddenPattern$$' -fuzztime 30s
+	go test ./internal/cli -run '^$$' -fuzz '^FuzzCleanText$$' -fuzztime 30s
 
 lint: ## gofmt + go vet + staticcheck
 	@test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)

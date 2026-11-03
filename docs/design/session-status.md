@@ -1,6 +1,6 @@
 # Session status: "where am I, and what is still running?"
 
-Status: **proposal, 2026-11-03**, not built yet. Stress-tested against the
+Status: **approved, 2026-11-03**; Phase 0 and 1 built. Stress-tested against the
 cases in [Stress test](#stress-test); several first ideas were dropped there.
 
 ## The question
@@ -46,16 +46,16 @@ Examples:
 komando: shell on web1 (deploy@10.0.1.5) via vpn telkomsel → bastion1
 komando: shell on prod-web1 (root@10.0.0.5) · PROTECTED
 komando: psql on app-db (read-only) via bastion1
-komando: forwarding 127.0.0.1:8080 → svc/api on prod-k8s via bastion1 (Ctrl-C stops)
-komando: following logs of nginx on web1, web2 (Ctrl-C stops)
-komando: vpn telkomsel connected for this command; it closes after 30m unused (komando vpn down telkomsel)
+komando: forwarding 127.0.0.1:8080 → svc/api:80 on prod-k8s via bastion1 (Ctrl-C stops)
+komando: following logs on web1, web2 (Ctrl-C stops)
+komando: vpn telkomsel connected; it stays up until unused for 30m (`komando vpn down telkomsel` stops it)
 ```
 
 Exit line, shape A only:
 
 ```
-komando: left web1 (exit 0, 12m04s)
-komando: connection to web1 lost after 3m10s
+komando: left web1 (exit 0, 12m)
+komando: connection to web1 lost after 3m
 ```
 
 Rules:
@@ -172,7 +172,7 @@ the plan does about it.
 3. `shell` on a protected host asks `[y/N]` like `db shell` (`--yes` skips).
    Approved by the owner.
 
-**Phase 1: the line format (shapes A, B, D)**
+**Phase 1: the line format (shapes A, B, D)** ✅ done 2026-11-03
 
 1. One small function in `internal/cli` that builds the line from a target,
    who/mode, route and protected flag, strips control characters, and adds

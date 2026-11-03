@@ -136,6 +136,8 @@ Only this computer can use it.`,
 				ctx, cancel = context.WithTimeout(ctx, g.timeout)
 				defer cancel()
 			}
+			showStatus(statusLine{What: "forwarding 127.0.0.1:" + local + " → " + args[1] + ":" + remote, Target: t.conn.Name,
+				Route: connRoute(st, t.conn), Protected: protectedConn(st, t.conn), Tail: "Ctrl-C stops"})
 			return runKubectl(ctx, st, t.conn, "cluster.forward", kargs, driver.RiskRead, true)
 		},
 	}

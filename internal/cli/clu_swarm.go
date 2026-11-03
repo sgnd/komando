@@ -450,6 +450,8 @@ func swarmLogs(ctx context.Context, t clusterTarget, service string, limit int, 
 		ctx, cancel = context.WithTimeout(ctx, g.timeout)
 		defer cancel()
 	}
+	showStatus(statusLine{What: "following logs of service/" + service, Target: t.host.Name, Route: hostRoute(st, t.host),
+		Protected: protectedHost(st, t.host), Tail: "Ctrl-C stops"})
 	lines := 0
 	var res *sshx.RunResult
 	err = withClient(ctx, st, t.host, func(c *sshx.Client) error {

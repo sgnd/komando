@@ -69,6 +69,15 @@ the pods that exist when it starts. --since takes a duration back from now
 				}
 				return swarmLogs(cmd.Context(), t, svc, limit, since, follow, timestamps)
 			}
+			if follow && !g.dryRun {
+				what := "following logs"
+				if len(args) == 2 {
+					what += " of " + args[1]
+				} else if selector != "" {
+					what += " of -l " + selector
+				}
+				showStatus(statusLine{What: what, Target: t.conn.Name, Route: connRoute(st, t.conn), Protected: protectedConn(st, t.conn), Tail: "Ctrl-C stops"})
+			}
 			return withKube(cmd.Context(), "cluster.logs", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
 				space := firstNonEmpty(ns, k.Namespace)
 				ref := selector

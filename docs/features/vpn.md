@@ -77,4 +77,6 @@ komando vpn down --all
 VPNs with `--mfa` need a person: `komando vpn up NAME` asks for the login,
 and later commands (and agents) reuse that connection. komando never
 answers MFA itself. A connection unused for 30 minutes is closed
-(`komando config set vpn_idle 1h` to change).
+(`komando config set vpn_idle 1h` to change). When a command connects a VPN
+by itself, it tells you so on one line:
+`komando: vpn office connected; it stays up until unused for 30m`.

@@ -4,6 +4,21 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Where am I? Status lines for people
+
+- `shell`, `db shell`, `cluster forward` and `logs --follow` (servers,
+  Kubernetes, Swarm) print one line before they connect: what, where, as
+  whom, the way there (`via vpn office → bastion1`) and `PROTECTED`
+  (red; `NO_COLOR` turns colour off). `shell` and `db shell` also say how
+  the session ended: `left web1 (exit 0, 12m)` or `connection to web1 lost`.
+- A command that connects a VPN by itself says the VPN stays up, for how
+  long, and how to stop it.
+- Only for a person at a terminal, on stderr: agents, scripts, pipes and
+  JSON output are unchanged. Names and addresses are printed without
+  control characters, so they cannot rewrite the terminal.
+- `db shell`'s line moved before connecting and uses the same format
+  (was `komando: psql session on app-db (read-only)`).
+
 ### Safer `komando shell` (`ssh`, `connect`)
 
 - `--dry-run` no longer opens a real shell: it shows the host, address,

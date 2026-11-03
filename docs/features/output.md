@@ -36,6 +36,30 @@ when the command then fails).
 
 The full machine-readable reference is `komando schema`.
 
+## Where am I? (status lines)
+
+When you type a command yourself, komando says on one line where you are
+working, before it connects. It does this for the commands you stay inside:
+`shell`, `db shell`, `cluster forward` and `logs --follow`.
+
+```
+komando: shell on web1 (deploy@10.0.1.5) via vpn office → bastion1
+komando: shell on prod-web1 (root@10.0.0.5) · PROTECTED
+komando: psql on app-db (read-only) via bastion1
+komando: forwarding 127.0.0.1:8080 → svc/api:80 on prod-k8s (Ctrl-C stops)
+komando: following logs on web1, web2 (Ctrl-C stops)
+```
+
+`via` is the way there: the VPN first, then the bastions. A protected
+server or database says `PROTECTED`, in red unless `NO_COLOR` is set. When a
+`shell` or `db shell` ends, one more line says how:
+`komando: left web1 (exit 0, 12m)`, or `komando: connection to web1 lost after 3m`.
+When a command connects a VPN by itself, komando says it stays up and how to
+stop it.
+
+These lines go to stderr and only to a person at a terminal. Agents, scripts
+and pipes never get them, and the JSON output does not change.
+
 ## Will my scripts keep working?
 
 Every JSON answer has `meta.contract` (now `1`). Within a contract, komando

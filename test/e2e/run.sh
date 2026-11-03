@@ -47,32 +47,7 @@ check() { # check "name" expected actual
   else FAIL=$((FAIL+1)); echo "  FAIL $1: expected [$2] got [$3]"; fi
 }
 
-# ptyrun INPUT CMD... runs CMD in a pseudo-terminal, as a person typing would:
-# INPUT is typed once a [y/N] question shows or after 3s. Prints what the
-# terminal showed and exits with CMD's exit code.
-ptyrun() {
-  python3 -I - "$@" <<'PY'
-import os, pty, select, sys, time
-pid, fd = pty.fork()
-if pid == 0:
-    os.execvp(sys.argv[2], sys.argv[2:])
-out, sent, start = b"", False, time.time()
-while time.time() - start < 30:
-    if not sent and (b"[y/N]" in out or time.time() - start > 3):
-        os.write(fd, sys.argv[1].encode().replace(b"\\n", b"\n")); sent = True
-    if select.select([fd], [], [], 0.2)[0]:
-        try:
-            b = os.read(fd, 4096)
-        except OSError:
-            break
-        if not b:
-            break
-        out += b
-_, st = os.waitpid(pid, 0)
-sys.stdout.write(out.decode(errors="replace"))
-sys.exit(os.waitstatus_to_exitcode(st))
-PY
-}
+. "$E2E/pty.sh"
 
 echo "==> build"
 (cd "$ROOT" && go build -o bin/komando ./cmd/komando)
@@ -113,9 +88,13 @@ $K exec direct --timeout 1s -- 'sleep 5' >/dev/null; check "timeout -> 7" 7 $?
 $K exec nope -- true >/dev/null; check "unknown host -> 3" 3 $?
 $K shell direct </dev/null >/dev/null 2>&1; check "shell needs a terminal -> 2" 2 $?
 check "shell refuses agents" NEEDS_TERMINAL "$(A shell direct --dry-run </dev/null | jget 'd["error"]["code"]' || true)"
-ptyrun 'exit 3\n' "$K" shell direct >/dev/null; check "shell passes the remote exit code" 3 $?
+O=$(ptyrun 'exit 3\n' env NO_COLOR=1 "$K" shell direct | tr -d '\r'); check "shell passes the remote exit code" 3 $?
+check "shell says where it logs in" 1 "$(grep -c '^komando: shell on direct (agent@127.0.0.1)$' <<<"$O")"
+check "shell says how it ended" 1 "$(grep -c '^komando: left direct (exit 3, [0-9]*s)$' <<<"$O")"
 ptyrun 'n\n' "$K" shell target >/dev/null; check "shell on a protected host: no -> 6" 6 $?
-ptyrun 'exit 0\n' "$K" shell target --yes >/dev/null; check "shell on a protected host with --yes" 0 $?
+O=$(ptyrun 'exit 0\n' env NO_COLOR=1 "$K" shell target --yes | tr -d '\r'); check "shell on a protected host with --yes" 0 $?
+check "shell names the bastion and protection" 1 "$(grep -c '^komando: shell on target (agent@target) via bastion · PROTECTED$' <<<"$O")"
+check "PROTECTED is red in colour terminals" 1 "$(ptyrun 'exit 0\n' env TERM=xterm NO_COLOR= "$K" shell target --yes | grep -c $'\e\\[1;31mPROTECTED')"
 check "shell --dry-run reports the protected stop" PROTECTED_HOST "$(ptyrun '' "$K" -o json shell target --dry-run | tr -d '\r' | grep '^{' | jget 'd["meta"]["would_be_blocked"]["code"]')"
 set -e
 check "sudo works" root "$($K exec direct --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
@@ -460,6 +439,8 @@ q $K vpn add lab socks --address "127.0.0.1:$E2E_SOCKS" --check pg:5432
 q $K conn add pg-lab 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref secret:pg-pass
 check "db through a SOCKS VPN" 1 "$($K db query pg-lab 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K host add target-lab agent@target --via lab --password-ref secret:agent-pass
+# target-lab is the protected target under a second name, so it is protected too
+check "shell names the VPN on the way" 1 "$(ptyrun 'exit\n' env NO_COLOR=1 "$K" shell target-lab --yes | tr -d '\r' | grep -c '^komando: shell on target-lab (agent@target) via vpn lab · PROTECTED$' || true)"
 check "ssh through a SOCKS VPN" target "$($K exec target-lab --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "vpn test" 1 "$($K test kind:vpn | jget 'd["data"]["summary"]["ok"]')"
 q $K vpn add corp system --check 127.0.0.1:1
@@ -469,6 +450,8 @@ q $K tunnel stop --all
 
 # logs --follow streams until stopped (here by --timeout)
 check "logs --follow streams" True "$($K logs direct --file /etc/hostname --follow --timeout 3s | head -1 | jget '"direct" in d["data"]')"
+check "logs --follow: no status line for scripts" 0 "$($K logs direct --file /etc/hostname --follow --timeout 3s 2>&1 >/dev/null | grep -c '^komando:' || true)"
+check "logs --follow says where for a person" 1 "$(ptyrun '' "$K" logs direct --file /etc/hostname --follow --timeout 3s | tr -d '\r' | grep -c '^komando: following logs on direct (Ctrl-C stops)$' || true)"
 set +e; $K fs rm direct /tmp/somedir --recursive >/dev/null; check "fs rm -r needs --allow-dangerous" 6 $?; set -e
 
 # no way around protection
