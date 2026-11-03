@@ -115,8 +115,8 @@ time (section 1 number 10). Passes e2e 183/183.
 No feature needs another program any more: the aws, vault, gcloud and op
 CLIs, kubectl, psql/pg_dump/mysqldump, openvpn, openconnect and Docker are
 replaced by komando's own clients, including AWS SSM sessions and ECR
-logins through the AWS SDK. Plan, status and what is left (Pulse/Ivanti,
-experimental VPN clients): [built-in.md](../built-in.md).
+logins through the AWS SDK. Plan, status and what is left (the
+experimental VPN clients and SSM sessions): [built-in.md](../built-in.md).
 
 ## Still open
 
