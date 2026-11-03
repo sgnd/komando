@@ -39,7 +39,9 @@ q $K host add t-e2einv6 agent@10.9.9.6
 q $K host add t-e2einv7 agent@10.9.9.7
 check "rm a selector --dry-run lists it" 2 "$($K host rm 't-e2einv*' --dry-run | jget 'len(d["data"]["removed"])')"
 check "rm a selector" ok "$($K host rm 't-e2einv*' | code)"
-check "rm @group with a protected host" PROTECTED_HOST "$($K host rm @lab | code)"
+# @lab holds bastion (the --via host of the conns) and target (protected)
+check "rm @group still in use removes nothing" HOST_IN_USE "$($K host rm @lab | code)"
+check "rm @group protected stop in dry-run" PROTECTED_HOST "$($K host rm target --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
 
 # host trust --reset --dry-run changes nothing
 N1=$($K host trust direct --reset --dry-run | jget 'd["data"]["would_remove_entries"]')
