@@ -46,6 +46,57 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   NXDOMAIN (exit 3) when a name does not resolve.
 - The agent guard no longer blocks setting komando's variables, quoted
   heredocs, or `|` inside quotes; reading through them still is.
+- Servers and files: `fs write`/`replace` follow symlinks and write the
+  target (`--no-follow` refuses); `fs mv` never overwrites without
+  `--overwrite`; diffs are real unified diffs; `--read-only` is checked
+  (a command that writes is READ_ONLY_VIOLATION); remote `~` and `host:`
+  mean the home folder like scp; `SRC/` copies the contents and re-runs
+  never nest; symlinks that are skipped are listed; sync keeps modes and
+  times, refuses a missing source, and never deletes when the source is
+  empty; recursive downloads go on past unreadable files and report them;
+  `download --sudo`; `script --arg` works for perl, python, ruby and node.
+- Text output for people: each failed server shows `[FAILED exit=3]` with
+  its own error and hint, stderr stays inside its server's block,
+  truncated output says so, streamed output is not printed twice, and a
+  `--timeout` that ends a follow (`logs -f`, `cluster logs -f`,
+  `cluster run -- get -w`, `cluster forward`) is a normal end. Tables for
+  `fs ls`, jobs, recipes, tunnels, keys, secrets, audit, config, db
+  activity/locks/sizes, cache info, cluster ls and docker ps.
+- Jobs: `job kill` records the kill and is safe to repeat, `job rm` refuses
+  a running job (`--kill` first), `job wait --timeout`.
+- Inventory: protected entries need `--yes` for any change, an alias of a
+  protected server is protected too, hosts are validated when saved (port,
+  user, --via, identity file), `host rm @group` / `conn rm 'tmp-*'` take
+  selectors, `group rm GROUP` deletes a group, `config get`, `doctor`
+  checks the inventory, audit records every inventory and settings change,
+  `host ssh-command` prints commands that work through jump hosts, `import`
+  vets proxy commands, an empty inventory says how to start, and "did you
+  mean" everywhere.
+- Policy: `rm -rf //`, `find / -delete`, `chmod -R ... /`, `iptables
+  --flush` are caught; `grep mkfs notes` is not; `policy check` exits 6
+  when blocked; `policy allow` explains built-in rules.
+- Databases, caches, storage: dates and times print as psql/mysql do (no
+  invented `Z`, MySQL zero dates kept); MariaDB `explain --analyze`;
+  placeholder count checked before sending; `db query --csv/--tsv`; cache
+  output reads like redis-cli and `cache info` gives a summary; downloads
+  never write in a dry run; a key ending in `/` means into that folder;
+  `--to DIR/` and `--to -`; folder markers are skipped; missing databases
+  and folders exit 3; `db shell` explains how to install the client on
+  this computer.
+- Clusters and docker: Swarm output has the same shape as Kubernetes
+  (`items`, `healthy`, `problems`); TYPE NAME and TYPE/NAME work in every
+  verb; `-A`; rollouts that time out name the stuck pods and why; rollback
+  skips the revision that failed; `apply` diffs Secrets without showing
+  them and says created/configured/unchanged; `docker exec` passes words as
+  given and keeps the exit code; `docker raw`/`compose` can no longer slip
+  past the policy with a leading flag; a missing container exits 3.
+- System modules and VPNs: hosts without systemd say NO_SYSTEMD, unknown
+  units UNIT_NOT_FOUND; `svc restart --wait`; pkg install/rm report what
+  changed and PACKAGE_NOT_FOUND; `pkg upgrade --dry-run` lists what would
+  change; `net dns --type MX`; `net ports` with process and pid; `vpn
+  status` dials SOCKS and system VPNs; `vpn up` checks a WireGuard tunnel
+  really answers; `vpn edit`; VPN errors keep their own code through SSH.
+- `facts` knows containers (init, virt, IPs without /len).
 - e2e: every one of the 195 commands now runs at least once
   (`test/e2e/checks/`), and `E2E_HOME` keeps a lab inventory to try
   commands by hand.
