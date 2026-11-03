@@ -154,6 +154,11 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 - Added a code of conduct, Dependabot updates, CODEOWNERS and `.editorconfig`.
   `make lint` now also runs staticcheck.
+- Issues use forms (bug report, feature suggestion); security reports go to
+  GitHub's private form. Simpler SECURITY.md, CONTRIBUTING.md and pull
+  request checklist.
+- A release runs every check (lint, unit and end-to-end tests) first, and
+  takes its notes from this file.
 - Docs are English only: removed `README.id.md` and `docs/features/id/`, and
   translated the design notes in `docs/design/`.
 

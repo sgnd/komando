@@ -1,11 +1,12 @@
-# Opens weekly pull requests that update Go modules and GitHub Actions.
-# Updates are grouped so each week brings at most one PR per ecosystem.
+# Opens a pull request when a Go module or a GitHub Action used in .github/workflows
+# has a new version. Updates are grouped: at most one pull request per ecosystem a month.
+# Security fixes come right away, not once a month.
 version: 2
 updates:
   - package-ecosystem: gomod
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       go:
         patterns: ["*"]
@@ -13,7 +14,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       actions:
         patterns: ["*"]

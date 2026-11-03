@@ -1,5 +1,10 @@
-**What does this change?**
+## What changes
 
-**How did you test it?** (`make test`, `make e2e`, manual steps)
+<!-- One or two lines: what you added, removed or fixed, and why. -->
 
-- [ ] Docs updated if behaviour changed (README.md, docs/features/)
+## Checks
+
+- [ ] `make lint`, `make test` and `make security` pass
+- [ ] `make e2e` passes (if the change talks to a server, database, cache or storage)
+- [ ] `README.md`, `docs/features/` and the agent skill (`internal/cli/skill.md`) match the change
+- [ ] `CHANGELOG.md` has a line under `[Unreleased]` (if users will notice the change)

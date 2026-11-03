@@ -1,0 +1,33 @@
+name: Suggest a feature
+description: A task you want komando to do for you or your AI agent
+labels: [enhancement]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: What do you want to do?
+      description: The task, not the solution. For example "see which queries make my database slow".
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you do it today?
+      description: The tools or commands you use now (ssh, psql, kubectl, a web console, ...)
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could komando help?
+      description: Optional. A command you imagine, like `komando db slow app-db`.
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Does it fit komando?
+      description: See [CONTRIBUTING.md](https://github.com/sgnd/komando/blob/main/CONTRIBUTING.md#before-you-add-something).
+      options:
+        - label: It is DevOps work on a server, database, cache, storage, cluster, registry or VPN
+          required: true
+        - label: It can work as a command (no windows or menus)
+          required: true
