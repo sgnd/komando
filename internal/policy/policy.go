@@ -16,9 +16,11 @@ type Rule struct {
 }
 
 var builtin = []struct{ id, pattern, reason string }{
-	{"rm-root", `\brm\s+` + rmOpts + `+(/|/\*|~|~/\*|\$HOME)(\s|$|;|&)`, "recursive delete of / or home"},
+	{"rm-root", `\brm\s+` + rmOpts + `+(/[/.]*\*?|~/?\*?|\$\{?HOME\}?/?\*?)(\s|$|;|&)`, "recursive delete of / or home"},
+	{"rm-cd-root", `\bcd\s+(/|~|\$\{?HOME\}?)/?\s*(&&|;)\s*(sudo\s+)?rm\s+` + rmOpts + `+(\*|\.)(\s|$|;|&)`, "recursive delete of everything in / or home"},
+	{"find-delete-root", `\bfind\s+/((etc|usr|var|boot|bin|sbin|lib|lib64|opt|srv|home|root)/?)?\s.*(-delete\b|-exec\s+rm\s)`, "deletes files across / or a system directory"},
 	{"rm-system-dir", `\brm\s+` + rmOpts + `+/(etc|usr|var|boot|bin|sbin|lib|lib64|opt|srv|home|root|var/lib|usr/(bin|sbin|lib|lib64|local))/?\*?(\s|$|;|&)`, "recursive delete of a system directory"},
-	{"mkfs", `\bmkfs(\.\w+)?\b`, "formats a filesystem"},
+	{"mkfs", cmdStart + `((/usr)?/s?bin/)?mkfs(\.\w+)?(\s|$|;|&)`, "formats a filesystem"},
 	{"dd-device", `\bdd\b.*\bof=/dev/(sd|nvme|vd|xvd|hd|mmcblk|disk)`, "writes raw data to a block device"},
 	{"redirect-device", `>\s*/dev/(sd|nvme|vd|xvd|hd)[a-z0-9]*`, "overwrites a block device"},
 	{"wipefs", `\b(wipefs|shred|sgdisk\s+(-Z|--zap-all)|blkdiscard)\b`, "wipes disks or partition tables"},
@@ -26,9 +28,9 @@ var builtin = []struct{ id, pattern, reason string }{
 	{"power", `(^|[;&|(]\s*|\b(sudo|doas|nohup|exec|env|nice|setsid)\s+(-\S+\s+)*)((/usr)?/s?bin/)?(shutdown|poweroff|halt|reboot|init\s+[06])(\s|$|;|&|\))`, "powers off or reboots the server"},
 	{"power-systemctl", `\bsystemctl\s+(poweroff|reboot|halt|kexec)\b`, "powers off or reboots the server"},
 	{"fork-bomb", `:\(\)\s*\{\s*:\|:&\s*\};:`, "fork bomb"},
-	{"chmod-root", `\bchmod\s+(-[a-zA-Z]*R[a-zA-Z]*\s+)+[0-7]{3,4}\s+/(\s|$)`, "recursive chmod of /"},
-	{"chown-root", `\bchown\s+(-[a-zA-Z]*R[a-zA-Z]*\s+)+\S+\s+/(\s|$)`, "recursive chown of /"},
-	{"firewall-flush", `\b(iptables\s+-F|nft\s+flush\s+ruleset|ufw\s+(disable|reset))\b`, "drops firewall rules (may lock you out)"},
+	{"chmod-root", `\bchmod\s+(\S+\s+)*` + recursive + `(\S+\s+)*/(\s|$|;|&)|\bchmod\s+(\S+\s+)*/\s+(\S+\s+)*` + recursive, "recursive chmod of /"},
+	{"chown-root", `\bchown\s+(\S+\s+)*` + recursive + `(\S+\s+)*/(\s|$|;|&)|\bchown\s+(\S+\s+)*/\s+(\S+\s+)*` + recursive, "recursive chown of /"},
+	{"firewall-flush", `\b(ip6?tables\s+(-t\s+\S+\s+)?(-F|--flush)|nft\s+flush\s+ruleset|ufw\s+(disable|reset))(\s|$|;|&)`, "drops firewall rules (may lock you out)"},
 	{"sshd-stop", `\b(systemctl|service)\s+(stop|disable|mask)\s+(ssh|sshd)\b`, "stops sshd (locks out remote access)"},
 	{"passwd-files", `>\s*/etc/(passwd|shadow|sudoers)\b`, "overwrites authentication files"},
 	{"db-drop", `(?i)\b(drop\s+(database|schema)|flushall|dropdatabase\(\))`, "drops a database"},
@@ -41,6 +43,14 @@ var builtin = []struct{ id, pattern, reason string }{
 
 // rmOpts matches one option of rm: short flags with r or f, the long forms,
 // and the "--" end-of-options marker.
+// recursive is the -R / --recursive option of chmod and chown, anywhere
+// among the arguments.
+const recursive = `(-[a-zA-Z]*R[a-zA-Z]*|--recursive)(\s+|$)`
+
+// cmdStart matches where a command starts: the line start, after ; & | (
+// or after a wrapper like sudo. A word in an argument (grep mkfs) is not.
+const cmdStart = `(^|[;&|(]\s*|\b(sudo|doas|nohup|exec|env|nice|setsid|xargs|time)\s+(-\S+\s+)*)`
+
 const rmOpts = `(-[a-zA-Z]*[rRf][a-zA-Z]*\s+|--(recursive|force|no-preserve-root|one-file-system|verbose)\s+|--\s+)`
 
 var compiled []Rule
