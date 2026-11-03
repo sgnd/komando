@@ -16,6 +16,35 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - New error codes `AWS_PROFILE_NOT_FOUND` and `AWS_FAILED`;
   `AWS_CLI_MISSING` no longer happens.
 
+### Built in: OpenVPN and AnyConnect (no Docker, openvpn or openconnect)
+
+- `openvpn` VPNs (and Pritunl profiles) run on komando's own OpenVPN client
+  in user space: UDP and TCP, tls-auth and tls-crypt, AES-128/256-GCM,
+  ChaCha20-Poly1305 and AES-CBC with HMAC, TLS key export or the older PRF,
+  pushed options, keepalive and key renegotiation. No Docker container,
+  no openvpn program, no admin rights; the computer's routes stay as they
+  are. Profiles with options it does not support, or with compression
+  (VORACLE), are refused at `vpn add` (`OVPN_UNSUPPORTED`). `--os-mode` is
+  deprecated.
+- `anyconnect` VPNs (Cisco AnyConnect, ocserv) run on komando's own client:
+  the XML login (with one-time codes asked at `vpn up`) and the CSTP tunnel.
+  The login happens at the terminal; the session's process gets only the
+  session cookie.
+- Experimental: komando's own Fortinet (form login with token codes, PPP
+  over TLS), GlobalProtect (gateway login with challenges, GPST tunnel) and
+  F5 BIG-IP (APM login, PPP over TLS) clients. They are used when
+  openconnect is not installed, or with
+  `KOMANDO_EXPERIMENTAL_VPN=fortinet,globalprotect,f5`; they have not yet
+  been tried against the vendors' own servers. Pulse/Ivanti still needs
+  openconnect.
+- Hosts added with `--ssm` reach EC2 through komando's own AWS Session
+  Manager client when the aws CLI or its session-manager-plugin is missing
+  (or with `KOMANDO_EXPERIMENTAL=ssm`). KMS-encrypted sessions say they
+  need the plugin.
+- Every VPN session's local SOCKS port now needs a random per-session login
+  (WireGuard and Tailscale too), so other users of the computer cannot use
+  it.
+
 ### Built in: komando's own dump and restore
 
 - `db dump` and `db restore` work without pg_dump, psql, mysqldump or mysql

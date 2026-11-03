@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # komando's openconnect and Tailscale VPN kinds against real servers, all
-# in Docker: ocserv (the AnyConnect protocol, as the openconnect family
-# uses) and Headscale with one Tailscale node. komando runs in a Linux
-# client container with openconnect and ocproxy installed, and no
-# tailscale programs (Tailscale is built in).
+# in Docker: ocserv (the AnyConnect protocol) and Headscale with one
+# Tailscale node. komando runs in a Linux client container with no VPN
+# programs at all: both are built in.
 #
 #   test/e2e/vpnclients/run.sh      (make e2e-vpnclients)
 set -euo pipefail
@@ -39,9 +38,18 @@ ok "vpn status shows the session"
 in_client komando vpn add oc-mfa anyconnect --portal https://ocserv --user e2e --mfa >/dev/null
 [ "$(in_client komando test oc-mfa | jget 'd["data"]["results"][0]["error"]["code"]' || true)" = VPN_LOGIN_REQUIRED ] || fail "mfa"
 ok "an --mfa VPN asks for a person (VPN_LOGIN_REQUIRED), never connects by itself"
+in_client sh -c 'command -v openconnect ocproxy' >/dev/null 2>&1 && fail "the client image has openconnect"
+ok "no openconnect or ocproxy on the client (AnyConnect is built in)"
+[ "$(in_client komando status | jget '[v["name"] for v in d["data"]["vpns"]]')" = "['oc']" ] || fail "status lists the AnyConnect session"
+ok "komando status lists the session"
 in_client komando vpn down oc >/dev/null
-gone openconnect || fail "openconnect left running"
-ok "vpn down stops openconnect"
+gone komando || fail "the AnyConnect session process left running"
+ok "vpn down ends the session"
+in_client sh -c 'printf wrong | komando secret set oc-wrong' >/dev/null
+in_client komando vpn add oc-bad anyconnect --portal https://ocserv --user e2e --password-ref secret:oc-wrong --check 192.168.99.1:7000 >/dev/null
+out=$(in_client komando test oc-bad || true)
+grep -qi 'refused' <<<"$out" || { echo "$out"; fail "a wrong password is named"; }
+ok "a wrong AnyConnect password says so"
 
 echo "==> Tailscale (Headscale)"
 for _ in $(seq 1 30); do "${DC[@]}" exec -T headscale headscale users list >/dev/null 2>&1 && break; sleep 1; done

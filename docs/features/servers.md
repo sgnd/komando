@@ -57,8 +57,12 @@ komando host add box me@ssh.example.com --proxy-command 'cloudflared access ssh 
 komando conn add rds postgres://app@mydb.xyz.rds.amazonaws.com/app --via web1   # a database behind it
 ```
 
-The tool must be installed and logged in on this computer (for `--ssm`: the
-aws CLI and its session-manager-plugin). `import ssh-config` keeps
+The tool must be installed and logged in on this computer. For `--ssm`,
+komando speaks AWS Session Manager itself when the aws CLI or its
+session-manager-plugin is not installed (with your usual AWS login;
+`komando login aws` for SSO); set `KOMANDO_EXPERIMENTAL=ssm` to use it even
+when they are. Sessions encrypted with KMS still need the plugin.
+`import ssh-config` keeps
 `ProxyCommand` lines; `import` of an export file drops them, because they
 run programs on your computer.
 

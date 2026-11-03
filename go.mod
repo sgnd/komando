@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.13
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.67.2
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.8
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.81.2
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.6
 	github.com/aws/smithy-go v1.28.7
@@ -28,6 +29,7 @@ require (
 	golang.org/x/text v0.43.0
 	golang.zx2c4.com/wireguard v0.0.0-20261024220952-b3bc704ef0ee
 	gopkg.in/yaml.v3 v3.0.1
+	k8s.io/client-go v0.37.0
 	modernc.org/sqlite v1.61.1
 	tailscale.com v1.104.5
 )
@@ -103,7 +105,6 @@ require (
 	golang.zx2c4.com/wireguard/windows v1.0.1 // indirect
 	gopkg.in/ini.v1 v1.67.3 // indirect
 	gvisor.dev/gvisor v0.0.0-20260915211658-a6f909f08a72 // indirect
-	k8s.io/client-go v0.37.0 // indirect
 	modernc.org/libc v1.79.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect

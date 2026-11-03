@@ -69,10 +69,20 @@ komando vpn down --all
 
 | Kind | How it runs | Your computer's network changes? |
 |------|-------------|----------------------------------|
-| `openvpn` (and `pritunl`) | in a small Docker container; komando reaches it through a local port | no |
-| `openvpn --os-mode` | on your computer, with sudo | yes |
-| `globalprotect`, `fortinet`, `anyconnect`, `pulse`, `f5` | `openconnect` with `ocproxy` (`brew install openconnect ocproxy`) | no |
+| `openvpn` (and `pritunl`) | inside komando, with its own OpenVPN client: UDP and TCP, tls-auth and tls-crypt, AES-GCM, ChaCha20-Poly1305 and AES-CBC, certificates and/or user name and password; no openvpn program, Docker or admin rights | no |
+| `openvpn --os-mode` | deprecated: the openvpn program on your computer, with sudo | yes |
+| `anyconnect` | inside komando (Cisco AnyConnect and ocserv); no openconnect | no |
+| `fortinet`, `globalprotect`, `f5` | komando's own clients (experimental: written to the vendors' protocols but not yet tried against their servers). Used when openconnect is not installed, or always with `KOMANDO_EXPERIMENTAL_VPN=fortinet,globalprotect,f5`; otherwise `openconnect` with `ocproxy` | no |
+| `pulse` | `openconnect` with `ocproxy` (`brew install openconnect ocproxy`), until komando's own client for it is released | no |
 | `tailscale` | inside komando (Tailscale's own Go library); no tailscale program needed. Without `--password-ref` (an auth key), `komando vpn up` opens the login page once and the node stays logged in | no |
+
+An OpenVPN profile is checked when you add it: an option komando's client
+does not understand is refused by name (`OVPN_UNSUPPORTED`), and so is
+compression (`comp-lzo yes`, `compress lz4`), which leaks data over an
+encrypted link (VORACLE). With `auth-user-pass`, give `--user` and either
+`--password-ref` or `--mfa` to type the password (with a PIN or one-time
+code, for Pritunl) at `komando vpn up`. Each session's local port needs a
+login only komando knows, so other users of the computer cannot use it.
 
 VPNs with `--mfa` need a person: `komando vpn up NAME` asks for the login,
 and later commands (and agents) reuse that connection. komando never

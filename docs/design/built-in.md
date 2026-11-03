@@ -51,18 +51,20 @@ OpenVPN 3 library) does not qualify.
 | `cluster run` (any kubectl verb) | `kubectl` | own implementation of the kubectl verbs that work on any resource, through API discovery: get, describe, apply (server-side), delete, patch, label, annotate, explain, api-resources, auth can-i, top, wait, events, rollout. kubectl plugins (krew) are not covered ✅ | L |
 | `db shell` | `psql`, `mysql`, `sqlite3` | komando's own SQL shell on the drivers it already has ✅ | L |
 | `db dump` / `db restore` on this computer | `pg_dump`, `pg_restore`, `mysqldump`, `mysql` | built-in dump and restore (plain SQL); through `--via` the server's own tools stay the first choice ✅ | L (PostgreSQL), M (MySQL), S (SQLite) |
-| AWS SSM as a proxy | `aws ssm start-session` + session-manager-plugin | SSM Session Manager protocol over WebSocket, via the AWS SDK | M |
-| OpenVPN / Pritunl | Docker, or `openvpn` with sudo | komando's own OpenVPN client in Go, on the same userspace network stack WireGuard uses | XL |
-| AnyConnect / ocserv | `openconnect` + `ocproxy` | own client (CSTP over TLS, DTLS) on the userspace stack | L |
-| Fortinet SSL VPN | `openconnect` + `ocproxy` | own client (HTTPS login, PPP over TLS) | L |
-| GlobalProtect | `openconnect` + `ocproxy` | own client (HTTPS login, GPST over TLS, ESP over UDP) | XL |
-| F5 BIG-IP | `openconnect` + `ocproxy` | own client (HTTPS login, PPP over TLS) | L |
+| AWS SSM as a proxy | `aws ssm start-session` + session-manager-plugin | SSM Session Manager protocol over WebSocket, via the AWS SDK 🧪 | M |
+| OpenVPN / Pritunl | Docker, or `openvpn` with sudo | komando's own OpenVPN client in Go, on the same userspace network stack WireGuard uses ✅ | XL |
+| AnyConnect / ocserv | `openconnect` + `ocproxy` | own client (CSTP over TLS, DTLS) on the userspace stack ✅ | L |
+| Fortinet SSL VPN | `openconnect` + `ocproxy` | own client (HTTPS login, PPP over TLS) 🧪 | L |
+| GlobalProtect | `openconnect` + `ocproxy` | own client (HTTPS login, GPST over TLS, ESP over UDP) 🧪 | XL |
+| F5 BIG-IP | `openconnect` + `ocproxy` | own client (HTTPS login, PPP over TLS) 🧪 | L |
 | Pulse / Ivanti | `openconnect` + `ocproxy` | own client (IF-T/TLS, EAP) | XL |
-| Docker credential helpers (registry logins saved by `docker login`) | `docker-credential-*` | read the person's saved Docker logins directly where the store is a file; OS keychain stores stay through their helper (the keychain needs cgo or the OS tool) | S |
+| Docker credential helpers (registry logins saved by `docker login`) | `docker-credential-*` | read the person's saved Docker logins directly where the store is a file; OS keychain stores stay through their helper (the keychain needs cgo or the OS tool) ✅ | S |
 | Approval window, `system` VPN, route check | OS tools | no change: part of the OS | — |
 
 S = days, M = a week or two, L = several weeks, XL = a month or more,
-including tests against real servers.
+including tests against real servers. ✅ built in and tested against the
+real server software; 🧪 built in, experimental (no vendor server to test
+against yet).
 
 ## Phases
 
@@ -152,6 +154,38 @@ AWS SSM sessions as a built-in proxy; Docker credential files.
 | OpenVPN | — | `make e2e-openvpn` already runs a real OpenVPN server; extended with tls-crypt, tls-crypt-v2, UDP and TCP, and a Pritunl server |
 | AnyConnect | — | `make e2e-vpnclients` already runs ocserv |
 | Kubernetes | — | `make e2e` already runs k3s; add an old-version cluster for the SPDY path |
+
+## Where it stands (2026-11-03)
+
+Built in and tested against the real server software (✅ in the table):
+Vault/OpenBao, AWS Secrets Manager (moto), Bitwarden (Vaultwarden), KeePass
+files, 1Password Connect (a fake server), AWS profiles and SSO login,
+Tailscale (Headscale), Kubernetes exec/shell/port-forward and `cluster run`
+(k3s), the SQL shell (PostgreSQL), dump and restore (PostgreSQL compared
+with pg_dump, MariaDB), OpenVPN (OpenVPN 2.6: TCP, UDP, tls-auth, tls-crypt,
+GCM, ChaCha20, CBC, PRF, user name and password, renegotiation) and
+AnyConnect (ocserv).
+
+Built in, experimental (🧪): Fortinet, GlobalProtect and F5 (tested only
+against fake servers written from the protocols), AWS SSM sessions (fake
+agent). Each is used only where nothing worked before (its old program is
+missing) or when asked for with `KOMANDO_EXPERIMENTAL_VPN` /
+`KOMANDO_EXPERIMENTAL`.
+
+Still to do:
+
+- Pulse/Ivanti (IF-T/TLS with EAP): still openconnect.
+- Fortinet, GlobalProtect, F5: try them against real appliances, then make
+  them the default.
+- Pritunl: test against a Pritunl server (its PIN/OTP login); plain
+  OpenVPN profiles from it already work.
+- `op://` without 1Password Connect still calls the closed-source `op` CLI;
+  it is removed in the next release, as announced.
+- A Google login without gcloud (`komando login gcp`) needs an OAuth client
+  registered for komando; until then `gcp-sm:` and GKE use a key file
+  (`GOOGLE_APPLICATION_CREDENTIALS`) or run on Google Cloud.
+- AnyConnect DTLS (faster over UDP) and SPDY for Kubernetes before 1.30.
+- KMS-encrypted SSM sessions.
 
 ## Decisions
 

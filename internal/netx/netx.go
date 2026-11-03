@@ -50,10 +50,10 @@ var Kinds = map[string]Kind{
 	"tailscale":     {Desc: "Tailscale or Headscale, run inside komando (no tailscaled, no admin rights)", Session: true},
 	"globalprotect": {Desc: "Palo Alto GlobalProtect", Session: true, Client: []string{"openconnect", "ocproxy"}, Protocol: "gp"},
 	"fortinet":      {Desc: "Fortinet SSL VPN (FortiClient)", Session: true, Client: []string{"openconnect", "ocproxy"}, Protocol: "fortinet"},
-	"anyconnect":    {Desc: "Cisco AnyConnect / ocserv", Session: true, Client: []string{"openconnect", "ocproxy"}, Protocol: "anyconnect"},
+	"anyconnect":    {Desc: "Cisco AnyConnect / ocserv, run inside komando (no openconnect)", Session: true},
 	"pulse":         {Desc: "Pulse Secure / Ivanti Connect Secure", Session: true, Client: []string{"openconnect", "ocproxy"}, Protocol: "pulse"},
 	"f5":            {Desc: "F5 BIG-IP SSL VPN", Session: true, Client: []string{"openconnect", "ocproxy"}, Protocol: "f5"},
-	"openvpn":       {Desc: "OpenVPN, also Pritunl profiles (runs in a Docker container; --os-mode runs it on the computer with sudo)", Session: true, Client: []string{"docker"}},
+	"openvpn":       {Desc: "OpenVPN, also Pritunl profiles, run inside komando (no openvpn program, Docker or admin rights)", Session: true},
 }
 
 // KindNames lists the kinds, sorted.
@@ -359,6 +359,10 @@ func OpenDirect(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 		}, nopCloser{}, nil
 	case "tailscale":
 		return openTailscale(ctx, v, timeout)
+	case "openvpn":
+		return openOpenVPN(ctx, v, timeout)
+	case "anyconnect", "fortinet", "globalprotect", "f5":
+		return openSSLVPN(ctx, v, timeout)
 	case "system":
 		if v.Check != "" { // connected by the OS, or by `vpn up` through --service
 			c, err := (&net.Dialer{Timeout: timeout}).DialContext(ctx, "tcp", v.Check)

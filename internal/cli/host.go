@@ -61,7 +61,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.jump, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path, e.g. vpn1,bastion")
 	aliasFlag(fl, "jump", "via")
 	fl.StringVar(&f.proxyCommand, "proxy-command", "", "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)")
-	fl.BoolVar(&f.ssm, "ssm", false, "reach it through AWS Systems Manager: the address is the instance ID (needs the aws CLI and its session-manager-plugin)")
+	fl.BoolVar(&f.ssm, "ssm", false, "reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed)")
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (shown to agents in host show)")
 	fl.BoolVar(&f.protected, "protected", false, "require --yes for any change to the server or to this entry (production safety)")
 	if edit {

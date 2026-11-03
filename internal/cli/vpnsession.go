@@ -1,9 +1,9 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
-	"embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
@@ -89,6 +90,9 @@ func listening(addr string) bool {
 
 // vpnClients are the programs a VPN needs on this computer.
 func vpnClients(v *store.Vpn) []string {
+	if netx.BuiltinSSL(v.Kind) {
+		return nil // komando's own client
+	}
 	if v.Kind == "openvpn" && v.OSMode {
 		return []string{"openvpn", "sudo"}
 	}
@@ -106,11 +110,7 @@ func clientMissing(v *store.Vpn) error {
 }
 
 func installHint(bin string) string {
-	pkg := map[string]string{"ocproxy": "ocproxy", "openconnect": "openconnect", "openvpn": "openvpn",
-		"tailscaled": "tailscale", "tailscale": "tailscale"}[bin]
-	if bin == "docker" {
-		return "install Docker (Docker Desktop or Colima); or add the VPN with --os-mode to run OpenVPN on this computer (changes its network)"
-	}
+	pkg := map[string]string{"ocproxy": "ocproxy", "openconnect": "openconnect", "openvpn": "openvpn"}[bin]
 	if runtime.GOOS == "darwin" {
 		return "install it with `brew install " + pkg + "`"
 	}
@@ -154,7 +154,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 	timeout := 60 * time.Second
 	switch {
 	case v.Kind == "wireguard":
-		pid, addr, err := spawnServe(v.Name, logFile, 15*time.Second)
+		pid, addr, err := spawnServe(v.Name, logFile, 15*time.Second, s)
 		if err != nil {
 			return nil, err
 		}
@@ -172,7 +172,35 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 				return nil, err
 			}
 		}
-		pid, addr, err := spawnServe(v.Name, logFile, 90*time.Second)
+		pid, addr, err := spawnServe(v.Name, logFile, 90*time.Second, s)
+		if err != nil {
+			return nil, err
+		}
+		s.PID, s.Socks = pid, addr
+		if self, err := os.Executable(); err == nil {
+			s.Exe = filepath.Base(self)
+		}
+	case netx.BuiltinSSL(v.Kind):
+		// log in here, where a person can answer (MFA); the session's
+		// server gets only the cookie
+		var prompt func(string, bool) (string, error)
+		if interactive {
+			prompt = func(label string, secretIn bool) (string, error) {
+				fmt.Fprintf(os.Stderr, "%s: ", strings.TrimSuffix(label, ":"))
+				if secretIn {
+					b, err := term.ReadPassword(int(os.Stdin.Fd()))
+					fmt.Fprintln(os.Stderr)
+					return string(b), err
+				}
+				line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+				return strings.TrimSpace(line), err
+			}
+		}
+		cookie, err := netx.SSLVPNLogin(ctx, v, prompt)
+		if err != nil {
+			return nil, err
+		}
+		pid, addr, err := spawnServeWith(v.Name, logFile, timeout+15*time.Second, cookie, s)
 		if err != nil {
 			return nil, err
 		}
@@ -220,8 +248,27 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 			return nil, netx.Down(v, fmt.Errorf("ocproxy did not open its SOCKS port"))
 		}
 	case v.Kind == "openvpn" && !v.OSMode:
-		if err := openvpnContainer(ctx, v, dir, password, s, timeout); err != nil {
+		// komando's own OpenVPN client in a `komando vpn serve` process
+		typed := ""
+		if v.KeyRef == "" && (v.MFA || v.User != "") {
+			if !interactive {
+				return nil, netx.LoginRequired(v)
+			}
+			fmt.Fprintf(os.Stderr, "Password for %s on VPN %s (with the PIN or one-time code, if it wants one): ", firstNonEmpty(v.User, "you"), v.Name)
+			b, err := term.ReadPassword(int(os.Stdin.Fd()))
+			fmt.Fprintln(os.Stderr)
+			if err != nil {
+				return nil, err
+			}
+			typed = string(b)
+		}
+		pid, addr, err := spawnServeWith(v.Name, logFile, timeout+15*time.Second, typed, s)
+		if err != nil {
 			return nil, err
+		}
+		s.PID, s.Socks = pid, addr
+		if self, err := os.Executable(); err == nil {
+			s.Exe = filepath.Base(self)
 		}
 	case v.Kind == "openvpn":
 		cfg, err := vault.Resolve(v.ConfigRef)
@@ -289,7 +336,7 @@ func background(c *exec.Cmd, logFile string) (int, error) {
 		return 0, err
 	}
 	defer lf.Close()
-	c.Stdout, c.Stderr, c.Stdin = lf, lf, nil
+	c.Stdout, c.Stderr = lf, lf
 	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := c.Start(); err != nil {
 		return 0, err
@@ -300,13 +347,21 @@ func background(c *exec.Cmd, logFile string) (int, error) {
 }
 
 // spawnServe starts `komando vpn serve NAME` and waits for its SOCKS port.
-func spawnServe(name, logFile string, wait time.Duration) (int, string, error) {
+func spawnServe(name, logFile string, wait time.Duration, s *store.VpnSession) (int, string, error) {
+	return spawnServeWith(name, logFile, wait, "", s)
+}
+
+// spawnServeWith starts the session's server with a random SOCKS login
+// (kept in s) and a password a person typed, both on its stdin.
+func spawnServeWith(name, logFile string, wait time.Duration, password string, s *store.VpnSession) (int, string, error) {
 	self, err := os.Executable()
 	if err != nil {
 		return 0, "", err
 	}
-	c := exec.Command(self, "vpn", "serve", name)
+	c := exec.Command(self, "vpn", "serve", name, "--password-stdin")
 	c.Env = vault.SelfEnv()
+	s.SocksUser, s.SocksPass = "k"+randToken(6), randToken(24)
+	c.Stdin = strings.NewReader("SOCKS " + s.SocksUser + " " + s.SocksPass + "\n" + password + "\n")
 	pid, err := background(c, logFile)
 	if err != nil {
 		return 0, "", err
@@ -577,12 +632,24 @@ runs; a SOCKS proxy is up when its address answers, a system VPN when its
 // vpnServeCmd is the background process of a WireGuard session: it holds
 // the VPN and offers a local SOCKS5 port into it.
 func vpnServeCmd() *cobra.Command {
-	return &cobra.Command{
+	var passwordStdin bool
+	c := &cobra.Command{
 		Use:    "serve NAME",
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fail := func(err error) error { fmt.Printf("ERROR %v\n", err); return exitCode(1) }
+			// stdin: the SOCKS login for this session, then a typed VPN password
+			var socksUser, socksPass string
+			if passwordStdin {
+				in := bufio.NewReader(os.Stdin)
+				line, _ := in.ReadString('\n')
+				if f := strings.Fields(line); len(f) == 3 && f[0] == "SOCKS" {
+					socksUser, socksPass = f[1], f[2]
+				}
+				line, _ = in.ReadString('\n')
+				netx.SessionSecret = strings.TrimRight(line, "\r\n")
+			}
 			st, err := loadState()
 			if err != nil {
 				return fail(err)
@@ -616,6 +683,11 @@ func vpnServeCmd() *cobra.Command {
 				}()
 			}
 			go func() { <-ctx.Done(); ln.Close() }() // SIGTERM from `vpn down`
+			if ended, ok := closer.(interface{ Done() <-chan struct{} }); ok {
+				// the VPN dropped: stop, so the session is seen as down and
+				// the next command connects again
+				go func() { <-ended.Done(); ln.Close() }()
+			}
 			cm := &connMgr{ctx: ctx, st: st, vpnDial: d}
 			logger := log.New(os.Stdout, "", log.LstdFlags)
 			for {
@@ -630,120 +702,19 @@ func vpnServeCmd() *cobra.Command {
 					return nil
 				}
 				last.Store(time.Now().Unix())
-				go func() { defer c.Close(); socks5(c, cm, logger) }()
+				go func() { defer c.Close(); socks5Auth(c, cm, logger, socksUser, socksPass) }()
 			}
 		},
 	}
+	c.Flags().BoolVar(&passwordStdin, "password-stdin", false, "read the SOCKS login and a typed VPN password from stdin")
+	return c
 }
 
-//go:embed ovpn/Dockerfile ovpn/entrypoint.sh ovpn/up.sh ovpn/sockd.conf
-var ovpnFiles embed.FS
-
-// ovpnImage names the container image; bump it when ovpn/ changes.
-const ovpnImage = "komando-openvpn:4"
-
-// ensureOVPNImage builds komando's OpenVPN image once, from files inside
-// the komando binary (Alpine's openvpn and dante packages).
-func ensureOVPNImage(ctx context.Context) error {
-	if exec.CommandContext(ctx, "docker", "image", "inspect", ovpnImage).Run() == nil {
-		return nil
-	}
-	dir, err := os.MkdirTemp("", "komando-ovpn-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(dir)
-	for _, f := range []string{"Dockerfile", "entrypoint.sh", "up.sh", "sockd.conf"} {
-		b, _ := ovpnFiles.ReadFile("ovpn/" + f)
-		if err := os.WriteFile(filepath.Join(dir, f), b, 0o644); err != nil {
-			return err
-		}
-	}
-	fmt.Fprintln(os.Stderr, "building the OpenVPN container image (once)...")
-	b, err := exec.CommandContext(ctx, "docker", "build", "-q", "-t", ovpnImage, dir).CombinedOutput()
-	if err != nil {
-		return out.Errf(out.ExitError, "VPN_IMAGE", "check that Docker runs (`docker info`)", "building %s: %v: %s", ovpnImage, err, strings.TrimSpace(string(b)))
-	}
-	return nil
-}
-
-// openvpnContainer runs OpenVPN in a container with a SOCKS port on
-// 127.0.0.1, so only komando's connections use the VPN.
-func openvpnContainer(ctx context.Context, v *store.Vpn, dir, password string, s *store.VpnSession, timeout time.Duration) error {
-	cfg, err := vault.Resolve(v.ConfigRef)
-	if err != nil {
-		return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "add the VPN again with --config", "VPN %s: %v", v.Name, err)
-	}
-	if err := checkOVPN(cfg); err != nil {
-		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "add the VPN again without that line", "VPN %s: %v", v.Name, err)
-	}
-	if err := ensureOVPNImage(ctx); err != nil {
-		return err
-	}
-	mount := filepath.Join(dir, v.Name+"-openvpn")
-	if err := os.MkdirAll(mount, 0o700); err != nil {
-		return err
-	}
-	// OpenVPN reads these once at start; they never stay on disk, also not
-	// when connecting fails
-	cfgFile, authFile, envFile := filepath.Join(mount, "config.ovpn"), filepath.Join(mount, "auth"), filepath.Join(dir, v.Name+".env")
-	defer os.Remove(cfgFile)
-	defer os.Remove(authFile)
-	defer os.Remove(envFile)
-	if err := os.WriteFile(cfgFile, []byte(cfg), 0o600); err != nil {
-		return err
-	}
-	auth := ""
-	if v.User != "" {
-		auth = v.User + "\n" + password + "\n"
-	}
-	if err := os.WriteFile(authFile, []byte(auth), 0o600); err != nil {
-		return err
-	}
-	// a random login for the container's SOCKS port, passed in a file so it
-	// is not on any command line
-	s.SocksUser, s.SocksPass = "k"+randHex(6), randHex(24)
-	if err := os.WriteFile(envFile, []byte("KOMANDO_SOCKS_USER="+s.SocksUser+"\nKOMANDO_SOCKS_PASS="+s.SocksPass+"\n"), 0o600); err != nil {
-		return err
-	}
-	port, err := freePort()
-	if err != nil {
-		return err
-	}
-	// the name is unique per komando home, so two homes never touch each other's container
-	name := "komando-vpn-" + v.Name + "-" + randHex(4)
-	run := exec.CommandContext(ctx, "docker", "run", "-d", "--name", name,
-		"--label", "komando.home="+store.Home(), "--label", "komando.vpn="+v.Name,
-		"--cap-drop", "ALL", "--cap-add", "NET_ADMIN", "--cap-add", "SETUID", "--cap-add", "SETGID",
-		"--cap-add", "CHOWN", "--cap-add", "DAC_OVERRIDE", "--cap-add", "FOWNER",
-		"--security-opt", "no-new-privileges", "--device", "/dev/net/tun", "--env-file", envFile,
-		"-p", fmt.Sprintf("127.0.0.1:%d:1080", port), "-v", mount+":/vpn:ro", ovpnImage)
-	b, err := run.CombinedOutput()
-	if err != nil {
-		return netx.Down(v, fmt.Errorf("docker run: %v: %s", err, strings.TrimSpace(string(b))))
-	}
-	s.Container, s.Socks = strings.TrimSpace(string(b)), fmt.Sprintf("127.0.0.1:%d", port)
-	fail := func(why string) error {
-		logs, _ := exec.Command("docker", "logs", "--tail", "20", s.Container).CombinedOutput()
-		_ = exec.Command("docker", "rm", "-f", s.Container).Run()
-		return netx.Down(v, fmt.Errorf("%s: %s", why, strings.TrimSpace(string(logs))))
-	}
-	logs := func() string { b, _ := exec.Command("docker", "logs", s.Container).CombinedOutput(); return string(b) }
-	waitFor(timeout, func() bool {
-		l := logs()
-		return strings.Contains(l, "OPENVPN_READY") || strings.Contains(l, "OPENVPN_FAILED") || !netx.SessionAlive(s)
-	})
-	if !strings.Contains(logs(), "OPENVPN_READY") {
-		return fail("OpenVPN did not connect")
-	}
-	if !waitFor(10*time.Second, func() bool { return listening(s.Socks) }) {
-		return fail("the SOCKS port did not open")
-	}
-	return nil
-}
-
-func randHex(n int) string {
+// randToken is n random bytes as hex.
+func randToken(n int) string {
 	b := make([]byte, n)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
 	return hex.EncodeToString(b)
 }

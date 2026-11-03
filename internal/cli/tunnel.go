@@ -2,7 +2,9 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"crypto/subtle"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -652,6 +654,12 @@ func pipe(a, b net.Conn) {
 
 // socks5 implements the no-auth CONNECT subset of RFC 1928.
 func socks5(conn net.Conn, cm *connMgr, logger *log.Logger) {
+	socks5Auth(conn, cm, logger, "", "")
+}
+
+// socks5Auth serves one SOCKS5 client; with user set it must log in
+// (RFC 1929), so other users of this computer cannot use the port.
+func socks5Auth(conn net.Conn, cm *connMgr, logger *log.Logger, user, pass string) {
 	r := bufio.NewReader(conn)
 	hdr := make([]byte, 2)
 	if _, err := io.ReadFull(r, hdr); err != nil || hdr[0] != 5 {
@@ -661,7 +669,29 @@ func socks5(conn net.Conn, cm *connMgr, logger *log.Logger) {
 	if _, err := io.ReadFull(r, methods); err != nil {
 		return
 	}
-	conn.Write([]byte{5, 0})
+	if user == "" {
+		conn.Write([]byte{5, 0})
+	} else {
+		if !bytes.Contains(methods, []byte{2}) {
+			conn.Write([]byte{5, 0xff})
+			return
+		}
+		conn.Write([]byte{5, 2})
+		v := make([]byte, 2)
+		if _, err := io.ReadFull(r, v); err != nil || v[0] != 1 {
+			return
+		}
+		u := make([]byte, v[1])
+		io.ReadFull(r, u)
+		pl, _ := r.ReadByte()
+		p := make([]byte, pl)
+		io.ReadFull(r, p)
+		if subtle.ConstantTimeCompare(u, []byte(user)) != 1 || subtle.ConstantTimeCompare(p, []byte(pass)) != 1 {
+			conn.Write([]byte{1, 1})
+			return
+		}
+		conn.Write([]byte{1, 0})
+	}
 	req := make([]byte, 4)
 	if _, err := io.ReadFull(r, req); err != nil || req[1] != 1 {
 		conn.Write([]byte{5, 7, 0, 1, 0, 0, 0, 0, 0, 0})

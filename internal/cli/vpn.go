@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/netx"
+	"github.com/sgnd/komando/internal/openvpn"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -229,7 +230,7 @@ func vpnAddCmd() *cobra.Command {
 				if passwordRef == "" {
 					v.MFA = true // no auth key: a person logs in through the browser
 				}
-			case k.Protocol != "": // the openconnect family
+			case k.Protocol != "" || netx.BuiltinSSL(kind): // corporate SSL VPNs: a portal
 				if err = need("portal", portal != ""); err != nil {
 					return err
 				}
@@ -254,6 +255,15 @@ func vpnAddCmd() *cobra.Command {
 				}
 				if err := checkOVPN(text); err != nil {
 					return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "remove that line from the .ovpn file", "%s: %v", config, err)
+				}
+				if !osMode { // komando's own client must understand every line
+					p, err := openvpn.Parse(text)
+					if err != nil {
+						return out.Errf(out.ExitUsage, "OVPN_UNSUPPORTED", "change the profile, or tell the komando project which option you need", "%s: %v", config, err)
+					}
+					if p.AuthUserPass && user == "" {
+						return out.Usage("%s logs in with a user name and password (auth-user-pass): add --user, and --password-ref (or --mfa to type it at `vpn up`)", config)
+					}
 				}
 				v.ConfigRef, v.OSMode = "secret:"+name+"-config", osMode
 				secrets[name+"-config"] = text
@@ -337,7 +347,7 @@ func vpnAddCmd() *cobra.Command {
 	f.StringVar(&server, "server", "", "tailscale: a Headscale login server URL")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
 	f.StringVar(&passwordRef, "password-ref", "", "password (tailscale: auth key) as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
-	f.BoolVar(&osMode, "os-mode", false, "openvpn: run it on this computer with sudo instead of in a Docker container (changes this computer's network)")
+	f.BoolVar(&osMode, "os-mode", false, "openvpn: deprecated; run the openvpn program on this computer with sudo (changes its network) instead of komando's own client")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' by a human connects it")
 	f.StringVar(&check, "check", "", "host:port reachable only through this VPN (vpn up and test connect to it; needed for system and openvpn)")
 	f.StringSliceVarP(&groups, "group", "g", nil, "group(s)")
