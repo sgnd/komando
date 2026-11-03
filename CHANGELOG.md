@@ -109,6 +109,8 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   not read the system journal says to add `--sudo`.
 - e2e: WireGuard end to end (a user-space peer), and svc/logs against the
   real systemctl and journalctl on a server with systemd as PID 1.
+- e2e: AWS SSM end to end with a stand-in `aws` CLI (login, commands and
+  files through `aws ssm start-session`), and an expired SSO login.
 - `storage link --endpoint https://PUBLIC-NAME` signs a link for the address
   people use when komando reaches the storage through `--via`.
 - `docker logs` shows times only with `--timestamps`, like docker and
