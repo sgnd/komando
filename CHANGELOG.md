@@ -4,6 +4,13 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### `komando status`: what is still running
+
+- One command lists what komando left running: VPN sessions (with when
+  they close if unused), tunnels and jobs. It contacts nothing, so it is
+  quick and works offline; `job list --refresh` still asks the servers
+  whether a job runs.
+
 ### Where am I? Status lines for people
 
 - `shell`, `db shell`, `cluster forward` and `logs --follow` (servers,

@@ -60,6 +60,25 @@ stop it.
 These lines go to stderr and only to a person at a terminal. Agents, scripts
 and pipes never get them, and the JSON output does not change.
 
+## What is still running? (`komando status`)
+
+Some things keep running after the command that started them: a VPN (from
+`vpn up`, or connected by a command), a tunnel, a job on a server.
+`komando status` lists them all:
+
+```
+KIND    NAME    DETAIL                                     SINCE
+vpn     office  used 3m ago, closes in 26m if unused       42m
+tunnel  t-3f2a  127.0.0.1:5433 → app-db                    2h
+job     j-81c2  web1: pg_dump app | gzip > /backup/app...  15m
+jobs run on their servers: `komando job list --refresh` shows which still run
+```
+
+It contacts nothing, so it is quick and works offline. A job stays on the
+list until `komando job rm`; whether it still runs is known on its server,
+which `komando job list --refresh` asks. Agents get the same as JSON
+(`vpns`, `tunnels`, `jobs`).
+
 ## Will my scripts keep working?
 
 Every JSON answer has `meta.contract` (now `1`). Within a contract, komando

@@ -368,20 +368,39 @@ func (l tunnelList) Text() string {
 		if !t.Alive {
 			state = "dead (removed)"
 		}
-		listen := t.Listen
-		if t.Kind == "remote" && listen != "" {
-			listen += " on " + t.Host
-		}
-		to := t.Spec
-		if ts, err := parseTunnel(t.Kind, t.Spec); err == nil && ts.TargetAddr != "" {
-			to = ts.TargetAddr
-			if t.Conn != "" {
-				to = t.Conn
-			}
-		}
+		listen, to := tunnelEnds(t)
 		rows = append(rows, []string{t.ID, t.Host, t.Kind, listen, to, state, humanAge(time.Since(t.StartedAt))})
 	}
 	return textTable([]string{"id", "host", "kind", "listen", "to", "state", "age"}, rows)
+}
+
+// tunnelEnds is where a tunnel listens and where it leads, for text output.
+func tunnelEnds(t tunnelRow) (listen, to string) {
+	listen = t.Listen
+	if t.Kind == "remote" && listen != "" {
+		listen += " on " + t.Host
+	}
+	to = t.Spec
+	if ts, err := parseTunnel(t.Kind, t.Spec); err == nil && ts.TargetAddr != "" {
+		to = ts.TargetAddr
+		if t.Conn != "" {
+			to = t.Conn
+		}
+	}
+	return listen, to
+}
+
+// tunnelListen is the address the tunnel's process said it listens on.
+func tunnelListen(t *store.Tunnel) string {
+	b, err := os.ReadFile(t.LogFile)
+	if err != nil {
+		return ""
+	}
+	i := strings.Index(string(b), "READY ")
+	if i < 0 {
+		return ""
+	}
+	return strings.TrimSpace(strings.SplitN(string(b)[i+6:], "\n", 2)[0])
 }
 
 func tunnelListCmd() *cobra.Command {
@@ -397,12 +416,7 @@ func tunnelListCmd() *cobra.Command {
 				return err
 			}
 			for _, t := range st.Tunnels {
-				r := tunnelRow{Tunnel: t, Alive: alive(t.PID)}
-				if b, err := os.ReadFile(t.LogFile); err == nil {
-					if i := strings.Index(string(b), "READY "); i >= 0 {
-						r.Listen = strings.TrimSpace(strings.SplitN(string(b)[i+6:], "\n", 2)[0])
-					}
-				}
+				r := tunnelRow{Tunnel: t, Alive: alive(t.PID), Listen: tunnelListen(t)}
 				if !r.Alive {
 					dead = append(dead, t.ID)
 				}

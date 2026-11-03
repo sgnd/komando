@@ -1,6 +1,6 @@
 # Session status: "where am I, and what is still running?"
 
-Status: **approved, 2026-11-03**; Phase 0 and 1 built. Stress-tested against the
+Status: **approved, 2026-11-03**; Phase 0, 1 and 2 built. Stress-tested against the
 cases in [Stress test](#stress-test); several first ideas were dropped there.
 
 ## The question
@@ -81,9 +81,11 @@ Rules:
 One new top-level command that lists everything komando left running:
 
 ```
-VPN     telkomsel   up 42m, used 3m ago   closes after 30m unused
-TUNNEL  t-3f2a      127.0.0.1:5433 → app-db via bastion1   up 2h
-JOB     j-81c2      web1   started 15m ago   check: komando job status j-81c2
+KIND    NAME    DETAIL                                     SINCE
+vpn     office  used 3m ago, closes in 26m if unused       42m
+tunnel  t-3f2a  127.0.0.1:5433 → app-db                    2h
+job     j-81c2  web1: pg_dump app | gzip > /backup/app...  15m
+jobs run on their servers: `komando job list --refresh` shows which still run
 ```
 
 - VPNs and tunnels: liveness checked like `vpn status` and `tunnel list`.
@@ -181,7 +183,7 @@ the plan does about it.
 3. `cluster forward` and `logs --follow`: entry line.
 4. VPN started by a command: one notice line.
 
-**Phase 2: `komando status`** (text and JSON).
+**Phase 2: `komando status`** (text and JSON). ✅ done 2026-11-03
 
 **Phase 3: `komando prompt`** plus snippets in the docs.
 
