@@ -20,7 +20,7 @@ const Hidden = "[hidden]"
 var (
 	pemKey = regexp.MustCompile(`(?s)-----BEGIN ((?:[A-Z0-9]+ )*)PRIVATE KEY( BLOCK)?-----.*?(-----END ((?:[A-Z0-9]+ )*)PRIVATE KEY( BLOCK)?-----|$)`)
 	urlPw  = regexp.MustCompile(`\b([a-zA-Z][a-zA-Z0-9+.-]*://[^\s:/@"'\\]+:)([^\s@/"'\\]+)@`)
-	bearer = regexp.MustCompile(`(?i)\b(bearer|basic|token)(\s+)([A-Za-z0-9._~+/=-]{12,})`)
+	bearer = regexp.MustCompile(`(?i)\b(bearer|basic|token)([ \t]+)([A-Za-z0-9._~+/=-]{12,})`) // same line only
 	// NAME=value, NAME: value, "name": "value", --name=value
 	assign = regexp.MustCompile(`(?i)([A-Za-z0-9_.-]*(?:passw(?:or)?d|passphrase|pwd|pass|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|authorization|[_.-]key)[A-Za-z0-9_.-]*)(["']?[ \t]*[:=][ \t]*["']?)([^\s"'\\,;&}]+)`)
 	// well-known token shapes, wherever they appear
@@ -30,7 +30,7 @@ var (
 	// a JSON object key that names a secret: its whole string value is hidden
 	secretKey = regexp.MustCompile(`(?i)^[A-Za-z0-9_.-]*(?:passw(?:or)?d|passphrase|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|authorization|[_.-]key)[A-Za-z0-9_.-]*$`)
 	// keys that name a secret but hold no value komando would hide
-	notSecretKey = regexp.MustCompile(`(?i)(_ref|_refs|_name|_names|_id|_count|_file|_path|_type|_hint)$`)
+	notSecretKey = regexp.MustCompile(`(?i)(^(max|min|num)_|(ref|refs|_name|_names|_id|_count|_file|_path|_type|_hint|_endpoint|_url|_uri|_host|_port|_length|_len|_size|_ttl|_expiry|_expires|_timeout|_max|_min|_enabled|_required|_policy|_mode|_header|_field|_param)$)`)
 )
 
 // MaskSecrets hides secret-looking values in plain text.
@@ -64,7 +64,9 @@ func keepValue(name, v string) bool {
 	case "true", "false", "yes", "no", "on", "off", "null", "none", "nil", "required", "optional", "string", "[", "bearer", "basic":
 		return true
 	}
-	for _, p := range []string{"[hidden", "[secret:", "secret:", "env:", "file:", "op://", "vault:", "aws-sm:", "gcp-sm:", "${", "$(", "<"} {
+	// references, placeholders, structure ({name: …} in YAML), paths and
+	// plain URLs (a URL with a password in it is hidden by urlPw)
+	for _, p := range []string{"[hidden", "[secret:", "secret:", "env:", "file:", "op://", "vault:", "aws-sm:", "gcp-sm:", "${", "$(", "<", "{", "[", "/", "./", "http://", "https://"} {
 		if strings.HasPrefix(lv, p) {
 			return true
 		}

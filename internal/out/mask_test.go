@@ -24,6 +24,14 @@ func TestMaskSecretsText(t *testing.T) {
 		{"require_password: true", "require_password: true"},
 		{"host: web1 user: deploy", "host: web1 user: deploy"},
 		{"DB_PASSWORD=[hidden]", "DB_PASSWORD=[hidden]"},
+		// settings that only name a secret, and values that are structure
+		{"max_tokens: 4096", "max_tokens: 4096"},
+		{"password_min_length=12", "password_min_length=12"},
+		{"token_endpoint: https://auth.example.com/oauth/token\nnext_line_here=1", "token_endpoint: https://auth.example.com/oauth/token\nnext_line_here=1"},
+		{"valueFrom: {secretKeyRef: {name: db, key: password}}", "valueFrom: {secretKeyRef: {name: db, key: password}}"},
+		{"api_key_file: /run/secrets/api", "api_key_file: /run/secrets/api"},
+		{"DB_PASSWORD=12345678", "DB_PASSWORD=[hidden]"},
+		{"login ok token=abc123xyz", "login ok token=[hidden]"},
 	}
 	for _, c := range cases {
 		if got := MaskSecrets(c.in); got != c.want {
