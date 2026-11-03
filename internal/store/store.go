@@ -120,8 +120,8 @@ type Settings struct {
 	MaxOutputBytes   int      `json:"max_output_bytes"`
 	ExtraDenyPattern []string `json:"extra_deny_patterns,omitempty"`
 	Audit            bool     `json:"audit"`
-	AuditSQL         string   `json:"audit_sql"` // full | hash | off: how SQL text is kept in the audit log
-	VpnIdle          string   `json:"vpn_idle"`  // a VPN session unused this long is disconnected
+	AuditSQL         string   `json:"audit_sql"`              // full | hash | off: how SQL text is kept in the audit log
+	VpnIdle          string   `json:"vpn_idle"`               // a VPN session unused this long is disconnected
 	AuditSyslog      string   `json:"audit_syslog,omitempty"` // also send audit records to this log server (udp://, tcp://, tls://)
 }
 

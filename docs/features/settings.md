@@ -47,5 +47,8 @@ Everything is stored in `~/.komando/` (change with `KOMANDO_HOME`):
 | `known_hosts` | remembered server fingerprints |
 | `audit.jsonl` | history of every action |
 
-Back this folder up and keep it private. Set `KOMANDO_VAULT_PASS` before
-the first secret if you prefer a passphrase over the `vault.key` file.
+Back this folder up and keep it private. `komando secret keychain` moves
+the vault's key out of `vault.key` into the OS keychain (the macOS keychain,
+or the Secret Service on Linux through `secret-tool`), so a copy of this
+folder no longer opens the vault; `--off --yes` moves it back. Or set
+`KOMANDO_VAULT_PASS` before the first secret to use a passphrase instead.

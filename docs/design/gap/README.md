@@ -131,7 +131,7 @@ P1 features, all from before Phase 1) are done, except:
 
 - **Access**: SSH certificates (user cert, `@cert-authority`), agent forwarding, SAML/SSO logins for the corporate VPN clients, `HTTPS_PROXY` for the kube and registry clients, `vpn edit`.
 - **Fleet**: staged execution (Ansible-style `serial`), idempotent `lineinfile`/`blockinfile`, `user unlock` and groups, `download --sudo`, Ansible inventory import.
-- **Secrets**: `vault.key` in the OS keyring, refs for Azure Key Vault/pass/sops/SSM Parameter Store (Bitwarden and KeePass are done), Vault dynamic credentials, encrypted export including secrets.
+- **Secrets**: refs for Azure Key Vault/pass/sops/SSM Parameter Store (Bitwarden and KeePass are done), Vault dynamic credentials, encrypted export including secrets.
 - **Cluster**: commands to many clusters at once (`@group`), read-only helm (list/status/history), capacity (`top` is done through `cluster run`), redaction of `docker inspect` and `compose config`.
 - **Database**: new engines (MongoDB most requested; HTTP-based ones like Elasticsearch/OpenSearch, RabbitMQ, Consul are cheapest for binary size), Redis Cluster/Sentinel, TLS with your own CA, schema migrations.
 - **Storage**: GCS, Azure Blob, WebDAV; self-signed TLS for S3/registry (filezilla/rclone import is done).

@@ -16,7 +16,7 @@ it works; komando can only give you the controls to use in it.
 |---|---|---|
 | 2.10, 6.4 Secrets are not in code, arguments or history | Vault, `secret:NAME` references, external managers (1Password, HashiCorp Vault, AWS and GCP Secret Manager); secret values on a command line are refused | ✅ |
 | 6.2 Approved algorithms, no home-made crypto | AES-256-GCM (each value bound to its name), scrypt N=2^17 r=8 p=1, `crypto/rand`, Ed25519 keys, Go's SSH and TLS | ✅ |
-| 6.4.2 Key material is protected | Key file and vault mode 0600 in a 0700 folder; passphrase mode keeps no key on disk | 🟡 the default key file sits next to the vault: use a passphrase (`doctor` warns) |
+| 6.4.2 Key material is protected | Key file and vault mode 0600 in a 0700 folder; `komando secret keychain` keeps the key in the OS keychain; passphrase mode keeps no key on disk | ✅ with the keychain or a passphrase; 🟡 the default key file sits next to the vault (`doctor` warns) |
 | 7.1 Logs record who, what, where, result, without secrets | Every action: time, actor, AI agent, approval, hosts, command; tested to hold no password | ✅ |
 | 7.3 Logs are protected from change | 0600, a hash chain that `komando audit verify` checks, and each record sent to a log server with `audit_syslog` | ✅ with `audit_syslog`; 🟡 without it the same user can rebuild the chain or cut its end |
 | 8.3 Sensitive data is not shown to those who should not see it | Vault values hidden for everyone; passwords, keys and tokens hidden for AI agents | ✅ best effort: an unusual name can slip through |
@@ -78,7 +78,8 @@ organisation.
 - **An AI agent is your own user.** komando stops mistakes and injected
   instructions; it cannot stop a program that runs as you and means harm.
   Real isolation needs an OS sandbox or a separate user account for the agent.
-- **The vault key is not in the OS keychain or a hardware key** (yet).
+- **The vault key is not on a hardware key** (a YubiKey, a TPM); the OS
+  keychain is the strongest place komando keeps it.
 - **The approval window is one click**, not a second factor.
 - **The guard on your computer is for Claude Code.** Codex, Cursor and Gemini
   CLI get the approval window and the masking, not the guard.

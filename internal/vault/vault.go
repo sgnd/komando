@@ -28,7 +28,7 @@ import (
 type file struct {
 	Version int               `json:"version"`
 	Salt    []byte            `json:"salt"`
-	Mode    string            `json:"mode"`               // keyfile | passphrase
+	Mode    string            `json:"mode"`               // keyfile | passphrase | keychain
 	ScryptN int               `json:"scrypt_n,omitempty"` // scrypt cost; 0 is the old 2^15
 	Entries map[string]*entry `json:"entries"`
 }
@@ -135,6 +135,12 @@ func (f *file) aead() (cipher.AEAD, error) {
 			return nil, errors.New("vault is passphrase-protected: set KOMANDO_VAULT_PASS")
 		}
 		secret = []byte(p)
+	case "keychain":
+		k, err := keychainGet()
+		if err != nil {
+			return nil, err
+		}
+		secret = k
 	default:
 		kp := store.Path("vault.key")
 		b, err := os.ReadFile(kp)

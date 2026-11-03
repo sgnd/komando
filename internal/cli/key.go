@@ -801,7 +801,55 @@ at a terminal can add --reveal to print it; AI agents never get the value
 			return nil
 		},
 	}
-	c.AddCommand(set, get, list, rm)
+	c.AddCommand(set, get, list, rm, secretKeychainCmd())
+	return c
+}
+
+func secretKeychainCmd() *cobra.Command {
+	var off bool
+	c := &cobra.Command{
+		Use:   "keychain",
+		Short: "Keep the vault key in the OS keychain (macOS keychain, Linux Secret Service) instead of vault.key",
+		Long: `Moves the vault's key out of the vault.key file into the operating system's
+keychain, so a copy of ` + "~/.komando" + ` (a backup, a synced folder) no longer opens
+the vault. Nothing is re-encrypted: it is the same key, kept elsewhere.
+--off moves it back into vault.key, which needs --yes.`,
+		Example: "  komando secret keychain\n  komando secret keychain --off --yes",
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if g.dryRun {
+				tool, err := vault.KeychainTool()
+				res := map[string]any{"dry_run": true, "would": map[bool]string{false: "move the vault key into the keychain", true: "move the vault key back into vault.key"}[off]}
+				if err != nil {
+					res["problem"] = err.Error()
+				} else {
+					res["keychain"] = tool
+				}
+				out.P.Print("secret.keychain", res, nil)
+				return nil
+			}
+			if off {
+				if err := guardSafety("moving the vault key out of the keychain into a file"); err != nil {
+					return err
+				}
+				err := vault.KeyToFile()
+				audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "file"})
+				if err != nil {
+					return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "unlock the keychain and try again", "%v", err)
+				}
+				out.P.Print("secret.keychain", map[string]any{"key": "vault.key"}, nil)
+				return nil
+			}
+			tool, err := vault.KeyToKeychain()
+			audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "keychain"})
+			if err != nil {
+				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "the vault still uses vault.key; fix the keychain and try again", "%v", err)
+			}
+			out.P.Print("secret.keychain", map[string]any{"key": "keychain", "keychain": tool, "vault_key_file": "removed"}, nil)
+			return nil
+		},
+	}
+	c.Flags().BoolVar(&off, "off", false, "move the key back into vault.key (needs --yes)")
 	return c
 }
 

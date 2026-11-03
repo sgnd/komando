@@ -26,6 +26,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - `komando config set audit_syslog tls://HOST:6514` (or `udp://`, `tcp://`):
   each audit record also goes to a log server or SIEM, as RFC 5424 syslog.
   Changing it needs `--yes`.
+- `komando secret keychain`: the vault key moves from `vault.key` into the
+  OS keychain (macOS keychain, Linux Secret Service), so a backup of
+  `~/.komando` no longer opens the vault. `--off --yes` moves it back.
+  `doctor` names it.
 - `komando svc daemon-reload TARGET`: reloads unit files after you write
   one, and names units that still need a reload.
 

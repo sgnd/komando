@@ -38,7 +38,9 @@ func securityChecks(st *store.State) []securityCheck {
 	} else if !s.NoVaultYet {
 		switch {
 		case s.Mode == "keyfile":
-			add("vault", false, true, "the vault key is a file next to the vault: anyone with a copy of "+store.Home()+" (a backup) can open it. Set KOMANDO_VAULT_PASS to a passphrase of 15+ characters before your first secret, or keep backups encrypted")
+			add("vault", false, true, "the vault key is a file next to the vault: anyone with a copy of "+store.Home()+" (a backup) can open it. Move it into the OS keychain with `komando secret keychain`, or set KOMANDO_VAULT_PASS to a passphrase of 15+ characters before your first secret")
+		case s.Mode == "keychain":
+			add("vault", true, false, "AES-256-GCM, the key in the OS keychain")
 		case s.ShortPass:
 			add("vault", false, true, "KOMANDO_VAULT_PASS is shorter than 15 characters (NIST SP 800-63B); use a longer one")
 		case s.OldKDF:
