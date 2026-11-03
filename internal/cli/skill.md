@@ -34,6 +34,10 @@ If `komando` is not installed, stop and ask the human to install it:
    only read unless you add `--write`.
 3. Edit files with `komando fs replace <target> <path> --old '...' --new '...' --backup`,
    never with `sed -i` over `exec`. Query databases with `komando db query`.
+   Manage database users with `komando db user` and `komando db grant`
+   (passwords as `--password-ref secret:NAME`, never `CREATE USER ... PASSWORD`
+   in a query). After writing a systemd unit run `komando svc daemon-reload`;
+   restart servers only with `komando reboot` (it needs the human).
 4. Use `komando job start` for anything that may take more than ~2 minutes.
 5. **Never** add `--allow-dangerous`, `--yes` or `--reveal` on your own. When
    a command is blocked (exit code 6: `POLICY_BLOCKED`, `PROTECTED_HOST`,
