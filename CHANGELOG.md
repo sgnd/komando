@@ -2,6 +2,14 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Removed
+
+- `op://` no longer falls back to the closed-source `op` CLI, as announced
+  in 0.2.0: it reads 1Password Connect only. Without Connect it says so and
+  names the alternatives (`bw://`, `kdbx:`, a komando secret).
+
 ## [0.2.0] - 2026-11-04
 
 ### Built in: secret managers and AWS logins (no vault, aws or gcloud CLI)

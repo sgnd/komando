@@ -187,8 +187,6 @@ Still to do:
   instance, then make it the default.
 - Pritunl: test against a Pritunl server (its PIN/OTP login); plain
   OpenVPN profiles from it already work.
-- `op://` without 1Password Connect still calls the closed-source `op` CLI;
-  it is removed in the next release, as announced.
 - A Google login without gcloud (`komando login gcp`) needs an OAuth client
   registered for komando; until then `gcp-sm:` and GKE use a key file
   (`GOOGLE_APPLICATION_CREDENTIALS`) or run on Google Cloud.

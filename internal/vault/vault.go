@@ -5,7 +5,6 @@
 package vault
 
 import (
-	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -15,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"sort"
 	"strings"
 	"sync"
@@ -357,7 +355,7 @@ func RefHelp() string { return "use one of: " + strings.Join(Refs, ", ") }
 //	secret:<name>        -> komando's vault
 //	env:<VAR>            -> environment variable
 //	file:<path>          -> file contents (trailing newline trimmed)
-//	op://v/item/field    -> 1Password Connect (OP_CONNECT_HOST, OP_CONNECT_TOKEN); the op CLI until it is removed
+//	op://v/item/field    -> 1Password Connect (OP_CONNECT_HOST, OP_CONNECT_TOKEN)
 //	bw://item/field      -> Bitwarden or Vaultwarden, decrypted here (KOMANDO_BW_*)
 //	kdbx:file#group/entry[#field] -> a KeePass file (KOMANDO_KDBX_PASSWORD / KOMANDO_KDBX_KEYFILE)
 //	vault:path#field     -> HashiCorp Vault / OpenBao KV (VAULT_ADDR and a token, as the CLI uses them)
@@ -382,14 +380,11 @@ func Resolve(ref string) (string, error) {
 		b, err := os.ReadFile(strings.TrimPrefix(ref, "file:"))
 		return strings.TrimRight(string(b), "\r\n"), err
 	case strings.HasPrefix(ref, "op://"):
+		// only through 1Password Connect: the op CLI is closed source
+		// (docs/design/built-in.md)
 		v, err := cloud.OnePassword(context.Background(), ref)
 		if errors.Is(err, cloud.ErrNoConnect) {
-			// deprecated: the 1Password CLI is closed source and is going
-			// away from komando (docs/design/built-in.md)
-			if _, lerr := exec.LookPath("op"); lerr != nil {
-				return "", fmt.Errorf("op:// needs 1Password Connect (set OP_CONNECT_HOST and OP_CONNECT_TOKEN); or use bw://, kdbx: or a komando secret")
-			}
-			return external("op", "read", "--no-newline", ref)
+			return "", fmt.Errorf("op:// needs 1Password Connect (set OP_CONNECT_HOST and OP_CONNECT_TOKEN); the op program is no longer used. Or use bw://, kdbx: or a komando secret")
 		}
 		return v, err
 	case strings.HasPrefix(ref, "bw://"):
@@ -423,27 +418,6 @@ func Resolve(ref string) (string, error) {
 	return "", fmt.Errorf("invalid secret reference %q (%s)", ref, RefHelp())
 }
 
-// external runs a secret manager's CLI and returns its output. The value
-// is never logged; errors carry the tool's message, which names no secret.
-func external(tool string, args ...string) (string, error) {
-	if _, err := exec.LookPath(tool); err != nil {
-		return "", fmt.Errorf("%s is not installed (needed for this secret reference)", tool)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	c := exec.CommandContext(ctx, tool, args...)
-	var stderr bytes.Buffer
-	c.Stderr = &stderr
-	out, err := c.Output()
-	if err != nil {
-		msg := strings.TrimSpace(stderr.String())
-		if len(msg) > 300 {
-			msg = msg[:300]
-		}
-		return "", fmt.Errorf("%s: %s (is it signed in?)", tool, firstLine(msg, err.Error()))
-	}
-	return strings.TrimRight(string(out), "\r\n"), nil
-}
 
 func firstLine(s, fallback string) string {
 	if s == "" {

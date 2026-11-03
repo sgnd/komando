@@ -20,25 +20,22 @@ func TestValidRef(t *testing.T) {
 	}
 }
 
-// op:// still runs the 1Password CLI; a fake one on PATH shows the plumbing.
+// op:// is only 1Password Connect: an op program on PATH is never run.
 // vault:, aws-sm: and gcp-sm: are built in (internal/cloud has their tests).
 func TestExternalRefs(t *testing.T) {
 	dir := t.TempDir()
-	fake := func(name, body string) {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
-			t.Fatal(err)
-		}
+	ran := filepath.Join(dir, "ran")
+	if err := os.WriteFile(filepath.Join(dir, "op"), []byte("#!/bin/sh\ntouch "+ran+"\necho leaked\n"), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	fake("op", `printf "op:%s" "$3"`)
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	cases := map[string]string{
-		"op://Shop/db/password": "op:op://Shop/db/password",
+	t.Setenv("OP_CONNECT_HOST", "")
+	t.Setenv("OP_CONNECT_TOKEN", "")
+	if _, err := Resolve("op://Shop/db/password"); err == nil || !strings.Contains(err.Error(), "1Password Connect") {
+		t.Errorf("op:// without Connect: %v", err)
 	}
-	for ref, want := range cases {
-		got, err := Resolve(ref)
-		if err != nil || got != want {
-			t.Errorf("%s: got %q, %v; want %q", ref, got, err, want)
-		}
+	if _, err := os.Stat(ran); err == nil {
+		t.Error("the op program was run")
 	}
 	if _, err := Resolve("vault:secret/shop"); err == nil || !strings.Contains(err.Error(), "#FIELD") {
 		t.Errorf("vault without #FIELD: %v", err)
