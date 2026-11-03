@@ -4,18 +4,18 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 )
 
 // Shared pieces for -o text output, so every list reads like the familiar
 // tools (kubectl get, docker ps, ls -l): a header row and aligned columns.
 
-// textTable lays out rows under upper-case headers, two spaces apart. Empty
+// textTable lays out rows (wide characters such as CJK and emoji count as
+// two cells, see displayWidth) under upper-case headers, two spaces apart. Empty
 // cells show as "-".
 func textTable(headers []string, rows [][]string) string {
 	w := make([]int, len(headers))
 	for i, h := range headers {
-		w[i] = utf8.RuneCountInString(h)
+		w[i] = displayWidth(h)
 	}
 	for _, r := range rows {
 		for i := range headers {
@@ -23,7 +23,7 @@ func textTable(headers []string, rows [][]string) string {
 				if r[i] == "" {
 					r[i] = "-"
 				}
-				if n := utf8.RuneCountInString(r[i]); n > w[i] {
+				if n := displayWidth(r[i]); n > w[i] {
 					w[i] = n
 				}
 			}
@@ -40,7 +40,7 @@ func textTable(headers []string, rows [][]string) string {
 				b.WriteString(c)
 				break
 			}
-			b.WriteString(c + strings.Repeat(" ", w[i]-utf8.RuneCountInString(c)+2))
+			b.WriteString(c + strings.Repeat(" ", w[i]-displayWidth(c)+2))
 		}
 		b.WriteString("\n")
 	}

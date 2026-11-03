@@ -93,7 +93,7 @@ func downloadCmd() *cobra.Command {
 		Long: `PATH is the path on the servers, or the key in the storage conn. --to is
 where it lands (a folder per server when several are picked). Files that
 already exist here are kept unless --overwrite. --sudo reads one file as
-root (up to 512 MiB).
+root (up to 512 MiB). From storage, --to - writes the object to stdout.
 
 ` + cpFolderRule,
 		Example: `  komando download web1 /var/log/nginx/error.log --to ./logs/
@@ -117,7 +117,7 @@ root (up to 512 MiB).
 					// files already here stay unless --overwrite
 					return syncDown(cmd.Context(), "download", args[0], args[1], dest, syncOpts{onlyNew: !overwrite})
 				}
-				return storageDownload(cmd.Context(), "download", args[0], args[1], to)
+				return storageDownloadTo(cmd.Context(), "download", args[0], args[1], to, overwrite)
 			}
 			dest := to
 			if dest == "" {
