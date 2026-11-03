@@ -26,13 +26,20 @@ echo "cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
 [ -r /proc/loadavg ] && echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
 [ -r /proc/uptime ] && echo "uptime_sec=$(cut -d. -f1 /proc/uptime)"
 df -P -k / 2>/dev/null | awk 'NR==2{print "disk_root_total_gb="int($2/1048576); print "disk_root_used_pct="int($5)}'
-echo "ips=$(hostname -I 2>/dev/null || ip -o -4 addr show 2>/dev/null | awk '{print $4}' | tr '\n' ' ')"
-echo "init=$(ps -p 1 -o comm= 2>/dev/null)"
-echo "virt=$(systemd-detect-virt 2>/dev/null || echo unknown)"
+echo "ips=$(hostname -I 2>/dev/null || ip -o -4 addr show scope global 2>/dev/null | awk '{sub("/.*", "", $4); print $4}' | tr '\n' ' ')"
+echo "init=$(cat /proc/1/comm 2>/dev/null || ps -p 1 -o comm= 2>/dev/null)"
+v=$(systemd-detect-virt 2>/dev/null)
+if [ -z "$v" ] || [ "$v" = none ]; then
+  if [ -f /.dockerenv ] || grep -qa docker /proc/1/cgroup 2>/dev/null; then v=docker
+  elif [ -f /run/.containerenv ]; then v=podman
+  elif grep -qa -e lxc -e kubepods /proc/1/cgroup 2>/dev/null; then v=container
+  fi
+fi
+echo "virt=${v:-unknown}"
 for m in apt-get dnf yum apk zypper pacman; do command -v $m >/dev/null 2>&1 && { echo "pkg_manager=${m%-get}"; break; }; done
 for b in curl wget openssl docker podman kubectl k3s systemctl nginx apache2 httpd caddy haproxy mysql psql redis-cli mongosh node python3 java go git ufw firewall-cmd certbot; do command -v $b >/dev/null 2>&1 && printf 'tool=%s\n' $b; done
 [ -f /var/run/reboot-required ] && echo "reboot_required=true" || echo "reboot_required=false"
-command -v systemctl >/dev/null 2>&1 && echo "failed_units=$(systemctl --failed --no-legend --plain 2>/dev/null | wc -l)"
+[ -d /run/systemd/system ] && echo "failed_units=$(systemctl --failed --no-legend --plain 2>/dev/null | wc -l)"
 echo "users_logged_in=$(who 2>/dev/null | wc -l)"
 echo "time_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "timezone=$(cat /etc/timezone 2>/dev/null || date +%Z)"

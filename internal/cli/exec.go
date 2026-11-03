@@ -492,8 +492,8 @@ func probe(ctx context.Context, name, target, command string, sudo bool, parse f
 				r.Stderr = strings.TrimSpace(rr.Stderr)
 				exit := out.ExitRemote
 				f := hostFail{host: r.Host, reason: fmt.Sprintf("exit %d", rr.ExitCode)}
-				if rr.ExitCode == 0 && r.Error != nil && r.Error.Exit != 0 {
-					exit = r.Error.Exit // the parser found the problem (NXDOMAIN, closed port ...)
+				if r.Error != nil && r.Error.Exit != 0 {
+					exit = r.Error.Exit // the parser named the problem (NXDOMAIN, closed port ...): its code wins
 					f = hostFail{host: r.Host, reason: failReason(0, r.Error), err: r.Error}
 				}
 				if rr.TimedOut {

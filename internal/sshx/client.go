@@ -139,7 +139,7 @@ func keepalive(c *Client) {
 // hops [via1, via2, ..., target].
 func resolveChain(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, []*store.Host, error) {
 	if seen[h.Name] {
-		return nil, nil, out.Errf(out.ExitUsage, "VIA_CYCLE", "fix the --via setting with `komando host edit`", "--via cycle detected at %q", h.Name)
+		return nil, nil, out.Errf(out.ExitError, "VIA_CYCLE", "fix the --via setting with `komando host edit`", "--via cycle detected at %q", h.Name)
 	}
 	seen[h.Name] = true
 	if h.Via == "" {
@@ -233,6 +233,10 @@ func handshake(conn net.Conn, addr string, cfg *ssh.ClientConfig, timeout time.D
 }
 
 func classify(host string, err error) error {
+	var oe *out.Error
+	if errors.As(err, &oe) {
+		return oe // already a komando error (VPN_DOWN from a VPN on the way): keep its code and words
+	}
 	var ke *knownhosts.KeyError
 	msg := err.Error()
 	switch {
@@ -245,9 +249,11 @@ func classify(host string, err error) error {
 			fmt.Sprintf("run `komando host trust %s` to pin its key (policy is strict)", host),
 			"host key for %s is not trusted yet", host)
 	case strings.Contains(msg, "unable to authenticate"), strings.Contains(msg, "no supported methods"):
-		return out.Errf(out.ExitConnect, "AUTH_FAILED",
-			"check user/key/password with `komando host show "+host+"`; deploy a key with `komando key deploy`",
-			"authentication to %s failed: %s", host, msg)
+		hint := "check user/key/password with `komando host show " + host + "`; deploy a key with `komando key deploy`"
+		if strings.ContainsAny(host, "@:") { // an ad-hoc user@address target, not in the inventory
+			hint = "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host add NAME " + host + " --key KEY` (or --password-ref) to log in another way"
+		}
+		return out.Errf(out.ExitConnect, "AUTH_FAILED", hint, "authentication to %s failed: %s", host, msg)
 	case strings.Contains(msg, "i/o timeout"), strings.Contains(msg, "deadline exceeded"):
 		return out.Errf(out.ExitTimeout, "CONNECT_TIMEOUT", "check network/firewall or raise --connect-timeout", "connecting to %s timed out", host)
 	case strings.Contains(msg, "connection refused"):
@@ -290,7 +296,7 @@ func authMethods(st *store.State, h *store.Host) ([]ssh.AuthMethod, error) {
 		b, err := os.ReadFile(expand(path))
 		if err != nil {
 			if explicit {
-				return out.Errf(out.ExitUsage, "KEY_UNREADABLE", "check the key path", "cannot read key %s: %v", path, err)
+				return out.Errf(out.ExitConnect, "KEY_UNREADABLE", "check the key path", "cannot read key %s: %v", path, err)
 			}
 			return nil
 		}
