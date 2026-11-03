@@ -210,7 +210,7 @@ var localReads = map[string]bool{
 	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true,
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
-	"tunnel.list": true, "job.list": true,
+	"tunnel.list": true, "job.list": true, "status": true,
 }
 
 // checkAuditWritable refuses to run when the audit log is on but cannot be
@@ -330,11 +330,11 @@ Start here:  komando guide      (agent playbook)
 			root.AddCommand(c)
 		}
 	}
-	add("inv", listCmd(), testCmd(), importCmd(), exportCmd(), hostCmd(), connCmd(), vpnCmd(), groupCmd(), keyCmd(), secretCmd())
+	add("inv", listCmd(), testCmd(), importCmd(), exportCmd(), hostCmd(), connCmd(), vpnCmd(), groupCmd(), keyCmd(), secretCmd(), loginCmd())
 	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(), tunnelCmd(), shellCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), storageCmd(), clusterCmd(), registryCmd())
 	add("ops", factsCmd(), svcCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd())
-	add("meta", schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), versionCmd())
+	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), versionCmd())
 	applyConventions(root)
 	addCompletion(root)
 	root.InitDefaultHelpCmd()

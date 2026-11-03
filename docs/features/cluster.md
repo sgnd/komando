@@ -13,9 +13,10 @@ komando import kubeconfig                  # ~/.kube/config
 komando conn edit prod --via bastion       # a private API server? reach it like anything else
 ```
 
-The kubeconfig for each context goes to the vault. Credential plugins
-(`aws eks get-token`, `gke-gcloud-auth-plugin`) still work: komando runs them
-when needed.
+The kubeconfig for each context goes to the vault. EKS and GKE logins in
+the kubeconfig (`aws eks get-token`, `aws-iam-authenticator`,
+`gke-gcloud-auth-plugin`) are made by komando itself, so those programs are
+not needed; other credential plugins run as the kubeconfig says.
 
 A Docker Swarm needs nothing extra: use a manager server as the target.
 
@@ -70,13 +71,17 @@ komando cluster logs swarm1 service/web -f --timeout 1m
 komando cluster exec prod deploy/api --namespace shop --read-only -- cat /app/config.yml
 komando cluster exec prod api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear
 komando cluster forward prod svc/api 8080:80 --namespace shop   # 127.0.0.1:8080 until Ctrl-C
+komando cluster shell prod deploy/api --namespace shop          # interactive, for people
 ```
 
 `cluster exec` checks the command against the dangerous-command filter, like
 `exec` on servers; `--read-only` says it only looks. `cluster forward` makes a
 pod or service port reachable on this computer only; Ctrl-C or `--timeout`
-ends it normally. Both need `kubectl`. A pod or service that does not exist
-is "not found" (exit 3).
+ends it normally; for a service, the service's port is forwarded to the
+pod's port behind it. `cluster shell` opens a terminal in the pod (bash,
+else sh) for a person, and asks first on a protected cluster. komando
+speaks Kubernetes' exec and port-forward protocols itself: kubectl is not
+needed. A pod or service that does not exist is "not found" (exit 3).
 
 `cluster status` lists problems by name, for example
 `pod/shop/api-7d9f-x2: api: CrashLoopBackOff`, `deployment/shop/api: 1 of 3
@@ -145,11 +150,20 @@ komando cluster run prod --write -- rollout undo deployment/api -n shop
 komando cluster run swarm1 -- service ps web
 ```
 
-`cluster run` passes the command to kubectl on this computer (with a
-private, temporary kubeconfig, through the conn's `--via` path), or to
-docker on the Swarm manager. It only reads unless you add `--write`; delete,
-drain and similar need `--allow-dangerous` too. kubectl must be installed
-for Kubernetes.
+For Kubernetes, `cluster run` is komando's own kubectl: it understands the
+kubectl commands and prints what kubectl prints, through the conn's `--via`
+path, with no kubectl installed. It covers get (the server's tables, `-o
+wide|name|json|yaml|jsonpath=...|custom-columns=...`, `-w`, `-l`, `-A`),
+describe, logs, events, top, explain, version, api-resources, api-versions,
+cluster-info, auth can-i/whoami, wait, rollout (status, history, undo,
+restart, pause, resume), apply, diff, create (`-f`, namespace, configmap,
+secret, deployment, job, cronjob, service, role(binding), token), replace,
+delete, patch, label, annotate, scale, set image, cordon, uncordon, drain,
+taint, run, exec, cp, debug, certificate approve/deny and config. Sessions
+have their own commands: `cluster forward` (port-forward) and `cluster
+shell` (`exec -it`). On Swarm the command goes to docker on the manager. It
+only reads unless you add `--write`; delete, drain and similar need
+`--allow-dangerous` too.
 
 `cluster run` stops at `--timeout` (default 5 minutes); a watch (`get -w`)
 or follow (`logs -f`) that ends there ends normally.

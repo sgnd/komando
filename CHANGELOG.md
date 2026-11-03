@@ -4,6 +4,144 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Built in: secret managers and AWS logins (no vault, aws or gcloud CLI)
+
+- `vault:` references read HashiCorp Vault or OpenBao themselves (KV v1 and
+  v2, namespaces, `VAULT_CACERT`, `~/.vault-token`).
+- `aws-sm:` reads AWS Secrets Manager, and `gcp-sm:` Google Secret Manager,
+  with the credentials already on the computer.
+- Conns with `aws_profile` (S3, ECR) read `~/.aws` themselves: SSO,
+  assumed roles, temporary keys. New `komando login aws [--profile]` does
+  the SSO sign-in that `aws sso login` did, into the same cache.
+- New error codes `AWS_PROFILE_NOT_FOUND` and `AWS_FAILED`;
+  `AWS_CLI_MISSING` no longer happens.
+
+### Built in: OpenVPN and AnyConnect (no Docker, openvpn or openconnect)
+
+- `openvpn` VPNs (and Pritunl profiles) run on komando's own OpenVPN client
+  in user space: UDP and TCP, tls-auth and tls-crypt, AES-128/256-GCM,
+  ChaCha20-Poly1305 and AES-CBC with HMAC, TLS key export or the older PRF,
+  pushed options, keepalive and key renegotiation. No Docker container,
+  no openvpn program, no admin rights; the computer's routes stay as they
+  are. Profiles with options it does not support, or with compression
+  (VORACLE), are refused at `vpn add` (`OVPN_UNSUPPORTED`). `--os-mode` is
+  deprecated.
+- `anyconnect` VPNs (Cisco AnyConnect, ocserv) run on komando's own client:
+  the XML login (with one-time codes asked at `vpn up`) and the CSTP tunnel.
+  The login happens at the terminal; the session's process gets only the
+  session cookie.
+- Experimental: komando's own Fortinet (form login with token codes, PPP
+  over TLS), GlobalProtect (gateway login with challenges, GPST tunnel) and
+  F5 BIG-IP (APM login, PPP over TLS) clients. They are used when
+  openconnect is not installed, or with
+  `KOMANDO_EXPERIMENTAL_VPN=fortinet,globalprotect,f5`; they have not yet
+  been tried against the vendors' own servers. Pulse/Ivanti still needs
+  openconnect.
+- Hosts added with `--ssm` reach EC2 through komando's own AWS Session
+  Manager client when the aws CLI or its session-manager-plugin is missing
+  (or with `KOMANDO_EXPERIMENTAL=ssm`). KMS-encrypted sessions say they
+  need the plugin.
+- Every VPN session's local SOCKS port now needs a random per-session login
+  (WireGuard and Tailscale too), so other users of the computer cannot use
+  it.
+
+### Built in: komando's own dump and restore
+
+- `db dump` and `db restore` work without pg_dump, psql, mysqldump or mysql
+  for direct conns, VPN conns and servers without those tools: komando
+  writes and reads plain SQL itself (PostgreSQL: extensions, schemas, types,
+  functions, sequences, tables with identity, generated columns and
+  partitions, data via COPY, constraints, indexes, views, materialized
+  views, triggers, row-level security, comments; MySQL: tables, data,
+  views, triggers, routines). Objects it cannot write stop the dump by name
+  (`DUMP_UNSUPPORTED`). Through a server that has the tools, they are still
+  used. `tool` in the answer says which ran.
+
+### Built in: komando's own kubectl and SQL shell
+
+- `cluster run` no longer needs kubectl: komando understands the kubectl
+  commands itself and prints what kubectl prints (server-side tables, wide,
+  name, json, yaml, jsonpath, custom-columns, watch) for get, describe,
+  logs, events, top, explain, version, api-resources, api-versions,
+  cluster-info, auth, wait, rollout, apply, diff, create, replace, delete,
+  patch, label, annotate, scale, set image, cordon, uncordon, drain, taint,
+  run, exec, cp, debug, certificate and config. The read-only default and
+  the risk checks are unchanged; port-forward and `exec -it` point at
+  `cluster forward` and `cluster shell`.
+- `db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB and
+  SQLite (no psql, mysql or sqlite3): each statement gets db query's checks
+  and is audited; `\d`, `\l`, `\dn`, `\du`, `\x`, `\G`, `\timing`, `\i`.
+  `TOOL_MISSING` and `TLS_THROUGH_FORWARD` no longer happen for it.
+
+### Built in: Kubernetes exec, shell and port-forward (no kubectl)
+
+- `cluster exec` and `cluster forward` speak Kubernetes' streaming
+  protocols over WebSocket themselves. `cluster forward svc/NAME` maps the
+  service port to the pod's target port (by number or name), like kubectl.
+- New `cluster shell TARGET POD|TYPE/NAME [-- COMMAND]`: an interactive
+  terminal in a pod for people, with the status lines and the protected
+  question of `komando shell`.
+- EKS and GKE tokens (`aws eks get-token`, `aws-iam-authenticator`,
+  `gke-gcloud-auth-plugin` in a kubeconfig) are made by komando.
+- `cluster exec --dry-run` and `cluster forward --dry-run` describe the
+  call without "kubectl" in `would_run`, and add `pod`, `command`, `local`.
+
+### Built in: Bitwarden, KeePass, 1Password Connect
+
+- New `bw://ITEM/FIELD` for Bitwarden and Vaultwarden: komando logs in,
+  syncs once per run and decrypts on this computer (personal, item-key and
+  organization items), like Bitwarden's own clients.
+- New `kdbx:FILE#GROUP/ENTRY[#FIELD]` for KeePass and KeePassXC files.
+- `op://` reads a 1Password Connect server (`OP_CONNECT_HOST`,
+  `OP_CONNECT_TOKEN`). Without Connect it still calls the `op` CLI, which is
+  deprecated: komando ships only open-source parts, and the 1Password SDK's
+  core is a prebuilt WebAssembly module.
+
+### Built in: Tailscale and Headscale (no tailscaled)
+
+- `tailscale` VPNs run inside komando with Tailscale's own Go library
+  (`tsnet`), in user-space: no `tailscale` or `tailscaled` to install, no
+  admin rights, the computer's network unchanged. Without an auth key,
+  `komando vpn up` opens the login page once; the node then stays logged in.
+
+### `komando prompt`: VPNs and tunnels in your shell prompt
+
+- `komando prompt` prints `vpn:office tun:2`, or nothing, for zsh (also
+  oh-my-zsh), bash or starship; the docs have the line to add. It only
+  reads the state file: no network, no writes, no other programs, never an
+  error, and it does not keep an idle VPN alive.
+
+### `komando status`: what is still running
+
+- One command lists what komando left running: VPN sessions (with when
+  they close if unused), tunnels and jobs. It contacts nothing, so it is
+  quick and works offline; `job list --refresh` still asks the servers
+  whether a job runs.
+
+### Where am I? Status lines for people
+
+- `shell`, `db shell`, `cluster forward` and `logs --follow` (servers,
+  Kubernetes, Swarm) print one line before they connect: what, where, as
+  whom, the way there (`via vpn office → bastion1`) and `PROTECTED`
+  (red; `NO_COLOR` turns colour off). `shell` and `db shell` also say how
+  the session ended: `left web1 (exit 0, 12m)` or `connection to web1 lost`.
+- A command that connects a VPN by itself says the VPN stays up, for how
+  long, and how to stop it.
+- Only for a person at a terminal, on stderr: agents, scripts, pipes and
+  JSON output are unchanged. Names and addresses are printed without
+  control characters, so they cannot rewrite the terminal.
+- `db shell`'s line moved before connecting and uses the same format
+  (was `komando: psql session on app-db (read-only)`).
+
+### Safer `komando shell` (`ssh`, `connect`)
+
+- `--dry-run` no longer opens a real shell: it shows the host, address,
+  user, `--via` path and whether it is protected, and connects nothing.
+- A protected server asks `[y/N]` before the shell opens, like `db shell`
+  on a protected conn; `--yes` skips the question.
+- AI agents are refused even when they run in a pseudo-terminal, and the
+  error code is now `NEEDS_TERMINAL` (was `NOT_A_TTY`), the same as
+  `db shell`. Like `db shell`, it also needs stderr to be a terminal.
 ### Clearer errors
 
 - Every error now has a hint with the next step; a test keeps it that way.

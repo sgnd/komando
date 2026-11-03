@@ -65,16 +65,19 @@ komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous
 
 ## AWS logins (SSO, roles, temporary keys)
 
-Instead of a stored key, a conn can use an AWS CLI profile. komando asks
-`aws configure export-credentials` for the profile's current keys each
-time, so SSO and assumed roles work as you set them up:
+Instead of a stored key, a conn can use a profile from `~/.aws/config`.
+komando reads the profile itself (no aws CLI needed) and gets its current
+keys each time, so SSO, assumed roles and temporary keys work as you set
+them up:
 
 ```bash
 komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
 ```
 
 When an SSO login has expired, the answer is `AWS_LOGIN_REQUIRED`: a person
-runs `aws sso login --profile prod` once. Amazon ECR registries work the same
+runs `komando login aws --profile prod` once (it opens the sign-in page and
+saves the login where the aws CLI keeps it, so both share it). A profile
+that does not exist is `AWS_PROFILE_NOT_FOUND`. Amazon ECR registries work the same
 way (see Registries).
 
 ## File servers (FTPS, SFTP, FTP)

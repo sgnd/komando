@@ -25,10 +25,10 @@ test: ## Fast unit tests
 e2e: ## End-to-end tests against Docker SSH servers
 	test/e2e/run.sh
 
-e2e-openvpn: ## OpenVPN-in-a-container test against a throwaway OpenVPN server
+e2e-openvpn: ## komando's own OpenVPN client against throwaway OpenVPN 2.6 servers (UDP, TCP, tls-auth, tls-crypt, login)
 	test/e2e/openvpn/run.sh
 
-e2e-vpnclients: ## openconnect (ocserv) and Tailscale (Headscale) VPN kinds against real servers, in Docker
+e2e-vpnclients: ## built-in AnyConnect (ocserv) and Tailscale (Headscale) against real servers, in Docker
 	test/e2e/vpnclients/run.sh
 
 security: ## Known vulnerabilities in the code and its modules (govulncheck)
@@ -40,6 +40,12 @@ fuzz: ## Fuzz the parsers that see untrusted text, 30s each
 	go test ./internal/policy -run '^$$' -fuzz '^FuzzCheck$$' -fuzztime 30s
 	go test ./internal/cli -run '^$$' -fuzz '^FuzzGuard$$' -fuzztime 30s
 	go test ./internal/cli -run '^$$' -fuzz '^FuzzHiddenPattern$$' -fuzztime 30s
+	go test ./internal/cli -run '^$$' -fuzz '^FuzzCleanText$$' -fuzztime 30s
+	go test ./internal/openvpn -run '^$$' -fuzz '^FuzzParse$$' -fuzztime 30s
+	go test ./internal/openvpn -run '^$$' -fuzz '^FuzzPackets$$' -fuzztime 30s
+	go test ./internal/cloud -run '^$$' -fuzz '^FuzzSSMMessage$$' -fuzztime 30s
+	go test ./internal/cloud -run '^$$' -fuzz '^FuzzBitwardenCipherString$$' -fuzztime 30s
+	go test ./internal/dbx -run '^$$' -fuzz '^FuzzSQLScanner$$' -fuzztime 30s
 
 lint: ## gofmt + go vet + staticcheck
 	@test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)

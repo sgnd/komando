@@ -1,69 +1,53 @@
 package cli
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"net"
-	"os/exec"
 	"regexp"
-	"strings"
-	"time"
 
+	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
-// AWS logins (SSO, assumed roles, temporary keys) come from the aws CLI, so
-// they work exactly as the person has set them up: a conn names the profile
-// with `--option aws_profile=NAME` ("default" for the usual chain).
+// AWS logins (SSO, assumed roles, temporary keys) are read from the
+// person's ~/.aws profile by komando itself (no aws CLI): a conn names the
+// profile with `--option aws_profile=NAME` ("default" for the usual chain).
+// `komando login aws` renews an SSO login.
 
 type awsCreds struct {
-	AccessKeyID     string `json:"AccessKeyId"`
-	SecretAccessKey string `json:"SecretAccessKey"`
-	SessionToken    string `json:"SessionToken"`
+	AccessKeyID, SecretAccessKey, SessionToken string
 }
 
 // awsProfile is the conn's aws_profile option, or "".
 func awsProfile(c *store.Conn) string { return c.Options["aws_profile"] }
 
-// runAWS runs the aws CLI with the profile and returns its stdout.
-func runAWS(ctx context.Context, profile string, args ...string) ([]byte, error) {
-	if _, err := exec.LookPath("aws"); err != nil {
-		return nil, out.Errf(out.ExitNotFound, "AWS_CLI_MISSING", "install the AWS CLI v2 (https://aws.amazon.com/cli/) and log in with it once",
-			"conns with aws_profile need the aws CLI on this computer")
+// awsCredentials are the profile's current keys.
+func awsCredentials(ctx context.Context, profile string) (awsCreds, error) {
+	c, err := cloud.AWSCredentials(ctx, profile)
+	if err != nil {
+		return awsCreds{}, awsErr(profile, err)
 	}
-	if profile != "" && profile != "default" {
-		args = append(args, "--profile", profile)
-	}
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "aws", args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(stderr.String())
-		hint := "check the profile with `aws sts get-caller-identity --profile " + profile + "`"
-		if strings.Contains(msg, "sso") || strings.Contains(msg, "SSO") || strings.Contains(msg, "expired") {
-			// a person logs in, like VPN MFA: agents ask for it
-			hint = "a person runs `aws sso login --profile " + profile + "` once, then try again"
-		}
-		return nil, out.Errf(out.ExitConnect, "AWS_LOGIN_REQUIRED", hint, "aws %s: %s", args[0], firstNonEmpty(msg, err.Error()))
-	}
-	return stdout.Bytes(), nil
+	return awsCreds{c.AccessKeyID, c.SecretAccessKey, c.SessionToken}, nil
 }
 
-// awsCredentials asks the aws CLI for the profile's current keys.
-func awsCredentials(ctx context.Context, profile string) (awsCreds, error) {
-	b, err := runAWS(ctx, profile, "configure", "export-credentials", "--format", "process")
-	if err != nil {
-		return awsCreds{}, err
+// awsErr turns an AWS SDK error into komando's: a missing profile, or a
+// login a person renews.
+func awsErr(profile string, err error) error {
+	if profile == "" {
+		profile = "default"
 	}
-	var c awsCreds
-	if json.Unmarshal(b, &c) != nil || c.AccessKeyID == "" {
-		return awsCreds{}, out.Errf(out.ExitConnect, "AWS_LOGIN_REQUIRED", "check the profile with `aws configure list`", "the aws CLI gave no credentials for profile %q", profile)
+	switch {
+	case cloud.AWSProfileMissing(err):
+		return out.Errf(out.ExitNotFound, "AWS_PROFILE_NOT_FOUND", "add the profile to ~/.aws/config (or fix --option aws_profile)",
+			"there is no AWS profile %q", profile)
+	case errors.Is(err, cloud.ErrAWSLogin):
+		// a person logs in, like VPN MFA: agents ask for it
+		return out.Errf(out.ExitConnect, "AWS_LOGIN_REQUIRED", "a person runs `komando login aws --profile "+profile+"` once, then try again",
+			"AWS profile %s: %v", profile, err)
 	}
-	return c, nil
+	return out.Errf(out.ExitConnect, "AWS_FAILED", "check the profile in ~/.aws/config", "AWS profile %s: %v", profile, err)
 }
 
 var ecrHost = regexp.MustCompile(`^\d+\.dkr\.ecr(-fips)?\.([a-z0-9-]+)\.amazonaws\.com(\.cn)?$`)
@@ -80,11 +64,11 @@ func ecrRegion(host string) string {
 	return ""
 }
 
-// ecrToken gets a fresh ECR login (it lasts 12 hours) from the aws CLI.
+// ecrToken gets a fresh ECR login (it lasts 12 hours).
 func ecrToken(ctx context.Context, profile, region string) (string, error) {
-	b, err := runAWS(ctx, profile, "ecr", "get-login-password", "--region", region)
+	tok, err := cloud.ECRToken(ctx, profile, region)
 	if err != nil {
-		return "", err
+		return "", awsErr(profile, err)
 	}
-	return strings.TrimSpace(string(b)), nil
+	return tok, nil
 }

@@ -156,46 +156,52 @@ func clusterDescribeCmd() *cobra.Command {
 				if r.IsNamespaced() {
 					space = firstNonEmpty(ns, k.Namespace)
 				}
-				var o map[string]any
-				if err := k.Get(ctx, r.ObjectPath(space, name), nil, &o); err != nil {
-					return nil, err
-				}
-				o["kind"] = r.KindName()
-				sum := summarize(r.KindName(), o)
-				for k, v := range describeMore(r.KindName(), o) {
-					sum[k] = v
-				}
-				res := describeData{"conn": t.conn.Name, "object": kindRef(r, name), "summary": sum}
-				stat, _ := o["status"].(map[string]any)
-				if conds := conditions(stat); len(conds) > 0 {
-					res["conditions"] = conds
-				}
-				if r.KindName() == "Pod" {
-					res["containers"] = containerStates(o)
-				} else if sel := matchLabels(o); sel != "" && space != "" {
-					var pods struct {
-						Items []map[string]any `json:"items"`
-					}
-					if err := k.Get(ctx, "/api/v1/namespaces/"+url.PathEscape(space)+"/pods", url.Values{"labelSelector": {sel}}, &pods); err == nil {
-						rows := []map[string]any{}
-						for _, p := range pods.Items {
-							rows = append(rows, summarize("Pod", p))
-						}
-						res["pods"] = rows
-					}
-				}
-				if r.KindName() == "Service" && space != "" {
-					res["endpoints"] = endpoints(ctx, k, space, name)
-				}
-				if events, err := clusterEvents(ctx, k, space, r.KindName(), name, false, 20); err == nil {
-					res["events"] = events
-				}
-				return res, nil
+				return describeObject(ctx, k, t.conn.Name, r, name, space)
 			})
 		},
 	}
 	nsFlags(c, &ns, nil, nil)
 	return c
+}
+
+// describeObject is one object in short: its summary, conditions, pods or
+// containers, endpoints and recent events.
+func describeObject(ctx context.Context, k *kube.Client, conn string, r kube.ResourceType, name, space string) (describeData, error) {
+	var o map[string]any
+	if err := k.Get(ctx, r.ObjectPath(space, name), nil, &o); err != nil {
+		return nil, err
+	}
+	o["kind"] = r.KindName()
+	sum := summarize(r.KindName(), o)
+	for k, v := range describeMore(r.KindName(), o) {
+		sum[k] = v
+	}
+	res := describeData{"conn": conn, "object": kindRef(r, name), "summary": sum}
+	stat, _ := o["status"].(map[string]any)
+	if conds := conditions(stat); len(conds) > 0 {
+		res["conditions"] = conds
+	}
+	if r.KindName() == "Pod" {
+		res["containers"] = containerStates(o)
+	} else if sel := matchLabels(o); sel != "" && space != "" {
+		var pods struct {
+			Items []map[string]any `json:"items"`
+		}
+		if err := k.Get(ctx, "/api/v1/namespaces/"+url.PathEscape(space)+"/pods", url.Values{"labelSelector": {sel}}, &pods); err == nil {
+			rows := []map[string]any{}
+			for _, p := range pods.Items {
+				rows = append(rows, summarize("Pod", p))
+			}
+			res["pods"] = rows
+		}
+	}
+	if r.KindName() == "Service" && space != "" {
+		res["endpoints"] = endpoints(ctx, k, space, name)
+	}
+	if events, err := clusterEvents(ctx, k, space, r.KindName(), name, false, 20); err == nil {
+		res["events"] = events
+	}
+	return res, nil
 }
 
 // describeMore adds what `describe` shows beyond the `ls` row: images,

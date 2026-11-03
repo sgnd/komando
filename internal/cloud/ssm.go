@@ -1,0 +1,297 @@
+package cloud
+
+import (
+	"bytes"
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/gorilla/websocket"
+)
+
+// AWS Systems Manager Session Manager without the aws CLI and its
+// session-manager-plugin: StartSession (AWS-StartSSHSession) through the
+// SDK, then the Session Manager data channel over WebSocket. Each message
+// has a 120-byte header (type, sequence number, id, SHA-256 of the
+// payload); every output message is acknowledged. KMS-encrypted sessions
+// are not supported and say so.
+
+// ssmStart is ssm StartSession; tests replace it.
+var ssmStart = func(ctx context.Context, profile, region, target, port string) (url, token string, err error) {
+	cfg, err := AWSConfig(ctx, profile, region)
+	if err != nil {
+		return "", "", err
+	}
+	o, err := ssm.NewFromConfig(cfg).StartSession(ctx, &ssm.StartSessionInput{
+		Target: aws.String(target), DocumentName: aws.String("AWS-StartSSHSession"),
+		Parameters: map[string][]string{"portNumber": {port}},
+	})
+	if err != nil {
+		return "", "", awsErr(err)
+	}
+	return aws.ToString(o.StreamUrl), aws.ToString(o.TokenValue), nil
+}
+
+// SSMDial opens an SSH stream to an EC2 instance through Session Manager.
+func SSMDial(ctx context.Context, profile, region, target, port string) (net.Conn, error) {
+	streamURL, token, err := ssmStart(ctx, profile, region, target, port)
+	if err != nil {
+		return nil, err
+	}
+	ws, _, err := websocket.DefaultDialer.DialContext(ctx, streamURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("session manager: %w", err)
+	}
+	open, _ := json.Marshal(map[string]string{"MessageSchemaVersion": "1.0", "RequestId": newUUID(), "TokenValue": token,
+		"ClientId": newUUID(), "ClientVersion": "1.2.0.0"})
+	if err := ws.WriteMessage(websocket.TextMessage, open); err != nil {
+		ws.Close()
+		return nil, err
+	}
+	c := &ssmConn{ws: ws, in: make(chan []byte, 64), ready: make(chan error, 1), done: make(chan struct{})}
+	go c.readLoop()
+	select {
+	case err := <-c.ready:
+		if err != nil {
+			ws.Close()
+			return nil, err
+		}
+	case <-time.After(30 * time.Second):
+		ws.Close()
+		return nil, errors.New("session manager: the agent did not answer the handshake")
+	case <-ctx.Done():
+		ws.Close()
+		return nil, ctx.Err()
+	}
+	return c, nil
+}
+
+type ssmConn struct {
+	ws      *websocket.Conn
+	wmu     sync.Mutex
+	seq     int64
+	expect  int64
+	in      chan []byte
+	pending []byte
+	ready   chan error
+	ronce   sync.Once
+	done    chan struct{}
+	donce   sync.Once
+	ooo     map[int64][]byte
+}
+
+const (
+	ssmInput    = "input_stream_data"
+	ssmOutput   = "output_stream_data"
+	ssmAck      = "acknowledge"
+	ssmClosed   = "channel_closed"
+	payOutput   = 1
+	payHandReq  = 5
+	payHandResp = 6
+	payHandDone = 7
+)
+
+type ssmMsg struct {
+	typ     string
+	seq     int64
+	flags   uint64
+	id      [16]byte
+	payType uint32
+	payload []byte
+}
+
+func encodeSSM(m ssmMsg) []byte {
+	b := make([]byte, 120+len(m.payload))
+	binary.BigEndian.PutUint32(b[0:], 116)
+	copy(b[4:36], bytes.Repeat([]byte{' '}, 32))
+	copy(b[4:], m.typ)
+	binary.BigEndian.PutUint32(b[36:], 1)
+	binary.BigEndian.PutUint64(b[40:], uint64(time.Now().UnixMilli()))
+	binary.BigEndian.PutUint64(b[48:], uint64(m.seq))
+	binary.BigEndian.PutUint64(b[56:], m.flags)
+	copy(b[64:80], m.id[:])
+	sum := sha256.Sum256(m.payload)
+	copy(b[80:112], sum[:])
+	binary.BigEndian.PutUint32(b[112:], m.payType)
+	binary.BigEndian.PutUint32(b[116:], uint32(len(m.payload)))
+	copy(b[120:], m.payload)
+	return b
+}
+
+func decodeSSM(b []byte) (ssmMsg, error) {
+	if len(b) < 120 {
+		return ssmMsg{}, errors.New("short message")
+	}
+	n := binary.BigEndian.Uint32(b[116:])
+	if int(n) > len(b)-120 {
+		return ssmMsg{}, errors.New("bad payload length")
+	}
+	m := ssmMsg{typ: strings.TrimRight(string(b[4:36]), " \x00"), seq: int64(binary.BigEndian.Uint64(b[48:])),
+		flags: binary.BigEndian.Uint64(b[56:]), payType: binary.BigEndian.Uint32(b[112:]), payload: b[120 : 120+n]}
+	copy(m.id[:], b[64:80])
+	sum := sha256.Sum256(m.payload)
+	if !bytes.Equal(sum[:], b[80:112]) && m.typ != ssmAck {
+		return ssmMsg{}, errors.New("payload digest does not match")
+	}
+	return m, nil
+}
+
+func (c *ssmConn) send(payType uint32, payload []byte) error {
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
+	var id [16]byte
+	rand.Read(id[:])
+	b := encodeSSM(ssmMsg{typ: ssmInput, seq: c.seq, id: id, payType: payType, payload: payload})
+	c.seq++
+	return c.ws.WriteMessage(websocket.BinaryMessage, b)
+}
+
+func (c *ssmConn) ack(m ssmMsg) {
+	p, _ := json.Marshal(map[string]any{"AcknowledgedMessageType": m.typ, "AcknowledgedMessageId": uuidString(m.id),
+		"AcknowledgedMessageSequenceNumber": m.seq, "IsSequentialMessage": true})
+	var id [16]byte
+	rand.Read(id[:])
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
+	c.ws.WriteMessage(websocket.BinaryMessage, encodeSSM(ssmMsg{typ: ssmAck, flags: 3, id: id, payload: p}))
+}
+
+func (c *ssmConn) readLoop() {
+	defer c.close()
+	for {
+		_, b, err := c.ws.ReadMessage()
+		if err != nil {
+			c.ronce.Do(func() { c.ready <- fmt.Errorf("session manager: %w", err) })
+			return
+		}
+		m, err := decodeSSM(b)
+		if err != nil {
+			continue
+		}
+		switch m.typ {
+		case ssmClosed:
+			c.ronce.Do(func() { c.ready <- errors.New("session manager closed the session: " + string(m.payload)) })
+			return
+		case ssmOutput:
+			c.ack(m)
+			if m.seq < c.expect {
+				continue // a resend
+			}
+			if m.seq > c.expect {
+				if c.ooo == nil {
+					c.ooo = map[int64][]byte{}
+				}
+				c.ooo[m.seq] = append([]byte{}, m.payload...)
+				continue
+			}
+			c.handle(m)
+			c.expect++
+			for {
+				p, ok := c.ooo[c.expect]
+				if !ok {
+					break
+				}
+				delete(c.ooo, c.expect)
+				c.handle(ssmMsg{payType: payOutput, payload: p})
+				c.expect++
+			}
+		}
+	}
+}
+
+func (c *ssmConn) handle(m ssmMsg) {
+	switch m.payType {
+	case payHandReq:
+		var req struct {
+			RequestedClientActions []struct {
+				ActionType string
+			}
+		}
+		json.Unmarshal(m.payload, &req)
+		var done []map[string]any
+		for _, a := range req.RequestedClientActions {
+			if a.ActionType == "KMSEncryption" {
+				c.ronce.Do(func() {
+					c.ready <- errors.New("session manager: this account encrypts sessions with KMS, which komando does not support yet")
+				})
+				return
+			}
+			done = append(done, map[string]any{"ActionType": a.ActionType, "ActionStatus": 1})
+		}
+		p, _ := json.Marshal(map[string]any{"ClientVersion": "1.2.0.0", "ProcessedClientActions": done, "Errors": []string{}})
+		c.send(payHandResp, p)
+	case payHandDone:
+		c.ronce.Do(func() { c.ready <- nil })
+	case payOutput:
+		c.ronce.Do(func() { c.ready <- nil }) // older agents skip the handshake
+		select {
+		case c.in <- append([]byte{}, m.payload...):
+		case <-c.done:
+		}
+	}
+}
+
+func (c *ssmConn) close() {
+	c.donce.Do(func() { close(c.done); c.ws.Close() })
+}
+
+func (c *ssmConn) Read(b []byte) (int, error) {
+	if len(c.pending) == 0 {
+		select {
+		case p := <-c.in:
+			c.pending = p
+		case <-c.done:
+			select {
+			case p := <-c.in:
+				c.pending = p
+			default:
+				return 0, io.EOF
+			}
+		}
+	}
+	n := copy(b, c.pending)
+	c.pending = c.pending[n:]
+	return n, nil
+}
+
+func (c *ssmConn) Write(b []byte) (int, error) {
+	for off := 0; off < len(b); off += 1024 {
+		if err := c.send(payOutput, b[off:min(off+1024, len(b))]); err != nil {
+			return off, err
+		}
+	}
+	return len(b), nil
+}
+
+func (c *ssmConn) Close() error                       { c.close(); return nil }
+func (c *ssmConn) LocalAddr() net.Addr                { return &net.TCPAddr{} }
+func (c *ssmConn) RemoteAddr() net.Addr               { return &net.TCPAddr{} }
+func (c *ssmConn) SetDeadline(t time.Time) error      { return nil }
+func (c *ssmConn) SetReadDeadline(t time.Time) error  { return nil }
+func (c *ssmConn) SetWriteDeadline(t time.Time) error { return nil }
+
+// Session Manager writes a UUID's two halves the other way round
+// (least significant first).
+func uuidString(id [16]byte) string {
+	b := append(append([]byte{}, id[8:]...), id[:8]...)
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+}
+
+func newUUID() string {
+	var b [16]byte
+	rand.Read(b[:])
+	b[6] = b[6]&0x0f | 0x40
+	b[8] = b[8]&0x3f | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+}

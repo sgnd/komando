@@ -20,7 +20,8 @@ func TestValidRef(t *testing.T) {
 	}
 }
 
-// The external refs run a CLI; a fake one on PATH shows the plumbing.
+// op:// still runs the 1Password CLI; a fake one on PATH shows the plumbing.
+// vault:, aws-sm: and gcp-sm: are built in (internal/cloud has their tests).
 func TestExternalRefs(t *testing.T) {
 	dir := t.TempDir()
 	fake := func(name, body string) {
@@ -29,15 +30,9 @@ func TestExternalRefs(t *testing.T) {
 		}
 	}
 	fake("op", `printf "op:%s" "$3"`)
-	fake("aws", `echo '{"password":"pw-from-aws","user":"u"}'`)
-	fake("vault", `echo "$3 $4"`)
-	fake("gcloud", `echo "$5 $6"`)
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	cases := map[string]string{
-		"op://Shop/db/password":         "op:op://Shop/db/password",
-		"aws-sm:shop/db#password":       "pw-from-aws",
-		"vault:secret/shop#db_password": "-field=db_password secret/shop",
-		"gcp-sm:db-pass@my-proj":        "--secret=db-pass --project=my-proj",
+		"op://Shop/db/password": "op:op://Shop/db/password",
 	}
 	for ref, want := range cases {
 		got, err := Resolve(ref)
@@ -48,7 +43,10 @@ func TestExternalRefs(t *testing.T) {
 	if _, err := Resolve("vault:secret/shop"); err == nil || !strings.Contains(err.Error(), "#FIELD") {
 		t.Errorf("vault without #FIELD: %v", err)
 	}
-	if _, err := Resolve("aws-sm:shop/db#nope"); err == nil {
+	if _, err := jsonKey(`{"password":"pw"}`, "nope"); err == nil {
 		t.Error("missing JSON key must fail")
+	}
+	if v, err := jsonKey(`{"password":"pw"}`, "password"); err != nil || v != "pw" {
+		t.Errorf("JSON key: %q %v", v, err)
 	}
 }

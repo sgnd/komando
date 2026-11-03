@@ -16,16 +16,19 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Backups always land on (and restore from) this computer. The database's
-// own tool (pg_dump, mysqldump, psql, mysql) runs on the conn's --via host
-// when it has one, otherwise here, and the data is streamed over SSH. The
-// password reaches the tool through its environment, never its arguments.
+// Backups always land on (and restore from) this computer. When the conn's
+// --via path ends at a server that has the database's own tool (pg_dump,
+// mysqldump, psql, mysql), that tool runs there and the data is streamed
+// over SSH, with the password in its environment. Otherwise (a direct
+// conn, a VPN, or a server without the tool) komando dumps and restores
+// itself (dbx.Dump, dbx.Restore): nothing has to be installed here.
 
 type dumpTool struct {
 	dump, restore []string
@@ -272,9 +275,27 @@ func runDump(ctx context.Context, connExpr, to string, o dumpOpts) error {
 	if tool.dump, err = o.args(t.Kind.Name, tool.dump); err != nil {
 		return err
 	}
+	builtin := !viaServer(st, c)
+	if builtin && o.format == "custom" {
+		return out.Usage("--format custom is pg_dump's archive; it needs a --via server with pg_dump. komando's own dump writes plain SQL")
+	}
 	data.Tool = tool.dump
+	if builtin {
+		data.Tool = []string{"komando"}
+	}
 	if g.dryRun {
 		out.P.Print("db.dump", data, nil)
+		return nil
+	}
+	builtinDump := func(w io.Writer) error {
+		db, closeDB, err := openDB(ctx, st, c, true)
+		if err != nil {
+			return err
+		}
+		defer closeDB()
+		if err := dbx.Dump(ctx, db, t.Kind.Name, dbx.DumpOptions{SchemaOnly: o.schemaOnly, Tables: o.tables}, w); err != nil {
+			return dumpErr(err, c)
+		}
 		return nil
 	}
 	err = writeAtomic(to, func(tmp string) error {
@@ -289,8 +310,28 @@ func runDump(ctx context.Context, connExpr, to string, o dumpOpts) error {
 			gz = gzip.NewWriter(f)
 			w = gz
 		}
-		if err := runTool(ctx, st, c, tool, tool.dump, nil, w); err != nil {
-			return err
+		if builtin {
+			if err := builtinDump(w); err != nil {
+				return err
+			}
+		} else if err := runTool(ctx, st, c, tool, tool.dump, nil, w); err != nil {
+			if toErr(err).Code != "TOOL_MISSING" || o.format == "custom" {
+				return err
+			}
+			// the server has no pg_dump/mysqldump: komando dumps it itself
+			data.Tool = []string{"komando"}
+			if _, err := f.Seek(0, 0); err != nil {
+				return err
+			}
+			if err := f.Truncate(0); err != nil {
+				return err
+			}
+			if gz != nil {
+				gz.Reset(f)
+			}
+			if err := builtinDump(w); err != nil {
+				return err
+			}
 		}
 		if gz != nil {
 			if err := gz.Close(); err != nil {
@@ -350,12 +391,40 @@ func runRestore(ctx context.Context, connExpr, from string) error {
 		RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}); err != nil {
 		return err
 	}
+	builtin := !viaServer(st, c)
+	if builtin && custom {
+		return out.Usage("%s is a pg_dump archive; restoring it needs pg_restore on a --via server. komando restores plain SQL itself", from)
+	}
 	data := transferData{Conn: c.Name, File: from, Bytes: fi.Size(), Tool: argv, RunsOn: runsOn, DryRun: g.dryRun}
+	if builtin {
+		data.Tool = []string{"komando"}
+	}
 	if g.dryRun {
 		out.P.Print("db.restore", data, nil)
 		return nil
 	}
-	err = withBackup(from, func(r io.Reader) error { return runTool(ctx, st, c, tool, argv, r, io.Discard) })
+	builtinRestore := func() error {
+		db, closeDB, err := openDB(ctx, st, c, false)
+		if err != nil {
+			return err
+		}
+		defer closeDB()
+		return withBackup(from, func(r io.Reader) error {
+			if err := dbx.Restore(ctx, db, t.Kind.Name, r); err != nil {
+				return out.Errf(out.ExitRemote, "RESTORE_FAILED", "nothing was changed (PostgreSQL restores in one transaction); fix the file and try again", "%v", err)
+			}
+			return nil
+		})
+	}
+	if builtin {
+		err = builtinRestore()
+	} else {
+		err = withBackup(from, func(r io.Reader) error { return runTool(ctx, st, c, tool, argv, r, io.Discard) })
+		if err != nil && toErr(err).Code == "TOOL_MISSING" && !custom {
+			data.Tool = []string{"komando"}
+			err = builtinRestore()
+		}
+	}
 	return finishTransfer(st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from}, err)
 }
 
@@ -483,9 +552,11 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, tool dumpTool,
 		}
 		return nil
 	}
-	h, ok := st.Hosts[c.Via]
-	if !ok {
-		return out.NotFound("host", c.Via)
+	// the last server of the --via path runs the tool (the path before it
+	// is how komando reaches that server)
+	h, _, err := resolveVia(st, c.Via)
+	if err != nil {
+		return err
 	}
 	sc, err := sshx.Dial(ctx, st, h, sshOpts(st))
 	if err != nil {
@@ -582,4 +653,25 @@ func (l *limitWriter) Write(p []byte) (int, error) {
 		l.n -= k
 	}
 	return len(p), nil
+}
+
+// viaServer reports whether the conn is reached through an SSH server
+// (whose own dump tools run there). Direct conns and VPNs are not.
+func viaServer(st *store.State, c *store.Conn) bool {
+	if c.Via == "" {
+		return false
+	}
+	h, vpn, err := resolveVia(st, c.Via)
+	return err == nil && vpn == nil && h != nil
+}
+
+// dumpErr names objects the built-in dump cannot write, with what to do.
+func dumpErr(err error, c *store.Conn) error {
+	var ue *dbx.UnsupportedError
+	if errors.As(err, &ue) {
+		return out.Errf(out.ExitUsage, "DUMP_UNSUPPORTED",
+			"reach the database through a server with pg_dump (`komando conn edit "+c.Name+" --via HOST`), or dump the other tables with --table",
+			"%v", err)
+	}
+	return out.Errf(out.ExitRemote, "DUMP_FAILED", "check the conn with `komando conn test "+c.Name+"`; through a server with pg_dump or mysqldump (`--via HOST`) its own tool runs instead", "%v", err)
 }

@@ -36,6 +36,81 @@ when the command then fails).
 
 The full machine-readable reference is `komando schema`.
 
+## Where am I? (status lines)
+
+When you type a command yourself, komando says on one line where you are
+working, before it connects. It does this for the commands you stay inside:
+`shell`, `db shell`, `cluster forward` and `logs --follow`.
+
+```
+komando: shell on web1 (deploy@10.0.1.5) via vpn office → bastion1
+komando: shell on prod-web1 (root@10.0.0.5) · PROTECTED
+komando: psql on app-db (read-only) via bastion1
+komando: forwarding 127.0.0.1:8080 → svc/api:80 on prod-k8s (Ctrl-C stops)
+komando: following logs on web1, web2 (Ctrl-C stops)
+```
+
+`via` is the way there: the VPN first, then the bastions. A protected
+server or database says `PROTECTED`, in red unless `NO_COLOR` is set. When a
+`shell` or `db shell` ends, one more line says how:
+`komando: left web1 (exit 0, 12m)`, or `komando: connection to web1 lost after 3m`.
+When a command connects a VPN by itself, komando says it stays up and how to
+stop it.
+
+These lines go to stderr and only to a person at a terminal. Agents, scripts
+and pipes never get them, and the JSON output does not change.
+
+## What is still running? (`komando status`)
+
+Some things keep running after the command that started them: a VPN (from
+`vpn up`, or connected by a command), a tunnel, a job on a server.
+`komando status` lists them all:
+
+```
+KIND    NAME    DETAIL                                     SINCE
+vpn     office  used 3m ago, closes in 26m if unused       42m
+tunnel  t-3f2a  127.0.0.1:5433 → app-db                    2h
+job     j-81c2  web1: pg_dump app | gzip > /backup/app...  15m
+jobs run on their servers: `komando job list --refresh` shows which still run
+```
+
+It contacts nothing, so it is quick and works offline. A job stays on the
+list until `komando job rm`; whether it still runs is known on its server,
+which `komando job list --refresh` asks. Agents get the same as JSON
+(`vpns`, `tunnels`, `jobs`).
+
+### In your shell prompt (optional)
+
+`komando prompt` prints a short note such as `vpn:office tun:2`, or nothing
+when nothing runs, so your prompt can show it all the time. Add it yourself;
+komando never changes your shell files.
+
+zsh (also with oh-my-zsh), in `~/.zshrc`:
+
+```zsh
+setopt PROMPT_SUBST
+RPROMPT='$(komando prompt)'
+```
+
+bash, in `~/.bashrc`:
+
+```bash
+PS1='$(p=$(komando prompt); [ -n "$p" ] && echo "[$p] ")'"$PS1"
+```
+
+starship, in `~/.config/starship.toml`:
+
+```toml
+[custom.komando]
+command = "komando prompt"
+when = true
+```
+
+It only reads komando's state file (no network, nothing written, never an
+error), so it is safe on every prompt. It is a quick hint: a VPN that
+crashed a moment ago can still show until the next komando command.
+`komando status` is the full check.
+
 ## Will my scripts keep working?
 
 Every JSON answer has `meta.contract` (now `1`). Within a contract, komando

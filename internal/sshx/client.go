@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
 
+	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -90,6 +92,17 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 			closeAll()
 			return nil, out.Errf(out.ExitUsage, "PROXY_NOT_FIRST", "a proxy command can only start a path; put that host first in --via",
 				"%s has a proxy command but is reached through another hop", hop.Name)
+		case builtinSSM(hop):
+			// AWS Session Manager, spoken by komando itself
+			sc, serr := cloud.SSMDial(ctx, os.Getenv("AWS_PROFILE"), "", hop.Address, strconv.Itoa(hop.EffectivePort()))
+			if serr != nil {
+				closeAll()
+				return nil, out.Errf(out.ExitConnect, "SSM_FAILED", "check the instance ID, its SSM agent and your AWS login (`komando login aws`)", "%s: %v", hop.Name, serr)
+			}
+			c, err = handshake(sc, addr, cfg, o.ConnectTimeout)
+			if err != nil {
+				sc.Close()
+			}
 		case hop.ProxyCommand != "":
 			// the program carries the connection (aws ssm, gcloud iap, cloudflared)
 			pc, perr := dialProxy(hop)
@@ -133,6 +146,12 @@ func keepalive(c *Client) {
 			return
 		}
 	}
+}
+
+// Route is the way to h: the VPN it starts with (or nil) and the SSH hops,
+// ending with h itself. It reads the inventory only; nothing is dialed.
+func Route(st *store.State, h *store.Host) (*store.Vpn, []*store.Host, error) {
+	return resolveChain(st, h, map[string]bool{})
 }
 
 // resolveChain returns the VPN the path starts with (or nil) and the SSH
@@ -503,4 +522,25 @@ func TrustKey(addr string, key ssh.PublicKey) error {
 		_ = os.WriteFile(p, nil, 0o600)
 	}
 	return appendKnownHost(p, addr, key)
+}
+
+// ssmProxyPrefix is how `host add --ssm` writes its proxy command.
+const ssmProxyPrefix = "aws ssm start-session --target %h --document-name AWS-StartSSHSession"
+
+// builtinSSM reports whether komando reaches the host through Session
+// Manager itself: when the aws CLI or its session-manager-plugin is not
+// installed (before, the host could not be reached at all), or when
+// KOMANDO_EXPERIMENTAL names ssm. With both installed they still do it.
+func builtinSSM(h *store.Host) bool {
+	if !strings.HasPrefix(h.ProxyCommand, ssmProxyPrefix) {
+		return false
+	}
+	for _, k := range strings.Split(os.Getenv("KOMANDO_EXPERIMENTAL"), ",") {
+		if k = strings.TrimSpace(k); k == "ssm" || k == "all" {
+			return true
+		}
+	}
+	_, e1 := exec.LookPath("aws")
+	_, e2 := exec.LookPath("session-manager-plugin")
+	return e1 != nil || e2 != nil
 }

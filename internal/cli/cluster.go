@@ -6,12 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net"
 	"net/url"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -185,7 +181,7 @@ scale and apply change the cluster (protected targets need --yes; try
 --dry-run); rm needs --allow-dangerous. Anything else: ` + "`cluster run`" + `
 passes the native kubectl or docker command, read-only unless --write.`,
 	}
-	c.AddCommand(clusterStatusCmd(), clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterExecCmd(), clusterForwardCmd(), clusterRestartCmd(),
+	c.AddCommand(clusterStatusCmd(), clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterExecCmd(), clusterShellCmd(), clusterForwardCmd(), clusterRestartCmd(),
 		clusterScaleCmd(), clusterApplyCmd(), clusterRmCmd(), clusterRunCmd())
 	return c
 }
@@ -1419,11 +1415,15 @@ func clusterRunCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "run TARGET -- ARGS...",
 		Short: "Run any kubectl (Kubernetes) or docker (Swarm manager) command; read-only unless --write",
-		Long: `For Kubernetes, kubectl runs on this computer with the conn's kubeconfig
-(a private temporary file) and reaches the API through the conn's --via
-path. For Swarm, docker runs on the manager. Commands that change things
-need --write; delete, drain and other risky verbs also need
---allow-dangerous.`,
+		Long: `For Kubernetes, komando runs the kubectl command itself (no kubectl
+needed) and reaches the API through the conn's --via path: get (tables,
+wide, name, json, yaml, jsonpath, custom-columns, -w), describe, logs,
+events, top, explain, version, api-resources, api-versions, cluster-info,
+auth can-i/whoami, wait, rollout, apply, diff, create, replace, delete,
+patch, label, annotate, scale, set image, cordon, uncordon, drain, taint,
+run, exec, cp, debug, certificate and config. For Swarm, docker runs on the
+manager. Commands that change things need --write; delete, drain and other
+risky verbs also need --allow-dangerous.`,
 		Example: `  komando cluster run prod-k8s -- get pods -A -o wide
   komando cluster run prod-k8s --write -- rollout undo deployment/api -n shop
   komando cluster run swarm-manager -- service ps web`,
@@ -1473,9 +1473,6 @@ need --write; delete, drain and other risky verbs also need
 				}
 				return runOne(cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
 			}
-			if _, err := exec.LookPath("kubectl"); err != nil {
-				return out.Errf(out.ExitNotFound, "KUBECTL_MISSING", "install kubectl (https://kubernetes.io/docs/tasks/tools/)", "cluster run needs kubectl on this computer")
-			}
 			if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"kubectl " + verb}}); err != nil {
 				if g.dryRun {
 					out.P.Print("cluster.run", map[string]any{"conn": t.conn.Name, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
@@ -1483,139 +1480,42 @@ need --write; delete, drain and other risky verbs also need
 				}
 				return err
 			}
+			if g.dryRun && risk > driver.RiskRead && oneOf(verb, "exec", "cp", "attach", "debug", "proxy", "port-forward", "run") {
+				return out.Usage("%s cannot be dry-run", verb)
+			}
 			// a watch (-w, logs -f) ends at --timeout like every command
 			ctx, cancel := context.WithTimeout(cmd.Context(), cmdTimeout(st))
 			defer cancel()
-			return runKubectl(ctx, st, t.conn, "cluster.run", args[1:], risk, false)
+			k, done, err := kubeClient(ctx, st, t.conn)
+			if err != nil {
+				return err
+			}
+			defer done()
+			code, stdout, stderr := runKctl(ctx, k, t.conn.Name, args[1:])
+			if risk > driver.RiskRead {
+				audit(st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args[1:]), " "), code == 0, map[string]any{"conns": []string{t.conn.Name}, "risk": risk.String()})
+			}
+			fail := kubectlFailure(code, stderr)
+			if out.P.Format == "text" {
+				fmt.Fprint(os.Stdout, out.SafeText(out.P.Redact(stdout)))
+				fmt.Fprint(os.Stderr, out.SafeText(out.P.Redact(stderr)))
+				if fail != nil {
+					return exitCode(fail.Exit)
+				}
+				return nil
+			}
+			out.P.Print("cluster.run", map[string]any{"conn": t.conn.Name, "exit_code": code, "stdout": stdout, "stderr": stderr}, fail)
+			if fail != nil {
+				return exitCode(fail.Exit)
+			}
+			return nil
 		},
 	}
 	c.Flags().BoolVar(&write, "write", false, "allow commands that change the cluster")
 	return c
 }
 
-// runKubectl runs kubectl with a private kubeconfig. When the conn has a
-// --via path, a local tunnel leads to the API and the kubeconfig points at
-// it (keeping the real server name for TLS).
-// runKubectl runs kubectl on this computer with the conn's kubeconfig (a
-// private temporary file) and its --via path. live connects kubectl to the
-// terminal even in JSON mode (port-forward runs until Ctrl-C).
-func runKubectl(ctx context.Context, st *store.State, c *store.Conn, name string, args []string, risk driver.Risk, live bool) error {
-	a, err := openAccess(ctx, st, c)
-	if err != nil {
-		return err
-	}
-	defer a.Close()
-	cfg, err := kube.Parse([]byte(a.Password))
-	if err != nil {
-		return out.Errf(out.ExitUsage, "KUBECONFIG", "import it again with `komando import kubeconfig`", "%v", err)
-	}
-	x, err := cfg.Resolve("")
-	if err != nil {
-		return out.Errf(out.ExitUsage, "KUBECONFIG", "import it again with `komando import kubeconfig`", "%v", err)
-	}
-	if a.Dial != nil {
-		u, err := url.Parse(x.Cluster.Server)
-		if err != nil {
-			return err
-		}
-		addr := u.Host
-		if u.Port() == "" {
-			addr += ":443"
-		}
-		local, stop, err := forwardLocal(ctx, a.Dial, addr)
-		if err != nil {
-			return err
-		}
-		defer stop()
-		if x.Cluster.TLSServerName == "" {
-			x.Cluster.TLSServerName = u.Hostname()
-		}
-		x.Cluster.Server = "https://" + local
-	}
-	kc, err := x.Standalone()
-	if err != nil {
-		return err
-	}
-	dir, err := os.MkdirTemp("", "komando-kube-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(dir)
-	path := filepath.Join(dir, "config")
-	if err := os.WriteFile(path, kc, 0o600); err != nil {
-		return err
-	}
-	kargs := []string{"--kubeconfig", path, args[0]}
-	if g.dryRun && risk > driver.RiskRead {
-		// right after the verb, so it can never become an argument of a
-		// command run inside a pod (exec ... -- CMD)
-		if oneOf(strings.ToLower(args[0]), "exec", "cp", "attach", "debug", "proxy", "port-forward", "run") {
-			return out.Usage("kubectl %s cannot be dry-run", args[0])
-		}
-		kargs = append(kargs, "--dry-run=server")
-	}
-	kargs = append(kargs, args[1:]...)
-	k := exec.CommandContext(ctx, "kubectl", kargs...)
-	var stdout, stderr bytes.Buffer
-	k.Stdout, k.Stderr = &stdout, &stderr
-	// an AI agent's output is masked, so it never goes straight to the screen
-	passthrough := out.P.Format == "text" && !out.P.Mask
-	// stderr is kept as well, to tell "not found" from other failures
-	if passthrough {
-		k.Stdout, k.Stderr, k.Stdin = os.Stdout, io.MultiWriter(os.Stderr, &stderr), os.Stdin
-	} else if live && out.P.Format != "text" {
-		k.Stdout, k.Stderr = os.Stderr, io.MultiWriter(os.Stderr, &stderr) // keep stdout for the one JSON answer
-	}
-	runErr := k.Run()
-	code := 0
-	if runErr != nil {
-		if ee, ok := runErr.(*exec.ExitError); ok {
-			code = ee.ExitCode()
-		} else {
-			return runErr
-		}
-	}
-	// the context ended it: Ctrl-C or --timeout
-	stopped := ctx.Err() != nil
-	if stopped {
-		code = 0
-	}
-	if risk > driver.RiskRead {
-		audit(st, name, nil, "kubectl "+strings.Join(redactArgs(args), " "), code == 0, map[string]any{"conns": []string{c.Name}, "risk": risk.String()})
-	}
-	fail := kubectlFailure(code, stderr.String())
-	if stopped && !live && errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		// a command that should end by itself ran out of time (a watch ends here too)
-		fail = &out.Error{Code: "TIMEOUT", Message: "kubectl was stopped at --timeout", Hint: "raise --timeout; a watch (-w) runs until it", Exit: out.ExitTimeout}
-		if hasFlag(args, "-w", "--watch", "--watch-only", "-f", "--follow") {
-			fail = nil // a watch or follow is meant to run until stopped
-		}
-	}
-	if out.P.Format == "text" {
-		if !passthrough {
-			fmt.Fprint(os.Stdout, out.SafeText(out.P.Redact(stdout.String())))
-			fmt.Fprint(os.Stderr, out.SafeText(out.P.Redact(stderr.String())))
-		}
-		if fail != nil {
-			if passthrough && fail.Code != "FAILED" {
-				fmt.Fprintf(os.Stderr, "error [%s]: %s\n", fail.Code, fail.Message)
-			}
-			return exitCode(fail.Exit)
-		}
-		return nil
-	}
-	data := map[string]any{"conn": c.Name, "exit_code": code, "stdout": stdout.String(), "stderr": stderr.String()}
-	if stopped {
-		data["stopped"] = true
-	}
-	out.P.Print(name, data, fail)
-	if fail != nil {
-		return exitCode(fail.Exit)
-	}
-	return nil
-}
-
-// kubectlFailure is the error for kubectl's exit code: nil when it worked,
+// kubectlFailure is the error for a kubectl-style exit code: nil when it worked,
 // not found (3) when the server said NotFound, else remote (5).
 func kubectlFailure(code int, stderr string) *out.Error {
 	if code == 0 {
@@ -1699,32 +1599,6 @@ func redactArgs(args []string) []string {
 		}
 	}
 	return res
-}
-
-// forwardLocal listens on a free local port and forwards each connection
-// to addr through dial. stop closes it.
-func forwardLocal(ctx context.Context, dial func(ctx context.Context, network, addr string) (net.Conn, error), addr string) (string, func(), error) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return "", nil, err
-	}
-	go func() {
-		for {
-			c, err := ln.Accept()
-			if err != nil {
-				return
-			}
-			go func() {
-				defer c.Close()
-				rc, err := dial(ctx, "tcp", addr)
-				if err != nil {
-					return
-				}
-				pipe(c, rc)
-			}()
-		}
-	}()
-	return ln.Addr().String(), func() { ln.Close() }, nil
 }
 
 // nilData is true for nil and for a nil map, slice or pointer in an any.

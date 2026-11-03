@@ -57,8 +57,12 @@ komando host add box me@ssh.example.com --proxy-command 'cloudflared access ssh 
 komando conn add rds postgres://app@mydb.xyz.rds.amazonaws.com/app --via web1   # a database behind it
 ```
 
-The tool must be installed and logged in on this computer (for `--ssm`: the
-aws CLI and its session-manager-plugin). `import ssh-config` keeps
+The tool must be installed and logged in on this computer. For `--ssm`,
+komando speaks AWS Session Manager itself when the aws CLI or its
+session-manager-plugin is not installed (with your usual AWS login;
+`komando login aws` for SSO); set `KOMANDO_EXPERIMENTAL=ssm` to use it even
+when they are. Sessions encrypted with KMS still need the plugin.
+`import ssh-config` keeps
 `ProxyCommand` lines; `import` of an export file drops them, because they
 run programs on your computer.
 
@@ -114,20 +118,25 @@ file (`file:/path`).
 Every `--password-ref` (servers, conns, VPNs) can point at the password
 manager your team already uses, instead of komando's own vault:
 
-| Reference | Reads it with |
-|-----------|---------------|
-| `secret:NAME` | komando's vault (`komando secret set NAME`) |
-| `env:VAR` | an environment variable |
-| `file:PATH` | a file |
-| `op://Vault/Item/field` | 1Password CLI (`op`) |
-| `vault:secret/shop#db_password` | HashiCorp Vault CLI (`vault kv get`) |
-| `aws-sm:shop/db#password` | AWS Secrets Manager (`aws`); `#key` picks a JSON field |
-| `gcp-sm:db-pass@my-project` | Google Secret Manager (`gcloud`) |
+| Reference | Reads it from | Login it uses |
+|-----------|---------------|---------------|
+| `secret:NAME` | komando's vault (`komando secret set NAME`) | — |
+| `env:VAR` | an environment variable | — |
+| `file:PATH` | a file | — |
+| `vault:secret/shop#db_password` | HashiCorp Vault or OpenBao, KV v1 or v2 | `VAULT_ADDR` and `VAULT_TOKEN` (or `~/.vault-token`), `VAULT_NAMESPACE`, `VAULT_CACERT` |
+| `aws-sm:shop/db#password` | AWS Secrets Manager; `#key` picks a JSON field | your AWS login (`AWS_PROFILE`, `~/.aws`, SSO via `komando login aws`) |
+| `gcp-sm:db-pass@my-project` | Google Secret Manager, latest version | Google application-default credentials (`GOOGLE_APPLICATION_CREDENTIALS`, or on Google Cloud) |
+| `bw://shop-db/password` | Bitwarden or Vaultwarden; the field is `password`, `username`, `notes`, `uri`, `totp` or a custom field | `KOMANDO_BW_EMAIL`, `KOMANDO_BW_PASSWORD` (decrypts the vault here), `KOMANDO_BW_SERVER` for Vaultwarden or bitwarden.eu, optional API key `KOMANDO_BW_CLIENT_ID`/`KOMANDO_BW_CLIENT_SECRET` |
+| `kdbx:~/team.kdbx#Servers/web1` | a KeePass or KeePassXC file (KDBX 3.1 and 4); `#UserName` or another field after the entry | `KOMANDO_KDBX_PASSWORD` and/or `KOMANDO_KDBX_KEYFILE` |
+| `op://Vault/Item/field` | 1Password, through a 1Password Connect server | `OP_CONNECT_HOST`, `OP_CONNECT_TOKEN` |
 
 ```bash
-komando conn add shop-db postgres://app@db.lan/shop --password-ref op://Shop/shop-db/password
+komando conn add shop-db postgres://app@db.lan/shop --password-ref vault:secret/shop#db_password
 ```
 
-komando runs that tool when it needs the password and never stores the
-value. The tool must be installed and signed in; its login (and any MFA)
-stays with you.
+komando talks to Vault, AWS, Google, Bitwarden, KeePass files and
+1Password Connect itself: no `vault`, `aws`, `gcloud`, `bw` or `op` program
+is needed. Without Connect, `op://` still uses the 1Password CLI for now;
+that path will be removed, because the CLI is closed source and komando
+uses only open-source parts. It reads the value when it needs it and never stores it;
+the login (and any MFA) stays with you.

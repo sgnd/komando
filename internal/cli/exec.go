@@ -303,6 +303,16 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 	}
 
 	follow := o.follow || (o.stream && name == "logs") // logs --follow
+	if follow {
+		s := statusLine{What: "following logs", Target: strings.Join(hostNames(hosts), ", "), Tail: "Ctrl-C stops"}
+		if len(hosts) == 1 {
+			s.Route = hostRoute(st, hosts[0])
+		}
+		for _, h := range hosts {
+			s.Protected = s.Protected || protectedHost(st, h)
+		}
+		showStatus(s)
+	}
 	var mu sync.Mutex
 	var failed bool
 	run := func(ctx context.Context, c *sshx.Client) (any, error) {

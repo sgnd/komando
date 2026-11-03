@@ -2,73 +2,93 @@ package cli
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/store"
 )
 
-func shellFor(t *testing.T, url, addr string, write bool) ([]string, []string) {
-	t.Helper()
-	tg, err := driver.Parse(url)
+// scriptTerm feeds lines to the shell and keeps what it writes.
+type scriptTerm struct {
+	lines  []string
+	out    strings.Builder
+	prompt string
+}
+
+func (s *scriptTerm) ReadLine() (string, error) {
+	if len(s.lines) == 0 {
+		return "", io.EOF
+	}
+	l := s.lines[0]
+	s.lines = s.lines[1:]
+	return l, nil
+}
+func (s *scriptTerm) SetPrompt(p string)          { s.prompt = p }
+func (s *scriptTerm) Write(b []byte) (int, error) { return s.out.Write(b) }
+
+func TestStatementDone(t *testing.T) {
+	for text, want := range map[string]bool{
+		"select 1;":              true,
+		"select 1":               false,
+		"select ';'":             false,
+		"select ';';":            true,
+		"select 'it''s';":        true,
+		"select 1 -- trailing ;": false,
+		"select 1; -- done":      true,
+		"select /* ; */ 1":       false,
+		"select $$ ; $$;":        true,
+		"create function f() as $body$ begin; end; $body$": false,
+		"select `a;b` from t;":                             true,
+		"select \"x;\";":                                   true,
+	} {
+		if got := statementDone(text); got != want {
+			t.Errorf("statementDone(%q) = %v, want %v", text, got, want)
+		}
+	}
+}
+
+// TestSQLShell drives the shell on a SQLite file: reads, multi-line input,
+// the read-only guard, expanded rows and meta commands.
+func TestSQLShell(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	path := filepath.Join(t.TempDir(), "app.db")
+	c := &store.Conn{Name: "app", Kind: "sqlite", URL: "sqlite://" + path}
+	st := &store.State{Settings: store.DefaultSettings()}
+	tg, _ := driver.Parse(c.URL)
+	db, err := dbx.Open(context.Background(), c.URL, tg, "", nil, false, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	argv, env, err := shellCommand(&store.Conn{URL: url}, tg, "s3cret-pw", addr, write)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return argv, env
-}
+	defer db.Close()
+	db.Exec("create table users (id integer primary key, name text); insert into users values (1, 'ana'), (2, 'budi');")
 
-func has(list []string, want string) bool {
-	for _, s := range list {
-		if s == want {
-			return true
+	run := func(write bool, lines ...string) string {
+		tm := &scriptTerm{lines: lines}
+		(&sqlShell{db: db, st: st, conn: c, kind: "sqlite", write: write, term: tm}).run(context.Background())
+		return tm.out.String()
+	}
+	o := run(false, "select name", "from users", "order by id;", `select * from users where id = 2\G`, `\d`, `\d users`, "delete from users;", `\x`, "select 1 as one;", `\nope`, `\q`)
+	for _, want := range []string{"ana", "budi", "(2 rows)", "-[ RECORD 1 ]", "name | budi", "users", "id", "primary key",
+		"the shell is read-only", "Expanded display is on.", "one | 1", "Invalid command \\nope"} {
+		if !strings.Contains(o, want) {
+			t.Errorf("output lacks %q:\n%s", want, o)
 		}
 	}
-	return false
-}
-
-func TestShellCommand(t *testing.T) {
-	t.Setenv("KOMANDO_VAULT_PASS", "vault-pass")
-
-	argv, env := shellFor(t, "postgres://app@db.internal:5432/app?sslmode=verify-full", "127.0.0.1:50123", false)
-	for _, want := range []string{"PGHOST=db.internal", "PGHOSTADDR=127.0.0.1", "PGPORT=50123", "PGSSLMODE=verify-full",
-		"PGPASSWORD=s3cret-pw", "PGOPTIONS=-c default_transaction_read_only=on"} {
-		if !has(env, want) {
-			t.Errorf("postgres env lacks %s", want)
-		}
+	o = run(true, "insert into users values (3, 'cici');", "select count(*) as n from users;")
+	if !strings.Contains(o, "1 row affected") || !strings.Contains(o, "3") {
+		t.Errorf("write shell:\n%s", o)
 	}
-	if strings.Contains(strings.Join(argv, " "), "s3cret-pw") {
-		t.Error("password on the command line")
+	o = run(true, "drop table users;")
+	if !strings.Contains(o, "refused") {
+		t.Errorf("destructive SQL needs --allow-dangerous:\n%s", o)
 	}
-	if _, env := shellFor(t, "postgres://app@db.internal:5432/app", "db.internal:5432", true); has(env, "PGOPTIONS=-c default_transaction_read_only=on") || has(env, "PGHOSTADDR=db.internal") {
-		t.Errorf("--write or direct connection set extra options: %v", env)
-	}
-
-	argv, env = shellFor(t, "mysql://shop@db.internal:3306/shop", "db.internal:3306", false)
-	if !has(argv, "--init-command=SET SESSION TRANSACTION READ ONLY") || !has(env, "MYSQL_PWD=s3cret-pw") || argv[len(argv)-1] != "shop" {
-		t.Errorf("mysql: %v", argv)
-	}
-	if argv, _ := shellFor(t, "sqlite:///tmp/app.db", "", false); !has(argv, "-readonly") {
-		t.Errorf("sqlite: %v", argv)
-	}
-	if argv, _ := shellFor(t, "sqlite:///tmp/app.db", "", true); has(argv, "-readonly") {
-		t.Errorf("sqlite --write: %v", argv)
-	}
-	for _, e := range env {
-		if strings.HasPrefix(e, "KOMANDO_VAULT_PASS=") {
-			t.Error("vault passphrase passed to the client")
-		}
-	}
-
-	tg, _ := driver.Parse("mysql://shop@db.internal:3306/shop?tls=true")
-	if _, _, err := shellCommand(&store.Conn{}, tg, "x", "127.0.0.1:5000", false); err == nil || toErr(err).Code != "TLS_THROUGH_FORWARD" {
-		t.Errorf("mysql TLS through a forward: %v", err)
+	if o = run(false, "select 'unfinished"); strings.Contains(o, "unfinished") {
+		t.Errorf("an unfinished statement must not run:\n%s", o)
 	}
 }
 
