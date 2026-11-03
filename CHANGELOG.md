@@ -4,6 +4,16 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Safer `komando shell` (`ssh`, `connect`)
+
+- `--dry-run` no longer opens a real shell: it shows the host, address,
+  user, `--via` path and whether it is protected, and connects nothing.
+- A protected server asks `[y/N]` before the shell opens, like `db shell`
+  on a protected conn; `--yes` skips the question.
+- AI agents are refused even when they run in a pseudo-terminal, and the
+  error code is now `NEEDS_TERMINAL` (was `NOT_A_TTY`), the same as
+  `db shell`. Like `db shell`, it also needs stderr to be a terminal.
+
 ### Feels like the native tools (an end-to-end round over every command)
 
 - `--dry-run` is never stopped by a safety rule: it shows the plan, and

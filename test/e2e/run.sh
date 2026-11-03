@@ -47,6 +47,33 @@ check() { # check "name" expected actual
   else FAIL=$((FAIL+1)); echo "  FAIL $1: expected [$2] got [$3]"; fi
 }
 
+# ptyrun INPUT CMD... runs CMD in a pseudo-terminal, as a person typing would:
+# INPUT is typed once a [y/N] question shows or after 3s. Prints what the
+# terminal showed and exits with CMD's exit code.
+ptyrun() {
+  python3 -I - "$@" <<'PY'
+import os, pty, select, sys, time
+pid, fd = pty.fork()
+if pid == 0:
+    os.execvp(sys.argv[2], sys.argv[2:])
+out, sent, start = b"", False, time.time()
+while time.time() - start < 30:
+    if not sent and (b"[y/N]" in out or time.time() - start > 3):
+        os.write(fd, sys.argv[1].encode().replace(b"\\n", b"\n")); sent = True
+    if select.select([fd], [], [], 0.2)[0]:
+        try:
+            b = os.read(fd, 4096)
+        except OSError:
+            break
+        if not b:
+            break
+        out += b
+_, st = os.waitpid(pid, 0)
+sys.stdout.write(out.decode(errors="replace"))
+sys.exit(os.waitstatus_to_exitcode(st))
+PY
+}
+
 echo "==> build"
 (cd "$ROOT" && go build -o bin/komando ./cmd/komando)
 
@@ -84,6 +111,12 @@ $K exec direct -- 'rm -rf /' >/dev/null; check "policy blocks rm -rf /" 6 $?
 $K exec target -- 'touch /tmp/x' >/dev/null; check "protected host needs --yes" 6 $?
 $K exec direct --timeout 1s -- 'sleep 5' >/dev/null; check "timeout -> 7" 7 $?
 $K exec nope -- true >/dev/null; check "unknown host -> 3" 3 $?
+$K shell direct </dev/null >/dev/null 2>&1; check "shell needs a terminal -> 2" 2 $?
+check "shell refuses agents" NEEDS_TERMINAL "$(A shell direct --dry-run </dev/null | jget 'd["error"]["code"]' || true)"
+ptyrun 'exit 3\n' "$K" shell direct >/dev/null; check "shell passes the remote exit code" 3 $?
+ptyrun 'n\n' "$K" shell target >/dev/null; check "shell on a protected host: no -> 6" 6 $?
+ptyrun 'exit 0\n' "$K" shell target --yes >/dev/null; check "shell on a protected host with --yes" 0 $?
+check "shell --dry-run reports the protected stop" PROTECTED_HOST "$(ptyrun '' "$K" -o json shell target --dry-run | tr -d '\r' | grep '^{' | jget 'd["meta"]["would_be_blocked"]["code"]')"
 set -e
 check "sudo works" root "$($K exec direct --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "dry-run reports block" PROTECTED_HOST "$($K exec @lab --dry-run -- 'touch x' | jget 'd["data"]["would_be_blocked"]["code"]')"

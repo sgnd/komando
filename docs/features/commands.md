@@ -46,6 +46,20 @@ A password for the remote command comes from the vault, so it is never
 typed or shown: `-e DB_PASS=secret:prod-db`. komando fills in the value on
 the way to the server.
 
+## Interactive shell (for people)
+
+```bash
+komando shell web1          # also: komando ssh web1, komando connect web1
+komando shell prod-web1     # protected: asks [y/N] first (--yes skips the question)
+komando shell web1 --dry-run   # shows the host, address, user and --via path; connects nothing
+```
+
+`shell` logs you in to the server, through its `--via` path (VPN and
+bastions) when it has one. Inside it you can type anything, so on a
+protected server it asks first, like `db shell` on a protected conn. It
+needs a person at a terminal: agents and scripts get `NEEDS_TERMINAL` and
+use `exec` or `job` instead.
+
 ## Long tasks
 
 Anything slow (backups, upgrades, builds) runs as a *job* that keeps going
