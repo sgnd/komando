@@ -11,7 +11,7 @@ check "dry-run shows a protected change" PROTECTED_HOST "$($K exec target --dry-
 check "dry-run banner in text" True "$(said "$(stderr_of $K exec target --dry-run -o text -- touch /tmp/x)" 'dry run: nothing was changed')"
 q $K host add t-e2egen-alias agent@TARGET. --via bastion --password-ref secret:agent-pass
 check "same server under another spelling is protected" PROTECTED_HOST "$($K exec t-e2egen-alias --dry-run -- touch /tmp/x | jget 'd["meta"]["would_be_blocked"]["code"]')"
-q $K host rm t-e2egen-alias
+q $K host rm t-e2egen-alias --yes # an alias of a protected server is protected too
 check "bad KOMANDO_OUTPUT names the variable" True "$(said "$(KOMANDO_OUTPUT=bogus $K list 2>&1 || true)" 'KOMANDO_OUTPUT=bogus')"
 set +e; $K exec direct -P -1 -- true >/dev/null 2>&1; check "negative -P refused" 2 $?; set -e
 check "many skipped targets: one line" 1 "$(stderr_of $K exec all --read-only -o text -- true | grep -c '^skipped' || true)"
