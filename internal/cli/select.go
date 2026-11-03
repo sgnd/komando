@@ -2,9 +2,11 @@ package cli
 
 import (
 	"fmt"
+	"net"
 	"path"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
@@ -73,10 +75,20 @@ func resolveSelection(st *store.State, expr string) (selection, error) {
 	}
 	if len(items) == 0 {
 		hint := "run `komando list` to see servers, conns, groups and tags"
-		if s := closestSelector(st, expr); s != "" {
+		if len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0 {
+			hint = "the inventory is empty. Add a server: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)"
+		} else if s := closestSelector(st, expr); s != "" {
 			hint = fmt.Sprintf("did you mean %q? (%s)", s, hint)
 		}
-		return sel, out.Errf(out.ExitNotFound, "TARGET_EMPTY", hint, "target %q matched nothing", expr)
+		msg := fmt.Sprintf("target %q matched nothing", expr)
+		if e := strings.TrimSpace(expr); !strings.Contains(e, ",") {
+			if gr, ok := strings.CutPrefix(e, "@"); ok {
+				msg = fmt.Sprintf("no group named %q", gr)
+			} else if t, ok := strings.CutPrefix(e, "tag:"); ok {
+				msg = fmt.Sprintf("nothing has the tag %q", t)
+			}
+		}
+		return sel, out.Errf(out.ExitNotFound, "TARGET_EMPTY", hint, "%s", msg)
 	}
 	return sel, nil
 }
@@ -87,6 +99,9 @@ func resolveExpr[T any](expr string, match func(sel string) ([]T, error), name f
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
 		return nil, out.Usage("empty target")
+	}
+	if strings.HasPrefix(expr, "!") {
+		expr = "all," + expr // "!web1" means everything but web1
 	}
 	include := map[string]T{}
 	exclude := map[string]bool{}
@@ -139,12 +154,48 @@ func matchSelector(st *store.State, sel string) (selection, error) {
 	if v, ok := st.Vpns[sel]; ok {
 		return selection{Vpns: []*store.Vpn{v}}, nil
 	}
-	if strings.Contains(sel, "@") {
-		if h, err := sshx.ParseAdhoc(sel); err == nil {
+	if n, ok := foldMatch(sel, allNames(st)); ok { // Web1 for web1
+		return matchSelector(st, n)
+	}
+	if looksAdhoc(sel) {
+		if h, err := sshx.ParseAdhoc(sel); err == nil && validPort(h.Port) == nil {
+			h.Address = normAddr(h.Address)
 			return selection{Hosts: []*store.Host{h}}, nil
 		}
 	}
 	return selection{}, targetNotFound(st, sel)
+}
+
+// looksAdhoc: user@host[:port], or an IP address or host:port without a
+// user (the login user is then the default one).
+func looksAdhoc(sel string) bool {
+	if strings.Contains(sel, "@") {
+		return true
+	}
+	if net.ParseIP(strings.Trim(sel, "[]")) != nil {
+		return true
+	}
+	_, port, err := net.SplitHostPort(sel)
+	if err != nil {
+		return false
+	}
+	_, err = strconv.Atoi(port)
+	return err == nil
+}
+
+// allNames are the names of every server, conn and VPN.
+func allNames(st *store.State) []string {
+	var names []string
+	for _, h := range st.SortedHosts() {
+		names = append(names, h.Name)
+	}
+	for _, c := range st.SortedConns() {
+		names = append(names, c.Name)
+	}
+	for _, v := range st.SortedVpns() {
+		names = append(names, v.Name)
+	}
+	return names
 }
 
 // matchKind picks by type: kind:host, kind:conn, kind:vpn, a conn kind
@@ -236,16 +287,7 @@ func matchPattern[T any](items []T, attrs func(T) selAttrs, sel string) (res []T
 // targetNotFound is the error for an unknown name, with a "did you mean"
 // when a host, conn, group or tag is spelled almost the same.
 func targetNotFound(st *store.State, sel string) error {
-	var names []string
-	for _, h := range st.SortedHosts() {
-		names = append(names, h.Name)
-	}
-	for _, c := range st.SortedConns() {
-		names = append(names, c.Name)
-	}
-	for _, v := range st.SortedVpns() {
-		names = append(names, v.Name)
-	}
+	names := allNames(st)
 	hint := "run `komando list` to see servers, conns and VPNs"
 	if s := closest(sel, names); s != "" {
 		hint = fmt.Sprintf("did you mean %q? (%s)", s, hint)
@@ -316,24 +358,30 @@ func closest(word string, candidates []string) string {
 	return best
 }
 
+// editDistance counts the edits between a and b; swapping two neighbours
+// counts as one (wbe -> web), as people type.
 func editDistance(a, b string) int {
-	prev := make([]int, len(b)+1)
-	for j := range prev {
-		prev[j] = j
+	d := make([][]int, len(a)+1)
+	for i := range d {
+		d[i] = make([]int, len(b)+1)
+		d[i][0] = i
+	}
+	for j := range d[0] {
+		d[0][j] = j
 	}
 	for i := 1; i <= len(a); i++ {
-		cur := make([]int, len(b)+1)
-		cur[0] = i
 		for j := 1; j <= len(b); j++ {
 			cost := 1
 			if a[i-1] == b[j-1] {
 				cost = 0
 			}
-			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+			d[i][j] = min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+cost)
+			if i > 1 && j > 1 && a[i-1] == b[j-2] && a[i-2] == b[j-1] {
+				d[i][j] = min(d[i][j], d[i-2][j-2]+1)
+			}
 		}
-		prev = cur
 	}
-	return prev[len(b)]
+	return d[len(a)][len(b)]
 }
 
 // connFamily is the command a conn works with: db, cache or storage.

@@ -15,7 +15,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 E2E="$ROOT/test/e2e"
 K="$ROOT/bin/komando"
-KOMANDO_HOME="$(mktemp -d)"
+# E2E_HOME keeps the inventory after the run (with KEEP=1 for the
+# containers), to try commands by hand against the same lab
+KOMANDO_HOME="${E2E_HOME:-$(mktemp -d)}"
+mkdir -p "$KOMANDO_HOME" && chmod 700 "$KOMANDO_HOME"
 export KOMANDO_HOME
 export KOMANDO_ACTOR="e2e"
 # this script is a script, even when an AI agent starts it; the agent
@@ -32,7 +35,7 @@ FAIL=0
 cleanup() {
   [ "${KEEP:-0}" = 1 ] || docker compose -p "$PROJECT" -f "$E2E/compose.yml" down -v >/dev/null 2>&1 || true
   "$K" tunnel stop --all >/dev/null 2>&1 || true # only this run's tunnels
-  rm -rf "$KOMANDO_HOME"
+  [ -n "${E2E_HOME:-}" ] || rm -rf "$KOMANDO_HOME"
 }
 trap cleanup EXIT
 
@@ -371,7 +374,7 @@ check "deploy a bad image times out" ROLLOUT_TIMEOUT "$($K cluster deploy lab-k3
 check "history keeps the revisions" True "$($K cluster history lab-k3s deployment/web | jget 'len(d["data"]["revisions"]) >= 2 and d["data"]["revisions"][0]["images"] == ["komando.invalid/none:1"]')"
 check "rollback brings the old image back" "rancher/mirrored-pause:3.6" "$($K cluster rollback lab-k3s deployment/web --wait --timeout 90s | jget 'd["data"]["images"][0]')"
 check "rolled back and healthy" True "$($K cluster status lab-k3s deployment/web | jget 'd["data"]["rolled_out"]')"
-check "logs of a workload" True "$($K cluster logs lab-k3s deploy/web | jget '"pod" in d["data"]')"
+check "logs of a workload" True "$($K cluster logs lab-k3s deploy/web | jget '"object" in d["data"]')"
 check "logs by label" True "$($K cluster logs lab-k3s -l app=web | jget '"logs" in d["data"]')"
 check "logs -f stops at --timeout" True "$($K cluster logs lab-k3s deploy/web -f --timeout 3s | tail -1 | jget 'd["data"]["followed"]')"
 check "exec in a pod needs --read-only or a change" True "$($K cluster exec lab-k3s deploy/web --read-only --dry-run -- cat /etc/hostname | jget '"kubectl exec deploy/web" in d["data"]["would_run"]')"
@@ -383,7 +386,7 @@ q $K cluster rm lab-k3s deployment web --allow-dangerous
 echo "==> cluster (Docker Swarm)"
 q $K host add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --password-ref secret:agent-pass
 for _ in $(seq 1 60); do $K exec swarm1 --read-only -- docker node ls >/dev/null 2>&1 && break; sleep 2; done
-check "swarm status" True "$($K cluster status swarm1 | jget 'd["data"]["results"][0]["ok"]')"
+check "swarm status" True "$($K cluster status swarm1 | jget 'd["data"]["healthy"]')"
 cat > "$TMP/stack.yml" <<'YAML'
 services:
   web:
@@ -391,9 +394,9 @@ services:
     command: ["sleep", "86400"]
 YAML
 q $K cluster apply swarm1 --file "$TMP/stack.yml" --stack e2e
-check "swarm services" True "$($K cluster ls swarm1 services | jget 'any(r["Name"]=="e2e_web" for r in d["data"]["results"][0]["data"])')"
+check "swarm services" True "$($K cluster ls swarm1 services | jget 'any(r["name"]=="e2e_web" for r in d["data"]["items"])')"
 q $K cluster scale swarm1 service/e2e_web 2
-check "swarm scale" True "$($K cluster ls swarm1 services | jget 'any(r["Replicas"].endswith("/2") for r in d["data"]["results"][0]["data"])')"
+check "swarm scale" True "$($K cluster ls swarm1 services | jget 'any(r["ready"].endswith("/2") for r in d["data"]["items"])')"
 check "swarm status --wait" True "$($K cluster status swarm1 service/e2e_web --wait --timeout 90s | jget 'd["data"]["rolled_out"]')"
 check "swarm rollback --wait" 1/1 "$($K cluster rollback swarm1 service/e2e_web --wait --timeout 90s | jget 'd["data"]["replicas"]')"
 check "swarm logs -f stops at --timeout" True "$($K cluster logs swarm1 e2e_web -f --timeout 3s >/dev/null; echo True)"
@@ -482,6 +485,15 @@ PY
 check "edited audit record found" AUDIT_TAMPERED "$($K audit verify | jget 'd["error"]["code"]' || true)"
 cp "$TMP/audit.bak" "$KOMANDO_HOME/audit.jsonl"
 check "doctor checks security" True "$($K doctor | jget 'any(c["name"] == "security:audit_chain" and c["ok"] for c in d["data"]["security"])')"
+
+# checks per area (test/e2e/checks/*.sh) run here, against the same lab and
+# inventory; they use $K, A, check, jget, q and $TMP like the ones above
+for f in "$E2E"/checks/*.sh; do
+  [ -e "$f" ] || continue
+  echo "==> $(basename "$f" .sh)"
+  # shellcheck source=/dev/null
+  . "$f"
+done
 
 # no secret value may reach the state file or the audit log
 LEAKS=$(cat "$KOMANDO_HOME/state.json" "$KOMANDO_HOME/audit.jsonl" | { grep -c -E 'apppass|shoppass|redispass' || true; })

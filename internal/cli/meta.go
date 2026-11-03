@@ -1,28 +1,17 @@
 package cli
 
 import (
-	"bufio"
 	_ "embed"
-	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
-	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/sgnd/komando/internal/cachex"
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/policy"
-	"github.com/sgnd/komando/internal/sshx"
-	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -197,13 +186,18 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 		Short: "Machine-readable reference of every command, flag, exit code and selector",
 		Example: `  komando schema            # everything
   komando schema exec        # one command subtree
+  komando schema host.add    # one command, as named in the envelope
   komando schema --compact   # paths + short descriptions only`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			start := root
+			if len(args) == 1 && strings.Contains(args[0], ".") {
+				args = strings.Split(args[0], ".") // host.add, as in the envelope's command
+			}
 			if len(args) > 0 {
-				found, _, err := root.Find(args)
-				if err != nil || found == root {
-					return out.NotFound("command", strings.Join(args, " "))
+				found, rest, err := root.Find(args)
+				if err != nil || found == root || len(rest) > 0 {
+					return out.Errf(out.ExitNotFound, "COMMAND_NOT_FOUND", "run `komando schema --compact` to see every command",
+						"no command %q", strings.Join(args, " "))
 				}
 				start = found
 			}
@@ -284,362 +278,4 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 	}
 	c.Flags().BoolVar(&compact, "compact", false, "only paths and short descriptions")
 	return c
-}
-
-// ----------------------------------------------------------------- audit ---
-
-func auditCmd() *cobra.Command {
-	var limit int
-	var target, command string
-	var failed bool
-	c := &cobra.Command{
-		Use:   "audit",
-		Short: "Show the audit log of actions taken (who, what, where, result)",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			f, err := os.Open(store.Path("audit.jsonl"))
-			if err != nil {
-				out.P.Print("audit", map[string]any{"count": 0, "entries": []any{}}, nil)
-				return nil
-			}
-			defer f.Close()
-			var names map[string]bool
-			if target != "" {
-				st, err := loadState()
-				if err != nil {
-					return err
-				}
-				names = targetNames(st, target)
-			}
-			var all []map[string]any
-			sc := bufio.NewScanner(f)
-			sc.Buffer(make([]byte, 1<<20), 16<<20)
-			for sc.Scan() {
-				var e map[string]any
-				if json.Unmarshal(sc.Bytes(), &e) != nil {
-					continue
-				}
-				if command != "" && !strings.HasPrefix(e["command"].(string), command) {
-					continue
-				}
-				if failed && e["ok"] == true {
-					continue
-				}
-				if target != "" {
-					hs, _ := e["hosts"].([]any)
-					cs, _ := e["conns"].([]any)
-					match := false
-					for _, h := range append(hs, cs...) {
-						if n, ok := h.(string); ok && names[n] {
-							match = true
-						}
-					}
-					if !match {
-						continue
-					}
-				}
-				all = append(all, e)
-			}
-			if len(all) > limit {
-				all = all[len(all)-limit:]
-			}
-			out.P.Print("audit", map[string]any{"count": len(all), "entries": all}, nil)
-			return nil
-		},
-	}
-	c.AddCommand(auditVerifyCmd())
-	c.Flags().IntVarP(&limit, "limit", "n", 50, "last N entries")
-	c.Flags().StringVar(&target, "target", "", "only entries for these servers or conns (a selector, e.g. @prod)")
-	aliasFlag(c.Flags(), "host", "target")
-	c.Flags().StringVar(&command, "command", "", "filter by command prefix (e.g. exec, svc.)")
-	c.Flags().BoolVar(&failed, "failed", false, "only failed/blocked actions")
-	return c
-}
-
-// ---------------------------------------------------------------- config ---
-
-func configCmd() *cobra.Command {
-	c := &cobra.Command{Use: "config", Short: "Show or change settings (timeouts, parallelism, host-key policy, audit)"}
-	c.AddCommand(&cobra.Command{
-		Use:   "show",
-		Short: "Show settings and file locations",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			out.P.Print("config.show", map[string]any{"settings": st.Settings, "home": store.Home(),
-				"files": map[string]string{"state": store.Path("state.json"), "vault": store.Path("vault.json"), "known_hosts": sshx.KnownHostsPath(), "audit": store.Path("audit.jsonl")}}, nil)
-			return nil
-		},
-	})
-	c.AddCommand(&cobra.Command{
-		Use:   "set KEY VALUE",
-		Short: "Set host_key_policy|default_user|default_timeout|connect_timeout|parallel|max_output_bytes|audit|audit_sql|vpn_idle",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			var res store.Settings
-			err := store.Update(func(s *store.State) error {
-				v := args[1]
-				switch args[0] {
-				case "host_key_policy":
-					if v != "accept-new" && v != "strict" && v != "off" {
-						return out.Usage("host_key_policy: accept-new|strict|off")
-					}
-					rank := map[string]int{"off": 0, "accept-new": 1, "": 1, "strict": 2}
-					if rank[v] < rank[s.Settings.HostKeyPolicy] {
-						if err := guardSafety("loosening server identity checks to " + v); err != nil {
-							return err
-						}
-					}
-					s.Settings.HostKeyPolicy = v
-				case "default_user":
-					s.Settings.DefaultUser = v
-				case "default_timeout", "connect_timeout":
-					if _, err := parseDur(v); err != nil {
-						return out.Usage("invalid duration %q", v)
-					}
-					if args[0] == "default_timeout" {
-						s.Settings.DefaultTimeout = v
-					} else {
-						s.Settings.ConnectTimeout = v
-					}
-				case "parallel", "max_output_bytes":
-					n, err := strconv.Atoi(v)
-					if err != nil || n <= 0 {
-						return out.Usage("%s must be a positive integer", args[0])
-					}
-					if args[0] == "parallel" {
-						s.Settings.Parallel = n
-					} else {
-						s.Settings.MaxOutputBytes = n
-					}
-				case "audit":
-					on, ok := map[string]bool{"true": true, "on": true, "1": true, "false": false, "off": false, "0": false}[strings.ToLower(v)]
-					if !ok {
-						return out.Usage("audit: on|off")
-					}
-					if !on && s.Settings.Audit {
-						if err := guardSafety("turning off the audit log"); err != nil {
-							return err
-						}
-					}
-					s.Settings.Audit = on
-				case "vpn_idle":
-					if _, err := parseDur(v); err != nil {
-						return out.Usage("invalid duration %q", v)
-					}
-					s.Settings.VpnIdle = v
-				case "audit_sql":
-					if v != "full" && v != "hash" && v != "off" {
-						return out.Usage("audit_sql: full|hash|off (hash keeps a SHA-256 so repeated queries can be matched without storing their text)")
-					}
-					if v == "off" && s.Settings.AuditSQL != "off" {
-						if err := guardSafety("leaving SQL out of the audit log"); err != nil {
-							return err
-						}
-					}
-					s.Settings.AuditSQL = v
-				default:
-					return out.Usage("unknown setting %q", args[0])
-				}
-				res = s.Settings
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-			out.P.Print("config.set", res, nil)
-			return nil
-		},
-	})
-	return c
-}
-
-// ---------------------------------------------------------------- policy ---
-
-func policyCmd() *cobra.Command {
-	c := &cobra.Command{Use: "policy", Short: "Destructive-command guardrails: list rules, test a command, add deny patterns"}
-	c.AddCommand(&cobra.Command{
-		Use:   "list",
-		Short: "List built-in and custom rules",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			var rules []map[string]string
-			for _, r := range policy.Rules() {
-				rules = append(rules, map[string]string{"id": r.ID, "reason": r.Reason, "pattern": policy.Pattern(r)})
-			}
-			out.P.Print("policy.list", map[string]any{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "sql": driver.SQLRules(), "redis": cachex.Rules(), "data": driver.DataRules(),
-				"note": "guardrails catch common accidents; they are not a security boundary. Protected hosts and conns additionally need --yes for any mutating action. " +
-					"SQL without --write also runs in a read-only transaction, so the database itself refuses writes."}, nil)
-			return nil
-		},
-	})
-	var kind string
-	check := &cobra.Command{
-		Use:   "check COMMAND",
-		Short: "Test whether a shell command would be blocked, or rate SQL/Redis with --for KIND",
-		Example: `  komando policy check 'rm -rf /var/www'
-  komando policy check --for postgres 'delete from users'
-  komando policy check --for redis FLUSHALL`,
-		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			switch kind {
-			case "":
-			case "redis":
-				if len(args) == 1 { // one quoted argument: "CLIENT LIST"
-					args = strings.Fields(args[0])
-				}
-				out.P.Print("policy.check", cachex.Classify(args), nil)
-				return nil
-			default:
-				plan, err := driver.ClassifySQL(kind, strings.Join(args, " "))
-				if err != nil {
-					return err
-				}
-				out.P.Print("policy.check", plan, nil)
-				return nil
-			}
-			hits := policy.Check(strings.Join(args, " "), st.Settings.ExtraDenyPattern)
-			out.P.Print("policy.check", map[string]any{"blocked": len(hits) > 0, "matches": hits}, nil)
-			return nil
-		},
-	}
-	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: postgres, mysql, sqlite or redis")
-	c.AddCommand(check)
-	c.AddCommand(&cobra.Command{
-		Use:     "deny REGEX",
-		Short:   "Add a custom deny pattern (Go regexp)",
-		Example: `  komando policy deny 'kubectl\s+delete'`,
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := checkRegex(args[0]); err != nil {
-				return out.Usage("invalid regex: %v", err)
-			}
-			var pats []string
-			err := store.Update(func(s *store.State) error {
-				s.Settings.ExtraDenyPattern = dedupe(append(s.Settings.ExtraDenyPattern, args[0]))
-				pats = s.Settings.ExtraDenyPattern
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-			out.P.Print("policy.deny", map[string]any{"custom": pats}, nil)
-			return nil
-		},
-	})
-	c.AddCommand(&cobra.Command{
-		Use:   "allow REGEX",
-		Short: "Remove a custom deny pattern",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			var pats []string
-			err := store.Update(func(s *store.State) error {
-				if slices.Contains(s.Settings.ExtraDenyPattern, args[0]) {
-					if err := guardSafety("removing the deny rule " + args[0]); err != nil {
-						return err
-					}
-				}
-				s.Settings.ExtraDenyPattern = remove(s.Settings.ExtraDenyPattern, args)
-				pats = s.Settings.ExtraDenyPattern
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-			out.P.Print("policy.allow", map[string]any{"custom": pats}, nil)
-			return nil
-		},
-	})
-	return c
-}
-
-// ---------------------------------------------------------------- doctor ---
-
-func doctorCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "doctor",
-		Short: "Check the local setup (state dir, vault, ssh-agent, keys, inventory) and its security",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			type check struct {
-				Name   string `json:"name"`
-				OK     bool   `json:"ok"`
-				Detail string `json:"detail"`
-			}
-			var checks []check
-			st, err := loadState()
-			checks = append(checks, check{"state", err == nil, store.Home()})
-			if err != nil {
-				out.P.Print("doctor", map[string]any{"checks": checks}, toErr(err))
-				return exitCode(1)
-			}
-			if st.Settings.Audit {
-				f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-				detail := store.Path("audit.jsonl")
-				if err == nil {
-					f.Close()
-				} else {
-					detail = err.Error() + " (changes are refused until this is fixed)"
-				}
-				checks = append(checks, check{"audit_log", err == nil, detail})
-			}
-			checks = append(checks, check{"hosts", len(st.Hosts) > 0, strconv.Itoa(len(st.Hosts)) + " host(s); add with `komando host add` or `komando host import`"})
-			checks = append(checks, check{"keys", true, strconv.Itoa(len(st.Keys)) + " key(s) in keychain"})
-			sock := os.Getenv("SSH_AUTH_SOCK")
-			checks = append(checks, check{"ssh_agent", sock != "", map[bool]string{true: sock, false: "not running (optional)"}[sock != ""]})
-			for _, k := range st.Keys {
-				_, err := os.Stat(k.Path)
-				checks = append(checks, check{"key:" + k.Name, err == nil, k.Path})
-			}
-			for _, h := range st.SortedHosts() {
-				if h.Key != "" {
-					if _, ok := st.Keys[h.Key]; !ok {
-						checks = append(checks, check{"host:" + h.Name, false, "references missing key " + h.Key})
-					}
-				}
-			}
-			_, sshErr := exec.LookPath("ssh")
-			checks = append(checks, check{"openssh_client", sshErr == nil, "optional; komando has a built-in SSH client"})
-			for _, v := range st.SortedVpns() { // programs the registered VPNs need
-				for _, bin := range vpnClients(v) {
-					_, err := exec.LookPath(bin)
-					checks = append(checks, check{"vpn:" + v.Name + ":" + bin, err == nil,
-						map[bool]string{true: "installed", false: installHint(bin)}[err == nil]})
-				}
-			}
-			checks = append(checks, check{"platform", true, runtime.GOOS + "/" + runtime.GOARCH})
-			ok := true
-			for _, c := range checks {
-				if !c.OK && c.Name != "ssh_agent" && c.Name != "openssh_client" && c.Name != "hosts" {
-					ok = false
-				}
-			}
-			security := securityChecks(st)
-			for _, c := range security {
-				if !c.OK {
-					ok = false
-				}
-			}
-			var soft *out.Error
-			if !ok {
-				soft = out.Errf(out.ExitError, "DOCTOR_FAILED", "fix the failing checks above", "some checks failed")
-			}
-			out.P.Print("doctor", map[string]any{"checks": checks, "security": security}, soft)
-			if soft != nil {
-				return exitCode(1)
-			}
-			return nil
-		},
-	}
 }

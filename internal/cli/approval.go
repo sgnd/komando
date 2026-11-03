@@ -106,6 +106,18 @@ var flagMeaning = map[string]string{
 	"--reveal":          "show passwords, keys and tokens that komando hides from AI agents",
 }
 
+// policyStop is how every safety stop returns. Under --dry-run it does not
+// stop: the command goes on to show its plan, and meta.would_be_blocked
+// says the real run would stop here. A preview of a change on a protected
+// server is exactly when people need one.
+func policyStop(e *out.Error) error {
+	if g.dryRun {
+		out.P.WouldBlock(e)
+		return nil
+	}
+	return e
+}
+
 // approvalHint rewrites the hint of a safety stop for an AI agent: it tells
 // it how a person allows the command, or that the person said no.
 func approvalHint(e *out.Error) {

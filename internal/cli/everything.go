@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"text/tabwriter"
@@ -30,9 +32,16 @@ type targetRow struct {
 type targetList struct {
 	Count   int         `json:"count"`
 	Targets []targetRow `json:"targets"`
+	empty   bool        // the inventory itself is empty
 }
 
+// emptyInventory is what a person reads when there is nothing yet.
+const emptyInventory = "No servers or conns yet. Add one: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)"
+
 func (l targetList) Text() string {
+	if l.empty {
+		return emptyInventory + "\n"
+	}
 	var sb strings.Builder
 	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
 	fmt.Fprintln(tw, "NAME\tKIND\tWHERE\tVIA\tGROUPS\tTAGS\tPROTECTED")
@@ -83,10 +92,10 @@ func listCmdFor(only string) *cobra.Command {
 				}
 			}
 			sel = keepOnly(sel, only)
-			l := targetList{Targets: []targetRow{}}
+			l := targetList{Targets: []targetRow{}, empty: len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0}
 			for _, h := range sel.Hosts {
 				l.Targets = append(l.Targets, targetRow{Name: h.Name, Kind: "host",
-					Where: fmt.Sprintf("%s:%d", h.Address, h.EffectivePort()), Via: h.Via,
+					Where: net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())), Via: h.Via,
 					Groups: h.Groups, Tags: h.Tags, Protected: h.Protected})
 			}
 			for _, c := range sel.Conns {
@@ -127,25 +136,74 @@ type testData struct {
 
 func (d testData) Text() string {
 	var sb strings.Builder
-	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAME\tKIND\tRESULT\tLATENCY")
+	var rows [][]string
 	var hints []string
 	for _, r := range d.Results {
+		user, sudo, note := "", "", ""
+		switch det := r.Detail.(type) {
+		case testResult:
+			user = det.RemoteUser
+			if det.SudoNoPasswd != nil {
+				sudo = map[bool]string{true: "yes", false: "password"}[*det.SudoNoPasswd]
+			}
+		case connTestResult:
+			note = det.Version
+		case map[string]any:
+			if c, ok := det["checked"].(string); ok {
+				note = "checked through the VPN with " + c
+			} else if n, ok := det["note"].(string); ok {
+				note = n
+			}
+		}
 		if r.OK {
-			fmt.Fprintf(tw, "%s\t%s\tok\t%dms\n", r.Name, r.Kind, r.LatencyMS)
+			rows = append(rows, []string{r.Name, r.Kind, "ok", fmt.Sprintf("%dms", r.LatencyMS), user, sudo, note})
 			continue
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t-\n", r.Name, r.Kind, r.Error.Code)
+		rows = append(rows, []string{r.Name, r.Kind, r.Error.Code, "", "", "", ""})
 		hints = append(hints, fmt.Sprintf("%s: %s", r.Name, r.Error.Message))
 		if r.Error.Hint != "" {
 			hints = append(hints, "  hint: "+r.Error.Hint)
 		}
 	}
-	tw.Flush()
+	sb.WriteString(textTable([]string{"NAME", "KIND", "RESULT", "LATENCY", "USER", "SUDO", "NOTE"}, rows))
 	for _, h := range hints {
 		sb.WriteString(h + "\n")
 	}
 	return sb.String()
+}
+
+// fixTestError gives errors from the connection layer the exit code and
+// hint that fit `komando test`: a broken --via path or key file is a
+// setting to fix (1, 4), not a usage error; an ad-hoc target has no
+// inventory entry to show.
+func fixTestError(st *store.State, name string, e *out.Error) *out.Error {
+	c := *e
+	switch c.Code {
+	case "VIA_CYCLE":
+		c.Exit = out.ExitError
+	case "KEY_UNREADABLE":
+		c.Exit = out.ExitConnect
+		if st.Hosts[name] != nil {
+			c.Hint = "check the key file with `komando host show " + name + "`, or pick another with `komando host edit " + name + " --key NAME`"
+		}
+	case "AUTH_FAILED":
+		if st.Hosts[name] == nil {
+			c.Hint = "check the user and that your ssh-agent or ~/.ssh keys are accepted there; save it with `komando host add NAME " + name + " --key KEY` (or --password-ref)"
+		}
+	}
+	return &c
+}
+
+// vpnTest is testVpn with an error that says the --check address was
+// tried through the VPN (it is not a conn of its own).
+func vpnTest(ctx context.Context, st *store.State, v *store.Vpn) targetTest {
+	r := testVpn(ctx, st, v)
+	if r.Error != nil && v.Check != "" && strings.Contains(r.Error.Message, v.Check) {
+		e := *r.Error
+		e.Message = "checking through the VPN with " + v.Check + " (its --check address): " + e.Message
+		r.Error = &e
+	}
+	return r
 }
 
 func testCmd() *cobra.Command { return testCmdFor("") }
@@ -174,7 +232,7 @@ func testCmdFor(only string) *cobra.Command {
 			for _, o := range fanout(cmd.Context(), st, sel.Hosts, testHost) {
 				r := targetTest{Name: o.Host.Name, Kind: "host"}
 				if o.Err != nil {
-					r.Error = toErr(o.Err)
+					r.Error = fixTestError(st, o.Host.Name, toErr(o.Err))
 				} else {
 					d := o.Value.(testResult)
 					d.Host = o.Host.Name
@@ -184,7 +242,7 @@ func testCmdFor(only string) *cobra.Command {
 			}
 			res = append(res, testConns(cmd.Context(), st, sel.Conns)...)
 			for _, v := range sel.Vpns {
-				res = append(res, testVpn(cmd.Context(), st, v))
+				res = append(res, vpnTest(cmd.Context(), st, v))
 			}
 
 			data := testData{Results: res}

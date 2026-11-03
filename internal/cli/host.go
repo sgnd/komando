@@ -16,7 +16,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
@@ -52,20 +54,22 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.address, "address", "", "hostname or IP")
 	fl.IntVar(&f.port, "port", 0, "SSH port (default 22)")
 	fl.StringVar(&f.user, "user", "", "login user")
-	fl.StringVar(&f.key, "key", "", "keychain key name (see `komando key`)")
+	fl.StringVar(&f.key, "key", "", "name of a key in komando's keychain (see komando key list)")
 	fl.StringVar(&f.identity, "identity", "", "path to a private key file")
 	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	fl.StringVar(&f.sudoRef, "sudo-ref", "", "sudo password reference: secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
-	fl.StringVar(&f.jump, "via", "", "reach it through these host(s) (bastions), comma-separated chain")
+	fl.StringVar(&f.jump, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path, e.g. vpn1,bastion")
 	aliasFlag(fl, "jump", "via")
 	fl.StringVar(&f.proxyCommand, "proxy-command", "", "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)")
 	fl.BoolVar(&f.ssm, "ssm", false, "reach it through AWS Systems Manager: the address is the instance ID (needs the aws CLI and its session-manager-plugin)")
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (shown to agents in host show)")
-	fl.BoolVar(&f.protected, "protected", false, "require --yes for mutating actions (production safety)")
+	fl.BoolVar(&f.protected, "protected", false, "require --yes for any change to the server or to this entry (production safety)")
 	if edit {
 		fl.StringSliceVar(&f.addGroups, "add-group", nil, "add to group(s)")
 		fl.StringSliceVar(&f.rmGroups, "rm-group", nil, "remove from group(s)")
 		fl.StringSliceVar(&f.addTags, "add-tag", nil, "add tag(s)")
+		shortAlias(fl, "group", "g", "add-group")
+		shortAlias(fl, "tag", "t", "add-tag")
 		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove tag(s)")
 		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (empty value removes)")
 		fl.StringSliceVar(&f.env, "env", nil, "set env KEY=VALUE exported before commands (empty value removes)")
@@ -105,9 +109,9 @@ func hostAddCmd() *cobra.Command {
 				PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, ProxyCommand: f.proxyCommand, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
 				Protected: f.protected, Notes: f.notes}
 			if len(args) == 2 {
-				a, err := sshx.ParseAdhoc(args[1])
+				a, err := parseAddressArg(args[1])
 				if err != nil {
-					return out.Usage("invalid address %q", args[1])
+					return err
 				}
 				h.Address = a.Address
 				if a.User != "" && h.User == "" {
@@ -118,8 +122,10 @@ func hostAddCmd() *cobra.Command {
 				}
 			}
 			if h.Address == "" {
-				return out.Usage("address required: pass user@address[:port] or --address")
+				return out.Errf(out.ExitUsage, "USAGE", "e.g. komando host add "+name+" deploy@10.0.0.5, or --address 10.0.0.5",
+					"address required: pass user@address[:port] or --address")
 			}
+			h.Address = normAddr(h.Address)
 			if f.ssm {
 				h.ProxyCommand = ssmProxy
 			}
@@ -141,14 +147,24 @@ func hostAddCmd() *cobra.Command {
 			}
 			now := time.Now().UTC()
 			h.CreatedAt, h.UpdatedAt = now, now
+			res := hostResult{Host: h}
+			replaced := false
 			err = store.Update(func(s *store.State) error {
 				if err := checkNewName(s, "host", name, force); err != nil {
 					return err
 				}
+				_, replaced = s.Hosts[name]
 				if h.Key != "" {
 					if _, ok := s.Keys[h.Key]; !ok {
-						return out.NotFound("key", h.Key)
+						return keyNotFound(s, h.Key)
 					}
+				}
+				if err := checkHost(s, h); err != nil {
+					return err
+				}
+				if twin := protectedTwinHost(s, h); twin != "" && !h.Protected {
+					h.Protected = true
+					res.Warnings = append(res.Warnings, sameTwinWarning("server", name, twin))
 				}
 				s.Hosts[name] = h
 				return nil
@@ -156,8 +172,9 @@ func hostAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audit(nil, "host.add", []string{name}, "", true, nil)
-			out.P.Print("host.add", h, nil)
+			res.Action = addVerb(replaced)
+			audit(nil, "host.add", []string{name}, "", true, map[string]any{"action": res.Action})
+			out.P.Print("host.add", res, nil)
 			return nil
 		},
 	}
@@ -167,32 +184,65 @@ func hostAddCmd() *cobra.Command {
 	return c
 }
 
+// addVerb says what an add did, or would do under --dry-run.
+func addVerb(replaced bool) string {
+	v := map[bool]string{false: "added", true: "replaced"}[replaced]
+	if g.dryRun {
+		v = map[bool]string{false: "would_add", true: "would_replace"}[replaced]
+	}
+	return v
+}
+
+// parseAddressArg reads user@address[:port] for host add.
+func parseAddressArg(arg string) (*store.Host, error) {
+	if strings.HasPrefix(arg, "@") {
+		return nil, out.Errf(out.ExitUsage, "USAGE", "write user@address, or leave the user out: "+strings.TrimPrefix(arg, "@"), "empty user before @ in %q", arg)
+	}
+	a, err := sshx.ParseAdhoc(arg)
+	if err != nil {
+		return nil, out.Errf(out.ExitUsage, "USAGE", "write it as user@address[:port], e.g. deploy@10.0.0.5:2222", "invalid address %q", arg)
+	}
+	return a, nil
+}
+
 func hostEditCmd() *cobra.Command {
 	var f hostFlags
 	var rename string
 	c := &cobra.Command{
-		Use:     "edit NAME",
-		Short:   "Edit a host (only flags you pass are changed)",
-		Example: `  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "edit NAME",
+		Short: "Edit a host (only flags you pass are changed)",
+		Example: `  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo
+  komando host edit web1 -g web -t prod          # -g/-t add a group/tag
+  komando host edit db1 --via bastion --yes      # db1 is protected`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fl := cmd.Flags()
+			if len(changedFlags(cmd)) == 0 {
+				return out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando host edit "+args[0]+" --user deploy (see --help)", "nothing to change")
+			}
+			if err := editConflicts(fl, f.unset, map[string]string{"user": "user", "key": "key", "identity": "identity", "password-ref": "password-ref",
+				"sudo-ref": "sudo-ref", "via": "via", "jump": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected"},
+				[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
+				return err
+			}
 			if err := guardProxyCommand(f.proxyCommand); err != nil {
 				return err
 			}
-			var res *store.Host
+			var res hostResult
 			err := store.Update(func(s *store.State) error {
-				h, ok := s.Hosts[args[0]]
-				if !ok {
-					return out.NotFound("host", args[0])
+				h, err := findHost(s, args[0])
+				if err != nil {
+					return err
 				}
+				before, _ := json.Marshal(h)
 				wasProtected := h.Protected
-				fl := cmd.Flags()
+				conn := *h // the connection settings before the edit
 				set := func(name string, dst *string, v string) {
 					if fl.Changed(name) {
 						*dst = v
 					}
 				}
-				set("address", &h.Address, f.address)
+				set("address", &h.Address, normAddr(f.address))
 				set("user", &h.User, f.user)
 				set("key", &h.Key, f.key)
 				set("identity", &h.Identity, f.identity)
@@ -215,11 +265,11 @@ func hostEditCmd() *cobra.Command {
 				}
 				if h.Key != "" {
 					if _, ok := s.Keys[h.Key]; !ok {
-						return out.NotFound("key", h.Key)
+						return keyNotFound(s, h.Key)
 					}
 				}
-				h.Groups = dedupe(append(remove(h.Groups, f.rmGroups), f.addGroups...))
-				h.Tags = dedupe(append(remove(h.Tags, f.rmTags), f.addTags...))
+				h.Groups = dedupe(append(removeFold(h.Groups, f.rmGroups), f.addGroups...))
+				h.Tags = dedupe(append(removeFold(h.Tags, f.rmTags), f.addTags...))
 				if err := applyKV(&h.Labels, f.labels); err != nil {
 					return err
 				}
@@ -252,11 +302,17 @@ func hostEditCmd() *cobra.Command {
 					case "protected":
 						h.Protected = false
 					default:
-						return out.Usage("cannot unset %q", u)
+						return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, password-ref, sudo-ref, via, proxy-command, notes, port, protected",
+							"cannot unset %q", u)
 					}
 				}
 				if wasProtected && !h.Protected {
 					if err := guardProtection("host", "turning off protection of", []string{h.Name}); err != nil {
+						return err
+					}
+				}
+				if wasProtected && hostConnChanged(&conn, h) {
+					if err := guardProtection("host", "changing where or how komando logs in to", []string{h.Name}); err != nil {
 						return err
 					}
 				}
@@ -278,14 +334,29 @@ func hostEditCmd() *cobra.Command {
 						c.Via = renameStep(c.Via, old, rename)
 					}
 				}
-				h.UpdatedAt = time.Now().UTC()
-				res = h
+				if err := checkHost(s, h); err != nil {
+					return err
+				}
+				if !h.Protected {
+					if twin := protectedTwinHost(s, h); twin != "" {
+						h.Protected = true
+						res.Warnings = append(res.Warnings, sameTwinWarning("server", h.Name, twin))
+					}
+				}
+				after, _ := json.Marshal(h)
+				ch := string(before) != string(after)
+				if ch {
+					h.UpdatedAt = time.Now().UTC()
+				}
+				res.Host, res.Changed = h, &ch
 				return nil
 			})
 			if err != nil {
 				return err
 			}
-			audit(nil, "host.edit", []string{res.Name}, "", true, nil)
+			if *res.Changed {
+				audit(nil, "host.edit", []string{res.Name}, "", true, map[string]any{"flags": changedFlags(cmd)})
+			}
 			out.P.Print("host.edit", res, nil)
 			return nil
 		},
@@ -293,6 +364,55 @@ func hostEditCmd() *cobra.Command {
 	f.bind(c, true)
 	c.Flags().StringVar(&rename, "rename", "", "rename the host")
 	return c
+}
+
+// hostConnChanged: the edit changes which server komando reaches or how it
+// logs in.
+func hostConnChanged(a, b *store.Host) bool {
+	return !sameAddress(a.Address, b.Address) || a.Port != b.Port || a.User != b.User || a.Key != b.Key || a.Identity != b.Identity ||
+		a.PasswordRef != b.PasswordRef || a.SudoRef != b.SudoRef || a.Via != b.Via || a.ProxyCommand != b.ProxyCommand
+}
+
+// editConflicts refuses an edit that sets and unsets the same field, or
+// adds and removes the same group or tag. fields maps flag names to the
+// --unset word that clears them.
+func editConflicts(fl *pflag.FlagSet, unset []string, fields map[string]string, addRm [][2][]string) error {
+	for flag, word := range fields {
+		if fl.Lookup(flag) != nil && fl.Changed(flag) && slices.Contains(unset, word) {
+			return out.Errf(out.ExitUsage, "USAGE", "pass one of them", "--%s and --unset %s contradict each other", flag, word)
+		}
+	}
+	for _, p := range addRm {
+		for _, a := range p[0] {
+			if slices.ContainsFunc(p[1], func(r string) bool { return strings.EqualFold(r, a) }) {
+				return out.Errf(out.ExitUsage, "USAGE", "pass one of them", "%q is both added and removed", a)
+			}
+		}
+	}
+	return nil
+}
+
+// changedFlags lists the command's own flags that were given, for checks
+// and the audit log (names only: values may be references).
+func changedFlags(cmd *cobra.Command) []string {
+	var names []string
+	cmd.LocalNonPersistentFlags().VisitAll(func(f *pflag.Flag) {
+		if f.Changed {
+			names = append(names, f.Name)
+		}
+	})
+	return names
+}
+
+// removeFold is remove, ignoring case (group and tag selectors do).
+func removeFold(in, drop []string) []string {
+	var res []string
+	for _, s := range in {
+		if !slices.ContainsFunc(drop, func(d string) bool { return strings.EqualFold(d, s) }) {
+			res = append(res, s)
+		}
+	}
+	return res
 }
 
 // ssmProxy reaches an EC2 instance (the host's address is its ID) through
@@ -309,8 +429,8 @@ func guardProxyCommand(cmd string) error {
 		return nil
 	}
 	if hits := policy.Check(cmd, nil); len(hits) > 0 && !dangerOK() {
-		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a proxy command only carries the connection, e.g. `aws ssm start-session ...`",
-			"--proxy-command matches destructive rules: %s", hits[0].Reason)
+		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a proxy command only carries the connection, e.g. `aws ssm start-session ...`",
+			"--proxy-command matches destructive rules: %s", hits[0].Reason))
 	}
 	if isAgent() {
 		return guardSafety("--proxy-command runs `" + cmd + "` on this computer whenever komando connects")
@@ -366,9 +486,9 @@ func hostShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			h, ok := st.Hosts[args[0]]
-			if !ok {
-				return out.NotFound("host", args[0])
+			h, err := findHost(st, args[0])
+			if err != nil {
+				return err
 			}
 			out.P.Print("host.show", h, nil)
 			return nil
@@ -378,23 +498,34 @@ func hostShowCmd() *cobra.Command {
 
 func hostRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm NAME...",
+		Use:   "rm NAME|TARGET...",
 		Short: "Remove host(s) from the inventory (does not touch the server)",
-		Args:  cobra.MinimumNArgs(1),
+		Example: `  komando host rm web3
+  komando host rm @old --dry-run     # what a selector would remove
+  komando host rm 'tmp-*'`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var names []string
 			err := store.Update(func(s *store.State) error {
 				var prot []string
-				for _, n := range args {
-					if _, ok := s.Hosts[n]; !ok {
-						return out.NotFound("host", n)
+				batch := map[string]bool{}
+				hosts, err := rmHosts(s, args)
+				if err != nil {
+					return err
+				}
+				for _, h := range hosts {
+					names = append(names, h.Name)
+					batch[h.Name] = true
+					if h.Protected {
+						prot = append(prot, h.Name)
 					}
-					if s.Hosts[n].Protected {
-						prot = append(prot, n)
-					}
+				}
+				for _, n := range names {
 					for _, o := range s.SortedHosts() {
-						if o.Name != n && slices.Contains(viaChain(o.Via), n) {
+						// a host removed in the same command does not count
+						if !batch[o.Name] && slices.Contains(viaChain(o.Via), n) {
 							return out.Errf(out.ExitConflict, "HOST_IN_USE",
-								fmt.Sprintf("change it first: `komando host edit %s --via OTHER` (or --unset via)", o.Name),
+								fmt.Sprintf("change it first: `komando host edit %s --via OTHER` (or --unset via), or remove both together", o.Name),
 								"host %q is on the --via path of host %q", n, o.Name)
 						}
 					}
@@ -409,7 +540,7 @@ func hostRmCmd() *cobra.Command {
 				if err := guardProtection("host", "removing", prot); err != nil {
 					return err
 				}
-				for _, n := range args {
+				for _, n := range names {
 					delete(s.Hosts, n)
 				}
 				return nil
@@ -417,112 +548,14 @@ func hostRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audit(nil, "host.rm", args, "", true, nil)
-			out.P.Print("host.rm", map[string]any{"removed": args}, nil)
+			audit(nil, "host.rm", names, "", true, nil)
+			out.P.Print("host.rm", rmResult{Removed: names}, nil)
 			return nil
 		},
 	}
 }
 
 // --- import / export -------------------------------------------------------
-
-func hostImportCmd() *cobra.Command {
-	var sshConfig, jsonFile string
-	var groups []string
-	var overwrite bool
-	c := &cobra.Command{
-		Use:   "import",
-		Short: "Same as `komando import ssh-config` (hosts only)",
-		Example: `  komando host import --ssh-config ~/.ssh/config --group imported
-  komando host import --json fleet.json --overwrite`,
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			var hosts []*store.Host
-			var notes []string
-			switch {
-			case jsonFile != "":
-				b, err := readFileOrStdin(jsonFile)
-				if err != nil {
-					return err
-				}
-				var exp struct {
-					Hosts []*store.Host `json:"hosts"`
-				}
-				if err := json.Unmarshal(b, &exp); err != nil {
-					// accept a raw array too, or a full envelope from `host export`
-					var env struct {
-						Data struct {
-							Hosts []*store.Host `json:"hosts"`
-						} `json:"data"`
-					}
-					if err2 := json.Unmarshal(b, &hosts); err2 != nil {
-						if err3 := json.Unmarshal(b, &env); err3 != nil {
-							return out.Usage("cannot parse %s: %v", jsonFile, err)
-						}
-						hosts = env.Data.Hosts
-					}
-				} else {
-					hosts = exp.Hosts
-					if hosts == nil {
-						var env struct {
-							Data struct {
-								Hosts []*store.Host `json:"hosts"`
-							} `json:"data"`
-						}
-						_ = json.Unmarshal(b, &env)
-						hosts = env.Data.Hosts
-					}
-				}
-			default:
-				if sshConfig == "" {
-					home, _ := os.UserHomeDir()
-					sshConfig = filepath.Join(home, ".ssh", "config")
-				}
-				var err error
-				hosts, notes, err = parseSSHConfig(sshConfig)
-				if err != nil {
-					return err
-				}
-			}
-			added, skipped := []string{}, []string{}
-			err := store.Update(func(s *store.State) error {
-				now := time.Now().UTC()
-				for _, h := range hosts {
-					if h == nil || h.Name == "" || h.Address == "" {
-						continue
-					}
-					if validName("host", h.Name) != nil || checkNewName(s, "host", h.Name, overwrite) != nil {
-						skipped = append(skipped, h.Name)
-						continue
-					}
-					h.Groups = dedupe(append(h.Groups, groups...))
-					if h.CreatedAt.IsZero() {
-						h.CreatedAt = now
-					}
-					h.UpdatedAt = now
-					s.Hosts[h.Name] = h
-					added = append(added, h.Name)
-				}
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-			audit(nil, "host.import", added, "", true, nil)
-			res := map[string]any{"imported": added, "skipped_existing": skipped}
-			if len(notes) > 0 {
-				res["notes"] = notes
-			}
-			out.P.Print("host.import", res, nil)
-			return nil
-		},
-	}
-	c.Flags().StringVar(&sshConfig, "ssh-config", "", "OpenSSH config file (default ~/.ssh/config)")
-	c.Flags().StringVar(&jsonFile, "json", "", "komando JSON export file ('-' for stdin)")
-	c.Flags().StringSliceVarP(&groups, "group", "g", nil, "add imported hosts to group(s)")
-	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace existing hosts with the same name")
-	return c
-}
 
 func readFileOrStdin(p string) ([]byte, error) {
 	if p == "-" {
@@ -591,6 +624,9 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 						inc = filepath.Join(filepath.Dir(expandHome(path)), inc)
 					}
 					matches, _ := filepath.Glob(inc)
+					if len(matches) == 0 {
+						notes = append(notes, "Include "+inc+": no such file")
+					}
 					for _, m := range matches {
 						_ = read(m, depth+1)
 					}
@@ -622,6 +658,9 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 	for _, b := range blocks {
 		for _, pat := range b.patterns {
 			if strings.ContainsAny(pat, "*?!") {
+				if !strings.HasPrefix(pat, "!") {
+					notes = append(notes, "Host "+pat+": a pattern, not one server; its settings were used as defaults for the servers it matches")
+				}
 				continue
 			}
 			opts := map[string]string{}
@@ -638,9 +677,12 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 			}
 			name := pat
 			if !nameRe.MatchString(name) {
+				notes = append(notes, fmt.Sprintf("Host %s: not a name komando can use (letters, digits, . _ -)", pat))
 				continue
 			}
-			h := &store.Host{Name: name, Address: opts["hostname"], User: opts["user"], Via: opts["proxyjump"]}
+			// HostName may use %h (the name typed) and %% (a literal %)
+			hostname := strings.NewReplacer("%h", pat, "%%", "%").Replace(opts["hostname"])
+			h := &store.Host{Name: name, Address: hostname, User: opts["user"], Via: opts["proxyjump"]}
 			if pc := opts["proxycommand"]; pc != "" && !strings.EqualFold(pc, "none") && h.Via == "" {
 				h.ProxyCommand = pc // your own ssh config: the same program runs as with ssh
 			}
@@ -702,31 +744,6 @@ func expandHome(p string) string {
 	return p
 }
 
-func hostExportCmd() *cobra.Command {
-	var target string
-	c := &cobra.Command{
-		Use:   "export",
-		Short: "Hosts only, as JSON for `host import --json` (`komando export` saves everything)",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			hosts := st.SortedHosts()
-			if target != "" {
-				if hosts, err = resolveTargets(st, target); err != nil {
-					return err
-				}
-			}
-			out.P.Print("host.export", map[string]any{"hosts": hosts}, nil)
-			return nil
-		},
-	}
-	c.Flags().StringVar(&target, "target", "", "selector filter")
-	return c
-}
-
 // --- connectivity ----------------------------------------------------------
 
 type testResult struct {
@@ -762,8 +779,16 @@ func hostTrustCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "trust NAME",
 		Short: "Pin (or re-pin with --reset) a host's SSH key in komando's known_hosts",
-		Long:  "Fetches the host key directly (not through --via hosts) and stores it. Use --reset after a legitimate server rebuild.",
-		Args:  cobra.ExactArgs(1),
+		Long: `Fetches the server's host key and stores it in komando's known_hosts, like
+ssh-keyscan plus ssh-keygen -R. A host without --via is asked directly; a host
+behind --via servers or a VPN is reached through that path and its key is
+recorded on the way. Use --reset after a legitimate server rebuild: it
+forgets the old key first. With --dry-run nothing is fetched or changed; it
+only counts the pinned entries --reset would remove.`,
+		Example: `  komando host trust web1
+  komando host trust web1 --reset --dry-run   # how many pinned keys would go
+  komando host trust web1 --reset`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
@@ -774,6 +799,14 @@ func hostTrustCmd() *cobra.Command {
 				return err
 			}
 			addr := net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort()))
+			if g.dryRun {
+				res := map[string]any{"host": h.Name, "address": addr, "would_fetch_from": map[bool]string{true: "the server directly", false: "through --via " + h.Via}[h.Via == ""]}
+				if reset {
+					res["would_remove_entries"] = countPinned(addr)
+				}
+				out.P.Print("host.trust", res, nil)
+				return nil
+			}
 			removed := 0
 			if reset {
 				if removed, err = sshx.ForgetHost(addr); err != nil {
@@ -784,12 +817,10 @@ func hostTrustCmd() *cobra.Command {
 			if h.Via == "" {
 				key, err = sshx.ScanHostKey(cmd.Context(), addr, sshOpts(st).ConnectTimeout)
 				if err != nil {
-					return out.Errf(out.ExitConnect, "KEYSCAN_FAILED", "", "cannot fetch host key from %s: %v", addr, err)
+					return out.Errf(out.ExitConnect, "KEYSCAN_FAILED", "check the address and port with `komando host show "+h.Name+"`", "cannot fetch host key from %s: %v", addr, err)
 				}
-				if !g.dryRun {
-					if err := sshx.TrustKey(addr, key); err != nil {
-						return err
-					}
+				if err := sshx.TrustKey(addr, key); err != nil {
+					return err
 				}
 			} else {
 				// behind a jump: connect with accept-new to record the key
@@ -806,7 +837,7 @@ func hostTrustCmd() *cobra.Command {
 				res["key_type"] = key.Type()
 				res["fingerprint"] = ssh.FingerprintSHA256(key)
 			}
-			audit(st, "host.trust", []string{h.Name}, "", true, nil)
+			audit(st, "host.trust", []string{h.Name}, "", true, map[string]any{"reset": reset, "removed_entries": removed})
 			out.P.Print("host.trust", res, nil)
 			return nil
 		},
@@ -815,159 +846,22 @@ func hostTrustCmd() *cobra.Command {
 	return c
 }
 
-func hostSSHArgsCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "ssh-command NAME",
-		Short: "Print the equivalent OpenSSH command line for a host",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			h, err := singleHost(st, args[0])
-			if err != nil {
-				return err
-			}
-			parts := []string{"ssh", "-o", "UserKnownHostsFile=" + sshx.KnownHostsPath()}
-			if h.EffectivePort() != 22 {
-				parts = append(parts, "-p", strconv.Itoa(h.EffectivePort()))
-			}
-			if h.Identity != "" {
-				parts = append(parts, "-i", h.Identity)
-			} else if k, ok := st.Keys[h.Key]; ok {
-				parts = append(parts, "-i", k.Path)
-			}
-			if h.Via != "" {
-				var js []string
-				for _, j := range strings.Split(h.Via, ",") {
-					if jh, ok := st.Hosts[strings.TrimSpace(j)]; ok {
-						s := jh.Address
-						if jh.User != "" {
-							s = jh.User + "@" + s
-						}
-						if jh.EffectivePort() != 22 {
-							s += ":" + strconv.Itoa(jh.EffectivePort())
-						}
-						js = append(js, s)
-					} else {
-						js = append(js, j)
-					}
-				}
-				parts = append(parts, "-J", strings.Join(js, ","))
-			}
-			if h.ProxyCommand != "" {
-				parts = append(parts, "-o", "ProxyCommand="+h.ProxyCommand) // ssh fills in %h %p itself
-			}
-			dest := h.Address
-			if h.User != "" {
-				dest = h.User + "@" + dest
-			}
-			parts = append(parts, dest)
-			line := make([]string, len(parts))
-			for i, p := range parts {
-				line[i] = p
-				if strings.ContainsAny(p, " '\"$") {
-					line[i] = sshx.Q(p)
-				}
-			}
-			out.P.Print("host.ssh-command", sshCmdResult{Argv: parts, Command: strings.Join(line, " ")}, nil)
-			return nil
-		},
+// countPinned counts the known_hosts lines for addr, as ForgetHost would
+// remove them, without changing the file.
+func countPinned(addr string) int {
+	b, err := os.ReadFile(sshx.KnownHostsPath())
+	if err != nil {
+		return 0
 	}
-}
-
-type sshCmdResult struct {
-	Argv    []string `json:"argv"`
-	Command string   `json:"command"`
-}
-
-func (r sshCmdResult) Text() string { return r.Command }
-
-// --- groups ----------------------------------------------------------------
-
-func groupCmd() *cobra.Command {
-	c := &cobra.Command{Use: "group", Aliases: []string{"groups"}, Short: "List groups and manage membership"}
-	c.AddCommand(&cobra.Command{
-		Use:   "list",
-		Short: "List groups and tags with their members (servers and conns)",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			groups, tags := map[string][]string{}, map[string][]string{}
-			add := func(name string, gs, ts []string) {
-				for _, gr := range gs {
-					groups[gr] = append(groups[gr], name)
-				}
-				for _, t := range ts {
-					tags[t] = append(tags[t], name)
-				}
-			}
-			for _, h := range st.SortedHosts() {
-				add(h.Name, h.Groups, h.Tags)
-			}
-			for _, c := range st.SortedConns() {
-				add(c.Name, c.Groups, c.Tags)
-			}
-			for _, v := range st.SortedVpns() {
-				add(v.Name, v.Groups, v.Tags)
-			}
-			for _, m := range []map[string][]string{groups, tags} {
-				for k := range m {
-					sort.Strings(m[k])
-				}
-			}
-			out.P.Print("group.list", map[string]any{"groups": groups, "tags": tags}, nil)
-			return nil
-		},
-	})
-	member := func(use string, addTo bool) *cobra.Command {
-		return &cobra.Command{
-			Use:   use + " GROUP TARGET",
-			Short: map[bool]string{true: "Add servers and conns matching TARGET to GROUP", false: "Remove servers and conns matching TARGET from GROUP"}[addTo],
-			Args:  cobra.ExactArgs(2),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				change := func(gs []string) []string {
-					if addTo {
-						return dedupe(append(gs, args[0]))
-					}
-					return remove(gs, []string{args[0]})
-				}
-				hosts, conns := []string{}, []string{}
-				err := store.Update(func(s *store.State) error {
-					sel, err := resolveSelection(s, args[1])
-					if err != nil {
-						return err
-					}
-					for _, h := range sel.Hosts {
-						if h2, ok := s.Hosts[h.Name]; ok { // not ad-hoc
-							h2.Groups = change(h2.Groups)
-							hosts = append(hosts, h.Name)
-						}
-					}
-					for _, c := range sel.Conns {
-						c.Groups = change(c.Groups)
-						conns = append(conns, c.Name)
-					}
-					for _, v := range sel.Vpns {
-						v.Groups = change(v.Groups)
-						conns = append(conns, v.Name)
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				out.P.Print("group."+use, map[string]any{"group": args[0], "hosts": hosts, "conns": conns}, nil)
-				return nil
-			},
+	norm := knownhosts.Normalize(addr)
+	n := 0
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Fields(line)
+		if len(f) > 0 && slices.Contains(strings.Split(f[0], ","), norm) {
+			n++
 		}
 	}
-	c.AddCommand(member("add", true), member("rm", false))
-	return c
+	return n
 }
 
 // renameStep replaces a renamed host in a --via chain.
@@ -993,19 +887,5 @@ func dedupe(in []string) []string {
 		res = append(res, s)
 	}
 	sort.Strings(res)
-	return res
-}
-
-func remove(in, drop []string) []string {
-	d := map[string]bool{}
-	for _, x := range drop {
-		d[x] = true
-	}
-	var res []string
-	for _, s := range in {
-		if !d[s] {
-			res = append(res, s)
-		}
-	}
 	return res
 }

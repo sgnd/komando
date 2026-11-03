@@ -74,8 +74,54 @@ func guardBind(t tunnelSpec) error {
 	if t.Kind == "remote" {
 		where = "the server"
 	}
-	return out.Errf(out.ExitPolicy, "OPEN_BIND", "keep the default 127.0.0.1, or re-run with --yes if other machines should reach it",
-		"the tunnel would listen on %s of %s, open to its network", host, where)
+	return policyStop(out.Errf(out.ExitPolicy, "OPEN_BIND", "keep the default 127.0.0.1, or re-run with --yes if other machines should reach it",
+		"the tunnel would listen on %s of %s, open to its network", host, where))
+}
+
+func portInUse(addr, where string, err error) error {
+	return out.Errf(out.ExitConflict, "PORT_IN_USE", "pick another port, or 0 for a free one",
+		"%s on %s is already in use (%v)", addr, where, err)
+}
+
+// tunnelInfo is a started (or, under --dry-run, planned) tunnel.
+type tunnelInfo struct {
+	ID           string `json:"id,omitempty"`
+	Host         string `json:"host"`
+	Via          string `json:"via,omitempty"`
+	Conn         string `json:"conn,omitempty"`
+	Kind         string `json:"kind"`
+	Spec         string `json:"spec"`
+	Listen       string `json:"listen,omitempty"`
+	RemoteListen string `json:"remote_listen,omitempty"` // -R: the address is on the server
+	ListenOn     string `json:"listen_on,omitempty"`     // -R: which server
+	Target       string `json:"target,omitempty"`
+	PID          int    `json:"pid,omitempty"`
+	Log          string `json:"log,omitempty"`
+	would        bool
+}
+
+func (t tunnelInfo) Text() string {
+	listen := t.Listen
+	if listen == "" {
+		listen = t.Spec
+	}
+	var line string
+	switch t.Kind {
+	case "remote":
+		line = fmt.Sprintf("%s on %s -> %s on this computer", listen, t.Host, t.Target)
+	case "dynamic":
+		line = fmt.Sprintf("SOCKS5 proxy on %s (this computer), through %s", listen, t.Host)
+	default:
+		dest := t.Target
+		if t.Conn != "" {
+			dest = t.Conn + " (" + t.Target + ")"
+		}
+		line = fmt.Sprintf("%s (this computer) -> %s, through %s", listen, dest, t.Host)
+	}
+	if t.would {
+		return "would start a tunnel: " + line + "\n"
+	}
+	return "tunnel " + t.ID + " is up: " + line + "\nstop it with: komando tunnel stop " + t.ID + "\n"
 }
 
 func parseTunnel(kind, spec string) (tunnelSpec, error) {
@@ -180,8 +226,16 @@ func tunnelStartCmd() *cobra.Command {
 				hostName = h.Name
 			}
 			if g.dryRun {
-				out.P.Print("tunnel.start", map[string]any{"host": hostName, "via": via, "conn": conn, "kind": kind, "spec": spec}, nil)
+				out.P.Print("tunnel.start", tunnelInfo{Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, Target: ts.TargetAddr, would: true}, nil)
 				return nil
+			}
+			if kind != "remote" {
+				// a port already taken here: say so before starting anything
+				ln, err := net.Listen("tcp", ts.BindAddr)
+				if err != nil {
+					return portInUse(ts.BindAddr, "this computer", err)
+				}
+				ln.Close()
 			}
 			id := newID("t")
 			logPath := store.Path("tunnels", id+".log")
@@ -231,12 +285,24 @@ func tunnelStartCmd() *cobra.Command {
 				if i := strings.Index(s, "READY "); i >= 0 {
 					addr := strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0])
 					audit(st, "tunnel.start", []string{hostName}, "", true, map[string]any{"kind": kind, "spec": spec, "id": id})
-					out.P.Print("tunnel.start", map[string]any{"id": id, "host": hostName, "via": via, "conn": conn, "kind": kind, "spec": spec, "listen": addr, "pid": pid, "log": logPath}, nil)
+					info := tunnelInfo{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, Listen: addr, Target: ts.TargetAddr, PID: pid, Log: logPath}
+					if kind == "remote" {
+						info.RemoteListen, info.ListenOn = addr, hostName
+					}
+					out.P.Print("tunnel.start", info, nil)
 					return nil
 				}
 				if i := strings.Index(s, "ERROR "); i >= 0 {
 					_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
-					return out.Errf(out.ExitConnect, "TUNNEL_FAILED", "", "%s", strings.TrimSpace(s[i+6:]))
+					msg := strings.TrimSpace(s[i+6:])
+					if strings.Contains(msg, "address already in use") {
+						return portInUse(ts.BindAddr, "this computer", errors.New(msg))
+					}
+					if kind == "remote" && strings.Contains(msg, "request denied") {
+						return out.Errf(out.ExitConflict, "PORT_IN_USE", "the port may be taken on "+hostName+" (pick another, or 0 for a free one), or sshd there has AllowTcpForwarding off",
+							"%s refused to listen on %s: %s", hostName, ts.BindAddr, msg)
+					}
+					return out.Errf(out.ExitConnect, "TUNNEL_FAILED", "", "%s", msg)
 				}
 				time.Sleep(150 * time.Millisecond)
 			}
@@ -281,25 +347,57 @@ func alive(pid int) bool {
 	return pid > 0 && syscall.Kill(pid, 0) == nil
 }
 
+type tunnelRow struct {
+	*store.Tunnel
+	Alive  bool   `json:"alive"`
+	Listen string `json:"listen,omitempty"`
+}
+
+type tunnelList struct {
+	Count   int         `json:"count"`
+	Tunnels []tunnelRow `json:"tunnels"`
+}
+
+func (l tunnelList) Text() string {
+	if len(l.Tunnels) == 0 {
+		return "no tunnels\n"
+	}
+	rows := [][]string{}
+	for _, t := range l.Tunnels {
+		state := "up"
+		if !t.Alive {
+			state = "dead (removed)"
+		}
+		listen := t.Listen
+		if t.Kind == "remote" && listen != "" {
+			listen += " on " + t.Host
+		}
+		to := t.Spec
+		if ts, err := parseTunnel(t.Kind, t.Spec); err == nil && ts.TargetAddr != "" {
+			to = ts.TargetAddr
+			if t.Conn != "" {
+				to = t.Conn
+			}
+		}
+		rows = append(rows, []string{t.ID, t.Host, t.Kind, listen, to, state, humanAge(time.Since(t.StartedAt))})
+	}
+	return textTable([]string{"id", "host", "kind", "listen", "to", "state", "age"}, rows)
+}
+
 func tunnelListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List tunnels with liveness; dead entries are pruned",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			type row struct {
-				*store.Tunnel
-				Alive  bool   `json:"alive"`
-				Listen string `json:"listen,omitempty"`
-			}
-			rows := []row{}
+			rows := []tunnelRow{}
 			var dead []string
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
 			for _, t := range st.Tunnels {
-				r := row{Tunnel: t, Alive: alive(t.PID)}
+				r := tunnelRow{Tunnel: t, Alive: alive(t.PID)}
 				if b, err := os.ReadFile(t.LogFile); err == nil {
 					if i := strings.Index(string(b), "READY "); i >= 0 {
 						r.Listen = strings.TrimSpace(strings.SplitN(string(b)[i+6:], "\n", 2)[0])
@@ -319,7 +417,7 @@ func tunnelListCmd() *cobra.Command {
 					return nil
 				})
 			}
-			out.P.Print("tunnel.list", map[string]any{"count": len(rows), "tunnels": rows}, nil)
+			out.P.Print("tunnel.list", tunnelList{Count: len(rows), Tunnels: rows}, nil)
 			return nil
 		},
 	}
@@ -358,6 +456,10 @@ func tunnelStopCmd() *cobra.Command {
 			})
 			if err != nil {
 				return err
+			}
+			if g.dryRun {
+				out.P.Print("tunnel.stop", map[string]any{"would_stop": stopped}, nil)
+				return nil
 			}
 			out.P.Print("tunnel.stop", map[string]any{"stopped": stopped}, nil)
 			return nil

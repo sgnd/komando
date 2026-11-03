@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -391,9 +392,16 @@ func (c *Client) discover(ctx context.Context) error {
 			}
 			res := ResourceType{Path: gvPath, Name: r.Name, Kind: r.Kind, Namespaced: r.Namespaced}
 			c.discovery[gv+"/"+r.Kind] = res
+			group, version, grouped := strings.Cut(gv, "/")
 			for _, alias := range append([]string{r.Name, strings.ToLower(r.Kind)}, r.ShortNames...) {
-				if _, taken := c.discovery["name:"+alias]; !taken {
-					c.discovery["name:"+alias] = res
+				keys := []string{"name:" + alias}
+				if grouped { // deployment.apps, deployments.v1.apps
+					keys = append(keys, "name:"+alias+"."+group, "name:"+alias+"."+version+"."+group)
+				}
+				for _, k := range keys {
+					if _, taken := c.discovery[k]; !taken {
+						c.discovery[k] = res
+					}
 				}
 			}
 		}
@@ -425,7 +433,60 @@ func (c *Client) Resource(ctx context.Context, name string) (ResourceType, error
 	if r, ok := c.discovery["name:"+strings.ToLower(name)]; ok {
 		return r, nil
 	}
-	return ResourceType{}, fmt.Errorf("the cluster has no ResourceType type %q", name)
+	var known []string
+	for k := range c.discovery {
+		if a, ok := strings.CutPrefix(k, "name:"); ok {
+			known = append(known, a)
+		}
+	}
+	return ResourceType{}, &UnknownKindError{Kind: name, Suggest: Nearest(strings.ToLower(name), known)}
+}
+
+// UnknownKindError is a kind the cluster does not serve.
+type UnknownKindError struct {
+	Kind    string
+	Suggest string
+}
+
+func (e *UnknownKindError) Error() string {
+	if e.Suggest != "" {
+		return fmt.Sprintf("unknown kind %q; did you mean %q?", e.Kind, e.Suggest)
+	}
+	return fmt.Sprintf("unknown kind %q", e.Kind)
+}
+
+// Nearest is the word in known closest to w, or "" when none is close
+// (more than a third of its letters differ).
+func Nearest(w string, known []string) string {
+	best, bestD := "", len(w)/3+2
+	sort.Strings(known)
+	for _, k := range known {
+		if d := distance(w, k); d < bestD || (d == bestD && best != "" && len(k) < len(best)) {
+			best, bestD = k, d
+		}
+	}
+	return best
+}
+
+// distance is the Levenshtein edit distance.
+func distance(a, b string) int {
+	prev := make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		cur := make([]int, len(b)+1)
+		cur[0] = i
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+		}
+		prev = cur
+	}
+	return prev[len(b)]
 }
 
 // ResourceFor finds the ResourceType of an object (apiVersion + kind).

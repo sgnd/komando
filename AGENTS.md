@@ -12,7 +12,8 @@ through the `komando` CLI.
    Use `komando schema <command>` when unsure about flags.
 3. Look before you change: `komando list`, `komando test <target>`, `komando facts <target>`,
    then read logs/config/status.
-4. Before any change, run it once with `--dry-run`. Declare read-only
+4. Before any change, run it once with `--dry-run` (it is never blocked;
+   `meta.would_be_blocked` says what the real run would need). Declare read-only
    shell commands with `--read-only`. `db query` and `cache run` are the
    other way round: read-only unless you add `--write`.
 5. Edit files with `komando fs replace ... --backup`, never with `sed -i` over `exec`.

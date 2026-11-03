@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"mime"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 	"time"
 	"unicode/utf8"
 
@@ -29,7 +29,7 @@ import (
 // Storage commands work with S3-compatible buckets and FTP/FTPS/SFTP
 // folders through one interface. Like files on a server: ls and download
 // read, upload and rm change (protected conns need --yes), and downloads
-// never overwrite a local file.
+// never overwrite a local file unless --overwrite.
 
 func storageCmd() *cobra.Command {
 	c := &cobra.Command{
@@ -38,19 +38,27 @@ func storageCmd() *cobra.Command {
 		Short:   "Files in buckets and on file servers (S3, MinIO, R2, FTPS, SFTP): list, download, upload, share",
 		Long: `Work with a storage conn (see ` + "`komando conn`" + `): an S3-compatible bucket, or a
 folder on an FTPS, FTP or SFTP server. Keys are relative to the folder in the
-conn URL. ls and download only read. upload changes files and link shares one
-(S3 only; protected conns need --yes for both); rm deletes, so it also needs
---allow-dangerous. Downloads never overwrite a local file, and uploads to file
-servers go to a temporary name first, so a failed upload leaves nothing half
-written.`,
+conn URL; a key ending in / is a folder. ls, cat and download only read.
+upload changes files and link shares one (S3 only; protected conns need --yes
+for both); rm deletes, so it also needs --allow-dangerous. Downloads never
+overwrite a local file unless --overwrite, and uploads to file servers go to
+a temporary name first, so a failed upload leaves nothing half written.`,
 	}
 	c.AddCommand(storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
 	return c
 }
 
+type storageFn func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error)
+
 // withStorage resolves the conn, applies the seatbelts for v, runs fn and
 // audits the action. Dry runs of changes stop before contacting the server.
-func withStorage(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error)) error {
+func withStorage(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn storageFn) error {
+	return withStoragePreview(ctx, name, connExpr, v, rec, fn, nil)
+}
+
+// withStoragePreview is withStorage with a dry-run preview: for a change,
+// --dry-run runs preview (which only reads) instead of fn.
+func withStoragePreview(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn, preview storageFn) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -70,9 +78,12 @@ func withStorage(ctx context.Context, name, connExpr string, v driver.Verdict, r
 			return fail(err)
 		}
 		if g.dryRun {
-			audit(st, name, nil, "", true, rec)
-			out.P.Print(name, map[string]any{"conn": c.Name, "risk": v.Risk.String(), "dry_run": true, "note": "nothing sent: the change would be allowed"}, nil)
-			return nil
+			if preview == nil {
+				audit(st, name, nil, "", true, rec)
+				out.P.Print(name, map[string]any{"conn": c.Name, "risk": v.Risk.String(), "dry_run": true, "note": "nothing sent: the change would be allowed"}, nil)
+				return nil
+			}
+			fn = preview
 		}
 	}
 	if g.timeout > 0 {
@@ -90,7 +101,9 @@ func withStorage(ctx context.Context, name, connExpr string, v driver.Verdict, r
 		return fail(err)
 	}
 	audit(st, name, nil, "", true, rec)
-	out.P.Print(name, data, nil)
+	if data != nil {
+		out.P.Print(name, data, nil)
+	}
 	return nil
 }
 
@@ -166,20 +179,28 @@ type objectList struct {
 }
 
 func (l objectList) Text() string {
-	var sb strings.Builder
-	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
-	for _, o := range l.Objects {
+	var b strings.Builder
+	b.WriteString(objectTable(l.Objects))
+	if l.More {
+		fmt.Fprintf(&b, "(first %d; more exist: narrow the prefix or raise --limit)\n", l.Count)
+	}
+	return b.String()
+}
+
+// objectTable lists objects one per line: size, time, key.
+func objectTable(objs []storex.Object) string {
+	if len(objs) == 0 {
+		return ""
+	}
+	rows := make([][]string, len(objs))
+	for i, o := range objs {
 		if o.Dir {
-			fmt.Fprintf(tw, "DIR\t\t%s\n", o.Key)
+			rows[i] = []string{"DIR", "", o.Key}
 			continue
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", humanBytes(o.Size), o.Modified.Format("2006-01-02 15:04"), o.Key)
+		rows[i] = []string{humanBytes(o.Size), o.Modified.Format("2006-01-02 15:04"), o.Key}
 	}
-	tw.Flush()
-	if l.More {
-		fmt.Fprintf(&sb, "(first %d; more exist: narrow the prefix or raise --limit)\n", l.Count)
-	}
-	return sb.String()
+	return dataTable([]string{"size", "modified", "key"}, rows)
 }
 
 func storageLsCmd() *cobra.Command {
@@ -203,6 +224,11 @@ func storageLsCmd() *cobra.Command {
 					if err != nil {
 						return nil, err
 					}
+					if len(objs) == 0 && strings.Trim(prefix, "/") != "" {
+						// a bucket has no folders, only keys: nothing under the
+						// prefix is what a missing folder is on a file server
+						return nil, storex.FolderNotFound(prefix)
+					}
 					return objectList{Conn: c.Name, Prefix: prefix, Objects: objs, Count: len(objs), More: more}, nil
 				})
 		},
@@ -214,18 +240,38 @@ func storageLsCmd() *cobra.Command {
 
 func storageDownloadCmd() *cobra.Command {
 	var to string
+	var recursive, overwrite bool
 	c := &cobra.Command{
 		Use:     "download CONN KEY",
 		Aliases: []string{"get"},
-		Short:   "Same as `komando download CONN KEY`",
+		Short:   "Download an object (or a folder with -r) to this computer; same as `komando download CONN KEY`",
+		Long: `Saves KEY to a file named like the key in the current folder, or to --to:
+a file name, a folder (existing, or ending in /), or - for stdout (text
+output only). An existing file is never replaced unless --overwrite. With -r,
+KEY is a folder and everything under it is downloaded; files already here
+are kept unless --overwrite. --dry-run shows what would be saved where.`,
 		Example: `  komando storage download backups db/app-2026-11-02.sql.gz
-  komando storage download backups reports/q3.pdf --to ~/Downloads/q3.pdf`,
+  komando storage download backups reports/q3.pdf --to ~/Downloads/
+  komando storage download backups logs/app.log --to - -o text | less
+  komando storage download backups reports/ -r --to ./reports`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return storageDownload(cmd.Context(), "storage.download", args[0], args[1], to)
+			if recursive {
+				if to == "-" {
+					return out.Usage("-r saves a folder; --to - (stdout) takes one file")
+				}
+				dest := to
+				if dest == "" {
+					dest = path.Base(strings.TrimSuffix(args[1], "/"))
+				}
+				return syncDown(cmd.Context(), "storage.download", args[0], args[1], dest, syncOpts{onlyNew: !overwrite})
+			}
+			return storageDownloadTo(cmd.Context(), "storage.download", args[0], args[1], to, overwrite)
 		},
 	}
-	c.Flags().StringVar(&to, "to", "", "file to create (default: the key's file name in the current folder)")
+	c.Flags().StringVar(&to, "to", "", "file or folder to save to, or - for stdout (default: the key's file name here)")
+	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "download every object under the KEY folder")
+	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace files that already exist on this computer")
 	return c
 }
 
@@ -234,8 +280,13 @@ func storageUploadCmd() *cobra.Command {
 		Use:     "upload CONN FILE [KEY]",
 		Aliases: []string{"put"},
 		Short:   "Same as `komando upload CONN FILE [KEY]`",
+		Long: `Uploads FILE to KEY. Without KEY it keeps the file's name; a KEY ending in /
+is a folder, so the file keeps its name inside it. An existing object is
+replaced (the result says so); --dry-run checks the key and says whether it
+would replace one.`,
 		Example: `  komando storage upload backups prod-2026-11-02.sql.gz
-  komando storage upload backups ./report.pdf reports/2026/q3.pdf`,
+  komando storage upload backups ./report.pdf reports/2026/
+  komando storage upload backups ./report.pdf reports/2026/q3.pdf --dry-run`,
 		Args: cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := ""
@@ -277,11 +328,14 @@ first; --limit (default 1000) refuses to go on when more would be removed.`,
 				if strings.HasSuffix(k, "/") || strings.ContainsAny(k, "*?") {
 					return out.Usage("%q looks like a folder or pattern; use --prefix for folders (see `komando storage ls`)", k)
 				}
+				if err := storex.CheckKey(k); err != nil {
+					return err
+				}
 			}
 			var age time.Duration
 			if olderThan != "" {
 				var err error
-				if age, err = parseAge(olderThan); err != nil {
+				if age, err = parseAge(olderThan, "--older-than"); err != nil {
 					return err
 				}
 			}
@@ -290,7 +344,7 @@ first; --limit (default 1000) refuses to go on when more would be removed.`,
 				// list first, even in a dry run: the answer is the list
 				return storageRmPrefix(cmd.Context(), args[0], folderKey(prefix), age, limit, rec)
 			}
-			return withStorage(cmd.Context(), "storage.rm", args[0], driver.DataDelete(), rec,
+			return withStoragePreview(cmd.Context(), "storage.rm", args[0], driver.DataDelete(), rec,
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					done, err := removeKeys(ctx, s, keys)
 					rec["deleted"] = done
@@ -298,6 +352,24 @@ first; --limit (default 1000) refuses to go on when more would be removed.`,
 						return nil, err
 					}
 					return map[string]any{"conn": c.Name, "deleted": done}, nil
+				},
+				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
+					p := rmPlan{Conn: c.Name, DryRun: true, WouldDelete: []string{}, Missing: []string{}}
+					for _, k := range keys {
+						o, err := s.Stat(ctx, k)
+						if err != nil {
+							if toErr(err).Exit == out.ExitNotFound {
+								p.Missing = append(p.Missing, k)
+								continue
+							}
+							return nil, err
+						}
+						p.objs = append(p.objs, o)
+						p.WouldDelete = append(p.WouldDelete, k)
+						p.Bytes += o.Size
+					}
+					p.Count = len(p.WouldDelete)
+					return p, nil
 				})
 		},
 	}
@@ -307,8 +379,9 @@ first; --limit (default 1000) refuses to go on when more would be removed.`,
 	return c
 }
 
-// parseAge reads durations with days (30d) as well as Go units (12h).
-func parseAge(s string) (time.Duration, error) {
+// parseAge reads a positive duration with days (30d) as well as Go units
+// (12h, 90m); flag names the flag in the error.
+func parseAge(s, flag string) (time.Duration, error) {
 	if d, ok := strings.CutSuffix(s, "d"); ok {
 		if n, err := strconv.Atoi(d); err == nil && n > 0 {
 			return time.Duration(n) * 24 * time.Hour, nil
@@ -317,7 +390,7 @@ func parseAge(s string) (time.Duration, error) {
 	if d, err := time.ParseDuration(s); err == nil && d > 0 {
 		return d, nil
 	}
-	return 0, out.Usage("--older-than takes an age like 30d, 12h or 90m")
+	return 0, out.Usage("%s takes a positive duration like 30d, 12h or 90m (got %q)", flag, s)
 }
 
 func removeKeys(ctx context.Context, s storex.Bucket, keys []string) ([]string, error) {
@@ -335,6 +408,39 @@ func removeKeys(ctx context.Context, s storex.Bucket, keys []string) ([]string, 
 	return done, nil
 }
 
+// rmPlan is what rm removes (or, in a dry run or over --limit, would).
+type rmPlan struct {
+	Conn        string   `json:"conn"`
+	Prefix      string   `json:"prefix,omitempty"`
+	Count       int      `json:"count"`
+	Bytes       int64    `json:"bytes"`
+	Keys        []string `json:"keys,omitempty"`         // over --limit: the first ones
+	WouldDelete []string `json:"would_delete,omitempty"` // dry run
+	Missing     []string `json:"missing,omitempty"`      // dry run of exact keys: not there
+	Deleted     []string `json:"deleted,omitempty"`
+	DryRun      bool     `json:"dry_run,omitempty"`
+	objs        []storex.Object
+}
+
+func (p rmPlan) Text() string {
+	var b strings.Builder
+	switch {
+	case p.Deleted != nil:
+		fmt.Fprintf(&b, "deleted %d object%s (%s)\n", len(p.Deleted), plural(len(p.Deleted)), humanBytes(p.Bytes))
+		return b.String()
+	case p.DryRun:
+		b.WriteString(objectTable(p.objs))
+		for _, k := range p.Missing {
+			fmt.Fprintf(&b, "%s does not exist\n", k)
+		}
+		fmt.Fprintf(&b, "would delete %d object%s (%s)\n", p.Count, plural(p.Count), humanBytes(p.Bytes))
+	default: // over --limit
+		b.WriteString(objectTable(p.objs))
+		fmt.Fprintf(&b, "(the first %d of %d objects, %s in all)\n", len(p.objs), p.Count, humanBytes(p.Bytes))
+	}
+	return b.String()
+}
+
 // storageRmPrefix lists what is under prefix (and older than age), shows
 // it in a dry run, and removes it otherwise.
 func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Duration, limit int, rec map[string]any) error {
@@ -346,10 +452,8 @@ func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Dura
 	if err != nil {
 		return err
 	}
-	if !g.dryRun {
-		if err := guardConns(st, []*store.Conn{c}, driver.DataDelete()); err != nil {
-			return err
-		}
+	if err := guardConns(st, []*store.Conn{c}, driver.DataDelete()); err != nil {
+		return err // under --dry-run this only records the stop
 	}
 	b, err := openBucket(ctx, st, c)
 	if err != nil {
@@ -364,26 +468,29 @@ func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Dura
 		return out.Usage("more than a million objects under %q; use a narrower --prefix", prefix)
 	}
 	cutoff := time.Now().Add(-age)
-	var keys []string
-	var total int64
+	p := rmPlan{Conn: c.Name, Prefix: prefix}
 	for _, o := range objs {
 		if o.Dir || (age > 0 && !o.Modified.Before(cutoff)) {
 			continue
 		}
-		keys = append(keys, o.Key)
-		total += o.Size
+		p.objs = append(p.objs, o)
+		p.Bytes += o.Size
 	}
-	sort.Strings(keys)
-	res := map[string]any{"conn": c.Name, "prefix": prefix, "count": len(keys), "bytes": total}
+	sort.Slice(p.objs, func(i, j int) bool { return p.objs[i].Key < p.objs[j].Key })
+	keys := make([]string, len(p.objs))
+	for i, o := range p.objs {
+		keys[i] = o.Key
+	}
+	p.Count = len(keys)
 	if len(keys) > limit {
-		res["keys"] = keys[:limit]
-		out.P.Print("storage.rm", res, out.Errf(out.ExitConflict, "TOO_MANY", fmt.Sprintf("narrow --prefix or --older-than, or raise --limit above %d after checking the list", len(keys)),
+		p.Keys, p.objs = keys[:limit], p.objs[:limit]
+		out.P.Print("storage.rm", p, out.Errf(out.ExitConflict, "TOO_MANY", fmt.Sprintf("narrow --prefix or --older-than, or raise --limit above %d after checking the list", len(keys)),
 			"%d objects match, more than --limit %d", len(keys), limit))
 		return exitCode(out.ExitConflict)
 	}
 	if g.dryRun {
-		res["would_delete"], res["dry_run"] = keys, true
-		out.P.Print("storage.rm", res, nil)
+		p.WouldDelete, p.DryRun = keys, true
+		out.P.Print("storage.rm", p, nil)
 		return nil
 	}
 	done, err := removeKeys(ctx, b, keys)
@@ -392,8 +499,8 @@ func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Dura
 	if err != nil {
 		return err
 	}
-	res["deleted"] = done
-	out.P.Print("storage.rm", res, nil)
+	p.Deleted = done
+	out.P.Print("storage.rm", p, nil)
 	return nil
 }
 
@@ -402,11 +509,21 @@ func storageCatCmd() *cobra.Command {
 	var maxBytes int64
 	c := &cobra.Command{
 		Use:   "cat CONN KEY",
-		Short: "Show an object's content (text); --head/--tail N lines, at most --max-bytes",
+		Short: "Show an object's content (text); --head or --tail N lines, at most --max-bytes",
 		Example: `  komando storage cat backups logs/app-2026-11-02.log --tail 50
   komando storage cat config prod/app.env`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fl := cmd.Flags()
+			if fl.Changed("head") && fl.Changed("tail") {
+				return out.Usage("pick one of --head and --tail")
+			}
+			if fl.Changed("head") && head < 1 || fl.Changed("tail") && tail < 1 {
+				return out.Usage("--head and --tail take a number of lines (1 or more)")
+			}
+			if maxBytes < 1 {
+				return out.Usage("--max-bytes must be 1 or more")
+			}
 			return withStorage(cmd.Context(), "storage.cat", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					w := &capWriter{max: maxBytes}
@@ -417,8 +534,11 @@ func storageCatCmd() *cobra.Command {
 						return nil, err
 					}
 					text, truncated := w.buf.String(), w.capped
-					if !utf8.ValidString(text) {
-						return nil, out.Errf(out.ExitConflict, "NOT_TEXT", "download it with `komando storage download`", "%s is not text", args[1])
+					if w.capped {
+						text = strings.ToValidUTF8(text[:len(text)-incompleteRune(text)], "") // cut inside a character
+					}
+					if !utf8.ValidString(text) || strings.ContainsRune(text, 0) {
+						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "download it with `komando storage download CONN KEY`", "%s is not text", args[1])
 					}
 					lines := strings.SplitAfter(text, "\n")
 					if len(lines) > 0 && lines[len(lines)-1] == "" {
@@ -430,6 +550,9 @@ func storageCatCmd() *cobra.Command {
 					case tail > 0 && len(lines) > tail:
 						lines = lines[len(lines)-tail:]
 					}
+					if w.capped && out.P.Format == "text" {
+						fmt.Fprintf(os.Stderr, "(truncated at %s; raise --max-bytes or download it)\n", humanBytes(w.max))
+					}
 					return catData{Conn: c.Name, Key: args[1], Content: strings.Join(lines, ""), Truncated: truncated}, nil
 				})
 		},
@@ -438,6 +561,20 @@ func storageCatCmd() *cobra.Command {
 	c.Flags().IntVar(&tail, "tail", 0, "only the last N lines")
 	c.Flags().Int64Var(&maxBytes, "max-bytes", 1<<20, "read at most this much (default 1 MiB)")
 	return c
+}
+
+// incompleteRune is how many bytes at the end of s start a character that
+// was cut off.
+func incompleteRune(s string) int {
+	for n := 1; n <= 3 && n <= len(s); n++ {
+		if utf8.RuneStart(s[len(s)-n]) {
+			if !utf8.FullRuneInString(s[len(s)-n:]) {
+				return n
+			}
+			return 0
+		}
+	}
+	return 0
 }
 
 type catData struct {
@@ -476,7 +613,9 @@ func storageLinkCmd() *cobra.Command {
 		Short:   "Make a temporary download link that works without a login",
 		Long: `Prints a URL anyone can use to download KEY until it expires (default 1 hour,
 at most 7 days). Treat it like a password while it is valid. Sharing from a
-protected conn needs --yes. The link itself is not stored in the audit log.`,
+protected conn needs --yes. The link itself is not stored in the audit log.
+The link names the storage address in the conn URL: when komando reaches it
+through --via, only people who can reach that address can use the link.`,
 		Example: `  komando storage link backups reports/q3.pdf --expires 24h`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -490,7 +629,11 @@ protected conn needs --yes. The link itself is not stored in the audit log.`,
 					if err != nil {
 						return nil, err
 					}
-					return linkData{Conn: c.Name, Key: args[1], URL: u.String(), ExpiresAt: time.Now().Add(expires).UTC()}, nil
+					d := linkData{Conn: c.Name, Key: args[1], URL: u.String(), ExpiresAt: time.Now().Add(expires).UTC(), Warning: linkWarning(u, c.Via)}
+					if d.Warning != "" && out.P.Format == "text" {
+						fmt.Fprintln(os.Stderr, "warning: "+d.Warning)
+					}
+					return d, nil
 				})
 		},
 	}
@@ -498,31 +641,110 @@ protected conn needs --yes. The link itself is not stored in the audit log.`,
 	return c
 }
 
+// linkWarning says when a link points at an address only komando's --via
+// path can reach.
+func linkWarning(u *url.URL, via string) string {
+	if via == "" {
+		return ""
+	}
+	return fmt.Sprintf("the link points at %s, which komando reaches through %s; people outside that network cannot open it", u.Host, via)
+}
+
 type linkData struct {
 	Conn      string    `json:"conn"`
 	Key       string    `json:"key"`
 	URL       string    `json:"url"`
 	ExpiresAt time.Time `json:"expires_at"`
+	Warning   string    `json:"warning,omitempty"`
 }
 
 func (d linkData) Text() string { return d.URL + "\n" }
 
-// storageDownload saves one object to a new local file (never overwriting).
-func storageDownload(ctx context.Context, name, conn, key, to string) error {
+// downloadDest is where a download lands: to as given, inside it when it
+// is a folder (existing, or ending in /), or the key's name here.
+func downloadDest(to, key string) string {
+	base := path.Base(key)
+	switch {
+	case to == "":
+		return base
+	case strings.HasSuffix(to, "/") || strings.HasSuffix(to, string(filepath.Separator)):
+		return filepath.Join(to, base)
+	}
+	if fi, err := os.Stat(to); err == nil && fi.IsDir() {
+		return filepath.Join(to, base)
+	}
+	return to
+}
+
+type downloadData struct {
+	Conn     string `json:"conn"`
+	Key      string `json:"key"`
+	File     string `json:"file"`
+	Bytes    int64  `json:"bytes"`
+	Replaces bool   `json:"replaces,omitempty"`
+	DryRun   bool   `json:"dry_run,omitempty"`
+	RunsOn   string `json:"runs_on"`
+}
+
+func (d downloadData) Text() string {
+	if d.DryRun {
+		s := fmt.Sprintf("would save %s to %s (%s)", d.Key, d.File, humanBytes(d.Bytes))
+		if d.Replaces {
+			s += ", replacing the file there"
+		}
+		return s + "\n"
+	}
+	return fmt.Sprintf("%s: %s (%s)\n", d.Conn, d.File, humanBytes(d.Bytes))
+}
+
+// storageDownloadTo saves one object to a local file, - (stdout), or a
+// folder; an existing file is replaced only with overwrite.
+func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrite bool) error {
 	if err := guardSensitiveCopy(key); err != nil {
 		return err
 	}
-	dest := to
-	if dest == "" {
-		dest = path.Base(key)
+	if strings.HasSuffix(key, "/") {
+		return out.Usage("%q is a folder; add -r to download everything in it", key)
 	}
-	if _, err := os.Stat(dest); err == nil {
-		return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name with --to; downloads never overwrite", "%s already exists", dest)
+	if err := storex.CheckKey(key); err != nil {
+		return err
+	}
+	toStdout := to == "-"
+	if toStdout && out.P.Format != "text" {
+		return out.Usage("--to - writes the file itself to stdout, where JSON output goes too; add -o text, or give a file name")
+	}
+	dest := downloadDest(to, key)
+	exists := false
+	if !toStdout {
+		if fi, err := os.Stat(dest); err == nil {
+			if fi.IsDir() {
+				return out.Errf(out.ExitConflict, "FILE_EXISTS", "give a file name with --to", "%s is a folder", dest)
+			}
+			if !overwrite {
+				return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name with --to, or add --overwrite to replace it", "%s already exists", dest)
+			}
+			exists = true
+		}
 	}
 	return withStorage(ctx, name, conn, driver.Verdict{}, map[string]any{"key": key, "file": dest},
 		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
+			if g.dryRun { // a download changes this computer: check, write nothing
+				o, err := s.Stat(ctx, key)
+				if err != nil {
+					return nil, err
+				}
+				file := dest
+				if toStdout {
+					file = "stdout"
+				}
+				return downloadData{Conn: c.Name, Key: key, File: file, Bytes: o.Size, Replaces: exists, DryRun: true, RunsOn: "local"}, nil
+			}
+			if toStdout {
+				_, err := s.Get(ctx, key, out.P.W)
+				return nil, err
+			}
 			var n int64
-			err := writeAtomic(dest, func(tmp string) error {
+			fill := func(tmp string) error {
 				f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_TRUNC, 0o600)
 				if err != nil {
 					return err
@@ -532,26 +754,89 @@ func storageDownload(ctx context.Context, name, conn, key, to string) error {
 					return err
 				}
 				return f.Sync()
-			})
+			}
+			var err error
+			if exists {
+				err = writeReplacing(dest, fill)
+			} else {
+				err = writeAtomic(dest, fill)
+			}
 			if err != nil {
 				return nil, err
 			}
-			return transferData{Conn: c.Name, File: dest, Bytes: n, RunsOn: "local"}, nil
+			return downloadData{Conn: c.Name, Key: key, File: dest, Bytes: n, Replaces: exists, RunsOn: "local"}, nil
 		})
+}
+
+// writeReplacing is writeAtomic for --overwrite: the new file replaces the
+// old one only once it is complete.
+func writeReplacing(dest string, fill func(tmp string) error) error {
+	dir, err := os.MkdirTemp(filepath.Dir(dest), ".komando-*")
+	if err != nil {
+		return out.Errf(out.ExitError, "FILE_ERROR", "check that the folder exists and is writable", "%v", err)
+	}
+	defer os.RemoveAll(dir)
+	tmp := filepath.Join(dir, "data")
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	f.Close()
+	if err := fill(tmp); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, dest); err != nil {
+		return out.Errf(out.ExitError, "FILE_ERROR", "", "%v", err)
+	}
+	return nil
+}
+
+// uploadKey is where FILE goes: KEY, the file's name inside KEY when KEY
+// is a folder (ends in /), or the file's name.
+func uploadKey(file, key string) string {
+	if key == "" || strings.HasSuffix(key, "/") {
+		return key + filepath.Base(file)
+	}
+	return key
+}
+
+type uploadData struct {
+	Conn     string `json:"conn"`
+	File     string `json:"file"`
+	Key      string `json:"key"`
+	Bytes    int64  `json:"bytes"`
+	Replaced bool   `json:"replaced"`
+	DryRun   bool   `json:"dry_run,omitempty"`
+}
+
+func (d uploadData) Text() string {
+	if d.DryRun {
+		return fmt.Sprintf("would upload %s -> %s (%s, replaces existing: %s)\n", d.File, d.Key, humanBytes(d.Bytes), yesNo(d.Replaced))
+	}
+	s := fmt.Sprintf("uploaded %s -> %s (%s)", d.File, d.Key, humanBytes(d.Bytes))
+	if d.Replaced {
+		s += ", replaced the old object"
+	}
+	return s + "\n"
 }
 
 // storageUpload uploads one local file; key defaults to the file's name.
 func storageUpload(ctx context.Context, name, conn, file, key string) error {
-	if key == "" {
-		key = filepath.Base(file)
+	key = uploadKey(file, key)
+	if err := storex.CheckKey(key); err != nil {
+		return err
 	}
 	fi, err := os.Stat(file)
 	if err != nil || fi.IsDir() {
-		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders are not uploaded)", "cannot upload %s", file)
+		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders go with -r: `komando upload CONN DIR KEY -r`)", "cannot upload %s", file)
 	}
-	return withStorage(ctx, name, conn, driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": key, "file": file, "bytes": fi.Size()},
+	data := func(c *store.Conn, s storex.Bucket, ctx context.Context) (uploadData, error) {
+		replaced, err := s.Exists(ctx, key)
+		return uploadData{Conn: c.Name, File: file, Key: key, Bytes: fi.Size(), Replaced: replaced}, err
+	}
+	return withStoragePreview(ctx, name, conn, driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": key, "file": file, "bytes": fi.Size()},
 		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
-			replaced, err := s.Exists(ctx, key)
+			d, err := data(c, s, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -564,6 +849,11 @@ func storageUpload(ctx context.Context, name, conn, file, key string) error {
 			if err := s.Put(ctx, key, f, fi.Size(), ct); err != nil {
 				return nil, err
 			}
-			return map[string]any{"conn": c.Name, "key": key, "bytes": fi.Size(), "replaced": replaced}, nil
+			return d, nil
+		},
+		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
+			d, err := data(c, s, ctx)
+			d.DryRun = true
+			return d, err
 		})
 }

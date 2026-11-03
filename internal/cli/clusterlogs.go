@@ -15,7 +15,6 @@ import (
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/sshx"
 )
 
 // maxLogPods caps how many pods one `cluster logs` reads at once.
@@ -24,22 +23,27 @@ const maxLogPods = 20
 func clusterLogsCmd() *cobra.Command {
 	var ns, container, since, selector string
 	var limit int
-	var previous, follow bool
+	var previous, follow, timestamps bool
 	c := &cobra.Command{
 		Use:   "logs TARGET [POD|TYPE/NAME]",
 		Short: "Logs of a pod, of every pod of a workload or label (-l), or of a Swarm service; -f follows",
 		Long: `Name a pod, a workload (deploy/api, statefulset/db, svc/web: all its pods)
 or pick pods by label with -l. Lines from several pods start with [pod].
--f keeps reading until Ctrl-C or --timeout; it follows the pods that exist
-when it starts.`,
-		Example: `  komando cluster logs prod-k8s api-7d9f-x2 --namespace shop --since 10m
-  komando cluster logs prod-k8s deploy/api --namespace shop -f
-  komando cluster logs prod-k8s -l app=api --namespace shop -n 50
-  komando cluster logs swarm-manager web -f`,
+-f keeps reading until Ctrl-C or --timeout (both end it normally); it follows
+the pods that exist when it starts. --since takes a duration back from now
+(10m, 2h) or a time (2026-01-02T10:00:00Z).`,
+		Example: `  komando cluster logs prod-k8s api-7d9f-x2 -n shop --since 10m
+  komando cluster logs prod-k8s deploy/api -n shop -f
+  komando cluster logs prod-k8s -l app=api -n shop --limit 50
+  komando cluster logs swarm-manager service/web -f`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 1 && selector == "" {
 				return out.Usage("name a pod or TYPE/NAME, or pick pods with -l")
+			}
+			sinceQ, err := sinceParam(since)
+			if err != nil {
+				return err
 			}
 			st, err := loadState()
 			if err != nil {
@@ -50,21 +54,20 @@ when it starts.`,
 				return err
 			}
 			if t.host != nil {
+				if err := noNamespace(t, ns); err != nil {
+					return err
+				}
 				if len(args) == 1 {
 					return out.Usage("on Swarm, name the service")
 				}
-				_, svc, _ := strings.Cut(args[1], "/")
-				if svc == "" {
-					svc = args[1]
+				svc := args[1]
+				if typ, n, ok := strings.Cut(args[1], "/"); ok {
+					if swarmKind(typ) != "service" {
+						return out.Usage("on Swarm, logs are read per service (service/NAME)")
+					}
+					svc = n
 				}
-				c := "docker service logs --no-trunc --timestamps --tail " + strconv.Itoa(limit)
-				if since != "" {
-					c += " --since " + sshx.Q(since)
-				}
-				if follow {
-					return followLogs(cmd.Context(), t.host.Name, c+" -f "+sshx.Q(svc)+" 2>&1", false)
-				}
-				return runOne(cmd.Context(), "cluster.logs", t.host.Name, c+" "+sshx.Q(svc)+" 2>&1", false, false)
+				return swarmLogs(cmd.Context(), t, svc, limit, since, follow, timestamps)
 			}
 			return withKube(cmd.Context(), "cluster.logs", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
 				space := firstNonEmpty(ns, k.Namespace)
@@ -76,7 +79,10 @@ when it starts.`,
 				if err != nil {
 					return nil, err
 				}
-				q := url.Values{"timestamps": {"true"}, "tailLines": {strconv.Itoa(limit)}}
+				q := url.Values{"tailLines": {strconv.Itoa(limit)}}
+				if timestamps {
+					q.Set("timestamps", "true")
+				}
 				if follow && !cmd.Flags().Changed("limit") {
 					q.Set("tailLines", "10") // like tail -f: a little context, then new lines
 				}
@@ -86,15 +92,18 @@ when it starts.`,
 				if previous {
 					q.Set("previous", "true")
 				}
-				if since != "" {
-					d, err := time.ParseDuration(strings.TrimPrefix(since, "-"))
-					if err != nil {
-						return nil, out.Usage("--since takes a duration like 10m or 2h")
-					}
-					q.Set("sinceSeconds", strconv.Itoa(int(d.Seconds())))
+				for k, v := range sinceQ {
+					q[k] = v
 				}
 				if follow {
 					return followPods(ctx, k, space, pods, q)
+				}
+				res := logText{Namespace: space, Pods: pods}
+				if len(args) == 2 && strings.Contains(args[1], "/") || selector != "" {
+					res.Object = ref
+				}
+				if len(pods) == 1 {
+					res.Pod = pods[0]
 				}
 				many := len(pods) > 1
 				var sb strings.Builder
@@ -108,7 +117,8 @@ when it starts.`,
 						return nil, err
 					}
 					if !many {
-						return logText{Pod: p, Namespace: space, Logs: string(b)}, nil
+						res.Logs = string(b)
+						return res, nil
 					}
 					for _, line := range strings.SplitAfter(string(b), "\n") {
 						if line != "" {
@@ -116,18 +126,35 @@ when it starts.`,
 						}
 					}
 				}
-				return logText{Pod: ref, Namespace: space, Logs: sb.String(), Pods: pods}, nil
+				res.Logs = sb.String()
+				return res, nil
 			})
 		},
 	}
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, &limitOpt{&limit, 200, "max lines per pod (from the end)"})
 	c.Flags().StringVarP(&container, "container", "c", "", "container in the pod")
-	c.Flags().StringVar(&since, "since", "", "only newer than this, e.g. 10m")
-	c.Flags().IntVarP(&limit, "limit", "n", 200, "max lines per pod (from the end)")
+	c.Flags().StringVar(&since, "since", "", "only newer than this: 10m, 2h, or a time like 2026-01-02T10:00:00Z")
 	c.Flags().BoolVar(&previous, "previous", false, "the previous run of a restarted container")
+	c.Flags().BoolVar(&timestamps, "timestamps", false, "start each line with its time")
 	c.Flags().BoolVarP(&follow, "follow", "f", false, "keep reading new lines (Ctrl-C or --timeout stops)")
 	c.Flags().StringVarP(&selector, "selector", "l", "", "read every pod with these labels, e.g. app=api")
 	return c
+}
+
+// sinceParam turns --since into the API's sinceSeconds or sinceTime.
+func sinceParam(since string) (url.Values, error) {
+	if since == "" {
+		return nil, nil
+	}
+	if d, err := time.ParseDuration(strings.TrimPrefix(since, "-")); err == nil {
+		return url.Values{"sinceSeconds": {strconv.Itoa(max(1, int(d.Seconds())))}}, nil
+	}
+	for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02 15:04:05", "2006-01-02"} {
+		if t, err := time.ParseInLocation(layout, since, time.Local); err == nil {
+			return url.Values{"sinceTime": {t.UTC().Format(time.RFC3339)}}, nil
+		}
+	}
+	return nil, out.Usage("--since takes a duration like 10m or 2h, or a time like 2026-01-02T10:00:00Z")
 }
 
 func podLogPath(space, pod string) string {

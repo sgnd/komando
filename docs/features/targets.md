@@ -15,7 +15,11 @@ caches, storage) together:
 | `kind:db` | every database (also `kind:host`, `kind:cache`, `kind:storage`, `kind:postgres`, ...) |
 | `all` | everything |
 | `@prod,!web3` | combine with `,` and leave out with `!` |
-| `root@1.2.3.4:22` | a one-off server not in your list |
+| `!web3` | everything except `web3` (same as `all,!web3`) |
+| `root@1.2.3.4:22` | a one-off server not in your list (`1.2.3.4:22` uses your default user) |
+
+Names, groups and tags match in any case (`WEB1` finds `web1` when there is
+only one). A misspelled name, `@group` or `tag:` gets a "did you mean".
 
 Each command uses what it can work with and says what it left out. For
 example `komando exec @prod -- uptime` runs on the servers in `prod` and lists
@@ -24,8 +28,18 @@ opposite. If a target picks nothing the command can use, the error says which
 command to use instead.
 
 Groups, tags and labels are set when adding or editing:
-`komando host edit web1 --add-group prod --add-tag web --label dc=jkt`, or
-for many at once, `komando group add prod 'web-*'`.
+`komando host edit web1 --add-group prod --add-tag web --label dc=jkt` (or
+`-g prod -t web`), or for many at once, `komando group add prod 'web-*'`.
+Their names use letters, digits and `. _ -`, like server names, so every one
+can be written in a target.
+
+```bash
+komando group list                 # every group and tag with its members
+komando group list prod            # the members of one group
+komando group rm prod web3         # take web3 out of prod
+komando group rm old --dry-run     # delete a whole group: who would leave it
+komando group rm old --yes         # (more than 3 members needs --yes)
+```
 
 See what a target picks, and check that all of it is reachable:
 

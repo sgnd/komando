@@ -48,7 +48,9 @@ runs itself is not connected: ask the human to connect it.
 
 ## 4. Change things safely
 
-1. Preview: add `--dry-run` to see the exact remote command and whether it would be blocked.
+1. Preview: add `--dry-run` to see the exact remote command. It is never blocked; when the
+   real run would stop (protected target, destructive command), `meta.would_be_blocked`
+   says which stop, so you can show the human the plan before asking.
 2. Edit config with `fs replace` (exact match, fails on 0 or >1 matches) and `--backup`:
    `komando fs replace web1 /etc/nginx/nginx.conf --old '...' --new '...' --sudo --backup`
 3. Validate before reload: `komando recipe run nginx-test web1` (or `sshd -t`, `apachectl configtest`).
@@ -102,8 +104,11 @@ Anything that may exceed ~2 minutes (upgrades, backups, builds, migrations):
 ```bash
 komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'   # returns job id at once
 komando job logs <id> --offset <next_offset>     # read only new output
-komando job wait <id> --wait-timeout 10m         # blocks; exit code mirrors the job
+komando job wait <id> --timeout 10m              # blocks; exit code mirrors the job
 ```
+
+A process started with `&` inside `komando exec` ends with that command. Anything
+that must keep running (a temporary web server, a watcher) is a `job start`.
 
 ## 7. Guardrails (do not fight them)
 

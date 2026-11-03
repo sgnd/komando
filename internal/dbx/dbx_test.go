@@ -58,7 +58,7 @@ func TestRunSQLite(t *testing.T) {
 
 	// limit and truncation
 	res, _ = run(t, rw, "select * from t order by id", Options{Limit: 2})
-	if r := res.Results[0]; r.RowCount != 2 || !r.Truncated {
+	if r := res.Results[0]; r.RowCount != 2 || r.Truncated != "rows" {
 		t.Errorf("limit: %+v", r)
 	}
 

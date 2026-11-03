@@ -4,6 +4,103 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Feels like the native tools (an end-to-end round over every command)
+
+- `--dry-run` is never stopped by a safety rule: it shows the plan, and
+  `meta.would_be_blocked` (in text: "without --dry-run this stops here")
+  names the stop the real run would hit. Text dry runs start with
+  "dry run: nothing was changed".
+- A typo in a subcommand (`komando host lst`) fails with exit 2 and "did you
+  mean list?" instead of printing help and exiting 0. Missing or extra
+  arguments show the usage line and an example, and `-o text` now applies
+  to these errors too.
+- A person who answers no at a `[y/N]` prompt sees "cancelled … nothing was
+  changed" instead of advice to re-run with `--yes`.
+- A protected server or conn stays protected under another spelling of its
+  address (upper case, a trailing dot).
+- Text output shows server and database content safely: colours stay, but
+  other terminal escape sequences (window title, clipboard writes) and
+  control characters are shown as `\e` and `\xNN`.
+- Many skipped targets print as one line; `KOMANDO_OUTPUT` with a wrong
+  value names the variable; negative `-P`, `--timeout`, `--max-output` are
+  refused.
+- Masking for AI agents no longer hides settings and plain values
+  (`max_tokens: 4096`, `password_min_length=12`, URLs, paths, YAML
+  structure such as `secretKeyRef: {...}`), and a token never runs into the
+  next line.
+- cron: IDs are matched exactly (an ID with a dot could delete other
+  entries), a newline in COMMAND is refused, schedules are checked here,
+  `%` is escaped, crontab read errors are reported instead of shown as an
+  empty list, `--user` uses sudo, `cron rm` says how many it removed.
+- pkg: package names that start with `-` or hold patterns are refused
+  (option injection), removing essential packages (openssh-server, sudo,
+  systemd, libc ...) needs `--allow-dangerous`, `pkg installed` returns
+  rows with installed true/false, `upgradable --refresh`, dnf/yum
+  `upgradable` no longer fails when nothing is pending, and output and the
+  audit log show `pkg install tree` instead of a long script.
+- user: `user list` works on Debian and Alpine, `user unlock`, `--pubkey` is
+  checked, `--shell` applies to existing users.
+- net: `net check` fails (exit 5) on a closed port like `nc -z`, accepts
+  `[IPv6]:port` and checks the port range; `net http` reports no answer as
+  NO_RESPONSE and takes `--expect 200` or `2xx`; `net dns` fails with
+  NXDOMAIN (exit 3) when a name does not resolve.
+- The agent guard no longer blocks setting komando's variables, quoted
+  heredocs, or `|` inside quotes; reading through them still is.
+- Servers and files: `fs write`/`replace` follow symlinks and write the
+  target (`--no-follow` refuses); `fs mv` never overwrites without
+  `--overwrite`; diffs are real unified diffs; `--read-only` is checked
+  (a command that writes is READ_ONLY_VIOLATION); remote `~` and `host:`
+  mean the home folder like scp; `SRC/` copies the contents and re-runs
+  never nest; symlinks that are skipped are listed; sync keeps modes and
+  times, refuses a missing source, and never deletes when the source is
+  empty; recursive downloads go on past unreadable files and report them;
+  `download --sudo`; `script --arg` works for perl, python, ruby and node.
+- Text output for people: each failed server shows `[FAILED exit=3]` with
+  its own error and hint, stderr stays inside its server's block,
+  truncated output says so, streamed output is not printed twice, and a
+  `--timeout` that ends a follow (`logs -f`, `cluster logs -f`,
+  `cluster run -- get -w`, `cluster forward`) is a normal end. Tables for
+  `fs ls`, jobs, recipes, tunnels, keys, secrets, audit, config, db
+  activity/locks/sizes, cache info, cluster ls and docker ps.
+- Jobs: `job kill` records the kill and is safe to repeat, `job rm` refuses
+  a running job (`--kill` first), `job wait --timeout`.
+- Inventory: protected entries need `--yes` for any change, an alias of a
+  protected server is protected too, hosts are validated when saved (port,
+  user, --via, identity file), `host rm @group` / `conn rm 'tmp-*'` take
+  selectors, `group rm GROUP` deletes a group, `config get`, `doctor`
+  checks the inventory, audit records every inventory and settings change,
+  `host ssh-command` prints commands that work through jump hosts, `import`
+  vets proxy commands, an empty inventory says how to start, and "did you
+  mean" everywhere.
+- Policy: `rm -rf //`, `find / -delete`, `chmod -R ... /`, `iptables
+  --flush` are caught; `grep mkfs notes` is not; `policy check` exits 6
+  when blocked; `policy allow` explains built-in rules.
+- Databases, caches, storage: dates and times print as psql/mysql do (no
+  invented `Z`, MySQL zero dates kept); MariaDB `explain --analyze`;
+  placeholder count checked before sending; `db query --csv/--tsv`; cache
+  output reads like redis-cli and `cache info` gives a summary; downloads
+  never write in a dry run; a key ending in `/` means into that folder;
+  `--to DIR/` and `--to -`; folder markers are skipped; missing databases
+  and folders exit 3; `db shell` explains how to install the client on
+  this computer.
+- Clusters and docker: Swarm output has the same shape as Kubernetes
+  (`items`, `healthy`, `problems`); TYPE NAME and TYPE/NAME work in every
+  verb; `-A`; rollouts that time out name the stuck pods and why; rollback
+  skips the revision that failed; `apply` diffs Secrets without showing
+  them and says created/configured/unchanged; `docker exec` passes words as
+  given and keeps the exit code; `docker raw`/`compose` can no longer slip
+  past the policy with a leading flag; a missing container exits 3.
+- System modules and VPNs: hosts without systemd say NO_SYSTEMD, unknown
+  units UNIT_NOT_FOUND; `svc restart --wait`; pkg install/rm report what
+  changed and PACKAGE_NOT_FOUND; `pkg upgrade --dry-run` lists what would
+  change; `net dns --type MX`; `net ports` with process and pid; `vpn
+  status` dials SOCKS and system VPNs; `vpn up` checks a WireGuard tunnel
+  really answers; `vpn edit`; VPN errors keep their own code through SSH.
+- `facts` knows containers (init, virt, IPs without /len).
+- e2e: every one of the 195 commands now runs at least once
+  (`test/e2e/checks/`), and `E2E_HOME` keeps a lab inventory to try
+  commands by hand.
+
 ### Secrets stay away from AI agents
 
 - A person allows what an AI agent asks for: when Claude Code, Codex, Gemini

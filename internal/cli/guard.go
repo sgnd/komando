@@ -87,6 +87,9 @@ func secretPath(p, home string) string {
 	}
 	for _, d := range komandoDirs {
 		if in(d) {
+			if strings.HasSuffix(p, ".pub") {
+				return "" // a public key is meant to be shared
+			}
 			return "komando's own data (vault, keys, inventory, audit log)"
 		}
 	}
@@ -114,35 +117,129 @@ func secretPath(p, home string) string {
 
 func guardPath(p, home string) string {
 	p = strings.Trim(p, `"'`)
-	for _, pre := range []string{"~/", "$HOME/", "${HOME}/"} {
-		if strings.HasPrefix(p, pre) {
-			return filepath.Join(home, p[len(pre):])
+	kh := os.Getenv("KOMANDO_HOME")
+	if kh == "" {
+		kh = filepath.Join(home, ".komando")
+	}
+	for _, v := range []struct{ name, dir string }{{"HOME", home}, {"KOMANDO_HOME", kh}} {
+		for _, pre := range []string{"$" + v.name, "${" + v.name + "}"} {
+			if p == pre {
+				return v.dir
+			}
+			if strings.HasPrefix(p, pre+"/") {
+				return filepath.Join(v.dir, p[len(pre)+1:])
+			}
 		}
 	}
-	if p == "~" || p == "$HOME" || p == "${HOME}" {
+	if p == "~" {
 		return home
+	}
+	if strings.HasPrefix(p, "~/") {
+		return filepath.Join(home, p[2:])
 	}
 	return filepath.Clean(p)
 }
 
+// splitShell cuts a shell line into simple commands at ; | & && || newlines
+// and parentheses, but not inside quotes: `grep 'a|ssh' f` is one command.
+// $( and ` start a command even inside double quotes, because they run.
+func splitShell(line string) []string {
+	var segs []string
+	var cur strings.Builder
+	cut := func() {
+		segs = append(segs, cur.String())
+		cur.Reset()
+	}
+	var q byte
+	subst := 0 // open $( inside double quotes
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		switch {
+		case q == '\'':
+			if c == '\'' {
+				q = 0
+			}
+			cur.WriteByte(c)
+		case c == '\\' && i+1 < len(line):
+			cur.WriteByte(c)
+			cur.WriteByte(line[i+1])
+			i++
+		case q == '"' && c == '"':
+			q = 0
+			cur.WriteByte(c)
+		case c == '`' || c == '$' && i+1 < len(line) && line[i+1] == '(':
+			cut() // a command substitution: its own command, quoted or not
+			if c == '$' {
+				i++
+				if q == '"' {
+					subst++
+				}
+			}
+		case q == '"' && c == ')' && subst > 0:
+			cut()
+			subst--
+		case q == '"':
+			cur.WriteByte(c)
+		case c == '\'' || c == '"':
+			q = c
+			cur.WriteByte(c)
+		case c == ';' || c == '|' || c == '&' || c == '\n' || c == '(' || c == ')':
+			cut()
+		default:
+			cur.WriteByte(c)
+		}
+	}
+	cut()
+	if q != 0 {
+		// an unclosed quote: the shell refuses the line, but be strict and
+		// look at every part of it
+		return anyOperator.Split(line, -1)
+	}
+	return segs
+}
+
+var anyOperator = regexp.MustCompile(`[;|&\n()` + "`" + `"']`)
+
+// stripQuotedHeredocs drops the bodies of <<'EOF' heredocs: the shell does
+// not expand them, so they are data (a file's content, a script for python),
+// not commands. Unquoted heredocs stay: $(...) in them runs.
+func stripQuotedHeredocs(line string) string {
+	lines := strings.Split(line, "\n")
+	var out []string
+	for i := 0; i < len(lines); i++ {
+		out = append(out, lines[i])
+		m := heredocStart.FindStringSubmatch(lines[i])
+		if m == nil {
+			continue
+		}
+		for i++; i < len(lines) && strings.TrimLeft(lines[i], "\t") != m[2]; i++ {
+		}
+		if i < len(lines) {
+			out = append(out, lines[i])
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
 var (
-	shellSplit = regexp.MustCompile(`\|\||&&|[;|&\n()]`)
-	envAssign  = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
-	remoteSpec = regexp.MustCompile(`^([A-Za-z0-9_.-]+@)?[A-Za-z0-9_.-]+:`)
+	// reading the passphrase's value; setting it (KOMANDO_VAULT_PASS=...) is fine
+	readsVaultPass = regexp.MustCompile(`\$\{?KOMANDO_VAULT_PASS\b|printenv\s+KOMANDO_VAULT_PASS\b`)
+	heredocStart   = regexp.MustCompile(`<<-?[ \t]*(['"])([A-Za-z_][A-Za-z0-9_]*)['"]`)
+	envAssign      = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
+	remoteSpec     = regexp.MustCompile(`^([A-Za-z0-9_.-]+@)?[A-Za-z0-9_.-]+:`)
 )
 
 // checkShell looks at each simple command of a shell line. Arguments of
 // komando itself are paths on servers, which komando masks, so they pass.
 func checkShell(line, home string) guardDecision {
-	for _, v := range []string{"KOMANDO_VAULT_PASS", "KOMANDO_HOME"} {
-		if strings.Contains(line, v) {
-			return deny("the command uses %s, which leads to komando's secrets; use komando commands instead", v)
-		}
+	line = stripQuotedHeredocs(line)
+	if readsVaultPass.MatchString(line) {
+		return deny("KOMANDO_VAULT_PASS opens komando's vault; it is for the user only")
 	}
 	if strings.Contains(line, "/environ") {
 		return deny("process environments hold secrets; ask the user for the one value you need")
 	}
-	for _, seg := range shellSplit.Split(line, -1) {
+	for _, seg := range splitShell(line) {
 		words := shellWords(seg)
 		prog, args := program(words)
 		switch filepath.Base(prog) {

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -51,7 +52,7 @@ func checkNewName(s *store.State, kind, name string, overwrite bool) error {
 }
 
 func nameTaken(kind, name string) error {
-	return out.Errf(out.ExitConflict, "NAME_TAKEN", fmt.Sprintf("pick another name; hosts and conns share one name space (see `komando %s show %s`)", kind, name),
+	return out.Errf(out.ExitConflict, "NAME_TAKEN", fmt.Sprintf("pick another name; servers, conns and VPNs share one name space (see `komando %s show %s`)", kind, name),
 		"name %q is already used by a %s", name, kind)
 }
 
@@ -64,7 +65,7 @@ type connFlags struct {
 
 func (f *connFlags) bind(c *cobra.Command, edit bool) {
 	fl := c.Flags()
-	fl.StringVar(&f.via, "via", "", "reach it through these host(s) (bastions), comma-separated chain; no local port is opened")
+	fl.StringVar(&f.via, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened")
 	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (shown to agents in conn show)")
 	fl.BoolVar(&f.protected, "protected", false, "require --yes for any change (production safety)")
@@ -72,6 +73,8 @@ func (f *connFlags) bind(c *cobra.Command, edit bool) {
 		fl.StringSliceVar(&f.addGroups, "add-group", nil, "add to group(s)")
 		fl.StringSliceVar(&f.rmGroups, "rm-group", nil, "remove from group(s)")
 		fl.StringSliceVar(&f.addTags, "add-tag", nil, "add tag(s)")
+		shortAlias(fl, "group", "g", "add-group")
+		shortAlias(fl, "tag", "t", "add-tag")
 		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove tag(s)")
 		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (empty value removes)")
 		fl.StringSliceVar(&f.options, "option", nil, "set kind-specific option KEY=VALUE (empty value removes)")
@@ -100,9 +103,10 @@ func checkConn(s *store.State, c *store.Conn) (driver.Target, error) {
 		}
 	}
 	if r := c.PasswordRef; r != "" && !vault.ValidRef(r) {
-		return t, out.Usage("invalid --password-ref %q: %s", r, vault.RefHelp())
+		return t, out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref secret:NAME ("+vault.RefHelp()+")",
+			"invalid --password-ref: it takes a reference, not the password itself")
 	}
-	return t, nil
+	return t, checkLabels(c.Groups, c.Tags, c.Labels)
 }
 
 func connCmd() *cobra.Command {
@@ -138,7 +142,7 @@ func connAddCmd() *cobra.Command {
 			if err := validName("conn", name); err != nil {
 				return err
 			}
-			cn := &store.Conn{Name: name, URL: strings.TrimSpace(args[1]), PasswordRef: f.passwordRef, Via: f.via,
+			cn := &store.Conn{Name: name, URL: normConnURL(strings.TrimSpace(args[1])), PasswordRef: f.passwordRef, Via: f.via,
 				Groups: dedupe(f.groups), Tags: dedupe(f.tags), Protected: f.protected, Notes: f.notes}
 			var err error
 			if cn.Labels, err = parseKV(f.labels); err != nil {
@@ -155,12 +159,19 @@ func connAddCmd() *cobra.Command {
 			}
 			now := time.Now().UTC()
 			cn.CreatedAt, cn.UpdatedAt = now, now
+			res := connResult{Conn: cn}
+			replaced := false
 			err = store.Update(func(s *store.State) error {
 				if err := checkNewName(s, "conn", name, force); err != nil {
 					return err
 				}
+				_, replaced = s.Conns[name]
 				if _, err := checkConn(s, cn); err != nil {
 					return err
+				}
+				if twin := protectedTwinConn(s, cn); twin != "" && !cn.Protected {
+					cn.Protected = true
+					res.Warnings = append(res.Warnings, sameTwinWarning(cn.Kind+" resource", name, twin))
 				}
 				s.Conns[name] = cn
 				return nil
@@ -168,8 +179,9 @@ func connAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audit(nil, "conn.add", nil, "", true, map[string]any{"conns": []string{name}})
-			out.P.Print("conn.add", cn, nil)
+			res.Action = addVerb(replaced)
+			audit(nil, "conn.add", nil, "", true, map[string]any{"conns": []string{name}, "action": res.Action})
+			out.P.Print("conn.add", res, nil)
 			return nil
 		},
 	}
@@ -183,33 +195,43 @@ func connEditCmd() *cobra.Command {
 	var f connFlags
 	var url, rename string
 	c := &cobra.Command{
-		Use:     "edit NAME",
-		Short:   "Edit a conn (only flags you pass are changed)",
-		Example: `  komando conn edit prod-db --via bastion --add-tag critical --option statement_timeout=10s`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "edit NAME",
+		Short: "Edit a conn (only flags you pass are changed)",
+		Example: `  komando conn edit prod-db --via bastion --add-tag critical --option statement_timeout=10s
+  komando conn edit shop -g shop -t live          # -g/-t add a group/tag`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var res *store.Conn
+			fl := cmd.Flags()
+			if len(changedFlags(cmd)) == 0 {
+				return out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
+			}
+			if err := editConflicts(fl, f.unset, map[string]string{"via": "via", "password-ref": "password-ref", "notes": "notes", "protected": "protected"},
+				[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
+				return err
+			}
+			var res connResult
 			err := store.Update(func(s *store.State) error {
-				cn, ok := s.Conns[args[0]]
-				if !ok {
-					return out.NotFound("conn", args[0])
+				cn, err := findConn(s, args[0])
+				if err != nil {
+					return err
 				}
+				before, _ := json.Marshal(cn)
 				wasProtected := cn.Protected
-				fl := cmd.Flags()
+				old := *cn
 				set := func(name string, dst *string, v string) {
 					if fl.Changed(name) {
 						*dst = v
 					}
 				}
-				set("url", &cn.URL, strings.TrimSpace(url))
+				set("url", &cn.URL, normConnURL(strings.TrimSpace(url)))
 				set("via", &cn.Via, f.via)
 				set("password-ref", &cn.PasswordRef, f.passwordRef)
 				set("notes", &cn.Notes, f.notes)
 				if fl.Changed("protected") {
 					cn.Protected = f.protected
 				}
-				cn.Groups = dedupe(append(remove(cn.Groups, f.rmGroups), f.addGroups...))
-				cn.Tags = dedupe(append(remove(cn.Tags, f.rmTags), f.addTags...))
+				cn.Groups = dedupe(append(removeFold(cn.Groups, f.rmGroups), f.addGroups...))
+				cn.Tags = dedupe(append(removeFold(cn.Tags, f.rmTags), f.addTags...))
 				if err := applyKV(&cn.Labels, f.labels); err != nil {
 					return err
 				}
@@ -227,11 +249,16 @@ func connEditCmd() *cobra.Command {
 					case "protected":
 						cn.Protected = false
 					default:
-						return out.Usage("cannot unset %q", u)
+						return out.Errf(out.ExitUsage, "USAGE", "--unset takes: via, password-ref, notes, protected", "cannot unset %q", u)
 					}
 				}
 				if wasProtected && !cn.Protected {
 					if err := guardProtection("conn", "turning off protection of", []string{cn.Name}); err != nil {
+						return err
+					}
+				}
+				if wasProtected && (old.URL != cn.URL || old.Via != cn.Via || old.PasswordRef != cn.PasswordRef) {
+					if err := guardProtection("conn", "changing where or how komando logs in to", []string{cn.Name}); err != nil {
 						return err
 					}
 				}
@@ -249,14 +276,26 @@ func connEditCmd() *cobra.Command {
 					cn.Name = rename
 					s.Conns[rename] = cn
 				}
-				cn.UpdatedAt = time.Now().UTC()
-				res = cn
+				if !cn.Protected {
+					if twin := protectedTwinConn(s, cn); twin != "" {
+						cn.Protected = true
+						res.Warnings = append(res.Warnings, sameTwinWarning(cn.Kind+" resource", cn.Name, twin))
+					}
+				}
+				after, _ := json.Marshal(cn)
+				ch := string(before) != string(after)
+				if ch {
+					cn.UpdatedAt = time.Now().UTC()
+				}
+				res.Conn, res.Changed = cn, &ch
 				return nil
 			})
 			if err != nil {
 				return err
 			}
-			audit(nil, "conn.edit", nil, "", true, map[string]any{"conns": []string{res.Name}})
+			if *res.Changed {
+				audit(nil, "conn.edit", nil, "", true, map[string]any{"conns": []string{res.Name}, "flags": changedFlags(cmd)})
+			}
 			out.P.Print("conn.edit", res, nil)
 			return nil
 		},
@@ -277,9 +316,9 @@ func connShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			c, ok := st.Conns[args[0]]
-			if !ok {
-				return out.NotFound("conn", args[0])
+			c, err := findConn(st, args[0])
+			if err != nil {
+				return err
 			}
 			out.P.Print("conn.show", c, nil)
 			return nil
@@ -289,24 +328,30 @@ func connShowCmd() *cobra.Command {
 
 func connRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm NAME...",
+		Use:   "rm NAME|TARGET...",
 		Short: "Remove conn(s) from the inventory (does not touch the resource)",
-		Args:  cobra.MinimumNArgs(1),
+		Example: `  komando conn rm shop-2
+  komando conn rm kind:redis --dry-run`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var names []string
 			err := store.Update(func(s *store.State) error {
 				var prot []string
-				for _, n := range args {
-					if _, ok := s.Conns[n]; !ok {
-						return out.NotFound("conn", n)
-					}
-					if s.Conns[n].Protected {
-						prot = append(prot, n)
+				names = nil
+				conns, err := rmConns(s, args)
+				if err != nil {
+					return err
+				}
+				for _, c := range conns {
+					names = append(names, c.Name)
+					if c.Protected {
+						prot = append(prot, c.Name)
 					}
 				}
 				if err := guardProtection("conn", "removing", prot); err != nil {
 					return err
 				}
-				for _, n := range args {
+				for _, n := range names {
 					delete(s.Conns, n)
 				}
 				return nil
@@ -314,8 +359,8 @@ func connRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audit(nil, "conn.rm", nil, "", true, map[string]any{"conns": args})
-			out.P.Print("conn.rm", map[string]any{"removed": args}, nil)
+			audit(nil, "conn.rm", nil, "", true, map[string]any{"conns": names})
+			out.P.Print("conn.rm", rmResult{Removed: names}, nil)
 			return nil
 		},
 	}
@@ -563,8 +608,14 @@ func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "the port may be firewalled; check the address or raise --connect-timeout", "connecting to %s timed out", t.Address)
 	}
 	hint := "check the address and port; if the service is only reachable from a server, set `komando conn edit " + c.Name + " --via HOST`"
-	if c.Via != "" {
-		hint = "the address is resolved on " + c.Via + "; check it from there with `komando net check " + c.Via + " " + t.Address + "`"
+	if steps := viaChain(c.Via); len(steps) > 0 {
+		last := steps[len(steps)-1]
+		hint = "the address is resolved on " + last + "; check it from there with `komando net check " + last + " " + t.Address + "`"
+		if st, err := loadState(); err == nil {
+			if _, isVpn := st.Vpns[last]; isVpn {
+				hint = "the address is reached through VPN " + last + "; check the VPN with `komando test " + last + "` and the address in the conn URL"
+			}
+		}
 	}
 	return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", hint, "cannot reach %s: %v", t.Address, err)
 }

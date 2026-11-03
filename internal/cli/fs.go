@@ -70,11 +70,17 @@ func oneHost(ctx context.Context, target string, fn func(st *store.State, c *ssh
 }
 
 func fsErr(p string, err error) error {
+	return fsErrHint(p, err, "retry with --sudo")
+}
+
+// fsErrHint is fsErr for commands without --sudo: permHint says what to do
+// about a permission problem instead.
+func fsErrHint(p string, err error, permHint string) error {
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "", "%s: no such file or directory", p)
 	case errors.Is(err, os.ErrPermission):
-		return out.Errf(out.ExitError, "PERMISSION_DENIED", "retry with --sudo", "%s: permission denied", p)
+		return out.Errf(out.ExitError, "PERMISSION_DENIED", permHint, "%s: permission denied", p)
 	}
 	return err
 }
@@ -113,20 +119,33 @@ func fsLsCmd() *cobra.Command {
 	var recursive bool
 	var maxEntries int
 	c := &cobra.Command{
-		Use:   "ls TARGET PATH",
-		Short: "List a remote directory",
-		Args:  cobra.ExactArgs(2),
+		Use:   "ls TARGET [PATH]",
+		Short: "List a remote directory (default: the login user's home)",
+		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			arg := ""
+			if len(args) == 2 {
+				arg = args[1]
+			}
 			res, _, _, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
-				entries := []fileInfo{}
-				truncated := false
+				dir := expandRemote(sc, arg)
+				permHint := "fs ls reads as the SSH user; list it as root with `komando exec " + args[0] + " --sudo -- ls -la " + sshx.Q(dir) + "`"
+				r := lsResult{Path: dir, Entries: []fileInfo{}, recursive: recursive}
+				if fi, err := sc.Stat(dir); err != nil {
+					return nil, fsErrHint(dir, err, permHint)
+				} else if !fi.IsDir() {
+					inf := toInfo(path.Dir(dir), fi)
+					r.Entries = append(r.Entries, inf) // like ls FILE
+					r.Count = 1
+					return r, nil
+				}
 				if recursive {
-					w := sc.Walk(args[1])
+					w := sc.Walk(dir)
 					for w.Step() {
 						if w.Err() != nil {
 							continue
 						}
-						if w.Path() == args[1] {
+						if w.Path() == dir {
 							continue
 						}
 						if !all && strings.HasPrefix(path.Base(w.Path()), ".") {
@@ -135,29 +154,35 @@ func fsLsCmd() *cobra.Command {
 							}
 							continue
 						}
-						if len(entries) >= maxEntries {
-							truncated = true
+						if len(r.Entries) >= maxEntries {
+							r.Truncated = true
 							break
 						}
-						entries = append(entries, toInfo(path.Dir(w.Path()), w.Stat()))
+						r.Entries = append(r.Entries, toInfo(path.Dir(w.Path()), w.Stat()))
 					}
 				} else {
-					fis, err := sc.ReadDir(args[1])
+					fis, err := sc.ReadDir(dir)
 					if err != nil {
-						return nil, fsErr(args[1], err)
+						return nil, fsErrHint(dir, err, permHint)
 					}
 					for _, fi := range fis {
 						if !all && strings.HasPrefix(fi.Name(), ".") {
 							continue
 						}
-						if len(entries) >= maxEntries {
-							truncated = true
+						if len(r.Entries) >= maxEntries {
+							r.Truncated = true
 							break
 						}
-						entries = append(entries, toInfo(args[1], fi))
+						r.Entries = append(r.Entries, toInfo(dir, fi))
 					}
 				}
-				return map[string]any{"path": args[1], "count": len(entries), "truncated": truncated, "entries": entries}, nil
+				for i := range r.Entries {
+					if r.Entries[i].Type == "symlink" {
+						r.Entries[i].Link, _ = sc.ReadLink(r.Entries[i].Path)
+					}
+				}
+				r.Count = len(r.Entries)
+				return r, nil
 			})
 			if err != nil {
 				return err
@@ -180,22 +205,23 @@ func fsStatCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			res, _, _, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
-				fi, err := sc.Lstat(args[1])
+				p := expandRemote(sc, args[1])
+				fi, err := sc.Lstat(p)
 				if errors.Is(err, os.ErrNotExist) {
-					return map[string]any{"path": args[1], "exists": false}, nil
+					return map[string]any{"path": p, "exists": false}, nil
 				}
 				if err != nil {
-					return nil, fsErr(args[1], err)
+					return nil, fsErrHint(p, err, "check the permissions of the folders above it")
 				}
-				inf := toInfo(path.Dir(args[1]), fi)
+				inf := toInfo(path.Dir(p), fi)
 				if inf.Type == "symlink" {
-					inf.Link, _ = sc.ReadLink(args[1])
+					inf.Link, _ = sc.ReadLink(p)
 				}
 				r := map[string]any{"exists": true, "info": inf}
 				if hash && inf.Type == "file" {
-					f, err := sc.Open(args[1])
+					f, err := sc.Open(p)
 					if err != nil {
-						return nil, fsErr(args[1], err)
+						return nil, fsErrHint(p, err, "fs stat --sha256 reads as the SSH user; use `komando exec --sudo -- sha256sum FILE`")
 					}
 					defer f.Close()
 					h := sha256.New()
@@ -227,9 +253,15 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 			if strings.Contains(r.Stderr, "No such file") {
 				return nil, false, fsErr(p, os.ErrNotExist)
 			}
+			if strings.Contains(r.Stderr, "Is a directory") {
+				return nil, false, isADirectory(p)
+			}
 			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "", "%s", strings.TrimSpace(r.Stderr))
 		}
 		return []byte(r.Stdout), r.StdoutTruncated, nil
+	}
+	if fi, err := sc.Stat(p); err == nil && fi.IsDir() {
+		return nil, false, isADirectory(p)
 	}
 	f, err := sc.Open(p)
 	if err != nil {
@@ -246,6 +278,10 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 	return b, false, nil
 }
 
+func isADirectory(p string) error {
+	return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "list it with `komando fs ls`", "%s is a folder, not a file", p)
+}
+
 type catResult struct {
 	Path      string `json:"path"`
 	Content   string `json:"content"`
@@ -253,7 +289,10 @@ type catResult struct {
 	Lines     int    `json:"lines"`
 	Truncated bool   `json:"truncated"`
 	Binary    bool   `json:"binary,omitempty"`
-	SHA256    string `json:"sha256"`
+	SHA256    string `json:"sha256,omitempty"` // of the whole file
+	// SHA256Read: the file was longer than --max-bytes; this is the hash
+	// of the part that was read, not of the file
+	SHA256Read string `json:"sha256_read,omitempty"`
 }
 
 func (r catResult) Text() string { return r.Content }
@@ -269,16 +308,30 @@ func fsCatCmd() *cobra.Command {
 		Short:   "Read a remote file (with --head/--tail/--line-numbers for agents)",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if maxBytes <= 0 {
+				return out.Usage("--max-bytes must be more than 0")
+			}
 			res, _, _, err := oneHost(cmd.Context(), args[0], func(_ *store.State, c *sshx.Client, sc *sftp.Client) (any, error) {
-				b, trunc, err := readRemote(cmd.Context(), c, sc, args[1], sudo, maxBytes)
+				p := expandRemote(sc, args[1])
+				b, trunc, err := readRemote(cmd.Context(), c, sc, p, sudo, maxBytes)
 				if err != nil {
 					return nil, err
 				}
-				sum := sha256.Sum256(b)
-				r := catResult{Path: args[1], Bytes: len(b), Truncated: trunc, SHA256: hex.EncodeToString(sum[:])}
+				sum := hex.EncodeToString(func() []byte { h := sha256.Sum256(b); return h[:] }())
+				r := catResult{Path: p, Bytes: len(b), Truncated: trunc}
+				if trunc {
+					r.SHA256Read = sum
+				} else {
+					r.SHA256 = sum
+				}
 				if bytes.IndexByte(b, 0) >= 0 {
+					if out.P.Format == "text" {
+						// printing a placeholder would make `fs cat ... > file` a corrupt copy
+						return nil, out.Errf(out.ExitError, "BINARY_FILE", "save it with `komando download "+args[0]+" "+p+"`",
+							"%s is a binary file; fs cat shows text only", p)
+					}
 					r.Binary = true
-					r.Content = "<binary content omitted; use `komando cp` to download>"
+					r.Content = "<binary content omitted; use `komando download` to save it>"
 					return r, nil
 				}
 				lines := strings.SplitAfter(string(b), "\n")
@@ -306,6 +359,9 @@ func fsCatCmd() *cobra.Command {
 				return err
 			}
 			out.P.Print("fs.cat", res, nil)
+			if r, ok := res.(catResult); ok && r.Truncated && out.P.Format == "text" {
+				fmt.Fprintf(os.Stderr, "note: output truncated at %s (raise --max-bytes, or use `komando download`)\n", humanBytes(maxBytes))
+			}
 			return nil
 		},
 	}
@@ -320,6 +376,7 @@ func fsCatCmd() *cobra.Command {
 
 type writeOpts struct {
 	sudo, backup, mkdirs bool
+	noFollow             bool // refuse a symlink instead of writing its target
 	mode                 string
 	owner                string
 	validate             string // command run on the new file (%s) before it goes into place
@@ -350,12 +407,14 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 		res["bytes"], res["sha256"] = n, hex.EncodeToString(h.Sum(nil))
 		return err
 	}
-	dir := path.Dir(p)
 	mode := o.mode
 	if mode != "" {
 		if _, err := strconv.ParseUint(mode, 8, 32); err != nil {
 			return nil, out.Usage("invalid --mode %q", mode)
 		}
+	}
+	if o.owner != "" && !o.sudo {
+		return nil, out.Usage("--owner needs --sudo (only root can give a file to another user)")
 	}
 	tmpName := fmt.Sprintf(".komando-%d-%s", time.Now().UnixNano(), path.Base(p))
 	if o.sudo {
@@ -378,11 +437,23 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 		}
 		f.Close()
 		var sb strings.Builder
-		sb.WriteString("set -e; ")
+		sb.WriteString("set -e; p=" + sshx.Q(p) + "; ")
+		// a symlink (sites-enabled -> sites-available): write the file it
+		// names, so the link stays a link
+		if o.noFollow {
+			sb.WriteString(`if [ -L "$p" ]; then rm -f ` + sshx.Q(tmp) + `; exit 95; fi; `)
+		} else {
+			sb.WriteString(`if [ -L "$p" ]; then p=$(readlink -f -- "$p"); fi; `)
+		}
+		if o.mkdirs {
+			sb.WriteString(`mkdir -p "$(dirname -- "$p")"; `)
+		} else {
+			sb.WriteString(`if [ ! -d "$(dirname -- "$p")" ]; then rm -f ` + sshx.Q(tmp) + `; exit 96; fi; `)
+		}
 		// keep the mode of the existing file; read it as root, because the SSH
 		// user often cannot see into the directory (/etc/sudoers.d, /root)
 		if mode == "" {
-			sb.WriteString("m=$(stat -c %a " + sshx.Q(p) + " 2>/dev/null || echo 644); ")
+			sb.WriteString(`m=$(stat -c %a "$p" 2>/dev/null || echo 644); `)
 		} else {
 			sb.WriteString("m=" + mode + "; ")
 		}
@@ -390,73 +461,100 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 			// exit 97 tells komando the check failed, not the install
 			sb.WriteString("if ! ( " + o.validateCmd(tmp) + " ) >&2; then rm -f " + sshx.Q(tmp) + "; exit 97; fi; ")
 		}
-		if o.mkdirs {
-			sb.WriteString("mkdir -p " + sshx.Q(dir) + "; ")
-		}
+		sb.WriteString(`r=0; if [ -e "$p" ]; then r=1; fi; `)
 		if o.backup {
-			sb.WriteString("if [ -e " + sshx.Q(p) + " ]; then cp -p " + sshx.Q(p) + " " + sshx.Q(p+".bak") + "; fi; ")
+			sb.WriteString(`if [ -e "$p" ]; then cp -p "$p" "$p.bak"; fi; `)
 		}
 		// keep owner of existing file unless --owner given
 		owner := o.owner
 		if owner == "" {
-			sb.WriteString("o=$(stat -c %u:%g " + sshx.Q(p) + " 2>/dev/null || echo 0:0); ")
-			sb.WriteString("install -m \"$m\" -o \"${o%:*}\" -g \"${o#*:}\" " + sshx.Q(tmp) + " " + sshx.Q(p) + "; ")
+			sb.WriteString(`o=$(stat -c %u:%g "$p" 2>/dev/null || echo 0:0); `)
+			sb.WriteString(`install -m "$m" -o "${o%:*}" -g "${o#*:}" ` + sshx.Q(tmp) + ` "$p"; `)
 		} else {
 			u, gr, _ := strings.Cut(owner, ":")
-			sb.WriteString("install -m \"$m\" -o " + sshx.Q(u))
+			sb.WriteString(`install -m "$m" -o ` + sshx.Q(u))
 			if gr != "" {
 				sb.WriteString(" -g " + sshx.Q(gr))
 			}
-			sb.WriteString(" " + sshx.Q(tmp) + " " + sshx.Q(p) + "; ")
+			sb.WriteString(" " + sshx.Q(tmp) + ` "$p"; `)
 		}
-		sb.WriteString("rm -f " + sshx.Q(tmp) + "; echo \"$m\"")
+		sb.WriteString("rm -f " + sshx.Q(tmp) + `; printf '%s %s %s\n' "$m" "$r" "$p"`)
 		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: sb.String(), Sudo: true, Timeout: time.Minute, MaxOutput: 64 << 10})
 		if err != nil {
 			_ = sc.Remove(tmp)
 			return nil, err
 		}
-		if r.ExitCode == 97 && o.validate != "" {
+		switch {
+		case r.ExitCode == 97 && o.validate != "":
 			return nil, validateFailed(r.Stderr)
-		}
-		if r.ExitCode != 0 {
+		case r.ExitCode == 95:
+			return nil, isASymlink(p)
+		case r.ExitCode == 96:
+			return nil, folderMissing(path.Dir(p))
+		case r.ExitCode != 0:
 			_ = sc.Remove(tmp)
 			return nil, out.Errf(out.ExitRemote, "WRITE_FAILED", "", "%s", strings.TrimSpace(r.Stderr))
 		}
-		if o.backup {
-			res["backup"] = p + ".bak"
+		f3 := strings.SplitN(strings.TrimSpace(r.Stdout), " ", 3)
+		if len(f3) == 3 {
+			mode = fmt.Sprintf("%04s", f3[0])
+			res["replaced"] = f3[1] == "1"
+			if f3[2] != p {
+				res["followed"] = f3[2]
+			}
 		}
-		if m := strings.TrimSpace(r.Stdout); m != "" {
-			mode = fmt.Sprintf("%04s", m)
+		if o.backup {
+			if f, ok := res["followed"]; ok {
+				res["backup"] = fmt.Sprint(f) + ".bak"
+			} else {
+				res["backup"] = p + ".bak"
+			}
 		}
 		res["mode"] = mode
 		return res, nil
 	}
+	if fi, err := sc.Lstat(p); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		if o.noFollow {
+			return nil, isASymlink(p)
+		}
+		t, err := resolveLink(sc, p)
+		if err != nil {
+			return nil, err
+		}
+		res["followed"] = t
+		p = t
+	}
+	dir := path.Dir(p)
+	if o.mkdirs {
+		if err := sc.MkdirAll(dir); err != nil {
+			return nil, fsErr(dir, err)
+		}
+	} else if fi, err := sc.Stat(dir); err != nil && errors.Is(err, os.ErrNotExist) {
+		return nil, folderMissing(dir)
+	} else if err == nil && !fi.IsDir() {
+		return nil, out.Errf(out.ExitConflict, "NOT_A_FOLDER", "", "%s is a file, not a folder", dir)
+	}
 	// preserve the existing mode when not specified
+	existing, statErr := sc.Stat(p)
+	res["replaced"] = statErr == nil
 	if mode == "" {
-		if fi, err := sc.Stat(p); err == nil {
-			mode = fmt.Sprintf("%04o", fi.Mode().Perm())
+		if statErr == nil {
+			mode = fmt.Sprintf("%04o", existing.Mode().Perm())
 		} else {
 			mode = "0644"
 		}
 	}
 	perm, _ := strconv.ParseUint(mode, 8, 32)
-	if o.mkdirs {
-		if err := sc.MkdirAll(dir); err != nil {
-			return nil, fsErr(dir, err)
+	if o.backup && statErr == nil {
+		if err := copyRemote(sc, p, p+".bak"); err != nil {
+			return nil, err
 		}
-	}
-	if o.backup {
-		if _, err := sc.Stat(p); err == nil {
-			if err := copyRemote(sc, p, p+".bak"); err != nil {
-				return nil, err
-			}
-			res["backup"] = p + ".bak"
-		}
+		res["backup"] = p + ".bak"
 	}
 	tmp := path.Join(dir, tmpName)
 	f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
-		return nil, fsErr(tmp, err)
+		return nil, fsErr(dir, err)
 	}
 	if err := copyIn(f); err != nil {
 		f.Close()
@@ -537,11 +635,14 @@ func fsWriteCmd() *cobra.Command {
 			if data, err = expandSecretRefsBytes(data); err != nil {
 				return err
 			}
+			if o.owner != "" && !o.sudo {
+				return out.Usage("--owner needs --sudo (only root can give a file to another user)")
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			h, err := singleHost(st, args[0])
+			h, err := oneServer(st, args[0], "to put one file on many servers use `komando upload "+args[0]+" FILE PATH`")
 			if err != nil {
 				return err
 			}
@@ -553,14 +654,22 @@ func fsWriteCmd() *cobra.Command {
 			}
 			if g.dryRun {
 				// read the current file (read-only) so the preview shows the change
-				res := map[string]any{"host": h.Name, "path": args[1], "bytes": len(data), "append": appendMode, "sudo": o.sudo}
+				res := fsChange{"host": h.Name, "path": args[1], "bytes": len(data), "append": appendMode, "sudo": o.sudo}
 				err := withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
 					sc, err := sftpClient(c)
 					if err != nil {
 						return err
 					}
 					defer sc.Close()
-					old, trunc, rerr := readRemote(cmd.Context(), c, sc, args[1], o.sudo, 1<<20)
+					p := expandRemote(sc, args[1])
+					res["path"] = p
+					if t, err := resolveLink(sc, p); err == nil && t != p {
+						if o.noFollow {
+							return isASymlink(p)
+						}
+						res["followed"] = t
+					}
+					old, trunc, rerr := readRemote(cmd.Context(), c, sc, p, o.sudo, 1<<20)
 					switch {
 					case rerr != nil && toErr(rerr).Code == "PATH_NOT_FOUND":
 						old, res["exists"] = nil, false
@@ -574,8 +683,8 @@ func fsWriteCmd() *cobra.Command {
 					if appendMode {
 						updated = append(append([]byte(nil), old...), data...)
 					}
-					res["changed"] = !bytes.Equal(old, updated)
-					res["diff"] = unifiedDiff(string(old), string(updated), 2)
+					res["would_change"] = !bytes.Equal(old, updated)
+					res["diff"] = unifiedDiff(string(old), string(updated), 3)
 					return nil
 				})
 				if err != nil {
@@ -584,15 +693,16 @@ func fsWriteCmd() *cobra.Command {
 				out.P.Print("fs.write", res, nil)
 				return nil
 			}
-			var res map[string]any
+			var res fsChange
 			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
 				sc, err := sftpClient(c)
 				if err != nil {
 					return err
 				}
 				defer sc.Close()
+				p := expandRemote(sc, args[1])
 				if appendMode || ifChanged {
-					old, trunc, rerr := readRemote(cmd.Context(), c, sc, args[1], o.sudo, 64<<20)
+					old, trunc, rerr := readRemote(cmd.Context(), c, sc, p, o.sudo, 64<<20)
 					if rerr != nil && toErr(rerr).Code != "PATH_NOT_FOUND" {
 						return rerr
 					}
@@ -603,12 +713,13 @@ func fsWriteCmd() *cobra.Command {
 						data = append(old, data...)
 					}
 					if ifChanged && rerr == nil && bytes.Equal(old, data) {
-						res = map[string]any{"path": args[1], "changed": false}
+						res = fsChange{"path": p, "changed": false}
 						return nil
 					}
 				}
-				res, err = writeRemote(cmd.Context(), c, sc, args[1], data, o)
-				if res != nil {
+				w, err := writeRemote(cmd.Context(), c, sc, p, data, o)
+				if w != nil {
+					res = fsChange(w)
 					res["changed"] = true
 				}
 				return err
@@ -636,6 +747,7 @@ func bindWriteOpts(c *cobra.Command, o *writeOpts) {
 	c.Flags().StringVar(&o.mode, "mode", "", "file mode, e.g. 0640 (default: keep existing or 0644)")
 	c.Flags().StringVar(&o.owner, "owner", "", "owner[:group] (requires --sudo)")
 	c.Flags().StringVar(&o.validate, "validate", "", "check the new file before it goes into place; %s is its path (e.g. 'visudo -cf %s', 'nginx -t -c %s')")
+	c.Flags().BoolVar(&o.noFollow, "no-follow", false, "refuse to write through a symbolic link (by default the file it points to is written and the link stays)")
 }
 
 func fsReplaceCmd() *cobra.Command {
@@ -672,11 +784,14 @@ func fsReplaceCmd() *cobra.Command {
 				}
 				newS = strings.ReplaceAll(newS, "$", "$$")
 			}
+			if o.owner != "" && !o.sudo {
+				return out.Usage("--owner needs --sudo (only root can give a file to another user)")
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			h, err := singleHost(st, args[0])
+			h, err := oneServer(st, args[0], "fs replace edits one server's file; run it per server, or use `komando exec "+args[0]+" -- sed ...` for many")
 			if err != nil {
 				return err
 			}
@@ -686,14 +801,15 @@ func fsReplaceCmd() *cobra.Command {
 			if err := guard(st, []*store.Host{h}, o.validate, true); err != nil {
 				return err
 			}
-			var res map[string]any
+			var res fsChange
 			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
 				sc, err := sftpClient(c)
 				if err != nil {
 					return err
 				}
 				defer sc.Close()
-				b, trunc, err := readRemote(cmd.Context(), c, sc, args[1], o.sudo, 64<<20)
+				p := expandRemote(sc, args[1])
+				b, trunc, err := readRemote(cmd.Context(), c, sc, p, o.sudo, 64<<20)
 				if err != nil {
 					return err
 				}
@@ -710,7 +826,7 @@ func fsReplaceCmd() *cobra.Command {
 				}
 				if n == 0 {
 					if re == nil && strings.Contains(src, newS) && newS != "" {
-						res = map[string]any{"path": args[1], "changed": false, "replacements": 0, "note": "old text not found but new text already present (already applied?)"}
+						res = fsChange{"path": p, "changed": false, "replacements": 0, "note": "old text not found but new text already present (already applied?)"}
 						return nil
 					}
 					return out.Errf(out.ExitConflict, "NO_MATCH", "read the file with `komando fs cat` and copy the exact text (whitespace matters)", "--old text not found in %s", args[1])
@@ -733,14 +849,19 @@ func fsReplaceCmd() *cobra.Command {
 					updated = strings.Replace(src, oldS, newS, 1)
 				}
 				if updated == src {
-					res = map[string]any{"path": args[1], "changed": false, "replacements": n}
+					res = fsChange{"path": p, "changed": false, "replacements": n}
 					return nil
 				}
-				res = map[string]any{"path": args[1], "changed": true, "replacements": n, "diff": unifiedDiff(src, updated, 2)}
+				res = fsChange{"path": p, "changed": true, "replacements": n, "diff": unifiedDiff(src, updated, 3)}
 				if g.dryRun {
+					delete(res, "changed")
+					res["would_change"] = true
+					if t, err := resolveLink(sc, p); err == nil && t != p {
+						res["followed"] = t
+					}
 					return nil
 				}
-				w, err := writeRemote(cmd.Context(), c, sc, args[1], []byte(updated), o)
+				w, err := writeRemote(cmd.Context(), c, sc, p, []byte(updated), o)
 				if err != nil {
 					return err
 				}
@@ -765,39 +886,10 @@ func fsReplaceCmd() *cobra.Command {
 	return c
 }
 
-// unifiedDiff produces a compact line diff (changed hunks with context).
-func unifiedDiff(a, b string, ctx int) string {
-	al, bl := strings.Split(a, "\n"), strings.Split(b, "\n")
-	// trim common prefix/suffix, which is enough for replace-style edits
-	p := 0
-	for p < len(al) && p < len(bl) && al[p] == bl[p] {
-		p++
-	}
-	s := 0
-	for s < len(al)-p && s < len(bl)-p && al[len(al)-1-s] == bl[len(bl)-1-s] {
-		s++
-	}
-	start := max(0, p-ctx)
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "@@ -%d +%d @@\n", start+1, start+1)
-	for i := start; i < p; i++ {
-		sb.WriteString(" " + al[i] + "\n")
-	}
-	for i := p; i < len(al)-s; i++ {
-		sb.WriteString("-" + al[i] + "\n")
-	}
-	for i := p; i < len(bl)-s; i++ {
-		sb.WriteString("+" + bl[i] + "\n")
-	}
-	for i := len(al) - s; i < min(len(al), len(al)-s+ctx); i++ {
-		sb.WriteString(" " + al[i] + "\n")
-	}
-	return sb.String()
-}
-
 // shellFsCmd builds simple mutating fs commands executed via the shell so
-// that --sudo works uniformly.
-func shellFsCmd(use, short string, minArgs int, build func(args []string, flags map[string]bool) string, boolFlags map[string]string) *cobra.Command {
+// that --sudo works uniformly. build returns the script and the short
+// command shown in output and the audit log.
+func shellFsCmd(use, short string, minArgs int, build func(args []string, flags map[string]bool) (script, shown string, err error), boolFlags map[string]string) *cobra.Command {
 	var sudo bool
 	vals := map[string]*bool{}
 	c := &cobra.Command{
@@ -810,19 +902,26 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 				fl[k] = *v
 			}
 			if strings.HasPrefix(use, "rm ") && fl["recursive"] && !dangerOK() {
-				return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a folder and everything in it would be gone; confirm with the user, then add --allow-dangerous",
-					"rm --recursive deletes whole folders")
+				if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a folder and everything in it would be gone; confirm with the user, then add --allow-dangerous",
+					"rm --recursive deletes whole folders")); err != nil {
+					return err
+				}
 			}
 			if strings.HasPrefix(use, "rm ") {
 				for _, p := range args[1:] {
 					if cp := path.Clean(p); (cp == "/" || cp == "." || cp == "~" || strings.Count(cp, "/") <= 1 && strings.HasPrefix(cp, "/")) && !dangerOK() {
-						return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "pass --allow-dangerous if truly intended",
-							"refusing to remove top-level path %q", p)
+						if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "pass --allow-dangerous if truly intended",
+							"refusing to remove top-level path %q", p)); err != nil {
+							return err
+						}
 					}
 				}
 			}
-			command := build(args[1:], fl)
-			return runOne(cmd.Context(), "fs."+strings.Fields(use)[0], args[0], command, sudo, true)
+			script, shown, err := build(args[1:], fl)
+			if err != nil {
+				return err
+			}
+			return runFleet(cmd.Context(), "fs."+strings.Fields(use)[0], args[0], script, nil, execOpts{sudo: sudo, display: shown, exitMap: fsExitMap}, true)
 		},
 	}
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run via sudo")
@@ -847,34 +946,53 @@ func quoteAll(a []string) string {
 }
 
 func fsRmCmd() *cobra.Command {
-	return shellFsCmd("rm TARGET PATH...", "Remove remote files (--recursive for directories)", 2, func(a []string, f map[string]bool) string {
+	c := shellFsCmd("rm TARGET PATH...", "Remove remote files (--recursive for folders); a missing path is reported, not an error", 2, func(a []string, f map[string]bool) (string, string, error) {
 		flags := "-f"
 		if f["recursive"] {
 			flags = "-rf"
 		}
-		return "rm " + flags + " -- " + quoteAll(a)
-	}, map[string]string{"recursive": "remove directories recursively"})
+		return rmScript(a, f["recursive"]), "rm " + flags + " -- " + rqAll(a), nil
+	}, map[string]string{"recursive": "remove folders and everything in them"})
+	c.Long = `Removes files like rm -f: a path that does not exist is reported ("not found")
+and the command still succeeds. A folder needs --recursive, which also needs
+--allow-dangerous. Paths are taken literally: '*.log' is not a pattern (use
+komando exec for that).`
+	return c
 }
 
 func fsMkdirCmd() *cobra.Command {
-	return shellFsCmd("mkdir TARGET PATH...", "Create remote directories (always -p)", 2, func(a []string, _ map[string]bool) string {
-		return "mkdir -p -- " + quoteAll(a)
+	return shellFsCmd("mkdir TARGET PATH...", "Create remote directories (always -p)", 2, func(a []string, _ map[string]bool) (string, string, error) {
+		return mkdirScript(a), "mkdir -p -- " + rqAll(a), nil
 	}, nil)
 }
 
 func fsMvCmd() *cobra.Command {
-	return shellFsCmd("mv TARGET SRC DST", "Move/rename a remote path", 3, func(a []string, _ map[string]bool) string {
-		return "mv -- " + quoteAll(a)
-	}, nil)
+	c := shellFsCmd("mv TARGET SRC DST", "Move/rename a remote path; never replaces a file unless --overwrite", 3, func(a []string, f map[string]bool) (string, string, error) {
+		if len(a) != 2 {
+			return "", "", out.Usage("give one SRC and one DST: komando fs mv TARGET SRC DST")
+		}
+		return mvScript(a[0], a[1], f["overwrite"]), "mv -- " + rqAll(a), nil
+	}, map[string]string{"overwrite": "replace DST if it exists"})
+	c.Long = `Moves SRC to DST. When DST is an existing folder, SRC moves into it (like mv).
+An existing file at the destination is never replaced unless --overwrite
+(FILE_EXISTS, exit 8).`
+	return c
 }
 
 func fsChmodCmd() *cobra.Command {
-	return shellFsCmd("chmod TARGET MODE PATH...", "Change mode of remote paths", 3, func(a []string, f map[string]bool) string {
+	return shellFsCmd("chmod TARGET MODE PATH...", "Change mode of remote paths", 3, func(a []string, f map[string]bool) (string, string, error) {
+		if !validMode(a[0]) {
+			hint := ""
+			if validMode(a[len(a)-1]) {
+				hint = " (the mode goes first: komando fs chmod TARGET MODE PATH)"
+			}
+			return "", "", out.Usage("%q is not a mode like 0644 or u+x%s", a[0], hint)
+		}
 		r := ""
 		if f["recursive"] {
 			r = "-R "
 		}
-		return "chmod " + r + sshx.Q(a[0]) + " -- " + quoteAll(a[1:])
+		return chmodScript(a[0], a[1:], f["recursive"]), "chmod " + r + sshx.Q(a[0]) + " -- " + rqAll(a[1:]), nil
 	}, map[string]string{"recursive": "recurse"})
 }
 

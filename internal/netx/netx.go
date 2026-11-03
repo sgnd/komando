@@ -353,7 +353,7 @@ func OpenDirect(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 		return func(ctx context.Context, network, addr string) (net.Conn, error) {
 			c, err := cd.DialContext(ctx, network, addr)
 			if err != nil {
-				return nil, Down(v, err)
+				return nil, Down(v, socksErr(v.Address, err))
 			}
 			return c, nil
 		}, nopCloser{}, nil
@@ -370,13 +370,34 @@ func OpenDirect(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 	return nil, nil, configErr(v, fmt.Errorf("unknown kind %q", v.Kind))
 }
 
-// Down is the error for a VPN that cannot be used right now.
-func Down(v *store.Vpn, err error) error {
-	hint := "check the VPN with `komando test " + v.Name + "`"
-	if v.Kind == "system" {
-		hint = "connect the VPN " + v.Name + " on this computer first, then try again"
+// socksErr says plainly when nothing runs at the proxy's address (the
+// proxy library reports it as a failed dial inside a SOCKS error).
+func socksErr(proxyAddr string, err error) error {
+	if strings.Contains(err.Error(), "dial tcp "+proxyAddr+":") {
+		return fmt.Errorf("the SOCKS proxy at %s is not running (nothing answers there)", proxyAddr)
 	}
-	return out.Errf(out.ExitConnect, "VPN_DOWN", hint, "VPN %s: %v", v.Name, err)
+	return err
+}
+
+// Down is the error for a VPN that cannot be used right now. The hint
+// says what to do for its kind.
+func Down(v *store.Vpn, err error) error {
+	return out.Errf(out.ExitConnect, "VPN_DOWN", DownHint(v), "VPN %s: %v", v.Name, err)
+}
+
+// DownHint is what to do when v does not answer.
+func DownHint(v *store.Vpn) string {
+	switch {
+	case v.Kind == "system":
+		return "connect the VPN " + v.Name + " on this computer first, then try again"
+	case v.Kind == "socks":
+		return "start the SOCKS proxy at " + v.Address + ", e.g. `komando tunnel start HOST -D " + v.Address + "`, then try again"
+	case v.Kind == "wireguard":
+		return "check that the endpoint is reachable from this computer and that the keys match the server's (`komando vpn show " + v.Name + "`)"
+	case Kinds[v.Kind].Session:
+		return "reconnect it with `komando vpn down " + v.Name + "` and `komando vpn up " + v.Name + "`"
+	}
+	return "check the VPN's settings with `komando vpn show " + v.Name + "`"
 }
 
 func configErr(v *store.Vpn, err error) error {
@@ -386,7 +407,20 @@ func configErr(v *store.Vpn, err error) error {
 func secret(v *store.Vpn, ref string) (string, error) {
 	s, err := vault.Resolve(ref)
 	if err != nil {
-		return "", out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "store it with `komando secret set NAME`", "VPN %s key %s: %v", v.Name, ref, err)
+		return "", out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", SecretHint(ref), "VPN %s key %s: %v", v.Name, ref, err)
 	}
 	return s, nil
+}
+
+// SecretHint says how to provide a secret reference that does not resolve.
+func SecretHint(ref string) string {
+	switch {
+	case strings.HasPrefix(ref, "secret:"):
+		return "store it with `komando secret set " + strings.TrimPrefix(ref, "secret:") + "`"
+	case strings.HasPrefix(ref, "env:"):
+		return "set the environment variable " + strings.TrimPrefix(ref, "env:")
+	case strings.HasPrefix(ref, "file:"):
+		return "create the file " + strings.TrimPrefix(ref, "file:")
+	}
+	return "check that " + ref + " can be read on this computer (logged in to its secret manager?)"
 }

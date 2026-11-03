@@ -80,6 +80,8 @@ type Meta struct {
 	// Skipped lists targets a selector picked that this command cannot work
 	// with (a database picked by `exec @prod`, a server by `db query @prod`).
 	Skipped []Skipped `json:"skipped,omitempty"`
+	// WouldBeBlocked: under --dry-run, the safety stop the real run would hit
+	WouldBeBlocked *Error `json:"would_be_blocked,omitempty"`
 }
 
 type Skipped struct {
@@ -97,6 +99,7 @@ type Printer struct {
 	DryRun  bool
 	W       io.Writer
 	skipped []Skipped
+	blocked *Error
 
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
@@ -180,15 +183,45 @@ var P = &Printer{Format: "json", W: os.Stdout, Start: time.Now()}
 type Texter interface{ Text() string }
 
 func (p *Printer) meta() Meta {
-	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped}
+	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked}
 }
+
+// WouldBlock records, under --dry-run, the first safety stop the real run
+// would hit (meta.would_be_blocked).
+func (p *Printer) WouldBlock(e *Error) {
+	if p.blocked == nil {
+		p.blocked = e
+	}
+}
+
+// Reset forgets what one command recorded (tests run many in one process).
+func (p *Printer) Reset() { p.blocked, p.skipped = nil, nil }
+
+// Blocked is the stop WouldBlock recorded, or nil.
+func (p *Printer) Blocked() *Error { return p.blocked }
 
 // Skip records a target the command leaves out. It is reported in
 // meta.skipped, and on stderr in text mode.
 func (p *Printer) Skip(s Skipped) {
 	p.skipped = append(p.skipped, s)
-	if p.Format == "text" {
-		fmt.Fprintf(os.Stderr, "skipped %s (%s): %s\n", s.Name, s.Kind, s.Reason)
+}
+
+// printSkipped tells a person, on stderr, what the target picked that this
+// command left out: each one when there are a few, one line when many
+// (`pkg upgradable all` would otherwise start with a screen of them).
+func (p *Printer) printSkipped() {
+	switch n := len(p.skipped); {
+	case n == 0:
+	case n <= 3:
+		for _, s := range p.skipped {
+			fmt.Fprintf(os.Stderr, "skipped %s (%s): %s\n", s.Name, s.Kind, s.Reason)
+		}
+	default:
+		names := make([]string, n)
+		for i, s := range p.skipped {
+			names[i] = s.Name
+		}
+		fmt.Fprintf(os.Stderr, "skipped %d targets this command does not work with: %s (details with -o json)\n", n, strings.Join(names, ", "))
 	}
 }
 
@@ -197,17 +230,28 @@ func (p *Printer) Skip(s Skipped) {
 func (p *Printer) Print(command string, data any, softErr *Error) {
 	env := Envelope{OK: softErr == nil, Command: command, Data: data, Error: softErr, Meta: p.meta()}
 	if p.Format == "text" {
+		p.printSkipped()
+		if p.DryRun {
+			// a person must never read a preview as a result
+			fmt.Fprintln(os.Stderr, "dry run: nothing was changed")
+			if p.blocked != nil {
+				fmt.Fprintf(os.Stderr, "without --dry-run this stops here: [%s] %s\n", p.blocked.Code, p.Redact(p.blocked.Message))
+				if p.blocked.Hint != "" {
+					fmt.Fprintf(os.Stderr, "hint: %s\n", p.blocked.Hint)
+				}
+			}
+		}
 		if t, ok := data.(Texter); ok {
-			s := p.Redact(t.Text())
+			s := SafeText(p.Redact(t.Text()))
 			fmt.Fprint(p.W, s)
 			if s != "" && !strings.HasSuffix(s, "\n") {
 				fmt.Fprintln(p.W)
 			}
 		} else if data != nil {
-			fmt.Fprint(p.W, p.Redact(renderText(data)))
+			fmt.Fprint(p.W, SafeText(p.Redact(renderText(data))))
 		}
 		if softErr != nil {
-			fmt.Fprintf(os.Stderr, "error: %s\n", p.Redact(softErr.Message))
+			fmt.Fprintf(os.Stderr, "error: %s\n", SafeText(p.Redact(softErr.Message)))
 			if softErr.Hint != "" {
 				fmt.Fprintf(os.Stderr, "hint: %s\n", softErr.Hint)
 			}
@@ -223,7 +267,8 @@ func (p *Printer) Fail(command string, err error) int {
 		e = &Error{Code: "ERROR", Message: err.Error(), Exit: ExitError}
 	}
 	if p.Format == "text" {
-		fmt.Fprintf(os.Stderr, "error [%s]: %s\n", e.Code, p.Redact(e.Message))
+		p.printSkipped()
+		fmt.Fprintf(os.Stderr, "error [%s]: %s\n", e.Code, SafeText(p.Redact(e.Message)))
 		if e.Hint != "" {
 			fmt.Fprintf(os.Stderr, "hint: %s\n", e.Hint)
 		}

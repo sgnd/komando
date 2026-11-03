@@ -50,6 +50,11 @@ run in the background until you stop them.
 ```bash
 komando tunnel start db1 -L 15432:localhost:5432
 komando tunnel start bastion -D 1080   # a SOCKS proxy: set your browser to localhost:1080 to browse "from" the server
+komando tunnel start web1 -R 9000:localhost:3000   # the other way: port 9000 *on web1* leads to port 3000 here
 komando tunnel list
 komando tunnel stop --all
 ```
+
+A port that is already taken stops with `PORT_IN_USE` (exit 8): pick another
+one, or `0` for a free one. For `-R` the address the tunnel listens on is on
+the server; the result says so (`remote_listen`, `listen_on`).

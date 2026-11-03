@@ -43,7 +43,7 @@ commands (and agents) reuse that session. komando never answers MFA.
 Kinds (also: pritunl = openvpn; l2tp, ipsec, ikev2 = system):
 ` + strings.Join(kinds, "\n"),
 	}
-	c.AddCommand(vpnAddCmd(), vpnShowCmd(), vpnRmCmd(), vpnUpCmd(), vpnDownCmd(), vpnStatusCmd(), vpnServeCmd(),
+	c.AddCommand(vpnAddCmd(), vpnShowCmd(), vpnEditCmd(), vpnRmCmd(), vpnUpCmd(), vpnDownCmd(), vpnStatusCmd(), vpnServeCmd(),
 		alias(listCmdFor("vpn"), "list kind:vpn"), alias(testCmdFor("vpn"), "test"))
 	return c
 }
@@ -270,8 +270,21 @@ func vpnAddCmd() *cobra.Command {
 			}
 			now := time.Now().UTC()
 			v.CreatedAt, v.UpdatedAt = now, now
+			warnings := refWarnings(v.KeyRef)
 			if g.dryRun {
-				out.P.Print("vpn.add", v, nil)
+				// the same name checks the real add makes
+				st, err := loadState()
+				if err != nil {
+					return err
+				}
+				if err := checkNewName(st, "vpn", name, overwrite); err != nil {
+					return err
+				}
+				res := map[string]any{"would_add": v}
+				if len(warnings) > 0 {
+					res["warnings"] = warnings
+				}
+				out.P.Print("vpn.add", res, nil)
 				return nil
 			}
 			if err := store.Update(func(s *store.State) error { return checkNewName(s, "vpn", name, overwrite) }); err != nil {
@@ -294,8 +307,11 @@ func vpnAddCmd() *cobra.Command {
 			audit(nil, "vpn.add", []string{name}, "", true, map[string]any{"kind": kind, "mfa": v.MFA})
 			res := map[string]any{"vpn": v}
 			var notes []string
-			if len(secrets) > 0 && config != "" {
+			if kind == "wireguard" || kind == "openvpn" && ovpnHasKeys(secrets[name+"-config"]) {
 				notes = append(notes, config+" still holds the keys that are now in the vault; delete it if you no longer need it")
+			}
+			if v.Check == "" {
+				notes = append(notes, "without --check, `komando vpn up` and `komando test` cannot tell whether the VPN works; add one with `komando vpn edit "+name+" --check HOST:PORT`")
 			}
 			if v.MFA {
 				notes = append(notes, "a person logs in with `komando vpn up "+name+"`; later commands reuse that session")
@@ -306,6 +322,9 @@ func vpnAddCmd() *cobra.Command {
 			if len(notes) > 0 {
 				res["notes"] = notes
 			}
+			if len(warnings) > 0 {
+				res["warnings"] = warnings
+			}
 			out.P.Print("vpn.add", res, nil)
 			return nil
 		},
@@ -314,13 +333,13 @@ func vpnAddCmd() *cobra.Command {
 	f.StringVar(&config, "config", "", "wireguard: the .conf file; openvpn: the .ovpn file (both kept in the vault)")
 	f.StringVar(&address, "address", "", "socks: host:port of the proxy")
 	f.StringVar(&portal, "portal", "", "globalprotect, fortinet, anyconnect, pulse, f5: the VPN server or portal")
-	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings, so `vpn up` can connect it")
+	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings, so 'vpn up' can connect it")
 	f.StringVar(&server, "server", "", "tailscale: a Headscale login server URL")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
 	f.StringVar(&passwordRef, "password-ref", "", "password (tailscale: auth key) as secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	f.BoolVar(&osMode, "os-mode", false, "openvpn: run it on this computer with sudo instead of in a Docker container (changes this computer's network)")
-	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only `vpn up` by a human connects it")
-	f.StringVar(&check, "check", "", "host:port reachable only through this VPN (used by `komando test`, needed for system and openvpn)")
+	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' by a human connects it")
+	f.StringVar(&check, "check", "", "host:port reachable only through this VPN (vpn up and test connect to it; needed for system and openvpn)")
 	f.StringSliceVarP(&groups, "group", "g", nil, "group(s)")
 	f.StringSliceVarP(&tags, "tag", "t", nil, "tag(s)")
 	f.StringVar(&notes, "notes", "", "free-form notes")
@@ -354,16 +373,29 @@ func vpnRmCmd() *cobra.Command {
 		Short: "Remove a VPN from komando (its keys stay in the vault until `komando secret rm`)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if g.dryRun {
-				out.P.Print("vpn.rm", map[string]any{"would_remove": args[0]}, nil)
-				return nil
-			}
-			err := store.Update(func(s *store.State) error {
+			check := func(s *store.State) error {
 				if _, ok := s.Vpns[args[0]]; !ok {
 					return out.NotFound("vpn", args[0])
 				}
 				if users := vpnUsers(s, args[0]); len(users) > 0 {
 					return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first", "VPN %s is on the --via path of %s", args[0], strings.Join(users, ", "))
+				}
+				return nil
+			}
+			if g.dryRun { // the same checks as the real removal
+				st, err := loadState()
+				if err != nil {
+					return err
+				}
+				if err := check(st); err != nil {
+					return err
+				}
+				out.P.Print("vpn.rm", map[string]any{"would_remove": args[0]}, nil)
+				return nil
+			}
+			err := store.Update(func(s *store.State) error {
+				if err := check(s); err != nil {
+					return err
 				}
 				if sess := s.Sessions[args[0]]; sess != nil {
 					if err := netx.StopSession(sess); err != nil {
@@ -382,6 +414,16 @@ func vpnRmCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// ovpnHasKeys: the OpenVPN config holds a private key or shared secret inline.
+func ovpnHasKeys(cfg string) bool {
+	for _, t := range []string{"<key>", "<secret>", "<pkcs12>", "<tls-auth>", "<tls-crypt>", "<tls-crypt-v2>"} {
+		if strings.Contains(cfg, t) {
+			return true
+		}
+	}
+	return false
 }
 
 // vpnUsers lists the servers and conns whose --via path names the VPN.

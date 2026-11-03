@@ -24,14 +24,20 @@ komando import env ./shop/.env --group shop   # DATABASE_URL, REDIS_URL, ... fro
 | `filezilla` | FileZilla's `sitemanager.xml` | servers (SFTP sites; FTP ones are listed) |
 | `rclone` | `rclone.conf` | servers (SFTP remotes) |
 | `dbeaver` | DBeaver's `data-sources.json` | database conns (set the passwords afterwards) |
-| `komando` | a file from `komando export` | servers, conns and recipes |
+| `komando` | a file from `komando export` or `komando host export` | servers, conns and recipes |
 
 - Passwords found in these files go to the vault as `<name>-pass`. They
   never appear in komando's list, output or history.
 - Importing the same file again changes nothing. A different database that
   happens to have the same name gets the next free name (`shop-2`).
 - What komando cannot import is listed, with the reason: for example a
-  `.pgpass` line with `*`, or a URL kind komando does not know.
+  `.pgpass` line with `*`, a URL kind komando does not know, a `Host *`
+  pattern (its settings become defaults), or an `Include` file that is
+  missing. `HostName %h.example.com` is understood.
+- Servers are checked like `host add` (ports, users, `--via`); a bad one is
+  skipped with the reason. Replacing a protected server needs `--yes`.
+- A `ProxyCommand` runs on this computer, so an AI agent needs a person's
+  yes to import one.
 
 Termius and TablePlus have no open export format. From Termius, export your
 hosts as an SSH config and use `komando import ssh-config FILE`; for

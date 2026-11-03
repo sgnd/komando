@@ -5,7 +5,7 @@ The seatbelts, and what to do when one stops you. [All features](README.md) · [
 | Seatbelt | What it does |
 |----------|--------------|
 | Dangerous-command filter | Blocks `rm -rf /`, `mkfs`, `reboot`, `DROP DATABASE`, `curl … \| sh` *on your servers*, firewall flush, stopping SSH and more. See `komando policy list`. |
-| Protected servers and conns | Changes need `--yes`. Commands that only look (not change) can say so with `--read-only` and run without `--yes`. Removing a protected one, replacing it, or turning protection off needs `--yes` too. Anything at the same address (a `user@address` target, a second name, a second conn to the same database server) is protected as well. |
+| Protected servers and conns | Changes need `--yes`, including re-pointing them (address, port, user, key, password, `--via`) and replacing a secret they use. Commands that only look (not change) can say so with `--read-only` and run without `--yes`. Removing a protected one, replacing it, or turning protection off needs `--yes` too. Anything at the same address (a `user@address` target, a second name, a second conn to the same database server) is protected as well. |
 | Safety settings | Turning off the audit log or server identity checks, removing a deny rule, or an AI agent setting a `--proxy-command` (a program on this computer), needs `--yes`. |
 | Asking a human | When you type a command yourself in a terminal, komando asks instead of failing: `[y/N]` for protected targets, and typing the target's name for dangerous commands. Agents and scripts never see these questions; they need the flags. |
 | A person allows what an AI agent asks | When an AI agent (Claude Code, Codex, Gemini CLI, Cursor) adds `--yes`, `--allow-dangerous` or `--reveal`, komando opens a window on your screen showing the exact command; it runs only when you click **Allow once**. The agent cannot click it. With no screen to show it on (an SSH session, a server), the agent is refused and asks you to run the command in your own terminal. Scripts use the flags as before. |
@@ -23,7 +23,15 @@ Overriding a block needs `--allow-dangerous` — a human decision.
 Secrets are never accepted as command arguments (they would land in your
 shell history): `komando secret set NAME` asks for the value, or use
 `--from-env VAR` or a pipe.
-Add your own rules with `komando policy deny 'REGEX'`.
+Add your own rules with `komando policy deny 'REGEX'`; remove one with
+`komando policy allow 'REGEX' --yes` or by its id (`custom-0`). Built-in rules
+cannot be removed. `komando policy check 'CMD'` exits 6 when the command
+would be blocked, so it works in `if`.
+
+Every change to the inventory and to safety settings is in the audit log:
+servers, conns, groups, keys, secrets (names only), `config set` (old and
+new value) and `policy deny/allow`. `komando audit -o text` shows one line per
+entry; `-n 0` shows all.
 
 ## What this does not stop
 

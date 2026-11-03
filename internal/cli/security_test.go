@@ -206,6 +206,10 @@ func TestGuard(t *testing.T) {
 		{"Bash", map[string]any{"command": "grep -r DB_ .env"}, true},
 		{"Bash", map[string]any{"command": "source .env.production && npm start"}, true},
 		{"Bash", map[string]any{"command": "echo $KOMANDO_VAULT_PASS"}, true},
+		// public keys are meant to be shared, also komando's own
+		{"Read", map[string]any{"file_path": "/Users/me/.komando/keys/deploy.pub"}, false},
+		{"Bash", map[string]any{"command": "doctl compute ssh-key import k --public-key-file ~/.komando/keys/deploy.pub"}, false},
+		{"Read", map[string]any{"file_path": "/Users/me/.komando/keys/deploy"}, true},
 		{"Bash", map[string]any{"command": "env"}, true},
 		{"Bash", map[string]any{"command": "printenv | sort"}, true},
 		{"Bash", map[string]any{"command": "ssh web1 uptime"}, true},
@@ -226,6 +230,23 @@ func TestGuard(t *testing.T) {
 		{"Bash", map[string]any{"command": "grep -rn password src/"}, false},
 		{"Bash", map[string]any{"command": "cp .env.example .env.local.example"}, false},
 		{"WebFetch", map[string]any{"url": "https://example.com/.env"}, false},
+		// komando's own variables: setting them is fine, reading through them is not
+		{"Bash", map[string]any{"command": "KOMANDO_HOME=$(mktemp -d) komando list"}, false},
+		{"Bash", map[string]any{"command": "KOMANDO_VAULT_PASS=test go test ./..."}, false},
+		{"Bash", map[string]any{"command": "cat $KOMANDO_HOME/vault.key"}, true},
+		{"Bash", map[string]any{"command": "cat \"${KOMANDO_HOME}/state.json\""}, true},
+		{"Bash", map[string]any{"command": "echo ${KOMANDO_VAULT_PASS} | pbcopy"}, true},
+		{"Bash", map[string]any{"command": "printenv KOMANDO_VAULT_PASS"}, true},
+		// a quoted heredoc is data; an unquoted one can run $(...)
+		{"Bash", map[string]any{"command": "python3 - <<'EOF'\ns = open('run.sh').read().replace('rm -rf \"$KOMANDO_HOME\"', 'x')\nEOF\ngo build ./..."}, false},
+		{"Bash", map[string]any{"command": "cat > notes.md <<'EOF'\nnever cat ~/.ssh/id_rsa\nEOF"}, false},
+		{"Bash", map[string]any{"command": "cat <<EOF\n$(cat ~/.ssh/id_rsa)\nEOF"}, true},
+		{"Bash", map[string]any{"command": "python3 - <<'EOF'\nx\nEOF\ncat ~/.komando/vault.key"}, true},
+		// operators inside quotes are text, not pipes into ssh
+		{"Bash", map[string]any{"command": "grep -E 'openssh|ssh|sudo' internal/cli/modules.go"}, false},
+		{"Bash", map[string]any{"command": `git commit -m "split (not ssh)"`}, false},
+		{"Bash", map[string]any{"command": `echo "key: $(cat ~/.ssh/id_rsa)"`}, true},
+		{"Bash", map[string]any{"command": "echo `cat ~/.komando/vault.key`"}, true},
 	}
 	for _, c := range cases {
 		d := checkTool(c.tool, c.in, home)

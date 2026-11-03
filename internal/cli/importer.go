@@ -68,11 +68,13 @@ func importCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "import SOURCE [FILE]",
 		Short: "Bring in servers and databases you already have (ssh config, .pgpass, my.cnf, .env, exports)",
-		Long: "Sources:\n" + strings.Join(names, "\n") + `
+		Long: "Adds servers, conns, VPNs and recipes from files you already have.\n\nSources:\n" + strings.Join(names, "\n") + `
 
 Passwords go to the vault (as <name>-pass) and are referenced from the
 conn; they are never printed. Existing names are skipped unless
---overwrite. Try --dry-run first to see what would be added.`,
+--overwrite (replacing a protected one also needs --yes). Proxy commands
+from an ssh config run on this computer, so an AI agent needs a person's yes
+for them. Try --dry-run first to see what would be added.`,
 		Example: `  komando import ssh-config --dry-run
   komando import pgpass
   komando import env ./app/.env --group shop
@@ -113,6 +115,7 @@ type importSkip struct {
 }
 
 type importResult struct {
+	Action   string       `json:"action"` // added | would_add
 	Source   string       `json:"source"`
 	File     string       `json:"file"`
 	Hosts    []string     `json:"hosts"`
@@ -156,19 +159,24 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	for _, v := range vpns { // so hosts and conns can use them with --via
 		st.Vpns[v.Name] = v
 	}
-	var hosts []*store.Host
-	for _, h := range plan.Hosts {
-		if r := skip("host", h.Name); r != "" {
-			res.Skipped = append(res.Skipped, importSkip{h.Name, r})
-			continue
-		}
-		hosts = append(hosts, h)
+	// hosts are checked like host add; they land in st (not saved) so
+	// conns can use them with --via
+	v, err := vetImportHosts(st, plan.Hosts, overwrite)
+	if err != nil {
+		return err
 	}
-	for _, h := range hosts { // so conns can use them with --via (st is not saved)
-		st.Hosts[h.Name] = h
+	hosts := v.Add
+	for _, n := range v.Existing {
+		res.Skipped = append(res.Skipped, importSkip{n, "a server with this name exists (use --overwrite to replace it)"})
 	}
+	for _, n := range v.Protected {
+		res.Skipped = append(res.Skipped, importSkip{n, "protected: replacing it needs --yes after the user confirms"})
+	}
+	res.Skipped = append(res.Skipped, v.Invalid...)
+	res.NotFound = append(res.NotFound, v.Notes...)
 	var conns []*store.Conn
 	for _, c := range plan.Conns {
+		c.URL = normConnURL(c.URL)
 		// the same database imported again is skipped; a different one that
 		// happens to share the name gets the next free name (shop-2)
 		if old, ok := st.Conns[c.Name]; ok && old.URL != c.URL && !overwrite {
@@ -210,7 +218,9 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	for _, r := range recipes {
 		res.Recipes = append(res.Recipes, r.Name)
 	}
+	res.Action = "added"
 	if g.dryRun {
+		res.Action = "would_add"
 		out.P.Print("import", res, nil)
 		return nil
 	}
@@ -555,10 +565,13 @@ func importKomando(path string) (*importPlan, error) {
 		var env struct {
 			Data exportFile `json:"data"`
 		}
-		if err2 := json.Unmarshal(b, &env); err2 != nil || env.Data.Format == "" {
-			return nil, out.Usage("%s is not a `komando export` file", path)
+		if err2 := json.Unmarshal(b, &env); err2 == nil && env.Data.Format != "" {
+			f = env.Data
+		} else if hosts, ok := parseHostsJSON(b); ok && len(hosts) > 0 {
+			f = exportFile{Format: exportFormat, Hosts: hosts} // `komando host export` output
+		} else {
+			return nil, out.Errf(out.ExitUsage, "USAGE", "give a file made by `komando export --to FILE` or `komando host export`", "%s is not a komando export file", path)
 		}
-		f = env.Data
 	}
 	if f.Format != exportFormat {
 		return nil, out.Usage("%s has format %q; this komando reads %s", path, f.Format, exportFormat)

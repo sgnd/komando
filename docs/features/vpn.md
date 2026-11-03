@@ -20,7 +20,10 @@ komando vpn add corp system --check 10.20.0.1:443
 - The WireGuard private key goes to the vault. The `.conf` file still has
   it, so delete that file if you no longer need it.
 - `--check host:port` is an address that answers only through the VPN.
-  `komando test office` uses it.
+  `komando test office` and `komando vpn up office` connect to it, so add
+  one: without it komando cannot tell whether the VPN works.
+- `komando vpn edit NAME --check ... --address ... --notes ...` changes
+  the common settings later.
 
 ## Use it
 
@@ -42,11 +45,16 @@ addresses (both `10.0.0.0/8`) do not get in each other's way.
 komando list kind:vpn
 komando test kind:vpn
 komando vpn show office          # what uses it
-komando vpn rm office            # refused while something still uses it
+komando vpn rm office            # refused while something still uses it (also with --dry-run)
+komando vpn status               # UP: a SOCKS proxy or system VPN that answers right now
 ```
 
-If a `system` VPN is not connected, commands that need it stop with
-`VPN_DOWN` and say which VPN to connect.
+If a VPN does not answer, commands that need it stop with `VPN_DOWN` and a
+hint for its kind: connect the `system` VPN, start the SOCKS proxy
+(`komando tunnel start HOST -D ADDRESS`), or check a WireGuard endpoint
+that sends no handshake. `komando vpn up` on WireGuard checks `--check`
+and fails if nothing answers through the tunnel. `komando vpn down` on a
+SOCKS VPN names the tunnel to stop.
 
 ## More kinds
 

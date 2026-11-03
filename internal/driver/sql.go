@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -30,6 +31,7 @@ var sqlRules = []Rule{
 	{"sql-kill", "kills sessions or shuts the server down"},
 	{"sql-vacuum-full", "VACUUM FULL locks and rewrites tables"},
 	{"sql-server-config", "changes server-wide configuration"},
+	{"sql-session-config", "changes a setting whose name komando cannot see (set_config with a computed name)"},
 	{"sql-opaque", "runs code komando cannot inspect (DO, CALL, PREPARE/EXECUTE)"},
 	{"sql-remote", "runs SQL over another connection that the read-only transaction does not cover (dblink)"},
 	{"db-restore", "restoring a backup can overwrite existing data"},
@@ -82,6 +84,7 @@ type token struct {
 	word  string // upper-cased keyword or identifier; "" for punctuation
 	ident string // upper-cased content of a quoted identifier ("pg_terminate_backend")
 	punct byte
+	str   string // content of a string literal (punct '\'')
 	depth int
 	pos   int // byte offset in the statement
 }
@@ -172,7 +175,7 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 			if c != '\'' { // quoted identifier: never a keyword, but still a function name
 				cur = append(cur, token{word: "\x00ident", ident: strings.ToUpper(sql[i+1 : j]), depth: depth, pos: i - start})
 			} else {
-				cur = append(cur, token{punct: '\'', depth: depth, pos: i - start})
+				cur = append(cur, token{punct: '\'', str: strings.ReplaceAll(sql[i+1:j], "''", "'"), depth: depth, pos: i - start})
 			}
 			i = j + 1
 		case c == '$' && d.dollar && (i == 0 || !isWord(sql[i-1])):
@@ -186,10 +189,11 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 				if end < 0 {
 					return nil, nil, out.Usage("unterminated %s quote in SQL", tag)
 				}
-				cur = append(cur, token{punct: '\'', depth: depth, pos: i - start})
+				cur = append(cur, token{punct: '\'', str: sql[j+1 : j+1+end], depth: depth, pos: i - start})
 				i = j + 1 + end + len(tag)
 			} else {
-				i++ // $1 parameter
+				cur = append(cur, token{punct: '$', depth: depth, pos: i - start}) // $1 parameter
+				i++
 			}
 		case c == ';' && depth == 0:
 			flush(i)
@@ -348,8 +352,7 @@ var dangerousFuncs = map[string]string{
 	"PG_CREATE_RESTORE_POINT": "sql-server-config", "PG_WAL_REPLAY_PAUSE": "sql-server-config", "PG_WAL_REPLAY_RESUME": "sql-server-config",
 	"PG_DROP_REPLICATION_SLOT": "sql-server-config", "PG_CREATE_PHYSICAL_REPLICATION_SLOT": "sql-server-config",
 	"PG_CREATE_LOGICAL_REPLICATION_SLOT": "sql-server-config", "PG_STAT_RESET": "sql-server-config",
-	"SET_CONFIG": "sql-server-config",
-	"LO_EXPORT":  "sql-server-file", "LO_IMPORT": "sql-server-file", "PG_READ_FILE": "sql-server-file",
+	"LO_EXPORT": "sql-server-file", "LO_IMPORT": "sql-server-file", "PG_READ_FILE": "sql-server-file",
 	"PG_READ_BINARY_FILE": "sql-server-file", "PG_FILE_WRITE": "sql-server-file", "PG_FILE_UNLINK": "sql-server-file",
 	"PG_FILE_RENAME": "sql-server-file", "LOAD_FILE": "sql-server-file",
 	"SYS_EXEC": "sql-program", "SYS_EVAL": "sql-program",
@@ -429,15 +432,8 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 	}
 	if first == "SET" || first == "RESET" {
 		for _, t := range ts {
-			if txSettings[t.word] {
-				return 0, nil, out.Errf(out.ExitUsage, "SQL_TX_CONTROL",
-					"leave transactions to komando: without --write it runs a read-only transaction, with --write one transaction that --dry-run rolls back",
-					"changing %s is not allowed in komando db", strings.ToLower(t.word))
-			}
-			if stringRules[t.word] {
-				return 0, nil, out.Errf(out.ExitUsage, "SQL_STRING_RULES",
-					"leave this setting alone: komando checks SQL with the server's default string rules",
-					"changing %s is not allowed in komando db", strings.ToLower(t.word))
+			if err := settingAllowed(t.word); err != nil {
+				return 0, nil, err
 			}
 		}
 	}
@@ -539,12 +535,81 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 			if t.ident != "" {
 				name = t.ident
 			}
-			if id, ok := funcRule(name); ok && i+1 < len(ts) && ts[i+1].punct == '(' {
+			if i+1 >= len(ts) || ts[i+1].punct != '(' {
+				continue
+			}
+			if name == "SET_CONFIG" {
+				// set_config changes a setting of this session (or, with true, of
+				// this transaction) only; komando's session ends with the command.
+				// Like SET, it must not touch the transaction or string rules.
+				if i+3 < len(ts) && ts[i+2].punct == '\'' && ts[i+3].punct == ',' {
+					if err := settingAllowed(strings.ToUpper(strings.TrimSpace(ts[i+2].str))); err != nil {
+						return 0, nil, err
+					}
+				} else {
+					flag("sql-session-config")
+				}
+				continue
+			}
+			if id, ok := funcRule(name); ok {
 				flag(id)
 			}
 		}
 	}
 	return risk, rules, nil
+}
+
+// settingAllowed refuses changes to the settings komando's own safety
+// depends on: the transaction mode and the string rules. name is upper case.
+func settingAllowed(name string) error {
+	if txSettings[name] {
+		return out.Errf(out.ExitUsage, "SQL_TX_CONTROL",
+			"leave transactions to komando: without --write it runs a read-only transaction, with --write one transaction that --dry-run rolls back",
+			"changing %s is not allowed in komando db", strings.ToLower(name))
+	}
+	if stringRules[name] {
+		return out.Errf(out.ExitUsage, "SQL_STRING_RULES",
+			"leave this setting alone: komando checks SQL with the server's default string rules",
+			"changing %s is not allowed in komando db", strings.ToLower(name))
+	}
+	return nil
+}
+
+// Placeholders counts the parameters in sql ($1.. in postgres, ? in mysql
+// and sqlite), outside strings and comments. ok is false when the count is
+// not known (sqlite named parameters, or SQL that does not parse).
+func Placeholders(kind, sql string) (n int, ok bool) {
+	d, found := dialects[kind]
+	if !found {
+		return 0, false
+	}
+	_, toks, err := splitSQL(sql, d)
+	if err != nil {
+		return 0, false
+	}
+	for _, ts := range toks {
+		for i, t := range ts {
+			next := token{}
+			if i+1 < len(ts) {
+				next = ts[i+1]
+			}
+			adjacentNumber := next.word != "" && next.pos == t.pos+1 && strings.Trim(next.word, "0123456789") == ""
+			switch {
+			case kind == "postgres" && t.punct == '$' && adjacentNumber:
+				k, _ := strconv.Atoi(next.word)
+				n = max(n, k)
+			case kind == "postgres":
+			case t.punct == '?' && kind == "sqlite" && adjacentNumber: // ?NNN
+				k, _ := strconv.Atoi(next.word)
+				n = max(n, k)
+			case t.punct == '?':
+				n++
+			case kind == "sqlite" && (t.punct == ':' || t.punct == '@' || t.punct == '$') && next.word != "" && next.pos == t.pos+1:
+				return 0, false // named parameters
+			}
+		}
+	}
+	return n, true
 }
 
 func hasWord(ts []token, w string) bool {

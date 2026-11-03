@@ -138,7 +138,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 	password := ""
 	if v.KeyRef != "" && v.Kind != "wireguard" {
 		if password, err = vault.Resolve(v.KeyRef); err != nil {
-			return nil, out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "store it with `komando secret set NAME`", "VPN %s: %v", v.Name, err)
+			return nil, out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", netx.SecretHint(v.KeyRef), "VPN %s password %s: %v", v.Name, v.KeyRef, err)
 		}
 	}
 	s := &store.VpnSession{Vpn: v.Name, LogFile: logFile, StartedAt: time.Now().UTC(), LastUsed: time.Now().UTC()}
@@ -423,6 +423,25 @@ func vpnUpCmd() *cobra.Command {
 				return err
 			}
 			res := map[string]any{"vpn": v.Name, "session": s}
+			if v.Kind == "wireguard" {
+				// WireGuard "connects" without a handshake: only an answer
+				// from --check shows the tunnel works
+				if v.Check == "" {
+					res["notes"] = []string{"no --check address, so the connection was not verified; add one with `komando vpn edit " + v.Name + " --check HOST:PORT`"}
+				} else if r := testVpn(cmd.Context(), st, v); !r.OK {
+					_ = netx.StopSession(s)
+					_ = store.Update(func(st *store.State) error {
+						if x := st.Sessions[v.Name]; x != nil && x.PID == s.PID {
+							delete(st.Sessions, v.Name)
+						}
+						return nil
+					})
+					return out.Errf(out.ExitConnect, "VPN_DOWN", netx.DownHint(v), "VPN %s: no answer from %s through the tunnel (no WireGuard handshake from %s?)",
+						v.Name, v.Check, vpnWhere(v))
+				} else {
+					res["checked"] = v.Check
+				}
+			}
 			if w := clashes(); len(w) > 0 {
 				res["warnings"] = w
 			}
@@ -449,18 +468,23 @@ func vpnDownCmd() *cobra.Command {
 					names = append(names, n)
 				}
 			}
-			if len(names) == 0 {
+			if len(names) == 0 && !all {
 				return out.Usage("give VPN names or --all")
+			}
+			for _, n := range names {
+				if _, ok := st.Vpns[n]; !ok && st.Sessions[n] == nil {
+					return out.NotFound("vpn", n)
+				}
 			}
 			if g.dryRun {
 				out.P.Print("vpn.down", map[string]any{"would_disconnect": names}, nil)
 				return nil
 			}
-			var down []string
+			down, idle, notes := []string{}, []string{}, []string{}
 			for _, n := range names {
 				v, ok := st.Vpns[n]
 				if !ok {
-					return out.NotFound("vpn", n)
+					v = &store.Vpn{Name: n} // a session left from a removed VPN
 				}
 				if s := st.Sessions[n]; s != nil {
 					err := netx.StopSession(s)
@@ -479,7 +503,24 @@ func vpnDownCmd() *cobra.Command {
 						return err
 					}
 					down = append(down, n)
+				} else {
+					idle = append(idle, n)
+					switch v.Kind {
+					case "socks":
+						how := "stop the program that serves " + v.Address
+						if id := socksTunnel(st, v.Address); id != "" {
+							how = "stop its tunnel with `komando tunnel stop " + id + "`"
+						}
+						notes = append(notes, n+" is a SOCKS proxy that komando does not run; "+how)
+					case "wireguard", "system":
+						notes = append(notes, n+" is not connected ("+v.Kind+" VPNs connect for each command)")
+					default:
+						notes = append(notes, n+" is not connected")
+					}
 				}
+			}
+			if len(names) == 0 {
+				notes = append(notes, "nothing to disconnect: no VPN session is running")
 			}
 			if err := store.Update(func(s *store.State) error {
 				for _, n := range down {
@@ -489,13 +530,32 @@ func vpnDownCmd() *cobra.Command {
 			}); err != nil {
 				return err
 			}
-			audit(st, "vpn.down", down, "", true, nil)
-			out.P.Print("vpn.down", map[string]any{"disconnected": down}, nil)
+			if len(down) > 0 {
+				audit(st, "vpn.down", down, "", true, nil)
+			}
+			out.P.Print("vpn.down", vpnDownData{Disconnected: down, NotConnected: idle, Notes: notes}, nil)
 			return nil
 		},
 	}
 	c.Flags().BoolVar(&all, "all", false, "disconnect every VPN session")
 	return c
+}
+
+type vpnDownData struct {
+	Disconnected []string `json:"disconnected"`
+	NotConnected []string `json:"not_connected,omitempty"`
+	Notes        []string `json:"notes,omitempty"`
+}
+
+func (d vpnDownData) Text() string {
+	var sb strings.Builder
+	for _, n := range d.Disconnected {
+		sb.WriteString("disconnected " + n + "\n")
+	}
+	for _, n := range d.Notes {
+		sb.WriteString(n + "\n")
+	}
+	return sb.String()
 }
 
 type vpnStatusRow struct {
@@ -507,27 +567,23 @@ type vpnStatusRow struct {
 	LastUsed time.Time `json:"last_used,omitzero"`
 	Socks    string    `json:"socks,omitempty"`
 	UsedBy   []string  `json:"used_by,omitempty"`
+	Detail   string    `json:"detail,omitempty"` // how "up" was seen, or why not
 }
 
 func vpnStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Which VPNs are connected, since when, and what uses them",
-		Args:  cobra.NoArgs,
+		Long: `Shows each VPN with up yes/no. Session VPNs are up while their session
+runs; a SOCKS proxy is up when its address answers, a system VPN when its
+--check address answers. WireGuard connects for each command.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			rows := []vpnStatusRow{}
-			for _, v := range st.SortedVpns() {
-				r := vpnStatusRow{Name: v.Name, Kind: v.Kind, MFA: v.MFA, UsedBy: vpnUsers(st, v.Name)}
-				if s := st.Sessions[v.Name]; s != nil && netx.SessionAlive(s) {
-					r.Up, r.Since, r.LastUsed, r.Socks = true, s.StartedAt, s.LastUsed, s.Socks
-				}
-				rows = append(rows, r)
-			}
-			out.P.Print("vpn.status", map[string]any{"vpns": rows}, nil)
+			out.P.Print("vpn.status", vpnStatusData{Vpns: vpnStatusRows(st)}, nil)
 			return nil
 		},
 	}

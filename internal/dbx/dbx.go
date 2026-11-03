@@ -149,7 +149,7 @@ type StatementResult struct {
 	Columns      []Column `json:"columns,omitempty"`
 	Rows         [][]any  `json:"-"`
 	RowCount     int      `json:"-"`
-	Truncated    bool     `json:"truncated,omitempty"`
+	Truncated    string   `json:"truncated,omitempty"` // which cap cut the rows: "rows" (--limit) or "bytes" (--max-output)
 	RowsAffected *int64   `json:"rows_affected,omitempty"`
 	Skipped      string   `json:"skipped,omitempty"` // why it did not run (dry run of a non-rollbackable statement)
 }
@@ -186,6 +186,11 @@ type Result struct {
 // Statements that cannot run in a transaction must be alone in the plan;
 // in a dry run they are reported but not executed.
 func Run(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, o Options) (*Result, error) {
+	res, err := runPlan(ctx, db, kind, plan, o)
+	return res, timeoutErr(err, o.Timeout)
+}
+
+func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, o Options) (*Result, error) {
 	if o.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, o.Timeout)
@@ -193,6 +198,11 @@ func Run(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, o Op
 	}
 	if len(o.Args) > 0 && len(plan.Statements) != 1 {
 		return nil, out.Usage("--arg works with a single statement; split the SQL")
+	}
+	if len(o.Args) > 0 {
+		if err := checkArgs(kind, plan.Statements[0].SQL, len(o.Args)); err != nil {
+			return nil, err
+		}
 	}
 	res := &Result{Results: []StatementResult{}}
 	budget := o.MaxBytes
@@ -307,21 +317,28 @@ func runStatement(ctx context.Context, q querier, kind string, st driver.Stateme
 	if err != nil {
 		return err
 	}
-	for _, ct := range cts {
+	types := make([]string, len(cts))
+	for i, ct := range cts {
+		types[i] = strings.ToUpper(ct.DatabaseTypeName())
 		r.Columns = append(r.Columns, Column{Name: ct.Name(), Type: strings.ToLower(ct.DatabaseTypeName())})
 	}
 	r.Rows = [][]any{}
 	if r.Columns == nil {
 		r.Columns = []Column{}
 	}
+	var raw [][]any
 	vals := make([]any, len(cts))
 	ptrs := make([]any, len(cts))
 	for i := range vals {
 		ptrs[i] = &vals[i]
 	}
 	for rows.Next() {
-		if o.Limit > 0 && r.RowCount >= o.Limit || o.MaxBytes > 0 && *budget <= 0 {
-			r.Truncated = true
+		if o.Limit > 0 && r.RowCount >= o.Limit {
+			r.Truncated = "rows"
+			break
+		}
+		if o.MaxBytes > 0 && *budget <= 0 {
+			r.Truncated = "bytes"
 			break
 		}
 		if err := rows.Scan(ptrs...); err != nil {
@@ -329,19 +346,23 @@ func runStatement(ctx context.Context, q querier, kind string, st driver.Stateme
 		}
 		row := make([]any, len(vals))
 		for i, v := range vals {
-			if kind == "mysql" {
-				v = mysqlValue(v, cts[i].DatabaseTypeName())
-			}
-			row[i] = driver.JSONValue(v)
+			row[i] = colValue(kind, types[i], v)
 		}
 		if o.MaxBytes > 0 {
 			b, _ := json.Marshal(row)
 			*budget -= len(b)
 		}
 		r.Rows = append(r.Rows, row)
+		raw = append(raw, append([]any(nil), vals...))
 		r.RowCount++
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows.Close()
+	sameTypeColumns(r.Rows, raw)
+	nameTypes(ctx, q, kind, r.Columns)
+	return nil
 }
 
 func writeRequired(kw string) *out.Error {
@@ -360,6 +381,9 @@ func connectErr(t driver.Target, err error) error {
 	if errors.As(err, &pe) && (pe.Code == "28P01" || pe.Code == "28000") || isMySQLAuth(err) {
 		return out.Errf(out.ExitConnect, "DB_AUTH", "check the user in the URL and the password reference (`komando conn show NAME`)", "%v", err)
 	}
+	if errors.As(err, &pe) && pe.Code == "3D000" || isMySQLNoDatabase(err) {
+		return out.Errf(out.ExitNotFound, "DB_NOT_FOUND", "check the database name at the end of the conn URL (`komando conn show NAME`)", "%v", err)
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "the database did not answer in time; check the address or raise --connect-timeout", "connecting to %s timed out", t.Where())
 	}
@@ -377,6 +401,9 @@ func queryErr(kind string, ctx context.Context, err error) error {
 	}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "narrow the query (WHERE, LIMIT) or raise --timeout", "query timed out")
+	}
+	if strings.Contains(err.Error(), "expected") && strings.Contains(err.Error(), "arguments, got") { // pgx
+		return out.Errf(out.ExitUsage, "USAGE", "give one --arg per placeholder ($1, $2, ...), in order", "%v", err)
 	}
 	var pe *pgconn.PgError
 	if errors.As(err, &pe) {

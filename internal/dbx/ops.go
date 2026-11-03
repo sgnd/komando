@@ -75,7 +75,7 @@ func withTimeout(ctx context.Context, d time.Duration) (context.Context, context
 }
 
 func notFor(kind, what string) error {
-	return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "SQLite is one file with one writer; there is nothing to "+what,
+	return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "SQLite is a file, not a server: it has no sessions, so there is nothing to show or stop",
 		"%s is not available for %s", what, kind)
 }
 
@@ -197,7 +197,7 @@ JOIN information_schema.innodb_trx b ON b.trx_id = w.blocking_trx_id`)
 		}
 		var me *mysql.MySQLError
 		if errors.As(err, &me) && (me.Number == 1227 || me.Number == 1142) {
-			return nil, out.Errf(out.ExitError, "DB_PRIVILEGE", "grant it with `GRANT PROCESS ON *.* TO user` (as an admin), or use a conn with an admin user",
+			return nil, out.Errf(out.ExitConnect, "DB_PRIVILEGE", "grant it with `GRANT PROCESS ON *.* TO user` (as an admin), or use a conn with an admin user",
 				"lock waits need the PROCESS privilege, which this user lacks")
 		}
 	default:

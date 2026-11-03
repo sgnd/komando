@@ -2,6 +2,7 @@ package cli
 
 import (
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,13 +26,20 @@ echo "cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
 [ -r /proc/loadavg ] && echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
 [ -r /proc/uptime ] && echo "uptime_sec=$(cut -d. -f1 /proc/uptime)"
 df -P -k / 2>/dev/null | awk 'NR==2{print "disk_root_total_gb="int($2/1048576); print "disk_root_used_pct="int($5)}'
-echo "ips=$(hostname -I 2>/dev/null || ip -o -4 addr show 2>/dev/null | awk '{print $4}' | tr '\n' ' ')"
-echo "init=$(ps -p 1 -o comm= 2>/dev/null)"
-echo "virt=$(systemd-detect-virt 2>/dev/null || echo unknown)"
+echo "ips=$(hostname -I 2>/dev/null || ip -o -4 addr show scope global 2>/dev/null | awk '{sub("/.*", "", $4); print $4}' | tr '\n' ' ')"
+echo "init=$(cat /proc/1/comm 2>/dev/null || ps -p 1 -o comm= 2>/dev/null)"
+v=$(systemd-detect-virt 2>/dev/null)
+if [ -z "$v" ] || [ "$v" = none ]; then
+  if [ -f /.dockerenv ] || grep -qa docker /proc/1/cgroup 2>/dev/null; then v=docker
+  elif [ -f /run/.containerenv ]; then v=podman
+  elif grep -qa -e lxc -e kubepods /proc/1/cgroup 2>/dev/null; then v=container
+  fi
+fi
+echo "virt=${v:-unknown}"
 for m in apt-get dnf yum apk zypper pacman; do command -v $m >/dev/null 2>&1 && { echo "pkg_manager=${m%-get}"; break; }; done
 for b in curl wget openssl docker podman kubectl k3s systemctl nginx apache2 httpd caddy haproxy mysql psql redis-cli mongosh node python3 java go git ufw firewall-cmd certbot; do command -v $b >/dev/null 2>&1 && printf 'tool=%s\n' $b; done
 [ -f /var/run/reboot-required ] && echo "reboot_required=true" || echo "reboot_required=false"
-command -v systemctl >/dev/null 2>&1 && echo "failed_units=$(systemctl --failed --no-legend --plain 2>/dev/null | wc -l)"
+[ -d /run/systemd/system ] && echo "failed_units=$(systemctl --failed --no-legend --plain 2>/dev/null | wc -l)"
 echo "users_logged_in=$(who 2>/dev/null | wc -l)"
 echo "time_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "timezone=$(cat /etc/timezone 2>/dev/null || date +%Z)"
@@ -171,6 +179,68 @@ func render(tmpl string, defaults map[string]string, vars map[string]string) (st
 	return res, nil
 }
 
+// recipeBlanks lists the {{blanks}} of a recipe, sorted.
+func recipeBlanks(r recipeRow) []string {
+	seen := map[string]bool{}
+	for _, m := range tmplRe.FindAllStringSubmatch(r.Command, -1) {
+		seen[m[1]] = true
+	}
+	for k := range r.Params {
+		seen[k] = true
+	}
+	names := make([]string, 0, len(seen))
+	for k := range seen {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// checkVars refuses a --var the recipe has no blank for (a typo would
+// otherwise run the recipe with its default).
+func checkVars(r recipeRow, kv map[string]string) error {
+	blanks := recipeBlanks(r)
+	for k := range kv {
+		if !slices.Contains(blanks, k) {
+			has := "it has no blanks"
+			if len(blanks) > 0 {
+				has = "its blanks: " + strings.Join(blanks, ", ")
+			}
+			return out.Errf(out.ExitUsage, "UNKNOWN_VAR", "see the recipe with `komando recipe list`",
+				"recipe %s has no blank named %q (%s)", r.Name, k, has)
+		}
+	}
+	return nil
+}
+
+type recipeList struct {
+	Count   int         `json:"count"`
+	Recipes []recipeRow `json:"recipes"`
+}
+
+func (l recipeList) Text() string {
+	rows := [][]string{}
+	for _, r := range l.Recipes {
+		cat := r.Category
+		if !r.Builtin {
+			cat = "saved"
+		}
+		ro := "no"
+		if r.ReadOnly {
+			ro = "yes"
+		}
+		desc := r.Desc
+		if desc == "" {
+			desc = r.Command
+		}
+		if b := recipeBlanks(r); len(b) > 0 {
+			desc += " [" + strings.Join(b, ", ") + "]"
+		}
+		rows = append(rows, []string{r.Name, cat, ro, desc})
+	}
+	return textTable([]string{"name", "category", "read-only", "description"}, rows)
+}
+
 // --------------------------------------------------------------- recipe ---
 
 // A recipe is a saved command with {{blanks}}. The built-in ones (health,
@@ -248,7 +318,7 @@ func recipeListCmd() *cobra.Command {
 				}
 				return rows[i].Name < rows[j].Name
 			})
-			out.P.Print("recipe.list", map[string]any{"count": len(rows), "recipes": rows}, nil)
+			out.P.Print("recipe.list", recipeList{Count: len(rows), Recipes: rows}, nil)
 			return nil
 		},
 	}
@@ -325,6 +395,10 @@ func recipeRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if g.dryRun {
+				out.P.Print("recipe.rm", map[string]any{"would_remove": args[0]}, nil)
+				return nil
+			}
 			out.P.Print("recipe.rm", map[string]any{"removed": args[0]}, nil)
 			return nil
 		},
@@ -350,6 +424,9 @@ func recipeRunCmd() *cobra.Command {
 			}
 			kv, err := parseKV(vars)
 			if err != nil {
+				return err
+			}
+			if err := checkVars(r, kv); err != nil {
 				return err
 			}
 			command, err := render(r.Command, r.Params, kv)

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -86,6 +87,12 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 		return err
 	}
 
+	// check for the client before any SSH or VPN contact
+	if _, err := exec.LookPath(client); err != nil {
+		return fail(out.Errf(out.ExitNotFound, "TOOL_MISSING", clientInstallHint(runtime.GOOS, linuxDistro(), client, c.Name),
+			"%s is not installed on this computer", client))
+	}
+
 	// reach the server: directly, or through a local port forwarded over --via
 	addr := t.Address
 	a, err := openAccess(ctx, st, c)
@@ -106,10 +113,6 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 	argv, env, err := shellCommand(c, t, a.Password, addr, write)
 	if err != nil {
 		return fail(err)
-	}
-	if _, err := exec.LookPath(argv[0]); err != nil {
-		pkg := map[string]string{"psql": "postgresql-client", "mysql": "mysql-client (or mariadb-client)", "sqlite3": "sqlite3"}[argv[0]]
-		return fail(out.Errf(out.ExitNotFound, "TOOL_MISSING", "install "+pkg+" on this computer", "%s is not installed here", argv[0]))
 	}
 	mode := "read-only"
 	if write {
@@ -193,6 +196,61 @@ func shellCommand(c *store.Conn, t driver.Target, password, addr string, write b
 		return argv, append(env, "MYSQL_PWD="+password), nil
 	}
 	return nil, nil, out.Usage("%s conns have no shell", t.Kind.Name)
+}
+
+// clientInstallHint says how to install a database client (psql, mysql,
+// sqlite3) on this computer. goos is runtime.GOOS; distro is ID and ID_LIKE
+// from /etc/os-release on Linux ("ubuntu debian").
+func clientInstallHint(goos, distro, client, conn string) string {
+	pkgs := map[string]map[string]string{
+		"darwin": {
+			"psql":    "brew install libpq, then brew link --force libpq (or add $(brew --prefix libpq)/bin to PATH)",
+			"mysql":   "brew install mysql-client, then add $(brew --prefix mysql-client)/bin to PATH",
+			"sqlite3": "brew install sqlite",
+		},
+		"debian": {"psql": "sudo apt install postgresql-client", "mysql": "sudo apt install default-mysql-client", "sqlite3": "sudo apt install sqlite3"},
+		"fedora": {"psql": "sudo dnf install postgresql", "mysql": "sudo dnf install mysql", "sqlite3": "sudo dnf install sqlite"},
+		"alpine": {"psql": "sudo apk add postgresql-client", "mysql": "sudo apk add mysql-client", "sqlite3": "sudo apk add sqlite"},
+		"arch":   {"psql": "sudo pacman -S postgresql-libs", "mysql": "sudo pacman -S mariadb-clients", "sqlite3": "sudo pacman -S sqlite"},
+	}
+	family := goos
+	if goos == "linux" {
+		family = ""
+		for _, id := range strings.Fields(distro) {
+			switch id {
+			case "debian", "ubuntu":
+				family = "debian"
+			case "fedora", "rhel", "centos", "rocky", "almalinux":
+				family = "fedora"
+			case "alpine", "arch":
+				family = id
+			}
+			if family != "" {
+				break
+			}
+		}
+	}
+	how := pkgs[family][client]
+	if how == "" {
+		what := map[string]string{"psql": "the PostgreSQL client (psql)", "mysql": "the MySQL or MariaDB client (mysql)", "sqlite3": "sqlite3"}[client]
+		how = "install " + what + " with your package manager"
+	}
+	return how + "; or run SQL now with `komando db query " + conn + " 'select 1'`"
+}
+
+// linuxDistro is ID and ID_LIKE from /etc/os-release, or "" elsewhere.
+func linuxDistro() string {
+	b, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return ""
+	}
+	var ids []string
+	for _, line := range strings.Split(string(b), "\n") {
+		if k, v, ok := strings.Cut(line, "="); ok && (k == "ID" || k == "ID_LIKE") {
+			ids = append(ids, strings.Fields(strings.Trim(v, `"'`))...)
+		}
+	}
+	return strings.Join(ids, " ")
 }
 
 // childEnv is this process's environment without komando's own secrets.

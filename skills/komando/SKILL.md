@@ -25,7 +25,10 @@ If `komando` is not installed, stop and ask the human to install it:
 
 1. Look before you change: `komando test <target>`, `komando facts <target>`,
    then read logs, config and status.
-2. Run every change once with `--dry-run` first. Declare read-only shell
+2. Run every change once with `--dry-run` first. A dry run is never stopped:
+   on a protected target or a destructive command it still shows the plan,
+   and `meta.would_be_blocked` names the stop the real run would hit, so you
+   can show the human exactly what you will ask for. Declare read-only shell
    commands with `komando exec <target> --read-only -- '<cmd>'`.
    `db query`, `cache run` and `cluster run` are the other way round: they
    only read unless you add `--write`.

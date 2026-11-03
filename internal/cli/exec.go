@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
+	"sort"
 	"strings"
 	"sync"
 
@@ -27,35 +29,63 @@ type execHostResult struct {
 type execData struct {
 	Command string           `json:"command"`
 	Results []execHostResult `json:"results"`
-	Summary fleetSummary     `json:"summary"`
+	Summary runSummary       `json:"summary"`
+	// streamed: the output was printed live (--stream, follow), so the
+	// final text does not repeat it
+	streamed bool
 }
 
+// Text is the output the way ssh shows it: one server prints its stdout
+// and stderr as they are; several get a "=== host [status]" block each,
+// with their stderr inside, marked [stderr].
 func (d execData) Text() string {
 	var sb strings.Builder
 	multi := len(d.Results) > 1
 	for _, r := range d.Results {
 		if multi {
-			status := "ok"
-			if !r.OK {
-				status = "FAILED"
-			}
-			code := ""
-			if r.RunResult != nil {
-				code = fmt.Sprintf(" exit=%d", r.ExitCode)
-			}
-			fmt.Fprintf(&sb, "=== %s [%s%s]\n", r.Host, status, code)
+			fmt.Fprintf(&sb, "=== %s [%s]\n", r.Host, hostStatus(r))
 		}
-		if r.RunResult != nil {
+		if r.RunResult != nil && !d.streamed {
 			sb.WriteString(r.Stdout)
+			if r.Stdout != "" && !strings.HasSuffix(r.Stdout, "\n") && multi {
+				sb.WriteString("\n")
+			}
 			if r.Stderr != "" {
-				fmt.Fprint(os.Stderr, r.Stderr)
+				if multi {
+					for _, line := range strings.SplitAfter(strings.TrimRight(r.Stderr, "\n"), "\n") {
+						sb.WriteString("[stderr] " + strings.TrimRight(line, "\n") + "\n")
+					}
+				} else if r.Error == nil || r.Error.Message != strings.TrimSpace(r.Stderr) { // else the closing line says it
+					fmt.Fprint(os.Stderr, out.SafeText(out.P.Redact(r.Stderr)))
+				}
 			}
 		}
-		if r.Error != nil {
+		if r.Error != nil && multi && r.Error.Code != "SKIPPED" {
 			fmt.Fprintf(&sb, "error [%s]: %s\n", r.Error.Code, r.Error.Message)
+			if r.Error.Hint != "" {
+				fmt.Fprintf(&sb, "hint: %s\n", r.Error.Hint)
+			}
 		}
 	}
 	return sb.String()
+}
+
+func hostStatus(r execHostResult) string {
+	switch {
+	case r.Error != nil && r.Error.Code == "SKIPPED":
+		return "skipped"
+	case r.OK && r.RunResult != nil:
+		return fmt.Sprintf("ok exit=%d", r.ExitCode)
+	case r.OK:
+		return "ok"
+	case r.RunResult != nil && r.TimedOut:
+		return "FAILED timed out"
+	case r.RunResult != nil:
+		return fmt.Sprintf("FAILED exit=%d", r.ExitCode)
+	case r.Error != nil:
+		return "FAILED " + failReason(0, r.Error)
+	}
+	return "FAILED"
 }
 
 type execOpts struct {
@@ -67,6 +97,13 @@ type execOpts struct {
 	pty       bool
 	stream    bool
 	failFast  bool
+	display   string // what output and the audit log show instead of a long generated script
+	// follow: a log follow (logs --follow). Reaching --timeout is how it
+	// ends, not a failure.
+	follow bool
+	// exitMap turns a remote exit code into a typed error (fs commands:
+	// 83 = no such file ...); nil keeps the plain "exit N".
+	exitMap func(code int, stderr string) *out.Error
 }
 
 func (o *execOpts) bind(c *cobra.Command) {
@@ -114,6 +151,11 @@ unless --allow-dangerous is given. Hosts marked protected need --yes unless
 			if o.stdinFile != "" {
 				var err error
 				if stdin, err = readFileOrStdin(o.stdinFile); err != nil {
+					return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "check the --stdin-file path", "%v", err)
+				}
+			}
+			if readOnly {
+				if err := checkReadOnly(command); err != nil {
 					return err
 				}
 			}
@@ -154,19 +196,14 @@ func scriptCmd() *cobra.Command {
 					}
 				}
 			}
-			command := interpreter + " -s"
-			if interpreter == "python3" || interpreter == "python" || strings.HasSuffix(interpreter, "/python3") {
-				command = interpreter + " -"
-			}
-			if len(argsList) > 0 {
-				q := make([]string, len(argsList))
-				for i, a := range argsList {
-					q[i] = sshx.Q(a)
-				}
-				command += " " + strings.Join(append([]string{"--"}, q...), " ")
-			}
+			command := scriptCommand(interpreter, argsList)
 			if err := guardBody(string(body)); err != nil {
 				return err
+			}
+			if readOnly {
+				if err := checkReadOnly(string(body)); err != nil {
+					return err
+				}
 			}
 			return runFleet(cmd.Context(), "script", args[0], command, body, o, !readOnly)
 		},
@@ -176,6 +213,36 @@ func scriptCmd() *cobra.Command {
 	c.Flags().StringArrayVar(&argsList, "arg", nil, "argument passed to the script (repeatable)")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare the script read-only")
 	return c
+}
+
+// scriptCommand is how an interpreter reads a script from stdin, with
+// arguments: POSIX shells take "-s -- ARGS", the others "- ARGS" (perl,
+// python, ruby, node and php all read "-" as stdin).
+func scriptCommand(interpreter string, args []string) string {
+	base := interpreter
+	if f := strings.Fields(interpreter); len(f) > 0 {
+		base = path.Base(f[0])
+		if base == "env" && len(f) > 1 {
+			base = path.Base(f[len(f)-1])
+		}
+	}
+	shell := false
+	for _, sh := range []string{"sh", "bash", "zsh", "dash", "ash", "ksh", "mksh", "busybox"} {
+		if base == sh {
+			shell = true
+		}
+	}
+	q := make([]string, len(args))
+	for i, a := range args {
+		q[i] = sshx.Q(a)
+	}
+	if shell {
+		if len(q) == 0 {
+			return interpreter + " -s"
+		}
+		return interpreter + " -s -- " + strings.Join(q, " ")
+	}
+	return strings.TrimSpace(interpreter + " - " + strings.Join(q, " "))
 }
 
 // guardBody applies the destructive-command policy to every line of a script.
@@ -197,9 +264,13 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 	if err != nil {
 		return err
 	}
+	shown := command
+	if o.display != "" {
+		shown = o.display
+	}
 	guardErr := guard(st, hosts, command, mutating)
 	if guardErr != nil && !g.dryRun {
-		audit(st, name, hostNames(hosts), command, false, map[string]any{"blocked": toErr(guardErr).Code})
+		audit(st, name, hostNames(hosts), shown, false, map[string]any{"blocked": toErr(guardErr).Code})
 		return guardErr
 	}
 	env, err := parseEnv(o.env)
@@ -216,19 +287,25 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			if err != nil {
 				full = "<error: " + err.Error() + ">"
 			}
+			if o.display != "" {
+				full = o.display
+			}
 			plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": full, "stdin_bytes": len(stdin)})
 		}
 		res := map[string]any{"would_run": plans}
 		if guardErr != nil {
 			res["would_be_blocked"] = toErr(guardErr)
+		} else if b := out.P.Blocked(); b != nil {
+			res["would_be_blocked"] = b
 		}
 		out.P.Print(name, res, nil)
 		return nil
 	}
 
+	follow := o.follow || (o.stream && name == "logs") // logs --follow
 	var mu sync.Mutex
 	var failed bool
-	results := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+	run := func(ctx context.Context, c *sshx.Client) (any, error) {
 		if o.failFast {
 			mu.Lock()
 			f := failed
@@ -256,7 +333,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 						if many {
 							line = "[" + host + "] " + line
 						}
-						fmt.Fprint(w, out.P.Redact(line))
+						fmt.Fprint(w, out.SafeText(out.P.Redact(line)))
 					}
 					return
 				}
@@ -270,23 +347,60 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			mu.Unlock()
 		}
 		return res, err
-	})
+	}
+	var results []outcome
+	if o.failFast && parallelism(st) <= 1 {
+		// one at a time, in name order, and nobody is dialled after a failure
+		ordered := append([]*store.Host(nil), hosts...)
+		sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Name < ordered[j].Name })
+		for _, h := range ordered {
+			if failed {
+				results = append(results, outcome{Host: h, Err: out.Errf(out.ExitError, "SKIPPED", "", "skipped due to --fail-fast")})
+				continue
+			}
+			results = append(results, fanout(ctx, st, []*store.Host{h}, run)...)
+			if r := results[len(results)-1]; r.Err != nil {
+				failed = true
+			}
+		}
+	} else {
+		results = fanout(ctx, st, hosts, run)
+	}
 
-	data := execData{Command: command, Results: make([]execHostResult, 0, len(results))}
+	data := execData{Command: shown, Results: make([]execHostResult, 0, len(results)), streamed: o.stream && out.P.Format == "text"}
 	worst := 0
+	var fails []hostFail
 	for _, r := range results {
 		hr := execHostResult{Host: r.Host.Name}
 		if r.Err != nil {
 			hr.Error = toErr(r.Err)
+			if hr.Error.Code == "SKIPPED" {
+				data.Summary.Skipped++
+				data.Summary.SkippedHosts = append(data.Summary.SkippedHosts, hr.Host)
+				data.Results = append(data.Results, hr)
+				continue
+			}
 			worst = worse(worst, hr.Error.Exit)
+			fails = append(fails, hostFail{host: hr.Host, reason: failReason(0, hr.Error), err: hr.Error})
 		} else {
 			hr.RunResult = r.Value.(*sshx.RunResult)
+			if hr.TimedOut && follow {
+				// --timeout is how a follow ends: what came so far is the result
+				hr.TimedOut, hr.ExitCode = false, 0
+			}
 			hr.OK = hr.ExitCode == 0 && !hr.TimedOut
-			if hr.TimedOut {
-				hr.Error = out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout or use `komando job start` for long tasks", "command timed out")
+			switch {
+			case hr.TimedOut:
+				hr.Error = out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout or use `komando job start` for long tasks", "command timed out after %s", req.Timeout)
 				worst = worse(worst, out.ExitTimeout)
-			} else if !hr.OK {
+				fails = append(fails, hostFail{host: hr.Host, reason: "timed out", err: hr.Error})
+			case !hr.OK && o.exitMap != nil && o.exitMap(hr.ExitCode, hr.Stderr) != nil:
+				hr.Error = o.exitMap(hr.ExitCode, hr.Stderr)
+				worst = worse(worst, hr.Error.Exit)
+				fails = append(fails, hostFail{host: hr.Host, reason: failReason(hr.ExitCode, hr.Error), err: hr.Error})
+			case !hr.OK:
 				worst = worse(worst, out.ExitRemote)
+				fails = append(fails, hostFail{host: hr.Host, reason: fmt.Sprintf("exit %d", hr.ExitCode)})
 			}
 		}
 		if hr.OK {
@@ -306,11 +420,13 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			codes[r.Host] = -1
 		}
 	}
-	audit(st, name, hostNames(hosts), command, data.Summary.Failed == 0, map[string]any{"exit_codes": codes, "sudo": req.Sudo})
+	audit(st, name, hostNames(hosts), shown, data.Summary.Failed == 0, map[string]any{"exit_codes": codes, "sudo": req.Sudo})
 	if o.stream && out.P.Format != "text" {
 		out.P.Event(map[string]any{"event": "done", "summary": data.Summary})
 	}
-	return finish(name, data, data.Summary, worst)
+	err = finishFleet(name, data, data.Summary, worst, fails)
+	truncationNotes(data.Results, req.MaxOutput, len(results) > 1)
+	return err
 }
 
 // runOne is the building block for module commands (svc, docker, pkg ...):
@@ -351,11 +467,13 @@ func probe(ctx context.Context, name, target, command string, sudo bool, parse f
 		Summary fleetSummary `json:"summary"`
 	}{Results: []row{}}
 	worst := 0
+	var fails []hostFail
 	for _, o := range res {
 		r := row{Host: o.Host.Name}
 		if o.Err != nil {
 			r.Error = toErr(o.Err)
 			worst = worse(worst, r.Error.Exit)
+			fails = append(fails, hostFail{host: r.Host, reason: failReason(0, r.Error), err: r.Error})
 		} else {
 			rr := o.Value.(*sshx.RunResult)
 			code := rr.ExitCode
@@ -372,7 +490,19 @@ func probe(ctx context.Context, name, target, command string, sudo bool, parse f
 			r.OK = rr.ExitCode == 0 && r.Error == nil
 			if !r.OK {
 				r.Stderr = strings.TrimSpace(rr.Stderr)
-				worst = worse(worst, out.ExitRemote)
+				exit := out.ExitRemote
+				f := hostFail{host: r.Host, reason: fmt.Sprintf("exit %d", rr.ExitCode)}
+				if r.Error != nil && r.Error.Exit != 0 {
+					exit = r.Error.Exit // the parser named the problem (NXDOMAIN, closed port ...): its code wins
+					f = hostFail{host: r.Host, reason: failReason(0, r.Error), err: r.Error}
+				}
+				if rr.TimedOut {
+					r.Error = out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "command timed out")
+					exit = out.ExitTimeout
+					f = hostFail{host: r.Host, reason: "timed out", err: r.Error}
+				}
+				worst = worse(worst, exit)
+				fails = append(fails, f)
 			}
 		}
 		if r.OK {
@@ -385,5 +515,5 @@ func probe(ctx context.Context, name, target, command string, sudo bool, parse f
 	}
 	data.Summary.Total = len(res)
 	audit(st, name, hostNames(hosts), command, data.Summary.Failed == 0, nil)
-	return finish(name, data, data.Summary, worst)
+	return finishFleet(name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }

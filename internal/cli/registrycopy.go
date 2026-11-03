@@ -56,12 +56,12 @@ func (d copyData) Text() string {
 
 func runRegistryCopy(ctx context.Context, from, to string) error {
 	srcName, srcImage, ok := strings.Cut(from, ":")
-	if !ok || srcImage == "" {
-		return out.Usage("source must be CONN:IMAGE, e.g. ghcr:org/app:1.4.2")
+	if !ok || srcImage == "" || strings.Contains(srcName, "/") {
+		return out.Usage("write the source as CONN:IMAGE, e.g. ghcr:org/app:1.4.2 (%q has no registry conn in front)", from)
 	}
 	dstName, dstImage, ok := strings.Cut(to, ":")
-	if !ok {
-		return out.Usage("destination must be CONN:IMAGE or CONN: (same name), e.g. harbor:prod/app:1.4.2")
+	if !ok || strings.Contains(dstName, "/") {
+		return out.Usage("write the destination as CONN:IMAGE or CONN: (same name), e.g. harbor:prod/app:1.4.2 (%q has no registry conn in front)", to)
 	}
 	srcRepo, srcRef := splitImage(srcImage)
 	dstRepo, dstRef := srcRepo, srcRef
@@ -113,6 +113,9 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 	defer closeDst()
 	res, err := registry.Copy(ctx, sc, srcRepo, srcRef, dc, dstRepo, dstRef)
 	if err != nil {
+		if _, ierr := sc.Inspect(ctx, srcRepo, srcRef); ierr != nil {
+			err = imageErr(ctx, sc, srcRepo, srcRef, ierr) // name the missing source
+		}
 		err = registryErr(err)
 		rec["error"] = toErr(err).Code
 		audit(st, "registry.copy", nil, "", false, rec)

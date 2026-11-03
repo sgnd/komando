@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -33,7 +34,12 @@ type syncFile struct {
 	Size  int64
 	Mtime time.Time
 	Mode  fs.FileMode
+	Skip  bool // a symbolic link or special file: listed, never copied or deleted
 }
+
+// errSideMissing is what list returns when the folder (or prefix) is not
+// there: a destination is then created, a source is an error.
+var errSideMissing = errors.New("folder not found")
 
 // syncSide is one end of a sync: a local folder, a folder on a server, or a
 // prefix in a storage conn.
@@ -50,14 +56,21 @@ type localSide struct{ root string }
 
 func (l localSide) list(context.Context) (map[string]syncFile, error) {
 	files := map[string]syncFile{}
-	if _, err := os.Stat(l.root); os.IsNotExist(err) {
-		return files, nil // a new destination folder
+	if fi, err := os.Stat(l.root); os.IsNotExist(err) {
+		return files, errSideMissing // a new destination folder
+	} else if err == nil && !fi.IsDir() {
+		return nil, out.Errf(out.ExitUsage, "NOT_A_FOLDER", "sync works on folders; for one file use `komando upload` or `komando download`", "%s is a file, not a folder", l.root)
 	}
 	err := filepath.WalkDir(l.root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
+		if d.IsDir() {
+			return nil
+		}
 		if !d.Type().IsRegular() {
+			rel, _ := filepath.Rel(l.root, p)
+			files[filepath.ToSlash(rel)] = syncFile{Skip: true}
 			return nil
 		}
 		fi, err := d.Info()
@@ -121,25 +134,33 @@ type sftpSide struct {
 
 func (s sftpSide) list(context.Context) (map[string]syncFile, error) {
 	files := map[string]syncFile{}
-	if _, err := s.sc.Stat(s.root); err != nil {
+	if fi, err := s.sc.Stat(s.root); err != nil {
 		if os.IsNotExist(err) {
-			return files, nil
+			return files, errSideMissing
 		}
-		return nil, fsErr(s.root, err)
+		return nil, fsErrHint(s.root, err, syncPermHint)
+	} else if !fi.IsDir() {
+		return nil, out.Errf(out.ExitUsage, "NOT_A_FOLDER", "sync works on folders; for one file use `komando download` or `komando upload`", "%s is a file, not a folder", s.root)
 	}
 	w := s.sc.Walk(s.root)
 	for w.Step() {
 		if w.Err() != nil {
-			return nil, fsErr(w.Path(), w.Err())
+			return nil, fsErrHint(w.Path(), w.Err(), syncPermHint)
 		}
-		if !w.Stat().Mode().IsRegular() {
+		if w.Stat().IsDir() {
 			continue
 		}
 		rel := strings.TrimPrefix(strings.TrimPrefix(w.Path(), s.root), "/")
+		if !w.Stat().Mode().IsRegular() {
+			files[rel] = syncFile{Skip: true}
+			continue
+		}
 		files[rel] = syncFile{Size: w.Stat().Size(), Mtime: w.Stat().ModTime(), Mode: w.Stat().Mode().Perm()}
 	}
 	return files, nil
 }
+
+const syncPermHint = "sync reads and writes as the SSH user; fix the owner or permissions, or --exclude it"
 
 func (s sftpSide) open(_ context.Context, rel string) (io.ReadCloser, error) {
 	f, err := s.sc.Open(path.Join(s.root, rel))
@@ -201,6 +222,9 @@ func (b bucketSide) key(rel string) string { return b.prefix + rel }
 func (b bucketSide) list(ctx context.Context) (map[string]syncFile, error) {
 	objs, more, err := b.b.List(ctx, b.prefix, true, 1_000_000)
 	if err != nil {
+		if toErr(err).Exit == out.ExitNotFound {
+			return map[string]syncFile{}, errSideMissing // SFTP/FTP: the folder is not there yet
+		}
 		return nil, err
 	}
 	if more {
@@ -208,10 +232,16 @@ func (b bucketSide) list(ctx context.Context) (map[string]syncFile, error) {
 	}
 	files := map[string]syncFile{}
 	for _, o := range objs {
-		if o.Dir {
+		rel := strings.TrimPrefix(o.Key, b.prefix)
+		// folder markers: the prefix itself, or a key ending in / (S3
+		// consoles create them); they hold no file
+		if o.Dir || rel == "" || strings.HasSuffix(rel, "/") || o.Key+"/" == b.prefix {
 			continue
 		}
-		files[strings.TrimPrefix(o.Key, b.prefix)] = syncFile{Size: o.Size, Mtime: o.Modified}
+		files[rel] = syncFile{Size: o.Size, Mtime: o.Modified}
+	}
+	if len(files) == 0 {
+		return files, errSideMissing // nothing under the prefix: S3 has no empty folders
 	}
 	return files, nil
 }
@@ -255,6 +285,8 @@ type syncResult struct {
 	Deleted   int          `json:"deleted"`
 	Kept      int          `json:"kept,omitempty"`
 	Unchanged int          `json:"unchanged"`
+	Skipped   []string     `json:"skipped,omitempty"`    // symbolic links and special files in SRC, not copied
+	NewFolder bool         `json:"new_folder,omitempty"` // DST did not exist: it is (or would be) created
 	Bytes     int64        `json:"bytes"`
 	Actions   []syncAction `json:"actions"`
 	More      bool         `json:"more_actions,omitempty"`
@@ -284,14 +316,14 @@ func excluded(rel string, patterns []string) bool {
 func planSync(src, dst map[string]syncFile, o syncOpts) []syncAction {
 	var acts []syncAction
 	for rel, f := range src {
-		if excluded(rel, o.exclude) {
+		if f.Skip || excluded(rel, o.exclude) {
 			continue
 		}
 		d, ok := dst[rel]
 		switch {
-		case !ok:
+		case !ok || d.Skip:
 			acts = append(acts, syncAction{Op: "copy", Path: rel, Size: f.Size})
-		case d.Size != f.Size || f.Mtime.After(d.Mtime.Add(2*time.Second)):
+		case d.Size != f.Size || f.Mtime.After(d.Mtime.Add(2*time.Second)) || f.Mode != 0 && d.Mode != 0 && f.Mode != d.Mode:
 			if o.onlyNew {
 				acts = append(acts, syncAction{Op: "keep", Path: rel})
 			} else {
@@ -300,8 +332,8 @@ func planSync(src, dst map[string]syncFile, o syncOpts) []syncAction {
 		}
 	}
 	if o.delete {
-		for rel := range dst {
-			if _, ok := src[rel]; !ok && !excluded(rel, o.exclude) {
+		for rel, d := range dst {
+			if _, ok := src[rel]; !ok && !d.Skip && !excluded(rel, o.exclude) {
 				acts = append(acts, syncAction{Op: "delete", Path: rel})
 			}
 		}
@@ -313,15 +345,34 @@ func planSync(src, dst map[string]syncFile, o syncOpts) []syncAction {
 // runSync plans and (unless dry-run) carries out one sync.
 func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o syncOpts) (*syncResult, error) {
 	sf, err := src.list(ctx)
+	if errors.Is(err, errSideMissing) {
+		return nil, out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the source path; nothing was changed", "%s does not exist (or holds no files)", srcName)
+	}
 	if err != nil {
 		return nil, err
 	}
 	df, err := dst.list(ctx)
-	if err != nil {
+	newFolder := errors.Is(err, errSideMissing)
+	if err != nil && !newFolder {
 		return nil, err
 	}
+	res := &syncResult{Src: srcName, Dst: dstName, DryRun: g.dryRun, Actions: []syncAction{}, NewFolder: newFolder}
+	files := 0
+	for rel, f := range sf {
+		switch {
+		case f.Skip:
+			res.Skipped = append(res.Skipped, rel)
+		case !excluded(rel, o.exclude):
+			files++
+		}
+	}
+	sort.Strings(res.Skipped)
+	if o.delete && files == 0 && len(df) > 0 {
+		// an empty source would make --delete wipe the destination
+		return nil, out.Errf(out.ExitNotFound, "SOURCE_EMPTY", "check the source path; nothing was deleted",
+			"%s has no files to sync, so --delete would remove everything in %s", srcName, dstName)
+	}
 	acts := planSync(sf, df, o)
-	res := &syncResult{Src: srcName, Dst: dstName, DryRun: g.dryRun, Actions: []syncAction{}}
 	for _, a := range acts {
 		switch a.Op {
 		case "copy":
@@ -336,12 +387,7 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 			res.Kept++
 		}
 	}
-	res.Unchanged = len(sf) - res.Copied - res.Updated - res.Kept
-	for rel := range sf {
-		if excluded(rel, o.exclude) {
-			res.Unchanged--
-		}
-	}
+	res.Unchanged = files - res.Copied - res.Updated - res.Kept
 	const shown = 1000
 	res.Actions = acts
 	if len(acts) > shown {
@@ -371,20 +417,43 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 	return res, nil
 }
 
+var syncPast = map[string]string{"copy": "copied", "update": "updated", "delete": "deleted"}
+
 func (r *syncResult) Text() string {
 	var sb strings.Builder
 	if r.Host != "" {
 		fmt.Fprintf(&sb, "● %s\n", r.Host)
 	}
-	verb := map[bool]string{true: "would ", false: ""}[r.DryRun]
-	for _, a := range r.Actions {
-		if a.Op != "keep" {
-			fmt.Fprintf(&sb, "  %s%-6s %s\n", verb, a.Op, a.Path)
+	if r.NewFolder {
+		if r.DryRun {
+			sb.WriteString("  would create the folder " + r.Dst + "\n")
+		} else {
+			sb.WriteString("  created the folder " + r.Dst + "\n")
 		}
 	}
-	fmt.Fprintf(&sb, "%scopied %d, updated %d, deleted %d, unchanged %d (%s)\n", verb, r.Copied, r.Updated, r.Deleted, r.Unchanged, humanBytes(r.Bytes))
+	for _, a := range r.Actions {
+		if a.Op == "keep" {
+			continue
+		}
+		if r.DryRun {
+			fmt.Fprintf(&sb, "  would %-6s %s\n", a.Op, a.Path)
+		} else {
+			fmt.Fprintf(&sb, "  %-7s %s\n", syncPast[a.Op], a.Path)
+		}
+	}
+	if r.More {
+		sb.WriteString("  ... (more; see -o json)\n")
+	}
+	if r.DryRun {
+		fmt.Fprintf(&sb, "would copy %d, update %d, delete %d; %d unchanged (%s)\n", r.Copied, r.Updated, r.Deleted, r.Unchanged, humanBytes(r.Bytes))
+	} else {
+		fmt.Fprintf(&sb, "copied %d, updated %d, deleted %d; %d unchanged (%s)\n", r.Copied, r.Updated, r.Deleted, r.Unchanged, humanBytes(r.Bytes))
+	}
 	if r.Kept > 0 {
 		fmt.Fprintf(&sb, "kept %d existing local files (--overwrite replaces them)\n", r.Kept)
+	}
+	if len(r.Skipped) > 0 {
+		fmt.Fprintf(&sb, "skipped %d symbolic link(s) or special file(s): %s\n", len(r.Skipped), shortList(r.Skipped, 5))
 	}
 	return sb.String()
 }
@@ -409,23 +478,27 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
   komando sync web1:/var/log/app ./logs/web1`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			srcT, srcP, srcRemote := splitRemote(args[0])
-			dstT, dstP, dstRemote := splitRemote(args[1])
+			srcT, srcP, srcRemote := splitArg(args[0])
+			dstT, dstP, dstRemote := splitArg(args[1])
 			switch {
 			case srcRemote && dstRemote:
 				return out.Usage("one side must be a folder on this computer; sync remote to remote by way of a local folder")
 			case !srcRemote && !dstRemote:
-				return out.Usage("one side must be remote: TARGET:PATH (servers) or CONN:PREFIX (storage)")
+				return out.Usage("one side must be remote: TARGET:PATH (servers) or CONN:PREFIX (storage); a local name with a colon is written ./name")
 			}
 			if !srcRemote {
-				if fi, err := os.Stat(srcP); err != nil || !fi.IsDir() {
-					return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "sync copies folders; for one file use `komando upload`", "%s is not a folder on this computer", srcP)
+				fi, err := os.Stat(srcP)
+				if err != nil {
+					return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "", "%s does not exist on this computer", srcP)
+				}
+				if !fi.IsDir() {
+					return out.Errf(out.ExitUsage, "NOT_A_FOLDER", "sync copies folders; for one file use `komando upload`", "%s is a file, not a folder", srcP)
 				}
 			}
 			if dstRemote {
-				return syncUp(cmd.Context(), "sync", srcP, dstT, dstP, o)
+				return colonHint(syncUp(cmd.Context(), "sync", srcP, dstT, dstP, o), args[1])
 			}
-			return syncDown(cmd.Context(), "sync", srcT, srcP, dstP, o)
+			return colonHint(syncDown(cmd.Context(), "sync", srcT, srcP, dstP, o), args[0])
 		},
 	}
 	c.Flags().BoolVar(&o.delete, "delete", false, "also remove files that SRC does not have (needs --allow-dangerous)")
@@ -478,7 +551,7 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 			return nil, err
 		}
 		defer sc.Close()
-		r, err := runSync(ctx, src, sftpSide{sc: sc, root: remote}, local, c.Host.Name+":"+remote, o)
+		r, err := runSync(ctx, src, sftpSide{sc: sc, root: expandRemote(sc, remote)}, local, c.Host.Name+":"+remote, o)
 		if r != nil {
 			r.Host = c.Host.Name
 		}
@@ -510,7 +583,7 @@ func syncDown(ctx context.Context, name, target, remote, local string, o syncOpt
 	if err != nil {
 		return err
 	}
-	h, err := singleHost(st, target)
+	h, err := oneServer(st, target, "sync downloads from one server; name one, e.g. `komando sync SERVER:"+remote+" "+local+"`")
 	if err != nil {
 		return err
 	}
@@ -520,7 +593,7 @@ func syncDown(ctx context.Context, name, target, remote, local string, o syncOpt
 			return nil, err
 		}
 		defer sc.Close()
-		r, err := runSync(ctx, sftpSide{sc: sc, root: remote}, dst, c.Host.Name+":"+remote, local, o)
+		r, err := runSync(ctx, sftpSide{sc: sc, root: expandRemote(sc, remote)}, dst, c.Host.Name+":"+remote, local, o)
 		if r != nil {
 			r.Host = c.Host.Name
 		}
@@ -592,7 +665,18 @@ func (f syncFleet) Text() string {
 		case *syncResult:
 			sb.WriteString(v.Text())
 		case map[string]any:
-			fmt.Fprintf(&sb, "● %v  FAILED: %v\n", v["host"], v["error"])
+			if len(f.Results) == 1 {
+				continue // the closing error line says it
+			}
+			e, _ := v["error"].(*out.Error)
+			if e == nil {
+				fmt.Fprintf(&sb, "● %v  FAILED\n", v["host"])
+				continue
+			}
+			fmt.Fprintf(&sb, "● %v  FAILED [%s] %s\n", v["host"], e.Code, e.Message)
+			if e.Hint != "" {
+				sb.WriteString("  hint: " + e.Hint + "\n")
+			}
 		}
 	}
 	return sb.String()
@@ -601,11 +685,13 @@ func (f syncFleet) Text() string {
 func finishSync(st *store.State, name string, hosts []*store.Host, res []outcome, src, dst string) error {
 	data := syncFleet{Results: []any{}}
 	worst := 0
+	var fails []hostFail
 	for _, o := range res {
 		data.Summary.Total++
 		if o.Err != nil {
 			e := toErr(o.Err)
 			worst = worse(worst, e.Exit)
+			fails = append(fails, hostFail{host: o.Host.Name, reason: failReason(0, e), err: e})
 			data.Summary.Failed++
 			data.Summary.FailedHosts = append(data.Summary.FailedHosts, o.Host.Name)
 			data.Results = append(data.Results, map[string]any{"host": o.Host.Name, "ok": false, "error": e})
@@ -617,5 +703,5 @@ func finishSync(st *store.State, name string, hosts []*store.Host, res []outcome
 	if !g.dryRun {
 		audit(st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
 	}
-	return finish(name, data, data.Summary, worst)
+	return finishFleet(name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }

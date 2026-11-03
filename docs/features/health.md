@@ -21,6 +21,13 @@ Run *from* your servers:
 ```bash
 komando net check @web db.internal:5432 redis.internal:6379
 komando net http web1 https://example.com
-komando net ports web1 --sudo
+komando net ports web1 --sudo                     # PROTO ADDRESS PORT PROCESS PID (ss, or netstat on busybox)
 komando net dns web1 api.example.com
+komando net dns web1 example.com --type MX         # MX, TXT, CNAME, NS ... need dig on the server
 ```
+
+- `net check` fails (exit 5, `PORT_CLOSED`) when a port does not answer and
+  says why: `refused`, `timeout` (5 seconds), `dns` or `unreachable`.
+- `net http` exits 4 (`NO_RESPONSE`) when nothing answers; `--expect 200`
+  or `--expect 2xx` fails on another status.
+- `net dns` exits 3 when the name does not resolve.

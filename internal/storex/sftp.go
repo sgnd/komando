@@ -66,6 +66,9 @@ func (b *sftpBucket) List(_ context.Context, prefix string, recursive bool, limi
 		w := b.c.Walk(root)
 		for w.Step() {
 			if err := w.Err(); err != nil {
+				if errors.Is(err, os.ErrNotExist) && w.Path() == root {
+					return nil, false, FolderNotFound(prefix)
+				}
 				return nil, false, sftpErr(err)
 			}
 			if w.Path() == root {
@@ -78,6 +81,9 @@ func (b *sftpBucket) List(_ context.Context, prefix string, recursive bool, limi
 		return objs, false, nil
 	}
 	entries, err := b.c.ReadDir(root)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, false, FolderNotFound(prefix)
+	}
 	if err != nil {
 		return nil, false, sftpErr(err)
 	}

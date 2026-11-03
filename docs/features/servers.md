@@ -2,6 +2,29 @@
 
 Add servers, log in with keys or passwords, and keep the list tidy. [All features](README.md)
 
+## Check what you added
+
+`host add` and `host edit` check what they save: the port (1-65535), the
+user name, that every `--via` step exists (and does not loop back), and that
+an `--identity` file is there. A server added under another spelling of a
+protected one (`TARGET.`, another case) is protected too, with a warning.
+`komando doctor` checks the whole inventory the same way.
+
+Changing where or how komando logs in to a protected server (address, port,
+user, key, password, `--via`) needs `--yes`, like any other change to it.
+
+`komando host ssh-command NAME` prints the OpenSSH command for a server.
+Servers behind `--via` get one `ProxyCommand` per hop, so each hop uses its
+own key and komando's known_hosts; a SOCKS VPN becomes `nc -X 5`. VPNs that
+run inside komando cannot be used by OpenSSH: use `komando shell NAME`.
+
+`komando host trust NAME --reset` forgets and re-pins a server's key after a
+rebuild; with `--dry-run` it only counts the pinned entries.
+
+`komando host rm` (and `conn rm`) takes names or a target: `host rm 'tmp-*'`
+or `host rm @old --dry-run` lists what it would remove. Protected ones need
+`--yes`, and a server that another one still reaches through `--via` stays.
+
 ## Add servers
 
 ```bash
@@ -55,9 +78,15 @@ komando host edit web1 --password-ref secret:web1-pass
 **Better: use a key.** Create one and install it on your servers:
 
 ```bash
-komando key gen deploy
+komando key gen deploy                          # ed25519; --type rsa|ecdsa, -b BITS, -C COMMENT
 komando key deploy deploy @web --set-default
+komando key deploy ~/.ssh/id_ed25519.pub web1   # a .pub file works too
+komando key list                                # NAME TYPE FINGERPRINT USED_BY
 ```
+
+RSA keys need at least 3072 bits. A key with a passphrase needs the
+passphrase in the vault: `komando secret set work-pass`, then
+`komando key add work ~/.ssh/id_work --passphrase-ref secret:work-pass`.
 
 When someone leaves, or a key is replaced, remove it everywhere at once. It
 takes a key from the keychain, a `.pub` file, or the key line itself:

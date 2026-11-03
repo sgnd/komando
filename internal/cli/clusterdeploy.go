@@ -16,7 +16,6 @@ import (
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
-	"github.com/sgnd/komando/internal/store"
 )
 
 // The deploy cycle: put out a new image, watch the rollout, and go back.
@@ -74,25 +73,43 @@ func rolloutState(kind string, o map[string]any) (done bool, msg string, failed 
 	return true, "", false
 }
 
+// stuckFor is how long pods may sit in ImagePullBackOff, CrashLoopBackOff
+// and the like before a waiting rollout gives up early.
+const stuckFor = 3 * time.Minute
+
 // waitRollout polls a workload until it is rolled out, fails, or the time
-// is up.
+// is up. A failure or timeout names the pods that are stuck and why.
 func waitRollout(ctx context.Context, k *kube.Client, r kube.ResourceType, space, name string, wait time.Duration) (map[string]any, error) {
 	deadline := time.Now().Add(wait)
+	var stuckSince time.Time
 	for {
 		var o map[string]any
 		if err := k.Get(ctx, r.ObjectPath(space, name), nil, &o); err != nil {
 			return nil, err
 		}
+		o["kind"] = r.KindName()
 		done, msg, failed := rolloutState(r.KindName(), o)
-		res := map[string]any{"object": strings.ToLower(r.KindName()) + "/" + name, "namespace": space, "rolled_out": done, "status": msg}
-		if failed {
-			return res, out.Errf(out.ExitRemote, "ROLLOUT_FAILED", "see why with `komando cluster describe` and go back with `komando cluster rollback`", "%s", msg)
-		}
-		if done || wait <= 0 {
+		res := map[string]any{"object": kindRef(r, name), "namespace": space, "rolled_out": done, "status": msg}
+		if done || (wait <= 0 && !failed) {
 			return res, nil
 		}
+		stuck := stuckPods(ctx, k, space, o)
+		if len(stuck) > 0 {
+			res["stuck_pods"] = stuck
+		}
+		hint := "see why with `komando cluster describe TARGET " + kindRef(r, name) + "`; `komando cluster rollback` goes back"
+		switch {
+		case failed:
+			return res, out.Errf(out.ExitRemote, "ROLLOUT_FAILED", hint, "%s%s", msg, stuckText(stuck))
+		case len(stuck) == 0:
+			stuckSince = time.Time{}
+		case stuckSince.IsZero():
+			stuckSince = time.Now()
+		case time.Since(stuckSince) > stuckFor:
+			return res, out.Errf(out.ExitRemote, "ROLLOUT_FAILED", hint, "pods stuck for %s%s", humanAge(time.Since(stuckSince)), stuckText(stuck))
+		}
 		if time.Now().After(deadline) {
-			return res, out.Errf(out.ExitTimeout, "ROLLOUT_TIMEOUT", "check `komando cluster describe` for stuck pods; `komando cluster rollback` goes back", "not rolled out after %s: %s", wait, msg)
+			return res, out.Errf(out.ExitTimeout, "ROLLOUT_TIMEOUT", hint, "not rolled out after %s: %s%s", wait, msg, stuckText(stuck))
 		}
 		select {
 		case <-ctx.Done():
@@ -102,98 +119,47 @@ func waitRollout(ctx context.Context, k *kube.Client, r kube.ResourceType, space
 	}
 }
 
-// swarmWait polls a Swarm service until its update is finished and all
-// replicas run. It returns the last state it saw.
-func swarmWait(ctx context.Context, t clusterTarget, service string, wait time.Duration) (map[string]any, error) {
-	st, err := loadState()
-	if err != nil {
-		return nil, err
-	}
-	deadline := time.Now().Add(wait)
-	cmd := `docker service inspect ` + sshx.Q(service) + ` --format '{{json .UpdateStatus}}' && docker service ls --filter ` + sshx.Q("name="+service) + ` --format '{{.Name}} {{.Replicas}}'`
-	for {
-		var outText string
-		err := withClient(ctx, st, t.host, func(c *sshx.Client) error {
-			var code int
-			var err error
-			outText, code, err = sshx.Output(ctx, c, cmd, 30*time.Second)
-			if err == nil && code != 0 {
-				err = out.Errf(out.ExitRemote, "SWARM_ERROR", "", "%s", outText)
-			}
-			return err
-		})
-		if err != nil {
-			return nil, err
-		}
-		lines := strings.Split(strings.TrimSpace(outText), "\n")
-		var upd struct {
-			State   string `json:"State"`
-			Message string `json:"Message"`
-		}
-		_ = json.Unmarshal([]byte(lines[0]), &upd)
-		replicas := ""
-		for _, l := range lines[1:] {
-			if f := strings.Fields(l); len(f) == 2 && f[0] == service {
-				replicas = f[1]
-			}
-		}
-		running, want, _ := strings.Cut(strings.Fields(replicas + " ")[0], "/")
-		done := (upd.State == "" || upd.State == "completed" || upd.State == "rollback_completed") && running == want && running != ""
-		res := map[string]any{"object": "service/" + service, "rolled_out": done, "update_state": upd.State, "replicas": replicas, "status": upd.Message}
-		if strings.HasPrefix(upd.State, "rollback") && upd.State != "rollback_completed" || upd.State == "paused" {
-			return res, out.Errf(out.ExitRemote, "ROLLOUT_FAILED", "see the tasks with `komando cluster describe TARGET service "+service+"`", "update %s: %s", upd.State, upd.Message)
-		}
-		if done || wait <= 0 {
-			return res, nil
-		}
-		if time.Now().After(deadline) {
-			return res, out.Errf(out.ExitTimeout, "ROLLOUT_TIMEOUT", "see the tasks with `komando cluster describe TARGET service "+service+"`", "not rolled out after %s (replicas %s)", wait, replicas)
-		}
-		select {
-		case <-ctx.Done():
-			return res, ctx.Err()
-		case <-time.After(2 * time.Second):
-		}
-	}
-}
+// stuckReasons are container states a rollout does not get out of alone.
+var stuckReasons = []string{"ImagePullBackOff", "ErrImagePull", "InvalidImageName", "CrashLoopBackOff", "CreateContainerConfigError", "CreateContainerError", "RunContainerError", "ErrImageNeverPull"}
 
-// swarmChange runs a service change on the manager and, with wait, follows
-// the rollout, printing one answer for both.
-func swarmChange(ctx context.Context, name string, t clusterTarget, service, line string, wait bool) error {
-	if !wait {
-		return runOne(ctx, name, t.host.Name, line, false, true)
-	}
-	st, err := loadState()
-	if err != nil {
-		return err
-	}
-	if err := guard(st, []*store.Host{t.host}, line, true); err != nil {
-		return err
-	}
-	if g.dryRun {
-		out.P.Print(name, map[string]any{"host": t.host.Name, "would_run": line, "wait": true}, nil)
+// stuckPods lists the workload's pods whose containers wait for one of
+// stuckReasons: pod, container, reason, image.
+func stuckPods(ctx context.Context, k *kube.Client, space string, o map[string]any) []map[string]any {
+	sel := matchLabels(o)
+	if sel == "" {
 		return nil
 	}
-	var outText string
-	var code int
-	err = withClient(ctx, st, t.host, func(c *sshx.Client) error {
-		outText, code, err = sshx.Output(ctx, c, line+" 2>&1", 2*time.Minute)
-		return err
-	})
-	audit(st, name, []string{t.host.Name}, line, err == nil && code == 0, nil)
-	if err != nil {
-		return err
+	var pods struct {
+		Items []map[string]any `json:"items"`
 	}
-	if code != 0 {
-		return out.Errf(out.ExitRemote, "SWARM_ERROR", "", "%s", strings.TrimSpace(outText))
+	if k.Get(ctx, "/api/v1/namespaces/"+url.PathEscape(space)+"/pods", url.Values{"labelSelector": {sel}}, &pods) != nil {
+		return nil
 	}
-	res, werr := swarmWait(ctx, t, service, rolloutWait())
-	if res == nil {
-		return werr
+	var stuck []map[string]any
+	for _, p := range pods.Items {
+		for _, c := range containerStates(p) {
+			if oneOf(str(c["reason"]), stuckReasons...) {
+				stuck = append(stuck, map[string]any{"pod": str(p["metadata"].(map[string]any)["name"]), "container": c["name"],
+					"reason": c["reason"], "image": c["image"], "message": c["message"]})
+			}
+		}
 	}
-	res["host"] = t.host.Name
-	out.P.Print(name, res, softErr(werr))
-	return exitFor(werr)
+	return stuck
+}
+
+func stuckText(stuck []map[string]any) string {
+	var parts []string
+	for i, s := range stuck {
+		if i == 3 {
+			parts = append(parts, fmt.Sprintf("and %d more", len(stuck)-3))
+			break
+		}
+		parts = append(parts, fmt.Sprintf("pod %s: %s (image %s)", s["pod"], s["reason"], s["image"]))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "; " + strings.Join(parts, "; ")
 }
 
 func rolloutWait() time.Duration {
@@ -216,7 +182,7 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 ` + "`komando cluster rollback`" + `.`,
 		Example: `  komando cluster deploy prod deployment/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait
   komando cluster deploy swarm1 service/web --image nginx:1.27 --wait`,
-		Args: cobra.ExactArgs(2),
+		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if image == "" {
 				return out.Usage("give the new image with --image")
@@ -232,21 +198,29 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 			if err != nil {
 				return err
 			}
-			typ, name, err := splitRef(args[1])
+			typ, name, err := objectRef(args[1:])
 			if err != nil {
 				return err
 			}
 			if t.host != nil {
-				if !strings.HasPrefix(typ, "service") {
+				if err := noNamespace(t, ns); err != nil {
+					return err
+				}
+				if swarmKind(typ) != "service" {
 					return out.Usage("on Swarm, deploy works on services (service/NAME)")
 				}
-				line := "docker service update --with-registry-auth --detach --image " + sshx.Q(image) + " " + sshx.Q(name)
-				return swarmChange(cmd.Context(), "cluster.deploy", t, name, line, wait)
-			}
-			return withKube(cmd.Context(), "cluster.deploy", t, driver.RiskWrite, map[string]any{"object": args[1], "image": image}, func(ctx context.Context, k *kube.Client) (any, error) {
-				r, err := k.Resource(ctx, typ)
+				ins, err := swarmInspect(cmd.Context(), t, name)
 				if err != nil {
-					return nil, out.Usage("%v", err)
+					return err
+				}
+				line := "docker service update --with-registry-auth --detach --image " + sshx.Q(image) + " " + sshx.Q(name)
+				return swarmChange(cmd.Context(), "cluster.deploy", t, name, line, wait, false, driver.RiskWrite,
+					map[string]any{"object": "service/" + name, "image": image, "previous_image": serviceImage(ins["Spec"])})
+			}
+			return withKube(cmd.Context(), "cluster.deploy", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name, "image": image}, func(ctx context.Context, k *kube.Client) (any, error) {
+				r, err := resource(ctx, k, typ)
+				if err != nil {
+					return nil, err
 				}
 				if !oneOf(r.KindName(), "Deployment", "StatefulSet", "DaemonSet") {
 					return nil, out.Usage("deploy works on deployments, statefulsets and daemonsets")
@@ -268,20 +242,16 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name), q, []byte(patch), "application/strategic-merge-patch+json"); err != nil {
 					return nil, err
 				}
-				res := map[string]any{"conn": t.conn.Name, "object": args[1], "namespace": space, "container": target,
+				res := map[string]any{"conn": t.conn.Name, "object": kindRef(r, name), "namespace": space, "container": target,
 					"image": image, "previous_image": old, "dry_run": g.dryRun}
-				if wait && !g.dryRun {
-					ro, err := waitRollout(ctx, k, r, space, name, rolloutWait())
-					res["rollout"] = ro
-					if err != nil {
-						return res, err
-					}
+				if old == image {
+					res["unchanged"] = true
 				}
-				return res, nil
+				return withRollout(ctx, k, r, space, name, wait, res)
 			})
 		},
 	}
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, nil)
 	c.Flags().StringVar(&image, "image", "", "the new image, e.g. ghcr.io/acme/api:1.4.3 (or CONTAINER=IMAGE)")
 	c.Flags().StringVar(&container, "container", "", "which container gets the image (needed when there are several)")
 	c.Flags().BoolVar(&wait, "wait", false, "wait until the rollout finishes (or fails; --timeout, default 5m)")
@@ -377,8 +347,8 @@ func clusterHistoryCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "history TARGET deployment/NAME",
 		Short:   "Revisions of a deployment, newest first, with their images (for rollback --to)",
-		Example: "  komando cluster history prod deployment/api --namespace shop",
-		Args:    cobra.ExactArgs(2),
+		Example: "  komando cluster history prod deployment/api -n shop",
+		Args:    refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
@@ -388,7 +358,7 @@ func clusterHistoryCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			typ, name, err := splitRef(args[1])
+			typ, name, err := objectRef(args[1:])
 			if err != nil {
 				return err
 			}
@@ -396,9 +366,9 @@ func clusterHistoryCmd() *cobra.Command {
 				return out.Usage("Swarm keeps one previous version; `komando cluster rollback TARGET service/NAME` goes back to it")
 			}
 			return withKube(cmd.Context(), "cluster.history", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-				r, err := k.Resource(ctx, typ)
+				r, err := resource(ctx, k, typ)
 				if err != nil {
-					return nil, out.Usage("%v", err)
+					return nil, err
 				}
 				if r.KindName() != "Deployment" {
 					return nil, out.Usage("history works on deployments; for others use `komando cluster run TARGET -- rollout history ...`")
@@ -412,19 +382,96 @@ func clusterHistoryCmd() *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
-				current := str(d["metadata"].(map[string]any)["annotations"].(map[string]any)[revisionKey])
+				current := deployRevision(d)
 				rows := []map[string]any{}
 				for _, rs := range sets {
 					rm := rs["metadata"].(map[string]any)
 					rows = append(rows, map[string]any{"revision": rsRevision(rs), "images": rsImages(rs),
-						"current": strconv.Itoa(rsRevision(rs)) == current, "age": age(str(rm["creationTimestamp"]))})
+						"current": rsRevision(rs) == current, "age": age(str(rm["creationTimestamp"]))})
 				}
-				return map[string]any{"conn": t.conn.Name, "object": args[1], "namespace": space, "revisions": rows}, nil
+				return historyData{"conn": t.conn.Name, "object": kindRef(r, name), "namespace": space, "revisions": rows}, nil
 			})
 		},
 	}
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, nil)
 	return c
+}
+
+type historyData map[string]any
+
+func (h historyData) Text() string {
+	rows, _ := h["revisions"].([]map[string]any)
+	var cells [][]string
+	for _, r := range rows {
+		cur := ""
+		if r["current"] == true {
+			cur = "*"
+		}
+		cells = append(cells, []string{fmt.Sprint(r["revision"]), cur, cluCell(r["images"]), str(r["age"])})
+	}
+	return textTable([]string{"revision", "current", "images", "age"}, cells)
+}
+
+func deployRevision(d map[string]any) int {
+	m, _ := d["metadata"].(map[string]any)
+	a, _ := m["annotations"].(map[string]any)
+	n, _ := strconv.Atoi(str(a[revisionKey]))
+	return n
+}
+
+// pickRollback chooses where a rollback without --to goes: the newest
+// earlier revision with other images than the current one. When the
+// current revision is itself a rollback, the revision it replaced is the
+// one that went wrong, so it is skipped too (go there with --to).
+func pickRollback(sets []map[string]any, current int) (map[string]any, error) {
+	var cur map[string]any
+	for _, rs := range sets {
+		if rsRevision(rs) == current {
+			cur = rs
+		}
+	}
+	rolledBack := 0 // the revision the current one replaced, when it was a rollback
+	if cur != nil {
+		a, _ := cur["metadata"].(map[string]any)["annotations"].(map[string]any)
+		if str(a["deployment.kubernetes.io/revision-history"]) != "" {
+			for _, rs := range sets {
+				if n := rsRevision(rs); n < current && n > rolledBack {
+					rolledBack = n
+				}
+			}
+		}
+	}
+	var skipped []string
+	for _, rs := range sets { // newest first
+		n := rsRevision(rs)
+		switch {
+		case n >= current:
+		case cur != nil && strings.Join(rsImages(rs), ",") == strings.Join(rsImages(cur), ","):
+			skipped = append(skipped, fmt.Sprintf("%d (same images)", n))
+		case n == rolledBack:
+			skipped = append(skipped, fmt.Sprintf("%d (rolled back from)", n))
+		default:
+			return rs, nil
+		}
+	}
+	msg := "no earlier revision to go back to"
+	if len(skipped) > 0 {
+		msg += "; skipped " + strings.Join(skipped, ", ") + ": pick one with --to"
+	}
+	return nil, out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "see the revisions with `komando cluster history`", "%s", msg)
+}
+
+func revisionList(sets []map[string]any) string {
+	var n []int
+	for _, rs := range sets {
+		n = append(n, rsRevision(rs))
+	}
+	sort.Ints(n)
+	var s []string
+	for _, x := range n {
+		s = append(s, strconv.Itoa(x))
+	}
+	return strings.Join(s, ", ")
 }
 
 func clusterRollbackCmd() *cobra.Command {
@@ -434,10 +481,14 @@ func clusterRollbackCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "rollback TARGET TYPE/NAME",
 		Short: "Go back to the previous version (or --to REVISION, see `cluster history`)",
-		Example: `  komando cluster rollback prod deployment/api --namespace shop --wait
-  komando cluster rollback prod deployment/api --to 3 --namespace shop
+		Long: `Without --to, a deployment goes back to the newest earlier revision that runs
+other images than now. After a rollback, the revision it replaced (the bad
+one) is skipped, so a second rollback does not bring it back; --to picks any
+revision. A Swarm service goes back to its previous version.`,
+		Example: `  komando cluster rollback prod deployment/api -n shop --wait
+  komando cluster rollback prod deployment/api --to 3 -n shop
   komando cluster rollback swarm1 service/web`,
-		Args: cobra.ExactArgs(2),
+		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
@@ -447,20 +498,34 @@ func clusterRollbackCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			typ, name, err := splitRef(args[1])
+			typ, name, err := objectRef(args[1:])
 			if err != nil {
 				return err
 			}
 			if t.host != nil {
+				if err := noNamespace(t, ns); err != nil {
+					return err
+				}
 				if to != 0 {
 					return out.Usage("Swarm keeps only the previous version; leave out --to")
 				}
-				return swarmChange(cmd.Context(), "cluster.rollback", t, name, "docker service rollback --detach "+sshx.Q(name), wait)
-			}
-			return withKube(cmd.Context(), "cluster.rollback", t, driver.RiskWrite, map[string]any{"object": args[1], "to": to}, func(ctx context.Context, k *kube.Client) (any, error) {
-				r, err := k.Resource(ctx, typ)
+				if swarmKind(typ) != "service" {
+					return out.Usage("on Swarm, rollback works on services (service/NAME)")
+				}
+				ins, err := swarmInspect(cmd.Context(), t, name)
 				if err != nil {
-					return nil, out.Usage("%v", err)
+					return err
+				}
+				if ins["PreviousSpec"] == nil {
+					return out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "", "service %s has no previous version to go back to", name)
+				}
+				return swarmChange(cmd.Context(), "cluster.rollback", t, name, "docker service rollback --detach "+sshx.Q(name), wait, true, driver.RiskWrite,
+					map[string]any{"object": "service/" + name, "images": []string{serviceImage(ins["PreviousSpec"])}, "previous_image": serviceImage(ins["Spec"])})
+			}
+			return withKube(cmd.Context(), "cluster.rollback", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name, "to": to}, func(ctx context.Context, k *kube.Client) (any, error) {
+				r, err := resource(ctx, k, typ)
+				if err != nil {
+					return nil, err
 				}
 				if r.KindName() != "Deployment" {
 					return nil, out.Usage("rollback works on deployments; for others use `komando cluster run TARGET --write -- rollout undo ...`")
@@ -474,19 +539,26 @@ func clusterRollbackCmd() *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
+				current := deployRevision(d)
 				var target map[string]any
-				switch {
-				case to > 0:
+				if to > 0 {
 					for _, rs := range sets {
 						if rsRevision(rs) == to {
 							target = rs
 						}
 					}
-				case len(sets) > 1:
-					target = sets[1] // sets[0] is the current revision
+					if target == nil {
+						return nil, out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "see the revisions with `komando cluster history`",
+							"revision %d not found; revisions: %s", to, revisionList(sets))
+					}
+				} else if target, err = pickRollback(sets, current); err != nil {
+					return nil, err
 				}
-				if target == nil {
-					return nil, out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "see the revisions with `komando cluster history`", "no revision to go back to")
+				res := map[string]any{"conn": t.conn.Name, "object": kindRef(r, name), "namespace": space,
+					"from_revision": current, "to_revision": rsRevision(target), "images": rsImages(target), "dry_run": g.dryRun}
+				if rsRevision(target) == current {
+					res["unchanged"] = true
+					return res, nil
 				}
 				// the old template, without the hash label the controller adds
 				tpl := target["spec"].(map[string]any)["template"].(map[string]any)
@@ -503,21 +575,12 @@ func clusterRollbackCmd() *cobra.Command {
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name), q, body, "application/json-patch+json"); err != nil {
 					return nil, err
 				}
-				res := map[string]any{"conn": t.conn.Name, "object": args[1], "namespace": space,
-					"to_revision": rsRevision(target), "images": rsImages(target), "dry_run": g.dryRun}
-				if wait && !g.dryRun {
-					ro, err := waitRollout(ctx, k, r, space, name, rolloutWait())
-					res["rollout"] = ro
-					if err != nil {
-						return res, err
-					}
-				}
-				return res, nil
+				return withRollout(ctx, k, r, space, name, wait, res)
 			})
 		},
 	}
-	nsFlags(c, &ns, nil)
-	c.Flags().IntVar(&to, "to", 0, "the revision to go back to (default: the previous one)")
+	nsFlags(c, &ns, nil, nil)
+	c.Flags().IntVar(&to, "to", 0, "the revision to go back to (default: the previous one with other images)")
 	c.Flags().BoolVar(&wait, "wait", false, "wait until the rollback finishes (--timeout, default 5m)")
 	return c
 }

@@ -35,6 +35,20 @@ func TestCheck(t *testing.T) {
 		"rm -rf /etc/*",
 		"rm -rf /var/lib",
 		"rm -Rf /usr/local/",
+		"rm -rf //",
+		"rm -rf /.",
+		"rm -rf /*",
+		"cd / && rm -rf *",
+		"cd /; rm -rf .",
+		"find / -delete",
+		"find /etc -name x -exec rm {} +",
+		"chmod 777 -R /",
+		"chmod -R 777 /",
+		"chown root:root / -R",
+		"iptables --flush",
+		"iptables -t nat -F",
+		"sudo mkfs -t ext4 /dev/sdb",
+		"echo y | mkfs.xfs /dev/sdc",
 	}
 	for _, c := range blocked {
 		if len(Check(c, nil)) == 0 {
@@ -56,6 +70,13 @@ func TestCheck(t *testing.T) {
 		`grep "rm -rf /" notes.txt`,
 		"rm -rf /var/lib/app/cache",
 		"rm -rf -- /tmp/build",
+		"grep mkfs notes.txt",
+		"man mkfs.ext4",
+		"cd /tmp && rm -rf *",
+		"find /tmp -delete",
+		"find / -name '*.log'",
+		"chmod -R 755 /var/www",
+		"iptables -L",
 	}
 	for _, c := range allowed {
 		if hits := Check(c, nil); len(hits) != 0 {

@@ -24,6 +24,14 @@ func TestMaskSecretsText(t *testing.T) {
 		{"require_password: true", "require_password: true"},
 		{"host: web1 user: deploy", "host: web1 user: deploy"},
 		{"DB_PASSWORD=[hidden]", "DB_PASSWORD=[hidden]"},
+		// settings that only name a secret, and values that are structure
+		{"max_tokens: 4096", "max_tokens: 4096"},
+		{"password_min_length=12", "password_min_length=12"},
+		{"token_endpoint: https://auth.example.com/oauth/token\nnext_line_here=1", "token_endpoint: https://auth.example.com/oauth/token\nnext_line_here=1"},
+		{"valueFrom: {secretKeyRef: {name: db, key: password}}", "valueFrom: {secretKeyRef: {name: db, key: password}}"},
+		{"api_key_file: /run/secrets/api", "api_key_file: /run/secrets/api"},
+		{"DB_PASSWORD=12345678", "DB_PASSWORD=[hidden]"},
+		{"login ok token=abc123xyz", "login ok token=[hidden]"},
 	}
 	for _, c := range cases {
 		if got := MaskSecrets(c.in); got != c.want {
@@ -76,5 +84,31 @@ func TestHasHidden(t *testing.T) {
 		if HasHidden(s) != want {
 			t.Errorf("HasHidden(%q) = %v", s, !want)
 		}
+	}
+}
+
+func TestSafeText(t *testing.T) {
+	for in, want := range map[string]string{
+		"plain\ttext\n":            "plain\ttext\n",
+		"\x1b[31mred\x1b[0m":       "\x1b[31mred\x1b[0m",
+		"x\x1b]52;c;ZXZpbA==\x07y": `x\e]52;c;ZXZpbA==\x07y`,
+		"a\x1b[2Jb":                `a\e[2Jb`,
+		"bell\x07 nul\x00 del\x7f": `bell\x07 nul\x00 del\x7f`,
+		"ünï 日本":                   "ünï 日本",
+	} {
+		if got := SafeText(in); got != want {
+			t.Errorf("SafeText(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestMaskKeepsPublicKeysAndEnvelope(t *testing.T) {
+	in := `{"ok":true,"data":{"name":"deploy","public_key":"ssh-ed25519 AAAAC3Nz komando-deploy","fingerprint":"SHA256:abc","format":"markdown"}}`
+	if got := string(maskJSON([]byte(in))); got != in {
+		t.Errorf("changed:\n%s", got)
+	}
+	secret := `{"data":{"object":{"kind":"Secret","data":{"password":"aHVudGVyMg==","note":"bWFya2Rvd24="}}}}`
+	if got := string(maskJSON([]byte(secret))); strings.Contains(got, "aHVudGVyMg==") || strings.Contains(got, "bWFya2Rvd24=") {
+		t.Errorf("Kubernetes Secret values leaked: %s", got)
 	}
 }
