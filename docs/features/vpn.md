@@ -72,7 +72,7 @@ komando vpn down --all
 | `openvpn` (and `pritunl`) | in a small Docker container; komando reaches it through a local port | no |
 | `openvpn --os-mode` | on your computer, with sudo | yes |
 | `globalprotect`, `fortinet`, `anyconnect`, `pulse`, `f5` | `openconnect` with `ocproxy` (`brew install openconnect ocproxy`) | no |
-| `tailscale` | `tailscaled` in user-space mode | no |
+| `tailscale` | inside komando (Tailscale's own Go library); no tailscale program needed. Without `--password-ref` (an auth key), `komando vpn up` opens the login page once and the node stays logged in | no |
 
 VPNs with `--mfa` need a person: `komando vpn up NAME` asks for the login,
 and later commands (and agents) reuse that connection. komando never

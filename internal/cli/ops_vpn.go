@@ -233,7 +233,7 @@ new config file, add it again with --overwrite.`,
 	f.StringVar(&address, "address", "", "socks: host:port of the proxy")
 	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
-	f.StringVar(&passwordRef, "password-ref", "", "password as secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
+	f.StringVar(&passwordRef, "password-ref", "", "password as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO)")
 	f.StringVar(&notes, "notes", "", "free-form notes")
 	f.StringSliceVarP(&groups, "group", "g", nil, "group(s), replacing the current ones")

@@ -154,7 +154,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 	timeout := 60 * time.Second
 	switch {
 	case v.Kind == "wireguard":
-		pid, addr, err := spawnServe(v.Name, logFile)
+		pid, addr, err := spawnServe(v.Name, logFile, 15*time.Second)
 		if err != nil {
 			return nil, err
 		}
@@ -163,45 +163,22 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 			s.Exe = filepath.Base(self)
 		}
 	case v.Kind == "tailscale":
-		port, err := freePort()
-		if err != nil {
-			return nil, err
-		}
-		state := filepath.Join(dir, v.Name+"-tailscale")
-		sock := filepath.Join(state, "tailscaled.sock")
-		if err := os.MkdirAll(state, 0o700); err != nil {
-			return nil, err
-		}
-		d := exec.Command("tailscaled", "--tun=userspace-networking", "--statedir="+state, "--socket="+sock,
-			fmt.Sprintf("--socks5-server=127.0.0.1:%d", port), "--port=0")
-		pid, err := background(d, logFile)
-		if err != nil {
-			return nil, err
-		}
-		s.PID, s.Socks, s.Exe = pid, fmt.Sprintf("127.0.0.1:%d", port), "tailscaled"
-		if !waitFor(10*time.Second, func() bool { _, err := os.Stat(sock); return err == nil }) {
-			netx.StopSession(s)
-			return nil, netx.Down(v, fmt.Errorf("tailscaled did not start; see %s", logFile))
-		}
-		args := []string{"--socket=" + sock, "up", "--hostname=komando-" + v.Name, "--timeout=" + timeout.String()}
-		if password != "" { // through a file, so the key never shows in ps
-			keyFile := filepath.Join(state, "authkey")
-			if err := os.WriteFile(keyFile, []byte(password), 0o600); err != nil {
+		if v.MFA { // no auth key: a person logs in through the browser first
+			err := netx.TailscaleLogin(ctx, v, func(url string) {
+				fmt.Fprintf(os.Stderr, "komando: log in to %s at %s\n", v.Name, cleanText(url))
+				openBrowser(ctx, url)
+			})
+			if err != nil {
 				return nil, err
 			}
-			defer os.Remove(keyFile)
-			args = append(args, "--auth-key=file:"+keyFile)
 		}
-		if v.Server != "" {
-			args = append(args, "--login-server="+v.Server)
+		pid, addr, err := spawnServe(v.Name, logFile, 90*time.Second)
+		if err != nil {
+			return nil, err
 		}
-		up := exec.CommandContext(ctx, "tailscale", args...)
-		if interactive {
-			up.Stdin, up.Stdout, up.Stderr = os.Stdin, os.Stderr, os.Stderr // shows the login link
-		}
-		if err := up.Run(); err != nil {
-			netx.StopSession(s)
-			return nil, netx.Down(v, fmt.Errorf("tailscale up: %v", err))
+		s.PID, s.Socks = pid, addr
+		if self, err := os.Executable(); err == nil {
+			s.Exe = filepath.Base(self)
 		}
 	case k.Protocol != "": // openconnect family, with ocproxy giving a SOCKS port
 		port, err := freePort()
@@ -323,7 +300,7 @@ func background(c *exec.Cmd, logFile string) (int, error) {
 }
 
 // spawnServe starts `komando vpn serve NAME` and waits for its SOCKS port.
-func spawnServe(name, logFile string) (int, string, error) {
+func spawnServe(name, logFile string, wait time.Duration) (int, string, error) {
 	self, err := os.Executable()
 	if err != nil {
 		return 0, "", err
@@ -335,7 +312,7 @@ func spawnServe(name, logFile string) (int, string, error) {
 		return 0, "", err
 	}
 	var addr string
-	waitFor(15*time.Second, func() bool {
+	waitFor(wait, func() bool {
 		b, _ := os.ReadFile(logFile)
 		if i := strings.Index(string(b), "READY "); i >= 0 {
 			addr = strings.TrimSpace(strings.SplitN(string(b)[i+6:], "\n", 2)[0])

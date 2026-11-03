@@ -4,6 +4,36 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Built in: secret managers and AWS logins (no vault, aws or gcloud CLI)
+
+- `vault:` references read HashiCorp Vault or OpenBao themselves (KV v1 and
+  v2, namespaces, `VAULT_CACERT`, `~/.vault-token`).
+- `aws-sm:` reads AWS Secrets Manager, and `gcp-sm:` Google Secret Manager,
+  with the credentials already on the computer.
+- Conns with `aws_profile` (S3, ECR) read `~/.aws` themselves: SSO,
+  assumed roles, temporary keys. New `komando login aws [--profile]` does
+  the SSO sign-in that `aws sso login` did, into the same cache.
+- New error codes `AWS_PROFILE_NOT_FOUND` and `AWS_FAILED`;
+  `AWS_CLI_MISSING` no longer happens.
+
+### Built in: Bitwarden, KeePass, 1Password Connect
+
+- New `bw://ITEM/FIELD` for Bitwarden and Vaultwarden: komando logs in,
+  syncs once per run and decrypts on this computer (personal, item-key and
+  organization items), like Bitwarden's own clients.
+- New `kdbx:FILE#GROUP/ENTRY[#FIELD]` for KeePass and KeePassXC files.
+- `op://` reads a 1Password Connect server (`OP_CONNECT_HOST`,
+  `OP_CONNECT_TOKEN`). Without Connect it still calls the `op` CLI, which is
+  deprecated: komando ships only open-source parts, and the 1Password SDK's
+  core is a prebuilt WebAssembly module.
+
+### Built in: Tailscale and Headscale (no tailscaled)
+
+- `tailscale` VPNs run inside komando with Tailscale's own Go library
+  (`tsnet`), in user-space: no `tailscale` or `tailscaled` to install, no
+  admin rights, the computer's network unchanged. Without an auth key,
+  `komando vpn up` opens the login page once; the node then stays logged in.
+
 ### `komando prompt`: VPNs and tunnels in your shell prompt
 
 - `komando prompt` prints `vpn:office tun:2`, or nothing, for zsh (also

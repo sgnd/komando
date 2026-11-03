@@ -23,6 +23,7 @@ import (
 
 	"golang.org/x/crypto/scrypt"
 
+	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -330,15 +331,17 @@ var Refs = []string{
 	"secret:NAME (komando's vault)",
 	"env:VAR",
 	"file:PATH",
-	"op://VAULT/ITEM/FIELD (1Password CLI)",
-	"vault:PATH#FIELD (HashiCorp Vault CLI, KV)",
+	"op://VAULT/ITEM/FIELD (1Password Connect)",
+	"bw://ITEM/FIELD (Bitwarden, Vaultwarden)",
+	"kdbx:FILE#GROUP/ENTRY[#FIELD] (KeePass, KeePassXC)",
+	"vault:PATH#FIELD (HashiCorp Vault or OpenBao, KV)",
 	"aws-sm:NAME[#JSON_KEY] (AWS Secrets Manager)",
 	"gcp-sm:NAME[@PROJECT] (Google Secret Manager)",
 }
 
 // ValidRef reports whether ref has a known form.
 func ValidRef(ref string) bool {
-	for _, p := range []string{"secret:", "env:", "file:", "op://", "vault:", "aws-sm:", "gcp-sm:"} {
+	for _, p := range []string{"secret:", "env:", "file:", "op://", "bw://", "kdbx:", "vault:", "aws-sm:", "gcp-sm:"} {
 		if strings.HasPrefix(ref, p) && len(ref) > len(p) {
 			return true
 		}
@@ -354,13 +357,15 @@ func RefHelp() string { return "use one of: " + strings.Join(Refs, ", ") }
 //	secret:<name>        -> komando's vault
 //	env:<VAR>            -> environment variable
 //	file:<path>          -> file contents (trailing newline trimmed)
-//	op://v/item/field    -> `op read` (1Password CLI, signed in)
-//	vault:path#field     -> `vault kv get -field` (HashiCorp Vault CLI, VAULT_ADDR and a token set)
-//	aws-sm:name[#key]    -> `aws secretsmanager get-secret-value` (a JSON key when given)
-//	gcp-sm:name[@project]-> `gcloud secrets versions access latest`
+//	op://v/item/field    -> 1Password Connect (OP_CONNECT_HOST, OP_CONNECT_TOKEN); the op CLI until it is removed
+//	bw://item/field      -> Bitwarden or Vaultwarden, decrypted here (KOMANDO_BW_*)
+//	kdbx:file#group/entry[#field] -> a KeePass file (KOMANDO_KDBX_PASSWORD / KOMANDO_KDBX_KEYFILE)
+//	vault:path#field     -> HashiCorp Vault / OpenBao KV (VAULT_ADDR and a token, as the CLI uses them)
+//	aws-sm:name[#key]    -> AWS Secrets Manager (the usual AWS credentials; a JSON key when given)
+//	gcp-sm:name[@project]-> Google Secret Manager, latest version (application-default credentials)
 //
-// The external ones run that tool, so its login (and any MFA) stays with the
-// person; komando never stores those values.
+// komando talks to those services itself (internal/cloud); the login stays
+// with the person and komando never stores the values.
 func Resolve(ref string) (string, error) {
 	switch {
 	case ref == "":
@@ -377,27 +382,43 @@ func Resolve(ref string) (string, error) {
 		b, err := os.ReadFile(strings.TrimPrefix(ref, "file:"))
 		return strings.TrimRight(string(b), "\r\n"), err
 	case strings.HasPrefix(ref, "op://"):
-		return external("op", "read", "--no-newline", ref)
+		v, err := cloud.OnePassword(context.Background(), ref)
+		if errors.Is(err, cloud.ErrNoConnect) {
+			// deprecated: the 1Password CLI is closed source and is going
+			// away from komando (docs/design/built-in.md)
+			if _, lerr := exec.LookPath("op"); lerr != nil {
+				return "", fmt.Errorf("op:// needs 1Password Connect (set OP_CONNECT_HOST and OP_CONNECT_TOKEN); or use bw://, kdbx: or a komando secret")
+			}
+			return external("op", "read", "--no-newline", ref)
+		}
+		return v, err
+	case strings.HasPrefix(ref, "bw://"):
+		return cloud.Bitwarden(context.Background(), ref)
+	case strings.HasPrefix(ref, "kdbx:"):
+		return cloud.KeePass(strings.TrimPrefix(ref, "kdbx:"))
 	case strings.HasPrefix(ref, "vault:"):
 		path, field, ok := strings.Cut(strings.TrimPrefix(ref, "vault:"), "#")
 		if !ok || field == "" {
 			return "", fmt.Errorf("vault: references need #FIELD, e.g. vault:secret/shop#db_password")
 		}
-		return external("vault", "kv", "get", "-field="+field, path)
+		return cloud.VaultKV(context.Background(), path, field)
 	case strings.HasPrefix(ref, "aws-sm:"):
 		name, key, _ := strings.Cut(strings.TrimPrefix(ref, "aws-sm:"), "#")
-		v, err := external("aws", "secretsmanager", "get-secret-value", "--secret-id", name, "--query", "SecretString", "--output", "text")
+		v, err := cloud.AWSSecret(context.Background(), name)
+		if errors.Is(err, cloud.ErrAWSLogin) {
+			return "", fmt.Errorf("aws: %v (a person runs `komando login aws` once)", err)
+		}
 		if err != nil || key == "" {
 			return v, err
 		}
 		return jsonKey(v, key)
 	case strings.HasPrefix(ref, "gcp-sm:"):
 		name, project, _ := strings.Cut(strings.TrimPrefix(ref, "gcp-sm:"), "@")
-		args := []string{"secrets", "versions", "access", "latest", "--secret=" + name}
-		if project != "" {
-			args = append(args, "--project="+project)
+		v, err := cloud.GCPSecret(context.Background(), name, project)
+		if errors.Is(err, cloud.ErrGCPLogin) {
+			return "", fmt.Errorf("google cloud: %v (set GOOGLE_APPLICATION_CREDENTIALS to a key file, or run on Google Cloud)", err)
 		}
-		return external("gcloud", args...)
+		return v, err
 	}
 	return "", fmt.Errorf("invalid secret reference %q (%s)", ref, RefHelp())
 }

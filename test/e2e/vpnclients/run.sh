@@ -2,7 +2,8 @@
 # komando's openconnect and Tailscale VPN kinds against real servers, all
 # in Docker: ocserv (the AnyConnect protocol, as the openconnect family
 # uses) and Headscale with one Tailscale node. komando runs in a Linux
-# client container with openconnect, ocproxy and tailscaled installed.
+# client container with openconnect and ocproxy installed, and no
+# tailscale programs (Tailscale is built in).
 #
 #   test/e2e/vpnclients/run.sh      (make e2e-vpnclients)
 set -euo pipefail
@@ -56,13 +57,20 @@ in_client sh -c "printf %s '$KEY' | komando secret set ts-key" >/dev/null
 in_client komando vpn add tailnet tailscale --server http://headscale:8080 --password-ref secret:ts-key --check "$PEER_IP:7000" >/dev/null
 [ "$(in_client komando test tailnet | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "tailscale connects"
 ok "tailscale connects on demand and reaches a tailnet node ($PEER_IP)"
+in_client sh -c 'command -v tailscaled tailscale' >/dev/null 2>&1 && fail "the client image has tailscale programs"
+ok "no tailscale or tailscaled program on the client"
 # the key comes in through the environment and grep reads it from a file, so this check's own
 # command lines (including grep's, which cat may read) never hold it
 "${DC[@]}" exec -T -e "K=$KEY" client sh -c 'f=$(mktemp) && printf %s "$K" > "$f" || exit 1; cat /proc/[0-9]*/cmdline 2>/dev/null | tr "\\0" " " | grep -qFf "$f"; r=$?; rm -f "$f"; [ "$r" = 1 ]' || fail "auth key visible in a command line"
 ok "the auth key is not on any command line"
+[ "$(in_client komando status | jget '[v["name"] for v in d["data"]["vpns"]]')" = "['tailnet']" ] || fail "status lists the tailnet"
+ok "komando status lists the tailnet session"
 in_client komando vpn down tailnet >/dev/null
-gone tailscaled || fail "tailscaled left running"
-ok "vpn down stops tailscaled"
+gone komando || fail "the Tailscale session process left running"
+ok "vpn down stops the session"
+[ "$(in_client komando test tailnet | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "tailscale reconnects"
+ok "a second session reuses the node (no new login)"
+in_client komando vpn down tailnet >/dev/null
 
 echo
 echo "passed: $PASS  failed: 0"

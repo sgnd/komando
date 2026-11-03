@@ -9,7 +9,7 @@
 # Several runs can share one machine (e.g. one per git worktree) when each
 # sets its own project name and host ports:
 #   E2E_PROJECT=komando-e2e-b E2E_SSH_BASTION=3222 E2E_SSH_DIRECT=3223 \
-#   E2E_SSH_SWARM=3224 E2E_REGISTRY=6005 E2E_SOCKS=19080 make e2e
+#   E2E_SSH_SWARM=3224 E2E_REGISTRY=6005 E2E_SOCKS=19080 E2E_BAO=8211 E2E_MOTO=5026 E2E_VW=8091 make e2e
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -28,6 +28,7 @@ A() { CLAUDECODE=1 KOMANDO_NO_DIALOG=1 "$K" "$@"; }
 PROJECT=${E2E_PROJECT:-komando-e2e}
 export E2E_SSH_BASTION=${E2E_SSH_BASTION:-2222} E2E_SSH_DIRECT=${E2E_SSH_DIRECT:-2223}
 export E2E_SSH_SWARM=${E2E_SSH_SWARM:-2224} E2E_REGISTRY=${E2E_REGISTRY:-5005}
+export E2E_BAO=${E2E_BAO:-8201} E2E_MOTO=${E2E_MOTO:-5016} E2E_VW=${E2E_VW:-8090}
 E2E_SOCKS=${E2E_SOCKS:-18080}
 PASS=0
 FAIL=0
@@ -97,6 +98,19 @@ check "shell names the bastion and protection" 1 "$(grep -c '^komando: shell on 
 check "PROTECTED is red in colour terminals" 1 "$(ptyrun 'exit 0\n' env TERM=xterm NO_COLOR= "$K" shell target --yes | grep -c $'\e\\[1;31mPROTECTED')"
 check "shell --dry-run reports the protected stop" PROTECTED_HOST "$(ptyrun '' "$K" -o json shell target --dry-run | tr -d '\r' | grep '^{' | jget 'd["meta"]["would_be_blocked"]["code"]')"
 set -e
+echo "==> secret managers, built in (no vault or aws CLI)"
+for _ in $(seq 1 30); do curl -sf "http://127.0.0.1:$E2E_BAO/v1/sys/health" >/dev/null && curl -s "http://127.0.0.1:$E2E_MOTO/" >/dev/null && break; sleep 1; done
+curl -sf -H "X-Vault-Token: e2e-root" -d '{"data":{"agentpass":"agentpass"}}' "http://127.0.0.1:$E2E_BAO/v1/secret/data/e2e" >/dev/null
+curl -sf -H 'X-Amz-Target: secretsmanager.CreateSecret' -H 'Content-Type: application/x-amz-json-1.1' \
+  -H 'Authorization: AWS4-HMAC-SHA256 Credential=test/20260101/us-east-1/secretsmanager/aws4_request, SignedHeaders=host, Signature=0' \
+  -d '{"Name":"e2e/agent","SecretString":"{\"password\":\"agentpass\"}"}' "http://127.0.0.1:$E2E_MOTO/" >/dev/null
+BAOENV=(env PATH=/usr/bin:/bin VAULT_ADDR="http://127.0.0.1:$E2E_BAO" VAULT_TOKEN=e2e-root)
+SMENV=(env PATH=/usr/bin:/bin AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_REGION=us-east-1 AWS_ENDPOINT_URL="http://127.0.0.1:$E2E_MOTO" AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true)
+$K host add direct-bao "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref 'vault:secret/e2e#agentpass' >/dev/null
+$K host add direct-sm "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref 'aws-sm:e2e/agent#password' >/dev/null
+check "password from OpenBao" agent "$("${BAOENV[@]}" $K exec direct-bao --read-only -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()' || true)"
+check "password from AWS Secrets Manager" agent "$("${SMENV[@]}" $K exec direct-sm --read-only -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()' || true)"
+$K host rm direct-bao direct-sm >/dev/null
 check "sudo works" root "$($K exec direct --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "dry-run reports block" PROTECTED_HOST "$($K exec @lab --dry-run -- 'touch x' | jget 'd["data"]["would_be_blocked"]["code"]')"
 
@@ -193,6 +207,20 @@ echo -n shoppass | $K secret set maria-pass >/dev/null
 echo -n redispass | $K secret set redis-pass >/dev/null
 awk '/Secret key/{printf "%s", $3}' "$TMP/s3key" | $K secret set s3-secret >/dev/null
 q $K conn add pg 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-pass
+# a database always needs its password, so the secret manager's answer counts
+curl -sf -H "X-Vault-Token: e2e-root" -d '{"data":{"pgpass":"apppass"}}' "http://127.0.0.1:$E2E_BAO/v1/secret/data/pg" >/dev/null
+q $K conn add pg-bao 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'vault:secret/pg#pgpass'
+check "db password from OpenBao" 1 "$("${BAOENV[@]}" $K db query pg-bao 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]' || true)"
+check "wrong OpenBao token is named" True "$(env PATH=/usr/bin:/bin VAULT_ADDR="http://127.0.0.1:$E2E_BAO" VAULT_TOKEN=bad $K db query pg-bao 'select 1' | jget '"permission denied" in json.dumps(d)' || true)"
+q $K conn rm pg-bao
+# Bitwarden (Vaultwarden): an account made the way a Bitwarden client makes it, read by komando
+for _ in $(seq 1 30); do curl -sf "http://127.0.0.1:$E2E_VW/alive" >/dev/null && break; sleep 1; done
+(cd "$ROOT" && go run ./test/e2e/bwseed "http://127.0.0.1:$E2E_VW" e2e@example.com 'e2e master pw' shop-pg apppass) >/dev/null
+BWENV=(env PATH=/usr/bin:/bin KOMANDO_BW_SERVER="http://127.0.0.1:$E2E_VW" KOMANDO_BW_EMAIL=e2e@example.com KOMANDO_BW_PASSWORD='e2e master pw')
+q $K conn add pg-bw 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'bw://shop-pg/password'
+check "db password from Vaultwarden (bw://)" 1 "$("${BWENV[@]}" $K db query pg-bw 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]' || true)"
+check "wrong Bitwarden master password is named" True "$(env PATH=/usr/bin:/bin KOMANDO_BW_SERVER="http://127.0.0.1:$E2E_VW" KOMANDO_BW_EMAIL=e2e@example.com KOMANDO_BW_PASSWORD=nope $K db query pg-bw 'select 1' | jget '"bitwarden" in json.dumps(d)' || true)"
+q $K conn rm pg-bw
 q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
 q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref secret:redis-pass
 q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref secret:s3-secret
@@ -270,12 +298,13 @@ q $K storage upload bucket "$TMP/obj.txt" 2026/obj.txt
 check "storage ls via bastion" 2026/obj.txt "$($K storage ls bucket --recursive | jget 'd["data"]["objects"][0]["key"]')"
 q $K storage download bucket 2026/obj.txt --to "$TMP/obj-back.txt"
 check "storage round trip" backup-data "$(cat "$TMP/obj-back.txt")"
-mkdir -p "$TMP/fakebin"
-printf '#!/bin/sh\necho "{\\"Version\\":1,\\"AccessKeyId\\":\\"%s\\",\\"SecretAccessKey\\":\\"%s\\"}"\n' "$S3ID" "$(awk '/Secret key/{printf "%s", $3}' "$TMP/s3key")" > "$TMP/fakebin/aws"
-chmod +x "$TMP/fakebin/aws"
+# aws_profile: komando reads ~/.aws itself; no aws CLI on PATH
+printf '[e2e]\naws_access_key_id = %s\naws_secret_access_key = %s\n' "$S3ID" "$(awk '/Secret key/{printf "%s", $3}' "$TMP/s3key")" > "$TMP/aws-credentials"
+AWSENV=(env PATH=/usr/bin:/bin AWS_SHARED_CREDENTIALS_FILE="$TMP/aws-credentials" AWS_CONFIG_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true)
 q $K conn add bucket-aws "s3://backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --option aws_profile=e2e
-check "s3 with aws_profile credentials" 2026/obj.txt "$(PATH="$TMP/fakebin:$PATH" $K storage ls bucket-aws --recursive | jget 'd["data"]["objects"][0]["key"]')"
-check "aws_profile without the aws CLI" AWS_CLI_MISSING "$(PATH=/usr/bin:/bin $K storage ls bucket-aws | jget 'd["error"]["code"]' || true)"
+check "s3 with aws_profile, no aws CLI" 2026/obj.txt "$("${AWSENV[@]}" $K storage ls bucket-aws --recursive | jget 'd["data"]["objects"][0]["key"]')"
+q $K conn edit bucket-aws --option aws_profile=nope
+check "unknown aws_profile is named" AWS_PROFILE_NOT_FOUND "$("${AWSENV[@]}" $K storage ls bucket-aws | jget 'd["error"]["code"]' || true)"
 q $K conn rm bucket-aws
 mkdir -p "$TMP/tree/sub" && echo one > "$TMP/tree/a.txt" && echo two > "$TMP/tree/sub/b.txt" && echo skip > "$TMP/tree/c.tmp"
 check "upload -r to storage" 3 "$($K upload bucket "$TMP/tree" tree -r | jget 'd["data"]["copied"]')"

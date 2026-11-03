@@ -1,6 +1,6 @@
-# The client side: openconnect + ocproxy and tailscaled, as a person would
-# install them; komando (built for Linux) is mounted at /komando.
+# The client side: openconnect + ocproxy, as a person would install them;
+# komando (built for Linux) is mounted at /usr/local/bin/komando. No
+# tailscale programs: komando has Tailscale built in.
 FROM debian:13-slim
 RUN apt-get update -q && apt-get install -y -q --no-install-recommends openconnect ocproxy ca-certificates netcat-openbsd curl \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=tailscale/tailscale:v1.86.2 /usr/local/bin/tailscale /usr/local/bin/tailscaled /usr/local/bin/
