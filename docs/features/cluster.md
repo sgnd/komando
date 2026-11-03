@@ -81,7 +81,8 @@ ends it normally; for a service, the service's port is forwarded to the
 pod's port behind it. `cluster shell` opens a terminal in the pod (bash,
 else sh) for a person, and asks first on a protected cluster. komando
 speaks Kubernetes' exec and port-forward protocols itself: kubectl is not
-needed. A pod or service that does not exist is "not found" (exit 3).
+needed. It uses WebSocket, and SPDY on clusters older than Kubernetes 1.30,
+like kubectl does. A pod or service that does not exist is "not found" (exit 3).
 
 `cluster status` lists problems by name, for example
 `pod/shop/api-7d9f-x2: api: CrashLoopBackOff`, `deployment/shop/api: 1 of 3

@@ -361,7 +361,7 @@ func OpenDirect(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 		return openTailscale(ctx, v, timeout)
 	case "openvpn":
 		return openOpenVPN(ctx, v, timeout)
-	case "anyconnect", "fortinet", "globalprotect", "f5":
+	case "anyconnect", "fortinet", "globalprotect", "f5", "pulse":
 		return openSSLVPN(ctx, v, timeout)
 	case "system":
 		if v.Check != "" { // connected by the OS, or by `vpn up` through --service

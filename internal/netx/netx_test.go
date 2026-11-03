@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -70,5 +71,27 @@ func TestDownHintsPerKind(t *testing.T) {
 	}
 	if SecretHint("secret:wg-key") != "store it with `komando secret set wg-key`" {
 		t.Fatal(SecretHint("secret:wg-key"))
+	}
+}
+
+func TestBuiltinSSL(t *testing.T) {
+	t.Setenv("PATH", t.TempDir()) // no openconnect: every SSL VPN kind komando speaks is built in
+	for _, k := range []string{"anyconnect", "fortinet", "globalprotect", "f5", "pulse"} {
+		if !BuiltinSSL(k) {
+			t.Errorf("%s without openconnect is not built in", k)
+		}
+	}
+	if BuiltinSSL("openvpn") || BuiltinSSL("nope") {
+		t.Error("not an SSL VPN kind")
+	}
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "openconnect"), []byte("#!/bin/sh\n"), 0o755)
+	t.Setenv("PATH", dir)
+	if BuiltinSSL("pulse") || !BuiltinSSL("anyconnect") {
+		t.Error("with openconnect installed, only tested kinds are built in")
+	}
+	t.Setenv("KOMANDO_EXPERIMENTAL_VPN", "pulse")
+	if !BuiltinSSL("pulse") || BuiltinSSL("f5") {
+		t.Error("KOMANDO_EXPERIMENTAL_VPN names the kinds to use")
 	}
 }

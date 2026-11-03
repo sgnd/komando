@@ -20,7 +20,8 @@ import (
 )
 
 // exec, attach and port-forward speak the Kubernetes streaming protocols
-// over WebSocket, so kubectl is not needed. Each WebSocket message starts
+// over WebSocket, so kubectl is not needed; clusters before 1.30 get SPDY
+// instead (spdy.go). Each WebSocket message starts
 // with a channel byte: 0 stdin, 1 stdout, 2 stderr, 3 status, 4 resize
 // (exec); for port-forward, channel 0 is data and 1 errors, and each
 // channel's first message is the port.
@@ -63,9 +64,25 @@ func (c *Client) dialWS(ctx context.Context, path string, q url.Values, protocol
 		d.NetDialContext = tr.DialContext
 	}
 	h := http.Header{"User-Agent": {"komando"}}
+	if err := c.authorize(ctx, h); err != nil {
+		return nil, "", err
+	}
+	ws, resp, err := d.DialContext(ctx, u.String(), h)
+	if err != nil {
+		if resp != nil {
+			defer resp.Body.Close()
+			return nil, "", upgradeRefused(resp)
+		}
+		return nil, "", err
+	}
+	return ws, ws.Subprotocol(), nil
+}
+
+// authorize sets the Authorization header a streaming request needs.
+func (c *Client) authorize(ctx context.Context, h http.Header) error {
 	tok, err := c.bearer(ctx)
 	if err != nil {
-		return nil, "", err
+		return err
 	}
 	if tok != "" {
 		h.Set("Authorization", "Bearer "+tok)
@@ -74,21 +91,32 @@ func (c *Client) dialWS(ctx context.Context, path string, q url.Values, protocol
 		r.SetBasicAuth(c.ctx.User.Username, c.ctx.User.Password)
 		h.Set("Authorization", r.Header.Get("Authorization"))
 	}
-	ws, resp, err := d.DialContext(ctx, u.String(), h)
-	if err != nil {
-		if resp != nil {
-			defer resp.Body.Close()
-			b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-			var st struct{ Reason, Message string }
-			_ = json.Unmarshal(b, &st)
-			if st.Message == "" {
-				st.Message = strings.TrimSpace(string(b))
-			}
-			return nil, "", &APIError{Code: resp.StatusCode, Reason: firstNonEmpty(st.Reason, http.StatusText(resp.StatusCode)), Message: st.Message}
-		}
-		return nil, "", err
+	return nil
+}
+
+// upgradeRefused turns the answer to a refused upgrade into an APIError.
+func upgradeRefused(resp *http.Response) error {
+	b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	var st struct{ Reason, Message string }
+	_ = json.Unmarshal(b, &st)
+	if st.Message == "" {
+		st.Message = strings.TrimSpace(string(b))
 	}
-	return ws, ws.Subprotocol(), nil
+	return &APIError{Code: resp.StatusCode, Reason: firstNonEmpty(st.Reason, http.StatusText(resp.StatusCode)), Message: st.Message}
+}
+
+// errOldProtocol: the WebSocket was opened, but not with a protocol
+// version komando uses there.
+var errOldProtocol = errors.New("the cluster offers only an older WebSocket protocol")
+
+// trySPDY reports whether a failed WebSocket should be retried over SPDY,
+// as kubectl does: the cluster answered, but would not upgrade. Kubernetes
+// 1.29 refuses a v5 WebSocket with a bare 403, so any refused upgrade is
+// retried; where the refusal is real (no access, no such pod), SPDY gets
+// the same answer, and that is what is reported.
+func trySPDY(err error) bool {
+	var ae *APIError
+	return errors.As(err, &ae) || errors.Is(err, errOldProtocol) || errors.Is(err, websocket.ErrBadHandshake)
 }
 
 // Exec runs a command in a container and waits for it. A non-zero exit
@@ -107,7 +135,16 @@ func (c *Client) Exec(ctx context.Context, o ExecOptions) error {
 		q.Set("stderr", "true")
 	}
 	path := "/api/v1/namespaces/" + url.PathEscape(o.Namespace) + "/pods/" + url.PathEscape(o.Pod) + "/exec"
-	ws, proto, err := c.dialWS(ctx, path, q, []string{"v5.channel.k8s.io", "v4.channel.k8s.io"})
+	// v5 is the first WebSocket version that can end stdin (Kubernetes
+	// 1.30); an older cluster gets the same command over SPDY.
+	ws, proto, err := c.dialWS(ctx, path, q, []string{"v5.channel.k8s.io"})
+	if err == nil && proto != "v5.channel.k8s.io" {
+		ws.Close()
+		err = errOldProtocol
+	}
+	if trySPDY(err) {
+		return c.execSPDY(ctx, o, path, q)
+	}
 	if err != nil {
 		return err
 	}
@@ -128,9 +165,7 @@ func (c *Client) Exec(ctx context.Context, o ExecOptions) error {
 					return
 				}
 				if err != nil {
-					if proto == "v5.channel.k8s.io" {
-						_ = send(255, []byte{0}) // v5: close stdin
-					}
+					_ = send(255, []byte{0}) // v5: close stdin
 					return
 				}
 			}
@@ -218,6 +253,9 @@ func (c *Client) PortForward(ctx context.Context, namespace, pod string, port in
 	defer conn.Close()
 	path := "/api/v1/namespaces/" + url.PathEscape(namespace) + "/pods/" + url.PathEscape(pod) + "/portforward"
 	ws, _, err := c.dialWS(ctx, path, url.Values{"ports": {strconv.Itoa(port)}}, []string{"v4.channel.k8s.io"})
+	if trySPDY(err) {
+		return c.forwardSPDY(ctx, path, port, conn)
+	}
 	if err != nil {
 		return err
 	}

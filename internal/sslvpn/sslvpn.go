@@ -1,7 +1,8 @@
 // Package sslvpn holds komando's own clients for corporate SSL VPNs:
 // Cisco AnyConnect / ocserv, Fortinet, Palo Alto GlobalProtect, F5 BIG-IP
-// and Pulse/Ivanti. Each logs in over HTTPS, then carries IP packets over a
-// TLS connection; komando feeds them to a userspace network stack, so the
+// and Pulse/Ivanti. Each logs in over HTTPS (Pulse: EAP inside IF-T/TLS),
+// then carries IP packets over a TLS connection (AnyConnect also over
+// DTLS); komando feeds them to a userspace network stack, so the
 // computer's network is not changed and no openconnect is needed.
 //
 // The clients are written from the vendors' public behaviour and protocol
@@ -111,6 +112,12 @@ func httpClient(o Options, host string) (*http.Client, error) {
 
 // dialTLS opens the TLS connection that carries the tunnel.
 func dialTLS(ctx context.Context, o Options, u *url.URL) (*tls.Conn, error) {
+	return dialTLSWith(ctx, o, u, nil)
+}
+
+// dialTLSWith is dialTLS that also keeps, in keys, what an RFC 5705
+// exporter needs for TLS 1.2 (see tlskeys.go).
+func dialTLSWith(ctx context.Context, o Options, u *url.URL, keys *tlsKeys) (*tls.Conn, error) {
 	host := u.Hostname()
 	port := u.Port()
 	if port == "" {
@@ -127,6 +134,10 @@ func dialTLS(ctx context.Context, o Options, u *url.URL) (*tls.Conn, error) {
 	raw, err := dial(ctx, "tcp", net.JoinHostPort(host, port))
 	if err != nil {
 		return nil, err
+	}
+	if keys != nil {
+		tc.KeyLogWriter = keys
+		raw = &helloSniffer{Conn: raw, keys: keys}
 	}
 	c := tls.Client(raw, tc)
 	if err := c.HandshakeContext(ctx); err != nil {

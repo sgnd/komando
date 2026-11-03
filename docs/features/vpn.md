@@ -71,9 +71,8 @@ komando vpn down --all
 |------|-------------|----------------------------------|
 | `openvpn` (and `pritunl`) | inside komando, with its own OpenVPN client: UDP and TCP, tls-auth and tls-crypt, AES-GCM, ChaCha20-Poly1305 and AES-CBC, certificates and/or user name and password; no openvpn program, Docker or admin rights | no |
 | `openvpn --os-mode` | deprecated: the openvpn program on your computer, with sudo | yes |
-| `anyconnect` | inside komando (Cisco AnyConnect and ocserv); no openconnect | no |
-| `fortinet`, `globalprotect`, `f5` | komando's own clients (experimental: written to the vendors' protocols but not yet tried against their servers). Used when openconnect is not installed, or always with `KOMANDO_EXPERIMENTAL_VPN=fortinet,globalprotect,f5`; otherwise `openconnect` with `ocproxy` | no |
-| `pulse` | `openconnect` with `ocproxy` (`brew install openconnect ocproxy`), until komando's own client for it is released | no |
+| `anyconnect` | inside komando (Cisco AnyConnect and ocserv); no openconnect. Packets go over DTLS (UDP, faster) when the server offers it, and back over TLS when UDP is blocked | no |
+| `fortinet`, `globalprotect`, `f5`, `pulse` | komando's own clients (experimental: written to the vendors' protocols but not yet tried against their servers). Used when openconnect is not installed, or always with `KOMANDO_EXPERIMENTAL_VPN=fortinet,globalprotect,f5,pulse`; otherwise `openconnect` with `ocproxy` | no |
 | `tailscale` | inside komando (Tailscale's own Go library); no tailscale program needed. Without `--password-ref` (an auth key), `komando vpn up` opens the login page once and the node stays logged in | no |
 
 An OpenVPN profile is checked when you add it: an option komando's client

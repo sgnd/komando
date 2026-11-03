@@ -50,6 +50,14 @@ services:
     privileged: true
     tmpfs: ["/run", "/var/run"]
     networks: [private, public]  # k3s needs a default route; no port is published, so it is still reached through bastion
+  # Kubernetes 1.29: no WebSocket exec yet, so komando streams over SPDY there
+  k3s-old:
+    image: rancher/k3s:v1.29.15-k3s1
+    command: ["server", "--tls-san", "k3s-old", "--tls-san", "127.0.0.1", "--disable", "traefik", "--disable", "metrics-server", "--disable", "servicelb", "--disable", "coredns", "--disable", "local-storage"]
+    privileged: true
+    tmpfs: ["/run", "/var/run"]
+    ports: ["127.0.0.1:${E2E_K3S_OLD:-16444}:6443"]  # for the SPDY Go test; komando itself goes through bastion
+    networks: [private, public]
   sftp:
     image: atmoz/sftp:alpine
     command: ["deploy:deploypass:::uploads"]

@@ -3,6 +3,8 @@ package cloud
 import (
 	"bytes"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
@@ -16,6 +18,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/gorilla/websocket"
 )
@@ -24,31 +27,59 @@ import (
 // session-manager-plugin: StartSession (AWS-StartSSHSession) through the
 // SDK, then the Session Manager data channel over WebSocket. Each message
 // has a 120-byte header (type, sequence number, id, SHA-256 of the
-// payload); every output message is acknowledged. KMS-encrypted sessions
-// are not supported and say so.
+// payload); every output message is acknowledged.
+//
+// When the account encrypts sessions with KMS, the agent's handshake names
+// a KMS key: komando asks KMS for a 64-byte data key (bound to the session
+// and target through the encryption context) and hands the agent the
+// encrypted copy. The first half of the key decrypts what the agent sends,
+// the second half encrypts what komando sends; each data payload is then
+// a 12-byte nonce followed by AES-256-GCM output.
 
 // ssmStart is ssm StartSession; tests replace it.
-var ssmStart = func(ctx context.Context, profile, region, target, port string) (url, token string, err error) {
+var ssmStart = func(ctx context.Context, profile, region, target, port string) (s ssmSession, err error) {
 	cfg, err := AWSConfig(ctx, profile, region)
 	if err != nil {
-		return "", "", err
+		return s, err
 	}
 	o, err := ssm.NewFromConfig(cfg).StartSession(ctx, &ssm.StartSessionInput{
 		Target: aws.String(target), DocumentName: aws.String("AWS-StartSSHSession"),
 		Parameters: map[string][]string{"portNumber": {port}},
 	})
 	if err != nil {
-		return "", "", awsErr(err)
+		return s, awsErr(err)
 	}
-	return aws.ToString(o.StreamUrl), aws.ToString(o.TokenValue), nil
+	return ssmSession{id: aws.ToString(o.SessionId), url: aws.ToString(o.StreamUrl), token: aws.ToString(o.TokenValue)}, nil
+}
+
+type ssmSession struct{ id, url, token string }
+
+// ssmDataKey asks KMS for the session's data key: the plain key and the
+// copy only KMS can open.
+func ssmDataKey(ctx context.Context, profile, region, keyID string, encCtx map[string]string) (plain, sealed []byte, err error) {
+	cfg, err := AWSConfig(ctx, profile, region)
+	if err != nil {
+		return nil, nil, err
+	}
+	o, err := kms.NewFromConfig(cfg).GenerateDataKey(ctx, &kms.GenerateDataKeyInput{
+		KeyId: aws.String(keyID), NumberOfBytes: aws.Int32(64), EncryptionContext: encCtx,
+	})
+	if err != nil {
+		return nil, nil, awsErr(err)
+	}
+	if len(o.Plaintext) != 64 || len(o.CiphertextBlob) == 0 {
+		return nil, nil, errors.New("KMS gave a data key of the wrong size")
+	}
+	return o.Plaintext, o.CiphertextBlob, nil
 }
 
 // SSMDial opens an SSH stream to an EC2 instance through Session Manager.
 func SSMDial(ctx context.Context, profile, region, target, port string) (net.Conn, error) {
-	streamURL, token, err := ssmStart(ctx, profile, region, target, port)
+	sess, err := ssmStart(ctx, profile, region, target, port)
 	if err != nil {
 		return nil, err
 	}
+	streamURL, token := sess.url, sess.token
 	ws, _, err := websocket.DefaultDialer.DialContext(ctx, streamURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("session manager: %w", err)
@@ -59,7 +90,10 @@ func SSMDial(ctx context.Context, profile, region, target, port string) (net.Con
 		ws.Close()
 		return nil, err
 	}
-	c := &ssmConn{ws: ws, in: make(chan []byte, 64), ready: make(chan error, 1), done: make(chan struct{})}
+	c := &ssmConn{ws: ws, in: make(chan []byte, 64), ready: make(chan error, 1), done: make(chan struct{}),
+		dataKey: func(keyID string) ([]byte, []byte, error) {
+			return ssmDataKey(ctx, profile, region, keyID, map[string]string{"aws:ssm:SessionId": sess.id, "aws:ssm:TargetId": target})
+		}}
 	go c.readLoop()
 	select {
 	case err := <-c.ready:
@@ -89,6 +123,9 @@ type ssmConn struct {
 	done    chan struct{}
 	donce   sync.Once
 	ooo     map[int64][]byte
+	dataKey func(keyID string) (plain, sealed []byte, err error)
+	// with KMS: open reads the agent's payloads, seal writes ours
+	open, seal cipher.AEAD
 }
 
 const (
@@ -150,6 +187,11 @@ func decodeSSM(b []byte) (ssmMsg, error) {
 func (c *ssmConn) send(payType uint32, payload []byte) error {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
+	if c.seal != nil && payType == payOutput {
+		nonce := make([]byte, c.seal.NonceSize())
+		rand.Read(nonce)
+		payload = c.seal.Seal(nonce, nonce, payload, nil)
+	}
 	var id [16]byte
 	rand.Read(id[:])
 	b := encodeSSM(ssmMsg{typ: ssmInput, seq: c.seq, id: id, payType: payType, payload: payload})
@@ -215,19 +257,23 @@ func (c *ssmConn) handle(m ssmMsg) {
 	case payHandReq:
 		var req struct {
 			RequestedClientActions []struct {
-				ActionType string
+				ActionType       string
+				ActionParameters json.RawMessage
 			}
 		}
 		json.Unmarshal(m.payload, &req)
 		var done []map[string]any
 		for _, a := range req.RequestedClientActions {
+			r := map[string]any{"ActionType": a.ActionType, "ActionStatus": 1}
 			if a.ActionType == "KMSEncryption" {
-				c.ronce.Do(func() {
-					c.ready <- errors.New("session manager: this account encrypts sessions with KMS, which komando does not support yet")
-				})
-				return
+				sealed, err := c.startKMS(a.ActionParameters)
+				if err != nil {
+					c.ronce.Do(func() { c.ready <- fmt.Errorf("session manager: KMS encryption: %w", err) })
+					return
+				}
+				r["ActionResult"] = map[string][]byte{"KMSCipherTextKey": sealed}
 			}
-			done = append(done, map[string]any{"ActionType": a.ActionType, "ActionStatus": 1})
+			done = append(done, r)
 		}
 		p, _ := json.Marshal(map[string]any{"ClientVersion": "1.2.0.0", "ProcessedClientActions": done, "Errors": []string{}})
 		c.send(payHandResp, p)
@@ -235,11 +281,58 @@ func (c *ssmConn) handle(m ssmMsg) {
 		c.ronce.Do(func() { c.ready <- nil })
 	case payOutput:
 		c.ronce.Do(func() { c.ready <- nil }) // older agents skip the handshake
+		p := append([]byte{}, m.payload...)
+		if c.open != nil {
+			n := c.open.NonceSize()
+			var err error
+			if len(p) < n {
+				err = errors.New("short payload")
+			} else {
+				p, err = c.open.Open(nil, p[:n], p[n:], nil)
+			}
+			if err != nil {
+				c.close() // a payload that does not decrypt ends the session
+				return
+			}
+		}
 		select {
-		case c.in <- append([]byte{}, m.payload...):
+		case c.in <- p:
 		case <-c.done:
 		}
 	}
+}
+
+// startKMS makes the session's data key for the key the agent named and
+// returns KMS's sealed copy for the agent.
+func (c *ssmConn) startKMS(params json.RawMessage) ([]byte, error) {
+	var p struct{ KMSKeyId string }
+	if json.Unmarshal(params, &p) != nil || p.KMSKeyId == "" {
+		return nil, errors.New("the agent named no KMS key")
+	}
+	plain, sealed, err := c.dataKey(p.KMSKeyId)
+	if err != nil {
+		return nil, err
+	}
+	open, err := gcm(plain[:32])
+	if err != nil {
+		return nil, err
+	}
+	seal, err := gcm(plain[32:])
+	if err != nil {
+		return nil, err
+	}
+	c.wmu.Lock()
+	c.open, c.seal = open, seal
+	c.wmu.Unlock()
+	return sealed, nil
+}
+
+func gcm(key []byte) (cipher.AEAD, error) {
+	b, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	return cipher.NewGCM(b)
 }
 
 func (c *ssmConn) close() {

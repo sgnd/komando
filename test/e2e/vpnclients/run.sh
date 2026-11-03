@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# komando's openconnect and Tailscale VPN kinds against real servers, all
+# komando's AnyConnect (TLS and DTLS) and Tailscale VPN kinds against real servers, all
 # in Docker: ocserv (the AnyConnect protocol) and Headscale with one
 # Tailscale node. komando runs in a Linux client container with no VPN
 # programs at all: both are built in.
@@ -33,6 +33,14 @@ in_client sh -c 'printf ocpass | komando secret set oc-pass' >/dev/null
 in_client komando vpn add oc anyconnect --portal https://ocserv --user e2e --password-ref secret:oc-pass --check 192.168.99.1:7000 >/dev/null
 [ "$(in_client komando test oc | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "anyconnect connects" ocserv
 ok "anyconnect connects on demand and reaches the VPN side"
+for _ in $(seq 1 20); do "${DC[@]}" exec -T ocserv occtl -j show users 2>/dev/null | grep -q '"DTLS cipher"' && break; sleep 0.5; done
+"${DC[@]}" exec -T ocserv occtl -j show users | grep -q '"DTLS cipher":  "(DTLS1.2)-(PSK)' || fail "DTLS channel" ocserv
+ok "the session adds DTLS over UDP (PSK from the TLS connection)"
+udp_in() { "${DC[@]}" exec -T ocserv awk '/^Udp:/{n++; if(n==2) print $2}' /proc/net/snmp; }
+before=$(udp_in)
+[ "$(in_client komando test oc | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "anyconnect over DTLS" ocserv
+[ $(( $(udp_in) - before )) -ge 3 ] || fail "packets over UDP" ocserv
+ok "packets go over DTLS once it is up"
 [ "$(in_client komando vpn status | jget '[v for v in d["data"]["vpns"] if v["name"]=="oc"][0]["up"]')" = True ] || fail "status up"
 ok "vpn status shows the session"
 in_client komando vpn add oc-mfa anyconnect --portal https://ocserv --user e2e --mfa >/dev/null
