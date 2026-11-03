@@ -16,6 +16,18 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - New error codes `AWS_PROFILE_NOT_FOUND` and `AWS_FAILED`;
   `AWS_CLI_MISSING` no longer happens.
 
+### Built in: komando's own dump and restore
+
+- `db dump` and `db restore` work without pg_dump, psql, mysqldump or mysql
+  for direct conns, VPN conns and servers without those tools: komando
+  writes and reads plain SQL itself (PostgreSQL: extensions, schemas, types,
+  functions, sequences, tables with identity, generated columns and
+  partitions, data via COPY, constraints, indexes, views, materialized
+  views, triggers, row-level security, comments; MySQL: tables, data,
+  views, triggers, routines). Objects it cannot write stop the dump by name
+  (`DUMP_UNSUPPORTED`). Through a server that has the tools, they are still
+  used. `tool` in the answer says which ran.
+
 ### Built in: komando's own kubectl and SQL shell
 
 - `cluster run` no longer needs kubectl: komando understands the kubectl

@@ -196,13 +196,22 @@ komando db restore staging-db --from prod.dump --allow-dangerous  # an archive g
 
 - The backup file always lands on **this computer**, readable only by you.
   An existing file is never overwritten.
-- komando uses the database's own tools: `pg_dump`/`psql` (package
-  `postgresql-client`) or `mysqldump`/`mysql` (`mysql-client`). They run on
-  the conn's `--via` server when it has one, otherwise here. If they are
-  missing, the error tells you what to install
-  (`komando pkg install web1 postgresql-client`).
-- The password goes to the tool through its environment, never on its
-  command line, so other users of the server cannot see it.
+- When the conn's `--via` path ends at a server that has `pg_dump`/`psql`
+  or `mysqldump`/`mysql`, they run there (they are the reference). Otherwise
+  (a direct conn, a VPN, or a server without them) komando dumps and
+  restores by itself, and nothing has to be installed. `tool` in the answer
+  says which: the tool's command, or `komando`.
+- komando's own dump writes plain SQL that psql and mysql also read: for
+  PostgreSQL extensions, schemas, enum/domain/composite types, functions,
+  sequences, tables (identity and generated columns, partitions), data,
+  constraints, indexes, views, materialized views, triggers, row-level
+  security and comments; for MySQL tables, data, views, triggers and
+  routines. Owners and privileges are left out (like `--no-owner
+  --no-acl`). An object it cannot write (an aggregate, an operator, a
+  foreign table, ...) stops the dump with its name (`DUMP_UNSUPPORTED`)
+  instead of leaving it out; `--format custom` needs `pg_dump` on a server.
+- The password goes to a server's tool through its environment, never on
+  its command line, so other users of the server cannot see it.
 - A restore can overwrite data, so it needs `--allow-dangerous` (and `--yes`
   on a protected conn). PostgreSQL restores run in one transaction: if
   anything fails, nothing changes.
@@ -210,8 +219,8 @@ komando db restore staging-db --from prod.dump --allow-dangerous  # an archive g
   commands that could run programs or read files (`\!`, `system`, `\i`) is
   refused; real dumps never contain them. `db restore --dry-run` does this
   check too, and says what would stop the real run.
-- For MySQL conns with `?tls=...`, the same TLS setting is passed to
-  `mysqldump`/`mysql` (MySQL and MariaDB clients both work).
+- For MySQL conns with `?tls=...`, the same TLS setting is passed to a
+  server's `mysqldump`/`mysql` (MySQL and MariaDB clients both work).
 - SQLite: `dump` copies the database file (`--to backup.db`). To restore,
   stop the app and copy the file back.
 - Big databases take time: there is no timeout unless you pass `--timeout`.

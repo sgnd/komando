@@ -50,7 +50,7 @@ OpenVPN 3 library) does not qualify.
 | `cluster forward`, `tunnel` to a pod | `kubectl` | port-forward over WebSocket where the cluster allows it, SPDY otherwise  ✅ | M |
 | `cluster run` (any kubectl verb) | `kubectl` | own implementation of the kubectl verbs that work on any resource, through API discovery: get, describe, apply (server-side), delete, patch, label, annotate, explain, api-resources, auth can-i, top, wait, events, rollout. kubectl plugins (krew) are not covered ✅ | L |
 | `db shell` | `psql`, `mysql`, `sqlite3` | komando's own SQL shell on the drivers it already has ✅ | L |
-| `db dump` / `db restore` on this computer | `pg_dump`, `pg_restore`, `mysqldump`, `mysql` | built-in dump and restore (plain SQL); through `--via` the server's own tools stay the first choice | L (PostgreSQL), M (MySQL), S (SQLite) |
+| `db dump` / `db restore` on this computer | `pg_dump`, `pg_restore`, `mysqldump`, `mysql` | built-in dump and restore (plain SQL); through `--via` the server's own tools stay the first choice ✅ | L (PostgreSQL), M (MySQL), S (SQLite) |
 | AWS SSM as a proxy | `aws ssm start-session` + session-manager-plugin | SSM Session Manager protocol over WebSocket, via the AWS SDK | M |
 | OpenVPN / Pritunl | Docker, or `openvpn` with sudo | komando's own OpenVPN client in Go, on the same userspace network stack WireGuard uses | XL |
 | AnyConnect / ocserv | `openconnect` + `ocproxy` | own client (CSTP over TLS, DTLS) on the userspace stack | L |
