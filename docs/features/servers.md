@@ -61,7 +61,9 @@ The tool must be installed and logged in on this computer. For `--ssm`,
 komando speaks AWS Session Manager itself when the aws CLI or its
 session-manager-plugin is not installed (with your usual AWS login;
 `komando login aws` for SSO); set `KOMANDO_EXPERIMENTAL=ssm` to use it even
-when they are. Sessions encrypted with KMS still need the plugin.
+when they are. Sessions your account encrypts with KMS work too: komando
+asks KMS for the session key with your login, so that login needs
+`kms:GenerateDataKey` on the key, as the plugin does.
 `import ssh-config` keeps
 `ProxyCommand` lines; `import` of an export file drops them, because they
 run programs on your computer.

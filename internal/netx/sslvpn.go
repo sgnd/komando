@@ -24,7 +24,7 @@ import (
 // work at all), or when KOMANDO_EXPERIMENTAL_VPN names them (or says all);
 // with openconnect installed, it still carries them.
 var builtinSSL = map[string]bool{"anyconnect": true}
-var experimentalSSL = map[string]bool{"fortinet": true, "globalprotect": true, "f5": true}
+var experimentalSSL = map[string]bool{"fortinet": true, "globalprotect": true, "f5": true, "pulse": true}
 
 // BuiltinSSL reports whether komando speaks the kind itself.
 func BuiltinSSL(kind string) bool {
@@ -75,6 +75,9 @@ func SSLVPNLogin(ctx context.Context, v *store.Vpn, prompt func(label string, se
 	case "f5":
 		c, err := sslvpn.F5Login(ctx, o)
 		return c, sslErr(v, err)
+	case "pulse":
+		c, err := sslvpn.PulseLogin(ctx, o)
+		return c, sslErr(v, err)
 	}
 	return "", fmt.Errorf("%s is not built in", v.Kind)
 }
@@ -102,6 +105,8 @@ func openSSLVPN(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 		t, err = sslvpn.FortinetTunnel(ctx, o, cookie)
 	case "f5":
 		t, err = sslvpn.F5Tunnel(ctx, o, cookie)
+	case "pulse":
+		t, err = sslvpn.PulseTunnel(ctx, o, cookie)
 	case "globalprotect":
 		var s sslvpn.GPSession
 		if s, err = sslvpn.ParseGPSession(cookie); err == nil {

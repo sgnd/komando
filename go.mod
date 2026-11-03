@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.33.13
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.13
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.67.2
+	github.com/aws/aws-sdk-go-v2/service/kms v1.62.2
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.8
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.81.2
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.1
@@ -17,6 +18,8 @@ require (
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/jlaffaye/ftp v0.2.4
 	github.com/minio/minio-go/v7 v7.4.1
+	github.com/moby/spdystream v0.5.1
+	github.com/pion/dtls/v3 v3.1.15
 	github.com/pkg/sftp v1.13.12
 	github.com/redis/go-redis/v9 v9.23.0
 	github.com/spf13/cobra v1.10.2
@@ -79,6 +82,8 @@ require (
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
+	github.com/pion/logging v0.2.4 // indirect
+	github.com/pion/transport/v5 v5.0.0 // indirect
 	github.com/pires/go-proxyproto v0.15.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rs/xid v1.6.0 // indirect

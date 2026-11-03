@@ -17,11 +17,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 // AnyConnect speaks the Cisco AnyConnect protocol (as ocserv and Cisco ASA
-// serve it): XML "aggregate auth" to log in, then CSTP frames over TLS.
+// serve it): XML "aggregate auth" to log in, then CSTP frames over TLS,
+// and DTLS over UDP where the server offers it (anyconnect_dtls.go).
 
 const acUserAgent = "AnyConnect Linux_64 4.10.07061"
 
@@ -200,6 +202,7 @@ type acTun struct {
 	dpd  time.Duration
 	last time.Time
 	lmu  sync.Mutex
+	udp  atomic.Pointer[acDTLS] // the DTLS channel while it works
 }
 
 // CSTP frame: "STF" 0x01, length (2), type, 0
@@ -232,13 +235,14 @@ func AnyConnectTunnel(ctx context.Context, o Options, cookie string) (Tunnel, er
 	if err != nil {
 		return nil, err
 	}
-	c, err := dialTLS(ctx, o, u)
+	keys := &tlsKeys{}
+	c, err := dialTLSWith(ctx, o, u, keys)
 	if err != nil {
 		return nil, err
 	}
 	req := "CONNECT /CSCOSSLC/tunnel HTTP/1.1\r\nHost: " + u.Host + "\r\nUser-Agent: " + acUserAgent +
 		"\r\nCookie: webvpn=" + cookie + "\r\nX-CSTP-Version: 1\r\nX-CSTP-Hostname: komando\r\nX-CSTP-Address-Type: IPv6,IPv4" +
-		"\r\nX-CSTP-MTU: 1399\r\nX-CSTP-Base-MTU: 1500\r\nX-CSTP-Accept-Encoding: identity\r\n\r\n"
+		"\r\nX-CSTP-MTU: 1399\r\nX-CSTP-Base-MTU: 1500\r\nX-CSTP-Accept-Encoding: identity" + dtlsHeaders() + "\r\n\r\n"
 	if _, err := c.Write([]byte(req)); err != nil {
 		c.Close()
 		return nil, err
@@ -281,9 +285,18 @@ func AnyConnectTunnel(ctx context.Context, o Options, cookie string) (Tunnel, er
 		c.Close()
 		return nil, errors.New("the VPN gave no address (X-CSTP-Address)")
 	}
+	addr, appID, dtlsDPD, useDTLS := dtlsOffer(h, u)
+	if useDTLS && o.Dial == nil { // UDP goes direct; a tunnel through a jump host stays on TLS
+		if n, err := strconv.Atoi(h.Get("X-DTLS-MTU")); err == nil && n > 576 && n < t.mtu {
+			t.mtu = n // packets must fit either way
+		}
+	}
 	t.closeFn = func() { c.Close() }
 	go t.read(br)
 	go t.keepalive()
+	if useDTLS && o.Dial == nil {
+		go t.startDTLS(c, keys, addr, appID, dtlsDPD, dtlsTimeout)
+	}
 	return t, nil
 }
 
@@ -299,7 +312,12 @@ func (t *acTun) frame(typ byte, payload []byte) error {
 	return err
 }
 
-func (t *acTun) WritePacket(p []byte) error { return t.frame(cstpData, p) }
+func (t *acTun) WritePacket(p []byte) error {
+	if d := t.udp.Load(); d != nil && d.send(cstpData, p) == nil {
+		return nil
+	}
+	return t.frame(cstpData, p)
+}
 
 func (t *acTun) Close() error { t.end(net.ErrClosed); return nil }
 

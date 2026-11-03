@@ -35,12 +35,20 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   F5 BIG-IP (APM login, PPP over TLS) clients. They are used when
   openconnect is not installed, or with
   `KOMANDO_EXPERIMENTAL_VPN=fortinet,globalprotect,f5`; they have not yet
-  been tried against the vendors' own servers. Pulse/Ivanti still needs
-  openconnect.
+  been tried against the vendors' own servers.
+- Experimental: komando's own Pulse Secure / Ivanti Connect Secure client
+  (IF-T/TLS with EAP: realm choice, password, one-time codes asked at
+  `vpn up`, the DSID session cookie, packets over TLS). Same rule: used
+  when openconnect is not installed, or with `KOMANDO_EXPERIMENTAL_VPN=pulse`.
+  Client certificates (EAP-TTLS) and Host Checker are refused with a clear
+  error.
+- AnyConnect uses DTLS (UDP) when the server offers it, with the key taken
+  from the TLS connection (ocserv's PSK-NEGOTIATE); packets move back to
+  TLS when UDP stops answering. Tested against ocserv.
 - Hosts added with `--ssm` reach EC2 through komando's own AWS Session
   Manager client when the aws CLI or its session-manager-plugin is missing
-  (or with `KOMANDO_EXPERIMENTAL=ssm`). KMS-encrypted sessions say they
-  need the plugin.
+  (or with `KOMANDO_EXPERIMENTAL=ssm`). KMS-encrypted sessions work: komando
+  asks KMS for the session's data key and encrypts the stream with it.
 - Every VPN session's local SOCKS port now needs a random per-session login
   (WireGuard and Tailscale too), so other users of the computer cannot use
   it.
@@ -76,7 +84,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 ### Built in: Kubernetes exec, shell and port-forward (no kubectl)
 
 - `cluster exec` and `cluster forward` speak Kubernetes' streaming
-  protocols over WebSocket themselves. `cluster forward svc/NAME` maps the
+  protocols over WebSocket themselves, and over SPDY on clusters before
+  Kubernetes 1.30 (tried when the WebSocket is refused, as kubectl does;
+  tested against Kubernetes 1.29). `cluster forward svc/NAME` maps the
   service port to the pod's target port (by number or name), like kubectl.
 - New `cluster shell TARGET POD|TYPE/NAME [-- COMMAND]`: an interactive
   terminal in a pod for people, with the status lines and the protected

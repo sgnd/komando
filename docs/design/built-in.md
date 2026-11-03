@@ -51,13 +51,13 @@ OpenVPN 3 library) does not qualify.
 | `cluster run` (any kubectl verb) | `kubectl` | own implementation of the kubectl verbs that work on any resource, through API discovery: get, describe, apply (server-side), delete, patch, label, annotate, explain, api-resources, auth can-i, top, wait, events, rollout. kubectl plugins (krew) are not covered ✅ | L |
 | `db shell` | `psql`, `mysql`, `sqlite3` | komando's own SQL shell on the drivers it already has ✅ | L |
 | `db dump` / `db restore` on this computer | `pg_dump`, `pg_restore`, `mysqldump`, `mysql` | built-in dump and restore (plain SQL); through `--via` the server's own tools stay the first choice ✅ | L (PostgreSQL), M (MySQL), S (SQLite) |
-| AWS SSM as a proxy | `aws ssm start-session` + session-manager-plugin | SSM Session Manager protocol over WebSocket, via the AWS SDK 🧪 | M |
+| AWS SSM as a proxy | `aws ssm start-session` + session-manager-plugin | SSM Session Manager protocol over WebSocket, via the AWS SDK, KMS-encrypted sessions included 🧪 | M |
 | OpenVPN / Pritunl | Docker, or `openvpn` with sudo | komando's own OpenVPN client in Go, on the same userspace network stack WireGuard uses ✅ | XL |
 | AnyConnect / ocserv | `openconnect` + `ocproxy` | own client (CSTP over TLS, DTLS) on the userspace stack ✅ | L |
 | Fortinet SSL VPN | `openconnect` + `ocproxy` | own client (HTTPS login, PPP over TLS) 🧪 | L |
 | GlobalProtect | `openconnect` + `ocproxy` | own client (HTTPS login, GPST over TLS, ESP over UDP) 🧪 | XL |
 | F5 BIG-IP | `openconnect` + `ocproxy` | own client (HTTPS login, PPP over TLS) 🧪 | L |
-| Pulse / Ivanti | `openconnect` + `ocproxy` | own client (IF-T/TLS, EAP) | XL |
+| Pulse / Ivanti | `openconnect` + `ocproxy` | own client (IF-T/TLS, EAP) 🧪 | XL |
 | Docker credential helpers (registry logins saved by `docker login`) | `docker-credential-*` | read the person's saved Docker logins directly where the store is a file; OS keychain stores stay through their helper (the keychain needs cgo or the OS tool) ✅ | S |
 | Approval window, `system` VPN, route check | OS tools | no change: part of the OS | — |
 
@@ -152,8 +152,8 @@ AWS SSM sessions as a built-in proxy; Docker credential files.
 |---|---|---|
 | No open-source server for GlobalProtect, Fortinet, F5, Pulse | Cannot run a full e2e | Logins tested against fake servers written from the protocol (openconnect's test suite has such fakes; komando writes its own, MIT). The tunnel tested against a real appliance before a protocol leaves experimental |
 | OpenVPN | — | `make e2e-openvpn` already runs a real OpenVPN server; extended with tls-crypt, tls-crypt-v2, UDP and TCP, and a Pritunl server |
-| AnyConnect | — | `make e2e-vpnclients` already runs ocserv |
-| Kubernetes | — | `make e2e` already runs k3s; add an old-version cluster for the SPDY path |
+| AnyConnect | — | `make e2e-vpnclients` runs ocserv with UDP: TLS, then DTLS |
+| Kubernetes | — | `make e2e` runs k3s 1.33 (WebSocket) and k3s 1.29 (SPDY) |
 
 ## Where it stands (2026-11-03)
 
@@ -163,20 +163,28 @@ files, 1Password Connect (a fake server), AWS profiles and SSO login,
 Tailscale (Headscale), Kubernetes exec/shell/port-forward and `cluster run`
 (k3s), the SQL shell (PostgreSQL), dump and restore (PostgreSQL compared
 with pg_dump, MariaDB), OpenVPN (OpenVPN 2.6: TCP, UDP, tls-auth, tls-crypt,
-GCM, ChaCha20, CBC, PRF, user name and password, renegotiation) and
-AnyConnect (ocserv).
+GCM, ChaCha20, CBC, PRF, user name and password, renegotiation),
+AnyConnect over TLS and DTLS (ocserv; DTLS 1.2 with the PSK-NEGOTIATE key,
+packets checked to go over UDP) and Kubernetes exec, terminal and
+port-forward over SPDY (k3s 1.29, which refuses the WebSocket).
 
-Built in, experimental (🧪): Fortinet, GlobalProtect and F5 (tested only
-against fake servers written from the protocols), AWS SSM sessions (fake
-agent). Each is used only where nothing worked before (its old program is
+Built in, experimental (🧪): Fortinet, GlobalProtect, F5 and Pulse/Ivanti
+(tested only against fake servers written from the protocols), AWS SSM
+sessions (fake agent; the KMS data key against moto's KMS). Each is used only where nothing worked before (its old program is
 missing) or when asked for with `KOMANDO_EXPERIMENTAL_VPN` /
 `KOMANDO_EXPERIMENTAL`.
 
 Still to do:
 
-- Pulse/Ivanti (IF-T/TLS with EAP): still openconnect.
-- Fortinet, GlobalProtect, F5: try them against real appliances, then make
-  them the default.
+- Fortinet, GlobalProtect, F5, Pulse/Ivanti: try them against real
+  appliances, then make them the default. Pulse's vendor parts (the
+  Juniper EAP attributes and configuration layout) have no public
+  specification, so its client is the most likely to need fixes there.
+- Pulse/Ivanti: client certificate logins (EAP-TTLS) and Host Checker are
+  refused with a clear error; ESP over UDP is not used (packets stay on
+  TLS).
+- AWS SSM: try a session, with and without KMS, against a real EC2
+  instance, then make it the default.
 - Pritunl: test against a Pritunl server (its PIN/OTP login); plain
   OpenVPN profiles from it already work.
 - `op://` without 1Password Connect still calls the closed-source `op` CLI;
@@ -184,8 +192,6 @@ Still to do:
 - A Google login without gcloud (`komando login gcp`) needs an OAuth client
   registered for komando; until then `gcp-sm:` and GKE use a key file
   (`GOOGLE_APPLICATION_CREDENTIALS`) or run on Google Cloud.
-- AnyConnect DTLS (faster over UDP) and SPDY for Kubernetes before 1.30.
-- KMS-encrypted SSM sessions.
 
 ## Decisions
 

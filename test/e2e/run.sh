@@ -9,7 +9,8 @@
 # Several runs can share one machine (e.g. one per git worktree) when each
 # sets its own project name and host ports:
 #   E2E_PROJECT=komando-e2e-b E2E_SSH_BASTION=3222 E2E_SSH_DIRECT=3223 \
-#   E2E_SSH_SWARM=3224 E2E_REGISTRY=6005 E2E_SOCKS=19080 E2E_BAO=8211 E2E_MOTO=5026 E2E_VW=8091 make e2e
+#   E2E_SSH_SWARM=3224 E2E_REGISTRY=6005 E2E_SOCKS=19080 E2E_BAO=8211 E2E_MOTO=5026 E2E_VW=8091 \
+#   E2E_K3S_OLD=16454 make e2e
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -28,7 +29,7 @@ A() { CLAUDECODE=1 KOMANDO_NO_DIALOG=1 "$K" "$@"; }
 PROJECT=${E2E_PROJECT:-komando-e2e}
 export E2E_SSH_BASTION=${E2E_SSH_BASTION:-2222} E2E_SSH_DIRECT=${E2E_SSH_DIRECT:-2223}
 export E2E_SSH_SWARM=${E2E_SSH_SWARM:-2224} E2E_REGISTRY=${E2E_REGISTRY:-5005}
-export E2E_BAO=${E2E_BAO:-8201} E2E_MOTO=${E2E_MOTO:-5016} E2E_VW=${E2E_VW:-8090}
+export E2E_BAO=${E2E_BAO:-8201} E2E_MOTO=${E2E_MOTO:-5016} E2E_VW=${E2E_VW:-8090} E2E_K3S_OLD=${E2E_K3S_OLD:-16444}
 E2E_SOCKS=${E2E_SOCKS:-18080}
 PASS=0
 FAIL=0
@@ -111,6 +112,8 @@ $K host add direct-sm "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref 'aws-sm:e
 check "password from OpenBao" agent "$("${BAOENV[@]}" $K exec direct-bao --read-only -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()' || true)"
 check "password from AWS Secrets Manager" agent "$("${SMENV[@]}" $K exec direct-sm --read-only -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()' || true)"
 $K host rm direct-bao direct-sm >/dev/null
+(cd "$ROOT" && KOMANDO_E2E_MOTO="http://127.0.0.1:$E2E_MOTO" go test -count=1 -v -run '^TestSSMKMSMoto$' ./internal/cloud/ >"$KOMANDO_HOME/ssm-kms.log" 2>&1) || true
+check "SSM session key from KMS (moto)" ok "$(grep -q -- '--- PASS: TestSSMKMSMoto' "$KOMANDO_HOME/ssm-kms.log" && echo ok)"
 check "sudo works" root "$($K exec direct --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "dry-run reports block" PROTECTED_HOST "$($K exec @lab --dry-run -- 'touch x' | jget 'd["data"]["would_be_blocked"]["code"]')"
 
@@ -461,6 +464,30 @@ check "forward a pod port without kubectl" hello-from-pod "$(curl -sf http://127
 check "forward a service port to its named target port" hello-from-pod "$(curl -sf http://127.0.0.1:18098/ || true)"
 check "two connections through one forward" "hello-from-pod hello-from-pod" "$(curl -sf http://127.0.0.1:18099/ || true) $(curl -sf http://127.0.0.1:18099/ || true)"
 wait
+echo "copied in" > "$TMP/cp-in.txt"
+# Kubernetes 1.29 has no WebSocket exec (v5): the same commands go over SPDY
+echo "==> cluster on Kubernetes 1.29 (SPDY)"
+for _ in $(seq 1 60); do docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T k3s-old kubectl get nodes 2>/dev/null | grep -q " Ready" && break; sleep 2; done
+docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T k3s-old cat /etc/rancher/k3s/k3s.yaml | sed 's#https://127.0.0.1:6443#https://k3s-old:6443#; s#: default$#: lab-old#' > "$TMP/kubeconfig-old"
+q $K import kubeconfig "$TMP/kubeconfig-old"
+q $K conn edit lab-old --via bastion
+q $K cluster apply lab-old --file "$TMP/tools.yaml"
+$K cluster status lab-old deployment/tools --wait --timeout 180s >/dev/null || true
+check "1.29: exec over SPDY" hello-from-pod "$("${NOKUBE[@]}" $K cluster exec lab-old deploy/tools --read-only -- cat /www/index.html | jget 'd["data"]["stdout"].strip()' || true)"
+check "1.29: exec keeps stdout, stderr and the exit code" "3 out err" "$("${NOKUBE[@]}" $K cluster exec lab-old deploy/tools --read-only -- sh -c 'echo out; echo err >&2; exit 3' | jget 'str(d["data"]["exit_code"]) + " " + d["data"]["stdout"].strip() + " " + d["data"]["stderr"].strip()' || true)"
+"${NOKUBE[@]}" $K cluster forward lab-old deploy/tools 18097:8080 --timeout 20s >/dev/null 2>&1 &
+for _ in $(seq 1 20); do curl -sf http://127.0.0.1:18097/ >/dev/null && break; sleep 1; done
+check "1.29: forward a pod port" "hello-from-pod hello-from-pod" "$(curl -sf http://127.0.0.1:18097/ || true) $(curl -sf http://127.0.0.1:18097/ || true)"
+wait
+POD_OLD=$("${NOKUBE[@]}" $K cluster run lab-old -- get pods -l app=tools -o 'jsonpath={.items[0].metadata.name}' | jget 'd["data"]["stdout"]' || true)
+q "${NOKUBE[@]}" $K cluster run lab-old --write --allow-dangerous -- cp "$TMP/cp-in.txt" "$POD_OLD:/tmp/cp-in.txt"
+q "${NOKUBE[@]}" $K cluster run lab-old --write --allow-dangerous -- cp "$POD_OLD:/tmp/cp-in.txt" "$TMP/cp-back-old.txt"
+check "1.29: cp there and back (stdin ends over SPDY)" "copied in" "$(cat "$TMP/cp-back-old.txt" 2>/dev/null)"
+check "1.29: cluster shell for a person" hello-from-pod "$(ptyrun 'cat /www/index.html; exit\n' env NO_COLOR=1 "$K" cluster shell lab-old deploy/tools | tr -d '\r' | grep -x hello-from-pod | head -1 || true)"
+docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T k3s-old cat /etc/rancher/k3s/k3s.yaml | sed "s#https://127.0.0.1:6443#https://127.0.0.1:$E2E_K3S_OLD#" > "$TMP/kubeconfig-old-direct"
+(cd "$ROOT" && KOMANDO_E2E_OLD_KUBECONFIG="$TMP/kubeconfig-old-direct" go test -count=1 -v -run '^TestSPDYCluster$' ./internal/kube/ >"$TMP/spdy.log" 2>&1) || true
+check "1.29: every SPDY path (exec, stdin end, terminal, port-forward)" ok "$(grep -q -- '--- PASS: TestSPDYCluster' "$TMP/spdy.log" && echo ok)"
+docker compose -p "$PROJECT" -f "$E2E/compose.yml" stop k3s-old >/dev/null 2>&1 || true
 check "cluster shell needs a person" NEEDS_TERMINAL "$($K cluster shell lab-k3s deploy/tools </dev/null | jget 'd["error"]["code"]' || true)"
 check "cluster shell for a person" hello-from-pod "$(ptyrun 'cat /www/index.html; exit\n' env NO_COLOR=1 "$K" cluster shell lab-k3s deploy/tools | tr -d '\r' | grep -x hello-from-pod | head -1 || true)"
 # cluster run is komando's own kubectl: every verb here runs with no kubectl on PATH
@@ -487,7 +514,6 @@ check "run: patch" green "$(KS -- get cm e2e-cfg -o 'jsonpath={.data.color}')"
 check "run: delete needs --allow-dangerous" 6 "$(KR --write -- delete cm e2e-cfg >/dev/null; echo $?)"
 q KR --write --allow-dangerous -- delete cm e2e-cfg
 check "run: deleted is not found" K8S_NOT_FOUND "$(KR -- get cm e2e-cfg | jget 'd["error"]["code"]' || true)"
-echo "copied in" > "$TMP/cp-in.txt"
 POD=$(KS -- get pods -l app=tools -o 'jsonpath={.items[0].metadata.name}')
 q KR --write --allow-dangerous -- cp "$TMP/cp-in.txt" "$POD:/tmp/cp-in.txt"
 q KR --write --allow-dangerous -- cp "$POD:/tmp/cp-in.txt" "$TMP/cp-back.txt"
