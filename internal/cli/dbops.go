@@ -49,7 +49,7 @@ func dbInfoCmd() *cobra.Command {
 					return nil, err
 				}
 				res["conn"], res["kind"] = c.Name, c.Kind
-				return res, nil
+				return dbInfoData(res), nil
 			})
 		},
 	}
@@ -69,7 +69,7 @@ func dbActivityCmd() *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
-				return map[string]any{"conn": c.Name, "count": len(rows), "sessions": rows}, nil
+				return activityData{Conn: c.Name, Count: len(rows), Sessions: rows}, nil
 			})
 		},
 	}
@@ -89,7 +89,7 @@ func dbLocksCmd() *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
-				return map[string]any{"conn": c.Name, "count": len(rows), "waits": rows}, nil
+				return locksData{Conn: c.Name, Count: len(rows), Waits: rows}, nil
 			})
 		},
 	}
@@ -108,8 +108,8 @@ func dbSizesCmd() *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
-				res["conn"] = c.Name
-				return res, nil
+				res["conn"], res["kind"] = c.Name, c.Kind
+				return sizesData(res), nil
 			})
 		},
 	}

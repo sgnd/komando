@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"database/sql"
+	"sort"
 	"strings"
 	"time"
 
@@ -34,6 +35,9 @@ type TableColumn struct {
 	Nullable   bool    `json:"nullable"`
 	Default    *string `json:"default,omitempty"`
 	PrimaryKey bool    `json:"primary_key,omitempty"`
+	// Identity says the database numbers the column itself: "auto_increment"
+	// (MySQL, SQLite AUTOINCREMENT), "always" or "by default" (PostgreSQL).
+	Identity string `json:"identity,omitempty"`
 }
 
 type Index struct {
@@ -85,6 +89,17 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 	if tables == nil {
 		tables = []Table{}
 	}
+	if len(names) > 0 { // in the order they were asked for
+		pos := func(t Table) int {
+			for i, n := range names {
+				if t.Name == n || t.Schema+"."+t.Name == n {
+					return i
+				}
+			}
+			return len(names)
+		}
+		sort.SliceStable(tables, func(i, j int) bool { return pos(tables[i]) < pos(tables[j]) })
+	}
 	return tables, nil
 }
 
@@ -132,7 +147,8 @@ ORDER BY 1, 2`)
 		t := &tables[i]
 		cols, err := tx.QueryContext(ctx, `
 SELECT a.attname, format_type(a.atttypid, a.atttypmod), NOT a.attnotnull, pg_get_expr(d.adbin, d.adrelid),
-       COALESCE(a.attnum = ANY (i.indkey), false)
+       COALESCE(a.attnum = ANY (i.indkey), false),
+       CASE a.attidentity WHEN 'a' THEN 'always' WHEN 'd' THEN 'by default' ELSE '' END
 FROM pg_attribute a
 JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace
 LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
@@ -144,7 +160,7 @@ ORDER BY a.attnum`, t.Schema, t.Name)
 		}
 		for cols.Next() {
 			var c TableColumn
-			if err := cols.Scan(&c.Name, &c.Type, &c.Nullable, &c.Default, &c.PrimaryKey); err != nil {
+			if err := cols.Scan(&c.Name, &c.Type, &c.Nullable, &c.Default, &c.PrimaryKey, &c.Identity); err != nil {
 				cols.Close()
 				return nil, err
 			}
@@ -206,6 +222,15 @@ func sqliteSchema(ctx context.Context, tx *sql.Tx, names []string) ([]Table, err
 			t.Columns = append(t.Columns, c)
 		}
 		cols.Close()
+		var ddl string
+		_ = tx.QueryRowContext(ctx, `SELECT COALESCE(sql, '') FROM sqlite_master WHERE name = ?`, t.Name).Scan(&ddl)
+		if strings.Contains(strings.ToUpper(ddl), "AUTOINCREMENT") {
+			for j := range t.Columns {
+				if t.Columns[j].PrimaryKey && t.Columns[j].Type == "integer" {
+					t.Columns[j].Identity = "auto_increment"
+				}
+			}
+		}
 		idx, err := tx.QueryContext(ctx, `SELECT name, COALESCE(sql, '') FROM sqlite_master WHERE type = 'index' AND tbl_name = ? ORDER BY name`, t.Name)
 		if err != nil {
 			return nil, err

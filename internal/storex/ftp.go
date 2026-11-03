@@ -128,9 +128,15 @@ func (b *ftpBucket) List(_ context.Context, prefix string, recursive bool, limit
 				return objs, true, nil
 			}
 		}
+		if isMissingDir(w.Err()) {
+			return nil, false, FolderNotFound(prefix)
+		}
 		return objs, false, ftpErr(w.Err(), driver.Target{})
 	}
 	entries, err := b.c.List(root)
+	if isMissingDir(err) {
+		return nil, false, FolderNotFound(prefix)
+	}
 	if err != nil {
 		return nil, false, ftpErr(err, driver.Target{})
 	}
@@ -184,6 +190,14 @@ func (b *ftpBucket) Exists(_ context.Context, key string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// isMissingDir: listing a folder that is not there is 550 on most servers,
+// 450 or 501 ("No such directory") on others.
+func isMissingDir(err error) bool {
+	var te *textproto.Error
+	return errors.As(err, &te) && (te.Code == ftp.StatusFileUnavailable || te.Code == ftp.StatusFileActionIgnored ||
+		te.Code == ftp.StatusBadArguments && strings.Contains(strings.ToLower(te.Msg), "no such"))
 }
 
 func isNotImplemented(err error) bool {

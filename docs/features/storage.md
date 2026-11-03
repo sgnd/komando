@@ -32,13 +32,31 @@ komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous
 `storage rm --prefix` refuses to remove more than `--limit` objects
 (default 1000); check the dry-run list and raise it if that is what you mean.
 
-- Downloads never overwrite a file; the file is readable only by you.
+- Downloads never overwrite a file unless `--overwrite`; the file is
+  readable only by you. `--to` takes a file name, a folder (one that exists,
+  or a name ending in `/`: the file keeps its name inside), or `-` for
+  stdout (`-o text` only). `storage download` takes the same flags as
+  `komando download`, including `-r` for a folder.
+- A key ending in `/` is a folder: `upload backups ./a.pdf reports/` stores
+  `reports/a.pdf`.
 - `upload` replaces an object with the same key (the result says
   `"replaced": true`). `rm` takes exact keys only, no folders or patterns,
   and needs `--allow-dangerous` because deleted objects are gone.
 - A protected conn needs `--yes` for `upload`, `rm` and `link`. `--dry-run`
-  shows that the change would be allowed and sends nothing.
-- Keys cannot leave the conn's folder (`../` is refused).
+  sends no change but checks: `upload` says the key and whether it would
+  replace an object, `download` where the file would go and its size, `rm`
+  lists the objects one per line with size and date.
+- Keys cannot leave the conn's folder (`../` is refused, also in a dry run).
+- `ls` of a folder that has nothing in it, or does not exist, is
+  `FOLDER_NOT_FOUND` (exit 3) on every kind of storage. Empty "folder
+  marker" objects that S3 consoles create are left out of listings and
+  downloads.
+- `cat` shows text only (binary is `NOT_TEXT`, exit 2: download it).
+  `--head` or `--tail` (one of them, 1 or more lines); a cut at `--max-bytes`
+  is said on stderr.
+- A link names the address in the conn URL: when komando reaches the
+  storage through `--via`, the result warns that people outside that network
+  cannot open it. The download keeps its name, also with non-ASCII letters.
 - A link works for anyone who has it until it expires. Share it like a
   password. It is not written to the history.
 - Safest setup: give komando an access key that can only do what you need

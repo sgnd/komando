@@ -96,10 +96,35 @@ Seatbelts:
   CONCURRENTLY`, MySQL DDL). They must be sent alone, and a dry run only
   reports them.
 - Queries stop after 30 seconds (`--timeout 2m` for more) and return at most
-  500 rows (`--limit`).
+  500 rows (`--limit`) and `--max-output` bytes. A cut result says which cap
+  it hit: `"truncated": "rows"` (raise `--limit`) or `"truncated": "bytes"`
+  (raise `--max-output`).
+- The number of `--arg` values must match the placeholders (`USAGE`, exit 2).
 
 SQL from a file: `komando db query prod-db --file report.sql` (`--file -`
-reads stdin).
+reads stdin). SQL that starts with a `-- comment` looks like a flag: put
+`--` before it, or use `--file -`.
+
+For spreadsheets and scripts, `--csv` or `--tsv` prints the rows instead of
+JSON or a table (NULL is an empty field, binary is `\x` hex):
+
+```bash
+komando db query prod-db --csv "select id, email from users" > users.csv
+```
+
+How values come back (JSON):
+
+| Column type | Value |
+|-------------|-------|
+| date | `"2024-02-29"` |
+| timestamp / datetime (no time zone) | `"2024-02-29 10:11:12.5"`, no `Z` |
+| timestamptz | `"2024-02-29T08:00:00Z"` (an instant, in UTC) |
+| MySQL zero dates | `"0000-00-00 00:00:00"`, as stored |
+| binary (bytea, blob) | `{"base64": "..."}`, also when empty; text output shows `\x` hex like psql |
+| integers too big for JSON (over 2^53) | strings; then the whole column is strings |
+| money, xml and other types | text, with the type named in `columns` |
+
+In text output, tables line up also with CJK characters and emoji.
 
 ### Interactive shell (for people)
 
@@ -118,8 +143,11 @@ password), which is why a protected conn needs `--yes` even for a read-only
 shell. The password reaches the client through its environment, never its
 command line. Ctrl-C goes to the client (to cancel a query), not to komando.
 
-You need the client installed here: `psql` (package `postgresql-client`),
-`mysql` (`mysql-client` or `mariadb-client`) or `sqlite3`. It is for people
+You need the client installed here: `psql`, `mysql` or `sqlite3`. When it
+is missing, the error says how to install it on this system (macOS:
+`brew install libpq`, `brew install mysql-client`; Debian/Ubuntu:
+`sudo apt install postgresql-client`, `default-mysql-client`, `sqlite3`;
+Fedora/RHEL: `sudo dnf install postgresql`, `mysql`). It is for people
 at a terminal; agents and scripts get `NEEDS_TERMINAL` and use `db query`,
 which returns JSON and checks every statement.
 
@@ -134,7 +162,19 @@ komando db kill prod-db 4821 --dry-run   # which query it would stop
 komando db kill prod-db 4821             # cancel that query (the client stays connected)
 komando db kill prod-db 4821 --session --allow-dangerous   # end the whole connection
 komando db schema prod-db orders         # columns, indexes, foreign keys and checks
+komando db explain prod-db --analyze "select ..."   # real timings (MariaDB: ANALYZE)
 ```
+
+In text output these are tables with sizes (`7.5 MiB`) and durations (`3h`);
+JSON keeps the raw numbers (`size_bytes`, `running_seconds`). `db schema`
+shows tables in the order you name them, with `auto_increment` or
+`generated always as identity` columns marked. A user without the right to
+see lock waits gets `DB_PRIVILEGE` (exit 4). SQLite has no server sessions,
+so `activity`, `locks` and `kill` do not apply to it.
+
+Errors when connecting: a wrong password is `DB_AUTH` (exit 4), a database
+that does not exist `DB_NOT_FOUND` (exit 3); `db dump` and `db restore`
+report the same codes.
 
 ### Backups
 
@@ -161,7 +201,8 @@ komando db restore staging-db --from prod.dump --allow-dangerous  # an archive g
   anything fails, nothing changes.
 - Before sending anything, komando reads the whole file. A file with client
   commands that could run programs or read files (`\!`, `system`, `\i`) is
-  refused; real dumps never contain them.
+  refused; real dumps never contain them. `db restore --dry-run` does this
+  check too, and says what would stop the real run.
 - For MySQL conns with `?tls=...`, the same TLS setting is passed to
   `mysqldump`/`mysql` (MySQL and MariaDB clients both work).
 - SQLite: `dump` copies the database file (`--to backup.db`). To restore,

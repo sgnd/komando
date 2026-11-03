@@ -3,9 +3,9 @@ package cli
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -37,8 +37,16 @@ also need --allow-dangerous.`,
 	return c
 }
 
+type cacheFn func(st *store.State, c *store.Conn, rc *redis.Client) (any, error)
+
 // withCache opens the conn's client, runs fn, and audits the action.
-func withCache(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn func(st *store.State, c *store.Conn, rc *redis.Client) (any, error)) error {
+func withCache(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn cacheFn) error {
+	return withCachePreview(ctx, name, connExpr, v, rec, fn, nil)
+}
+
+// withCachePreview is withCache with a dry-run preview: for a change,
+// --dry-run runs preview (which only reads) instead of fn.
+func withCachePreview(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn, preview cacheFn) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -61,9 +69,12 @@ func withCache(ctx context.Context, name, connExpr string, v driver.Verdict, rec
 			return fail(err)
 		}
 		if g.dryRun {
-			audit(st, name, nil, "", true, rec)
-			out.P.Print(name, map[string]any{"conn": c.Name, "risk": v.Risk.String(), "dry_run": true, "note": "nothing sent: redis cannot roll back"}, nil)
-			return nil
+			if preview == nil {
+				audit(st, name, nil, "", true, rec)
+				out.P.Print(name, map[string]any{"conn": c.Name, "risk": v.Risk.String(), "dry_run": true, "note": "nothing sent: redis cannot roll back"}, nil)
+				return nil
+			}
+			fn = preview
 		}
 	}
 	a, err := openAccess(ctx, st, c)
@@ -116,14 +127,14 @@ type keyList struct {
 }
 
 func (l keyList) Text() string {
-	s := strings.Join(l.Keys, "\n")
-	if s != "" {
-		s += "\n"
+	var sb strings.Builder
+	for _, k := range l.Keys {
+		sb.WriteString(cachex.Quote(k) + "\n")
 	}
 	if l.More {
-		s += fmt.Sprintf("(first %d keys; more match: narrow the pattern or raise --limit)\n", l.Count)
+		fmt.Fprintf(&sb, "(first %d keys; more match: narrow the pattern or raise --limit)\n", l.Count)
 	}
-	return s
+	return sb.String()
 }
 
 func cacheKeysCmd() *cobra.Command {
@@ -156,16 +167,28 @@ func cacheKeysCmd() *cobra.Command {
 }
 
 func cacheInfoCmd() *cobra.Command {
-	return &cobra.Command{
+	var all bool
+	c := &cobra.Command{
 		Use:   "info CONN [SECTION]",
-		Short: "Server facts: version, memory, clients, keys per database",
+		Short: "Server summary: version, role, memory, clients, keys, hit rate (SECTION or --all for raw INFO)",
+		Long: `Without arguments, a short summary: version, role, uptime, memory use and
+limit, eviction policy, clients, keys per database and the hit rate. A
+SECTION (server, clients, memory, persistence, stats, replication, cpu,
+commandstats, keyspace, ...) or --all shows the raw INFO fields.`,
 		Example: `  komando cache info cache
-  komando cache info cache memory`,
+  komando cache info cache memory
+  komando cache info cache --all`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			section := ""
 			if len(args) == 2 {
-				section = args[1]
+				section = strings.ToLower(args[1])
+				if !slices.Contains(cachex.InfoSections, section) {
+					return out.Usage("unknown INFO section %q; pick one of: %s", args[1], strings.Join(cachex.InfoSections, ", "))
+				}
+				if all {
+					return out.Usage("give a SECTION or --all, not both")
+				}
 			}
 			return withCache(cmd.Context(), "cache.info", args[0], driver.Verdict{}, nil,
 				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
@@ -173,52 +196,225 @@ func cacheInfoCmd() *cobra.Command {
 					if err != nil {
 						return nil, err
 					}
-					return map[string]any{"conn": c.Name, "info": info}, nil
+					if section == "" && !all {
+						return cacheSummary{Conn: c.Name, Summary: cachex.Summarize(info)}, nil
+					}
+					if len(info) == 0 {
+						return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "this server has no such section; try `komando cache info CONN --all`", "INFO %s returned nothing", section)
+					}
+					return cacheInfo{Conn: c.Name, Info: info}, nil
 				})
 		},
 	}
+	c.Flags().BoolVar(&all, "all", false, "every field of the default INFO sections")
+	return c
+}
+
+type cacheSummary struct {
+	Conn    string         `json:"conn"`
+	Summary cachex.Summary `json:"summary"`
+}
+
+func (d cacheSummary) Text() string {
+	s := d.Summary
+	var rows [][]string
+	add := func(k, v string) { rows = append(rows, []string{k + ":", v}) }
+	version := s.Version
+	if s.Mode != "" {
+		version += " (" + s.Mode + ")"
+	}
+	add("version", version)
+	add("role", s.Role)
+	add("uptime", humanAge(time.Duration(s.UptimeSeconds)*time.Second))
+	mem := humanBytes(s.UsedMemory) + " used, no limit"
+	if s.MaxMemory > 0 {
+		mem = humanBytes(s.UsedMemory) + " used of " + humanBytes(s.MaxMemory)
+	}
+	if s.EvictionPolicy != "" {
+		mem += " (eviction: " + s.EvictionPolicy + ")"
+	}
+	add("memory", mem)
+	add("clients", fmt.Sprint(s.Clients))
+	if len(s.Keys) == 0 {
+		add("keys", "0")
+	}
+	for _, db := range sortedKeys(s.Keys) {
+		add("keys "+db, fmt.Sprintf("%d (%d with a ttl)", s.Keys[db], s.Expires[db]))
+	}
+	if s.HitRate != nil {
+		add("hit rate", fmt.Sprintf("%.1f%% (%d hits, %d misses)", *s.HitRate*100, s.Hits, s.Misses))
+	} else {
+		add("hit rate", "- (no reads yet)")
+	}
+	tab := layoutTable([]string{"", ""}, rows)
+	return tab[strings.Index(tab, "\n")+1:] + "(all fields: --all, or a section such as memory or stats)\n"
+}
+
+type cacheInfo struct {
+	Conn string                       `json:"conn"`
+	Info map[string]map[string]string `json:"info"`
+}
+
+// Text prints the sections the way INFO does.
+func (d cacheInfo) Text() string {
+	var b strings.Builder
+	for i, sec := range sortedKeys(d.Info) {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		fmt.Fprintf(&b, "# %s\n", sec)
+		for _, k := range sortedKeys(d.Info[sec]) {
+			fmt.Fprintf(&b, "%s:%s\n", k, d.Info[sec][k])
+		}
+	}
+	return b.String()
 }
 
 func cacheSetCmd() *cobra.Command {
-	var ttl time.Duration
+	var ttlFlag string
 	c := &cobra.Command{
 		Use:   "set CONN KEY VALUE",
 		Short: "Set a string key (replaces any old value); --ttl to expire it",
 		Example: `  komando cache set cache feature:dark-mode on
-  komando cache set cache maintenance true --ttl 30m`,
+  komando cache set cache maintenance true --ttl 30m
+  komando cache set cache report:weekly done --ttl 7d`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withCache(cmd.Context(), "cache.set", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1]},
+			ttl, err := parseTTL(ttlFlag)
+			if err != nil {
+				return err
+			}
+			result := func(c *store.Conn) cacheSet {
+				res := cacheSet{Conn: c.Name, Key: args[1]}
+				if ttl > 0 {
+					secs := int64(ttl / time.Second)
+					res.TTL = &secs
+				}
+				return res
+			}
+			return withCachePreview(cmd.Context(), "cache.set", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1]},
 				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
 					if err := rc.Set(cmd.Context(), args[1], args[2], ttl).Err(); err != nil {
 						return nil, cachex.CmdErr(err)
 					}
-					return map[string]any{"conn": c.Name, "key": args[1], "ttl_seconds": int64(ttl / time.Second)}, nil
+					return result(c), nil
+				},
+				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
+					n, err := rc.Exists(cmd.Context(), args[1]).Result()
+					if err != nil {
+						return nil, cachex.CmdErr(err)
+					}
+					res := result(c)
+					replaces := n > 0
+					res.Replaces, res.DryRun = &replaces, true
+					return res, nil
 				})
 		},
 	}
-	c.Flags().DurationVar(&ttl, "ttl", 0, "expire the key after this long (e.g. 30m, 24h); 0 = never")
+	c.Flags().StringVar(&ttlFlag, "ttl", "", "expire the key after this long (30m, 24h, 7d); default: never")
 	return c
+}
+
+// parseTTL reads --ttl: empty or 0 means no expiry; negative is refused.
+func parseTTL(s string) (time.Duration, error) {
+	if s == "" || s == "0" {
+		return 0, nil
+	}
+	return parseAge(s, "--ttl")
+}
+
+type cacheSet struct {
+	Conn     string `json:"conn"`
+	Key      string `json:"key"`
+	TTL      *int64 `json:"ttl_seconds"` // null = no expiry, as in `cache get`
+	Replaces *bool  `json:"replaces,omitempty"`
+	DryRun   bool   `json:"dry_run,omitempty"`
+}
+
+func (s cacheSet) Text() string {
+	exp := "no expiry"
+	if s.TTL != nil {
+		exp = "expires in " + humanAge(time.Duration(*s.TTL)*time.Second)
+	}
+	if s.DryRun {
+		return fmt.Sprintf("would set %s (%s; replaces existing: %s)\n", cachex.Quote(s.Key), exp, yesNo(s.Replaces != nil && *s.Replaces))
+	}
+	return fmt.Sprintf("set %s (%s)\n", cachex.Quote(s.Key), exp)
+}
+
+func yesNo(b bool) string {
+	if b {
+		return "yes"
+	}
+	return "no"
 }
 
 func cacheRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "rm CONN KEY...",
-		Short:   "Delete keys by exact name (no patterns; needs --allow-dangerous)",
-		Example: `  komando cache rm cache session:42 session:43 --allow-dangerous`,
-		Args:    cobra.MinimumNArgs(2),
+		Use:   "rm CONN KEY...",
+		Short: "Delete keys by exact name (no patterns; needs --allow-dangerous)",
+		Example: `  komando cache rm cache session:42 session:43 --dry-run
+  komando cache rm cache session:42 session:43 --allow-dangerous`,
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keys := args[1:]
-			return withCache(cmd.Context(), "cache.rm", args[0], driver.DataDelete(), map[string]any{"keys": keys},
+			return withCachePreview(cmd.Context(), "cache.rm", args[0], driver.DataDelete(), map[string]any{"keys": keys},
 				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
 					n, err := rc.Del(cmd.Context(), keys...).Result()
 					if err != nil {
 						return nil, cachex.CmdErr(err)
 					}
-					return map[string]any{"conn": c.Name, "deleted": n, "keys": keys}, nil
+					return cacheRmDone{Conn: c.Name, Deleted: n, Keys: keys}, nil
+				},
+				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
+					p := cacheRmPreview{Conn: c.Name, WouldDelete: []string{}, Missing: []string{}, DryRun: true}
+					for _, k := range keys {
+						n, err := rc.Exists(cmd.Context(), k).Result()
+						if err != nil {
+							return nil, cachex.CmdErr(err)
+						}
+						if n > 0 {
+							p.WouldDelete = append(p.WouldDelete, k)
+						} else {
+							p.Missing = append(p.Missing, k)
+						}
+					}
+					return p, nil
 				})
 		},
 	}
+}
+
+type cacheRmDone struct {
+	Conn    string   `json:"conn"`
+	Deleted int64    `json:"deleted"`
+	Keys    []string `json:"keys"`
+}
+
+func (d cacheRmDone) Text() string {
+	if int(d.Deleted) == len(d.Keys) {
+		return fmt.Sprintf("deleted %d key%s\n", d.Deleted, plural(int(d.Deleted)))
+	}
+	return fmt.Sprintf("deleted %d of %d keys (the others did not exist)\n", d.Deleted, len(d.Keys))
+}
+
+type cacheRmPreview struct {
+	Conn        string   `json:"conn"`
+	WouldDelete []string `json:"would_delete"`
+	Missing     []string `json:"missing"`
+	DryRun      bool     `json:"dry_run"`
+}
+
+func (p cacheRmPreview) Text() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "would delete %d key%s:\n", len(p.WouldDelete), plural(len(p.WouldDelete)))
+	for _, k := range p.WouldDelete {
+		b.WriteString("  " + cachex.Quote(k) + "\n")
+	}
+	for _, k := range p.Missing {
+		b.WriteString("  " + cachex.Quote(k) + " (does not exist)\n")
+	}
+	return b.String()
 }
 
 func cacheRunCmd() *cobra.Command {
@@ -241,7 +437,7 @@ func cacheRunCmd() *cobra.Command {
 					"%s needs --write", strings.ToUpper(command[0]))
 				if len(v.RuleIDs) > 0 {
 					e.Message += " and --allow-dangerous: " + strings.Join(v.Reasons, "; ")
-					e.Hint = "confirm with the user first; for listing keys use `komando cache keys` instead of KEYS"
+					e.Hint = runHint(strings.ToUpper(command[0]), v)
 				}
 				rec["error"], rec["conns"] = e.Code, []string{args[0]}
 				audit(st, "cache.run", nil, "", false, rec)
@@ -261,24 +457,21 @@ func cacheRunCmd() *cobra.Command {
 	return c
 }
 
+// runHint says what to do about a flagged command, from the rule it hit.
+func runHint(cmd string, v driver.Verdict) string {
+	switch {
+	case cmd == "KEYS":
+		return "list keys with `komando cache keys CONN 'pattern*'` (uses SCAN, safe on big caches) instead of KEYS"
+	case slices.Contains(v.RuleIDs, "data-delete"):
+		return "to delete keys, confirm with the user first and use `komando cache rm CONN KEY... --allow-dangerous` (try --dry-run first)"
+	}
+	return "only if that is intended: confirm with the user first, then re-run with --write --allow-dangerous"
+}
+
 type cacheReply struct {
 	Conn  string `json:"conn"`
 	Risk  string `json:"risk"`
 	Reply any    `json:"reply"`
 }
 
-func (r cacheReply) Text() string {
-	switch x := r.Reply.(type) {
-	case nil:
-		return "(nil)\n"
-	case []any:
-		var sb strings.Builder
-		tw := tabwriter.NewWriter(&sb, 0, 2, 1, ' ', 0)
-		for i, e := range x {
-			fmt.Fprintf(tw, "%d)\t%v\n", i+1, cellText(e, true))
-		}
-		tw.Flush()
-		return sb.String()
-	}
-	return fmt.Sprintln(cellText(r.Reply, true))
-}
+func (r cacheReply) Text() string { return cachex.ReplyText(r.Reply) }

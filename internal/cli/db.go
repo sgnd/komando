@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -47,6 +47,11 @@ type dbFlags struct {
 	write bool
 	limit int
 	args  []string
+	csv   bool
+	tsv   bool
+	// mariaAnalyze: the SQL starts with EXPLAIN ANALYZE, which MariaDB
+	// spells ANALYZE
+	mariaAnalyze bool
 }
 
 func dbQueryCmd() *cobra.Command {
@@ -55,10 +60,16 @@ func dbQueryCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "query CONN [SQL]",
 		Short: "Run SQL; read-only unless --write",
+		Long: `Run SQL on a database conn. Without --write it runs in a read-only
+transaction. Each run stops after 30s unless --timeout (or the conn's
+statement_timeout option) allows more. Placeholders take their values from
+--arg, in order. --csv and --tsv print the rows for spreadsheets and scripts.
+SQL that starts with a -- comment: pass it after -- or with -f -.`,
 		Example: `  komando db query prod-db "select id, email from users order by id desc limit 10"
   komando db query prod-db "select * from users where email = $1" --arg bob@example.com
   komando db query prod-db --write --dry-run "update users set plan = 'pro' where id = 42"
-  komando db query prod-db --file migration.sql --write --dry-run`,
+  komando db query prod-db --file migration.sql --write --dry-run
+  komando db query prod-db --csv "select * from orders" > orders.csv`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var q string
@@ -74,12 +85,28 @@ func dbQueryCmd() *cobra.Command {
 			default:
 				return out.Usage("give the SQL as an argument or with --file (not both)")
 			}
+			if f.csv && f.tsv {
+				return out.Usage("pick one of --csv and --tsv")
+			}
 			return runSQL(cmd.Context(), "db.query", args[0], q, f)
 		},
 	}
 	f.bind(c)
 	c.Flags().StringVarP(&file, "file", "f", "", "read SQL from a file ('-' for stdin)")
+	c.Flags().BoolVar(&f.csv, "csv", false, "print the rows as CSV (header first) instead of JSON or a table")
+	c.Flags().BoolVar(&f.tsv, "tsv", false, "print the rows as tab-separated values (header first)")
+	c.SetFlagErrorFunc(sqlFlagError)
 	return c
+}
+
+// sqlFlagError explains the usual cause of an unknown flag here: SQL that
+// starts with a -- comment, which reads as a flag.
+func sqlFlagError(cmd *cobra.Command, err error) error {
+	if rest, ok := strings.CutPrefix(err.Error(), "unknown flag: --"); ok && (rest == "" || strings.ContainsAny(rest, " \t\n")) {
+		return out.Errf(out.ExitUsage, "USAGE", "put -- before the SQL (komando db query CONN -- \"-- note ...\"), or read it with -f FILE or -f - (stdin)",
+			"the SQL starts with a -- comment, which reads as a flag")
+	}
+	return err
 }
 
 func (f *dbFlags) bind(c *cobra.Command) {
@@ -116,7 +143,8 @@ func dbExplainCmd() *cobra.Command {
 			case "mysql":
 				prefix = "EXPLAIN "
 				if analyze {
-					prefix = "EXPLAIN ANALYZE "
+					prefix = "EXPLAIN ANALYZE " // checked as such; MariaDB gets ANALYZE (runSQL)
+					f.mariaAnalyze = true
 				}
 			case "sqlite":
 				if analyze {
@@ -130,6 +158,7 @@ func dbExplainCmd() *cobra.Command {
 		},
 	}
 	f.bind(c)
+	c.SetFlagErrorFunc(sqlFlagError)
 	c.Flags().BoolVar(&analyze, "analyze", false, "run the query and report real timings (a changing query then needs --write)")
 	return c
 }
@@ -180,28 +209,33 @@ func (d schemaData) Text() string {
 		}
 	}
 	if !detailed {
-		tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
-		fmt.Fprintln(tw, "TABLE\tTYPE\tROWS (EST.)")
+		var rows [][]string
 		for _, t := range d.Tables {
-			rows := "-"
+			n := ""
 			if t.RowEstimate != nil {
-				rows = fmt.Sprint(*t.RowEstimate)
+				n = fmt.Sprint(*t.RowEstimate)
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\n", qualified(t), t.Type, rows)
+			rows = append(rows, []string{qualified(t), t.Type, n})
 		}
-		tw.Flush()
-		return sb.String()
+		return dataTable([]string{"table", "type", "rows (est.)"}, rows)
 	}
 	for i, t := range d.Tables {
 		if i > 0 {
 			sb.WriteString("\n")
 		}
 		fmt.Fprintf(&sb, "%s (%s)\n", qualified(t), t.Type)
-		tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
+		var rows [][]string
 		for _, c := range t.Columns {
 			var notes []string
 			if c.PrimaryKey {
 				notes = append(notes, "primary key")
+			}
+			switch c.Identity {
+			case "":
+			case "auto_increment":
+				notes = append(notes, "auto_increment")
+			default:
+				notes = append(notes, "generated "+c.Identity+" as identity")
 			}
 			if !c.Nullable {
 				notes = append(notes, "not null")
@@ -209,9 +243,10 @@ func (d schemaData) Text() string {
 			if c.Default != nil {
 				notes = append(notes, "default "+*c.Default)
 			}
-			fmt.Fprintf(tw, "  %s\t%s\t%s\n", c.Name, c.Type, strings.Join(notes, ", "))
+			rows = append(rows, []string{"  " + c.Name, c.Type, strings.Join(notes, ", ")})
 		}
-		tw.Flush()
+		tab := layoutTable([]string{"", "", ""}, rows)
+		sb.WriteString(tab[strings.Index(tab, "\n")+1:]) // no header line
 		for _, ix := range t.Indexes {
 			fmt.Fprintf(&sb, "  index %s\n", dash(ix.Definition))
 		}
@@ -294,21 +329,26 @@ func (d queryData) Text() string {
 			fmt.Fprintf(&sb, "(%s)\n", r.Skipped)
 		case r.Columns != nil:
 			wide := len(r.Columns) == 1 // a single column (EXPLAIN plans, lists) is shown in full
-			tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
 			names := make([]string, len(r.Columns))
 			for j, c := range r.Columns {
 				names[j] = c.Name
 			}
-			fmt.Fprintln(tw, strings.Join(names, "\t"))
-			for _, row := range r.Rows {
-				cells := make([]string, len(row))
+			rows := make([][]string, len(r.Rows))
+			for k, row := range r.Rows {
+				rows[k] = make([]string, len(row))
 				for j, v := range row {
-					cells[j] = cellText(v, wide)
+					rows[k][j] = cellText(v, wide)
 				}
-				fmt.Fprintln(tw, strings.Join(cells, "\t"))
 			}
-			tw.Flush()
-			fmt.Fprintf(&sb, "(%d row%s%s)\n", r.RowCount, plural(r.RowCount), map[bool]string{true: ", truncated: add LIMIT/WHERE or raise --limit"}[r.Truncated])
+			sb.WriteString(layoutTable(names, rows))
+			note := ""
+			switch r.Truncated {
+			case "rows":
+				note = ", stopped at the --limit row cap: add LIMIT/WHERE, or raise --limit (0 = none)"
+			case "bytes":
+				note = ", stopped at the output size cap: select fewer columns or rows, or raise --max-output"
+			}
+			fmt.Fprintf(&sb, "(%d row%s%s)\n", r.RowCount, plural(r.RowCount), note)
 		case r.RowsAffected != nil:
 			fmt.Fprintf(&sb, "%d row%s affected\n", *r.RowsAffected, plural(int(*r.RowsAffected)))
 		default:
@@ -321,18 +361,28 @@ func (d queryData) Text() string {
 	return sb.String()
 }
 
+// cellText shows one value in a table: NULL, text with tabs and newlines
+// escaped, binary as \x hex (like psql).
 func cellText(v any, wide bool) string {
 	switch x := v.(type) {
 	case nil:
 		return "NULL"
 	case string:
 		x = strings.NewReplacer("\t", `\t`, "\n", `\n`, "\r", `\r`).Replace(x)
-		if len(x) > 80 && !wide {
-			x = x[:77] + "..."
+		if !wide {
+			x = truncateWidth(x, 80)
 		}
 		return x
 	case map[string]string:
-		return "<binary>"
+		b, err := base64.StdEncoding.DecodeString(x["base64"])
+		if err != nil {
+			return "<binary>"
+		}
+		h := `\x` + hex.EncodeToString(b)
+		if !wide {
+			h = truncateWidth(h, 80)
+		}
+		return h
 	}
 	return fmt.Sprint(v)
 }
@@ -380,7 +430,9 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 			"this SQL changes data; re-run with --write (try --write --dry-run first)",
 			"%s statement needs --write", plan.Risk)
 		if len(plan.RuleIDs) > 0 {
+			// say what the matched rule found, not a generic "changes data"
 			e.Message += fmt.Sprintf(" (and --allow-dangerous: %s)", strings.Join(plan.Reasons, "; "))
+			e.Hint = "this SQL " + strings.Join(plan.Reasons, "; ") + ": only if that is intended, confirm with the user and re-run with --write --allow-dangerous"
 		}
 		return fail(e)
 	}
@@ -394,6 +446,13 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		return fail(err)
 	}
 	defer closeDB()
+	if f.mariaAnalyze && dbx.IsMariaDB(ctx, db) {
+		for i, st := range plan.Statements {
+			if rest, ok := strings.CutPrefix(st.SQL, "EXPLAIN ANALYZE "); ok {
+				plan.Statements[i].SQL = "ANALYZE " + rest
+			}
+		}
+	}
 	args := make([]any, len(f.args))
 	for i, a := range f.args {
 		args[i] = a
@@ -412,6 +471,9 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	rec["rows_affected"] = affected
 	rec["committed"] = res.Committed
 	audit(st, name, nil, "", true, rec)
+	if f.csv || f.tsv {
+		return writeDelimited(out.P.W, res, f.tsv)
+	}
 	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
 	return nil
 }

@@ -32,6 +32,8 @@ type Bucket interface {
 	List(ctx context.Context, prefix string, recursive bool, limit int) (objs []Object, more bool, err error)
 	Get(ctx context.Context, key string, w io.Writer) (int64, error)
 	Exists(ctx context.Context, key string) (bool, error)
+	// Stat describes one object (not a folder) without reading it.
+	Stat(ctx context.Context, key string) (Object, error)
 	// Put stores r at key, replacing any old object; size is -1 if unknown.
 	Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error
 	Remove(ctx context.Context, key string) error
@@ -122,8 +124,17 @@ func (s *s3Bucket) List(ctx context.Context, prefix string, recursive bool, limi
 			return objs, true, nil
 		}
 		obj := Object{Key: s.rel(o.Key), Size: o.Size, Modified: o.LastModified.UTC()}
-		if strings.HasSuffix(o.Key, "/") && o.Size == 0 && o.LastModified.IsZero() {
+		if strings.HasSuffix(o.Key, "/") {
+			// a folder: either a common prefix (one level), or an empty
+			// "folder marker" object that consoles create; a marker is no file
+			// and is left out (and so is the marker of the listed folder itself)
+			if isMarker(o.Key, full, recursive) {
+				continue
+			}
 			obj.Dir = true
+		}
+		if obj.Key == "" {
+			continue
 		}
 		objs = append(objs, obj)
 	}
@@ -193,7 +204,7 @@ func (s *s3Bucket) Link(ctx context.Context, key string, expires time.Duration) 
 		return nil, toErr(err)
 	}
 	u, err := s.c.PresignedGetObject(ctx, s.bucket, full, expires, url.Values{
-		"response-content-disposition": {`attachment; filename="` + strings.ReplaceAll(path.Base(full), `"`, "") + `"`},
+		"response-content-disposition": {contentDisposition(path.Base(full))},
 	})
 	return u, toErr(err)
 }

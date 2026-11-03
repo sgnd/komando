@@ -30,7 +30,9 @@ func openMySQL(rawURL string, t driver.Target, password string, dial DialFunc) (
 	cfg := mysql.NewConfig()
 	cfg.User, cfg.Passwd, cfg.Addr, cfg.DBName = t.User, password, t.Address, t.Database
 	cfg.Net = "tcp"
-	cfg.ParseTime, cfg.Loc = true, time.UTC
+	// dates come back as the server's text, so 0000-00-00 and DATE vs
+	// DATETIME stay what they are
+	cfg.ParseTime, cfg.Loc = false, time.UTC
 	cfg.Params = map[string]string{}
 	for k, vs := range u.Query() {
 		switch k {
@@ -56,6 +58,11 @@ func isUnknownVariable(err error) bool {
 	return errors.As(err, &me) && me.Number == 1193
 }
 
+func isMySQLNoDatabase(err error) bool {
+	var me *mysql.MySQLError
+	return errors.As(err, &me) && me.Number == 1049
+}
+
 func isMySQLAuth(err error) bool {
 	var me *mysql.MySQLError
 	return errors.As(err, &me) && (me.Number == 1045 || me.Number == 1044 || me.Number == 1698)
@@ -71,6 +78,8 @@ func mysqlErr(err error) error {
 		return writeRequired("statement")
 	case 3024, 1969: // query timeout: MySQL max_execution_time, MariaDB max_statement_time
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "narrow the query (WHERE, LIMIT) or raise --timeout", "%s", me.Message)
+	case 1210: // wrong number of placeholder values
+		return out.Errf(out.ExitUsage, "USAGE", "give one --arg per placeholder (?), in order", "%s", me.Message)
 	}
 	return out.Errf(out.ExitRemote, "DB_ERROR", "fix the SQL; `komando db schema CONN TABLE` shows columns and types", "%s (error %d)", me.Message, me.Number)
 }
@@ -129,16 +138,23 @@ FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY table_na
 	for i := range tables {
 		t := &tables[i]
 		cols, err := tx.QueryContext(ctx, `
-SELECT column_name, column_type, is_nullable = 'YES', column_default, column_key = 'PRI'
+SELECT column_name, column_type, is_nullable = 'YES', column_default, column_key = 'PRI', extra
 FROM information_schema.columns WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position`, t.Schema, t.Name)
 		if err != nil {
 			return nil, err
 		}
 		for cols.Next() {
 			var c TableColumn
-			if err := cols.Scan(&c.Name, &c.Type, &c.Nullable, &c.Default, &c.PrimaryKey); err != nil {
+			var extra string
+			if err := cols.Scan(&c.Name, &c.Type, &c.Nullable, &c.Default, &c.PrimaryKey, &extra); err != nil {
 				cols.Close()
 				return nil, err
+			}
+			if c.Default != nil && *c.Default == "NULL" {
+				c.Default = nil // MariaDB spells "no default" as the text NULL
+			}
+			if strings.Contains(strings.ToLower(extra), "auto_increment") {
+				c.Identity = "auto_increment"
 			}
 			t.Columns = append(t.Columns, c)
 		}

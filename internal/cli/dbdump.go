@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -325,10 +326,6 @@ func runRestore(ctx context.Context, connExpr, from string) error {
 	if err != nil {
 		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "cannot read %s: %v", from, err)
 	}
-	if err := guardConns(st, []*store.Conn{c}, driver.Verdict{Risk: driver.RiskDestructive,
-		RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}); err != nil {
-		return err
-	}
 	runsOn := "local"
 	if c.Via != "" {
 		runsOn = c.Via
@@ -346,6 +343,11 @@ func runRestore(ctx context.Context, connExpr, from string) error {
 	} else if err := withBackup(from, func(r io.Reader) error { return driver.CheckRestore(t.Kind.Name, r) }); err != nil {
 		// check the whole file before sending any of it: a stream cut short
 		// would let psql commit what it had received
+		return err
+	}
+	// the file is checked first, so a dry run also says whether it is fine
+	if err := guardConns(st, []*store.Conn{c}, driver.Verdict{Risk: driver.RiskDestructive,
+		RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}); err != nil {
 		return err
 	}
 	data := transferData{Conn: c.Name, File: from, Bytes: fi.Size(), Tool: argv, RunsOn: runsOn, DryRun: g.dryRun}
@@ -509,10 +511,29 @@ IFS= read -r KOMANDO_PW; %s=$KOMANDO_PW; export %s; unset KOMANDO_PW; exec %s`,
 			"%s is not installed on %s", argv[0], c.Via)
 	}
 	if code != 0 {
-		return out.Errf(out.ExitRemote, "TOOL_FAILED", toolHint(stderr, c.Name), "%s failed on %s (exit %d): %s", argv[0], c.Via, code, lastLines(stderr, 5))
+		return toolFailed(argv[0], c.Via, code, stderr, c.Name)
 	}
 	return nil
 }
+
+// toolFailed maps a failed dump or restore tool to the same error codes
+// as `db query`: a refused login is DB_AUTH (exit 4), a missing database
+// DB_NOT_FOUND (exit 3), anything else TOOL_FAILED.
+func toolFailed(tool, where string, code int, stderr, conn string) error {
+	msg := fmt.Sprintf("%s failed on %s (exit %d): %s", tool, where, code, lastLines(stderr, 5))
+	switch {
+	case strings.Contains(stderr, "Access denied"), strings.Contains(stderr, "password authentication failed"),
+		strings.Contains(stderr, "no password supplied"):
+		return out.Errf(out.ExitConnect, "DB_AUTH", "check the user in the conn URL and its --password-ref (`komando conn show "+conn+"`)", "%s", msg)
+	case missingDatabase.MatchString(stderr):
+		return out.Errf(out.ExitNotFound, "DB_NOT_FOUND", "check the database name at the end of the conn URL (`komando conn show "+conn+"`)", "%s", msg)
+	}
+	return out.Errf(out.ExitRemote, "TOOL_FAILED", toolHint(stderr, conn), "%s", msg)
+}
+
+// missingDatabase matches the clients' "no such database" messages (not
+// "relation ... does not exist", which is about a table).
+var missingDatabase = regexp.MustCompile(`database "[^"]*" does not exist|Unknown database '`)
 
 func toolErr(ctx context.Context, tool, where, stderr string, err error) error {
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -520,7 +541,7 @@ func toolErr(ctx context.Context, tool, where, stderr string, err error) error {
 	}
 	var ee *exec.ExitError
 	if errors.As(err, &ee) {
-		return out.Errf(out.ExitRemote, "TOOL_FAILED", toolHint(stderr, "NAME"), "%s failed on %s (exit %d): %s", tool, where, ee.ExitCode(), lastLines(stderr, 5))
+		return toolFailed(tool, where, ee.ExitCode(), stderr, "NAME")
 	}
 	return out.Errf(out.ExitError, "TOOL_FAILED", "", "%s on %s: %v", tool, where, err)
 }
