@@ -62,6 +62,8 @@ type s3Bucket struct {
 	c      *minio.Client
 	bucket string
 	prefix string
+	creds  *credentials.Credentials // kept to sign links for another address (LinkAt)
+	region string
 }
 
 func init() {
@@ -83,8 +85,9 @@ func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial D
 		tr.DialContext = dial
 		tr.Proxy = nil // the --via host is the way out
 	}
+	creds := credentials.NewStaticV4(accessKey, secret, sessionToken)
 	c, err := minio.New(t.Address, &minio.Options{
-		Creds:     credentials.NewStaticV4(accessKey, secret, sessionToken),
+		Creds:     creds,
 		Secure:    t.Secure,
 		Region:    t.Region,
 		Transport: tr,
@@ -92,7 +95,7 @@ func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial D
 	if err != nil {
 		return nil, out.Usage("invalid storage settings: %v", err)
 	}
-	return &s3Bucket{c: c, bucket: t.Bucket, prefix: t.Prefix}, nil
+	return &s3Bucket{c: c, bucket: t.Bucket, prefix: t.Prefix, creds: creds, region: t.Region}, nil
 }
 
 func (s *s3Bucket) Key(rel string) (string, error) { return keyIn(s.prefix, rel) }
@@ -204,6 +207,34 @@ func (s *s3Bucket) Link(ctx context.Context, key string, expires time.Duration) 
 		return nil, toErr(err)
 	}
 	u, err := s.c.PresignedGetObject(ctx, s.bucket, full, expires, url.Values{
+		"response-content-disposition": {contentDisposition(path.Base(full))},
+	})
+	return u, toErr(err)
+}
+
+// LinkAt is Link for people who reach the storage at another address than
+// komando does (komando goes through --via; they use the public name). The
+// link is signed for that address; nothing is sent to it.
+func (s *s3Bucket) LinkAt(ctx context.Context, key string, expires time.Duration, endpoint *url.URL) (*url.URL, error) {
+	full, err := s.Key(key)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.c.StatObject(ctx, s.bucket, full, minio.StatObjectOptions{}); err != nil {
+		return nil, toErr(err)
+	}
+	region := s.region
+	if region == "" {
+		// the signature names the region: ask the server komando reaches
+		if region, err = s.c.GetBucketLocation(ctx, s.bucket); err != nil {
+			return nil, toErr(err)
+		}
+	}
+	pub, err := minio.New(endpoint.Host, &minio.Options{Creds: s.creds, Secure: endpoint.Scheme == "https", Region: region})
+	if err != nil {
+		return nil, out.Usage("--endpoint %s: %v", endpoint, err)
+	}
+	u, err := pub.PresignedGetObject(ctx, s.bucket, full, expires, url.Values{
 		"response-content-disposition": {contentDisposition(path.Base(full))},
 	})
 	return u, toErr(err)

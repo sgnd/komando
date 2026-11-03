@@ -170,6 +170,18 @@ func (c closeBoth) Close() error {
 	return err
 }
 
+// LinkAt passes through to the bucket inside (S3 only), so storage link
+// --endpoint works for conns reached through --via, the case it is for.
+func (c closeBoth) LinkAt(ctx context.Context, key string, expires time.Duration, endpoint *url.URL) (*url.URL, error) {
+	at, ok := c.Bucket.(interface {
+		LinkAt(context.Context, string, time.Duration, *url.URL) (*url.URL, error)
+	})
+	if !ok {
+		return nil, out.Usage("--endpoint works for S3 conns only")
+	}
+	return at.LinkAt(ctx, key, expires, endpoint)
+}
+
 type objectList struct {
 	Conn    string          `json:"conn"`
 	Prefix  string          `json:"prefix"`
@@ -607,6 +619,7 @@ func (w *capWriter) Write(p []byte) (int, error) {
 
 func storageLinkCmd() *cobra.Command {
 	var expires time.Duration
+	var endpoint string
 	c := &cobra.Command{
 		Use:     "link CONN KEY",
 		Aliases: []string{"presign", "share"},
@@ -615,21 +628,47 @@ func storageLinkCmd() *cobra.Command {
 at most 7 days). Treat it like a password while it is valid. Sharing from a
 protected conn needs --yes. The link itself is not stored in the audit log.
 The link names the storage address in the conn URL: when komando reaches it
-through --via, only people who can reach that address can use the link.`,
-		Example: `  komando storage link backups reports/q3.pdf --expires 24h`,
-		Args:    cobra.ExactArgs(2),
+through --via, only people who can reach that address can use the link.
+--endpoint signs the link for the address they use instead (S3 only).`,
+		Example: `  komando storage link backups reports/q3.pdf --expires 24h
+  komando storage link backups reports/q3.pdf --endpoint https://files.example.com`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if expires <= 0 || expires > 7*24*time.Hour {
 				return out.Usage("--expires must be between 1s and 168h (7 days)")
 			}
+			var pub *url.URL
+			if endpoint != "" {
+				u, err := url.Parse(endpoint)
+				if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || strings.Trim(u.Path, "/") != "" {
+					return out.Usage("--endpoint must be http(s)://HOST[:PORT], e.g. https://files.example.com")
+				}
+				pub = u
+			}
 			// a link opens data to anyone who has it: treat it like a change
 			return withStorage(cmd.Context(), "storage.link", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1], "expires": expires.String()},
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
-					u, err := s.Link(ctx, args[1], expires)
+					var u *url.URL
+					var err error
+					if pub != nil {
+						at, ok := s.(interface {
+							LinkAt(context.Context, string, time.Duration, *url.URL) (*url.URL, error)
+						})
+						if !ok {
+							return nil, out.Usage("--endpoint works for S3 conns; %s cannot make links", c.Name)
+						}
+						u, err = at.LinkAt(ctx, args[1], expires, pub)
+					} else {
+						u, err = s.Link(ctx, args[1], expires)
+					}
 					if err != nil {
 						return nil, err
 					}
-					d := linkData{Conn: c.Name, Key: args[1], URL: u.String(), ExpiresAt: time.Now().Add(expires).UTC(), Warning: linkWarning(u, c.Via)}
+					via := c.Via
+					if pub != nil {
+						via = "" // signed for the address people use
+					}
+					d := linkData{Conn: c.Name, Key: args[1], URL: u.String(), ExpiresAt: time.Now().Add(expires).UTC(), Warning: linkWarning(u, via)}
 					if d.Warning != "" && out.P.Format == "text" {
 						fmt.Fprintln(os.Stderr, "warning: "+d.Warning)
 					}
@@ -638,6 +677,7 @@ through --via, only people who can reach that address can use the link.`,
 		},
 	}
 	c.Flags().DurationVar(&expires, "expires", time.Hour, "how long the link works (max 168h)")
+	c.Flags().StringVar(&endpoint, "endpoint", "", "sign the link for this address, e.g. https://files.example.com (when komando reaches the storage through --via)")
 	return c
 }
 
@@ -647,7 +687,7 @@ func linkWarning(u *url.URL, via string) string {
 	if via == "" {
 		return ""
 	}
-	return fmt.Sprintf("the link points at %s, which komando reaches through %s; people outside that network cannot open it", u.Host, via)
+	return fmt.Sprintf("the link points at %s, which komando reaches through %s; people outside that network cannot open it (sign it for their address with --endpoint https://PUBLIC-NAME)", u.Host, via)
 }
 
 type linkData struct {

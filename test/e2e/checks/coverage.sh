@@ -56,6 +56,9 @@ q $K cache set cache "$C:k" v
 check "cache keys" True "$($K cache keys cache "$C:*" | has "$C:k")"
 q $K storage upload bucket "$TMP/hosts.json" "$C/hosts.json"
 check "storage link" True "$($K storage link bucket "$C/hosts.json" | jget 'd["data"]["url"].startswith("http")')"
+check "storage link --endpoint signs for that address" True "$($K storage link bucket "$C/hosts.json" --endpoint https://files.example.com | jget 'd["data"]["url"].startswith("https://files.example.com/") and "warning" not in d["data"]')"
+U=$($K storage link bucket "$C/hosts.json" --endpoint http://s3:3900 | jget 'd["data"]["url"]')
+check "a link signed for an address works there" True "$($K exec bastion --read-only -- "curl -sf '$U'" | has direct)"
 
 # system modules (the lab containers run without systemd: svc must say so)
 check "svc list fails clearly without systemd" False "$($K svc list direct | ok || true)"
