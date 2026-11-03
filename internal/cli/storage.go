@@ -660,11 +660,6 @@ type linkData struct {
 
 func (d linkData) Text() string { return d.URL + "\n" }
 
-// storageDownload saves one object to a new local file (never overwriting).
-func storageDownload(ctx context.Context, name, conn, key, to string) error {
-	return storageDownloadTo(ctx, name, conn, key, to, false)
-}
-
 // downloadDest is where a download lands: to as given, inside it when it
 // is a folder (existing, or ending in /), or the key's name here.
 func downloadDest(to, key string) string {
