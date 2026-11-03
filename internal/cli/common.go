@@ -445,6 +445,10 @@ func confirmYes(question string) bool {
 	return ok
 }
 
+// safetyApproved remembers the safety changes a person allowed in this
+// command, so checking again inside the state lock does not ask twice.
+var safetyApproved = map[string]bool{}
+
 // personSaidNo: a person at the terminal answered no, so the stop that
 // follows is their decision, not something to retry (Execute words it so).
 var personSaidNo bool
@@ -453,7 +457,11 @@ var personSaidNo bool
 // log, no host key check, fewer deny rules) need --yes, so an agent cannot
 // switch them off by itself.
 func guardSafety(what string) error {
+	if safetyApproved[what] { // asked already in this command (before the state was locked)
+		return nil
+	}
 	if yesOK() || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
+		safetyApproved[what] = true
 		return nil
 	}
 	return policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what))

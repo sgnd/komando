@@ -263,6 +263,7 @@ Start here:  komando guide      (agent playbook)
 		SilenceErrors: true,
 		Version:       Version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			safetyApproved = map[string]bool{} // answers count for one command only
 			f, ok := outputFormat(g.output)
 			if !ok {
 				if !cmd.Flags().Changed("output") && os.Getenv("KOMANDO_OUTPUT") != "" {

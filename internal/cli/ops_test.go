@@ -428,3 +428,35 @@ func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
 		t.Error("the recipe was not replaced")
 	}
 }
+
+// config set asks about a safety change before locking the state, too.
+func TestConfigSetAsksBeforeLocking(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	t.Setenv("CLAUDECODE", "1")
+	saved := askOnScreen
+	defer func() { askOnScreen = saved; g.yes = false; resetApproval() }()
+	lockFree := false
+	askOnScreen = func(string) (bool, bool) {
+		done := make(chan error, 1)
+		go func() { done <- store.Update(func(*store.State) error { return nil }) }()
+		select {
+		case <-done:
+			lockFree = true
+		case <-time.After(2 * time.Second):
+		}
+		return true, true
+	}
+	root := newRoot()
+	root.SetArgs([]string{"-o", "json", "config", "set", "audit_sql", "off", "--yes"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !lockFree {
+		t.Error("the approval window was shown while the state was locked")
+	}
+	st, _ := store.Load()
+	if st.Settings.AuditSQL != "off" {
+		t.Errorf("audit_sql %q", st.Settings.AuditSQL)
+	}
+}

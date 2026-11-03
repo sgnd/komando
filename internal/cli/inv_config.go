@@ -253,6 +253,13 @@ func configCmd() *cobra.Command {
 				return err
 			}
 			var res configValue
+			// validate and ask a person (a safety change) on a copy first:
+			// the state file stays unlocked while someone answers
+			if st0, err := loadState(); err == nil {
+				if err := s.set(st0, strings.TrimSpace(args[1])); err != nil {
+					return err
+				}
+			}
 			err = store.Update(func(st *store.State) error {
 				old := s.get(&st.Settings)
 				if err := s.set(st, strings.TrimSpace(args[1])); err != nil {
