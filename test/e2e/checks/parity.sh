@@ -64,5 +64,58 @@ check "Swarm nodes = docker node ls" "$(native swarm docker node ls --format '{{
 # packages (dpkg-query)
 check "pkg installed = dpkg-query" "$(native direct dpkg-query -W -f='${Version}' curl)" "$($K pkg installed direct curl | jget 'd["data"]["results"][0]["data"][0]["version"]')"
 
+# a read that exits non-zero fails, as with ssh: the exit code is the result
+check "exec --read-only keeps ssh's exit code" "$(nativeas agent direct sh -c 'ls /nope-missing >/dev/null 2>&1; echo $?') 5" \
+  "$(rc=0; $K exec direct --read-only -- 'ls /nope-missing' >"$TMP/ro.json" || rc=$?; echo "$(jget 'd["data"]["results"][0]["exit_code"]' <"$TMP/ro.json") $rc")"
+
+# logs = tail, cron list = crontab -l, user list = getent passwd
+check "logs --file = tail" "$(native direct tail -n 5 /etc/passwd)" "$($K logs direct --file /etc/passwd -n 5 | jget 'd["data"]["results"][0]["stdout"].rstrip("\n")')"
+q $K cron set direct "$V" 'true' --schedule '*/5 * * * *'
+check "cron list = crontab -l" "$(nativeas agent direct crontab -l | grep -c "komando:$V")" "$($K cron list direct | jget 'str(sum(1 for r in d["data"]["results"][0]["data"] if r.get("id") == "'"$V"'"))')"
+check "cron schedule = what crontab holds" "*/5 * * * *" "$($K cron list direct | jget 'next(r["schedule"] for r in d["data"]["results"][0]["data"] if r.get("id") == "'"$V"'")')"
+q $K cron rm direct "$V"
+check "user list = getent (uid >= 1000)" "$(native direct getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' | sort | words)" \
+  "$($K user list direct | jget '" ".join(sorted(u["name"] for u in d["data"]["results"][0]["data"] if u["uid"] >= 1000))')"
+
+# net dns = getent, net ports = ss, facts = uname / nproc
+check "net dns = getent ahosts" "$(native direct getent ahosts localhost | awk '{print $1}' | sort -u | words)" "$($K net dns direct localhost | jget '" ".join(sorted(d["data"]["results"][0]["data"]["addresses"]))')"
+check "net ports = ss (tcp listening)" "$(native direct ss -Htln | awk '{n=split($4,a,":"); print a[n]}' | sort -un | words)" \
+  "$($K net ports direct | jget '" ".join(str(p) for p in sorted(set(r["port"] for r in d["data"]["results"][0]["data"] if r["proto"] == "tcp" and r["state"] == "LISTEN")))')"
+check "facts = uname / nproc" "$(native direct sh -c 'uname -n; uname -r; nproc' | words)" \
+  "$($K facts direct | jget '" ".join(str(d["data"]["results"][0]["data"][k]) for k in ("hostname", "kernel", "cpus"))')"
+
+# sync = diff -r afterwards; job logs = the job's own output
+mkdir -p "$TMP/$V.src/sub" && echo one >"$TMP/$V.src/a.txt" && echo two >"$TMP/$V.src/sub/b.txt"
+q $K sync "$TMP/$V.src" "direct:/tmp/$V.sync"
+check "sync = same tree (diff -r)" "$(cd "$TMP/$V.src" && find . -type f | sort | xargs cat | shasum | cut -c1-12)" \
+  "$(native direct sh -c "cd /tmp/$V.sync && find . -type f | sort | xargs cat | sha1sum" | cut -c1-12)"
+J=$($K job start direct -- 'printf "line1\nline2\n"' | jget 'd["data"]["jobs"][0]["id"]')
+q $K job wait "$J" --timeout 1m
+check "job logs = the job's output" "$(printf 'line1\nline2')" "$($K job logs "$J" | jget 'd["data"]["content"].rstrip("\n")')"
+
+# redis-cli SCAN, psql's table list, the registry catalog
+q $K cache set cache "$V:a" 1
+q $K cache set cache "$V:b" 2
+check "cache keys = redis-cli --scan" "$(native redis redis-cli -a redispass --no-auth-warning --scan --pattern "$V:*" | sort | words)" \
+  "$($K cache keys cache "$V:*" | jget '" ".join(sorted(d["data"]["keys"]))')"
+check "db schema = psql's tables" "$(native pg psql -U app -d app -At -c "select tablename from pg_tables where schemaname = 'public' order by 1" | words)" \
+  "$($K db schema pg | jget '" ".join(sorted(t["name"] for t in d["data"]["tables"] if t["schema"] == "public" and t["type"] == "table"))')"
+check "registry ls = the registry's catalog" "$(native bastion curl -s http://registry:5000/v2/_catalog | python3 -c 'import json,sys; print(" ".join(sorted(json.load(sys.stdin)["repositories"])))')" \
+  "$($K registry ls reg | jget '" ".join(sorted(d["data"]["repositories"]))')"
+
+# kubectl logs, docker ps
+check "cluster logs = kubectl logs" "$(native k3s kubectl logs -n kube-system deploy/coredns --tail 3)" \
+  "$($K cluster logs lab-k3s deploy/coredns --namespace kube-system -n 3 | jget 'd["data"]["logs"].rstrip("\n")')"
+check "docker ps --all = docker ps -a" "$(native swarm docker ps -a --format '{{.Names}}' | sort | words)" \
+  "$($K docker ps swarm1 --all | jget '" ".join(sorted(c.get("Names") or c.get("names") or c.get("name", "") for c in d["data"]["results"][0]["data"]))')"
+
+# a tunnel reaches the same service as a direct connection
+T=$($K tunnel start direct -L 0:localhost:22 | jget 'd["data"]["listen"] + " " + d["data"]["id"]')
+banner() { python3 -c 'import socket,sys; h,p=sys.argv[1].rsplit(":",1); s=socket.create_connection((h,int(p)),5); print(s.recv(64).decode().split()[0])' "$1"; }
+check "tunnel -L = the service itself" "$(banner "127.0.0.1:$E2E_SSH_DIRECT")" "$(banner "${T% *}")"
+q $K tunnel stop "${T#* }"
+
+q $K exec direct -- "rm -rf /tmp/$V.sync"
+q $K cache rm cache "$V:a" "$V:b" --allow-dangerous
 q $K exec direct -- "rm -f /tmp/$V.bin /tmp/$V.conf"
 q $K cache rm cache "$V:k" --allow-dangerous
