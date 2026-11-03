@@ -1,100 +1,150 @@
 # Files
 
-Read, edit and copy files on servers. [All features](README.md)
+Read, edit and copy files on your servers, safely. [All features](README.md)
 
-## Read and edit files
+## Quick start
+
+```bash
+komando fs cat web1 /etc/nginx/nginx.conf --tail 50          # read a file
+komando fs replace web1 /etc/nginx/nginx.conf \
+  --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup
+komando upload @web ./release.tar.gz /tmp/release.tar.gz     # copy to many servers
+komando download web1 /var/log/nginx/error.log --to ./logs/  # copy to this computer
+komando sync ./site @web:/var/www/site --dry-run             # send only what changed
+```
+
+`~` in a path is the login user's home folder, as with `scp`. Quote it
+(`'~/app/.env'`) so your own shell does not expand it.
+
+## Read files and folders
 
 ```bash
 komando fs cat web1 /etc/nginx/nginx.conf --tail 50
-komando fs ls web1 /var/www            # ls -l style with -o text; no PATH = your home folder
-komando fs stat web1 /etc/hosts --sha256
-komando fs cat web1 '~/app/.env'       # ~ is the login user's home, like scp
+komando fs cat web1 /var/log/syslog --head 20 --line-numbers
+komando fs cat web1 /var/log/auth.log --sudo          # a file only root can read
+komando fs cat web1 '~/app/.env'
+komando fs ls web1 /var/www                           # ls -l style with -o text
+komando fs ls web1 -a                                 # no PATH: your home folder; -a shows dotfiles
+komando fs ls web1 /srv -r --max 200                  # walk folders (up to 1000 entries by default)
+komando fs stat web1 /etc/hosts --sha256              # exists:false instead of an error when missing
 ```
 
-`fs cat` shows text. A binary file is refused in `-o text` (so
-`fs cat ... > file` never writes a broken copy); save it with
-`komando download` instead. When a file is longer than `--max-bytes`, the
-output says it was cut, and the hash is `sha256_read` (of the part read),
-not `sha256`.
+`fs cat` shows text. In `-o text`, a binary file is refused, so
+`fs cat ... > file` never writes a broken copy; save it with
+`komando download` instead. A file longer than `--max-bytes` (1 MiB) is cut:
+the output says so, and its hash is `sha256_read` (of the part read), not
+`sha256`.
 
-Edit one piece of text safely. It only changes the file if the old text is
-found **exactly once**, and `--backup` keeps the previous version:
+## Edit a file
+
+`fs replace` is the safest way to change a config file. It changes the file
+only if the old text is found **exactly once**, and `--backup` keeps the
+previous version as `PATH.bak`:
 
 ```bash
 komando fs replace web1 /etc/nginx/nginx.conf \
   --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup
+komando fs replace web1 /etc/ssh/sshd_config --regex \
+  --old '(?m)^#?PasswordAuthentication .*$' --new 'PasswordAuthentication no' --sudo
 ```
 
-Write a whole file (atomic; `--if-changed` skips identical content):
+`--all` replaces every match instead. `--regex` treats `--old` as a Go
+regular expression; `$1` in `--new` inserts a group.
+
+`fs write` writes a whole file. The new file is written next to the old one
+and then moved into place, so a server never sees half a file:
 
 ```bash
 komando fs write web1 /etc/app/.env --from ./app.env --sudo --mode 0640 --if-changed
+komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup
+komando fs write web1 '~/notes.txt' --content 'checked' --append
 ```
 
+The content comes from `--content`, `--from FILE`, or stdin (`--from -`).
+`--if-changed` skips the write when the content is already the same.
+
+### Check before it goes live
+
 `--dry-run` shows the change as a diff. `--validate` checks the new file
-before it goes into place; `%s` is its path. If the check fails, the old file
-stays as it was (`VALIDATION_FAILED`), so a typo cannot lock you out:
+before it goes into place; `%s` is its path. If the check fails, the old
+file stays as it was (`VALIDATION_FAILED`), so a typo cannot lock you out:
 
 ```bash
 komando fs write web1 /etc/sudoers.d/deploy --from ./deploy.sudoers --sudo --validate 'visudo -cf %s'
 komando fs replace web1 /etc/ssh/sshd_config --old 'PermitRootLogin yes' --new 'PermitRootLogin no' --sudo --validate 'sshd -t -f %s'
 ```
 
-A path that is a symbolic link (for example `sites-enabled/app` pointing to
-`sites-available/app`) is followed: the file it points to is written, its
-mode and owner kept, and the link stays a link (`followed:` in the result).
-`--no-follow` refuses instead. A missing parent folder is `FOLDER_NOT_FOUND`;
-add `-p` to create it. `--owner` needs `--sudo`.
+### Options for both
 
-Also `fs mkdir`, `fs mv`, `fs chmod` and `fs rm`, which behave like the
-commands you know, with two safety differences:
+| Option | What it does |
+|--------|--------------|
+| `-s`, `--sudo` | Write a root-owned file (writes a temporary file, then `sudo install`). |
+| `--backup` | Keep the previous version as `PATH.bak`. |
+| `--mode 0640` | File mode (default: keep the old mode, or 0644 for a new file). |
+| `--owner user:group` | Owner of the file (needs `--sudo`). |
+| `-p`, `--parents` | Create missing parent folders; without it, a missing folder is `FOLDER_NOT_FOUND`. |
+| `--no-follow` | Refuse to write through a symbolic link. |
+
+By default, a path that is a symbolic link (for example `sites-enabled/app`
+pointing to `sites-available/app`) is followed: the file it points to is
+written, its mode and owner are kept, and the link stays a link. The result
+shows `followed:`.
+
+## Move, remove and change files
+
+```bash
+komando fs mkdir web1 /srv/app/releases                 # always creates parents, like mkdir -p
+komando fs mv web1 /srv/app/new.conf /srv/app/app.conf
+komando fs chmod web1 0640 /etc/app/.env
+komando fs rm web1 /tmp/old.tar.gz
+```
+
+They behave like the commands you know, with these safety differences:
 
 - `fs mv` never replaces an existing file (`FILE_EXISTS`, exit 8) unless you
   add `--overwrite`. Moving into an existing folder puts the file inside it.
 - `fs rm` on a path that is not there says `not found` and still succeeds,
-  like `rm -f`. A folder needs `--recursive` (and `--allow-dangerous`).
-  Paths are taken literally: `'/tmp/*.log'` is not a pattern; use
+  like `rm -f`. A folder needs `--recursive`, which also needs
+  `--allow-dangerous`.
+- Paths are taken literally: `'/tmp/*.log'` is not a pattern. Use
   `komando exec` for that.
-
-## Keep a folder in step (sync)
-
-`sync` sends only what is new or changed, so the second run is quick. One
-side is a folder here; the other is servers (many at once) or storage:
-
-```bash
-komando sync ./site @web:/var/www/site --exclude .git --dry-run   # every file it would touch
-komando sync ./site @web:/var/www/site --exclude .git
-komando sync ./site web1:/var/www/site --delete --allow-dangerous # also remove what ./site no longer has
-komando sync web1:/var/log/app ./logs/web1                         # the other way
-komando sync ./backups backups:2026/                               # into a storage conn
-```
-
-A file counts as changed when its size or mode differs, or it is newer in
-the source; modes and modification times are copied too. Each file is
-written under a temporary name and moved into place. A destination folder
-that does not exist is created (`--dry-run` says so).
-
-A source that does not exist is an error (`PATH_NOT_FOUND`, exit 3), and
-`--delete` never runs from an empty source, so a typo cannot wipe the
-destination. Symbolic links are not copied; they are listed as `skipped`.
-For a single file use `komando upload` / `komando download`.
+- All of them take `--sudo`; `fs chmod -r` changes a whole folder.
 
 ## Copy files
 
-Remote paths are written `TARGET:PATH`; `TARGET:` alone and `TARGET:~/x`
-mean the login user's home folder, like scp. A local file whose name has a
-colon (`a:b.txt`) is read as local when it exists; otherwise write `./a:b.txt`.
+`upload` sends files to servers (many at once). `download` brings them to
+this computer. Both also work with [storage](storage.md) conns.
 
 ```bash
-komando upload @web ./release.tar.gz /tmp/release.tar.gz    # to many servers at once
+komando upload @web ./release.tar.gz /tmp/release.tar.gz      # to many servers at once
 komando upload web1 ./nginx.conf /etc/nginx/nginx.conf --sudo  # a root-owned file
-komando upload web1 ./site /var/www/site -r
+komando upload web1 ./run.sh /opt/app/bin/run.sh --mode 0755 -p
+komando upload web1 ./site /var/www/site -r                    # a folder
 komando download web1 /var/log/nginx/error.log --to ./logs/
-komando download web1 /var/log/secure --sudo --to ./logs/    # a file only root can read
-komando download @web /etc/nginx/nginx.conf --to ./configs/  # → ./configs/<server>/nginx.conf
+komando download web1 /var/log/secure --sudo --to ./logs/      # a file only root can read
+komando download @web /etc/nginx/nginx.conf --to ./configs/    # → ./configs/<server>/nginx.conf
 ```
 
-Folders (`-r`) follow one rule, so the same copy run twice gives the same
+Without a destination, `upload` puts the file in the login user's home
+folder under its own name, and `download` saves into the current folder.
+
+`komando cp` does the same with `SRC DST`, like `scp`. Remote paths are
+written `TARGET:PATH`; `TARGET:` alone, or `TARGET:~/x`, is the login user's
+home folder:
+
+```bash
+komando cp ./app.tar.gz @web:/tmp/app.tar.gz
+komando cp -r ./site web1:/var/www/site
+komando cp web1:/var/log/nginx/error.log ./logs/
+```
+
+A local file whose name has a colon (`a:b.txt`) is read as local when it
+exists; otherwise write `./a:b.txt`. Single-file copies report a `sha256`
+so you can check them.
+
+### Copy folders
+
+Folders (`-r`) follow one rule, so running the same copy twice gives the same
 result:
 
 | Command | Result |
@@ -103,14 +153,47 @@ result:
 | `cp -r site/ web1:/var/www/html` | the *contents* of `site` go into `html` |
 | `cp -r site web1:/var/www/html` (html exists) | `/var/www/html/site` |
 
-`--sudo` handles single files. For a folder, upload it to a place you own
-and move it with `komando exec web1 --sudo -- cp -r /tmp/site/. /var/www/site/`,
-or use `komando sync` for repeatable deploys. Symbolic links are not copied
-(listed as `skipped`). When some files of a folder cannot be read, the rest
-are still copied; the result lists them under `errors` and exits 5.
+`--sudo` works for single files only (downloads up to 512 MiB). For a
+root-owned folder, upload it to a place you own and move it with
+`komando exec web1 --sudo -- cp -r /tmp/site/. /var/www/site/`, or use
+`komando sync` for repeatable deploys.
 
-Downloads never replace a file that is already on your computer
-(`FILE_EXISTS`); add `--overwrite` when you mean to. Uploads replace the
-file on the server and say so (`replaced: true`). A download is written
-under a temporary name first, so a broken connection never leaves half a
-file.
+Symbolic links are not copied; they are listed as `skipped`. When some files
+in a folder cannot be read, the rest are still copied; the result lists the
+failures under `errors` and komando exits 5.
+
+### Never lose a file
+
+- Downloads never replace a file that is already on your computer
+  (`FILE_EXISTS`). Add `--overwrite` when you mean to.
+- Uploads replace the file on the server and say so (`replaced: true`).
+- A download is written under a temporary name first, so a broken
+  connection never leaves half a file.
+
+## Keep a folder in step (sync)
+
+`sync` copies a folder one way and sends only what is new or changed, so the
+second run is quick. One side is a folder on this computer. The other side
+is servers (many at once) or a [storage](storage.md) conn:
+
+```bash
+komando sync ./site @web:/var/www/site --exclude .git --dry-run   # every file it would touch
+komando sync ./site @web:/var/www/site --exclude .git
+komando sync ./site web1:/var/www/site --delete --allow-dangerous # also remove what ./site no longer has
+komando sync web1:/var/log/app ./logs/web1                         # from a server to here
+komando sync ./backups backups:2026/ --exclude '*.tmp'             # into a storage conn
+komando sync backups:2026/ ./restore                               # from storage to here
+```
+
+- A file counts as changed when its size or mode differs, or when it is
+  newer in the source. Modes and modification times are copied too.
+- Each file is written under a temporary name and moved into place.
+- A destination folder that does not exist is created (`--dry-run` says
+  so).
+- `--exclude` skips names or paths (shell globs, repeatable).
+- A source that does not exist is an error (`PATH_NOT_FOUND`, exit 3), and
+  `--delete` never runs from an empty source, so a typo cannot wipe the
+  destination.
+- Symbolic links are not copied; they are listed as `skipped`.
+
+For a single file, use `komando upload` or `komando download`.

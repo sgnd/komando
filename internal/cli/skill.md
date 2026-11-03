@@ -67,6 +67,7 @@ If `komando` is not installed, stop and ask the human to install it:
 ## Reading the output
 
 When piped, every command prints one JSON object: branch on `ok`,
-`error.code` and the exit code (0 ok, 2 usage, 3 not found, 4 connect/auth,
-5 remote failure, 6 needs the human, 7 timeout, 8 precondition failed).
+`error.code` and the exit code (0 ok, 1 error, 2 usage, 3 not found,
+4 connect/auth, 5 remote failure, 6 needs the human, 7 timeout,
+8 precondition failed).
 Targets the command could not use are listed in `meta.skipped`.

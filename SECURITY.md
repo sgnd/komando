@@ -1,6 +1,6 @@
 # Security
 
-komando logs in to real servers, databases and caches, holds their passwords, and AI agents run it. So security problems matter a lot here.
+komando logs in to real servers, databases and caches, holds their passwords, and is run by AI agents. Security problems matter a lot here.
 
 ## Report a problem
 
@@ -13,7 +13,7 @@ Include what you found, how to reproduce it, and what an attacker could do with 
 
 ## What counts
 
-- A way to read a secret from the vault without a human approving it, for example through `--json` output, an error, a log or the audit log.
+- A way to read a secret from the vault without a human approving it, for example through JSON output (`-o json`), an error message, a log or the audit log.
 - A way to run something on a server that komando should block or refuse: a dangerous command without `--allow-dangerous`, a change on a protected target without `--yes`, a write in `db query` or `cache run` without `--write`.
 - A way to inject shell code, SQL or file paths through a name, a flag or a recipe variable.
 - Connecting to a server whose identity (host key) changed, without an error.

@@ -27,6 +27,8 @@ import (
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/pbkdf2"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 // Bitwarden and Vaultwarden, with komando's own client: it logs in, syncs
@@ -374,18 +376,14 @@ func bwDeviceType() string {
 // bwDeviceID is a stable id for this computer's komando, kept next to the
 // state (the server lists it under the account's devices).
 func bwDeviceID() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "komando"
-	}
-	p := home + "/.komando/bitwarden-device"
+	p := store.Path("bitwarden-device")
 	if b, err := os.ReadFile(p); err == nil && len(b) > 0 {
 		return strings.TrimSpace(string(b))
 	}
 	b := make([]byte, 16)
 	rand.Read(b)
 	id := fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
-	_ = os.MkdirAll(home+"/.komando", 0o700)
+	_ = os.MkdirAll(store.Home(), 0o700)
 	_ = os.WriteFile(p, []byte(id), 0o600)
 	return id
 }
