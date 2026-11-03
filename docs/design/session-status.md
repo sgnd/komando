@@ -161,7 +161,7 @@ the plan does about it.
 
 | Case | Risk | Decision |
 |---|---|---|
-| `cluster forward`, `logs --follow` | kubectl or the server prints its own lines too | Entry line is the first line, on stderr, before kubectl starts |
+| `cluster forward`, `logs --follow` | The server prints its own lines too | Entry line is the first line, on stderr, before the stream starts |
 | A one-shot command starts a VPN by itself | The person does not know a VPN is now up for 30 minutes | One notice line on stderr, interactive only. Agents get nothing new; `komando status` shows it |
 
 ## Plan

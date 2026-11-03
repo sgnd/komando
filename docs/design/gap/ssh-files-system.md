@@ -1,5 +1,11 @@
 # komando feature gap analysis: SSH, fleet, files, jobs, tunnels, keys, hosts, system modules
 
+> **Snapshot of `feat/v0.3` (commit 4784fc9), 2026-11-02.** Many MISSING and
+> PARTIAL rows below were done in Phases 1–5 and the built-in work, and no
+> feature needs kubectl, psql, the aws CLI or openvpn any more (only Pulse
+> VPNs still use openconnect).
+> Current status: [README.md](README.md#still-open).
+
 Written 2026-11-02 on branch `feat/v0.3` (commit `4784fc9`). Sources: `bin/komando --help`
 (all commands), code in `internal/cli` and `internal/sshx`, `docs/design/{vision,ux,network}.md`,
 `docs/features/*.md`. No server was contacted.
