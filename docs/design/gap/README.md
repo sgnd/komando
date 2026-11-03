@@ -130,7 +130,6 @@ P1 features, all from before Phase 1) are done, except:
   shared bastion connection would stay under the server's `MaxStartups`.
 - Users, roles and grants with passwords from the vault; today through
   `db query --write`.
-- Bulk registry tag cleanup (keep the N newest, delete older than X).
 
 ## 4. Biggest P2 themes
 

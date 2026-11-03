@@ -31,6 +31,8 @@ komando registry inspect ghcr myorg/api:1.4.2 # digest, size, platforms, created
 komando registry copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2   # between registries
 komando registry copy ghcr:myorg/api:1.4.2 harbor:                  # same name and tag
 komando registry rm harbor myorg/api:old --allow-dangerous
+komando registry prune harbor myorg/api --keep 10 --dry-run            # what would go
+komando registry prune harbor myorg/api --keep 10 --older-than 30d --allow-dangerous
 ```
 
 - `copy` takes `CONN:IMAGE` on both sides, like `komando cp`. It copies every
@@ -46,6 +48,12 @@ registry allows it (otherwise copied). Only the
   image goes too: `rm --dry-run` names them (`would_remove_tags`) before
   anything is deleted. The disk space comes back after the registry's garbage
   collection.
+- `prune` deletes old images of one repository: `--keep N` keeps the newest
+  N tags, `--older-than 30d` deletes only images built before that age
+  (both together: a tag must pass both to go), and `--match REGEX` limits
+  it to some tags (`'^v'`). `latest`, tags that do not match, and tags with
+  no build date always stay, and so does any image a kept tag points at.
+  `--dry-run` lists what would be deleted and why each other tag stays.
 - A tag or repository that is not there is "not found" (exit 3) and the
   message says what is: `mirror/busybox:latest not found; tags: stable`.
 - A protected registry conn also needs `--yes` to delete.

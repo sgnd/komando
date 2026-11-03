@@ -418,7 +418,6 @@ func Resolve(ref string) (string, error) {
 	return "", fmt.Errorf("invalid secret reference %q (%s)", ref, RefHelp())
 }
 
-
 func firstLine(s, fallback string) string {
 	if s == "" {
 		return fallback

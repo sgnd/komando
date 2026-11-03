@@ -9,8 +9,10 @@ import (
 	"net"
 	"net/url"
 	"os/exec"
+	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -30,9 +32,9 @@ func registryCmd() *cobra.Command {
 		Short:   "Container registries: list repositories and tags, inspect images, delete tags",
 		Long: `Works with a registry conn: ` + "`komando conn add ghcr registry://myuser@ghcr.io --password-ref secret:ghcr-token`" + `
 or ` + "`komando import docker`" + ` (from ~/.docker/config.json). ls and inspect
-only read; rm deletes an image and needs --allow-dangerous.`,
+only read; rm and prune delete images and need --allow-dangerous.`,
 	}
-	c.AddCommand(registryLsCmd(), registryInspectCmd(), registryCopyCmd(), registryRmCmd())
+	c.AddCommand(registryLsCmd(), registryInspectCmd(), registryCopyCmd(), registryRmCmd(), registryPruneCmd())
 	return c
 }
 
@@ -362,4 +364,96 @@ func (d inspectData) Text() string {
 		}
 	}
 	return b.String()
+}
+
+func registryPruneCmd() *cobra.Command {
+	var keep int
+	var olderThan, match string
+	c := &cobra.Command{
+		Use:   "prune CONN REPO",
+		Short: "Delete old images of a repository: keep the newest N, or delete what is older than an age",
+		Long: `Reads every tag's image and build date, then deletes the images the rule
+lets go: --keep N keeps the newest N matching tags, --older-than deletes
+only images built before that age; with both, a tag must pass both to go.
+"latest", tags that do not match --match, and tags with no build date (a
+multi-platform index) always stay. An image a kept tag points at is never
+deleted. Needs --allow-dangerous; --dry-run shows the plan.`,
+		Example: `  komando registry prune harbor shop/api --keep 10 --dry-run
+  komando registry prune harbor shop/api --keep 5 --older-than 30d --match '^v' --allow-dangerous`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			rule := registry.PruneRule{Keep: keep}
+			if keep < 0 {
+				return out.Usage("--keep must be 0 or more")
+			}
+			if !cmd.Flags().Changed("keep") && olderThan == "" {
+				return out.Usage("say what to keep: --keep N, --older-than AGE, or both")
+			}
+			if olderThan != "" {
+				d, err := parseAge(olderThan, "--older-than")
+				if err != nil {
+					return err
+				}
+				rule.OlderThan = time.Now().Add(-d)
+			}
+			if match != "" {
+				re, err := regexp.Compile(match)
+				if err != nil {
+					return out.Usage("--match: %v", err)
+				}
+				rule.Match = re
+			}
+			repo := args[1]
+			return withRegistry(cmd.Context(), "registry.prune", args[0], driver.RiskDestructive, map[string]any{"repo": repo},
+				func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
+					const max = 1000
+					tags, err := r.Tags(ctx, repo, max+1)
+					if err != nil {
+						return nil, imageErr(ctx, r, repo, "", err)
+					}
+					if len(tags) > max {
+						return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "prune a narrower set with --match, or in several runs",
+							"%s has more than %d tags", repo, max)
+					}
+					infos := make([]registry.TagInfo, 0, len(tags))
+					for _, t := range tags {
+						m, err := r.Inspect(ctx, repo, t)
+						if err != nil {
+							return nil, err
+						}
+						ti := registry.TagInfo{Tag: t, Digest: m.Digest}
+						if ts, err := time.Parse(time.RFC3339Nano, m.Created); err == nil {
+							ti.Created = ts
+						}
+						infos = append(infos, ti)
+					}
+					plan := rule.Plan(infos)
+					res := map[string]any{"conn": c.Name, "repo": repo, "tags": len(tags), "delete": plan.Delete, "keep": plan.Keep}
+					if plan.Delete == nil {
+						res["delete"] = []registry.PruneImage{}
+					}
+					if g.dryRun {
+						res["dry_run"] = true
+						return res, nil
+					}
+					deleted := []string{}
+					for _, img := range plan.Delete {
+						if err := r.Delete(ctx, repo, img.Digest); err != nil {
+							res["deleted"] = deleted
+							return res, err
+						}
+						deleted = append(deleted, img.Digest)
+					}
+					res["deleted"] = deleted
+					if len(deleted) > 0 {
+						res["note"] = "the space comes back after the registry's garbage collection"
+					}
+					return res, nil
+				})
+		},
+	}
+	c.Flags().IntVar(&keep, "keep", 0, "keep the newest N matching tags")
+	c.Flags().StringVar(&olderThan, "older-than", "", "delete only images built before this age (30d, 12h)")
+	c.Flags().StringVar(&match, "match", "", "only tags matching this regular expression may go")
+	return c
 }

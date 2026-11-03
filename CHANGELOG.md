@@ -9,6 +9,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - `komando reboot TARGET`: reboots servers one at a time, waits for each to
   answer again and checks it really started anew (boot id). A server that
   does not come back stops the rest. Destructive: needs `--allow-dangerous`.
+- `komando registry prune CONN REPO --keep N [--older-than 30d] [--match RE]`:
+  deletes old images, never one a kept tag points at (`latest` always
+  stays). `registry inspect` now gives a multi-platform image's build date.
 - `komando svc daemon-reload TARGET`: reloads unit files after you write
   one, and names units that still need a reload.
 

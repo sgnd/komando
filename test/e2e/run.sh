@@ -561,6 +561,17 @@ set +e; $K registry rm reg tools/busybox:1.37 >/dev/null; check "registry rm nee
 check "registry rm names the tags it takes" True "$($K registry rm reg tools/busybox:1.37 --allow-dangerous --dry-run | jget '"1.37" in d["data"]["tags"]')"
 q $K registry rm reg tools/busybox:1.37 --allow-dangerous
 check "registry rm removed it" REGISTRY_NOT_FOUND "$($K registry inspect reg tools/busybox:1.37 | jget 'd["error"]["code"]' || true)"
+# prune: three images built one after the other; keepme is the same image as v1
+for v in 1 2 3; do
+  printf 'FROM busybox:1.37\nRUN echo %s > /build\n' "$v" | docker build -q -t "127.0.0.1:$E2E_REGISTRY/prune/app:v$v" - >/dev/null
+  docker push -q "127.0.0.1:$E2E_REGISTRY/prune/app:v$v" >/dev/null; sleep 1
+done
+docker tag "127.0.0.1:$E2E_REGISTRY/prune/app:v1" "127.0.0.1:$E2E_REGISTRY/prune/app:keepme" && docker push -q "127.0.0.1:$E2E_REGISTRY/prune/app:keepme" >/dev/null
+check "registry prune needs --allow-dangerous" 6 "$($K registry prune reg prune/app --keep 1 >/dev/null 2>&1; echo $?)"
+check "registry prune --dry-run: only v2 goes (v1 is keepme's image)" "['v2'] False" \
+  "$($K registry prune reg prune/app --keep 1 --match '^v' --dry-run | jget '[t for d_ in d["data"]["delete"] for t in d_["tags"]], "deleted" in d["data"]')"
+q $K registry prune reg prune/app --keep 1 --match '^v' --allow-dangerous
+check "registry prune deleted v2 and kept the rest" "['keepme', 'v1', 'v3']" "$($K registry ls reg prune/app | jget 'sorted(d["data"]["tags"])')"
 
 # VPNs: a SOCKS proxy (komando's own, through the bastion) and an OS VPN check
 echo "==> VPNs"

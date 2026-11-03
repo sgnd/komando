@@ -210,3 +210,19 @@ func TestHostPort(t *testing.T) {
 		}
 	}
 }
+
+// An index (what docker buildx pushes) has no config of its own: Inspect
+// gives the build date of its first image, which prune needs.
+func TestInspectIndexCreated(t *testing.T) {
+	f, srv := newFake()
+	defer srv.Close()
+	cfg := f.addBlob("app", []byte(`{"created":"2026-01-02T03:04:05Z","architecture":"amd64","os":"linux"}`))
+	d := f.addManifest("app", "one", "application/vnd.oci.image.manifest.v1+json",
+		manifestDoc{MediaType: "application/vnd.oci.image.manifest.v1+json", Config: &cfg})
+	f.addManifest("app", "v1", "application/vnd.oci.image.index.v1+json",
+		manifestDoc{MediaType: "application/vnd.oci.image.index.v1+json", Manifests: []descriptor{{MediaType: "application/vnd.oci.image.manifest.v1+json", Digest: d}}})
+	m, err := client(t, srv).Inspect(context.Background(), "app", "v1")
+	if err != nil || m.Created != "2026-01-02T03:04:05Z" {
+		t.Errorf("index created %q %v", m.Created, err)
+	}
+}
