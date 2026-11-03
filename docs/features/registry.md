@@ -43,6 +43,9 @@ registry allows it (otherwise copied). Only the
   image.
 
 - `rm` deletes the image the tag points at, so every other tag on the same
-  image goes too. The disk space comes back after the registry's garbage
+  image goes too: `rm --dry-run` names them (`would_remove_tags`) before
+  anything is deleted. The disk space comes back after the registry's garbage
   collection.
+- A tag or repository that is not there is "not found" (exit 3) and the
+  message says what is: `mirror/busybox:latest not found; tags: stable`.
 - A protected registry conn also needs `--yes` to delete.
