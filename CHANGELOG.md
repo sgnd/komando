@@ -12,6 +12,16 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - `komando svc daemon-reload TARGET`: reloads unit files after you write
   one, and names units that still need a reload.
 
+### Changed
+
+- A protected server stays protected under another name: before any
+  change, komando also compares the IP addresses names resolve to on this
+  computer, so `db.internal` is the protected `10.0.0.5` (hosts and conns,
+  same port). Names only a jump host knows are compared as text.
+- A person is asked about a safety change (for example a recipe replaced by
+  a read-only one) before komando locks its state file, so other komando
+  commands do not wait for the answer.
+
 ### Removed
 
 - `op://` no longer falls back to the closed-source `op` CLI, as announced

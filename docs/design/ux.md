@@ -373,8 +373,6 @@ are guarded by `TestConventions` (`internal/cli/conventions_test.go`).
 | 22 | P0 | `config set audit off`, `host_key_policy off`, `--host-key-policy off`, `policy allow` without confirmation; `audit tru` turned off the audit | ✅ Needs `--yes`; strict on/off values |
 
 Next:
-- Protected-follows-the-address compares address text, without DNS:
-  `db.internal` and `10.0.0.5` are treated as different.
 - Single-target commands refuse a selector that picks many, with the
   same message everywhere (done, through `singleHost`/`singleConn`).
 - `db query` against many databases at once (`@prod` containing several
