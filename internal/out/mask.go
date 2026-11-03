@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // Hidden is what a password, key or token looks like in masked output.
@@ -30,7 +31,7 @@ var (
 	// a JSON object key that names a secret: its whole string value is hidden
 	secretKey = regexp.MustCompile(`(?i)^[A-Za-z0-9_.-]*(?:passw(?:or)?d|passphrase|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|authorization|[_.-]key)[A-Za-z0-9_.-]*$`)
 	// keys that name a secret but hold no value komando would hide
-	notSecretKey = regexp.MustCompile(`(?i)(^(max|min|num)_|(ref|refs|_name|_names|_id|_count|_file|_path|_type|_hint|_endpoint|_url|_uri|_host|_port|_length|_len|_size|_ttl|_expiry|_expires|_timeout|_max|_min|_enabled|_required|_policy|_mode|_header|_field|_param)$)`)
+	notSecretKey = regexp.MustCompile(`(?i)(^(max|min|num|public)_|^public|pub_?keys?$|fingerprint|(ref|refs|_name|_names|_id|_count|_file|_path|_type|_hint|_endpoint|_url|_uri|_host|_port|_length|_len|_size|_ttl|_expiry|_expires|_timeout|_max|_min|_enabled|_required|_policy|_mode|_header|_field|_param)$)`)
 )
 
 // MaskSecrets hides secret-looking values in plain text.
@@ -139,7 +140,8 @@ func maskJSON(b []byte) []byte {
 		switch {
 		case key != "" && isValueOf(&outb) && secretKey.MatchString(key) && !keepValue(key, s) && s != "":
 			m = Hidden
-		case key != "" && (parent == "data" || parent == "stringData") && kubeSecretValue(s):
+		case key != "" && (parent == "data" || parent == "stringData") && len(parents) >= 3 && kubeSecretValue(s):
+			// (deeper than komando's own envelope "data", which is at depth 1)
 			// a Kubernetes Secret: every value under data is a secret
 			m = Hidden
 		default:
@@ -164,8 +166,10 @@ func kubeSecretValue(s string) bool {
 	if len(s) < 8 || len(s)%4 != 0 {
 		return false
 	}
-	_, err := base64.StdEncoding.DecodeString(s)
-	return err == nil
+	b, err := base64.StdEncoding.DecodeString(s)
+	// a Secret holds text (passwords, tokens) or keys and certificates;
+	// a word that merely parses as base64 decodes to bytes that are neither
+	return err == nil && (utf8.Valid(b) || len(b) >= 32)
 }
 
 // isValueOf: the string just reached is a member value (after "key":), not

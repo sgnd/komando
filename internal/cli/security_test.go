@@ -206,6 +206,10 @@ func TestGuard(t *testing.T) {
 		{"Bash", map[string]any{"command": "grep -r DB_ .env"}, true},
 		{"Bash", map[string]any{"command": "source .env.production && npm start"}, true},
 		{"Bash", map[string]any{"command": "echo $KOMANDO_VAULT_PASS"}, true},
+		// public keys are meant to be shared, also komando's own
+		{"Read", map[string]any{"file_path": "/Users/me/.komando/keys/deploy.pub"}, false},
+		{"Bash", map[string]any{"command": "doctl compute ssh-key import k --public-key-file ~/.komando/keys/deploy.pub"}, false},
+		{"Read", map[string]any{"file_path": "/Users/me/.komando/keys/deploy"}, true},
 		{"Bash", map[string]any{"command": "env"}, true},
 		{"Bash", map[string]any{"command": "printenv | sort"}, true},
 		{"Bash", map[string]any{"command": "ssh web1 uptime"}, true},

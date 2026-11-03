@@ -87,6 +87,9 @@ func secretPath(p, home string) string {
 	}
 	for _, d := range komandoDirs {
 		if in(d) {
+			if strings.HasSuffix(p, ".pub") {
+				return "" // a public key is meant to be shared
+			}
 			return "komando's own data (vault, keys, inventory, audit log)"
 		}
 	}
