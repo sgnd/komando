@@ -82,6 +82,14 @@ check "host test all ok" 3 "$($K host test @lab | jget 'd["data"]["summary"]["ok
 
 echo "==> exec"
 check "exec stdout via jump" "target" "$($K exec target --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
+# six servers behind one bastion: one login to the bastion, not six
+for i in 1 2 3 4 5 6; do $K host add "fan$i" agent@target --via bastion --password-ref secret:agent-pass -g fan >/dev/null; done
+logins() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" logs bastion 2>/dev/null | grep -c 'Accepted password' || true; }
+before=$(logins)
+check "exec -P 6 through one bastion" 6 "$($K exec @fan -P 6 --read-only -- hostname | jget 'd["data"]["summary"]["ok"]')"
+sleep 1
+check "the bastion saw one login for six servers" 1 "$(( $(logins) - before ))"
+$K host rm fan1 fan2 fan3 fan4 fan5 fan6 --yes >/dev/null
 set +e
 $K exec direct -- 'exit 3' >/dev/null; check "non-zero exit -> 5" 5 $?
 $K exec direct -- 'rm -rf /' >/dev/null; check "policy blocks rm -rf /" 6 $?

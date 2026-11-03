@@ -36,6 +36,11 @@ komando list                                          # see them all
 komando test all                                      # can we log in everywhere?
 ```
 
+Servers behind the same `--via` hosts share one connection to them within a
+command: `komando exec @db -P 10` logs in to the bastion once and reaches the
+ten servers through it, like OpenSSH's ControlMaster, so the bastion's
+connection limits (`MaxStartups`) and its login log see one client.
+
 Change or remove later:
 
 ```bash

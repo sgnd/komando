@@ -126,8 +126,6 @@ P1 features, all from before Phase 1) are done, except:
 - `import termius` and `import tableplus`
   (Termius and TablePlus have no open export format; see
   [import.md](../../features/import.md)).
-- `exec -P 10` through one bastion opens one bastion login per host; a
-  shared bastion connection would stay under the server's `MaxStartups`.
 - Users, roles and grants with passwords from the vault; today through
   `db query --write`.
 

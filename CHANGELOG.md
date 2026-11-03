@@ -24,6 +24,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+- Servers behind the same jump hosts share one connection to them within a
+  command: `exec -P 10` through a bastion logs in to it once (OpenSSH's
+  ControlMaster), staying under its `MaxStartups`. A broken shared path is
+  opened again once.
 - A protected server stays protected under another name: before any
   change, komando also compares the IP addresses names resolve to on this
   computer, so `db.internal` is the protected `10.0.0.5` (hosts and conns,

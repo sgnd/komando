@@ -33,109 +33,180 @@ type Options struct {
 	HostKeyPolicy  string // accept-new | strict | off
 }
 
-// Client wraps an ssh.Client plus the chain of jump clients that must be
-// closed with it.
+// Client wraps an ssh.Client plus the path of jump hosts it came through
+// (shared with other servers behind the same hosts, shared.go).
 type Client struct {
 	*ssh.Client
 	Host  *store.Host
-	chain []*ssh.Client
-	vpn   io.Closer // the VPN the chain starts with, if any
+	chain *sharedChain
+	vpn   io.Closer // a VPN this connection opened for itself (no jump hosts)
+	once  sync.Once
 }
 
 func (c *Client) Close() error {
 	err := c.Client.Close()
-	for i := len(c.chain) - 1; i >= 0; i-- {
-		c.chain[i].Close()
-	}
-	if c.vpn != nil {
-		c.vpn.Close()
-	}
+	c.once.Do(func() {
+		if c.chain != nil {
+			c.chain.release()
+		}
+		if c.vpn != nil {
+			c.vpn.Close()
+		}
+	})
 	return err
 }
 
 // Dial connects to h, honouring its --via chain. A chain may start with a
-// VPN; it is opened inside this process for this connection only.
+// VPN; it is opened inside this process. The jump hosts are shared with
+// other servers behind them (one login per jump host per command).
 func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Client, error) {
 	vpn, hops, err := resolveChain(st, h, map[string]bool{})
 	if err != nil {
 		return nil, err
 	}
-	first := (&net.Dialer{Timeout: o.ConnectTimeout}).DialContext
-	var vpnCloser io.Closer
-	if vpn != nil {
+	target := hops[len(hops)-1]
+	jumps := hops[:len(hops)-1]
+	openVPN := func() (netx.Dialer, io.Closer, error) {
+		first := (&net.Dialer{Timeout: o.ConnectTimeout}).DialContext
+		if vpn == nil {
+			return first, nil, nil
+		}
 		d, c, err := netx.Open(ctx, vpn, o.ConnectTimeout)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		first, vpnCloser = d, c
+		return d, c, nil
 	}
-	var chain []*ssh.Client
-	var prev *ssh.Client
-	closeAll := func() {
-		for i := len(chain) - 1; i >= 0; i-- {
-			chain[i].Close()
-		}
-		if vpnCloser != nil {
-			vpnCloser.Close()
-		}
-	}
-	for i, hop := range hops {
-		cfg, err := clientConfig(st, hop, o)
+	if len(jumps) == 0 {
+		first, vpnCloser, err := openVPN()
 		if err != nil {
-			closeAll()
 			return nil, err
 		}
-		addr := net.JoinHostPort(hop.Address, strconv.Itoa(hop.EffectivePort()))
-		var c *ssh.Client
-		switch {
-		case hop.ProxyCommand != "" && (prev != nil || vpn != nil):
-			closeAll()
-			return nil, out.Errf(out.ExitUsage, "PROXY_NOT_FIRST", "a proxy command can only start a path; put that host first in --via",
-				"%s has a proxy command but is reached through another hop", hop.Name)
-		case builtinSSM(hop):
-			// AWS Session Manager, spoken by komando itself
-			sc, serr := cloud.SSMDial(ctx, os.Getenv("AWS_PROFILE"), "", hop.Address, strconv.Itoa(hop.EffectivePort()))
-			if serr != nil {
-				closeAll()
-				return nil, out.Errf(out.ExitConnect, "SSM_FAILED", "check the instance ID, its SSM agent and your AWS login (`komando login aws`)", "%s: %v", hop.Name, serr)
+		c, err := dialHop(ctx, st, target, o, first, nil, vpn != nil)
+		if err != nil {
+			if vpnCloser != nil {
+				vpnCloser.Close()
 			}
-			c, err = handshake(sc, addr, cfg, o.ConnectTimeout)
+			return nil, err
+		}
+		cl := &Client{Client: c, Host: h, vpn: vpnCloser}
+		go keepalive(cl)
+		return cl, nil
+	}
+	key := chainKey(vpn, jumps)
+	for attempt := 0; ; attempt++ {
+		sc, err := acquireChain(key, func() ([]*ssh.Client, io.Closer, error) {
+			first, vpnCloser, err := openVPN()
 			if err != nil {
-				sc.Close()
+				return nil, nil, err
 			}
-		case hop.ProxyCommand != "":
-			// the program carries the connection (aws ssm, gcloud iap, cloudflared)
-			pc, perr := dialProxy(hop)
-			if perr != nil {
-				closeAll()
-				return nil, perr
-			}
-			c, err = handshake(pc, addr, cfg, o.ConnectTimeout)
-			if err != nil {
-				pc.Close()
-				if tail := pc.stderrTail(); tail != "" {
-					closeAll()
-					return nil, out.Errf(out.ExitConnect, "PROXY_FAILED", "run the proxy command by hand to see why: komando host ssh-command "+hop.Name,
-						"%s: %v; the proxy command said: %s", hop.Name, classify(hop.Name, err), tail)
+			var chain []*ssh.Client
+			closeAll := func() {
+				for i := len(chain) - 1; i >= 0; i-- {
+					chain[i].Close()
+				}
+				if vpnCloser != nil {
+					vpnCloser.Close()
 				}
 			}
-		case prev == nil:
-			c, err = dialDirect(ctx, first, addr, cfg, o.ConnectTimeout)
-		default:
-			c, err = dialVia(ctx, prev, addr, cfg, o.ConnectTimeout)
-		}
+			var prev *ssh.Client
+			for _, hop := range jumps {
+				c, err := dialHop(ctx, st, hop, o, first, prev, vpn != nil || prev != nil)
+				if err != nil {
+					closeAll()
+					return nil, nil, err
+				}
+				chain = append(chain, c)
+				prev = c
+			}
+			go keepaliveChain(chain[0])
+			return chain, vpnCloser, nil
+		})
 		if err != nil {
-			closeAll()
-			return nil, classify(hop.Name, err)
+			return nil, err
 		}
-		if i < len(hops)-1 {
-			chain = append(chain, c)
+		c, err := dialHop(ctx, st, target, o, nil, sc.last(), true)
+		if err != nil {
+			if attempt == 0 && pathLost(sc.last()) {
+				// the shared path broke (the bastion restarted): open it again once
+				sc.broken()
+				sc.release()
+				continue
+			}
+			sc.release()
+			return nil, err
 		}
-		prev = c
+		cl := &Client{Client: c, Host: h, chain: sc}
+		go keepalive(cl)
+		return cl, nil
 	}
-	cl := &Client{Client: prev, Host: h, chain: chain, vpn: vpnCloser}
-	go keepalive(cl)
-	return cl, nil
+}
+
+// pathLost reports a jump host connection that no longer answers.
+func pathLost(c *ssh.Client) bool {
+	_, _, err := c.SendRequest("keepalive@komando", true, nil)
+	return err != nil
+}
+
+// keepaliveChain keeps the first jump host's connection alive while the
+// path is open.
+func keepaliveChain(c *ssh.Client) {
+	t := time.NewTicker(30 * time.Second)
+	defer t.Stop()
+	for range t.C {
+		if _, _, err := c.SendRequest("keepalive@komando", true, nil); err != nil {
+			return
+		}
+	}
+}
+
+// dialHop opens one SSH connection: through prev (a jump host), or with
+// first (direct or a VPN), or with the host's own proxy (SSM, a proxy
+// command), which can only start a path.
+func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, first netx.Dialer, prev *ssh.Client, reached bool) (*ssh.Client, error) {
+	cfg, err := clientConfig(st, hop, o)
+	if err != nil {
+		return nil, err
+	}
+	addr := net.JoinHostPort(hop.Address, strconv.Itoa(hop.EffectivePort()))
+	var c *ssh.Client
+	switch {
+	case hop.ProxyCommand != "" && reached:
+		return nil, out.Errf(out.ExitUsage, "PROXY_NOT_FIRST", "a proxy command can only start a path; put that host first in --via",
+			"%s has a proxy command but is reached through another hop", hop.Name)
+	case builtinSSM(hop):
+		// AWS Session Manager, spoken by komando itself
+		sc, serr := cloud.SSMDial(ctx, os.Getenv("AWS_PROFILE"), "", hop.Address, strconv.Itoa(hop.EffectivePort()))
+		if serr != nil {
+			return nil, out.Errf(out.ExitConnect, "SSM_FAILED", "check the instance ID, its SSM agent and your AWS login (`komando login aws`)", "%s: %v", hop.Name, serr)
+		}
+		c, err = handshake(sc, addr, cfg, o.ConnectTimeout)
+		if err != nil {
+			sc.Close()
+		}
+	case hop.ProxyCommand != "":
+		// the program carries the connection (aws ssm, gcloud iap, cloudflared)
+		pc, perr := dialProxy(hop)
+		if perr != nil {
+			return nil, perr
+		}
+		c, err = handshake(pc, addr, cfg, o.ConnectTimeout)
+		if err != nil {
+			pc.Close()
+			if tail := pc.stderrTail(); tail != "" {
+				return nil, out.Errf(out.ExitConnect, "PROXY_FAILED", "run the proxy command by hand to see why: komando host ssh-command "+hop.Name,
+					"%s: %v; the proxy command said: %s", hop.Name, classify(hop.Name, err), tail)
+			}
+		}
+	case prev == nil:
+		c, err = dialDirect(ctx, first, addr, cfg, o.ConnectTimeout)
+	default:
+		c, err = dialVia(ctx, prev, addr, cfg, o.ConnectTimeout)
+	}
+	if err != nil {
+		return nil, classify(hop.Name, err)
+	}
+	return c, nil
 }
 
 func keepalive(c *Client) {
