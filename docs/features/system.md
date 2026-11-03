@@ -9,6 +9,8 @@ komando svc status @web nginx
 komando svc restart @web nginx --wait 10     # fails unless nginx is active within 10s
 komando svc enable web1 nginx --now          # enable and start
 komando svc list web1 --failed
+komando svc daemon-reload web1               # after writing a unit file; names units still stale
+komando reboot @web --allow-dangerous        # one server at a time, waits for each to come back
 
 komando logs web1 --unit nginx --since -30m --grep 'error|crit'
 komando logs web1 --file /var/log/syslog -n 100 --sudo
@@ -26,6 +28,10 @@ komando pkg upgrade web1 --dry-run           # what would be upgraded
 - `svc status` exits 3 with `UNIT_NOT_FOUND` for a unit that does not exist,
   and with `NO_SYSTEMD` on a server without systemd (most containers); read
   those servers' logs with `--file` or `komando docker logs`.
+- `reboot` reboots one server at a time and waits (`--wait`, default 5m)
+  until SSH answers again with a new boot; a server that does not come back
+  stops the rest (`REBOOT_TIMEOUT`). It is destructive, so it needs
+  `--allow-dangerous`, and the approval on protected servers.
 - `logs` takes one source: `--unit` (journal), `--file` or `--container`.
   `--since`/`--until` work with the journal and containers; a missing file
   exits 3. Without `--sudo` the journal shows only your own entries, and

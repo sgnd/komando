@@ -128,9 +128,6 @@ P1 features, all from before Phase 1) are done, except:
   [import.md](../../features/import.md)).
 - `exec -P 10` through one bastion opens one bastion login per host; a
   shared bastion connection would stay under the server's `MaxStartups`.
-- A controlled reboot (reboot, wait for the server, verify) and
-  `svc daemon-reload` as their own commands; today both go through `exec`
-  with `--allow-dangerous`/policy.
 - Users, roles and grants with passwords from the vault; today through
   `db query --write`.
 - Bulk registry tag cleanup (keep the N newest, delete older than X).

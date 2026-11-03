@@ -6,7 +6,7 @@ SYSD="komando-e2e-systemd-$$"
 R="${ROOT:-$(pwd)}"
 sys() { docker exec "$SYSD" "$@"; } # sys CMD...: the native command on that server
 docker build -q -t komando-e2e-systemd "$R/test/e2e/systemd" >/dev/null
-docker run -d --name "$SYSD" --privileged --cgroupns=host -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
+docker run -d --name "$SYSD" --restart unless-stopped --privileged --cgroupns=host -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
   -p "127.0.0.1:$SYSD_PORT:22" komando-e2e-systemd >/dev/null
 up=no
 for _ in $(seq 1 30); do
@@ -43,6 +43,17 @@ else
   check "logs --unit = journalctl -u" True "$($K logs t-sysd --unit t-svc --sudo | jget '"hello from t-svc" in json.dumps(d)')"
   check "an unknown unit is not found (systemctl: no such unit)" "4 3" \
     "$(sys systemctl status t-nosuch >/dev/null 2>&1; echo $?) $($K svc status t-sysd t-nosuch >/dev/null 2>&1; echo $?)"
+  # daemon-reload: a changed unit file is read again
+  sys sed -i 's/^Description=.*/Description=komando test service v2/' /etc/systemd/system/t-svc.service
+  check "svc daemon-reload = systemctl daemon-reload" "komando test service v2 komando test service v2" \
+    "$($K svc daemon-reload t-sysd >/dev/null; sys systemctl show -p Description --value t-svc) $($K svc status t-sysd t-svc | jget 'd["data"]["results"][0]["data"][0]["description"]')"
+  # reboot: destructive, so blocked without --allow-dangerous; then it waits for the server
+  check "reboot needs --allow-dangerous" 6 "$($K reboot t-sysd >/dev/null 2>&1; echo $?)"
+  pid1=$(sys cut -d' ' -f22 /proc/1/stat)
+  check "reboot waits for the server and checks it restarted" "True True" \
+    "$($K reboot t-sysd --allow-dangerous --wait 120s | jget 'str(d["data"]["results"][0]["rebooted"]) + " " + str(d["data"]["results"][0]["back_after_s"] > 0)' || true)"
+  check "after reboot: a new PID 1 and the service is back" "True active" \
+    "$([ "$(sys cut -d' ' -f22 /proc/1/stat)" != "$pid1" ] && echo True || echo False) $(sys systemctl is-active t-svc || true)"
   q $K host rm t-sysd
 fi
 docker rm -f "$SYSD" >/dev/null 2>&1 || true

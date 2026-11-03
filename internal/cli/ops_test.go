@@ -340,3 +340,47 @@ func TestJournalWithoutPermissionSaysSudo(t *testing.T) {
 		t.Fatalf("got %+v", e)
 	}
 }
+
+func TestDaemonReloadResult(t *testing.T) {
+	d, err := daemonReloadResult(&sshx.RunResult{Stdout: "#komando:rc=0\n"})
+	if err != nil || d.(map[string]any)["reloaded"] != true {
+		t.Errorf("reload: %v %v", d, err)
+	}
+	d, err = daemonReloadResult(&sshx.RunResult{Stdout: "stale=app.service\n#komando:rc=0\n"})
+	w, ok := d.(opsWarnings)
+	if err != nil || !ok || len(w.warnings) != 1 || !strings.Contains(w.warnings[0], "app.service") {
+		t.Errorf("a unit still stale: %v %v", d, err)
+	}
+	if _, err := daemonReloadResult(&sshx.RunResult{Stdout: "#komando:rc=1\n"}); err == nil || err.Code != "SVC_FAILED" {
+		t.Errorf("failed reload: %v", err)
+	}
+	if _, err := daemonReloadResult(&sshx.RunResult{Stdout: "#komando:no-systemd\n"}); err == nil || err.Code != "NO_SYSTEMD" {
+		t.Errorf("no systemd: %v", err)
+	}
+}
+
+// reboot is destructive: blocked without --allow-dangerous, and --dry-run
+// says so without touching a server.
+func TestRebootNeedsAllowDangerous(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	t.Setenv("KOMANDO_NO_DIALOG", "1")
+	t.Setenv("CLAUDECODE", "1")
+	defer func() { g.dryRun, g.allowDangerous = false, false }()
+	run := func(args ...string) error {
+		root := newRoot()
+		root.SetArgs(append([]string{"-o", "json"}, args...))
+		return root.Execute()
+	}
+	if err := run("host", "add", "web1", "deploy@10.255.255.1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("--dry-run", "reboot", "web1"); err != nil {
+		t.Errorf("dry run: %v", err)
+	}
+	g.dryRun = false
+	err := run("reboot", "web1")
+	if e := toErr(err); e == nil || e.Code != "POLICY_BLOCKED" {
+		t.Errorf("reboot without --allow-dangerous: %v", err)
+	}
+}

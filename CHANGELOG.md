@@ -4,6 +4,14 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Added
+
+- `komando reboot TARGET`: reboots servers one at a time, waits for each to
+  answer again and checks it really started anew (boot id). A server that
+  does not come back stops the rest. Destructive: needs `--allow-dangerous`.
+- `komando svc daemon-reload TARGET`: reloads unit files after you write
+  one, and names units that still need a reload.
+
 ### Removed
 
 - `op://` no longer falls back to the closed-source `op` CLI, as announced
