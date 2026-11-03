@@ -46,9 +46,13 @@ func uploadCmd() *cobra.Command {
 		Use:   "upload TARGET FILE [DEST]",
 		Short: "Upload a file to servers (SFTP, many at once) or to storage (S3)",
 		Long: `DEST is the path on the servers, or the key in the storage conn. It defaults
-to the file's name (servers: in the login user's home folder).`,
+to the file's name (servers: in the login user's home folder; ~/x works too).
+An existing file at DEST is replaced (the result says replaced).
+
+` + cpFolderRule,
 		Example: `  komando upload @web ./app.tar.gz /tmp/app.tar.gz
-  komando upload web1 ./site /var/www/site -r --sudo
+  komando upload web1 ./site /var/www/site -r
+  komando upload web1 ./nginx.conf /etc/nginx/nginx.conf --sudo
   komando upload backups ./db.sql.gz 2026/db.sql.gz`,
 		Args: cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -76,19 +80,22 @@ to the file's name (servers: in the login user's home folder).`,
 			return runCp(cmd.Context(), "upload", args[0], dest, args[1], true, o)
 		},
 	}
-	o.bind(c)
+	o.bindUp(c, "")
 	return c
 }
 
 func downloadCmd() *cobra.Command {
 	var to string
-	var recursive, overwrite bool
+	var recursive, overwrite, sudo bool
 	c := &cobra.Command{
 		Use:   "download TARGET PATH",
 		Short: "Download a file from servers (SFTP) or from storage (S3) to this computer",
 		Long: `PATH is the path on the servers, or the key in the storage conn. --to is
-where it lands (a folder per server when several are picked). Storage
-downloads never overwrite a file.`,
+where it lands (a folder per server when several are picked). Files that
+already exist here are kept unless --overwrite. --sudo reads one file as
+root (up to 512 MiB).
+
+` + cpFolderRule,
 		Example: `  komando download web1 /var/log/nginx/error.log --to ./logs/
   komando download @web /etc/nginx/nginx.conf --to ./configs/
   komando download backups 2026/db.sql.gz`,
@@ -99,6 +106,9 @@ downloads never overwrite a file.`,
 				return err
 			}
 			if storage {
+				if sudo {
+					return out.Usage("--sudo is for servers")
+				}
 				if recursive {
 					dest := to
 					if dest == "" {
@@ -113,11 +123,15 @@ downloads never overwrite a file.`,
 			if dest == "" {
 				dest = "."
 			}
-			return runCp(cmd.Context(), "download", args[0], args[1], dest, false, cpOpts{recursive: recursive, overwrite: overwrite})
+			if sudo && recursive {
+				return out.Usage("--sudo downloads single files; copy the folder to a readable place with `komando exec --sudo -- cp -r`, then download that")
+			}
+			return runCp(cmd.Context(), "download", args[0], args[1], dest, false, cpOpts{recursive: recursive, overwrite: overwrite, sudo: sudo})
 		},
 	}
 	c.Flags().StringVar(&to, "to", "", "where to save it (default: the current folder)")
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "download a folder (servers) or every object under a prefix (storage)")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace files that already exist on this computer")
+	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "read the file as root (single files)")
 	return c
 }

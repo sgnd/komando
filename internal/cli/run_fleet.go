@@ -62,7 +62,10 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 		if f.err != nil && f.err.Code != "REMOTE_EXIT" {
 			// a connection, timeout or policy problem: its own code and hint
 			soft.Code = f.err.Code
-			soft.Message = f.host + ": " + f.err.Message
+			soft.Message = f.err.Message
+			if !strings.HasPrefix(soft.Message, f.host+":") {
+				soft.Message = f.host + ": " + soft.Message
+			}
 			soft.Hint = f.err.Hint
 		}
 		if soft.Hint == "" && out.P.Format != "text" {
