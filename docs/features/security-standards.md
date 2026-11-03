@@ -1,12 +1,12 @@
 # Security standards
 
 How komando measures up against the international security standards that
-fit a DevOps tool which holds credentials and is driven by AI agents.
+fit a DevOps tool that holds credentials and is driven by AI agents.
 [All features](README.md) · [Safety](safety.md)
 
-This is a self-assessment, checked against the code and tests, not a
-certificate. A certificate (ISO 27001, SOC 2) is for an organisation and how
-it works; komando can only give you the controls to use in it.
+This is a self-assessment, checked against the code and tests. It is not a
+certificate: a certificate (ISO 27001, SOC 2) is given to an organisation
+for how it works, and komando can only give you controls to use there.
 
 **Status:** ✅ met · 🟡 partly met (the gap is named) · 👤 yours to do
 
@@ -14,13 +14,13 @@ it works; komando can only give you the controls to use in it.
 
 | Requirement | How komando meets it | Status |
 |---|---|---|
-| 2.10, 6.4 Secrets are not in code, arguments or history | Vault, `secret:NAME` references, external managers (1Password, HashiCorp Vault, AWS and GCP Secret Manager); secret values on a command line are refused | ✅ |
+| 2.10, 6.4 Secrets are not in code, arguments or history | Vault, `secret:NAME` references, external managers (HashiCorp Vault/OpenBao, AWS and Google Secret Manager, Bitwarden, KeePass, 1Password Connect); secret values on a command line are refused | ✅ |
 | 6.2 Approved algorithms, no home-made crypto | AES-256-GCM (each value bound to its name), scrypt N=2^17 r=8 p=1, `crypto/rand`, Ed25519 keys, Go's SSH and TLS | ✅ |
 | 6.4.2 Key material is protected | Key file and vault mode 0600 in a 0700 folder; passphrase mode keeps no key on disk | 🟡 the default key file sits next to the vault: use a passphrase (`doctor` warns) |
 | 7.1 Logs record who, what, where, result, without secrets | Every action: time, actor, AI agent, approval, hosts, command; tested to hold no password | ✅ |
 | 7.3 Logs are protected from change | 0600, and a hash chain that `komando audit verify` checks | 🟡 the same user can rebuild the chain or cut its end: copy the log off the computer if that matters |
 | 8.3 Sensitive data is not shown to those who should not see it | Vault values hidden for everyone; passwords, keys and tokens hidden for AI agents | ✅ best effort: an unusual name can slip through |
-| 9.1, 9.2 Connections are encrypted and the server is checked | SSH host keys (stop on mismatch), TLS 1.2+ for Redis, Kubernetes, FTPS; plain FTP needs `?insecure=1` | 🟡 databases follow the conn URL; `doctor` warns about conns without verified TLS |
+| 9.1, 9.2 Connections are encrypted and the server is checked | SSH host keys (stop on mismatch), TLS 1.2+ for Redis, Kubernetes, FTPS, HashiCorp Vault and the built-in VPN clients; plain FTP needs `?insecure=1` | 🟡 databases follow the conn URL; `doctor` warns about conns without verified TLS |
 | 12.3 Files: no path traversal | Folder downloads refuse server paths that lead outside the target | ✅ |
 | 14.2 Dependencies are known and kept up to date | Go modules, `govulncheck` in CI, Dependabot | ✅ |
 
@@ -69,7 +69,7 @@ organisation.
 | Pinned-Dependencies (actions pinned to a commit, tools to a version) | ✅ |
 | Dependency-Update-Tool (Dependabot) | ✅ |
 | SAST and Vulnerabilities (staticcheck, govulncheck) | ✅ |
-| Fuzzing (masking, policy filter, guard) | ✅ |
+| Fuzzing (masking, policy filter, guard, SQL scanner, OpenVPN, SSM and Bitwarden parsers) | ✅ |
 | Signed-Releases: SLSA Build Level 2 provenance | ✅ check a download with `gh attestation verify komando_*.tar.gz --repo sgnd/komando` |
 | Branch-Protection, Code-Review | 👤 turn on in GitHub: protect `main`, require a review and CI |
 

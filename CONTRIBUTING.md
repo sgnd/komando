@@ -55,7 +55,13 @@ Each area has its own file in `internal/cli/` (`host.go`, `exec.go`, `fs.go`, `d
 6. **Quote everything** sent to a remote shell with `sshx.Q`.
 7. Add a unit test for pure logic and, when it touches SSH, a check in `test/e2e/run.sh`.
 
-If an AI agent must know about the change, update `internal/cli/skill.md` and copy it to `skills/komando/SKILL.md` (a test checks that they match).
+Update the docs in the same pull request:
+
+- the feature's page in [`docs/features/`](docs/features/README.md);
+- `internal/cli/guide.md` (what `komando guide` prints) if an AI agent should use it differently;
+- `internal/cli/skill.md`, then copy it to `skills/komando/SKILL.md` (a test checks that they match).
+
+A test also reads every `komando ...` example in the docs and fails when a command or flag does not exist.
 
 ## Send a pull request
 
@@ -91,6 +97,7 @@ Every version is a GitHub release, and `install.sh` only downloads releases. `ma
 
 - `gofmt`, `go vet` and `staticcheck` must pass (`make lint`).
 - Keep it simple. Prefer a small, obvious solution over a clever one.
-- Write for beginners: simple words, short lines. Many readers have never used a terminal. New features get their own page in [`docs/features/`](docs/features/README.md); only the most important ones also get a line in `README.md`. Explain a new word in the [glossary](docs/features/glossary.md).
+- Write for beginners: simple words, short sentences, a real example first. Many readers have never used a terminal.
+- New features get their own page in [`docs/features/`](docs/features/README.md); only the most important ones also get a line in `README.md`. Explain a new word in the [glossary](docs/features/glossary.md).
 
 This project follows the [Code of Conduct](CODE_OF_CONDUCT.md).

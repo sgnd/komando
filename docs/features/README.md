@@ -5,12 +5,12 @@ One page per feature, task by task. New here? Start with the
 
 | Feature | What you can do | Commands |
 |---------|-----------------|----------|
-| [Servers](servers.md) | add servers, log in with keys or passwords | `host`, `key`, `secret` |
+| [Servers](servers.md) | add servers, log in with keys, passwords or your password manager | `host`, `key`, `secret`, `login` |
 | [Moving in and moving computers](import.md) | import ssh config, .pgpass, my.cnf, .env; export to another computer | `import`, `export` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |
 | [Running commands](commands.md) | run commands and scripts, long tasks, saved commands | `exec`, `script`, `job`, `recipe`, `shell` |
 | [Health and network checks](health.md) | what is this server, is it healthy, can it reach X | `facts`, `recipe`, `net` |
-| [Files](files.md) | read, edit and copy files safely | `fs`, `upload`, `download` |
+| [Files](files.md) | read, edit and copy files safely; copy whole folders | `fs`, `upload`, `download`, `cp`, `sync` |
 | [Services, logs, Docker, packages, users](system.md) | day-to-day administration | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
 | [Private servers and tunnels](tunnels.md) | reach servers and services that are not on the internet | `--via`, `tunnel` |
 | [VPNs](vpn.md) | reach targets through WireGuard, SOCKS or your own VPN, several at once | `vpn`, `--via` |
@@ -22,7 +22,7 @@ One page per feature, task by task. New here? Start with the
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit` |
 | [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit verify` |
 | [Results and errors](output.md) | JSON and text output, exit codes, common errors, what is still running | `status`, `prompt` |
-| [Settings and files](settings.md) | settings, and where komando keeps its data | `config`, `doctor` |
+| [Settings and files](settings.md) | settings, environment variables, and where komando keeps its data | `config`, `doctor` |
 | [Glossary](glossary.md) | the words, in plain language | — |
 
 Help for any command: `komando <command> --help`. The full machine-readable
@@ -32,6 +32,9 @@ reference is `komando schema`.
 
 - One feature per file. A new feature gets its own page and a row above.
 - Write for beginners: short sentences, a real example first, then details.
+- Page shape: a one-line intro, a **Quick start** block with the most common
+  commands, then one section per task (most common first), then *Good to
+  know* or *Troubleshooting* if needed.
 - Update the page in the same commit as the feature, together with
   `komando guide` (`internal/cli/guide.md`), the agent skill
   (`internal/cli/skill.md`, copied to `skills/komando/SKILL.md`) and `CHANGELOG.md`.

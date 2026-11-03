@@ -1,112 +1,164 @@
 # Storage: buckets and file servers
 
-Browse, download and upload files in S3-compatible buckets and on FTPS, SFTP
-and FTP servers, with the same commands. [All features](README.md)
+Browse, download, upload and share files in S3-compatible buckets and on
+FTPS, SFTP and FTP servers, all with the same commands. [All features](README.md)
 
-`komando storage` works with S3 and every S3-compatible service (MinIO,
-Cloudflare R2, Wasabi, DigitalOcean Spaces, Backblaze B2, Garage). Add the
-bucket as a conn; the folder in the URL limits the conn to that folder.
+## Quick start
 
 ```bash
-komando secret set backups-secret               # the secret access key
+komando secret set backups-secret                    # the secret access key
 komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:backups-secret
-
-komando storage ls backups                      # one level; --recursive for everything
-komando download backups 2026/app.sql.gz            # into the current folder
+komando storage ls backups                           # one level; --recursive for everything
+komando download backups 2026/app.sql.gz             # into the current folder
 komando upload backups ./app.sql.gz 2026/app.sql.gz
-komando storage link backups 2026/app.sql.gz --expires 24h   # temporary download link
-komando storage link backups 2026/app.sql.gz --endpoint https://files.example.com   # for people outside the --via network
-komando storage rm backups 2026/old.sql.gz --allow-dangerous
-komando storage cat backups logs/app.log --tail 50   # read a text object without downloading it
 ```
 
-Folders and cleanups:
+## Supported storage
+
+| Kind | URL example | Notes |
+|------|-------------|-------|
+| S3 and compatible | `s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1` | AWS S3, MinIO, Cloudflare R2, Wasabi, DigitalOcean Spaces, Backblaze B2, Garage. Leave out `endpoint` for AWS. |
+| FTPS | `ftps://deploy@files.example.com/public_html` | FTP with TLS. Add `?tls=skip-verify` only for a self-signed certificate you trust. |
+| SFTP | `sftp://deploy@files.example.com/uploads` | File access over SSH, for accounts without a shell. The path starts at the server's root (on hosting, often your home folder). |
+| FTP | `ftp://deploy@files.example.com/www?insecure=1` | No encryption: the password and files travel in clear. Refused without `?insecure=1`. Prefer FTPS or SFTP. |
+
+The folder in the URL is where the conn starts. Keys are relative to it and
+cannot leave it (`../` is refused, also in a dry run).
+
+## Add a bucket
+
+For S3, the user part of the URL is the **access key ID**. The **secret
+access key** goes in the vault, like a password:
 
 ```bash
-komando upload backups ./reports reports -r          # a folder: new and changed files
-komando download backups reports -r --to ./reports   # a prefix: files already here stay
-komando sync ./site backups:site --exclude '*.tmp'   # keep a folder in step (see Files)
-komando storage rm backups --prefix daily/ --older-than 30d --dry-run   # old backups, listed
-komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous
+komando secret set backups-secret
+komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:backups-secret
 ```
 
-`storage rm --prefix` refuses to remove more than `--limit` objects
-(default 1000); check the dry-run list and raise it if that is what you mean.
+**Safest setup:** give komando an access key that can only do what you need
+(read-only for reports, one bucket only). The service then enforces it.
 
-- Downloads never overwrite a file unless `--overwrite`; the file is
-  readable only by you. `--to` takes a file name, a folder (one that exists,
-  or a name ending in `/`: the file keeps its name inside), or `-` for
-  stdout (`-o text` only). `storage download` takes the same flags as
-  `komando download`, including `-r` for a folder.
-- A key ending in `/` is a folder: `upload backups ./a.pdf reports/` stores
-  `reports/a.pdf`.
-- `upload` replaces an object with the same key (the result says
-  `"replaced": true`). `rm` takes exact keys only, no folders or patterns,
-  and needs `--allow-dangerous` because deleted objects are gone.
-- A protected conn needs `--yes` for `upload`, `rm` and `link`. `--dry-run`
-  sends no change but checks: `upload` says the key and whether it would
-  replace an object, `download` where the file would go and its size, `rm`
-  lists the objects one per line with size and date.
-- Keys cannot leave the conn's folder (`../` is refused, also in a dry run).
-- `ls` of a folder that has nothing in it, or does not exist, is
-  `FOLDER_NOT_FOUND` (exit 3) on every kind of storage. Empty "folder
-  marker" objects that S3 consoles create are left out of listings and
-  downloads.
-- `cat` shows text only (binary is `NOT_TEXT`, exit 2: download it).
-  `--head` or `--tail` (one of them, 1 or more lines); a cut at `--max-bytes`
-  is said on stderr.
-- A link names the address in the conn URL: when komando reaches the
-  storage through `--via`, the result warns that people outside that network
-  cannot open it. The download keeps its name, also with non-ASCII letters.
-- A link works for anyone who has it until it expires. Share it like a
-  password. It is not written to the history.
-- Safest setup: give komando an access key that can only do what you need
-  (read-only for reports, one bucket only). The service then enforces it.
+### AWS logins (SSO, roles, temporary keys)
 
-## AWS logins (SSO, roles, temporary keys)
-
-Instead of a stored key, a conn can use a profile from `~/.aws/config`.
-komando reads the profile itself (no aws CLI needed) and gets its current
-keys each time, so SSO, assumed roles and temporary keys work as you set
-them up:
+Instead of a stored key, a conn can use a profile from `~/.aws/config`
+(`default` uses the usual AWS login chain). komando reads the profile
+itself, with no aws CLI needed, and fetches fresh keys each time, so SSO,
+assumed roles and temporary keys work as you set them up:
 
 ```bash
 komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
 ```
 
-When an SSO login has expired, the answer is `AWS_LOGIN_REQUIRED`: a person
-runs `komando login aws --profile prod` once (it opens the sign-in page and
-saves the login where the aws CLI keeps it, so both share it). A profile
-that does not exist is `AWS_PROFILE_NOT_FOUND`. Amazon ECR registries work the same
-way (see Registries).
+- `AWS_LOGIN_REQUIRED`: the SSO login has expired. A person runs
+  `komando login aws --profile prod` once. It opens the sign-in page and
+  saves the login where the aws CLI keeps it, so both share it.
+- `AWS_PROFILE_NOT_FOUND`: the profile is not in `~/.aws/config`.
 
-## File servers (FTPS, SFTP, FTP)
+Amazon ECR registries use AWS logins the same way (see
+[Container registries](registry.md)).
+
+## Add a file server (FTPS, SFTP, FTP)
 
 Web hosting and older systems often give you only file access. Add the
-server as a conn; the folder in the URL is where komando starts, and keys
-cannot leave it.
-
-| Kind | URL example | Notes |
-|------|-------------|-------|
-| FTPS | `ftps://deploy@files.example.com/public_html` | FTP with TLS. Add `?tls=skip-verify` only for a self-signed certificate you trust. |
-| SFTP | `sftp://deploy@files.example.com/uploads` | File access over SSH, for accounts without a shell. The path is from the server's root (often your home folder on hosting). |
-| FTP  | `ftp://deploy@files.example.com/www?insecure=1` | No encryption: the password and files travel in clear. komando refuses it without `?insecure=1`. Prefer FTPS or SFTP. |
+server as a conn:
 
 ```bash
 komando secret set hosting-pass
 komando conn add site 'ftps://deploy@files.example.com/public_html' --password-ref secret:hosting-pass
-
 komando storage ls site --recursive
 komando upload site ./index.html index.html
 komando download site logs/error.log
-komando storage rm site old/index.html --allow-dangerous
 ```
 
-- An upload goes to a temporary name first and is renamed into place, so a
+- Uploads go to a temporary name first and are renamed into place, so a
   failed upload never leaves half a file under the real name. Missing
   folders are created.
-- SFTP checks the server's identity like any SSH host (it is remembered the
-  first time, and a change is refused with `HOSTKEY_MISMATCH`), and can use
+- SFTP checks the server's identity like any SSH host: it is remembered the
+  first time, and a change is refused with `HOSTKEY_MISMATCH`. SFTP can use
   your SSH keys as well as a password.
-- `--via` works the same as for other conns: through a bastion or a VPN.
 - File servers have no temporary links: `storage link` is for S3 only.
+
+## Browse and read files
+
+```bash
+komando storage ls backups                            # one level (up to 1000 entries; --limit)
+komando storage ls backups 2026/ --recursive          # everything under 2026/
+komando storage cat backups logs/app.log --tail 50    # read text without downloading it
+komando storage cat backups config/app.env --head 20
+```
+
+- `ls` of a folder that is empty or does not exist is `FOLDER_NOT_FOUND`
+  (exit 3), on every kind of storage. The empty "folder marker" objects
+  that S3 consoles create are left out of listings and downloads.
+- `cat` shows text only; binary is `NOT_TEXT` (exit 2), so download it
+  instead. Use `--head` or `--tail` (one of them, 1 or more lines). It reads
+  at most `--max-bytes` (1 MiB by default) and says on stderr when it cut
+  the file.
+
+## Download and upload
+
+```bash
+komando download backups 2026/app.sql.gz                    # into the current folder
+komando download backups reports/q3.pdf --to ~/Downloads/   # into a folder
+komando download backups logs/app.log --to - -o text | less # to stdout
+komando download backups reports -r --to ./reports          # a whole folder
+komando upload backups ./app.sql.gz 2026/app.sql.gz
+komando upload backups ./a.pdf reports/                     # stores reports/a.pdf
+komando upload backups ./reports reports -r                 # a whole folder
+```
+
+`komando storage download` and `komando storage upload` are the same
+commands with the same flags.
+
+- **Downloads never overwrite** a file on your computer unless you add
+  `--overwrite`. The file is readable only by you. `--to` takes a file name,
+  a folder (one that exists, or a name ending in `/`: the file keeps its
+  name inside), or `-` for stdout (`-o text` only). A folder download keeps
+  files that are already there.
+- **Uploads replace** an object with the same key; the result says
+  `"replaced": true`. A key ending in `/` is a folder.
+- To keep a folder in step and send only new and changed files, use
+  `komando sync` (see [Files](files.md)):
+
+```bash
+komando sync ./site backups:site --exclude '*.tmp'
+komando sync backups:2026/ ./restore
+```
+
+## Share a file with a temporary link
+
+```bash
+komando storage link backups 2026/app.sql.gz --expires 24h   # default 1h, at most 168h (7 days)
+komando storage link backups 2026/app.sql.gz --endpoint https://files.example.com
+```
+
+- The link works for **anyone who has it** until it expires. Share it like a
+  password. It is not written to the audit history.
+- The link uses the address in the conn URL. When komando reaches the
+  storage through `--via`, the result warns that people outside that network
+  cannot open it. Use `--endpoint` to sign it for the public address.
+- The download keeps the file's name, also with non-ASCII letters.
+
+## Delete files
+
+```bash
+komando storage rm backups 2026/old.sql.gz --allow-dangerous                   # exact keys
+komando storage rm backups --prefix daily/ --older-than 30d --dry-run          # list old backups
+komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous  # delete them
+```
+
+- Deleted objects are gone, so `rm` needs `--allow-dangerous`.
+- Without `--prefix`, `rm` takes exact keys only, no patterns.
+- `--prefix` removes everything under a folder (`/` for the whole conn);
+  `--older-than` (`30d`, `12h`, `90m`) keeps the newer ones.
+- `--prefix` refuses to remove more than `--limit` objects (1000 by
+  default). Check the dry-run list, and raise the limit if that is what you
+  mean.
+
+## Good to know
+
+- A protected conn needs `--yes` for `upload`, `rm` and `link`.
+- `--dry-run` sends no change, but checks: `upload` shows the key and
+  whether it would replace an object, `download` where the file would go
+  and its size, `rm` lists the objects one per line with size and date.
+- `--via` works the same as for other conns: through a bastion or a VPN.

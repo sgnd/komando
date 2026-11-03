@@ -11,11 +11,12 @@ Each has its own logins, its own commands and its own way to break things.
 **komando** puts them behind one command line, built so that both you and
 AI agents (Claude Code, Codex, your own bot) can use it well:
 
-- **Remembers everything you manage** in one list: servers, databases, caches, storage.
-- **Keeps passwords locked** in an encrypted vault. The AI never sees them.
-- **Gives clear answers**: readable text for you, structured data (JSON) for the AI.
-- **Has seatbelts**: read-only unless you say otherwise, dangerous commands are blocked, production can be protected.
-- **Keeps a history** of everything that was done.
+- **One list for everything you manage**: servers, databases, caches, storage, clusters, registries and VPNs.
+- **Passwords stay locked** in an encrypted vault (or your own password manager). The AI never sees them.
+- **Clear answers**: readable text for you, structured data (JSON) for the AI.
+- **Seatbelts**: read-only unless you say otherwise, dangerous commands are blocked, production can be protected.
+- **A full history** of everything that was done, and by whom.
+- **Nothing else to install**: one file, with its own SSH, database and VPN clients built in.
 
 ```
 You ──ask──▶ AI agent ──▶ komando ──▶ servers, databases, caches, storage, ...
@@ -72,7 +73,8 @@ komando host edit web1 --password-ref secret:web1-pass
 ```
 
 Mark production servers as protected. Then nothing can be changed there
-unless the command includes `--yes` (a deliberate "yes, I'm sure"):
+unless the command includes `--yes` (a deliberate "yes, I'm sure"). Looking
+around is still allowed:
 
 ```bash
 komando host edit web1 --protected
@@ -80,21 +82,27 @@ komando host edit web1 --protected
 
 ### Databases and caches
 
-Add them the same way, by name. A private database is reached through a
-server (`--via`), so it never has to be open to the internet:
+Add them the same way, with `conn add` and a short name. A private database
+is reached through a server (`--via`), so it never has to be open to the
+internet:
 
 ```bash
 komando secret set app-db-pass
 komando conn add app-db postgres://app@10.0.0.5:5432/app \
   --via web1 --password-ref secret:app-db-pass --protected
+komando conn add app-cache redis://default@10.0.0.7:6379/0 --via web1
 
 komando db schema app-db                          # what tables are there?
 komando db query app-db "select count(*) from users"
-komando cache info my-cache                       # a Redis cache, added with conn add
+komando cache info app-cache                      # memory, clients, keys
 ```
 
 Queries only read unless you add `--write`. Try a change first with
 `--write --dry-run`: it runs, shows what would change, and is rolled back.
+
+Already have servers and databases somewhere? `komando import` brings them
+in from `~/.ssh/config`, `.pgpass`, `my.cnf`, `.env`, kubeconfig, Docker,
+FileZilla, rclone and DBeaver. Try it with `--dry-run` first.
 
 ## Give it to your AI agent
 
@@ -109,9 +117,9 @@ It adds the komando *skill*: a short note the agent reads by itself whenever
 a task touches a server, database, cache or storage. Restart the agent after
 it. Run it again after you update komando.
 
-Other agents: copy the text of [`AGENTS.md`](AGENTS.md) into your agent's instructions
-file (Codex: `AGENTS.md`, Claude Code: `CLAUDE.md`, in the folder you work in),
-or simply tell your agent:
+Other agents: copy the text of [`AGENTS.md`](AGENTS.md) into your agent's
+instructions file (for example `AGENTS.md` or `CLAUDE.md` in the folder you
+work in), or simply tell your agent:
 
 > Use the `komando` CLI to manage my servers and databases. Run `komando guide` first and
 > follow it. Never use `--allow-dangerous` or `--yes` without asking me.
@@ -123,37 +131,39 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 
 | Task | Commands |
 |------|----------|
-| See and check everything at once (servers and conns) | `list`, `test` |
-| Keep a list of servers and how to log in | `host`, `group`, `key`, `secret` |
-| Bring in what you have (ssh config, .pgpass, my.cnf, .env) or move computers | `import`, `export` |
-| Run commands on one or many servers | `exec`, `script`, `job` (long tasks) |
-| Read, edit and copy files | `fs`, `upload`, `download` |
-| Check health (39 ready-made checks) | `facts`, `recipe` |
+| See and check everything at once | `list`, `test`, `status` |
+| Keep a list of servers and how to log in | `host`, `group`, `key`, `secret`, `login` |
+| Bring in what you already have, or move to another computer | `import`, `export` |
+| Run commands on one or many servers | `exec`, `script`, `job` (long tasks), `shell` (people only) |
+| Read, edit and copy files; copy whole folders | `fs`, `upload`, `download`, `sync` |
+| Check health (39 ready-made checks, plus your own) | `facts`, `recipe` |
 | Manage services, logs, Docker, software, users, schedules | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
-| Test the network, reach private servers | `net`, `tunnel` |
-| Reach things behind VPNs, several at once without switching | `vpn`, `--via` |
-| Keep a list of databases, caches and storage | `conn` |
-| Query and back up databases (PostgreSQL, MySQL, SQLite) | `db` |
+| Test the network, reach private servers | `net`, `tunnel`, `--via` |
+| Reach things behind VPNs, several at once (WireGuard, OpenVPN, Tailscale, AnyConnect, GlobalProtect, Fortinet, Pulse, F5, ...) | `vpn` |
+| Keep a list of databases, caches, storage, clusters and registries | `conn` |
+| Query, back up and restore databases (PostgreSQL, MySQL, SQLite) | `db` |
 | Read and change caches (Redis, Valkey) | `cache` |
+| Files in S3, MinIO, R2 and on FTPS/SFTP servers | `storage`, `upload`, `download`, `sync` |
 | Kubernetes and Docker Swarm: status, logs, apply, restart, scale | `cluster` |
-| Container registries: tags, image details, clean up | `registry` |
-| Browse, download and upload files in object storage (S3, MinIO, R2, ...) | `storage`, `upload`, `download` |
-| See history and safety rules | `audit`, `policy` |
-
-What comes next: see the [roadmap](docs/design/vision.md).
+| Container registries: tags, image details, copy, clean up | `registry` |
+| History, safety rules and a health check of your setup | `audit`, `policy`, `doctor` |
 
 Every task, step by step, one page per feature: **[docs/features](docs/features/README.md)**.
-Help for any command: `komando <command> --help`.
+Help for any command: `komando <command> --help`. What comes next: the
+[roadmap](docs/design/vision.md).
 
 ## Safety, in one minute
 
-- Commands like `rm -rf /`, `reboot`, `DROP TABLE` or `FLUSHALL` are **blocked** unless a human allows them.
-- **Protected** servers and databases refuse changes without `--yes` (looking is still allowed; mark `exec` commands with `--read-only`).
+- Commands like `rm -rf /`, `reboot`, `DROP TABLE` or `FLUSHALL` are **blocked** unless a person allows them.
+- **Protected** servers and conns refuse changes without `--yes`. Looking is still allowed (mark read-only `exec` commands with `--read-only`).
 - Database queries and cache commands **only read** unless you add `--write`. For databases, the database itself enforces it.
-- `--dry-run` shows what *would* happen.
+- `--dry-run` shows what *would* happen, without changing anything.
 - File edits change exactly the text you name, never leave a half-written file, and can keep a backup.
-- If a server's identity changes, komando **refuses to connect**.
-- Everything is recorded: `komando audit`.
+- If a server's identity (host key) changes, komando **refuses to connect**.
+- When an AI agent asks for `--yes`, `--allow-dangerous` or `--reveal`, komando shows **you** a window to allow it once.
+- Everything is recorded: `komando audit`, and `komando audit verify` checks that nobody edited the record.
+
+More: [Safety](docs/features/safety.md) and [Security](SECURITY.md).
 
 ## Key terms
 
@@ -162,16 +172,12 @@ Help for any command: `komando <command> --help`.
 | Server | A computer (usually in the cloud) that runs your apps. |
 | Terminal / CLI | A window where you type commands instead of clicking. |
 | SSH | The secure way to log in to and control a Linux server remotely. |
-| Database | Where an app keeps its data in tables (PostgreSQL, MySQL, SQLite). |
-| Cache | A fast, temporary store an app uses to speed things up (Redis). |
-| Conn | komando's word for anything you connect to that isn't a server: a database, cache or storage bucket. |
-| AI agent | An AI that can run commands by itself to finish a task. |
-| SSH key | A pair of files that proves who you are; safer than a password. |
+| Conn | komando's word for anything you connect to that isn't a server: a database, cache, storage bucket, cluster or registry. |
+| Target | What a command works on: one name, a group (`@web`), a tag, or `all`. |
 | Flag | An option added to a command, like `--yes` or `--dry-run`. |
-| sudo | Running a command as the administrator. |
-| JSON | Structured text that programs read easily. |
+| AI agent | An AI that can run commands by itself to finish a task. |
 
-More in the [glossary](docs/features/glossary.md).
+Every other word is in the [glossary](docs/features/glossary.md).
 
 ## Contributing
 
