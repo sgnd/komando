@@ -826,7 +826,7 @@ func writeReplacing(dest string, fill func(tmp string) error) error {
 		return err
 	}
 	if err := os.Rename(tmp, dest); err != nil {
-		return out.Errf(out.ExitError, "FILE_ERROR", "", "%v", err)
+		return out.Errf(out.ExitError, "FILE_ERROR", "check that the folder is writable and has free space", "%v", err)
 	}
 	return nil
 }

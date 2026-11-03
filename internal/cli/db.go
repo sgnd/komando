@@ -79,7 +79,7 @@ SQL that starts with a -- comment: pass it after -- or with -f -.`,
 			case len(args) == 1 && file != "":
 				b, err := readFileOrStdin(file)
 				if err != nil {
-					return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "cannot read %s: %v", file, err)
+					return localFileErr("FILE_NOT_FOUND", err, "")
 				}
 				q = string(b)
 			default:

@@ -129,7 +129,7 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 		return exitCode(out.ExitRemote)
 	}
 	if err != nil {
-		return fail(out.Errf(out.ExitError, "TOOL_FAILED", "", "%s: %v", argv[0], err))
+		return fail(out.Errf(out.ExitError, "TOOL_FAILED", "check that "+argv[0]+" is installed: `komando doctor`", "%s: %v", argv[0], err))
 	}
 	audit(st, "db.shell", nil, "", true, rec)
 	return nil

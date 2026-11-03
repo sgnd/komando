@@ -85,7 +85,7 @@ deleting its entry under hooks in .claude/settings.json.`,
 				base, err = os.Getwd()
 			}
 			if err != nil {
-				return out.Errf(out.ExitError, "NO_FOLDER", "", "cannot find the folder to install into: %v", err)
+				return out.Errf(out.ExitError, "NO_FOLDER", "set HOME, or run it from the project folder", "cannot find the folder to install into: %v", err)
 			}
 			var files []skillFile
 			for _, d := range skillDirs {

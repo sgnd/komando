@@ -265,7 +265,7 @@ func toErr(err error) error {
 		return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando conn test NAME` to check reachability", "%v", err)
 	}
 	if r.Code != "" {
-		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "", "%s: %s", r.Code, r.Message)
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%s: %s", r.Code, r.Message)
 	}
-	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "", "%v", err)
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%v", err)
 }

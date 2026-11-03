@@ -244,7 +244,7 @@ func (o *logOpts) followCheck(ctx context.Context, target string, sudo bool) err
 			continue // the stream reports connection problems itself
 		}
 		if _, e := o.result(r.Value.(*sshx.RunResult)); e != nil {
-			e.Message = r.Host.Name + ": " + e.Message
+			e.Message = withHost(r.Host.Name, e.Message)
 			return e
 		}
 	}

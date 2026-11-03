@@ -928,7 +928,7 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 			}
 			b, err := readFileOrStdin(file)
 			if err != nil {
-				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "%v", err)
+				return localFileErr("FILE_NOT_FOUND", err, "")
 			}
 			st, err := loadState()
 			if err != nil {
@@ -1511,7 +1511,7 @@ func runKubectl(ctx context.Context, st *store.State, c *store.Conn, name string
 	}
 	x, err := cfg.Resolve("")
 	if err != nil {
-		return out.Errf(out.ExitUsage, "KUBECONFIG", "", "%v", err)
+		return out.Errf(out.ExitUsage, "KUBECONFIG", "import it again with `komando import kubeconfig`", "%v", err)
 	}
 	if a.Dial != nil {
 		u, err := url.Parse(x.Cluster.Server)

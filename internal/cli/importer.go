@@ -371,7 +371,7 @@ func (p *importPlan) addConn(name, raw, note string) {
 func readSource(path string) ([]byte, error) {
 	b, err := readFileOrStdin(path)
 	if err != nil {
-		return nil, out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the file's path after the source name", "%v", err)
+		return nil, localFileErr("FILE_NOT_FOUND", err, "give the file's path after the source name")
 	}
 	return b, nil
 }

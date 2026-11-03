@@ -251,7 +251,7 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 			fmt.Fprint(p.W, SafeText(p.Redact(renderText(data))))
 		}
 		if softErr != nil {
-			fmt.Fprintf(os.Stderr, "error: %s\n", SafeText(p.Redact(softErr.Message)))
+			fmt.Fprintf(os.Stderr, "error [%s]: %s\n", softErr.Code, SafeText(p.Redact(softErr.Message)))
 			if softErr.Hint != "" {
 				fmt.Fprintf(os.Stderr, "hint: %s\n", softErr.Hint)
 			}

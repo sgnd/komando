@@ -4,6 +4,18 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Clearer errors
+
+- Every error now has a hint with the next step; a test keeps it that way.
+- A file missing on this computer reads "./x does not exist on this
+  computer" instead of Go's "stat ./x: no such file or directory".
+- `cp ./missing web1:/tmp/` no longer suggests renaming the destination; that
+  hint is only for a target komando does not know.
+- A failure on one server no longer names it twice ("web1: … for web1").
+- In text, an error from many servers shows its code too
+  (`error [PARTIAL_FAILURE]: …`), like any other error.
+- An unexpected file error is `FILE_ERROR`, not `REMOTE_ERROR`.
+
 ### Feels like the native tools (an end-to-end round over every command)
 
 - `--dry-run` is never stopped by a safety rule: it shows the plan, and

@@ -407,7 +407,7 @@ func swarmGet(ctx context.Context, t clusterTarget, typ, name string) (any, erro
 	}
 	rows := jsonLines(s)
 	if len(rows) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "", "%s %s not found", kind, name)
+		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list what exists with `komando cluster ls TARGET "+kind+"s`", "%s %s not found", kind, name)
 	}
 	return rows[0], nil
 }
@@ -524,7 +524,7 @@ func swarmInspect(ctx context.Context, t clusterTarget, service string) (map[str
 	}
 	rows := jsonLines(s)
 	if len(rows) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "", "service %s not found", service)
+		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list services with `komando cluster ls TARGET services`", "service %s not found", service)
 	}
 	return rows[0], nil
 }

@@ -255,7 +255,7 @@ func runDump(ctx context.Context, connExpr, to string, o dumpOpts) error {
 			defer closeDB()
 			// the connection stays mode=ro; query_only would also block writing the copy
 			if _, err := db.ExecContext(ctx, "PRAGMA query_only = 0"); err != nil {
-				return out.Errf(out.ExitRemote, "DB_ERROR", "", "%v", err)
+				return out.Errf(out.ExitRemote, "DB_ERROR", "check that the database file is not locked by another program", "%v", err)
 			}
 			if _, err := db.ExecContext(ctx, "VACUUM INTO ?", tmp); err != nil {
 				return out.Errf(out.ExitRemote, "DB_ERROR", "the database may be locked or corrupt; try again or check the file", "backup failed: %v", err)
@@ -324,7 +324,7 @@ func runRestore(ctx context.Context, connExpr, from string) error {
 	}
 	fi, err := os.Stat(from)
 	if err != nil {
-		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "cannot read %s: %v", from, err)
+		return localFileErr("FILE_NOT_FOUND", err, "give the path of a backup made by `komando db dump`")
 	}
 	runsOn := "local"
 	if c.Via != "" {
@@ -363,7 +363,7 @@ func runRestore(ctx context.Context, connExpr, from string) error {
 func isPgArchive(path string) (bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return false, out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "cannot read %s: %v", path, err)
+		return false, localFileErr("FILE_NOT_FOUND", err, "")
 	}
 	defer f.Close()
 	head := make([]byte, 5)
@@ -375,7 +375,7 @@ func isPgArchive(path string) (bool, error) {
 func withBackup(path string, fn func(io.Reader) error) error {
 	f, err := os.Open(path)
 	if err != nil {
-		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "cannot read %s: %v", path, err)
+		return localFileErr("FILE_NOT_FOUND", err, "")
 	}
 	defer f.Close()
 	var r io.Reader = f
@@ -434,7 +434,7 @@ func writeAtomic(path string, fill func(tmp string) error) error {
 		if errors.Is(err, os.ErrExist) {
 			return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick a new file name; existing files are never overwritten", "%s already exists", path)
 		}
-		return out.Errf(out.ExitError, "FILE_ERROR", "", "%v", err)
+		return out.Errf(out.ExitError, "FILE_ERROR", "check that the folder is writable and has free space", "%v", err)
 	}
 	return nil
 }
@@ -543,7 +543,7 @@ func toolErr(ctx context.Context, tool, where, stderr string, err error) error {
 	if errors.As(err, &ee) {
 		return toolFailed(tool, where, ee.ExitCode(), stderr, "NAME")
 	}
-	return out.Errf(out.ExitError, "TOOL_FAILED", "", "%s on %s: %v", tool, where, err)
+	return out.Errf(out.ExitError, "TOOL_FAILED", "check that "+tool+" is installed and works: `komando doctor`", "%s on %s: %v", tool, where, err)
 }
 
 // toolHint explains the failures people actually hit with dump tools.

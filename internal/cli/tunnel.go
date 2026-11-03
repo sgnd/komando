@@ -302,7 +302,7 @@ func tunnelStartCmd() *cobra.Command {
 						return out.Errf(out.ExitConflict, "PORT_IN_USE", "the port may be taken on "+hostName+" (pick another, or 0 for a free one), or sshd there has AllowTcpForwarding off",
 							"%s refused to listen on %s: %s", hostName, ts.BindAddr, msg)
 					}
-					return out.Errf(out.ExitConnect, "TUNNEL_FAILED", "", "%s", msg)
+					return out.Errf(out.ExitConnect, "TUNNEL_FAILED", "check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right", "%s", msg)
 				}
 				time.Sleep(150 * time.Millisecond)
 			}
