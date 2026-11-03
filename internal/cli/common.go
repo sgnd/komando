@@ -257,11 +257,30 @@ func protectedHost(st *store.State, h *store.Host) bool {
 		return true
 	}
 	for _, o := range st.Hosts {
-		if o.Protected && strings.EqualFold(o.Address, h.Address) && o.EffectivePort() == h.EffectivePort() {
+		if o.Protected && sameHostName(o.Address, h.Address) && o.EffectivePort() == h.EffectivePort() {
 			return true
 		}
 	}
 	return false
+}
+
+// sameHostName compares host names the way DNS does: case does not matter,
+// and "db.example." (the fully qualified form) is "db.example".
+func sameHostName(a, b string) bool {
+	return normHost(a) == normHost(b)
+}
+
+func normHost(h string) string {
+	return strings.TrimSuffix(strings.ToLower(strings.Trim(h, "[]")), ".")
+}
+
+// normHostPort is host:port with the host normalised.
+func normHostPort(addr string) string {
+	h, p, err := net.SplitHostPort(addr)
+	if err != nil {
+		return normHost(addr)
+	}
+	return net.JoinHostPort(normHost(h), p)
 }
 
 // protectedConn is protectedHost for conns: a conn pointing at the same
@@ -282,9 +301,9 @@ func protectedConn(st *store.State, c *store.Conn) bool {
 		case t.Kind.File:
 			return "file " + t.Path
 		case t.Bucket != "":
-			return "bucket " + strings.ToLower(t.Address) + "/" + t.Bucket
+			return "bucket " + normHostPort(t.Address) + "/" + t.Bucket
 		}
-		return t.Kind.Family + " " + strings.ToLower(t.Address)
+		return t.Kind.Family + " " + normHostPort(t.Address)
 	}
 	k := key(c)
 	for _, o := range st.Conns {
