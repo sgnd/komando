@@ -65,13 +65,14 @@ If an AI agent must know about the change, update `internal/cli/skill.md` and co
    ```bash
    make lint     # gofmt, go vet, staticcheck
    make test     # unit tests
+   make security # known vulnerabilities (govulncheck)
    make e2e      # needs Docker; run it when the change talks to a server or service
    ```
 
    VPN changes also have `make e2e-openvpn` and `make e2e-vpnclients`.
 
 3. Add a line under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md) if users will notice the change.
-4. Open the pull request. [GitHub](.github/workflows/ci.yml) runs lint, unit tests and the end-to-end tests again.
+4. Open the pull request. [GitHub](.github/workflows/ci.yml) runs lint, unit tests, the security check and the end-to-end tests again.
 
 ## Release a version
 
@@ -84,7 +85,7 @@ Every version is a GitHub release, and `install.sh` only downloads releases. `ma
    git tag vX.Y.Z && git push origin main vX.Y.Z
    ```
 
-3. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux and macOS (amd64 and arm64) and publishes the release. If a test fails, nothing is published: fix it, delete the tag (`git push origin :vX.Y.Z`) and tag again.
+3. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux and macOS (amd64 and arm64), signs their build provenance and publishes the release. If a test fails, nothing is published: fix it, delete the tag (`git push origin :vX.Y.Z`) and tag again.
 
 ## Writing
 

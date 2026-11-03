@@ -33,6 +33,7 @@ type globalFlags struct {
 	dryRun         bool
 	yes            bool
 	allowDangerous bool
+	reveal         bool
 	timeout        time.Duration
 	connectTimeout time.Duration
 	parallel       int
@@ -81,6 +82,9 @@ func Execute() int {
 	}
 	if !errors.As(err, &oe) && isUsageErr(err) {
 		err = out.Usage("%s", err.Error())
+	}
+	if errors.As(err, &oe) {
+		approvalHint(oe)
 	}
 	return out.P.Fail(name, err)
 }
@@ -151,6 +155,7 @@ func checkAuditWritable(cmd *cobra.Command) error {
 }
 
 func newRoot() *cobra.Command {
+	resetApproval()
 	root := &cobra.Command{
 		Use:   "komando",
 		Short: "One safe command line for DevOps: servers, databases, caches and storage",
@@ -189,6 +194,10 @@ Start here:  komando guide      (agent playbook)
 			out.P.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
 			out.P.Secrets = vaultValues
+			// AI agents see passwords, keys and tokens as [hidden]; people and
+			// scripts see what the server sent (vault values are hidden for all)
+			// (`secret get --reveal` stays for people only: it never asks)
+			out.P.Mask = isAgent() && (commandName(cmd) == "secret.get" || !revealOK())
 			if cmd.Name() != "serve" && !g.dryRun {
 				netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
 			}
@@ -208,6 +217,7 @@ Start here:  komando guide      (agent playbook)
 	pf.BoolVar(&g.dryRun, "dry-run", false, "show what would run without changing anything")
 	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm changes to protected servers and conns, and to safety settings")
 	pf.BoolVar(&g.allowDangerous, "allow-dangerous", false, "allow commands matching destructive-command policy")
+	pf.BoolVar(&g.reveal, "reveal", false, "show passwords, keys and tokens in output (hidden from AI agents unless a person allows it)")
 	pf.DurationVar(&g.timeout, "timeout", 0, "per-host command timeout (default from settings, 5m)")
 	pf.DurationVar(&g.connectTimeout, "connect-timeout", 0, "SSH connect timeout (default from settings, 15s)")
 	pf.IntVarP(&g.parallel, "parallel", "P", 0, "max hosts in parallel (default from settings, 10)")

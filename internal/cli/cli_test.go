@@ -12,6 +12,12 @@ import (
 func TestMain(m *testing.M) {
 	// never wait for a confirmation prompt, even when run from a terminal
 	interactive = func() bool { return false }
+	// tests run as a script, even inside an AI agent's shell; the ones about
+	// agents set the variables themselves
+	for _, a := range agentVars {
+		os.Unsetenv(a.env)
+	}
+	askOnScreen = func(string) (bool, bool) { panic("a test opened an approval window") }
 	os.Exit(m.Run())
 }
 

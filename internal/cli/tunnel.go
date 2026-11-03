@@ -67,7 +67,7 @@ func guardBind(t tunnelSpec) error {
 	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
 		return nil
 	}
-	if g.yes {
+	if yesOK() {
 		return nil
 	}
 	where := "this computer"

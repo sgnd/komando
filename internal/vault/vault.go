@@ -1,6 +1,7 @@
 // Package vault stores secrets (passwords, key passphrases, tokens) encrypted
-// with AES-256-GCM. The key is derived with scrypt from $KOMANDO_VAULT_PASS
-// when set, otherwise from a random 32-byte key file (vault.key, mode 0600).
+// with AES-256-GCM, each bound to its name. The key is derived with scrypt
+// from $KOMANDO_VAULT_PASS when set (N=2^17, r=8, p=1: the OWASP minimum),
+// otherwise from a random 32-byte key file (vault.key, mode 0600).
 package vault
 
 import (
@@ -9,6 +10,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,9 +29,19 @@ import (
 type file struct {
 	Version int               `json:"version"`
 	Salt    []byte            `json:"salt"`
-	Mode    string            `json:"mode"` // keyfile | passphrase
+	Mode    string            `json:"mode"`               // keyfile | passphrase
+	ScryptN int               `json:"scrypt_n,omitempty"` // scrypt cost; 0 is the old 2^15
 	Entries map[string]*entry `json:"entries"`
 }
+
+// legacyN is the scrypt cost of vaults made before it was stored. A random
+// key file needs no more; a passphrase vault moves to PassphraseN on its next
+// change (upgrade).
+const legacyN = 1 << 15
+
+// PassphraseN is the scrypt cost for passphrase vaults (OWASP Password
+// Storage Cheat Sheet: N=2^17, r=8, p=1). Tests lower it.
+var PassphraseN = 1 << 17
 
 type entry struct {
 	Nonce     []byte    `json:"nonce"`
@@ -80,9 +92,11 @@ func load() (*file, error) {
 	b, err := os.ReadFile(vaultPath())
 	if errors.Is(err, os.ErrNotExist) {
 		f.Salt = make([]byte, 16)
-		_, _ = rand.Read(f.Salt)
+		if _, err := rand.Read(f.Salt); err != nil {
+			return nil, err
+		}
 		if Passphrase() != "" {
-			f.Mode = "passphrase"
+			f.Mode, f.ScryptN = "passphrase", PassphraseN
 		} else {
 			f.Mode = "keyfile"
 		}
@@ -108,6 +122,11 @@ func (f *file) save() error {
 	return store.WriteFileAtomic(vaultPath(), b, 0o600)
 }
 
+var (
+	aeadMu    sync.Mutex
+	aeadCache = map[string]cipher.AEAD{} // scrypt is slow on purpose: once per process
+)
+
 func (f *file) aead() (cipher.AEAD, error) {
 	var secret []byte
 	switch f.Mode {
@@ -122,7 +141,9 @@ func (f *file) aead() (cipher.AEAD, error) {
 		b, err := os.ReadFile(kp)
 		if errors.Is(err, os.ErrNotExist) {
 			b = make([]byte, 32)
-			_, _ = rand.Read(b)
+			if _, err := rand.Read(b); err != nil {
+				return nil, err
+			}
 			if err := store.WriteFileAtomic(kp, b, 0o600); err != nil {
 				return nil, err
 			}
@@ -131,7 +152,17 @@ func (f *file) aead() (cipher.AEAD, error) {
 		}
 		secret = b
 	}
-	key, err := scrypt.Key(secret, f.Salt, 1<<15, 8, 1, 32)
+	n := f.ScryptN
+	if n == 0 {
+		n = legacyN
+	}
+	id := fmt.Sprintf("%s/%x/%d/%x", f.Mode, f.Salt, n, sha256.Sum256(secret))
+	aeadMu.Lock()
+	defer aeadMu.Unlock()
+	if a, ok := aeadCache[id]; ok {
+		return a, nil
+	}
+	key, err := scrypt.Key(secret, f.Salt, n, 8, 1, 32)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +170,85 @@ func (f *file) aead() (cipher.AEAD, error) {
 	if err != nil {
 		return nil, err
 	}
-	return cipher.NewGCM(blk)
+	a, err := cipher.NewGCM(blk)
+	if err == nil {
+		aeadCache[id] = a
+	}
+	return a, err
+}
+
+// upgrade re-encrypts a passphrase vault made with a weaker scrypt cost,
+// with a new salt, before it is changed.
+func (f *file) upgrade() error {
+	if f.Mode != "passphrase" || f.ScryptN >= PassphraseN {
+		return nil
+	}
+	if len(f.Entries) == 0 {
+		f.ScryptN = PassphraseN
+		return nil
+	}
+	old, err := f.aead()
+	if err != nil {
+		return err
+	}
+	plain := map[string][]byte{}
+	for name, e := range f.Entries {
+		pt, err := old.Open(nil, e.Nonce, e.Data, []byte(name))
+		if err != nil {
+			return fmt.Errorf("cannot decrypt secret %q (wrong KOMANDO_VAULT_PASS?)", name)
+		}
+		plain[name] = pt
+	}
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		return err
+	}
+	f.Salt, f.ScryptN = salt, PassphraseN
+	a, err := f.aead()
+	if err != nil {
+		return err
+	}
+	for name, pt := range plain {
+		nonce := make([]byte, a.NonceSize())
+		if _, err := rand.Read(nonce); err != nil {
+			return err
+		}
+		f.Entries[name].Nonce, f.Entries[name].Data = nonce, a.Seal(nil, nonce, pt, []byte(name))
+	}
+	return nil
+}
+
+// Strength describes the vault's protection for `komando doctor`: the mode,
+// the scrypt cost and, for a passphrase, whether it is long enough (NIST SP
+// 800-63B asks for 15 characters when it is the only factor).
+type Strength struct {
+	Mode       string `json:"mode"`
+	ScryptN    int    `json:"scrypt_n"`
+	ShortPass  bool   `json:"short_passphrase,omitempty"`
+	OldKDF     bool   `json:"old_kdf,omitempty"`
+	NoVaultYet bool   `json:"no_vault_yet,omitempty"`
+}
+
+// MinPassphrase is the shortest passphrase doctor accepts without a warning.
+const MinPassphrase = 15
+
+func Check() (Strength, error) {
+	if _, err := os.Stat(vaultPath()); errors.Is(err, os.ErrNotExist) {
+		return Strength{NoVaultYet: true}, nil
+	}
+	f, err := load()
+	if err != nil {
+		return Strength{}, err
+	}
+	s := Strength{Mode: f.Mode, ScryptN: f.ScryptN}
+	if s.ScryptN == 0 {
+		s.ScryptN = legacyN
+	}
+	if f.Mode == "passphrase" {
+		s.OldKDF = s.ScryptN < PassphraseN
+		s.ShortPass = len([]rune(Passphrase())) < MinPassphrase
+	}
+	return s, nil
 }
 
 func Set(name, value string) error {
@@ -150,12 +259,17 @@ func Set(name, value string) error {
 	if err != nil {
 		return err
 	}
+	if err := f.upgrade(); err != nil {
+		return err
+	}
 	a, err := f.aead()
 	if err != nil {
 		return err
 	}
 	nonce := make([]byte, a.NonceSize())
-	_, _ = rand.Read(nonce)
+	if _, err := rand.Read(nonce); err != nil {
+		return err
+	}
 	f.Entries[name] = &entry{Nonce: nonce, Data: a.Seal(nil, nonce, []byte(value), []byte(name)), UpdatedAt: time.Now().UTC()}
 	return f.save()
 }

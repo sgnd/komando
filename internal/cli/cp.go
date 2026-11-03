@@ -111,6 +111,8 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 		if _, err := os.Stat(srcP); err != nil {
 			return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "", "local %s: %v", srcP, err)
 		}
+	} else if err := guardSensitiveCopy(srcP); err != nil {
+		return err // before connecting: a file named like a secret (a folder's files are checked one by one)
 	}
 	if g.dryRun {
 		out.P.Print(name, map[string]any{"src": src, "dst": dst, "hosts": hostNames(hosts), "direction": map[bool]string{true: "upload", false: "download"}[dstRemote]}, nil)
@@ -246,6 +248,9 @@ func download(sc *sftp.Client, src, dst string, recursive, overwrite bool) (xfer
 		dst = filepath.Join(dst, path.Base(src))
 	}
 	if !fi.IsDir() {
+		if err := guardSensitiveCopy(src); err != nil {
+			return xferStats{}, err
+		}
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return xferStats{}, err
 		}
@@ -274,6 +279,10 @@ func download(sc *sftp.Client, src, dst string, recursive, overwrite bool) (xfer
 			continue
 		}
 		if !w.Stat().Mode().IsRegular() {
+			continue
+		}
+		if guardSensitiveCopy(w.Path()) != nil {
+			out.P.Skip(out.Skipped{Name: w.Path(), Kind: "file", Reason: "holds secrets; an AI agent needs --reveal, which the user allows, to copy it here"})
 			continue
 		}
 		n, _, err := fetchFile(sc, w.Path(), lp, w.Stat().Mode().Perm(), overwrite)
