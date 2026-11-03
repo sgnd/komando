@@ -867,5 +867,5 @@ func followLogs(ctx context.Context, target, command string, sudo bool) error {
 	if g.timeout == 0 {
 		g.timeout = 24 * time.Hour // the person stops it with Ctrl-C
 	}
-	return runFleet(ctx, "logs", target, command, nil, execOpts{sudo: sudo, stream: true}, false)
+	return runFleet(ctx, "logs", target, command, nil, execOpts{sudo: sudo, stream: true, follow: true}, false)
 }

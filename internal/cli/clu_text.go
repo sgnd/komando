@@ -77,14 +77,14 @@ func tableOf(cols [][2]string, items []map[string]any) string {
 	for _, it := range items {
 		row := make([]string, len(cols))
 		for i, c := range cols {
-			row[i] = cell(it[c[1]])
+			row[i] = cluCell(it[c[1]])
 		}
 		rows = append(rows, row)
 	}
 	return textTable(headers, rows)
 }
 
-func cell(v any) string {
+func cluCell(v any) string {
 	switch x := v.(type) {
 	case nil:
 		return ""
@@ -116,13 +116,13 @@ func (d describeData) Text() string {
 	if sum, ok := d["summary"].(map[string]any); ok {
 		keys := make([]string, 0, len(sum))
 		for k := range sum {
-			if k != "name" && sum[k] != nil && cell(sum[k]) != "" {
+			if k != "name" && sum[k] != nil && cluCell(sum[k]) != "" {
 				keys = append(keys, k)
 			}
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			fmt.Fprintf(&b, "  %s: %s\n", strings.ReplaceAll(k, "_", " "), cell(sum[k]))
+			fmt.Fprintf(&b, "  %s: %s\n", strings.ReplaceAll(k, "_", " "), cluCell(sum[k]))
 		}
 	}
 	section := func(title string, cols [][2]string, key string) {
@@ -166,7 +166,7 @@ func (d statusData) Text() string {
 	if ns := str(d["namespace"]); ns != "" {
 		where += ", namespace " + ns
 	}
-	fmt.Fprintf(&b, "%s: version %s, %v of %v nodes ready", where, cell(d["version"]), d["nodes_ready"], d["nodes"])
+	fmt.Fprintf(&b, "%s: version %s, %v of %v nodes ready", where, cluCell(d["version"]), d["nodes_ready"], d["nodes"])
 	if n, ok := d["services"]; ok {
 		fmt.Fprintf(&b, ", %v services", n)
 	}

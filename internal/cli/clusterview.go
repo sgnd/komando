@@ -238,12 +238,12 @@ func describeMore(kind string, o map[string]any) map[string]any {
 		var ports []string
 		for _, p := range pl {
 			m, _ := p.(map[string]any)
-			s := fmt.Sprintf("%v->%v/%v", cell(m["port"]), cell(firstAny(m["targetPort"], m["port"])), firstAny(m["protocol"], "TCP"))
+			s := fmt.Sprintf("%v->%v/%v", cluCell(m["port"]), cluCell(firstAny(m["targetPort"], m["port"])), firstAny(m["protocol"], "TCP"))
 			if n := str(m["name"]); n != "" {
 				s = n + " " + s
 			}
 			if np := m["nodePort"]; np != nil {
-				s += fmt.Sprintf(" (node port %v)", cell(np))
+				s += fmt.Sprintf(" (node port %v)", cluCell(np))
 			}
 			ports = append(ports, s)
 		}

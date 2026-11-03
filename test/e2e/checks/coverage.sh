@@ -60,6 +60,7 @@ check "storage link" True "$($K storage link bucket "$C/hosts.json" | jget 'd["d
 # system modules (the lab containers run without systemd: svc must say so)
 check "svc list fails clearly without systemd" False "$($K svc list direct | ok || true)"
 check "svc status fails clearly without systemd" False "$($K svc status direct ssh | ok || true)"
+check "svc logs fails clearly without systemd" NO_SYSTEMD "$($K svc logs direct ssh | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
 for a in start stop restart reload enable disable; do
   check "svc $a on a protected host previews" PROTECTED_HOST "$($K svc $a target nginx --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
 done

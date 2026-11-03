@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"regexp"
 	"strconv"
@@ -73,7 +74,7 @@ apply to ` + "`docker raw`" + `, ` + "`docker compose`" + ` and ` + "`cluster ru
 				if _, err := guardDocker(append([]string{action}, args[1:]...)); err != nil {
 					return err
 				}
-				return runOne(cmd.Context(), "docker."+action, args[0], "docker "+action+" "+quoteAll(args[1:]), sudo, true)
+				return runDocker(cmd.Context(), "docker."+action, args[0], "docker "+action+" "+quoteAll(args[1:]), sudo, true)
 			},
 		})
 	}
@@ -155,7 +156,7 @@ policy checks the command; --read-only declares that it only looks.`,
 				c += " -f " + sshx.Q(file)
 			}
 			c += " " + quoteAll(args[1:]) + " 2>&1"
-			return runOne(cmd.Context(), "docker.compose", args[0], c, sudo, mutating)
+			return runDocker(cmd.Context(), "docker.compose", args[0], c, sudo, mutating)
 		},
 	}
 	compose.Flags().StringVarP(&file, "file", "f", "", "compose file")
@@ -169,7 +170,7 @@ policy checks the command; --read-only declares that it only looks.`,
 			if err != nil {
 				return err
 			}
-			return runOne(cmd.Context(), "docker.raw", args[0], "docker "+quoteAll(args[1:]), sudo, mutating)
+			return runDocker(cmd.Context(), "docker.raw", args[0], "docker "+quoteAll(args[1:]), sudo, mutating)
 		},
 	}
 	c.AddCommand(logs, inspect, execC, compose, raw)
@@ -202,6 +203,18 @@ var dockerNotFound = regexp.MustCompile(`(?i)no such (container|service|object|i
 
 // dockerErr turns a failed docker command's message into an error with the
 // right exit code: a missing object is "not found" (3), the rest remote (5).
+// runDocker runs a docker command on servers; when docker fails, its words
+// become a typed error (a missing container is NOT_FOUND, exit 3). `docker
+// exec` does not use it: there the exit code is the container command's.
+func runDocker(ctx context.Context, name, target, command string, sudo, mutating bool) error {
+	return runFleet(ctx, name, target, command, nil, execOpts{sudo: sudo, exitMap: func(code int, stderr string) *out.Error {
+		if code == 0 {
+			return nil
+		}
+		return dockerErr(stderr, code)
+	}}, mutating)
+}
+
 func dockerErr(msg string, code int) *out.Error {
 	var lines []string
 	for _, l := range strings.Split(msg, "\n") {

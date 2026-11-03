@@ -93,7 +93,7 @@ func jsonLines(s string) []map[string]any {
 }
 
 // sections splits output written as parts separated by "--" lines.
-func sections(s string, n int) []string {
+func swarmSections(s string, n int) []string {
 	parts := make([]string, n)
 	i := 0
 	for _, line := range strings.Split(s, "\n") {
@@ -153,7 +153,7 @@ func swarmList(ctx context.Context, t clusterTarget, kind, selector string, limi
 		if err != nil {
 			return nil, err
 		}
-		p := sections(s, 2)
+		p := swarmSections(s, 2)
 		items = swarmServices(jsonLines(p[0]), jsonLines(p[1]))
 	case "task":
 		s, err := swarmExec(ctx, st, t, "ids=$(docker service ls -q); [ -z \"$ids\" ] || docker service ps $ids --no-trunc --format '{{json .}}'", nil)
@@ -257,7 +257,7 @@ ids=$(docker service ls -q); [ -z "$ids" ] || docker service ps $ids --no-trunc 
 	if err != nil {
 		return nil, err
 	}
-	p := sections(s, 4)
+	p := swarmSections(s, 4)
 	return swarmHealth(t.host.Name, strings.TrimSpace(p[0]), swarmNodes(jsonLines(p[1])), jsonLines(p[2]), swarmTasks(jsonLines(p[3]))), nil
 }
 
@@ -319,7 +319,7 @@ func swarmDescribe(ctx context.Context, t clusterTarget, name string) (any, erro
 	if err != nil {
 		return nil, err
 	}
-	p := sections(s, 3)
+	p := swarmSections(s, 3)
 	ins := jsonLines(p[0])
 	if len(ins) == 0 {
 		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list the services with `komando cluster ls "+t.host.Name+" services`", "service %s not found", name)
@@ -599,7 +599,7 @@ func swarmWait(ctx context.Context, t clusterTarget, service string, wait time.D
 		if err != nil {
 			return nil, err
 		}
-		p := sections(s, 3)
+		p := swarmSections(s, 3)
 		var upd struct{ State, Message string }
 		_ = json.Unmarshal([]byte(strings.TrimSpace(p[0])), &upd)
 		replicas := ""

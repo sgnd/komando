@@ -407,7 +407,7 @@ func (h historyData) Text() string {
 		if r["current"] == true {
 			cur = "*"
 		}
-		cells = append(cells, []string{fmt.Sprint(r["revision"]), cur, cell(r["images"]), str(r["age"])})
+		cells = append(cells, []string{fmt.Sprint(r["revision"]), cur, cluCell(r["images"]), str(r["age"])})
 	}
 	return textTable([]string{"revision", "current", "images", "age"}, cells)
 }
