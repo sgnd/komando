@@ -4,6 +4,52 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Feels like the native tools (an end-to-end round over every command)
+
+- `--dry-run` is never stopped by a safety rule: it shows the plan, and
+  `meta.would_be_blocked` (in text: "without --dry-run this stops here")
+  names the stop the real run would hit. Text dry runs start with
+  "dry run: nothing was changed".
+- A typo in a subcommand (`komando host lst`) fails with exit 2 and "did you
+  mean list?" instead of printing help and exiting 0. Missing or extra
+  arguments show the usage line and an example, and `-o text` now applies
+  to these errors too.
+- A person who answers no at a `[y/N]` prompt sees "cancelled … nothing was
+  changed" instead of advice to re-run with `--yes`.
+- A protected server or conn stays protected under another spelling of its
+  address (upper case, a trailing dot).
+- Text output shows server and database content safely: colours stay, but
+  other terminal escape sequences (window title, clipboard writes) and
+  control characters are shown as `\e` and `\xNN`.
+- Many skipped targets print as one line; `KOMANDO_OUTPUT` with a wrong
+  value names the variable; negative `-P`, `--timeout`, `--max-output` are
+  refused.
+- Masking for AI agents no longer hides settings and plain values
+  (`max_tokens: 4096`, `password_min_length=12`, URLs, paths, YAML
+  structure such as `secretKeyRef: {...}`), and a token never runs into the
+  next line.
+- cron: IDs are matched exactly (an ID with a dot could delete other
+  entries), a newline in COMMAND is refused, schedules are checked here,
+  `%` is escaped, crontab read errors are reported instead of shown as an
+  empty list, `--user` uses sudo, `cron rm` says how many it removed.
+- pkg: package names that start with `-` or hold patterns are refused
+  (option injection), removing essential packages (openssh-server, sudo,
+  systemd, libc ...) needs `--allow-dangerous`, `pkg installed` returns
+  rows with installed true/false, `upgradable --refresh`, dnf/yum
+  `upgradable` no longer fails when nothing is pending, and output and the
+  audit log show `pkg install tree` instead of a long script.
+- user: `user list` works on Debian and Alpine, `user unlock`, `--pubkey` is
+  checked, `--shell` applies to existing users.
+- net: `net check` fails (exit 5) on a closed port like `nc -z`, accepts
+  `[IPv6]:port` and checks the port range; `net http` reports no answer as
+  NO_RESPONSE and takes `--expect 200` or `2xx`; `net dns` fails with
+  NXDOMAIN (exit 3) when a name does not resolve.
+- The agent guard no longer blocks setting komando's variables, quoted
+  heredocs, or `|` inside quotes; reading through them still is.
+- e2e: every one of the 195 commands now runs at least once
+  (`test/e2e/checks/`), and `E2E_HOME` keeps a lab inventory to try
+  commands by hand.
+
 ### Secrets stay away from AI agents
 
 - A person allows what an AI agent asks for: when Claude Code, Codex, Gemini

@@ -48,7 +48,9 @@ runs itself is not connected: ask the human to connect it.
 
 ## 4. Change things safely
 
-1. Preview: add `--dry-run` to see the exact remote command and whether it would be blocked.
+1. Preview: add `--dry-run` to see the exact remote command. It is never blocked; when the
+   real run would stop (protected target, destructive command), `meta.would_be_blocked`
+   says which stop, so you can show the human the plan before asking.
 2. Edit config with `fs replace` (exact match, fails on 0 or >1 matches) and `--backup`:
    `komando fs replace web1 /etc/nginx/nginx.conf --old '...' --new '...' --sudo --backup`
 3. Validate before reload: `komando recipe run nginx-test web1` (or `sshd -t`, `apachectl configtest`).
