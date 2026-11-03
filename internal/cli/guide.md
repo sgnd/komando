@@ -104,8 +104,11 @@ Anything that may exceed ~2 minutes (upgrades, backups, builds, migrations):
 ```bash
 komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'   # returns job id at once
 komando job logs <id> --offset <next_offset>     # read only new output
-komando job wait <id> --wait-timeout 10m         # blocks; exit code mirrors the job
+komando job wait <id> --timeout 10m              # blocks; exit code mirrors the job
 ```
+
+A process started with `&` inside `komando exec` ends with that command. Anything
+that must keep running (a temporary web server, a watcher) is a `job start`.
 
 ## 7. Guardrails (do not fight them)
 
