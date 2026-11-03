@@ -97,6 +97,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   status` dials SOCKS and system VPNs; `vpn up` checks a WireGuard tunnel
   really answers; `vpn edit`; VPN errors keep their own code through SSH.
 - `facts` knows containers (init, virt, IPs without /len).
+- `storage link --endpoint https://PUBLIC-NAME` signs a link for the address
+  people use when komando reaches the storage through `--via`.
+- `docker logs` shows times only with `--timestamps`, like docker and
+  kubectl; a failing command on one server states its error once.
 - e2e: every one of the 195 commands now runs at least once
   (`test/e2e/checks/`), and `E2E_HOME` keeps a lab inventory to try
   commands by hand.

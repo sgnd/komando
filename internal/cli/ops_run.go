@@ -76,6 +76,9 @@ func (d opsData) Text() string {
 		if r.Stdout != nil {
 			body = *r.Stdout
 		}
+		if !r.OK && r.Stdout == nil && !strings.Contains(strings.TrimSpace(body), "\n") {
+			body = "" // a table with only its header says nothing next to the error
+		}
 		sb.WriteString(indentLines(body, indent))
 		for _, w := range r.Warnings {
 			if multi {
@@ -91,7 +94,7 @@ func (d opsData) Text() string {
 				fmt.Fprintln(os.Stderr, out.SafeText(out.P.Redact(r.Stderr)))
 			}
 		}
-		if r.Error != nil {
+		if r.Error != nil && multi { // one server: the closing line says it once
 			fmt.Fprintf(&sb, "%serror [%s]: %s\n", indent, r.Error.Code, r.Error.Message)
 			if r.Error.Hint != "" {
 				fmt.Fprintf(&sb, "%shint: %s\n", indent, r.Error.Hint)
@@ -156,6 +159,7 @@ func runOps(ctx context.Context, spec opsSpec) error {
 	})
 	data := opsData{Command: shown, DryRun: g.dryRun, Results: []opsRow{}}
 	worst := 0
+	var fails []hostFail
 	for _, o := range res {
 		r := opsRow{Host: o.Host.Name}
 		if o.Err != nil {
@@ -207,6 +211,11 @@ func runOps(ctx context.Context, spec opsSpec) error {
 		} else {
 			data.Summary.Failed++
 			data.Summary.FailedHosts = append(data.Summary.FailedHosts, r.Host)
+			code := 0
+			if r.ExitCode != nil {
+				code = *r.ExitCode
+			}
+			fails = append(fails, hostFail{host: r.Host, reason: failReason(code, r.Error), err: r.Error})
 		}
 		data.Results = append(data.Results, r)
 	}
@@ -214,7 +223,8 @@ func runOps(ctx context.Context, spec opsSpec) error {
 	if !g.dryRun {
 		audit(st, spec.name, hostNames(hosts), shown, data.Summary.Failed == 0, nil)
 	}
-	return finish(spec.name, data, data.Summary, worst)
+	// the same closing as exec: each failed server with its own error and hint
+	return finishFleet(spec.name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }
 
 // opsWarnings lets a parser attach warnings (shown on stderr in text mode)
