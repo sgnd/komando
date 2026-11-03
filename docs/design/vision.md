@@ -48,7 +48,7 @@ compared with other tools).
 | `storage` (S3, FTP/FTPS, SFTP: ls/download/upload/rm/link/sync) | ✅ done |
 | `cluster` (Kubernetes, Docker Swarm) | ✅ done, `cluster run`/exec/forward built in (no kubectl) |
 | `registry` (ls, inspect, rm, copy) | ✅ done |
-| `vpn` (WireGuard, OpenVPN/Pritunl, AnyConnect, Tailscale, SOCKS, OS VPN; Fortinet, GlobalProtect, F5 experimental) | ✅ done, built in (Pulse still through openconnect) |
+| `vpn` (WireGuard, OpenVPN/Pritunl, AnyConnect, Tailscale, SOCKS, OS VPN; Fortinet, GlobalProtect, F5, Pulse/Ivanti experimental) | ✅ done, built in |
 | Secret refs (`vault:`, `aws-sm:`, `gcp-sm:`, `op://` through 1Password Connect, `bw://`, `kdbx:`) | ✅ done, built in |
 | One inventory: universal selectors, `komando list`, `komando test` | ✅ done |
 | Migration | ✅ `import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, dbeaver, komando) and `export` |
@@ -87,7 +87,7 @@ Command names are always a **category**, not a product name.
 | `cluster` | orchestrator | k8s (k3s, EKS, GKE, AKS, kind), swarm; later: nomad | ✅ |
 | `registry` | oci | Docker Hub, GHCR, GitLab, Harbor, registry:2; ECR needs a refreshed token (see gap) | ✅ |
 | `secret` | secret | local vault; external refs: `vault:`, `aws-sm:`, `gcp-sm:`, `op://` (1Password Connect), `bw://`, `kdbx:` | ✅ |
-| `vpn` | path | wireguard, socks, system, tailscale, OpenVPN/Pritunl, AnyConnect, Fortinet/GlobalProtect/F5 (experimental), Pulse (still openconnect), L2TP/IPsec (system). komando connects the VPN itself, with its own clients, when `--via` needs it | ✅ ([network.md](network.md), [built-in.md](built-in.md)) |
+| `vpn` | path | wireguard, socks, system, tailscale, OpenVPN/Pritunl, AnyConnect, Fortinet/GlobalProtect/F5/Pulse (experimental), L2TP/IPsec (system). komando connects the VPN itself, with its own clients, when `--via` needs it | ✅ ([network.md](network.md), [built-in.md](built-in.md)) |
 
 Decisions (approved 2026-11-02):
 
