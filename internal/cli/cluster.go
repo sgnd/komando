@@ -924,7 +924,7 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 			}
 			b, err := readFileOrStdin(file)
 			if err != nil {
-				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "%v", err)
+				return localFileErr("FILE_NOT_FOUND", err, "")
 			}
 			st, err := loadState()
 			if err != nil {

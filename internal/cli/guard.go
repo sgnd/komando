@@ -223,6 +223,7 @@ func stripQuotedHeredocs(line string) string {
 
 var (
 	// reading the passphrase's value; setting it (KOMANDO_VAULT_PASS=...) is fine
+	procEnviron    = regexp.MustCompile(`/proc/[^/\s'"]+/environ\b`)
 	readsVaultPass = regexp.MustCompile(`\$\{?KOMANDO_VAULT_PASS\b|printenv\s+KOMANDO_VAULT_PASS\b`)
 	heredocStart   = regexp.MustCompile(`<<-?[ \t]*(['"])([A-Za-z_][A-Za-z0-9_]*)['"]`)
 	envAssign      = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
@@ -236,7 +237,7 @@ func checkShell(line, home string) guardDecision {
 	if readsVaultPass.MatchString(line) {
 		return deny("KOMANDO_VAULT_PASS opens komando's vault; it is for the user only")
 	}
-	if strings.Contains(line, "/environ") {
+	if procEnviron.MatchString(line) { // /proc/PID/environ, not words like "environments"
 		return deny("process environments hold secrets; ask the user for the one value you need")
 	}
 	for _, seg := range splitShell(line) {
@@ -329,8 +330,14 @@ func shellWords(s string) []string {
 			cur.Reset()
 		}
 	}
+	escaped := false
 	for _, r := range s {
 		switch {
+		case escaped: // \x is a plain x, as in the shell: \" opens no quote
+			cur.WriteRune(r)
+			escaped = false
+		case r == '\\' && q != '\'':
+			escaped = true
 		case q != 0:
 			if r == q {
 				q = 0

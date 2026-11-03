@@ -195,7 +195,7 @@ func resolveLink(sc *sftp.Client, p string) (string, error) {
 		}
 		cur = path.Clean(t)
 	}
-	return "", out.Errf(out.ExitConflict, "SYMLINK_LOOP", "", "%s: too many levels of symbolic links", p)
+	return "", out.Errf(out.ExitConflict, "SYMLINK_LOOP", "a link points back to itself; look at it with `komando fs stat TARGET PATH`", "%s: too many levels of symbolic links", p)
 }
 
 func folderMissing(dir string) error {

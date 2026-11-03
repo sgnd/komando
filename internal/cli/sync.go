@@ -90,7 +90,7 @@ func (l localSide) open(_ context.Context, rel string) (io.ReadCloser, error) {
 
 func (l localSide) write(_ context.Context, rel string, r io.Reader, f syncFile) error {
 	if !filepath.IsLocal(filepath.FromSlash(rel)) {
-		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "", "the source sent the path %q, which leads outside %s", rel, l.root)
+		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "nothing outside the folder was written; check the source for odd file names", "the source sent the path %q, which leads outside %s", rel, l.root)
 	}
 	dst := filepath.Join(l.root, filepath.FromSlash(rel))
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
@@ -172,7 +172,7 @@ func (s sftpSide) open(_ context.Context, rel string) (io.ReadCloser, error) {
 
 func (s sftpSide) write(_ context.Context, rel string, r io.Reader, f syncFile) error {
 	if strings.Contains("/"+rel+"/", "/../") {
-		return out.Errf(out.ExitUsage, "UNSAFE_PATH", "", "path %q leads outside %s", rel, s.root)
+		return out.Errf(out.ExitUsage, "UNSAFE_PATH", "nothing outside the folder was written; rename the file so it has no .. in its path", "path %q leads outside %s", rel, s.root)
 	}
 	dst := path.Join(s.root, rel)
 	if err := s.sc.MkdirAll(path.Dir(dst)); err != nil {
@@ -489,7 +489,7 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
 			if !srcRemote {
 				fi, err := os.Stat(srcP)
 				if err != nil {
-					return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "", "%s does not exist on this computer", srcP)
+					return localFileErr("PATH_NOT_FOUND", err, "")
 				}
 				if !fi.IsDir() {
 					return out.Errf(out.ExitUsage, "NOT_A_FOLDER", "sync copies folders; for one file use `komando upload`", "%s is a file, not a folder", srcP)

@@ -465,7 +465,7 @@ func deployKey(st *store.State, arg string) (name, line string, err error) {
 		}
 		pub, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(k.PublicKey))
 		if err != nil {
-			return "", "", out.Errf(out.ExitUsage, "KEY_INVALID", "", "the stored public key of %s is not valid: %v", k.Name, err)
+			return "", "", out.Errf(out.ExitUsage, "KEY_INVALID", "remove it with `komando key rm "+k.Name+"` and add it again", "the stored public key of %s is not valid: %v", k.Name, err)
 		}
 		return k.Name, cleanPubLine(pub, comment), nil
 	}
@@ -524,7 +524,7 @@ already there. With --set-default the hosts then use this key.`,
 					return nil, err
 				}
 				if code != 0 {
-					return nil, out.Errf(out.ExitRemote, "DEPLOY_FAILED", "", "%s", o)
+					return nil, out.Errf(out.ExitRemote, "DEPLOY_FAILED", "check that ~/.ssh is writable there: `komando fs stat HOST ~/.ssh`", "%s", o)
 				}
 				return o, nil
 			})

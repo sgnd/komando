@@ -79,7 +79,7 @@ func sensitiveName(p string) bool {
 		return true
 	}
 	for _, ext := range []string{".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".kdbx", ".ovpn"} {
-		if strings.HasSuffix(b, ext) {
+		if strings.HasSuffix(b, ext) && len(b) > len(ext) { // "site.key", not a bare ".key" (a jq filter)
 			return true
 		}
 	}

@@ -244,7 +244,7 @@ func (o *logOpts) followCheck(ctx context.Context, target string, sudo bool) err
 			continue // the stream reports connection problems itself
 		}
 		if _, e := o.result(r.Value.(*sshx.RunResult)); e != nil {
-			e.Message = r.Host.Name + ": " + e.Message
+			e.Message = withHost(r.Host.Name, e.Message)
 			return e
 		}
 	}
@@ -261,6 +261,12 @@ func (o *logOpts) result(rr *sshx.RunResult) (any, *out.Error) {
 		return "", out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "check the path, e.g. `komando fs ls TARGET /var/log`", "%s does not exist", o.file)
 	case "no-read":
 		return "", out.Errf(out.ExitRemote, "PERMISSION_DENIED", "add --sudo", "cannot read %s", o.file)
+	}
+	if strings.Contains(rr.Stderr, "insufficient permissions") {
+		// journalctl as a plain user, as it says itself: only root and the
+		// adm / systemd-journal groups read the system journal
+		return "", out.Errf(out.ExitRemote, "JOURNAL_PERMISSION", "add --sudo, or add the login user to the systemd-journal group",
+			"this user may not read the system journal")
 	}
 	if strings.Contains(rr.Stderr, "No journal files were found") {
 		return "", out.Errf(out.ExitNotFound, "NO_JOURNAL", "the service may log to a file: `komando logs TARGET --file /var/log/...`",

@@ -45,7 +45,7 @@ addresses (both `10.0.0.0/8`) do not get in each other's way.
 komando list kind:vpn
 komando test kind:vpn
 komando vpn show office          # what uses it
-komando vpn rm office            # refused while something still uses it (also with --dry-run)
+komando vpn rm office            # refused while something still uses it (also with --dry-run); takes several names
 komando vpn status               # UP: a SOCKS proxy or system VPN that answers right now
 ```
 

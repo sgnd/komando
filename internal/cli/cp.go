@@ -62,11 +62,22 @@ func colonHint(err error, arg string) error {
 		return nil
 	}
 	e := toErr(err)
-	if e.Exit == out.ExitNotFound && strings.Contains(arg, ":") && !strings.HasPrefix(arg, ".") {
-		e.Hint = "if " + arg + " is a file on this computer, write it as ./" + arg + "; " + e.Hint
-		return e
+	if !targetMissing[e.Code] || !strings.Contains(arg, ":") || strings.HasPrefix(arg, ".") {
+		return err
 	}
-	return err
+	hint := "if " + arg + " is a file on this computer, write it as ./" + arg
+	if e.Hint != "" {
+		hint += "; otherwise " + e.Hint
+	}
+	e.Hint = hint
+	return e
+}
+
+// targetMissing are the codes for a target name komando does not know;
+// a missing file or path is a different mistake and keeps its own hint.
+var targetMissing = map[string]bool{
+	"HOST_NOT_FOUND": true, "CONN_NOT_FOUND": true, "TARGET_NOT_FOUND": true,
+	"GROUP_NOT_FOUND": true, "TARGET_EMPTY": true, "NO_MATCHING_TARGETS": true,
 }
 
 type xferErr struct {
@@ -223,7 +234,7 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 	if up {
 		fi, err := os.Stat(local)
 		if err != nil {
-			return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "", "local %s: %v", local, err)
+			return localFileErr("PATH_NOT_FOUND", err, "")
 		}
 		if fi.IsDir() && !o.recursive {
 			return out.Usage("%s is a folder; add -r", local)
@@ -470,7 +481,7 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 		}
 		if rel != "" && !filepath.IsLocal(filepath.FromSlash(rel)) {
 			// names come from the server: never let one point outside dst
-			return st, out.Errf(out.ExitRemote, "UNSAFE_PATH", "", "server sent the path %q, which leads outside %s", w.Path(), dst)
+			return st, out.Errf(out.ExitRemote, "UNSAFE_PATH", "nothing outside the folder was written; check the server for odd file names", "server sent the path %q, which leads outside %s", w.Path(), dst)
 		}
 		lp := filepath.Join(dst, filepath.FromSlash(rel))
 		if w.Stat().IsDir() {
@@ -527,7 +538,7 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 	case r.ExitCode != 0 && strings.Contains(r.Stderr, "No such file"):
 		return xferStats{}, fsErr(src, os.ErrNotExist)
 	case r.ExitCode != 0:
-		return xferStats{}, out.Errf(out.ExitRemote, "READ_FAILED", "", "%s", strings.TrimSpace(r.Stderr))
+		return xferStats{}, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat TARGET PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
 	case r.StdoutTruncated:
 		return xferStats{}, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy it to a place the SSH user can read with `komando exec --sudo -- cp`, then download that",
 			"%s is larger than %s, the most a --sudo download reads", src, humanBytes(sudoMaxBytes))

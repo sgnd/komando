@@ -257,18 +257,23 @@ service, through the conn's --via path. It runs until Ctrl-C (or --timeout).
 Only this computer can use it. For a service, REMOTE is the service's port;
 komando forwards to the pod's port behind it.`,
 		Example: `  komando cluster forward prod svc/api 8080:80 --namespace shop
-  komando cluster forward prod deploy/db 15432:5432 --namespace shop`,
+  komando cluster forward prod deploy/db 15432:5432 --namespace shop
+  komando cluster forward prod svc/api :80 --namespace shop   # any free local port`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			local, remote, ok := strings.Cut(args[2], ":")
 			if !ok {
 				local, remote = args[2], args[2]
 			}
+			if local == "" {
+				local = "0" // :80 picks a free local port, as with kubectl
+			}
 			for _, p := range []string{local, remote} {
 				if n, err := strconv.Atoi(p); err != nil || n < 0 || n > 65535 {
-					return out.Usage("ports are written LOCAL:REMOTE, e.g. 8080:80")
+					return out.Usage("ports are written LOCAL:REMOTE, e.g. 8080:80 (or :80 for any free local port)")
 				}
 			}
+			args[2] = local + ":" + remote
 			st, err := loadState()
 			if err != nil {
 				return err

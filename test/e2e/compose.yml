@@ -35,7 +35,10 @@ services:
     image: registry:2
     environment: { REGISTRY_STORAGE_DELETE_ENABLED: "true" }
     ports: ["127.0.0.1:${E2E_REGISTRY:-5005}:5000"]  # only to push the test image; komando reaches it through bastion
-    networks: [private, public]
+    networks:
+      # an Amazon ECR style name too, so komando's ECR login runs (checks/aws.sh)
+      private: { aliases: [123456789012.dkr.ecr.us-east-1.amazonaws.com] }
+      public: {}
   swarm:
     build: swarm
     privileged: true

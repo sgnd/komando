@@ -15,6 +15,7 @@ komando storage ls backups                      # one level; --recursive for eve
 komando download backups 2026/app.sql.gz            # into the current folder
 komando upload backups ./app.sql.gz 2026/app.sql.gz
 komando storage link backups 2026/app.sql.gz --expires 24h   # temporary download link
+komando storage link backups 2026/app.sql.gz --endpoint https://files.example.com   # for people outside the --via network
 komando storage rm backups 2026/old.sql.gz --allow-dangerous
 komando storage cat backups logs/app.log --tail 50   # read a text object without downloading it
 ```

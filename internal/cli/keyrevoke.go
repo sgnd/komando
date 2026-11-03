@@ -101,7 +101,7 @@ yourself out. --dry-run counts the lines it would remove.`,
 					return nil, err
 				}
 				if r.ExitCode != 0 {
-					return nil, out.Errf(out.ExitRemote, "REVOKE_FAILED", "", "%s", strings.TrimSpace(r.Stderr))
+					return nil, out.Errf(out.ExitRemote, "REVOKE_FAILED", "run it again; to look at the file: `komando fs cat HOST ~/.ssh/authorized_keys`", "%s", strings.TrimSpace(r.Stderr))
 				}
 				n, _ := strconv.Atoi(strings.TrimSpace(r.Stdout))
 				return n, nil

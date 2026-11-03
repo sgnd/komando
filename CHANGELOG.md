@@ -142,6 +142,17 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - AI agents are refused even when they run in a pseudo-terminal, and the
   error code is now `NEEDS_TERMINAL` (was `NOT_A_TTY`), the same as
   `db shell`. Like `db shell`, it also needs stderr to be a terminal.
+### Clearer errors
+
+- Every error now has a hint with the next step; a test keeps it that way.
+- A file missing on this computer reads "./x does not exist on this
+  computer" instead of Go's "stat ./x: no such file or directory".
+- `cp ./missing web1:/tmp/` no longer suggests renaming the destination; that
+  hint is only for a target komando does not know.
+- A failure on one server no longer names it twice ("web1: … for web1").
+- In text, an error from many servers shows its code too
+  (`error [PARTIAL_FAILURE]: …`), like any other error.
+- An unexpected file error is `FILE_ERROR`, not `REMOTE_ERROR`.
 
 ### Feels like the native tools (an end-to-end round over every command)
 
@@ -236,6 +247,24 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   status` dials SOCKS and system VPNs; `vpn up` checks a WireGuard tunnel
   really answers; `vpn edit`; VPN errors keep their own code through SSH.
 - `facts` knows containers (init, virt, IPs without /len).
+- `job wait` survives a dropped SSH connection (a NAT or firewall closing
+  an idle one): it connects again and keeps waiting until the job ends or
+  the timeout passes. Before, a 25-minute install's wait could stop after
+  ~10 minutes with the job still running.
+- The agent guard no longer mistakes `.../environments` for a process
+  environment or a jq filter `.key` for a key file, and reads `\"` the way
+  the shell does (fuzzing found a way around it).
+- `cluster forward TARGET svc/x :80` picks any free local port, like kubectl.
+- `vpn rm` takes several names, like `host rm`; `svc logs` as a user who may
+  not read the system journal says to add `--sudo`.
+- e2e: WireGuard end to end (a user-space peer), and svc/logs against the
+  real systemctl and journalctl on a server with systemd as PID 1.
+- e2e: AWS SSM end to end with a stand-in `aws` CLI (login, commands and
+  files through `aws ssm start-session`), and an expired SSO login.
+- `storage link --endpoint https://PUBLIC-NAME` signs a link for the address
+  people use when komando reaches the storage through `--via`.
+- `docker logs` shows times only with `--timestamps`, like docker and
+  kubectl; a failing command on one server states its error once.
 - e2e: every one of the 195 commands now runs at least once
   (`test/e2e/checks/`), and `E2E_HOME` keeps a lab inventory to try
   commands by hand.

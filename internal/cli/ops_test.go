@@ -332,3 +332,11 @@ func TestFlagUsageHasNoBackticks(t *testing.T) {
 		walk(root())
 	}
 }
+
+func TestJournalWithoutPermissionSaysSudo(t *testing.T) {
+	j := &logOpts{unit: "t-svc"}
+	_, e := j.result(&sshx.RunResult{ExitCode: 1, Stderr: "Hint: You are currently not seeing messages from other users and the system.\nNo journal files were opened due to insufficient permissions.\n"})
+	if e == nil || e.Code != "JOURNAL_PERMISSION" || !strings.Contains(e.Hint, "--sudo") {
+		t.Fatalf("got %+v", e)
+	}
+}

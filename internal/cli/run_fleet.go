@@ -62,10 +62,7 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 		if f.err != nil && f.err.Code != "REMOTE_EXIT" {
 			// a connection, timeout or policy problem: its own code and hint
 			soft.Code = f.err.Code
-			soft.Message = f.err.Message
-			if !strings.HasPrefix(soft.Message, f.host+":") {
-				soft.Message = f.host + ": " + soft.Message
-			}
+			soft.Message = withHost(f.host, f.err.Message)
 			soft.Hint = f.err.Hint
 		}
 		if soft.Hint == "" && out.P.Format != "text" {
@@ -105,4 +102,15 @@ func truncationNotes(rs []execHostResult, limit int, many bool) {
 		}
 		fmt.Fprintf(os.Stderr, "note: output%s truncated at %s (raise --max-output, or use `komando job start` / `komando download` for big output)\n", who, humanBytes(int64(limit)))
 	}
+}
+
+// withHost puts the server's name in front of msg, unless msg already names
+// it ("no authentication method available for web1" stays as it is).
+func withHost(host, msg string) string {
+	for _, w := range strings.FieldsFunc(msg, func(r rune) bool { return r == ' ' || r == ':' || r == ',' || r == '(' || r == ')' || r == '"' }) {
+		if w == host {
+			return msg
+		}
+	}
+	return host + ": " + msg
 }

@@ -205,6 +205,12 @@ func TestGuard(t *testing.T) {
 		{"Bash", map[string]any{"command": "ls -la && cat $HOME/.ssh/id_rsa | base64"}, true},
 		{"Bash", map[string]any{"command": "grep -r DB_ .env"}, true},
 		{"Bash", map[string]any{"command": "source .env.production && npm start"}, true},
+		// words that only look like secrets (found in real use)
+		{"Bash", map[string]any{"command": "gh api repos/sgnd/komando/environments"}, false},
+		{"Bash", map[string]any{"command": "gh api repos/x/y/actions/secrets --jq '.secrets[] | .name'"}, false},
+		{"Bash", map[string]any{"command": "jq -r .key data.json"}, false},
+		{"Bash", map[string]any{"command": "cat /proc/self/environ"}, true},
+		{"Bash", map[string]any{"command": "cat site.key"}, true},
 		{"Bash", map[string]any{"command": "echo $KOMANDO_VAULT_PASS"}, true},
 		// public keys are meant to be shared, also komando's own
 		{"Read", map[string]any{"file_path": "/Users/me/.komando/keys/deploy.pub"}, false},

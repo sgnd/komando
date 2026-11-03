@@ -124,13 +124,13 @@ func stackDialer(v *store.Vpn, t packetTun, addrs, dns []netip.Addr, mtu int) (D
 		}
 	}()
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
-			select {
-			case <-t.Done():
-				return nil, Down(v, fmt.Errorf("the session ended: %v", t.Err()))
-			default:
-			}
-			return tnet.DialContext(ctx, network, addr)
-		}, tunCloser{t}, nil
+		select {
+		case <-t.Done():
+			return nil, Down(v, fmt.Errorf("the session ended: %v", t.Err()))
+		default:
+		}
+		return tnet.DialContext(ctx, network, addr)
+	}, tunCloser{t}, nil
 }
 
 // tunCloser closes a packet tunnel and tells when it ended by itself, so

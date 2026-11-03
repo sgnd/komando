@@ -183,7 +183,7 @@ func vpnAddCmd() *cobra.Command {
 			readConfig := func() (string, error) {
 				b, err := os.ReadFile(expandHome(config))
 				if err != nil {
-					return "", out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of the VPN's config file", "%v", err)
+					return "", localFileErr("FILE_NOT_FOUND", err, "give the path of the VPN's config file")
 				}
 				return string(b), nil
 			}
@@ -379,18 +379,28 @@ func vpnShowCmd() *cobra.Command {
 
 func vpnRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm NAME",
-		Short: "Remove a VPN from komando (its keys stay in the vault until `komando secret rm`)",
-		Args:  cobra.ExactArgs(1),
+		Use:   "rm NAME...",
+		Short: "Remove VPNs from komando (their keys stay in the vault until `komando secret rm`)",
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// all or nothing, like host rm: a VPN in use stops the whole call
 			check := func(s *store.State) error {
-				if _, ok := s.Vpns[args[0]]; !ok {
-					return out.NotFound("vpn", args[0])
-				}
-				if users := vpnUsers(s, args[0]); len(users) > 0 {
-					return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first", "VPN %s is on the --via path of %s", args[0], strings.Join(users, ", "))
+				for _, name := range args {
+					if _, ok := s.Vpns[name]; !ok {
+						return out.NotFound("vpn", name)
+					}
+					if users := vpnUsers(s, name); len(users) > 0 {
+						return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first", "VPN %s is on the --via path of %s", name, strings.Join(users, ", "))
+					}
 				}
 				return nil
+			}
+			// one name: the name itself, as before; several: the list
+			names := func() any {
+				if len(args) == 1 {
+					return args[0]
+				}
+				return args
 			}
 			if g.dryRun { // the same checks as the real removal
 				st, err := loadState()
@@ -400,27 +410,29 @@ func vpnRmCmd() *cobra.Command {
 				if err := check(st); err != nil {
 					return err
 				}
-				out.P.Print("vpn.rm", map[string]any{"would_remove": args[0]}, nil)
+				out.P.Print("vpn.rm", map[string]any{"would_remove": names()}, nil)
 				return nil
 			}
 			err := store.Update(func(s *store.State) error {
 				if err := check(s); err != nil {
 					return err
 				}
-				if sess := s.Sessions[args[0]]; sess != nil {
-					if err := netx.StopSession(sess); err != nil {
-						return out.Errf(out.ExitError, "VPN_STOP_FAILED", "disconnect it first with `komando vpn down "+args[0]+"`", "%v", err)
+				for _, name := range args {
+					if sess := s.Sessions[name]; sess != nil {
+						if err := netx.StopSession(sess); err != nil {
+							return out.Errf(out.ExitError, "VPN_STOP_FAILED", "disconnect it first with `komando vpn down "+name+"`", "%v", err)
+						}
+						delete(s.Sessions, name)
 					}
-					delete(s.Sessions, args[0])
+					delete(s.Vpns, name)
 				}
-				delete(s.Vpns, args[0])
 				return nil
 			})
 			if err != nil {
 				return err
 			}
-			audit(nil, "vpn.rm", []string{args[0]}, "", true, nil)
-			out.P.Print("vpn.rm", map[string]any{"removed": args[0]}, nil)
+			audit(nil, "vpn.rm", args, "", true, nil)
+			out.P.Print("vpn.rm", map[string]any{"removed": names()}, nil)
 			return nil
 		},
 	}

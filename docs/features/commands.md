@@ -24,7 +24,7 @@ get a block each, with their errors inside:
 active
 === web2 [FAILED exit=3]
 [stderr] inactive
-error: 1 of 2 failed: web2 (exit 3)
+error [PARTIAL_FAILURE]: 1 of 2 failed: web2 (exit 3)
 ```
 
 `--fail-fast` stops starting servers after the first failure; the ones it

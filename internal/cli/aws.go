@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"net"
 	"regexp"
 
 	"github.com/sgnd/komando/internal/cloud"
@@ -51,8 +52,12 @@ func awsErr(profile string, err error) error {
 
 var ecrHost = regexp.MustCompile(`^\d+\.dkr\.ecr(-fips)?\.([a-z0-9-]+)\.amazonaws\.com(\.cn)?$`)
 
-// ecrRegion is the region of an Amazon ECR registry host, or "".
+// ecrRegion is the region of an Amazon ECR registry host, or "". A port
+// (host:443) does not change which registry it is.
 func ecrRegion(host string) string {
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
 	if m := ecrHost.FindStringSubmatch(host); m != nil {
 		return m[2]
 	}

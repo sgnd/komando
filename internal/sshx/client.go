@@ -336,7 +336,7 @@ func authMethods(st *store.State, h *store.Host) ([]ssh.AuthMethod, error) {
 		}
 		if err != nil {
 			if explicit {
-				return out.Errf(out.ExitUsage, "KEY_INVALID", "", "cannot parse key %s: %v", path, err)
+				return out.Errf(out.ExitUsage, "KEY_INVALID", "check that "+path+" is a private key in OpenSSH or PEM format, and that its passphrase ref is right", "cannot parse key %s: %v", path, err)
 			}
 			return nil
 		}

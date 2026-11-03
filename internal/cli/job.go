@@ -124,7 +124,7 @@ func jobStartCmd() *cobra.Command {
 				}
 				pid, perr := strconv.Atoi(strings.TrimSpace(o))
 				if code != 0 || perr != nil {
-					return nil, out.Errf(out.ExitRemote, "JOB_START_FAILED", "", "could not start job: %s", o)
+					return nil, out.Errf(out.ExitRemote, "JOB_START_FAILED", "check that /bin/sh and nohup work there: `komando test TARGET`", "could not start job: %s", o)
 				}
 				j := &store.Job{ID: id, Host: c.Host.Name, Command: command, PID: pid, RemoteDir: jobDir(id), StartedAt: time.Now().UTC()}
 				if err := store.Update(func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
@@ -213,9 +213,16 @@ func fetchStatus(ctx context.Context, c *sshx.Client, j *store.Job, tail int) (*
 	if tail > 0 {
 		script += `; echo ---TAIL---; tail -n ` + strconv.Itoa(tail) + ` "$d/out.log" 2>/dev/null`
 	}
+	// the last line says the answer is whole: a connection cut halfway leaves
+	// it out, and half an answer must never read as "the job is lost"
+	script += "; echo " + statusEnd
 	o, _, err := sshx.Output(ctx, c, script, 30*time.Second)
 	if err != nil {
 		return nil, err
+	}
+	o, whole := strings.CutSuffix(strings.TrimRight(o, "\n"), statusEnd)
+	if !whole {
+		return nil, out.Errf(out.ExitConnect, "CONNECTION_LOST", "try again; the job keeps running on the server", "the connection to %s broke while reading the job's status", j.Host)
 	}
 	head, tailOut, _ := strings.Cut(o, "---TAIL---\n")
 	lines := strings.Split(strings.TrimSpace(head), "\n")
@@ -367,26 +374,42 @@ is how long to wait; the job keeps running after it (exit 7, WAIT_TIMEOUT).`,
 			}
 			var s *jobStatus
 			deadline := time.Now().Add(waitTimeout)
-			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
-				for {
-					s, err = fetchStatus(cmd.Context(), c, j, tail)
-					if err != nil {
-						return err
-					}
-					if s.State != "running" {
-						return nil
-					}
-					if time.Now().After(deadline) {
-						return nil
-					}
-					select {
-					case <-cmd.Context().Done():
-						return cmd.Context().Err()
-					case <-time.After(interval):
-					}
+			pause := func() error {
+				select {
+				case <-cmd.Context().Done():
+					return cmd.Context().Err()
+				case <-time.After(interval):
+					return nil
 				}
-			})
-			if err != nil {
+			}
+			// a long wait outlives SSH connections (a NAT or firewall drops an
+			// idle one after some minutes): connect again and keep waiting,
+			// like kubectl wait, until the job ends or the deadline passes
+			for {
+				var done bool
+				err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
+					for {
+						var ferr error
+						if s, ferr = fetchStatus(cmd.Context(), c, j, tail); ferr != nil {
+							return ferr
+						}
+						if s.State != "running" || time.Now().After(deadline) {
+							done = true
+							return nil
+						}
+						if err := pause(); err != nil {
+							return err
+						}
+					}
+				})
+				if done || cmd.Context().Err() != nil || time.Now().After(deadline) || !transient(err) {
+					break
+				}
+				if err := pause(); err != nil {
+					return err
+				}
+			}
+			if err != nil && (s == nil || !time.Now().After(deadline)) {
 				return err
 			}
 			switch {
@@ -400,7 +423,7 @@ is how long to wait; the job keeps running after it (exit 7, WAIT_TIMEOUT).`,
 				out.P.Print("job.wait", s, out.Errf(out.ExitRemote, "JOB_LOST", "process died without recording an exit code (killed or server rebooted)", "job %s lost", j.ID))
 				return exitCode(out.ExitRemote)
 			case s.ExitCode != nil && *s.ExitCode != 0:
-				out.P.Print("job.wait", s, out.Errf(out.ExitRemote, "JOB_FAILED", "", "job exited with %d", *s.ExitCode))
+				out.P.Print("job.wait", s, out.Errf(out.ExitRemote, "JOB_FAILED", "read its output with `komando job logs "+j.ID+" --tail 50`", "job exited with %d", *s.ExitCode))
 				return exitCode(out.ExitRemote)
 			}
 			out.P.Print("job.wait", s, nil)
@@ -736,3 +759,26 @@ func (l jobList) Text() string {
 	}
 	return s
 }
+
+// transient: the connection broke (dropped, reset, timed out), so trying
+// again may work. A refused login or a changed host key is not transient.
+func transient(err error) bool {
+	if err == nil {
+		return false
+	}
+	if e := toErr(err); e.Exit == out.ExitConnect || e.Exit == out.ExitTimeout {
+		return e.Code != "AUTH_FAILED" && !strings.HasPrefix(e.Code, "HOSTKEY")
+	}
+	m := strings.ToLower(err.Error())
+	// (seen when a session is cut at random moments: the handshake or the
+	// opening of a channel meets a connection that is already gone)
+	for _, s := range []string{"eof", "connection reset", "broken pipe", "closed network connection", "i/o timeout", "connection lost", "unexpected packet", "handshake failed"} {
+		if strings.Contains(m, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// statusEnd is the last line of fetchStatus's answer (see there).
+const statusEnd = "---KOMANDO-STATUS-END---"

@@ -603,7 +603,7 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 		f, err := os.Open(expandHome(p))
 		if err != nil {
 			if depth == 0 {
-				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "cannot open %s: %v", p, err)
+				return localFileErr("FILE_NOT_FOUND", err, "")
 			}
 			return nil
 		}

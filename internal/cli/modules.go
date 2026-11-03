@@ -156,7 +156,16 @@ func svcLogsCmd() *cobra.Command {
 type logOpts struct {
 	unit, file, container, since, until, grep, priority string
 	lines                                               int
-	sudo, follow                                        bool
+	sudo, follow, timestamps                            bool
+}
+
+// dockerLogs is `docker logs` with the time of each line only when asked
+// (--timestamps), as docker and kubectl do.
+func (o *logOpts) dockerLogs() string {
+	if o.timestamps {
+		return "docker logs --timestamps"
+	}
+	return "docker logs"
 }
 
 func (o *logOpts) bind(c *cobra.Command, sources bool) {
@@ -174,6 +183,7 @@ func (o *logOpts) bind(c *cobra.Command, sources bool) {
 	aliasFlag(f, "lines", "limit")
 	f.BoolVarP(&o.sudo, "sudo", "s", false, "read via sudo (the whole journal, protected files)")
 	f.BoolVarP(&o.follow, "follow", "f", false, "keep printing new lines until Ctrl-C")
+	f.BoolVar(&o.timestamps, "timestamps", false, "show when each container log line was written (containers)")
 }
 
 func (o *logOpts) build() (string, error) {
@@ -199,7 +209,7 @@ func (o *logOpts) source() (string, error) {
 		}
 		switch {
 		case o.container != "":
-			c := "docker logs --timestamps --tail " + n + " -f"
+			c := o.dockerLogs() + " --tail " + n + " -f"
 			if o.since != "" {
 				c += " --since " + sshx.Q(strings.TrimPrefix(o.since, "-"))
 			}
@@ -221,9 +231,9 @@ func (o *logOpts) source() (string, error) {
 	}
 	switch {
 	case o.container != "":
-		c := "docker logs --timestamps --tail " + n
+		c := o.dockerLogs() + " --tail " + n
 		if o.grep != "" {
-			c = "docker logs --timestamps"
+			c = o.dockerLogs()
 		}
 		if o.since != "" {
 			c += " --since " + sshx.Q(strings.TrimPrefix(o.since, "-"))
