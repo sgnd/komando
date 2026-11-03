@@ -15,7 +15,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 E2E="$ROOT/test/e2e"
 K="$ROOT/bin/komando"
-KOMANDO_HOME="$(mktemp -d)"
+# E2E_HOME keeps the inventory after the run (with KEEP=1 for the
+# containers), to try commands by hand against the same lab
+KOMANDO_HOME="${E2E_HOME:-$(mktemp -d)}"
+mkdir -p "$KOMANDO_HOME" && chmod 700 "$KOMANDO_HOME"
 export KOMANDO_HOME
 export KOMANDO_ACTOR="e2e"
 # this script is a script, even when an AI agent starts it; the agent
@@ -32,7 +35,7 @@ FAIL=0
 cleanup() {
   [ "${KEEP:-0}" = 1 ] || docker compose -p "$PROJECT" -f "$E2E/compose.yml" down -v >/dev/null 2>&1 || true
   "$K" tunnel stop --all >/dev/null 2>&1 || true # only this run's tunnels
-  rm -rf "$KOMANDO_HOME"
+  [ -n "${E2E_HOME:-}" ] || rm -rf "$KOMANDO_HOME"
 }
 trap cleanup EXIT
 

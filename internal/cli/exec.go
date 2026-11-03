@@ -67,6 +67,7 @@ type execOpts struct {
 	pty       bool
 	stream    bool
 	failFast  bool
+	display   string // what output and the audit log show instead of a long generated script
 }
 
 func (o *execOpts) bind(c *cobra.Command) {
@@ -197,9 +198,13 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 	if err != nil {
 		return err
 	}
+	shown := command
+	if o.display != "" {
+		shown = o.display
+	}
 	guardErr := guard(st, hosts, command, mutating)
 	if guardErr != nil && !g.dryRun {
-		audit(st, name, hostNames(hosts), command, false, map[string]any{"blocked": toErr(guardErr).Code})
+		audit(st, name, hostNames(hosts), shown, false, map[string]any{"blocked": toErr(guardErr).Code})
 		return guardErr
 	}
 	env, err := parseEnv(o.env)
@@ -215,6 +220,9 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			full, _, err := sshx.BuildCommand(&sshx.Client{Host: h}, req)
 			if err != nil {
 				full = "<error: " + err.Error() + ">"
+			}
+			if o.display != "" {
+				full = o.display
 			}
 			plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": full, "stdin_bytes": len(stdin)})
 		}
@@ -272,7 +280,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		return res, err
 	})
 
-	data := execData{Command: command, Results: make([]execHostResult, 0, len(results))}
+	data := execData{Command: shown, Results: make([]execHostResult, 0, len(results))}
 	worst := 0
 	for _, r := range results {
 		hr := execHostResult{Host: r.Host.Name}
@@ -306,7 +314,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			codes[r.Host] = -1
 		}
 	}
-	audit(st, name, hostNames(hosts), command, data.Summary.Failed == 0, map[string]any{"exit_codes": codes, "sudo": req.Sudo})
+	audit(st, name, hostNames(hosts), shown, data.Summary.Failed == 0, map[string]any{"exit_codes": codes, "sudo": req.Sudo})
 	if o.stream && out.P.Format != "text" {
 		out.P.Event(map[string]any{"event": "done", "summary": data.Summary})
 	}
@@ -372,7 +380,11 @@ func probe(ctx context.Context, name, target, command string, sudo bool, parse f
 			r.OK = rr.ExitCode == 0 && r.Error == nil
 			if !r.OK {
 				r.Stderr = strings.TrimSpace(rr.Stderr)
-				worst = worse(worst, out.ExitRemote)
+				exit := out.ExitRemote
+				if rr.ExitCode == 0 && r.Error != nil && r.Error.Exit != 0 {
+					exit = r.Error.Exit // the parser found the problem (NXDOMAIN, closed port ...)
+				}
+				worst = worse(worst, exit)
 			}
 		}
 		if r.OK {

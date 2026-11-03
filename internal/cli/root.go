@@ -10,6 +10,7 @@ import (
 	"errors"
 	"os"
 	"os/signal"
+	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -76,17 +77,91 @@ func Execute() int {
 	if cmd != nil {
 		name = commandName(cmd)
 	}
+	// argument and flag errors come before PersistentPreRunE, which applies
+	// -o; apply it here so `-o text` (or a terminal) gets text for them too
+	if f, ok := outputFormat(outputFlag()); ok {
+		out.P.Format = f
+	}
 	var oe *out.Error
 	if errors.Is(err, store.ErrDryRun) {
 		err = toErr(err)
 	}
 	if !errors.As(err, &oe) && isUsageErr(err) {
-		err = out.Usage("%s", err.Error())
+		err = usageErr(cmd, err)
 	}
 	if errors.As(err, &oe) {
 		approvalHint(oe)
 	}
 	return out.P.Fail(name, err)
+}
+
+// outputFlag is -o/--output as given, also when flag parsing stopped early
+// (an unknown flag), else KOMANDO_OUTPUT or auto.
+func outputFlag() string {
+	args := os.Args[1:]
+	for i := 0; i < len(args) && args[i] != "--"; i++ {
+		a := args[i]
+		switch {
+		case (a == "-o" || a == "--output") && i+1 < len(args):
+			return args[i+1]
+		case strings.HasPrefix(a, "--output="):
+			return strings.TrimPrefix(a, "--output=")
+		case strings.HasPrefix(a, "-o") && len(a) > 2:
+			return strings.TrimPrefix(a[2:], "=")
+		}
+	}
+	if v := os.Getenv("KOMANDO_OUTPUT"); v != "" {
+		return v
+	}
+	return "auto"
+}
+
+// usageErr turns cobra's argument errors ("accepts 2 arg(s), received 1")
+// into what people know from other tools: what is wrong and the usage line.
+func usageErr(cmd *cobra.Command, err error) error {
+	m := err.Error()
+	if cmd == nil {
+		return out.Usage("%s", m)
+	}
+	e := out.Usage("%s", m)
+	e.Hint = "see `" + cmd.CommandPath() + " --help`"
+	for _, p := range []string{"accepts ", "requires at least", "requires at most", "received"} {
+		if strings.Contains(m, p) {
+			what := "too many arguments"
+			if n := argCounts.FindStringSubmatch(m); n != nil {
+				if want, _ := strconv.Atoi(n[1]); n[2] != "" {
+					if got, _ := strconv.Atoi(n[2]); got < want {
+						what = "missing arguments"
+					}
+				}
+			}
+			if strings.Contains(m, "requires at least") || strings.Contains(m, "received 0") {
+				what = "missing arguments"
+			}
+			e.Message = what + "; usage: " + strings.TrimSuffix(cmd.UseLine(), " [flags]")
+			if ex := firstExample(cmd); ex != "" {
+				e.Hint = "for example: " + ex
+			}
+			break
+		}
+	}
+	return e
+}
+
+// argCounts reads "accepts 2 arg(s), received 1" and "accepts between 1 and
+// 2 arg(s), received 0": the smallest count wanted, and the count given.
+var argCounts = regexp.MustCompile(`accepts (?:between )?(\d+).*received (\d+)`)
+
+func firstExample(cmd *cobra.Command) string {
+	for _, l := range strings.Split(cmd.Example, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			if i := strings.Index(l, "  #"); i > 0 {
+				l = strings.TrimSpace(l[:i])
+			}
+			return l
+		}
+	}
+	return ""
 }
 
 func isUsageErr(err error) bool {
