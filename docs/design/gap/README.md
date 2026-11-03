@@ -4,6 +4,12 @@ This document compares all komando features (`feat/v0.3`, commit 4784fc9,
 178 commands) with popular CLI tools in each field. The goal: know what
 is still missing, and what must be done first.
 
+> **Status (2026-11-03):** Phases 1–5 below are done, and since then every
+> feature is built in ([built-in.md](../built-in.md)). The field reports in
+> this folder are a snapshot of `feat/v0.3`: many of their MISSING and
+> PARTIAL rows are done now. What is still open is in
+> [Still open](#still-open) and [section 4](#4-biggest-p2-themes).
+
 ## How to read
 
 Each capability gets a status:
@@ -102,105 +108,41 @@ ProxyCommand: AWS SSM, GCP IAP, Cloudflare Access, Teleport) with the shortcut
 `import ssh-config` now carries ProxyCommand (section 1 number 7). S3 conns
 can log in with an AWS CLI profile (`--option aws_profile`: SSO, role,
 temporary keys), and ECR registries get a fresh login from the aws CLI every
-time (section 1 number 10). A built-in SSM client without the aws CLI is not built yet.
-Passes e2e 183/183.
+time (section 1 number 10). Passes e2e 183/183.
 
-The tables below show the state **before** Phase 1.
+## Built in (done)
 
-## 1. Doc promises the code does not meet yet (do these first)
+No feature needs another program any more: the aws, vault, gcloud and op
+CLIs, kubectl, psql/pg_dump/mysqldump, openvpn, openconnect and Docker are
+replaced by komando's own clients, including AWS SSM sessions and ECR
+logins through the AWS SDK. Plan, status and what is left (the
+experimental VPN clients and SSM sessions): [built-in.md](../built-in.md).
 
-These are not new features. The komando docs already promise them, but the code
-does not follow yet. These confuse users and agents the most.
+## Still open
 
-| # | Promise | Where it is promised | Reality |
-|---|---|---|---|
-| 1 | Changes are rejected if the audit cannot be written | ux.md §6 | `audit()` stays silent if writing fails (fails open) |
-| 2 | Destination files are not overwritten without `--overwrite`, atomic download | ux.md (file transfer) | download from a **server** writes directly with `O_TRUNC` (`cp.go:284`), upload to a server also overwrites (`cp.go:210`). Download from storage is already correct (does not overwrite) |
-| 3 | A tunnel to an address other than 127.0.0.1 needs `--yes` | network.md | `parseTunnel` accepts `-L 0.0.0.0:...` as is, without confirmation (`tunnel.go:68`) |
-| 4 | `komando test` checks login | help `test`, resources-and-db.md | db and cache are only checked over TCP |
-| 5 | Completion of host/conn/group names | ux.md §10 | no `ValidArgsFunction` at all yet |
-| 6 | `komando schema` is the source of truth for agents | guide, SKILL.md | the selectors and secret refs in the schema are outdated (no `kind:`, no `op://`, `vault:`, ...) |
-| 7 | Unsupported ssh_config directives are reported | ux.md §9 | `ProxyCommand`, `Match` are silently dropped on import |
-| 8 | `cluster apply` shows a diff | ux.md | `--dry-run` only names the objects |
-| 9 | `sync` verb for storage | vision.md | not there yet |
-| 10 | ECR registry supported | vision.md | the Docker credential helper is read only once at `import docker`; the ECR token (valid 12 hours) is not refreshed |
-| 11 | Import `termius`, `tableplus`, `aws`; memcached kind | vision.md | not built yet |
-| 12 | Status table in vision.md | vision.md "Review kondisi sekarang" | still says cluster, registry, ftp, VPN "❌ not there yet", even though v0.4–v0.7 are already done |
+Sections 1–3 of the first version (doc promises, security holes and daily
+P1 features, all from before Phase 1) are done, except:
 
-Bugs found along the way:
-- `registry ls` (catalog) only reads one page, even though `Tags` already
-  follows the `Link` header. The repository list can be cut off without warning.
-- `docker logs -f` and `svc logs -f` use `runOne`, not `followLogs`
-  (`modules.go:323`, `modules.go:158`), so the output is held until timeout.
-  `logs --container -f` and `logs --unit -f` are already correct.
-- `conn edit --option statement_timeout=10s` (an example in the `conn edit` help)
-  is accepted but not used; only `cluster` reads conn options.
-- `exec -P 10` through one bastion opens 10 logins at once to the bastion
-  (`sshx.Dial` builds a `--via` chain per host), close to the default `MaxStartups`
-  limit, and it can trigger fail2ban.
-
-## 2. Security and secret holes (P1)
-
-| # | Problem | Field |
-|---|---|---|
-| 1 | `cluster run -- get secret X -o yaml` is rated read and prints the secret value (`cluster get` already hides it) | cluster |
-| 2 | Docker on hosts is looser than `cluster`: `docker rm -f -v`, `docker raw volume rm`, `compose down -v`, `run --privileged` count as ordinary changes; `docker raw` does not use `classifyDocker` | docker |
-| 3 | `secret get --reveal` works without a terminal and without `--yes`, so an agent can read passwords, even though the vision is "AI never sees passwords" | secret |
-| 4 | There is no way to give a secret to a remote command without the agent seeing it (`--env DB_PASS=secret:x`), so agents are pushed to use `--reveal` | secret |
-| 5 | `secret rm` does not check whether the secret is still used by a host/conn/VPN, no confirmation, no audit | secret |
-| 6 | The password in `CREATE USER ... PASSWORD '...'` is stored in plain text in `audit.jsonl` (default `audit_sql=full`) | db |
-| 7 | `registry rm` does not mention other tags (e.g. `latest`, `prod`) that get deleted too | registry |
-| 8 | `fs write` cannot validate a file before installing it (`visudo -cf`, `sshd -t`, `nginx -t`); a bad sudoers/sshd edit can lock everyone out | fs |
-| 9 | `fs write --dry-run` does not show a diff (even though `fs replace` already has one) | fs |
-| 10 | Cache classification is uneven: `GETDEL`, `RENAME` overwrite, `EXPIRE 0` only need `--write`, while `DEL` needs `--allow-dangerous`; module read commands (`JSON.GET`, `FT.SEARCH`) are rated write | cache |
-| 11 | `host add/edit --password-ref` does not validate the ref format: `--password-ref hunter2` is accepted, the plain password is stored in `state.json` and printed in the output (`conn` and `vpn` already use `vault.ValidRef`) | host |
-| 12 | No secret redaction in the output of remote commands: `fs cat .env`, `exec -- env`, `logs`, `docker exec ... env` send secret values as is to the agent | all |
-
-## 3. Daily features that are missing (P1)
-
-**Servers and files**
-- Remove a public key from `authorized_keys` on many servers (offboarding, key rotation). Right now you can only add.
-- Folder sync: only what changed, `--delete`, `--exclude`, a dry-run that names which files.
-- Upload/download large files without loading the whole file into memory (now `os.ReadFile`).
-- Controlled reboot: reboot → wait for the server to come back → verify. Policy blocks `reboot`, but there is no safe path yet, so patching cannot be finished.
-- `svc daemon-reload` after changing a unit file.
-
-**Database and cache**
-- `db info`: version, size, connections, primary/replica (cache already has `cache info`).
-- Running activity, locks and who blocks whom, `db kill` with dry-run.
-- Size of the database, and the biggest tables and indexes.
-  (The `postgres-status` and `mysql-status` recipes already show part of the activity and sizes, but only over SSH to the DB server with `psql`/`mysql` installed, not through a conn.)
-- Foreign keys and constraints in `db schema`.
-- `db dump` in custom/directory format (`pg_dump -Fc`) and its restore (`pg_restore`).
-- Manage users/roles/grants with passwords from the vault.
-
-**Storage and registry**
-- Upload and download folders (prefixes) for storage; currently rejected.
-- `storage cat` with `--head`/`--tail`, so the agent does not need to download first.
-- Delete by prefix or age (`--older-than`) with a preview and a limit, to clean up old backups.
-- Temporary AWS credentials: session token, profile/SSO, AssumeRole.
-- Bulk registry tag cleanup: keep the N newest, delete those older than X.
-
-**Kubernetes and Swarm**
-- Full deploy cycle: change image, rollout status/wait, rollback (k8s and Swarm).
-- Diff before apply.
-- Logs: `--follow` (ux.md already notes it as "not there yet"), per workload (`deploy/api`), many pods through a label selector.
-- `describe` and events (Warning only, time-sorted); `-l` filter; meaningful columns for ingress, pvc, job, hpa.
-- A `cluster status` that catches CrashLoopBackOff, ImagePullBackOff, missing replicas, node pressure. (`cluster ls pods` already shows the `waiting` reason. `cluster status` only filters on `phase`: ImagePullBackOff (Pending) pods show up without a reason, and CrashLoopBackOff pods (with status `Running`) do not show up at all.)
-- Read-only exec into pods without `--allow-dangerous`; port-forward to services through `tunnel start`.
-
-**Access and platform**
-- AWS SSM Session Manager (shell and port forwarding) as a `--via` step.
-- Generic `ProxyCommand` as a way out for SSM, GCP IAP, cloudflared, tsh.
+- `import termius`, `import tableplus`, `import aws` and a `memcached` kind
+  (Termius and TablePlus have no open export format; see
+  [import.md](../../features/import.md)).
+- `exec -P 10` through one bastion opens one bastion login per host; a
+  shared bastion connection would stay under the server's `MaxStartups`.
+- A controlled reboot (reboot, wait for the server, verify) and
+  `svc daemon-reload` as their own commands; today both go through `exec`
+  with `--allow-dangerous`/policy.
+- Users, roles and grants with passwords from the vault; today through
+  `db query --write`.
+- Bulk registry tag cleanup (keep the N newest, delete older than X).
 
 ## 4. Biggest P2 themes
 
-- **Access**: SSH certificates (user cert, `@cert-authority`), agent forwarding, SAML/SSO for openconnect, `HTTPS_PROXY` for the kube and registry clients, `vpn edit`.
+- **Access**: SSH certificates (user cert, `@cert-authority`), agent forwarding, SAML/SSO logins for the corporate VPN clients, `HTTPS_PROXY` for the kube and registry clients, `vpn edit`.
 - **Fleet**: staged execution (Ansible-style `serial`), idempotent `lineinfile`/`blockinfile`, `user unlock` and groups, `download --sudo`, Ansible inventory import.
-- **Secrets**: `vault.key` in the OS keyring, refs for Azure Key Vault/Bitwarden/pass/sops/SSM Parameter Store, Vault dynamic credentials, encrypted export including secrets.
-- **Cluster**: commands to many clusters at once (`@group`), read-only helm (list/status/history), `kubectl top`/capacity, redaction of `docker inspect` and `compose config`.
+- **Secrets**: `vault.key` in the OS keyring, refs for Azure Key Vault/pass/sops/SSM Parameter Store (Bitwarden and KeePass are done), Vault dynamic credentials, encrypted export including secrets.
+- **Cluster**: commands to many clusters at once (`@group`), read-only helm (list/status/history), capacity (`top` is done through `cluster run`), redaction of `docker inspect` and `compose config`.
 - **Database**: new engines (MongoDB most requested; HTTP-based ones like Elasticsearch/OpenSearch, RabbitMQ, Consul are cheapest for binary size), Redis Cluster/Sentinel, TLS with your own CA, schema migrations.
-- **Storage**: GCS, Azure Blob, WebDAV; self-signed TLS for S3/registry; filezilla/rclone import for FTP/FTPS/S3.
+- **Storage**: GCS, Azure Blob, WebDAV; self-signed TLS for S3/registry (filezilla/rclone import is done).
 - **Platform**: `--debug`/verbose, CSV output, Homebrew, signed releases + SBOM, Windows build, MCP server, dynamic inventory from the cloud (EC2, GCP, DO, Hetzner), send audit to syslog/SIEM, time filter in `audit`.
 
 ## 5. What is deliberately not built (NON-GOAL)
@@ -264,16 +206,6 @@ itself notes it as "not there yet").
   `vpn show/rm`, `recipe rm` and all aliases (area T), then `guide install`,
   `secret list` and `storage download` are named explicitly in existing rows,
   complete with their comparison tool.
-
-## Suggested order
-
-1. **Meet the promises in section 1 and close the holes in section 2.** Small pieces, and
-   they directly raise trust in the komando security contract.
-2. **Cluster deploy cycle** (rollout, rollback, change image, diff, logs -f).
-   This is the most frequent daily work in the field with the most P1 gaps.
-3. **Bulk transfer** (sync, storage folders, large files, key revoke).
-4. **Daily DBA work** (`db info`, activity, locks, sizes, custom-format dump).
-5. **Cloud access** (SSM, `ProxyCommand`, temporary AWS credentials).
 
 ## Appendix: map of 178 commands to comparison rows
 

@@ -1,5 +1,10 @@
 # Gap analysis: object storage, file servers, and container registries
 
+> **Snapshot of `feat/v0.3` (commit 4784fc9), 2026-11-02.** Many MISSING and
+> PARTIAL rows below were done in Phases 1–5 and the built-in work, and no
+> feature needs kubectl, psql, the aws CLI, openvpn or openconnect any more.
+> Current status: [README.md](README.md#still-open).
+
 Basis: commit `4784fc9` (branch `feat/v0.3`), binary `bin/komando`, code
 `internal/cli/storage.go`, `transfer.go`, `cp.go`, `registry.go`,
 `registrycopy.go`, `internal/storex/{storex,ftp,sftp}.go`,

@@ -1,5 +1,10 @@
 # Gap analysis: databases and caches (komando `feat/v0.3`, commit 4784fc9)
 
+> **Snapshot of `feat/v0.3` (commit 4784fc9), 2026-11-02.** Many MISSING and
+> PARTIAL rows below were done in Phases 1–5 and the built-in work, and no
+> feature needs kubectl, psql, the aws CLI, openvpn or openconnect any more.
+> Current status: [README.md](README.md#still-open).
+
 Scope: `komando db` (postgres, mysql/mariadb, sqlite), `komando cache` (redis/valkey/keydb/dragonfly),
 and data engines that are not supported yet. Compared with psql, pgcli, mysql, mycli, sqlite3, usql,
 DBeaver/DataGrip, pg_dump/pg_restore/pg_dumpall, mysqldump/mydumper, pg_activity/pg_top, pgbench,

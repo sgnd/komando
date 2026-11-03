@@ -105,7 +105,7 @@ How commands use the selector result:
 |---|---|---|
 | how many | `-n, --limit` | log lines, items, keys, SQL rows |
 | recursive | `-r, --recursive` | always lowercase `-r` |
-| keep following (logs) | `-f, --follow` | `-f` is **only** for follow, like `tail -f` and `kubectl logs -f` (not built yet; `-f` has already been freed up for it) |
+| keep following (logs) | `-f, --follow` | `-f` is **only** for follow, like `tail -f` and `kubectl logs -f` |
 | input file | `--file` | `-f` only when the original tool uses it (`db query -f`, `docker compose -f`); in `logs`, `-f` is for follow |
 | to/from a local file | `--to` / `--from` | |
 | replace what exists | `--overwrite` | replaces `--force` |
@@ -257,12 +257,12 @@ to do it is not to copy every feature of that tool, but three paths that are the
    output, safe, easy to use. For 80% of daily work.
 2. **A raw path in the native language**, still classified, read-only by
    default, and audited: `exec` (shell), `db query` (any SQL), `cache run`
-   (any Redis command), later `cluster run -- <kubectl args>`. Anything
+   (any Redis command), `cluster run -- <kubectl args>`. Anything
    the original tool can do can be done through here.
 3. **The native tool on your laptop, through the komando path**: `komando tunnel start
    app-db` gives a local port for TablePlus/`psql`, and `komando shell`
-   for interactive SSH. Later `komando db shell app-db` opens `psql`/`mysql`
-   with the password from the vault and the `--via` path, with no password on screen.
+   for interactive SSH, and `komando db shell app-db` opens komando's own SQL
+   shell with the password from the vault and the `--via` path, with no password on screen.
 
 Paths 2 and 3 do not count as overlapping with path 1: they are emergency doors
 that exist on purpose, with the same safeguards.
@@ -349,7 +349,7 @@ are guarded by `TestConventions` (`internal/cli/conventions_test.go`).
 | 1 | P0 | Snippets could run on a protected host without `--yes` unless marked `--mutating` | ✅ Treated as a change; `--read-only` for safe ones |
 | 2 | P0 | `secret set NAME VALUE` (goes into shell history and `ps`) | ✅ Refused (`SECRET_IN_ARGS`) |
 | 3 | P0 | Selectors only picked hosts | ✅ Universal selectors, `kind:`, `meta.skipped`, `NO_MATCHING_TARGETS`, "did you mean" |
-| 4 | P1 | `logs -f` = file | ✅ `--file` with no short letter. `--follow` not built yet |
+| 4 | P1 | `logs -f` = file | ✅ `--file` with no short letter; `-f, --follow` follows |
 | 5 | P1 | `rm`, `del`, `remove`, `delete` | ✅ `rm` in every command, the rest are aliases |
 | 6 | P1 | `-n` had three meanings | ✅ `-n, --limit`; `fs cat --line-numbers`; `job logs --max-bytes` |
 | 7 | P1 | `--host` vs `--target` | ✅ `--target` (accepts selectors) |
@@ -364,7 +364,7 @@ are guarded by `TestConventions` (`internal/cli/conventions_test.go`).
 | 16 | P2 | `HOST` vs `TARGET` in usage | ✅ `TARGET` |
 | 17 | P2 | People at a terminal only got an error | ✅ `[y/N]` prompt, and type the name for dangerous ones |
 | 18 | P2 | Name `all`, `Web1` vs `web1` | ✅ Refused |
-| 19 | P2 | `komando import` does not exist yet | ⏳ Roadmap v0.3 |
+| 19 | P2 | `komando import` does not exist yet | ✅ `komando import SOURCE` (v0.3) |
 | 20 | P0 | `host add --overwrite` silently removed protected | ✅ Needs `--yes` |
 | 21 | P0 | `host rm` / `edit --protected=false` on a protected target without `--yes` (a way around) | ✅ Needs `--yes` |
 | 23 | P0 | Aliases without protected (`user@address`, a second name, a second conn to the same server) bypassed protected | ✅ Protected follows the address |
