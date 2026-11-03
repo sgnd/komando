@@ -533,7 +533,7 @@ func testConn(ctx context.Context, st *store.State, c *store.Conn) connTestResul
 	if a.Target.Kind.File {
 		r.Check = "file"
 		if _, err := os.Stat(expandHome(a.Target.Path)); err != nil {
-			return fail(out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "check the path in the conn URL (`komando conn edit "+c.Name+" --url ...`)", "%v", err))
+			return fail(localFileErr("FILE_NOT_FOUND", err, "check the path in the conn URL (`komando conn edit "+c.Name+" --url ...`)"))
 		}
 	} else {
 		r.Check = "tcp"

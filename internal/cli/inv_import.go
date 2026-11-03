@@ -123,7 +123,7 @@ run on this computer, so an AI agent needs a person's yes for them.`,
 			case jsonFile != "":
 				b, err := readFileOrStdin(jsonFile)
 				if err != nil {
-					return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a file made by `komando host export`", "%v", err)
+					return localFileErr("FILE_NOT_FOUND", err, "give the path of a file made by `komando host export`")
 				}
 				var ok bool
 				if hosts, ok = parseHostsJSON(b); !ok {

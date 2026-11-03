@@ -151,7 +151,7 @@ unless --allow-dangerous is given. Hosts marked protected need --yes unless
 			if o.stdinFile != "" {
 				var err error
 				if stdin, err = readFileOrStdin(o.stdinFile); err != nil {
-					return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "check the --stdin-file path", "%v", err)
+					return localFileErr("FILE_NOT_FOUND", err, "check the --stdin-file path")
 				}
 			}
 			if readOnly {
@@ -182,7 +182,7 @@ func scriptCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			body, err := readFileOrStdin(args[1])
 			if err != nil {
-				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "", "%v", err)
+				return localFileErr("FILE_NOT_FOUND", err, "")
 			}
 			if interpreter == "" {
 				interpreter = "sh"
@@ -311,7 +311,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			f := failed
 			mu.Unlock()
 			if f {
-				return nil, out.Errf(out.ExitError, "SKIPPED", "", "skipped due to --fail-fast")
+				return nil, out.Errf(out.ExitError, "SKIPPED", "run without --fail-fast to reach every server", "skipped due to --fail-fast")
 			}
 		}
 		r := req
@@ -355,7 +355,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Name < ordered[j].Name })
 		for _, h := range ordered {
 			if failed {
-				results = append(results, outcome{Host: h, Err: out.Errf(out.ExitError, "SKIPPED", "", "skipped due to --fail-fast")})
+				results = append(results, outcome{Host: h, Err: out.Errf(out.ExitError, "SKIPPED", "run without --fail-fast to reach every server", "skipped due to --fail-fast")})
 				continue
 			}
 			results = append(results, fanout(ctx, st, []*store.Host{h}, run)...)

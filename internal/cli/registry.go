@@ -199,7 +199,7 @@ func registryRmCmd() *cobra.Command {
 						return nil, imageErr(ctx, r, repo, ref, err)
 					}
 					if m.Digest == "" {
-						return nil, out.Errf(out.ExitRemote, "REGISTRY_ERROR", "", "the registry did not say the image's digest")
+						return nil, out.Errf(out.ExitRemote, "REGISTRY_ERROR", "run it again; if it keeps failing, the registry may not support this image format", "the registry did not say the image's digest")
 					}
 					// deleting by digest removes every tag on it: name them all
 					tags, checked, more := tagsOn(ctx, r, repo, m.Digest)

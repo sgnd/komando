@@ -144,7 +144,41 @@ func toErr(err error) *out.Error {
 	if errors.Is(err, context.Canceled) {
 		return &out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError}
 	}
-	return &out.Error{Code: "REMOTE_ERROR", Message: err.Error(), Exit: out.ExitError}
+	var pe *os.PathError
+	if errors.As(err, &pe) {
+		e := localFileErr("FILE_ERROR", err, "")
+		e.Exit = out.ExitError
+		return e
+	}
+	return &out.Error{Code: "REMOTE_ERROR", Message: err.Error(), Exit: out.ExitError,
+		Hint: "run it again with -o json for the details; `komando doctor` checks this computer's setup"}
+}
+
+// localFileErr says in plain words why a file on this computer cannot be
+// used, instead of Go's "open X: no such file or directory". hint, when
+// given, replaces the default next step.
+func localFileErr(code string, err error, hint string) *out.Error {
+	path, why := "the file", err.Error()
+	var pe *os.PathError
+	if errors.As(err, &pe) {
+		path, why = pe.Path, pe.Err.Error()
+	}
+	var msg, next string
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		msg = path + " does not exist on this computer"
+		next = "check the path; a relative path starts in the folder you run komando from"
+	case errors.Is(err, os.ErrPermission):
+		msg = "no permission to read " + path + " on this computer"
+		next = "check the file's owner and permissions: ls -l " + path
+	default:
+		msg = "cannot read " + path + ": " + why
+		next = "check that " + path + " is a readable file"
+	}
+	if hint == "" {
+		hint = next
+	}
+	return &out.Error{Code: code, Message: msg, Hint: hint, Exit: out.ExitNotFound}
 }
 
 type outcome struct {

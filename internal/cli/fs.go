@@ -78,7 +78,7 @@ func fsErr(p string, err error) error {
 func fsErrHint(p string, err error, permHint string) error {
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "", "%s: no such file or directory", p)
+		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "list the folder with `komando fs ls TARGET "+path.Dir(p)+"`", "%s: no such file or directory", p)
 	case errors.Is(err, os.ErrPermission):
 		return out.Errf(out.ExitError, "PERMISSION_DENIED", permHint, "%s: permission denied", p)
 	}
@@ -256,7 +256,7 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 			if strings.Contains(r.Stderr, "Is a directory") {
 				return nil, false, isADirectory(p)
 			}
-			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "", "%s", strings.TrimSpace(r.Stderr))
+			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat TARGET PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
 		}
 		return []byte(r.Stdout), r.StdoutTruncated, nil
 	}
@@ -493,7 +493,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 			return nil, folderMissing(path.Dir(p))
 		case r.ExitCode != 0:
 			_ = sc.Remove(tmp)
-			return nil, out.Errf(out.ExitRemote, "WRITE_FAILED", "", "%s", strings.TrimSpace(r.Stderr))
+			return nil, out.Errf(out.ExitRemote, "WRITE_FAILED", "check that the folder is writable and has free space: `komando exec TARGET --read-only -- df -h`", "%s", strings.TrimSpace(r.Stderr))
 		}
 		f3 := strings.SplitN(strings.TrimSpace(r.Stdout), " ", 3)
 		if len(f3) == 3 {
@@ -532,7 +532,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 	} else if fi, err := sc.Stat(dir); err != nil && errors.Is(err, os.ErrNotExist) {
 		return nil, folderMissing(dir)
 	} else if err == nil && !fi.IsDir() {
-		return nil, out.Errf(out.ExitConflict, "NOT_A_FOLDER", "", "%s is a file, not a folder", dir)
+		return nil, out.Errf(out.ExitConflict, "NOT_A_FOLDER", "give a folder path, not a file", "%s is a file, not a folder", dir)
 	}
 	// preserve the existing mode when not specified
 	existing, statErr := sc.Stat(p)
@@ -814,7 +814,7 @@ func fsReplaceCmd() *cobra.Command {
 					return err
 				}
 				if trunc {
-					return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "", "file larger than 64MiB")
+					return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "for a bigger file: `komando download` it, edit it here, then `komando upload` it", "%s is larger than 64MiB, the most fs replace edits", p)
 				}
 				src := string(b)
 				var n int

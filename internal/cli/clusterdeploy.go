@@ -517,7 +517,7 @@ revision. A Swarm service goes back to its previous version.`,
 					return err
 				}
 				if ins["PreviousSpec"] == nil {
-					return out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "", "service %s has no previous version to go back to", name)
+					return out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "see what was deployed with `komando cluster describe TARGET service/"+name+"`", "service %s has no previous version to go back to", name)
 				}
 				return swarmChange(cmd.Context(), "cluster.rollback", t, name, "docker service rollback --detach "+sshx.Q(name), wait, true, driver.RiskWrite,
 					map[string]any{"object": "service/" + name, "images": []string{serviceImage(ins["PreviousSpec"])}, "previous_image": serviceImage(ins["Spec"])})

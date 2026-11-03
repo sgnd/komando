@@ -124,7 +124,7 @@ func jobStartCmd() *cobra.Command {
 				}
 				pid, perr := strconv.Atoi(strings.TrimSpace(o))
 				if code != 0 || perr != nil {
-					return nil, out.Errf(out.ExitRemote, "JOB_START_FAILED", "", "could not start job: %s", o)
+					return nil, out.Errf(out.ExitRemote, "JOB_START_FAILED", "check that /bin/sh and nohup work there: `komando test TARGET`", "could not start job: %s", o)
 				}
 				j := &store.Job{ID: id, Host: c.Host.Name, Command: command, PID: pid, RemoteDir: jobDir(id), StartedAt: time.Now().UTC()}
 				if err := store.Update(func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
@@ -400,7 +400,7 @@ is how long to wait; the job keeps running after it (exit 7, WAIT_TIMEOUT).`,
 				out.P.Print("job.wait", s, out.Errf(out.ExitRemote, "JOB_LOST", "process died without recording an exit code (killed or server rebooted)", "job %s lost", j.ID))
 				return exitCode(out.ExitRemote)
 			case s.ExitCode != nil && *s.ExitCode != 0:
-				out.P.Print("job.wait", s, out.Errf(out.ExitRemote, "JOB_FAILED", "", "job exited with %d", *s.ExitCode))
+				out.P.Print("job.wait", s, out.Errf(out.ExitRemote, "JOB_FAILED", "read its output with `komando job logs "+j.ID+" --tail 50`", "job exited with %d", *s.ExitCode))
 				return exitCode(out.ExitRemote)
 			}
 			out.P.Print("job.wait", s, nil)

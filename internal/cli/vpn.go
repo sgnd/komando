@@ -182,7 +182,7 @@ func vpnAddCmd() *cobra.Command {
 			readConfig := func() (string, error) {
 				b, err := os.ReadFile(expandHome(config))
 				if err != nil {
-					return "", out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of the VPN's config file", "%v", err)
+					return "", localFileErr("FILE_NOT_FOUND", err, "give the path of the VPN's config file")
 				}
 				return string(b), nil
 			}
