@@ -486,6 +486,15 @@ check "edited audit record found" AUDIT_TAMPERED "$($K audit verify | jget 'd["e
 cp "$TMP/audit.bak" "$KOMANDO_HOME/audit.jsonl"
 check "doctor checks security" True "$($K doctor | jget 'any(c["name"] == "security:audit_chain" and c["ok"] for c in d["data"]["security"])')"
 
+# checks per area (test/e2e/checks/*.sh) run here, against the same lab and
+# inventory; they use $K, A, check, jget, q and $TMP like the ones above
+for f in "$E2E"/checks/*.sh; do
+  [ -e "$f" ] || continue
+  echo "==> $(basename "$f" .sh)"
+  # shellcheck source=/dev/null
+  . "$f"
+done
+
 # no secret value may reach the state file or the audit log
 LEAKS=$(cat "$KOMANDO_HOME/state.json" "$KOMANDO_HOME/audit.jsonl" | { grep -c -E 'apppass|shoppass|redispass' || true; })
 check "no passwords in state or audit" 0 "$LEAKS"

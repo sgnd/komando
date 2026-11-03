@@ -229,6 +229,8 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		res := map[string]any{"would_run": plans}
 		if guardErr != nil {
 			res["would_be_blocked"] = toErr(guardErr)
+		} else if b := out.P.Blocked(); b != nil {
+			res["would_be_blocked"] = b
 		}
 		out.P.Print(name, res, nil)
 		return nil
@@ -264,7 +266,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 						if many {
 							line = "[" + host + "] " + line
 						}
-						fmt.Fprint(w, out.P.Redact(line))
+						fmt.Fprint(w, out.SafeText(out.P.Redact(line)))
 					}
 					return
 				}

@@ -810,14 +810,14 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 				fl[k] = *v
 			}
 			if strings.HasPrefix(use, "rm ") && fl["recursive"] && !dangerOK() {
-				return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a folder and everything in it would be gone; confirm with the user, then add --allow-dangerous",
-					"rm --recursive deletes whole folders")
+				return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a folder and everything in it would be gone; confirm with the user, then add --allow-dangerous",
+					"rm --recursive deletes whole folders"))
 			}
 			if strings.HasPrefix(use, "rm ") {
 				for _, p := range args[1:] {
 					if cp := path.Clean(p); (cp == "/" || cp == "." || cp == "~" || strings.Count(cp, "/") <= 1 && strings.HasPrefix(cp, "/")) && !dangerOK() {
-						return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "pass --allow-dangerous if truly intended",
-							"refusing to remove top-level path %q", p)
+						return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "pass --allow-dangerous if truly intended",
+							"refusing to remove top-level path %q", p))
 					}
 				}
 			}

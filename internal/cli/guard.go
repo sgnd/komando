@@ -137,6 +137,66 @@ func guardPath(p, home string) string {
 	return filepath.Clean(p)
 }
 
+// splitShell cuts a shell line into simple commands at ; | & && || newlines
+// and parentheses, but not inside quotes: `grep 'a|ssh' f` is one command.
+// $( and ` start a command even inside double quotes, because they run.
+func splitShell(line string) []string {
+	var segs []string
+	var cur strings.Builder
+	cut := func() {
+		segs = append(segs, cur.String())
+		cur.Reset()
+	}
+	var q byte
+	subst := 0 // open $( inside double quotes
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		switch {
+		case q == '\'':
+			if c == '\'' {
+				q = 0
+			}
+			cur.WriteByte(c)
+		case c == '\\' && i+1 < len(line):
+			cur.WriteByte(c)
+			cur.WriteByte(line[i+1])
+			i++
+		case q == '"' && c == '"':
+			q = 0
+			cur.WriteByte(c)
+		case c == '`' || c == '$' && i+1 < len(line) && line[i+1] == '(':
+			cut() // a command substitution: its own command, quoted or not
+			if c == '$' {
+				i++
+				if q == '"' {
+					subst++
+				}
+			}
+		case q == '"' && c == ')' && subst > 0:
+			cut()
+			subst--
+		case q == '"':
+			cur.WriteByte(c)
+		case c == '\'' || c == '"':
+			q = c
+			cur.WriteByte(c)
+		case c == ';' || c == '|' || c == '&' || c == '\n' || c == '(' || c == ')':
+			cut()
+		default:
+			cur.WriteByte(c)
+		}
+	}
+	cut()
+	if q != 0 {
+		// an unclosed quote: the shell refuses the line, but be strict and
+		// look at every part of it
+		return anyOperator.Split(line, -1)
+	}
+	return segs
+}
+
+var anyOperator = regexp.MustCompile(`[;|&\n()` + "`" + `"']`)
+
 // stripQuotedHeredocs drops the bodies of <<'EOF' heredocs: the shell does
 // not expand them, so they are data (a file's content, a script for python),
 // not commands. Unquoted heredocs stay: $(...) in them runs.
@@ -162,7 +222,6 @@ var (
 	// reading the passphrase's value; setting it (KOMANDO_VAULT_PASS=...) is fine
 	readsVaultPass = regexp.MustCompile(`\$\{?KOMANDO_VAULT_PASS\b|printenv\s+KOMANDO_VAULT_PASS\b`)
 	heredocStart   = regexp.MustCompile(`<<-?[ \t]*(['"])([A-Za-z_][A-Za-z0-9_]*)['"]`)
-	shellSplit     = regexp.MustCompile(`\|\||&&|[;|&\n()]`)
 	envAssign      = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
 	remoteSpec     = regexp.MustCompile(`^([A-Za-z0-9_.-]+@)?[A-Za-z0-9_.-]+:`)
 )
@@ -177,7 +236,7 @@ func checkShell(line, home string) guardDecision {
 	if strings.Contains(line, "/environ") {
 		return deny("process environments hold secrets; ask the user for the one value you need")
 	}
-	for _, seg := range shellSplit.Split(line, -1) {
+	for _, seg := range splitShell(line) {
 		words := shellWords(seg)
 		prog, args := program(words)
 		switch filepath.Base(prog) {

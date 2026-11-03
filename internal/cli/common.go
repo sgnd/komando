@@ -37,6 +37,29 @@ func applyConventions(c *cobra.Command) {
 	if c.Name() == "rm" {
 		c.Aliases = rmAliases
 	}
+	if c.HasParent() && c.HasSubCommands() && c.Run == nil && c.RunE == nil {
+		// `komando host lst`: a typo must fail (exit 2) with a suggestion,
+		// not print the help and exit 0 as if it had worked
+		c.Args = cobra.ArbitraryArgs
+		c.RunE = func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return cmd.Help()
+			}
+			e := out.Usage("unknown command %q for %q", args[0], cmd.CommandPath())
+			cmd.SuggestionsMinimumDistance = 2
+			if s := cmd.SuggestionsFor(args[0]); len(s) > 0 {
+				e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
+			}
+			names := []string{}
+			for _, sub := range cmd.Commands() {
+				if sub.IsAvailableCommand() {
+					names = append(names, sub.Name())
+				}
+			}
+			e.Hint = "`" + cmd.CommandPath() + "` has: " + strings.Join(names, ", ")
+			return e
+		}
+	}
 	for _, sub := range c.Commands() {
 		applyConventions(sub)
 	}
@@ -175,9 +198,9 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 			for i, h := range hits {
 				ids[i], reasons[i] = h.ID, h.Reason
 			}
-			return out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
+			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 				"if this is truly intended, confirm with the user and re-run with --allow-dangerous (try --dry-run first)",
-				"command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; "))
+				"command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")))
 		}
 	}
 	if mutating {
@@ -188,9 +211,9 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 			}
 		}
 		if len(prot) > 0 && !yesOK() && !confirmProtected(prot) {
-			return out.Errf(out.ExitPolicy, "PROTECTED_HOST",
+			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
 				"protected hosts require explicit confirmation: re-run with --yes after verifying intent",
-				"mutating action targets protected host(s): %s", strings.Join(prot, ", "))
+				"mutating action targets protected host(s): %s", strings.Join(prot, ", ")))
 		}
 	}
 	return nil
@@ -205,9 +228,9 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 		names[i] = c.Name
 	}
 	if v.Risk >= driver.RiskDestructive && !dangerOK() && !confirmDangerous(names, strings.Join(v.Reasons, "; ")) {
-		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
+		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 			"if this is truly intended, confirm with the user and re-run with --allow-dangerous (try --dry-run first)",
-			"operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; "))
+			"operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")))
 	}
 	if v.Risk >= driver.RiskWrite {
 		var prot []string
@@ -217,9 +240,9 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 			}
 		}
 		if len(prot) > 0 && !yesOK() && !confirmProtected(prot) {
-			return out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
+			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
 				"protected conns require explicit confirmation: re-run with --yes after verifying intent",
-				"%s action targets protected conn(s): %s", v.Risk, strings.Join(prot, ", "))
+				"%s action targets protected conn(s): %s", v.Risk, strings.Join(prot, ", ")))
 		}
 	}
 	return nil
@@ -324,7 +347,7 @@ func guardSafety(what string) error {
 	if yesOK() || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
 		return nil
 	}
-	return out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what)
+	return policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what))
 }
 
 // confirmDangerous asks a human at the terminal to confirm a destructive
@@ -353,8 +376,8 @@ func guardProtection(kind, action string, names []string) error {
 		return nil
 	}
 	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET"}[kind]
-	return out.Errf(out.ExitPolicy, code, "re-run with --yes after the user confirms",
-		"%s protected %s(s): %s", action, kind, strings.Join(names, ", "))
+	return policyStop(out.Errf(out.ExitPolicy, code, "re-run with --yes after the user confirms",
+		"%s protected %s(s): %s", action, kind, strings.Join(names, ", ")))
 }
 
 func hostNames(hs []*store.Host) []string {

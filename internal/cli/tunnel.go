@@ -74,8 +74,8 @@ func guardBind(t tunnelSpec) error {
 	if t.Kind == "remote" {
 		where = "the server"
 	}
-	return out.Errf(out.ExitPolicy, "OPEN_BIND", "keep the default 127.0.0.1, or re-run with --yes if other machines should reach it",
-		"the tunnel would listen on %s of %s, open to its network", host, where)
+	return policyStop(out.Errf(out.ExitPolicy, "OPEN_BIND", "keep the default 127.0.0.1, or re-run with --yes if other machines should reach it",
+		"the tunnel would listen on %s of %s, open to its network", host, where))
 }
 
 func parseTunnel(kind, spec string) (tunnelSpec, error) {

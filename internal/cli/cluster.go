@@ -1311,8 +1311,8 @@ func runKubectl(ctx context.Context, st *store.State, c *store.Conn, name string
 	}
 	if out.P.Format == "text" {
 		if !passthrough {
-			fmt.Fprint(os.Stdout, out.P.Redact(stdout.String()))
-			fmt.Fprint(os.Stderr, out.P.Redact(stderr.String()))
+			fmt.Fprint(os.Stdout, out.SafeText(out.P.Redact(stdout.String())))
+			fmt.Fprint(os.Stderr, out.SafeText(out.P.Redact(stderr.String())))
 		}
 		if code != 0 {
 			return exitCode(out.ExitRemote)

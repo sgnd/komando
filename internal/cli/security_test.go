@@ -238,6 +238,11 @@ func TestGuard(t *testing.T) {
 		{"Bash", map[string]any{"command": "cat > notes.md <<'EOF'\nnever cat ~/.ssh/id_rsa\nEOF"}, false},
 		{"Bash", map[string]any{"command": "cat <<EOF\n$(cat ~/.ssh/id_rsa)\nEOF"}, true},
 		{"Bash", map[string]any{"command": "python3 - <<'EOF'\nx\nEOF\ncat ~/.komando/vault.key"}, true},
+		// operators inside quotes are text, not pipes into ssh
+		{"Bash", map[string]any{"command": "grep -E 'openssh|ssh|sudo' internal/cli/modules.go"}, false},
+		{"Bash", map[string]any{"command": `git commit -m "split (not ssh)"`}, false},
+		{"Bash", map[string]any{"command": `echo "key: $(cat ~/.ssh/id_rsa)"`}, true},
+		{"Bash", map[string]any{"command": "echo `cat ~/.komando/vault.key`"}, true},
 	}
 	for _, c := range cases {
 		d := checkTool(c.tool, c.in, home)

@@ -231,6 +231,7 @@ func checkAuditWritable(cmd *cobra.Command) error {
 
 func newRoot() *cobra.Command {
 	resetApproval()
+	out.P.Reset()
 	root := &cobra.Command{
 		Use:   "komando",
 		Short: "One safe command line for DevOps: servers, databases, caches and storage",
