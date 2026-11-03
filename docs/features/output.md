@@ -79,6 +79,38 @@ list until `komando job rm`; whether it still runs is known on its server,
 which `komando job list --refresh` asks. Agents get the same as JSON
 (`vpns`, `tunnels`, `jobs`).
 
+### In your shell prompt (optional)
+
+`komando prompt` prints a short note such as `vpn:office tun:2`, or nothing
+when nothing runs, so your prompt can show it all the time. Add it yourself;
+komando never changes your shell files.
+
+zsh (also with oh-my-zsh), in `~/.zshrc`:
+
+```zsh
+setopt PROMPT_SUBST
+RPROMPT='$(komando prompt)'
+```
+
+bash, in `~/.bashrc`:
+
+```bash
+PS1='$(p=$(komando prompt); [ -n "$p" ] && echo "[$p] ")'"$PS1"
+```
+
+starship, in `~/.config/starship.toml`:
+
+```toml
+[custom.komando]
+command = "komando prompt"
+when = true
+```
+
+It only reads komando's state file (no network, nothing written, never an
+error), so it is safe on every prompt. It is a quick hint: a VPN that
+crashed a moment ago can still show until the next komando command.
+`komando status` is the full check.
+
 ## Will my scripts keep working?
 
 Every JSON answer has `meta.contract` (now `1`). Within a contract, komando

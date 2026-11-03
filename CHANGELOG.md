@@ -4,6 +4,13 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### `komando prompt`: VPNs and tunnels in your shell prompt
+
+- `komando prompt` prints `vpn:office tun:2`, or nothing, for zsh (also
+  oh-my-zsh), bash or starship; the docs have the line to add. It only
+  reads the state file: no network, no writes, no other programs, never an
+  error, and it does not keep an idle VPN alive.
+
 ### `komando status`: what is still running
 
 - One command lists what komando left running: VPN sessions (with when

@@ -1,6 +1,6 @@
 # Session status: "where am I, and what is still running?"
 
-Status: **approved, 2026-11-03**; Phase 0, 1 and 2 built. Stress-tested against the
+Status: **approved, 2026-11-03**; all phases built. Stress-tested against the
 cases in [Stress test](#stress-test); several first ideas were dropped there.
 
 ## The question
@@ -185,7 +185,10 @@ the plan does about it.
 
 **Phase 2: `komando status`** (text and JSON). ✅ done 2026-11-03
 
-**Phase 3: `komando prompt`** plus snippets in the docs.
+**Phase 3: `komando prompt`** plus snippets in the docs. ✅ done 2026-11-03
+   Measured: about 30 ms per call on an M-series Mac, of which about 20 ms
+   is Go package start-up before komando runs (mostly `rs/xid`, pulled in
+   by the S3 client). Reading the state itself takes well under 1 ms.
 
 Each phase is released on its own.
 

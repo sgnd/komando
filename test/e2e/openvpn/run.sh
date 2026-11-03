@@ -34,6 +34,8 @@ grep -q '^komando:' "$W/err" && fail "a script got a status line"
 echo "ok   no status line for scripts"
 [ "$("$K" status | python3 -c 'import json,sys; print([v["name"] for v in json.load(sys.stdin)["data"]["vpns"]])')" = "['office']" ] || fail "status does not list the session"
 echo "ok   komando status lists the VPN session"
+[ "$("$K" prompt)" = "vpn:office" ] || fail "prompt does not show the VPN"
+echo "ok   komando prompt shows the VPN"
 S=$("$K" vpn status | python3 -c 'import json,sys; print([v for v in json.load(sys.stdin)["data"]["vpns"] if v["up"]][0]["socks"])')
 if curl -s -m 5 --socks5 "$S" telnet://10.8.0.1:1194 </dev/null >/dev/null 2>&1; then fail "SOCKS without login"; fi
 echo "ok   SOCKS port refuses anyone without komando's login"

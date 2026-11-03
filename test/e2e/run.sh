@@ -438,6 +438,7 @@ q $K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"
 q $K vpn add lab socks --address "127.0.0.1:$E2E_SOCKS" --check pg:5432
 check "status lists the running tunnel" True "$($K status | jget '"127.0.0.1:'"$E2E_SOCKS"'" in [t["spec"] for t in d["data"]["tunnels"]]')"
 check "status in text names it" 1 "$($K -o text status | grep -c '^tunnel ' || true)"
+check "prompt counts the tunnel" 1 "$($K prompt | grep -c 'tun:[1-9]' || true)"
 q $K conn add pg-lab 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref secret:pg-pass
 check "db through a SOCKS VPN" 1 "$($K db query pg-lab 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K host add target-lab agent@target --via lab --password-ref secret:agent-pass
@@ -450,6 +451,7 @@ check "system VPN down says so" VPN_DOWN "$($K db query pg-lab 'select 1' >/dev/
 set +e; $K vpn rm lab >/dev/null; check "VPN in use cannot be removed" 8 $?; set -e
 q $K tunnel stop --all
 check "status after tunnel stop" 0 "$($K status | jget 'len(d["data"]["tunnels"])')"
+check "prompt is empty when nothing runs" "" "$($K prompt)"
 
 # logs --follow streams until stopped (here by --timeout)
 check "logs --follow streams" True "$($K logs direct --file /etc/hostname --follow --timeout 3s | head -1 | jget '"direct" in d["data"]')"
