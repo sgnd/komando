@@ -179,6 +179,29 @@ shows tables in the order you name them, with `auto_increment` or
 see lock waits gets `DB_PRIVILEGE` (exit 4). SQLite has no server sessions,
 so `activity`, `locks` and `kill` do not apply to it.
 
+### Users and grants
+
+```bash
+komando secret set app-ro-pass                            # the password goes to the vault first
+komando db user add prod-db app_ro --password-ref secret:app-ro-pass
+komando db grant prod-db app_ro --privileges SELECT --on all-tables:public
+komando db grants prod-db app_ro                          # what it may do now
+komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2   # rotate
+komando db revoke prod-db app_ro --privileges SELECT --on all-tables:public
+komando db user rm prod-db app_ro --allow-dangerous
+komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10.0.%'   # MySQL
+```
+
+Passwords come only from a secret reference, so they are never typed on a
+command line, shown, or written to the audit log (`--dry-run` and the
+answer show `[hidden]`). PostgreSQL gets a SCRAM-SHA-256 verifier komando
+computes itself, so the password never reaches the server or its logs.
+`--on` takes `database:NAME`, `schema:NAME`, `table:[SCHEMA.]TABLE` or
+`all-tables:SCHEMA` (PostgreSQL; `--role ROLE` grants a role instead) and
+`DB.*`, `DB.TABLE` or `*.*` (MySQL, with `--from` for the account host).
+Adding users and grants are changes (`--yes` on protected conns); removing a
+user also needs `--allow-dangerous`.
+
 Errors when connecting: a wrong password is `DB_AUTH` (exit 4), a database
 that does not exist `DB_NOT_FOUND` (exit 3); `db dump` and `db restore`
 report the same codes.

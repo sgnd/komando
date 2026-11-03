@@ -19,6 +19,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   protocol's login): `cache get`, `set`, `rm`, `keys`, `info` and `run` work
   like they do for Redis, with the same safety rules (`flush_all` needs
   `--allow-dangerous`). komando speaks the protocol itself.
+- `komando db user ls|add|passwd|rm`, `db grant`, `db revoke` and `db grants`
+  for PostgreSQL and MySQL/MariaDB. Passwords come from a secret reference
+  and are never shown or audited; PostgreSQL gets a SCRAM-SHA-256 verifier
+  computed by komando, so the password never reaches the server.
 - `komando svc daemon-reload TARGET`: reloads unit files after you write
   one, and names units that still need a reload.
 

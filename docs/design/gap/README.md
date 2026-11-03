@@ -126,8 +126,6 @@ P1 features, all from before Phase 1) are done, except:
 - `import termius` and `import tableplus`
   (Termius and TablePlus have no open export format; see
   [import.md](../../features/import.md)).
-- Users, roles and grants with passwords from the vault; today through
-  `db query --write`.
 
 ## 4. Biggest P2 themes
 
