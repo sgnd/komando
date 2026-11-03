@@ -5,12 +5,15 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/netip"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
@@ -261,11 +264,31 @@ func openWireGuard(v *store.Vpn) (Dialer, io.Closer, error) {
 	if err != nil {
 		return nil, nil, configErr(v, err)
 	}
+	endpoint := ""
+	if len(c.Peers) > 0 {
+		endpoint = c.Peers[0].Endpoint
+	}
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		start := time.Now()
 		cn, err := d(ctx, network, addr)
 		if err != nil {
-			return nil, Down(v, err)
+			return nil, Down(v, wgDialErr(err, addr, endpoint, time.Since(start)))
 		}
 		return cn, nil
 	}, closer, nil
+}
+
+// wgDialErr explains a timeout: through WireGuard, no answer almost always
+// means no handshake with the peer (wrong endpoint, keys or firewall).
+func wgDialErr(err error, addr, endpoint string, waited time.Duration) error {
+	msg := err.Error()
+	if !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, os.ErrDeadlineExceeded) &&
+		!strings.Contains(msg, "deadline exceeded") && !strings.Contains(msg, "timed out") && !strings.Contains(msg, "i/o timeout") {
+		return err
+	}
+	peer := "the peer"
+	if endpoint != "" {
+		peer = endpoint
+	}
+	return fmt.Errorf("no answer from %s within %s: no WireGuard handshake from %s?", addr, waited.Round(time.Second), peer)
 }

@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"regexp"
 	"strconv"
 	"strings"
@@ -83,8 +82,7 @@ func svcStatusCmd() *cobra.Command {
 		Example: "  komando svc status @web nginx php8.2-fpm",
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command := "systemctl show --no-pager -p " + strings.Join(svcProps, ",") + " -- " + quoteAll(args[1:])
-			return probe(cmd.Context(), "svc.status", args[0], command, false, parseSvcShow)
+			return svcStatus(cmd.Context(), args[0], args[1:])
 		},
 	}
 }
@@ -108,27 +106,28 @@ func guardDocker(args []string) (mutating bool, err error) {
 }
 
 func svcActionCmd(action string) *cobra.Command {
-	var noSudo bool
+	var noSudo, now bool
+	var wait int
 	c := &cobra.Command{
 		Use:   action + " TARGET UNIT...",
 		Short: strings.ToUpper(action[:1]) + action[1:] + " unit(s) (sudo) and report the resulting state",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			units := quoteAll(args[1:])
-			unitFlags := make([]string, 0, len(args)-1)
-			for _, u := range args[1:] {
-				unitFlags = append(unitFlags, "-u "+sshx.Q(u))
+			if wait < 0 {
+				return out.Usage("--wait must be 0 or more seconds")
 			}
-			command := "systemctl " + action + " -- " + units + " && systemctl show --no-pager -p Id,ActiveState,SubState,UnitFileState -- " + units
-			if action == "restart" || action == "start" || action == "reload" {
-				// give units a moment and surface the failure reason
-				command = "systemctl " + action + " -- " + units + "; rc=$?; sleep 1; systemctl show --no-pager -p Id,ActiveState,SubState,UnitFileState,Result -- " + units +
-					"; if [ $rc -ne 0 ]; then journalctl -n 20 --no-pager -o cat " + strings.Join(unitFlags, " ") + " 2>/dev/null; fi; exit $rc"
-			}
-			return runOne(cmd.Context(), "svc."+action, args[0], command, !noSudo, true)
+			return svcAction(cmd.Context(), action, args[0], args[1:], !noSudo, now, wait)
 		},
 	}
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. --user units or root login)")
+	switch action {
+	case "start", "restart", "reload":
+		c.Example = "  komando svc " + action + " @web nginx --wait 10   # fails unless nginx is active within 10s"
+		c.Flags().IntVar(&wait, "wait", 0, "wait up to N seconds for the units to be active; fail if they are not")
+	case "enable", "disable":
+		verb := map[string]string{"enable": "start", "disable": "stop"}[action]
+		c.Flags().BoolVar(&now, "now", false, "also "+verb+" the units now (systemctl "+action+" --now)")
+	}
 	return c
 }
 
@@ -140,24 +139,15 @@ func svcListCmd() *cobra.Command {
 		Short: "List service units (filter --state running|failed|...)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command := "systemctl list-units --type=service --all --no-legend --plain --no-pager"
+			command := noSystemd + "systemctl list-units --type=service --all --no-legend --plain --no-pager"
 			if failed {
 				state = "failed"
 			}
 			if state != "" {
 				command += " --state=" + sshx.Q(state)
 			}
-			return probe(cmd.Context(), "svc.list", args[0], command, false, func(_ *store.Host, s string) (any, error) {
-				rows := []map[string]string{}
-				for _, line := range strings.Split(s, "\n") {
-					f := strings.Fields(line)
-					if len(f) < 4 {
-						continue
-					}
-					rows = append(rows, map[string]string{"unit": f[0], "load": f[1], "active": f[2], "sub": f[3], "description": strings.Join(f[4:], " ")})
-				}
-				return rows, nil
-			})
+			return runOps(cmd.Context(), opsSpec{name: "svc.list", target: args[0], command: command,
+				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return svcListResult(rr) }, text: svcListTable})
 		},
 	}
 	c.Flags().StringVar(&state, "state", "", "unit state filter")
@@ -195,17 +185,28 @@ func (o *logOpts) bind(c *cobra.Command, sources bool) {
 		f.StringVar(&o.file, "file", "", "log file path")
 		f.StringVar(&o.container, "container", "", "docker container name/id")
 	}
-	f.StringVar(&o.since, "since", "", "start time, e.g. -1h, '2026-01-02 10:00', today")
-	f.StringVar(&o.until, "until", "", "end time (journal/docker)")
+	f.StringVar(&o.since, "since", "", "start time, e.g. -1h, '2026-01-02 10:00', today (journal and containers)")
+	f.StringVar(&o.until, "until", "", "end time (journal and containers)")
 	f.StringVar(&o.grep, "grep", "", "only lines matching this extended regex (case-insensitive)")
-	f.StringVarP(&o.priority, "priority", "p", "", "journal priority: emerg..debug, e.g. err")
+	f.StringVarP(&o.priority, "priority", "p", "", "journal priority and worse: emerg, alert, crit, err, warning, notice, info, debug (or 0-7)")
 	f.IntVarP(&o.lines, "limit", "n", 200, "max lines (from the end)")
 	aliasFlag(f, "lines", "limit")
-	f.BoolVarP(&o.sudo, "sudo", "s", false, "read via sudo")
+	f.BoolVarP(&o.sudo, "sudo", "s", false, "read via sudo (the whole journal, protected files)")
 	f.BoolVarP(&o.follow, "follow", "f", false, "keep printing new lines until Ctrl-C")
 }
 
 func (o *logOpts) build() (string, error) {
+	if err := o.check(); err != nil {
+		return "", err
+	}
+	c, err := o.source()
+	if o.follow {
+		return c, err // followCheck checks the source before streaming
+	}
+	return o.preflight() + c, err
+}
+
+func (o *logOpts) source() (string, error) {
 	n := strconv.Itoa(o.lines)
 	grep := ""
 	if o.grep != "" {
@@ -217,13 +218,20 @@ func (o *logOpts) build() (string, error) {
 		}
 		switch {
 		case o.container != "":
-			return "docker logs --timestamps --tail " + n + " -f " + sshx.Q(o.container) + " 2>&1" + grep, nil
+			c := "docker logs --timestamps --tail " + n + " -f"
+			if o.since != "" {
+				c += " --since " + sshx.Q(strings.TrimPrefix(o.since, "-"))
+			}
+			return c + " " + sshx.Q(o.container) + " 2>&1" + grep, nil
 		case o.file != "":
 			return "tail -n " + n + " -F -- " + sshx.Q(o.file) + grep, nil
 		}
 		c := "journalctl --no-pager -o short-iso -n " + n + " -f"
 		if o.unit != "" {
 			c += " -u " + sshx.Q(o.unit)
+		}
+		if o.since != "" {
+			c += " --since " + sshx.Q(o.since)
 		}
 		if o.priority != "" {
 			c += " -p " + sshx.Q(o.priority)
@@ -298,9 +306,16 @@ func runLogs(ctx context.Context, name, target string, lo *logOpts, sudo bool) e
 		return err
 	}
 	if lo.follow {
+		if !g.dryRun {
+			if err := lo.followCheck(ctx, target, sudo); err != nil {
+				return err
+			}
+		}
 		return followLogs(ctx, target, command, sudo)
 	}
-	return runOne(ctx, name, target, command, sudo, false)
+	shown, _ := lo.source()
+	return runOps(ctx, opsSpec{name: name, target: target, command: command, display: shown, sudo: sudo, raw: true,
+		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return lo.result(rr) }})
 }
 
 // --------------------------------------------------------------- docker ---
@@ -461,27 +476,31 @@ apt:install) apt-get install -y -q $PKGS || { echo "# retrying after apt-get upd
 apt:remove) apt-get remove -y -q $PKGS ;;
 apt:update) apt-get update -q ;;
 apt:upgrade) if [ -n "$PKGS" ]; then apt-get install -y -q --only-upgrade $PKGS; else apt-get upgrade -y -q; fi ;;
-apt:upgradable) apt list --upgradable 2>/dev/null | tail -n +2 ;;
+apt:upgradable) t=$(stat -c %Y /var/lib/apt/lists/*Release 2>/dev/null | sort -n | tail -n 1); echo "# index-age: $([ -n "$t" ] && echo $(( $(date +%s) - t )) || echo never)" >&2
+  apt list --upgradable 2>/dev/null | tail -n +2 ;;
+apt:simulate) if [ -n "$PKGS" ]; then apt-get -s install --only-upgrade $PKGS; else apt-get -s upgrade; fi | grep '^Inst ' ;;
 dnf:install|yum:install) $PM install -y $PKGS ;;
 dnf:remove|yum:remove) $PM remove -y $PKGS ;;
 dnf:update|yum:update) $PM makecache -q ;;
 dnf:upgrade|yum:upgrade) $PM upgrade -y $PKGS ;;
-dnf:upgradable|yum:upgradable) $PM -q check-update; rc=$?; [ $rc -eq 100 ] && exit 0; exit $rc ;;
+dnf:upgradable|yum:upgradable|dnf:simulate|yum:simulate) $PM -q check-update $PKGS; rc=$?; [ $rc -eq 100 ] && exit 0; exit $rc ;;
 apk:install) apk add $PKGS ;;
 apk:remove) apk del $PKGS ;;
 apk:update) apk update ;;
 apk:upgrade) apk upgrade $PKGS ;;
-apk:upgradable) apk -u list ;;
+apk:upgradable) t=$(stat -c %Y /var/cache/apk/APKINDEX* 2>/dev/null | sort -n | tail -n 1); echo "# index-age: $([ -n "$t" ] && echo $(( $(date +%s) - t )) || echo never)" >&2
+  apk -u list ;;
+apk:simulate) apk upgrade --simulate $PKGS ;;
 zypper:install) zypper -n install $PKGS ;;
 zypper:remove) zypper -n remove $PKGS ;;
 zypper:update) zypper -n refresh ;;
 zypper:upgrade) zypper -n update $PKGS ;;
-zypper:upgradable) zypper -n list-updates ;;
+zypper:upgradable|zypper:simulate) zypper -n list-updates ;;
 pacman:install) pacman -S --noconfirm $PKGS ;;
 pacman:remove) pacman -R --noconfirm $PKGS ;;
 pacman:update) pacman -Sy ;;
 pacman:upgrade) pacman -Syu --noconfirm $PKGS ;;
-pacman:upgradable) pacman -Qu ;;
+pacman:upgradable|pacman:simulate) pacman -Qu $PKGS ;;
 *:installed)
   case "$PM" in
   apt) ALL=$(dpkg-query -W -f='${db:Status-Abbrev}\t${Package}\t${Version}\n' | awk -F'\t' '$1 ~ /^ii/ {print $2"\t"$3}') ;;
@@ -553,13 +572,6 @@ func pkgCmd() *cobra.Command {
 					}
 				}
 				pkgs := strings.Join(args[1:], " ")
-				command := "ACTION=" + action + " PKGS=" + sshx.Q(pkgs) + "; " + pkgShell
-				if action == "installed" {
-					return probe(cmd.Context(), "pkg.installed", args[0], command, false, parseInstalled)
-				}
-				if refresh && action == "upgradable" {
-					command = "ACTION=update PKGS=''; (" + pkgShell + ") >/dev/null; " + command
-				}
 				if action == "remove" {
 					for _, p := range args[1:] {
 						if essentialPkgs.MatchString(p) && !dangerOK() {
@@ -568,20 +580,25 @@ func pkgCmd() *cobra.Command {
 						}
 					}
 				}
-				o := execOpts{sudo: (sudo || action == "upgradable" && refresh) && !noSudo, display: strings.TrimSpace("pkg " + action + " " + pkgs)}
+				useSudo := (sudo || action == "upgradable" && refresh) && !noSudo
+				if action != "update" {
+					return runPkg(cmd.Context(), action, args[0], args[1:], useSudo, refresh)
+				}
+				command := "ACTION=" + action + " PKGS=" + sshx.Q(pkgs) + "; " + pkgShell
+				o := execOpts{sudo: useSudo, display: strings.TrimSpace("pkg " + action + " " + pkgs)}
 				return runFleet(cmd.Context(), "pkg."+action, args[0], command, nil, o, mutating)
 			},
 		}
 	}
-	upgradable := mk("upgradable", "List pending upgrades", false, false, false)
+	upgradable := mk("upgradable", "List pending upgrades (from the server's package index; --refresh updates it first)", false, false, false)
 	upgradable.Flags().BoolVar(&refresh, "refresh", false, "refresh the package index first (like apt-get update), so the list is current")
-	pkgRm := mk("remove", "Remove packages", true, true, true) // "remove" is what the package managers call it
+	pkgRm := mk("remove", "Remove packages (ones not installed are skipped; reports what changed)", true, true, true) // "remove" is what the package managers call it
 	pkgRm.Use = "rm TARGET PACKAGE..."
 	c.AddCommand(
-		mk("install", "Install packages", true, true, true),
+		mk("install", "Install packages (already installed ones are left as they are; reports what changed)", true, true, true),
 		pkgRm,
 		mk("update", "Refresh package index", false, true, true),
-		mk("upgrade", "Upgrade all or the given packages", false, true, true),
+		mk("upgrade", "Upgrade all or the given packages (--dry-run lists what would be upgraded)", false, true, true),
 		upgradable,
 		mk("installed", "Show installed versions (all or given packages)", false, false, false),
 	)
@@ -597,74 +614,15 @@ func netCmd() *cobra.Command {
 		Short:   "Can each server open a TCP connection to HOST:PORT? (structured)",
 		Example: "  komando net check @web db.internal:5432 redis.internal:6379",
 		Args:    cobra.MinimumNArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			var sb strings.Builder
-			for _, hp := range args[1:] {
-				h, p, err := net.SplitHostPort(hp)
-				if err != nil {
-					return out.Usage("expected HOST:PORT (or [IPv6]:PORT), got %q", hp)
-				}
-				if n, err := strconv.Atoi(p); err != nil || n < 1 || n > 65535 {
-					return out.Usage("invalid port in %q (1-65535)", hp)
-				}
-				if h == "" || strings.ContainsAny(h, " \t'\"$`;&|") {
-					return out.Usage("invalid host in %q", hp)
-				}
-				sb.WriteString(`s=$(date +%s%N 2>/dev/null); if (command -v nc >/dev/null && nc -z -w 5 ` + sshx.Q(h) + ` ` + p + `) >/dev/null 2>&1 || timeout 5 bash -c 'exec 3<>/dev/tcp/'` + sshx.Q(h) + `'/` + p + `' 2>/dev/null; then r=open; else r=closed; fi; e=$(date +%s%N 2>/dev/null); echo "` + hp + ` $r $(( (e-s)/1000000 ))"` + "\n")
-			}
-			return probe(cmd.Context(), "net.check", args[0], sb.String(), false, func(_ *store.Host, s string) (any, error) {
-				rows := []map[string]any{}
-				for _, line := range strings.Split(strings.TrimSpace(s), "\n") {
-					f := strings.Fields(line)
-					if len(f) < 2 {
-						continue
-					}
-					r := map[string]any{"target": f[0], "open": f[1] == "open"}
-					if len(f) > 2 {
-						if ms, err := strconv.Atoi(f[2]); err == nil && ms >= 0 {
-							r["ms"] = ms
-						}
-					}
-					rows = append(rows, r)
-				}
-				// like nc -z: a closed port fails, so `net check ... && deploy` works
-				var closed []string
-				for _, r := range rows {
-					if r["open"] != true {
-						closed = append(closed, r["target"].(string))
-					}
-				}
-				if len(closed) > 0 {
-					return rows, out.Errf(out.ExitRemote, "PORT_CLOSED", "check the address, firewall or service on the other side", "cannot connect to %s", strings.Join(closed, ", "))
-				}
-				return rows, nil
-			})
-		},
+		RunE:    netCheckRun,
 	}
 	var sudo bool
 	ports := &cobra.Command{
 		Use:   "ports TARGET",
-		Short: "Listening sockets (structured: proto, address, port, process)",
+		Short: "Listening sockets (structured: proto, address, port, process, pid; ss or netstat)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return probe(cmd.Context(), "net.ports", args[0], "ss -tulpnH", sudo, func(_ *store.Host, s string) (any, error) {
-				rows := []map[string]any{}
-				for _, line := range strings.Split(s, "\n") {
-					f := strings.Fields(line)
-					if len(f) < 5 {
-						continue
-					}
-					local := f[4]
-					i := strings.LastIndex(local, ":")
-					port, _ := strconv.Atoi(local[i+1:])
-					r := map[string]any{"proto": f[0], "state": f[1], "address": strings.Trim(local[:i], "[]"), "port": port}
-					if len(f) > 6 {
-						r["process"] = strings.Join(f[6:], " ")
-					}
-					rows = append(rows, r)
-				}
-				return rows, nil
-			})
+			return netPortsRun(cmd, args[0], sudo)
 		},
 	}
 	ports.Flags().BoolVarP(&sudo, "sudo", "s", false, "use sudo to see process names")
@@ -675,10 +633,13 @@ func netCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command := `curl -sS -o /dev/null -m 15 -w '{"code":%{http_code},"time_total":%{time_total},"time_connect":%{time_connect},"time_starttransfer":%{time_starttransfer},"remote_ip":"%{remote_ip}","size":%{size_download},"redirect":"%{redirect_url}"}' ` + sshx.Q(args[1])
-			return probe(cmd.Context(), "net.http", args[0], command, false, func(_ *store.Host, s string) (any, error) {
-				s = strings.Replace(s, `"code":000`, `"code":0`, 1) // curl writes 000 when nothing answered
+			return runOps(cmd.Context(), opsSpec{name: "net.http", target: args[0], command: command, display: "net http " + args[1], parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
+				s := strings.Replace(rr.Stdout, `"code":000`, `"code":0`, 1) // curl writes 000 when nothing answered
 				var v map[string]any
 				if err := json.Unmarshal([]byte(s), &v); err != nil {
+					if rr.ExitCode == 127 {
+						return nil, out.Errf(out.ExitNotFound, "TOOL_MISSING", "install curl on the server", "curl is not installed")
+					}
 					return s, nil
 				}
 				code, _ := v["code"].(float64)
@@ -686,27 +647,51 @@ func netCmd() *cobra.Command {
 				case code == 0:
 					return v, out.Errf(out.ExitConnect, "NO_RESPONSE", "check the URL, and that the server can reach it (`komando net check`)", "no HTTP answer from %s", args[1])
 				case expect != "" && !statusMatches(int(code), expect):
-					return v, out.Errf(out.ExitRemote, "UNEXPECTED_STATUS", "", "HTTP %d, expected %s", int(code), expect)
+					return v, out.Errf(out.ExitRemote, "UNEXPECTED_STATUS", "check the URL and the service behind it", "HTTP %d, expected %s", int(code), expect)
 				}
 				return v, nil
-			})
+			}, text: func(data any) string {
+				v, _ := data.(map[string]any)
+				if v == nil {
+					return ""
+				}
+				if v["code"] == float64(0) {
+					return "" // the error says it
+				}
+				t := "HTTP " + cell(v["code"])
+				if ip, _ := v["remote_ip"].(string); ip != "" {
+					t += " from " + ip
+				}
+				if total, ok := v["time_total"].(float64); ok {
+					t += " in " + strconv.Itoa(int(total*1000)) + " ms"
+				}
+				if r, _ := v["redirect"].(string); r != "" {
+					t += " (redirects to " + r + ")"
+				}
+				return t + "\n"
+			}})
 		},
 	}
 	httpC.Flags().StringVar(&expect, "expect", "", "fail unless the status matches, e.g. 200 or 2xx (like curl -f)")
+	var rrType string
 	dns := &cobra.Command{
-		Use:   "dns TARGET NAME",
-		Short: "Resolve NAME from each server",
-		Args:  cobra.ExactArgs(2),
+		Use:     "dns TARGET NAME",
+		Short:   "Resolve NAME from each server (--type MX, TXT, CNAME, NS ... needs dig there)",
+		Example: "  komando net dns @web db.internal\n  komando net dns web1 example.com --type MX",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return probe(cmd.Context(), "net.dns", args[0], "getent ahosts "+sshx.Q(args[1])+" | awk '{print $1}' | sort -u", false, func(_ *store.Host, s string) (any, error) {
-				res := map[string]any{"name": args[1], "addresses": strings.Fields(s)}
-				if len(strings.Fields(s)) == 0 {
-					return res, out.Errf(out.ExitNotFound, "NXDOMAIN", "check the name, and the server's DNS (/etc/resolv.conf)", "%s does not resolve from this server", args[1])
-				}
-				return res, nil
-			})
+			command, err := dnsCommand(args[1], rrType)
+			if err != nil {
+				return err
+			}
+			return runOps(cmd.Context(), opsSpec{name: "net.dns", target: args[0], command: command, display: strings.TrimSpace("net dns " + args[1] + " " + strings.ToUpper(rrType)),
+				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
+					return dnsResult(args[1], rrType, rr.Stdout)
+				},
+				text: dnsText})
 		},
 	}
+	dns.Flags().StringVar(&rrType, "type", "", "record type: A, AAAA, CNAME, MX, NS, TXT, SOA, SRV, PTR, CAA (default: the addresses the server would connect to)")
 	c.AddCommand(check, ports, httpC, dns)
 	return c
 }
@@ -728,34 +713,16 @@ func userCmd() *cobra.Command {
 	var all bool
 	list := &cobra.Command{
 		Use:   "list TARGET",
-		Short: "List accounts (human users by default; --all for system users)",
-		Args:  cobra.ExactArgs(1),
+		Short: "List accounts (human users by default; --all for system users), with admin group and lock state",
+		Long: `Lists accounts with their uid, home, shell, whether they are in the sudo,
+wheel or admin group (admin_group; rules in sudoers.d are not read) and
+whether the account is locked (expired, as ` + "`komando user lock`" + ` does). The lock
+state is read through sudo; with --no-sudo it is left out.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return probe(cmd.Context(), "user.list", args[0], `getent passwd; echo ---; for g in sudo wheel admin; do getent group $g; done; true`, false, func(_ *store.Host, s string) (any, error) {
-				pw, grp, _ := strings.Cut(s, "---\n")
-				admins := map[string]bool{}
-				for _, l := range strings.Split(grp, "\n") {
-					f := strings.Split(l, ":")
-					if len(f) == 4 {
-						for _, u := range strings.Split(f[3], ",") {
-							admins[u] = true
-						}
-					}
-				}
-				rows := []map[string]any{}
-				for _, l := range strings.Split(pw, "\n") {
-					f := strings.Split(l, ":")
-					if len(f) < 7 {
-						continue
-					}
-					uid, _ := strconv.Atoi(f[2])
-					if !all && (uid < 1000 || uid >= 65534) && uid != 0 {
-						continue
-					}
-					rows = append(rows, map[string]any{"name": f[0], "uid": uid, "home": f[5], "shell": f[6], "admin": admins[f[0]] || uid == 0})
-				}
-				return rows, nil
-			})
+			return runOps(cmd.Context(), opsSpec{name: "user.list", target: args[0], command: userListScript, display: "user list", sudo: !noSudo,
+				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return parseUsers(rr.Stdout, all), nil },
+				text:  usersText})
 		},
 	}
 	list.Flags().BoolVar(&all, "all", false, "include system accounts")
@@ -809,14 +776,15 @@ func userCmd() *cobra.Command {
 	add.Flags().StringVar(&pubKey, "pubkey", "", "public key line to authorize")
 	add.Flags().StringVar(&keyName, "key", "", "authorize this keychain key")
 	add.Flags().StringVar(&shell, "shell", "/bin/bash", "login shell")
-	add.Flags().BoolVar(&admin, "admin", false, "add to sudo/wheel group")
+	add.Flags().BoolVar(&admin, "admin", false, "add to the sudo (Debian) or wheel (RHEL, Alpine) group")
 	lock := &cobra.Command{
 		Use:   "lock TARGET USERNAME",
-		Short: "Lock an account (password + expire) without deleting it",
+		Short: "Lock an account (password + expire, so SSH keys stop working too) without deleting it",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			q := sshx.Q(args[1])
-			return runOne(cmd.Context(), "user.lock", args[0], "usermod -L -e 1 "+q+" && echo locked "+q, !noSudo, true)
+			return runOps(cmd.Context(), opsSpec{name: "user.lock", target: args[0], command: userExists(args[1]) + "usermod -L -e 1 " + sshx.Q(args[1]),
+				display: "user lock " + args[1], sudo: !noSudo, mutating: true,
+				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return userResult(args[1], "locked", rr) }})
 		},
 	}
 	unlock := &cobra.Command{
@@ -824,8 +792,9 @@ func userCmd() *cobra.Command {
 		Short: "Unlock an account locked with `user lock`",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			q := sshx.Q(args[1])
-			return runOne(cmd.Context(), "user.unlock", args[0], "usermod -U -e '' "+q+" && echo unlocked "+q, !noSudo, true)
+			return runOps(cmd.Context(), opsSpec{name: "user.unlock", target: args[0], command: userExists(args[1]) + "usermod -U -e '' " + sshx.Q(args[1]),
+				display: "user unlock " + args[1], sudo: !noSudo, mutating: true,
+				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return userResult(args[1], "unlocked", rr) }})
 		},
 	}
 	var removeHome bool
@@ -885,17 +854,32 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*) cur="" ;; *) printf '%s\n'
 		Short: "Show crontab entries",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return probe(cmd.Context(), "cron.list", args[0], readCron()+`printf '%s\n' "$cur"`, useSudo(), func(_ *store.Host, s string) (any, error) {
-				rows := []map[string]any{}
-				for _, l := range strings.Split(s, "\n") {
-					t := strings.TrimSpace(l)
-					if t == "" || strings.HasPrefix(t, "#") {
-						continue
+			return runOps(cmd.Context(), opsSpec{name: "cron.list", target: args[0], command: readCron() + `printf '%s\n' "$cur"`, display: "cron list", sudo: useSudo(),
+				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
+					if rr.ExitCode != 0 {
+						return nil, out.Errf(out.ExitRemote, "CRONTAB_UNREADABLE", "check the user name; reading another user's crontab needs sudo", "cannot read the crontab (exit %d)", rr.ExitCode)
 					}
-					rows = append(rows, parseCronLine(t))
-				}
-				return rows, nil
-			})
+					rows := []map[string]any{}
+					for _, l := range strings.Split(rr.Stdout, "\n") {
+						t := strings.TrimSpace(l)
+						if t == "" || strings.HasPrefix(t, "#") {
+							continue
+						}
+						rows = append(rows, parseCronLine(t))
+					}
+					return rows, nil
+				},
+				text: func(data any) string {
+					rows := [][]string{}
+					for _, r := range data.([]map[string]any) {
+						cmdText := cell(r["command"])
+						if r["schedule"] == nil {
+							cmdText = cell(r["line"])
+						}
+						rows = append(rows, []string{cell(r["schedule"]), cmdText, cell(r["id"])})
+					}
+					return textTable([]string{"schedule", "command", "id"}, rows)
+				}})
 		},
 	}
 	var schedule string
@@ -937,7 +921,14 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*) cur="" ;; *) printf '%s\n'
 			command := readCron() + without(args[1]) + `n=$(( $(printf '%s\n' "$cur" | grep -c .) - $(printf '%s\n' "$new" | grep -c .) ))
 if [ "$n" -gt 0 ]; then { [ -n "$new" ] && printf '%s\n' "$new"; } | ` + ct() + ` - || exit $?; fi
 echo "removed $n"`
-			return runFleet(cmd.Context(), "cron.rm", args[0], command, nil, execOpts{sudo: useSudo(), display: "cron rm " + args[1]}, true)
+			return runOps(cmd.Context(), opsSpec{name: "cron.rm", target: args[0], command: command, display: "cron rm " + args[1], sudo: useSudo(), mutating: true,
+				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return cronRemoved(rr) },
+				text: func(data any) string {
+					if n, _ := data.(map[string]any)["removed"].(int); n > 0 {
+						return "removed " + strconv.Itoa(n) + " entry\n"
+					}
+					return "no entry with ID " + args[1] + "\n"
+				}})
 		},
 	}
 	c.AddCommand(list, set, rm)
@@ -1021,7 +1012,11 @@ func parseCronLine(t string) map[string]any {
 	}
 	if len(f) > n {
 		r["schedule"] = strings.Join(f[:n], " ")
-		r["command"] = strings.TrimSpace(strings.SplitN(body, f[n-1], 2)[1])
+		rest := strings.TrimSpace(body)
+		for i := 0; i < n; i++ { // skip the schedule fields, whatever they contain
+			rest = strings.TrimLeft(strings.TrimLeft(rest, " \t")[len(f[i]):], " \t")
+		}
+		r["command"] = rest
 	}
 	return r
 }

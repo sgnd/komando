@@ -1,0 +1,242 @@
+package cli
+
+import (
+	"net"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/sgnd/komando/internal/netx"
+	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
+)
+
+// vpnDialCheck is how long `vpn status` waits for an address to answer.
+const vpnDialCheck = 1500 * time.Millisecond
+
+// vpnReachable reports, for the kinds komando does not run itself (socks
+// and system), whether the VPN answers right now, and how that was seen.
+func vpnReachable(v *store.Vpn) (up bool, detail string) {
+	addr, what := "", ""
+	switch v.Kind {
+	case "socks":
+		addr, what = v.Address, "SOCKS proxy "+v.Address
+	case "system":
+		if v.Check == "" {
+			return false, "no --check address to test"
+		}
+		addr, what = v.Check, v.Check
+	default:
+		return false, ""
+	}
+	c, err := net.DialTimeout("tcp", addr, vpnDialCheck)
+	if err != nil {
+		return false, what + " does not answer"
+	}
+	c.Close()
+	return true, what + " answers"
+}
+
+type vpnStatusData struct {
+	Vpns []vpnStatusRow `json:"vpns"`
+}
+
+func (d vpnStatusData) Text() string {
+	rows := [][]string{}
+	for _, r := range d.Vpns {
+		up := "no"
+		if r.Up {
+			up = "yes"
+		}
+		since := ""
+		if !r.Since.IsZero() {
+			since = humanAge(time.Since(r.Since))
+		}
+		rows = append(rows, []string{r.Name, r.Kind, up, since, strings.Join(r.UsedBy, ","), r.Detail})
+	}
+	return textTable([]string{"name", "kind", "up", "since", "used by", "detail"}, rows)
+}
+
+// vpnStatusRows builds the status of every VPN; the address checks run
+// at the same time, so the command stays quick.
+func vpnStatusRows(st *store.State) []vpnStatusRow {
+	vpns := st.SortedVpns()
+	rows := make([]vpnStatusRow, len(vpns))
+	var wg sync.WaitGroup
+	for i, v := range vpns {
+		r := vpnStatusRow{Name: v.Name, Kind: v.Kind, MFA: v.MFA, UsedBy: vpnUsers(st, v.Name)}
+		if s := st.Sessions[v.Name]; s != nil && netx.SessionAlive(s) {
+			r.Up, r.Since, r.LastUsed, r.Socks = true, s.StartedAt, s.LastUsed, s.Socks
+			r.Detail = "session running"
+		} else if v.Kind == "socks" || v.Kind == "system" {
+			wg.Add(1)
+			go func(i int, v *store.Vpn) {
+				defer wg.Done()
+				rows[i].Up, rows[i].Detail = vpnReachable(v)
+			}(i, v)
+		} else if v.Kind == "wireguard" {
+			r.Detail = "connects for each command"
+		} else {
+			r.Detail = "not connected"
+		}
+		rows[i] = r
+	}
+	wg.Wait()
+	return rows
+}
+
+// refWarnings checks, at add time, that the secret references a VPN uses
+// can be read here; the cheap kinds only (external managers may prompt).
+func refWarnings(refs ...string) []string {
+	var w []string
+	for _, ref := range refs {
+		if ref == "" || !(strings.HasPrefix(ref, "secret:") || strings.HasPrefix(ref, "env:") || strings.HasPrefix(ref, "file:")) {
+			continue
+		}
+		if _, err := vault.Resolve(ref); err != nil {
+			w = append(w, ref+" cannot be read yet ("+err.Error()+"); "+netx.SecretHint(ref))
+		}
+	}
+	return w
+}
+
+// socksTunnel finds the `komando tunnel` that serves a SOCKS address.
+func socksTunnel(st *store.State, addr string) string {
+	_, port, _ := net.SplitHostPort(addr)
+	for _, t := range st.Tunnels {
+		if t.Kind == "dynamic" && (t.Spec == addr || t.Spec == port || strings.HasSuffix(t.Spec, ":"+port)) {
+			return t.ID
+		}
+	}
+	return ""
+}
+
+func vpnEditCmd() *cobra.Command {
+	var check, address, service, user, passwordRef, notes string
+	var groups, tags []string
+	var mfa bool
+	c := &cobra.Command{
+		Use:   "edit NAME",
+		Short: "Change a VPN's check address, proxy address, login or notes (the config and keys stay)",
+		Long: `Changes the common settings of a VPN. To give a WireGuard or OpenVPN VPN a
+new config file, add it again with --overwrite.`,
+		Example: `  komando vpn edit office --check 10.0.0.5:22
+  komando vpn edit lab --address 127.0.0.1:1081
+  komando vpn edit client-x --password-ref secret:client-x-new`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			f := cmd.Flags()
+			changed := false
+			for _, n := range []string{"check", "address", "service", "user", "password-ref", "notes", "group", "tag", "mfa"} {
+				changed = changed || f.Changed(n)
+			}
+			if !changed {
+				return out.Usage("nothing to change: give at least one of --check, --address, --service, --user, --password-ref, --mfa, --notes, --group, --tag")
+			}
+			if check != "" {
+				if _, _, err := net.SplitHostPort(check); err != nil {
+					return out.Usage("--check must be host:port")
+				}
+			}
+			if passwordRef != "" && !vault.ValidRef(passwordRef) {
+				return out.Usage("invalid --password-ref %q: %s", passwordRef, vault.RefHelp())
+			}
+			var res *store.Vpn
+			apply := func(s *store.State) error {
+				cur, ok := s.Vpns[args[0]]
+				if !ok {
+					return out.NotFound("vpn", args[0])
+				}
+				v := *cur
+				only := func(flag string, kinds ...string) error {
+					if f.Changed(flag) && !oneOf(v.Kind, kinds...) {
+						return out.Usage("--%s is not used by %s VPNs", flag, v.Kind)
+					}
+					return nil
+				}
+				for flag, kinds := range map[string][]string{"address": {"socks"}, "service": {"system"}} {
+					if err := only(flag, kinds...); err != nil {
+						return err
+					}
+				}
+				if v.Kind == "wireguard" && (f.Changed("password-ref") || f.Changed("user")) {
+					return out.Usage("WireGuard keys come from its config: add it again with --config and --overwrite")
+				}
+				if f.Changed("address") {
+					if _, _, err := net.SplitHostPort(address); err != nil {
+						return out.Usage("--address must be host:port")
+					}
+					v.Address = address
+				}
+				if f.Changed("check") {
+					if check == "" && oneOf(v.Kind, "system", "openvpn") {
+						return out.Usage("%s VPNs need --check", v.Kind)
+					}
+					v.Check = check
+				}
+				if f.Changed("service") {
+					v.Service = service
+				}
+				if f.Changed("user") {
+					v.User = user
+				}
+				if f.Changed("password-ref") {
+					v.KeyRef = passwordRef
+				}
+				if f.Changed("mfa") {
+					v.MFA = mfa
+				}
+				if f.Changed("notes") {
+					v.Notes = notes
+				}
+				if f.Changed("group") {
+					v.Groups = dedupe(groups)
+				}
+				if f.Changed("tag") {
+					v.Tags = dedupe(tags)
+				}
+				v.UpdatedAt = time.Now().UTC()
+				res = &v
+				if !g.dryRun {
+					s.Vpns[v.Name] = &v
+				}
+				return nil
+			}
+			if g.dryRun {
+				st, err := loadState()
+				if err != nil {
+					return err
+				}
+				if err := apply(st); err != nil {
+					return err
+				}
+				out.P.Print("vpn.edit", map[string]any{"would_change": res}, nil)
+				return nil
+			}
+			if err := store.Update(apply); err != nil {
+				return err
+			}
+			audit(nil, "vpn.edit", []string{args[0]}, "", true, nil)
+			data := map[string]any{"vpn": res}
+			if w := refWarnings(res.KeyRef); len(w) > 0 {
+				data["warnings"] = w
+			}
+			out.P.Print("vpn.edit", data, nil)
+			return nil
+		},
+	}
+	f := c.Flags()
+	f.StringVar(&check, "check", "", "host:port reachable only through this VPN")
+	f.StringVar(&address, "address", "", "socks: host:port of the proxy")
+	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings")
+	f.StringVar(&user, "user", "", "user name for the VPN login")
+	f.StringVar(&passwordRef, "password-ref", "", "password as secret:NAME | env:VAR | file:PATH | op://... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
+	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO)")
+	f.StringVar(&notes, "notes", "", "free-form notes")
+	f.StringSliceVarP(&groups, "group", "g", nil, "group(s), replacing the current ones")
+	f.StringSliceVarP(&tags, "tag", "t", nil, "tag(s), replacing the current ones")
+	return c
+}

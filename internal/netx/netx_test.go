@@ -1,10 +1,13 @@
 package netx
 
 import (
+	"context"
+	"errors"
 	"net/netip"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/store"
 )
@@ -47,5 +50,25 @@ default            192.168.100.1      UGScg                 en0
 	lin := parseIPRoute("default via 10.0.2.2 dev eth0\n10.8.0.0/24 dev tun0 proto kernel scope link src 10.8.0.2\n172.17.0.0/16 dev docker0\n")
 	if len(lin) != 2 || lin[0].Iface != "tun0" {
 		t.Errorf("ip route parse: %+v", lin)
+	}
+}
+
+func TestDownHintsPerKind(t *testing.T) {
+	for kind, want := range map[string]string{"socks": "tunnel start HOST -D 127.0.0.1:1080", "system": "connect the VPN", "wireguard": "endpoint", "tailscale": "vpn up x"} {
+		h := DownHint(&store.Vpn{Name: "x", Kind: kind, Address: "127.0.0.1:1080"})
+		if !strings.Contains(h, want) || strings.Contains(h, "komando test x") {
+			t.Errorf("%s: %q", kind, h)
+		}
+	}
+	err := socksErr("127.0.0.1:1080", errors.New("socks connect tcp 127.0.0.1:1080->pg:5432: dial tcp 127.0.0.1:1080: connect: connection refused"))
+	if !strings.Contains(err.Error(), "SOCKS proxy at 127.0.0.1:1080 is not running") {
+		t.Fatal(err)
+	}
+	werr := wgDialErr(context.DeadlineExceeded, "10.0.0.5:22", "vpn.example.com:51820", 15*time.Second)
+	if werr.Error() != "no answer from 10.0.0.5:22 within 15s: no WireGuard handshake from vpn.example.com:51820?" {
+		t.Fatal(werr)
+	}
+	if SecretHint("secret:wg-key") != "store it with `komando secret set wg-key`" {
+		t.Fatal(SecretHint("secret:wg-key"))
 	}
 }
