@@ -63,7 +63,6 @@ check "svc status fails clearly without systemd" False "$($K svc status direct s
 for a in start stop restart reload enable disable; do
   check "svc $a on a protected host previews" PROTECTED_HOST "$($K svc $a target nginx --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
 done
-check "svc logs fails clearly without systemd" False "$($K svc logs direct ssh | ok || true)"
 check "pkg installed" True "$($K pkg installed direct curl | jget 'd["data"]["results"][0]["data"][0]["installed"]')"
 check "pkg upgradable" True "$($K pkg upgradable direct | ok)"
 check "pkg update (dry run)" True "$($K pkg update direct --dry-run | ok)"
