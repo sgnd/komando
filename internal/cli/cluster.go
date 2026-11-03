@@ -1,17 +1,18 @@
 package cli
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -92,20 +93,30 @@ func kubeClient(ctx context.Context, st *store.State, c *store.Conn) (*kube.Clie
 }
 
 func kubeErr(err error) error {
-	if e, ok := err.(*kube.APIError); ok {
-		code, exit := "K8S_ERROR", out.ExitRemote
-		switch e.Code {
-		case 401, 403:
+	var e *kube.APIError
+	if errors.As(err, &e) {
+		code, exit, hint := "K8S_ERROR", out.ExitRemote, ""
+		switch {
+		case e.Code == 401 || e.Code == 403:
 			code, exit = "K8S_FORBIDDEN", out.ExitConnect
-		case 404:
+		case e.Code == 404:
 			code, exit = "K8S_NOT_FOUND", out.ExitNotFound
-		case 409:
+		case e.Code == 409:
 			code, exit = "K8S_CONFLICT", out.ExitConflict
+		case e.Code == 400 && strings.Contains(e.Message, "is not valid for pod"):
+			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster describe TARGET pod NAME`"
+		case e.Code == 400 || e.Code == 422:
+			code, exit, hint = "K8S_INVALID", out.ExitUsage, "the cluster refused it as written: check the label selector (-l) or the object's YAML"
 		}
-		return out.Errf(exit, code, "", "%s", e.Error())
+		msg := e.Message
+		if outer := err.Error(); outer != e.Error() {
+			msg = strings.TrimSuffix(outer, e.Error()) + e.Message // keep "deployment/web: " in front
+		}
+		return out.Errf(exit, code, hint, "%s", firstNonEmpty(msg, e.Reason))
 	}
-	if _, ok := err.(*out.Error); ok {
-		return err
+	var oe *out.Error
+	if errors.As(err, &oe) {
+		return oe
 	}
 	return out.Errf(out.ExitConnect, "K8S_UNREACHABLE", "check the conn with `komando test NAME` (and its --via path)", "%v", err)
 }
@@ -141,6 +152,10 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 	if risk > driver.RiskRead {
 		audit(st, name, nil, "", err == nil, rec)
 	}
+	if err != nil && !nilData(res) {
+		out.P.Print(name, res, softErr(err)) // what happened before it failed (a rollout that timed out)
+		return exitFor(err)
+	}
 	if err != nil {
 		return err
 	}
@@ -148,41 +163,13 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 	return nil
 }
 
-// swarm runs a docker command on the manager. Reads are parsed as JSON
-// lines; changes go through the usual guard (protected servers need --yes).
-func swarmRead(ctx context.Context, name string, t clusterTarget, command string) error {
-	return probe(ctx, name, t.host.Name, command, false, func(_ *store.Host, s string) (any, error) {
-		rows := []map[string]any{}
-		sc := bufio.NewScanner(strings.NewReader(s))
-		sc.Buffer(make([]byte, 1<<20), 16<<20)
-		for sc.Scan() {
-			line := strings.TrimSpace(sc.Text())
-			if line == "" {
-				continue
-			}
-			var m map[string]any
-			if json.Unmarshal([]byte(line), &m) != nil {
-				return nil, fmt.Errorf("unexpected docker output: %s", line)
-			}
-			rows = append(rows, m)
-		}
-		return rows, nil
-	})
-}
-
+// age is a Kubernetes timestamp as a kubectl age (40s, 5m, 3h, 12d).
 func age(ts string) string {
 	t, err := time.Parse(time.RFC3339, ts)
 	if err != nil {
 		return ""
 	}
-	d := time.Since(t)
-	switch {
-	case d < time.Hour:
-		return fmt.Sprintf("%dm", int(d.Minutes()))
-	case d < 48*time.Hour:
-		return fmt.Sprintf("%dh", int(d.Hours()))
-	}
-	return fmt.Sprintf("%dd", int(d.Hours()/24))
+	return humanAge(time.Since(t))
 }
 
 // --- commands ---------------------------------------------------------------
@@ -209,10 +196,15 @@ func clusterStatusCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "status TARGET [TYPE/NAME]",
 		Short: "Version, nodes, and what is not healthy; with TYPE/NAME, whether it finished rolling out",
+		Long: `Without an object: the version, the nodes, and every problem (pods that do not
+run, workloads short of replicas, nodes that are not ready; on Swarm, services
+short of replicas with their tasks' errors). --namespace limits it to one
+namespace. With TYPE/NAME (or TYPE NAME): whether that workload has rolled out;
+--wait stays until it has, it fails, or --timeout (default 5m) passes.`,
 		Example: `  komando cluster status prod-k8s
   komando cluster status prod-k8s deployment/api --namespace shop --wait
   komando cluster status swarm-manager service/web --wait`,
-		Args: cobra.RangeArgs(1, 2),
+		Args: cobra.RangeArgs(1, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
@@ -222,96 +214,123 @@ func clusterStatusCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(args) == 2 {
-				return rolloutStatus(cmd.Context(), t, args[1], ns, wait)
+			if err := noNamespace(t, ns); err != nil {
+				return err
+			}
+			if len(args) > 1 {
+				typ, name, err := objectRef(args[1:])
+				if err != nil {
+					return err
+				}
+				return rolloutStatus(cmd.Context(), t, typ, name, ns, wait)
+			}
+			if wait {
+				return out.Usage("--wait needs an object: `cluster status %s deployment/NAME --wait`", args[0])
 			}
 			if t.host != nil {
-				return swarmRead(cmd.Context(), "cluster.status", t,
-					`docker info --format '{{json .Swarm}}' && docker node ls --format '{{json .}}' && docker service ls --format '{{json .}}'`)
+				res, err := swarmStatus(cmd.Context(), t)
+				if err != nil {
+					return err
+				}
+				out.P.Print("cluster.status", res, nil)
+				return nil
 			}
 			return withKube(cmd.Context(), "cluster.status", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-				var ver map[string]any
-				if err := k.Get(ctx, "/version", nil, &ver); err != nil {
-					return nil, err
-				}
-				var nodes, pods, deploys struct {
-					Items []map[string]any `json:"items"`
-				}
-				if err := k.Get(ctx, "/api/v1/nodes", nil, &nodes); err != nil {
-					return nil, err
-				}
-				if err := k.Get(ctx, "/api/v1/pods", url.Values{"limit": {"5000"}}, &pods); err != nil {
-					return nil, err
-				}
-				if err := k.Get(ctx, "/apis/apps/v1/deployments", url.Values{"limit": {"2000"}}, &deploys); err != nil {
-					return nil, err
-				}
-				ready := 0
-				problems := []map[string]string{}
-				problem := func(obj, reason string) {
-					problems = append(problems, map[string]string{"object": obj, "problem": reason})
-				}
-				for _, n := range nodes.Items {
-					name := "node/" + str(n["metadata"].(map[string]any)["name"])
-					if nodeReady(n) == "Ready" {
-						ready++
-					} else {
-						problem(name, "not ready")
-					}
-					for _, c := range nodeConditions(n) {
-						problem(name, c)
-					}
-				}
-				bad := []string{}
-				for _, p := range pods.Items {
-					m := p["metadata"].(map[string]any)
-					name := str(m["namespace"]) + "/" + str(m["name"])
-					st, _ := p["status"].(map[string]any)
-					phase := str(st["phase"])
-					down := phase != "Running" && phase != "Succeeded"
-					if down {
-						bad = append(bad, name)
-					}
-					// a crash-looping pod is still "Running": look at its containers
-					if reason := podTrouble(st); reason != "" {
-						problem("pod/"+name, reason)
-					} else if down {
-						problem("pod/"+name, strings.ToLower(phase))
-					}
-				}
-				for _, d := range deploys.Items {
-					m, _ := d["metadata"].(map[string]any)
-					spec, _ := d["spec"].(map[string]any)
-					st, _ := d["status"].(map[string]any)
-					want, _ := spec["replicas"].(float64)
-					have, _ := st["readyReplicas"].(float64)
-					if have < want {
-						problem("deployment/"+str(m["namespace"])+"/"+str(m["name"]), fmt.Sprintf("%d of %d replicas ready", int(have), int(want)))
-					}
-				}
-				return map[string]any{"conn": t.conn.Name, "version": ver["gitVersion"], "nodes": len(nodes.Items),
-					"nodes_ready": ready, "pods_not_running": bad, "healthy": len(problems) == 0, "problems": problems}, nil
+				return kubeStatus(ctx, k, t.conn.Name, ns)
 			})
 		},
 	}
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, nil)
 	c.Flags().BoolVar(&wait, "wait", false, "with TYPE/NAME: wait until it has rolled out (--timeout, default 5m)")
 	return c
 }
 
+// kubeStatus sums up a cluster, or one namespace of it.
+func kubeStatus(ctx context.Context, k *kube.Client, conn, ns string) (any, error) {
+	var ver map[string]any
+	if err := k.Get(ctx, "/version", nil, &ver); err != nil {
+		return nil, err
+	}
+	var nodes, pods, deploys struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := k.Get(ctx, "/api/v1/nodes", nil, &nodes); err != nil {
+		return nil, err
+	}
+	podPath, deployPath := "/api/v1/pods", "/apis/apps/v1/deployments"
+	if ns != "" {
+		podPath = "/api/v1/namespaces/" + url.PathEscape(ns) + "/pods"
+		deployPath = "/apis/apps/v1/namespaces/" + url.PathEscape(ns) + "/deployments"
+	}
+	if err := k.Get(ctx, podPath, url.Values{"limit": {"5000"}}, &pods); err != nil {
+		return nil, err
+	}
+	if err := k.Get(ctx, deployPath, url.Values{"limit": {"2000"}}, &deploys); err != nil {
+		return nil, err
+	}
+	ready := 0
+	problems := []map[string]string{}
+	problem := func(obj, reason string) {
+		problems = append(problems, map[string]string{"object": obj, "problem": reason})
+	}
+	for _, n := range nodes.Items {
+		name := "node/" + str(n["metadata"].(map[string]any)["name"])
+		if nodeReady(n) == "Ready" {
+			ready++
+		} else {
+			problem(name, "not ready")
+		}
+		for _, c := range nodeConditions(n) {
+			problem(name, c)
+		}
+	}
+	bad := []string{}
+	for _, p := range pods.Items {
+		m := p["metadata"].(map[string]any)
+		name := str(m["namespace"]) + "/" + str(m["name"])
+		st, _ := p["status"].(map[string]any)
+		phase := str(st["phase"])
+		down := phase != "Running" && phase != "Succeeded"
+		if down {
+			bad = append(bad, name)
+		}
+		// a crash-looping pod is still "Running": look at its containers
+		if reason := podTrouble(st); reason != "" {
+			problem("pod/"+name, reason)
+		} else if down {
+			problem("pod/"+name, strings.ToLower(phase))
+		}
+	}
+	for _, d := range deploys.Items {
+		m, _ := d["metadata"].(map[string]any)
+		spec, _ := d["spec"].(map[string]any)
+		st, _ := d["status"].(map[string]any)
+		want, _ := spec["replicas"].(float64)
+		have, _ := st["readyReplicas"].(float64)
+		if have < want {
+			problem("deployment/"+str(m["namespace"])+"/"+str(m["name"]), fmt.Sprintf("%d of %d replicas ready", int(have), int(want)))
+		}
+	}
+	res := statusData{"conn": conn, "version": ver["gitVersion"], "nodes": len(nodes.Items),
+		"nodes_ready": ready, "pods_not_running": bad, "healthy": len(problems) == 0, "problems": problems}
+	if ns != "" {
+		res["namespace"] = ns
+	}
+	return res, nil
+}
+
 // rolloutStatus reports whether one workload has rolled out, and with wait
 // stays until it has (or failed, or --timeout passed).
-func rolloutStatus(ctx context.Context, t clusterTarget, ref, ns string, wait bool) error {
-	typ, name, err := splitRef(ref)
-	if err != nil {
-		return err
-	}
+func rolloutStatus(ctx context.Context, t clusterTarget, typ, name, ns string, wait bool) error {
 	d := time.Duration(0)
 	if wait {
 		d = rolloutWait()
 	}
 	if t.host != nil {
-		res, err := swarmWait(ctx, t, name, d)
+		if swarmKind(typ) != "service" {
+			return out.Usage("on Swarm, status works on services (service/NAME)")
+		}
+		res, err := swarmWait(ctx, t, name, d, false)
 		if err != nil && res == nil {
 			return err
 		}
@@ -319,9 +338,9 @@ func rolloutStatus(ctx context.Context, t clusterTarget, ref, ns string, wait bo
 		return exitFor(err)
 	}
 	return withKube(ctx, "cluster.status", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-		r, err := k.Resource(ctx, typ)
+		r, err := resource(ctx, k, typ)
 		if err != nil {
-			return nil, out.Usage("%v", err)
+			return nil, err
 		}
 		if !oneOf(r.KindName(), "Deployment", "StatefulSet", "DaemonSet") {
 			return nil, out.Usage("rollout status works on deployments, statefulsets and daemonsets")
@@ -411,12 +430,14 @@ func summarize(kind string, o map[string]any) map[string]any {
 	case "Deployment", "StatefulSet", "ReplicaSet":
 		row["ready"] = fmt.Sprintf("%d/%d", num(st["readyReplicas"]), num(spec["replicas"]))
 		row["updated"] = num(st["updatedReplicas"])
+		row["available"] = num(st["availableReplicas"])
 	case "DaemonSet":
 		row["ready"] = fmt.Sprintf("%d/%d", num(st["numberReady"]), num(st["desiredNumberScheduled"]))
 	case "Service":
 		row["type"], row["cluster_ip"] = spec["type"], spec["clusterIP"]
 		var ports []string
-		for _, p := range spec["ports"].([]any) {
+		pl, _ := spec["ports"].([]any)
+		for _, p := range pl {
 			pm, _ := p.(map[string]any)
 			ports = append(ports, fmt.Sprintf("%d/%s", num(pm["port"]), pm["protocol"]))
 		}
@@ -549,23 +570,17 @@ func redact(o map[string]any) {
 	}
 }
 
-func nsFlags(c *cobra.Command, ns *string, all *bool) {
-	c.Flags().StringVar(ns, "namespace", "", "Kubernetes namespace (default: the context's, else default)")
-	if all != nil {
-		c.Flags().BoolVar(all, "all-namespaces", false, "every namespace")
-	}
-}
-
 func clusterLsCmd() *cobra.Command {
 	var ns, selector string
 	var all bool
 	var limit int
 	c := &cobra.Command{
 		Use:   "ls TARGET TYPE",
-		Short: "List pods, deployments, services, nodes, ... (Swarm: services, nodes, tasks, stacks)",
-		Example: `  komando cluster ls prod-k8s pods --namespace shop
-  komando cluster ls prod-k8s deploy --all-namespaces
-  komando cluster ls swarm-manager services`,
+		Short: "List pods, deployments, services, nodes, ... (Swarm: services, tasks, nodes, stacks)",
+		Example: `  komando cluster ls prod-k8s pods -n shop
+  komando cluster ls prod-k8s deploy -A
+  komando cluster ls swarm-manager services
+  komando cluster ls swarm-manager tasks -n 20`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -577,27 +592,24 @@ func clusterLsCmd() *cobra.Command {
 				return err
 			}
 			if t.host != nil {
-				q := map[string]string{
-					"services": "docker service ls --format '{{json .}}'", "service": "docker service ls --format '{{json .}}'",
-					"nodes": "docker node ls --format '{{json .}}'", "node": "docker node ls --format '{{json .}}'",
-					"stacks": "docker stack ls --format '{{json .}}'", "stack": "docker stack ls --format '{{json .}}'",
-					"tasks": "for s in $(docker service ls -q); do docker service ps $s --format '{{json .}}'; done",
-				}[strings.ToLower(args[1])]
-				if q == "" {
-					return out.Usage("Swarm lists services, nodes, tasks or stacks")
+				if err := noNamespace(t, ns); err != nil {
+					return err
 				}
-				if selector != "" {
-					if !strings.HasPrefix(strings.ToLower(args[1]), "service") && !strings.HasPrefix(strings.ToLower(args[1]), "node") {
-						return out.Usage("on Swarm, --selector works for services and nodes")
-					}
-					q = strings.Replace(q, " --format", " --filter "+sshx.Q("label="+selector)+" --format", 1)
+				kind := swarmKind(args[1])
+				if kind == "" {
+					return out.Usage("Swarm lists services (svc), tasks, nodes or stacks; %q is none of them", args[1])
 				}
-				return swarmRead(cmd.Context(), "cluster.ls", t, q)
+				res, err := swarmList(cmd.Context(), t, kind, selector, limit)
+				if err != nil {
+					return err
+				}
+				out.P.Print("cluster.ls", res, nil)
+				return nil
 			}
 			return withKube(cmd.Context(), "cluster.ls", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-				r, err := k.Resource(ctx, args[1])
+				r, err := resource(ctx, k, args[1])
 				if err != nil {
-					return nil, out.Usage("%v", err)
+					return nil, err
 				}
 				space := firstNonEmpty(ns, k.Namespace)
 				if all {
@@ -623,7 +635,7 @@ func clusterLsCmd() *cobra.Command {
 				for _, o := range list.Items {
 					rows = append(rows, summarize(r.KindName(), o))
 				}
-				res := map[string]any{"conn": t.conn.Name, "type": r.KindName(), "count": len(rows), "items": rows}
+				res := kubeList{"conn": t.conn.Name, "type": r.KindName(), "count": len(rows), "items": rows}
 				if r.IsNamespaced() && !all {
 					res["namespace"] = space
 				}
@@ -634,8 +646,7 @@ func clusterLsCmd() *cobra.Command {
 			})
 		},
 	}
-	nsFlags(c, &ns, &all)
-	c.Flags().IntVarP(&limit, "limit", "n", 500, "max items")
+	nsFlags(c, &ns, &all, &limitOpt{&limit, 500, "max items"})
 	c.Flags().StringVarP(&selector, "selector", "l", "", "only objects with these labels, e.g. app=api or 'tier in (web,api)'")
 	return c
 }
@@ -644,8 +655,11 @@ func clusterGetCmd() *cobra.Command {
 	var ns string
 	c := &cobra.Command{
 		Use:   "get TARGET TYPE NAME",
-		Short: "Show one object in full (Secret values are hidden)",
-		Args:  cobra.ExactArgs(3),
+		Short: "Show one object in full (Secret values are hidden); TYPE/NAME works too",
+		Example: `  komando cluster get prod-k8s deployment api -n shop
+  komando cluster get prod-k8s deployment.apps/api -n shop
+  komando cluster get swarm-manager service/web`,
+		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
@@ -655,16 +669,28 @@ func clusterGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			typ, name, err := objectRef(args[1:])
+			if err != nil {
+				return err
+			}
 			if t.host != nil {
-				return swarmRead(cmd.Context(), "cluster.get", t, "docker "+sshx.Q(args[1])+" inspect "+sshx.Q(args[2])+" --format '{{json .}}'")
+				if err := noNamespace(t, ns); err != nil {
+					return err
+				}
+				res, err := swarmGet(cmd.Context(), t, typ, name)
+				if err != nil {
+					return err
+				}
+				out.P.Print("cluster.get", res, nil)
+				return nil
 			}
 			return withKube(cmd.Context(), "cluster.get", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-				r, err := k.Resource(ctx, args[1])
+				r, err := resource(ctx, k, typ)
 				if err != nil {
-					return nil, out.Usage("%v", err)
+					return nil, err
 				}
 				var o map[string]any
-				if err := k.Get(ctx, r.ObjectPath(firstNonEmpty(ns, k.Namespace), args[2]), nil, &o); err != nil {
+				if err := k.Get(ctx, r.ObjectPath(firstNonEmpty(ns, k.Namespace), name), nil, &o); err != nil {
 					return nil, err
 				}
 				redact(o)
@@ -675,36 +701,31 @@ func clusterGetCmd() *cobra.Command {
 			})
 		},
 	}
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, nil)
 	return c
 }
 
+// logText is the logs of one pod, or of the pods of a workload (object)
+// or a label selector.
 type logText struct {
-	Pod       string   `json:"pod"`
+	Object    string   `json:"object,omitempty"` // deployment/api, or the -l selector
+	Pod       string   `json:"pod,omitempty"`    // when one pod was read
 	Namespace string   `json:"namespace"`
 	Logs      string   `json:"logs"`
-	Pods      []string `json:"pods,omitempty"` // when several pods were read
+	Pods      []string `json:"pods"`
 }
 
 func (l logText) Text() string { return l.Logs }
 
-// splitRef parses TYPE/NAME, as in deployment/api.
-func splitRef(ref string) (string, string, error) {
-	typ, name, ok := strings.Cut(ref, "/")
-	if !ok || typ == "" || name == "" {
-		return "", "", out.Usage("give TYPE/NAME, e.g. deployment/api")
-	}
-	return typ, name, nil
-}
-
 func clusterRestartCmd() *cobra.Command {
 	var ns string
+	var wait bool
 	c := &cobra.Command{
 		Use:   "restart TARGET TYPE/NAME",
 		Short: "Restart a deployment, statefulset or daemonset (rolling), or a Swarm service",
-		Example: `  komando cluster restart prod-k8s deployment/api --namespace shop
+		Example: `  komando cluster restart prod-k8s deployment/api -n shop --wait
   komando cluster restart swarm-manager service/web`,
-		Args: cobra.ExactArgs(2),
+		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
@@ -714,17 +735,27 @@ func clusterRestartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			typ, name, err := splitRef(args[1])
+			typ, name, err := objectRef(args[1:])
 			if err != nil {
 				return err
 			}
 			if t.host != nil {
-				return runOne(cmd.Context(), "cluster.restart", t.host.Name, "docker service update --force --detach "+sshx.Q(name), false, true)
+				if err := noNamespace(t, ns); err != nil {
+					return err
+				}
+				if swarmKind(typ) != "service" {
+					return out.Usage("on Swarm, restart works on services (service/NAME)")
+				}
+				if _, err := swarmInspect(cmd.Context(), t, name); err != nil {
+					return err
+				}
+				return swarmChange(cmd.Context(), "cluster.restart", t, name, "docker service update --force --detach "+sshx.Q(name), wait, false, driver.RiskWrite,
+					map[string]any{"restarted": "service/" + name})
 			}
-			return withKube(cmd.Context(), "cluster.restart", t, driver.RiskWrite, map[string]any{"object": args[1]}, func(ctx context.Context, k *kube.Client) (any, error) {
-				r, err := k.Resource(ctx, typ)
+			return withKube(cmd.Context(), "cluster.restart", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
+				r, err := resource(ctx, k, typ)
 				if err != nil {
-					return nil, out.Usage("%v", err)
+					return nil, err
 				}
 				if !oneOf(r.KindName(), "Deployment", "StatefulSet", "DaemonSet") {
 					return nil, out.Usage("restart works on deployments, statefulsets and daemonsets")
@@ -738,12 +769,32 @@ func clusterRestartCmd() *cobra.Command {
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name), q, []byte(patch), "application/strategic-merge-patch+json"); err != nil {
 					return nil, err
 				}
-				return map[string]any{"conn": t.conn.Name, "restarted": args[1], "namespace": space, "dry_run": g.dryRun}, nil
+				res := map[string]any{"conn": t.conn.Name, "restarted": kindRef(r, name), "namespace": space, "dry_run": g.dryRun}
+				return withRollout(ctx, k, r, space, name, wait, res)
 			})
 		},
 	}
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, nil)
+	c.Flags().BoolVar(&wait, "wait", false, "wait until the restart has rolled out (--timeout, default 5m)")
 	return c
+}
+
+// kindRef is "deployment/api".
+func kindRef(r kube.ResourceType, name string) string {
+	return strings.ToLower(r.KindName()) + "/" + name
+}
+
+// withRollout adds the rollout to res when wait is set (and it is no dry run).
+func withRollout(ctx context.Context, k *kube.Client, r kube.ResourceType, space, name string, wait bool, res map[string]any) (any, error) {
+	if !wait || g.dryRun {
+		return res, nil
+	}
+	ro, err := waitRollout(ctx, k, r, space, name, rolloutWait())
+	res["rollout"] = ro
+	if err != nil {
+		return res, err
+	}
+	return res, nil
 }
 
 func oneOf(v string, in ...string) bool {
@@ -757,14 +808,15 @@ func oneOf(v string, in ...string) bool {
 
 func clusterScaleCmd() *cobra.Command {
 	var ns string
+	var wait bool
 	c := &cobra.Command{
 		Use:   "scale TARGET TYPE/NAME REPLICAS",
 		Short: "Set the number of replicas (0 stops it: needs --allow-dangerous)",
-		Example: `  komando cluster scale prod-k8s deployment/api 3 --namespace shop
+		Example: `  komando cluster scale prod-k8s deployment/api 3 -n shop --wait
   komando cluster scale swarm-manager service/web 4`,
-		Args: cobra.ExactArgs(3),
+		Args: refArgs(1, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			n, err := strconv.Atoi(args[2])
+			n, err := strconv.Atoi(args[len(args)-1])
 			if err != nil || n < 0 {
 				return out.Usage("REPLICAS must be a number, 0 or more")
 			}
@@ -776,7 +828,7 @@ func clusterScaleCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			typ, name, err := splitRef(args[1])
+			typ, name, err := objectRef(args[1 : len(args)-1])
 			if err != nil {
 				return err
 			}
@@ -785,31 +837,72 @@ func clusterScaleCmd() *cobra.Command {
 				risk = driver.RiskDestructive // stopping every replica is an outage
 			}
 			if t.host != nil {
-				if n == 0 && !dangerOK() {
-					return guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-scale-zero"}, Reasons: []string{"scaling to 0 stops the service"}})
+				if err := noNamespace(t, ns); err != nil {
+					return err
 				}
-				return runOne(cmd.Context(), "cluster.scale", t.host.Name, "docker service scale --detach "+sshx.Q(name+"="+args[2]), false, true)
+				return swarmScale(cmd.Context(), t, typ, name, n, wait, risk)
 			}
-			return withKube(cmd.Context(), "cluster.scale", t, risk, map[string]any{"object": args[1], "replicas": n}, func(ctx context.Context, k *kube.Client) (any, error) {
-				r, err := k.Resource(ctx, typ)
+			return withKube(cmd.Context(), "cluster.scale", t, risk, map[string]any{"object": typ + "/" + name, "replicas": n}, func(ctx context.Context, k *kube.Client) (any, error) {
+				r, err := resource(ctx, k, typ)
 				if err != nil {
-					return nil, out.Usage("%v", err)
+					return nil, err
+				}
+				if !oneOf(r.KindName(), "Deployment", "StatefulSet", "ReplicaSet", "ReplicationController") {
+					return nil, out.Usage("scale works on deployments, statefulsets and replicasets, not %s", strings.ToLower(r.KindName())+"s")
+				}
+				space := firstNonEmpty(ns, k.Namespace)
+				var cur struct {
+					Spec struct {
+						Replicas int `json:"replicas"`
+					} `json:"spec"`
+				}
+				if err := k.Get(ctx, r.ObjectPath(space, name)+"/scale", nil, &cur); err != nil {
+					return nil, err
+				}
+				res := map[string]any{"conn": t.conn.Name, "scaled": kindRef(r, name), "replicas": n, "previous_replicas": cur.Spec.Replicas,
+					"namespace": space, "dry_run": g.dryRun}
+				if cur.Spec.Replicas == n {
+					res["unchanged"] = true
+					return withRollout(ctx, k, r, space, name, wait, res)
 				}
 				q := url.Values{}
 				if g.dryRun {
 					q.Set("dryRun", "All")
 				}
-				space := firstNonEmpty(ns, k.Namespace)
 				body := fmt.Sprintf(`{"spec":{"replicas":%d}}`, n)
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name)+"/scale", q, []byte(body), "application/merge-patch+json"); err != nil {
 					return nil, err
 				}
-				return map[string]any{"conn": t.conn.Name, "scaled": args[1], "replicas": n, "namespace": space, "dry_run": g.dryRun}, nil
+				return withRollout(ctx, k, r, space, name, wait, res)
 			})
 		},
 	}
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, nil)
+	c.Flags().BoolVar(&wait, "wait", false, "wait until every replica is ready (--timeout, default 5m)")
 	return c
+}
+
+// swarmScale sets a replicated service's replica count.
+func swarmScale(ctx context.Context, t clusterTarget, typ, name string, n int, wait bool, risk driver.Risk) error {
+	if swarmKind(typ) != "service" {
+		return out.Usage("on Swarm, scale works on services (service/NAME)")
+	}
+	ins, err := swarmInspect(ctx, t, name)
+	if err != nil {
+		return err
+	}
+	prev := serviceReplicas(ins["Spec"])
+	if prev < 0 {
+		return out.Usage("service %s is global (one task per node); scale works on replicated services", name)
+	}
+	res := map[string]any{"host": t.host.Name, "scaled": "service/" + name, "replicas": n, "previous_replicas": prev}
+	if prev == n {
+		res["unchanged"] = true
+		out.P.Print("cluster.scale", res, nil)
+		return nil
+	}
+	line := "docker service scale --detach " + sshx.Q(name+"="+strconv.Itoa(n))
+	return swarmChange(ctx, "cluster.scale", t, name, line, wait, false, risk, res)
 }
 
 func clusterApplyCmd() *cobra.Command {
@@ -817,6 +910,14 @@ func clusterApplyCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "apply TARGET --file FILE",
 		Short: "Apply YAML (Kubernetes, server-side; --dry-run asks the server) or deploy a stack (Swarm)",
+		Long: `Kubernetes: applies every object in FILE server-side and says per object
+whether it was created, configured or unchanged. --dry-run asks the server
+what would change and shows it as a diff (Secret values stay hidden; a
+changed value shows as "(hidden, changed)"). Objects without a namespace go
+to --namespace; one that names another namespace is refused.
+
+Swarm: deploys FILE (a compose file) as the stack --stack; --dry-run checks
+the file with ` + "`docker stack config`" + ` on the manager.`,
 		Example: `  komando cluster apply prod-k8s --file app.yaml --dry-run
   komando cluster apply prod-k8s --file app.yaml
   komando cluster apply swarm-manager --file compose.yml --stack shop`,
@@ -838,102 +939,266 @@ func clusterApplyCmd() *cobra.Command {
 				return err
 			}
 			if t.host != nil {
+				if err := noNamespace(t, ns); err != nil {
+					return err
+				}
 				if stack == "" {
 					return out.Usage("Swarm needs --stack NAME")
 				}
-				return runFleet(cmd.Context(), "cluster.apply", t.host.Name, "docker stack deploy --detach=true -c - "+sshx.Q(stack), b, execOpts{}, true)
+				return swarmApply(cmd.Context(), t, stack, b)
+			}
+			if stack != "" {
+				return out.Usage("--stack is for Swarm; Kubernetes objects take their namespace from the file or --namespace")
 			}
 			docs, err := splitYAML(b)
 			if err != nil {
 				return out.Usage("%s: %v", file, err)
 			}
+			for _, d := range docs {
+				if d.Namespace != "" && ns != "" && d.Namespace != ns {
+					return out.Usage("%s/%s is in namespace %s in the file, not %s from --namespace: leave out --namespace or change the file", strings.ToLower(d.Kind), d.Name, d.Namespace, ns)
+				}
+			}
 			return withKube(cmd.Context(), "cluster.apply", t, driver.RiskWrite, map[string]any{"file": file, "objects": len(docs)}, func(ctx context.Context, k *kube.Client) (any, error) {
-				q := url.Values{"fieldManager": {"komando"}, "force": {"true"}}
-				if g.dryRun {
-					q.Set("dryRun", "All")
-				}
-				var applied []string
-				var changes []objectChange
-				for _, d := range docs {
-					r, err := k.ResourceFor(ctx, d.APIVersion, d.Kind)
-					if err != nil {
-						return nil, out.Usage("%v", err)
-					}
-					space := ""
-					if r.IsNamespaced() {
-						space = firstNonEmpty(d.Namespace, ns, k.Namespace)
-					}
-					path := r.ObjectPath(space, d.Name)
-					name := strings.ToLower(d.Kind) + "/" + d.Name
-					var before []byte
-					if g.dryRun { // the live object, to diff against what the server would make
-						before, err = k.Do(ctx, "GET", path, nil, nil, "")
-						var ae *kube.APIError
-						if err != nil && !(errors.As(err, &ae) && ae.Code == 404) {
-							return nil, fmt.Errorf("%s: %w", name, err)
-						}
-					}
-					after, err := k.Do(ctx, "PATCH", path, q, d.JSON, "application/apply-patch+yaml")
-					if err != nil {
-						return nil, fmt.Errorf("%s/%s: %w", d.Kind, d.Name, err)
-					}
-					applied = append(applied, name)
-					if g.dryRun {
-						changes = append(changes, diffObject(name, before, after))
-					}
-				}
-				res := map[string]any{"conn": t.conn.Name, "applied": applied, "dry_run": g.dryRun}
-				if g.dryRun {
-					res["changes"] = changes
-				}
-				return res, nil
+				return kubeApply(ctx, k, t.conn.Name, docs, ns)
 			})
 		},
 	}
 	c.Flags().StringVar(&file, "file", "", "YAML file ('-' for stdin)")
 	c.Flags().StringVar(&stack, "stack", "", "Swarm: the stack name")
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, nil)
 	return c
 }
 
-// objectChange is one object in `cluster apply --dry-run`: what the server
-// would do with it, and the difference as a unified diff of YAML.
+// kubeApply applies docs server-side (a dry run asks the server only) and
+// reports per object what happened, or would.
+func kubeApply(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc, ns string) (any, error) {
+	q := url.Values{"fieldManager": {"komando"}, "force": {"true"}}
+	if g.dryRun {
+		q.Set("dryRun", "All")
+	}
+	res := applyData{Conn: conn, DryRun: g.dryRun, Objects: []objectChange{}}
+	creates := map[string]bool{} // namespaces this file creates
+	for _, d := range docs {
+		r, err := k.ResourceFor(ctx, d.APIVersion, d.Kind)
+		if err != nil {
+			return nil, out.Usage("%v", err)
+		}
+		space := ""
+		if r.IsNamespaced() {
+			space = firstNonEmpty(d.Namespace, ns, k.Namespace)
+		}
+		path := r.ObjectPath(space, d.Name)
+		name := strings.ToLower(d.Kind) + "/" + d.Name
+		// the live object, to say what changes
+		before, err := k.Do(ctx, "GET", path, nil, nil, "")
+		var ae *kube.APIError
+		if err != nil && !(errors.As(err, &ae) && ae.Code == 404) {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+		if g.dryRun && before == nil && creates[space] {
+			// the server cannot dry-run into a namespace that does not exist yet
+			res.Objects = append(res.Objects, objectChange{Object: name, Namespace: space, Action: "create", Note: "in namespace " + space + ", which this file creates"})
+			continue
+		}
+		after, err := k.Do(ctx, "PATCH", path, q, d.JSON, "application/apply-patch+yaml")
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+		if d.Kind == "Namespace" && before == nil {
+			creates[d.Name] = true
+		}
+		c := diffObject(name, before, after)
+		c.Namespace = space
+		if !g.dryRun {
+			c.Diff = ""
+			c.Action = map[string]string{"create": "created", "change": "configured", "none": "unchanged"}[c.Action]
+		}
+		res.Objects = append(res.Objects, c)
+	}
+	return res, nil
+}
+
+// applyData is `cluster apply`: what happened to each object (created,
+// configured, unchanged), or with --dry-run what would (create, change,
+// none) and the diff.
+type applyData struct {
+	Conn    string         `json:"conn"`
+	DryRun  bool           `json:"dry_run"`
+	Objects []objectChange `json:"-"`
+}
+
+func (a applyData) MarshalJSON() ([]byte, error) {
+	names := make([]string, len(a.Objects))
+	for i, o := range a.Objects {
+		names[i] = o.Object
+	}
+	m := map[string]any{"conn": a.Conn, "dry_run": a.DryRun}
+	if a.DryRun {
+		m["would_apply"], m["changes"] = names, a.Objects
+	} else {
+		m["applied"], m["objects"] = names, a.Objects
+	}
+	return json.Marshal(m)
+}
+
+func (a applyData) Text() string {
+	var b strings.Builder
+	words := map[string]string{"create": "would be created", "change": "would change", "none": "unchanged"}
+	for _, o := range a.Objects {
+		what := o.Action
+		if a.DryRun {
+			what = words[o.Action]
+		}
+		line := o.Object
+		if o.Namespace != "" {
+			line += " (" + o.Namespace + ")"
+		}
+		fmt.Fprintf(&b, "%s %s\n", line, what)
+		if o.Note != "" {
+			fmt.Fprintf(&b, "  note: %s\n", o.Note)
+		}
+		if o.Diff != "" && o.Action != "create" {
+			b.WriteString(indentText(o.Diff, "    "))
+		}
+	}
+	return b.String()
+}
+
+// objectChange is one object in `cluster apply`: what the server did or
+// would do with it, and with --dry-run the difference as a unified diff.
 type objectChange struct {
-	Object string `json:"object"`
-	Action string `json:"action"` // create | change | none
-	Diff   string `json:"diff,omitempty"`
+	Object    string `json:"object"`
+	Namespace string `json:"namespace,omitempty"`
+	Action    string `json:"action"` // create | change | none (dry run); created | configured | unchanged
+	Diff      string `json:"diff,omitempty"`
+	Note      string `json:"note,omitempty"`
 }
 
 func diffObject(name string, before, after []byte) objectChange {
 	c := objectChange{Object: name, Action: "change"}
-	text := func(b []byte) string {
-		if len(b) == 0 {
-			return ""
-		}
+	parse := func(b []byte) map[string]any {
 		var o map[string]any
-		if json.Unmarshal(b, &o) != nil {
-			return ""
+		if len(b) == 0 || json.Unmarshal(b, &o) != nil {
+			return nil
 		}
 		delete(o, "status")
 		if m, ok := o["metadata"].(map[string]any); ok {
 			for _, f := range []string{"managedFields", "resourceVersion", "generation", "uid", "creationTimestamp", "selfLink"} {
 				delete(m, f)
 			}
+			if a, ok := m["annotations"].(map[string]any); ok {
+				delete(a, "kubectl.kubernetes.io/last-applied-configuration")
+				if len(a) == 0 {
+					delete(m, "annotations")
+				}
+			}
 		}
-		redact(o) // Secret values never reach the output, not even in a diff
-		y, _ := yaml.Marshal(o)
-		return string(y)
+		return o
 	}
-	old, upd := text(before), text(after)
+	old, upd := parse(before), parse(after)
 	switch {
 	case before == nil:
 		c.Action = "create"
-	case old == upd:
+	case yamlText(old) == yamlText(upd): // compared with Secret values, so a changed value counts
 		c.Action = "none"
 		return c
 	}
-	c.Diff = unifiedDiff(old, upd, 3)
+	hideSecretValues(old, upd) // Secret values never reach the output, not even in a diff
+	c.Diff = unifiedDiff(yamlText(old), yamlText(upd), 3)
 	return c
+}
+
+// hideSecretValues replaces a Secret's values with markers that still say
+// which keys changed: (hidden), (hidden, changed), (hidden, new).
+func hideSecretValues(old, upd map[string]any) {
+	isSecret := func(o map[string]any) bool { return o != nil && o["kind"] == "Secret" }
+	if !isSecret(old) && !isSecret(upd) {
+		return
+	}
+	for _, f := range []string{"data", "stringData"} {
+		od, _ := old[f].(map[string]any)
+		nd, _ := upd[f].(map[string]any)
+		for k, v := range nd {
+			ov, had := od[k]
+			switch {
+			case !had && old != nil:
+				nd[k] = "(hidden, new)"
+			case had && fmt.Sprint(ov) != fmt.Sprint(v):
+				nd[k] = "(hidden, changed)"
+			default:
+				nd[k] = "(hidden)"
+			}
+		}
+		for k := range od {
+			od[k] = "(hidden)"
+		}
+	}
+}
+
+// yamlText is o as YAML with 2-space indents, like kubectl prints it.
+func yamlText(o map[string]any) string {
+	if o == nil {
+		return ""
+	}
+	var b bytes.Buffer
+	enc := yaml.NewEncoder(&b)
+	enc.SetIndent(2)
+	_ = enc.Encode(o)
+	_ = enc.Close()
+	return b.String()
+}
+
+// swarmApply deploys a compose file as a stack; --dry-run checks the file
+// with `docker stack config` and names the services it would make.
+func swarmApply(ctx context.Context, t clusterTarget, stack string, file []byte) error {
+	line := "docker stack deploy --detach=true -c - " + sshx.Q(stack) + " 2>&1"
+	if g.dryRun {
+		st, err := loadState()
+		if err != nil {
+			return err
+		}
+		if err := guard(st, []*store.Host{t.host}, line, true); err != nil {
+			return err
+		}
+		res := map[string]any{"host": t.host.Name, "stack": stack, "dry_run": true, "would_run": line}
+		cfg, err := swarmExec(ctx, st, t, "docker stack config -c - 2>&1", file)
+		if err != nil {
+			msg := toErr(err).Message
+			if strings.Contains(msg, "unknown command") || strings.Contains(msg, "is not a docker command") {
+				res["checked"] = false // docker before 23 has no stack config
+				out.P.Print("cluster.apply", res, nil)
+				return nil
+			}
+			return out.Usage("the compose file is not valid: %s", msg)
+		}
+		var c struct {
+			Services map[string]any `yaml:"services"`
+		}
+		_ = yaml.Unmarshal([]byte(cfg), &c)
+		var svcs []string
+		for n := range c.Services {
+			svcs = append(svcs, "service/"+stack+"_"+n)
+		}
+		sort.Strings(svcs)
+		res["checked"], res["would_apply"] = true, svcs
+		out.P.Print("cluster.apply", res, nil)
+		return nil
+	}
+	s, _, err := swarmDo(ctx, "cluster.apply", t, line, file, driver.RiskWrite, line)
+	if err != nil {
+		return err
+	}
+	objs := []map[string]string{}
+	for _, l := range strings.Split(s, "\n") {
+		f := strings.Fields(l)
+		if len(f) >= 3 && (f[0] == "Creating" || f[0] == "Updating") {
+			act := map[string]string{"Creating": "created", "Updating": "configured"}[f[0]]
+			objs = append(objs, map[string]string{"object": f[1] + "/" + f[2], "action": act})
+		}
+	}
+	out.P.Print("cluster.apply", map[string]any{"host": t.host.Name, "stack": stack, "objects": objs, "output": s}, nil)
+	return nil
 }
 
 type kubeDoc struct {
@@ -981,9 +1246,9 @@ func clusterRmCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "rm TARGET TYPE NAME",
 		Short: "Delete an object (Kubernetes) or a service or stack (Swarm); needs --allow-dangerous",
-		Example: `  komando cluster rm prod-k8s pod api-7d9f-x2 --namespace shop --allow-dangerous
-  komando cluster rm swarm-manager service web --allow-dangerous`,
-		Args: cobra.ExactArgs(3),
+		Example: `  komando cluster rm prod-k8s pod api-7d9f-x2 -n shop --allow-dangerous
+  komando cluster rm swarm-manager service/web --allow-dangerous`,
+		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
@@ -993,34 +1258,55 @@ func clusterRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			typ, name, err := objectRef(args[1:])
+			if err != nil {
+				return err
+			}
 			if t.host != nil {
-				typ := strings.TrimSuffix(strings.ToLower(args[1]), "s")
-				if typ != "service" && typ != "stack" {
+				if err := noNamespace(t, ns); err != nil {
+					return err
+				}
+				kind := swarmKind(typ)
+				if kind != "service" && kind != "stack" {
 					return out.Usage("Swarm removes a service or a stack")
 				}
-				if !dangerOK() {
-					return guardConns(st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"cluster-rm"}, Reasons: []string{"removes " + typ + " " + args[2]}})
+				line := "docker " + kind + " rm " + sshx.Q(name)
+				if kind == "service" {
+					if _, err := swarmInspect(cmd.Context(), t, name); err != nil {
+						return err
+					}
+				} else if err := swarmStackExists(cmd.Context(), t, name); err != nil {
+					return err // stack rm of a missing stack says "Nothing found" and exits 0
 				}
-				return runOne(cmd.Context(), "cluster.rm", t.host.Name, "docker "+typ+" rm "+sshx.Q(args[2]), false, true)
-			}
-			return withKube(cmd.Context(), "cluster.rm", t, driver.RiskDestructive, map[string]any{"object": args[1] + "/" + args[2]}, func(ctx context.Context, k *kube.Client) (any, error) {
-				r, err := k.Resource(ctx, args[1])
+				_, ran, err := swarmDo(cmd.Context(), "cluster.rm", t, line, nil, driver.RiskDestructive, "removes "+kind+" "+name)
 				if err != nil {
-					return nil, out.Usage("%v", err)
+					return err
+				}
+				res := map[string]any{"host": t.host.Name, "removed": kind + "/" + name}
+				if !ran {
+					res = map[string]any{"host": t.host.Name, "would_remove": kind + "/" + name, "dry_run": true, "would_run": line}
+				}
+				out.P.Print("cluster.rm", res, nil)
+				return nil
+			}
+			return withKube(cmd.Context(), "cluster.rm", t, driver.RiskDestructive, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
+				r, err := resource(ctx, k, typ)
+				if err != nil {
+					return nil, err
 				}
 				q := url.Values{}
 				if g.dryRun {
 					q.Set("dryRun", "All")
 				}
 				space := firstNonEmpty(ns, k.Namespace)
-				if _, err := k.Do(ctx, "DELETE", r.ObjectPath(space, args[2]), q, nil, ""); err != nil {
+				if _, err := k.Do(ctx, "DELETE", r.ObjectPath(space, name), q, nil, ""); err != nil {
 					return nil, err
 				}
-				return map[string]any{"conn": t.conn.Name, "removed": strings.ToLower(r.KindName()) + "/" + args[2], "dry_run": g.dryRun}, nil
+				return map[string]any{"conn": t.conn.Name, "removed": kindRef(r, name), "dry_run": g.dryRun}, nil
 			})
 		},
 	}
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, nil)
 	return c
 }
 
@@ -1128,28 +1414,6 @@ func getsSecretValues(args []string) bool {
 	return secrets && values
 }
 
-// classifyDocker rates a docker command on a Swarm manager by verb,
-// subcommand and flags.
-func classifyDocker(args []string) driver.Risk {
-	verb, sub := strings.ToLower(args[0]), ""
-	if len(args) > 1 {
-		sub = strings.ToLower(args[1])
-	}
-	group := oneOf(verb, "service", "stack", "node", "secret", "config", "network", "volume", "container", "image", "system", "swarm", "compose")
-	switch {
-	case !group && oneOf(verb, "ps", "images", "info", "version", "inspect", "logs", "stats", "top", "events"):
-		return driver.RiskRead
-	case group && oneOf(sub, "ls", "ps", "inspect", "logs", "services", "df", "info", "events"):
-		return driver.RiskRead
-	case oneOf(sub, "rm", "prune", "leave", "demote", "kill", "down") || oneOf(verb, "rm", "rmi", "kill", "prune", "exec", "run", "cp") ||
-		verb == "swarm" || (verb == "container" && oneOf(sub, "exec", "run", "cp")) ||
-		(verb == "stack" && sub == "deploy" && hasFlag(args, "--prune")) ||
-		(verb == "node" && sub == "update" && hasFlag(args, "--availability", "--role")):
-		return driver.RiskDestructive // deletes, drains, or runs anything (exec/run/cp) like kubectl exec
-	}
-	return driver.RiskWrite
-}
-
 func clusterRunCmd() *cobra.Command {
 	var write bool
 	c := &cobra.Command{
@@ -1195,16 +1459,17 @@ need --write; delete, drain and other risky verbs also need
 				risk = driver.RiskDestructive
 			}
 			if risk > driver.RiskRead && !write {
-				return out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "this changes the cluster; re-run with --write (try --dry-run first)",
-					"%q is not a read-only command", verb)
+				if err := policyStop(out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "this changes the cluster; re-run with --write (try --dry-run first)",
+					"%q is not a read-only command", verb)); err != nil {
+					return err
+				}
 			}
 			if t.host != nil {
-				line := "docker"
-				for _, a := range args[1:] {
-					line += " " + sshx.Q(a)
-				}
+				line := "docker " + quoteAll(args[1:])
 				if risk == driver.RiskDestructive && !dangerOK() {
-					return guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
+					if err := guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}}); err != nil {
+						return err
+					}
 				}
 				return runOne(cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
 			}
@@ -1218,7 +1483,10 @@ need --write; delete, drain and other risky verbs also need
 				}
 				return err
 			}
-			return runKubectl(cmd.Context(), st, t.conn, "cluster.run", args[1:], risk, false)
+			// a watch (-w, logs -f) ends at --timeout like every command
+			ctx, cancel := context.WithTimeout(cmd.Context(), cmdTimeout(st))
+			defer cancel()
+			return runKubectl(ctx, st, t.conn, "cluster.run", args[1:], risk, false)
 		},
 	}
 	c.Flags().BoolVar(&write, "write", false, "allow commands that change the cluster")
@@ -1292,10 +1560,11 @@ func runKubectl(ctx context.Context, st *store.State, c *store.Conn, name string
 	k.Stdout, k.Stderr = &stdout, &stderr
 	// an AI agent's output is masked, so it never goes straight to the screen
 	passthrough := out.P.Format == "text" && !out.P.Mask
+	// stderr is kept as well, to tell "not found" from other failures
 	if passthrough {
-		k.Stdout, k.Stderr, k.Stdin = os.Stdout, os.Stderr, os.Stdin
+		k.Stdout, k.Stderr, k.Stdin = os.Stdout, io.MultiWriter(os.Stderr, &stderr), os.Stdin
 	} else if live && out.P.Format != "text" {
-		k.Stdout, k.Stderr = os.Stderr, os.Stderr // keep stdout for the one JSON answer
+		k.Stdout, k.Stderr = os.Stderr, io.MultiWriter(os.Stderr, &stderr) // keep stdout for the one JSON answer
 	}
 	runErr := k.Run()
 	code := 0
@@ -1306,26 +1575,62 @@ func runKubectl(ctx context.Context, st *store.State, c *store.Conn, name string
 			return runErr
 		}
 	}
+	// the context ended it: Ctrl-C or --timeout
+	stopped := ctx.Err() != nil
+	if stopped {
+		code = 0
+	}
 	if risk > driver.RiskRead {
 		audit(st, name, nil, "kubectl "+strings.Join(redactArgs(args), " "), code == 0, map[string]any{"conns": []string{c.Name}, "risk": risk.String()})
+	}
+	fail := kubectlFailure(code, stderr.String())
+	if stopped && !live && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		// a command that should end by itself ran out of time (a watch ends here too)
+		fail = &out.Error{Code: "TIMEOUT", Message: "kubectl was stopped at --timeout", Hint: "raise --timeout; a watch (-w) runs until it", Exit: out.ExitTimeout}
+		if hasFlag(args, "-w", "--watch", "--watch-only", "-f", "--follow") {
+			fail = nil // a watch or follow is meant to run until stopped
+		}
 	}
 	if out.P.Format == "text" {
 		if !passthrough {
 			fmt.Fprint(os.Stdout, out.SafeText(out.P.Redact(stdout.String())))
 			fmt.Fprint(os.Stderr, out.SafeText(out.P.Redact(stderr.String())))
 		}
-		if code != 0 {
-			return exitCode(out.ExitRemote)
+		if fail != nil {
+			if passthrough && fail.Code != "FAILED" {
+				fmt.Fprintf(os.Stderr, "error [%s]: %s\n", fail.Code, fail.Message)
+			}
+			return exitCode(fail.Exit)
 		}
 		return nil
 	}
 	data := map[string]any{"conn": c.Name, "exit_code": code, "stdout": stdout.String(), "stderr": stderr.String()}
-	if code != 0 {
-		out.P.Print(name, data, &out.Error{Code: "FAILED", Message: "kubectl exited " + strconv.Itoa(code), Exit: out.ExitRemote})
-		return exitCode(out.ExitRemote)
+	if stopped {
+		data["stopped"] = true
 	}
-	out.P.Print(name, data, nil)
+	out.P.Print(name, data, fail)
+	if fail != nil {
+		return exitCode(fail.Exit)
+	}
 	return nil
+}
+
+// kubectlFailure is the error for kubectl's exit code: nil when it worked,
+// not found (3) when the server said NotFound, else remote (5).
+func kubectlFailure(code int, stderr string) *out.Error {
+	if code == 0 {
+		return nil
+	}
+	msg := strings.TrimSpace(stderr)
+	if i := strings.LastIndex(msg, "\n"); i >= 0 && strings.Contains(msg[i:], "Error") {
+		msg = strings.TrimSpace(msg[i:])
+	}
+	if strings.Contains(stderr, "(NotFound)") || strings.Contains(stderr, "not found") {
+		msg = strings.TrimPrefix(msg, "Error from server (NotFound): ")
+		return &out.Error{Code: "K8S_NOT_FOUND", Message: firstNonEmpty(msg, "not found"), Exit: out.ExitNotFound,
+			Hint: "list what exists with `komando cluster ls TARGET TYPE`"}
+	}
+	return &out.Error{Code: "FAILED", Message: "kubectl exited " + strconv.Itoa(code) + firstNonEmpty(": "+firstLine(msg), ""), Exit: out.ExitRemote}
 }
 
 // importKubeconfig makes one k8s conn per context; each context's
@@ -1420,4 +1725,16 @@ func forwardLocal(ctx context.Context, dial func(ctx context.Context, network, a
 		}
 	}()
 	return ln.Addr().String(), func() { ln.Close() }, nil
+}
+
+// nilData is true for nil and for a nil map, slice or pointer in an any.
+func nilData(v any) bool {
+	if v == nil {
+		return true
+	}
+	switch r := reflect.ValueOf(v); r.Kind() {
+	case reflect.Map, reflect.Slice, reflect.Pointer:
+		return r.IsNil()
+	}
+	return false
 }

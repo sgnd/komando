@@ -55,7 +55,12 @@ type Error struct {
 	Message string
 }
 
-func (e *Error) Error() string { return fmt.Sprintf("%s (%d): %s", e.Code, e.Status, e.Message) }
+func (e *Error) Error() string {
+	if e.Message == "" {
+		return fmt.Sprintf("%s (%d)", e.Code, e.Status)
+	}
+	return fmt.Sprintf("%s (%d): %s", e.Code, e.Status, e.Message)
+}
 
 // Do sends a request with auth, retrying once with a token if the registry
 // asks for one.

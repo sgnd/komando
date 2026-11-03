@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -152,7 +154,7 @@ func registryLsCmd() *cobra.Command {
 				}
 				tags, err := r.Tags(ctx, args[1], limit)
 				if err != nil {
-					return nil, err
+					return nil, imageErr(ctx, r, args[1], "", err)
 				}
 				return map[string]any{"conn": c.Name, "repo": args[1], "count": len(tags), "tags": tags}, nil
 			})
@@ -172,7 +174,11 @@ func registryInspectCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withRegistry(cmd.Context(), "registry.inspect", args[0], driver.RiskRead, nil, func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
 				repo, ref := splitImage(args[1])
-				return r.Inspect(ctx, repo, ref)
+				m, err := r.Inspect(ctx, repo, ref)
+				if err != nil {
+					return nil, imageErr(ctx, r, repo, ref, err)
+				}
+				return inspectData{m}, nil
 			})
 		},
 	}
@@ -190,7 +196,7 @@ func registryRmCmd() *cobra.Command {
 					repo, ref := splitImage(args[1])
 					m, err := r.Inspect(ctx, repo, ref)
 					if err != nil {
-						return nil, err
+						return nil, imageErr(ctx, r, repo, ref, err)
 					}
 					if m.Digest == "" {
 						return nil, out.Errf(out.ExitRemote, "REGISTRY_ERROR", "", "the registry did not say the image's digest")
@@ -203,6 +209,7 @@ func registryRmCmd() *cobra.Command {
 					}
 					if g.dryRun {
 						res["would_delete"], res["dry_run"] = repo+"@"+m.Digest, true
+						res["would_remove_tags"] = tags // every tag on the digest goes with it
 						return res, nil
 					}
 					if err := r.Delete(ctx, repo, m.Digest); err != nil {
@@ -299,4 +306,60 @@ func tagsOn(ctx context.Context, r *registry.Client, repo, digest string) (tags 
 		}
 	}
 	return tags, len(all), more
+}
+
+// imageErr says which image or repository is missing, and what is there
+// instead: "mirror/busybox:latest not found; tags: stable".
+func imageErr(ctx context.Context, r *registry.Client, repo, ref string, err error) error {
+	var e *registry.Error
+	if !errors.As(err, &e) || e.Status != 404 {
+		return err
+	}
+	hint := "list the repositories with `komando registry ls CONN`"
+	tags, terr := r.Tags(ctx, repo, 50)
+	if terr != nil || ref == "" {
+		return out.Errf(out.ExitNotFound, "REGISTRY_NOT_FOUND", hint, "repository %s not found", repo)
+	}
+	name := repo + refSep(ref) + ref
+	if len(tags) == 0 {
+		return out.Errf(out.ExitNotFound, "REGISTRY_NOT_FOUND", hint, "%s not found; the repository has no tags", name)
+	}
+	more := ""
+	if len(tags) == 50 {
+		more = ", ..."
+	}
+	return out.Errf(out.ExitNotFound, "REGISTRY_NOT_FOUND", "list the tags with `komando registry ls CONN "+repo+"`",
+		"%s not found; tags: %s%s", name, strings.Join(tags, ", "), more)
+}
+
+// inspectData is `registry inspect`; a person reads the size in MB.
+type inspectData struct{ *registry.Manifest }
+
+func (d inspectData) Text() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s%s%s\n", d.Repo, refSep(d.Ref), d.Ref)
+	row := func(k, v string) {
+		if v != "" {
+			fmt.Fprintf(&b, "  %s: %s\n", k, v)
+		}
+	}
+	row("digest", d.Digest)
+	row("media type", d.MediaType)
+	if d.Size > 0 {
+		row("size", fmt.Sprintf("%s in %d layer(s), compressed", humanBytes(d.Size), d.Layers))
+	}
+	row("platforms", strings.Join(d.Platforms, ", "))
+	row("created", d.Created)
+	if len(d.Labels) > 0 {
+		keys := make([]string, 0, len(d.Labels))
+		for k := range d.Labels {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		b.WriteString("  labels:\n")
+		for _, k := range keys {
+			fmt.Fprintf(&b, "    %s=%s\n", k, d.Labels[k])
+		}
+	}
+	return b.String()
 }

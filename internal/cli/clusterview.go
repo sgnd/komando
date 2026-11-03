@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"sort"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/sshx"
 )
 
 // clusterEvents reads events, oldest first, optionally for one object or
@@ -101,14 +101,13 @@ func clusterEventsCmd() *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
-				return map[string]any{"conn": t.conn.Name, "namespace": space, "count": len(rows), "events": rows}, nil
+				return eventList{"conn": t.conn.Name, "namespace": space, "count": len(rows), "events": rows}, nil
 			})
 		},
 	}
-	nsFlags(c, &ns, &all)
+	nsFlags(c, &ns, &all, &limitOpt{&limit, 100, "max events (the newest)"})
 	c.Flags().BoolVar(&warnings, "warnings", false, "only Warning events")
 	c.Flags().StringVar(&of, "for", "", "only events about this object, e.g. deployment/api")
-	c.Flags().IntVarP(&limit, "limit", "n", 100, "max events (the newest)")
 	return c
 }
 
@@ -116,11 +115,11 @@ func clusterDescribeCmd() *cobra.Command {
 	var ns string
 	c := &cobra.Command{
 		Use:   "describe TARGET TYPE NAME",
-		Short: "One object in short: state, conditions, containers or pods, and its recent events",
-		Example: `  komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop
-  komando cluster describe prod-k8s deployment api --namespace shop
-  komando cluster describe swarm-manager service web`,
-		Args: cobra.ExactArgs(3),
+		Short: "One object in short: state, images, conditions, its pods or tasks, and recent events",
+		Example: `  komando cluster describe prod-k8s pod api-7d9f-x2 -n shop
+  komando cluster describe prod-k8s deployment/api -n shop
+  komando cluster describe swarm-manager service/web`,
+		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
@@ -130,26 +129,43 @@ func clusterDescribeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			typ, name, err := objectRef(args[1:])
+			if err != nil {
+				return err
+			}
 			if t.host != nil {
-				if !strings.HasPrefix(args[1], "service") {
+				if err := noNamespace(t, ns); err != nil {
+					return err
+				}
+				if swarmKind(typ) != "service" {
 					return out.Usage("on Swarm, describe works for services (its tasks and their errors)")
 				}
-				return swarmRead(cmd.Context(), "cluster.describe", t, "docker service ps "+sshx.Q(args[2])+" --no-trunc --format '{{json .}}'")
+				res, err := swarmDescribe(cmd.Context(), t, name)
+				if err != nil {
+					return err
+				}
+				out.P.Print("cluster.describe", res, nil)
+				return nil
 			}
 			return withKube(cmd.Context(), "cluster.describe", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-				r, err := k.Resource(ctx, args[1])
+				r, err := resource(ctx, k, typ)
 				if err != nil {
-					return nil, out.Usage("%v", err)
+					return nil, err
 				}
 				space := ""
 				if r.IsNamespaced() {
 					space = firstNonEmpty(ns, k.Namespace)
 				}
 				var o map[string]any
-				if err := k.Get(ctx, r.ObjectPath(space, args[2]), nil, &o); err != nil {
+				if err := k.Get(ctx, r.ObjectPath(space, name), nil, &o); err != nil {
 					return nil, err
 				}
-				res := map[string]any{"conn": t.conn.Name, "object": strings.ToLower(r.KindName()) + "/" + args[2], "summary": summarize(r.KindName(), o)}
+				o["kind"] = r.KindName()
+				sum := summarize(r.KindName(), o)
+				for k, v := range describeMore(r.KindName(), o) {
+					sum[k] = v
+				}
+				res := describeData{"conn": t.conn.Name, "object": kindRef(r, name), "summary": sum}
 				stat, _ := o["status"].(map[string]any)
 				if conds := conditions(stat); len(conds) > 0 {
 					res["conditions"] = conds
@@ -168,15 +184,104 @@ func clusterDescribeCmd() *cobra.Command {
 						res["pods"] = rows
 					}
 				}
-				if events, err := clusterEvents(ctx, k, space, r.KindName(), args[2], false, 20); err == nil {
+				if r.KindName() == "Service" && space != "" {
+					res["endpoints"] = endpoints(ctx, k, space, name)
+				}
+				if events, err := clusterEvents(ctx, k, space, r.KindName(), name, false, 20); err == nil {
 					res["events"] = events
 				}
 				return res, nil
 			})
 		},
 	}
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, nil)
 	return c
+}
+
+// describeMore adds what `describe` shows beyond the `ls` row: images,
+// strategy and selector of a workload; selector and target ports of a
+// Service.
+func describeMore(kind string, o map[string]any) map[string]any {
+	spec, _ := o["spec"].(map[string]any)
+	more := map[string]any{}
+	switch kind {
+	case "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job":
+		tpl, _ := spec["template"].(map[string]any)
+		ps, _ := tpl["spec"].(map[string]any)
+		cs, _ := ps["containers"].([]any)
+		var imgs []string
+		for _, c := range cs {
+			m, _ := c.(map[string]any)
+			imgs = append(imgs, str(m["name"])+"="+str(m["image"]))
+		}
+		more["images"] = strings.Join(imgs, ", ")
+		if sel := matchLabels(o); sel != "" {
+			more["selector"] = sel
+		}
+		for _, f := range []string{"strategy", "updateStrategy"} {
+			if st, ok := spec[f].(map[string]any); ok {
+				s := str(st["type"])
+				if ru, ok := st["rollingUpdate"].(map[string]any); ok {
+					s += fmt.Sprintf(" (max surge %v, max unavailable %v)", firstAny(ru["maxSurge"], "-"), firstAny(ru["maxUnavailable"], "-"))
+				}
+				more["strategy"] = s
+			}
+		}
+		if a, ok := o["metadata"].(map[string]any)["annotations"].(map[string]any); ok && a[revisionKey] != nil {
+			more["revision"] = a[revisionKey]
+		}
+	case "Service":
+		if sel := matchLabels(o); sel != "" {
+			more["selector"] = sel
+		}
+		pl, _ := spec["ports"].([]any)
+		var ports []string
+		for _, p := range pl {
+			m, _ := p.(map[string]any)
+			s := fmt.Sprintf("%v->%v/%v", cell(m["port"]), cell(firstAny(m["targetPort"], m["port"])), firstAny(m["protocol"], "TCP"))
+			if n := str(m["name"]); n != "" {
+				s = n + " " + s
+			}
+			if np := m["nodePort"]; np != nil {
+				s += fmt.Sprintf(" (node port %v)", cell(np))
+			}
+			ports = append(ports, s)
+		}
+		more["target_ports"] = strings.Join(ports, ", ")
+	}
+	return more
+}
+
+func firstAny(v ...any) any {
+	for _, x := range v {
+		if x != nil {
+			return x
+		}
+	}
+	return nil
+}
+
+// endpoints are the pod addresses behind a Service, ready or not.
+func endpoints(ctx context.Context, k *kube.Client, space, name string) []map[string]any {
+	var ep map[string]any
+	rows := []map[string]any{}
+	if k.Get(ctx, "/api/v1/namespaces/"+url.PathEscape(space)+"/endpoints/"+url.PathEscape(name), nil, &ep) != nil {
+		return rows
+	}
+	subsets, _ := ep["subsets"].([]any)
+	for _, s := range subsets {
+		sm, _ := s.(map[string]any)
+		for key, ready := range map[string]bool{"addresses": true, "notReadyAddresses": false} {
+			as, _ := sm[key].([]any)
+			for _, a := range as {
+				am, _ := a.(map[string]any)
+				ref, _ := am["targetRef"].(map[string]any)
+				rows = append(rows, map[string]any{"ip": str(am["ip"]), "pod": str(ref["name"]), "ready": ready})
+			}
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool { return str(rows[i]["pod"]) < str(rows[j]["pod"]) })
+	return rows
 }
 
 // matchLabels turns a workload's spec.selector.matchLabels into a label
@@ -239,4 +344,19 @@ func containerStates(pod map[string]any) []map[string]any {
 		rows = append(rows, row)
 	}
 	return rows
+}
+
+// eventList is `cluster events`: a table for a person.
+type eventList map[string]any
+
+func (e eventList) Text() string {
+	rows, _ := e["events"].([]map[string]any)
+	if len(rows) == 0 {
+		return "no events\n"
+	}
+	cols := listColumns["Event"]
+	if str(e["namespace"]) == "" {
+		cols = append([][2]string{{"namespace", "namespace"}}, cols...)
+	}
+	return tableOf(cols, rows)
 }

@@ -75,7 +75,7 @@ clusters do not ask for --yes. For an interactive shell use
 			return runKubectl(cmd.Context(), st, t.conn, "cluster.exec", kargs, risk, false)
 		},
 	}
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, nil)
 	c.Flags().StringVarP(&container, "container", "c", "", "container in the pod")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (no --yes on protected clusters)")
 	return c
@@ -139,6 +139,6 @@ Only this computer can use it.`,
 			return runKubectl(ctx, st, t.conn, "cluster.forward", kargs, driver.RiskRead, true)
 		},
 	}
-	nsFlags(c, &ns, nil)
+	nsFlags(c, &ns, nil, nil)
 	return c
 }
