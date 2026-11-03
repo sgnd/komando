@@ -34,6 +34,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   asks for the 6-digit code from your authenticator app (TOTP), a second
   factor for an AI agent's `--yes`, `--allow-dangerous` and `--reveal`. Only a
   person at a terminal can turn it on; turning it off needs that code too.
+- The guard that keeps AI agents away from secret files on this computer now
+  also works for Cursor, Gemini CLI and Codex: `komando guide install` adds
+  it to `.cursor/hooks.json`, `.gemini/settings.json` and `.codex/hooks.json`
+  when those folders exist (Codex asks you to approve it once in `/hooks`).
 - `komando svc daemon-reload TARGET`: reloads unit files after you write
   one, and names units that still need a reload.
 

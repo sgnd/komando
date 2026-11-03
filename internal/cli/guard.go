@@ -361,12 +361,25 @@ func shellWords(s string) []string {
 // Anything it cannot read is let through: the guard must never stop work it
 // does not understand.
 func guideGuardCmd() *cobra.Command {
-	return &cobra.Command{
+	var agent string
+	c := &cobra.Command{
 		Use:    "guard",
 		Short:  "Hook for AI agents: stop tool calls that would read secrets on this computer",
 		Hidden: true,
 		Args:   cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if agent != "" && agent != "claude" {
+				b, err := io.ReadAll(io.LimitReader(os.Stdin, 4<<20))
+				home, herr := os.UserHomeDir()
+				d := allow()
+				if err == nil && herr == nil {
+					d = guardAgent(agent, b, home)
+				}
+				if a := guardAnswer(agent, d); a != nil {
+					os.Stdout.Write(a)
+				}
+				return nil
+			}
 			var call struct {
 				Tool  string         `json:"tool_name"`
 				Input map[string]any `json:"tool_input"`
@@ -390,6 +403,8 @@ func guideGuardCmd() *cobra.Command {
 			}})
 		},
 	}
+	c.Flags().StringVar(&agent, "for", "", "the harness: claude (default), cursor, gemini or codex")
+	return c
 }
 
 // guardHookTools are the Claude Code tools the guard looks at.
@@ -461,7 +476,7 @@ func isGuardEntry(m map[string]any) bool {
 	hs, _ := m["hooks"].([]any)
 	for _, h := range hs {
 		if hm, ok := h.(map[string]any); ok {
-			if c, _ := hm["command"].(string); strings.HasSuffix(c, " guide guard") {
+			if c, _ := hm["command"].(string); strings.HasSuffix(c, " guide guard") || strings.Contains(c, " guide guard --for ") {
 				return true
 			}
 		}

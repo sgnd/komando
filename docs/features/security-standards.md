@@ -83,8 +83,10 @@ organisation.
 - **The approval window is one click** unless you turn on an approval code
   (`komando config approval-code`): then it also needs the 6-digit code from
   your authenticator app.
-- **The guard on your computer is for Claude Code.** Codex, Cursor and Gemini
-  CLI get the approval window and the masking, not the guard.
+- **The guard runs where the agent's harness asks it.** `komando guide
+  install` sets it up for Claude Code, Cursor, Gemini CLI (v0.26+) and Codex
+  (approve it once in `/hooks`). It is tested with each one's documented hook
+  input; an agent without hooks gets the approval window and the masking only.
 
 ## Check it yourself
 
