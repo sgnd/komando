@@ -1,12 +1,14 @@
 # AWS paths without an AWS account: a fake `aws` stands in for the CLI,
 # so komando's side is tested end to end. `aws ssm start-session` becomes a
 # plain TCP pipe to the lab's SSH server; `aws configure export-credentials`
-# answers like an expired SSO login.
+# answers like an expired SSO login, and `aws ecr get-login-password` hands
+# out a token (the lab registry also answers to an ECR-style name).
 mkdir -p "$TMP/fakeaws"
 cat >"$TMP/fakeaws/aws" <<EOF
 #!/bin/sh
 # ssm start-session --target ID --document-name AWS-StartSSHSession --parameters portNumber=22
 if [ "\$1 \$2" = "ssm start-session" ]; then exec nc 127.0.0.1 $E2E_SSH_DIRECT; fi
+if [ "\$1 \$2" = "ecr get-login-password" ]; then echo "\$*" >>"$TMP/fakeaws/ecr.calls"; echo ecr-token-1; exit 0; fi
 if [ "\$1 \$2" = "configure export-credentials" ]; then
   echo "Error when retrieving token from sso: Token has expired and refresh failed" >&2; exit 255
 fi
@@ -26,3 +28,12 @@ q $K host rm t-ssm
 q $K conn add t-aws-expired "s3://backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --option aws_profile=e2e
 check "an expired SSO login is AWS_LOGIN_REQUIRED" AWS_LOGIN_REQUIRED "$(AWSK storage ls t-aws-expired | jget 'd["error"]["code"]' || true)"
 q $K conn rm t-aws-expired
+
+# Amazon ECR: a fresh login from `aws ecr get-login-password` on every call,
+# with the region from the host name and the conn's aws_profile
+q $K conn add t-ecr "registry://AWS@123456789012.dkr.ecr.us-east-1.amazonaws.com:5000?tls=false" --via bastion --option aws_profile=e2e
+check "ECR: registry ls with a login from the aws CLI" True "$(AWSK registry ls t-ecr | jget 'd["ok"]')"
+check "ECR: the login asked for the host's region and the conn's profile" True \
+  "$(grep -q -- '--region us-east-1' "$TMP/fakeaws/ecr.calls" && grep -q -- '--profile e2e' "$TMP/fakeaws/ecr.calls" && echo True || echo False)"
+check "ECR: a fresh login each time (no stored password)" 2 "$(AWSK registry ls t-ecr >/dev/null; wc -l <"$TMP/fakeaws/ecr.calls" | tr -d ' ')"
+q $K conn rm t-ecr
