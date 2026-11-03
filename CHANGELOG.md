@@ -2,7 +2,7 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## [Unreleased]
+## [0.2.0] - 2026-11-04
 
 ### Built in: secret managers and AWS logins (no vault, aws or gcloud CLI)
 
