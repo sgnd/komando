@@ -367,26 +367,42 @@ is how long to wait; the job keeps running after it (exit 7, WAIT_TIMEOUT).`,
 			}
 			var s *jobStatus
 			deadline := time.Now().Add(waitTimeout)
-			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
-				for {
-					s, err = fetchStatus(cmd.Context(), c, j, tail)
-					if err != nil {
-						return err
-					}
-					if s.State != "running" {
-						return nil
-					}
-					if time.Now().After(deadline) {
-						return nil
-					}
-					select {
-					case <-cmd.Context().Done():
-						return cmd.Context().Err()
-					case <-time.After(interval):
-					}
+			pause := func() error {
+				select {
+				case <-cmd.Context().Done():
+					return cmd.Context().Err()
+				case <-time.After(interval):
+					return nil
 				}
-			})
-			if err != nil {
+			}
+			// a long wait outlives SSH connections (a NAT or firewall drops an
+			// idle one after some minutes): connect again and keep waiting,
+			// like kubectl wait, until the job ends or the deadline passes
+			for {
+				var done bool
+				err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
+					for {
+						var ferr error
+						if s, ferr = fetchStatus(cmd.Context(), c, j, tail); ferr != nil {
+							return ferr
+						}
+						if s.State != "running" || time.Now().After(deadline) {
+							done = true
+							return nil
+						}
+						if err := pause(); err != nil {
+							return err
+						}
+					}
+				})
+				if done || cmd.Context().Err() != nil || time.Now().After(deadline) || !transient(err) {
+					break
+				}
+				if err := pause(); err != nil {
+					return err
+				}
+			}
+			if err != nil && (s == nil || !time.Now().After(deadline)) {
 				return err
 			}
 			switch {
@@ -735,4 +751,22 @@ func (l jobList) Text() string {
 		s += "(state: add --refresh to ask the servers)\n"
 	}
 	return s
+}
+
+// transient: the connection broke (dropped, reset, timed out), so trying
+// again may work. A refused login or a changed host key is not transient.
+func transient(err error) bool {
+	if err == nil {
+		return false
+	}
+	if e := toErr(err); e.Exit == out.ExitConnect || e.Exit == out.ExitTimeout {
+		return e.Code != "AUTH_FAILED" && !strings.HasPrefix(e.Code, "HOSTKEY")
+	}
+	m := strings.ToLower(err.Error())
+	for _, s := range []string{"eof", "connection reset", "broken pipe", "closed network connection", "i/o timeout", "connection lost"} {
+		if strings.Contains(m, s) {
+			return true
+		}
+	}
+	return false
 }

@@ -97,6 +97,14 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   status` dials SOCKS and system VPNs; `vpn up` checks a WireGuard tunnel
   really answers; `vpn edit`; VPN errors keep their own code through SSH.
 - `facts` knows containers (init, virt, IPs without /len).
+- `job wait` survives a dropped SSH connection (a NAT or firewall closing
+  an idle one): it connects again and keeps waiting until the job ends or
+  the timeout passes. Before, a 25-minute install's wait could stop after
+  ~10 minutes with the job still running.
+- The agent guard no longer mistakes `.../environments` for a process
+  environment or a jq filter `.key` for a key file, and reads `\"` the way
+  the shell does (fuzzing found a way around it).
+- `cluster forward TARGET svc/x :80` picks any free local port, like kubectl.
 - `storage link --endpoint https://PUBLIC-NAME` signs a link for the address
   people use when komando reaches the storage through `--via`.
 - `docker logs` shows times only with `--timestamps`, like docker and
