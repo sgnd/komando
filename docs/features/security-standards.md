@@ -80,7 +80,9 @@ organisation.
   Real isolation needs an OS sandbox or a separate user account for the agent.
 - **The vault key is not on a hardware key** (a YubiKey, a TPM); the OS
   keychain is the strongest place komando keeps it.
-- **The approval window is one click**, not a second factor.
+- **The approval window is one click** unless you turn on an approval code
+  (`komando config approval-code`): then it also needs the 6-digit code from
+  your authenticator app.
 - **The guard on your computer is for Claude Code.** Codex, Cursor and Gemini
   CLI get the approval window and the masking, not the guard.
 

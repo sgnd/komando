@@ -88,12 +88,23 @@ func personAllows(flag string) bool {
 	approval.asked = true
 	text := fmt.Sprintf("%s wants komando to run:\n\n%s\n\n%s skips one of komando's safety stops (%s).\n\nAllow this once?",
 		agentName(), clip(commandLine(), 600), flag, flagMeaning[flag])
-	allowed, shown := askOnScreen(text)
+	var allowed, shown bool
+	if secret := approvalCodeSecret(); secret != nil {
+		// a second factor: the code from the person's authenticator app
+		code, pressed, ok := askCodeOnScreen(text)
+		allowed, shown = pressed && len(secret) > 0 && codeOK(secret, code, time.Now()), ok
+		if pressed && !allowed {
+			approval.why = "wrong-code"
+		}
+	} else {
+		allowed, shown = askOnScreen(text)
+	}
 	switch {
 	case allowed:
 		approval.allowed = true
-	case shown:
+	case shown && approval.why == "":
 		approval.why = "denied"
+	case shown:
 	default:
 		approval.why = "no-screen"
 	}
@@ -127,6 +138,8 @@ func approvalHint(e *out.Error) {
 	switch approval.why {
 	case "denied":
 		e.Hint = "the user clicked Deny in komando's window; do not retry. Ask the user what they want instead"
+	case "wrong-code":
+		e.Hint = "the code typed in komando's window was wrong or missing; ask the user whether to try again"
 	case "no-screen":
 		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine()
 	default:

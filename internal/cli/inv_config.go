@@ -313,6 +313,6 @@ func configCmd() *cobra.Command {
 		}
 		return err
 	})
-	c.AddCommand(set)
+	c.AddCommand(set, approvalCodeCmd())
 	return c
 }

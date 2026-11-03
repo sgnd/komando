@@ -30,6 +30,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   OS keychain (macOS keychain, Linux Secret Service), so a backup of
   `~/.komando` no longer opens the vault. `--off --yes` moves it back.
   `doctor` names it.
+- `komando config approval-code`: komando's "Allow once" window then also
+  asks for the 6-digit code from your authenticator app (TOTP), a second
+  factor for an AI agent's `--yes`, `--allow-dangerous` and `--reveal`. Only a
+  person at a terminal can turn it on; turning it off needs that code too.
 - `komando svc daemon-reload TARGET`: reloads unit files after you write
   one, and names units that still need a reload.
 
