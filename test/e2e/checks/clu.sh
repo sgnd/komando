@@ -62,6 +62,8 @@ check "Swarm status has the Kubernetes shape" "True True" "$($K cluster status s
 check "not a Swarm manager says so" "3 NOT_SWARM_MANAGER" "$($K cluster status direct >"$TMP/o"; echo $?) $(jget 'd["error"]["code"]' <"$TMP/o")"
 check "a missing service is not found" "3 True" "$($K cluster status swarm1 service/nope >"$TMP/o"; echo $?) $(jget 'd["error"]["message"] != ""' <"$TMP/o")"
 check "--namespace on Swarm is refused" USAGE "$($K cluster ls swarm1 services --namespace x | jget 'd["error"]["code"]')"
+# a Swarm service pulls by digest, so the tag may not be there to copy
+q $K docker pull swarm1 "$CLU_IMG"
 q $K docker raw swarm1 -- tag "$CLU_IMG" t-e2eclu/busybox:2
 q $K cluster run swarm1 --write -- service create --detach --name t-e2eclu-web "$CLU_IMG" sleep 86400
 check "Swarm service rolls out" True "$($K cluster status swarm1 svc/t-e2eclu-web --wait --timeout 90s | jget 'd["data"]["rolled_out"]')"
