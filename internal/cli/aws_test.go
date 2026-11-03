@@ -11,6 +11,8 @@ func TestECRRegion(t *testing.T) {
 	for host, want := range map[string]string{
 		"123456789012.dkr.ecr.eu-west-1.amazonaws.com":      "eu-west-1",
 		"123456789012.dkr.ecr-fips.us-east-1.amazonaws.com": "us-east-1",
+		"123456789012.dkr.ecr.us-east-1.amazonaws.com:443":  "us-east-1",
+		"123456789012.dkr.ecr.us-east-1.amazonaws.com:5000": "us-east-1",
 		"ghcr.io": "", "registry.example.com": "",
 	} {
 		if got := ecrRegion(host); got != want {
