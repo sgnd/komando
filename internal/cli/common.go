@@ -356,8 +356,14 @@ func confirmYes(question string) bool {
 		return false
 	}
 	a := strings.ToLower(ask(question + " [y/N] "))
-	return a == "y" || a == "yes"
+	ok := a == "y" || a == "yes"
+	personSaidNo = personSaidNo || !ok
+	return ok
 }
+
+// personSaidNo: a person at the terminal answered no, so the stop that
+// follows is their decision, not something to retry (Execute words it so).
+var personSaidNo bool
 
 // guardSafety: changes that weaken komando's own safety checks (no audit
 // log, no host key check, fewer deny rules) need --yes, so an agent cannot
@@ -384,7 +390,9 @@ func confirmDangerous(names []string, reason string) bool {
 		want, what = fmt.Sprint(len(names)), fmt.Sprintf("%d (the number of targets)", len(names))
 	}
 	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
-	return ask("Type "+what+" to continue: ") == want
+	ok := ask("Type "+what+" to continue: ") == want
+	personSaidNo = personSaidNo || !ok
+	return ok
 }
 
 // guardProtection stops a way around protection: removing a protected

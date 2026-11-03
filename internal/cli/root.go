@@ -91,6 +91,10 @@ func Execute() int {
 	}
 	if errors.As(err, &oe) {
 		approvalHint(oe)
+		if personSaidNo && oe.Exit == out.ExitPolicy {
+			oe.Message = "cancelled: " + oe.Message
+			oe.Hint = "nothing was changed"
+		}
 	}
 	return out.P.Fail(name, err)
 }
@@ -232,6 +236,7 @@ func checkAuditWritable(cmd *cobra.Command) error {
 func newRoot() *cobra.Command {
 	resetApproval()
 	out.P.Reset()
+	personSaidNo = false
 	root := &cobra.Command{
 		Use:   "komando",
 		Short: "One safe command line for DevOps: servers, databases, caches and storage",
