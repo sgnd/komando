@@ -54,7 +54,10 @@ check "exec in a missing pod is not found" 3 "$($K cluster exec lab-k3s nopod --
 check "logs of a missing container is not found" 3 "$($K cluster logs lab-k3s deploy/web --namespace t-e2eclu -c nope >/dev/null; echo $?)"
 check "logs of a workload name the object and its pods" "deploy/web 1" "$($K cluster logs lab-k3s deploy/web --namespace t-e2eclu | jget 'd["data"]["object"] + " " + str(len(d["data"]["pods"]))')"
 check "cluster run ends a watch at --timeout" 0 "$($K cluster run lab-k3s --timeout 3s -- get pods -n t-e2eclu -w >/dev/null; echo $?)"
-check "forward ends normally at --timeout" "0 True" "$($K cluster forward lab-k3s deploy/web 18097:80 --namespace t-e2eclu --timeout 3s >"$TMP/o" 2>/dev/null; echo $?) $(jget 'd["ok"]' <"$TMP/o")"
+# :80 takes any free local port (like kubectl), so the check never meets a port in use;
+# kubectl's words stay in $TMP/fw.err to show why if it fails
+check "forward ends normally at --timeout" "0 True" "$($K cluster forward lab-k3s deploy/web :80 --namespace t-e2eclu --timeout 5s >"$TMP/o" 2>"$TMP/fw.err"; echo $?) $(jget 'd["ok"]' <"$TMP/o")"
+[ "$(jget 'd["ok"]' <"$TMP/o")" = True ] || { echo "  forward stderr:"; head -5 "$TMP/fw.err"; }
 q $K cluster rm lab-k3s namespace t-e2eclu --allow-dangerous
 
 # --- Docker Swarm ---------------------------------------------------------------
