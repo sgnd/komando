@@ -61,6 +61,12 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   in 0.2.0: it reads 1Password Connect only. Without Connect it says so and
   names the alternatives (`bw://`, `kdbx:`, a komando secret).
 
+### Fixed
+
+- The Bitwarden device id file (`bitwarden-device`) is kept in
+  `KOMANDO_HOME`, like every other state file, instead of always in
+  `~/.komando`.
+
 ## [0.2.0] - 2026-11-04
 
 ### Built in: secret managers and AWS logins (no vault, aws or gcloud CLI)

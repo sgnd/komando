@@ -1,46 +1,98 @@
 # Results and errors
 
-How komando answers, exit codes, and fixing common errors. [All features](README.md)
+How komando answers, what the exit codes mean, how to fix common errors,
+and how to see what is still running. [All features](README.md)
 
-## Reading the results
+## Quick start
 
-In a terminal you get readable text. When another program (like an AI agent)
-runs komando, it gets one JSON object instead. Force either with `-o text` or
-`-o json`.
+```bash
+komando exec web1 -- uptime              # readable text in a terminal
+komando exec web1 -o json -- uptime      # one JSON object (what agents get)
+komando status                           # VPNs, tunnels and jobs still running
+komando schema exec                      # every flag and exit code, machine-readable
+komando doctor                           # check the local setup
+```
+
+## Text or JSON
+
+In a terminal you get readable text. When another program (such as an AI
+agent or a script) runs komando through a pipe, it gets one JSON object
+instead. Force either with `-o text` or `-o json`, or set `KOMANDO_OUTPUT`.
+`--pretty` indents the JSON.
 
 ```json
 {
   "ok": false,
   "command": "exec",
-  "data": { "results": [ { "host": "web1", "ok": false, "exit_code": 3, "stdout": "", "stderr": "…" } ] },
+  "data": {
+    "command": "uptime",
+    "results": [ { "host": "web1", "ok": false, "exit_code": 3, "stdout": "", "stderr": "…" } ],
+    "summary": { "total": 1, "ok": 0, "failed": 1, "failed_hosts": ["web1"] }
+  },
   "error": { "code": "FAILED", "message": "host web1 failed", "hint": "…" },
-  "meta": { "version": "0.1.0", "duration_ms": 211 }
+  "meta": { "contract": 1, "version": "v0.2.0", "duration_ms": 211 }
 }
 ```
 
-`error.hint` always says what to try next. When a target picked things the
-command cannot work with, `meta.skipped` lists them with the reason (also
-when the command then fails).
+| Field | Meaning |
+|-------|---------|
+| `ok` | `true` only when everything succeeded |
+| `command` | the command, dotted (`exec`, `db.query`, `svc.restart`) |
+| `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary` |
+| `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when only some servers failed (`PARTIAL_FAILURE`) |
+| `error.hint` | always says what to try next |
+| `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run; `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails) |
 
-| Exit code | Meaning |
-|-----------|---------|
-| 0 | success |
-| 1 | general error |
-| 2 | wrong command or flag |
-| 3 | not found (server, file, key…) |
-| 4 | cannot connect or log in |
-| 5 | the command failed on the server |
-| 6 | blocked for safety |
-| 7 | timed out |
-| 8 | edit precondition failed (text not found / not unique) |
+## Exit codes
 
-The full machine-readable reference is `komando schema`.
+| Code | Meaning | Examples |
+|------|---------|----------|
+| 0 | success | |
+| 1 | general error | `AUDIT_UNAVAILABLE` |
+| 2 | wrong command, flag or value | `USAGE`, `HIDDEN_VALUE`, `NEEDS_TERMINAL` |
+| 3 | not found | `TARGET_NOT_FOUND`, `FILE_NOT_FOUND`, `TOOL_MISSING` |
+| 4 | cannot connect or log in | `AUTH_FAILED`, `HOSTKEY_MISMATCH`, `VPN_LOGIN_REQUIRED` |
+| 5 | the command failed on the server | `FAILED`, `ROLLOUT_FAILED` |
+| 6 | blocked for safety | `POLICY_BLOCKED`, `PROTECTED_HOST`, `WRITE_REQUIRES_FLAG` |
+| 7 | timed out | `TIMEOUT`, `ROLLOUT_TIMEOUT` |
+| 8 | a precondition failed or something is in the way | `fs replace` text not found or not unique, `PORT_IN_USE`, `FILE_TOO_LARGE` |
+
+When several servers fail, the exit code is the worst one. The full
+machine-readable reference is `komando schema`.
+
+## Troubleshooting
+
+| Error | Usually means | Try |
+|-------|---------------|-----|
+| `AUTH_FAILED` | wrong user, key or password | `komando host show NAME`, `komando key deploy` |
+| `KEY_PASSPHRASE_REQUIRED` | the SSH key is encrypted | `komando key edit NAME --passphrase-ref secret:NAME` |
+| `CONNECTION_REFUSED`, `CONNECT_TIMEOUT` | server down, wrong port, firewall | check the address and port; `--connect-timeout 30s` |
+| `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting | confirm with your provider first, then `komando host trust NAME --reset` |
+| `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando secret list` |
+| `sudo: a password is required` | sudo needs a password | `komando host edit NAME --sudo-ref secret:NAME` |
+| `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA, sudo) | a person runs `komando vpn up NAME` once |
+| `AWS_LOGIN_REQUIRED` | the AWS SSO login has expired | a person runs `komando login aws --profile NAME` |
+| `POLICY_BLOCKED` | the command looks destructive | double-check it; a person may add `--allow-dangerous` |
+| `PROTECTED_HOST`, `PROTECTED_TARGET` | a change to something marked protected | a person may add `--yes` |
+| `SAFETY_SETTING` | a change that turns a seatbelt off | a person may add `--yes` |
+| `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
+| `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
+| `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |
+| `NO_MATCHING_TARGETS` | the target picked only things this command can't use | follow the hint (for example, use `komando db` for a database) |
+| `TARGET_NOT_FOUND`, `TARGET_EMPTY` | a typo in a name, group or tag | the hint suggests the closest match; `komando list` |
+| `PARTIAL_FAILURE` | some servers failed, others did not | read `data.results` for each server's exit code and stderr |
+| `PORT_IN_USE` | the local port is taken | pick another port, or `0` for a free one |
+| `NEEDS_TERMINAL` | an interactive command (`shell`) run by a program | agents use `exec`, `cluster exec` or `job` |
+| `TIMEOUT` | the command took too long | `--timeout 30m`, or `komando job start` for long work |
+
+`komando doctor` checks your local setup, the inventory and its security.
 
 ## Where am I? (status lines)
 
-When you type a command yourself, komando says on one line where you are
-working, before it connects. It does this for the commands you stay inside:
-`shell`, `db shell`, `cluster forward` and `logs --follow`.
+When you type a command yourself, komando prints one line saying where you
+are working, before it connects. It does this for the commands you stay
+inside: `shell`, `db shell`, `cluster shell`, `cluster forward`,
+`logs --follow` and `cluster logs -f`.
 
 ```
 komando: shell on web1 (deploy@10.0.1.5) via vpn office → bastion1
@@ -50,20 +102,22 @@ komando: forwarding 127.0.0.1:8080 → svc/api:80 on prod-k8s (Ctrl-C stops)
 komando: following logs on web1, web2 (Ctrl-C stops)
 ```
 
-`via` is the way there: the VPN first, then the bastions. A protected
-server or database says `PROTECTED`, in red unless `NO_COLOR` is set. When a
-`shell` or `db shell` ends, one more line says how:
-`komando: left web1 (exit 0, 12m)`, or `komando: connection to web1 lost after 3m`.
-When a command connects a VPN by itself, komando says it stays up and how to
-stop it.
+- `via` is the way there: the VPN first, then the bastions.
+- A protected server or database says `PROTECTED`, in red unless `NO_COLOR`
+  is set.
+- When a `shell` or `db shell` ends, one more line says how:
+  `komando: left web1 (exit 0, 12m)` or
+  `komando: connection to web1 lost after 3m`.
+- When a command connects a VPN by itself, komando says that the VPN stays
+  up and how to stop it.
 
-These lines go to stderr and only to a person at a terminal. Agents, scripts
-and pipes never get them, and the JSON output does not change.
+These lines go to stderr, and only to a person at a terminal. Agents,
+scripts and pipes never get them, and the JSON output does not change.
 
 ## What is still running? (`komando status`)
 
 Some things keep running after the command that started them: a VPN (from
-`vpn up`, or connected by a command), a tunnel, a job on a server.
+`vpn up`, or connected by a command), a tunnel, or a job on a server.
 `komando status` lists them all:
 
 ```
@@ -75,15 +129,16 @@ jobs run on their servers: `komando job list --refresh` shows which still run
 ```
 
 It contacts nothing, so it is quick and works offline. A job stays on the
-list until `komando job rm`; whether it still runs is known on its server,
-which `komando job list --refresh` asks. Agents get the same as JSON
-(`vpns`, `tunnels`, `jobs`).
+list until `komando job rm`. Whether it still runs is known only on its
+server, which `komando job list --refresh` asks. Agents get the same as JSON
+(`vpns`, `tunnels`, `jobs`). An idle VPN closes after `vpn_idle` (see
+[Settings](settings.md)).
 
-### In your shell prompt (optional)
+### Show it in your shell prompt (optional)
 
 `komando prompt` prints a short note such as `vpn:office tun:2`, or nothing
-when nothing runs, so your prompt can show it all the time. Add it yourself;
-komando never changes your shell files.
+when nothing is running, so your prompt can show it all the time. Add it
+yourself; komando never changes your shell files.
 
 zsh (also with oh-my-zsh), in `~/.zshrc`:
 
@@ -107,8 +162,8 @@ when = true
 ```
 
 It only reads komando's state file (no network, nothing written, never an
-error), so it is safe on every prompt. It is a quick hint: a VPN that
-crashed a moment ago can still show until the next komando command.
+error), so it is safe to run on every prompt. It is a quick hint: a VPN
+that crashed a moment ago can still show until the next komando command.
 `komando status` is the full check.
 
 ## Will my scripts keep working?
@@ -116,24 +171,5 @@ crashed a moment ago can still show until the next komando command.
 Every JSON answer has `meta.contract` (now `1`). Within a contract, komando
 only adds fields, error codes and commands; it never renames or removes
 them, and renamed commands and flags keep working as aliases. If that ever
-has to change, `meta.contract` goes up and the changelog says what changed.
-
-## Troubleshooting
-
-| Error | Usually means | Try |
-|-------|---------------|-----|
-| `AUTH_FAILED` | wrong user, key or password | `komando host show NAME`, `komando key deploy` |
-| `CONNECTION_REFUSED` / `CONNECT_TIMEOUT` | server down, wrong port, firewall | check address and port, `--connect-timeout 30s` |
-| `HOSTKEY_MISMATCH` | server rebuilt — or someone intercepting | confirm with your provider, then `komando host trust NAME --reset` |
-| `SECRET_UNRESOLVED` | stored password or env var missing | `komando secret list` |
-| `sudo: a password is required` | sudo needs a password | `komando host edit NAME --sudo-ref secret:NAME` |
-| `POLICY_BLOCKED` | looks destructive | double-check; a human may add `--allow-dangerous` |
-| `PROTECTED_HOST` / `PROTECTED_TARGET` | a change to something marked protected | a human may add `--yes` |
-| `SAFETY_SETTING` | a change that turns a seatbelt off | a human may add `--yes` |
-| `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a human may allow `--reveal` |
-| `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`, set a secret with `{{secret:NAME}}` |
-| `NO_MATCHING_TARGETS` | the target picked only things this command can't use | follow the hint (e.g. use `komando db` for a database) |
-| `TARGET_NOT_FOUND` / `TARGET_EMPTY` | a typo in a name, group or tag | the hint suggests the closest match; `komando list` |
-| `TIMEOUT` | took too long | `--timeout 30m` or use `komando job start` |
-
-`komando doctor` checks your local setup.
+has to change, `meta.contract` goes up and the [changelog](../../CHANGELOG.md)
+says what changed.
