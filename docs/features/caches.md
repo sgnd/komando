@@ -1,7 +1,7 @@
 # Caches
 
 Read and change Redis-compatible caches (Redis, Valkey, KeyDB, Dragonfly)
-safely. [All features](README.md)
+and memcached safely. [All features](README.md)
 
 ## Quick start
 
@@ -73,6 +73,26 @@ Commands that delete, wipe, block, run scripts or reconfigure the server
 (`DEL`, `FLUSHALL`, `KEYS`, `EVAL`, `CONFIG SET`, `SHUTDOWN`, ...) also need
 `--allow-dangerous`. The error tells you the safer command to use instead
 (`cache keys` for `KEYS`, `cache rm` for `DEL`).
+
+## memcached
+
+The same commands work with memcached. The URL is
+`memcached://HOST:11211`; use `memcacheds://` for TLS. For a server started
+with `memcached -Y`, give a user in the URL and the password as a reference:
+
+```bash
+komando conn add mc memcached://cache.internal:11211 --via web1
+komando conn add mc2 memcached://app@cache.internal:11211 --password-ref secret:mc-pass
+komando cache get mc session:42               # the value, and on 1.6+ its time to live
+komando cache keys mc 'session:*'             # through memcached's LRU crawler
+komando cache info mc                         # a summary of `stats`; `info mc items` for one section
+komando cache run mc -- stats slabs
+```
+
+- `cache set` and `cache rm` work as for Redis, with the same safety rules.
+- `cache run` sends one command line and only reads unless `--write`.
+  `flush_all` and commands that change or stop the server also need
+  `--allow-dangerous`. Store values with `cache set`.
 
 ## Output
 

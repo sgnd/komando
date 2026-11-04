@@ -123,27 +123,19 @@ experimental VPN clients and SSM sessions): [built-in.md](../built-in.md).
 Sections 1–3 of the first version (doc promises, security holes and daily
 P1 features, all from before Phase 1) are done, except:
 
-- `import termius`, `import tableplus`, `import aws` and a `memcached` kind
+- `import termius` and `import tableplus`
   (Termius and TablePlus have no open export format; see
   [import.md](../../features/import.md)).
-- `exec -P 10` through one bastion opens one bastion login per host; a
-  shared bastion connection would stay under the server's `MaxStartups`.
-- A controlled reboot (reboot, wait for the server, verify) and
-  `svc daemon-reload` as their own commands; today both go through `exec`
-  with `--allow-dangerous`/policy.
-- Users, roles and grants with passwords from the vault; today through
-  `db query --write`.
-- Bulk registry tag cleanup (keep the N newest, delete older than X).
 
 ## 4. Biggest P2 themes
 
 - **Access**: SSH certificates (user cert, `@cert-authority`), agent forwarding, SAML/SSO logins for the corporate VPN clients, `HTTPS_PROXY` for the kube and registry clients, `vpn edit`.
 - **Fleet**: staged execution (Ansible-style `serial`), idempotent `lineinfile`/`blockinfile`, `user unlock` and groups, `download --sudo`, Ansible inventory import.
-- **Secrets**: `vault.key` in the OS keyring, refs for Azure Key Vault/pass/sops/SSM Parameter Store (Bitwarden and KeePass are done), Vault dynamic credentials, encrypted export including secrets.
+- **Secrets**: refs for Azure Key Vault/pass/sops/SSM Parameter Store (Bitwarden and KeePass are done), Vault dynamic credentials, encrypted export including secrets.
 - **Cluster**: commands to many clusters at once (`@group`), read-only helm (list/status/history), capacity (`top` is done through `cluster run`), redaction of `docker inspect` and `compose config`.
 - **Database**: new engines (MongoDB most requested; HTTP-based ones like Elasticsearch/OpenSearch, RabbitMQ, Consul are cheapest for binary size), Redis Cluster/Sentinel, TLS with your own CA, schema migrations.
 - **Storage**: GCS, Azure Blob, WebDAV; self-signed TLS for S3/registry (filezilla/rclone import is done).
-- **Platform**: `--debug`/verbose, CSV output, Homebrew, signed releases + SBOM, Windows build, MCP server, dynamic inventory from the cloud (EC2, GCP, DO, Hetzner), send audit to syslog/SIEM, time filter in `audit`.
+- **Platform**: `--debug`/verbose, CSV output, Homebrew, signed releases + SBOM, Windows build, MCP server, dynamic inventory from the cloud (EC2, GCP, DO, Hetzner), time filter in `audit` (sending the audit to syslog/SIEM is done).
 
 ## 5. What is deliberately not built (NON-GOAL)
 

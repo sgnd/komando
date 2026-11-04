@@ -7,6 +7,7 @@ package storex
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -96,6 +97,39 @@ func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial D
 		return nil, out.Usage("invalid storage settings: %v", err)
 	}
 	return &s3Bucket{c: c, bucket: t.Bucket, prefix: t.Prefix, creds: creds, region: t.Region}, nil
+}
+
+// BucketInfo is one bucket an account can see, and where it lives.
+type BucketInfo struct{ Name, Region string }
+
+// ListBuckets lists the buckets the keys can see at endpoint (a URL, ""
+// for AWS), each with its region.
+func ListBuckets(ctx context.Context, endpoint, accessKey, secret, sessionToken, region string) ([]BucketInfo, error) {
+	host, secure := "s3.amazonaws.com", true
+	if endpoint != "" {
+		u, err := url.Parse(endpoint)
+		if err != nil || u.Host == "" {
+			return nil, fmt.Errorf("bad S3 endpoint %q", endpoint)
+		}
+		host, secure = u.Host, u.Scheme == "https"
+	}
+	c, err := minio.New(host, &minio.Options{Creds: credentials.NewStaticV4(accessKey, secret, sessionToken), Secure: secure, Region: region})
+	if err != nil {
+		return nil, err
+	}
+	bs, err := c.ListBuckets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]BucketInfo, 0, len(bs))
+	for _, b := range bs {
+		r, err := c.GetBucketLocation(ctx, b.Name)
+		if err != nil || r == "" {
+			r = region
+		}
+		out = append(out, BucketInfo{Name: b.Name, Region: r})
+	}
+	return out, nil
 }
 
 func (s *s3Bucket) Key(rel string) (string, error) { return keyIn(s.prefix, rel) }

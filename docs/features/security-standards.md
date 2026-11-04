@@ -16,9 +16,9 @@ for how it works, and komando can only give you controls to use there.
 |---|---|---|
 | 2.10, 6.4 Secrets are not in code, arguments or history | Vault, `secret:NAME` references, external managers (HashiCorp Vault/OpenBao, AWS and Google Secret Manager, Bitwarden, KeePass, 1Password Connect); secret values on a command line are refused | ✅ |
 | 6.2 Approved algorithms, no home-made crypto | AES-256-GCM (each value bound to its name), scrypt N=2^17 r=8 p=1, `crypto/rand`, Ed25519 keys, Go's SSH and TLS | ✅ |
-| 6.4.2 Key material is protected | Key file and vault mode 0600 in a 0700 folder; passphrase mode keeps no key on disk | 🟡 the default key file sits next to the vault: use a passphrase (`doctor` warns) |
+| 6.4.2 Key material is protected | Key file and vault mode 0600 in a 0700 folder; `komando secret keychain` keeps the key in the OS keychain; passphrase mode keeps no key on disk | ✅ with the keychain or a passphrase; 🟡 the default key file sits next to the vault (`doctor` warns) |
 | 7.1 Logs record who, what, where, result, without secrets | Every action: time, actor, AI agent, approval, hosts, command; tested to hold no password | ✅ |
-| 7.3 Logs are protected from change | 0600, and a hash chain that `komando audit verify` checks | 🟡 the same user can rebuild the chain or cut its end: copy the log off the computer if that matters |
+| 7.3 Logs are protected from change | 0600, a hash chain that `komando audit verify` checks, and each record sent to a log server with `audit_syslog` | ✅ with `audit_syslog`; 🟡 without it the same user can rebuild the chain or cut its end |
 | 8.3 Sensitive data is not shown to those who should not see it | Vault values hidden for everyone; passwords, keys and tokens hidden for AI agents | ✅ best effort: an unusual name can slip through |
 | 9.1, 9.2 Connections are encrypted and the server is checked | SSH host keys (stop on mismatch), TLS 1.2+ for Redis, Kubernetes, FTPS, HashiCorp Vault and the built-in VPN clients; plain FTP needs `?insecure=1` | 🟡 databases follow the conn URL; `doctor` warns about conns without verified TLS |
 | 12.3 Files: no path traversal | Folder downloads refuse server paths that lead outside the target | ✅ |
@@ -78,11 +78,15 @@ organisation.
 - **An AI agent is your own user.** komando stops mistakes and injected
   instructions; it cannot stop a program that runs as you and means harm.
   Real isolation needs an OS sandbox or a separate user account for the agent.
-- **The audit log stays on your computer.** Sending it to a log server is not built in.
-- **The vault key is not in the OS keychain or a hardware key** (yet).
-- **The approval window is one click**, not a second factor.
-- **The guard on your computer is for Claude Code.** Codex, Cursor and Gemini
-  CLI get the approval window and the masking, not the guard.
+- **The vault key is not on a hardware key** (a YubiKey, a TPM); the OS
+  keychain is the strongest place komando keeps it.
+- **The approval window is one click** unless you turn on an approval code
+  (`komando config approval-code`): then it also needs the 6-digit code from
+  your authenticator app.
+- **The guard runs where the agent's harness asks it.** `komando guide
+  install` sets it up for Claude Code, Cursor, Gemini CLI (v0.26+) and Codex
+  (approve it once in `/hooks`). It is tested with each one's documented hook
+  input; an agent without hooks gets the approval window and the masking only.
 
 ## Check it yourself
 

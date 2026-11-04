@@ -28,6 +28,10 @@ services:
     image: redis:8.10.3
     command: ["redis-server", "--requirepass", "redispass"]
     networks: [private]
+  memcached:
+    image: memcached:1.6.39
+    entrypoint: ["sh", "-c", "echo e2e:mcpass > /tmp/auth && exec memcached -Y /tmp/auth"]
+    networks: [private]
   s3:
     build: garage
     networks: [private]

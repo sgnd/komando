@@ -291,7 +291,7 @@ func protectedHost(st *store.State, h *store.Host) bool {
 		return true
 	}
 	for _, o := range st.Hosts {
-		if o.Protected && sameHostName(o.Address, h.Address) && o.EffectivePort() == h.EffectivePort() {
+		if o.Protected && o.EffectivePort() == h.EffectivePort() && sameServer(o.Address, h.Address) {
 			return true
 		}
 	}
@@ -304,8 +304,55 @@ func sameHostName(a, b string) bool {
 	return normHost(a) == normHost(b)
 }
 
+// sameServer: the same name, or names (and addresses) that lead to the same
+// IP address on this computer, so "db.internal" is the protected "10.0.0.5".
+// A name this computer cannot look up (one only a jump host knows) is
+// compared by its text only.
+func sameServer(a, b string) bool {
+	if sameHostName(a, b) {
+		return true
+	}
+	ia, ib := cachedIPs(a), cachedIPs(b)
+	for _, x := range ia {
+		for _, y := range ib {
+			if x == y {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+var dnsCache sync.Map // normalised name -> []string
+
+// cachedIPs is lookupIPs (2s at most) once per name per command.
+func cachedIPs(host string) []string {
+	h := normHost(host)
+	if v, ok := dnsCache.Load(h); ok {
+		return v.([]string)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	ips := lookupIPs(ctx, h)
+	dnsCache.Store(h, ips)
+	return ips
+}
+
 func normHost(h string) string {
 	return strings.TrimSuffix(strings.ToLower(strings.Trim(h, "[]")), ".")
+}
+
+// sameConnServer compares two conn keys ("family host:port") whose host
+// names differ but may lead to the same address.
+func sameConnServer(a, b string) bool {
+	fa, aa, ok1 := strings.Cut(a, " ")
+	fb, ab, ok2 := strings.Cut(b, " ")
+	if !ok1 || !ok2 || fa != fb || fa == "file" || fa == "bucket" {
+		return false
+	}
+	ha, pa, err1 := net.SplitHostPort(aa)
+	hb, pb, err2 := net.SplitHostPort(ab)
+	return err1 == nil && err2 == nil && pa == pb && sameServer(ha, hb)
 }
 
 // normHostPort is host:port with the host normalised.
@@ -341,7 +388,10 @@ func protectedConn(st *store.State, c *store.Conn) bool {
 	}
 	k := key(c)
 	for _, o := range st.Conns {
-		if o.Protected && k != "" && key(o) == k {
+		if !o.Protected || k == "" {
+			continue
+		}
+		if ko := key(o); ko == k || sameConnServer(ko, k) {
 			return true
 		}
 	}
@@ -395,6 +445,10 @@ func confirmYes(question string) bool {
 	return ok
 }
 
+// safetyApproved remembers the safety changes a person allowed in this
+// command, so checking again inside the state lock does not ask twice.
+var safetyApproved = map[string]bool{}
+
 // personSaidNo: a person at the terminal answered no, so the stop that
 // follows is their decision, not something to retry (Execute words it so).
 var personSaidNo bool
@@ -403,7 +457,11 @@ var personSaidNo bool
 // log, no host key check, fewer deny rules) need --yes, so an agent cannot
 // switch them off by itself.
 func guardSafety(what string) error {
+	if safetyApproved[what] { // asked already in this command (before the state was locked)
+		return nil
+	}
 	if yesOK() || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
+		safetyApproved[what] = true
 		return nil
 	}
 	return policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what))
@@ -453,6 +511,13 @@ func hostNames(hs []*store.Host) []string {
 func audit(st *store.State, command string, hosts []string, remote string, ok bool, extra map[string]any) {
 	if st != nil && !st.Settings.Audit {
 		return
+	}
+	if st == nil { // always recorded (turning the audit off, too); read where else it goes
+		if s, err := store.Load(); err == nil {
+			auditSyslog = s.Settings.AuditSyslog
+		}
+	} else {
+		auditSyslog = st.Settings.AuditSyslog
 	}
 	rec := map[string]any{
 		"ts":      time.Now().UTC().Format(time.RFC3339Nano),

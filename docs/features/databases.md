@@ -175,6 +175,29 @@ komando db kill app-db 4821 --session --allow-dangerous   # end the whole connec
 - SQLite has no server sessions, so `activity`, `locks` and `kill` do not
   apply to it.
 
+## Users and grants
+
+```bash
+komando secret set app-ro-pass                              # the password goes to the vault first
+komando db user add app-db app_ro --password-ref secret:app-ro-pass
+komando db grant app-db app_ro --privileges SELECT --on all-tables:public
+komando db grants app-db app_ro                             # what it may do now
+komando db user passwd app-db app_ro --password-ref secret:app-ro-pass-2   # rotate
+komando db revoke app-db app_ro --privileges SELECT --on all-tables:public
+komando db user rm app-db app_ro --allow-dangerous
+komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10.0.%'   # MySQL
+```
+
+- Passwords come only from a secret reference. They are never typed on a
+  command line, shown, or written to the audit log (`--dry-run` and the
+  answer show `[hidden]`). PostgreSQL gets a SCRAM-SHA-256 verifier that
+  komando computes, so the password never reaches the server or its logs.
+- `--on` takes `database:NAME`, `schema:NAME`, `table:[SCHEMA.]TABLE` or
+  `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
+  and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).
+- Adding users and grants are changes (`--yes` on protected conns).
+  Removing a user also needs `--allow-dangerous`.
+
 ## Back up and restore
 
 ```bash

@@ -54,6 +54,7 @@ type skillFile struct {
 	Path   string `json:"path"`
 	Action string `json:"action"` // created | updated | unchanged
 	Backup string `json:"backup,omitempty"`
+	Note   string `json:"note,omitempty"`
 }
 
 func guideInstallCmd() *cobra.Command {
@@ -66,11 +67,13 @@ skills from: ~/.claude/skills (Claude Code) and ~/.agents/skills (Codex,
 Cursor, Gemini CLI and others). The agent then uses komando by itself whenever
 a task touches a server, database, cache or storage.
 
-It also adds a guard to Claude Code (.claude/settings.json): before Claude
-reads a file or runs a shell command on this computer, komando checks it and
-stops the ones that would read secrets: ~/.komando, private keys, .env files,
-credential stores, all environment variables at once, or ssh around komando.
-Skip it with --no-guard.
+It also adds a guard: before the agent reads a file or runs a shell command
+on this computer, komando checks it and stops the ones that would read
+secrets: ~/.komando, private keys, .env files, credential stores, all
+environment variables at once, or ssh around komando. It goes into Claude
+Code (.claude/settings.json), and into Cursor (.cursor/hooks.json), Gemini
+CLI (.gemini/settings.json, v0.26+) and Codex (.codex/hooks.json; approve it
+once in /hooks) where their folders exist. Skip it with --no-guard.
 
 Safe to run again, for example after an update: a changed file is kept as
 .bak. Remove the skill by deleting the komando folders, and the guard by
@@ -102,13 +105,28 @@ deleting its entry under hooks in .claude/settings.json.`,
 					return out.Errf(out.ExitError, "WRITE_FAILED", "fix the file, or pass --no-guard to skip the guard", "%v", err)
 				}
 				files = append(files, f)
+				// the other agents, where the person uses them
+				for _, h := range agentHooks {
+					dir := filepath.Join(base, h.dir)
+					if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+						continue
+					}
+					f, err := installAgentHook(filepath.Join(dir, h.file), h.add, shellQuote(komandoPath())+" guide guard --for "+h.name, g.dryRun)
+					if err != nil {
+						return out.Errf(out.ExitError, "WRITE_FAILED", "fix the file, or pass --no-guard to skip the guard", "%v", err)
+					}
+					if h.name == "codex" && f.Action != "unchanged" {
+						f.Note = "open /hooks in Codex once to approve it"
+					}
+					files = append(files, f)
+				}
 			}
 			out.P.Print("guide.install", skillResult{Files: files}, nil)
 			return nil
 		},
 	}
 	c.Flags().BoolVar(&project, "project", false, "install into the current folder instead of your home folder")
-	c.Flags().BoolVar(&noGuard, "no-guard", false, "do not add the guard that keeps Claude Code away from secret files on this computer")
+	c.Flags().BoolVar(&noGuard, "no-guard", false, "do not add the guard that keeps AI agents away from secret files on this computer")
 	return c
 }
 
@@ -122,6 +140,9 @@ func (r skillResult) Text() string {
 		b.WriteString(f.Action + "  " + f.Path + "\n")
 		if f.Backup != "" {
 			b.WriteString("  old version kept as " + f.Backup + "\n")
+		}
+		if f.Note != "" {
+			b.WriteString("  " + f.Note + "\n")
 		}
 	}
 	b.WriteString("Restart your AI agent so it sees the skill.")

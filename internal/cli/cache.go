@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cachex"
@@ -26,8 +25,8 @@ func cacheCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "cache",
 		Aliases: []string{"redis"},
-		Short:   "Read and change Redis/Valkey caches safely",
-		Long: `Work with a redis conn (see ` + "`komando conn`" + `). get, keys and info only read.
+		Short:   "Read and change Redis/Valkey and memcached caches safely",
+		Long: `Work with a redis or memcached conn (see ` + "`komando conn`" + `). get, keys and info only read.
 set changes data (protected conns need --yes); rm deletes keys, so it also
 needs --allow-dangerous. ` + "`cache run`" + ` sends any command, but only reads unless
 --write; commands that flush, block, run scripts or reconfigure the server
@@ -37,7 +36,7 @@ also need --allow-dangerous.`,
 	return c
 }
 
-type cacheFn func(st *store.State, c *store.Conn, rc *redis.Client) (any, error)
+type cacheFn func(st *store.State, c *store.Conn, rc cachex.Store) (any, error)
 
 // withCache opens the conn's client, runs fn, and audits the action.
 func withCache(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn cacheFn) error {
@@ -85,7 +84,7 @@ func withCachePreview(ctx context.Context, name, connExpr string, v driver.Verdi
 	timeout := dbTimeout()
 	cctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	rc, err := cachex.Open(cctx, a.Target, a.Password, a.Dial, timeout)
+	rc, err := cachex.OpenStore(cctx, a.Target, a.Password, a.Dial, timeout)
 	if err != nil {
 		return fail(err)
 	}
@@ -99,6 +98,29 @@ func withCachePreview(ctx context.Context, name, connExpr string, v driver.Verdi
 	return nil
 }
 
+// connKind is the conn's kind name (redis, memcached, ...), or "".
+func connKind(c *store.Conn) string {
+	t, err := driver.Parse(c.URL)
+	if err != nil {
+		return ""
+	}
+	return t.Kind.Name
+}
+
+// cacheKind is the kind of the cache conn expr names, before connecting
+// (to check a section or rate a command); "" when it is not known yet.
+func cacheKind(expr string) string {
+	st, err := loadState()
+	if err != nil {
+		return ""
+	}
+	c, err := singleConn(st, expr, "cache")
+	if err != nil {
+		return ""
+	}
+	return connKind(c)
+}
+
 func cacheGetCmd() *cobra.Command {
 	var limit int64
 	c := &cobra.Command{
@@ -109,8 +131,8 @@ func cacheGetCmd() *cobra.Command {
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withCache(cmd.Context(), "cache.get", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
-				func(st *store.State, _ *store.Conn, rc *redis.Client) (any, error) {
-					return cachex.Get(cmd.Context(), rc, args[1], limit, maxOutput(st))
+				func(st *store.State, _ *store.Conn, rc cachex.Store) (any, error) {
+					return rc.Get(cmd.Context(), args[1], limit, maxOutput(st))
 				})
 		},
 	}
@@ -152,8 +174,8 @@ func cacheKeysCmd() *cobra.Command {
 				pattern = args[1]
 			}
 			return withCache(cmd.Context(), "cache.keys", args[0], driver.Verdict{}, map[string]any{"pattern": pattern},
-				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
-					keys, more, err := cachex.Keys(cmd.Context(), rc, pattern, limit)
+				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
+					keys, more, err := rc.Keys(cmd.Context(), pattern, limit)
 					if err != nil {
 						return nil, err
 					}
@@ -183,21 +205,21 @@ commandstats, keyspace, ...) or --all shows the raw INFO fields.`,
 			section := ""
 			if len(args) == 2 {
 				section = strings.ToLower(args[1])
-				if !slices.Contains(cachex.InfoSections, section) {
-					return out.Usage("unknown INFO section %q; pick one of: %s", args[1], strings.Join(cachex.InfoSections, ", "))
+				if secs := cachex.SectionsFor(cacheKind(args[0])); !slices.Contains(secs, section) {
+					return out.Usage("unknown INFO section %q; pick one of: %s", args[1], strings.Join(secs, ", "))
 				}
 				if all {
 					return out.Usage("give a SECTION or --all, not both")
 				}
 			}
 			return withCache(cmd.Context(), "cache.info", args[0], driver.Verdict{}, nil,
-				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
-					info, err := cachex.Info(cmd.Context(), rc, section)
+				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
+					info, err := rc.Info(cmd.Context(), section)
 					if err != nil {
 						return nil, err
 					}
 					if section == "" && !all {
-						return cacheSummary{Conn: c.Name, Summary: cachex.Summarize(info)}, nil
+						return cacheSummary{Conn: c.Name, Summary: cachex.SummarizeFor(connKind(c), info)}, nil
 					}
 					if len(info) == 0 {
 						return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "this server has no such section; try `komando cache info CONN --all`", "INFO %s returned nothing", section)
@@ -293,19 +315,18 @@ func cacheSetCmd() *cobra.Command {
 				return res
 			}
 			return withCachePreview(cmd.Context(), "cache.set", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1]},
-				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
-					if err := rc.Set(cmd.Context(), args[1], args[2], ttl).Err(); err != nil {
-						return nil, cachex.CmdErr(err)
+				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
+					if err := rc.Set(cmd.Context(), args[1], args[2], ttl); err != nil {
+						return nil, err
 					}
 					return result(c), nil
 				},
-				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
-					n, err := rc.Exists(cmd.Context(), args[1]).Result()
+				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
+					replaces, err := rc.Exists(cmd.Context(), args[1])
 					if err != nil {
-						return nil, cachex.CmdErr(err)
+						return nil, err
 					}
 					res := result(c)
-					replaces := n > 0
 					res.Replaces, res.DryRun = &replaces, true
 					return res, nil
 				})
@@ -359,21 +380,21 @@ func cacheRmCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keys := args[1:]
 			return withCachePreview(cmd.Context(), "cache.rm", args[0], driver.DataDelete(), map[string]any{"keys": keys},
-				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
-					n, err := rc.Del(cmd.Context(), keys...).Result()
+				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
+					n, err := rc.Del(cmd.Context(), keys...)
 					if err != nil {
-						return nil, cachex.CmdErr(err)
+						return nil, err
 					}
 					return cacheRmDone{Conn: c.Name, Deleted: n, Keys: keys}, nil
 				},
-				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
+				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
 					p := cacheRmPreview{Conn: c.Name, WouldDelete: []string{}, Missing: []string{}, DryRun: true}
 					for _, k := range keys {
-						n, err := rc.Exists(cmd.Context(), k).Result()
+						ok, err := rc.Exists(cmd.Context(), k)
 						if err != nil {
-							return nil, cachex.CmdErr(err)
+							return nil, err
 						}
-						if n > 0 {
+						if ok {
 							p.WouldDelete = append(p.WouldDelete, k)
 						} else {
 							p.Missing = append(p.Missing, k)
@@ -428,7 +449,7 @@ func cacheRunCmd() *cobra.Command {
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command := args[1:]
-			v := cachex.Classify(command)
+			v := cachex.ClassifyFor(cacheKind(args[0]), command)
 			rec := map[string]any{"command": strings.ToUpper(command[0])} // arguments may be personal data
 			if v.Risk > driver.RiskRead && !write {
 				st, _ := loadState()
@@ -444,8 +465,8 @@ func cacheRunCmd() *cobra.Command {
 				return e
 			}
 			return withCache(cmd.Context(), "cache.run", args[0], v, rec,
-				func(_ *store.State, c *store.Conn, rc *redis.Client) (any, error) {
-					res, err := cachex.Run(cmd.Context(), rc, command)
+				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
+					res, err := rc.Run(cmd.Context(), command)
 					if err != nil {
 						return nil, err
 					}

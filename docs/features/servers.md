@@ -44,6 +44,11 @@ there. A server whose name is another spelling of a protected one (another
 case, or a trailing `.`) is protected too, with a warning. `komando doctor`
 checks the whole list the same way.
 
+Servers behind the same `--via` hosts share one connection to them within a
+command: `komando exec @db -P 10` logs in to the bastion once and reaches
+the ten servers through it, like OpenSSH's ControlMaster. The bastion's
+connection limits (`MaxStartups`) and its login log see one client.
+
 Already have servers in `~/.ssh/config`? Import them instead:
 `komando import ssh-config` (see [Moving in](import.md)).
 

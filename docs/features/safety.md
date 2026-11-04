@@ -18,7 +18,7 @@ komando audit verify                      # was the history edited outside koman
 | Seatbelt | What it does |
 |----------|--------------|
 | **Dangerous-command filter** | Blocks commands such as `rm -rf /`, `mkfs`, `reboot`, `DROP DATABASE`, `curl … \| sh`, flushing the firewall and stopping SSH, on your servers, in pods and in databases. See them all with `komando policy list`. |
-| **Protected servers and conns** | Any change needs `--yes`. That includes re-pointing them (address, port, user, key, password, `--via`), replacing a secret they use, removing them and turning protection off. Commands that only look can say so with `--read-only` and run without `--yes`. Anything at the same address (a `user@address` target, a second name, a second conn to the same database server) is protected too. |
+| **Protected servers and conns** | Any change needs `--yes`. That includes re-pointing them (address, port, user, key, password, `--via`), replacing a secret they use, removing them and turning protection off. Commands that only look can say so with `--read-only` and run without `--yes`. Anything at the same address (a `user@address` target, a second name, a name that resolves to the same IP, a second conn to the same database server) is protected too. |
 | **Read-only by default** | `db query`, `cache run` and `cluster run` only read unless you add `--write`. For databases, the database itself enforces it. |
 | **Dry run** | `--dry-run` shows what would run and whether it would be blocked (`meta.would_be_blocked`). It is never blocked itself. |
 | **Safety settings** | Turning off the audit log or server identity checks, removing a deny rule, or an AI agent setting a `--proxy-command` (a program on this computer) needs `--yes`. |
@@ -35,11 +35,11 @@ environment variables they set, and adds these rules for them:
 
 | Seatbelt | What it does |
 |----------|--------------|
-| **A person allows the risky flags** | When an agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando opens a window on your screen with the exact command. It runs only when you click **Allow once**. The agent cannot click it. With no screen (an SSH session, a server), the agent is refused and asks you to run the command in your own terminal. |
+| **A person allows the risky flags** | When an agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando opens a window on your screen with the exact command. It runs only when you click **Allow once**. The agent cannot click it. With `komando config approval-code`, the window also asks for the 6-digit code from your authenticator app, so a click alone is not enough. With no screen (an SSH session, a server), the agent is refused and asks you to run the command in your own terminal. |
 | **Secrets hidden from agents** | Passwords, keys and tokens in any output (a `.env` file, `env`, a log line, a database row, a Kubernetes Secret, private keys, password hashes) show as `[hidden]`. You and your scripts see the real values. |
 | **Agents can still set secrets** | `fs replace --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:db}}'` puts the vault value on the server without the agent seeing it. Text that still holds `[hidden]` is never written over a real file (`HIDDEN_VALUE`). |
 | **Secret files stay on the server** | An agent cannot copy a file that is secret by its name (`.env`, private keys, `credentials`, `shadow`, ...) to this computer (`SENSITIVE_FILE`); folder copies leave them out. It can read them with `fs cat`, masked. |
-| **Guard on this computer** | `komando guide install` adds a guard to Claude Code. Before Claude reads a file or runs a shell command, komando checks it and stops reading `~/.komando`, private keys, `.env` files and credential stores (`~/.kube`, `~/.aws/credentials`, the keychain), listing all environment variables, and running `ssh`/`scp` around komando. Skip it with `--no-guard`. |
+| **Guard on this computer** | `komando guide install` adds a guard to Claude Code, and to Cursor, Gemini CLI and Codex where you use them. Before the agent reads a file or runs a shell command, komando checks it and stops reading `~/.komando`, private keys, `.env` files and credential stores (`~/.kube`, `~/.aws/credentials`, the keychain), listing all environment variables, and running `ssh`/`scp` around komando. Skip it with `--no-guard`. |
 
 Scripts and you at your terminal use the flags as before.
 

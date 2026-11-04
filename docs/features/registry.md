@@ -81,3 +81,20 @@ komando registry rm harbor myorg/api:old --allow-dangerous
 image goes too. `--dry-run` names them (`would_remove_tags`) before
 anything is deleted. A protected registry conn also needs `--yes`. The disk
 space comes back after the registry runs its garbage collection.
+
+### Delete old images
+
+```bash
+komando registry prune harbor myorg/api --keep 10 --dry-run   # what would go, and why the rest stays
+komando registry prune harbor myorg/api --keep 10 --older-than 30d --match '^v' --allow-dangerous
+```
+
+`prune` deletes old images of one repository:
+
+- `--keep N` keeps the newest N matching tags.
+- `--older-than 30d` deletes only images built before that age. With both,
+  a tag must pass both to go.
+- `--match REGEX` limits it to some tags.
+
+`latest`, tags that do not match, and tags with no build date always stay,
+and so does any image that a kept tag points at.

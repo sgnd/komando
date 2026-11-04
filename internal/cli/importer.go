@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
@@ -18,9 +19,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/storex"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -54,6 +57,7 @@ var importSources = []importSource{
 	{"docker", "~/.docker/config.json", "container registries you are logged in to", importDocker},
 	{"filezilla", "~/.config/filezilla/sitemanager.xml", "SFTP sites from FileZilla's Site Manager", importFileZilla},
 	{"rclone", "~/.config/rclone/rclone.conf", "SFTP remotes from rclone", importRclone},
+	{"aws", "~/.aws/config", "an S3 storage conn per bucket of each AWS profile (uses the profile; no key is copied)", importAWS},
 	{"dbeaver", "~/Library/DBeaverData/workspace6/General/.dbeaver/data-sources.json", "databases from DBeaver (passwords set afterwards)", importDBeaver},
 	{"komando", "", "a file made by `komando export` (moving to another computer)", importKomando},
 }
@@ -879,6 +883,90 @@ func importDBeaver(path string) (*importPlan, error) {
 		p.addConn(name, u.String(), c.Name)
 		if scheme != "sqlite" {
 			p.Notes = append(p.Notes, name+": set its password with `komando secret set "+name+"-pass` and `komando conn edit "+name+" --password-ref secret:"+name+"-pass`")
+		}
+	}
+	return p, nil
+}
+
+// importAWS reads the profiles in ~/.aws/config (and the credentials file
+// next to it) and adds one storage conn per S3 bucket each profile can see.
+// The conns use the profile (aws_profile), so no key is copied: komando
+// reads the person's current login each time, SSO and roles included.
+func importAWS(path string) (*importPlan, error) {
+	b, err := readSource(path)
+	if err != nil {
+		return nil, err
+	}
+	credsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+	if credsFile == "" {
+		credsFile = filepath.Join(filepath.Dir(path), "credentials")
+	}
+	var profiles []string
+	seen := map[string]bool{}
+	add := func(name string) {
+		if name != "" && !seen[name] {
+			seen[name] = true
+			profiles = append(profiles, name)
+		}
+	}
+	_, order := parseINI(string(b))
+	for _, s := range order {
+		switch {
+		case s == "default":
+			add("default")
+		case strings.HasPrefix(s, "profile "):
+			add(strings.TrimSpace(strings.TrimPrefix(s, "profile ")))
+		}
+	}
+	if cb, err := os.ReadFile(credsFile); err == nil { // profiles that only have keys
+		_, corder := parseINI(string(cb))
+		for _, s := range corder {
+			add(s)
+		}
+	}
+	p := newPlan()
+	if len(profiles) == 0 {
+		p.Notes = append(p.Notes, path+": no AWS profiles")
+		return p, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	for _, prof := range profiles {
+		creds, region, endpoint, err := cloud.AWSProfileAccess(ctx, prof, path, credsFile)
+		if err != nil {
+			if errors.Is(err, cloud.ErrAWSLogin) {
+				p.Notes = append(p.Notes, fmt.Sprintf("profile %s: the login has expired; run `komando login aws --profile %s`, then import again", prof, prof))
+			} else {
+				p.Notes = append(p.Notes, fmt.Sprintf("profile %s: %v", prof, err))
+			}
+			continue
+		}
+		buckets, err := storex.ListBuckets(ctx, endpoint, creds.AccessKeyID, creds.SecretAccessKey, creds.SessionToken, firstNonEmpty(region, "us-east-1"))
+		if err != nil {
+			p.Notes = append(p.Notes, fmt.Sprintf("profile %s: cannot list its buckets: %v", prof, err))
+			continue
+		}
+		if len(buckets) == 0 {
+			p.Notes = append(p.Notes, "profile "+prof+": no buckets")
+		}
+		for _, bk := range buckets {
+			q := url.Values{}
+			if bk.Region != "" {
+				q.Set("region", bk.Region)
+			}
+			if endpoint != "" {
+				q.Set("endpoint", endpoint)
+			}
+			u := url.URL{Scheme: "s3", Host: bk.Name, RawQuery: q.Encode()}
+			if _, err := driver.Parse(u.String()); err != nil {
+				p.Notes = append(p.Notes, fmt.Sprintf("profile %s, bucket %s: %s", prof, bk.Name, toErr(err).Message))
+				continue
+			}
+			n := p.name(bk.Name)
+			if prof != "default" {
+				n = p.name(prof, bk.Name)
+			}
+			p.Conns = append(p.Conns, &store.Conn{Name: n, URL: u.String(), Options: map[string]string{"aws_profile": prof}})
 		}
 	}
 	return p, nil

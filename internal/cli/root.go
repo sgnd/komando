@@ -263,6 +263,7 @@ Start here:  komando guide      (agent playbook)
 		SilenceErrors: true,
 		Version:       Version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			safetyApproved = map[string]bool{} // answers count for one command only
 			f, ok := outputFormat(g.output)
 			if !ok {
 				if !cmd.Flags().Changed("output") && os.Getenv("KOMANDO_OUTPUT") != "" {
@@ -333,7 +334,7 @@ Start here:  komando guide      (agent playbook)
 	add("inv", listCmd(), testCmd(), importCmd(), exportCmd(), hostCmd(), connCmd(), vpnCmd(), groupCmd(), keyCmd(), secretCmd(), loginCmd())
 	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(), tunnelCmd(), shellCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), storageCmd(), clusterCmd(), registryCmd())
-	add("ops", factsCmd(), svcCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd())
+	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd())
 	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), versionCmd())
 	applyConventions(root)
 	addCompletion(root)

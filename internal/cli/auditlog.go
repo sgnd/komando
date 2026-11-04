@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -26,28 +27,39 @@ import (
 // appendAudit adds one record, under a lock so parallel komando processes
 // keep the chain in order.
 func appendAudit(rec map[string]any) error {
+	line, err := writeAudit(rec)
+	if err == nil && auditSyslog != "" {
+		sendSyslog(auditSyslog, line, time.Now())
+	}
+	return err
+}
+
+// auditSyslog is the audit_syslog setting of this command's state.
+var auditSyslog string
+
+func writeAudit(rec map[string]any) ([]byte, error) {
 	f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer f.Close()
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
-		return err
+		return nil, err
 	}
 	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 	last, err := lastLine(f)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if last != nil {
 		rec["prev"] = lineHash(last)
 	}
 	b, err := json.Marshal(rec)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	_, err = f.Write(append(b, '\n'))
-	return err
+	return b, err
 }
 
 func lineHash(b []byte) string {

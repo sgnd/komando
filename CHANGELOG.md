@@ -4,6 +4,63 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Added
+
+- `komando reboot TARGET`: reboots servers one at a time, waits for each to
+  answer again and checks it really started anew (boot id). A server that
+  does not come back stops the rest. Destructive: needs `--allow-dangerous`.
+- `komando registry prune CONN REPO --keep N [--older-than 30d] [--match RE]`:
+  deletes old images, never one a kept tag points at (`latest` always
+  stays). `registry inspect` now gives a multi-platform image's build date.
+- `komando import aws`: one S3 storage conn per bucket of each profile in
+  `~/.aws/config` (and the credentials file). The conns use the profile, so
+  no key is copied and SSO or roles keep working.
+- memcached conns (`memcached://`, `memcacheds://` for TLS, the text
+  protocol's login): `cache get`, `set`, `rm`, `keys`, `info` and `run` work
+  like they do for Redis, with the same safety rules (`flush_all` needs
+  `--allow-dangerous`). komando speaks the protocol itself.
+- `komando db user ls|add|passwd|rm`, `db grant`, `db revoke` and `db grants`
+  for PostgreSQL and MySQL/MariaDB. Passwords come from a secret reference
+  and are never shown or audited; PostgreSQL gets a SCRAM-SHA-256 verifier
+  computed by komando, so the password never reaches the server.
+- `komando config set audit_syslog tls://HOST:6514` (or `udp://`, `tcp://`):
+  each audit record also goes to a log server or SIEM, as RFC 5424 syslog.
+  Changing it needs `--yes`.
+- `komando secret keychain`: the vault key moves from `vault.key` into the
+  OS keychain (macOS keychain, Linux Secret Service), so a backup of
+  `~/.komando` no longer opens the vault. `--off --yes` moves it back.
+  `doctor` names it.
+- `komando config approval-code`: komando's "Allow once" window then also
+  asks for the 6-digit code from your authenticator app (TOTP), a second
+  factor for an AI agent's `--yes`, `--allow-dangerous` and `--reveal`. Only a
+  person at a terminal can turn it on; turning it off needs that code too.
+- The guard that keeps AI agents away from secret files on this computer now
+  also works for Cursor, Gemini CLI and Codex: `komando guide install` adds
+  it to `.cursor/hooks.json`, `.gemini/settings.json` and `.codex/hooks.json`
+  when those folders exist (Codex asks you to approve it once in `/hooks`).
+- `komando svc daemon-reload TARGET`: reloads unit files after you write
+  one, and names units that still need a reload.
+
+### Changed
+
+- Servers behind the same jump hosts share one connection to them within a
+  command: `exec -P 10` through a bastion logs in to it once (OpenSSH's
+  ControlMaster), staying under its `MaxStartups`. A broken shared path is
+  opened again once.
+- A protected server stays protected under another name: before any
+  change, komando also compares the IP addresses names resolve to on this
+  computer, so `db.internal` is the protected `10.0.0.5` (hosts and conns,
+  same port). Names only a jump host knows are compared as text.
+- A person is asked about a safety change (for example a recipe replaced by
+  a read-only one) before komando locks its state file, so other komando
+  commands do not wait for the answer.
+
+### Removed
+
+- `op://` no longer falls back to the closed-source `op` CLI, as announced
+  in 0.2.0: it reads 1Password Connect only. Without Connect it says so and
+  names the alternatives (`bw://`, `kdbx:`, a komando secret).
+
 ### Fixed
 
 - The Bitwarden device id file (`bitwarden-device`) is kept in

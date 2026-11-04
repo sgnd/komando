@@ -82,6 +82,14 @@ check "host test all ok" 3 "$($K host test @lab | jget 'd["data"]["summary"]["ok
 
 echo "==> exec"
 check "exec stdout via jump" "target" "$($K exec target --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
+# six servers behind one bastion: one login to the bastion, not six
+for i in 1 2 3 4 5 6; do $K host add "fan$i" agent@target --via bastion --password-ref secret:agent-pass -g fan >/dev/null; done
+logins() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" logs bastion 2>/dev/null | grep -c 'Accepted password' || true; }
+before=$(logins)
+check "exec -P 6 through one bastion" 6 "$($K exec @fan -P 6 --read-only -- hostname | jget 'd["data"]["summary"]["ok"]')"
+sleep 1
+check "the bastion saw one login for six servers" 1 "$(( $(logins) - before ))"
+$K host rm fan1 fan2 fan3 fan4 fan5 fan6 --yes >/dev/null
 set +e
 $K exec direct -- 'exit 3' >/dev/null; check "non-zero exit -> 5" 5 $?
 $K exec direct -- 'rm -rf /' >/dev/null; check "policy blocks rm -rf /" 6 $?
@@ -114,6 +122,8 @@ check "password from AWS Secrets Manager" agent "$("${SMENV[@]}" $K exec direct-
 $K host rm direct-bao direct-sm >/dev/null
 (cd "$ROOT" && KOMANDO_E2E_MOTO="http://127.0.0.1:$E2E_MOTO" go test -count=1 -v -run '^TestSSMKMSMoto$' ./internal/cloud/ >"$KOMANDO_HOME/ssm-kms.log" 2>&1) || true
 check "SSM session key from KMS (moto)" ok "$(grep -q -- '--- PASS: TestSSMKMSMoto' "$KOMANDO_HOME/ssm-kms.log" && echo ok)"
+(cd "$ROOT" && KOMANDO_E2E_MOTO="http://127.0.0.1:$E2E_MOTO" go test -count=1 -v -run '^TestImportAWS$' ./internal/cli/ >"$KOMANDO_HOME/import-aws.log" 2>&1) || true
+check "import aws: a conn per bucket of each profile (moto S3)" ok "$(grep -q -- '--- PASS: TestImportAWS' "$KOMANDO_HOME/import-aws.log" && echo ok)"
 check "sudo works" root "$($K exec direct --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "dry-run reports block" PROTECTED_HOST "$($K exec @lab --dry-run -- 'touch x' | jget 'd["data"]["would_be_blocked"]["code"]')"
 
@@ -298,6 +308,25 @@ $K cache run cache -- FLUSHALL >/dev/null; check "cache flushall blocked" 6 $?
 $K cache rm cache greeting >/dev/null; check "cache rm needs --allow-dangerous" 6 $?
 $K cache run cache --write -- GETDEL greeting >/dev/null; check "cache GETDEL needs --allow-dangerous" 6 $?
 set -e
+
+# memcached (with a login), through the bastion
+printf mcpass | $K secret set mc-pass >/dev/null
+q $K conn add mc 'memcached://e2e@memcached:11211' --password-ref secret:mc-pass --via bastion
+q $K cache set mc greeting halo --ttl 1h
+check "memcached get via bastion, with its time to live" "halo True" "$($K cache get mc greeting | jget 'd["data"]["value"] + " " + str(d["data"]["ttl_seconds"] > 3500)')"
+check "memcached keys" "['greeting']" "$($K cache keys mc 'greet*' | jget 'd["data"]["keys"]')"
+check "memcached info summary" True "$($K cache info mc | jget 'd["data"]["summary"]["version"].endswith("(memcached)")')"
+check "memcached run reads" True "$($K cache run mc -- stats | jget 'any("curr_items" in l for l in d["data"]["reply"])')"
+set +e
+$K cache run mc -- flush_all >/dev/null; check "memcached flush_all blocked" 6 $?
+$K cache rm mc greeting >/dev/null; check "memcached rm needs --allow-dangerous" 6 $?
+set -e
+check "memcached rm --dry-run names the key" "['greeting']" "$($K cache rm mc greeting --dry-run | jget 'd["data"]["would_delete"]')"
+q $K cache rm mc greeting --allow-dangerous
+check "memcached key gone" KEY_NOT_FOUND "$($K cache get mc greeting | jget 'd["error"]["code"]' || true)"
+printf wrong | $K secret set mc-pass >/dev/null
+check "memcached wrong password is named" CACHE_AUTH "$($K cache info mc | jget 'd["error"]["code"]' || true)"
+q $K conn rm mc
 
 # storage
 echo backup-data > "$TMP/obj.txt"
@@ -561,6 +590,17 @@ set +e; $K registry rm reg tools/busybox:1.37 >/dev/null; check "registry rm nee
 check "registry rm names the tags it takes" True "$($K registry rm reg tools/busybox:1.37 --allow-dangerous --dry-run | jget '"1.37" in d["data"]["tags"]')"
 q $K registry rm reg tools/busybox:1.37 --allow-dangerous
 check "registry rm removed it" REGISTRY_NOT_FOUND "$($K registry inspect reg tools/busybox:1.37 | jget 'd["error"]["code"]' || true)"
+# prune: three images built one after the other; keepme is the same image as v1
+for v in 1 2 3; do
+  printf 'FROM busybox:1.37\nRUN echo %s > /build\n' "$v" | docker build -q -t "127.0.0.1:$E2E_REGISTRY/prune/app:v$v" - >/dev/null
+  docker push -q "127.0.0.1:$E2E_REGISTRY/prune/app:v$v" >/dev/null; sleep 1
+done
+docker tag "127.0.0.1:$E2E_REGISTRY/prune/app:v1" "127.0.0.1:$E2E_REGISTRY/prune/app:keepme" && docker push -q "127.0.0.1:$E2E_REGISTRY/prune/app:keepme" >/dev/null
+check "registry prune needs --allow-dangerous" 6 "$($K registry prune reg prune/app --keep 1 >/dev/null 2>&1; echo $?)"
+check "registry prune --dry-run: only v2 goes (v1 is keepme's image)" "['v2'] False" \
+  "$($K registry prune reg prune/app --keep 1 --match '^v' --dry-run | jget '[t for d_ in d["data"]["delete"] for t in d_["tags"]], "deleted" in d["data"]')"
+q $K registry prune reg prune/app --keep 1 --match '^v' --allow-dangerous
+check "registry prune deleted v2 and kept the rest" "['keepme', 'v1', 'v3']" "$($K registry ls reg prune/app | jget 'sorted(d["data"]["tags"])')"
 
 # VPNs: a SOCKS proxy (komando's own, through the bastion) and an OS VPN check
 echo "==> VPNs"

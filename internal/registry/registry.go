@@ -345,6 +345,7 @@ func (c *Client) Inspect(ctx context.Context, repo, ref string) (*Manifest, erro
 			Size int64 `json:"size"`
 		} `json:"layers"`
 		Manifests []struct {
+			Digest   string `json:"digest"`
 			Platform struct {
 				OS           string `json:"os"`
 				Architecture string `json:"architecture"`
@@ -357,9 +358,13 @@ func (c *Client) Inspect(ctx context.Context, repo, ref string) (*Manifest, erro
 		return nil, err
 	}
 	res := &Manifest{Repo: repo, Ref: ref, Digest: h.Get("Docker-Content-Digest"), MediaType: firstNonEmpty(m.MediaType, h.Get("Content-Type"))}
+	first := ""
 	for _, p := range m.Manifests {
 		if p.Platform.OS == "unknown" {
 			continue // attestations
+		}
+		if first == "" {
+			first = p.Digest
 		}
 		s := p.Platform.OS + "/" + p.Platform.Architecture
 		if p.Platform.Variant != "" {
@@ -385,6 +390,12 @@ func (c *Client) Inspect(ctx context.Context, repo, ref string) (*Manifest, erro
 			if cfg.OS != "" {
 				res.Platforms = []string{cfg.OS + "/" + cfg.Arch}
 			}
+		}
+	}
+	if res.Created == "" && first != "" && first != ref {
+		// an index: the build date and labels of its first image
+		if one, err := c.Inspect(ctx, repo, first); err == nil {
+			res.Created, res.Labels = one.Created, one.Labels
 		}
 	}
 	return res, nil

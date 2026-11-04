@@ -4,6 +4,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -338,5 +339,124 @@ func TestJournalWithoutPermissionSaysSudo(t *testing.T) {
 	_, e := j.result(&sshx.RunResult{ExitCode: 1, Stderr: "Hint: You are currently not seeing messages from other users and the system.\nNo journal files were opened due to insufficient permissions.\n"})
 	if e == nil || e.Code != "JOURNAL_PERMISSION" || !strings.Contains(e.Hint, "--sudo") {
 		t.Fatalf("got %+v", e)
+	}
+}
+
+func TestDaemonReloadResult(t *testing.T) {
+	d, err := daemonReloadResult(&sshx.RunResult{Stdout: "#komando:rc=0\n"})
+	if err != nil || d.(map[string]any)["reloaded"] != true {
+		t.Errorf("reload: %v %v", d, err)
+	}
+	d, err = daemonReloadResult(&sshx.RunResult{Stdout: "stale=app.service\n#komando:rc=0\n"})
+	w, ok := d.(opsWarnings)
+	if err != nil || !ok || len(w.warnings) != 1 || !strings.Contains(w.warnings[0], "app.service") {
+		t.Errorf("a unit still stale: %v %v", d, err)
+	}
+	if _, err := daemonReloadResult(&sshx.RunResult{Stdout: "#komando:rc=1\n"}); err == nil || err.Code != "SVC_FAILED" {
+		t.Errorf("failed reload: %v", err)
+	}
+	if _, err := daemonReloadResult(&sshx.RunResult{Stdout: "#komando:no-systemd\n"}); err == nil || err.Code != "NO_SYSTEMD" {
+		t.Errorf("no systemd: %v", err)
+	}
+}
+
+// reboot is destructive: blocked without --allow-dangerous, and --dry-run
+// says so without touching a server.
+func TestRebootNeedsAllowDangerous(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	t.Setenv("KOMANDO_NO_DIALOG", "1")
+	t.Setenv("CLAUDECODE", "1")
+	defer func() { g.dryRun, g.allowDangerous = false, false }()
+	run := func(args ...string) error {
+		root := newRoot()
+		root.SetArgs(append([]string{"-o", "json"}, args...))
+		return root.Execute()
+	}
+	if err := run("host", "add", "web1", "deploy@10.255.255.1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("--dry-run", "reboot", "web1"); err != nil {
+		t.Errorf("dry run: %v", err)
+	}
+	g.dryRun = false
+	err := run("reboot", "web1")
+	if e := toErr(err); e == nil || e.Code != "POLICY_BLOCKED" {
+		t.Errorf("reboot without --allow-dangerous: %v", err)
+	}
+}
+
+// Replacing a recipe with a read-only one needs --yes; for an AI agent the
+// person is asked on the screen, and that happens while the state file is
+// free, so other komando commands do not wait for the answer.
+func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	run := func(args ...string) error {
+		root := newRoot()
+		root.SetArgs(append([]string{"-o", "json"}, args...))
+		return root.Execute()
+	}
+	if err := run("recipe", "add", "du", "du -sh /srv"); err != nil {
+		t.Fatal(err)
+	}
+	if e := toErr(run("recipe", "add", "du", "du -sh /srv", "--read-only", "--overwrite")); e == nil || e.Code != "SAFETY_SETTING" {
+		t.Fatalf("read-only over a normal recipe without --yes: %v", e)
+	}
+	t.Setenv("CLAUDECODE", "1") // an agent: the approval window asks
+	saved := askOnScreen
+	defer func() { askOnScreen = saved; g.yes = false; resetApproval() }()
+	lockFree := false
+	askOnScreen = func(string) (bool, bool) {
+		done := make(chan error, 1)
+		go func() { done <- store.Update(func(*store.State) error { return nil }) }()
+		select {
+		case <-done:
+			lockFree = true
+		case <-time.After(2 * time.Second):
+		}
+		return true, true
+	}
+	if err := run("recipe", "add", "du", "du -sh /srv", "--read-only", "--overwrite", "--yes"); err != nil {
+		t.Fatal(err)
+	}
+	if !lockFree {
+		t.Error("the approval window was shown while the state was locked")
+	}
+	st, _ := store.Load()
+	if !st.Snippets["du"].ReadOnly {
+		t.Error("the recipe was not replaced")
+	}
+}
+
+// config set asks about a safety change before locking the state, too.
+func TestConfigSetAsksBeforeLocking(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	t.Setenv("CLAUDECODE", "1")
+	saved := askOnScreen
+	defer func() { askOnScreen = saved; g.yes = false; resetApproval() }()
+	lockFree := false
+	askOnScreen = func(string) (bool, bool) {
+		done := make(chan error, 1)
+		go func() { done <- store.Update(func(*store.State) error { return nil }) }()
+		select {
+		case <-done:
+			lockFree = true
+		case <-time.After(2 * time.Second):
+		}
+		return true, true
+	}
+	root := newRoot()
+	root.SetArgs([]string{"-o", "json", "config", "set", "audit_sql", "off", "--yes"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !lockFree {
+		t.Error("the approval window was shown while the state was locked")
+	}
+	st, _ := store.Load()
+	if st.Settings.AuditSQL != "off" {
+		t.Errorf("audit_sql %q", st.Settings.AuditSQL)
 	}
 }

@@ -402,3 +402,30 @@ func TestAgentProxyCommandNeedsAPerson(t *testing.T) {
 		t.Fatalf("agent, allowed: %v", err)
 	}
 }
+
+// Protected follows the server, not the spelling: a name that resolves to a
+// protected server's address is protected too, also when the protected one
+// was marked after the other was added (no twin check at add time then).
+func TestProtectedFollowsDNS(t *testing.T) {
+	st := &store.State{Hosts: map[string]*store.Host{
+		"prod":  {Name: "prod", Address: "127.0.0.1", Protected: true},
+		"alias": {Name: "alias", Address: "localhost"},
+		"other": {Name: "other", Address: "nope.invalid"},
+		"port":  {Name: "port", Address: "localhost", Port: 2222},
+	}, Conns: map[string]*store.Conn{
+		"db":    {Name: "db", URL: "postgres://app@127.0.0.1:5432/app", Protected: true},
+		"db2":   {Name: "db2", URL: "postgres://app@localhost:5432/other"},
+		"my":    {Name: "my", URL: "redis://localhost:5432/0"},
+		"dbalt": {Name: "dbalt", URL: "postgres://app@localhost:5433/app"},
+	}}
+	for name, want := range map[string]bool{"alias": true, "other": false, "port": false} {
+		if got := protectedHost(st, st.Hosts[name]); got != want {
+			t.Errorf("host %s protected = %v, want %v", name, got, want)
+		}
+	}
+	for name, want := range map[string]bool{"db2": true, "my": false, "dbalt": false} {
+		if got := protectedConn(st, st.Conns[name]); got != want {
+			t.Errorf("conn %s protected = %v, want %v", name, got, want)
+		}
+	}
+}

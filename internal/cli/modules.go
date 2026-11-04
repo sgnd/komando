@@ -22,9 +22,9 @@ func svcCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "svc",
 		Aliases: []string{"service", "systemd"},
-		Short:   "systemd services: status (structured), start/stop/restart/reload/enable/disable, list, logs",
+		Short:   "systemd services: status (structured), start/stop/restart/reload/enable/disable, daemon-reload, list, logs",
 	}
-	c.AddCommand(svcStatusCmd(), svcListCmd(), svcLogsCmd())
+	c.AddCommand(svcStatusCmd(), svcListCmd(), svcLogsCmd(), svcDaemonReloadCmd())
 	for _, a := range []string{"start", "stop", "restart", "reload", "enable", "disable"} {
 		c.AddCommand(svcActionCmd(a))
 	}

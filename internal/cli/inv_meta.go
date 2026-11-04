@@ -189,7 +189,7 @@ func policyCmd() *cobra.Command {
 			for i, p := range st.Settings.ExtraDenyPattern {
 				custom = append(custom, map[string]string{"id": "custom-" + strconv.Itoa(i), "pattern": p})
 			}
-			out.P.Print("policy.list", map[string]any{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "custom_rules": custom, "sql": driver.SQLRules(), "redis": cachex.Rules(), "data": driver.DataRules(),
+			out.P.Print("policy.list", map[string]any{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "custom_rules": custom, "sql": driver.SQLRules(), "redis": cachex.Rules(), "memcached": cachex.MemcacheRules(), "data": driver.DataRules(),
 				"note": "guardrails catch common accidents; they are not a security boundary. Protected hosts and conns additionally need --yes for any mutating action. " +
 					"SQL without --write also runs in a read-only transaction, so the database itself refuses writes."}, nil)
 			return nil
@@ -198,7 +198,7 @@ func policyCmd() *cobra.Command {
 	var kind string
 	check := &cobra.Command{
 		Use:   "check COMMAND",
-		Short: "Test whether a shell command would be blocked (exit 6), or rate SQL/Redis with --for KIND",
+		Short: "Test whether a shell command would be blocked (exit 6), or rate SQL/Redis/memcached with --for KIND",
 		Example: `  komando policy check 'rm -rf /var/www'
   if komando policy check "$CMD" >/dev/null; then echo allowed; fi
   komando policy check --for postgres 'delete from users'
@@ -211,11 +211,11 @@ func policyCmd() *cobra.Command {
 			}
 			switch kind {
 			case "":
-			case "redis":
+			case "redis", "memcached":
 				if len(args) == 1 { // one quoted argument: "CLIENT LIST"
 					args = strings.Fields(args[0])
 				}
-				out.P.Print("policy.check", cachex.Classify(args), nil)
+				out.P.Print("policy.check", cachex.ClassifyFor(kind, args), nil)
 				return nil
 			default:
 				plan, err := driver.ClassifySQL(kind, strings.Join(args, " "))
@@ -240,7 +240,7 @@ func policyCmd() *cobra.Command {
 			return exitCode(out.ExitPolicy)
 		},
 	}
-	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: postgres, mysql, sqlite or redis")
+	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: postgres, mysql, sqlite, redis or memcached")
 	c.AddCommand(check)
 	c.AddCommand(&cobra.Command{
 		Use:     "deny REGEX",

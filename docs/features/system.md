@@ -33,6 +33,26 @@ in as root.
 - A server without systemd (most containers) exits 3 with `NO_SYSTEMD`.
   Read its logs with `--file` or `komando docker logs` instead.
 
+After you write or change a unit file, reload systemd so it reads it:
+
+```bash
+komando svc daemon-reload web1                # names any unit that still needs a reload
+```
+
+## Reboot
+
+```bash
+komando reboot web1 --dry-run
+komando reboot @web --allow-dangerous         # one server at a time
+komando reboot @web --allow-dangerous --wait 10m
+```
+
+`reboot` reboots one server at a time. It waits (`--wait`, default 5m) until
+SSH answers again and checks the server really started anew. A server that
+does not come back within `--wait` stops the rest (`REBOOT_TIMEOUT`). A
+reboot is destructive, so it needs `--allow-dangerous`, and `--yes` on
+protected servers.
+
 ## Logs
 
 `logs` reads one source: the systemd journal (`--unit`), a file (`--file`)
