@@ -117,6 +117,16 @@ func installHint(bin string) string {
 	return "install the " + pkg + " package (apt, dnf, ...)"
 }
 
+// shownSession is a session as output shows it: the login of its local
+// SOCKS port stays hidden (it would let anyone on this computer use the VPN).
+func shownSession(s *store.VpnSession) *store.VpnSession {
+	c := *s
+	if c.SocksPass != "" {
+		c.SocksPass = "[hidden]"
+	}
+	return &c
+}
+
 // startSession connects v in the background and records the session.
 // interactive means a person is at the terminal for the login (and MFA).
 func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactive bool) (*store.VpnSession, error) {
@@ -247,8 +257,8 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 			netx.StopSession(s)
 			return nil, netx.Down(v, fmt.Errorf("ocproxy did not open its SOCKS port"))
 		}
-	case v.Kind == "openvpn" && !v.OSMode:
-		// komando's own OpenVPN client in a `komando vpn serve` process
+	case v.Kind == "openvpn" && !v.OSMode, oneOf(v.Kind, "l2tp", "ipsec", "ikev2"):
+		// komando's own OpenVPN or IPsec client in a `komando vpn serve` process
 		typed := ""
 		if v.KeyRef == "" && (v.MFA || v.User != "") {
 			if !interactive {
@@ -416,7 +426,7 @@ func vpnUpCmd() *cobra.Command {
 				return out.NotFound("vpn", args[0])
 			}
 			if s := netx.LiveSession(v); s != nil {
-				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": s}, nil)
+				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": shownSession(s)}, nil)
 				return nil
 			}
 			if g.dryRun {
@@ -462,7 +472,7 @@ func vpnUpCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res := map[string]any{"vpn": v.Name, "session": s}
+			res := map[string]any{"vpn": v.Name, "session": shownSession(s)}
 			if v.Kind == "wireguard" {
 				// WireGuard "connects" without a handshake: only an answer
 				// from --check shows the tunnel works
@@ -476,8 +486,11 @@ func vpnUpCmd() *cobra.Command {
 						}
 						return nil
 					})
-					return out.Errf(out.ExitConnect, "VPN_DOWN", netx.DownHint(v), "VPN %s: no answer from %s through the tunnel (no WireGuard handshake from %s?)",
-						v.Name, v.Check, vpnWhere(v))
+					why := ""
+					if v.Kind == "wireguard" {
+						why = " (no WireGuard handshake from " + vpnWhere(v) + "?)"
+					}
+					return out.Errf(out.ExitConnect, "VPN_DOWN", netx.DownHint(v), "VPN %s: no answer from %s through the tunnel%s", v.Name, v.Check, why)
 				} else {
 					res["checked"] = v.Check
 				}
@@ -607,7 +620,8 @@ type vpnStatusRow struct {
 	LastUsed time.Time `json:"last_used,omitzero"`
 	Socks    string    `json:"socks,omitempty"`
 	UsedBy   []string  `json:"used_by,omitempty"`
-	Detail   string    `json:"detail,omitempty"` // how "up" was seen, or why not
+	Detail   string    `json:"detail,omitempty"`   // how "up" was seen, or why not
+	LastEnd  string    `json:"last_end,omitempty"` // why its last session ended, from the session log
 }
 
 func vpnStatusCmd() *cobra.Command {
@@ -686,7 +700,13 @@ func vpnServeCmd() *cobra.Command {
 			if ended, ok := closer.(interface{ Done() <-chan struct{} }); ok {
 				// the VPN dropped: stop, so the session is seen as down and
 				// the next command connects again
-				go func() { <-ended.Done(); ln.Close() }()
+				go func() {
+					<-ended.Done()
+					if e, ok := closer.(interface{ Err() error }); ok && e.Err() != nil {
+						fmt.Printf("ENDED %v\n", e.Err())
+					}
+					ln.Close()
+				}()
 			}
 			cm := &connMgr{ctx: ctx, st: st, vpnDial: d}
 			logger := log.New(os.Stdout, "", log.LstdFlags)

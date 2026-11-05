@@ -46,7 +46,10 @@ type Kind struct {
 var Kinds = map[string]Kind{
 	"wireguard":     {Desc: "WireGuard, run inside komando (no admin rights, many at once)"},
 	"socks":         {Desc: "a SOCKS5 proxy that is already running (`komando tunnel start HOST -D`, a company proxy)"},
-	"system":        {Desc: "a VPN set up in your computer's settings (L2TP/IPsec, IKEv2, ...); --service lets `vpn up` connect it"},
+	"system":        {Desc: "a VPN set up in your computer's settings; --service lets `vpn up` connect it"},
+	"l2tp":          {Desc: "L2TP/IPsec with a pre-shared key, run inside komando (no admin rights)", Session: true},
+	"ipsec":         {Desc: "Cisco-style IPsec (IKEv1, group name and XAUTH login), run inside komando", Session: true},
+	"ikev2":         {Desc: "IKEv2/IPsec (pre-shared key or EAP login with a server certificate), run inside komando", Session: true},
 	"tailscale":     {Desc: "Tailscale or Headscale, run inside komando (no tailscaled, no admin rights)", Session: true},
 	"globalprotect": {Desc: "Palo Alto GlobalProtect", Session: true, Client: []string{"openconnect", "ocproxy"}, Protocol: "gp"},
 	"fortinet":      {Desc: "Fortinet SSL VPN (FortiClient)", Session: true, Client: []string{"openconnect", "ocproxy"}, Protocol: "fortinet"},
@@ -363,6 +366,8 @@ func OpenDirect(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 		return openOpenVPN(ctx, v, timeout)
 	case "anyconnect", "fortinet", "globalprotect", "f5", "pulse":
 		return openSSLVPN(ctx, v, timeout)
+	case "l2tp", "ipsec", "ikev2":
+		return openIPsec(ctx, v, timeout)
 	case "system":
 		if v.Check != "" { // connected by the OS, or by `vpn up` through --service
 			c, err := (&net.Dialer{Timeout: timeout}).DialContext(ctx, "tcp", v.Check)
