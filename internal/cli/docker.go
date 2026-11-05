@@ -25,7 +25,7 @@ func dockerCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "docker",
 		Aliases: []string{"container", "ctr"},
-		Short:   "Docker: ps/stats/images (structured), logs, start/stop/restart, exec, compose, raw",
+		Short:   "Docker: ps/stats/images (structured), logs, start/stop/restart, exec, compose, prune, raw",
 		Long: `Docker on a server over SSH. Reads need nothing; start, stop, restart, pull,
 run and compose up change things (protected servers need --yes); rm, prune,
 compose down -v and other deletes need --allow-dangerous. The same rules
@@ -175,7 +175,7 @@ policy checks the command; --read-only declares that it only looks.`,
 			return runDocker(cmd.Context(), "docker.raw", args[0], "docker "+quoteAll(args[1:]), sudo, mutating)
 		},
 	}
-	c.AddCommand(logs, inspect, execC, compose, raw)
+	c.AddCommand(logs, inspect, execC, compose, raw, dockerPruneCmd(&sudo))
 	return c
 }
 

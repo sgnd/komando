@@ -89,6 +89,7 @@ komando docker logs web1 api -n 100            # same as komando logs web1 --con
 komando docker restart web1 api
 komando docker exec web1 api -- php artisan migrate:status
 komando docker compose web1 --dir /srv/shop -- up -d --pull always
+komando docker prune web1 --older-than 30d --dry-run   # what would be removed, and how much space
 ```
 
 - Reading (`ps`, `stats`, `images`, `inspect`, `logs`) needs nothing extra.
@@ -103,6 +104,32 @@ komando docker compose web1 --dir /srv/shop -- up -d --pull always
   same rules.
 - `--sudo` runs docker through sudo, when your user is not in the `docker`
   group.
+
+### Free disk space (docker prune)
+
+```bash
+komando docker prune web1 --dry-run                          # what would go, with sizes and a total
+komando docker prune web1 --older-than 30d --all --dry-run   # also unused tagged images, older than 30 days
+komando docker prune web1 --older-than 30d --allow-dangerous # do it
+```
+
+`docker prune` runs `docker system prune`: it removes stopped containers,
+dangling images, unused networks and build cache.
+
+- `--dry-run` changes nothing. It asks docker on the server (only commands
+  that list) and shows each container, image and volume that would go, the
+  build cache docker can free, and a total. Image sizes count shared layers
+  in every image, so the space really freed can be less.
+- `--older-than 30d` keeps everything created in the last 30 days (docker's
+  `until` filter).
+- `--all` removes every image no container uses, not only dangling ones;
+  the next deploy pulls them again.
+- `--volumes` also removes unused anonymous volumes. That is data: look at
+  the dry run first. It cannot be combined with `--older-than` (docker has
+  no age filter for volumes).
+- The real run deletes, so it needs `--allow-dangerous` (and `--yes` on a
+  protected server). The recipe `docker-prune` does the same without the
+  preview.
 
 ## Packages
 
