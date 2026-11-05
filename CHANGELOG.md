@@ -7,7 +7,8 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 ### Added
 
 - Registry conns (`registry://`, `oci://`) take TLS options:
-  `?ca=secret:NAME` trusts a private CA (PEM in the vault) and keeps the
+  `?ca=secret:NAME` trusts a private CA (PEM in the vault), or pins the
+  registry's own certificate when the CA is not at hand, and keeps the
   certificate check on; `?tls=skip-verify` uses HTTPS without the check
   (like Docker's `insecure-registries`; `komando doctor` warns about it,
   also with `--via`). A refused certificate is now `REGISTRY_TLS` (not

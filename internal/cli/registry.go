@@ -37,8 +37,8 @@ func registryCmd() *cobra.Command {
 or ` + "`komando import docker`" + ` (from ~/.docker/config.json). ls and inspect
 only read; rm and prune delete images and need --allow-dangerous.
 
-TLS options in the conn URL: ?ca=secret:NAME trusts a private CA (PEM in the
-vault; the check stays on), ?tls=skip-verify does not check the certificate,
+TLS options in the conn URL: ?ca=secret:NAME trusts a private CA, or pins the
+registry's own certificate (PEM in the vault; the check stays on), ?tls=skip-verify does not check the certificate,
 ?tls=false is plain HTTP. With --via the last server looks the name up.`,
 	}
 	c.AddCommand(registryLsCmd(), registryInspectCmd(), registryCopyCmd(), registryRmCmd(), registryPruneCmd())
@@ -166,7 +166,7 @@ func registryErr(err error) error {
 	}
 	if certErr(err) {
 		return out.Errf(out.ExitConnect, "REGISTRY_TLS",
-			"if the registry uses a private CA (mkcert, an internal CA), store that CA with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to the conn URL (preferred: the check stays on); only for a certificate you trust but cannot get the CA of, add ?tls=skip-verify",
+			"if the registry uses a private CA (mkcert, an internal CA), store that CA with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to the conn URL (preferred: the check stays on); without the CA, store the registry's own certificate the same way, which pins it; ?tls=skip-verify turns the check off",
 			"the registry's TLS certificate is not trusted: %v", err)
 	}
 	return out.Errf(out.ExitConnect, "REGISTRY_UNREACHABLE", "check the conn with `komando test NAME`", "%v", err)

@@ -41,9 +41,20 @@ komando conn add lan 'registry://me@registry.lan?tls=skip-verify' --password-ref
 | URL option | What it does |
 |---|---|
 | (none) | HTTPS, certificate checked against your computer's CAs |
-| `?ca=secret:NAME` | HTTPS, certificate checked against those CAs plus the PEM CA in the vault secret `NAME` |
+| `?ca=secret:NAME` | HTTPS, certificate checked against those CAs plus the PEM certificate in the vault secret `NAME`: a CA, or the registry's own certificate |
 | `?tls=skip-verify` | HTTPS, but the certificate is not checked (like Docker's `insecure-registries`). Anyone on the path can pretend to be the registry; `komando doctor` warns about it |
 | `?tls=false` | plain HTTP, nothing encrypted (a `registry:2` on a private network) |
+
+**No CA at hand?** If the CA is somewhere else (mkcert on another
+computer) and the registry sends only its own certificate, store that
+certificate as `ca=`. komando then trusts exactly that certificate (it is
+pinned), still checks the name and the dates, and refuses any other. When
+the registry gets a new certificate, store the new one.
+
+```bash
+komando secret set lan-cert < registry.crt    # the registry's own certificate, PEM
+komando conn add lan 'registry://me@registry.lan?ca=secret:lan-cert'
+```
 
 **Through a server (`--via`).** komando sends the registry's name to the
 last server on the `--via` path, and that server looks it up, so its
