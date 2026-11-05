@@ -38,6 +38,10 @@ If `komando` is not installed, stop and ask the human to install it:
    (passwords as `--password-ref secret:NAME`, never `CREATE USER ... PASSWORD`
    in a query). After writing a systemd unit run `komando svc daemon-reload`;
    restart servers only with `komando reboot` (it needs the human).
+   Check TLS certificates with `komando cert check <target|https://name>`
+   (exit 1 `CERT_PROBLEMS` when one expires within `--warn`, default 30d).
+   Free Docker disk space with `komando docker prune <target> --dry-run`
+   first: it lists what would be removed and how much space it frees.
 4. Use `komando job start` for anything that may take more than ~2 minutes.
 5. **Never** add `--allow-dangerous`, `--yes` or `--reveal` on your own. When
    a command is blocked (exit code 6: `POLICY_BLOCKED`, `PROTECTED_HOST`,

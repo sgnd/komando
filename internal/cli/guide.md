@@ -51,6 +51,8 @@ runs itself is not connected): ask the human to run `komando vpn up <name>`.
 | File content                 | `komando fs cat <t> /etc/nginx/nginx.conf --line-numbers` |
 | Ports / connectivity         | `komando net ports <t>` · `komando net check <t> db:5432` |
 | Containers                   | `komando docker ps <t>` · `komando logs <t> --container api --since 10m` |
+| Certificates (expiry, trust) | `komando cert check <t>` · `komando cert check https://example.com --warn 14d` |
+| Docker disk space            | `komando docker prune <t> --older-than 30d --dry-run` (lists what goes, with sizes) |
 | Clusters                     | `komando cluster status <conn>` · `komando cluster logs <conn> deploy/api` |
 | More diagnostics             | `komando recipe list`, then `komando recipe run <name> <t>` |
 
