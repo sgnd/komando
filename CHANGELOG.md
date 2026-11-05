@@ -36,6 +36,17 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - `komando vpn status` shows why a VPN's last session ended (`last_end`),
   and for `l2tp`, `ipsec` and `ikev2` the last lines of its log
   (`last_log`), so an agent can tell why without reading `~/.komando`.
+- `db dump --on HOST` runs pg_dump or mysqldump on a server you choose,
+  whatever the conn's own path (for example a conn through a VPN), so
+  `--format custom` works there too. It runs at low priority (nice, ionice),
+  keeps the password in the tool's environment and streams the backup back
+  over SSH; `runs_on` and `low_priority` in the answer and the audit say
+  where and how. `db restore --on HOST` loads a PostgreSQL archive with
+  pg_restore there, behind the same `--allow-dangerous` gate.
+- New errors with hints: `TOOL_TOO_OLD` (pg_dump older than the database
+  server, or pg_restore older than the archive) and `CONN_UNREACHABLE` (the
+  tool cannot reach the database from that server, with how to add a
+  127.0.0.1 conn through it).
 
 ### Fixed
 
@@ -119,6 +130,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   `--volumes`. `--dry-run` lists the stopped containers, images, volumes and
   build cache that would be removed, with sizes and a total. The real run
   needs `--allow-dangerous`.
+- komando's own restore of plain SQL skips pg_dump 17's `SET
+  transaction_timeout` on PostgreSQL servers older than 17, so such backups
+  restore there.
 
 ### Changed
 
