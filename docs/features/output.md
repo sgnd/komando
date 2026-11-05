@@ -51,7 +51,7 @@ instead. Force either with `-o text` or `-o json`, or set `KOMANDO_OUTPUT`.
 | 1 | general error | `AUDIT_UNAVAILABLE` |
 | 2 | wrong command, flag or value | `USAGE`, `HIDDEN_VALUE`, `NEEDS_TERMINAL` |
 | 3 | not found | `TARGET_NOT_FOUND`, `FILE_NOT_FOUND`, `TOOL_MISSING` |
-| 4 | cannot connect or log in | `AUTH_FAILED`, `HOSTKEY_MISMATCH`, `VPN_LOGIN_REQUIRED` |
+| 4 | cannot connect or log in, or the connection broke | `AUTH_FAILED`, `HOSTKEY_MISMATCH`, `VPN_LOGIN_REQUIRED`, `CONNECTION_LOST` |
 | 5 | the command failed on the server | `FAILED`, `ROLLOUT_FAILED` |
 | 6 | blocked for safety | `POLICY_BLOCKED`, `PROTECTED_HOST`, `WRITE_REQUIRES_FLAG` |
 | 7 | timed out | `TIMEOUT`, `ROLLOUT_TIMEOUT` |
@@ -83,6 +83,7 @@ machine-readable reference is `komando schema`.
 | `PARTIAL_FAILURE` | some servers failed, others did not | read `data.results` for each server's exit code and stderr |
 | `PORT_IN_USE` | the local port is taken | pick another port, or `0` for a free one |
 | `NEEDS_TERMINAL` | an interactive command (`shell`) run by a program | agents use `exec`, `cluster exec` or `job` |
+| `CONNECTION_LOST` | the link broke while the command ran; it may still be running, or may have finished | check with a read-only command before running it again; use `komando job start` over a shaky link ([details](commands.md#when-the-connection-drops)) |
 | `TIMEOUT` | the command took too long | `--timeout 30m`, or `komando job start` for long work |
 
 `komando doctor` checks your local setup, the inventory and its security.

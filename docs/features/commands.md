@@ -61,6 +61,44 @@ With `--fail-fast`, servers that never started are reported as skipped, not
 failed. With `--parallel 1`, servers run one by one, in name order. Output
 longer than `--max-output` (256 KiB per stream) is cut, and komando says so.
 
+### When the connection drops
+
+Sometimes the link to a server breaks while a command is running: the VPN
+drops, the Wi-Fi changes, a firewall cuts the connection. komando then
+cannot know how the command ended. That server's result says so:
+
+- error code `CONNECTION_LOST`, exit code 4 (other servers keep their own
+  results; the worst exit code wins, as usual);
+- the output that arrived before the break, with `exit_code` -1 (unknown);
+- in text mode: `=== web2 [FAILED connection lost, outcome unknown]`.
+
+The command may **still be running** on the server, or it may **already
+have finished**. Do not simply run it again (an upgrade or a migration
+twice can hurt). First look, with a read-only command: its log file, `ps`,
+or the change it should have made:
+
+```bash
+komando exec web2 --read-only -- 'tail -20 /var/log/unattended-upgrades/unattended-upgrades.log'
+komando exec web2 --read-only -- 'ps -ef | grep -v grep | grep apt'
+```
+
+If the server simply stops answering (a VPN that went away without a word),
+komando notices within about a minute instead of waiting for `--timeout`.
+
+This is different from:
+
+| What happened | Error code | Exit |
+|---------------|-----------|------|
+| could not connect at all (the command never started) | `CONNECT_FAILED`, `CONNECTION_REFUSED`, `AUTH_FAILED`, ... | 4 |
+| the link broke before the command started (it did not run) | `CONNECTION_LOST`, message says "it did not run" | 4 |
+| the link broke while the command ran (outcome unknown) | `CONNECTION_LOST` | 4 |
+| the command ran and failed | `FAILED` (per server: its `exit_code`) | 5 |
+| the command ran longer than `--timeout` (komando stopped it) | `TIMEOUT` | 7 |
+
+For long tasks, or any task over a shaky link, use a [job](#long-tasks-jobs)
+instead: it keeps running on the server, keeps its output and exit code
+there, and `job wait` connects again by itself after a drop.
+
 ### Protected servers and `--read-only`
 
 On a protected server, a command needs `--yes`, unless you add
@@ -120,6 +158,7 @@ komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
 komando job status <id>                 # running, exited or lost; exit code; last lines
 komando job logs <id>                   # output so far
 komando job wait <id> --timeout 30m     # wait until it ends
+komando job wait <id1> <id2> <id3>      # wait for several (one per server)
 komando job kill <id>                   # stop it (TERM; --signal KILL for a hard stop)
 komando job list                        # every job; --refresh asks the servers
 komando job rm <id>                     # forget it and delete its remote logs
@@ -131,7 +170,14 @@ Good to know:
   from the previous call. `--tail N` gives the last lines instead.
 - `job wait` waits up to `--timeout` (default 10m). When the time is up, the
   job keeps running and komando exits 7 (`WAIT_TIMEOUT`). Otherwise the exit
-  code follows the job's.
+  code follows the job's. If the connection drops while it waits, it
+  connects again and keeps waiting.
+- `job wait` with several IDs waits for all of them and gives one result per
+  job (`data.jobs`) and a summary; the exit code is the worst one.
+- `job start --sudo` uses the server's `--sudo-ref` password when it has
+  one. The password is sent as input (never on a command line), waits in a
+  private file only the job's user can read, and the job deletes it the
+  moment it starts. The command itself gets no input, so it cannot read it.
 - `job kill` on a job that already ended does nothing. A job started with
   `--sudo` needs `job kill --sudo`.
 - `job rm` refuses a running job: kill it first, or add `--kill`.

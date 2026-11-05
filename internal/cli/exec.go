@@ -80,6 +80,8 @@ func hostStatus(r execHostResult) string {
 		return fmt.Sprintf("ok exit=%d", r.ExitCode)
 	case r.OK:
 		return "ok"
+	case r.Error != nil && r.Error.Code == "CONNECTION_LOST":
+		return "FAILED connection lost, outcome unknown"
 	case r.RunResult != nil && r.TimedOut:
 		return "FAILED timed out"
 	case r.RunResult != nil:
@@ -131,6 +133,12 @@ func execCmd() *cobra.Command {
 		Long: `Runs COMMAND through the remote login shell on every host matched by TARGET.
 Per-host stdout, stderr, exit_code and duration are returned. A non-zero exit
 on any host makes komando exit 5 (connection problems exit 4).
+
+If the connection breaks while the command runs, that server's result has
+error code CONNECTION_LOST (exit 4) and the output that came so far: the
+command may still be running there, or may have finished. Check with a
+read-only command before running it again. For long tasks over a shaky link
+use 'komando job start' and 'komando job wait': they survive a drop.
 
 Destructive commands (rm -rf /, mkfs, reboot, DROP DATABASE, ...) are blocked
 unless --allow-dangerous is given. Hosts marked protected need --yes unless
@@ -436,6 +444,8 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 				data.Results = append(data.Results, hr)
 				continue
 			}
+			// a lost connection keeps what the command printed before it broke
+			hr.RunResult, _ = r.Value.(*sshx.RunResult)
 			worst = worse(worst, hr.Error.Exit)
 			fails = append(fails, hostFail{host: hr.Host, reason: failReason(0, hr.Error), err: hr.Error})
 		} else {

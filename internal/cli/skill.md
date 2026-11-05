@@ -38,7 +38,11 @@ If `komando` is not installed, stop and ask the human to install it:
    (passwords as `--password-ref secret:NAME`, never `CREATE USER ... PASSWORD`
    in a query). After writing a systemd unit run `komando svc daemon-reload`;
    restart servers only with `komando reboot` (it needs the human).
-4. Use `komando job start` for anything that may take more than ~2 minutes.
+4. Use `komando job start` for anything that may take more than ~2 minutes,
+   or that runs over a shaky link (a VPN): a job survives a dropped
+   connection, `exec` does not. `CONNECTION_LOST` (exit 4) from `exec` means
+   the link broke while the command ran: it may still be running, or may have
+   finished. Do not just run it again; check first with a read-only command.
 5. **Never** add `--allow-dangerous`, `--yes` or `--reveal` on your own. When
    a command is blocked (exit code 6: `POLICY_BLOCKED`, `PROTECTED_HOST`,
    `PROTECTED_TARGET`, `SAFETY_SETTING`, `SENSITIVE_FILE`,
