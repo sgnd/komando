@@ -131,6 +131,11 @@ komando job logs <id> --offset <next_offset>     # read only new output
 komando job wait <id> --timeout 10m              # blocks; exit code mirrors the job
 ```
 
+Several servers: `job start @web ...` prints one ID per server; `job wait
+<id1> <id2> ...` waits for all of them. A job survives a dropped connection
+(VPN, Wi-Fi): `job wait` connects again by itself. Over a shaky link, prefer
+a job to `exec`.
+
 A process started with `&` inside `komando exec` ends with that command.
 Anything that must keep running (a temporary web server, a watcher) is a
 `job start`.
@@ -177,6 +182,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 3    | NO_MATCHING_TARGETS               | use the command the hint names (e.g. `db` for a database) |
 | 4    | AUTH_FAILED, CONNECTION_REFUSED, HOSTKEY_* | follow `error.hint`; do not retry blindly; never fix `HOSTKEY_MISMATCH` |
 | 4    | VPN_LOGIN_REQUIRED, VPN_DOWN      | ask the human to run `komando vpn up <name>` |
+| 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; use `job start` next time |
 | 5    | FAILED, PARTIAL_FAILURE           | read `data.results[].stderr` and `exit_code` per host |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
 | 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, SENSITIVE_FILE, WRITE_REQUIRES_FLAG | stop and ask the human |

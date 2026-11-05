@@ -268,7 +268,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 				}
 				res["exit_codes"] = map[string]string{
 					"0": "success", "1": "generic error", "2": "usage error", "3": "not found",
-					"4": "connection/auth/host-key failure", "5": "remote command exited non-zero",
+					"4": "connection/auth/host-key failure, or the connection broke mid-command (CONNECTION_LOST: outcome unknown)", "5": "remote command exited non-zero",
 					"6": "blocked by safety policy (needs --yes or --allow-dangerous)", "7": "timeout",
 					"8": "precondition failed (e.g. replace text not found / ambiguous)",
 				}

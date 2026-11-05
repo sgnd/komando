@@ -44,6 +44,8 @@ type Client struct {
 	chain *sharedChain
 	vpn   io.Closer // a VPN this connection opened for itself (no jump hosts)
 	once  sync.Once
+	// silent: the keepalive got no answer and closed the connection
+	silent atomic.Bool
 }
 
 func (c *Client) Close() error {
@@ -226,13 +228,45 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 	return c, nil
 }
 
+// keepaliveEvery is how often an open connection is asked for a sign of
+// life, and how long the answer may take.
+var keepaliveNS atomic.Int64
+
+func init() { keepaliveNS.Store(int64(30 * time.Second)) }
+
+func keepaliveEvery() time.Duration { return time.Duration(keepaliveNS.Load()) }
+
+// keepalive asks the server for a sign of life now and then. A link that
+// went silent (a VPN that dropped without a word) sends no error, so a
+// command would wait for its exit code until --timeout: when the server
+// does not answer in time the connection is closed, and the command
+// running on it ends with CONNECTION_LOST.
 func keepalive(c *Client) {
-	t := time.NewTicker(30 * time.Second)
+	every := keepaliveEvery()
+	t := time.NewTicker(every)
 	defer t.Stop()
 	for range t.C {
-		if _, _, err := c.SendRequest("keepalive@komando", true, nil); err != nil {
+		if !answers(c.Client, every) {
+			if c.silent.CompareAndSwap(false, true) {
+				c.Client.Close()
+			}
 			return
 		}
+	}
+}
+
+// answers reports whether the server replies to a keepalive within wait.
+func answers(c *ssh.Client, wait time.Duration) bool {
+	done := make(chan error, 1)
+	go func() {
+		_, _, err := c.SendRequest("keepalive@komando", true, nil)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		return err == nil
+	case <-time.After(wait):
+		return false
 	}
 }
 

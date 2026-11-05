@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -14,6 +15,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // Jobs are detached remote processes (nohup/setsid) whose output lives in
@@ -102,12 +104,23 @@ func jobStartCmd() *cobra.Command {
 				if exports != "" {
 					inner = `. "$1"; rm -f "$1"; ` + inner
 				}
-				if sudo {
-					if c.Host.SudoRef != "" {
-						return nil, out.Usage("jobs cannot feed a sudo password; use passwordless sudo or `komando exec --sudo`")
+				var pw []byte // the sudo password, sent as input, never on a command line
+				pwFile := ""
+				switch {
+				case sudo && c.Host.SudoRef != "":
+					p, err := vault.Resolve(c.Host.SudoRef)
+					if err != nil {
+						return nil, err
 					}
+					pw = []byte(p + "\n")
+					// The password waits in a private file. The job opens it as
+					// sudo's input and deletes it at once; the command itself
+					// gets no input, so it can never read the password.
+					pwFile = `(umask 077; cat > "$d/pw") && `
+					inner = `{ rm -f "$d/pw"; sudo -S -p '' sh -c ` + sshx.Q("exec </dev/null; "+inner) + ` sh "$d/env"; } < "$d/pw"`
+				case sudo:
 					inner = "sudo -n sh -c " + sshx.Q(inner) + ` sh "$d/env"`
-				} else {
+				default:
 					inner = "sh -c " + sshx.Q(inner) + ` sh "$d/env"`
 				}
 				wrapper := "( " + inner + " ); echo $? > \"$d/exit\""
@@ -115,13 +128,14 @@ func jobStartCmd() *cobra.Command {
 				if exports != "" {
 					envFile = `(umask 077; printf '%s' ` + sshx.Q(exports) + ` > "$d/env") && `
 				}
-				script := `d="` + jobDir(id) + `"; mkdir -p "$d" && ` + envFile + `printf '%s\n' ` + sshx.Q(command) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
+				script := `d="` + jobDir(id) + `"; mkdir -p "$d" && ` + envFile + pwFile + `printf '%s\n' ` + sshx.Q(command) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
 					`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & ` +
 					`else nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
-				o, code, err := sshx.Output(ctx, c, script, 30*time.Second)
+				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: pw, Timeout: 30 * time.Second, MaxOutput: 64 << 10})
 				if err != nil {
 					return nil, err
 				}
+				o, code := strings.TrimSpace(r.Stdout), r.ExitCode
 				pid, perr := strconv.Atoi(strings.TrimSpace(o))
 				if code != 0 || perr != nil {
 					return nil, out.Errf(out.ExitRemote, "JOB_START_FAILED", "check that /bin/sh and nohup work there: `komando test TARGET`", "could not start job: %s", o)
@@ -154,7 +168,7 @@ func jobStartCmd() *cobra.Command {
 		},
 	}
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "command string")
-	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run via passwordless sudo")
+	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run via sudo (uses the host's sudo-ref password if set)")
 	c.Flags().StringSliceVarP(&envs, "env", "e", nil, "export KEY=VALUE")
 	c.Flags().StringVarP(&dir, "dir", "C", "", "remote working directory")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare read-only (skip protected-host confirmation)")
@@ -358,76 +372,71 @@ func jobWaitCmd() *cobra.Command {
 	var waitTimeout time.Duration
 	var tail int
 	c := &cobra.Command{
-		Use:   "wait JOB_ID",
-		Short: "Block until the job exits (or --timeout); exit code mirrors the job",
+		Use:   "wait JOB_ID...",
+		Short: "Block until the job(s) exit (or --timeout); exit code mirrors the job",
 		Long: `Waits until the job ends, polling every --interval. --timeout (default 10m)
-is how long to wait; the job keeps running after it (exit 7, WAIT_TIMEOUT).`,
-		Example: "  komando job wait j1103-101500-ab12cd34 --timeout 30m",
-		Args:    cobra.ExactArgs(1),
+is how long to wait; the job keeps running after it (exit 7, WAIT_TIMEOUT).
+
+A dropped connection does not stop the wait: komando connects again and
+keeps waiting. Give several job IDs (the ones 'job start' printed for a
+group of servers) to wait for all of them at once.`,
+		Example: `  komando job wait j1103-101500-ab12cd34 --timeout 30m
+  komando job wait j1103-101500-ab12cd34 j1103-101500-ef56ab78`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("wait-timeout") && g.timeout > 0 {
 				waitTimeout = g.timeout // --timeout is the wait limit here
 			}
-			st, j, h, err := lookupJob(args[0])
+			deadline := time.Now().Add(waitTimeout)
+			if len(args) == 1 {
+				s, err := waitJob(cmd.Context(), args[0], deadline, interval, tail)
+				if err != nil {
+					return err
+				}
+				if e := waitVerdict(s, waitTimeout); e != nil {
+					out.P.Print("job.wait", s, e)
+					return exitCode(e.Exit)
+				}
+				out.P.Print("job.wait", s, nil)
+				return nil
+			}
+			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			var s *jobStatus
-			deadline := time.Now().Add(waitTimeout)
-			pause := func() error {
-				select {
-				case <-cmd.Context().Done():
-					return cmd.Context().Err()
-				case <-time.After(interval):
-					return nil
-				}
-			}
-			// a long wait outlives SSH connections (a NAT or firewall drops an
-			// idle one after some minutes): connect again and keep waiting,
-			// like kubectl wait, until the job ends or the deadline passes
-			for {
-				var done bool
-				err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
-					for {
-						var ferr error
-						if s, ferr = fetchStatus(cmd.Context(), c, j, tail); ferr != nil {
-							return ferr
-						}
-						if s.State != "running" || time.Now().After(deadline) {
-							done = true
-							return nil
-						}
-						if err := pause(); err != nil {
-							return err
-						}
+			rows := make([]waitRow, len(args))
+			sem := make(chan struct{}, max(1, parallelism(st)))
+			var wg sync.WaitGroup
+			for i, id := range args {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					sem <- struct{}{}
+					defer func() { <-sem }()
+					s, err := waitJob(cmd.Context(), id, deadline, interval, tail)
+					rows[i] = waitRow{ID: id, Status: s, Error: toErr(err)}
+					if err == nil {
+						rows[i].Error = waitVerdict(s, waitTimeout)
 					}
-				})
-				if done || cmd.Context().Err() != nil || time.Now().After(deadline) || !transient(err) {
-					break
+					rows[i].OK = rows[i].Error == nil
+				}()
+			}
+			wg.Wait()
+			data := jobWaited{Jobs: rows}
+			worst := 0
+			var fails []hostFail
+			for _, r := range rows {
+				if r.OK {
+					data.Summary.OK++
+					continue
 				}
-				if err := pause(); err != nil {
-					return err
-				}
+				data.Summary.Failed++
+				data.Summary.FailedHosts = append(data.Summary.FailedHosts, r.ID)
+				worst = worse(worst, r.Error.Exit)
+				fails = append(fails, hostFail{host: r.ID, reason: failReason(0, r.Error), err: r.Error})
 			}
-			if err != nil && (s == nil || !time.Now().After(deadline)) {
-				return err
-			}
-			switch {
-			case s.State == "running":
-				out.P.Print("job.wait", s, out.Errf(out.ExitTimeout, "WAIT_TIMEOUT", "job is still running; call wait again or read logs", "job %s still running after %s", j.ID, waitTimeout))
-				return exitCode(out.ExitTimeout)
-			case s.State == "killed":
-				out.P.Print("job.wait", s, out.Errf(out.ExitRemote, "JOB_KILLED", "it was stopped with `komando job kill`", "job %s was killed (%s)", j.ID, s.Signal))
-				return exitCode(out.ExitRemote)
-			case s.State == "lost":
-				out.P.Print("job.wait", s, out.Errf(out.ExitRemote, "JOB_LOST", "process died without recording an exit code (killed or server rebooted)", "job %s lost", j.ID))
-				return exitCode(out.ExitRemote)
-			case s.ExitCode != nil && *s.ExitCode != 0:
-				out.P.Print("job.wait", s, out.Errf(out.ExitRemote, "JOB_FAILED", "read its output with `komando job logs "+j.ID+" --tail 50`", "job exited with %d", *s.ExitCode))
-				return exitCode(out.ExitRemote)
-			}
-			out.P.Print("job.wait", s, nil)
-			return nil
+			data.Summary.Total = len(rows)
+			return finishFleet("job.wait", data, runSummary{fleetSummary: data.Summary}, worst, fails)
 		},
 	}
 	c.Flags().DurationVar(&interval, "interval", 3*time.Second, "poll interval")
@@ -435,6 +444,98 @@ is how long to wait; the job keeps running after it (exit 7, WAIT_TIMEOUT).`,
 	_ = c.Flags().MarkHidden("wait-timeout")
 	c.Flags().IntVar(&tail, "tail", 30, "include last N log lines")
 	return c
+}
+
+// waitJob polls one job until it ends or the deadline passes. A long wait
+// outlives SSH connections (a NAT, a firewall or a shaky VPN drops them):
+// it connects again and keeps waiting, like kubectl wait.
+func waitJob(ctx context.Context, id string, deadline time.Time, interval time.Duration, tail int) (*jobStatus, error) {
+	st, j, h, err := lookupJob(id)
+	if err != nil {
+		return nil, err
+	}
+	var s *jobStatus
+	pause := func() error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(interval):
+			return nil
+		}
+	}
+	for {
+		var done bool
+		err = withClient(ctx, st, h, func(c *sshx.Client) error {
+			for {
+				var ferr error
+				if s, ferr = fetchStatus(ctx, c, j, tail); ferr != nil {
+					return ferr
+				}
+				if s.State != "running" || time.Now().After(deadline) {
+					done = true
+					return nil
+				}
+				if err := pause(); err != nil {
+					return err
+				}
+			}
+		})
+		if done || ctx.Err() != nil || time.Now().After(deadline) || !transient(err) {
+			break
+		}
+		if err := pause(); err != nil {
+			return nil, err
+		}
+	}
+	if err != nil && (s == nil || !time.Now().After(deadline)) {
+		return nil, err
+	}
+	return s, nil
+}
+
+// waitVerdict is the error for a job that did not end well, or nil.
+func waitVerdict(s *jobStatus, waitTimeout time.Duration) *out.Error {
+	switch {
+	case s.State == "running":
+		return out.Errf(out.ExitTimeout, "WAIT_TIMEOUT", "job is still running; call wait again or read logs", "job %s still running after %s", s.ID, waitTimeout)
+	case s.State == "killed":
+		return out.Errf(out.ExitRemote, "JOB_KILLED", "it was stopped with `komando job kill`", "job %s was killed (%s)", s.ID, s.Signal)
+	case s.State == "lost":
+		return out.Errf(out.ExitRemote, "JOB_LOST", "process died without recording an exit code (killed or server rebooted)", "job %s lost", s.ID)
+	case s.ExitCode != nil && *s.ExitCode != 0:
+		return out.Errf(out.ExitRemote, "JOB_FAILED", "read its output with `komando job logs "+s.ID+" --tail 50`", "job exited with %d", *s.ExitCode)
+	}
+	return nil
+}
+
+// waitRow is one job of a wait for several.
+type waitRow struct {
+	ID     string     `json:"id"`
+	OK     bool       `json:"ok"`
+	Status *jobStatus `json:"status,omitempty"`
+	Error  *out.Error `json:"error,omitempty"`
+}
+
+type jobWaited struct {
+	Jobs    []waitRow    `json:"jobs"`
+	Summary fleetSummary `json:"summary"`
+}
+
+func (d jobWaited) Text() string {
+	rows := [][]string{}
+	for _, r := range d.Jobs {
+		host, state := "-", "failed: "+func() string {
+			if r.Error != nil {
+				return r.Error.Message
+			}
+			return ""
+		}()
+		if r.Status != nil {
+			host, state = r.Status.Host, r.Status.describe()
+		}
+		rows = append(rows, []string{r.ID, host, state})
+	}
+	return textTable([]string{"id", "host", "state"}, rows)
 }
 
 func jobKillCmd() *cobra.Command {
