@@ -4,7 +4,43 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Changed
+
+- `komando vpn status`: `last_end` now says when the session ended and how
+  long it ran. When an L2TP server ends the session, it also says how long
+  the link had no traffic (a server idle timeout?), and the log shows the
+  server's own reason (StopCCN/CDN result, LCP Terminate text).
+
 ### Added
+
+- Registry conns (`registry://`, `oci://`) take TLS options:
+  `?ca=secret:NAME` trusts a private CA (PEM in the vault), or pins the
+  registry's own certificate when the CA is not at hand, and keeps the
+  certificate check on; `?tls=skip-verify` uses HTTPS without the check
+  (like Docker's `insecure-registries`; `komando doctor` warns about it,
+  also with `--via`). A refused certificate is now `REGISTRY_TLS` (not
+  `REGISTRY_UNREACHABLE`), with a hint that names `ca=` first. Unknown
+  registry URL options and `tls=` values are refused instead of ignored.
+  With `--via`, the last server looks the registry's name up (its
+  `/etc/hosts` applies); the certificate check and `Host` stay on the name.
+
+- L2TP/IPsec (`l2tp`), Cisco-style IPsec with a group name and XAUTH login
+  (`ipsec`, also `cisco`) and IKEv2 (`ikev2`, pre-shared key or EAP-MSCHAPv2
+  login with the server's certificate checked) are built into komando:
+  komando's own IKEv1, IKEv2, ESP-in-UDP, L2TP and PPP, so they need no
+  strongSwan, no OS VPN settings and no admin rights, and the computer's
+  network stays as it is. New `vpn add`/`vpn edit` flags: `--server`,
+  `--psk-ref`, `--id`, `--remote-id`, `--ca`. Tested against strongSwan 5.9
+  and xl2tpd, rekeys included (`make e2e-ipsec`). Before, these kinds were
+  only a name for `system`.
+- `komando vpn status` shows why a VPN's last session ended (`last_end`),
+  and for `l2tp`, `ipsec` and `ikev2` the last lines of its log
+  (`last_log`), so an agent can tell why without reading `~/.komando`.
+
+### Fixed
+
+- `komando vpn up` printed the session's local SOCKS password; it now shows
+  `[hidden]`.
 
 - `komando reboot TARGET`: reboots servers one at a time, waits for each to
   answer again and checks it really started anew (boot id). A server that

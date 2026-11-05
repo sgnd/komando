@@ -8,7 +8,7 @@ GOVULNCHECK := v1.9.0
 
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
-.PHONY: help build install test security fuzz e2e e2e-openvpn e2e-vpnclients lint dist clean
+.PHONY: help build install test security fuzz e2e e2e-openvpn e2e-vpnclients e2e-ipsec lint dist clean
 
 help: ## Show this help
 	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
@@ -27,6 +27,9 @@ e2e: ## End-to-end tests against Docker SSH servers
 
 e2e-openvpn: ## komando's own OpenVPN client against throwaway OpenVPN 2.6 servers (UDP, TCP, tls-auth, tls-crypt, login)
 	test/e2e/openvpn/run.sh
+
+e2e-ipsec: ## komando's own L2TP/IPsec, Cisco IPsec (XAUTH) and IKEv2 clients against strongSwan and xl2tpd, in Docker
+	test/e2e/ipsec/run.sh
 
 e2e-vpnclients: ## built-in AnyConnect (ocserv) and Tailscale (Headscale) against real servers, in Docker
 	test/e2e/vpnclients/run.sh

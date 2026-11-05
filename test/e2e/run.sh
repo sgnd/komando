@@ -631,6 +631,20 @@ check "registry prune --dry-run: only v2 goes (v1 is keepme's image)" "['v2'] Fa
   "$($K registry prune reg prune/app --keep 1 --match '^v' --dry-run | jget '[t for d_ in d["data"]["delete"] for t in d_["tags"]], "deleted" in d["data"]')"
 q $K registry prune reg prune/app --keep 1 --match '^v' --allow-dangerous
 check "registry prune deleted v2 and kept the rest" "['keepme', 'v1', 'v3']" "$($K registry ls reg prune/app | jget 'sorted(d["data"]["tags"])')"
+# registry TLS: HTTPS with a private CA, at a name only bastion can look up
+q $K conn add regtls 'registry://e2e@registry.lab.test' --via bastion
+check "registry: a private CA is refused by default" REGISTRY_TLS "$($K registry ls regtls | jget 'd["error"]["code"]' || true)"
+check "registry: the refusal points at ca= first" True "$($K registry ls regtls | jget '"?ca=secret:NAME" in d["error"]["hint"]' || true)"
+docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T regtls cat /certs/ca.crt | $K secret set regtls-ca >/dev/null
+q $K conn edit regtls --url 'registry://e2e@registry.lab.test?ca=secret:regtls-ca'
+check "registry: ?ca=secret:NAME trusts the private CA (name looked up on bastion)" True "$($K registry ls regtls | jget 'd["ok"]')"
+check "registry: conn test logs in with ca=" login "$($K conn test regtls | jget 'd["data"]["results"][0]["detail"]["check"]')"
+check "registry: ca= is not a doctor warning" False "$($K doctor | jget 'any(c["name"] == "security:conn:regtls" for c in d["data"]["security"])')"
+q $K conn edit regtls --url 'registry://e2e@registry.lab.test?tls=skip-verify'
+check "registry: ?tls=skip-verify works without the CA" True "$($K registry ls regtls | jget 'd["ok"]')"
+check "registry: doctor warns about tls=skip-verify, --via too" True "$($K doctor | jget 'any(c["name"] == "security:conn:regtls" and c["warning"] for c in d["data"]["security"])')"
+check "registry: an unknown tls value is refused" USAGE "$($K conn edit regtls --url 'registry://e2e@registry.lab.test?tls=insecure' | jget 'd["error"]["code"]' || true)"
+q $K conn rm regtls
 
 # VPNs: a SOCKS proxy (komando's own, through the bastion) and an OS VPN check
 echo "==> VPNs"

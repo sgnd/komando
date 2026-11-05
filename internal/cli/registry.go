@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -20,6 +22,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/registry"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // `komando registry` reads and cleans up container registries through the
@@ -32,7 +35,11 @@ func registryCmd() *cobra.Command {
 		Short:   "Container registries: list repositories and tags, inspect images, delete tags",
 		Long: `Works with a registry conn: ` + "`komando conn add ghcr registry://myuser@ghcr.io --password-ref secret:ghcr-token`" + `
 or ` + "`komando import docker`" + ` (from ~/.docker/config.json). ls and inspect
-only read; rm and prune delete images and need --allow-dangerous.`,
+only read; rm and prune delete images and need --allow-dangerous.
+
+TLS options in the conn URL: ?ca=secret:NAME trusts a private CA, or pins the
+registry's own certificate (PEM in the vault; the check stays on), ?tls=skip-verify does not check the certificate,
+?tls=false is plain HTTP. With --via the last server looks the name up.`,
 	}
 	c.AddCommand(registryLsCmd(), registryInspectCmd(), registryCopyCmd(), registryRmCmd(), registryPruneCmd())
 	return c
@@ -103,7 +110,35 @@ func openRegistry(ctx context.Context, st *store.State, c *store.Conn) (*registr
 		}
 		user, password = "AWS", tok
 	}
-	return registry.New(host, a.Target.TLS == "false", user, password, dial), a.Close, nil
+	tc, err := registryTLS(a.Target)
+	if err != nil {
+		a.Close()
+		return nil, nil, err
+	}
+	return registry.New(host, tc, user, password, dial), a.Close, nil
+}
+
+// registryTLS turns a registry conn's tls= and ca= options into the
+// client's TLS settings; ca= is read from the vault.
+func registryTLS(t driver.Target) (registry.TLS, error) {
+	tc := registry.TLS{Plain: t.TLS == "false", SkipVerify: t.TLS == "skip-verify"}
+	if t.CA == "" {
+		return tc, nil
+	}
+	pem, err := vault.Resolve(t.CA)
+	if err != nil {
+		code, exit := "SECRET_UNRESOLVED", out.ExitError
+		if errors.Is(err, vault.ErrNotFound) {
+			code, exit = "SECRET_NOT_FOUND", out.ExitNotFound
+		}
+		return tc, out.Errf(exit, code, "store the CA certificate with `komando secret set NAME < ca.crt`",
+			"registry CA %s: %v", t.CA, err)
+	}
+	if tc.RootCAs, err = registry.CAPool([]byte(pem)); err != nil {
+		return tc, out.Errf(out.ExitUsage, "BAD_CA", "store the registry's CA certificate (PEM) with `komando secret set NAME < ca.crt`",
+			"registry CA %s: %v", t.CA, err)
+	}
+	return tc, nil
 }
 
 func registryErr(err error) error {
@@ -123,7 +158,26 @@ func registryErr(err error) error {
 	if _, ok := err.(*out.Error); ok {
 		return err
 	}
+	var wrongName x509.HostnameError
+	if errors.As(err, &wrongName) {
+		return out.Errf(out.ExitConnect, "REGISTRY_TLS",
+			"use the host name the certificate is for in the conn URL; with --via the server on the path looks the name up (its /etc/hosts applies)",
+			"the registry's TLS certificate is for another name: %v", err)
+	}
+	if certErr(err) {
+		return out.Errf(out.ExitConnect, "REGISTRY_TLS",
+			"if the registry uses a private CA (mkcert, an internal CA), store that CA with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to the conn URL (preferred: the check stays on); without the CA, store the registry's own certificate the same way, which pins it; ?tls=skip-verify turns the check off",
+			"the registry's TLS certificate is not trusted: %v", err)
+	}
 	return out.Errf(out.ExitConnect, "REGISTRY_UNREACHABLE", "check the conn with `komando test NAME`", "%v", err)
+}
+
+// certErr says whether err is a failed certificate check.
+func certErr(err error) bool {
+	var unknown x509.UnknownAuthorityError
+	var invalid x509.CertificateInvalidError
+	var verify *tls.CertificateVerificationError
+	return errors.As(err, &unknown) || errors.As(err, &invalid) || errors.As(err, &verify)
 }
 
 // splitImage parses REPO[:TAG|@DIGEST]; the tag defaults to latest.

@@ -139,3 +139,4 @@ type tunCloser struct{ t packetTun }
 
 func (c tunCloser) Close() error          { return c.t.Close() }
 func (c tunCloser) Done() <-chan struct{} { return c.t.Done() }
+func (c tunCloser) Err() error            { return c.t.Err() }

@@ -379,6 +379,9 @@ func TestPlainConn(t *testing.T) {
 		"rediss://cache.internal:6379":                       false,
 		"ftp://deploy@files.example.com/www?insecure=1":      true,
 		"sqlite:///var/lib/app.db":                           false,
+		"registry://me@registry.lan?tls=skip-verify":         true,
+		"registry://me@registry.lan?ca=secret:lan-ca":        false,
+		"registry://me@ghcr.io":                              false,
 	} {
 		if got := plainConn(&store.Conn{Name: "c", URL: u}) != ""; got != warn {
 			t.Errorf("%s: warn=%v", u, got)
@@ -386,6 +389,9 @@ func TestPlainConn(t *testing.T) {
 	}
 	if plainConn(&store.Conn{Name: "c", URL: "postgres://app@db.internal/app", Via: "bastion"}) != "" {
 		t.Error("through an SSH tunnel")
+	}
+	if plainConn(&store.Conn{Name: "c", URL: "registry://me@registry.lan?tls=skip-verify", Via: "bastion"}) == "" {
+		t.Error("registry tls=skip-verify through --via must still warn: the tunnel ends before the registry")
 	}
 }
 

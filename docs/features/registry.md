@@ -26,6 +26,46 @@ komando conn add ghcr registry://myuser@ghcr.io --password-ref secret:ghcr-token
 komando conn add local 'registry://me@registry.lan:5000?tls=false' --via bastion   # no TLS, behind a bastion
 ```
 
+### HTTPS with your own certificate
+
+By default komando checks the registry's certificate against the CAs your
+computer trusts. A registry with a certificate from a private CA (mkcert,
+an internal CA) is refused with `REGISTRY_TLS`. Two ways to fix it:
+
+```bash
+komando secret set lan-ca < ca.crt            # 1. preferred: trust that CA, the check stays on
+komando conn add lan 'registry://me@registry.lan?ca=secret:lan-ca' --password-ref secret:lan-token
+komando conn add lan 'registry://me@registry.lan?tls=skip-verify' --password-ref secret:lan-token   # 2. no check at all
+```
+
+| URL option | What it does |
+|---|---|
+| (none) | HTTPS, certificate checked against your computer's CAs |
+| `?ca=secret:NAME` | HTTPS, certificate checked against those CAs plus the PEM certificate in the vault secret `NAME`: a CA, or the registry's own certificate |
+| `?tls=skip-verify` | HTTPS, but the certificate is not checked (like Docker's `insecure-registries`). Anyone on the path can pretend to be the registry; `komando doctor` warns about it |
+| `?tls=false` | plain HTTP, nothing encrypted (a `registry:2` on a private network) |
+
+**No CA at hand?** If the CA is somewhere else (mkcert on another
+computer) and the registry sends only its own certificate, store that
+certificate as `ca=`. komando then trusts exactly that certificate (it is
+pinned), still checks the name and the dates, and refuses any other. When
+the registry gets a new certificate, store the new one.
+
+```bash
+komando secret set lan-cert < registry.crt    # the registry's own certificate, PEM
+komando conn add lan 'registry://me@registry.lan?ca=secret:lan-cert'
+```
+
+**Through a server (`--via`).** komando sends the registry's name to the
+last server on the `--via` path, and that server looks it up, so its
+`/etc/hosts` and its DNS apply. The certificate check and the `Host` header
+still use the name in the URL. This helps when the registry's public DNS
+points somewhere else than the address your servers use:
+
+```bash
+komando conn add app-registry 'registry://me@registry.example.com?ca=secret:app-ca' --via web1
+```
+
 The password is usually an access token. It needs read rights to look,
 write rights to copy into the registry, and delete rights to delete. For
 Docker Hub use `registry://myuser@docker.io`.

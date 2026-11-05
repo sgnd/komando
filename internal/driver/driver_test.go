@@ -111,3 +111,32 @@ func TestRiskJSON(t *testing.T) {
 		t.Errorf("got %s", b)
 	}
 }
+
+func TestParseRegistryTLS(t *testing.T) {
+	for raw, want := range map[string][2]string{
+		"registry://me@ghcr.io":                       {"", ""},
+		"registry://me@registry.lan:5000?tls=false":   {"false", ""},
+		"oci://me@registry.lan?tls=skip-verify":       {"skip-verify", ""},
+		"registry://me@registry.lan?ca=secret:lan-ca": {"", "secret:lan-ca"},
+	} {
+		tg, err := Parse(raw)
+		if err != nil {
+			t.Fatalf("%s: %v", raw, err)
+		}
+		if tg.TLS != want[0] || tg.CA != want[1] {
+			t.Errorf("%s: tls=%q ca=%q, want %q %q", raw, tg.TLS, tg.CA, want[0], want[1])
+		}
+	}
+	for _, raw := range []string{
+		"registry://me@registry.lan?tls=insecure",                // a typo is not a silent default
+		"registry://me@registry.lan?insecure=1",                  // unknown option
+		"registry://me@registry.lan?ca=lan-ca",                   // ca= is a vault reference
+		"registry://me@registry.lan?ca=",                         // empty
+		"registry://me@registry.lan?ca=secret:x&tls=skip-verify", // ca= would be ignored
+		"registry://me@registry.lan?ca=secret:x&tls=false",
+	} {
+		if _, err := Parse(raw); err == nil {
+			t.Errorf("%s: accepted", raw)
+		}
+	}
+}

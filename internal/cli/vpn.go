@@ -41,7 +41,7 @@ connects it, using the login stored in the vault:
 VPNs with --mfa need a person: run ` + "`komando vpn up NAME`" + ` once and later
 commands (and agents) reuse that session. komando never answers MFA.
 
-Kinds (also: pritunl = openvpn; l2tp, ipsec, ikev2 = system):
+Kinds (also: pritunl = openvpn; cisco = ipsec):
 ` + strings.Join(kinds, "\n"),
 	}
 	c.AddCommand(vpnAddCmd(), vpnShowCmd(), vpnEditCmd(), vpnMvCmd(), vpnRmCmd(), vpnUpCmd(), vpnDownCmd(), vpnStatusCmd(), vpnServeCmd(),
@@ -131,7 +131,7 @@ func checkOVPN(cfg string) error {
 }
 
 func vpnAddCmd() *cobra.Command {
-	var config, address, portal, service, server, user, passwordRef, check, notes string
+	var config, address, portal, service, server, user, passwordRef, check, notes, pskRef, localID, remoteID, ca string
 	var groups, tags []string
 	var overwrite, mfa, osMode bool
 	c := &cobra.Command{
@@ -141,6 +141,9 @@ func vpnAddCmd() *cobra.Command {
   komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
   komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
   komando vpn add tailnet tailscale --password-ref secret:ts-authkey
+  komando vpn add kantor l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk --user budi --password-ref secret:kantor
+  komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user budi
+  komando vpn add cloud ikev2 --server vpn.example.com --user budi --password-ref secret:cloud
   komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
   komando vpn add lab socks --address 127.0.0.1:1080`,
 		Args: cobra.ExactArgs(2),
@@ -149,8 +152,8 @@ func vpnAddCmd() *cobra.Command {
 			switch kind {
 			case "pritunl":
 				kind = "openvpn"
-			case "l2tp", "ipsec", "ikev2":
-				kind = "system"
+			case "cisco", "xauth":
+				kind = "ipsec"
 			}
 			if err := validName("vpn", name); err != nil {
 				return err
@@ -164,9 +167,9 @@ func vpnAddCmd() *cobra.Command {
 					return out.Usage("--check must be host:port")
 				}
 			}
-			for _, r := range []string{passwordRef} {
+			for _, r := range []string{passwordRef, pskRef} {
 				if r != "" && !vault.ValidRef(r) {
-					return out.Usage("invalid --password-ref %q: %s", r, vault.RefHelp())
+					return out.Usage("invalid reference %q: %s", r, vault.RefHelp())
 				}
 			}
 			v := &store.Vpn{Name: name, Kind: kind, Check: check, User: user, KeyRef: passwordRef, MFA: mfa,
@@ -242,6 +245,43 @@ func vpnAddCmd() *cobra.Command {
 				if passwordRef == "" {
 					v.MFA = true // without a stored password a person types it
 				}
+			case oneOf(kind, "l2tp", "ipsec", "ikev2"):
+				if err = need("server", server != ""); err != nil {
+					return err
+				}
+				if strings.HasPrefix(server, "-") || strings.Contains(server, "/") {
+					return out.Usage("--server must be a host name or address (host or host:port)")
+				}
+				v.Server, v.PSKRef, used["psk-ref"], used["user"], used["password-ref"] = server, pskRef, true, true, true
+				switch kind {
+				case "l2tp":
+					if pskRef == "" || user == "" {
+						return out.Usage("l2tp needs --psk-ref (the IPsec pre-shared key) and --user (the L2TP login); add --password-ref, or type the password at `komando vpn up`")
+					}
+				case "ipsec":
+					if pskRef == "" {
+						return out.Usage("ipsec needs --psk-ref (the group password) and usually --id (the group name) and --user")
+					}
+					v.LocalID, used["id"] = localID, true
+				case "ikev2":
+					if pskRef == "" && user == "" {
+						return out.Usage("ikev2 needs --psk-ref (a pre-shared key) or --user (an EAP login checked with the server's certificate)")
+					}
+					v.LocalID, v.RemoteID, used["id"], used["remote-id"], used["ca"] = localID, remoteID, true, true, true
+					if ca != "" {
+						b, err := os.ReadFile(expandHome(ca))
+						if err != nil {
+							return localFileErr("FILE_NOT_FOUND", err, "give the path of the CA certificate (PEM)")
+						}
+						if !strings.Contains(string(b), "-----BEGIN CERTIFICATE-----") {
+							return out.Usage("--ca must be a PEM certificate file")
+						}
+						v.CA = string(b)
+					}
+				}
+				if user != "" && passwordRef == "" {
+					v.MFA = true // a person types the password at `vpn up`
+				}
 			case kind == "openvpn":
 				if err = need("config", config != ""); err != nil {
 					return err
@@ -273,14 +313,14 @@ func vpnAddCmd() *cobra.Command {
 				return out.Usage("--os-mode is for openvpn")
 			}
 			for flag, val := range map[string]string{"config": config, "address": address, "portal": portal, "service": service,
-				"server": server, "user": user, "password-ref": passwordRef} {
+				"server": server, "user": user, "password-ref": passwordRef, "psk-ref": pskRef, "id": localID, "remote-id": remoteID, "ca": ca} {
 				if val != "" && !used[flag] {
 					return out.Usage("--%s is not used by %s VPNs", flag, kind)
 				}
 			}
 			now := time.Now().UTC()
 			v.CreatedAt, v.UpdatedAt = now, now
-			warnings := refWarnings(v.KeyRef)
+			warnings := refWarnings(v.KeyRef, v.PSKRef)
 			if g.dryRun {
 				// the same name checks the real add makes
 				st, err := loadState()
@@ -344,7 +384,11 @@ func vpnAddCmd() *cobra.Command {
 	f.StringVar(&address, "address", "", "socks: host:port of the proxy")
 	f.StringVar(&portal, "portal", "", "globalprotect, fortinet, anyconnect, pulse, f5: the VPN server or portal")
 	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings, so 'vpn up' can connect it")
-	f.StringVar(&server, "server", "", "tailscale: a Headscale login server URL")
+	f.StringVar(&server, "server", "", "l2tp, ipsec, ikev2: the VPN server (host or host:port); tailscale: a Headscale login server URL")
+	f.StringVar(&pskRef, "psk-ref", "", "l2tp, ipsec, ikev2: the pre-shared key (ipsec: the group password), as a reference like --password-ref")
+	f.StringVar(&localID, "id", "", "ipsec: the group name; ikev2: your identity (default: --user, or your address)")
+	f.StringVar(&remoteID, "remote-id", "", "ikev2: the server's identity, if not its --server name")
+	f.StringVar(&ca, "ca", "", "ikev2: the CA certificate (PEM) that signed the server's certificate, if not a public one")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
 	f.StringVar(&passwordRef, "password-ref", "", "password (tailscale: auth key) as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	f.BoolVar(&osMode, "os-mode", false, "openvpn: deprecated; run the openvpn program on this computer with sudo (changes its network) instead of komando's own client")
@@ -473,6 +517,8 @@ func vpnWhere(v *store.Vpn) string {
 		}
 	case "socks":
 		return v.Address
+	case "l2tp", "ipsec", "ikev2":
+		return v.Server
 	}
 	return dash(v.Check)
 }
