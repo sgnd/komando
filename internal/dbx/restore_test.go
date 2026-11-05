@@ -190,3 +190,16 @@ func TestScanMySQLDashes(t *testing.T) {
 		t.Errorf("DELIMITER with more text: want a refusal, got %v", err)
 	}
 }
+
+func TestSetTxTimeoutOff(t *testing.T) {
+	for s, want := range map[string]bool{
+		"SET transaction_timeout = 0;":    true,
+		"set transaction_timeout to '0';": true,
+		"SET transaction_timeout = 5000;": false,
+		"SET statement_timeout = 0;":      false,
+	} {
+		if setTxTimeoutOff.MatchString(s) != want {
+			t.Errorf("%q: want %v", s, want)
+		}
+	}
+}

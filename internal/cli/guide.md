@@ -116,6 +116,13 @@ Without `--write` the database itself refuses changes. `WRITE_REQUIRES_FLAG`
 run `psql`/`mysql` through `exec`: you lose the read-only guarantee and the
 structured rows, and the password shows up in the server's process list.
 
+Back up with `komando db dump <conn> --to FILE` (the file lands on this
+computer), never with `pg_dump`/`mysqldump` through `exec` and base64.
+`--on HOST` runs `pg_dump`/`mysqldump` on that inventory server (at low
+priority, password in its environment, backup streamed back over SSH), e.g.
+when the conn goes through a VPN and you need `--format custom`. Dry-run it
+first: `runs_on` says where it runs. `db restore` needs `--allow-dangerous`.
+
 **Caches** (Redis, Valkey): `cache get|keys|info <conn>` read, `cache set`
 changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run
 <conn> -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;

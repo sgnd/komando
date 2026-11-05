@@ -11,6 +11,7 @@ import (
 
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 func TestDisplayWidth(t *testing.T) {
@@ -143,17 +144,23 @@ func TestWriteReplacing(t *testing.T) {
 
 func TestToolFailedCodes(t *testing.T) {
 	for stderr, code := range map[string]string{
-		`pg_dump: error: FATAL:  password authentication failed for user "app"`: "DB_AUTH",
-		`mysqldump: Got error: 1045: Access denied for user 'shop'@'%'`:         "DB_AUTH",
-		`pg_dump: error: FATAL:  database "nodb" does not exist`:                "DB_NOT_FOUND",
-		`mysqldump: Got error: 1049: Unknown database 'nodb' when selecting`:    "DB_NOT_FOUND",
-		`psql:x.sql:3: ERROR:  relation "t" does not exist`:                     "TOOL_FAILED",
+		`pg_dump: error: FATAL:  password authentication failed for user "app"`:                                                                   "DB_AUTH",
+		`mysqldump: Got error: 1045: Access denied for user 'shop'@'%'`:                                                                           "DB_AUTH",
+		`pg_dump: error: FATAL:  database "nodb" does not exist`:                                                                                  "DB_NOT_FOUND",
+		`mysqldump: Got error: 1049: Unknown database 'nodb' when selecting`:                                                                      "DB_NOT_FOUND",
+		`psql:x.sql:3: ERROR:  relation "t" does not exist`:                                                                                       "TOOL_FAILED",
+		"pg_dump: server version: 14.10 (Debian 14.10-1.pgdg120+1); pg_dump version: 12.17\npg_dump: aborting because of server version mismatch": "TOOL_TOO_OLD",
+		"pg_dump: error: aborting because of server version mismatch\npg_dump: detail: server version: 17.0; pg_dump version: 16.4":               "TOOL_TOO_OLD",
+		`pg_restore: error: unsupported version (1.16) in file header`:                                                                            "TOOL_TOO_OLD",
+		`pg_dump: error: connection to server at "10.8.0.5", port 5432 failed: Connection refused`:                                                "CONN_UNREACHABLE",
+		`pg_dump: error: could not translate host name "db.internal" to address: Name or service not known`:                                       "CONN_UNREACHABLE",
+		`mysqldump: Got error: 2003: Can't connect to MySQL server on '10.0.0.3:3306' (111) when trying to connect`:                               "CONN_UNREACHABLE",
 	} {
-		e := toolFailed("tool", "local", 1, stderr, "c").(*out.Error)
+		e := toolFailed("tool", "local", 1, stderr, &store.Conn{Name: "c", URL: "postgres://app@10.8.0.5:5432/app"}, dumpTool{pkg: "postgresql-client"}).(*out.Error)
 		if e.Code != code {
 			t.Errorf("%q: %s", stderr, e.Code)
 		}
-		if code == "DB_AUTH" && e.Exit != out.ExitConnect || code == "DB_NOT_FOUND" && e.Exit != out.ExitNotFound {
+		if (code == "DB_AUTH" || code == "CONN_UNREACHABLE") && e.Exit != out.ExitConnect || code == "DB_NOT_FOUND" && e.Exit != out.ExitNotFound {
 			t.Errorf("%q: exit %d", stderr, e.Exit)
 		}
 	}

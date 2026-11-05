@@ -36,6 +36,9 @@ If `komando` is not installed, stop and ask the human to install it:
    only read unless you add `--write`.
 3. Edit files with `komando fs replace <target> <path> --old '...' --new '...' --backup`,
    never with `sed -i` over `exec`. Query databases with `komando db query`.
+   Back up databases with `komando db dump <conn> --to FILE` (add
+   `--on HOST` to run `pg_dump`/`mysqldump` on that server, at low priority),
+   never with `pg_dump` through `exec` and base64.
    Manage database users with `komando db user` and `komando db grant`
    (passwords as `--password-ref secret:NAME`, never `CREATE USER ... PASSWORD`
    in a query). After writing a systemd unit run `komando svc daemon-reload`;
