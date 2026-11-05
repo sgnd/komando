@@ -2,6 +2,8 @@ package cli
 
 import (
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -81,11 +83,52 @@ func vpnStatusRows(st *store.State) []vpnStatusRow {
 			r.Detail = "connects for each command"
 		} else {
 			r.Detail = "not connected"
+			r.LastEnd, r.LastLog = lastSessionEnd(v.Name, oneOf(v.Kind, "l2tp", "ipsec", "ikev2"))
 		}
 		rows[i] = r
 	}
 	wg.Wait()
 	return rows
+}
+
+// lastSessionEnd is why the VPN's last background session ended or did
+// not start, as its log says ("ENDED ..." or "ERROR ..."), cleaned for output.
+// With tail, it also returns the log's last lines (only for kinds whose
+// logs komando writes itself and keeps free of secrets).
+func lastSessionEnd(name string, tail bool) (string, []string) {
+	dir, err := vpnDir()
+	if err != nil {
+		return "", nil
+	}
+	b, err := os.ReadFile(filepath.Join(dir, name+".log"))
+	if err != nil {
+		return "", nil
+	}
+	last := ""
+	var lines []string
+	for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
+		if i := strings.Index(line, "ENDED "); i >= 0 && (i == 0 || line[i-1] == ' ') {
+			last = line[i+len("ENDED "):]
+			if i > 0 { // the time it ended
+				last = strings.TrimSpace(line[:i]) + ": " + last
+			}
+		} else if strings.HasPrefix(line, "ERROR ") {
+			last = strings.TrimPrefix(line, "ERROR ")
+		}
+		if len(line) > 300 {
+			line = line[:300]
+		}
+		lines = append(lines, cleanText(line))
+	}
+	if len(last) > 300 {
+		last = last[:300]
+	}
+	if !tail || last == "" {
+		lines = nil
+	} else if len(lines) > 15 {
+		lines = lines[len(lines)-15:]
+	}
+	return cleanText(last), lines
 }
 
 // refWarnings checks, at add time, that the secret references a VPN uses
@@ -115,7 +158,7 @@ func socksTunnel(st *store.State, addr string) string {
 }
 
 func vpnEditCmd() *cobra.Command {
-	var check, address, service, user, passwordRef, notes string
+	var check, address, service, user, passwordRef, notes, server, pskRef, localID, remoteID string
 	var groups, tags []string
 	var mfa bool
 	c := &cobra.Command{
@@ -125,16 +168,17 @@ func vpnEditCmd() *cobra.Command {
 new config file, add it again with --overwrite.`,
 		Example: `  komando vpn edit office --check 10.0.0.5:22
   komando vpn edit lab --address 127.0.0.1:1081
-  komando vpn edit client-x --password-ref secret:client-x-new`,
+  komando vpn edit client-x --password-ref secret:client-x-new
+  komando vpn edit kantor --server vpn2.kantor.id --psk-ref secret:kantor-psk-2`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f := cmd.Flags()
 			changed := false
-			for _, n := range []string{"check", "address", "service", "user", "password-ref", "notes", "group", "tag", "mfa"} {
+			for _, n := range []string{"check", "address", "service", "user", "password-ref", "notes", "group", "tag", "mfa", "server", "psk-ref", "id", "remote-id"} {
 				changed = changed || f.Changed(n)
 			}
 			if !changed {
-				return out.Usage("nothing to change: give at least one of --check, --address, --service, --user, --password-ref, --mfa, --notes, --group, --tag")
+				return out.Usage("nothing to change: give at least one of --check, --address, --service, --server, --user, --password-ref, --psk-ref, --id, --remote-id, --mfa, --notes, --group, --tag")
 			}
 			if check != "" {
 				if _, _, err := net.SplitHostPort(check); err != nil {
@@ -143,6 +187,9 @@ new config file, add it again with --overwrite.`,
 			}
 			if passwordRef != "" && !vault.ValidRef(passwordRef) {
 				return out.Usage("invalid --password-ref %q: %s", passwordRef, vault.RefHelp())
+			}
+			if pskRef != "" && !vault.ValidRef(pskRef) {
+				return out.Usage("invalid --psk-ref %q: %s", pskRef, vault.RefHelp())
 			}
 			var res *store.Vpn
 			apply := func(s *store.State) error {
@@ -157,7 +204,8 @@ new config file, add it again with --overwrite.`,
 					}
 					return nil
 				}
-				for flag, kinds := range map[string][]string{"address": {"socks"}, "service": {"system"}} {
+				for flag, kinds := range map[string][]string{"address": {"socks"}, "service": {"system"},
+					"server": {"l2tp", "ipsec", "ikev2"}, "psk-ref": {"l2tp", "ipsec", "ikev2"}, "id": {"ipsec", "ikev2"}, "remote-id": {"ikev2"}} {
 					if err := only(flag, kinds...); err != nil {
 						return err
 					}
@@ -179,6 +227,24 @@ new config file, add it again with --overwrite.`,
 				}
 				if f.Changed("service") {
 					v.Service = service
+				}
+				if f.Changed("server") {
+					if server == "" || strings.HasPrefix(server, "-") || strings.Contains(server, "/") {
+						return out.Usage("--server must be a host name or address (host or host:port)")
+					}
+					v.Server = server
+				}
+				if f.Changed("psk-ref") {
+					if pskRef == "" && v.Kind != "ikev2" {
+						return out.Usage("%s VPNs need --psk-ref", v.Kind)
+					}
+					v.PSKRef = pskRef
+				}
+				if f.Changed("id") {
+					v.LocalID = localID
+				}
+				if f.Changed("remote-id") {
+					v.RemoteID = remoteID
 				}
 				if f.Changed("user") {
 					v.User = user
@@ -221,7 +287,7 @@ new config file, add it again with --overwrite.`,
 			}
 			audit(nil, "vpn.edit", []string{args[0]}, "", true, nil)
 			data := map[string]any{"vpn": res}
-			if w := refWarnings(res.KeyRef); len(w) > 0 {
+			if w := refWarnings(res.KeyRef, res.PSKRef); len(w) > 0 {
 				data["warnings"] = w
 			}
 			out.P.Print("vpn.edit", data, nil)
@@ -232,6 +298,10 @@ new config file, add it again with --overwrite.`,
 	f.StringVar(&check, "check", "", "host:port reachable only through this VPN")
 	f.StringVar(&address, "address", "", "socks: host:port of the proxy")
 	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings")
+	f.StringVar(&server, "server", "", "l2tp, ipsec, ikev2: the VPN server")
+	f.StringVar(&pskRef, "psk-ref", "", "l2tp, ipsec, ikev2: the pre-shared key (ipsec: the group password)")
+	f.StringVar(&localID, "id", "", "ipsec: the group name; ikev2: your identity")
+	f.StringVar(&remoteID, "remote-id", "", "ikev2: the server's identity")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
 	f.StringVar(&passwordRef, "password-ref", "", "password as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO)")

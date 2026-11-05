@@ -106,11 +106,16 @@ func looseFiles() []string {
 // network, or "". Local addresses and conns reached through an SSH tunnel
 // (--via) are left out.
 func plainConn(c *store.Conn) string {
-	if c.Via != "" {
-		return ""
-	}
 	t, err := driver.Parse(c.URL)
 	if err != nil || t.Kind.File {
+		return ""
+	}
+	if t.Kind.Name == "registry" && t.TLS == "skip-verify" {
+		// flagged with --via too: the tunnel ends at the server on the
+		// path, and the registry is often further away (a public address)
+		return "encrypted, but the registry's certificate is not checked: store its CA with `komando secret set NAME < ca.crt` and use ?ca=secret:NAME instead of ?tls=skip-verify"
+	}
+	if c.Via != "" {
 		return ""
 	}
 	if host, _, err := net.SplitHostPort(t.Address); err == nil {

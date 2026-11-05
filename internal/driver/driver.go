@@ -73,7 +73,7 @@ func init() {
 	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
 		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
 	register(Kind{Name: "registry", Family: "registry", Schemes: []string{"registry", "oci"}, DefaultPort: 443,
-		Example: "registry://myuser@ghcr.io (Docker Hub: registry://myuser@docker.io; no TLS: ?tls=false)"})
+		Example: "registry://myuser@ghcr.io (Docker Hub: registry://myuser@docker.io; private CA: ?ca=secret:NAME; self-signed: ?tls=skip-verify; no TLS: ?tls=false)"})
 	register(Kind{Name: "s3", Family: "storage", Schemes: []string{"s3"},
 		Example: "s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1"})
 	register(Kind{Name: "ftps", Family: "storage", Schemes: []string{"ftps"}, DefaultPort: 21,
@@ -119,7 +119,8 @@ type Target struct {
 	Prefix   string `json:"prefix,omitempty"`   // storage: keys are relative to this folder
 	Region   string `json:"region,omitempty"`   // s3
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
-	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false)
+	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry: skip-verify (registry also false)
+	CA       string `json:"ca,omitempty"`       // registry: secret:NAME holding the PEM CA certificate to trust
 }
 
 // Where is the address or path, for display.
@@ -192,8 +193,13 @@ func Parse(raw string) (Target, error) {
 	t.Address = net.JoinHostPort(u.Hostname(), strconv.Itoa(port))
 	t.User = u.User.Username()
 	t.Database = strings.TrimPrefix(u.Path, "/")
-	if k.Name == "mysql" || k.Name == "registry" {
+	if k.Name == "mysql" {
 		t.TLS = u.Query().Get("tls")
+	}
+	if k.Name == "registry" {
+		if err := parseRegistryOptions(u.Query(), &t); err != nil {
+			return Target{}, err
+		}
 	}
 	if k.Name == "memcached" {
 		t.Secure = strings.EqualFold(u.Scheme, "memcacheds")
@@ -211,6 +217,44 @@ func Parse(raw string) (Target, error) {
 		}
 	}
 	return t, nil
+}
+
+// parseRegistryOptions reads a registry URL's options. TLS is checked
+// against the system's CAs unless the URL says otherwise:
+//
+//	?ca=secret:NAME    also trust the PEM CA certificate in the vault
+//	?tls=skip-verify   HTTPS without checking the certificate
+//	?tls=false         plain HTTP
+func parseRegistryOptions(q url.Values, t *Target) error {
+	for key := range q {
+		if key != "tls" && key != "ca" {
+			return out.Usage("unknown registry URL option %q (known: tls, ca)", key)
+		}
+	}
+	t.TLS, t.CA = q.Get("tls"), q.Get("ca")
+	switch t.TLS {
+	case "", "false", "skip-verify":
+	default:
+		return out.Errf(out.ExitUsage, "USAGE",
+			"leave tls out to check the certificate; for a private CA add ?ca=secret:NAME; ?tls=skip-verify turns the check off; ?tls=false is plain HTTP",
+			"registry tls option must be skip-verify or false, not %q", t.TLS)
+	}
+	if t.CA == "" {
+		if q.Has("ca") {
+			return out.Usage("registry ca option needs a secret: ?ca=secret:NAME")
+		}
+		return nil
+	}
+	name, ok := strings.CutPrefix(t.CA, "secret:")
+	if !ok || name == "" {
+		return out.Errf(out.ExitUsage, "USAGE",
+			"store the CA certificate with `komando secret set NAME < ca.crt`, then use ?ca=secret:NAME",
+			"registry ca option must be secret:NAME, not %q", t.CA)
+	}
+	if t.TLS != "" {
+		return out.Usage("registry ca= and tls=%s do not go together: with ca= the certificate is checked against that CA", t.TLS)
+	}
+	return nil
 }
 
 // parseFiles reads ftps://, ftp:// and sftp:// URLs. The path is the folder

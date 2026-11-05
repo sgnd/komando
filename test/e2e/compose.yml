@@ -43,6 +43,10 @@ services:
       # an Amazon ECR style name too, so komando's ECR login runs (checks/aws.sh)
       private: { aliases: [123456789012.dkr.ecr.us-east-1.amazonaws.com] }
       public: {}
+  regtls:
+    build: regtls  # HTTPS with a private CA; the name resolves only on the private network
+    networks:
+      private: { aliases: [registry.lab.test] }
   swarm:
     build: swarm
     privileged: true

@@ -216,7 +216,7 @@ Non-goal quotes used (vision.md, "Non-goals"):
 | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
 | Basic auth + bearer token (Docker Hub, GHCR, GitLab, Harbor, registry:2, Quay) | `docker login`, `crane auth`, `skopeo login`, `regctl registry login` | PRESENT | `registry.New`, token per scope, non-https realm rejected | - |
-| Registry without TLS / self-signed | `--insecure-registry`, `skopeo --tls-verify=false`, `regctl registry set --tls disabled` | PARTIAL | `?tls=false` (plain HTTP). No `skip-verify`/custom CA for self-signed HTTPS | P2 — internal Harbor with its own CA is common |
+| Registry without TLS / self-signed | `--insecure-registry`, `skopeo --tls-verify=false`, `regctl registry set --tls disabled` | PRESENT | `?tls=false` (plain HTTP), `?tls=skip-verify`, `?ca=secret:NAME` (private CA from the vault) | - |
 | AWS ECR (12-hour `get-login-password` token) | `aws ecr get-login-password`, `docker-credential-ecr-login`, `crane` (ecr helper) | PARTIAL | The docs claim ECR, but there is no SigV4 token generator; the token has to be copied manually into the vault and expires after 12 hours. `import docker` can read from the `ecr-login` helper only once | **P1** — the support claim cannot be used reliably; the agent gets stuck every 12 hours |
 | Google Artifact Registry / GCR | `gcloud auth configure-docker`, `docker-credential-gcr` | PARTIAL | Possible with user `_json_key` + the service account JSON as the secret (basic). `oauth2accesstoken` token (1 hour) without refresh | P2 |
 | Azure ACR (AAD token) | `az acr login`, `az acr repository list` | PARTIAL | Admin user / service principal (basic) works; AAD token exchange is missing | P3 |

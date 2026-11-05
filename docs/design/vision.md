@@ -87,7 +87,7 @@ Command names are always a **category**, not a product name.
 | `cluster` | orchestrator | k8s (k3s, EKS, GKE, AKS, kind), swarm; later: nomad | ✅ |
 | `registry` | oci | Docker Hub, GHCR, GitLab, Harbor, registry:2; ECR needs a refreshed token (see gap) | ✅ |
 | `secret` | secret | local vault; external refs: `vault:`, `aws-sm:`, `gcp-sm:`, `op://` (1Password Connect), `bw://`, `kdbx:` | ✅ |
-| `vpn` | path | wireguard, socks, system, tailscale, OpenVPN/Pritunl, AnyConnect, Fortinet/GlobalProtect/F5/Pulse (experimental), L2TP/IPsec (system). komando connects the VPN itself, with its own clients, when `--via` needs it | ✅ ([network.md](network.md), [built-in.md](built-in.md)) |
+| `vpn` | path | wireguard, socks, system, tailscale, OpenVPN/Pritunl, AnyConnect, Fortinet/GlobalProtect/F5/Pulse (experimental), L2TP/IPsec, Cisco-style IPsec (XAUTH), IKEv2. komando connects the VPN itself, with its own clients, when `--via` needs it | ✅ ([network.md](network.md), [built-in.md](built-in.md)) |
 
 Decisions (approved 2026-11-02):
 
