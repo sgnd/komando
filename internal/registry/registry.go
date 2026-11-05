@@ -5,6 +5,8 @@ package registry
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,17 +32,41 @@ type Client struct {
 	tokens   map[string]string // scope -> bearer token
 }
 
-// New makes a client. host is host[:port]; plain is for registries without
-// TLS (local registry:2). dial may be nil.
-func New(host string, plain bool, user, password string, dial func(ctx context.Context, network, addr string) (net.Conn, error)) *Client {
+// TLS says how a client talks to its registry. The zero value is HTTPS
+// with the certificate checked against the system's CAs.
+type TLS struct {
+	Plain      bool           // plain HTTP (a local registry:2)
+	SkipVerify bool           // HTTPS without checking the certificate
+	RootCAs    *x509.CertPool // the CAs to trust in place of the system's (nil = system)
+}
+
+// CAPool is the system's CAs plus the PEM certificates in pem, for a
+// registry with a certificate from a private CA (mkcert, an internal CA).
+func CAPool(pem []byte) (*x509.CertPool, error) {
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil {
+		pool = x509.NewCertPool()
+	}
+	if !pool.AppendCertsFromPEM(pem) {
+		return nil, fmt.Errorf("no PEM certificate found (it starts with -----BEGIN CERTIFICATE-----)")
+	}
+	return pool, nil
+}
+
+// New makes a client. host is host[:port]. dial may be nil; it gets the
+// host name, not an address, so a --via server resolves the name itself
+// (its /etc/hosts applies), while the certificate check and the Host
+// header keep using the name.
+func New(host string, t TLS, user, password string, dial func(ctx context.Context, network, addr string) (net.Conn, error)) *Client {
 	scheme := "https"
-	if plain {
+	if t.Plain {
 		scheme = "http"
 	}
 	if host == "docker.io" || host == "index.docker.io" {
 		host = "registry-1.docker.io"
 	}
-	tr := &http.Transport{TLSHandshakeTimeout: 15 * time.Second, ForceAttemptHTTP2: true}
+	tr := &http.Transport{TLSHandshakeTimeout: 15 * time.Second, ForceAttemptHTTP2: true,
+		TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: t.RootCAs, InsecureSkipVerify: t.SkipVerify}}
 	if dial != nil {
 		tr.DialContext = dial
 	}
