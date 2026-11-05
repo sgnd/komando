@@ -80,6 +80,8 @@ func hostStatus(r execHostResult) string {
 		return fmt.Sprintf("ok exit=%d", r.ExitCode)
 	case r.OK:
 		return "ok"
+	case r.Error != nil && r.Error.Code == "CONNECTION_LOST":
+		return "FAILED connection lost, outcome unknown"
 	case r.RunResult != nil && r.TimedOut:
 		return "FAILED timed out"
 	case r.RunResult != nil:
@@ -131,6 +133,12 @@ func execCmd() *cobra.Command {
 		Long: `Runs COMMAND through the remote login shell on every host matched by TARGET.
 Per-host stdout, stderr, exit_code and duration are returned. A non-zero exit
 on any host makes komando exit 5 (connection problems exit 4).
+
+If the connection breaks while the command runs, that server's result has
+error code CONNECTION_LOST (exit 4) and the output that came so far: the
+command may still be running there, or may have finished. Check with a
+read-only command before running it again. For long tasks over a shaky link
+use 'komando job start' and 'komando job wait': they survive a drop.
 
 Destructive commands (rm -rf /, mkfs, reboot, DROP DATABASE, ...) are blocked
 unless --allow-dangerous is given. Hosts marked protected need --yes unless
@@ -436,6 +444,8 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 				data.Results = append(data.Results, hr)
 				continue
 			}
+			// a lost connection keeps what the command printed before it broke
+			hr.RunResult, _ = r.Value.(*sshx.RunResult)
 			worst = worse(worst, hr.Error.Exit)
 			fails = append(fails, hostFail{host: hr.Host, reason: failReason(0, hr.Error), err: hr.Error})
 		} else {
@@ -564,6 +574,34 @@ func runOne(ctx context.Context, name, target, command string, sudo, mutating bo
 // probe runs a read-only command on all target hosts and lets parse turn
 // stdout into structured data.
 func probe(ctx context.Context, name, target, command string, sudo bool, parse func(h *store.Host, stdout string) (any, error)) error {
+	return probeText(ctx, name, target, command, sudo, parse, nil)
+}
+
+// probeRow is one host's answer to a probe.
+type probeRow struct {
+	Host     string     `json:"host"`
+	OK       bool       `json:"ok"`
+	Data     any        `json:"data,omitempty"`
+	ExitCode *int       `json:"exit_code,omitempty"`
+	Stderr   string     `json:"stderr,omitempty"`
+	Error    *out.Error `json:"error,omitempty"`
+}
+
+type probeData struct {
+	Results []probeRow   `json:"results"`
+	Summary fleetSummary `json:"summary"`
+}
+
+// probeTexter gives a probe its own -o text layout; the JSON is the same.
+type probeTexter struct {
+	probeData
+	text func(probeData) string
+}
+
+func (p probeTexter) Text() string { return p.text(p.probeData) }
+
+// probeText is probe with a text layout of its own (nil: the generic one).
+func probeText(ctx context.Context, name, target, command string, sudo bool, parse func(h *store.Host, stdout string) (any, error), text func(probeData) string) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -576,25 +614,14 @@ func probe(ctx context.Context, name, target, command string, sudo bool, parse f
 		out.P.Print(name, map[string]any{"hosts": hostNames(hosts), "would_run": command}, nil)
 		return nil
 	}
-	type row struct {
-		Host     string     `json:"host"`
-		OK       bool       `json:"ok"`
-		Data     any        `json:"data,omitempty"`
-		ExitCode *int       `json:"exit_code,omitempty"`
-		Stderr   string     `json:"stderr,omitempty"`
-		Error    *out.Error `json:"error,omitempty"`
-	}
 	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 		return sshx.Run(ctx, c, sshx.RunRequest{Command: command, Sudo: sudo, Timeout: cmdTimeout(st), MaxOutput: maxOutput(st)})
 	})
-	data := struct {
-		Results []row        `json:"results"`
-		Summary fleetSummary `json:"summary"`
-	}{Results: []row{}}
+	data := probeData{Results: []probeRow{}}
 	worst := 0
 	var fails []hostFail
 	for _, o := range res {
-		r := row{Host: o.Host.Name}
+		r := probeRow{Host: o.Host.Name}
 		if o.Err != nil {
 			r.Error = toErr(o.Err)
 			worst = worse(worst, r.Error.Exit)
@@ -640,5 +667,9 @@ func probe(ctx context.Context, name, target, command string, sudo bool, parse f
 	}
 	data.Summary.Total = len(res)
 	audit(st, name, hostNames(hosts), command, data.Summary.Failed == 0, nil)
-	return finishFleet(name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+	var shown any = data
+	if text != nil {
+		shown = probeTexter{data, text}
+	}
+	return finishFleet(name, shown, runSummary{fleetSummary: data.Summary}, worst, fails)
 }

@@ -70,6 +70,13 @@ check "secret never printed" False "$($K secret get agent-pass | jget '"value" i
 check "reveal needs a person" REVEAL_NEEDS_HUMAN "$($K secret get agent-pass --reveal </dev/null | jget 'd["error"]["code"]' || true)"
 check "secret in use cannot be removed" SECRET_IN_USE "$($K secret rm agent-pass | jget 'd["error"]["code"]' || true)"
 check "plain password refused as a ref" USAGE "$($K host add bad "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref agentpass | jget 'd["error"]["code"]' || true)"
+# renaming a secret moves every reference with it; the logins below prove the value survived the round trip
+check "secret mv updates the 3 servers" 3 "$($K secret mv agent-pass agent-pass-renamed | jget 'len(d["data"]["updated"])')"
+check "the server follows the rename" secret:agent-pass-renamed "$($K host show direct | jget 'd["data"]["password_ref"]')"
+check "secret mv back" 3 "$($K secret mv agent-pass-renamed agent-pass | jget 'len(d["data"]["updated"])')"
+$K secret cp agent-pass agent-pass-copy >/dev/null
+check "secret cp to a taken name needs --overwrite" SECRET_EXISTS "$($K secret cp agent-pass agent-pass-copy | jget 'd["error"]["code"]' || true)"
+$K secret rm agent-pass-copy >/dev/null
 
 check "completion lists the inventory" True "$($K __complete exec '' 2>/dev/null | grep -qx direct && echo True || echo False)"
 check "schema knows kind: selectors" True "$($K schema | jget '"kind:KIND" in d["data"]["target_selectors"]')"
@@ -90,6 +97,17 @@ check "exec -P 6 through one bastion" 6 "$($K exec @fan -P 6 --read-only -- host
 sleep 1
 check "the bastion saw one login for six servers" 1 "$(( $(logins) - before ))"
 $K host rm fan1 fan2 fan3 fan4 fan5 fan6 --yes >/dev/null
+# many servers at once: import a CSV, edit a group in one go, rename one
+CSV=$(mktemp)
+printf 'name,address,user,via,password-ref,groups,protected\nbulk1,target,agent,bastion,secret:agent-pass,bulk,no\nbulk2,target,agent,bastion,secret:agent-pass,bulk,yes\n' >"$CSV"
+check "import csv --dry-run adds nothing" 2 "$($K import csv "$CSV" --dry-run | jget 'len(d["data"]["hosts"])')"
+check "import csv" 2 "$($K import csv "$CSV" | jget 'len(d["data"]["hosts"])')"
+rm -f "$CSV"
+check "host edit @group stops at a protected server" PROTECTED_HOST "$($K host edit @bulk --user agent2 | jget 'd["error"]["code"]' || true)"
+check "host edit @group --yes changes both" 2 "$($K host edit @bulk -t bulked --user agent --yes | jget 'len(d["data"]["changed"])')"
+$K host mv bulk1 bulk-one --yes >/dev/null # same address as the protected target
+check "host mv keeps the server working" target "$($K exec bulk-one --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
+$K host rm bulk-one bulk2 --yes >/dev/null
 set +e
 $K exec direct -- 'exit 3' >/dev/null; check "non-zero exit -> 5" 5 $?
 $K exec direct -- 'rm -rf /' >/dev/null; check "policy blocks rm -rf /" 6 $?
@@ -149,6 +167,10 @@ printf '#!/bin/sh\nwhoami\n' > "$TMP/who.sh"
 check "sudo with password" root "$($K exec ops --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "sudo password then stdin" payload "$($K exec ops --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "script with sudo password" root "$($K script ops "$TMP/who.sh" --sudo | jget 'd["data"]["results"][0]["stdout"].strip()')"
+SJ=$($K job start ops --sudo -- 'whoami; cat; echo end' | jget 'd["data"]["jobs"][0]["id"]')
+check "job with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
+check "job with sudo password runs as root" "root end" "$($K job logs "$SJ" | jget '" ".join(d["data"]["content"].split())')"
+check "job sudo password file is deleted" False "$($K fs stat ops ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
 # sudo never asks on a NOPASSWD host, so the password must not reach the command
 $K host edit direct --sudo-ref secret:agent-pass >/dev/null
 check "unasked sudo password not leaked" False "$($K script direct "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
@@ -166,6 +188,9 @@ echo "==> jobs"
 JID=$($K job start direct -- 'echo a; sleep 1; echo b' | jget 'd["data"]["jobs"][0]["id"]')
 check "job wait ok" exited "$($K job wait "$JID" --interval 1s | jget 'd["data"]["state"]')"
 check "job logs" "a b" "$($K job logs "$JID" | jget '" ".join(d["data"]["content"].split())')"
+J2=$($K job start direct -- 'exit 3' | jget 'd["data"]["jobs"][0]["id"]')
+set +e; $K job wait "$JID" "$J2" --interval 1s >/dev/null; check "job wait several: worst exit" 5 $?; set -e
+check "job wait several" 1 "$($K job wait "$JID" "$J2" --interval 1s | jget 'd["data"]["summary"]["ok"]' || true)"
 check "exec gets a vault secret as env" match "$($K exec direct -e P=secret:agent-pass -- 'test "$P" = agentpass && echo match' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 JID=$($K job start direct -e P=secret:agent-pass -- 'test "$P" = agentpass && echo job-match' | jget 'd["data"]["jobs"][0]["id"]')
 $K job wait "$JID" --interval 1s >/dev/null
@@ -201,7 +226,12 @@ $K tunnel stop --all >/dev/null
 check "open bind needs --yes" OPEN_BIND "$($K tunnel start target -L 0.0.0.0:0:localhost:22 | jget 'd["error"]["code"]' || true)"
 
 echo "==> modules"
-check "facts os" debian "$($K facts direct | jget 'd["data"]["results"][0]["data"]["os"]')"
+FACTS=$($K facts direct)
+check "facts os" debian "$(echo "$FACTS" | jget 'd["data"]["results"][0]["data"]["os"]')"
+check "facts os support status" True "$(echo "$FACTS" | jget 'd["data"]["results"][0]["data"]["os_support"]["status"] in ("supported", "extended", "unsupported", "unknown")')"
+check "facts sudo_nopasswd known" True "$(echo "$FACTS" | jget 'd["data"]["results"][0]["data"]["sudo_nopasswd"] in (True, False)')"
+check "facts sees sshd listening" True "$(echo "$FACTS" | jget '22 in [p["port"] for p in d["data"]["results"][0]["data"]["listening"]["ports"]]')"
+check "test results carry host" direct "$($K test direct | jget 'd["data"]["results"][0]["host"]')"
 check "net check private" False "$($K net check direct target:22 | jget 'd["data"]["results"][0]["data"][0]["open"]')"
 $K cron set direct t1 'true' --schedule '@daily' >/dev/null
 check "cron set idempotent" 1 "$($K cron set direct t1 'true' --schedule '@daily' >/dev/null; $K cron list direct | jget 'len(d["data"]["results"][0]["data"])')"
@@ -285,6 +315,19 @@ q $K db restore pg --from "$TMP/t2.dump" --allow-dangerous
 check "pg_restore brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K db dump pg --to "$TMP/schema.sql" --schema-only
 check "schema-only dump has no rows" 0 "$(grep -c "COPY public.t " "$TMP/schema.sql" || true)"
+# --on HOST: pg_dump/pg_restore run on a chosen server, whatever the conn's own path
+q $K conn add pg-on 'postgres://app@pg:5432/app?sslmode=disable' --password-ref secret:pg-pass
+check "custom dump without a server names --on" True "$($K db dump pg-on --to "$TMP/on0.dump" --format custom | jget '"--on HOST" in d["error"]["message"]' || true)"
+check "dump --on dry run says where and how" "bastion True" "$($K db dump pg-on --to "$TMP/on.dump" --format custom --on bastion --dry-run | jget 'd["data"]["runs_on"] + " " + str(d["data"]["low_priority"])')"
+q $K db dump pg-on --to "$TMP/on.dump" --format custom --table public.t2 --on bastion
+check "dump --on writes a pg archive" PGDMP "$(head -c 5 "$TMP/on.dump")"
+check "dump --on from a server that cannot reach the database" CONN_UNREACHABLE "$($K db dump pg-on --to "$TMP/on2.sql" --on direct | jget 'd["error"]["code"]' || true)"
+q $K db query pg --write --allow-dangerous "drop table t2"
+check "restore --on needs --allow-dangerous" POLICY_BLOCKED "$($K db restore pg-on --from "$TMP/on.dump" --on bastion | jget 'd["error"]["code"]' || true)"
+q $K db restore pg-on --from "$TMP/on.dump" --on bastion --allow-dangerous
+check "pg_restore --on brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "audit names where the dump ran" bastion "$($K audit -n 50 | jget '" ".join(sorted({e.get("runs_on", "") for e in d["data"]["entries"] if e.get("command") == "db.dump" and str(e.get("file", "")).endswith("/on.dump")}))')"
+q $K conn rm pg-on
 
 # mariadb (protected): --yes, dump and restore through bastion
 set +e; $K db query maria --write "create table p(id int primary key)" >/dev/null; check "protected conn needs --yes" 6 $?; set -e

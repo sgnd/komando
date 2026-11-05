@@ -23,7 +23,7 @@ const (
 	ExitError    = 1 // generic / internal error
 	ExitUsage    = 2 // bad flags or arguments
 	ExitNotFound = 3 // host, key, secret, job ... not found
-	ExitConnect  = 4 // ssh connection / auth / host-key failure
+	ExitConnect  = 4 // ssh connection / auth / host-key failure; CONNECTION_LOST: broke mid-command
 	ExitRemote   = 5 // remote command ran but exited non-zero
 	ExitPolicy   = 6 // blocked by safety policy (needs --yes / --allow-dangerous)
 	ExitTimeout  = 7 // command or connection timed out

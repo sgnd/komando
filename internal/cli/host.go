@@ -83,8 +83,8 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 }
 
 func hostCmd() *cobra.Command {
-	c := &cobra.Command{Use: "host", Aliases: []string{"hosts"}, Short: "Manage the server inventory (add, edit, import ~/.ssh/config, test, trust)"}
-	c.AddCommand(hostAddCmd(), hostEditCmd(), alias(listCmdFor("host"), "list kind:host"), hostShowCmd(), hostRmCmd(), hostImportCmd(), hostExportCmd(), alias(testCmdFor("host"), "test"), hostTrustCmd(), hostSSHArgsCmd())
+	c := &cobra.Command{Use: "host", Aliases: []string{"hosts"}, Short: "Manage the server inventory (add, edit, rename, import, test, trust)"}
+	c.AddCommand(hostAddCmd(), hostEditCmd(), hostMvCmd(), alias(listCmdFor("host"), "list kind:host"), hostShowCmd(), hostRmCmd(), hostImportCmd(), hostExportCmd(), alias(testCmdFor("host"), "test"), hostTrustCmd(), hostSSHArgsCmd())
 	return c
 }
 
@@ -209,12 +209,20 @@ func hostEditCmd() *cobra.Command {
 	var f hostFlags
 	var rename string
 	c := &cobra.Command{
-		Use:   "edit NAME",
-		Short: "Edit a host (only flags you pass are changed)",
+		Use:   "edit NAME|TARGET...",
+		Short: "Edit one or more hosts (only flags you pass are changed)",
+		Long: `Changes only the settings you pass. Give one name, several names, or a
+selector (@group, tag:prod, 'web-*') to change many servers at once.
+Changing the login (--user, --key, --password-ref, --sudo-ref, --via, ...)
+of protected servers, or turning their protection off, needs --yes: one yes
+covers every server in the command, and the question lists them all. Try
+--dry-run first to see which servers would change.`,
 		Example: `  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo
   komando host edit web1 -g web -t prod          # -g/-t add a group/tag
-  komando host edit db1 --via bastion --yes      # db1 is protected`,
-		Args: cobra.ExactArgs(1),
+  komando host edit db1 --via bastion --yes      # db1 is protected
+  komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run
+  komando host edit web1 web2 web3 --user deploy`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
 			if len(changedFlags(cmd)) == 0 {
@@ -229,141 +237,242 @@ func hostEditCmd() *cobra.Command {
 				return err
 			}
 			var res hostResult
+			var many hostEditResult
+			single := false
 			err := store.Update(func(s *store.State) error {
-				h, err := findHost(s, args[0])
+				hosts, err := pickHosts(s, args)
 				if err != nil {
 					return err
 				}
-				before, _ := json.Marshal(h)
-				wasProtected := h.Protected
-				conn := *h // the connection settings before the edit
-				set := func(name string, dst *string, v string) {
-					if fl.Changed(name) {
-						*dst = v
+				_, ferr := findHost(s, args[0])
+				single = len(args) == 1 && ferr == nil
+				if !single {
+					for _, flag := range []string{"address", "rename"} {
+						if fl.Changed(flag) {
+							return out.Errf(out.ExitUsage, "USAGE", "edit the servers one at a time for this, e.g. komando host edit "+hosts[0].Name+" --"+flag+" ...",
+								"--%s gives one server a value no other server should share; it takes one NAME, not %d servers", flag, len(hosts))
+						}
 					}
 				}
-				set("address", &h.Address, normAddr(f.address))
-				set("user", &h.User, f.user)
-				set("key", &h.Key, f.key)
-				set("identity", &h.Identity, f.identity)
-				set("password-ref", &h.PasswordRef, f.passwordRef)
-				set("sudo-ref", &h.SudoRef, f.sudoRef)
-				set("via", &h.Via, f.jump)
-				set("proxy-command", &h.ProxyCommand, f.proxyCommand)
-				if f.ssm {
-					h.ProxyCommand = ssmProxy
+				type edit struct {
+					h      *store.Host
+					before []byte
 				}
-				set("notes", &h.Notes, f.notes)
-				if fl.Changed("port") {
-					h.Port = f.port
-				}
-				if fl.Changed("protected") {
-					h.Protected = f.protected
-				}
-				if err := checkHostRefs(h); err != nil {
-					return err
-				}
-				if h.Key != "" {
-					if _, ok := s.Keys[h.Key]; !ok {
-						return keyNotFound(s, h.Key)
+				var edits []edit
+				var off, login []string
+				for _, h := range hosts {
+					before, _ := json.Marshal(h)
+					conn := *h // the connection settings before the edit
+					if err := applyHostEdit(h, &f, fl); err != nil {
+						return editErr(err, h.Name, single)
 					}
-				}
-				h.Groups = dedupe(append(removeFold(h.Groups, f.rmGroups), f.addGroups...))
-				h.Tags = dedupe(append(removeFold(h.Tags, f.rmTags), f.addTags...))
-				if err := applyKV(&h.Labels, f.labels); err != nil {
-					return err
-				}
-				if err := applyKV(&h.Env, f.env); err != nil {
-					return err
-				}
-				if err := checkEnvKeys(h.Env); err != nil {
-					return err
-				}
-				for _, u := range f.unset {
-					switch u {
-					case "user":
-						h.User = ""
-					case "key":
-						h.Key = ""
-					case "identity":
-						h.Identity = ""
-					case "password-ref":
-						h.PasswordRef = ""
-					case "sudo-ref":
-						h.SudoRef = ""
-					case "via", "jump":
-						h.Via = ""
-					case "proxy-command":
-						h.ProxyCommand = ""
-					case "notes":
-						h.Notes = ""
-					case "port":
-						h.Port = 0
-					case "protected":
-						h.Protected = false
-					default:
-						return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, password-ref, sudo-ref, via, proxy-command, notes, port, protected",
-							"cannot unset %q", u)
+					if h.Key != "" {
+						if _, ok := s.Keys[h.Key]; !ok {
+							return keyNotFound(s, h.Key)
+						}
 					}
+					if conn.Protected && !h.Protected {
+						off = append(off, h.Name)
+					}
+					if conn.Protected && hostConnChanged(&conn, h) {
+						login = append(login, h.Name)
+					}
+					edits = append(edits, edit{h, before})
 				}
-				if wasProtected && !h.Protected {
-					if err := guardProtection("host", "turning off protection of", []string{h.Name}); err != nil {
+				if err := guardHostEdit(hosts, off, login, single); err != nil {
+					return err
+				}
+				if rename != "" && rename != hosts[0].Name {
+					if _, err := renameHost(s, hosts[0].Name, rename); err != nil {
 						return err
 					}
 				}
-				if wasProtected && hostConnChanged(&conn, h) {
-					if err := guardProtection("host", "changing where or how komando logs in to", []string{h.Name}); err != nil {
-						return err
+				for _, e := range edits {
+					h := e.h
+					if err := checkHost(s, h); err != nil {
+						return editErr(err, h.Name, single)
 					}
+					var warnings []string
+					if !h.Protected {
+						if twin := protectedTwinHost(s, h); twin != "" {
+							h.Protected = true
+							warnings = append(warnings, sameTwinWarning("server", h.Name, twin))
+						}
+					}
+					after, _ := json.Marshal(h)
+					ch := string(e.before) != string(after)
+					if ch {
+						h.UpdatedAt = time.Now().UTC()
+						many.Changed = append(many.Changed, h.Name)
+					} else {
+						many.Unchanged = append(many.Unchanged, h.Name)
+					}
+					if h.Protected {
+						many.Protected = append(many.Protected, h.Name)
+					}
+					many.Hosts = append(many.Hosts, h)
+					many.Warnings = append(many.Warnings, warnings...)
+					res.Host, res.Changed, res.Warnings = h, &ch, warnings
 				}
-				if rename != "" && rename != h.Name {
-					if err := validName("host", rename); err != nil {
-						return err
-					}
-					if kind, existing, ok := s.FindName(rename); ok && existing != h.Name {
-						return nameTaken(kind, existing)
-					}
-					delete(s.Hosts, h.Name)
-					old := h.Name
-					h.Name = rename
-					s.Hosts[rename] = h
-					for _, o := range s.Hosts { // keep --via references valid
-						o.Via = renameStep(o.Via, old, rename)
-					}
-					for _, c := range s.Conns {
-						c.Via = renameStep(c.Via, old, rename)
-					}
-				}
-				if err := checkHost(s, h); err != nil {
-					return err
-				}
-				if !h.Protected {
-					if twin := protectedTwinHost(s, h); twin != "" {
-						h.Protected = true
-						res.Warnings = append(res.Warnings, sameTwinWarning("server", h.Name, twin))
-					}
-				}
-				after, _ := json.Marshal(h)
-				ch := string(before) != string(after)
-				if ch {
-					h.UpdatedAt = time.Now().UTC()
-				}
-				res.Host, res.Changed = h, &ch
 				return nil
 			})
 			if err != nil {
 				return err
 			}
-			if *res.Changed {
-				audit(nil, "host.edit", []string{res.Name}, "", true, map[string]any{"flags": changedFlags(cmd)})
+			if single {
+				if *res.Changed {
+					audit(nil, "host.edit", []string{res.Name}, "", true, map[string]any{"flags": changedFlags(cmd)})
+				}
+				out.P.Print("host.edit", res, nil)
+				return nil
 			}
-			out.P.Print("host.edit", res, nil)
+			if len(many.Changed) > 0 {
+				audit(nil, "host.edit", many.Changed, "", true, map[string]any{"flags": changedFlags(cmd), "targets": args})
+			}
+			many.Changed, many.Unchanged = orEmpty(many.Changed), orEmpty(many.Unchanged)
+			out.P.Print("host.edit", many, nil)
 			return nil
 		},
 	}
 	f.bind(c, true)
 	c.Flags().StringVar(&rename, "rename", "", "rename the host")
+	_ = c.Flags().MarkDeprecated("rename", "use `komando host mv OLD NEW`")
 	return c
+}
+
+// hostEditResult is what host edit prints for several servers.
+type hostEditResult struct {
+	Changed   []string      `json:"changed"`             // names of the servers the edit changed
+	Unchanged []string      `json:"unchanged"`           // already as asked
+	Protected []string      `json:"protected,omitempty"` // which of them are protected
+	Hosts     []*store.Host `json:"hosts"`               // every server, after the edit
+	Warnings  []string      `json:"warnings,omitempty"`
+}
+
+func (r hostEditResult) Text() string {
+	verb := "changed"
+	if g.dryRun {
+		verb = "would change"
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "%s: %s\n", verb, dash(strings.Join(r.Changed, ", ")))
+	if len(r.Unchanged) > 0 {
+		fmt.Fprintf(&sb, "unchanged: %s\n", strings.Join(r.Unchanged, ", "))
+	}
+	if len(r.Protected) > 0 {
+		fmt.Fprintf(&sb, "protected: %s\n", strings.Join(r.Protected, ", "))
+	}
+	for _, w := range r.Warnings {
+		fmt.Fprintf(&sb, "warning: %s\n", w)
+	}
+	return sb.String()
+}
+
+// editErr names the server an edit of several failed on.
+func editErr(err error, name string, single bool) error {
+	if single {
+		return err
+	}
+	if e, ok := err.(*out.Error); ok {
+		c := *e
+		c.Message = name + ": " + c.Message
+		return &c
+	}
+	return fmt.Errorf("%s: %w", name, err)
+}
+
+// guardHostEdit asks once for every protected server whose protection the
+// edit turns off (off) or whose login it changes (login). With several
+// servers the question lists all of them and marks the protected ones.
+func guardHostEdit(hosts []*store.Host, off, login []string, single bool) error {
+	var names []string
+	for _, h := range hosts {
+		if slices.Contains(off, h.Name) || slices.Contains(login, h.Name) {
+			names = append(names, h.Name)
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	action := "changing where or how komando logs in to"
+	switch {
+	case len(login) == 0:
+		action = "turning off protection of"
+	case len(off) > 0:
+		action = "turning off protection of, or changing the login of,"
+	}
+	if single {
+		return guardProtection("host", action, names)
+	}
+	all := hostNames(hosts)
+	return guardProtectionWhy("host", action, names,
+		fmt.Sprintf("this edit changes %d servers: %s (protected: %s)", len(all), strings.Join(all, ", "), strings.Join(names, ", ")))
+}
+
+// applyHostEdit applies the edit flags to h.
+func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
+	set := func(name string, dst *string, v string) {
+		if fl.Changed(name) {
+			*dst = v
+		}
+	}
+	set("address", &h.Address, normAddr(f.address))
+	set("user", &h.User, f.user)
+	set("key", &h.Key, f.key)
+	set("identity", &h.Identity, f.identity)
+	set("password-ref", &h.PasswordRef, f.passwordRef)
+	set("sudo-ref", &h.SudoRef, f.sudoRef)
+	set("via", &h.Via, f.jump)
+	set("proxy-command", &h.ProxyCommand, f.proxyCommand)
+	if f.ssm {
+		h.ProxyCommand = ssmProxy
+	}
+	set("notes", &h.Notes, f.notes)
+	if fl.Changed("port") {
+		h.Port = f.port
+	}
+	if fl.Changed("protected") {
+		h.Protected = f.protected
+	}
+	h.Groups = dedupe(append(removeFold(h.Groups, f.rmGroups), f.addGroups...))
+	h.Tags = dedupe(append(removeFold(h.Tags, f.rmTags), f.addTags...))
+	if err := applyKV(&h.Labels, f.labels); err != nil {
+		return err
+	}
+	if err := applyKV(&h.Env, f.env); err != nil {
+		return err
+	}
+	if err := checkEnvKeys(h.Env); err != nil {
+		return err
+	}
+	for _, u := range f.unset {
+		switch u {
+		case "user":
+			h.User = ""
+		case "key":
+			h.Key = ""
+		case "identity":
+			h.Identity = ""
+		case "password-ref":
+			h.PasswordRef = ""
+		case "sudo-ref":
+			h.SudoRef = ""
+		case "via", "jump":
+			h.Via = ""
+		case "proxy-command":
+			h.ProxyCommand = ""
+		case "notes":
+			h.Notes = ""
+		case "port":
+			h.Port = 0
+		case "protected":
+			h.Protected = false
+		default:
+			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, password-ref, sudo-ref, via, proxy-command, notes, port, protected",
+				"cannot unset %q", u)
+		}
+	}
+	return checkHostRefs(h)
 }
 
 // hostConnChanged: the edit changes which server komando reaches or how it
@@ -509,7 +618,7 @@ func hostRmCmd() *cobra.Command {
 			err := store.Update(func(s *store.State) error {
 				var prot []string
 				batch := map[string]bool{}
-				hosts, err := rmHosts(s, args)
+				hosts, err := pickHosts(s, args)
 				if err != nil {
 					return err
 				}

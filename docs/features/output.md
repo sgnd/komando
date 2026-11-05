@@ -38,9 +38,10 @@ instead. Force either with `-o text` or `-o json`, or set `KOMANDO_OUTPUT`.
 |-------|---------|
 | `ok` | `true` only when everything succeeded |
 | `command` | the command, dotted (`exec`, `db.query`, `svc.restart`) |
-| `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary` |
+| `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...). `test` results also have `name`, the same value, kept for older scripts: use `host` |
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when only some servers failed (`PARTIAL_FAILURE`) |
 | `error.hint` | always says what to try next |
+| `null` | komando could not find out (for example `facts` without the rights to read something). It never stands in for `0` or `false` |
 | `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run; `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails) |
 
 ## Exit codes
@@ -51,7 +52,7 @@ instead. Force either with `-o text` or `-o json`, or set `KOMANDO_OUTPUT`.
 | 1 | general error | `AUDIT_UNAVAILABLE` |
 | 2 | wrong command, flag or value | `USAGE`, `HIDDEN_VALUE`, `NEEDS_TERMINAL` |
 | 3 | not found | `TARGET_NOT_FOUND`, `FILE_NOT_FOUND`, `TOOL_MISSING` |
-| 4 | cannot connect or log in | `AUTH_FAILED`, `HOSTKEY_MISMATCH`, `VPN_LOGIN_REQUIRED` |
+| 4 | cannot connect or log in, or the connection broke | `AUTH_FAILED`, `HOSTKEY_MISMATCH`, `VPN_LOGIN_REQUIRED`, `CONNECTION_LOST` |
 | 5 | the command failed on the server | `FAILED`, `ROLLOUT_FAILED` |
 | 6 | blocked for safety | `POLICY_BLOCKED`, `PROTECTED_HOST`, `WRITE_REQUIRES_FLAG` |
 | 7 | timed out | `TIMEOUT`, `ROLLOUT_TIMEOUT` |
@@ -69,6 +70,9 @@ machine-readable reference is `komando schema`.
 | `CONNECTION_REFUSED`, `CONNECT_TIMEOUT` | server down, wrong port, firewall | check the address and port; `--connect-timeout 30s` |
 | `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting | confirm with your provider first, then `komando host trust NAME --reset --yes` (a person decides; an agent reports it) |
 | `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando secret list` |
+| `SECRET_IN_USE` | `secret rm` of a secret that something still uses | point them elsewhere, or rename it with `komando secret mv OLD NEW` |
+| `SECRET_EXISTS` | `secret mv` or `secret cp` to a name that is taken | pick another name, or add `--overwrite` |
+| `SECRET_MISMATCH` | `secret check`: the value entered is not the stored one | `data.difference` says how they differ; `komando secret set NAME` stores the right one |
 | `sudo: a password is required` | sudo needs a password | `komando host edit NAME --sudo-ref secret:NAME` |
 | `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA, sudo) | a person runs `komando vpn up NAME` once |
 | `AWS_LOGIN_REQUIRED` | the AWS SSO login has expired | a person runs `komando login aws --profile NAME` |
@@ -83,6 +87,7 @@ machine-readable reference is `komando schema`.
 | `PARTIAL_FAILURE` | some servers failed, others did not | read `data.results` for each server's exit code and stderr |
 | `PORT_IN_USE` | the local port is taken | pick another port, or `0` for a free one |
 | `NEEDS_TERMINAL` | an interactive command (`shell`) run by a program | agents use `exec`, `cluster exec` or `job` |
+| `CONNECTION_LOST` | the link broke while the command ran; it may still be running, or may have finished | check with a read-only command before running it again; use `komando job start` over a shaky link ([details](commands.md#when-the-connection-drops)) |
 | `TIMEOUT` | the command took too long | `--timeout 30m`, or `komando job start` for long work |
 
 `komando doctor` checks your local setup, the inventory and its security.

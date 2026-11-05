@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -175,6 +176,9 @@ func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 	}
 	sess, err := c.NewSession()
 	if err != nil {
+		if c.lost() {
+			return nil, lostError(c, false)
+		}
 		return nil, err
 	}
 	defer sess.Close()
@@ -200,6 +204,10 @@ func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 		sess.Stdin = bytes.NewReader(r.Stdin)
 	}
 	if err := sess.Start(cmd); err != nil {
+		if c.lost() {
+			// the request to start it went out: it may have started
+			return res0(start, stdout, stderr), lostError(c, true)
+		}
 		return nil, err
 	}
 	done := make(chan error, 1)
@@ -236,6 +244,13 @@ func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 		case errors.As(err, &ee):
 			res.ExitCode = ee.ExitStatus()
 			res.Signal = ee.Signal()
+		case c.lost():
+			// the connection broke before the exit code came: what the
+			// command printed so far goes with the error
+			if gate != nil {
+				gate.flush()
+			}
+			return res0(start, stdout, stderr), lostError(c, true)
 		case errors.As(err, &me):
 			res.ExitCode = -1
 		default:
@@ -252,6 +267,42 @@ func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 	res.StdoutTruncated, res.StderrTruncated = stdout.truncated, stderr.truncated
 	res.DurationMS = time.Since(start).Milliseconds()
 	return res, nil
+}
+
+// lost reports a connection that broke: closed for silence by keepalive,
+// or no longer answering.
+func (c *Client) lost() bool {
+	if c == nil || c.Client == nil {
+		return false
+	}
+	return c.silent.Load() || !answers(c.Client, 5*time.Second)
+}
+
+// lostError is CONNECTION_LOST. started: the command may have run (or
+// still runs) on the server; else it never started.
+func lostError(c *Client, started bool) error {
+	name := "the server"
+	if c.Host != nil && c.Host.Name != "" {
+		name = c.Host.Name
+	}
+	why := ""
+	if c.silent.Load() {
+		why = fmt.Sprintf(" (no answer from the server for about %s)", 2*keepaliveEvery())
+	}
+	if !started {
+		return out.Errf(out.ExitConnect, "CONNECTION_LOST", "check the link with `komando test "+name+"`, then run it again",
+			"the connection to %s was lost before the command started%s; it did not run", name, why)
+	}
+	return out.Errf(out.ExitConnect, "CONNECTION_LOST",
+		"do not just run it again: first check on the server with a read-only command whether it finished (its log, `ps`, the change it makes), e.g. `komando exec "+name+" --read-only -- 'ps -ef'`; for long tasks over a shaky link use `komando job start` and `komando job wait`, which survive a dropped connection",
+		"the connection to %s was lost while the command was running%s; the command may still be running there, or it may have finished: komando cannot tell", name, why)
+}
+
+// res0 is what came before the connection broke. The exit code is not
+// known: -1.
+func res0(start time.Time, stdout, stderr *limitedBuf) *RunResult {
+	return &RunResult{ExitCode: -1, Stdout: stdout.buf.String(), Stderr: stderr.buf.String(),
+		StdoutTruncated: stdout.truncated, StderrTruncated: stderr.truncated, DurationMS: time.Since(start).Milliseconds()}
 }
 
 // sudoGate sits on the stderr of a "sudo -S" session. It answers the first

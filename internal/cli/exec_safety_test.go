@@ -32,6 +32,9 @@ type fakeServer struct {
 
 type fakeExec struct{ cmd, stdin string }
 
+// dropMark as a reply chunk breaks the connection there.
+const dropMark = "\x00drop"
+
 func (s *fakeServer) take() []fakeExec {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -143,6 +146,10 @@ func (s *fakeServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 						close(read)
 					}()
 					for _, c := range chunks {
+						if c == dropMark { // the link breaks mid-command
+							_ = nc.Close()
+							return
+						}
 						_, _ = ch.Write([]byte(c))
 						time.Sleep(40 * time.Millisecond)
 					}

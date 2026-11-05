@@ -9,7 +9,7 @@ One page per feature, task by task. New here? Start with the
 | [Moving in and moving computers](import.md) | import ssh config, .pgpass, my.cnf, .env; export to another computer | `import`, `export` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |
 | [Running commands](commands.md) | run commands and scripts, long tasks, saved commands | `exec`, `script`, `job`, `recipe`, `shell` |
-| [Health and network checks](health.md) | what is this server, is it healthy, can it reach X | `facts`, `recipe`, `net` |
+| [Health and network checks](health.md) | what is this server, is it healthy, can it reach X, when do certificates expire | `facts`, `recipe`, `net`, `cert` |
 | [Files](files.md) | read, edit and copy files safely; copy whole folders | `fs`, `upload`, `download`, `cp`, `sync` |
 | [Services, logs, Docker, packages, users](system.md) | day-to-day administration | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
 | [Private servers and tunnels](tunnels.md) | reach servers and services that are not on the internet | `--via`, `tunnel` |

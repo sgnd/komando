@@ -36,6 +36,17 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - `komando vpn status` shows why a VPN's last session ended (`last_end`),
   and for `l2tp`, `ipsec` and `ikev2` the last lines of its log
   (`last_log`), so an agent can tell why without reading `~/.komando`.
+- `db dump --on HOST` runs pg_dump or mysqldump on a server you choose,
+  whatever the conn's own path (for example a conn through a VPN), so
+  `--format custom` works there too. It runs at low priority (nice, ionice),
+  keeps the password in the tool's environment and streams the backup back
+  over SSH; `runs_on` and `low_priority` in the answer and the audit say
+  where and how. `db restore --on HOST` loads a PostgreSQL archive with
+  pg_restore there, behind the same `--allow-dangerous` gate.
+- New errors with hints: `TOOL_TOO_OLD` (pg_dump older than the database
+  server, or pg_restore older than the archive) and `CONN_UNREACHABLE` (the
+  tool cannot reach the database from that server, with how to add a
+  127.0.0.1 conn through it).
 
 ### Fixed
 
@@ -76,6 +87,52 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   when those folders exist (Codex asks you to approve it once in `/hooks`).
 - `komando svc daemon-reload TARGET`: reloads unit files after you write
   one, and names units that still need a reload.
+- `komando job wait` takes several job IDs and waits for all of them, with
+  one result per job and a summary; the exit code is the worst one.
+- `komando job start --sudo` works on servers whose sudo needs a password
+  (`--sudo-ref`). The password is sent as input, never on a command line,
+  and the job deletes it as soon as it starts.
+- `komando host mv OLD NEW`, `conn mv` and `vpn mv` rename an entry and
+  update every reference to it (`--via` paths, jobs, tunnels) in one step;
+  renaming a protected entry needs `--yes`.
+- `komando host edit` takes several names and targets (`host edit @ubuntu
+  --sudo-ref secret:ubuntu-sudo`); one `--yes` and one approval window,
+  which lists every server and which are protected, cover the whole command.
+- `komando import csv FILE` adds servers from a spreadsheet; every row is
+  checked before anything is written.
+- `komando secret mv OLD NEW` renames a secret and every server, conn, key
+  and VPN reference to it, without showing the value. `secret cp OLD NEW`
+  copies one inside the vault.
+- `komando secret check NAME`: a person compares a value with the stored one
+  without seeing either; refused for AI agents (`NEEDS_PERSON`).
+- `secret set` and `secret get` warn when a value starts or ends with a
+  space or tab, ends with a line break, or holds control characters.
+- `komando facts` reports whether the OS still gets security updates
+  (`os_support`: supported, extended through Ubuntu Pro ESM or Debian LTS,
+  unsupported, unknown), pending and security updates with the package index
+  age, reboot-required packages, services needing a restart, passwordless
+  sudo, Docker version, Swarm role and running containers, PM2 daemons and
+  apps, listening ports with their programs, hand-made systemd units, and
+  `warnings`. It also has a short text view.
+- `komando pkg security TARGET` lists pending security updates with each
+  server's state (running containers, failed units, pending updates, reboot
+  required, services needing a restart). `--apply` installs only security
+  updates, one server at a time, compares each server before and after and
+  stops the round on an unexpected change (`UNEXPECTED_CHANGE`;
+  `--keep-going` to continue). It never reboots.
+- `komando cert check TARGET...` shows when TLS certificates expire: on
+  servers (certbot, nginx, haproxy, apache, `--path`; only the certificate
+  part of a file is read) and for websites and TLS conns (directly or
+  through `--via`, with a trust check), plus certbot renewal state. `--warn`
+  (default 30d) flags certificates expiring soon; problems exit 1 with
+  `CERT_PROBLEMS`.
+- `komando docker prune TARGET` with `--older-than`, `--all` and
+  `--volumes`. `--dry-run` lists the stopped containers, images, volumes and
+  build cache that would be removed, with sizes and a total. The real run
+  needs `--allow-dangerous`.
+- komando's own restore of plain SQL skips pg_dump 17's `SET
+  transaction_timeout` on PostgreSQL servers older than 17, so such backups
+  restore there.
 
 ### Changed
 
@@ -105,6 +162,19 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 - A saved read-only recipe that no longer passes the read-only check runs as
   a change (protected servers ask for --yes) instead of being blocked.
 - `--backup` copies add up next to the file; clean them up with `fs rm`.
+- An SSH connection that stops answering (for example a VPN that dropped
+  silently) is closed after about a minute without an answer, so commands
+  report the loss instead of waiting until `--timeout`.
+- `host edit --rename` and `conn edit --rename` are deprecated in favour of
+  `host mv` / `conn mv`.
+- The approval window for protected changes says which protected entries the
+  command touches.
+- Imports refuse a server whose `key` is not in komando's keychain.
+- The hidden `secret set` prompt drops text typed or pasted before it
+  appeared, and says so; it strips bracketed-paste marks.
+- `komando facts` reports values it cannot read as `null` instead of
+  `0`/`false`: `reboot_required` is `null` where it cannot be checked, and
+  an unsupported OS shows `updates.security: null` with a warning.
 
 ### Security
 
@@ -313,6 +383,18 @@ Fixes from the full security review of 2026-11-04.
   how to recover.
 - Moving the vault key to or from the keychain waits for other komando
   processes changing the vault.
+- `komando exec` (and `script`, `logs`, module commands) no longer reports a
+  bare exit -1 when the connection breaks mid-command: the server's result
+  has error code `CONNECTION_LOST` (exit 4), keeps the output received so
+  far, and says the command may still be running or may have finished.
+- Renaming a protected host or conn with `--rename` no longer skips the
+  `--yes` check, and renaming a conn updates the tunnels that point to it.
+- `secret rm` and `used_by` count `secret:` references in a server's
+  environment variables.
+- The approval code's key can no longer be set, moved, copied or removed
+  with `komando secret` (`RESERVED_SECRET`).
+- `komando test` results carry `host`, like `facts` and `exec`. `name` stays
+  for existing scripts; use `host`.
 
 ## [0.2.0] - 2026-11-04
 

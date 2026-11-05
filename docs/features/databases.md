@@ -226,15 +226,19 @@ komando db dump app-db --to orders.sql --table public.orders   # one table (repe
 komando db dump app-db --to schema.sql --schema-only   # no rows
 komando db restore staging-db --from app-2026-11-02.sql.gz --allow-dangerous
 komando db restore staging-db --from app.dump --allow-dangerous   # an archive goes to pg_restore
+komando db dump app-db --to app.dump --format custom --on db1      # pg_dump runs on the server db1
+komando db restore staging-db --from app.dump --on db1 --allow-dangerous   # pg_restore runs on db1
 ```
 
 **Where the backup goes.** Always to a file on **this computer**, readable
 only by you. An existing file is never overwritten.
 
-**Who does the work.** When the conn's `--via` path ends at a server that
-has `pg_dump` or `mysqldump`, the dump runs there. Otherwise (a direct conn,
-a VPN, or a server without them) komando dumps by itself, and nothing has
-to be installed. A plain SQL restore is always run by komando itself,
+**Who does the work.** `pg_dump` or `mysqldump` runs on a server that has
+it: the one you name with `--on HOST`, else the last server of the conn's
+`--via` path. Otherwise (a direct conn or a VPN, or a `--via` server without
+the tool) komando dumps by itself, and nothing has to be installed. `runs_on`
+in the answer (and in `komando audit`) names where the tool ran. A plain
+SQL restore is always run by komando itself,
 through the same `--via` path, never by `psql` or `mysql`: those would obey
 client commands hidden in the file on that server. Only a PostgreSQL
 archive goes to `pg_restore` on the server. `tool` in the answer says which
@@ -242,6 +246,46 @@ was used. The password goes to a server's tool through its environment,
 never on its command line, so other users of that server cannot see it. For
 MySQL conns with `?tls=...`, the same TLS setting is passed to the server's
 tools (MySQL and MariaDB clients both work).
+
+**Running the dump on a server you choose (`--on HOST`).** Useful when the
+conn goes through a VPN (komando then can only write plain SQL itself) but a
+server you manage has `pg_dump` and can reach the database, often the
+database server itself:
+
+```bash
+komando db dump prod-db --to prod.dump --format custom --on db1 --dry-run   # where and what would run
+komando db dump prod-db --to prod.dump --format custom --on db1
+```
+
+- `HOST` is a server from your inventory (a name or a selector that picks
+  exactly one); komando reaches it the usual way, through its own `--via`.
+  The conn's password goes to it, so a `user@address` that is not in the
+  inventory is refused.
+- The tool there connects to the conn URL's address **as that server sees
+  it**. When the database only listens on `127.0.0.1` on that server, add a
+  second conn for that address reached through it
+  (`komando conn add prod-db-local postgres://app@127.0.0.1:5432/app --via db1 --password-ref ...`)
+  and dump that one; `CONN_UNREACHABLE` says this when it happens.
+- A dump runs at low priority (`nice -n 10`, plus `ionice -c3` where the
+  server has it), so the server keeps serving its users. `low_priority` in
+  the answer says so.
+- The backup streams back over SSH into `--to` on this computer (compressed
+  here when it ends in `.gz`); nothing is written on the server.
+- `pg_dump` refuses a server newer than itself. komando reports that as
+  `TOOL_TOO_OLD` with both versions and the package to install
+  (`postgresql-client-NN`). A server named with `--on` is never skipped: a
+  missing or old tool there is an error, while a `--via` server without a
+  usable tool falls back to komando's own plain SQL dump.
+- `db restore --on HOST` runs `pg_restore` there for an archive, streaming
+  the file to it over SSH. It has the same gate as any restore
+  (`--allow-dangerous`, plus `--yes` on a protected conn). Plain SQL is
+  always restored by komando itself, so `--on` with a SQL file is refused.
+- PostgreSQL 17 tools write `SET transaction_timeout`, which servers before
+  17 do not know. komando's own restore of plain SQL skips that line on such
+  servers. `pg_restore` 17 cannot load an archive into them, and an older
+  `pg_restore` cannot read a newer archive: for an old server, dump with
+  `--format custom` only from a `pg_dump` of its own major version, or use
+  plain SQL.
 
 **What komando's own dump contains.** Plain SQL that psql and mysql can
 also read:
@@ -261,7 +305,8 @@ also read:
 - An object it cannot write (an aggregate, an operator, a foreign table,
   ...) stops the dump with its name (`DUMP_UNSUPPORTED`) instead of being
   left out silently.
-- `--format custom` needs `pg_dump` on a server.
+- `--format custom` needs `pg_dump` on a server (`--on HOST`, or the conn's
+  `--via` server).
 
 **Restoring safely.**
 
@@ -345,6 +390,9 @@ returns JSON.
 | `DB_NOT_FOUND` | 3 | the database does not exist |
 | `DB_PRIVILEGE` | 4 | the user may not see this (for example lock waits in `db locks`) |
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object; the message names it |
+| `TOOL_MISSING` | 3 | `pg_dump`, `mysqldump` or `pg_restore` is not installed where it should run |
+| `TOOL_TOO_OLD` | 5 | `pg_dump` is older than the database server, or `pg_restore` older than the archive |
+| `CONN_UNREACHABLE` | 4 | the tool cannot reach the database from the server it runs on |
 | `NEEDS_TERMINAL` | 2 | `db shell` was run without a terminal; use `db query` |
 
 `db dump` and `db restore` report the same connection errors as `db query`.

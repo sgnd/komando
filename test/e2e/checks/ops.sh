@@ -62,6 +62,12 @@ check "pkg install on Alpine" installed "$($K pkg install swarm1 tree | jget "$r
 q $K pkg rm swarm1 tree
 check "pkg upgradable lists rows" True "$($K pkg upgradable direct | jget "isinstance($r0['data']['packages'], list)")"
 check "pkg upgrade --dry-run lists what would change" True "$($K pkg upgrade direct --dry-run | jget "d['meta'].get('dry_run') and isinstance($r0['data']['would_upgrade'], list)")"
+check "pkg security lists rows and the state" True "$($K pkg security direct | jget "isinstance(d['data']['results'][0]['security_updates'], list) and 'pending_updates' in d['data']['results'][0]['state']")"
+check "pkg security --apply --dry-run changes nothing" True "$($K pkg security direct --apply --dry-run | jget "d['meta'].get('dry_run') and not d['data']['applied']")"
+set +e
+$K pkg security swarm1 >/dev/null; check "pkg security on Alpine is unsupported" 3 $?
+$K pkg security direct --keep-going >/dev/null; check "pkg security --keep-going needs --apply" 2 $?
+set -e
 check "pkg output shows the short command" "pkg install tree" "$($K pkg install direct tree --dry-run | jget 'd["data"]["would_run"][0]["remote_command"]')"
 
 # net: dns, check, http, ports

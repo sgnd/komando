@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5/stdlib"
@@ -51,6 +52,9 @@ func Restore(ctx context.Context, db *sql.DB, kind string, r io.Reader) error {
 				}
 				continue
 			}
+			if setTxTimeoutOff.MatchString(st.text) && serverBefore17(ctx, conn) {
+				continue // its default; the server does not know the setting
+			}
 			if _, err := conn.ExecContext(ctx, st.text); err != nil {
 				return fmt.Errorf("line %d: %w", st.line, err)
 			}
@@ -73,6 +77,21 @@ func Restore(ctx context.Context, db *sql.DB, kind string, r io.Reader) error {
 			return fmt.Errorf("line %d: %w", st.line, mysqlErr(err))
 		}
 	}
+}
+
+// setTxTimeoutOff is the line pg_dump 17 and newer write at the top of a
+// backup. Servers before 17 do not know transaction_timeout, and 0 (off) is
+// its default, so on them the line is skipped: a backup made with a newer
+// pg_dump (on an --on server, say) still restores.
+var setTxTimeoutOff = regexp.MustCompile(`(?i)^\s*SET\s+transaction_timeout\s*(=|TO)\s*'?0'?\s*;?\s*$`)
+
+func serverBefore17(ctx context.Context, conn *sql.Conn) bool {
+	var v string
+	if err := conn.QueryRowContext(ctx, "SHOW server_version_num").Scan(&v); err != nil {
+		return false
+	}
+	n, err := strconv.Atoi(v)
+	return err == nil && n < 170000
 }
 
 // copyFrom streams the data lines after a COPY statement up to "\.".

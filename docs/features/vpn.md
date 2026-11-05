@@ -114,6 +114,7 @@ komando list kind:vpn                         # all VPNs
 komando vpn show office                       # its settings and what uses it
 komando vpn edit office --check 10.0.0.6:22   # change --check, --address, --user, --password-ref, --service, --mfa, --notes
 komando vpn status                            # which are up, since when, what uses them
+komando vpn mv office office-jkt              # rename; every --via path follows
 komando vpn rm office                         # remove (several names allowed)
 ```
 
