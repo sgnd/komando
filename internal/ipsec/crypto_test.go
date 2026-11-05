@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"math/big"
 	"testing"
+	"time"
 )
 
 // The MODP primes are safe primes of the right size (a wrong digit would
@@ -122,5 +123,29 @@ func TestParseChainRejectsGarbage(t *testing.T) {
 		if _, err := parseChain(plSA, b); err == nil {
 			t.Fatalf("%x accepted", b)
 		}
+	}
+}
+
+// After a rekey the server may keep sending on the old SA: komando still
+// takes those packets until the server deletes it.
+func TestOldInboundSAStaysAfterRekey(t *testing.T) {
+	s := &Session{in: map[uint32]*espSA{}, retired: map[uint32]time.Time{}}
+	var got [][]byte
+	s.deliver = func(_ byte, p []byte) { got = append(got, p) }
+	su := espSuites[2]
+	k1, k2 := su.split(random(su.keyLen())), su.split(random(su.keyLen()))
+	old, _ := newESP(su, 10, 20, k1, k2)
+	s.install(old)
+	n1, n2 := su.split(random(su.keyLen())), su.split(random(su.keyLen()))
+	s.install(func() *espSA { e, _ := newESP(su, 11, 21, n1, n2); return e }())
+	peerOld, _ := newESP(su, 20, 10, k2, k1) // the server's end of the old SA
+	pkt, _ := peerOld.seal(nextIPv4, []byte("late"))
+	s.retired[10] = time.Now().Add(retireAfter)
+	s.inbound(pkt)
+	if len(got) != 1 || string(got[0]) != "late" {
+		t.Fatalf("a packet on the old SA was dropped: %q", got)
+	}
+	if s.remove(20); s.in[10] != nil {
+		t.Fatal("the server's delete did not remove the old SA")
 	}
 }

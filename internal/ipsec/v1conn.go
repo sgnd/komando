@@ -270,6 +270,7 @@ func dialV1(ctx context.Context, o *Options, tun bool) (*Session, error) {
 		return nil, err
 	}
 	s := newSession(t)
+	s.log = o.logf
 	c := &v1Conn{s: s, o: o, tun: tun}
 	if err := c.start(ctx); err != nil {
 		s.end(err)

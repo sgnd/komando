@@ -622,6 +622,7 @@ type vpnStatusRow struct {
 	UsedBy   []string  `json:"used_by,omitempty"`
 	Detail   string    `json:"detail,omitempty"`   // how "up" was seen, or why not
 	LastEnd  string    `json:"last_end,omitempty"` // why its last session ended, from the session log
+	LastLog  []string  `json:"last_log,omitempty"` // l2tp, ipsec, ikev2: the last lines of that log (no secrets in it)
 }
 
 func vpnStatusCmd() *cobra.Command {

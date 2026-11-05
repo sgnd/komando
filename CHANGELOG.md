@@ -15,6 +15,14 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   `--psk-ref`, `--id`, `--remote-id`, `--ca`. Tested against strongSwan 5.9
   and xl2tpd, rekeys included (`make e2e-ipsec`). Before, these kinds were
   only a name for `system`.
+- `komando vpn status` shows why a VPN's last session ended (`last_end`),
+  and for `l2tp`, `ipsec` and `ikev2` the last lines of its log
+  (`last_log`), so an agent can tell why without reading `~/.komando`.
+
+### Fixed
+
+- `komando vpn up` printed the session's local SOCKS password; it now shows
+  `[hidden]`.
 
 - `komando reboot TARGET`: reboots servers one at a time, waits for each to
   answer again and checks it really started anew (boot id). A server that

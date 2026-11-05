@@ -57,11 +57,13 @@ type Session struct {
 	in      map[uint32]*espSA
 	retired map[uint32]time.Time // inbound SAs kept a little after a rekey
 
-	deliver func(next byte, payload []byte)
-	done    chan struct{}
-	err     error
-	once    sync.Once
-	closers []func()
+	deliver       func(next byte, payload []byte)
+	log           func(format string, args ...any)
+	unknownLogged time.Time
+	done          chan struct{}
+	err           error
+	once          sync.Once
+	closers       []func()
 
 	// tunnel mode: the address and DNS servers the server gave
 	Address netip.Addr
@@ -82,12 +84,13 @@ func newSession(t *udpTransport) *Session {
 }
 
 // install makes sa the outbound SA and adds its inbound half. The old
-// inbound SA stays for a minute: packets already on the way still count.
+// inbound SA stays until the server deletes it or its time is surely over:
+// some servers (IKEv1) keep sending on the old SA long after a rekey.
 func (s *Session) install(sa *espSA) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.out != nil {
-		s.retired[s.out.spiIn] = time.Now().Add(time.Minute)
+		s.retired[s.out.spiIn] = time.Now().Add(retireAfter)
 	}
 	s.out = sa
 	s.in[sa.spiIn] = sa
@@ -127,6 +130,10 @@ func (s *Session) inFor(spiOut uint32) (uint32, bool) {
 
 var netip0 netip.Addr
 
+// retireAfter is how long an inbound SA stays after a rekey, unless the
+// server deletes it first: longer than any ESP lifetime komando accepts.
+var retireAfter = 2 * time.Hour
+
 func (s *Session) currentOut() *espSA {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -138,7 +145,14 @@ func (s *Session) inbound(pkt []byte) {
 	s.mu.Lock()
 	sa := s.in[spi]
 	d := s.deliver
+	warn := sa == nil && time.Since(s.unknownLogged) > time.Minute
+	if warn {
+		s.unknownLogged = time.Now()
+	}
 	s.mu.Unlock()
+	if warn && s.log != nil {
+		s.log("ESP: dropped packets for SPI %08x, which komando does not know (an SA the server still uses?)", spi)
+	}
 	if sa == nil || d == nil {
 		return
 	}

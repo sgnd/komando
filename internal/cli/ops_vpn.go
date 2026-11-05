@@ -83,7 +83,7 @@ func vpnStatusRows(st *store.State) []vpnStatusRow {
 			r.Detail = "connects for each command"
 		} else {
 			r.Detail = "not connected"
-			r.LastEnd = lastSessionEnd(v.Name)
+			r.LastEnd, r.LastLog = lastSessionEnd(v.Name, oneOf(v.Kind, "l2tp", "ipsec", "ikev2"))
 		}
 		rows[i] = r
 	}
@@ -93,25 +93,37 @@ func vpnStatusRows(st *store.State) []vpnStatusRow {
 
 // lastSessionEnd is why the VPN's last background session ended or did
 // not start, as its log says ("ENDED ..." or "ERROR ..."), cleaned for output.
-func lastSessionEnd(name string) string {
+// With tail, it also returns the log's last lines (only for kinds whose
+// logs komando writes itself and keeps free of secrets).
+func lastSessionEnd(name string, tail bool) (string, []string) {
 	dir, err := vpnDir()
 	if err != nil {
-		return ""
+		return "", nil
 	}
 	b, err := os.ReadFile(filepath.Join(dir, name+".log"))
 	if err != nil {
-		return ""
+		return "", nil
 	}
 	last := ""
-	for _, line := range strings.Split(string(b), "\n") {
+	var lines []string
+	for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
 		if strings.HasPrefix(line, "ENDED ") || strings.HasPrefix(line, "ERROR ") {
 			last = strings.TrimPrefix(strings.TrimPrefix(line, "ENDED "), "ERROR ")
 		}
+		if len(line) > 300 {
+			line = line[:300]
+		}
+		lines = append(lines, cleanText(line))
 	}
 	if len(last) > 300 {
 		last = last[:300]
 	}
-	return cleanText(last)
+	if !tail || last == "" {
+		lines = nil
+	} else if len(lines) > 15 {
+		lines = lines[len(lines)-15:]
+	}
+	return cleanText(last), lines
 }
 
 // refWarnings checks, at add time, that the secret references a VPN uses

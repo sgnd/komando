@@ -156,3 +156,6 @@ docker exec "$SERVER" sh -c 'ipsec stop' >/dev/null 2>&1
 for _ in $(seq 1 90); do [ "$(in_client komando status | jget '[v["name"] for v in d["data"]["vpns"]]')" = "[]" ] && break; sleep 2; done
 [ "$(in_client komando status | jget '[v["name"] for v in d["data"]["vpns"]]')" = "[]" ] || fail "a dead IPsec VPN still shows as up"
 echo "ok   a session whose server went away ends (status no longer lists it)"
+why=$(in_client komando vpn status | python3 -c 'import json,sys; r=[v for v in json.load(sys.stdin)["data"]["vpns"] if v["name"]=="v2psk"][0]; print(r.get("last_end",""), len(r.get("last_log",[])))')
+case $why in *"stopped answering"*|*"ended"*) ;; *) fail "vpn status does not say why v2psk ended: $why";; esac
+echo "ok   vpn status says why the session ended ($why lines of log)"

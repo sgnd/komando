@@ -412,6 +412,7 @@ func DialIKEv2(ctx context.Context, o Options) (*Session, error) {
 		return nil, err
 	}
 	s := newSession(t)
+	s.log = o.logf
 	c := &v2Conn{s: s, o: &o}
 	if err := c.start(ctx); err != nil {
 		s.end(err)

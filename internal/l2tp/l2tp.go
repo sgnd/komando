@@ -207,7 +207,7 @@ func (t *Tunnel) send(avps ...[]byte) error {
 	pkt := t.ctrlHeader(ns, body)
 	t.unacked[ns] = pkt
 	t.mu.Unlock()
-	go t.retransmit(ns, pkt)
+	go t.retransmit(ns, pkt, msgName(body))
 	return t.link.Send(pkt)
 }
 
@@ -234,7 +234,18 @@ func (t *Tunnel) peerSIDFor(body []byte) uint16 {
 	return 0
 }
 
-func (t *Tunnel) retransmit(ns uint16, pkt []byte) {
+func msgName(body []byte) string {
+	if len(body) < 8 {
+		return "ZLB"
+	}
+	t := binary.BigEndian.Uint16(body[6:])
+	if n, ok := map[uint16]string{tSCCRQ: "SCCRQ", tSCCCN: "SCCCN", tStopCCN: "StopCCN", tHELLO: "HELLO", tICRQ: "ICRQ", tICCN: "ICCN", tCDN: "CDN"}[t]; ok {
+		return n
+	}
+	return fmt.Sprintf("type %d", t)
+}
+
+func (t *Tunnel) retransmit(ns uint16, pkt []byte, name string) {
 	wait := time.Second
 	for try := 0; try < 6; try++ {
 		select {
@@ -248,10 +259,16 @@ func (t *Tunnel) retransmit(ns uint16, pkt []byte) {
 		if !pending {
 			return
 		}
+		t.log("L2TP: no acknowledgement for %s (Ns %d) yet; sending it again", name, ns)
 		t.link.Send(pkt)
 		wait = min(wait*2, 8*time.Second)
 	}
-	t.end(errors.New("the L2TP server stopped acknowledging"))
+	t.mu.Lock()
+	quiet := time.Since(t.lastRecv).Round(time.Second)
+	t.mu.Unlock()
+	err := fmt.Errorf("the L2TP server stopped acknowledging (%s, Ns %d; nothing received from it for %s)", name, ns, quiet)
+	t.log("L2TP: %v", err)
+	t.end(err)
 }
 
 // request sends a control message and waits for the answer of type want.
@@ -402,7 +419,7 @@ func (t *Tunnel) handle(b []byte) {
 		return
 	case tHELLO:
 		t.ack()
-		return
+		return // the server's keepalive; data already counts as alive
 	case tSCCRP, tICRP:
 		// answered by our next message (SCCCN, ICCN), which acknowledges it
 	default:
@@ -463,6 +480,7 @@ func (t *Tunnel) keepalive() {
 			idle := time.Since(t.lastRecv)
 			t.mu.Unlock()
 			if idle > 60*time.Second {
+				t.log("L2TP: nothing from the server for %s; sending HELLO", idle.Round(time.Second))
 				t.send(msgType(tHELLO))
 			}
 		}
