@@ -38,9 +38,10 @@ instead. Force either with `-o text` or `-o json`, or set `KOMANDO_OUTPUT`.
 |-------|---------|
 | `ok` | `true` only when everything succeeded |
 | `command` | the command, dotted (`exec`, `db.query`, `svc.restart`) |
-| `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary` |
+| `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...). `test` results also have `name`, the same value, kept for older scripts: use `host` |
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when only some servers failed (`PARTIAL_FAILURE`) |
 | `error.hint` | always says what to try next |
+| `null` | komando could not find out (for example `facts` without the rights to read something). It never stands in for `0` or `false` |
 | `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run; `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails) |
 
 ## Exit codes

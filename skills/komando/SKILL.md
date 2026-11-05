@@ -24,7 +24,9 @@ If `komando` is not installed, stop and ask the human to install it:
 ## Rules
 
 1. Look before you change: `komando test <target>`, `komando facts <target>`,
-   then read logs, config and status.
+   then read logs, config and status. Read `facts` warnings first; `null`
+   means unknown, never 0 or false (an unsupported OS shows security
+   updates as `null`). Each multi-target result names its server in `host`.
 2. Run every change once with `--dry-run` first. A dry run is never stopped:
    on a protected target or a destructive command it still shows the plan,
    and `meta.would_be_blocked` names the stop the real run would hit, so you

@@ -15,14 +15,23 @@ komando list                          # servers, conns and VPNs: name, kind, add
 komando group list                    # groups and tags, with their members
 komando test all                      # what is reachable; which user; passwordless sudo?
 komando status                        # what komando left running: VPN sessions, tunnels, jobs
-komando facts <target>                # OS, package manager, tools, CPU/memory/disk, load
+komando facts <target>                # OS + support status, updates, sudo, Docker/Swarm, PM2, ports, custom units
 komando schema --compact              # every command (`komando schema <cmd>` for its flags)
 komando import ssh-config --dry-run   # (with the human) bring in servers they already have
 ```
 
 Run `facts` before your first change on an unfamiliar host: it tells you
 whether to use apt or dnf, whether systemd and Docker exist, and how full the
-disk is.
+disk is. Read its `warnings` first. `null` means komando could not find out,
+never "none": an OS past its support shows `updates.security: null` (it gets
+no patches, so "0 pending" would be false comfort), and `os_support.status`
+says `supported`, `extended` (Ubuntu ESM, Debian LTS), `unsupported` or
+`unknown`. It also lists the Swarm role, PM2 apps running outside
+containers, listening ports and hand-made systemd units, so nothing running
+on the server surprises you.
+
+Multi-target results name each server in `results[].host` (also in
+`test`, which keeps `name` only for older scripts).
 
 ## 2. Targets
 

@@ -201,7 +201,12 @@ $K tunnel stop --all >/dev/null
 check "open bind needs --yes" OPEN_BIND "$($K tunnel start target -L 0.0.0.0:0:localhost:22 | jget 'd["error"]["code"]' || true)"
 
 echo "==> modules"
-check "facts os" debian "$($K facts direct | jget 'd["data"]["results"][0]["data"]["os"]')"
+FACTS=$($K facts direct)
+check "facts os" debian "$(echo "$FACTS" | jget 'd["data"]["results"][0]["data"]["os"]')"
+check "facts os support status" True "$(echo "$FACTS" | jget 'd["data"]["results"][0]["data"]["os_support"]["status"] in ("supported", "extended", "unsupported", "unknown")')"
+check "facts sudo_nopasswd known" True "$(echo "$FACTS" | jget 'd["data"]["results"][0]["data"]["sudo_nopasswd"] in (True, False)')"
+check "facts sees sshd listening" True "$(echo "$FACTS" | jget '22 in [p["port"] for p in d["data"]["results"][0]["data"]["listening"]["ports"]]')"
+check "test results carry host" direct "$($K test direct | jget 'd["data"]["results"][0]["host"]')"
 check "net check private" False "$($K net check direct target:22 | jget 'd["data"]["results"][0]["data"][0]["open"]')"
 $K cron set direct t1 'true' --schedule '@daily' >/dev/null
 check "cron set idempotent" 1 "$($K cron set direct t1 'true' --schedule '@daily' >/dev/null; $K cron list direct | jget 'len(d["data"]["results"][0]["data"])')"
