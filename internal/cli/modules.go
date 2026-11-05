@@ -513,6 +513,7 @@ func pkgCmd() *cobra.Command {
 		mk("upgrade", "Upgrade all or the given packages (--dry-run lists what would be upgraded)", false, true, true),
 		upgradable,
 		mk("installed", "Show installed versions (all or given packages)", false, false, false),
+		pkgSecurityCmd(&noSudo),
 	)
 	return c
 }
