@@ -25,8 +25,11 @@ komando vpn status                                  # which VPNs are up, and wha
 | `globalprotect` | Palo Alto GlobalProtect | inside komando, experimental | no |
 | `f5` | F5 BIG-IP SSL VPN | inside komando, experimental | no |
 | `pulse` | Pulse Secure / Ivanti Connect Secure | inside komando, experimental | no |
+| `l2tp` | L2TP/IPsec with a pre-shared key (Windows Server, MikroTik, strongSwan + xl2tpd, many routers) | inside komando | no |
+| `ipsec` (also `cisco`) | Cisco-style IPsec: group name and password, then your login (XAUTH): Cisco ASA/IOS, MikroTik, strongSwan; the "IPSec" type of macOS and iOS | inside komando | no |
+| `ikev2` | IKEv2/IPsec, with a pre-shared key or a user login (EAP-MSCHAPv2) checked against the server's certificate | inside komando | no |
 | `socks` | a SOCKS5 proxy that is already running (`komando tunnel start bastion -D 1080`, a company proxy) | already running | no |
-| `system` (also `l2tp`, `ipsec`, `ikev2`) | a VPN set up in your computer's own settings | by your computer | yes |
+| `system` | a VPN set up in your computer's own settings | by your computer | yes |
 
 "Inside komando" means: no extra program, no Docker, no admin rights. The
 VPN is opened inside komando for that command only. Your computer's routes
@@ -40,6 +43,9 @@ komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0
 komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
 komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
 komando vpn add tailnet tailscale --password-ref secret:ts-authkey
+komando vpn add kantor l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk --user budi --password-ref secret:kantor --check 10.1.0.5:22
+komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user budi --password-ref secret:asa
+komando vpn add cloud ikev2 --server vpn.example.com --user budi --password-ref secret:cloud --check 10.2.0.5:22
 komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
 komando vpn add lab socks --address 127.0.0.1:1080
 ```
@@ -55,6 +61,10 @@ komando vpn add lab socks --address 127.0.0.1:1080
   [Servers](servers.md)). For Tailscale it is an auth key.
 - **`--portal`** is the VPN server for `anyconnect`, `fortinet`,
   `globalprotect`, `f5` and `pulse`.
+- **`--server`** is the VPN server for `l2tp`, `ipsec` and `ikev2`, and
+  **`--psk-ref`** its pre-shared key ("shared secret"; for `ipsec` the group
+  password), as a reference like `--password-ref`. See
+  [L2TP/IPsec, IPsec and IKEv2 details](#l2tpipsec-ipsec-and-ikev2-details).
 - **`--service`** (`system` only) is the VPN's name in your computer's
   settings. With it, `komando vpn up` connects the VPN for you (macOS:
   `scutil`; Linux: NetworkManager). Without it, connect the VPN yourself;
@@ -149,6 +159,52 @@ not yet tried against the vendors' own servers. komando uses them:
 
 Otherwise, if `openconnect` is installed, komando runs it together with
 `ocproxy`. That also leaves your computer's network unchanged.
+
+## L2TP/IPsec, IPsec and IKEv2 details
+
+All three run inside komando: IPsec (IKE and ESP) and, for `l2tp`, L2TP
+and PPP are komando's own code. ESP always travels in UDP (port 4500), so no
+admin rights are needed; the server must allow UDP 500 and 4500 and NAT
+traversal (nearly all do).
+
+What you need from the VPN's administrator, or from the VPN settings on a
+computer where it already works:
+
+| Kind | Settings | komando flags |
+|------|----------|---------------|
+| `l2tp` | server, pre-shared key ("shared secret"), user name, password | `--server`, `--psk-ref`, `--user`, `--password-ref` |
+| `ipsec` | server, group name, group password, user name, password | `--server`, `--id`, `--psk-ref`, `--user`, `--password-ref` |
+| `ikev2`, user login | server, remote ID (if not the server's name), user name, password; the CA certificate if the server's certificate is not a public one | `--server`, `--remote-id`, `--user`, `--password-ref`, `--ca FILE` |
+| `ikev2`, pre-shared key | server, local ID, pre-shared key | `--server`, `--id`, `--psk-ref` |
+
+```bash
+komando secret set kantor-psk          # type the pre-shared key
+komando secret set kantor              # type your password
+komando vpn add kantor l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk \
+  --user budi --password-ref secret:kantor --check 10.1.0.5:22
+komando test kantor
+```
+
+- Without `--password-ref`, a person types the password at
+  `komando vpn up NAME` (a password with a one-time code works too).
+- `l2tp` logs in to PPP with MS-CHAPv2 (it checks the server's proof too),
+  CHAP or PAP, whichever the server asks for. A tunnel secret on the L2TP
+  layer ("L2TP secret" or "challenge") is not supported.
+- `ikev2` with a user login checks the server's certificate against your
+  computer's trusted CAs, or against `--ca`, and that it is made out to the
+  server's name (or `--remote-id`). komando never skips that check.
+- Sessions stay up: komando answers the server's liveness checks and
+  rekeys, makes new keys itself before old ones expire, and notices when the
+  server goes away.
+- Ciphers: AES-GCM and AES-CBC with SHA-2 or SHA-1, DH groups 14, 19, 20,
+  31 (and 2 and 5 for old servers); 3DES only for old IKEv1 servers. Single
+  DES and MD5 are never used.
+- When a session ends by itself, `komando vpn status` shows why in
+  `last_end`.
+- If the server does not answer, run `KOMANDO_IPSEC_DEBUG=1 komando vpn up
+  NAME`: the session log then lists every IKE message sent and received
+  (sizes and types, never keys). Only sends and nothing received means UDP
+  500 does not get through, or the server ignores komando's offer.
 
 ## Troubleshooting
 

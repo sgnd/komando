@@ -6,6 +6,24 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Added
 
+- L2TP/IPsec (`l2tp`), Cisco-style IPsec with a group name and XAUTH login
+  (`ipsec`, also `cisco`) and IKEv2 (`ikev2`, pre-shared key or EAP-MSCHAPv2
+  login with the server's certificate checked) are built into komando:
+  komando's own IKEv1, IKEv2, ESP-in-UDP, L2TP and PPP, so they need no
+  strongSwan, no OS VPN settings and no admin rights, and the computer's
+  network stays as it is. New `vpn add`/`vpn edit` flags: `--server`,
+  `--psk-ref`, `--id`, `--remote-id`, `--ca`. Tested against strongSwan 5.9
+  and xl2tpd, rekeys included (`make e2e-ipsec`). Before, these kinds were
+  only a name for `system`.
+- `komando vpn status` shows why a VPN's last session ended (`last_end`),
+  and for `l2tp`, `ipsec` and `ikev2` the last lines of its log
+  (`last_log`), so an agent can tell why without reading `~/.komando`.
+
+### Fixed
+
+- `komando vpn up` printed the session's local SOCKS password; it now shows
+  `[hidden]`.
+
 - `komando reboot TARGET`: reboots servers one at a time, waits for each to
   answer again and checks it really started anew (boot id). A server that
   does not come back stops the rest. Destructive: needs `--allow-dangerous`.

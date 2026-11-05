@@ -149,10 +149,13 @@ type Vpn struct {
 	Address   string            `json:"address,omitempty"`    // socks: host:port of the proxy
 	Portal    string            `json:"portal,omitempty"`     // openconnect kinds: the VPN server or portal
 	Service   string            `json:"service,omitempty"`    // system: the OS VPN's name, to connect it with `vpn up`
-	Server    string            `json:"server,omitempty"`     // tailscale: a Headscale login server
+	Server    string            `json:"server,omitempty"`     // tailscale: a Headscale login server; l2tp, ipsec, ikev2: the VPN server
 	User      string            `json:"user,omitempty"`       // user name, if the VPN wants one
 	KeyRef    string            `json:"key_ref,omitempty"`    // password, private key or auth key, as secret:/env:/file:
-	PSKRef    string            `json:"psk_ref,omitempty"`    // wireguard: preshared key, if any
+	PSKRef    string            `json:"psk_ref,omitempty"`    // wireguard, l2tp, ipsec, ikev2: preshared key, if any
+	LocalID   string            `json:"id,omitempty"`         // ipsec: the group name; ikev2: our identity
+	RemoteID  string            `json:"remote_id,omitempty"`  // ikev2: the server's identity (default: --server)
+	CA        string            `json:"ca,omitempty"`         // ikev2: PEM of the CA that signed the server certificate
 	MFA       bool              `json:"mfa,omitempty"`        // a human must log in (`vpn up`); never automated
 	OSMode    bool              `json:"os_mode,omitempty"`    // openvpn: run on the computer itself (sudo, changes routes)
 	Check     string            `json:"check,omitempty"`      // host:port that answers only through the VPN
