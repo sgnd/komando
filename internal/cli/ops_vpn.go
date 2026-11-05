@@ -107,8 +107,13 @@ func lastSessionEnd(name string, tail bool) (string, []string) {
 	last := ""
 	var lines []string
 	for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
-		if strings.HasPrefix(line, "ENDED ") || strings.HasPrefix(line, "ERROR ") {
-			last = strings.TrimPrefix(strings.TrimPrefix(line, "ENDED "), "ERROR ")
+		if i := strings.Index(line, "ENDED "); i >= 0 && (i == 0 || line[i-1] == ' ') {
+			last = line[i+len("ENDED "):]
+			if i > 0 { // the time it ended
+				last = strings.TrimSpace(line[:i]) + ": " + last
+			}
+		} else if strings.HasPrefix(line, "ERROR ") {
+			last = strings.TrimPrefix(line, "ERROR ")
 		}
 		if len(line) > 300 {
 			line = line[:300]
