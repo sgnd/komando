@@ -153,6 +153,15 @@ Several servers: `job start @web ...` prints one ID per server; `job wait
 (VPN, Wi-Fi): `job wait` connects again by itself. Over a shaky link, prefer
 a job to `exec`.
 
+Security patching is the exception: `komando pkg security <target> --apply`
+(after `pkg security <target> --refresh` and a `--dry-run`) installs only
+security updates, one server at a time, compares running containers,
+failed units, pending updates and reboot state before and after, and stops
+the round on an unexpected change (`UNEXPECTED_CHANGE`). The upgrade runs
+detached on the server and komando waits up to 30 minutes per server, so do
+not wrap it in `job start`. It never reboots: report `reboot_required` and
+`services_need_restart` to the human.
+
 A process started with `&` inside `komando exec` ends with that command.
 Anything that must keep running (a temporary web server, a watcher) is a
 `job start`.

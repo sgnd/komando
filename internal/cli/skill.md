@@ -43,6 +43,8 @@ If `komando` is not installed, stop and ask the human to install it:
    Change the inventory in bulk: `komando host edit <target> --sudo-ref secret:NAME`
    (one approval for every server), `komando host mv OLD NEW` (renames and
    updates every reference), `komando import csv FILE` (many servers at once).
+   Patch servers with `komando pkg security <target> --apply` (security updates
+   only, one server at a time, checked before and after); it never reboots.
 4. Use `komando job start` for anything that may take more than ~2 minutes,
    or that runs over a shaky link (a VPN): a job survives a dropped
    connection, `exec` does not. `CONNECTION_LOST` (exit 4) from `exec` means

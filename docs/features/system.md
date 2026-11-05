@@ -117,6 +117,7 @@ komando pkg upgradable all --refresh            # refresh the package index firs
 komando pkg upgrade web1 --dry-run              # what would be upgraded
 komando pkg upgrade web1                        # everything, or name the packages
 komando pkg update web1                         # only refresh the package index
+komando pkg security @web --apply               # only security updates, one server at a time
 ```
 
 - `install` and `rm` report what changed (`changed: false` when there was
@@ -132,6 +133,52 @@ komando pkg update web1                         # only refresh the package index
 - Package names are exact names: no options, patterns or a trailing `-`.
   For a local `.deb` or `.rpm`, use `komando upload` and `komando exec`.
 - `--no-sudo` skips sudo when you log in as root.
+
+### Security updates
+
+`pkg security` handles a patch round: only security updates, one server at
+a time, with a look at each server before and after.
+
+```bash
+komando pkg security @swarm --refresh            # what is pending, and each server's state
+komando pkg security @swarm --apply --dry-run    # the plan, and any stop it would hit
+komando pkg security @swarm --apply              # patch, one server at a time
+komando pkg security @swarm --apply --keep-going # do not stop at a server that changed
+```
+
+- Without `--apply` it only looks. It lists the security updates (apt:
+  packages from the `-security` pocket; dnf and yum: updates with a
+  security notice) and the server's state: running containers, failed
+  units, pending updates, whether a reboot is required, and services that
+  still run old code (from `needrestart` or `needs-restarting`).
+- `--apply` installs only those updates. On apt servers komando uses
+  `unattended-upgrade` when it is installed (it picks security origins and
+  follows the server's own settings), otherwise `apt-get install
+  --only-upgrade` of the listed packages; changed config files are kept.
+  If the server's unattended-upgrades is set to reboot by itself, komando
+  uses apt-get instead. dnf and yum run `upgrade --security`.
+- needrestart does not restart services during the run. The result lists
+  the services that need a restart (`services_need_restart`): restart them
+  with `komando svc restart` when it suits you.
+- After each server komando compares its state with the one before. Fewer
+  running containers, a newly failed unit or a removed essential package
+  stop the round with `UNEXPECTED_CHANGE` (exit 8); the other servers stay
+  as they are and are listed in `not_run`. komando waits up to a minute for
+  containers to come back first. `--keep-going` goes on after a failure or
+  a change.
+- komando never reboots. `reboot_required` says when a server needs one;
+  use `komando reboot`.
+- The upgrade runs detached on the server, so a dropped connection does not
+  break it halfway. `--apply` waits up to 30 minutes per server; `--timeout`
+  changes that. After a `TIMEOUT` the upgrade goes on: run `pkg security`
+  again later to see what is left.
+- It is a change like `pkg upgrade`: protected servers need `--yes`. An
+  update that would remove an essential package stops with
+  `POLICY_BLOCKED` before anything changes (apt servers).
+- A stale package index hides new fixes: komando warns when it is more than
+  a day old; add `--refresh`. Repositories without security notices (for
+  example CentOS) list nothing on dnf/yum. apk, zypper and pacman servers
+  are listed in `meta.skipped`: use `pkg upgrade` there.
 
 ## Users
 
