@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -354,9 +355,12 @@ func TestLocalReadsForAgents(t *testing.T) {
 		notes:                       "SENSITIVE_FILE",
 		"/proc/self/environ":        "SENSITIVE_FILE",
 		"/proc/self/task/1/environ": "SENSITIVE_FILE",
-		filepath.Join(home, ".SSH", "id_ed25519.pub"): "",
 	} {
 		cases[p] = want
+	}
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		// a public key read by another case: only these file systems find it
+		cases[filepath.Join(home, ".SSH", "id_ed25519.pub")] = ""
 	}
 	for p, want := range cases {
 		if c := read(p); c != want {
