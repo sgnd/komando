@@ -105,7 +105,7 @@ check "import csv" 2 "$($K import csv "$CSV" | jget 'len(d["data"]["hosts"])')"
 rm -f "$CSV"
 check "host edit @group stops at a protected server" PROTECTED_HOST "$($K host edit @bulk --user agent2 | jget 'd["error"]["code"]' || true)"
 check "host edit @group --yes changes both" 2 "$($K host edit @bulk -t bulked --user agent --yes | jget 'len(d["data"]["changed"])')"
-$K host mv bulk1 bulk-one >/dev/null
+$K host mv bulk1 bulk-one --yes >/dev/null # same address as the protected target
 check "host mv keeps the server working" target "$($K exec bulk-one --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
 $K host rm bulk-one bulk2 --yes >/dev/null
 set +e
