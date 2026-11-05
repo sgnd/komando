@@ -63,7 +63,10 @@ If `komando` is not installed, stop and ask the human to install it:
    `komando fs replace <target> <path> --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:NAME}}'`
    (`{{secret:NAME}}` becomes the vault value on the server). Text that still
    holds `[hidden]` is never written (`HIDDEN_VALUE`). `secret get --reveal`
-   is for people only (`REVEAL_NEEDS_HUMAN`). Refer to secrets as
+   is for people only (`REVEAL_NEEDS_HUMAN`), and so is `secret check`
+   (`NEEDS_PERSON`). Rename or copy a secret with `komando secret mv OLD NEW`
+   / `secret cp OLD NEW` (references follow a mv; the value is never shown),
+   instead of asking the human to type it again. Refer to secrets as
    `secret:NAME`, and never put a secret value on a command line. On this
    computer, do not read `~/.komando`, private keys, `.env` files or all
    environment variables at once, and do not change or clear the variables

@@ -167,6 +167,14 @@ Anything that must keep running (a temporary web server, a watcher) is a
 - Snippets count as changes unless saved with `--read-only`.
 - Never put a secret value in a command line: `komando secret set NAME` reads it
   from `--from-env VAR` or stdin.
+- Rename a secret with `komando secret mv OLD NEW` (every server, conn, key and
+  VPN that uses it follows) and copy one with `secret cp OLD NEW`: the value
+  stays in the vault, so nobody retypes it. Never ask the human to retype a
+  password just to rename it.
+- A login fails and you suspect the stored password: `komando secret get NAME`
+  warns when it starts or ends with a space or tab. Only the human can compare
+  it with the right one: ask them to run `komando secret check NAME`
+  (`NEEDS_PERSON` for you).
 - `HOSTKEY_MISMATCH` (exit 4): possible man-in-the-middle. Never auto-fix; report to the human.
 - Never print secrets. Credentials are references (`secret:NAME`, `env:VAR`), not values.
 - For an AI agent, passwords, keys and tokens in output show as `[hidden]`

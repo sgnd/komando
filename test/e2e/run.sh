@@ -70,6 +70,13 @@ check "secret never printed" False "$($K secret get agent-pass | jget '"value" i
 check "reveal needs a person" REVEAL_NEEDS_HUMAN "$($K secret get agent-pass --reveal </dev/null | jget 'd["error"]["code"]' || true)"
 check "secret in use cannot be removed" SECRET_IN_USE "$($K secret rm agent-pass | jget 'd["error"]["code"]' || true)"
 check "plain password refused as a ref" USAGE "$($K host add bad "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref agentpass | jget 'd["error"]["code"]' || true)"
+# renaming a secret moves every reference with it; the logins below prove the value survived the round trip
+check "secret mv updates the 3 servers" 3 "$($K secret mv agent-pass agent-pass-renamed | jget 'len(d["data"]["updated"])')"
+check "the server follows the rename" secret:agent-pass-renamed "$($K host show direct | jget 'd["data"]["password_ref"]')"
+check "secret mv back" 3 "$($K secret mv agent-pass-renamed agent-pass | jget 'len(d["data"]["updated"])')"
+$K secret cp agent-pass agent-pass-copy >/dev/null
+check "secret cp to a taken name needs --overwrite" SECRET_EXISTS "$($K secret cp agent-pass agent-pass-copy | jget 'd["error"]["code"]' || true)"
+$K secret rm agent-pass-copy >/dev/null
 
 check "completion lists the inventory" True "$($K __complete exec '' 2>/dev/null | grep -qx direct && echo True || echo False)"
 check "schema knows kind: selectors" True "$($K schema | jget '"kind:KIND" in d["data"]["target_selectors"]')"
