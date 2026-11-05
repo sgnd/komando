@@ -291,9 +291,11 @@ func dumpPostgres(ctx context.Context, db *sql.DB, o DumpOptions, w *bufio.Write
 		w.WriteString("\n")
 	}
 
+	// tgparentid (PostgreSQL 13+) through to_jsonb: older servers mark the
+	// copies on partitions tgisinternal instead.
 	trig, err := q(`SELECT n.nspname, c.relname, pg_get_triggerdef(t.oid) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
 		JOIN pg_namespace n ON n.oid = c.relnamespace WHERE NOT t.tgisinternal AND ` + pgUserNS + `
-		AND NOT EXISTS (SELECT 1 FROM pg_trigger p WHERE p.oid = t.tgparentid) ORDER BY t.oid`)
+		AND NOT EXISTS (SELECT 1 FROM pg_trigger p WHERE p.oid = (to_jsonb(t) ->> 'tgparentid')::oid) ORDER BY t.oid`)
 	if err != nil {
 		return err
 	}
@@ -582,7 +584,9 @@ func pgPreamble(q func(string, ...any) ([][]sql.NullString, error), w *bufio.Wri
 
 // pgFuncLate: a function that uses a table, view or a table's row type (in
 // its arguments, result or SQL-standard body) can only be made after them.
-const pgFuncLate = `(p.prosqlbody IS NOT NULL OR EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid
+// prosqlbody (PostgreSQL 14+) is read through to_jsonb, so older servers,
+// which do not have the column, get NULL instead of an error.
+const pgFuncLate = `((to_jsonb(p) ->> 'prosqlbody') IS NOT NULL OR EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid
 	AND (d.refclassid = 'pg_class'::regclass OR (d.refclassid = 'pg_type'::regclass AND EXISTS (SELECT 1 FROM pg_type t
 	  JOIN pg_class c ON c.oid = t.typrelid WHERE t.oid = d.refobjid AND c.relkind IN ('r','p','v','m'))))))`
 

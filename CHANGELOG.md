@@ -218,6 +218,8 @@ Fixes from the full security review of 2026-11-04.
 
 ### Fixed
 
+- `komando db dump` works again on PostgreSQL 12 and 13: it no longer reads
+  catalog columns that only newer servers have (`prosqlbody`, `tgparentid`).
 - The Bitwarden device id file (`bitwarden-device`) is kept in
   `KOMANDO_HOME`, like every other state file, instead of always in
   `~/.komando`.

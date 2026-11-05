@@ -103,8 +103,14 @@ CREATE SEQUENCE public.order_no START 1000;
 CREATE TABLE public.orders (id int PRIMARY KEY DEFAULT nextval('public.order_no'), item text);
 CREATE TABLE public.zz_later (id int);
 INSERT INTO public.orders (item) VALUES ('a'), ('b');
-INSERT INTO d9."order.items" (v) VALUES ('x');
-CREATE FUNCTION public.two() RETURNS int LANGUAGE sql BEGIN ATOMIC SELECT 1; SELECT 2; END;`)
+INSERT INTO d9."order.items" (v) VALUES ('x');`)
+	// SQL-standard bodies (D13) exist from PostgreSQL 14; older servers get a
+	// classic body, so the dump is still checked against them (12 and 13)
+	if liveOne(t, src, "SELECT current_setting('server_version_num')") >= "140000" {
+		liveExec(t, src, "CREATE FUNCTION public.two() RETURNS int LANGUAGE sql BEGIN ATOMIC SELECT 1; SELECT 2; END;")
+	} else {
+		liveExec(t, src, "CREATE FUNCTION public.two() RETURNS int LANGUAGE sql AS 'SELECT 1; SELECT 2'")
+	}
 
 	all := liveOpen(t, "KOMANDO_PGTEST", "kfix_all")
 	dumpCheckRestore(t, "postgres", src, all, DumpOptions{})
