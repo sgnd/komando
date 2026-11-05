@@ -38,6 +38,9 @@ If `komando` is not installed, stop and ask the human to install it:
    (passwords as `--password-ref secret:NAME`, never `CREATE USER ... PASSWORD`
    in a query). After writing a systemd unit run `komando svc daemon-reload`;
    restart servers only with `komando reboot` (it needs the human).
+   Change the inventory in bulk: `komando host edit <target> --sudo-ref secret:NAME`
+   (one approval for every server), `komando host mv OLD NEW` (renames and
+   updates every reference), `komando import csv FILE` (many servers at once).
 4. Use `komando job start` for anything that may take more than ~2 minutes.
 5. **Never** add `--allow-dangerous`, `--yes` or `--reveal` on your own. When
    a command is blocked (exit code 6: `POLICY_BLOCKED`, `PROTECTED_HOST`,

@@ -121,7 +121,7 @@ resource is only reachable from a server.
 
 Conns share names and selectors (@group, tag:x, glob, all) with hosts.`,
 	}
-	c.AddCommand(connAddCmd(), connEditCmd(), alias(listCmdFor("conn"), "list kind:conn"), connShowCmd(), connRmCmd(), alias(testCmdFor("conn"), "test"), connKindsCmd())
+	c.AddCommand(connAddCmd(), connEditCmd(), connMvCmd(), alias(listCmdFor("conn"), "list kind:conn"), connShowCmd(), connRmCmd(), alias(testCmdFor("conn"), "test"), connKindsCmd())
 	return c
 }
 
@@ -266,15 +266,9 @@ func connEditCmd() *cobra.Command {
 					return err
 				}
 				if rename != "" && rename != cn.Name {
-					if err := validName("conn", rename); err != nil {
+					if _, err := renameConn(s, cn.Name, rename); err != nil {
 						return err
 					}
-					if kind, existing, ok := s.FindName(rename); ok && existing != cn.Name {
-						return nameTaken(kind, existing)
-					}
-					delete(s.Conns, cn.Name)
-					cn.Name = rename
-					s.Conns[rename] = cn
 				}
 				if !cn.Protected {
 					if twin := protectedTwinConn(s, cn); twin != "" {
@@ -303,6 +297,7 @@ func connEditCmd() *cobra.Command {
 	f.bind(c, true)
 	c.Flags().StringVar(&url, "url", "", "new URL (the kind may change with the scheme)")
 	c.Flags().StringVar(&rename, "rename", "", "rename the conn")
+	_ = c.Flags().MarkDeprecated("rename", "use `komando conn mv OLD NEW`")
 	return c
 }
 

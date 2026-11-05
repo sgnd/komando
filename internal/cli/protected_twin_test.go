@@ -102,7 +102,7 @@ func TestImportResolvesEachNameOnce(t *testing.T) {
 	}
 	hosts = append(hosts, &store.Host{Name: "alias", Address: "alias.internal", User: "root"})
 	prefetchTwinIPs(st, hosts)
-	v, err := vetImportHosts(st, hosts, false)
+	v, err := vetImportHosts(st, hosts, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}

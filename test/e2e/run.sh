@@ -90,6 +90,17 @@ check "exec -P 6 through one bastion" 6 "$($K exec @fan -P 6 --read-only -- host
 sleep 1
 check "the bastion saw one login for six servers" 1 "$(( $(logins) - before ))"
 $K host rm fan1 fan2 fan3 fan4 fan5 fan6 --yes >/dev/null
+# many servers at once: import a CSV, edit a group in one go, rename one
+CSV=$(mktemp)
+printf 'name,address,user,via,password-ref,groups,protected\nbulk1,target,agent,bastion,secret:agent-pass,bulk,no\nbulk2,target,agent,bastion,secret:agent-pass,bulk,yes\n' >"$CSV"
+check "import csv --dry-run adds nothing" 2 "$($K import csv "$CSV" --dry-run | jget 'len(d["data"]["hosts"])')"
+check "import csv" 2 "$($K import csv "$CSV" | jget 'len(d["data"]["hosts"])')"
+rm -f "$CSV"
+check "host edit @group stops at a protected server" PROTECTED_HOST "$($K host edit @bulk --user agent2 | jget 'd["error"]["code"]' || true)"
+check "host edit @group --yes changes both" 2 "$($K host edit @bulk -t bulked --user agent --yes | jget 'len(d["data"]["changed"])')"
+$K host mv bulk1 bulk-one >/dev/null
+check "host mv keeps the server working" target "$($K exec bulk-one --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
+$K host rm bulk-one bulk2 --yes >/dev/null
 set +e
 $K exec direct -- 'exit 3' >/dev/null; check "non-zero exit -> 5" 5 $?
 $K exec direct -- 'rm -rf /' >/dev/null; check "policy blocks rm -rf /" 6 $?

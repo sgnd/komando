@@ -23,11 +23,12 @@ type hostVet struct {
 
 // vetImportHosts checks imported hosts against s the way host add does:
 // names, ports, users, --via paths. The file may come from someone else, so
-// its hosts may not use secrets or files of this computer (dropForeignHostRefs).
+// its hosts may not use secrets or files of this computer (dropForeignHostRefs),
+// unless ownRefs says it is the user's own list (a CSV).
 // A proxy command runs on this computer,
 // so it goes through guardProxyCommand (an AI agent needs a person's yes);
 // that stop ends the whole import. Hosts that pass are put into s.
-func vetImportHosts(s *store.State, hosts []*store.Host, overwrite bool) (hostVet, error) {
+func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool) (hostVet, error) {
 	var v hostVet
 	var cand []*store.Host
 	for _, h := range hosts {
@@ -59,7 +60,15 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite bool) (hostVe
 				h.Identity = ""
 			}
 		}
-		v.Notes = append(v.Notes, dropForeignHostRefs(h)...)
+		if !ownRefs {
+			v.Notes = append(v.Notes, dropForeignHostRefs(h)...)
+		}
+		if h.Key != "" {
+			if _, ok := s.Keys[h.Key]; !ok {
+				v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(keyNotFound(s, h.Key)).Message})
+				continue
+			}
+		}
 		if err := checkEnvKeys(h.Env); err != nil {
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
@@ -164,7 +173,7 @@ run on this computer, so an AI agent needs a person's yes for them.`,
 			var v hostVet
 			err := store.Update(func(s *store.State) error {
 				var err error
-				if v, err = vetImportHosts(s, hosts, overwrite); err != nil {
+				if v, err = vetImportHosts(s, hosts, overwrite, false); err != nil {
 					return err
 				}
 				now := time.Now().UTC()
