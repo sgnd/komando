@@ -121,6 +121,10 @@ func listCmdFor(only string) *cobra.Command {
 }
 
 type targetTest struct {
+	// Host names the target, like results[].host of facts, exec and the
+	// other multi-target commands; use it. Name is the same value, kept
+	// for scripts written before host was added (contract 1).
+	Host      string     `json:"host"`
 	Name      string     `json:"name"`
 	Kind      string     `json:"kind"`
 	OK        bool       `json:"ok"`
@@ -245,6 +249,9 @@ func testCmdFor(only string) *cobra.Command {
 				res = append(res, vpnTest(cmd.Context(), st, v))
 			}
 
+			for i := range res {
+				res[i].Host = res[i].Name
+			}
 			data := testData{Results: res}
 			worst := 0
 			var names []string

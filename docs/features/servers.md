@@ -348,5 +348,9 @@ be used by OpenSSH; use `komando shell NAME` for those.
 - `host edit --rename` (older) is the same as `host mv`.
 - `host list` and `host test` are the same as `komando list kind:host` and
   `komando test`.
+- `komando test` tells you, per server, the login user and whether sudo
+  works without a password. In JSON each result names its target in `host`,
+  like `exec` and `facts` (`name` holds the same value, for older scripts).
+  `komando facts` reports the same sudo check, plus much more.
 - A proxy command runs on this computer, so an AI agent needs a person's yes
   to import one.

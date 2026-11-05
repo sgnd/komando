@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -15,87 +14,6 @@ import (
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
-
-// ---------------------------------------------------------------- facts ---
-
-const factsScript = `export LC_ALL=C
-echo "hostname=$(hostname 2>/dev/null)"
-if [ -r /etc/os-release ]; then . /etc/os-release; echo "os=$ID"; echo "os_version=$VERSION_ID"; echo "os_pretty=$PRETTY_NAME"; else echo "os=$(uname -s | tr A-Z a-z)"; fi
-echo "kernel=$(uname -r)"; echo "arch=$(uname -m)"
-echo "cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
-[ -r /proc/meminfo ] && awk '/^MemTotal/{print "mem_total_mb="int($2/1024)}/^MemAvailable/{print "mem_available_mb="int($2/1024)}/^SwapTotal/{print "swap_total_mb="int($2/1024)}/^SwapFree/{print "swap_free_mb="int($2/1024)}' /proc/meminfo
-[ -r /proc/loadavg ] && echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
-[ -r /proc/uptime ] && echo "uptime_sec=$(cut -d. -f1 /proc/uptime)"
-df -P -k / 2>/dev/null | awk 'NR==2{print "disk_root_total_gb="int($2/1048576); print "disk_root_used_pct="int($5)}'
-echo "ips=$(hostname -I 2>/dev/null || ip -o -4 addr show scope global 2>/dev/null | awk '{sub("/.*", "", $4); print $4}' | tr '\n' ' ')"
-echo "init=$(cat /proc/1/comm 2>/dev/null || ps -p 1 -o comm= 2>/dev/null)"
-v=$(systemd-detect-virt 2>/dev/null)
-if [ -z "$v" ] || [ "$v" = none ]; then
-  if [ -f /.dockerenv ] || grep -qa docker /proc/1/cgroup 2>/dev/null; then v=docker
-  elif [ -f /run/.containerenv ]; then v=podman
-  elif grep -qa -e lxc -e kubepods /proc/1/cgroup 2>/dev/null; then v=container
-  fi
-fi
-echo "virt=${v:-unknown}"
-for m in apt-get dnf yum apk zypper pacman; do command -v $m >/dev/null 2>&1 && { echo "pkg_manager=${m%-get}"; break; }; done
-for b in curl wget openssl docker podman kubectl k3s systemctl nginx apache2 httpd caddy haproxy mysql psql redis-cli mongosh node python3 java go git ufw firewall-cmd certbot; do command -v $b >/dev/null 2>&1 && printf 'tool=%s\n' $b; done
-[ -f /var/run/reboot-required ] && echo "reboot_required=true" || echo "reboot_required=false"
-[ -d /run/systemd/system ] && echo "failed_units=$(systemctl --failed --no-legend --plain 2>/dev/null | wc -l)"
-echo "users_logged_in=$(who 2>/dev/null | wc -l)"
-echo "time_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-echo "timezone=$(cat /etc/timezone 2>/dev/null || date +%Z)"
-`
-
-func parseFacts(_ *store.Host, s string) (any, error) {
-	f := map[string]any{}
-	tools := []string{}
-	for _, line := range strings.Split(s, "\n") {
-		k, v, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		v = strings.TrimSpace(v)
-		switch {
-		case k == "tool":
-			tools = append(tools, v)
-		case k == "os_version" || k == "hostname" || k == "kernel":
-			f[k] = v
-		case k == "ips":
-			f[k] = strings.Fields(v)
-		case k == "load":
-			var l []float64
-			for _, x := range strings.Fields(v) {
-				n, _ := strconv.ParseFloat(x, 64)
-				l = append(l, n)
-			}
-			f[k] = l
-		case v == "true" || v == "false":
-			f[k] = v == "true"
-		default:
-			if n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil {
-				f[k] = n
-			} else {
-				f[k] = v
-			}
-		}
-	}
-	sort.Strings(tools)
-	f["tools"] = tools
-	return f, nil
-}
-
-func factsCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "facts TARGET",
-		Aliases: []string{"info", "inspect"},
-		Short:   "Gather structured system facts: OS, CPU, memory, disk, load, IPs, installed tools",
-		Long:    "Run this first on unfamiliar hosts: it tells an agent which package manager, init system and tools exist so later commands fit the server.",
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return probe(cmd.Context(), "facts", args[0], factsScript, false, parseFacts)
-		},
-	}
-}
 
 // -------------------------------------------------------------- recipes ---
 

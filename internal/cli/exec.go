@@ -574,6 +574,34 @@ func runOne(ctx context.Context, name, target, command string, sudo, mutating bo
 // probe runs a read-only command on all target hosts and lets parse turn
 // stdout into structured data.
 func probe(ctx context.Context, name, target, command string, sudo bool, parse func(h *store.Host, stdout string) (any, error)) error {
+	return probeText(ctx, name, target, command, sudo, parse, nil)
+}
+
+// probeRow is one host's answer to a probe.
+type probeRow struct {
+	Host     string     `json:"host"`
+	OK       bool       `json:"ok"`
+	Data     any        `json:"data,omitempty"`
+	ExitCode *int       `json:"exit_code,omitempty"`
+	Stderr   string     `json:"stderr,omitempty"`
+	Error    *out.Error `json:"error,omitempty"`
+}
+
+type probeData struct {
+	Results []probeRow   `json:"results"`
+	Summary fleetSummary `json:"summary"`
+}
+
+// probeTexter gives a probe its own -o text layout; the JSON is the same.
+type probeTexter struct {
+	probeData
+	text func(probeData) string
+}
+
+func (p probeTexter) Text() string { return p.text(p.probeData) }
+
+// probeText is probe with a text layout of its own (nil: the generic one).
+func probeText(ctx context.Context, name, target, command string, sudo bool, parse func(h *store.Host, stdout string) (any, error), text func(probeData) string) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -586,25 +614,14 @@ func probe(ctx context.Context, name, target, command string, sudo bool, parse f
 		out.P.Print(name, map[string]any{"hosts": hostNames(hosts), "would_run": command}, nil)
 		return nil
 	}
-	type row struct {
-		Host     string     `json:"host"`
-		OK       bool       `json:"ok"`
-		Data     any        `json:"data,omitempty"`
-		ExitCode *int       `json:"exit_code,omitempty"`
-		Stderr   string     `json:"stderr,omitempty"`
-		Error    *out.Error `json:"error,omitempty"`
-	}
 	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 		return sshx.Run(ctx, c, sshx.RunRequest{Command: command, Sudo: sudo, Timeout: cmdTimeout(st), MaxOutput: maxOutput(st)})
 	})
-	data := struct {
-		Results []row        `json:"results"`
-		Summary fleetSummary `json:"summary"`
-	}{Results: []row{}}
+	data := probeData{Results: []probeRow{}}
 	worst := 0
 	var fails []hostFail
 	for _, o := range res {
-		r := row{Host: o.Host.Name}
+		r := probeRow{Host: o.Host.Name}
 		if o.Err != nil {
 			r.Error = toErr(o.Err)
 			worst = worse(worst, r.Error.Exit)
@@ -650,5 +667,9 @@ func probe(ctx context.Context, name, target, command string, sudo bool, parse f
 	}
 	data.Summary.Total = len(res)
 	audit(st, name, hostNames(hosts), command, data.Summary.Failed == 0, nil)
-	return finishFleet(name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+	var shown any = data
+	if text != nil {
+		shown = probeTexter{data, text}
+	}
+	return finishFleet(name, shown, runSummary{fleetSummary: data.Summary}, worst, fails)
 }
