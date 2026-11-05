@@ -276,6 +276,7 @@ func (p *Peer) lcp(code, id byte, data []byte) error {
 		if c := clean(string(data)); c != "" {
 			msg = ": " + c
 		}
+		p.logf("PPP: the server ended the link (LCP Terminate-Request%s)", msg)
 		if !p.authDone && p.auth != 0 && p.lcpUp {
 			return p.failWith(&AuthError{Msg: "the VPN ended the PPP link during the login" + msg + " (often a wrong user name or password)"})
 		}

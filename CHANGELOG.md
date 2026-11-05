@@ -4,6 +4,13 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+### Changed
+
+- `komando vpn status`: `last_end` now says when the session ended and how
+  long it ran. When an L2TP server ends the session, it also says how long
+  the link had no traffic (a server idle timeout?), and the log shows the
+  server's own reason (StopCCN/CDN result, LCP Terminate text).
+
 ### Added
 
 - L2TP/IPsec (`l2tp`), Cisco-style IPsec with a group name and XAUTH login

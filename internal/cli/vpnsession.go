@@ -674,6 +674,7 @@ func vpnServeCmd() *cobra.Command {
 				return fail(errors.New("no such VPN"))
 			}
 			ctx := cmd.Context()
+			started := time.Now()
 			d, closer, err := netx.OpenDirect(ctx, v, sshOpts(st).ConnectTimeout)
 			if err != nil {
 				return fail(err)
@@ -704,7 +705,8 @@ func vpnServeCmd() *cobra.Command {
 				go func() {
 					<-ended.Done()
 					if e, ok := closer.(interface{ Err() error }); ok && e.Err() != nil {
-						fmt.Printf("ENDED %v\n", e.Err())
+						// a timestamp like the log's other lines, and how long it ran
+						fmt.Printf("%s ENDED %v (after %s)\n", time.Now().Format("2006/01/02 15:04:05"), e.Err(), time.Since(started).Round(time.Second))
 					}
 					ln.Close()
 				}()

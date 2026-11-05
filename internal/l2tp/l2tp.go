@@ -121,6 +121,7 @@ type Tunnel struct {
 	dns      []netip.Addr
 	mtu      int
 	lastRecv time.Time
+	lastData time.Time // the last IPv4 packet either way: how idle the link was
 }
 
 // Dial sets up the tunnel and session and logs in with PPP.
@@ -130,7 +131,7 @@ func Dial(ctx context.Context, link Link, user, password string, log func(string
 	}
 	t := &Tunnel{link: link, log: log, ourTID: uint16(1 + time.Now().UnixNano()%65000), ourSID: 1,
 		unacked: map[uint16][]byte{}, ctrl: make(chan []avp, 16), packets: make(chan []byte, 256),
-		done: make(chan struct{}), lastRecv: time.Now()}
+		done: make(chan struct{}), lastRecv: time.Now(), lastData: time.Now()}
 	t.ppp = ppp.New(t.sendPPP, user, password)
 	t.ppp.Log = log
 	go t.read()
@@ -415,7 +416,12 @@ func (t *Tunnel) handle(b []byte) {
 	switch binary.BigEndian.Uint16(mt) {
 	case tStopCCN, tCDN:
 		t.ack()
-		t.end(fmt.Errorf("the L2TP server ended the session%s", result(as)))
+		name := map[uint16]string{tStopCCN: "StopCCN", tCDN: "CDN"}[binary.BigEndian.Uint16(mt)]
+		t.mu.Lock()
+		quiet := time.Since(t.lastData).Round(time.Second)
+		t.mu.Unlock()
+		t.log("L2TP: the server sent %s%s; no data for %s before it", name, result(as), quiet)
+		t.end(fmt.Errorf("the L2TP server ended the session%s; no data for %s before it (a server idle timeout?)", result(as), quiet))
 		return
 	case tHELLO:
 		t.ack()
@@ -445,6 +451,9 @@ func (t *Tunnel) data(p []byte) {
 		proto, p = binary.BigEndian.Uint16(p), p[2:]
 	}
 	if proto == ppp.IPv4 {
+		t.mu.Lock()
+		t.lastData = time.Now()
+		t.mu.Unlock()
 		select {
 		case t.packets <- append([]byte{}, p...):
 		default:
@@ -495,7 +504,12 @@ func (t *Tunnel) end(err error) {
 }
 
 // WritePacket sends one IPv4 packet.
-func (t *Tunnel) WritePacket(p []byte) error { return t.sendPPP(ppp.IPv4, p) }
+func (t *Tunnel) WritePacket(p []byte) error {
+	t.mu.Lock()
+	t.lastData = time.Now()
+	t.mu.Unlock()
+	return t.sendPPP(ppp.IPv4, p)
+}
 
 // Packets are the IPv4 packets from the server.
 func (t *Tunnel) Packets() <-chan []byte { return t.packets }
