@@ -370,11 +370,20 @@ func roundTrip(t *testing.T, c *Client, n int) {
 	if err := c.WritePacket([]byte(want)); err != nil {
 		t.Fatal(err)
 	}
-	for end := time.After(5 * time.Second); ; {
+	// a tunnel may drop a packet, as IP may: right after a renegotiation the
+	// fake server can get the client's first packet on the new key before it
+	// has installed that key, so the packet is sent again until it comes back
+	resend := time.NewTicker(500 * time.Millisecond)
+	defer resend.Stop()
+	for end := time.After(10 * time.Second); ; {
 		select {
 		case p := <-c.Packets:
 			if string(p) == want {
 				return
+			}
+		case <-resend.C:
+			if err := c.WritePacket([]byte(want)); err != nil {
+				t.Fatal(err)
 			}
 		case <-end:
 			t.Fatalf("packet %d did not come back (key %d, err %v)", n, curKey(c), c.Err())
