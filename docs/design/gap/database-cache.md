@@ -293,7 +293,7 @@ Technical facts that affect priority:
 | MONITOR (see all commands) | redis-cli `MONITOR` | MISSING | `cache run -- MONITOR` is classified write and `Do()` only reads one reply. A time-limited version (`--duration 5s`) is useful for debugging; a continuous version = NG-4. Warning: MONITOR leaks values (PII/secrets) | P3 |
 | List clients | redis-cli `CLIENT LIST` | PRESENT (through the raw path) | `cache run -- CLIENT LIST` (read; raw text, not parsed into a table) | - |
 | Kill clients | redis-cli `CLIENT KILL` | PRESENT (through the raw path) | `cache run --write --allow-dangerous -- CLIENT KILL ...` (`redis-kill`) | - |
-| See config (`CONFIG GET`) | redis-cli | PRESENT (through the raw path) | read | - |
+| See config (`CONFIG GET`) | redis-cli | PRESENT (through the raw path) | read; for agents, password settings (requirepass, masterauth, ...) show as `[hidden]` (`cachex.HideSecrets`) | - |
 | Change config (`CONFIG SET maxmemory`) | redis-cli | PRESENT (through the raw path) | `redis-server-config` (destructive) | - |
 | Replication (role, lag, `INFO replication`) | redis-cli | PRESENT | `cache info CONN replication` | - |
 | Memory doctor / stats | redis-cli `MEMORY DOCTOR` | PRESENT (through the raw path) | read | - |
@@ -309,7 +309,7 @@ Technical facts that affect priority:
 | PUBLISH | redis-cli | PRESENT (through the raw path) | `cache run --write -- PUBLISH ch msg` | - |
 | SUBSCRIBE / PSUBSCRIBE (listen for N messages or N seconds) | redis-cli `SUBSCRIBE` | MISSING | Needs a streaming mode; a limited version (`--count`, `--duration`) fits a CLI, a continuous version = NG-4 | P3 |
 | `PUBSUB CHANNELS/NUMSUB` | redis-cli | PRESENT (through the raw path) | read | - |
-| EVAL / EVALSHA / FCALL | redis-cli `--eval` | PRESENT (through the raw path) | `redis-script-run` (destructive: cannot be inspected); `EVAL_RO` read | - |
+| EVAL / EVALSHA / FCALL | redis-cli `--eval` | PRESENT (through the raw path) | `redis-script-run` (destructive: cannot be inspected, can block the server), `_RO` forms, `TFCALL` and `RG.PYEXECUTE` too; `FUNCTION`/`TFUNCTION LOAD REPLACE` = `redis-scripts` | - |
 | `--eval file.lua` | redis-cli | MISSING | The script must be inline in argv | P3 |
 | Cluster admin (`CLUSTER NODES/INFO`, `--cluster check/fix/rebalance/reshard`) | redis-cli `--cluster` | PARTIAL | `CLUSTER INFO/NODES` read through `cache run` to one node; `--cluster fix/reshard` is not available (NG-1) | P3 |
 | Sentinel admin (`SENTINEL masters`, failover) | redis-cli | PARTIAL | Through `cache run --write -- SENTINEL ...` to a conn on the sentinel port. Even reading needs `--write`, and `SENTINEL FAILOVER/REMOVE/SET` is only classified write (does not need `--allow-dangerous`) | P3 |
@@ -581,7 +581,7 @@ Every row above was checked again against the code (`internal/cli`, `internal/db
 | 174 | MONITOR | MISSING | Correct | `MONITOR` not registered = write; `cachex.go:311` one `Do()` |
 | 175 | CLIENT LIST | PRESENT (through the raw path) | Correct | `cachex.go:83` read |
 | 176 | CLIENT KILL | PRESENT (through the raw path) | Correct | `cachex.go:107` `redis-kill` |
-| 177 | CONFIG GET | PRESENT (through the raw path) | Correct | `cachex.go:82` read |
+| 177 | CONFIG GET | PRESENT (through the raw path) | Correct | `readSub` CONFIG GET read; passwords hidden for agents (`HideSecrets`) |
 | 178 | CONFIG SET | PRESENT (through the raw path) | Correct | `cachex.go:106` `redis-server-config` |
 | 179 | Replication INFO | PRESENT | Correct | `cache.go:158-180` `cache info CONN replication` |
 | 180 | MEMORY DOCTOR | PRESENT (through the raw path) | Correct | `cachex.go:84` read |
@@ -592,7 +592,7 @@ Every row above was checked again against the code (`internal/cli`, `internal/db
 | 185 | PUBLISH | PRESENT (through the raw path) | Correct | not registered = write, `cache run --write` |
 | 186 | SUBSCRIBE | MISSING | Correct | `cachex.go:311` `Do()` one reply |
 | 187 | PUBSUB CHANNELS | PRESENT (through the raw path) | Correct | `cachex.go:93` read |
-| 188 | EVAL/FCALL | PRESENT (through the raw path) | Correct | `cachex.go:102` `redis-script-run`; `:78` `EVAL_RO` read |
+| 188 | EVAL/FCALL | PRESENT (through the raw path) | Correct | `destructive` map: `redis-script-run` for EVAL/EVALSHA/FCALL and their `_RO` forms |
 | 189 | --eval file | MISSING | Correct | `cache.go:224-262` no `--file` |
 | 190 | Cluster admin | PARTIAL | Correct | `cachex.go:88` CLUSTER INFO/NODES read; no `--cluster` |
 | 191 | Sentinel admin | PARTIAL | Corrected: MISSING→PARTIAL | `SENTINEL` not in `destructive`/`readCmds` (`cachex.go:72-113`) = write |

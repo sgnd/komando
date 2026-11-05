@@ -124,7 +124,13 @@ komando pkg update web1                         # only refresh the package index
 - `upgradable` says how old the package index is, and suggests `--refresh`
   when it is more than a day old.
 - Removing packages a server needs (openssh-server, sudo, systemd, libc
-  ...) needs `--allow-dangerous`.
+  ...) needs `--allow-dangerous`, however the name is written
+  (`openssh-server:amd64`, `sudo.x86_64`, `openssh.server`). On apt
+  servers, removing a package that would take one of them with it
+  (`libssl3` takes openssh-server) stops with `POLICY_BLOCKED` before
+  anything is removed; other package managers are not checked this way.
+- Package names are exact names: no options, patterns or a trailing `-`.
+  For a local `.deb` or `.rpm`, use `komando upload` and `komando exec`.
 - `--no-sudo` skips sudo when you log in as root.
 
 ## Users

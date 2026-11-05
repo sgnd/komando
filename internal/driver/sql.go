@@ -64,12 +64,13 @@ func RuleReason(id string) string {
 
 // Statement is one classified SQL statement.
 type Statement struct {
-	SQL     string `json:"sql"`
-	Keyword string `json:"keyword"`
-	Risk    Risk   `json:"risk"`
-	Rows    bool   `json:"-"`                 // returns a result set (SELECT, RETURNING, SHOW, ...)
-	NoTx    bool   `json:"no_tx,omitempty"`   // cannot run inside a transaction, so cannot be rolled back
-	Unknown bool   `json:"unknown,omitempty"` // keyword not recognised; rated write to be safe
+	SQL        string `json:"sql"`
+	Keyword    string `json:"keyword"`
+	Risk       Risk   `json:"risk"`
+	Rows       bool   `json:"-"`                     // returns a result set (SELECT, RETURNING, SHOW, ...)
+	NoTx       bool   `json:"no_tx,omitempty"`       // cannot run inside a transaction, so cannot be rolled back
+	NoRollback bool   `json:"no_rollback,omitempty"` // runs in the transaction, but a rollback may not undo it (setval, DO, COPY ... PROGRAM)
+	Unknown    bool   `json:"unknown,omitempty"`     // keyword not recognised; rated write to be safe
 }
 
 // SQLPlan is the result of ClassifySQL: the statements and the overall
@@ -85,22 +86,34 @@ type token struct {
 	ident string // upper-cased content of a quoted identifier ("pg_terminate_backend")
 	punct byte
 	str   string // content of a string literal (punct '\'')
+	esc   bool   // the string takes escapes (E'...', U&'...'), so str is not its real value
 	depth int
 	pos   int // byte offset in the statement
 }
 
 // Dialects differ in quoting: MySQL uses backslash escapes and backticks,
 // Postgres has E” strings and dollar quoting, SQLite accepts [names].
+// Each difference from the server's own scanner is a way to hide SQL, so
+// these follow the servers' lexers, not the SQL standard.
 type dialect struct {
 	backslash, dollar, backtick, bracket bool
 	execComments                         bool // MySQL runs the text inside /*! ... */
-	dashSpace                            bool // MySQL: "--" starts a comment only before white space ("1 --1" is 1 - -1)
+	dashSpace                            bool // MySQL: "--" starts a comment only before white space or a control character ("1 --1" is 1 - -1)
+	crComments                           bool // Postgres: a -- comment ends at \r as well as \n
+	execAsCode                           bool // restore: read /*! ... */ as the code MySQL runs instead of refusing it
+	unicodeEsc                           bool // Postgres: U&"..." names and U&'...' strings take \XXXX escapes
 }
 
 var dialects = map[string]dialect{
-	"postgres": {dollar: true},
+	"postgres": {dollar: true, crComments: true, unicodeEsc: true},
 	"mysql":    {backslash: true, backtick: true, execComments: true, dashSpace: true},
 	"sqlite":   {backtick: true, bracket: true},
+}
+
+// nameByte reports whether c continues an unquoted name. Postgres names
+// may contain $ (x$1), so there a $ inside a name starts no quote.
+func (d dialect) nameByte(c byte) bool {
+	return isWord(c) || d.dollar && c == '$'
 }
 
 // splitSQL tokenises sql, dropping comments and quoted text, and splits it
@@ -108,6 +121,7 @@ var dialects = map[string]dialect{
 func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error) {
 	var cur []token
 	start, depth := 0, 0
+	inExec := false // inside /*! ... */ (execAsCode)
 	flush := func(end int) {
 		text := strings.TrimSpace(sql[start:end])
 		if len(cur) > 0 {
@@ -120,12 +134,33 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 	for i := 0; i < n; {
 		c := sql[i]
 		switch {
-		case c == '-' && i+1 < n && sql[i+1] == '-' && (!d.dashSpace || i+2 >= n || sql[i+2] <= ' '), c == '#' && d.backslash:
-			for i < n && sql[i] != '\n' {
+		case inExec && c == '*' && i+1 < n && sql[i+1] == '/':
+			inExec = false
+			i += 2
+		case d.dashSpace && c == '-' && i+2 < n && sql[i+1] == '-' && sql[i+2] > 0x7f:
+			// MySQL asks the connection's character set whether this byte is
+			// a space or a control character, so komando cannot know
+			return nil, nil, out.Errf(out.ExitUsage, "SQL_HIDDEN_CODE",
+				"put a space after -- to start a comment: whether this one starts a comment depends on the server's character set",
+				"-- is followed by a non-ASCII byte")
+		case c == '-' && i+1 < n && sql[i+1] == '-' && (!d.dashSpace || i+2 >= n || sql[i+2] <= ' ' || sql[i+2] == 0x7f), c == '#' && d.backslash:
+			// MySQL: a control character (0x7f too) counts as white space here
+			for i < n && sql[i] != '\n' && !(d.crComments && sql[i] == '\r') {
 				i++
 			}
 		case c == '/' && i+1 < n && sql[i+1] == '*':
 			if d.execComments && i+2 < n && (sql[i+2] == '!' || sql[i+2] == 'M' && i+3 < n && sql[i+3] == '!') {
+				if d.execAsCode && !inExec { // the marker and its version number go; the code stays
+					i += 3
+					if sql[i-1] == 'M' {
+						i++
+					}
+					for i < n && sql[i] >= '0' && sql[i] <= '9' {
+						i++
+					}
+					inExec = true
+					continue
+				}
 				return nil, nil, out.Errf(out.ExitUsage, "SQL_HIDDEN_CODE",
 					"write the statement without /*! ... */: MySQL runs what is inside, so komando cannot check it",
 					"executable comments (/*! ... */) are not allowed")
@@ -153,8 +188,20 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 			if c == '[' {
 				closeCh = ']'
 			}
-			// MySQL escapes with backslash only inside '' and "", never in `names`
-			esc := d.backslash && c != '`' || (c == '\'' && i > 0 && (sql[i-1] == 'E' || sql[i-1] == 'e') && (i < 2 || !isWord(sql[i-2])))
+			// a prefix counts only where it starts a token: xE'...' is the name xE and a plain string
+			prefix := func(p string) bool {
+				k := i - len(p)
+				return k >= 0 && strings.EqualFold(sql[k:i], p) && (k == 0 || !d.nameByte(sql[k-1]))
+			}
+			uEsc := d.unicodeEsc && prefix("U&")
+			if uEsc && c == '"' {
+				return nil, nil, out.Errf(out.ExitUsage, "SQL_HIDDEN_CODE",
+					`write the name without U& escapes (U&"\0064blink" is dblink): komando cannot check a name it cannot read`,
+					`U&"..." names are not allowed`)
+			}
+			// MySQL escapes with backslash only inside '' and "", never in `names`;
+			// Postgres only inside E'...'
+			esc := d.backslash && c != '`' || c == '\'' && d.dollar && prefix("E")
 			j := i + 1
 			for ; j < n; j++ {
 				if esc && sql[j] == '\\' {
@@ -173,12 +220,16 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 				return nil, nil, out.Usage("unterminated %c quote in SQL", c)
 			}
 			if c != '\'' { // quoted identifier: never a keyword, but still a function name
-				cur = append(cur, token{word: "\x00ident", ident: strings.ToUpper(sql[i+1 : j]), depth: depth, pos: i - start})
+				name := sql[i+1 : j]
+				if closeCh != ']' {
+					name = strings.ReplaceAll(name, string(closeCh)+string(closeCh), string(closeCh))
+				}
+				cur = append(cur, token{word: "\x00ident", ident: strings.ToUpper(name), depth: depth, pos: i - start})
 			} else {
-				cur = append(cur, token{punct: '\'', str: strings.ReplaceAll(sql[i+1:j], "''", "'"), depth: depth, pos: i - start})
+				cur = append(cur, token{punct: '\'', str: strings.ReplaceAll(sql[i+1:j], "''", "'"), esc: esc || uEsc, depth: depth, pos: i - start})
 			}
 			i = j + 1
-		case c == '$' && d.dollar && (i == 0 || !isWord(sql[i-1])):
+		case c == '$' && d.dollar: // names swallow their own $ (below), so this starts a token
 			j := i + 1
 			for j < n && (isWord(sql[j]) && !unicode.IsDigit(rune(sql[j])) || j > i+1 && isWord(sql[j])) {
 				j++
@@ -211,8 +262,16 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 			i++
 		case isWord(c):
 			j := i
-			for j < n && isWord(sql[j]) {
+			number := c >= '0' && c <= '9' // 1$$x$$ is 1 and a dollar quote; x$$ is one name
+			for j < n && (isWord(sql[j]) || !number && d.nameByte(sql[j])) {
 				j++
+			}
+			if number && d.dollar && j < n && sql[j] == '$' && strings.Trim(sql[i:j], "0123456789") != "" {
+				// 1abc$$ is 1 and the name abc$$ before Postgres 15, a dollar
+				// quote after 0x1f or 1e5: the servers disagree, so refuse it
+				return nil, nil, out.Errf(out.ExitUsage, "SQL_HIDDEN_CODE",
+					"put a space between a number and the name or $ after it: Postgres versions read this differently, so komando cannot check it",
+					"%s$ is ambiguous", strings.ToLower(sql[i:j]))
 			}
 			cur = append(cur, token{word: strings.ToUpper(sql[i:j]), depth: depth, pos: i - start})
 			i = j
@@ -250,13 +309,14 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 	plan := SQLPlan{Statements: []Statement{}, kind: kind}
 	seen := map[string]bool{}
 	for i, ts := range toks {
-		risk, rules, err := classifyStatement(ts)
+		risk, rules, err := classifyStatement(ts, true)
 		if err != nil {
 			return SQLPlan{}, err
 		}
 		kw := firstWord(ts)
 		plan.Statements = append(plan.Statements, Statement{SQL: texts[i], Keyword: kw, Risk: risk,
-			Rows: returnsRows(kw, ts), NoTx: noTx(kind, kw, ts), Unknown: !readFirst[kw] && !writeFirst[kw] && !opaqueFirst[kw]})
+			Rows: returnsRows(kw, ts), NoTx: noTx(kind, kw, ts), NoRollback: noRollback(kw, ts, rules),
+			Unknown: !readFirst[kw] && !writeFirst[kw] && !opaqueFirst[kw]})
 		if risk > plan.Risk {
 			plan.Risk = risk
 		}
@@ -316,14 +376,25 @@ func noTx(kind, kw string, ts []token) bool {
 		}
 		return (kw == "CREATE" || kw == "DROP" || kw == "REINDEX") && hasWord(ts, "CONCURRENTLY")
 	case "mysql":
-		switch kw {
-		case "PREPARE", "EXECUTE", "CALL", "CREATE", "ALTER", "DROP", "RENAME", "TRUNCATE", "GRANT", "REVOKE", "LOCK", "UNLOCK", "INSTALL", "UNINSTALL", "OPTIMIZE", "REPAIR", "ANALYZE", "FLUSH", "RESET", "LOAD":
-			return true
+		// MySQL commits implicitly before (and after) many statements, and
+		// new ones come with new versions (IMPORT TABLE, CLONE, BACKUP
+		// STAGE), so only statements known to stay in the transaction run
+		// in it. Everything else must be sent alone.
+		if kw == "SET" { // SET PASSWORD and SET DEFAULT ROLE write the mysql tables and commit
+			return second == "PASSWORD" || second == "DEFAULT" && len(ts) > 2 && ts[2].word == "ROLE"
 		}
+		return !mysqlInTx[kw]
 	case "sqlite":
 		return kw == "VACUUM"
 	}
 	return false
+}
+
+// mysqlInTx are the MySQL statements that do not commit implicitly.
+var mysqlInTx = map[string]bool{
+	"SELECT": true, "INSERT": true, "UPDATE": true, "DELETE": true, "REPLACE": true, "WITH": true,
+	"VALUES": true, "TABLE": true, "SHOW": true, "DESCRIBE": true, "DESC": true, "EXPLAIN": true,
+	"HELP": true, "USE": true, "DO": true, "HANDLER": true,
 }
 
 func firstWord(ts []token) string {
@@ -354,7 +425,8 @@ var dangerousFuncs = map[string]string{
 	"PG_CREATE_LOGICAL_REPLICATION_SLOT": "sql-server-config", "PG_STAT_RESET": "sql-server-config",
 	"LO_EXPORT": "sql-server-file", "LO_IMPORT": "sql-server-file", "PG_READ_FILE": "sql-server-file",
 	"PG_READ_BINARY_FILE": "sql-server-file", "PG_FILE_WRITE": "sql-server-file", "PG_FILE_UNLINK": "sql-server-file",
-	"PG_FILE_RENAME": "sql-server-file", "LOAD_FILE": "sql-server-file",
+	"PG_FILE_RENAME": "sql-server-file", "PG_FILE_SYNC": "sql-server-file", "PG_STAT_FILE": "sql-server-file",
+	"PG_LOGDIR_LS": "sql-server-file", "PG_CURRENT_LOGFILE": "sql-server-file", "LOAD_FILE": "sql-server-file",
 	"SYS_EXEC": "sql-program", "SYS_EVAL": "sql-program",
 }
 
@@ -368,8 +440,85 @@ func funcRule(name string) (string, bool) {
 		return "sql-remote", true
 	case strings.HasPrefix(name, "PG_STAT_RESET"), strings.HasPrefix(name, "PG_REPLICATION_ORIGIN_"):
 		return "sql-server-config", true
+	case strings.HasPrefix(name, "PG_LS_"): // pg_ls_dir, pg_ls_waldir, pg_ls_tmpdir, ...: list server directories
+		return "sql-server-file", true
 	}
 	return "", false
+}
+
+// writeFuncs change data. The read-only transaction refuses them, but
+// rating them write gives the clear error first, and makes --write on a
+// protected conn ask, the same as UPDATE.
+var writeFuncs = map[string]bool{
+	"NEXTVAL": true, "SETVAL": true, // sequences (Postgres, MariaDB)
+	"LO_UNLINK": true, "LO_PUT": true, "LO_CREATE": true, "LO_CREAT": true, "LO_FROM_BYTEA": true, // large objects
+	"LO_TRUNCATE": true, "LO_TRUNCATE64": true, "LOWRITE": true,
+}
+
+// noRollbackFuncs change something a rollback does not undo, so a dry run
+// must not call them. (nextval is left alone: an INSERT advances the
+// sequence the same way.)
+var noRollbackFuncs = map[string]bool{"SETVAL": true}
+
+// noRollbackRules match statements whose effect a rollback does not undo:
+// a killed session, a program run or a file written on the server, a
+// commit on another server (dblink), or code komando cannot see into.
+var noRollbackRules = map[string]bool{
+	"sql-kill": true, "sql-program": true, "sql-server-file": true, "sql-server-config": true,
+	"sql-remote": true, "sql-opaque": true, "sql-session-config": true,
+}
+
+// noRollback reports a statement that runs inside the transaction but
+// whose effect a rollback may not undo, so a dry run must not execute it.
+func noRollback(kw string, ts []token, rules []string) bool {
+	if opaqueFirst[kw] || callsAny(ts, noRollbackFuncs) {
+		return true
+	}
+	for _, id := range rules {
+		if noRollbackRules[id] {
+			return true
+		}
+	}
+	return false
+}
+
+// callsAny reports whether ts calls one of the functions in names.
+func callsAny(ts []token, names map[string]bool) bool {
+	for i, t := range ts {
+		if i+1 < len(ts) && ts[i+1].punct == '(' && (names[t.word] || names[t.ident]) {
+			return true
+		}
+	}
+	return false
+}
+
+// readPragmas are SQLite pragmas whose argument (a table or index name)
+// only says what to read. Any other pragma given a value, as name = value
+// or name(value), changes a setting.
+var readPragmas = map[string]bool{
+	"TABLE_INFO": true, "TABLE_XINFO": true, "TABLE_LIST": true, "INDEX_LIST": true, "INDEX_INFO": true,
+	"INDEX_XINFO": true, "FOREIGN_KEY_LIST": true, "FOREIGN_KEY_CHECK": true, "INTEGRITY_CHECK": true, "QUICK_CHECK": true,
+}
+
+// pragmaWrites reports whether a PRAGMA statement changes something.
+func pragmaWrites(ts []token) bool {
+	if hasPunct(ts, '=') {
+		return true
+	}
+	for i := 1; i < len(ts); i++ {
+		name := ts[i].word
+		if ts[i].ident != "" {
+			name = ts[i].ident
+		}
+		switch {
+		case name == "" || i+1 < len(ts) && ts[i+1].punct == '.': // [schema.]name
+			continue
+		case name == "OPTIMIZE" || name == "INCREMENTAL_VACUUM" || name == "WAL_CHECKPOINT":
+			return true // they work on the file even without a value
+		}
+		return i+1 < len(ts) && ts[i+1].punct == '(' && !readPragmas[name]
+	}
+	return false
 }
 
 // opaqueFirst are statements whose real effect is hidden from komando.
@@ -384,7 +533,14 @@ var txSettings = map[string]bool{
 	"TX_READ_ONLY": true, "AUTOCOMMIT": true, "COMPLETION_TYPE": true,
 }
 
-var stringRules = map[string]bool{"STANDARD_CONFORMING_STRINGS": true, "BACKSLASH_QUOTE": true, "ESCAPE_STRING_WARNING": true, "SQL_MODE": true}
+// The client character set counts too: the server converts the text from
+// it before reading it, and in SJIS, GBK or BIG5 a backslash (0x5c) can be
+// the second byte of a character (SET NAMES, SET CHARACTER SET, SET
+// client_encoding, set_config('client_encoding', ...)).
+var stringRules = map[string]bool{
+	"STANDARD_CONFORMING_STRINGS": true, "BACKSLASH_QUOTE": true, "ESCAPE_STRING_WARNING": true, "SQL_MODE": true,
+	"CLIENT_ENCODING": true, "NAMES": true, "CHARACTER_SET_CLIENT": true, "CHARSET": true, "CHARACTER": true,
+}
 
 // writeFirst are statements that change something when they lead.
 var writeFirst = map[string]bool{
@@ -405,34 +561,57 @@ func explainTarget(ts []token) ([]token, bool) {
 		if t.word == "ANALYZE" || t.word == "ANALYSE" {
 			analyze = true
 		}
-		if t.depth == 0 && t.word != "" && (readFirst[t.word] && t.word != "EXPLAIN" && t.word != "SET" || writeFirst[t.word] && t.word != "ANALYZE") {
+		if t.depth == 0 && t.word != "" && (readFirst[t.word] && t.word != "EXPLAIN" && t.word != "SET" || writeFirst[t.word] && t.word != "ANALYZE" || opaqueFirst[t.word]) {
 			return ts[i:], analyze
 		}
 	}
 	return nil, analyze
 }
 
-func classifyStatement(ts []token) (Risk, []string, error) {
+// classifyStatement rates one statement. strict (komando db) refuses
+// transaction control and changes to the settings komando's checks rely
+// on; a restore (not strict) checks those itself and only wants the rules.
+func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 	first := firstWord(ts)
 	second := ""
 	if len(ts) > 1 {
 		second = ts[1].word
 	}
 	if txControl[first] && (first != "START" || second == "TRANSACTION") {
+		if !strict {
+			return RiskWrite, nil, nil
+		}
 		return 0, nil, out.Errf(out.ExitUsage, "SQL_TX_CONTROL",
 			"leave transactions to komando: without --write it runs a read-only transaction, with --write one transaction that --dry-run rolls back",
 			"%s is not allowed in komando db", first)
 	}
 	if first == "EXPLAIN" {
 		inner, analyze := explainTarget(ts)
-		if !analyze || inner == nil {
+		switch {
+		case inner == nil && analyze:
+			return RiskWrite, nil, nil // runs something komando does not know
+		case inner == nil, !analyze && !opaqueFirst[firstWord(inner)]:
 			return RiskRead, nil, nil // plain EXPLAIN only plans
 		}
-		return classifyStatement(inner)
+		return classifyStatement(inner, strict) // EXPLAIN EXECUTE runs its argument expressions even without ANALYZE
 	}
-	if first == "SET" || first == "RESET" {
-		for _, t := range ts {
-			if err := settingAllowed(t.word); err != nil {
+	if strict && (first == "SET" || first == "RESET") {
+		for i, t := range ts {
+			name := t.word
+			afterScope := i > 0 && (ts[i-1].punct == '@' || ts[i-1].punct == '.') // @@session.x
+			switch {
+			case t.ident != "": // SET "standard_conforming_strings", SET `autocommit`
+				name = t.ident
+			case t.punct == '\'' && afterScope: // MariaDB: @@session.'autocommit'
+				name = strings.ToUpper(t.str)
+			}
+			if afterScope && (t.ident != "" || t.punct == '\'') && strings.Contains(name, `\`) {
+				// MariaDB reads @@session.'auto\commit' as autocommit
+				return 0, nil, out.Errf(out.ExitUsage, "SQL_HIDDEN_CODE",
+					"write the setting name without quotes or backslashes: komando cannot check a name it cannot read",
+					"setting name %s has escapes", strings.ToLower(name))
+			}
+			if err := settingAllowed(name); err != nil {
 				return 0, nil, err
 			}
 		}
@@ -441,7 +620,7 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 	if readFirst[first] {
 		risk = RiskRead
 	}
-	if first == "PRAGMA" && hasPunct(ts, '=') {
+	if first == "PRAGMA" && pragmaWrites(ts) {
 		risk = RiskWrite
 	}
 	var rules []string
@@ -470,7 +649,7 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 			flag("sql-server-config")
 		}
 	case "SET":
-		if second == "PASSWORD" {
+		if second == "PASSWORD" || second == "DEFAULT" && word(2) == "ROLE" { // MySQL: SET DEFAULT ROLE ... TO user
 			flag("sql-privileges")
 		}
 		if hasWord(ts, "GLOBAL") || hasWord(ts, "PERSIST") || hasWord(ts, "PERSIST_ONLY") { // also @@global.x
@@ -530,6 +709,10 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 					risk = max(risk, RiskWrite) // SELECT ... INTO creates a table (Postgres)
 				}
 			}
+		case "NEXT":
+			if word(i+1) == "VALUE" && word(i+2) == "FOR" { // MariaDB: NEXT VALUE FOR seq
+				risk = max(risk, RiskWrite)
+			}
 		default:
 			name := t.word
 			if t.ident != "" {
@@ -542,7 +725,12 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 				// set_config changes a setting of this session (or, with true, of
 				// this transaction) only; komando's session ends with the command.
 				// Like SET, it must not touch the transaction or string rules.
-				if i+3 < len(ts) && ts[i+2].punct == '\'' && ts[i+3].punct == ',' {
+				// A name in E'...' or U&'...' may be spelled with escapes komando
+				// does not decode, so it counts as a name komando cannot see.
+				if i+3 < len(ts) && ts[i+2].punct == '\'' && !ts[i+2].esc && ts[i+3].punct == ',' {
+					if !strict {
+						continue
+					}
 					if err := settingAllowed(strings.ToUpper(strings.TrimSpace(ts[i+2].str))); err != nil {
 						return 0, nil, err
 					}
@@ -553,6 +741,9 @@ func classifyStatement(ts []token) (Risk, []string, error) {
 			}
 			if id, ok := funcRule(name); ok {
 				flag(id)
+			}
+			if writeFuncs[name] {
+				risk = max(risk, RiskWrite)
 			}
 		}
 	}

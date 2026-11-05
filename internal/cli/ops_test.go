@@ -161,7 +161,7 @@ func TestPkgChangeResult(t *testing.T) {
 	if p := d.(pkgChange).Packages; len(p) != 1 || p[0].Name != "a" || p[0].From != "1" || p[0].Version != "2" {
 		t.Fatalf("upgrade diff: %+v", p)
 	}
-	if s := pkgChangeScript("remove", []string{"tree"}); !strings.Contains(s, `$2 != "-"`) || !strings.Contains(s, "#komando:after") {
+	if s := pkgChangeScript("remove", []string{"tree"}, true); !strings.Contains(s, `$2 != "-"`) || !strings.Contains(s, "#komando:after") {
 		t.Fatalf("remove script: %s", s)
 	}
 }

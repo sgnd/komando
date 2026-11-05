@@ -91,6 +91,7 @@ func AnyConnectLogin(ctx context.Context, o Options) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	portal := *u
 	hc, err := httpClient(o, u.Hostname())
 	if err != nil {
 		return "", err
@@ -137,9 +138,16 @@ func AnyConnectLogin(ctx context.Context, o Options) (string, error) {
 			return "", &LoginError{Msg: "the VPN refused the login: " + strings.TrimSpace(f.Auth.Error.Text)}
 		}
 		if f.Auth.Form.Action != "" {
-			if a, err := u.Parse(f.Auth.Form.Action); err == nil {
-				u = a
+			a, err := u.Parse(f.Auth.Form.Action)
+			if err != nil {
+				return "", fmt.Errorf("the portal sent a bad login form action %q", f.Auth.Form.Action)
 			}
+			// the login (with the stored password) goes only to the portal
+			// itself, over https
+			if !samePortal(portal, a) {
+				return "", fmt.Errorf("the portal asked komando to send the login to %s://%s; komando only sends it to https://%s", a.Scheme, a.Host, portal.Host)
+			}
+			u = a
 		}
 		var fields strings.Builder
 		for _, in := range f.Auth.Form.Inputs {
@@ -184,6 +192,18 @@ func AnyConnectLogin(ctx context.Context, o Options) (string, error) {
 		}
 	}
 	return "", errors.New("the AnyConnect login did not finish")
+}
+
+// samePortal reports whether a is the portal p over https (same host and
+// port; 443 when none is given).
+func samePortal(p url.URL, a *url.URL) bool {
+	port := func(u *url.URL) string {
+		if u.Port() == "" {
+			return "443"
+		}
+		return u.Port()
+	}
+	return a.Scheme == "https" && strings.EqualFold(a.Hostname(), p.Hostname()) && port(a) == port(&p)
 }
 
 func firstNonEmptyS(v ...string) string {

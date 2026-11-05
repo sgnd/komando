@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"strconv"
 	"strings"
@@ -222,17 +223,49 @@ func followPods(ctx context.Context, k *kube.Client, space string, pods []string
 		ctx, cancel = context.WithTimeout(ctx, g.timeout)
 		defer cancel()
 	}
+	prefix := func(pod string) string {
+		if len(pods) > 1 {
+			return "[" + pod + "] "
+		}
+		return ""
+	}
+	lines, err := streamPods(ctx, k, space, pods, q, func(pod, line string) { printLogLine(pod, prefix(pod), line) })
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"namespace": space, "pods": pods, "lines": lines, "followed": true}, nil
+}
+
+// streamPods follows the logs of pods at once and calls emit with each
+// line as it comes, one call at a time, until the context ends or every
+// stream closes. A pod whose stream does not open is noted, as when logs
+// are read without -f, while the others go on; when none opens, that is
+// the error. It returns only after every stream stopped, so no line comes
+// after the result.
+func streamPods(ctx context.Context, k *kube.Client, space string, pods []string, q url.Values, emit func(pod, line string)) (int, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	q.Set("follow", "true")
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	lines := 0
+	lines, opened := 0, 0
+	var failed error
 	for _, p := range pods {
 		body, err := k.Stream(ctx, podLogPath(space, p), q)
 		if err != nil {
-			return nil, err
+			if failed == nil {
+				failed = err
+			}
+			if len(pods) > 1 && ctx.Err() == nil {
+				mu.Lock()
+				emit(p, fmt.Sprintf("(no logs: %v)", err))
+				mu.Unlock()
+			}
+			continue
 		}
+		opened++
 		wg.Add(1)
-		go func(pod string) {
+		go func(pod string, body io.ReadCloser) {
 			defer wg.Done()
 			defer body.Close()
 			sc := bufio.NewScanner(body)
@@ -240,19 +273,24 @@ func followPods(ctx context.Context, k *kube.Client, space string, pods []string
 			for sc.Scan() {
 				mu.Lock()
 				lines++
-				if out.P.Format == "text" {
-					line := sc.Text()
-					if len(pods) > 1 {
-						line = "[" + pod + "] " + line
-					}
-					fmt.Println(out.P.Redact(line))
-				} else {
-					out.P.Event(map[string]any{"event": "output", "pod": pod, "data": sc.Text() + "\n"})
-				}
+				emit(pod, sc.Text())
 				mu.Unlock()
 			}
-		}(p)
+		}(p, body)
+	}
+	if opened == 0 {
+		return 0, failed
 	}
 	wg.Wait()
-	return map[string]any{"namespace": space, "pods": pods, "lines": lines, "followed": true}, nil
+	return lines, nil
+}
+
+// printLogLine prints one followed log line at once: the line for a
+// person, an output event in JSON.
+func printLogLine(pod, prefix, line string) {
+	if out.P.Format == "text" {
+		fmt.Println(out.SafeText(out.P.Redact(prefix + line)))
+		return
+	}
+	out.P.Event(map[string]any{"event": "output", "pod": pod, "data": line + "\n"})
 }

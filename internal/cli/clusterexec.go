@@ -64,6 +64,9 @@ clusters do not ask for --yes. For an interactive shell use
 				return err
 			}
 			if g.dryRun {
+				if err := dryRunKubeCheck(t.conn); err != nil { // the login program, as the real run would
+					return err
+				}
 				out.P.Print("cluster.exec", map[string]any{"conn": t.conn.Name, "pod": args[1], "container": container,
 					"command": args[2:], "would_run": "exec " + args[1] + " -- " + inner}, nil)
 				return nil
@@ -188,6 +191,9 @@ Anything can be typed inside, so a protected cluster asks first.`,
 				return err
 			}
 			if g.dryRun {
+				if err := dryRunKubeCheck(t.conn); err != nil { // the login program, as the real run would
+					return err
+				}
 				out.P.Print("cluster.shell", map[string]any{"conn": t.conn.Name, "pod": args[1], "container": container, "command": command, "dry_run": true}, nil)
 				return nil
 			}
@@ -288,10 +294,16 @@ komando forwards to the pod's port behind it.`,
 			if _, _, err := splitRef(args[1]); err != nil {
 				return err
 			}
-			if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskRead}); err != nil {
+			// raw access to a pod's port gets around every check komando
+			// makes on commands (like cluster shell): a protected cluster asks
+			if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"cluster-forward"},
+				Reasons: []string{"forward to " + args[1] + ":" + remote}}); err != nil {
 				return err
 			}
 			if g.dryRun {
+				if err := dryRunKubeCheck(t.conn); err != nil { // the login program, as the real run would
+					return err
+				}
 				out.P.Print("cluster.forward", map[string]any{"conn": t.conn.Name, "object": args[1], "local": "127.0.0.1:" + local, "remote": remote,
 					"would_run": "port-forward --address 127.0.0.1 " + args[1] + " " + local + ":" + remote}, nil)
 				return nil
@@ -319,6 +331,8 @@ komando forwards to the pod's port behind it.`,
 			}
 			defer ln.Close()
 			go func() { <-ctx.Done(); ln.Close() }()
+			audit(st, "cluster.forward", nil, "", true, map[string]any{"conns": []string{t.conn.Name}, "object": args[1], "pod": pod, "port": port,
+				"local": ln.Addr().String(), "risk": driver.RiskWrite.String()})
 			showStatus(statusLine{What: "forwarding " + ln.Addr().String() + " → " + args[1] + ":" + remote, Target: t.conn.Name,
 				Route: connRoute(st, t.conn), Protected: protectedConn(st, t.conn), Tail: "Ctrl-C stops"})
 			conns := 0

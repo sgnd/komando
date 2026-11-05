@@ -87,30 +87,42 @@ func dumpMySQL(ctx context.Context, db *sql.DB, o DumpOptions, w *bufio.Writer) 
 			return fmt.Errorf("no table %q in %s", t, dbName)
 		}
 	}
-	// tables first, then views (they may select from each other's tables)
-	for _, pass := range []string{"BASE TABLE", "VIEW"} {
-		for _, t := range tables {
-			if t.typ != pass || len(want) > 0 && !want[t.name] {
-				continue
+	// Like mysqldump: tables, with a stand-in view of the right column names
+	// for each view; then routines; then the real views. A view may select
+	// from another view or call a function, whatever order they come in.
+	var views []string
+	for _, t := range tables {
+		if len(want) > 0 && !want[t.name] {
+			continue
+		}
+		if t.typ == "VIEW" {
+			views = append(views, t.name)
+			cols, err := mysqlColumns(ctx, conn, t.name, false)
+			if err != nil {
+				return err
 			}
-			if pass == "VIEW" {
-				var name, create string
-				var cs, coll sql.NullString
-				if err := conn.QueryRowContext(ctx, "SHOW CREATE VIEW "+qid(t.name)).Scan(&name, &create, &cs, &coll); err != nil {
-					return mysqlErr(err)
+			fmt.Fprintf(w, "DROP VIEW IF EXISTS %s;\n", qid(t.name))
+			if len(cols) > 0 {
+				stand := make([]string, len(cols))
+				for i, c := range cols {
+					stand[i] = "1 AS " + qid(c)
 				}
-				fmt.Fprintf(w, "DROP VIEW IF EXISTS %s;\n%s;\n\n", qid(t.name), stripDefiner(create))
-				continue
+				fmt.Fprintf(w, "CREATE VIEW %s AS SELECT %s;\n", qid(t.name), strings.Join(stand, ", "))
 			}
-			var name, create string
-			if err := conn.QueryRowContext(ctx, "SHOW CREATE TABLE "+qid(t.name)).Scan(&name, &create); err != nil {
-				return mysqlErr(err)
-			}
-			fmt.Fprintf(w, "DROP TABLE IF EXISTS %s;\n%s;\n\n", qid(t.name), create)
-			if !o.SchemaOnly {
-				if err := mysqlRows(ctx, conn, t.name, w); err != nil {
-					return err
-				}
+			w.WriteString("\n")
+			continue
+		}
+		if t.typ != "BASE TABLE" {
+			continue
+		}
+		var name, create string
+		if err := conn.QueryRowContext(ctx, "SHOW CREATE TABLE "+qid(t.name)).Scan(&name, &create); err != nil {
+			return mysqlErr(err)
+		}
+		fmt.Fprintf(w, "DROP TABLE IF EXISTS %s;\n%s;\n\n", qid(t.name), create)
+		if !o.SchemaOnly {
+			if err := mysqlRows(ctx, conn, t.name, w); err != nil {
+				return err
 			}
 		}
 	}
@@ -119,13 +131,60 @@ func dumpMySQL(ctx context.Context, db *sql.DB, o DumpOptions, w *bufio.Writer) 
 			return err
 		}
 	}
+	for _, v := range views {
+		var name, create string
+		var cs, coll sql.NullString
+		if err := conn.QueryRowContext(ctx, "SHOW CREATE VIEW "+qid(v)).Scan(&name, &create, &cs, &coll); err != nil {
+			return mysqlErr(err)
+		}
+		fmt.Fprintf(w, "DROP VIEW IF EXISTS %s;\n%s;\n\n", qid(v), stripDefiner(create))
+	}
 	w.WriteString("SET FOREIGN_KEY_CHECKS=1;\nSET UNIQUE_CHECKS=1;\n")
 	return nil
 }
 
+// mysqlColumns lists a table's or view's columns in order. noGenerated
+// leaves out VIRTUAL and STORED generated columns: MySQL refuses values
+// for them (error 3105). Columns with a DEFAULT expression stay.
+func mysqlColumns(ctx context.Context, conn *sql.Conn, table string, noGenerated bool) ([]string, error) {
+	q := "SELECT COLUMN_NAME, IFNULL(GENERATION_EXPRESSION, '') FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION"
+	rows, err := conn.QueryContext(ctx, q, table)
+	if err != nil { // servers before generated columns (MySQL 5.6) have no GENERATION_EXPRESSION
+		rows, err = conn.QueryContext(ctx, strings.Replace(q, "IFNULL(GENERATION_EXPRESSION, '')", "''", 1), table)
+		if err != nil {
+			return nil, mysqlErr(err)
+		}
+	}
+	defer rows.Close()
+	var cols []string
+	for rows.Next() {
+		var name, gen string
+		if err := rows.Scan(&name, &gen); err != nil {
+			return nil, err
+		}
+		if noGenerated && gen != "" {
+			continue
+		}
+		cols = append(cols, name)
+	}
+	return cols, rows.Err()
+}
+
 // mysqlRows writes the table's rows as INSERT statements of about 1 MB.
+// Generated columns are left out; the restore computes them again.
 func mysqlRows(ctx context.Context, conn *sql.Conn, table string, w *bufio.Writer) error {
-	rows, err := conn.QueryContext(ctx, "SELECT * FROM "+qid(table))
+	list, err := mysqlColumns(ctx, conn, table, true)
+	if err != nil {
+		return err
+	}
+	if len(list) == 0 {
+		return nil
+	}
+	quoted := make([]string, len(list))
+	for i, c := range list {
+		quoted[i] = qid(c)
+	}
+	rows, err := conn.QueryContext(ctx, "SELECT "+strings.Join(quoted, ",")+" FROM "+qid(table))
 	if err != nil {
 		return mysqlErr(err)
 	}

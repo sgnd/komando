@@ -454,6 +454,17 @@ func swarmLogs(ctx context.Context, t clusterTarget, service string, limit int, 
 		Protected: protectedHost(st, t.host), Tail: "Ctrl-C stops"})
 	lines := 0
 	var res *sshx.RunResult
+	var buf lineBuffer // whole lines, so a split secret is still redacted
+	show := func(text string) {
+		if text == "" {
+			return
+		}
+		if out.P.Format == "text" {
+			fmt.Fprint(os.Stdout, out.SafeText(out.P.Redact(text)))
+			return
+		}
+		out.P.Event(map[string]any{"event": "output", "object": "service/" + service, "data": text})
+	}
 	err = withClient(ctx, st, t.host, func(c *sshx.Client) error {
 		var err error
 		res, err = sshx.Run(ctx, c, sshx.RunRequest{Command: swarmPreamble + line + " -f " + sshx.Q(service) + " 2>&1", MaxOutput: 1 << 20,
@@ -462,12 +473,9 @@ func swarmLogs(ctx context.Context, t clusterTarget, service string, limit int, 
 					return
 				}
 				lines += strings.Count(string(chunk), "\n")
-				if out.P.Format == "text" {
-					fmt.Fprint(os.Stdout, out.SafeText(out.P.Redact(string(chunk))))
-					return
-				}
-				out.P.Event(map[string]any{"event": "output", "object": "service/" + service, "data": string(chunk)})
+				show(buf.add(chunk))
 			}})
+		show(buf.flush())
 		return err
 	})
 	if ctx.Err() != nil {

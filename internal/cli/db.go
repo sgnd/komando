@@ -437,8 +437,26 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		return fail(e)
 	}
 	if f.write {
-		if err := guardConns(st, []*store.Conn{c}, plan.Verdict); err != nil {
+		// --write opens a read-write transaction whatever the SQL looks like,
+		// so a protected conn asks even for SQL rated read (as db shell does)
+		v := plan.Verdict
+		v.Risk = max(v.Risk, driver.RiskWrite)
+		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
+		}
+		if g.dryRun && out.P.Blocked() != nil {
+			// the real run would stop here: run nothing, since the
+			// rollback of a dry run does not undo every statement (a
+			// killed session, COPY ... PROGRAM, code inside DO)
+			res := &dbx.Result{Results: []dbx.StatementResult{}}
+			for _, s := range plan.Statements {
+				res.Results = append(res.Results, dbx.StatementResult{SQL: s.SQL, Keyword: s.Keyword, Risk: s.Risk.String(),
+					Skipped: "dry run: the real run would be blocked (meta.would_be_blocked), so nothing was executed"})
+			}
+			rec["committed"] = false
+			audit(st, name, nil, "", true, rec)
+			out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: true, Result: res}, nil)
+			return nil
 		}
 	}
 	db, closeDB, err := openDB(ctx, st, c, !f.write)

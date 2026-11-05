@@ -290,12 +290,26 @@ Start here:  komando guide      (agent playbook)
 			// AI agents see passwords, keys and tokens as [hidden]; people and
 			// scripts see what the server sent (vault values are hidden for all)
 			// (`secret get --reveal` stays for people only: it never asks)
-			out.P.Mask = isAgent() && (commandName(cmd) == "secret.get" || !revealOK())
+			// A dry run is never an approval for --reveal: a dry run reads
+			// and prints too, so for an agent it always keeps values hidden.
+			out.P.Mask = isAgent() && (commandName(cmd) == "secret.get" || g.dryRun || !revealOK())
+			if out.P.Mask && g.dryRun && g.reveal {
+				out.P.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
+					"--reveal needs the user's yes"))
+			}
 			if cmd.Name() != "serve" && !g.dryRun {
 				netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
 			}
 			if g.hostKeyPolicy == "off" {
-				return guardSafety("--host-key-policy off (no server identity check)")
+				if g.dryRun && isAgent() {
+					// an agent's preview still connects to read; it does that
+					// with the usual identity check, since a dry run never asks
+					// the person. People and scripts preview as they run.
+					_ = guardSafety("--host-key-policy off (no server identity check)")
+					g.hostKeyPolicy = ""
+				} else if err := guardSafety("--host-key-policy off (no server identity check)"); err != nil {
+					return err
+				}
 			}
 			return checkAuditWritable(cmd)
 		},

@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -199,7 +199,7 @@ func normAddr(a string) string {
 }
 
 // sameAddress reports whether two addresses name the same server as
-// written (no DNS). common.go's protectedHost should use it.
+// written (no DNS); protectedHost also compares the IPs they lead to.
 func sameAddress(a, b string) bool { return a != "" && normAddr(a) == normAddr(b) }
 
 // normConnURL writes the URL's host the normal way (lower case, no root
@@ -224,13 +224,16 @@ func normConnURL(raw string) string {
 	return u.String()
 }
 
+// lookupHost is the resolver (tests replace it).
+var lookupHost = net.DefaultResolver.LookupHost
+
 // lookupIPs resolves a name with a short timeout; an IP is itself.
 func lookupIPs(ctx context.Context, host string) []string {
 	host = normAddr(host)
 	if ip := net.ParseIP(host); ip != nil {
 		return []string{ip.String()}
 	}
-	addrs, err := net.DefaultResolver.LookupHost(ctx, host)
+	addrs, err := lookupHost(ctx, host)
 	if err != nil {
 		return nil
 	}
@@ -253,20 +256,52 @@ func protectedTwinHost(s *store.State, h *store.Host) string {
 	if len(prot) == 0 {
 		return ""
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	mine := lookupIPs(ctx, h.Address)
+	// cached: an import checks every host against the same protected ones
+	mine := cachedIPs(h.Address)
 	if len(mine) == 0 {
 		return ""
 	}
 	for _, o := range prot {
-		for _, ip := range lookupIPs(ctx, o.Address) {
+		for _, ip := range cachedIPs(o.Address) {
 			if slices.Contains(mine, ip) {
 				return o.Name
 			}
 		}
 	}
 	return ""
+}
+
+// prefetchTwinIPs resolves, a few at a time, the addresses that
+// protectedTwinHost will compare for hosts, so a large import does not
+// resolve them one by one (while holding the inventory lock, for host
+// import). Nothing is looked up when no host in s is protected.
+func prefetchTwinIPs(s *store.State, hosts []*store.Host) {
+	var names []string
+	for _, o := range s.Hosts {
+		if o.Protected {
+			names = append(names, o.Address)
+		}
+	}
+	if len(names) == 0 {
+		return
+	}
+	for _, h := range hosts {
+		if h != nil && h.Address != "" {
+			names = append(names, h.Address)
+		}
+	}
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 16)
+	for _, n := range names {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			cachedIPs(n)
+		}()
+	}
+	wg.Wait()
 }
 
 // connAddrKey is what makes two conns the same resource (as in

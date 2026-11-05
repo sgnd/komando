@@ -1,14 +1,17 @@
 package cli
 
 import (
+	"maps"
 	"net"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -65,6 +68,10 @@ func securityChecks(st *store.State) []securityCheck {
 	}
 	if st.Settings.HostKeyPolicy == "off" {
 		add("host_keys", false, true, "server identity checks are off: `komando config set host_key_policy accept-new`")
+	}
+	bad := policy.Invalid(st.Settings.ExtraDenyPattern)
+	for _, i := range slices.Sorted(maps.Keys(bad)) {
+		add("deny_rule:custom-"+strconv.Itoa(i), false, false, bad[i])
 	}
 	for _, c := range st.SortedConns() {
 		if why := plainConn(c); why != "" {

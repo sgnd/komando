@@ -24,14 +24,17 @@ import (
 )
 
 // Backups always land on (and restore from) this computer. When the conn's
-// --via path ends at a server that has the database's own tool (pg_dump,
-// mysqldump, psql, mysql), that tool runs there and the data is streamed
-// over SSH, with the password in its environment. Otherwise (a direct
-// conn, a VPN, or a server without the tool) komando dumps and restores
-// itself (dbx.Dump, dbx.Restore): nothing has to be installed here.
+// --via path ends at a server that has the database's own dump tool
+// (pg_dump, mysqldump), that tool runs there and the data is streamed over
+// SSH, with the password in its environment. Otherwise (a direct conn, a
+// VPN, or a server without the tool) komando dumps itself (dbx.Dump).
+// Plain SQL is always restored by komando itself (dbx.Restore), through
+// the same --via path: psql and mysql would obey client commands such as
+// \! inside the file, on that server. Only a pg_dump archive goes to
+// pg_restore there, which runs no client commands.
 
 type dumpTool struct {
-	dump, restore []string
+	dump          []string
 	restoreCustom []string // postgres: pg_restore for --format custom archives
 	passwordEnv   string
 	pkg           string // Debian/Ubuntu package that provides the tools, for hints
@@ -66,13 +69,15 @@ func toolsFor(c *store.Conn, t driver.Target) (dumpTool, error) {
 		// libpq accepts the conn URL as is (it never contains a password)
 		return dumpTool{
 			dump:          []string{"pg_dump", "--dbname", c.URL},
-			restore:       []string{"psql", "--dbname", c.URL, "--single-transaction", "--set", "ON_ERROR_STOP=1", "--quiet", "--no-psqlrc"},
 			restoreCustom: []string{"pg_restore", "--dbname", c.URL, "--single-transaction", "--exit-on-error", "--no-password"},
 			passwordEnv:   "PGPASSWORD", pkg: "postgresql-client",
 		}, nil
 	case "mysql":
 		if t.Database == "" {
 			return dumpTool{}, out.Usage("the conn URL has no database name; add it (mysql://user@host:3306/NAME) to dump or restore")
+		}
+		if strings.HasPrefix(t.Database, "-") { // mysqldump would read it as an option
+			return dumpTool{}, out.Usage("the conn URL's database name %q starts with -; mysqldump cannot take it", t.Database)
 		}
 		host, port, _ := net.SplitHostPort(t.Address)
 		conn := []string{"--host", host, "--port", port}
@@ -81,7 +86,6 @@ func toolsFor(c *store.Conn, t driver.Target) (dumpTool, error) {
 		}
 		return dumpTool{
 			dump:        append(append([]string{"mysqldump"}, conn...), "--single-transaction", "--routines", "--triggers", "--no-tablespaces", t.Database),
-			restore:     append(append([]string{"mysql"}, conn...), t.Database),
 			passwordEnv: "MYSQL_PWD", pkg: "mysql-client",
 			tls: t.TLS,
 		}, nil
@@ -99,6 +103,13 @@ type dumpOpts struct {
 // args adds the options to the tool's command line.
 func (o dumpOpts) args(kind string, base []string) ([]string, error) {
 	argv := append([]string(nil), base...)
+	for _, t := range o.tables {
+		// mysqldump reads options even after the database name: a "table"
+		// named --result-file=... would write a file on the --via server
+		if strings.HasPrefix(t, "-") || strings.TrimSpace(t) == "" {
+			return nil, out.Usage("--table %q is not a table name", t)
+		}
+	}
 	switch kind {
 	case "postgres":
 		if o.format == "custom" {
@@ -165,13 +176,18 @@ func dbRestoreCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "restore CONN --from FILE",
 		Short: "Load a backup into a database: SQL, .sql.gz or a PostgreSQL archive (needs --allow-dangerous)",
-		Long: `Runs the SQL in FILE (from ` + "`db dump`" + ` or any plain SQL file; .gz is read
-compressed) with psql or mysql. A PostgreSQL archive (` + "`db dump --format custom`" + `)
-is recognised by its content and loaded with pg_restore. A restore can overwrite existing data, so it
-needs --allow-dangerous, plus --yes on a protected conn. The whole file is
-checked first: client commands that could run programs (\! or system) are
-refused. PostgreSQL restores run in one transaction: on any error nothing
-changes.`,
+		Long: `Runs the SQL in FILE (from ` + "`db dump`" + `, pg_dump, mysqldump or any plain SQL
+file; .gz is read compressed). komando runs the SQL itself, through the
+conn's --via path, never with psql or mysql. A PostgreSQL archive
+(` + "`db dump --format custom`" + `) is recognised by its content and loaded with
+pg_restore on the --via server. A restore can overwrite existing data, so
+it needs --allow-dangerous, plus --yes on a protected conn. The whole file
+is checked first: client commands that could run programs (\! or system)
+and SQL komando cannot follow (a file ending inside a quote, a change to
+how quotes are read) are refused, and SQL that runs programs, touches
+server files or changes privileges is named in the approval. PostgreSQL
+restores run in one transaction: on any error nothing changes. MySQL runs
+the statements in order and stops at the first error.`,
 		Example: `  komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -280,8 +296,8 @@ func runDump(ctx context.Context, connExpr, to string, o dumpOpts) error {
 		return out.Usage("--format custom is pg_dump's archive; it needs a --via server with pg_dump. komando's own dump writes plain SQL")
 	}
 	data.Tool = tool.dump
-	if builtin {
-		data.Tool = []string{"komando"}
+	if builtin { // komando dumps here, through the --via path if there is one
+		data.Tool, data.RunsOn = []string{"komando"}, "local"
 	}
 	if g.dryRun {
 		out.P.Print("db.dump", data, nil)
@@ -319,7 +335,7 @@ func runDump(ctx context.Context, connExpr, to string, o dumpOpts) error {
 				return err
 			}
 			// the server has no pg_dump/mysqldump: komando dumps it itself
-			data.Tool = []string{"komando"}
+			data.Tool, data.RunsOn = []string{"komando"}, "local"
 			if _, err := f.Seek(0, 0); err != nil {
 				return err
 			}
@@ -367,11 +383,7 @@ func runRestore(ctx context.Context, connExpr, from string) error {
 	if err != nil {
 		return localFileErr("FILE_NOT_FOUND", err, "give the path of a backup made by `komando db dump`")
 	}
-	runsOn := "local"
-	if c.Via != "" {
-		runsOn = c.Via
-	}
-	argv := tool.restore
+	var argv []string
 	custom, err := isPgArchive(from)
 	if err != nil {
 		return err
@@ -381,23 +393,36 @@ func runRestore(ctx context.Context, connExpr, from string) error {
 			return out.Usage("%s is a PostgreSQL archive; restore it into a PostgreSQL conn", from)
 		}
 		argv = tool.restoreCustom // pg_restore: an archive holds no client commands to check
-	} else if err := withBackup(from, func(r io.Reader) error { return driver.CheckRestore(t.Kind.Name, r) }); err != nil {
-		// check the whole file before sending any of it: a stream cut short
-		// would let psql commit what it had received
-		return err
+	}
+	v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}
+	if !custom {
+		// check the whole file before sending any of it; what the SQL does
+		// beyond writing data (COPY ... PROGRAM, INTO OUTFILE, GRANT, ...)
+		// is named in the approval and in POLICY_BLOCKED
+		var sqlV driver.Verdict
+		if err := withBackup(from, func(r io.Reader) (err error) {
+			sqlV, err = driver.CheckRestore(t.Kind.Name, r)
+			return err
+		}); err != nil {
+			return err
+		}
+		v.RuleIDs = append(v.RuleIDs, sqlV.RuleIDs...)
+		v.Reasons = append(v.Reasons, sqlV.Reasons...)
 	}
 	// the file is checked first, so a dry run also says whether it is fine
-	if err := guardConns(st, []*store.Conn{c}, driver.Verdict{Risk: driver.RiskDestructive,
-		RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}); err != nil {
+	if err := guardConns(st, []*store.Conn{c}, v); err != nil {
 		return err
 	}
-	builtin := !viaServer(st, c)
-	if builtin && custom {
+	// plain SQL is always run by komando itself: psql and mysql would obey
+	// client commands hidden in the file, on the --via server
+	builtin := !custom
+	if custom && !viaServer(st, c) {
 		return out.Usage("%s is a pg_dump archive; restoring it needs pg_restore on a --via server. komando restores plain SQL itself", from)
 	}
-	data := transferData{Conn: c.Name, File: from, Bytes: fi.Size(), Tool: argv, RunsOn: runsOn, DryRun: g.dryRun}
+	data := transferData{Conn: c.Name, File: from, Bytes: fi.Size(), Tool: argv, RunsOn: c.Via, DryRun: g.dryRun}
 	if builtin {
-		data.Tool = []string{"komando"}
+		// komando runs here; only the connection goes through the --via path
+		data.Tool, data.RunsOn = []string{"komando"}, "local"
 	}
 	if g.dryRun {
 		out.P.Print("db.restore", data, nil)
@@ -411,7 +436,11 @@ func runRestore(ctx context.Context, connExpr, from string) error {
 		defer closeDB()
 		return withBackup(from, func(r io.Reader) error {
 			if err := dbx.Restore(ctx, db, t.Kind.Name, r); err != nil {
-				return out.Errf(out.ExitRemote, "RESTORE_FAILED", "nothing was changed (PostgreSQL restores in one transaction); fix the file and try again", "%v", err)
+				hint := "nothing was changed (PostgreSQL restores in one transaction); fix the file and try again"
+				if t.Kind.Name == "mysql" {
+					hint = "the restore stopped at that line: the statements before it were applied (MySQL cannot roll back tables); fix the file and restore it again"
+				}
+				return out.Errf(out.ExitRemote, "RESTORE_FAILED", hint, "%v", err)
 			}
 			return nil
 		})
@@ -420,16 +449,15 @@ func runRestore(ctx context.Context, connExpr, from string) error {
 		err = builtinRestore()
 	} else {
 		err = withBackup(from, func(r io.Reader) error { return runTool(ctx, st, c, tool, argv, r, io.Discard) })
-		if err != nil && toErr(err).Code == "TOOL_MISSING" && !custom {
-			data.Tool = []string{"komando"}
-			err = builtinRestore()
-		}
 	}
 	return finishTransfer(st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from}, err)
 }
 
 // isPgArchive reports whether path is a pg_dump custom archive ("PGDMP").
 func isPgArchive(path string) (bool, error) {
+	if err := guardLocalRead(path); err != nil {
+		return false, err
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return false, localFileErr("FILE_NOT_FOUND", err, "")
@@ -442,6 +470,9 @@ func isPgArchive(path string) (bool, error) {
 
 // withBackup opens a backup file (decompressing .gz) and passes it to fn.
 func withBackup(path string, fn func(io.Reader) error) error {
+	if err := guardLocalRead(path); err != nil {
+		return err
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return localFileErr("FILE_NOT_FOUND", err, "")

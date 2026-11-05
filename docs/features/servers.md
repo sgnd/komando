@@ -220,15 +220,24 @@ The first time komando connects to a server, it remembers the server's key
 komando refuses to connect (`HOSTKEY_MISMATCH`), because someone may be
 pretending to be your server.
 
-After a real rebuild, forget the old key and pin the new one:
+After a real rebuild, check the new fingerprint another way (your cloud
+console or the server's own console), then replace the old key:
 
 ```bash
 komando host trust web1 --reset --dry-run   # how many pinned keys would go
-komando host trust web1 --reset
+komando host trust web1 --reset --yes
 ```
 
+Replacing a pinned key needs `--yes`, and an AI agent also needs your yes
+in komando's window, because an agent that re-pins the key could be
+talking to an impostor. Without `--reset`, `host trust` never adds a
+second key: a different key stops with `HOSTKEY_MISMATCH`, and a server
+that cannot be reached keeps its old key.
+
 `komando host trust web1` (without `--reset`) pins a key before the first
-connection. Servers behind `--via` are reached through that path.
+connection; the same key again changes nothing. The key is fetched the way
+komando reaches the server: directly, or through its `--via` path, VPN or
+proxy command.
 
 ## Use OpenSSH with the same settings
 

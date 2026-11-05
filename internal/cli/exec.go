@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -153,10 +155,26 @@ unless --allow-dangerous is given. Hosts marked protected need --yes unless
 				if stdin, err = readFileOrStdin(o.stdinFile); err != nil {
 					return localFileErr("FILE_NOT_FOUND", err, "check the --stdin-file path")
 				}
+				// the input may be a script (bash -s): the policy reads it
+				// like the command, as script does with its file
+				if err := guardBody(string(stdin)); err != nil {
+					return err
+				}
 			}
 			if readOnly {
-				if err := checkReadOnly(command); err != nil {
+				// bash -s alone runs its input, so the input is checked as
+				// its script; any other command is checked itself, and its
+				// input is data (a CSV for wc, SQL for psql)
+				if o.stdinFile != "" && stdinShell(command) {
+					if err := checkReadOnlyEnv(string(stdin), o.env); err != nil {
+						return err
+					}
+				} else if err := checkReadOnlyEnv(command, o.env); err != nil {
 					return err
+				} else if w := sqlInputWrite(command, stdin); w != "" {
+					if err := readOnlyStop(w); err != nil {
+						return err
+					}
 				}
 			}
 			return runFleet(cmd.Context(), "exec", args[0], command, stdin, o, !readOnly)
@@ -201,7 +219,19 @@ func scriptCmd() *cobra.Command {
 				return err
 			}
 			if readOnly {
-				if err := checkReadOnly(string(body)); err != nil {
+				// only a shell script can be checked: the interpreter must
+				// be a plain shell (python, or tee /etc/passwd, is not),
+				// and its arguments ($1 ...) are not seen by the check
+				if len(argsList) > 0 {
+					if err := readOnlyStop("--arg values fill in $1 ... when the script runs; put them in the script instead"); err != nil {
+						return err
+					}
+				} else if !stdinShell(command) {
+					if err := readOnlyStop("the interpreter " + interpreter + " is not a shell; only shell scripts can be --read-only"); err != nil {
+						return err
+					}
+				}
+				if err := checkReadOnlyEnv(string(body), o.env); err != nil {
 					return err
 				}
 			}
@@ -325,32 +355,48 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			}
 		}
 		r := req
+		host := c.Host.Name
+		// output is shown by whole lines: a secret split across two reads
+		// is still one piece when it is redacted
+		bufs := map[string]*lineBuffer{"stdout": {}, "stderr": {}}
+		show := func(stream, text string) { // mu held
+			if text == "" {
+				return
+			}
+			if out.P.Format == "text" { // a person: plain lines, marked by server when there are several
+				w := os.Stdout
+				if stream == "stderr" {
+					w = os.Stderr
+				}
+				for _, line := range strings.SplitAfter(out.P.Redact(text), "\n") {
+					if line == "" {
+						continue
+					}
+					if len(hosts) > 1 {
+						line = "[" + host + "] " + line
+					}
+					fmt.Fprint(w, out.SafeText(line))
+				}
+				return
+			}
+			out.P.Event(map[string]any{"event": "output", "host": host, "stream": stream, "data": text})
+		}
 		if o.stream {
-			host := c.Host.Name
-			many := len(hosts) > 1
 			r.Stream = func(stream string, chunk []byte) {
 				mu.Lock()
 				defer mu.Unlock()
-				if out.P.Format == "text" { // a person: plain lines, marked by server when there are several
-					w := os.Stdout
-					if stream == "stderr" {
-						w = os.Stderr
-					}
-					for _, line := range strings.SplitAfter(string(chunk), "\n") {
-						if line == "" {
-							continue
-						}
-						if many {
-							line = "[" + host + "] " + line
-						}
-						fmt.Fprint(w, out.SafeText(out.P.Redact(line)))
-					}
-					return
+				if b := bufs[stream]; b != nil {
+					show(stream, b.add(chunk))
 				}
-				out.P.Event(map[string]any{"event": "output", "host": host, "stream": stream, "data": string(chunk)})
 			}
 		}
 		res, err := sshx.Run(ctx, c, r)
+		if o.stream {
+			mu.Lock()
+			show("stdout", bufs["stdout"].flush())
+			show("stderr", bufs["stderr"].flush())
+			mu.Unlock()
+		}
 		if o.failFast && (err != nil || res.ExitCode != 0) {
 			mu.Lock()
 			failed = true
@@ -437,6 +483,75 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 	err = finishFleet(name, data, data.Summary, worst, fails)
 	truncationNotes(data.Results, req.MaxOutput, len(results) > 1)
 	return err
+}
+
+// lineBuffer holds streamed output until a line is complete, so that a
+// secret split across two reads is redacted as one piece. A private key
+// waits for its END line, up to pemHold: a real key is far shorter, so
+// past that the BEGIN line was only a mention (a log line, a grep). Then
+// the key-like lines after it are hidden and the rest goes out. Past
+// streamCap without a line end, all but the last streamKeep bytes go out
+// (a vault value is shorter than that).
+type lineBuffer struct{ buf []byte }
+
+const (
+	streamCap  = 256 << 10
+	streamKeep = 4 << 10
+	pemHold    = 16 << 10
+)
+
+var (
+	pemBegin = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----`)
+	pemEnd   = regexp.MustCompile(`-----END [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----`)
+	// pemBody is a line a key can have: base64, or a header (Proc-Type: ...)
+	pemBody = regexp.MustCompile(`^([A-Za-z0-9+/=]{0,100}|[A-Za-z-]+: .*)\r?$`)
+)
+
+// add takes a chunk and returns the text that is ready to show.
+func (l *lineBuffer) add(chunk []byte) string {
+	l.buf = append(l.buf, chunk...)
+	var ready strings.Builder
+	for {
+		cut := bytes.LastIndexByte(l.buf, '\n') + 1
+		open := -1 // where the line of an open key starts
+		if locs := pemBegin.FindAllIndex(l.buf[:cut], -1); len(locs) > 0 {
+			last := locs[len(locs)-1]
+			if !pemEnd.Match(l.buf[last[1]:cut]) {
+				open = bytes.LastIndexByte(l.buf[:last[0]], '\n') + 1
+			}
+		}
+		if open >= 0 && cut-open > pemHold { // a mention, not a key
+			ready.Write(l.buf[:open])
+			ready.WriteString("[hidden: private key]\n")
+			rest := l.buf[open:]
+			rest = rest[bytes.IndexByte(rest, '\n')+1:] // the BEGIN line
+			for {
+				nl := bytes.IndexByte(rest, '\n')
+				if nl < 0 || !pemBody.Match(rest[:nl]) {
+					break
+				}
+				rest = rest[nl+1:]
+			}
+			l.buf = append(l.buf[:0], rest...)
+			continue
+		}
+		if open >= 0 {
+			cut = open
+		}
+		if len(l.buf) > streamCap {
+			cut = max(cut, len(l.buf)-streamKeep)
+		}
+		ready.Write(l.buf[:cut])
+		l.buf = append(l.buf[:0], l.buf[cut:]...)
+		return ready.String()
+	}
+}
+
+// flush returns what is left, at the end of the run.
+func (l *lineBuffer) flush() string {
+	s := string(l.buf)
+	l.buf = nil
+	return s
 }
 
 // runOne is the building block for module commands (svc, docker, pkg ...):

@@ -22,6 +22,7 @@ import (
 	"net/netip"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -151,37 +152,43 @@ func dialTLSWith(ctx context.Context, o Options, u *url.URL, keys *tlsKeys) (*tl
 type base struct {
 	packets chan []byte
 	done    chan struct{}
-	err     error
 	addrs   []netip.Addr
 	dns     []netip.Addr
 	mtu     int
 	closeFn func()
-	closed  bool
+
+	// end can race: the read or keepalive goroutine and Close may end
+	// the tunnel at the same moment
+	once sync.Once
+	mu   sync.Mutex
+	err  error
 }
 
 func newBase() base {
 	return base{packets: make(chan []byte, 256), done: make(chan struct{}), mtu: 1400}
 }
 
-func (b *base) Packets() <-chan []byte  { return b.packets }
-func (b *base) Done() <-chan struct{}   { return b.done }
-func (b *base) Err() error              { return b.err }
+func (b *base) Packets() <-chan []byte { return b.packets }
+func (b *base) Done() <-chan struct{}  { return b.done }
+func (b *base) Err() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.err
+}
 func (b *base) Addresses() []netip.Addr { return b.addrs }
 func (b *base) DNS() []netip.Addr       { return b.dns }
 func (b *base) MTU() int                { return b.mtu }
 
 func (b *base) end(err error) {
-	if b.closed {
-		return
-	}
-	b.closed = true
-	if b.err == nil {
+	b.once.Do(func() {
+		b.mu.Lock()
 		b.err = err
-	}
-	close(b.done)
-	if b.closeFn != nil {
-		b.closeFn()
-	}
+		b.mu.Unlock()
+		close(b.done)
+		if b.closeFn != nil {
+			b.closeFn()
+		}
+	})
 }
 
 func (b *base) deliver(p []byte) {

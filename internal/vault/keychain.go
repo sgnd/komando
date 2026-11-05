@@ -132,6 +132,11 @@ func KeyToKeychain() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	unlock, err := store.Lock(lockName) // a parallel Set must not be lost
+	if err != nil {
+		return "", err
+	}
+	defer unlock()
 	f, err := load()
 	if err != nil {
 		return "", err
@@ -168,6 +173,11 @@ func KeyToKeychain() (string, error) {
 
 // KeyToFile moves the vault key back from the keychain into vault.key.
 func KeyToFile() error {
+	unlock, err := store.Lock(lockName) // a parallel Set must not be lost
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	f, err := load()
 	if err != nil {
 		return err

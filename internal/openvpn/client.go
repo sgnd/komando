@@ -6,10 +6,12 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/netip"
 	"os"
@@ -49,19 +51,24 @@ type Pushed struct {
 
 // Client is one connected OpenVPN session.
 type Client struct {
-	cfg       *Config
-	login     Login
-	tr        transport
-	wrap      ctrlWrap
-	localSID  [8]byte
-	remoteSID [8]byte
+	cfg      *Config
+	login    Login
+	tr       transport
+	wrap     ctrlWrap
+	localSID [8]byte
 
-	mu      sync.Mutex
-	keys    [8]*keyState
-	cur     *keyState
-	old     *keyState
-	oldTill time.Time
-	pushed  Pushed
+	mu        sync.Mutex
+	remoteSID [8]byte
+	remoteSet bool // remoteSID is the server's, from its hard reset
+	keys      [8]*keyState
+	cur       *keyState
+	old       *keyState
+	oldTill   time.Time
+	pushed    Pushed
+	// token is the auth-token the server pushed: on renegotiation it is
+	// sent in place of the password (a one-time code is spent by then).
+	// It is never logged and never in Pushed.
+	token, tokenUser string
 
 	// Packets is where decrypted IP packets arrive.
 	Packets chan []byte
@@ -88,9 +95,12 @@ type keyState struct {
 	incond  *sync.Cond
 	inclose bool
 
-	tls     *tls.Conn
+	// under Client.mu
 	data    dataCipher
+	pending bool // its handshake still runs
+
 	sendPID atomic.Uint32
+	rekeyed atomic.Bool // a renegotiation away from this key was started
 	rp      replay
 	rpmu    sync.Mutex
 }
@@ -102,7 +112,18 @@ type sentMsg struct {
 	tries   int
 }
 
-const maxCtrlPayload = 1000
+const (
+	maxCtrlPayload = 1000
+	// maxCtrlMsg bounds one NUL-ended control message and maxPush a
+	// pushed reply with its continuations, so a server cannot make the
+	// client hold any amount of memory
+	maxCtrlMsg = 64 << 10
+	maxPush    = 256 << 10
+	// rekeyPID is the send packet id from which the client renegotiates
+	// by itself (OpenVPN does the same): an AEAD packet id must never
+	// repeat under one key, and the server may never renegotiate
+	rekeyPID = 0xFF000000
+)
 
 // Connect dials the first remote that answers and completes the handshake.
 func Connect(ctx context.Context, cfg *Config, login Login, dial func(ctx context.Context, network, addr string) (net.Conn, error)) (*Client, error) {
@@ -166,20 +187,48 @@ func connectOne(ctx context.Context, cfg *Config, login Login, r Remote, dial fu
 		return nil, err
 	}
 	go c.keepalive()
-	debugf("connected to %s:%s (%s), pushed %v", r.Host, r.Port, r.Proto, c.Pushed().Raw)
+	debugf("connected to %s:%s (%s), pushed %v", r.Host, r.Port, r.Proto, c.Pushed().Raw) // Raw holds no auth-token
 	return c, nil
 }
 
+// newKey starts key id; a key that held the slot before is closed.
 func (c *Client) newKey(id byte) *keyState {
-	ks := &keyState{id: id, c: c, unacked: map[uint32]*sentMsg{}, ooo: map[uint32][]byte{}, window: make(chan struct{}, 4)}
+	ks := c.makeKey(id)
+	c.mu.Lock()
+	prev := c.keys[id]
+	c.keys[id] = ks
+	c.mu.Unlock()
+	if prev != nil {
+		prev.closeIn()
+	}
+	return ks
+}
+
+// makeKey is a new key id, not yet in its slot.
+func (c *Client) makeKey(id byte) *keyState {
+	ks := &keyState{id: id, c: c, unacked: map[uint32]*sentMsg{}, ooo: map[uint32][]byte{}, window: make(chan struct{}, 4), pending: true}
 	for i := 0; i < cap(ks.window); i++ {
 		ks.window <- struct{}{}
 	}
 	ks.incond = sync.NewCond(&ks.rmu)
-	c.mu.Lock()
-	c.keys[id] = ks
-	c.mu.Unlock()
 	return ks
+}
+
+// retire drops a key that is no longer used (c.mu held): its slot, unless
+// a newer key took it, and its control channel reader.
+func (c *Client) retire(ks *keyState) {
+	if c.keys[ks.id] == ks {
+		c.keys[ks.id] = nil
+	}
+	ks.closeIn()
+}
+
+// closeIn ends the key's TLS stream, so whatever reads it returns.
+func (ks *keyState) closeIn() {
+	ks.rmu.Lock()
+	ks.inclose = true
+	ks.incond.Broadcast()
+	ks.rmu.Unlock()
 }
 
 // handshake runs TLS and the key exchange on ks. first is the initial
@@ -202,8 +251,8 @@ func (c *Client) handshake(ctx context.Context, ks *keyState, first bool) error 
 	if err != nil {
 		return err
 	}
-	ks.tls = tls.Client(&ctrlConn{ks: ks}, tc)
-	if err := ks.tls.HandshakeContext(ctx); err != nil {
+	conn := tls.Client(&ctrlConn{ks: ks}, tc)
+	if err := conn.HandshakeContext(ctx); err != nil {
 		return c.failure(fmt.Errorf("TLS: %w", err))
 	}
 	// key method 2
@@ -219,39 +268,51 @@ func (c *Client) handshake(ctx context.Context, ks *keyState, first bool) error 
 	msg.Write(r2[:])
 	writeString(&msg, c.optionsString())
 	if c.cfg.AuthUserPass {
-		writeString(&msg, c.login.User)
-		writeString(&msg, c.login.Password)
+		user, pass := c.login.User, c.login.Password
+		c.mu.Lock()
+		if !first && c.token != "" {
+			pass = c.token
+			if c.tokenUser != "" {
+				user = c.tokenUser
+			}
+		}
+		c.mu.Unlock()
+		writeString(&msg, user)
+		writeString(&msg, pass)
 	} else {
 		msg.Write([]byte{0, 0, 0, 0})
 	}
 	writeString(&msg, c.peerInfo())
-	if _, err := ks.tls.Write(msg.Bytes()); err != nil {
+	if _, err := conn.Write(msg.Bytes()); err != nil {
 		return c.failure(err)
 	}
 	// the server's half: 0000, method, random1, random2, options
 	head := make([]byte, 5+64)
-	if err := readFull(ctx, ks.tls, head); err != nil {
+	if err := readFull(ctx, conn, head); err != nil {
 		return c.failure(fmt.Errorf("key exchange: %w", err))
 	}
 	if !bytes.Equal(head[:4], []byte{0, 0, 0, 0}) || head[4] != 2 {
 		return c.failure(errors.New("the server does not speak key-method 2"))
 	}
 	sr1, sr2 := head[5:37], head[37:69]
-	if _, err := readString(ks.tls); err != nil { // the server's options
+	if _, err := readString(conn); err != nil { // the server's options
 		return c.failure(fmt.Errorf("key exchange: %w", err))
 	}
 	derive := func(ekm bool) ([]byte, error) {
 		if ekm {
-			st := ks.tls.ConnectionState()
+			st := conn.ConnectionState()
 			return st.ExportKeyingMaterial("EXPORTER-OpenVPN-datakeys", nil, 256)
 		}
 		master := prf(pre[:], "OpenVPN master secret", append(append([]byte{}, r1[:]...), sr1...), 48)
-		seed := append(append(append(append([]byte{}, r2[:]...), sr2...), c.localSID[:]...), c.remoteSID[:]...)
+		c.mu.Lock()
+		rsid := c.remoteSID
+		c.mu.Unlock()
+		seed := append(append(append(append([]byte{}, r2[:]...), sr2...), c.localSID[:]...), rsid[:]...)
 		return prf(master, "OpenVPN key expansion", seed, 256), nil
 	}
-	go c.controlMessages(ks)
+	go c.controlMessages(conn)
 	if first {
-		if err := c.pull(ctx, ks); err != nil {
+		if err := c.pull(ctx, conn); err != nil {
 			return err
 		}
 	}
@@ -267,9 +328,12 @@ func (c *Client) handshake(ctx context.Context, ks *keyState, first bool) error 
 		return c.failure(err)
 	}
 	ks.sendPID.Store(0)
-	ks.data = dc
 	c.mu.Lock()
+	ks.data, ks.pending = dc, false
 	if !first {
+		if c.old != nil && c.old != ks {
+			c.retire(c.old)
+		}
 		c.old, c.oldTill = c.cur, time.Now().Add(60*time.Second)
 	}
 	c.cur = ks
@@ -316,19 +380,25 @@ func (c *Client) tlsConfig() (*tls.Config, error) {
 			if _, err := certs[0].Verify(opts); err != nil {
 				return fmt.Errorf("the server's certificate: %w", err)
 			}
+			if err := c.cfg.checkUsage(certs[0]); err != nil {
+				return err
+			}
 			if n := c.cfg.VerifyName; n != "" {
 				cn := certs[0].Subject.CommonName
-				ok := false
 				switch c.cfg.VerifyNameType {
 				case "name":
-					ok = cn == n
+					if cn != n {
+						return fmt.Errorf("the server's certificate is for %q, not %q (verify-x509-name)", cn, n)
+					}
 				case "name-prefix":
-					ok = strings.HasPrefix(cn, n)
-				default:
-					ok = certs[0].Subject.String() == n || "CN="+cn == n || strings.Contains(n, "CN="+cn)
-				}
-				if !ok {
-					return fmt.Errorf("the server's certificate is for %q, not %q (verify-x509-name)", cn, n)
+					if !strings.HasPrefix(cn, n) {
+						return fmt.Errorf("the server's certificate is for %q, not %q... (verify-x509-name)", cn, n)
+					}
+				default: // the whole subject, as OpenVPN prints it
+					dn := subjectDN(certs[0])
+					if !matchSubject(certs[0], n) && certs[0].Subject.String() != n {
+						return fmt.Errorf("the server's certificate is for %q, not %q (verify-x509-name)", dn, n)
+					}
 				}
 			}
 			return nil
@@ -377,14 +447,14 @@ func (c *Client) peerInfo() string {
 }
 
 // pull asks for the pushed options until they come.
-func (c *Client) pull(ctx context.Context, ks *keyState) error {
+func (c *Client) pull(ctx context.Context, conn *tls.Conn) error {
 	got := func() bool {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		return c.pushed.Cipher != ""
 	}
 	for i := 0; ; i++ {
-		if _, err := ks.tls.Write([]byte("PUSH_REQUEST\x00")); err != nil {
+		if _, err := conn.Write([]byte("PUSH_REQUEST\x00")); err != nil {
 			return c.failure(err)
 		}
 		wctx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -403,25 +473,32 @@ func (c *Client) pull(ctx context.Context, ks *keyState) error {
 }
 
 // controlMessages reads the NUL-ended messages the server sends over TLS.
-func (c *Client) controlMessages(ks *keyState) {
+func (c *Client) controlMessages(conn *tls.Conn) {
 	var buf []byte
 	tmp := make([]byte, 4096)
 	var reply []string
+	size := 0
 	for {
-		n, err := ks.tls.Read(tmp)
+		n, err := conn.Read(tmp)
 		if err != nil {
 			return
 		}
+		from := len(buf) // what came before holds no NUL
 		buf = append(buf, tmp[:n]...)
 		for {
-			i := bytes.IndexByte(buf, 0)
+			i := bytes.IndexByte(buf[from:], 0)
 			if i < 0 {
 				break
 			}
+			i += from
 			m := string(buf[:i])
-			buf = buf[i+1:]
+			buf, from = buf[i+1:], 0
 			switch {
 			case strings.HasPrefix(m, "PUSH_REPLY,"):
+				if size += len(m); size > maxPush {
+					c.end(errors.New("the server pushed too many options"))
+					return
+				}
 				opts := strings.Split(strings.TrimPrefix(m, "PUSH_REPLY,"), ",")
 				reply = append(reply, opts...)
 				more := false
@@ -431,11 +508,8 @@ func (c *Client) controlMessages(ks *keyState) {
 					}
 				}
 				if !more {
-					p := c.parsePush(reply)
-					c.mu.Lock()
-					c.pushed = p
-					c.mu.Unlock()
-					reply = nil
+					c.takePush(reply)
+					reply, size = nil, 0
 				}
 			case strings.HasPrefix(m, "AUTH_FAILED"):
 				c.fail(&AuthError{Msg: strings.TrimPrefix(strings.TrimPrefix(m, "AUTH_FAILED"), ",")})
@@ -443,7 +517,54 @@ func (c *Client) controlMessages(ks *keyState) {
 				c.fail(fmt.Errorf("the server ended the session: %s", m))
 			}
 		}
+		if len(buf) > maxCtrlMsg {
+			c.end(errors.New("the server sent a control message that is too long"))
+			return
+		}
 	}
+}
+
+// takePush keeps a PUSH_REPLY. The first one sets up the session; a later
+// one (OpenVPN renews the auth-token that way) only updates the token, as
+// the data keys depend on what the first one said.
+func (c *Client) takePush(opts []string) {
+	var keep []string
+	tok, tokUser := "", ""
+	for _, o := range opts {
+		f := strings.Fields(o)
+		switch {
+		case len(f) > 0 && f[0] == "auth-token":
+			if len(f) > 1 {
+				tok = f[1]
+			}
+		case len(f) > 0 && f[0] == "auth-token-user":
+			if len(f) > 1 {
+				if u, err := base64.StdEncoding.DecodeString(f[1]); err == nil {
+					tokUser = string(u)
+				}
+			}
+		default:
+			keep = append(keep, o)
+		}
+	}
+	c.mu.Lock()
+	if tok != "" {
+		c.token = tok
+	}
+	if tokUser != "" {
+		c.tokenUser = tokUser
+	}
+	initial := c.pushed.Cipher == ""
+	c.mu.Unlock()
+	if !initial {
+		return
+	}
+	p := c.parsePush(keep)
+	c.mu.Lock()
+	if c.pushed.Cipher == "" {
+		c.pushed = p
+	}
+	c.mu.Unlock()
 }
 
 func (c *Client) parsePush(opts []string) Pushed {
@@ -534,6 +655,12 @@ func (c *Client) fail(err error) {
 	}
 }
 
+// end ends the session for err.
+func (c *Client) end(err error) {
+	c.fail(err)
+	c.Close()
+}
+
 // Err is why the session ended, if it did.
 func (c *Client) Err() error {
 	if e, ok := c.err.Load().(error); ok {
@@ -553,11 +680,11 @@ func (c *Client) Close() error {
 		c.mu.Lock()
 		for _, ks := range c.keys {
 			if ks != nil {
-				ks.rmu.Lock()
-				ks.inclose = true
-				ks.incond.Broadcast()
-				ks.rmu.Unlock()
+				ks.closeIn()
 			}
+		}
+		if c.old != nil {
+			c.old.closeIn()
 		}
 		c.mu.Unlock()
 	})
@@ -581,7 +708,8 @@ func (c *Client) readLoop() {
 		if len(pkt) < 1 {
 			continue
 		}
-		c.lastIn.Store(time.Now().UnixNano())
+		// lastIn moves only for packets that check out (onControl,
+		// onData), so forged ones cannot hide a dead server
 		op, kid := pkt[0]>>3, pkt[0]&7
 		switch op {
 		case opDataV1, opDataV2:
@@ -601,25 +729,38 @@ func (c *Client) onControl(op, kid byte, pkt []byte) {
 	if err != nil {
 		return
 	}
+	if len(b.acks) > 0 && b.remoteSID != c.localSID {
+		return // acks for another session
+	}
 	c.mu.Lock()
-	ks := c.keys[kid]
-	c.mu.Unlock()
-	switch op {
-	case opControlHardResetServerV2:
-		c.mu.Lock()
-		c.remoteSID = sid
-		c.mu.Unlock()
-	case opControlSoftResetV1:
-		if ks == nil || ks.tls != nil && ks.data != nil {
-			ks = c.newKey(kid) // the server starts a new key
-			go func(ks *keyState) {
-				ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-				defer cancel()
-				if err := c.handshake(ctx, ks, false); err != nil {
-					c.fail(fmt.Errorf("renegotiation: %w", err))
-				}
-			}(ks)
+	switch {
+	case !c.remoteSet:
+		// nothing comes before the server's hard reset on key 0 but an
+		// ack of the client's (it names this session, checked above)
+		if kid != 0 || op != opControlHardResetServerV2 && (op != opAckV1 || len(b.acks) == 0) {
+			c.mu.Unlock()
+			return
 		}
+		if op == opControlHardResetServerV2 {
+			c.remoteSID, c.remoteSet = sid, true
+		}
+	case sid != c.remoteSID:
+		c.mu.Unlock()
+		return // not this session's server
+	case op == opControlHardResetServerV2 && kid != 0:
+		c.mu.Unlock()
+		return
+	}
+	ks := c.keys[kid]
+	// a soft reset starts a new key only for a key id not in use; the same
+	// packet again (a lost ack) is only acked again
+	start := op == opControlSoftResetV1 && kid != 0 && b.hasMsg && b.msgID == 0 &&
+		(ks == nil || ks != c.cur && ks != c.old && !ks.pending)
+	c.mu.Unlock()
+	c.lastIn.Store(time.Now().UnixNano())
+	if start {
+		ks = c.newKey(kid) // the server starts a new key
+		go c.renegotiate(ks)
 	}
 	if ks == nil {
 		return
@@ -628,6 +769,59 @@ func (c *Client) onControl(op, kid byte, pkt []byte) {
 	if b.hasMsg {
 		ks.onMsg(b.msgID, b.payload, op == opControlV1)
 	}
+}
+
+// renegotiate runs the handshake of a new key. When it fails the session
+// ends, so it is reported down instead of carrying on with a key the
+// server is about to drop.
+func (c *Client) renegotiate(ks *keyState) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	if err := c.handshake(ctx, ks, false); err != nil {
+		select {
+		case <-c.done: // closed meanwhile: that is the reason
+		default:
+			c.end(fmt.Errorf("renegotiation: %w", err))
+		}
+	}
+}
+
+// rekey starts a renegotiation from the client's side, once per key.
+func (c *Client) rekey(from *keyState) {
+	if !from.rekeyed.CompareAndSwap(false, true) {
+		return
+	}
+	next := from.id%7 + 1 // key id 0 is only the first key
+	ks := c.makeKey(next)
+	c.mu.Lock()
+	for _, k := range c.keys {
+		if k != nil && k.pending {
+			// a renegotiation already runs, most likely the server's on
+			// this same key id: let it finish instead of cutting it off,
+			// and try again on the next packet if it does not move us on
+			c.mu.Unlock()
+			from.rekeyed.Store(false)
+			return
+		}
+	}
+	if c.old != nil && c.old.id == next {
+		c.retire(c.old)
+		c.old = nil
+	}
+	prev := c.keys[next]
+	c.keys[next] = ks
+	c.mu.Unlock()
+	if prev != nil {
+		prev.closeIn()
+	}
+	debugf("renegotiating: key %d to key %d", from.id, next)
+	go func() {
+		if err := ks.sendMsg(opControlSoftResetV1, nil); err != nil {
+			c.end(fmt.Errorf("renegotiation: %w", err))
+			return
+		}
+		c.renegotiate(ks)
+	}()
 }
 
 func (ks *keyState) onAcks(acks []uint32) {
@@ -693,9 +887,12 @@ func (ks *keyState) flushAcks() {
 func (c *Client) onData(op, kid byte, pkt []byte) {
 	c.mu.Lock()
 	ks := c.keys[kid]
-	usable := ks != nil && ks.data != nil && (ks == c.cur || ks == c.old && time.Now().Before(c.oldTill))
+	var dc dataCipher
+	if ks != nil && (ks == c.cur || ks == c.old && time.Now().Before(c.oldTill)) {
+		dc = ks.data
+	}
 	c.mu.Unlock()
-	if !usable {
+	if dc == nil {
 		return
 	}
 	var ad, body []byte
@@ -707,7 +904,7 @@ func (c *Client) onData(op, kid byte, pkt []byte) {
 	} else {
 		body = pkt[1:]
 	}
-	pid, plain, err := ks.data.open(ad, body)
+	pid, plain, err := dc.open(ad, body)
 	if err != nil {
 		debugf("data packet (op %d key %d, %d bytes) does not open: %v", op, kid, len(pkt), err)
 		return
@@ -718,6 +915,7 @@ func (c *Client) onData(op, kid byte, pkt []byte) {
 	if !fresh {
 		return
 	}
+	c.lastIn.Store(time.Now().UnixNano())
 	plain = c.uncompress(plain)
 	if plain == nil || bytes.Equal(plain, pingString) {
 		return
@@ -761,8 +959,12 @@ func (c *Client) WritePacket(ip []byte) error {
 	}
 	c.mu.Lock()
 	ks, p := c.cur, c.pushed
+	var dc dataCipher
+	if ks != nil {
+		dc = ks.data
+	}
 	c.mu.Unlock()
-	if ks == nil || ks.data == nil {
+	if dc == nil {
 		return errors.New("no data key yet")
 	}
 	plain := ip
@@ -774,16 +976,37 @@ func (c *Client) WritePacket(ip []byte) error {
 			plain = append([]byte{0x50, 0}, ip...)
 		}
 	}
-	pid := ks.sendPID.Add(1)
+	pid, err := ks.nextPID()
+	if err != nil {
+		c.end(err)
+		return err
+	}
+	if pid >= rekeyPID {
+		c.rekey(ks)
+	}
 	var pkt []byte
 	if p.PeerID >= 0 {
 		head := []byte{opDataV2<<3 | ks.id, byte(p.PeerID >> 16), byte(p.PeerID >> 8), byte(p.PeerID)}
-		pkt = append(head, ks.data.seal(pid, head, plain)...)
+		pkt = append(head, dc.seal(pid, head, plain)...)
 	} else {
-		pkt = append([]byte{opDataV1<<3 | ks.id}, ks.data.seal(pid, nil, plain)...)
+		pkt = append([]byte{opDataV1<<3 | ks.id}, dc.seal(pid, nil, plain)...)
 	}
 	debugf("data out: %d bytes, pid %d, key %d, peer-id %d", len(ip), pid, ks.id, p.PeerID)
 	return c.tr.Write(pkt)
+}
+
+// nextPID takes the next send packet id. It never wraps around: the same
+// id again would repeat an AEAD nonce under this key.
+func (ks *keyState) nextPID() (uint32, error) {
+	for {
+		pid := ks.sendPID.Load()
+		if pid == math.MaxUint32 {
+			return 0, errors.New("the data channel ran out of packet ids before the server renegotiated; reconnect")
+		}
+		if ks.sendPID.CompareAndSwap(pid, pid+1) {
+			return pid + 1, nil
+		}
+	}
 }
 
 // sendMsg sends one reliable control message (waiting for a send slot).
@@ -875,7 +1098,8 @@ func (c *Client) keepalive() {
 		c.WritePacket(pingString)
 		c.mu.Lock()
 		if c.old != nil && time.Now().After(c.oldTill) {
-			c.keys[c.old.id], c.old = nil, nil
+			c.retire(c.old)
+			c.old = nil
 		}
 		c.mu.Unlock()
 	}
@@ -908,7 +1132,8 @@ func (cc *ctrlConn) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (cc *ctrlConn) Close() error                       { return nil }
+// Close ends reads, so a handshake whose context ends stops waiting.
+func (cc *ctrlConn) Close() error                       { cc.ks.closeIn(); return nil }
 func (cc *ctrlConn) LocalAddr() net.Addr                { return &net.TCPAddr{} }
 func (cc *ctrlConn) RemoteAddr() net.Addr               { return &net.TCPAddr{} }
 func (cc *ctrlConn) SetDeadline(t time.Time) error      { return nil }

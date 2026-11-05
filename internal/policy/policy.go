@@ -62,22 +62,47 @@ func init() {
 }
 
 // Check returns the rules a command matches. extra are user patterns from
-// settings (raw regexps).
+// settings (raw regexps). Each rule is tried on the command as written
+// (Normalize) and as the shell reads it (Plain), so quotes and backslashes
+// inside a word (r\m -rf /e""tc) do not hide it. A custom pattern that does
+// not compile matches every command: a broken rule must not quietly stop
+// protecting anything.
 func Check(cmd string, extra []string) []Rule {
 	hits := []Rule{}
-	norm := Normalize(cmd)
+	norm, plain := Normalize(cmd), Plain(cmd)
+	match := func(re *regexp.Regexp) bool { return re.MatchString(norm) || re.MatchString(plain) }
 	for _, r := range compiled {
-		if r.re.MatchString(norm) {
+		if match(r.re) {
 			hits = append(hits, r)
 		}
 	}
 	for i, p := range extra {
 		re, err := regexp.Compile(p)
-		if err == nil && re.MatchString(norm) {
+		switch {
+		case err != nil:
+			hits = append(hits, Rule{ID: "custom-" + itoa(i), Reason: badPattern(i, p, err)})
+		case match(re):
 			hits = append(hits, Rule{ID: "custom-" + itoa(i), Reason: "matches custom deny pattern " + p})
 		}
 	}
 	return hits
+}
+
+// Invalid returns, for each custom pattern that does not compile, what is
+// wrong with it and how to fix it (for doctor and policy list).
+func Invalid(extra []string) map[int]string {
+	bad := map[int]string{}
+	for i, p := range extra {
+		if _, err := regexp.Compile(p); err != nil {
+			bad[i] = badPattern(i, p, err)
+		}
+	}
+	return bad
+}
+
+func badPattern(i int, p string, err error) string {
+	return "custom deny pattern " + p + " is not a valid regular expression (" + err.Error() +
+		"), so every command matches it; fix it, or remove it with `komando policy allow custom-" + itoa(i) + " --yes`"
 }
 
 // Normalize prepares a command for matching: line breaks become ";" (the

@@ -66,7 +66,9 @@ runs itself is not connected): ask the human to run `komando vpn up <name>`.
 3. **Validate** before reloading: `komando recipe run nginx-test web1` (or
    `sshd -t`, `apachectl configtest`).
 4. **Apply:** `komando svc reload web1 nginx`, then check `svc status` again.
-5. **Roll back** from `PATH.bak` if validation fails.
+5. **Roll back** from the backup the edit reported (`backup` in its result:
+   `PATH.bak`, or `PATH.bak.<UTC time>` when an older one exists) if
+   validation fails.
 6. **Roll out** to many servers gradually: one host first, then small batches
    with `--parallel` and `--fail-fast`.
 

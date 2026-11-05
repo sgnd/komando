@@ -242,7 +242,7 @@ func (s *sqlShell) meta(ctx context.Context, line string) bool {
 		}
 		s.exec(ctx, q, s.expanded)
 	case `\i`, `\include`:
-		b, err := os.ReadFile(expandHome(arg))
+		b, err := readLocalFile(expandHome(arg))
 		if err != nil {
 			s.printf("error: %v\n", err)
 			return false

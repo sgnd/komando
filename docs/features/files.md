@@ -35,6 +35,12 @@ komando fs stat web1 /etc/hosts --sha256              # exists:false instead of 
 the output says so, and its hash is `sha256_read` (of the part read), not
 `sha256`.
 
+For an AI agent, `fs cat` masks the whole file first and then takes
+`--head`/`--tail`, so a cut never uncovers part of a secret. A hidden private
+key shows as one line, and `lines` and line numbers then count the file as
+shown (the output has a `note`). When something is hidden, the hash is left
+out: it would let a weak value be guessed from the rest of the file.
+
 ## Edit a file
 
 `fs replace` is the safest way to change a config file. It changes the file
@@ -50,6 +56,18 @@ komando fs replace web1 /etc/ssh/sshd_config --regex \
 
 `--all` replaces every match instead. `--regex` treats `--old` as a Go
 regular expression; `$1` in `--new` inserts a group.
+
+For an AI agent, `fs replace` works on the file as the agent sees it, with
+`[hidden]` in place of each secret. `--old 'DB_PASSWORD=[hidden]'` matches the
+line whatever the value is. A match that cuts into a hidden value, or a `$1`
+that would copy one, is refused (`HIDDEN_VALUE`), and whether `--old` matches
+never depends on a hidden value. An edit that would uncover a hidden value
+is refused too (`HIDDEN_VALUE`): renaming `DB_PASSWORD=` to a name that does
+not look secret, or cutting `postgres://` or `Bearer ` off, while the value
+stays. Whether `--new` happens to equal a hidden value never shows: such an
+edit counts as a change (the file is written again), and no hash of the file
+is reported. `fs write --if-changed` and its `would_change` do the same for a
+file with a hidden value. Masking stays a best effort.
 
 `fs write` writes a whole file. The new file is written next to the old one
 and then moved into place, so a server never sees half a file:
@@ -79,8 +97,8 @@ komando fs replace web1 /etc/ssh/sshd_config --old 'PermitRootLogin yes' --new '
 | Option | What it does |
 |--------|--------------|
 | `-s`, `--sudo` | Write a root-owned file (writes a temporary file, then `sudo install`). |
-| `--backup` | Keep the previous version as `PATH.bak`. |
-| `--mode 0640` | File mode (default: keep the old mode, or 0644 for a new file). |
+| `--backup` | Keep the previous version as `PATH.bak`. A backup is never overwritten: when `PATH.bak` exists, the new one is `PATH.bak.<UTC time>` (e.g. `nginx.conf.bak.20261105T031500Z`). The result's `backup` names the file. With `--sudo` the backup belongs to root, mode 0600. Backups stay next to the file and add up, one per edit: remove old ones with `fs rm`, and keep them out of folders where every file is loaded (`sites-enabled/`, `conf.d/*.conf`). |
+| `--mode 0640` | File mode (default: keep the old mode, or 0644 for a new file). An SFTP server that does not allow setting modes (storage boxes, SFTP-only accounts) is fine when its new files are no more open than asked: the result's `mode` is the one the file got. Otherwise the write fails with `CHMOD_FAILED`. |
 | `--owner user:group` | Owner of the file (needs `--sudo`). |
 | `-p`, `--parents` | Create missing parent folders; without it, a missing folder is `FOLDER_NOT_FOUND`. |
 | `--no-follow` | Refuse to write through a symbolic link. |

@@ -39,6 +39,14 @@ func SafeText(s string) string {
 	return b.String()
 }
 
+// noteText is SafeText for komando's own error and hint lines, which can
+// carry the command line: no colours or styles either (ESC[8m hides text)
+// and no carriage return (it lets the rest overwrite the line). They show
+// as \e and \r.
+func noteText(s string) string {
+	return strings.NewReplacer("\x1b", `\e`, "\r", `\r`).Replace(SafeText(s))
+}
+
 func needsSafe(s string) bool {
 	for _, r := range s {
 		if r < 0x20 && r != '\t' && r != '\n' && r != '\r' || r == 0x7f || r >= 0x80 && r <= 0x9f {

@@ -91,6 +91,47 @@ type Context struct {
 	Namespace string
 }
 
+// Plugin is the credential plugin that logging in to this context runs as
+// a program on this computer, or nil: none, a static token, or one of the
+// plugins komando makes the token for itself (Builtin).
+func (x *Context) Plugin() *ExecAuth {
+	e := x.User.Exec
+	if e == nil || x.User.Token != "" || e.Builtin() {
+		return nil
+	}
+	return e
+}
+
+// Builtin reports whether komando makes this plugin's token itself
+// (builtinToken), so its command never runs.
+func (e *ExecAuth) Builtin() bool {
+	switch filepath.Base(e.Command) {
+	case "aws":
+		return slices.Contains(e.Args, "eks") && slices.Contains(e.Args, "get-token")
+	case "aws-iam-authenticator":
+		return execArg(e.Args, "-i", "--cluster-id") != ""
+	case "gke-gcloud-auth-plugin":
+		return true
+	}
+	return false
+}
+
+// execArg is the value of the first of names in a plugin's args
+// (--name value or --name=value).
+func execArg(args []string, names ...string) string {
+	for i, a := range args {
+		for _, n := range names {
+			if a == n && i+1 < len(args) {
+				return args[i+1]
+			}
+			if strings.HasPrefix(a, n+"=") {
+				return strings.TrimPrefix(a, n+"=")
+			}
+		}
+	}
+	return ""
+}
+
 // Parse reads a kubeconfig.
 func Parse(b []byte) (*Config, error) {
 	var c Config
@@ -541,29 +582,17 @@ func (r ResourceType) KindName() string   { return r.Kind }
 // gke-gcloud-auth-plugin. ok is false for any other plugin, which then runs
 // as the kubeconfig says.
 func builtinToken(ctx context.Context, e *ExecAuth) (tok string, ok bool, err error) {
+	if !e.Builtin() {
+		return "", false, nil
+	}
 	env := map[string]string{}
 	for _, kv := range e.Env {
 		env[kv.Name] = kv.Value
 	}
-	arg := func(names ...string) string {
-		for i, a := range e.Args {
-			for _, n := range names {
-				if a == n && i+1 < len(e.Args) {
-					return e.Args[i+1]
-				}
-				if strings.HasPrefix(a, n+"=") {
-					return strings.TrimPrefix(a, n+"=")
-				}
-			}
-		}
-		return ""
-	}
+	arg := func(names ...string) string { return execArg(e.Args, names...) }
 	profile := firstNonEmpty(arg("--profile"), env["AWS_PROFILE"], os.Getenv("AWS_PROFILE"))
 	switch filepath.Base(e.Command) {
 	case "aws":
-		if !slices.Contains(e.Args, "eks") || !slices.Contains(e.Args, "get-token") {
-			return "", false, nil
-		}
 		cluster := arg("--cluster-name", "--cluster-id")
 		if cluster == "" {
 			return "", true, errors.New("aws eks get-token in the kubeconfig names no --cluster-name")
@@ -571,11 +600,7 @@ func builtinToken(ctx context.Context, e *ExecAuth) (tok string, ok bool, err er
 		tok, err := cloud.EKSToken(ctx, profile, firstNonEmpty(arg("--region"), env["AWS_REGION"], env["AWS_DEFAULT_REGION"]), cluster, arg("--role-arn"))
 		return tok, true, err
 	case "aws-iam-authenticator":
-		cluster := arg("-i", "--cluster-id")
-		if cluster == "" {
-			return "", false, nil
-		}
-		tok, err := cloud.EKSToken(ctx, profile, firstNonEmpty(arg("--region"), env["AWS_REGION"]), cluster, arg("-r", "--role"))
+		tok, err := cloud.EKSToken(ctx, profile, firstNonEmpty(arg("--region"), env["AWS_REGION"]), arg("-i", "--cluster-id"), arg("-r", "--role"))
 		return tok, true, err
 	case "gke-gcloud-auth-plugin":
 		tok, err := cloud.GCPAccessToken(ctx)

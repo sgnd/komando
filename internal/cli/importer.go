@@ -8,10 +8,12 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -165,6 +167,7 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	}
 	// hosts are checked like host add; they land in st (not saved) so
 	// conns can use them with --via
+	prefetchTwinIPs(st, plan.Hosts)
 	v, err := vetImportHosts(st, plan.Hosts, overwrite)
 	if err != nil {
 		return err
@@ -373,7 +376,7 @@ func (p *importPlan) addConn(name, raw, note string) {
 }
 
 func readSource(path string) ([]byte, error) {
-	b, err := readFileOrStdin(path)
+	b, err := readImportFile(path)
 	if err != nil {
 		return nil, localFileErr("FILE_NOT_FOUND", err, "give the file's path after the source name")
 	}
@@ -586,19 +589,13 @@ func importKomando(path string) (*importPlan, error) {
 	// secrets or files that are already on this computer (a server of theirs
 	// with password_ref secret:prod-db-pass would receive that password),
 	// and nothing may skip a safety check.
+	// Hosts get the same check in vetImportHosts, for every import.
 	ref := func(owner, what string, r *string) {
-		name, ok := strings.CutPrefix(*r, "secret:")
-		if *r == "" || (ok && name != "") {
-			if _, err := vault.Get(name); !ok || errors.Is(err, vault.ErrNotFound) {
-				return // a secret: name that is not set here yet: set it after importing
-			}
+		if note := dropForeignRef(owner, what, r); note != "" {
+			p.Notes = append(p.Notes, note)
 		}
-		p.Notes = append(p.Notes, fmt.Sprintf("%s: dropped %s %q (imports may only name secrets that do not exist yet; set it yourself)", owner, what, *r))
-		*r = ""
 	}
 	for _, h := range p.Hosts {
-		ref(h.Name, "password_ref", &h.PasswordRef)
-		ref(h.Name, "sudo_ref", &h.SudoRef)
 		if h.ProxyCommand != "" {
 			// a proxy command runs on this computer: never take one from a file
 			p.Notes = append(p.Notes, fmt.Sprintf("%s: dropped proxy_command %q (it would run on this computer; set it yourself with `komando host edit %s --proxy-command ...`)", h.Name, h.ProxyCommand, h.Name))
@@ -607,6 +604,7 @@ func importKomando(path string) (*importPlan, error) {
 	}
 	for _, c := range p.Conns {
 		ref(c.Name, "password_ref", &c.PasswordRef)
+		c.TrustedPlugin = "" // a login program is trusted on this computer only (import kubeconfig)
 	}
 	var vpns []*store.Vpn
 	for _, v := range p.Vpns {
@@ -630,6 +628,49 @@ func importKomando(path string) (*importPlan, error) {
 		p.Notes = append(p.Notes, "passwords are not in export files; set them with `komando secret set NAME` for: "+strings.Join(f.Secrets, ", "))
 	}
 	return p, nil
+}
+
+// dropForeignRef clears a ref from a file someone else may have written,
+// unless it is empty or names a secret that is not set on this computer yet
+// (the user sets it after importing). A ref to an existing secret or to a
+// file would send this computer's password to the file author's server. It
+// returns the note that says what was dropped, or "".
+func dropForeignRef(owner, what string, r *string) string {
+	name, ok := strings.CutPrefix(*r, "secret:")
+	if *r == "" || (ok && name != "") {
+		if _, err := vault.Get(name); !ok || errors.Is(err, vault.ErrNotFound) {
+			return ""
+		}
+	}
+	note := fmt.Sprintf("%s: dropped %s %q (imports may only name secrets that do not exist yet; set it yourself)", owner, what, *r)
+	*r = ""
+	return note
+}
+
+// dropForeignHostRefs applies dropForeignRef to an imported host's password
+// and sudo refs and to its env values that name a secret (komando puts
+// those into every command it runs there).
+func dropForeignHostRefs(h *store.Host) []string {
+	var notes []string
+	for _, r := range []struct {
+		what string
+		ref  *string
+	}{{"password_ref", &h.PasswordRef}, {"sudo_ref", &h.SudoRef}} {
+		if n := dropForeignRef(h.Name, r.what, r.ref); n != "" {
+			notes = append(notes, n)
+		}
+	}
+	for _, k := range slices.Sorted(maps.Keys(h.Env)) {
+		v := h.Env[k]
+		if !strings.HasPrefix(v, "secret:") {
+			continue // a plain value
+		}
+		if n := dropForeignRef(h.Name, "env "+k, &v); n != "" {
+			notes = append(notes, n)
+			delete(h.Env, k)
+		}
+	}
+	return notes
 }
 
 func exportCmd() *cobra.Command {

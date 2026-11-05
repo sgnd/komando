@@ -56,7 +56,7 @@ Kinds (also: pritunl = openvpn; l2tp, ipsec, ikev2 = system):
 var ovpnAllowed = map[string]bool{
 	"client": true, "dev": true, "dev-type": true, "proto": true, "remote": true, "remote-random": true, "port": true,
 	"rport": true, "resolv-retry": true, "nobind": true, "persist-key": true, "persist-tun": true, "float": true,
-	"remote-cert-tls": true, "verify-x509-name": true, "ns-cert-type": true, "key-direction": true,
+	"remote-cert-tls": true, "verify-x509-name": true, "ns-cert-type": true, "remote-cert-ku": true, "remote-cert-eku": true, "key-direction": true,
 	"cipher": true, "data-ciphers": true, "data-ciphers-fallback": true, "ncp-ciphers": true, "auth": true,
 	"tls-client": true, "tls-version-min": true, "tls-version-max": true, "tls-cipher": true, "tls-ciphersuites": true,
 	"auth-user-pass": true, "auth-retry": true, "auth-nocache": true, "static-challenge": true,

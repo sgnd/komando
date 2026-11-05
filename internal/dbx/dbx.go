@@ -50,7 +50,31 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		if cfg.RuntimeParams["application_name"] == "" {
 			cfg.RuntimeParams["application_name"] = appName
 		}
+		// The simple protocol runs every command in one text, so any
+		// place where komando's SQL splitter and the server disagree would
+		// let a hidden COMMIT end the read-only transaction. The extended
+		// protocol takes one command only (runStatement relies on it).
+		if cfg.DefaultQueryExecMode == pgx.QueryExecModeSimpleProtocol {
+			cfg.DefaultQueryExecMode = pgx.QueryExecModeExec
+		}
 		db = stdlib.OpenDB(*cfg)
+		if readOnly {
+			// a transaction the SQL might start after komando's ends is read-only too
+			ro := cfg.Copy()
+			ro.RuntimeParams["default_transaction_read_only"] = "on"
+			roDB := stdlib.OpenDB(*ro)
+			switch err := roDB.PingContext(ctx); {
+			case err != nil && startupParamRefused(err):
+				roDB.Close() // a pooler (PgBouncer) refuses settings it does not track: go on without it
+			case err != nil:
+				roDB.Close()
+				db.Close()
+				return nil, connectErr(t, err)
+			default:
+				db.Close()
+				db = roDB
+			}
+		}
 	case "mysql":
 		var err error
 		if db, err = openMySQL(rawURL, t, password, dial); err != nil {
@@ -90,6 +114,28 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 	return db, nil
 }
 
+// startupParamRefused reports whether a Postgres connect failed because a
+// pooler refused default_transaction_read_only as a startup setting.
+// PgBouncer says "unsupported startup parameter"; other poolers answer
+// with protocol_violation (08P01) or name the setting.
+func startupParamRefused(err error) bool {
+	var pe *pgconn.PgError
+	if errors.As(err, &pe) && pe.Code == "08P01" {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "unsupported startup parameter") || strings.Contains(msg, "default_transaction_read_only")
+}
+
+// unsafeEncodings are client character sets in which a backslash byte
+// (0x5c) can be the second byte of a character. The server converts the
+// text from them before reading it, so komando's SQL checks, which read
+// bytes, would see a backslash the server never sees.
+var unsafeEncodings = map[string]map[string]bool{
+	"postgres": {"SJIS": true, "SHIFT_JIS_2004": true, "BIG5": true, "GBK": true, "UHC": true, "GB18030": true, "JOHAB": true},
+	"mysql":    {"big5": true, "cp932": true, "gbk": true, "gb18030": true, "sjis": true},
+}
+
 // checkStringRules makes sure the server parses quotes the way komando's
 // SQL classifier does; otherwise a statement could hide its real effect
 // inside what komando takes for a string.
@@ -104,6 +150,12 @@ func checkStringRules(ctx context.Context, db *sql.DB, kind string) error {
 		if v != "on" {
 			bad = "standard_conforming_strings is off"
 		}
+		if err := db.QueryRowContext(ctx, "SHOW client_encoding").Scan(&v); err != nil {
+			return connectErr(driver.Target{}, err)
+		}
+		if unsafeEncodings[kind][strings.ToUpper(v)] {
+			bad = "client_encoding is " + v
+		}
 	case "mysql":
 		var mode string
 		if err := db.QueryRowContext(ctx, "SELECT @@SESSION.sql_mode").Scan(&mode); err != nil {
@@ -114,10 +166,17 @@ func checkStringRules(ctx context.Context, db *sql.DB, kind string) error {
 				bad = "sql_mode contains " + m
 			}
 		}
+		var cs string
+		if err := db.QueryRowContext(ctx, "SELECT @@SESSION.character_set_client").Scan(&cs); err != nil {
+			return connectErr(driver.Target{}, err)
+		}
+		if unsafeEncodings[kind][strings.ToLower(cs)] {
+			bad = "character_set_client is " + cs
+		}
 	}
 	if bad != "" {
 		return out.Errf(out.ExitPolicy, "SQL_STRING_RULES",
-			"komando checks SQL with the default quoting rules; use a database user or connection without this setting",
+			"komando checks SQL with the default quoting rules and an ASCII-safe character set (UTF-8); use a database user or connection without this setting",
 			"this connection parses strings differently (%s)", bad)
 	}
 	return nil
@@ -228,7 +287,7 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 			if err := setTimeout(ctx, conn, kind, o.Timeout, false); err != nil {
 				return nil, queryErr(kind, ctx, err)
 			}
-			if err := runStatement(ctx, conn, kind, st, o, &budget, &r); err != nil {
+			if err := runStatement(ctx, conn, conn, kind, st, o, &budget, &r); err != nil {
 				return nil, queryErr(kind, ctx, err)
 			}
 			res.Results = append(res.Results, r)
@@ -237,8 +296,22 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 		}
 	}
 
+	// one connection for the whole run: the session settings and the checks
+	// below must see the transaction the statements run in
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return nil, queryErr(kind, ctx, err)
+	}
+	defer conn.Close()
+	if kind == "mysql" && !o.Write {
+		restore, err := mysqlReadOnlySession(ctx, conn)
+		if err != nil {
+			return nil, queryErr(kind, ctx, err)
+		}
+		defer restore()
+	}
 	// sqlite has no read-only transactions; the connection is read-only instead
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: !o.Write && kind != "sqlite"})
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: !o.Write && kind != "sqlite"})
 	if err != nil {
 		return nil, queryErr(kind, ctx, err)
 	}
@@ -246,10 +319,27 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 	if err := setTimeout(ctx, tx, kind, o.Timeout, true); err != nil {
 		return nil, queryErr(kind, ctx, err)
 	}
-	for _, st := range plan.Statements {
+	if _, err := tx.ExecContext(ctx, "SAVEPOINT "+txMark); err != nil {
+		return nil, queryErr(kind, ctx, err)
+	}
+	for i, st := range plan.Statements {
 		r := StatementResult{SQL: st.SQL, Keyword: st.Keyword, Risk: st.Risk.String()}
-		if err := runStatement(ctx, tx, kind, st, o, &budget, &r); err != nil {
+		if st.NoRollback && !o.Write {
+			return nil, writeRequired(st.Keyword) // a read-only transaction does not stop it either
+		}
+		if o.DryRun && st.NoRollback {
+			r.Skipped = "dry run: a rollback may not undo this statement (a killed session, a file or program on the server, setval, code komando cannot see), so it was not executed"
+			res.Results = append(res.Results, r)
+			continue
+		}
+		if err := runStatement(ctx, tx, conn, kind, st, o, &budget, &r); err != nil {
 			return nil, queryErr(kind, ctx, err)
+		}
+		if err := stillInTx(ctx, tx); err != nil {
+			if ctx.Err() != nil {
+				return nil, queryErr(kind, ctx, err)
+			}
+			return nil, txEscaped(i+1, st, err)
 		}
 		res.Results = append(res.Results, r)
 	}
@@ -297,7 +387,74 @@ func setTimeout(ctx context.Context, q querier, kind string, d time.Duration, in
 	return nil
 }
 
-func runStatement(ctx context.Context, q querier, kind string, st driver.Statement, o Options, budget *int, r *StatementResult) error {
+// txMark is the savepoint that shows the transaction komando opened is
+// still open: any COMMIT, implicit or not, removes it, and so does a
+// Postgres COMMIT AND CHAIN, which opens a new transaction at once.
+const txMark = "komando_tx"
+
+// stillInTx fails when the transaction komando opened has ended (a COMMIT
+// the classifier did not see, or a MySQL statement that commits
+// implicitly), so no later statement runs outside it.
+func stillInTx(ctx context.Context, tx *sql.Tx) error {
+	// RELEASE fails when the savepoint is gone; set it again for the next statement
+	if _, err := tx.ExecContext(ctx, "RELEASE SAVEPOINT "+txMark); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, "SAVEPOINT "+txMark)
+	return err
+}
+
+func txEscaped(n int, st driver.Statement, err error) error {
+	return out.Errf(out.ExitPolicy, "SQL_TX_CONTROL",
+		"leave transactions to komando, and tell the user: what ran before this point may have been committed",
+		"statement %d (%s) ended komando's transaction, so komando stopped (%v)", n, st.Keyword, err)
+}
+
+// mysqlReadOnlySession makes the whole session read-only, not only
+// komando's transaction: if a statement ends the transaction early, what
+// follows still cannot write. restore puts the old value back.
+func mysqlReadOnlySession(ctx context.Context, conn *sql.Conn) (restore func(), err error) {
+	name := "transaction_read_only"
+	var old string
+	err = conn.QueryRowContext(ctx, "SELECT @@SESSION.transaction_read_only").Scan(&old)
+	if isUnknownVariable(err) { // MariaDB before 11.1, MySQL before 5.7.20
+		name = "tx_read_only"
+		err = conn.QueryRowContext(ctx, "SELECT @@SESSION.tx_read_only").Scan(&old)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if _, err := conn.ExecContext(ctx, "SET SESSION "+name+" = 1"); err != nil {
+		return nil, err
+	}
+	return func() {
+		if old == "0" {
+			conn.ExecContext(context.WithoutCancel(ctx), "SET SESSION "+name+" = 0")
+		}
+	}, nil
+}
+
+// runStatement runs one statement. Postgres statements always go over the
+// extended protocol, which refuses text with more than one command: pgx
+// would send an Exec without arguments as a simple query, where a COMMIT
+// hidden from komando's splitter would end the read-only transaction.
+func runStatement(ctx context.Context, q querier, conn *sql.Conn, kind string, st driver.Statement, o Options, budget *int, r *StatementResult) error {
+	if !st.Rows && kind == "postgres" && len(o.Args) == 0 {
+		var tag pgconn.CommandTag
+		err := conn.Raw(func(dc any) error {
+			res := dc.(*stdlib.Conn).Conn().PgConn().ExecParams(ctx, st.SQL, nil, nil, nil, nil).Read()
+			tag = res.CommandTag
+			return res.Err
+		})
+		if err != nil {
+			return err
+		}
+		if changesRows[st.Keyword] {
+			n := tag.RowsAffected()
+			r.RowsAffected = &n
+		}
+		return nil
+	}
 	if !st.Rows {
 		res, err := q.ExecContext(ctx, st.SQL, o.Args...)
 		if err != nil {

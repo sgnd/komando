@@ -84,6 +84,51 @@ func (l localSide) list(context.Context) (map[string]syncFile, error) {
 	return files, err
 }
 
+// agentLocalSide is localSide for an upload an AI agent runs: a file
+// komando does not read for an agent (guardLocalRead) is left out and
+// listed in meta.skipped. It stays in the list as skipped, so --delete
+// keeps the copy on the other side. The files are checked once, before
+// the hosts are worked on side by side.
+type agentLocalSide struct {
+	localSide
+	secret map[string]bool
+}
+
+func newAgentLocalSide(ctx context.Context, root string) agentLocalSide {
+	l := agentLocalSide{localSide: localSide{root: root}, secret: map[string]bool{}}
+	files, _ := l.localSide.list(ctx) // an error shows when the sync lists it
+	rels := make([]string, 0, len(files))
+	for rel, f := range files {
+		if !f.Skip {
+			rels = append(rels, rel)
+		}
+	}
+	sort.Strings(rels)
+	for _, rel := range rels {
+		if skipLocalSecret(filepath.Join(root, filepath.FromSlash(rel))) {
+			l.secret[rel] = true
+		}
+	}
+	return l
+}
+
+func (l agentLocalSide) list(ctx context.Context) (map[string]syncFile, error) {
+	files, err := l.localSide.list(ctx)
+	for rel, f := range files {
+		if !f.Skip && l.secret[rel] {
+			files[rel] = syncFile{Skip: true}
+		}
+	}
+	return files, err
+}
+
+func (l agentLocalSide) open(ctx context.Context, rel string) (io.ReadCloser, error) {
+	if l.secret[rel] {
+		return nil, out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "the file was left out; an AI agent needs --reveal, which the user allows, to send it", "%s holds secrets; komando does not send it for an AI agent", rel)
+	}
+	return l.localSide.open(ctx, rel)
+}
+
 func (l localSide) open(_ context.Context, rel string) (io.ReadCloser, error) {
 	return os.Open(filepath.Join(l.root, filepath.FromSlash(rel)))
 }
@@ -524,7 +569,17 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 	if err := guardDelete(o); err != nil {
 		return err
 	}
-	src := localSide{root: local}
+	if err := guardLocalRead(local); err != nil {
+		return err
+	}
+	var src syncSide = localSide{root: local}
+	if isAgent() {
+		// each file is checked as cp -r does: komando's own data and private
+		// keys stay here even under a folder that holds them (sync ~ web:),
+		// and files that are secrets by name too, unless the user allows
+		// --reveal, as syncDown leaves them there
+		src = newAgentLocalSide(ctx, local)
+	}
 	if storage {
 		v := driver.Verdict{Risk: driver.RiskWrite}
 		if o.delete {

@@ -33,7 +33,8 @@ type pgTable struct {
 	schema, name     string
 	kind             string // r or p
 	unlogged, isPart bool
-	parent           string
+	parentSchema     string
+	parentName       string
 	bound, partKey   string
 	rls, forceRLS    bool
 }
@@ -99,31 +100,39 @@ func dumpPostgres(ctx context.Context, db *sql.DB, o DumpOptions, w *bufio.Write
 			return err
 		}
 	}
-	// sequences that are not identity columns' own
+	// sequences that are not identity columns' own: the owner column's
+	// schema, table and name (separate, as names may contain dots), and the
+	// tables whose column DEFAULTs use the sequence (nextval('s'))
 	seqs, err := q(`SELECT n.nspname, c.relname, format_type(s.seqtypid, NULL), s.seqstart, s.seqincrement, s.seqmin, s.seqmax, s.seqcache, s.seqcycle,
-		(SELECT dn.nspname || '.' || dc.relname || '.' || a.attname FROM pg_depend d JOIN pg_class dc ON dc.oid = d.refobjid
-		   JOIN pg_namespace dn ON dn.oid = dc.relnamespace JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
-		   WHERE d.objid = c.oid AND d.deptype = 'a' LIMIT 1)
+		o.nspname, o.relname, o.attname,
+		(SELECT string_agg(DISTINCT ad.adrelid::text, ',') FROM pg_depend d JOIN pg_attrdef ad ON ad.oid = d.objid
+		   WHERE d.classid = 'pg_attrdef'::regclass AND d.refclassid = 'pg_class'::regclass AND d.refobjid = c.oid)
 		FROM pg_class c JOIN pg_sequence s ON s.seqrelid = c.oid JOIN pg_namespace n ON n.oid = c.relnamespace
+		LEFT JOIN LATERAL (SELECT dn.nspname, dc.relname, a.attname FROM pg_depend d JOIN pg_class dc ON dc.oid = d.refobjid
+		   JOIN pg_namespace dn ON dn.oid = dc.relnamespace JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
+		   WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.refclassid = 'pg_class'::regclass AND d.deptype = 'a' LIMIT 1) o ON true
 		WHERE c.relkind = 'S' AND ` + pgUserNS + ` AND ` + pgExt("c") + `
 		AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'i')
 		ORDER BY c.oid`)
 	if err != nil {
 		return err
 	}
-	keepSeq := func(owner string) bool {
-		if whole {
+	// with --table: the sequences the dumped tables own or use in a DEFAULT
+	keepSeq := func(s []sql.NullString) bool {
+		if whole || s[9].Valid && keepTable(tables, s[9].String, s[10].String) {
 			return true
 		}
-		for _, t := range tables {
-			if strings.HasPrefix(owner, t.schema+"."+t.name+".") {
-				return true
+		for _, oid := range strings.Split(s[12].String, ",") {
+			for _, t := range tables {
+				if oid != "" && oid == fmt.Sprint(t.oid) {
+					return true
+				}
 			}
 		}
 		return false
 	}
 	for _, s := range seqs {
-		if !keepSeq(s[9].String) {
+		if !keepSeq(s) {
 			continue
 		}
 		cycle := "NO CYCLE"
@@ -142,9 +151,9 @@ func dumpPostgres(ctx context.Context, db *sql.DB, o DumpOptions, w *bufio.Write
 		}
 	}
 	for _, s := range seqs {
-		if owner := s[9].String; owner != "" && keepSeq(owner) {
-			p := strings.Split(owner, ".")
-			fmt.Fprintf(w, "ALTER SEQUENCE %s.%s OWNED BY %s.%s.%s;\n", pqid(s[0].String), pqid(s[1].String), pqid(p[0]), pqid(p[1]), pqid(p[2]))
+		// OWNED BY only when the owner table is in the dump too
+		if s[9].Valid && keepTable(tables, s[9].String, s[10].String) {
+			fmt.Fprintf(w, "ALTER SEQUENCE %s.%s OWNED BY %s.%s.%s;\n", pqid(s[0].String), pqid(s[1].String), pqid(s[9].String), pqid(s[10].String), pqid(s[11].String))
 		}
 	}
 	w.WriteString("\n")
@@ -175,7 +184,7 @@ func dumpPostgres(ctx context.Context, db *sql.DB, o DumpOptions, w *bufio.Write
 		}
 		// sequence positions, after the data
 		for _, s := range seqs {
-			if !keepSeq(s[9].String) {
+			if !keepSeq(s) {
 				continue
 			}
 			var last sql.NullString
@@ -411,40 +420,100 @@ func (e *UnsupportedError) Error() string {
 
 func pgTables(q func(string, ...any) ([][]sql.NullString, error), only []string) ([]pgTable, error) {
 	rows, err := q(`SELECT c.oid, n.nspname, c.relname, c.relkind, c.relpersistence = 'u', c.relispartition,
-		COALESCE((SELECT pn.nspname || '.' || pc.relname FROM pg_inherits i JOIN pg_class pc ON pc.oid = i.inhparent
-		  JOIN pg_namespace pn ON pn.oid = pc.relnamespace WHERE i.inhrelid = c.oid LIMIT 1), ''),
+		COALESCE(par.nspname, ''), COALESCE(par.relname, ''),
 		COALESCE(pg_get_expr(c.relpartbound, c.oid), ''), CASE WHEN c.relkind = 'p' THEN pg_get_partkeydef(c.oid) ELSE '' END,
 		c.relrowsecurity, c.relforcerowsecurity
 		FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+		LEFT JOIN LATERAL (SELECT pn.nspname, pc.relname FROM pg_inherits i JOIN pg_class pc ON pc.oid = i.inhparent
+		  JOIN pg_namespace pn ON pn.oid = pc.relnamespace WHERE i.inhrelid = c.oid LIMIT 1) par ON true
 		WHERE c.relkind IN ('r','p') AND ` + pgUserNS + ` AND ` + pgExt("c") + `
 		ORDER BY c.relispartition, c.oid`)
 	if err != nil {
 		return nil, err
 	}
-	want := map[string]bool{}
+	type key struct{ schema, name string }
+	want := map[key]bool{}
 	for _, t := range only {
-		if !strings.Contains(t, ".") {
-			t = "public." + t
+		schema, name, err := splitTableName(t)
+		if err != nil {
+			return nil, err
 		}
-		want[t] = true
+		want[key{schema, name}] = true
 	}
+	found := map[key]bool{}
 	var out []pgTable
 	for _, r := range rows {
 		var oid uint32
 		fmt.Sscan(r[0].String, &oid)
 		t := pgTable{oid: oid, schema: r[1].String, name: r[2].String, kind: r[3].String, unlogged: r[4].String == "true",
-			isPart: r[5].String == "true", parent: r[6].String, bound: r[7].String, partKey: r[8].String,
-			rls: r[9].String == "true", forceRLS: r[10].String == "true"}
-		if len(want) > 0 && !want[t.schema+"."+t.name] {
+			isPart: r[5].String == "true", parentSchema: r[6].String, parentName: r[7].String, bound: r[8].String, partKey: r[9].String,
+			rls: r[10].String == "true", forceRLS: r[11].String == "true"}
+		k := key{t.schema, t.name}
+		if len(only) > 0 && !want[k] {
 			continue
 		}
-		delete(want, t.schema+"."+t.name)
+		found[k] = true
 		out = append(out, t)
 	}
-	for t := range want {
-		return nil, fmt.Errorf("no table %q", t)
+	for _, t := range only {
+		schema, name, _ := splitTableName(t)
+		if !found[key{schema, name}] {
+			return nil, fmt.Errorf("no table %q", t)
+		}
 	}
 	return out, nil
+}
+
+// splitTableName reads --table SCHEMA.TABLE (public when no schema is
+// given). A name with a dot in it is written in double quotes, as in SQL:
+// public."app.events" or "my.schema".orders. Case is kept as given.
+func splitTableName(s string) (schema, name string, err error) {
+	var parts []string
+	for i := 0; i < len(s); {
+		var part string
+		if s[i] == '"' {
+			j := i + 1
+			for ; j < len(s); j++ {
+				if s[j] == '"' {
+					if j+1 < len(s) && s[j+1] == '"' {
+						part += `"`
+						j++
+						continue
+					}
+					break
+				}
+				part += string(s[j])
+			}
+			if j >= len(s) {
+				return "", "", fmt.Errorf("--table %s: a double quote is not closed", s)
+			}
+			i = j + 1
+		} else {
+			j := strings.IndexByte(s[i:], '.')
+			if j < 0 {
+				j = len(s) - i
+			}
+			part = s[i : i+j]
+			if strings.Contains(part, `"`) {
+				return "", "", fmt.Errorf("--table %s: quote the whole name (\"my.table\")", s)
+			}
+			i += j
+		}
+		parts = append(parts, part)
+		if i < len(s) {
+			if s[i] != '.' || i+1 == len(s) {
+				return "", "", fmt.Errorf("--table %s: write SCHEMA.TABLE", s)
+			}
+			i++
+		}
+	}
+	switch {
+	case len(parts) == 1 && parts[0] != "":
+		return "public", parts[0], nil
+	case len(parts) == 2 && parts[0] != "" && parts[1] != "":
+		return parts[0], parts[1], nil
+	}
+	return "", "", fmt.Errorf("--table %s: write SCHEMA.TABLE", s)
 }
 
 // pgPreamble writes extensions, schemas, types and functions.
@@ -538,8 +607,7 @@ func pgFunctions(q func(string, ...any) ([][]sql.NullString, error), late bool) 
 
 func pgCreateTable(q func(string, ...any) ([][]sql.NullString, error), t pgTable, w *bufio.Writer) error {
 	if t.isPart {
-		p := strings.SplitN(t.parent, ".", 2)
-		fmt.Fprintf(w, "CREATE TABLE %s PARTITION OF %s.%s %s", t.qname(), pqid(p[0]), pqid(p[1]), t.bound)
+		fmt.Fprintf(w, "CREATE TABLE %s PARTITION OF %s.%s %s", t.qname(), pqid(t.parentSchema), pqid(t.parentName), t.bound)
 		if t.kind == "p" {
 			fmt.Fprintf(w, " PARTITION BY %s", t.partKey)
 		}

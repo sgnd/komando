@@ -71,7 +71,7 @@ func jobStartCmd() *cobra.Command {
 				return err
 			}
 			if readOnly {
-				if err := checkReadOnly(command); err != nil {
+				if err := checkReadOnlyEnv(command, envs); err != nil {
 					return err
 				}
 			}

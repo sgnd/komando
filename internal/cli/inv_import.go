@@ -22,7 +22,9 @@ type hostVet struct {
 }
 
 // vetImportHosts checks imported hosts against s the way host add does:
-// names, ports, users, --via paths. A proxy command runs on this computer,
+// names, ports, users, --via paths. The file may come from someone else, so
+// its hosts may not use secrets or files of this computer (dropForeignHostRefs).
+// A proxy command runs on this computer,
 // so it goes through guardProxyCommand (an AI agent needs a person's yes);
 // that stop ends the whole import. Hosts that pass are put into s.
 func vetImportHosts(s *store.State, hosts []*store.Host, overwrite bool) (hostVet, error) {
@@ -57,6 +59,11 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite bool) (hostVe
 				h.Identity = ""
 			}
 		}
+		v.Notes = append(v.Notes, dropForeignHostRefs(h)...)
+		if err := checkEnvKeys(h.Env); err != nil {
+			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
+			continue
+		}
 		if err := checkHostRefs(h); err != nil {
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
@@ -74,6 +81,12 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite bool) (hostVe
 			delete(s.Hosts, h.Name)
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
+		}
+		if !h.Protected { // as host add does: a second name for a protected server
+			if twin := protectedTwinHost(s, h); twin != "" {
+				h.Protected = true
+				v.Notes = append(v.Notes, sameTwinWarning("server", h.Name, twin))
+			}
 		}
 		v.Add = append(v.Add, h)
 	}
@@ -144,6 +157,9 @@ run on this computer, so an AI agent needs a person's yes for them.`,
 				if err := validLabelName("group", gr); err != nil {
 					return err
 				}
+			}
+			if st, err := store.Load(); err == nil {
+				prefetchTwinIPs(st, hosts) // DNS before the inventory lock, not under it
 			}
 			var v hostVet
 			err := store.Update(func(s *store.State) error {

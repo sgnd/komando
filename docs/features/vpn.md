@@ -78,7 +78,8 @@ When a command connects a VPN by itself, it says so on one line:
 komando: vpn office connected; it stays up until unused for 30m
 ```
 
-A VPN session that is unused for 30 minutes is closed. To change that:
+A VPN session that is unused for 30 minutes is closed (only connections
+that log in to its local proxy count as use). To change that:
 `komando config set vpn_idle 1h` (`0` keeps it up until you stop it).
 
 ## VPNs that need a person (MFA, SSO)
@@ -123,6 +124,16 @@ certificates, a user name and password, or both.
 
 - The profile is checked when you add it. An option the client does not
   understand is refused by name (`OVPN_UNSUPPORTED`).
+- The server's certificate must come from the profile's `<ca>`. The client
+  also checks what the profile asks for, the way OpenVPN does:
+  `remote-cert-tls server` (the certificate must say serverAuth),
+  `ns-cert-type server`, `remote-cert-eku`, `remote-cert-ku`, and
+  `verify-x509-name` (by default the whole subject must match exactly,
+  attribute by attribute and in order, such as
+  `"C=US, O=Corp, CN=vpn.corp.com"`).
+- When the server pushes an `auth-token`, komando logs in with it when the
+  keys are renewed, so a one-time code is not asked for again. The token is
+  never logged.
 - Compression (`comp-lzo yes`, `compress lz4`) is refused too: compressing
   before encrypting leaks data (the VORACLE attack). `comp-lzo no` and
   `compress stub-v2` are fine.

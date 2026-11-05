@@ -20,7 +20,7 @@ komando audit verify                      # was the history edited outside koman
 | **Dangerous-command filter** | Blocks commands such as `rm -rf /`, `mkfs`, `reboot`, `DROP DATABASE`, `curl … \| sh`, flushing the firewall and stopping SSH, on your servers, in pods and in databases. See them all with `komando policy list`. |
 | **Protected servers and conns** | Any change needs `--yes`. That includes re-pointing them (address, port, user, key, password, `--via`), replacing a secret they use, removing them and turning protection off. Commands that only look can say so with `--read-only` and run without `--yes`. Anything at the same address (a `user@address` target, a second name, a name that resolves to the same IP, a second conn to the same database server) is protected too. |
 | **Read-only by default** | `db query`, `cache run` and `cluster run` only read unless you add `--write`. For databases, the database itself enforces it. |
-| **Dry run** | `--dry-run` shows what would run and whether it would be blocked (`meta.would_be_blocked`). It is never blocked itself. |
+| **Dry run** | `--dry-run` shows what would run and whether it would be blocked (`meta.would_be_blocked`). It is never blocked itself. It never opens the approval window, so for an AI agent `--reveal` does not count in a dry run (output stays masked), and an agent's preview connects with `--host-key-policy off` ignored. |
 | **Safety settings** | Turning off the audit log or server identity checks, removing a deny rule, or an AI agent setting a `--proxy-command` (a program on this computer) needs `--yes`. |
 | **Server identity** | If a server's fingerprint changes, komando refuses to connect (`HOSTKEY_MISMATCH`). |
 | **Safe edits** | File edits replace exactly the text you name, write the whole file at once (never half-written), and can keep a `.bak` backup. |
@@ -31,15 +31,17 @@ komando audit verify                      # was the history edited outside koman
 ## Seatbelts for AI agents
 
 komando recognises Claude Code, Codex, Gemini CLI and Cursor by the
-environment variables they set, and adds these rules for them:
+environment variables they set (a variable that is there counts, whatever
+its value, also `0` or empty), and adds these rules for them:
 
 | Seatbelt | What it does |
 |----------|--------------|
-| **A person allows the risky flags** | When an agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando opens a window on your screen with the exact command. It runs only when you click **Allow once**. The agent cannot click it. With `komando config approval-code`, the window also asks for the 6-digit code from your authenticator app, so a click alone is not enough. With no screen (an SSH session, a server), the agent is refused and asks you to run the command in your own terminal. |
-| **Secrets hidden from agents** | Passwords, keys and tokens in any output (a `.env` file, `env`, a log line, a database row, a Kubernetes Secret, private keys, password hashes) show as `[hidden]`. You and your scripts see the real values. |
+| **A person allows the risky flags** | When an agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando opens a window on your screen with the whole command, why komando stops it (the matched rule, the protected servers) the servers it runs on and, when the command line does not show it, the program on this computer it lets run. It runs only when you click **Allow once**. Line breaks, tabs, control characters, long runs of spaces and characters that draw nothing show as escapes (`$'a:\n  b: 1'`, `\u3164`), which your shell reads back as the same text. A command that cannot be shown whole (longer than 500 characters, invalid text, or with bidi or zero-width characters) gets no window: the agent is told to make it shorter or ask you to run it. The agent cannot click it. With `komando config approval-code`, the window also asks for the 6-digit code from your authenticator app, so a click alone is not enough. With no screen (an SSH session, a server), the agent is refused and asks you to run the command in your own terminal. |
+| **Secrets hidden from agents** | Passwords, keys and tokens in any output (a `.env` file, `env`, a log line, a database row, a Kubernetes Secret, `requirepass` in `redis.conf`, private keys, password hashes) show as `[hidden]`. You and your scripts see the real values. |
 | **Agents can still set secrets** | `fs replace --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:db}}'` puts the vault value on the server without the agent seeing it. Text that still holds `[hidden]` is never written over a real file (`HIDDEN_VALUE`). |
 | **Secret files stay on the server** | An agent cannot copy a file that is secret by its name (`.env`, private keys, `credentials`, `shadow`, ...) to this computer (`SENSITIVE_FILE`); folder copies leave them out. It can read them with `fs cat`, masked. |
-| **Guard on this computer** | `komando guide install` adds a guard to Claude Code, and to Cursor, Gemini CLI and Codex where you use them. Before the agent reads a file or runs a shell command, komando checks it and stops reading `~/.komando`, private keys, `.env` files and credential stores (`~/.kube`, `~/.aws/credentials`, the keychain), listing all environment variables, and running `ssh`/`scp` around komando. Skip it with `--no-guard`. |
+| **Secret files stay on this computer** | komando does not read `~/.komando`, private keys, credential stores or files that are secret by name for an agent when a command takes a local file (`--stdin-file`, `script FILE`, uploads, `sync`, `fs write --from`, `db --file`, `cluster -f`) (`SENSITIVE_FILE`); folder uploads and `sync` check each file and leave those out. That holds for the same file by another name: a link, a hard link, or other upper and lower case on macOS. You allow a project secret such as `.env` with `--reveal`; komando's own data and `/proc/PID/environ` never go. Imports (`komando import kubeconfig`, `pgpass`, `docker`, ...) may read credential files, because they put the secrets into komando's vault, which the agent never sees. A `file:` or `env:` password reference cannot point at komando's data, a private key, a credential store or the password of a secret store either. |
+| **Guard on this computer** | `komando guide install` adds a guard to Claude Code, and to Cursor, Gemini CLI and Codex where you use them. Before the agent reads a file or runs a shell command, komando checks it and stops reading `~/.komando`, private keys, `.env` files and credential stores (`~/.kube`, `~/.aws/credentials`, the keychain), listing all environment variables, changing or clearing the variables komando knows an agent by (`CLAUDECODE=0`, `unset`, `env -u`, `env -i`, `read`, `sudo komando`), searching or archiving a folder that holds them (`grep -r ~`, `tar -C ~ ...`), and running `ssh`/`scp` around komando. It reads relative paths from the agent's working folder, follows `cd`, and counts a glob such as `~/.komand?/*` as the path it could match; quoted patterns (`grep '.*' f`) are not globs. Skip it with `--no-guard`. |
 
 Scripts and you at your terminal use the flags as before.
 
@@ -51,7 +53,7 @@ Scripts and you at your terminal use the flags as before.
 | `PROTECTED_HOST`, `PROTECTED_TARGET` | 6 | A change to something protected. A person may add `--yes`; commands that only look can add `--read-only`. |
 | `SAFETY_SETTING` | 6 | A change that turns a seatbelt off. A person may add `--yes`. |
 | `WRITE_REQUIRES_FLAG` | 6 | The query or command changes data. Try `--write --dry-run`, then `--write`. |
-| `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here. Read it with `fs cat` (values hidden). |
+| `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here, or to have komando read one here. Read it with `fs cat` (values hidden); a person may allow `--reveal` for a project file. |
 | `REVEAL_NEEDS_HUMAN` | 6 | Only a person can see secret values. |
 | `HIDDEN_VALUE` | 2 | The text holds `[hidden]` or `[secret:NAME]`. Change one line with `fs replace`, using `{{secret:NAME}}`. |
 | `HOSTKEY_MISMATCH` | 4 | The server's identity changed. Never "fix" it blindly; see [Results and errors](output.md#troubleshooting). |
@@ -76,6 +78,11 @@ komando policy allow custom-0 --yes                  # or remove it by its id
 komando policy check 'terraform destroy'             # exit 6 when it would be blocked
 komando policy check --for postgres 'delete from users'   # rate SQL or Redis instead
 ```
+
+A rule matches the command the way the shell reads it, so quotes and
+backslashes inside a word (`r\m`, `/e""tc`) do not hide it. A custom
+pattern that is not a valid regular expression blocks every command until
+you fix or remove it; `komando doctor` and `policy list` name it.
 
 Built-in rules cannot be removed. `policy check` exits 6 when the command
 would be blocked, so it works in an `if`. `--for` rates a statement for a
@@ -111,7 +118,9 @@ An AI agent runs as your own user on your computer. The approval window,
 the masking and the guard stop mistakes and prompt injection (a web page or
 a file telling the agent to leak something). They do not stop a program
 that deliberately hides what it is or edits the guard away: nothing that
-runs as you can. So:
+runs as you can. The guard reads shell lines as text; a script that builds a
+path from pieces, or starts komando without the agent's variables from
+another language, gets past it. So:
 
 - give komando, and so your agent, an SSH user with only the permissions it needs;
 - mark production with `komando host edit NAME --protected`;

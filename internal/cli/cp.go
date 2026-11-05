@@ -257,6 +257,9 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 		src, dst = dst, src
 	}
 	if up {
+		if err := guardLocalRead(local); err != nil {
+			return err
+		}
 		if err := guard(st, hosts, "", true); err != nil {
 			return err
 		}
@@ -388,6 +391,9 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 		}
 		if !info.Mode().IsRegular() {
 			st.Skipped = append(st.Skipped, filepath.ToSlash(rel))
+			return nil
+		}
+		if skipLocalSecret(p) {
 			return nil
 		}
 		n, err := putFile(sc, p, rp, info)

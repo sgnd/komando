@@ -41,9 +41,18 @@ func TestWhoIsAsking(t *testing.T) {
 	if agentName() != "Gemini CLI" {
 		t.Errorf("agentName = %q", agentName())
 	}
-	t.Setenv("GEMINI_CLI", "0")
+	// any value counts: `GEMINI_CLI=0 komando ...` and an empty value
+	// (`read GEMINI_CLI </dev/null`) must not switch the agent's safety
+	// stops off; only a variable that is not there is none
+	for _, v := range []string{"0", ""} {
+		t.Setenv("GEMINI_CLI", v)
+		if !isAgent() {
+			t.Errorf("GEMINI_CLI=%q is still an agent", v)
+		}
+	}
+	noAgent(t)
 	if isAgent() {
-		t.Error("GEMINI_CLI=0 is not an agent")
+		t.Error("no variable, no agent")
 	}
 }
 
@@ -142,6 +151,14 @@ func TestAgentOutputIsMasked(t *testing.T) {
 	n = asAgent(t, true, true)
 	if err := run("secret", "list", "--reveal"); err != nil || out.P.Mask || *n != 1 {
 		t.Fatalf("--reveal, allowed by the person (err %v, windows %d)", err, *n)
+	}
+	// --dry-run never stands in for the person's yes: a dry run reads too
+	n = asAgent(t, true, true)
+	if err := run("secret", "list", "--dry-run", "--reveal"); err != nil || !out.P.Mask || *n != 0 {
+		t.Fatalf("--dry-run --reveal unmasked output (err %v, windows %d)", err, *n)
+	}
+	if b := out.P.Blocked(); b == nil || b.Code != "REVEAL_NEEDS_PERSON" {
+		t.Fatalf("would_be_blocked = %v", b)
 	}
 	// secret get --reveal stays for a person at a terminal: no window
 	n = asAgent(t, true, true)
@@ -255,7 +272,7 @@ func TestGuard(t *testing.T) {
 		{"Bash", map[string]any{"command": "echo `cat ~/.komando/vault.key`"}, true},
 	}
 	for _, c := range cases {
-		d := checkTool(c.tool, c.in, home)
+		d := checkTool(c.tool, c.in, home, "")
 		if d.Deny != c.block {
 			t.Errorf("%s %v: deny=%v (%s)", c.tool, c.in, d.Deny, d.Reason)
 		}

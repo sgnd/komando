@@ -5,13 +5,14 @@ package store
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 type Host struct {
@@ -63,8 +64,12 @@ type Conn struct {
 	Options     map[string]string `json:"options,omitempty"` // kind-specific settings
 	Protected   bool              `json:"protected,omitempty"`
 	Notes       string            `json:"notes,omitempty"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
+	// TrustedPlugin is the hash of the kubeconfig login program a person
+	// trusted for this conn (import kubeconfig). Not an Option: only a
+	// person's import sets it, never --option.
+	TrustedPlugin string    `json:"trusted_plugin,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Key struct {
@@ -226,9 +231,14 @@ func Load() (*State, error) {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	if len(b) > 0 {
+	if err == nil {
+		// komando only ever writes JSON here: an empty file was cut short (a
+		// crash or power loss), and reading it as a fresh install would drop
+		// every protected flag and the host key policy without a word
 		if err := json.Unmarshal(b, s); err != nil {
-			return nil, fmt.Errorf("corrupt state file %s: %w", statePath(), err)
+			return nil, out.Errf(out.ExitError, "STATE_CORRUPT",
+				"the file is empty or broken, most likely cut short by a crash or power loss; ask the user to restore it from a backup (Time Machine or similar), or to move it away to start fresh and then set protected servers, host_key_policy and extra_deny_patterns again",
+				"corrupt state file %s: %v", statePath(), err)
 		}
 	}
 	s.init()
@@ -311,15 +321,11 @@ func Update(fn func(s *State) error) error {
 	if err := ensureHome(); err != nil {
 		return err
 	}
-	lf, err := os.OpenFile(Path(".lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	unlock, err := Lock(".lock")
 	if err != nil {
 		return err
 	}
-	defer lf.Close()
-	if err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX); err != nil {
-		return err
-	}
-	defer syscall.Flock(int(lf.Fd()), syscall.LOCK_UN)
+	defer unlock()
 	s, err := Load()
 	if err != nil {
 		return err
@@ -338,21 +344,63 @@ func (s *State) save() error {
 	return WriteFileAtomic(statePath(), b, 0o600)
 }
 
-func WriteFileAtomic(path string, b []byte, mode os.FileMode) error {
+// Lock takes an exclusive lock on the file name in the state directory
+// and returns the function that releases it. komando processes running at
+// the same time (parallel agents) wait for each other.
+func Lock(name string) (unlock func(), err error) {
+	if err := ensureHome(); err != nil {
+		return nil, err
+	}
+	lf, err := os.OpenFile(Path(name), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX); err != nil {
+		lf.Close()
+		return nil, err
+	}
+	return func() { _ = syscall.Flock(int(lf.Fd()), syscall.LOCK_UN); lf.Close() }, nil
+}
+
+// WriteFileAtomic replaces path with b: a temporary file next to it is
+// written, flushed to disk and renamed into place, and the folder is
+// flushed too, so after a crash or power loss path holds either the old
+// content or the new, never an empty or half-written file. The temporary
+// file is removed on any failure.
+func WriteFileAtomic(path string, b []byte, mode os.FileMode) (err error) {
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			tmp.Close()
+			os.Remove(tmp.Name())
+		}
+	}()
+	if err := tmp.Chmod(mode); err != nil {
+		return err
+	}
 	if _, err := tmp.Write(b); err != nil {
-		tmp.Close()
-		os.Remove(tmp.Name())
 		return err
 	}
-	tmp.Close()
-	if err := os.Chmod(tmp.Name(), mode); err != nil {
+	if err := tmp.Sync(); err != nil { // F_FULLFSYNC on macOS
 		return err
 	}
-	return os.Rename(tmp.Name(), path)
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		return err
+	}
+	// the rename itself lives in the folder
+	d, err := os.Open(filepath.Dir(path))
+	if err != nil {
+		return nil // the new file is in place; only the flush is missing
+	}
+	defer d.Close()
+	_ = d.Sync() // some file systems cannot flush a folder; the file is in place
+	return nil
 }
 
 func (s *State) SortedHosts() []*Host {

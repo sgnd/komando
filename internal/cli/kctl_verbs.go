@@ -21,6 +21,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/sgnd/komando/internal/kube"
+	"github.com/sgnd/komando/internal/out"
 )
 
 // ---- reading ---------------------------------------------------------------
@@ -89,18 +90,11 @@ func (r *kctlRun) logs() error {
 	} else if ref != "" && r.a.val("selector") == "" {
 		pods = pods[:1] // kubectl reads one pod of a workload
 	}
+	if r.a.bools["follow"] {
+		return r.follow(space, pods, q)
+	}
 	for _, p := range pods {
-		path := "/api/v1/namespaces/" + url.PathEscape(space) + "/pods/" + url.PathEscape(p) + "/log"
-		if r.a.bools["follow"] {
-			q.Set("follow", "true")
-			body, err := r.k.Stream(r.ctx, path, q)
-			if err != nil {
-				return err
-			}
-			io.Copy(&prefixWriter{w: &r.stdout, prefix: r.logPrefix(p)}, body)
-			body.Close()
-			continue
-		}
+		path := podLogPath(space, p)
 		b, err := r.k.Do(r.ctx, "GET", path, q, nil, "")
 		if err != nil {
 			return err
@@ -108,6 +102,44 @@ func (r *kctlRun) logs() error {
 		(&prefixWriter{w: &r.stdout, prefix: r.logPrefix(p)}).Write(b)
 	}
 	return nil
+}
+
+// maxFollowBytes caps a followed log kept in memory (runKctl without a
+// live printer); cluster run prints the lines as they come instead.
+var maxFollowBytes = 8 << 20
+
+// follow reads every pod's new lines at once, as kubectl logs -f does,
+// until the streams end or --timeout / Ctrl-C (a normal end). Lines go to
+// r.live as they come; nothing piles up in memory.
+func (r *kctlRun) follow(space string, pods []string, q url.Values) error {
+	most := 5 // kubectl's --max-log-requests
+	if v := r.a.val("max-log-requests"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			return kfail("--max-log-requests must be 1 or more")
+		}
+		most = n
+	}
+	if len(pods) > most {
+		return kfail("you are attempting to follow %d log streams, but maximum allowed concurrency is %d, use --max-log-requests to increase the limit", len(pods), most)
+	}
+	live := r.live
+	if live == nil {
+		held, cut := 0, false
+		live = func(_, prefix, line string) {
+			if held += len(prefix) + len(line) + 1; held <= maxFollowBytes {
+				r.stdout.WriteString(prefix + line + "\n")
+			} else if !cut {
+				cut = true
+				fmt.Fprintf(&r.stderr, "komando: the followed log passed %d MiB; later lines were dropped\n", maxFollowBytes>>20)
+			}
+		}
+	}
+	_, err := streamPods(r.ctx, r.k, space, pods, q, func(pod, line string) { live(pod, r.logPrefix(pod), line) })
+	if err != nil && r.ctx.Err() == nil {
+		return err
+	}
+	return nil // --timeout or Ctrl-C ends a follow normally
 }
 
 func (r *kctlRun) logPrefix(pod string) string {
@@ -600,7 +632,11 @@ func (r *kctlRun) dryNote() string {
 }
 
 func (r *kctlRun) apply(diff bool) error {
-	docs, err := r.readFiles()
+	read := r.sendFiles
+	if diff {
+		read = r.readFiles // diff sends nothing that stays
+	}
+	docs, err := read()
 	if err != nil {
 		return err
 	}
@@ -656,7 +692,7 @@ func (r *kctlRun) postObject(obj map[string]any) error {
 
 func (r *kctlRun) create(sub string) error {
 	if len(r.a.vals["filename"]) > 0 {
-		docs, err := r.readFiles()
+		docs, err := r.sendFiles()
 		if err != nil {
 			return err
 		}
@@ -717,8 +753,11 @@ func (r *kctlRun) create(sub string) error {
 			}
 			obj["type"], obj["data"] = firstNonEmpty(r.a.val("type"), "Opaque"), enc
 		case "tls":
-			crt, err1 := os.ReadFile(r.a.val("cert"))
-			key, err2 := os.ReadFile(r.a.val("key"))
+			crt, err1 := readLocalFile(r.a.val("cert"))
+			key, err2 := readLocalFile(r.a.val("key"))
+			if err := errors.Join(err1, err2); isSensitive(err) {
+				return err
+			}
 			if err := errors.Join(err1, err2); err != nil {
 				return kfail("create secret tls needs --cert and --key files: %v", err)
 			}
@@ -862,6 +901,11 @@ func (r *kctlRun) create(sub string) error {
 		if len(r.a.pos) < 2 {
 			return kfail("create token needs a service account NAME")
 		}
+		if g.dryRun {
+			// a TokenRequest is not stored anywhere to dry-run: do not count
+			// on the server to sign nothing, never send one
+			return kfail("create token cannot be dry-run: it would make a real token")
+		}
 		spec := map[string]any{}
 		if d := r.a.val("duration"); d != "" {
 			dd, err := time.ParseDuration(d)
@@ -919,8 +963,14 @@ func (r *kctlRun) fromSources() (map[string]any, map[string]any, error) {
 		if !ok {
 			p, k = f, filepath.Base(f)
 		}
+		if err := localReadOK(expandHome(p)); err != nil {
+			return nil, nil, err
+		}
 		b, err := os.ReadFile(expandHome(p))
 		if err != nil {
+			if isSensitive(err) {
+				return nil, nil, err
+			}
 			return nil, nil, kfail("%v", err)
 		}
 		if isText(b) {
@@ -942,7 +992,7 @@ func isText(b []byte) bool {
 }
 
 func (r *kctlRun) replace() error {
-	docs, err := r.readFiles()
+	docs, err := r.sendFiles()
 	if err != nil {
 		return err
 	}
@@ -987,8 +1037,8 @@ func (r *kctlRun) delete() error {
 		q.Set("gracePeriodSeconds", "0")
 	}
 	type target struct {
-		rt   kube.ResourceType
-		name string
+		rt          kube.ResourceType
+		name, space string // space: "" for cluster-wide kinds
 	}
 	var targets []target
 	if len(r.a.vals["filename"]) > 0 {
@@ -1001,7 +1051,15 @@ func (r *kctlRun) delete() error {
 			if err != nil {
 				return kfail("%v", err)
 			}
-			targets = append(targets, target{rt, d.Name})
+			space := ""
+			if rt.Namespaced {
+				// the object's own namespace, as kubectl (and apply -f) use it
+				if n := r.a.val("namespace"); n != "" && d.Namespace != "" && n != d.Namespace {
+					return kfail("the namespace from the provided object %q does not match the namespace %q. You must pass '--namespace=%s' to perform this operation.", d.Namespace, n, d.Namespace)
+				}
+				space = firstNonEmpty(d.Namespace, r.ns())
+			}
+			targets = append(targets, target{rt, d.Name, space})
 		}
 	} else {
 		refs, err := r.refs(r.a.pos)
@@ -1009,8 +1067,7 @@ func (r *kctlRun) delete() error {
 			return err
 		}
 		for _, kr := range refs {
-			names := kr.names
-			if len(names) == 0 {
+			if len(kr.names) == 0 {
 				if r.a.val("selector") == "" && r.a.val("field-selector") == "" && !r.a.bools["all"] {
 					return kfail("resource(s) were provided, but no name was specified")
 				}
@@ -1019,19 +1076,25 @@ func (r *kctlRun) delete() error {
 					return err
 				}
 				for _, o := range objs {
-					names = append(names, meta(o, "name"))
+					// with -A each object is in its own namespace
+					targets = append(targets, target{kr.r, meta(o, "name"), firstNonEmpty(meta(o, "namespace"), r.space(kr.r))})
 				}
-				if len(names) == 0 {
+				if len(objs) == 0 {
 					r.stderr.WriteString("No resources found\n")
 				}
 			}
-			for _, n := range names {
-				targets = append(targets, target{kr.r, n})
+			for _, n := range kr.names {
+				targets = append(targets, target{kr.r, n, r.space(kr.r)})
 			}
 		}
 	}
 	for _, t := range targets {
-		path := t.rt.ObjectPath(r.space(t.rt), t.name)
+		if t.name == "" { // ObjectPath without a name is the whole collection
+			return kfail("resource name may not be empty")
+		}
+	}
+	for _, t := range targets {
+		path := t.rt.ObjectPath(t.space, t.name)
 		if _, err := r.k.Do(r.ctx, "DELETE", path, q, nil, ""); err != nil {
 			var ae *kube.APIError
 			if errors.As(err, &ae) && ae.Code == 404 && r.a.bools["ignore-not-found"] {
@@ -1039,7 +1102,11 @@ func (r *kctlRun) delete() error {
 			}
 			return notFound(err, t.rt, t.name)
 		}
-		fmt.Fprintf(&r.stdout, "%s %q deleted%s\n", kindQual(t.rt), t.name, r.dryNote())
+		from := ""
+		if t.space != "" {
+			from = " from " + t.space + " namespace" // which copy went, as kubectl says it
+		}
+		fmt.Fprintf(&r.stdout, "%s %q deleted%s%s\n", kindQual(t.rt), t.name, from, r.dryNote())
 		if w, set := r.a.bools["wait"]; (!set || w) && !g.dryRun {
 			// kubectl waits for the object to go; a finalizer can hold it,
 			// so the wait ends after a minute (the delete itself is done)
@@ -1062,6 +1129,9 @@ func (r *kctlRun) one() (kube.ResourceType, string, error) {
 	}
 	if len(refs) != 1 || len(refs[0].names) != 1 {
 		return kube.ResourceType{}, "", kfail("%s needs exactly one TYPE NAME (or TYPE/NAME)", r.a.verb)
+	}
+	if refs[0].names[0] == "" {
+		return kube.ResourceType{}, "", kfail("resource name may not be empty")
 	}
 	return refs[0].r, refs[0].names[0], nil
 }
@@ -1155,11 +1225,13 @@ func (r *kctlRun) scale() error {
 	if err != nil {
 		return err
 	}
-	n := r.a.val("replicas")
-	if _, err := strconv.Atoi(n); err != nil {
+	// the number as read, not the text: -0 or 00 must reach the server as
+	// the 0 that `cluster run` rated (scalesToZero)
+	n, err := strconv.Atoi(r.a.val("replicas"))
+	if err != nil || n < 0 {
 		return kfail("--replicas=COUNT is required, and COUNT must be greater than or equal to 0")
 	}
-	body := []byte(`{"spec":{"replicas":` + n + `}}`)
+	body := []byte(`{"spec":{"replicas":` + strconv.Itoa(n) + `}}`)
 	if _, err := r.k.Do(r.ctx, "PATCH", rt.ObjectPath(r.space(rt), name)+"/scale", r.dryQuery(), body, "application/merge-patch+json"); err != nil {
 		return notFound(err, rt, name)
 	}
@@ -1438,17 +1510,18 @@ func (r *kctlRun) cp() error {
 	if pod, rpath, ok := podOf(src); ok {
 		var tarball bytes.Buffer
 		var errb bytes.Buffer
+		rpath = path.Clean(rpath) // "/data/" is /data, "/x/.." is /
 		dir, base := path.Dir(rpath), path.Base(rpath)
 		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, base}, Stdout: &tarball, Stderr: &errb})
 		if err != nil {
 			return kfail("%s %s", strings.TrimSpace(errb.String()), err)
 		}
-		return untarTo(&tarball, dst, base)
+		return untarTo(tarball.Bytes(), dst, base)
 	}
 	if pod, rpath, ok := podOf(dst); ok {
 		var tarball bytes.Buffer
 		if err := tarFrom(src, path.Base(rpath), &tarball); err != nil {
-			return kfail("%v", err)
+			return kwrap(err)
 		}
 		var errb bytes.Buffer
 		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "xf", "-", "-C", path.Dir(rpath)},
@@ -1461,38 +1534,80 @@ func (r *kctlRun) cp() error {
 	return kfail("one of SRC or DST must be POD:PATH")
 }
 
-// untarTo writes the tar stream under dst; base is the copied name, so a
-// single file can land at dst itself. Paths that leave dst are refused.
-func untarTo(rd io.Reader, dst, base string) error {
-	tr := tar.NewReader(rd)
-	single := true
-	for {
+// untarTo writes the tar stream (made by tar in the container, so the
+// container picks every name in it) under dst; base is the copied name, so
+// a single file can land at dst itself. Every entry must be base or lie
+// under it, and land inside dst: one that does not is refused before
+// anything is written, as is one inside a .git folder. Links and devices
+// are skipped, like kubectl cp; a file gets the tar's mode without setuid,
+// setgid or world-write.
+func untarTo(tarball []byte, dst, base string) error {
+	root, err := filepath.Abs(dst)
+	if err != nil {
+		return kfail("%v", err)
+	}
+	dstIsDir := false
+	if fi, err := os.Stat(root); err == nil && fi.IsDir() {
+		dstIsDir = true
+	}
+	type entry struct {
+		target string
+		dir    bool
+	}
+	var plan []entry
+	tr := tar.NewReader(bytes.NewReader(tarball))
+	for first := true; ; first = false {
 		h, err := tr.Next()
 		if err == io.EOF {
-			return nil
+			break
 		}
 		if err != nil {
 			return kfail("%v", err)
 		}
-		rel := strings.TrimPrefix(path.Clean(h.Name), base)
-		target := filepath.Join(dst, filepath.FromSlash(rel))
-		if h.Typeflag == tar.TypeReg && single && rel == "" {
-			target = dst
-			if fi, err := os.Stat(dst); err == nil && fi.IsDir() {
-				target = filepath.Join(dst, base)
-			}
+		if h.Typeflag != tar.TypeDir && h.Typeflag != tar.TypeReg {
+			plan = append(plan, entry{}) // skipped, but keeps the count for pass two
+			continue
 		}
-		single = false
-		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(dst)) {
+		rel, ok := tarRel(h.Name, base)
+		target := filepath.Join(root, filepath.FromSlash(rel))
+		if ok && rel == "" && h.Typeflag == tar.TypeReg && first && dstIsDir {
+			target = filepath.Join(root, base) // one file into a folder: keep its name
+		}
+		r, err := filepath.Rel(root, target)
+		if !ok || err != nil || r != "." && !filepath.IsLocal(r) {
 			return kfail("refusing %q: it would land outside %s", h.Name, dst)
 		}
-		switch h.Typeflag {
-		case tar.TypeDir:
-			os.MkdirAll(target, 0o755)
-		case tar.TypeReg:
-			os.MkdirAll(filepath.Dir(target), 0o755)
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(h.Mode)&0o755|0o600)
+		if gitPath(r) { // git refuses to check out .git too: its config and hooks run commands
+			return kfail("refusing %q: komando does not write into a .git folder", h.Name)
+		}
+		if link := symlinkOn(root, r); link != "" { // a link already there could lead out
+			return kfail("refusing %q: %s is a symbolic link", h.Name, link)
+		}
+		plan = append(plan, entry{target: target, dir: h.Typeflag == tar.TypeDir})
+	}
+	tr = tar.NewReader(bytes.NewReader(tarball))
+	for _, e := range plan {
+		h, err := tr.Next()
+		if err != nil {
+			return kfail("%v", err)
+		}
+		switch {
+		case e.target == "":
+		case e.dir:
+			if err := os.MkdirAll(e.target, 0o755); err != nil {
+				return kfail("%v", err)
+			}
+		default:
+			if err := os.MkdirAll(filepath.Dir(e.target), 0o755); err != nil {
+				return kfail("%v", err)
+			}
+			mode := os.FileMode(h.Mode)&0o755 | 0o600 // as kubectl cp: never setuid, setgid or world-writable
+			f, err := os.OpenFile(e.target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 			if err != nil {
+				return kfail("%v", err)
+			}
+			if err := f.Chmod(mode); err != nil { // a file already there keeps no mode of its own
+				f.Close()
 				return kfail("%v", err)
 			}
 			_, err = io.Copy(f, tr)
@@ -1500,10 +1615,76 @@ func untarTo(rd io.Reader, dst, base string) error {
 			if err != nil {
 				return kfail("%v", err)
 			}
-		default:
-			// links and devices are skipped, like kubectl cp
 		}
 	}
+	return nil
+}
+
+// gitPath: rel has a .git part (any case: macOS and Windows ignore it).
+func gitPath(rel string) bool {
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		if strings.EqualFold(part, ".git") {
+			return true
+		}
+	}
+	return false
+}
+
+// localReadOK stops kctl from reading, for an AI agent, a file of this
+// computer that it would send to the cluster (-f, --from-file, cp to a
+// pod), where `get` would hand it back in full. It is guardLocalRead
+// (komando's own folder always; a secret file unless the person allows
+// --reveal) with kctl's error shape.
+func localReadOK(p string) error {
+	var stop *out.Error
+	if err := guardLocalRead(p); errors.As(err, &stop) {
+		return kstop(stop)
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
+// symlinkOn is the first symbolic link on the way from root down to rel
+// (root itself is the user's choice), or "".
+func symlinkOn(root, rel string) string {
+	if rel == "." {
+		return ""
+	}
+	p := root
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		p = filepath.Join(p, part)
+		fi, err := os.Lstat(p)
+		if err != nil {
+			return "" // not there yet: nothing below it is either
+		}
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return p
+		}
+	}
+	return ""
+}
+
+// tarRel is where a tar entry goes, relative to the destination: "" for
+// base itself, the rest of the name for what lies under base. ok is false
+// for a name outside base or one that climbs out (.., an absolute path).
+func tarRel(name, base string) (string, bool) {
+	clean := path.Clean(name)
+	var rel string
+	switch {
+	case base == "." || base == "/": // the whole folder was copied
+		rel = strings.TrimPrefix(clean, "/")
+		if rel == "." {
+			rel = ""
+		}
+	case clean == base:
+		rel = ""
+	case strings.HasPrefix(clean, base+"/"):
+		rel = clean[len(base)+1:]
+	default:
+		return "", false
+	}
+	return rel, rel == "" || filepath.IsLocal(filepath.FromSlash(rel))
 }
 
 func tarFrom(src, name string, w io.Writer) error {
@@ -1526,6 +1707,9 @@ func tarFrom(src, name string, w io.Writer) error {
 			return err
 		}
 		if fi.Mode().IsRegular() {
+			if err := localReadOK(p); err != nil {
+				return err
+			}
 			f, err := os.Open(p)
 			if err != nil {
 				return err
@@ -1614,6 +1798,9 @@ func readManifest(p string, recursive bool) ([]byte, error) {
 		return nil, err
 	}
 	if !fi.IsDir() {
+		if err := localReadOK(p); err != nil {
+			return nil, err
+		}
 		return os.ReadFile(p)
 	}
 	var all bytes.Buffer
@@ -1628,6 +1815,9 @@ func readManifest(p string, recursive bool) ([]byte, error) {
 			return nil
 		}
 		if ext := strings.ToLower(filepath.Ext(f)); ext == ".yaml" || ext == ".yml" || ext == ".json" {
+			if err := localReadOK(f); err != nil {
+				return err
+			}
 			b, err := os.ReadFile(f)
 			if err != nil {
 				return err
