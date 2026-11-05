@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 
 	"github.com/sgnd/komando/internal/kube"
+	"github.com/sgnd/komando/internal/out"
 )
 
 // kctl is komando's own implementation of the kubectl commands behind
@@ -31,6 +33,9 @@ type kctlRun struct {
 	stdout, stderr bytes.Buffer
 	a              kargs
 	ctx            context.Context
+	// live, when set, gets the lines of a followed log (logs -f) as they
+	// come, so they are printed at once instead of held until the end
+	live func(pod, prefix, line string)
 }
 
 type kargs struct {
@@ -149,8 +154,13 @@ func (r *kctlRun) ns() string {
 	return firstNonEmpty(r.a.val("namespace"), r.k.Namespace)
 }
 
-// kctlError ends a command with kubectl's exit code 1.
-type kctlError struct{ msg string }
+// kctlError ends a command with kubectl's exit code 1. stop, when set, is
+// komando's own safety stop (with its code and hint), which `cluster run`
+// returns as it is.
+type kctlError struct {
+	msg  string
+	stop *out.Error
+}
 
 func (e *kctlError) Error() string { return e.msg }
 
@@ -158,10 +168,31 @@ func kfail(format string, a ...any) error {
 	return &kctlError{msg: "error: " + fmt.Sprintf(format, a...)}
 }
 
+// kstop is a kctl error that is one of komando's safety stops.
+func kstop(e *out.Error) error { return &kctlError{msg: "error: " + e.Message, stop: e} }
+
+// kwrap keeps a kctlError (a safety stop) as it is, and words any other
+// error as kubectl does.
+func kwrap(err error) error {
+	var ke *kctlError
+	if errors.As(err, &ke) {
+		return ke
+	}
+	return kfail("%v", err)
+}
+
 // runKctl runs one kubectl-style command and returns its exit code with
 // what kubectl would have printed.
 func runKctl(ctx context.Context, k *kube.Client, conn string, args []string) (code int, stdout, stderr string) {
-	r := &kctlRun{k: k, conn: conn, ctx: ctx}
+	code, stdout, stderr, _ = runKctlLive(ctx, k, conn, args, nil)
+	return code, stdout, stderr
+}
+
+// runKctlLive is runKctl that hands a followed log's lines to live as they
+// come (nil: they go to stdout, up to maxFollowBytes). stop is the safety
+// stop that ended the command before it sent anything, if one did.
+func runKctlLive(ctx context.Context, k *kube.Client, conn string, args []string, live func(pod, prefix, line string)) (code int, stdout, stderr string, stop *out.Error) {
+	r := &kctlRun{k: k, conn: conn, ctx: ctx, live: live}
 	a, err := parseKargs(args)
 	if err == nil {
 		r.a = a
@@ -173,6 +204,7 @@ func runKctl(ctx context.Context, k *kube.Client, conn string, args []string) (c
 		switch {
 		case errors.As(err, &ke):
 			r.stderr.WriteString(ke.msg + "\n")
+			stop = ke.stop
 		case errors.As(err, &ae):
 			r.stderr.WriteString(fmt.Sprintf("Error from server (%s): %s\n", strings.ReplaceAll(ae.Reason, " ", ""), ae.Message))
 		case errors.Is(err, context.DeadlineExceeded):
@@ -180,9 +212,9 @@ func runKctl(ctx context.Context, k *kube.Client, conn string, args []string) (c
 		default:
 			r.stderr.WriteString("error: " + err.Error() + "\n")
 		}
-		return 1, r.stdout.String(), r.stderr.String()
+		return 1, r.stdout.String(), r.stderr.String(), stop
 	}
-	return 0, r.stdout.String(), r.stderr.String()
+	return 0, r.stdout.String(), r.stderr.String(), nil
 }
 
 func (r *kctlRun) dispatch() error {
@@ -296,6 +328,9 @@ func (r *kctlRun) refs(pos []string) ([]kref, error) {
 			if !ok {
 				return nil, kfail("there is no need to specify a resource type as a separate argument when passing arguments in resource/name form")
 			}
+			if n == "" {
+				return nil, kfail("resource name may not be empty") // the API would read it as every object (deletecollection)
+			}
 			rts, err := resolve(t)
 			if err != nil {
 				return nil, err
@@ -303,6 +338,9 @@ func (r *kctlRun) refs(pos []string) ([]kref, error) {
 			out = append(out, kref{r: rts[0], names: []string{n}})
 		}
 		return out, nil
+	}
+	if slices.Contains(pos[1:], "") {
+		return nil, kfail("resource name may not be empty")
 	}
 	for _, t := range strings.Split(pos[0], ",") {
 		rts, err := resolve(t)
@@ -420,6 +458,9 @@ func (r *kctlRun) get() error {
 		}
 		for _, o := range objs {
 			o["apiVersion"], o["kind"] = kr.r.APIVersion(), kr.r.Kind
+			// an agent sees no Secret value or secret env value, even though
+			// the whole object leaves here as one string of text
+			maskObject(o)
 			all = append(all, o)
 		}
 	}
@@ -721,13 +762,27 @@ func (r *kctlRun) readFiles() ([]kubeDoc, error) {
 	for _, f := range files {
 		b, err := readManifest(f, r.a.bools["recursive"])
 		if err != nil {
-			return nil, kfail("%v", err)
+			return nil, kwrap(err)
 		}
 		d, err := splitYAML(b)
 		if err != nil {
 			return nil, kfail("%v", err)
 		}
 		docs = append(docs, d...)
+	}
+	return docs, nil
+}
+
+// sendFiles reads -f FILE for a command that sends the objects as they are
+// (apply, create, replace): one that holds a value komando hid from an
+// agent is refused before anything is sent (refuseHidden).
+func (r *kctlRun) sendFiles() ([]kubeDoc, error) {
+	docs, err := r.readFiles()
+	if err != nil {
+		return nil, err
+	}
+	if err := refuseHidden(docs); err != nil {
+		return nil, kstop(toErr(err))
 	}
 	return docs, nil
 }

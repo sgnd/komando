@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 )
 
 // FuzzGuard: the agent guard never panics on any tool call, and always
@@ -16,9 +17,9 @@ func FuzzGuard(f *testing.F) {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, s string) {
-		_ = checkTool("Bash", map[string]any{"command": s}, "/home/u")
-		_ = checkTool("Read", map[string]any{"file_path": s}, "/home/u")
-		if !checkTool("Bash", map[string]any{"command": s + "; cat ~/.komando/vault.key"}, "/home/u").Deny {
+		_ = checkTool("Bash", map[string]any{"command": s}, "/home/u", "")
+		_ = checkTool("Read", map[string]any{"file_path": s}, "/home/u", "")
+		if !checkTool("Bash", map[string]any{"command": s + "; cat ~/.komando/vault.key"}, "/home/u", "").Deny {
 			t.Fatalf("vault read after %q not stopped", s)
 		}
 	})
@@ -38,6 +39,21 @@ func FuzzHiddenPattern(f *testing.F) {
 		}
 		if filled := strings.ReplaceAll(s, out.Hidden, "v4lue"); !re.MatchString(filled) {
 			t.Fatalf("%q does not match %q", re, filled)
+		}
+	})
+}
+
+// FuzzReadOnly: the read-only check never panics, and a write after any
+// text that is itself readable is still seen.
+func FuzzReadOnly(f *testing.F) {
+	for _, s := range []string{"ls", "sed 's/a/b/w x' f", "sed y/ab", "sed s", "tar xzf a", "curl -sSLo", "awk '/a|b/'",
+		"cat <<EOF\nx\nEOF", "bash -c -- 'x' a", "echo $(case a in a) b;; esac)", "git -C", "psql -c", "{a,b}"} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		_ = readOnlyViolation(s)
+		if _, bad := policy.Lex(s); bad == "" && !strings.ContainsAny(s, "\\#<") && readOnlyViolation(s+"\nrm x") == "" {
+			t.Fatalf("rm after %q not seen", s)
 		}
 	})
 }

@@ -67,7 +67,7 @@ refresh materialized view dumpt.order_count;`,
 	if err := Dump(ctx, src.DB, "postgres", DumpOptions{}, &buf); err != nil {
 		t.Fatalf("dump: %v", err)
 	}
-	if err := driver.CheckRestore("postgres", bytes.NewReader(buf.Bytes())); err != nil {
+	if _, err := driver.CheckRestore("postgres", bytes.NewReader(buf.Bytes())); err != nil {
 		t.Fatalf("check: %v", err)
 	}
 	dst, err := open(strings.Replace(base, "/app?", "/app_copy?", 1))

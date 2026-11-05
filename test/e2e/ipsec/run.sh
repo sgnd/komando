@@ -66,7 +66,7 @@ done
 
 [ "$(in_client komando status | python3 -c 'import json,sys; print(sorted(v["name"] for v in json.load(sys.stdin)["data"]["vpns"]))')" = "['cisco', 'l2tp', 'v2eap', 'v2psk']" ] || fail "status lists the sessions"
 echo "ok   komando status lists the four sessions"
-[ "$(in_client komando vpn up l2tp | jget 'd["data"]["session"]["socks_pass"]')" = "[hidden]" ] || fail "vpn up shows the session's SOCKS password"
+[ "$(in_client komando vpn up l2tp | jget 'd["data"]["session"].get("socks_pass", "") + d["data"]["session"].get("socks_user", "")')" = "" ] || fail "vpn up shows the session's SOCKS login"
 echo "ok   vpn up hides the session's SOCKS password"
 
 # 200 seconds of use (longer than five missed dead peer checks): komando rekeys cisco's ESP every ~32s and its IKE SA

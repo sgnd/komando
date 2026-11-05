@@ -553,6 +553,7 @@ func tunnelServeCmd() *cobra.Command {
 						return fail(fmt.Errorf("remote listener closed: %v", err))
 					}
 					logger.Printf("accept: %v", err)
+					time.Sleep(50 * time.Millisecond) // out of file descriptors: do not spin
 					continue
 				}
 				go func(conn net.Conn) {
@@ -654,12 +655,18 @@ func pipe(a, b net.Conn) {
 
 // socks5 implements the no-auth CONNECT subset of RFC 1928.
 func socks5(conn net.Conn, cm *connMgr, logger *log.Logger) {
-	socks5Auth(conn, cm, logger, "", "")
+	socks5Auth(conn, cm, logger, "", "", nil)
 }
+
+// socksHandshake is how long a SOCKS5 client has to log in and say where
+// it goes; one that stays silent must not hold a goroutine forever.
+var socksHandshake = 30 * time.Second
 
 // socks5Auth serves one SOCKS5 client; with user set it must log in
 // (RFC 1929), so other users of this computer cannot use the port.
-func socks5Auth(conn net.Conn, cm *connMgr, logger *log.Logger, user, pass string) {
+// loggedIn, if set, runs once the client has logged in, never before.
+func socks5Auth(conn net.Conn, cm *connMgr, logger *log.Logger, user, pass string, loggedIn func()) {
+	_ = conn.SetDeadline(time.Now().Add(socksHandshake))
 	r := bufio.NewReader(conn)
 	hdr := make([]byte, 2)
 	if _, err := io.ReadFull(r, hdr); err != nil || hdr[0] != 5 {
@@ -682,15 +689,25 @@ func socks5Auth(conn net.Conn, cm *connMgr, logger *log.Logger, user, pass strin
 			return
 		}
 		u := make([]byte, v[1])
-		io.ReadFull(r, u)
-		pl, _ := r.ReadByte()
+		if _, err := io.ReadFull(r, u); err != nil {
+			return
+		}
+		pl, err := r.ReadByte()
+		if err != nil {
+			return
+		}
 		p := make([]byte, pl)
-		io.ReadFull(r, p)
+		if _, err := io.ReadFull(r, p); err != nil {
+			return
+		}
 		if subtle.ConstantTimeCompare(u, []byte(user)) != 1 || subtle.ConstantTimeCompare(p, []byte(pass)) != 1 {
 			conn.Write([]byte{1, 1})
 			return
 		}
 		conn.Write([]byte{1, 0})
+	}
+	if loggedIn != nil {
+		loggedIn()
 	}
 	req := make([]byte, 4)
 	if _, err := io.ReadFull(r, req); err != nil || req[1] != 1 {
@@ -701,16 +718,25 @@ func socks5Auth(conn net.Conn, cm *connMgr, logger *log.Logger, user, pass strin
 	switch req[3] {
 	case 1:
 		b := make([]byte, 4)
-		io.ReadFull(r, b)
+		if _, err := io.ReadFull(r, b); err != nil {
+			return
+		}
 		host = net.IP(b).String()
 	case 3:
-		l, _ := r.ReadByte()
+		l, err := r.ReadByte()
+		if err != nil {
+			return
+		}
 		b := make([]byte, l)
-		io.ReadFull(r, b)
+		if _, err := io.ReadFull(r, b); err != nil {
+			return
+		}
 		host = string(b)
 	case 4:
 		b := make([]byte, 16)
-		io.ReadFull(r, b)
+		if _, err := io.ReadFull(r, b); err != nil {
+			return
+		}
 		host = net.IP(b).String()
 	default:
 		conn.Write([]byte{5, 8, 0, 1, 0, 0, 0, 0, 0, 0})
@@ -727,6 +753,7 @@ func socks5Auth(conn net.Conn, cm *connMgr, logger *log.Logger, user, pass strin
 		conn.Write([]byte{5, 5, 0, 1, 0, 0, 0, 0, 0, 0})
 		return
 	}
+	_ = conn.SetDeadline(time.Time{}) // the stream itself may stay idle
 	conn.Write([]byte{5, 0, 0, 1, 0, 0, 0, 0, 0, 0})
 	if n := r.Buffered(); n > 0 {
 		b, _ := r.Peek(n)

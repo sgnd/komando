@@ -30,7 +30,15 @@ komando conn edit prod --via bastion       # API server on a private network? re
 The kubeconfig of each context is stored in the vault. komando makes the
 EKS and GKE logins itself (`aws eks get-token`, `aws-iam-authenticator`,
 `gke-gcloud-auth-plugin`), so you do not need those programs. Other
-credential plugins run as the kubeconfig says.
+credential plugins run as the kubeconfig says: they are programs on this
+computer, so an AI agent needs a person's yes (`--yes`) to import such a
+kubeconfig, as with a host's `--proxy-command`. A kubeconfig a person
+imported (or allowed) is trusted for that program and server: agents then
+use the conn without asking. If the kubeconfig in the vault changes to
+another program or server (for example with `secret set`), every agent
+command asks again, reads included, until a person imports it again. The
+same goes for a kubeconfig that reads its token from a local file
+(`tokenFile`).
 
 **Docker Swarm.** Nothing to add: use a manager server as the target.
 
@@ -167,7 +175,9 @@ komando cluster shell prod deploy/api --namespace shop          # interactive, f
   `--yes`.
 - **`cluster forward`** makes a pod or service port reachable on this
   computer only (127.0.0.1). For a service, the service port is forwarded to
-  the pod port behind it. Ctrl-C or `--timeout` ends it normally.
+  the pod port behind it. Ctrl-C or `--timeout` ends it normally. What goes
+  through it skips komando's checks, so a protected cluster asks first
+  (`--yes`), and the audit log records the forward.
 - **`cluster shell`** opens a terminal in the pod (bash, else sh) for a
   person, and asks first on a protected cluster. Agents get
   `NEEDS_TERMINAL` and use `cluster exec` instead.
@@ -188,10 +198,37 @@ commands and prints what kubectl prints, through the conn's `--via` path,
 with no kubectl installed. On Swarm the command goes to docker on the
 manager.
 
-- It only reads unless you add `--write`. Delete, drain and similar also
-  need `--allow-dangerous`.
+- It only reads unless you add `--write`. Delete, drain, scaling to 0 and
+  similar also need `--allow-dangerous`.
+- `--dry-run` sends a change to the server as a server-side dry run
+  (`apply`, `create`, `delete`, `scale`, `patch`, ...). A command the server
+  cannot dry-run (`exec`, `cp`, `create token`, `config view`, `get` of
+  Secret values for a person) is only shown, not run.
+- For AI agents, Secret values and env values named like secrets
+  (`DB_PASSWORD`) show as hidden in `get` output, as in `cluster get`, so
+  `get secret -o yaml` is a read for them. `apply`, `create` and `replace`
+  refuse a file that still holds a hidden value (`HIDDEN_VALUE`): change
+  one field with `set image` or `patch` instead.
+- For AI agents, files of this computer that would go to the cluster
+  (`-f`, `--from-file`, `cp` to a pod) may not be secrets by their name
+  (`.env`, keys) unless the person allows `--reveal`, and never komando's
+  own folder (`SENSITIVE_FILE`).
+- `delete -f FILE` deletes each object in the namespace its file names,
+  and refuses a `-n` that says otherwise. An empty name is refused.
+- `cp POD:SRC DST` writes only inside DST, never into a `.git` folder, and
+  skips links and devices, like kubectl cp.
+- On Swarm, `docker run`, `create` and `service create|update` that give a
+  container the server (`--privileged`, `--cap-add`, devices, the host's
+  network or processes, `--volumes-from`, a bind of `/`, the docker socket,
+  system or credential folders) also need `--allow-dangerous`, as do
+  `plugin install|create|enable|set` and a `volume create` that is a host
+  folder. Known gap: komando cannot see inside a compose or stack file on
+  the server, so `stack deploy -c FILE` and `compose up` are rated by
+  their flags only.
 - It stops at `--timeout` (default 5 minutes). A watch (`get -w`) or follow
-  (`logs -f`) that ends there ends normally.
+  (`logs -f`) that ends there ends normally. `logs -f` prints lines as they
+  come and follows all selected pods at once (`--max-log-requests`, 5 by
+  default).
 - Sessions have their own commands: `cluster forward` (port-forward) and
   `cluster shell` (`exec -it`).
 

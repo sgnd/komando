@@ -6,11 +6,13 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -395,4 +397,103 @@ func TestF5(t *testing.T) {
 		t.Logf("address %v", tun.Addresses())
 	}
 	echoIP(t, tun)
+}
+
+// the login form's action may only point back at the portal over https:
+// anything else would send the stored password elsewhere
+func TestAnyConnectFormActionStaysOnPortal(t *testing.T) {
+	for _, action := range []string{
+		"http://127.0.0.1/auth",
+		"https://evil.example/auth",
+		"https://127.0.0.1:8443/auth",
+		"//evil.example/auth",
+	} {
+		t.Run(action, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				b, _ := io.ReadAll(r.Body)
+				if strings.Contains(string(b), "VaultSecret") {
+					t.Errorf("the password reached %s", r.URL)
+				}
+				io.WriteString(w, `<config-auth type="auth-request"><auth><form action="`+action+`"><input type="text" name="username"/><input type="password" name="password"/></form></auth></config-auth>`)
+			})
+			o, _ := fakeGateway(t, mux, func(c net.Conn, _ *bufio.Reader, _ string) { c.Close() })
+			o.User, o.Password = "e2e", "VaultSecret"
+			if _, err := AnyConnectLogin(context.Background(), o); err == nil || !strings.Contains(err.Error(), "only sends it to https://127.0.0.1") {
+				t.Errorf("action %s: %v", action, err)
+			}
+		})
+	}
+}
+
+func TestSamePortal(t *testing.T) {
+	p, _ := portalURL("vpn.example.com")
+	for _, c := range []struct {
+		action string
+		ok     bool
+	}{
+		{"/auth", true},
+		{"https://VPN.example.com/auth", true},
+		{"https://vpn.example.com:443/auth", true},
+		{"http://vpn.example.com/auth", false},
+		{"https://vpn.example.com:8443/auth", false},
+		{"https://other.example.com/auth", false},
+	} {
+		a, err := p.Parse(c.action)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := samePortal(*p, a); got != c.ok {
+			t.Errorf("%s: %v, want %v", c.action, got, c.ok)
+		}
+	}
+}
+
+// the server ending the tunnel while the client closes it must not close
+// done twice (run with -race)
+func TestTunnelEndRace(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		b := newBase()
+		ends := 0
+		b.closeFn = func() { ends++ }
+		var wg sync.WaitGroup
+		for j := 0; j < 3; j++ {
+			wg.Add(1)
+			go func(j int) {
+				defer wg.Done()
+				b.end(fmt.Errorf("end %d", j))
+				_ = b.Err()
+			}(j)
+		}
+		wg.Wait()
+		<-b.Done()
+		if ends != 1 || b.Err() == nil {
+			t.Fatalf("closeFn ran %d times, err %v", ends, b.Err())
+		}
+	}
+}
+
+func TestAnyConnectTerminateWhileClosing(t *testing.T) {
+	start := make(chan chan struct{}, 1)
+	o, _ := fakeGateway(t, http.NewServeMux(), func(c net.Conn, _ *bufio.Reader, _ string) {
+		defer c.Close()
+		c.Write([]byte("HTTP/1.1 200 CONNECTED\r\nX-CSTP-Address: 192.168.99.5\r\n\r\n"))
+		<-<-start
+		c.Write([]byte("STF\x01\x00\x00\x09\x00")) // terminate
+		time.Sleep(20 * time.Millisecond)
+	})
+	for i := 0; i < 50; i++ {
+		g := make(chan struct{})
+		start <- g
+		tun, err := AnyConnectTunnel(context.Background(), o, "C")
+		if err != nil {
+			t.Fatal(err)
+		}
+		close(g)
+		tun.Close()
+		<-tun.Done()
+		if tun.Err() == nil {
+			t.Fatal("no reason after the end")
+		}
+	}
 }

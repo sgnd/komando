@@ -35,6 +35,9 @@ type Config struct {
 	Auth           string // digest for tls-auth and CBC: SHA1, SHA256, SHA512
 	AuthUserPass   bool
 	RemoteCertTLS  bool // the server's certificate must be for a TLS server
+	NSCertServer   bool // ns-cert-type server: the Netscape cert type must say SSL server
+	RemoteCertEKU  string
+	RemoteCertKU   []uint16 // OpenSSL bit order; not nil: the key usage must hold all bits of one (none listed: any)
 	VerifyName     string
 	VerifyNameType string // subject (full DN), name (CN), name-prefix
 	TLSMin         string
@@ -53,11 +56,11 @@ var ignored = map[string]bool{
 	"mute-replay-warnings": true, "route-delay": true, "route-method": true, "block-outside-dns": true, "user": true,
 	"group": true, "chroot": true, "daemon": true, "log": true, "log-append": true, "status": true, "connect-retry": true,
 	"connect-retry-max": true, "server-poll-timeout": true, "hand-window": true, "tran-window": true, "push-peer-info": true,
-	"ns-cert-type": true, "tls-client": true, "auth-retry": true, "pull-filter": true, "ignore-unknown-option": true,
+	"tls-client": true, "auth-retry": true, "pull-filter": true, "ignore-unknown-option": true,
 	"key-method": true, "sndbuf": true, "rcvbuf": true, "fast-io": true, "txqueuelen": true, "tun-mtu-extra": true,
 	"allow-compression": true, "tls-cipher": true, "tls-ciphersuites": true, "tls-groups": true, "reneg-sec": true,
-	"ping": true, "ping-restart": true, "ping-exit": true, "keepalive": true, "inactive": true, "remote-cert-ku": true,
-	"remote-cert-eku": true, "tls-timeout": true, "dev-type": true, "topology": true, "route-nopull": true,
+	"ping": true, "ping-restart": true, "ping-exit": true, "keepalive": true, "inactive": true,
+	"tls-timeout": true, "dev-type": true, "topology": true, "route-nopull": true,
 	"setenv-safe": true, "static-challenge": true, "data-ciphers-fallback": true, "ncp-disable": true, "ncp-ciphers": true,
 	"tls-version-max": true, "auth-token-user": true, "machine-readable-output": true, "windows-driver": true,
 	"disable-dco": true, "lport": true, "rport": true, "bind": true, "management": true, "management-query-passwords": true,
@@ -149,6 +152,27 @@ func Parse(text string) (*Config, error) {
 				return nil, fmt.Errorf("line %d: remote-cert-tls %s: only server makes sense for a client", line, arg(0))
 			}
 			c.RemoteCertTLS = true
+		case "ns-cert-type":
+			if !strings.EqualFold(arg(0), "server") {
+				return nil, fmt.Errorf("line %d: ns-cert-type %s: only server makes sense for a client", line, arg(0))
+			}
+			c.NSCertServer = true
+		case "remote-cert-eku":
+			if ekuOID(arg(0)) == "" {
+				return nil, fmt.Errorf("line %d: remote-cert-eku %q: give an OID (1.3.6.1.5.5.7.3.1) or a name such as \"TLS Web Server Authentication\"", line, arg(0))
+			}
+			c.RemoteCertEKU = arg(0)
+		case "remote-cert-ku":
+			c.RemoteCertKU = []uint16{}
+			for _, a := range args {
+				// OpenVPN reads these with %x, which takes a 0x prefix too
+				h := strings.TrimPrefix(strings.ToLower(a), "0x")
+				n, err := strconv.ParseUint(h, 16, 16)
+				if err != nil || n == 0 {
+					return nil, fmt.Errorf("line %d: remote-cert-ku %s: key usages are hex, such as a0", line, a)
+				}
+				c.RemoteCertKU = append(c.RemoteCertKU, uint16(n))
+			}
 		case "verify-x509-name":
 			c.VerifyName, c.VerifyNameType = arg(0), strings.ToLower(arg(1))
 			if c.VerifyNameType == "" {

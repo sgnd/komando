@@ -325,6 +325,7 @@ echo "# package-manager: $PM" >&2
 case "$PM:$ACTION" in
 apt:install) apt-get install -y -q $PKGS || { echo "# retrying after apt-get update" >&2; apt-get update -q >&2 && apt-get install -y -q $PKGS; } ;;
 apt:remove) apt-get remove -y -q $PKGS ;;
+apt:simulate-remove) apt-get -s remove $PKGS | awk '$1 == "Remv" {sub(/:.*/, "", $2); print $2}' ;;
 apt:update) apt-get update -q ;;
 apt:upgrade) if [ -n "$PKGS" ]; then apt-get install -y -q --only-upgrade $PKGS; else apt-get upgrade -y -q; fi ;;
 apt:upgradable) t=$(stat -c %Y /var/lib/apt/lists/*Release 2>/dev/null | sort -n | tail -n 1); echo "# index-age: $([ -n "$t" ] && echo $(( $(date +%s) - t )) || echo never)" >&2
@@ -369,6 +370,59 @@ esac`
 // essentialPkgs are packages whose removal can lock you out of a server or
 // break it; removing them needs --allow-dangerous.
 var essentialPkgs = regexp.MustCompile(`^(openssh-server|openssh|ssh|sudo|systemd|systemd-sysv|init|libc6|glibc|libc|musl|bash|coreutils|util-linux|apt|dpkg|rpm|dnf|yum|apk-tools|busybox|base-files|login|passwd|linux-image.*|kernel.*|linux)$`)
+
+// essentialSamples are names essentialPkgs matches, one per entry, for
+// testing a name that apt would read as a pattern.
+var essentialSamples = strings.Fields(`openssh-server openssh ssh sudo systemd systemd-sysv init libc6 glibc libc musl bash
+coreutils util-linux apt dpkg rpm dnf yum apk-tools busybox base-files login passwd linux-image-generic kernel-core linux`)
+
+// pkgNameRe is what a package name may look like: letters and digits, and
+// . _ + - with :arch, =version, /release or @repo. Nothing else gets to the
+// server's shell, which splits the list on any space, tab or newline. The
+// last character is a letter, a digit or + (libstdc++): apt reads a name
+// ending in - as "remove this package", even for install.
+var pkgNameRe = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9._+:~@/=-]{0,198}[A-Za-z0-9+])?$`)
+
+// pkgVersionRe is the -1.2.3 that dnf and yum allow after a name.
+var pkgVersionRe = regexp.MustCompile(`-[0-9].*$`)
+
+// pkgArchRe is the .x86_64 that dnf, yum and zypper allow after a name.
+var pkgArchRe = regexp.MustCompile(`\.(x86_64|i386|i586|i686|aarch64|armv7hl|armhfp|ppc64le|ppc64|s390x|noarch|src|amd64|arm64)$`)
+
+// essentialPkg reports whether name, written any way a package manager
+// takes it (OpenSSH-Server, openssh-server:amd64, sudo=1.9.15,
+// systemd/bookworm, openssh-server-8.0p1, sudo.x86_64), is one of
+// essentialPkgs. A name with a dot that is no package of its own is a
+// regular expression to apt ("openssh.server", "sud."): it counts as
+// essential when it would pick an essential package.
+func essentialPkg(name string) bool {
+	n := strings.ToLower(name)
+	if i := strings.IndexAny(n, ":=/@"); i >= 0 {
+		n = n[:i]
+	}
+	noArch := pkgArchRe.ReplaceAllString(n, "")
+	for _, c := range []string{n, noArch, pkgVersionRe.ReplaceAllString(n, ""), pkgVersionRe.ReplaceAllString(noArch, ""),
+		pkgArchRe.ReplaceAllString(pkgVersionRe.ReplaceAllString(n, ""), "")} {
+		if essentialPkgs.MatchString(c) {
+			return true
+		}
+	}
+	if strings.Contains(n, ".") {
+		re, err := regexp.Compile(strings.ReplaceAll(regexp.QuoteMeta(n), `\.`, "."))
+		if err != nil {
+			return true
+		}
+		for _, e := range essentialSamples {
+			if re.MatchString(e) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// pkgFileRe is a local package file, which `pkg` does not install.
+var pkgFileRe = regexp.MustCompile(`(^\.{0,2}/)|\.(deb|rpm|apk)$|\.pkg\.tar\.`)
 
 // parseInstalled reads "name<TAB>version" lines ("-" when not installed).
 func parseInstalled(_ *store.Host, s string) (any, error) {
@@ -416,18 +470,25 @@ func pkgCmd() *cobra.Command {
 			},
 			RunE: func(cmd *cobra.Command, args []string) error {
 				for _, p := range args[1:] {
-					// a name starting with - would be read as an option, and a
-					// glob can pick hundreds of packages
-					if p == "" || strings.HasPrefix(p, "-") || strings.ContainsAny(p, " ;&|$`'\"\\*?[]{}()<>") {
+					// an allowlist: a name starting with - would be read as an
+					// option, a glob can pick hundreds of packages, and a tab or
+					// newline would split one name into two on the server
+					if !pkgNameRe.MatchString(p) || pkgFileRe.MatchString(p) {
+						if pkgFileRe.MatchString(p) {
+							return out.Usage("%q looks like a package file: pkg installs packages by name from the server's repositories; for a local file, copy it with `komando upload` and install it with `komando exec`", p)
+						}
 						return out.Usage("invalid package name %q (give exact names, no options or patterns)", p)
 					}
 				}
 				pkgs := strings.Join(args[1:], " ")
 				if action == "remove" {
 					for _, p := range args[1:] {
-						if essentialPkgs.MatchString(p) && !dangerOK() {
-							return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "if this is truly intended, confirm with the user and re-run with --allow-dangerous",
-								"removing %s can lock you out of the server or break it", p))
+						if essentialPkg(p) && !dangerOK() {
+							if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "if this is truly intended, confirm with the user and re-run with --allow-dangerous",
+								"removing %s can lock you out of the server or break it", p)); err != nil {
+								return err
+							}
+							break // --dry-run: show the plan, marked would_be_blocked
 						}
 					}
 				}

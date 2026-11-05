@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/sgnd/komando/internal/driver"
 )
 
 // Restore runs a plain SQL backup (komando's own, pg_dump's or
@@ -43,7 +45,7 @@ func Restore(ctx context.Context, db *sql.DB, kind string, r io.Reader) error {
 			if err != nil {
 				return err
 			}
-			if pgCopyFrom.MatchString(st.text) {
+			if st.copy {
 				if err := copyFrom(ctx, conn, st.text, sc); err != nil {
 					return fmt.Errorf("line %d: %w", st.line, err)
 				}
@@ -72,8 +74,6 @@ func Restore(ctx context.Context, db *sql.DB, kind string, r io.Reader) error {
 		}
 	}
 }
-
-var pgCopyFrom = regexp.MustCompile(`(?is)^COPY\s+.+\s+FROM\s+stdin`)
 
 // copyFrom streams the data lines after a COPY statement up to "\.".
 func copyFrom(ctx context.Context, conn *sql.Conn, stmt string, sc *sqlScanner) error {
@@ -111,21 +111,26 @@ func copyFrom(ctx context.Context, conn *sql.Conn, stmt string, sc *sqlScanner) 
 type sqlStatement struct {
 	text string
 	line int
+	copy bool // COPY ... FROM stdin: its data lines follow
 }
 
 // sqlScanner splits a SQL file into statements at ; (or the current
-// DELIMITER), outside quotes, dollar quotes and comments. psql's \restrict
-// and \unrestrict lines are skipped; driver.CheckRestore refuses others.
+// DELIMITER) with driver.Lexer, the lexer driver.CheckRestore checks the
+// file with: quotes, E-strings, dollar quotes, nested comments and
+// BEGIN ATOMIC bodies are followed the way psql and mysql follow them.
+// psql's \restrict and \unrestrict lines are skipped; any other client
+// command is refused (driver.CheckRestore refuses them first).
 type sqlScanner struct {
 	rd      *bufio.Reader
 	kind    string
-	delim   string
+	lex     *driver.Lexer
 	line    int
 	pending *string // the rest of a line after a statement's end
+	done    bool    // the file ended
 }
 
 func newSQLScanner(r io.Reader, kind string) *sqlScanner {
-	return &sqlScanner{rd: bufio.NewReaderSize(r, 1<<20), kind: kind, delim: ";", line: 0}
+	return &sqlScanner{rd: bufio.NewReaderSize(r, 1<<20), kind: kind, lex: driver.NewLexer(kind)}
 }
 
 func (s *sqlScanner) rawLine() (string, error) {
@@ -143,79 +148,80 @@ func (s *sqlScanner) rawLine() (string, error) {
 }
 
 func (s *sqlScanner) next() (sqlStatement, error) {
+	if s.done {
+		return sqlStatement{}, io.EOF
+	}
 	var b strings.Builder
 	start := 0
-	var quote byte
-	dollar := ""
-	block := false
-	backslash := s.kind == "mysql"
 	for {
 		line, err := s.rawLine()
 		if err != nil {
-			if err == io.EOF && strings.TrimSpace(b.String()) != "" {
-				return sqlStatement{strings.TrimSpace(b.String()), start}, nil
+			if err != io.EOF {
+				return sqlStatement{}, err
 			}
-			return sqlStatement{}, err
+			// the last statement may have no ; at the end: it runs once
+			s.done = true
+			text := strings.TrimSpace(b.String())
+			empty := s.lex.Empty()
+			s.lex.Reset()
+			if empty || text == "" {
+				return sqlStatement{}, io.EOF
+			}
+			return sqlStatement{text: text, line: start}, nil
 		}
-		trimmed := strings.TrimSpace(line)
-		if b.Len() == 0 && quote == 0 && dollar == "" && !block {
-			if trimmed == "" || strings.HasPrefix(trimmed, "--") || s.kind == "mysql" && strings.HasPrefix(trimmed, "#") {
-				continue
+		if b.Len() == 0 && s.lex.Idle() && s.lex.Empty() { // a new statement
+			trimmed := strings.TrimSpace(line)
+			if s.kind == "postgres" && strings.HasPrefix(trimmed, `\`) {
+				if strings.HasPrefix(trimmed, `\restrict`) || strings.HasPrefix(trimmed, `\unrestrict`) {
+					continue
+				}
+				return sqlStatement{}, fmt.Errorf("line %d: %s is a psql command; komando's restore runs SQL only", s.line, trimmed)
 			}
-			if s.kind == "postgres" && (strings.HasPrefix(trimmed, `\restrict`) || strings.HasPrefix(trimmed, `\unrestrict`)) {
-				continue
-			}
-			if s.kind == "mysql" && strings.HasPrefix(strings.ToUpper(trimmed), "DELIMITER ") {
-				s.delim = strings.TrimSpace(trimmed[len("DELIMITER "):])
-				continue
+			if s.kind == "mysql" {
+				if d, ok := driver.ParseDelimiter(trimmed); ok {
+					if d == "" {
+						return sqlStatement{}, fmt.Errorf("line %d: komando cannot follow this DELIMITER line: %s", s.line, trimmed)
+					}
+					s.lex.Delim = d
+					continue
+				}
 			}
 			start = s.line
 		}
-		for i := 0; i < len(line); i++ {
-			c := line[i]
-			switch {
-			case block:
-				if c == '*' && i+1 < len(line) && line[i+1] == '/' {
-					block, i = false, i+1
+		from := 0 // where the statement starts on this line
+		for pos := 0; pos < len(line); {
+			end, cmd := s.lex.Next(line, pos)
+			if cmd >= 0 {
+				if s.kind == "mysql" && strings.HasPrefix(line[cmd:], `\-`) {
+					pos = cmd + 2 // MariaDB's sandbox line, inside /*M! ... */
+					continue
 				}
-			case dollar != "":
-				if strings.HasPrefix(line[i:], dollar) {
-					i += len(dollar) - 1
-					dollar = ""
-				}
-			case quote != 0:
-				if c == '\\' && backslash && quote != '`' {
-					i++
-				} else if c == quote {
-					quote = 0
-				}
-			case c == '\'' || c == '"' || c == '`':
-				quote = c
-			case c == '-' && i+1 < len(line) && line[i+1] == '-', c == '#' && s.kind == "mysql":
-				i = len(line)
-			case c == '/' && i+1 < len(line) && line[i+1] == '*' && !(i+2 < len(line) && line[i+2] == '!'):
-				block, i = true, i+1
-			case c == '$' && s.kind == "postgres":
-				j := i + 1
-				for j < len(line) && (line[j] == '_' || line[j] >= 'a' && line[j] <= 'z' || line[j] >= 'A' && line[j] <= 'Z' || line[j] >= '0' && line[j] <= '9') {
-					j++
-				}
-				if j < len(line) && line[j] == '$' && (j == i+1 || !(line[i+1] >= '0' && line[i+1] <= '9')) {
-					dollar = line[i : j+1]
-					i = j
-				}
-			case strings.HasPrefix(line[i:], s.delim):
-				b.WriteString(line[:i])
-				if s.delim == ";" && s.kind == "postgres" {
-					b.WriteString(";")
-				}
-				if rest := strings.TrimSpace(line[i+len(s.delim):]); rest != "" && !strings.HasPrefix(rest, "--") {
-					s.pending = &rest // another statement on the same line
-				}
-				return sqlStatement{strings.TrimSpace(b.String()), start}, nil
+				return sqlStatement{}, fmt.Errorf("line %d: a client command (%s); komando's restore runs SQL only", s.line, strings.TrimSpace(line[cmd:]))
 			}
+			if end < 0 {
+				break
+			}
+			code := s.lex.Last()
+			if code == "" { // only comments before the delimiter
+				b.Reset()
+				pos, from = end, end
+				continue
+			}
+			text := line[from:end]
+			if s.kind == "mysql" {
+				text = line[from : end-len(s.lex.Delim)]
+			}
+			b.WriteString(text)
+			if rest := strings.TrimSpace(line[end:]); rest != "" {
+				s.pending = &rest // another statement on the same line
+			}
+			return sqlStatement{text: strings.TrimSpace(b.String()), line: start, copy: s.kind == "postgres" && driver.IsCopyStdin(code)}, nil
 		}
-		b.WriteString(line)
+		s.lex.EndLine()
+		if b.Len() == 0 && s.lex.Idle() && s.lex.Empty() {
+			continue // a blank or comment line between statements
+		}
+		b.WriteString(line[from:])
 		b.WriteString("\n")
 	}
 }

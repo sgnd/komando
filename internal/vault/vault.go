@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -145,15 +146,15 @@ func (f *file) aead() (cipher.AEAD, error) {
 		kp := store.Path("vault.key")
 		b, err := os.ReadFile(kp)
 		if errors.Is(err, os.ErrNotExist) {
-			b = make([]byte, 32)
-			if _, err := rand.Read(b); err != nil {
-				return nil, err
-			}
-			if err := store.WriteFileAtomic(kp, b, 0o600); err != nil {
-				return nil, err
-			}
-		} else if err != nil {
+			b, err = newKeyFile(kp)
+		}
+		if err != nil {
 			return nil, err
+		}
+		if len(b) < keyLen {
+			// an empty or cut-short key would quietly encrypt new secrets
+			// with a key anyone can derive from vault.json
+			return nil, fmt.Errorf("%s holds %d bytes, not %d (cut short?): restore it from a backup", kp, len(b), keyLen)
 		}
 		secret = b
 	}
@@ -180,6 +181,88 @@ func (f *file) aead() (cipher.AEAD, error) {
 		aeadCache[id] = a
 	}
 	return a, err
+}
+
+// keyLen is the size of the random key in vault.key.
+const keyLen = 32
+
+// newKeyFile creates vault.key with a new random key, but never replaces
+// one that is already there: when another komando process made it first,
+// that key is returned, so every process encrypts with the key on disk.
+// The key is written in full before it appears under its name.
+func newKeyFile(kp string) ([]byte, error) {
+	key := make([]byte, keyLen)
+	if _, err := rand.Read(key); err != nil {
+		return nil, err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(kp), ".tmp-key-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(tmp.Name())
+	_, err = tmp.Write(key)
+	if err == nil {
+		err = tmp.Sync()
+	}
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return nil, err
+	}
+	// a hard link fails when the name exists, and never shows a half-written key
+	switch err = os.Link(tmp.Name(), kp); {
+	case err == nil:
+		return key, nil
+	case errors.Is(err, os.ErrExist):
+		return os.ReadFile(kp)
+	}
+	// a file system without hard links: create the name exclusively
+	f, err := os.OpenFile(kp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return os.ReadFile(kp)
+	}
+	if err != nil {
+		return nil, err
+	}
+	_, err = f.Write(key)
+	if err == nil {
+		err = f.Sync()
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(kp)
+		return nil, err
+	}
+	return key, nil
+}
+
+// lockName is the lock file that serializes changes to the vault between
+// komando processes (store.Update uses its own, so neither waits on the other).
+const lockName = ".vault.lock"
+
+// change loads the vault under an exclusive lock, applies fn and saves it,
+// so komando processes running at the same time (parallel agents) never
+// drop each other's secrets.
+func change(fn func(f *file) error) error {
+	if store.DryRun {
+		return store.ErrDryRun
+	}
+	unlock, err := store.Lock(lockName)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	f, err := load()
+	if err != nil {
+		return err
+	}
+	if err := fn(f); err != nil {
+		return err
+	}
+	return f.save()
 }
 
 // upgrade re-encrypts a passphrase vault made with a weaker scrypt cost,
@@ -257,26 +340,21 @@ func Check() (Strength, error) {
 }
 
 func Set(name, value string) error {
-	if store.DryRun {
-		return store.ErrDryRun
-	}
-	f, err := load()
-	if err != nil {
-		return err
-	}
-	if err := f.upgrade(); err != nil {
-		return err
-	}
-	a, err := f.aead()
-	if err != nil {
-		return err
-	}
-	nonce := make([]byte, a.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return err
-	}
-	f.Entries[name] = &entry{Nonce: nonce, Data: a.Seal(nil, nonce, []byte(value), []byte(name)), UpdatedAt: time.Now().UTC()}
-	return f.save()
+	return change(func(f *file) error {
+		if err := f.upgrade(); err != nil {
+			return err
+		}
+		a, err := f.aead()
+		if err != nil {
+			return err
+		}
+		nonce := make([]byte, a.NonceSize())
+		if _, err := rand.Read(nonce); err != nil {
+			return err
+		}
+		f.Entries[name] = &entry{Nonce: nonce, Data: a.Seal(nil, nonce, []byte(value), []byte(name)), UpdatedAt: time.Now().UTC()}
+		return nil
+	})
 }
 
 var ErrNotFound = errors.New("secret not found")
@@ -302,18 +380,13 @@ func Get(name string) (string, error) {
 }
 
 func Delete(name string) error {
-	if store.DryRun {
-		return store.ErrDryRun
-	}
-	f, err := load()
-	if err != nil {
-		return err
-	}
-	if _, ok := f.Entries[name]; !ok {
-		return ErrNotFound
-	}
-	delete(f.Entries, name)
-	return f.save()
+	return change(func(f *file) error {
+		if _, ok := f.Entries[name]; !ok {
+			return ErrNotFound
+		}
+		delete(f.Entries, name)
+		return nil
+	})
 }
 
 func List() ([]Info, error) {
@@ -353,6 +426,12 @@ func ValidRef(ref string) bool {
 	return false
 }
 
+// RefGuard, when set, is asked before Resolve reads a file on this computer
+// (kind "file") or an environment variable (kind "env") for a reference.
+// komando's CLI sets it, so an AI agent cannot point a reference, which
+// komando sends to a server as a password, at secrets it must not have.
+var RefGuard func(kind, name string) error
+
 // RefHelp is the hint for an invalid reference.
 func RefHelp() string { return "use one of: " + strings.Join(Refs, ", ") }
 
@@ -377,13 +456,25 @@ func Resolve(ref string) (string, error) {
 	case strings.HasPrefix(ref, "secret:"):
 		return Get(strings.TrimPrefix(ref, "secret:"))
 	case strings.HasPrefix(ref, "env:"):
-		v, ok := os.LookupEnv(strings.TrimPrefix(ref, "env:"))
+		name := strings.TrimPrefix(ref, "env:")
+		if RefGuard != nil {
+			if err := RefGuard("env", name); err != nil {
+				return "", err
+			}
+		}
+		v, ok := os.LookupEnv(name)
 		if !ok {
-			return "", fmt.Errorf("environment variable %s not set", strings.TrimPrefix(ref, "env:"))
+			return "", fmt.Errorf("environment variable %s not set", name)
 		}
 		return v, nil
 	case strings.HasPrefix(ref, "file:"):
-		b, err := os.ReadFile(strings.TrimPrefix(ref, "file:"))
+		p := strings.TrimPrefix(ref, "file:")
+		if RefGuard != nil {
+			if err := RefGuard("file", p); err != nil {
+				return "", err
+			}
+		}
+		b, err := os.ReadFile(p)
 		return strings.TrimRight(string(b), "\r\n"), err
 	case strings.HasPrefix(ref, "op://"):
 		// only through 1Password Connect: the op CLI is closed source

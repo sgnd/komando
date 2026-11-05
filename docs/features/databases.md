@@ -131,7 +131,7 @@ komando db query app-db --write "update users set plan = 'pro' where id = 42"
 
 The seatbelts:
 
-- A protected conn also needs `--yes` with `--write`.
+- A protected conn also needs `--yes` with `--write`, whatever the SQL is.
 - Destructive SQL needs `--allow-dangerous`: `DROP`, `TRUNCATE`, `DELETE` or
   `UPDATE` without `WHERE`, privilege changes, and a few more.
   `komando policy list` shows them all; `komando policy check --for postgres "..."`
@@ -140,10 +140,29 @@ The seatbelts:
   sessions, reading server files, `dblink`) are blocked by komando's own
   checks.
 - `BEGIN` and `COMMIT` are refused: komando runs everything in one
-  transaction.
+  transaction. Each statement is sent to the server on its own, and if one
+  still ends that transaction, komando stops before the next one.
+- Without `--write` the session is read-only too (on Postgres, unless a
+  pooler such as PgBouncer refuses the setting; then only the transaction
+  is).
+- SQL that komando cannot read the way the server does is refused
+  (`SQL_HIDDEN_CODE`): MySQL `/*! ... */` comments, Postgres `U&"..."`
+  names, a number written right before `$` (`1abc$$`), a MySQL `--`
+  followed by a non-ASCII byte. Changing the client character set
+  (`SET NAMES`, `client_encoding`) is refused, and so is a connection whose
+  character set can hide a backslash (SJIS, GBK, BIG5 and similar).
 - A few statements cannot be rolled back (`VACUUM`,
-  `CREATE INDEX CONCURRENTLY`, MySQL DDL). They must be sent alone, and a
-  dry run only reports them.
+  `CREATE INDEX CONCURRENTLY`, `SET PASSWORD`, and in MySQL every statement
+  other than `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `REPLACE`, `SHOW`,
+  `SET` and a few more reads). They must be sent alone, and a dry run only
+  reports them.
+- A dry run also skips what a rollback does not undo: `setval()`, ending
+  sessions, `COPY ... PROGRAM`, server files, `dblink`, and code komando
+  cannot see into (`DO`, `CALL`, `EXECUTE`). If the real run would be
+  blocked (no `--allow-dangerous`, or a protected conn without `--yes`), a
+  dry run runs nothing and only shows the plan. A function you call by name
+  (`SELECT reset_ids()`) runs, and what it does outside the transaction
+  (a sequence, a file) stays.
 - `db explain --analyze` really runs the query, so a query that changes data
   needs `--write` there too.
 
@@ -213,9 +232,12 @@ komando db restore staging-db --from app.dump --allow-dangerous   # an archive g
 only by you. An existing file is never overwritten.
 
 **Who does the work.** When the conn's `--via` path ends at a server that
-has `pg_dump`/`psql` or `mysqldump`/`mysql`, those tools run there. Otherwise
-(a direct conn, a VPN, or a server without them) komando dumps and restores
-by itself, and nothing has to be installed. `tool` in the answer says which
+has `pg_dump` or `mysqldump`, the dump runs there. Otherwise (a direct conn,
+a VPN, or a server without them) komando dumps by itself, and nothing has
+to be installed. A plain SQL restore is always run by komando itself,
+through the same `--via` path, never by `psql` or `mysql`: those would obey
+client commands hidden in the file on that server. Only a PostgreSQL
+archive goes to `pg_restore` on the server. `tool` in the answer says which
 was used. The password goes to a server's tool through its environment,
 never on its command line, so other users of that server cannot see it. For
 MySQL conns with `?tls=...`, the same TLS setting is passed to the server's
@@ -228,7 +250,13 @@ also read:
   sequences, tables (identity and generated columns, partitions), data,
   constraints, indexes, views, materialized views, triggers, row-level
   security and comments.
-- MySQL: tables, data, views, triggers and routines.
+- MySQL: tables, data (generated columns are computed again on restore),
+  views (after the routines, with stand-ins first, so a view may read
+  another view or call a function), triggers and routines.
+- PostgreSQL `--table` dumps those tables and the sequences they own or use in a
+  `DEFAULT`, but not schemas, types or functions they need (like
+  `pg_dump --table`). A name with a dot in it goes in double quotes:
+  `--table 'public."app.events"'`.
 - Owners and privileges are left out (like `--no-owner --no-acl`).
 - An object it cannot write (an aggregate, an operator, a foreign table,
   ...) stops the dump with its name (`DUMP_UNSUPPORTED`) instead of being
@@ -240,11 +268,28 @@ also read:
 - A restore can overwrite data, so it needs `--allow-dangerous` (and `--yes`
   on a protected conn).
 - PostgreSQL restores run in one transaction: if anything fails, nothing
-  changes.
-- komando reads the whole file before sending anything. A file with client
-  commands that could run programs or read files (`\!`, `system`, `\i`) is
-  refused; real dumps never contain them. `db restore --dry-run` runs this
-  check too and says what would stop the real run.
+  changes. MySQL runs the statements in order and stops at the first error;
+  what ran before it stays.
+- komando reads the whole file before sending anything, the way psql and
+  mysql would read it. A file with client commands that could run programs
+  or read files (`\!`, `system`, `\i`) is refused (`UNSAFE_BACKUP`), and so
+  is a file komando cannot follow: one that ends inside a quote or
+  comment, or a `SET` or `set_config` that changes
+  `standard_conforming_strings` or adds `NO_BACKSLASH_ESCAPES`. A file that
+  switches databases (`\connect`, from
+  `pg_dump --create` or `pg_dumpall`) is refused too
+  (`RESTORE_UNSUPPORTED`): dump the one database without `--create`. Real
+  single-database dumps pass. `db restore --dry-run` runs this check too and
+  says what would stop the real run.
+- SQL in the file that does more than write data is named next to
+  `db-restore` in the approval and in `POLICY_BLOCKED`, with the line where
+  it first appears: `sql-program` (`COPY ... PROGRAM`), `sql-server-file`
+  (`INTO OUTFILE`, `pg_read_file`), `sql-server-config` (`ALTER SYSTEM`),
+  `sql-privileges` (`GRANT`, `CREATE ROLE`), `sql-opaque` (`DO`,
+  `PREPARE`), `sql-remote` and `sql-kill`. A pg_dump with privileges names
+  `sql-privileges`.
+- `--table` takes table names only; a value that starts with `-` is
+  refused.
 
 **SQLite.** `dump` copies the database file (`--to backup.db`). To restore,
 stop the app and copy the file back.

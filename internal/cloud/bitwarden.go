@@ -253,6 +253,17 @@ func deref(p *int, d int) int {
 	return *p
 }
 
+// The KDF settings Bitwarden's own clients allow. The server sends them
+// before login, so a hostile server could otherwise ask for settings that
+// never finish, crash the Argon2 code (p=256 is 0 as a uint8) or wrap around
+// to a weak key (m=4194304 MiB is 0 KiB as a uint32).
+const (
+	bwPBKDF2Max   = 2_000_000
+	bwArgonMaxT   = 10
+	bwArgonMaxMiB = 1024
+	bwArgonMaxP   = 16
+)
+
 // BitwardenMasterKey derives the 32-byte master key: kdf 0 is PBKDF2-SHA256
 // (salt: the e-mail in lower case), kdf 1 Argon2id (salt: its SHA-256;
 // memory in MiB).
@@ -263,10 +274,17 @@ func BitwardenMasterKey(password, email string, kdf, iterations, memoryMiB, para
 		if iterations < 5000 {
 			return nil, fmt.Errorf("bitwarden: PBKDF2 with %d iterations is too weak to accept", iterations)
 		}
+		if iterations > bwPBKDF2Max {
+			return nil, fmt.Errorf("bitwarden: the server asks for PBKDF2 with %d iterations; Bitwarden allows at most %d", iterations, bwPBKDF2Max)
+		}
 		return pbkdf2.Key([]byte(password), salt, iterations, 32, sha256.New), nil
 	case 1:
 		if iterations < 2 || memoryMiB < 16 || parallelism < 1 {
 			return nil, fmt.Errorf("bitwarden: Argon2 settings too weak to accept (t=%d m=%dMiB p=%d)", iterations, memoryMiB, parallelism)
+		}
+		if iterations > bwArgonMaxT || memoryMiB > bwArgonMaxMiB || parallelism > bwArgonMaxP {
+			return nil, fmt.Errorf("bitwarden: the server asks for Argon2 settings Bitwarden does not allow (t=%d m=%dMiB p=%d; at most t=%d m=%dMiB p=%d)",
+				iterations, memoryMiB, parallelism, bwArgonMaxT, bwArgonMaxMiB, bwArgonMaxP)
 		}
 		s := sha256.Sum256(salt)
 		return argon2.IDKey([]byte(password), s[:], uint32(iterations), uint32(memoryMiB*1024), uint8(parallelism), 32), nil

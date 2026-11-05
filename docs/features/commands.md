@@ -34,7 +34,7 @@ komando exec db1 --read-only -- 'psql -c "select 1"'
 | `--timeout 10m` | Time limit per server (default 5m). |
 | `-P`, `--parallel 20` | How many servers at once (default 10). |
 | `--fail-fast` | Start no more servers after the first failure. |
-| `--stream` | Print output live, as it comes (NDJSON events). |
+| `--stream` | Print output live, as it comes (NDJSON events), a whole line at a time. |
 | `--stdin-file FILE` | Send a local file as the command's input (`-` = komando's own input). |
 | `--pty` | Give the command a terminal (some tools need one). |
 | `--read-only` | Say the command only looks (see below). |
@@ -69,6 +69,20 @@ that clearly changes something (`rm`, `mv`, `tee`, `> file`, `sed -i`,
 `systemctl restart`, `apt install`, ...) is refused with
 `READ_ONLY_VIOLATION`. In that case drop `--read-only` and confirm with
 `--yes` instead.
+
+A command komando cannot follow is refused the same way: `eval`, `source`,
+a command name in a variable (`$X file`), a shell or python reading a
+script it cannot see (`... | sh`, `python3 -c`). Text after `sh -c` or
+`bash -lc` is checked like the command. With `--stdin-file`, the input is
+checked too, so `--read-only --stdin-file check.sh -- 'bash -s'` works when
+the script only looks. `script --read-only` needs a shell as the
+interpreter (`sh`, `bash -eu`). Script arguments (`--arg`, or words after
+`bash -s --`) are refused under `--read-only`: put the values in the
+script. An argument the check cannot see (`find /data $X`) is refused for
+commands whose arguments decide what they do (`find`, `sed`, `git`,
+`kubectl` ...); `-e` values are filled in first. Other input (a CSV for
+`wc`, SQL for `psql`) is data and is not read as commands, except that
+`psql` and `mysql` input may not use `\!`, `\o`, `system` or `tee`.
 
 Destructive commands (`rm -rf /`, `mkfs`, `reboot`, `DROP DATABASE`, ...)
 are blocked everywhere unless a person allows them. See [Safety](safety.md).
@@ -144,7 +158,12 @@ komando recipe rm disk-of
 - `{{app}}` is a blank you fill in with `--var app=...`. `{{path=/}}` has a
   default.
 - komando treats a recipe as a change, so protected servers ask for `--yes`,
-  unless you saved it with `--read-only` because it only looks.
+  unless you saved it with `--read-only` because it only looks. A read-only
+  recipe is checked like `exec --read-only` when you save it. If, with its
+  blanks filled in, it no longer passes that check, it runs as a change.
+- A `--var` value may not start with `-`, because a program would read it
+  as an option (`OPTION_LIKE_VAR`). Write a path like that as `./-name`. A
+  number or a relative time (`-5`, `-2h`) is fine.
 - A built-in name (`disk`, `health`, ...) cannot be reused. Replace one of
   your own with `--overwrite`.
 - A `--var` the recipe has no blank for is refused (`UNKNOWN_VAR`), so a typo

@@ -186,8 +186,13 @@ func policyCmd() *cobra.Command {
 				rules = append(rules, map[string]string{"id": r.ID, "reason": r.Reason, "pattern": policy.Pattern(r)})
 			}
 			var custom []map[string]string
+			bad := policy.Invalid(st.Settings.ExtraDenyPattern)
 			for i, p := range st.Settings.ExtraDenyPattern {
-				custom = append(custom, map[string]string{"id": "custom-" + strconv.Itoa(i), "pattern": p})
+				r := map[string]string{"id": "custom-" + strconv.Itoa(i), "pattern": p}
+				if why, ok := bad[i]; ok {
+					r["error"] = why
+				}
+				custom = append(custom, r)
 			}
 			out.P.Print("policy.list", map[string]any{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "custom_rules": custom, "sql": driver.SQLRules(), "redis": cachex.Rules(), "memcached": cachex.MemcacheRules(), "data": driver.DataRules(),
 				"note": "guardrails catch common accidents; they are not a security boundary. Protected hosts and conns additionally need --yes for any mutating action. " +

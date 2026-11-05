@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"maps"
 	"regexp"
 	"slices"
 	"sort"
@@ -142,7 +143,7 @@ var recipes = []recipe{
 	{Name: "docker-overview", Category: "container", Desc: "Docker containers, disk usage and unhealthy containers", Cmd: `docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'; echo; docker system df; echo; docker ps --filter health=unhealthy --format '{{.Names}} UNHEALTHY'`, Sudo: true},
 	{Name: "k8s-overview", Category: "container", Desc: "Kubernetes nodes and non-running pods", Cmd: `kubectl get nodes -o wide; echo; kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded`},
 	{Name: "time-sync", Category: "system", Desc: "Clock / NTP sync status", Cmd: `timedatectl 2>/dev/null || date`},
-	{Name: "cron-all", Category: "system", Desc: "All cron entries (system + users)", Cmd: `cat /etc/crontab 2>/dev/null; ls /etc/cron.d 2>/dev/null; for u in $(cut -d: -f1 /etc/passwd); do c=$(crontab -l -u $u 2>/dev/null | grep -v '^#'); [ -n "$c" ] && printf '## %s\n%s\n' "$u" "$c"; done; systemctl list-timers --no-pager 2>/dev/null | head -n 30`, Sudo: true},
+	{Name: "cron-all", Category: "system", Desc: "All cron entries (system + users)", Cmd: `cat /etc/crontab 2>/dev/null; ls /etc/cron.d 2>/dev/null; for u in $(cut -d: -f1 /etc/passwd); do c=$(crontab -l -u "$u" 2>/dev/null | grep -v '^#'); [ -n "$c" ] && printf '## %s\n%s\n' "$u" "$c"; done; systemctl list-timers --no-pager 2>/dev/null | head -n 30`, Sudo: true},
 	{Name: "mysql-status", Category: "database", Desc: "MySQL/MariaDB status and process list", Cmd: `mysqladmin status; mysql -e 'SHOW FULL PROCESSLIST' | head -n 30`, Sudo: true},
 	{Name: "postgres-status", Category: "database", Desc: "PostgreSQL activity and DB sizes", Cmd: `sudo -u postgres psql -Atc "select datname, pg_size_pretty(pg_database_size(datname)) from pg_database" && sudo -u postgres psql -Atc "select state, count(*) from pg_stat_activity group by 1"`},
 	{Name: "redis-info", Category: "database", Desc: "Redis memory/clients/keyspace", Cmd: `redis-cli info | grep -E '^(redis_version|connected_clients|used_memory_human|maxmemory_human|db[0-9]+|role):'`},
@@ -155,8 +156,17 @@ var recipes = []recipe{
 var tmplRe = regexp.MustCompile(`\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:=([^}]*))?\}\}`)
 
 // render substitutes {{name}} (shell-quoted). Defaults come from params or
-// inline {{name=default}}; missing required params are an error.
+// inline {{name=default}}; missing required params are an error. A --var
+// value may not start with "-": quotes do not stop find or curl from
+// reading it as an option (find '-delete' deletes). A number or a relative
+// time (-5, -2h) is fine.
 func render(tmpl string, defaults map[string]string, vars map[string]string) (string, error) {
+	for _, name := range slices.Sorted(maps.Keys(vars)) {
+		if v := vars[name]; strings.HasPrefix(v, "-") && !(len(v) > 1 && v[1] >= '0' && v[1] <= '9') {
+			return "", out.Errf(out.ExitUsage, "OPTION_LIKE_VAR", "for a path that starts with -, write ./"+v,
+				"the value of %s may not start with '-' (%q would be read as an option)", name, v)
+		}
+	}
 	var missing []string
 	res := tmplRe.ReplaceAllStringFunc(tmpl, func(m string) string {
 		sub := tmplRe.FindStringSubmatch(m)
@@ -343,6 +353,11 @@ func recipeAddCmd() *cobra.Command {
 				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "pick another name; see `komando recipe list`", "%q is a built-in recipe", args[0])
 			}
 			s := &store.Snippet{Name: args[0], Command: args[1], Description: desc, Sudo: sudo, ReadOnly: readOnly && !mutating, CreatedAt: time.Now().UTC()}
+			if s.ReadOnly {
+				if err := checkReadOnly(s.Command); err != nil {
+					return err
+				}
+			}
 			// marking someone's recipe read-only lets it skip --yes on
 			// protected servers, so replacing one that way needs --yes. A
 			// person is asked before the state is locked (other komando
@@ -444,7 +459,11 @@ func recipeRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runFleet(cmd.Context(), "recipe."+r.Name, args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo}, !r.ReadOnly)
+			// read-only skips the protected-server question: a filled-in
+			// command that does not keep that promise runs as a change,
+			// so a protected server asks for --yes like for any other
+			mutating := !r.ReadOnly || readOnlyViolation(command) != ""
+			return runFleet(cmd.Context(), "recipe."+r.Name, args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo}, mutating)
 		},
 	}
 	c.Flags().StringArrayVar(&vars, "var", nil, "fill in a blank: NAME=VALUE (repeatable)")

@@ -32,6 +32,28 @@ func TestMaskSecretsText(t *testing.T) {
 		{"api_key_file: /run/secrets/api", "api_key_file: /run/secrets/api"},
 		{"DB_PASSWORD=12345678", "DB_PASSWORD=[hidden]"},
 		{"login ok token=abc123xyz", "login ok token=[hidden]"},
+		// Redis config: a space between name and value
+		{"port 6379\nrequirepass s3cretpw\nmasterauth s3cretpw\n", "port 6379\nrequirepass [hidden]\nmasterauth [hidden]\n"},
+		{"  primaryauth \"two words\"", "  primaryauth \"[hidden]\""},
+		{"tls-key-file-pass 'kp1'\nTLS-CLIENT-KEY-FILE-PASS kp2", "tls-key-file-pass '[hidden]'\nTLS-CLIENT-KEY-FILE-PASS [hidden]"},
+		{"sentinel auth-pass mymaster s3cretpw\nsentinel sentinel-pass s3ntinel", "sentinel auth-pass mymaster [hidden]\nsentinel sentinel-pass [hidden]"},
+		// grep -H, -n and -C output
+		{"/etc/redis/redis.conf:12:requirepass s3cretpw\n/etc/redis/redis.conf-13-masterauth s3cretpw", "/etc/redis/redis.conf:12:requirepass [hidden]\n/etc/redis/redis.conf-13-masterauth [hidden]"},
+		{"users.acl:user worker on >s3cretpw ~*", "users.acl:user worker on >[hidden] ~*"},
+		{"my-requirepass s3cretpw", "my-requirepass s3cretpw"},
+		// redis-cli CONFIG GET, numbered and raw
+		{"1) \"requirepass\"\n2) \"s3cretpw\"\n", "1) \"requirepass\"\n2) \"[hidden]\"\n"},
+		{"masterauth\ns3cretpw\nmaxmemory\n0\n", "masterauth\n[hidden]\nmaxmemory\n0\n"},
+		{"1) \"requirepass\"\n2) \"\"\n", "1) \"requirepass\"\n2) \"\"\n"},
+		// Redis ACL rules: plaintext passwords and hashes
+		{"user worker on >s3cretpw <oldpw ~jobs:* +@list", "user worker on >[hidden] <[hidden] ~jobs:* +@list"},
+		{"1) \"user alice on #0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef ~* &* +@all\"", "1) \"user alice on #[hidden] ~* &* +@all\""},
+		{"user default on nopass ~* +@all", "user default on nopass ~* +@all"},
+		// left alone: comments, references, names in prose
+		{"# requirepass foobared", "# requirepass foobared"},
+		{"requirepass {{secret:REDIS_PW}}", "requirepass {{secret:REDIS_PW}}"},
+		{"requirepass [hidden]", "requirepass [hidden]"},
+		{"set requirepass to protect the server", "set requirepass to protect the server"},
 	}
 	for _, c := range cases {
 		if got := MaskSecrets(c.in); got != c.want {

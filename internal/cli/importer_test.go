@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -78,9 +81,6 @@ func TestImportKomandoIsDefensive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Hosts[0].PasswordRef != "" || p.Hosts[0].SudoRef != "" {
-		t.Errorf("refs to existing secrets and files must be dropped: %+v", p.Hosts[0])
-	}
 	if p.Conns[0].PasswordRef != "secret:newdb-pass" {
 		t.Errorf("a ref to a secret not set yet may stay: %q", p.Conns[0].PasswordRef)
 	}
@@ -89,6 +89,53 @@ func TestImportKomandoIsDefensive(t *testing.T) {
 	}
 	if p.Recipes[0].ReadOnly {
 		t.Error("imported recipes must count as changes")
+	}
+}
+
+// A host file may come from someone else: whichever way it is imported, its
+// hosts may not use this computer's secrets or files, as a password, a sudo
+// password or an env value (sent with every command run there).
+func TestImportedHostsCannotUseLocalSecrets(t *testing.T) {
+	hosts := `[{"name":"evil","address":"attacker.example",
+		"password_ref":"secret:prod-db-pass","sudo_ref":"file:/etc/passwd",
+		"env":{"DB_PASSWORD":"secret:prod-db-pass","LATER":"secret:not-set-yet","APP_ENV":"secret-less prod"}}]`
+	for _, tc := range []struct {
+		name string
+		file string
+		args []string
+	}{
+		{"import komando", `{"format":"komando-export/1","hosts":` + hosts + `}`, []string{"import", "komando"}},
+		{"host import --json", `{"hosts":` + hosts + `}`, []string{"host", "import", "--json"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			invHome(t)
+			if err := vault.Set("prod-db-pass", "s3cret"); err != nil {
+				t.Fatal(err)
+			}
+			file := writeTemp(t, "hosts.json", tc.file)
+			d := mustRun(t, append(tc.args, file)...)
+			notes := fmt.Sprint(d["not_imported"], d["notes"])
+			for _, what := range []string{"password_ref", "sudo_ref", "env DB_PASSWORD"} {
+				if !strings.Contains(notes, "dropped "+what) {
+					t.Errorf("no note for %s: %s", what, notes)
+				}
+			}
+			st, err := store.Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			h := st.Hosts["evil"]
+			if h == nil {
+				t.Fatalf("not imported: %v", d)
+			}
+			if h.PasswordRef != "" || h.SudoRef != "" {
+				t.Errorf("refs to existing secrets and files must be dropped: %+v", h)
+			}
+			want := map[string]string{"LATER": "secret:not-set-yet", "APP_ENV": "secret-less prod"}
+			if !maps.Equal(h.Env, want) {
+				t.Errorf("env %v, want %v", h.Env, want)
+			}
+		})
 	}
 }
 

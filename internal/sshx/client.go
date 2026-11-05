@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -31,6 +32,8 @@ import (
 type Options struct {
 	ConnectTimeout time.Duration
 	HostKeyPolicy  string // accept-new | strict | off
+
+	scan *ssh.PublicKey // FetchHostKey: record the target's key, do not log in
 }
 
 // Client wraps an ssh.Client plus the path of jump hosts it came through
@@ -66,6 +69,8 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 	}
 	target := hops[len(hops)-1]
 	jumps := hops[:len(hops)-1]
+	jo := o // jump hosts are logged in to as usual, even when only the target's key is fetched
+	jo.scan = nil
 	openVPN := func() (netx.Dialer, io.Closer, error) {
 		first := (&net.Dialer{Timeout: o.ConnectTimeout}).DialContext
 		if vpn == nil {
@@ -111,7 +116,7 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 			}
 			var prev *ssh.Client
 			for _, hop := range jumps {
-				c, err := dialHop(ctx, st, hop, o, first, prev, vpn != nil || prev != nil)
+				c, err := dialHop(ctx, st, hop, jo, first, prev, vpn != nil || prev != nil)
 				if err != nil {
 					closeAll()
 					return nil, nil, err
@@ -164,9 +169,13 @@ func keepaliveChain(c *ssh.Client) {
 // first (direct or a VPN), or with the host's own proxy (SSM, a proxy
 // command), which can only start a path.
 func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, first netx.Dialer, prev *ssh.Client, reached bool) (*ssh.Client, error) {
-	cfg, err := clientConfig(st, hop, o)
+	cfg, agentConn, err := clientConfig(st, hop, o)
 	if err != nil {
 		return nil, err
+	}
+	if agentConn != nil {
+		// ssh-agent signs during the login only (komando forwards no agent)
+		defer agentConn.Close()
 	}
 	addr := net.JoinHostPort(hop.Address, strconv.Itoa(hop.EffectivePort()))
 	var c *ssh.Client
@@ -180,7 +189,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 		if serr != nil {
 			return nil, out.Errf(out.ExitConnect, "SSM_FAILED", "check the instance ID, its SSM agent and your AWS login (`komando login aws`)", "%s: %v", hop.Name, serr)
 		}
-		c, err = handshake(sc, addr, cfg, o.ConnectTimeout)
+		c, err = handshake(ctx, sc, addr, cfg, o.ConnectTimeout)
 		if err != nil {
 			sc.Close()
 		}
@@ -190,13 +199,21 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 		if perr != nil {
 			return nil, perr
 		}
-		c, err = handshake(pc, addr, cfg, o.ConnectTimeout)
+		c, err = handshake(ctx, pc, addr, cfg, o.ConnectTimeout)
 		if err != nil {
 			pc.Close()
+			ce := classify(hop.Name, err)
 			if tail := pc.stderrTail(); tail != "" {
+				if ce.Code != "CONNECT_FAILED" {
+					// keep what went wrong (HOSTKEY_MISMATCH, AUTH_FAILED, ...):
+					// the proxy's words are only extra detail
+					ce.Message += "; the proxy command said: " + tail
+					return nil, ce
+				}
 				return nil, out.Errf(out.ExitConnect, "PROXY_FAILED", "run the proxy command by hand to see why: komando host ssh-command "+hop.Name,
-					"%s: %v; the proxy command said: %s", hop.Name, classify(hop.Name, err), tail)
+					"%s; the proxy command said: %s", ce.Message, tail)
 			}
+			return nil, ce
 		}
 	case prev == nil:
 		c, err = dialDirect(ctx, first, addr, cfg, o.ConnectTimeout)
@@ -298,31 +315,70 @@ func dialDirect(ctx context.Context, dial netx.Dialer, addr string, cfg *ssh.Cli
 	if err != nil {
 		return nil, err
 	}
-	return handshake(conn, addr, cfg, timeout)
+	return handshake(ctx, conn, addr, cfg, timeout)
 }
 
 func dialVia(ctx context.Context, via *ssh.Client, addr string, cfg *ssh.ClientConfig, timeout time.Duration) (*ssh.Client, error) {
-	conn, err := via.DialContext(ctx, "tcp", addr)
+	dctx := ctx
+	if timeout > 0 {
+		// a jump host that never answers the channel open (or waits for a
+		// firewalled target's TCP timeout) must not hang the command
+		var cancel context.CancelFunc
+		dctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	conn, err := via.DialContext(dctx, "tcp", addr)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+			return nil, fmt.Errorf("opening a channel through the jump host: i/o timeout after %s", timeout)
+		}
 		return nil, err
 	}
-	return handshake(conn, addr, cfg, timeout)
+	return handshake(ctx, conn, addr, cfg, timeout)
 }
 
-func handshake(conn net.Conn, addr string, cfg *ssh.ClientConfig, timeout time.Duration) (*ssh.Client, error) {
+// handshake runs the SSH handshake on conn, bounded by timeout and ctx. It
+// does not rely on conn's deadlines: a connection through a jump host (an
+// SSH channel) and an SSM stream have none, so a server that never answers
+// would hang the command. conn is closed instead.
+func handshake(ctx context.Context, conn net.Conn, addr string, cfg *ssh.ClientConfig, timeout time.Duration) (*ssh.Client, error) {
+	var timedOut atomic.Bool
+	stopTimer := func() bool { return true }
 	if timeout > 0 {
-		_ = conn.SetDeadline(time.Now().Add(timeout))
+		t := time.AfterFunc(timeout, func() { timedOut.Store(true); conn.Close() })
+		stopTimer = t.Stop
 	}
+	stopCtx := context.AfterFunc(ctx, func() { conn.Close() })
 	c, chans, reqs, err := ssh.NewClientConn(conn, addr, cfg)
+	stopped := stopTimer()
+	stopped = stopCtx() && stopped
+	if err == nil && !stopped {
+		c.Close() // the timer or ctx closed conn just as the handshake ended
+		err = errors.New("connection closed")
+	}
 	if err != nil {
 		conn.Close()
+		switch {
+		case timedOut.Load():
+			return nil, fmt.Errorf("%w (SSH handshake: i/o timeout after %s)", err, timeout)
+		case ctx.Err() != nil:
+			return nil, fmt.Errorf("%w (%w)", err, ctx.Err())
+		}
 		return nil, err
 	}
-	_ = conn.SetDeadline(time.Time{})
 	return ssh.NewClient(c, chans, reqs), nil
 }
 
-func classify(host string, err error) error {
+// HostKeyMismatch is the error for a server whose key is not the pinned
+// one. An AI agent must not re-trust the key itself: it reports it, and a
+// person checks the new fingerprint another way first.
+func HostKeyMismatch(host string) *out.Error {
+	return out.Errf(out.ExitConnect, "HOSTKEY_MISMATCH",
+		fmt.Sprintf("possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust %s --reset`", host),
+		"host key for %s changed: possible MITM or server rebuild", host)
+}
+
+func classify(host string, err error) *out.Error {
 	var oe *out.Error
 	if errors.As(err, &oe) {
 		return oe // already a komando error (VPN_DOWN from a VPN on the way): keep its code and words
@@ -331,9 +387,7 @@ func classify(host string, err error) error {
 	msg := err.Error()
 	switch {
 	case errors.As(err, &ke) && len(ke.Want) > 0, strings.Contains(msg, "HOSTKEY_MISMATCH"):
-		return out.Errf(out.ExitConnect, "HOSTKEY_MISMATCH",
-			fmt.Sprintf("verify the server is legitimate, then run `komando host trust %s --reset`", host),
-			"host key for %s changed: possible MITM or server rebuild", host)
+		return HostKeyMismatch(host)
 	case strings.Contains(msg, "HOSTKEY_UNKNOWN"):
 		return out.Errf(out.ExitConnect, "HOSTKEY_UNKNOWN",
 			fmt.Sprintf("run `komando host trust %s` to pin its key (policy is strict)", host),
@@ -354,7 +408,22 @@ func classify(host string, err error) error {
 	return out.Errf(out.ExitConnect, "CONNECT_FAILED", "run `komando host test "+host+"` for diagnostics", "%s: %s", host, msg)
 }
 
-func clientConfig(st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, error) {
+// clientConfig is the login for one hop. The ssh-agent connection it opens
+// (or nil) is the caller's to close once the handshake is over.
+func clientConfig(st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, io.Closer, error) {
+	if o.scan != nil {
+		// FetchHostKey: no login, so no keys, agent or vault secrets are used
+		scan := o.scan
+		return &ssh.ClientConfig{
+			User: "komando-keyscan",
+			Auth: []ssh.AuthMethod{ssh.Password("x")},
+			HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error {
+				*scan = key
+				return errKeyScanned
+			},
+			Timeout: o.ConnectTimeout,
+		}, nil, nil
+	}
 	user := h.User
 	if user == "" {
 		user = st.Settings.DefaultUser
@@ -362,25 +431,31 @@ func clientConfig(st *store.State, h *store.Host, o Options) (*ssh.ClientConfig,
 	if user == "" {
 		user = os.Getenv("USER")
 	}
-	auths, err := authMethods(st, h)
-	if err != nil {
-		return nil, err
-	}
 	hkc, err := hostKeyCallback(h.Name, o.HostKeyPolicy)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	auths, agentConn, err := authMethods(st, h, o.ConnectTimeout)
+	if err != nil {
+		return nil, nil, err
 	}
 	return &ssh.ClientConfig{
 		User:            user,
 		Auth:            auths,
 		HostKeyCallback: hkc,
 		Timeout:         o.ConnectTimeout,
-	}, nil
+	}, agentConn, nil
 }
 
-func authMethods(st *store.State, h *store.Host) ([]ssh.AuthMethod, error) {
+// authMethods also returns the ssh-agent connection it opened (or nil).
+func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods []ssh.AuthMethod, agentConn io.Closer, err error) {
+	defer func() {
+		if err != nil && agentConn != nil {
+			agentConn.Close()
+			agentConn = nil
+		}
+	}()
 	var signers []ssh.Signer
-	var methods []ssh.AuthMethod
 
 	addKeyFile := func(path, passRef string, explicit bool) error {
 		b, err := os.ReadFile(expand(path))
@@ -419,16 +494,16 @@ func authMethods(st *store.State, h *store.Host) ([]ssh.AuthMethod, error) {
 	if h.Key != "" {
 		k, ok := st.Keys[h.Key]
 		if !ok {
-			return nil, out.NotFound("key", h.Key)
+			return nil, nil, out.NotFound("key", h.Key)
 		}
 		if err := addKeyFile(k.Path, k.PassphraseRef, true); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		explicitKey = true
 	}
 	if h.Identity != "" {
 		if err := addKeyFile(h.Identity, "", true); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		explicitKey = true
 	}
@@ -436,7 +511,16 @@ func authMethods(st *store.State, h *store.Host) ([]ssh.AuthMethod, error) {
 	// ssh-agent
 	if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
 		if conn, err := net.Dial("unix", sock); err == nil {
-			ag := agent.NewClient(conn)
+			agentConn = conn
+			var ac io.ReadWriter = conn
+			if timeout > 0 {
+				// the agent answers now and signs during the handshake: a stuck
+				// agent must not hang the command. Each request gets its own
+				// deadline, so a slow transport (SSM, a proxy command) opened
+				// between the two does not use the agent's time up.
+				ac = &agentDeadline{conn: conn, timeout: timeout}
+			}
+			ag := agent.NewClient(ac)
 			if as, err := ag.Signers(); err == nil {
 				signers = append(signers, as...)
 			}
@@ -454,10 +538,10 @@ func authMethods(st *store.State, h *store.Host) ([]ssh.AuthMethod, error) {
 	if h.PasswordRef != "" {
 		pw, err := vault.Resolve(h.PasswordRef)
 		if err != nil && len(methods) > 0 {
-			return methods, nil // keys are available; an unresolvable password is not fatal
+			return methods, agentConn, nil // keys are available; an unresolvable password is not fatal
 		}
 		if err != nil {
-			return nil, out.Errf(out.ExitUsage, "SECRET_UNRESOLVED", "check `komando secret list`", "password for %s: %v", h.Name, err)
+			return nil, agentConn, out.Errf(out.ExitUsage, "SECRET_UNRESOLVED", "check `komando secret list`", "password for %s: %v", h.Name, err)
 		}
 		methods = append(methods, ssh.Password(pw), ssh.KeyboardInteractive(func(_, _ string, qs []string, _ []bool) ([]string, error) {
 			ans := make([]string, len(qs))
@@ -468,10 +552,26 @@ func authMethods(st *store.State, h *store.Host) ([]ssh.AuthMethod, error) {
 		}))
 	}
 	if len(methods) == 0 {
-		return nil, out.Errf(out.ExitUsage, "NO_AUTH", "add --key, --identity or --password-ref to the host, or start ssh-agent", "no authentication method available for %s", h.Name)
+		return nil, agentConn, out.Errf(out.ExitUsage, "NO_AUTH", "add --key, --identity or --password-ref to the host, or start ssh-agent", "no authentication method available for %s", h.Name)
 	}
-	return methods, nil
+	return methods, agentConn, nil
 }
+
+// agentDeadline gives every request written to the ssh-agent (and the
+// answer read after it) timeout to finish. It is only a reader and writer,
+// not a Closer, so the agent client sends one request at a time and no
+// reader waits on the socket between requests.
+type agentDeadline struct {
+	conn    net.Conn
+	timeout time.Duration
+}
+
+func (c *agentDeadline) Write(b []byte) (int, error) {
+	_ = c.conn.SetDeadline(time.Now().Add(c.timeout))
+	return c.conn.Write(b)
+}
+
+func (c *agentDeadline) Read(b []byte) (int, error) { return c.conn.Read(b) }
 
 func expand(p string) string {
 	if strings.HasPrefix(p, "~/") {
@@ -527,34 +627,31 @@ func appendKnownHost(path, hostname string, key ssh.PublicKey) error {
 	return err
 }
 
-// ForgetHost removes known_hosts lines for addr (host:port normalised).
-func ForgetHost(addr string) (int, error) {
-	p := KnownHostsPath()
+// knownHostsLines splits known_hosts into the lines that pin addr (host:port
+// normalised) and the rest, and returns the keys of the first kind.
+func knownHostsLines(p, addr string) (pins []ssh.PublicKey, matched int, keep [][]byte, err error) {
 	b, err := os.ReadFile(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return 0, nil
+			return nil, 0, nil, nil
 		}
-		return 0, err
+		return nil, 0, nil, err
 	}
 	norm := knownhosts.Normalize(addr)
-	var keep [][]byte
-	removed := 0
 	for _, line := range bytes.Split(b, []byte("\n")) {
 		f := strings.Fields(string(line))
 		if len(f) > 0 && hostsFieldMatches(f[0], norm) {
-			removed++
+			matched++
+			if _, _, k, _, _, err := ssh.ParseKnownHosts(line); err == nil {
+				pins = append(pins, k)
+			}
 			continue
 		}
 		if len(line) > 0 {
 			keep = append(keep, line)
 		}
 	}
-	data := bytes.Join(keep, []byte("\n"))
-	if len(data) > 0 {
-		data = append(data, '\n')
-	}
-	return removed, store.WriteFileAtomic(p, data, 0o600)
+	return pins, matched, keep, nil
 }
 
 func hostsFieldMatches(field, norm string) bool {
@@ -566,33 +663,76 @@ func hostsFieldMatches(field, norm string) bool {
 	return false
 }
 
-// ScanHostKey fetches the server's host key without authenticating.
-func ScanHostKey(ctx context.Context, addr string, timeout time.Duration) (ssh.PublicKey, error) {
-	var got ssh.PublicKey
-	cfg := &ssh.ClientConfig{
-		User: "komando-keyscan",
-		Auth: []ssh.AuthMethod{ssh.Password("x")},
-		HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error {
-			got = key
-			return errors.New("keyscan-done")
-		},
-		Timeout: timeout,
-	}
-	_, err := dialDirect(ctx, (&net.Dialer{Timeout: timeout}).DialContext, addr, cfg, timeout)
-	if got != nil {
-		return got, nil
-	}
-	return nil, err
+// SameKey reports whether a and b are the same public key.
+func SameKey(a, b ssh.PublicKey) bool {
+	return a != nil && b != nil && bytes.Equal(a.Marshal(), b.Marshal())
 }
 
-func TrustKey(addr string, key ssh.PublicKey) error {
+// PinnedKeys are the keys komando's known_hosts pins for addr (host:port).
+func PinnedKeys(addr string) ([]ssh.PublicKey, error) {
+	khMu.Lock()
+	defer khMu.Unlock()
+	pins, _, _, err := knownHostsLines(KnownHostsPath(), addr)
+	return pins, err
+}
+
+// PinHostKey pins key for addr (host:port). A key that is pinned already is
+// not written again. With replace, every other line for addr goes in the
+// same write, so a failure never leaves the server unpinned; removed is how
+// many lines went. Whether a pin may be replaced is the caller's decision
+// (`host trust --reset` needs a person's yes).
+func PinHostKey(addr string, key ssh.PublicKey, replace bool) (removed int, err error) {
 	khMu.Lock()
 	defer khMu.Unlock()
 	p := KnownHostsPath()
-	if _, err := os.Stat(p); errors.Is(err, os.ErrNotExist) {
-		_ = os.WriteFile(p, nil, 0o600)
+	pins, matched, keep, err := knownHostsLines(p, addr)
+	if err != nil {
+		return 0, err
 	}
-	return appendKnownHost(p, addr, key)
+	have := false
+	for _, k := range pins {
+		have = have || SameKey(k, key)
+	}
+	if !replace {
+		if have {
+			return 0, nil
+		}
+		if _, err := os.Stat(p); errors.Is(err, os.ErrNotExist) {
+			if err := os.WriteFile(p, nil, 0o600); err != nil {
+				return 0, err
+			}
+		}
+		return 0, appendKnownHost(p, addr, key)
+	}
+	keep = append(keep, []byte(knownhosts.Line([]string{knownhosts.Normalize(addr)}, key)))
+	data := append(bytes.Join(keep, []byte("\n")), '\n')
+	removed = matched
+	if have {
+		removed-- // the same key, written again
+	}
+	return removed, store.WriteFileAtomic(p, data, 0o600)
+}
+
+var errKeyScanned = errors.New("keyscan-done")
+
+// FetchHostKey fetches h's host key the way komando reaches h: directly,
+// through a VPN, its proxy command or its --via path (those jump hosts are
+// checked and logged in to as usual). h itself is not logged in to, and
+// nothing is pinned for it: the caller compares and decides.
+func FetchHostKey(ctx context.Context, st *store.State, h *store.Host, o Options) (ssh.PublicKey, error) {
+	var got ssh.PublicKey
+	o.scan = &got
+	c, err := Dial(ctx, st, h, o)
+	if c != nil {
+		c.Close()
+	}
+	if got != nil {
+		return got, nil
+	}
+	if err == nil {
+		err = errors.New("the server sent no host key")
+	}
+	return nil, err
 }
 
 // ssmProxyPrefix is how `host add --ssm` writes its proxy command.

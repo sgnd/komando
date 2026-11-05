@@ -90,7 +90,7 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 |---|---|---|---|---|
 | Host key policy accept-new / strict / off | ssh `StrictHostKeyChecking` | PRESENT | `--host-key-policy`, `config set host_key_policy` (`off` needs `--yes`, `SAFETY_SETTING`) | – |
 | Reject a changed host key | ssh | PRESENT | `HOSTKEY_MISMATCH`, never skipped automatically | – |
-| Fetch & pin the host key (keyscan), also behind a bastion | ssh-keyscan | PRESENT | `host trust NAME` (direct; behind `--via` through an accept-new connection) | – |
+| Fetch & pin the host key (keyscan), also behind a bastion | ssh-keyscan | PRESENT | `host trust NAME` (fetched the way komando reaches the server: directly, `--via`, VPN or proxy command; jump hosts are checked under `host_key_policy`, the target is only scanned, never logged in to) | – |
 | Forget / replace the key after a server is rebuilt | ssh-keygen `-R` | PRESENT | `host trust NAME --reset` | – |
 | Import the existing `~/.ssh/known_hosts` (avoid repeating TOFU) | — | MISSING | komando uses its own `~/.komando/known_hosts`; hosts already trusted by OpenSSH are trusted again via TOFU | P2 |
 | Host certificate / `@cert-authority` in known_hosts | OpenSSH, Teleport | PARTIAL | the known_hosts parser (x/crypto) reads `@cert-authority` lines when written by hand into `~/.komando/known_hosts`, but there is no command to add a CA. Without that line, a host that presents a host cert fails (`CONNECT_FAILED`: "no authorities for hostname"), instead of TOFU | P2 |
@@ -236,7 +236,7 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | ls (recursive, dotfiles, limit) | ls, sftp | PRESENT | `fs ls -a -r --max` | – |
 | Find files (name/size/age) | find, Ansible `find` | PARTIAL | recipes `big-files`, `big-dirs`; no structured `fs find` | P3 |
 | Search content (grep in a file/folder) | grep -r | PARTIAL | `logs --file --grep` for a single file; possible via exec `grep -r` | P3 |
-| Restore from `.bak` | — | MISSING | `--backup` creates `PATH.bak` (one generation), no `fs restore`/rollback; you must `fs mv` by hand | P2 |
+| Restore from `.bak` | — | MISSING | `--backup` creates `PATH.bak`, then `PATH.bak.<UTC time>` (never overwritten, they add up); no `fs restore`/rollback; you must `fs mv` by hand | P2 |
 | Edit in a local editor ($EDITOR) then save back | `vim scp://`, VS Code Remote | MISSING | useful for humans; possible via download→edit→`fs write --if-changed` | P3 |
 
 ## 11. Services (systemctl/service, Ansible `service`/`systemd`)
@@ -496,7 +496,7 @@ The `#` number is the row order in the tables above.
 | 42 | Automatic short-lived cert per session | MISSING | Correct | grep cert/CA: 0 results |
 | 43 | Host key policy accept-new / strict / off | PRESENT | Correct | root.go:148-149 `off` → guardSafety (SAFETY_SETTING, common.go:328); meta.go:366-369 |
 | 44 | Reject a changed host key | PRESENT | Correct | client.go:396-397, 218-221 HOSTKEY_MISMATCH |
-| 45 | Fetch & pin the host key (keyscan), also behind… | PRESENT | Correct | host.go:651-707 (ScanHostKey direct; via → Dial accept-new) |
+| 45 | Fetch & pin the host key (keyscan), also behind… | PRESENT | Correct | host.go (sshx.FetchHostKey: the usual route, jump hosts under host_key_policy; the target is scanned, not logged in to) |
 | 46 | Forget / replace the key after a server is rebu… | PRESENT | Correct | host.go:669-673 `--reset` → ForgetHost (client.go:414) |
 | 47 | Import the existing ~/.ssh/known_hosts (avoi… | MISSING | Correct | client.go:369,375 only ~/.komando/known_hosts; grep import known_hosts: 0 results |
 | 48 | Host certificate / @cert-authority in known_ho… | PARTIAL | Corrected: MISSING→PARTIAL | client.go:384 `knownhosts.New` (x/crypto knownhosts.go:439-444 CertChecker) accepts hand-written @cert-authority lines; without them CheckHostKey (certs.go:372-373) fails → CONNECT_FAILED, not TOFU; grep cert-authority: 0 results |
@@ -607,7 +607,7 @@ The `#` number is the row order in the tables above.
 | 153 | ls (recursive, dotfiles, limit) | PRESENT | Correct | fs.go:110-172 -a/-r/--max |
 | 154 | Find files (name/size/age) | PARTIAL | Correct | ops.go:109-110 big-dirs/big-files; no fs find |
 | 155 | Search content (grep in a file/folder) | PARTIAL | Correct | modules.go:203-205,232-236 logs --file --grep (one file) |
-| 156 | Restore from .bak | MISSING | Correct | fs.go:371,421 one PATH.bak; grep restore: 0 results |
+| 156 | Restore from .bak | MISSING | Correct | fs.go backupName: PATH.bak, then PATH.bak.<UTC time>; grep restore: 0 results |
 | 157 | Edit in a local editor ($EDITOR) then save back | MISSING | Correct | grep EDITOR: 0 results |
 | 158 | Structured status | PRESENT | Correct | modules.go:32,77-86 svc status |
 | 159 | start/stop/restart/reload + state report + jo… | PRESENT | Correct | modules.go:91-111 (20 journal lines when start/restart/reload fails) |

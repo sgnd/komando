@@ -184,7 +184,7 @@ func TestInvHostImportJSON(t *testing.T) {
 	if e == nil || e.Code != "SAFETY_SETTING" {
 		t.Fatalf("agent proxy command needs a person: %+v", e)
 	}
-	t.Setenv("CLAUDECODE", "")
+	noAgent(t)
 	d := mustRun(t, "host", "import", "--json", f, "--overwrite")
 	if d["skipped_protected"] == nil || d["skipped_invalid"] == nil {
 		t.Errorf("protected and invalid hosts are reported: %v", d)
@@ -204,7 +204,7 @@ func TestInvTrustDryRun(t *testing.T) {
 	line := "10.0.0.1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl\n"
 	os.WriteFile(kh, []byte(line), 0o600)
 	d := mustRun(t, "host", "trust", "h", "--reset", "--dry-run")
-	if d["would_remove_entries"].(float64) != 1 {
+	if d["would_remove_entries"].(float64) != 1 || d["would_fetch_from"] != "the server directly" {
 		t.Errorf("count: %v", d)
 	}
 	if b, _ := os.ReadFile(kh); string(b) != line {

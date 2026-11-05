@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -59,22 +61,13 @@ func resolveCluster(st *store.State, expr string) (clusterTarget, error) {
 
 // kubeClient opens the API of a k8s conn through its --via path.
 func kubeClient(ctx context.Context, st *store.State, c *store.Conn) (*kube.Client, func(), error) {
-	a, err := openAccess(ctx, st, c)
+	x, err := kubeContext(c)
 	if err != nil {
 		return nil, nil, err
 	}
-	cfg, err := kube.Parse([]byte(a.Password))
+	a, err := openAccess(ctx, st, c)
 	if err != nil {
-		a.Close()
-		return nil, nil, out.Errf(out.ExitUsage, "KUBECONFIG", "import it again with `komando import kubeconfig`", "conn %s: %v", c.Name, err)
-	}
-	x, err := cfg.Resolve("")
-	if err != nil {
-		a.Close()
-		return nil, nil, out.Errf(out.ExitUsage, "KUBECONFIG", "import it again with `komando import kubeconfig`", "conn %s: %v", c.Name, err)
-	}
-	if ns := c.Options["namespace"]; ns != "" {
-		x.Namespace = ns
+		return nil, nil, err
 	}
 	var dial kube.Dialer
 	if a.Dial != nil {
@@ -86,6 +79,111 @@ func kubeClient(ctx context.Context, st *store.State, c *store.Conn) (*kube.Clie
 		return nil, nil, out.Errf(out.ExitUsage, "KUBECONFIG", "check the kubeconfig", "conn %s: %v", c.Name, err)
 	}
 	return k, a.Close, nil
+}
+
+// kubeContext reads the conn's kubeconfig from the vault and checks its
+// login program (guardKubePlugin), without connecting to anything.
+func kubeContext(c *store.Conn) (*kube.Context, error) {
+	kc, err := resolvePassword(c)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := kube.Parse([]byte(kc))
+	if err != nil {
+		return nil, out.Errf(out.ExitUsage, "KUBECONFIG", "import it again with `komando import kubeconfig`", "conn %s: %v", c.Name, err)
+	}
+	x, err := cfg.Resolve("")
+	if err != nil {
+		return nil, out.Errf(out.ExitUsage, "KUBECONFIG", "import it again with `komando import kubeconfig`", "conn %s: %v", c.Name, err)
+	}
+	if ns := c.Options["namespace"]; ns != "" {
+		x.Namespace = ns
+	}
+	if err := guardKubePlugin(c, x); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// dryRunKubeCheck is for a dry run that stops before it connects (cluster
+// exec, shell, forward): what the real run would need for the conn's
+// login program still lands in meta.would_be_blocked.
+func dryRunKubeCheck(c *store.Conn) error {
+	if _, err := kubeContext(c); err != nil && !errors.Is(err, errDryRunStopped) {
+		return err
+	}
+	return nil
+}
+
+// errDryRunStopped ends a dry run before it would run something only a
+// person may allow (a kubeconfig's login program); the stop is in
+// meta.would_be_blocked, and the command prints its plan instead.
+var errDryRunStopped = errors.New("dry run stopped before a step that needs a person")
+
+// guardKubePlugin: a kubeconfig credential plugin that komando does not
+// make itself runs a program on this computer each time komando logs in,
+// like a host's --proxy-command (guardProxyCommand). An AI agent can bring
+// one in (import kubeconfig, or a kubeconfig stored with secret set), so
+// an agent command that would run it needs a person's yes, unless a person
+// trusted this very program for the conn (Conn.TrustedPlugin, set only by
+// an import a person made or allowed). The plugin runs only after that.
+// People and scripts wired it themselves.
+func guardKubePlugin(c *store.Conn, x *kube.Context) error {
+	e := x.Plugin()
+	if e == nil {
+		return nil
+	}
+	line := pluginLine(e)
+	if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() {
+		stop := out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig of this conn",
+			"the kubeconfig of conn %s logs in with `%s`, which matches destructive rules: %s", c.Name, line, hits[0].Reason)
+		if g.dryRun {
+			out.P.WouldBlock(stop)
+			return errDryRunStopped
+		}
+		return stop
+	}
+	if !isAgent() || c.TrustedPlugin != "" && c.TrustedPlugin == pluginTrust(line, x.Cluster.Server) {
+		return nil
+	}
+	what := "the kubeconfig of conn " + c.Name + " runs `" + line + "` on this computer to log in"
+	stop := out.Errf(out.ExitPolicy, "SAFETY_SETTING",
+		"a program on this computer is outside the agent guard's view: re-run with --yes after the user confirms it (read-only commands ask too). "+
+			"To trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves",
+		"%s; an AI agent needs a person's yes each time", what)
+	if g.dryRun { // a dry run never runs it: --yes is not asked for here
+		if !g.yes {
+			out.P.WouldBlock(stop)
+		}
+		return errDryRunStopped
+	}
+	if safetyApproved[what] || g.yes && personAllowsFor("--yes", what) {
+		safetyApproved[what] = true
+		return nil
+	}
+	return stop
+}
+
+// pluginTrust is what Conn.TrustedPlugin holds for a login program: a
+// hash of its whole line and of the server its token goes to, so any
+// change (another program, args, environment or server) asks again.
+func pluginTrust(line, server string) string {
+	h := sha256.Sum256([]byte(line + "\n" + server))
+	return hex.EncodeToString(h[:])
+}
+
+// pluginLine is a credential plugin's command line, as it would run, with
+// the environment the kubeconfig gives it (PATH=... changes what runs).
+// The words stay unquoted, so the destructive-command policy sees them as
+// written, as with a --proxy-command.
+func pluginLine(e *kube.ExecAuth) string {
+	words := []string{}
+	for _, kv := range e.Env {
+		words = append(words, kv.Name+"="+kv.Value)
+	}
+	words = append(words, e.Command)
+	words = append(words, e.Args...)
+	return strings.Join(words, " ")
 }
 
 func kubeErr(err error) error {
@@ -124,14 +222,15 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 	if err != nil {
 		return err
 	}
+	// under --dry-run every stop only lands in meta.would_be_blocked
 	if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{name}}); err != nil {
-		if g.dryRun {
-			out.P.Print(name, map[string]any{"conn": t.conn.Name, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
-			return nil
-		}
 		return err
 	}
 	k, done, err := kubeClient(ctx, st, t.conn)
+	if errors.Is(err, errDryRunStopped) {
+		out.P.Print(name, map[string]any{"conn": t.conn.Name, "dry_run": true}, nil)
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -566,6 +665,95 @@ func redact(o map[string]any) {
 	}
 }
 
+// maskObject hides from an AI agent (out.P.Mask) what output masking
+// cannot see once an object is printed whole: a Secret's values, and the
+// values of env vars named like secrets (hideSecretEnv).
+func maskObject(o map[string]any) {
+	if !out.P.Mask {
+		return
+	}
+	redact(o)
+	hideSecretEnv(o)
+}
+
+// refuseHidden stops objects that still hold a value komando hid from an
+// agent ([hidden] from maskObject or output masking, "(hidden)" from
+// redact): sending them would write that text over the real value, the
+// usual round trip being `get -o yaml`, an edit, then apply.
+func refuseHidden(docs []kubeDoc) error {
+	for _, d := range docs {
+		var o any
+		if json.Unmarshal(d.JSON, &o) == nil && holdsHidden(o) {
+			return out.Errf(out.ExitUsage, "HIDDEN_VALUE",
+				"leave the hidden entries out of the file (or use valueFrom.secretKeyRef), or change only what you need with `cluster run TARGET --write -- set image|patch ...`",
+				"%s/%s holds a value komando hid from you ([hidden] or (hidden)); sending it would write that text over the real value", strings.ToLower(d.Kind), d.Name)
+		}
+	}
+	return nil
+}
+
+func holdsHidden(v any) bool {
+	switch x := v.(type) {
+	case string:
+		return out.HasHidden(x) || x == "(hidden)" || strings.HasPrefix(x, "(hidden, ")
+	case map[string]any:
+		for k, c := range x {
+			if out.HasHidden(k) || holdsHidden(c) {
+				return true
+			}
+		}
+	case []any:
+		for _, c := range x {
+			if holdsHidden(c) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+const lastApplied = "kubectl.kubernetes.io/last-applied-configuration"
+
+// hideSecretEnv hides the value of every {name, value} pair whose name
+// says it is a secret ({name: DB_PASSWORD, value: x} in a container's env,
+// an Authorization header in a probe), also in the copy kubectl keeps in
+// the last-applied-configuration annotation. Text masking sees NAME=value
+// but not a name and a value in two fields. valueFrom (a reference) stays.
+func hideSecretEnv(v any) {
+	switch x := v.(type) {
+	case map[string]any:
+		if n, ok := x["name"].(string); ok {
+			if val, ok := x["value"].(string); ok && val != "" && secretValue(n, val) {
+				x["value"] = out.Hidden
+			}
+		}
+		if s, ok := x[lastApplied].(string); ok {
+			var cfg any
+			if json.Unmarshal([]byte(s), &cfg) == nil {
+				hideSecretEnv(cfg)
+				if b, err := json.Marshal(cfg); err == nil {
+					x[lastApplied] = string(b)
+				}
+			}
+		}
+		for _, c := range x {
+			hideSecretEnv(c)
+		}
+	case []any:
+		for _, c := range x {
+			hideSecretEnv(c)
+		}
+	}
+}
+
+// secretValue: the NAME=value line of this pair has its value masked, so
+// a {name, value} pair is hidden by exactly the same rule (true, a path or
+// a placeholder stays, as in text).
+func secretValue(name, val string) bool {
+	line := name + "=" + val
+	return out.MaskSecrets(line) != line
+}
+
 func clusterLsCmd() *cobra.Command {
 	var ns, selector string
 	var all bool
@@ -690,6 +878,7 @@ func clusterGetCmd() *cobra.Command {
 					return nil, err
 				}
 				redact(o)
+				maskObject(o)
 				if m, ok := o["metadata"].(map[string]any); ok {
 					delete(m, "managedFields")
 				}
@@ -950,6 +1139,9 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 			if err != nil {
 				return out.Usage("%s: %v", file, err)
 			}
+			if err := refuseHidden(docs); err != nil {
+				return err
+			}
 			for _, d := range docs {
 				if d.Namespace != "" && ns != "" && d.Namespace != ns {
 					return out.Usage("%s/%s is in namespace %s in the file, not %s from --namespace: leave out --namespace or change the file", strings.ToLower(d.Kind), d.Name, d.Namespace, ns)
@@ -1101,6 +1293,10 @@ func diffObject(name string, before, after []byte) objectChange {
 		return c
 	}
 	hideSecretValues(old, upd) // Secret values never reach the output, not even in a diff
+	if out.P.Mask {
+		hideSecretEnv(old)
+		hideSecretEnv(upd)
+	}
 	c.Diff = unifiedDiff(yamlText(old), yamlText(upd), 3)
 	return c
 }
@@ -1222,7 +1418,7 @@ func splitYAML(b []byte) ([]kubeDoc, error) {
 		if ns, ok := m["namespace"].(string); ok {
 			d.Namespace = ns
 		}
-		if d.Kind == "<nil>" || d.Name == "<nil>" || d.APIVersion == "<nil>" {
+		if d.Kind == "<nil>" || d.Name == "<nil>" || d.APIVersion == "<nil>" || d.Name == "" {
 			return nil, fmt.Errorf("every object needs apiVersion, kind and metadata.name")
 		}
 		var err error
@@ -1343,7 +1539,11 @@ func hasFlag(args []string, flags ...string) bool {
 // subcommand and the flags that change what it does.
 func classifyKubectl(args []string) driver.Risk {
 	verb, sub := strings.ToLower(args[0]), ""
-	if len(args) > 1 {
+	if a, err := parseKargs(args); err == nil {
+		if len(a.pos) > 0 {
+			sub = strings.ToLower(a.pos[0]) // what kctl runs, flags first or not (create -n x token)
+		}
+	} else if len(args) > 1 {
 		sub = strings.ToLower(args[1])
 	}
 	joined := " " + strings.Join(args, " ") + " "
@@ -1353,8 +1553,8 @@ func classifyKubectl(args []string) driver.Risk {
 			return driver.RiskRead
 		}
 		return driver.RiskDestructive // config view --raw prints the credentials
-	case verb == "get" && getsSecretValues(args[1:]):
-		return driver.RiskDestructive // -o yaml/json/jsonpath on Secrets prints their values
+	case verb == "get" && getsSecretValues(args[1:]) && !out.P.Mask:
+		return driver.RiskDestructive // -o yaml/json/jsonpath on Secrets prints their values (an agent sees them hidden: maskObject)
 	case oneOf(verb, "get", "describe", "logs", "top", "explain", "version", "api-resources", "api-versions",
 		"cluster-info", "events", "diff", "wait"):
 		return driver.RiskRead
@@ -1366,13 +1566,50 @@ func classifyKubectl(args []string) driver.Risk {
 		"exec", "cp", "attach", "debug", "proxy", "port-forward"):
 		return driver.RiskDestructive // exec/cp/debug run anything inside the cluster; edit patches like patch
 	case verb == "apply" && hasFlag(args, "--prune", "--force"),
-		verb == "scale" && (strings.Contains(joined, "--replicas=0 ") || strings.Contains(joined, "--replicas 0 ")),
+		verb == "scale" && scalesToZero(args),
 		verb == "create" && oneOf(sub, "clusterrolebinding", "rolebinding", "token", "clusterrole"),
 		verb == "set" && sub == "subject",
 		verb == "run" && (hasFlag(args, "--overrides", "--privileged") || strings.Contains(joined, "hostPID")):
 		return driver.RiskDestructive // deletes, outages, or more rights than the conn has
 	}
 	return driver.RiskWrite
+}
+
+// scalesToZero: the replica count kctl would send (the last --replicas,
+// read as a number the way kctl reads it: -0 and 00 are 0) stops the
+// workload, or cannot be read at all.
+func scalesToZero(args []string) bool {
+	a, err := parseKargs(args)
+	if err != nil {
+		return true
+	}
+	n, err := strconv.Atoi(a.val("replicas"))
+	return err != nil || n <= 0
+}
+
+// serverDryRun reports whether kctl sends this command to the server with
+// dryRun=All, so --dry-run can run it: the server checks the change and
+// keeps nothing. Any other command that is not a read would really happen
+// (exec, cp, a token), or would print what --dry-run must not reveal (a
+// Secret's values, the kubeconfig).
+func serverDryRun(args []string) bool {
+	a, err := parseKargs(args)
+	if err != nil {
+		return false
+	}
+	sub := ""
+	if len(a.pos) > 0 {
+		sub = strings.ToLower(a.pos[0])
+	}
+	switch a.verb {
+	case "apply", "diff", "replace", "delete", "patch", "label", "annotate", "scale", "set", "cordon", "uncordon", "drain", "taint", "certificate":
+		return true
+	case "create":
+		return sub != "token" || len(a.vals["filename"]) > 0 // a TokenRequest makes a real token
+	case "rollout":
+		return oneOf(sub, "restart", "pause", "resume", "undo")
+	}
+	return false
 }
 
 // getsSecretValues reports whether `kubectl get` args ask for Secrets with
@@ -1473,25 +1710,37 @@ risky verbs also need --allow-dangerous.`,
 				}
 				return runOne(cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
 			}
+			// under --dry-run every stop only lands in meta.would_be_blocked
 			if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"kubectl " + verb}}); err != nil {
-				if g.dryRun {
-					out.P.Print("cluster.run", map[string]any{"conn": t.conn.Name, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
-					return nil
-				}
 				return err
 			}
-			if g.dryRun && risk > driver.RiskRead && oneOf(verb, "exec", "cp", "attach", "debug", "proxy", "port-forward", "run") {
-				return out.Usage("%s cannot be dry-run", verb)
+			plan := map[string]any{"conn": t.conn.Name, "dry_run": true, "would_run": "kubectl " + strings.Join(redactArgs(args[1:]), " ")}
+			if g.dryRun && risk > driver.RiskRead && !serverDryRun(args[1:]) {
+				// the server cannot dry-run it: show it, run nothing
+				out.P.Print("cluster.run", plan, nil)
+				return nil
 			}
 			// a watch (-w, logs -f) ends at --timeout like every command
 			ctx, cancel := context.WithTimeout(cmd.Context(), cmdTimeout(st))
 			defer cancel()
 			k, done, err := kubeClient(ctx, st, t.conn)
+			if errors.Is(err, errDryRunStopped) {
+				out.P.Print("cluster.run", plan, nil)
+				return nil
+			}
 			if err != nil {
 				return err
 			}
 			defer done()
-			code, stdout, stderr := runKctl(ctx, k, t.conn.Name, args[1:])
+			code, stdout, stderr, stop := runKctlLive(ctx, k, t.conn.Name, args[1:], printLogLine)
+			if stop != nil { // komando's own stop, before anything was sent
+				if g.dryRun && stop.Exit == out.ExitPolicy {
+					out.P.WouldBlock(stop)
+					out.P.Print("cluster.run", plan, nil)
+					return nil
+				}
+				return stop
+			}
 			if risk > driver.RiskRead {
 				audit(st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args[1:]), " "), code == 0, map[string]any{"conns": []string{t.conn.Name}, "risk": risk.String()})
 			}
@@ -1553,6 +1802,9 @@ func importKubeconfig(path string) (*importPlan, error) {
 			p.Notes = append(p.Notes, fmt.Sprintf("context %s: %v", n, err))
 			continue
 		}
+		if err := guardKubeImport(n, x); err != nil {
+			return nil, err
+		}
 		kc, err := x.Standalone()
 		if err != nil {
 			p.Notes = append(p.Notes, fmt.Sprintf("context %s: %v", n, err))
@@ -1570,11 +1822,38 @@ func importKubeconfig(path string) (*importPlan, error) {
 		}
 		p.Secrets[name+"-kubeconfig"] = string(kc)
 		p.Conns = append(p.Conns, c)
-		if x.User.Exec != nil {
-			p.Notes = append(p.Notes, fmt.Sprintf("context %s logs in with %s; komando runs it when needed", n, x.User.Exec.Command))
+		if e := x.Plugin(); e != nil {
+			// a person imported it, or allowed it (guardKubeImport): agents
+			// may run this program for this conn without asking again
+			c.TrustedPlugin = pluginTrust(pluginLine(e), x.Cluster.Server)
+			p.Notes = append(p.Notes, fmt.Sprintf("context %s (imported) logs in by running `%s` on this computer for every cluster command", n, pluginLine(e)))
 		}
 	}
 	return p, nil
+}
+
+// guardKubeImport: an AI agent importing a kubeconfig that runs a program
+// on this computer to log in (guardKubePlugin), or that sends a file of
+// this computer to the server as its token (tokenFile), needs a person's
+// yes, as for a host's --proxy-command. Under --dry-run the stop is only
+// reported.
+func guardKubeImport(name string, x *kube.Context) error {
+	if e := x.Plugin(); e != nil {
+		line := pluginLine(e)
+		if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() {
+			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig",
+				"context %s logs in with `%s`, which matches destructive rules: %s", name, line, hits[0].Reason))
+		}
+		if isAgent() {
+			if err := guardSafety("context " + name + " runs `" + line + "` on this computer whenever komando logs in, also for AI agents' later commands"); err != nil {
+				return err
+			}
+		}
+	}
+	if f := x.User.TokenFile; f != "" && isAgent() {
+		return guardSafety("context " + name + " sends the file " + f + " from this computer to its server as the login token")
+	}
+	return nil
 }
 
 // redactArgs hides values that may be secrets (--from-literal=k=v,

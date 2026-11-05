@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -53,8 +55,8 @@ var rules = []driver.Rule{
 	{ID: "redis-server-config", Reason: "changes server, replication or cluster configuration"},
 	{ID: "redis-kill", Reason: "kills clients or shuts the server down"},
 	{ID: "redis-acl", Reason: "changes users or permissions"},
-	{ID: "redis-scripts", Reason: "deletes stored scripts or functions"},
-	{ID: "redis-script-run", Reason: "runs a server-side script komando cannot inspect (EVAL, EVALSHA, FCALL)"},
+	{ID: "redis-scripts", Reason: "deletes or replaces stored scripts or functions"},
+	{ID: "redis-script-run", Reason: "runs a server-side script komando cannot inspect, which can block the server (EVAL, EVALSHA, FCALL and their _RO forms, TFCALL, RG.PYEXECUTE)"},
 }
 
 // Rules lists the rules Classify can report.
@@ -75,7 +77,7 @@ SMEMBERS SISMEMBER SMISMEMBER SCARD SRANDMEMBER SINTER SUNION SDIFF SINTERCARD Z
 ZRANGEBYLEX ZREVRANGE ZREVRANGEBYSCORE ZREVRANGEBYLEX ZSCORE ZMSCORE ZCARD ZCOUNT ZLEXCOUNT ZRANK ZREVRANK
 ZRANDMEMBER ZINTER ZUNION ZDIFF ZINTERCARD XRANGE XREVRANGE XLEN XPENDING BITCOUNT BITPOS GETBIT BITFIELD_RO
 PFCOUNT GEOPOS GEODIST GEOHASH GEOSEARCH GEORADIUS_RO GEORADIUSBYMEMBER_RO INFO DBSIZE PING ECHO TIME LASTSAVE
-ROLE RANDOMKEY TOUCH LCS SORT_RO EVAL_RO EVALSHA_RO FCALL_RO DUMP COMMAND
+ROLE RANDOMKEY TOUCH LCS SORT_RO DUMP COMMAND
 JSON.GET JSON.MGET JSON.TYPE JSON.STRLEN JSON.ARRLEN JSON.ARRINDEX JSON.OBJKEYS JSON.OBJLEN JSON.RESP
 FT.SEARCH FT.AGGREGATE FT.INFO FT._LIST FT.EXPLAIN FT.EXPLAINCLI FT.PROFILE FT.TAGVALS FT.SPELLCHECK
 FT.DICTDUMP FT.SYNDUMP TS.GET TS.MGET TS.RANGE TS.REVRANGE TS.MRANGE TS.MREVRANGE TS.INFO TS.QUERYINDEX
@@ -85,19 +87,20 @@ TDIGEST.RANK TDIGEST.REVRANK TDIGEST.BYRANK TDIGEST.BYREVRANK TDIGEST.TRIMMED_ME
 
 // read-only subcommands of otherwise mixed commands
 var readSub = map[string]map[string]bool{
-	"CONFIG":   set("GET HELP"),
-	"CLIENT":   set("LIST INFO GETNAME ID HELP TRACKINGINFO"),
-	"MEMORY":   set("USAGE STATS DOCTOR HELP MALLOC-STATS"),
-	"OBJECT":   set("ENCODING FREQ IDLETIME REFCOUNT HELP"),
-	"SLOWLOG":  set("GET LEN HELP"),
-	"LATENCY":  set("LATEST HISTORY DOCTOR GRAPH HELP HISTOGRAM"),
-	"CLUSTER":  set("INFO NODES SLOTS SHARDS MYID KEYSLOT COUNTKEYSINSLOT GETKEYSINSLOT HELP"),
-	"XINFO":    set("STREAM GROUPS CONSUMERS HELP"),
-	"ACL":      set("LIST USERS WHOAMI GETUSER CAT LOG HELP"),
-	"SCRIPT":   set("EXISTS HELP"),
-	"FUNCTION": set("LIST DUMP STATS HELP"),
-	"PUBSUB":   set("CHANNELS NUMSUB NUMPAT SHARDCHANNELS SHARDNUMSUB HELP"),
-	"MODULE":   set("LIST HELP"),
+	"CONFIG":    set("GET HELP"),
+	"CLIENT":    set("LIST INFO GETNAME ID HELP TRACKINGINFO"),
+	"MEMORY":    set("USAGE STATS DOCTOR HELP MALLOC-STATS"),
+	"OBJECT":    set("ENCODING FREQ IDLETIME REFCOUNT HELP"),
+	"SLOWLOG":   set("GET LEN HELP"),
+	"LATENCY":   set("LATEST HISTORY DOCTOR GRAPH HELP HISTOGRAM"),
+	"CLUSTER":   set("INFO NODES SLOTS SHARDS MYID KEYSLOT COUNTKEYSINSLOT GETKEYSINSLOT HELP"),
+	"XINFO":     set("STREAM GROUPS CONSUMERS HELP"),
+	"ACL":       set("LIST USERS WHOAMI GETUSER CAT LOG HELP"),
+	"SCRIPT":    set("EXISTS HELP"),
+	"FUNCTION":  set("LIST DUMP STATS HELP"),
+	"PUBSUB":    set("CHANNELS NUMSUB NUMPAT SHARDCHANNELS SHARDNUMSUB HELP"),
+	"MODULE":    set("LIST HELP"),
+	"TFUNCTION": set("LIST"),
 }
 
 var destructive = map[string]string{
@@ -105,17 +108,26 @@ var destructive = map[string]string{
 	"KEYS": "redis-blocking", "SAVE": "redis-blocking", "DEBUG": "redis-blocking",
 	"SHUTDOWN": "redis-kill", "REPLICAOF": "redis-server-config", "SLAVEOF": "redis-server-config",
 	"FAILOVER": "redis-server-config", "MIGRATE": "redis-flush",
+	// a read-only script cannot write, but it can loop: Redis then answers
+	// BUSY to every client until someone sends SCRIPT KILL
 	"EVAL": "redis-script-run", "EVALSHA": "redis-script-run", "FCALL": "redis-script-run",
+	"EVAL_RO": "redis-script-run", "EVALSHA_RO": "redis-script-run", "FCALL_RO": "redis-script-run",
+	// module code: Redis Stack Triggers and Functions (JavaScript) and
+	// RedisGears (Python, which can do anything the server can)
+	"TFCALL": "redis-script-run", "TFCALLASYNC": "redis-script-run",
+	"RG.PYEXECUTE": "redis-script-run", "RG.TRIGGER": "redis-script-run", "RG.TRIGGERONKEY": "redis-script-run",
+	"RG.UNREGISTER": "redis-scripts",
 }
 
 var destructiveSub = map[string]map[string]string{
-	"CONFIG":   {"SET": "redis-server-config", "REWRITE": "redis-server-config", "RESETSTAT": "redis-server-config"},
-	"CLIENT":   {"KILL": "redis-kill", "PAUSE": "redis-kill", "NO-EVICT": "redis-server-config"},
-	"CLUSTER":  {"RESET": "redis-server-config", "FAILOVER": "redis-server-config", "FORGET": "redis-server-config", "DELSLOTS": "redis-server-config", "SETSLOT": "redis-server-config"},
-	"ACL":      {"SETUSER": "redis-acl", "DELUSER": "redis-acl", "LOAD": "redis-acl", "SAVE": "redis-acl"},
-	"SCRIPT":   {"FLUSH": "redis-scripts"},
-	"FUNCTION": {"FLUSH": "redis-scripts", "DELETE": "redis-scripts", "RESTORE": "redis-scripts"},
-	"MODULE":   {"LOAD": "redis-server-config", "LOADEX": "redis-server-config", "UNLOAD": "redis-server-config"},
+	"CONFIG":    {"SET": "redis-server-config", "REWRITE": "redis-server-config", "RESETSTAT": "redis-server-config"},
+	"CLIENT":    {"KILL": "redis-kill", "PAUSE": "redis-kill", "NO-EVICT": "redis-server-config"},
+	"CLUSTER":   {"RESET": "redis-server-config", "FAILOVER": "redis-server-config", "FORGET": "redis-server-config", "DELSLOTS": "redis-server-config", "SETSLOT": "redis-server-config"},
+	"ACL":       {"SETUSER": "redis-acl", "DELUSER": "redis-acl", "LOAD": "redis-acl", "SAVE": "redis-acl"},
+	"SCRIPT":    {"FLUSH": "redis-scripts"},
+	"FUNCTION":  {"FLUSH": "redis-scripts", "DELETE": "redis-scripts", "RESTORE": "redis-scripts"},
+	"TFUNCTION": {"DELETE": "redis-scripts"},
+	"MODULE":    {"LOAD": "redis-server-config", "LOADEX": "redis-server-config", "UNLOAD": "redis-server-config"},
 }
 
 func set(words string) map[string]bool {
@@ -149,6 +161,11 @@ func Classify(args []string) driver.Verdict {
 	if cmd == "ACL" && sub == "LOG" && len(args) > 2 && strings.EqualFold(args[2], "RESET") {
 		return driver.Verdict{Risk: driver.RiskWrite}
 	}
+	if (cmd == "FUNCTION" || cmd == "TFUNCTION") && sub == "LOAD" && replaces(args) {
+		// swaps the code behind functions the application already calls;
+		// a plain LOAD only adds a library and fails if the name is taken
+		return flag("redis-scripts")
+	}
 	if id, ok := destructiveSub[cmd][sub]; ok {
 		return flag(id)
 	}
@@ -156,6 +173,20 @@ func Classify(args []string) driver.Verdict {
 		return driver.Verdict{Risk: driver.RiskRead}
 	}
 	return driver.Verdict{Risk: driver.RiskWrite}
+}
+
+// replaces: FUNCTION LOAD or TFUNCTION LOAD with REPLACE among the options,
+// which come before the code (the last argument).
+func replaces(args []string) bool {
+	if len(args) < 4 {
+		return false
+	}
+	for _, a := range args[2 : len(args)-1] {
+		if strings.EqualFold(a, "REPLACE") {
+			return true
+		}
+	}
+	return false
 }
 
 // expiresNow reports EXPIRE/PEXPIRE with a time of zero or less, and
@@ -344,9 +375,140 @@ func Run(ctx context.Context, c *redis.Client, args []string) (any, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, cmdErr(err)
+		return nil, scriptTimeout(args, cmdErr(err))
 	}
 	return reply(v), nil
+}
+
+// scriptKill names the command that stops each kind of running script.
+var scriptKill = map[string]string{
+	"EVAL": "SCRIPT KILL", "EVALSHA": "SCRIPT KILL", "EVAL_RO": "SCRIPT KILL", "EVALSHA_RO": "SCRIPT KILL",
+	"FCALL": "FUNCTION KILL", "FCALL_RO": "FUNCTION KILL",
+}
+
+// scriptTimeout: komando stopped waiting for a script, but the script may
+// still run and block the server, so "raise --timeout" is the wrong advice.
+func scriptTimeout(args []string, err error) error {
+	var oe *out.Error
+	if len(args) == 0 || destructive[strings.ToUpper(args[0])] != "redis-script-run" || !errors.As(err, &oe) || oe.Code != "TIMEOUT" {
+		return err
+	}
+	stop := ""
+	if k := scriptKill[strings.ToUpper(args[0])]; k != "" {
+		stop = " (" + k + " stops it)"
+	}
+	oe.Message = "the script did not finish in time"
+	oe.Hint = "the script may still be running, and until it ends Redis may answer BUSY to every client: tell the user" +
+		stop + "; do not retry with a longer --timeout unless the user says so"
+	return oe
+}
+
+// passwordHash is a password as ACL LIST and ACL GETUSER show it: an
+// unsalted SHA-256, which is cheap to crack for a weak password.
+var passwordHash = regexp.MustCompile(`\b[0-9a-f]{64}\b`)
+
+// HideSecrets hides credentials in the reply to args, for output to an AI
+// agent: the values of password parameters in CONFIG GET (requirepass,
+// masterauth, tls-key-file-pass, ...) and the password hashes in ACL LIST
+// and ACL GETUSER. The output masker cannot spot these: requirepass is not
+// a name it knows, and over RESP2 CONFIG GET returns names and values as
+// separate items of one list.
+func HideSecrets(args []string, v any) any {
+	w := make([]string, 0, 3)
+	for _, a := range args[:min(len(args), 3)] {
+		w = append(w, strings.ToUpper(a))
+	}
+	is := func(words ...string) bool { return len(w) >= len(words) && slices.Equal(w[:len(words)], words) }
+	switch {
+	case is("CONFIG", "GET"), is("SENTINEL", "CONFIG", "GET"):
+		hideParams(v)
+	case is("ACL", "LIST"), is("ACL", "GETUSER"):
+		return hideHashes(v)
+	case is("HGETALL"):
+		return pairsToMap(v)
+	}
+	return v
+}
+
+// pairsToMap turns a RESP2 HGETALL reply, a flat [field, value ...] list,
+// into the map RESP3 gives, so the output masking sees a field named
+// password as a name and hides its value the same way over both.
+func pairsToMap(v any) any {
+	x, ok := v.([]any)
+	if !ok || len(x)%2 != 0 {
+		return v
+	}
+	m := make(map[string]any, len(x)/2)
+	for i := 0; i < len(x); i += 2 {
+		name, ok := x[i].(string)
+		if !ok { // a binary field name: keep the list
+			return v
+		}
+		m[name] = x[i+1]
+	}
+	return m
+}
+
+// hideParams hides password values in a CONFIG GET reply: a map over
+// RESP3, a flat [name, value, name, value ...] list over RESP2.
+func hideParams(v any) {
+	switch x := v.(type) {
+	case map[string]any:
+		for name, val := range x {
+			if secretParam(name, val) {
+				x[name] = out.Hidden
+			}
+		}
+	case []any:
+		for i := 0; i+1 < len(x); i += 2 {
+			if name, ok := x[i].(string); ok && secretParam(name, x[i+1]) {
+				x[i+1] = out.Hidden
+			}
+		}
+	}
+}
+
+// secretParam: a parameter that holds a password (requirepass, masterauth,
+// primaryauth, tls-key-file-pass, sentinel-pass ...) and is set. A switch
+// such as tls-auth-clients (yes, no, optional) is not a secret; a password
+// parameter is hidden whatever it holds, even "yes".
+func secretParam(name string, v any) bool {
+	n := strings.ToLower(name)
+	if !strings.Contains(n, "pass") && !strings.Contains(n, "auth") {
+		return false
+	}
+	s, ok := v.(string)
+	if !ok {
+		return v != nil // a binary value comes as {"base64": ...}
+	}
+	if s == "" {
+		return false
+	}
+	if strings.HasSuffix(n, "pass") || strings.HasSuffix(n, "auth") || strings.HasSuffix(n, "password") {
+		return true
+	}
+	switch strings.ToLower(s) {
+	case "yes", "no", "optional", "on", "off", "true", "false":
+		return false
+	}
+	return true
+}
+
+// hideHashes replaces every password hash in a reply with [hidden].
+func hideHashes(v any) any {
+	switch x := v.(type) {
+	case string:
+		return passwordHash.ReplaceAllString(x, out.Hidden)
+	case []any:
+		for i, e := range x {
+			x[i] = hideHashes(e)
+		}
+	case map[string]any:
+		for k, e := range x {
+			x[k] = hideHashes(e)
+		}
+	}
+	return v
 }
 
 func reply(v any) any {

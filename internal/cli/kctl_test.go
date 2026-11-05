@@ -176,7 +176,7 @@ func TestKctlWrite(t *testing.T) {
 		{[]string{"set", "image", "deploy/web", "web=nginx:2"}, "deployment.apps/web image updated\n", `"image":"nginx:2"`},
 		{[]string{"rollout", "restart", "deploy/web"}, "deployment.apps/web restarted\n", "kubectl.kubernetes.io/restartedAt"},
 		{[]string{"cordon", "node1"}, "node/node1 cordoned\n", `{"spec":{"unschedulable":true}}`},
-		{[]string{"delete", "deploy", "web", "--wait=false"}, "deployment.apps \"web\" deleted\n", "DELETE /apis/apps/v1/namespaces/shop/deployments/web"},
+		{[]string{"delete", "deploy", "web", "--wait=false"}, "deployment.apps \"web\" deleted from shop namespace\n", "DELETE /apis/apps/v1/namespaces/shop/deployments/web"},
 	}
 	for _, c := range checks {
 		f.writes = nil

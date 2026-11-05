@@ -19,7 +19,34 @@ func TestClassify(t *testing.T) {
 		{"CONFIG GET maxmemory", driver.RiskRead, ""},
 		{"CLIENT LIST", driver.RiskRead, ""},
 		{"XINFO STREAM events", driver.RiskRead, ""},
-		{"EVAL_RO 'return 1' 0", driver.RiskRead, ""},
+		{"CONFIG GET requirepass", driver.RiskRead, ""}, // a read; HideSecrets hides the value from agents
+		// a read-only script cannot write, but it can loop and block the server
+		{"EVAL_RO 'return 1' 0", driver.RiskDestructive, "redis-script-run"},
+		{"evalsha_ro e0e1f9fabfc9d4800c877a703b823ac0578ff8db 0", driver.RiskDestructive, "redis-script-run"},
+		{"FCALL_RO myfn 0", driver.RiskDestructive, "redis-script-run"},
+		// REPLACE swaps the code behind functions the application calls
+		{"FUNCTION LOAD REPLACE code", driver.RiskDestructive, "redis-scripts"},
+		{"function load replace code", driver.RiskDestructive, "redis-scripts"},
+		{"FUNCTION LOAD code", driver.RiskWrite, ""},
+		{"FUNCTION DELETE lib", driver.RiskDestructive, "redis-scripts"},
+		{"FUNCTION RESTORE payload REPLACE", driver.RiskDestructive, "redis-scripts"},
+		{"FUNCTION LIST", driver.RiskRead, ""},
+		{"SCRIPT LOAD code", driver.RiskWrite, ""},
+		// module code komando cannot inspect: Triggers and Functions, RedisGears
+		{"TFCALL lib.fn 0", driver.RiskDestructive, "redis-script-run"},
+		{"tfcallasync lib.fn 1 k", driver.RiskDestructive, "redis-script-run"},
+		{"RG.PYEXECUTE GB().run()", driver.RiskDestructive, "redis-script-run"},
+		{"rg.trigger t1", driver.RiskDestructive, "redis-script-run"},
+		{"RG.TRIGGERONKEY t1 k", driver.RiskDestructive, "redis-script-run"},
+		{"RG.UNREGISTER 0000000000000000000000000000000000000000-1", driver.RiskDestructive, "redis-scripts"},
+		{"TFUNCTION LOAD REPLACE code", driver.RiskDestructive, "redis-scripts"},
+		{"TFUNCTION LOAD CONFIG {} REPLACE code", driver.RiskDestructive, "redis-scripts"},
+		{"TFUNCTION LOAD code", driver.RiskWrite, ""},
+		{"TFUNCTION DELETE lib", driver.RiskDestructive, "redis-scripts"},
+		{"TFUNCTION LIST", driver.RiskRead, ""},
+		{"FUNCTION LOAD", driver.RiskWrite, ""},
+		{"FUNCTION LOAD REPLACE", driver.RiskWrite, ""}, // no code: the server refuses it
+		{"FUNCTION LOAD replace", driver.RiskWrite, ""}, // "replace" is the code here
 		{"SET k v", driver.RiskWrite, ""},
 		{"DEL k", driver.RiskDestructive, "data-delete"},
 		{"unlink a b", driver.RiskDestructive, "data-delete"},

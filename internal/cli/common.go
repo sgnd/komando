@@ -158,6 +158,9 @@ func toErr(err error) *out.Error {
 // used, instead of Go's "open X: no such file or directory". hint, when
 // given, replaces the default next step.
 func localFileErr(code string, err error, hint string) *out.Error {
+	if isSensitive(err) {
+		return toErr(err) // komando refused to read it (guardLocalRead): say so as it is
+	}
 	path, why := "the file", err.Error()
 	var pe *os.PathError
 	if errors.As(err, &pe) {
@@ -226,12 +229,13 @@ func withClient(ctx context.Context, st *store.State, h *store.Host, fn func(c *
 func guard(st *store.State, hosts []*store.Host, command string, mutating bool) error {
 	names := hostNames(hosts)
 	if command != "" {
-		if hits := policy.Check(command, st.Settings.ExtraDenyPattern); len(hits) > 0 && !dangerOK() && !confirmDangerous(names, hits[0].Reason) {
-			ids := make([]string, len(hits))
-			reasons := make([]string, len(hits))
-			for i, h := range hits {
-				ids[i], reasons[i] = h.ID, h.Reason
-			}
+		hits := policy.Check(command, st.Settings.ExtraDenyPattern)
+		ids := make([]string, len(hits))
+		reasons := make([]string, len(hits))
+		for i, h := range hits {
+			ids[i], reasons[i] = h.ID, h.Reason
+		}
+		if len(hits) > 0 && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerous(names, hits[0].Reason) {
 			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 				"if this is truly intended, confirm with the user and re-run with --allow-dangerous (try --dry-run first)",
 				"command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")))
@@ -244,13 +248,40 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 				prot = append(prot, h.Name)
 			}
 		}
-		if len(prot) > 0 && !yesOK() && !confirmProtected(prot) {
+		if len(prot) > 0 && !yesOK("a change on protected host(s) "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
 			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
 				"protected hosts require explicit confirmation: re-run with --yes after verifying intent",
 				"mutating action targets protected host(s): %s", strings.Join(prot, ", ")))
 		}
 	}
 	return nil
+}
+
+// targetsWhy names the hosts a command runs on, for the approval window.
+func targetsWhy(st *store.State, hosts []*store.Host) string {
+	if len(hosts) == 0 {
+		return ""
+	}
+	names := make([]string, 0, len(hosts))
+	for i, h := range hosts {
+		if i == 20 {
+			names = append(names, fmt.Sprintf("and %d more", len(hosts)-i))
+			break
+		}
+		n := h.Name
+		if protectedHost(st, h) {
+			n += " (protected)"
+		}
+		names = append(names, n)
+	}
+	return "it runs on " + strings.Join(names, ", ")
+}
+
+func connsWhy(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	return "it runs on " + strings.Join(names, ", ")
 }
 
 // guardConns is guard for conns. The driver classifies the operation first;
@@ -261,7 +292,7 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 	for i, c := range conns {
 		names[i] = c.Name
 	}
-	if v.Risk >= driver.RiskDestructive && !dangerOK() && !confirmDangerous(names, strings.Join(v.Reasons, "; ")) {
+	if v.Risk >= driver.RiskDestructive && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerous(names, strings.Join(v.Reasons, "; ")) {
 		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 			"if this is truly intended, confirm with the user and re-run with --allow-dangerous (try --dry-run first)",
 			"operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")))
@@ -273,7 +304,7 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 				prot = append(prot, c.Name)
 			}
 		}
-		if len(prot) > 0 && !yesOK() && !confirmProtected(prot) {
+		if len(prot) > 0 && !yesOK("a change on protected conn(s) "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
 			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
 				"protected conns require explicit confirmation: re-run with --yes after verifying intent",
 				"%s action targets protected conn(s): %s", v.Risk, strings.Join(prot, ", ")))
@@ -285,7 +316,11 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 // protectedHost is true when h is marked protected, or when a protected
 // inventory host has the same address and port: otherwise an ad-hoc
 // user@address or a second name for the same server would get around
-// protection. Names are compared as written; komando does not resolve DNS.
+// protection. Addresses are compared as sameServer does: by name, and by
+// the IP addresses they lead to (each IP in its one canonical form, so
+// ::ffff:10.0.0.5 is 10.0.0.5). A name this computer cannot look up (one
+// only a jump host knows) is compared by its text only: failing closed on
+// it would put every change behind --yes and teach people to say yes.
 func protectedHost(st *store.State, h *store.Host) bool {
 	if h.Protected {
 		return true
@@ -460,7 +495,7 @@ func guardSafety(what string) error {
 	if safetyApproved[what] { // asked already in this command (before the state was locked)
 		return nil
 	}
-	if yesOK() || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
+	if g.yes && personAllowsFor("--yes", what) || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
 		safetyApproved[what] = true
 		return nil
 	}

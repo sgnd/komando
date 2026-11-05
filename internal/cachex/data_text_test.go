@@ -29,8 +29,11 @@ func TestReplyText(t *testing.T) {
 	if got != want {
 		t.Errorf("array:\n%s\nwant\n%s", got, want)
 	}
-	if got := ReplyText(map[string]any{"f2": "v 2", "f1": "v1"}); got != "1# f1 => v1\n2# f2 => \"v 2\"\n" {
+	if got := ReplyText(map[string]any{"f2": "v 2", "f1": "v1"}); got != "1# f1: v1\n2# f2: \"v 2\"\n" {
 		t.Errorf("map: %q", got)
+	}
+	if got := ReplyText(map[string]any{"flags": []any{"on", "off"}}); got != "1# flags: 1) on\n          2) off\n" {
+		t.Errorf("nested map: %q", got)
 	}
 	if got := ReplyText([]any{}); got != "(empty array)\n" {
 		t.Errorf("empty: %q", got)

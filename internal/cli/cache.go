@@ -470,6 +470,11 @@ func cacheRunCmd() *cobra.Command {
 					if err != nil {
 						return nil, err
 					}
+					if out.P.Mask {
+						// CONFIG GET requirepass, ACL LIST ...: reads that show
+						// passwords the output masking cannot recognize
+						res = cachex.HideSecrets(command, res)
+					}
 					return cacheReply{Conn: c.Name, Risk: v.Risk.String(), Reply: res}, nil
 				})
 		},

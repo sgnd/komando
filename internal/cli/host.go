@@ -561,7 +561,7 @@ func readFileOrStdin(p string) ([]byte, error) {
 	if p == "-" {
 		return readAllStdin()
 	}
-	return os.ReadFile(p)
+	return readLocalFile(p)
 }
 
 // parseSSHConfig understands Host, HostName, User, Port, IdentityFile,
@@ -780,14 +780,18 @@ func hostTrustCmd() *cobra.Command {
 		Use:   "trust NAME",
 		Short: "Pin (or re-pin with --reset) a host's SSH key in komando's known_hosts",
 		Long: `Fetches the server's host key and stores it in komando's known_hosts, like
-ssh-keyscan plus ssh-keygen -R. A host without --via is asked directly; a host
-behind --via servers or a VPN is reached through that path and its key is
-recorded on the way. Use --reset after a legitimate server rebuild: it
-forgets the old key first. With --dry-run nothing is fetched or changed; it
-only counts the pinned entries --reset would remove.`,
+ssh-keyscan plus ssh-keygen -R. The key is fetched the way komando reaches
+the server: directly, or through its --via servers, VPN or proxy command.
+
+A key that is already pinned is left as it is. If a different key is
+pinned, the server may be an impostor (HOSTKEY_MISMATCH): check the new
+fingerprint another way, then replace the pin with --reset. Replacing a pin
+needs --yes (an AI agent also needs a person's yes on the screen). With
+--dry-run nothing is fetched or changed; it only counts the pinned entries
+--reset would replace.`,
 		Example: `  komando host trust web1
   komando host trust web1 --reset --dry-run   # how many pinned keys would go
-  komando host trust web1 --reset`,
+  komando host trust web1 --reset --yes       # after a real rebuild`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -799,55 +803,79 @@ only counts the pinned entries --reset would remove.`,
 				return err
 			}
 			addr := net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort()))
+			replacing := func(what string) error {
+				if err := guardSafety("replacing the pinned host key of " + h.Name + " (" + what + ")"); err != nil {
+					return err
+				}
+				if protectedHost(st, h) {
+					return guardProtection("host", "replacing the pinned host key of", []string{h.Name})
+				}
+				return nil
+			}
 			if g.dryRun {
-				res := map[string]any{"host": h.Name, "address": addr, "would_fetch_from": map[bool]string{true: "the server directly", false: "through --via " + h.Via}[h.Via == ""]}
+				res := map[string]any{"host": h.Name, "address": addr, "would_fetch_from": keyFetchPath(st, h)}
 				if reset {
-					res["would_remove_entries"] = countPinned(addr)
+					n := countPinned(addr)
+					res["would_remove_entries"] = n
+					if n > 0 {
+						if err := replacing("a key may be replaced"); err != nil {
+							return err
+						}
+					}
 				}
 				out.P.Print("host.trust", res, nil)
 				return nil
 			}
-			removed := 0
-			if reset {
-				if removed, err = sshx.ForgetHost(addr); err != nil {
+			key, err := sshx.FetchHostKey(cmd.Context(), st, h, sshOpts(st))
+			if err != nil {
+				if oe, ok := err.(*out.Error); ok && oe.Code != "CONNECT_FAILED" {
+					return oe // a jump host's key or login, a timeout, a VPN: its own words
+				}
+				return out.Errf(out.ExitConnect, "KEYSCAN_FAILED", "check the address and port with `komando host show "+h.Name+"`", "cannot fetch host key from %s: %v", addr, err)
+			}
+			fp := ssh.FingerprintSHA256(key)
+			pins, err := sshx.PinnedKeys(addr)
+			if err != nil {
+				return err
+			}
+			same, other := false, []string{}
+			for _, k := range pins {
+				if sshx.SameKey(k, key) {
+					same = true
+				} else {
+					other = append(other, ssh.FingerprintSHA256(k))
+				}
+			}
+			switch {
+			case len(other) > 0 && !same && !reset:
+				// never pin a second key next to the old one: both would be accepted
+				e := sshx.HostKeyMismatch(h.Name)
+				e.Message += fmt.Sprintf("; pinned %s, the server now shows %s", strings.Join(other, ", "), fp)
+				return e
+			case len(other) > 0 && !same:
+				if err := replacing("old " + strings.Join(other, ", ") + ", new " + fp); err != nil {
 					return err
 				}
 			}
-			var key ssh.PublicKey
-			if h.Via == "" {
-				key, err = sshx.ScanHostKey(cmd.Context(), addr, sshOpts(st).ConnectTimeout)
-				if err != nil {
-					return out.Errf(out.ExitConnect, "KEYSCAN_FAILED", "check the address and port with `komando host show "+h.Name+"`", "cannot fetch host key from %s: %v", addr, err)
-				}
-				if err := sshx.TrustKey(addr, key); err != nil {
-					return err
-				}
-			} else {
-				// behind a jump: connect with accept-new to record the key
-				o := sshOpts(st)
-				o.HostKeyPolicy = "accept-new"
-				c, err := sshx.Dial(cmd.Context(), st, h, o)
-				if err != nil {
-					return err
-				}
-				c.Close()
+			removed, err := sshx.PinHostKey(addr, key, reset)
+			if err != nil {
+				return err
 			}
-			res := map[string]any{"host": h.Name, "address": addr, "removed_entries": removed}
-			if key != nil {
-				res["key_type"] = key.Type()
-				res["fingerprint"] = ssh.FingerprintSHA256(key)
+			res := map[string]any{"host": h.Name, "address": addr, "removed_entries": removed, "key_type": key.Type(), "fingerprint": fp}
+			if same && removed == 0 {
+				res["already_pinned"] = true
 			}
-			audit(st, "host.trust", []string{h.Name}, "", true, map[string]any{"reset": reset, "removed_entries": removed})
+			audit(st, "host.trust", []string{h.Name}, "", true, map[string]any{"reset": reset, "removed_entries": removed, "fingerprint": fp})
 			out.P.Print("host.trust", res, nil)
 			return nil
 		},
 	}
-	c.Flags().BoolVar(&reset, "reset", false, "forget the previously pinned key first")
+	c.Flags().BoolVar(&reset, "reset", false, "replace the previously pinned key (needs --yes)")
 	return c
 }
 
-// countPinned counts the known_hosts lines for addr, as ForgetHost would
-// remove them, without changing the file.
+// countPinned counts the known_hosts lines for addr, as PinHostKey would
+// replace them, without changing the file.
 func countPinned(addr string) int {
 	b, err := os.ReadFile(sshx.KnownHostsPath())
 	if err != nil {
@@ -888,4 +916,34 @@ func dedupe(in []string) []string {
 	}
 	sort.Strings(res)
 	return res
+}
+
+// keyFetchPath says how `host trust` reaches h for its key: the way komando
+// reaches it (directly, through a VPN, a proxy command or jump hosts).
+func keyFetchPath(st *store.State, h *store.Host) string {
+	vpn, hops, err := sshx.Route(st, h)
+	if err != nil || len(hops) == 0 {
+		return "through --via " + h.Via
+	}
+	var parts []string
+	if vpn != nil {
+		parts = append(parts, "VPN "+vpn.Name)
+	}
+	if len(hops) == 1 && h.ProxyCommand != "" {
+		parts = append(parts, "its proxy command")
+	}
+	if len(hops) > 1 {
+		var names []string
+		for _, j := range hops[:len(hops)-1] {
+			names = append(names, j.Name)
+		}
+		if hops[0].ProxyCommand != "" {
+			names[0] += " (by its proxy command)"
+		}
+		parts = append(parts, "jump host "+strings.Join(names, ", "))
+	}
+	if len(parts) == 0 {
+		return "the server directly"
+	}
+	return "through " + strings.Join(parts, ", then ")
 }

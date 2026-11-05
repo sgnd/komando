@@ -12,7 +12,10 @@ import (
 
 // Text output in the style of redis-cli: numbered items, nested replies
 // indented under their number, strings quoted when they hold spaces,
-// quotes or control characters, so a value never breaks the layout.
+// quotes or control characters, so a value never breaks the layout. A map
+// entry is "name: value", not redis-cli's "name => value": the masking of
+// output for AI agents takes ":" or "=" as the end of a secret's name, so
+// "password => x" would hide the ">" and show x.
 
 // Quote shows s on one line: as it is when that is unambiguous, else in
 // double quotes with \n, \t, \" and \xNN escapes.
@@ -117,7 +120,7 @@ func replyLines(v any) []string {
 		items := make([][]string, len(keys))
 		for i, k := range keys {
 			sub := replyLines(x[k])
-			head := Quote(k) + " => "
+			head := Quote(k) + ": "
 			lines := []string{head + sub[0]}
 			for _, l := range sub[1:] {
 				lines = append(lines, strings.Repeat(" ", len(head))+l)
@@ -173,7 +176,7 @@ func (v *Value) Text() string {
 		return b.String()
 	case map[string]any: // hash
 		for _, k := range sortedKeys(x) {
-			items = append(items, []string{Quote(k) + " => " + valueText(x[k])})
+			items = append(items, []string{Quote(k) + ": " + valueText(x[k])})
 		}
 	case []any: // list, set
 		for _, e := range x {

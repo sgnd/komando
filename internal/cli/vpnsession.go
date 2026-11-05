@@ -117,16 +117,6 @@ func installHint(bin string) string {
 	return "install the " + pkg + " package (apt, dnf, ...)"
 }
 
-// shownSession is a session as output shows it: the login of its local
-// SOCKS port stays hidden (it would let anyone on this computer use the VPN).
-func shownSession(s *store.VpnSession) *store.VpnSession {
-	c := *s
-	if c.SocksPass != "" {
-		c.SocksPass = "[hidden]"
-	}
-	return &c
-}
-
 // startSession connects v in the background and records the session.
 // interactive means a person is at the terminal for the login (and MFA).
 func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactive bool) (*store.VpnSession, error) {
@@ -411,6 +401,15 @@ func systemVPN(v *store.Vpn, up bool) error {
 	return nil
 }
 
+// sessionView is a session as `vpn up` shows it: without the SOCKS login,
+// which only komando itself uses (an agent with it could use the tunnel
+// without komando's checks or audit).
+func sessionView(s *store.VpnSession) store.VpnSession {
+	v := *s
+	v.SocksUser, v.SocksPass = "", ""
+	return v
+}
+
 func vpnUpCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "up NAME",
@@ -426,7 +425,7 @@ func vpnUpCmd() *cobra.Command {
 				return out.NotFound("vpn", args[0])
 			}
 			if s := netx.LiveSession(v); s != nil {
-				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": shownSession(s)}, nil)
+				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": sessionView(s)}, nil)
 				return nil
 			}
 			if g.dryRun {
@@ -472,7 +471,7 @@ func vpnUpCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res := map[string]any{"vpn": v.Name, "session": shownSession(s)}
+			res := map[string]any{"vpn": v.Name, "session": sessionView(s)}
 			if v.Kind == "wireguard" {
 				// WireGuard "connects" without a handshake: only an answer
 				// from --check shows the tunnel works
@@ -713,24 +712,41 @@ func vpnServeCmd() *cobra.Command {
 			}
 			cm := &connMgr{ctx: ctx, st: st, vpnDial: d}
 			logger := log.New(os.Stdout, "", log.LstdFlags)
-			for {
-				c, err := ln.Accept()
-				if err != nil {
-					_ = store.Update(func(s *store.State) error {
-						if x := s.Sessions[v.Name]; x != nil && x.PID == os.Getpid() { // not a newer session's entry
-							delete(s.Sessions, v.Name)
-						}
-						return nil
-					})
-					return nil
+			// only a client that logged in keeps the session from going idle
+			used := func() { last.Store(time.Now().Unix()) }
+			acceptLoop(ln, logger, func(c net.Conn) {
+				defer c.Close()
+				socks5Auth(c, cm, logger, socksUser, socksPass, used)
+			})
+			_ = store.Update(func(s *store.State) error {
+				if x := s.Sessions[v.Name]; x != nil && x.PID == os.Getpid() { // not a newer session's entry
+					delete(s.Sessions, v.Name)
 				}
-				last.Store(time.Now().Unix())
-				go func() { defer c.Close(); socks5Auth(c, cm, logger, socksUser, socksPass) }()
-			}
+				return nil
+			})
+			return nil
 		},
 	}
 	c.Flags().BoolVar(&passwordStdin, "password-stdin", false, "read the SOCKS login and a typed VPN password from stdin")
 	return c
+}
+
+// acceptLoop hands each connection on ln to serve until ln is closed. Any
+// other accept error, such as running out of file descriptors, is logged
+// and retried: a flood of local connections must not end the session.
+func acceptLoop(ln net.Listener, logger *log.Logger, serve func(net.Conn)) {
+	for {
+		c, err := ln.Accept()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
+			logger.Printf("accept: %v", err)
+			time.Sleep(50 * time.Millisecond) // do not spin
+			continue
+		}
+		go serve(c)
+	}
 }
 
 // randToken is n random bytes as hex.

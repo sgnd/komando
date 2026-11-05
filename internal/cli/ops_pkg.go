@@ -45,8 +45,11 @@ func pkgVersions(s string) map[string]string {
 // pkgChangeScript runs ACTION for PKGS between two `installed` listings,
 // so the result says what changed. install skips packages already there
 // and remove skips packages that are not, like apt does, so both are safe
-// to repeat.
-func pkgChangeScript(action string, pkgs []string) string {
+// to repeat. With guard, a removal that would take an essential package
+// with it (libssl3 takes openssh-server) stops before anything changes and
+// names them in a #komando:essential section; apt is asked with a
+// simulated run, the other package managers are not checked this way.
+func pkgChangeScript(action string, pkgs []string, guard bool) string {
 	q := sshx.Q(strings.Join(pkgs, " "))
 	listed := q
 	if action == "upgrade" && len(pkgs) == 0 {
@@ -61,6 +64,11 @@ func pkgChangeScript(action string, pkgs []string) string {
 		sb.WriteString(`todo=$(printf '%s\n' "$before" | awk -F'\t' '$2 != "-" && $1 != "" {print $1}' | tr '\n' ' ')` + "\n")
 	default:
 		sb.WriteString("todo=" + q + "\n")
+	}
+	if action == "remove" && guard {
+		sb.WriteString("if [ -n \"$(echo $todo)\" ]; then gone=$(ACTION=simulate-remove PKGS=\"$todo\"; (" + pkgShell + ") 2>/dev/null)\n" +
+			"hit=$(printf '%s\\n' \"$gone\" | grep -E " + sshx.Q(essentialPkgs.String()) + " | tr '\\n' ' ')\n" +
+			"if [ -n \"$(echo $hit)\" ]; then echo '#komando:essential'; printf '%s\\n' $hit; exit 0; fi; fi\n")
 	}
 	sb.WriteString("rc=0\n")
 	run := "ACTION=" + action + " PKGS=\"$todo\"; (" + pkgShell + ") >&2; rc=$?"
@@ -109,6 +117,10 @@ type pkgChange struct {
 // pkgChangeResult compares the listings before and after the action.
 func pkgChangeResult(action string, pkgs []string, rr *sshx.RunResult) (any, *out.Error) {
 	sec := sections(rr.Stdout)
+	if ess, ok := sec["essential"]; ok {
+		return pkgChange{Packages: []pkgRow{}}, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "nothing was removed; if this is truly intended, confirm with the user and re-run with --allow-dangerous",
+			"removing %s would also remove %s, which can lock you out of the server or break it", strings.Join(pkgs, " "), strings.Join(strings.Fields(ess), ", "))
+	}
 	before, after := pkgVersions(sec["before"]), pkgVersions(sec["after"])
 	res := pkgChange{Packages: []pkgRow{}}
 	names := pkgs
@@ -355,7 +367,7 @@ func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, ref
 			parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return pkgUpgradableResult(rr, refresh) },
 			text:  pkgUpgradableText})
 	}
-	spec := opsSpec{name: "pkg." + action, target: target, command: pkgChangeScript(action, pkgs), display: display, sudo: sudo, mutating: true,
+	spec := opsSpec{name: "pkg." + action, target: target, command: pkgChangeScript(action, pkgs, action == "remove" && !dangerOK()), display: display, sudo: sudo, mutating: true,
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return pkgChangeResult(action, pkgs, rr) },
 		text:  pkgChangeText}
 	if action == "upgrade" && g.dryRun {

@@ -74,6 +74,20 @@ Commands that delete, wipe, block, run scripts or reconfigure the server
 `--allow-dangerous`. The error tells you the safer command to use instead
 (`cache keys` for `KEYS`, `cache rm` for `DEL`).
 
+- Read-only scripts (`EVAL_RO`, `EVALSHA_RO`, `FCALL_RO`) count as scripts:
+  they cannot write, but one that loops makes Redis answer `BUSY` to every
+  client until someone sends `SCRIPT KILL` (`FUNCTION KILL` for `FCALL_RO`).
+- Module code counts too: Redis Stack functions (`TFCALL`, `TFCALLASYNC`)
+  and RedisGears (`RG.PYEXECUTE`, `RG.TRIGGER`).
+- `FUNCTION LOAD REPLACE` and `TFUNCTION LOAD REPLACE` count too: they swap
+  the code behind functions the application already calls. A plain
+  `FUNCTION LOAD` only needs `--write`.
+- `CONFIG GET` only reads. For AI agents, the values of password settings
+  (`requirepass`, `masterauth`, `tls-key-file-pass`, ...) and the password
+  hashes in `ACL LIST` and `ACL GETUSER` show as `[hidden]`, even when a
+  password is a word like `yes`. A hash field named like a secret
+  (`password`, `token`, ...) is hidden the same over RESP2 and RESP3.
+
 ## memcached
 
 The same commands work with memcached. The URL is
@@ -99,6 +113,6 @@ komando cache run mc -- stats slabs
 - **Text** (`-o text`) looks like `redis-cli`: one item per line, numbered,
   nested replies indented. Strings are quoted when they hold spaces, quotes
   or control characters (a newline shows as `\n`), so a value never breaks
-  the layout.
+  the layout. A hash or map entry shows as `name: value`.
 - **JSON** keeps values exactly as they are; binary values come as
   `{"base64": "..."}`.

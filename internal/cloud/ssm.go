@@ -84,6 +84,7 @@ func SSMDial(ctx context.Context, profile, region, target, port string) (net.Con
 	if err != nil {
 		return nil, fmt.Errorf("session manager: %w", err)
 	}
+	ws.SetReadLimit(ssmReadLimit)
 	open, _ := json.Marshal(map[string]string{"MessageSchemaVersion": "1.0", "RequestId": newUUID(), "TokenValue": token,
 		"ClientId": newUUID(), "ClientVersion": "1.2.0.0"})
 	if err := ws.WriteMessage(websocket.TextMessage, open); err != nil {
@@ -112,18 +113,19 @@ func SSMDial(ctx context.Context, profile, region, target, port string) (net.Con
 }
 
 type ssmConn struct {
-	ws      *websocket.Conn
-	wmu     sync.Mutex
-	seq     int64
-	expect  int64
-	in      chan []byte
-	pending []byte
-	ready   chan error
-	ronce   sync.Once
-	done    chan struct{}
-	donce   sync.Once
-	ooo     map[int64][]byte
-	dataKey func(keyID string) (plain, sealed []byte, err error)
+	ws       *websocket.Conn
+	wmu      sync.Mutex
+	seq      int64
+	expect   int64
+	in       chan []byte
+	pending  []byte
+	ready    chan error
+	ronce    sync.Once
+	done     chan struct{}
+	donce    sync.Once
+	ooo      map[int64]ssmMsg // messages that came early, by sequence number
+	oooBytes int              // their payload bytes
+	dataKey  func(keyID string) (plain, sealed []byte, err error)
 	// with KMS: open reads the agent's payloads, seal writes ours
 	open, seal cipher.AEAD
 }
@@ -137,6 +139,13 @@ const (
 	payHandReq  = 5
 	payHandResp = 6
 	payHandDone = 7
+
+	// The agent on the instance numbers its messages. These bound what
+	// komando keeps while it waits for a missing one, so a broken or
+	// hostile agent cannot fill this computer's memory.
+	ssmMaxAhead    = 256     // messages ahead of the next expected one
+	ssmMaxBuffered = 4 << 20 // bytes kept out of order
+	ssmReadLimit   = 1 << 20 // one websocket message
 )
 
 type ssmMsg struct {
@@ -226,26 +235,37 @@ func (c *ssmConn) readLoop() {
 			c.ronce.Do(func() { c.ready <- errors.New("session manager closed the session: " + string(m.payload)) })
 			return
 		case ssmOutput:
+			if m.seq > c.expect {
+				// early: keep it for later, within a bounded window. Beyond
+				// that it is dropped without an ack, so the agent sends it again.
+				if _, dup := c.ooo[m.seq]; !dup {
+					if m.seq-c.expect > ssmMaxAhead || c.oooBytes+len(m.payload) > ssmMaxBuffered {
+						continue
+					}
+					if c.ooo == nil {
+						c.ooo = map[int64]ssmMsg{}
+					}
+					m.payload = append([]byte{}, m.payload...)
+					c.ooo[m.seq] = m
+					c.oooBytes += len(m.payload)
+				}
+				c.ack(m)
+				continue
+			}
 			c.ack(m)
 			if m.seq < c.expect {
 				continue // a resend
 			}
-			if m.seq > c.expect {
-				if c.ooo == nil {
-					c.ooo = map[int64][]byte{}
-				}
-				c.ooo[m.seq] = append([]byte{}, m.payload...)
-				continue
-			}
 			c.handle(m)
 			c.expect++
 			for {
-				p, ok := c.ooo[c.expect]
+				next, ok := c.ooo[c.expect]
 				if !ok {
 					break
 				}
 				delete(c.ooo, c.expect)
-				c.handle(ssmMsg{payType: payOutput, payload: p})
+				c.oooBytes -= len(next.payload)
+				c.handle(next) // with its own payload type
 				c.expect++
 			}
 		}

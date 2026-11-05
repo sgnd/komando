@@ -2,7 +2,9 @@ package cli
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -386,7 +388,7 @@ func classifyDocker(args []string) driver.Risk {
 		return classifyCompose(sub, args[1:])
 	}
 	group := oneOf(verb, "service", "stack", "node", "secret", "config", "network", "volume", "container", "image", "system", "swarm", "builder", "buildx", "plugin", "context", "trust", "manifest")
-	if verb == "container" && oneOf(sub, "run", "exec", "cp") {
+	if verb == "container" && oneOf(sub, "run", "create", "exec", "cp") {
 		group, verb, args = false, sub, args[1:]
 	}
 	switch {
@@ -394,8 +396,15 @@ func classifyDocker(args []string) driver.Risk {
 		return driver.RiskRead
 	case group && oneOf(sub, "ls", "ps", "inspect", "logs", "services", "df", "info", "events", "list", "history", "top", "port", "diff", "help"):
 		return driver.RiskRead
-	case verb == "run" && runEscapesHost(args):
+	case oneOf(verb, "run", "create") && !group && runEscapesHost(args),
+		verb == "service" && oneOf(sub, "create", "update") && runEscapesHost(args):
 		return driver.RiskDestructive // privileged or the host's root: that is the server, not a container
+	case verb == "service" && serviceStops(sub, args):
+		return driver.RiskDestructive // 0 replicas is an outage, as with cluster scale
+	case verb == "plugin" && oneOf(sub, "install", "upgrade", "create", "enable", "set"):
+		return driver.RiskDestructive // a plugin runs as root on the server, with the mounts and devices it asks for
+	case verb == "volume" && sub == "create" && volumeEscapesHost(args[2:]):
+		return driver.RiskDestructive // a volume that is the host's root or a system folder
 	case verb == "run":
 		return driver.RiskWrite // starts a container, like up -d
 	case oneOf(sub, "rm", "prune", "leave", "demote", "kill", "down", "remove") || oneOf(verb, "rm", "rmi", "kill", "prune", "exec", "cp") ||
@@ -421,29 +430,191 @@ func classifyCompose(sub string, args []string) driver.Risk {
 	return driver.RiskWrite
 }
 
-// runEscapesHost: docker run flags that hand the container the server.
+// serviceStops: `service scale NAME=0` or `service update --replicas 0`
+// (any count that reads as 0 or less, or not as a number).
+func serviceStops(sub string, args []string) bool {
+	switch sub {
+	case "scale":
+		for _, a := range args[min(2, len(args)):] {
+			if _, n, ok := strings.Cut(a, "="); ok && !strings.HasPrefix(a, "-") {
+				if c, err := strconv.Atoi(n); err != nil || c <= 0 {
+					return true
+				}
+			}
+		}
+	case "update":
+		for i, a := range args {
+			if a == "--" {
+				break
+			}
+			v, ok := strings.CutPrefix(a, "--replicas=")
+			if a == "--replicas" && i+1 < len(args) {
+				v, ok = args[i+1], true
+			}
+			if ok {
+				if c, err := strconv.Atoi(v); err != nil || c <= 0 {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// runEscapesHost: docker run, create and service create/update flags that
+// hand the container the server: privileges, devices, the host's
+// namespaces (or another container's processes), and binds of the host's
+// root, its docker socket, its system folders or its credentials, also
+// through a volume backed by a host folder or another container's volumes.
 func runEscapesHost(args []string) bool {
-	if hasFlag(args, "--privileged", "--cap-add", "--device", "--security-opt") {
+	if hasFlag(args, "--privileged", "--cap-add", "--device", "--device-cgroup-rule", "--security-opt", "--volumes-from") {
 		return true
 	}
-	for i, a := range args {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
 		if a == "--" {
 			break
 		}
-		v := ""
-		switch {
-		case oneOf(a, "-v", "--volume", "--mount", "--pid", "--ipc", "--userns", "--uts") && i+1 < len(args):
-			v = a + "=" + args[i+1]
-		case strings.HasPrefix(a, "-v=") || strings.HasPrefix(a, "--"):
-			v = a
+		if !strings.HasPrefix(a, "-") {
+			continue
 		}
+		name, val, hasVal := strings.Cut(a, "=")
+		if !strings.HasPrefix(a, "--") {
+			name, val, hasVal = shortVolume(a) // -v/:/h, -itv/:/h
+		}
+		if !hasVal && oneOf(name, "-v", "--volume", "--mount", "--mount-add", "--pid", "--ipc", "--userns", "--uts",
+			"--network", "--net", "--network-add", "--cgroupns") && i+1 < len(args) {
+			i++
+			val, hasVal = args[i], true
+		}
+		if !hasVal {
+			continue
+		}
+		switch name {
+		case "--pid", "--ipc", "--userns", "--uts", "--network", "--net", "--network-add", "--cgroupns":
+			if strings.EqualFold(val, "host") || name == "--pid" && strings.HasPrefix(val, "container:") {
+				return true
+			}
+		case "-v", "--volume":
+			src, rest, _ := strings.Cut(val, ":")
+			opts := ""
+			if k := strings.LastIndex(rest, ":"); k >= 0 {
+				opts = rest[k+1:]
+			}
+			ro := false
+			for _, o := range strings.Split(opts, ",") {
+				ro = ro || o == "ro" || o == "readonly"
+			}
+			if strings.HasPrefix(src, "/") && hostPathEscapes(src, ro) {
+				return true
+			}
+		case "--mount", "--mount-add":
+			if mountEscapesHost(val) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// mountEscapesHost reads a --mount value as docker does (one CSV record,
+// so "source=/" may be quoted) and checks its host folder: the source of
+// a bind, or the device of a volume the local driver binds from the host.
+func mountEscapesHost(val string) bool {
+	fields, err := csv.NewReader(strings.NewReader(val)).Read()
+	if err != nil {
+		return true // docker reads it some way komando cannot: assume the worst
+	}
+	src, ro := "", false
+	opts := map[string]string{}
+	for _, f := range fields {
+		k, v, has := strings.Cut(f, "=")
+		switch strings.ToLower(strings.TrimSpace(k)) {
+		case "source", "src":
+			src = v
+		case "readonly", "ro":
+			ro = !has || oneOf(strings.ToLower(v), "true", "1")
+		case "volume-opt":
+			ok, ov, _ := strings.Cut(v, "=")
+			opts[strings.ToLower(ok)] = ov
+		}
+	}
+	if strings.HasPrefix(src, "/") && hostPathEscapes(src, ro) {
+		return true
+	}
+	d := opts["device"]
+	return strings.HasPrefix(d, "/") && hostPathEscapes(d, ro)
+}
+
+// volumeEscapesHost: `volume create --opt device=PATH` (with o=bind or
+// type=none) makes a named volume that is a host folder; a later
+// `run -v NAME:/h` cannot be told from any other volume, so the create is
+// rated by the folder, as a writable bind.
+func volumeEscapesHost(args []string) bool {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if a == "--" {
+			break
+		}
+		v, ok := "", false
 		switch {
-		case strings.HasPrefix(v, "--pid=host"), strings.HasPrefix(v, "--ipc=host"), strings.HasPrefix(v, "--userns=host"), strings.HasPrefix(v, "--uts=host"):
-			return true
-		case strings.HasPrefix(v, "-v=/:"), strings.HasPrefix(v, "--volume=/:"), strings.Contains(v, "source=/,"), strings.HasSuffix(v, "source=/"),
-			strings.Contains(v, "docker.sock"):
+		case oneOf(a, "-o", "--opt") && i+1 < len(args):
+			i++
+			v, ok = args[i], true
+		case strings.HasPrefix(a, "--opt="):
+			v, ok = strings.TrimPrefix(a, "--opt="), true
+		case strings.HasPrefix(a, "-o") && len(a) > 2:
+			v, ok = strings.TrimPrefix(strings.TrimPrefix(a, "-o"), "="), true
+		}
+		if k, d, _ := strings.Cut(v, "="); ok && strings.EqualFold(k, "device") && strings.HasPrefix(d, "/") && hostPathEscapes(d, false) {
 			return true
 		}
 	}
 	return false
+}
+
+// shortVolume reads a run of short flags with -v at its end and the
+// volume stuck to it (-v/:/h, -v=/:/h, -itv/:/h) the way docker does. name
+// is "-v" when the run ends in v (the value may be the next word).
+func shortVolume(a string) (name, val string, hasVal bool) {
+	for j := 1; j < len(a); j++ {
+		switch a[j] {
+		case 'd', 'i', 't', 'P': // short flags without a value
+		case 'v':
+			val = strings.TrimPrefix(a[j+1:], "=")
+			return "-v", val, val != ""
+		default:
+			return "", "", false // another flag, whose value this is
+		}
+	}
+	return "", "", false
+}
+
+// hostPathEscapes: a bind of this server folder hands the container the
+// server. The root, the docker socket, the folders that hold it, the
+// kernel's interfaces and the folders of keys and credentials (root's and
+// the users' homes, ssh host keys, the shadow files, the kubelet's and
+// Kubernetes' files, etcd) always do; system folders, and folders whose
+// programs root runs (cron, /opt), do when written (a read-only
+// /etc/localtime is fine). A folder above one of them counts too.
+func hostPathEscapes(p string, readOnly bool) bool {
+	p = path.Clean(p)
+	if p == "/" || strings.Contains(p, "docker.sock") || strings.Contains(p+"/", "/.ssh/") {
+		return true
+	}
+	if p == "/home" || path.Dir(p) == "/home" { // a user's home: ~/.ssh/authorized_keys, private keys
+		return true
+	}
+	under := func(dirs ...string) bool {
+		for _, d := range dirs {
+			if p == d || strings.HasPrefix(p, d+"/") || strings.HasPrefix(d, p+"/") {
+				return true
+			}
+		}
+		return false
+	}
+	return under("/run", "/var/run", "/var/lib/docker", "/var/lib/containerd", "/proc", "/sys", "/dev",
+		"/root", "/etc/shadow", "/etc/gshadow", "/etc/ssh", "/etc/kubernetes", "/var/lib/kubelet", "/var/lib/etcd",
+		"/etc/rancher", "/var/lib/rancher") ||
+		!readOnly && under("/etc", "/boot", "/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/opt", "/var/spool")
 }

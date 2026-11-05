@@ -235,10 +235,8 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 			// a person must never read a preview as a result
 			fmt.Fprintln(os.Stderr, "dry run: nothing was changed")
 			if p.blocked != nil {
-				fmt.Fprintf(os.Stderr, "without --dry-run this stops here: [%s] %s\n", p.blocked.Code, p.Redact(p.blocked.Message))
-				if p.blocked.Hint != "" {
-					fmt.Fprintf(os.Stderr, "hint: %s\n", p.blocked.Hint)
-				}
+				fmt.Fprintf(os.Stderr, "without --dry-run this stops here: [%s] %s\n", p.blocked.Code, noteText(p.Redact(p.blocked.Message)))
+				p.hint(p.blocked.Hint)
 			}
 		}
 		if t, ok := data.(Texter); ok {
@@ -251,10 +249,8 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 			fmt.Fprint(p.W, SafeText(p.Redact(renderText(data))))
 		}
 		if softErr != nil {
-			fmt.Fprintf(os.Stderr, "error [%s]: %s\n", softErr.Code, SafeText(p.Redact(softErr.Message)))
-			if softErr.Hint != "" {
-				fmt.Fprintf(os.Stderr, "hint: %s\n", softErr.Hint)
-			}
+			fmt.Fprintf(os.Stderr, "error [%s]: %s\n", softErr.Code, noteText(p.Redact(softErr.Message)))
+			p.hint(softErr.Hint)
 		}
 		return
 	}
@@ -268,15 +264,25 @@ func (p *Printer) Fail(command string, err error) int {
 	}
 	if p.Format == "text" {
 		p.printSkipped()
-		fmt.Fprintf(os.Stderr, "error [%s]: %s\n", e.Code, SafeText(p.Redact(e.Message)))
-		if e.Hint != "" {
-			fmt.Fprintf(os.Stderr, "hint: %s\n", e.Hint)
-		}
+		fmt.Fprintf(os.Stderr, "error [%s]: %s\n", e.Code, noteText(p.Redact(e.Message)))
+		p.hint(e.Hint)
 		return e.Exit
 	}
 	p.writeJSON(Envelope{OK: false, Command: command, Error: e, Meta: p.meta()})
 	return e.Exit
 }
+
+// hint prints an error's hint in text mode, hidden and made safe like the
+// message: a hint can carry the command line, which may hold a secret or
+// terminal escapes.
+func (p *Printer) hint(h string) {
+	if h != "" {
+		fmt.Fprintf(hintW, "hint: %s\n", noteText(p.Redact(h)))
+	}
+}
+
+// hintW is where hints go (tests read it).
+var hintW io.Writer = os.Stderr
 
 func (p *Printer) writeJSON(v any) {
 	var b bytes.Buffer
