@@ -76,6 +76,14 @@ Writes are atomic (temporary file, then rename). `fs write --if-changed` and
 `cron set` are idempotent, so retries are safe. To copy a whole folder, use
 `komando sync SRC DST --dry-run` first: it sends only new and changed files.
 
+The inventory itself changes in bulk too, each with `--dry-run` first:
+`komando host edit <target> --sudo-ref secret:NAME` sets one value on many
+servers (one `--yes` and one approval window for the protected ones, which
+lists every server), `komando host mv OLD NEW` renames a server and every
+reference to it (`conn mv`, `vpn mv` likewise), and
+`komando import csv FILE` adds a whole spreadsheet of servers (all rows are
+checked before anything is written).
+
 ## 5. Databases, caches, storage, clusters, registries
 
 These are conns (`komando list kind:conn`). Each has its own command; never

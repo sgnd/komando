@@ -43,6 +43,13 @@ type importPlan struct {
 	Vpns    []*store.Vpn
 	Secrets map[string]string
 	Notes   []string // things in the source komando did not import, and why
+	// Strict: a server komando refuses stops the whole import (a CSV is a
+	// list the user wrote for komando; a half import would surprise them).
+	Strict bool
+	// OwnRefs: the file is the user's own list of servers, like typing
+	// `host add` for each row, so its password and sudo references are
+	// kept even when they name secrets that exist already.
+	OwnRefs bool
 }
 
 type importSource struct {
@@ -62,6 +69,7 @@ var importSources = []importSource{
 	{"aws", "~/.aws/config", "an S3 storage conn per bucket of each AWS profile (uses the profile; no key is copied)", importAWS},
 	{"dbeaver", "~/Library/DBeaverData/workspace6/General/.dbeaver/data-sources.json", "databases from DBeaver (passwords set afterwards)", importDBeaver},
 	{"komando", "", "a file made by `komando export` (moving to another computer)", importKomando},
+	{"csv", "", "servers from a spreadsheet (CSV, first row names the columns: " + csvColumnList + ")", importCSV},
 }
 
 func importCmd() *cobra.Command {
@@ -168,9 +176,17 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	// hosts are checked like host add; they land in st (not saved) so
 	// conns can use them with --via
 	prefetchTwinIPs(st, plan.Hosts)
-	v, err := vetImportHosts(st, plan.Hosts, overwrite)
+	v, err := vetImportHosts(st, plan.Hosts, overwrite, plan.OwnRefs)
 	if err != nil {
 		return err
+	}
+	if plan.Strict && len(v.Invalid) > 0 {
+		var bad []string
+		for _, s := range v.Invalid {
+			bad = append(bad, s.Name+": "+s.Reason)
+		}
+		return out.Errf(out.ExitUsage, "USAGE", "fix these rows and import again; nothing was imported",
+			"%d server(s) cannot be added: %s", len(bad), strings.Join(bad, "; "))
 	}
 	hosts := v.Add
 	for _, n := range v.Existing {

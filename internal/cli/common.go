@@ -526,7 +526,22 @@ func confirmDangerous(names []string, reason string) bool {
 // target from the inventory, or turning its protection off, would let the
 // next command skip --yes, so it needs --yes itself. kind is host or conn.
 func guardProtection(kind, action string, names []string) error {
-	if len(names) == 0 || yesOK() || confirmProtected(names) {
+	return guardProtectionWhy(kind, action, names, "")
+}
+
+// guardProtectionWhy is guardProtection that says more in the approval
+// window (why), e.g. every server a command of several changes.
+func guardProtectionWhy(kind, action string, names []string, why string) error {
+	if len(names) == 0 {
+		return nil
+	}
+	asked := func() bool { return confirmProtected(names) }
+	if why == "" {
+		why = fmt.Sprintf("%s protected %s(s): %s", action, kind, strings.Join(names, ", "))
+	} else {
+		asked = func() bool { return confirmYes(why + ". Change them anyway?") }
+	}
+	if yesOK(why) || asked() {
 		return nil
 	}
 	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET"}[kind]

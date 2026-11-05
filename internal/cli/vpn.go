@@ -44,7 +44,7 @@ commands (and agents) reuse that session. komando never answers MFA.
 Kinds (also: pritunl = openvpn; l2tp, ipsec, ikev2 = system):
 ` + strings.Join(kinds, "\n"),
 	}
-	c.AddCommand(vpnAddCmd(), vpnShowCmd(), vpnEditCmd(), vpnRmCmd(), vpnUpCmd(), vpnDownCmd(), vpnStatusCmd(), vpnServeCmd(),
+	c.AddCommand(vpnAddCmd(), vpnShowCmd(), vpnEditCmd(), vpnMvCmd(), vpnRmCmd(), vpnUpCmd(), vpnDownCmd(), vpnStatusCmd(), vpnServeCmd(),
 		alias(listCmdFor("vpn"), "list kind:vpn"), alias(testCmdFor("vpn"), "test"))
 	return c
 }

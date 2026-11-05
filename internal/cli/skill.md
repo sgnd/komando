@@ -38,6 +38,9 @@ If `komando` is not installed, stop and ask the human to install it:
    (passwords as `--password-ref secret:NAME`, never `CREATE USER ... PASSWORD`
    in a query). After writing a systemd unit run `komando svc daemon-reload`;
    restart servers only with `komando reboot` (it needs the human).
+   Change the inventory in bulk: `komando host edit <target> --sudo-ref secret:NAME`
+   (one approval for every server), `komando host mv OLD NEW` (renames and
+   updates every reference), `komando import csv FILE` (many servers at once).
 4. Use `komando job start` for anything that may take more than ~2 minutes,
    or that runs over a shaky link (a VPN): a job survives a dropped
    connection, `exec` does not. `CONNECTION_LOST` (exit 4) from `exec` means

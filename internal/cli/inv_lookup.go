@@ -93,9 +93,9 @@ func isSelector(arg string) bool {
 		strings.HasPrefix(arg, "label:") || strings.HasPrefix(arg, "kind:")
 }
 
-// rmHosts turns rm arguments (names or selectors) into inventory hosts,
+// pickHosts turns rm and edit arguments (names or selectors) into inventory hosts,
 // each once, in order. Ad-hoc user@host targets are not in the inventory.
-func rmHosts(s *store.State, args []string) ([]*store.Host, error) {
+func pickHosts(s *store.State, args []string) ([]*store.Host, error) {
 	var res []*store.Host
 	seen := map[string]bool{}
 	add := func(h *store.Host) {
@@ -129,7 +129,7 @@ func rmHosts(s *store.State, args []string) ([]*store.Host, error) {
 	return res, nil
 }
 
-// rmConns is rmHosts for conns.
+// rmConns is pickHosts for conns.
 func rmConns(s *store.State, args []string) ([]*store.Conn, error) {
 	var res []*store.Conn
 	seen := map[string]bool{}
