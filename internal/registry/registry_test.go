@@ -24,7 +24,7 @@ func TestCatalogFollowsPages(t *testing.T) {
 		fmt.Fprint(w, `{"repositories":["c"]}`)
 	}))
 	defer srv.Close()
-	c := New(strings.TrimPrefix(srv.URL, "http://"), true, "", "", nil)
+	c := New(strings.TrimPrefix(srv.URL, "http://"), TLS{Plain: true}, "", "", nil)
 	got, err := c.Catalog(context.Background(), 100)
 	if err != nil || strings.Join(got, ",") != "a,b,c" {
 		t.Fatalf("catalog = %v, %v; want a,b,c", got, err)

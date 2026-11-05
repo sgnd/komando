@@ -118,7 +118,7 @@ func (f *fakeRegistry) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func client(t *testing.T, s *httptest.Server) *Client {
 	u, _ := url.Parse(s.URL)
-	return New(u.Host, true, "", "", nil)
+	return New(u.Host, TLS{Plain: true}, "", "", nil)
 }
 
 func TestCopyMultiPlatform(t *testing.T) {

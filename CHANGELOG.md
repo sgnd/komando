@@ -6,6 +6,16 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Added
 
+- Registry conns (`registry://`, `oci://`) take TLS options:
+  `?ca=secret:NAME` trusts a private CA (PEM in the vault) and keeps the
+  certificate check on; `?tls=skip-verify` uses HTTPS without the check
+  (like Docker's `insecure-registries`; `komando doctor` warns about it,
+  also with `--via`). A refused certificate is now `REGISTRY_TLS` (not
+  `REGISTRY_UNREACHABLE`), with a hint that names `ca=` first. Unknown
+  registry URL options and `tls=` values are refused instead of ignored.
+  With `--via`, the last server looks the registry's name up (its
+  `/etc/hosts` applies); the certificate check and `Host` stay on the name.
+
 - L2TP/IPsec (`l2tp`), Cisco-style IPsec with a group name and XAUTH login
   (`ipsec`, also `cisco`) and IKEv2 (`ikev2`, pre-shared key or EAP-MSCHAPv2
   login with the server's certificate checked) are built into komando:
