@@ -389,6 +389,55 @@ func Delete(name string) error {
 	})
 }
 
+// ErrExists is returned by Copy and Rename when the new name is taken and
+// overwrite is false.
+var ErrExists = errors.New("secret already exists")
+
+// Copy stores the value of from under the name to as well. The value is
+// decrypted and sealed again inside the vault (each value is bound to its
+// name) and never leaves this package.
+func Copy(from, to string, overwrite bool) error { return copyEntry(from, to, overwrite, false) }
+
+// Rename moves the value of from to the name to, in one change of the vault.
+func Rename(from, to string, overwrite bool) error { return copyEntry(from, to, overwrite, true) }
+
+func copyEntry(from, to string, overwrite, move bool) error {
+	if from == to {
+		return errors.New("the old and the new name are the same")
+	}
+	return change(func(f *file) error {
+		if _, ok := f.Entries[from]; !ok {
+			return ErrNotFound
+		}
+		if _, ok := f.Entries[to]; ok && !overwrite {
+			return ErrExists
+		}
+		if err := f.upgrade(); err != nil {
+			return err
+		}
+		a, err := f.aead()
+		if err != nil {
+			return err
+		}
+		e := f.Entries[from]
+		pt, err := a.Open(nil, e.Nonce, e.Data, []byte(from))
+		if err != nil {
+			return fmt.Errorf("cannot decrypt secret %q (wrong KOMANDO_VAULT_PASS or vault.key?)", from)
+		}
+		defer clear(pt)
+		nonce := make([]byte, a.NonceSize())
+		if _, err := rand.Read(nonce); err != nil {
+			return err
+		}
+		// the value did not change, so neither does its UpdatedAt
+		f.Entries[to] = &entry{Nonce: nonce, Data: a.Seal(nil, nonce, pt, []byte(to)), UpdatedAt: e.UpdatedAt}
+		if move {
+			delete(f.Entries, from)
+		}
+		return nil
+	})
+}
+
 func List() ([]Info, error) {
 	f, err := load()
 	if err != nil {

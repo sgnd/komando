@@ -152,12 +152,39 @@ Manage the vault:
 komando secret list                          # names, when they changed, what uses them
 komando secret get web1-pass                 # does it exist, and who uses it (no value)
 komando secret set db-pass --from-env DB_PASS
+pbpaste | komando secret set vpn-pass        # from the clipboard (macOS; xclip -o on Linux)
+komando secret mv vpn-password office-vpn    # rename it, and everything that uses it
+komando secret cp db-pass db-pass-old        # a copy under a second name
+komando secret check vpn-pass                # is the stored value the one I think? (no value shown)
 komando secret rm old-pass                   # refused while something uses it
 ```
 
-Replacing a secret that a protected server or conn uses needs `--yes`.
-Only a person at a terminal can see a value, with `secret get --reveal`; AI
-agents never get it.
+- **Typing it.** `secret set NAME` asks for the value after you press
+  Enter. Paste or type it *after* the prompt appears. Anything typed before
+  the prompt was already shown on the screen by the terminal, so komando
+  does not use it and tells you; enter the value again at the prompt.
+- **From a pipe.** The line break at the end (which `echo` and `pbpaste`
+  add) is not part of the value. Spaces are kept, because a password can hold
+  them, but komando warns when the value starts or ends with a space or tab:
+  a space copied together with a password is a common reason a login fails.
+  `secret get NAME` shows the same warning later.
+- **Renaming.** `secret mv OLD NEW` renames the secret inside the vault and
+  points every server, conn, key and VPN that used `secret:OLD` at
+  `secret:NEW` in the same step. Nobody types the value again, and an AI
+  agent can do it, because the value is never shown. Scripts of your own that
+  name `secret:OLD` are not changed. `secret cp OLD NEW` makes a copy and
+  changes nothing else. When NEW already exists, add `--overwrite`; what uses
+  NEW then gets the value of OLD. Try either with `--dry-run` first.
+- **Checking.** `secret check NAME` asks for a value (or reads it from a
+  pipe) and says whether it is the stored one. When it is not, it says how
+  they differ (only spaces at the ends, only upper and lower case, or the
+  number of characters) without showing either value. Only a person can run
+  it: for an AI agent, yes-or-no answers about values it picks would be a way
+  to guess the secret.
+
+Replacing a secret that a protected server or conn uses needs `--yes` (also
+with `secret mv` or `secret cp --overwrite`). Only a person at a terminal can
+see a value, with `secret get --reveal`; AI agents never get it.
 
 ## Passwords from your password manager
 
