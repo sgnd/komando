@@ -54,6 +54,11 @@ Each area has its own file in `internal/cli/` (`host.go`, `exec.go`, `fs.go`, `d
 5. **Safety**: anything that changes a server must call `guard(...)` with `mutating=true`, respect `--dry-run`, and call `audit(...)`.
 6. **Quote everything** sent to a remote shell with `sshx.Q`.
 7. Add a unit test for pure logic and, when it touches SSH, a check in `test/e2e/run.sh`.
+8. **Say what it does**: add the command to `commandKinds` in [`internal/cli/kinds.go`](internal/cli/kinds.go) (`reads`, `changes` or `dependsOn("why")`). A test fails on a command without one.
+9. **Keep pieces small**: a function up to 100 lines, a file up to 800. Split instead of growing ([`internal/codesize`](internal/codesize/codesize_test.go) checks it).
+10. **Never break the JSON**: fields may be added, never renamed or removed. `TestOutputShapes` keeps the shape of the answers; after adding a field, run `go test ./internal/cli -run TestOutputShapes -update-shapes`.
+
+The reasons behind 8–10, and what comes next, are in [docs/design/maintenance.md](docs/design/maintenance.md).
 
 Update the docs in the same pull request:
 
@@ -70,12 +75,12 @@ A test also reads every `komando ...` example in the docs and fails when a comma
 
    ```bash
    make lint     # gofmt, go vet, staticcheck
-   make test     # unit tests
+   make cover    # unit tests, and coverage may not drop below test/coverage-floor.txt
    make security # known vulnerabilities (govulncheck)
    make e2e      # needs Docker; run it when the change talks to a server or service
    ```
 
-   VPN changes also have `make e2e-openvpn` and `make e2e-vpnclients`.
+   VPN changes also have `make e2e-openvpn`, `make e2e-ipsec` and `make e2e-vpnclients` (GitHub runs them every night and on VPN pull requests).
 
 3. Add a line under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md) if users will notice the change.
 4. Open the pull request. [GitHub](.github/workflows/ci.yml) runs lint, unit tests, the security check and the end-to-end tests again.
