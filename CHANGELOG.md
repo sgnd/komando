@@ -15,6 +15,12 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   [Contributor License Agreement](CLA.md) once. v0.1.0 and v0.2.0 stay
   under MIT.
 
+- The built-in recipes `cert-expiry`, `certbot-certs` and `docker-prune`
+  are gone: `komando cert check` and `komando docker prune` do the same
+  better (`docker-prune` skipped the preview and the `--allow-dangerous`
+  question). Running one of those names says which command to use; a
+  saved recipe of the same name still works.
+
 - `komando vpn status`: `last_end` now says when the session ended and how
   long it ran. When an L2TP server ends the session, it also says how long
   the link had no traffic (a server idle timeout?), and the log shows the

@@ -52,8 +52,6 @@ var recipes = []recipe{
 	{Name: "sshd-config", Category: "security", Desc: "Effective sshd security settings", Cmd: `sshd -T 2>/dev/null | grep -iE '^(port|permitrootlogin|passwordauthentication|pubkeyauthentication|kbdinteractiveauthentication|x11forwarding|allowusers|allowgroups|maxauthtries) '`, Sudo: true},
 	{Name: "updates", Category: "packages", Desc: "Pending package updates", Cmd: `if command -v apt >/dev/null; then apt list --upgradable 2>/dev/null | tail -n +2; elif command -v dnf >/dev/null; then dnf -q check-update; elif command -v yum >/dev/null; then yum -q check-update; elif command -v apk >/dev/null; then apk -u list; fi; [ -f /var/run/reboot-required ] && echo "*** reboot required ***"; true`},
 	{Name: "security-updates", Category: "packages", Desc: "Pending security updates", Cmd: `if command -v apt >/dev/null; then apt list --upgradable 2>/dev/null | grep -i security; elif command -v dnf >/dev/null; then dnf -q updateinfo list security; fi; true`},
-	{Name: "cert-expiry", Category: "tls", Desc: "TLS certificate expiry for host:port (from the server)", Cmd: `echo | openssl s_client -servername {{name}} -connect {{name}}:{{port}} 2>/dev/null | openssl x509 -noout -subject -issuer -dates`, Params: map[string]string{"name": "", "port": "443"}},
-	{Name: "certbot-certs", Category: "tls", Desc: "Let's Encrypt certificates managed by certbot", Cmd: `certbot certificates 2>/dev/null`, Sudo: true},
 	{Name: "nginx-test", Category: "web", Desc: "Validate nginx config", Cmd: `nginx -t 2>&1`, Sudo: true},
 	{Name: "nginx-sites", Category: "web", Desc: "nginx server_names and listen directives", Cmd: `nginx -T 2>/dev/null | grep -E '^\s*(server_name|listen|root|proxy_pass)\s' | sed 's/^\s*//' | sort | uniq -c`, Sudo: true},
 	{Name: "apache-test", Category: "web", Desc: "Validate apache config", Cmd: `(apachectl configtest || apache2ctl configtest) 2>&1`, Sudo: true},
@@ -67,7 +65,6 @@ var recipes = []recipe{
 	{Name: "redis-info", Category: "database", Desc: "Redis memory/clients/keyspace", Cmd: `redis-cli info | grep -E '^(redis_version|connected_clients|used_memory_human|maxmemory_human|db[0-9]+|role):'`},
 	{Name: "drop-caches", Category: "maintenance", Desc: "Free page cache (safe but causes I/O)", Cmd: `sync && echo 3 > /proc/sys/vm/drop_caches && free -m`, Sudo: true, Mutating: true},
 	{Name: "journal-vacuum", Category: "maintenance", Desc: "Shrink systemd journal to a size", Cmd: `journalctl --vacuum-size={{size}}`, Sudo: true, Mutating: true, Params: map[string]string{"size": "500M"}},
-	{Name: "docker-prune", Category: "maintenance", Desc: "Remove stopped containers, dangling images and build cache (keeps volumes)", Cmd: `docker system prune -f`, Sudo: true, Mutating: true},
 	{Name: "apt-clean", Category: "maintenance", Desc: "Clean apt cache and autoremove", Cmd: `apt-get clean && apt-get -y autoremove`, Sudo: true, Mutating: true},
 }
 
@@ -185,6 +182,25 @@ type recipeRow struct {
 	Sudo     bool              `json:"sudo,omitempty"`
 	ReadOnly bool              `json:"read_only"`
 	Params   map[string]string `json:"params,omitempty"`
+}
+
+// retiredRecipes are built-in recipes that a command does better now; a
+// run of one names the command instead (a saved recipe of the same name
+// still wins). docker-prune also skipped the preview and the
+// --allow-dangerous question that `docker prune` asks.
+var retiredRecipes = map[string]string{
+	"cert-expiry":   "komando cert check https://NAME:PORT --via TARGET",
+	"certbot-certs": "komando cert check TARGET",
+	"docker-prune":  "komando docker prune TARGET --dry-run",
+}
+
+// recipeNotFound is the error for a recipe that is not there.
+func recipeNotFound(name string) *out.Error {
+	if cmd, ok := retiredRecipes[name]; ok {
+		return out.Errf(out.ExitNotFound, "RECIPE_NOT_FOUND", "use `"+cmd+"`",
+			"the recipe %q was replaced by a command", name)
+	}
+	return out.NotFound("recipe", name)
 }
 
 func builtinRecipe(name string) *recipe {
@@ -331,7 +347,7 @@ func recipeRmCmd() *cobra.Command {
 			}
 			err := store.Update(func(st *store.State) error {
 				if _, ok := st.Snippets[args[0]]; !ok {
-					return out.NotFound("recipe", args[0])
+					return recipeNotFound(args[0])
 				}
 				delete(st.Snippets, args[0])
 				return nil
@@ -355,7 +371,7 @@ func recipeRunCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "run NAME TARGET",
 		Short:   "Run a recipe on servers",
-		Example: "  komando recipe run health @web\n  komando recipe run cert-expiry web1 --var name=example.com\n  komando recipe run deploy-app @web --var app=shop",
+		Example: "  komando recipe run health @web\n  komando recipe run disk web1\n  komando recipe run deploy-app @web --var app=shop",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -364,7 +380,7 @@ func recipeRunCmd() *cobra.Command {
 			}
 			r, ok := findRecipe(st, args[0])
 			if !ok {
-				return out.NotFound("recipe", args[0])
+				return recipeNotFound(args[0])
 			}
 			kv, err := parseKV(vars)
 			if err != nil {
