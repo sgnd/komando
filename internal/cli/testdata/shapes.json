@@ -1,0 +1,580 @@
+{
+  "audit --limit 5": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "entries": [
+        {
+          "action": "string",
+          "actor": "string",
+          "command": "string",
+          "conns": [
+            "string"
+          ],
+          "dry_run": "bool",
+          "hosts": [
+            "string"
+          ],
+          "ok": "bool",
+          "read_only": "bool",
+          "recipe": "string",
+          "remote": "string",
+          "replaced": "bool",
+          "secret": "string",
+          "ts": "string"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "config get parallel": {
+    "command": "string",
+    "data": {
+      "default": "string",
+      "key": "string",
+      "value": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "config show": {
+    "command": "string",
+    "data": {
+      "files": {
+        "audit": "string",
+        "known_hosts": "string",
+        "state": "string",
+        "vault": "string"
+      },
+      "home": "string",
+      "settings": {
+        "audit": "bool",
+        "audit_sql": "string",
+        "connect_timeout": "string",
+        "default_timeout": "string",
+        "host_key_policy": "string",
+        "max_output_bytes": "number",
+        "parallel": "number",
+        "vpn_idle": "string"
+      }
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "conn kinds": {
+    "command": "string",
+    "data": {
+      "kinds": [
+        {
+          "default_port": "number",
+          "example": "string",
+          "family": "string",
+          "file": "bool",
+          "name": "string",
+          "schemes": [
+            "string"
+          ]
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "conn list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "targets": [
+        {
+          "kind": "string",
+          "name": "string",
+          "protected": "bool",
+          "where": "string"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "conn show pg": {
+    "command": "string",
+    "data": {
+      "created_at": "string",
+      "kind": "string",
+      "name": "string",
+      "password_ref": "string",
+      "updated_at": "string",
+      "url": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "exec web -- rm -rf /": {
+    "command": "string",
+    "error": {
+      "code": "code POLICY_BLOCKED",
+      "hint": "string",
+      "message": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "exec web --dry-run -- uptime": {
+    "command": "string",
+    "data": {
+      "would_run": [
+        {
+          "address": "string",
+          "host": "string",
+          "remote_command": "string",
+          "stdin_bytes": "number"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "group list": {
+    "command": "string",
+    "data": {
+      "groups": {
+        "lab": [
+          "string"
+        ]
+      },
+      "tags": {
+        "prod": [
+          "string"
+        ]
+      }
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host edit web --port 2222 --dry-run": {
+    "command": "string",
+    "data": {
+      "address": "string",
+      "changed": "bool",
+      "created_at": "string",
+      "groups": [
+        "string"
+      ],
+      "name": "string",
+      "port": "number",
+      "tags": [
+        "string"
+      ],
+      "updated_at": "string",
+      "user": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host export": {
+    "command": "string",
+    "data": {
+      "hosts": [
+        {
+          "address": "string",
+          "created_at": "string",
+          "groups": [
+            "string"
+          ],
+          "name": "string",
+          "tags": [
+            "string"
+          ],
+          "updated_at": "string",
+          "user": "string"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "targets": [
+        {
+          "groups": [
+            "string"
+          ],
+          "kind": "string",
+          "name": "string",
+          "protected": "bool",
+          "tags": [
+            "string"
+          ],
+          "where": "string"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host show nope": {
+    "command": "string",
+    "error": {
+      "code": "code HOST_NOT_FOUND",
+      "hint": "string",
+      "message": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host show web": {
+    "command": "string",
+    "data": {
+      "address": "string",
+      "created_at": "string",
+      "groups": [
+        "string"
+      ],
+      "name": "string",
+      "tags": [
+        "string"
+      ],
+      "updated_at": "string",
+      "user": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host ssh-command web": {
+    "command": "string",
+    "data": {
+      "argv": [
+        "string"
+      ],
+      "command": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "job list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "jobs": []
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "key list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "keys": []
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "targets": [
+        {
+          "groups": [
+            "string"
+          ],
+          "kind": "string",
+          "name": "string",
+          "protected": "bool",
+          "tags": [
+            "string"
+          ],
+          "where": "string"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "policy check rm -rf /": {
+    "command": "string",
+    "data": {
+      "blocked": "bool",
+      "matches": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ]
+    },
+    "error": {
+      "code": "code POLICY_BLOCKED",
+      "hint": "string",
+      "message": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "policy check uptime": {
+    "command": "string",
+    "data": {
+      "blocked": "bool",
+      "matches": []
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "policy list": {
+    "command": "string",
+    "data": {
+      "builtin": [
+        {
+          "id": "string",
+          "pattern": "string",
+          "reason": "string"
+        }
+      ],
+      "custom": "null",
+      "custom_rules": "null",
+      "data": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ],
+      "memcached": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ],
+      "note": "string",
+      "redis": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ],
+      "sql": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "recipe list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "recipes": [
+        {
+          "builtin": "bool",
+          "category": "string",
+          "command": "string",
+          "description": "string",
+          "name": "string",
+          "params": {
+            "depth": "string",
+            "limit": "string",
+            "min": "string",
+            "name": "string",
+            "path": "string",
+            "pattern": "string",
+            "port": "string",
+            "since": "string",
+            "size": "string",
+            "timeout": "string",
+            "url": "string"
+          },
+          "read_only": "bool",
+          "sudo": "bool"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "secret get pg-pass": {
+    "command": "string",
+    "data": {
+      "exists": "bool",
+      "name": "string",
+      "ref": "string",
+      "used_by": [
+        "string"
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "secret list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "secrets": [
+        {
+          "name": "string",
+          "updated_at": "string",
+          "used_by": [
+            "string"
+          ]
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "status": {
+    "command": "string",
+    "data": {
+      "jobs": [],
+      "tunnels": [],
+      "vpns": []
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "tunnel list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "tunnels": []
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "version": {
+    "command": "string",
+    "data": {
+      "home": "string",
+      "version": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "vpn list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "targets": []
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  }
+}

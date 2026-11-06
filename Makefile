@@ -8,7 +8,7 @@ GOVULNCHECK := v1.9.0
 
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
-.PHONY: help build install test security fuzz e2e e2e-openvpn e2e-vpnclients e2e-ipsec lint dist clean
+.PHONY: help build install test cover security fuzz e2e e2e-openvpn e2e-vpnclients e2e-ipsec lint dist clean
 
 help: ## Show this help
 	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
@@ -21,6 +21,9 @@ install: ## Install komando into $GOPATH/bin
 
 test: ## Fast unit tests
 	go test ./...
+
+cover: ## Unit tests, and each package's coverage against its floor (test/coverage-floor.txt)
+	test/coverage.sh
 
 e2e: ## End-to-end tests against Docker SSH servers
 	test/e2e/run.sh

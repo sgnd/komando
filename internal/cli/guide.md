@@ -16,7 +16,7 @@ komando group list                    # groups and tags, with their members
 komando test all                      # what is reachable; which user; passwordless sudo?
 komando status                        # what komando left running: VPN sessions, tunnels, jobs
 komando facts <target>                # OS + support status, updates, sudo, Docker/Swarm, PM2, ports, custom units
-komando schema --compact              # every command (`komando schema <cmd>` for its flags)
+komando schema --compact              # every command (`komando schema <cmd>`: its flags, and kind: read, change or depends)
 komando import ssh-config --dry-run   # (with the human) bring in servers they already have
 ```
 

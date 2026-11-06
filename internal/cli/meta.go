@@ -198,6 +198,8 @@ type cmdSchema struct {
 	Example  string       `json:"example,omitempty"`
 	Flags    []flagSchema `json:"flags,omitempty"`
 	Runnable bool         `json:"runnable"`
+	Kind     string       `json:"kind,omitempty"`      // read, change or depends (kinds.go)
+	KindNote string       `json:"kind_note,omitempty"` // on what, for depends
 }
 
 func schemaCmd(root *cobra.Command) *cobra.Command {
@@ -233,6 +235,9 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 						cmds = append(cmds, map[string]string{"path": c.CommandPath(), "short": c.Short})
 					} else {
 						s := cmdSchema{Path: c.CommandPath(), Usage: c.UseLine(), Short: c.Short, Long: c.Long, Aliases: c.Aliases, Example: c.Example, Runnable: c.Runnable()}
+						if k, ok := kindOf(c); ok && s.Runnable {
+							s.Kind, s.KindNote = k.Kind, k.Note
+						}
 						c.LocalFlags().VisitAll(func(f *pflag.Flag) {
 							if f.Hidden || f.Name == "help" {
 								return

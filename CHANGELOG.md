@@ -13,6 +13,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Added
 
+- `komando schema` says what each command does: `kind` is `read`,
+  `change` or `depends`, and `kind_note` says on what for `depends`
+  (`exec` changes things unless `--read-only`, `db query` only reads
+  unless `--write`). Agents can see it before they run a command.
 - Registry conns (`registry://`, `oci://`) take TLS options:
   `?ca=secret:NAME` trusts a private CA (PEM in the vault), or pins the
   registry's own certificate when the CA is not at hand, and keeps the
