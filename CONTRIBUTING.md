@@ -2,6 +2,12 @@
 
 Thanks for helping! Please write issues, pull requests and docs in English.
 
+komando is open source under the [AGPL-3.0](LICENSE), and is also sold under a
+[commercial license](COMMERCIAL-LICENSE.md) that pays for its work. Before your
+first pull request is merged, please sign the
+[Contributor License Agreement](CLA.md): a bot asks you on the pull request, and
+you sign once by writing a comment. You keep the copyright of what you wrote.
+
 komando is one command line for DevOps work, for people and their AI agents. It stays simple on purpose: one static binary, no windows or menus, safe by default.
 
 ## Report a bug or suggest a feature

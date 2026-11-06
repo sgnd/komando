@@ -1,7 +1,7 @@
 # komando
 
 [![CI](https://github.com/sgnd/komando/actions/workflows/ci.yml/badge.svg)](https://github.com/sgnd/komando/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
 **One safe command line for all your DevOps work — servers, databases, caches, storage and more. For you and your AI agent.**
 
@@ -186,4 +186,17 @@ Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBU
 
 ## License
 
-[MIT](LICENSE)
+komando is free and open source under the
+[GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). You can use it
+for any purpose, at home or at work. If you change komando and give it to
+others, or let them use it over a network, you must share the source code of
+your version under the same license.
+
+Want to build komando into a closed-source product, or does your company not
+allow AGPL software? A [commercial license](COMMERCIAL-LICENSE.md) is available.
+
+Contributors sign a short [Contributor License Agreement](CLA.md) once.
+
+Versions up to v0.2.0 were released under the MIT License and stay under it.
+
+© Sugeng Agung Suganda
