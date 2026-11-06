@@ -147,11 +147,24 @@ func runShape(t *testing.T, args []string) string {
 // element with the merged shape of all their elements. Maps keyed by
 // names the user chose (hosts, groups) still show their keys: those come
 // from the fixture above, which is fixed.
+// dataKeyed are fields whose keys are data, not field names: a recipe's
+// blanks (params). Their shape is "*" for any key, so a recipe with other
+// blanks is not a change of the output.
+var dataKeyed = map[string]bool{"params": true}
+
 func shapeOf(v any) any {
 	switch x := v.(type) {
 	case map[string]any:
 		m := map[string]any{}
 		for k, e := range x {
+			if inner, ok := e.(map[string]any); ok && dataKeyed[k] {
+				var merged any
+				for _, iv := range inner {
+					merged = mergeShape(merged, shapeOf(iv))
+				}
+				m[k] = map[string]any{"*": merged}
+				continue
+			}
 			m[k] = shapeOf(e)
 		}
 		return m
