@@ -1,0 +1,43 @@
+# komando's own VPN clients against real VPN servers in Docker. Slower than
+# ci.yml, so it runs every night, by hand, and on pull requests that touch
+# the VPN code or these tests.
+name: VPN end-to-end
+
+on:
+  schedule:
+    - cron: "17 2 * * *" # every night, 02:17 UTC
+  workflow_dispatch: # adds a "Run workflow" button on GitHub
+  pull_request:
+    paths:
+      - "internal/openvpn/**"
+      - "internal/ipsec/**"
+      - "internal/l2tp/**"
+      - "internal/ppp/**"
+      - "internal/sslvpn/**"
+      - "internal/netx/**"
+      - "internal/cli/*vpn*.go"
+      - "test/e2e/openvpn/**"
+      - "test/e2e/ipsec/**"
+      - "test/e2e/vpnclients/**"
+      - ".github/workflows/vpn-e2e.yml"
+
+# least privilege: the tests only read the code
+permissions:
+  contents: read
+
+jobs:
+  vpn:
+    name: ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false # one broken VPN kind must not hide the others
+      matrix:
+        suite: [e2e-openvpn, e2e-ipsec, e2e-vpnclients]
+    steps:
+      # actions are pinned to a commit, not a tag that can move (Pinned-Dependencies)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: make ${{ matrix.suite }}
