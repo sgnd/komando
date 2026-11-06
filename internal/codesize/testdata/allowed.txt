@@ -1,17 +1,10 @@
 # Code that was over the size limits (functions 100 lines, files 800)
 # when the rule came. Each may shrink, never grow; see codesize_test.go.
 file internal/cli/cert.go 879
-file internal/cli/cluster.go 1893
 file internal/cli/dbdump.go 834
-file internal/cli/fs.go 1234
-file internal/cli/guard.go 1340
-file internal/cli/host.go 1058
-file internal/cli/importer.go 1030
 file internal/cli/job.go 885
 file internal/cli/kctl.go 805
-file internal/cli/kctl_verbs.go 1834
 file internal/cli/modules.go 943
-file internal/cli/run_readonly.go 1297
 file internal/cli/storage.go 902
 file internal/driver/sql.go 838
 file internal/ipsec/ikev1.go 1458
@@ -19,8 +12,8 @@ file internal/ipsec/ikev2.go 1120
 file internal/openvpn/client.go 1236
 file internal/sslvpn/pulse.go 886
 func internal/cli/cert.go runCertCheck 176
-func internal/cli/cluster.go clusterRunCmd 116
-func internal/cli/cluster.go summarize 115
+func internal/cli/cluster_run.go clusterRunCmd 116
+func internal/cli/cluster_status.go summarize 115
 func internal/cli/clusterdeploy.go clusterRollbackCmd 110
 func internal/cli/clusterexec.go clusterForwardCmd 103
 func internal/cli/clusterlogs.go clusterLogsCmd 129
@@ -31,18 +24,18 @@ func internal/cli/docker.go dockerCmd 158
 func internal/cli/exec.go runFleet 201
 func internal/cli/facts.go parseFactsAt 142
 func internal/cli/facts_text.go writeFactsHost 126
-func internal/cli/fs.go fsReplaceCmd 117
-func internal/cli/fs.go fsWriteCmd 141
-func internal/cli/fs.go writeRemoteFrom 199
-func internal/cli/guard.go checkAgentVars 115
-func internal/cli/guard.go checkShellDepth 112
+func internal/cli/fs_replace.go fsReplaceCmd 117
+func internal/cli/fs_write.go fsWriteCmd 141
+func internal/cli/fs_write.go writeRemoteFrom 199
+func internal/cli/guard_shell.go checkAgentVars 115
+func internal/cli/guard_shell.go checkShellDepth 112
 func internal/cli/host.go hostEditCmd 134
-func internal/cli/host.go parseSSHConfig 126
+func internal/cli/host_sshconfig.go parseSSHConfig 126
 func internal/cli/importer.go applyImport 140
 func internal/cli/inv_meta.go policyCmd 163
 func internal/cli/job.go jobStartCmd 128
+func internal/cli/kctl_change.go kctlRun.create 240
 func internal/cli/kctl_explain.go kctlRun.explain 102
-func internal/cli/kctl_verbs.go kctlRun.create 240
 func internal/cli/keyrevoke.go keyRevokeCmd 101
 func internal/cli/meta.go schemaCmd 103
 func internal/cli/modules.go cronCmd 117
