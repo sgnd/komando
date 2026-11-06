@@ -49,6 +49,13 @@ for rh in rocky:rockylinux/rockylinux:9:dnf:rocky:supported:${E2E_SSH_ROCKY:-222
   check "$name: pkg security uses $pm" "$pm" "$(psec "['package_manager']")"
   check "$name: pkg security = $pm check-update --security" "$secpk" "$(psec "['count']")"
   check "$name: pkg security state pending = $pm check-update" "$upd" "$(psec "['state']['pending_updates']")"
+  # facts and pkg security read the server's state with the same check
+  check "$name: facts and pkg security agree (reboot, restarts, support)" \
+    "$(f "['reboot_required'], d['data']['results'][0]['data']['services_need_restart'] or [], d['data']['results'][0]['data']['os_support']['status']")" \
+    "$(psec "['state']['reboot_required'], d['data']['results'][0]['state']['services_need_restart'], d['data']['results'][0]['os_support']['status']")"
+  if [ "$support" != supported ]; then
+    check "$name: pkg security warns past end of life" True "$(psec "['warnings'] != [] and 'empty list' in d['data']['results'][0]['warnings'][-1]")"
+  fi
   check "$name: pkg security --apply --dry-run changes nothing" "True $secpk" \
     "$($K pkg security "$host" --apply --dry-run | jget "str(d['meta'].get('dry_run') and not d['data']['applied'])") $(nupd --security)"
   # the real run: installs only the security updates; afterwards rpm agrees and none are left
