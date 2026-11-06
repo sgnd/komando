@@ -253,23 +253,10 @@ type pkgSecData struct {
 
 // pkgSecParse reads one server's script output. apply says whether the
 // script was asked to change anything.
-func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecRow {
-	r := pkgSecRow{Host: host, Security: []pkgUpgrade{}, DurationMS: rr.DurationMS}
-	sec := sections(rr.Stdout)
-	fail := func(e *out.Error) pkgSecRow {
-		r.Error, r.Stderr = e, strings.TrimSpace(rr.Stderr)
-		return r
-	}
-	if pm, ok := sec["unsupported"]; ok {
-		r.unsupported = strings.TrimSpace(pm)
-		return r
-	}
-	if _, ok := sec["pm"]; !ok {
-		if rr.TimedOut {
-			return fail(out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "pkg security timed out before it started"))
-		}
-		return fail(out.Errf(out.ExitRemote, "PKG_FAILED", "read stderr for the reason", "pkg security failed (exit %d)", rr.ExitCode))
-	}
+// pkgSecLists fills in what the script found before any change: the
+// package manager, the OS's support, the security updates, what they would
+// remove and how old the package index is.
+func pkgSecLists(r *pkgSecRow, sec map[string]string, refreshed bool) {
 	r.PackageManager = strings.TrimSpace(sec["pm"])
 	if o, ok := sec["os"]; ok {
 		sup, w := pkgSecSupport(o, time.Now())
@@ -293,6 +280,26 @@ func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecR
 			}
 		}
 	}
+}
+
+func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecRow {
+	r := pkgSecRow{Host: host, Security: []pkgUpgrade{}, DurationMS: rr.DurationMS}
+	sec := sections(rr.Stdout)
+	fail := func(e *out.Error) pkgSecRow {
+		r.Error, r.Stderr = e, strings.TrimSpace(rr.Stderr)
+		return r
+	}
+	if pm, ok := sec["unsupported"]; ok {
+		r.unsupported = strings.TrimSpace(pm)
+		return r
+	}
+	if _, ok := sec["pm"]; !ok {
+		if rr.TimedOut {
+			return fail(out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "pkg security timed out before it started"))
+		}
+		return fail(out.Errf(out.ExitRemote, "PKG_FAILED", "read stderr for the reason", "pkg security failed (exit %d)", rr.ExitCode))
+	}
+	pkgSecLists(&r, sec, refreshed)
 	var ess []string
 	for _, p := range r.WouldRemove {
 		if essentialPkg(p) {
