@@ -6,6 +6,15 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+- **License: komando is now under the GNU Affero General Public License
+  v3.0 (AGPL-3.0)** instead of MIT. You can still use it for free, for any
+  purpose. If you change komando and give it to others, or let them use it
+  over a network, you must share your version's source code under the same
+  license. A [commercial license](COMMERCIAL-LICENSE.md) is available for
+  closed-source use. Contributors now sign a short
+  [Contributor License Agreement](CLA.md) once. v0.1.0 and v0.2.0 stay
+  under MIT.
+
 - `komando vpn status`: `last_end` now says when the session ended and how
   long it ran. When an L2TP server ends the session, it also says how long
   the link had no traffic (a server idle timeout?), and the log shows the

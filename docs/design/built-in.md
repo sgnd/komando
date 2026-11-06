@@ -132,7 +132,7 @@ AWS SSM sessions as a built-in proxy; Docker credential files.
 | Writing VPN clients ourselves | Mistakes in a security protocol | Only Go's standard crypto and `x/crypto`; no own primitives. Every parser fuzzed. Each VPN client reviewed against the protocol spec and tested against the real server software; it is marked experimental until a security review |
 | `ooni/minivpn` | Its README says it is not a secure, complete implementation | Not used as is. Its code may be read as a reference; komando's client is written and tested on its own |
 | OpenVPN options (tls-auth, tls-crypt, tls-crypt-v2, ciphers, compression, renegotiation) | A profile that half works is worse than one that refuses | Unsupported options are refused at `vpn add` with the option's name, never ignored. `comp-lzo`/`compress` with real compression is refused (compression over encryption is unsafe, VORACLE) |
-| Licences | openconnect is LGPL, openfortivpn GPLv3; copying would bind komando's MIT licence | No code is copied or translated from them. Clients are written from protocol documentation and packet captures. Libraries used must be MIT/BSD/Apache |
+| Licences | openconnect is LGPL, openfortivpn GPLv3. komando is AGPL-3.0 and is also sold under a commercial license, so every line must be its own or under a permissive licence | No code is copied or translated from them. Clients are written from protocol documentation and packet captures. Libraries used must be MIT/BSD/ISC/Apache (MPL only unchanged, as a library) |
 | Secret SDKs | A token in a log or error | Same rule as today: errors name the tool, never the value; tests check no secret reaches output or audit |
 
 ### Compatibility
@@ -150,7 +150,7 @@ AWS SSM sessions as a built-in proxy; Docker credential files.
 
 | Case | Risk | Decision |
 |---|---|---|
-| No open-source server for GlobalProtect, Fortinet, F5, Pulse | Cannot run a full e2e | Logins tested against fake servers written from the protocol (openconnect's test suite has such fakes; komando writes its own, MIT). The tunnel tested against a real appliance before a protocol leaves experimental |
+| No open-source server for GlobalProtect, Fortinet, F5, Pulse | Cannot run a full e2e | Logins tested against fake servers written from the protocol (openconnect's test suite has such fakes; komando writes its own). The tunnel tested against a real appliance before a protocol leaves experimental |
 | OpenVPN | — | `make e2e-openvpn` already runs a real OpenVPN server; extended with tls-crypt, tls-crypt-v2, UDP and TCP, and a Pritunl server |
 | AnyConnect | — | `make e2e-vpnclients` runs ocserv with UDP: TLS, then DTLS |
 | Kubernetes | — | `make e2e` runs k3s 1.33 (WebSocket) and k3s 1.29 (SPDY) |
