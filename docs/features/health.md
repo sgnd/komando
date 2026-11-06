@@ -66,8 +66,8 @@ basics (`os`, `os_version`, `kernel`, `cpus`, `mem_total_mb`, `tools` ...):
 |-------|---------|
 | `os_support` | `status`, `standard_support_until`, `extended_support_until`, `extended_by` (`ubuntu-pro-esm`, `debian-lts`), `past_standard_support`, `esm_enabled` (Ubuntu), `dates_checked` |
 | `updates` | `total`, `security`, `source`, `index_age_days` |
-| `reboot_required`, `reboot_packages` | a reboot is needed, and for which packages (Debian and Ubuntu) |
-| `services_need_restart` | from `needrestart`; `null` without it or without sudo |
+| `reboot_required`, `reboot_packages` | a reboot is needed, and for which packages (Debian and Ubuntu; `kernel` when needrestart sees a newer kernel than the running one); on dnf/yum from `needs-restarting -r` |
+| `services_need_restart` | services that run old code, from `needrestart` (or `needs-restarting -s` on dnf/yum); `null` without either, or without sudo |
 | `sudo_nopasswd`, `login_user` | the same check as `komando test` |
 | `docker` | `installed`, `version`, `daemon_reachable`, `server_version`, `swarm`, `containers_running` |
 | `pm2` | `daemon_users` (every user running PM2), `apps` of the login user (`name`, `status`, `pid`, `restarts`, `cpu_pct`, `memory_mb`), `other_users` |
