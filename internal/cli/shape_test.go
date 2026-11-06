@@ -155,7 +155,6 @@ var dataKeyed = map[string]bool{"params": true}
 // element with the merged shape of all their elements. Maps keyed by
 // names the user chose (hosts, groups) still show their keys: those come
 // from the fixture above, which is fixed.
-
 func shapeOf(v any) any {
 	switch x := v.(type) {
 	case map[string]any:
