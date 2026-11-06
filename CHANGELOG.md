@@ -187,6 +187,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Security
 
+- Updated `github.com/klauspost/compress` to v1.20.2 (GO-2026-6865: a
+  crafted compressed frame could crash komando during a VPN session).
+
 Fixes from the full security review of 2026-11-04.
 
 - komando db refuses SET NAMES, SET CHARACTER SET, client_encoding and
