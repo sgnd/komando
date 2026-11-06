@@ -1,0 +1,21 @@
+# Lowest unit-test coverage (%) each package may have; see test/coverage.sh.
+# Set 1 point under the coverage when the floor came (2026-11-07). Only raise it.
+internal/cachex 37
+internal/cli 54
+internal/cloud 77
+internal/dbx 32
+internal/driver 90
+internal/ipsec 18
+internal/kube 40
+internal/l2tp 59
+internal/netx 26
+internal/openvpn 80
+internal/out 66
+internal/policy 83
+internal/ppp 65
+internal/registry 72
+internal/sshx 65
+internal/sslvpn 74
+internal/store 46
+internal/storex 5
+internal/vault 63
