@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # AWS paths without an AWS account. komando talks to AWS itself (SDK, SSO
 # cache, Session Manager); the lab's moto answers for ECR. For `--ssm` a fake
 # `aws` and session-manager-plugin stand in for the CLI (`aws ssm

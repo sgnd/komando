@@ -575,7 +575,7 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 			return methods, agentConn, nil // keys are available; an unresolvable password is not fatal
 		}
 		if err != nil {
-			return nil, agentConn, out.Errf(out.ExitUsage, "SECRET_UNRESOLVED", "check `komando secret list`", "password for %s: %v", h.Name, err)
+			return nil, agentConn, out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "check `komando secret list`", "password for %s: %v", h.Name, err)
 		}
 		methods = append(methods, ssh.Password(pw), ssh.KeyboardInteractive(func(_, _ string, qs []string, _ []bool) ([]string, error) {
 			ans := make([]string, len(qs))
@@ -586,7 +586,7 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 		}))
 	}
 	if len(methods) == 0 {
-		return nil, agentConn, out.Errf(out.ExitUsage, "NO_AUTH", "add --key, --identity or --password-ref to the host, or start ssh-agent", "no authentication method available for %s", h.Name)
+		return nil, agentConn, out.Errf(out.ExitConnect, "NO_AUTH", "add --key, --identity or --password-ref to the host, or start ssh-agent", "no authentication method available for %s", h.Name)
 	}
 	return methods, agentConn, nil
 }

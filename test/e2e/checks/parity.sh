@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Parity: the same everyday job done with the native tool (run inside the
 # lab container: sh, sha256sum, psql, mariadb, redis-cli, kubectl, docker)
 # and with komando must give the same answer. komando adds safety and one

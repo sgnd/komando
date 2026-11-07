@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # komando's own dump and restore (no pg_dump, psql, mysqldump or mysql):
 # used when a conn is reached directly or through a VPN, as here.
 echo "==> built-in dump and restore"

@@ -127,11 +127,11 @@ func registryTLS(t driver.Target) (registry.TLS, error) {
 	}
 	pem, err := vault.Resolve(t.CA)
 	if err != nil {
-		code, exit := "SECRET_UNRESOLVED", out.ExitError
+		code := "SECRET_UNRESOLVED"
 		if errors.Is(err, vault.ErrNotFound) {
-			code, exit = "SECRET_NOT_FOUND", out.ExitNotFound
+			code = "SECRET_NOT_FOUND"
 		}
-		return tc, out.Errf(exit, code, "store the CA certificate with `komando secret set NAME < ca.crt`",
+		return tc, out.Errf(out.ExitNotFound, code, "store the CA certificate with `komando secret set NAME < ca.crt`",
 			"registry CA %s: %v", t.CA, err)
 	}
 	if tc.RootCAs, err = registry.CAPool([]byte(pem)); err != nil {

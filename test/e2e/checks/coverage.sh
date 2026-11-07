@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Every command runs at least once in e2e. These are the ones no other check
 # reaches: the plain, everyday path of each, against the lab (hosts direct,
 # bastion, target (protected), swarm1; conns pg, maria, cache, bucket).

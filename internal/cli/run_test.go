@@ -411,6 +411,7 @@ func TestJobWaitRetriesOnlyBrokenConnections(t *testing.T) {
 		errors.New("read tcp 1.2.3.4:22: connection reset by peer"): true,
 		out.Errf(out.ExitConnect, "CONNECT_TIMEOUT", "", "x"):       true,
 		out.Errf(out.ExitConnect, "AUTH_FAILED", "", "x"):           false,
+		out.Errf(out.ExitConnect, "NO_AUTH", "", "x"):               false,
 		out.Errf(out.ExitConnect, "HOSTKEY_MISMATCH", "", "x"):      false,
 		out.Errf(out.ExitNotFound, "JOB_NOT_FOUND", "", "x"):        false,
 		// seen when sessions are cut at random moments

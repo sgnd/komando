@@ -413,7 +413,8 @@ echo -n deploypass | $K secret set files-pass >/dev/null
 q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref secret:files-pass
 q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref secret:files-pass
 for c in files-sftp files-ftps; do
-  q $K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt
+  # check the upload itself, so a failed upload shows its own error instead of an empty listing below
+  check "$c upload" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["ok"] or "%s: %s" % (d["error"]["code"], d["error"]["message"])' || true)"
   check "$c upload creates folders" 2026/11/obj.txt "$($K storage ls "$c" --recursive | jget '[o["key"] for o in d["data"]["objects"] if not o.get("dir")][0]')"
   check "$c upload replaces" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["data"]["replaced"]')"
   q $K storage download "$c" 2026/11/obj.txt --to "$TMP/$c.txt"
@@ -437,7 +438,7 @@ q $K download direct /tmp/up.txt --to "$TMP/down/"
 check "upload/download to a server" hello-upload "$(cat "$TMP/down/up.txt")"
 check "download never replaces a local file" FILE_EXISTS "$($K download direct /tmp/up.txt --to "$TMP/down/" | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
 q $K download direct /tmp/up.txt --to "$TMP/down/" --overwrite
-check "no temporary files left" 0 "$(ls -A "$TMP/down" | grep -c komando-download || true)"
+check "no temporary files left" 0 "$(find "$TMP/down" -maxdepth 1 -name '*komando-download*' | wc -l | tr -d ' ')"
 dd if=/dev/urandom of="$TMP/big.bin" bs=1048576 count=40 2>/dev/null
 check "large upload is streamed intact" "$(shasum -a 256 "$TMP/big.bin" | cut -c1-64)" "$($K upload direct "$TMP/big.bin" /tmp/big.bin | jget 'd["data"]["results"][0]["sha256"]')"
 check "sync to a server" 2 "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' | jget 'd["data"]["results"][0]["copied"]')"

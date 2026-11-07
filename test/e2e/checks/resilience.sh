@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Long waits outlive SSH connections: when the server (or a NAT on the way)
 # drops komando's connection, `job wait` connects again and keeps waiting
 # until the job ends, as kubectl wait does. (Found in real use: a 25-minute
@@ -15,4 +16,4 @@ done
 wait "$WPID"
 [ "$(cat "$TMP/wait.rc")" = 0 ] || { echo "  job wait said:"; head -c 800 "$TMP/wait.out"; echo; }
 check "job wait survives dropped connections" "0 exited" "$(cat "$TMP/wait.rc") $(jget 'd.get("data", {}).get("state")' <"$TMP/wait.out" || true)"
-check "the job really ran to its end" done "$($K job logs "$JID" | jget 'd["data"]["content"].strip()' || true)"
+check "the job really ran to its end" "done" "$($K job logs "$JID" | jget 'd["data"]["content"].strip()' || true)"

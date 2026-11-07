@@ -6,6 +6,11 @@
 # Installs to /usr/local/bin when writable, otherwise ~/.local/bin.
 # Override with KOMANDO_INSTALL_DIR=/some/dir: it is made if missing, and the script
 # stops if it cannot write there (it never puts komando somewhere else).
+# Install one version with KOMANDO_VERSION=v0.3.1.
+#
+# The checksum comes from the same release as the archive. To check that an
+# archive was built by komando's release workflow, download it and run
+# `gh attestation verify FILE --repo sgnd/komando` (see SECURITY.md).
 set -eu
 
 REPO="sgnd/komando"
@@ -24,6 +29,10 @@ esac
 
 file="komando_${os}_${arch}.tar.gz"
 base="https://github.com/$REPO/releases/latest/download"
+if [ -n "${KOMANDO_VERSION:-}" ]; then
+  case "$KOMANDO_VERSION" in v*) v=$KOMANDO_VERSION ;; *) v=v$KOMANDO_VERSION ;; esac
+  base="https://github.com/$REPO/releases/download/$v"
+fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 

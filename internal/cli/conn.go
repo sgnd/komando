@@ -493,7 +493,7 @@ func resolvePassword(c *store.Conn) (string, error) {
 	if errors.Is(err, vault.ErrNotFound) {
 		return "", out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", hint, "password reference %s: %v", c.PasswordRef, err)
 	}
-	return "", out.Errf(out.ExitError, "SECRET_UNRESOLVED", hint, "password reference %s: %v", c.PasswordRef, err)
+	return "", out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", hint, "password reference %s: %v", c.PasswordRef, err)
 }
 
 // --- connectivity ----------------------------------------------------------

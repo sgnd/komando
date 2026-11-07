@@ -57,6 +57,7 @@ Most settings also have a flag for one run: `--timeout`,
 | `KOMANDO_VAULT_PASS` | a passphrase for the vault, instead of the `vault.key` file |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
+| `KOMANDO_AGENT`, `AI_AGENT` | mark the caller as an AI agent, for agents komando does not know by their own variables: output hides secrets and `--yes`, `--allow-dangerous` and `--reveal` need a person to allow them (see [Safety](safety.md#seatbelts-for-ai-agents)). Any value counts, also `0` or empty |
 | `NO_COLOR` | turn off colors in status lines |
 
 Variables for password managers and cloud logins are listed in

@@ -99,7 +99,7 @@ A test also reads every `komando ...` example in the docs (`README.md`, `AGENTS.
 
 Every version is a GitHub release, and `install.sh` only downloads releases. `main` can be ahead of them.
 
-1. In [`CHANGELOG.md`](CHANGELOG.md), rename `## [Unreleased]` to `## [X.Y.Z]` and start a new empty `## [Unreleased]` above it.
+1. In [`CHANGELOG.md`](CHANGELOG.md), rename `## [Unreleased]` to `## [X.Y.Z]` and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`.
 2. Commit, then push the tag:
 
    ```bash

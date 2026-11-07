@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Running commands, files, transfers, sync, jobs and tunnels behave like the
 # native tools (ssh, scp, rsync, sed -i, nohup): fixes from the QA round.
 R=/tmp/t-e2erun
