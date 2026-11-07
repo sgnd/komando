@@ -862,13 +862,13 @@ func (l jobList) Text() string {
 }
 
 // transient: the connection broke (dropped, reset, timed out), so trying
-// again may work. A refused login or a changed host key is not transient.
+// again may work. A refused or missing login or a changed host key is not.
 func transient(err error) bool {
 	if err == nil {
 		return false
 	}
 	if e := toErr(err); e.Exit == out.ExitConnect || e.Exit == out.ExitTimeout {
-		return e.Code != "AUTH_FAILED" && !strings.HasPrefix(e.Code, "HOSTKEY")
+		return e.Code != "AUTH_FAILED" && e.Code != "NO_AUTH" && !strings.HasPrefix(e.Code, "HOSTKEY")
 	}
 	m := strings.ToLower(err.Error())
 	// (seen when a session is cut at random moments: the handshake or the
