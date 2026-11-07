@@ -7,6 +7,16 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+
+- FTP and FTPS (`storage`, `upload`, `download`, `sync` on an `ftp://` or
+  `ftps://` conn): when the server drops a connection in the middle of a
+  command (EOF, reset), komando logs in again once and repeats the command,
+  instead of stopping with `STORAGE_CONNECT`. It never repeats after an FTP
+  error reply, a TLS error or a timeout, nor a download that already wrote
+  bytes, nor an upload from a source that cannot start over (a pipe). A
+  `rm` whose repeat finds the file gone counts as done.
+
 ## [0.3.1] - 2026-11-07
 
 ### Highlights
