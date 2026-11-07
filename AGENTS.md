@@ -12,7 +12,8 @@ servers, databases, caches, storage, clusters and registries through the
 2. At the start of a session run `komando guide` and follow it.
    Use `komando schema <command>` when unsure about flags.
 3. Look before you change: `komando list`, `komando test <target>`, `komando facts <target>`,
-   then read logs/config/status.
+   then read logs/config/status. To read a command's output, add `-o text`;
+   keep JSON when you branch on each server's exit code or error.
 4. Before any change, run it once with `--dry-run`. A dry run is never
    blocked; `meta.would_be_blocked` says what the real run would need.
    Declare read-only shell commands with `--read-only`. `db query`,

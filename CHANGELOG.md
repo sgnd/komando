@@ -7,6 +7,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Changed
+
+- The agent guide (`komando guide`), the skill and the output docs say
+  when to use `-o text`: to read a command's output, instead of pulling
+  `stdout` out of the JSON. JSON stays the default for branching on each
+  server's exit code or error.
+
 ### Fixed
 
 - `--help` examples for `cluster` commands now use `--namespace`; `-n` is

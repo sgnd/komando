@@ -27,6 +27,9 @@ If `komando` is not installed, stop and ask the human to install it:
    then read logs, config and status. Read `facts` warnings first; `null`
    means unknown, never 0 or false (an unsupported OS shows security
    updates as `null`). Each multi-target result names its server in `host`.
+   To read a command's output, add `-o text` (`komando exec web1 --read-only
+   -o text -- cat FILE`); keep JSON when you branch on each server's exit
+   code or error.
 2. Run every change once with `--dry-run` first. A dry run is never stopped:
    on a protected target or a destructive command it still shows the plan,
    and `meta.would_be_blocked` names the stop the real run would hit, so you

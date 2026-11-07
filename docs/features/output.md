@@ -20,6 +20,13 @@ agent or a script) runs komando through a pipe, it gets one JSON object
 instead. Force either with `-o text` or `-o json`, or set `KOMANDO_OUTPUT`.
 `--pretty` indents the JSON.
 
+An agent or script that only wants to read what ran on a server can ask
+for text too: `komando exec web1 --read-only -o text -- cat /etc/hosts`
+prints the server's output as it is, with komando's exit code being the
+command's. With several servers, each one gets a block headed
+`=== web1 [ok exit=0]`. Use JSON when you need each server's exit code or
+error as data.
+
 ```json
 {
   "ok": false,

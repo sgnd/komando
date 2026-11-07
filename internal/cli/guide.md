@@ -8,6 +8,20 @@ exactly one JSON object on stdout; pass `-o json` to be explicit. Branch on
 `ok`, `error.code` and the process exit code. `meta.contract` (now 1) changes
 only when a field or code is renamed or removed; new ones may appear at any time.
 
+To just read what a command printed on a server, add `-o text` instead of
+pulling `stdout` out of the JSON with python or jq:
+
+```bash
+komando exec web1 --read-only -o text -- cat /etc/os-release   # the server's output as it is
+komando exec @web --read-only -o text -- uptime                # one "=== web1 [ok exit=0]" block per server
+```
+
+With one server you get its stdout as it is; its stderr goes to stderr and
+komando's exit code is the command's. With several, each server gets a block
+headed `=== NAME [ok exit=N]` and its stderr lines start with `[stderr]`.
+Keep JSON (the default) when you need each server's exit code, error code or
+hint as data: to branch on them, or to compare many servers.
+
 ## 1. Orient yourself
 
 ```bash
