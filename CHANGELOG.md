@@ -7,6 +7,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+
+- `--help` examples for `cluster` commands now use `--namespace`; `-n` is
+  `--limit` in komando, so the old examples failed when copied. `import
+  --help` no longer shows "(default -)", and `komando --help` and `conn
+  --help` now say that clusters and registries are conns too.
+
 ## [0.3.0] - 2026-11-07
 
 ### Highlights

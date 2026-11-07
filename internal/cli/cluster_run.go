@@ -26,7 +26,7 @@ func clusterRmCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "rm TARGET TYPE NAME",
 		Short: "Delete an object (Kubernetes) or a service or stack (Swarm); needs --allow-dangerous",
-		Example: `  komando cluster rm prod-k8s pod api-7d9f-x2 -n shop --allow-dangerous
+		Example: `  komando cluster rm prod-k8s pod api-7d9f-x2 --namespace shop --allow-dangerous
   komando cluster rm swarm-manager service/web --allow-dangerous`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {

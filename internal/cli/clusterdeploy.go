@@ -347,7 +347,7 @@ func clusterHistoryCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "history TARGET deployment/NAME",
 		Short:   "Revisions of a deployment, newest first, with their images (for rollback --to)",
-		Example: "  komando cluster history prod deployment/api -n shop",
+		Example: "  komando cluster history prod deployment/api --namespace shop",
 		Args:    refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -485,8 +485,8 @@ func clusterRollbackCmd() *cobra.Command {
 other images than now. After a rollback, the revision it replaced (the bad
 one) is skipped, so a second rollback does not bring it back; --to picks any
 revision. A Swarm service goes back to its previous version.`,
-		Example: `  komando cluster rollback prod deployment/api -n shop --wait
-  komando cluster rollback prod deployment/api --to 3 -n shop
+		Example: `  komando cluster rollback prod deployment/api --namespace shop --wait
+  komando cluster rollback prod deployment/api --to 3 --namespace shop
   komando cluster rollback swarm1 service/web`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {

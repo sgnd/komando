@@ -187,7 +187,7 @@ func dbRestoreCmd() *cobra.Command {
 		Long: `Runs the SQL in FILE (from ` + "`db dump`" + `, pg_dump, mysqldump or any plain SQL
 file; .gz is read compressed). komando runs the SQL itself, through the
 conn's --via path, never with psql or mysql. A PostgreSQL archive
-(` + "`db dump --format custom`" + `) is recognised by its content and loaded with
+(` + "`db dump --format custom`" + `) is recognized by its content and loaded with
 pg_restore on a server: the one named with --on HOST, else the conn's --via
 server; the archive is streamed to it over SSH. A restore can overwrite
 existing data, so it needs --allow-dangerous, plus --yes on a protected

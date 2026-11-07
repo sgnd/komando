@@ -84,7 +84,7 @@ func hostAddCmd() *cobra.Command {
 	var force bool
 	c := &cobra.Command{
 		Use:   "add NAME [user@address[:port]]",
-		Short: "Add a host",
+		Short: "Add a server to the list",
 		Example: `  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
   komando host add db1 --address db.internal --user root --via bastion --protected`,
 		Args: cobra.RangeArgs(1, 2),

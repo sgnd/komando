@@ -33,9 +33,9 @@ or pick pods by label with -l. Lines from several pods start with [pod].
 -f keeps reading until Ctrl-C or --timeout (both end it normally); it follows
 the pods that exist when it starts. --since takes a duration back from now
 (10m, 2h) or a time (2026-01-02T10:00:00Z).`,
-		Example: `  komando cluster logs prod-k8s api-7d9f-x2 -n shop --since 10m
-  komando cluster logs prod-k8s deploy/api -n shop -f
-  komando cluster logs prod-k8s -l app=api -n shop --limit 50
+		Example: `  komando cluster logs prod-k8s api-7d9f-x2 --namespace shop --since 10m
+  komando cluster logs prod-k8s deploy/api --namespace shop -f
+  komando cluster logs prod-k8s -l app=api --namespace shop --limit 50
   komando cluster logs swarm-manager service/web -f`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {

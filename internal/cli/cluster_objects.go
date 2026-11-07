@@ -23,7 +23,7 @@ func clusterLsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "ls TARGET TYPE",
 		Short: "List pods, deployments, services, nodes, ... (Swarm: services, tasks, nodes, stacks)",
-		Example: `  komando cluster ls prod-k8s pods -n shop
+		Example: `  komando cluster ls prod-k8s pods --namespace shop
   komando cluster ls prod-k8s deploy -A
   komando cluster ls swarm-manager services
   komando cluster ls swarm-manager tasks -n 20`,
@@ -102,8 +102,8 @@ func clusterGetCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "get TARGET TYPE NAME",
 		Short: "Show one object in full (Secret values are hidden); TYPE/NAME works too",
-		Example: `  komando cluster get prod-k8s deployment api -n shop
-  komando cluster get prod-k8s deployment.apps/api -n shop
+		Example: `  komando cluster get prod-k8s deployment api --namespace shop
+  komando cluster get prod-k8s deployment.apps/api --namespace shop
   komando cluster get swarm-manager service/web`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -170,7 +170,7 @@ func clusterRestartCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "restart TARGET TYPE/NAME",
 		Short: "Restart a deployment, statefulset or daemonset (rolling), or a Swarm service",
-		Example: `  komando cluster restart prod-k8s deployment/api -n shop --wait
+		Example: `  komando cluster restart prod-k8s deployment/api --namespace shop --wait
   komando cluster restart swarm-manager service/web`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -259,7 +259,7 @@ func clusterScaleCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "scale TARGET TYPE/NAME REPLICAS",
 		Short: "Set the number of replicas (0 stops it: needs --allow-dangerous)",
-		Example: `  komando cluster scale prod-k8s deployment/api 3 -n shop --wait
+		Example: `  komando cluster scale prod-k8s deployment/api 3 --namespace shop --wait
   komando cluster scale swarm-manager service/web 4`,
 		Args: refArgs(1, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -239,9 +239,9 @@ func newRoot() *cobra.Command {
 	personSaidNo = false
 	root := &cobra.Command{
 		Use:   "komando",
-		Short: "One safe command line for DevOps: servers, databases, caches and storage",
+		Short: "One safe command line for DevOps: servers, databases, caches, storage, clusters and registries",
 		Long: `komando is one safe command line for DevOps work: servers (SSH), databases,
-caches and storage, for AI agents and humans alike.
+caches, storage, clusters and registries, for AI agents and humans alike.
 
 When piped (how agents call it) every command prints one JSON envelope on
 stdout; in an interactive terminal it prints readable text (force with -o json|text):
