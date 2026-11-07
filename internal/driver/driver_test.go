@@ -2,6 +2,7 @@ package driver
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
@@ -137,6 +138,54 @@ func TestParseRegistryTLS(t *testing.T) {
 	} {
 		if _, err := Parse(raw); err == nil {
 			t.Errorf("%s: accepted", raw)
+		}
+	}
+}
+
+// ?resolve= is where to connect, like curl --resolve. The port comes from
+// the URL unless the option has its own; Address keeps the name.
+func TestParseResolve(t *testing.T) {
+	for raw, want := range map[string][2]string{
+		"registry://me@registry.example.com?resolve=104.248.148.41":                 {"registry.example.com:443", "104.248.148.41:443"},
+		"registry://me@registry.lan:5000?resolve=10.0.0.5":                          {"registry.lan:5000", "10.0.0.5:5000"},
+		"registry://me@registry.lan?resolve=10.0.0.5:8443":                          {"registry.lan:443", "10.0.0.5:8443"},
+		"registry://me@registry.lan?resolve=[2001:db8::1]:8443":                     {"registry.lan:443", "[2001:db8::1]:8443"},
+		"registry://me@registry.lan?resolve=[2001:db8::1]":                          {"registry.lan:443", "[2001:db8::1]:443"},
+		"registry://me@registry.lan?resolve=2001:db8::1":                            {"registry.lan:443", "[2001:db8::1]:443"},
+		"registry://me@registry.lan?ca=secret:lan-ca&resolve=10.0.0.5":              {"registry.lan:443", "10.0.0.5:443"},
+		"s3://KEY@backups?endpoint=https://minio.example.com:9000&resolve=10.0.0.9": {"minio.example.com:9000", "10.0.0.9:9000"},
+		"registry://me@registry.lan":                                                {"registry.lan:443", ""},
+		"s3://KEY@backups?endpoint=http://minio.lan&region=us-east-1":               {"minio.lan:80", ""},
+		"registry://me@registry.lan:5000?tls=false&resolve=192.168.1.20":            {"registry.lan:5000", "192.168.1.20:5000"},
+		"oci://me@Registry.Example.com?resolve=%5B2001%3Adb8%3A%3A1%5D%3A443":       {"Registry.Example.com:443", "[2001:db8::1]:443"},
+	} {
+		tg, err := Parse(raw)
+		if err != nil {
+			t.Fatalf("%s: %v", raw, err)
+		}
+		dial := want[1]
+		if dial == "" {
+			dial = want[0]
+		}
+		if tg.Address != want[0] || tg.Resolve != want[1] || tg.DialAddress() != dial {
+			t.Errorf("%s: address %q resolve %q dial %q, want %q %q", raw, tg.Address, tg.Resolve, tg.DialAddress(), want[0], want[1])
+		}
+	}
+	for _, raw := range []string{
+		"registry://me@registry.lan?resolve=registry.example.com", // a name: that is what DNS is for
+		"registry://me@registry.lan?resolve=",
+		"registry://me@registry.lan?resolve=999.1.1.1",
+		"registry://me@registry.lan?resolve=10.0.0.5:",
+		"registry://me@registry.lan?resolve=10.0.0.5:0",
+		"registry://me@registry.lan?resolve=10.0.0.5:70000",
+		"registry://me@registry.lan?resolve=10.0.0.5:https",
+		"registry://me@registry.lan?resolve=[2001:db8::1",
+		"s3://KEY@backups?endpoint=https://minio.lan&resolve=minio.internal",
+	} {
+		_, err := Parse(raw)
+		e, ok := err.(*out.Error)
+		if !ok || e.Code != "USAGE" || e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "?resolve=") {
+			t.Errorf("%s: %v, want USAGE with a hint", raw, err)
 		}
 	}
 }

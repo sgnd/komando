@@ -7,19 +7,6 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
-### Fixed
-
-- A secret that only a conn URL names, such as a registry's
-  `?ca=secret:NAME`, counts as used: `secret list` shows the conn under
-  `used_by`, `secret rm` refuses it (`SECRET_IN_USE`), `secret mv` changes
-  the URL too, `export` lists it in `secrets_needed`, and `doctor` warns
-  when it is not in the vault. Before, `secret rm` deleted it and broke the
-  conn, and `secret mv` left the URL on the old name.
-- A database that times out in the checks right after connecting (a slow
-  VPN) said `connecting to  timed out`, without the address. The message
-  names the address, and the `--via` path when there is one:
-  `connecting to 10.0.0.5:5432 via office-vpn timed out`.
-
 ### Changed
 
 - Lists are sorted by name, as one list. `list` (and `host`, `conn` and
@@ -33,6 +20,34 @@ its highlights; the sections below them give the details. Versions follow
   `docker images` (docker puts the newest first) and `registry ls`. Lists
   without names keep their order: `job list` and `tunnel list` by start
   time, `cron list` as in the crontab.
+
+## [0.5.0] - 2026-11-08
+
+### Highlights
+
+- **`?resolve=IP` for registry and S3 conns**, like `curl --resolve`: reach
+  a registry whose public DNS is wrong or missing straight from your
+  computer, without `--via` a server that has the right `/etc/hosts`.
+- **Secrets named in a conn URL count as used** (`?ca=secret:NAME`):
+  `secret rm` no longer deletes them, and `secret mv` and `export` follow.
+- **`doctor` finds untidy conns:** a shared protected password, duplicate
+  conns, and an unprotected conn of a protected server.
+- **`sudo sh install.sh` installs komando owned by root.**
+
+### Added
+
+- Registry and S3 conns take `?resolve=IP` (or `IP:PORT`), like
+  `curl --resolve`: komando connects to that address instead of the one DNS
+  gives for the name. TLS keeps using the name in the URL, so
+  `?ca=secret:NAME` and `?tls=skip-verify` work as they do without it. This
+  helps when a registry's public DNS is wrong or missing: before, the only
+  way was `--via` a server whose `/etc/hosts` had the right address. With
+  `--via`, the last server connects to the IP. `komando test` and `tunnel`
+  use it too, and so does `cert check` for an S3 conn. A value that is not
+  an IP address is refused with `USAGE`.
+
+### Changed
+
 - `doctor` warns about conns worth a look: an unprotected conn that shares
   its password secret with a protected server or conn, two conns with the
   same kind, URL and `--via`, and an unprotected conn with the label
@@ -41,6 +56,23 @@ its highlights; the sections below them give the details. Versions follow
 - `host show @group` (or another selector where one name is expected) says
   that the command takes one name and points at `komando list @group` and
   `komando export @group`, instead of a bare "not found".
+
+### Fixed
+
+- A secret that only a conn URL names, such as a registry's
+  `?ca=secret:NAME`, counts as used: `secret list` shows the conn under
+  `used_by`, `secret rm` refuses it (`SECRET_IN_USE`), `secret mv` changes
+  the URL too, `export` lists it in `secrets_needed`, and `doctor` warns
+  when it is not in the vault. Before, `secret rm` deleted it and broke the
+  conn, and `secret mv` left the URL on the old name.
+- A database that times out in the checks right after connecting (a slow
+  VPN) said `connecting to  timed out`, without the address. The message
+  names the address, and the `--via` path when there is one:
+  `connecting to 10.0.0.5:5432 via office-vpn timed out`.
+- `sudo sh install.sh` installed komando owned by uid 1001, the user that
+  built the release, instead of root. It now extracts with
+  `--no-same-owner`. If you installed with sudo, fix the owner once:
+  `sudo chown root:wheel /usr/local/bin/komando` (Linux: `root:root`).
 
 ## [0.4.0] - 2026-11-07
 
@@ -1553,7 +1585,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/sgnd/komando/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/sgnd/komando/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/sgnd/komando/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/sgnd/komando/compare/v0.2.0...v0.3.0

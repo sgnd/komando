@@ -6,6 +6,7 @@ package driver
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"net/url"
 	"sort"
 	"strconv"
@@ -73,9 +74,9 @@ func init() {
 	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
 		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
 	register(Kind{Name: "registry", Family: "registry", Schemes: []string{"registry", "oci"}, DefaultPort: 443,
-		Example: "registry://myuser@ghcr.io (Docker Hub: registry://myuser@docker.io; private CA: ?ca=secret:NAME; self-signed: ?tls=skip-verify; no TLS: ?tls=false)"})
+		Example: "registry://myuser@ghcr.io (Docker Hub: registry://myuser@docker.io; private CA: ?ca=secret:NAME; self-signed: ?tls=skip-verify; no TLS: ?tls=false; wrong or missing DNS: ?resolve=IP)"})
 	register(Kind{Name: "s3", Family: "storage", Schemes: []string{"s3"},
-		Example: "s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1"})
+		Example: "s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1 (wrong or missing DNS: &resolve=IP)"})
 	register(Kind{Name: "ftps", Family: "storage", Schemes: []string{"ftps"}, DefaultPort: 21,
 		Example: "ftps://deploy@files.example.com/public_html (FTP with TLS; ?tls=skip-verify for self-signed)"})
 	register(Kind{Name: "ftp", Family: "storage", Schemes: []string{"ftp"}, DefaultPort: 21,
@@ -121,6 +122,16 @@ type Target struct {
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
 	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry: skip-verify (registry also false)
 	CA       string `json:"ca,omitempty"`       // registry: secret:NAME holding the PEM CA certificate to trust
+	Resolve  string `json:"resolve,omitempty"`  // registry, s3: IP:port to connect to in place of Address (?resolve=)
+}
+
+// DialAddress is where a connection goes: the ?resolve= address when the
+// URL has one, otherwise Address. TLS and HTTP keep using Address's name.
+func (t Target) DialAddress() string {
+	if t.Resolve != "" {
+		return t.Resolve
+	}
+	return t.Address
 }
 
 // Where is the address or path, for display.
@@ -200,6 +211,9 @@ func Parse(raw string) (Target, error) {
 		if err := parseRegistryOptions(u.Query(), &t); err != nil {
 			return Target{}, err
 		}
+		if t.Resolve, err = parseResolve(u.Query(), t.Address); err != nil {
+			return Target{}, err
+		}
 	}
 	if k.Name == "memcached" {
 		t.Secure = strings.EqualFold(u.Scheme, "memcacheds")
@@ -225,10 +239,12 @@ func Parse(raw string) (Target, error) {
 //	?ca=secret:NAME    also trust the PEM CA certificate in the vault
 //	?tls=skip-verify   HTTPS without checking the certificate
 //	?tls=false         plain HTTP
+//
+// ?resolve=IP is read by parseResolve.
 func parseRegistryOptions(q url.Values, t *Target) error {
 	for key := range q {
-		if key != "tls" && key != "ca" {
-			return out.Usage("unknown registry URL option %q (known: tls, ca)", key)
+		if key != "tls" && key != "ca" && key != "resolve" {
+			return out.Usage("unknown registry URL option %q (known: tls, ca, resolve)", key)
 		}
 	}
 	t.TLS, t.CA = q.Get("tls"), q.Get("ca")
@@ -255,6 +271,34 @@ func parseRegistryOptions(q url.Values, t *Target) error {
 		return out.Usage("registry ca= and tls=%s do not go together: with ca= the certificate is checked against that CA", t.TLS)
 	}
 	return nil
+}
+
+// parseResolve reads ?resolve=IP or ?resolve=IP:PORT (IPv6 in brackets:
+// [2001:db8::1]:443), the address to connect to in place of the one DNS
+// gives for the URL's host, like curl --resolve. The port defaults to the
+// one in address. Only the connection goes there: TLS and the HTTP Host
+// header keep the name, so the certificate is still checked against it.
+// It returns "" when the URL has no resolve option.
+func parseResolve(q url.Values, address string) (string, error) {
+	if !q.Has("resolve") {
+		return "", nil
+	}
+	v := strings.TrimSpace(q.Get("resolve"))
+	host := v
+	_, port, _ := net.SplitHostPort(address)
+	if h, p, err := net.SplitHostPort(v); err == nil {
+		host, port = h, p // "IP:" with no port is refused below
+	} else if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
+		host = v[1 : len(v)-1]
+	}
+	ip, err := netip.ParseAddr(host)
+	n, perr := strconv.Atoi(port)
+	if err != nil || perr != nil || n < 1 || n > 65535 {
+		return "", out.Errf(out.ExitUsage, "USAGE",
+			"give the IP address to connect to, e.g. ?resolve=203.0.113.10 or ?resolve=203.0.113.10:8443 (IPv6: ?resolve=[2001:db8::1]:443); TLS keeps using the name in the URL",
+			"resolve option must be an IP address or IP:PORT, not %q", v)
+	}
+	return net.JoinHostPort(ip.String(), port), nil
 }
 
 // parseFiles reads ftps://, ftp:// and sftp:// URLs. The path is the folder
@@ -341,9 +385,12 @@ func parseS3(u *url.URL, t Target) (Target, error) {
 	}
 	t.Address = net.JoinHostPort(e.Hostname(), port)
 	for k := range q {
-		if k != "endpoint" && k != "region" {
-			return Target{}, out.Usage("unknown s3 URL option %q (known: endpoint, region)", k)
+		if k != "endpoint" && k != "region" && k != "resolve" {
+			return Target{}, out.Usage("unknown s3 URL option %q (known: endpoint, region, resolve)", k)
 		}
+	}
+	if t.Resolve, err = parseResolve(q, t.Address); err != nil {
+		return Target{}, err
 	}
 	return t, nil
 }
