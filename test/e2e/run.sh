@@ -44,7 +44,16 @@ cleanup() {
 trap cleanup EXIT
 
 # jget '<python expression on d>' : evaluate against JSON on stdin
-jget() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
+# When the output is not the JSON the check expects (an error instead of data),
+# it prints that output, so a failure in CI says why.
+jget() { python3 -c "
+import json,sys
+raw=sys.stdin.read()
+try:
+    d=json.loads(raw); print($1)
+except Exception as e:
+    sys.stderr.write('jget: %s: %s; komando printed: %s\n' % (type(e).__name__, e, raw.strip()[:1500] or '(nothing)')); sys.exit(1)
+"; }
 
 check() { # check "name" expected actual
   if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "  ok   $1"
