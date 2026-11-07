@@ -22,7 +22,6 @@ import (
 // asks for one). Lines are key=value; repeated keys are lists.
 const factsScript = `export LC_ALL=C
 echo "hostname=$(hostname 2>/dev/null)"
-if [ -r /etc/os-release ]; then . /etc/os-release; echo "os=$ID"; echo "os_version=$VERSION_ID"; echo "os_pretty=$PRETTY_NAME"; else echo "os=$(uname -s | tr A-Z a-z)"; fi
 echo "kernel=$(uname -r)"; echo "arch=$(uname -m)"
 echo "cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
 [ -r /proc/meminfo ] && awk '/^MemTotal/{print "mem_total_mb="int($2/1024)}/^MemAvailable/{print "mem_available_mb="int($2/1024)}/^SwapTotal/{print "swap_total_mb="int($2/1024)}/^SwapFree/{print "swap_free_mb="int($2/1024)}' /proc/meminfo
@@ -42,7 +41,6 @@ echo "virt=${v:-unknown}"
 pm=""
 for m in apt-get dnf yum apk zypper pacman; do command -v $m >/dev/null 2>&1 && { pm=$m; echo "pkg_manager=${m%-get}"; break; }; done
 for b in curl wget openssl docker podman kubectl k3s systemctl nginx apache2 httpd caddy haproxy mysql psql redis-cli mongosh node python3 java go git ufw firewall-cmd certbot pm2; do command -v $b >/dev/null 2>&1 && printf 'tool=%s\n' $b; done
-[ -d /run/systemd/system ] && echo "failed_units=$(systemctl --failed --no-legend --plain 2>/dev/null | wc -l)"
 echo "users_logged_in=$(who 2>/dev/null | wc -l)"
 echo "time_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "now_epoch=$(date +%s)"
@@ -54,16 +52,7 @@ if [ "$(id -u 2>/dev/null)" = 0 ]; then echo "sudo_nopasswd=true"; root=1
 elif command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then echo "sudo_nopasswd=true"; S="sudo -n"; root=1
 else echo "sudo_nopasswd=false"; root=""
 fi
-if command -v pro >/dev/null 2>&1; then echo "pro_json=$($T20 pro status --format json 2>/dev/null | tr -d '\n')"
-elif command -v ua >/dev/null 2>&1; then echo "pro_json=$($T20 ua status --format json 2>/dev/null | tr -d '\n')"
-fi
-if [ -f /var/run/reboot-required ]; then echo "reboot_required=true"; sed 's/^/reboot_pkg=/' /var/run/reboot-required.pkgs 2>/dev/null
-elif command -v dpkg >/dev/null 2>&1; then echo "reboot_required=false"
-elif command -v needs-restarting >/dev/null 2>&1; then $T needs-restarting -r >/dev/null 2>&1; case $? in 0) echo "reboot_required=false";; 1) echo "reboot_required=true";; esac
-fi
-if [ -n "$root" ] && command -v needrestart >/dev/null 2>&1; then
-  o=$($T $S needrestart -b -r l 2>/dev/null) && { echo "needrestart_ok=true"; printf '%s\n' "$o" | sed -n 's/^NEEDRESTART-SVC: */restart_svc=/p'; }
-fi
+` + osShell + hostStateShell + `HS_ROOT=$root hoststate
 if command -v docker >/dev/null 2>&1; then
   echo "docker_version=$(docker version --format '{{.Client.Version}}' 2>/dev/null)"
   f='{{.ServerVersion}}|{{.Swarm.LocalNodeState}}|{{.Swarm.ControlAvailable}}|{{.ContainersRunning}}'
@@ -173,9 +162,10 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 	f := map[string]any{}
 	tools := []string{}
 	var (
-		aptSim, upd, sec, listenLines, reboots, restarts, daemons []string
-		units                                                     []customUnit
-		pm2JSON, proJSON, dockerInfo                              *string
+		aptSim, upd, sec, listenLines, daemons []string
+		hs                                     hostState
+		units                                  []customUnit
+		pm2JSON, proJSON, dockerInfo           *string
 	)
 	set := map[string]string{} // raw values of the keys read below
 	for _, line := range strings.Split(s, "\n") {
@@ -185,6 +175,9 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 		}
 		raw := strings.TrimRight(v, "\r")
 		v = strings.TrimSpace(v)
+		if hs.line(k, v) {
+			continue
+		}
 		switch k {
 		case "tool":
 			tools = append(tools, v)
@@ -196,14 +189,6 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 			sec = append(sec, raw)
 		case "listen":
 			listenLines = append(listenLines, raw)
-		case "reboot_pkg":
-			if v != "" {
-				reboots = append(reboots, v)
-			}
-		case "restart_svc":
-			if v != "" {
-				restarts = append(restarts, v)
-			}
 		case "pm2_daemon":
 			daemons = append(daemons, v)
 		case "unit":
@@ -218,7 +203,7 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 			proJSON = &v
 		case "docker_info":
 			dockerInfo = &v
-		case "apt_sim_ok", "apt_lists_mtime", "upd_rc", "sec_rc", "needrestart_ok", "listen_src", "listen_names",
+		case "apt_sim_ok", "apt_lists_mtime", "upd_rc", "sec_rc", "listen_src", "listen_names",
 			"units_checked", "now_epoch", "docker_version", "login_user", "pm2_mine":
 			set[k] = v
 		case "os_version", "hostname", "kernel":
@@ -244,57 +229,25 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 	}
 	sort.Strings(tools)
 	f["tools"] = tools
-	if _, ok := f["reboot_required"]; !ok {
-		f["reboot_required"] = nil // not a Debian-family server and no needs-restarting
-	}
+	hostStateFacts(f, hs)
 	if _, ok := f["sudo_nopasswd"]; !ok {
 		f["sudo_nopasswd"] = nil
 	}
 	f["login_user"] = set["login_user"]
-	if r, _ := f["reboot_required"].(bool); r {
-		f["reboot_packages"] = nonNil(reboots)
-	}
-	if set["needrestart_ok"] == "true" {
-		f["services_need_restart"] = nonNil(restarts)
-	} else {
-		f["services_need_restart"] = nil // needrestart missing, or no root to run it
-	}
 
 	str := func(k string) string { x, _ := f[k].(string); return x }
 	osID, osVer, pretty := str("os"), str("os_version"), str("os_pretty")
-	var esm *bool
-	if osID == "ubuntu" && proJSON != nil {
-		esm = parseProESM(*proJSON)
-	}
-	sup := supportOf(osID, osVer, pretty, esm, now)
+	sup := osSupportFrom(osID, osVer, pretty, proJSON, now)
 	f["os_support"] = sup
 
 	updates := pendingFrom(set, aptSim, upd, sec, str("pkg_manager"))
 	var warnings []string
-	name := strings.TrimSpace(pretty)
-	if name == "" {
-		name = strings.TrimSpace(osID + " " + osVer)
-	}
-	switch {
-	case sup.Status == "unsupported":
-		msg := name + " gets no security updates any more"
-		switch {
-		case sup.ExtendedUntil != nil && now.UTC().Format("2006-01-02") <= *sup.ExtendedUntil:
-			msg = fmt.Sprintf("%s: standard support ended %s and Ubuntu Pro (ESM) is not enabled, so it gets no security updates", name, *sup.StandardUntil)
-		case sup.StandardUntil != nil:
-			last := *sup.StandardUntil
-			if sup.ExtendedUntil != nil {
-				last = *sup.ExtendedUntil
-			}
-			msg = fmt.Sprintf("%s reached end of life on %s and gets no security updates", name, last)
+	if w, unknown := supportWarning(osName(osID, osVer, pretty), sup, now); w != "" {
+		if unknown {
+			w += "; security updates are shown as unknown because 0 would look safe"
+			updates.Security = nil
 		}
-		warnings = append(warnings, msg+"; security updates are shown as unknown because 0 would look safe")
-		updates.Security = nil
-	case sup.Status == "unknown" && sup.PastStandard != nil && *sup.PastStandard:
-		warnings = append(warnings, fmt.Sprintf("%s: standard support ended %s and komando cannot tell whether Ubuntu Pro (ESM) is enabled (`pro status` was not readable), so it may get no security updates; security updates are shown as unknown", name, *sup.StandardUntil))
-		updates.Security = nil
-	case sup.Status == "unknown":
-		warnings = append(warnings, fmt.Sprintf("komando does not know the support dates of %s; check that it still gets security updates", name))
+		warnings = append(warnings, w)
 	}
 	if updates.IndexAgeDays != nil && *updates.IndexAgeDays > staleIndexDays {
 		warnings = append(warnings, fmt.Sprintf("the package index is %d days old, so the update counts may be too low; refresh it with `komando pkg update TARGET` (a change)", *updates.IndexAgeDays))
@@ -310,6 +263,25 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 	}
 	f["warnings"] = nonNil(warnings)
 	return f
+}
+
+// hostStateFacts puts what hoststate printed into the facts, in the keys
+// facts has always had.
+func hostStateFacts(f map[string]any, hs hostState) {
+	f["reboot_required"] = nil // not a Debian-family server and no needs-restarting
+	if hs.Reboot != nil {
+		f["reboot_required"] = *hs.Reboot
+		if *hs.Reboot {
+			f["reboot_packages"] = nonNil(hs.RebootPackages)
+		}
+	}
+	f["services_need_restart"] = nil // nothing to check with, or no root to run it
+	if hs.RestartChecked {
+		f["services_need_restart"] = nonNil(hs.NeedRestart)
+	}
+	if hs.FailedChecked {
+		f["failed_units"] = int64(len(hs.Failed))
+	}
 }
 
 func listenNames(set map[string]string) string {

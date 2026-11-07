@@ -15,6 +15,14 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   [Contributor License Agreement](CLA.md) once. v0.1.0 and v0.2.0 stay
   under MIT.
 
+- `komando facts` and `komando pkg security` read the server's state with
+  the same check, so they agree: `facts` now also sees a newer kernel that
+  needrestart reports (`reboot_required`, `reboot_packages: ["kernel"]`)
+  and, on dnf/yum servers, the services that need a restart (from
+  `needs-restarting -s`). `pkg security` now has `os_support` and warns on
+  an OS past end of life, where an empty list does not mean the server is
+  safe.
+
 - `komando vpn status`: `last_end` now says when the session ended and how
   long it ran. When an L2TP server ends the session, it also says how long
   the link had no traffic (a server idle timeout?), and the log shows the
