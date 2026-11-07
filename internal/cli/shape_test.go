@@ -143,6 +143,14 @@ func runShape(t *testing.T, args []string) string {
 	return b.String()
 }
 
+// dataKeyed are fields whose keys are data, not field names. Today only
+// `recipe list`'s params (a recipe's blanks and their defaults): its shape
+// is "*" for any key, so a recipe with other blanks is not a change of the
+// output. The keys of a field listed here are not guarded, in any command:
+// a new field called params elsewhere needs another name, or to be left
+// out of this list.
+var dataKeyed = map[string]bool{"params": true}
+
 // shapeOf replaces every value with its JSON type; arrays become one
 // element with the merged shape of all their elements. Maps keyed by
 // names the user chose (hosts, groups) still show their keys: those come
@@ -152,6 +160,14 @@ func shapeOf(v any) any {
 	case map[string]any:
 		m := map[string]any{}
 		for k, e := range x {
+			if inner, ok := e.(map[string]any); ok && dataKeyed[k] {
+				var merged any
+				for _, iv := range inner {
+					merged = mergeShape(merged, shapeOf(iv))
+				}
+				m[k] = map[string]any{"*": merged}
+				continue
+			}
 			m[k] = shapeOf(e)
 		}
 		return m

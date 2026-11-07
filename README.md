@@ -136,7 +136,7 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 | Bring in what you already have, or move to another computer | `import`, `export` |
 | Run commands on one or many servers | `exec`, `script`, `job` (long tasks), `shell` (people only) |
 | Read, edit and copy files; copy whole folders | `fs`, `upload`, `download`, `sync` |
-| Check health (39 ready-made checks, plus your own) | `facts`, `recipe` |
+| Check health (36 ready-made checks, plus your own) | `facts`, `recipe` |
 | Manage services, logs, Docker, software, users, schedules | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
 | Test the network, reach private servers | `net`, `tunnel`, `--via` |
 | Reach things behind VPNs, several at once (WireGuard, OpenVPN, Tailscale, AnyConnect, L2TP/IPsec, IKEv2, Cisco IPsec, GlobalProtect, Fortinet, Pulse, F5, ...) | `vpn` |

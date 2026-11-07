@@ -128,8 +128,7 @@ dangling images, unused networks and build cache.
   the dry run first. It cannot be combined with `--older-than` (docker has
   no age filter for volumes).
 - The real run deletes, so it needs `--allow-dangerous` (and `--yes` on a
-  protected server). The recipe `docker-prune` does the same without the
-  preview.
+  protected server).
 
 ## Packages
 

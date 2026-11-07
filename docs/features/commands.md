@@ -186,8 +186,8 @@ Good to know:
 
 ## Recipes (ready-made and saved commands)
 
-A recipe is a saved command. komando comes with 39 ready-made ones
-(`health`, `disk`, `cert-expiry`, ...; see [Health](health.md)), and you
+A recipe is a saved command. komando comes with 36 ready-made ones
+(`health`, `disk`, `updates`, ...; see [Health](health.md)), and you
 can save your own next to them. `ops` and `snippet` are other names for
 `recipe`.
 

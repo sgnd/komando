@@ -96,7 +96,7 @@ komando recipe list                               # all of them, with what they 
 komando recipe list --category security           # one category
 komando recipe run health @web
 komando recipe run top-mem web1
-komando recipe run cert-expiry web1 --var name=example.com
+komando recipe run big-dirs web1 --var path=/srv
 komando recipe run updates all
 ```
 
@@ -106,16 +106,18 @@ komando recipe run updates all
 | process | `top-cpu`, `top-mem`, `process`, `oom` |
 | service and logs | `failed-units`, `journal-errors` |
 | network | `ports`, `connections`, `dns`, `firewall` |
-| web and TLS | `http-check`, `nginx-test`, `nginx-sites`, `apache-test`, `cert-expiry`, `certbot-certs` |
+| web and TLS | `http-check`, `nginx-test`, `nginx-sites`, `apache-test` |
 | security | `auth-failures`, `last-logins`, `sshd-config`, `sudoers` |
 | packages | `updates`, `security-updates` |
 | containers | `docker-overview`, `k8s-overview` |
 | databases | `postgres-status`, `mysql-status`, `redis-info` |
-| maintenance (these change things) | `apt-clean`, `docker-prune`, `drop-caches`, `journal-vacuum` |
+| maintenance (these change things) | `apt-clean`, `drop-caches`, `journal-vacuum` |
 
 Some recipes have blanks with defaults, for example `big-dirs` takes
 `--var path=/srv --var depth=2`. `komando recipe list` shows each recipe's
-blanks. To save your own checks, see [Recipes](commands.md#recipes-ready-made-and-saved-commands).
+blanks. Certificates have their own command, `komando cert check`, and
+so does cleaning up docker, `komando docker prune` (with a preview).
+To save your own checks, see [Recipes](commands.md#recipes-ready-made-and-saved-commands).
 
 ## Check TLS certificates
 

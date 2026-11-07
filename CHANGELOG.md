@@ -15,6 +15,12 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   [Contributor License Agreement](CLA.md) once. v0.1.0 and v0.2.0 stay
   under MIT.
 
+- The built-in recipes `cert-expiry`, `certbot-certs` and `docker-prune`
+  are gone: `komando cert check` and `komando docker prune` do the same
+  better (`docker-prune` skipped the preview and the `--allow-dangerous`
+  question). Running one of those names says which command to use; a
+  saved recipe of the same name still works.
+
 - `komando facts` and `komando pkg security` read the server's state with
   the same check, so they agree: `facts` now also sees a newer kernel that
   needrestart reports (`reboot_required`, `reboot_packages: ["kernel"]`)

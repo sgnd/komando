@@ -462,17 +462,7 @@
           "description": "string",
           "name": "string",
           "params": {
-            "depth": "string",
-            "limit": "string",
-            "min": "string",
-            "name": "string",
-            "path": "string",
-            "pattern": "string",
-            "port": "string",
-            "since": "string",
-            "size": "string",
-            "timeout": "string",
-            "url": "string"
+            "*": "string"
           },
           "read_only": "bool",
           "sudo": "bool"
