@@ -11,8 +11,8 @@ its highlights; the sections below them give the details. Versions follow
 
 - Registry and S3 conns take `?resolve=IP` (or `IP:PORT`), like
   `curl --resolve`: komando connects to that address instead of the one DNS
-  gives for the name. TLS still sends and checks the name in the URL, so
-  `?ca=secret:NAME` keeps working and `?tls=skip-verify` is not needed. This
+  gives for the name. TLS keeps using the name in the URL, so
+  `?ca=secret:NAME` and `?tls=skip-verify` work as they do without it. This
   helps when a registry's public DNS is wrong or missing: before, the only
   way was `--via` a server whose `/etc/hosts` had the right address. With
   `--via`, the last server connects to the IP. `komando test` and `tunnel`

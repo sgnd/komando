@@ -41,7 +41,7 @@ TLS options in the conn URL: ?ca=secret:NAME trusts a private CA, or pins the
 registry's own certificate (PEM in the vault; the check stays on), ?tls=skip-verify does not check the certificate,
 ?tls=false is plain HTTP. With --via the last server looks the name up.
 ?resolve=IP connects to that IP instead of what DNS says (like curl --resolve);
-the certificate is still checked against the name in the URL.`,
+TLS keeps using the name in the URL, and tls= and ca= work as without it.`,
 	}
 	c.AddCommand(registryLsCmd(), registryInspectCmd(), registryCopyCmd(), registryRmCmd(), registryPruneCmd())
 	return c

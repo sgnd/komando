@@ -295,7 +295,7 @@ func parseResolve(q url.Values, address string) (string, error) {
 	n, perr := strconv.Atoi(port)
 	if err != nil || perr != nil || n < 1 || n > 65535 {
 		return "", out.Errf(out.ExitUsage, "USAGE",
-			"give the IP address to connect to, e.g. ?resolve=203.0.113.10 or ?resolve=203.0.113.10:8443 (IPv6: ?resolve=[2001:db8::1]:443); the name in the URL is still used for the certificate",
+			"give the IP address to connect to, e.g. ?resolve=203.0.113.10 or ?resolve=203.0.113.10:8443 (IPv6: ?resolve=[2001:db8::1]:443); TLS keeps using the name in the URL",
 			"resolve option must be an IP address or IP:PORT, not %q", v)
 	}
 	return net.JoinHostPort(ip.String(), port), nil

@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -152,6 +153,70 @@ func TestRegistryResolve(t *testing.T) {
 			if !errors.As(err, &wrongName) {
 				t.Errorf("%s: %v, want a host name error", url, err)
 			}
+		}
+	}
+}
+
+// ?tls=skip-verify with ?resolve=, the way a server does it with
+// /etc/hosts plus Docker's insecure-registries: the name in the URL is a
+// local name whose public DNS points elsewhere, and the certificate (an
+// unknown CA, issued for another name) is accepted. `conn test` and
+// `registry ls` work, every connection goes to the IP, the name is still
+// sent, and nothing in the output pushes ca=.
+func TestRegistryResolveSkipVerify(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "a passphrase long enough for tests")
+	_, leaf := testRegistryCert(t, "registry.test")
+	if err := vault.Set("reg-pw", "s3cret"); err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	var seen []string // "SNI Host" of every request
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seen = append(seen, r.TLS.ServerName+" "+r.Host)
+		mu.Unlock()
+		if u, p, _ := r.BasicAuth(); u != "me" || p != "s3cret" { // nginx in front of registry:2
+			w.Header().Set("WWW-Authenticate", `Basic realm="registry"`)
+			w.WriteHeader(401)
+			return
+		}
+		if r.URL.Path == "/v2/_catalog" {
+			fmt.Fprint(w, `{"repositories":["team/app"]}`)
+			return
+		}
+		fmt.Fprint(w, "{}")
+	}))
+	srv.TLS = &tls.Config{Certificates: []tls.Certificate{leaf}}
+	srv.Config.ErrorLog = log.New(io.Discard, "", 0) // conn test's port check closes without a handshake
+	srv.StartTLS()
+	defer srv.Close()
+	_, port, _ := net.SplitHostPort(srv.Listener.Addr().String())
+
+	// codeoffice.test is not on the certificate and resolves nowhere
+	url := "registry://me@codeoffice.test:" + port + "?tls=skip-verify&resolve=127.0.0.1"
+	if _, err := runCache(t, "-o", "json", "conn", "add", "reg", url, "--password-ref", "secret:reg-pw"); err != nil {
+		t.Fatal(err)
+	}
+	test, err := runCache(t, "-o", "json", "test", "reg")
+	if err != nil || !strings.Contains(test, `"check":"login"`) {
+		t.Fatalf("test: %v\n%s", err, test)
+	}
+	ls, err := runCache(t, "-o", "json", "registry", "ls", "reg")
+	if err != nil || !strings.Contains(ls, "team/app") {
+		t.Fatalf("registry ls: %v\n%s", err, ls)
+	}
+	if strings.Contains(test+ls, "ca=") {
+		t.Errorf("output suggests ca=:\n%s\n%s", test, ls)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(seen) < 2 {
+		t.Fatalf("requests: %v", seen)
+	}
+	for _, s := range seen {
+		if s != "codeoffice.test codeoffice.test:"+port {
+			t.Errorf("request with SNI and Host %q, want the name codeoffice.test", s)
 		}
 	}
 }
