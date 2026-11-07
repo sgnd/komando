@@ -4,7 +4,13 @@
 #   curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
 #
 # Installs to /usr/local/bin when writable, otherwise ~/.local/bin.
-# Override with KOMANDO_INSTALL_DIR=/some/dir.
+# Override with KOMANDO_INSTALL_DIR=/some/dir (created if missing; the script
+# stops if it cannot write there). Install one version with
+# KOMANDO_VERSION=v0.3.1.
+#
+# The checksum comes from the same release as the archive. To check that an
+# archive was built by komando's release workflow, download it and run
+# `gh attestation verify FILE --repo sgnd/komando` (see SECURITY.md).
 set -eu
 
 REPO="sgnd/komando"
@@ -23,6 +29,10 @@ esac
 
 file="komando_${os}_${arch}.tar.gz"
 base="https://github.com/$REPO/releases/latest/download"
+if [ -n "${KOMANDO_VERSION:-}" ]; then
+  case "$KOMANDO_VERSION" in v*) v=$KOMANDO_VERSION ;; *) v=v$KOMANDO_VERSION ;; esac
+  base="https://github.com/$REPO/releases/download/$v"
+fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
@@ -44,10 +54,19 @@ fi
 
 tar -xzf "$tmp/$file" -C "$tmp"
 
-dir="${KOMANDO_INSTALL_DIR:-/usr/local/bin}"
-if [ ! -w "$dir" ]; then
-  dir="$HOME/.local/bin"
-  mkdir -p "$dir"
+if [ -n "${KOMANDO_INSTALL_DIR:-}" ]; then
+  dir=$KOMANDO_INSTALL_DIR
+  mkdir -p "$dir" 2>/dev/null || true
+  if [ ! -d "$dir" ] || [ ! -w "$dir" ]; then
+    echo "Cannot write to KOMANDO_INSTALL_DIR=$dir. Pick a folder you can write to, or leave it unset." >&2
+    exit 1
+  fi
+else
+  dir=/usr/local/bin
+  if [ ! -w "$dir" ]; then
+    dir="$HOME/.local/bin"
+    mkdir -p "$dir"
+  fi
 fi
 mv "$tmp/komando" "$dir/komando"
 chmod +x "$dir/komando"
