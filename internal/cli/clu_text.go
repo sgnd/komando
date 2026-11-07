@@ -176,7 +176,7 @@ func (d statusData) Text() string {
 		b.WriteString("healthy: no problems found\n")
 		return b.String()
 	}
-	fmt.Fprintf(&b, "not healthy: %d problem(s)\n", len(probs))
+	fmt.Fprintf(&b, "not healthy: %s\n", countOf(len(probs), "problem"))
 	rows := make([][]string, len(probs))
 	for i, p := range probs {
 		rows[i] = []string{p["object"], p["problem"]}

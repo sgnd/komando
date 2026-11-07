@@ -24,7 +24,7 @@ import (
 func fsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "fs",
-		Short: "Remote filesystem: ls, stat, cat, write, replace (agent-safe edits), rm, mkdir, mv, chmod",
+		Short: "Files on servers: ls, cat, write, replace, rm, mkdir, mv, chmod",
 		Long: `Structured file operations over SFTP. Use --sudo to operate on root-owned
 files (reads via 'sudo cat', writes via a temp file + 'sudo install').
 
@@ -452,7 +452,7 @@ func quoteAll(a []string) string {
 }
 
 func fsRmCmd() *cobra.Command {
-	c := shellFsCmd("rm TARGET PATH...", "Remove remote files (--recursive for folders); a missing path is reported, not an error", 2, func(a []string, f map[string]bool) (string, string, error) {
+	c := shellFsCmd("rm TARGET PATH...", "Remove remote files (--recursive for folders; missing ones are reported)", 2, func(a []string, f map[string]bool) (string, string, error) {
 		flags := "-f"
 		if f["recursive"] {
 			flags = "-rf"

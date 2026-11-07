@@ -75,7 +75,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 }
 
 func hostCmd() *cobra.Command {
-	c := &cobra.Command{Use: "host", Aliases: []string{"hosts"}, Short: "Manage the server inventory (add, edit, rename, import, test, trust)"}
+	c := &cobra.Command{Use: "host", Aliases: []string{"hosts"}, Short: "Manage servers: add, edit, rename, import, test, trust"}
 	c.AddCommand(hostAddCmd(), hostEditCmd(), hostMvCmd(), alias(listCmdFor("host"), "list kind:host"), hostShowCmd(), hostRmCmd(), hostImportCmd(), hostExportCmd(), alias(testCmdFor("host"), "test"), hostTrustCmd(), hostSSHArgsCmd())
 	return c
 }
@@ -619,7 +619,7 @@ func keptHostKeys(s *store.State, gone map[string]string) []string {
 func hostRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm NAME|TARGET...",
-		Short: "Remove host(s) from the inventory (does not touch the server; their pinned host keys stay)",
+		Short: "Remove servers from the inventory (the servers are not touched)",
 		Example: `  komando host rm web3
   komando host rm @old --dry-run     # what a selector would remove
   komando host rm 'tmp-*'`,

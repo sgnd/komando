@@ -25,7 +25,7 @@ func dockerCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "docker",
 		Aliases: []string{"container", "ctr"},
-		Short:   "Docker: ps/stats/images (structured), logs, start/stop/restart, exec, compose, prune, raw",
+		Short:   "Docker: containers, images, logs, compose, prune",
 		Long: `Docker on a server over SSH. Reads need nothing; start, stop, restart, pull,
 run and compose up change things (protected servers need --yes); rm, prune,
 compose down -v and other deletes need --allow-dangerous. The same rules

@@ -37,12 +37,29 @@ func applyConventions(c *cobra.Command) {
 	if c.Name() == "rm" {
 		c.Aliases = rmAliases
 	}
+	if c.Example == "" {
+		c.Example = examples[c.CommandPath()]
+	}
+	if c.Long == "" {
+		c.Long = details[c.CommandPath()]
+	}
 	if c.HasParent() && c.HasSubCommands() && c.Run == nil && c.RunE == nil {
 		// `komando host lst`: a typo must fail (exit 2) with a suggestion,
 		// not print the help and exit 0 as if it had worked
 		c.Args = cobra.ArbitraryArgs
 		c.RunE = func(cmd *cobra.Command, args []string) error {
+			names := []string{}
+			for _, sub := range cmd.Commands() {
+				if sub.IsAvailableCommand() {
+					names = append(names, sub.Name())
+				}
+			}
+			has := "`" + cmd.CommandPath() + "` has: " + strings.Join(names, ", ")
 			if len(args) == 0 {
+				if out.P.Format == "json" {
+					// piped: one JSON envelope, never help text (ux.md, section 4)
+					return out.Usage("%s needs a command", cmd.CommandPath()).WithHint(has)
+				}
 				return cmd.Help()
 			}
 			e := out.Usage("unknown command %q for %q", args[0], cmd.CommandPath())
@@ -50,13 +67,7 @@ func applyConventions(c *cobra.Command) {
 			if s := cmd.SuggestionsFor(args[0]); len(s) > 0 {
 				e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
 			}
-			names := []string{}
-			for _, sub := range cmd.Commands() {
-				if sub.IsAvailableCommand() {
-					names = append(names, sub.Name())
-				}
-			}
-			e.Hint = "`" + cmd.CommandPath() + "` has: " + strings.Join(names, ", ")
+			e.Hint = has
 			return e
 		}
 	}
@@ -248,10 +259,10 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 				prot = append(prot, h.Name)
 			}
 		}
-		if len(prot) > 0 && !yesOK("a change on protected host(s) "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
+		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
 			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
 				"protected hosts require explicit confirmation: re-run with --yes after verifying intent",
-				"mutating action targets protected host(s): %s", strings.Join(prot, ", ")))
+				"mutating action targets protected %s: %s", nouns(len(prot), "host"), strings.Join(prot, ", ")))
 		}
 	}
 	return nil
@@ -304,10 +315,10 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 				prot = append(prot, c.Name)
 			}
 		}
-		if len(prot) > 0 && !yesOK("a change on protected conn(s) "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
+		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
 			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
 				"protected conns require explicit confirmation: re-run with --yes after verifying intent",
-				"%s action targets protected conn(s): %s", v.Risk, strings.Join(prot, ", ")))
+				"%s action targets protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", ")))
 		}
 	}
 	return nil
@@ -537,7 +548,7 @@ func guardProtectionWhy(kind, action string, names []string, why string) error {
 	}
 	asked := func() bool { return confirmProtected(names) }
 	if why == "" {
-		why = fmt.Sprintf("%s protected %s(s): %s", action, kind, strings.Join(names, ", "))
+		why = fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), kind), strings.Join(names, ", "))
 	} else {
 		asked = func() bool { return confirmYes(why + ". Change them anyway?") }
 	}
@@ -546,7 +557,7 @@ func guardProtectionWhy(kind, action string, names []string, why string) error {
 	}
 	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET"}[kind]
 	return policyStop(out.Errf(out.ExitPolicy, code, "re-run with --yes after the user confirms",
-		"%s protected %s(s): %s", action, kind, strings.Join(names, ", ")))
+		"%s protected %s: %s", action, nouns(len(names), kind), strings.Join(names, ", ")))
 }
 
 func hostNames(hs []*store.Host) []string {
@@ -601,6 +612,30 @@ func actor() string {
 	return os.Getenv("USER")
 }
 
+// countOf writes "1 server", "2 servers": people read words, not "server(s)".
+func countOf(n int, noun string) string {
+	return strconv.Itoa(n) + " " + nouns(n, noun)
+}
+
+// nouns is noun for one and its plural for any other number.
+func nouns(n int, noun string) string {
+	if n == 1 {
+		return noun
+	}
+	return noun + "s"
+}
+
+// failedOf says how many failed: "all 3 failed", "both failed", "1 of 3 failed".
+func failedOf(failed, total int) string {
+	switch {
+	case failed == total && total == 2:
+		return "both failed"
+	case failed == total && total > 2:
+		return fmt.Sprintf("all %d failed", total)
+	}
+	return fmt.Sprintf("%d of %d failed", failed, total)
+}
+
 // fleetSummary is attached to every multi-host result.
 type fleetSummary struct {
 	Total       int      `json:"total"`
@@ -613,7 +648,7 @@ type fleetSummary struct {
 func finish(command string, data any, sum fleetSummary, worstExit int) error {
 	var soft *out.Error
 	if sum.Failed > 0 {
-		soft = &out.Error{Code: "PARTIAL_FAILURE", Message: fmt.Sprintf("%d of %d host(s) failed: %s", sum.Failed, sum.Total, strings.Join(sum.FailedHosts, ", ")),
+		soft = &out.Error{Code: "PARTIAL_FAILURE", Message: failedOf(sum.Failed, sum.Total) + ": " + strings.Join(sum.FailedHosts, ", "),
 			Hint: "see the per-host results (data.results) for exit codes and stderr", Exit: worstExit}
 		if sum.Total == 1 {
 			soft.Code = "FAILED"

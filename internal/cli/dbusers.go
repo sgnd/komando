@@ -20,7 +20,7 @@ import (
 func dbUserCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "user",
-		Short: "Database users: list, add, change the password, remove (PostgreSQL, MySQL/MariaDB)",
+		Short: "Database users: list, add, change the password, remove",
 		Long: `Passwords come from a secret reference (--password-ref secret:NAME, vault:...,
 aws-sm:...), so they are never typed on a command line or shown. PostgreSQL
 gets a SCRAM-SHA-256 verifier komando computes, so the password itself never

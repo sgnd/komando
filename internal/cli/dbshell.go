@@ -30,7 +30,7 @@ func dbShellCmd() *cobra.Command {
 	var write bool
 	c := &cobra.Command{
 		Use:   "shell CONN",
-		Short: "Interactive SQL shell on a conn (read-only unless --write; for people, not agents)",
+		Short: "Interactive SQL shell for people (read-only unless --write)",
 		Long: `Opens komando's own SQL shell on CONN (PostgreSQL, MySQL/MariaDB or SQLite),
 through its --via path when it has one. Nothing else needs to be installed.
 

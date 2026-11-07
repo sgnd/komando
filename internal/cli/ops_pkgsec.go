@@ -403,7 +403,7 @@ func (d pkgSecData) Text() string {
 			fmt.Fprintf(&sb, "● %s  FAILED: %s\n", r.Host, r.Error.Message)
 			continue
 		case !d.Applied:
-			fmt.Fprintf(&sb, "● %s  %d security update(s) (%s)\n", r.Host, r.Count, r.PackageManager)
+			fmt.Fprintf(&sb, "● %s  %s (%s)\n", r.Host, countOf(r.Count, "security update"), r.PackageManager)
 			if r.Count > 0 {
 				sb.WriteString(indentLines(pkgUpgradesText(r.Security), "  "))
 			}
@@ -414,7 +414,7 @@ func (d pkgSecData) Text() string {
 			if r.Error != nil {
 				status = "FAILED: " + r.Error.Message
 			}
-			fmt.Fprintf(&sb, "● %s  %s, %d package(s) changed (%s)\n", r.Host, status, len(r.Upgraded)+len(r.Removed), r.Method)
+			fmt.Fprintf(&sb, "● %s  %s, %s changed (%s)\n", r.Host, status, countOf(len(r.Upgraded)+len(r.Removed), "package"), r.Method)
 			for _, c := range r.Changes {
 				fmt.Fprintf(&sb, "  %s\n", c)
 			}
@@ -455,7 +455,7 @@ func pkgSecurityCmd(noSudo *bool) *cobra.Command {
 	var apply, refresh, keepGoing bool
 	c := &cobra.Command{
 		Use:   "security TARGET",
-		Short: "List pending security updates; --apply installs only those, one server at a time, checking each server before and after",
+		Short: "Pending security updates; --apply installs them server by server",
 		Long: `Without --apply this only looks: the pending security updates of each
 server (apt: packages from the -security pocket; dnf/yum: updates with a
 security notice), and the server's state: running containers, failed

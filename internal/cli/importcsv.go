@@ -126,7 +126,7 @@ func parseHostsCSV(b []byte) ([]*store.Host, error) {
 		hosts = append(hosts, h)
 	}
 	if len(problems) > 0 {
-		return nil, csvErr("%d bad row(s): %s", len(problems), strings.Join(problems, "; "))
+		return nil, csvErr("%s: %s", countOf(len(problems), "bad row"), strings.Join(problems, "; "))
 	}
 	if len(hosts) == 0 {
 		return nil, csvErr("no servers in the file, only the header row")

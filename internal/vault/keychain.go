@@ -89,7 +89,7 @@ func keychainGet() ([]byte, error) {
 	c.Stderr = &errb
 	b, err := c.Output()
 	if err != nil {
-		return nil, fmt.Errorf("the vault key is not in the keychain (%s); is it unlocked?", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
+		return nil, fmt.Errorf("the vault key is not in the keychain (%s); unlock the keychain and try again", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
 	}
 	key, err := hex.DecodeString(strings.TrimSpace(string(b)))
 	if err != nil || len(key) != 32 {

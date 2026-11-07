@@ -174,7 +174,7 @@ func secretCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "secret",
 		Aliases: []string{"secrets", "vault"},
-		Short:   "Encrypted vault for passwords/passphrases/tokens (referenced as secret:NAME)",
+		Short:   "Encrypted vault for passwords and tokens (secret:NAME)",
 		Long: `Secrets are AES-256-GCM encrypted in ~/.komando/vault.json. The key comes from
 $KOMANDO_VAULT_PASS if set at first use, otherwise a random vault.key file.
 Values are never printed unless 'secret get --reveal' is used (a person only).
@@ -607,7 +607,7 @@ func secretKeychainCmd() *cobra.Command {
 	var off bool
 	c := &cobra.Command{
 		Use:   "keychain",
-		Short: "Keep the vault key in the OS keychain (macOS keychain, Linux Secret Service) instead of vault.key",
+		Short: "Keep the vault key in the OS keychain instead of vault.key",
 		Long: `Moves the vault's key out of the vault.key file into the operating system's
 keychain, so a copy of ` + "~/.komando" + ` (a backup, a synced folder) no longer opens
 the vault. Nothing is re-encrypted: it is the same key, kept elsewhere.

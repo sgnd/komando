@@ -53,8 +53,13 @@ func NotFound(kind, name string) *Error {
 		"%s %q not found", kind, name)
 }
 
+// UsageHint is the hint a usage error gets when its command gives none.
+// The error handler swaps it for the failing command's own --help and
+// example, which says more than a hint shared by every command.
+const UsageHint = "run with --help or `komando schema` for the full command reference"
+
 func Usage(format string, a ...any) *Error {
-	return Errf(ExitUsage, "USAGE", "run with --help or `komando schema` for the full command reference", format, a...)
+	return Errf(ExitUsage, "USAGE", UsageHint, format, a...)
 }
 
 // Envelope is the single JSON object printed on stdout for every command.
@@ -319,9 +324,45 @@ func renderText(data any) string {
 			writeResults(&sb, rs, m["summary"])
 			return sb.String()
 		}
+		if h := headline(m); h != "" {
+			// what happened comes first, in words; the record follows
+			sb.WriteString(h + "\n")
+			for _, k := range []string{"action", "changed", "name", "created_at", "updated_at"} {
+				delete(m, k)
+			}
+			writeAny(&sb, m, "  ")
+			return sb.String()
+		}
 	}
 	writeAny(&sb, v, "")
 	return sb.String()
+}
+
+// headline says in words what a change did to a named item ("added web2",
+// "web2: nothing to change"), for results that carry an action or a
+// changed flag. "" when the result is not such a change.
+func headline(m map[string]any) string {
+	name, _ := m["name"].(string)
+	if name == "" {
+		return ""
+	}
+	if a, ok := m["action"].(string); ok && a != "" {
+		switch a {
+		case "unchanged", "none":
+			return name + ": nothing to change"
+		}
+		if w, ok := strings.CutPrefix(a, "would_"); ok {
+			return "would " + strings.ReplaceAll(w, "_", " ") + " " + name + " (dry run)"
+		}
+		return strings.ReplaceAll(a, "_", " ") + " " + name
+	}
+	if c, ok := m["changed"].(bool); ok {
+		if !c {
+			return name + ": nothing to change"
+		}
+		return "changed " + name
+	}
+	return ""
 }
 
 // writeResults renders multi-host results as one block per host:
@@ -381,7 +422,13 @@ func writeAny(sb *strings.Builder, v any, indent string) {
 		for k := range t {
 			keys = append(keys, k)
 		}
-		sort.Strings(keys)
+		// the name says what the record is, so it leads; the rest by key
+		sort.Slice(keys, func(i, j int) bool {
+			if (keys[i] == "name") != (keys[j] == "name") {
+				return keys[i] == "name"
+			}
+			return keys[i] < keys[j]
+		})
 		for _, k := range keys {
 			if t[k] == nil {
 				continue
@@ -417,6 +464,12 @@ func writeAny(sb *strings.Builder, v any, indent string) {
 func scalar(v any) any {
 	if v == nil {
 		return "-"
+	}
+	// JSON times are UTC; a person reads local time with its zone (ux.md, section 4)
+	if s, ok := v.(string); ok && len(s) >= 20 && s[4] == '-' && s[10] == 'T' {
+		if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+			return t.Local().Format("2006-01-02 15:04:05 MST")
+		}
 	}
 	if f, ok := v.(float64); ok && f == float64(int64(f)) {
 		return int64(f)

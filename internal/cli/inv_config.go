@@ -218,8 +218,19 @@ type configValue struct {
 
 func (c configValue) Text() string { return c.Value }
 
+// configSet is what `config set` prints: the same fields, and for people
+// the change in one line (parallel: 10 → 5).
+type configSet struct{ configValue }
+
+func (c configSet) Text() string {
+	if c.Old == c.Value {
+		return c.Key + ": already " + dash(c.Value) + "\n"
+	}
+	return c.Key + ": " + dash(c.Old) + " → " + dash(c.Value) + "\n"
+}
+
 func configCmd() *cobra.Command {
-	c := &cobra.Command{Use: "config", Short: "Show or change settings (timeouts, parallelism, host-key policy, audit)"}
+	c := &cobra.Command{Use: "config", Short: "Show or change settings: timeouts, parallelism, host keys, audit"}
 	var keysHelp strings.Builder
 	for _, s := range settings {
 		keysHelp.WriteString("  " + s.Key + strings.Repeat(" ", 17-len(s.Key)) + s.Values + "\n      " + s.Help + "\n")
@@ -295,7 +306,7 @@ func configCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "config.set", nil, "", true, map[string]any{"key": res.Key, "old": res.Old, "new": res.Value})
-			out.P.Print("config.set", res, nil)
+			out.P.Print("config.set", configSet{res}, nil)
 			return nil
 		},
 	}

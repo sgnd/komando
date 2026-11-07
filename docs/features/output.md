@@ -38,7 +38,7 @@ as data.
     "summary": { "total": 1, "ok": 0, "failed": 1, "failed_hosts": ["web1"] }
   },
   "error": { "code": "FAILED", "message": "host web1 failed", "hint": "…" },
-  "meta": { "contract": 1, "version": "v0.3.1", "duration_ms": 211 }
+  "meta": { "contract": 1, "version": "v0.4.0", "duration_ms": 211 }
 }
 ```
 
@@ -47,7 +47,7 @@ as data.
 | `ok` | `true` only when everything succeeded |
 | `command` | the command, dotted (`exec`, `db.query`, `svc.restart`) |
 | `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...). `test` results also have `name`, the same value, kept for older scripts: use `host` |
-| `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when only some servers failed (`PARTIAL_FAILURE`) |
+| `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
 | `error.hint` | always says what to try next |
 | `null` | komando could not find out (for example `facts` without the rights to read something). It never stands in for `0` or `false` |
 | `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run; `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails) |
@@ -93,7 +93,8 @@ machine-readable reference is `komando schema`.
 | `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |
 | `NO_MATCHING_TARGETS` | the target picked only things this command can't use | follow the hint (for example, use `komando db` for a database) |
 | `TARGET_NOT_FOUND`, `TARGET_EMPTY` | a typo in a name, group or tag | the hint suggests the closest match; `komando list` |
-| `PARTIAL_FAILURE` | some servers failed, others did not | read `data.results` for each server's exit code and stderr |
+| `PARTIAL_FAILURE` | the command ran on several servers and at least one failed (with one server you get that server's own code, such as `CONNECTION_REFUSED`) | read `data.results` for each server's exit code and stderr |
+| `USAGE` | a wrong command, flag or value; also `komando` alone or a group such as `komando db` without its sub-command, when piped | the message says what is wrong, often with "did you mean"; the hint gives an example or lists the sub-commands |
 | `PORT_IN_USE` | the local port is taken | pick another port, or `0` for a free one |
 | `NEEDS_TERMINAL` | an interactive command (`shell`) run by a program | agents use `exec`, `cluster exec` or `job` |
 | `CONNECTION_LOST` | the link broke while the command ran; it may still be running, or may have finished | check with a read-only command before running it again; use `komando job start` over a shaky link ([details](commands.md#when-the-connection-drops)) |

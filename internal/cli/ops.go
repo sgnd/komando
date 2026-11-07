@@ -227,7 +227,7 @@ func recipeCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "recipe",
 		Aliases: []string{"recipes", "ops", "snippet", "snippets", "diag"},
-		Short:   "Ready-made and saved commands: health, disk, certs, ... plus your own ({{blank}} to fill in)",
+		Short:   "Ready-made and saved commands: health, disk, certs, your own",
 	}
 	c.AddCommand(recipeListCmd(), recipeAddCmd(), recipeRmCmd(), recipeRunCmd())
 	return c

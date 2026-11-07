@@ -171,7 +171,7 @@ func (p policyCheck) Text() string {
 }
 
 func policyCmd() *cobra.Command {
-	c := &cobra.Command{Use: "policy", Short: "Destructive-command guardrails: list rules, test a command, add deny patterns"}
+	c := &cobra.Command{Use: "policy", Short: "Rules that block destructive commands: list, test, add"}
 	c.AddCommand(&cobra.Command{
 		Use:   "list",
 		Short: "List built-in and custom rules",
@@ -194,7 +194,7 @@ func policyCmd() *cobra.Command {
 				}
 				custom = append(custom, r)
 			}
-			out.P.Print("policy.list", map[string]any{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "custom_rules": custom, "sql": driver.SQLRules(), "redis": cachex.Rules(), "memcached": cachex.MemcacheRules(), "data": driver.DataRules(),
+			out.P.Print("policy.list", policyList{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "custom_rules": custom, "sql": driver.SQLRules(), "redis": cachex.Rules(), "memcached": cachex.MemcacheRules(), "data": driver.DataRules(),
 				"note": "guardrails catch common accidents; they are not a security boundary. Protected hosts and conns additionally need --yes for any mutating action. " +
 					"SQL without --write also runs in a read-only transaction, so the database itself refuses writes."}, nil)
 			return nil
@@ -203,7 +203,7 @@ func policyCmd() *cobra.Command {
 	var kind string
 	check := &cobra.Command{
 		Use:   "check COMMAND",
-		Short: "Test whether a shell command would be blocked (exit 6), or rate SQL/Redis/memcached with --for KIND",
+		Short: "Would this command be blocked? (--for KIND rates SQL, Redis ...)",
 		Example: `  komando policy check 'rm -rf /var/www'
   if komando policy check "$CMD" >/dev/null; then echo allowed; fi
   komando policy check --for postgres 'delete from users'
@@ -388,7 +388,7 @@ func (r doctorReport) Text() string {
 	case fails == 0 && warns == 0:
 		b.WriteString("\nAll good: komando is ready.\n")
 	default:
-		fmt.Fprintf(&b, "\n%d problem(s) to fix, %d warning(s).\n", fails, warns)
+		fmt.Fprintf(&b, "\n%s to fix, %s.\n", countOf(fails, "problem"), countOf(warns, "warning"))
 	}
 	return b.String()
 }
@@ -488,12 +488,12 @@ passphrases, weak keys and proxy commands. ✗ lines need fixing (exit 1);
 				}
 				add("audit_log", err == nil, detail)
 			}
-			hostDetail := strconv.Itoa(len(st.Hosts)) + " host(s)"
+			hostDetail := countOf(len(st.Hosts), "host")
 			if len(st.Hosts) == 0 {
 				hostDetail = "none yet; add with `komando host add` or `komando import ssh-config`"
 			}
 			add("hosts", len(st.Hosts) > 0, hostDetail)
-			add("keys", true, strconv.Itoa(len(st.Keys))+" key(s) in keychain")
+			add("keys", true, countOf(len(st.Keys), "key")+" in keychain")
 			sock := os.Getenv("SSH_AUTH_SOCK")
 			add("ssh_agent", sock != "", map[bool]string{true: sock, false: "not running (optional)"}[sock != ""])
 			_, sshErr := exec.LookPath("ssh")
@@ -532,4 +532,36 @@ passphrases, weak keys and proxy commands. ✗ lines need fixing (exit 1);
 			return nil
 		},
 	}
+}
+
+// policyList is `policy list`: every rule as data; for people a table of
+// what each rule stops (the patterns are in -o json).
+type policyList map[string]any
+
+func (p policyList) Text() string {
+	var rows [][]string
+	if rs, ok := p["builtin"].([]map[string]string); ok {
+		for _, r := range rs {
+			rows = append(rows, []string{"shell", r["id"], r["reason"]})
+		}
+	}
+	if rs, ok := p["custom_rules"].([]map[string]string); ok {
+		for _, r := range rs {
+			why := "your pattern: " + r["pattern"]
+			if r["error"] != "" {
+				why = "BROKEN (" + r["error"] + "): " + r["pattern"]
+			}
+			rows = append(rows, []string{"shell", r["id"], why})
+		}
+	}
+	for _, k := range []string{"sql", "redis", "memcached", "data"} {
+		if rs, ok := p[k].([]driver.Rule); ok {
+			for _, r := range rs {
+				rows = append(rows, []string{k, r.ID, r.Reason})
+			}
+		}
+	}
+	note, _ := p["note"].(string)
+	return textTable([]string{"for", "rule", "stops"}, rows) + "\n" + note +
+		"\nthe patterns: komando policy list -o json; test a command: komando policy check '...'\n"
 }

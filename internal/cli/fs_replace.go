@@ -18,7 +18,7 @@ func fsReplaceCmd() *cobra.Command {
 	var all, isRegex bool
 	c := &cobra.Command{
 		Use:   "replace TARGET PATH --old TEXT --new TEXT",
-		Short: "Edit a remote file by exact (or --regex) replacement; fails if not found or ambiguous",
+		Short: "Edit a remote file by exact replacement; fails if not unique",
 		Example: `  komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup
   komando fs replace web1 /etc/ssh/sshd_config --regex --old '(?m)^#?PasswordAuthentication .*$' --new 'PasswordAuthentication no' --sudo`,
 		Args: cobra.ExactArgs(2),

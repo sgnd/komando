@@ -22,7 +22,7 @@ func clusterLsCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
 		Use:   "ls TARGET TYPE",
-		Short: "List pods, deployments, services, nodes, ... (Swarm: services, tasks, nodes, stacks)",
+		Short: "List pods, deployments, services, nodes ... (Swarm: services, tasks)",
 		Example: `  komando cluster ls prod-k8s pods --namespace shop
   komando cluster ls prod-k8s deploy -A
   komando cluster ls swarm-manager services

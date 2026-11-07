@@ -24,7 +24,7 @@ import (
 func promptCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "prompt",
-		Short: "A short note for your shell prompt: VPN sessions and tunnels that are up",
+		Short: "A short note for your shell prompt: VPNs and tunnels that are up",
 		Long: `Prints what komando keeps running in the background, for your shell prompt:
 "vpn:office tun:2" when the VPN office is up and two tunnels run, nothing when
 nothing runs. It only reads komando's state file and never fails, so it is safe

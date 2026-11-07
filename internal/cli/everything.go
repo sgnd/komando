@@ -47,8 +47,12 @@ func (l targetList) Text() string {
 	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
 	fmt.Fprintln(tw, "NAME\tKIND\tWHERE\tVIA\tGROUPS\tTAGS\tPROTECTED")
 	for _, r := range l.Targets {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%v\n", r.Name, r.Kind, r.Where, dash(r.Via),
-			dash(strings.Join(r.Groups, ",")), dash(strings.Join(r.Tags, ",")), r.Protected)
+		prot := "-" // a column of "false" hides the few that say yes
+		if r.Protected {
+			prot = "yes"
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", r.Name, r.Kind, r.Where, dash(r.Via),
+			dash(strings.Join(r.Groups, ",")), dash(strings.Join(r.Tags, ",")), prot)
 	}
 	tw.Flush()
 	return sb.String()
@@ -75,7 +79,7 @@ func listCmdFor(only string) *cobra.Command {
 	c := &cobra.Command{
 		Use:     "list [TARGET]",
 		Aliases: []string{"ls"},
-		Short:   "List servers, conns and VPNs together (everything, or what TARGET picks)",
+		Short:   "List servers, conns and VPNs (all, or what TARGET picks)",
 		Example: "  komando list\n  komando list @prod\n  komando list kind:db",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -219,7 +223,7 @@ func testCmdFor(only string) *cobra.Command {
 	c := &cobra.Command{
 		Use:     "test TARGET",
 		Aliases: []string{"ping"},
-		Short:   "Check that servers, conns and VPNs can be reached and logged in to",
+		Short:   "Check that servers, conns and VPNs answer and accept the login",
 		Long: `Logs in to each server (and checks who it is and whether sudo needs a
 password), connects to each conn and checks each VPN.
 
@@ -272,9 +276,13 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 				out.P.Print("test", data, nil)
 				return nil
 			}
-			out.P.Print("test", data, &out.Error{Code: "PARTIAL_FAILURE", Exit: worst,
-				Message: fmt.Sprintf("%d of %d failed: %s", data.Summary.Failed, data.Summary.Total, strings.Join(data.Summary.FailedHosts, ", ")),
-				Hint:    "see each result's error and hint"})
+			soft := &out.Error{Code: "PARTIAL_FAILURE", Exit: worst,
+				Message: failedOf(data.Summary.Failed, data.Summary.Total) + ": " + strings.Join(data.Summary.FailedHosts, ", "),
+				Hint:    "see each result's error and hint"}
+			if len(res) == 1 && res[0].Error != nil { // one target: its own error code, as exec gives
+				soft.Code, soft.Message = res[0].Error.Code, res[0].Name+" failed"
+			}
+			out.P.Print("test", data, soft)
 			return exitCode(worst)
 		},
 	}

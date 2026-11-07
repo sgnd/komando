@@ -247,7 +247,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | exit | code examples                     | what to do |
 |------|-----------------------------------|------------|
 | 1    | ERROR, FILE_ERROR, WRITE_FAILED   | read `error.message` and `error.hint` |
-| 2    | USAGE, HIDDEN_VALUE               | fix the flags (`komando schema <cmd>`); never write `[hidden]` text back |
+| 2    | USAGE, HIDDEN_VALUE               | fix the flags (`komando schema <cmd>`); a group alone (`komando db`) is USAGE and the hint lists its sub-commands; never write `[hidden]` text back |
 | 3    | TARGET_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | `komando list`; the hint suggests the closest name |
 | 3    | SECRET_NOT_FOUND, SECRET_UNRESOLVED | `komando secret list`; ask the human to store the secret |
 | 3    | NO_MATCHING_TARGETS               | use the command the hint names (e.g. `db` for a database) |
@@ -259,7 +259,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, SENSITIVE_FILE, WRITE_REQUIRES_FLAG | stop and ask the human |
 | 7    | TIMEOUT, CONNECT_TIMEOUT          | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file; use exact, unique `--old` text |
-| worst of the hosts | PARTIAL_FAILURE | some hosts failed, others did not: read `data.results[]` per host |
+| worst of the hosts | PARTIAL_FAILURE | several hosts ran and at least one failed: read `data.results[]` per host (one target fails with its own code instead) |
 
 Every error carries `error.hint` with the next step. Read it.
 

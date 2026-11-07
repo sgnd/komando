@@ -435,7 +435,7 @@ func classify(host string, err error) *out.Error {
 	case strings.Contains(msg, "i/o timeout"), strings.Contains(msg, "deadline exceeded"):
 		return out.Errf(out.ExitTimeout, "CONNECT_TIMEOUT", "check network/firewall or raise --connect-timeout", "connecting to %s timed out", host)
 	case strings.Contains(msg, "connection refused"):
-		return out.Errf(out.ExitConnect, "CONNECTION_REFUSED", "is sshd running and the port correct?", "%s: %s", host, msg)
+		return out.Errf(out.ExitConnect, "CONNECTION_REFUSED", "check that sshd runs on the server and listens on this port: komando host show "+host, "%s: %s", host, msg)
 	case strings.Contains(msg, "no such host"):
 		return out.Errf(out.ExitConnect, "DNS_ERROR", "check the host address", "%s: %s", host, msg)
 	}

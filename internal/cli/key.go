@@ -482,7 +482,7 @@ func keyDeployCmd() *cobra.Command {
 	var setDefault bool
 	c := &cobra.Command{
 		Use:   "deploy KEY TARGET",
-		Short: "Install a public key into ~/.ssh/authorized_keys on hosts (idempotent, like ssh-copy-id)",
+		Short: "Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)",
 		Long: `Installs a public key on servers, like ssh-copy-id. KEY is a key in the
 keychain or a .pub file. komando logs in with the hosts' current credentials
 (e.g. a password) and appends the key to ~/.ssh/authorized_keys unless it is

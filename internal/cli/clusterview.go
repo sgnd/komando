@@ -64,7 +64,7 @@ func clusterEventsCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
 		Use:   "events TARGET",
-		Short: "Recent events, oldest first (--warnings for problems only, --for TYPE/NAME for one object)",
+		Short: "Recent events, oldest first (--warnings for problems only)",
 		Example: `  komando cluster events prod-k8s --namespace shop --warnings
   komando cluster events prod-k8s --for deployment/api --namespace shop`,
 		Args: cobra.ExactArgs(1),
@@ -115,7 +115,7 @@ func clusterDescribeCmd() *cobra.Command {
 	var ns string
 	c := &cobra.Command{
 		Use:   "describe TARGET TYPE NAME",
-		Short: "One object in short: state, images, conditions, its pods or tasks, and recent events",
+		Short: "One object in short: state, images, conditions, pods, events",
 		Example: `  komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop
   komando cluster describe prod-k8s deployment/api --namespace shop
   komando cluster describe swarm-manager service/web`,

@@ -163,7 +163,7 @@ func vpnEditCmd() *cobra.Command {
 	var mfa bool
 	c := &cobra.Command{
 		Use:   "edit NAME",
-		Short: "Change a VPN's check address, proxy address, login or notes (the config and keys stay)",
+		Short: "Change a VPN's check address, proxy, login or notes",
 		Long: `Changes the common settings of a VPN. To give a WireGuard or OpenVPN VPN a
 new config file, add it again with --overwrite.`,
 		Example: `  komando vpn edit office --check 10.0.0.5:22

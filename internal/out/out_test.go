@@ -30,3 +30,32 @@ func TestRedactHidesVaultSecrets(t *testing.T) {
 		t.Error("NoRedact (secret get --reveal) must print the value")
 	}
 }
+
+func TestTextHeadline(t *testing.T) {
+	for _, c := range []struct {
+		data map[string]any
+		want []string
+		not  []string
+	}{
+		{map[string]any{"name": "web2", "action": "added", "address": "10.0.0.1", "created_at": "2026-11-07T15:26:25Z"},
+			[]string{"added web2\n", "  address: 10.0.0.1"}, []string{"action:", "created_at"}},
+		{map[string]any{"name": "web2", "action": "would_add"}, []string{"would add web2 (dry run)"}, nil},
+		{map[string]any{"name": "web2", "changed": false}, []string{"web2: nothing to change"}, []string{"changed:"}},
+		{map[string]any{"name": "web2", "port": 22}, []string{"name: web2\nport: 22"}, nil}, // no change: a plain record, name first
+	} {
+		got := renderText(c.data)
+		for _, w := range c.want {
+			if !strings.Contains(got, w) {
+				t.Errorf("%v: missing %q in\n%s", c.data, w, got)
+			}
+		}
+		for _, n := range c.not {
+			if strings.Contains(got, n) {
+				t.Errorf("%v: has %q in\n%s", c.data, n, got)
+			}
+		}
+	}
+	if got := renderText(map[string]any{"name": "x", "created_at": "2026-11-07T15:26:25Z"}); strings.Contains(got, "T15:26:25Z") {
+		t.Errorf("times for people are local, not raw RFC3339: %s", got)
+	}
+}

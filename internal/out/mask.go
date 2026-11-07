@@ -44,7 +44,7 @@ var (
 	// a JSON object key that names a secret: its whole string value is hidden
 	secretKey = regexp.MustCompile(`(?i)^[A-Za-z0-9_.-]*(?:passw(?:or)?d|passphrase|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|authorization|[_.-]key)[A-Za-z0-9_.-]*$`)
 	// keys that name a secret but hold no value komando would hide
-	notSecretKey = regexp.MustCompile(`(?i)(^(max|min|num|public)_|^public|pub_?keys?$|fingerprint|(ref|refs|_name|_names|_id|_count|_file|_path|_type|_hint|_endpoint|_url|_uri|_host|_port|_length|_len|_size|_ttl|_expiry|_expires|_timeout|_max|_min|_enabled|_required|_policy|_mode|_header|_field|_param)$)`)
+	notSecretKey = regexp.MustCompile(`(?i)(^(max|min|num|public)_|^public|pub_?keys?$|fingerprint|(ref|refs|_name|_names|_id|_count|_file|_path|_type|_hint|_endpoint|_url|_uri|_host|_port|_needed|_length|_len|_size|_ttl|_expiry|_expires|_timeout|_max|_min|_enabled|_required|_policy|_mode|_header|_field|_param)$)`)
 )
 
 const (
@@ -106,7 +106,7 @@ func keepValue(name, v string) bool {
 	}
 	lv := strings.ToLower(v)
 	switch lv {
-	case "true", "false", "yes", "no", "on", "off", "null", "none", "nil", "required", "optional", "string", "[", "bearer", "basic":
+	case "-", "true", "false", "yes", "no", "on", "off", "null", "none", "nil", "required", "optional", "string", "[", "bearer", "basic":
 		return true
 	}
 	// references, placeholders, structure ({name: …} in YAML), paths and

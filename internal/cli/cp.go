@@ -136,10 +136,10 @@ func (d xferData) Text() string {
 		}
 		b.WriteString("\n")
 		if r.Masked > 0 {
-			fmt.Fprintf(&b, "%s%d file(s) saved with secret values shown as [hidden], as fs cat shows them\n", pre, r.Masked)
+			fmt.Fprintf(&b, "%s%s saved with secret values shown as [hidden], as fs cat shows them\n", pre, countOf(r.Masked, "file"))
 		}
 		if len(r.Skipped) > 0 {
-			fmt.Fprintf(&b, "%sskipped %d symbolic link(s) or special file(s): %s\n", pre, len(r.Skipped), shortList(r.Skipped, 5))
+			fmt.Fprintf(&b, "%sskipped %s (symbolic links or special files): %s\n", pre, countOf(len(r.Skipped), "file"), shortList(r.Skipped, 5))
 		}
 		for _, e := range r.Errors {
 			fmt.Fprintf(&b, "%scould not copy %s: %s\n", pre, e.Path, e.Message)
@@ -188,7 +188,7 @@ func cpCmd() *cobra.Command {
 	var o cpOpts
 	c := &cobra.Command{
 		Use:   "cp SRC DST",
-		Short: "Same as `komando upload`/`download`, written SRC DST with TARGET:PATH",
+		Short: "Copy files, written SRC DST with TARGET:PATH (upload/download)",
 		Long: `Remote paths are written TARGET:PATH (TARGET: alone, or TARGET:~/x, is the
 login user's home folder). Uploads accept any target selector (@group,
 tag:x, ...) and run in parallel. Downloads from several hosts go to
@@ -309,7 +309,7 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 			s.Error = toErr(r.Err)
 		} else if len(s.Errors) > 0 {
 			s.Error = out.Errf(out.ExitRemote, "PARTIAL_TRANSFER", "the other files were copied; fix the listed ones (permissions?) and run again",
-				"%d file(s) could not be copied", len(s.Errors))
+				"%s could not be copied", countOf(len(s.Errors), "file"))
 		}
 		if s.Error != nil {
 			worst = worse(worst, s.Error.Exit)

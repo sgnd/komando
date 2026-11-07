@@ -443,7 +443,7 @@ func tunnelStopCmd() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
 		Use:   "stop [ID...]",
-		Short: "Stop tunnel(s) (--all for every tunnel)",
+		Short: "Stop tunnels by ID (--all for every tunnel)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !all && len(args) == 0 {
 				return out.Usage("give tunnel IDs or --all")

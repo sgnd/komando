@@ -66,7 +66,7 @@ func TestDownHintsPerKind(t *testing.T) {
 		t.Fatal(err)
 	}
 	werr := wgDialErr(context.DeadlineExceeded, "10.0.0.5:22", "vpn.example.com:51820", 15*time.Second)
-	if werr.Error() != "no answer from 10.0.0.5:22 within 15s: no WireGuard handshake from vpn.example.com:51820?" {
+	if werr.Error() != "no answer from 10.0.0.5:22 within 15s: no WireGuard handshake from vpn.example.com:51820; check its endpoint, its public key and that UDP gets through" {
 		t.Fatal(werr)
 	}
 	if SecretHint("secret:wg-key") != "store it with `komando secret set wg-key`" {
