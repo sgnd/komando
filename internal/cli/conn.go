@@ -419,6 +419,9 @@ func openAccess(ctx context.Context, st *store.State, c *store.Conn) (*access, e
 		return nil, err
 	}
 	a := &access{Target: t, Password: password}
+	// ?resolve=IP: connections to the URL's address go to that IP, from the
+	// end of the --via path set up below
+	defer func() { a.Dial = pinDial(a.Dial, t.Address, t.Resolve) }()
 	if c.Via == "" {
 		return a, nil
 	}

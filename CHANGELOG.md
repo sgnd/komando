@@ -7,6 +7,18 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- Registry and S3 conns take `?resolve=IP` (or `IP:PORT`), like
+  `curl --resolve`: komando connects to that address instead of the one DNS
+  gives for the name. TLS still sends and checks the name in the URL, so
+  `?ca=secret:NAME` keeps working and `?tls=skip-verify` is not needed. This
+  helps when a registry's public DNS is wrong or missing: before, the only
+  way was `--via` a server whose `/etc/hosts` had the right address. With
+  `--via`, the last server connects to the IP. `komando test` and `tunnel`
+  use it too, and so does `cert check` for an S3 conn. A value that is not
+  an IP address is refused with `USAGE`.
+
 ## [0.4.0] - 2026-11-07
 
 ### Highlights
