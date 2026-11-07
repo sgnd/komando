@@ -21,6 +21,14 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   question). Running one of those names says which command to use; a
   saved recipe of the same name still works.
 
+- `komando facts` and `komando pkg security` read the server's state with
+  the same check, so they agree: `facts` now also sees a newer kernel that
+  needrestart reports (`reboot_required`, `reboot_packages: ["kernel"]`)
+  and, on dnf/yum servers, the services that need a restart (from
+  `needs-restarting -s`). `pkg security` now has `os_support` and warns on
+  an OS past end of life, where an empty list does not mean the server is
+  safe.
+
 - `komando vpn status`: `last_end` now says when the session ended and how
   long it ran. When an L2TP server ends the session, it also says how long
   the link had no traffic (a server idle timeout?), and the log shows the
@@ -32,6 +40,12 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   `change` or `depends`, and `kind_note` says on what for `depends`
   (`exec` changes things unless `--read-only`, `db query` only reads
   unless `--write`). Agents can see it before they run a command.
+
+- `make e2e` also runs `facts`, `pkg security` (with a real `--apply`) and
+  `pkg` against Rocky Linux 9 (dnf) and Amazon Linux 2 (yum) servers, and
+  compares every answer with the native `dnf`/`yum`/`rpm` on the same
+  server (`test/e2e/rhel`, `test/e2e/checks/rhel.sh`).
+
 - Registry conns (`registry://`, `oci://`) take TLS options:
   `?ca=secret:NAME` trusts a private CA (PEM in the vault), or pins the
   registry's own certificate when the CA is not at hand, and keeps the

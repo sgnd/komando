@@ -11,6 +11,8 @@
 #   E2E_PROJECT=komando-e2e-b E2E_SSH_BASTION=3222 E2E_SSH_DIRECT=3223 \
 #   E2E_SSH_SWARM=3224 E2E_REGISTRY=6005 E2E_SOCKS=19080 E2E_BAO=8211 E2E_MOTO=5026 E2E_VW=8091 \
 #   E2E_K3S_OLD=16454 make e2e
+# (checks that start their own servers: E2E_SSH_SYSTEMD, E2E_SSH_ROCKY and
+# E2E_SSH_AMZN2, by default 2225, 2226 and 2227)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

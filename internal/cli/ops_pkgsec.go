@@ -22,23 +22,18 @@ import (
 // stop when a server came out of it different.
 
 // snapshotShell prints what a server looks like as key=value lines:
-// containers=N (only when docker answers), failed=UNIT, pending=N,
-// security=N, reboot=yes, reboot_pkg=NAME, svc=UNIT (services running old
-// code, from needrestart or needs-restarting) and ksta=N (needrestart's
-// kernel state: 2 and 3 mean a newer kernel waits for a reboot). It needs
-// $PM and the secpkgs function; read it with parseSnapshot.
-const snapshotShell = `snap() {
+// containers=N (only when docker answers), pending=N, security=N and
+// hoststate's lines (failed units, reboot, services running old code). It
+// needs $PM, the secpkgs function and hoststate's settings; read it with
+// parseSnapshot.
+const snapshotShell = hostStateShell + `snap() {
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then echo "containers=$(docker ps -q 2>/dev/null | wc -l | tr -d ' ')"; fi
-  if [ -d /run/systemd/system ]; then systemctl list-units --state=failed --no-legend --plain 2>/dev/null | awk '$1 != "" {print "failed="$1}'; fi
+  hoststate
   case $PM in
   apt) echo "pending=$(apt list --upgradable 2>/dev/null | grep -c /)" ;;
   *) echo "pending=$($PM -q check-update 2>/dev/null | awk '/^Obsoleting/{exit} NF == 3 && $1 ~ /\./' | wc -l | tr -d ' ')" ;;
   esac
   echo "security=$(secpkgs | wc -l | tr -d ' ')"
-  if [ -f /var/run/reboot-required ]; then echo reboot=yes; sed 's/^/reboot_pkg=/' /var/run/reboot-required.pkgs 2>/dev/null | sort -u; fi
-  if command -v needs-restarting >/dev/null 2>&1; then needs-restarting -r >/dev/null 2>&1; [ $? -eq 1 ] && echo reboot=yes; fi
-  if command -v needrestart >/dev/null 2>&1; then needrestart -b 2>/dev/null | sed -n 's/^NEEDRESTART-SVC: */svc=/p; s/^NEEDRESTART-KSTA: */ksta=/p'
-  elif command -v needs-restarting >/dev/null 2>&1; then needs-restarting -s 2>/dev/null | awk '$1 != "" {print "svc="$1}'; fi
 }
 `
 
@@ -62,7 +57,10 @@ else PM=none; for m in apk zypper pacman; do command -v $m >/dev/null 2>&1 && { 
   echo '#komando:unsupported'; echo $PM; exit 0; fi
 echo "# package-manager: $PM" >&2
 echo '#komando:pm'; echo $PM
-if [ "$REFRESH" = 1 ]; then case $PM in apt) apt-get update -q >&2 ;; *) $PM -q makecache >&2 ;; esac; fi
+T=""; T20=""; command -v timeout >/dev/null 2>&1 && { T="timeout 60"; T20="timeout 20"; }
+S=""; HS_ROOT=""; [ "$(id -u)" = 0 ] && HS_ROOT=1
+echo '#komando:os'
+` + osShell + `if [ "$REFRESH" = 1 ]; then case $PM in apt) apt-get update -q >&2 ;; *) $PM -q makecache >&2 ;; esac; fi
 if [ $PM = apt ]; then t=$(stat -c %Y /var/lib/apt/lists/*Release 2>/dev/null | sort -n | tail -n 1)
   echo '#komando:index-age'; if [ -n "$t" ]; then echo $(( $(date +%s) - t )); else echo never; fi; fi
 secpkgs() { case $PM in
@@ -145,43 +143,32 @@ type hostSnapshot struct {
 
 // parseSnapshot reads snapshotShell's key=value lines.
 func parseSnapshot(s string) hostSnapshot {
-	snap := hostSnapshot{FailedUnits: []string{}, NeedRestart: []string{}}
+	snap := hostSnapshot{}
+	var hs hostState
 	for _, l := range strings.Split(s, "\n") {
 		k, v, ok := strings.Cut(strings.TrimSpace(l), "=")
 		if !ok {
 			continue
 		}
 		v = strings.TrimSpace(v)
+		if hs.line(k, v) {
+			continue
+		}
 		switch k {
 		case "containers":
 			if n, err := strconv.Atoi(v); err == nil {
 				snap.ContainersRunning = &n
 			}
-		case "failed":
-			snap.FailedUnits = append(snap.FailedUnits, v)
 		case "pending":
 			snap.PendingUpdates, _ = strconv.Atoi(v)
 		case "security":
 			snap.PendingSecurity, _ = strconv.Atoi(v)
-		case "reboot":
-			snap.RebootRequired = true
-		case "reboot_pkg":
-			if v != "" && !slices.Contains(snap.RebootPackages, v) {
-				snap.RebootPackages = append(snap.RebootPackages, v)
-			}
-		case "svc":
-			if v != "" && !slices.Contains(snap.NeedRestart, v) {
-				snap.NeedRestart = append(snap.NeedRestart, v)
-			}
-		case "ksta":
-			if v == "2" || v == "3" { // a newer kernel is installed than the one running
-				snap.RebootRequired = true
-				if !slices.Contains(snap.RebootPackages, "kernel") {
-					snap.RebootPackages = append(snap.RebootPackages, "kernel")
-				}
-			}
 		}
 	}
+	snap.FailedUnits = nonNil(hs.Failed)
+	snap.RebootRequired = hs.Reboot != nil && *hs.Reboot
+	snap.RebootPackages = hs.RebootPackages
+	snap.NeedRestart = nonNil(hs.NeedRestart)
 	return snap
 }
 
@@ -236,6 +223,7 @@ type pkgSecRow struct {
 	OK             bool          `json:"ok"`
 	PackageManager string        `json:"package_manager,omitempty"`
 	IndexAge       string        `json:"index_age,omitempty"`
+	OSSupport      *osSupport    `json:"os_support,omitempty"`
 	Security       []pkgUpgrade  `json:"security_updates"`
 	Count          int           `json:"count"`
 	WouldRemove    []string      `json:"would_remove,omitempty"`
@@ -265,6 +253,35 @@ type pkgSecData struct {
 
 // pkgSecParse reads one server's script output. apply says whether the
 // script was asked to change anything.
+// pkgSecLists fills in what the script found before any change: the
+// package manager, the OS's support, the security updates, what they would
+// remove and how old the package index is.
+func pkgSecLists(r *pkgSecRow, sec map[string]string, refreshed bool) {
+	r.PackageManager = strings.TrimSpace(sec["pm"])
+	if o, ok := sec["os"]; ok {
+		sup, w := pkgSecSupport(o, time.Now())
+		r.OSSupport = &sup
+		if w != "" {
+			r.Warnings = append(r.Warnings, w)
+		}
+	}
+	r.Security = parseUpgrades(r.PackageManager, sec["security"])
+	r.Count = len(r.Security)
+	r.WouldRemove = strings.Fields(sec["removes"])
+	switch age := strings.TrimSpace(sec["index-age"]); {
+	case age == "never":
+		r.IndexAge = "never"
+		r.Warnings = append(r.Warnings, "the package index was never refreshed on this server; add --refresh")
+	case age != "":
+		if n, err := strconv.ParseInt(age, 10, 64); err == nil {
+			r.IndexAge = humanAge(time.Duration(n) * time.Second)
+			if time.Duration(n)*time.Second > staleIndex && !refreshed {
+				r.Warnings = append(r.Warnings, "the package index is "+r.IndexAge+" old, so new security updates may be missing; add --refresh")
+			}
+		}
+	}
+}
+
 func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecRow {
 	r := pkgSecRow{Host: host, Security: []pkgUpgrade{}, DurationMS: rr.DurationMS}
 	sec := sections(rr.Stdout)
@@ -282,22 +299,7 @@ func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecR
 		}
 		return fail(out.Errf(out.ExitRemote, "PKG_FAILED", "read stderr for the reason", "pkg security failed (exit %d)", rr.ExitCode))
 	}
-	r.PackageManager = strings.TrimSpace(sec["pm"])
-	r.Security = parseUpgrades(r.PackageManager, sec["security"])
-	r.Count = len(r.Security)
-	r.WouldRemove = strings.Fields(sec["removes"])
-	switch age := strings.TrimSpace(sec["index-age"]); {
-	case age == "never":
-		r.IndexAge = "never"
-		r.Warnings = append(r.Warnings, "the package index was never refreshed on this server; add --refresh")
-	case age != "":
-		if n, err := strconv.ParseInt(age, 10, 64); err == nil {
-			r.IndexAge = humanAge(time.Duration(n) * time.Second)
-			if time.Duration(n)*time.Second > staleIndex && !refreshed {
-				r.Warnings = append(r.Warnings, "the package index is "+r.IndexAge+" old, so new security updates may be missing; add --refresh")
-			}
-		}
-	}
+	pkgSecLists(&r, sec, refreshed)
 	var ess []string
 	for _, p := range r.WouldRemove {
 		if essentialPkg(p) {
@@ -366,6 +368,31 @@ func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecR
 	}
 	r.OK = true
 	return r
+}
+
+// pkgSecSupport judges the OS support from the script's os section, and
+// the warning when the OS gets no (or maybe no) security updates: then an
+// empty list does not mean the server is safe.
+func pkgSecSupport(section string, now time.Time) (osSupport, string) {
+	set := map[string]string{}
+	var pro *string
+	for _, l := range strings.Split(section, "\n") {
+		k, v, ok := strings.Cut(l, "=")
+		if !ok {
+			continue
+		}
+		v = strings.TrimSpace(v)
+		if k == "pro_json" {
+			pro = &v
+		}
+		set[k] = v
+	}
+	sup := osSupportFrom(set["os"], set["os_version"], set["os_pretty"], pro, now)
+	w, unknown := supportWarning(osName(set["os"], set["os_version"], set["os_pretty"]), sup, now)
+	if unknown {
+		w += "; the repositories publish no new security fixes for it, so an empty list does not mean the server is safe: upgrade the OS"
+	}
+	return sup, w
 }
 
 func (d pkgSecData) Text() string {

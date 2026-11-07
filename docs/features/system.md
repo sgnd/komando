@@ -176,7 +176,12 @@ komando pkg security @swarm --apply --keep-going # do not stop at a server that 
   packages from the `-security` pocket; dnf and yum: updates with a
   security notice) and the server's state: running containers, failed
   units, pending updates, whether a reboot is required, and services that
-  still run old code (from `needrestart` or `needs-restarting`).
+  still run old code (from `needrestart` or `needs-restarting`). These
+  come from the same check as `komando facts`, so both say the same.
+- It also judges the OS (`os_support`, as in `komando facts`). On an OS past
+  end of life the list can be empty while the server is not safe: the
+  repositories publish no new fixes for it. komando then says so in
+  `warnings`.
 - `--apply` installs only those updates. On apt servers komando uses
   `unattended-upgrade` when it is installed (it picks security origins and
   follows the server's own settings), otherwise `apt-get install
