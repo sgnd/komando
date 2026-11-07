@@ -9,11 +9,25 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando host trust TARGET` takes many servers (`@group`, `tag:`,
+  `'web*'`, `a,b`): after a rebuild of a whole group, `--reset` replaces
+  every changed key after ONE yes that names each server with its new
+  fingerprint, instead of one yes per server. `data.results` has each
+  server's `fingerprint` and `old_fingerprints`. A changed key is still
+  refused without `--reset`; `host trust NAME` answers as before.
+
 - `komando test TARGET --wait 5m` waits for new servers: it tests again
   every few seconds until every target passes or the time is up (right
   after creating or rebuilding cloud servers, instead of a sleep loop).
   It does not wait out a changed host key or a refused login: those fail at
   once. `data.waited_ms` says how long it waited.
+
+### Changed
+
+- `komando host rm` says which servers' pinned host keys it keeps
+  (`host_keys_kept`, `note`): a server added again at the same address must
+  show the same key, so `rm` plus `add` is no way around
+  `HOSTKEY_MISMATCH`.
 
 ### Fixed
 

@@ -207,6 +207,10 @@ Anything that must keep running (a temporary web server, a watcher) is a
   it with the right one: ask them to run `komando secret check NAME`
   (`NEEDS_PERSON` for you).
 - `HOSTKEY_MISMATCH` (exit 4): possible man-in-the-middle. Never auto-fix; report to the human.
+  If the human says the servers were rebuilt, ask for ONE command for all of
+  them: `komando host trust @group --reset --yes` (or `'name-*'`). The human
+  confirms every new key in one window. `host rm` plus `host add` does not
+  get past a mismatch: the old key stays pinned.
 - Never print secrets. Credentials are references (`secret:NAME`, `env:VAR`), not values.
 - For an AI agent, passwords, keys and tokens in output show as `[hidden]`
   (and vault values as `[secret:NAME]`). Change such a line with

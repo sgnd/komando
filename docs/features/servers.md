@@ -336,6 +336,30 @@ talking to an impostor. Without `--reset`, `host trust` never adds a
 second key: a different key stops with `HOSTKEY_MISMATCH`, and a server
 that cannot be reached keeps its old key.
 
+### Many servers at once
+
+After you rebuild a whole group (same addresses, new keys), give `host
+trust` the group instead of one name. It takes every kind of target, like
+`exec`: `@group`, `tag:`, `'web*'` or `a,b`.
+
+```bash
+komando host trust @cluster                 # new servers get pinned; changed keys are refused
+komando host trust @cluster --reset --yes   # after the rebuild: one yes for all of them
+```
+
+`data.results` lists every server with its new `fingerprint` and, when the
+key changed, its `old_fingerprints`. With `--reset` you answer once: the
+question names every server whose key changes, with the start of its new
+fingerprint. Compare them with your cloud console first.
+
+`komando host rm` does not forget a server's key. If you remove a server
+and add it again at the same address, it must still show the same key, so
+`rm` plus `add` is no way around `HOSTKEY_MISMATCH`. `host rm` says which
+keys it kept (`host_keys_kept`); after a rebuild, replace them with `host
+trust --reset`.
+
+### Pin a key before the first connection
+
 `komando host trust web1` (without `--reset`) pins a key before the first
 connection; the same key again changes nothing. The key is fetched the way
 komando reaches the server: directly, or through its `--via` path, VPN or

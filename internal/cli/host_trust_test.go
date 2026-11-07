@@ -212,3 +212,127 @@ func TestKeyFetchPath(t *testing.T) {
 		}
 	}
 }
+
+// trustGroup adds n servers in group lab, each at its own SSH server whose
+// key the test can swap, and returns their addresses and key holders.
+func trustGroup(t *testing.T, n int) ([]string, []*atomic.Pointer[ssh.Signer]) {
+	t.Helper()
+	invHome(t)
+	var addrs []string
+	var keys []*atomic.Pointer[ssh.Signer]
+	for i := range n {
+		k := new(atomic.Pointer[ssh.Signer])
+		s := trustSigner(t)
+		k.Store(&s)
+		addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(keySSHD(t, k)))
+		mustRun(t, "host", "add", "node"+strconv.Itoa(i+1), "root@"+addr, "-g", "lab")
+		addrs, keys = append(addrs, addr), append(keys, k)
+	}
+	return addrs, keys
+}
+
+func trustResults(t *testing.T, d map[string]any) map[string]map[string]any {
+	t.Helper()
+	res := map[string]map[string]any{}
+	for _, r := range d["results"].([]any) {
+		m := r.(map[string]any)
+		res[m["host"].(string)] = m
+	}
+	return res
+}
+
+// After a rebuild of a group (same addresses, new keys), `host trust
+// @group` refuses the changed keys and pins nothing twice; `--reset` then
+// replaces them all after ONE window that names every changed server.
+func TestHostTrustGroup(t *testing.T) {
+	addrs, keys := trustGroup(t, 3)
+	d := mustRun(t, "host", "trust", "@lab")
+	if s := d["summary"].(map[string]any); s["ok"].(float64) != 3 {
+		t.Fatalf("first pin: %v", d)
+	}
+	// node1 and node2 are rebuilt; node3 is not
+	var newFP []string
+	for _, i := range []int{0, 1} {
+		s := trustSigner(t)
+		keys[i].Store(&s)
+		newFP = append(newFP, ssh.FingerprintSHA256(s.PublicKey()))
+	}
+	old1 := pinnedFingerprints(t, addrs[0])[0]
+	d, e := invRun(t, "host", "trust", "@lab")
+	if e == nil || e.Code != "PARTIAL_FAILURE" {
+		t.Fatalf("plain trust after the rebuild: %+v", e)
+	}
+	r := trustResults(t, d)
+	if r["node1"]["error"].(map[string]any)["code"] != "HOSTKEY_MISMATCH" || r["node3"]["already_pinned"] != true {
+		t.Errorf("results: %v", r)
+	}
+	if fps := pinnedFingerprints(t, addrs[0]); len(fps) != 1 || fps[0] != old1 {
+		t.Errorf("node1 pins after a refused trust: %v", fps)
+	}
+
+	var texts []string
+	saved := askOnScreen
+	windows := asAgent(t, true, true)
+	inner := askOnScreen
+	askOnScreen = func(text string) (bool, bool) { texts = append(texts, text); return inner(text) }
+	t.Cleanup(func() { askOnScreen = saved })
+	d = mustRun(t, "host", "trust", "@lab", "--reset", "--yes")
+	if *windows != 1 {
+		t.Fatalf("windows: %d, want one for the whole group", *windows)
+	}
+	if !containsAll(texts[0], "2 server(s)", "node1 "+shortFP(newFP[0]), "node2 "+shortFP(newFP[1])) || strings.Contains(texts[0], "node3") {
+		t.Errorf("window text: %q", texts[0])
+	}
+	r = trustResults(t, d)
+	if r["node1"]["fingerprint"] != newFP[0] || r["node1"]["old_fingerprints"].([]any)[0] != old1 {
+		t.Errorf("node1: %v", r["node1"])
+	}
+	for i, want := range newFP {
+		if fps := pinnedFingerprints(t, addrs[i]); len(fps) != 1 || fps[0] != want {
+			t.Errorf("node%d pins: %v", i+1, fps)
+		}
+	}
+}
+
+// A person who says no in the window keeps every old key; a dry run
+// fetches nothing and says what --reset would need.
+func TestHostTrustGroupDenied(t *testing.T) {
+	addrs, keys := trustGroup(t, 2)
+	mustRun(t, "host", "trust", "@lab")
+	before := [][]string{pinnedFingerprints(t, addrs[0]), pinnedFingerprints(t, addrs[1])}
+	for _, k := range keys {
+		s := trustSigner(t)
+		k.Store(&s)
+	}
+	d := mustRun(t, "host", "trust", "@lab", "--reset", "--dry-run")
+	if d["_meta"].(map[string]any)["would_be_blocked"] == nil || len(d["results"].([]any)) != 2 {
+		t.Errorf("dry run: %v", d)
+	}
+	asAgent(t, false, true)
+	wantCode(t, "SAFETY_SETTING", "host", "trust", "@lab", "--reset", "--yes")
+	for i, a := range addrs {
+		if fps := pinnedFingerprints(t, a); len(fps) != 1 || fps[0] != before[i][0] {
+			t.Errorf("node%d pins after a no: %v", i+1, fps)
+		}
+	}
+}
+
+// host rm keeps a server's pinned key and says so: rm plus add must not get
+// a rebuilt (or impostor) server past HOSTKEY_MISMATCH without a person.
+func TestHostRmKeepsThePin(t *testing.T) {
+	addrs, keys := trustGroup(t, 2)
+	mustRun(t, "host", "trust", "@lab")
+	mustRun(t, "host", "add", "alias1", "root@"+addrs[0]) // same address as node1
+
+	d := mustRun(t, "host", "rm", "node1", "node2")
+	if kept := d["host_keys_kept"].([]any); len(kept) != 1 || kept[0] != "node2" || !strings.Contains(d["note"].(string), "host trust NAME --reset") {
+		t.Errorf("rm: %v (node1's address is still used by alias1)", d)
+	}
+	s := trustSigner(t)
+	keys[1].Store(&s)
+	mustRun(t, "host", "add", "node2", "root@"+addrs[1])
+	wantCode(t, "HOSTKEY_MISMATCH", "host", "trust", "node2")
+	if d := mustRun(t, "host", "rm", "alias1", "--dry-run"); d["host_keys_kept"] == nil {
+		t.Errorf("dry run does not say the key stays: %v", d)
+	}
+}
