@@ -138,7 +138,7 @@ Queries only read unless you add `--write`. Try a change first with
 
 Already have servers and databases somewhere? `komando import` brings them
 in from `~/.ssh/config`, `.pgpass`, `my.cnf`, `.env`, kubeconfig, Docker,
-FileZilla, rclone and DBeaver. Try it with `--dry-run` first.
+FileZilla, rclone, DBeaver, AWS profiles (S3 buckets) and CSV spreadsheets. Try it with `--dry-run` first.
 
 ## Give it to your AI agent
 
@@ -183,9 +183,9 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 | Test the network, reach private servers | `net`, `tunnel`, `--via` |
 | Reach things behind VPNs, several at once (WireGuard, OpenVPN, Tailscale, AnyConnect, L2TP/IPsec, IKEv2, Cisco IPsec, GlobalProtect, Fortinet, Pulse, F5, ...) | `vpn` |
 | Keep a list of databases, caches, storage, clusters and registries | `conn` |
-| Query, back up and restore databases (PostgreSQL, MySQL, SQLite) | `db` |
-| Read and change caches (Redis, Valkey) | `cache` |
-| Files in S3, MinIO, R2 and on FTPS/SFTP servers | `storage`, `upload`, `download`, `sync` |
+| Query, back up and restore databases (PostgreSQL, MySQL/MariaDB; SQLite: query and back up) | `db` |
+| Read and change caches (Redis, Valkey, memcached) | `cache` |
+| Files in S3, MinIO, R2 and on FTPS/SFTP/FTP servers | `storage`, `upload`, `download`, `sync` |
 | Kubernetes and Docker Swarm: status, logs, apply, restart, scale | `cluster` |
 | Container registries: tags, image details, copy, clean up | `registry` |
 | History, safety rules and a health check of your setup | `audit`, `policy`, `doctor` |

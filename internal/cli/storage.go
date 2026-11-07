@@ -35,7 +35,7 @@ func storageCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "storage",
 		Aliases: []string{"s3"},
-		Short:   "Files in buckets and on file servers (S3, MinIO, R2, FTPS, SFTP): list, download, upload, share",
+		Short:   "Files in buckets and on file servers (S3, MinIO, R2, FTPS, SFTP, FTP): list, download, upload, share",
 		Long: `Work with a storage conn (see ` + "`komando conn`" + `): an S3-compatible bucket, or a
 folder on an FTPS, FTP or SFTP server. Keys are relative to the folder in the
 conn URL; a key ending in / is a folder. ls, cat and download only read.

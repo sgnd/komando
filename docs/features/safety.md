@@ -56,6 +56,10 @@ Scripts and you at your terminal use the flags as before.
 | `PROTECTED_HOST`, `PROTECTED_TARGET` | 6 | A change to something protected. A person may add `--yes`; commands that only look can add `--read-only`. |
 | `SAFETY_SETTING` | 6 | A change that turns a seatbelt off. A person may add `--yes`. |
 | `WRITE_REQUIRES_FLAG` | 6 | The query or command changes data. Try `--write --dry-run`, then `--write`. |
+| `READ_ONLY_VIOLATION` | 6 | `--read-only` was given, but the command changes something. Drop `--read-only`; a person may confirm with `--yes`. |
+| `CONFIRM_REQUIRED` | 6 | A change that touches many entries (for example deleting a group). Check them first, then a person may add `--yes`. |
+| `OPEN_BIND` | 6 | A tunnel would listen on an address other machines can reach. Keep the default 127.0.0.1, or a person may add `--yes`. |
+| `UNSAFE_BACKUP` | 6 | The backup file holds a client command, not SQL, that could run programs where the restore runs. Remove that line if the dump is not trusted. |
 | `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here, or to have komando read one here. Read it with `fs cat` (values hidden); a person may allow `--reveal` for a project file. |
 | `REVEAL_NEEDS_HUMAN` | 6 | Only a person can see secret values. |
 | `NEEDS_PERSON` | 6 | Only a person can do this (`secret check`, setting up `config approval-code`). Ask them to run it in their own terminal. |

@@ -11,7 +11,7 @@ PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 .PHONY: help build install test cover security fuzz e2e e2e-openvpn e2e-vpnclients e2e-ipsec lint licenses dist clean
 
 help: ## Show this help
-	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
+	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
 
 build: ## Build ./bin/komando
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/komando

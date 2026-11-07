@@ -28,9 +28,9 @@ it knows gets secrets hidden in output and the approval window for `--yes`,
 6. Use `komando job start` for anything that may take more than ~2 minutes
    or runs over a shaky link: a job survives a dropped connection.
 7. **Never** add `--allow-dangerous`, `--yes` or `--reveal` on your own. If a
-   command is blocked (exit code 6: `POLICY_BLOCKED`, `PROTECTED_HOST`,
-   `PROTECTED_TARGET`, `SAFETY_SETTING`, `SENSITIVE_FILE`,
-   `WRITE_REQUIRES_FLAG`), stop and explain what you want to do and why.
+   command is blocked (exit code 6, for example `POLICY_BLOCKED`,
+   `PROTECTED_HOST`, `PROTECTED_TARGET`, `SAFETY_SETTING`, `SENSITIVE_FILE`,
+   `WRITE_REQUIRES_FLAG`, `READ_ONLY_VIOLATION`, `CONFIRM_REQUIRED`), stop and explain what you want to do and why.
    Once the human agrees, re-run with the flag: komando asks them in a window
    on their screen ("Allow once"). With no screen, ask them to run the
    command in their own terminal. If they deny it, do not retry.
