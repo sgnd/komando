@@ -7,6 +7,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Changed
+
+- Exit codes: `NO_AUTH` (a server with no key, identity or password) now
+  exits 4 like `AUTH_FAILED`, not 2. `SECRET_UNRESOLVED` (a password
+  reference that cannot be read) exits 3 everywhere; it was 2 for servers
+  and 1 for conns and registry CAs. The agent guide's error table now says
+  `PARTIAL_FAILURE` exits with the worst code among the failed servers.
+
 ### Security
 
 - Downloads by an AI agent (`download`, `sync`, `storage download`, also
