@@ -115,8 +115,7 @@ func connCmd() *cobra.Command {
 		Aliases: []string{"conns"},
 		Short:   "Manage databases, caches, storage buckets, clusters and registries (add, edit, test)",
 		Long: `A conn is a database, cache, storage bucket, cluster or registry komando
-talks to directly. The
-kind comes from the URL scheme (` + "`komando conn kinds`" + ` lists them). Passwords never go in the URL: store them with
+talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + ` lists them). Passwords never go in the URL: store them with
 ` + "`komando secret set`" + ` and pass --password-ref. Use --via HOST when the
 resource is only reachable from a server.
 
