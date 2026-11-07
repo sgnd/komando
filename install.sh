@@ -4,7 +4,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
 #
 # Installs to /usr/local/bin when writable, otherwise ~/.local/bin.
-# Override with KOMANDO_INSTALL_DIR=/some/dir (when it is not writable, ~/.local/bin is used).
+# Override with KOMANDO_INSTALL_DIR=/some/dir: it is made if missing, and the script
+# stops if it cannot write there (it never puts komando somewhere else).
 set -eu
 
 REPO="sgnd/komando"
@@ -44,10 +45,21 @@ fi
 
 tar -xzf "$tmp/$file" -C "$tmp"
 
-dir="${KOMANDO_INSTALL_DIR:-/usr/local/bin}"
-if [ ! -w "$dir" ]; then
-  dir="$HOME/.local/bin"
-  mkdir -p "$dir"
+if [ -n "${KOMANDO_INSTALL_DIR:-}" ]; then
+  # A folder you chose: use it or stop. Never put komando somewhere else.
+  dir="$KOMANDO_INSTALL_DIR"
+  mkdir -p "$dir" 2>/dev/null || true
+  if [ ! -d "$dir" ] || [ ! -w "$dir" ]; then
+    echo "KOMANDO_INSTALL_DIR=$dir is not a folder you can write to." >&2
+    echo "Choose another folder, or leave KOMANDO_INSTALL_DIR out to use /usr/local/bin or ~/.local/bin." >&2
+    exit 1
+  fi
+else
+  dir="/usr/local/bin"
+  if [ ! -w "$dir" ]; then
+    dir="$HOME/.local/bin"
+    mkdir -p "$dir"
+  fi
 fi
 mv "$tmp/komando" "$dir/komando"
 chmod +x "$dir/komando"
