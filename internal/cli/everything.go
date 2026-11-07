@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -134,8 +135,9 @@ type targetTest struct {
 }
 
 type testData struct {
-	Results []targetTest `json:"results"`
-	Summary fleetSummary `json:"summary"`
+	Results  []targetTest `json:"results"`
+	Summary  fleetSummary `json:"summary"`
+	WaitedMS int64        `json:"waited_ms,omitempty"` // with --wait: how long komando tested
 }
 
 func (d testData) Text() string {
@@ -213,11 +215,22 @@ func vpnTest(ctx context.Context, st *store.State, v *store.Vpn) targetTest {
 func testCmd() *cobra.Command { return testCmdFor("") }
 
 func testCmdFor(only string) *cobra.Command {
-	return &cobra.Command{
+	var wait time.Duration
+	c := &cobra.Command{
 		Use:     "test TARGET",
 		Aliases: []string{"ping"},
 		Short:   "Check that servers, conns and VPNs can be reached and logged in to",
-		Example: "  komando test @prod\n  komando test all",
+		Long: `Logs in to each server (and checks who it is and whether sudo needs a
+password), connects to each conn and checks each VPN.
+
+--wait 5m waits for new servers: komando tests again every few seconds
+until every target passes or the time is up, for example right after a
+cloud server was created or rebuilt. It does not wait out a changed host
+key (HOSTKEY_MISMATCH), a refused login (AUTH_FAILED: retrying could get
+your address banned), a VPN that needs a login, or a local key or secret
+problem: those fail at once. To wait for the server's own start-up too,
+run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next.`,
+		Example: "  komando test @prod\n  komando test all\n  komando test @new --wait 5m   # right after creating servers",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -232,27 +245,15 @@ func testCmdFor(only string) *cobra.Command {
 				return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "use `komando test "+args[0]+"` to test everything it picks",
 					"target %q picked no %ss", args[0], only)
 			}
-			var res []targetTest
-			for _, o := range fanout(cmd.Context(), st, sel.Hosts, testHost) {
-				r := targetTest{Name: o.Host.Name, Kind: "host"}
-				if o.Err != nil {
-					r.Error = fixTestError(st, o.Host.Name, toErr(o.Err))
-				} else {
-					d := o.Value.(testResult)
-					d.Host = o.Host.Name
-					r.OK, r.LatencyMS, r.Detail = true, d.LatencyMS, d
-				}
-				res = append(res, r)
-			}
-			res = append(res, testConns(cmd.Context(), st, sel.Conns)...)
-			for _, v := range sel.Vpns {
-				res = append(res, vpnTest(cmd.Context(), st, v))
-			}
-
-			for i := range res {
-				res[i].Host = res[i].Name
+			t0 := time.Now()
+			res := testRound(cmd.Context(), st, sel)
+			if wait > 0 {
+				res = waitForTargets(cmd.Context(), st, sel, res, t0.Add(wait))
 			}
 			data := testData{Results: res}
+			if wait > 0 {
+				data.WaitedMS = time.Since(t0).Milliseconds()
+			}
 			worst := 0
 			var names []string
 			for _, r := range res {
@@ -277,6 +278,8 @@ func testCmdFor(only string) *cobra.Command {
 			return exitCode(worst)
 		},
 	}
+	c.Flags().DurationVar(&wait, "wait", 0, "test again every few seconds until every target passes, for up to this long (5m)")
+	return c
 }
 
 // testConns runs testConn on each conn in parallel, bounded by --parallel.

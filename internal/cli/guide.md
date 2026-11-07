@@ -39,6 +39,10 @@ komando schema --compact              # every command (`komando schema <cmd>`: i
 komando import ssh-config --dry-run   # (with the human) bring in servers they already have
 ```
 
+Just created or rebuilt a server? Do not sleep and retry in a loop: run
+`komando test <target> --wait 5m` (it waits until SSH answers and the login
+works), then `komando exec <target> --read-only -- cloud-init status --wait`.
+
 Run `facts` before your first change on an unfamiliar server: it tells you
 whether to use apt or dnf, whether systemd and Docker exist, and how full the
 disk is. Read its `warnings` first. `null` means komando could not find out,
