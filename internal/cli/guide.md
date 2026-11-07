@@ -16,11 +16,16 @@ komando exec web1 --read-only -o text -- cat /etc/os-release   # the server's ou
 komando exec @web --read-only -o text -- uptime                # one "=== web1 [ok exit=0]" block per server
 ```
 
-With one server you get its stdout as it is; its stderr goes to stderr and
-komando's exit code is the command's. With several, each server gets a block
-headed `=== NAME [ok exit=N]` and its stderr lines start with `[stderr]`.
-Keep JSON (the default) when you need each server's exit code, error code or
-hint as data: to branch on them, or to compare many servers.
+With one server you get its stdout as it is; its stderr goes to stderr (or
+into komando's closing error line, when that line already says it). With
+several, each server gets a block headed `=== NAME [STATUS]` (`ok exit=0`,
+`FAILED exit=N`, `FAILED timed out`, `skipped` ...); its stderr lines start
+with `[stderr]`, and a failed server's block ends with `error [CODE]:` and
+`hint:` lines. komando's exit code is its own (5 when a command exits
+non-zero, whatever its code), not the command's, and a note about cut output
+goes to stderr. Keep JSON (the default) when you need each server's exit
+code, error code, hint or `stdout_truncated` as data: to branch on them, or
+to compare many servers.
 
 ## 1. Orient yourself
 

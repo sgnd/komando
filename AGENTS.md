@@ -13,7 +13,8 @@ servers, databases, caches, storage, clusters and registries through the
    Use `komando schema <command>` when unsure about flags.
 3. Look before you change: `komando list`, `komando test <target>`, `komando facts <target>`,
    then read logs/config/status. To read a command's output, add `-o text`;
-   keep JSON when you branch on each server's exit code or error.
+   keep JSON when you branch on each server's exit code or error, or need
+   to know whether output was cut (`stdout_truncated`).
 4. Before any change, run it once with `--dry-run`. A dry run is never
    blocked; `meta.would_be_blocked` says what the real run would need.
    Declare read-only shell commands with `--read-only`. `db query`,
