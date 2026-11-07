@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -596,16 +597,35 @@ func hostShowCmd() *cobra.Command {
 	}
 }
 
+// keptHostKeys lists the removed servers (name -> address) whose key is
+// still pinned and whose address no server left in the inventory uses.
+// host rm never removes a pin by itself: rm plus add would then get past a
+// HOSTKEY_MISMATCH without a person's yes.
+func keptHostKeys(s *store.State, gone map[string]string) []string {
+	used := map[string]bool{}
+	for _, h := range s.Hosts {
+		used[trustAddr(h)] = true
+	}
+	var kept []string
+	for n, addr := range gone {
+		if !used[addr] && countPinned(addr) > 0 {
+			kept = append(kept, n)
+		}
+	}
+	sort.Strings(kept)
+	return kept
+}
+
 func hostRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm NAME|TARGET...",
-		Short: "Remove host(s) from the inventory (does not touch the server)",
+		Short: "Remove host(s) from the inventory (does not touch the server; their pinned host keys stay)",
 		Example: `  komando host rm web3
   komando host rm @old --dry-run     # what a selector would remove
   komando host rm 'tmp-*'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var names []string
+			var names, kept []string
 			err := store.Update(func(s *store.State) error {
 				var prot []string
 				batch := map[string]bool{}
@@ -640,16 +660,24 @@ func hostRmCmd() *cobra.Command {
 				if err := guardProtection("host", "removing", prot); err != nil {
 					return err
 				}
+				gone := map[string]string{} // name -> address
 				for _, n := range names {
+					gone[n] = trustAddr(s.Hosts[n])
 					delete(s.Hosts, n)
 				}
+				kept = keptHostKeys(s, gone)
 				return nil
 			})
 			if err != nil {
 				return err
 			}
 			audit(nil, "host.rm", names, "", true, nil)
-			out.P.Print("host.rm", rmResult{Removed: names}, nil)
+			res := rmResult{Removed: names, HostKeysKept: kept}
+			if len(kept) > 0 {
+				res.Note = "the pinned host keys of " + strings.Join(kept, ", ") + " stay in komando's known_hosts, so a server added again at the same address must show the same key. " +
+					"If it was rebuilt, add it again and replace the pin with `komando host trust NAME --reset` (a person confirms the new key)"
+			}
+			out.P.Print("host.rm", res, nil)
 			return nil
 		},
 	}
