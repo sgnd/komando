@@ -283,7 +283,7 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 			if o.via != "" {
 				v = o.via
 			}
-			urls = append(urls, certURL{target: c.Name, kind: "conn", address: t.Address, serverName: host, via: v})
+			urls = append(urls, certURL{target: c.Name, kind: "conn", address: t.DialAddress(), serverName: host, via: v})
 		}
 		skipVpns(sel.Vpns)
 	}

@@ -7,6 +7,29 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- Registry and S3 conns take `?resolve=IP` (or `IP:PORT`), like
+  `curl --resolve`: komando connects to that address instead of the one DNS
+  gives for the name. TLS keeps using the name in the URL, so
+  `?ca=secret:NAME` and `?tls=skip-verify` work as they do without it. This
+  helps when a registry's public DNS is wrong or missing: before, the only
+  way was `--via` a server whose `/etc/hosts` had the right address. With
+  `--via`, the last server connects to the IP. `komando test` and `tunnel`
+  use it too, and so does `cert check` for an S3 conn. A value that is not
+  an IP address is refused with `USAGE`.
+
+### Changed
+
+- `doctor` warns about conns worth a look: an unprotected conn that shares
+  its password secret with a protected server or conn, two conns with the
+  same kind, URL and `--via`, and an unprotected conn with the label
+  `host=SERVER` of a protected server. Each warning says the command that
+  fixes it.
+- `host show @group` (or another selector where one name is expected) says
+  that the command takes one name and points at `komando list @group` and
+  `komando export @group`, instead of a bare "not found".
+
 ### Fixed
 
 - A secret that only a conn URL names, such as a registry's
@@ -23,17 +46,6 @@ its highlights; the sections below them give the details. Versions follow
   built the release, instead of root. It now extracts with
   `--no-same-owner`. If you installed with sudo, fix the owner once:
   `sudo chown root:wheel /usr/local/bin/komando` (Linux: `root:root`).
-
-### Changed
-
-- `doctor` warns about conns worth a look: an unprotected conn that shares
-  its password secret with a protected server or conn, two conns with the
-  same kind, URL and `--via`, and an unprotected conn with the label
-  `host=SERVER` of a protected server. Each warning says the command that
-  fixes it.
-- `host show @group` (or another selector where one name is expected) says
-  that the command takes one name and points at `komando list @group` and
-  `komando export @group`, instead of a bare "not found".
 
 ## [0.4.0] - 2026-11-07
 
