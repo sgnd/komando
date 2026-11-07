@@ -186,6 +186,9 @@ func exportCmd() *cobra.Command {
 				if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok {
 					need[n] = true
 				}
+				for _, r := range urlSecretRefs(c.URL) { // ?ca=secret:NAME
+					need[r.Name] = true
+				}
 			}
 			for n := range need {
 				f.Secrets = append(f.Secrets, n)

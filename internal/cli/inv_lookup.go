@@ -55,6 +55,9 @@ func findHost(s *store.State, name string) (*store.Host, error) {
 	if n, ok := foldMatch(name, mapKeys(s.Hosts)); ok {
 		return s.Hosts[n], nil
 	}
+	if isSelector(name) {
+		return nil, selectorNotName("host", name)
+	}
 	return nil, notFoundSuggest("host", name, mapKeys(s.Hosts))
 }
 
@@ -65,7 +68,24 @@ func findConn(s *store.State, name string) (*store.Conn, error) {
 	if n, ok := foldMatch(name, mapKeys(s.Conns)); ok {
 		return s.Conns[n], nil
 	}
+	if isSelector(name) {
+		return nil, selectorNotName("conn", name)
+	}
 	return nil, notFoundSuggest("conn", name, mapKeys(s.Conns))
+}
+
+// selectorNotName is the not-found error for a selector (@group, web-*,
+// label:k=v) given where one name is expected: it says so and shows the
+// commands that take a selector, so nobody has to guess.
+func selectorNotName(kind, sel string) *out.Error {
+	e := out.NotFound(kind, sel)
+	q := sel
+	if strings.ContainsAny(q, " '\"$`\\*?[!") {
+		q = "'" + strings.ReplaceAll(q, "'", `'\''`) + "'"
+	}
+	e.Hint = fmt.Sprintf("this command takes one %s name, and %s picks several; to see them use `komando list %s`, or `komando export %s` for every setting",
+		kind, sel, q, q)
+	return e
 }
 
 func findKey(s *store.State, name string) (*store.Key, error) {

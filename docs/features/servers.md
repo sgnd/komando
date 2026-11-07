@@ -245,7 +245,8 @@ komando secret rm old-pass                   # refused while something uses it
   `secret get NAME` shows the same warning later.
 - **Renaming.** `secret mv OLD NEW` renames the secret inside the vault and
   points every server, conn, key and VPN that used `secret:OLD` at
-  `secret:NEW` in the same step. Nobody types the value again, and an AI
+  `secret:NEW` in the same step, conn URL options such as
+  `?ca=secret:OLD` included. Nobody types the value again, and an AI
   agent can do it, because the value is never shown. Scripts of your own that
   name `secret:OLD` are not changed. `secret cp OLD NEW` makes a copy and
   changes nothing else. When NEW already exists, add `--overwrite`; what uses

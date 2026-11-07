@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -545,9 +546,9 @@ func renameSecretRefs(st *store.State, from, to string) []string {
 }
 
 // walkSecretRefs finds every reference to secret:name in the state - the
-// password, sudo and passphrase refs, a server's environment variables and
-// a VPN's key, preshared key and config - and, when rename is set, points
-// it at secret:rename.
+// password, sudo and passphrase refs, a server's environment variables, a
+// conn URL's options (?ca=secret:NAME) and a VPN's key, preshared key and
+// config - and, when rename is set, points it at secret:rename.
 func walkSecretRefs(st *store.State, name, rename string) []string {
 	ref := "secret:" + name
 	now := time.Now().UTC()
@@ -588,6 +589,13 @@ func walkSecretRefs(st *store.State, name, rename string) []string {
 	}
 	for _, c := range st.Conns {
 		visit("conn "+c.Name, func() { c.UpdatedAt = now }, &c.PasswordRef)
+		// a URL option such as a registry's ?ca=secret:NAME
+		if u, hit := renameURLSecretRefs(c.URL, name, rename); hit {
+			users["conn "+c.Name] = true
+			if rename != "" {
+				c.URL, c.UpdatedAt = u, now
+			}
+		}
 	}
 	for _, k := range st.Keys {
 		visit("key "+k.Name, nil, &k.PassphraseRef)
@@ -601,6 +609,84 @@ func walkSecretRefs(st *store.State, name, rename string) []string {
 	}
 	sort.Strings(list)
 	return list
+}
+
+// urlSecretRef is a conn URL option whose value is secret:NAME, such as
+// the CA certificate of a registry: ?ca=secret:NAME.
+type urlSecretRef struct{ Option, Name string }
+
+// urlSecretRefs lists the options of a conn URL that name a vault secret,
+// in the order they are written.
+func urlSecretRefs(rawURL string) []urlSecretRef {
+	var refs []urlSecretRef
+	mapURLSecretRefs(rawURL, func(opt, name string) string {
+		refs = append(refs, urlSecretRef{opt, name})
+		return name
+	})
+	return refs
+}
+
+// renameURLSecretRefs reports whether an option of the URL says
+// secret:from and, when to is set, returns the URL with those options
+// saying secret:to. The rest of the URL stays as it was written.
+func renameURLSecretRefs(rawURL, from, to string) (string, bool) {
+	hit := false
+	u := mapURLSecretRefs(rawURL, func(_, name string) string {
+		if name != from {
+			return name
+		}
+		hit = true
+		if to == "" {
+			return name
+		}
+		return to
+	})
+	return u, hit
+}
+
+// mapURLSecretRefs calls fn for every query option of the URL whose value
+// is secret:NAME and writes back the name fn returns. It splits the URL the
+// way net/url does (the query runs from the first ? to the #) and edits
+// the text in place, so options it does not change keep their order and
+// their escaping. Secret names need no escaping (validName).
+func mapURLSecretRefs(rawURL string, fn func(opt, name string) string) string {
+	rest, frag, hasFrag := strings.Cut(rawURL, "#")
+	head, query, ok := strings.Cut(rest, "?")
+	if !ok || query == "" {
+		return rawURL
+	}
+	parts := strings.Split(query, "&")
+	changed := false
+	for i, p := range parts {
+		k, v, ok := strings.Cut(p, "=")
+		if !ok {
+			continue
+		}
+		val, err := url.QueryUnescape(v)
+		if err != nil {
+			continue
+		}
+		name, ok := strings.CutPrefix(val, "secret:")
+		if !ok || name == "" {
+			continue
+		}
+		opt, err := url.QueryUnescape(k)
+		if err != nil {
+			opt = k
+		}
+		if n := fn(opt, name); n != name {
+			parts[i] = k + "=secret:" + n
+			changed = true
+		}
+	}
+	if !changed {
+		return rawURL
+	}
+	u := head + "?" + strings.Join(parts, "&")
+	if hasFrag {
+		u += "#" + frag
+	}
+	return u
 }
 
 func secretKeychainCmd() *cobra.Command {

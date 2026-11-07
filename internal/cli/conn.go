@@ -562,7 +562,7 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 	case "db":
 		db, err := dbx.Open(cctx, c.URL, a.Target, a.Password, a.Dial, true, "komando/"+actor())
 		if err != nil {
-			return err
+			return viaTimeout(c, err)
 		}
 		defer db.Close()
 		q := map[string]string{"postgres": "select version()", "mysql": "select version()", "sqlite": "select sqlite_version()"}[a.Target.Kind.Name]
@@ -598,9 +598,25 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 	return nil
 }
 
+// viaTimeout names the conn's --via path in a "connecting to ADDRESS timed
+// out" error, so the message says where komando waited: "connecting to
+// 10.0.0.5:5432 via office-vpn timed out". Other errors pass unchanged.
+func viaTimeout(c *store.Conn, err error) error {
+	var e *out.Error
+	if c.Via == "" || !errors.As(err, &e) || e.Code != "TIMEOUT" {
+		return err
+	}
+	if addr, ok := strings.CutSuffix(e.Message, " timed out"); ok && strings.HasPrefix(addr, "connecting to ") {
+		e.Message = addr + " via " + strings.Join(viaChain(c.Via), " → ") + " timed out"
+	}
+	return err
+}
+
 func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 	if errors.Is(err, context.DeadlineExceeded) {
-		return out.Errf(out.ExitTimeout, "TIMEOUT", "the port may be firewalled; check the address or raise --connect-timeout", "connecting to %s timed out", t.Address)
+		e := out.Errf(out.ExitTimeout, "TIMEOUT", "the port may be firewalled; check the address or raise --connect-timeout", "connecting to %s timed out", t.Address)
+		_ = viaTimeout(c, e)
+		return e
 	}
 	hint := "check the address and port; if the service is only reachable from a server, set `komando conn edit " + c.Name + " --via HOST`"
 	if steps := viaChain(c.Via); len(steps) > 0 {
