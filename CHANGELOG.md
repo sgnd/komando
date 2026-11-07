@@ -19,6 +19,10 @@ its highlights; the sections below them give the details. Versions follow
   VPN) said `connecting to  timed out`, without the address. The message
   names the address, and the `--via` path when there is one:
   `connecting to 10.0.0.5:5432 via office-vpn timed out`.
+- `sudo sh install.sh` installed komando owned by uid 1001, the user that
+  built the release, instead of root. It now extracts with
+  `--no-same-owner`. If you installed with sudo, fix the owner once:
+  `sudo chown root:wheel /usr/local/bin/komando` (Linux: `root:root`).
 
 ### Changed
 
