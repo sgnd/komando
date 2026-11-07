@@ -42,6 +42,7 @@ komando conn add lan 'registry://me@registry.lan?tls=skip-verify' --password-ref
 |---|---|
 | (none) | HTTPS, certificate checked against your computer's CAs |
 | `?ca=secret:NAME` | HTTPS, certificate checked against those CAs plus the PEM certificate in the vault secret `NAME`: a CA, or the registry's own certificate |
+| `?resolve=IP` | connect to this IP address instead of the one DNS gives for the name (like `curl --resolve`). `IP:PORT` sets the port too; write IPv6 in brackets: `[2001:db8::1]:443`. TLS keeps using the name in the URL. Goes with every other option in this table; see "Wrong or missing DNS" below |
 | `?tls=skip-verify` | HTTPS, but the certificate is not checked (like Docker's `insecure-registries`). Anyone on the path can pretend to be the registry; `komando doctor` warns about it |
 | `?tls=false` | plain HTTP, nothing encrypted (a `registry:2` on a private network) |
 
@@ -69,6 +70,23 @@ points somewhere else than the address your servers use:
 ```bash
 komando conn add app-registry 'registry://me@registry.example.com?ca=secret:app-ca' --via web1
 ```
+
+**Wrong or missing DNS (`?resolve=`).** If you can reach the registry from
+your computer, you do not need a server for this. Give its IP address in
+the URL, as `curl --resolve` does. komando connects to that address and
+still sends the name, so the TLS options work as they do without it: the
+certificate is checked against the name (with or without `ca=`), or not
+checked at all with `tls=skip-verify`:
+
+```bash
+komando conn add app-registry 'registry://me@registry.example.com?ca=secret:app-ca&resolve=203.0.113.10'
+komando conn add lan-registry 'registry://me@registry.lan?tls=skip-verify&resolve=203.0.113.20'
+komando test app-registry
+```
+
+Only connections to the registry's own name go to that IP. A login service
+or a download on another host is looked up as usual. With `--via`, the last
+server on the path connects to the IP. `komando tunnel` uses the IP too.
 
 The password is usually an access token. It needs read rights to look,
 write rights to copy into the registry, and delete rights to delete. For

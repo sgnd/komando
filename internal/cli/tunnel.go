@@ -183,7 +183,7 @@ func tunnelStartCmd() *cobra.Command {
 					return err
 				}
 				conn, via = c.Name, c.Via
-				l = fmt.Sprintf("127.0.0.1:%d:%s", port, t.Address)
+				l = fmt.Sprintf("127.0.0.1:%d:%s", port, t.DialAddress())
 			}
 			n := 0
 			kind, spec := "", ""

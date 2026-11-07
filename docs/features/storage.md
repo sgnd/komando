@@ -17,7 +17,7 @@ komando upload backups ./app.sql.gz 2026/app.sql.gz
 
 | Kind | URL example | Notes |
 |------|-------------|-------|
-| S3 and compatible | `s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1` | AWS S3, MinIO, Cloudflare R2, Wasabi, DigitalOcean Spaces, Backblaze B2, Garage. Leave out `endpoint` for AWS. |
+| S3 and compatible | `s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1` | AWS S3, MinIO, Cloudflare R2, Wasabi, DigitalOcean Spaces, Backblaze B2, Garage. Leave out `endpoint` for AWS. If the endpoint's DNS is wrong or missing, add `&resolve=IP` (or `IP:PORT`): komando connects to that address and still checks the certificate against the endpoint's name. |
 | FTPS | `ftps://deploy@files.example.com/public_html` | FTP with TLS. Add `?tls=skip-verify` only for a self-signed certificate you trust. |
 | SFTP | `sftp://deploy@files.example.com/uploads` | File access over SSH, for accounts without a shell. The path starts at the server's root (on hosting, often your home folder). |
 | FTP | `ftp://deploy@files.example.com/www?insecure=1` | No encryption: the password and files travel in clear. Refused without `?insecure=1`. Prefer FTPS or SFTP. |
