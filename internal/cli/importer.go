@@ -64,7 +64,11 @@ func importCmd() *cobra.Command {
 	var overwrite bool
 	var names []string
 	for _, s := range importSources {
-		names = append(names, fmt.Sprintf("  %-11s %s (default %s)", s.Name, s.Desc, dash(s.Default)))
+		line := fmt.Sprintf("  %-11s %s", s.Name, s.Desc)
+		if s.Default != "" {
+			line += " (default " + s.Default + ")"
+		}
+		names = append(names, line)
 	}
 	c := &cobra.Command{
 		Use:   "import SOURCE [FILE]",
