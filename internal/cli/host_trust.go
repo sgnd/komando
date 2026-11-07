@@ -53,8 +53,8 @@ func testHost(ctx context.Context, c *sshx.Client) (any, error) {
 func hostTrustCmd() *cobra.Command {
 	var reset bool
 	c := &cobra.Command{
-		Use:   "trust NAME",
-		Short: "Pin (or re-pin with --reset) a host's SSH key in komando's known_hosts",
+		Use:   "trust TARGET",
+		Short: "Pin (or re-pin with --reset) the SSH keys of one or many servers in komando's known_hosts",
 		Long: `Fetches the server's host key and stores it in komando's known_hosts, like
 ssh-keyscan plus ssh-keygen -R. The key is fetched the way komando reaches
 the server: directly, or through its --via servers, VPN or proxy command.
@@ -64,90 +64,103 @@ pinned, the server may be an impostor (HOSTKEY_MISMATCH): check the new
 fingerprint another way, then replace the pin with --reset. Replacing a pin
 needs --yes (an AI agent also needs a person's yes on the screen). With
 --dry-run nothing is fetched or changed; it only counts the pinned entries
---reset would replace.`,
+--reset would replace.
+
+TARGET can be many servers (@group, tag:, 'web*', a,b): after a rebuild of
+a whole group, --reset replaces all their keys after ONE yes, which names
+every server with its new key. Each server is in results, with its old and
+new fingerprint; a server whose key changed is refused without --reset,
+the others are pinned.`,
 		Example: `  komando host trust web1
   komando host trust web1 --reset --dry-run   # how many pinned keys would go
-  komando host trust web1 --reset --yes       # after a real rebuild`,
+  komando host trust web1 --reset --yes       # after a real rebuild
+  komando host trust @cluster                 # pin new servers; changed keys are refused
+  komando host trust @cluster --reset --yes   # after rebuilding the whole group: one yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			h, err := singleHost(st, args[0])
+			hosts, err := resolveTargets(st, args[0])
 			if err != nil {
 				return err
 			}
-			addr := net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort()))
-			replacing := func(what string) error {
-				if err := guardSafety("replacing the pinned host key of " + h.Name + " (" + what + ")"); err != nil {
-					return err
-				}
-				if protectedHost(st, h) {
-					return guardProtection("host", "replacing the pinned host key of", []string{h.Name})
-				}
-				return nil
+			if len(hosts) != 1 || hosts[0].Name != args[0] {
+				return trustMany(cmd.Context(), st, hosts, reset)
 			}
-			if g.dryRun {
-				res := map[string]any{"host": h.Name, "address": addr, "would_fetch_from": keyFetchPath(st, h)}
-				if reset {
-					n := countPinned(addr)
-					res["would_remove_entries"] = n
-					if n > 0 {
-						if err := replacing("a key may be replaced"); err != nil {
-							return err
-						}
-					}
-				}
-				out.P.Print("host.trust", res, nil)
-				return nil
-			}
-			key, err := sshx.FetchHostKey(cmd.Context(), st, h, sshOpts(st))
-			if err != nil {
-				if oe, ok := err.(*out.Error); ok && oe.Code != "CONNECT_FAILED" {
-					return oe // a jump host's key or login, a timeout, a VPN: its own words
-				}
-				return out.Errf(out.ExitConnect, "KEYSCAN_FAILED", "check the address and port with `komando host show "+h.Name+"`", "cannot fetch host key from %s: %v", addr, err)
-			}
-			fp := ssh.FingerprintSHA256(key)
-			pins, err := sshx.PinnedKeys(addr)
-			if err != nil {
-				return err
-			}
-			same, other := false, []string{}
-			for _, k := range pins {
-				if sshx.SameKey(k, key) {
-					same = true
-				} else {
-					other = append(other, ssh.FingerprintSHA256(k))
-				}
-			}
-			switch {
-			case len(other) > 0 && !same && !reset:
-				// never pin a second key next to the old one: both would be accepted
-				e := sshx.HostKeyMismatch(h.Name)
-				e.Message += fmt.Sprintf("; pinned %s, the server now shows %s", strings.Join(other, ", "), fp)
-				return e
-			case len(other) > 0 && !same:
-				if err := replacing("old " + strings.Join(other, ", ") + ", new " + fp); err != nil {
-					return err
-				}
-			}
-			removed, err := sshx.PinHostKey(addr, key, reset)
-			if err != nil {
-				return err
-			}
-			res := map[string]any{"host": h.Name, "address": addr, "removed_entries": removed, "key_type": key.Type(), "fingerprint": fp}
-			if same && removed == 0 {
-				res["already_pinned"] = true
-			}
-			audit(st, "host.trust", []string{h.Name}, "", true, map[string]any{"reset": reset, "removed_entries": removed, "fingerprint": fp})
-			out.P.Print("host.trust", res, nil)
-			return nil
+			return trustOne(cmd.Context(), st, hosts[0], reset) // the answer keeps its old shape
 		},
 	}
 	c.Flags().BoolVar(&reset, "reset", false, "replace the previously pinned key (needs --yes)")
 	return c
+}
+
+// trustOne is `host trust NAME` for one server named by its name.
+func trustOne(ctx context.Context, st *store.State, h *store.Host, reset bool) error {
+	addr := net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort()))
+	replacing := func(what string) error {
+		if err := guardSafety("replacing the pinned host key of " + h.Name + " (" + what + ")"); err != nil {
+			return err
+		}
+		if protectedHost(st, h) {
+			return guardProtection("host", "replacing the pinned host key of", []string{h.Name})
+		}
+		return nil
+	}
+	if g.dryRun {
+		res := map[string]any{"host": h.Name, "address": addr, "would_fetch_from": keyFetchPath(st, h)}
+		if reset {
+			n := countPinned(addr)
+			res["would_remove_entries"] = n
+			if n > 0 {
+				if err := replacing("a key may be replaced"); err != nil {
+					return err
+				}
+			}
+		}
+		out.P.Print("host.trust", res, nil)
+		return nil
+	}
+	key, err := sshx.FetchHostKey(ctx, st, h, sshOpts(st))
+	if err != nil {
+		return keyscanError(h, addr, err)
+	}
+	fp := ssh.FingerprintSHA256(key)
+	pins, err := sshx.PinnedKeys(addr)
+	if err != nil {
+		return err
+	}
+	same, other := false, []string{}
+	for _, k := range pins {
+		if sshx.SameKey(k, key) {
+			same = true
+		} else {
+			other = append(other, ssh.FingerprintSHA256(k))
+		}
+	}
+	switch {
+	case len(other) > 0 && !same && !reset:
+		// never pin a second key next to the old one: both would be accepted
+		e := sshx.HostKeyMismatch(h.Name)
+		e.Message += fmt.Sprintf("; pinned %s, the server now shows %s", strings.Join(other, ", "), fp)
+		return e
+	case len(other) > 0 && !same:
+		if err := replacing("old " + strings.Join(other, ", ") + ", new " + fp); err != nil {
+			return err
+		}
+	}
+	removed, err := sshx.PinHostKey(addr, key, reset)
+	if err != nil {
+		return err
+	}
+	res := map[string]any{"host": h.Name, "address": addr, "removed_entries": removed, "key_type": key.Type(), "fingerprint": fp}
+	if same && removed == 0 {
+		res["already_pinned"] = true
+	}
+	audit(st, "host.trust", []string{h.Name}, "", true, map[string]any{"reset": reset, "removed_entries": removed, "fingerprint": fp})
+	out.P.Print("host.trust", res, nil)
+	return nil
 }
 
 // countPinned counts the known_hosts lines for addr, as PinHostKey would

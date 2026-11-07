@@ -7,7 +7,21 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `komando host trust TARGET` takes many servers (`@group`, `tag:`,
+  `'web*'`, `a,b`): after a rebuild of a whole group, `--reset` replaces
+  every changed key after ONE yes that names each server with its new
+  fingerprint, instead of one yes per server. `data.results` has each
+  server's `fingerprint` and `old_fingerprints`. A changed key is still
+  refused without `--reset`; `host trust NAME` answers as before.
+
 ### Changed
+
+- `komando host rm` says which servers' pinned host keys it keeps
+  (`host_keys_kept`, `note`): a server added again at the same address must
+  show the same key, so `rm` plus `add` is no way around
+  `HOSTKEY_MISMATCH`.
 
 - The agent guide (`komando guide`), the skill and the output docs say
   when to use `-o text`: to read a command's output, instead of pulling
