@@ -68,7 +68,7 @@ machine-readable reference is `komando schema`.
 | `AUTH_FAILED` | wrong user, key or password | `komando host show NAME`, `komando key deploy` |
 | `KEY_PASSPHRASE_REQUIRED` | the SSH key is encrypted | `komando key edit NAME --passphrase-ref secret:NAME` |
 | `CONNECTION_REFUSED`, `CONNECT_TIMEOUT` | server down, wrong port, firewall | check the address and port; `--connect-timeout 30s` |
-| `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting | confirm with your provider first, then `komando host trust NAME --reset --yes` (a person decides; an agent reports it) |
+| `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting | confirm with your provider first, then `komando host trust NAME --reset --yes`, or `@group` for many at once (a person decides; an agent reports it) |
 | `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando secret list` |
 | `SECRET_IN_USE` | `secret rm` of a secret that something still uses | point them elsewhere, or rename it with `komando secret mv OLD NEW` |
 | `SECRET_EXISTS` | `secret mv` or `secret cp` to a name that is taken | pick another name, or add `--overwrite` |

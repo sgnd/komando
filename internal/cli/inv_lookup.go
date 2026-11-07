@@ -160,12 +160,18 @@ func rmConns(s *store.State, args []string) ([]*store.Conn, error) {
 
 // rmResult is what host rm and conn rm print.
 type rmResult struct {
-	Removed []string `json:"removed"`
+	Removed      []string `json:"removed"`
+	HostKeysKept []string `json:"host_keys_kept,omitempty"` // host rm: servers whose pinned key stays in known_hosts
+	Note         string   `json:"note,omitempty"`
 }
 
 func (r rmResult) Text() string {
+	t := "removed: " + strings.Join(r.Removed, ", ")
 	if g.dryRun {
-		return "would remove: " + strings.Join(r.Removed, ", ")
+		t = "would remove: " + strings.Join(r.Removed, ", ")
 	}
-	return "removed: " + strings.Join(r.Removed, ", ")
+	if r.Note != "" {
+		t += "\nnote: " + r.Note
+	}
+	return t
 }
