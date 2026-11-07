@@ -7,6 +7,18 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- Release archives include `THIRD_PARTY_LICENSES`: the license texts and
+  NOTICE files of the Go modules and the Go standard library built into
+  komando (`make licenses` writes it alone).
+- `install.sh` installs one version with `KOMANDO_VERSION=vX.Y.Z`.
+- The README has Update, Uninstall and "Something wrong?" sections, and
+  says how to protect the vault key (`komando secret keychain`).
+- The docs say how to get the AI agent seatbelts (secrets hidden in output,
+  a person allows `--yes`) for agents komando does not know by name: set
+  `KOMANDO_AGENT=1` in the agent's environment.
+
 ### Changed
 
 - Exit codes: `NO_AUTH` (a server with no key, identity or password) now
@@ -14,6 +26,12 @@ its highlights; the sections below them give the details. Versions follow
   reference that cannot be read) exits 3 everywhere; it was 2 for servers
   and 1 for conns and registry CAs. The agent guide's error table now says
   `PARTIAL_FAILURE` exits with the worst code among the failed servers.
+
+### Fixed
+
+- `install.sh` no longer installs into `~/.local/bin` when
+  `KOMANDO_INSTALL_DIR` is set but cannot be written: it creates the
+  folder, or stops with a message.
 
 ### Security
 
