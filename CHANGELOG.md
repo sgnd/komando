@@ -7,6 +7,17 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-07
+
+### Highlights
+
+- **Rebuilt a group of servers?** `komando host trust @group --reset --yes`
+  accepts all their new keys after one yes, instead of one per server.
+- **New servers that are still starting:** `komando test @new --wait 5m`
+  waits until they answer, instead of a sleep loop.
+- **AI agents read output more simply:** the guide tells them to use `-o
+  text` when they only want to read what a command printed.
+
 ### Added
 
 - `komando host trust TARGET` takes many servers (`@group`, `tag:`,
