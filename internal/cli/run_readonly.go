@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
@@ -33,7 +34,7 @@ var writeVerbs = map[string]bool{
 	"halt": true, "poweroff": true, "mount": true, "umount": true, "swapoff": true,
 	"swapon": true, "unlink": true, "wipefs": true, "fdisk": true, "parted": true, "mkswap": true,
 	"sudoedit": true, "at": true, "batch": true, "systemd-run": true,
-	"zip": true, "sqlite3": true, "sqlite": true,
+	"zip": true, "sqlite3": true, "sqlite": true, "split": true, "csplit": true,
 }
 
 // writeSubs are commands where a word decides: systemctl status reads,
@@ -75,6 +76,9 @@ var argChecks = map[string]func(cmd string, args []string, input bool) string{
 	"lz4": compressWrite, "lzma": compressWrite, "unlzma": compressWrite, "pigz": compressWrite,
 	"unzip": unzipWrite, "patch": patchWrite, "crontab": crontabWrite, "git": gitWrite, "hash": hashWrite,
 	"psql": psqlWrite, "mysql": mysqlWrite, "mariadb": mysqlWrite,
+	"sort": sortWrite, "uniq": uniqWrite, "openssl": opensslWrite, "date": dateWrite,
+	"hostname": hostnameWrite, "dmesg": dmesgWrite, "less": lessWrite,
+	"redis-cli": redisCliWrite, "valkey-cli": redisCliWrite, "keydb-cli": redisCliWrite,
 }
 
 // argSensitive: the arguments of cmd decide what it does, so an argument
@@ -458,9 +462,9 @@ var (
 	mysqlMeta = regexp.MustCompile(`(?im)\\[!.TPe]|(^|;)\s*(system|tee|pager|source|edit)\b`)
 )
 
-// psqlWrite: psql -c is SQL, which the database itself holds to its
-// rules, but a \! or \o in it runs a shell or writes a file here; a file
-// (-f) or commands from a pipe are not seen at all.
+// psqlWrite: psql -c is SQL, which must only read (sqlWrite), and a \! or
+// \o in it runs a shell or writes a file here; a file (-f) or commands from
+// a pipe are not seen at all.
 func psqlWrite(cmd string, args []string, input bool) string {
 	inline := false
 	for k := 0; k < len(args); k++ {
@@ -504,6 +508,9 @@ func psqlWrite(cmd string, args []string, input bool) string {
 		if psqlMeta.MatchString(val) {
 			return cmd + ` running a shell or writing files (\! \o \w \copy ...)`
 		}
+		if w := sqlWrite(val, false); w != "" {
+			return cmd + " -c " + w
+		}
 	}
 	if !inline && input {
 		return cmd + " reading commands from a pipe or a file"
@@ -540,9 +547,46 @@ func mysqlWrite(cmd string, args []string, input bool) string {
 		if mysqlMeta.MatchString(val) {
 			return cmd + " running a shell or writing files (system, tee, pager ...)"
 		}
+		if w := sqlWrite(val, true); w != "" {
+			return cmd + " -e " + w
+		}
 	}
 	if !inline && input {
 		return cmd + " reading commands from a pipe or a file"
+	}
+	return ""
+}
+
+// sqlWrite returns what in sql may write, or "". psql and mysql are not
+// in a read-only transaction the way `db query` is, so only statements
+// that driver.ClassifySQL rates as reads pass: an unknown statement, a
+// transaction command or SQL it cannot read breaks the promise. psql meta
+// commands (\dt) are left to psqlMeta.
+func sqlWrite(sql string, mysql bool) string {
+	kind := "postgres"
+	if mysql {
+		kind = "mysql"
+	}
+	var lines []string
+	for _, l := range strings.Split(sql, "\n") {
+		if mysql || !strings.HasPrefix(strings.TrimSpace(l), `\`) {
+			lines = append(lines, l)
+		}
+	}
+	if sql = strings.Join(lines, "\n"); strings.TrimSpace(sql) == "" {
+		return ""
+	}
+	plan, err := driver.ClassifySQL(kind, sql)
+	if err != nil {
+		return "SQL komando cannot check (" + strings.SplitN(err.Error(), "\n", 2)[0] + ")"
+	}
+	for _, st := range plan.Statements {
+		if st.Risk != driver.RiskRead || st.Unknown {
+			if len(plan.Reasons) > 0 {
+				return "SQL that " + plan.Reasons[0] + " (" + st.Keyword + ")"
+			}
+			return "SQL that may write (" + st.Keyword + ")"
+		}
 	}
 	return ""
 }
@@ -557,6 +601,9 @@ func sqlInputWrite(command string, stdin []byte) string {
 	}
 	if psqlMeta.Match(stdin) || mysqlMeta.Match(stdin) {
 		return `the input runs a shell or writes files (\!, \o, system, tee ...)`
+	}
+	if w := sqlWrite(string(stdin), !strings.Contains(command, "psql")); w != "" {
+		return "the input is " + w
 	}
 	return ""
 }

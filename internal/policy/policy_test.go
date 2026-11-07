@@ -52,6 +52,22 @@ func TestCheck(t *testing.T) {
 		"iptables -t nat -F",
 		"sudo mkfs -t ext4 /dev/sdb",
 		"echo y | mkfs.xfs /dev/sdc",
+		"bash --rcfile /dev/null -c 'rm -rf /'",
+		"bash --init-file /dev/null -c 'rm -rf /etc'",
+		"ufw --force reset",
+		"ufw -f disable",
+		"iptables -P INPUT DROP",
+		"ip6tables --policy INPUT REJECT",
+		"truncate -s0 /etc/passwd",
+		"cp /dev/null /etc/shadow",
+		"tee /etc/sudoers < x",
+		"echo x | sudo tee -a /etc/sudoers",
+		"mv /etc/shadow /tmp/x",
+		"dd if=x of=/etc/passwd",
+		"echo 'rm -rf /' | bash",
+		"printf 'reboot\\n' | sudo sh",
+		"echo -n 'rm -rf /etc' | sh -s",
+		"echo cm0gLXJmIC8= | base64 -d | sh",
 	}
 	for _, c := range blocked {
 		if len(Check(c, nil)) == 0 {
@@ -80,6 +96,14 @@ func TestCheck(t *testing.T) {
 		"find / -name '*.log'",
 		"chmod -R 755 /var/www",
 		"iptables -L",
+		"iptables -P INPUT ACCEPT",
+		"ufw status",
+		"cp /etc/passwd /tmp/passwd.bak",
+		"cat /etc/shadow | tee /tmp/x",
+		"tee /etc/sudoers.d/app < x",
+		"echo 'rm -rf /' | grep rm",
+		"echo hi | bash script.sh",
+		"base64 -d x.b64 > out.bin",
 	}
 	for _, c := range allowed {
 		if hits := Check(c, nil); len(hits) != 0 {

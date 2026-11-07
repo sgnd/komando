@@ -28,6 +28,31 @@ func hiddenValueErr() error {
 		"the text holds a value komando hid ([hidden] or [secret:NAME]); writing it would destroy the real value")
 }
 
+// hiddenScanMax: larger files (archives, images) are not read for markers.
+const hiddenScanMax = 16 << 20
+
+// hiddenInLocal refuses to upload a local file, or a folder's files, that
+// holds a value komando hid: it is a masked copy (saved from fs cat), and
+// sending it would put [hidden] where the real value is.
+func hiddenInLocal(p string) error {
+	return filepath.WalkDir(p, func(f string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil // the upload itself reports what it cannot read
+		}
+		info, err := d.Info()
+		if err != nil || !info.Mode().IsRegular() || info.Size() > hiddenScanMax {
+			return nil
+		}
+		b, err := os.ReadFile(f)
+		if err == nil && out.HasHidden(string(b)) {
+			return out.Errf(out.ExitUsage, "HIDDEN_VALUE",
+				"edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}}",
+				"%s holds a value komando hid ([hidden] or [secret:NAME]); uploading it would destroy the real value", f)
+		}
+		return nil
+	})
+}
+
 var secretRef = regexp.MustCompile(`\{\{\s*secret:([A-Za-z0-9_.@/-]+)\s*\}\}`)
 
 // expandSecretRefs puts vault values in place of {{secret:NAME}}.

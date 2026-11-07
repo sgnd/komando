@@ -126,6 +126,9 @@ func (l agentLocalSide) open(ctx context.Context, rel string) (io.ReadCloser, er
 	if l.secret[rel] {
 		return nil, out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "the file was left out; an AI agent needs --reveal, which the user allows, to send it", "%s holds secrets; komando does not send it for an AI agent", rel)
 	}
+	if err := hiddenInLocal(filepath.Join(l.root, filepath.FromSlash(rel))); err != nil {
+		return nil, err // a masked copy from a download or sync
+	}
 	return l.localSide.open(ctx, rel)
 }
 
@@ -146,7 +149,10 @@ func (l localSide) write(_ context.Context, rel string, r io.Reader, f syncFile)
 		return err
 	}
 	defer os.Remove(tmp.Name())
-	_, err = io.Copy(tmp, r)
+	n, err := io.Copy(tmp, r)
+	if err == nil && out.P.Mask && !revealOK() {
+		_, err = maskDownload(tmp, n) // as download does: secret values as [hidden]
+	}
 	mode := f.Mode
 	if mode == 0 {
 		mode = 0o644

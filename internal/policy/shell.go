@@ -3,6 +3,7 @@ package policy
 import (
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -534,8 +535,8 @@ func ShellScript(name string, args []string) (script string, params []string, ok
 		switch {
 		case opts && a == "--":
 			opts = false
-		case opts && (a == "-o" || a == "+o" || a == "-O" || a == "+O"):
-			i++ // -o pipefail
+		case opts && (a == "-o" || a == "+o" || a == "-O" || a == "+O" || a == "--rcfile" || a == "--init-file"):
+			i++ // -o pipefail, --rcfile FILE
 		case opts && len(a) > 1 && (a[0] == '-' || a[0] == '+'):
 			c = c || IsCFlag(a)
 		default:
@@ -608,13 +609,20 @@ func FillParams(script string, params []string) string {
 }
 
 // scripts returns the text a line hands to a shell to run: sh -c '...',
-// bash -lc "...", su -c '...' and the words after eval. A script that gets
-// arguments (sh -c 'rm "$0"' /) is also returned with them filled in.
+// bash -lc "...", su -c '...', the words after eval, and the text echo or
+// printf pipe into a shell that reads its input (echo 'rm -rf /' | sh). A
+// script that gets arguments (sh -c 'rm "$0"' /) is also returned with them
+// filled in.
 func scripts(toks []Token) []string {
 	var found []string
 	shell, eval := -1, -1
 	var words []string // the shell's arguments
+	start := 0         // where the current command starts
+	piped := ""        // what echo or printf piped into this command
 	end := func(i int) {
+		if shell >= 0 && piped != "" && !slices.ContainsFunc(words, func(w string) bool { return !strings.HasPrefix(w, "-") }) {
+			found = append(found, piped) // sh, bash -s: the script is the input
+		}
 		if eval >= 0 && i > eval+1 {
 			words := make([]string, 0, i-eval-1)
 			for _, t := range toks[eval+1 : i] {
@@ -640,6 +648,11 @@ func scripts(toks []Token) []string {
 				continue
 			}
 			end(i)
+			piped = ""
+			if t.Text == "|" {
+				piped = echoed(toks[start:i])
+			}
+			start = i + 1
 			continue
 		}
 		switch b := path.Base(t.Text); {
@@ -653,6 +666,30 @@ func scripts(toks []Token) []string {
 	}
 	end(len(toks))
 	return found
+}
+
+// echoed is the text cmd (echo or printf with its words) prints, or "".
+func echoed(cmd []Token) string {
+	if len(cmd) < 2 || cmd[0].Op {
+		return ""
+	}
+	words := make([]string, 0, len(cmd)-1)
+	for _, t := range cmd[1:] {
+		if t.Op {
+			return ""
+		}
+		words = append(words, t.Text)
+	}
+	switch path.Base(cmd[0].Text) {
+	case "echo":
+		for len(words) > 0 && (words[0] == "-n" || words[0] == "-e" || words[0] == "-E" || words[0] == "-ne" || words[0] == "-en") {
+			words = words[1:]
+		}
+		return strings.ReplaceAll(strings.Join(words, " "), `\n`, "\n")
+	case "printf":
+		return strings.ReplaceAll(strings.Join(words, " "), `\n`, "\n")
+	}
+	return ""
 }
 
 // braceWords expands a simple brace list in each word that has one:

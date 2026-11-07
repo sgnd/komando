@@ -62,3 +62,51 @@ func TestShortPassphraseIsReported(t *testing.T) {
 		t.Errorf("%+v", s)
 	}
 }
+
+// A mistyped passphrase must not save a secret under a second key.
+func TestSetRefusesWrongPassphrase(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	defer func(n int) { PassphraseN = n }(PassphraseN)
+	PassphraseN = legacyN // fast
+	t.Setenv("KOMANDO_VAULT_PASS", "correct horse battery staple")
+	pass = ""
+	Passphrase()
+	if err := Set("db", "s3cret-value"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KOMANDO_VAULT_PASS", "correct horse battery stapel")
+	Passphrase()
+	if err := Set("api", "other-value"); err == nil {
+		t.Fatal("Set with a wrong passphrase succeeded")
+	}
+	t.Setenv("KOMANDO_VAULT_PASS", "correct horse battery staple")
+	Passphrase()
+	if v, err := Get("db"); err != nil || v != "s3cret-value" {
+		t.Fatalf("Get db = %q, %v", v, err)
+	}
+	if _, err := Get("api"); err != ErrNotFound {
+		t.Fatalf("api was saved: %v", err)
+	}
+}
+
+// A lost vault.key is never replaced while secrets need it.
+func TestMissingKeyFileIsNotRegenerated(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	pass = ""
+	if err := Set("db", "s3cret-value"); err != nil {
+		t.Fatal(err)
+	}
+	kp := store.Path("vault.key")
+	if err := os.Remove(kp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Get("db"); err == nil {
+		t.Fatal("Get without vault.key succeeded")
+	}
+	if err := Set("api", "other-value"); err == nil {
+		t.Fatal("Set without vault.key succeeded")
+	}
+	if _, err := os.Stat(kp); !os.IsNotExist(err) {
+		t.Fatalf("a new vault.key was made: %v", err)
+	}
+}

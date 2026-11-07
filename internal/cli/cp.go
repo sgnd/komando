@@ -93,6 +93,7 @@ type xferStats struct {
 	Dest     string     `json:"dest"`
 	SHA256   string     `json:"sha256,omitempty"`
 	Replaced bool       `json:"replaced,omitempty"` // an upload replaced a file that was there
+	Masked   int        `json:"masked,omitempty"`   // files saved with secret values shown as [hidden] (AI agents)
 	Skipped  []string   `json:"skipped,omitempty"`  // symbolic links and other non-files, not copied
 	Errors   []xferErr  `json:"errors,omitempty"`   // files that could not be copied (the rest were)
 	Error    *out.Error `json:"error,omitempty"`
@@ -134,6 +135,9 @@ func (d xferData) Text() string {
 			b.WriteString(", replacing the file there")
 		}
 		b.WriteString("\n")
+		if r.Masked > 0 {
+			fmt.Fprintf(&b, "%s%d file(s) saved with secret values shown as [hidden], as fs cat shows them\n", pre, r.Masked)
+		}
 		if len(r.Skipped) > 0 {
 			fmt.Fprintf(&b, "%sskipped %d symbolic link(s) or special file(s): %s\n", pre, len(r.Skipped), shortList(r.Skipped, 5))
 		}
@@ -258,6 +262,9 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 	}
 	if up {
 		if err := guardLocalRead(local); err != nil {
+			return err
+		}
+		if err := hiddenInLocal(local); err != nil {
 			return err
 		}
 		if err := guard(st, hosts, "", true); err != nil {
@@ -468,8 +475,8 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			return xferStats{}, fsErrHint(src, err, downloadPermHint)
 		}
 		defer in.Close()
-		n, sum, err := fetchFile(in, dst, fi.Mode().Perm(), fi.ModTime(), o.overwrite)
-		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum}, err
+		n, sum, masked, err := fetchFile(in, dst, fi.Mode().Perm(), fi.ModTime(), o.overwrite)
+		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, err
 	}
 	if !o.recursive {
 		return xferStats{}, out.Usage("%s is a folder; add -r", src)
@@ -509,7 +516,7 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: toErr(fsErrHint(w.Path(), err, downloadPermHint)).Message})
 			continue
 		}
-		n, _, err := fetchFile(in, lp, w.Stat().Mode().Perm(), w.Stat().ModTime(), o.overwrite)
+		n, _, masked, err := fetchFile(in, lp, w.Stat().Mode().Perm(), w.Stat().ModTime(), o.overwrite)
 		in.Close()
 		if err != nil {
 			e := toErr(err)
@@ -521,6 +528,7 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 		}
 		st.Files++
 		st.Bytes += n
+		st.Masked += count(masked)
 	}
 	return st, nil
 }
@@ -555,21 +563,30 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return xferStats{}, err
 	}
-	n, sum, err := fetchFile(bytes.NewReader([]byte(r.Stdout)), dst, 0o644, time.Time{}, overwrite)
-	return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum}, err
+	n, sum, masked, err := fetchFile(bytes.NewReader([]byte(r.Stdout)), dst, 0o644, time.Time{}, overwrite)
+	return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, err
 }
 
-func fetchFile(in io.Reader, dst string, perm os.FileMode, mtime time.Time, overwrite bool) (int64, string, error) {
+// fetchFile saves in as dst. For an AI agent a text file is saved the way
+// fs cat shows it, secret values as [hidden] (masked; the sum is then left
+// out: it would let a weak hidden value be guessed). The real file never
+// reaches dst: the temporary file is masked before it is moved there.
+func fetchFile(in io.Reader, dst string, perm os.FileMode, mtime time.Time, overwrite bool) (n int64, sum string, masked bool, err error) {
 	if _, err := os.Lstat(dst); err == nil && !overwrite {
-		return 0, "", fileExists(dst)
+		return 0, "", false, fileExists(dst)
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(dst), ".komando-download-*")
 	if err != nil {
-		return 0, "", err
+		return 0, "", false, err
 	}
 	defer os.Remove(tmp.Name()) // no-op once it has been moved into place
 	h := sha256.New()
-	n, err := io.Copy(io.MultiWriter(tmp, h), in)
+	n, err = io.Copy(io.MultiWriter(tmp, h), in)
+	if err == nil && out.P.Mask && !revealOK() {
+		if masked, err = maskDownload(tmp, n); masked {
+			n, _ = tmp.Seek(0, io.SeekEnd)
+		}
+	}
 	if err == nil {
 		err = tmp.Chmod(perm | 0o200)
 	}
@@ -577,7 +594,7 @@ func fetchFile(in io.Reader, dst string, perm os.FileMode, mtime time.Time, over
 		err = cerr
 	}
 	if err != nil {
-		return 0, "", err
+		return 0, "", false, err
 	}
 	if !mtime.IsZero() {
 		_ = os.Chtimes(tmp.Name(), mtime, mtime)
@@ -588,9 +605,43 @@ func fetchFile(in io.Reader, dst string, perm os.FileMode, mtime time.Time, over
 		err = placeNew(tmp.Name(), dst)
 	}
 	if err != nil {
-		return 0, "", err
+		return 0, "", false, err
 	}
-	return n, hex.EncodeToString(h.Sum(nil)), nil
+	if masked {
+		return n, "", true, nil
+	}
+	return n, hex.EncodeToString(h.Sum(nil)), false, nil
+}
+
+// maskDownload rewrites f (n bytes) with the secret values hidden, if it is
+// text komando can read whole (not binary, at most hiddenScanMax).
+func maskDownload(f *os.File, n int64) (bool, error) {
+	if n == 0 || n > hiddenScanMax {
+		return false, nil
+	}
+	b := make([]byte, n)
+	if _, err := f.ReadAt(b, 0); err != nil {
+		return false, err
+	}
+	if bytes.IndexByte(b, 0) >= 0 {
+		return false, nil
+	}
+	m := out.P.Redact(string(b))
+	if m == string(b) {
+		return false, nil
+	}
+	if err := f.Truncate(0); err != nil {
+		return false, err
+	}
+	_, err := f.WriteAt([]byte(m), 0)
+	return true, err
+}
+
+func count(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // placeNew moves tmp to dst only if dst does not exist yet. A hard link

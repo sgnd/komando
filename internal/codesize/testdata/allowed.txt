@@ -5,7 +5,6 @@ file internal/cli/dbdump.go 834
 file internal/cli/job.go 885
 file internal/cli/kctl.go 805
 file internal/cli/modules.go 943
-file internal/cli/storage.go 902
 file internal/driver/sql.go 838
 file internal/ipsec/ikev1.go 1458
 file internal/ipsec/ikev2.go 1120
