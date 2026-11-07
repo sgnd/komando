@@ -17,6 +17,7 @@ jobs:
   test:
     name: Lint and unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       # actions are pinned to a commit, not a tag that can move (Pinned-Dependencies)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -26,11 +27,14 @@ jobs:
       - run: make lint
       - run: make cover # unit tests + coverage floors
       - run: make build
+      # the release also builds for macOS: vet and build that code here too
+      - run: GOOS=darwin go vet ./... && GOOS=darwin GOARCH=arm64 go build -o /dev/null ./cmd/komando
 
   # 2. Known vulnerabilities in the code and its modules (govulncheck).
   security:
     name: Security
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -42,6 +46,7 @@ jobs:
   e2e:
     name: End-to-end tests
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
