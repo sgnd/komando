@@ -7,11 +7,18 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-07
+
 ### Highlights
 
 - **Clearer for people at a terminal:** `komando` alone shows three first
   steps instead of the full help, typos get "did you mean", and results
   of a change say what happened ("added web2") instead of a list of fields.
+- **FTP and FTPS keep going** when the server drops a connection in the
+  middle of a command: komando logs in again once and repeats it.
+- **For scripts and agents:** piped `komando` alone, or a group such as
+  `komando db` without its sub-command, now fails with `USAGE` (exit 2),
+  and `komando test` on one target gives that target's own error code.
 
 ### Changed
 
@@ -1487,7 +1494,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/sgnd/komando/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/sgnd/komando/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/sgnd/komando/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sgnd/komando/compare/v0.1.0...v0.2.0
