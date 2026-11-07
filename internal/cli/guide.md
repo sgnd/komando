@@ -247,13 +247,13 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | exit | code examples                     | what to do |
 |------|-----------------------------------|------------|
 | 1    | ERROR, FILE_ERROR, WRITE_FAILED   | read `error.message` and `error.hint` |
-| 2    | USAGE, HIDDEN_VALUE               | fix the flags (`komando schema <cmd>`); never write `[hidden]` text back |
+| 2    | USAGE, HIDDEN_VALUE               | fix the flags (`komando schema <cmd>`); a group alone (`komando db`) is USAGE and the hint lists its sub-commands; never write `[hidden]` text back |
 | 3    | TARGET_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | `komando list`; the hint suggests the closest name |
 | 3    | NO_MATCHING_TARGETS               | use the command the hint names (e.g. `db` for a database) |
 | 4    | AUTH_FAILED, CONNECTION_REFUSED, HOSTKEY_* | follow `error.hint`; do not retry blindly; never fix `HOSTKEY_MISMATCH` |
 | 4    | VPN_LOGIN_REQUIRED, VPN_DOWN      | ask the human to run `komando vpn up <name>` |
 | 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; use `job start` next time |
-| 5    | FAILED, PARTIAL_FAILURE           | read `data.results[].stderr` and `exit_code` per host |
+| 5    | FAILED, PARTIAL_FAILURE           | read `data.results[].stderr` and `exit_code` per host. PARTIAL_FAILURE: several targets, at least one failed (exit = the worst one); with one target you get its own code |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
 | 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, SENSITIVE_FILE, WRITE_REQUIRES_FLAG | stop and ask the human |
 | 7    | TIMEOUT, CONNECT_TIMEOUT          | raise `--timeout` or use `job start` |
