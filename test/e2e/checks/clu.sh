@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Clusters, Swarm, docker and registry: shapes, names, errors and safety.
 # Uses namespace t-e2eclu, Swarm service t-e2eclu-web and image tag
 # t-e2eclu/busybox:2; everything is removed at the end.

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # db user / grant / revoke against PostgreSQL and MariaDB, through the
 # bastion. The proof that the password (from the vault) is right: the new
 # user logs in with it. Self-cleaning.

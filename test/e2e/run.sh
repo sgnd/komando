@@ -438,7 +438,7 @@ q $K download direct /tmp/up.txt --to "$TMP/down/"
 check "upload/download to a server" hello-upload "$(cat "$TMP/down/up.txt")"
 check "download never replaces a local file" FILE_EXISTS "$($K download direct /tmp/up.txt --to "$TMP/down/" | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
 q $K download direct /tmp/up.txt --to "$TMP/down/" --overwrite
-check "no temporary files left" 0 "$(ls -A "$TMP/down" | grep -c komando-download || true)"
+check "no temporary files left" 0 "$(find "$TMP/down" -maxdepth 1 -name '*komando-download*' | wc -l | tr -d ' ')"
 dd if=/dev/urandom of="$TMP/big.bin" bs=1048576 count=40 2>/dev/null
 check "large upload is streamed intact" "$(shasum -a 256 "$TMP/big.bin" | cut -c1-64)" "$($K upload direct "$TMP/big.bin" /tmp/big.bin | jget 'd["data"]["results"][0]["sha256"]')"
 check "sync to a server" 2 "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' | jget 'd["data"]["results"][0]["copied"]')"

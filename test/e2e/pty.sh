@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Sourced by the e2e scripts.
 
 # ptyrun INPUT CMD... runs CMD in a pseudo-terminal, as a person typing would:

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # svc and logs against the real systemctl and journalctl, on a server with
 # systemd as PID 1 (test/e2e/systemd). The checks start that container
 # themselves; where a machine cannot run it they say so and are skipped.
