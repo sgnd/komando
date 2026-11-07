@@ -30,13 +30,13 @@ komando audit verify                      # was the history edited outside koman
 
 ## Seatbelts for AI agents
 
-komando recognises Claude Code, Codex, Gemini CLI and Cursor by the
+komando recognizes Claude Code, Codex, Gemini CLI and Cursor by the
 environment variables they set (a variable that is there counts, whatever
 its value, also `0` or empty), and adds these rules for them:
 
 | Seatbelt | What it does |
 |----------|--------------|
-| **A person allows the risky flags** | When an agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando opens a window on your screen with the whole command, why komando stops it (the matched rule, the protected servers) the servers it runs on and, when the command line does not show it, the program on this computer it lets run. It runs only when you click **Allow once**. Line breaks, tabs, control characters, long runs of spaces and characters that draw nothing show as escapes (`$'a:\n  b: 1'`, `\u3164`), which your shell reads back as the same text. A command that cannot be shown whole (longer than 500 characters, invalid text, or with bidi or zero-width characters) gets no window: the agent is told to make it shorter or ask you to run it. The agent cannot click it. With `komando config approval-code`, the window also asks for the 6-digit code from your authenticator app, so a click alone is not enough. With no screen (an SSH session, a server), the agent is refused and asks you to run the command in your own terminal. |
+| **A person allows the risky flags** | When an agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando opens a window on your screen with the whole command, why komando stops it (the matched rule, the protected servers), the servers it runs on and, when the command line does not show it, the program on this computer it lets run. It runs only when you click **Allow once**. Line breaks, tabs, control characters, long runs of spaces and characters that draw nothing show as escapes (`$'a:\n  b: 1'`, `\u3164`), which your shell reads back as the same text. A command that cannot be shown whole (longer than 500 characters, invalid text, or with bidi or zero-width characters) gets no window: the agent is told to make it shorter or ask you to run it. The agent cannot click it. With `komando config approval-code`, the window also asks for the 6-digit code from your authenticator app, so a click alone is not enough. With no screen (an SSH session, a server), the agent is refused and asks you to run the command in your own terminal. |
 | **Secrets hidden from agents** | Passwords, keys and tokens in any output (a `.env` file, `env`, a log line, a database row, a Kubernetes Secret, `requirepass` in `redis.conf`, private keys, password hashes) show as `[hidden]`. You and your scripts see the real values. |
 | **Agents can still set secrets** | `fs replace --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:db}}'` puts the vault value on the server without the agent seeing it. Text that still holds `[hidden]` is never written over a real file (`HIDDEN_VALUE`). An agent can rename a secret with `secret mv` (every reference follows) without seeing it. |
 | **No guessing a secret** | `secret check`, which says whether a value is the stored one, is for people only (`NEEDS_PERSON`): for an agent it would answer yes or no to guesses. `secret get` tells an agent only whether the value starts or ends with a space, never its length or a hash of it (a hash of a short password can be guessed offline). |
@@ -90,7 +90,7 @@ you fix or remove it; `komando doctor` and `policy list` name it.
 
 Built-in rules cannot be removed. `policy check` exits 6 when the command
 would be blocked, so it works in an `if`. `--for` rates a statement for a
-conn kind: `postgres`, `mysql`, `sqlite` or `redis`.
+conn kind: `postgres`, `mysql`, `sqlite`, `redis` or `memcached`.
 
 ## History
 

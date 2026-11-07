@@ -21,6 +21,7 @@ The words used in these docs, in plain language. [All features](README.md)
 | Fingerprint / host key | A server's ID card. If it changes unexpectedly, komando refuses to connect (`HOSTKEY_MISMATCH`). |
 | Flag | An option added to a command, such as `--yes` or `--dry-run`. |
 | Group | A named set of servers and conns, used as a target with `@name` (for example `@web`). |
+| Host | komando's word for a server in its list. Add one with `komando host add`; it is also how results name each server (`host`). |
 | Inventory | komando's list of everything you manage: servers, conns and VPNs. See it with `komando list`. |
 | Job | A long task left running on a server, started with `komando job start`. |
 | JSON | Structured text that programs read easily. komando answers agents and scripts in JSON. |

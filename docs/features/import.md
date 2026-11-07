@@ -40,7 +40,7 @@ komando import kubeconfig                 # one conn per Kubernetes context
 komando import ssh-config ~/work/ssh_config --group work
 ```
 
-Options: `-g`/`--group` adds everything imported to a group, and
+Flags: `-g`/`--group` adds everything imported to a group, and
 `--overwrite` replaces entries that already have the same name (a protected
 one also needs `--yes`). Without `--overwrite`, existing names are skipped.
 
@@ -54,7 +54,8 @@ appear in komando's list, output or history.
 - Importing the same file again changes nothing. A different database that
   happens to have the same name gets the next free name (`shop-2`).
 - Servers are checked like `host add` (ports, users, `--via`). A bad one is
-  skipped, with the reason.
+  skipped, with the reason. A `csv` import is stricter: one bad row stops
+  the whole import, and nothing is added.
 - Whatever komando cannot import is listed, with the reason. For example: a
   `.pgpass` line with `*`, a URL kind komando does not know, a `Host *`
   pattern (its settings become defaults for the other servers), or an

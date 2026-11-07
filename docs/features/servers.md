@@ -25,10 +25,10 @@ komando host add db1 admin@10.0.0.5 --via bastion          # reached through bas
 komando host add web3 --address 203.0.113.12 --user deploy --key deploy
 ```
 
-Useful options:
+Useful flags:
 
-| Option | What it does |
-|--------|--------------|
+| Flag | What it does |
+|------|--------------|
 | `-g`, `--group` / `-t`, `--tag` / `--label KEY=VALUE` | Sort servers so one [target](targets.md) can pick many. |
 | `--key NAME` / `--identity PATH` | Log in with a key from komando's keychain, or with a key file. |
 | `--password-ref` / `--sudo-ref` | Where the login or sudo password is kept (see [passwords](#use-a-password)). |
@@ -36,6 +36,7 @@ Useful options:
 | `--protected` | Every change to the server, or to this entry, needs `--yes`. |
 | `--env KEY=VALUE` | Export a variable before every command on this server. |
 | `--notes TEXT` | Free notes; agents see them in `host show`. |
+| `--port N` | The SSH port (default 22); same as `:N` after the address. |
 | `--overwrite` | Replace a server that already has this name. |
 
 komando checks what you save: the port (1-65535), the user name, that every
@@ -90,7 +91,7 @@ the vault (`komando secret set ubuntu-sudo` first).
 ```bash
 komando host edit web1 --add-tag canary --port 2222
 komando host edit web1 --rm-group old --label dc=jkt         # an empty value removes a label
-komando host edit web1 --unset via,sudo-ref                   # clear settings
+komando host edit web1 --unset via,sudo-ref                   # clear settings (see `--help` for the list)
 komando host edit db1 --via bastion --yes                     # db1 is protected
 ```
 
@@ -192,7 +193,7 @@ lock yourself out.
 ## Use a password
 
 Store the password once. You type it, nothing is shown, and it is saved
-encrypted in komando's vault:
+encrypted in komando's vault (see [Secret](glossary.md)):
 
 ```bash
 komando secret set web1-pass

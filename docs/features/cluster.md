@@ -19,7 +19,9 @@ The same commands work on Kubernetes and on Docker Swarm. You do not need
 
 ## Add a cluster
 
-**Kubernetes.** komando reads your kubeconfig and adds one conn per context:
+**Kubernetes.** komando reads your kubeconfig (the login file `kubectl`
+uses, usually `~/.kube/config`) and adds one conn per context (one cluster
+and user in that file):
 
 ```bash
 komando import kubeconfig --dry-run        # see what would be added
@@ -48,7 +50,7 @@ Every command names objects the way kubectl does: `TYPE NAME` or
 `TYPE/NAME` (`deployment api`, `deploy/api`, `deployment.apps/api`). If you
 mistype a kind, the error suggests the one you probably meant.
 
-- **Namespaces** use `--namespace`. komando keeps `-n` for "how many"
+- **Namespaces** (see [Glossary](glossary.md)) use `--namespace`. komando keeps `-n` for "how many"
   (`--limit`); if you write `-n shop`, the error tells you the right flag.
   `-A` (`--all-namespaces`) works on `ls` and `events`.
 - **Swarm** kinds are `service` (`svc`), `task`, `node` and `stack`. Swarm

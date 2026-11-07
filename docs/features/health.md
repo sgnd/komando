@@ -26,7 +26,7 @@ komando facts web1
 komando facts @web
 ```
 
-```
+```text
 ● app3  Ubuntu 20.04.6 LTS · x86_64 · 4 cpu · 7.8 GB RAM · disk / 63% · load 0.12 · up 34d
   support:   UNSUPPORTED: no security updates
   updates:   12 pending, security unknown · index 11d old · REBOOT REQUIRED · restart needed: nginx.service
@@ -88,7 +88,7 @@ Ubuntu, komando also asks `pro status` whether ESM is enabled.
 
 ## Check server health
 
-komando comes with 39 ready-made checks (built-in recipes). Run one on any
+komando comes with 36 ready-made checks (built-in recipes). Run one on any
 target:
 
 ```bash
@@ -100,17 +100,17 @@ komando recipe run big-dirs web1 --var path=/srv
 komando recipe run updates all
 ```
 
-| Category | Recipes |
-|----------|---------|
+| Category (`--category`) | Recipes |
+|-------------------------|---------|
 | system | `health`, `disk`, `inodes`, `memory`, `big-dirs`, `big-files`, `cron-all`, `time-sync` |
 | process | `top-cpu`, `top-mem`, `process`, `oom` |
-| service and logs | `failed-units`, `journal-errors` |
+| service, logs | `failed-units`, `journal-errors` |
 | network | `ports`, `connections`, `dns`, `firewall` |
-| web and TLS | `http-check`, `nginx-test`, `nginx-sites`, `apache-test` |
+| web | `http-check`, `nginx-test`, `nginx-sites`, `apache-test` |
 | security | `auth-failures`, `last-logins`, `sshd-config`, `sudoers` |
 | packages | `updates`, `security-updates` |
-| containers | `docker-overview`, `k8s-overview` |
-| databases | `postgres-status`, `mysql-status`, `redis-info` |
+| container | `docker-overview`, `k8s-overview` |
+| database | `postgres-status`, `mysql-status`, `redis-info` |
 | maintenance (these change things) | `apt-clean`, `drop-caches`, `journal-vacuum` |
 
 Some recipes have blanks with defaults, for example `big-dirs` takes

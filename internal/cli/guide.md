@@ -1,6 +1,6 @@
 # komando — playbook for AI agents
 
-You manage real servers, databases, caches, storage and clusters. Be precise,
+You manage real servers, databases, caches, storage, clusters and registries. Be precise,
 look before you act, and make the smallest change that works.
 
 When its output is piped (as when you run it), every komando command prints
@@ -20,7 +20,7 @@ komando schema --compact              # every command (`komando schema <cmd>`: i
 komando import ssh-config --dry-run   # (with the human) bring in servers they already have
 ```
 
-Run `facts` before your first change on an unfamiliar host: it tells you
+Run `facts` before your first change on an unfamiliar server: it tells you
 whether to use apt or dnf, whether systemd and Docker exist, and how full the
 disk is. Read its `warnings` first. `null` means komando could not find out,
 never "none": an OS past its support shows `updates.security: null` (it gets
@@ -100,7 +100,7 @@ checked before anything is written).
 These are conns (`komando list kind:conn`). Each has its own command; never
 reach them through `exec`.
 
-**Databases** (PostgreSQL, MySQL, SQLite):
+**Databases** (PostgreSQL, MySQL/MariaDB, SQLite):
 
 ```bash
 komando db schema <conn> [table...]                     # tables, then columns and indexes
@@ -123,7 +123,7 @@ priority, password in its environment, backup streamed back over SSH), e.g.
 when the conn goes through a VPN and you need `--format custom`. Dry-run it
 first: `runs_on` says where it runs. `db restore` needs `--allow-dangerous`.
 
-**Caches** (Redis, Valkey): `cache get|keys|info <conn>` read, `cache set`
+**Caches** (Redis, Valkey, memcached): `cache get|keys|info <conn>` read, `cache set`
 changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run
 <conn> -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
 `cache keys` uses SCAN.

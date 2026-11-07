@@ -18,7 +18,7 @@ AI agents (Claude Code, Codex, your own bot) can use it well:
 - **A full history** of everything that was done, and by whom.
 - **Nothing else to install**: one file, with its own SSH, database and VPN clients built in.
 
-```
+```text
 You ──ask──▶ AI agent ──▶ komando ──▶ servers, databases, caches, storage, ...
 ```
 
@@ -39,6 +39,10 @@ Check it worked:
 komando version
 ```
 
+It says `command not found`? The installer put komando in a folder your
+terminal does not look in yet. Run the `export PATH=...` line it printed,
+and add that line to `~/.zshrc` (macOS) or `~/.bashrc` (Linux) so it stays.
+
 Other ways: download a file from
 [Releases](https://github.com/sgnd/komando/releases), or read the script
 first with `curl -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/install.sh`
@@ -50,6 +54,10 @@ and then run `sh install.sh`. Developers with Go can use
 You need your server's **user name** and **IP address**. Your hosting
 provider shows them in its dashboard. Below, `ubuntu` and `203.0.113.10` are
 examples; replace them with yours.
+
+komando logs in like `ssh` does: with your SSH key (in `~/.ssh/` or your
+SSH agent). The first time, it remembers the server's identity (its host
+key) and checks it on every later visit.
 
 ```bash
 # 1. Add a server and give it a short name (web1)
@@ -64,8 +72,9 @@ komando recipe run health web1   # is it healthy?
 komando exec web1 -- uptime   # run any command
 ```
 
-Logging in with a password? Store it once. You type it, nothing is shown,
-and it is saved encrypted:
+Logging in with a password instead of a key? Store it once, then
+`komando test web1` again. You type the password, nothing is shown, and it
+is saved encrypted:
 
 ```bash
 komando secret set web1-pass
@@ -135,9 +144,9 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 | Keep a list of servers and how to log in | `host`, `group`, `key`, `secret`, `login` |
 | Bring in what you already have, or move to another computer | `import`, `export` |
 | Run commands on one or many servers | `exec`, `script`, `job` (long tasks), `shell` (people only) |
-| Read, edit and copy files; copy whole folders | `fs`, `upload`, `download`, `sync` |
-| Check health (36 ready-made checks, plus your own) | `facts`, `recipe` |
-| Manage services, logs, Docker, software, users, schedules | `svc`, `logs`, `docker`, `pkg`, `user`, `cron` |
+| Read, edit and copy files; copy whole folders | `fs`, `upload`, `download`, `cp`, `sync` |
+| Check health (36 ready-made checks, plus your own) and certificates | `facts`, `recipe`, `cert` |
+| Manage services, logs, Docker, software, users, schedules; restart servers | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |
 | Test the network, reach private servers | `net`, `tunnel`, `--via` |
 | Reach things behind VPNs, several at once (WireGuard, OpenVPN, Tailscale, AnyConnect, L2TP/IPsec, IKEv2, Cisco IPsec, GlobalProtect, Fortinet, Pulse, F5, ...) | `vpn` |
 | Keep a list of databases, caches, storage, clusters and registries | `conn` |
@@ -147,6 +156,8 @@ users signed up today?"*, *"Renew the certificate on web2"*.
 | Kubernetes and Docker Swarm: status, logs, apply, restart, scale | `cluster` |
 | Container registries: tags, image details, copy, clean up | `registry` |
 | History, safety rules and a health check of your setup | `audit`, `policy`, `doctor` |
+| What is still running; settings | `status`, `prompt`, `config` |
+| Help for AI agents | `guide`, `schema` |
 
 Every task, step by step, one page per feature: **[docs/features](docs/features/README.md)**.
 Help for any command: `komando <command> --help`. What comes next: the
@@ -170,6 +181,7 @@ More: [Safety](docs/features/safety.md) and [Security](SECURITY.md).
 | Word | Meaning |
 |------|---------|
 | Server | A computer (usually in the cloud) that runs your apps. |
+| Host | komando's word for a server in its list. You add one with `komando host add`. |
 | Terminal / CLI | A window where you type commands instead of clicking. |
 | SSH | The secure way to log in to and control a Linux server remotely. |
 | Conn | komando's word for anything you connect to that isn't a server: a database, cache, storage bucket, cluster or registry. |

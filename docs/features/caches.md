@@ -24,7 +24,7 @@ komando conn add sessions rediss://default@cache.internal:6379/1 --password-ref 
 ```
 
 `--via` reaches a cache through a bastion or a VPN, like any other conn (see
-[Tunnels](tunnels.md)).
+[Tunnels](tunnels.md) and [VPNs](vpn.md)).
 
 ## Look at data
 

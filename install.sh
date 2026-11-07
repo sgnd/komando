@@ -55,6 +55,21 @@ chmod +x "$dir/komando"
 echo "Installed: $dir/komando"
 case ":$PATH:" in
   *":$dir:"*) ;;
-  *) echo "Add it to your PATH:  export PATH=\"$dir:\$PATH\"" ;;
+  *)
+    case "${SHELL:-}" in
+      */zsh) rc="$HOME/.zshrc" ;;
+      */bash) rc="$HOME/.bashrc" ;;
+      *) rc="your shell's startup file" ;;
+    esac
+    echo
+    echo "Your terminal does not look in $dir yet. Run this line now,"
+    echo "and add it to $rc so it stays:"
+    echo
+    echo "  export PATH=\"$dir:\$PATH\""
+    ;;
 esac
-echo "Get started:  komando --help"
+echo
+echo "Next: add your first server, then check it:"
+echo "  komando host add web1 ubuntu@203.0.113.10"
+echo "  komando test web1"
+echo "Help: komando --help, or https://github.com/$REPO#first-steps"

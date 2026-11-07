@@ -15,7 +15,7 @@ import (
 // the line uses. A renamed flag or command then fails here, not for a reader.
 func TestDocExamplesExist(t *testing.T) {
 	files, _ := filepath.Glob("../../docs/features/*.md")
-	files = append(files, "../../README.md", "../../AGENTS.md", "guide.md", "skill.md")
+	files = append(files, "../../README.md", "../../AGENTS.md", "../../CONTRIBUTING.md", "../../SECURITY.md", "guide.md", "skill.md")
 	root := newRoot()
 	line := regexp.MustCompile(`(?:^|[\s(` + "`" + `$])komando ([a-z][^` + "`" + `\n#|;&)]*)`)
 	flag := regexp.MustCompile(`(?:^|\s)--([a-z][a-z0-9-]*)`)
@@ -40,7 +40,11 @@ func TestDocExamplesExist(t *testing.T) {
 				}
 				continue
 			}
-			_ = rest
+			// a group command (host, db, ...) takes no words of its own: the first
+			// word after it must be one of its subcommands
+			if len(rest) > 0 && cmd.HasSubCommands() && !strings.HasPrefix(rest[0], "-") && !strings.HasPrefix(rest[0], "<") {
+				t.Errorf("%s: `komando %s`: %s has no subcommand %q", f, strings.TrimSpace(text), cmd.CommandPath(), rest[0])
+			}
 			checked++
 			// flags inside quotes belong to another program (--proxy-command '... --zone x')
 			unquoted := quoted.ReplaceAllString(text, "''")

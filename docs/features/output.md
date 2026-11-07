@@ -99,7 +99,7 @@ are working, before it connects. It does this for the commands you stay
 inside: `shell`, `db shell`, `cluster shell`, `cluster forward`,
 `logs --follow` and `cluster logs -f`.
 
-```
+```text
 komando: shell on web1 (deploy@10.0.1.5) via vpn office → bastion1
 komando: shell on prod-web1 (root@10.0.0.5) · PROTECTED
 komando: psql on app-db (read-only) via bastion1
@@ -125,7 +125,7 @@ Some things keep running after the command that started them: a VPN (from
 `vpn up`, or connected by a command), a tunnel, or a job on a server.
 `komando status` lists them all:
 
-```
+```text
 KIND    NAME    DETAIL                                     SINCE
 vpn     office  used 3m ago, closes in 26m if unused       42m
 tunnel  t-3f2a  127.0.0.1:5433 → app-db                    2h

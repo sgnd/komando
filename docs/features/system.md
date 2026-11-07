@@ -16,6 +16,9 @@ komando user list web1                                        # who can log in
 
 ## Services (systemd)
 
+Most Linux servers start and watch their services with systemd. systemd
+calls each service a **unit** (`nginx`, `php8.2-fpm`).
+
 ```bash
 komando svc status @web nginx php8.2-fpm      # state, main PID, restarts, memory
 komando svc restart @web nginx --wait 10      # fails unless nginx is active within 10s
@@ -39,20 +42,6 @@ After you write or change a unit file, reload systemd so it reads it:
 komando svc daemon-reload web1                # names any unit that still needs a reload
 ```
 
-## Reboot
-
-```bash
-komando reboot web1 --dry-run
-komando reboot @web --allow-dangerous         # one server at a time
-komando reboot @web --allow-dangerous --wait 10m
-```
-
-`reboot` reboots one server at a time. It waits (`--wait`, default 5m) until
-SSH answers again and checks the server really started anew. A server that
-does not come back within `--wait` stops the rest (`REBOOT_TIMEOUT`). A
-reboot is destructive, so it needs `--allow-dangerous`, and `--yes` on
-protected servers.
-
 ## Logs
 
 `logs` reads one source: the systemd journal (`--unit`), a file (`--file`)
@@ -66,8 +55,11 @@ komando logs @web --file /var/log/nginx/error.log -n 50 --sudo
 komando logs web1 --container api --since 10m --timestamps
 ```
 
-| Option | What it does |
-|--------|--------------|
+| Flag | What it does |
+|------|--------------|
+| `-u`, `--unit UNIT` | Read the systemd journal of this service. |
+| `--file PATH` | Read this log file. |
+| `--container NAME` | Read this Docker container's log. |
 | `-n`, `--limit N` | The last N lines (default 200). |
 | `--grep REGEX` | Only lines that match (extended regex, any case). |
 | `--since` / `--until` | A time range: `-1h`, `10m`, `today`, `'2026-01-02 10:00'` (journal and containers). |
@@ -198,7 +190,7 @@ komando pkg security @swarm --apply --keep-going # do not stop at a server that 
   containers to come back first. `--keep-going` goes on after a failure or
   a change.
 - komando never reboots. `reboot_required` says when a server needs one;
-  use `komando reboot`.
+  use `komando reboot` ([Reboot](#reboot)).
 - The upgrade runs detached on the server, so a dropped connection does not
   break it halfway. `--apply` waits up to 30 minutes per server; `--timeout`
   changes that. After a `TIMEOUT` the upgrade goes on: run `pkg security`
@@ -210,6 +202,27 @@ komando pkg security @swarm --apply --keep-going # do not stop at a server that 
   a day old; add `--refresh`. Repositories without security notices (for
   example CentOS) list nothing on dnf/yum. apk, zypper and pacman servers
   are listed in `meta.skipped`: use `pkg upgrade` there.
+
+## Reboot
+
+```bash
+komando reboot web1 --dry-run                 # what would run, and whether it would be blocked
+komando reboot @web --allow-dangerous         # one server at a time
+komando reboot @web --allow-dangerous --wait 10m
+```
+
+`komando reboot` restarts one server at a time. For each server it asks
+for a reboot (`systemctl reboot`, through sudo), waits until SSH answers
+again, and checks that the server really started anew (a new boot ID).
+Only then does it go on to the next server.
+
+- `--wait` is how long each server may take to come back (default 5m).
+- A server that does not come back in time stops the rest with
+  `REBOOT_TIMEOUT` (exit 7). Any other failure stops the rest too. The
+  servers after it are listed in `not_rebooted`.
+- A reboot is destructive, so it needs `--allow-dangerous`, and `--yes` on
+  protected servers.
+- `--no-sudo` skips sudo when you log in as root.
 
 ## Users
 

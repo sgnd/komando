@@ -17,7 +17,7 @@ komando doctor                               # check the setup, the inventory an
 
 | Key | What it controls | Values | Default |
 |-----|------------------|--------|---------|
-| `host_key_policy` | what happens with a server komando has not seen before | `accept-new` (remember it), `strict` (refuse it), `off` (needs `--yes`) | `accept-new` |
+| `host_key_policy` | what happens with a server komando has not seen before | `accept-new` (remember it), `strict` (refuse it until you run `komando host trust`), `off` (needs `--yes`) | `accept-new` |
 | `default_user` | login name when a server has none | a login name; empty = your own user name | (empty) |
 | `default_timeout` | how long a command may run on each server | a duration above 0 (`30s`, `5m`, `1h`) | `5m` |
 | `connect_timeout` | how long to wait for a server to answer | a duration above 0 | `15s` |
@@ -25,7 +25,7 @@ komando doctor                               # check the setup, the inventory an
 | `max_output_bytes` | output kept per stream per server | 1024 or more | `262144` (256 KiB) |
 | `audit` | keep the audit log | `on`, `off` (needs `--yes`) | `on` |
 | `audit_sql` | how SQL text is kept in the audit log | `full`, `hash`, `off` (needs `--yes`) | `full` |
-| `audit_syslog` | also send each audit record to a log server (a SIEM) | `udp://HOST:514`, `tcp://HOST:514`, `tls://HOST:6514`, `off` (changing it needs `--yes`) | `off` |
+| `audit_syslog` | also send each audit record to a central log server (a SIEM) | `udp://HOST:514`, `tcp://HOST:514`, `tls://HOST:6514`, `off` (changing it needs `--yes`) | `off` |
 | `vpn_idle` | close a VPN that komando started after this long unused | a duration; `0` = never close | `30m` |
 
 ```bash
@@ -57,7 +57,7 @@ Most settings also have a flag for one run: `--timeout`,
 | `KOMANDO_VAULT_PASS` | a passphrase for the vault, instead of the `vault.key` file |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
-| `NO_COLOR` | turn off colours in status lines |
+| `NO_COLOR` | turn off colors in status lines |
 
 Variables for password managers and cloud logins are listed in
 [Servers](servers.md).
@@ -85,5 +85,19 @@ reach it, run `komando secret keychain`: it moves the vault's key out of
 on Linux through `secret-tool`), so a copy of this folder no longer opens
 the vault (`--off --yes` moves it back). Or set `KOMANDO_VAULT_PASS` to a
 passphrase of 15 or more characters **before** you store your first secret.
-`komando doctor` warns when you have done neither. To move to another computer, use `komando export` (no passwords)
-instead of copying the folder.
+`komando doctor` warns when you have done neither. To move to another
+computer, use `komando export` (no passwords) instead of copying the folder.
+
+## Ask for a code before an agent's risky command
+
+When an AI agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando
+opens an "Allow once" window on your screen (see [Safety](safety.md)). To
+need more than a click, turn on an approval code: the window then also asks
+for the 6-digit code from the authenticator app on your phone.
+
+```bash
+komando config approval-code             # shows a secret to add to your authenticator app
+komando config approval-code --off --yes # turn it off again
+```
+
+Only a person at a terminal can turn it on.
