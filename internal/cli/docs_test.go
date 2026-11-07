@@ -17,47 +17,81 @@ func TestDocExamplesExist(t *testing.T) {
 	files, _ := filepath.Glob("../../docs/features/*.md")
 	files = append(files, "../../README.md", "../../AGENTS.md", "../../CONTRIBUTING.md", "../../SECURITY.md", "guide.md", "skill.md")
 	root := newRoot()
-	line := regexp.MustCompile(`(?:^|[\s(` + "`" + `$])komando ([a-z][^` + "`" + `\n#|;&)]*)`)
-	flag := regexp.MustCompile(`(?:^|\s)--([a-z][a-z0-9-]*)`)
-	quoted := regexp.MustCompile(`'[^']*'|"[^"]*"`)
 	checked := 0
 	for _, f := range files {
 		b, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, m := range line.FindAllStringSubmatch(string(b), -1) {
-			text := m[1]
-			if i := strings.Index(text, " -- "); i >= 0 {
-				text = text[:i] // what follows -- belongs to the remote command
-			}
-			words := strings.Fields(text)
-			cmd, rest, err := root.Find(words)
-			if err != nil || cmd == root {
-				// prose like "komando keeps ..." is not a command line
-				if len(words) > 0 && looksLikeCommand(root, words[0]) {
-					t.Errorf("%s: `komando %s`: no such command", f, text)
-				}
-				continue
-			}
-			// a group command (host, db, ...) takes no words of its own: the first
-			// word after it must be one of its subcommands
-			if len(rest) > 0 && cmd.HasSubCommands() && !strings.HasPrefix(rest[0], "-") && !strings.HasPrefix(rest[0], "<") {
-				t.Errorf("%s: `komando %s`: %s has no subcommand %q", f, strings.TrimSpace(text), cmd.CommandPath(), rest[0])
-			}
-			checked++
-			// flags inside quotes belong to another program (--proxy-command '... --zone x')
-			unquoted := quoted.ReplaceAllString(text, "''")
-			for _, fm := range flag.FindAllStringSubmatch(" "+unquoted, -1) {
-				if !cmdHasFlag(cmd, fm[1]) {
-					t.Errorf("%s: `komando %s`: %s has no --%s", f, strings.TrimSpace(text), cmd.CommandPath(), fm[1])
-				}
-			}
-		}
+		checked += checkExampleLines(t, root, f, string(b))
 	}
 	if checked < 100 {
 		t.Errorf("only %d examples found; the scan is broken", checked)
 	}
+}
+
+// TestHelpExamplesExist does the same for the Example text of every command,
+// which `komando CMD --help` shows. A wrong flag there misleads people and
+// agents just as much as one in the docs.
+func TestHelpExamplesExist(t *testing.T) {
+	root := newRoot()
+	checked := 0
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		if c.Example != "" {
+			checked += checkExampleLines(t, root, "`"+c.CommandPath()+"` Example", c.Example)
+		}
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(root)
+	if checked < 50 {
+		t.Errorf("only %d help examples found; the scan is broken", checked)
+	}
+}
+
+var (
+	exampleLine   = regexp.MustCompile(`(?:^|[\s(` + "`" + `$])komando ([a-z][^` + "`" + `\n#|;&)]*)`)
+	exampleFlag   = regexp.MustCompile(`(?:^|\s)--([a-z][a-z0-9-]*)`)
+	exampleQuoted = regexp.MustCompile(`'[^']*'|"[^"]*"`)
+)
+
+// checkExampleLines checks every `komando ...` line in text: the command
+// exists, a group command is followed by one of its subcommands, and every
+// --flag is one the command takes. It returns how many lines it checked.
+func checkExampleLines(t *testing.T, root *cobra.Command, source, text string) int {
+	t.Helper()
+	checked := 0
+	for _, m := range exampleLine.FindAllStringSubmatch(text, -1) {
+		line := m[1]
+		if i := strings.Index(line, " -- "); i >= 0 {
+			line = line[:i] // what follows -- belongs to the remote command
+		}
+		words := strings.Fields(line)
+		cmd, rest, err := root.Find(words)
+		if err != nil || cmd == root {
+			// prose like "komando keeps ..." is not a command line
+			if len(words) > 0 && looksLikeCommand(root, words[0]) {
+				t.Errorf("%s: `komando %s`: no such command", source, line)
+			}
+			continue
+		}
+		// a group command (host, db, ...) takes no words of its own: the first
+		// word after it must be one of its subcommands
+		if len(rest) > 0 && cmd.HasSubCommands() && !strings.HasPrefix(rest[0], "-") && !strings.HasPrefix(rest[0], "<") {
+			t.Errorf("%s: `komando %s`: %s has no subcommand %q", source, strings.TrimSpace(line), cmd.CommandPath(), rest[0])
+		}
+		checked++
+		// flags inside quotes belong to another program (--proxy-command '... --zone x')
+		unquoted := exampleQuoted.ReplaceAllString(line, "''")
+		for _, fm := range exampleFlag.FindAllStringSubmatch(" "+unquoted, -1) {
+			if !cmdHasFlag(cmd, fm[1]) {
+				t.Errorf("%s: `komando %s`: %s has no --%s", source, strings.TrimSpace(line), cmd.CommandPath(), fm[1])
+			}
+		}
+	}
+	return checked
 }
 
 // looksLikeCommand: the first word is a top-level command name or alias.
