@@ -15,3 +15,11 @@ q $K host rm t-e2egen-alias --yes # an alias of a protected server is protected 
 check "bad KOMANDO_OUTPUT names the variable" True "$(said "$(KOMANDO_OUTPUT=bogus $K list 2>&1 || true)" 'KOMANDO_OUTPUT=bogus')"
 set +e; $K exec direct -P -1 -- true >/dev/null 2>&1; check "negative -P refused" 2 $?; set -e
 check "many skipped targets: one line" 1 "$(stderr_of $K exec all --read-only -o text -- true | grep -c '^skipped' || true)"
+
+# test --wait: a server that is up passes at once; one that never comes up
+# fails with its real reason when the time is up, not before
+check "test --wait on a server that is up" True "$($K test direct --wait 30s | jget 'd["ok"] and d["data"]["waited_ms"] < 10000')"
+q $K host add t-never "agent@127.0.0.1:1" --password-ref secret:agent-pass
+check "test --wait gives up with the real reason" "CONNECTION_REFUSED True" \
+  "$($K test t-never --wait 3s | jget 'd["data"]["results"][0]["error"]["code"] + " " + str(d["data"]["waited_ms"] >= 3000)' || true)"
+q $K host rm t-never

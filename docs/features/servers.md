@@ -25,6 +25,20 @@ komando host add db1 admin@10.0.0.5 --via bastion          # reached through bas
 komando host add web3 --address 203.0.113.12 --user deploy --key deploy
 ```
 
+### A new server that is still starting
+
+Right after you create or rebuild a cloud server, SSH may not answer yet.
+`--wait` tests again every few seconds until every server passes:
+
+```bash
+komando test @new --wait 5m                                  # until SSH answers and the login works
+komando exec @new --read-only -- cloud-init status --wait    # then: until its own start-up is done
+```
+
+It does not wait out a changed host key (`HOSTKEY_MISMATCH`) or a refused
+login (`AUTH_FAILED`: retrying could get your address banned): those fail
+at once. `data.waited_ms` says how long it waited.
+
 Useful flags:
 
 | Flag | What it does |

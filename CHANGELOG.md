@@ -7,6 +7,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `komando test TARGET --wait 5m` waits for new servers: it tests again
+  every few seconds until every target passes or the time is up (right
+  after creating or rebuilding cloud servers, instead of a sleep loop).
+  It does not wait out a changed host key or a refused login: those fail at
+  once. `data.waited_ms` says how long it waited.
+
 ### Fixed
 
 - `--help` examples for `cluster` commands now use `--namespace`; `-n` is
