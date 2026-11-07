@@ -107,7 +107,7 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		db.Close()
 		return nil, connectErr(t, err)
 	}
-	if err := checkStringRules(ctx, db, t.Kind.Name); err != nil {
+	if err := checkStringRules(ctx, db, t); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -139,19 +139,20 @@ var unsafeEncodings = map[string]map[string]bool{
 // checkStringRules makes sure the server parses quotes the way komando's
 // SQL classifier does; otherwise a statement could hide its real effect
 // inside what komando takes for a string.
-func checkStringRules(ctx context.Context, db *sql.DB, kind string) error {
+func checkStringRules(ctx context.Context, db *sql.DB, t driver.Target) error {
+	kind := t.Kind.Name
 	var bad string
 	switch kind {
 	case "postgres":
 		var v string
 		if err := db.QueryRowContext(ctx, "SHOW standard_conforming_strings").Scan(&v); err != nil {
-			return connectErr(driver.Target{}, err)
+			return connectErr(t, err)
 		}
 		if v != "on" {
 			bad = "standard_conforming_strings is off"
 		}
 		if err := db.QueryRowContext(ctx, "SHOW client_encoding").Scan(&v); err != nil {
-			return connectErr(driver.Target{}, err)
+			return connectErr(t, err)
 		}
 		if unsafeEncodings[kind][strings.ToUpper(v)] {
 			bad = "client_encoding is " + v
@@ -159,7 +160,7 @@ func checkStringRules(ctx context.Context, db *sql.DB, kind string) error {
 	case "mysql":
 		var mode string
 		if err := db.QueryRowContext(ctx, "SELECT @@SESSION.sql_mode").Scan(&mode); err != nil {
-			return connectErr(driver.Target{}, err)
+			return connectErr(t, err)
 		}
 		for _, m := range []string{"NO_BACKSLASH_ESCAPES", "ANSI_QUOTES", "ANSI"} {
 			if strings.Contains(","+mode+",", ","+m+",") {
@@ -168,7 +169,7 @@ func checkStringRules(ctx context.Context, db *sql.DB, kind string) error {
 		}
 		var cs string
 		if err := db.QueryRowContext(ctx, "SELECT @@SESSION.character_set_client").Scan(&cs); err != nil {
-			return connectErr(driver.Target{}, err)
+			return connectErr(t, err)
 		}
 		if unsafeEncodings[kind][strings.ToLower(cs)] {
 			bad = "character_set_client is " + cs

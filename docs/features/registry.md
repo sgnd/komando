@@ -45,6 +45,10 @@ komando conn add lan 'registry://me@registry.lan?tls=skip-verify' --password-ref
 | `?tls=skip-verify` | HTTPS, but the certificate is not checked (like Docker's `insecure-registries`). Anyone on the path can pretend to be the registry; `komando doctor` warns about it |
 | `?tls=false` | plain HTTP, nothing encrypted (a `registry:2` on a private network) |
 
+The CA secret counts as used by the conn: `secret list` shows it, `secret rm`
+refuses it, `secret mv` changes the URL too, and `export` lists it under
+`secrets_needed`.
+
 **No CA at hand?** If the CA is somewhere else (mkcert on another
 computer) and the registry sends only its own certificate, store that
 certificate as `ca=`. komando then trusts exactly that certificate (it is

@@ -445,7 +445,11 @@ func inventoryChecks(st *store.State) []securityCheck {
 			}
 		}
 		ref(name, "password_ref", c.PasswordRef)
+		for _, r := range urlSecretRefs(c.URL) {
+			ref(name, "URL option "+r.Option, "secret:"+r.Name)
+		}
 	}
+	connHygiene(st, warn)
 	for _, n := range mapKeys(st.Keys) {
 		k := st.Keys[n]
 		name := "key:" + k.Name
@@ -460,14 +464,55 @@ func inventoryChecks(st *store.State) []securityCheck {
 	return cs
 }
 
+// connHygiene warns about conns that work but are worth a look:
+//   - an unprotected conn with the password secret of a protected server
+//     or conn: that password is used without a person's yes, and changing
+//     it for the protected one breaks this conn;
+//   - two conns of the same kind with the same URL (user included) and
+//     --via: one is enough;
+//   - an unprotected conn with the label host=SERVER of a protected server.
+func connHygiene(st *store.State, warn func(name, detail string)) {
+	prot := map[string][]string{} // secret name → the protected targets using it
+	for _, h := range st.SortedHosts() {
+		for _, r := range []string{h.PasswordRef, h.SudoRef} {
+			if n, ok := strings.CutPrefix(r, "secret:"); ok && h.Protected && !slices.Contains(prot[n], "server "+h.Name) {
+				prot[n] = append(prot[n], "server "+h.Name)
+			}
+		}
+	}
+	for _, c := range st.SortedConns() {
+		if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok && c.Protected {
+			prot[n] = append(prot[n], "conn "+c.Name)
+		}
+	}
+	same := map[string]string{} // kind, URL and via → the first conn with them
+	for _, c := range st.SortedConns() {
+		name := "conn:" + c.Name
+		if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok && !c.Protected && len(prot[n]) > 0 {
+			warn(name, fmt.Sprintf("is not protected but shares %s with protected %s: that password is used here without a person's yes, and changing it there breaks this conn; give it its own with `komando secret cp %s NEW` and `komando conn edit %s --password-ref secret:NEW`",
+				c.PasswordRef, strings.Join(prot[n], ", "), n, c.Name))
+		}
+		key := c.Kind + "\x00" + c.URL + "\x00" + c.Via
+		if first, ok := same[key]; ok {
+			warn(name, "has the same kind, URL and --via as conn "+first+"; if they are the same thing, keep one: `komando conn rm "+c.Name+"`")
+		} else {
+			same[key] = c.Name
+		}
+		if h := st.Hosts[c.Labels["host"]]; h != nil && h.Protected && !c.Protected {
+			warn(name, "has the label host="+h.Name+", a protected server, but is not protected itself: `komando conn edit "+c.Name+" --protected`")
+		}
+	}
+}
+
 func doctorCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
 		Short: "Check the local setup, the inventory and its security",
 		Long: `Checks komando's folder, vault, audit log and tools, then the inventory:
 ports, --via paths, key files, secrets that references point at, plain-text
-passphrases, weak keys and proxy commands. ✗ lines need fixing (exit 1);
-! lines are worth a look.`,
+passphrases, weak keys, proxy commands, and conns that share a protected
+password, repeat another conn or belong to a protected server without being
+protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true}}

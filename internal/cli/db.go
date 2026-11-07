@@ -302,7 +302,7 @@ func openDB(ctx context.Context, st *store.State, c *store.Conn, readOnly bool) 
 	db, err := dbx.Open(cctx, c.URL, a.Target, a.Password, a.Dial, readOnly, "komando/"+actor())
 	if err != nil {
 		a.Close()
-		return nil, nil, err
+		return nil, nil, viaTimeout(c, err)
 	}
 	return db, func() { db.Close(); a.Close() }, nil
 }

@@ -7,6 +7,30 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+
+- A secret that only a conn URL names, such as a registry's
+  `?ca=secret:NAME`, counts as used: `secret list` shows the conn under
+  `used_by`, `secret rm` refuses it (`SECRET_IN_USE`), `secret mv` changes
+  the URL too, `export` lists it in `secrets_needed`, and `doctor` warns
+  when it is not in the vault. Before, `secret rm` deleted it and broke the
+  conn, and `secret mv` left the URL on the old name.
+- A database that times out in the checks right after connecting (a slow
+  VPN) said `connecting to  timed out`, without the address. The message
+  names the address, and the `--via` path when there is one:
+  `connecting to 10.0.0.5:5432 via office-vpn timed out`.
+
+### Changed
+
+- `doctor` warns about conns worth a look: an unprotected conn that shares
+  its password secret with a protected server or conn, two conns with the
+  same kind, URL and `--via`, and an unprotected conn with the label
+  `host=SERVER` of a protected server. Each warning says the command that
+  fixes it.
+- `host show @group` (or another selector where one name is expected) says
+  that the command takes one name and points at `komando list @group` and
+  `komando export @group`, instead of a bare "not found".
+
 ## [0.4.0] - 2026-11-07
 
 ### Highlights
