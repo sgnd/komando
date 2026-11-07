@@ -29,7 +29,7 @@ func vpnCmd() *cobra.Command {
 	}
 	c := &cobra.Command{
 		Use:   "vpn",
-		Short: "VPNs komando connects by itself when a --via path needs them (several at once)",
+		Short: "VPNs komando connects by itself when a --via path needs one",
 		Long: `Add a VPN once, then put it first in --via. A command that needs it
 connects it, using the login stored in the vault:
 
@@ -424,7 +424,7 @@ func vpnShowCmd() *cobra.Command {
 func vpnRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm NAME...",
-		Short: "Remove VPNs from komando (their keys stay in the vault until `komando secret rm`)",
+		Short: "Remove VPNs from komando (their keys stay in the vault)",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// all or nothing, like host rm: a VPN in use stops the whole call

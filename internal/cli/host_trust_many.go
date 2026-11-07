@@ -126,9 +126,9 @@ func approveReplacements(st *store.State, rows []*trustRow) error {
 			}
 		}
 	}
-	what := fmt.Sprintf("replacing the pinned host keys of %d server(s): %s", len(names), strings.Join(parts, ", "))
+	what := fmt.Sprintf("replacing the pinned host keys of %s: %s", countOf(len(names), "server"), strings.Join(parts, ", "))
 	if len([]rune(what)) > approvalMaxLen {
-		what = fmt.Sprintf("replacing the pinned host keys of %d server(s): %s", len(names), strings.Join(names, ", "))
+		what = fmt.Sprintf("replacing the pinned host keys of %s: %s", countOf(len(names), "server"), strings.Join(names, ", "))
 	}
 	if err := guardSafety(what); err != nil {
 		return err
@@ -215,7 +215,7 @@ func trustDryRun(st *store.State, hosts []*store.Host, reset bool) error {
 				prot = append(prot, h.Name)
 			}
 		}
-		if err := guardSafety(fmt.Sprintf("replacing the pinned host keys of %d server(s) (keys may be replaced)", len(hosts))); err != nil {
+		if err := guardSafety(fmt.Sprintf("replacing the pinned host keys of %s (keys may be replaced)", countOf(len(hosts), "server"))); err != nil {
 			return err
 		}
 		if err := guardProtection("host", "replacing the pinned host key of", prot); err != nil {

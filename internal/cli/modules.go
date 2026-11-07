@@ -22,7 +22,7 @@ func svcCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "svc",
 		Aliases: []string{"service", "systemd"},
-		Short:   "systemd services: status (structured), start/stop/restart/reload/enable/disable, daemon-reload, list, logs",
+		Short:   "systemd services: status, start, stop, restart, enable, logs",
 	}
 	c.AddCommand(svcStatusCmd(), svcListCmd(), svcLogsCmd(), svcDaemonReloadCmd())
 	for _, a := range []string{"start", "stop", "restart", "reload", "enable", "disable"} {
@@ -77,7 +77,7 @@ func snake(s string) string {
 func svcStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "status TARGET UNIT...",
-		Short:   "Structured unit status (active_state, sub_state, main_pid, n_restarts, memory ...)",
+		Short:   "Unit status: state, main pid, restarts, memory",
 		Example: "  komando svc status @web nginx php8.2-fpm",
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -91,7 +91,7 @@ func svcActionCmd(action string) *cobra.Command {
 	var wait int
 	c := &cobra.Command{
 		Use:   action + " TARGET UNIT...",
-		Short: strings.ToUpper(action[:1]) + action[1:] + " unit(s) (sudo) and report the resulting state",
+		Short: strings.ToUpper(action[:1]) + action[1:] + " units (sudo) and report the resulting state",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if wait < 0 {
@@ -276,7 +276,7 @@ func logsCmd() *cobra.Command {
 	var lo logOpts
 	c := &cobra.Command{
 		Use:   "logs TARGET",
-		Short: "Read logs from journald (--unit), a file (--file) or a container (--container)",
+		Short: "Read logs from journald, a file or a container",
 		Example: `  komando logs web1 --unit nginx --since -30m --grep 'error|crit'
   komando logs @web --file /var/log/nginx/error.log -n 50 --sudo
   komando logs app1 --container api --since 10m`,
@@ -445,7 +445,7 @@ func pkgCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "pkg",
 		Aliases: []string{"package", "packages"},
-		Short:   "Package management across apt/dnf/yum/apk/zypper/pacman (auto-detected)",
+		Short:   "Packages on servers (apt, dnf, yum, apk, zypper, pacman)",
 	}
 	var noSudo, refresh bool
 	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
@@ -502,12 +502,12 @@ func pkgCmd() *cobra.Command {
 			},
 		}
 	}
-	upgradable := mk("upgradable", "List pending upgrades (from the server's package index; --refresh updates it first)", false, false, false)
+	upgradable := mk("upgradable", "Pending upgrades (--refresh updates the package index first)", false, false, false)
 	upgradable.Flags().BoolVar(&refresh, "refresh", false, "refresh the package index first (like apt-get update), so the list is current")
 	pkgRm := mk("remove", "Remove packages (ones not installed are skipped; reports what changed)", true, true, true) // "remove" is what the package managers call it
 	pkgRm.Use = "rm TARGET PACKAGE..."
 	c.AddCommand(
-		mk("install", "Install packages (already installed ones are left as they are; reports what changed)", true, true, true),
+		mk("install", "Install packages and report what changed (installed ones stay)", true, true, true),
 		pkgRm,
 		mk("update", "Refresh package index", false, true, true),
 		mk("upgrade", "Upgrade all or the given packages (--dry-run lists what would be upgraded)", false, true, true),
@@ -521,7 +521,7 @@ func pkgCmd() *cobra.Command {
 // ------------------------------------------------------------------ net ---
 
 func netCmd() *cobra.Command {
-	c := &cobra.Command{Use: "net", Aliases: []string{"network"}, Short: "Network checks run FROM the servers: port reachability, HTTP, DNS, listening ports"}
+	c := &cobra.Command{Use: "net", Aliases: []string{"network"}, Short: "Network checks from the servers: ports, HTTP, DNS"}
 	check := &cobra.Command{
 		Use:     "check TARGET HOST:PORT...",
 		Short:   "Can each server open a TCP connection to HOST:PORT? (structured)",
@@ -532,7 +532,7 @@ func netCmd() *cobra.Command {
 	var sudo bool
 	ports := &cobra.Command{
 		Use:   "ports TARGET",
-		Short: "Listening sockets (structured: proto, address, port, process, pid; ss or netstat)",
+		Short: "Listening sockets: protocol, address, port, process",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return netPortsRun(cmd, args[0], sudo)
@@ -620,13 +620,13 @@ func statusMatches(code int, want string) bool {
 // ----------------------------------------------------------------- user ---
 
 func userCmd() *cobra.Command {
-	c := &cobra.Command{Use: "user", Aliases: []string{"users"}, Short: "Linux user accounts: list, add (with SSH key & sudo), lock, unlock, rm"}
+	c := &cobra.Command{Use: "user", Aliases: []string{"users"}, Short: "Linux user accounts: list, add, lock, unlock, rm"}
 	var noSudo bool
 	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
 	var all bool
 	list := &cobra.Command{
 		Use:   "list TARGET",
-		Short: "List accounts (human users by default; --all for system users), with admin group and lock state",
+		Short: "List accounts with admin group and lock state (--all for system)",
 		Long: `Lists accounts with their uid, home, shell, whether they are in the sudo,
 wheel or admin group (admin_group; rules in sudoers.d are not read) and
 whether the account is locked (expired, as ` + "`komando user lock`" + ` does). The lock
@@ -692,7 +692,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 	add.Flags().BoolVar(&admin, "admin", false, "add to the sudo (Debian) or wheel (RHEL, Alpine) group")
 	lock := &cobra.Command{
 		Use:   "lock TARGET USERNAME",
-		Short: "Lock an account (password + expire, so SSH keys stop working too) without deleting it",
+		Short: "Lock an account so password and SSH keys stop working",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runOps(cmd.Context(), opsSpec{name: "user.lock", target: args[0], command: userExists(args[1]) + "usermod -L -e 1 " + sshx.Q(args[1]),

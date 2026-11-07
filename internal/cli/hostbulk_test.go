@@ -80,7 +80,7 @@ func TestHostMv(t *testing.T) {
 	}
 	texts := windowText(t, true)
 	mustRun(t, "host", "mv", "prod", "prod1", "--yes")
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "renaming protected host(s): prod") {
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "renaming protected host: prod") {
 		t.Errorf("one window that says why: %q", *texts)
 	}
 	st, _ = store.Load()
@@ -244,7 +244,7 @@ func TestImportCSV(t *testing.T) {
 		{"name,address,address\n", "appears twice"},
 		{"name,address\n", "only the header row"},
 		{"name,address,port,protected\nok,10.0.0.1,22,no\nbad name,10.0.0.2,,\ny,10.0.0.3,99999,\nz,10.0.0.4,,maybe\nok,10.0.0.5,,\n",
-			"4 bad row(s)"},
+			"4 bad rows"},
 		{"name,address\nnew1,10.0.0.1\nnew2,10.0.0.2,extra\n", "wrong number of fields"},
 	} {
 		e := wantCode(t, "USAGE", "import", "csv", writeCSV(t, c.text))

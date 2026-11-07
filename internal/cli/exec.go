@@ -201,7 +201,7 @@ func scriptCmd() *cobra.Command {
 	var argsList []string
 	c := &cobra.Command{
 		Use:   "script TARGET FILE",
-		Short: "Run a local script file on remote hosts (streamed via stdin, nothing left on disk)",
+		Short: "Run a local script on servers (nothing left on disk)",
 		Example: `  komando script @web ./deploy.sh --arg v1.2.3 --sudo
   komando script db1 ./backup.py --interpreter python3`,
 		Args: cobra.ExactArgs(2),

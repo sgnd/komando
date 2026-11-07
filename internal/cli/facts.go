@@ -553,7 +553,7 @@ func factsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "facts TARGET",
 		Aliases: []string{"info", "inspect"},
-		Short:   "Gather structured system facts: OS and its support status, updates, Docker/Swarm, PM2, open ports, custom services",
+		Short:   "System facts: OS and support, updates, Docker, open ports",
 		Long: `Run this first on unfamiliar hosts: it tells an agent which package manager,
 init system and tools exist so later commands fit the server.
 

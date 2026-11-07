@@ -8,6 +8,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"regexp"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/netx"
@@ -90,6 +92,9 @@ func Execute() int {
 		err = usageErr(cmd, err)
 	}
 	if errors.As(err, &oe) {
+		if oe.Code == "USAGE" && oe.Hint == out.UsageHint && cmd != nil && cmd.HasParent() {
+			oe.Hint = commandHint(cmd)
+		}
 		approvalHint(oe)
 		if personSaidNo && oe.Exit == out.ExitPolicy {
 			oe.Message = "cancelled: " + oe.Message
@@ -129,6 +134,25 @@ func usageErr(cmd *cobra.Command, err error) error {
 	}
 	e := out.Usage("%s", m)
 	e.Hint = "see `" + cmd.CommandPath() + " --help`"
+	// cobra writes "unknown command \"exce\" for \"komando\"\n\nDid you mean
+	// this?\n\texec\n": one line, the suggestion in the message, a hint
+	// that points at the command meant
+	if name, ok := quotedAfter(m, "unknown command "); ok {
+		e.Message = fmt.Sprintf("unknown command %q", name)
+		if s := cmd.SuggestionsFor(name); len(s) > 0 {
+			e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
+			e.Hint = "see `" + cmd.CommandPath() + " " + s[0] + " --help`"
+		} else {
+			e.Hint = "see `" + cmd.CommandPath() + " --help` for the list of commands"
+		}
+		return e
+	}
+	if flag, ok := strings.CutPrefix(m, "unknown flag: "); ok {
+		if s := closestFlag(cmd, strings.TrimLeft(flag, "-")); s != "" {
+			e.Message += "; did you mean --" + s + "?"
+		}
+		return e
+	}
 	for _, p := range []string{"accepts ", "requires at least", "requires at most", "received"} {
 		if strings.Contains(m, p) {
 			what := "too many arguments"
@@ -155,6 +179,52 @@ func usageErr(cmd *cobra.Command, err error) error {
 // argCounts reads "accepts 2 arg(s), received 1" and "accepts between 1 and
 // 2 arg(s), received 0": the smallest count wanted, and the count given.
 var argCounts = regexp.MustCompile(`accepts (?:between )?(\d+).*received (\d+)`)
+
+// commandHint is the hint for a usage error that came without one: the
+// command's own help, and its first example when it has one.
+func commandHint(cmd *cobra.Command) string {
+	h := "see `" + cmd.CommandPath() + " --help`"
+	if ex := firstExample(cmd); ex != "" {
+		h = "for example: " + ex + " (more in `" + cmd.CommandPath() + " --help`)"
+	}
+	return h
+}
+
+// quotedAfter reads the first quoted word after prefix in m.
+func quotedAfter(m, prefix string) (string, bool) {
+	_, rest, ok := strings.Cut(m, prefix)
+	if !ok {
+		return "", false
+	}
+	line, _, _ := strings.Cut(rest, "\n")
+	before, _, _ := strings.Cut(line, " for ")
+	s, err := strconv.Unquote(before)
+	return s, err == nil
+}
+
+// closestFlag is the flag of cmd (its own or inherited) nearest to a
+// mistyped name, or "" when none is near enough to be a typo.
+func closestFlag(cmd *cobra.Command, typed string) string {
+	best, bestD := "", 3 // more than 2 typos is not a typo
+	var prefixed []string
+	visit := func(f *pflag.Flag) {
+		if f.Hidden || f.Deprecated != "" {
+			return
+		}
+		if d := editDistance(typed, f.Name); d < bestD {
+			best, bestD = f.Name, d
+		}
+		if len(typed) >= 3 && strings.HasPrefix(f.Name, typed) {
+			prefixed = append(prefixed, f.Name)
+		}
+	}
+	cmd.Flags().VisitAll(visit)
+	cmd.InheritedFlags().VisitAll(visit)
+	if best == "" && len(prefixed) == 1 {
+		best = prefixed[0] // --conn for --connect-timeout
+	}
+	return best
+}
 
 func firstExample(cmd *cobra.Command) string {
 	for _, l := range strings.Split(cmd.Example, "\n") {
@@ -238,32 +308,18 @@ func newRoot() *cobra.Command {
 	out.P.Reset()
 	personSaidNo = false
 	root := &cobra.Command{
-		Use:   "komando",
-		Short: "One safe command line for DevOps: servers, databases, caches, storage, clusters and registries",
-		Long: `komando is one safe command line for DevOps work: servers (SSH), databases,
-caches, storage, clusters and registries, for AI agents and humans alike.
-
-When piped (how agents call it) every command prints one JSON envelope on
-stdout; in an interactive terminal it prints readable text (force with -o json|text):
-  {"ok":true,"command":"exec","data":{...},"meta":{...}}
-  {"ok":false,"command":"exec","error":{"code":"AUTH_FAILED","message":"...","hint":"..."}}
-
-Exit codes: 0 ok, 1 error, 2 usage, 3 not found, 4 connect/auth, 5 remote non-zero,
-            6 policy blocked, 7 timeout, 8 precondition/conflict.
-
-Targets: a server or conn name, glob (web-*), @group, tag:NAME, label:key=value,
-kind:KIND (host, db, cache, storage, postgres, ...), all, or user@addr:port (an
-ad-hoc server). Combine with commas; prefix ! to exclude. A target picks servers
-and conns together: each command uses the ones it works with and lists the rest
-in meta.skipped. See them all with ` + "`komando list`" + `.
-
-Start here:  komando guide      (agent playbook)
-             komando schema     (machine-readable command reference)`,
+		Use:           "komando",
+		Short:         "One safe command line for servers, databases, caches, storage and clusters",
+		Long:          rootLong,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       Version,
+		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			safetyApproved = map[string]bool{} // answers count for one command only
+			if g.output == "" {
+				g.output = os.Getenv("KOMANDO_OUTPUT")
+			}
 			f, ok := outputFormat(g.output)
 			if !ok {
 				if !cmd.Flags().Changed("output") && os.Getenv("KOMANDO_OUTPUT") != "" {
@@ -315,21 +371,17 @@ Start here:  komando guide      (agent playbook)
 		},
 	}
 	pf := root.PersistentFlags()
-	defOut := "auto"
-	if v := os.Getenv("KOMANDO_OUTPUT"); v != "" {
-		defOut = v
-	}
-	pf.StringVarP(&g.output, "output", "o", defOut, "auto|json|text; auto = text in a terminal, JSON when piped (env KOMANDO_OUTPUT)")
+	pf.StringVarP(&g.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped)")
 	pf.BoolVar(&g.pretty, "pretty", false, "indent JSON output")
-	pf.BoolVar(&g.dryRun, "dry-run", false, "show what would run without changing anything")
-	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm changes to protected servers and conns, and to safety settings")
-	pf.BoolVar(&g.allowDangerous, "allow-dangerous", false, "allow commands matching destructive-command policy")
-	pf.BoolVar(&g.reveal, "reveal", false, "show passwords, keys and tokens in output (hidden from AI agents unless a person allows it)")
-	pf.DurationVar(&g.timeout, "timeout", 0, "per-host command timeout (default from settings, 5m)")
-	pf.DurationVar(&g.connectTimeout, "connect-timeout", 0, "SSH connect timeout (default from settings, 15s)")
-	pf.IntVarP(&g.parallel, "parallel", "P", 0, "max hosts in parallel (default from settings, 10)")
+	pf.BoolVar(&g.dryRun, "dry-run", false, "show what would run, changing nothing")
+	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm a change to something protected")
+	pf.BoolVar(&g.allowDangerous, "allow-dangerous", false, "run a command the safety rules would block")
+	pf.BoolVar(&g.reveal, "reveal", false, "show secrets (agents need a person's yes)")
+	pf.DurationVar(&g.timeout, "timeout", 0, "time limit per server (default: setting, 5m)")
+	pf.DurationVar(&g.connectTimeout, "connect-timeout", 0, "time to connect (default: setting, 15s)")
+	pf.IntVarP(&g.parallel, "parallel", "P", 0, "servers at once (default: setting, 10)")
 	pf.StringVar(&g.hostKeyPolicy, "host-key-policy", "", "accept-new|strict|off (default from settings)")
-	pf.IntVar(&g.maxOutput, "max-output", 0, "max bytes captured per stream per host (default 256KiB)")
+	pf.IntVar(&g.maxOutput, "max-output", 0, "bytes kept per stream per server (256KiB)")
 
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
 	root.AddGroup(
@@ -351,6 +403,7 @@ Start here:  komando guide      (agent playbook)
 	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
 	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), versionCmd())
 	applyConventions(root)
+	useShortGlobals(root)
 	addCompletion(root)
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
@@ -361,6 +414,52 @@ Start here:  komando guide      (agent playbook)
 	}
 	return root
 }
+
+// rootLong is the top of `komando --help`.
+const rootLong = `komando is one safe command line for DevOps work: servers (SSH), databases,
+caches, storage, clusters and registries, for AI agents and humans alike.
+
+When piped (how agents call it) every command prints one JSON envelope on
+stdout; in a terminal it prints readable text (force with -o json|text):
+  {"ok":true,"command":"exec","data":{...},"meta":{...}}
+  {"ok":false,"command":"exec","error":{"code":"AUTH_FAILED",...}}
+
+Exit codes: 0 ok, 1 error, 2 usage, 3 not found, 4 connect/auth,
+            5 failed on the server, 6 blocked for safety, 7 timeout,
+            8 precondition/conflict.
+
+Targets: a server or conn name, glob (web-*), @group, tag:NAME, label:key=value,
+kind:KIND (host, db, cache, storage, postgres, ...), all, or user@addr:port (an
+ad-hoc server). Combine with commas; prefix ! to exclude. A target picks servers
+and conns together: each command uses the ones it works with and lists the rest
+in meta.skipped. See them all with ` + "`komando list`" + `.
+
+Start here:  komando guide      (agent playbook)
+             komando schema     (machine-readable command reference)`
+
+// printFirstSteps is `komando` alone: the first steps, not a wall of text
+// (ux.md, section 10).
+func printFirstSteps(cmd *cobra.Command, _ []string) error {
+	if out.P.Format == "json" { // piped: one JSON envelope, never text
+		return out.Usage("komando needs a command").WithHint("read `komando guide` (the playbook for agents) or `komando schema` (every command)")
+	}
+	_, err := fmt.Fprint(cmd.OutOrStdout(), firstSteps)
+	return err
+}
+
+// firstSteps is what `komando` alone prints.
+const firstSteps = `komando: one safe command line for servers, databases, caches, storage and clusters.
+
+First steps:
+  komando import ssh-config        bring in the servers you already have
+  komando list                     see everything komando knows about
+  komando exec web1 -- uptime      run a command on a server
+
+More:
+  komando --help                   every command
+  komando guide                    the playbook for AI agents
+  komando doctor                   check your setup
+`
 
 func versionCmd() *cobra.Command {
 	return &cobra.Command{

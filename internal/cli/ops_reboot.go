@@ -19,7 +19,7 @@ func svcDaemonReloadCmd() *cobra.Command {
 	var noSudo bool
 	c := &cobra.Command{
 		Use:     "daemon-reload TARGET",
-		Short:   "Reload systemd's unit files (after writing a unit), and say which units still need it",
+		Short:   "Reload systemd unit files and say which units still need it",
 		Example: "  komando fs write web1 /etc/systemd/system/app.service --from app.service --sudo\n  komando svc daemon-reload web1\n  komando svc restart web1 app",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -102,7 +102,7 @@ func rebootCmd() *cobra.Command {
 	var noSudo bool
 	c := &cobra.Command{
 		Use:   "reboot TARGET",
-		Short: "Reboot servers one at a time, wait for each to come back, and check it really restarted",
+		Short: "Reboot servers one at a time and check each came back",
 		Long: `Reboots each server in turn: komando asks it to reboot, waits until SSH
 answers again, and checks that it started anew (a new boot id). The next
 server is rebooted only when the one before came back; a server that does

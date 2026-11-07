@@ -113,7 +113,7 @@ func connCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "conn",
 		Aliases: []string{"conns"},
-		Short:   "Manage databases, caches, storage buckets, clusters and registries (add, edit, test)",
+		Short:   "Manage databases, caches, buckets, clusters and registries",
 		Long: `A conn is a database, cache, storage bucket, cluster or registry komando
 talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + ` lists them). Passwords never go in the URL: store them with
 ` + "`komando secret set`" + ` and pass --password-ref. Use --via HOST when the
@@ -324,7 +324,7 @@ func connShowCmd() *cobra.Command {
 func connRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm NAME|TARGET...",
-		Short: "Remove conn(s) from the inventory (does not touch the resource)",
+		Short: "Remove conns from the inventory (does not touch the resource)",
 		Example: `  komando conn rm shop-2
   komando conn rm kind:redis --dry-run`,
 		Args: cobra.MinimumNArgs(1),

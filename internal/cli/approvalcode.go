@@ -119,7 +119,7 @@ func approvalCodeCmd() *cobra.Command {
 	var off bool
 	c := &cobra.Command{
 		Use:   "approval-code",
-		Short: "Make the approval window ask for a code from your authenticator app (a second factor)",
+		Short: "Ask for an authenticator app code in the approval window",
 		Long: `Sets up a one-time code (TOTP, like a bank or GitHub login) for komando's
 "Allow once" window: once on, allowing an AI agent's --yes, --allow-dangerous
 or --reveal needs the 6-digit code from the authenticator app on your phone,

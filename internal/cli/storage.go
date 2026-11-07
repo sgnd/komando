@@ -35,7 +35,7 @@ func storageCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "storage",
 		Aliases: []string{"s3"},
-		Short:   "Files in buckets and on file servers (S3, MinIO, R2, FTPS, SFTP, FTP): list, download, upload, share",
+		Short:   "Files in buckets and on file servers (S3, MinIO, R2, FTP, SFTP)",
 		Long: `Work with a storage conn (see ` + "`komando conn`" + `): an S3-compatible bucket, or a
 folder on an FTPS, FTP or SFTP server. Keys are relative to the folder in the
 conn URL; a key ending in / is a folder. ls, cat and download only read.
@@ -256,7 +256,7 @@ func storageDownloadCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "download CONN KEY",
 		Aliases: []string{"get"},
-		Short:   "Download an object (or a folder with -r) to this computer; same as `komando download CONN KEY`",
+		Short:   "Download an object, or a folder with -r, to this computer",
 		Long: `Saves KEY to a file named like the key in the current folder, or to --to:
 a file name, a folder (existing, or ending in /), or - for stdout (text
 output only). An existing file is never replaced unless --overwrite. With -r,
@@ -316,7 +316,7 @@ func storageRmCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
 		Use:   "rm CONN [KEY...]",
-		Short: "Delete objects by exact key, or everything under --prefix (optionally --older-than); needs --allow-dangerous",
+		Short: "Delete objects by key or --prefix (needs --allow-dangerous)",
 		Long: `Without --prefix, rm takes exact keys (no patterns). With --prefix it removes
 every object under that folder, or with --older-than only the ones older
 than that (30d, 12h): the usual cleanup of old backups. --dry-run lists them

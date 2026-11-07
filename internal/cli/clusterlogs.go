@@ -27,7 +27,7 @@ func clusterLogsCmd() *cobra.Command {
 	var previous, follow, timestamps bool
 	c := &cobra.Command{
 		Use:   "logs TARGET [POD|TYPE/NAME]",
-		Short: "Logs of a pod, of every pod of a workload or label (-l), or of a Swarm service; -f follows",
+		Short: "Logs of a pod, a workload, a label (-l) or a Swarm service",
 		Long: `Name a pod, a workload (deploy/api, statefulset/db, svc/web: all its pods)
 or pick pods by label with -l. Lines from several pods start with [pod].
 -f keeps reading until Ctrl-C or --timeout (both end it normally); it follows

@@ -110,7 +110,7 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 		return nil, nil, err
 	}
 	if matches > 0 {
-		notes = append(notes, fmt.Sprintf("%d Match block(s) skipped: komando cannot evaluate Match; add those settings to the hosts with `komando host edit`", matches))
+		notes = append(notes, fmt.Sprintf("%s skipped: komando cannot evaluate Match; add those settings to the hosts with `komando host edit`", countOf(matches, "Match block")))
 	}
 	for _, b := range blocks {
 		for _, pat := range b.patterns {

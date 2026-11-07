@@ -25,7 +25,7 @@ func (t textBlob) Text() string { return string(t) }
 func guideCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "guide",
-		Short: "Playbook for AI agents: workflow, safety rules, recipes (read this first)",
+		Short: "Playbook for AI agents: workflow and safety rules (read first)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if out.P.Format == "text" {
@@ -61,7 +61,7 @@ func guideInstallCmd() *cobra.Command {
 	var project, noGuard bool
 	c := &cobra.Command{
 		Use:   "install",
-		Short: "Teach your AI agents komando: add the komando skill for Claude Code, Codex, Cursor, Gemini CLI",
+		Short: "Add the komando skill to Claude Code, Codex, Cursor, Gemini CLI",
 		Long: `Adds the komando skill (komando/SKILL.md) to the folders AI agents read
 skills from: ~/.claude/skills (Claude Code) and ~/.agents/skills (Codex,
 Cursor, Gemini CLI and others). The agent then uses komando by itself whenever
@@ -206,7 +206,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 	var compact bool
 	c := &cobra.Command{
 		Use:   "schema [COMMAND...]",
-		Short: "Machine-readable reference of every command, flag, exit code and selector",
+		Short: "Every command, flag and exit code, machine-readable",
 		Example: `  komando schema            # everything
   komando schema exec        # one command subtree
   komando schema host.add    # one command, as named in the envelope

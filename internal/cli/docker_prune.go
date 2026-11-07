@@ -56,7 +56,7 @@ func dockerPruneCmd(sudo *bool) *cobra.Command {
 	var o pruneOpts
 	c := &cobra.Command{
 		Use:   "prune TARGET",
-		Short: "Free disk space: remove stopped containers, unused images and build cache (--dry-run shows what and how much)",
+		Short: "Free disk space: stopped containers, unused images, build cache",
 		Long: `Runs docker system prune on the server. It removes stopped containers,
 dangling images (--all: every image no container uses), unused networks
 and build cache; with --volumes also unused anonymous volumes (data!).

@@ -72,7 +72,7 @@ func importCmd() *cobra.Command {
 	}
 	c := &cobra.Command{
 		Use:   "import SOURCE [FILE]",
-		Short: "Bring in servers and databases you already have (ssh config, .pgpass, my.cnf, .env, exports)",
+		Short: "Bring in what you have: ssh config, .pgpass, my.cnf, .env",
 		Long: "Adds servers, conns, VPNs and recipes from files you already have.\n\nSources:\n" + strings.Join(names, "\n") + `
 
 Passwords go to the vault (as <name>-pass) and are referenced from the
@@ -177,7 +177,7 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 			bad = append(bad, s.Name+": "+s.Reason)
 		}
 		return out.Errf(out.ExitUsage, "USAGE", "fix these rows and import again; nothing was imported",
-			"%d server(s) cannot be added: %s", len(bad), strings.Join(bad, "; "))
+			"%s cannot be added: %s", countOf(len(bad), "server"), strings.Join(bad, "; "))
 	}
 	hosts := v.Add
 	for _, n := range v.Existing {

@@ -36,7 +36,7 @@ func jobCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "job",
 		Aliases: []string{"jobs"},
-		Short:   "Detached long-running remote jobs: start, status, logs (incremental), wait, kill",
+		Short:   "Long-running jobs on servers: start, status, logs, wait, kill",
 		Long: `Long tasks should not block an agent's tool call. 'job start' launches the
 command detached on each host and returns job IDs immediately. Poll with
 'job status' or 'job logs --offset N' (pass back next_offset to read only new
@@ -313,7 +313,7 @@ func jobLogsCmd() *cobra.Command {
 	var tail int
 	c := &cobra.Command{
 		Use:   "logs JOB_ID",
-		Short: "Read job output incrementally (--offset from previous next_offset) or --tail N lines",
+		Short: "Read job output: what is new since --offset, or the last --tail lines",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if offset < 0 {
@@ -373,7 +373,7 @@ func jobWaitCmd() *cobra.Command {
 	var tail int
 	c := &cobra.Command{
 		Use:   "wait JOB_ID...",
-		Short: "Block until the job(s) exit (or --timeout); exit code mirrors the job",
+		Short: "Block until the jobs exit (or --timeout); exit code mirrors the job",
 		Long: `Waits until the job ends, polling every --interval. --timeout (default 10m)
 is how long to wait; the job keeps running after it (exit 7, WAIT_TIMEOUT).
 
@@ -543,7 +543,7 @@ func jobKillCmd() *cobra.Command {
 	var sudo bool
 	c := &cobra.Command{
 		Use:   "kill JOB_ID",
-		Short: "Signal a job's process group (default TERM); a job that already ended is left as it is",
+		Short: "Signal a job's process group (default TERM)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sig = strings.TrimPrefix(strings.ToUpper(sig), "SIG")
@@ -694,7 +694,7 @@ func jobRmCmd() *cobra.Command {
 	var keepRemote, force bool
 	c := &cobra.Command{
 		Use:   "rm JOB_ID...",
-		Short: "Forget jobs and delete their remote log directories (a running job needs `job kill` or --kill)",
+		Short: "Forget jobs and delete their logs on the server",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			removed := []string{}

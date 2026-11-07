@@ -192,7 +192,7 @@ func cacheInfoCmd() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
 		Use:   "info CONN [SECTION]",
-		Short: "Server summary: version, role, memory, clients, keys, hit rate (SECTION or --all for raw INFO)",
+		Short: "Server summary: version, role, memory, clients, keys, hit rate",
 		Long: `Without arguments, a short summary: version, role, uptime, memory use and
 limit, eviction policy, clients, keys per database and the hit rate. A
 SECTION (server, clients, memory, persistence, stats, replication, cpu,

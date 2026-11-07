@@ -89,7 +89,7 @@ func downloadCmd() *cobra.Command {
 	var recursive, overwrite, sudo bool
 	c := &cobra.Command{
 		Use:   "download TARGET PATH",
-		Short: "Download a file from servers (SFTP) or from storage (S3) to this computer",
+		Short: "Download files from servers (SFTP) or storage (S3)",
 		Long: `PATH is the path on the servers, or the key in the storage conn. --to is
 where it lands (a folder per server when several are picked). Files that
 already exist here are kept unless --overwrite. --sudo reads one file as

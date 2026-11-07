@@ -31,7 +31,7 @@ func clusterExecCmd() *cobra.Command {
 	var readOnly bool
 	c := &cobra.Command{
 		Use:   "exec TARGET POD|TYPE/NAME -- COMMAND...",
-		Short: "Run a command in a pod (not interactive); the destructive-command policy checks it",
+		Short: "Run a command in a pod (not interactive; policy checks it)",
 		Long: `Runs COMMAND in the pod (for TYPE/NAME, in one of its pods) and returns its
 output. Commands that only look can say so with --read-only, so protected
 clusters do not ask for --yes. For an interactive shell use

@@ -226,11 +226,11 @@ func TestPkgSecText(t *testing.T) {
 	s := strings.Replace(aptSecApply, "#komando:after\n", "#komando:after\nreboot=yes\nsvc=containerd.service\n", 1)
 	applied := pkgSecParse("web2", &sshx.RunResult{Stdout: s}, true, false)
 	txt := pkgSecData{Results: []pkgSecRow{list}}.Text()
-	if !strings.Contains(txt, "web1  3 security update(s) (apt)") || !strings.Contains(txt, "bash") {
+	if !strings.Contains(txt, "web1  3 security updates (apt)") || !strings.Contains(txt, "bash") {
 		t.Errorf("list text:\n%s", txt)
 	}
 	txt = pkgSecData{Applied: true, Results: []pkgSecRow{applied}, NotRun: []string{"web3"}}.Text()
-	for _, want := range []string{"web2  patched, 4 package(s) changed (apt-get)", "need a restart: containerd.service", "komando reboot web2", "not patched (stopped): web3"} {
+	for _, want := range []string{"web2  patched, 4 packages changed (apt-get)", "need a restart: containerd.service", "komando reboot web2", "not patched (stopped): web3"} {
 		if !strings.Contains(txt, want) {
 			t.Errorf("apply text misses %q:\n%s", want, txt)
 		}

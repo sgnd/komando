@@ -74,7 +74,7 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 			parts[i] = f.host + " (" + f.reason + ")"
 		}
 		soft.Code = "PARTIAL_FAILURE"
-		soft.Message = fmt.Sprintf("%d of %d failed: %s", len(fails), sum.Total, strings.Join(parts, ", "))
+		soft.Message = failedOf(len(fails), sum.Total) + ": " + strings.Join(parts, ", ")
 		if sum.Skipped > 0 {
 			soft.Message += fmt.Sprintf("; %d skipped by --fail-fast: %s", sum.Skipped, strings.Join(sum.SkippedHosts, ", "))
 		}

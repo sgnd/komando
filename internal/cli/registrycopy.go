@@ -46,8 +46,8 @@ func (d copyData) Text() string {
 	if d.DryRun {
 		return fmt.Sprintf("dry run: would copy %s to %s\n", d.From, d.To)
 	}
-	s := fmt.Sprintf("%s -> %s\n%s, %d manifest(s), %d layer(s) copied (%s), %d already there, %d linked\n",
-		d.From, d.To, d.Digest, d.Manifests, d.BlobsCopied, humanBytes(d.Bytes), d.BlobsSkipped, d.BlobsMounted)
+	s := fmt.Sprintf("%s -> %s\n%s, %s, %s copied (%s), %d already there, %d linked\n",
+		d.From, d.To, d.Digest, countOf(d.Manifests, "manifest"), countOf(d.BlobsCopied, "layer"), humanBytes(d.Bytes), d.BlobsSkipped, d.BlobsMounted)
 	if d.Replaced {
 		s += "the destination tag pointed to another image before\n"
 	}

@@ -59,7 +59,7 @@ func dbActivityCmd() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
 		Use:   "activity CONN",
-		Short: "Sessions running something now (pid, user, how long, what); --all includes idle ones",
+		Short: "Sessions running something now: pid, user, how long, what",
 		Example: `  komando db activity prod-db
   komando db activity prod-db --all`,
 		Args: cobra.ExactArgs(1),
@@ -121,7 +121,7 @@ func dbKillCmd() *cobra.Command {
 	var session bool
 	c := &cobra.Command{
 		Use:   "kill CONN PID",
-		Short: "Stop a session's running query; --session ends the connection (needs --allow-dangerous)",
+		Short: "Stop a session's running query (--session ends the connection)",
 		Long: `Find the PID with ` + "`komando db activity`" + ` or ` + "`komando db locks`" + `. Without --session
 only the running query stops (its transaction rolls back) and the client
 stays connected. --dry-run shows the session it would stop.`,

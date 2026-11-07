@@ -290,5 +290,5 @@ func wgDialErr(err error, addr, endpoint string, waited time.Duration) error {
 	if endpoint != "" {
 		peer = endpoint
 	}
-	return fmt.Errorf("no answer from %s within %s: no WireGuard handshake from %s?", addr, waited.Round(time.Second), peer)
+	return fmt.Errorf("no answer from %s within %s: no WireGuard handshake from %s; check its endpoint, its public key and that UDP gets through", addr, waited.Round(time.Second), peer)
 }

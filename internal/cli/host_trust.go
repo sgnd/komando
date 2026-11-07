@@ -54,7 +54,7 @@ func hostTrustCmd() *cobra.Command {
 	var reset bool
 	c := &cobra.Command{
 		Use:   "trust TARGET",
-		Short: "Pin (or re-pin with --reset) the SSH keys of one or many servers in komando's known_hosts",
+		Short: "Pin the SSH host keys of servers (--reset after a rebuild)",
 		Long: `Fetches the server's host key and stores it in komando's known_hosts, like
 ssh-keyscan plus ssh-keygen -R. The key is fetched the way komando reaches
 the server: directly, or through its --via servers, VPN or proxy command.

@@ -263,7 +263,7 @@ func clusterCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "cluster",
 		Aliases: []string{"k8s", "kube", "swarm"},
-		Short:   "Kubernetes and Docker Swarm: status, list, logs, restart, scale, apply",
+		Short:   "Kubernetes and Docker Swarm: status, logs, restart, scale, apply",
 		Long: `TARGET is a k8s conn (add one with ` + "`komando import kubeconfig`" + `) or a Swarm
 manager server. The same verbs work on both. Reads need nothing; restart,
 scale and apply change the cluster (protected targets need --yes; try

@@ -24,6 +24,18 @@ func TestConventions(t *testing.T) {
 		if c.Name() == "rm" && !slices.Equal(c.Aliases, rmAliases) {
 			t.Errorf("%s: aliases %v, want %v", path, c.Aliases, rmAliases)
 		}
+		// every command people run shows one real example (ux.md, section 10)
+		if c.Runnable() && !c.HasSubCommands() && !c.Hidden && c.Example == "" && c.Name() != "help" && c.Parent().Name() != "completion" {
+			t.Errorf("%s: no example; set Example or add one to examples (examples.go)", path)
+		}
+		if _, ok := examples[path]; ok && c.Example != examples[path] {
+			t.Errorf("%s: has its own Example; remove it from examples.go", path)
+		}
+		// command lists fit 80 columns: `komando --help` puts a top-level
+		// Short at column 15, a sub-command's a little further right
+		if limit := map[bool]int{true: 64, false: 80}[c.Parent() == c.Root()]; len(c.Short) > limit {
+			t.Errorf("%s: Short is %d characters, over %d; move the detail to Long", path, len(c.Short), limit)
+		}
 		c.LocalFlags().VisitAll(func(f *pflag.Flag) {
 			// -f is --file only where the native tool means that too (psql -f, docker compose -f)
 			fileOK := f.Shorthand == "f" && f.Name == "file" && slices.Contains([]string{"komando db query", "komando docker compose"}, path)

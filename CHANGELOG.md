@@ -7,6 +7,58 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Highlights
+
+- **Clearer for people at a terminal:** `komando` alone shows three first
+  steps instead of the full help, typos get "did you mean", and results
+  of a change say what happened ("added web2") instead of a list of fields.
+
+### Changed
+
+- `komando` with no arguments prints the first steps; `komando --help`
+  still lists every command.
+- A mistyped command or flag says what was meant, on one line:
+  `unknown command "exce"; did you mean exec?`,
+  `unknown flag: --tiemout; did you mean --timeout?`. The hint points at
+  the help of the command meant.
+- A usage error without its own hint now shows the command's example and
+  its `--help`, instead of the same hint for every command.
+- Text output of a change starts with what happened (`added web2`,
+  `changed web2`, `web2: nothing to change`, `would add web2 (dry run)`),
+  then the record without its timestamps. Records show `name` first, and
+  times in local time with the zone instead of UTC RFC3339. JSON is
+  unchanged.
+- Counts read as words: "1 server", "3 servers", "both failed",
+  "all 5 failed", instead of "server(s)" and "2 of 2 failed".
+- `komando test` on one target fails with that target's own error code
+  (for example `CONNECTION_REFUSED`), as `exec` already did, instead of
+  `PARTIAL_FAILURE`.
+- `komando list` shows `yes` or `-` under PROTECTED instead of
+  `true`/`false`.
+- Every command has at least one example in `--help`; a test checks that
+  each example uses commands and flags that exist.
+- `komando --help` fits 80 columns: shorter one-line descriptions (the
+  full sentence stays in the command's own `--help`) and shorter global
+  flag texts.
+- A sub-command's `--help` lists the four global flags that matter
+  (`--dry-run`, `-o`, `--timeout`, `--yes`) instead of all eleven;
+  `komando --help` still lists every one.
+- `config set` says what changed: `parallel: 10 → 5`, or
+  `parallel: already 5`. JSON is unchanged.
+- `policy list -o text` is a table of what each rule stops, with the note
+  that the rules are guardrails, not a security boundary; the regular
+  expressions stay in `-o json`.
+- Piped (JSON) output for `komando` alone, or a group such as `komando db`
+  without its sub-command, is a `USAGE` envelope (exit 2) that names the
+  sub-commands, instead of help text. In a terminal nothing changed.
+- Hints that were questions now say what to do: a refused SSH connection
+  suggests checking sshd and `komando host show NAME`.
+
+### Fixed
+
+- `komando export -o text` showed `secrets_needed: [hidden]` for an empty
+  list: names of secrets and `-` are not secret values.
+
 ## [0.3.1] - 2026-11-07
 
 ### Highlights

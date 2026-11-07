@@ -285,6 +285,56 @@ Within one contract version:
 
 `TestConventions` and the e2e tests guard part of these rules.
 
+## Anti-slop checklist
+
+Output that looks busy but says little ("slop") wastes a person's
+attention and an agent's tokens. Check every new command and every review
+against this list. It follows the [Command Line Interface
+Guidelines](https://clig.dev) and the rules above.
+
+**Words**
+- [ ] Counts are words: `countOf(n, "server")` gives "1 server" / "3
+  servers"; `failedOf` gives "1 of 3 failed", "both failed", "all 5
+  failed". Never `server(s)`, never "2 of 2 failed".
+- [ ] A change says what happened first, in words: `added web2`,
+  `changed web2`, `web2: nothing to change`, `would add web2 (dry run)`.
+  Not "Success!", not `action: added` buried in a list of fields.
+- [ ] No emoji, banners, boxes or ASCII art. `✓`/`✗`/`!` in `doctor` and
+  `●` per server are the only symbols, and each carries meaning.
+- [ ] Booleans for people are `yes` or `-` in tables, not `true`/`false`.
+- [ ] Times for people are local with the zone; JSON keeps UTC RFC3339.
+
+**Errors**
+- [ ] One line of message, no stack trace, no raw library text with
+  embedded newlines.
+- [ ] A typo in a command, flag, name or selector gets "did you mean".
+- [ ] The hint is the exact next command, or the command's own example
+  and `--help`. Not one hint shared by every command, not a question.
+- [ ] One target that fails gives its own error code, not
+  `PARTIAL_FAILURE`.
+
+**Help**
+- [ ] `komando` alone: the first steps, a dozen lines at most.
+- [ ] Every command has at least one real example (`examples.go` or its
+  own `Example`). `TestConventions` fails without one, and
+  `TestExamplesParse` fails when an example names a command or flag that
+  does not exist.
+- [ ] `Short` is one sentence fragment, no full stop, and does not repeat
+  the command name: 64 characters at most for a top-level command, 80
+  for others (`TestConventions`). The detail goes in Long (or `details`
+  in `examples.go`).
+- [ ] A sub-command's `--help` lists only the global flags that matter
+  there; `komando --help` lists them all.
+
+**Streams and scripts**
+- [ ] Data on stdout; progress, prompts, warnings and the error in text
+  mode on stderr.
+- [ ] Piped output is one JSON envelope, never mixed with text, also for
+  `komando` alone and a group command without its sub-command.
+- [ ] Nothing asks a question when stdin or stdout is not a terminal.
+- [ ] Color only in a terminal and never with `NO_COLOR`.
+- [ ] The exit code is honest: non-zero whenever `ok` is false.
+
 ## Edge case list
 
 This checklist is used for every feature and every review.
@@ -371,6 +421,27 @@ are guarded by `TestConventions` (`internal/cli/conventions_test.go`).
 | 24 | P1 | One "y" answer at the terminal applied to other checks in the same command | ✅ Each answer is for one question only; `rm` on many targets is asked once |
 | 25 | P1 | `tunnel start --host-key-policy off --yes` failed in a background process | ✅ |
 | 22 | P0 | `config set audit off`, `host_key_policy off`, `--host-key-policy off`, `policy allow` without confirmation; `audit tru` turned off the audit | ✅ Needs `--yes`; strict on/off values |
+
+Anti-slop audit of 225 commands, 2026-11-07 (at `5847edb`):
+
+| # | Prio | Problem | Status |
+|---|---|---|---|
+| 26 | P1 | `komando` alone printed ~90 lines of help (against section 10) | ✅ First steps; `--help` for everything |
+| 27 | P1 | A command typo printed cobra's multi-line "Did you mean this?" inside the JSON message | ✅ One line with the suggestion; hint names the command meant |
+| 28 | P1 | A flag typo (`--tiemout`) had no suggestion | ✅ "did you mean --timeout?" |
+| 29 | P1 | 247 usage errors shared one hint ("run with --help or `komando schema`") | ✅ The command's own example and `--help` |
+| 30 | P1 | 71 of 197 commands had no example in `--help` | ✅ All have one; `TestConventions` and `TestExamplesParse` guard it |
+| 31 | P1 | Text output of `host add/edit`, `conn add` and the like was a sorted field dump with `action: added` and UTC timestamps | ✅ Headline first (`added web2`), name first, local times |
+| 32 | P2 | `server(s)`, `problem(s)` ... in about 20 messages; "2 of 2 failed" | ✅ `countOf`, `failedOf` |
+| 33 | P2 | `test` on one target said `PARTIAL_FAILURE`, `exec` said the real code | ✅ The target's own code |
+| 34 | P2 | `list` PROTECTED column showed `false` on every row | ✅ `yes` or `-` |
+| 35 | P2 | `export -o text` showed `secrets_needed: [hidden]` for an empty list | ✅ Not masked |
+| 36 | P2 | Every sub-command's `--help` repeats 11 global flags | ✅ Shows `--dry-run`, `-o`, `--timeout`, `--yes`; the rest in `komando --help` |
+| 37 | P2 | 55 `Short` lines are longer than 80 characters and wrap in `komando --help` | ✅ Top level ≤ 64, others ≤ 80 (`TestConventions`); the full sentence moved to Long |
+| 38 | P2 | `config set parallel 5` prints only `5` | ✅ `parallel: 10 → 5`, or `parallel: already 5` |
+| 39 | P2 | `policy list -o text` prints the regular expressions as YAML | ✅ A table of what each rule stops; the patterns with `-o json` |
+| 40 | P2 | Some hints are questions ("is sshd running and the port correct?") instead of a next step | ✅ Each says what to check or run |
+| 41 | P2 | A group command with no sub-command (`komando db`) piped prints help text, not a JSON envelope | ✅ Piped: a `USAGE` envelope (exit 2) naming the sub-commands; `komando` alone piped points to `guide` and `schema`. In a terminal: help as before |
 
 Next:
 - Single-target commands refuse a selector that picks many, with the

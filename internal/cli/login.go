@@ -19,7 +19,7 @@ import (
 func loginCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "login",
-		Short: "Log in to a cloud account (for people): AWS IAM Identity Center (SSO)",
+		Short: "Log in to a cloud account (AWS IAM Identity Center)",
 	}
 	c.AddCommand(loginAWSCmd())
 	return c

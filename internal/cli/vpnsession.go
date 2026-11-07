@@ -413,7 +413,7 @@ func sessionView(s *store.VpnSession) store.VpnSession {
 func vpnUpCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "up NAME",
-		Short: "Connect a VPN now and keep it up for later commands (a person logs in here, MFA included)",
+		Short: "Connect a VPN now and keep it up (a person logs in here)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -487,7 +487,7 @@ func vpnUpCmd() *cobra.Command {
 					})
 					why := ""
 					if v.Kind == "wireguard" {
-						why = " (no WireGuard handshake from " + vpnWhere(v) + "?)"
+						why = " (no WireGuard handshake from " + vpnWhere(v) + " yet)"
 					}
 					return out.Errf(out.ExitConnect, "VPN_DOWN", netx.DownHint(v), "VPN %s: no answer from %s through the tunnel%s", v.Name, v.Check, why)
 				} else {

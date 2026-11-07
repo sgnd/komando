@@ -280,7 +280,7 @@ func TestHostTrustGroup(t *testing.T) {
 	if *windows != 1 {
 		t.Fatalf("windows: %d, want one for the whole group", *windows)
 	}
-	if !containsAll(texts[0], "2 server(s)", "node1 "+shortFP(newFP[0]), "node2 "+shortFP(newFP[1])) || strings.Contains(texts[0], "node3") {
+	if !containsAll(texts[0], "2 servers", "node1 "+shortFP(newFP[0]), "node2 "+shortFP(newFP[1])) || strings.Contains(texts[0], "node3") {
 		t.Errorf("window text: %q", texts[0])
 	}
 	r = trustResults(t, d)

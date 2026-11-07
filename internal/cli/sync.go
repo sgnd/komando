@@ -504,7 +504,7 @@ func (r *syncResult) Text() string {
 		fmt.Fprintf(&sb, "kept %d existing local files (--overwrite replaces them)\n", r.Kept)
 	}
 	if len(r.Skipped) > 0 {
-		fmt.Fprintf(&sb, "skipped %d symbolic link(s) or special file(s): %s\n", len(r.Skipped), shortList(r.Skipped, 5))
+		fmt.Fprintf(&sb, "skipped %s (symbolic links or special files): %s\n", countOf(len(r.Skipped), "file"), shortList(r.Skipped, 5))
 	}
 	return sb.String()
 }
@@ -515,7 +515,7 @@ func syncCmd() *cobra.Command {
 	var o syncOpts
 	c := &cobra.Command{
 		Use:   "sync SRC DST",
-		Short: "Copy a folder one way, sending only new and changed files (servers, storage, this computer)",
+		Short: "Copy a folder one way, sending only new and changed files",
 		Long: `One side is a folder on this computer; the other is TARGET:PATH on servers
 (many at once: @web:/var/www/site) or CONN:PREFIX in storage (S3, FTP/FTPS,
 SFTP). Files that are new, a different size, or newer in SRC are copied; the

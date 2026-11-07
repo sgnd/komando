@@ -150,7 +150,7 @@ func exportCmd() *cobra.Command {
 	var overwrite bool
 	c := &cobra.Command{
 		Use:   "export [TARGET]",
-		Short: "Save servers, conns and recipes to a file, to move them to another computer (no passwords)",
+		Short: "Save servers, conns and recipes to a file (no passwords)",
 		Example: `  komando export --to komando-backup.json
   komando export @prod --to prod.json
   komando import komando komando-backup.json      # on the other computer`,

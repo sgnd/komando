@@ -32,7 +32,7 @@ func registryCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "registry",
 		Aliases: []string{"oci"},
-		Short:   "Container registries: list repositories and tags, inspect images, delete tags",
+		Short:   "Container registries: repositories, tags, images, cleanup",
 		Long: `Works with a registry conn: ` + "`komando conn add ghcr registry://myuser@ghcr.io --password-ref secret:ghcr-token`" + `
 or ` + "`komando import docker`" + ` (from ~/.docker/config.json). ls and inspect
 only read; rm and prune delete images and need --allow-dangerous.
@@ -402,7 +402,7 @@ func (d inspectData) Text() string {
 	row("digest", d.Digest)
 	row("media type", d.MediaType)
 	if d.Size > 0 {
-		row("size", fmt.Sprintf("%s in %d layer(s), compressed", humanBytes(d.Size), d.Layers))
+		row("size", fmt.Sprintf("%s in %s, compressed", humanBytes(d.Size), countOf(d.Layers, "layer")))
 	}
 	row("platforms", strings.Join(d.Platforms, ", "))
 	row("created", d.Created)
@@ -425,7 +425,7 @@ func registryPruneCmd() *cobra.Command {
 	var olderThan, match string
 	c := &cobra.Command{
 		Use:   "prune CONN REPO",
-		Short: "Delete old images of a repository: keep the newest N, or delete what is older than an age",
+		Short: "Delete old images: keep the newest N, or drop older than an age",
 		Long: `Reads every tag's image and build date, then deletes the images the rule
 lets go: --keep N keeps the newest N matching tags, --older-than deletes
 only images built before that age; with both, a tag must pass both to go.

@@ -65,7 +65,7 @@ func waitForTargets(ctx context.Context, st *store.State, sel selection, res []t
 			return res
 		}
 		if interactive() {
-			fmt.Fprintf(os.Stderr, "waiting for %d of %d target(s), %s left\n", len(pending.Hosts)+len(pending.Conns)+len(pending.Vpns), len(res), left.Round(time.Second))
+			fmt.Fprintf(os.Stderr, "waiting for %d of %d targets, %s left\n", len(pending.Hosts)+len(pending.Conns)+len(pending.Vpns), len(res), left.Round(time.Second))
 		}
 		select {
 		case <-ctx.Done():
