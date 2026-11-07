@@ -25,6 +25,20 @@ komando host add db1 admin@10.0.0.5 --via bastion          # reached through bas
 komando host add web3 --address 203.0.113.12 --user deploy --key deploy
 ```
 
+### A new server that is still starting
+
+Right after you create or rebuild a cloud server, SSH may not answer yet.
+`--wait` tests again every few seconds until every server passes:
+
+```bash
+komando test @new --wait 5m                                  # until SSH answers and the login works
+komando exec @new --read-only -- cloud-init status --wait    # then: until its own start-up is done
+```
+
+It does not wait out a changed host key (`HOSTKEY_MISMATCH`) or a refused
+login (`AUTH_FAILED`: retrying could get your address banned): those fail
+at once. `data.waited_ms` says how long it waited.
+
 Useful flags:
 
 | Flag | What it does |
@@ -321,6 +335,30 @@ in komando's window, because an agent that re-pins the key could be
 talking to an impostor. Without `--reset`, `host trust` never adds a
 second key: a different key stops with `HOSTKEY_MISMATCH`, and a server
 that cannot be reached keeps its old key.
+
+### Many servers at once
+
+After you rebuild a whole group (same addresses, new keys), give `host
+trust` the group instead of one name. It takes every kind of target, like
+`exec`: `@group`, `tag:`, `'web*'` or `a,b`.
+
+```bash
+komando host trust @cluster                 # new servers get pinned; changed keys are refused
+komando host trust @cluster --reset --yes   # after the rebuild: one yes for all of them
+```
+
+`data.results` lists every server with its new `fingerprint` and, when the
+key changed, its `old_fingerprints`. With `--reset` you answer once: the
+question names every server whose key changes, with the start of its new
+fingerprint. Compare them with your cloud console first.
+
+`komando host rm` does not forget a server's key. If you remove a server
+and add it again at the same address, it must still show the same key, so
+`rm` plus `add` is no way around `HOSTKEY_MISMATCH`. `host rm` says which
+keys it kept (`host_keys_kept`); after a rebuild, replace them with `host
+trust --reset`.
+
+### Pin a key before the first connection
 
 `komando host trust web1` (without `--reset`) pins a key before the first
 connection; the same key again changes nothing. The key is fetched the way

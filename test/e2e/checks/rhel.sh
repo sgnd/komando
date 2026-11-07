@@ -21,6 +21,9 @@ for rh in rocky:rockylinux/rockylinux:9:dnf:rocky:supported:${E2E_SSH_ROCKY:-222
   for _ in $(seq 1 30); do nc -z 127.0.0.1 "$rhel_port" 2>/dev/null && break; sleep 1; done
   q $K host add "$host" "agent@127.0.0.1:$rhel_port" --password-ref secret:agent-pass
   q $K host trust "$host"
+  # rd EXPR: EXPR on the server's data (x), or "error CODE" when it failed
+  # (a dnf mirror that times out shows as that, not as a Python traceback)
+  rd() { jget "(lambda r: (lambda x: $1)(r['data']) if 'data' in r else 'error ' + r['error']['code'])(d['data']['results'][0])"; }
   f() { $K facts "$host" | jget "d['data']['results'][0]['data']$1"; }
   # one version back, so there is always a security update to apply, even
   # once the base image is fully patched
@@ -72,14 +75,14 @@ for rh in rocky:rockylinux/rockylinux:9:dnf:rocky:supported:${E2E_SSH_ROCKY:-222
   check "$name: no security updates left (komando)" 0 "$(psec "['count']")"
 
   # plain pkg on dnf/yum
-  check "$name: pkg installed = rpm -q" "True False" "$($K pkg installed "$host" bash t-norpm | jget "' '.join(str(r['installed']) for r in d['data']['results'][0]['data'])")"
-  check "$name: pkg install" installed "$($K pkg install "$host" tree | jget "d['data']['results'][0]['data']['packages'][0]['state']")"
+  check "$name: pkg installed = rpm -q" "True False" "$($K pkg installed "$host" bash t-norpm | rd "' '.join(str(p['installed']) for p in x)")"
+  check "$name: pkg install" installed "$($K pkg install "$host" tree | rd "x['packages'][0]['state']")"
   check "$name: rpm -q sees it" tree "$(rx rpm -q --qf '%{NAME}\n' tree)"
-  check "$name: pkg install again changes nothing" False "$($K pkg install "$host" tree | jget "d['data']['results'][0]['data']['changed']")"
-  check "$name: pkg rm" removed "$($K pkg rm "$host" tree | jget "d['data']['results'][0]['data']['packages'][0]['state']")"
+  check "$name: pkg install again changes nothing" False "$($K pkg install "$host" tree | rd "x['changed']")"
+  check "$name: pkg rm" removed "$($K pkg rm "$host" tree | rd "x['packages'][0]['state']")"
   set +e; $K pkg rm "$host" openssh-server >/dev/null; check "$name: removing an essential package is blocked" 6 $?; set -e
   check "$name: pkg upgradable = $pm check-update" "$(nupd)" \
-    "$($K pkg upgradable "$host" | jget "len(d['data']['results'][0]['data']['packages'])")"
+    "$($K pkg upgradable "$host" | rd "len(x['packages'])")"
 
   q $K host rm "$host"
   docker rm -f "$box" >/dev/null 2>&1 || true

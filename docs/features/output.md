@@ -20,6 +20,14 @@ agent or a script) runs komando through a pipe, it gets one JSON object
 instead. Force either with `-o text` or `-o json`, or set `KOMANDO_OUTPUT`.
 `--pretty` indents the JSON.
 
+An agent or script that only wants to read what ran on a server can ask
+for text too: `komando exec web1 --read-only -o text -- cat /etc/hosts`
+prints the server's output as it is. komando's exit code stays its own (5
+when the command exits non-zero), not the command's. With several servers,
+each one gets a block headed `=== web1 [ok exit=0]` (or `[FAILED exit=1]`,
+`[skipped]` ...). Use JSON when you need each server's exit code or error
+as data.
+
 ```json
 {
   "ok": false,
@@ -68,7 +76,7 @@ machine-readable reference is `komando schema`.
 | `AUTH_FAILED` | wrong user, key or password | `komando host show NAME`, `komando key deploy` |
 | `KEY_PASSPHRASE_REQUIRED` | the SSH key is encrypted | `komando key edit NAME --passphrase-ref secret:NAME` |
 | `CONNECTION_REFUSED`, `CONNECT_TIMEOUT` | server down, wrong port, firewall | check the address and port; `--connect-timeout 30s` |
-| `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting | confirm with your provider first, then `komando host trust NAME --reset --yes` (a person decides; an agent reports it) |
+| `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting | confirm with your provider first, then `komando host trust NAME --reset --yes`, or `@group` for many at once (a person decides; an agent reports it) |
 | `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando secret list` |
 | `SECRET_IN_USE` | `secret rm` of a secret that something still uses | point them elsewhere, or rename it with `komando secret mv OLD NEW` |
 | `SECRET_EXISTS` | `secret mv` or `secret cp` to a name that is taken | pick another name, or add `--overwrite` |

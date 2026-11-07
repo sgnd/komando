@@ -8,6 +8,25 @@ exactly one JSON object on stdout; pass `-o json` to be explicit. Branch on
 `ok`, `error.code` and the process exit code. `meta.contract` (now 1) changes
 only when a field or code is renamed or removed; new ones may appear at any time.
 
+To just read what a command printed on a server, add `-o text` instead of
+pulling `stdout` out of the JSON with python or jq:
+
+```bash
+komando exec web1 --read-only -o text -- cat /etc/os-release   # the server's output as it is
+komando exec @web --read-only -o text -- uptime                # one "=== web1 [ok exit=0]" block per server
+```
+
+With one server you get its stdout as it is; its stderr goes to stderr (or
+into komando's closing error line, when that line already says it). With
+several, each server gets a block headed `=== NAME [STATUS]` (`ok exit=0`,
+`FAILED exit=N`, `FAILED timed out`, `skipped` ...); its stderr lines start
+with `[stderr]`, and a failed server's block ends with `error [CODE]:` and
+`hint:` lines. komando's exit code is its own (5 when a command exits
+non-zero, whatever its code), not the command's, and a note about cut output
+goes to stderr. Keep JSON (the default) when you need each server's exit
+code, error code, hint or `stdout_truncated` as data: to branch on them, or
+to compare many servers.
+
 ## 1. Orient yourself
 
 ```bash
@@ -19,6 +38,10 @@ komando facts <target>                # OS + support status, updates, sudo, Dock
 komando schema --compact              # every command (`komando schema <cmd>`: its flags, and kind: read, change or depends)
 komando import ssh-config --dry-run   # (with the human) bring in servers they already have
 ```
+
+Just created or rebuilt a server? Do not sleep and retry in a loop: run
+`komando test <target> --wait 5m` (it waits until SSH answers and the login
+works), then `komando exec <target> --read-only -- cloud-init status --wait`.
 
 Run `facts` before your first change on an unfamiliar server: it tells you
 whether to use apt or dnf, whether systemd and Docker exist, and how full the
@@ -203,6 +226,10 @@ Anything that must keep running (a temporary web server, a watcher) is a
   it with the right one: ask them to run `komando secret check NAME`
   (`NEEDS_PERSON` for you).
 - `HOSTKEY_MISMATCH` (exit 4): possible man-in-the-middle. Never auto-fix; report to the human.
+  If the human says the servers were rebuilt, ask for ONE command for all of
+  them: `komando host trust @group --reset --yes` (or `'name-*'`). The human
+  confirms every new key in one window. `host rm` plus `host add` does not
+  get past a mismatch: the old key stays pinned.
 - Never print secrets. Credentials are references (`secret:NAME`, `env:VAR`), not values.
 - For an AI agent, passwords, keys and tokens in output show as `[hidden]`
   (and vault values as `[secret:NAME]`). Change such a line with

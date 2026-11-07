@@ -7,6 +7,40 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `komando host trust TARGET` takes many servers (`@group`, `tag:`,
+  `'web*'`, `a,b`): after a rebuild of a whole group, `--reset` replaces
+  every changed key after ONE yes that names each server with its new
+  fingerprint, instead of one yes per server. `data.results` has each
+  server's `fingerprint` and `old_fingerprints`. A changed key is still
+  refused without `--reset`; `host trust NAME` answers as before.
+
+- `komando test TARGET --wait 5m` waits for new servers: it tests again
+  every few seconds until every target passes or the time is up (right
+  after creating or rebuilding cloud servers, instead of a sleep loop).
+  It does not wait out a changed host key or a refused login: those fail at
+  once. `data.waited_ms` says how long it waited.
+
+### Changed
+
+- `komando host rm` says which servers' pinned host keys it keeps
+  (`host_keys_kept`, `note`): a server added again at the same address must
+  show the same key, so `rm` plus `add` is no way around
+  `HOSTKEY_MISMATCH`.
+
+- The agent guide (`komando guide`), the skill and the output docs say
+  when to use `-o text`: to read a command's output, instead of pulling
+  `stdout` out of the JSON. JSON stays the default for branching on each
+  server's exit code or error.
+
+### Fixed
+
+- `--help` examples for `cluster` commands now use `--namespace`; `-n` is
+  `--limit` in komando, so the old examples failed when copied. `import
+  --help` no longer shows "(default -)", and `komando --help` and `conn
+  --help` now say that clusters and registries are conns too.
+
 ### Security
 
 - Downloads by an AI agent (`download`, `sync`, `storage download`, also
@@ -31,13 +65,6 @@ its highlights; the sections below them give the details. Versions follow
   stored; a mistyped passphrase no longer saves a secret under a second key.
   A missing `vault.key` is no longer replaced by a new one while secrets
   need it: komando asks you to restore it.
-
-### Fixed
-
-- `--help` examples for `cluster` commands now use `--namespace`; `-n` is
-  `--limit` in komando, so the old examples failed when copied. `import
-  --help` no longer shows "(default -)", and `komando --help` and `conn
-  --help` now say that clusters and registries are conns too.
 
 ## [0.3.0] - 2026-11-07
 
