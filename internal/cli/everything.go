@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -115,6 +116,9 @@ func listCmdFor(only string) *cobra.Command {
 				l.Targets = append(l.Targets, targetRow{Name: v.Name, Kind: "vpn:" + v.Kind, Where: vpnWhere(v),
 					Groups: v.Groups, Tags: v.Tags})
 			}
+			// one list by name, not servers first: the KIND column tells
+			// servers, conns and VPNs apart
+			sort.SliceStable(l.Targets, func(i, j int) bool { return l.Targets[i].Name < l.Targets[j].Name })
 			l.Count = len(l.Targets)
 			out.P.Print("list", l, nil)
 			return nil

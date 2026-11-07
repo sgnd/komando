@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -152,6 +153,7 @@ func svcListResult(rr *sshx.RunResult) (any, *out.Error) {
 		}
 		rows = append(rows, map[string]string{"unit": f[0], "load": f[1], "active": f[2], "sub": f[3], "description": strings.Join(f[4:], " ")})
 	}
+	sort.SliceStable(rows, func(i, j int) bool { return rows[i]["unit"] < rows[j]["unit"] })
 	return rows, nil
 }
 

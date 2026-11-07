@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -28,6 +29,8 @@ func testRound(ctx context.Context, st *store.State, sel selection) []targetTest
 	for _, v := range sel.Vpns {
 		res = append(res, vpnTest(ctx, st, v))
 	}
+	// by name, like `komando list`: not all servers before all conns
+	sort.SliceStable(res, func(i, j int) bool { return res[i].Name < res[j].Name })
 	for i := range res {
 		res[i].Host = res[i].Name
 	}
@@ -53,7 +56,7 @@ func noWaitFor(code string) bool {
 // waitForTargets tests the targets of sel that did not pass again, every
 // waitInterval, until they all pass, only errors waiting cannot help are
 // left, or the deadline. It returns the last result of every target, in
-// sel's order.
+// the order of res (by name).
 func waitForTargets(ctx context.Context, st *store.State, sel selection, res []targetTest, deadline time.Time) []targetTest {
 	for {
 		pending := waitPending(sel, res)

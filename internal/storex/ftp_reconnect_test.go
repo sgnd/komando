@@ -31,6 +31,7 @@ type fakeFTP struct {
 	reply550 string
 	file     []byte
 	exists   bool
+	dirs     map[string]string // LIST lines by folder, in place of obj.txt
 }
 
 func newFakeFTP(t *testing.T) *fakeFTP {
@@ -116,7 +117,9 @@ func (s *fakeFTP) serve(c net.Conn) {
 			}
 			say("150 here")
 			s.mu.Lock()
-			if s.exists {
+			if s.dirs != nil {
+				fmt.Fprint(dc, s.dirs[arg])
+			} else if s.exists {
 				fmt.Fprintf(dc, "-rw-r--r-- 1 u u %d Nov 07 12:00 obj.txt\r\n", len(s.file))
 			}
 			s.mu.Unlock()
@@ -289,5 +292,37 @@ func TestFTPRemoveCountsAFirstTryThatWorked(t *testing.T) {
 	}
 	if got := s.loginCount(); got != 2 {
 		t.Fatalf("%d logins, want 2", got)
+	}
+}
+
+// An FTP server sends a folder in any order; storage ls lists it by name,
+// each folder's contents right after the folder.
+func TestFTPListSortsByName(t *testing.T) {
+	s := newFakeFTP(t)
+	file := func(name string) string { return "-rw-r--r-- 1 u u 1 Nov 07 12:00 " + name + "\r\n" }
+	s.dirs = map[string]string{
+		"/":  file("c.txt") + "drwxr-xr-x 1 u u 0 Nov 07 12:00 b\r\n" + file("a.txt"),
+		"/b": file("z") + file("y"),
+	}
+	b := openFake(t, s)
+	keys := func(recursive bool, limit int) (string, bool) {
+		objs, more, err := b.List(context.Background(), "", recursive, limit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var k []string
+		for _, o := range objs {
+			k = append(k, o.Key)
+		}
+		return strings.Join(k, ","), more
+	}
+	if got, _ := keys(false, 0); got != "a.txt,b/,c.txt" {
+		t.Errorf("one level: %s", got)
+	}
+	if got, _ := keys(true, 0); got != "a.txt,b/,b/y,b/z,c.txt" {
+		t.Errorf("recursive: %s", got)
+	}
+	if got, more := keys(true, 3); got != "a.txt,b/,b/y" || !more {
+		t.Errorf("recursive, limit 3: %s, more %v", got, more)
 	}
 }

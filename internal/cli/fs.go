@@ -19,6 +19,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/storex"
 )
 
 func fsCmd() *cobra.Command {
@@ -137,7 +138,7 @@ func fsLsCmd() *cobra.Command {
 					return r, nil
 				}
 				if recursive {
-					w := sc.Walk(dir)
+					w := storex.SortedWalk(sc, dir)
 					for w.Step() {
 						if w.Err() != nil {
 							continue
@@ -158,7 +159,7 @@ func fsLsCmd() *cobra.Command {
 						r.Entries = append(r.Entries, toInfo(path.Dir(w.Path()), w.Stat()))
 					}
 				} else {
-					fis, err := sc.ReadDir(dir)
+					fis, err := storex.SortedReadDir(sc, dir)
 					if err != nil {
 						return nil, fsErrHint(dir, err, permHint)
 					}

@@ -256,12 +256,8 @@ func recipeListCmd() *cobra.Command {
 					rows = append(rows, r)
 				}
 			}
-			sort.SliceStable(rows, func(i, j int) bool {
-				if rows[i].Builtin != rows[j].Builtin {
-					return !rows[i].Builtin // saved first
-				}
-				return rows[i].Name < rows[j].Name
-			})
+			// by name; the category column says which are your own ("saved")
+			sort.SliceStable(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
 			out.P.Print("recipe.list", recipeList{Count: len(rows), Recipes: rows}, nil)
 			return nil
 		},

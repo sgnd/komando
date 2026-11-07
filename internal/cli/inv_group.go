@@ -27,6 +27,10 @@ func (l groupList) Text() string {
 	for _, n := range mapKeys(l.Tags) {
 		rows = append(rows, []string{"tag:" + n, "tag", strings.Join(l.Tags[n], ", ")})
 	}
+	// groups and tags in one list by name (a group before a tag of the
+	// same name); the TYPE column tells them apart
+	name := func(sel string) string { return strings.TrimPrefix(strings.TrimPrefix(sel, "@"), "tag:") }
+	sort.SliceStable(rows, func(i, j int) bool { return name(rows[i][0]) < name(rows[j][0]) })
 	if len(rows) == 0 {
 		return "no groups or tags yet: komando group add GROUP TARGET\n"
 	}

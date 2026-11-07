@@ -140,6 +140,10 @@ when needed, and this can be turned off with `--no-sudo`. Other commands (`exec`
 - **One JSON envelope** on stdout when piped. Neat text in a
   terminal. Progress and prompts **always go to stderr**, never to stdout.
 - Color only in a terminal, and it respects `NO_COLOR`.
+- Lists are sorted by name, as one list: a KIND or TYPE column tells
+  kinds apart, never the order. Rows a server sends in its own order are
+  sorted too. Only lists without names keep another order: jobs and
+  tunnels by start time, crontab lines as in the file, `audit` by time.
 - Many targets: `data.results[]` per target (sorted by name), a summary
   `data.summary` (`ok`, `failed`), and skipped targets in
   `meta.skipped[]`. Top-level `ok` is `false` if any one failed; the exit code

@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -326,6 +327,7 @@ func (c *Client) pages(ctx context.Context, path, field string, limit int) ([]st
 		}
 		path, q = next.Path, next.Query()
 	}
+	sort.Strings(all) // the API promises lexical order; not every registry keeps it
 	if len(all) > limit {
 		all = all[:limit]
 	}

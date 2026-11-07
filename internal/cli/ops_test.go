@@ -234,16 +234,16 @@ func TestParseUsersLocked(t *testing.T) {
 	s := "#komando:passwd\nroot:x:0:0::/root:/bin/bash\nbob:x:1001:1001::/home/bob:/bin/sh\neve:x:1002:1002::/home/eve:/bin/sh\nsys:x:5:5::/:/usr/sbin/nologin\n" +
 		"#komando:groups\nsudo:x:27:bob\n#komando:expire\nroot:\nbob:\neve:1\n#komando:today\n20000\n"
 	rows := parseUsers(s, false)
-	if len(rows) != 3 {
-		t.Fatalf("rows: %+v", rows)
+	if len(rows) != 3 || rows[0].Name != "bob" || rows[1].Name != "eve" || rows[2].Name != "root" {
+		t.Fatalf("rows (by name): %+v", rows)
 	}
-	if !rows[1].AdminGroup || rows[2].AdminGroup || !rows[0].AdminGroup {
+	if !rows[0].AdminGroup || rows[1].AdminGroup || !rows[2].AdminGroup {
 		t.Fatalf("admin groups: %+v", rows)
 	}
-	if rows[1].Locked == nil || *rows[1].Locked || rows[2].Locked == nil || !*rows[2].Locked {
+	if rows[0].Locked == nil || *rows[0].Locked || rows[1].Locked == nil || !*rows[1].Locked {
 		t.Fatalf("locked: %+v", rows)
 	}
-	if rows := parseUsers(strings.Replace(s, "eve:1\n", "", 1), false); rows[2].Locked != nil {
+	if rows := parseUsers(strings.Replace(s, "eve:1\n", "", 1), false); rows[1].Locked != nil {
 		t.Fatal("without an expiry line the state is unknown")
 	}
 	if !strings.Contains(usersText(rows), "LOCKED") {

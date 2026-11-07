@@ -17,6 +17,7 @@ require (
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/jlaffaye/ftp v0.2.4
+	github.com/kr/fs v0.1.0
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/moby/spdystream v0.5.1
 	github.com/pion/dtls/v3 v3.1.15
@@ -74,7 +75,6 @@ require (
 	github.com/klauspost/compress v1.20.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
-	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mdlayher/netlink v1.11.2 // indirect
 	github.com/mdlayher/socket v0.7.0 // indirect

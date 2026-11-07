@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
@@ -62,6 +63,7 @@ func parseUsers(s string, all bool) []userRow {
 		}
 		rows = append(rows, r)
 	}
+	sort.SliceStable(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
 	return rows
 }
 

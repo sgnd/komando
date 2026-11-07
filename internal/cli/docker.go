@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"path"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -43,7 +44,7 @@ apply to ` + "`docker raw`" + `, ` + "`docker compose`" + ` and ` + "`cluster ru
 				line += " -a"
 			}
 			return probe(cmd.Context(), "docker.ps", a[0], line+" --format '{{json .}}'", sudo, dockerTable(
-				[]string{"name", "image", "status", "ports", "created"}, []string{"Names", "Image", "Status", "Ports", "RunningFor"}))
+				[]string{"name", "image", "status", "ports", "created"}, []string{"Names", "Image", "Status", "Ports", "RunningFor"}, "Names"))
 		},
 	}
 	ps.Flags().BoolVarP(&all, "all", "a", false, "stopped containers too")
@@ -53,7 +54,7 @@ apply to ` + "`docker raw`" + `, ` + "`docker compose`" + ` and ` + "`cluster ru
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, a []string) error {
 			return probe(cmd.Context(), "docker.stats", a[0], "docker stats --no-stream --format '{{json .}}'", sudo, dockerTable(
-				[]string{"name", "cpu", "memory", "mem%", "net i/o", "block i/o", "pids"}, []string{"Name", "CPUPerc", "MemUsage", "MemPerc", "NetIO", "BlockIO", "PIDs"}))
+				[]string{"name", "cpu", "memory", "mem%", "net i/o", "block i/o", "pids"}, []string{"Name", "CPUPerc", "MemUsage", "MemPerc", "NetIO", "BlockIO", "PIDs"}, "Name"))
 		},
 	}
 	images := &cobra.Command{
@@ -62,7 +63,7 @@ apply to ` + "`docker raw`" + `, ` + "`docker compose`" + ` and ` + "`cluster ru
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, a []string) error {
 			return probe(cmd.Context(), "docker.images", a[0], "docker images --format '{{json .}}'", sudo, dockerTable(
-				[]string{"repository", "tag", "id", "created", "size"}, []string{"Repository", "Tag", "ID", "CreatedSince", "Size"}))
+				[]string{"repository", "tag", "id", "created", "size"}, []string{"Repository", "Tag", "ID", "CreatedSince", "Size"}, "Repository", "Tag"))
 		},
 	}
 	c.AddCommand(ps, stats, images)
@@ -247,15 +248,25 @@ func firstLine(s string) string {
 
 // dockerTable parses JSON lines; for a person (-o text) it lays the chosen
 // fields out as a table instead (labels and mounts would drown it).
-func dockerTable(headers, fields []string) func(*store.Host, string) (any, error) {
+// dockerTable sorts the rows by the sortBy fields (docker itself puts the
+// newest first), then lays them out in -o text.
+func dockerTable(headers, fields []string, sortBy ...string) func(*store.Host, string) (any, error) {
 	return func(h *store.Host, s string) (any, error) {
 		rows, err := parseJSONLines(h, s)
-		if err != nil || out.P.Format != "text" {
-			return rows, err
-		}
 		list, ok := rows.([]any)
-		if !ok {
-			return rows, nil
+		if err == nil && ok {
+			key := func(r any) string {
+				m, _ := r.(map[string]any)
+				k := ""
+				for _, f := range sortBy {
+					k += str(m[f]) + "\x00"
+				}
+				return k
+			}
+			sort.SliceStable(list, func(i, j int) bool { return key(list[i]) < key(list[j]) })
+		}
+		if err != nil || out.P.Format != "text" || !ok {
+			return rows, err
 		}
 		var cells [][]string
 		for _, r := range list {
