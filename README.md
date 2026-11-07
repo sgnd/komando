@@ -47,7 +47,7 @@ Other ways: download a file from
 [Releases](https://github.com/sgnd/komando/releases), or read the script
 first with `curl -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/install.sh`
 and then run `sh install.sh`. `KOMANDO_INSTALL_DIR=DIR` picks the folder and
-`KOMANDO_VERSION=v0.3.1` one version. To check that a downloaded archive was
+`KOMANDO_VERSION=v0.5.0` one version. To check that a downloaded archive was
 built by komando's release workflow, run
 `gh attestation verify FILE --repo sgnd/komando`. Developers with Go 1.27 or
 newer can use `go install github.com/sgnd/komando/cmd/komando@latest`.
@@ -57,6 +57,13 @@ newer can use `go install github.com/sgnd/komando/cmd/komando@latest`.
 Run the install line again; it replaces the `komando` program and keeps your
 servers, secrets and history in `~/.komando`. Then run `komando guide install`
 again, so your AI agents get the new skill.
+
+Did you install it with `sudo` (for example into `/usr/local/bin`, which only
+root may change)? Then update with `sudo` too:
+`curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sudo sh`.
+Without it, the installer cannot write there and puts the new version in
+`~/.local/bin`, and your terminal may keep running the old one. `komando version`
+shows which one runs.
 
 ### Uninstall
 
