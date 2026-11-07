@@ -288,9 +288,9 @@ Connect itself: you do not need the `vault`, `aws`, `gcloud`, `bw` or `op`
 programs. It reads the value only when it needs it and never stores it. The
 login (and any MFA) stays with you.
 
-Without a Connect server, `op://` still uses the 1Password CLI for now. That
-path will be removed, because the CLI is closed source and komando uses only
-open-source parts.
+Without a Connect server, `op://` stops with an error: komando reads 1Password
+only through 1Password Connect, because the 1Password CLI is closed source and
+komando uses only open-source parts.
 
 ## Servers with no open SSH port (AWS SSM, GCP IAP, Cloudflare)
 

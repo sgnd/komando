@@ -1428,7 +1428,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/sgnd/komando/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/sgnd/komando/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sgnd/komando/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sgnd/komando/releases/tag/v0.1.0
