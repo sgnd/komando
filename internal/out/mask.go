@@ -280,9 +280,45 @@ func (p *Printer) View(s string) View {
 	v.hide(groups(assign, v.Text, 3, func(sub []string) bool {
 		return !(sub[2] == ":" && strings.EqualFold(sub[1], "secret") || keepValue(sub[1], sub[3]))
 	}), Hidden)
+	v.hide(redisValues(redisPw, v.Text), Hidden)
+	v.hide(redisValues(redisPwPair, v.Text), Hidden)
+	v.hide(redisACLValues(v.Text), Hidden)
 	v.hide(groups(tokens, v.Text, 0, nil), Hidden)
 	v.hide(groups(pwHash, v.Text, 0, nil), Hidden)
 	return v
+}
+
+// redisValues: where maskRedis hides a value matched by re (group 2,
+// inside its quotes), for View.
+func redisValues(re *regexp.Regexp, s string) [][2]int {
+	var at [][2]int
+	for _, m := range re.FindAllStringSubmatchIndex(s, -1) {
+		a, b := m[4], m[5]
+		if b-a >= 2 && (s[a] == '"' || s[a] == '\'') && s[b-1] == s[a] {
+			a, b = a+1, b-1
+		}
+		if a == b || keepValue("password", s[a:b]) {
+			continue
+		}
+		at = append(at, [2]int{a, b})
+	}
+	return at
+}
+
+// redisACLValues: where maskRedis hides the passwords and hashes of Redis
+// ACL rules (after > < # or !), for View.
+func redisACLValues(s string) [][2]int {
+	var at [][2]int
+	for _, line := range redisACL.FindAllStringIndex(s, -1) {
+		for _, m := range redisACLPass.FindAllStringSubmatchIndex(s[line[0]:line[1]], -1) {
+			start := m[5] // after > or <
+			if m[4] < 0 {
+				start = m[9] // after # or !
+			}
+			at = append(at, [2]int{line[0] + start, line[0] + m[1]})
+		}
+	}
+	return at
 }
 
 // literal: where sub occurs in s (not overlapping, left to right).

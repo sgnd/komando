@@ -4,6 +4,9 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/sgnd/komando/internal/cachex"
+	"github.com/sgnd/komando/internal/driver"
 )
 
 func findWrite(cmd string, args []string, _ bool) string {
@@ -627,6 +630,143 @@ func gitConfigWrite(rest []string) string {
 	}
 	if names >= 2 && !get {
 		return "git config NAME VALUE"
+	}
+	return ""
+}
+
+// sortWrite: sort -o FILE writes the result to FILE.
+func sortWrite(cmd string, args []string, _ bool) string {
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		if strings.HasPrefix(a, "--output") || len(a) > 1 && a[0] == '-' && a[1] != '-' && strings.Contains(a, "o") {
+			return cmd + " -o"
+		}
+	}
+	return ""
+}
+
+// operands are the words of args that are not options, leaving out the
+// value after each option in valued (uniq -f 2).
+func operands(args []string, valued ...string) []string {
+	var ops []string
+	opts := true
+	for k := 0; k < len(args); k++ {
+		switch a := args[k]; {
+		case opts && a == "--":
+			opts = false
+		case opts && slices.Contains(valued, a):
+			k++
+		case opts && len(a) > 1 && a[0] == '-':
+		default:
+			ops = append(ops, a)
+		}
+	}
+	return ops
+}
+
+// uniqWrite: uniq IN OUT writes OUT.
+func uniqWrite(cmd string, args []string, _ bool) string {
+	if len(operands(args, "-f", "-s", "-w")) > 1 {
+		return cmd + " writing its second file"
+	}
+	return ""
+}
+
+// opensslWrite: -out, -keyout and -writerand write a file.
+func opensslWrite(cmd string, args []string, _ bool) string {
+	for _, a := range args {
+		if a == "-out" || a == "-keyout" || a == "-writerand" {
+			return cmd + " " + a
+		}
+	}
+	return ""
+}
+
+// dateWrite: date -s TIME, or a bare MMDDhhmm, sets the clock.
+func dateWrite(cmd string, args []string, _ bool) string {
+	for k := 0; k < len(args); k++ {
+		switch a := args[k]; {
+		case strings.HasPrefix(a, "--set") || strings.HasPrefix(a, "-s"):
+			return cmd + " --set"
+		case a == "-d" || a == "-r" || a == "-f" || a == "--date" || a == "--reference" || a == "--file":
+			k++ // --date TEXT, --reference FILE, --file FILE
+		case !strings.HasPrefix(a, "-") && !strings.HasPrefix(a, "+"):
+			return cmd + " setting the time"
+		}
+	}
+	return ""
+}
+
+// hostnameWrite: hostname NAME (or -F FILE, -b) sets the host name.
+func hostnameWrite(cmd string, args []string, _ bool) string {
+	for _, a := range args {
+		if a == "-F" || strings.HasPrefix(a, "--file") || a == "-b" || a == "--boot" || !strings.HasPrefix(a, "-") {
+			return cmd + " setting the host name"
+		}
+	}
+	return ""
+}
+
+// dmesgWrite: clearing the ring buffer or changing the console level
+// (-c -C -n -D -E).
+func dmesgWrite(cmd string, args []string, _ bool) string {
+	for _, a := range args {
+		if a == "--clear" || a == "--read-clear" || strings.HasPrefix(a, "--console-") ||
+			len(a) > 1 && a[0] == '-' && a[1] != '-' && !strings.Contains(a, "=") && strings.ContainsAny(a, "cCnDE") {
+			return cmd + " " + a
+		}
+	}
+	return ""
+}
+
+// lessWrite: less +CMD runs CMD as typed at its prompt, where ! runs a
+// shell; -o FILE copies the input to FILE.
+func lessWrite(cmd string, args []string, _ bool) string {
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		if strings.HasPrefix(a, "+") || strings.HasPrefix(strings.ToLower(a), "--log-file") ||
+			len(a) > 1 && a[0] == '-' && a[1] != '-' && strings.ContainsAny(a, "oO") {
+			return cmd + " " + a
+		}
+	}
+	return ""
+}
+
+// redisCliValued are the redis-cli options that take a value.
+var redisCliValued = set(`-h -p -t -s -a -u -r -i -n -d -D -X --user --pass --sni --cacert --cacertdir
+	--tls-ciphers --tls-ciphersuites --cert --key --show-pushes --lru-test --pipe-timeout --memkeys-samples
+	--pattern --count --quoted-pattern --intrinsic-latency --keystats-samples --top`)
+
+// redisCliWrite: the command redis-cli sends is rated like `cache run`'s
+// (cachex.Classify). Modes that write here, send a script or load data
+// break the promise; with no command it reads commands from its input.
+func redisCliWrite(cmd string, args []string, input bool) string {
+	for k := 0; k < len(args); k++ {
+		a := args[k]
+		switch {
+		case a == "--pipe" || a == "--eval" || a == "--rdb" || a == "--functions-rdb" || a == "--ldb" || a == "--ldb-sync-mode" || a == "-x":
+			return cmd + " " + a
+		case a == "--cluster":
+			if k+1 < len(args) && (args[k+1] == "info" || args[k+1] == "check" || args[k+1] == "help") {
+				return ""
+			}
+			return cmd + " --cluster"
+		case redisCliValued[a]:
+			k++
+		case strings.HasPrefix(a, "-") && len(a) > 1:
+		default:
+			if v := cachex.Classify(args[k:]); v.Risk != driver.RiskRead {
+				return cmd + " " + strings.ToUpper(a)
+			}
+			return ""
+		}
+	}
+	if input {
+		return cmd + " reading commands from a pipe or a file"
 	}
 	return ""
 }

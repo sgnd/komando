@@ -30,12 +30,15 @@ var builtin = []struct{ id, pattern, reason string }{
 	{"fork-bomb", `:\(\)\s*\{\s*:\|:&\s*\};:`, "fork bomb"},
 	{"chmod-root", `\bchmod\s+(\S+\s+)*` + recursive + `(\S+\s+)*/(\s|$|;|&)|\bchmod\s+(\S+\s+)*/\s+(\S+\s+)*` + recursive, "recursive chmod of /"},
 	{"chown-root", `\bchown\s+(\S+\s+)*` + recursive + `(\S+\s+)*/(\s|$|;|&)|\bchown\s+(\S+\s+)*/\s+(\S+\s+)*` + recursive, "recursive chown of /"},
-	{"firewall-flush", `\b(ip6?tables\s+(-t\s+\S+\s+)?(-F|--flush)|nft\s+flush\s+ruleset|ufw\s+(disable|reset))(\s|$|;|&)`, "drops firewall rules (may lock you out)"},
+	{"firewall-flush", `\b(ip6?tables\s+(-t\s+\S+\s+)?(-F|--flush)|nft\s+flush\s+ruleset|ufw\s+(-\S+\s+)*(disable|reset))(\s|$|;|&)`, "drops firewall rules (may lock you out)"},
+	{"firewall-drop-all", `\bip6?tables\s+(-t\s+filter\s+)?(-P|--policy)\s+(INPUT|OUTPUT)\s+(DROP|REJECT)\b`, "drops all traffic by default (may lock you out)"},
 	{"sshd-stop", `\b(systemctl|service)\s+(stop|disable|mask)\s+(ssh|sshd)\b`, "stops sshd (locks out remote access)"},
 	{"passwd-files", `>\s*/etc/(passwd|shadow|sudoers)\b`, "overwrites authentication files"},
+	{"passwd-files-write", `\b(tee|truncate)\s[^;&|]*` + authFile + `|\bdd\s[^;&|]*\bof=` + authFile + `|\b(mv|cp|install|ln)\s[^;&|]*\s` + authFile + `\s*($|[;&|)])|\bmv\s+(-\S+\s+)*` + authFile, "overwrites authentication files"},
 	{"db-drop", `(?i)\b(drop\s+(database|schema)|flushall|dropdatabase\(\))`, "drops a database"},
 	{"docker-prune-all", `\bdocker\s+(system|volume)\s+prune\b.*(-a|--all|--volumes)`, "deletes docker volumes/images"},
 	{"kubectl-delete-ns", `\bkubectl\s+delete\s+(ns|namespace|nodes?)\b`, "deletes kubernetes namespaces or nodes"},
+	{"base64-pipe-sh", `\bbase64\s+(-\S+\s+)*(-d|--decode|-D)\b[^|;&]*\|\s*(sudo\s+)?(ba|z|da|k)?sh\b`, "runs hidden (base64) text as a script"},
 	{"curl-pipe-sh", `\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z)?sh\b`, "pipes a remote script into a shell"},
 	{"crontab-r", `\bcrontab\s+-r\b`, "removes all cron jobs"},
 	{"userdel", `\b(userdel|deluser)\b`, "deletes a user account"},
@@ -50,6 +53,10 @@ const recursive = `(-[a-zA-Z]*R[a-zA-Z]*|--recursive)(\s+|$)`
 // cmdStart matches where a command starts: the line start, after ; & | (
 // or after a wrapper like sudo. A word in an argument (grep mkfs) is not.
 const cmdStart = `(^|[;&|(]\s*|\b(sudo|doas|nohup|exec|env|nice|setsid|xargs|time)\s+(-\S+\s+)*)`
+
+// authFile is /etc/passwd, shadow or sudoers itself (not sudoers.d/x or a
+// passwd- backup).
+const authFile = `/etc/(passwd|shadow|sudoers)(\s|$|;|&|\||\))`
 
 const rmOpts = `(-[a-zA-Z]*[rRf][a-zA-Z]*\s+|--(recursive|force|no-preserve-root|one-file-system|verbose)\s+|--\s+)`
 

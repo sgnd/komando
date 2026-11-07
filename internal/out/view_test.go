@@ -34,6 +34,9 @@ func TestViewMatchesRedact(t *testing.T) {
 		"password_ref: secret:db\nPASSWORD=${DB_PASS}\nrequire_password: true\nDB_PASSWORD=[hidden]",
 		"api_key=VaultedTok3n99x and TOKEN=VaultedTok3n99",
 		"nothing to hide here",
+		"bind 0.0.0.0\nrequirepass hunter2pass\nmasterauth \"s3cret value\"\nsentinel auth-pass mymaster 's3nt'\n",
+		"redis.conf:12:requirepass hunter2pass\nuser default on >hunter2pass ~* +@all\nuser app on #" + strings.Repeat("ab", 32) + " ~app:*\n",
+		"1) \"requirepass\"\n2) \"hunter2pass\"\n",
 		"MIIEvQIBADANBgkqhkiG9w0BAQEFAASC\nb3Bl\n-----END PRIVATE KEY-----\n",
 		"",
 	}

@@ -146,6 +146,11 @@ func (f *file) aead() (cipher.AEAD, error) {
 		kp := store.Path("vault.key")
 		b, err := os.ReadFile(kp)
 		if errors.Is(err, os.ErrNotExist) {
+			if len(f.Entries) > 0 {
+				// a new key would open none of them, and secrets saved with
+				// it would be lost once the old key is back
+				return nil, fmt.Errorf("%s is missing but the vault holds %d secrets: restore it from a backup", kp, len(f.Entries))
+			}
 			b, err = newKeyFile(kp)
 		}
 		if err != nil {
@@ -348,6 +353,9 @@ func Set(name, value string) error {
 		if err != nil {
 			return err
 		}
+		if err := f.checkKey(a); err != nil {
+			return err
+		}
 		nonce := make([]byte, a.NonceSize())
 		if _, err := rand.Read(nonce); err != nil {
 			return err
@@ -355,6 +363,18 @@ func Set(name, value string) error {
 		f.Entries[name] = &entry{Nonce: nonce, Data: a.Seal(nil, nonce, []byte(value), []byte(name)), UpdatedAt: time.Now().UTC()}
 		return nil
 	})
+}
+
+// checkKey: a opens the secrets already in the vault, so a mistyped
+// KOMANDO_VAULT_PASS never seals a new one under a second key.
+func (f *file) checkKey(a cipher.AEAD) error {
+	for name, e := range f.Entries {
+		if _, err := a.Open(nil, e.Nonce, e.Data, []byte(name)); err != nil {
+			return fmt.Errorf("cannot decrypt secret %q (wrong KOMANDO_VAULT_PASS or vault.key?): nothing was saved", name)
+		}
+		return nil // one is enough: every entry has the same key
+	}
+	return nil
 }
 
 var ErrNotFound = errors.New("secret not found")
