@@ -52,7 +52,9 @@ if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
   exit 1
 fi
 
-tar -xzf "$tmp/$file" -C "$tmp"
+# --no-same-owner: run with sudo, tar would otherwise give the file the
+# owner it had on the build machine (uid 1001) instead of root.
+tar --no-same-owner -xzf "$tmp/$file" -C "$tmp"
 
 if [ -n "${KOMANDO_INSTALL_DIR:-}" ]; then
   # A folder you chose: use it or stop. Never put komando somewhere else.

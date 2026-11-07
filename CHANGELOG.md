@@ -7,6 +7,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+
+- `sudo sh install.sh` installed komando owned by uid 1001, the user that
+  built the release, instead of root. It now extracts with
+  `--no-same-owner`. If you installed with sudo, fix the owner once:
+  `sudo chown root:wheel /usr/local/bin/komando` (Linux: `root:root`).
+
 ## [0.4.0] - 2026-11-07
 
 ### Highlights
