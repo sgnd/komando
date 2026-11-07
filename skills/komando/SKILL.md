@@ -62,9 +62,9 @@ If `komando` is not installed, stop and ask the human to install it:
    the link broke while the command ran: it may still be running, or may have
    finished. Do not just run it again; check first with a read-only command.
 5. **Never** add `--allow-dangerous`, `--yes` or `--reveal` on your own. When
-   a command is blocked (exit code 6: `POLICY_BLOCKED`, `PROTECTED_HOST`,
-   `PROTECTED_TARGET`, `SAFETY_SETTING`, `SENSITIVE_FILE`,
-   `WRITE_REQUIRES_FLAG`), stop and tell the human what you want to do and
+   a command is blocked (exit code 6, for example `POLICY_BLOCKED`,
+   `PROTECTED_HOST`, `PROTECTED_TARGET`, `SAFETY_SETTING`, `SENSITIVE_FILE`,
+   `WRITE_REQUIRES_FLAG`, `READ_ONLY_VIOLATION`, `CONFIRM_REQUIRED`), stop and tell the human what you want to do and
    why. When they agree, re-run with the flag: komando opens a window on
    their screen and they click "Allow once" (you cannot). If the hint says
    there is no screen, ask them to run the command in their own terminal. If

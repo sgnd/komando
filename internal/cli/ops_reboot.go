@@ -20,7 +20,7 @@ func svcDaemonReloadCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "daemon-reload TARGET",
 		Short:   "Reload systemd's unit files (after writing a unit), and say which units still need it",
-		Example: "  komando fs write web1 /etc/systemd/system/app.service --file app.service --sudo\n  komando svc daemon-reload web1\n  komando svc restart web1 app",
+		Example: "  komando fs write web1 /etc/systemd/system/app.service --from app.service --sudo\n  komando svc daemon-reload web1\n  komando svc restart web1 app",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command := noSystemd + "systemctl daemon-reload >&2; rc=$?\n" +

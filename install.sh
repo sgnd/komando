@@ -4,7 +4,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
 #
 # Installs to /usr/local/bin when writable, otherwise ~/.local/bin.
-# Override with KOMANDO_INSTALL_DIR=/some/dir.
+# Override with KOMANDO_INSTALL_DIR=/some/dir (when it is not writable, ~/.local/bin is used).
 set -eu
 
 REPO="sgnd/komando"
