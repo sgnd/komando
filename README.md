@@ -46,8 +46,30 @@ and add that line to `~/.zshrc` (macOS) or `~/.bashrc` (Linux) so it stays.
 Other ways: download a file from
 [Releases](https://github.com/sgnd/komando/releases), or read the script
 first with `curl -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/install.sh`
-and then run `sh install.sh`. Developers with Go can use
-`go install github.com/sgnd/komando/cmd/komando@latest`.
+and then run `sh install.sh`. `KOMANDO_INSTALL_DIR=DIR` picks the folder and
+`KOMANDO_VERSION=v0.3.1` one version. To check that a downloaded archive was
+built by komando's release workflow, run
+`gh attestation verify FILE --repo sgnd/komando`. Developers with Go 1.27 or
+newer can use `go install github.com/sgnd/komando/cmd/komando@latest`.
+
+### Update
+
+Run the install line again; it replaces the `komando` program and keeps your
+servers, secrets and history in `~/.komando`. Then run `komando guide install`
+again, so your AI agents get the new skill.
+
+### Uninstall
+
+1. Stop what komando still runs: `komando status` lists it; `komando vpn down
+   --all` and `komando tunnel stop --all` stop it.
+2. Delete the program: `rm "$(command -v komando)"`.
+3. Delete the skill and the guard, if you installed them: the `komando` folders
+   in `~/.claude/skills` and `~/.agents/skills`, and komando's entry under
+   `hooks` in `~/.claude/settings.json` (and in `.cursor/hooks.json`,
+   `.gemini/settings.json` or `.codex/hooks.json` where you use those agents).
+4. Keep a copy of `~/.komando` if you may need your servers or secrets again
+   (`komando export --to komando-backup.json` saves the servers without
+   passwords), then delete the folder.
 
 ## First steps
 
@@ -80,6 +102,10 @@ is saved encrypted:
 komando secret set web1-pass
 komando host edit web1 --password-ref secret:web1-pass
 ```
+
+The vault's key is a file in `~/.komando`. On a shared computer, or one that
+is backed up or synced, move it into the system keychain with
+`komando secret keychain`. `komando doctor` checks your whole setup.
 
 Mark production servers as protected. Then nothing can be changed there
 unless the command includes `--yes` (a deliberate "yes, I'm sure"). Looking
@@ -182,6 +208,12 @@ Help for any command: `komando <command> --help`. What comes next: the
 - Everything is recorded: `komando audit`, and `komando audit verify` checks that nobody edited the record.
 
 More: [Safety](docs/features/safety.md) and [Security](SECURITY.md).
+
+## Something wrong?
+
+Every error has a code and a hint with the next step. `komando doctor` checks
+komando's folder, vault, keys and servers. The common errors and their fixes
+are in [Troubleshooting](docs/features/output.md#troubleshooting).
 
 ## Key terms
 
