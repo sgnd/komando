@@ -21,7 +21,8 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
-- Exit codes: `NO_AUTH` (a server with no key, identity or password) now
+- **BREAKING: exit codes.** Scripts and agents that check komando's exit
+  codes must be updated. `NO_AUTH` (a server with no key, identity or password) now
   exits 4 like `AUTH_FAILED`, not 2. `SECRET_UNRESOLVED` (a password
   reference that cannot be read) exits 3 everywhere; it was 2 for servers
   and 1 for conns and registry CAs. The agent guide's error table now says
