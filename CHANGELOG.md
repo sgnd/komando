@@ -7,6 +7,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-08
+
+### Highlights
+
+- **Lists are sorted by name, as one list:** servers, conns and VPNs share
+  one A-Z order in `list` and `test`, and lists a server sends (`fs ls`,
+  `docker ps`, `registry ls` and more) are sorted too. Scripts that relied
+  on servers coming first see a new order.
+
 ### Changed
 
 - Lists are sorted by name, as one list. `list` (and `host`, `conn` and
@@ -1585,7 +1594,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/sgnd/komando/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/sgnd/komando/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/sgnd/komando/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/sgnd/komando/compare/v0.3.0...v0.3.1
