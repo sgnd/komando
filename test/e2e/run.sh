@@ -413,7 +413,8 @@ echo -n deploypass | $K secret set files-pass >/dev/null
 q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref secret:files-pass
 q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref secret:files-pass
 for c in files-sftp files-ftps; do
-  q $K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt
+  # check the upload itself, so a failed upload shows its own error instead of an empty listing below
+  check "$c upload" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["ok"] or "%s: %s" % (d["error"]["code"], d["error"]["message"])' || true)"
   check "$c upload creates folders" 2026/11/obj.txt "$($K storage ls "$c" --recursive | jget '[o["key"] for o in d["data"]["objects"] if not o.get("dir")][0]')"
   check "$c upload replaces" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["data"]["replaced"]')"
   q $K storage download "$c" 2026/11/obj.txt --to "$TMP/$c.txt"
