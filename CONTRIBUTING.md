@@ -27,6 +27,10 @@ Bigger features start as a design note in [`docs/design/`](docs/design/) (for ex
 
 ## Get started in 3 commands
 
+You need [Go](https://go.dev/dl/) (the version in [`go.mod`](go.mod) or newer),
+`make` and `git`. The end-to-end tests also need
+[Docker](https://docs.docker.com/get-docker/).
+
 ```bash
 make build    # compile ./bin/komando
 make test     # fast unit tests (no servers needed)
@@ -72,7 +76,7 @@ Update the docs in the same pull request:
 - `internal/cli/guide.md` (what `komando guide` prints) if an AI agent should use it differently;
 - `internal/cli/skill.md`, then copy it to `skills/komando/SKILL.md` (a test checks that they match).
 
-A test also reads every `komando ...` example in the docs and fails when a command or flag does not exist.
+A test also reads every `komando ...` example in the docs (`README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/features/`, the guide and the skill) and fails when a command, subcommand or flag does not exist.
 
 ## Send a pull request
 

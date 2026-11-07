@@ -26,15 +26,16 @@ komando exec tag:prod --sudo -- systemctl is-active nginx
 komando exec db1 --read-only -- 'psql -c "select 1"'
 ```
 
-| Option | What it does |
-|--------|--------------|
+| Flag | What it does |
+|------|--------------|
+| `-c`, `--cmd 'COMMAND'` | Give the command as one string instead of after `--`. |
 | `-s`, `--sudo` / `--sudo-user NAME` | Run as root, or as another user (uses the server's `--sudo-ref` password if set). |
 | `-C`, `--dir PATH` | Run in this folder on the server. |
 | `-e`, `--env KEY=VALUE` | Export a variable first (repeatable). |
 | `--timeout 10m` | Time limit per server (default 5m). |
 | `-P`, `--parallel 20` | How many servers at once (default 10). |
 | `--fail-fast` | Start no more servers after the first failure. |
-| `--stream` | Print output live, as it comes (NDJSON events), a whole line at a time. |
+| `--stream` | Print output live, as it comes, a whole line at a time (in JSON: one event per line). |
 | `--stdin-file FILE` | Send a local file as the command's input (`-` = komando's own input). |
 | `--pty` | Give the command a terminal (some tools need one). |
 | `--read-only` | Say the command only looks (see below). |
@@ -46,7 +47,7 @@ command fails on any server, komando exits 5; if it cannot connect, it
 exits 4.
 
 With `-o text`, one server prints like `ssh`: its output, its errors, and a
-closing `error: host web1 failed (exit 3)` when it fails. Several servers
+closing `error [FAILED]: host web1 failed (exit 3)` when it fails. Several servers
 get a block each:
 
 ```text
@@ -144,7 +145,8 @@ komando script db1 ./backup.py --interpreter python3
 The interpreter comes from the script's `#!` line, or from `--interpreter`
 (otherwise `sh`). `--arg` values reach the script as `$1`, `sys.argv[1]`,
 `$ARGV[0]` and so on, for sh, bash, python, perl, ruby and node alike.
-`script` takes the same options as `exec`.
+`script` takes the same flags as `exec` (except `-c`), plus `--arg` and
+`--interpreter`.
 
 ## Long tasks (jobs)
 
@@ -155,13 +157,13 @@ once with a job ID per server.
 ```bash
 komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
 komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
-komando job status <id>                 # running, exited or lost; exit code; last lines
-komando job logs <id>                   # output so far
-komando job wait <id> --timeout 30m     # wait until it ends
-komando job wait <id1> <id2> <id3>      # wait for several (one per server)
-komando job kill <id>                   # stop it (TERM; --signal KILL for a hard stop)
+komando job status JOB_ID               # running, exited or lost; exit code; last lines
+komando job logs JOB_ID                 # output so far
+komando job wait JOB_ID --timeout 30m   # wait until it ends
+komando job wait JOB_ID1 JOB_ID2        # wait for several (one per server)
+komando job kill JOB_ID                 # stop it (TERM; --signal KILL for a hard stop)
 komando job list                        # every job; --refresh asks the servers
-komando job rm <id>                     # forget it and delete its remote logs
+komando job rm JOB_ID                   # forget it and delete its remote logs
 ```
 
 Good to know:

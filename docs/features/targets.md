@@ -1,7 +1,7 @@
 # Targets
 
-Pick which servers and conns a command works on: one name, a group, a tag,
-or everything. [All features](README.md)
+Pick which servers, conns and VPNs a command works on: one name, a group, a
+tag, or everything. [All features](README.md)
 
 ## Quick start
 
@@ -15,8 +15,8 @@ komando group list                     # every group and tag with its members
 
 ## Write a target
 
-Most commands take a *target*. One target picks servers and conns
-(databases, caches, storage) together:
+Most commands take a *target*. One target picks servers, conns (databases,
+caches, storage, clusters, registries) and VPNs together:
 
 | Write | Picks |
 |-------|-------|
@@ -24,12 +24,12 @@ Most commands take a *target*. One target picks servers and conns
 | `web-*` | names that start with `web-` |
 | `@prod` | everything in group `prod` |
 | `tag:prod` | everything tagged `prod` |
-| `label:dc=jkt` | everything with label `dc=jkt` |
-| `kind:db` | every database (also `kind:host`, `kind:cache`, `kind:storage`, `kind:postgres`, ...) |
+| `label:dc=jkt` | everything with label `dc=jkt` (`label:dc` picks everything that has a `dc` label) |
+| `kind:db` | every database (also `kind:host`, `kind:conn`, `kind:vpn`, `kind:cache`, `kind:storage`, `kind:postgres`, ...) |
 | `all` | everything |
 | `@prod,!web3` | combine with `,`; leave out with `!` |
 | `!web3` | everything except `web3` (same as `all,!web3`) |
-| `root@203.0.113.10:22` | a one-off server that is not in your list (`203.0.113.10:22` uses your default user) |
+| `root@203.0.113.10:22` | a one-off server that is not in your list (`203.0.113.10` or `203.0.113.10:22` uses your default user) |
 
 Quote targets that contain `*` or `!` so your shell leaves them alone:
 `'web-*'`, `'@prod,!web3'`.

@@ -33,7 +33,8 @@ komando exec db1 -- uptime                                 # goes through bastio
   It can also start with a VPN: see [VPNs](vpn.md).
 - komando opens the connection through the bastion inside its own process.
   No port opens on your computer, and your network settings do not change.
-- Older docs may say `--jump`. It still works and means the same as `--via`.
+- Older docs may say `--jump`. On `komando host add` and `host edit` it
+  still works and means the same as `--via`; conns take only `--via`.
 
 ## Open a private database in your own app
 

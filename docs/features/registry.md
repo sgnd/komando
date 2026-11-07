@@ -129,12 +129,14 @@ komando registry prune harbor myorg/api --keep 10 --dry-run   # what would go, a
 komando registry prune harbor myorg/api --keep 10 --older-than 30d --match '^v' --allow-dangerous
 ```
 
-`prune` deletes old images of one repository:
+`prune` deletes old images of one repository. Give `--keep`,
+`--older-than`, or both:
 
 - `--keep N` keeps the newest N matching tags.
 - `--older-than 30d` deletes only images built before that age. With both,
   a tag must pass both to go.
-- `--match REGEX` limits it to some tags.
+- `--match REGEX` limits it to tags that match this pattern (a regular
+  expression, such as `^v` for tags starting with v).
 
 `latest`, tags that do not match, and tags with no build date always stay,
 and so does any image that a kept tag points at.

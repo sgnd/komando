@@ -19,7 +19,7 @@ Queries only read unless you add `--write`.
 ## Add a database
 
 A **conn** is a database, cache or storage bucket that komando knows about,
-the way a host is a server it knows about. The kind comes from the start of
+the way a host entry is a server it knows about. The kind comes from the start of
 the URL:
 
 | Kind | URL example |
@@ -201,6 +201,7 @@ komando secret set app-ro-pass                              # the password goes 
 komando db user add app-db app_ro --password-ref secret:app-ro-pass
 komando db grant app-db app_ro --privileges SELECT --on all-tables:public
 komando db grants app-db app_ro                             # what it may do now
+komando db user ls app-db                                   # all users and roles
 komando db user passwd app-db app_ro --password-ref secret:app-ro-pass-2   # rotate
 komando db revoke app-db app_ro --privileges SELECT --on all-tables:public
 komando db user rm app-db app_ro --allow-dangerous
@@ -357,7 +358,7 @@ conn's `--via` path, and every statement gets the same checks as
 statements only with `--allow-dangerous`, and each one is written to the
 audit log. A statement ends with `;` and runs in its own transaction.
 
-```
+```text
 app-db> select id, name
      -> from users limit 2;
  id | name
@@ -388,7 +389,7 @@ returns JSON.
 |-------|------|---------|
 | `DB_AUTH` | 4 | wrong user name or password |
 | `DB_NOT_FOUND` | 3 | the database does not exist |
-| `DB_PRIVILEGE` | 4 | the user may not see this (for example lock waits in `db locks`) |
+| `DB_PRIVILEGE` | 4 or 5 | the conn's user lacks a right (for example to see lock waits in `db locks`, or to manage users) |
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object; the message names it |
 | `TOOL_MISSING` | 3 | `pg_dump`, `mysqldump` or `pg_restore` is not installed where it should run |
 | `TOOL_TOO_OLD` | 5 | `pg_dump` is older than the database server, or `pg_restore` older than the archive |

@@ -1,6 +1,9 @@
 # Changelog
 
-All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
+All notable changes are listed here, newest first. Each version starts with
+its highlights; the sections below them give the details. Versions follow
+[Semantic Versioning](https://semver.org), and the format follows
+[Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
@@ -552,6 +555,22 @@ Fixes from the full security review of 2026-11-04.
 
 ## [0.2.0] - 2026-11-04
 
+### Highlights
+
+- **More than servers.** One list now holds databases (PostgreSQL, MySQL,
+  SQLite), caches (Redis, Valkey), storage (S3, FTPS, SFTP),
+  Kubernetes and Docker Swarm clusters and container registries, each with
+  its own safe command: `db`, `cache`, `storage`, `cluster`, `registry`.
+- **VPNs built in.** WireGuard, OpenVPN, AnyConnect and Tailscale connect by
+  themselves when a target needs them, several at once, with nothing else
+  to install.
+- **Passwords from where you keep them.** komando's own vault, or HashiCorp
+  Vault, AWS and Google secret managers, Bitwarden, KeePass and 1Password.
+- **Secrets stay away from AI agents.** Passwords, keys and tokens show as
+  `[hidden]`, and changes that need a person open a window on their screen.
+- **Know what is running.** `komando status` and `komando prompt` show the
+  VPNs, tunnels and jobs that are still up.
+
 ### Built in: secret managers and AWS logins (no vault, aws or gcloud CLI)
 
 - `vault:` references read HashiCorp Vault or OpenBao themselves (KV v1 and
@@ -888,7 +907,7 @@ Fixes from the full security review of 2026-11-04.
 - Docs are English only: removed `README.id.md` and `docs/features/id/`, and
   translated the design notes in `docs/design/`.
 
-### Cloud access (gap analysis, phase 5)
+### Cloud access
 
 - `host add|edit --proxy-command CMD` reaches a server through a program on
   this computer, like OpenSSH's ProxyCommand (`%h %p %r %n`): AWS SSM, GCP
@@ -902,7 +921,7 @@ Fixes from the full security review of 2026-11-04.
 - Amazon ECR registries get a fresh login from the aws CLI each time
   (logins last 12 hours), with the same `aws_profile` option.
 
-### Day-to-day database care (gap analysis, phase 4)
+### Day-to-day database care
 
 - `db info` (version, uptime, size, connections, primary or replica and
   replay lag), `db activity [--all]`, `db locks` (who waits on whom),
@@ -915,7 +934,7 @@ Fixes from the full security review of 2026-11-04.
   recognises it and uses pg_restore (in one transaction). `--table` and
   `--schema-only` narrow a dump (PostgreSQL and MySQL).
 
-### Bulk transfer (gap analysis, phase 3)
+### Bulk transfer
 
 - `komando sync SRC DST` keeps a folder in step between this computer and
   servers (many at once) or storage, sending only new and changed files.
@@ -931,7 +950,7 @@ Fixes from the full security review of 2026-11-04.
   servers (`--user` for another account); revoking the key komando logs in
   with needs `--allow-dangerous`.
 
-### Cluster deploy cycle (gap analysis, phase 2)
+### Cluster deploy cycle
 
 - `cluster deploy TARGET TYPE/NAME --image IMAGE [--wait]` puts out a new
   image on Kubernetes (deployment, statefulset, daemonset) or Swarm.
@@ -954,7 +973,7 @@ Fixes from the full security review of 2026-11-04.
   check (`--read-only` for looks); `cluster forward` reaches a pod or
   service port on 127.0.0.1.
 
-### Secrets stay out of sight; dry runs show the change (gap analysis, phase 1)
+### Secrets stay out of sight; dry runs show the change
 
 - Vault secrets are hidden in everything komando prints: a remote `.env`,
   a log line or `env` output shows `[secret:NAME]` instead of the value
@@ -969,7 +988,7 @@ Fixes from the full security review of 2026-11-04.
 - `registry rm` lists every tag that goes with the image, in the dry run
   too.
 
-### Promises kept (gap analysis, phase 1)
+### Promises kept
 
 - The audit log fails closed: when it cannot be written, commands that
   could change something are refused (`AUDIT_UNAVAILABLE`); `doctor`
@@ -986,7 +1005,7 @@ Fixes from the full security review of 2026-11-04.
   `db schema`.
 - docs/design/vision.md shows the real status of every family.
 
-### Safer file edits, downloads and tunnels (gap analysis, phase 1)
+### Safer file edits, downloads and tunnels
 
 - `fs write|replace --validate CMD` checks the new file before it goes
   into place (`%s` is its path, e.g. `visudo -cf %s`, `sshd -t -f %s`). If
@@ -998,7 +1017,7 @@ Fixes from the full security review of 2026-11-04.
 - `tunnel start` asks for `--yes` before listening on anything but
   loopback (`OPEN_BIND`), as docs/design/network.md promised.
 
-### Secrets and risk ratings (gap analysis, phase 1)
+### Secrets and risk ratings
 
 - `secret get --reveal` works only for a person at a terminal
   (`REVEAL_NEEDS_HUMAN` for agents and scripts); commands refer to secrets
@@ -1158,13 +1177,13 @@ Fixes from the full security review of 2026-11-04.
   port, like the other VPN kinds: several at once, no sudo, no route
   changes. `--os-mode` keeps the old way (sudo, system routes).
 
-### Password managers (v0.7)
+### Password managers
 
 - `--password-ref` also takes `op://...` (1Password), `vault:PATH#FIELD`
   (HashiCorp Vault), `aws-sm:NAME[#KEY]` (AWS Secrets Manager) and
   `gcp-sm:NAME[@PROJECT]` (Google Secret Manager). komando runs that tool's
   CLI when it needs the value and never stores it.
-### Registry copy (v0.6)
+### Registry copy
 
 - `komando registry copy SRC:IMAGE DST:[IMAGE]` copies an image between
   registries or repositories with every platform, keeping the digest.
@@ -1172,7 +1191,7 @@ Fixes from the full security review of 2026-11-04.
   are mounted, credentials never go to another host (e.g. an upload
   redirect), and only the destination is guarded (`--yes` when protected).
 
-### Database shell (v0.7)
+### Database shell
 
 - `komando db shell CONN` opens psql, mysql or sqlite3 on this computer,
   connected through the conn's `--via` path, with the password in the
@@ -1182,7 +1201,7 @@ Fixes from the full security review of 2026-11-04.
   verifying the certificate's host name through the forward (PGHOSTADDR).
   For people only: without a terminal it refuses with NEEDS_TERMINAL.
 
-### File servers in storage (v0.7)
+### File servers in storage
 
 - `komando storage` also works with FTPS (`ftps://`, TLS on control and data
   connections), SFTP (`sftp://`, for shell-less accounts; host keys checked
@@ -1192,7 +1211,7 @@ Fixes from the full security review of 2026-11-04.
   creating missing folders; keys cannot leave the conn's folder. All of it
   works through `--via` bastions and VPNs.
 
-### Container registries (v0.6)
+### Container registries
 
 - `komando registry ls|inspect|rm` for Docker Hub, GHCR, GitLab, Harbor,
   ECR and registry:2 over the OCI Distribution API (basic and token auth),
@@ -1200,7 +1219,7 @@ Fixes from the full security review of 2026-11-04.
   `--allow-dangerous`. `komando import docker` reads
   `~/.docker/config.json`, including credential helpers.
 
-### Clusters (v0.5)
+### Clusters
 
 - `komando cluster` for Kubernetes (a k8s conn) and Docker Swarm (a manager
   server) with the same verbs: `status`, `ls`, `get` (Secret values hidden),
@@ -1212,7 +1231,7 @@ Fixes from the full security review of 2026-11-04.
   local tunnel. `komando import kubeconfig` adds one conn per context and
   keeps each context's credentials in the vault.
 
-### VPNs (v0.4, first part)
+### VPNs
 
 - `komando vpn add NAME wireguard|socks|system`. A VPN goes first in a
   `--via` path (`--via office,bastion`) for servers, conns and tunnels.
@@ -1222,7 +1241,7 @@ Fixes from the full security review of 2026-11-04.
   (`VPN_DOWN` if not). `list`, `test`, targets (`kind:vpn`), groups and
   `export`/`import` include VPNs; a VPN in use cannot be removed.
 
-### One command per job (v0.3)
+### One command per job
 
 - `--via` for servers too: `host add db1 ... --via bastion` (chains like
   `--via bastion,db1`). `--jump` still works; state files move `jump` to
@@ -1326,7 +1345,7 @@ Old names keep working for one release and print a note.
 - `pkg` and `user` accept `--no-sudo`.
 - Usage lines say `TARGET` everywhere (was `HOST` in `fs`, `shell`, `tunnel`).
 
-## [0.1.0]
+## [0.1.0] - 2026-11-02
 
 First release.
 
@@ -1338,3 +1357,8 @@ First release.
 - Health checks and 39 ready-made recipes; services, logs, Docker, packages, network, users, cron
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
+
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/sgnd/komando/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/sgnd/komando/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/sgnd/komando/releases/tag/v0.1.0

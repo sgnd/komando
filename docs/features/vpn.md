@@ -84,8 +84,8 @@ komando tunnel start office -D 1080                                      # brows
 
 When a command connects a VPN by itself, it says so on one line:
 
-```
-komando: vpn office connected; it stays up until unused for 30m
+```text
+komando: vpn office connected; it stays up until unused for 30m (`komando vpn down office` stops it)
 ```
 
 A VPN session that is unused for 30 minutes is closed (only connections
@@ -112,7 +112,7 @@ stays logged in after that.
 ```bash
 komando list kind:vpn                         # all VPNs
 komando vpn show office                       # its settings and what uses it
-komando vpn edit office --check 10.0.0.6:22   # change --check, --address, --user, --password-ref, --service, --mfa, --notes
+komando vpn edit office --check 10.0.0.6:22   # change a setting (see the list below)
 komando vpn status                            # which are up, since when, what uses them
 komando vpn mv office office-jkt              # rename; every --via path follows
 komando vpn rm office                         # remove (several names allowed)
@@ -124,8 +124,13 @@ komando vpn rm office                         # remove (several names allowed)
 - `vpn rm` refuses a VPN that is still on a `--via` path (`VPN_IN_USE`, also
   with `--dry-run`). Change those `--via` paths first. Its keys stay in the
   vault until `komando secret rm`.
+- `vpn edit` changes `--check`, `--address`, `--user`, `--password-ref`,
+  `--server`, `--psk-ref`, `--id`, `--remote-id`, `--service`, `--mfa`,
+  `--notes`, and groups and tags (`-g`, `-t`, which replace the current
+  ones).
 - To give a WireGuard or OpenVPN VPN a new config file, add it again with
   `--overwrite`.
+- `vpn mv` refuses a VPN that is up: run `komando vpn down NAME` first.
 
 ## OpenVPN details
 

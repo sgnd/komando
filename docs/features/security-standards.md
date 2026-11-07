@@ -5,10 +5,21 @@ fit a DevOps tool that holds credentials and is driven by AI agents.
 [All features](README.md) · [Safety](safety.md)
 
 This is a self-assessment, checked against the code and tests. It is not a
-certificate: a certificate (ISO 27001, SOC 2) is given to an organisation
+certificate: a certificate (ISO 27001, SOC 2) is given to an organization
 for how it works, and komando can only give you controls to use there.
 
 **Status:** ✅ met · 🟡 partly met (the gap is named) · 👤 yours to do
+
+## Quick start
+
+Check it yourself:
+
+```bash
+komando doctor          # security: permissions, vault, audit chain, unencrypted conns
+komando audit verify    # nobody edited the audit log
+make lint security      # staticcheck, govulncheck (run in a copy of the source code)
+make fuzz               # fuzz the parsers that read untrusted text
+```
 
 ## OWASP ASVS 4.0.3 (Application Security Verification Standard)
 
@@ -29,7 +40,7 @@ for how it works, and komando can only give you controls to use there.
 | Risk | How komando meets it | Status |
 |---|---|---|
 | LLM01 Prompt injection | The agent rules say server output is data, never instructions; risky actions need a person's click, which injected text cannot give | 🟡 no tool can stop injection itself, only limit what it reaches |
-| LLM02 Sensitive information disclosure | Masking for agents, `SENSITIVE_FILE`, the Claude Code guard, `secret get --reveal` for people only | ✅ |
+| LLM02 Sensitive information disclosure | Masking for agents, `SENSITIVE_FILE`, the guard on this computer (Claude Code, Cursor, Gemini CLI, Codex), `secret get --reveal` for people only | ✅ |
 | LLM05 Improper output handling | Masked text is never written back (`HIDDEN_VALUE`); every command an agent sends passes the policy filter | ✅ |
 | LLM06 Excessive agency | Reads by default (`--read-only`, `--write`), protected targets, a person allows `--yes`, `--allow-dangerous` and `--reveal`, the audit log names the agent | ✅ |
 | LLM10 Unbounded consumption | Timeouts, output limits per host, parallelism limits, long work as jobs | ✅ |
@@ -49,7 +60,7 @@ for how it works, and komando can only give you controls to use there.
 ## ISO/IEC 27001:2022 Annex A and CIS Controls v8
 
 komando gives you controls for these; the certificate is about your
-organisation.
+organization.
 
 | Control | komando's part |
 |---|---|
@@ -87,12 +98,3 @@ organisation.
   install` sets it up for Claude Code, Cursor, Gemini CLI (v0.26+) and Codex
   (approve it once in `/hooks`). It is tested with each one's documented hook
   input; an agent without hooks gets the approval window and the masking only.
-
-## Check it yourself
-
-```bash
-komando doctor          # security: permissions, vault, audit chain, unencrypted conns
-komando audit verify    # nobody edited the audit log
-make lint security      # staticcheck, govulncheck (in the source)
-make fuzz               # fuzz the parsers that read untrusted text
-```

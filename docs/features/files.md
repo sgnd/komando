@@ -92,14 +92,14 @@ komando fs write web1 /etc/sudoers.d/deploy --from ./deploy.sudoers --sudo --val
 komando fs replace web1 /etc/ssh/sshd_config --old 'PermitRootLogin yes' --new 'PermitRootLogin no' --sudo --validate 'sshd -t -f %s'
 ```
 
-### Options for both
+### Flags for both
 
-| Option | What it does |
-|--------|--------------|
+| Flag | What it does |
+|------|--------------|
 | `-s`, `--sudo` | Write a root-owned file (writes a temporary file, then `sudo install`). |
 | `--backup` | Keep the previous version as `PATH.bak`. A backup is never overwritten: when `PATH.bak` exists, the new one is `PATH.bak.<UTC time>` (e.g. `nginx.conf.bak.20261105T031500Z`). The result's `backup` names the file. With `--sudo` the backup belongs to root, mode 0600. Backups stay next to the file and add up, one per edit: remove old ones with `fs rm`, and keep them out of folders where every file is loaded (`sites-enabled/`, `conf.d/*.conf`). |
 | `--mode 0640` | File mode (default: keep the old mode, or 0644 for a new file). An SFTP server that does not allow setting modes (storage boxes, SFTP-only accounts) is fine when its new files are no more open than asked: the result's `mode` is the one the file got. Otherwise the write fails with `CHMOD_FAILED`. |
-| `--owner user:group` | Owner of the file (needs `--sudo`). |
+| `--owner USER:GROUP` | Owner of the file (needs `--sudo`; the group is optional). |
 | `-p`, `--parents` | Create missing parent folders; without it, a missing folder is `FOLDER_NOT_FOUND`. |
 | `--no-follow` | Refuse to write through a symbolic link. |
 
