@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # WireGuard end to end: wgpeer (test/e2e/wgpeer) is a user-space WireGuard
 # server on this computer with a TCP echo at 10.77.0.1:7 inside the tunnel.
 # komando connects with the .conf it prints, reaches the echo only through

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Databases, caches and storage: value types, text output, dry runs,
 # exit codes. Uses t_e2edata_* tables, t-e2edata:* keys and t-e2edata/
 # objects, and removes them at the end.

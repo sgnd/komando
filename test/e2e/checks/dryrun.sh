@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # --dry-run changes nothing: every command that changes something is run
 # with --dry-run, and the native tool then confirms nothing changed.
 P="${PROJECT:-komando-e2e}"

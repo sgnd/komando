@@ -1,6 +1,8 @@
+# shellcheck shell=bash
 # General CLI behaviour: usage errors, typos, dry-run never blocked.
 # stderr_of CMD...: what CMD wrote on stderr, whatever its exit code (run.sh
 # uses pipefail, so `CMD | grep` would fail when CMD does)
+# shellcheck disable=SC2069 # on purpose: stderr to the pipe, stdout dropped
 stderr_of() { "$@" 2>&1 >/dev/null || true; }
 said() { case "$1" in *"$2"*) echo True ;; *) echo False ;; esac; }
 check "missing args name the usage line" True "$($K fs cat direct | jget '"usage: komando fs cat TARGET PATH" in d["error"]["message"]' || true)"

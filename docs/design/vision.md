@@ -1,6 +1,6 @@
 # komando vision and roadmap
 
-Status: **approved, 2026-11-02; v0.2–v0.7 done** (see [Decisions](#decisions-and-open-questions)). This document replaces the old goal ("an SSH CLI
+Status: **approved, 2026-11-02; milestones M2–M7 done** (shipped in releases up to v0.3.1) (see [Decisions](#decisions-and-open-questions)). This document replaces the old goal ("an SSH CLI
 for AI agents") with a new goal. The design for each feature stays in its own
 document, for example [resources-and-db.md](resources-and-db.md).
 
@@ -33,7 +33,7 @@ friendly, and so on) still apply to everything.
 
 ## Review of the current state
 
-As of `main` after v0.7 and the built-in work ([built-in.md](built-in.md)).
+As of `main` after milestone M7 and the built-in work ([built-in.md](built-in.md)).
 What is still open is listed in [built-in.md](built-in.md#where-it-stands-2026-11-03)
 (programs not yet replaced) and [gap/README.md](gap/README.md) (features
 compared with other tools).
@@ -186,14 +186,18 @@ what will be created, and existing entries are not overwritten except with
 
 ## Roadmap
 
-| Release | Contents | Goals reached |
+The milestones M2 to M7 are steps of work, not release numbers: all of them
+shipped in the releases up to v0.3.1 (see [CHANGELOG.md](../../CHANGELOG.md)).
+Next: v1.0.
+
+| Milestone | Contents | Goals reached |
 |---|---|---|
-| **v0.2** ✅ | `db`, `cache`, `storage` (S3), one inventory (`list`, `test`, selectors for everything), UX rules, new positioning | 1, 3, 4 |
-| **v0.3** ✅ | Overlaps removed (`--via` for everything, `upload`/`download`, `recipe`, `host/conn list/test` aliases, `logs`); `tunnel start TARGET`; `komando import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, dbeaver, komando) and `export`; `logs --follow` | 1, 4 |
-| **v0.4** ✅ | `komando vpn`: WireGuard in-process; SOCKS; OpenVPN/Pritunl and the openconnect family (both later replaced by built-in clients); Tailscale userspace; OS VPN through `--service`; `vpn up/down/status` sessions, automatic disconnect when idle; MFA always done by a person | 1, 3, 4 |
-| **v0.5** ✅ | `cluster` for Kubernetes (direct API, through `--via`/VPN) and Docker Swarm: status, ls, get, logs, apply, restart, scale, rm, `run` | 2, 3 |
-| **v0.6** ✅ | `registry` (ls, inspect, rm, copy) | 3 |
-| **v0.7** ✅ | `storage` for FTP/FTPS/SFTP; external secret refs (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`); `db shell` | 3, 4 |
+| **M2** ✅ | `db`, `cache`, `storage` (S3), one inventory (`list`, `test`, selectors for everything), UX rules, new positioning | 1, 3, 4 |
+| **M3** ✅ | Overlaps removed (`--via` for everything, `upload`/`download`, `recipe`, `host/conn list/test` aliases, `logs`); `tunnel start TARGET`; `komando import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, dbeaver, komando) and `export`; `logs --follow` | 1, 4 |
+| **M4** ✅ | `komando vpn`: WireGuard in-process; SOCKS; OpenVPN/Pritunl and the openconnect family (both later replaced by built-in clients); Tailscale userspace; OS VPN through `--service`; `vpn up/down/status` sessions, automatic disconnect when idle; MFA always done by a person | 1, 3, 4 |
+| **M5** ✅ | `cluster` for Kubernetes (direct API, through `--via`/VPN) and Docker Swarm: status, ls, get, logs, apply, restart, scale, rm, `run` | 2, 3 |
+| **M6** ✅ | `registry` (ls, inspect, rm, copy) | 3 |
+| **M7** ✅ | `storage` for FTP/FTPS/SFTP; external secret refs (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`); `db shell` | 3, 4 |
 | **Built in** ✅ | Features work with the komando binary alone (no Docker, kubectl, psql/pg_dump, openvpn, openconnect, aws/vault/gcloud/op CLIs), fully open source; what is left is in [built-in.md](built-in.md#where-it-stands-2026-11-03) | 1, 4 |
 | **v1.0** | Contract frozen (`schema` version 1), every family passes the checklist, complete documentation in English (the project is English-only; the Indonesian translations were removed) | all |
 

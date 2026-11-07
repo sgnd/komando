@@ -3,3 +3,6 @@
 *.test
 *.out
 .komando/
+.DS_Store
+.idea/
+.vscode/

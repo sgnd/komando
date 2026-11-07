@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # facts, pkg security and pkg on dnf and yum servers (test/e2e/rhel):
 # Rocky Linux 9 (dnf) and Amazon Linux 2 (yum), against the native
 # package manager on the same server. The checks start those containers

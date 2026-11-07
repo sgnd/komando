@@ -7,6 +7,27 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- Release archives include `THIRD_PARTY_LICENSES`: the license texts and
+  NOTICE files of the Go modules and the Go standard library built into
+  komando (`make licenses` writes it alone).
+- `install.sh` installs one version with `KOMANDO_VERSION=vX.Y.Z`.
+- The README has Update, Uninstall and "Something wrong?" sections, and
+  says how to protect the vault key (`komando secret keychain`).
+- The docs say how to get the AI agent seatbelts (secrets hidden in output,
+  a person allows `--yes`) for agents komando does not know by name: set
+  `KOMANDO_AGENT=1` in the agent's environment.
+
+### Changed
+
+- **BREAKING: exit codes.** Scripts and agents that check komando's exit
+  codes must be updated. `NO_AUTH` (a server with no key, identity or password) now
+  exits 4 like `AUTH_FAILED`, not 2. `SECRET_UNRESOLVED` (a password
+  reference that cannot be read) exits 3 everywhere; it was 2 for servers
+  and 1 for conns and registry CAs. The agent guide's error table now says
+  `PARTIAL_FAILURE` exits with the worst code among the failed servers.
+
 ### Fixed
 
 - FTP and FTPS (`storage`, `upload`, `download`, `sync` on an `ftp://` or
@@ -16,6 +37,34 @@ its highlights; the sections below them give the details. Versions follow
   error reply, a TLS error or a timeout, nor a download that already wrote
   bytes, nor an upload from a source that cannot start over (a pipe). A
   `rm` whose repeat finds the file gone counts as done.
+- `install.sh` no longer installs into `~/.local/bin` when
+  `KOMANDO_INSTALL_DIR` is set but cannot be written: it creates the
+  folder, or stops with a message.
+
+### Security
+
+- Downloads by an AI agent (`download`, `sync`, `storage download`, also
+  to stdout) save text files the way `fs cat` shows them, with secret
+  values as `[hidden]`. Before, they gave the agent the real file.
+- `upload` and `sync` refuse a file that still holds `[hidden]` or
+  `[secret:NAME]`, as `fs write` does, so a masked copy never replaces the
+  real values.
+- `fs cat` and `fs replace` now hide Redis passwords (`requirepass`,
+  `masterauth`, ACL rules) as other output does. Before, `fs replace`
+  could confirm a guessed password and `fs cat` returned the file's hash.
+- `exec --read-only` checks the SQL in `psql -c`, `mysql -e` and SQL fed in
+  with `--stdin-file` (the same rules as `db query`), and the commands in
+  `redis-cli`, `valkey-cli` and `keydb-cli` (the same as `cache run`). It
+  also catches `sort -o`, `uniq IN OUT`, `split`, `openssl -out`, `date -s`,
+  `hostname NAME`, `dmesg -C` and `less +CMD`.
+- The danger check now stops `bash --rcfile FILE -c ...`, `ufw --force
+  reset`, `iptables -P INPUT DROP`, `cp`, `mv`, `tee`, `truncate` or `dd`
+  onto `/etc/passwd`, `/etc/shadow` or `/etc/sudoers`, `echo '...' | sh`
+  (the text is checked like `sh -c`) and `base64 -d | sh`.
+- `secret set` checks that `KOMANDO_VAULT_PASS` opens the secrets already
+  stored; a mistyped passphrase no longer saves a secret under a second key.
+  A missing `vault.key` is no longer replaced by a new one while secrets
+  need it: komando asks you to restore it.
 
 ## [0.3.1] - 2026-11-07
 
@@ -61,31 +110,6 @@ its highlights; the sections below them give the details. Versions follow
   `--limit` in komando, so the old examples failed when copied. `import
   --help` no longer shows "(default -)", and `komando --help` and `conn
   --help` now say that clusters and registries are conns too.
-
-### Security
-
-- Downloads by an AI agent (`download`, `sync`, `storage download`, also
-  to stdout) save text files the way `fs cat` shows them, with secret
-  values as `[hidden]`. Before, they gave the agent the real file.
-- `upload` and `sync` refuse a file that still holds `[hidden]` or
-  `[secret:NAME]`, as `fs write` does, so a masked copy never replaces the
-  real values.
-- `fs cat` and `fs replace` now hide Redis passwords (`requirepass`,
-  `masterauth`, ACL rules) as other output does. Before, `fs replace`
-  could confirm a guessed password and `fs cat` returned the file's hash.
-- `exec --read-only` checks the SQL in `psql -c`, `mysql -e` and SQL fed in
-  with `--stdin-file` (the same rules as `db query`), and the commands in
-  `redis-cli`, `valkey-cli` and `keydb-cli` (the same as `cache run`). It
-  also catches `sort -o`, `uniq IN OUT`, `split`, `openssl -out`, `date -s`,
-  `hostname NAME`, `dmesg -C` and `less +CMD`.
-- The danger check now stops `bash --rcfile FILE -c ...`, `ufw --force
-  reset`, `iptables -P INPUT DROP`, `cp`, `mv`, `tee`, `truncate` or `dd`
-  onto `/etc/passwd`, `/etc/shadow` or `/etc/sudoers`, `echo '...' | sh`
-  (the text is checked like `sh -c`) and `base64 -d | sh`.
-- `secret set` checks that `KOMANDO_VAULT_PASS` opens the secrets already
-  stored; a mistyped passphrase no longer saves a secret under a second key.
-  A missing `vault.key` is no longer replaced by a new one while secrets
-  need it: komando asks you to restore it.
 
 ## [0.3.0] - 2026-11-07
 

@@ -59,8 +59,8 @@ as data.
 | 0 | success | |
 | 1 | general error | `AUDIT_UNAVAILABLE` |
 | 2 | wrong command, flag or value | `USAGE`, `HIDDEN_VALUE`, `NEEDS_TERMINAL` |
-| 3 | not found | `TARGET_NOT_FOUND`, `FILE_NOT_FOUND`, `TOOL_MISSING` |
-| 4 | cannot connect or log in, or the connection broke | `AUTH_FAILED`, `HOSTKEY_MISMATCH`, `VPN_LOGIN_REQUIRED`, `CONNECTION_LOST` |
+| 3 | not found | `TARGET_NOT_FOUND`, `FILE_NOT_FOUND`, `TOOL_MISSING`, `SECRET_NOT_FOUND`, `SECRET_UNRESOLVED` |
+| 4 | cannot connect or log in, or the connection broke | `AUTH_FAILED`, `NO_AUTH`, `HOSTKEY_MISMATCH`, `VPN_LOGIN_REQUIRED`, `CONNECTION_LOST` |
 | 5 | the command failed on the server | `FAILED`, `ROLLOUT_FAILED` |
 | 6 | blocked for safety | `POLICY_BLOCKED`, `PROTECTED_HOST`, `WRITE_REQUIRES_FLAG` |
 | 7 | timed out | `TIMEOUT`, `ROLLOUT_TIMEOUT` |
@@ -74,6 +74,7 @@ machine-readable reference is `komando schema`.
 | Error | Usually means | Try |
 |-------|---------------|-----|
 | `AUTH_FAILED` | wrong user, key or password | `komando host show NAME`, `komando key deploy` |
+| `NO_AUTH` | the server has no key, identity or password, and ssh-agent has no key | `komando host edit NAME --key KEY` (or `--identity PATH`, `--password-ref secret:NAME`), or start ssh-agent |
 | `KEY_PASSPHRASE_REQUIRED` | the SSH key is encrypted | `komando key edit NAME --passphrase-ref secret:NAME` |
 | `CONNECTION_REFUSED`, `CONNECT_TIMEOUT` | server down, wrong port, firewall | check the address and port; `--connect-timeout 30s` |
 | `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting | confirm with your provider first, then `komando host trust NAME --reset --yes`, or `@group` for many at once (a person decides; an agent reports it) |
