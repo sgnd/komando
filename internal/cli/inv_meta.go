@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"runtime"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -182,7 +183,7 @@ func policyCmd() *cobra.Command {
 				return err
 			}
 			var rules []map[string]string
-			for _, r := range policy.Rules() {
+			for _, r := range shellRulesByID() {
 				rules = append(rules, map[string]string{"id": r.ID, "reason": r.Reason, "pattern": policy.Pattern(r)})
 			}
 			var custom []map[string]string
@@ -194,7 +195,7 @@ func policyCmd() *cobra.Command {
 				}
 				custom = append(custom, r)
 			}
-			out.P.Print("policy.list", policyList{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "custom_rules": custom, "sql": driver.SQLRules(), "redis": cachex.Rules(), "memcached": cachex.MemcacheRules(), "data": driver.DataRules(),
+			out.P.Print("policy.list", policyList{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "custom_rules": custom, "sql": rulesByID(driver.SQLRules()), "redis": rulesByID(cachex.Rules()), "memcached": rulesByID(cachex.MemcacheRules()), "data": rulesByID(driver.DataRules()),
 				"note": "guardrails catch common accidents; they are not a security boundary. Protected hosts and conns additionally need --yes for any mutating action. " +
 					"SQL without --write also runs in a read-only transaction, so the database itself refuses writes."}, nil)
 			return nil
@@ -582,6 +583,19 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 // policyList is `policy list`: every rule as data; for people a table of
 // what each rule stops (the patterns are in -o json).
 type policyList map[string]any
+
+// rulesByID and shellRulesByID sort rules by ID, so policy list reads like
+// the other lists.
+func rulesByID(rs []driver.Rule) []driver.Rule {
+	sort.SliceStable(rs, func(i, j int) bool { return rs[i].ID < rs[j].ID })
+	return rs
+}
+
+func shellRulesByID() []policy.Rule {
+	rs := policy.Rules()
+	sort.SliceStable(rs, func(i, j int) bool { return rs[i].ID < rs[j].ID })
+	return rs
+}
 
 func (p policyList) Text() string {
 	var rows [][]string

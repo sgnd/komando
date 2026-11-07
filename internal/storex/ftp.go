@@ -9,6 +9,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -222,37 +223,40 @@ func (b *ftpBucket) List(_ context.Context, prefix string, recursive bool, limit
 		objs = append(objs, o)
 		return true
 	}
-	if recursive {
-		w := b.c.Walk(root)
-		for w.Next() {
-			if w.Path() == root {
+	// walk lists dir sorted by name (a server sends it in any order) and,
+	// with recursive, each folder in it right after the folder itself.
+	// more is true when limit cut the listing short.
+	var walk func(dir string) (more bool, err error)
+	walk = func(dir string) (bool, error) {
+		entries, err := b.c.List(dir)
+		if err != nil {
+			return false, err
+		}
+		sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
+		for _, e := range entries {
+			if e.Name == "." || e.Name == ".." {
 				continue
 			}
-			if !add(w.Path(), w.Stat()) {
-				return objs, true, nil
+			p := path.Join(dir, e.Name)
+			if !add(p, e) {
+				return true, nil
+			}
+			if recursive && e.Type == ftp.EntryTypeFolder {
+				if more, err := walk(p); more || err != nil {
+					return more, err
+				}
 			}
 		}
-		if isMissingDir(w.Err()) {
-			return nil, false, FolderNotFound(prefix)
-		}
-		return objs, false, ftpErr(w.Err(), driver.Target{})
+		return false, nil
 	}
-	entries, err := b.c.List(root)
+	more, err := walk(root)
 	if isMissingDir(err) {
 		return nil, false, FolderNotFound(prefix)
 	}
 	if err != nil {
 		return nil, false, ftpErr(err, driver.Target{})
 	}
-	for _, e := range entries {
-		if e.Name == "." || e.Name == ".." {
-			continue
-		}
-		if !add(path.Join(root, e.Name), e) {
-			return objs, true, nil
-		}
-	}
-	return objs, false, nil
+	return objs, more, nil
 }
 
 func (b *ftpBucket) Get(_ context.Context, key string, w io.Writer) (int64, error) {

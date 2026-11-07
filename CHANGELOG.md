@@ -22,6 +22,17 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Lists are sorted by name, as one list. `list` (and `host`, `conn` and
+  `vpn list`) and `test` put servers, conns and VPNs in one A-Z order
+  instead of all servers first; the KIND column tells them apart.
+  `recipe list` puts your saved recipes among the built-in ones (the
+  category still says `saved`), `group list` shows groups and tags
+  together, and `policy list` sorts the rules of each kind by ID. Lists a
+  server sends in its own order are sorted too: `fs ls`, `storage ls` on
+  SFTP and FTP, `user list`, `svc list`, `docker ps`, `docker stats`,
+  `docker images` (docker puts the newest first) and `registry ls`. Lists
+  without names keep their order: `job list` and `tunnel list` by start
+  time, `cron list` as in the crontab.
 - `doctor` warns about conns worth a look: an unprotected conn that shares
   its password secret with a protected server or conn, two conns with the
   same kind, URL and `--via`, and an unprotected conn with the label

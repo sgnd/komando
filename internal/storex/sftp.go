@@ -8,9 +8,11 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
+	krfs "github.com/kr/fs"
 	"github.com/pkg/sftp"
 
 	"github.com/sgnd/komando/internal/out"
@@ -36,6 +38,26 @@ func (b *sftpBucket) Close() error {
 	}
 	return nil
 }
+
+// An SFTP server sends a folder in whatever order its disk keeps it.
+// SortedReadDir and SortedWalk sort each folder by name, so a listing reads
+// like ls and the same folder lists the same way every time.
+
+// SortedReadDir is c.ReadDir sorted by name.
+func SortedReadDir(c *sftp.Client, dir string) ([]os.FileInfo, error) {
+	fis, err := c.ReadDir(dir)
+	sort.Slice(fis, func(i, j int) bool { return fis[i].Name() < fis[j].Name() })
+	return fis, err
+}
+
+// SortedWalk is c.Walk with each folder sorted by name.
+func SortedWalk(c *sftp.Client, root string) *krfs.Walker {
+	return krfs.WalkFS(root, sortedDirs{c})
+}
+
+type sortedDirs struct{ *sftp.Client }
+
+func (s sortedDirs) ReadDir(dir string) ([]os.FileInfo, error) { return SortedReadDir(s.Client, dir) }
 
 func (b *sftpBucket) path(rel string) (string, error) {
 	k, err := keyIn(b.prefix, rel)
@@ -63,7 +85,7 @@ func (b *sftpBucket) List(_ context.Context, prefix string, recursive bool, limi
 		return true
 	}
 	if recursive {
-		w := b.c.Walk(root)
+		w := SortedWalk(b.c, root)
 		for w.Step() {
 			if err := w.Err(); err != nil {
 				if errors.Is(err, os.ErrNotExist) && w.Path() == root {
@@ -80,7 +102,7 @@ func (b *sftpBucket) List(_ context.Context, prefix string, recursive bool, limi
 		}
 		return objs, false, nil
 	}
-	entries, err := b.c.ReadDir(root)
+	entries, err := SortedReadDir(b.c, root)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, false, FolderNotFound(prefix)
 	}
