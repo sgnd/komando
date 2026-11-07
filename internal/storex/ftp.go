@@ -26,12 +26,25 @@ type ftpBucket struct {
 
 // OpenFTP logs in to an ftp:// or ftps:// conn. dial is nil for a direct
 // connection; through --via, the control and data connections both use it.
+// When the server drops a connection in the middle of an operation, the
+// returned Bucket logs in again once and repeats it (see ftpReconnect).
 func OpenFTP(ctx context.Context, t driver.Target, password string, dial DialFunc, timeout time.Duration) (Bucket, error) {
-	host, _, _ := net.SplitHostPort(t.Address)
 	if dial == nil {
 		d := &net.Dialer{Timeout: timeout}
 		dial = d.DialContext
 	}
+	login := func() (*ftp.ServerConn, error) { return loginFTP(ctx, t, password, dial, timeout) }
+	c, err := login()
+	if err != nil {
+		return nil, err
+	}
+	return &ftpReconnect{ftpBucket: &ftpBucket{c: c, prefix: t.Prefix}, login: login}, nil
+}
+
+// loginFTP opens one FTP session: the control connection, TLS, and the login.
+// Each session gets its own TLS session cache.
+func loginFTP(ctx context.Context, t driver.Target, password string, dial DialFunc, timeout time.Duration) (*ftp.ServerConn, error) {
+	host, _, _ := net.SplitHostPort(t.Address)
 	var tlsCfg *tls.Config
 	if t.Secure {
 		tlsCfg = &tls.Config{
@@ -79,7 +92,98 @@ func OpenFTP(ctx context.Context, t driver.Target, password string, dial DialFun
 		c.Quit()
 		return nil, ftpErr(err, t)
 	}
-	return &ftpBucket{c: c, prefix: t.Prefix}, nil
+	return c, nil
+}
+
+// ftpReconnect repeats an operation once in a new session when the server
+// dropped the connection (STORAGE_CONNECT: EOF, reset, broken pipe), never
+// after an FTP error reply, a TLS or a timeout error. Only what is safe to
+// repeat is repeated: a download that already wrote bytes, or an upload whose
+// source cannot go back to its start, keeps the first error.
+type ftpReconnect struct {
+	*ftpBucket
+	login func() (*ftp.ServerConn, error)
+}
+
+// again reports whether err is a dropped connection and a new session is open.
+func (r *ftpReconnect) again(err error) bool {
+	var oe *out.Error
+	if !errors.As(err, &oe) || oe.Code != "STORAGE_CONNECT" {
+		return false
+	}
+	c, lerr := r.login()
+	if lerr != nil {
+		return false
+	}
+	_ = r.c.Quit() // the old session is broken; this only frees it
+	r.c = c
+	return true
+}
+
+func (r *ftpReconnect) List(ctx context.Context, prefix string, recursive bool, limit int) ([]Object, bool, error) {
+	objs, more, err := r.ftpBucket.List(ctx, prefix, recursive, limit)
+	if err != nil && r.again(err) {
+		return r.ftpBucket.List(ctx, prefix, recursive, limit)
+	}
+	return objs, more, err
+}
+
+func (r *ftpReconnect) Get(ctx context.Context, key string, w io.Writer) (int64, error) {
+	n, err := r.ftpBucket.Get(ctx, key, w)
+	if err != nil && n == 0 && r.again(err) {
+		return r.ftpBucket.Get(ctx, key, w)
+	}
+	return n, err
+}
+
+func (r *ftpReconnect) Exists(ctx context.Context, key string) (bool, error) {
+	ok, err := r.ftpBucket.Exists(ctx, key)
+	if err != nil && r.again(err) {
+		return r.ftpBucket.Exists(ctx, key)
+	}
+	return ok, err
+}
+
+func (r *ftpReconnect) Stat(ctx context.Context, key string) (Object, error) {
+	o, err := r.ftpBucket.Stat(ctx, key)
+	if err != nil && r.again(err) {
+		return r.ftpBucket.Stat(ctx, key)
+	}
+	return o, err
+}
+
+func (r *ftpReconnect) Put(ctx context.Context, key string, src io.Reader, size int64, contentType string) error {
+	err := r.ftpBucket.Put(ctx, key, src, size, contentType)
+	if err == nil {
+		return nil
+	}
+	s, ok := src.(io.Seeker)
+	if !ok {
+		return err
+	}
+	var oe *out.Error
+	if !errors.As(err, &oe) || oe.Code != "STORAGE_CONNECT" {
+		return err
+	}
+	if _, serr := s.Seek(0, io.SeekStart); serr != nil {
+		return err
+	}
+	if !r.again(err) {
+		return err
+	}
+	return r.ftpBucket.Put(ctx, key, src, size, contentType)
+}
+
+func (r *ftpReconnect) Remove(ctx context.Context, key string) error {
+	err := r.ftpBucket.Remove(ctx, key)
+	if err != nil && r.again(err) {
+		err = r.ftpBucket.Remove(ctx, key)
+		var oe *out.Error
+		if errors.As(err, &oe) && oe.Code == "OBJECT_NOT_FOUND" {
+			return nil // the first try removed it before the connection dropped
+		}
+	}
+	return err
 }
 
 // fixedAddr hides the remote address of a connection made through a hop,
