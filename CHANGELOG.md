@@ -4,6 +4,23 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-07
+
+### Highlights
+
+- **New license.** komando is now under the AGPL-3.0, with a commercial
+  license for closed-source use. It stays free to use for any purpose.
+- **More VPNs built in.** L2TP/IPsec, Cisco-style IPsec (XAUTH) and IKEv2
+  work without strongSwan, OS VPN settings or admin rights.
+- **Patch rounds.** `pkg security` installs only security updates, one
+  server at a time, and checks each server before and after. `cert check`
+  shows when certificates expire, `docker prune` previews what it would
+  delete, and `reboot` restarts servers one at a time and waits for them.
+- **Safer for AI agents.** A full security review brought fixes for SQL,
+  database restores, Redis passwords, clusters and `--read-only`.
+- **Easier inventory.** Rename servers, conns, VPNs and secrets (`mv`),
+  import servers from a spreadsheet (`import csv`) and edit many at once.
+
 ### Changed
 
 - **License: komando is now under the GNU Affero General Public License
@@ -33,6 +50,60 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   long it ran. When an L2TP server ends the session, it also says how long
   the link had no traffic (a server idle timeout?), and the log shows the
   server's own reason (StopCCN/CDN result, LCP Terminate text).
+
+- Servers behind the same jump hosts share one connection to them within a
+  command: `exec -P 10` through a bastion logs in to it once (OpenSSH's
+  ControlMaster), staying under its `MaxStartups`. A broken shared path is
+  opened again once.
+
+- A protected server stays protected under another name: before any
+  change, komando also compares the IP addresses names resolve to on this
+  computer, so `db.internal` is the protected `10.0.0.5` (hosts and conns,
+  same port). Names only a jump host knows are compared as text.
+
+- A person is asked about a safety change (for example a recipe replaced by
+  a read-only one) before komando locks its state file, so other komando
+  commands do not wait for the answer.
+
+- `cache run` text output shows map entries as `name: value` (was `name =>
+  value`). For agents, a RESP2 `HGETALL` reply is shown as a map, so
+  secret-named fields are hidden as over RESP3.
+
+- When a script command times out, the hint no longer says to raise
+  `--timeout`; it says the script may still be running and names `SCRIPT
+  KILL` or `FUNCTION KILL`.
+
+- Approval window: line breaks, tabs, control characters, long runs of
+  spaces, blank-drawing letters (U+3164 ...) and combining marks show as
+  $'...' escapes, so multi-line `fs replace` edits on protected hosts can be
+  approved; bidi and zero-width characters are still refused.
+
+- Error and hint lines show colour/conceal escapes and carriage returns as
+  \e and \r.
+
+- A saved read-only recipe that no longer passes the read-only check runs as
+  a change (protected servers ask for --yes) instead of being blocked.
+
+- `--backup` copies add up next to the file; clean them up with `fs rm`.
+
+- An SSH connection that stops answering (for example a VPN that dropped
+  silently) is closed after about a minute without an answer, so commands
+  report the loss instead of waiting until `--timeout`.
+
+- `host edit --rename` and `conn edit --rename` are deprecated in favour of
+  `host mv` / `conn mv`.
+
+- The approval window for protected changes says which protected entries the
+  command touches.
+
+- Imports refuse a server whose `key` is not in komando's keychain.
+
+- The hidden `secret set` prompt drops text typed or pasted before it
+  appeared, and says so; it strips bracketed-paste marks.
+
+- `komando facts` reports values it cannot read as `null` instead of
+  `0`/`false`: `reboot_required` is `null` where it cannot be checked, and
+  an unsupported OS shows `updates.security: null` with a warning.
 
 ### Added
 
@@ -66,9 +137,11 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   `--psk-ref`, `--id`, `--remote-id`, `--ca`. Tested against strongSwan 5.9
   and xl2tpd, rekeys included (`make e2e-ipsec`). Before, these kinds were
   only a name for `system`.
+
 - `komando vpn status` shows why a VPN's last session ended (`last_end`),
   and for `l2tp`, `ipsec` and `ikev2` the last lines of its log
   (`last_log`), so an agent can tell why without reading `~/.komando`.
+
 - `db dump --on HOST` runs pg_dump or mysqldump on a server you choose,
   whatever the conn's own path (for example a conn through a VPN), so
   `--format custom` works there too. It runs at low priority (nice, ionice),
@@ -76,70 +149,84 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   over SSH; `runs_on` and `low_priority` in the answer and the audit say
   where and how. `db restore --on HOST` loads a PostgreSQL archive with
   pg_restore there, behind the same `--allow-dangerous` gate.
+
 - New errors with hints: `TOOL_TOO_OLD` (pg_dump older than the database
   server, or pg_restore older than the archive) and `CONN_UNREACHABLE` (the
   tool cannot reach the database from that server, with how to add a
   127.0.0.1 conn through it).
 
-### Fixed
-
-- `komando vpn up` printed the session's local SOCKS password; it now shows
-  `[hidden]`.
-
 - `komando reboot TARGET`: reboots servers one at a time, waits for each to
   answer again and checks it really started anew (boot id). A server that
   does not come back stops the rest. Destructive: needs `--allow-dangerous`.
+
 - `komando registry prune CONN REPO --keep N [--older-than 30d] [--match RE]`:
   deletes old images, never one a kept tag points at (`latest` always
   stays). `registry inspect` now gives a multi-platform image's build date.
+
 - `komando import aws`: one S3 storage conn per bucket of each profile in
   `~/.aws/config` (and the credentials file). The conns use the profile, so
   no key is copied and SSO or roles keep working.
+
 - memcached conns (`memcached://`, `memcacheds://` for TLS, the text
   protocol's login): `cache get`, `set`, `rm`, `keys`, `info` and `run` work
   like they do for Redis, with the same safety rules (`flush_all` needs
   `--allow-dangerous`). komando speaks the protocol itself.
+
 - `komando db user ls|add|passwd|rm`, `db grant`, `db revoke` and `db grants`
   for PostgreSQL and MySQL/MariaDB. Passwords come from a secret reference
   and are never shown or audited; PostgreSQL gets a SCRAM-SHA-256 verifier
   computed by komando, so the password never reaches the server.
+
 - `komando config set audit_syslog tls://HOST:6514` (or `udp://`, `tcp://`):
   each audit record also goes to a log server or SIEM, as RFC 5424 syslog.
   Changing it needs `--yes`.
+
 - `komando secret keychain`: the vault key moves from `vault.key` into the
   OS keychain (macOS keychain, Linux Secret Service), so a backup of
   `~/.komando` no longer opens the vault. `--off --yes` moves it back.
   `doctor` names it.
+
 - `komando config approval-code`: komando's "Allow once" window then also
   asks for the 6-digit code from your authenticator app (TOTP), a second
   factor for an AI agent's `--yes`, `--allow-dangerous` and `--reveal`. Only a
   person at a terminal can turn it on; turning it off needs that code too.
+
 - The guard that keeps AI agents away from secret files on this computer now
   also works for Cursor, Gemini CLI and Codex: `komando guide install` adds
   it to `.cursor/hooks.json`, `.gemini/settings.json` and `.codex/hooks.json`
   when those folders exist (Codex asks you to approve it once in `/hooks`).
+
 - `komando svc daemon-reload TARGET`: reloads unit files after you write
   one, and names units that still need a reload.
+
 - `komando job wait` takes several job IDs and waits for all of them, with
   one result per job and a summary; the exit code is the worst one.
+
 - `komando job start --sudo` works on servers whose sudo needs a password
   (`--sudo-ref`). The password is sent as input, never on a command line,
   and the job deletes it as soon as it starts.
+
 - `komando host mv OLD NEW`, `conn mv` and `vpn mv` rename an entry and
   update every reference to it (`--via` paths, jobs, tunnels) in one step;
   renaming a protected entry needs `--yes`.
+
 - `komando host edit` takes several names and targets (`host edit @ubuntu
   --sudo-ref secret:ubuntu-sudo`); one `--yes` and one approval window,
   which lists every server and which are protected, cover the whole command.
+
 - `komando import csv FILE` adds servers from a spreadsheet; every row is
   checked before anything is written.
+
 - `komando secret mv OLD NEW` renames a secret and every server, conn, key
   and VPN reference to it, without showing the value. `secret cp OLD NEW`
   copies one inside the vault.
+
 - `komando secret check NAME`: a person compares a value with the stored one
   without seeing either; refused for AI agents (`NEEDS_PERSON`).
+
 - `secret set` and `secret get` warn when a value starts or ends with a
   space or tab, ends with a line break, or holds control characters.
+
 - `komando facts` reports whether the OS still gets security updates
   (`os_support`: supported, extended through Ubuntu Pro ESM or Debian LTS,
   unsupported, unknown), pending and security updates with the package index
@@ -147,67 +234,29 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   sudo, Docker version, Swarm role and running containers, PM2 daemons and
   apps, listening ports with their programs, hand-made systemd units, and
   `warnings`. It also has a short text view.
+
 - `komando pkg security TARGET` lists pending security updates with each
   server's state (running containers, failed units, pending updates, reboot
   required, services needing a restart). `--apply` installs only security
   updates, one server at a time, compares each server before and after and
   stops the round on an unexpected change (`UNEXPECTED_CHANGE`;
   `--keep-going` to continue). It never reboots.
+
 - `komando cert check TARGET...` shows when TLS certificates expire: on
   servers (certbot, nginx, haproxy, apache, `--path`; only the certificate
   part of a file is read) and for websites and TLS conns (directly or
   through `--via`, with a trust check), plus certbot renewal state. `--warn`
   (default 30d) flags certificates expiring soon; problems exit 1 with
   `CERT_PROBLEMS`.
+
 - `komando docker prune TARGET` with `--older-than`, `--all` and
   `--volumes`. `--dry-run` lists the stopped containers, images, volumes and
   build cache that would be removed, with sizes and a total. The real run
   needs `--allow-dangerous`.
+
 - komando's own restore of plain SQL skips pg_dump 17's `SET
   transaction_timeout` on PostgreSQL servers older than 17, so such backups
   restore there.
-
-### Changed
-
-- Servers behind the same jump hosts share one connection to them within a
-  command: `exec -P 10` through a bastion logs in to it once (OpenSSH's
-  ControlMaster), staying under its `MaxStartups`. A broken shared path is
-  opened again once.
-- A protected server stays protected under another name: before any
-  change, komando also compares the IP addresses names resolve to on this
-  computer, so `db.internal` is the protected `10.0.0.5` (hosts and conns,
-  same port). Names only a jump host knows are compared as text.
-- A person is asked about a safety change (for example a recipe replaced by
-  a read-only one) before komando locks its state file, so other komando
-  commands do not wait for the answer.
-- `cache run` text output shows map entries as `name: value` (was `name =>
-  value`). For agents, a RESP2 `HGETALL` reply is shown as a map, so
-  secret-named fields are hidden as over RESP3.
-- When a script command times out, the hint no longer says to raise
-  `--timeout`; it says the script may still be running and names `SCRIPT
-  KILL` or `FUNCTION KILL`.
-- Approval window: line breaks, tabs, control characters, long runs of
-  spaces, blank-drawing letters (U+3164 ...) and combining marks show as
-  $'...' escapes, so multi-line `fs replace` edits on protected hosts can be
-  approved; bidi and zero-width characters are still refused.
-- Error and hint lines show colour/conceal escapes and carriage returns as
-  \e and \r.
-- A saved read-only recipe that no longer passes the read-only check runs as
-  a change (protected servers ask for --yes) instead of being blocked.
-- `--backup` copies add up next to the file; clean them up with `fs rm`.
-- An SSH connection that stops answering (for example a VPN that dropped
-  silently) is closed after about a minute without an answer, so commands
-  report the loss instead of waiting until `--timeout`.
-- `host edit --rename` and `conn edit --rename` are deprecated in favour of
-  `host mv` / `conn mv`.
-- The approval window for protected changes says which protected entries the
-  command touches.
-- Imports refuse a server whose `key` is not in komando's keychain.
-- The hidden `secret set` prompt drops text typed or pasted before it
-  appeared, and says so; it strips bracketed-paste marks.
-- `komando facts` reports values it cannot read as `null` instead of
-  `0`/`false`: `reboot_required` is `null` where it cannot be checked, and
-  an unsupported OS shows `updates.security: null` with a warning.
 
 ### Security
 
@@ -220,70 +269,91 @@ Fixes from the full security review of 2026-11-04.
   character_set_client changes (SQL_STRING_RULES), and refuses a connection
   whose client character set can hide a backslash (SJIS, GBK, BIG5, GB18030,
   UHC, JOHAB, cp932).
+
 - MySQL `--` before 0x7f is read as a comment the way the server reads it;
   `--` before a non-ASCII byte is refused (SQL_HIDDEN_CODE).
+
 - In MySQL only known transactional statements (SELECT, INSERT, UPDATE,
   DELETE, REPLACE, WITH, VALUES, TABLE, SHOW, DESCRIBE, EXPLAIN, HELP, USE,
   DO, HANDLER, SET) run inside komando's transaction; everything else,
   including CHECK TABLE, CACHE INDEX, replication START/STOP/CHANGE, IMPORT
   TABLE, CLONE, BACKUP STAGE and XA, must be sent alone, needs --write, and
   a dry run reports it without running it.
+
 - A dry run no longer executes statements a rollback does not undo (ending
   sessions, COPY ... PROGRAM, server files, dblink, server config,
   set_config with a computed name, DO, CALL, EXECUTE, setval); they are
   reported as skipped.
+
 - `db query --write --dry-run` runs nothing when the real run would be
   blocked (destructive SQL without --allow-dangerous, or a protected conn
   without --yes); it shows the plan and meta.would_be_blocked.
+
 - Postgres COMMIT AND CHAIN hidden from the classifier is now caught
   (SQL_TX_CONTROL) before the next statement runs.
+
 - `db dump --table` refuses values that start with `-`; mysqldump read them
   as options on the --via server (e.g. --result-file could overwrite files).
+
 - `db restore` names SQL that runs programs, touches server files, changes
   server config or privileges, or cannot be inspected (sql-program,
   sql-server-file, sql-server-config, sql-privileges, sql-opaque,
   sql-remote, sql-kill) next to db-restore in the approval and
   POLICY_BLOCKED, with the line where each first appears.
+
 - `cache run` now needs `--write --allow-dangerous` for read-only scripts
   (`EVAL_RO`, `EVALSHA_RO`, `FCALL_RO`) and for module code (`TFCALL`,
   `TFCALLASYNC`, `RG.PYEXECUTE`, `RG.TRIGGER`, `RG.TRIGGERONKEY`), because
   each can block the server or run code komando cannot inspect.
+
 - `FUNCTION LOAD REPLACE`, `TFUNCTION LOAD REPLACE`, `TFUNCTION DELETE` and
   `RG.UNREGISTER` count as `redis-scripts` (destructive).
+
 - AI agents no longer see Redis passwords: `CONFIG GET` and `SENTINEL CONFIG
   GET` values of requirepass, masterauth, primaryauth, tls-*-pass and
   sentinel-pass, and the password hashes in `ACL LIST` and `ACL GETUSER`,
   show as `[hidden]`, also when the password is a word like `yes`.
+
 - Output masking now also hides Redis passwords written the Redis way
   (`requirepass pw`, `sentinel auth-pass mymaster pw`, ACL `>pw` and
   `#hash`), as seen through `fs read` of redis.conf or users.acl, grep, or
   redis-cli `CONFIG GET` over `exec`.
+
 - Cluster run: an AI agent's `get secret -o yaml|json` is a read, since the
   values show as hidden; it no longer asks the person for --allow-dangerous.
+
 - Cluster run / cluster apply: a file that still holds a value komando hid
   ([hidden], (hidden)) is refused with HIDDEN_VALUE before anything is sent,
   so a get-edit-apply round trip cannot overwrite a password with the
   marker.
+
 - Cluster run: an AI agent cannot send komando's own folder, or files that
   are secrets by name (unless --reveal), to the cluster through -f,
   --from-file or cp (SENSITIVE_FILE).
+
 - Cluster run: an empty object name (delete pod/, delete pod "",
   metadata.name: "") is refused instead of deleting the whole collection.
+
 - Cluster run cp: never writes into a .git folder; copied files keep their
   exec bit like kubectl cp, never setuid, setgid or world-write.
+
 - Swarm: --mount read as CSV, host-folder volumes (volume-opt device, volume
   create --opt device=), --volumes-from, --network/--net host, --cgroupns
   host, --pid container:, --device-cgroup-rule, credential folders even
   read-only (/root, /home/USER, .ssh, /etc/kubernetes, /var/lib/kubelet,
   shadow, etcd, rancher), /opt and /var/spool, and plugin create|enable|set
   now need --allow-dangerous.
+
 - Kubeconfig login programs: a kubeconfig a person imported (or allowed) is
   trusted for its program and server, so agents no longer get a window on
   every read; a change in the vault asks again.
+
 - Approval window: names the program a kubeconfig login runs, and a yes
   given for something else does not cover it.
+
 - Cluster exec/shell/forward --dry-run report the login-program stop the
   real run would meet.
+
 - komando counts an AI agent's variable as present even when it is empty,
   and the agent guard now also stops env flag clusters, GNU long-option
   prefixes and env -S, exec -c, read/printf -v/mapfile/for loops that set
@@ -291,26 +361,33 @@ Fixes from the full security review of 2026-11-04.
   keyword, more wrappers (timeout, setsid, stdbuf, chrt, busybox, ...),
   `sudo komando` without -E, `bash -lc`/`sh -ec` scripts and quoted heredocs
   fed to a shell.
+
 - An AI agent's local reads, file: references and the guard catch
   ~/.KOMANDO-style case variants on macOS and Windows, hard links to
   komando's data or private keys, and any /proc/.../environ path (refused
   even with --reveal).
+
 - `komando sync` of a folder checks each file for an AI agent, as `cp -r`
   does; komando's own data is never uploaded, even with --reveal.
+
 - The agent guard stops recursive reads and archives of a folder that holds
   komando's data (grep -r ~, rg, tar -C ~, zip -r, cp -r, find -exec, the
   Grep tool in the home folder), follows tar/git -C, sees through $(echo
   ...) substitutions and expands ~user.
+
 - `--read-only` now reads shell scripts the way bash does: options after
   `-c` (`bash -c -- '...'`), arguments a script gets (`sh -c '...' "$0"`),
   comments, here-documents, `case` inside `$( )` and brace expansion
   (`{rm,-rf,/x}`). A command it cannot read (an unclosed quote) is refused.
+
 - Under `--read-only`, an argument that is only known when the command runs
   (`find /data $X`, `xargs find`) is refused for commands whose arguments
   decide what they do. `-e` values are filled in first.
+
 - Under `--read-only`, setting a variable that runs code (BASH_ENV, PS4,
   PROMPT_COMMAND, LD_PRELOAD, PAGER, GIT_SSH_COMMAND, BASH_FUNC_*) is
   refused, whether inline, through env or sudo, through export, or with -e.
+
 - `--read-only` now catches more commands that write or run commands: git
   -c, sed e/w, gawk --source and @f(), tar --checkpoint-action and extract,
   psql \! and \o, mysql system and tee, vim, script, sg, hash -p,
@@ -319,36 +396,47 @@ Fixes from the full security review of 2026-11-04.
   changes. Subcommands are now found after global options (`kubectl -n prod
   delete`, `iptables -t nat -A`). New wrappers: chrt, taskset, numactl,
   prlimit, fakeroot, faketime.
+
 - `pkg rm` now treats openssh-server.x86_64, sudo.noarch and other name.arch
   spellings (also after a version) as essential, and apt patterns such as
   `openssh.server` that would pick an essential package. All need
   --allow-dangerous.
+
 - Package names may no longer end in '-' (apt reads it as 'remove this
   package', even for `pkg install` and `pkg upgrade`) or '.'; a local
   package file gets a message pointing to `komando upload` + `komando exec`.
+
 - On apt servers, `pkg rm` of a package whose removal would take an
   essential package with it (libssl3 takes openssh-server) now stops with
   POLICY_BLOCKED before anything is removed. Other package managers are not
   checked this way yet (known gap).
+
 - An AI agent's `--dry-run --reveal` no longer shows hidden values; a dry
   run always keeps masking on and reports `REVEAL_NEEDS_PERSON` in
   `meta.would_be_blocked`.
+
 - `fs replace` refuses (HIDDEN_VALUE) an agent's edit that would uncover a
   hidden value, such as renaming `DB_PASSWORD=` or cutting off `postgres://`
   or `Bearer `.
+
 - For AI agents, `fs replace`, `fs write --if-changed` and `would_change` no
   longer reveal whether new text equals a hidden value, and `fs cat`/`fs
   replace`/`fs write` leave out the sha256 of a file with hidden values.
+
 - `fs cat --head/--tail` masks the whole file before cutting it; the end of
   a private key without its BEGIN line is hidden too.
+
 - VPN (OpenVPN): verify-x509-name now compares the server certificate's
   subject attribute by attribute. A crafted value such as O="Corp, CN=vpn"
   or CN="vpn " can no longer pass as the pinned server.
+
 - VPN (OpenVPN): remote-cert-ku accepts the 0x prefix, as OpenVPN does.
   remote-cert-eku accepts the IPsec usage names (IPSec End System, IPSec
   Tunnel, IPSec User).
+
 - VPN (OpenVPN): a client-side rekey no longer cuts off a renegotiation the
   server already started, which could drop the session.
+
 - VPN: only SOCKS clients that log in keep a VPN session from going idle.
   Running out of file descriptors no longer ends the session.
 
@@ -360,75 +448,105 @@ Fixes from the full security review of 2026-11-04.
 
 ### Fixed
 
+- `komando vpn up` printed the session's local SOCKS password; it now shows
+  `[hidden]`.
+
 - `komando db dump` works again on PostgreSQL 12 and 13: it no longer reads
   catalog columns that only newer servers have (`prosqlbody`, `tgparentid`).
+
 - The Bitwarden device id file (`bitwarden-device`) is kept in
   `KOMANDO_HOME`, like every other state file, instead of always in
   `~/.komando`.
+
 - The Postgres read-only session setting falls back for any pooler that
   rejects the startup parameter (SQLSTATE 08P01), not only PgBouncer's
   wording.
+
 - `db restore` no longer hangs (PostgreSQL) or fails with 'Query was empty'
   (MySQL) when the last statement has no trailing `;`.
+
 - `db restore` no longer refuses backups whose data or comments mention
   NO_BACKSLASH_ESCAPES or standard_conforming_strings, MySQL routines with a
   line starting with a column such as `source`, names ending in a backslash
   in backticks, or non-Latin PostgreSQL dollar-quote tags.
+
 - `db restore` refuses computed changes to standard_conforming_strings
   (set_config) and sql_mode (CONCAT, variables), and DELIMITER lines it
   cannot follow; the check and the restore now read DELIMITER the same way.
+
 - MySQL restore no longer sends a comment-only chunk in front of the next
   statement on the same line.
+
 - Dry-run and result `runs_on` say `local` when komando itself runs the dump
   or restore through the --via path.
+
 - The agent guard no longer treats quoted regexes and sed scripts as file
   globs (`grep -o '.*' f`, `sed 's/.*//' f`), no longer checks find's -name
   patterns, and allows `du -sh ~/*/*`.
+
 - `komando import kubeconfig|pgpass|mycnf|env|docker` works for AI agents
   again (the secrets go into the vault, which agents never see).
+
 - `--dry-run --host-key-policy off` keeps the policy for people and scripts;
   only an AI agent's preview connects with identity checks on.
+
 - Read-only shell scripts with a `#!` line now work with `script
   --read-only` and `exec --read-only --stdin-file ... -- 'bash -s'`. Script
   arguments (`--arg`, `bash -s -- ARGS`) are refused under --read-only.
+
 - `exec --read-only --stdin-file` treats input as data unless the command is
   a shell reading its input (`bash -s`). SQL sent to `psql` with `n > 5`
   works again; `\!` and `system` in that SQL are refused.
+
 - `awk '/systemd/'`, `awk '/a|b/'`, `node -v`, `php -v`, `perl -v`, `bash
   --version` and `exec 2>&1` are read-only again.
+
 - A streamed line that only mentions a private key header no longer holds
   `logs --follow` or `exec --stream` output for 256 KiB. After 16 KiB the
   output is released with the header hidden.
+
 - Connecting through a jump host that never answers the channel open (or
   waits for a firewalled target) now fails with CONNECT_TIMEOUT after
   --connect-timeout, where it used to hang.
+
 - A slow SSM or proxy-command start no longer makes the ssh-agent's
   signature time out into a false AUTH_FAILED.
+
 - `host import` and `komando import` resolve each name once, in parallel and
   outside the inventory lock, when checking imported hosts against protected
   servers.
+
 - `host trust --dry-run` says how the key would be fetched (directly,
   through a VPN, a proxy command or jump hosts).
+
 - Re-running a secret rotation (`--old 'NAME=[hidden]' --new
   'NAME={{secret:VAULT}}'`) on a host where it is already done returns
   changed:false again, not NO_MATCH.
+
 - Writes work again on SFTP servers that do not allow setting file modes,
   when their new files are no more open than requested; the result reports
   the mode the file got.
+
 - A broken or empty state file now fails with `STATE_CORRUPT` and a hint on
   how to recover.
+
 - Moving the vault key to or from the keychain waits for other komando
   processes changing the vault.
+
 - `komando exec` (and `script`, `logs`, module commands) no longer reports a
   bare exit -1 when the connection breaks mid-command: the server's result
   has error code `CONNECTION_LOST` (exit 4), keeps the output received so
   far, and says the command may still be running or may have finished.
+
 - Renaming a protected host or conn with `--rename` no longer skips the
   `--yes` check, and renaming a conn updates the tunnels that point to it.
+
 - `secret rm` and `used_by` count `secret:` references in a server's
   environment variables.
+
 - The approval code's key can no longer be set, moved, copied or removed
   with `komando secret` (`RESERVED_SECRET`).
+
 - `komando test` results carry `host`, like `facts` and `exec`. `name` stays
   for existing scripts; use `host`.
 
