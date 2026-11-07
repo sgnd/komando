@@ -26,6 +26,12 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
   `change` or `depends`, and `kind_note` says on what for `depends`
   (`exec` changes things unless `--read-only`, `db query` only reads
   unless `--write`). Agents can see it before they run a command.
+
+- `make e2e` also runs `facts`, `pkg security` (with a real `--apply`) and
+  `pkg` against Rocky Linux 9 (dnf) and Amazon Linux 2 (yum) servers, and
+  compares every answer with the native `dnf`/`yum`/`rpm` on the same
+  server (`test/e2e/rhel`, `test/e2e/checks/rhel.sh`).
+
 - Registry conns (`registry://`, `oci://`) take TLS options:
   `?ca=secret:NAME` trusts a private CA (PEM in the vault), or pins the
   registry's own certificate when the CA is not at hand, and keeps the
