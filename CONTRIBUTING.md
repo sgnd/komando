@@ -99,14 +99,21 @@ A test also reads every `komando ...` example in the docs (`README.md`, `AGENTS.
 
 Every version is a GitHub release, and `install.sh` only downloads releases. `main` can be ahead of them.
 
-1. In [`CHANGELOG.md`](CHANGELOG.md), rename `## [Unreleased]` to `## [X.Y.Z]` and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`.
-2. Commit, then push the tag:
+`main` takes changes only through a pull request whose `Lint and unit tests`, `Security` and `End-to-end tests` checks pass (the "Protect main" ruleset), and that includes the release commit. A `git push origin main` is refused.
+
+1. On a new branch from `main`, update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, give it a `### Highlights` list, and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`. Change the version in the example output in [`docs/features/output.md`](docs/features/output.md) too.
+2. Commit it as `Release X.Y.Z` and open a pull request. When its checks pass, merge it with **Create a merge commit**.
+3. Tag the merged `main`, and only then push the tag:
 
    ```bash
-   git tag vX.Y.Z && git push origin main vX.Y.Z
+   git switch main && git pull
+   git tag vX.Y.Z && git push origin vX.Y.Z
    ```
 
-3. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux and macOS (amd64 and arm64), signs their build provenance and publishes the release. If a test fails, nothing is published: fix it, delete the tag (`git push origin :vX.Y.Z`) and tag again.
+   Do not push the tag before the pull request is merged: the tag starts the release at once, from a commit that is not on `main` yet.
+4. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux and macOS (amd64 and arm64), signs their build provenance and publishes the release. If a test fails, nothing is published:
+   - a test that fails now and then (the FTPS end-to-end test has): run the failed jobs again with `gh run rerun RUN_ID --failed`;
+   - a real failure: fix it in a pull request, delete the tag (`git push origin :vX.Y.Z`), and tag the new `main` again.
 
 ## Writing
 
