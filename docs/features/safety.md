@@ -32,7 +32,9 @@ komando audit verify                      # was the history edited outside koman
 
 komando recognizes Claude Code, Codex, Gemini CLI and Cursor by the
 environment variables they set (a variable that is there counts, whatever
-its value, also `0` or empty), and adds these rules for them:
+its value, also `0` or empty), and adds these rules for them. For any other
+agent, set `KOMANDO_AGENT=1` (or `AI_AGENT=1`) in the environment it runs
+commands in, so these rules apply to it too:
 
 | Seatbelt | What it does |
 |----------|--------------|

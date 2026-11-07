@@ -83,7 +83,8 @@ komando host edit web1 --password-ref secret:web1-pass
 
 Mark production servers as protected. Then nothing can be changed there
 unless the command includes `--yes` (a deliberate "yes, I'm sure"). Looking
-around is still allowed:
+around is still allowed (for `exec`, say the command only reads with
+`--read-only`, for example `komando exec web1 --read-only -- uptime`):
 
 ```bash
 komando host edit web1 --protected
@@ -132,6 +133,12 @@ work in), or simply tell your agent:
 
 > Use the `komando` CLI to manage my servers and databases. Run `komando guide` first and
 > follow it. Never use `--allow-dangerous` or `--yes` without asking me.
+
+Also set `KOMANDO_AGENT=1` in that agent's environment. komando knows only
+the four agents above by themselves, and its
+[seatbelts for AI agents](docs/features/safety.md#seatbelts-for-ai-agents)
+(secrets hidden in output, a person allows `--yes`) apply only to an agent
+it knows.
 
 Then just ask: *"Why is web1 slow?"*, *"Update all servers"*, *"How many
 users signed up today?"*, *"Renew the certificate on web2"*.
