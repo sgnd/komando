@@ -143,6 +143,8 @@ func vpnProxy(st *store.State, v *store.Vpn) (string, error) {
 	switch {
 	case v.Kind == "system":
 		return "", nil
+	case v.Kind == "proxy" && v.User == "" && v.KeyRef == "" && strings.HasPrefix(v.Address, "http://"):
+		return "nc -X connect -x " + strings.TrimPrefix(v.Address, "http://") + " %h %p", nil
 	case v.Kind == "socks" && v.User == "" && v.KeyRef == "":
 		socks = v.Address
 	default:
