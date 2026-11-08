@@ -26,6 +26,14 @@ func vpnReachable(v *store.Vpn) (up bool, detail string) {
 	switch v.Kind {
 	case "socks":
 		addr, what = v.Address, "SOCKS proxy "+v.Address
+	case "proxy":
+		if u, err := netx.ProxyURL(v.Address); err == nil {
+			addr = u.Host
+			if u.Port() == "" {
+				addr += map[bool]string{true: ":443", false: ":80"}[u.Scheme == "https"]
+			}
+		}
+		what = "HTTP proxy " + v.Address
 	case "system":
 		if v.Check == "" {
 			return false, "no --check address to test"
@@ -73,7 +81,7 @@ func vpnStatusRows(st *store.State) []vpnStatusRow {
 		if s := st.Sessions[v.Name]; s != nil && netx.SessionAlive(s) {
 			r.Up, r.Since, r.LastUsed, r.Socks = true, s.StartedAt, s.LastUsed, s.Socks
 			r.Detail = "session running"
-		} else if v.Kind == "socks" || v.Kind == "system" {
+		} else if v.Kind == "socks" || v.Kind == "proxy" || v.Kind == "system" {
 			wg.Add(1)
 			go func(i int, v *store.Vpn) {
 				defer wg.Done()
@@ -204,7 +212,7 @@ new config file, add it again with --overwrite.`,
 					}
 					return nil
 				}
-				for flag, kinds := range map[string][]string{"address": {"socks"}, "service": {"system"},
+				for flag, kinds := range map[string][]string{"address": {"socks", "proxy"}, "service": {"system"},
 					"server": {"l2tp", "ipsec", "ikev2"}, "psk-ref": {"l2tp", "ipsec", "ikev2"}, "id": {"ipsec", "ikev2"}, "remote-id": {"ikev2"}} {
 					if err := only(flag, kinds...); err != nil {
 						return err
@@ -214,10 +222,10 @@ new config file, add it again with --overwrite.`,
 					return out.Usage("WireGuard keys come from its config: add it again with --config and --overwrite")
 				}
 				if f.Changed("address") {
-					if _, _, err := net.SplitHostPort(address); err != nil {
-						return out.Usage("--address must be host:port")
+					var err error
+					if v.Address, err = vpnAddress(v.Kind, address); err != nil {
+						return err
 					}
-					v.Address = address
 				}
 				if f.Changed("check") {
 					if check == "" && oneOf(v.Kind, "system", "openvpn") {

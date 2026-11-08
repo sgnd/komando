@@ -22,6 +22,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- A company HTTP proxy is a VPN of kind `proxy`
+  (`komando vpn add office proxy --address proxy.corp:3128`, its login with
+  `--user` and `--password-ref`): `--via office` tunnels servers (SSH),
+  databases, caches and file servers through it (CONNECT), as `socks` VPNs
+  do for SOCKS proxies. `host ssh-command` gives OpenSSH the same path.
 - `komando` alone opens a menu for a person at a terminal: choose Shell,
   Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
   Enter (`?` for help), then a server, conn or VPN from a list you can

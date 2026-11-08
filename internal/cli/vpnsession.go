@@ -593,6 +593,8 @@ func vpnDownCmd() *cobra.Command {
 							how = "stop its tunnel with `komando tunnel stop " + id + "`"
 						}
 						notes = append(notes, n+" is a SOCKS proxy that komando does not run; "+how)
+					case "proxy":
+						notes = append(notes, n+" is an HTTP proxy that komando does not run")
 					case "wireguard", "system":
 						notes = append(notes, n+" is not connected ("+v.Kind+" VPNs connect for each command)")
 					default:

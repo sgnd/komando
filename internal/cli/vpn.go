@@ -145,7 +145,8 @@ func vpnAddCmd() *cobra.Command {
   komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user budi
   komando vpn add cloud ikev2 --server vpn.example.com --user budi --password-ref secret:cloud
   komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
-  komando vpn add lab socks --address 127.0.0.1:1080`,
+  komando vpn add lab socks --address 127.0.0.1:1080
+  komando vpn add office proxy --address proxy.corp.example:3128   # a company HTTP proxy`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, kind := args[0], strings.ToLower(args[1])
@@ -211,14 +212,13 @@ func vpnAddCmd() *cobra.Command {
 					secrets[name+"-psk"] = psk
 				}
 				used["password-ref"] = passwordRef == ""
-			case kind == "socks":
+			case kind == "socks" || kind == "proxy":
 				if err = need("address", address != ""); err != nil {
 					return err
 				}
-				if _, _, err := net.SplitHostPort(address); err != nil {
-					return out.Usage("--address must be host:port")
+				if v.Address, err = vpnAddress(kind, address); err != nil {
+					return err
 				}
-				v.Address = address
 				used["user"], used["password-ref"] = true, true
 				if user != "" && passwordRef == "" {
 					return out.Usage("--user needs --password-ref (the proxy's password)")
@@ -381,7 +381,7 @@ func vpnAddCmd() *cobra.Command {
 	}
 	f := c.Flags()
 	f.StringVar(&config, "config", "", "wireguard: the .conf file; openvpn: the .ovpn file (both kept in the vault)")
-	f.StringVar(&address, "address", "", "socks: host:port of the proxy")
+	f.StringVar(&address, "address", "", "socks: host:port of the proxy; proxy: host:port or http(s)://host:port")
 	f.StringVar(&portal, "portal", "", "globalprotect, fortinet, anyconnect, pulse, f5: the VPN server or portal")
 	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings, so 'vpn up' can connect it")
 	f.StringVar(&server, "server", "", "l2tp, ipsec, ikev2: the VPN server (host or host:port); tailscale: a Headscale login server URL")
@@ -515,7 +515,7 @@ func vpnWhere(v *store.Vpn) string {
 		if c, err := netx.ParseWG(v.Config); err == nil && c.Peers[0].Endpoint != "" {
 			return c.Peers[0].Endpoint
 		}
-	case "socks":
+	case "socks", "proxy":
 		return v.Address
 	case "l2tp", "ipsec", "ikev2":
 		return v.Server
@@ -551,4 +551,20 @@ func testVpn(ctx context.Context, st *store.State, v *store.Vpn) targetTest {
 	}
 	r.OK, r.LatencyMS, r.Detail = true, time.Since(t0).Milliseconds(), detail
 	return r
+}
+
+// vpnAddress checks a socks or proxy VPN's --address: host:port, or for an
+// HTTP proxy also an http(s):// URL, kept as one.
+func vpnAddress(kind, address string) (string, error) {
+	if kind == "proxy" {
+		pu, err := netx.ProxyURL(address)
+		if err != nil {
+			return "", out.Usage("%v", err)
+		}
+		return pu.String(), nil
+	}
+	if _, _, err := net.SplitHostPort(address); err != nil {
+		return "", out.Usage("--address must be host:port")
+	}
+	return address, nil
 }
