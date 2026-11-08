@@ -98,6 +98,15 @@ komando conn edit app-db --option statement_timeout=10s
 
 `--timeout` on the command line always wins.
 
+On a protected conn, an AI agent sees email addresses, phone numbers, card
+numbers and IBANs in the rows as `[hidden: email]` and so on. Name the
+columns that hold other personal data (names, addresses) to hide them
+whole, for the agent: see [Personal data](safety.md#personal-data).
+
+```bash
+komando conn edit app-db --option 'mask_columns=full_name address birth_date'
+```
+
 **SQL that starts with a `-- comment`** looks like a flag to the command
 line. Put `--` before it, or use `--file -`.
 

@@ -90,6 +90,7 @@ func resolveSelection(st *store.State, expr string) (selection, error) {
 		}
 		return sel, out.Errf(out.ExitNotFound, "TARGET_EMPTY", hint, "%s", msg)
 	}
+	notePersonal(st, sel.Hosts, sel.Conns)
 	return sel, nil
 }
 

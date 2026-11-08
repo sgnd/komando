@@ -19,8 +19,26 @@ its highlights; the sections below them give the details. Versions follow
 - **The stored password is never sent as a two-factor code.** Before, every
   question the server asked got the password, and each try could count as
   a failed login and lock the account.
+- **Customer data stays out of the AI model:** on protected servers and
+  conns, an AI agent sees email addresses, phone numbers, card numbers and
+  IBANs as `[hidden: email]` and so on, and columns you name as
+  `[hidden: column]`.
 
 ### Added
+
+- Personal data is hidden from AI agents in what they read from protected
+  servers and conns: `[hidden: email]`, `[hidden: phone]` (international
+  form), `[hidden: card]` (card network prefix, length and check digit) and
+  `[hidden: iban]` (check digits). It covers `db query`, `cache get` and
+  `run`, `storage cat` and `ls`, `fs cat`, `exec`, `logs` and the other
+  commands that show data from a target; komando's own inventory is never
+  hidden. `komando config set mask_personal all` hides it everywhere, `off`
+  nowhere (showing more needs `--yes`). A conn can ask for it with
+  `--option mask_personal=on`, and a database conn hides whole columns with
+  `--option 'mask_columns=name address'`. `--reveal`, which a person
+  allows, shows the values. A `db query --write`, `cache set` or
+  `cache run --write` that still holds a hidden value stops with
+  `HIDDEN_VALUE`, as file writes already did.
 
 - `komando` alone opens a menu for a person at a terminal: choose Shell,
   Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
@@ -51,6 +69,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `komando db query --csv` and `--tsv` printed values an AI agent should
+  not see: unlike the JSON and text output, they skipped the masking of
+  secrets and vault values. They are masked the same way now.
 - `komando host import --overwrite` deleted an existing server when the
   imported copy with the same name was refused (for example, its `--via`
   host does not exist). The server it would have replaced now stays.

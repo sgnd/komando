@@ -363,6 +363,7 @@ func newRoot() *cobra.Command {
 			// A dry run is never an approval for --reveal: a dry run reads
 			// and prints too, so for an agent it always keeps values hidden.
 			out.P.Mask = isAgent() && (commandName(cmd) == "secret.get" || g.dryRun || !revealOK())
+			startPersonal(cmd)
 			if out.P.Mask && g.dryRun && g.reveal {
 				out.P.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
 					"--reveal needs the user's yes"))

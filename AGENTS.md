@@ -37,7 +37,10 @@ it knows gets secrets hidden in output and the approval window for `--yes`,
 8. **Never** "fix" `HOSTKEY_MISMATCH` yourself: report it, it may be an attack.
    For `VPN_LOGIN_REQUIRED` or `VPN_DOWN`, ask the human to run
    `komando vpn up <name>`.
-9. Secrets stay hidden from agents: output shows `[hidden]` or `[secret:NAME]`.
+9. Secrets stay hidden from agents: output shows `[hidden]` or `[secret:NAME]`,
+   and personal data on protected targets `[hidden: email]` (or phone, card,
+   iban, column). Never write such a value back; ask the human if a task
+   needs the real one.
    Change such a line with `fs replace --old 'NAME=[hidden]' --new
    'NAME={{secret:VAULT_NAME}}'`. `secret get --reveal` works only for a person
    at a terminal. Do not read `~/.komando`, private keys or `.env` files on

@@ -129,6 +129,7 @@ type Settings struct {
 	VpnIdle          string   `json:"vpn_idle"`                // a VPN session unused this long is disconnected
 	ApprovalCode     bool     `json:"approval_code,omitempty"` // the approval window asks for a TOTP code
 	AuditSyslog      string   `json:"audit_syslog,omitempty"`  // also send audit records to this log server (udp://, tcp://, tls://)
+	MaskPersonal     string   `json:"mask_personal,omitempty"` // protected | all | off: where AI agents see personal data hidden
 }
 
 func DefaultSettings() Settings {
@@ -141,6 +142,7 @@ func DefaultSettings() Settings {
 		Audit:          true,
 		AuditSQL:       "full",
 		VpnIdle:        "30m",
+		MaskPersonal:   "protected",
 	}
 }
 
@@ -297,6 +299,9 @@ func (s *State) init() {
 	}
 	if s.Settings.AuditSQL == "" {
 		s.Settings.AuditSQL = d.AuditSQL
+	}
+	if s.Settings.MaskPersonal == "" {
+		s.Settings.MaskPersonal = d.MaskPersonal
 	}
 	if s.Settings.MaxOutputBytes == 0 {
 		s.Settings.MaxOutputBytes = d.MaxOutputBytes
