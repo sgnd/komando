@@ -33,8 +33,10 @@ func clusterExecCmd() *cobra.Command {
 		Use:   "exec TARGET POD|TYPE/NAME -- COMMAND...",
 		Short: "Run a command in a pod (not interactive; policy checks it)",
 		Long: `Runs COMMAND in the pod (for TYPE/NAME, in one of its pods) and returns its
-output. Commands that only look can say so with --read-only, so protected
-clusters do not ask for --yes. For an interactive shell use
+output. Commands that only look can say so with --read-only: one that
+clearly changes something is refused, and protected clusters skip --yes
+only for commands komando knows read (cat, ls, printenv ...). For an
+interactive shell use
 ` + "`komando cluster shell TARGET POD`" + `.`,
 		Example: `  komando cluster exec prod deploy/api --namespace shop --read-only -- cat /app/config.yml
   komando cluster exec prod api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear`,
@@ -56,9 +58,9 @@ clusters do not ask for --yes. For an interactive shell use
 			if err := guard(st, nil, inner, false); err != nil {
 				return err
 			}
-			risk := driver.RiskWrite
-			if readOnly {
-				risk = driver.RiskRead
+			risk, err := clusterExecRisk(args[2:], readOnly)
+			if err != nil {
+				return err
 			}
 			if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-exec"}, Reasons: []string{"exec in " + args[1]}}); err != nil {
 				return err
@@ -120,7 +122,7 @@ clusters do not ask for --yes. For an interactive shell use
 	}
 	nsFlags(c, &ns, nil, nil)
 	c.Flags().StringVarP(&container, "container", "c", "", "container in the pod")
-	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (no --yes on protected clusters)")
+	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected clusters: no --yes for commands komando knows read)")
 	return c
 }
 

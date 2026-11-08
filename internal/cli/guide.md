@@ -237,7 +237,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 - `SECRET_DESTINATION` (exit 6): you asked komando to send a secret somewhere
   new: `{{secret:NAME}}` in `fs write`/`fs replace`, `--env K=secret:NAME`,
   `db user add --password-ref`, or a password reference on a new or moved
-  server or conn. Tell the human which secret goes where and why; when they
+  server, conn or VPN. Tell the human which secret goes where and why; when they
   agree, re-run with `--yes` (komando's window names the secret and the place).
 - Never change `KOMANDO_HOME`: komando would use another list of servers,
   without the human's protected servers, deny rules, host keys and audit log.
@@ -253,6 +253,9 @@ Anything that must keep running (a temporary web server, a watcher) is a
   it with the right one: ask them to run `komando secret check NAME`
   (`NEEDS_PERSON` for you).
 - `HOSTKEY_MISMATCH` (exit 4): possible man-in-the-middle. Never auto-fix; report to the human.
+- `meta.host_keys_pinned` in an answer: komando trusted these servers' host
+  keys for the first time. Show the human each `host` and `fingerprint` to
+  compare with the server's own.
   If the human says the servers were rebuilt, ask for ONE command for all of
   them: `komando host trust @group --reset --yes` (or `'name-*'`). The human
   confirms every new key in one window. `host rm` plus `host add` does not

@@ -52,7 +52,7 @@ Kinds (also: pritunl = openvpn; cisco = ipsec):
 func vpnAddCmd() *cobra.Command {
 	var config, address, portal, service, server, user, passwordRef, check, notes, pskRef, localID, remoteID, ca string
 	var groups, tags []string
-	var overwrite, mfa, osMode bool
+	var overwrite, mfa, osMode, legacyCrypto, allowPAP bool
 	c := &cobra.Command{
 		Use:   "add NAME KIND",
 		Short: "Add a VPN (see `komando vpn --help` for the kinds)",
@@ -61,6 +61,7 @@ func vpnAddCmd() *cobra.Command {
   komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
   komando vpn add tailnet tailscale --password-ref secret:ts-authkey
   komando vpn add kantor l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk --user budi --password-ref secret:kantor
+  komando vpn add old-office l2tp --server vpn.example.com --psk-ref secret:old-psk --user alice --legacy-crypto --allow-pap
   komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user budi
   komando vpn add cloud ikev2 --server vpn.example.com --user budi --password-ref secret:cloud
   komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
@@ -103,6 +104,8 @@ func vpnAddCmd() *cobra.Command {
 				return nil
 			}
 			secrets := map[string]string{}
+			var ovpnWarn []string
+			ovpnServers := ""
 			readConfig := func() (string, error) {
 				b, err := os.ReadFile(expandHome(config))
 				if err != nil {
@@ -187,15 +190,8 @@ func vpnAddCmd() *cobra.Command {
 						return out.Usage("ikev2 needs --psk-ref (a pre-shared key) or --user (an EAP login checked with the server's certificate)")
 					}
 					v.LocalID, v.RemoteID, used["id"], used["remote-id"], used["ca"] = localID, remoteID, true, true, true
-					if ca != "" {
-						b, err := os.ReadFile(expandHome(ca))
-						if err != nil {
-							return localFileErr("FILE_NOT_FOUND", err, "give the path of the CA certificate (PEM)")
-						}
-						if !strings.Contains(string(b), "-----BEGIN CERTIFICATE-----") {
-							return out.Usage("--ca must be a PEM certificate file")
-						}
-						v.CA = string(b)
+					if v.CA, err = readVpnCA(ca); err != nil {
+						return err
 					}
 				}
 				if user != "" && passwordRef == "" {
@@ -212,7 +208,7 @@ func vpnAddCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if err := checkOVPN(text); err != nil {
+				if ovpnServers, err = ovpnRemotes(text); err != nil {
 					return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "remove that line from the .ovpn file", "%s: %v", config, err)
 				}
 				if !osMode { // komando's own client must understand every line
@@ -223,6 +219,7 @@ func vpnAddCmd() *cobra.Command {
 					if p.AuthUserPass && user == "" {
 						return out.Usage("%s logs in with a user name and password (auth-user-pass): add --user, and --password-ref (or --mfa to type it at `vpn up`)", config)
 					}
+					ovpnWarn = p.Warnings
 				}
 				v.ConfigRef, v.OSMode = "secret:"+name+"-config", osMode
 				secrets[name+"-config"] = text
@@ -239,14 +236,23 @@ func vpnAddCmd() *cobra.Command {
 			}
 			now := time.Now().UTC()
 			v.CreatedAt, v.UpdatedAt = now, now
-			warnings := refWarnings(v.KeyRef, v.PSKRef)
-			if g.dryRun {
-				// the same name checks the real add makes
+			warnings := append(refWarnings(v.KeyRef, v.PSKRef), ovpnWarn...)
+			// the name and the VPN's vault secrets, and what needs a person: a weaker login, a secret sent to a new place
+			check := func(s *store.State) error {
+				if err := vpnAddCheck(s, name, secrets, overwrite); err != nil {
+					return err
+				}
+				if err := vpnOptIns(v, cmd.Flags().Changed, legacyCrypto, allowPAP); err != nil {
+					return err
+				}
+				return guardVpnSends(s.Vpns[name], v, ovpnServers)
+			}
+			if g.dryRun { // the same checks the real add makes
 				st, err := loadState()
 				if err != nil {
 					return err
 				}
-				if err := checkNewName(st, "vpn", name, overwrite); err != nil {
+				if err := check(st); err != nil {
 					return err
 				}
 				res := map[string]any{"would_add": v}
@@ -256,7 +262,7 @@ func vpnAddCmd() *cobra.Command {
 				out.P.Print("vpn.add", res, nil)
 				return nil
 			}
-			if err := store.Update(func(s *store.State) error { return checkNewName(s, "vpn", name, overwrite) }); err != nil {
+			if err := store.Update(check); err != nil {
 				return err
 			}
 			for n, val := range secrets {
@@ -275,20 +281,7 @@ func vpnAddCmd() *cobra.Command {
 			}
 			audit(nil, "vpn.add", []string{name}, "", true, map[string]any{"kind": kind, "mfa": v.MFA})
 			res := map[string]any{"vpn": v}
-			var notes []string
-			if kind == "wireguard" || kind == "openvpn" && ovpnHasKeys(secrets[name+"-config"]) {
-				notes = append(notes, config+" still holds the keys that are now in the vault; delete it if you no longer need it")
-			}
-			if v.Check == "" {
-				notes = append(notes, "without --check, `komando vpn up` and `komando test` cannot tell whether the VPN works; add one with `komando vpn edit "+name+" --check HOST:PORT`")
-			}
-			if v.MFA {
-				notes = append(notes, "a person logs in with `komando vpn up "+name+"`; later commands reuse that session")
-			}
-			if len(k.Client) > 0 {
-				notes = append(notes, "needs "+strings.Join(k.Client, " and ")+" installed (`komando doctor` checks)")
-			}
-			if len(notes) > 0 {
+			if notes := vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])); len(notes) > 0 {
 				res["notes"] = notes
 			}
 			if len(warnings) > 0 {
@@ -312,6 +305,8 @@ func vpnAddCmd() *cobra.Command {
 	f.StringVar(&passwordRef, "password-ref", "", "password (tailscale: auth key) as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	f.BoolVar(&osMode, "os-mode", false, "openvpn: deprecated; run the openvpn program on this computer with sudo (changes its network) instead of komando's own client")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' by a human connects it")
+	f.BoolVar(&legacyCrypto, "legacy-crypto", false, "l2tp, ipsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes)")
+	f.BoolVar(&allowPAP, "allow-pap", false, "l2tp: let the server pick PAP, which hands it your password itself (needs a person's yes)")
 	f.StringVar(&check, "check", "", "host:port reachable only through this VPN (vpn up and test connect to it; needed for system and openvpn)")
 	f.StringSliceVarP(&groups, "group", "g", nil, "group(s)")
 	f.StringSliceVarP(&tags, "tag", "t", nil, "tag(s)")
@@ -399,6 +394,40 @@ func vpnRmCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// readVpnCA reads an ikev2 VPN's --ca file (PEM); "" without one.
+func readVpnCA(path string) (string, error) {
+	if path == "" {
+		return "", nil
+	}
+	b, err := os.ReadFile(expandHome(path))
+	if err != nil {
+		return "", localFileErr("FILE_NOT_FOUND", err, "give the path of the CA certificate (PEM)")
+	}
+	if !strings.Contains(string(b), "-----BEGIN CERTIFICATE-----") {
+		return "", out.Usage("--ca must be a PEM certificate file")
+	}
+	return string(b), nil
+}
+
+// vpnAddNotes are vpn add's notes on the VPN v it added from the file
+// config; keysInFile: that file holds keys now kept in the vault.
+func vpnAddNotes(v *store.Vpn, config string, keysInFile bool) []string {
+	var notes []string
+	if v.Kind == "wireguard" || v.Kind == "openvpn" && keysInFile {
+		notes = append(notes, config+" still holds the keys that are now in the vault; delete it if you no longer need it")
+	}
+	if v.Check == "" {
+		notes = append(notes, "without --check, `komando vpn up` and `komando test` cannot tell whether the VPN works; add one with `komando vpn edit "+v.Name+" --check HOST:PORT`")
+	}
+	if v.MFA {
+		notes = append(notes, "a person logs in with `komando vpn up "+v.Name+"`; later commands reuse that session")
+	}
+	if k := netx.Kinds[v.Kind]; len(k.Client) > 0 {
+		notes = append(notes, "needs "+strings.Join(k.Client, " and ")+" installed (`komando doctor` checks)")
+	}
+	return notes
 }
 
 // ovpnHasKeys: the OpenVPN config holds a private key or shared secret inline.

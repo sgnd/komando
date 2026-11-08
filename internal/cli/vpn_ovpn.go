@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"slices"
 	"strings"
@@ -340,4 +341,30 @@ func writeOVPN(b *strings.Builder, items []ovpnItem) {
 			b.WriteString("\n")
 		}
 	}
+}
+
+// ovpnRemotes checks the profile cfg as checkOVPN does and lists the
+// servers its remote lines name (host, or host:port), for the approval
+// window of a login sent there.
+func ovpnRemotes(cfg string) (string, error) {
+	items, err := parseOVPN(cfg)
+	if err != nil {
+		return "", err
+	}
+	var remotes []string
+	var walk func([]ovpnItem)
+	walk = func(items []ovpnItem) {
+		for _, it := range items {
+			switch {
+			case it.block && it.name == "connection":
+				walk(it.items)
+			case it.name == "remote" && len(it.args) == 1:
+				remotes = append(remotes, it.args[0])
+			case it.name == "remote" && len(it.args) > 1:
+				remotes = append(remotes, net.JoinHostPort(it.args[0], it.args[1]))
+			}
+		}
+	}
+	walk(items)
+	return strings.Join(dedupe(remotes), ", "), nil
 }
