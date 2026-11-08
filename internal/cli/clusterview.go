@@ -66,6 +66,7 @@ func clusterEventsCmd() *cobra.Command {
 		Use:   "events TARGET",
 		Short: "Recent events, oldest first (--warnings for problems only)",
 		Example: `  komando cluster events prod-k8s --namespace shop --warnings
+  komando cluster events @prod --warnings -A    # problems in every cluster of the group
   komando cluster events prod-k8s --for deployment/api --namespace shop`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -73,36 +74,35 @@ func clusterEventsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			ts, err := resolveClusters(st, args[0])
 			if err != nil {
 				return err
 			}
-			if t.host != nil {
-				return out.Usage("events are a Kubernetes view; on Swarm, `cluster ls TARGET tasks` shows failed tasks and their errors")
-			}
-			return withKube(cmd.Context(), "cluster.events", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-				kind, name := "", ""
-				if of != "" {
-					typ, n, err := splitRef(of)
+			return readClusters(cmd.Context(), "cluster.events", st, ts, clusterRead{
+				swarmNo: "events are a Kubernetes view; on Swarm, `cluster ls TARGET tasks` shows failed tasks and their errors",
+				kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
+					kind, name := "", ""
+					if of != "" {
+						typ, n, err := splitRef(of)
+						if err != nil {
+							return nil, err
+						}
+						r, err := k.Resource(ctx, typ)
+						if err != nil {
+							return nil, out.Usage("%v", err)
+						}
+						kind, name = r.KindName(), n
+					}
+					space := firstNonEmpty(ns, k.Namespace)
+					if all {
+						space = ""
+					}
+					rows, err := clusterEvents(ctx, k, space, kind, name, warnings, limit)
 					if err != nil {
 						return nil, err
 					}
-					r, err := k.Resource(ctx, typ)
-					if err != nil {
-						return nil, out.Usage("%v", err)
-					}
-					kind, name = r.KindName(), n
-				}
-				space := firstNonEmpty(ns, k.Namespace)
-				if all {
-					space = ""
-				}
-				rows, err := clusterEvents(ctx, k, space, kind, name, warnings, limit)
-				if err != nil {
-					return nil, err
-				}
-				return eventList{"conn": t.conn.Name, "namespace": space, "count": len(rows), "events": rows}, nil
-			})
+					return eventList{"conn": t.conn.Name, "namespace": space, "count": len(rows), "events": rows}, nil
+				}})
 		},
 	}
 	nsFlags(c, &ns, &all, &limitOpt{&limit, 100, "max events (the newest)"})

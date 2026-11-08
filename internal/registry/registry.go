@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sgnd/komando/internal/proxyx"
 )
 
 // Accept lists the manifest types komando reads.
@@ -69,7 +71,9 @@ func New(host string, t TLS, user, password string, dial func(ctx context.Contex
 	tr := &http.Transport{TLSHandshakeTimeout: 15 * time.Second, ForceAttemptHTTP2: true,
 		TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: t.RootCAs, InsecureSkipVerify: t.SkipVerify}}
 	if dial != nil {
-		tr.DialContext = dial
+		tr.DialContext = dial // the --via path is the way out
+	} else {
+		tr.Proxy = proxyx.FromEnv() // HTTPS_PROXY and NO_PROXY, as docker reads them
 	}
 	return &Client{Base: &url.URL{Scheme: scheme, Host: host}, User: user, Password: password,
 		http: &http.Client{Transport: tr, Timeout: 2 * time.Minute}, tokens: map[string]string{}}

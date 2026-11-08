@@ -27,7 +27,11 @@ export KOMANDO_ACTOR="e2e"
 # this script is a script, even when an AI agent starts it; the agent
 # checks below say so on purpose (and never open an approval window)
 unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT GEMINI_CLI CODEX_SANDBOX CODEX_THREAD_ID CURSOR_AGENT KOMANDO_AGENT AI_AGENT
-A() { CLAUDECODE=1 KOMANDO_NO_DIALOG=1 "$K" "$@"; }
+# an agent's komando keeps the usual data folder (~/.komando): A runs with a
+# home whose .komando is this run's folder
+AGENT_HOME="$(mktemp -d)"
+ln -s "$KOMANDO_HOME" "$AGENT_HOME/.komando"
+A() { CLAUDECODE=1 KOMANDO_NO_DIALOG=1 HOME="$AGENT_HOME" "$K" "$@"; }
 PROJECT=${E2E_PROJECT:-komando-e2e}
 export E2E_SSH_BASTION=${E2E_SSH_BASTION:-2222} E2E_SSH_DIRECT=${E2E_SSH_DIRECT:-2223}
 export E2E_SSH_SWARM=${E2E_SSH_SWARM:-2224} E2E_REGISTRY=${E2E_REGISTRY:-5005}
@@ -41,6 +45,7 @@ cleanup() {
   [ "${KEEP:-0}" = 1 ] || docker compose -p "$PROJECT" -f "$E2E/compose.yml" down -v >/dev/null 2>&1 || true
   "$K" tunnel stop --all >/dev/null 2>&1 || true # only this run's tunnels
   [ -n "${E2E_HOME:-}" ] || rm -rf "$KOMANDO_HOME"
+  rm -rf "$AGENT_HOME"
 }
 trap cleanup EXIT
 
@@ -719,8 +724,11 @@ check "agent exec output is masked" False "$(A exec direct --read-only -- cat /h
 check "agent text output is masked" 0 "$(A exec direct --read-only -o text -- cat /home/agent/app/.env | { grep -c hunter22 || true; })"
 check "agent --reveal without a person stays masked" False "$(A fs cat direct /home/agent/app/.env --reveal | jget '"hunter22" in json.dumps(d)')"
 check "masked text is never written back" HIDDEN_VALUE "$(A fs write direct /home/agent/app/.env --content 'DB_PASSWORD=[hidden]' | jget 'd["error"]["code"]' || true)"
-q A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}'
-check "agent sets a hidden value from the vault" True "$($K fs cat direct /home/agent/app/.env | jget '"DB_PASSWORD=[secret:ops-pass]" in d["data"]["content"] and "DB_HOST=db" in d["data"]["content"]')"
+check "an agent needs a person to send a vault secret" SECRET_DESTINATION "$(A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}' | jget 'd["error"]["code"]' || true)"
+check "an agent's preview of it reads no secret" "True SECRET_DESTINATION" "$(A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}' --dry-run | jget 'd["data"]["would_change"], d["meta"]["would_be_blocked"]["code"]')"
+check "an agent with another KOMANDO_HOME needs a person" SAFETY_SETTING "$(CLAUDECODE=1 KOMANDO_NO_DIALOG=1 "$K" list | jget 'd["error"]["code"]' || true)"
+q $K fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}'
+check "a hidden value set from the vault" True "$($K fs cat direct /home/agent/app/.env | jget '"DB_PASSWORD=[secret:ops-pass]" in d["data"]["content"] and "DB_HOST=db" in d["data"]["content"]')"
 check "agent cannot copy .env here" SENSITIVE_FILE "$(A download direct /home/agent/app/.env --to "$TMP/" | jget 'd["error"]["code"]' || true)"
 q A download direct /home/agent/app --to "$TMP/agentcopy" -r
 check "agent folder copy leaves .env behind" "False True" "$(python3 -c "import os; print(os.path.exists('$TMP/agentcopy/.env'), os.path.exists('$TMP/agentcopy/readme.txt'))")"

@@ -13,7 +13,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -74,14 +76,46 @@ func Passphrase() string {
 	return pass
 }
 
-// SelfEnv is the environment for komando's own background processes
-// (`vpn serve`, `tunnel serve`), which need the vault.
+// SelfEnv is the environment for komando processes started by komando
+// that need the vault: a command the menu runs, and `vpn serve`. A
+// background process that runs for long should get the passphrase on
+// stdin instead (PassOnStdin): its environment stays in view for as long
+// as it runs (`ps eww`, /proc/PID/environ), to every program of the user.
 func SelfEnv() []string {
 	env := os.Environ()
 	if p := Passphrase(); p != "" {
 		env = append(env, "KOMANDO_VAULT_PASS="+p)
 	}
 	return env
+}
+
+// PassStdinFlag tells a komando process started with PassOnStdin to read
+// the vault passphrase from stdin.
+const PassStdinFlag = "--vault-pass-stdin"
+
+// PassOnStdin readies c, a background komando process that needs the
+// vault (`tunnel serve`): its environment is komando's own, without
+// KOMANDO_VAULT_PASS, and the passphrase, when there is one, goes to it on
+// stdin, with PassStdinFlag added to its arguments.
+func PassOnStdin(c *exec.Cmd) {
+	c.Env = os.Environ() // Passphrase took KOMANDO_VAULT_PASS out of it
+	if p := Passphrase(); p != "" {
+		c.Stdin = strings.NewReader(p)
+		c.Args = append(c.Args, PassStdinFlag)
+	}
+}
+
+// ReadPassStdin reads the passphrase PassOnStdin sends, up to the end of
+// r, and uses it for the vault from now on.
+func ReadPassStdin(r io.Reader) error {
+	b, err := io.ReadAll(io.LimitReader(r, 64<<10))
+	if err != nil {
+		return fmt.Errorf("reading the vault passphrase from stdin: %w", err)
+	}
+	passMu.Lock()
+	defer passMu.Unlock()
+	pass = string(b)
+	return nil
 }
 
 func load() (*file, error) {
@@ -128,6 +162,17 @@ var (
 )
 
 func (f *file) aead() (cipher.AEAD, error) {
+	secret, err := f.key()
+	if err != nil {
+		return nil, err
+	}
+	return f.aeadFor(secret)
+}
+
+// key is what the vault's key is derived from, by its mode: the
+// passphrase, the key in the keychain or the key in vault.key (made when
+// the vault holds nothing yet).
+func (f *file) key() ([]byte, error) {
 	var secret []byte
 	switch f.Mode {
 	case "passphrase":
@@ -163,6 +208,12 @@ func (f *file) aead() (cipher.AEAD, error) {
 		}
 		secret = b
 	}
+	return secret, nil
+}
+
+// aeadFor derives the AES key from secret with the vault's salt and scrypt
+// cost.
+func (f *file) aeadFor(secret []byte) (cipher.AEAD, error) {
 	n := f.ScryptN
 	if n == 0 {
 		n = legacyN
@@ -284,16 +335,13 @@ func (f *file) upgrade() error {
 	if err != nil {
 		return err
 	}
-	plain := map[string][]byte{}
-	for name, e := range f.Entries {
-		pt, err := old.Open(nil, e.Nonce, e.Data, []byte(name))
-		if err != nil {
-			return fmt.Errorf("cannot decrypt secret %q (wrong KOMANDO_VAULT_PASS?)", name)
-		}
-		plain[name] = pt
+	plain, err := f.openAll(old)
+	if err != nil {
+		return err
 	}
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
+	defer wipe(plain)
+	salt, err := newSalt()
+	if err != nil {
 		return err
 	}
 	f.Salt, f.ScryptN = salt, PassphraseN
@@ -301,14 +349,7 @@ func (f *file) upgrade() error {
 	if err != nil {
 		return err
 	}
-	for name, pt := range plain {
-		nonce := make([]byte, a.NonceSize())
-		if _, err := rand.Read(nonce); err != nil {
-			return err
-		}
-		f.Entries[name].Nonce, f.Entries[name].Data = nonce, a.Seal(nil, nonce, pt, []byte(name))
-	}
-	return nil
+	return f.sealAll(a, plain)
 }
 
 // Strength describes the vault's protection for `komando doctor`: the mode,
@@ -495,10 +536,12 @@ func ValidRef(ref string) bool {
 	return false
 }
 
-// RefGuard, when set, is asked before Resolve reads a file on this computer
-// (kind "file") or an environment variable (kind "env") for a reference.
-// komando's CLI sets it, so an AI agent cannot point a reference, which
-// komando sends to a server as a password, at secrets it must not have.
+// RefGuard, when set, is asked before Resolve reads a vault secret (kind
+// "secret"), a file on this computer (kind "file") or an environment
+// variable (kind "env") for a reference. komando's CLI sets it, so a
+// reference, which komando sends to a server as a password, never reads a
+// secret komando keeps for itself, and an AI agent cannot point one at
+// secrets it must not have.
 var RefGuard func(kind, name string) error
 
 // RefHelp is the hint for an invalid reference.
@@ -523,7 +566,13 @@ func Resolve(ref string) (string, error) {
 	case ref == "":
 		return "", nil
 	case strings.HasPrefix(ref, "secret:"):
-		return Get(strings.TrimPrefix(ref, "secret:"))
+		name := strings.TrimPrefix(ref, "secret:")
+		if RefGuard != nil {
+			if err := RefGuard("secret", name); err != nil {
+				return "", err
+			}
+		}
+		return Get(name)
 	case strings.HasPrefix(ref, "env:"):
 		name := strings.TrimPrefix(ref, "env:")
 		if RefGuard != nil {

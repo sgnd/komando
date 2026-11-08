@@ -3,6 +3,8 @@ package vault
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/store"
@@ -108,5 +110,36 @@ func TestMissingKeyFileIsNotRegenerated(t *testing.T) {
 	}
 	if _, err := os.Stat(kp); !os.IsNotExist(err) {
 		t.Fatalf("a new vault.key was made: %v", err)
+	}
+}
+
+// A background komando process (tunnel serve) gets the passphrase on
+// stdin, never in its environment, which stays in view while it runs.
+func TestPassOnStdin(t *testing.T) {
+	freshHome(t)
+	setPass := func(p string) { passMu.Lock(); pass = p; passMu.Unlock() }
+	t.Cleanup(func() { setPass("") })
+	const want = "a long passphrase\nwith a line break"
+	t.Setenv("KOMANDO_VAULT_PASS", want)
+	Passphrase() // komando takes it out of its environment when it starts
+	c := exec.Command("komando", "tunnel", "serve", "t-1")
+	PassOnStdin(c)
+	for _, e := range c.Env {
+		if strings.HasPrefix(e, "KOMANDO_VAULT_PASS=") {
+			t.Fatal("the passphrase is in the environment")
+		}
+	}
+	if c.Args[len(c.Args)-1] != PassStdinFlag || c.Stdin == nil {
+		t.Fatalf("args %q, stdin %v", c.Args, c.Stdin)
+	}
+	setPass("") // the child starts without it
+	if err := ReadPassStdin(c.Stdin); err != nil || Passphrase() != want {
+		t.Fatalf("read back %q: %v", Passphrase(), err)
+	}
+	setPass("") // a vault without a passphrase: no flag, nothing on stdin
+	c = exec.Command("komando", "tunnel", "serve", "t-1")
+	PassOnStdin(c)
+	if c.Stdin != nil || len(c.Args) != 4 {
+		t.Errorf("args %q, stdin %v", c.Args, c.Stdin)
 	}
 }

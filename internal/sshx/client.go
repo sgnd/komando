@@ -519,6 +519,50 @@ var khMu sync.Mutex
 
 func KnownHostsPath() string { return store.Path("known_hosts") }
 
+// NewHostKey is a host key komando pinned the first time it reached a
+// server (host_key_policy accept-new). Nothing proved that key is the
+// server's: the person compares the fingerprint with the server's own.
+type NewHostKey struct {
+	Host        string `json:"host"`
+	Address     string `json:"address"`
+	Type        string `json:"key_type"`
+	Fingerprint string `json:"fingerprint"` // SHA256:...
+}
+
+// HostKeyPinned, when set, is told about every key pinned on first use
+// (for the output and the audit log). Calls come one at a time, under the
+// known_hosts lock, while the connection waits: it must be quick.
+var HostKeyPinned func(NewHostKey)
+
+// hostKeyNote is where the line about a newly pinned key goes.
+var hostKeyNote io.Writer = os.Stderr
+
+// pinnedOnFirstUse tells the person, on stderr, which key was just pinned
+// and how to check it, and passes it on to HostKeyPinned.
+func pinnedOnFirstUse(name, hostname string, key ssh.PublicKey) {
+	k := NewHostKey{Host: name, Address: hostname, Type: key.Type(), Fingerprint: ssh.FingerprintSHA256(key)}
+	fmt.Fprintf(hostKeyNote, "komando: first connection to %s (%s): trusted its %s host key %s\n"+
+		"komando: compare it with the server's own (on the server: ssh-keygen -lf /etc/ssh/ssh_host_%s_key.pub); if this key ever changes, komando refuses the server\n",
+		name, hostname, k.Type, k.Fingerprint, keyFileType(k.Type))
+	if HostKeyPinned != nil {
+		HostKeyPinned(k)
+	}
+}
+
+// keyFileType is the name part of the server's key file for a key type:
+// ssh-ed25519 is in ssh_host_ed25519_key.pub.
+func keyFileType(t string) string {
+	switch {
+	case strings.Contains(t, "ed25519"):
+		return "ed25519"
+	case strings.HasPrefix(t, "ecdsa"):
+		return "ecdsa"
+	case strings.Contains(t, "rsa"):
+		return "rsa"
+	}
+	return "*"
+}
+
 func hostKeyCallback(name, policy string) (ssh.HostKeyCallback, error) {
 	if policy == "off" {
 		return ssh.InsecureIgnoreHostKey(), nil
@@ -542,7 +586,11 @@ func hostKeyCallback(name, policy string) (ssh.HostKeyCallback, error) {
 			if policy == "strict" {
 				return errors.New("HOSTKEY_UNKNOWN")
 			}
-			return appendKnownHost(p, hostname, key)
+			if err := appendKnownHost(p, hostname, key); err != nil {
+				return err
+			}
+			pinnedOnFirstUse(name, hostname, key)
+			return nil
 		}
 		if errors.As(err, &ke) {
 			return &hostKeyChanged{offered: key, err: ke}

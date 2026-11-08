@@ -69,8 +69,41 @@ case "$1" in
 esac
 `
 	os.WriteFile(filepath.Join(dir, "secret-tool"), []byte(script), 0o755)
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	savedDirs := toolDirs
+	toolDirs = []string{dir} // the stand-in plays the system's secret-tool
+	defer func() { toolDirs = savedDirs }()
 	roundTrip(t)
+}
+
+// A secret-tool or security found through PATH is never run: it would be
+// handed the vault key, or could hand komando a key of its choosing.
+func TestKeychainToolsNotFromPath(t *testing.T) {
+	freshHome(t)
+	dir := t.TempDir()
+	for _, name := range []string{"secret-tool", "security"} {
+		os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\necho fake > "+filepath.Join(dir, "ran")+"\n"), 0o755)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	savedOS, savedDirs, savedSec := keychainOS, toolDirs, securityTool
+	defer func() { keychainOS, toolDirs, securityTool = savedOS, savedDirs, savedSec }()
+	toolDirs = []string{t.TempDir()} // no secret-tool in the system folders
+	keychainOS = "linux"
+	if _, err := KeychainTool(); err == nil || !strings.Contains(err.Error(), "not installed") {
+		t.Errorf("linux without a system secret-tool: %v", err)
+	}
+	if _, err := keychainGet(); err == nil {
+		t.Error("keychainGet found a key")
+	}
+	keychainOS, securityTool = "darwin", filepath.Join(t.TempDir(), "security")
+	if _, err := KeychainTool(); err == nil {
+		t.Error("macOS without its security tool")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "ran")); err == nil {
+		t.Fatal("a tool from PATH was run")
+	}
+	if got := keychainCmd("x").Path; got != securityTool {
+		t.Errorf("macOS runs %s, want %s", got, securityTool)
+	}
 }
 
 // The macOS path against a throwaway keychain file (never the login
