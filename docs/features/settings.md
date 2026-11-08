@@ -11,6 +11,7 @@ komando config get parallel
 komando config set parallel 20
 komando config set default_timeout 10m
 komando doctor                               # check the setup, the inventory and its security
+komando update --dry-run                     # is there a newer komando?
 ```
 
 ## Settings
@@ -88,6 +89,45 @@ the vault (`--off --yes` moves it back). Or set `KOMANDO_VAULT_PASS` to a
 passphrase of 15 or more characters **before** you store your first secret.
 `komando doctor` warns when you have done neither. To move to another
 computer, use `komando export` (no passwords) instead of copying the folder.
+
+## Update komando
+
+```bash
+komando update --dry-run   # is there a newer version? (changes nothing)
+komando update             # install the newest release
+sudo komando update        # komando is in /usr/local/bin, which only root may change
+komando update v0.6.0      # install this version
+```
+
+`update` downloads the release for this computer from GitHub, checks it
+against `checksums.txt` from the same release, runs the new program once to
+make sure it works here, and only then puts it in place of the old one. If
+anything fails, the old komando stays as it was. A komando that is running
+right now keeps working; the next command starts the new version.
+
+- Run as you, the update goes into the audit log like any other change. As
+  root (`sudo komando update`) it writes nothing in `~/.komando`, so no file
+  there ends up belonging to root.
+- Afterwards, run `komando guide install` (without `sudo`): the skill your
+  AI agents read comes with komando and changes with it.
+- Going back to an older version needs a person's yes (for an AI agent:
+  `--yes` and the "Allow once" window), because an older komando may lack
+  safety checks the newer one has. Without a VERSION, `update` never goes
+  back, even when the newest release is older than the komando you run.
+- A komando built from source (`make build`, `go build`) is not replaced
+  (`SOURCE_BUILD`): build it again instead.
+- When GitHub answers with an error (HTTP 5xx) or the connection drops, it
+  tries twice more. `--timeout` (default 10 minutes) limits the whole update.
+- It honours `HTTPS_PROXY`. `sudo` drops that variable; keep it with
+  `sudo --preserve-env=HTTPS_PROXY komando update`.
+
+| Error | What to do |
+|-------|------------|
+| `NOT_WRITABLE` (exit 8) | the folder belongs to root: run the `sudo` command the hint gives (it names komando by its full path) |
+| `VERSION_NOT_FOUND` (exit 3) | no such release, or none for this computer; see the [list of releases](https://github.com/sgnd/komando/releases) |
+| `RELEASES_UNREACHABLE` (exit 4) | GitHub cannot be reached: check the internet connection and `HTTPS_PROXY` |
+| `TIMEOUT` (exit 7) | the download was slower than `--timeout`; nothing was changed. Try `komando update --timeout 30m` |
+| `CHECKSUM_MISMATCH`, `BAD_RELEASE` (exit 1) | the download is damaged or does not run here; nothing was changed. Try again, and report it if it happens again |
 
 ## Ask for a code before an agent's risky command
 

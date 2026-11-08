@@ -48,6 +48,7 @@ komando storage upload backups ./dump.sql.gz
 | `dump` / `restore` | back up and restore | — | write / destructive |
 | `import` / `export` | move configuration in and out | — | — |
 | `install` | install komando files into another program's folder (skill for AI agents: `guide install`) | — | write (local files) |
+| `update` | replace the komando program with a newer release, or the version named (`komando update`; added 2026-11-08) | — | write (the komando program); an older version needs `--yes` |
 
 Rule: **`rm` is always the main word.** `remove`, `delete`, and `del` are only
 aliases, so that anyone who types them still succeeds.

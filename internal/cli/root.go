@@ -283,12 +283,22 @@ var localReads = map[string]bool{
 	"tunnel.list": true, "job.list": true, "status": true,
 }
 
+// leavesHome are commands that, run as root, never touch ~/.komando:
+// `update` replaces only the komando program, often as root (sudo komando
+// update, where HOME may still be the person's), and root must not leave
+// files in a person's ~/.komando that they can no longer change. So no
+// audit check, no VPN clean-up and no vault (for hiding secret values in
+// the output) for them then. Run as anyone else they are audited as usual.
+var leavesHome = map[string]bool{"update": true}
+
+func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)] && asRoot() }
+
 // checkAuditWritable refuses to run when the audit log is on but cannot be
 // written: changes must not happen without a record (docs/design/ux.md §6).
 func checkAuditWritable(cmd *cobra.Command) error {
 	name := commandName(cmd)
 	top, _, _ := strings.Cut(name, ".")
-	if g.dryRun || cmd.Hidden || name == "komando" || localReads[name] || top == "help" || top == "completion" {
+	if g.dryRun || cmd.Hidden || name == "komando" || localReads[name] || leavesHomeNow(cmd) || top == "help" || top == "completion" {
 		return nil
 	}
 	st, err := store.Load()
@@ -344,6 +354,9 @@ func newRoot() *cobra.Command {
 			out.P.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
 			out.P.Secrets = vaultValues
+			if leavesHomeNow(cmd) {
+				out.P.Secrets = nil // its output holds no secrets, and the vault is in ~/.komando
+			}
 			// AI agents see passwords, keys and tokens as [hidden]; people and
 			// scripts see what the server sent (vault values are hidden for all)
 			// (`secret get --reveal` stays for people only: it never asks)
@@ -354,7 +367,7 @@ func newRoot() *cobra.Command {
 				out.P.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
 					"--reveal needs the user's yes"))
 			}
-			if cmd.Name() != "serve" && !g.dryRun {
+			if cmd.Name() != "serve" && !leavesHomeNow(cmd) && !g.dryRun {
 				netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
 			}
 			if g.hostKeyPolicy == "off" {
@@ -402,7 +415,7 @@ func newRoot() *cobra.Command {
 	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(), tunnelCmd(), shellCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), storageCmd(), clusterCmd(), registryCmd())
 	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
-	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), versionCmd())
+	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), updateCmd(), versionCmd())
 	applyConventions(root)
 	useShortGlobals(root)
 	addCompletion(root)

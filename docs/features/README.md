@@ -37,7 +37,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit` |
 | [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit verify` |
 | [Results and errors](output.md) | JSON and text output, exit codes, common errors, what is still running | `status`, `prompt`, `schema` |
-| [Settings and files](settings.md) | settings, environment variables, and where komando keeps its data | `config`, `doctor` |
+| [Settings and files](settings.md) | settings, environment variables, where komando keeps its data, and updating komando | `config`, `doctor`, `update` |
 | [Glossary](glossary.md) | the words, in plain language | — |
 
 Help for any command: `komando <command> --help`. The full machine-readable

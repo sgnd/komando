@@ -20,6 +20,8 @@ safety checks, the audit log and the secrets out of sight.
 
 If `komando` is not installed, stop and ask the human to install it:
 `curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`
+Update komando only when the human asks: `komando update` (when it stops with
+`NOT_WRITABLE`, ask them to run `sudo komando update`).
 
 ## Rules
 

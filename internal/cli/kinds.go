@@ -290,6 +290,7 @@ var commandKinds = map[string]cmdKind{
 	"user rm":     changes,
 	"user unlock": changes,
 
+	"update":  changes,
 	"version": reads,
 
 	"vpn":        reads,
