@@ -109,6 +109,10 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		if db, err = sql.Open("sqlite", "file:"+path+"?"+q.Encode()); err != nil {
 			return nil, err
 		}
+	case "mongodb":
+		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"on MongoDB use `komando db query CONN '{\"find\": ...}'`, `db schema` and `db info`; for a backup, run mongodump on a server with `komando exec`",
+			"this db command is for SQL databases, not MongoDB")
 	default:
 		return nil, out.Usage("%s conns do not take SQL", t.Kind.Name)
 	}

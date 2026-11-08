@@ -563,6 +563,9 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 	defer cancel()
 	switch a.Target.Kind.Family {
 	case "db":
+		if a.Target.Kind.Name == "mongodb" {
+			return mongoLogin(cctx, c, a, r)
+		}
 		db, err := dbx.Open(cctx, c.URL, a.Target, a.Password, a.Dial, true, "komando/"+actor())
 		if err != nil {
 			return viaTimeout(c, err)

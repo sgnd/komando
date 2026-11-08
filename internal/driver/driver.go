@@ -67,6 +67,8 @@ func init() {
 		Example: "mysql://shop@db.internal:3306/shop?tls=true"})
 	register(Kind{Name: "sqlite", Family: "db", Schemes: []string{"sqlite", "sqlite3"}, File: true,
 		Example: "sqlite:///var/lib/app.db"})
+	register(Kind{Name: "mongodb", Family: "db", Schemes: []string{"mongodb", "mongodb+srv"}, DefaultPort: 27017,
+		Example: "mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin (Atlas: mongodb+srv://app@cluster0.abcde.mongodb.net/shop)"})
 	register(Kind{Name: "redis", Family: "cache", Schemes: []string{"redis", "rediss"}, DefaultPort: 6379,
 		Example: "rediss://default@cache.internal:6379/0 (rediss = TLS)"})
 	register(Kind{Name: "memcached", Family: "cache", Schemes: []string{"memcached", "memcacheds"}, DefaultPort: 11211,
@@ -159,7 +161,7 @@ var passwordParams = []string{"password", "pass", "pwd", "sslpassword", "secret"
 // sqlite:///var/lib/app.db. The kind comes from the scheme. URLs that carry
 // a password are refused: passwords belong in the vault.
 func Parse(raw string) (Target, error) {
-	u, err := url.Parse(strings.TrimSpace(raw))
+	u, err := url.Parse(firstMongoHost(strings.TrimSpace(raw)))
 	if err != nil || u.Scheme == "" {
 		return Target{}, out.Usage("invalid conn URL %q (expected e.g. postgres://user@host:5432/db)", raw)
 	}
@@ -186,6 +188,9 @@ func Parse(raw string) (Target, error) {
 	}
 	if k.Name == "ftp" || k.Name == "ftps" || k.Name == "sftp" {
 		return parseFiles(u, t)
+	}
+	if k.Name == "mongodb" {
+		return parseMongo(u, t)
 	}
 	if k.File {
 		t.Path = u.Opaque

@@ -73,6 +73,10 @@ services:
   ftps:
     build: ftps
     networks: [private]
+  mongo:
+    image: mongo:8.0.34
+    environment: { MONGO_INITDB_ROOT_USERNAME: root, MONGO_INITDB_ROOT_PASSWORD: mongopass }
+    networks: [private]
   # secret managers komando talks to itself (no vault or aws CLI)
   bao:
     image: openbao/openbao:2.4.3

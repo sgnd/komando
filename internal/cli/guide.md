@@ -158,6 +158,11 @@ changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run
 <conn> -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
 `cache keys` uses SCAN.
 
+**MongoDB** conns use `komando db query <conn> '<command JSON>'`, the
+first key naming the command (`{"find": "users", "filter": {...}}`); reads
+run as they are, changes need `--write`, and `db schema`/`db info` describe
+the database.
+
 **Storage** (S3, MinIO, R2, FTPS, SFTP): `komando storage ls <conn>` and
 `komando download <conn> KEY` read; `komando upload <conn> FILE` and
 `storage link` change or share; `storage rm` deletes (needs

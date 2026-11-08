@@ -27,6 +27,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- **MongoDB** conns (`mongodb://`, `mongodb+srv://`, replica sets, Atlas):
+  `db query` takes a command document in JSON (`{"find": ...}`,
+  `{"aggregate": ...}`, `{"update": ...}`), rated before it is sent like
+  SQL, so changes need `--write`, and an empty-filter delete, `drop`, user
+  changes and `shutdown` need `--allow-dangerous`. `db schema` lists
+  collections, or the fields of a sample with their types; `db info` gives
+  version, role and sizes; `conn test` logs in. Every member is reached
+  through `--via`, and `?ca=` checks a private CA.
 - Redis Cluster and Sentinel: a `redis://` or `rediss://` conn with
   `?cluster=1` works on the whole cluster from one node's address
   (`cache keys` scans every master, `cache info` adds them up with the

@@ -43,6 +43,9 @@ func dbInfoCmd() *cobra.Command {
 		Example: "  komando db info prod-db",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if st, c, ok := mongoConn(args[0]); ok {
+				return runMongoInfo(cmd.Context(), st, c)
+			}
 			return readDB(cmd.Context(), "db.info", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 				res, err := dbx.Info(ctx, db, c.Kind, connTimeout(c))
 				if err != nil {
