@@ -237,7 +237,9 @@ func TestKeyFileToPassphraseAndBack(t *testing.T) {
 func TestKeychainToPassphrase(t *testing.T) {
 	passHome(t, "")
 	fakeSecretTool(t)
+	t.Setenv("KOMANDO_KEYCHAIN", "off") // the vault starts with vault.key
 	mustSet(t, someSecrets)
+	t.Setenv("KOMANDO_KEYCHAIN", "")
 	if _, err := KeyToKeychain(); err != nil {
 		t.Fatal(err)
 	}
@@ -326,6 +328,7 @@ esac
 	if err := os.WriteFile(filepath.Join(dir, "secret-tool"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("KOMANDO_KEYCHAIN", "") // TestMain turned the keychain off
 	if _, err := KeychainTool(); err != nil {
 		t.Fatalf("the stand-in secret-tool is not used: %v", err)
 	}

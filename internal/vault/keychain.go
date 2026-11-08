@@ -2,6 +2,7 @@ package vault
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -21,6 +22,11 @@ import (
 // `secret-tool`). The key never goes on a command line: `security -i` and
 // `secret-tool store` read it from standard input. Moving the key does not
 // re-encrypt anything: it is the same key, kept elsewhere.
+//
+// A new vault without a passphrase starts with its key in the keychain
+// when there is one (keychainNewKey); KOMANDO_KEYCHAIN=off keeps komando
+// away from the keychain (CI runners, containers, test runs), and then a
+// new vault keeps its key in vault.key, as it does where there is none.
 
 // keychainService names this komando home's key, so two homes (a test
 // one, say) keep two keys.
@@ -64,10 +70,21 @@ func keychainCmd(args ...string) *exec.Cmd {
 
 // keychainFile is a keychain file to use instead of the login keychain
 // (macOS; KOMANDO_KEYCHAIN, for tests and separate keychains).
-func keychainFile() string { return os.Getenv("KOMANDO_KEYCHAIN") }
+func keychainFile() string {
+	if keychainOff() {
+		return ""
+	}
+	return os.Getenv("KOMANDO_KEYCHAIN")
+}
+
+// keychainOff: KOMANDO_KEYCHAIN=off, komando uses no keychain here.
+func keychainOff() bool { return os.Getenv("KOMANDO_KEYCHAIN") == "off" }
 
 // KeychainTool says which tool keeps the key here, or why there is none.
 func KeychainTool() (string, error) {
+	if keychainOff() {
+		return "", errors.New("KOMANDO_KEYCHAIN=off: komando uses no keychain on this computer")
+	}
 	switch keychainOS {
 	case "darwin":
 		if fi, err := os.Stat(securityTool); err != nil || fi.IsDir() {
@@ -83,11 +100,20 @@ func KeychainTool() (string, error) {
 	return "", fmt.Errorf("no keychain support on %s", keychainOS)
 }
 
-func keychainSet(key []byte) error {
+func keychainSet(key []byte) error { return keychainPut(key, true) }
+
+// keychainPut stores key under this komando home's name. Without replace,
+// a key already there is never overwritten (macOS refuses the add; on
+// Linux the callers look it up first).
+func keychainPut(key []byte, replace bool) error {
 	v := hex.EncodeToString(key)
 	switch keychainOS {
 	case "darwin":
-		line := fmt.Sprintf("add-generic-password -U -a %s -s %q -l %q -w %s", keychainAccount, keychainService(), keychainService(), v)
+		u := ""
+		if replace {
+			u = "-U "
+		}
+		line := fmt.Sprintf("add-generic-password %s-a %s -s %q -l %q -w %s", u, keychainAccount, keychainService(), keychainService(), v)
 		if kc := keychainFile(); kc != "" {
 			line += fmt.Sprintf(" %q", kc)
 		}
@@ -158,6 +184,33 @@ func run(c *exec.Cmd, stdin string) error {
 	return nil
 }
 
+// keychainNewKey is the key of a new vault, kept in the keychain, and
+// whether the keychain keeps it. A key already in the keychain under this
+// home's name is used, never replaced: it may open a vault that was moved
+// aside (a backup of this folder). Otherwise a new random key goes in, and
+// counts only once it reads back the same. When it does not, the new vault
+// keeps its key in vault.key, which `komando doctor` points out.
+func keychainNewKey() ([]byte, bool) {
+	if _, err := KeychainTool(); err != nil {
+		return nil, false
+	}
+	if k, err := keychainGet(); err == nil {
+		return k, true
+	}
+	key := make([]byte, keyLen)
+	if _, err := rand.Read(key); err != nil {
+		return nil, false
+	}
+	if err := keychainPut(key, false); err != nil {
+		return nil, false
+	}
+	back, err := keychainGet()
+	if err != nil || !bytes.Equal(back, key) {
+		return nil, false
+	}
+	return key, true
+}
+
 // KeyToKeychain moves the vault key from vault.key into the keychain.
 func KeyToKeychain() (string, error) {
 	tool, err := KeychainTool()
@@ -179,8 +232,11 @@ func KeyToKeychain() (string, error) {
 	case "passphrase":
 		return "", errors.New("this vault is unlocked with KOMANDO_VAULT_PASS, not a key file: nothing to move")
 	}
-	if _, err := f.aead(); err != nil { // makes vault.key when there is none yet
+	if _, err := f.aead(); err != nil { // makes the key when there is none yet
 		return "", err
+	}
+	if f.Mode == "keychain" { // a new vault, and its new key went into the keychain
+		return tool, f.save()
 	}
 	kp := store.Path("vault.key")
 	key, err := os.ReadFile(kp)

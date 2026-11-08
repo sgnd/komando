@@ -12,21 +12,36 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
+// TestMain keeps every test away from the real keychain: a new vault
+// would otherwise put its key in the login keychain of whoever runs them.
+// The tests that use a keychain set KOMANDO_KEYCHAIN themselves.
+func TestMain(m *testing.M) {
+	os.Setenv("KOMANDO_KEYCHAIN", "off")
+	os.Exit(m.Run())
+}
+
 func freshHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "")
 	os.Unsetenv("KOMANDO_VAULT_PASS")
+	passMu.Lock()
+	pass = ""
+	passMu.Unlock()
 	aeadMu.Lock()
 	aeadCache = map[string]cipher.AEAD{}
 	aeadMu.Unlock()
 }
 
-func roundTrip(t *testing.T) {
+// roundTrip starts with the key in vault.key, then uses the keychain kc
+// names ("" for the default one, a stand-in in these tests).
+func roundTrip(t *testing.T, kc string) {
 	t.Helper()
+	t.Setenv("KOMANDO_KEYCHAIN", "off") // the vault starts with vault.key
 	if err := Set("db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("KOMANDO_KEYCHAIN", kc)
 	if _, err := KeyToKeychain(); err != nil {
 		t.Fatal(err)
 	}
@@ -72,13 +87,14 @@ esac
 	savedDirs := toolDirs
 	toolDirs = []string{dir} // the stand-in plays the system's secret-tool
 	defer func() { toolDirs = savedDirs }()
-	roundTrip(t)
+	roundTrip(t, "")
 }
 
 // A secret-tool or security found through PATH is never run: it would be
 // handed the vault key, or could hand komando a key of its choosing.
 func TestKeychainToolsNotFromPath(t *testing.T) {
 	freshHome(t)
+	t.Setenv("KOMANDO_KEYCHAIN", "")
 	dir := t.TempDir()
 	for _, name := range []string{"secret-tool", "security"} {
 		os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\necho fake > "+filepath.Join(dir, "ran")+"\n"), 0o755)
@@ -119,8 +135,7 @@ func TestKeychainMacOS(t *testing.T) {
 	}
 	defer exec.Command("security", "delete-keychain", kc).Run()
 	exec.Command("security", "unlock-keychain", "-p", "test", kc).Run()
-	t.Setenv("KOMANDO_KEYCHAIN", kc)
-	roundTrip(t)
+	roundTrip(t, kc)
 	if strings.Contains(keychainService(), "/") {
 		t.Error("service name carries the path")
 	}

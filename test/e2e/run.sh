@@ -24,6 +24,10 @@ KOMANDO_HOME="${E2E_HOME:-$(mktemp -d)}"
 mkdir -p "$KOMANDO_HOME" && chmod 700 "$KOMANDO_HOME"
 export KOMANDO_HOME
 export KOMANDO_ACTOR="e2e"
+# a new vault would put its key in this computer's keychain (the login
+# keychain on a Mac): every run would leave one there. The unit tests cover
+# the keychain with stand-ins (internal/vault/newkey_test.go).
+export KOMANDO_KEYCHAIN=off
 # this script is a script, even when an AI agent starts it; the agent
 # checks below say so on purpose (and never open an approval window)
 unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT GEMINI_CLI CODEX_SANDBOX CODEX_THREAD_ID CURSOR_AGENT KOMANDO_AGENT AI_AGENT
