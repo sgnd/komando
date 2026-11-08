@@ -27,6 +27,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- Redis Cluster and Sentinel: a `redis://` or `rediss://` conn with
+  `?cluster=1` works on the whole cluster from one node's address
+  (`cache keys` scans every master, `cache info` adds them up with the
+  cluster's state), and one with `?sentinel=MASTER` reaches the master the
+  Sentinels name (more Sentinels with `sentinels=`, their login with
+  `sentinel_auth=same`). Valkey, ElastiCache and MemoryDB clusters work
+  the same way.
 - Databases and caches whose certificate comes from a private CA (a
   company CA, Amazon RDS, Azure, ElastiCache) are checked against it:
   `?ca=secret:NAME` on a `postgres://`, `mysql://`, `rediss://` or
@@ -63,6 +70,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A `rediss://` conn reached through `--via` could not connect: the Redis
+  client leaves TLS out when it is given its own dialer, so it spoke plain
+  Redis to the TLS port. komando's dialer now adds TLS itself, checking
+  each server's own name.
 - `komando host import --overwrite` deleted an existing server when the
   imported copy with the same name was refused (for example, its `--via`
   host does not exist). The server it would have replaced now stays.

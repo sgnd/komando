@@ -123,6 +123,11 @@ type Target struct {
 	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry: skip-verify (registry also false)
 	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached: secret:NAME holding the PEM CA certificate to trust
 	Resolve  string `json:"resolve,omitempty"`  // registry, s3: IP:port to connect to in place of Address (?resolve=)
+
+	Cluster      bool     `json:"cluster,omitempty"`       // redis: a Redis Cluster; Address is one node (?cluster=1)
+	Sentinel     string   `json:"sentinel,omitempty"`      // redis: the master's name at the Sentinels (?sentinel=NAME)
+	Sentinels    []string `json:"sentinels,omitempty"`     // redis: more Sentinels besides Address (?sentinels=h2:26379,h3:26379)
+	SentinelAuth bool     `json:"sentinel_auth,omitempty"` // redis: the Sentinels want the conn's login too (?sentinel_auth=same)
 }
 
 // DialAddress is where a connection goes: the ?resolve= address when the
@@ -228,6 +233,9 @@ func Parse(raw string) (Target, error) {
 		}
 		if n, err := strconv.Atoi(t.Database); err != nil || n < 0 {
 			return Target{}, out.Usage("redis URL path must be a database number, e.g. redis://cache:6379/0")
+		}
+		if err := parseRedisTopology(u, &t); err != nil {
+			return Target{}, err
 		}
 	}
 	if err := parseCA(u.Query(), &t); err != nil {

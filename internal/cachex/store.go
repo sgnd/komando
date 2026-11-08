@@ -58,7 +58,7 @@ func SummarizeFor(kind string, info map[string]map[string]string) Summary {
 	return Summarize(info)
 }
 
-type redisStore struct{ c *redis.Client }
+type redisStore struct{ c redis.UniversalClient }
 
 func (r redisStore) Get(ctx context.Context, key string, limit int64, maxBytes int) (*Value, error) {
 	return Get(ctx, r.c, key, limit, maxBytes)
