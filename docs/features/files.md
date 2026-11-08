@@ -69,6 +69,12 @@ edit counts as a change (the file is written again), and no hash of the file
 is reported. `fs write --if-changed` and its `would_change` do the same for a
 file with a hidden value. Masking stays a best effort.
 
+`{{secret:NAME}}` in `--new` or in the text `fs write` writes becomes the
+vault value on the server. When an AI agent asks for that, komando stops
+with `SECRET_DESTINATION` until a person allows it: the agent adds `--yes`
+and the window names the secret and the server and file it goes to. An
+agent's `--dry-run` reads no secret and shows `{{secret:NAME}}` as written.
+
 `fs write` writes a whole file. The new file is written next to the old one
 and then moved into place, so a server never sees half a file:
 

@@ -109,7 +109,7 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 		}
 		v.Add = append(v.Add, h)
 	}
-	return v, nil
+	return v, guardHostSends(v.Add, prev)
 }
 
 // parseHostsJSON reads `host export` output (the envelope or its data), a

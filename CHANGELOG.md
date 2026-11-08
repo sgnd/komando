@@ -19,6 +19,11 @@ its highlights; the sections below them give the details. Versions follow
 - **The stored password is never sent as a two-factor code.** Before, every
   question the server asked got the password, and each try could count as
   a failed login and lock the account.
+- **A person decides where an AI agent sends a secret:** `{{secret:NAME}}`,
+  `--env K=secret:NAME` and a password on a new or moved server or conn
+  need `--yes` and a yes in komando's window, which names the secret and
+  the place (`SECRET_DESTINATION`). Agents that use `fs replace ...
+  {{secret:NAME}}` now ask first.
 
 ### Added
 
@@ -112,6 +117,48 @@ its highlights; the sections below them give the details. Versions follow
   name, and asks again after a typo (up to 3 times) instead of ending the
   login. The Pulse sign-in notice asks `Accept the sign-in notice? [y/N]`
   and takes y or yes in any case.
+
+### Security
+
+- An AI agent that sends a secret somewhere needs `--yes`, and komando's
+  window names the secret and the place (`SECRET_DESTINATION`, exit 6):
+  `{{secret:NAME}}` in `fs write` and `fs replace`, `exec --env
+  K=secret:NAME` and `job start --env`, `db user add` and `db user passwd`,
+  and a password reference (`secret:`, `env:`, `file:`, ...) that `host
+  add`, `host edit`, `conn add`, `conn edit`, `import csv` or another import
+  attaches to a server or conn, or a server or conn with one that moves to
+  another address, port, `--via` path or proxy command. Before, an agent
+  could put a vault value on a server it controls, where it can come back
+  in a form masking does not know. People and scripts are not asked. An
+  agent's dry run reads no secret: it keeps `{{secret:NAME}}` as written.
+- No password reference and no `{{secret:NAME}}` reads the approval code's
+  key (`RESERVED_SECRET`), for anyone. Before, only the `secret` commands
+  refused it.
+- An AI agent that adds a conn whose URL turns its network protection down
+  (`sslmode=disable`, `allow` or `prefer`; MySQL `tls=false`, `preferred`
+  or `skip-verify`; `tls=false` or `tls=skip-verify` for a registry or
+  FTPS; FTP `insecure=1`), or edits a conn so that it does (also
+  `rediss://` to `redis://`), needs `--yes` and a person's yes
+  (`SAFETY_SETTING`).
+- An AI agent's command with a `KOMANDO_HOME` other than `~/.komando`
+  needs `--yes` and a person's yes, every time (`SAFETY_SETTING`): in a new
+  folder komando knew none of the protected servers, deny rules or host
+  keys, and wrote the audit log elsewhere. A link to `~/.komando` counts as
+  the usual folder. The guard (`komando guide install`) now also stops
+  shell lines that set, export or unset `KOMANDO_HOME`.
+- The vault key in the OS keychain is read with `/usr/bin/security` on
+  macOS and with `secret-tool` from `/usr/bin`, `/bin` or `/usr/local/bin`
+  on Linux, never through `PATH`, as the approval window's tools already
+  were.
+- `tunnel start` hands `KOMANDO_VAULT_PASS` to its background process on
+  stdin instead of in its environment, where any program of the user could
+  read it for as long as the tunnel runs.
+- For an AI agent, audit records add `os_user` (the computer account, read
+  from the system) and `actor_claimed: true` when the name comes from
+  `KOMANDO_ACTOR`, which the agent's environment can set to anything.
+  `komando audit -o text` shows such a line as `Claude Code (as NAME)`.
+- `fs replace --regex` with `{{secret:NAME}}` writes a `$` in the secret
+  as it is; before, `$1` in a password was read as a group.
 
 ## [0.6.0] - 2026-11-08
 
