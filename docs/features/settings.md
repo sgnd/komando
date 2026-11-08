@@ -56,7 +56,7 @@ Most settings also have a flag for one run: `--timeout`,
 | Variable | What it does |
 |----------|--------------|
 | `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`). For an AI agent, another folder needs a person's yes on every command (see [Safety](safety.md#seatbelts-for-ai-agents)); if you keep the data elsewhere, make `~/.komando` a link to it instead |
-| `KOMANDO_VAULT_PASS` | a passphrase for the vault, instead of the `vault.key` file |
+| `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of the `vault.key` file. A new vault takes it at your first secret; `komando secret passphrase` adds or changes it later (see below) |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
 | `KOMANDO_AGENT`, `AI_AGENT` | mark the caller as an AI agent, for agents komando does not know by their own variables: output hides secrets and `--yes`, `--allow-dangerous` and `--reveal` need a person to allow them (see [Safety](safety.md#seatbelts-for-ai-agents)). Any value counts, also `0` or empty |
@@ -82,16 +82,22 @@ readable only by you (folder 0700, files 0600).
 | `tunnels/` | logs of background tunnels |
 | `bitwarden-device` | the device id komando shows to Bitwarden or Vaultwarden |
 
-Back this folder up and keep it private. If other people or backups can
-reach it, run `komando secret keychain`: it moves the vault's key out of
-`vault.key` into the OS keychain (the macOS keychain through
-`/usr/bin/security`, or the Secret Service on Linux through `secret-tool`
-in `/usr/bin`, `/bin` or `/usr/local/bin`: komando never looks for them in
-`PATH`), so a copy of this folder no longer opens
-the vault (`--off --yes` moves it back). Or set `KOMANDO_VAULT_PASS` to a
-passphrase of 15 or more characters **before** you store your first secret.
-`komando doctor` warns when you have done neither. To move to another
-computer, use `komando export` (no passwords) instead of copying the folder.
+Back this folder up and keep it private. Then run `komando secret keychain`:
+it moves the vault's key out of `vault.key` into the OS keychain (the macOS
+keychain through `/usr/bin/security`, or the Secret Service on Linux through
+`secret-tool` in `/usr/bin`, `/bin` or `/usr/local/bin`: komando never looks
+for them in `PATH`), so a copy of this folder no longer opens the vault.
+Nothing is re-encrypted, so it works before or after your first secret
+(`--off --yes` moves it back). This is the recommended setup;
+`komando doctor` warns until it is done.
+
+`KOMANDO_VAULT_PASS` is the other way, mainly for a computer without a
+keychain (a Linux server without `secret-tool`). A new vault takes its mode
+at your first secret: with the variable set to 15 or more characters, it
+gets that passphrase. Setting or changing the variable on its own does
+nothing to a vault that exists already; `komando secret passphrase` does
+that (below). A passphrase vault needs the same passphrase in every shell
+and background process.
 
 To change the passphrase, or to give a passphrase to a vault whose key is in
 `vault.key` or the keychain, run `komando secret passphrase` in your terminal.
@@ -105,6 +111,9 @@ VPN sessions: they still hold the old key. `--off --yes` goes back to a new
 random key in `vault.key`. Only a person at a terminal can run it, never an
 AI agent. A `KOMANDO_VAULT_PASS` changed without it opens none of the
 secrets (nothing is lost: set the old value again); `komando doctor` says so.
+
+To move to another computer, use `komando export` (no passwords) instead of
+copying the folder.
 
 ## Update komando
 

@@ -122,9 +122,17 @@ komando secret set web1-pass
 komando host edit web1 --password-ref secret:web1-pass
 ```
 
-The vault's key is a file in `~/.komando`. On a shared computer, or one that
-is backed up or synced, move it into the system keychain with
-`komando secret keychain`. `komando doctor` checks your whole setup.
+The vault's key is a file in `~/.komando`, so a backup or a synced copy of
+that folder opens the vault. Move the key into the system keychain once
+(before or after your first secret; nothing is re-encrypted):
+
+```bash
+komando secret keychain
+```
+
+You do not need `KOMANDO_VAULT_PASS`: a vault passphrase is optional, mainly
+for a computer without a keychain (see [Settings](docs/features/settings.md#where-komando-keeps-its-data)).
+`komando doctor` checks your whole setup.
 
 Mark production servers as protected. Then nothing can be changed there
 unless the command includes `--yes` (a deliberate "yes, I'm sure"). Looking

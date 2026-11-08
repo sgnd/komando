@@ -182,8 +182,8 @@ another language, gets past it. So:
 
 - give komando, and so your agent, an SSH user with only the permissions it needs;
 - mark production with `komando host edit NAME --protected`;
-- set a vault passphrase (`KOMANDO_VAULT_PASS`) if other people or backups
-  can reach `~/.komando`.
+- move the vault key into the OS keychain (`komando secret keychain`), so
+  other people or backups that reach `~/.komando` cannot open the vault.
 
 The dangerous-command filter catches common accidents; it is not a complete
 security boundary. Masking is a best effort: a secret under an unusual name,

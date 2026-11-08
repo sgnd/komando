@@ -168,6 +168,12 @@ its highlights; the sections below them give the details. Versions follow
   nothing, and a note about a server it did add (such as a missing
   identity file) no longer reads `not imported:`. `import ssh-config` on a
   computer with no `~/.ssh/config` says so and shows how to add a server.
+- The README, Settings, Safety and SECURITY.md now agree on how to protect
+  the vault: `komando secret keychain` is the recommended setup (before or
+  after the first secret), and `KOMANDO_VAULT_PASS` is optional. A new
+  vault takes the passphrase at its first secret; setting the variable later
+  does nothing to an existing vault (`komando secret passphrase` does), which
+  the docs did not say.
 
 ### Fixed
 
