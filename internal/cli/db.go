@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -438,6 +439,9 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		audit(st, name, nil, "", false, rec)
 		return err
 	}
+	if err := refuseHiddenSQL(f.write, query, f.args); err != nil {
+		return fail(err)
+	}
 	if !f.write && plan.NeedsWrite() {
 		e := out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG",
 			"this SQL changes data; re-run with --write (try --write --dry-run first)",
@@ -502,8 +506,22 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	rec["rows_affected"] = affected
 	rec["committed"] = res.Committed
 	audit(st, name, nil, "", true, rec)
+	return printQuery(name, c, plan, f, res)
+}
+
+// printQuery shows a query's result, with the conn's mask_columns hidden
+// when personal data is.
+func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res *dbx.Result) error {
+	maskColumns(c, res)
 	if f.csv || f.tsv {
-		return writeDelimited(out.P.W, res, f.tsv)
+		// through Redact like every other output: vault values, and for an
+		// AI agent secrets and personal data, stay hidden in CSV too
+		var b strings.Builder
+		if err := writeDelimited(&b, res, f.tsv); err != nil {
+			return err
+		}
+		_, err := io.WriteString(out.P.W, out.P.Redact(b.String()))
+		return err
 	}
 	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
 	return nil

@@ -23,11 +23,13 @@ import (
 
 // mvResult is what the mv commands print.
 type mvResult struct {
-	Kind    string   `json:"kind"`   // host | conn | vpn
-	From    string   `json:"from"`   // the old name
-	To      string   `json:"to"`     // the new name
-	Action  string   `json:"action"` // renamed | would_rename | unchanged
-	Updated []string `json:"updated"`
+	Kind     string   `json:"kind"`   // host | conn | vpn | key | group
+	From     string   `json:"from"`   // the old name
+	To       string   `json:"to"`     // the new name
+	Action   string   `json:"action"` // renamed | would_rename | unchanged
+	Updated  []string `json:"updated"`
+	Moved    []string `json:"moved,omitempty"` // key mv: the key files, "OLD -> NEW"
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 func (r mvResult) Text() string {
@@ -41,6 +43,12 @@ func (r mvResult) Text() string {
 	s := fmt.Sprintf("%s %s %s to %s\n", verb, r.Kind, r.From, r.To)
 	for _, u := range r.Updated {
 		s += "  also updated: " + u + "\n"
+	}
+	for _, m := range r.Moved {
+		s += "  moved: " + m + "\n"
+	}
+	for _, w := range r.Warnings {
+		s += "  warning: " + w + "\n"
 	}
 	return s
 }

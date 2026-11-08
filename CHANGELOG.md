@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Highlights
 
+- **Rename a whole project in one step:** `komando rename --prefix shop-
+  acme-shop-` renames every server, conn, VPN, secret, key and group that
+  starts with `shop-`, and every reference follows. It needs one `--yes`
+  (one approval window) for all the protected ones, and it changes
+  everything or nothing.
 - **`komando update` updates komando itself:** it installs the newest
   release (`sudo komando update` for /usr/local/bin), checked like the
   install line; `komando update --dry-run` says whether there is one.
@@ -19,6 +24,11 @@ its highlights; the sections below them give the details. Versions follow
 - **The stored password is never sent as a two-factor code.** Before, every
   question the server asked got the password, and each try could count as
   a failed login and lock the account.
+- **A person decides where an AI agent sends a secret:** `{{secret:NAME}}`,
+  `--env K=secret:NAME` and a password on a new or moved server or conn
+  need `--yes` and a yes in komando's window, which names the secret and
+  the place (`SECRET_DESTINATION`). Agents that use `fs replace ...
+  {{secret:NAME}}` now ask first.
 - **Safer connections by default:** vault values for `-e` stay off the
   remote command line, the first trusted SSH host key is shown with its
   fingerprint, IKEv1 no longer offers 3DES or small DH groups, L2TP never
@@ -27,6 +37,89 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- **`komando secret passphrase`** re-encrypts every secret under a new
+  passphrase, so `KOMANDO_VAULT_PASS` can change without losing the vault.
+  It also gives a passphrase to a vault whose key is in `vault.key` or the
+  keychain (the old key is removed once the new vault is saved and read
+  back), and `--off --yes` goes back to a random key in `vault.key`. Every
+  secret is decrypted first; when one cannot be, nothing changes. A person
+  at a terminal only (`NEEDS_PERSON` for AI agents and scripts).
+  `komando doctor` now fails when `KOMANDO_VAULT_PASS` does not open the
+  vault and warns about a leftover `vault.key`.
+- **`komando rename --prefix OLD NEW`** renames every server, conn, VPN,
+  secret, key and group whose name starts with OLD. When OLD ends in `-`,
+  the name without it is renamed too (group `shop` for `--prefix shop-`).
+  Every reference follows: `--via` paths (also a server in the middle of
+  one), password, sudo, key, preshared key and passphrase references,
+  `secret:NAME` options in conn URLs, the key a server uses, group
+  membership, jobs and tunnels. A key komando made moves its files. The
+  protected mark, labels, notes and creation time stay, and names inside
+  URLs (a bucket, a database user) do not change. The inventory and the
+  vault are each written once; a name that is taken, or two old names with
+  one new name, stops it before anything changes (`NAME_TAKEN` lists every
+  clash). Protected servers and conns need `--yes` once, and an AI agent's
+  window says how many it covers. `--dry-run` shows the old and new names
+  per kind and every reference that would change. `--kind` renames only
+  some kinds, and `--notes` also replaces the old names in notes, as whole
+  words. When the new prefix starts with the old one, a second run changes
+  nothing.
+- **`komando key mv OLD NEW`** renames a key; the servers that use it follow,
+  and a key komando made moves its private and `.pub` files in
+  `~/.komando/keys`.
+- **`komando group mv OLD NEW`** renames a group on every server, conn and
+  VPN in it; with a protected member it needs `--yes` once. A name that is
+  another group already is refused (`GROUP_EXISTS`).
+- `komando audit --since` and `--until` pick a time window: how long ago
+  (`2h`, `7d`), `today`, `yesterday`, or a time (`2026-11-07`,
+  `'2026-11-07 14:30'`, `2026-11-07T14:30:00Z`; without a zone, this
+  computer's). With either, every match is shown, not only the newest 50,
+  unless `-n` is given. They work with `--target`, `--command` and
+  `--failed`.
+- A company HTTP proxy is a VPN of kind `proxy`
+  (`komando vpn add office proxy --address proxy.corp:3128`, its login with
+  `--user` and `--password-ref`): `--via office` tunnels servers (SSH),
+  databases, caches and file servers through it (CONNECT), as `socks` VPNs
+  do for SOCKS proxies. `host ssh-command` gives OpenSSH the same path.
+- **Customer data stays out of the AI model:** on protected servers and
+  conns, an AI agent sees email addresses, phone numbers, card numbers and
+  IBANs as `[hidden: email]` and so on, and columns you name as
+  `[hidden: column]`.
+- Personal data is hidden from AI agents in what they read from protected
+  servers and conns: `[hidden: email]`, `[hidden: phone]` (international
+  form), `[hidden: card]` (card network prefix, length and check digit) and
+  `[hidden: iban]` (check digits). It covers `db query`, `cache get` and
+  `run`, `storage cat` and `ls`, `fs cat`, `exec`, `logs` and the other
+  commands that show data from a target; komando's own inventory is never
+  hidden. `komando config set mask_personal all` hides it everywhere, `off`
+  nowhere (showing more needs `--yes`). A conn can ask for it with
+  `--option mask_personal=on`, and a database conn hides whole columns with
+  `--option 'mask_columns=name address'`. `--reveal`, which a person
+  allows, shows the values. A `db query --write`, `cache set` or
+  `cache run --write` that still holds a hidden value stops with
+  `HIDDEN_VALUE`, as file writes already did.
+
+- `komando cluster status`, `cluster ls`, `cluster events` and
+  `cluster helm ls` read every cluster a selector picks (`@prod`,
+  `kind:k8s`, `all`) at the same time: one row per cluster in
+  `data.results` with `data.summary`, and a cluster that cannot be read
+  fails alone (`PARTIAL_FAILURE`). One cluster gives the same output as
+  before; commands that change a cluster stay on one.
+- `komando cluster helm ls|status|history|values` read the Helm releases
+  stored in a Kubernetes cluster, without the `helm` program: name,
+  revision, status, chart and app version, the notes, every stored
+  revision, and the values (`--all` with the chart's defaults,
+  `--revision N` for an older one). It only reads; install and upgrade
+  stay with helm.
+- Storage conns for **Google Cloud Storage** (`gs://bucket/folder`, logged
+  in like gcloud or with a service account key), **Azure Blob Storage**
+  (`azblob://ACCOUNT@container/folder`, with the account key or a SAS
+  token) and **WebDAV** (`webdavs://user@host/path`: Nextcloud, ownCloud, a
+  NAS). `storage ls`, `cat`, `upload`, `download`, `rm`, `sync` and
+  `conn test` work on them as on S3, also through `--via`. `storage link`
+  makes a signed link for Google Cloud (with a service account key) and
+  Azure (with the account key). Big Azure uploads go up in blocks, with no
+  temporary file; WebDAV makes missing folders. Emulators take
+  `?endpoint=URL`.
 - **MongoDB** conns (`mongodb://`, `mongodb+srv://`, replica sets, Atlas):
   `db query` takes a command document in JSON (`{"find": ...}`,
   `{"aggregate": ...}`, `{"update": ...}`), rated before it is sent like
@@ -78,6 +171,18 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Behind a company proxy, Kubernetes clusters, registries and the
+  AnyConnect, Fortinet, GlobalProtect, F5 and Pulse VPNs could not be
+  reached: they ignored `HTTPS_PROXY`, while `kubectl` and `docker` use
+  it. They now go through `HTTPS_PROXY` (`HTTP_PROXY` for `http://`)
+  except what `NO_PROXY` names, like storage and the secret stores already
+  did. That includes `cluster exec`, `cluster forward` and `cluster shell`,
+  and a kubeconfig's `proxy-url` wins for its cluster. A target reached
+  with `--via` still goes out through its path. See "Behind a company
+  proxy" in [Private servers and tunnels](docs/features/tunnels.md).
+- `komando db query --csv` and `--tsv` printed values an AI agent should
+  not see: unlike the JSON and text output, they skipped the masking of
+  secrets and vault values. They are masked the same way now.
 - A `rediss://` conn reached through `--via` could not connect: the Redis
   client leaves TLS out when it is given its own dialer, so it spoke plain
   Redis to the TLS port. komando's dialer now adds TLS itself, checking
@@ -146,6 +251,64 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- **`--read-only` on a protected server or conn is now an allowlist, not a
+  denylist.** Before, a protected target let any command komando did not
+  recognise skip `--yes`, so an unknown program that changes things could
+  pass. Now `--read-only` skips the confirmation only for commands komando
+  knows read (`cat`, `ls`, `tail`, `df`, `ps`, `grep`, `journalctl` and
+  `systemctl status`, `docker ps`/`logs`, `kubectl get`/`describe`, `find`
+  without `-delete`/`-exec`, and the like); anything else takes the normal
+  `--yes` path with a person's approval. Unprotected targets are unchanged.
+  Affects `exec`, `script`, `job start` and read-only recipes.
+- **An `--os-mode` OpenVPN profile is now rewritten into a canonical form
+  and handed to `openvpn` on its input, never written to a file.** komando
+  parses the `.ovpn`, refuses anything its checker and OpenVPN could read
+  differently (backslash escapes, stray quotes, over-long lines, odd inline
+  tags, control characters), and passes `openvpn` only the directives it
+  checked, with `--script-security 1` on the command line so the root
+  process runs no user programs. A profile komando accepted before may now
+  be refused if it relies on one of those tricks.
+- **`komando update` follows release redirects only while they stay on
+  HTTPS**, so the download can never be pulled over plain HTTP.
+- An AI agent that sends a secret somewhere needs `--yes`, and komando's
+  window names the secret and the place (`SECRET_DESTINATION`, exit 6):
+  `{{secret:NAME}}` in `fs write` and `fs replace`, `exec --env
+  K=secret:NAME` and `job start --env`, `db user add` and `db user passwd`,
+  and a password reference (`secret:`, `env:`, `file:`, ...) that `host
+  add`, `host edit`, `conn add`, `conn edit`, `import csv` or another import
+  attaches to a server or conn, or a server or conn with one that moves to
+  another address, port, `--via` path or proxy command. Before, an agent
+  could put a vault value on a server it controls, where it can come back
+  in a form masking does not know. People and scripts are not asked. An
+  agent's dry run reads no secret: it keeps `{{secret:NAME}}` as written.
+- No password reference and no `{{secret:NAME}}` reads the approval code's
+  key (`RESERVED_SECRET`), for anyone. Before, only the `secret` commands
+  refused it.
+- An AI agent that adds a conn whose URL turns its network protection down
+  (`sslmode=disable`, `allow` or `prefer`; MySQL `tls=false`, `preferred`
+  or `skip-verify`; `tls=false` or `tls=skip-verify` for a registry or
+  FTPS; FTP `insecure=1`), or edits a conn so that it does (also
+  `rediss://` to `redis://`), needs `--yes` and a person's yes
+  (`SAFETY_SETTING`).
+- An AI agent's command with a `KOMANDO_HOME` other than `~/.komando`
+  needs `--yes` and a person's yes, every time (`SAFETY_SETTING`): in a new
+  folder komando knew none of the protected servers, deny rules or host
+  keys, and wrote the audit log elsewhere. A link to `~/.komando` counts as
+  the usual folder. The guard (`komando guide install`) now also stops
+  shell lines that set, export or unset `KOMANDO_HOME`.
+- The vault key in the OS keychain is read with `/usr/bin/security` on
+  macOS and with `secret-tool` from `/usr/bin`, `/bin` or `/usr/local/bin`
+  on Linux, never through `PATH`, as the approval window's tools already
+  were.
+- `tunnel start` hands `KOMANDO_VAULT_PASS` to its background process on
+  stdin instead of in its environment, where any program of the user could
+  read it for as long as the tunnel runs.
+- For an AI agent, audit records add `os_user` (the computer account, read
+  from the system) and `actor_claimed: true` when the name comes from
+  `KOMANDO_ACTOR`, which the agent's environment can set to anything.
+  `komando audit -o text` shows such a line as `Claude Code (as NAME)`.
+- `fs replace --regex` with `{{secret:NAME}}` writes a `$` in the secret
+  as it is; before, `$1` in a password was read as a group.
 - A vault value given to a remote command (`-e DB_PASS=secret:NAME`, or a
   server's `--env` with `secret:`) reaches the command on its input, not
   on its command line. Before, every user of the server could read it in

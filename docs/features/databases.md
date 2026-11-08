@@ -137,6 +137,15 @@ komando conn edit app-db --option statement_timeout=10s
 
 `--timeout` on the command line always wins.
 
+On a protected conn, an AI agent sees email addresses, phone numbers, card
+numbers and IBANs in the rows as `[hidden: email]` and so on. Name the
+columns that hold other personal data (names, addresses) to hide them
+whole, for the agent: see [Personal data](safety.md#personal-data).
+
+```bash
+komando conn edit app-db --option 'mask_columns=full_name address birth_date'
+```
+
 **SQL that starts with a `-- comment`** looks like a flag to the command
 line. Put `--` before it, or use `--file -`.
 
@@ -251,6 +260,8 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
   command line, shown, or written to the audit log (`--dry-run` and the
   answer show `[hidden]`). PostgreSQL gets a SCRAM-SHA-256 verifier that
   komando computes, so the password never reaches the server or its logs.
+  For an AI agent, the password needs a person's yes (`--yes`, then the
+  window, `SECRET_DESTINATION`): the conn could be a server the agent set up.
 - `--on` takes `database:NAME`, `schema:NAME`, `table:[SCHEMA.]TABLE` or
   `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
   and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).

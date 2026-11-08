@@ -376,9 +376,6 @@ func fsWriteCmd() *cobra.Command {
 			if out.HasHidden(string(data)) {
 				return hiddenValueErr()
 			}
-			if data, err = expandSecretRefsBytes(data); err != nil {
-				return err
-			}
 			if o.owner != "" && !o.sudo {
 				return out.Usage("--owner needs --sudo (only root can give a file to another user)")
 			}
@@ -394,6 +391,9 @@ func fsWriteCmd() *cobra.Command {
 				return err
 			}
 			if err := guard(st, []*store.Host{h}, o.validate, true); err != nil {
+				return err
+			}
+			if data, err = expandSecretRefsBytes(data, h.Name+":"+args[1]); err != nil {
 				return err
 			}
 			if g.dryRun {

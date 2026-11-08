@@ -140,7 +140,50 @@ The address, login, references, protected mark, groups, tags and labels
 stay. Servers, conns and tunnels that go through it (`--via`), and its jobs
 and tunnels, follow the new name in the same step. Pinned host keys belong
 to the address, so `host trust` is not needed again. Renaming a protected
-server needs `--yes`. `conn mv` and `vpn mv` do the same for conns and VPNs.
+server needs `--yes`. `conn mv` and `vpn mv` do the same for conns and VPNs,
+`key mv` for a key, and `group mv` for a group.
+
+### Rename a whole project at once
+
+When a project or a customer gets a new name, `rename --prefix` renames
+every server, conn, VPN, secret, key and group whose name starts with the
+old prefix, in one step:
+
+```bash
+komando rename --prefix shop- acme-shop- --dry-run   # the old -> new list per kind, and every reference
+komando rename --prefix shop- acme-shop- --yes       # --yes once, when some of them are protected
+```
+
+- **What it renames.** Every name that starts with `shop-`. When the old
+  prefix ends in `-`, the name without it is renamed too: group `shop`
+  becomes `acme-shop`. `--kind host,conn` renames only some kinds.
+- **Every reference follows:** `--via` paths (also a server in the middle
+  of one, as in `shop-vpn,shop-bastion`), password, sudo, key, preshared
+  key and passphrase references, `secret:NAME` options in conn URLs, the
+  key a server uses, group membership, jobs and tunnels. A key komando made
+  (`key gen`) moves its files in `~/.komando/keys`.
+- **What stays.** The protected mark, labels, notes and creation time.
+  Names inside URLs belong to the resource, not to komando, so in
+  `s3://shop-admin@shop-prod` the user and the bucket stay. `--notes` also
+  replaces the old names in notes, as whole words.
+- **All or nothing.** The inventory and the vault are each written once.
+  When a new name is taken, or two old names would get one new name,
+  nothing changes (`NAME_TAKEN`, with every clash listed). A connected VPN
+  must go down first (`VPN_IN_USE`).
+- **One yes.** Protected servers and conns among them need `--yes` once. An
+  AI agent's `--yes` opens one window for a person, which says how many
+  protected entries it covers. Pointing a reference at the new name of the
+  same secret, key or VPN needs no yes: the same value goes to the same place.
+- **Safe to repeat.** When the new prefix starts with the old one
+  (`team-` to `team-ops-`), names that have the new prefix already
+  are left alone, so a second run changes nothing.
+
+`key mv OLD NEW` renames one key: the servers that use it follow, and a key
+komando made moves its files. Public keys already installed on servers keep
+their comment; they still work, since the key itself does not change.
+`group mv OLD NEW` renames a group on every member (it needs `--yes` when a
+protected server or conn is in it). To merge two groups, use `group add NEW
+@OLD` and then `group rm OLD`.
 
 `host rm` removes servers from komando's list. It does not touch the server
 itself. It takes names or a [target](targets.md):
@@ -220,6 +263,11 @@ encrypted in komando's vault (see [Secret](glossary.md)):
 komando secret set web1-pass
 komando host edit web1 --password-ref secret:web1-pass
 ```
+
+The password goes to the server's address on every login. So when an AI
+agent gives a server or conn a password reference, or moves one that has
+one to another address, port or `--via` path, a person allows it in
+komando's window (`SECRET_DESTINATION`); see [Safety](safety.md#seatbelts-for-ai-agents).
 
 komando sends the stored password at most once per login, and only when the
 server asks for a password (hidden as you type). A server that also asks

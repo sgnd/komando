@@ -165,8 +165,12 @@ func connAddCmd() *cobra.Command {
 				if err := checkNewName(s, "conn", name, force); err != nil {
 					return err
 				}
-				_, replaced = s.Conns[name]
+				old := s.Conns[name]
+				replaced = old != nil
 				if _, err := checkConn(s, cn); err != nil {
+					return err
+				}
+				if err := guardConnSends(old, cn); err != nil {
 					return err
 				}
 				if twin := protectedTwinConn(s, cn); twin != "" && !cn.Protected {
@@ -216,7 +220,6 @@ func connEditCmd() *cobra.Command {
 					return err
 				}
 				before, _ := json.Marshal(cn)
-				wasProtected := cn.Protected
 				old := *cn
 				set := func(name string, dst *string, v string) {
 					if fl.Changed(name) {
@@ -252,17 +255,10 @@ func connEditCmd() *cobra.Command {
 						return out.Errf(out.ExitUsage, "USAGE", "--unset takes: via, password-ref, notes, protected", "cannot unset %q", u)
 					}
 				}
-				if wasProtected && !cn.Protected {
-					if err := guardProtection("conn", "turning off protection of", []string{cn.Name}); err != nil {
-						return err
-					}
-				}
-				if wasProtected && (old.URL != cn.URL || old.Via != cn.Via || old.PasswordRef != cn.PasswordRef) {
-					if err := guardProtection("conn", "changing where or how komando logs in to", []string{cn.Name}); err != nil {
-						return err
-					}
-				}
 				if _, err := checkConn(s, cn); err != nil {
+					return err
+				}
+				if err := guardConnEdit(&old, cn); err != nil {
 					return err
 				}
 				if rename != "" && rename != cn.Name {
@@ -299,6 +295,34 @@ func connEditCmd() *cobra.Command {
 	c.Flags().StringVar(&rename, "rename", "", "rename the conn")
 	_ = c.Flags().MarkDeprecated("rename", "use `komando conn mv OLD NEW`")
 	return c
+}
+
+// guardConnEdit: an edit that turns a conn's protection off, or changes
+// where or how komando logs in to a protected conn, needs --yes. For an AI
+// agent, so do the secrets it sends to a new place and the settings that
+// turn its network protection down (guardConnSends); one window asks about
+// all of it.
+func guardConnEdit(old, cn *store.Conn) error {
+	var actions []string
+	if old.Protected && !cn.Protected {
+		actions = append(actions, "turning off protection of")
+	}
+	if old.Protected && (old.URL != cn.URL || old.Via != cn.Via || old.PasswordRef != cn.PasswordRef) {
+		actions = append(actions, "changing where or how komando logs in to")
+	}
+	var why []string
+	for _, a := range actions {
+		why = append(why, a+" protected conn: "+cn.Name)
+	}
+	if err := guardConnSends(old, cn, why...); err != nil {
+		return err
+	}
+	for _, a := range actions {
+		if err := guardProtection("conn", a, []string{cn.Name}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func connShowCmd() *cobra.Command {

@@ -77,10 +77,10 @@ func jobStartCmd() *cobra.Command {
 					return err
 				}
 			}
-			if err := guard(st, hosts, command, !readOnly); err != nil {
+			if err := guard(st, hosts, command, !readOnly || readOnlyMutates(command, envs)); err != nil {
 				return err
 			}
-			env, err := parseEnv(envs)
+			env, err := parseEnvTo(envs, hosts)
 			if err != nil {
 				return err
 			}
@@ -200,11 +200,11 @@ func lookupJob(id string) (*store.State, *store.Job, *store.Host, error) {
 	}
 	h, ok := st.Hosts[j.Host]
 	if !ok {
-		var err error
 		if h, err = sshx.ParseAdhoc(j.Host); err != nil {
 			return nil, nil, nil, out.NotFound("host", j.Host)
 		}
 	}
+	notePersonal(st, []*store.Host{h}, nil) // a job's output is data from h
 	return st, j, h, nil
 }
 

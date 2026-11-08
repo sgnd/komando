@@ -49,87 +49,6 @@ Kinds (also: pritunl = openvpn; cisco = ipsec):
 	return c
 }
 
-// ovpnAllowed are the .ovpn client directives komando passes on. OpenVPN
-// may run as root (--os-mode), so anything that runs programs, writes or
-// reads files by path, or opens a management port is refused. Keys and
-// certificates must be inline (<ca>...</ca>), never a path.
-var ovpnAllowed = map[string]bool{
-	"client": true, "dev": true, "dev-type": true, "proto": true, "remote": true, "remote-random": true, "port": true,
-	"rport": true, "resolv-retry": true, "nobind": true, "persist-key": true, "persist-tun": true, "float": true,
-	"remote-cert-tls": true, "verify-x509-name": true, "ns-cert-type": true, "remote-cert-ku": true, "remote-cert-eku": true, "key-direction": true,
-	"cipher": true, "data-ciphers": true, "data-ciphers-fallback": true, "ncp-ciphers": true, "auth": true,
-	"tls-client": true, "tls-version-min": true, "tls-version-max": true, "tls-cipher": true, "tls-ciphersuites": true,
-	"auth-user-pass": true, "auth-retry": true, "auth-nocache": true, "static-challenge": true,
-	"comp-lzo": true, "compress": true, "allow-compression": true, "verb": true, "mute": true, "mute-replay-warnings": true,
-	"reneg-sec": true, "tun-mtu": true, "tun-mtu-extra": true, "mssfix": true, "fragment": true, "mtu-disc": true,
-	"keepalive": true, "ping": true, "ping-restart": true, "ping-exit": true, "inactive": true, "hand-window": true,
-	"pull": true, "pull-filter": true, "route-nopull": true, "route": true, "route-delay": true, "route-metric": true,
-	"redirect-gateway": true, "topology": true, "setenv": true, "ignore-unknown-option": true,
-	"server-poll-timeout": true, "connect-retry": true, "connect-retry-max": true, "connect-timeout": true,
-	"explicit-exit-notify": true, "push-peer-info": true, "sndbuf": true, "rcvbuf": true, "txqueuelen": true,
-	"block-outside-dns": true, "dhcp-option": true, "tun-ipv6": true, "replay-window": true, "nice": true,
-	// inline only (checked below)
-	"ca": true, "cert": true, "key": true, "tls-auth": true, "tls-crypt": true, "tls-crypt-v2": true,
-	"pkcs12": true, "extra-certs": true, "secret": true,
-}
-
-var ovpnInline = []string{"ca", "cert", "key", "tls-auth", "tls-crypt", "tls-crypt-v2", "pkcs12", "extra-certs", "secret"}
-
-func checkOVPN(cfg string) error {
-	inBlock := ""
-	for n, line := range strings.Split(cfg, "\n") {
-		if inBlock != "" {
-			// OpenVPN ends the block at the first line that starts (after
-			// leading blanks) with the closing tag; text after it would be
-			// read as directives, so it is refused
-			rest, closes := strings.CutPrefix(strings.TrimLeft(line, " \t"), "</"+inBlock+">")
-			if closes {
-				if strings.TrimSpace(rest) != "" {
-					return fmt.Errorf("line %d: text after </%s>", n+1, inBlock)
-				}
-				inBlock = ""
-			}
-			continue
-		}
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
-			continue
-		}
-		if strings.HasPrefix(line, "<") && strings.HasSuffix(line, ">") && !strings.HasPrefix(line, "</") {
-			tag := strings.Trim(line, "<>") // OpenVPN matches tags case-sensitively
-			if !oneOf(tag, ovpnInline...) && tag != "connection" {
-				return fmt.Errorf("line %d: inline block <%s> is not allowed", n+1, tag)
-			}
-			if tag != "connection" {
-				inBlock = tag
-			}
-			continue
-		}
-		if strings.HasPrefix(line, "</connection") {
-			continue
-		}
-		f := strings.Fields(line)
-		name := strings.ToLower(strings.Trim(strings.TrimLeft(f[0], "-"), `"'`))
-		if !ovpnAllowed[name] {
-			return fmt.Errorf("line %d: %q is not allowed (komando passes only client settings; nothing that runs programs or reads/writes files)", n+1, f[0])
-		}
-		if oneOf(name, ovpnInline...) && (len(f) < 2 || f[1] != "[inline]") && len(f) > 1 {
-			return fmt.Errorf("line %d: %s must be inline (<%s>...</%s>), not a file path", n+1, name, name, name)
-		}
-		if name == "setenv" && len(f) > 1 && strings.EqualFold(strings.Trim(f[1], `"'`), "opt") {
-			// OpenVPN runs "setenv opt X ..." as option X, which would get past this list
-			return fmt.Errorf("line %d: \"setenv opt\" is not allowed (OpenVPN runs the rest of the line as an option)", n+1)
-		}
-		if name == "auth-user-pass" && len(f) > 1 {
-			return fmt.Errorf("line %d: auth-user-pass must not name a file; komando passes the login itself", n+1)
-		}
-	}
-	if inBlock != "" {
-		return fmt.Errorf("<%s> is never closed", inBlock)
-	}
-	return nil
-}
-
 func vpnAddCmd() *cobra.Command {
 	var config, address, portal, service, server, user, passwordRef, check, notes, pskRef, localID, remoteID, ca string
 	var groups, tags []string
@@ -145,7 +64,8 @@ func vpnAddCmd() *cobra.Command {
   komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user budi
   komando vpn add cloud ikev2 --server vpn.example.com --user budi --password-ref secret:cloud
   komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
-  komando vpn add lab socks --address 127.0.0.1:1080`,
+  komando vpn add lab socks --address 127.0.0.1:1080
+  komando vpn add office proxy --address proxy.corp.example:3128   # a company HTTP proxy`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, kind := args[0], strings.ToLower(args[1])
@@ -211,14 +131,13 @@ func vpnAddCmd() *cobra.Command {
 					secrets[name+"-psk"] = psk
 				}
 				used["password-ref"] = passwordRef == ""
-			case kind == "socks":
+			case kind == "socks" || kind == "proxy":
 				if err = need("address", address != ""); err != nil {
 					return err
 				}
-				if _, _, err := net.SplitHostPort(address); err != nil {
-					return out.Usage("--address must be host:port")
+				if v.Address, err = vpnAddress(kind, address); err != nil {
+					return err
 				}
-				v.Address = address
 				used["user"], used["password-ref"] = true, true
 				if user != "" && passwordRef == "" {
 					return out.Usage("--user needs --password-ref (the proxy's password)")
@@ -381,7 +300,7 @@ func vpnAddCmd() *cobra.Command {
 	}
 	f := c.Flags()
 	f.StringVar(&config, "config", "", "wireguard: the .conf file; openvpn: the .ovpn file (both kept in the vault)")
-	f.StringVar(&address, "address", "", "socks: host:port of the proxy")
+	f.StringVar(&address, "address", "", "socks: host:port of the proxy; proxy: host:port or http(s)://host:port")
 	f.StringVar(&portal, "portal", "", "globalprotect, fortinet, anyconnect, pulse, f5: the VPN server or portal")
 	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings, so 'vpn up' can connect it")
 	f.StringVar(&server, "server", "", "l2tp, ipsec, ikev2: the VPN server (host or host:port); tailscale: a Headscale login server URL")
@@ -515,7 +434,7 @@ func vpnWhere(v *store.Vpn) string {
 		if c, err := netx.ParseWG(v.Config); err == nil && c.Peers[0].Endpoint != "" {
 			return c.Peers[0].Endpoint
 		}
-	case "socks":
+	case "socks", "proxy":
 		return v.Address
 	case "l2tp", "ipsec", "ikev2":
 		return v.Server
@@ -551,4 +470,20 @@ func testVpn(ctx context.Context, st *store.State, v *store.Vpn) targetTest {
 	}
 	r.OK, r.LatencyMS, r.Detail = true, time.Since(t0).Milliseconds(), detail
 	return r
+}
+
+// vpnAddress checks a socks or proxy VPN's --address: host:port, or for an
+// HTTP proxy also an http(s):// URL, kept as one.
+func vpnAddress(kind, address string) (string, error) {
+	if kind == "proxy" {
+		pu, err := netx.ProxyURL(address)
+		if err != nil {
+			return "", out.Usage("%v", err)
+		}
+		return pu.String(), nil
+	}
+	if _, _, err := net.SplitHostPort(address); err != nil {
+		return "", out.Usage("--address must be host:port")
+	}
+	return address, nil
 }

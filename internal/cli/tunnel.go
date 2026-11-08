@@ -266,7 +266,7 @@ func tunnelStartCmd() *cobra.Command {
 			p := exec.Command(self, pargs...)
 			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
 			p.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-			p.Env = vault.SelfEnv()
+			vault.PassOnStdin(p) // not in its environment: it runs for long
 			if err := p.Start(); err != nil {
 				return err
 			}
@@ -487,7 +487,8 @@ func tunnelStopCmd() *cobra.Command {
 
 // tunnelServeCmd is the hidden daemon entry point.
 func tunnelServeCmd() *cobra.Command {
-	return &cobra.Command{
+	var passStdin bool
+	c := &cobra.Command{
 		Use:    "serve ID",
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
@@ -497,7 +498,7 @@ func tunnelServeCmd() *cobra.Command {
 				fmt.Printf("ERROR %v\n", err)
 				return exitCode(1)
 			}
-			st, err := loadState()
+			st, err := serveState(passStdin)
 			if err != nil {
 				return fail(err)
 			}
@@ -580,6 +581,19 @@ func tunnelServeCmd() *cobra.Command {
 			}
 		},
 	}
+	c.Flags().BoolVar(&passStdin, strings.TrimPrefix(vault.PassStdinFlag, "--"), false, "read the vault passphrase from stdin (tunnel start passes it)")
+	return c
+}
+
+// serveState is tunnel serve's inventory, after the vault passphrase from
+// stdin when tunnel start sent one (vault.PassOnStdin).
+func serveState(passStdin bool) (*store.State, error) {
+	if passStdin {
+		if err := vault.ReadPassStdin(os.Stdin); err != nil {
+			return nil, err
+		}
+	}
+	return loadState()
 }
 
 // connMgr reconnects the SSH client when it drops (local/dynamic forwards).

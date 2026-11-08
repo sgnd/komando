@@ -114,8 +114,13 @@ type Printer struct {
 	// Mask also hides values that look like passwords, keys and tokens
 	// (mask.go). It is on for AI agents.
 	Mask bool
-	once sync.Once
-	hide []hidden
+	// Personal, with Mask, also hides personal data: email addresses,
+	// phone numbers, card numbers and IBANs (personal.go). A command that
+	// reads data from a target turns it on when the mask_personal setting
+	// covers that target.
+	Personal bool
+	once     sync.Once
+	hide     []hidden
 }
 
 type hidden struct{ raw, json, label string }
@@ -164,6 +169,9 @@ func (p *Printer) Redact(s string) string {
 	}
 	if p.Mask {
 		s = MaskSecrets(s)
+		if p.Personal {
+			s = MaskPersonal(s)
+		}
 	}
 	return s
 }
@@ -178,6 +186,9 @@ func (p *Printer) redactJSON(b []byte) []byte {
 	}
 	if p.Mask {
 		b = maskJSON(b)
+		if p.Personal {
+			b = maskPersonalJSON(b)
+		}
 	}
 	return b
 }

@@ -45,6 +45,9 @@ func (l auditList) Text() string {
 		who := fmt.Sprint(e["actor"])
 		if a, ok := e["agent"].(string); ok && a != "" {
 			who += " (" + a + ")"
+			if e["actor_claimed"] == true { // the agent is sure; the name is what it says
+				who = a + " (as " + fmt.Sprint(e["actor"]) + ")"
+			}
 		}
 		var targets []string
 		for _, k := range []string{"hosts", "conns"} {
@@ -77,22 +80,37 @@ func (l auditList) Text() string {
 
 func auditCmd() *cobra.Command {
 	var limit int
-	var target, command string
+	var target, command, since, until string
 	var failed bool
 	c := &cobra.Command{
 		Use:   "audit",
 		Short: "Show the audit log of actions taken (who, what, where, result)",
 		Long: `Every change komando makes, and every blocked attempt, is a line in
 ~/.komando/audit.jsonl: when, who (and which AI agent), the command, its
-targets and whether it worked. The newest entries come last.`,
+targets and whether it worked. The newest entries come last.
+
+--since and --until take how long ago (30m, 12h, 7d), today, yesterday,
+or a time (2026-11-07, '2026-11-07 14:30', 2026-11-07T14:30:00Z); a time
+without a zone is this computer's. --since keeps entries from that moment
+on, --until those before it. With either, every match is shown unless -n
+is given.`,
 		Example: `  komando audit                      # the last 50
   komando audit -n 0 --target @prod  # everything about @prod
   komando audit --command host. --failed
+  komando audit --since 2h           # everything in the last two hours
+  komando audit --since yesterday --until today --target @prod
   komando audit verify               # was the log changed outside komando?`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if limit < 0 {
 				return out.Errf(out.ExitUsage, "USAGE", "-n takes how many of the newest entries to show; 0 shows all", "invalid -n %d", limit)
+			}
+			flt := auditFilter{command: command, failed: failed, byTarget: target != ""}
+			if err := flt.setWindow(since, until, time.Now()); err != nil {
+				return err
+			}
+			if (since != "" || until != "") && !cmd.Flags().Changed("limit") {
+				limit = 0
 			}
 			f, err := os.Open(store.Path("audit.jsonl"))
 			if err != nil {
@@ -100,13 +118,12 @@ targets and whether it worked. The newest entries come last.`,
 				return nil
 			}
 			defer f.Close()
-			var names map[string]bool
 			if target != "" {
 				st, err := loadState()
 				if err != nil {
 					return err
 				}
-				names = targetNames(st, target)
+				flt.names = targetNames(st, target)
 			}
 			all := []map[string]any{}
 			sc := bufio.NewScanner(f)
@@ -117,26 +134,9 @@ targets and whether it worked. The newest entries come last.`,
 					continue
 				}
 				delete(e, "prev") // the chain is for `audit verify`
-				if cmdName, _ := e["command"].(string); command != "" && !strings.HasPrefix(cmdName, command) {
-					continue
+				if flt.keep(e) {
+					all = append(all, e)
 				}
-				if failed && e["ok"] == true {
-					continue
-				}
-				if target != "" {
-					hs, _ := e["hosts"].([]any)
-					cs, _ := e["conns"].([]any)
-					match := false
-					for _, h := range append(hs, cs...) {
-						if n, ok := h.(string); ok && names[n] {
-							match = true
-						}
-					}
-					if !match {
-						continue
-					}
-				}
-				all = append(all, e)
 			}
 			if limit > 0 && len(all) > limit {
 				all = all[len(all)-limit:]
@@ -146,11 +146,13 @@ targets and whether it worked. The newest entries come last.`,
 		},
 	}
 	c.AddCommand(auditVerifyCmd())
-	c.Flags().IntVarP(&limit, "limit", "n", 50, "the newest N entries (0 = all)")
+	c.Flags().IntVarP(&limit, "limit", "n", 50, "the newest N entries (0 = all; with --since or --until, all unless given)")
 	c.Flags().StringVar(&target, "target", "", "only entries for these servers or conns (a selector, e.g. @prod)")
 	aliasFlag(c.Flags(), "host", "target")
 	c.Flags().StringVar(&command, "command", "", "filter by command prefix (e.g. exec, svc.)")
 	c.Flags().BoolVar(&failed, "failed", false, "only failed/blocked actions")
+	c.Flags().StringVar(&since, "since", "", "only entries from this time on: 2h, 7d, today, 2026-11-07 or '2026-11-07 14:30'")
+	c.Flags().StringVar(&until, "until", "", "only entries before this time (the same forms as --since)")
 	return c
 }
 
