@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Highlights
 
+- **Rename a whole project in one step:** `komando rename --prefix shop-
+  acme-shop-` renames every server, conn, VPN, secret, key and group that
+  starts with `shop-`, and every reference follows. It needs one `--yes`
+  (one approval window) for all the protected ones, and it changes
+  everything or nothing.
 - **`komando update` updates komando itself:** it installs the newest
   release (`sudo komando update` for /usr/local/bin), checked like the
   install line; `komando update --dry-run` says whether there is one.
@@ -41,6 +46,29 @@ its highlights; the sections below them give the details. Versions follow
   at a terminal only (`NEEDS_PERSON` for AI agents and scripts).
   `komando doctor` now fails when `KOMANDO_VAULT_PASS` does not open the
   vault and warns about a leftover `vault.key`.
+- **`komando rename --prefix OLD NEW`** renames every server, conn, VPN,
+  secret, key and group whose name starts with OLD. When OLD ends in `-`,
+  the name without it is renamed too (group `shop` for `--prefix shop-`).
+  Every reference follows: `--via` paths (also a server in the middle of
+  one), password, sudo, key, preshared key and passphrase references,
+  `secret:NAME` options in conn URLs, the key a server uses, group
+  membership, jobs and tunnels. A key komando made moves its files. The
+  protected mark, labels, notes and creation time stay, and names inside
+  URLs (a bucket, a database user) do not change. The inventory and the
+  vault are each written once; a name that is taken, or two old names with
+  one new name, stops it before anything changes (`NAME_TAKEN` lists every
+  clash). Protected servers and conns need `--yes` once, and an AI agent's
+  window says how many it covers. `--dry-run` shows the old and new names
+  per kind and every reference that would change. `--kind` renames only
+  some kinds, and `--notes` also replaces the old names in notes, as whole
+  words. When the new prefix starts with the old one, a second run changes
+  nothing.
+- **`komando key mv OLD NEW`** renames a key; the servers that use it follow,
+  and a key komando made moves its private and `.pub` files in
+  `~/.komando/keys`.
+- **`komando group mv OLD NEW`** renames a group on every server, conn and
+  VPN in it; with a protected member it needs `--yes` once. A name that is
+  another group already is refused (`GROUP_EXISTS`).
 - `komando` alone opens a menu for a person at a terminal: choose Shell,
   Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
   Enter (`?` for help), then a server, conn or VPN from a list you can

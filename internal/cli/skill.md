@@ -51,7 +51,10 @@ Update komando only when the human asks: `komando update` (when it stops with
    restart servers only with `komando reboot` (it needs the human).
    Change the inventory in bulk: `komando host edit <target> --sudo-ref secret:NAME`
    (one approval for every server), `komando host mv OLD NEW` (renames and
-   updates every reference), `komando import csv FILE` (many servers at once).
+   updates every reference; `key mv`, `group mv` likewise),
+   `komando rename --prefix OLD NEW --dry-run` (a whole project: every
+   server, conn, VPN, secret, key and group, one approval for all of them),
+   `komando import csv FILE` (many servers at once).
    Patch servers with `komando pkg security <target> --apply` (security updates
    only, one server at a time, checked before and after); it never reboots.
    Check TLS certificates with `komando cert check <target|https://name>`

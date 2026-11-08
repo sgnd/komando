@@ -121,7 +121,10 @@ The inventory itself changes in bulk too, each with `--dry-run` first:
 `komando host edit <target> --sudo-ref secret:NAME` sets one value on many
 servers (one `--yes` and one approval window for the protected ones, which
 lists every server), `komando host mv OLD NEW` renames a server and every
-reference to it (`conn mv`, `vpn mv` likewise), and
+reference to it (`conn mv`, `vpn mv`, `key mv`, `group mv` likewise),
+`komando rename --prefix OLD NEW` renames every server, conn, VPN, secret,
+key and group that starts with OLD in one step (one `--yes` and one window
+for all the protected ones; check the list with `--dry-run` first), and
 `komando import csv FILE` adds a whole spreadsheet of servers (all rows are
 checked before anything is written).
 
