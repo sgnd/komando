@@ -12,10 +12,36 @@ import (
 
 // The checks on the server's certificate that a profile asks for:
 // remote-cert-tls, ns-cert-type, remote-cert-eku, remote-cert-ku and the
-// subject form of verify-x509-name.
+// subject form of verify-x509-name. A profile with none of them still
+// gets one: the certificate must be marked for a server.
+
+// serverChecked reports whether the profile says how to tell the
+// server's certificate from a client's one signed by the same CA.
+func (c *Config) serverChecked() bool {
+	return c.RemoteCertTLS || c.NSCertServer || c.RemoteCertEKU != "" || c.RemoteCertKU != nil || c.VerifyName != ""
+}
+
+// noServerCheck is the warning for a profile without such a check.
+const noServerCheck = "the profile does not say how to check the server's certificate (remote-cert-tls server or verify-x509-name); komando requires a certificate marked for a server (serverAuth or nsCertType server), so a client's certificate from the same CA cannot pretend to be the server"
+
+// withWarnings notes what a person should know about the profile.
+func (c *Config) withWarnings() *Config {
+	if !c.serverChecked() {
+		c.Warnings = append(c.Warnings, noServerCheck)
+	}
+	return c
+}
 
 // checkUsage checks the certificate's key usages against the profile.
 func (c *Config) checkUsage(leaf *x509.Certificate) error {
+	if !c.serverChecked() && !slices.Contains(leaf.ExtKeyUsage, x509.ExtKeyUsageServerAuth) && !nsServer(leaf) {
+		// OpenVPN itself only warns here; komando refuses, since another
+		// user's client certificate would pass. verify-x509-name is the
+		// profile's own way to say which certificate is the server's.
+		cn := leaf.Subject.CommonName
+		return fmt.Errorf("the server's certificate (%q) is not marked for a VPN server (no serverAuth extended key usage, no nsCertType server), so a client's certificate from the same CA could pretend to be the server; "+
+			"if the VPN's admin confirms that %q is the server's name, add the line `verify-x509-name %s name` to the profile, or better, have the server's certificate issued again with serverAuth", cn, cn, quoteArg(cn))
+	}
 	// Go treats a certificate without extended key usages as good for
 	// anything; OpenVPN wants serverAuth written in it
 	if c.RemoteCertTLS && !slices.Contains(leaf.ExtKeyUsage, x509.ExtKeyUsageServerAuth) {
@@ -231,4 +257,19 @@ func dnOID(k string) string {
 		}
 	}
 	return k
+}
+
+// quoteArg writes s as one argument of a profile line. Control
+// characters (the name comes from the server) are left out.
+func quoteArg(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, s)
+	if s != "" && !strings.ContainsAny(s, " \"'\\#;") {
+		return s
+	}
+	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s) + `"`
 }

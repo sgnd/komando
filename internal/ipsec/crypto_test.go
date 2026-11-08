@@ -38,7 +38,7 @@ func TestDHAgree(t *testing.T) {
 }
 
 func TestESPRoundTripAndReplay(t *testing.T) {
-	for _, s := range espSuites {
+	for _, s := range espOffer(true) {
 		k1, k2 := s.split(random(s.keyLen())), s.split(random(s.keyLen()))
 		a, err := newESP(s, 1, 2, k1, k2)
 		if err != nil {

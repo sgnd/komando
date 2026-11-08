@@ -18,7 +18,7 @@ komando update --dry-run                     # is there a newer komando?
 
 | Key | What it controls | Values | Default |
 |-----|------------------|--------|---------|
-| `host_key_policy` | what happens with a server komando has not seen before | `accept-new` (remember it), `strict` (refuse it until you run `komando host trust`), `off` (needs `--yes`) | `accept-new` |
+| `host_key_policy` | what happens with a server komando has not seen before | `accept-new` (remember it and show its fingerprint), `strict` (refuse it until you run `komando host trust`), `off` (needs `--yes`) | `accept-new` |
 | `default_user` | login name when a server has none | a login name; empty = your own user name | (empty) |
 | `default_timeout` | how long a command may run on each server | a duration above 0 (`30s`, `5m`, `1h`) | `5m` |
 | `connect_timeout` | how long to wait for a server to answer | a duration above 0 | `15s` |
@@ -54,7 +54,7 @@ Most settings also have a flag for one run: `--timeout`,
 
 | Variable | What it does |
 |----------|--------------|
-| `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`) |
+| `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`). For an AI agent, another folder needs a person's yes on every command (see [Safety](safety.md#seatbelts-for-ai-agents)); if you keep the data elsewhere, make `~/.komando` a link to it instead |
 | `KOMANDO_VAULT_PASS` | a passphrase for the vault, instead of the `vault.key` file |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
@@ -83,12 +83,27 @@ readable only by you (folder 0700, files 0600).
 
 Back this folder up and keep it private. If other people or backups can
 reach it, run `komando secret keychain`: it moves the vault's key out of
-`vault.key` into the OS keychain (the macOS keychain, or the Secret Service
-on Linux through `secret-tool`), so a copy of this folder no longer opens
+`vault.key` into the OS keychain (the macOS keychain through
+`/usr/bin/security`, or the Secret Service on Linux through `secret-tool`
+in `/usr/bin`, `/bin` or `/usr/local/bin`: komando never looks for them in
+`PATH`), so a copy of this folder no longer opens
 the vault (`--off --yes` moves it back). Or set `KOMANDO_VAULT_PASS` to a
 passphrase of 15 or more characters **before** you store your first secret.
 `komando doctor` warns when you have done neither. To move to another
 computer, use `komando export` (no passwords) instead of copying the folder.
+
+To change the passphrase, or to give a passphrase to a vault whose key is in
+`vault.key` or the keychain, run `komando secret passphrase` in your terminal.
+It asks for the new passphrase twice (hidden, 15 or more characters) and
+re-encrypts every secret under it; if one cannot be decrypted, nothing
+changes. When `KOMANDO_VAULT_PASS` holds the new value already, it asks for
+the current one. The old `vault.key` or keychain item is removed only after
+the new vault is saved and read back. Then put the new passphrase in
+`KOMANDO_VAULT_PASS` wherever you set it, and restart background tunnels and
+VPN sessions: they still hold the old key. `--off --yes` goes back to a new
+random key in `vault.key`. Only a person at a terminal can run it, never an
+AI agent. A `KOMANDO_VAULT_PASS` changed without it opens none of the
+secrets (nothing is lost: set the old value again); `komando doctor` says so.
 
 ## Update komando
 

@@ -130,7 +130,7 @@ A group exists while something is in it.`,
 			return nil
 		},
 	})
-	c.AddCommand(groupAddCmd(), groupRmCmd())
+	c.AddCommand(groupAddCmd(), groupRmCmd(), groupMvCmd())
 	return c
 }
 
