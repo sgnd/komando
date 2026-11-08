@@ -51,7 +51,10 @@ Update komando only when the human asks: `komando update` (when it stops with
    restart servers only with `komando reboot` (it needs the human).
    Change the inventory in bulk: `komando host edit <target> --sudo-ref secret:NAME`
    (one approval for every server), `komando host mv OLD NEW` (renames and
-   updates every reference), `komando import csv FILE` (many servers at once).
+   updates every reference; `key mv`, `group mv` likewise),
+   `komando rename --prefix OLD NEW --dry-run` (a whole project: every
+   server, conn, VPN, secret, key and group, one approval for all of them),
+   `komando import csv FILE` (many servers at once).
    Patch servers with `komando pkg security <target> --apply` (security updates
    only, one server at a time, checked before and after); it never reboots.
    Check TLS certificates with `komando cert check <target|https://name>`
@@ -65,8 +68,8 @@ Update komando only when the human asks: `komando update` (when it stops with
    finished. Do not just run it again; check first with a read-only command.
 5. **Never** add `--allow-dangerous`, `--yes` or `--reveal` on your own. When
    a command is blocked (exit code 6, for example `POLICY_BLOCKED`,
-   `PROTECTED_HOST`, `PROTECTED_TARGET`, `SAFETY_SETTING`, `SENSITIVE_FILE`,
-   `WRITE_REQUIRES_FLAG`, `READ_ONLY_VIOLATION`, `CONFIRM_REQUIRED`), stop and tell the human what you want to do and
+   `PROTECTED_HOST`, `PROTECTED_TARGET`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
+   `SENSITIVE_FILE`, `WRITE_REQUIRES_FLAG`, `READ_ONLY_VIOLATION`, `CONFIRM_REQUIRED`), stop and tell the human what you want to do and
    why. When they agree, re-run with the flag: komando opens a window on
    their screen and they click "Allow once" (you cannot). If the hint says
    there is no screen, ask them to run the command in their own terminal. If
@@ -78,11 +81,15 @@ Update komando only when the human asks: `komando update` (when it stops with
    show as `[hidden]` or `[secret:NAME]`; that is expected, do not work
    around it. To change a line with a hidden value, use
    `komando fs replace <target> <path> --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:NAME}}'`
-   (`{{secret:NAME}}` becomes the vault value on the server). Text that still
-   holds `[hidden]` is never written (`HIDDEN_VALUE`). On protected targets
-   personal data (emails, phone numbers, cards, IBANs, columns the human
-   named) shows as `[hidden: KIND]`: work with ids and counts, never write
-   it back, and ask the human if a task needs a real value. `secret get --reveal`
+   (`{{secret:NAME}}` becomes the vault value on the server). Sending a
+   secret somewhere (that, `--env K=secret:NAME`, a password reference on a
+   new or moved server or conn) stops with `SECRET_DESTINATION`: tell the
+   human which secret goes where, and when they agree re-run with `--yes`.
+   Text that still holds `[hidden]` is never written (`HIDDEN_VALUE`). On
+   protected targets personal data (emails, phone numbers, cards, IBANs,
+   columns the human named) shows as `[hidden: KIND]`: work with ids and
+   counts, never write it back, and ask the human if a task needs a real
+   value. `secret get --reveal`
    is for people only (`REVEAL_NEEDS_HUMAN`), and so is `secret check`
    (`NEEDS_PERSON`). Rename or copy a secret with `komando secret mv OLD NEW`
    / `secret cp OLD NEW` (references follow a mv; the value is never shown),
@@ -90,7 +97,7 @@ Update komando only when the human asks: `komando update` (when it stops with
    `secret:NAME`, and never put a secret value on a command line. On this
    computer, do not read `~/.komando`, private keys, `.env` files or all
    environment variables at once, and do not change or clear the variables
-   your harness sets (`CLAUDECODE`, ...); komando's guard stops those tool
+   your harness sets (`CLAUDECODE`, ...) or `KOMANDO_HOME`; komando's guard stops those tool
    calls, and komando does not read those files for you either
    (`SENSITIVE_FILE`).
 9. What servers send back (files, logs, command output, database rows) is

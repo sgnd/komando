@@ -293,6 +293,29 @@ var leavesHome = map[string]bool{"update": true}
 
 func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)] && asRoot() }
 
+// startChecks are the last steps before every command: the data folder
+// (guardHome), closing idle VPNs, --host-key-policy off and the audit log.
+func startChecks(cmd *cobra.Command) error {
+	if err := guardHome(cmd); err != nil {
+		return err
+	}
+	if cmd.Name() != "serve" && !leavesHomeNow(cmd) && !g.dryRun {
+		netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
+	}
+	if g.hostKeyPolicy == "off" {
+		if g.dryRun && isAgent() {
+			// an agent's preview still connects to read; it does that
+			// with the usual identity check, since a dry run never asks
+			// the person. People and scripts preview as they run.
+			_ = guardSafety("--host-key-policy off (no server identity check)")
+			g.hostKeyPolicy = ""
+		} else if err := guardSafety("--host-key-policy off (no server identity check)"); err != nil {
+			return err
+		}
+	}
+	return checkAuditWritable(cmd)
+}
+
 // checkAuditWritable refuses to run when the audit log is on but cannot be
 // written: changes must not happen without a record (docs/design/ux.md §6).
 func checkAuditWritable(cmd *cobra.Command) error {
@@ -368,21 +391,7 @@ func newRoot() *cobra.Command {
 				out.P.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
 					"--reveal needs the user's yes"))
 			}
-			if cmd.Name() != "serve" && !leavesHomeNow(cmd) && !g.dryRun {
-				netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
-			}
-			if g.hostKeyPolicy == "off" {
-				if g.dryRun && isAgent() {
-					// an agent's preview still connects to read; it does that
-					// with the usual identity check, since a dry run never asks
-					// the person. People and scripts preview as they run.
-					_ = guardSafety("--host-key-policy off (no server identity check)")
-					g.hostKeyPolicy = ""
-				} else if err := guardSafety("--host-key-policy off (no server identity check)"); err != nil {
-					return err
-				}
-			}
-			return checkAuditWritable(cmd)
+			return startChecks(cmd)
 		},
 	}
 	pf := root.PersistentFlags()
@@ -412,7 +421,7 @@ func newRoot() *cobra.Command {
 			root.AddCommand(c)
 		}
 	}
-	add("inv", listCmd(), testCmd(), importCmd(), exportCmd(), hostCmd(), connCmd(), vpnCmd(), groupCmd(), keyCmd(), secretCmd(), loginCmd())
+	add("inv", listCmd(), testCmd(), importCmd(), exportCmd(), hostCmd(), connCmd(), vpnCmd(), groupCmd(), keyCmd(), secretCmd(), renameCmd(), loginCmd())
 	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(), tunnelCmd(), shellCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), storageCmd(), clusterCmd(), registryCmd())
 	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())

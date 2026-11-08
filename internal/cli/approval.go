@@ -176,7 +176,7 @@ func personAllowsFor(flag, what string, why ...string) bool {
 }
 
 var flagMeaning = map[string]string{
-	"--yes":             "a change to a protected server or conn, or to a safety setting",
+	"--yes":             "a change to a protected server or conn, to a safety setting, or to where a secret goes",
 	"--allow-dangerous": "an action that can delete or break things",
 	"--reveal":          "show or send passwords, keys and tokens that komando keeps from AI agents",
 }

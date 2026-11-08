@@ -29,6 +29,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/sgnd/komando/internal/cloud"
+	"github.com/sgnd/komando/internal/proxyx"
 )
 
 // Config is the part of a kubeconfig komando uses.
@@ -58,6 +59,7 @@ type Cluster struct {
 	CertificateAuthorityData string `yaml:"certificate-authority-data,omitempty"`
 	InsecureSkipTLSVerify    bool   `yaml:"insecure-skip-tls-verify,omitempty"`
 	TLSServerName            string `yaml:"tls-server-name,omitempty"`
+	ProxyURL                 string `yaml:"proxy-url,omitempty"`
 }
 
 type AuthInfo struct {
@@ -281,9 +283,18 @@ func New(x *Context, dial Dialer) (*Client, error) {
 		}
 		tc.Certificates = []tls.Certificate{pair}
 	}
-	tr := &http.Transport{TLSClientConfig: tc, TLSHandshakeTimeout: 15 * time.Second, ForceAttemptHTTP2: true}
+	pick := proxyx.FromEnv() // HTTPS_PROXY and NO_PROXY, as kubectl reads them
+	if p := x.Cluster.ProxyURL; p != "" {
+		u, err := proxyx.Parse(p)
+		if err != nil {
+			return nil, fmt.Errorf("proxy-url: %w", err)
+		}
+		pick = http.ProxyURL(u)
+	}
+	tr := &http.Transport{TLSClientConfig: tc, TLSHandshakeTimeout: 15 * time.Second, ForceAttemptHTTP2: true, Proxy: pick}
 	if dial != nil {
 		tr.DialContext = dial
+		tr.Proxy = nil // the --via path is the way out
 	}
 	ns := x.Namespace
 	if ns == "" {

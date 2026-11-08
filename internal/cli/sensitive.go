@@ -55,11 +55,30 @@ func hiddenInLocal(p string) error {
 
 var secretRef = regexp.MustCompile(`\{\{\s*secret:([A-Za-z0-9_.@/-]+)\s*\}\}`)
 
-// expandSecretRefs puts vault values in place of {{secret:NAME}}.
-func expandSecretRefs(s string) (string, error) {
+// expandSecretRefs puts vault values in place of {{secret:NAME}} in text
+// that goes to where (a server's file). A secret komando keeps for itself
+// never goes, and for an AI agent each secret needs a person's yes, since
+// on the server the value can come back in a form masking does not know
+// (guardSecretUse). An agent's dry run reads no secret, since it never
+// asks the person: its preview keeps {{secret:NAME}} as it is. With
+// dollars set, the values are written for a regexp replacement ($ as $$).
+func expandSecretRefs(s, where string, dollars bool) (string, error) {
+	var refs []string
+	for _, m := range secretRef.FindAllStringSubmatch(s, -1) {
+		refs = append(refs, "secret:"+m[1])
+	}
+	if len(refs) == 0 {
+		return s, nil
+	}
+	if err := guardSecretUse(refs, where); err != nil {
+		return "", err
+	}
 	var err error
 	r := secretRef.ReplaceAllStringFunc(s, func(m string) string {
 		name := secretRef.FindStringSubmatch(m)[1]
+		if isAgent() && g.dryRun {
+			return m
+		}
 		v, e := vault.Get(name)
 		if e != nil && err == nil {
 			if e == vault.ErrNotFound {
@@ -67,16 +86,19 @@ func expandSecretRefs(s string) (string, error) {
 			}
 			err = e
 		}
+		if dollars {
+			v = strings.ReplaceAll(v, "$", "$$")
+		}
 		return v
 	})
 	return r, err
 }
 
-func expandSecretRefsBytes(b []byte) ([]byte, error) {
+func expandSecretRefsBytes(b []byte, where string) ([]byte, error) {
 	if !secretRef.Match(b) {
 		return b, nil
 	}
-	s, err := expandSecretRefs(string(b))
+	s, err := expandSecretRefs(string(b), where, false)
 	return []byte(s), err
 }
 
@@ -313,13 +335,20 @@ var unlockVars = map[string]bool{
 	"KOMANDO_BW_PASSWORD": true, "KOMANDO_BW_CLIENT_SECRET": true, "OP_CONNECT_TOKEN": true, "VAULT_TOKEN": true,
 }
 
-// refGuard is vault.RefGuard: an AI agent cannot point a file: or env:
-// reference (a password komando sends to a server) at komando's own data,
-// a private key, a credential store or the password of a secret store.
-// Files that are secret only by name stay allowed: VPN configs, key and
-// password files are what a person points file: references at, and a
-// reference is read on every connection, long after the person set it.
+// refGuard is vault.RefGuard: a secret: reference never reads a secret
+// komando keeps for itself (the approval code's key), for anyone. And an
+// AI agent cannot point a file: or env: reference (a password komando
+// sends to a server) at komando's own data, a private key, a credential
+// store or the password of a secret store. Files that are secret only by
+// name stay allowed: VPN configs, key and password files are what a person
+// points file: references at, and a reference is read on every connection,
+// long after the person set it. Other variables stay allowed too: an agent
+// can read those in its own shell anyway, and the place a reference goes
+// to needs a person's yes (guardSends).
 func refGuard(kind, name string) error {
+	if kind == "secret" {
+		return reservedSecret(name)
+	}
 	if !isAgent() {
 		return nil
 	}

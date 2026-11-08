@@ -1,10 +1,12 @@
 package cachex
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/out"
 )
 
 func TestClassify(t *testing.T) {
@@ -100,5 +102,19 @@ func TestReply(t *testing.T) {
 	}
 	if m := l[3].(map[string]any); m["k"] != "v" {
 		t.Errorf("map: %v", l[3])
+	}
+}
+
+// A TLS failure gets a hint about TLS, not about reachability.
+func TestConnectErrTLS(t *testing.T) {
+	tg := driver.Target{Kind: driver.Kind{Name: "redis"}, Address: "cache:6380", Secure: true}
+	for msg, want := range map[string]string{
+		"tls: failed to verify certificate: x509: certificate signed by unknown authority": "could not be checked",
+		"tls: first record does not look like a TLS handshake":                             "does not speak TLS",
+	} {
+		var oe *out.Error
+		if err := connectErr(tg, errors.New(msg)); !errors.As(err, &oe) || !strings.Contains(oe.Hint, want) {
+			t.Errorf("%s: %v", msg, err)
+		}
 	}
 }
