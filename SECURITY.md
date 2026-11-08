@@ -50,7 +50,7 @@ How komando measures up to OWASP ASVS, the OWASP Top 10 for LLM applications, NI
 
 - Give komando (and your AI agent) a server user with only the permissions it needs.
 - Mark production servers with `komando host edit NAME --protected`.
-- Keep `~/.komando/` private and backed up; it holds your vault and keys. Set `KOMANDO_VAULT_PASS` (15+ characters) so a backup alone cannot open it. To change it, run `komando secret passphrase` first (it re-encrypts the vault), then update the variable.
+- Keep `~/.komando/` private and backed up; it holds your vault and keys. Run `komando secret keychain` so a backup alone cannot open the vault (or, on a computer without a keychain, set `KOMANDO_VAULT_PASS` to 15+ characters before your first secret). To change the passphrase later, run `komando secret passphrase` first (it re-encrypts the vault), then update the variable.
 - Run `komando doctor` now and then: it checks permissions, the vault, the audit log chain and connections without verified encryption.
 - Run `komando guide install` so Claude Code cannot read `~/.komando`, private keys or `.env` files on your computer.
 - When your AI agent asks for `--yes`, `--allow-dangerous` or `--reveal`, read the command in komando's window before you click "Allow once".
