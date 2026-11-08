@@ -144,6 +144,11 @@ func trustOne(ctx context.Context, st *store.State, h *store.Host, reset bool) e
 			other = append(other, ssh.FingerprintSHA256(k))
 		}
 	}
+	if len(pins) == 0 {
+		if err := guardFirstPin(st, []string{h.Name + " " + fp}); err != nil {
+			return err
+		}
+	}
 	switch {
 	case len(other) > 0 && !same && !reset:
 		// never pin a second key next to the old one: both would be accepted
@@ -238,4 +243,16 @@ func keyFetchPath(st *store.State, h *store.Host) string {
 		return "the server directly"
 	}
 	return "through " + strings.Join(parts, ", then ")
+}
+
+// guardFirstPin: with host_key_policy strict, a server's first key is
+// pinned only after someone checked it, so an AI agent's first pin needs a
+// person's yes, and the window shows each server's fingerprint to compare
+// with what the server's owner sees. Under accept-new the first login pins
+// it anyway. what is "NAME SHA256:..." per server.
+func guardFirstPin(st *store.State, what []string) error {
+	if len(what) == 0 || !isAgent() || (st.Settings.HostKeyPolicy != "strict" && g.hostKeyPolicy != "strict") {
+		return nil
+	}
+	return guardSafety("pinning a first host key while host keys are strict (compare it with what the server's owner sees): " + strings.Join(what, ", "))
 }

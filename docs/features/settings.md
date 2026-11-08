@@ -10,7 +10,7 @@ komando config show                          # every setting: KEY VALUE DEFAULT 
 komando config get parallel
 komando config set parallel 20
 komando config set default_timeout 10m
-komando doctor                               # check the setup, the inventory and its security
+komando doctor                               # check the setup, the inventory and its security (also: do AI agents have this version's skill?)
 komando update --dry-run                     # is there a newer komando?
 ```
 

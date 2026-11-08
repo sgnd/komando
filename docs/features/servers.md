@@ -479,6 +479,11 @@ komando config set host_key_policy strict   # unknown keys stop with HOSTKEY_UNK
 komando host trust web1                     # answer: key_type and fingerprint
 ```
 
+`HOSTKEY_UNKNOWN` says which fingerprint the server shows. With `strict`,
+an AI agent cannot pin a first key by itself: `host trust` needs your yes in
+komando's window, which shows the fingerprint to compare (with the default
+`accept-new` the first login pins it anyway).
+
 ## Use OpenSSH with the same settings
 
 `host ssh-command` prints the `ssh` command that reaches a server with the

@@ -459,9 +459,19 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 	case errors.As(err, &ke) && len(ke.Want) > 0, strings.Contains(msg, "HOSTKEY_MISMATCH"):
 		return HostKeyMismatch(host, "", nil)
 	case strings.Contains(msg, "HOSTKEY_UNKNOWN"):
+		fp := ""
+		if _, rest, ok := strings.Cut(msg, "HOSTKEY_UNKNOWN "); ok {
+			fp, _, _ = strings.Cut(rest, " ")
+		}
+		what := "host key for %s is not trusted yet (host keys are strict)"
+		args := []any{host}
+		if fp != "" {
+			what += "; it shows %s"
+			args = append(args, fp)
+		}
 		return out.Errf(out.ExitConnect, "HOSTKEY_UNKNOWN",
-			fmt.Sprintf("run `komando host trust %s` to pin its key (policy is strict)", host),
-			"host key for %s is not trusted yet", host)
+			fmt.Sprintf("compare the fingerprint with what the server's owner sees, then run `komando host trust %s` (an AI agent asks the user: its pin needs their yes)", host),
+			what, args...)
 	case errors.As(err, &ua):
 		return ua.authFailed(st, h)
 	case strings.Contains(msg, "unable to authenticate"), strings.Contains(msg, "no supported methods"):
@@ -584,7 +594,7 @@ func hostKeyCallback(name, policy string) (ssh.HostKeyCallback, error) {
 		var ke *knownhosts.KeyError
 		if errors.As(err, &ke) && len(ke.Want) == 0 {
 			if policy == "strict" {
-				return errors.New("HOSTKEY_UNKNOWN")
+				return errors.New("HOSTKEY_UNKNOWN " + ssh.FingerprintSHA256(key))
 			}
 			if err := appendKnownHost(p, hostname, key); err != nil {
 				return err

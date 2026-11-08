@@ -290,8 +290,15 @@ func approvalHint(e *out.Error) {
 		e.Hint = "komando did not ask the user in its window, because " + approval.unshown +
 			". Make the command shorter (put a long script in a file for `komando script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"
 	default:
-		if e.Code == "REVEAL_NEEDS_HUMAN" || e.Code == "NEEDS_PERSON" { // no flag allows these
+		switch {
+		case e.Final, e.Code == "REVEAL_NEEDS_HUMAN", e.Code == "NEEDS_PERSON":
+			return // no flag allows these: adding one asks nobody
+		case e.Code == "WRITE_REQUIRES_FLAG", e.Code == "READ_ONLY_VIOLATION":
+			// --write and leaving out --read-only open no window
+			e.Hint += ". komando does not ask the user about this, so ask them first and go on only when they agree"
 			return
+		case strings.Contains(e.Hint, "komando asks the user in a window"):
+			return // the hint says so already
 		}
 		e.Hint += ". Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"
 	}

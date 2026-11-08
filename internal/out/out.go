@@ -38,9 +38,15 @@ type Error struct {
 	Message string `json:"message"`
 	Hint    string `json:"hint,omitempty"`
 	Exit    int    `json:"-"`
+	// Final: no flag lifts this stop (no --yes, --allow-dangerous or
+	// --reveal), so an AI agent is not told that adding one asks the user
+	Final bool `json:"-"`
 }
 
 func (e *Error) Error() string { return e.Code + ": " + e.Message }
+
+// NoFlag marks a stop that no flag lifts (see Final).
+func (e *Error) NoFlag() *Error { e.Final = true; return e }
 
 func (e *Error) WithHint(h string) *Error { e.Hint = h; return e }
 

@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `doctor` checks AI agents: whether they have komando's skill, whether it
+  is this version's (after an update, `komando guide install` again), and
+  whether Claude Code runs with komando's guard.
 - `--ask-password` on `host add`, `host edit`, `conn add` and `conn edit`: a
   person types the password once (hidden) and it is stored as
   `secret:NAME-pass` and used as the reference, in one step instead of
@@ -51,6 +54,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- For AI agents, the approval hint says "komando asks the user in a
+  window" only where a flag opens one: not for `--write` or leaving out
+  `--read-only` (komando does not ask; the agent asks the user first), and
+  not for stops no flag lifts (komando's own folder, an unsafe backup line,
+  an `.ovpn` script line). `READ_ONLY_VIOLATION` no longer says to add
+  `--yes` on a server that is not protected.
+- `VPN_DOWN` and `TUNNEL_TIMEOUT` put the last lines of the log in the
+  message and name a command to try, instead of sending an agent to a file
+  in `~/.komando` it may not read.
 - Text for people says what happened first: `stored app-db-pass`, `added
   the deny rule "rm -rf /srv" (2 custom rules now)`, `removed app-db`,
   `saved 2 servers, 1 conn to FILE (no passwords)`; `false` fields after
@@ -87,6 +99,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- With `host_key_policy strict`, an AI agent's first pin (`host trust`)
+  needs a person's yes; the window shows each fingerprint to compare.
+  `HOSTKEY_UNKNOWN` now says which fingerprint the server shows.
 - **New conns check TLS by default.** `conn add` and `conn edit --url` of a
   conn that crosses the network on its own (no `--via`, not this computer)
   add `sslmode=verify-full` (Postgres) or `tls=true` (MySQL) when the URL

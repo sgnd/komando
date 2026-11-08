@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"sort"
@@ -519,7 +520,7 @@ password, repeat another conn or belong to a protected server without being
 protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true}}
+			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}}
 			add := func(name string, ok bool, detail string) { r.Checks = append(r.Checks, doctorCheck{name, ok, detail}) }
 			st, err := loadState()
 			add("state", err == nil, store.Home())
@@ -554,6 +555,23 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 				}
 			}
 			add("platform", true, runtime.GOOS+"/"+runtime.GOARCH)
+			// AI agents: the skill komando installs, and whether it is this
+			// version's (an update needs `guide install` again)
+			installed, stale := skillStatus()
+			switch {
+			case len(installed) == 0:
+				add("agent_skill", false, "no AI agent has komando's skill yet: `komando guide install` teaches Claude Code, Codex, Cursor and Gemini CLI to use komando")
+			case len(stale) > 0:
+				add("agent_skill", false, "from another komando version in "+strings.Join(stale, ", ")+": run `komando guide install` again, so your AI agents use this version's commands")
+			default:
+				add("agent_skill", true, strings.Join(installed, ", "))
+			}
+			if home, err := os.UserHomeDir(); err == nil && len(installed) > 0 && slices.ContainsFunc(installed, func(p string) bool { return strings.Contains(p, ".claude") }) {
+				b, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
+				on := strings.Contains(string(b), " guide guard")
+				add("agent_guard", on, map[bool]string{true: "Claude Code asks komando before reading files or running shell commands",
+					false: "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it"}[on])
+			}
 			r.Inventory = inventoryChecks(st)
 			r.Security = securityChecks(st)
 			ok := true

@@ -310,7 +310,8 @@ func tunnelStartCmd() *cobra.Command {
 			}
 			_ = netx.Terminate(pid)
 			_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
-			return out.Errf(out.ExitTimeout, "TUNNEL_TIMEOUT", "see log "+logPath, "tunnel did not become ready")
+			return out.Errf(out.ExitTimeout, "TUNNEL_TIMEOUT", "check that "+hostName+" answers: `komando test "+hostName+"`; the whole log is "+logPath+" (for a person to read)",
+				"tunnel did not become ready%s", logTail(logPath, 5))
 		},
 	}
 	c.Flags().StringVarP(&l, "local", "L", "", "local forward [bind:]LPORT:RHOST:RPORT")
@@ -774,4 +775,27 @@ func socks5Auth(conn net.Conn, cm *connMgr, logger *log.Logger, user, pass strin
 		rc.Write(b)
 	}
 	pipe(conn, rc)
+}
+
+// logTail is the last n lines of a background process's log, cleaned, as
+// ": line; line" for a message (an AI agent may not read the file itself),
+// or "" when there is none.
+func logTail(path string, n int) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var lines []string
+	for _, l := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+		if l = cleanText(strings.TrimSpace(l)); l != "" {
+			lines = append(lines, l)
+		}
+	}
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	return ": " + strings.Join(lines, "; ")
 }

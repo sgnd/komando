@@ -209,7 +209,7 @@ func vpnAddCmd() *cobra.Command {
 					return err
 				}
 				if ovpnServers, err = ovpnRemotes(text); err != nil {
-					return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "remove that line from the .ovpn file", "%s: %v", config, err)
+					return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "remove that line from the .ovpn file", "%s: %v", config, err).NoFlag()
 				}
 				if !osMode { // komando's own client must understand every line
 					p, err := openvpn.Parse(text)
