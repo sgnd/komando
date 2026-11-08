@@ -7,6 +7,29 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+
+- Ctrl-C at a question ends it. Before, a `[y/N]` question or a hidden
+  prompt went on waiting and Ctrl-C showed nothing. Now Ctrl-C at a
+  `[y/N]` question or a typed name is a no (`cancelled: ...`, `nothing was
+  changed`, exit 6), and at a hidden prompt (`secret set`, `secret check`,
+  a VPN password) the command stops with `CANCELLED`, exit 1, with echo on
+  again. Later questions in the same command are not asked. Ctrl-D at a
+  `[y/N]` question is a no and ends the line.
+- A paste of more than one line at a hidden prompt stores nothing. Before,
+  only the first line was read and the shell ran the others as commands
+  once komando ended, showing the secret and saving it in the shell's
+  history. Now the other lines are thrown away and komando stops with a
+  `USAGE` error (exit 2) that points to `komando secret set NAME < FILE`.
+- VPN logins with komando's own clients (AnyConnect, Fortinet,
+  GlobalProtect, F5, Pulse, OpenVPN, IPsec) ask the same way: Ctrl-C
+  works, a paste of more than one line is refused, and the prompt text a
+  VPN server sends keeps its lines but loses control characters. A Pulse
+  realm or region choice shows numbered lines, takes the number or the
+  name, and asks again after a typo (up to 3 times) instead of ending the
+  login. The Pulse sign-in notice asks `Accept the sign-in notice? [y/N]`
+  and takes y or yes in any case.
+
 ## [0.6.0] - 2026-11-08
 
 ### Highlights

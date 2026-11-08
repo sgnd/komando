@@ -490,54 +490,6 @@ func innerEAP(avps []pulseAVP) []byte {
 	return nil
 }
 
-// choose picks one of the server's choices: the only one, or a person's.
-// An empty choice means the server takes free text.
-func (s *pulseSession) choose(what string, options []string) (string, error) {
-	if len(options) == 1 && options[0] != "" {
-		return options[0], nil
-	}
-	if s.o.Prompt == nil {
-		return "", ErrNeedsPerson
-	}
-	label := what
-	if options[0] != "" {
-		label += " (" + strings.Join(options, ", ") + ")"
-	}
-	v, err := s.o.Prompt(label, false)
-	if err != nil {
-		return "", err
-	}
-	v = strings.TrimSpace(v)
-	if options[0] != "" && !contains(options, v) {
-		return "", &LoginError{Msg: fmt.Sprintf("%q is not one of the VPN's choices (%s)", v, strings.Join(options, ", "))}
-	}
-	return v, nil
-}
-
-func contains(l []string, v string) bool {
-	for _, s := range l {
-		if s == v {
-			return true
-		}
-	}
-	return false
-}
-
-// banner: a sign-in notice the server wants acknowledged; a person reads it.
-func (s *pulseSession) banner(text string) ([]byte, error) {
-	if s.o.Prompt == nil {
-		return nil, ErrNeedsPerson
-	}
-	v, err := s.o.Prompt(strings.TrimSpace(text)+"\nAccept (yes/no)", false)
-	if err != nil {
-		return nil, err
-	}
-	if !strings.EqualFold(strings.TrimSpace(v), "yes") {
-		return nil, &LoginError{Msg: "the sign-in notice was not accepted"}
-	}
-	return jnpAVP(nil, avpBannerOK, binary.BigEndian.AppendUint32(nil, 1)), nil
-}
-
 // innerAnswer answers the inner EAP question: a password (Juniper type 2
 // or 5) or a code (GTC).
 func (s *pulseSession) innerAnswer(b []byte, labels map[uint32]string) ([]byte, error) {

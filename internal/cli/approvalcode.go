@@ -154,6 +154,9 @@ shown once, here); turning it off needs --yes, so that code too.`,
 			uri := "otpauth://totp/" + url.PathEscape("komando:"+actor()+"@"+host) + "?" + url.Values{"secret": {b32}, "issuer": {"komando"}}.Encode()
 			fmt.Fprintf(os.Stderr, "Add this to your authenticator app (it is shown only now):\n\n  secret: %s\n  or the link: %s\n\n", groupBy4(b32), uri)
 			typed := ask("Type the 6-digit code the app shows now, to check it: ")
+			if interrupted { // Ctrl-C: nothing was changed
+				return interruptedErr()
+			}
 			if !codeOK(raw, typed, time.Now()) {
 				return out.Errf(out.ExitUsage, "CODE_WRONG", "check the phone's clock and run it again", "that code does not match; nothing was changed")
 			}

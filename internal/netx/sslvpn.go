@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sslvpn"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -127,6 +128,12 @@ func sslErr(v *store.Vpn, err error) error {
 	}
 	if errors.Is(err, sslvpn.ErrNeedsPerson) {
 		return LoginRequired(v)
+	}
+	// a login question's own error (Ctrl-C, an answer pasted with more
+	// than one line): the VPN is not down, say what it is
+	var oe *out.Error
+	if errors.As(err, &oe) {
+		return err
 	}
 	return Down(v, err)
 }

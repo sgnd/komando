@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
@@ -185,16 +184,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		// server gets only the cookie
 		var prompt func(string, bool) (string, error)
 		if interactive {
-			prompt = func(label string, secretIn bool) (string, error) {
-				fmt.Fprintf(os.Stderr, "%s: ", strings.TrimSuffix(label, ":"))
-				if secretIn {
-					b, err := term.ReadPassword(int(os.Stdin.Fd()))
-					fmt.Fprintln(os.Stderr)
-					return string(b), err
-				}
-				line, err := bufio.NewReader(os.Stdin).ReadString('\n')
-				return strings.TrimSpace(line), err
-			}
+			prompt = vpnPrompt
 		}
 		cookie, err := netx.SSLVPNLogin(ctx, v, prompt)
 		if err != nil {
@@ -254,13 +244,11 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 			if !interactive {
 				return nil, netx.LoginRequired(v)
 			}
-			fmt.Fprintf(os.Stderr, "Password for %s on VPN %s (with the PIN or one-time code, if it wants one): ", firstNonEmpty(v.User, "you"), v.Name)
-			b, err := term.ReadPassword(int(os.Stdin.Fd()))
-			fmt.Fprintln(os.Stderr)
+			var err error
+			typed, err = vpnSecret(fmt.Sprintf("Password for %s on VPN %s (with the PIN or one-time code, if it wants one): ", firstNonEmpty(v.User, "you"), v.Name))
 			if err != nil {
 				return nil, err
 			}
-			typed = string(b)
 		}
 		pid, addr, err := spawnServeWith(v.Name, logFile, timeout+15*time.Second, typed, s)
 		if err != nil {
@@ -344,6 +332,47 @@ func background(c *exec.Cmd, logFile string) (int, error) {
 	pid := c.Process.Pid
 	_ = c.Process.Release()
 	return pid, nil
+}
+
+// vpnPrompt asks a person what a built-in VPN client's login wants: a
+// password, a code, a choice, a notice to accept. The text comes from the
+// VPN server, so each line is cleaned of control characters (a banner keeps
+// its lines); the last line is the question.
+func vpnPrompt(label string, secretIn bool) (string, error) {
+	if secretIn {
+		return vpnSecret(vpnQuestion(label))
+	}
+	v, err := readAnswer(vpnQuestion(label), false)
+	return strings.TrimSpace(v), err
+}
+
+// vpnQuestion is the text vpnPrompt shows for label: each line cleaned,
+// and the last one ending in ": " (or " " after a question mark or a
+// [y/N]).
+func vpnQuestion(label string) string {
+	lines := strings.Split(strings.TrimSpace(label), "\n")
+	for i, l := range lines {
+		lines[i] = cleanText(l)
+	}
+	q := strings.TrimSuffix(strings.TrimSpace(lines[len(lines)-1]), ":")
+	if strings.HasSuffix(q, "?") || strings.HasSuffix(q, "]") {
+		q += " "
+	} else {
+		q += ": "
+	}
+	return strings.Join(append(lines[:len(lines)-1], q), "\n")
+}
+
+// vpnSecret reads a VPN password or code, hidden. A paste of more than one
+// line is refused as it is for a secret, in words that fit a login.
+func vpnSecret(label string) (string, error) {
+	v, err := readHidden(label)
+	var oe *out.Error
+	if errors.As(err, &oe) && oe.Code == "USAGE" { // readHidden's only usage error
+		oe.Message = "the answer has more than one line, so it was not sent"
+		oe.Hint = "paste only the password or code, on one line"
+	}
+	return v, err
 }
 
 // spawnServe starts `komando vpn serve NAME` and waits for its SOCKS port.

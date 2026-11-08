@@ -237,7 +237,9 @@ komando secret rm old-pass                   # refused while something uses it
 - **Typing it.** `secret set NAME` asks for the value after you press
   Enter. Paste or type it *after* the prompt appears. Anything typed before
   the prompt was already shown on the screen by the terminal, so komando
-  does not use it and tells you; enter the value again at the prompt.
+  does not use it and tells you; enter the value again at the prompt. A
+  paste of more than one line (a key, a certificate) stores nothing: the
+  prompt reads one line, so use `komando secret set NAME < FILE` or a pipe.
 - **From a pipe.** The line break at the end (which `echo` and `pbpaste`
   add) is not part of the value. Spaces are kept, because a password can hold
   them, but komando warns when the value starts or ends with a space or tab:

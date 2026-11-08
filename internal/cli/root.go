@@ -307,6 +307,7 @@ func newRoot() *cobra.Command {
 	resetApproval()
 	out.P.Reset()
 	personSaidNo = false
+	interrupted = false
 	root := &cobra.Command{
 		Use:           "komando",
 		Short:         "One safe command line for servers, databases, caches, storage and clusters",

@@ -9,7 +9,7 @@ file internal/driver/sql.go 838
 file internal/ipsec/ikev1.go 1458
 file internal/ipsec/ikev2.go 1120
 file internal/openvpn/client.go 1236
-file internal/sslvpn/pulse.go 886
+file internal/sslvpn/pulse.go 838
 func internal/cli/cert.go runCertCheck 176
 func internal/cli/cluster_run.go clusterRunCmd 116
 func internal/cli/cluster_status.go summarize 115
