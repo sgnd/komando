@@ -22,6 +22,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando audit --since` and `--until` pick a time window: how long ago
+  (`2h`, `7d`), `today`, `yesterday`, or a time (`2026-11-07`,
+  `'2026-11-07 14:30'`, `2026-11-07T14:30:00Z`; without a zone, this
+  computer's). With either, every match is shown, not only the newest 50,
+  unless `-n` is given. They work with `--target`, `--command` and
+  `--failed`.
 - `komando` alone opens a menu for a person at a terminal: choose Shell,
   Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
   Enter (`?` for help), then a server, conn or VPN from a list you can

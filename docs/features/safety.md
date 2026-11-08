@@ -112,6 +112,8 @@ komando audit -n 0                    # all entries
 komando audit --failed                # only failed or blocked actions
 komando audit --target @prod          # only these servers or conns
 komando audit --command exec          # only one command family
+komando audit --since 2h              # everything in the last two hours
+komando audit --since yesterday --until today   # all of yesterday
 komando audit verify                  # check the chain
 ```
 
