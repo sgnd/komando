@@ -568,7 +568,9 @@ func tlsHint(kind string, err error) string {
 	if weak[0] == "" {
 		return ""
 	}
-	via := "reach the server --via an SSH server (`komando conn edit NAME --via HOST`)"
+	// through an SSH tunnel the plain connection is fine; a TLS check of a
+	// self-signed certificate would fail there too
+	via := "reach the server --via an SSH server and connect without TLS through it (`komando conn edit NAME --via HOST --url '..." + weak[1] + "'`)"
 	switch {
 	case strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify"):
 		ca := "give the CA that signed it"
@@ -576,9 +578,9 @@ func tlsHint(kind string, err error) string {
 			ca += " with ?sslrootcert=/path/to/ca.pem"
 		}
 		return "the server's certificate could not be checked: " + ca + ", or " + via +
-			"; " + weak[0] + " encrypts without checking it, so anyone on the network path could pretend to be the server (`komando conn edit NAME --url ...`)"
+			"; without --via, " + weak[0] + " encrypts without checking it, so anyone on the network path could pretend to be the server"
 	case strings.Contains(msg, "server refused TLS"), errors.Is(err, mysql.ErrNoTLS):
-		return "the server has no TLS: " + via + "; " + weak[1] + " sends the password and the data unencrypted (`komando conn edit NAME --url ...`)"
+		return "the server has no TLS: " + via + "; without --via, " + weak[1] + " sends the password and the data unencrypted"
 	}
 	return ""
 }
