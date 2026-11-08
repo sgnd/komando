@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,6 +43,11 @@ type importPlan struct {
 	// `host add` for each row, so its password and sudo references are
 	// kept even when they name secrets that exist already.
 	OwnRefs bool
+	// DenyRules and Settings come from a whole komando export. Deny rules
+	// are added (they only stop more); settings are compared, never set,
+	// as a file from someone else must not turn a check off.
+	DenyRules []string
+	Settings  map[string]string
 }
 
 type importSource struct {
@@ -135,6 +141,10 @@ type importResult struct {
 	Secrets  []string     `json:"secrets"` // vault names stored (never values)
 	Skipped  []importSkip `json:"skipped"`
 	NotFound []string     `json:"not_imported"` // in the source, but not something komando imports
+	// DenyRules: deny rules added from the file; SettingsDiffer: settings
+	// the file has otherwise, left as they are here, with the command
+	DenyRules      []string         `json:"deny_rules_added,omitempty"`
+	SettingsDiffer []settingDiffers `json:"settings_differ,omitempty"`
 	// aboutAdded are the notes in NotFound about a server that was added
 	// (what was left out of it): the text output does not call them "not
 	// imported". JSON keeps them in not_imported, as before.
@@ -218,10 +228,30 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	for _, r := range recipes {
 		res.Recipes = append(res.Recipes, r.Name)
 	}
+	for _, p := range plan.DenyRules {
+		if strings.TrimSpace(p) != "" && checkRegex(p) == nil && !slices.Contains(st.Settings.ExtraDenyPattern, p) && !slices.Contains(res.DenyRules, p) {
+			res.DenyRules = append(res.DenyRules, p)
+		}
+	}
+	for _, s := range settings {
+		if v, ok := plan.Settings[s.Key]; ok && v != s.get(&st.Settings) {
+			res.SettingsDiffer = append(res.SettingsDiffer, settingDiffers{s.Key, v, s.get(&st.Settings), "komando config set " + s.Key + " " + shellQuote(v)})
+		}
+	}
 	res.Action = "added"
+	// servers komando refused are a failure (exit 1), not a quiet skip; a
+	// name that exists already is not: importing again is safe
+	var incomplete error
+	if n := len(v.Invalid); n > 0 {
+		incomplete = out.Errf(out.ExitError, "IMPORT_INCOMPLETE", "fix them in the source and import again: the rest is in, and importing again skips it",
+			"%s not imported (see skipped)", map[bool]string{true: "1 server was", false: strconv.Itoa(n) + " servers were"}[n == 1])
+	}
 	if g.dryRun {
 		res.Action = "would_add"
-		out.P.Print("import", res, nil)
+		out.P.Print("import", res, toErr(incomplete))
+		if incomplete != nil {
+			return exitCode(1)
+		}
 		return nil
 	}
 	for _, name := range res.Secrets {
@@ -248,14 +278,22 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 			v.CreatedAt, v.UpdatedAt = now, now
 			s.Vpns[v.Name] = v
 		}
+		for _, p := range res.DenyRules {
+			if !slices.Contains(s.Settings.ExtraDenyPattern, p) {
+				s.Settings.ExtraDenyPattern = append(s.Settings.ExtraDenyPattern, p)
+			}
+		}
 		return nil
 	})
 	if err != nil {
 		return err
 	}
 	audit(st, "import", append(append([]string{}, res.Hosts...), res.Conns...), "", true,
-		map[string]any{"source": source, "file": file, "secrets": len(res.Secrets)})
-	out.P.Print("import", res, nil)
+		map[string]any{"source": source, "file": file, "secrets": len(res.Secrets), "deny_rules": res.DenyRules})
+	out.P.Print("import", res, toErr(incomplete))
+	if incomplete != nil {
+		return exitCode(1)
+	}
 	return nil
 }
 
@@ -341,6 +379,10 @@ func (r importResult) Text() string {
 	line("VPNs "+verb, r.Vpns)
 	line("recipes "+verb, r.Recipes)
 	line("passwords stored in the vault", r.Secrets)
+	line("deny rules "+verb, r.DenyRules)
+	for _, d := range r.SettingsDiffer {
+		fmt.Fprintf(&sb, "setting %s is %s in the file, %s here (not changed; `%s` sets it)\n", d.Key, d.File, d.Here, d.Command)
+	}
 	for _, s := range r.Skipped {
 		fmt.Fprintf(&sb, "skipped %s: %s\n", s.Name, s.Reason)
 	}
@@ -606,4 +648,12 @@ func importEnv(path string) (*importPlan, error) {
 		p.addConn(p.name(strings.ReplaceAll(base, "_", "-")), v, k)
 	}
 	return p, nil
+}
+
+// settingDiffers is a setting an export file has otherwise than here.
+type settingDiffers struct {
+	Key     string `json:"key"`
+	File    string `json:"file"`
+	Here    string `json:"here"`
+	Command string `json:"command"`
 }

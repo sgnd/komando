@@ -9,6 +9,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando guide uninstall` takes the skill and komando's guard entries out
+  of Claude Code, Codex, Cursor and Gemini CLI, keeping everything else in
+  those files (a changed file is kept as `.bak`). An AI agent needs a
+  person's yes to remove its own guard.
+- A whole `export` carries your own deny rules and settings. `import
+  komando` adds the deny rules and lists the settings that differ with the
+  `komando config set` command for each; it changes none.
 - `doctor` checks AI agents: whether they have komando's skill, whether it
   is this version's (after an update, `komando guide install` again), and
   whether Claude Code runs with komando's guard.
@@ -54,6 +61,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- An import that refuses some servers still brings the rest in, but ends
+  with `IMPORT_INCOMPLETE` (exit 1) instead of `ok`; names that exist
+  already are still skipped quietly, so importing again is safe.
+- Docs: one story for moving to another computer (export without
+  passwords, or the whole folder once the vault has a passphrase), uninstall
+  with `guide uninstall` and the keychain item, and "Undo a change" for files.
 - For AI agents, the approval hint says "komando asks the user in a
   window" only where a flag opens one: not for `--write` or leaving out
   `--read-only` (komando does not ask; the agent asks the user first), and

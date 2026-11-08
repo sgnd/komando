@@ -31,6 +31,10 @@ type exportFile struct {
 	Recipes []*store.Snippet `json:"recipes"`
 	Secrets []string         `json:"secrets_needed"` // vault names the refs use
 	Keys    []string         `json:"keys_needed"`    // keychain keys the hosts use (the key files are not in the file)
+	// whole exports only: your own deny rules and settings, so the safety
+	// rules come along (import adds the rules; it only reports settings)
+	DenyRules []string          `json:"deny_rules,omitempty"`
+	Settings  map[string]string `json:"settings,omitempty"`
 }
 
 const exportFormat = "komando-export/1"
@@ -58,6 +62,7 @@ func importKomando(path string) (*importPlan, error) {
 	}
 	p := newPlan()
 	p.Hosts, p.Conns, p.Recipes, p.Vpns = f.Hosts, f.Conns, f.Recipes, f.Vpns
+	p.DenyRules, p.Settings = f.DenyRules, f.Settings
 	// An export file may come from someone else. Nothing in it may point at
 	// secrets or files that are already on this computer (a server of theirs
 	// with password_ref secret:prod-db-pass would receive that password),
@@ -208,6 +213,11 @@ func exportCmd() *cobra.Command {
 			}
 			sort.Strings(f.Secrets)
 			if len(args) == 0 {
+				f.DenyRules = st.Settings.ExtraDenyPattern
+				f.Settings = map[string]string{}
+				for _, s := range settings {
+					f.Settings[s.Key] = s.get(&st.Settings)
+				}
 				for _, s := range st.Snippets {
 					f.Recipes = append(f.Recipes, s)
 				}
@@ -228,7 +238,7 @@ func exportCmd() *cobra.Command {
 				return err
 			}
 			out.P.Print("export", exportResult{File: to, Hosts: len(f.Hosts), Conns: len(f.Conns), Vpns: len(f.Vpns), Recipes: len(f.Recipes),
-				SecretsNeeded: f.Secrets, KeysNeeded: f.Keys, KeyFiles: keyFiles}, nil)
+				DenyRules: len(f.DenyRules), Settings: len(f.Settings) > 0, SecretsNeeded: f.Secrets, KeysNeeded: f.Keys, KeyFiles: keyFiles}, nil)
 			return nil
 		},
 	}
@@ -244,6 +254,8 @@ type exportResult struct {
 	Conns         int      `json:"conns"`
 	Vpns          int      `json:"vpns"`
 	Recipes       int      `json:"recipes"`
+	DenyRules     int      `json:"deny_rules"`
+	Settings      bool     `json:"settings"` // the settings came along (a whole export)
 	SecretsNeeded []string `json:"secrets_needed"`
 	KeysNeeded    []string `json:"keys_needed"`
 	KeyFiles      []string `json:"key_files,omitempty"` // private keys: copied by hand, never put in an export file
@@ -254,13 +266,16 @@ func (r exportResult) Text() string {
 	for _, c := range []struct {
 		n    int
 		word string
-	}{{r.Hosts, "server"}, {r.Conns, "conn"}, {r.Vpns, "VPN"}, {r.Recipes, "recipe"}} {
+	}{{r.Hosts, "server"}, {r.Conns, "conn"}, {r.Vpns, "VPN"}, {r.Recipes, "recipe"}, {r.DenyRules, "deny rule"}} {
 		if c.n > 0 {
 			what = append(what, countOf(c.n, c.word))
 		}
 	}
 	if len(what) == 0 {
 		what = []string{"nothing"}
+	}
+	if r.Settings {
+		what = append(what, "your settings")
 	}
 	t := "saved " + strings.Join(what, ", ") + " to " + r.File + " (no passwords)\n"
 	if len(r.SecretsNeeded) > 0 {

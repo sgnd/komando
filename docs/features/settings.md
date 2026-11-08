@@ -112,8 +112,9 @@ random key in `vault.key`. Only a person at a terminal can run it, never an
 AI agent. A `KOMANDO_VAULT_PASS` changed without it opens none of the
 secrets (nothing is lost: set the old value again); `komando doctor` says so.
 
-To move to another computer, use `komando export` (no passwords) instead of
-copying the folder.
+To move to another computer, see [Move to another computer](import.md#move-to-another-computer):
+`komando export` (no passwords), or the whole folder once the vault has a
+passphrase.
 
 ## Update komando
 

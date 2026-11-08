@@ -37,7 +37,7 @@ func guideCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.AddCommand(guideInstallCmd(), guideGuardCmd())
+	c.AddCommand(guideInstallCmd(), guideUninstallCmd(), guideGuardCmd())
 	return c
 }
 
@@ -110,8 +110,7 @@ CLI (.gemini/settings.json, v0.26+) and Codex (.codex/hooks.json; approve it
 once in /hooks) where their folders exist. Skip it with --no-guard.
 
 Safe to run again, for example after an update: a changed file is kept as
-.bak. Remove the skill by deleting the komando folders, and the guard by
-deleting its entry under hooks in .claude/settings.json.`,
+.bak. ` + "`komando guide uninstall`" + ` takes the skill and the guard out again.`,
 		Example: `  komando guide install             # for every project on this computer
   komando guide install --project   # only for the folder you are in
   komando guide install --dry-run   # show where it would go`,

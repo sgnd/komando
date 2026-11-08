@@ -93,14 +93,18 @@ For fish and PowerShell, see `komando completion --help`.
 
 1. Stop what komando still runs: `komando status` lists it; `komando vpn down
    --all` and `komando tunnel stop --all` stop it.
-2. Delete the program: `rm "$(command -v komando)"`.
-3. Delete the skill and the guard, if you installed them: the `komando` folders
-   in `~/.claude/skills` and `~/.agents/skills`, and komando's entry under
-   `hooks` in `~/.claude/settings.json` (and in `.cursor/hooks.json`,
-   `.gemini/settings.json` or `.codex/hooks.json` where you use those agents).
-4. Keep a copy of `~/.komando` if you may need your servers or secrets again
-   (`komando export --to komando-backup.json` saves the servers without
-   passwords), then delete the folder.
+2. Take the skill and the guard out of your AI agents: `komando guide
+   uninstall` (add `--project` in a folder where you ran `guide install
+   --project`).
+3. Keep a copy of `~/.komando` if you may need your servers or secrets again
+   (see [Move to another computer](docs/features/import.md#move-to-another-computer)),
+   then delete the folder. Did you move the vault key into the system keychain
+   (`komando secret keychain`)? Run `komando secret keychain --off --yes`
+   first if you keep the copy; otherwise remove the item named `komando vault
+   ...` from the keychain (macOS: the Keychain Access app).
+4. Delete the program: `rm "$(command -v komando)"` (with `sudo` when it is in
+   `/usr/local/bin`), and the `export PATH=...` line the installer asked you to
+   add, if you added one.
 
 ## First steps
 

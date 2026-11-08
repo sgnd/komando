@@ -71,8 +71,16 @@ databases, put their URLs in a `.env` file and run `komando import env FILE`.
 
 ## Move to another computer
 
-`export` saves your servers, conns and VPNs, and also your saved recipes
-when you export everything:
+There are two ways. **Export** moves your servers, conns, VPNs, recipes,
+your own deny rules and settings, but no passwords and no key files: you
+set those again. **Copy the folder** moves everything, passwords included,
+once the vault has a passphrase.
+
+### Export and import (no passwords)
+
+`export` saves your servers, conns and VPNs, and when you export everything
+also your saved recipes, your own deny rules (`policy deny`) and your
+settings:
 
 ```bash
 komando export --to komando-backup.json       # everything; no passwords
@@ -91,8 +99,12 @@ komando secret set prod-db-pass               # the import lists the passwords t
 ```
 
 The export file holds no passwords, only their names, so set them again
-with `komando secret set`. To move everything including the vault, copy the
-whole `~/.komando` folder instead (or point `KOMANDO_HOME` at a copy).
+with `komando secret set`. The import adds your deny rules (they only stop
+more), but changes no setting: it lists the settings that differ, each with
+the `komando config set` command that sets it, because a file from someone
+else must not turn a check off. When something in the file is refused, the
+rest still comes in and the import ends with `IMPORT_INCOMPLETE` (exit 1):
+fix those entries and import again (what is in already is skipped).
 
 Private keys are never in an export file either. When a server logs in with
 a key from `komando key`, `export` names the key (`keys_needed`) and its file
@@ -104,6 +116,24 @@ you bring it (ssh-agent or your default key may log in meanwhile):
 komando key add deploy ~/Downloads/deploy     # the copied key file
 komando host edit db1 --key deploy
 ```
+
+### Copy the folder (everything, with passwords)
+
+The vault's key must travel with it, so give the vault a passphrase first.
+A key in `vault.key` or in the system keychain does not travel: a copied
+folder whose key stayed in the old computer's keychain cannot open its
+secrets.
+
+```bash
+komando secret passphrase                     # on the old computer: type a passphrase (15+ characters)
+# copy ~/.komando to the new computer (a USB stick, scp), then there:
+export KOMANDO_VAULT_PASS='the passphrase'    # or type it when komando asks
+komando doctor                                # the vault opens, the servers are there
+```
+
+On the new computer you can go back to a key file and move it into the
+keychain: `komando secret passphrase --off --yes`, then `komando secret
+keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
 
 An export file may come from someone else, so importing one is careful:
 

@@ -192,9 +192,11 @@ func TestInvHostImportJSON(t *testing.T) {
 	}
 	// komando import reads host export output too
 	mustRun(t, "host", "rm", "px")
-	d = mustRun(t, "import", "komando", f)
-	if len(d["hosts"].([]any)) != 1 {
-		t.Errorf("import komando of a host export: %v", d)
+	// prod exists (skipped, fine), bad is refused: the rest comes in, and
+	// the refusal makes the import fail (exit 1), not a quiet skip
+	d, e = invRun(t, "import", "komando", f)
+	if e == nil || e.Code != "IMPORT_INCOMPLETE" || e.Exit != 1 || len(d["hosts"].([]any)) != 1 {
+		t.Errorf("import komando of a host export: %v %+v", d, e)
 	}
 }
 
@@ -503,5 +505,39 @@ func TestExportImportKeepsServersWithKeys(t *testing.T) {
 	h := mustRun(t, "host", "show", "db1")
 	if h["key"] != nil && h["key"] != "" {
 		t.Errorf("db1 points at a key this computer does not have: %v", h)
+	}
+}
+
+// A whole export carries your own deny rules (import adds them: they only
+// stop more) and your settings (import says which differ and how to set
+// them, but changes none: a file from someone else must not turn a check
+// off).
+func TestExportImportCarriesRulesAndSettings(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.21")
+	mustRun(t, "policy", "deny", `rm -rf /srv`)
+	mustRun(t, "config", "set", "parallel", "5")
+	f := filepath.Join(t.TempDir(), "backup.json")
+	if d := mustRun(t, "export", "--to", f); d["deny_rules"] != float64(1) || d["settings"] != true {
+		t.Errorf("export: %v", d)
+	}
+
+	invHome(t) // the other computer
+	d := mustRun(t, "import", "komando", f)
+	if fmt.Sprint(d["deny_rules_added"]) != "[rm -rf /srv]" {
+		t.Errorf("deny rules: %v", d)
+	}
+	if !strings.Contains(fmt.Sprint(d["settings_differ"]), "komando config set parallel 5") {
+		t.Errorf("settings: %v", d)
+	}
+	if v := mustRun(t, "config", "get", "parallel"); fmt.Sprint(v["value"]) == "5" {
+		t.Error("import changed a setting")
+	}
+	if _, e := invRun(t, "exec", "web1", "--", "rm -rf /srv"); e == nil || e.Code != "POLICY_BLOCKED" {
+		t.Errorf("the imported rule stops it: %+v", e)
+	}
+	// importing again adds nothing new
+	if d := mustRun(t, "import", "komando", f); d["deny_rules_added"] != nil {
+		t.Errorf("again: %v", d)
 	}
 }

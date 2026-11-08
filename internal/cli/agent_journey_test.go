@@ -94,3 +94,49 @@ func TestLogTail(t *testing.T) {
 		t.Error("no log: empty")
 	}
 }
+
+// guide uninstall takes out the skill and komando's guard entries, keeps
+// the person's own hooks, and an agent cannot take its own guard away
+// without a person's yes.
+func TestGuideUninstall(t *testing.T) {
+	invHome(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	os.MkdirAll(filepath.Join(home, ".claude"), 0o755)
+	own := `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"my-own-check"}]}]},"model":"x"}`
+	os.WriteFile(filepath.Join(home, ".claude", "settings.json"), []byte(own), 0o600)
+	os.MkdirAll(filepath.Join(home, ".codex"), 0o755)
+	mustRun(t, "guide", "install")
+	settings := func() string {
+		b, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
+		return string(b)
+	}
+	if !strings.Contains(settings(), " guide guard") {
+		t.Fatalf("install: %s", settings())
+	}
+	asAgent(t, false, true) // the person says no
+	g.yes = true
+	if _, e := invRun(t, "guide", "uninstall"); e == nil || e.Code != "SAFETY_SETTING" {
+		t.Fatalf("an agent removes its guard: %+v", e)
+	}
+	if !strings.Contains(settings(), " guide guard") {
+		t.Fatal("the guard went without the person's yes")
+	}
+	noAgent(t)
+	mustRun(t, "guide", "uninstall", "--yes")
+	s := settings()
+	if strings.Contains(s, "guide guard") || !strings.Contains(s, "my-own-check") || !strings.Contains(s, `"model": "x"`) {
+		t.Errorf("after uninstall: %s", s)
+	}
+	for _, p := range []string{filepath.Join(home, ".claude", "skills", "komando"), filepath.Join(home, ".agents", "skills", "komando")} {
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("%s is still there", p)
+		}
+	}
+	if b, _ := os.ReadFile(filepath.Join(home, ".codex", "hooks.json")); strings.Contains(string(b), "guide guard") {
+		t.Errorf("codex: %s", b)
+	}
+	if d := mustRun(t, "guide", "uninstall"); len(d["files"].([]any)) != 0 {
+		t.Errorf("again: nothing left to remove: %v", d)
+	}
+}
