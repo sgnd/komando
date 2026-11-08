@@ -120,6 +120,28 @@ its highlights; the sections below them give the details. Versions follow
   Azure (with the account key). Big Azure uploads go up in blocks, with no
   temporary file; WebDAV makes missing folders. Emulators take
   `?endpoint=URL`.
+- **MongoDB** conns (`mongodb://`, `mongodb+srv://`, replica sets, Atlas):
+  `db query` takes a command document in JSON (`{"find": ...}`,
+  `{"aggregate": ...}`, `{"update": ...}`), rated before it is sent like
+  SQL, so changes need `--write`, and an empty-filter delete, `drop`, user
+  changes and `shutdown` need `--allow-dangerous`. `db schema` lists
+  collections, or the fields of a sample with their types; `db info` gives
+  version, role and sizes; `conn test` logs in. Every member is reached
+  through `--via`, and `?ca=` checks a private CA.
+- Redis Cluster and Sentinel: a `redis://` or `rediss://` conn with
+  `?cluster=1` works on the whole cluster from one node's address
+  (`cache keys` scans every master, `cache info` adds them up with the
+  cluster's state), and one with `?sentinel=MASTER` reaches the master the
+  Sentinels name (more Sentinels with `sentinels=`, their login with
+  `sentinel_auth=same`). Valkey, ElastiCache and MemoryDB clusters work
+  the same way.
+- Databases and caches whose certificate comes from a private CA (a
+  company CA, Amazon RDS, Azure, ElastiCache) are checked against it:
+  `?ca=secret:NAME` on a `postgres://`, `mysql://`, `rediss://` or
+  `memcacheds://` conn names the vault secret that holds the CA (PEM), as
+  registries already allowed. The check is a full one (signed by that CA,
+  naming the server), also with `sslmode=require`, and a Postgres conn then
+  never goes on without TLS.
 - `komando` alone opens a menu for a person at a terminal: choose Shell,
   Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
   Enter (`?` for help), then a server, conn or VPN from a list you can
@@ -161,6 +183,10 @@ its highlights; the sections below them give the details. Versions follow
 - `komando db query --csv` and `--tsv` printed values an AI agent should
   not see: unlike the JSON and text output, they skipped the masking of
   secrets and vault values. They are masked the same way now.
+- A `rediss://` conn reached through `--via` could not connect: the Redis
+  client leaves TLS out when it is given its own dialer, so it spoke plain
+  Redis to the TLS port. komando's dialer now adds TLS itself, checking
+  each server's own name.
 - `komando host import --overwrite` deleted an existing server when the
   imported copy with the same name was refused (for example, its `--via`
   host does not exist). The server it would have replaced now stays.

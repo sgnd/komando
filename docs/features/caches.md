@@ -30,7 +30,36 @@ komando conn add sessions rediss://default@cache.internal:6379/1 --password-ref 
 sends the password and the data unencrypted: use `rediss://` or `--via`.
 `komando doctor` warns about such conns and prints the line that changes
 them. `rediss://` checks the server's certificate against your computer's
-trusted CAs.
+trusted CAs, or against your own with `?ca=secret:NAME` (a private CA, or a
+cloud's own), as `memcacheds://` does:
+
+```bash
+komando secret set cache-ca < ca.pem
+komando conn add sessions 'rediss://default@cache.internal:6380/1?ca=secret:cache-ca' --password-ref secret:sessions-pass
+```
+
+### Redis Cluster and Sentinel
+
+A **Redis Cluster** (or Valkey cluster, ElastiCache and MemoryDB in cluster
+mode) is added by one node's address with `?cluster=1`: komando finds the
+other nodes from it. Behind **Sentinels**, add a Sentinel's address with
+`?sentinel=` and the master's name: komando asks the Sentinels where the
+master is now, so a failover needs no change.
+
+```bash
+komando conn add sessions 'rediss://default@clustercfg.sessions.abc123.cache.amazonaws.com:6379?cluster=1' --password-ref secret:sessions-pass
+komando conn add queue 'redis://default@sentinel1:26379/0?sentinel=mymaster&sentinels=sentinel2,sentinel3' --password-ref secret:queue-pass
+```
+
+- In a Cluster, `cache keys` scans every master and `cache info` adds up
+  memory, clients and keys over them, with the cluster's state
+  (`cluster_state`, `masters`). A command for one key goes to the node that
+  holds it. A Cluster has only database 0.
+- Sentinels listen on 26379 when the URL names no port. More Sentinels go
+  in `sentinels=HOST[:PORT],...`. The password is for Redis; when the
+  Sentinels want it too, add `&sentinel_auth=same`.
+- Through `--via`, every node and Sentinel is reached through the same
+  bastion or VPN, with TLS for `rediss://`.
 
 ## Look at data
 

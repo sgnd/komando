@@ -27,6 +27,7 @@ the URL:
 | PostgreSQL | `postgres://app@10.0.0.5:5432/app?sslmode=require` |
 | MySQL / MariaDB | `mysql://shop@db.internal:3306/shop?tls=true` |
 | SQLite | `sqlite:///var/lib/app.db` (a file on this computer) |
+| MongoDB | `mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin` (Atlas: `mongodb+srv://app@cluster0.abcde.mongodb.net/shop`). See [MongoDB](#mongodb). |
 
 `komando conn kinds` lists every kind, including caches, storage, clusters
 and registries.
@@ -80,8 +81,19 @@ giving them the password:
 - Saved conns keep working as they are. `komando doctor` warns about every
   conn without checked TLS and prints the `komando conn edit NAME --url ...`
   line that fixes it.
-- A server whose certificate comes from your own CA: add
-  `?sslrootcert=/path/to/ca.pem` (Postgres).
+- A server whose certificate comes from a private CA (your company's, or a
+  cloud's own, such as Amazon RDS or Azure Database): store the CA and name
+  it with `?ca=`, for Postgres and MySQL. The certificate is then fully
+  checked: signed by that CA and naming the server, also with
+  `sslmode=require`, and never without TLS:
+
+  ```bash
+  komando secret set rds-ca < global-bundle.pem
+  komando conn add orders 'postgres://app@orders.abc123.eu-west-1.rds.amazonaws.com/orders?ca=secret:rds-ca' --password-ref secret:orders-pass
+  ```
+
+  For Postgres a file on this computer works too:
+  `?sslrootcert=/path/to/ca.pem`.
 - When TLS stops a connection (the certificate does not check out, or the
   server has no TLS), the hint says what to do and names the weaker setting
   with what it costs.
@@ -380,6 +392,47 @@ stop the app and copy the file back.
 
 **Big databases** take time: `dump` and `restore` have no timeout unless you
 pass `--timeout`.
+
+## MongoDB
+
+A MongoDB conn takes the same `db query`, with a **command document** in
+JSON instead of SQL: its first key names the command, as in `runCommand`.
+`db schema` and `db info` work too.
+
+```bash
+komando secret set shop-mongo-pass
+komando conn add shop-mongo 'mongodb://app@db1.internal,db2.internal/shop?replicaSet=rs0&authSource=admin' --via bastion --password-ref secret:shop-mongo-pass
+komando db query shop-mongo '{"find": "orders", "filter": {"status": "open"}, "sort": {"_id": -1}, "limit": 10}'
+komando db query shop-mongo '{"aggregate": "orders", "pipeline": [{"$group": {"_id": "$status", "n": {"$sum": 1}}}], "cursor": {}}'
+komando db query shop-mongo --write '{"update": "orders", "updates": [{"q": {"_id": {"$oid": "5f1d7f1b2c3a4b5c6d7e8f90"}}, "u": {"$set": {"status": "paid"}}}]}'
+komando db schema shop-mongo                      # collections, sizes, indexes
+komando db schema shop-mongo orders               # fields and their types, from a sample
+komando db info shop-mongo                        # version, primary or secondary, sizes
+```
+
+- **Rated before it is sent**, like SQL: `find`, `aggregate`, `count`,
+  `distinct` and the other reads run as they are. A command that changes
+  data, or one komando does not know as a read, needs `--write`; a
+  protected conn also needs `--yes`. A `delete` or a multi-document
+  `update` with an empty filter, `drop`, `dropDatabase`, user and role
+  changes and `shutdown` also need `--allow-dangerous`. An `aggregate` with
+  `$out` or `$merge` writes.
+- MongoDB has no read-only transaction, so the rating is what keeps a read
+  a read. For a hard guarantee, give the conn a user with only the `read`
+  role.
+- `--write --dry-run` sends nothing (MongoDB cannot roll a write back) and
+  says how the command was rated.
+- Values are MongoDB Extended JSON: `{"$oid": "..."}`, `{"$date":
+  "2026-11-08T10:00:00Z"}`. `"$db": "other"` runs one command on another
+  database than the URL's (without one in the URL: `admin`).
+- Results: `data.documents` for commands that return a cursor (at most
+  `--limit`, default 500, and `--max-output` bytes), `data.reply` for the
+  others. `-o text` prints one document per line.
+- Every member of a replica set is reached through `--via`. A private CA
+  works with `?tls=true&ca=secret:NAME`.
+- For SQL databases only: `db dump`, `restore`, `activity`, `locks`,
+  `sizes`, `kill`, users and grants, and `db shell`. On MongoDB they say so
+  (`NOT_SUPPORTED`); run `mongodump` on a server with `komando exec`.
 
 ## Interactive SQL shell (for people)
 

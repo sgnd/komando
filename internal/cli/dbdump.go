@@ -92,7 +92,7 @@ func toolsFor(c *store.Conn, t driver.Target) (dumpTool, error) {
 			tls: t.TLS,
 		}, nil
 	}
-	return dumpTool{}, out.Usage("%s conns have no dump tool", t.Kind.Name)
+	return dumpTool{}, noDumpTool(t)
 }
 
 // dumpOpts narrows or reshapes a dump.

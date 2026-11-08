@@ -25,27 +25,68 @@ import (
 // DialFunc opens a TCP connection, possibly through an SSH host.
 type DialFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 
-// Open connects to a redis conn and checks it answers.
-func Open(ctx context.Context, t driver.Target, password string, dial DialFunc, timeout time.Duration) (*redis.Client, error) {
+// Open connects to a redis conn and checks it answers: one server, a
+// Redis Cluster (any node leads to the others) or the master that the
+// Sentinels name.
+func Open(ctx context.Context, t driver.Target, password string, dial DialFunc, timeout time.Duration) (redis.UniversalClient, error) {
 	db, _ := strconv.Atoi(t.Database)
-	o := &redis.Options{
-		Addr: t.Address, Username: t.User, Password: password, DB: db,
-		DialTimeout: timeout, ReadTimeout: timeout, WriteTimeout: timeout,
-		PoolSize: 1, MaxRetries: -1, DisableIdentity: true,
-	}
+	var tc *tls.Config
 	if t.Secure {
-		host, _, _ := net.SplitHostPort(t.Address)
-		o.TLSConfig = &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
+		pool, err := t.RootCAs()
+		if err != nil {
+			return nil, err
+		}
+		tc = &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: pool} // nil pool: this computer's CAs
 	}
-	if dial != nil {
-		o.Dialer = dial
+	dialer := redisDialer(dial, tc, timeout)
+	var c redis.UniversalClient
+	switch {
+	case t.Cluster:
+		c = redis.NewClusterClient(&redis.ClusterOptions{Addrs: []string{t.Address}, Username: t.User, Password: password,
+			Dialer: dialer, DialTimeout: timeout, ReadTimeout: timeout, WriteTimeout: timeout,
+			PoolSize: 1, MaxRetries: -1, MaxRedirects: 3, DisableIdentity: true})
+	case t.Sentinel != "":
+		fo := &redis.FailoverOptions{MasterName: t.Sentinel, SentinelAddrs: append([]string{t.Address}, t.Sentinels...),
+			Username: t.User, Password: password, DB: db, Dialer: dialer, DialTimeout: timeout, ReadTimeout: timeout,
+			WriteTimeout: timeout, PoolSize: 1, MaxRetries: -1, DisableIdentity: true}
+		if t.SentinelAuth {
+			fo.SentinelUsername, fo.SentinelPassword = t.User, password
+		}
+		c = redis.NewFailoverClient(fo)
+	default:
+		c = redis.NewClient(&redis.Options{Addr: t.Address, Username: t.User, Password: password, DB: db,
+			Dialer: dialer, DialTimeout: timeout, ReadTimeout: timeout, WriteTimeout: timeout,
+			PoolSize: 1, MaxRetries: -1, DisableIdentity: true})
 	}
-	c := redis.NewClient(o)
 	if err := c.Ping(ctx).Err(); err != nil {
 		c.Close()
 		return nil, connectErr(t, err)
 	}
 	return c, nil
+}
+
+// redisDialer opens each connection (to a server, a Cluster node or a
+// Sentinel) on its way (direct or --via) and adds TLS itself: go-redis
+// leaves TLS out when it is given a dialer, and a Cluster's nodes each
+// have their own name to check.
+func redisDialer(dial DialFunc, tc *tls.Config, timeout time.Duration) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	if dial == nil {
+		dial = (&net.Dialer{Timeout: timeout}).DialContext
+	}
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		c, err := dial(ctx, network, addr)
+		if err != nil || tc == nil {
+			return c, err
+		}
+		cfg := tc.Clone()
+		cfg.ServerName, _, _ = net.SplitHostPort(addr)
+		tlsc := tls.Client(c, cfg)
+		if err := tlsc.HandshakeContext(ctx); err != nil {
+			c.Close()
+			return nil, err
+		}
+		return tlsc, nil
+	}
 }
 
 // Rule is a named command check, listed by `komando policy`.
@@ -221,7 +262,7 @@ type Value struct {
 }
 
 // Get reads a key of any type. Collections return at most limit items.
-func Get(ctx context.Context, c *redis.Client, key string, limit int64, maxBytes int) (*Value, error) {
+func Get(ctx context.Context, c redis.UniversalClient, key string, limit int64, maxBytes int) (*Value, error) {
 	typ, err := c.Type(ctx, key).Result()
 	if err != nil {
 		return nil, cmdErr(err)
@@ -308,9 +349,12 @@ func Get(ctx context.Context, c *redis.Client, key string, limit int64, maxBytes
 }
 
 // Keys lists keys matching pattern with SCAN (never KEYS), up to limit.
-func Keys(ctx context.Context, c *redis.Client, pattern string, limit int) (keys []string, more bool, err error) {
+func Keys(ctx context.Context, c redis.UniversalClient, pattern string, limit int) (keys []string, more bool, err error) {
 	if pattern == "" {
 		pattern = "*"
+	}
+	if cc, ok := c.(*redis.ClusterClient); ok {
+		return clusterKeys(ctx, cc, pattern, limit)
 	}
 	keys = []string{}
 	var cur uint64
@@ -333,7 +377,10 @@ func Keys(ctx context.Context, c *redis.Client, pattern string, limit int) (keys
 }
 
 // Info returns the INFO reply as sections of key/value pairs.
-func Info(ctx context.Context, c *redis.Client, section string) (map[string]map[string]string, error) {
+func Info(ctx context.Context, c redis.UniversalClient, section string) (map[string]map[string]string, error) {
+	if cc, ok := c.(*redis.ClusterClient); ok {
+		return clusterInfo(ctx, cc, section)
+	}
 	args := []string{}
 	if section != "" {
 		args = append(args, section)
@@ -365,7 +412,7 @@ func Info(ctx context.Context, c *redis.Client, section string) (map[string]map[
 }
 
 // Run sends a raw command and converts the reply to JSON-safe values.
-func Run(ctx context.Context, c *redis.Client, args []string) (any, error) {
+func Run(ctx context.Context, c redis.UniversalClient, args []string) (any, error) {
 	a := make([]any, len(args))
 	for i, s := range args {
 		a[i] = s
@@ -570,7 +617,7 @@ func connectErr(t driver.Target, err error) error {
 	case errors.Is(err, context.DeadlineExceeded) || isTimeout(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "check the address or raise --connect-timeout", "connecting to %s timed out", t.Address)
 	case t.Secure && (strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify")):
-		return out.Errf(out.ExitConnect, "CACHE_CONNECT", "the server's certificate could not be checked against this computer's CAs; if it is self-signed, reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`)",
+		return out.Errf(out.ExitConnect, "CACHE_CONNECT", "the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`)",
 			"cannot connect to %s: %s", t.Address, msg)
 	case t.Secure && strings.Contains(msg, "first record does not look like a TLS handshake"):
 		return out.Errf(out.ExitConnect, "CACHE_CONNECT", "the server does not speak TLS on this port: check the port, or reach it --via an SSH server with the plain scheme (redis://, memcached://)",
