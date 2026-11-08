@@ -17,8 +17,34 @@ its highlights; the sections below them give the details. Versions follow
   question the server asked got the password, and each try could count as
   a failed login and lock the account.
 
+### Added
+
+- `komando` alone opens a menu for a person at a terminal: choose Shell,
+  Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
+  Enter (`?` for help), then a server, conn or VPN from a list you can
+  filter by typing. Only what has something to act on is shown; with no
+  server yet, Add (and Import, when there is a `~/.ssh/config`) comes
+  first. It runs the same command you could type and shows it first. AI
+  agents, scripts and `komando` with any flag still get the first steps
+  (or, when piped, a `USAGE` error).
+
+### Changed
+
+- `komando import` says `nothing to import from FILE` first when it adds
+  nothing, and a note about a server it did add (such as a missing
+  identity file) no longer reads `not imported:`. `import ssh-config` on a
+  computer with no `~/.ssh/config` says so and shows how to add a server.
+
 ### Fixed
 
+- `komando host import --overwrite` deleted an existing server when the
+  imported copy with the same name was refused (for example, its `--via`
+  host does not exist). The server it would have replaced now stays.
+- `komando import dbeaver` told you to set a password with the conn's
+  name from DBeaver, even when that name was taken and the conn was added
+  as `shop-2`: following it pointed your existing `shop` conn at the new
+  password. The note now names the conn as it was added, and only a
+  connection that was added gets one.
 - An encrypted `--identity` or `--key` with no passphrase ref failed with
   `KEY_PASSPHRASE_REQUIRED` even when ssh-agent (or the macOS Keychain)
   held it. komando now finds the agent's copy by its public key (from the

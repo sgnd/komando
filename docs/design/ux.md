@@ -235,7 +235,10 @@ run next).
 
 ## 10. Help and ease of use
 
-- `komando` with no arguments: the first three steps, not a wall of text.
+- `komando` with no arguments: for a person at a terminal, a menu (arrow
+  keys and Enter) that runs the same commands they could type; for agents,
+  scripts and any flag the first three steps, not a wall of text; piped, one
+  `USAGE` envelope (see Streams and scripts).
 - Every command has at least one real example in `--help`.
 - Shell completion completes host, conn, group, and tag names from the inventory.
 - `komando guide` (for agents) and `docs/features/` (for people, one file per feature) are always
@@ -334,7 +337,8 @@ Guidelines](https://clig.dev) and the rules above.
   `PARTIAL_FAILURE`.
 
 **Help**
-- [ ] `komando` alone: the first steps, a dozen lines at most.
+- [ ] `komando` alone: a menu for a person at a terminal; otherwise the
+  first steps, a dozen lines at most.
 - [ ] Every command has at least one real example (`examples.go` or its
   own `Example`). `TestConventions` fails without one, and
   `TestExamplesParse` fails when an example names a command or flag that

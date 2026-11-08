@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -42,6 +43,18 @@ func set(words string) map[string]bool {
 	return m
 }
 
+// sshConfigErr says why the config cannot be read. A new computer, or one
+// that reaches its servers with a password, has no ~/.ssh/config at all:
+// that is not a wrong path, so the hint is how to add a server instead.
+func sshConfigErr(path string, err error) error {
+	if errors.Is(err, os.ErrNotExist) && expandHome(path) == expandHome("~/.ssh/config") {
+		e := localFileErr("FILE_NOT_FOUND", err, "add a server instead: `komando host add web1 deploy@10.0.0.5`")
+		e.Message = "there is no ~/.ssh/config on this computer"
+		return e
+	}
+	return localFileErr("FILE_NOT_FOUND", err, "")
+}
+
 // parseSSHConfig reads an OpenSSH config into hosts. notes lists what it
 // could not carry over (Match blocks, ProxyCommand, ...), per host.
 func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error) {
@@ -60,7 +73,7 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 		f, err := os.Open(expandHome(p))
 		if err != nil {
 			if depth == 0 {
-				return localFileErr("FILE_NOT_FOUND", err, "")
+				return sshConfigErr(p, err)
 			}
 			return nil
 		}
@@ -116,7 +129,7 @@ func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error
 		for _, pat := range b.patterns {
 			if strings.ContainsAny(pat, "*?!") {
 				if !strings.HasPrefix(pat, "!") {
-					notes = append(notes, "Host "+pat+": a pattern, not one server; its settings were used as defaults for the servers it matches")
+					notes = append(notes, "Host "+pat+": used as defaults, not a server")
 				}
 				continue
 			}

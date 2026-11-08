@@ -218,6 +218,52 @@ komando recipe rm disk-of
   never runs the recipe with its default.
 - `recipe run --no-sudo` skips sudo even when the recipe asks for it.
 
+## The menu (for people)
+
+Type `komando` alone in a terminal and a menu opens: choose what to do with
+the arrow keys (or `j`/`k`) and Enter, or press its number to choose it at
+once. `?` shows every command (`komando --help`).
+
+```text
+komando · v0.6.0 · 12 servers, 3 conns, 1 VPN
+
+> 1. Shell     Open a login shell on a server
+  2. Test      Check that servers, conns and VPNs answer
+  3. Facts     OS, updates, Docker and open ports of a server
+  4. Database  Open a SQL shell on a database
+  5. VPN       Connect a VPN and log in
+  ...
+
+↑↓ move · Enter or 1-8 choose · ? help · q quit
+```
+
+The menu shows only what has something to act on: Shell and Facts need a
+server, Database a PostgreSQL, MySQL or SQLite conn, and VPN a VPN. While
+komando knows no server yet, the menu starts with Import (when there is a
+`~/.ssh/config` to bring in) and Add: type a name and `user@address`, as
+in `komando host add web1 deploy@10.0.0.5`.
+
+After an action that needs one, the list to choose from comes next: servers
+for Shell and Facts, database conns for Database, VPNs for VPN, and all of
+them (or `all`) for Test. Type part of a name, address, group or tag to
+filter it. `protected` comes first in a row's details, so it is the last of
+them a narrow window cuts off. A line too long for the window ends in `…`,
+and a long filter or Add line shows its end, where you type. The menu
+remembers your last action and the last name you chose while it is open,
+and puts the cursor on them.
+
+The menu runs the same command you could type, and shows it first
+(`$ komando shell web1`), so every question and safety check works as it
+does on the command line. When the command ends, Enter goes back to the
+menu and `q` quits; the scrollback keeps the command, its output and how it
+ended (`exit 1`). On a list, Esc clears the filter, then goes back to the
+menu, and so does Left; on the menu, Esc (like `q`) quits. Ctrl-C stops the
+command that is running, not the menu.
+
+The menu is only for a person at a terminal. AI agents, scripts, pipes and
+`komando` with any flag get the first steps (or, when piped, a `USAGE`
+error) as before. `komando --help` lists every command.
+
 ## Interactive shell (for people)
 
 ```bash

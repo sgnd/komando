@@ -167,3 +167,22 @@ func TestImportFileZillaRcloneDBeaver(t *testing.T) {
 		t.Errorf("dbeaver: %+v", db.Conns)
 	}
 }
+
+// DBeaver keeps passwords elsewhere, so the import says how to set each
+// one. The note names the conn as it was added: when shop-prod is taken by
+// another database it becomes shop-prod-2, and the note must not point the
+// user's own shop-prod at the new password. A connection that is not added
+// gets no such note.
+func TestImportDBeaverPasswordNote(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "shop-prod", "postgres://me@other.lan:5432/shop")
+	d := mustRun(t, "import", "dbeaver", writeTemp(t, "data-sources.json", `{"connections":{
+		"a":{"name":"Shop prod","provider":"postgresql","configuration":{"host":"db.lan","port":"5432","database":"shop","user":"app"}},
+		"b":{"name":"Broken","provider":"postgresql","configuration":{"host":"db.lan","port":"not-a-port","database":"x","user":"app"}}}}`))
+	notes := fmt.Sprint(d["not_imported"])
+	if fmt.Sprint(d["conns"]) != "[shop-prod-2]" ||
+		!strings.Contains(notes, "shop-prod-2: set its password with `komando secret set shop-prod-2-pass` and `komando conn edit shop-prod-2 --password-ref secret:shop-prod-2-pass`") ||
+		strings.Contains(notes, "conn edit shop-prod ") || strings.Contains(notes, "broken: set its password") {
+		t.Errorf("conns %v, notes %s", d["conns"], notes)
+	}
+}

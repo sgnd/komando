@@ -8,7 +8,7 @@ first pull request is merged, please sign the
 [Contributor License Agreement](CLA.md): a bot asks you on the pull request, and
 you sign once by writing a comment. You keep the copyright of what you wrote.
 
-komando is one command line for DevOps work, for people and their AI agents. It stays simple on purpose: one static binary, no windows or menus, safe by default.
+komando is one command line for DevOps work, for people and their AI agents. It stays simple on purpose: one static binary, no windows, safe by default. The one menu is what `komando` alone opens for a person at a terminal, and it only runs ordinary commands.
 
 ## Report a bug or suggest a feature
 
@@ -19,7 +19,7 @@ Use the [Bug report](https://github.com/sgnd/komando/issues/new?template=bug-rep
 A change fits when all of these are true:
 
 - It is DevOps work on a server, database, cache, storage, cluster, registry or VPN.
-- It works as a command, for a person and for an AI agent. No prompts, no windows.
+- It works as a command, for a person and for an AI agent. No windows, and no prompt an agent or a script can meet.
 - It is safe by default: it only reads unless the user says otherwise.
 - It needs no new dependency, or the dependency is small and well kept.
 
@@ -58,7 +58,7 @@ Recipes are ready-made checks (`komando recipe list`). They live in one list in 
 Each area has its own file in `internal/cli/` (`host.go`, `exec.go`, `fs.go`, `db.go`, `cluster.go`, ...). Follow these rules. They are what makes komando usable by AI agents:
 
 1. **Print results only via `out.P.Print`.** It writes one JSON envelope when piped (agents) and readable text in a terminal (humans). Give a result type a `Text() string` method if the generic text view is not clear enough.
-2. **Never prompt.** Missing input is an error with a `hint`.
+2. **Never prompt an agent or a script.** Missing input is an error with a `hint`. A person at a terminal may be asked a yes/no question (see `confirmYes`), never anything a flag cannot answer.
 3. **Typed errors**: `out.Errf(exitCode, "UPPER_SNAKE_CODE", "hint: what to do next", "message")`. Reuse existing codes and exit codes (see `internal/out/out.go`).
 4. **Multi-host commands** return `data.results[]` + `data.summary` (use `fanout`, `probe` or `runFleet` in `common.go` / `exec.go`).
 5. **Safety**: anything that changes a server must call `guard(...)` with `mutating=true`, respect `--dry-run`, and call `audit(...)`.

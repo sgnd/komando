@@ -195,9 +195,9 @@ func importDBeaver(path string) (*importPlan, error) {
 			}
 			u = url.URL{Scheme: scheme, User: url.User(cfg.User), Host: host, Path: "/" + cfg.Database}
 		}
-		p.addConn(name, u.String(), c.Name)
-		if scheme != "sqlite" {
-			p.Notes = append(p.Notes, name+": set its password with `komando secret set "+name+"-pass` and `komando conn edit "+name+" --password-ref secret:"+name+"-pass`")
+		n := len(p.Conns)
+		if p.addConn(name, u.String(), c.Name); len(p.Conns) > n && scheme != "sqlite" {
+			p.NoPassword[p.Conns[n]] = true // the note comes once its name is final (applyImport)
 		}
 	}
 	return p, nil
