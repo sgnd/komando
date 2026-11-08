@@ -90,9 +90,9 @@ func jobStartCmd() *cobra.Command {
 			}
 			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 				id := newID("j")
-				// The exports go to a private file the job reads and deletes:
-				// a job runs for long, and its command line is visible to
-				// every user on the server (ps), secrets included.
+				// The exports go, on stdin, to a private file the job reads and
+				// deletes: a command line is visible to every user on the
+				// server (ps), secrets included, and a job runs for long.
 				exports, err := sshx.EnvExports(c, env)
 				if err != nil {
 					return nil, err
@@ -126,12 +126,12 @@ func jobStartCmd() *cobra.Command {
 				wrapper := "( " + inner + " ); echo $? > \"$d/exit\""
 				envFile := ""
 				if exports != "" {
-					envFile = `(umask 077; printf '%s' ` + sshx.Q(exports) + ` > "$d/env") && `
+					envFile = sshx.SaveInput(len(exports), `"$d/env"`) + ` && `
 				}
 				script := `d="` + jobDir(id) + `"; mkdir -p "$d" && ` + envFile + pwFile + `printf '%s\n' ` + sshx.Q(command) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
 					`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & ` +
 					`else nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
-				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: pw, Timeout: 30 * time.Second, MaxOutput: 64 << 10})
+				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: append([]byte(exports), pw...), Timeout: 30 * time.Second, MaxOutput: 64 << 10})
 				if err != nil {
 					return nil, err
 				}

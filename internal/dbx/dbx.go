@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -548,7 +549,38 @@ func connectErr(t driver.Target, err error) error {
 	if t.Kind.File {
 		return out.Errf(out.ExitNotFound, "DB_CONNECT", "check the file path in the conn URL", "cannot open %s: %v", t.Path, err)
 	}
+	if h := tlsHint(t.Kind.Name, err); h != "" {
+		return out.Errf(out.ExitConnect, "DB_CONNECT", h, "cannot connect to %s: %v", t.Where(), err)
+	}
 	return out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando conn test NAME` to check reachability", "cannot connect to %s: %v", t.Where(), err)
+}
+
+// tlsHint says what to do when TLS stopped the connection: the server's
+// certificate did not check out, or the server has no TLS. It names the
+// URL settings that weaken it last, with what they cost. "" when TLS was
+// not the problem.
+func tlsHint(kind string, err error) string {
+	msg := err.Error()
+	weak := map[string][2]string{ // encrypt without checking, no encryption at all
+		"postgres": {"?sslmode=require", "?sslmode=disable"},
+		"mysql":    {"?tls=skip-verify", "?tls=false"},
+	}[kind]
+	if weak[0] == "" {
+		return ""
+	}
+	via := "reach the server --via an SSH server (`komando conn edit NAME --via HOST`)"
+	switch {
+	case strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify"):
+		ca := "give the CA that signed it"
+		if kind == "postgres" {
+			ca += " with ?sslrootcert=/path/to/ca.pem"
+		}
+		return "the server's certificate could not be checked: " + ca + ", or " + via +
+			"; " + weak[0] + " encrypts without checking it, so anyone on the network path could pretend to be the server (`komando conn edit NAME --url ...`)"
+	case strings.Contains(msg, "server refused TLS"), errors.Is(err, mysql.ErrNoTLS):
+		return "the server has no TLS: " + via + "; " + weak[1] + " sends the password and the data unencrypted (`komando conn edit NAME --url ...`)"
+	}
+	return ""
 }
 
 // queryErr maps a failed statement to an error code.

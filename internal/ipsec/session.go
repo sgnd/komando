@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strings"
 	"sync"
 	"time"
 )
@@ -25,6 +26,10 @@ type Options struct {
 	Lifetime time.Duration
 	// Debug logs every IKE message sent and received (sizes, types).
 	Debug bool
+	// LegacyCrypto lets IKEv1 also offer and accept 3DES and the small DH
+	// groups 2 (1024-bit) and 5 (1536-bit), which old servers may still
+	// need. They are weak, so a person turns this on for one VPN at a time.
+	LegacyCrypto bool
 }
 
 func (o *Options) debugf(format string, args ...any) {
@@ -43,6 +48,23 @@ func (o *Options) logf(format string, args ...any) {
 type AuthError struct{ Msg string }
 
 func (e *AuthError) Error() string { return e.Msg }
+
+// LegacyCryptoError: the server accepted none of the strong IKEv1
+// proposals and may speak only old, weak ciphers, which komando offers
+// only when legacy crypto is allowed (Options.LegacyCrypto). The caller
+// names the per-VPN setting that allows them.
+type LegacyCryptoError struct{ Msg string }
+
+func (e *LegacyCryptoError) Error() string { return e.Msg }
+
+// legacyHint turns "accepted none of komando's proposals" into a
+// LegacyCryptoError when legacy crypto is off.
+func legacyHint(o *Options, err error) error {
+	if err == nil || o.LegacyCrypto || !strings.Contains(err.Error(), "accepted none") {
+		return err
+	}
+	return &LegacyCryptoError{Msg: err.Error() + "; if it only speaks old, weak ones (3DES, DH group 2 or 5), komando offers them only when legacy crypto is allowed for this VPN"}
+}
 
 // ErrNeedsPerson: the login asks for a one-time code and nobody is there.
 var ErrNeedsPerson = errors.New("the VPN login asks for a one-time code; a person must run `komando vpn up NAME`")

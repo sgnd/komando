@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -56,10 +58,17 @@ var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 // goes into the command line unquoted, so anything else could inject a command.
 func ValidEnvKey(k string) bool { return envKeyRe.MatchString(k) }
 
-// EnvExports is the "export K='v'; " prefix for the host's env and extra.
-// A value written secret:NAME is read from the vault here, so it never
-// passes through the agent (and output hides vault values too).
-func EnvExports(c *Client, extra map[string]string) (string, error) {
+// envVar is one variable for a remote command: its value, and whether it
+// came from the vault.
+type envVar struct {
+	key, value string
+	secret     bool
+}
+
+// commandEnv is the host's env and extra, sorted by name. A value written
+// secret:NAME is read from the vault here, so it never passes through the
+// agent (and output hides vault values too).
+func commandEnv(c *Client, extra map[string]string) ([]envVar, error) {
 	env := map[string]string{}
 	if c != nil && c.Host != nil {
 		for k, v := range c.Host.Env {
@@ -74,22 +83,93 @@ func EnvExports(c *Client, extra map[string]string) (string, error) {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	var sb strings.Builder
+	vars := make([]envVar, 0, len(keys))
 	for _, k := range keys {
 		if !ValidEnvKey(k) {
-			return "", fmt.Errorf("environment variable name %q is not valid (use letters, digits and _)", k)
+			return nil, fmt.Errorf("environment variable name %q is not valid (use letters, digits and _)", k)
 		}
-		v := env[k]
-		if strings.HasPrefix(v, "secret:") {
-			s, err := vault.Resolve(v)
+		ev := envVar{key: k, value: env[k]}
+		if strings.HasPrefix(ev.value, "secret:") {
+			s, err := vault.Resolve(ev.value)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
-			v = s
+			ev.value, ev.secret = s, true
 		}
-		sb.WriteString("export " + k + "=" + Q(v) + "; ")
+		vars = append(vars, ev)
+	}
+	return vars, nil
+}
+
+// EnvExports is the "export K='v'; " prefix for the host's env and extra,
+// secret values included: for a private file only (job start), never for
+// a command line.
+func EnvExports(c *Client, extra map[string]string) (string, error) {
+	vars, err := commandEnv(c, extra)
+	if err != nil {
+		return "", err
+	}
+	var sb strings.Builder
+	for _, v := range vars {
+		sb.WriteString("export " + v.key + "=" + Q(v.value) + "; ")
 	}
 	return sb.String(), nil
+}
+
+// envPrologue is how a command gets the host's env and extra. Plain values
+// are exports on the command line. A value from the vault goes on the
+// command's input instead, one line each, and the command line only reads
+// it: a command line can be read by every user on the server (ps,
+// /proc/PID/cmdline) and lands in sudo's log, its input cannot.
+func envPrologue(c *Client, extra map[string]string) (prefix string, input []byte, err error) {
+	vars, err := commandEnv(c, extra)
+	if err != nil {
+		return "", nil, err
+	}
+	var sb strings.Builder
+	for _, v := range vars {
+		if !v.secret {
+			sb.WriteString("export " + v.key + "=" + Q(v.value) + "; ")
+			continue
+		}
+		k := v.key
+		// printf %b turns the escapes back into the value; the x keeps
+		// the trailing line breaks $( ) would drop
+		sb.WriteString("IFS= read -r " + k + " || { echo " + Q("komando: "+k+" did not arrive on input") + " >&2; exit 125; }; " +
+			k + "=$(printf '%bx' \"$" + k + "\"); export " + k + "=\"${" + k + "%x}\"; ")
+		input = append(input, envLine(v.value)...)
+	}
+	return sb.String(), input, nil
+}
+
+// SaveInput is a shell step that saves the next n bytes of the command's
+// input in path (a shell word, such as "$d/env"), readable by the user
+// only. dd reads one byte at a time, so what follows on the input stays
+// for the next step: secrets go to a file without being on a command line.
+func SaveInput(n int, path string) string {
+	return "(umask 077; dd bs=1 count=" + strconv.Itoa(n) + " of=" + path + " 2>/dev/null)"
+}
+
+// maxTerminalLine is the longest line a terminal in line mode is sure to
+// pass on whole (Linux keeps 4095 characters of a line).
+const maxTerminalLine = 4000
+
+// envLine writes a value as one line that printf %b reads back: a
+// backslash doubled, other control characters (line breaks too) as
+// \0NNN octal escapes, so a terminal (--pty) does not act on them either.
+func envLine(v string) []byte {
+	b := make([]byte, 0, len(v)+1)
+	for i := 0; i < len(v); i++ {
+		switch ch := v[i]; {
+		case ch == '\\':
+			b = append(b, '\\', '\\')
+		case ch < 0x20 || ch == 0x7f:
+			b = append(b, fmt.Sprintf("\\0%03o", ch)...)
+		default:
+			b = append(b, ch)
+		}
+	}
+	return append(b, '\n')
 }
 
 // sudoPrompt and sudoReady let Run tell, from stderr, whether sudo asks for
@@ -103,15 +183,28 @@ const (
 
 // BuildCommand assembles the final remote shell line: env exports, cd,
 // sudo wrapping. Exposed so --dry-run can show exactly what would run.
-// sudoPass is the sudo password Run feeds on request, or nil.
+// sudoPass is the sudo password Run feeds on request, or nil. Values from
+// the vault are not in it: Run sends them on the command's input.
 func BuildCommand(c *Client, r RunRequest) (cmd string, sudoPass []byte, err error) {
+	cmd, sudoPass, _, err = buildCommand(c, r)
+	return cmd, sudoPass, err
+}
+
+// buildCommand is BuildCommand, and also returns the input that must
+// reach the command before r.Stdin: the vault values it reads.
+func buildCommand(c *Client, r RunRequest) (cmd string, sudoPass, envIn []byte, err error) {
 	var sb strings.Builder
 	if !r.NoEnv {
-		exports, err := EnvExports(c, r.Env)
+		prefix, in, err := envPrologue(c, r.Env)
 		if err != nil {
-			return "", nil, err
+			return "", nil, nil, err
 		}
-		sb.WriteString(exports)
+		if r.PTY && slices.ContainsFunc(bytes.Split(in, []byte("\n")), func(l []byte) bool { return len(l) > maxTerminalLine }) {
+			// a terminal cuts longer lines: the command would get a wrong value
+			return "", nil, nil, errors.New("an environment value from the vault is too long to pass through a terminal (--pty); run the command without --pty")
+		}
+		sb.WriteString(prefix)
+		envIn = in
 	}
 	if r.Dir != "" {
 		sb.WriteString("cd " + Q(r.Dir) + " && ")
@@ -119,7 +212,7 @@ func BuildCommand(c *Client, r RunRequest) (cmd string, sudoPass []byte, err err
 	sb.WriteString(r.Command)
 	inner := sb.String()
 	if !r.Sudo {
-		return inner, nil, nil
+		return inner, nil, envIn, nil
 	}
 	userPart := ""
 	if r.SudoUser != "" {
@@ -128,12 +221,22 @@ func BuildCommand(c *Client, r RunRequest) (cmd string, sudoPass []byte, err err
 	if c != nil && c.Host != nil && c.Host.SudoRef != "" {
 		pw, err := vault.Resolve(c.Host.SudoRef)
 		if err != nil {
-			return "", nil, err
+			return "", nil, nil, err
 		}
 		inner = `printf '\036komando-sudo-ok\n' >&2; ` + inner
-		return "sudo -S -p " + Q(sudoPrompt) + " " + userPart + "sh -c " + Q(inner), []byte(pw + "\n"), nil
+		return "sudo -S -p " + Q(sudoPrompt) + " " + userPart + "sh -c " + Q(inner), []byte(pw + "\n"), envIn, nil
 	}
-	return "sudo -n " + userPart + "sh -c " + Q(inner), nil, nil
+	return "sudo -n " + userPart + "sh -c " + Q(inner), nil, envIn, nil
+}
+
+// runCommand is buildCommand with all the input Run sends: the vault
+// values the command line reads first, then r.Stdin.
+func runCommand(c *Client, r RunRequest) (cmd string, sudoPass, stdin []byte, err error) {
+	cmd, sudoPass, envIn, err := buildCommand(c, r)
+	if err != nil || envIn == nil {
+		return cmd, sudoPass, r.Stdin, err
+	}
+	return cmd, sudoPass, append(envIn, r.Stdin...), nil
 }
 
 type limitedBuf struct {
@@ -171,7 +274,7 @@ func (l *limitedBuf) Write(p []byte) (int, error) {
 // that is reported in RunResult.ExitCode. err is for transport failures.
 func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 	start := time.Now()
-	cmd, sudoPass, err := BuildCommand(c, r)
+	cmd, sudoPass, stdin, err := runCommand(c, r)
 	if err != nil {
 		return nil, err
 	}
@@ -193,16 +296,16 @@ func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 	switch {
 	case sudoPass != nil:
 		if r.PTY { // a terminal merges stderr into stdout
-			gate = newSudoGate(stdout, sudoPass, r.Stdin)
+			gate = newSudoGate(stdout, sudoPass, stdin)
 			sess.Stdout = gate
 		} else {
-			gate = newSudoGate(stderr, sudoPass, r.Stdin)
+			gate = newSudoGate(stderr, sudoPass, stdin)
 			sess.Stderr = gate
 		}
 		defer gate.close()
 		sess.Stdin = gate.stdin
-	case r.Stdin != nil:
-		sess.Stdin = bytes.NewReader(r.Stdin)
+	case stdin != nil:
+		sess.Stdin = bytes.NewReader(stdin)
 	}
 	if err := sess.Start(cmd); err != nil {
 		if c.lost() {

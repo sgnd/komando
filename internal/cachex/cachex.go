@@ -569,6 +569,12 @@ func connectErr(t driver.Target, err error) error {
 		return out.Errf(out.ExitConnect, "CACHE_AUTH", "check the user in the URL and the password reference (`komando conn show NAME`)", "%s", msg)
 	case errors.Is(err, context.DeadlineExceeded) || isTimeout(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "check the address or raise --connect-timeout", "connecting to %s timed out", t.Address)
+	case t.Secure && (strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify")):
+		return out.Errf(out.ExitConnect, "CACHE_CONNECT", "the server's certificate could not be checked against this computer's CAs; if it is self-signed, reach the server --via an SSH server instead (`komando conn edit NAME --via HOST`)",
+			"cannot connect to %s: %s", t.Address, msg)
+	case t.Secure && strings.Contains(msg, "first record does not look like a TLS handshake"):
+		return out.Errf(out.ExitConnect, "CACHE_CONNECT", "the server does not speak TLS on this port: check the port, or reach it --via an SSH server with the plain scheme (redis://, memcached://)",
+			"cannot connect to %s: %s", t.Address, msg)
 	}
 	return out.Errf(out.ExitConnect, "CACHE_CONNECT", "run `komando conn test NAME` to check reachability", "cannot connect to %s: %s", t.Address, msg)
 }

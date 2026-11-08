@@ -147,6 +147,14 @@ certificates, a user name and password, or both.
   `verify-x509-name` (by default the whole subject must match exactly,
   attribute by attribute and in order, such as
   `"C=US, O=Corp, CN=vpn.corp.com"`).
+- A profile that asks for none of these still gets one check: the server's
+  certificate must be marked for a server (serverAuth, or the older
+  nsCertType server). Otherwise another user's certificate from the same
+  CA could pretend to be the server; OpenVPN itself only warns there. If
+  your server's certificate is marked for neither, the error shows the
+  name in it. Check that name with the VPN's admin, then add
+  `verify-x509-name NAME name` to the profile (or have the certificate
+  issued again with serverAuth).
 - When the server pushes an `auth-token`, komando logs in with it when the
   keys are renewed, so a one-time code is not asked for again. The token is
   never logged.
@@ -204,18 +212,41 @@ komando test kantor
 
 - Without `--password-ref`, a person types the password at
   `komando vpn up NAME` (a password with a one-time code works too).
-- `l2tp` logs in to PPP with MS-CHAPv2 (it checks the server's proof too),
-  CHAP or PAP, whichever the server asks for. A tunnel secret on the L2TP
-  layer ("L2TP secret" or "challenge") is not supported.
+- `l2tp` logs in to PPP with MS-CHAPv2 (it checks the server's proof too)
+  or CHAP, whichever the server asks for. A server that asks for PAP is
+  asked for MS-CHAPv2 instead: PAP hands the server your password itself,
+  and with a shared pre-shared key anyone who knows that key can pretend to
+  be the server. A server that insists on PAP stops with an error that says
+  so. If the server cannot do better and you accept that it gets your
+  password, allow PAP for that VPN only: `komando vpn edit kantor --allow-pap`.
+  A tunnel secret on the L2TP layer ("L2TP secret" or "challenge") is not
+  supported.
+- `ipsec` with a group name (`--id`) logs in with IKEv1 aggressive mode,
+  like Cisco's own clients. Anyone who sees that login can guess the group
+  password offline, and with it pretend to be the server. The session log
+  and `komando doctor` warn about it; use `ikev2` if the server offers it.
 - `ikev2` with a user login checks the server's certificate against your
   computer's trusted CAs, or against `--ca`, and that it is made out to the
   server's name (or `--remote-id`). komando never skips that check.
 - Sessions stay up: komando answers the server's liveness checks and
   rekeys, makes new keys itself before old ones expire, and notices when the
   server goes away.
-- Ciphers: AES-GCM and AES-CBC with SHA-2 or SHA-1, DH groups 14, 19, 20,
-  31 (and 2 and 5 for old servers); 3DES only for old IKEv1 servers. Single
-  DES and MD5 are never used.
+- Ciphers for IKEv1 (`l2tp`, `ipsec`): AES with SHA-256 or SHA-1 and DH
+  group 14 (2048-bit) or 19; ESP with AES-GCM or AES-CBC. The server can
+  only pick one of those, nothing weaker. 3DES and DH groups 2 and 5 are
+  weak (a well-funded attacker can break them) and are not offered: a
+  server that wants them stops with an error that says so. If its admin
+  cannot change that, allow them for that VPN only:
+  `komando vpn edit kantor --legacy-crypto`. They then come after the
+  strong ones, and the session log warns when the server picks one. IKEv2:
+  AES-GCM and AES-CBC with SHA-2 or SHA-1, DH groups 14, 19, 20, 31 (and 2
+  for old servers). Single DES and MD5 are never used.
+- `--legacy-crypto` and `--allow-pap` make the login weaker, so turning
+  one on needs a person's yes: `--yes` from a person, and for an AI agent
+  also the person's click in komando's window. Add the VPN first, then
+  turn them on with `komando vpn edit`; `--legacy-crypto=false` and
+  `--allow-pap=false` turn them off again. `komando doctor` lists every
+  VPN that has one on.
 - When a session ends by itself, `komando vpn status` shows why in
   `last_end`.
 - If the server does not answer, run `KOMANDO_IPSEC_DEBUG=1 komando vpn up

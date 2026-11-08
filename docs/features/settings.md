@@ -18,7 +18,7 @@ komando update --dry-run                     # is there a newer komando?
 
 | Key | What it controls | Values | Default |
 |-----|------------------|--------|---------|
-| `host_key_policy` | what happens with a server komando has not seen before | `accept-new` (remember it), `strict` (refuse it until you run `komando host trust`), `off` (needs `--yes`) | `accept-new` |
+| `host_key_policy` | what happens with a server komando has not seen before | `accept-new` (remember it and show its fingerprint), `strict` (refuse it until you run `komando host trust`), `off` (needs `--yes`) | `accept-new` |
 | `default_user` | login name when a server has none | a login name; empty = your own user name | (empty) |
 | `default_timeout` | how long a command may run on each server | a duration above 0 (`30s`, `5m`, `1h`) | `5m` |
 | `connect_timeout` | how long to wait for a server to answer | a duration above 0 | `15s` |

@@ -19,6 +19,11 @@ its highlights; the sections below them give the details. Versions follow
 - **The stored password is never sent as a two-factor code.** Before, every
   question the server asked got the password, and each try could count as
   a failed login and lock the account.
+- **Safer connections by default:** vault values for `-e` stay off the
+  remote command line, the first trusted SSH host key is shown with its
+  fingerprint, IKEv1 no longer offers 3DES or small DH groups, L2TP never
+  sends the password with PAP, and `komando doctor` prints the fix for
+  every database or cache without checked TLS.
 
 ### Added
 
@@ -112,6 +117,51 @@ its highlights; the sections below them give the details. Versions follow
   name, and asks again after a typo (up to 3 times) instead of ending the
   login. The Pulse sign-in notice asks `Accept the sign-in notice? [y/N]`
   and takes y or yes in any case.
+
+### Security
+
+- A vault value given to a remote command (`-e DB_PASS=secret:NAME`, or a
+  server's `--env` with `secret:`) reaches the command on its input, not
+  on its command line. Before, every user of the server could read it in
+  `ps` while the command ran, and with `--sudo` it was written to sudo's
+  log. Other values are unchanged. A vault value longer than 4000
+  characters cannot go through `--pty` and is refused there. `job start`
+  now writes the job's environment file from its input too; before, the
+  values were on the command line while the job was set up.
+- The first time komando trusts a server's SSH host key
+  (`host_key_policy accept-new`, the default), it says so on stderr with
+  the SHA256 fingerprint and how to compare it with the server's own, and
+  writes it to the audit log (`host.key-pinned`). The servers page shows
+  how to check keys before the first connection.
+- IKEv1 (`l2tp`, `ipsec`) offers only AES with SHA-256 or SHA-1 and DH
+  groups 14 and 19, and the server may only choose what was offered.
+  Before, komando also offered 3DES and DH groups 2 and 5, and accepted a
+  suite it had not offered. A server that only speaks those old ciphers
+  now stops with an error whose hint names
+  `komando vpn edit NAME --legacy-crypto`, which allows them for that VPN
+  again (after the strong ones) and needs a person's yes. Cisco-style
+  IPsec with a group name (aggressive mode) gets a warning in the session
+  log and in `komando doctor`: anyone who sees that login can guess the
+  group password offline.
+- L2TP no longer sends your password with PAP when the server asks for
+  it: komando asks for MS-CHAPv2 instead, and a server that insists on
+  PAP stops with an error that says why.
+  `komando vpn edit NAME --allow-pap` allows PAP for that VPN; it needs a
+  person's yes.
+  `komando doctor` lists VPNs with either setting on.
+- komando's OpenVPN client wants the server's certificate to be marked for
+  a server (serverAuth, or nsCertType server) even when the profile has no
+  `remote-cert-tls server`, so another user's certificate from the same CA
+  cannot pretend to be the server. A profile can name the server with
+  `verify-x509-name` instead; the error shows the line to add. A profile
+  without either check gets a warning in the session log.
+- `komando doctor` explains why each database or cache conn without
+  checked TLS is at risk (for example, the MySQL 8 login over a plain
+  connection can be tricked into giving away the password) and prints the
+  `komando conn edit NAME --url ...` line that adds `sslmode=verify-full`,
+  `tls=true`, `rediss://` or `memcacheds://`. Saved conns keep working as
+  they are. When TLS stops a connection, the hint names what to do and
+  the weaker setting with its cost.
 
 ## [0.6.0] - 2026-11-08
 
