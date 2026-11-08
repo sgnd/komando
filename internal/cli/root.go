@@ -352,6 +352,7 @@ func newRoot() *cobra.Command {
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			safetyApproved = map[string]bool{} // answers count for one command only
+			dangerConfirmed = map[string]bool{}
 			if g.output == "" {
 				g.output = os.Getenv("KOMANDO_OUTPUT")
 			}

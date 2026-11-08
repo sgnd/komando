@@ -15,6 +15,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -56,17 +57,18 @@ type menuAction struct {
 // The menu's actions. menuMainActions shows the ones that apply.
 var (
 	importAction = menuAction{"Import", "Bring in the servers from ~/.ssh/config", []string{"import", "ssh-config"}, "", false}
-	addAction    = menuAction{"Add", "Add a server: a name and user@address", []string{"host", "add"}, "line", false}
+	addAction    = menuAction{"Add", "Add a server (name user@address) or a conn (name URL)", []string{"host", "add"}, "line", false}
 	shellAction  = menuAction{"Shell", "Open a login shell on a server", []string{"shell"}, "host", true}
 	testAction   = menuAction{"Test", "Check that servers, conns and VPNs answer", []string{"test"}, "target", false}
 	factsAction  = menuAction{"Facts", "OS, updates, Docker and open ports of a server", []string{"facts"}, "host", false}
 	dbAction     = menuAction{"Database", "Open a SQL shell on a database", []string{"db", "shell"}, "db", true}
-	vpnAction    = menuAction{"VPN", "Connect a VPN and log in", []string{"vpn", "up"}, "vpn", false}
+	vpnAction    = menuAction{"VPN", "Connect a VPN (and log in), or disconnect one", []string{"vpn", "up"}, "vpn", false}
+	agentAction  = menuAction{"AI agent", "Teach your AI agents to use komando (once)", []string{"guide", "install"}, "", false}
 	listAction   = menuAction{"List", "Everything komando knows about", []string{"list"}, "", false}
 	auditAction  = menuAction{"Audit", "The last 20 things komando did", []string{"audit", "--limit", "20"}, "", false}
 	doctorAction = menuAction{"Doctor", "Check your setup, the inventory and its security", []string{"doctor"}, "", false}
-	// helpAction is the ? key, not a row
-	helpAction = menuAction{"Help", "Every command", []string{"--help"}, "", false}
+	// helpAction is the ? key, not a row: what komando does, by task
+	helpAction = menuAction{"Help", "What komando does, by task", nil, "", false}
 )
 
 // menuNoServer is said under the header while komando knows no server: the
@@ -113,7 +115,11 @@ func runMenu() error {
 		if err != nil {
 			return err
 		}
-		if again, err := menuRun(ctx, t, self, args, act.ownExit); err != nil || !again {
+		run := func() (bool, error) { return menuRun(ctx, t, self, args, act.ownExit) }
+		if act.name == helpAction.name {
+			run = func() (bool, error) { return menuHelp(ctx, t) }
+		}
+		if again, err := run(); err != nil || !again {
 			return err
 		}
 	}
@@ -122,7 +128,7 @@ func runMenu() error {
 // menuPickCommand asks what to do and, for an action on a server, conn or
 // VPN, which one. Esc on the second list goes back to the actions.
 func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory) (menuAction, []string, error) {
-	acts := menuMainActions(st, sshConfigExists())
+	acts := menuMainActions(st, sshConfigExists(), sshConfigHasNew(st), !agentSkillInstalled())
 	main := menuMain(acts)
 	if slices.ContainsFunc(acts, func(a menuAction) bool { return a.name == addAction.name }) {
 		main.note = menuNoServer
@@ -162,6 +168,9 @@ func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *men
 			return menuAction{}, nil, err
 		}
 		mem.target = row.value
+		if act.pick == "vpn" && menuVpnUp(st, row.value) {
+			return act, []string{"vpn", "down", row.value}, nil // up: choosing it disconnects
+		}
 		return act, append(slices.Clone(act.args), row.value), nil
 	}
 }
@@ -244,8 +253,8 @@ func menuAsk(ctx context.Context, t *menuTerm, l *menuList, s menuScreen) (strin
 // menuAskServer is Add: one line, a name and user@address, checked here so
 // a typo is fixed in place rather than after a failed command.
 func menuAskServer(ctx context.Context, t *menuTerm, s menuScreen) ([]string, error) {
-	l := &menuList{title: "Add a server", typing: true, prompt: "Name and user@address: ",
-		empty: "for example: web1 deploy@10.0.0.5"}
+	l := &menuList{title: "Add a server or a conn", typing: true, prompt: "Name and user@address, or name and URL: ",
+		empty: "for example: web1 deploy@10.0.0.5 · app-db postgres://app@10.0.0.5/app"}
 	s.footer = "Enter add · Esc back"
 	for {
 		line, err := menuAsk(ctx, t, l, s)
@@ -260,20 +269,25 @@ func menuAskServer(ctx context.Context, t *menuTerm, s menuScreen) ([]string, er
 	}
 }
 
-// menuAddArgs turns "web1 deploy@10.0.0.5" into the host add command, or
-// says what is wrong with it.
+// menuAddArgs turns "web1 deploy@10.0.0.5" into the host add command and
+// "app-db postgres://app@10.0.0.5/app" into conn add, or says what is wrong
+// with it.
 func menuAddArgs(line string) ([]string, string) {
 	f := strings.Fields(line)
 	if len(f) != 2 {
-		return nil, "type a name and user@address, for example: web1 deploy@10.0.0.5"
+		return nil, "type a name and user@address, or a name and a URL: web1 deploy@10.0.0.5"
 	}
-	if err := validName("host", f[0]); err != nil {
+	kind, args := "host", slices.Clone(addAction.args)
+	if strings.Contains(f[1], "://") {
+		kind, args = "conn", []string{"conn", "add"}
+	}
+	if err := validName(kind, f[0]); err != nil {
 		return nil, cleanText(toErr(err).Message)
 	}
 	if strings.HasPrefix(f[1], "-") {
 		return nil, "an address cannot start with -"
 	}
-	return append(slices.Clone(addAction.args), f[0], f[1]), ""
+	return append(args, f[0], f[1]), ""
 }
 
 // menuRun runs one komando command in the normal screen, as if it was
@@ -378,12 +392,69 @@ func sshConfigExists() bool {
 	return err == nil
 }
 
+// sshConfigHasNew: ~/.ssh/config names a server komando does not know yet,
+// so Import still brings something in.
+func sshConfigHasNew(st *store.State) bool {
+	hosts, _, err := parseSSHConfig(expandHome("~/.ssh/config"))
+	if err != nil {
+		return false
+	}
+	for _, h := range hosts {
+		if _, _, known := st.FindName(h.Name); !known {
+			return true
+		}
+	}
+	return false
+}
+
+// menuVpnUp: komando keeps a session of this VPN up. The process is checked
+// by its pid only, as `komando prompt` does: the list must draw at once.
+func menuVpnUp(st *store.State, name string) bool {
+	s := st.Sessions[name]
+	return s != nil && (s.Container != "" || netx.Alive(s.PID))
+}
+
+// menuHelpText is the ? screen: what komando does, by task, and the
+// command for it. It fits 80 columns.
+const menuHelpText = `What komando does, and the command for it:
+
+  See everything, check it   komando list · komando test all · komando status
+  Servers                    komando host add · komando shell · komando exec
+  Health and facts           komando facts · komando recipe run health
+  Files                      komando fs cat · komando upload · komando download
+  Services, logs, packages   komando svc · komando logs · komando pkg
+  Databases, caches, storage komando conn add · komando db · komando cache
+  Clusters and registries    komando cluster status · komando registry ls
+  VPNs                       komando vpn add · komando vpn up · komando vpn down
+  Passwords                  komando secret set NAME
+  History and safety         komando audit · komando doctor
+  AI agents                  komando guide install
+
+Every command: komando --help · one command: komando COMMAND --help
+`
+
+// menuHelp shows menuHelpText in the normal screen, then waits like a
+// command's end: Enter back to the menu, q quits.
+func menuHelp(ctx context.Context, t *menuTerm) (bool, error) {
+	t.leave()
+	fmt.Fprint(os.Stderr, menuHelpText)
+	w, _ := t.size()
+	fmt.Fprintf(os.Stderr, "\n%s", fit([]seg{{"Enter back to the menu · q quit ", ""}}, w-1, false))
+	again, err := menuPause(ctx, t)
+	fmt.Fprint(os.Stderr, "\r\x1b[2K")
+	return again, err
+}
+
 // menuMainActions is the main menu for this inventory: only the actions
 // that have something to act on, counted as the lists count it (a name
 // they leave out does not count). While there is no server, Add (and
 // Import, when ~/.ssh/config exists) come first; Shell and Facts need a
 // server, Test anything to test, Database a database conn and VPN a VPN.
-func menuMainActions(st *store.State, sshConfig bool) []menuAction {
+// Add is always there, after the actions once there is a server. Import
+// (while ~/.ssh/config holds servers komando does not know) and AI agent
+// (while no agent has komando's skill) show when the number keys can
+// still reach them: 9 rows at most.
+func menuMainActions(st *store.State, sshConfig, newInSSHConfig, skillMissing bool) []menuAction {
 	var acts []menuAction
 	hosts := len(menuNames(st.Hosts, "host")) > 0
 	conns := menuNames(st.Conns, "conn")
@@ -409,7 +480,19 @@ func menuMainActions(st *store.State, sshConfig bool) []menuAction {
 	if vpns {
 		acts = append(acts, vpnAction)
 	}
-	return append(acts, listAction, auditAction, doctorAction)
+	if hosts {
+		acts = append(acts, addAction)
+	}
+	last := []menuAction{listAction, auditAction, doctorAction}
+	for _, opt := range []struct {
+		show bool
+		act  menuAction
+	}{{hosts && newInSSHConfig, importAction}, {skillMissing, agentAction}} {
+		if opt.show && len(acts)+1+len(last) <= 9 {
+			acts = append(acts, opt.act)
+		}
+	}
+	return append(acts, last...)
 }
 
 func menuMain(acts []menuAction) *menuList {
@@ -489,6 +572,9 @@ func menuVpnRows(st *store.State) []menuRow {
 	for _, n := range menuNames(st.Vpns, "vpn") {
 		v := st.Vpns[n]
 		parts := []string{"vpn " + v.Kind}
+		if menuVpnUp(st, n) {
+			parts = []string{"up (Enter disconnects)", "vpn " + v.Kind}
+		}
 		if w := vpnWhere(v); w != "-" {
 			parts = append(parts, w)
 		}
@@ -599,7 +685,17 @@ func menuHeader(st *store.State) []seg {
 		counts = append(counts, menuCount(n, "conn"))
 	}
 	if n := len(st.Vpns); n > 0 {
-		counts = append(counts, menuCount(n, "VPN"))
+		vpns := menuCount(n, "VPN")
+		up := 0
+		for name := range st.Vpns {
+			if menuVpnUp(st, name) {
+				up++
+			}
+		}
+		if up > 0 {
+			vpns += fmt.Sprintf(" (%d up)", up)
+		}
+		counts = append(counts, vpns)
 	}
 	return []seg{{"komando", "1"}, {" · " + Version + " · " + strings.Join(counts, ", "), "2"}}
 }

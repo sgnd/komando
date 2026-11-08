@@ -9,6 +9,18 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- **The menu grows with you.** Add stays once there is a server (after the
+  actions) and also adds a conn from a name and a URL (`app-db
+  postgres://...`). VPN connects or disconnects: an up VPN says `up (Enter
+  disconnects)` and the header counts the VPNs that are up. Import shows
+  while `~/.ssh/config` names servers komando does not know, and AI agent
+  (`komando guide install`) while no agent has komando's skill, when the
+  number keys still reach them (9 rows at most). `?` shows what komando
+  does, by task, instead of `komando --help`.
+- `db shell`: `\write` allows changes for the rest of the shell after a
+  yes, and connects again read-write (`\write` again goes back); a
+  destructive statement asks for the conn's name instead of refusing.
+
 - **SSH logins ask a person, as `ssh` does.** At a terminal, komando asks
   for a server's password when none is stored, and for the one-time code
   of a two-factor login, with the server's name (`web1: Verification
@@ -24,6 +36,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- A person at a terminal confirms `fs rm --recursive`, removing a top-level
+  path, `sync --delete` and removing an essential package by typing the
+  target's name, as `exec` and `db query` already ask, instead of being
+  sent back to add `--allow-dangerous`. One typed name covers the same
+  targets for the rest of the command, so a step two checks catch is asked
+  once.
+- An approval window nobody answers closes after 2 minutes and the agent is
+  told nobody answered, no longer that the user clicked Deny.
 - An AI agent that runs `secret set NAME` with no value gets `NEEDS_PERSON`:
   ask the user to run `komando secret set NAME` in their own terminal. It
   used to get a `USAGE` error whose hint was the same command. `komando

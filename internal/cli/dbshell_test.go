@@ -69,7 +69,9 @@ func TestSQLShell(t *testing.T) {
 
 	run := func(write bool, lines ...string) string {
 		tm := &scriptTerm{lines: lines}
-		(&sqlShell{db: db, st: st, conn: c, kind: "sqlite", write: write, term: tm}).run(context.Background())
+		sh := &sqlShell{db: db, st: st, conn: c, kind: "sqlite", write: write, term: tm}
+		sh.reopen = func(bool) error { return nil } // the same SQLite file
+		sh.run(context.Background())
 		return tm.out.String()
 	}
 	o := run(false, "select name", "from users", "order by id;", `select * from users where id = 2\G`, `\d`, `\d users`, "delete from users;", `\x`, "select 1 as one;", `\nope`, `\q`)
@@ -83,9 +85,28 @@ func TestSQLShell(t *testing.T) {
 	if !strings.Contains(o, "1 row affected") || !strings.Contains(o, "3") {
 		t.Errorf("write shell:\n%s", o)
 	}
-	o = run(true, "drop table users;")
-	if !strings.Contains(o, "refused") {
-		t.Errorf("destructive SQL needs --allow-dangerous:\n%s", o)
+	// destructive SQL: the person types the conn's name, as on the command line
+	o = run(true, "drop table users;", "nope")
+	if !strings.Contains(o, "Not run.") {
+		t.Errorf("destructive SQL without the name:\n%s", o)
+	}
+	o = run(true, "select count(*) as n from users;")
+	if !strings.Contains(o, "3") {
+		t.Errorf("the table must still be there:\n%s", o)
+	}
+	// \write asks, allows changes, and goes back to read-only
+	o = run(false, `\write`, "n", "insert into users values (4, 'dodi');", `\write`, "y", "insert into users values (4, 'dodi');", `\write`, "insert into users values (5, 'eka');")
+	for _, want := range []string{"Still read-only.", "Changes are allowed now.", "1 row affected", "Read-only again."} {
+		if !strings.Contains(o, want) {
+			t.Errorf("\\write: output lacks %q:\n%s", want, o)
+		}
+	}
+	if strings.Count(o, "the shell is read-only") != 2 {
+		t.Errorf("\\write: the inserts before and after must be refused:\n%s", o)
+	}
+	o = run(true, "drop table users;", "app", "select count(*) from users;")
+	if !strings.Contains(o, "no such table") {
+		t.Errorf("the typed name runs it:\n%s", o)
 	}
 	if o = run(false, "select 'unfinished"); strings.Contains(o, "unfinished") {
 		t.Errorf("an unfinished statement must not run:\n%s", o)

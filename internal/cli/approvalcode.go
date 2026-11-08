@@ -90,6 +90,7 @@ var askCodeOnScreen = func(text string) (code string, allowed, shown bool) {
 	case "darwin":
 		const script = `on run argv
 set r to display dialog (item 1 of argv) with title "komando: allow?" default answer "" with hidden answer buttons {"Deny", "Allow once"} default button "Allow once" cancel button "Deny" giving up after 120 with icon caution
+if gave up of r then return "gave up"
 return (button returned of r) & linefeed & (text returned of r)
 end run`
 		b, err := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script, text).Output()
@@ -98,6 +99,7 @@ end run`
 			return "", false, false
 		}
 		btn, typed, _ := strings.Cut(strings.TrimSpace(string(b)), "\n")
+		approvalGaveUp = btn == "gave up"
 		return typed, btn == "Allow once", true
 	case "linux", "freebsd", "openbsd":
 		if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
@@ -105,6 +107,7 @@ end run`
 		}
 		if z := systemTool("zenity"); z != "" {
 			b, err := exec.CommandContext(ctx, z, "--entry", "--hide-text", "--title=komando: allow?", "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--no-markup", "--timeout=120").Output()
+			approvalGaveUp = zenityTimedOut(err)
 			return strings.TrimSpace(string(b)), err == nil, true
 		}
 		if k := systemTool("kdialog"); k != "" {

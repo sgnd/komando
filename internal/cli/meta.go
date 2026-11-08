@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -45,6 +46,39 @@ func guideCmd() *cobra.Command {
 //
 //go:embed skill.md
 var skillText string
+
+// skillStatus says where komando's skill is installed for AI agents (the
+// home folder and the current one, for --project), and which copies are
+// not this komando's skill, from an older or newer komando.
+func skillStatus() (installed, stale []string) {
+	var bases []string
+	if home, err := os.UserHomeDir(); err == nil {
+		bases = append(bases, home)
+	}
+	if wd, err := os.Getwd(); err == nil && !slices.Contains(bases, wd) {
+		bases = append(bases, wd)
+	}
+	for _, base := range bases {
+		for _, d := range skillDirs {
+			p := filepath.Join(base, d, "komando", "SKILL.md")
+			b, err := os.ReadFile(p)
+			if err != nil {
+				continue
+			}
+			installed = append(installed, p)
+			if string(b) != skillText {
+				stale = append(stale, p)
+			}
+		}
+	}
+	return installed, stale
+}
+
+// agentSkillInstalled: some AI agent on this computer has komando's skill.
+func agentSkillInstalled() bool {
+	installed, _ := skillStatus()
+	return len(installed) > 0
+}
 
 // skillDirs are the folders AI agents read skills from: Claude Code reads
 // .claude/skills, Codex, Cursor, Gemini CLI and others read .agents/skills.

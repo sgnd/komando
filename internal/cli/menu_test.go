@@ -416,19 +416,22 @@ func TestMenuMain(t *testing.T) {
 	onlyConns := menuTestState()
 	onlyConns.Hosts = map[string]*store.Host{}
 	cases := []struct {
-		name      string
-		st        *store.State
-		sshConfig bool
-		want      []string
+		name                    string
+		st                      *store.State
+		sshConfig, newIn, agent bool // ~/.ssh/config, servers komando does not know in it, no agent skill
+		want                    []string
 	}{
-		{"new, with ~/.ssh/config", empty, true, []string{"Import", "Add", "List", "Audit", "Doctor"}},
-		{"new, no ~/.ssh/config", empty, false, []string{"Add", "List", "Audit", "Doctor"}},
-		{"conns and a VPN, no server", onlyConns, true, []string{"Import", "Add", "Test", "Database", "VPN", "List", "Audit", "Doctor"}},
-		{"servers", testState(), true, []string{"Shell", "Test", "Facts", "List", "Audit", "Doctor"}},
-		{"everything", menuTestState(), true, []string{"Shell", "Test", "Facts", "Database", "VPN", "List", "Audit", "Doctor"}},
+		{"new, with ~/.ssh/config", empty, true, true, false, []string{"Import", "Add", "List", "Audit", "Doctor"}},
+		{"new, no ~/.ssh/config", empty, false, false, false, []string{"Add", "List", "Audit", "Doctor"}},
+		{"new, no agent skill", empty, false, false, true, []string{"Add", "AI agent", "List", "Audit", "Doctor"}},
+		{"conns and a VPN, no server", onlyConns, true, true, false, []string{"Import", "Add", "Test", "Database", "VPN", "List", "Audit", "Doctor"}},
+		{"servers: Add stays", testState(), true, false, false, []string{"Shell", "Test", "Facts", "Add", "List", "Audit", "Doctor"}},
+		{"servers, more in ~/.ssh/config, no agent skill", testState(), true, true, true, []string{"Shell", "Test", "Facts", "Add", "Import", "AI agent", "List", "Audit", "Doctor"}},
+		{"everything", menuTestState(), true, false, false, []string{"Shell", "Test", "Facts", "Database", "VPN", "Add", "List", "Audit", "Doctor"}},
+		{"everything: no room for the optional rows", menuTestState(), true, true, true, []string{"Shell", "Test", "Facts", "Database", "VPN", "Add", "List", "Audit", "Doctor"}},
 	}
 	for _, c := range cases {
-		got := actionNames(menuMainActions(c.st, c.sshConfig))
+		got := actionNames(menuMainActions(c.st, c.sshConfig, c.newIn, c.agent))
 		if !slices.Equal(got, c.want) {
 			t.Errorf("%s: %v, want %v", c.name, got, c.want)
 		}
@@ -437,7 +440,7 @@ func TestMenuMain(t *testing.T) {
 		}
 	}
 	redisOnly := &store.State{Hosts: map[string]*store.Host{}, Conns: map[string]*store.Conn{"cache": menuTestState().Conns["cache"]}}
-	if slices.Contains(actionNames(menuMainActions(redisOnly, false)), "Database") {
+	if slices.Contains(actionNames(menuMainActions(redisOnly, false, false, false)), "Database") {
 		t.Error("Database shows with no database conn (only redis)")
 	}
 	// names the lists leave out (a host "all" from before it was refused,
@@ -447,14 +450,14 @@ func TestMenuMain(t *testing.T) {
 		Hosts: map[string]*store.Host{"all": {Name: "all", Address: "old.lan"}},
 		Conns: map[string]*store.Conn{"-x": {Name: "-x", Kind: "postgres", URL: "postgres://u@db.lan/x"}},
 	}
-	if got := actionNames(menuMainActions(oldNames, false)); !slices.Equal(got, []string{"Add", "List", "Audit", "Doctor"}) {
+	if got := actionNames(menuMainActions(oldNames, false, false, false)); !slices.Equal(got, []string{"Add", "List", "Audit", "Doctor"}) {
 		t.Errorf("only names the lists leave out: %v", got)
 	}
 	// every action is a command line komando takes: command, sub-command
 	// and flags, as the docs examples are checked (docs_test.go)
 	root := newRoot()
 	picked := map[string]string{"host": " web1", "target": " web1", "db": " app-db", "vpn": " office", "line": " web1 deploy@10.0.0.5"}
-	all := []menuAction{importAction, addAction, shellAction, testAction, factsAction, dbAction, vpnAction, listAction, auditAction, doctorAction}
+	all := []menuAction{importAction, addAction, shellAction, testAction, factsAction, dbAction, vpnAction, agentAction, listAction, auditAction, doctorAction}
 	for _, a := range all {
 		line := "komando " + menuCommandLine(a.args) + picked[a.pick]
 		if checkExampleLines(t, root, "menu action "+a.name, line) != 1 {
@@ -464,8 +467,35 @@ func TestMenuMain(t *testing.T) {
 	if !slices.ContainsFunc(importSources, func(s importSource) bool { return s.Name == importAction.args[1] }) {
 		t.Errorf("Import runs an unknown source %q", importAction.args[1])
 	}
-	if helpAction.args[0] != "--help" {
+	// the other lines the menu builds: a conn for Add, a VPN to disconnect
+	for _, line := range []string{"komando conn add app-db postgres://app@10.0.0.5/app", "komando vpn down office"} {
+		if checkExampleLines(t, root, "menu line", line) != 1 {
+			t.Errorf("`%s` was not checked", line)
+		}
+	}
+	// ? shows the tasks, in 80 columns, and the commands it names exist
+	if helpAction.args != nil {
 		t.Errorf("? runs %v", helpAction.args)
+	}
+	for _, l := range strings.Split(menuHelpText, "\n") {
+		if displayWidth(l) > 80 {
+			t.Errorf("? line wider than 80 columns: %q", l)
+		}
+		if !strings.HasPrefix(l, "  ") {
+			continue // the heading and the last line
+		}
+		_, cmds, _ := strings.Cut(l, "komando ")
+		for _, c := range strings.Split("komando "+cmds, " · ") {
+			c = strings.TrimSpace(c)
+			if !strings.HasPrefix(c, "komando ") || strings.Contains(c, "COMMAND") || strings.Contains(c, "--help") {
+				continue
+			}
+			if words := strings.Fields(c); len(words) > 1 {
+				if _, _, err := root.Find(words[1:]); err != nil {
+					t.Errorf("? names %q: %v", c, err)
+				}
+			}
+		}
 	}
 	// the sessions end with their own line; the menu does not repeat exit 0
 	for _, a := range all {

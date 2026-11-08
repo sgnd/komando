@@ -479,6 +479,7 @@ app-db> \q
 | Command | What it does |
 |---------|--------------|
 | `\q` | quit |
+| `\write` | allow changes for the rest of the shell (it asks first, also on a protected conn); `\write` again goes back to read-only |
 | `\?` | list the commands |
 | `\d [TABLE]` | list tables, or show one table |
 | `\l` / `\dn` / `\du` | databases / schemas / roles |
@@ -486,9 +487,13 @@ app-db> \q
 | `\timing` | show how long each statement takes |
 | `\i FILE` | run SQL from a file |
 
-Up and down arrows recall earlier lines. The shell is for people at a
-terminal: agents and scripts get `NEEDS_TERMINAL` and use `db query`, which
-returns JSON.
+Up and down arrows recall earlier lines. The read-only mode is the
+database's own (a read-only transaction): `\write` connects again with
+changes allowed. A destructive statement (`DROP`, `TRUNCATE`, a `DELETE`
+without `WHERE`) asks you to type the conn's name first, as `db query` does
+at the command line; anything else is `Not run.`. The shell is for people at
+a terminal: agents and scripts get `NEEDS_TERMINAL` and use `db query`,
+which returns JSON.
 
 ## Troubleshooting
 

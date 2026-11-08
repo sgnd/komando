@@ -520,6 +520,10 @@ func confirmDangerous(names []string, reason string) bool {
 	if g.dryRun || !interactive() {
 		return false
 	}
+	key := strings.Join(names, ",")
+	if dangerConfirmed[key] {
+		return true // the person typed it for these targets in this command already
+	}
 	want, what := "yes", "yes"
 	switch {
 	case len(names) == 1:
@@ -530,8 +534,14 @@ func confirmDangerous(names []string, reason string) bool {
 	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
 	ok := ask("Type "+what+" to continue: ") == want
 	personSaidNo = personSaidNo || !ok
+	dangerConfirmed[key] = ok
 	return ok
 }
+
+// dangerConfirmed: the targets a person typed the name of to allow a
+// dangerous step in this command. A second check of the same step (fs rm's
+// own check, then the policy rule for the rm it sends) does not ask again.
+var dangerConfirmed = map[string]bool{}
 
 // guardProtection stops a way around protection: removing a protected
 // target from the inventory, or turning its protection off, would let the

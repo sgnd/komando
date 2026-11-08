@@ -483,7 +483,7 @@ func pkgCmd() *cobra.Command {
 				pkgs := strings.Join(args[1:], " ")
 				if action == "remove" {
 					for _, p := range args[1:] {
-						if essentialPkg(p) && !dangerOK() {
+						if essentialPkg(p) && !dangerOK() && !confirmDangerous(args[:1], "removing "+p+" can lock you out of the server or break it") {
 							if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "if this is truly intended, confirm with the user and re-run with --allow-dangerous",
 								"removing %s can lock you out of the server or break it", p)); err != nil {
 								return err

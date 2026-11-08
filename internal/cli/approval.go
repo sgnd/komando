@@ -153,6 +153,7 @@ func personAllowsFor(flag, what string, why ...string) bool {
 	}
 	text += "\n\nAllow this once?"
 	var allowed, shown bool
+	approvalGaveUp = false
 	if secret := approvalCodeSecret(); secret != nil {
 		// a second factor: the code from the person's authenticator app
 		code, pressed, ok := askCodeOnScreen(text)
@@ -166,6 +167,8 @@ func personAllowsFor(flag, what string, why ...string) bool {
 	switch {
 	case allowed:
 		approval.allowed = true
+	case shown && approvalGaveUp:
+		approval.why = "no-answer" // the window closed itself: nobody clicked Deny
 	case shown && approval.why == "":
 		approval.why = "denied"
 	case shown:
@@ -277,6 +280,8 @@ func approvalHint(e *out.Error) {
 	switch approval.why {
 	case "denied":
 		e.Hint = "the user clicked Deny in komando's window; do not retry. Ask the user what they want instead"
+	case "no-answer":
+		e.Hint = "nobody answered komando's window within 2 minutes (the user may be away); ask the user whether to try again, and do not retry before they say so"
 	case "wrong-code":
 		e.Hint = "the code typed in komando's window was wrong or missing; ask the user whether to try again"
 	case "no-screen":
@@ -292,6 +297,16 @@ func approvalHint(e *out.Error) {
 	}
 }
 
+// approvalGaveUp: the last approval window closed itself after 2 minutes
+// with no answer, which is not a Deny (the person may be away).
+var approvalGaveUp bool
+
+// zenityTimedOut: zenity ends with exit code 5 when its --timeout runs out.
+func zenityTimedOut(err error) bool {
+	var ee *exec.ExitError
+	return errors.As(err, &ee) && ee.ExitCode() == 5
+}
+
 // askOnScreen shows a native window with Deny and "Allow once". shown is
 // false when no window could be shown (no screen, no dialog tool, a remote
 // session, or KOMANDO_NO_DIALOG=1). The tools are found in system folders
@@ -305,21 +320,25 @@ var askOnScreen = func(text string) (allowed, shown bool) {
 	switch runtime.GOOS {
 	case "darwin":
 		const script = `on run argv
-display dialog (item 1 of argv) with title "komando: allow?" buttons {"Deny", "Allow once"} default button "Deny" cancel button "Deny" giving up after 120 with icon caution
-return button returned of result
+set r to display dialog (item 1 of argv) with title "komando: allow?" buttons {"Deny", "Allow once"} default button "Deny" cancel button "Deny" giving up after 120 with icon caution
+if gave up of r then return "gave up"
+return button returned of r
 end run`
 		b, err := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script, text).Output()
 		var ee *exec.ExitError
 		if err != nil && !errors.As(err, &ee) {
 			return false, false
 		}
-		return strings.TrimSpace(string(b)) == "Allow once", true
+		answer := strings.TrimSpace(string(b))
+		approvalGaveUp = answer == "gave up"
+		return answer == "Allow once", true
 	case "linux", "freebsd", "openbsd":
 		if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
 			return false, false
 		}
 		if z := systemTool("zenity"); z != "" {
 			err := exec.CommandContext(ctx, z, "--question", "--title=komando: allow?", "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--default-cancel", "--no-markup", "--timeout=120").Run()
+			approvalGaveUp = zenityTimedOut(err)
 			return err == nil, true
 		}
 		if k := systemTool("kdialog"); k != "" {
