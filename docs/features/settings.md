@@ -54,7 +54,7 @@ Most settings also have a flag for one run: `--timeout`,
 
 | Variable | What it does |
 |----------|--------------|
-| `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`) |
+| `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`). For an AI agent, another folder needs a person's yes on every command (see [Safety](safety.md#seatbelts-for-ai-agents)); if you keep the data elsewhere, make `~/.komando` a link to it instead |
 | `KOMANDO_VAULT_PASS` | a passphrase for the vault, instead of the `vault.key` file |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
@@ -83,8 +83,10 @@ readable only by you (folder 0700, files 0600).
 
 Back this folder up and keep it private. If other people or backups can
 reach it, run `komando secret keychain`: it moves the vault's key out of
-`vault.key` into the OS keychain (the macOS keychain, or the Secret Service
-on Linux through `secret-tool`), so a copy of this folder no longer opens
+`vault.key` into the OS keychain (the macOS keychain through
+`/usr/bin/security`, or the Secret Service on Linux through `secret-tool`
+in `/usr/bin`, `/bin` or `/usr/local/bin`: komando never looks for them in
+`PATH`), so a copy of this folder no longer opens
 the vault (`--off --yes` moves it back). Or set `KOMANDO_VAULT_PASS` to a
 passphrase of 15 or more characters **before** you store your first secret.
 `komando doctor` warns when you have done neither. To move to another

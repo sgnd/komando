@@ -167,7 +167,13 @@ certificates, a user name and password, or both.
 - Each session's local port needs a login only komando knows, so other users
   of your computer cannot use it.
 - `--os-mode` is deprecated. It runs the `openvpn` program on your computer
-  with sudo, which changes your computer's network.
+  with sudo, which changes your computer's network. Because that `openvpn`
+  runs as root, komando passes it only client settings it understands: it
+  reads the `.ovpn`, refuses anything it and OpenVPN could read differently
+  (backslash escapes, stray quotes, over-long lines, odd inline tags) and
+  hands OpenVPN a freshly written copy on its input, with scripts turned
+  off (`--script-security 1`). A profile that leans on one of those tricks
+  is refused; write it in plain form instead.
 
 ## AnyConnect and the experimental SSL VPNs
 

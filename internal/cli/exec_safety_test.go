@@ -228,6 +228,19 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		{"read-only script that writes", []string{"script", "prod", "--read-only", writes}, "READ_ONLY_VIOLATION", ""},
 		{"env value turns find into a delete", []string{"exec", "prod", "--read-only", "-e", "X=-delete", "--", "find /srv $X"}, "READ_ONLY_VIOLATION", ""},
 		{"job: env value", []string{"job", "start", "prod", "--read-only", "-e", "X=-delete", "--", "find /srv $X"}, "READ_ONLY_VIOLATION", ""},
+		// --read-only is an allowlist on a protected target: a command
+		// komando does not know reads still needs --yes, even though the
+		// denylist lets it pass (it changes nothing komando can see)
+		{"allowlist: unknown command needs --yes", []string{"exec", "prod", "--read-only", "--", "mytool --status"}, "PROTECTED_HOST", ""},
+		{"allowlist: unknown in a pipe needs --yes", []string{"exec", "prod", "--read-only", "--", "cat /etc/hosts | mytool"}, "PROTECTED_HOST", ""},
+		{"allowlist: unknown in a shell needs --yes", []string{"exec", "prod", "--read-only", "--", "sh -c 'mytool --status'"}, "PROTECTED_HOST", ""},
+		{"allowlist: unknown script command needs --yes", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "bash -s"}, "", "uptime\ndf -h /\n"},
+		{"allowlist: known read runs", []string{"exec", "prod", "--read-only", "--", "cat /etc/hostname"}, "", ""},
+		{"allowlist: ps runs", []string{"exec", "prod", "--read-only", "--", "ps aux | grep nginx"}, "", ""},
+		{"allowlist: docker ps runs", []string{"exec", "prod", "--read-only", "--", "docker ps"}, "", ""},
+		{"allowlist: docker rm is a clear write", []string{"exec", "prod", "--read-only", "--", "docker rm web"}, "READ_ONLY_VIOLATION", ""},
+		{"allowlist: systemctl status runs", []string{"exec", "prod", "--read-only", "--", "systemctl status nginx"}, "", ""},
+		{"allowlist: job unknown needs --yes", []string{"job", "start", "prod", "--read-only", "--", "mytool --status"}, "PROTECTED_HOST", ""},
 	}
 	for _, c := range cases {
 		err := runRoot(t, c.args...)

@@ -19,6 +19,11 @@ its highlights; the sections below them give the details. Versions follow
 - **The stored password is never sent as a two-factor code.** Before, every
   question the server asked got the password, and each try could count as
   a failed login and lock the account.
+- **A person decides where an AI agent sends a secret:** `{{secret:NAME}}`,
+  `--env K=secret:NAME` and a password on a new or moved server or conn
+  need `--yes` and a yes in komando's window, which names the secret and
+  the place (`SECRET_DESTINATION`). Agents that use `fs replace ...
+  {{secret:NAME}}` now ask first.
 - **Safer connections by default:** vault values for `-e` stay off the
   remote command line, the first trusted SSH host key is shown with its
   fingerprint, IKEv1 no longer offers 3DES or small DH groups, L2TP never
@@ -120,6 +125,64 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- **`--read-only` on a protected server or conn is now an allowlist, not a
+  denylist.** Before, a protected target let any command komando did not
+  recognise skip `--yes`, so an unknown program that changes things could
+  pass. Now `--read-only` skips the confirmation only for commands komando
+  knows read (`cat`, `ls`, `tail`, `df`, `ps`, `grep`, `journalctl` and
+  `systemctl status`, `docker ps`/`logs`, `kubectl get`/`describe`, `find`
+  without `-delete`/`-exec`, and the like); anything else takes the normal
+  `--yes` path with a person's approval. Unprotected targets are unchanged.
+  Affects `exec`, `script`, `job start` and read-only recipes.
+- **An `--os-mode` OpenVPN profile is now rewritten into a canonical form
+  and handed to `openvpn` on its input, never written to a file.** komando
+  parses the `.ovpn`, refuses anything its checker and OpenVPN could read
+  differently (backslash escapes, stray quotes, over-long lines, odd inline
+  tags, control characters), and passes `openvpn` only the directives it
+  checked, with `--script-security 1` on the command line so the root
+  process runs no user programs. A profile komando accepted before may now
+  be refused if it relies on one of those tricks.
+- **`komando update` follows release redirects only while they stay on
+  HTTPS**, so the download can never be pulled over plain HTTP.
+- An AI agent that sends a secret somewhere needs `--yes`, and komando's
+  window names the secret and the place (`SECRET_DESTINATION`, exit 6):
+  `{{secret:NAME}}` in `fs write` and `fs replace`, `exec --env
+  K=secret:NAME` and `job start --env`, `db user add` and `db user passwd`,
+  and a password reference (`secret:`, `env:`, `file:`, ...) that `host
+  add`, `host edit`, `conn add`, `conn edit`, `import csv` or another import
+  attaches to a server or conn, or a server or conn with one that moves to
+  another address, port, `--via` path or proxy command. Before, an agent
+  could put a vault value on a server it controls, where it can come back
+  in a form masking does not know. People and scripts are not asked. An
+  agent's dry run reads no secret: it keeps `{{secret:NAME}}` as written.
+- No password reference and no `{{secret:NAME}}` reads the approval code's
+  key (`RESERVED_SECRET`), for anyone. Before, only the `secret` commands
+  refused it.
+- An AI agent that adds a conn whose URL turns its network protection down
+  (`sslmode=disable`, `allow` or `prefer`; MySQL `tls=false`, `preferred`
+  or `skip-verify`; `tls=false` or `tls=skip-verify` for a registry or
+  FTPS; FTP `insecure=1`), or edits a conn so that it does (also
+  `rediss://` to `redis://`), needs `--yes` and a person's yes
+  (`SAFETY_SETTING`).
+- An AI agent's command with a `KOMANDO_HOME` other than `~/.komando`
+  needs `--yes` and a person's yes, every time (`SAFETY_SETTING`): in a new
+  folder komando knew none of the protected servers, deny rules or host
+  keys, and wrote the audit log elsewhere. A link to `~/.komando` counts as
+  the usual folder. The guard (`komando guide install`) now also stops
+  shell lines that set, export or unset `KOMANDO_HOME`.
+- The vault key in the OS keychain is read with `/usr/bin/security` on
+  macOS and with `secret-tool` from `/usr/bin`, `/bin` or `/usr/local/bin`
+  on Linux, never through `PATH`, as the approval window's tools already
+  were.
+- `tunnel start` hands `KOMANDO_VAULT_PASS` to its background process on
+  stdin instead of in its environment, where any program of the user could
+  read it for as long as the tunnel runs.
+- For an AI agent, audit records add `os_user` (the computer account, read
+  from the system) and `actor_claimed: true` when the name comes from
+  `KOMANDO_ACTOR`, which the agent's environment can set to anything.
+  `komando audit -o text` shows such a line as `Claude Code (as NAME)`.
+- `fs replace --regex` with `{{secret:NAME}}` writes a `$` in the secret
+  as it is; before, `$1` in a password was read as a group.
 - A vault value given to a remote command (`-e DB_PASS=secret:NAME`, or a
   server's `--env` with `secret:`) reaches the command on its input, not
   on its command line. Before, every user of the server could read it in
