@@ -110,6 +110,16 @@ its highlights; the sections below them give the details. Versions follow
   revision, and the values (`--all` with the chart's defaults,
   `--revision N` for an older one). It only reads; install and upgrade
   stay with helm.
+- Storage conns for **Google Cloud Storage** (`gs://bucket/folder`, logged
+  in like gcloud or with a service account key), **Azure Blob Storage**
+  (`azblob://ACCOUNT@container/folder`, with the account key or a SAS
+  token) and **WebDAV** (`webdavs://user@host/path`: Nextcloud, ownCloud, a
+  NAS). `storage ls`, `cat`, `upload`, `download`, `rm`, `sync` and
+  `conn test` work on them as on S3, also through `--via`. `storage link`
+  makes a signed link for Google Cloud (with a service account key) and
+  Azure (with the account key). Big Azure uploads go up in blocks, with no
+  temporary file; WebDAV makes missing folders. Emulators take
+  `?endpoint=URL`.
 - `komando` alone opens a menu for a person at a terminal: choose Shell,
   Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
   Enter (`?` for help), then a server, conn or VPN from a list you can
