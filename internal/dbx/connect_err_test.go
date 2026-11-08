@@ -41,7 +41,7 @@ func TestTLSHint(t *testing.T) {
 		err  error
 		want string
 	}{
-		{"postgres", errors.New("failed to connect: tls error: tls: failed to verify certificate: x509: certificate signed by unknown authority"), "?sslrootcert=/path/to/ca.pem"},
+		{"postgres", errors.New("failed to connect: tls error: tls: failed to verify certificate: x509: certificate signed by unknown authority"), "?ca=secret:NAME"},
 		{"postgres", errors.New("x509: certificate is valid for db1, not db.internal"), "?sslmode=require encrypts without checking"},
 		{"postgres", errors.New("failed to connect: server refused TLS connection"), "?sslmode=disable sends the password"},
 		{"mysql", errors.New("x509: certificate signed by unknown authority"), "?tls=skip-verify"},

@@ -586,10 +586,7 @@ func tlsHint(kind string, err error) string {
 	via := "reach the server --via an SSH server and connect without TLS through it (`komando conn edit NAME --via HOST --url '..." + weak[1] + "'`)"
 	switch {
 	case strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify"):
-		ca := "give the CA that signed it"
-		if kind == "postgres" {
-			ca += " with ?sslrootcert=/path/to/ca.pem"
-		}
+		ca := "give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`)"
 		return "the server's certificate could not be checked: " + ca + ", or " + via +
 			"; without --via, " + weak[0] + " encrypts without checking it, so anyone on the network path could pretend to be the server"
 	case strings.Contains(msg, "server refused TLS"), errors.Is(err, mysql.ErrNoTLS):
