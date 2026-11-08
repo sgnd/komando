@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRedactHidesVaultSecrets(t *testing.T) {
@@ -57,5 +58,23 @@ func TestTextHeadline(t *testing.T) {
 	}
 	if got := renderText(map[string]any{"name": "x", "created_at": "2026-11-07T15:26:25Z"}); strings.Contains(got, "T15:26:25Z") {
 		t.Errorf("times for people are local, not raw RFC3339: %s", got)
+	}
+}
+
+// Host keys trusted on first use are in meta.host_keys_pinned, and only
+// for the command that pinned them.
+func TestHostKeysPinnedMeta(t *testing.T) {
+	var b bytes.Buffer
+	p := &Printer{Format: "json", W: &b, Start: time.Now()}
+	p.HostKeyPinned(HostKey{Host: "web1", Address: "203.0.113.10:22", Type: "ssh-ed25519", Fingerprint: "SHA256:abc"})
+	p.Print("exec", map[string]any{}, nil)
+	if !strings.Contains(b.String(), `"host_keys_pinned":[{"host":"web1","address":"203.0.113.10:22","key_type":"ssh-ed25519","fingerprint":"SHA256:abc"}]`) {
+		t.Errorf("meta: %s", b.String())
+	}
+	p.Reset()
+	b.Reset()
+	p.Print("exec", map[string]any{}, nil)
+	if strings.Contains(b.String(), "host_keys_pinned") {
+		t.Errorf("after Reset: %s", b.String())
 	}
 }

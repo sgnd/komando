@@ -50,7 +50,7 @@ as data.
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
 | `error.hint` | always says what to try next |
 | `null` | komando could not find out (for example `facts` without the rights to read something). It never stands in for `0` or `false` |
-| `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run; `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails) |
+| `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run; `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails); `host_keys_pinned` when the command trusted a server's SSH host key for the first time (`host`, `address`, `key_type`, `fingerprint`), for the person to compare with the server's own |
 
 ## Exit codes
 

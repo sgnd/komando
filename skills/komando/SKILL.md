@@ -83,7 +83,7 @@ Update komando only when the human asks: `komando update` (when it stops with
    `komando fs replace <target> <path> --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:NAME}}'`
    (`{{secret:NAME}}` becomes the vault value on the server). Sending a
    secret somewhere (that, `--env K=secret:NAME`, a password reference on a
-   new or moved server or conn) stops with `SECRET_DESTINATION`: tell the
+   new or moved server, conn or VPN) stops with `SECRET_DESTINATION`: tell the
    human which secret goes where, and when they agree re-run with `--yes`.
    Text that still holds `[hidden]` is never written (`HIDDEN_VALUE`). On
    protected targets personal data (emails, phone numbers, cards, IBANs,

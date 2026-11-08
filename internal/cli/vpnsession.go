@@ -1,13 +1,11 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -15,7 +13,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -387,17 +384,14 @@ func spawnServe(name, logFile string, wait time.Duration, s *store.VpnSession) (
 }
 
 // spawnServeWith starts the session's server with a random SOCKS login
-// (kept in s) and a password a person typed, both on its stdin.
+// (kept in s), a password a person typed and the vault passphrase, all on
+// its stdin.
 func spawnServeWith(name, logFile string, wait time.Duration, password string, s *store.VpnSession) (int, string, error) {
 	self, err := os.Executable()
 	if err != nil {
 		return 0, "", err
 	}
-	c := exec.Command(self, "vpn", "serve", name, "--password-stdin")
-	c.Env = vault.SelfEnv()
-	s.SocksUser, s.SocksPass = "k"+randToken(6), randToken(24)
-	c.Stdin = strings.NewReader("SOCKS " + s.SocksUser + " " + s.SocksPass + "\n" + password + "\n")
-	pid, err := background(c, logFile)
+	pid, err := background(serveCommand(self, name, password, s), logFile)
 	if err != nil {
 		return 0, "", err
 	}
@@ -416,6 +410,18 @@ func spawnServeWith(name, logFile string, wait time.Duration, password string, s
 		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "see "+logFile, "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
 	}
 	return pid, addr, nil
+}
+
+// serveCommand is the `komando vpn serve NAME` process (self is komando):
+// a new SOCKS login, kept in s, and the typed password go to it on stdin,
+// then the vault passphrase, never in its environment: it runs for long
+// (serveStdin reads them).
+func serveCommand(self, name, password string, s *store.VpnSession) *exec.Cmd {
+	c := exec.Command(self, "vpn", "serve", name, "--password-stdin")
+	s.SocksUser, s.SocksPass = "k"+randToken(6), randToken(24)
+	c.Stdin = strings.NewReader("SOCKS " + s.SocksUser + " " + s.SocksPass + "\n" + password + "\n")
+	vault.PassOnStdin(c)
+	return c
 }
 
 // systemVPN connects or disconnects a VPN configured in the OS settings.
@@ -677,112 +683,6 @@ runs; a SOCKS proxy is up when its address answers, a system VPN when its
 			out.P.Print("vpn.status", vpnStatusData{Vpns: vpnStatusRows(st)}, nil)
 			return nil
 		},
-	}
-}
-
-// vpnServeCmd is the background process of a WireGuard session: it holds
-// the VPN and offers a local SOCKS5 port into it.
-func vpnServeCmd() *cobra.Command {
-	var passwordStdin bool
-	c := &cobra.Command{
-		Use:    "serve NAME",
-		Hidden: true,
-		Args:   cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			fail := func(err error) error { fmt.Printf("ERROR %v\n", err); return exitCode(1) }
-			// stdin: the SOCKS login for this session, then a typed VPN password
-			var socksUser, socksPass string
-			if passwordStdin {
-				in := bufio.NewReader(os.Stdin)
-				line, _ := in.ReadString('\n')
-				if f := strings.Fields(line); len(f) == 3 && f[0] == "SOCKS" {
-					socksUser, socksPass = f[1], f[2]
-				}
-				line, _ = in.ReadString('\n')
-				netx.SessionSecret = strings.TrimRight(line, "\r\n")
-			}
-			st, err := loadState()
-			if err != nil {
-				return fail(err)
-			}
-			v, ok := st.Vpns[args[0]]
-			if !ok {
-				return fail(errors.New("no such VPN"))
-			}
-			ctx := cmd.Context()
-			started := time.Now()
-			d, closer, err := netx.OpenDirect(ctx, v, sshOpts(st).ConnectTimeout)
-			if err != nil {
-				return fail(err)
-			}
-			defer closer.Close()
-			ln, err := net.Listen("tcp", "127.0.0.1:0")
-			if err != nil {
-				return fail(err)
-			}
-			fmt.Printf("READY %s\n", ln.Addr())
-			idle, _ := time.ParseDuration(st.Settings.VpnIdle)
-			var last atomic.Int64
-			last.Store(time.Now().Unix())
-			if idle > 0 {
-				go func() {
-					for range time.Tick(time.Minute) {
-						if time.Since(time.Unix(last.Load(), 0)) > idle {
-							ln.Close()
-							return
-						}
-					}
-				}()
-			}
-			go func() { <-ctx.Done(); ln.Close() }() // SIGTERM from `vpn down`
-			if ended, ok := closer.(interface{ Done() <-chan struct{} }); ok {
-				// the VPN dropped: stop, so the session is seen as down and
-				// the next command connects again
-				go func() {
-					<-ended.Done()
-					if e, ok := closer.(interface{ Err() error }); ok && e.Err() != nil {
-						// a timestamp like the log's other lines, and how long it ran
-						fmt.Printf("%s ENDED %v (after %s)\n", time.Now().Format("2006/01/02 15:04:05"), e.Err(), time.Since(started).Round(time.Second))
-					}
-					ln.Close()
-				}()
-			}
-			cm := &connMgr{ctx: ctx, st: st, vpnDial: d}
-			logger := log.New(os.Stdout, "", log.LstdFlags)
-			// only a client that logged in keeps the session from going idle
-			used := func() { last.Store(time.Now().Unix()) }
-			acceptLoop(ln, logger, func(c net.Conn) {
-				defer c.Close()
-				socks5Auth(c, cm, logger, socksUser, socksPass, used)
-			})
-			_ = store.Update(func(s *store.State) error {
-				if x := s.Sessions[v.Name]; x != nil && x.PID == os.Getpid() { // not a newer session's entry
-					delete(s.Sessions, v.Name)
-				}
-				return nil
-			})
-			return nil
-		},
-	}
-	c.Flags().BoolVar(&passwordStdin, "password-stdin", false, "read the SOCKS login and a typed VPN password from stdin")
-	return c
-}
-
-// acceptLoop hands each connection on ln to serve until ln is closed. Any
-// other accept error, such as running out of file descriptors, is logged
-// and retried: a flood of local connections must not end the session.
-func acceptLoop(ln net.Listener, logger *log.Logger, serve func(net.Conn)) {
-	for {
-		c, err := ln.Accept()
-		if err != nil {
-			if errors.Is(err, net.ErrClosed) {
-				return
-			}
-			logger.Printf("accept: %v", err)
-			time.Sleep(50 * time.Millisecond) // do not spin
-			continue
-		}
-		go serve(c)
 	}
 }
 

@@ -2,6 +2,7 @@ package vault
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -113,7 +114,7 @@ func TestMissingKeyFileIsNotRegenerated(t *testing.T) {
 	}
 }
 
-// A background komando process (tunnel serve) gets the passphrase on
+// A background komando process (tunnel serve, vpn serve) gets the passphrase on
 // stdin, never in its environment, which stays in view while it runs.
 func TestPassOnStdin(t *testing.T) {
 	freshHome(t)
@@ -135,6 +136,14 @@ func TestPassOnStdin(t *testing.T) {
 	setPass("") // the child starts without it
 	if err := ReadPassStdin(c.Stdin); err != nil || Passphrase() != want {
 		t.Fatalf("read back %q: %v", Passphrase(), err)
+	}
+	// vpn serve reads its own lines first: the passphrase comes after them
+	setPass(want)
+	c = exec.Command("komando", "vpn", "serve", "office", "--password-stdin")
+	c.Stdin = strings.NewReader("SOCKS u p\n\n")
+	PassOnStdin(c)
+	if b, _ := io.ReadAll(c.Stdin); string(b) != "SOCKS u p\n\n"+want {
+		t.Errorf("stdin %q", b)
 	}
 	setPass("") // a vault without a passphrase: no flag, nothing on stdin
 	c = exec.Command("komando", "tunnel", "serve", "t-1")
