@@ -27,9 +27,12 @@ komando conn add sessions rediss://default@cache.internal:6379/1 --password-ref 
 [Tunnels](tunnels.md) and [VPNs](vpn.md)).
 
 `redis://` straight over the network (no `--via`, not to this computer)
-sends the password and the data unencrypted: use `rediss://` or `--via`.
-`komando doctor` warns about such conns and prints the line that changes
-them. `rediss://` checks the server's certificate against your computer's
+sends the password and the data unencrypted, so `conn add` (and
+`conn edit --url`) refuses it with `INSECURE_PROTOCOL`: use `rediss://` or
+`--via`, or add `?insecure=1` to accept that the traffic is readable on the
+way (for an AI agent that needs a person's yes). The same goes for
+`memcached://`. Conns saved before keep working; `komando doctor` warns
+about them and prints the line that changes them. `rediss://` checks the server's certificate against your computer's
 trusted CAs, or against your own with `?ca=secret:NAME` (a private CA, or a
 cloud's own), as `memcacheds://` does:
 
@@ -48,7 +51,7 @@ master is now, so a failover needs no change.
 
 ```bash
 komando conn add sessions 'rediss://default@clustercfg.sessions.abc123.cache.amazonaws.com:6379?cluster=1' --password-ref secret:sessions-pass
-komando conn add queue 'redis://default@sentinel1:26379/0?sentinel=mymaster&sentinels=sentinel2,sentinel3' --password-ref secret:queue-pass
+komando conn add queue 'redis://default@sentinel1:26379/0?sentinel=mymaster&sentinels=sentinel2,sentinel3' --via web1 --password-ref secret:queue-pass
 ```
 
 - In a Cluster, `cache keys` scans every master and `cache info` adds up
@@ -131,7 +134,7 @@ with `memcached -Y`, give a user in the URL and the password as a reference:
 
 ```bash
 komando conn add mc memcached://cache.internal:11211 --via web1
-komando conn add mc2 memcached://app@cache.internal:11211 --password-ref secret:mc-pass
+komando conn add mc2 memcached://app@cache.internal:11211 --via web1 --password-ref secret:mc-pass
 komando cache get mc session:42               # the value, and on 1.6+ its time to live
 komando cache keys mc 'session:*'             # through memcached's LRU crawler
 komando cache info mc                         # a summary of `stats`; `info mc items` for one section

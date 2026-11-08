@@ -196,6 +196,10 @@ func weakTLS(oldURL, newURL string) []string {
 		}
 	case "ftp":
 		w = append(w, "insecure=1 (travels unencrypted, passwords too)")
+	case "redis", "memcached":
+		if !t.Secure && q.Get("insecure") == "1" {
+			w = append(w, "insecure=1 (travels unencrypted, passwords too)")
+		}
 	}
 	if old, err := driver.Parse(oldURL); err == nil && old.Kind.Name == t.Kind.Name && old.Secure && !t.Secure {
 		w = append(w, "no TLS any more (travels unencrypted)")
@@ -269,4 +273,44 @@ func guardHostSends(now []*store.Host, olds map[string]*store.Host, why ...strin
 		lines = append(lines, line)
 	}
 	return guardSends(lines, nil, why...)
+}
+
+// vpnPlace: a VPN's login (its password or auth key, and its pre-shared
+// key) goes to its server each time it connects. A WireGuard VPN's keys
+// come from its own config file, and a system VPN logs in with this
+// computer's settings, so neither sends a reference. servers names an
+// OpenVPN VPN's servers (its profile's remote lines), when known.
+func vpnPlace(v *store.Vpn, servers string) secretPlace {
+	var dest string
+	switch v.Kind {
+	case "wireguard", "system":
+		return secretPlace{}
+	case "socks", "proxy":
+		dest = v.Address
+	case "tailscale":
+		dest = firstNonEmpty(v.Server, "the Tailscale login server")
+	case "l2tp", "ipsec", "ikev2":
+		dest = v.Server
+	case "openvpn":
+		dest = firstNonEmpty(servers, "the servers in its .ovpn profile")
+	default: // the SSL VPNs log in at their portal
+		dest = v.Portal
+	}
+	return secretPlace{dedupe([]string{v.KeyRef, v.PSKRef}), dest}
+}
+
+// guardVpnSends is guardSends for a VPN an add or edit leaves as now; old
+// is the VPN before (nil: a new one). servers is as for vpnPlace: an
+// OpenVPN VPN added again with a new profile may have new servers.
+func guardVpnSends(old, now *store.Vpn, servers string) error {
+	var before *secretPlace
+	if old != nil {
+		p := vpnPlace(old, "")
+		before = &p
+	}
+	line, err := newSends("vpn "+now.Name, before, vpnPlace(now, servers))
+	if err != nil {
+		return err
+	}
+	return guardSends([]string{line}, nil)
 }

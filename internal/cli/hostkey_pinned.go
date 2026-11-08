@@ -1,19 +1,23 @@
 package cli
 
 import (
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
 func init() {
-	// a host key pinned on first use goes into the audit log with its
-	// fingerprint (sshx tells the person on stderr)
+	// a host key pinned on first use goes into the audit log and the JSON
+	// output (meta.host_keys_pinned) with its fingerprint; sshx tells the
+	// person on stderr
 	sshx.HostKeyPinned = auditPinnedKey
 }
 
 // auditPinnedKey records a host key komando trusted the first time it
-// reached the server, so it can be checked later (`komando audit`).
+// reached the server, so it can be checked later (`komando audit`), and
+// reports it in the command's output.
 func auditPinnedKey(k sshx.NewHostKey) {
+	out.P.HostKeyPinned(out.HostKey{Host: k.Host, Address: k.Address, Type: k.Type, Fingerprint: k.Fingerprint})
 	st, err := store.Load()
 	if err != nil {
 		st = nil // the audit log is written either way

@@ -458,8 +458,8 @@ func TestInvRmSelector(t *testing.T) {
 	if d := mustRun(t, "list"); d["count"].(float64) != 2 {
 		t.Errorf("tmp-* removed: %v", d)
 	}
-	mustRun(t, "conn", "add", "r1", "redis://default@10.0.0.7:6379/0")
-	mustRun(t, "conn", "add", "r2", "redis://default@10.0.0.8:6379/0")
+	mustRun(t, "conn", "add", "r1", "rediss://default@10.0.0.7:6379/0")
+	mustRun(t, "conn", "add", "r2", "rediss://default@10.0.0.8:6379/0")
 	if d := mustRun(t, "conn", "rm", "kind:redis"); len(d["removed"].([]any)) != 2 {
 		t.Errorf("conn rm selector: %v", d)
 	}

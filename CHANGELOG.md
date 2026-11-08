@@ -7,6 +7,34 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Security
+
+- **New conns check TLS by default.** `conn add` and `conn edit --url` of a
+  conn that crosses the network on its own (no `--via`, not this computer)
+  add `sslmode=verify-full` (Postgres) or `tls=true` (MySQL) when the URL
+  says nothing, and say so in `warnings`. A plain `redis://` or
+  `memcached://` there is refused (`INSECURE_PROTOCOL`) unless the URL
+  has `?insecure=1`, which an AI agent needs a person's yes for. Saved
+  conns keep their URL. `pg_dump` and `pg_restore` 16 or newer get
+  `sslrootcert=system` for such a URL, so `db dump --on` checks the
+  certificate against the system's CAs as komando does; an older one
+  needs the CA in `~/.postgresql/root.crt` and stops with a hint
+  (`DB_CONNECT`).
+- An AI agent that adds a VPN with a password or pre-shared key reference,
+  or points a VPN at another server or address, needs `--yes` and a
+  person's yes (`SECRET_DESTINATION`); the window names the references and
+  the server (for OpenVPN, its profile's `remote` lines). `vpn add` now
+  takes `--legacy-crypto` and `--allow-pap` (a person's yes, as on
+  `vpn edit`) and shows an OpenVPN profile's warnings.
+- `vpn up` hands `KOMANDO_VAULT_PASS` to its background `vpn serve` on
+  stdin instead of in its environment, as `tunnel start` does.
+- `docker exec --read-only` and `cluster exec --read-only` are checked as
+  `exec --read-only` is: a command that clearly changes something is
+  refused (`READ_ONLY_VIOLATION`), and on a protected target only commands
+  komando knows read skip `--yes`. Before, the flag alone skipped it.
+- JSON answers list the SSH host keys a command trusted for the first time
+  in `meta.host_keys_pinned`, so an agent can show the fingerprints.
+
 ## [0.7.0] - 2026-11-09
 
 ### Highlights

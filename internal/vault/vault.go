@@ -77,10 +77,10 @@ func Passphrase() string {
 }
 
 // SelfEnv is the environment for komando processes started by komando
-// that need the vault: a command the menu runs, and `vpn serve`. A
-// background process that runs for long should get the passphrase on
-// stdin instead (PassOnStdin): its environment stays in view for as long
-// as it runs (`ps eww`, /proc/PID/environ), to every program of the user.
+// that need the vault: a command the menu runs. A background process that
+// runs for long gets the passphrase on stdin instead (PassOnStdin): its
+// environment stays in view for as long as it runs (`ps eww`,
+// /proc/PID/environ), to every program of the user.
 func SelfEnv() []string {
 	env := os.Environ()
 	if p := Passphrase(); p != "" {
@@ -94,13 +94,18 @@ func SelfEnv() []string {
 const PassStdinFlag = "--vault-pass-stdin"
 
 // PassOnStdin readies c, a background komando process that needs the
-// vault (`tunnel serve`): its environment is komando's own, without
-// KOMANDO_VAULT_PASS, and the passphrase, when there is one, goes to it on
-// stdin, with PassStdinFlag added to its arguments.
+// vault (`tunnel serve`, `vpn serve`): its environment is komando's own,
+// without KOMANDO_VAULT_PASS, and the passphrase, when there is one, goes
+// to it on stdin, with PassStdinFlag added to its arguments. It comes last:
+// after what c.Stdin already holds (vpn serve's own lines), up to the end.
 func PassOnStdin(c *exec.Cmd) {
 	c.Env = os.Environ() // Passphrase took KOMANDO_VAULT_PASS out of it
 	if p := Passphrase(); p != "" {
-		c.Stdin = strings.NewReader(p)
+		var in io.Reader = strings.NewReader(p)
+		if c.Stdin != nil {
+			in = io.MultiReader(c.Stdin, in)
+		}
+		c.Stdin = in
 		c.Args = append(c.Args, PassStdinFlag)
 	}
 }

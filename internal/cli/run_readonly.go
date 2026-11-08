@@ -371,7 +371,7 @@ func classifyCommand(cmd string, args []string, input, allow bool) string {
 // commands on this list; anything else takes the normal --yes path.
 var readCommands = set(`
 	: true false test [ [[ echo printf set shopt unset cd pwd pushd popd dirs umask ulimit
-	wait times let read help getopts
+	wait times let read help getopts exit
 	grep egrep fgrep zgrep rg
 	cat tac nl head tail wc rev cut paste join comm column fold fmt expand unexpand tr
 	od hexdump xxd strings cksum sum md5sum sha1sum sha224sum sha256sum sha384sum sha512sum b2sum

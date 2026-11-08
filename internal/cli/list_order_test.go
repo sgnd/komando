@@ -33,7 +33,7 @@ func TestListSortsAllKindsByName(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "zeta", "u@10.0.0.1", "-g", "g")
 	mustRun(t, "host", "add", "mid", "u@10.0.0.2", "-g", "g")
-	mustRun(t, "conn", "add", "alpha", "redis://10.0.0.3:6379", "-g", "g")
+	mustRun(t, "conn", "add", "alpha", "rediss://10.0.0.3:6379", "-g", "g")
 	for _, args := range [][]string{{"list"}, {"list", "@g"}, {"list", "zeta,alpha,mid"}} {
 		d := mustRun(t, args...)
 		if got := strings.Join(field(t, d["targets"], "name"), ","); got != "alpha,mid,zeta" {
