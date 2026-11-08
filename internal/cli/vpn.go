@@ -237,9 +237,9 @@ func vpnAddCmd() *cobra.Command {
 			now := time.Now().UTC()
 			v.CreatedAt, v.UpdatedAt = now, now
 			warnings := append(refWarnings(v.KeyRef, v.PSKRef), ovpnWarn...)
-			// the name, and what needs a person: a weaker login, a secret sent to a new place
+			// the name and the VPN's vault secrets, and what needs a person: a weaker login, a secret sent to a new place
 			check := func(s *store.State) error {
-				if err := checkNewName(s, "vpn", name, overwrite); err != nil {
+				if err := vpnAddCheck(s, name, secrets, overwrite); err != nil {
 					return err
 				}
 				if err := vpnOptIns(v, cmd.Flags().Changed, legacyCrypto, allowPAP); err != nil {

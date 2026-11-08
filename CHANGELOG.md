@@ -34,6 +34,12 @@ its highlights; the sections below them give the details. Versions follow
   komando knows read skip `--yes`. Before, the flag alone skipped it.
 - JSON answers list the SSH host keys a command trusted for the first time
   in `meta.host_keys_pinned`, so an agent can show the fingerprints.
+- `vpn add NAME wireguard` and `vpn add NAME openvpn` no longer replace a
+  vault secret named `NAME-key`, `NAME-psk` or `NAME-config` that is not
+  that VPN's own (`SECRET_EXISTS`, nothing saved). Before, `vpn add prod
+  ...` silently overwrote a secret `prod-key` that a server used, and an
+  AI agent could put a value it chose there. `--overwrite` still reuses
+  the secrets of the VPN it replaces when nothing else uses them.
 
 ## [0.7.0] - 2026-11-09
 
