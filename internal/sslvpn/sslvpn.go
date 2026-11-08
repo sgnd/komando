@@ -24,6 +24,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sgnd/komando/internal/proxyx"
 )
 
 // Tunnel is a connected VPN: IP packets in and out.
@@ -96,7 +98,9 @@ func httpClient(o Options, host string) (*http.Client, error) {
 	}
 	tr := &http.Transport{TLSClientConfig: tc, TLSHandshakeTimeout: 20 * time.Second, ForceAttemptHTTP2: false}
 	if o.Dial != nil {
-		tr.DialContext = o.Dial
+		tr.DialContext = o.Dial // the --via path is the way out
+	} else {
+		tr.Proxy = proxyx.FromEnv() // a company proxy: HTTPS_PROXY and NO_PROXY
 	}
 	jar, _ := cookiejar.New(nil)
 	return &http.Client{Transport: tr, Jar: jar, Timeout: 60 * time.Second,
@@ -128,11 +132,11 @@ func dialTLSWith(ctx context.Context, o Options, u *url.URL, keys *tlsKeys) (*tl
 	if err != nil {
 		return nil, err
 	}
-	dial := o.Dial
+	dial, pick := o.Dial, proxyx.Func(nil)
 	if dial == nil {
-		dial = (&net.Dialer{Timeout: 20 * time.Second}).DialContext
+		dial, pick = (&net.Dialer{Timeout: 20 * time.Second}).DialContext, proxyx.FromEnv()
 	}
-	raw, err := dial(ctx, "tcp", net.JoinHostPort(host, port))
+	raw, err := proxyx.Dial(ctx, pick, dial, u, net.JoinHostPort(host, port))
 	if err != nil {
 		return nil, err
 	}
