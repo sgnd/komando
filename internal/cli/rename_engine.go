@@ -3,7 +3,9 @@ package cli
 import (
 	"fmt"
 	"maps"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -53,9 +55,23 @@ type renameRef struct {
 
 func (r renameRef) String() string { return r.Entry + " " + r.Field }
 
+// renameKept is an old name left as it is in a note or a label value, and
+// why. To is what --labels would make of a label value.
+type renameKept struct {
+	Entry  string `json:"entry"` // kind and name after the rename: "host web-01"
+	Field  string `json:"field"` // notes, or "label KEY"
+	Name   string `json:"name"`  // the old name, pattern or label value as written
+	To     string `json:"to,omitempty"`
+	Reason string `json:"reason"`
+}
+
 // renameOpts are the choices of one rename.
 type renameOpts struct {
-	notes bool // replace old names in notes too, as whole words
+	notes  bool // replace old names in notes too (see nameText)
+	labels bool // and in label values
+	// prefix is OLD and NEW of `rename --prefix`, for the notes and labels
+	// that name old entries; nil for key mv and group mv
+	prefix *renamePair
 	// guard asks for a person's yes before protected servers and conns
 	// change (prot: "host NAME", "conn NAME"); nil when no yes is needed
 	guard func(prot []string) error
@@ -131,11 +147,15 @@ func applyRenames(s *store.State, set renameSet, opts renameOpts) (renameResult,
 			return res, nil, err
 		}
 	}
-	rw := newRefRewriter(set, opts.notes, &res)
+	rw := newRefRewriter(s, set, opts, &res)
 	moves := rw.renameEntries(s)
 	res.Count = set.size()
 	res.Moved = append(res.Moved, moves...)
 	rw.rewrite(s)
+	if rw.notesLeft > 0 {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("the notes of %d %s name old entries and stay as they are; --notes replaces them (see each with --notes --dry-run)",
+			rw.notesLeft, renameNoun(rw.notesLeft, "entry")))
+	}
 	return res, moves, nil
 }
 
@@ -165,23 +185,24 @@ func inRenamedGroup(gm map[string]string, gs []string) bool {
 // refRewriter renames the entries of a renameSet in the state, then points
 // every reference at the new names, and records each change in res.
 type refRewriter struct {
-	rs      renameSet
-	steps   map[string]string // --via steps name servers and VPNs
-	words   map[string]string // --notes: every old name; nil without it
-	res     *renameResult
-	now     time.Time
-	touched bool // the entry being rewritten changed
+	rs        renameSet
+	opts      renameOpts
+	steps     map[string]string // --via steps name servers and VPNs
+	text      *nameText         // old names in notes and labels; nil for key mv and group mv
+	notesLeft int               // entries whose notes --notes would change, when it is not given
+	res       *renameResult
+	now       time.Time
+	touched   bool // the entry being rewritten changed
 }
 
-func newRefRewriter(rs renameSet, notes bool, res *renameResult) *refRewriter {
-	w := &refRewriter{rs: rs, steps: map[string]string{}, res: res, now: time.Now().UTC()}
+// newRefRewriter is made before the entries get their new names: the
+// notes and labels compare against the names as they were.
+func newRefRewriter(s *store.State, rs renameSet, opts renameOpts, res *renameResult) *refRewriter {
+	w := &refRewriter{rs: rs, opts: opts, steps: map[string]string{}, res: res, now: time.Now().UTC()}
 	maps.Copy(w.steps, rs["host"])
 	maps.Copy(w.steps, rs["vpn"])
-	if notes {
-		w.words = map[string]string{}
-		for _, k := range renameKinds {
-			maps.Copy(w.words, rs[k])
-		}
+	if opts.prefix != nil || opts.notes || opts.labels {
+		w.text = newNameText(s, rs, opts.prefix)
 	}
 	return w
 }
@@ -325,9 +346,53 @@ func (w *refRewriter) groups(entry string, p *[]string) {
 	}
 }
 
+// notes replaces the old names in a note with --notes. Without it, the
+// note stays and is only counted for one warning.
 func (w *refRewriter) notes(entry string, p *string) {
-	if w.words != nil {
-		w.change(entry, "notes", p, replaceNames(*p, w.words))
+	if w.text == nil || *p == "" {
+		return
+	}
+	nt, kept := w.text.replace(*p)
+	if !w.opts.notes {
+		if nt != *p {
+			w.notesLeft++
+		}
+		return
+	}
+	w.keep(entry, "notes", kept)
+	w.change(entry, "notes", p, nt)
+}
+
+// labels replaces the old names in label values with --labels, as notes
+// does; label names stay. Labels are free text, so without --labels each
+// value that would change is listed as kept, with what it would become.
+func (w *refRewriter) labels(entry string, m map[string]string) {
+	if w.text == nil {
+		return
+	}
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		v, f := m[k], "label "+k
+		nv, kept := w.text.replace(v)
+		w.keep(entry, f, kept)
+		switch {
+		case nv == v:
+		case w.opts.labels:
+			w.change(entry, f, &v, nv)
+			m[k] = v
+		default:
+			w.res.Kept = append(w.res.Kept, renameKept{Entry: entry, Field: f, Name: v, To: nv, Reason: "labels change only with --labels"})
+		}
+	}
+}
+
+// keep records the old names a note or label value keeps, once each.
+func (w *refRewriter) keep(entry, field string, kept []keptWord) {
+	seen := map[string]bool{}
+	for _, k := range kept {
+		if !seen[k.name] {
+			seen[k.name] = true
+			w.res.Kept = append(w.res.Kept, renameKept{Entry: entry, Field: field, Name: k.name, Reason: k.reason})
+		}
 	}
 }
 
@@ -348,6 +413,7 @@ func (w *refRewriter) rewrite(s *store.State) {
 			h.Env[name] = v
 		}
 		w.groups(e, &h.Groups)
+		w.labels(e, h.Labels)
 		w.notes(e, &h.Notes)
 		if w.touched {
 			h.UpdatedAt = w.now
@@ -360,6 +426,7 @@ func (w *refRewriter) rewrite(s *store.State) {
 		w.change(e, "password_ref", &c.PasswordRef, w.ref(c.PasswordRef))
 		w.change(e, "url", &c.URL, w.url(c.URL))
 		w.groups(e, &c.Groups)
+		w.labels(e, c.Labels)
 		w.notes(e, &c.Notes)
 		if w.touched {
 			c.UpdatedAt = w.now
@@ -372,6 +439,7 @@ func (w *refRewriter) rewrite(s *store.State) {
 		w.change(e, "psk_ref", &v.PSKRef, w.ref(v.PSKRef))
 		w.change(e, "config_ref", &v.ConfigRef, w.ref(v.ConfigRef))
 		w.groups(e, &v.Groups)
+		w.labels(e, v.Labels)
 		w.notes(e, &v.Notes)
 		if w.touched {
 			v.UpdatedAt = w.now
@@ -525,31 +593,208 @@ func (c *renameChecker) check(k, from, to string) error {
 	return nil
 }
 
-// replaceNames replaces each name in m (old -> new) where it stands as a
-// whole word in text: not part of a longer name (letters, digits, . _ -).
-// A full stop after a name ends a sentence, so it is not part of the name.
-func replaceNames(text string, m map[string]string) string {
-	word := func(b byte) bool {
-		return b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' || b == '.' || b == '_' || b == '-'
+// nameText replaces old names in free text: notes (--notes) and label
+// values (--labels). Free text names more than komando's entries, so only
+// what clearly means an entry follows:
+//
+//   - the names of servers, conns, VPNs and secrets, as whole words (not
+//     part of a longer name: letters, digits, . _ -);
+//   - a group written @NAME, as in a target;
+//   - a pattern such as shop-db-* that starts with OLD, when every server,
+//     conn and VPN it matches is renamed and the new pattern matches no
+//     other (a target written in a note keeps meaning the same entries).
+//
+// Some old names stay, and the result lists each with the reason: OLD
+// without its - (shop for --prefix shop-), which is usually a plain word
+// such as a database or a role; group names written without @; key names,
+// which often name an environment, a bucket or an account too; and a name
+// that is also the user, host, bucket or database in a conn URL, which
+// may mean that resource rather than komando's entry.
+type nameText struct {
+	follow   map[string]string // servers, conns, VPNs, secrets: old -> new
+	groups   map[string]string // groups, as @NAME
+	left     map[string]string // old names that stay as plain words -> why
+	inURL    map[string]string // words in conn URLs -> the conn (new name)
+	old, new string            // the prefix, for patterns; "" for none
+	grows    bool              // new starts with old
+	before   []string          // servers, conns and VPNs before the rename
+	renamed  map[string]string // servers, conns and VPNs: old -> new
+}
+
+// keptWord is an old name a text keeps, and why.
+type keptWord struct{ name, reason string }
+
+func newNameText(s *store.State, rs renameSet, prefix *renamePair) *nameText {
+	t := &nameText{follow: map[string]string{}, groups: rs["group"], left: map[string]string{}, inURL: map[string]string{}, renamed: map[string]string{}}
+	for _, k := range []string{"host", "conn", "vpn"} {
+		maps.Copy(t.renamed, rs[k])
 	}
+	maps.Copy(t.follow, t.renamed)
+	maps.Copy(t.follow, rs["secret"])
+	for n := range rs["key"] {
+		t.left[n] = "a key's name, which often names a bucket, an account or an environment too"
+	}
+	for n := range rs["group"] {
+		why := "a group's name, often a plain word too"
+		if k, ok := t.left[n]; ok {
+			why = k
+		}
+		t.left[n] = why + "; @" + n + " follows the group"
+	}
+	if prefix != nil {
+		t.old, t.new = prefix.From, prefix.To
+		t.grows = len(t.new) > len(t.old) && strings.HasPrefix(t.new, t.old)
+		if bare, ok := strings.CutSuffix(t.old, "-"); ok && bare != "" {
+			for _, k := range renameKinds {
+				if _, ok := rs[k][bare]; ok {
+					why := "OLD without its -, usually a plain word (a database, a role)"
+					if _, g := rs["group"][bare]; g {
+						why += "; @" + bare + " follows the group"
+					}
+					delete(t.follow, bare)
+					t.left[bare] = why
+					break
+				}
+			}
+		}
+	}
+	for n := range t.follow {
+		delete(t.left, n) // a key or group that shares a server's name follows with it
+	}
+	for _, h := range s.SortedHosts() {
+		t.before = append(t.before, h.Name)
+	}
+	for _, c := range s.SortedConns() {
+		t.before = append(t.before, c.Name)
+		name := c.Name
+		if to, ok := t.renamed[name]; ok {
+			name = to
+		}
+		for _, w := range urlWords(c.URL) {
+			if _, ok := t.inURL[w]; !ok {
+				t.inURL[w] = name
+			}
+		}
+	}
+	for _, v := range s.SortedVpns() {
+		t.before = append(t.before, v.Name)
+	}
+	return t
+}
+
+// urlWords are the names in a conn URL that belong to the resource: the
+// user, the host (an S3 bucket), each path segment (a database, a bucket)
+// and each query value but secret:NAME.
+func urlWords(raw string) []string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return nil
+	}
+	var w []string
+	if u.User != nil {
+		w = append(w, u.User.Username())
+	}
+	w = append(w, u.Hostname())
+	w = append(w, strings.Split(u.Path, "/")...)
+	for _, vs := range u.Query() {
+		for _, v := range vs {
+			if !strings.HasPrefix(v, "secret:") {
+				w = append(w, v)
+			}
+		}
+	}
+	return slices.DeleteFunc(w, func(x string) bool { return x == "" })
+}
+
+// nameByte is a byte of a name: letters, digits and . _ -.
+func nameByte(b byte) bool {
+	return b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' || b == '.' || b == '_' || b == '-'
+}
+
+// replace gives text with the old names that follow replaced, and the old
+// names it keeps. A word runs over name bytes, and * and ? for patterns; a
+// full stop or a question mark after it ends a sentence, and stars that
+// close the ones before it (*name*, **name**) are emphasis, so they are
+// not part of it.
+func (t *nameText) replace(text string) (string, []keptWord) {
 	var sb strings.Builder
+	var kept []keptWord
 	for i := 0; i < len(text); {
-		if !word(text[i]) {
+		if !nameByte(text[i]) {
 			sb.WriteByte(text[i])
 			i++
 			continue
 		}
 		j := i
-		for j < len(text) && word(text[j]) {
+		for j < len(text) && (nameByte(text[j]) || text[j] == '*' || text[j] == '?') {
 			j++
 		}
 		w := text[i:j]
-		core := strings.TrimRight(w, ".")
-		if to, ok := m[core]; ok {
+		core := strings.TrimRight(w, ".?")
+		for k := i - 1; k >= 0 && text[k] == '*' && strings.HasSuffix(core, "*"); k-- {
+			core = strings.TrimRight(core[:len(core)-1], ".?")
+		}
+		// @NAME is a group, as in a target; user@host is not
+		at := i > 0 && text[i-1] == '@' && (i == 1 || !nameByte(text[i-2]))
+		to, why := t.word(core, at)
+		if why != "" {
+			kept = append(kept, keptWord{core, why})
+		}
+		if to != "" {
 			w = to + w[len(core):]
 		}
 		sb.WriteString(w)
 		i = j
 	}
-	return sb.String()
+	return sb.String(), kept
+}
+
+// word is the new name of one word ("" when it stays) and, when it stays
+// although it is an old name, why.
+func (t *nameText) word(w string, at bool) (to, why string) {
+	switch {
+	case w == "":
+		return "", ""
+	case at:
+		return t.groups[w], ""
+	case strings.ContainsAny(w, "*?"):
+		return t.pattern(w)
+	}
+	if to, ok := t.follow[w]; ok {
+		if c, ok := t.inURL[w]; ok {
+			return "", "also in the URL of conn " + c + ", where it may name a user, a bucket or a database"
+		}
+		return to, ""
+	}
+	return "", t.left[w]
+}
+
+// pattern is the new form of a pattern that starts with OLD, when it is
+// safe: every server, conn and VPN it matches is renamed, and the new
+// pattern matches no other. Then it matches exactly the same entries
+// after the rename.
+func (t *nameText) pattern(p string) (to, why string) {
+	if t.old == "" || !strings.HasPrefix(p, t.old) || (t.grows && strings.HasPrefix(p, t.new)) {
+		return "", ""
+	}
+	if _, err := path.Match(p, ""); err != nil {
+		return "", ""
+	}
+	np := t.new + p[len(t.old):]
+	matched := 0
+	for _, n := range t.before {
+		_, gone := t.renamed[n]
+		if ok, _ := path.Match(p, n); ok {
+			if !gone {
+				return "", "a pattern that also matches " + n + ", which keeps its name"
+			}
+			matched++
+		} else if ok, _ := path.Match(np, n); ok && !gone {
+			return "", "after the rename, " + np + " would also match " + n
+		}
+	}
+	if matched == 0 {
+		return "", "a pattern that matches no server, conn or VPN"
+	}
+	return np, ""
 }
