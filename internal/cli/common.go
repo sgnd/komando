@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/user"
 	"regexp"
 	"strconv"
 	"strings"
@@ -597,6 +598,12 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 		if allowedByPerson() {
 			rec["allowed_by_person"] = true // in komando's window
 		}
+		// the agent's environment can give KOMANDO_ACTOR any name, so it
+		// is the name it claims; the computer account comes from the system
+		if os.Getenv("KOMANDO_ACTOR") != "" {
+			rec["actor_claimed"] = true
+		}
+		rec["os_user"] = osUser()
 	}
 	for k, v := range extra {
 		rec[k] = v
@@ -604,6 +611,19 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 	_ = appendAudit(rec)
 }
 
+// osUser is the computer account komando runs as, from the system's user
+// database, else its number; never from the environment (user.Current
+// falls back to $USER).
+func osUser() string {
+	uid := strconv.Itoa(os.Getuid())
+	if u, err := user.LookupId(uid); err == nil {
+		return u.Username
+	}
+	return "uid " + uid
+}
+
+// actor is the name the audit log gives whoever runs komando: KOMANDO_ACTOR,
+// else USER. For an AI agent it is a label (actor_claimed), not proof.
 func actor() string {
 	if a := os.Getenv("KOMANDO_ACTOR"); a != "" {
 		return a

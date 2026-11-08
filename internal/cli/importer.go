@@ -197,29 +197,9 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	}
 	res.Skipped = append(res.Skipped, v.Invalid...)
 	res.NotFound, res.aboutAdded = append(res.NotFound, v.Notes...), v.Notes // each note in v.Notes is about a server in v.Add
-	var conns []*store.Conn
-	for _, c := range plan.Conns {
-		c.URL = normConnURL(c.URL)
-		// the same database imported again is skipped; a different one that
-		// happens to share the name gets the next free name (shop-2)
-		if old, ok := st.Conns[c.Name]; ok && old.URL != c.URL && !overwrite {
-			renameImported(st, plan, c)
-		}
-		if r := skip("conn", c.Name); r != "" {
-			res.Skipped = append(res.Skipped, importSkip{c.Name, r})
-			continue
-		}
-		if _, err := checkConn(st, c); err != nil {
-			res.Skipped = append(res.Skipped, importSkip{c.Name, toErr(err).Message})
-			continue
-		}
-		if name, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok && !overwrite {
-			if _, err := vault.Get(name); err == nil {
-				res.Skipped = append(res.Skipped, importSkip{c.Name, "secret " + name + " already exists (use --overwrite to replace it)"})
-				continue
-			}
-		}
-		conns = append(conns, c)
+	conns, err := vetImportConns(st, plan, overwrite, skip, &res)
+	if err != nil {
+		return err
 	}
 	var recipes []*store.Snippet
 	for _, r := range plan.Recipes {
@@ -277,6 +257,54 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 		map[string]any{"source": source, "file": file, "secrets": len(res.Secrets)})
 	out.P.Print("import", res, nil)
 	return nil
+}
+
+// vetImportConns picks the conns an import adds, as conn add would, and
+// records the rest in res.Skipped. For an AI agent, a conn that sends a
+// secret the import does not bring itself (one already in the vault, an
+// env: or file: reference), or whose URL turns its network protection
+// down, needs a person's yes; the import's own passwords go to the
+// address they came with.
+func vetImportConns(st *store.State, plan *importPlan, overwrite bool, skip func(kind, name string) string, res *importResult) ([]*store.Conn, error) {
+	var conns []*store.Conn
+	var sends, weak []string
+	for _, c := range plan.Conns {
+		c.URL = normConnURL(c.URL)
+		// the same database imported again is skipped; a different one that
+		// happens to share the name gets the next free name (shop-2)
+		if old, ok := st.Conns[c.Name]; ok && old.URL != c.URL && !overwrite {
+			renameImported(st, plan, c)
+		}
+		if r := skip("conn", c.Name); r != "" {
+			res.Skipped = append(res.Skipped, importSkip{c.Name, r})
+			continue
+		}
+		if _, err := checkConn(st, c); err != nil {
+			res.Skipped = append(res.Skipped, importSkip{c.Name, toErr(err).Message})
+			continue
+		}
+		name, ok := strings.CutPrefix(c.PasswordRef, "secret:")
+		if ok && !overwrite {
+			if _, err := vault.Get(name); err == nil {
+				res.Skipped = append(res.Skipped, importSkip{c.Name, "secret " + name + " already exists (use --overwrite to replace it)"})
+				continue
+			}
+		}
+		p := connPlace(c)
+		if ok && plan.Secrets[name] != "" { // stored by this import, for this conn
+			p.refs = slices.DeleteFunc(p.refs, func(r string) bool { return r == c.PasswordRef })
+		}
+		line, err := newSends("conn "+c.Name, nil, p)
+		if err != nil {
+			return nil, err
+		}
+		sends = append(sends, line)
+		for _, w := range weakTLS("", c.URL) {
+			weak = append(weak, c.Name+": "+w)
+		}
+		conns = append(conns, c)
+	}
+	return conns, guardSends(sends, weak)
 }
 
 // addConn records a conn the import adds: its name, the password stored

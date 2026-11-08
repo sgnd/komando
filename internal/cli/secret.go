@@ -176,12 +176,12 @@ func secretCmd() *cobra.Command {
 		Use:     "secret",
 		Aliases: []string{"secrets", "vault"},
 		Short:   "Encrypted vault for passwords and tokens (secret:NAME)",
-		Long: `Secrets are AES-256-GCM encrypted in ~/.komando/vault.json. The key comes from
-$KOMANDO_VAULT_PASS if set at first use, otherwise a random vault.key file.
-Values are never printed unless 'secret get --reveal' is used (a person only).
-'secret mv' and 'secret cp' rename and copy inside the vault, so nobody has to
-type a value again; 'secret check' lets a person compare a value with the
-stored one without showing either.`,
+		Long: `Secrets are AES-256-GCM encrypted in ~/.komando/vault.json. The key is a random
+vault.key file ('secret keychain' moves it into the OS keychain), or comes from
+$KOMANDO_VAULT_PASS if set at first use ('secret passphrase' changes it). Values
+are never printed unless 'secret get --reveal' is used (a person only). 'secret
+mv' and 'secret cp' rename and copy inside the vault; 'secret check' lets a
+person compare a value with the stored one without showing either.`,
 	}
 	set := &cobra.Command{
 		Use:   "set NAME",
@@ -397,7 +397,7 @@ picks would be a way to guess the secret one try at a time.`,
 			return nil
 		},
 	}
-	c.AddCommand(set, get, check, list, secretCopyCmd(true), secretCopyCmd(false), rm, secretKeychainCmd())
+	c.AddCommand(set, get, check, list, secretCopyCmd(true), secretCopyCmd(false), rm, secretKeychainCmd(), secretPassphraseCmd())
 	return c
 }
 
