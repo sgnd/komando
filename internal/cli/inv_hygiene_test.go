@@ -17,10 +17,10 @@ func TestDoctorConnHygiene(t *testing.T) {
 	// a dev conn with the production password
 	st.Conns["dev-minio"] = &store.Conn{Name: "dev-minio", Kind: "s3", URL: "s3://key@minio.dev/b", PasswordRef: "secret:prd-minio"}
 	// two conns to the same place
-	st.Conns["app"] = &store.Conn{Name: "app", Kind: "postgres", URL: "postgres://postgres@172.30.0.42:5434/duwit", Protected: true}
-	st.Conns["db-duwit"] = &store.Conn{Name: "db-duwit", Kind: "postgres", URL: "postgres://postgres@172.30.0.42:5434/duwit", Protected: true}
+	st.Conns["app"] = &store.Conn{Name: "app", Kind: "postgres", URL: "postgres://postgres@10.0.0.2:5432/shop", Protected: true}
+	st.Conns["db-shop"] = &store.Conn{Name: "db-shop", Kind: "postgres", URL: "postgres://postgres@10.0.0.2:5432/shop", Protected: true}
 	// same URL through another path is another place
-	st.Conns["db-other"] = &store.Conn{Name: "db-other", Kind: "postgres", URL: "postgres://postgres@172.30.0.42:5434/duwit", Via: "prd", Protected: true}
+	st.Conns["db-other"] = &store.Conn{Name: "db-other", Kind: "postgres", URL: "postgres://postgres@10.0.0.2:5432/shop", Via: "prd", Protected: true}
 	// on the protected server, not protected itself
 	st.Conns["redis"] = &store.Conn{Name: "redis", Kind: "redis", URL: "redis://10.0.0.1:6379", Labels: map[string]string{"host": "prd"}}
 	got := map[string]string{}
@@ -31,7 +31,7 @@ func TestDoctorConnHygiene(t *testing.T) {
 	}
 	for name, want := range map[string]string{
 		"conn:dev-minio": "shares secret:prd-minio with protected conn prd-minio",
-		"conn:db-duwit":  "same kind, URL and --via as conn app",
+		"conn:db-shop":   "same kind, URL and --via as conn app",
 		"conn:redis":     "label host=prd, a protected server",
 	} {
 		if !strings.Contains(got[name], want) {
@@ -52,9 +52,9 @@ func TestDoctorConnHygiene(t *testing.T) {
 // taking one instead of a bare "not found".
 func TestShowSelectorHint(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--group", "duwit")
-	e := wantCode(t, "HOST_NOT_FOUND", "host", "show", "@duwit")
-	if !strings.Contains(e.Hint, "takes one host name") || !strings.Contains(e.Hint, "`komando list @duwit`") {
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--group", "acme")
+	e := wantCode(t, "HOST_NOT_FOUND", "host", "show", "@acme")
+	if !strings.Contains(e.Hint, "takes one host name") || !strings.Contains(e.Hint, "`komando list @acme`") {
 		t.Errorf("hint: %s", e.Hint)
 	}
 	e = wantCode(t, "CONN_NOT_FOUND", "conn", "show", "web-*")

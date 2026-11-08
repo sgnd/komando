@@ -109,6 +109,17 @@ that clearly changes something (`rm`, `mv`, `tee`, `> file`, `sed -i`,
 `READ_ONLY_VIOLATION`. In that case drop `--read-only` and confirm with
 `--yes` instead.
 
+On a **protected** server or conn, `--read-only` is an allowlist: it skips
+`--yes` only for commands komando knows read — `cat`, `tail`, `head`, `ls`,
+`stat`, `df`, `du`, `free`, `uptime`, `ps`, `grep`, `ss`, `journalctl` and
+`systemctl status`/`is-active`, `docker ps`/`logs`/`inspect`,
+`kubectl get`/`describe`/`logs`, `find` without `-delete`/`-exec`, and the
+like, including a shell script built only from them. A command komando does
+not recognise (a program of your own, say) is treated as a change on a
+protected target, so it needs `--yes` with a person's approval like any
+other. On an unprotected server `--read-only` only has to pass the
+`READ_ONLY_VIOLATION` check above.
+
 A command komando cannot follow is refused the same way: `eval`, `source`,
 a command name in a variable (`$X file`), a shell or python reading a
 script it cannot see (`... | sh`, `python3 -c`). Text after `sh -c` or
@@ -130,7 +141,10 @@ are blocked everywhere unless a person allows them. See [Safety](safety.md).
 
 A password for the remote command can come from the vault, so it is never
 typed or shown: `-e DB_PASS=secret:prod-db`. komando fills in the value on
-the way to the server.
+the way to the server. It goes to the command on its input, not on its
+command line, so other users of the server do not see it in `ps` and it is
+not written to sudo's log. Values that are not from the vault are on the
+command line as usual.
 
 ## Run a local script
 

@@ -18,6 +18,15 @@ func TestMain(m *testing.M) {
 		os.Unsetenv(a.env)
 	}
 	askOnScreen = func(string) (bool, bool) { panic("a test opened an approval window") }
+	// each test keeps komando's data in its own KOMANDO_HOME, as the
+	// person's usual folder; TestAgentOtherHome checks the real rule
+	realHome := defaultHome
+	defaultHome = func() string {
+		if h := os.Getenv("KOMANDO_HOME"); h != "" {
+			return h
+		}
+		return realHome()
+	}
 	os.Exit(m.Run())
 }
 

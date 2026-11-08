@@ -160,7 +160,7 @@ func socksTunnel(st *store.State, addr string) string {
 func vpnEditCmd() *cobra.Command {
 	var check, address, service, user, passwordRef, notes, server, pskRef, localID, remoteID string
 	var groups, tags []string
-	var mfa bool
+	var mfa, legacyCrypto, allowPAP bool
 	c := &cobra.Command{
 		Use:   "edit NAME",
 		Short: "Change a VPN's check address, proxy, login or notes",
@@ -174,11 +174,11 @@ new config file, add it again with --overwrite.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f := cmd.Flags()
 			changed := false
-			for _, n := range []string{"check", "address", "service", "user", "password-ref", "notes", "group", "tag", "mfa", "server", "psk-ref", "id", "remote-id"} {
+			for _, n := range []string{"check", "address", "service", "user", "password-ref", "notes", "group", "tag", "mfa", "server", "psk-ref", "id", "remote-id", "legacy-crypto", "allow-pap"} {
 				changed = changed || f.Changed(n)
 			}
 			if !changed {
-				return out.Usage("nothing to change: give at least one of --check, --address, --service, --server, --user, --password-ref, --psk-ref, --id, --remote-id, --mfa, --notes, --group, --tag")
+				return out.Usage("nothing to change: give at least one of --check, --address, --service, --server, --user, --password-ref, --psk-ref, --id, --remote-id, --mfa, --legacy-crypto, --allow-pap, --notes, --group, --tag")
 			}
 			if check != "" {
 				if _, _, err := net.SplitHostPort(check); err != nil {
@@ -198,16 +198,11 @@ new config file, add it again with --overwrite.`,
 					return out.NotFound("vpn", args[0])
 				}
 				v := *cur
-				only := func(flag string, kinds ...string) error {
+				for flag, kinds := range map[string][]string{"address": {"socks"}, "service": {"system"},
+					"server": {"l2tp", "ipsec", "ikev2"}, "psk-ref": {"l2tp", "ipsec", "ikev2"}, "id": {"ipsec", "ikev2"}, "remote-id": {"ikev2"},
+					"legacy-crypto": {"l2tp", "ipsec"}, "allow-pap": {"l2tp"}} {
 					if f.Changed(flag) && !oneOf(v.Kind, kinds...) {
 						return out.Usage("--%s is not used by %s VPNs", flag, v.Kind)
-					}
-					return nil
-				}
-				for flag, kinds := range map[string][]string{"address": {"socks"}, "service": {"system"},
-					"server": {"l2tp", "ipsec", "ikev2"}, "psk-ref": {"l2tp", "ipsec", "ikev2"}, "id": {"ipsec", "ikev2"}, "remote-id": {"ikev2"}} {
-					if err := only(flag, kinds...); err != nil {
-						return err
 					}
 				}
 				if v.Kind == "wireguard" && (f.Changed("password-ref") || f.Changed("user")) {
@@ -271,6 +266,7 @@ new config file, add it again with --overwrite.`,
 				}
 				return nil
 			}
+			apply = withVpnOptIns(f.Changed, &res, legacyCrypto, allowPAP, apply)
 			if g.dryRun {
 				st, err := loadState()
 				if err != nil {
@@ -305,8 +301,40 @@ new config file, add it again with --overwrite.`,
 	f.StringVar(&user, "user", "", "user name for the VPN login")
 	f.StringVar(&passwordRef, "password-ref", "", "password as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO)")
+	f.BoolVar(&legacyCrypto, "legacy-crypto", false, "l2tp, ipsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; turning it on needs a person's yes)")
+	f.BoolVar(&allowPAP, "allow-pap", false, "l2tp: let the server pick PAP, which hands it your password itself (turning it on needs a person's yes)")
 	f.StringVar(&notes, "notes", "", "free-form notes")
 	f.StringSliceVarP(&groups, "group", "g", nil, "group(s), replacing the current ones")
 	f.StringSliceVarP(&tags, "tag", "t", nil, "tag(s), replacing the current ones")
 	return c
+}
+
+// withVpnOptIns adds --legacy-crypto and --allow-pap to vpn edit's apply.
+// They weaken the VPN's login, so turning one on needs a person's yes
+// (guardSafety); turning it off does not. res is the VPN apply changed,
+// the same one it stored outside --dry-run.
+func withVpnOptIns(changed func(string) bool, res **store.Vpn, legacy, pap bool, apply func(*store.State) error) func(*store.State) error {
+	return func(s *store.State) error {
+		if err := apply(s); err != nil {
+			return err
+		}
+		v := *res
+		if changed("legacy-crypto") {
+			if legacy && !v.LegacyCrypto {
+				if err := guardSafety("allowing old, weak IKEv1 ciphers (3DES, DH groups 2 and 5) for VPN " + v.Name); err != nil {
+					return err
+				}
+			}
+			v.LegacyCrypto = legacy
+		}
+		if changed("allow-pap") {
+			if pap && !v.AllowPAP {
+				if err := guardSafety("letting VPN " + v.Name + " log in with PAP, which hands the server your password itself"); err != nil {
+					return err
+				}
+			}
+			v.AllowPAP = pap
+		}
+		return nil
+	}
 }

@@ -60,7 +60,20 @@ func newestRelease(ctx context.Context) (string, error) {
 
 func updateClient() *http.Client {
 	t := http.DefaultTransport.(*http.Transport).Clone() // honours HTTPS_PROXY
-	return &http.Client{Transport: t}
+	return &http.Client{Transport: t, CheckRedirect: httpsOnlyRedirect}
+}
+
+// httpsOnlyRedirect follows a redirect only when it stays on HTTPS, so a
+// release download (GitHub sends it on to its CDN) can never be pulled over
+// plain HTTP, and keeps net/http's usual limit of ten hops.
+func httpsOnlyRedirect(req *http.Request, via []*http.Request) error {
+	if req.URL.Scheme != "https" {
+		return fmt.Errorf("refusing a redirect to %s (komando update downloads over HTTPS only)", req.URL.Redacted())
+	}
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	return nil
 }
 
 // send sends one request, and again (up to three tries) when the network

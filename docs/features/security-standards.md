@@ -31,7 +31,7 @@ make fuzz               # fuzz the parsers that read untrusted text
 | 7.1 Logs record who, what, where, result, without secrets | Every action: time, actor, AI agent, approval, hosts, command; tested to hold no password | ✅ |
 | 7.3 Logs are protected from change | 0600, a hash chain that `komando audit verify` checks, and each record sent to a log server with `audit_syslog` | ✅ with `audit_syslog`; 🟡 without it the same user can rebuild the chain or cut its end |
 | 8.3 Sensitive data is not shown to those who should not see it | Vault values hidden for everyone; passwords, keys and tokens hidden for AI agents | ✅ best effort: an unusual name can slip through |
-| 9.1, 9.2 Connections are encrypted and the server is checked | SSH host keys (stop on mismatch), TLS 1.2+ for Redis, Kubernetes, FTPS, HashiCorp Vault and the built-in VPN clients; plain FTP needs `?insecure=1` | 🟡 databases follow the conn URL; `doctor` warns about conns without verified TLS |
+| 9.1, 9.2 Connections are encrypted and the server is checked | SSH host keys (stop on mismatch; the first key is shown with its fingerprint), TLS 1.2+ for Redis, Kubernetes, FTPS, HashiCorp Vault and the built-in VPN clients; IKEv1 without 3DES or DH groups below 14; no PAP; plain FTP needs `?insecure=1` | 🟡 databases follow the conn URL; `doctor` warns about conns without verified TLS and prints the fix |
 | 12.3 Files: no path traversal | Folder downloads refuse server paths that lead outside the target | ✅ |
 | 14.2 Dependencies are known and kept up to date | Go modules, `govulncheck` in CI, Dependabot | ✅ |
 

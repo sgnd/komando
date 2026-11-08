@@ -11,6 +11,7 @@ import (
 
 	"github.com/sgnd/komando/internal/ipsec"
 	"github.com/sgnd/komando/internal/l2tp"
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/ppp"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -22,7 +23,7 @@ import (
 
 func ipsecOptions(v *store.Vpn) (ipsec.Options, error) {
 	o := ipsec.Options{Server: v.Server, User: v.User, ID: v.LocalID, RemoteID: v.RemoteID, CA: []byte(v.CA),
-		Log: func(f string, a ...any) { log.Printf(f, a...) }}
+		LegacyCrypto: v.LegacyCrypto, Log: func(f string, a ...any) { log.Printf(f, a...) }}
 	if v.PSKRef != "" {
 		psk, err := secret(v, v.PSKRef)
 		if err != nil {
@@ -64,13 +65,13 @@ func openIPsec(ctx context.Context, v *store.Vpn, timeout time.Duration) (Dialer
 		if err != nil {
 			return nil, nil, ipsecErr(v, err)
 		}
-		t, err := l2tp.Dial(ctx, s.L2TP(), v.User, o.Password, o.Log)
+		t, err := l2tp.Dial(ctx, s.L2TP(), v.User, o.Password, v.AllowPAP, o.Log)
 		if err != nil && errors.Is(err, l2tp.ErrNoAnswer) && ctx.Err() == nil {
 			// often the server still holds the session that just dropped
 			// (one session per user): it was told to end it; try once more
 			o.Log("L2TP: %v; trying once more", err)
 			time.Sleep(3 * time.Second)
-			t, err = l2tp.Dial(ctx, s.L2TP(), v.User, o.Password, o.Log)
+			t, err = l2tp.Dial(ctx, s.L2TP(), v.User, o.Password, v.AllowPAP, o.Log)
 		}
 		if err != nil {
 			s.Close()
@@ -109,9 +110,16 @@ func (t l2tpTun) Close() error {
 func ipsecErr(v *store.Vpn, err error) error {
 	var ae *ipsec.AuthError
 	var pe *ppp.AuthError
+	var le *ipsec.LegacyCryptoError
 	switch {
 	case errors.Is(err, ipsec.ErrNeedsPerson):
 		return LoginRequired(v)
+	case errors.As(err, &le):
+		return out.Errf(out.ExitConnect, "VPN_DOWN", "ask the VPN's admin for AES with DH group 14 or higher; if you accept old, weak ciphers for this VPN, a person can allow them with `komando vpn edit "+v.Name+" --legacy-crypto`",
+			"VPN %s: %v", v.Name, err)
+	case errors.Is(err, ppp.ErrPAPRefused):
+		return out.Errf(out.ExitConnect, "VPN_DOWN", "ask the VPN's admin to allow MS-CHAPv2; if you accept that the server gets your password, a person can allow PAP with `komando vpn edit "+v.Name+" --allow-pap`",
+			"VPN %s: %v", v.Name, err)
 	case errors.As(err, &ae), errors.As(err, &pe):
 		return Down(v, fmt.Errorf("%v (check `komando vpn show %s`: the pre-shared key, --user and the password)", err, v.Name))
 	}

@@ -18,5 +18,5 @@ internal/registry 72
 internal/sshx 65
 internal/sslvpn 74
 internal/store 46
-internal/storex 5
+internal/storex 32
 internal/vault 63

@@ -154,6 +154,9 @@ func hostAddCmd() *cobra.Command {
 				if err := checkHost(s, h); err != nil {
 					return err
 				}
+				if err := guardHostSends([]*store.Host{h}, s.Hosts); err != nil {
+					return err // s.Hosts holds the server it replaces, if any
+				}
 				if twin := protectedTwinHost(s, h); twin != "" && !h.Protected {
 					h.Protected = true
 					res.Warnings = append(res.Warnings, sameTwinWarning("server", name, twin))
@@ -251,10 +254,11 @@ covers every server in the command, and the question lists them all. Try
 					before []byte
 				}
 				var edits []edit
-				var off, login []string
+				olds := map[string]*store.Host{} // the connection settings before the edit
 				for _, h := range hosts {
 					before, _ := json.Marshal(h)
-					conn := *h // the connection settings before the edit
+					conn := *h
+					olds[h.Name] = &conn
 					if err := applyHostEdit(h, &f, fl); err != nil {
 						return editErr(err, h.Name, single)
 					}
@@ -263,15 +267,9 @@ covers every server in the command, and the question lists them all. Try
 							return keyNotFound(s, h.Key)
 						}
 					}
-					if conn.Protected && !h.Protected {
-						off = append(off, h.Name)
-					}
-					if conn.Protected && hostConnChanged(&conn, h) {
-						login = append(login, h.Name)
-					}
 					edits = append(edits, edit{h, before})
 				}
-				if err := guardHostEdit(hosts, off, login, single); err != nil {
+				if err := guardHostEdit(hosts, olds, single); err != nil {
 					return err
 				}
 				if rename != "" && rename != hosts[0].Name {
@@ -376,15 +374,22 @@ func editErr(err error, name string, single bool) error {
 // guardHostEdit asks once for every protected server whose protection the
 // edit turns off (off) or whose login it changes (login). With several
 // servers the question lists all of them and marks the protected ones.
-func guardHostEdit(hosts []*store.Host, off, login []string, single bool) error {
-	var names []string
+// For an AI agent the same window also asks about the secrets the edit
+// sends to a new place (guardHostSends). olds holds each server's settings
+// before the edit.
+func guardHostEdit(hosts []*store.Host, olds map[string]*store.Host, single bool) error {
+	var names, off, login []string
 	for _, h := range hosts {
+		o := olds[h.Name]
+		if o.Protected && !h.Protected {
+			off = append(off, h.Name)
+		}
+		if o.Protected && hostConnChanged(o, h) {
+			login = append(login, h.Name)
+		}
 		if slices.Contains(off, h.Name) || slices.Contains(login, h.Name) {
 			names = append(names, h.Name)
 		}
-	}
-	if len(names) == 0 {
-		return nil
 	}
 	action := "changing where or how komando logs in to"
 	switch {
@@ -393,12 +398,21 @@ func guardHostEdit(hosts []*store.Host, off, login []string, single bool) error 
 	case len(off) > 0:
 		action = "turning off protection of, or changing the login of,"
 	}
+	why := fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), "host"), strings.Join(names, ", "))
+	if !single {
+		all := hostNames(hosts)
+		why = fmt.Sprintf("this edit changes %d servers: %s (protected: %s)", len(all), strings.Join(all, ", "), strings.Join(names, ", "))
+	}
+	if len(names) == 0 {
+		return guardHostSends(hosts, olds)
+	}
+	if err := guardHostSends(hosts, olds, why); err != nil {
+		return err
+	}
 	if single {
 		return guardProtection("host", action, names)
 	}
-	all := hostNames(hosts)
-	return guardProtectionWhy("host", action, names,
-		fmt.Sprintf("this edit changes %d servers: %s (protected: %s)", len(all), strings.Join(all, ", "), strings.Join(names, ", ")))
+	return guardProtectionWhy("host", action, names, why)
 }
 
 // applyHostEdit applies the edit flags to h.
