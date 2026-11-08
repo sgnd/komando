@@ -120,6 +120,25 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- **`--read-only` on a protected server or conn is now an allowlist, not a
+  denylist.** Before, a protected target let any command komando did not
+  recognise skip `--yes`, so an unknown program that changes things could
+  pass. Now `--read-only` skips the confirmation only for commands komando
+  knows read (`cat`, `ls`, `tail`, `df`, `ps`, `grep`, `journalctl` and
+  `systemctl status`, `docker ps`/`logs`, `kubectl get`/`describe`, `find`
+  without `-delete`/`-exec`, and the like); anything else takes the normal
+  `--yes` path with a person's approval. Unprotected targets are unchanged.
+  Affects `exec`, `script`, `job start` and read-only recipes.
+- **An `--os-mode` OpenVPN profile is now rewritten into a canonical form
+  and handed to `openvpn` on its input, never written to a file.** komando
+  parses the `.ovpn`, refuses anything its checker and OpenVPN could read
+  differently (backslash escapes, stray quotes, over-long lines, odd inline
+  tags, control characters), and passes `openvpn` only the directives it
+  checked, with `--script-security 1` on the command line so the root
+  process runs no user programs. A profile komando accepted before may now
+  be refused if it relies on one of those tricks.
+- **`komando update` follows release redirects only while they stay on
+  HTTPS**, so the download can never be pulled over plain HTTP.
 - An AI agent that sends a secret somewhere needs `--yes`, and komando's
   window names the secret and the place (`SECRET_DESTINATION`, exit 6):
   `{{secret:NAME}}` in `fs write` and `fs replace`, `exec --env

@@ -135,6 +135,41 @@ func TestReadOnlyViolation(t *testing.T) {
 	}
 }
 
+// The allowlist (readOnlyAllowlist) is stricter than the denylist: a
+// command komando cannot confirm only reads is reported, so a protected
+// target holds it to --yes. Commands komando knows read are not.
+func TestReadOnlyAllowlist(t *testing.T) {
+	allowed := []string{
+		"cat /etc/hostname", "ls -la /var", "tail -n 50 /var/log/syslog", "head -5 f",
+		"grep -r nginx /etc", "ps aux | grep nginx", "df -h", "du -sh /var", "free -m",
+		"uptime", "stat /etc/hosts", "ss -tlnp", "netstat -an",
+		"journalctl -u nginx --no-pager", "systemctl status nginx", "systemctl is-active nginx",
+		"docker ps", "docker logs api", "docker inspect api",
+		"kubectl get pods", "kubectl describe pod x", "kubectl logs api",
+		"find /var/log -name '*.log'", "sudo cat /etc/shadow", "wc -l f",
+		"for f in /proc/*/status; do cat $f; done",
+		"set -eu\ndf -h /\ncat /etc/os-release",
+		"sh -c 'ls /data | wc -l'",
+	}
+	for _, c := range allowed {
+		if w := readOnlyAllowlist(c); w != "" {
+			t.Errorf("%q: allowlist refused it (%s)", c, w)
+		}
+	}
+	refused := []string{
+		"mytool --status", "./deploy.sh", "cat /etc/hosts | mytool", "sh -c 'mytool'",
+		"python3 -c 'print(1)'", "ssh host uptime", "eval ls", "node app.js",
+		"custombin", "xargs mytool", "sudo mytool",
+	}
+	for _, c := range refused {
+		if readOnlyAllowlist(c) == "" {
+			t.Errorf("%q: allowlist let it skip --yes on a protected target", c)
+		}
+		// but none of these is a clear write, so the denylist stays quiet
+		// for the ones that truly change nothing komando can see
+	}
+}
+
 func TestScriptCommand(t *testing.T) {
 	cases := []struct {
 		interp string

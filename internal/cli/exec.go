@@ -169,12 +169,15 @@ unless --allow-dangerous is given. Hosts marked protected need --yes unless
 					return err
 				}
 			}
+			mutating := !readOnly
 			if readOnly {
 				// bash -s alone runs its input, so the input is checked as
 				// its script; any other command is checked itself, and its
 				// input is data (a CSV for wc, SQL for psql)
+				checked := command
 				if o.stdinFile != "" && stdinShell(command) {
-					if err := checkReadOnlyEnv(string(stdin), o.env); err != nil {
+					checked = string(stdin)
+					if err := checkReadOnlyEnv(checked, o.env); err != nil {
 						return err
 					}
 				} else if err := checkReadOnlyEnv(command, o.env); err != nil {
@@ -184,8 +187,11 @@ unless --allow-dangerous is given. Hosts marked protected need --yes unless
 						return err
 					}
 				}
+				// the denylist passed; a protected target still needs --yes
+				// unless komando knows the command only reads (allowlist)
+				mutating = readOnlyMutates(checked, o.env)
 			}
-			return runFleet(cmd.Context(), "exec", args[0], command, stdin, o, !readOnly)
+			return runFleet(cmd.Context(), "exec", args[0], command, stdin, o, mutating)
 		},
 	}
 	o.bind(c)
@@ -226,6 +232,7 @@ func scriptCmd() *cobra.Command {
 			if err := guardBody(string(body)); err != nil {
 				return err
 			}
+			mutating := !readOnly
 			if readOnly {
 				// only a shell script can be checked: the interpreter must
 				// be a plain shell (python, or tee /etc/passwd, is not),
@@ -242,8 +249,11 @@ func scriptCmd() *cobra.Command {
 				if err := checkReadOnlyEnv(string(body), o.env); err != nil {
 					return err
 				}
+				// a protected target still needs --yes unless komando knows
+				// every command in the script only reads (allowlist)
+				mutating = readOnlyMutates(string(body), o.env)
 			}
-			return runFleet(cmd.Context(), "script", args[0], command, body, o, !readOnly)
+			return runFleet(cmd.Context(), "script", args[0], command, body, o, mutating)
 		},
 	}
 	o.bind(c)

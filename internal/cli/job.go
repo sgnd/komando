@@ -77,7 +77,7 @@ func jobStartCmd() *cobra.Command {
 					return err
 				}
 			}
-			if err := guard(st, hosts, command, !readOnly); err != nil {
+			if err := guard(st, hosts, command, !readOnly || readOnlyMutates(command, envs)); err != nil {
 				return err
 			}
 			env, err := parseEnvTo(envs, hosts)
