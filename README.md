@@ -77,6 +77,18 @@ Without it, the installer cannot write there and puts the new version in
 `~/.local/bin`, and your terminal may keep running the old one. `komando version`
 shows which one runs.
 
+### Tab completion
+
+Press Tab to complete commands, flags and the names of your servers,
+conns, groups and tags. Turn it on once (then open a new terminal):
+
+```bash
+echo 'source <(komando completion zsh)' >> ~/.zshrc     # zsh (macOS)
+echo 'source <(komando completion bash)' >> ~/.bashrc   # bash (Linux)
+```
+
+For fish and PowerShell, see `komando completion --help`.
+
 ### Uninstall
 
 1. Stop what komando still runs: `komando status` lists it; `komando vpn down

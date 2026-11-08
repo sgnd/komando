@@ -41,6 +41,13 @@ komando conn add app-db postgres://app@10.0.0.5:5432/app \
   --via web1 --password-ref secret:app-db-pass --protected
 ```
 
+Or in one step at your terminal: `--ask-password` asks for it (hidden) and
+stores it as `secret:app-db-pass`:
+
+```bash
+komando conn add app-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password --protected
+```
+
 `--via web1` means "the database is only reachable from web1". komando
 connects through web1 over SSH by itself: there is no tunnel to start and no
 port opens on your computer. `--via` can also be a chain or a VPN (see

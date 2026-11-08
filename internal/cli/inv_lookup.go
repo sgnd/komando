@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -9,6 +11,7 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // Looking up one name the way people type it: exact first, then the one
@@ -180,18 +183,50 @@ func rmConns(s *store.State, args []string) ([]*store.Conn, error) {
 
 // rmResult is what host rm and conn rm print.
 type rmResult struct {
-	Removed      []string `json:"removed"`
-	HostKeysKept []string `json:"host_keys_kept,omitempty"` // host rm: servers whose pinned key stays in known_hosts
-	Note         string   `json:"note,omitempty"`
+	Removed       []string `json:"removed"`
+	HostKeysKept  []string `json:"host_keys_kept,omitempty"` // host rm: servers whose pinned key stays in known_hosts
+	SecretsUnused []string `json:"secrets_unused,omitempty"` // vault secrets only the removed entries used
+	Note          string   `json:"note,omitempty"`
 }
 
 func (r rmResult) Text() string {
-	t := "removed: " + strings.Join(r.Removed, ", ")
+	t := "removed " + strings.Join(r.Removed, ", ")
 	if g.dryRun {
-		t = "would remove: " + strings.Join(r.Removed, ", ")
+		t = "would remove " + strings.Join(r.Removed, ", ") + " (dry run)"
+	}
+	for _, s := range r.SecretsUnused {
+		t += "\n" + s + " is no longer used: `komando secret rm " + s + "`"
 	}
 	if r.Note != "" {
 		t += "\nnote: " + r.Note
 	}
 	return t
 }
+
+// unusedSecrets is the vault secrets among refs (secret:NAME) that nothing
+// in s uses any more: what a removal left behind, for the person to remove
+// too (komando never deletes a secret by itself).
+func unusedSecrets(s *store.State, refs []string) []string {
+	var names []string
+	for _, r := range refs {
+		n, ok := strings.CutPrefix(r, "secret:")
+		if !ok || n == "" || slices.Contains(names, n) || len(secretUsers(s, n)) > 0 {
+			continue
+		}
+		if _, err := vault.Get(n); err == nil {
+			names = append(names, n)
+		}
+	}
+	slices.Sort(names)
+	return names
+}
+
+// textAs prints data as JSON and text as its words: for results whose JSON
+// shape is fixed (the contract) but whose text can say more.
+type textAs struct {
+	data any
+	text out.Texter
+}
+
+func (t textAs) MarshalJSON() ([]byte, error) { return json.Marshal(t.data) }
+func (t textAs) Text() string                 { return t.text.Text() }

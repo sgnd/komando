@@ -82,12 +82,13 @@ func hostCmd() *cobra.Command {
 
 func hostAddCmd() *cobra.Command {
 	var f hostFlags
-	var force bool
+	var force, askPw bool
 	c := &cobra.Command{
 		Use:   "add NAME [user@address[:port]]",
 		Short: "Add a server to the list",
 		Example: `  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
-  komando host add db1 --address db.internal --user root --via bastion --protected`,
+  komando host add db1 --address db.internal --user root --via bastion --protected
+  komando host add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -96,6 +97,14 @@ func hostAddCmd() *cobra.Command {
 			}
 			if err := guardProxyCommand(f.proxyCommand); err != nil {
 				return err
+			}
+			undoPw := func() {}
+			if askPw {
+				ref, undo, err := askPassword(cmd, "host", name)
+				if err != nil {
+					return err
+				}
+				f.passwordRef, undoPw = ref, undo
 			}
 			h := &store.Host{Name: name, Address: f.address, Port: f.port, User: f.user, Key: f.key, Identity: f.identity,
 				PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, ProxyCommand: f.proxyCommand, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
@@ -165,15 +174,19 @@ func hostAddCmd() *cobra.Command {
 				return nil
 			})
 			if err != nil {
+				undoPw()
 				return err
 			}
 			res.Action = addVerb(replaced)
+			res.Warnings = append(res.Warnings, missingSecretWarnings(h.PasswordRef, h.SudoRef)...)
+			res.Next = "komando test " + name
 			audit(nil, "host.add", []string{name}, "", true, map[string]any{"action": res.Action})
 			out.P.Print("host.add", res, nil)
 			return nil
 		},
 	}
 	f.bind(c, false)
+	askPasswordFlag(c, &askPw)
 	c.Flags().BoolVar(&force, "overwrite", false, "replace an existing host with the same name")
 	aliasFlag(c.Flags(), "force", "overwrite")
 	return c
@@ -203,6 +216,7 @@ func parseAddressArg(arg string) (*store.Host, error) {
 func hostEditCmd() *cobra.Command {
 	var f hostFlags
 	var rename string
+	var askPw bool
 	c := &cobra.Command{
 		Use:   "edit NAME|TARGET...",
 		Short: "Edit one or more hosts (only flags you pass are changed)",
@@ -216,7 +230,8 @@ covers every server in the command, and the question lists them all. Try
   komando host edit web1 -g web -t prod          # -g/-t add a group/tag
   komando host edit db1 --via bastion --yes      # db1 is protected
   komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run
-  komando host edit web1 web2 web3 --user deploy`,
+  komando host edit web1 web2 web3 --user deploy
+  komando host edit vps1 --ask-password          # type a new password (hidden)`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
@@ -230,6 +245,18 @@ covers every server in the command, and the question lists them all. Try
 			}
 			if err := guardProxyCommand(f.proxyCommand); err != nil {
 				return err
+			}
+			undoPw := func() {}
+			if askPw {
+				if len(args) != 1 {
+					return out.Usage("--ask-password gives one server its password: name one server")
+				}
+				ref, undo, err := askPassword(cmd, "host", args[0])
+				if err != nil {
+					return err
+				}
+				_ = fl.Set("password-ref", ref)
+				undoPw = undo
 			}
 			var res hostResult
 			var many hostEditResult
@@ -307,9 +334,13 @@ covers every server in the command, and the question lists them all. Try
 				return nil
 			})
 			if err != nil {
+				undoPw()
 				return err
 			}
 			if single {
+				if fl.Changed("password-ref") || fl.Changed("sudo-ref") {
+					res.Warnings = append(res.Warnings, missingSecretWarnings(res.PasswordRef, res.SudoRef)...)
+				}
 				if *res.Changed {
 					audit(nil, "host.edit", []string{res.Name}, "", true, map[string]any{"flags": changedFlags(cmd)})
 				}
@@ -325,6 +356,7 @@ covers every server in the command, and the question lists them all. Try
 		},
 	}
 	f.bind(c, true)
+	askPasswordFlag(c, &askPw)
 	c.Flags().StringVar(&rename, "rename", "", "rename the host")
 	_ = c.Flags().MarkDeprecated("rename", "use `komando host mv OLD NEW`")
 	return c
@@ -639,7 +671,7 @@ func hostRmCmd() *cobra.Command {
   komando host rm 'tmp-*'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var names, kept []string
+			var names, kept, unused []string
 			err := store.Update(func(s *store.State) error {
 				var prot []string
 				batch := map[string]bool{}
@@ -675,18 +707,25 @@ func hostRmCmd() *cobra.Command {
 					return err
 				}
 				gone := map[string]string{} // name -> address
+				var refs []string
 				for _, n := range names {
-					gone[n] = trustAddr(s.Hosts[n])
+					h := s.Hosts[n]
+					gone[n] = trustAddr(h)
+					refs = append(refs, h.PasswordRef, h.SudoRef)
+					for _, v := range h.Env {
+						refs = append(refs, v)
+					}
 					delete(s.Hosts, n)
 				}
 				kept = keptHostKeys(s, gone)
+				unused = unusedSecrets(s, refs)
 				return nil
 			})
 			if err != nil {
 				return err
 			}
 			audit(nil, "host.rm", names, "", true, nil)
-			res := rmResult{Removed: names, HostKeysKept: kept}
+			res := rmResult{Removed: names, HostKeysKept: kept, SecretsUnused: unused}
 			if len(kept) > 0 {
 				res.Note = "the pinned host keys of " + strings.Join(kept, ", ") + " stay in komando's known_hosts, so a server added again at the same address must show the same key. " +
 					"If it was rebuilt, add it again and replace the pin with `komando host trust NAME --reset` (a person confirms the new key)"

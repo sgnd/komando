@@ -38,7 +38,8 @@ type targetList struct {
 }
 
 // emptyInventory is what a person reads when there is nothing yet.
-const emptyInventory = "No servers or conns yet. Add one: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)"
+const emptyInventory = "No servers or conns yet. Add a server: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)\n" +
+	"A database, cache or bucket: komando conn add app-db postgres://app@10.0.0.5/app --ask-password"
 
 func (l targetList) Text() string {
 	if l.empty {

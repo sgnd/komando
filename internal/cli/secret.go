@@ -239,12 +239,13 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 					}
 				}
 			}
-			res := map[string]any{"name": args[0], "ref": "secret:" + args[0], "replaced": replaced}
+			res := map[string]any{"name": args[0], "ref": "secret:" + args[0], "replaced": replaced, "action": map[bool]string{false: "stored", true: "replaced"}[replaced]}
 			if w := valueWarning(args[0], v); w != "" {
 				res["warning"] = w
 			}
 			if g.dryRun {
 				res["would_set"] = true
+				res["action"] = "would_" + res["action"].(string)
 				out.P.Print("secret.set", res, nil)
 				return nil
 			}

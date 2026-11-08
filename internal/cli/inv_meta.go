@@ -280,7 +280,7 @@ func policyCmd() *cobra.Command {
 			if added {
 				audit(nil, "policy.deny", nil, "", true, map[string]any{"pattern": pat})
 			}
-			out.P.Print("policy.deny", map[string]any{"custom": pats, "added": added}, nil)
+			out.P.Print("policy.deny", policyChange{Custom: pats, Added: &added, pattern: pat}, nil)
 			return nil
 		},
 	})
@@ -331,7 +331,7 @@ Removing a rule weakens a safety check, so it needs --yes.`,
 				return err
 			}
 			audit(nil, "policy.allow", nil, "", true, map[string]any{"pattern": removed})
-			out.P.Print("policy.allow", map[string]any{"custom": orEmpty(pats), "removed": removed}, nil)
+			out.P.Print("policy.allow", policyChange{Custom: orEmpty(pats), Removed: removed}, nil)
 			return nil
 		},
 	})
@@ -626,4 +626,23 @@ func (p policyList) Text() string {
 	note, _ := p["note"].(string)
 	return textTable([]string{"for", "rule", "stops"}, rows) + "\n" + note +
 		"\nthe patterns: komando policy list -o json; test a command: komando policy check '...'\n"
+}
+
+// policyChange is what policy deny and allow did, in words for people.
+type policyChange struct {
+	Custom  []string `json:"custom"`
+	Added   *bool    `json:"added,omitempty"`   // deny
+	Removed string   `json:"removed,omitempty"` // allow
+	pattern string
+}
+
+func (p policyChange) Text() string {
+	n := countOf(len(p.Custom), "custom rule")
+	switch {
+	case p.Added != nil && *p.Added:
+		return fmt.Sprintf("added the deny rule %q (%s now)\n", p.pattern, n)
+	case p.Added != nil:
+		return fmt.Sprintf("the deny rule %q is there already (%s)\n", p.pattern, n)
+	}
+	return fmt.Sprintf("removed the deny rule %q (%s left)\n", p.Removed, n)
 }

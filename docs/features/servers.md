@@ -260,12 +260,26 @@ At your terminal, komando asks for the password when the server wants one,
 as `ssh` does (`web1: Password:`, hidden as you type). Store it once to skip
 the question, and so that AI agents and scripts can log in: they have no
 one to ask. You type it, nothing is shown, and it is saved encrypted in
-komando's vault (see [Secret](glossary.md)):
+komando's vault (see [Secret](glossary.md)). In one step, while adding the
+server or later:
+
+```bash
+komando host add vps1 root@203.0.113.20 --ask-password   # stored as secret:vps1-pass
+komando host edit web1 --ask-password                     # a new password (stored as secret:web1-pass)
+```
+
+`--ask-password` is for a person at a terminal (an AI agent asks you to run
+it). It never replaces a secret that another server or conn uses. The same
+in two steps, with a name you choose:
 
 ```bash
 komando secret set web1-pass
 komando host edit web1 --password-ref secret:web1-pass
 ```
+
+A `--password-ref secret:NAME` whose secret is not in the vault yet gets a
+warning right away, with the `secret set` command that stores it. After
+`host add`, the line `next:` says what to run next (`komando test web1`).
 
 The password goes to the server's address on every login. So when an AI
 agent gives a server or conn a password reference, or moves one that has

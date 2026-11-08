@@ -367,12 +367,22 @@ func renderText(data any) string {
 			return sb.String()
 		}
 		if h := headline(m); h != "" {
-			// what happened comes first, in words; the record follows
+			// what happened comes first, in words; the record follows, and
+			// the command to run next comes last
 			sb.WriteString(h + "\n")
-			for _, k := range []string{"action", "changed", "name", "created_at", "updated_at"} {
+			next, _ := m["next"].(string)
+			for _, k := range []string{"action", "changed", "name", "created_at", "updated_at", "next"} {
 				delete(m, k)
 			}
+			for k, v := range m {
+				if v == false { // "replaced: false" says nothing after "stored x"
+					delete(m, k)
+				}
+			}
 			writeAny(&sb, m, "  ")
+			if next != "" {
+				sb.WriteString("next: " + next + "\n")
+			}
 			return sb.String()
 		}
 	}

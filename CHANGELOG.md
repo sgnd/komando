@@ -9,6 +9,21 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `--ask-password` on `host add`, `host edit`, `conn add` and `conn edit`: a
+  person types the password once (hidden) and it is stored as
+  `secret:NAME-pass` and used as the reference, in one step instead of
+  three. It never replaces a secret something else uses, asks first on a
+  protected entry, and takes back a new secret when the add fails. An AI
+  agent gets `NEEDS_PERSON`.
+- `host add`, `conn add` and `vpn add` end with `next:` (`komando test
+  web1`, `komando vpn up office`). A `--password-ref secret:NAME` whose
+  secret is not in the vault yet is a warning at once, with the command
+  that stores it. `host rm`, `conn rm` and `vpn rm` name the secrets nothing
+  uses any more (`secrets_unused`) with the `secret rm` command; komando
+  does not remove them by itself.
+- The installer says when another komando earlier in your PATH would run
+  instead, tells an update to run `komando guide install` again, and shows
+  how to turn on tab completion; README has a Tab completion section.
 - **The menu grows with you.** Add stays once there is a server (after the
   actions) and also adds a conn from a name and a URL (`app-db
   postgres://...`). VPN connects or disconnects: an up VPN says `up (Enter
@@ -36,6 +51,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Text for people says what happened first: `stored app-db-pass`, `added
+  the deny rule "rm -rf /srv" (2 custom rules now)`, `removed app-db`,
+  `saved 2 servers, 1 conn to FILE (no passwords)`; `false` fields after
+  such a headline are left out. JSON is unchanged (fields were only added).
+- `komando list` on an empty inventory also shows how to add a database,
+  and `SECRET_NOT_FOUND` for a conn names the secret to set.
 - A person at a terminal confirms `fs rm --recursive`, removing a top-level
   path, `sync --delete` and removing an essential package by typing the
   target's name, as `exec` and `db query` already ask, instead of being
