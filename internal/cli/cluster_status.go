@@ -23,9 +23,12 @@ func clusterStatusCmd() *cobra.Command {
 		Long: `Without an object: the version, the nodes, and every problem (pods that do not
 run, workloads short of replicas, nodes that are not ready; on Swarm, services
 short of replicas with their tasks' errors). --namespace limits it to one
-namespace. With TYPE/NAME (or TYPE NAME): whether that workload has rolled out;
+namespace. A selector that picks several clusters (@prod, kind:k8s) shows
+each in data.results. With TYPE/NAME (or TYPE NAME) on one cluster: whether
+that workload has rolled out;
 --wait stays until it has, it fails, or --timeout (default 5m) passes.`,
 		Example: `  komando cluster status prod-k8s
+  komando cluster status @prod                  # every cluster in the group, at once
   komando cluster status prod-k8s deployment/api --namespace shop --wait
   komando cluster status swarm-manager service/web --wait`,
 		Args: cobra.RangeArgs(1, 3),
@@ -34,33 +37,36 @@ namespace. With TYPE/NAME (or TYPE NAME): whether that workload has rolled out;
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			ts, err := resolveClusters(st, args[0])
 			if err != nil {
 				return err
 			}
-			if err := noNamespace(t, ns); err != nil {
-				return err
-			}
 			if len(args) > 1 {
+				if len(ts) > 1 {
+					return out.Usage("a rollout is on one cluster, and %q picks %d; name one of them", args[0], len(ts))
+				}
+				if err := noNamespace(ts[0], ns); err != nil {
+					return err
+				}
 				typ, name, err := objectRef(args[1:])
 				if err != nil {
 					return err
 				}
-				return rolloutStatus(cmd.Context(), t, typ, name, ns, wait)
+				return rolloutStatus(cmd.Context(), ts[0], typ, name, ns, wait)
 			}
 			if wait {
 				return out.Usage("--wait needs an object: `cluster status %s deployment/NAME --wait`", args[0])
 			}
-			if t.host != nil {
-				res, err := swarmStatus(cmd.Context(), t)
-				if err != nil {
-					return err
-				}
-				out.P.Print("cluster.status", res, nil)
-				return nil
-			}
-			return withKube(cmd.Context(), "cluster.status", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-				return kubeStatus(ctx, k, t.conn.Name, ns)
+			return readClusters(cmd.Context(), "cluster.status", st, ts, clusterRead{
+				kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
+					return kubeStatus(ctx, k, t.conn.Name, ns)
+				},
+				swarm: func(ctx context.Context, t clusterTarget) (any, error) {
+					if err := noNamespace(t, ns); err != nil {
+						return nil, err
+					}
+					return swarmStatus(ctx, t)
+				},
 			})
 		},
 	}
