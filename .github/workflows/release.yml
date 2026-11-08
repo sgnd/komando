@@ -37,7 +37,8 @@ jobs:
           [ -s notes.md ] || { echo "::error::CHANGELOG.md has no section ## [$v]"; exit 1; }
           cat >>notes.md <<'EOF'
 
-          Install or update:
+          Update: `komando update` (`sudo komando update` when komando is in
+          /usr/local/bin). From 0.6.0 or older, or to install, run:
 
           ```sh
           curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh

@@ -8,6 +8,8 @@ C="t-cov-$$"                            # unique per run, so a rerun never meets
 
 # inventory and settings
 check "version" True "$($K version | ok)"
+# a go build is a source build, which update refuses; a release build checks GitHub
+check "update (dry run)" True "$($K update --dry-run | jget 'd["ok"] or d["error"]["code"] in ("SOURCE_BUILD", "RELEASES_UNREACHABLE")')"
 check "config show" True "$($K config show | ok)"
 check "conn kinds" True "$($K conn kinds | has postgres)"
 check "conn list" True "$($K conn list | has maria)"

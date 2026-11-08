@@ -55,12 +55,23 @@ newer can use `go install github.com/sgnd/komando/cmd/komando@latest`.
 
 ### Update
 
-Run the install line again; it replaces the `komando` program and keeps your
-servers, secrets and history in `~/.komando`. Then run `komando guide install`
-again, so your AI agents get the new skill.
+```bash
+komando update --dry-run   # is there a newer version?
+komando update             # install it
+```
 
-Did you install it with `sudo` (for example into `/usr/local/bin`, which only
-root may change)? Then update with `sudo` too:
+`komando update` downloads the newest release, checks it against the
+release's checksums (as the install line does) and replaces the `komando`
+program. Your servers, secrets and history in `~/.komando` stay as they are.
+Then run `komando guide install` again, so your AI agents get the new skill.
+
+- komando is in a folder only root may change, such as `/usr/local/bin`? Run
+  `sudo komando update`.
+- Go back to an older version with `komando update v0.6.0`. It asks first:
+  an older version may lack safety checks the newer one has.
+
+komando 0.6.0 and older have no `update` command: run the install line again.
+Did you install it with `sudo`? Then update with `sudo` too:
 `curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sudo sh`.
 Without it, the installer cannot write there and puts the new version in
 `~/.local/bin`, and your terminal may keep running the old one. `komando version`

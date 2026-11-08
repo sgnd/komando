@@ -56,6 +56,13 @@ on the server surprises you.
 Multi-target results name each server in `results[].host` (also in
 `test`, which keeps `name` only for older scripts).
 
+komando itself: `komando update --dry-run` says whether a newer release is
+out. Update only when the human asks: `komando update` replaces the program
+every agent and person on this computer uses. When it stops with
+`NOT_WRITABLE` (komando is in a folder only root may change), ask the human
+to run `sudo komando update` in their terminal. Going back to an older
+version (`komando update v0.6.0`) needs their yes.
+
 ## 2. Targets
 
 `web1` · `web-*` · `@group` · `tag:prod` · `label:dc=jkt` · `kind:host|db|cache|storage|postgres|...` ·
@@ -259,6 +266,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, SENSITIVE_FILE, WRITE_REQUIRES_FLAG | stop and ask the human |
 | 7    | TIMEOUT, CONNECT_TIMEOUT          | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file; use exact, unique `--old` text |
+| 8    | NOT_WRITABLE (update)             | ask the human to run the `sudo` command from `error.hint` in their terminal |
 | worst of the hosts | PARTIAL_FAILURE | several hosts ran and at least one failed: read `data.results[]` per host (one target fails with its own code instead) |
 
 Every error carries `error.hint` with the next step. Read it.

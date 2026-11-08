@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Highlights
 
+- **`komando update` updates komando itself:** it installs the newest
+  release (`sudo komando update` for /usr/local/bin), checked like the
+  install line; `komando update --dry-run` says whether there is one.
 - **An encrypted key in ssh-agent logs in, as with `ssh`:** a server whose
   `--identity` (from `import ssh-config`) or `--key` is encrypted now uses
   the agent's copy of that key, so a usual macOS setup works with
@@ -27,6 +30,17 @@ its highlights; the sections below them give the details. Versions follow
   first. It runs the same command you could type and shows it first. AI
   agents, scripts and `komando` with any flag still get the first steps
   (or, when piped, a `USAGE` error).
+- **`komando update`** replaces komando with the newest release, checked
+  against the release's `checksums.txt` like the install line, and tried
+  once before it takes the old program's place. `komando update --dry-run`
+  says whether there is a newer version; `komando update v0.6.0` installs
+  that version (going back needs a person's yes, since an older komando may
+  lack safety checks; without a VERSION it never goes back). In a folder
+  only root may change it stops with `NOT_WRITABLE` and gives the `sudo`
+  command to run. Run as you, the update goes into the audit log; as root
+  it writes nothing in `~/.komando`, so no file there ends up belonging to
+  root. It tries again when GitHub answers 5xx. A komando built from source
+  is not replaced (`SOURCE_BUILD`).
 
 ### Changed
 
