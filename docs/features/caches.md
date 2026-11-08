@@ -30,7 +30,13 @@ komando conn add sessions rediss://default@cache.internal:6379/1 --password-ref 
 sends the password and the data unencrypted: use `rediss://` or `--via`.
 `komando doctor` warns about such conns and prints the line that changes
 them. `rediss://` checks the server's certificate against your computer's
-trusted CAs.
+trusted CAs, or against your own with `?ca=secret:NAME` (a private CA, or a
+cloud's own), as `memcacheds://` does:
+
+```bash
+komando secret set cache-ca < ca.pem
+komando conn add sessions 'rediss://default@cache.internal:6380/1?ca=secret:cache-ca' --password-ref secret:sessions-pass
+```
 
 ## Look at data
 

@@ -36,6 +36,11 @@ func Open(ctx context.Context, t driver.Target, password string, dial DialFunc, 
 	if t.Secure {
 		host, _, _ := net.SplitHostPort(t.Address)
 		o.TLSConfig = &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
+		pool, err := t.RootCAs()
+		if err != nil {
+			return nil, err
+		}
+		o.TLSConfig.RootCAs = pool // nil: this computer's CAs
 	}
 	if dial != nil {
 		o.Dialer = dial

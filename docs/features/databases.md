@@ -80,8 +80,19 @@ giving them the password:
 - Saved conns keep working as they are. `komando doctor` warns about every
   conn without checked TLS and prints the `komando conn edit NAME --url ...`
   line that fixes it.
-- A server whose certificate comes from your own CA: add
-  `?sslrootcert=/path/to/ca.pem` (Postgres).
+- A server whose certificate comes from a private CA (your company's, or a
+  cloud's own, such as Amazon RDS or Azure Database): store the CA and name
+  it with `?ca=`, for Postgres and MySQL. The certificate is then fully
+  checked: signed by that CA and naming the server, also with
+  `sslmode=require`, and never without TLS:
+
+  ```bash
+  komando secret set rds-ca < global-bundle.pem
+  komando conn add orders 'postgres://app@orders.abc123.eu-west-1.rds.amazonaws.com/orders?ca=secret:rds-ca' --password-ref secret:orders-pass
+  ```
+
+  For Postgres a file on this computer works too:
+  `?sslrootcert=/path/to/ca.pem`.
 - When TLS stops a connection (the certificate does not check out, or the
   server has no TLS), the hint says what to do and names the weaker setting
   with what it costs.

@@ -27,6 +27,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- Databases and caches whose certificate comes from a private CA (a
+  company CA, Amazon RDS, Azure, ElastiCache) are checked against it:
+  `?ca=secret:NAME` on a `postgres://`, `mysql://`, `rediss://` or
+  `memcacheds://` conn names the vault secret that holds the CA (PEM), as
+  registries already allowed. The check is a full one (signed by that CA,
+  naming the server), also with `sslmode=require`, and a Postgres conn then
+  never goes on without TLS.
 - `komando` alone opens a menu for a person at a terminal: choose Shell,
   Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
   Enter (`?` for help), then a server, conn or VPN from a list you can

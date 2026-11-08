@@ -121,7 +121,7 @@ type Target struct {
 	Region   string `json:"region,omitempty"`   // s3
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
 	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry: skip-verify (registry also false)
-	CA       string `json:"ca,omitempty"`       // registry: secret:NAME holding the PEM CA certificate to trust
+	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached: secret:NAME holding the PEM CA certificate to trust
 	Resolve  string `json:"resolve,omitempty"`  // registry, s3: IP:port to connect to in place of Address (?resolve=)
 }
 
@@ -229,6 +229,9 @@ func Parse(raw string) (Target, error) {
 		if n, err := strconv.Atoi(t.Database); err != nil || n < 0 {
 			return Target{}, out.Usage("redis URL path must be a database number, e.g. redis://cache:6379/0")
 		}
+	}
+	if err := parseCA(u.Query(), &t); err != nil {
+		return Target{}, err
 	}
 	return t, nil
 }
