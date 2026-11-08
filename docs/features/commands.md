@@ -141,7 +141,10 @@ are blocked everywhere unless a person allows them. See [Safety](safety.md).
 
 A password for the remote command can come from the vault, so it is never
 typed or shown: `-e DB_PASS=secret:prod-db`. komando fills in the value on
-the way to the server.
+the way to the server. It goes to the command on its input, not on its
+command line, so other users of the server do not see it in `ps` and it is
+not written to sudo's log. Values that are not from the vault are on the
+command line as usual.
 
 ## Run a local script
 
