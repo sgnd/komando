@@ -81,6 +81,10 @@ machine-readable reference is `komando schema`.
 | `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando secret list` |
 | `SECRET_IN_USE` | `secret rm` of a secret that something still uses | point them elsewhere, or rename it with `komando secret mv OLD NEW` |
 | `SECRET_EXISTS` | `secret mv` or `secret cp` to a name that is taken | pick another name, or add `--overwrite` |
+| `NAME_TAKEN` | a new name (from `host mv`, `rename --prefix`, ...) is used already; for `rename` the message lists every clash, and nothing was renamed | pick other names, or rename or remove what is in the way; `--dry-run` shows the whole list first |
+| `NOTHING_TO_RENAME` | `rename --prefix`: no name starts with OLD | check the spelling and case with `komando list` and `komando secret list` |
+| `GROUP_EXISTS` | `group mv` to the name of another group | pick another name, or merge them: `komando group add NEW @OLD`, then `komando group rm OLD` |
+| `KEY_FILE_EXISTS` | `key gen` or `key mv`: a file of that name is in `~/.komando/keys` | move it away, or pick another name |
 | `SECRET_MISMATCH` | `secret check`: the value entered is not the stored one | `data.difference` says how they differ; `komando secret set NAME` stores the right one |
 | `sudo: a password is required` | sudo needs a password | `komando secret set NAME`, then `komando host edit HOST --sudo-ref secret:NAME` |
 | `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA, sudo) | a person runs `komando vpn up NAME` once |

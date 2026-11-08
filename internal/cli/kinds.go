@@ -156,6 +156,7 @@ var commandKinds = map[string]cmdKind{
 	"group":      reads,
 	"group add":  changes,
 	"group list": reads,
+	"group mv":   changes,
 	"group rm":   changes,
 
 	"guide":         reads,
@@ -191,6 +192,7 @@ var commandKinds = map[string]cmdKind{
 	"key edit":   changes,
 	"key gen":    changes,
 	"key list":   reads,
+	"key mv":     changes,
 	"key revoke": changes,
 	"key rm":     changes,
 	"key show":   reads,
@@ -223,6 +225,8 @@ var commandKinds = map[string]cmdKind{
 
 	"prompt": reads,
 	"reboot": changes,
+
+	"rename": changes,
 
 	"recipe":      reads,
 	"recipe add":  changes,
