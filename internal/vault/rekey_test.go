@@ -325,4 +325,9 @@ esac
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	if _, err := KeychainTool(); err != nil {
+		// komando finds secret-tool in system folders only, not through
+		// PATH: hand it the stand-in the way TestKeychainSecretTool does
+		t.Skipf("the stand-in secret-tool is not used: %v", err)
+	}
 }
