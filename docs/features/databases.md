@@ -60,6 +60,33 @@ komando conn rm old-db                       # only forgets it; the database is 
 - A host that a conn uses in `--via` cannot be removed until the conn is
   changed.
 
+### Encryption (TLS)
+
+A conn that goes straight over the network (no `--via`, not to this
+computer) should use TLS that checks the server's certificate. Otherwise
+anyone on the network path can read the data, and can trick the login into
+giving them the password:
+
+| Kind | Checked TLS | Encrypted, certificate not checked | No encryption |
+|------|-------------|------------------------------------|---------------|
+| PostgreSQL | `?sslmode=verify-full` | `?sslmode=require` | `?sslmode=disable` |
+| MySQL / MariaDB | `?tls=true` | `?tls=skip-verify` | `?tls=false` |
+
+- Without a setting, a Postgres conn uses TLS when the server offers it,
+  but does not check the certificate and goes on without TLS when told to.
+  A MySQL conn without `tls=` is not encrypted, and the MySQL 8 login then
+  encrypts the password with a key the server sends over that same plain
+  connection, which someone in between can swap.
+- Saved conns keep working as they are. `komando doctor` warns about every
+  conn without checked TLS and prints the `komando conn edit NAME --url ...`
+  line that fixes it.
+- A server whose certificate comes from your own CA: add
+  `?sslrootcert=/path/to/ca.pem` (Postgres).
+- When TLS stops a connection (the certificate does not check out, or the
+  server has no TLS), the hint says what to do and names the weaker setting
+  with what it costs.
+- Through `--via`, the traffic is inside SSH up to the `--via` server.
+
 ## Run a query
 
 ```bash
@@ -212,6 +239,8 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
   command line, shown, or written to the audit log (`--dry-run` and the
   answer show `[hidden]`). PostgreSQL gets a SCRAM-SHA-256 verifier that
   komando computes, so the password never reaches the server or its logs.
+  For an AI agent, the password needs a person's yes (`--yes`, then the
+  window, `SECRET_DESTINATION`): the conn could be a server the agent set up.
 - `--on` takes `database:NAME`, `schema:NAME`, `table:[SCHEMA.]TABLE` or
   `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
   and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).

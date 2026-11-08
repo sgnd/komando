@@ -29,12 +29,19 @@ func (c *v1Conn) phase1(ctx context.Context, first bool) (*ikeV1, error) {
 		k := newIKEv1(c.s.t, c.s, c.o, c.tun)
 		if err := k.mainMode(ctx); err != nil {
 			c.s.t.unroute(k.ic)
-			return nil, err
+			return nil, legacyHint(c.o, err)
 		}
 		return c.finish(ctx, k, first)
 	}
+	if first {
+		c.o.logf("IKEv1: warning: aggressive mode (a group name and pre-shared key) lets anyone who sees the login guess the group key offline, and with the key pretend to be this server; use IKEv2 if the server offers it")
+	}
+	groups := []uint16{14} // one DH group per offer in aggressive mode
+	if c.o.LegacyCrypto {
+		groups = append(groups, 2, 5)
+	}
 	var err error
-	for _, g := range []uint16{14, 2, 5} { // one DH group per offer in aggressive mode
+	for _, g := range groups {
 		k := newIKEv1(c.s.t, c.s, c.o, c.tun)
 		if err = k.aggressiveOnce(ctx, g); err == nil {
 			return c.finish(ctx, k, first)
@@ -46,13 +53,16 @@ func (c *v1Conn) phase1(ctx context.Context, first bool) (*ikeV1, error) {
 		}
 		c.o.logf("IKEv1: DH group %d refused, trying another", g)
 	}
-	return nil, err
+	return nil, legacyHint(c.o, err)
 }
 
 func (c *v1Conn) finish(ctx context.Context, k *ikeV1, first bool) (*ikeV1, error) {
 	k.onDelete = func() { c.serverDeleted(k) }
 	k.onESPLost = func() { c.replaceESP(k) }
 	c.o.logf("IKEv1: IKE SA up (%s/%s, DH %d)", k.suite.enc.name, k.suite.hash.name, k.suite.group)
+	if k.suite.weak() {
+		c.o.logf("IKEv1: warning: the server chose %s, which is weak (allowed because legacy crypto is on for this VPN); ask its admin for AES and DH group 14 or higher", k.suite)
+	}
 	if c.tun {
 		if c.o.User != "" {
 			if err := k.xauth(ctx); err != nil {

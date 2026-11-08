@@ -96,6 +96,7 @@ func TestPeerWrongPassword(t *testing.T) {
 	var peer *Peer
 	frames := make(chan [2]any, 64)
 	peer = New(func(proto uint16, b []byte) error { frames <- [2]any{proto, append([]byte{}, b...)}; return nil }, "budi", "nope")
+	peer.AllowPAP = true
 	go func() {
 		peer.Handle(LCP, packet(cfgRequest, 1, opt(3, []byte{0xc0, 0x23})))
 		for f := range frames {
@@ -133,5 +134,71 @@ func TestIPV6CPAnswered(t *testing.T) {
 		if f[0].(uint16) == LCP {
 			t.Fatal("IPV6CP was rejected")
 		}
+	}
+}
+
+// recorder is a peer whose frames are kept for the test to read.
+func recorder(allowPAP bool) (*Peer, *[][2]any) {
+	sent := &[][2]any{}
+	p := New(func(proto uint16, b []byte) error {
+		*sent = append(*sent, [2]any{proto, append([]byte{}, b...)})
+		return nil
+	}, "budi", "secret")
+	p.AllowPAP = allowPAP
+	return p, sent
+}
+
+// A server that asks for PAP is asked for MS-CHAPv2 instead; one that
+// insists gets ErrPAPRefused, and the password is never sent.
+func TestPAPRefusedByDefault(t *testing.T) {
+	p, sent := recorder(false)
+	papReq := func(id byte) []byte {
+		return packet(cfgRequest, id, append(opt(3, []byte{0xc0, 0x23}), opt(5, []byte{9, 9, 9, 9})...))
+	}
+	for id := byte(1); id <= papNakMax; id++ {
+		if err := p.Handle(LCP, papReq(id)); err != nil {
+			t.Fatalf("request %d: %v", id, err)
+		}
+		last := (*sent)[len(*sent)-1]
+		want := packet(cfgNak, id, opt(3, []byte{0xc2, 0x23, 0x81}))
+		if last[0].(uint16) != LCP || string(last[1].([]byte)) != string(want) {
+			t.Fatalf("request %d: sent %x, want a Nak asking for MS-CHAPv2", id, last[1])
+		}
+	}
+	if err := p.Handle(LCP, papReq(papNakMax+1)); err != ErrPAPRefused {
+		t.Fatalf("a server insisting on PAP: %v", err)
+	}
+	if err := p.Wait(time.Second); err != ErrPAPRefused {
+		t.Fatalf("Wait: %v", err)
+	}
+	for _, f := range *sent {
+		if f[0].(uint16) == PAP || strings.Contains(string(f[1].([]byte)), "secret") {
+			t.Fatalf("the password was sent: %x", f[1])
+		}
+	}
+}
+
+// A server that takes the hint and asks for MS-CHAPv2 gets an Ack.
+func TestPAPNakThenMSCHAPv2(t *testing.T) {
+	p, sent := recorder(false)
+	p.Handle(LCP, packet(cfgRequest, 1, opt(3, []byte{0xc0, 0x23})))
+	ms := packet(cfgRequest, 2, opt(3, []byte{0xc2, 0x23, 0x81}))
+	if err := p.Handle(LCP, ms); err != nil {
+		t.Fatal(err)
+	}
+	last := (*sent)[len(*sent)-1][1].([]byte)
+	if last[0] != cfgAck || p.auth != CHAP || p.chapAlg != 0x81 {
+		t.Fatalf("sent %x, auth %x/%x", last, p.auth, p.chapAlg)
+	}
+}
+
+// With PAP allowed for the VPN, the server's request for it is acked.
+func TestPAPAllowed(t *testing.T) {
+	p, sent := recorder(true)
+	if err := p.Handle(LCP, packet(cfgRequest, 1, opt(3, []byte{0xc0, 0x23}))); err != nil {
+		t.Fatal(err)
+	}
+	if last := (*sent)[len(*sent)-1][1].([]byte); last[0] != cfgAck || p.auth != PAP {
+		t.Fatalf("sent %x, auth %x", last, p.auth)
 	}
 }

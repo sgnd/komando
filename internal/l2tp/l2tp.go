@@ -124,8 +124,9 @@ type Tunnel struct {
 	lastData time.Time // the last IPv4 packet either way: how idle the link was
 }
 
-// Dial sets up the tunnel and session and logs in with PPP.
-func Dial(ctx context.Context, link Link, user, password string, log func(string, ...any)) (*Tunnel, error) {
+// Dial sets up the tunnel and session and logs in with PPP. allowPAP lets
+// the server pick PAP, which sends the password itself (ppp.Peer.AllowPAP).
+func Dial(ctx context.Context, link Link, user, password string, allowPAP bool, log func(string, ...any)) (*Tunnel, error) {
 	if log == nil {
 		log = func(string, ...any) {}
 	}
@@ -134,6 +135,7 @@ func Dial(ctx context.Context, link Link, user, password string, log func(string
 		done: make(chan struct{}), lastRecv: time.Now(), lastData: time.Now()}
 	t.ppp = ppp.New(t.sendPPP, user, password)
 	t.ppp.Log = log
+	t.ppp.AllowPAP = allowPAP
 	go t.read()
 	host, _ := os.Hostname()
 	if host == "" {

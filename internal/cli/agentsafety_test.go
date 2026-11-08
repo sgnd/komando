@@ -74,8 +74,20 @@ func TestAgentCannotClearItsVariables(t *testing.T) {
 		`echo "$CLAUDECODE"`:                             false,
 		"env GOOS=linux go build ./...":                  false,
 		"env -u GOFLAGS go test ./...":                   false,
-		"KOMANDO_HOME=$(mktemp -d) komando list":         false,
-		"CLAUDECODE=1 komando list":                      true, // any change is refused: KISS
+		// KOMANDO_HOME moves komando's data: a fresh folder knows no
+		// protected servers, deny rules or host keys
+		"KOMANDO_HOME=$(mktemp -d) komando list":                     true,
+		"export KOMANDO_HOME=/tmp/k; komando host add prod 10.0.0.1": true,
+		"unset KOMANDO_HOME":                         true,
+		"env -u KOMANDO_HOME komando list":           true,
+		"env KOMANDO_HOME=/tmp/k komando list":       true,
+		"bash -c 'KOMANDO_HOME=/tmp/k komando list'": true,
+		"read KOMANDO_HOME </dev/null":               true,
+		"unset -m 'KOMANDO_H*'":                      true,
+		`echo "$KOMANDO_HOME"`:                       false,
+		"KOMANDO_OUTPUT=json komando list":           false,
+		"export KOMANDO_ACTOR=claude":                false,
+		"CLAUDECODE=1 komando list":                  true, // any change is refused: KISS
 		// env's flag clusters, GNU long-option starts and -S
 		"env -vu CLAUDECODE -vu CLAUDE_CODE_ENTRYPOINT komando list --reveal": true,
 		"env -0u CLAUDECODE komando list":                                     true,

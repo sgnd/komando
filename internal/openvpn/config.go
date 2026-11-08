@@ -44,6 +44,9 @@ type Config struct {
 	Compress       string // "", "lzo-no" (comp-lzo no), "stub-v2" (compress stub-v2)
 	Setenv         map[string]string
 	TunMTU         int
+	// Warnings are things in the profile a person should know about (no
+	// secrets); the caller shows them.
+	Warnings []string
 }
 
 // ignored directives change nothing for komando: it never touches the
@@ -269,7 +272,7 @@ func Parse(text string) (*Config, error) {
 	if _, ok := digests[c.Auth]; !ok && c.Auth != "NONE" {
 		return nil, fmt.Errorf("auth %s is not supported (SHA1, SHA256, SHA384, SHA512)", c.Auth)
 	}
-	return c, nil
+	return c.withWarnings(), nil
 }
 
 func (c *Config) setBlock(name, body string) error {
