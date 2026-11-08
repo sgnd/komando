@@ -82,6 +82,10 @@ func dbUserChangeCmd(action string) *cobra.Command {
 			return changeDB(cmd.Context(), "db.user."+action, args[0], v, map[string]any{"user": args[1]},
 				func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 					if ref != "" {
+						// the password goes to the conn's server, which could be the agent's own
+						if err := guardSecretUse([]string{ref}, connPlace(c).dest+" as the password of database user "+args[1]+" (conn "+c.Name+")"); err != nil {
+							return nil, err
+						}
 						pw, err := vault.Resolve(ref)
 						if err != nil {
 							return nil, out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", "set it with `komando secret set NAME`", "--password-ref: %v", err)

@@ -354,7 +354,8 @@ func nextDir(args []string, home, cwd string) string {
 }
 
 // checkAgentVars stops a command that changes the variables komando knows
-// an AI agent by (agentVars): `CLAUDECODE=0 komando ...`, `unset`, `export`,
+// an AI agent by (agentVars), or KOMANDO_HOME (homeVar): `CLAUDECODE=0
+// komando ...`, `KOMANDO_HOME=/tmp/x komando ...`, `unset`, `export`,
 // `read`, `env -u`, `env -i` and `exec -c` would make komando treat the
 // agent as a script and skip the person's window, masking and the
 // secret-file stops. So would `sudo komando`, which starts komando with a
@@ -362,9 +363,7 @@ func nextDir(args []string, home, cwd string) string {
 // or a pattern (`CLAUDE*`, `CLAUDE{CODE,_CODE_ENTRYPOINT}`) that could be
 // one counts as that name.
 func checkAgentVars(words []string, depth int) guardDecision {
-	why := func(name string) guardDecision {
-		return deny("%s tells komando that an AI agent is running it; changing or clearing it would switch off komando's safety stops for agents. Leave it as it is", name)
-	}
+	why := varChangeDenied
 	cleared := func(how string) guardDecision {
 		return deny("%s clears the variables komando knows an AI agent by, which would switch off komando's safety stops for agents", how)
 	}
@@ -477,6 +476,30 @@ func checkAgentVars(words []string, depth int) guardDecision {
 	return allow()
 }
 
+// homeVar moves komando's data folder. An agent's shell line must not
+// change it either: komando would then use another inventory, without the
+// person's protected servers, deny rules, host keys and audit log
+// (guardHome asks the person when it happens anyway).
+const homeVar = "KOMANDO_HOME"
+
+// watchedVars are the variables the guard keeps an agent's shell lines
+// from changing: the agent variables and homeVar.
+func watchedVars() []string {
+	names := []string{homeVar}
+	for _, a := range agentVars {
+		names = append(names, a.env)
+	}
+	return names
+}
+
+// varChangeDenied is the guard's answer to a line that changes name.
+func varChangeDenied(name string) guardDecision {
+	if name == homeVar {
+		return deny("%s moves komando's data folder: komando would use another list of servers, without the user's protected servers, deny rules, host keys and audit log. Leave it as it is; ask the user if komando should use another folder", name)
+	}
+	return deny("%s tells komando that an AI agent is running it; changing or clearing it would switch off komando's safety stops for agents. Leave it as it is", name)
+}
+
 // shellKeyword are words that can start a simple command before the
 // command itself: `{ unset X; }`, `! unset X`, `if unset X`, `builtin unset X`.
 var shellKeyword = map[string]bool{"{": true, "}": true, "!": true, "if": true, "then": true, "else": true, "elif": true, "fi": true,
@@ -488,14 +511,15 @@ func assignName(w string) string {
 	return strings.TrimSuffix(n, "+")
 }
 
-// agentVarIn reports the agent variable a name word sets or removes: the
-// name itself, one of a {a,b} list, one a pattern matches (zsh `unset -m`),
-// or any when the name is not known until the shell runs ($V, ${!P*}, `...`).
+// agentVarIn reports the watched variable (watchedVars) a name word sets
+// or removes: the name itself, one of a {a,b} list, one a pattern matches
+// (zsh `unset -m`), or any when the name is not known until the shell runs
+// ($V, ${!P*}, `...`).
 func agentVarIn(w string) (string, bool) {
 	if strings.ContainsAny(w, "$`") {
-		for _, a := range agentVars {
-			if strings.Contains(w, a.env) {
-				return a.env, true
+		for _, env := range watchedVars() {
+			if strings.Contains(w, env) {
+				return env, true
 			}
 		}
 		return agentVars[0].env + " (or another agent variable)", true
@@ -505,13 +529,13 @@ func agentVarIn(w string) (string, bool) {
 		if i := strings.IndexByte(x, '['); i > 0 && strings.HasSuffix(x, "]") {
 			elem = x[:i] // NAME[i]: an element of the variable NAME
 		}
-		for _, a := range agentVars {
-			if x == a.env || elem == a.env {
-				return a.env, true
+		for _, env := range watchedVars() {
+			if x == env || elem == env {
+				return env, true
 			}
 			if strings.ContainsAny(x, "*?[") {
-				if ok, _ := filepath.Match(x, a.env); ok {
-					return a.env, true
+				if ok, _ := filepath.Match(x, env); ok {
+					return env, true
 				}
 			}
 		}
