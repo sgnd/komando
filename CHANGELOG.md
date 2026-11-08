@@ -7,6 +7,8 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-09
+
 ### Highlights
 
 - **Rename a whole project in one step:** `komando rename --prefix shop-
@@ -34,6 +36,19 @@ its highlights; the sections below them give the details. Versions follow
   fingerprint, IKEv1 no longer offers 3DES or small DH groups, L2TP never
   sends the password with PAP, and `komando doctor` prints the fix for
   every database or cache without checked TLS.
+- **Customer data stays out of the AI model:** on protected servers and
+  conns, an AI agent sees email addresses, phone numbers, card numbers and
+  IBANs as `[hidden: email]` and so on, and columns you name as
+  `[hidden: column]`.
+- **More places to reach:** MongoDB, Redis Cluster and Sentinel, databases
+  and caches with a private CA (`?ca=secret:NAME`), and Google Cloud
+  Storage, Azure Blob and WebDAV storage, all also through `--via`.
+- **Many clusters at once, Helm without helm:** `cluster status`, `ls`,
+  `events` and `helm ls` read every cluster a selector picks, and
+  `cluster helm` reads Helm releases straight from Kubernetes.
+- **Company proxies:** kube, registry and SSL VPN traffic follows
+  `HTTPS_PROXY`, and an HTTP proxy can be a `--via` path (VPN kind
+  `proxy`).
 
 ### Added
 
@@ -80,10 +95,6 @@ its highlights; the sections below them give the details. Versions follow
   `--user` and `--password-ref`): `--via office` tunnels servers (SSH),
   databases, caches and file servers through it (CONNECT), as `socks` VPNs
   do for SOCKS proxies. `host ssh-command` gives OpenSSH the same path.
-- **Customer data stays out of the AI model:** on protected servers and
-  conns, an AI agent sees email addresses, phone numbers, card numbers and
-  IBANs as `[hidden: email]` and so on, and columns you name as
-  `[hidden: column]`.
 - Personal data is hidden from AI agents in what they read from protected
   servers and conns: `[hidden: email]`, `[hidden: phone]` (international
   form), `[hidden: card]` (card network prefix, length and check digit) and
@@ -1945,7 +1956,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/sgnd/komando/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/sgnd/komando/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/sgnd/komando/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/sgnd/komando/compare/v0.3.1...v0.4.0
