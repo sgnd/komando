@@ -229,7 +229,7 @@ func TestEncryptedPEMKeyFromAgentByPubFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//nolint:staticcheck // the legacy format is the point of the test
+	//lint:ignore SA1019 the legacy format is the point of the test
 	blk, err := x509.EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", x509.MarshalPKCS1PrivateKey(rk), []byte("pw"), x509.PEMCipherAES256)
 	if err != nil {
 		t.Fatal(err)
@@ -405,7 +405,7 @@ func TestQuestionKind(t *testing.T) {
 	if questionKind("Password:", true) != askOther {
 		t.Error("a shown answer must not get the password")
 	}
-	if got := cleanQuestion("Code\x1b]52;c;ZXZpbA==\a\r\n  ‮please:" + strings.Repeat("x", 100)); strings.ContainsAny(got, "\x1b\a\r\n‮") || len([]rune(got)) > 80 {
+	if got := cleanQuestion("Code\x1b]52;c;ZXZpbA==\a\r\n  \u202eplease:" + strings.Repeat("x", 100)); strings.ContainsAny(got, "\x1b\a\r\n\u202e") || len([]rune(got)) > 80 {
 		t.Errorf("not cleaned: %q", got)
 	}
 }
