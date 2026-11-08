@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -41,28 +40,7 @@ type dumpTool struct {
 	passwordEnv   string
 	pkg           string // Debian/Ubuntu package that provides the tools, for hints
 	tls           string // mysql: the URL's tls= setting, mapped to client flags at run time
-}
-
-// mysqlTLSFlags maps the URL's tls= setting to the client's flags. MySQL
-// and MariaDB clients spell them differently; version is `--version` output.
-func mysqlTLSFlags(tls, version string) []string {
-	if tls == "" {
-		return nil
-	}
-	if strings.Contains(version, "MariaDB") {
-		return map[string][]string{
-			"true":        {"--ssl", "--ssl-verify-server-cert"},
-			"skip-verify": {"--ssl", "--skip-ssl-verify-server-cert"},
-			"preferred":   {"--ssl"},
-			"false":       {"--skip-ssl"},
-		}[tls]
-	}
-	return map[string][]string{
-		"true":        {"--ssl-mode=VERIFY_IDENTITY"},
-		"skip-verify": {"--ssl-mode=REQUIRED"},
-		"preferred":   {"--ssl-mode=PREFERRED"},
-		"false":       {"--ssl-mode=DISABLED"},
-	}[tls]
+	libpq         bool   // postgres: libpq reads the URL; toolTLSArgs readies its TLS
 }
 
 func toolsFor(c *store.Conn, t driver.Target) (dumpTool, error) {
@@ -72,7 +50,7 @@ func toolsFor(c *store.Conn, t driver.Target) (dumpTool, error) {
 		return dumpTool{
 			dump:          []string{"pg_dump", "--dbname", c.URL},
 			restoreCustom: []string{"pg_restore", "--dbname", c.URL, "--single-transaction", "--exit-on-error", "--no-password"},
-			passwordEnv:   "PGPASSWORD", pkg: "postgresql-client",
+			passwordEnv:   "PGPASSWORD", pkg: "postgresql-client", libpq: true,
 		}, nil
 	case "mysql":
 		if t.Database == "" {
@@ -590,16 +568,8 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 	if stdin == nil {
 		stdin = strings.NewReader("")
 	}
-	if tool.tls != "" { // the URL asks for TLS: pass it on in this client's own flags
-		var version bytes.Buffer
-		if err := runTool(ctx, st, c, h, dumpTool{passwordEnv: tool.passwordEnv, pkg: tool.pkg}, []string{argv[0], "--version"}, nil, &version, false); err != nil {
-			return err
-		}
-		flags := mysqlTLSFlags(tool.tls, version.String())
-		if flags == nil {
-			return out.Usage("tls=%s in the conn URL cannot be passed to %s; use true, skip-verify, preferred or false", tool.tls, argv[0])
-		}
-		argv = append(append([]string{argv[0]}, flags...), argv[1:]...)
+	if argv, err = toolTLSArgs(ctx, st, c, h, tool, argv); err != nil {
+		return err
 	}
 	if h == nil {
 		if _, err := exec.LookPath(argv[0]); err != nil {
@@ -705,6 +675,9 @@ func toolFailed(tool, where string, code int, stderr string, c *store.Conn, dt d
 			hint = fmt.Sprintf("pg_dump %s on %s is older than the server (%s): install postgresql-client-%s there (`komando pkg install %s postgresql-client-%s`; Debian and Ubuntu may need the PostgreSQL apt repository), or name another server with --on HOST", client, where, server, major, where, major)
 		}
 		return out.Errf(out.ExitRemote, "TOOL_TOO_OLD", hint, "%s", msg)
+	}
+	if h := rootCertHint(stderr, tool, where); h != "" {
+		return out.Errf(out.ExitConnect, "DB_CONNECT", h, "%s", msg)
 	}
 	if archiveTooNew(stderr) {
 		return out.Errf(out.ExitRemote, "TOOL_TOO_OLD",

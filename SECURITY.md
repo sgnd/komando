@@ -23,7 +23,7 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
 
 ## How komando keeps you safe
 
-- Passwords and keys live in an encrypted vault in `~/.komando/`. An AI agent refers to them as `secret:NAME` and never sees the values. When an agent sends a secret somewhere (into a file on a server, a command's environment, or as the password of a new or moved server or conn), a person allows it in a window that names the secret and the place.
+- Passwords and keys live in an encrypted vault in `~/.komando/`. An AI agent refers to them as `secret:NAME` and never sees the values. When an agent sends a secret somewhere (into a file on a server, a command's environment, or as the password of a new or moved server, conn or VPN), a person allows it in a window that names the secret and the place.
 - An AI agent's komando uses your usual data folder: another `KOMANDO_HOME` needs a person's yes.
 - Dangerous commands (`rm -rf /`, `reboot`, `DROP TABLE`, `FLUSHALL`, ...) are blocked unless a human allows them.
 - Protected servers and conns refuse changes without `--yes`. Database queries and cache commands only read unless you add `--write`. On a protected target `--read-only` skips `--yes` only for commands komando knows read; anything it does not recognise still needs `--yes`.
@@ -32,14 +32,18 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
   command line, where other users of the server could read it.
 - komando refuses to connect when a server's host key changes. The first
   time it trusts a key, it prints the fingerprint so you can compare it with
-  the server's own, and writes it to the audit log.
-- Database and cache conns: `komando doctor` lists every one that crosses
-  the network without TLS that checks the server's certificate, with the
-  line that fixes it.
+  the server's own, writes it to the audit log, and lists it in the JSON
+  answer (`meta.host_keys_pinned`).
+- Database and cache conns: a new one that crosses the network on its own
+  checks the server's certificate unless its URL says otherwise
+  (`sslmode=verify-full`, `tls=true`), and a plain `redis://` or
+  `memcached://` one needs `?insecure=1`. `komando doctor` lists every
+  conn that crosses the network without TLS that checks the server's
+  certificate, with the line that fixes it.
 - VPNs: IKEv1 offers no 3DES and no DH group below 14, and the server can
   only pick what was offered; PPP (L2TP) does not send your password with
   PAP. Only a person can allow either for one VPN
-  (`komando vpn edit NAME --legacy-crypto` or `--allow-pap`). The OpenVPN
+  (`--legacy-crypto` or `--allow-pap` on `komando vpn add` or `vpn edit`). The OpenVPN
   client wants a certificate made for a server even when the profile does
   not ask for it.
 - Everything is written to the audit log: `komando audit`.

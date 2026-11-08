@@ -125,21 +125,16 @@ come with -f. --since and --until take a duration back from now (10m, 2h,
 		Long: `Runs COMMAND in the container with its arguments exactly as written (like
 ` + "`docker exec`" + `): no shell is added, so the image needs no sh. For pipes or
 && write the shell yourself: -- sh -c 'a | b'. The destructive-command
-policy checks the command; --read-only declares that it only looks.`,
+policy checks the command; --read-only declares that it only looks: a
+command that clearly changes something is refused, and on a protected
+server only commands komando knows read skip --yes.`,
 		Example: "  komando docker exec app1 api -- php artisan migrate:status\n  komando docker exec app1 api --read-only -- sh -c 'ls /data | wc -l'",
 		Args:    cobra.MinimumNArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err == nil {
-				// the policy sees the command as typed
-				if err := guard(st, nil, strings.Join(args[2:], " "), false); err != nil {
-					return err
-				}
-			}
-			return runOne(cmd.Context(), "docker.exec", args[0], dockerExecLine(args[1], args[2:]), sudo, !readOnly)
+			return dockerExec(cmd.Context(), args, sudo, readOnly)
 		},
 	}
-	execC.Flags().BoolVar(&readOnly, "read-only", false, "declare read-only")
+	execC.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
 	var file, dir string
 	compose := &cobra.Command{
 		Use:     "compose TARGET -- ARGS...",

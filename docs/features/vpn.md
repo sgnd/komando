@@ -60,7 +60,11 @@ komando vpn add office proxy --address proxy.corp.example:3128
   still holds the private key, so delete it if you no longer need it.
 - **Passwords** (`--password-ref`) work like everywhere else in komando:
   `secret:NAME`, `env:VAR`, a password manager, and so on (see
-  [Servers](servers.md)). For Tailscale it is an auth key.
+  [Servers](servers.md)). For Tailscale it is an auth key. The VPN sends
+  it (and `--psk-ref`) to its server each time it connects, so when an AI
+  agent adds a VPN with one, or points a VPN at another server or address,
+  a person allows it: `--yes` and a click in komando's window, which names
+  the references and the server (`SECRET_DESTINATION`).
 - **`--portal`** is the VPN server for `anyconnect`, `fortinet`,
   `globalprotect`, `f5` and `pulse`.
 - **`--server`** is the VPN server for `l2tp`, `ipsec` and `ikev2`, and
@@ -141,7 +145,9 @@ komando has its own OpenVPN client. It supports UDP and TCP, `tls-auth` and
 certificates, a user name and password, or both.
 
 - The profile is checked when you add it. An option the client does not
-  understand is refused by name (`OVPN_UNSUPPORTED`).
+  understand is refused by name (`OVPN_UNSUPPORTED`), and what a person
+  should know about it (no check of the server's certificate, below) is in
+  the answer's `warnings`.
 - The server's certificate must come from the profile's `<ca>`. The client
   also checks what the profile asks for, the way OpenVPN does:
   `remote-cert-tls server` (the certificate must say serverAuth),
@@ -251,10 +257,10 @@ komando test kantor
   for old servers). Single DES and MD5 are never used.
 - `--legacy-crypto` and `--allow-pap` make the login weaker, so turning
   one on needs a person's yes: `--yes` from a person, and for an AI agent
-  also the person's click in komando's window. Add the VPN first, then
-  turn them on with `komando vpn edit`; `--legacy-crypto=false` and
-  `--allow-pap=false` turn them off again. `komando doctor` lists every
-  VPN that has one on.
+  also the person's click in komando's window. Turn them on when you add
+  the VPN (`komando vpn add old-office l2tp ... --legacy-crypto`) or later
+  with `komando vpn edit`; `--legacy-crypto=false` and `--allow-pap=false`
+  turn them off again. `komando doctor` lists every VPN that has one on.
 - When a session ends by itself, `komando vpn status` shows why in
   `last_end`.
 - If the server does not answer, run `KOMANDO_IPSEC_DEBUG=1 komando vpn up

@@ -207,8 +207,7 @@ new config file, add it again with --overwrite.`,
 				}
 				v := *cur
 				for flag, kinds := range map[string][]string{"address": {"socks", "proxy"}, "service": {"system"},
-					"server": {"l2tp", "ipsec", "ikev2"}, "psk-ref": {"l2tp", "ipsec", "ikev2"}, "id": {"ipsec", "ikev2"}, "remote-id": {"ikev2"},
-					"legacy-crypto": {"l2tp", "ipsec"}, "allow-pap": {"l2tp"}} {
+					"server": {"l2tp", "ipsec", "ikev2"}, "psk-ref": {"l2tp", "ipsec", "ikev2"}, "id": {"ipsec", "ikev2"}, "remote-id": {"ikev2"}} {
 					if f.Changed(flag) && !oneOf(v.Kind, kinds...) {
 						return out.Usage("--%s is not used by %s VPNs", flag, v.Kind)
 					}
@@ -274,7 +273,7 @@ new config file, add it again with --overwrite.`,
 				}
 				return nil
 			}
-			apply = withVpnOptIns(f.Changed, &res, legacyCrypto, allowPAP, apply)
+			apply = withVpnGuards(args[0], f.Changed, &res, legacyCrypto, allowPAP, apply)
 			if g.dryRun {
 				st, err := loadState()
 				if err != nil {
@@ -317,32 +316,47 @@ new config file, add it again with --overwrite.`,
 	return c
 }
 
-// withVpnOptIns adds --legacy-crypto and --allow-pap to vpn edit's apply.
-// They weaken the VPN's login, so turning one on needs a person's yes
-// (guardSafety); turning it off does not. res is the VPN apply changed,
-// the same one it stored outside --dry-run.
-func withVpnOptIns(changed func(string) bool, res **store.Vpn, legacy, pap bool, apply func(*store.State) error) func(*store.State) error {
+// withVpnGuards adds to vpn edit's apply what needs a person: turning on
+// --legacy-crypto or --allow-pap (vpnOptIns), and, for an AI agent, a
+// secret the VPN now sends somewhere new (guardVpnSends). res is the VPN
+// apply changed, the same one it stored outside --dry-run.
+func withVpnGuards(name string, changed func(string) bool, res **store.Vpn, legacy, pap bool, apply func(*store.State) error) func(*store.State) error {
 	return func(s *store.State) error {
+		old := s.Vpns[name] // apply stores a changed copy
 		if err := apply(s); err != nil {
 			return err
 		}
-		v := *res
-		if changed("legacy-crypto") {
-			if legacy && !v.LegacyCrypto {
-				if err := guardSafety("allowing old, weak IKEv1 ciphers (3DES, DH groups 2 and 5) for VPN " + v.Name); err != nil {
-					return err
-				}
-			}
-			v.LegacyCrypto = legacy
+		if err := vpnOptIns(*res, changed, legacy, pap); err != nil {
+			return err
 		}
-		if changed("allow-pap") {
-			if pap && !v.AllowPAP {
-				if err := guardSafety("letting VPN " + v.Name + " log in with PAP, which hands the server your password itself"); err != nil {
-					return err
-				}
-			}
-			v.AllowPAP = pap
-		}
-		return nil
+		return guardVpnSends(old, *res, "")
 	}
+}
+
+// vpnOptIns sets --legacy-crypto and --allow-pap on v (vpn add and edit).
+// They weaken the VPN's login, so turning one on needs a person's yes
+// (guardSafety); turning it off does not.
+func vpnOptIns(v *store.Vpn, changed func(string) bool, legacy, pap bool) error {
+	for flag, kinds := range map[string][]string{"legacy-crypto": {"l2tp", "ipsec"}, "allow-pap": {"l2tp"}} {
+		if changed(flag) && !oneOf(v.Kind, kinds...) {
+			return out.Usage("--%s is not used by %s VPNs", flag, v.Kind)
+		}
+	}
+	if changed("legacy-crypto") {
+		if legacy && !v.LegacyCrypto {
+			if err := guardSafety("allowing old, weak IKEv1 ciphers (3DES, DH groups 2 and 5) for VPN " + v.Name); err != nil {
+				return err
+			}
+		}
+		v.LegacyCrypto = legacy
+	}
+	if changed("allow-pap") {
+		if pap && !v.AllowPAP {
+			if err := guardSafety("letting VPN " + v.Name + " log in with PAP, which hands the server your password itself"); err != nil {
+				return err
+			}
+		}
+		v.AllowPAP = pap
+	}
+	return nil
 }

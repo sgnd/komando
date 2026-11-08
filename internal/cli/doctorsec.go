@@ -236,18 +236,19 @@ func overNetwork(c *store.Conn, t driver.Target) bool {
 
 // verifiedTLSURL is raw with TLS whose certificate is checked: Postgres
 // sslmode=verify-full, MySQL tls=true, rediss:// and memcacheds://. It
-// is "" for other kinds, or a URL that does not parse.
+// is "" for other kinds, or a URL that does not parse. An option the URL
+// did not have is added at the end; the rest stays as written.
 func verifiedTLSURL(raw, kind string) string {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return ""
 	}
-	q := u.Query()
+	key, val := "", ""
 	switch kind {
 	case "postgres":
-		q.Set("sslmode", "verify-full")
+		key, val = "sslmode", "verify-full"
 	case "mysql":
-		q.Set("tls", "true")
+		key, val = "tls", "true"
 	case "redis":
 		u.Scheme = "rediss"
 	case "memcached":
@@ -255,7 +256,14 @@ func verifiedTLSURL(raw, kind string) string {
 	default:
 		return ""
 	}
-	if len(q) > 0 {
+	switch q := u.Query(); {
+	case key == "":
+	case !q.Has(key) && u.RawQuery == "":
+		u.RawQuery = key + "=" + val
+	case !q.Has(key):
+		u.RawQuery += "&" + key + "=" + val
+	default:
+		q.Set(key, val)
 		u.RawQuery = q.Encode()
 	}
 	return u.String()

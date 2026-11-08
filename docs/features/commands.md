@@ -118,7 +118,8 @@ like, including a shell script built only from them. A command komando does
 not recognise (a program of your own, say) is treated as a change on a
 protected target, so it needs `--yes` with a person's approval like any
 other. On an unprotected server `--read-only` only has to pass the
-`READ_ONLY_VIOLATION` check above.
+`READ_ONLY_VIOLATION` check above. `docker exec` and `cluster exec` check
+their `--read-only` the same way.
 
 A command komando cannot follow is refused the same way: `eval`, `source`,
 a command name in a variable (`$X file`), a shell or python reading a
