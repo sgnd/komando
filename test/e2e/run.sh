@@ -141,6 +141,15 @@ O=$(ptyrun 'exit 0\n' env NO_COLOR=1 "$K" shell target --yes | tr -d '\r'); chec
 check "shell names the bastion and protection" 1 "$(grep -c '^komando: shell on target (agent@target) via bastion · PROTECTED$' <<<"$O")"
 check "PROTECTED is red in colour terminals" 1 "$(ptyrun 'exit 0\n' env TERM=xterm NO_COLOR= "$K" shell target --yes | grep -c $'\e\\[1;31mPROTECTED')"
 check "shell --dry-run reports the protected stop" PROTECTED_HOST "$(ptyrun '' "$K" -o json shell target --dry-run | tr -d '\r' | grep '^{' | jget 'd["meta"]["would_be_blocked"]["code"]')"
+# a login with no stored password: a person types it, as with ssh; an agent is never asked
+$K host add nopass "agent@127.0.0.1:$E2E_SSH_DIRECT" >/dev/null
+O=$(ptyrun 'agentpass\n' env NO_COLOR=1 "$K" -o text exec nopass --read-only -- echo typed-ok | tr -d '\r'); check "a person types the password when none is stored" 0 $?
+check "the question names the server" 1 "$(grep -c 'nopass: Password: ' <<<"$O")"
+check "the typed password logs in" 1 "$(grep -cx 'typed-ok' <<<"$O")"
+check "an agent is not asked for a password" False "$(A exec nopass --read-only -- true </dev/null | jget 'd["ok"]')"
+check "an agent with no value is sent to the user" NEEDS_PERSON "$(A secret set some-pass </dev/null | jget 'd["error"]["code"]' || true)"
+check "the agent playbook reaches an agent whole" 0 "$(A guide -o text | grep -c 'password: \[hidden\]' || true)"
+$K host rm nopass >/dev/null
 set -e
 echo "==> secret managers, built in (no vault or aws CLI)"
 for _ in $(seq 1 30); do curl -sf "http://127.0.0.1:$E2E_BAO/v1/sys/health" >/dev/null && curl -s "http://127.0.0.1:$E2E_MOTO/" >/dev/null && break; sleep 1; done

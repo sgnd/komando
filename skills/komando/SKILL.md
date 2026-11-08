@@ -91,7 +91,9 @@ Update komando only when the human asks: `komando update` (when it stops with
    counts, never write it back, and ask the human if a task needs a real
    value. `secret get --reveal`
    is for people only (`REVEAL_NEEDS_HUMAN`), and so is `secret check`
-   (`NEEDS_PERSON`). Rename or copy a secret with `komando secret mv OLD NEW`
+   (`NEEDS_PERSON`). A password only the human knows: ask them to run
+   `komando secret set NAME` in their own terminal (it asks for it hidden);
+   never ask for a password in the chat. Rename or copy a secret with `komando secret mv OLD NEW`
    / `secret cp OLD NEW` (references follow a mv; the value is never shown),
    instead of asking the human to type it again. Refer to secrets as
    `secret:NAME`, and never put a secret value on a command line. On this

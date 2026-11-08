@@ -7,6 +7,43 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- **SSH logins ask a person, as `ssh` does.** At a terminal, komando asks
+  for a server's password when none is stored, and for the one-time code
+  of a two-factor login, with the server's name (`web1: Verification
+  code:`), hidden unless the server lets the answer show; servers that log
+  in at once ask one at a time, and Ctrl-C stops the login (`CANCELLED`).
+  `komando shell`, the menu and every other command now reach two-factor
+  servers. A stored password still goes out once, only to a hidden password
+  question. AI agents, scripts and background processes are never asked:
+  the `AUTH_FAILED` hint sends a person to run the command in their own
+  terminal, no longer to `ssh`.
+- `export` names the keychain keys its servers use (`keys_needed`) and
+  their files (`key_files`), which an export file never holds.
+
+### Changed
+
+- An AI agent that runs `secret set NAME` with no value gets `NEEDS_PERSON`:
+  ask the user to run `komando secret set NAME` in their own terminal. It
+  used to get a `USAGE` error whose hint was the same command. `komando
+  guide` and the skill say never to ask for a password in the chat.
+- `import komando` adds a server whose keychain key is not on this computer,
+  leaves the key out and says how to bring it (`key add`, then `host edit
+  --key`), as it does for an identity file. It used to leave the server out.
+
+### Fixed
+
+- AI agents read komando's hints whole again. The secret masker hid the
+  command after words such as "password:" (`save its password: [hidden]
+  secret set web1-pass`) in `NO_AUTH`, `KEY_PASSPHRASE_REQUIRED`, `komando
+  guide` itself and `guide install --help`. A value that starts with a
+  `` `komando `` command is now kept, and a test runs the masker over every
+  hint that names one, the guide and the skill. Kebab-case flags such as
+  `--host-key-policy=strict` are no longer hidden, and a few messages (a
+  locked vault, a missing `secret-tool`, a registry CA reference, a failing
+  credential helper) were reworded so they arrive whole.
+
 ### Security
 
 - **New conns check TLS by default.** `conn add` and `conn edit --url` of a

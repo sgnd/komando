@@ -113,9 +113,11 @@ komando recipe run health web1   # is it healthy?
 komando exec web1 -- uptime   # run any command
 ```
 
-Logging in with a password instead of a key? Store it once, then
-`komando test web1` again. You type the password, nothing is shown, and it
-is saved encrypted:
+Logging in with a password instead of a key? At your terminal komando asks
+for it, as `ssh` does, and also for a one-time code if the server wants
+one (two-factor login). Store the password once to skip the question and to
+let your AI agent use the server too. You type it, nothing is shown, and
+it is saved encrypted:
 
 ```bash
 komando secret set web1-pass

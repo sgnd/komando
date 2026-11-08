@@ -183,7 +183,7 @@ func (f *file) key() ([]byte, error) {
 	case "passphrase":
 		p := Passphrase()
 		if p == "" {
-			return nil, errors.New("vault is passphrase-protected: set KOMANDO_VAULT_PASS")
+			return nil, errors.New("the vault is locked with a passphrase; set KOMANDO_VAULT_PASS")
 		}
 		secret = []byte(p)
 	case "keychain":
@@ -199,7 +199,7 @@ func (f *file) key() ([]byte, error) {
 			if len(f.Entries) > 0 {
 				// a new key would open none of them, and secrets saved with
 				// it would be lost once the old key is back
-				return nil, fmt.Errorf("%s is missing but the vault holds %d secrets: restore it from a backup", kp, len(f.Entries))
+				return nil, fmt.Errorf("%s is missing but the vault holds %d secrets; restore it from a backup", kp, len(f.Entries))
 			}
 			b, err = newKeyFile(kp)
 		}

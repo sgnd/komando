@@ -75,8 +75,9 @@ func reservedSecret(name string) error {
 }
 
 // secretInput reads a value the way `secret set` and `secret check` take it:
-// from --from-env VAR, from a pipe, or typed hidden at the terminal.
-func secretInput(cmd *cobra.Command, label string) (string, error) {
+// from --from-env VAR, from a pipe, or typed hidden at the terminal. name is
+// the secret's name, for the hint when there is no value.
+func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 	if fromEnv, _ := cmd.Flags().GetString("from-env"); fromEnv != "" {
 		v, ok := os.LookupEnv(fromEnv)
 		if !ok {
@@ -99,6 +100,14 @@ func secretInput(cmd *cobra.Command, label string) (string, error) {
 	}
 	// a person at a terminal: ask with hidden input (agents never have a TTY)
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		if isAgent() {
+			// A password only the user knows is typed by the user. Sending
+			// the agent back to --from-env or stdin would make it ask for
+			// the password in the chat, where it stays in the transcript.
+			return "", out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+				fmt.Sprintf("ask the user to run `%s %s` in their own terminal: it asks for the value, hidden. Never ask for a password in the chat. A value a program makes (a new token) can come on stdin or with --from-env VAR", cmd.CommandPath(), name),
+				"no value for %s: a password is typed by the user, so it never passes through an AI agent", name)
+		}
 		return "", out.Usage("no value: use --from-env VAR or pipe the value on stdin")
 	}
 	v, err := readHidden(label)
@@ -209,7 +218,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 					fmt.Sprintf("run `komando secret set %s` and type it (hidden), use --from-env VAR, or pipe it on stdin", args[0]),
 					"refusing a secret value on the command line: it would be saved in shell history")
 			}
-			v, err := secretInput(cmd, "Paste or type the value for "+args[0]+", then press Enter (it stays hidden): ")
+			v, err := secretInput(cmd, args[0], "Paste or type the value for "+args[0]+", then press Enter (it stays hidden): ")
 			if err != nil {
 				return err
 			}
@@ -316,7 +325,7 @@ picks would be a way to guess the secret one try at a time.`,
 			if err != nil {
 				return err
 			}
-			given, err := secretInput(cmd, "Paste or type the value to compare with "+args[0]+", then press Enter (it stays hidden): ")
+			given, err := secretInput(cmd, args[0], "Paste or type the value to compare with "+args[0]+", then press Enter (it stays hidden): ")
 			if err != nil {
 				return err
 			}

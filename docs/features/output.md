@@ -73,8 +73,8 @@ machine-readable reference is `komando schema`.
 
 | Error | Usually means | Try |
 |-------|---------------|-----|
-| `AUTH_FAILED` | wrong user, key or password; or the server asks for a two-factor code (the message quotes its question, and komando sends no answer) | `komando host show NAME`; a changed password: `komando secret set NAME`; a two-factor login: log in once at a terminal with the command `komando host ssh-command NAME` prints |
-| `NO_AUTH` | the server has no key, identity or password, and ssh-agent holds no key (the message says if `~/.ssh/id_ed25519` is encrypted and not loaded) | `ssh-add` (or `ssh-add ~/.ssh/id_ed25519`), or save a password: `komando secret set NAME`, then `komando host edit NAME --password-ref secret:NAME` (or `--key KEY`); start ssh-agent first if `SSH_AUTH_SOCK` is not set |
+| `AUTH_FAILED` | wrong user, key or password; or the server asks for a two-factor code and no person is at a terminal to answer it (the message quotes its question) | `komando host show NAME`; a changed password: `komando secret set NAME`; a two-factor login: run the command in your own terminal, where komando asks you for the code (an AI agent asks the user to) |
+| `NO_AUTH` | the server has no key, identity or password, ssh-agent holds no key, and no person is at a terminal to type a password (the message says if `~/.ssh/id_ed25519` is encrypted and not loaded) | `ssh-add` (or `ssh-add ~/.ssh/id_ed25519`), or save a password: `komando secret set NAME`, then `komando host edit NAME --password-ref secret:NAME` (or `--key KEY`); start ssh-agent first if `SSH_AUTH_SOCK` is not set |
 | `KEY_PASSPHRASE_REQUIRED` | the server's key (`--key` or `--identity`) is encrypted, has no passphrase in the vault, and ssh-agent does not hold it (komando uses the agent's copy, as `ssh` does) | `ssh-add PATH`, or store the passphrase: `komando secret set NAME`, `komando key add NAME PATH --passphrase-ref secret:NAME`, then `komando host edit HOST --key NAME --unset identity` (for a `--key` key: `komando key edit NAME --passphrase-ref secret:NAME`) |
 | `CONNECTION_REFUSED`, `CONNECT_TIMEOUT` | server down, wrong port, firewall | check the address and port; `--connect-timeout 30s` |
 | `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting; the message shows the pinned fingerprint and the one the server shows now | compare the new fingerprint with the server's console or your provider first, then `komando host trust NAME --reset --yes`, or `@group` for many at once (a person decides; an agent reports it) |
@@ -93,6 +93,7 @@ machine-readable reference is `komando schema`.
 | `PROTECTED_HOST`, `PROTECTED_TARGET` | a change to something marked protected | a person may add `--yes` |
 | `SAFETY_SETTING` | a change that turns a seatbelt off | a person may add `--yes` |
 | `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{secret:NAME}}`, `--env K=secret:NAME`, a password on a new address) | tell the user which secret goes where; a person may add `--yes` |
+| `NEEDS_PERSON` | an AI agent asked for something only a person can do: type a password into `secret set`, compare one with `secret check`, set the approval code | the agent asks the user to run the command in their own terminal; no flag lets an agent do it |
 | `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
 | `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |

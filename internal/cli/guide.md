@@ -243,7 +243,10 @@ Anything that must keep running (a temporary web server, a watcher) is a
   without the human's protected servers, deny rules, host keys and audit log.
 - Snippets count as changes unless saved with `--read-only`.
 - Never put a secret value in a command line: `komando secret set NAME` reads it
-  from `--from-env VAR` or stdin.
+  from `--from-env VAR` or stdin. A password the human knows (a server's login,
+  a database password) is typed by the human: ask them to run
+  `komando secret set NAME` in their own terminal, where it asks for it hidden.
+  Never ask for a password in the chat (`NEEDS_PERSON` says the same).
 - Rename a secret with `komando secret mv OLD NEW` (every server, conn, key and
   VPN that uses it follows) and copy one with `secret cp OLD NEW`: the value
   stays in the vault, so nobody retypes it. Never ask the human to retype a
@@ -287,12 +290,12 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 3    | TARGET_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | `komando list`; the hint suggests the closest name |
 | 3    | SECRET_NOT_FOUND, SECRET_UNRESOLVED | `komando secret list`; ask the human to store the secret |
 | 3    | NO_MATCHING_TARGETS               | use the command the hint names (e.g. `db` for a database) |
-| 4    | AUTH_FAILED, NO_AUTH, CONNECTION_REFUSED, HOSTKEY_* | follow `error.hint`; do not retry blindly; never fix `HOSTKEY_MISMATCH` |
+| 4    | AUTH_FAILED, NO_AUTH, CONNECTION_REFUSED, HOSTKEY_* | follow `error.hint`; do not retry blindly; never fix `HOSTKEY_MISMATCH`. A server that asks for a one-time code (two-factor): ask the human to run the command in their own terminal, where komando asks them for it |
 | 4    | VPN_LOGIN_REQUIRED, VPN_DOWN      | ask the human to run `komando vpn up <name>` |
 | 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; use `job start` next time |
 | 5    | FAILED                            | read `data.results[].stderr` and `exit_code` |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
-| 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, WRITE_REQUIRES_FLAG | stop and ask the human |
+| 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, WRITE_REQUIRES_FLAG, NEEDS_PERSON | stop and ask the human |
 | 7    | TIMEOUT, CONNECT_TIMEOUT          | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file; use exact, unique `--old` text |
 | 8    | NOT_WRITABLE (update)             | ask the human to run the `sudo` command from `error.hint` in their terminal |

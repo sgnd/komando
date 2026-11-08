@@ -336,13 +336,13 @@ func TestPasswordIsNeverSentAsACode(t *testing.T) {
 	}{
 		{name: "password only", srv: &otpServer{rounds: [][]string{{"Password: "}}}, stored: pw, ok: true, sentPW: 1, answered: []string{"Password: "}},
 		{name: "password, then a code", srv: &otpServer{rounds: [][]string{{"Password: "}, {"Verification code: "}}}, stored: pw, sentPW: 1, answered: []string{"Password: "},
-			inMessage: `web1 asks "Verification code:" (two-factor login)`, inHint: "`komando host ssh-command web1`"},
+			inMessage: `web1 asks "Verification code:" (two-factor login)`, inHint: "komando asks you for the code there"},
 		{name: "a code first", srv: &otpServer{rounds: [][]string{{"Enter your OTP\x1b[2J: "}, {"Password: "}}}, stored: pw,
 			inMessage: `web1 asks "Enter your OTP [2J:" (two-factor login)`},
 		{name: "password and code in one round", srv: &otpServer{rounds: [][]string{{"Password: ", "One-time token: "}}}, stored: pw,
 			inMessage: `"One-time token:" (two-factor login)`},
 		{name: "a shown question", srv: &otpServer{rounds: [][]string{{"Password: "}}, echo: true}, stored: pw,
-			inMessage: `web1 asks "Password:"; komando sends the stored password only to a hidden password question`},
+			inMessage: `web1 asks "Password:"; komando answers only a hidden password question by itself`},
 		{name: "a wrong password is sent once", srv: &otpServer{rounds: [][]string{{"Password: "}}, password: true}, stored: "old-pass",
 			inMessage: `web1 asks "Password:" again`, inHint: "the password that env:KOMANDO_TEST_PW holds"},
 	}

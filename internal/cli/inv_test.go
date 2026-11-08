@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -469,5 +470,38 @@ func TestInvRmSelector(t *testing.T) {
 func TestInvEmptyListText(t *testing.T) {
 	if s := (targetList{Targets: []targetRow{}, empty: true}).Text(); !strings.Contains(s, "No servers or conns yet") {
 		t.Errorf("text: %q", s)
+	}
+}
+
+// Moving to another computer keeps the servers that log in with a
+// keychain key: the export names the keys (whose files it never holds),
+// and the import adds the server and says how to bring its key along,
+// instead of leaving the server out.
+func TestExportImportKeepsServersWithKeys(t *testing.T) {
+	invHome(t)
+	mustRun(t, "key", "gen", "deploy")
+	mustRun(t, "host", "add", "db1", "root@10.0.0.20", "--key", "deploy")
+	mustRun(t, "host", "add", "web1", "u@10.0.0.21")
+	f := filepath.Join(t.TempDir(), "backup.json")
+	d := mustRun(t, "export", "--to", f)
+	if fmt.Sprint(d["keys_needed"]) != "[deploy]" || len(d["key_files"].([]any)) != 1 {
+		t.Errorf("export names the key and its file: %v", d)
+	}
+	b, _ := os.ReadFile(f)
+	if strings.Contains(string(b), "PRIVATE KEY") || !strings.Contains(string(b), `"keys_needed": [`) {
+		t.Errorf("export file: %s", b)
+	}
+
+	invHome(t) // the other computer
+	d = mustRun(t, "import", "komando", f)
+	if len(d["hosts"].([]any)) != 2 {
+		t.Fatalf("both servers come in: %v", d)
+	}
+	if !strings.Contains(fmt.Sprint(d), "run `komando key add deploy PATH` and `komando host edit db1 --key deploy`") {
+		t.Errorf("the import says how to bring the key: %v", d)
+	}
+	h := mustRun(t, "host", "show", "db1")
+	if h["key"] != nil && h["key"] != "" {
+		t.Errorf("db1 points at a key this computer does not have: %v", h)
 	}
 }
