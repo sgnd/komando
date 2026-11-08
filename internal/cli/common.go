@@ -23,6 +23,7 @@ import (
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 func loadState() (*store.State, error) { return store.Load() }
@@ -154,6 +155,17 @@ func toErr(err error) *out.Error {
 	}
 	if errors.Is(err, context.Canceled) {
 		return &out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError}
+	}
+	switch {
+	case errors.Is(err, vault.ErrLocked):
+		return &out.Error{Code: "VAULT_LOCKED", Message: err.Error(), Exit: out.ExitError,
+			Hint: "the person who set the passphrase exports KOMANDO_VAULT_PASS in the shell that runs komando (an AI agent asks the user; it never sees the passphrase)"}
+	case errors.Is(err, vault.ErrKey):
+		return &out.Error{Code: "VAULT_KEY", Message: err.Error(), Exit: out.ExitError,
+			Hint: "restore ~/.komando/vault.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault"}
+	case errors.Is(err, vault.ErrDecrypt):
+		return &out.Error{Code: "VAULT_DECRYPT", Message: err.Error(), Exit: out.ExitError,
+			Hint: "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use); nothing was lost"}
 	}
 	var pe *os.PathError
 	if errors.As(err, &pe) {

@@ -183,7 +183,7 @@ func (f *file) key() ([]byte, error) {
 	case "passphrase":
 		p := Passphrase()
 		if p == "" {
-			return nil, errors.New("the vault is locked with a passphrase; set KOMANDO_VAULT_PASS")
+			return nil, ErrLocked
 		}
 		secret = []byte(p)
 	case "keychain":
@@ -199,7 +199,7 @@ func (f *file) key() ([]byte, error) {
 			if len(f.Entries) > 0 {
 				// a new key would open none of them, and secrets saved with
 				// it would be lost once the old key is back
-				return nil, fmt.Errorf("%s is missing but the vault holds %d secrets; restore it from a backup", kp, len(f.Entries))
+				return nil, fmt.Errorf("%w: %s is missing but the vault holds %d secrets; restore it from a backup", ErrKey, kp, len(f.Entries))
 			}
 			b, err = newKeyFile(kp)
 		}
@@ -209,7 +209,7 @@ func (f *file) key() ([]byte, error) {
 		if len(b) < keyLen {
 			// an empty or cut-short key would quietly encrypt new secrets
 			// with a key anyone can derive from vault.json
-			return nil, fmt.Errorf("%s holds %d bytes, not %d (cut short?): restore it from a backup", kp, len(b), keyLen)
+			return nil, fmt.Errorf("%w: %s holds %d bytes, not %d (cut short?); restore it from a backup", ErrKey, kp, len(b), keyLen)
 		}
 		secret = b
 	}
@@ -416,7 +416,7 @@ func Set(name, value string) error {
 func (f *file) checkKey(a cipher.AEAD) error {
 	for name, e := range f.Entries {
 		if _, err := a.Open(nil, e.Nonce, e.Data, []byte(name)); err != nil {
-			return fmt.Errorf("cannot decrypt secret %q (wrong KOMANDO_VAULT_PASS or vault.key?): nothing was saved", name)
+			return fmt.Errorf("%w %q (wrong KOMANDO_VAULT_PASS or vault.key?): nothing was saved", ErrDecrypt, name)
 		}
 		return nil // one is enough: every entry has the same key
 	}
@@ -424,6 +424,15 @@ func (f *file) checkKey(a cipher.AEAD) error {
 }
 
 var ErrNotFound = errors.New("secret not found")
+
+// The vault cannot be opened: no passphrase given for a passphrase vault
+// (ErrLocked), its key file is missing or broken (ErrKey), or a secret
+// does not decrypt with the key or passphrase given (ErrDecrypt).
+var (
+	ErrLocked  = errors.New("the vault is locked with a passphrase; set KOMANDO_VAULT_PASS")
+	ErrKey     = errors.New("the vault's key cannot be used")
+	ErrDecrypt = errors.New("cannot decrypt secret")
+)
 
 func Get(name string) (string, error) {
 	f, err := load()
@@ -440,7 +449,7 @@ func Get(name string) (string, error) {
 	}
 	pt, err := a.Open(nil, e.Nonce, e.Data, []byte(name))
 	if err != nil {
-		return "", fmt.Errorf("cannot decrypt secret %q (wrong KOMANDO_VAULT_PASS or vault.key?)", name)
+		return "", fmt.Errorf("%w %q (wrong KOMANDO_VAULT_PASS or vault.key?)", ErrDecrypt, name)
 	}
 	return string(pt), nil
 }
@@ -488,7 +497,7 @@ func copyEntry(from, to string, overwrite, move bool) error {
 		e := f.Entries[from]
 		pt, err := a.Open(nil, e.Nonce, e.Data, []byte(from))
 		if err != nil {
-			return fmt.Errorf("cannot decrypt secret %q (wrong KOMANDO_VAULT_PASS or vault.key?)", from)
+			return fmt.Errorf("%w %q (wrong KOMANDO_VAULT_PASS or vault.key?)", ErrDecrypt, from)
 		}
 		defer clear(pt)
 		nonce := make([]byte, a.NonceSize())

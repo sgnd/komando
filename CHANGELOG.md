@@ -61,6 +61,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- A vault that cannot be opened says why, with the step: `VAULT_LOCKED`
+  (no passphrase given), `VAULT_KEY` (key file missing or broken),
+  `VAULT_DECRYPT` (wrong passphrase), instead of `REMOTE_ERROR`. A server's
+  unreadable password reference names the exact `secret set` (or what the
+  reference needs). `test` on one target ends with that target's own hint.
 - An import that refuses some servers still brings the rest in, but ends
   with `IMPORT_INCOMPLETE` (exit 1) instead of `ok`; names that exist
   already are still skipped quietly, so importing again is safe.
