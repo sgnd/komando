@@ -25,7 +25,7 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
 
 - Passwords and keys live in an encrypted vault in `~/.komando/`. An AI agent refers to them as `secret:NAME` and never sees the values.
 - Dangerous commands (`rm -rf /`, `reboot`, `DROP TABLE`, `FLUSHALL`, ...) are blocked unless a human allows them.
-- Protected servers and conns refuse changes without `--yes`. Database queries and cache commands only read unless you add `--write`.
+- Protected servers and conns refuse changes without `--yes`. Database queries and cache commands only read unless you add `--write`. On a protected target `--read-only` skips `--yes` only for commands komando knows read; anything it does not recognise still needs `--yes`.
 - Every value sent to a remote shell is quoted.
 - komando refuses to connect when a server's host key changes.
 - Everything is written to the audit log: `komando audit`.
