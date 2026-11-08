@@ -94,6 +94,17 @@ The export file holds no passwords, only their names, so set them again
 with `komando secret set`. To move everything including the vault, copy the
 whole `~/.komando` folder instead (or point `KOMANDO_HOME` at a copy).
 
+Private keys are never in an export file either. When a server logs in with
+a key from `komando key`, `export` names the key (`keys_needed`) and its file
+(`key_files`): copy that file to the other computer yourself. The import
+still adds the server, says which key it needs, and leaves the key out until
+you bring it (ssh-agent or your default key may log in meanwhile):
+
+```bash
+komando key add deploy ~/Downloads/deploy     # the copied key file
+komando host edit db1 --key deploy
+```
+
 An export file may come from someone else, so importing one is careful:
 
 - A `ProxyCommand` is dropped, because it would run on this computer. Set it

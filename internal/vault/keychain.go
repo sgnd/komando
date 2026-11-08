@@ -76,7 +76,7 @@ func KeychainTool() (string, error) {
 		return "macOS keychain", nil
 	case "linux":
 		if systemTool("secret-tool") == "" {
-			return "", errors.New("secret-tool is not installed in " + strings.Join(toolDirs, ", ") + " (it comes with libsecret: apt install libsecret-tools)")
+			return "", errors.New("secret-tool is not installed in " + strings.Join(toolDirs, ", ") + " (install it with apt install libsecret-tools)")
 		}
 		return "Secret Service (secret-tool)", nil
 	}

@@ -271,8 +271,11 @@ lock yourself out.
 
 ## Use a password
 
-Store the password once. You type it, nothing is shown, and it is saved
-encrypted in komando's vault (see [Secret](glossary.md)):
+At your terminal, komando asks for the password when the server wants one,
+as `ssh` does (`web1: Password:`, hidden as you type). Store it once to skip
+the question, and so that AI agents and scripts can log in: they have no
+one to ask. You type it, nothing is shown, and it is saved encrypted in
+komando's vault (see [Secret](glossary.md)):
 
 ```bash
 komando secret set web1-pass
@@ -285,11 +288,18 @@ one to another address, port or `--via` path, a person allows it in
 komando's window (`SECRET_DESTINATION`); see [Safety](safety.md#seatbelts-for-ai-agents).
 
 komando sends the stored password at most once per login, and only when the
-server asks for a password (hidden as you type). A server that also asks
-for a one-time code (two-factor login) gets no answer: the login stops with
+server asks for a password (hidden as you type); a refused one is not sent
+again, so a wrong password in the vault cannot lock the account.
+
+**Two-factor logins.** When a server also asks for a one-time code (or any
+other question), komando shows you the server's question with its name
+(`web1: Verification code:`) and sends what you type, hidden unless the
+server lets it show. Servers that log in at once (`komando exec @web`) ask
+one at a time. Ctrl-C stops the login (`CANCELLED`). Only a person at a
+terminal is asked: for an AI agent or a script the login stops with
 `AUTH_FAILED`, the message quotes the server's question, and no wrong code
-counts against the account. Log in to such a server at a terminal with the
-command `komando host ssh-command web1` prints.
+counts against the account. The agent asks you to run the command in your
+own terminal.
 
 If `sudo` asks for a password on the server, store that too:
 

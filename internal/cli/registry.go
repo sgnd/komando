@@ -337,7 +337,7 @@ func credHelper(helper, server string) (string, string, error) {
 	c.Stdin = strings.NewReader(server)
 	b, err := c.Output()
 	if err != nil {
-		return "", "", fmt.Errorf("docker-credential-%s: %v", helper, err)
+		return "", "", fmt.Errorf("the credential helper docker-credential-%s failed (%v)", helper, err)
 	}
 	var r struct{ Username, Secret string }
 	if err := json.Unmarshal(b, &r); err != nil {

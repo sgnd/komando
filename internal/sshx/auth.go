@@ -111,12 +111,25 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 		if err != nil {
 			return nil, agentConn, out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "check `komando secret list`", "password for %s: %v", h.Name, err)
 		}
-		methods = append(methods, (&passwordLogin{pw: pw}).methods()...)
+		methods = append(methods, (&passwordLogin{pw: pw, ask: personFor(h)}).methods()...)
+	} else if ask := personFor(h); ask != nil {
+		// no password stored: a person at the terminal types it if the
+		// server wants one (after the keys, as ssh does)
+		methods = append(methods, (&passwordLogin{ask: ask}).methods()...)
 	}
 	if len(methods) == 0 {
 		return nil, agentConn, lk.noAuth(st, h)
 	}
 	return methods, agentConn, nil
+}
+
+// personFor is Ask for the login to h, or nil when no person can be asked.
+func personFor(h *store.Host) func(text string, hidden bool) (string, error) {
+	ask := Ask
+	if ask == nil {
+		return nil
+	}
+	return func(text string, hidden bool) (string, error) { return ask(h.Name, text, hidden) }
 }
 
 // keyFile reads a private key. An encrypted key without a passphrase ref
@@ -389,41 +402,103 @@ func shellPath(p string) string {
 	return prefix + p
 }
 
-// passwordLogin gives the stored password to the server: at most once per
-// login (the password method and keyboard-interactive share it), and in
-// keyboard-interactive only to a hidden question that asks for a password.
-// A one-time code or any other question gets no answer: the login stops
-// before a wrong answer counts against the account, which can lock it.
+// Ask, when set, asks the person at the terminal what a login wants that
+// komando cannot answer by itself: the password when none is stored, a
+// one-time code (a two-factor login), or any other question the server
+// asks, the way ssh does. host is the server's name in komando; text is
+// the server's own words (Ask makes them safe to show); hidden is false
+// only when the server lets the answer show. The cli sets it only for a
+// person at a terminal: AI agents, scripts and background processes have
+// no one to ask, so they get NO_AUTH or AUTH_FAILED with a hint instead.
+var Ask func(host, text string, hidden bool) (string, error)
+
+// passwordLogin answers the server's login questions. The stored password
+// goes out at most once per login (the password method and
+// keyboard-interactive share it), and in keyboard-interactive only to a
+// hidden question that asks for a password: a refused one is not sent
+// again, so a wrong password in the vault cannot lock the account. With a
+// person to ask (ask), every other question goes to them; without one, a
+// one-time code or any other question gets no answer and the login stops
+// before a wrong answer counts against the account.
 type passwordLogin struct {
-	pw   string
+	pw   string // the stored password, "" when none is stored
 	sent bool
+	ask  func(text string, hidden bool) (string, error) // nil: no person at a terminal
+	stop error                                          // the person cancelled: every later question ends the same way
 }
 
 func (p *passwordLogin) methods() []ssh.AuthMethod {
+	if p.ask == nil {
+		return []ssh.AuthMethod{
+			ssh.PasswordCallback(func() (string, error) {
+				p.sent = true
+				return p.pw, nil
+			}),
+			ssh.KeyboardInteractive(p.answer),
+		}
+	}
+	// keyboard-interactive first, as OpenSSH tries them: a two-factor
+	// server asks the password and the code there, so a person types the
+	// password once, not once per method
 	return []ssh.AuthMethod{
+		ssh.KeyboardInteractive(p.answer),
 		ssh.PasswordCallback(func() (string, error) {
+			switch {
+			case p.pw == "":
+				return p.askPerson("Password: ", true)
+			case p.sent:
+				return "", &unanswered{question: "Password:", kind: askAgain}
+			}
 			p.sent = true
 			return p.pw, nil
 		}),
-		ssh.KeyboardInteractive(p.answer),
 	}
 }
 
-func (p *passwordLogin) answer(_, _ string, questions []string, echos []bool) ([]string, error) {
+func (p *passwordLogin) answer(_, instruction string, questions []string, echos []bool) ([]string, error) {
 	answers := make([]string, len(questions))
 	sent := p.sent
 	for i, q := range questions {
-		kind := questionKind(q, i < len(echos) && echos[i])
-		if kind == askPassword && sent {
-			kind = askAgain
+		echo := i < len(echos) && echos[i]
+		kind := questionKind(q, echo)
+		switch {
+		case kind == askPassword && p.pw != "" && !sent:
+			answers[i], sent = p.pw, true
+			continue
+		case kind == askPassword && p.pw != "":
+			kind = askAgain // the stored one went out and was refused
+		case p.ask != nil:
+			text := q
+			if i == 0 && strings.TrimSpace(instruction) != "" {
+				text = strings.TrimSpace(instruction) + "\n" + q
+			}
+			a, err := p.askPerson(text, !echo)
+			if err != nil {
+				return nil, err
+			}
+			answers[i] = a
+			continue
 		}
-		if kind != askPassword {
-			return nil, &unanswered{question: cleanQuestion(q), kind: kind}
+		if kind == askPassword {
+			kind = askOther // no password stored and no one to ask
 		}
-		answers[i], sent = p.pw, true
+		return nil, &unanswered{question: cleanQuestion(q), kind: kind}
 	}
 	p.sent = sent
 	return answers, nil
+}
+
+// askPerson asks the person at the terminal. After a Ctrl-C every later
+// question ends the same way at once: the person wants out.
+func (p *passwordLogin) askPerson(text string, hidden bool) (string, error) {
+	if p.stop != nil {
+		return "", p.stop
+	}
+	a, err := p.ask(text, hidden)
+	if err != nil {
+		p.stop = err
+	}
+	return a, err
 }
 
 // The kinds of keyboard-interactive question.
@@ -493,20 +568,20 @@ func (e *unanswered) Error() string { return "the server asks " + strconv.Quote(
 // authFailed is the AUTH_FAILED error that quotes the question.
 func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
 	name := h.Name
-	terminal := "log in once at a terminal with the command `komando host ssh-command " + name + "` prints"
-	if adhoc(st, h) {
-		terminal = "log in once at a terminal with ssh"
-	}
+	// Ask was not set: no person at a terminal (an AI agent, a script, a
+	// background process). A person who runs the command is asked.
 	switch e.kind {
 	case askCode:
-		return out.Errf(out.ExitConnect, "AUTH_FAILED", terminal+"; komando cannot type a one-time code",
-			"%s asks %s (two-factor login); komando sent no answer", name, strconv.Quote(e.question))
+		return out.Errf(out.ExitConnect, "AUTH_FAILED",
+			"run the command yourself in a terminal: komando asks you for the code there (an AI agent asks the user to run it)",
+			"%s asks %s (two-factor login); only a person can answer it, and none is at a terminal here", name, strconv.Quote(e.question))
 	case askAgain:
 		return out.Errf(out.ExitConnect, "AUTH_FAILED", authFailedHint(st, h),
 			"%s asks %s again: it refused the stored password, which komando sends only once", name, strconv.Quote(e.question))
 	}
-	return out.Errf(out.ExitConnect, "AUTH_FAILED", terminal+" to see what it wants",
-		"%s asks %s; komando sends the stored password only to a hidden password question, and sent no answer", name, strconv.Quote(e.question))
+	return out.Errf(out.ExitConnect, "AUTH_FAILED",
+		"run the command yourself in a terminal: komando shows you the question and sends your answer (an AI agent asks the user to run it)",
+		"%s asks %s; komando answers only a hidden password question by itself, and no person is at a terminal here", name, strconv.Quote(e.question))
 }
 
 // agentDeadline gives every request written to the ssh-agent (and the
