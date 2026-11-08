@@ -40,6 +40,7 @@ commands in, so these rules apply to it too:
 |----------|--------------|
 | **A person allows the risky flags** | When an agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando opens a window on your screen with the whole command, why komando stops it (the matched rule, the protected servers), the servers it runs on and, when the command line does not show it, the program on this computer it lets run. It runs only when you click **Allow once**. Line breaks, tabs, control characters, long runs of spaces and characters that draw nothing show as escapes (`$'a:\n  b: 1'`, `\u3164`), which your shell reads back as the same text. A command that cannot be shown whole (longer than 500 characters, invalid text, or with bidi or zero-width characters) gets no window: the agent is told to make it shorter or ask you to run it. The agent cannot click it. With `komando config approval-code`, the window also asks for the 6-digit code from your authenticator app, so a click alone is not enough. With no screen (an SSH session, a server), the agent is refused and asks you to run the command in your own terminal. |
 | **Secrets hidden from agents** | Passwords, keys and tokens in any output (a `.env` file, `env`, a log line, a database row, a Kubernetes Secret, `requirepass` in `redis.conf`, private keys, password hashes) show as `[hidden]`. You and your scripts see the real values. |
+| **Personal data hidden from agents** | On protected servers and conns, email addresses, phone numbers, card numbers and IBANs in what an agent reads (a database row, a cache value, a log line, a file) show as `[hidden: email]`, `[hidden: phone]`, `[hidden: card]` and `[hidden: iban]`. See [Personal data](#personal-data). |
 | **Agents can still set secrets** | `fs replace --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:db}}' --yes` puts the vault value on the server without the agent seeing it, once you allow it in the window. Text that still holds `[hidden]` is never written over a real file (`HIDDEN_VALUE`). An agent can rename a secret with `secret mv` (every reference follows) without seeing it. |
 | **A person decides where a secret goes** | Once a value is on a server the agent controls, it could come back in a form komando does not recognise (reversed, in hex, cut in pieces). So when an agent sends a secret somewhere, it needs `--yes`, and the window names the secret and the place (`SECRET_DESTINATION`): `{{secret:NAME}}` in `fs write` and `fs replace`, `exec --env K=secret:NAME` and `job start --env`, `db user add` and `db user passwd`, and a password reference (`secret:`, `env:`, `file:`, ...) that `host add`, `host edit`, `conn add`, `conn edit` or an import attaches to a server or conn, or a server or conn with one that moves to another address, port, `--via` path or proxy command. Edits that keep the place (a tag, a user name) ask nothing. A dry run never asks: it keeps `{{secret:NAME}}` as it is and says what the real run would need. |
 | **A person decides about weaker connections** | An agent that adds a conn whose URL turns the network protection down, or edits one so that it does, needs `--yes` and your yes in the window (`SAFETY_SETTING`): `sslmode=disable`, `allow` or `prefer` (PostgreSQL), `tls=false`, `preferred` or `skip-verify` (MySQL), `tls=false` or `tls=skip-verify` (registry, FTPS), `insecure=1` (FTP), and going from `rediss://`, `memcacheds://` or an `https` endpoint to one without TLS. |
@@ -102,6 +103,44 @@ Built-in rules cannot be removed. `policy check` exits 6 when the command
 would be blocked, so it works in an `if`. `--for` rates a statement for a
 conn kind: `postgres`, `mysql`, `sqlite`, `redis` or `memcached`.
 
+## Personal data
+
+Customer data in production should not end up in an AI model. On protected
+servers and conns, an AI agent sees personal data hidden in what it reads
+from them: `db query` rows (also with `--csv`), `cache get` and `cache run`,
+`storage cat`, `fs cat`, `exec`, `logs` and the other commands that show
+data from a server or resource. komando's own inventory (server addresses,
+conn URLs) is never hidden.
+
+| Shown as | What komando looks for |
+|----------|------------------------|
+| `[hidden: email]` | an email address (not `git@...` or `noreply@...`) |
+| `[hidden: phone]` | a phone number in international form: `+`, the country code, 8 to 15 digits |
+| `[hidden: card]` | a payment card number: a card network's first digits, its length, and a valid check digit |
+| `[hidden: iban]` | an IBAN with valid check digits |
+| `[hidden: column]` | any value in a database column you name (below) |
+
+```bash
+komando config set mask_personal all             # on every server and conn
+komando conn edit staging-db --option mask_personal=on   # on this conn, whatever the setting
+komando conn edit shop-db --option 'mask_columns=name address birth_date'
+komando config set mask_personal protected --yes  # back to the default
+```
+
+- **`mask_personal`**: `protected` (the default), `all`, or `off`. Showing
+  agents more (`all` to `protected`, or `off`) needs `--yes`.
+- **`mask_columns`**: names and street addresses have no shape komando can
+  find, so name the columns that hold them, split by spaces. Setting it
+  also turns personal data hiding on for that conn.
+- **A person decides**: with `--reveal`, which a person allows in the
+  approval window, the agent sees the real values for that one command.
+- **Never written back**: a `db query --write`, `cache set` or
+  `cache run --write`, and a file write, that still holds `[hidden: ...]`
+  stops with `HIDDEN_VALUE`, so a masked value never replaces a real one.
+- It is a best effort: a phone number written without `+`, or personal
+  data in an image or a binary file, is not found. Hide whole columns
+  where it matters.
+
 ## History
 
 Every action is in the audit log: time, who ran it, which AI agent asked,
@@ -116,6 +155,8 @@ komando audit -n 0                    # all entries
 komando audit --failed                # only failed or blocked actions
 komando audit --target @prod          # only these servers or conns
 komando audit --command exec          # only one command family
+komando audit --since 2h              # everything in the last two hours
+komando audit --since yesterday --until today   # all of yesterday
 komando audit verify                  # check the chain
 ```
 

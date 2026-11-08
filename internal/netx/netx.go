@@ -46,6 +46,7 @@ type Kind struct {
 var Kinds = map[string]Kind{
 	"wireguard":     {Desc: "WireGuard, run inside komando (no admin rights, many at once)"},
 	"socks":         {Desc: "a SOCKS5 proxy that is already running (`komando tunnel start HOST -D`, a company proxy)"},
+	"proxy":         {Desc: "an HTTP proxy (CONNECT), such as a company proxy: every connection is tunneled through it"},
 	"system":        {Desc: "a VPN set up in your computer's settings; --service lets `vpn up` connect it"},
 	"l2tp":          {Desc: "L2TP/IPsec with a pre-shared key, run inside komando (no admin rights)", Session: true},
 	"ipsec":         {Desc: "Cisco-style IPsec (IKEv1, group name and XAUTH login), run inside komando", Session: true},
@@ -360,6 +361,8 @@ func OpenDirect(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 			}
 			return c, nil
 		}, nopCloser{}, nil
+	case "proxy":
+		return openHTTPProxy(v, timeout)
 	case "tailscale":
 		return openTailscale(ctx, v, timeout)
 	case "openvpn":
@@ -403,6 +406,8 @@ func DownHint(v *store.Vpn) string {
 		return "connect the VPN " + v.Name + " on this computer first, then try again"
 	case v.Kind == "socks":
 		return "start the SOCKS proxy at " + v.Address + ", e.g. `komando tunnel start HOST -D " + v.Address + "`, then try again"
+	case v.Kind == "proxy":
+		return "check that the proxy at " + v.Address + " answers and lets this port through (many company proxies allow only 443), and its login (`komando vpn show " + v.Name + "`)"
 	case v.Kind == "wireguard":
 		return "check that the endpoint is reachable from this computer and that the keys match the server's (`komando vpn show " + v.Name + "`)"
 	case Kinds[v.Kind].Session:

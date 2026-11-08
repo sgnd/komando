@@ -306,6 +306,9 @@ func cacheSetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := refuseHiddenWrite(args[1], args[2]); err != nil {
+				return err
+			}
 			result := func(c *store.Conn) cacheSet {
 				res := cacheSet{Conn: c.Name, Key: args[1]}
 				if ttl > 0 {
@@ -463,6 +466,11 @@ func cacheRunCmd() *cobra.Command {
 				rec["error"], rec["conns"] = e.Code, []string{args[0]}
 				audit(st, "cache.run", nil, "", false, rec)
 				return e
+			}
+			if write {
+				if err := refuseHiddenWrite(command...); err != nil {
+					return err
+				}
 			}
 			return withCache(cmd.Context(), "cache.run", args[0], v, rec,
 				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {

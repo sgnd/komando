@@ -42,7 +42,12 @@ func openMemcache(ctx context.Context, t driver.Target, password string, dial Di
 	}
 	if t.Secure {
 		host, _, _ := net.SplitHostPort(t.Address)
-		tc := tls.Client(c, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12})
+		pool, err := t.RootCAs()
+		if err != nil {
+			c.Close()
+			return nil, err
+		}
+		tc := tls.Client(c, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12, RootCAs: pool})
 		if err := tc.HandshakeContext(ctx); err != nil {
 			c.Close()
 			return nil, connectErr(t, err)

@@ -297,7 +297,7 @@ func isWord(c byte) bool {
 func ClassifySQL(kind, sql string) (SQLPlan, error) {
 	d, ok := dialects[kind]
 	if !ok {
-		return SQLPlan{}, out.Usage("%s conns do not take SQL", kind)
+		return SQLPlan{}, noSQL(kind)
 	}
 	texts, toks, err := splitSQL(sql, d)
 	if err != nil {

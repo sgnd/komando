@@ -2,6 +2,7 @@ package dbx
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -23,7 +24,7 @@ import (
 const viaNet = "komando-via"
 
 func openMySQL(rawURL string, t driver.Target, password string, dial DialFunc) (*sql.DB, error) {
-	u, err := url.Parse(rawURL)
+	u, err := url.Parse(driver.WithoutCA(rawURL))
 	if err != nil {
 		return nil, out.Usage("invalid mysql URL: %v", err)
 	}
@@ -41,6 +42,17 @@ func openMySQL(rawURL string, t driver.Target, password string, dial DialFunc) (
 		default:
 			cfg.Params[k] = vs[0] // session variables
 		}
+	}
+	pool, err := t.RootCAs()
+	if err != nil {
+		return nil, err
+	}
+	if pool != nil {
+		host, _, _ := net.SplitHostPort(t.Address)
+		if err := mysql.RegisterTLSConfig("komando-ca", &tls.Config{RootCAs: pool, ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
+			return nil, err
+		}
+		cfg.TLSConfig = "komando-ca"
 	}
 	if dial != nil {
 		mysql.RegisterDialContext(viaNet, func(ctx context.Context, addr string) (net.Conn, error) { return dial(ctx, "tcp", addr) })

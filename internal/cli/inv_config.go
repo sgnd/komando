@@ -150,6 +150,23 @@ var settings = []setting{
 			st.Settings.AuditSyslog = v
 			return nil
 		}},
+	{"mask_personal", "protected | all | off", "where AI agents see email addresses, phone numbers, card numbers and IBANs hidden: on protected servers and conns (the default), on all, or nowhere (less needs --yes)",
+		func(s *store.Settings) string { return s.MaskPersonal },
+		func(st *store.State, v string) error {
+			v = strings.ToLower(v)
+			rank := map[string]int{"off": 0, "protected": 1, "all": 2}
+			n, ok := rank[v]
+			if !ok {
+				return out.Errf(out.ExitUsage, "USAGE", "use protected (the default), all or off", "invalid mask_personal %q", v)
+			}
+			if n < rank[st.Settings.MaskPersonal] {
+				if err := guardSafety("showing AI agents more personal data (mask_personal " + v + ")"); err != nil {
+					return err
+				}
+			}
+			st.Settings.MaskPersonal = v
+			return nil
+		}},
 	{"vpn_idle", "duration, 0 = never", "a VPN kept up with `vpn up` is closed after this long unused",
 		func(s *store.Settings) string { return s.VpnIdle },
 		func(st *store.State, v string) (err error) {

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -64,8 +65,14 @@ func dbQueryCmd() *cobra.Command {
 transaction. Each run stops after 30s unless --timeout (or the conn's
 statement_timeout option) allows more. Placeholders take their values from
 --arg, in order. --csv and --tsv print the rows for spreadsheets and scripts.
-SQL that starts with a -- comment: pass it after -- or with -f -.`,
+SQL that starts with a -- comment: pass it after -- or with -f -.
+
+On a MongoDB conn the text is a command document in JSON, its first key
+naming it ({"find": ...}, {"aggregate": ...}, {"update": ...}). komando rates
+it as it rates SQL: what it does not know as a read needs --write. "$db"
+picks another database than the URL's.`,
 		Example: `  komando db query prod-db "select id, email from users order by id desc limit 10"
+  komando db query mongo-db '{"find": "users", "filter": {"plan": "pro"}, "limit": 10}'   # MongoDB
   komando db query prod-db "select * from users where email = $1" --arg bob@example.com
   komando db query prod-db --write --dry-run "update users set plan = 'pro' where id = 42"
   komando db query prod-db --file migration.sql --write --dry-run
@@ -87,6 +94,9 @@ SQL that starts with a -- comment: pass it after -- or with -f -.`,
 			}
 			if f.csv && f.tsv {
 				return out.Usage("pick one of --csv and --tsv")
+			}
+			if st, c, ok := mongoConn(args[0]); ok {
+				return runMongoQuery(cmd.Context(), "db.query", st, c, q, f)
 			}
 			return runSQL(cmd.Context(), "db.query", args[0], q, f)
 		},
@@ -151,8 +161,9 @@ func dbExplainCmd() *cobra.Command {
 					return out.Usage("sqlite has no EXPLAIN ANALYZE; drop --analyze")
 				}
 				prefix = "EXPLAIN QUERY PLAN "
-			default:
-				return out.Usage("%s conns do not take SQL", c.Kind)
+			default: // MongoDB, and kinds without SQL: the classifier says how
+				_, err := driver.ClassifySQL(c.Kind, args[1])
+				return err
 			}
 			return runSQL(cmd.Context(), "db.explain", args[0], prefix+strings.TrimSpace(args[1]), f)
 		},
@@ -178,6 +189,9 @@ func dbSchemaCmd() *cobra.Command {
 			c, err := singleConn(st, args[0], "db")
 			if err != nil {
 				return err
+			}
+			if c.Kind == "mongodb" {
+				return runMongoSchema(cmd.Context(), st, c, args[1:])
 			}
 			db, closeDB, err := openDB(cmd.Context(), st, c, true)
 			if err != nil {
@@ -425,6 +439,9 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		audit(st, name, nil, "", false, rec)
 		return err
 	}
+	if err := refuseHiddenSQL(f.write, query, f.args); err != nil {
+		return fail(err)
+	}
 	if !f.write && plan.NeedsWrite() {
 		e := out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG",
 			"this SQL changes data; re-run with --write (try --write --dry-run first)",
@@ -489,8 +506,22 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	rec["rows_affected"] = affected
 	rec["committed"] = res.Committed
 	audit(st, name, nil, "", true, rec)
+	return printQuery(name, c, plan, f, res)
+}
+
+// printQuery shows a query's result, with the conn's mask_columns hidden
+// when personal data is.
+func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res *dbx.Result) error {
+	maskColumns(c, res)
 	if f.csv || f.tsv {
-		return writeDelimited(out.P.W, res, f.tsv)
+		// through Redact like every other output: vault values, and for an
+		// AI agent secrets and personal data, stay hidden in CSV too
+		var b strings.Builder
+		if err := writeDelimited(&b, res, f.tsv); err != nil {
+			return err
+		}
+		_, err := io.WriteString(out.P.W, out.P.Redact(b.String()))
+		return err
 	}
 	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
 	return nil

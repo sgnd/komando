@@ -25,6 +25,7 @@ func clusterLsCmd() *cobra.Command {
 		Short: "List pods, deployments, services, nodes ... (Swarm: services, tasks)",
 		Example: `  komando cluster ls prod-k8s pods --namespace shop
   komando cluster ls prod-k8s deploy -A
+  komando cluster ls @prod nodes                # every cluster in the group
   komando cluster ls swarm-manager services
   komando cluster ls swarm-manager tasks -n 20`,
 		Args: cobra.ExactArgs(2),
@@ -33,26 +34,21 @@ func clusterLsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			ts, err := resolveClusters(st, args[0])
 			if err != nil {
 				return err
 			}
-			if t.host != nil {
+			swarm := func(ctx context.Context, t clusterTarget) (any, error) {
 				if err := noNamespace(t, ns); err != nil {
-					return err
+					return nil, err
 				}
 				kind := swarmKind(args[1])
 				if kind == "" {
-					return out.Usage("Swarm lists services (svc), tasks, nodes or stacks; %q is none of them", args[1])
+					return nil, out.Usage("Swarm lists services (svc), tasks, nodes or stacks; %q is none of them", args[1])
 				}
-				res, err := swarmList(cmd.Context(), t, kind, selector, limit)
-				if err != nil {
-					return err
-				}
-				out.P.Print("cluster.ls", res, nil)
-				return nil
+				return swarmList(ctx, t, kind, selector, limit)
 			}
-			return withKube(cmd.Context(), "cluster.ls", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
+			return readClusters(cmd.Context(), "cluster.ls", st, ts, clusterRead{swarm: swarm, kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, args[1])
 				if err != nil {
 					return nil, err
@@ -89,7 +85,7 @@ func clusterLsCmd() *cobra.Command {
 					res["truncated"] = true
 				}
 				return res, nil
-			})
+			}})
 		},
 	}
 	nsFlags(c, &ns, &all, &limitOpt{&limit, 500, "max items"})

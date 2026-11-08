@@ -6,6 +6,8 @@ package dbx
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -36,9 +38,16 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 	var db *sql.DB
 	switch t.Kind.Name {
 	case "postgres":
-		cfg, err := pgx.ParseConfig(rawURL)
+		cfg, err := pgx.ParseConfig(driver.WithoutCA(rawURL))
 		if err != nil {
 			return nil, out.Usage("invalid postgres URL: %v", err)
+		}
+		pool, err := t.RootCAs()
+		if err != nil {
+			return nil, err
+		}
+		if pool != nil {
+			pinCA(cfg, pool)
 		}
 		if password != "" {
 			cfg.Password = password
@@ -100,6 +109,10 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		if db, err = sql.Open("sqlite", "file:"+path+"?"+q.Encode()); err != nil {
 			return nil, err
 		}
+	case "mongodb":
+		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"on MongoDB use `komando db query CONN '{\"find\": ...}'`, `db schema` and `db info`; for a backup, run mongodump on a server with `komando exec`",
+			"this db command is for SQL databases, not MongoDB")
 	default:
 		return nil, out.Usage("%s conns do not take SQL", t.Kind.Name)
 	}
@@ -573,10 +586,7 @@ func tlsHint(kind string, err error) string {
 	via := "reach the server --via an SSH server and connect without TLS through it (`komando conn edit NAME --via HOST --url '..." + weak[1] + "'`)"
 	switch {
 	case strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify"):
-		ca := "give the CA that signed it"
-		if kind == "postgres" {
-			ca += " with ?sslrootcert=/path/to/ca.pem"
-		}
+		ca := "give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`)"
 		return "the server's certificate could not be checked: " + ca + ", or " + via +
 			"; without --via, " + weak[0] + " encrypts without checking it, so anyone on the network path could pretend to be the server"
 	case strings.Contains(msg, "server refused TLS"), errors.Is(err, mysql.ErrNoTLS):
@@ -615,4 +625,30 @@ func queryErr(kind string, ctx context.Context, err error) error {
 		return writeRequired("statement")
 	}
 	return out.Errf(out.ExitRemote, "DB_ERROR", "fix the SQL; `komando db schema CONN TABLE` shows columns and types", "%s", msg)
+}
+
+// pinCA makes every TLS attempt check the server's certificate against
+// pool (the conn's ?ca=) and its name, and drops the attempts without TLS
+// that sslmode=prefer would make.
+func pinCA(cfg *pgx.ConnConfig, pool *x509.CertPool) {
+	set := func(tc *tls.Config, host string) *tls.Config {
+		c := &tls.Config{MinVersion: tls.VersionTLS12}
+		if tc != nil {
+			c = tc.Clone()
+		}
+		c.RootCAs, c.InsecureSkipVerify, c.VerifyPeerCertificate, c.VerifyConnection = pool, false, nil, nil
+		if c.ServerName == "" {
+			c.ServerName = host
+		}
+		return c
+	}
+	cfg.TLSConfig = set(cfg.TLSConfig, cfg.Host)
+	var keep []*pgconn.FallbackConfig
+	for _, fb := range cfg.Fallbacks {
+		if fb.TLSConfig != nil {
+			fb.TLSConfig = set(fb.TLSConfig, fb.Host)
+			keep = append(keep, fb)
+		}
+	}
+	cfg.Fallbacks = keep
 }

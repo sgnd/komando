@@ -73,6 +73,27 @@ services:
   ftps:
     build: ftps
     networks: [private]
+  # cloud storage emulators (gcs, azblob and webdav conns)
+  gcs:
+    image: fsouza/fake-gcs-server:1.52.2
+    entrypoint: ["sh", "-c", "mkdir -p /data/media && exec /bin/fake-gcs-server -data /data -scheme http -port 4443 -public-host gcs:4443"]
+    networks: [private]
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.35.0
+    command: ["azurite-blob", "--blobHost", "0.0.0.0", "--loose"]
+    ports: ["127.0.0.1:${E2E_AZURITE:-10010}:10000"]  # the container is made from the host
+    networks: [public, private]
+  webdav:
+    image: rclone/rclone:1.68.2
+    command: ["serve", "webdav", "/data", "--addr", ":8080", "--user", "deploy", "--pass", "deploypass"]
+    networks: [private]
+  mongo:
+    # 7.0: MongoDB 8.0 and later do not start on Linux 6.19 and newer, the
+    # CI runners' kernel (SERVER-121912, a TCMalloc bug)
+    image: mongo:7.0.45
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]  # the lab is crowded; a small cache is enough
+    environment: { MONGO_INITDB_ROOT_USERNAME: root, MONGO_INITDB_ROOT_PASSWORD: mongopass }
+    networks: [private]
   # secret managers komando talks to itself (no vault or aws CLI)
   bao:
     image: openbao/openbao:2.4.3

@@ -29,6 +29,7 @@ komando vpn status                                  # which VPNs are up, and wha
 | `ipsec` (also `cisco`) | Cisco-style IPsec: group name and password, then your login (XAUTH): Cisco ASA/IOS, MikroTik, strongSwan; the "IPSec" type of macOS and iOS | inside komando | no |
 | `ikev2` | IKEv2/IPsec, with a pre-shared key or a user login (EAP-MSCHAPv2) checked against the server's certificate | inside komando | no |
 | `socks` | a SOCKS5 proxy that is already running (`komando tunnel start bastion -D 1080`, a company proxy) | already running | no |
+| `proxy` | an HTTP proxy that tunnels connections (CONNECT), such as a company proxy: `--address proxy.corp:3128` or `https://proxy.corp`, its login with `--user` and `--password-ref` | already running | no |
 | `system` | a VPN set up in your computer's own settings | by your computer | yes |
 
 "Inside komando" means: no extra program, no Docker, no admin rights. The
@@ -48,6 +49,7 @@ komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:as
 komando vpn add cloud ikev2 --server vpn.example.com --user budi --password-ref secret:cloud --check 10.2.0.5:22
 komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
 komando vpn add lab socks --address 127.0.0.1:1080
+komando vpn add office proxy --address proxy.corp.example:3128
 ```
 
 - **`--check host:port`** is an address that answers only through the VPN.

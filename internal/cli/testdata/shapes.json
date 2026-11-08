@@ -62,6 +62,7 @@
         "connect_timeout": "string",
         "default_timeout": "string",
         "host_key_policy": "string",
+        "mask_personal": "string",
         "max_output_bytes": "number",
         "parallel": "number",
         "vpn_idle": "string"
@@ -424,6 +425,12 @@
         }
       ],
       "memcached": [
+        {
+          "id": "string",
+          "reason": "string"
+        }
+      ],
+      "mongodb": [
         {
           "id": "string",
           "reason": "string"

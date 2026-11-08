@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Highlights
 
+- **Rename a whole project in one step:** `komando rename --prefix shop-
+  acme-shop-` renames every server, conn, VPN, secret, key and group that
+  starts with `shop-`, and every reference follows. It needs one `--yes`
+  (one approval window) for all the protected ones, and it changes
+  everything or nothing.
 - **`komando update` updates komando itself:** it installs the newest
   release (`sudo komando update` for /usr/local/bin), checked like the
   install line; `komando update --dry-run` says whether there is one.
@@ -41,6 +46,102 @@ its highlights; the sections below them give the details. Versions follow
   at a terminal only (`NEEDS_PERSON` for AI agents and scripts).
   `komando doctor` now fails when `KOMANDO_VAULT_PASS` does not open the
   vault and warns about a leftover `vault.key`.
+- **`komando rename --prefix OLD NEW`** renames every server, conn, VPN,
+  secret, key and group whose name starts with OLD. When OLD ends in `-`,
+  the name without it is renamed too (group `shop` for `--prefix shop-`).
+  Every reference follows: `--via` paths (also a server in the middle of
+  one), password, sudo, key, preshared key and passphrase references,
+  `secret:NAME` options in conn URLs, the key a server uses, group
+  membership, jobs and tunnels. A key komando made moves its files. The
+  protected mark, labels, notes and creation time stay, and names inside
+  URLs (a bucket, a database user) do not change. The inventory and the
+  vault are each written once; a name that is taken, or two old names with
+  one new name, stops it before anything changes (`NAME_TAKEN` lists every
+  clash). Protected servers and conns need `--yes` once, and an AI agent's
+  window says how many it covers. `--dry-run` shows the old and new names
+  per kind and every reference that would change. `--kind` renames only
+  some kinds, and `--notes` also replaces the old names in notes, as whole
+  words. When the new prefix starts with the old one, a second run changes
+  nothing.
+- **`komando key mv OLD NEW`** renames a key; the servers that use it follow,
+  and a key komando made moves its private and `.pub` files in
+  `~/.komando/keys`.
+- **`komando group mv OLD NEW`** renames a group on every server, conn and
+  VPN in it; with a protected member it needs `--yes` once. A name that is
+  another group already is refused (`GROUP_EXISTS`).
+- `komando audit --since` and `--until` pick a time window: how long ago
+  (`2h`, `7d`), `today`, `yesterday`, or a time (`2026-11-07`,
+  `'2026-11-07 14:30'`, `2026-11-07T14:30:00Z`; without a zone, this
+  computer's). With either, every match is shown, not only the newest 50,
+  unless `-n` is given. They work with `--target`, `--command` and
+  `--failed`.
+- A company HTTP proxy is a VPN of kind `proxy`
+  (`komando vpn add office proxy --address proxy.corp:3128`, its login with
+  `--user` and `--password-ref`): `--via office` tunnels servers (SSH),
+  databases, caches and file servers through it (CONNECT), as `socks` VPNs
+  do for SOCKS proxies. `host ssh-command` gives OpenSSH the same path.
+- **Customer data stays out of the AI model:** on protected servers and
+  conns, an AI agent sees email addresses, phone numbers, card numbers and
+  IBANs as `[hidden: email]` and so on, and columns you name as
+  `[hidden: column]`.
+- Personal data is hidden from AI agents in what they read from protected
+  servers and conns: `[hidden: email]`, `[hidden: phone]` (international
+  form), `[hidden: card]` (card network prefix, length and check digit) and
+  `[hidden: iban]` (check digits). It covers `db query`, `cache get` and
+  `run`, `storage cat` and `ls`, `fs cat`, `exec`, `logs` and the other
+  commands that show data from a target; komando's own inventory is never
+  hidden. `komando config set mask_personal all` hides it everywhere, `off`
+  nowhere (showing more needs `--yes`). A conn can ask for it with
+  `--option mask_personal=on`, and a database conn hides whole columns with
+  `--option 'mask_columns=name address'`. `--reveal`, which a person
+  allows, shows the values. A `db query --write`, `cache set` or
+  `cache run --write` that still holds a hidden value stops with
+  `HIDDEN_VALUE`, as file writes already did.
+
+- `komando cluster status`, `cluster ls`, `cluster events` and
+  `cluster helm ls` read every cluster a selector picks (`@prod`,
+  `kind:k8s`, `all`) at the same time: one row per cluster in
+  `data.results` with `data.summary`, and a cluster that cannot be read
+  fails alone (`PARTIAL_FAILURE`). One cluster gives the same output as
+  before; commands that change a cluster stay on one.
+- `komando cluster helm ls|status|history|values` read the Helm releases
+  stored in a Kubernetes cluster, without the `helm` program: name,
+  revision, status, chart and app version, the notes, every stored
+  revision, and the values (`--all` with the chart's defaults,
+  `--revision N` for an older one). It only reads; install and upgrade
+  stay with helm.
+- Storage conns for **Google Cloud Storage** (`gs://bucket/folder`, logged
+  in like gcloud or with a service account key), **Azure Blob Storage**
+  (`azblob://ACCOUNT@container/folder`, with the account key or a SAS
+  token) and **WebDAV** (`webdavs://user@host/path`: Nextcloud, ownCloud, a
+  NAS). `storage ls`, `cat`, `upload`, `download`, `rm`, `sync` and
+  `conn test` work on them as on S3, also through `--via`. `storage link`
+  makes a signed link for Google Cloud (with a service account key) and
+  Azure (with the account key). Big Azure uploads go up in blocks, with no
+  temporary file; WebDAV makes missing folders. Emulators take
+  `?endpoint=URL`.
+- **MongoDB** conns (`mongodb://`, `mongodb+srv://`, replica sets, Atlas):
+  `db query` takes a command document in JSON (`{"find": ...}`,
+  `{"aggregate": ...}`, `{"update": ...}`), rated before it is sent like
+  SQL, so changes need `--write`, and an empty-filter delete, `drop`, user
+  changes and `shutdown` need `--allow-dangerous`. `db schema` lists
+  collections, or the fields of a sample with their types; `db info` gives
+  version, role and sizes; `conn test` logs in. Every member is reached
+  through `--via`, and `?ca=` checks a private CA.
+- Redis Cluster and Sentinel: a `redis://` or `rediss://` conn with
+  `?cluster=1` works on the whole cluster from one node's address
+  (`cache keys` scans every master, `cache info` adds them up with the
+  cluster's state), and one with `?sentinel=MASTER` reaches the master the
+  Sentinels name (more Sentinels with `sentinels=`, their login with
+  `sentinel_auth=same`). Valkey, ElastiCache and MemoryDB clusters work
+  the same way.
+- Databases and caches whose certificate comes from a private CA (a
+  company CA, Amazon RDS, Azure, ElastiCache) are checked against it:
+  `?ca=secret:NAME` on a `postgres://`, `mysql://`, `rediss://` or
+  `memcacheds://` conn names the vault secret that holds the CA (PEM), as
+  registries already allowed. The check is a full one (signed by that CA,
+  naming the server), also with `sslmode=require`, and a Postgres conn then
+  never goes on without TLS.
 - `komando` alone opens a menu for a person at a terminal: choose Shell,
   Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
   Enter (`?` for help), then a server, conn or VPN from a list you can
@@ -76,6 +177,22 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Behind a company proxy, Kubernetes clusters, registries and the
+  AnyConnect, Fortinet, GlobalProtect, F5 and Pulse VPNs could not be
+  reached: they ignored `HTTPS_PROXY`, while `kubectl` and `docker` use
+  it. They now go through `HTTPS_PROXY` (`HTTP_PROXY` for `http://`)
+  except what `NO_PROXY` names, like storage and the secret stores already
+  did. That includes `cluster exec`, `cluster forward` and `cluster shell`,
+  and a kubeconfig's `proxy-url` wins for its cluster. A target reached
+  with `--via` still goes out through its path. See "Behind a company
+  proxy" in [Private servers and tunnels](docs/features/tunnels.md).
+- `komando db query --csv` and `--tsv` printed values an AI agent should
+  not see: unlike the JSON and text output, they skipped the masking of
+  secrets and vault values. They are masked the same way now.
+- A `rediss://` conn reached through `--via` could not connect: the Redis
+  client leaves TLS out when it is given its own dialer, so it spoke plain
+  Redis to the TLS port. komando's dialer now adds TLS itself, checking
+  each server's own name.
 - `komando host import --overwrite` deleted an existing server when the
   imported copy with the same name was refused (for example, its `--via`
   host does not exist). The server it would have replaced now stays.

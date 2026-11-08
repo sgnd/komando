@@ -67,6 +67,8 @@ func init() {
 		Example: "mysql://shop@db.internal:3306/shop?tls=true"})
 	register(Kind{Name: "sqlite", Family: "db", Schemes: []string{"sqlite", "sqlite3"}, File: true,
 		Example: "sqlite:///var/lib/app.db"})
+	register(Kind{Name: "mongodb", Family: "db", Schemes: []string{"mongodb", "mongodb+srv"}, DefaultPort: 27017,
+		Example: "mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin (Atlas: mongodb+srv://app@cluster0.abcde.mongodb.net/shop)"})
 	register(Kind{Name: "redis", Family: "cache", Schemes: []string{"redis", "rediss"}, DefaultPort: 6379,
 		Example: "rediss://default@cache.internal:6379/0 (rediss = TLS)"})
 	register(Kind{Name: "memcached", Family: "cache", Schemes: []string{"memcached", "memcacheds"}, DefaultPort: 11211,
@@ -83,6 +85,12 @@ func init() {
 		Example: "ftp://deploy@files.example.com/www?insecure=1 (no encryption: prefer ftps or sftp)"})
 	register(Kind{Name: "sftp", Family: "storage", Schemes: []string{"sftp"}, DefaultPort: 22,
 		Example: "sftp://deploy@files.example.com/uploads (file access only, no shell)"})
+	register(Kind{Name: "gcs", Family: "storage", Schemes: []string{"gs", "gcs"}, DefaultPort: 443,
+		Example: "gs://my-bucket/backups (logs in like gcloud, or with a service account key: --password-ref secret:NAME)"})
+	register(Kind{Name: "azblob", Family: "storage", Schemes: []string{"azblob", "azure"}, DefaultPort: 443,
+		Example: "azblob://ACCOUNT@my-container/backups (account key or SAS token: --password-ref secret:NAME)"})
+	register(Kind{Name: "webdav", Family: "storage", Schemes: []string{"webdavs", "webdav"}, DefaultPort: 443,
+		Example: "webdavs://alice@cloud.example.com/remote.php/dav/files/alice (Nextcloud; ?tls=skip-verify for self-signed; webdav:// needs ?insecure=1)"})
 }
 
 // Lookup returns the kind with this name.
@@ -113,7 +121,7 @@ func kindNames() string {
 type Target struct {
 	Kind     Kind   `json:"kind"`
 	Address  string `json:"address,omitempty"`  // host:port for network kinds (s3: the endpoint)
-	Path     string `json:"path,omitempty"`     // file path for file kinds
+	Path     string `json:"path,omitempty"`     // file path for file kinds; gcs, azblob: the endpoint's path (an emulator)
 	User     string `json:"user,omitempty"`     // s3: the access key ID (not secret)
 	Database string `json:"database,omitempty"` // SQL database name, or redis DB number
 	Bucket   string `json:"bucket,omitempty"`   // s3
@@ -121,8 +129,13 @@ type Target struct {
 	Region   string `json:"region,omitempty"`   // s3
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
 	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry: skip-verify (registry also false)
-	CA       string `json:"ca,omitempty"`       // registry: secret:NAME holding the PEM CA certificate to trust
+	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached: secret:NAME holding the PEM CA certificate to trust
 	Resolve  string `json:"resolve,omitempty"`  // registry, s3: IP:port to connect to in place of Address (?resolve=)
+
+	Cluster      bool     `json:"cluster,omitempty"`       // redis: a Redis Cluster; Address is one node (?cluster=1)
+	Sentinel     string   `json:"sentinel,omitempty"`      // redis: the master's name at the Sentinels (?sentinel=NAME)
+	Sentinels    []string `json:"sentinels,omitempty"`     // redis: more Sentinels besides Address (?sentinels=h2:26379,h3:26379)
+	SentinelAuth bool     `json:"sentinel_auth,omitempty"` // redis: the Sentinels want the conn's login too (?sentinel_auth=same)
 }
 
 // DialAddress is where a connection goes: the ?resolve= address when the
@@ -154,7 +167,7 @@ var passwordParams = []string{"password", "pass", "pwd", "sslpassword", "secret"
 // sqlite:///var/lib/app.db. The kind comes from the scheme. URLs that carry
 // a password are refused: passwords belong in the vault.
 func Parse(raw string) (Target, error) {
-	u, err := url.Parse(strings.TrimSpace(raw))
+	u, err := url.Parse(firstMongoHost(strings.TrimSpace(raw)))
 	if err != nil || u.Scheme == "" {
 		return Target{}, out.Usage("invalid conn URL %q (expected e.g. postgres://user@host:5432/db)", raw)
 	}
@@ -181,6 +194,16 @@ func Parse(raw string) (Target, error) {
 	}
 	if k.Name == "ftp" || k.Name == "ftps" || k.Name == "sftp" {
 		return parseFiles(u, t)
+	}
+	switch k.Name {
+	case "gcs":
+		return parseGCS(u, t)
+	case "azblob":
+		return parseAzure(u, t)
+	case "webdav":
+		return parseWebDAV(u, t)
+	case "mongodb":
+		return parseMongo(u, t)
 	}
 	if k.File {
 		t.Path = u.Opaque
@@ -229,6 +252,12 @@ func Parse(raw string) (Target, error) {
 		if n, err := strconv.Atoi(t.Database); err != nil || n < 0 {
 			return Target{}, out.Usage("redis URL path must be a database number, e.g. redis://cache:6379/0")
 		}
+		if err := parseRedisTopology(u, &t); err != nil {
+			return Target{}, err
+		}
+	}
+	if err := parseCA(u.Query(), &t); err != nil {
+		return Target{}, err
 	}
 	return t, nil
 }

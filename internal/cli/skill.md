@@ -51,7 +51,10 @@ Update komando only when the human asks: `komando update` (when it stops with
    restart servers only with `komando reboot` (it needs the human).
    Change the inventory in bulk: `komando host edit <target> --sudo-ref secret:NAME`
    (one approval for every server), `komando host mv OLD NEW` (renames and
-   updates every reference), `komando import csv FILE` (many servers at once).
+   updates every reference; `key mv`, `group mv` likewise),
+   `komando rename --prefix OLD NEW --dry-run` (a whole project: every
+   server, conn, VPN, secret, key and group, one approval for all of them),
+   `komando import csv FILE` (many servers at once).
    Patch servers with `komando pkg security <target> --apply` (security updates
    only, one server at a time, checked before and after); it never reboots.
    Check TLS certificates with `komando cert check <target|https://name>`
@@ -82,7 +85,11 @@ Update komando only when the human asks: `komando update` (when it stops with
    secret somewhere (that, `--env K=secret:NAME`, a password reference on a
    new or moved server or conn) stops with `SECRET_DESTINATION`: tell the
    human which secret goes where, and when they agree re-run with `--yes`.
-   Text that still holds `[hidden]` is never written (`HIDDEN_VALUE`). `secret get --reveal`
+   Text that still holds `[hidden]` is never written (`HIDDEN_VALUE`). On
+   protected targets personal data (emails, phone numbers, cards, IBANs,
+   columns the human named) shows as `[hidden: KIND]`: work with ids and
+   counts, never write it back, and ask the human if a task needs a real
+   value. `secret get --reveal`
    is for people only (`REVEAL_NEEDS_HUMAN`), and so is `secret check`
    (`NEEDS_PERSON`). Rename or copy a secret with `komando secret mv OLD NEW`
    / `secret cp OLD NEW` (references follow a mv; the value is never shown),
