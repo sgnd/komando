@@ -85,20 +85,6 @@ func securityChecks(st *store.State) []securityCheck {
 	return cs
 }
 
-// vaultKeyChecks: KOMANDO_VAULT_PASS opens a passphrase vault (a changed
-// one locks every secret away), and no vault.key the vault does not use is
-// left behind (it opens old copies of the vault).
-func vaultKeyChecks(add func(name string, ok, warn bool, detail string)) {
-	if s, err := vault.Check(); err == nil && s.Mode == "passphrase" && vault.Passphrase() != "" {
-		if err := vault.Opens(""); errors.Is(err, vault.ErrWrongKey) {
-			add("vault_key", false, false, "KOMANDO_VAULT_PASS does not open the vault. If you changed it, run `komando secret passphrase` in your terminal: it asks for the old passphrase and re-encrypts every secret under the new one")
-		}
-	}
-	if kp := vault.LeftoverKeyFile(); kp != "" {
-		add("vault_key_file", false, true, kp+" is left from an earlier key: the vault does not use it, but it opens old copies of the vault (a backup). Remove it")
-	}
-}
-
 // looseFiles lists komando files that other users on this computer can read.
 func looseFiles() []string {
 	var loose []string
@@ -118,6 +104,20 @@ func looseFiles() []string {
 		}
 	}
 	return loose
+}
+
+// vaultKeyChecks: KOMANDO_VAULT_PASS opens a passphrase vault (a changed
+// one locks every secret away), and no vault.key the vault does not use is
+// left behind (it opens old copies of the vault).
+func vaultKeyChecks(add func(name string, ok, warn bool, detail string)) {
+	if s, err := vault.Check(); err == nil && s.Mode == "passphrase" && vault.Passphrase() != "" {
+		if err := vault.Opens(""); errors.Is(err, vault.ErrWrongKey) {
+			add("vault_key", false, false, "KOMANDO_VAULT_PASS does not open the vault. If you changed it, run `komando secret passphrase` in your terminal: it asks for the old passphrase and re-encrypts every secret under the new one")
+		}
+	}
+	if kp := vault.LeftoverKeyFile(); kp != "" {
+		add("vault_key_file", false, true, kp+" is left from an earlier key: the vault does not use it, but it opens old copies of the vault (a backup). Remove it")
+	}
 }
 
 // plainConn says why a conn's traffic may be readable or forged on the
