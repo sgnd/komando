@@ -26,6 +26,7 @@ import (
 var personalCmds = map[string]bool{
 	"cache get": true, "cache keys": true, "cache run": true,
 	"cluster describe": true, "cluster events": true, "cluster exec": true, "cluster get": true, "cluster logs": true, "cluster run": true,
+	"cluster helm status": true, "cluster helm values": true, // on feat/cluster-multi-helm
 	"cron list":   true,
 	"db activity": true, "db explain": true, "db locks": true, "db query": true,
 	"docker exec": true, "docker inspect": true, "docker logs": true, "docker raw": true,
