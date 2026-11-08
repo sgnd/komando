@@ -85,7 +85,11 @@ Update komando only when the human asks: `komando update` (when it stops with
    secret somewhere (that, `--env K=secret:NAME`, a password reference on a
    new or moved server or conn) stops with `SECRET_DESTINATION`: tell the
    human which secret goes where, and when they agree re-run with `--yes`.
-   Text that still holds `[hidden]` is never written (`HIDDEN_VALUE`). `secret get --reveal`
+   Text that still holds `[hidden]` is never written (`HIDDEN_VALUE`). On
+   protected targets personal data (emails, phone numbers, cards, IBANs,
+   columns the human named) shows as `[hidden: KIND]`: work with ids and
+   counts, never write it back, and ask the human if a task needs a real
+   value. `secret get --reveal`
    is for people only (`REVEAL_NEEDS_HUMAN`), and so is `secret check`
    (`NEEDS_PERSON`). Rename or copy a secret with `komando secret mv OLD NEW`
    / `secret cp OLD NEW` (references follow a mv; the value is never shown),
