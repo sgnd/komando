@@ -13,6 +13,7 @@ internal/openvpn 80
 internal/out 66
 internal/policy 83
 internal/ppp 65
+internal/proxyx 59
 internal/registry 72
 internal/sshx 65
 internal/sslvpn 74

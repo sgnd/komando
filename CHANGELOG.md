@@ -51,6 +51,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Behind a company proxy, Kubernetes clusters, registries and the
+  AnyConnect, Fortinet, GlobalProtect, F5 and Pulse VPNs could not be
+  reached: they ignored `HTTPS_PROXY`, while `kubectl` and `docker` use
+  it. They now go through `HTTPS_PROXY` (`HTTP_PROXY` for `http://`)
+  except what `NO_PROXY` names, like storage and the secret stores already
+  did. That includes `cluster exec`, `cluster forward` and `cluster shell`,
+  and a kubeconfig's `proxy-url` wins for its cluster. A target reached
+  with `--via` still goes out through its path. See "Behind a company
+  proxy" in [Private servers and tunnels](docs/features/tunnels.md).
 - `komando host import --overwrite` deleted an existing server when the
   imported copy with the same name was refused (for example, its `--via`
   host does not exist). The server it would have replaced now stays.

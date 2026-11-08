@@ -62,6 +62,7 @@ func (c *Client) dialWS(ctx context.Context, path string, q url.Values, protocol
 		d.TLSClientConfig = tr.TLSClientConfig.Clone()
 		d.TLSClientConfig.NextProtos = nil // WebSocket needs HTTP/1.1
 		d.NetDialContext = tr.DialContext
+		d.Proxy = tr.Proxy // nil through a --via path
 	}
 	h := http.Header{"User-Agent": {"komando"}}
 	if err := c.authorize(ctx, h); err != nil {
