@@ -9,7 +9,7 @@ import (
 
 // TestMongoLive runs komando's db commands against a real MongoDB:
 //
-//	docker run -d -p 127.0.0.1:27018:27017 -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=rootpw mongo:8.0
+//	docker run -d -p 127.0.0.1:27018:27017 -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=rootpw mongo:7.0.45
 //	KOMANDO_TEST_MONGO=127.0.0.1:27018 go test ./internal/cli -run MongoLive
 func TestMongoLive(t *testing.T) {
 	addr := os.Getenv("KOMANDO_TEST_MONGO")
@@ -22,7 +22,7 @@ func TestMongoLive(t *testing.T) {
 	mustRun(t, "db", "query", "shop", "--write", "--allow-dangerous", `{"dropDatabase": 1}`)
 
 	r := mustRun(t, "conn", "test", "shop")["results"].([]any)[0].(map[string]any)
-	if det, _ := r["detail"].(map[string]any); r["ok"] != true || det["check"] != "login" || !strings.HasPrefix(fmt.Sprint(det["version"]), "8.") {
+	if det, _ := r["detail"].(map[string]any); r["ok"] != true || det["check"] != "login" || !strings.Contains(fmt.Sprint(det["version"]), ".") {
 		t.Errorf("conn test logs in and reads the version: %v", r)
 	}
 	ins := mustRun(t, "db", "query", "shop", "--write", `{"insert": "users", "documents": [{"name": "Ada", "plan": "pro"}, {"name": "Bob", "plan": "free", "address": {"city": "Oslo"}}]}`)

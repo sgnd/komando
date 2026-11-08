@@ -74,10 +74,10 @@ services:
     build: ftps
     networks: [private]
   mongo:
-    image: mongo:8.0.34
-    # a small cache: by default mongod takes half the memory, which the full
-    # lab (two k3s, Docker in Docker) does not have to spare
-    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
+    # 7.0: MongoDB 8.0 and later do not start on Linux 6.19 and newer, the
+    # CI runners' kernel (SERVER-121912, a TCMalloc bug)
+    image: mongo:7.0.45
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]  # the lab is crowded; a small cache is enough
     environment: { MONGO_INITDB_ROOT_USERNAME: root, MONGO_INITDB_ROOT_PASSWORD: mongopass }
     networks: [private]
   # secret managers komando talks to itself (no vault or aws CLI)
