@@ -1,0 +1,534 @@
+package sshx
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	"path/filepath"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+	"unicode"
+
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
+
+	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
+)
+
+// The login one hop offers: key files, ssh-agent keys and a stored
+// password, and the hints when none of them can log in.
+
+// agentState is what SSH_AUTH_SOCK gave.
+type agentState int
+
+const (
+	agentUnset   agentState = iota // SSH_AUTH_SOCK is not set
+	agentDown                      // set, but no agent answers there
+	agentEmpty                     // the agent holds no keys
+	agentHasKeys                   // the agent holds keys
+)
+
+// lockedKey is an explicit key (--key or --identity) that is encrypted and
+// has no passphrase ref. Like OpenSSH, komando then logs in with the same
+// key from ssh-agent, found by its public key.
+type lockedKey struct {
+	path    string
+	keyName string        // the keychain key (--key); "" for --identity
+	pub     ssh.PublicKey // nil when unknown: not in the file, no .pub
+}
+
+// loginKeys is what the key files and ssh-agent gave for one login.
+type loginKeys struct {
+	locked  []lockedKey
+	skipped string // the first encrypted default key (~/.ssh/id_*) left out
+	agent   agentState
+}
+
+// authMethods also returns the ssh-agent connection it opened (or nil).
+func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods []ssh.AuthMethod, agentConn io.Closer, err error) {
+	defer func() {
+		if err != nil && agentConn != nil {
+			agentConn.Close()
+			agentConn = nil
+		}
+	}()
+	lk := &loginKeys{}
+	var signers []ssh.Signer
+	explicit := func(path, passRef string, k *store.Key) error {
+		s, err := lk.keyFile(path, passRef, k, true)
+		if s != nil {
+			signers = append(signers, s)
+		}
+		return err
+	}
+	if h.Key != "" {
+		k, ok := st.Keys[h.Key]
+		if !ok {
+			return nil, nil, out.NotFound("key", h.Key)
+		}
+		if err := explicit(k.Path, k.PassphraseRef, k); err != nil {
+			return nil, nil, err
+		}
+	}
+	if h.Identity != "" {
+		if err := explicit(h.Identity, "", nil); err != nil {
+			return nil, nil, err
+		}
+	}
+	agentKeys, conn, state := openAgent(timeout)
+	if conn != nil {
+		agentConn = conn
+	}
+	lk.agent = state
+	fromAgent, err := lk.fromAgent(st, h, agentKeys)
+	if err != nil {
+		return nil, agentConn, err
+	}
+	signers = append(signers, fromAgent...)
+	if h.Key == "" && h.Identity == "" {
+		home, _ := os.UserHomeDir()
+		for _, n := range []string{"id_ed25519", "id_ecdsa", "id_rsa"} {
+			if s, _ := lk.keyFile(filepath.Join(home, ".ssh", n), "", nil, false); s != nil {
+				signers = append(signers, s)
+			}
+		}
+	}
+	if len(signers) > 0 {
+		methods = append(methods, ssh.PublicKeys(signers...))
+	}
+	if h.PasswordRef != "" {
+		pw, err := vault.Resolve(h.PasswordRef)
+		if err != nil && len(methods) > 0 {
+			return methods, agentConn, nil // keys are available; an unresolvable password is not fatal
+		}
+		if err != nil {
+			return nil, agentConn, out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "check `komando secret list`", "password for %s: %v", h.Name, err)
+		}
+		methods = append(methods, (&passwordLogin{pw: pw}).methods()...)
+	}
+	if len(methods) == 0 {
+		return nil, agentConn, lk.noAuth(st, h)
+	}
+	return methods, agentConn, nil
+}
+
+// keyFile reads a private key. An encrypted key without a passphrase ref
+// gives no signer: an explicit one is kept in locked (ssh-agent may hold
+// it), a default one in skipped.
+func (lk *loginKeys) keyFile(path, passRef string, k *store.Key, explicit bool) (ssh.Signer, error) {
+	b, err := os.ReadFile(expand(path))
+	if err != nil {
+		if explicit {
+			return nil, out.Errf(out.ExitConnect, "KEY_UNREADABLE", "check the key path", "cannot read key %s: %v", path, err)
+		}
+		return nil, nil
+	}
+	s, err := ssh.ParsePrivateKey(b)
+	var pme *ssh.PassphraseMissingError
+	if errors.As(err, &pme) {
+		if passRef == "" {
+			switch {
+			case explicit:
+				name := ""
+				if k != nil {
+					name = k.Name
+				}
+				lk.locked = append(lk.locked, lockedKey{path: path, keyName: name, pub: publicPart(path, pme.PublicKey, k)})
+			case lk.skipped == "":
+				lk.skipped = path
+			}
+			return nil, nil
+		}
+		pass, perr := vault.Resolve(passRef)
+		if perr != nil {
+			return nil, perr
+		}
+		s, err = ssh.ParsePrivateKeyWithPassphrase(b, []byte(pass))
+	}
+	if err != nil {
+		if explicit {
+			return nil, out.Errf(out.ExitUsage, "KEY_INVALID", "check that "+path+" is a private key in OpenSSH or PEM format, and that its passphrase ref is right", "cannot parse key %s: %v", path, err)
+		}
+		return nil, nil
+	}
+	return s, nil
+}
+
+// publicPart is an encrypted key's public key: from the key file itself
+// (the OpenSSH format keeps it in the clear), else PATH.pub, else the
+// keychain's copy.
+func publicPart(path string, inFile ssh.PublicKey, k *store.Key) ssh.PublicKey {
+	if inFile != nil {
+		return inFile
+	}
+	lines := []string{}
+	if b, err := os.ReadFile(expand(path) + ".pub"); err == nil {
+		lines = append(lines, string(b))
+	}
+	if k != nil && k.PublicKey != "" {
+		lines = append(lines, k.PublicKey)
+	}
+	for _, l := range lines {
+		if pub, _, _, _, err := ssh.ParseAuthorizedKey([]byte(l)); err == nil {
+			return pub
+		}
+	}
+	return nil
+}
+
+// openAgent reads the keys ssh-agent holds. The connection it opens (or
+// nil) is the caller's to close once the handshake is over: the agent
+// signs during the login.
+func openAgent(timeout time.Duration) ([]ssh.Signer, net.Conn, agentState) {
+	sock := os.Getenv("SSH_AUTH_SOCK")
+	if sock == "" {
+		return nil, nil, agentUnset
+	}
+	conn, err := net.Dial("unix", sock)
+	if err != nil {
+		return nil, nil, agentDown
+	}
+	var ac io.ReadWriter = conn
+	if timeout > 0 {
+		// the agent answers now and signs during the handshake: a stuck
+		// agent must not hang the command. Each request gets its own
+		// deadline, so a slow transport (SSM, a proxy command) opened
+		// between the two does not use the agent's time up.
+		ac = &agentDeadline{conn: conn, timeout: timeout}
+	}
+	signers, err := agent.NewClient(ac).Signers()
+	switch {
+	case err != nil:
+		return nil, conn, agentDown
+	case len(signers) == 0:
+		return nil, conn, agentEmpty
+	}
+	return signers, conn, agentHasKeys
+}
+
+// fromAgent returns the agent's keys in the order they are offered: the
+// copies of the locked keys first, as OpenSSH does. A locked key the agent
+// does not hold is KEY_PASSPHRASE_REQUIRED.
+func (lk *loginKeys) fromAgent(st *store.State, h *store.Host, agentKeys []ssh.Signer) ([]ssh.Signer, error) {
+	rest := slices.Clone(agentKeys)
+	var first []ssh.Signer
+	for _, k := range lk.locked {
+		i := slices.IndexFunc(rest, func(s ssh.Signer) bool { return sameAgentKey(s.PublicKey(), k.pub) })
+		if i < 0 {
+			return nil, lk.passphraseRequired(st, h, k)
+		}
+		first = append(first, rest[i])
+		rest = slices.Delete(rest, i, i+1)
+	}
+	return append(first, rest...), nil
+}
+
+// sameAgentKey matches an agent key, or the key inside its certificate.
+func sameAgentKey(a, want ssh.PublicKey) bool {
+	if c, ok := a.(*ssh.Certificate); ok {
+		a = c.Key
+	}
+	return SameKey(a, want)
+}
+
+// passphraseRequired is the error for an encrypted explicit key that
+// ssh-agent does not hold: load it there, or store its passphrase.
+func (lk *loginKeys) passphraseRequired(st *store.State, h *store.Host, k lockedKey) *out.Error {
+	p := shellPath(k.path)
+	var why, load string
+	switch lk.agent {
+	case agentUnset:
+		why, load = "no ssh-agent runs", "start ssh-agent and load it with `ssh-add "+p+"`"
+	case agentDown:
+		why, load = "the ssh-agent at SSH_AUTH_SOCK does not answer", "load it with `ssh-add "+p+"` once ssh-agent answers"
+	default:
+		why, load = "ssh-agent does not hold it", "load it with `ssh-add "+p+"`"
+	}
+	hint := load + ", or " + storePassphrase(st, h, k)
+	if k.pub == nil && lk.agent == agentHasKeys {
+		why = "its public key is unknown (no " + filepath.Base(k.path) + ".pub next to it), so ssh-agent cannot be searched for it"
+		hint = storePassphrase(st, h, k)
+	}
+	return out.Errf(out.ExitUsage, "KEY_PASSPHRASE_REQUIRED", hint, "key %s is encrypted and %s", p, why)
+}
+
+// storePassphrase says how to keep an encrypted key's passphrase in the
+// vault, with commands that work for this key: a keychain key gets its
+// passphrase ref, an identity file becomes a keychain key first.
+func storePassphrase(st *store.State, h *store.Host, k lockedKey) string {
+	if k.keyName != "" {
+		sec := secretName(k.keyName, "pass")
+		return fmt.Sprintf("store its passphrase: `komando secret set %s`, then `komando key edit %s --passphrase-ref secret:%s`", sec, k.keyName, sec)
+	}
+	name, have := keychainKeyFor(st, h, k.path)
+	use := fmt.Sprintf("`komando host edit %s --key %s --unset identity`", h.Name, name)
+	if have != nil && have.PassphraseRef != "" {
+		return "use the keychain key " + name + ", which has its passphrase: " + use
+	}
+	sec := secretName(name, "pass")
+	if have != nil {
+		return fmt.Sprintf("store its passphrase: `komando secret set %s`, `komando key edit %s --passphrase-ref secret:%s`, then %s", sec, name, sec, use)
+	}
+	return fmt.Sprintf("store its passphrase: `komando secret set %s`, `komando key add %s %s --passphrase-ref secret:%s`, then %s", sec, name, shellPath(k.path), sec, use)
+}
+
+// keychainKeyFor is the keychain key for the file at path: the one that
+// has it already, or a free name for a new one.
+func keychainKeyFor(st *store.State, h *store.Host, path string) (string, *store.Key) {
+	names := make([]string, 0, len(st.Keys))
+	for n := range st.Keys {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, n := range names {
+		if expand(st.Keys[n].Path) == expand(path) {
+			return n, st.Keys[n]
+		}
+	}
+	name := strings.Map(func(r rune) rune {
+		if r < unicode.MaxASCII && (unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("._-", r)) {
+			return r
+		}
+		return -1
+	}, filepath.Base(path))
+	if name == "" || len(name) > 50 || st.Keys[name] != nil {
+		name = secretName(h.Name, "key")
+	}
+	return name, nil
+}
+
+// noAuth is NO_AUTH: nothing to log in with. The hint follows the reason:
+// an encrypted default key, an empty ssh-agent, or no login at all.
+func (lk *loginKeys) noAuth(st *store.State, h *store.Host) *out.Error {
+	var why, hint string
+	add := "`ssh-add " + shellPath(lk.skipped) + "`"
+	switch {
+	case lk.skipped != "" && lk.agent == agentUnset:
+		why, hint = shellPath(lk.skipped)+" is encrypted and no ssh-agent runs", "start ssh-agent, then run "+add
+	case lk.skipped != "" && lk.agent == agentEmpty:
+		why, hint = shellPath(lk.skipped)+" is encrypted and ssh-agent holds no keys", "run "+add
+	case lk.skipped != "":
+		why, hint = shellPath(lk.skipped)+" is encrypted and the ssh-agent at SSH_AUTH_SOCK does not answer", "check that ssh-agent answers at SSH_AUTH_SOCK, then run "+add
+	case lk.agent == agentEmpty:
+		why, hint = "ssh-agent holds no keys", "run `ssh-add` (or `ssh-add PATH`) to load your key, or "+loginWay(st, h)
+	case lk.agent == agentUnset:
+		why, hint = "no ssh-agent runs", loginWay(st, h)+", or start ssh-agent and load your key with `ssh-add`"
+	default:
+		why, hint = "the ssh-agent at SSH_AUTH_SOCK does not answer", loginWay(st, h)
+	}
+	return out.Errf(out.ExitConnect, "NO_AUTH", hint, "no authentication method available for %s: it has no key or password, and %s", h.Name, why)
+}
+
+// loginWay says how to give h a password (or a key) to log in with.
+func loginWay(st *store.State, h *store.Host) string {
+	sec := secretName(h.Name, "pass")
+	switch {
+	case st.Hosts[h.Name] != nil:
+		return fmt.Sprintf("save its password: `komando secret set %s`, then `komando host edit %s --password-ref secret:%s` (or --key KEY)", sec, h.Name, sec)
+	case st.Conns[h.Name] != nil:
+		return fmt.Sprintf("save its password: `komando secret set %s`, then `komando conn edit %s --password-ref secret:%s`", sec, h.Name, sec)
+	}
+	return "save the server with `komando host add NAME " + h.Name + " --key KEY` (or --password-ref secret:NAME)"
+}
+
+// adhoc reports a server that is not in the inventory: a user@address
+// target, a --via user@host step, or a conn's SFTP server.
+func adhoc(st *store.State, h *store.Host) bool {
+	return st == nil || st.Hosts[h.Name] == nil || strings.ContainsAny(h.Name, "@:")
+}
+
+// authFailedHint is the AUTH_FAILED hint: what to check when the server
+// refused every way komando tried. It never suggests `key deploy`, which
+// logs in the same way and would fail too.
+func authFailedHint(st *store.State, h *store.Host) string {
+	name := h.Name
+	switch {
+	case adhoc(st, h):
+		return "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host add NAME " + name + " --key KEY` (or --password-ref) to log in another way"
+	case h.Key == "" && h.Identity == "" && h.PasswordRef != "":
+		if sec, ok := strings.CutPrefix(h.PasswordRef, "secret:"); ok {
+			return fmt.Sprintf("check the user with `komando host show %s`; if the password changed, store the new one with `komando secret set %s`", name, sec)
+		}
+		return fmt.Sprintf("check the user with `komando host show %s`, and the password that %s holds", name, h.PasswordRef)
+	case h.PasswordRef != "":
+		return fmt.Sprintf("check the user, key and password with `komando host show %s`; the server needs the key's public part in ~/.ssh/authorized_keys", name)
+	}
+	return fmt.Sprintf("check the user and key with `komando host show %s`; the server needs the key's public part in ~/.ssh/authorized_keys", name)
+}
+
+// secretName is a vault or keychain name for host: "web1-pass".
+func secretName(host, suffix string) string {
+	if n := host + "-" + suffix; len(n) <= 63 && !strings.ContainsAny(host, "@: /") {
+		return n
+	}
+	return "NAME"
+}
+
+// shellPath is p as a hint shows it: ~/ for the home folder, quoted when
+// a shell would split it.
+func shellPath(p string) string {
+	prefix := ""
+	if home, _ := os.UserHomeDir(); home != "" && strings.HasPrefix(p, home+string(filepath.Separator)) {
+		prefix, p = "~/", p[len(home)+1:]
+	} else if rest, ok := strings.CutPrefix(p, "~/"); ok {
+		prefix, p = "~/", rest
+	}
+	plain := func(r rune) bool {
+		return unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("._-/+@=,:", r)
+	}
+	if strings.IndexFunc(p, func(r rune) bool { return !plain(r) }) >= 0 {
+		p = Q(p)
+	}
+	return prefix + p
+}
+
+// passwordLogin gives the stored password to the server: at most once per
+// login (the password method and keyboard-interactive share it), and in
+// keyboard-interactive only to a hidden question that asks for a password.
+// A one-time code or any other question gets no answer: the login stops
+// before a wrong answer counts against the account, which can lock it.
+type passwordLogin struct {
+	pw   string
+	sent bool
+}
+
+func (p *passwordLogin) methods() []ssh.AuthMethod {
+	return []ssh.AuthMethod{
+		ssh.PasswordCallback(func() (string, error) {
+			p.sent = true
+			return p.pw, nil
+		}),
+		ssh.KeyboardInteractive(p.answer),
+	}
+}
+
+func (p *passwordLogin) answer(_, _ string, questions []string, echos []bool) ([]string, error) {
+	answers := make([]string, len(questions))
+	sent := p.sent
+	for i, q := range questions {
+		kind := questionKind(q, i < len(echos) && echos[i])
+		if kind == askPassword && sent {
+			kind = askAgain
+		}
+		if kind != askPassword {
+			return nil, &unanswered{question: cleanQuestion(q), kind: kind}
+		}
+		answers[i], sent = p.pw, true
+	}
+	p.sent = sent
+	return answers, nil
+}
+
+// The kinds of keyboard-interactive question.
+const (
+	askPassword = iota // a hidden question for the password
+	askCode            // a one-time code: a two-factor login
+	askAgain           // the password once more: the server refused it
+	askOther           // anything else (a shown answer, a username, a menu)
+)
+
+var (
+	codeWords     = []string{"one-time", "one time", "onetime", "code", "token", "otp", "passcode", "verification"}
+	passwordWords = []string{"password", "passwort", "mot de passe", "contraseña", "senha", "wachtwoord"}
+)
+
+// questionKind sorts a keyboard-interactive question. A user@host in it
+// (OpenSSH shows "(user@host) Password:") does not count.
+func questionKind(q string, echo bool) int {
+	var words []string
+	for _, f := range strings.Fields(strings.ToLower(q)) {
+		if !strings.Contains(f, "@") {
+			words = append(words, f)
+		}
+	}
+	l := strings.Join(words, " ")
+	for _, w := range codeWords {
+		if strings.Contains(l, w) {
+			return askCode
+		}
+	}
+	if echo {
+		return askOther
+	}
+	for _, w := range passwordWords {
+		if strings.Contains(l, w) {
+			return askPassword
+		}
+	}
+	return askOther
+}
+
+// cleanQuestion makes a server's question safe to show: printable
+// characters only, one line, at most 80 characters.
+func cleanQuestion(q string) string {
+	q = strings.Map(func(r rune) rune {
+		if unicode.IsPrint(r) {
+			return r
+		}
+		return ' '
+	}, q)
+	q = strings.Join(strings.Fields(q), " ")
+	if r := []rune(q); len(r) > 80 {
+		q = string(r[:79]) + "…"
+	}
+	return q
+}
+
+// unanswered is a keyboard-interactive question komando gave no answer;
+// the login stops there.
+type unanswered struct {
+	question string // the server's words, made safe to show
+	kind     int
+}
+
+func (e *unanswered) Error() string { return "the server asks " + strconv.Quote(e.question) }
+
+// authFailed is the AUTH_FAILED error that quotes the question.
+func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
+	name := h.Name
+	terminal := "log in once at a terminal with the command `komando host ssh-command " + name + "` prints"
+	if adhoc(st, h) {
+		terminal = "log in once at a terminal with ssh"
+	}
+	switch e.kind {
+	case askCode:
+		return out.Errf(out.ExitConnect, "AUTH_FAILED", terminal+"; komando cannot type a one-time code",
+			"%s asks %s (two-factor login); komando sent no answer", name, strconv.Quote(e.question))
+	case askAgain:
+		return out.Errf(out.ExitConnect, "AUTH_FAILED", authFailedHint(st, h),
+			"%s asks %s again: it refused the stored password, which komando sends only once", name, strconv.Quote(e.question))
+	}
+	return out.Errf(out.ExitConnect, "AUTH_FAILED", terminal+" to see what it wants",
+		"%s asks %s; komando sends the stored password only to a hidden password question, and sent no answer", name, strconv.Quote(e.question))
+}
+
+// agentDeadline gives every request written to the ssh-agent (and the
+// answer read after it) timeout to finish. It is only a reader and writer,
+// not a Closer, so the agent client sends one request at a time and no
+// reader waits on the socket between requests.
+type agentDeadline struct {
+	conn    net.Conn
+	timeout time.Duration
+}
+
+func (c *agentDeadline) Write(b []byte) (int, error) {
+	_ = c.conn.SetDeadline(time.Now().Add(c.timeout))
+	return c.conn.Write(b)
+}
+
+func (c *agentDeadline) Read(b []byte) (int, error) { return c.conn.Read(b) }
+
+func expand(p string) string {
+	if strings.HasPrefix(p, "~/") {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, p[2:])
+	}
+	return p
+}

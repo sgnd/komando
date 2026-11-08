@@ -31,6 +31,7 @@ type hostVet struct {
 func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool) (hostVet, error) {
 	var v hostVet
 	var cand []*store.Host
+	later := map[*store.Host][]string{} // what changed on a host; said only if it is added
 	for _, h := range hosts {
 		if h == nil || h.Name == "" || h.Address == "" {
 			continue
@@ -56,12 +57,12 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 		h.Address = normAddr(h.Address)
 		if h.Identity != "" {
 			if _, err := os.Stat(expandHome(h.Identity)); err != nil {
-				v.Notes = append(v.Notes, h.Name+": identity file "+h.Identity+" not found, left out")
+				later[h] = append(later[h], h.Name+": its identity file "+h.Identity+" was not found; left out")
 				h.Identity = ""
 			}
 		}
 		if !ownRefs {
-			v.Notes = append(v.Notes, dropForeignHostRefs(h)...)
+			later[h] = append(later[h], dropForeignHostRefs(h)...)
 		}
 		if h.Key != "" {
 			if _, ok := s.Keys[h.Key]; !ok {
@@ -82,15 +83,24 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 		}
 		cand = append(cand, h)
 	}
-	for _, h := range cand { // so they can be each other's --via
+	prev := map[string]*store.Host{} // what --overwrite replaces, put back if the new one is refused
+	for _, h := range cand {         // so they can be each other's --via
+		if old, ok := s.Hosts[h.Name]; ok {
+			prev[h.Name] = old
+		}
 		s.Hosts[h.Name] = h
 	}
 	for _, h := range cand {
 		if err := checkHost(s, h); err != nil {
-			delete(s.Hosts, h.Name)
+			if old, ok := prev[h.Name]; ok {
+				s.Hosts[h.Name] = old
+			} else {
+				delete(s.Hosts, h.Name)
+			}
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
 		}
+		v.Notes = append(v.Notes, later[h]...)
 		if !h.Protected { // as host add does: a second name for a protected server
 			if twin := protectedTwinHost(s, h); twin != "" {
 				h.Protected = true

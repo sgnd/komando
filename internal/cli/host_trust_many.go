@@ -145,9 +145,7 @@ func pinTrustRows(rows []*trustRow, reset bool) {
 			continue
 		}
 		if r.mismatch() && !reset {
-			e := sshx.HostKeyMismatch(r.Host)
-			e.Message += fmt.Sprintf("; pinned %s, the server now shows %s", strings.Join(r.OldFingerprint, ", "), r.Fingerprint)
-			r.Error = e
+			r.Error = sshx.HostKeyMismatch(r.Host, r.Fingerprint, r.OldFingerprint)
 			continue
 		}
 		removed, err := sshx.PinHostKey(r.Address, r.key, reset)

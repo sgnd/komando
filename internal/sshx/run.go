@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -262,7 +263,7 @@ func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 	}
 	res.Stdout, res.Stderr = stdout.buf.String(), stderr.buf.String()
 	if strings.HasPrefix(res.Stderr, "sudo: a password is required") || strings.Contains(res.Stderr, "sudo: a terminal is required") {
-		res.Stderr += "\n[komando] hint: sudo needs a password; set it with `komando host edit <host> --sudo-ref secret:NAME`"
+		res.Stderr += "\n[komando] hint: " + sudoHint(c.Host)
 	}
 	res.StdoutTruncated, res.StderrTruncated = stdout.truncated, stderr.truncated
 	res.DurationMS = time.Since(start).Milliseconds()
@@ -451,4 +452,13 @@ func Pipe(ctx context.Context, c *Client, cmd string, stdin io.Reader, stdout io
 		return ee.ExitStatus(), stderr.buf.String(), nil
 	}
 	return -1, stderr.buf.String(), err
+}
+
+// sudoHint says how to give the server its sudo password.
+func sudoHint(h *store.Host) string {
+	if h == nil || h.Name == "" || strings.ContainsAny(h.Name, "@:") {
+		return "sudo needs a password; save the server with `komando host add NAME ADDRESS --sudo-ref secret:NAME` to give it one"
+	}
+	sec := secretName(h.Name, "sudo")
+	return fmt.Sprintf("sudo needs a password; store it with `komando secret set %s`, then run `komando host edit %s --sudo-ref secret:%s`", sec, h.Name, sec)
 }

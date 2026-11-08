@@ -224,7 +224,9 @@ A new family is only added when **all** of these are met:
   another program installed ([built-in.md](built-in.md)). The rest can still
   be done through `exec` on a host or with the original tool.
 - Infrastructure as Code, cloud provisioning, or GitOps.
-- GUI, TUI, plugin system, or daemon/server. komando stays a pure CLI.
+- GUI, TUI (beyond the menu `komando` alone opens for a person, which only
+  runs ordinary commands), plugin system, or daemon/server. komando stays a
+  pure CLI.
 - Monitoring or alerting that runs continuously.
 
 ## Decisions and open questions
@@ -235,7 +237,7 @@ A new family is only added when **all** of these are met:
 | 2 | One `cluster`, or separate `k8s`/`swarm`? | ✅ One `cluster`. General verbs sit directly under it; engine-specific features in `cluster k8s ...` / `cluster swarm ...`. |
 | 3 | Does `@prod` pick hosts and conns together? | ✅ Yes, everything. The full rules are in [ux.md](ux.md#2-targets-and-selectors-apply-to-hosts-and-conns). |
 | 4 | Binary budget? | ✅ One binary, pure Go, **no size limit** (the 40 MB limit was removed). |
-| 5 | TUI? | ✅ No. Pure CLI. |
+| 5 | TUI? | ✅ No. Pure CLI. One exception (2026-11-08): `komando` alone opens a small menu for a person at a terminal. It only runs ordinary commands and is never shown to agents, scripts or pipes. Dashboards, panes and full-screen apps stay out. |
 | 6 | May a feature need Docker or another installed program? | ✅ No (2026-11-03). Every feature is built in; plan in [built-in.md](built-in.md). |
 | 7 | Own implementation or a vendor library? Open source? | ✅ Own implementation where no suitable open library exists, and fully open source: no closed or prebuilt components (2026-11-03). |
 

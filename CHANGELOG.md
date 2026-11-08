@@ -7,6 +7,98 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Highlights
+
+- **An encrypted key in ssh-agent logs in, as with `ssh`:** a server whose
+  `--identity` (from `import ssh-config`) or `--key` is encrypted now uses
+  the agent's copy of that key, so a usual macOS setup works with
+  `komando test` as it does with `ssh`.
+- **The stored password is never sent as a two-factor code.** Before, every
+  question the server asked got the password, and each try could count as
+  a failed login and lock the account.
+
+### Added
+
+- `komando` alone opens a menu for a person at a terminal: choose Shell,
+  Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
+  Enter (`?` for help), then a server, conn or VPN from a list you can
+  filter by typing. Only what has something to act on is shown; with no
+  server yet, Add (and Import, when there is a `~/.ssh/config`) comes
+  first. It runs the same command you could type and shows it first. AI
+  agents, scripts and `komando` with any flag still get the first steps
+  (or, when piped, a `USAGE` error).
+
+### Changed
+
+- `komando import` says `nothing to import from FILE` first when it adds
+  nothing, and a note about a server it did add (such as a missing
+  identity file) no longer reads `not imported:`. `import ssh-config` on a
+  computer with no `~/.ssh/config` says so and shows how to add a server.
+
+### Fixed
+
+- `komando host import --overwrite` deleted an existing server when the
+  imported copy with the same name was refused (for example, its `--via`
+  host does not exist). The server it would have replaced now stays.
+- `komando import dbeaver` told you to set a password with the conn's
+  name from DBeaver, even when that name was taken and the conn was added
+  as `shop-2`: following it pointed your existing `shop` conn at the new
+  password. The note now names the conn as it was added, and only a
+  connection that was added gets one.
+- An encrypted `--identity` or `--key` with no passphrase ref failed with
+  `KEY_PASSPHRASE_REQUIRED` even when ssh-agent (or the macOS Keychain)
+  held it. komando now finds the agent's copy by its public key (from the
+  key file, `PATH.pub` or the keychain) and offers it first, as OpenSSH
+  does. The error stays (`KEY_PASSPHRASE_REQUIRED`, exit 2) when the agent
+  does not hold the key, and its hint names commands that work:
+  `ssh-add PATH`, or `komando secret set`, `komando key add ... --passphrase-ref`,
+  then `komando host edit HOST --key NAME --unset identity` (for a `--key`
+  key, `komando key edit` with its real name). Before, it named
+  `komando key edit <name>`, which fails for an identity file.
+- The stored password goes out at most once per login, and only to a
+  hidden question that asks for a password. A question about a one-time
+  code, token, OTP, passcode or verification, a shown question, or the
+  password asked a second time gets no answer: the login stops with
+  `AUTH_FAILED` (exit 4), and the message quotes the server's question,
+  cleaned, for example `web1 asks "Verification code:" (two-factor login)`.
+  The hint says to log in once at a terminal with the command
+  `komando host ssh-command web1` prints. `komando shell` uses the same
+  login.
+- Clearer login hints; codes, exit codes and JSON fields are unchanged.
+  `NO_AUTH` says `ssh-add ~/.ssh/id_ed25519` when that key is encrypted and
+  the agent is empty, `ssh-add` when the agent is empty, and otherwise how
+  to save a password (`komando secret set web1-pass`, then
+  `komando host edit web1 --password-ref secret:web1-pass`); it says
+  "start ssh-agent" only when `SSH_AUTH_SOCK` is not set. `AUTH_FAILED`
+  no longer suggests `komando key deploy`, which logs in the same way and
+  fails too; a password-only server is told how to store a changed
+  password. The sudo hint names the server instead of a literal `<host>`.
+- `HOSTKEY_MISMATCH` shows the full SHA256 fingerprint the server offers
+  now, next to the pinned one. A person at a terminal gets a hint worded
+  for them: if you rebuilt the server, compare the fingerprint with the one
+  on its console, then run `komando host trust NAME --reset`. AI agents
+  and scripts keep the hint that tells them to report it.
+- Ctrl-C at a question ends it. Before, a `[y/N]` question or a hidden
+  prompt went on waiting and Ctrl-C showed nothing. Now Ctrl-C at a
+  `[y/N]` question or a typed name is a no (`cancelled: ...`, `nothing was
+  changed`, exit 6), and at a hidden prompt (`secret set`, `secret check`,
+  a VPN password) the command stops with `CANCELLED`, exit 1, with echo on
+  again. Later questions in the same command are not asked. Ctrl-D at a
+  `[y/N]` question is a no and ends the line.
+- A paste of more than one line at a hidden prompt stores nothing. Before,
+  only the first line was read and the shell ran the others as commands
+  once komando ended, showing the secret and saving it in the shell's
+  history. Now the other lines are thrown away and komando stops with a
+  `USAGE` error (exit 2) that points to `komando secret set NAME < FILE`.
+- VPN logins with komando's own clients (AnyConnect, Fortinet,
+  GlobalProtect, F5, Pulse, OpenVPN, IPsec) ask the same way: Ctrl-C
+  works, a paste of more than one line is refused, and the prompt text a
+  VPN server sends keeps its lines but loses control characters. A Pulse
+  realm or region choice shows numbered lines, takes the number or the
+  name, and asks again after a typo (up to 3 times) instead of ending the
+  login. The Pulse sign-in notice asks `Accept the sign-in notice? [y/N]`
+  and takes y or yes in any case.
+
 ## [0.6.0] - 2026-11-08
 
 ### Highlights

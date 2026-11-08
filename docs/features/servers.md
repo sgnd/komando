@@ -161,6 +161,13 @@ If `ssh` already works on this computer, komando usually works too: it uses
 the same keys (files like `~/.ssh/id_ed25519`, and the ssh-agent that holds
 unlocked keys).
 
+A key with a passphrase works while ssh-agent holds it (after `ssh-add`, or
+from the macOS Keychain), also when it is the server's `--key` or
+`--identity` (which `import ssh-config` sets from `IdentityFile`): komando
+finds the agent's copy by its public key, as `ssh` does. When the agent
+does not hold it, the server fails with `KEY_PASSPHRASE_REQUIRED`, and the
+hint says how to load it or keep its passphrase in the vault.
+
 To use a new key, create it and install it on your servers. komando logs in
 with the servers' current login (for example a password) to install it:
 
@@ -214,6 +221,13 @@ komando secret set web1-pass
 komando host edit web1 --password-ref secret:web1-pass
 ```
 
+komando sends the stored password at most once per login, and only when the
+server asks for a password (hidden as you type). A server that also asks
+for a one-time code (two-factor login) gets no answer: the login stops with
+`AUTH_FAILED`, the message quotes the server's question, and no wrong code
+counts against the account. Log in to such a server at a terminal with the
+command `komando host ssh-command web1` prints.
+
 If `sudo` asks for a password on the server, store that too:
 
 ```bash
@@ -237,7 +251,9 @@ komando secret rm old-pass                   # refused while something uses it
 - **Typing it.** `secret set NAME` asks for the value after you press
   Enter. Paste or type it *after* the prompt appears. Anything typed before
   the prompt was already shown on the screen by the terminal, so komando
-  does not use it and tells you; enter the value again at the prompt.
+  does not use it and tells you; enter the value again at the prompt. A
+  paste of more than one line (a key, a certificate) stores nothing: the
+  prompt reads one line, so use `komando secret set NAME < FILE` or a pipe.
 - **From a pipe.** The line break at the end (which `echo` and `pbpaste`
   add) is not part of the value. Spaces are kept, because a password can hold
   them, but komando warns when the value starts or ends with a space or tab:

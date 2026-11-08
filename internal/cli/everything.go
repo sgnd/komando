@@ -200,10 +200,6 @@ func fixTestError(st *store.State, name string, e *out.Error) *out.Error {
 		if st.Hosts[name] != nil {
 			c.Hint = "check the key file with `komando host show " + name + "`, or pick another with `komando host edit " + name + " --key NAME`"
 		}
-	case "AUTH_FAILED":
-		if st.Hosts[name] == nil {
-			c.Hint = "check the user and that your ssh-agent or ~/.ssh keys are accepted there; save it with `komando host add NAME " + name + " --key KEY` (or --password-ref)"
-		}
 	}
 	return &c
 }

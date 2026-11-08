@@ -173,19 +173,35 @@ run next).
 
 - **Agents and scripts**: changes on a protected target fail without `--yes`
   (exit 6), with a hint.
-- **People at a terminal** (stdin and stdout are both terminals): komando
-  asks `Change protected target prod-db? [y/N]`. For destructive
-  commands on a protected target, the target name must be typed again. The answer
-  is read from the terminal, not from piped stdin, so an agent cannot
-  answer it.
+- **People at a terminal** (stdin and stderr are both terminals, and no AI
+  agent runs komando): komando asks `prod-db is protected. Change it
+  anyway? [y/N]`. For destructive commands on a protected target, the
+  target name must be typed again. The answer is read from the terminal,
+  not from piped stdin, so an agent cannot answer it. A question is one
+  typed line with a safe default. A choice (a VPN login's realm, say)
+  shows its options as numbered lines and takes the number or the name; a
+  wrong answer is asked again, up to 3 times.
 - `--allow-dangerous` and `--yes` apply to one command only and
   are recorded in the audit.
 - **No way around it.** Removing, replacing, or turning off protected
   on a protected target needs `--yes`. Turning off the audit log, the host key check, or
   removing a deny rule needs `--yes` (`SAFETY_SETTING`).
 - **Fail closed**: if the audit cannot be written, the change is refused.
-- Ctrl-C midway: the transaction is rolled back, temporary files are deleted,
-  the audit records `interrupted`, exit 130.
+- **Ctrl-C midway** cancels the command's work: the transaction is rolled
+  back, temporary files are deleted, and the command fails with
+  `CANCELLED` (`interrupted`), exit 1. A command that records its error
+  in the audit records `CANCELLED`.
+- **Ctrl-C at a question** stops the question at once, puts the terminal
+  back as it was (echo on again after a hidden prompt) and ends the line.
+  At a `[y/N]` question or a typed name it is a no: the command stops with
+  `cancelled: ...`, hint `nothing was changed`, exit 6. At a hidden prompt
+  (a secret, a VPN password) it is `CANCELLED` (`interrupted`), exit 1.
+  Every later question in the same command gets no answer, at once.
+  Ctrl-D at a question that shows what is typed is an empty answer, which
+  is a no.
+- **A paste of more than one line at a hidden prompt** is refused (`USAGE`,
+  exit 2) and nothing is stored or sent. The other lines are thrown away,
+  so the shell cannot run them (and show the secret) once komando ends.
 
 ## 7. Secrets
 
@@ -219,7 +235,10 @@ run next).
 
 ## 10. Help and ease of use
 
-- `komando` with no arguments: the first three steps, not a wall of text.
+- `komando` with no arguments: for a person at a terminal, a menu (arrow
+  keys and Enter) that runs the same commands they could type; for agents,
+  scripts and any flag the first three steps, not a wall of text; piped, one
+  `USAGE` envelope (see Streams and scripts).
 - Every command has at least one real example in `--help`.
 - Shell completion completes host, conn, group, and tag names from the inventory.
 - `komando guide` (for agents) and `docs/features/` (for people, one file per feature) are always
@@ -318,7 +337,8 @@ Guidelines](https://clig.dev) and the rules above.
   `PARTIAL_FAILURE`.
 
 **Help**
-- [ ] `komando` alone: the first steps, a dozen lines at most.
+- [ ] `komando` alone: a menu for a person at a terminal; otherwise the
+  first steps, a dozen lines at most.
 - [ ] Every command has at least one real example (`examples.go` or its
   own `Example`). `TestConventions` fails without one, and
   `TestExamplesParse` fails when an example names a command or flag that
@@ -376,7 +396,8 @@ This checklist is used for every feature and every review.
 
 **Processes**
 - More than ~2 minutes → `job`; connection drops while a job runs; orphan jobs are cleaned up
-- Ctrl-C: rollback, clean up, audit `interrupted`
+- Ctrl-C: rollback, clean up, `CANCELLED` (exit 1); at a question, a no
+  with echo back on
 - Two komando processes running at the same time on the same state
 
 **Per area**

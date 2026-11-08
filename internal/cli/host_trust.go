@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"slices"
@@ -19,6 +18,12 @@ import (
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
+
+func init() {
+	// HOSTKEY_MISMATCH tells a person how to check and re-trust the key;
+	// an agent or a script is told to report it
+	sshx.PersonAtTerminal = func() bool { return interactive() }
+}
 
 // --- connectivity ----------------------------------------------------------
 
@@ -142,9 +147,7 @@ func trustOne(ctx context.Context, st *store.State, h *store.Host, reset bool) e
 	switch {
 	case len(other) > 0 && !same && !reset:
 		// never pin a second key next to the old one: both would be accepted
-		e := sshx.HostKeyMismatch(h.Name)
-		e.Message += fmt.Sprintf("; pinned %s, the server now shows %s", strings.Join(other, ", "), fp)
-		return e
+		return sshx.HostKeyMismatch(h.Name, fp, other)
 	case len(other) > 0 && !same:
 		if err := replacing("old " + strings.Join(other, ", ") + ", new " + fp); err != nil {
 			return err

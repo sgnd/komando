@@ -307,6 +307,7 @@ func newRoot() *cobra.Command {
 	resetApproval()
 	out.P.Reset()
 	personSaidNo = false
+	interrupted = false
 	root := &cobra.Command{
 		Use:           "komando",
 		Short:         "One safe command line for servers, databases, caches, storage and clusters",
@@ -437,11 +438,14 @@ in meta.skipped. See them all with ` + "`komando list`" + `.
 Start here:  komando guide      (agent playbook)
              komando schema     (machine-readable command reference)`
 
-// printFirstSteps is `komando` alone: the first steps, not a wall of text
-// (ux.md, section 10).
-func printFirstSteps(cmd *cobra.Command, _ []string) error {
+// printFirstSteps is `komando` alone: the menu for a person at a terminal
+// (menu.go), else the first steps, not a wall of text (ux.md, section 10).
+func printFirstSteps(cmd *cobra.Command, args []string) error {
 	if out.P.Format == "json" { // piped: one JSON envelope, never text
 		return out.Usage("komando needs a command").WithHint("read `komando guide` (the playbook for agents) or `komando schema` (every command)")
+	}
+	if menuWanted(cmd, args) {
+		return runMenu()
 	}
 	_, err := fmt.Fprint(cmd.OutOrStdout(), firstSteps)
 	return err

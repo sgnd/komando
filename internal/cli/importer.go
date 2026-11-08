@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -30,6 +31,10 @@ type importPlan struct {
 	Vpns    []*store.Vpn
 	Secrets map[string]string
 	Notes   []string // things in the source komando did not import, and why
+	// NoPassword: conns the source keeps no password for (DBeaver). The
+	// note that says how to set one is written after the import, with the
+	// name the conn got (shop-2 when shop is taken), and only if it is added.
+	NoPassword map[*store.Conn]bool
 	// Strict: a server komando refuses stops the whole import (a CSV is a
 	// list the user wrote for komando; a half import would surprise them).
 	Strict bool
@@ -130,6 +135,10 @@ type importResult struct {
 	Secrets  []string     `json:"secrets"` // vault names stored (never values)
 	Skipped  []importSkip `json:"skipped"`
 	NotFound []string     `json:"not_imported"` // in the source, but not something komando imports
+	// aboutAdded are the notes in NotFound about a server that was added
+	// (what was left out of it): the text output does not call them "not
+	// imported". JSON keeps them in not_imported, as before.
+	aboutAdded []string
 }
 
 func applyImport(source, file string, plan *importPlan, groups []string, overwrite bool) error {
@@ -187,7 +196,7 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 		res.Skipped = append(res.Skipped, importSkip{n, "protected: replacing it needs --yes after the user confirms"})
 	}
 	res.Skipped = append(res.Skipped, v.Invalid...)
-	res.NotFound = append(res.NotFound, v.Notes...)
+	res.NotFound, res.aboutAdded = append(res.NotFound, v.Notes...), v.Notes // each note in v.Notes is about a server in v.Add
 	var conns []*store.Conn
 	for _, c := range plan.Conns {
 		c.URL = normConnURL(c.URL)
@@ -224,10 +233,7 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 		res.Hosts = append(res.Hosts, h.Name)
 	}
 	for _, c := range conns {
-		res.Conns = append(res.Conns, c.Name)
-		if name, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok && plan.Secrets[name] != "" {
-			res.Secrets = append(res.Secrets, name)
-		}
+		res.addConn(c, plan)
 	}
 	for _, r := range recipes {
 		res.Recipes = append(res.Recipes, r.Name)
@@ -273,6 +279,20 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	return nil
 }
 
+// addConn records a conn the import adds: its name, the password stored
+// for it, and how to set one when the source had none. That note uses the
+// conn's final name, so its commands change this conn and no other.
+func (r *importResult) addConn(c *store.Conn, plan *importPlan) {
+	r.Conns = append(r.Conns, c.Name)
+	if name, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok && plan.Secrets[name] != "" {
+		r.Secrets = append(r.Secrets, name)
+	}
+	if plan.NoPassword[c] {
+		note := c.Name + ": set its password with `komando secret set " + c.Name + "-pass` and `komando conn edit " + c.Name + " --password-ref secret:" + c.Name + "-pass`"
+		r.NotFound, r.aboutAdded = append(r.NotFound, note), append(r.aboutAdded, note)
+	}
+}
+
 func (r importResult) Text() string {
 	var sb strings.Builder
 	line := func(label string, names []string) {
@@ -284,6 +304,10 @@ func (r importResult) Text() string {
 	if g.dryRun {
 		verb = "would add"
 	}
+	added := slices.Concat(r.Hosts, r.Conns, r.Vpns, r.Recipes)
+	if len(added) == 0 { // first, so the notes below cannot read like a success
+		fmt.Fprintf(&sb, "nothing to import from %s\n", r.File)
+	}
 	line("servers "+verb, r.Hosts)
 	line("conns "+verb, r.Conns)
 	line("VPNs "+verb, r.Vpns)
@@ -293,10 +317,11 @@ func (r importResult) Text() string {
 		fmt.Fprintf(&sb, "skipped %s: %s\n", s.Name, s.Reason)
 	}
 	for _, n := range r.NotFound {
-		fmt.Fprintf(&sb, "not imported: %s\n", n)
-	}
-	if sb.Len() == 0 {
-		sb.WriteString("nothing to import\n")
+		if slices.Contains(r.aboutAdded, n) { // "bastion: its identity file ...": bastion is in
+			fmt.Fprintln(&sb, n)
+		} else {
+			fmt.Fprintf(&sb, "not imported: %s\n", n)
+		}
 	}
 	return sb.String()
 }
@@ -321,7 +346,9 @@ func renameImported(st *store.State, plan *importPlan, c *store.Conn) {
 	c.Name = name
 }
 
-func newPlan() *importPlan { return &importPlan{Secrets: map[string]string{}} }
+func newPlan() *importPlan {
+	return &importPlan{Secrets: map[string]string{}, NoPassword: map[*store.Conn]bool{}}
+}
 
 var unsafeName = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
 

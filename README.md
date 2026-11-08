@@ -22,7 +22,8 @@ AI agents (Claude Code, Codex, your own bot) can use it well:
 You ──ask──▶ AI agent ──▶ komando ──▶ servers, databases, caches, storage, ...
 ```
 
-No windows, no menus. Just commands.
+No windows. Just commands. A person who types `komando` alone gets a small
+menu of the common ones.
 
 ## Install
 

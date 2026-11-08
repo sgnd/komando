@@ -393,8 +393,8 @@ func TestPulseLogin(t *testing.T) {
 	var asked []string
 	o.Prompt = func(label string, secret bool) (string, error) {
 		asked = append(asked, label)
-		if strings.HasPrefix(label, "Realm") {
-			return "Admins", nil
+		if strings.HasSuffix(label, "Realm (number or name)") {
+			return "2", nil
 		}
 		return "123456", nil
 	}
@@ -405,8 +405,67 @@ func TestPulseLogin(t *testing.T) {
 	if f.get("realm") != "Admins" || f.get("user") != "ana" || f.get("password") != "s3cret" || f.get("code") != "123456" {
 		t.Errorf("server saw %v", f.got)
 	}
-	if len(asked) != 2 || asked[0] != "Realm (Users, Admins)" || asked[1] != "Enter SecurID PASSCODE" {
+	if len(asked) != 2 || asked[0] != "The VPN offers more than one realm:\n  1  Users\n  2  Admins\nRealm (number or name)" || asked[1] != "Enter SecurID PASSCODE" {
 		t.Errorf("asked %q", asked)
+	}
+}
+
+// A person answers a choice with its number or its name, in any case, and
+// a wrong answer is asked again, up to 3 times.
+func TestPulseChoose(t *testing.T) {
+	opts := []string{"Users", "Admins", "admins-eu"}
+	cases := []struct {
+		answers []string
+		want    string
+		asked   int
+	}{
+		{[]string{"2"}, "Admins", 1},
+		{[]string{" Admins "}, "Admins", 1},
+		{[]string{"users"}, "Users", 1},
+		{[]string{"ADMINS-EU"}, "admins-eu", 1},
+		{[]string{"4", "admin", "3"}, "admins-eu", 3},
+		{[]string{"", "x", "0"}, "", 3},
+	}
+	for _, c := range cases {
+		var asked []string
+		s := &pulseSession{o: Options{Prompt: func(label string, secret bool) (string, error) {
+			asked = append(asked, label)
+			return c.answers[len(asked)-1], nil
+		}}}
+		got, err := s.choose("Realm", opts)
+		var le *LoginError
+		switch {
+		case c.want == "" && !errors.As(err, &le):
+			t.Errorf("%q: want a login error, got %q %v", c.answers, got, err)
+		case c.want != "" && (err != nil || got != c.want):
+			t.Errorf("%q: got %q %v, want %q", c.answers, got, err, c.want)
+		}
+		if len(asked) != c.asked {
+			t.Errorf("%q: asked %d times, want %d", c.answers, len(asked), c.asked)
+		}
+		if len(asked) > 1 && asked[1] != "Not one of the choices.\nRealm (number or name)" {
+			t.Errorf("%q: asked again with %q", c.answers, asked[1])
+		}
+	}
+	// a stop at the question (Ctrl-C) ends the choice at once
+	s := &pulseSession{o: Options{Prompt: func(string, bool) (string, error) { return "", context.Canceled }}}
+	if _, err := s.choose("Realm", opts); !errors.Is(err, context.Canceled) {
+		t.Errorf("Ctrl-C: %v", err)
+	}
+}
+
+// The sign-in notice takes y or yes in any case; anything else refuses it.
+func TestPulseBanner(t *testing.T) {
+	for a, ok := range map[string]bool{"y": true, "Y": true, "yes": true, " YES ": true, "": false, "n": false, "ok": false} {
+		var label string
+		s := &pulseSession{o: Options{Prompt: func(l string, secret bool) (string, error) { label = l; return a, nil }}}
+		_, err := s.banner("Authorized use only.\n")
+		if (err == nil) != ok {
+			t.Errorf("%q: %v", a, err)
+		}
+		if label != "Authorized use only.\nAccept the sign-in notice? [y/N]" {
+			t.Errorf("asked %q", label)
+		}
 	}
 }
 

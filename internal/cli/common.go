@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -467,9 +466,9 @@ var interactive = func() bool {
 }
 
 // ask prints question on stderr and reads one line from the terminal.
+// Ctrl-C or Ctrl-D gives an empty answer, which every question takes as no.
 func ask(question string) string {
-	fmt.Fprint(os.Stderr, question)
-	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	line, _ := readAnswer(question, false)
 	return strings.TrimSpace(line)
 }
 
