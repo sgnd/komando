@@ -221,6 +221,11 @@ komando secret set web1-pass
 komando host edit web1 --password-ref secret:web1-pass
 ```
 
+The password goes to the server's address on every login. So when an AI
+agent gives a server or conn a password reference, or moves one that has
+one to another address, port or `--via` path, a person allows it in
+komando's window (`SECRET_DESTINATION`); see [Safety](safety.md#seatbelts-for-ai-agents).
+
 komando sends the stored password at most once per login, and only when the
 server asks for a password (hidden as you type). A server that also asks
 for a one-time code (two-factor login) gets no answer: the login stops with
@@ -339,6 +344,20 @@ The first time komando connects to a server, it remembers the server's key
 komando refuses to connect (`HOSTKEY_MISMATCH`), because someone may be
 pretending to be your server.
 
+That first time, nothing proves the key is really your server's. komando
+says on stderr which key it trusted:
+
+```text
+komando: first connection to web1 (203.0.113.10:22): trusted its ssh-ed25519 host key SHA256:pVt2...
+```
+
+The audit log keeps it too (`host.key-pinned` in `komando audit`).
+Compare that fingerprint with the server's own: run
+`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the server's console,
+or look in your cloud console (many show the host key fingerprints in the
+first boot log). If they differ, stop using the server and ask whoever
+runs it: someone may be in between.
+
 After a real rebuild, check the new fingerprint another way (your cloud
 console or the server's own console), then replace the old key:
 
@@ -381,6 +400,15 @@ trust --reset`.
 connection; the same key again changes nothing. The key is fetched the way
 komando reaches the server: directly, or through its `--via` path, VPN or
 proxy command.
+
+To check every new server before komando uses it, refuse unknown keys and
+pin them one by one, comparing the `fingerprint` in each answer with the
+server's own first:
+
+```bash
+komando config set host_key_policy strict   # unknown keys stop with HOSTKEY_UNKNOWN
+komando host trust web1                     # answer: key_type and fingerprint
+```
 
 ## Use OpenSSH with the same settings
 

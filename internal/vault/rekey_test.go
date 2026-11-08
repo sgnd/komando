@@ -305,14 +305,16 @@ func TestChangeKeyDryRun(t *testing.T) {
 	}
 }
 
-// fakeSecretTool puts a stand-in secret-tool first in PATH that keeps one
-// secret in a file, and uses the Linux keychain code with it.
+// fakeSecretTool puts a stand-in secret-tool in the only folder komando
+// looks in, keeps one secret in a file, and uses the Linux keychain code
+// with it.
 func fakeSecretTool(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
-	saved := keychainOS
+	savedOS, savedDirs := keychainOS, toolDirs
 	keychainOS = "linux"
-	t.Cleanup(func() { keychainOS = saved })
+	toolDirs = []string{dir} // the stand-in plays the system's secret-tool
+	t.Cleanup(func() { keychainOS, toolDirs = savedOS, savedDirs })
 	script := `#!/bin/sh
 store="` + dir + `/kept"
 case "$1" in
@@ -324,10 +326,7 @@ esac
 	if err := os.WriteFile(filepath.Join(dir, "secret-tool"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	if _, err := KeychainTool(); err != nil {
-		// komando finds secret-tool in system folders only, not through
-		// PATH: hand it the stand-in the way TestKeychainSecretTool does
-		t.Skipf("the stand-in secret-tool is not used: %v", err)
+		t.Fatalf("the stand-in secret-tool is not used: %v", err)
 	}
 }

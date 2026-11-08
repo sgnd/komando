@@ -44,6 +44,9 @@ func (l auditList) Text() string {
 		who := fmt.Sprint(e["actor"])
 		if a, ok := e["agent"].(string); ok && a != "" {
 			who += " (" + a + ")"
+			if e["actor_claimed"] == true { // the agent is sure; the name is what it says
+				who = a + " (as " + fmt.Sprint(e["actor"]) + ")"
+			}
 		}
 		var targets []string
 		for _, k := range []string{"hosts", "conns"} {

@@ -467,3 +467,25 @@ func TestUpdateNotWritable(t *testing.T) {
 		t.Errorf("agent hint: %q", e.Hint)
 	}
 }
+
+// komando update follows a redirect only while it stays on HTTPS, so a
+// release download can never be pulled over plain HTTP.
+func TestUpdateRedirectStaysHTTPS(t *testing.T) {
+	req := func(u string) *http.Request {
+		r, err := http.NewRequest(http.MethodGet, u, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	if err := httpsOnlyRedirect(req("https://objects.githubusercontent.com/x"), nil); err != nil {
+		t.Errorf("an HTTPS redirect must be allowed: %v", err)
+	}
+	if err := httpsOnlyRedirect(req("http://evil.example/x"), nil); err == nil {
+		t.Error("a redirect to HTTP must be refused")
+	}
+	many := make([]*http.Request, 10)
+	if err := httpsOnlyRedirect(req("https://example.com/x"), many); err == nil {
+		t.Error("too many redirects must be refused")
+	}
+}

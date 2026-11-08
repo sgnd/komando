@@ -26,6 +26,12 @@ komando conn add sessions rediss://default@cache.internal:6379/1 --password-ref 
 `--via` reaches a cache through a bastion or a VPN, like any other conn (see
 [Tunnels](tunnels.md) and [VPNs](vpn.md)).
 
+`redis://` straight over the network (no `--via`, not to this computer)
+sends the password and the data unencrypted: use `rediss://` or `--via`.
+`komando doctor` warns about such conns and prints the line that changes
+them. `rediss://` checks the server's certificate against your computer's
+trusted CAs.
+
 ## Look at data
 
 These commands only read:

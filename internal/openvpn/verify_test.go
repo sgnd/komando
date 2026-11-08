@@ -202,3 +202,55 @@ func TestServerCertUsage(t *testing.T) {
 		}
 	}
 }
+
+// A profile with no check of its own still needs a certificate marked for
+// a server: another user's client certificate from the same CA must not
+// pass. verify-x509-name is the profile's way to accept an unmarked one.
+func TestServerCertMarkedByDefault(t *testing.T) {
+	p := newPKI(t)
+	nsServer := func() pkix.Extension {
+		v, _ := asn1.Marshal(asn1.BitString{Bytes: []byte{0x40}, BitLength: 2})
+		return pkix.Extension{Id: asn1.ObjectIdentifier{2, 16, 840, 1, 113730, 1, 1}, Value: v}
+	}
+	client := p.issue(&x509.Certificate{Subject: pkix.Name{CommonName: "alice"}, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}})
+	bare := p.issue(&x509.Certificate{Subject: pkix.Name{CommonName: "vpn gw"}})
+	oldServer := p.issue(&x509.Certificate{Subject: pkix.Name{CommonName: "old"}, ExtraExtensions: []pkix.Extension{nsServer()}})
+	profile := "client\nremote vpn.example.com 1194\nauth-user-pass\n<ca>\n" + string(p.caPEM) + "</ca>\n"
+	cfg, err := Parse(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Warnings) != 1 || !strings.Contains(cfg.Warnings[0], "remote-cert-tls server") {
+		t.Errorf("warnings: %q", cfg.Warnings)
+	}
+	if err := verify(t, cfg, p.server()); err != nil {
+		t.Errorf("a serverAuth certificate: %v", err)
+	}
+	if err := verify(t, cfg, oldServer); err != nil {
+		t.Errorf("an nsCertType server certificate: %v", err)
+	}
+	if err := verify(t, cfg, client); err == nil || !strings.Contains(err.Error(), "verify-x509-name alice name") {
+		t.Errorf("a client certificate passed as the server: %v", err)
+	}
+	err = verify(t, cfg, bare)
+	if err == nil || !strings.Contains(err.Error(), `verify-x509-name "vpn gw" name`) {
+		t.Fatalf("a certificate marked for nothing: %v", err)
+	}
+	// the line the error suggests is the opt-out, and it still checks the name
+	named, err := Parse(profile + `verify-x509-name "vpn gw" name` + "\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(named.Warnings) != 0 {
+		t.Errorf("a profile with verify-x509-name warns: %q", named.Warnings)
+	}
+	if err := verify(t, named, bare); err != nil {
+		t.Errorf("verify-x509-name: %v", err)
+	}
+	if err := verify(t, named, client); err == nil {
+		t.Error("verify-x509-name: another name passed")
+	}
+	if strict, _ := Parse(profile + "remote-cert-tls server\n"); len(strict.Warnings) != 0 {
+		t.Errorf("remote-cert-tls server warns: %q", strict.Warnings)
+	}
+}

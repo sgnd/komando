@@ -16,14 +16,14 @@ func TestLastSessionEnd(t *testing.T) {
 	}
 	log := "2026/11/05 12:40:00 IKEv1: ESP up\nREADY 127.0.0.1:1\n" +
 		"2026/11/05 13:20:07 ENDED the L2TP server ended the session (result 1) (after 1h28m6s)\n"
-	if err := os.WriteFile(filepath.Join(dir, "duwit.log"), []byte(log), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "office.log"), []byte(log), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	end, lines := lastSessionEnd("duwit", true)
+	end, lines := lastSessionEnd("office", true)
 	if end != "2026/11/05 13:20:07: the L2TP server ended the session (result 1) (after 1h28m6s)" || len(lines) != 3 {
 		t.Fatalf("got %q %q", end, lines)
 	}
-	if _, lines := lastSessionEnd("duwit", false); lines != nil {
+	if _, lines := lastSessionEnd("office", false); lines != nil {
 		t.Fatal("log lines for a kind that does not want them")
 	}
 	// older logs: ENDED at the start of the line, and ERROR for a failed start

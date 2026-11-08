@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/netip"
 	"time"
@@ -33,6 +34,9 @@ func openOpenVPN(ctx context.Context, v *store.Vpn, timeout time.Duration) (Dial
 	cfg, err := openvpn.Parse(text)
 	if err != nil {
 		return nil, nil, configErr(v, err)
+	}
+	for _, w := range cfg.Warnings {
+		log.Printf("OpenVPN: warning: %s", w)
 	}
 	login := openvpn.Login{User: v.User, Password: SessionSecret}
 	if cfg.AuthUserPass && login.Password == "" {
