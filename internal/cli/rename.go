@@ -33,6 +33,7 @@ type renameResult struct {
 	Updated   []renameRef             `json:"updated"`          // references that follow
 	Moved     []renamePair            `json:"moved"`            // key files and VPN state folders
 	Skipped   []renameSkip            `json:"skipped,omitempty"`
+	Kept      []renameKept            `json:"kept,omitempty"` // old names left in notes and labels, and why
 	Warnings  []string                `json:"warnings,omitempty"`
 }
 
@@ -76,6 +77,16 @@ func (r renameResult) Text() string {
 	}
 	for _, s := range r.Skipped {
 		fmt.Fprintf(&sb, "left alone: %s %s (%s)\n", s.Kind, s.Name, s.Reason)
+	}
+	if len(r.Kept) > 0 {
+		fmt.Fprintf(&sb, "old names kept in notes and labels (%d):\n", len(r.Kept))
+		for _, k := range r.Kept {
+			why := k.Reason
+			if k.To != "" {
+				why += "; it would become " + k.To
+			}
+			fmt.Fprintf(&sb, "  %s %s: %s (%s)\n", k.Entry, k.Field, k.Name, why)
+		}
 	}
 	for _, w := range r.Warnings {
 		fmt.Fprintf(&sb, "warning: %s\n", w)
@@ -195,7 +206,7 @@ func guardRenameProtected(what string, prot []string) error {
 }
 
 func renameCmd() *cobra.Command {
-	var prefix, notes bool
+	var prefix, notes, labels bool
 	var kinds []string
 	c := &cobra.Command{
 		Use:   "rename --prefix OLD NEW",
@@ -211,6 +222,14 @@ tunnels. A key komando made (key gen) moves its files in ~/.komando/keys.
 The protected mark, labels, notes and creation time stay. Names inside
 URLs (a bucket, a database user) are the resource's own and do not change.
 
+--notes also replaces old names in notes, and --labels in label values:
+server, conn, VPN and secret names as whole words, a group written @NAME,
+and a pattern such as shop-db-* when it matches the same entries after the
+rename. OLD without its -, group names without @, key names, and a name
+that is also the user, host, bucket or database in a conn URL stay: they
+often mean something else. The result lists each one it keeps ("kept"),
+and each label value that names an old entry, with or without --labels.
+
 Everything changes in one step, or nothing does: a new name that is taken
 (or two old names that would get one new name) stops it before anything
 is written. When NEW starts with OLD, names that start with NEW already
@@ -218,14 +237,14 @@ are left alone, so a second run changes nothing.
 
 Renaming protected servers and conns needs --yes once, for all of them
 (an AI agent's --yes opens one window for a person). See what would change
-with --dry-run first. --notes also replaces the old names in notes, as
-whole words. --kind renames only some kinds; references still follow.
+with --dry-run first. --kind renames only some kinds; references still
+follow.
 To rename one entry, use host mv, conn mv, vpn mv, secret mv, key mv or
 group mv.`,
 		Example: `  komando rename --prefix shop- acme-shop- --dry-run   # the old -> new list and every reference
   komando rename --prefix shop- acme-shop- --yes       # some of them are protected
   komando rename --prefix old-registry registry --kind conn,secret
-  komando rename --prefix lab- test- --notes`,
+  komando rename --prefix lab- test- --notes --labels --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			old, new := args[0], args[1]
@@ -261,7 +280,8 @@ group mv.`,
 					return nil, renameOpts{}, out.Errf(out.ExitNotFound, "NOTHING_TO_RENAME", "check OLD with `komando list` and `komando secret list`; names are matched from the start, as written",
 						"no %s starts with %q", strings.Join(slices.Sorted(maps.Keys(want)), ", "), old)
 				}
-				return set, renameOpts{notes: notes, guard: func(prot []string) error { return guardRenameProtected(what, prot) }}, nil
+				return set, renameOpts{notes: notes, labels: labels, prefix: &renamePair{From: old, To: new},
+					guard: func(prot []string) error { return guardRenameProtected(what, prot) }}, nil
 			})
 			if err != nil {
 				return err
@@ -277,7 +297,8 @@ group mv.`,
 	}
 	c.Flags().BoolVar(&prefix, "prefix", false, "rename every name that starts with OLD (needed)")
 	c.Flags().StringSliceVar(&kinds, "kind", nil, "rename only these kinds: host, conn, vpn, secret, key, group (default: all)")
-	c.Flags().BoolVar(&notes, "notes", false, "also replace the old names in notes, as whole words")
+	c.Flags().BoolVar(&notes, "notes", false, "also replace old names in notes (server, conn, VPN and secret names, @group, OLD* patterns)")
+	c.Flags().BoolVar(&labels, "labels", false, "also replace old names in label values, as --notes does (label names stay)")
 	return c
 }
 
