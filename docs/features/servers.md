@@ -175,7 +175,7 @@ komando rename --prefix shop- acme-shop- --yes       # --yes once, when some of 
   protected entries it covers. Pointing a reference at the new name of the
   same secret, key or VPN needs no yes: the same value goes to the same place.
 - **Safe to repeat.** When the new prefix starts with the old one
-  (`codeid-` to `codeid-devops-`), names that have the new prefix already
+  (`team-` to `team-ops-`), names that have the new prefix already
   are left alone, so a second run changes nothing.
 
 `key mv OLD NEW` renames one key: the servers that use it follow, and a key

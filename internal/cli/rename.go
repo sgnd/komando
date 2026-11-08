@@ -93,7 +93,7 @@ func renameNoun(n int, noun string) string {
 
 // prefixRenames is every name of the kinds asked for that starts with old,
 // with new in its place. When old ends in -, the name old without it is
-// renamed too (group duwit for --prefix duwit- mcash-duwit-). When new
+// renamed too (group shop for --prefix shop- acme-shop-). When new
 // starts with old, a name that starts with new already is left alone, so
 // running the same rename twice changes nothing the second time.
 func prefixRenames(s *store.State, old, new string, kinds map[string]bool) (renameSet, []renameSkip) {

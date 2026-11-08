@@ -225,18 +225,18 @@ func TestRenamePrefix(t *testing.T) {
 }
 
 // When NEW starts with OLD, a second run changes nothing; OLD without its
-// trailing - is renamed too (group codeid -> codeid-devops).
+// trailing - is renamed too (group team -> team-ops).
 func TestRenamePrefixTwice(t *testing.T) {
 	invHome(t)
-	mustRun(t, "conn", "add", "codeid-registry", "registry://u@reg.lan", "-g", "codeid")
-	mustRun(t, "host", "add", "codeid", "u@10.0.0.1")
-	d := mustRun(t, "rename", "--prefix", "codeid-", "codeid-devops-")
-	if pairs(d, "conn")["codeid-registry"] != "codeid-devops-registry" || pairs(d, "group")["codeid"] != "codeid-devops" ||
-		pairs(d, "host")["codeid"] != "codeid-devops" {
+	mustRun(t, "conn", "add", "team-registry", "registry://u@reg.lan", "-g", "team")
+	mustRun(t, "host", "add", "team", "u@10.0.0.1")
+	d := mustRun(t, "rename", "--prefix", "team-", "team-ops-")
+	if pairs(d, "conn")["team-registry"] != "team-ops-registry" || pairs(d, "group")["team"] != "team-ops" ||
+		pairs(d, "host")["team"] != "team-ops" {
 		t.Fatalf("first run: %v", d)
 	}
 	keep := homeFiles(t)
-	d = mustRun(t, "rename", "--prefix", "codeid-", "codeid-devops-")
+	d = mustRun(t, "rename", "--prefix", "team-", "team-ops-")
 	if d["action"] != "unchanged" || d["count"].(float64) != 0 || len(d["skipped"].([]any)) != 3 {
 		t.Errorf("second run: %v", d)
 	}
