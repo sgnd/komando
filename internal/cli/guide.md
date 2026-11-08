@@ -168,7 +168,10 @@ changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run
 `restart` and `scale` change; `rm` and scaling to 0 need
 `--allow-dangerous`. For anything else, `komando cluster run <conn> --
 <kubectl args>` (needs `--write` to change). Pick a namespace with
-`--namespace`.
+`--namespace`. `status`, `ls`, `events` and `helm ls` also take a group
+(`@prod`): one row per cluster in `data.results`. Read Helm releases with
+`komando cluster helm ls|status|history|values` (no helm needed; install
+and upgrade stay with helm).
 
 **Registries**: `komando registry ls|inspect <conn>` read, `registry copy`
 changes, `registry rm` deletes (needs `--allow-dangerous`).

@@ -89,6 +89,44 @@ autoscaler targets. In text mode the tables look like kubectl's
 `NAME READY STATUS RESTARTS AGE NODE` for pods). In JSON the same rows are
 under `data.items[]`, for Kubernetes and Swarm alike.
 
+### Many clusters at once
+
+`cluster status`, `cluster ls`, `cluster events` and `cluster helm ls` take
+a selector that picks several clusters: a group, `kind:k8s`, a tag or `all`.
+komando reads them at the same time and shows one block per cluster:
+
+```bash
+komando group add prod prod-eu,prod-us,prod-ap
+komando cluster status @prod                     # health of every production cluster
+komando cluster events @prod --warnings -A       # what goes wrong anywhere
+komando cluster ls @prod nodes
+```
+
+In JSON each cluster is a row of `data.results[]` (`cluster`, `engine`,
+`ok`, and its `data` or `error`), with `data.summary`. A cluster that
+cannot be read fails alone: the others still show, and the command ends
+with `PARTIAL_FAILURE`. One cluster gives the same output as always.
+Commands that change a cluster (`apply`, `deploy`, `restart`, `scale`,
+`rm`, `rollback`) and a rollout's `status` stay on one cluster.
+
+### Helm releases (read-only)
+
+komando reads the Helm releases stored in the cluster, without the `helm`
+program. It only reads: install, upgrade and rollback stay with `helm`.
+
+```bash
+komando cluster helm ls prod -A                             # name, revision, status, chart, app version
+komando cluster helm status prod shop-api --namespace shop  # deployed when, description, notes
+komando cluster helm history prod shop-api --namespace shop
+komando cluster helm values prod shop-api --namespace shop        # the values it was installed with
+komando cluster helm values prod shop-api --namespace shop --all  # with the chart's defaults
+```
+
+`--revision N` shows an older revision in `status` and `values`. Helm keeps
+releases as Secrets, so the kubeconfig's user needs to list Secrets in that
+namespace (`K8S_FORBIDDEN` otherwise). For an AI agent, passwords and
+tokens in the values show as `[hidden]`, as everywhere.
+
 ## Read logs
 
 ```bash

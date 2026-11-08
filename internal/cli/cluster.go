@@ -271,7 +271,7 @@ scale and apply change the cluster (protected targets need --yes; try
 passes the native kubectl or docker command, read-only unless --write.`,
 	}
 	c.AddCommand(clusterStatusCmd(), clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterExecCmd(), clusterShellCmd(), clusterForwardCmd(), clusterRestartCmd(),
-		clusterScaleCmd(), clusterApplyCmd(), clusterRmCmd(), clusterRunCmd())
+		clusterScaleCmd(), clusterApplyCmd(), clusterRmCmd(), clusterRunCmd(), clusterHelmCmd())
 	return c
 }
 

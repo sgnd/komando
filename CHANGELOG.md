@@ -22,6 +22,18 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando cluster status`, `cluster ls`, `cluster events` and
+  `cluster helm ls` read every cluster a selector picks (`@prod`,
+  `kind:k8s`, `all`) at the same time: one row per cluster in
+  `data.results` with `data.summary`, and a cluster that cannot be read
+  fails alone (`PARTIAL_FAILURE`). One cluster gives the same output as
+  before; commands that change a cluster stay on one.
+- `komando cluster helm ls|status|history|values` read the Helm releases
+  stored in a Kubernetes cluster, without the `helm` program: name,
+  revision, status, chart and app version, the notes, every stored
+  revision, and the values (`--all` with the chart's defaults,
+  `--revision N` for an older one). It only reads; install and upgrade
+  stay with helm.
 - `komando` alone opens a menu for a person at a terminal: choose Shell,
   Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
   Enter (`?` for help), then a server, conn or VPN from a list you can
