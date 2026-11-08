@@ -80,7 +80,7 @@ machine-readable reference is `komando schema`.
 | `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting; the message shows the pinned fingerprint and the one the server shows now | compare the new fingerprint with the server's console or your provider first, then `komando host trust NAME --reset --yes`, or `@group` for many at once (a person decides; an agent reports it) |
 | `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando secret list` |
 | `SECRET_IN_USE` | `secret rm` of a secret that something still uses | point them elsewhere, or rename it with `komando secret mv OLD NEW` |
-| `SECRET_EXISTS` | `secret mv` or `secret cp` to a name that is taken | pick another name, or add `--overwrite` |
+| `SECRET_EXISTS` | `secret mv` or `secret cp` to a name that is taken; `vpn add` whose keys would go into a secret that exists (`NAME-key`, `NAME-psk`, `NAME-config`) and is not that VPN's own | pick another name, or add `--overwrite` (`secret mv`, `secret cp`); for `vpn add`, pick another VPN name or move the secret away with `komando secret mv` |
 | `NAME_TAKEN` | a new name (from `host mv`, `rename --prefix`, ...) is used already; for `rename` the message lists every clash, and nothing was renamed | pick other names, or rename or remove what is in the way; `--dry-run` shows the whole list first |
 | `NOTHING_TO_RENAME` | `rename --prefix`: no name starts with OLD | check the spelling and case with `komando list` and `komando secret list` |
 | `GROUP_EXISTS` | `group mv` to the name of another group | pick another name, or merge them: `komando group add NEW @OLD`, then `komando group rm OLD` |

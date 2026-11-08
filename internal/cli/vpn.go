@@ -246,7 +246,7 @@ func vpnAddCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if err := checkNewName(st, "vpn", name, overwrite); err != nil {
+				if err := vpnAddCheck(st, name, secrets, overwrite); err != nil {
 					return err
 				}
 				res := map[string]any{"would_add": v}
@@ -256,7 +256,7 @@ func vpnAddCmd() *cobra.Command {
 				out.P.Print("vpn.add", res, nil)
 				return nil
 			}
-			if err := store.Update(func(s *store.State) error { return checkNewName(s, "vpn", name, overwrite) }); err != nil {
+			if err := store.Update(func(s *store.State) error { return vpnAddCheck(s, name, secrets, overwrite) }); err != nil {
 				return err
 			}
 			for n, val := range secrets {

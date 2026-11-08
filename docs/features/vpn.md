@@ -58,6 +58,13 @@ komando vpn add office proxy --address proxy.corp.example:3128
 - **Config files** (`--config`): the WireGuard `.conf` or OpenVPN `.ovpn`
   file is stored in the vault, together with its keys. The original file
   still holds the private key, so delete it if you no longer need it.
+  The vault secrets are named after the VPN: `NAME-key` and `NAME-psk`
+  (WireGuard) or `NAME-config` (OpenVPN). If a secret of that name exists
+  already, `vpn add` stops with `SECRET_EXISTS` and saves nothing, so it
+  never replaces a secret that a server or a file uses. Pick another VPN
+  name, or move the secret away first (`komando secret mv`, or `komando
+  secret rm` if an earlier VPN of that name left it). `--overwrite` may
+  reuse the secrets of the VPN it replaces, when nothing else uses them.
 - **Passwords** (`--password-ref`) work like everywhere else in komando:
   `secret:NAME`, `env:VAR`, a password manager, and so on (see
   [Servers](servers.md)). For Tailscale it is an auth key.
@@ -125,7 +132,8 @@ komando vpn rm office                         # remove (several names allowed)
   WireGuard connects for each command, so nothing stays running.
 - `vpn rm` refuses a VPN that is still on a `--via` path (`VPN_IN_USE`, also
   with `--dry-run`). Change those `--via` paths first. Its keys stay in the
-  vault until `komando secret rm`.
+  vault until `komando secret rm`; a new WireGuard or OpenVPN VPN of the
+  same name needs them gone first.
 - `vpn edit` changes `--check`, `--address`, `--user`, `--password-ref`,
   `--server`, `--psk-ref`, `--id`, `--remote-id`, `--service`, `--mfa`,
   `--notes`, and groups and tags (`-g`, `-t`, which replace the current
@@ -133,6 +141,8 @@ komando vpn rm office                         # remove (several names allowed)
 - To give a WireGuard or OpenVPN VPN a new config file, add it again with
   `--overwrite`.
 - `vpn mv` refuses a VPN that is up: run `komando vpn down NAME` first.
+  Its vault secrets keep their names (`OLD-key` stays), and a new VPN
+  under the old name cannot take them.
 
 ## OpenVPN details
 
