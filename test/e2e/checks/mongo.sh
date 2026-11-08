@@ -3,6 +3,16 @@
 # the destructive guard, schema and info. Uses the e2e_mongo database and
 # drops it at the end.
 set +e
+MDC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
+for _ in $(seq 1 60); do
+  MDC exec -T mongo mongosh --quiet -u root -p mongopass --eval 'db.runCommand({ping: 1}).ok' 2>/dev/null | grep -q 1 && break
+  sleep 1
+done
+if ! MDC exec -T mongo mongosh --quiet -u root -p mongopass --eval 'db.runCommand({ping: 1}).ok' 2>/dev/null | grep -q 1; then
+  echo "  mongo is not answering; its state and last log lines:"
+  MDC ps -a mongo 2>&1 | sed 's/^/    /'
+  MDC logs --tail 30 mongo 2>&1 | sed 's/^/    /'
+fi
 echo -n mongopass | $K secret set mongo-pass >/dev/null
 q $K conn add shop-mongo 'mongodb://root@mongo/e2e_mongo?authSource=admin' --via bastion --password-ref secret:mongo-pass
 for _ in $(seq 1 30); do [ "$($K conn test shop-mongo | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done

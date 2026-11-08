@@ -75,6 +75,9 @@ services:
     networks: [private]
   mongo:
     image: mongo:8.0.34
+    # a small cache: by default mongod takes half the memory, which the full
+    # lab (two k3s, Docker in Docker) does not have to spare
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
     environment: { MONGO_INITDB_ROOT_USERNAME: root, MONGO_INITDB_ROOT_PASSWORD: mongopass }
     networks: [private]
   # secret managers komando talks to itself (no vault or aws CLI)
