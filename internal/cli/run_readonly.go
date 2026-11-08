@@ -166,12 +166,22 @@ func isInterpreter(cmd string) bool {
 	return interpreters[cmd] || strings.HasPrefix(cmd, "python") || strings.HasPrefix(cmd, "pypy")
 }
 
-// readOnlyViolation returns what in command changes something, or "".
+// readOnlyViolation returns what in command clearly changes something, or
+// "". It is a denylist: an unknown command is read-only here.
 func readOnlyViolation(command string) string {
-	return readOnlyCheck(command, 0)
+	return readOnlyCheck(command, 0, false)
 }
 
-func readOnlyCheck(command string, depth int) string {
+// readOnlyAllowlist returns why command is not known to only read, or "".
+// Unlike readOnlyViolation it is an allowlist: a command komando does not
+// recognise as a read is reported, so a protected target can hold it to
+// the normal --yes path. Used only to decide whether --read-only may skip
+// the confirmation a protected target needs; the denylist still runs first.
+func readOnlyAllowlist(command string) string {
+	return readOnlyCheck(command, 0, true)
+}
+
+func readOnlyCheck(command string, depth int, allow bool) string {
 	if depth > 8 {
 		return "shells nested too deep"
 	}
@@ -184,7 +194,7 @@ func readOnlyCheck(command string, depth int) string {
 		input := false // the segment reads a pipe or a file
 		for i := 0; i <= len(toks); i++ {
 			if i == len(toks) || toks[i].Op && segmentEnd[toks[i].Text] {
-				if w := segmentWrite(words, input, depth); w != "" {
+				if w := segmentWrite(words, input, depth, allow); w != "" {
 					return w
 				}
 				words = nil
@@ -240,7 +250,7 @@ func texts(toks []policy.Token) []string {
 	return w
 }
 
-func segmentWrite(toks []policy.Token, input bool, depth int) string {
+func segmentWrite(toks []policy.Token, input bool, depth int, allow bool) string {
 	words := texts(toks)
 	i := 0
 	xargs := false
@@ -261,7 +271,7 @@ func segmentWrite(toks []policy.Token, input bool, depth int) string {
 		}
 		if opts, ok := wrappers[path.Base(w)]; ok {
 			xargs = xargs || path.Base(w) == "xargs"
-			next, v := skipWrapper(path.Base(w), opts, toks, i+1, input, depth)
+			next, v := skipWrapper(path.Base(w), opts, toks, i+1, input, depth, allow)
 			if v != "" || next < 0 {
 				return v
 			}
@@ -301,7 +311,7 @@ func segmentWrite(toks []policy.Token, input bool, depth int) string {
 		}
 		return cmd
 	case policy.IsShell(cmd):
-		return shellWrite(cmd, args, depth)
+		return shellWrite(cmd, args, depth, allow)
 	case isInterpreter(cmd):
 		if len(args) == 0 {
 			return cmd + " running code from its input"
@@ -322,7 +332,15 @@ func segmentWrite(toks []policy.Token, input bool, depth int) string {
 				}
 			}
 		}
+		return ""
 	}
+	return classifyCommand(cmd, args, input, allow)
+}
+
+// classifyCommand rates the command word itself (after wrappers), using the
+// argument classifiers (argChecks), the subcommand lists (writeSubs), and,
+// for the allowlist, whether komando knows the command only reads.
+func classifyCommand(cmd string, args []string, input, allow bool) string {
 	if check, ok := argChecks[cmd]; ok {
 		return check(cmd, args, input)
 	}
@@ -334,13 +352,43 @@ func segmentWrite(toks []policy.Token, input bool, depth int) string {
 				}
 			}
 		}
+		return "" // a command komando classifies, with no writing word: it reads
+	}
+	// a command no classifier covers: unknown to the denylist, so read-only;
+	// but the allowlist (a protected target's --read-only) only lets through
+	// a plain read tool or shell built-in it knows reads (readCommands).
+	if allow && !readCommands[cmd] {
+		return "the command " + cmd + " is not known to only read"
 	}
 	return ""
 }
 
+// readCommands only ever read (or change nothing on the server: a shell
+// built-in that sets an option, a read tool that prints to stdout). A
+// command that can write by itself (tee, dd) is not here; one whose
+// arguments decide (find, sed, git, systemctl, docker ...) is classified
+// above, not here. The allowlist holds a protected target's --read-only to
+// commands on this list; anything else takes the normal --yes path.
+var readCommands = set(`
+	: true false test [ [[ echo printf set shopt unset cd pwd pushd popd dirs umask ulimit
+	wait times let read help getopts
+	grep egrep fgrep zgrep rg
+	cat tac nl head tail wc rev cut paste join comm column fold fmt expand unexpand tr
+	od hexdump xxd strings cksum sum md5sum sha1sum sha224sum sha256sum sha384sum sha512sum b2sum
+	base32 base64 basenc
+	ls dir vdir stat readlink realpath basename dirname pathchk
+	df du free uptime uname arch nproc hostid id whoami who w users groups logname tty getconf locale cal
+	ps pgrep pidof lsof fuser lslocks
+	ss netstat lsblk blkid lscpu lsmem lsusb lspci lsmod lsattr getfacl getcap
+	file nm objdump readelf ldd size
+	dig host nslookup getent arp
+	vmstat iostat mpstat sar pidstat
+	jq yq xmllint printenv
+	zcat bzcat xzcat zstdcat lzcat lz4cat`)
+
 // shellWrite checks what a shell runs: the text after -c, also with the
 // arguments it gets ($0, $1 ...) filled in.
-func shellWrite(cmd string, args []string, depth int) string {
+func shellWrite(cmd string, args []string, depth int, allow bool) string {
 	if len(args) > 0 && !slices.ContainsFunc(args, func(a string) bool { return a != "--version" && a != "--help" }) {
 		return ""
 	}
@@ -348,16 +396,16 @@ func shellWrite(cmd string, args []string, depth int) string {
 	if !ok {
 		return cmd + " running a script from a file or its input"
 	}
-	if w := readOnlyCheck(script, depth+1); w != "" || len(params) == 0 {
+	if w := readOnlyCheck(script, depth+1, allow); w != "" || len(params) == 0 {
 		return w
 	}
-	return readOnlyCheck(policy.FillParams(script, params), depth+1)
+	return readOnlyCheck(policy.FillParams(script, params), depth+1, allow)
 }
 
 // skipWrapper steps over a wrapper's options and values (sudo -u root,
 // timeout 10) and returns where its command starts, -1 when there is
 // nothing more to check, or why the wrapper itself changes something.
-func skipWrapper(name string, opts []string, toks []policy.Token, i int, input bool, depth int) (int, string) {
+func skipWrapper(name string, opts []string, toks []policy.Token, i int, input bool, depth int, allow bool) (int, string) {
 	words := texts(toks)
 	shell := false // sudo -s / -i: a shell runs the command, or reads its input
 	positional := 0
@@ -389,7 +437,7 @@ func skipWrapper(name string, opts []string, toks []policy.Token, i int, input b
 			case valueNext:
 				i++
 			case valueMaybe: // -uroot or -nu root: check both readings
-				if v := segmentWrite(toks[i+1:], input, depth); v != "" {
+				if v := segmentWrite(toks[i+1:], input, depth, allow); v != "" {
 					return -1, v
 				}
 				i++
@@ -684,19 +732,31 @@ func checkReadOnly(command string) error {
 // it. A variable that runs code (BASH_ENV, PS4, LD_PRELOAD) breaks the
 // promise whatever the command.
 func checkReadOnlyEnv(command string, env []string) error {
+	filled, bad := readOnlyFill(command, env)
+	if bad != "" {
+		return readOnlyStop(bad)
+	}
+	return checkReadOnly(filled)
+}
+
+// readOnlyFill fills command's $VAR from the -e values, each word quoted the
+// way the shell splits it, and reports a value that runs code (BASH_ENV,
+// PS4, LD_PRELOAD) whatever the command. When there are no values, or they
+// cannot be read (runFleet reports that), it returns command unchanged.
+func readOnlyFill(command string, env []string) (filled, codeRunner string) {
 	if len(env) == 0 {
-		return checkReadOnly(command)
+		return command, ""
 	}
 	kv, err := parseKV(env)
 	if err != nil {
-		return checkReadOnly(command) // runFleet reports the bad -e
+		return command, ""
 	}
 	for _, k := range slices.Sorted(maps.Keys(kv)) {
 		if w := envWrite(k + "="); w != "" {
-			return readOnlyStop(w)
+			return command, w
 		}
 	}
-	filled := os.Expand(command, func(k string) string {
+	return os.Expand(command, func(k string) string {
 		v, ok := kv[k]
 		if !ok {
 			return "${" + k + "}"
@@ -709,8 +769,21 @@ func checkReadOnlyEnv(command string, env []string) error {
 			f[i] = sshx.Q(f[i])
 		}
 		return strings.Join(f, " ")
-	})
-	return checkReadOnly(filled)
+	}), ""
+}
+
+// readOnlyMutates reports whether a --read-only command still counts as a
+// change for a protected target, so it needs --yes: it does unless komando
+// knows every part of it only reads (readOnlyAllowlist). The command has
+// already passed the denylist (checkReadOnly), so this is the second gate:
+// an unknown command skips --yes on an ordinary target but not a protected
+// one.
+func readOnlyMutates(command string, env []string) bool {
+	filled, bad := readOnlyFill(command, env)
+	if bad != "" {
+		return true
+	}
+	return readOnlyAllowlist(filled) != ""
 }
 
 func readOnlyStop(what string) error {

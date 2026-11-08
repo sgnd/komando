@@ -29,11 +29,8 @@ func fsReplaceCmd() *cobra.Command {
 			if out.HasHidden(newS) {
 				return hiddenValueErr()
 			}
-			newS, err := expandSecretRefs(newS)
-			if err != nil {
-				return err
-			}
 			var re *regexp.Regexp
+			var err error
 			switch {
 			case isRegex:
 				if re, err = regexp.Compile(oldS); err != nil {
@@ -62,6 +59,9 @@ func fsReplaceCmd() *cobra.Command {
 				return err
 			}
 			if err := guard(st, []*store.Host{h}, o.validate, true); err != nil {
+				return err
+			}
+			if newS, err = expandSecretRefs(newS, h.Name+":"+args[1], re != nil); err != nil {
 				return err
 			}
 			var res fsChange

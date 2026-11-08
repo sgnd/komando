@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -33,6 +34,34 @@ const keychainAccount = "komando"
 // keychainOS picks the tool; tests set it.
 var keychainOS = runtime.GOOS
 
+// The tools are run from system folders only, never found through PATH:
+// a fake `security` or `secret-tool` earlier in PATH would otherwise be
+// handed the vault key, or hand komando a key of its choosing. The approval
+// window's tools are found the same way (cli.systemTool).
+var (
+	securityTool = "/usr/bin/security" // every Mac has it there
+	toolDirs     = []string{"/usr/bin", "/bin", "/usr/local/bin"}
+)
+
+// systemTool is the path of name in a system folder, or "".
+func systemTool(name string) string {
+	for _, d := range toolDirs {
+		p := filepath.Join(d, name)
+		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+			return p
+		}
+	}
+	return ""
+}
+
+// keychainCmd runs the keychain tool of this system with args.
+func keychainCmd(args ...string) *exec.Cmd {
+	if keychainOS == "darwin" {
+		return exec.Command(securityTool, args...)
+	}
+	return exec.Command(systemTool("secret-tool"), args...)
+}
+
 // keychainFile is a keychain file to use instead of the login keychain
 // (macOS; KOMANDO_KEYCHAIN, for tests and separate keychains).
 func keychainFile() string { return os.Getenv("KOMANDO_KEYCHAIN") }
@@ -41,13 +70,13 @@ func keychainFile() string { return os.Getenv("KOMANDO_KEYCHAIN") }
 func KeychainTool() (string, error) {
 	switch keychainOS {
 	case "darwin":
-		if _, err := exec.LookPath("security"); err != nil {
-			return "", errors.New("macOS's security tool is missing")
+		if fi, err := os.Stat(securityTool); err != nil || fi.IsDir() {
+			return "", errors.New("macOS's security tool is missing from " + securityTool)
 		}
 		return "macOS keychain", nil
 	case "linux":
-		if _, err := exec.LookPath("secret-tool"); err != nil {
-			return "", errors.New("secret-tool is not installed (it comes with libsecret: apt install libsecret-tools)")
+		if systemTool("secret-tool") == "" {
+			return "", errors.New("secret-tool is not installed in " + strings.Join(toolDirs, ", ") + " (it comes with libsecret: apt install libsecret-tools)")
 		}
 		return "Secret Service (secret-tool)", nil
 	}
@@ -62,15 +91,18 @@ func keychainSet(key []byte) error {
 		if kc := keychainFile(); kc != "" {
 			line += fmt.Sprintf(" %q", kc)
 		}
-		return run(exec.Command("security", "-i"), line+"\n")
+		return run(keychainCmd("-i"), line+"\n")
 	case "linux":
-		return run(exec.Command("secret-tool", "store", "--label="+keychainService(), "service", keychainService(), "account", keychainAccount), v)
+		return run(keychainCmd("store", "--label="+keychainService(), "service", keychainService(), "account", keychainAccount), v)
 	}
 	_, err := KeychainTool()
 	return err
 }
 
 func keychainGet() ([]byte, error) {
+	if _, err := KeychainTool(); err != nil {
+		return nil, err
+	}
 	var c *exec.Cmd
 	switch keychainOS {
 	case "darwin":
@@ -78,12 +110,9 @@ func keychainGet() ([]byte, error) {
 		if kc := keychainFile(); kc != "" {
 			args = append(args, kc)
 		}
-		c = exec.Command("security", args...)
-	case "linux":
-		c = exec.Command("secret-tool", "lookup", "service", keychainService(), "account", keychainAccount)
+		c = keychainCmd(args...)
 	default:
-		_, err := KeychainTool()
-		return nil, err
+		c = keychainCmd("lookup", "service", keychainService(), "account", keychainAccount)
 	}
 	var errb bytes.Buffer
 	c.Stderr = &errb
@@ -105,9 +134,12 @@ func keychainDel() error {
 		if kc := keychainFile(); kc != "" {
 			args = append(args, kc)
 		}
-		return run(exec.Command("security", args...), "")
+		return run(keychainCmd(args...), "")
 	case "linux":
-		return run(exec.Command("secret-tool", "clear", "service", keychainService(), "account", keychainAccount), "")
+		if _, err := KeychainTool(); err != nil {
+			return err
+		}
+		return run(keychainCmd("clear", "service", keychainService(), "account", keychainAccount), "")
 	}
 	return nil
 }

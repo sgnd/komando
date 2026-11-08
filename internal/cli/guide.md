@@ -223,7 +223,16 @@ Anything that must keep running (a temporary web server, a watcher) is a
   Read-only work needs no confirmation: declare it with `--read-only`. Removing,
   replacing or unprotecting a protected target also needs confirmation.
 - `SAFETY_SETTING` (exit 6): the change turns a seatbelt off (audit log, host
-  key checks, a deny rule). Ask the human; never do it to get around a block.
+  key checks, a deny rule, a conn URL setting such as `sslmode=disable` or
+  `tls=skip-verify`, a `KOMANDO_HOME` other than `~/.komando`). Ask the
+  human; never do it to get around a block.
+- `SECRET_DESTINATION` (exit 6): you asked komando to send a secret somewhere
+  new: `{{secret:NAME}}` in `fs write`/`fs replace`, `--env K=secret:NAME`,
+  `db user add --password-ref`, or a password reference on a new or moved
+  server or conn. Tell the human which secret goes where and why; when they
+  agree, re-run with `--yes` (komando's window names the secret and the place).
+- Never change `KOMANDO_HOME`: komando would use another list of servers,
+  without the human's protected servers, deny rules, host keys and audit log.
 - Snippets count as changes unless saved with `--read-only`.
 - Never put a secret value in a command line: `komando secret set NAME` reads it
   from `--from-env VAR` or stdin.
@@ -243,7 +252,8 @@ Anything that must keep running (a temporary web server, a watcher) is a
 - Never print secrets. Credentials are references (`secret:NAME`, `env:VAR`), not values.
 - For an AI agent, passwords, keys and tokens in output show as `[hidden]`
   (and vault values as `[secret:NAME]`). Change such a line with
-  `fs replace --old 'NAME=[hidden]' --new 'NAME={{secret:VAULT_NAME}}'`;
+  `fs replace --old 'NAME=[hidden]' --new 'NAME={{secret:VAULT_NAME}}'`,
+  after the human agrees, with `--yes` (`SECRET_DESTINATION` without it);
   text that still holds `[hidden]` is never written (`HIDDEN_VALUE`).
   Files that are secrets by name (.env, private keys, credentials) are not
   copied to the agent's computer (`SENSITIVE_FILE`); read them with `fs cat`.
@@ -266,7 +276,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; use `job start` next time |
 | 5    | FAILED                            | read `data.results[].stderr` and `exit_code` |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
-| 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, SENSITIVE_FILE, WRITE_REQUIRES_FLAG | stop and ask the human |
+| 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, WRITE_REQUIRES_FLAG | stop and ask the human |
 | 7    | TIMEOUT, CONNECT_TIMEOUT          | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file; use exact, unique `--old` text |
 | 8    | NOT_WRITABLE (update)             | ask the human to run the `sudo` command from `error.hint` in their terminal |

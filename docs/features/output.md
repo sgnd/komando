@@ -92,6 +92,7 @@ machine-readable reference is `komando schema`.
 | `POLICY_BLOCKED` | the command looks destructive | double-check it; a person may add `--allow-dangerous` |
 | `PROTECTED_HOST`, `PROTECTED_TARGET` | a change to something marked protected | a person may add `--yes` |
 | `SAFETY_SETTING` | a change that turns a seatbelt off | a person may add `--yes` |
+| `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{secret:NAME}}`, `--env K=secret:NAME`, a password on a new address) | tell the user which secret goes where; a person may add `--yes` |
 | `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
 | `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |
