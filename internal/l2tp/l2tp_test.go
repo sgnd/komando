@@ -103,7 +103,7 @@ func TestDialAgainstFakeLNS(t *testing.T) {
 		p := &pipe{out: make(chan []byte, 64), in: make(chan []byte, 64), done: make(chan struct{})}
 		go fakeLNS(t, p, chap)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		tun, err := Dial(ctx, p, "budi", "pw", nil)
+		tun, err := Dial(ctx, p, "budi", "pw", false, nil)
 		cancel()
 		if err != nil {
 			t.Fatal(err)

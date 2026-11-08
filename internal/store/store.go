@@ -170,6 +170,10 @@ type Vpn struct {
 	Notes     string            `json:"notes,omitempty"`
 	CreatedAt time.Time         `json:"created_at"`
 	UpdatedAt time.Time         `json:"updated_at"`
+
+	// Weaker logins a person allowed for this VPN (`vpn edit`, with a yes).
+	LegacyCrypto bool `json:"legacy_crypto,omitempty"` // l2tp, ipsec: also offer 3DES and DH groups 2 and 5
+	AllowPAP     bool `json:"allow_pap,omitempty"`     // l2tp: the server may pick PAP, which sends the password itself
 }
 
 // VpnSession is a VPN kept up in the background between commands.

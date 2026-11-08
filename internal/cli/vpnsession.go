@@ -263,19 +263,23 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if err != nil {
 			return nil, out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "add the VPN again with --config", "VPN %s: %v", v.Name, err)
 		}
-		if err := checkOVPN(cfg); err != nil {
+		// openvpn runs as root, so it gets the profile as komando read it,
+		// written again (canonicalOVPN), and on its input: there is no
+		// file another program could change between the check and the start
+		clean, err := canonicalOVPN(cfg)
+		if err != nil {
 			return nil, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "add the VPN again without that line", "VPN %s: %v", v.Name, err)
 		}
 		// root writes its pid and log only where the user cannot plant a
 		// symlink: /var/run and syslog
-		cfgFile, pidFile := filepath.Join(dir, v.Name+".ovpn"), "/var/run/komando-openvpn-"+v.Name+".pid"
+		pidFile := "/var/run/komando-openvpn-" + v.Name + ".pid"
 		authFile := filepath.Join(dir, v.Name+".auth")
-		defer os.Remove(cfgFile) // openvpn reads both at start; never leave them, also on failure
-		defer os.Remove(authFile)
-		if err := os.WriteFile(cfgFile, []byte(cfg), 0o600); err != nil {
-			return nil, err
-		}
-		args := []string{"openvpn", "--config", cfgFile, "--daemon", "komando-" + v.Name, "--writepid", pidFile, "--syslog", "komando-" + v.Name}
+		defer os.Remove(authFile) // openvpn reads it at start; never leave it, also on failure
+		args := []string{"openvpn", "--config", "stdin",
+			// options after --config win over the profile's: whatever it
+			// says, openvpn calls no scripts, only its own ip/route tools
+			"--script-security", "1",
+			"--daemon", "komando-" + v.Name, "--writepid", pidFile, "--syslog", "komando-" + v.Name}
 		logFile = "the system log (komando-" + v.Name + ")"
 		if v.User != "" {
 			if err := os.WriteFile(authFile, []byte(v.User+"\n"+password+"\n"), 0o600); err != nil {
@@ -286,8 +290,10 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if !interactive {
 			args = append([]string{"-n"}, args...) // works only while sudo remembers the person's password
 		}
+		// sudo asks for the password, and openvpn for a private key's, on
+		// the terminal (/dev/tty), not on the input
 		sd := exec.CommandContext(ctx, "sudo", args...)
-		sd.Stdin, sd.Stdout, sd.Stderr = os.Stdin, os.Stderr, os.Stderr
+		sd.Stdin, sd.Stdout, sd.Stderr = strings.NewReader(clean), os.Stderr, os.Stderr
 		if err := sd.Run(); err != nil {
 			if !interactive {
 				return nil, out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a human to run `komando vpn up "+v.Name+"` (it needs sudo)",
