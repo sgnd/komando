@@ -1,7 +1,8 @@
 # Storage: buckets and file servers
 
-Browse, download, upload and share files in S3-compatible buckets and on
-FTPS, SFTP and FTP servers, all with the same commands. [All features](README.md)
+Browse, download, upload and share files in S3-compatible buckets, Google
+Cloud Storage, Azure Blob Storage, and on WebDAV, FTPS, SFTP and FTP servers,
+all with the same commands. [All features](README.md)
 
 ## Quick start
 
@@ -18,6 +19,9 @@ komando upload backups ./app.sql.gz 2026/app.sql.gz
 | Kind | URL example | Notes |
 |------|-------------|-------|
 | S3 and compatible | `s3://ACCESS_KEY_ID@my-bucket/backups?endpoint=https://minio.internal:9000&region=us-east-1` | AWS S3, MinIO, Cloudflare R2, Wasabi, DigitalOcean Spaces, Backblaze B2, Garage. Leave out `endpoint` for AWS. If the endpoint's DNS is wrong or missing, add `&resolve=IP` (or `IP:PORT`): komando connects to that address and still checks the certificate against the endpoint's name. |
+| Google Cloud Storage | `gs://my-bucket/backups` | Logs in like gcloud (application default credentials), or with a service account key in `--password-ref`. See [Google Cloud and Azure](#add-a-google-cloud-or-azure-bucket). |
+| Azure Blob Storage | `azblob://ACCOUNT@my-container/backups` | The storage account's key, or a SAS token, in `--password-ref`. |
+| WebDAV | `webdavs://alice@cloud.example.com/remote.php/dav/files/alice` | Nextcloud, ownCloud, a NAS, Apache or nginx. Add `?tls=skip-verify` only for a self-signed certificate you trust. `webdav://` (no encryption) is refused without `?insecure=1`. |
 | FTPS | `ftps://deploy@files.example.com/public_html` | FTP with TLS. Add `?tls=skip-verify` only for a self-signed certificate you trust. |
 | SFTP | `sftp://deploy@files.example.com/uploads` | File access over SSH, for accounts without a shell. The path starts at the server's root (on hosting, often your home folder). |
 | FTP | `ftp://deploy@files.example.com/www?insecure=1` | No encryption: the password and files travel in clear. Refused without `?insecure=1`. Prefer FTPS or SFTP. |
@@ -57,7 +61,33 @@ komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profi
 Amazon ECR registries use AWS logins the same way (see
 [Container registries](registry.md)).
 
-## Add a file server (FTPS, SFTP, FTP)
+## Add a Google Cloud or Azure bucket
+
+```bash
+komando conn add media gs://my-bucket/site                       # logs in like gcloud
+komando secret set media-sa < key.json                            # or a service account key
+komando conn edit media --password-ref secret:media-sa
+
+komando secret set files-key                                      # key1 from the portal, or a SAS token
+komando conn add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
+```
+
+- **Google Cloud Storage** without `--password-ref` uses the login gcloud
+  keeps (`gcloud auth application-default login`), the
+  `GOOGLE_APPLICATION_CREDENTIALS` file, or the server's own account on
+  Google Cloud. `STORAGE_AUTH` says when there is none. A service account
+  key is the JSON file from the console.
+- **Azure Blob Storage** takes the storage account's key (`key1` or `key2`)
+  or a SAS token (the part after `?`, starting with `sv=`). A SAS token that
+  can only read and list keeps komando to reading.
+- **Links** (`storage link`) need a key that can sign them: a service
+  account key for Google Cloud, the account key for Azure. gcloud's own login
+  and a SAS token cannot.
+- An emulator or another cloud takes `?endpoint=URL`, for example
+  `azblob://devstoreaccount1@media?endpoint=http://127.0.0.1:10000/devstoreaccount1`
+  for Azurite.
+
+## Add a file server (WebDAV, FTPS, SFTP, FTP)
 
 Web hosting and older systems often give you only file access. Add the
 server as a conn:
@@ -76,7 +106,11 @@ komando download site logs/error.log
 - SFTP checks the server's identity like any SSH host: it is remembered the
   first time, and a change is refused with `HOSTKEY_MISMATCH`. SFTP can use
   your SSH keys as well as a password.
-- File servers have no temporary links: `storage link` is for S3 only.
+- WebDAV makes missing folders as it uploads. For Nextcloud and ownCloud,
+  the path is `remote.php/dav/files/USER`, and an app password (Settings,
+  Security) is safer than your own.
+- File servers have no temporary links: `storage link` is for S3, Google
+  Cloud and Azure.
 
 ## Browse and read files
 
@@ -130,6 +164,7 @@ komando sync backups:2026/ ./restore
 
 ```bash
 komando storage link backups 2026/app.sql.gz --expires 24h   # default 1h, at most 168h (7 days)
+komando storage link media site/report.pdf                   # Google Cloud and Azure too
 komando storage link backups 2026/app.sql.gz --endpoint https://files.example.com
 ```
 

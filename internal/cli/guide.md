@@ -158,7 +158,7 @@ changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run
 <conn> -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
 `cache keys` uses SCAN.
 
-**Storage** (S3, MinIO, R2, FTPS, SFTP): `komando storage ls <conn>` and
+**Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP): `komando storage ls <conn>` and
 `komando download <conn> KEY` read; `komando upload <conn> FILE` and
 `storage link` change or share; `storage rm` deletes (needs
 `--allow-dangerous`). Keys are relative to the conn's folder.
