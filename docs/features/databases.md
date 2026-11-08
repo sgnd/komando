@@ -212,6 +212,8 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
   command line, shown, or written to the audit log (`--dry-run` and the
   answer show `[hidden]`). PostgreSQL gets a SCRAM-SHA-256 verifier that
   komando computes, so the password never reaches the server or its logs.
+  For an AI agent, the password needs a person's yes (`--yes`, then the
+  window, `SECRET_DESTINATION`): the conn could be a server the agent set up.
 - `--on` takes `database:NAME`, `schema:NAME`, `table:[SCHEMA.]TABLE` or
   `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
   and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).

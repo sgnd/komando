@@ -221,6 +221,11 @@ komando secret set web1-pass
 komando host edit web1 --password-ref secret:web1-pass
 ```
 
+The password goes to the server's address on every login. So when an AI
+agent gives a server or conn a password reference, or moves one that has
+one to another address, port or `--via` path, a person allows it in
+komando's window (`SECRET_DESTINATION`); see [Safety](safety.md#seatbelts-for-ai-agents).
+
 komando sends the stored password at most once per login, and only when the
 server asks for a password (hidden as you type). A server that also asks
 for a one-time code (two-factor login) gets no answer: the login stops with

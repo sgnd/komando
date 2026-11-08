@@ -321,7 +321,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		audit(st, name, hostNames(hosts), shown, false, map[string]any{"blocked": toErr(guardErr).Code})
 		return guardErr
 	}
-	env, err := parseEnv(o.env)
+	env, err := parseEnvTo(o.env, hosts)
 	if err != nil {
 		return err
 	}

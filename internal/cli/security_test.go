@@ -253,8 +253,9 @@ func TestGuard(t *testing.T) {
 		{"Bash", map[string]any{"command": "grep -rn password src/"}, false},
 		{"Bash", map[string]any{"command": "cp .env.example .env.local.example"}, false},
 		{"WebFetch", map[string]any{"url": "https://example.com/.env"}, false},
-		// komando's own variables: setting them is fine, reading through them is not
-		{"Bash", map[string]any{"command": "KOMANDO_HOME=$(mktemp -d) komando list"}, false},
+		// komando's own variables: setting the passphrase is fine, reading it is
+		// not; KOMANDO_HOME, which moves komando's data, is not changed at all
+		{"Bash", map[string]any{"command": "KOMANDO_HOME=$(mktemp -d) komando list"}, true},
 		{"Bash", map[string]any{"command": "KOMANDO_VAULT_PASS=test go test ./..."}, false},
 		{"Bash", map[string]any{"command": "cat $KOMANDO_HOME/vault.key"}, true},
 		{"Bash", map[string]any{"command": "cat \"${KOMANDO_HOME}/state.json\""}, true},
