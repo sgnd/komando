@@ -162,6 +162,17 @@ var (
 )
 
 func (f *file) aead() (cipher.AEAD, error) {
+	secret, err := f.key()
+	if err != nil {
+		return nil, err
+	}
+	return f.aeadFor(secret)
+}
+
+// key is what the vault's key is derived from, by its mode: the
+// passphrase, the key in the keychain or the key in vault.key (made when
+// the vault holds nothing yet).
+func (f *file) key() ([]byte, error) {
 	var secret []byte
 	switch f.Mode {
 	case "passphrase":
@@ -197,6 +208,12 @@ func (f *file) aead() (cipher.AEAD, error) {
 		}
 		secret = b
 	}
+	return secret, nil
+}
+
+// aeadFor derives the AES key from secret with the vault's salt and scrypt
+// cost.
+func (f *file) aeadFor(secret []byte) (cipher.AEAD, error) {
 	n := f.ScryptN
 	if n == 0 {
 		n = legacyN
@@ -318,16 +335,13 @@ func (f *file) upgrade() error {
 	if err != nil {
 		return err
 	}
-	plain := map[string][]byte{}
-	for name, e := range f.Entries {
-		pt, err := old.Open(nil, e.Nonce, e.Data, []byte(name))
-		if err != nil {
-			return fmt.Errorf("cannot decrypt secret %q (wrong KOMANDO_VAULT_PASS?)", name)
-		}
-		plain[name] = pt
+	plain, err := f.openAll(old)
+	if err != nil {
+		return err
 	}
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
+	defer wipe(plain)
+	salt, err := newSalt()
+	if err != nil {
 		return err
 	}
 	f.Salt, f.ScryptN = salt, PassphraseN
@@ -335,14 +349,7 @@ func (f *file) upgrade() error {
 	if err != nil {
 		return err
 	}
-	for name, pt := range plain {
-		nonce := make([]byte, a.NonceSize())
-		if _, err := rand.Read(nonce); err != nil {
-			return err
-		}
-		f.Entries[name].Nonce, f.Entries[name].Data = nonce, a.Seal(nil, nonce, pt, []byte(name))
-	}
-	return nil
+	return f.sealAll(a, plain)
 }
 
 // Strength describes the vault's protection for `komando doctor`: the mode,

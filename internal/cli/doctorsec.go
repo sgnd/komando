@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"maps"
 	"net"
 	"net/url"
@@ -41,17 +42,20 @@ func securityChecks(st *store.State) []securityCheck {
 	} else if !s.NoVaultYet {
 		switch {
 		case s.Mode == "keyfile":
-			add("vault", false, true, "the vault key is a file next to the vault: anyone with a copy of "+store.Home()+" (a backup) can open it. Move it into the OS keychain with `komando secret keychain`, or set KOMANDO_VAULT_PASS to a passphrase of 15+ characters before your first secret")
+			add("vault", false, true, "the vault key is a file next to the vault: anyone with a copy of "+store.Home()+" (a backup) can open it. Move it into the OS keychain with `komando secret keychain`, or give the vault a passphrase of 15+ characters with `komando secret passphrase`")
 		case s.Mode == "keychain":
 			add("vault", true, false, "AES-256-GCM, the key in the OS keychain")
+		case s.Mode == "passphrase" && vault.Passphrase() == "":
+			add("vault", false, true, "the vault has a passphrase, but KOMANDO_VAULT_PASS is not set here, so komando cannot open it")
 		case s.ShortPass:
-			add("vault", false, true, "KOMANDO_VAULT_PASS is shorter than 15 characters (NIST SP 800-63B); use a longer one")
+			add("vault", false, true, "KOMANDO_VAULT_PASS is shorter than 15 characters (NIST SP 800-63B); change it with `komando secret passphrase`")
 		case s.OldKDF:
-			add("vault", false, true, "the vault uses an older scrypt cost; it moves to the stronger one when you next change a secret")
+			add("vault", false, true, "the vault uses an older scrypt cost; it moves to the stronger one when you next change a secret or run `komando secret passphrase`")
 		default:
 			add("vault", true, false, "AES-256-GCM, passphrase with scrypt N=2^17")
 		}
 	}
+	vaultKeyChecks(add)
 
 	if st.Settings.Audit {
 		r, err := verifyAudit()
@@ -121,6 +125,20 @@ func looseFiles() []string {
 		}
 	}
 	return loose
+}
+
+// vaultKeyChecks: KOMANDO_VAULT_PASS opens a passphrase vault (a changed
+// one locks every secret away), and no vault.key the vault does not use is
+// left behind (it opens old copies of the vault).
+func vaultKeyChecks(add func(name string, ok, warn bool, detail string)) {
+	if s, err := vault.Check(); err == nil && s.Mode == "passphrase" && vault.Passphrase() != "" {
+		if err := vault.Opens(""); errors.Is(err, vault.ErrWrongKey) {
+			add("vault_key", false, false, "KOMANDO_VAULT_PASS does not open the vault. If you changed it, run `komando secret passphrase` in your terminal: it asks for the old passphrase and re-encrypts every secret under the new one")
+		}
+	}
+	if kp := vault.LeftoverKeyFile(); kp != "" {
+		add("vault_key_file", false, true, kp+" is left from an earlier key: the vault does not use it, but it opens old copies of the vault (a backup). Remove it")
+	}
 }
 
 // plainConn says why a conn's traffic may be readable or forged on the

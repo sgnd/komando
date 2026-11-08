@@ -32,6 +32,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- **`komando secret passphrase`** re-encrypts every secret under a new
+  passphrase, so `KOMANDO_VAULT_PASS` can change without losing the vault.
+  It also gives a passphrase to a vault whose key is in `vault.key` or the
+  keychain (the old key is removed once the new vault is saved and read
+  back), and `--off --yes` goes back to a random key in `vault.key`. Every
+  secret is decrypted first; when one cannot be, nothing changes. A person
+  at a terminal only (`NEEDS_PERSON` for AI agents and scripts).
+  `komando doctor` now fails when `KOMANDO_VAULT_PASS` does not open the
+  vault and warns about a leftover `vault.key`.
 - `komando` alone opens a menu for a person at a terminal: choose Shell,
   Test, Facts, Database, VPN, List, Audit or Doctor with the arrow keys and
   Enter (`?` for help), then a server, conn or VPN from a list you can
