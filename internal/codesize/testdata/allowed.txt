@@ -61,5 +61,4 @@ func internal/ipsec/ikev2.go ikeV2.open 105
 func internal/openvpn/client.go Client.handshake 107
 func internal/openvpn/config.go Parse 201
 func internal/policy/shell.go lexer.line 160
-func internal/sshx/client.go authMethods 108
 func internal/sslvpn/anyconnect.go AnyConnectLogin 107

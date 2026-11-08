@@ -325,7 +325,7 @@ func TestProxyKeepsTheErrorCode(t *testing.T) {
 
 // The HOSTKEY_MISMATCH hint must not tell an agent to re-trust the key.
 func TestHostKeyMismatchHintSaysReport(t *testing.T) {
-	e := HostKeyMismatch("web1")
+	e := HostKeyMismatch("web1", "SHA256:new", []string{"SHA256:old"})
 	if e.Code != "HOSTKEY_MISMATCH" || !strings.Contains(e.Hint, "report this to the user") || !strings.Contains(e.Hint, "do not re-trust") {
 		t.Errorf("hint: %q", e.Hint)
 	}

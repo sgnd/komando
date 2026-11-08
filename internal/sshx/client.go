@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,14 +18,12 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
-	"github.com/sgnd/komando/internal/vault"
 )
 
 type Options struct {
@@ -204,7 +201,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 		c, err = handshake(ctx, pc, addr, cfg, o.ConnectTimeout)
 		if err != nil {
 			pc.Close()
-			ce := classify(hop.Name, err)
+			ce := classify(st, hop, err)
 			if tail := pc.stderrTail(); tail != "" {
 				if ce.Code != "CONNECT_FAILED" {
 					// keep what went wrong (HOSTKEY_MISMATCH, AUTH_FAILED, ...):
@@ -223,7 +220,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 		c, err = dialVia(ctx, prev, addr, cfg, o.ConnectTimeout)
 	}
 	if err != nil {
-		return nil, classify(hop.Name, err)
+		return nil, classify(st, hop, err)
 	}
 	return c, nil
 }
@@ -403,35 +400,72 @@ func handshake(ctx context.Context, conn net.Conn, addr string, cfg *ssh.ClientC
 	return ssh.NewClient(c, chans, reqs), nil
 }
 
+// PersonAtTerminal reports whether a person at a terminal (not an AI agent
+// or a script) runs komando; the cli package sets it. Only a person is
+// told how to re-trust a changed host key.
+var PersonAtTerminal = func() bool { return false }
+
 // HostKeyMismatch is the error for a server whose key is not the pinned
-// one. An AI agent must not re-trust the key itself: it reports it, and a
-// person checks the new fingerprint another way first.
-func HostKeyMismatch(host string) *out.Error {
-	return out.Errf(out.ExitConnect, "HOSTKEY_MISMATCH",
-		fmt.Sprintf("possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust %s --reset`", host),
-		"host key for %s changed: possible MITM or server rebuild", host)
+// one: offered is the fingerprint the server shows now, pinned the ones
+// komando knows (either may be empty). An AI agent must not re-trust the
+// key itself: it reports it, and a person checks the new fingerprint
+// another way first.
+func HostKeyMismatch(host, offered string, pinned []string) *out.Error {
+	msg := fmt.Sprintf("host key for %s changed: possible MITM or server rebuild", host)
+	switch {
+	case offered != "" && len(pinned) > 0:
+		msg += fmt.Sprintf("; pinned %s, the server now shows %s", strings.Join(pinned, ", "), offered)
+	case offered != "":
+		msg += "; the server now shows " + offered
+	}
+	hint := fmt.Sprintf("possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust %s --reset`", host)
+	if PersonAtTerminal() {
+		hint = fmt.Sprintf("if you rebuilt %s, compare this fingerprint with the one on its console, then run `komando host trust %s --reset`", host, host)
+	}
+	return out.Errf(out.ExitConnect, "HOSTKEY_MISMATCH", hint, "%s", msg)
 }
 
-func classify(host string, err error) *out.Error {
+// hostKeyChanged is the host key check's error for a key that is not the
+// pinned one. It keeps the key the server offered, for the message.
+type hostKeyChanged struct {
+	offered ssh.PublicKey
+	err     *knownhosts.KeyError
+}
+
+func (e *hostKeyChanged) Error() string { return "HOSTKEY_MISMATCH: " + e.err.Error() }
+func (e *hostKeyChanged) Unwrap() error { return e.err }
+
+func (e *hostKeyChanged) outErr(host string) *out.Error {
+	var pinned []string
+	for _, k := range e.err.Want {
+		pinned = append(pinned, ssh.FingerprintSHA256(k.Key))
+	}
+	return HostKeyMismatch(host, ssh.FingerprintSHA256(e.offered), pinned)
+}
+
+func classify(st *store.State, h *store.Host, err error) *out.Error {
+	host := h.Name
 	var oe *out.Error
 	if errors.As(err, &oe) {
 		return oe // already a komando error (VPN_DOWN from a VPN on the way): keep its code and words
 	}
+	var hk *hostKeyChanged
 	var ke *knownhosts.KeyError
+	var ua *unanswered
 	msg := err.Error()
 	switch {
+	case errors.As(err, &hk):
+		return hk.outErr(host)
 	case errors.As(err, &ke) && len(ke.Want) > 0, strings.Contains(msg, "HOSTKEY_MISMATCH"):
-		return HostKeyMismatch(host)
+		return HostKeyMismatch(host, "", nil)
 	case strings.Contains(msg, "HOSTKEY_UNKNOWN"):
 		return out.Errf(out.ExitConnect, "HOSTKEY_UNKNOWN",
 			fmt.Sprintf("run `komando host trust %s` to pin its key (policy is strict)", host),
 			"host key for %s is not trusted yet", host)
+	case errors.As(err, &ua):
+		return ua.authFailed(st, h)
 	case strings.Contains(msg, "unable to authenticate"), strings.Contains(msg, "no supported methods"):
-		hint := "check user/key/password with `komando host show " + host + "`; deploy a key with `komando key deploy`"
-		if strings.ContainsAny(host, "@:") { // an ad-hoc user@address target, not in the inventory
-			hint = "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host add NAME " + host + " --key KEY` (or --password-ref) to log in another way"
-		}
-		return out.Errf(out.ExitConnect, "AUTH_FAILED", hint, "authentication to %s failed: %s", host, msg)
+		return out.Errf(out.ExitConnect, "AUTH_FAILED", authFailedHint(st, h), "authentication to %s failed: %s", host, msg)
 	case strings.Contains(msg, "i/o timeout"), strings.Contains(msg, "deadline exceeded"):
 		return out.Errf(out.ExitTimeout, "CONNECT_TIMEOUT", "check network/firewall or raise --connect-timeout", "connecting to %s timed out", host)
 	case strings.Contains(msg, "connection refused"):
@@ -481,140 +515,6 @@ func clientConfig(st *store.State, h *store.Host, o Options) (*ssh.ClientConfig,
 	}, agentConn, nil
 }
 
-// authMethods also returns the ssh-agent connection it opened (or nil).
-func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods []ssh.AuthMethod, agentConn io.Closer, err error) {
-	defer func() {
-		if err != nil && agentConn != nil {
-			agentConn.Close()
-			agentConn = nil
-		}
-	}()
-	var signers []ssh.Signer
-
-	addKeyFile := func(path, passRef string, explicit bool) error {
-		b, err := os.ReadFile(expand(path))
-		if err != nil {
-			if explicit {
-				return out.Errf(out.ExitConnect, "KEY_UNREADABLE", "check the key path", "cannot read key %s: %v", path, err)
-			}
-			return nil
-		}
-		s, err := ssh.ParsePrivateKey(b)
-		var pme *ssh.PassphraseMissingError
-		if errors.As(err, &pme) {
-			if passRef == "" {
-				if explicit {
-					return out.Errf(out.ExitUsage, "KEY_PASSPHRASE_REQUIRED", "set it with `komando key edit <name> --passphrase-ref secret:NAME`", "key %s is encrypted", path)
-				}
-				return nil
-			}
-			pass, perr := vault.Resolve(passRef)
-			if perr != nil {
-				return perr
-			}
-			s, err = ssh.ParsePrivateKeyWithPassphrase(b, []byte(pass))
-		}
-		if err != nil {
-			if explicit {
-				return out.Errf(out.ExitUsage, "KEY_INVALID", "check that "+path+" is a private key in OpenSSH or PEM format, and that its passphrase ref is right", "cannot parse key %s: %v", path, err)
-			}
-			return nil
-		}
-		signers = append(signers, s)
-		return nil
-	}
-
-	explicitKey := false
-	if h.Key != "" {
-		k, ok := st.Keys[h.Key]
-		if !ok {
-			return nil, nil, out.NotFound("key", h.Key)
-		}
-		if err := addKeyFile(k.Path, k.PassphraseRef, true); err != nil {
-			return nil, nil, err
-		}
-		explicitKey = true
-	}
-	if h.Identity != "" {
-		if err := addKeyFile(h.Identity, "", true); err != nil {
-			return nil, nil, err
-		}
-		explicitKey = true
-	}
-
-	// ssh-agent
-	if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
-		if conn, err := net.Dial("unix", sock); err == nil {
-			agentConn = conn
-			var ac io.ReadWriter = conn
-			if timeout > 0 {
-				// the agent answers now and signs during the handshake: a stuck
-				// agent must not hang the command. Each request gets its own
-				// deadline, so a slow transport (SSM, a proxy command) opened
-				// between the two does not use the agent's time up.
-				ac = &agentDeadline{conn: conn, timeout: timeout}
-			}
-			ag := agent.NewClient(ac)
-			if as, err := ag.Signers(); err == nil {
-				signers = append(signers, as...)
-			}
-		}
-	}
-	if !explicitKey {
-		home, _ := os.UserHomeDir()
-		for _, n := range []string{"id_ed25519", "id_ecdsa", "id_rsa"} {
-			_ = addKeyFile(filepath.Join(home, ".ssh", n), "", false)
-		}
-	}
-	if len(signers) > 0 {
-		methods = append(methods, ssh.PublicKeys(signers...))
-	}
-	if h.PasswordRef != "" {
-		pw, err := vault.Resolve(h.PasswordRef)
-		if err != nil && len(methods) > 0 {
-			return methods, agentConn, nil // keys are available; an unresolvable password is not fatal
-		}
-		if err != nil {
-			return nil, agentConn, out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "check `komando secret list`", "password for %s: %v", h.Name, err)
-		}
-		methods = append(methods, ssh.Password(pw), ssh.KeyboardInteractive(func(_, _ string, qs []string, _ []bool) ([]string, error) {
-			ans := make([]string, len(qs))
-			for i := range qs {
-				ans[i] = pw
-			}
-			return ans, nil
-		}))
-	}
-	if len(methods) == 0 {
-		return nil, agentConn, out.Errf(out.ExitConnect, "NO_AUTH", "add --key, --identity or --password-ref to the host, or start ssh-agent", "no authentication method available for %s", h.Name)
-	}
-	return methods, agentConn, nil
-}
-
-// agentDeadline gives every request written to the ssh-agent (and the
-// answer read after it) timeout to finish. It is only a reader and writer,
-// not a Closer, so the agent client sends one request at a time and no
-// reader waits on the socket between requests.
-type agentDeadline struct {
-	conn    net.Conn
-	timeout time.Duration
-}
-
-func (c *agentDeadline) Write(b []byte) (int, error) {
-	_ = c.conn.SetDeadline(time.Now().Add(c.timeout))
-	return c.conn.Write(b)
-}
-
-func (c *agentDeadline) Read(b []byte) (int, error) { return c.conn.Read(b) }
-
-func expand(p string) string {
-	if strings.HasPrefix(p, "~/") {
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, p[2:])
-	}
-	return p
-}
-
 var khMu sync.Mutex
 
 func KnownHostsPath() string { return store.Path("known_hosts") }
@@ -645,7 +545,7 @@ func hostKeyCallback(name, policy string) (ssh.HostKeyCallback, error) {
 			return appendKnownHost(p, hostname, key)
 		}
 		if errors.As(err, &ke) {
-			return fmt.Errorf("HOSTKEY_MISMATCH: %w", err)
+			return &hostKeyChanged{offered: key, err: ke}
 		}
 		return err
 	}, nil

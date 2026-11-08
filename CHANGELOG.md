@@ -7,8 +7,51 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Highlights
+
+- **An encrypted key in ssh-agent logs in, as with `ssh`:** a server whose
+  `--identity` (from `import ssh-config`) or `--key` is encrypted now uses
+  the agent's copy of that key, so a usual macOS setup works with
+  `komando test` as it does with `ssh`.
+- **The stored password is never sent as a two-factor code.** Before, every
+  question the server asked got the password, and each try could count as
+  a failed login and lock the account.
+
 ### Fixed
 
+- An encrypted `--identity` or `--key` with no passphrase ref failed with
+  `KEY_PASSPHRASE_REQUIRED` even when ssh-agent (or the macOS Keychain)
+  held it. komando now finds the agent's copy by its public key (from the
+  key file, `PATH.pub` or the keychain) and offers it first, as OpenSSH
+  does. The error stays (`KEY_PASSPHRASE_REQUIRED`, exit 2) when the agent
+  does not hold the key, and its hint names commands that work:
+  `ssh-add PATH`, or `komando secret set`, `komando key add ... --passphrase-ref`,
+  then `komando host edit HOST --key NAME --unset identity` (for a `--key`
+  key, `komando key edit` with its real name). Before, it named
+  `komando key edit <name>`, which fails for an identity file.
+- The stored password goes out at most once per login, and only to a
+  hidden question that asks for a password. A question about a one-time
+  code, token, OTP, passcode or verification, a shown question, or the
+  password asked a second time gets no answer: the login stops with
+  `AUTH_FAILED` (exit 4), and the message quotes the server's question,
+  cleaned, for example `web1 asks "Verification code:" (two-factor login)`.
+  The hint says to log in once at a terminal with the command
+  `komando host ssh-command web1` prints. `komando shell` uses the same
+  login.
+- Clearer login hints; codes, exit codes and JSON fields are unchanged.
+  `NO_AUTH` says `ssh-add ~/.ssh/id_ed25519` when that key is encrypted and
+  the agent is empty, `ssh-add` when the agent is empty, and otherwise how
+  to save a password (`komando secret set web1-pass`, then
+  `komando host edit web1 --password-ref secret:web1-pass`); it says
+  "start ssh-agent" only when `SSH_AUTH_SOCK` is not set. `AUTH_FAILED`
+  no longer suggests `komando key deploy`, which logs in the same way and
+  fails too; a password-only server is told how to store a changed
+  password. The sudo hint names the server instead of a literal `<host>`.
+- `HOSTKEY_MISMATCH` shows the full SHA256 fingerprint the server offers
+  now, next to the pinned one. A person at a terminal gets a hint worded
+  for them: if you rebuilt the server, compare the fingerprint with the one
+  on its console, then run `komando host trust NAME --reset`. AI agents
+  and scripts keep the hint that tells them to report it.
 - Ctrl-C at a question ends it. Before, a `[y/N]` question or a hidden
   prompt went on waiting and Ctrl-C showed nothing. Now Ctrl-C at a
   `[y/N]` question or a typed name is a no (`cancelled: ...`, `nothing was
