@@ -254,7 +254,8 @@ func TestPTYOneLinePaste(t *testing.T) {
 }
 
 // After Ctrl-C at one question, every later question in the command gets
-// no answer at once, and nothing reads the terminal again.
+// no answer at once, and nothing reads the terminal again. The next command
+// (newRoot) asks again.
 func TestAskAfterInterrupt(t *testing.T) {
 	interrupted = true
 	defer func() { interrupted = false }()
@@ -263,6 +264,9 @@ func TestAskAfterInterrupt(t *testing.T) {
 	}
 	if _, err := readHidden("Password: "); toErr(err).Code != "CANCELLED" {
 		t.Errorf("readHidden: %v", err)
+	}
+	if newRoot(); interrupted {
+		t.Error("the next command starts with the interrupt still set")
 	}
 }
 
