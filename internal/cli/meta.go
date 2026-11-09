@@ -310,6 +310,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 					"6": "blocked by safety policy (needs --yes or --allow-dangerous)", "7": "timeout",
 					"8": "precondition failed (e.g. replace text not found / ambiguous)",
 				}
+				res["error_codes"] = errorCodes // every code: its exit, an example message, the usual next step
 				res["target_selectors"] = map[string]string{
 					"NAME":           "a server, conn or VPN from the inventory",
 					"glob":           "web-* or db-?",

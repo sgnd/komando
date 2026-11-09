@@ -71,6 +71,14 @@ machine-readable reference is `komando schema`.
 
 ## Troubleshooting
 
+The table below has the errors people meet most. Every code komando gives
+(over 200), with its exit code, an example message and the usual next step,
+is in `komando schema` under `error_codes`:
+
+```bash
+komando schema -o json | python3 -c 'import json,sys; [print(c["code"], c["exit"], c.get("example","")) for c in json.load(sys.stdin)["data"]["error_codes"]]'
+```
+
 | Error | Usually means | Try |
 |-------|---------------|-----|
 | `AUTH_FAILED` | wrong user, key or password; or the server asks for a two-factor code and no person is at a terminal to answer it (the message quotes its question) | `komando host show NAME`; a changed password: `komando secret set NAME`; a two-factor login: run the command in your own terminal, where komando asks you for the code (an AI agent asks the user to) |
@@ -98,7 +106,11 @@ machine-readable reference is `komando schema`.
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
 | `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |
 | `NO_MATCHING_TARGETS` | the target picked only things this command can't use | follow the hint (for example, use `komando db` for a database) |
-| `TARGET_NOT_FOUND`, `TARGET_EMPTY` | a typo in a name, group or tag | the hint suggests the closest match; `komando list` |
+| `TARGET_NOT_FOUND`, `HOST_NOT_FOUND`, `CONN_NOT_FOUND`, `TARGET_EMPTY` | a typo in a name, group or tag (`exec` says `HOST_NOT_FOUND`, `test` and `list` say `TARGET_NOT_FOUND`: the same problem) | the hint suggests the closest match; `komando list` |
+| `HOSTKEY_UNKNOWN` | host keys are strict and this server's key is not pinned yet; the message shows its fingerprint | compare it with what the server's owner sees, then `komando host trust NAME` |
+| `DNS_ERROR`, `CONNECT_TIMEOUT`, `CONNECTION_REFUSED` | the address is wrong, a firewall drops the connection, or nothing listens on the port | `komando host show NAME`; a private server: add `--via BASTION` or a VPN |
+| `VAULT_LOCKED`, `VAULT_DECRYPT`, `VAULT_KEY` | the vault cannot be opened: no passphrase, a wrong one, or its key file is gone | set `KOMANDO_VAULT_PASS` in the shell that runs komando; `komando doctor` says which |
+| `IMPORT_INCOMPLETE` | an import brought most things in but refused some (see `skipped`) | fix those entries in the file and import again |
 | `PARTIAL_FAILURE` | the command ran on several servers and at least one failed (with one server you get that server's own code, such as `CONNECTION_REFUSED`) | read `data.results` for each server's exit code and stderr |
 | `USAGE` | a wrong command, flag or value; also `komando` alone or a group such as `komando db` without its sub-command, when piped | the message says what is wrong, often with "did you mean"; the hint gives an example or lists the sub-commands |
 | `PORT_IN_USE` | the local port is taken | pick another port, or `0` for a free one |

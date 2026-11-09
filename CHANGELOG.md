@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando schema` lists every error code (`error_codes`, over 200): its
+  exit code, an example message and the usual next step. It is made from the
+  source, and a test keeps it in step. The troubleshooting table names the
+  common codes that were missing (`HOSTKEY_UNKNOWN`, `DNS_ERROR`,
+  `HOST_NOT_FOUND`, `VAULT_*`, `IMPORT_INCOMPLETE`).
 - `komando guide uninstall` takes the skill and komando's guard entries out
   of Claude Code, Codex, Cursor and Gemini CLI, keeping everything else in
   those files (a changed file is kept as `.bak`). An AI agent needs a
