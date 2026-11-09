@@ -430,7 +430,7 @@ func newRoot() *cobra.Command {
 	root.AddGroup(
 		&cobra.Group{ID: "inv", Title: "Inventory & credentials:"},
 		&cobra.Group{ID: "run", Title: "Remote execution:"},
-		&cobra.Group{ID: "data", Title: "Databases, caches & storage:"},
+		&cobra.Group{ID: "data", Title: "Databases, caches, queues & storage:"},
 		&cobra.Group{ID: "ops", Title: "DevOps modules:"},
 		&cobra.Group{ID: "meta", Title: "Agent helpers & config:"},
 	)
@@ -442,7 +442,7 @@ func newRoot() *cobra.Command {
 	}
 	add("inv", listCmd(), testCmd(), importCmd(), exportCmd(), hostCmd(), connCmd(), vpnCmd(), groupCmd(), keyCmd(), secretCmd(), renameCmd(), loginCmd(), logoutCmd(), loginHolderCmd())
 	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(), tunnelCmd(), shellCmd(), recipeCmd())
-	add("data", dbCmd(), cacheCmd(), storageCmd(), clusterCmd(), registryCmd())
+	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd(), clusterCmd(), registryCmd())
 	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
 	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), updateCmd(), versionCmd(), sshGateCmd())
 	applyConventions(root)

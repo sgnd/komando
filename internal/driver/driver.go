@@ -1,5 +1,5 @@
 // Package driver describes the kinds of non-SSH resources komando can talk
-// to (databases, caches, object storage) and the risk levels its safety
+// to (databases, caches, queues, object storage) and the risk levels its safety
 // checks work with.
 package driver
 
@@ -49,7 +49,7 @@ type Verdict struct {
 // Kind is a resource type komando knows.
 type Kind struct {
 	Name        string   `json:"name"`
-	Family      string   `json:"family"` // the command that works with it: db | cache | storage | cluster | registry
+	Family      string   `json:"family"` // the command that works with it: db | cache | queue | storage | cluster | registry
 	Schemes     []string `json:"schemes"`
 	DefaultPort int      `json:"default_port,omitempty"`
 	File        bool     `json:"file,omitempty"` // a local file, not a network service
@@ -73,6 +73,8 @@ func init() {
 		Example: "rediss://default@cache.internal:6379/0 (rediss = TLS)"})
 	register(Kind{Name: "memcached", Family: "cache", Schemes: []string{"memcached", "memcacheds"}, DefaultPort: 11211,
 		Example: "memcached://cache.internal:11211 (memcacheds = TLS)"})
+	register(Kind{Name: "kafka", Family: "queue", Schemes: []string{"kafka"}, DefaultPort: 9092,
+		Example: "kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512 (private CA: &ca=secret:NAME; --via an SSH server: kafka://broker1.internal:9092)"})
 	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
 		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
 	register(Kind{Name: "registry", Family: "registry", Schemes: []string{"registry", "oci"}, DefaultPort: 443,
@@ -129,13 +131,16 @@ type Target struct {
 	Region   string `json:"region,omitempty"`   // s3
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
 	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry: skip-verify (registry also false)
-	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached: secret:NAME holding the PEM CA certificate to trust
+	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka: secret:NAME holding the PEM CA certificate to trust
 	Resolve  string `json:"resolve,omitempty"`  // registry, s3: IP:port to connect to in place of Address (?resolve=)
 
 	Cluster      bool     `json:"cluster,omitempty"`       // redis: a Redis Cluster; Address is one node (?cluster=1)
 	Sentinel     string   `json:"sentinel,omitempty"`      // redis: the master's name at the Sentinels (?sentinel=NAME)
 	Sentinels    []string `json:"sentinels,omitempty"`     // redis: more Sentinels besides Address (?sentinels=h2:26379,h3:26379)
 	SentinelAuth bool     `json:"sentinel_auth,omitempty"` // redis: the Sentinels want the conn's login too (?sentinel_auth=same)
+
+	Brokers []string `json:"brokers,omitempty"` // kafka: every seed broker the URL lists; Address is the first
+	SASL    string   `json:"sasl,omitempty"`    // kafka: plain, scram-sha-256 or scram-sha-512 (?sasl=)
 }
 
 // DialAddress is where a connection goes: the ?resolve= address when the
@@ -167,7 +172,8 @@ var passwordParams = []string{"password", "pass", "pwd", "sslpassword", "secret"
 // sqlite:///var/lib/app.db. The kind comes from the scheme. URLs that carry
 // a password are refused: passwords belong in the vault.
 func Parse(raw string) (Target, error) {
-	u, err := url.Parse(firstMongoHost(strings.TrimSpace(raw)))
+	first, brokers := splitHostList(firstMongoHost(strings.TrimSpace(raw)))
+	u, err := url.Parse(first)
 	if err != nil || u.Scheme == "" {
 		return Target{}, out.Usage("invalid conn URL %q (expected e.g. postgres://user@host:5432/db)", raw)
 	}
@@ -204,6 +210,8 @@ func Parse(raw string) (Target, error) {
 		return parseWebDAV(u, t)
 	case "mongodb":
 		return parseMongo(u, t)
+	case "kafka":
+		return parseKafka(u, t, brokers)
 	}
 	if k.File {
 		t.Path = u.Opaque
@@ -459,6 +467,9 @@ func (t Target) Describe() string {
 	}
 	if t.Database != "" {
 		s += "/" + t.Database
+	}
+	if n := len(t.Brokers) - 1; n > 0 {
+		s += fmt.Sprintf(" (+%d broker%s)", n, map[bool]string{true: "s"}[n > 1])
 	}
 	return t.Kind.Name + " " + s
 }

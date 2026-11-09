@@ -65,7 +65,7 @@ version (`komando update v0.6.0`) needs their yes.
 
 ## 2. Targets
 
-`web1` · `web-*` · `@group` · `tag:prod` · `label:dc=jkt` · `kind:host|db|cache|storage|postgres|...` ·
+`web1` · `web-*` · `@group` · `tag:prod` · `label:dc=jkt` · `kind:host|db|cache|queue|storage|postgres|...` ·
 `all` · `user@1.2.3.4:22` (ad-hoc server). Combine with commas and exclude
 with `!`: `@web,!web-3`.
 
@@ -138,7 +138,7 @@ for all the protected ones; check the list with `--dry-run` first), and
 `komando import csv FILE` adds a whole spreadsheet of servers (all rows are
 checked before anything is written).
 
-## 5. Databases, caches, storage, clusters, registries
+## 5. Databases, caches, queues, storage, clusters, registries
 
 These are conns (`komando list kind:conn`). Each has its own command; never
 reach them through `exec`.
@@ -171,6 +171,13 @@ changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run
 <conn> -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
 `cache keys` uses SCAN.
 
+**Queues** (Kafka, Redpanda, MSK): `komando queue info|ls|describe|groups|lag
+<conn>` read; `komando queue peek <conn> TOPIC -n 20` reads the newest
+messages without joining a consumer group (nothing moves, nothing is
+removed; `--oldest` for the first ones). `queue send <conn> TOPIC --value
+'...'` and `queue create` change; `queue rm` and `queue purge` delete
+messages (need `--allow-dangerous`). Try every change with `--dry-run`.
+
 **MongoDB** conns use `komando db query <conn> '<command JSON>'`, the
 first key naming the command (`{"find": "users", "filter": {...}}`); reads
 run as they are, changes need `--write`, and `db schema`/`db info` describe
@@ -195,8 +202,8 @@ and upgrade stay with helm).
 changes, `registry rm` deletes (needs `--allow-dangerous`).
 
 `--dry-run` never changes anything. In `db` it runs the SQL inside a
-transaction and rolls it back (sequences still advance); in `cache` and
-`storage` nothing is sent.
+transaction and rolls it back (sequences still advance); in `cache`,
+`queue` and `storage` nothing is sent.
 
 ## 6. Long-running work
 

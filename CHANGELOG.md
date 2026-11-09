@@ -107,6 +107,18 @@ its highlights; the sections below them give the details. Versions follow
   images are read without one; an expired login, or a key file that is set
   but missing or broken, gives `GCP_LOGIN_REQUIRED`.
   The token goes only over https with the registry's certificate checked.
+- **`komando queue`: message queues, starting with Apache Kafka** (and
+  what speaks its protocol: Redpanda, Amazon MSK, Confluent Cloud). Add a
+  cluster as a conn, `kafka://USER@BROKER1:9092,BROKER2:9092?tls=true&sasl=scram-sha-512`
+  (SASL PLAIN or SCRAM with `--password-ref`, a private CA with
+  `?ca=secret:NAME`, `--via` an SSH server or a VPN like any conn).
+  `queue info`, `ls`, `describe`, `groups` and `lag` read the brokers,
+  topics, partitions and consumer groups; `queue peek` reads the newest or
+  oldest messages without joining a consumer group, so no application's
+  position moves. `queue send` and `queue create` change; `queue rm` and
+  `queue purge` delete messages and need `--allow-dangerous`. Every change
+  has a real `--dry-run` (`create` asks the brokers to check the topic
+  only). Design: docs/design/queue.md; guide: docs/features/queues.md.
 
 ## [0.8.0] - 2026-11-09
 

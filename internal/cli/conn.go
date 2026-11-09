@@ -19,6 +19,7 @@ import (
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/queuex"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -630,7 +631,7 @@ func testConn(ctx context.Context, st *store.State, c *store.Conn) connTestResul
 	return r
 }
 
-// loginCheck logs in to db, cache and registry conns with their stored
+// loginCheck logs in to db, cache, queue and registry conns with their stored
 // password and reads the server version where that is cheap. Other kinds
 // keep the reachability check (`cluster status` logs in to clusters).
 func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, r *connTestResult) error {
@@ -662,6 +663,15 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 		}
 		if info, err := rc.Info(cctx, section); err == nil {
 			r.Version = cachex.SummarizeFor(a.Target.Kind.Name, info).Version
+		}
+	case "queue":
+		q, err := queuex.Open(cctx, a.Target, a.Password, a.Dial, sshOpts(st).ConnectTimeout, "komando/"+actor())
+		if err != nil {
+			return viaTimeout(c, err)
+		}
+		defer q.Close()
+		if inf, err := q.Info(cctx); err == nil {
+			r.Version = inf.Version
 		}
 	case "registry":
 		rg, closeFn, err := openRegistry(cctx, st, c)

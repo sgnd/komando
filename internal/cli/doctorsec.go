@@ -201,6 +201,13 @@ func plainConn(c *store.Conn) string {
 		if !t.Secure {
 			return fix("travels unencrypted: anyone on the network path can read the password and the data")
 		}
+	case "kafka":
+		if t.TLS == "skip-verify" {
+			return fix(notChecked)
+		}
+		if !t.Secure {
+			return fix("travels unencrypted: anyone on the network path can read the login and the messages")
+		}
 	case "ftp":
 		return "travels unencrypted (passwords too): use ftps:// or sftp://"
 	case "ftps":
@@ -220,18 +227,20 @@ func plainConn(c *store.Conn) string {
 }
 
 // overNetwork reports whether c's traffic crosses a network komando does
-// not protect: not through an SSH tunnel or VPN (--via), and not to this
-// computer.
+// not protect: not through an SSH tunnel or VPN (--via), and not only to
+// this computer. Every server the URL names counts (kafka:// and nats://
+// list several), not just the first.
 func overNetwork(c *store.Conn, t driver.Target) bool {
 	if c.Via != "" {
 		return false
 	}
-	if host, _, err := net.SplitHostPort(t.Address); err == nil {
-		if host == "localhost" || net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback() {
-			return false
+	for _, addr := range append([]string{t.Address}, t.Brokers...) {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil || host != "localhost" && (net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback()) {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // verifiedTLSURL is raw with TLS whose certificate is checked: Postgres
@@ -253,6 +262,8 @@ func verifiedTLSURL(raw, kind string) string {
 		u.Scheme = "rediss"
 	case "memcached":
 		u.Scheme = "memcacheds"
+	case "kafka":
+		key, val = "tls", "true"
 	default:
 		return ""
 	}

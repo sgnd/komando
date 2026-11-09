@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -80,4 +81,31 @@ func TestNewConnsCheckTLS(t *testing.T) {
 		t.Errorf("an older conn's URL changed: %s, %s", url("old-cache"), url("old-pg"))
 	}
 	mustRun(t, "conn", "show", "old-cache")
+}
+
+// TestOverNetworkEveryHost: a kafka:// or nats:// URL that lists several
+// servers crosses the network when any of them is not this computer, not
+// only when the first one is not.
+func TestOverNetworkEveryHost(t *testing.T) {
+	for raw, want := range map[string]bool{
+		"kafka://localhost:9092,127.0.0.1:9093":   false,
+		"kafka://localhost:9092,remote:9092":      true,
+		"kafka://remote:9092,localhost:9092":      true,
+		"nats://app@127.0.0.1:4222,[::1]:4223":    false,
+		"nats://app@127.0.0.1:4222,10.0.0.9:4222": true,
+		"redis://default@localhost:6379/0":        false,
+	} {
+		tg, err := driver.Parse(raw)
+		if err != nil {
+			t.Fatalf("%s: %v", raw, err)
+		}
+		if got := overNetwork(&store.Conn{URL: raw}, tg); got != want {
+			t.Errorf("%s: overNetwork %v, want %v", raw, got, want)
+		}
+	}
+	if overNetwork(&store.Conn{URL: "kafka://localhost:9092,remote:9092", Via: "jump"}, driver.Target{Address: "localhost:9092", Brokers: []string{"localhost:9092", "remote:9092"}}) {
+		t.Error("--via protects every server")
+	}
+	invHome(t)
+	wantCode(t, "INSECURE_PROTOCOL", "conn", "add", "k", "kafka://localhost:9092,kafka.example.com:9092")
 }

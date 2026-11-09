@@ -1,6 +1,6 @@
 ---
 name: komando
-description: Manage servers, databases, caches, object storage, Kubernetes/Docker Swarm clusters, container registries, VPNs and secrets safely through the komando CLI. Use whenever a task touches a remote server or service - checking health, reading logs, editing config, restarting services, updating packages, querying a database, reading a cache, listing a bucket, deploying to a cluster - or when the user mentions komando, SSH, a host name, a database or a server.
+description: Manage servers, databases, caches, message queues (Kafka), object storage, Kubernetes/Docker Swarm clusters, container registries, VPNs and secrets safely through the komando CLI. Use whenever a task touches a remote server or service - checking health, reading logs, editing config, restarting services, updating packages, querying a database, reading a cache, peeking at a Kafka topic, listing a bucket, deploying to a cluster - or when the user mentions komando, SSH, a host name, a database or a server.
 ---
 
 # komando
@@ -14,8 +14,8 @@ safety checks, the audit log and the secrets out of sight.
 
 1. `komando guide` - the full playbook for this komando version. Read it and
    follow it. It is the source of truth; this skill is only the summary.
-2. `komando list` - which servers and conns (databases, caches, storage,
-   clusters, registries) exist.
+2. `komando list` - which servers and conns (databases, caches, queues,
+   storage, clusters, registries) exist.
 3. `komando schema <command>` whenever you are unsure about a flag.
 
 If `komando` is not installed, stop and ask the human to install it:

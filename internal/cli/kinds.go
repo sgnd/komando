@@ -54,6 +54,18 @@ var commandKinds = map[string]cmdKind{
 	"cache run":  dependsOn(unlessWrite),
 	"cache set":  changes,
 
+	"queue":          reads,
+	"queue create":   changes,
+	"queue describe": reads,
+	"queue groups":   reads,
+	"queue info":     reads,
+	"queue lag":      reads,
+	"queue ls":       reads,
+	"queue peek":     reads,
+	"queue purge":    changes,
+	"queue rm":       changes,
+	"queue send":     changes,
+
 	"cert":       reads,
 	"cert check": reads,
 

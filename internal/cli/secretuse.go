@@ -124,6 +124,9 @@ func connPlace(c *store.Conn) secretPlace {
 	dest := c.URL
 	if t, err := driver.Parse(c.URL); err == nil {
 		dest = t.Address
+		if len(t.Brokers) > 1 { // kafka: the login goes to every broker
+			dest = strings.Join(t.Brokers, ",")
+		}
 		if t.Kind.File {
 			dest = t.Path
 		}
@@ -196,6 +199,13 @@ func weakTLS(oldURL, newURL string) []string {
 		}
 	case "ftp":
 		w = append(w, "insecure=1 (travels unencrypted, passwords too)")
+	case "kafka":
+		if t.TLS == "skip-verify" {
+			w = append(w, "tls=skip-verify (the certificate is not checked)")
+		}
+		if !t.Secure && q.Get("insecure") == "1" {
+			w = append(w, "insecure=1 (travels unencrypted, passwords too)")
+		}
 	case "redis", "memcached":
 		if !t.Secure && q.Get("insecure") == "1" {
 			w = append(w, "insecure=1 (travels unencrypted, passwords too)")

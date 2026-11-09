@@ -1,0 +1,264 @@
+package cli
+
+import (
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/sgnd/komando/internal/queuex"
+)
+
+// What the queue commands print: the JSON is the queuex types with the
+// conn's name; the text is a table or a short summary.
+
+type queueInfo struct {
+	Conn string `json:"conn"`
+	*queuex.Info
+}
+
+func (d queueInfo) Text() string {
+	var b strings.Builder
+	version := d.Version
+	if version == "" {
+		version = "unknown"
+	}
+	fmt.Fprintf(&b, "cluster: %s\nversion: %s (a guess from the API versions the brokers take)\ntopics:  %d\n\n", orDash(d.ClusterID), version, d.Topics)
+	var rows [][]string
+	for _, br := range d.Brokers {
+		role := ""
+		if br.Controller {
+			role = "controller"
+		}
+		rows = append(rows, []string{strconv.Itoa(int(br.ID)), br.Address, orDash(br.Rack), role})
+	}
+	b.WriteString(layoutTable([]string{"BROKER", "ADDRESS", "RACK", "ROLE"}, rows))
+	return b.String()
+}
+
+// count64 is countOf for message counts.
+func count64(n int64, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return strconv.FormatInt(n, 10) + " " + noun + "s"
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
+}
+
+type queueTopics struct {
+	Conn   string         `json:"conn"`
+	Topics []queuex.Topic `json:"topics"`
+	Count  int            `json:"count"`
+}
+
+func (l queueTopics) Text() string {
+	if len(l.Topics) == 0 {
+		return "no topics\n"
+	}
+	var rows [][]string
+	for _, t := range l.Topics {
+		rows = append(rows, []string{t.Name, strconv.Itoa(t.Partitions), strconv.Itoa(t.Replicas), strconv.FormatInt(t.Messages, 10)})
+	}
+	return layoutTable([]string{"TOPIC", "PARTITIONS", "REPLICAS", "MESSAGES"}, rows)
+}
+
+type queueTopic struct {
+	Conn string `json:"conn"`
+	*queuex.TopicDetail
+}
+
+func (d queueTopic) Text() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "topic: %s (%s, %s, %s)\n\n", d.Name, countOf(len(d.Partitions), "partition"), countOf(d.Replicas, "replica"), count64(d.Messages, "message"))
+	var rows [][]string
+	for _, p := range d.Partitions {
+		leader := strconv.Itoa(int(p.Leader))
+		if p.Leader < 0 {
+			leader = "none"
+		}
+		rows = append(rows, []string{strconv.Itoa(int(p.ID)), leader, ints(p.Replicas), ints(p.ISR),
+			strconv.FormatInt(p.Start, 10), strconv.FormatInt(p.End, 10), strconv.FormatInt(p.Messages, 10)})
+	}
+	b.WriteString(layoutTable([]string{"PARTITION", "LEADER", "REPLICAS", "IN SYNC", "START", "END", "MESSAGES"}, rows))
+	b.WriteString("\nsettings (only those that differ from the brokers' defaults):\n")
+	if len(d.Config) == 0 {
+		b.WriteString("  none\n")
+	}
+	for _, k := range sortedKeys(d.Config) {
+		fmt.Fprintf(&b, "  %s=%s\n", k, d.Config[k])
+	}
+	b.WriteString("\nconsumer groups:\n")
+	if len(d.Groups) == 0 {
+		b.WriteString("  none\n")
+	}
+	for _, g := range d.Groups {
+		fmt.Fprintf(&b, "  %s (%s): lag %d\n", g.Group, g.State, g.Lag)
+	}
+	return b.String()
+}
+
+func ints(is []int32) string {
+	s := make([]string, len(is))
+	for i, n := range is {
+		s[i] = strconv.Itoa(int(n))
+	}
+	return strings.Join(s, ",")
+}
+
+type queuePeek struct {
+	Conn string `json:"conn"`
+	*queuex.PeekResult
+}
+
+func (p queuePeek) Text() string {
+	var b strings.Builder
+	for _, m := range p.Messages {
+		key := "-"
+		if m.Key != nil {
+			key = *m.Key
+		}
+		fmt.Fprintf(&b, "# partition %d, offset %d, %s, key %s", m.Partition, m.Offset, m.Timestamp.Format(time.RFC3339), key)
+		if len(m.Headers) > 0 {
+			hs := make([]string, 0, len(m.Headers))
+			for _, k := range sortedKeys(m.Headers) {
+				hs = append(hs, k+"="+m.Headers[k])
+			}
+			b.WriteString(", headers " + strings.Join(hs, " "))
+		}
+		if m.Encoding != "" {
+			b.WriteString(", " + m.Encoding)
+		}
+		b.WriteString("\n" + m.Value + "\n")
+		if m.ValueTruncated {
+			fmt.Fprintf(&b, "(cut: the value is %s)\n", humanBytes(int64(m.Size)))
+		}
+	}
+	switch {
+	case len(p.Messages) == 0:
+		b.WriteString("no messages\n")
+	case p.More:
+		fmt.Fprintf(&b, "(the %s %s; the topic holds more: raise -n, or use --oldest or --partition)\n", p.From, countOf(p.Count, "message"))
+	}
+	if p.Partial {
+		b.WriteString("(stopped waiting: some messages may be missing; raise --wait)\n")
+	}
+	return b.String()
+}
+
+type queueGroups struct {
+	Conn   string         `json:"conn"`
+	Groups []queuex.Group `json:"groups"`
+	Count  int            `json:"count"`
+}
+
+func (l queueGroups) Text() string {
+	if len(l.Groups) == 0 {
+		return "no consumer groups\n"
+	}
+	var rows [][]string
+	for _, g := range l.Groups {
+		rows = append(rows, []string{g.Name, g.State, strconv.Itoa(g.Members), strings.Join(g.Topics, ","), strconv.FormatInt(g.Lag, 10)})
+	}
+	return layoutTable([]string{"GROUP", "STATE", "MEMBERS", "TOPICS", "LAG"}, rows)
+}
+
+type queueLag struct {
+	Conn string `json:"conn"`
+	*queuex.GroupLag
+}
+
+func (l queueLag) Text() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "group: %s (%s, %s), lag %d\n\n", l.Group, l.State, countOf(l.Members, "member"), l.Lag)
+	rows := make([][]string, 0, len(l.Partitions))
+	for _, p := range l.Partitions {
+		committed, lag := strconv.FormatInt(p.Committed, 10), strconv.FormatInt(p.Lag, 10)
+		if p.Committed < 0 {
+			committed = "-"
+		}
+		if p.Lag < 0 {
+			lag = "? " + p.Error
+		}
+		rows = append(rows, []string{p.Topic, strconv.Itoa(int(p.Partition)), committed, strconv.FormatInt(p.End, 10), lag, orDash(p.Client)})
+	}
+	sort.SliceStable(rows, func(i, j int) bool { return rows[i][0] < rows[j][0] })
+	b.WriteString(layoutTable([]string{"TOPIC", "PARTITION", "COMMITTED", "END", "LAG", "CLIENT"}, rows))
+	return b.String()
+}
+
+type queueSent struct {
+	Conn string `json:"conn"`
+	*queuex.Sent
+}
+
+func (s queueSent) Text() string {
+	if s.DryRun {
+		where := "the partition its key picks"
+		if s.Partition != nil {
+			where = "partition " + strconv.Itoa(int(*s.Partition))
+		}
+		return fmt.Sprintf("would send %s to %s, %s (nothing sent)\n", humanBytes(int64(s.Size)), s.Topic, where)
+	}
+	return fmt.Sprintf("sent %s to %s, partition %d, offset %d\n", humanBytes(int64(s.Size)), s.Topic, *s.Partition, *s.Offset)
+}
+
+type queueCreated struct {
+	Conn string `json:"conn"`
+	*queuex.Created
+}
+
+func (c queueCreated) Text() string {
+	verb := "created"
+	if c.DryRun {
+		verb = "the brokers accept (nothing created):"
+	}
+	return fmt.Sprintf("%s topic %s with %s, %s\n", verb, c.Topic, defaultNum(int(c.Partitions), "partition"), defaultNum(int(c.Replicas), "replica"))
+}
+
+func defaultNum(n int, noun string) string {
+	if n < 0 {
+		return "the default number of " + noun + "s"
+	}
+	return countOf(n, noun)
+}
+
+type queueDeleted struct {
+	Conn   string           `json:"conn"`
+	Topics []queuex.Deleted `json:"topics"`
+	DryRun bool             `json:"dry_run,omitempty"`
+}
+
+func (d queueDeleted) Text() string {
+	var b strings.Builder
+	verb := "deleted"
+	if d.DryRun {
+		verb = "would delete"
+	}
+	for _, t := range d.Topics {
+		if !t.Exists {
+			fmt.Fprintf(&b, "%s does not exist\n", t.Topic)
+			continue
+		}
+		fmt.Fprintf(&b, "%s %s (%s)\n", verb, t.Topic, count64(t.Messages, "message"))
+	}
+	return b.String()
+}
+
+type queuePurged struct {
+	Conn string `json:"conn"`
+	*queuex.Purged
+}
+
+func (p queuePurged) Text() string {
+	if p.DryRun {
+		return fmt.Sprintf("would delete %s from %s (%s); the topic stays\n", count64(p.Messages, "message"), p.Topic, countOf(p.Partitions, "partition"))
+	}
+	return fmt.Sprintf("deleted %s from %s; the topic stays\n", count64(p.Messages, "message"), p.Topic)
+}

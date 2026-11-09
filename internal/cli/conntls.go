@@ -16,9 +16,10 @@ import (
 //   - Postgres without sslmode gets sslmode=verify-full, MySQL without tls=
 //     gets tls=true (verifiedTLSURL). Left out, both would take TLS only
 //     when the server offers it, without checking whose certificate it is.
-//   - redis:// and memcached:// name a connection without TLS, so they are
-//     refused unless ?insecure=1 says that is meant, as for ftp://. Most of
-//     these servers have no TLS: --via an SSH server is the usual way.
+//   - redis:// and memcached:// name a connection without TLS, and so does
+//     kafka:// without tls=true, so they are refused unless ?insecure=1
+//     says that is meant, as for ftp://. Most of these servers have no
+//     TLS: --via an SSH server is the usual way.
 //
 // Conns saved before keep their URL; `komando doctor` lists them.
 
@@ -48,6 +49,12 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
 				"reach it --via an SSH server (`--via HOST`), or use "+t.Kind.Name+"s:// if the server has TLS; otherwise add ?insecure=1 to accept that the password and data travel unencrypted",
 				"%s:// crosses the network to %s without TLS, so the password and the data travel unencrypted", t.Kind.Name, t.Address)
+		}
+	case "kafka":
+		if !t.Secure && q.Get("insecure") != "1" {
+			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+				"reach the brokers --via an SSH server (`--via HOST`), or add tls=true if they have TLS; otherwise add ?insecure=1 to accept that the login and the messages travel unencrypted",
+				"kafka:// without tls=true crosses the network to %s unencrypted, so the login and the messages can be read on the way", t.Address)
 		}
 	}
 	if added == "" {
