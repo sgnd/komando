@@ -158,10 +158,11 @@ func tunnelStartCmd() *cobra.Command {
 	var l, r, d string
 	var port int
 	c := &cobra.Command{
-		Use:   "start TARGET (-L spec | -R spec | -D spec)",
+		Use:   "start TARGET [-L spec | -R spec | -D spec]",
 		Short: "Start a background tunnel; returns its ID and bound address",
 		Long: `With a conn name and no -L/-R/-D, the tunnel leads to that conn through its
---via path: point your database app or psql at the local address it prints.`,
+--via path: point your database app or psql at the local address it prints.
+With a server, give one of -L, -R or -D.`,
 		Example: `  komando tunnel start app-db               # localhost:<free port> -> app-db
   komando tunnel start app-db --port 15432
   komando tunnel start web1 -L 8080:localhost:80

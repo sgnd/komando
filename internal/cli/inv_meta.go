@@ -81,7 +81,7 @@ func (l auditList) Text() string {
 
 func auditCmd() *cobra.Command {
 	var limit int
-	var target, command, since, until string
+	var target, command, since, until, actorName string
 	var failed bool
 	c := &cobra.Command{
 		Use:   "audit",
@@ -100,13 +100,14 @@ is given.`,
   komando audit --command host. --failed
   komando audit --since 2h           # everything in the last two hours
   komando audit --since yesterday --until today --target @prod
+  komando audit --actor claude --since 7d        # what Claude Code did this week
   komando audit verify               # was the log changed outside komando?`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if limit < 0 {
 				return out.Errf(out.ExitUsage, "USAGE", "-n takes how many of the newest entries to show; 0 shows all", "invalid -n %d", limit)
 			}
-			flt := auditFilter{command: command, failed: failed, byTarget: target != ""}
+			flt := auditFilter{command: command, failed: failed, byTarget: target != "", actor: actorName}
 			if err := flt.setWindow(since, until, time.Now()); err != nil {
 				return err
 			}
@@ -152,6 +153,7 @@ is given.`,
 	aliasFlag(c.Flags(), "host", "target")
 	c.Flags().StringVar(&command, "command", "", "filter by command prefix (e.g. exec, svc.)")
 	c.Flags().BoolVar(&failed, "failed", false, "only failed/blocked actions")
+	c.Flags().StringVar(&actorName, "actor", "", "only what this one did: part of the name in KOMANDO_ACTOR, the AI agent (claude, codex ...) or the computer account")
 	c.Flags().StringVar(&since, "since", "", "only entries from this time on: 2h, 7d, today, 2026-11-07 or '2026-11-07 14:30'")
 	c.Flags().StringVar(&until, "until", "", "only entries before this time (the same forms as --since)")
 	return c

@@ -271,7 +271,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 						if k, ok := kindOf(c); ok && s.Runnable {
 							s.Kind, s.KindNote = k.Kind, k.Note
 						}
-						c.LocalFlags().VisitAll(func(f *pflag.Flag) {
+						ownFlags(c).VisitAll(func(f *pflag.Flag) {
 							if f.Hidden || f.Name == "help" {
 								return
 							}

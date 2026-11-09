@@ -687,7 +687,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 		},
 	}
 	add.Flags().StringVar(&pubKey, "pubkey", "", "public key line to authorize")
-	add.Flags().StringVar(&keyName, "key", "", "authorize this keychain key")
+	add.Flags().StringVar(&keyName, "key", "", "authorize this key from komando's key list")
 	add.Flags().StringVar(&shell, "shell", "/bin/bash", "login shell")
 	add.Flags().BoolVar(&admin, "admin", false, "add to the sudo (Debian) or wheel (RHEL, Alpine) group")
 	lock := &cobra.Command{

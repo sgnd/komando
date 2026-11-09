@@ -34,6 +34,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Storage](storage.md) | browse, download, upload and share files in S3 buckets and on FTPS/SFTP/FTP servers | `storage`, `upload`, `download`, `sync` |
 | [Clusters](cluster.md) | Kubernetes and Docker Swarm: status, list, logs, apply, restart, scale | `cluster` |
 | [Container registries](registry.md) | list repositories and tags, inspect images, delete old ones | `registry` |
+| [Rotate keys and passwords](rotate.md) | change a key or a password everywhere, in order; when someone leaves | `key`, `secret`, `db user`, `audit` |
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit` |
 | [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit verify` |
 | [Results and errors](output.md) | JSON and text output, exit codes, common errors, what is still running | `status`, `prompt`, `schema` |

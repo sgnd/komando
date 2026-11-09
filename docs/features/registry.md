@@ -8,6 +8,7 @@ and your own `registry:2`. [All features](README.md)
 
 ```bash
 komando import docker                                              # registries you are logged in to
+komando list kind:registry                                         # the names the import gave (ghcr.io -> ghcr ...)
 komando registry ls ghcr myorg/api                                 # tags of one repository
 komando registry inspect ghcr myorg/api:1.4.2                      # digest, size, platforms, labels
 komando registry copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2   # copy between registries
@@ -34,6 +35,7 @@ an internal CA) is refused with `REGISTRY_TLS`. Two ways to fix it:
 
 ```bash
 komando secret set lan-ca < ca.crt            # 1. preferred: trust that CA, the check stays on
+komando secret set lan-ca < lan-ca.crt        # the CA's PEM certificate, from a file
 komando conn add lan 'registry://me@registry.lan?ca=secret:lan-ca' --password-ref secret:lan-token
 komando conn add lan 'registry://me@registry.lan?tls=skip-verify' --password-ref secret:lan-token   # 2. no check at all
 ```

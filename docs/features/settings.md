@@ -59,6 +59,9 @@ Most settings also have a flag for one run: `--timeout`,
 | `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of the `vault.key` file. A new vault takes it at your first secret; `komando secret passphrase` adds or changes it later (see below) |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
+| `KOMANDO_EXPERIMENTAL` | turn on features still being tested, by name (`ssm`: komando's own AWS Session Manager client, see [Servers](servers.md)) |
+| `KOMANDO_EXPERIMENTAL_VPN` | turn on VPN kinds still being tested (`fortinet,pulse`, or `all`; see [VPNs](vpn.md)) |
+| `KOMANDO_IPSEC_DEBUG` | `1` writes the IPsec exchange to the VPN's log, to find why a server does not answer |
 | `KOMANDO_AGENT`, `AI_AGENT` | mark the caller as an AI agent, for agents komando does not know by their own variables: output hides secrets and `--yes`, `--allow-dangerous` and `--reveal` need a person to allow them (see [Safety](safety.md#seatbelts-for-ai-agents)). Any value counts, also `0` or empty |
 | `NO_COLOR` | turn off colors in status lines |
 

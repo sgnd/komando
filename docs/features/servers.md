@@ -44,7 +44,7 @@ Useful flags:
 | Flag | What it does |
 |------|--------------|
 | `-g`, `--group` / `-t`, `--tag` / `--label KEY=VALUE` | Sort servers so one [target](targets.md) can pick many. |
-| `--key NAME` / `--identity PATH` | Log in with a key from komando's keychain, or with a key file. |
+| `--key NAME` / `--identity PATH` | Log in with a key from komando's key list (`komando key`), or with a key file. |
 | `--password-ref` / `--sudo-ref` | Where the login or sudo password is kept (see [passwords](#use-a-password)). |
 | `--via bastion` | Reach the server through other servers or a VPN first ([tunnels](tunnels.md)). |
 | `--protected` | Every change to the server, or to this entry, needs `--yes`. |
@@ -240,7 +240,7 @@ komando key show deploy                          # the public part (never the pr
 Keys made with `key gen` are kept in `~/.komando/keys` (mode 600). RSA keys
 need at least 3072 bits.
 
-To use a key file you already have, add it to the keychain. The file stays
+To use a key file you already have, add it to komando's key list. The file stays
 where it is. If it has a passphrase, store the passphrase in the vault first:
 
 ```bash
@@ -256,7 +256,7 @@ keys komando made.
 ## Remove a key from servers
 
 When someone leaves, or a key is replaced, remove it everywhere at once.
-`key revoke` takes a key from the keychain, a `.pub` file, or the key line
+`key revoke` takes a key from komando's key list, a `.pub` file, or the key line
 itself:
 
 ```bash

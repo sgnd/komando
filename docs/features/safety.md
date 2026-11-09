@@ -7,7 +7,7 @@ you. [All features](README.md) · [Security standards](security-standards.md)
 
 ```bash
 komando host edit web1 --protected        # production: changes need --yes
-komando policy check 'rm -rf /var/www'    # would this be blocked? (exit 6 if so)
+komando policy check 'rm -rf /'          # would this be blocked? (exit 6 if so)
 komando policy list                       # every rule, built-in and your own
 komando audit -o text                     # what was done, by whom
 komando audit verify                      # was the history edited outside komando?

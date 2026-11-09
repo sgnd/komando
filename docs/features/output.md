@@ -156,8 +156,8 @@ Some things keep running after the command that started them: a VPN (from
 ```text
 KIND    NAME    DETAIL                                     SINCE
 vpn     office  used 3m ago, closes in 26m if unused       42m
-tunnel  t-3f2a  127.0.0.1:5433 → app-db                    2h
-job     j-81c2  web1: pg_dump app | gzip > /backup/app...  15m
+tunnel  t1108-195255-ab12cd34  127.0.0.1:5433 → app-db      2h
+job     j1108-193010-9f8e7d6c  web1: tar czf /backup/www.tgz…  15m
 jobs run on their servers: `komando job list --refresh` shows which still run
 ```
 

@@ -46,7 +46,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.address, "address", "", "hostname or IP")
 	fl.IntVar(&f.port, "port", 0, "SSH port (default 22)")
 	fl.StringVar(&f.user, "user", "", "login user")
-	fl.StringVar(&f.key, "key", "", "name of a key in komando's keychain (see komando key list)")
+	fl.StringVar(&f.key, "key", "", "name of a key in komando's key list (see komando key list)")
 	fl.StringVar(&f.identity, "identity", "", "path to a private key file")
 	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
 	fl.StringVar(&f.sudoRef, "sudo-ref", "", "sudo password reference: secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")

@@ -27,7 +27,7 @@ import (
 )
 
 func keyCmd() *cobra.Command {
-	c := &cobra.Command{Use: "key", Aliases: []string{"keys", "keychain"}, Short: "SSH keychain: generate, register, deploy to servers, list"}
+	c := &cobra.Command{Use: "key", Aliases: []string{"keys", "keychain"}, Short: "SSH keys: generate, register, deploy to servers, list"}
 	c.AddCommand(keyGenCmd(), keyAddCmd(), keyListCmd(), keyShowCmd(), keyRmCmd(), keyDeployCmd(), keyRevokeCmd(), keyEditCmd(), keyMvCmd())
 	return c
 }
@@ -91,7 +91,7 @@ func keyGenCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "gen NAME",
 		Short: "Generate a new key pair stored in ~/.komando/keys (ed25519 default)",
-		Long: `Generates a key pair like ssh-keygen and adds it to the keychain. The private
+		Long: `Generates a key pair like ssh-keygen and adds it to komando's key list. The private
 key stays in ~/.komando/keys/NAME (mode 600); deploy the public part with
 ` + "`komando key deploy`" + `. RSA keys need at least 3072 bits.`,
 		Example: `  komando key gen deploy && komando key deploy deploy @web
@@ -192,7 +192,7 @@ func keyAddCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "add NAME PATH",
 		Short: "Register an existing private key file (not copied; referenced by path)",
-		Long: `Adds a private key file you already have to the keychain; the file stays
+		Long: `Adds a private key file you already have to komando's key list; the file stays
 where it is. For a key with a passphrase, store the passphrase in the vault
 and pass --passphrase-ref secret:NAME.`,
 		Example: `  komando key add personal ~/.ssh/id_ed25519
@@ -412,8 +412,8 @@ func keyRmCmd() *cobra.Command {
 	var deleteFile bool
 	c := &cobra.Command{
 		Use:   "rm NAME",
-		Short: "Remove a key from the keychain (fails if hosts still use it)",
-		Long: `Removes the key from the keychain. --delete-file also deletes the key files,
+		Short: "Remove a key from komando's key list (fails if hosts still use it)",
+		Long: `Removes the key from komando's key list. --delete-file also deletes the key files,
 but only for keys komando made (key gen); a key you added stays on disk.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

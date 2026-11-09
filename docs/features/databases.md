@@ -264,7 +264,7 @@ komando db user add app-db app_ro --password-ref secret:app-ro-pass
 komando db grant app-db app_ro --privileges SELECT --on all-tables:public
 komando db grants app-db app_ro                             # what it may do now
 komando db user ls app-db                                   # all users and roles
-komando db user passwd app-db app_ro --password-ref secret:app-ro-pass-2   # rotate
+komando db user passwd app-db app_ro --password-ref secret:app-ro-pass-2   # rotate (the conn's own user: also conn edit, see rotate.md)
 komando db revoke app-db app_ro --privileges SELECT --on all-tables:public
 komando db user rm app-db app_ro --allow-dangerous
 komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10.0.%'   # MySQL

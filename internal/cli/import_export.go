@@ -30,7 +30,7 @@ type exportFile struct {
 	Vpns    []*store.Vpn     `json:"vpns"`
 	Recipes []*store.Snippet `json:"recipes"`
 	Secrets []string         `json:"secrets_needed"` // vault names the refs use
-	Keys    []string         `json:"keys_needed"`    // keychain keys the hosts use (the key files are not in the file)
+	Keys    []string         `json:"keys_needed"`    // keys from `komando key` the hosts use (the key files are not in the file)
 	// whole exports only: your own deny rules and settings, so the safety
 	// rules come along (import adds the rules; it only reports settings)
 	DenyRules []string          `json:"deny_rules,omitempty"`

@@ -50,7 +50,7 @@ first with `curl -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/inst
 and then run `sh install.sh`. `KOMANDO_INSTALL_DIR=DIR` picks the folder and
 `KOMANDO_VERSION=v0.5.0` one version. To check that a downloaded archive was
 built by komando's release workflow, run
-`gh attestation verify FILE --repo sgnd/komando`. Developers with Go 1.27 or
+`gh attestation verify FILE --repo sgnd/komando`. Developers with Go 1.27.3 or
 newer can use `go install github.com/sgnd/komando/cmd/komando@latest`.
 
 ### Update
@@ -114,7 +114,9 @@ examples; replace them with yours.
 
 komando logs in like `ssh` does: with your SSH key (in `~/.ssh/` or your
 SSH agent). The first time, it remembers the server's identity (its host
-key) and checks it on every later visit.
+key) and checks it on every later visit. Did your cloud provider give you a
+key file to download (AWS calls it a key pair)? Name it when you add the
+server: `komando host add web1 ubuntu@203.0.113.10 --identity ~/Downloads/my-key.pem`.
 
 ```bash
 # 1. Add a server and give it a short name (web1)

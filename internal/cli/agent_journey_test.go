@@ -140,3 +140,16 @@ func TestGuideUninstall(t *testing.T) {
 		t.Errorf("again: nothing left to remove: %v", d)
 	}
 }
+
+func TestAuditActorFilter(t *testing.T) {
+	f := auditFilter{actor: "claude"}
+	for e, want := range map[*map[string]any]bool{
+		{"actor": "budi", "agent": "Claude Code"}: true,
+		{"actor": "claude-agent"}:                 true,
+		{"actor": "budi", "os_user": "budi"}:      false,
+	} {
+		if f.keep(*e) != want {
+			t.Errorf("%v: want %v", *e, want)
+		}
+	}
+}

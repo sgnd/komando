@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `audit --actor NAME`: what one person, AI agent or computer account did
+  (`komando audit --actor budi --since 30d`). A new page, [Rotate keys and
+  passwords](docs/features/rotate.md), gives the steps in order for an SSH
+  key, a server or database password, and for when someone leaves.
 - `komando schema` lists every error code (`error_codes`, over 200): its
   exit code, an example message and the usual next step. It is made from the
   source, and a test keeps it in step. The troubleshooting table names the
@@ -128,6 +132,16 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A flag a group gives all its sub-commands (`cron --user`, `cron --sudo`,
+  `docker --sudo`, `pkg --no-sudo`) now shows in the sub-command's `--help`
+  and in `komando schema <command>`, where agents look before using one.
+- Docs: examples that broke the rules or skipped a step (`psql` and
+  `pg_dump` over `exec`, a `policy check` example that is not blocked,
+  `secret:` references with no `secret set`, conn names an import does not
+  make, a key file from the cloud provider); the `tunnel start` usage line
+  (`-L/-R/-D` are optional for a conn); "keychain" now means only the
+  system keychain (komando's SSH keys are its key list); the env variable
+  table, ID examples and the Go version.
 - AI agents read komando's hints whole again. The secret masker hid the
   command after words such as "password:" (`save its password: [hidden]
   secret set web1-pass`) in `NO_AUTH`, `KEY_PASSPHRASE_REQUIRED`, `komando

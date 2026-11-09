@@ -10,7 +10,7 @@ komando exec web1 -- uptime                          # one server
 komando exec @web -- 'df -h /'                       # every web server at once
 komando exec web1 --dry-run -- 'apt-get -y upgrade'  # show what would run, run nothing
 komando script @web ./deploy.sh --arg v1.2.3         # run a local script remotely
-komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'   # a long task
+komando job start web1 -- 'tar czf /backup/www.tgz /var/www'   # a long task
 ```
 
 ## Run a command
@@ -23,7 +23,7 @@ shell, on all picked servers in parallel (`run` and `x` are other names for
 komando exec web1 -- uptime
 komando exec @web -P 20 -- 'df -h / | tail -1'           # up to 20 servers at once
 komando exec tag:prod --sudo -- systemctl is-active nginx
-komando exec db1 --read-only -- 'psql -c "select 1"'
+komando exec db1 --read-only -- 'df -h /var/lib/postgresql'   # SQL itself: komando db query
 ```
 
 | Flag | What it does |
@@ -170,7 +170,7 @@ running on the server even if you disconnect, and `job start` returns at
 once with a job ID per server.
 
 ```bash
-komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
+komando job start web1 -- 'tar czf /backup/www.tgz /var/www'
 komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
 komando job status JOB_ID               # running, exited or lost; exit code; last lines
 komando job logs JOB_ID                 # output so far

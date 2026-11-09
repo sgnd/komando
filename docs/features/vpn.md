@@ -39,7 +39,13 @@ and DNS stay the same, so two VPNs that use the same addresses (both
 
 ## Add a VPN
 
+A VPN that logs in with a password, pre-shared key or auth key reads it
+from the vault: store it first with `komando secret set NAME` (it asks for
+it, hidden), then name it in `--password-ref` or `--psk-ref`. The names
+below (`kantor`, `ts-authkey` ...) are such secrets.
+
 ```bash
+komando secret set kantor                     # the VPN password, typed once (hidden)
 komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
 komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
 komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
