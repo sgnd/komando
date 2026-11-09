@@ -337,6 +337,9 @@ func (lk *loginKeys) noAuth(st *store.State, h *store.Host) *out.Error {
 	default:
 		why, hint = "the ssh-agent at SSH_AUTH_SOCK does not answer", loginWay(st, h)
 	}
+	if lk.skipped == "" && Ask == nil && !adhoc(st, h) {
+		hint += "; if only a person knows the password or code, ask the user to run `komando login " + h.Name + "` once, and later commands use that login"
+	}
 	return out.Errf(out.ExitConnect, "NO_AUTH", hint, "no authentication method available for %s: it has no key or password, and %s", h.Name, why)
 }
 
