@@ -1,7 +1,6 @@
 # Code that was over the size limits (functions 100 lines, files 800)
 # when the rule came. Each may shrink, never grow; see codesize_test.go.
 file internal/cli/cert.go 879
-file internal/cli/dbdump.go 810
 file internal/cli/job.go 885
 file internal/cli/kctl.go 805
 file internal/cli/modules.go 943
