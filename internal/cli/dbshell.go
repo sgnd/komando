@@ -31,7 +31,7 @@ func dbShellCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "shell CONN",
 		Short: "Interactive SQL shell for people (read-only unless --write)",
-		Long: `Opens komando's own SQL shell on CONN (PostgreSQL, MySQL/MariaDB or SQLite),
+		Long: `Opens komando's own SQL shell on CONN (PostgreSQL, MySQL/MariaDB, SQL Server or SQLite),
 through its --via path when it has one. Nothing else needs to be installed.
 
 Each statement ends with ; and runs with the checks of db query: read-only
@@ -285,13 +285,14 @@ func (s *sqlShell) meta(ctx context.Context, line string) bool {
 		s.printf("%s", schemaData{Tables: tables}.Text())
 	case `\l`, `\list`:
 		s.exec(ctx, map[string]string{"postgres": "SELECT datname AS name FROM pg_database WHERE NOT datistemplate ORDER BY 1",
-			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list"}[s.kind], s.expanded)
+			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list", "sqlserver": "SELECT name FROM sys.databases ORDER BY 1"}[s.kind], s.expanded)
 	case `\dn`:
 		s.exec(ctx, map[string]string{"postgres": "SELECT nspname AS name FROM pg_namespace WHERE nspname NOT LIKE 'pg\\_%' AND nspname <> 'information_schema' ORDER BY 1",
-			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list"}[s.kind], s.expanded)
+			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list", "sqlserver": "SELECT name FROM sys.schemas WHERE schema_id < 16384 ORDER BY 1"}[s.kind], s.expanded)
 	case `\du`:
 		q := map[string]string{"postgres": "SELECT rolname AS role, rolsuper AS superuser, rolcanlogin AS login FROM pg_roles WHERE rolname NOT LIKE 'pg\\_%' ORDER BY 1",
-			"mysql": "SELECT user, host FROM mysql.user ORDER BY 1, 2"}[s.kind]
+			"mysql":     "SELECT user, host FROM mysql.user ORDER BY 1, 2",
+			"sqlserver": "SELECT name, LOWER(type_desc) AS type FROM sys.database_principals WHERE type IN ('S', 'U', 'G', 'E', 'X', 'R') ORDER BY 1"}[s.kind]
 		if q == "" {
 			s.printf("SQLite has no roles.\n")
 			return false

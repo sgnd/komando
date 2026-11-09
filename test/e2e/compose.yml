@@ -138,6 +138,14 @@ services:
     # the Google Cloud Pub/Sub emulator, reached --via bastion (checks/pubsub.sh)
     image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
     command: ["gcloud", "beta", "emulators", "pubsub", "start", "--host-port=0.0.0.0:8085", "--project=test-project"]
+  mssql:
+    # SQL Server images are amd64 only. An arm64 machine needs Rosetta
+    # (Docker Desktop, or colima start --vz-rosetta); under QEMU sqlservr
+    # does not start. There, E2E_MSSQL_IMAGE=mcr.microsoft.com/azure-sql-edge:latest
+    # and E2E_MSSQL_PLATFORM=linux/arm64 run the arm64 build of the same engine.
+    image: ${E2E_MSSQL_IMAGE:-mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04}
+    platform: ${E2E_MSSQL_PLATFORM:-linux/amd64}
+    environment: { ACCEPT_EULA: "Y", MSSQL_PID: Developer, MSSQL_SA_PASSWORD: "Sales-pass-1", MSSQL_MEMORY_LIMIT_MB: "2048" }
     networks: [private]
   # secret managers komando talks to itself (no vault or aws CLI)
   bao:

@@ -179,7 +179,7 @@ func importDBeaver(path string) (*importPlan, error) {
 	for _, id := range ids {
 		c := doc.Connections[id]
 		cfg := c.Configuration
-		scheme := map[string]string{"postgresql": "postgres", "mysql": "mysql", "mariadb": "mysql", "sqlite": "sqlite"}[c.Provider]
+		scheme := map[string]string{"postgresql": "postgres", "mysql": "mysql", "mariadb": "mysql", "sqlite": "sqlite", "sqlserver": "sqlserver", "mssql": "sqlserver"}[c.Provider]
 		if scheme == "" {
 			p.Notes = append(p.Notes, fmt.Sprintf("%s: DBeaver provider %q is not a kind komando knows", c.Name, c.Provider))
 			continue

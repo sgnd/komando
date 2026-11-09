@@ -37,7 +37,8 @@ func dbCmd() *cobra.Command {
 		Aliases: []string{"sql"},
 		Short:   "Query databases safely: read-only by default, structured results",
 		Long: `Run SQL on a conn (see ` + "`komando conn`" + `). Without --write every query runs in a
-read-only transaction, so nothing can change. With --write, try --dry-run
+read-only transaction (SQL Server: one that is always rolled back), so
+nothing can change. With --write, try --dry-run
 first: it runs the SQL and rolls it back, showing how many rows would change.`,
 	}
 	c.AddCommand(dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
@@ -53,6 +54,8 @@ type dbFlags struct {
 	// mariaAnalyze: the SQL starts with EXPLAIN ANALYZE, which MariaDB
 	// spells ANALYZE
 	mariaAnalyze bool
+	// showplan: db explain on SQL Server (dbx.Options.Showplan)
+	showplan string
 }
 
 func dbQueryCmd() *cobra.Command {
@@ -66,6 +69,10 @@ transaction. Each run stops after 30s unless --timeout (or the conn's
 statement_timeout option) allows more. Placeholders take their values from
 --arg, in order. --csv and --tsv print the rows for spreadsheets and scripts.
 SQL that starts with a -- comment: pass it after -- or with -f -.
+
+SQL Server has no read-only transaction: without --write komando rolls the
+SQL back, and a statement it does not know as a read (a bare procedure
+name, EXEC) needs --write. Its placeholders are @p1, @p2, ...
 
 On a MongoDB conn the text is a command document in JSON, its first key
 naming it ({"find": ...}, {"aggregate": ...}, {"update": ...}). komando rates
@@ -122,7 +129,7 @@ func sqlFlagError(cmd *cobra.Command, err error) error {
 func (f *dbFlags) bind(c *cobra.Command) {
 	c.Flags().BoolVar(&f.write, "write", false, "allow changes (runs in a normal transaction; combine with --dry-run to roll back)")
 	c.Flags().IntVarP(&f.limit, "limit", "n", 500, "max rows returned per statement (0 = no limit; output size is capped by --max-output too)")
-	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite); repeat in order")
+	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite, @p1 in sqlserver); repeat in order")
 }
 
 func dbExplainCmd() *cobra.Command {
@@ -161,6 +168,8 @@ func dbExplainCmd() *cobra.Command {
 					return out.Usage("sqlite has no EXPLAIN ANALYZE; drop --analyze")
 				}
 				prefix = "EXPLAIN QUERY PLAN "
+			case "sqlserver": // no EXPLAIN: a SET SHOWPLAN_TEXT (or STATISTICS PROFILE) session setting
+				f.showplan = map[bool]string{false: "text", true: "profile"}[analyze]
 			default: // MongoDB, and kinds without SQL: the classifier says how
 				_, err := driver.ClassifySQL(c.Kind, args[1])
 				return err
@@ -246,8 +255,8 @@ func (d schemaData) Text() string {
 			}
 			switch c.Identity {
 			case "":
-			case "auto_increment":
-				notes = append(notes, "auto_increment")
+			case "auto_increment", "identity":
+				notes = append(notes, c.Identity)
 			default:
 				notes = append(notes, "generated "+c.Identity+" as identity")
 			}
@@ -418,7 +427,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	if err != nil {
 		return err
 	}
-	plan, err := driver.ClassifySQL(c.Kind, query)
+	plan, err := classifyQuery(c.Kind, query, f)
 	if err != nil {
 		return err
 	}
@@ -493,7 +502,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		args[i] = a
 	}
 	res, err := dbx.Run(ctx, db, c.Kind, plan, dbx.Options{Write: f.write, DryRun: g.dryRun, Limit: f.limit,
-		MaxBytes: maxOutput(st), Timeout: connTimeout(c), Args: args})
+		MaxBytes: maxOutput(st), Timeout: connTimeout(c), Args: args, Showplan: f.showplan})
 	if err != nil {
 		return fail(err)
 	}
@@ -530,9 +539,20 @@ func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res 
 // sqlSecret matches the password literal in CREATE/ALTER USER and ROLE,
 // SET PASSWORD and PASSWORD() so the audit log never stores it:
 // PASSWORD 'x' (Postgres), IDENTIFIED [WITH plugin] BY 'x', SET PASSWORD
-// [FOR u] = 'x' (MySQL).
-var sqlSecret = regexp.MustCompile(`(?is)(\bPASSWORD\s*(?:FOR\s+\S+\s*)?=?\s*\(?\s*|\bIDENTIFIED\s+(?:WITH\s+\S+\s+)?BY\s+)('(?:[^'\\]|''|\\.)*'|"(?:[^"\\]|""|\\.)*"|\$[A-Za-z_]*\$.*?\$[A-Za-z_]*\$)`)
+// [FOR u] = 'x' (MySQL), PASSWORD = N'x' (SQL Server).
+var sqlSecret = regexp.MustCompile(`(?is)(\bPASSWORD\s*(?:FOR\s+\S+\s*)?=?\s*\(?\s*N?|\bIDENTIFIED\s+(?:WITH\s+\S+\s+)?BY\s+)('(?:[^'\\]|''|\\.)*'|"(?:[^"\\]|""|\\.)*"|\$[A-Za-z_]*\$.*?\$[A-Za-z_]*\$)`)
 
 func redactSQL(q string) string {
 	return sqlSecret.ReplaceAllString(q, "${1}'***'")
+}
+
+// classifyQuery is driver.ClassifySQL for runSQL. Under db explain on SQL
+// Server the statements are only planned (SET SHOWPLAN_TEXT), so a
+// change that the rollback would undo reads.
+func classifyQuery(kind, query string, f dbFlags) (driver.SQLPlan, error) {
+	plan, err := driver.ClassifySQL(kind, query)
+	if err != nil || f.showplan != "text" {
+		return plan, err
+	}
+	return driver.PlanOnly(plan), nil
 }

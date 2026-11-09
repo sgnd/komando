@@ -201,6 +201,19 @@ its highlights; the sections below them give the details. Versions follow
   does not count messages, so the counts are -1 and the text says so. New
   error codes `SUBSCRIPTION_NOT_FOUND` and `SUBSCRIPTION_EXISTS`. komando
   speaks the Pub/Sub REST API itself: no new dependency.
+- **SQL Server conns** (`sqlserver://app@db.internal:1433/sales?encrypt=true`,
+  also `mssql://`): `db query`, `schema`, `explain` (SHOWPLAN; `--analyze`
+  measures), `info`, `activity`, `locks`, `sizes`, `kill --session`, users
+  and grants, `db shell` and `conn test`, through `--via` and VPNs, with
+  `?ca=secret:NAME` and `tls=skip-verify`. New conns that cross the network
+  get `encrypt=true`. SQL Server has no read-only transaction, so without
+  `--write` komando rolls the SQL back and checks its own transaction after
+  each statement; T-SQL gets stricter checks (a change anywhere in the text
+  counts, a bare procedure name runs it, `BEGIN`/`COMMIT` are refused
+  anywhere, and numbers are read as SQL Server reads them, so `1eDROP` is
+  `1e DROP`). A URL option given twice (`encrypt=true&Encrypt=disable`) is
+  refused. `db dump` and `restore` say `NOT_SUPPORTED` for now. Built in
+  with go-mssqldb (BSD-3-Clause), pure Go.
 
 ## [0.8.0] - 2026-11-09
 

@@ -267,7 +267,7 @@ func policyCmd() *cobra.Command {
 			return exitCode(out.ExitPolicy)
 		},
 	}
-	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: postgres, mysql, sqlite, redis or memcached")
+	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: postgres, mysql, sqlserver, sqlite, redis or memcached")
 	c.AddCommand(check)
 	c.AddCommand(&cobra.Command{
 		Use:     "deny REGEX",

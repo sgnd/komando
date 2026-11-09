@@ -193,6 +193,8 @@ func plainConn(c *store.Conn) string {
 		// MySQL 8 (caching_sha2_password) then encrypts the password with a
 		// key it sends over the same plain connection
 		return fix("travels unencrypted (no tls=true): anyone on the network path can read the data, and can swap the key the MySQL 8 login encrypts the password with, and so read the password")
+	case "sqlserver":
+		return sqlserverTLSRisk(q, t, fix, notChecked)
 	case "redis":
 		if !t.Secure {
 			return fix("travels unencrypted: anyone on the network path can read the password and the data")
@@ -262,6 +264,8 @@ func verifiedTLSURL(raw, kind string) string {
 		key, val = "sslmode", "verify-full"
 	case "mysql":
 		key, val = "tls", "true"
+	case "sqlserver":
+		return sqlserverVerifiedURL(u)
 	case "redis":
 		u.Scheme = "rediss"
 	case "memcached":

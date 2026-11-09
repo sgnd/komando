@@ -190,6 +190,14 @@ func weakTLS(oldURL, newURL string) []string {
 		case "skip-verify":
 			w = append(w, "tls=skip-verify (the certificate is not checked)")
 		}
+	case "sqlserver":
+		o, _ := driver.ParseSQLServerOptions(q)
+		switch {
+		case o.Encrypt == "false" || o.Encrypt == "disable":
+			w = append(w, "encrypt="+o.Encrypt+" (travels unencrypted)")
+		case o.SkipVerify:
+			w = append(w, "tls=skip-verify (the certificate is not checked)")
+		}
 	case "registry", "ftps":
 		switch t.TLS {
 		case "false":

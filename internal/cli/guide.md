@@ -143,7 +143,7 @@ checked before anything is written).
 These are conns (`komando list kind:conn`). Each has its own command; never
 reach them through `exec`.
 
-**Databases** (PostgreSQL, MySQL/MariaDB, SQLite):
+**Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, SQLite):
 
 ```bash
 komando db schema <conn> [table...]                     # tables, then columns and indexes
@@ -165,6 +165,12 @@ computer), never with `pg_dump`/`mysqldump` through `exec` and base64.
 priority, password in its environment, backup streamed back over SSH), e.g.
 when the conn goes through a VPN and you need `--format custom`. Dry-run it
 first: `runs_on` says where it runs. `db restore` needs `--allow-dangerous`.
+
+**SQL Server** conns take T-SQL with `@p1`, `@p2` placeholders. There is no
+read-only transaction: without `--write` komando rolls everything back, and
+a statement it does not know as a read (a bare procedure name, `EXEC`) needs
+`--write`. End each statement with `;`. `db dump` and `restore` are not
+available there (`NOT_SUPPORTED`).
 
 **Caches** (Redis, Valkey, memcached): `cache get|keys|info <conn>` read, `cache set`
 changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run

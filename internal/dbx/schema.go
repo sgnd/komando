@@ -36,7 +36,8 @@ type TableColumn struct {
 	Default    *string `json:"default,omitempty"`
 	PrimaryKey bool    `json:"primary_key,omitempty"`
 	// Identity says the database numbers the column itself: "auto_increment"
-	// (MySQL, SQLite AUTOINCREMENT), "always" or "by default" (PostgreSQL).
+	// (MySQL, SQLite AUTOINCREMENT), "always" or "by default" (PostgreSQL),
+	// "identity" (SQL Server).
 	Identity string `json:"identity,omitempty"`
 }
 
@@ -53,7 +54,7 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 		ctx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: kind != "sqlite"})
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: readOnlyTx(kind, false)})
 	if err != nil {
 		return nil, queryErr(kind, ctx, err)
 	}
@@ -66,6 +67,8 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 		tables, err = sqliteSchema(ctx, tx, names)
 	case "mysql":
 		tables, err = mysqlSchema(ctx, tx, names)
+	case "sqlserver":
+		tables, err = mssqlSchema(ctx, tx, names)
 	}
 	if err == nil && len(names) > 0 {
 		err = addConstraints(ctx, tx, kind, tables)
@@ -284,6 +287,8 @@ SELECT 'fk_' || id, 'foreign key',
        'FOREIGN KEY (' || group_concat("from", ', ') || ') REFERENCES ' || "table" || '(' || group_concat("to", ', ') || ')' ||
        ' ON DELETE ' || on_delete || ' ON UPDATE ' || on_update
 FROM pragma_foreign_key_list(?) GROUP BY id ORDER BY id`, t.Name)
+		case "sqlserver":
+			rows, err = tx.QueryContext(ctx, mssqlConstraints, t.Schema, t.Name)
 		default:
 			return nil
 		}

@@ -102,12 +102,14 @@ type dialect struct {
 	crComments                           bool // Postgres: a -- comment ends at \r as well as \n
 	execAsCode                           bool // restore: read /*! ... */ as the code MySQL runs instead of refusing it
 	unicodeEsc                           bool // Postgres: U&"..." names and U&'...' strings take \XXXX escapes
+	tsql                                 bool // SQL Server: ]] in [names], nested comments, no statement separator needed (sql_tsql.go)
 }
 
 var dialects = map[string]dialect{
-	"postgres": {dollar: true, crComments: true, unicodeEsc: true},
-	"mysql":    {backslash: true, backtick: true, execComments: true, dashSpace: true},
-	"sqlite":   {backtick: true, bracket: true},
+	"postgres":  {dollar: true, crComments: true, unicodeEsc: true},
+	"mysql":     {backslash: true, backtick: true, execComments: true, dashSpace: true},
+	"sqlite":    {backtick: true, bracket: true},
+	"sqlserver": {bracket: true, crComments: true, tsql: true},
 }
 
 // nameByte reports whether c continues an unquoted name. Postgres names
@@ -145,7 +147,7 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 				"-- is followed by a non-ASCII byte")
 		case c == '-' && i+1 < n && sql[i+1] == '-' && (!d.dashSpace || i+2 >= n || sql[i+2] <= ' ' || sql[i+2] == 0x7f), c == '#' && d.backslash:
 			// MySQL: a control character (0x7f too) counts as white space here
-			for i < n && sql[i] != '\n' && !(d.crComments && sql[i] == '\r') {
+			for i < n && !d.commentEnd(sql, i) {
 				i++
 			}
 		case c == '/' && i+1 < n && sql[i+1] == '*':
@@ -165,23 +167,8 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 					"write the statement without /*! ... */: MySQL runs what is inside, so komando cannot check it",
 					"executable comments (/*! ... */) are not allowed")
 			}
-			level := 0
-			for i < n {
-				if i+1 < n && sql[i] == '/' && sql[i+1] == '*' {
-					level++
-					i += 2
-				} else if i+1 < n && sql[i] == '*' && sql[i+1] == '/' {
-					level--
-					i += 2
-					if level == 0 || !d.dollar { // only Postgres nests comments
-						break
-					}
-				} else {
-					i++
-				}
-			}
-			if level > 0 && d.dollar {
-				return nil, nil, out.Usage("unterminated /* comment in SQL")
+			if i, err = d.skipComment(sql, i); err != nil {
+				return nil, nil, err
 			}
 		case c == '\'' || c == '"' || (c == '`' && d.backtick) || (c == '[' && d.bracket):
 			closeCh := c
@@ -209,7 +196,7 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 					continue
 				}
 				if sql[j] == closeCh {
-					if j+1 < n && sql[j+1] == closeCh && closeCh != ']' {
+					if j+1 < n && sql[j+1] == closeCh && (closeCh != ']' || d.tsql) {
 						j++
 						continue
 					}
@@ -221,7 +208,7 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 			}
 			if c != '\'' { // quoted identifier: never a keyword, but still a function name
 				name := sql[i+1 : j]
-				if closeCh != ']' {
+				if closeCh != ']' || d.tsql {
 					name = strings.ReplaceAll(name, string(closeCh)+string(closeCh), string(closeCh))
 				}
 				cur = append(cur, token{word: "\x00ident", ident: strings.ToUpper(name), depth: depth, pos: i - start})
@@ -246,7 +233,7 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 				cur = append(cur, token{punct: '$', depth: depth, pos: i - start}) // $1 parameter
 				i++
 			}
-		case c == ';' && depth == 0:
+		case c == ';' && depth == 0 && !(d.tsql && definesBody(cur)): // a T-SQL procedure's body runs to the end
 			flush(i)
 			i++
 			start = i
@@ -263,8 +250,11 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 		case isWord(c):
 			j := i
 			number := c >= '0' && c <= '9' // 1$$x$$ is 1 and a dollar quote; x$$ is one name
-			for j < n && (isWord(sql[j]) || !number && d.nameByte(sql[j])) {
+			for j < n && !(number && d.tsql) && (isWord(sql[j]) || !number && d.nameByte(sql[j])) {
 				j++
+			}
+			if number && d.tsql {
+				j = tsqlNumberEnd(sql, i) // SQL Server reads 1DROP as 1 DROP, 1eDROP as 1e DROP
 			}
 			if number && d.dollar && j < n && sql[j] == '$' && strings.Trim(sql[i:j], "0123456789") != "" {
 				// 1abc$$ is 1 and the name abc$$ before Postgres 15, a dollar
@@ -309,14 +299,14 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 	plan := SQLPlan{Statements: []Statement{}, kind: kind}
 	seen := map[string]bool{}
 	for i, ts := range toks {
-		risk, rules, err := classifyStatement(ts, true)
+		risk, rules, err := classifyFor(kind, ts)
 		if err != nil {
 			return SQLPlan{}, err
 		}
 		kw := firstWord(ts)
 		plan.Statements = append(plan.Statements, Statement{SQL: texts[i], Keyword: kw, Risk: risk,
-			Rows: returnsRows(kw, ts), NoTx: noTx(kind, kw, ts), NoRollback: noRollback(kw, ts, rules),
-			Unknown: !readFirst[kw] && !writeFirst[kw] && !opaqueFirst[kw]})
+			Rows: returnsRows(kw, ts) || kind == "sqlserver" && tsqlRows(kw, ts), NoTx: noTx(kind, kw, ts), NoRollback: noRollback(kw, ts, rules),
+			Unknown: unknownFirst(kind, kw)})
 		if risk > plan.Risk {
 			plan.Risk = risk
 		}
@@ -339,7 +329,7 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 // unknown statement needs --write.
 func (p SQLPlan) NeedsWrite() bool {
 	for _, s := range p.Statements {
-		if s.Risk == RiskRead || s.Unknown && s.Risk == RiskWrite && p.kind != "mysql" {
+		if s.Risk == RiskRead || s.Unknown && s.Risk == RiskWrite && p.kind != "mysql" && p.kind != "sqlserver" {
 			continue
 		}
 		return true
@@ -386,6 +376,8 @@ func noTx(kind, kw string, ts []token) bool {
 		return !mysqlInTx[kw]
 	case "sqlite":
 		return kw == "VACUUM"
+	case "sqlserver":
+		return tsqlNoTx(kw, ts)
 	}
 	return false
 }
@@ -531,6 +523,7 @@ var opaqueFirst = map[string]bool{"DO": true, "CALL": true, "PREPARE": true, "EX
 var txSettings = map[string]bool{
 	"TRANSACTION": true, "CHARACTERISTICS": true, "TRANSACTION_READ_ONLY": true, "DEFAULT_TRANSACTION_READ_ONLY": true,
 	"TX_READ_ONLY": true, "AUTOCOMMIT": true, "COMPLETION_TYPE": true,
+	"IMPLICIT_TRANSACTIONS": true, "ANSI_DEFAULTS": true, "REMOTE_PROC_TRANSACTIONS": true, // SQL Server
 }
 
 // The client character set counts too: the server converts the text from
@@ -767,7 +760,7 @@ func settingAllowed(name string) error {
 }
 
 // Placeholders counts the parameters in sql ($1.. in postgres, ? in mysql
-// and sqlite), outside strings and comments. ok is false when the count is
+// and sqlite, @p1.. in sqlserver), outside strings and comments. ok is false when the count is
 // not known (sqlite named parameters, or SQL that does not parse).
 func Placeholders(kind, sql string) (n int, ok bool) {
 	d, found := dialects[kind]
@@ -777,6 +770,9 @@ func Placeholders(kind, sql string) (n int, ok bool) {
 	_, toks, err := splitSQL(sql, d)
 	if err != nil {
 		return 0, false
+	}
+	if kind == "sqlserver" {
+		return tsqlPlaceholders(toks)
 	}
 	for _, ts := range toks {
 		for i, t := range ts {

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"net/url"
+	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -14,7 +15,8 @@ import (
 // overNetwork):
 //
 //   - Postgres without sslmode gets sslmode=verify-full, MySQL without tls=
-//     gets tls=true (verifiedTLSURL). Left out, both would take TLS only
+//     gets tls=true, SQL Server without encrypt= gets encrypt=true
+//     (verifiedTLSURL). Left out, both would take TLS only
 //     when the server offers it, without checking whose certificate it is.
 //   - redis://, memcached://, amqp:// and nats:// name a connection without
 //     TLS, and so do kafka:// without tls=true and sqs:// and pubsub://
@@ -44,6 +46,10 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 	case "mysql":
 		if !q.Has("tls") {
 			added = "tls=true"
+		}
+	case "sqlserver":
+		if o, err := driver.ParseSQLServerOptions(q); err == nil && o.Encrypt == "" {
+			added = "encrypt=true"
 		}
 	case "redis", "memcached":
 		if !t.Secure && q.Get("insecure") != "1" {
@@ -94,4 +100,47 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 			": TLS that checks the server's certificate. If the server has no TLS or a certificate from its own CA, `komando conn test "+c.Name+"` says what to do")
 	}
 	return nil
+}
+
+// sqlserverVerifiedURL is verifiedTLSURL for SQL Server: encrypt=true and
+// no tls=skip-verify. Option names are read without regard to case, so
+// any spelling of them is replaced.
+func sqlserverVerifiedURL(u *url.URL) string {
+	q := u.Query()
+	found := false
+	for k := range q {
+		if strings.EqualFold(k, "encrypt") || strings.EqualFold(k, "tls") {
+			q.Del(k)
+			found = true
+		}
+	}
+	switch {
+	case !found && u.RawQuery == "":
+		u.RawQuery = "encrypt=true"
+	case !found:
+		u.RawQuery += "&encrypt=true"
+	default:
+		q.Set("encrypt", "true")
+		u.RawQuery = q.Encode()
+	}
+	return u.String()
+}
+
+// sqlserverTLSRisk is tlsRisk for a SQL Server conn that crosses the
+// network: what its encrypt= and tls= settings leave open.
+func sqlserverTLSRisk(q url.Values, t driver.Target, fix func(string) string, notChecked string) string {
+	o, err := driver.ParseSQLServerOptions(q)
+	switch {
+	case err != nil:
+		return ""
+	case t.Secure && t.TLS == "skip-verify":
+		return fix(notChecked)
+	case t.Secure:
+		return ""
+	case o.Encrypt == "disable":
+		return fix("travels unencrypted (encrypt=disable): anyone on the network path can read the password and the data")
+	}
+	// encrypt=false or none: TLS for the login only, and (without
+	// encrypt=) with no check of the certificate
+	return fix("only the login is encrypted (no encrypt=true): anyone on the network path can read the data, and without a certificate check can pretend to be the server and get the password")
 }

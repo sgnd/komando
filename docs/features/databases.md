@@ -1,6 +1,6 @@
 # Databases
 
-Add PostgreSQL, MySQL/MariaDB and SQLite databases, then query, inspect,
+Add PostgreSQL, MySQL/MariaDB, SQL Server and SQLite databases, then query, inspect,
 back up and restore them safely. [All features](README.md)
 
 ## Quick start
@@ -26,6 +26,7 @@ the URL:
 |------|-------------|
 | PostgreSQL | `postgres://app@10.0.0.5:5432/app?sslmode=require` |
 | MySQL / MariaDB | `mysql://shop@db.internal:3306/shop?tls=true` |
+| SQL Server | `sqlserver://app@db.internal:1433/sales?encrypt=true` (also `mssql://`). See [SQL Server](#sql-server). |
 | SQLite | `sqlite:///var/lib/app.db` (a file on this computer) |
 | MongoDB | `mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin` (Atlas: `mongodb+srv://app@cluster0.abcde.mongodb.net/shop`). See [MongoDB](#mongodb). |
 
@@ -79,15 +80,19 @@ giving them the password:
 |------|-------------|------------------------------------|---------------|
 | PostgreSQL | `?sslmode=verify-full` | `?sslmode=require` | `?sslmode=disable` |
 | MySQL / MariaDB | `?tls=true` | `?tls=skip-verify` | `?tls=false` |
+| SQL Server | `?encrypt=true` (or `strict`) | `?encrypt=true&tls=skip-verify` | `?encrypt=disable` |
 
 - Without a setting, a Postgres conn uses TLS when the server offers it,
   but does not check the certificate and goes on without TLS when told to.
   A MySQL conn without `tls=` is not encrypted, and the MySQL 8 login then
   encrypts the password with a key the server sends over that same plain
-  connection, which someone in between can swap.
+  connection, which someone in between can swap. A SQL Server conn without
+  `encrypt=` (or with `encrypt=false`) encrypts only the login, and
+  without `encrypt=` does not check the certificate either.
 - **New conns check by default.** When `conn add` (or `conn edit --url`)
   saves such a conn and its URL does not say how to use TLS, komando adds
-  `sslmode=verify-full` (Postgres) or `tls=true` (MySQL) and says so in
+  `sslmode=verify-full` (Postgres), `tls=true` (MySQL) or `encrypt=true`
+  (SQL Server) and says so in
   `warnings`. A URL that names a setting keeps it, and a conn through
   `--via` or to this computer is left as written. If the server has no TLS
   or a certificate from its own CA, the first connection's hint says what
@@ -97,7 +102,7 @@ giving them the password:
   `komando conn edit NAME --url ...` line that fixes it.
 - A server whose certificate comes from a private CA (your company's, or a
   cloud's own, such as Amazon RDS or Azure Database): store the CA and name
-  it with `?ca=`, for Postgres and MySQL. The certificate is then fully
+  it with `?ca=`, for Postgres, MySQL and SQL Server. The certificate is then fully
   checked: signed by that CA and naming the server, also with
   `sslmode=require`, and never without TLS:
 
@@ -124,7 +129,8 @@ komando db query app-db --file report.sql    # SQL from a file (--file - reads s
 ```
 
 **Use `--arg` for values** instead of pasting them into the SQL. The
-placeholders are `$1`, `$2` in PostgreSQL, and `?` in MySQL and SQLite:
+placeholders are `$1`, `$2` in PostgreSQL, `?` in MySQL and SQLite, and
+`@p1`, `@p2` in SQL Server:
 
 ```bash
 komando db query app-db "select * from users where email = $1" --arg bob@example.com
@@ -174,6 +180,8 @@ line. Put `--` before it, or use `--file -`.
 | binary (bytea, blob) | `{"base64": "..."}`, also when empty; text output shows `\x` hex like psql |
 | integers too big for JSON (over 2^53) | strings; the whole column is then strings |
 | money, xml and other types | text, with the type named in `columns` |
+| SQL Server decimal, money | text with every digit (`"12.50"`) |
+| SQL Server uniqueidentifier | `"6F9619FF-8B86-D011-B42D-00C04FC964FF"` |
 
 In text output, tables line up, also with CJK characters and emoji.
 
@@ -255,6 +263,8 @@ komando db kill app-db 4821 --session --allow-dangerous   # end the whole connec
   `auto_increment` and `generated always as identity` columns.
 - SQLite has no server sessions, so `activity`, `locks` and `kill` do not
   apply to it.
+- SQL Server can only end a whole session (`KILL`), so `db kill` needs
+  `--session` there.
 
 ## Users and grants
 
@@ -279,6 +289,7 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
 - `--on` takes `database:NAME`, `schema:NAME`, `table:[SCHEMA.]TABLE` or
   `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
   and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).
+  For SQL Server see [SQL Server](#sql-server).
 - Adding users and grants are changes (`--yes` on protected conns).
   Removing a user also needs `--allow-dangerous`.
 
@@ -468,6 +479,72 @@ komando db info shop-mongo                        # version, primary or secondar
 - For SQL databases only: `db dump`, `restore`, `activity`, `locks`,
   `sizes`, `kill`, users and grants, and `db shell`. On MongoDB they say so
   (`NOT_SUPPORTED`); run `mongodump` on a server with `komando exec`.
+
+## SQL Server
+
+SQL Server (and Azure SQL Managed Instance) conns take the same `db`
+commands as PostgreSQL and MySQL, in T-SQL:
+
+```bash
+komando secret set sales-pass
+komando conn add sales 'sqlserver://app@db.internal:1433/sales?encrypt=true' --password-ref secret:sales-pass
+komando db query sales "select top (10) id, email from dbo.users order by id desc"
+komando db query sales "select * from dbo.users where email = @p1" --arg bob@example.com
+komando db query sales --write --dry-run "update dbo.users set plan = 'pro' where id = 42"
+komando db schema sales dbo.orders                  # columns, identity, indexes, foreign keys, checks
+komando db explain sales "select * from dbo.orders where user_id = 42"   # the plan; nothing runs
+komando db info sales
+komando db kill sales 57 --session --allow-dangerous
+```
+
+- **The URL.** The path is the database. A named instance
+  (`db\SQLEXPRESS`) is reached by its port: `sqlserver://app@db:49172/sales`.
+  The options are `encrypt=` (`true`, `strict`, `false`, `disable`; see
+  [Encryption](#encryption-tls)), `tls=skip-verify`, `ca=secret:NAME`,
+  `applicationintent=readonly` (a readable replica of an availability
+  group) and `database=NAME` in place of the path. Logins are SQL Server
+  logins (user and password); Windows and Entra ID logins are not
+  supported.
+- **Without `--write` nothing stays.** SQL Server has no read-only
+  transaction, so komando runs the SQL in a transaction that it always
+  rolls back, and checks after each statement that this transaction is
+  still open. komando's checks come first, stricter than for the other
+  databases, because T-SQL needs no `;` between statements:
+  - a change anywhere in the text counts, so `select 1 delete from t` is a
+    `DELETE` without `WHERE`;
+  - a first word that is not a T-SQL statement is the name of a procedure
+    that SQL Server runs (`sp_who`), so it needs `--write` and
+    `--allow-dangerous`, like `EXEC`;
+  - `BEGIN`, `COMMIT`, `ROLLBACK`, `SAVE TRANSACTION` and
+    `SET IMPLICIT_TRANSACTIONS` are refused anywhere, so `BEGIN ... END`
+    blocks and `TRY ... CATCH` belong in a stored procedure;
+  - names and text with letters outside ASCII must be quoted (`[naïve]`,
+    `N'café'`).
+
+  A procedure or function you call can still act outside the transaction
+  (`xp_cmdshell`, a linked server, mail). For a hard limit, give the conn a
+  login with only `db_datareader`.
+- **`CREATE PROCEDURE`, `FUNCTION` and `TRIGGER`** take the rest of the
+  text as their body, as SQL Server does, also after a `;`. Creating one is
+  a change; what the body does counts when it runs.
+- `BACKUP`, `RESTORE`, `CREATE DATABASE` and `ALTER DATABASE` cannot run in a
+  transaction: send them alone, with `--write`; a dry run only reports them.
+- `db explain` shows the plan with `SET SHOWPLAN_TEXT`: nothing runs, so it
+  needs no `--write` for a change either. `--analyze` runs the query with
+  `SET STATISTICS PROFILE` and shows the real row counts.
+- `db activity`, `locks` and the sessions in `db info` need the
+  `VIEW SERVER STATE` permission; without it a login sees only its own
+  session.
+- **Users.** `db user add` creates a login (with the password) and a user
+  for it in the conn's database; `db user rm` removes both. `--no-login`
+  creates a database role instead. `db grant` takes `--on database` (the
+  conn's), `schema:NAME`, `all-tables:SCHEMA` (the same) or
+  `table:[SCHEMA.]TABLE`, and `--role db_datareader` (any database role)
+  adds the user to a role.
+- **Backups.** `db dump` and `db restore` are not available for SQL Server
+  yet (`NOT_SUPPORTED`). SQL Server's own `BACKUP DATABASE ... TO DISK`
+  writes a `.bak` file on the database server (with `--write` and
+  `--allow-dangerous`); `komando download` then fetches it from that server.
 
 ## Interactive SQL shell (for people)
 

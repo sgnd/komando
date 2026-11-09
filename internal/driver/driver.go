@@ -65,6 +65,8 @@ func init() {
 		Example: "postgres://app@10.0.0.5:5432/app?sslmode=require"})
 	register(Kind{Name: "mysql", Family: "db", Schemes: []string{"mysql", "mariadb"}, DefaultPort: 3306,
 		Example: "mysql://shop@db.internal:3306/shop?tls=true"})
+	register(Kind{Name: "sqlserver", Family: "db", Schemes: []string{"sqlserver", "mssql"}, DefaultPort: 1433,
+		Example: "sqlserver://app@db.internal:1433/sales?encrypt=true (self-signed: &tls=skip-verify; private CA: &ca=secret:NAME)"})
 	register(Kind{Name: "sqlite", Family: "db", Schemes: []string{"sqlite", "sqlite3"}, File: true,
 		Example: "sqlite:///var/lib/app.db"})
 	register(Kind{Name: "mongodb", Family: "db", Schemes: []string{"mongodb", "mongodb+srv"}, DefaultPort: 27017,
@@ -140,8 +142,8 @@ type Target struct {
 	Prefix   string `json:"prefix,omitempty"`   // storage: keys are relative to this folder
 	Region   string `json:"region,omitempty"`   // s3, sqs
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
-	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry: skip-verify (registry also false)
-	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka, rabbitmq, nats: secret:NAME holding the PEM CA certificate to trust
+	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry, sqlserver: skip-verify (registry also false)
+	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka, rabbitmq, nats, sqlserver: secret:NAME holding the PEM CA certificate to trust
 	Resolve  string `json:"resolve,omitempty"`  // registry, s3: IP:port to connect to in place of Address (?resolve=)
 
 	Cluster      bool     `json:"cluster,omitempty"`       // redis: a Redis Cluster; Address is one node (?cluster=1)
@@ -188,6 +190,7 @@ var urlParsers = map[string]func(*url.URL, Target) (Target, error){
 	"s3": parseS3, "ftp": parseFiles, "ftps": parseFiles, "sftp": parseFiles, "gcs": parseGCS, "azblob": parseAzure,
 	"webdav": parseWebDAV, "mongodb": parseMongo, "rabbitmq": parseAMQP, "sqs": parseSQS,
 	"pubsub": parsePubsub, "smb": parseSMB,
+	"sqlserver": parseSQLServer,
 }
 
 // passwordParams are query parameters that would carry a password or key.

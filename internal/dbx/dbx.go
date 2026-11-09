@@ -109,6 +109,11 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		if db, err = sql.Open("sqlite", "file:"+path+"?"+q.Encode()); err != nil {
 			return nil, err
 		}
+	case "sqlserver":
+		var err error
+		if db, err = openSQLServer(rawURL, t, password, dial, appName); err != nil {
+			return nil, err
+		}
 	case "mongodb":
 		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED",
 			"on MongoDB use `komando db query CONN '{\"find\": ...}'`, `db schema` and `db info`; for a backup, run mongodump on a server with `komando exec`",
@@ -205,6 +210,10 @@ type Options struct {
 	MaxBytes int // rough cap on the JSON size of all rows
 	Timeout  time.Duration
 	Args     []any
+	// Showplan is db explain on SQL Server: "text" plans each statement
+	// without running it (SET SHOWPLAN_TEXT), "profile" runs it and
+	// returns the plan with real row counts (SET STATISTICS PROFILE).
+	Showplan string
 }
 
 // Column describes a result column.
@@ -326,7 +335,7 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 		defer restore()
 	}
 	// sqlite has no read-only transactions; the connection is read-only instead
-	tx, err := conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: !o.Write && kind != "sqlite"})
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: readOnlyTx(kind, o.Write)})
 	if err != nil {
 		return nil, queryErr(kind, ctx, err)
 	}
@@ -334,7 +343,7 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 	if err := setTimeout(ctx, tx, kind, o.Timeout, true); err != nil {
 		return nil, queryErr(kind, ctx, err)
 	}
-	if _, err := tx.ExecContext(ctx, "SAVEPOINT "+txMark); err != nil {
+	if err := markTx(ctx, tx, kind); err != nil {
 		return nil, queryErr(kind, ctx, err)
 	}
 	for i, st := range plan.Statements {
@@ -350,7 +359,7 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 		if err := runStatement(ctx, tx, conn, kind, st, o, &budget, &r); err != nil {
 			return nil, queryErr(kind, ctx, err)
 		}
-		if err := stillInTx(ctx, tx); err != nil {
+		if err := stillInTx(ctx, tx, kind); err != nil {
 			if ctx.Err() != nil {
 				return nil, queryErr(kind, ctx, err)
 			}
@@ -407,18 +416,6 @@ func setTimeout(ctx context.Context, q querier, kind string, d time.Duration, in
 // Postgres COMMIT AND CHAIN, which opens a new transaction at once.
 const txMark = "komando_tx"
 
-// stillInTx fails when the transaction komando opened has ended (a COMMIT
-// the classifier did not see, or a MySQL statement that commits
-// implicitly), so no later statement runs outside it.
-func stillInTx(ctx context.Context, tx *sql.Tx) error {
-	// RELEASE fails when the savepoint is gone; set it again for the next statement
-	if _, err := tx.ExecContext(ctx, "RELEASE SAVEPOINT "+txMark); err != nil {
-		return err
-	}
-	_, err := tx.ExecContext(ctx, "SAVEPOINT "+txMark)
-	return err
-}
-
 func txEscaped(n int, st driver.Statement, err error) error {
 	return out.Errf(out.ExitPolicy, "SQL_TX_CONTROL",
 		"leave transactions to komando, and tell the user: what ran before this point may have been committed",
@@ -454,6 +451,9 @@ func mysqlReadOnlySession(ctx context.Context, conn *sql.Conn) (restore func(), 
 // would send an Exec without arguments as a simple query, where a COMMIT
 // hidden from komando's splitter would end the read-only transaction.
 func runStatement(ctx context.Context, q querier, conn *sql.Conn, kind string, st driver.Statement, o Options, budget *int, r *StatementResult) error {
+	if o.Showplan != "" && kind == "sqlserver" {
+		return runShowplan(ctx, q, st, o, r)
+	}
 	if !st.Rows && kind == "postgres" && len(o.Args) == 0 {
 		var tag pgconn.CommandTag
 		err := conn.Raw(func(dc any) error {
@@ -550,10 +550,10 @@ func connectErr(t driver.Target, err error) error {
 		return oe
 	}
 	var pe *pgconn.PgError
-	if errors.As(err, &pe) && (pe.Code == "28P01" || pe.Code == "28000") || isMySQLAuth(err) {
+	if errors.As(err, &pe) && (pe.Code == "28P01" || pe.Code == "28000") || isMySQLAuth(err) || isMSAuth(err) {
 		return out.Errf(out.ExitConnect, "DB_AUTH", "check the user in the URL and the password reference (`komando conn show NAME`)", "%v", err)
 	}
-	if errors.As(err, &pe) && pe.Code == "3D000" || isMySQLNoDatabase(err) {
+	if errors.As(err, &pe) && pe.Code == "3D000" || isMySQLNoDatabase(err) || isMSNoDatabase(err) {
 		return out.Errf(out.ExitNotFound, "DB_NOT_FOUND", "check the database name at the end of the conn URL (`komando conn show NAME`)", "%v", err)
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
@@ -575,8 +575,9 @@ func connectErr(t driver.Target, err error) error {
 func tlsHint(kind string, err error) string {
 	msg := err.Error()
 	weak := map[string][2]string{ // encrypt without checking, no encryption at all
-		"postgres": {"?sslmode=require", "?sslmode=disable"},
-		"mysql":    {"?tls=skip-verify", "?tls=false"},
+		"postgres":  {"?sslmode=require", "?sslmode=disable"},
+		"mysql":     {"?tls=skip-verify", "?tls=false"},
+		"sqlserver": {"&tls=skip-verify", "?encrypt=disable"},
 	}[kind]
 	if weak[0] == "" {
 		return ""
@@ -617,8 +618,11 @@ func queryErr(kind string, ctx context.Context, err error) error {
 		}
 		return out.Errf(out.ExitRemote, "DB_ERROR", "fix the SQL; `komando db schema CONN TABLE` shows columns and types", "%s (SQLSTATE %s)", pe.Message, pe.Code)
 	}
-	if kind == "mysql" {
+	switch kind {
+	case "mysql":
 		return mysqlErr(err)
+	case "sqlserver":
+		return mssqlErr(err)
 	}
 	msg := err.Error()
 	if kind == "sqlite" && (strings.Contains(msg, "readonly database") || strings.Contains(msg, "query_only")) {

@@ -101,6 +101,8 @@ from mysql.user order by user, host`)
 from mysql.user order by user, host`)
 		}
 		return rows, err
+	case "sqlserver":
+		return mssqlUsers(ctx, db)
 	}
 	return nil, notFor(kind, "db user")
 }
@@ -118,6 +120,9 @@ type UserSpec struct {
 func userSQL(ctx context.Context, db *sql.DB, kind, action string, u UserSpec) (stmt, shown string, err error) {
 	if err := checkRole(u.Name); err != nil {
 		return "", "", err
+	}
+	if kind == "sqlserver" {
+		return mssqlUserSQL(action, u)
 	}
 	host := u.Host
 	if host == "" {
@@ -196,10 +201,12 @@ func userErr(err error, name string) error {
 		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd`", "user %s already exists", name)
 	case strings.Contains(msg, "does not exist"), strings.Contains(msg, "1396"):
 		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user ls CONN`", "user %s does not exist", name)
-	case strings.Contains(msg, "permission denied"), strings.Contains(msg, "must have CREATEROLE"), strings.Contains(msg, "Access denied"), strings.Contains(msg, "1227"):
-		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user needs the right to manage users (PostgreSQL: CREATEROLE; MySQL: CREATE USER)", "%s", firstLine(msg))
+	case strings.Contains(msg, "permission denied"), strings.Contains(msg, "does not have permission"), strings.Contains(msg, "must have CREATEROLE"), strings.Contains(msg, "Access denied"), strings.Contains(msg, "1227"):
+		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user needs the right to manage users (PostgreSQL: CREATEROLE; MySQL: CREATE USER; SQL Server: ALTER ANY LOGIN and ALTER ANY USER)", "%s", firstLine(msg))
 	case strings.Contains(msg, "depend on it"), strings.Contains(msg, "owns"):
 		return out.Errf(out.ExitConflict, "DB_USER_IN_USE", "move or drop what the user owns first (PostgreSQL: REASSIGN OWNED BY, DROP OWNED BY)", "%s", firstLine(msg))
+	case strings.Contains(msg, "is currently logged in"):
+		return out.Errf(out.ExitConflict, "DB_USER_IN_USE", "end its sessions first: find them with `komando db activity CONN --all`, then `komando db kill CONN PID --session`", "%s", firstLine(msg))
 	}
 	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement is in data.sql (password hidden)", "%s", firstLine(msg))
 }
@@ -234,15 +241,15 @@ func GrantSQL(ctx context.Context, db *sql.DB, kind string, g Grant) (string, er
 	if err := checkRole(g.User); err != nil {
 		return "", err
 	}
+	if kind == "sqlserver" {
+		return mssqlGrantSQL(ctx, db, g)
+	}
 	verb, prep := "grant", " to "
 	if g.Revoke {
 		verb, prep = "revoke", " from "
 	}
 	privs := make([]string, 0, len(g.Privs))
-	known := pgPrivs
-	if kind == "mysql" {
-		known = myPrivs
-	}
+	known := map[bool]map[string]bool{false: pgPrivs, true: myPrivs}[kind == "mysql"]
 	for _, p := range g.Privs {
 		p = strings.ToUpper(strings.TrimSpace(p))
 		if !known[p] {
@@ -365,6 +372,8 @@ order by 1, 2`, user)
 			res = append(res, map[string]any{"grant": g})
 		}
 		return res, rows.Err()
+	case "sqlserver":
+		return mssqlGrants(ctx, db, user)
 	}
 	return nil, notFor(kind, "db grants")
 }

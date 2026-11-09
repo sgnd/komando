@@ -127,7 +127,8 @@ func dbKillCmd() *cobra.Command {
 		Short: "Stop a session's running query (--session ends the connection)",
 		Long: `Find the PID with ` + "`komando db activity`" + ` or ` + "`komando db locks`" + `. Without --session
 only the running query stops (its transaction rolls back) and the client
-stays connected. --dry-run shows the session it would stop.`,
+stays connected. --dry-run shows the session it would stop. SQL Server can
+only end a session (KILL), so there it needs --session.`,
 		Example: `  komando db kill prod-db 4821 --dry-run
   komando db kill prod-db 4821
   komando db kill prod-db 4821 --session --allow-dangerous`,
@@ -144,6 +145,9 @@ stays connected. --dry-run shows the session it would stop.`,
 			c, err := singleConn(st, args[0], "db")
 			if err != nil {
 				return err
+			}
+			if c.Kind == "sqlserver" && !session {
+				return dbx.KillNeedsSession()
 			}
 			v := driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"db-kill"}, Reasons: []string{"stops the running query of session " + args[1]}}
 			if session {

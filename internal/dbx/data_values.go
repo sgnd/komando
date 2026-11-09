@@ -20,6 +20,9 @@ func colValue(kind, dbType string, v any) any {
 	case time.Time:
 		return timeText(kind, dbType, x)
 	case []byte:
+		if kind == "sqlserver" {
+			return mssqlValue(x, dbType)
+		}
 		if kind == "mysql" {
 			v = mysqlValue(x, dbType)
 			if b, ok := v.([]byte); ok && len(b) == 0 && mysqlBinary[strings.TrimPrefix(dbType, "UNSIGNED ")] {
@@ -46,7 +49,11 @@ func timeText(kind, dbType string, t time.Time) string {
 			return t.Format(naive) // sqlite stores whatever text it was given
 		}
 		return t.Format("2006-01-02")
-	case "TIMESTAMP", "DATETIME":
+	case "TIME":
+		if kind == "sqlserver" { // a time of day; the driver puts it on 0001-01-01
+			return t.Format("15:04:05.9999999")
+		}
+	case "TIMESTAMP", "DATETIME", "DATETIME2", "SMALLDATETIME":
 		if _, off := t.Zone(); kind == "sqlite" && off != 0 {
 			return t.Format(naive + "-07:00")
 		}

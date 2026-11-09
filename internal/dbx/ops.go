@@ -125,6 +125,8 @@ SELECT VERSION() AS version, DATABASE() AS `+"`database`"+`, CURRENT_USER() AS u
 				}
 			}
 		}
+	case "sqlserver":
+		res, err = mssqlInfo(ctx, db)
 	case "sqlite":
 		res, err = oneRow(ctx, db, `
 SELECT sqlite_version() AS version, (SELECT page_count FROM pragma_page_count()) * (SELECT page_size FROM pragma_page_size()) AS size_bytes,
@@ -157,6 +159,8 @@ SELECT id AS pid, user, host AS client, db AS `+"`database`"+`, command, time AS
 FROM information_schema.processlist
 WHERE id <> CONNECTION_ID() AND (? OR command <> 'Sleep')
 ORDER BY time DESC`, all)
+	case "sqlserver":
+		rows, err = mssqlActivity(ctx, db, all)
 	default:
 		return nil, notFor(kind, "activity")
 	}
@@ -200,6 +204,8 @@ JOIN information_schema.innodb_trx b ON b.trx_id = w.blocking_trx_id`)
 			return nil, out.Errf(out.ExitConnect, "DB_PRIVILEGE", "grant it with `GRANT PROCESS ON *.* TO user` (as an admin), or use a conn with an admin user",
 				"lock waits need the PROCESS privilege, which this user lacks")
 		}
+	case "sqlserver":
+		rows, err = mssqlLocks(ctx, db)
 	default:
 		return nil, notFor(kind, "locks")
 	}
@@ -240,6 +246,8 @@ GROUP BY table_schema ORDER BY 2 DESC`); err != nil {
 SELECT table_schema AS `+"`schema`"+`, table_name AS name, data_length + index_length AS total_bytes, data_length AS table_bytes,
        index_length AS index_bytes, table_rows AS `+"`rows`"+`
 FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_schema = DATABASE() ORDER BY 3 DESC LIMIT ?`, limit)
+	case "sqlserver":
+		err = mssqlSizes(ctx, db, limit, res)
 	case "sqlite":
 		res["databases"], err = rowsOf(ctx, db, `
 SELECT 'main' AS name, (SELECT page_count FROM pragma_page_count()) * (SELECT page_size FROM pragma_page_size()) AS bytes`)
@@ -284,6 +292,11 @@ func Kill(ctx context.Context, db *sql.DB, kind string, pid int64, session bool)
 			what = "KILL "
 		}
 		_, err = db.ExecContext(ctx, what+strconv.FormatInt(pid, 10))
+	case "sqlserver":
+		if !session {
+			return KillNeedsSession()
+		}
+		_, err = db.ExecContext(ctx, "KILL "+strconv.FormatInt(pid, 10))
 	default:
 		return notFor(kind, "kill")
 	}

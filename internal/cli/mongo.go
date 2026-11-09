@@ -204,5 +204,10 @@ func noDumpTool(t driver.Target) error {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "run mongodump on a server that reaches the database, with `komando exec` (or a `komando job` for a big one)",
 			"db dump and restore are for SQL databases, not MongoDB")
 	}
+	if t.Kind.Name == "sqlserver" {
+		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"SQL Server backs up with its own BACKUP DATABASE, which writes a .bak file on the database server: run it with `komando db query CONN --write` (it needs --allow-dangerous, so ask the user first), then fetch the file with `komando download` from that server",
+			"db dump and restore are not available for SQL Server yet")
+	}
 	return out.Usage("%s conns have no dump tool", t.Kind.Name)
 }
