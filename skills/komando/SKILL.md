@@ -33,6 +33,8 @@ Update komando only when the human asks: `komando update` (when it stops with
    -o text -- cat FILE`); keep JSON when you branch on each server's exit
    code or error, or need to know whether output was cut
    (`stdout_truncated`).
+   On a Windows server (`os:windows`) commands are PowerShell, there is no
+   sudo, and commands komando cannot run there stop with `NOT_SUPPORTED`.
 2. Run every change once with `--dry-run` first. A dry run is never stopped:
    on a protected target or a destructive command it still shows the plan,
    and `meta.would_be_blocked` names the stop the real run would hit, so you

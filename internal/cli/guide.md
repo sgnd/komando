@@ -79,6 +79,14 @@ VPNs: `komando list kind:vpn`. A target behind a VPN has the VPN first in its
 needs a person, for example an MFA code) or `VPN_DOWN` (a VPN this computer
 runs itself is not connected): ask the human to run `komando vpn up <name>`.
 
+Windows servers (`"os": "windows"` in `komando host show`, pick them with
+`os:windows`): commands run in PowerShell, not sh. `exec`, `script`,
+`facts`, `fs ls/stat/cat/write`, `upload`, `download`, `svc` work; there
+is no `--sudo` (the login's own rights apply). Other commands stop with
+`NOT_SUPPORTED`: use PowerShell through `exec` instead. A target that
+mixes Windows and Linux servers is refused for `exec` (`MIXED_OS`): run
+it once per shell.
+
 ## 3. Read before you write
 
 | Need                         | Command |

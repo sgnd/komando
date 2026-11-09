@@ -36,9 +36,18 @@ type Host struct {
 	Env          map[string]string `json:"env,omitempty"` // exported before every command
 	Protected    bool              `json:"protected,omitempty"`
 	Notes        string            `json:"notes,omitempty"`
-	CreatedAt    time.Time         `json:"created_at"`
-	UpdatedAt    time.Time         `json:"updated_at"`
+	// OS is "windows" for a Windows server: commands are PowerShell, not
+	// sh. Empty: Linux or another Unix (docs/design/windows.md).
+	OS        string    `json:"os,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// OSWindows is Host.OS for a Windows server.
+const OSWindows = "windows"
+
+// Windows reports a Windows server: its commands are PowerShell.
+func (h *Host) Windows() bool { return h != nil && h.OS == OSWindows }
 
 func (h *Host) EffectivePort() int {
 	if h.Port == 0 {

@@ -112,30 +112,6 @@ func svcActionCmd(action string) *cobra.Command {
 	return c
 }
 
-func svcListCmd() *cobra.Command {
-	var state string
-	var failed bool
-	c := &cobra.Command{
-		Use:   "list TARGET",
-		Short: "List service units (filter --state running|failed|...)",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			command := noSystemd + "systemctl list-units --type=service --all --no-legend --plain --no-pager"
-			if failed {
-				state = "failed"
-			}
-			if state != "" {
-				command += " --state=" + sshx.Q(state)
-			}
-			return runOps(cmd.Context(), opsSpec{name: "svc.list", target: args[0], command: command,
-				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return svcListResult(rr) }, text: svcListTable})
-		},
-	}
-	c.Flags().StringVar(&state, "state", "", "unit state filter")
-	c.Flags().BoolVar(&failed, "failed", false, "only failed units")
-	return c
-}
-
 func svcLogsCmd() *cobra.Command {
 	var lo logOpts
 	c := &cobra.Command{

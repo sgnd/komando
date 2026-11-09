@@ -29,6 +29,15 @@ its highlights; the sections below them give the details. Versions follow
   the pre-shared key (l2tp, ipsec, ikev2) once, hidden, as with `host add`;
   they are stored as `secret:NAME-pass` and `secret:NAME-psk`. AI agents get
   `NEEDS_PERSON`.
+- **Windows servers over OpenSSH:** `komando host add win1
+  Administrator@10.0.0.9 --os windows` marks a Windows server. komando then
+  runs PowerShell there: `test`, `exec`, `script`, `facts` (Windows version
+  and support dates, updates, pending reboot, ports), `fs ls/stat/cat/write`,
+  `upload`, `download`, `cp` (single files), `svc
+  status/list/start/stop/restart/enable/disable` and `shell` work; other
+  commands stop with `NOT_SUPPORTED` and a hint before anything runs. See
+  docs/features/windows.md.
+- `os:windows` and `os:linux` target selectors.
 
 ### Changed
 
@@ -46,6 +55,23 @@ its highlights; the sections below them give the details. Versions follow
 - The docs no longer claim more than the code does: secrets are hidden from
   agents komando recognises, and several design docs named flags, commands
   and error codes that do not exist.
+
+### Security
+
+- Windows forms of the destructive rules: a recursive delete of the system
+  drive or a system folder, formatting disks, `Stop-Computer`,
+  `Restart-Computer`, stopping SSH or WinRM, blocking all incoming traffic,
+  deleting users, hidden (`-EncodedCommand`) or downloaded scripts,
+  deleting shadow copies, and deleting a registry hive need
+  `--allow-dangerous`. `exec --read-only` and `script --read-only` on
+  Windows servers fail closed: they accept only a small subset of
+  PowerShell that komando reads exactly (pipelines of listed read cmdlets
+  with literal arguments and safe parameters, and simple `Where-Object`
+  and `ForEach-Object` blocks) and refuse everything else, such as `$`,
+  backticks, `@`, `&`, redirection, comments, .NET calls, keywords and
+  characters outside ASCII. See docs/features/windows.md.
+- A command komando cannot run on Windows is refused for every Windows
+  server, so a sh script is never sent to PowerShell.
 
 ## [0.8.0] - 2026-11-09
 

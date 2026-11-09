@@ -78,7 +78,8 @@ func runShell(ctx context.Context, target string) error {
 	audit(st, "shell", []string{h.Name}, "", true, nil)
 	var started time.Time
 	code, lost := 0, false
-	err = withClient(ctx, st, h, func(c *sshx.Client) error {
+	// a Windows server over SSH gives its own shell (cmd or PowerShell)
+	err = withClient(allowWindows(ctx), st, h, func(c *sshx.Client) error {
 		sess, err := c.NewSession()
 		if err != nil {
 			return err

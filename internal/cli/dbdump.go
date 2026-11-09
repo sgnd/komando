@@ -593,6 +593,9 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 		return nil
 	}
 	// komando reaches the server through its own --via path
+	if h.Windows() {
+		return notOnWindows("running the dump tool --on a server", []string{h.Name})
+	}
 	sc, err := sshx.Dial(ctx, st, h, sshOpts(st))
 	if err != nil {
 		return err

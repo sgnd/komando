@@ -35,11 +35,16 @@ type testResult struct {
 	RemoteUser    string     `json:"remote_user,omitempty"`
 	Hostname      string     `json:"hostname,omitempty"`
 	SudoNoPasswd  *bool      `json:"sudo_nopasswd,omitempty"`
+	Admin         *bool      `json:"admin,omitempty"` // Windows: the login is an administrator
+	OS            string     `json:"os,omitempty"`    // windows, for a Windows server
 	Error         *out.Error `json:"error,omitempty"`
 }
 
 // testHost logs in and checks who we are and whether sudo needs a password.
 func testHost(ctx context.Context, c *sshx.Client) (any, error) {
+	if c.Host.Windows() {
+		return testWindowsHost(ctx, c)
+	}
 	t0 := time.Now()
 	o, _, err := sshx.Output(ctx, c, `printf '%s\n%s\n' "$(id -un)" "$(hostname)"; sudo -n true >/dev/null 2>&1 && echo sudo-ok || echo sudo-no`, 20*time.Second)
 	if err != nil {

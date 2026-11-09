@@ -25,6 +25,15 @@ komando host add db1 admin@10.0.0.5 --via bastion          # reached through bas
 komando host add web3 --address 203.0.113.12 --user deploy --key deploy
 ```
 
+### A Windows server
+
+Add `--os windows`: komando then runs PowerShell there. See
+[Windows servers](windows.md) for what works.
+
+```bash
+komando host add win1 Administrator@10.0.0.9 --os windows --ask-password
+```
+
 ### A new server that is still starting
 
 Right after you create or rebuild a cloud server, SSH may not answer yet.

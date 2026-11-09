@@ -23,6 +23,10 @@ func factsText(d probeData) string {
 			fmt.Fprintf(&b, "● %s  FAILED: %s\n", r.Host, msg)
 			continue
 		}
+		if f["os"] == "windows" {
+			writeWinFactsHost(&b, r.Host, f)
+			continue
+		}
 		writeFactsHost(&b, r.Host, f)
 	}
 	if len(d.Results) > 1 {

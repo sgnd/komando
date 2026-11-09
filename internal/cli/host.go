@@ -33,7 +33,7 @@ func validName(kind, n string) error {
 
 type hostFlags struct {
 	address, user, key, identity, passwordRef, sudoRef, jump, notes string
-	proxyCommand                                                    string
+	proxyCommand, os                                                string
 	ssm                                                             bool
 	port                                                            int
 	groups, tags, labels, env                                       []string
@@ -53,6 +53,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.jump, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path, e.g. vpn1,bastion")
 	aliasFlag(fl, "jump", "via")
 	fl.StringVar(&f.proxyCommand, "proxy-command", "", "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)")
+	fl.StringVar(&f.os, "os", "", "the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)")
 	fl.BoolVar(&f.ssm, "ssm", false, "reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed)")
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (shown to agents in host show)")
 	fl.BoolVar(&f.protected, "protected", false, "require --yes for any change to the server or to this entry (production safety)")
@@ -65,7 +66,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove tag(s)")
 		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (empty value removes)")
 		fl.StringSliceVar(&f.env, "env", nil, "set env KEY=VALUE exported before commands (empty value removes)")
-		fl.StringSliceVar(&f.unset, "unset", nil, "clear fields: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected")
+		fl.StringSliceVar(&f.unset, "unset", nil, "clear fields: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,os")
 	} else {
 		fl.StringSliceVarP(&f.groups, "group", "g", nil, "group(s)")
 		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tag(s)")
@@ -88,7 +89,8 @@ func hostAddCmd() *cobra.Command {
 		Short: "Add a server to the list",
 		Example: `  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
   komando host add db1 --address db.internal --user root --via bastion --protected
-  komando host add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)`,
+  komando host add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)
+  komando host add win1 Administrator@10.0.0.9 --os windows --ask-password   # Windows with OpenSSH`,
 		Args: formArgs(cobra.RangeArgs(1, 2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -123,7 +125,7 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 	}
 	h := &store.Host{Name: name, Address: f.address, Port: f.port, User: f.user, Key: f.key, Identity: f.identity,
 		PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, ProxyCommand: f.proxyCommand, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
-		Protected: f.protected, Notes: f.notes}
+		Protected: f.protected, Notes: f.notes, OS: f.os}
 	if len(args) == 2 {
 		a, err := parseAddressArg(args[1])
 		if err != nil {
@@ -350,7 +352,7 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 		return undo, out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando host edit "+args[0]+" --user deploy (see --help)", "nothing to change")
 	}
 	if err := editConflicts(fl, f.unset, map[string]string{"user": "user", "key": "key", "identity": "identity", "password-ref": "password-ref",
-		"sudo-ref": "sudo-ref", "via": "via", "jump": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected"},
+		"sudo-ref": "sudo-ref", "via": "via", "jump": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected", "os": "os"},
 		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
 		return undo, err
 	}
@@ -496,6 +498,7 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 		h.ProxyCommand = ssmProxy
 	}
 	set("notes", &h.Notes, f.notes)
+	set("os", &h.OS, f.os)
 	if fl.Changed("port") {
 		h.Port = f.port
 	}
@@ -535,8 +538,10 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 			h.Port = 0
 		case "protected":
 			h.Protected = false
+		case "os":
+			h.OS = ""
 		default:
-			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, password-ref, sudo-ref, via, proxy-command, notes, port, protected",
+			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, password-ref, sudo-ref, via, proxy-command, notes, port, protected, os",
 				"cannot unset %q", u)
 		}
 	}
@@ -547,7 +552,7 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 // logs in.
 func hostConnChanged(a, b *store.Host) bool {
 	return !sameAddress(a.Address, b.Address) || a.Port != b.Port || a.User != b.User || a.Key != b.Key || a.Identity != b.Identity ||
-		a.PasswordRef != b.PasswordRef || a.SudoRef != b.SudoRef || a.Via != b.Via || a.ProxyCommand != b.ProxyCommand
+		a.PasswordRef != b.PasswordRef || a.SudoRef != b.SudoRef || a.Via != b.Via || a.ProxyCommand != b.ProxyCommand || a.OS != b.OS
 }
 
 // editConflicts refuses an edit that sets and unsets the same field, or
@@ -618,6 +623,14 @@ func guardProxyCommand(cmd string) error {
 // checkHostRefs refuses a password typed where a reference belongs
 // (--password-ref hunter2 would be stored and printed as plain text).
 func checkHostRefs(h *store.Host) error {
+	switch strings.ToLower(h.OS) {
+	case "", "linux", "unix":
+		h.OS = ""
+	case store.OSWindows:
+		h.OS = store.OSWindows
+	default:
+		return out.Usage("--os takes windows or linux, not %q", h.OS)
+	}
 	if h.ProxyCommand != "" && h.Via != "" {
 		return out.Usage("a host takes --proxy-command or --via, not both (put the proxy on the first host of the --via chain)")
 	}

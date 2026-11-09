@@ -185,7 +185,12 @@ const (
 // sudo wrapping. Exposed so --dry-run can show exactly what would run.
 // sudoPass is the sudo password Run feeds on request, or nil. Values from
 // the vault are not in it: Run sends them on the command's input.
+// On a Windows server cmd is the PowerShell script (docs/design/windows.md).
 func BuildCommand(c *Client, r RunRequest) (cmd string, sudoPass []byte, err error) {
+	if isWindows(c) {
+		cmd, _, err = windowsScript(c, r)
+		return cmd, nil, err
+	}
 	cmd, sudoPass, _, err = buildCommand(c, r)
 	return cmd, sudoPass, err
 }
@@ -272,7 +277,16 @@ func (l *limitedBuf) Write(p []byte) (int, error) {
 
 // Run executes a command and never returns an error for a non-zero exit:
 // that is reported in RunResult.ExitCode. err is for transport failures.
+// On a Windows server the command is PowerShell.
 func Run(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
+	if isWindows(c) {
+		return runWindows(ctx, c, r)
+	}
+	return runPOSIX(ctx, c, r)
+}
+
+// runPOSIX is Run on a server whose shell is sh.
+func runPOSIX(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) {
 	start := time.Now()
 	cmd, sudoPass, stdin, err := runCommand(c, r)
 	if err != nil {
@@ -528,6 +542,9 @@ func Output(ctx context.Context, c *Client, cmd string, timeout time.Duration) (
 // transfers too large for Run (database dumps). stderr is kept up to 64 KiB
 // for error messages. It returns the remote exit code.
 func Pipe(ctx context.Context, c *Client, cmd string, stdin io.Reader, stdout io.Writer) (int, string, error) {
+	if isWindows(c) { // cmd is sh; Windows streams use RunPS
+		return -1, "", fmt.Errorf("%s is a Windows server: this command needs a Linux shell there", c.Host.Name)
+	}
 	sess, err := c.NewSession()
 	if err != nil {
 		return -1, "", err

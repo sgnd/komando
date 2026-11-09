@@ -125,6 +125,9 @@ func fsLsCmd() *cobra.Command {
 			if len(args) == 2 {
 				arg = args[1]
 			}
+			if st, h := windowsOne(args[0]); h != nil {
+				return printed("fs.ls")(winFsLs(cmd.Context(), st, h, arg, all, recursive, maxEntries))
+			}
 			res, _, _, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
 				dir := expandRemote(sc, arg)
 				permHint := "fs ls reads as the SSH user; list it as root with `komando exec " + args[0] + " --sudo -- ls -la " + sshx.Q(dir) + "`"
@@ -202,6 +205,9 @@ func fsStatCmd() *cobra.Command {
 		Short: "Stat a remote path (exists:false instead of an error when missing)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if st, h := windowsOne(args[0]); h != nil {
+				return printed("fs.stat")(winFsStat(cmd.Context(), st, h, args[1], hash))
+			}
 			res, _, _, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
 				p := expandRemote(sc, args[1])
 				fi, err := sc.Lstat(p)
@@ -310,14 +316,20 @@ func fsCatCmd() *cobra.Command {
 			if maxBytes <= 0 {
 				return out.Usage("--max-bytes must be more than 0")
 			}
-			res, _, _, err := oneHost(cmd.Context(), args[0], func(_ *store.State, c *sshx.Client, sc *sftp.Client) (any, error) {
-				p := expandRemote(sc, args[1])
-				b, trunc, err := readRemote(cmd.Context(), c, sc, p, sudo, maxBytes)
-				if err != nil {
-					return nil, err
-				}
-				return catContent(args[0], p, b, trunc, head, tail, numbered)
-			})
+			var res any
+			var err error
+			if st, h := windowsOne(args[0]); h != nil {
+				res, err = winFsCat(cmd.Context(), st, h, args[1], sudo, maxBytes, head, tail, numbered)
+			} else {
+				res, _, _, err = oneHost(cmd.Context(), args[0], func(_ *store.State, c *sshx.Client, sc *sftp.Client) (any, error) {
+					p := expandRemote(sc, args[1])
+					b, trunc, err := readRemote(cmd.Context(), c, sc, p, sudo, maxBytes)
+					if err != nil {
+						return nil, err
+					}
+					return catContent(args[0], p, b, trunc, head, tail, numbered)
+				})
+			}
 			if err != nil {
 				return err
 			}

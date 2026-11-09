@@ -277,7 +277,10 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 		out.P.Print(name, map[string]any{"src": src, "dst": dst, "hosts": hostNames(hosts), "direction": map[bool]string{true: "upload", false: "download"}[up]}, nil)
 		return nil
 	}
-	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+	res := fanout(allowWindows(ctx), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		if c.Host.Windows() {
+			return winCopy(ctx, c, local, remote, up, o, len(hosts) > 1)
+		}
 		sc, err := sftpClient(c)
 		if err != nil {
 			return nil, err

@@ -22,6 +22,9 @@ import (
 //   - Alpine: https://alpinelinux.org/releases/
 //   - Amazon Linux: https://aws.amazon.com/amazon-linux-2/faqs/ and
 //     https://docs.aws.amazon.com/linux/al2023/ug/release-cadence.html
+//   - Windows Server: https://learn.microsoft.com/lifecycle/products/
+//     (end of extended support, which still brings security updates; for
+//     2012 and 2012 R2 the paid Extended Security Updates). Keyed by build.
 //
 // They need updating: add each new release, and check the table when a
 // vendor moves a date (https://endoflife.date collects them all). A
@@ -74,6 +77,14 @@ var osTable = map[string]map[string]osLife{
 	"amzn": {
 		"2":    {standard: "2026-06-30"},
 		"2023": {standard: "2029-06-30"},
+	},
+	"windows-server": {
+		"9200":  {"2023-10-10", "2026-10-13", "microsoft-esu", false}, // 2012
+		"9600":  {"2023-10-10", "2026-10-13", "microsoft-esu", false}, // 2012 R2
+		"14393": {standard: "2027-01-12"},                             // 2016
+		"17763": {standard: "2029-01-09"},                             // 2019
+		"20348": {standard: "2031-10-14"},                             // 2022
+		"26100": {standard: "2034-11-14"},                             // 2025
 	},
 }
 
