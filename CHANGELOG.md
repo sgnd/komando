@@ -7,8 +7,34 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-09
+
 ### Highlights
 
+- **SSH logins ask a person, as `ssh` does:** at a terminal, komando asks
+  for a missing password and for the one-time code of a two-factor login,
+  so `komando shell`, the menu and every other command reach two-factor
+  servers. AI agents are never asked; they send the user to their own
+  terminal.
+- **New database and cache conns check TLS by default:** a conn that
+  crosses the network gets `sslmode=verify-full` (Postgres) or `tls=true`
+  (MySQL), and a plain `redis://` there is refused unless you say
+  `?insecure=1`. Saved conns keep their URL.
+- **Fewer ways for an AI agent to reach a secret:** `secret set` and
+  `--ask-password` from an agent stop with `NEEDS_PERSON`, `vpn add` no
+  longer overwrites another entry's secret, a VPN password or a new VPN
+  address needs a person's yes, and `docker exec --read-only` and `cluster
+  exec --read-only` are checked like `exec --read-only`.
+- **Easier first steps:** `--ask-password` stores a password in one step,
+  `host add`, `conn add` and `vpn add` say what to run next, the menu grows
+  with your inventory, and every hint names a whole command you can run.
+- **Easier to move and to leave:** a whole `export` carries your deny rules
+  and settings and names the keys it needs, `import` keeps servers whose
+  key is not here yet, and `komando guide uninstall` takes komando out of
+  your AI agents again.
+- **For AI agents and their people:** `komando schema` lists every error
+  code with its next step, `doctor` checks each agent's skill, and `audit
+  --actor NAME` shows what one person or agent did.
 - **A new vault keeps its key in the OS keychain**, so a backup or a synced
   copy of `~/.komando` no longer opens it. Vaults you have keep their key
   where it is; `komando secret keychain` moves it.
@@ -50,54 +76,6 @@ its highlights; the sections below them give the details. Versions follow
   audit stay the same. A login to a jump host serves every server behind
   it. `komando logout HOST` (or `--all`) ends it, and `komando status`
   lists kept logins. Making `login_for` longer needs a person's yes.
-
-### Changed
-
-- **A new vault keeps its key in the OS keychain** (the macOS keychain, or
-  the Secret Service through `secret-tool` on Linux), no longer in
-  `vault.key` beside the vault, so a backup or a synced copy of
-  `~/.komando` does not open it. komando makes the key at the first secret
-  and counts on it only once it reads back. A key the keychain already
-  holds for that folder (a vault moved aside) is used, never replaced.
-  Where the keychain cannot keep it (no `secret-tool`, no desktop session,
-  a locked keychain over SSH), the key goes into `vault.key` as before and
-  `komando doctor` warns. Existing vaults keep their key where it is: move
-  it with `komando secret keychain`.
-- `AUTH_FAILED` and `NO_AUTH` for an AI agent or a script now name
-  `komando login HOST` as the way a person lets it reach a two-factor
-  server.
-
-## [0.8.0] - 2026-11-09
-
-### Highlights
-
-- **SSH logins ask a person, as `ssh` does:** at a terminal, komando asks
-  for a missing password and for the one-time code of a two-factor login,
-  so `komando shell`, the menu and every other command reach two-factor
-  servers. AI agents are never asked; they send the user to their own
-  terminal.
-- **New database and cache conns check TLS by default:** a conn that
-  crosses the network gets `sslmode=verify-full` (Postgres) or `tls=true`
-  (MySQL), and a plain `redis://` there is refused unless you say
-  `?insecure=1`. Saved conns keep their URL.
-- **Fewer ways for an AI agent to reach a secret:** `secret set` and
-  `--ask-password` from an agent stop with `NEEDS_PERSON`, `vpn add` no
-  longer overwrites another entry's secret, a VPN password or a new VPN
-  address needs a person's yes, and `docker exec --read-only` and `cluster
-  exec --read-only` are checked like `exec --read-only`.
-- **Easier first steps:** `--ask-password` stores a password in one step,
-  `host add`, `conn add` and `vpn add` say what to run next, the menu grows
-  with your inventory, and every hint names a whole command you can run.
-- **Easier to move and to leave:** a whole `export` carries your deny rules
-  and settings and names the keys it needs, `import` keeps servers whose
-  key is not here yet, and `komando guide uninstall` takes komando out of
-  your AI agents again.
-- **For AI agents and their people:** `komando schema` lists every error
-  code with its next step, `doctor` checks each agent's skill, and `audit
-  --actor NAME` shows what one person or agent did.
-
-### Added
-
 - `audit --actor NAME`: what one person, AI agent or computer account did
   (`komando audit --actor budi --since 30d`). A new page, [Rotate keys and
   passwords](docs/features/rotate.md), gives the steps in order for an SSH
@@ -158,6 +136,19 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- **A new vault keeps its key in the OS keychain** (the macOS keychain, or
+  the Secret Service through `secret-tool` on Linux), no longer in
+  `vault.key` beside the vault, so a backup or a synced copy of
+  `~/.komando` does not open it. komando makes the key at the first secret
+  and counts on it only once it reads back. A key the keychain already
+  holds for that folder (a vault moved aside) is used, never replaced.
+  Where the keychain cannot keep it (no `secret-tool`, no desktop session,
+  a locked keychain over SSH), the key goes into `vault.key` as before and
+  `komando doctor` warns. Existing vaults keep their key where it is: move
+  it with `komando secret keychain`.
+- `AUTH_FAILED` and `NO_AUTH` for an AI agent or a script now name
+  `komando login HOST` as the way a person lets it reach a two-factor
+  server.
 - Hints name whole commands: `komando fs ls TARGET FOLDER`, `komando
   cluster history CONN deployment/NAME`, `komando net check web1
   HOST:443` instead of a bare command that fails as typed. `DNS_ERROR`,
