@@ -400,6 +400,7 @@ team already uses:
 | `vault:secret/shop#db_password` | HashiCorp Vault or OpenBao, KV v1 or v2 | `VAULT_ADDR` and `VAULT_TOKEN` (or `~/.vault-token`), `VAULT_NAMESPACE`, `VAULT_CACERT` |
 | `aws-sm:shop/db#password` | AWS Secrets Manager; `#key` picks a JSON field | your AWS login (`AWS_PROFILE`, `~/.aws`, SSO via `komando login aws`) |
 | `gcp-sm:db-pass@my-project` | Google Secret Manager, latest version | Google application-default credentials (`GOOGLE_APPLICATION_CREDENTIALS`, or on Google Cloud) |
+| `azure-kv:shop-vault/db-password#password` | Azure Key Vault, current version (`/VERSION` after the name picks another); `#key` picks a JSON field | a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`), a workload identity on AKS (`AZURE_FEDERATED_TOKEN_FILE`), the Azure CLI's saved token, or the managed identity on Azure |
 | `bw://shop-db/password` | Bitwarden or Vaultwarden; the field is `password`, `username`, `notes`, `uri`, `totp` or a custom field | `KOMANDO_BW_EMAIL`, `KOMANDO_BW_PASSWORD` (decrypts the vault here), `KOMANDO_BW_SERVER` for Vaultwarden or bitwarden.eu, optional API key `KOMANDO_BW_CLIENT_ID`/`KOMANDO_BW_CLIENT_SECRET` |
 | `kdbx:~/team.kdbx#Servers/web1` | a KeePass or KeePassXC file (KDBX 3.1 and 4); `#UserName` or another field after the entry | `KOMANDO_KDBX_PASSWORD` and/or `KOMANDO_KDBX_KEYFILE` |
 | `op://Vault/Item/field` | 1Password, through a 1Password Connect server | `OP_CONNECT_HOST`, `OP_CONNECT_TOKEN` |
@@ -408,10 +409,31 @@ team already uses:
 komando conn add app-db postgres://app@10.0.0.5/shop --password-ref vault:secret/shop#db_password
 ```
 
-komando talks to Vault, AWS, Google, Bitwarden, KeePass files and 1Password
-Connect itself: you do not need the `vault`, `aws`, `gcloud`, `bw` or `op`
-programs. It reads the value only when it needs it and never stores it. The
+komando talks to Vault, AWS, Google, Azure, Bitwarden, KeePass files and
+1Password Connect itself: you do not need the `vault`, `aws`, `gcloud`, `az`,
+`bw` or `op` programs. It reads the value only when it needs it and never stores it. The
 login (and any MFA) stays with you.
+
+**Azure Key Vault.** Write `azure-kv:VAULT/NAME`, where `VAULT` is the
+vault's name (`shop-vault` for `shop-vault.vault.azure.net`) or, in another
+Azure cloud, its whole host name (`shop-vault.vault.azure.cn`). komando
+tries these logins in order:
+
+1. a service principal: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and
+   `AZURE_CLIENT_SECRET`;
+2. a workload identity on AKS: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and
+   `AZURE_FEDERATED_TOKEN_FILE`;
+3. a token the Azure CLI saved on this computer (Linux and macOS), while it
+   lasts: after `az login`, run
+   `az account get-access-token --resource https://vault.azure.net` and
+   komando can use that token for about an hour. komando does not run `az`
+   and cannot renew the token;
+4. the managed identity of the Azure machine komando runs on
+   (`AZURE_CLIENT_ID` picks a user-assigned one).
+
+The login needs the "Key Vault Secrets User" role on the vault, or an access
+policy that allows Get on secrets. Without a login, the error says
+`SECRET_UNRESOLVED` and names these choices.
 
 Without a Connect server, `op://` stops with an error: komando reads 1Password
 only through 1Password Connect, because the 1Password CLI is closed source and

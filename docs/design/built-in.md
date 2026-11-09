@@ -42,6 +42,7 @@ OpenVPN 3 library) does not qualify.
 | Secrets `vault:` | `vault` CLI | HashiCorp Vault HTTP API (KV v1/v2): a small REST client  ✅ | S |
 | Secrets `aws-sm:` | `aws` CLI | AWS SDK for Go v2 (`secretsmanager`)  ✅ | S |
 | Secrets `gcp-sm:` | `gcloud` CLI | Secret Manager REST API with Google application-default credentials  ✅ | S |
+| Secrets `azure-kv:` | `az` CLI | own client: Azure AD client credentials, workload identity, managed identity (IMDS), the Azure CLI's saved token, and the Key Vault REST API  ✅ | S |
 | Secrets `op://` | `op` CLI | own client for the 1Password Connect REST API (documented, self-hosted). The 1Password Go SDK is **not** used: its core is a prebuilt WebAssembly module, not open source. A personal 1Password account has no documented open API, so `op://` without Connect is removed | M |
 | New: `bw://` (Bitwarden, Vaultwarden) and `kdbx:` (KeePass, KeePassXC files) | none | own clients: Bitwarden's documented API, the open KDBX file format | M |
 | Conns with `aws_profile` (RDS IAM tokens, S3 profiles) | `aws` CLI | AWS SDK for Go v2: profiles, SSO cache, assume-role  ✅ | S |

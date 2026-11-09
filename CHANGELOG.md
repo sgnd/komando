@@ -81,6 +81,14 @@ its highlights; the sections below them give the details. Versions follow
   server, so a sh script is never sent to PowerShell.
 - WinRM refuses Basic login over plain HTTP (the password would travel
   unencrypted) and warns about `tls=off` and `tls=skip-verify`.
+- `azure-kv:VAULT/NAME[#JSON_KEY]` reads a secret from Azure Key Vault,
+  everywhere a `--password-ref` or another secret reference is taken
+  (`azure-kv:shop-vault/db-password`, or `.../NAME/VERSION` for an older
+  version). komando signs in to Azure itself, without the `az` program: with
+  a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`,
+  `AZURE_CLIENT_SECRET`), a workload identity on AKS, a token the Azure CLI
+  saved while it lasts, or the managed identity on Azure. The token goes
+  only to Key Vault hosts, and komando keeps no token.
 
 ## [0.8.0] - 2026-11-09
 

@@ -555,11 +555,12 @@ var Refs = []string{
 	"vault:PATH#FIELD (HashiCorp Vault or OpenBao, KV)",
 	"aws-sm:NAME[#JSON_KEY] (AWS Secrets Manager)",
 	"gcp-sm:NAME[@PROJECT] (Google Secret Manager)",
+	"azure-kv:VAULT/NAME[#JSON_KEY] (Azure Key Vault)",
 }
 
 // ValidRef reports whether ref has a known form.
 func ValidRef(ref string) bool {
-	for _, p := range []string{"secret:", "env:", "file:", "op://", "bw://", "kdbx:", "vault:", "aws-sm:", "gcp-sm:"} {
+	for _, p := range []string{"secret:", "env:", "file:", "op://", "bw://", "kdbx:", "vault:", "aws-sm:", "gcp-sm:", "azure-kv:"} {
 		if strings.HasPrefix(ref, p) && len(ref) > len(p) {
 			return true
 		}
@@ -589,6 +590,7 @@ func RefHelp() string { return "use one of: " + strings.Join(Refs, ", ") }
 //	vault:path#field     -> HashiCorp Vault / OpenBao KV (VAULT_ADDR and a token, as the CLI uses them)
 //	aws-sm:name[#key]    -> AWS Secrets Manager (the usual AWS credentials; a JSON key when given)
 //	gcp-sm:name[@project]-> Google Secret Manager, latest version (application-default credentials)
+//	azure-kv:vault/name[/version][#key] -> Azure Key Vault (a service principal, the Azure CLI's token or a managed identity)
 //
 // komando talks to those services itself (internal/cloud); the login stays
 // with the person and komando never stores the values.
@@ -660,6 +662,16 @@ func Resolve(ref string) (string, error) {
 			return "", fmt.Errorf("google cloud: %v (set GOOGLE_APPLICATION_CREDENTIALS to a key file, or run on Google Cloud)", err)
 		}
 		return v, err
+	case strings.HasPrefix(ref, "azure-kv:"):
+		path, key, _ := strings.Cut(strings.TrimPrefix(ref, "azure-kv:"), "#")
+		v, err := cloud.AzureSecret(context.Background(), path)
+		if errors.Is(err, cloud.ErrAzureLogin) {
+			return "", fmt.Errorf("azure: %v (%s)", err, cloud.AzureLoginHint(cloud.KeyVaultResource(path)))
+		}
+		if err != nil || key == "" {
+			return v, err
+		}
+		return jsonKey(v, key)
 	}
 	return "", fmt.Errorf("invalid secret reference %q (%s)", ref, RefHelp())
 }

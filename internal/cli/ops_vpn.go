@@ -306,7 +306,7 @@ new config file, add it again with --overwrite.`,
 	f.StringVar(&localID, "id", "", "ipsec: the group name; ikev2: your identity")
 	f.StringVar(&remoteID, "remote-id", "", "ikev2: the server's identity")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
-	f.StringVar(&passwordRef, "password-ref", "", "password as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
+	f.StringVar(&passwordRef, "password-ref", "", "password as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO)")
 	f.BoolVar(&legacyCrypto, "legacy-crypto", false, "l2tp, ipsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; turning it on needs a person's yes)")
 	f.BoolVar(&allowPAP, "allow-pap", false, "l2tp: let the server pick PAP, which hands it your password itself (turning it on needs a person's yes)")
