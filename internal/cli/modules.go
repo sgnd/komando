@@ -558,7 +558,7 @@ func netCmd() *cobra.Command {
 				code, _ := v["code"].(float64)
 				switch {
 				case code == 0:
-					return v, out.Errf(out.ExitConnect, "NO_RESPONSE", "check the URL, and that the server can reach it (`komando net check`)", "no HTTP answer from %s", args[1])
+					return v, out.Errf(out.ExitConnect, "NO_RESPONSE", "check the URL, and that the server can reach it: `komando net check "+args[0]+" HOST:443`", "no HTTP answer from %s", args[1])
 				case expect != "" && !statusMatches(int(code), expect):
 					return v, out.Errf(out.ExitRemote, "UNEXPECTED_STATUS", "check the URL and the service behind it", "HTTP %d, expected %s", int(code), expect)
 				}

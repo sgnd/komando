@@ -277,7 +277,7 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 }
 
 func isADirectory(p string) error {
-	return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "list it with `komando fs ls`", "%s is a folder, not a file", p)
+	return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "list it with `komando fs ls TARGET "+p+"`", "%s is a folder, not a file", p)
 }
 
 type catResult struct {

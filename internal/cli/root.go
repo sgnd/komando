@@ -233,11 +233,19 @@ func firstExample(cmd *cobra.Command) string {
 			if i := strings.Index(l, "  #"); i > 0 {
 				l = strings.TrimSpace(l[:i])
 			}
+			// a typo is no reason to hand an AI agent a flag that skips a
+			// safety stop: the first example without one
+			if approvalFlag.MatchString(l) {
+				continue
+			}
 			return l
 		}
 	}
 	return ""
 }
+
+// approvalFlag: --yes, -y, --allow-dangerous or --reveal on a command line.
+var approvalFlag = regexp.MustCompile(`(^|\s)(--yes|-y|--allow-dangerous|--reveal)(\s|=|$)`)
 
 func isUsageErr(err error) bool {
 	m := err.Error()

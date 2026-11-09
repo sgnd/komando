@@ -66,6 +66,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Hints name whole commands: `komando fs ls TARGET FOLDER`, `komando
+  cluster history CONN deployment/NAME`, `komando net check web1
+  HOST:443` instead of a bare command that fails as typed. `DNS_ERROR`,
+  `CONNECT_TIMEOUT`, `CONNECT_FAILED`, `WAIT_TIMEOUT` and `JOB_LOST` name
+  the command to run next. A typo's hint never shows an example with
+  `--yes`, `--allow-dangerous` or `--reveal`; SQLite `db restore` keeps its
+  own hint.
 - A vault that cannot be opened says why, with the step: `VAULT_LOCKED`
   (no passphrase given), `VAULT_KEY` (key file missing or broken),
   `VAULT_DECRYPT` (wrong passphrase), instead of `REMOTE_ERROR`. A server's
