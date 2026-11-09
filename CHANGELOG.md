@@ -7,8 +7,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
-**Highlights:** a new vault keeps its key in the OS keychain, and
-`komando ssh-gate` lets a phone's SSH key run komando and nothing else.
+### Highlights
+
+- **A new vault keeps its key in the OS keychain**, so a backup or a synced
+  copy of `~/.komando` no longer opens it. Vaults you have keep their key
+  where it is; `komando secret keychain` moves it.
+- **`komando ssh-gate` gives a phone's SSH key komando and nothing else:**
+  no shell, one komando command at a time, run as for an AI agent, and
+  read-only if you choose.
 
 ### Added
 
