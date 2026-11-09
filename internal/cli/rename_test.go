@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -138,6 +139,9 @@ func TestRenamePrefix(t *testing.T) {
 	}
 	if _, _, ok := updatedRef(d, "host acme-shop-bastion", "notes"); ok {
 		t.Error("notes change only with --notes")
+	}
+	if w, _ := d["warnings"].([]any); len(w) != 1 || !strings.Contains(w[0].(string), "the notes of 1 entry name old entries") {
+		t.Errorf("one warning counts the notes that stay: %v", d["warnings"])
 	}
 	if len(d["moved"].([]any)) != 2 {
 		t.Errorf("the key and its .pub would move: %v", d["moved"])
@@ -323,30 +327,185 @@ func TestRenameUsage(t *testing.T) {
 	}
 }
 
-// --notes replaces the old names in notes, as whole words only.
+// keptReason is the reason a rename gives for an old name it left in a
+// field of an entry ("" when it is not listed).
+func keptReason(d map[string]any, entry, field, name string) string {
+	list, _ := d["kept"].([]any)
+	for _, k := range list {
+		k := k.(map[string]any)
+		if k["entry"] == entry && k["field"] == field && k["name"] == name {
+			return k["reason"].(string)
+		}
+	}
+	return ""
+}
+
+// --notes replaces the names that clearly mean an entry, and lists the old
+// names it keeps: OLD without its - (here a database and a role), a key
+// and group name that is also a bucket, a server name that is also the
+// bucket of a conn, and a pattern that would no longer match the same
+// entries.
 func TestRenameNotes(t *testing.T) {
 	shopInventory(t)
+	mustRun(t, "key", "gen", "shop-dev")
+	mustRun(t, "conn", "add", "shop-files", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1", "-g", "shop-dev")
+	mustRun(t, "host", "add", "shop-prod", "u@10.0.0.6") // also the bucket in conn bucket's URL
+	mustRun(t, "host", "add", "shop-prod-db-01", "u@10.0.0.7")
+	mustRun(t, "host", "add", "shop-prod-db-02", "u@10.0.0.8")
+	mustRun(t, "host", "add", "shop-web-1", "u@10.0.0.9")
+	mustRun(t, "host", "add", "acme-shop-web-9", "u@10.0.0.10") // in the way of acme-shop-web-*
+	note := "db shop, role shop on shop-db; dump to bucket shop-dev. Copy to shop-prod, then shop-prod-db-* and shop-web-*. " +
+		"Password: secret:shop-pass. Members: @shop and @shop-stg (shop-stg); ssh u@shop. Is it shop-vpn?"
+	mustRun(t, "host", "add", "ops", "u@10.0.0.11", "--notes", note)
+
+	d := mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--notes", "--yes", "--dry-run")
+	from, to, ok := updatedRef(d, "host ops", "notes")
+	want := "db shop, role shop on acme-shop-db; dump to bucket shop-dev. Copy to shop-prod, then acme-shop-prod-db-* and shop-web-*. " +
+		"Password: secret:acme-shop-pass. Members: @acme-shop and @acme-shop-stg (shop-stg); ssh u@shop. Is it acme-shop-vpn?"
+	if !ok || from != note || to != want {
+		t.Errorf("notes:\n got %q\nwant %q", to, want)
+	}
+	for name, why := range map[string]string{
+		"shop":           "OLD without its -",
+		"shop-dev":       "a key's name",
+		"shop-prod":      "also in the URL of conn bucket",
+		"shop-web-*":     "acme-shop-web-* would also match acme-shop-web-9",
+		"shop-stg":       "a group's name, often a plain word too; @shop-stg follows the group",
+		"shop-prod-db-*": "",
+	} {
+		if got := keptReason(d, "host ops", "notes", name); !strings.Contains(got, why) || (why == "") != (got == "") {
+			t.Errorf("kept %s: %q, want %q", name, got, why)
+		}
+	}
+	if !strings.Contains(keptReason(d, "host ops", "notes", "shop"), "@shop follows the group") {
+		t.Errorf("the bare name is a group here: %v", d["kept"])
+	}
+	if from, to, _ := updatedRef(d, "host acme-shop-bastion", "notes"); from != "jump for shop-db; see shop-vpn." || to != "jump for acme-shop-db; see acme-shop-vpn." {
+		t.Errorf("bastion notes: %q -> %q", from, to)
+	}
+	if d["warnings"] != nil {
+		t.Errorf("no notes warning with --notes: %v", d["warnings"])
+	}
+	text := renameResultText(t, d)
+	for _, s := range []string{"old names kept in notes and labels", "host ops notes: shop (OLD without its -"} {
+		if !strings.Contains(text, s) {
+			t.Errorf("the text lists what stays (%q):\n%s", s, text)
+		}
+	}
+
 	mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--notes", "--yes")
 	st, _ := store.Load()
+	if n := st.Hosts["ops"].Notes; n != want {
+		t.Errorf("saved notes: %q", n)
+	}
 	if n := st.Hosts["acme-shop-bastion"].Notes; n != "jump for acme-shop-db; see acme-shop-vpn." {
 		t.Errorf("notes: %q", n)
+	}
+
+	// --kind conn: the servers keep their names, so a pattern for them stays
+	invHome(t)
+	mustRun(t, "host", "add", "lab-db-1", "u@10.0.0.1", "--notes", "backups on lab-db-* via lab-gw")
+	mustRun(t, "conn", "add", "lab-gw", "postgres://a@10.0.0.2/x")
+	d = mustRun(t, "rename", "--prefix", "lab-", "test-", "--kind", "conn", "--notes")
+	if _, to, _ := updatedRef(d, "host lab-db-1", "notes"); to != "backups on lab-db-* via test-gw" {
+		t.Errorf("--kind conn notes: %q", to)
+	}
+	if r := keptReason(d, "host lab-db-1", "notes", "lab-db-*"); r != "a pattern that also matches lab-db-1, which keeps its name" {
+		t.Errorf("--kind conn pattern: %q", r)
+	}
+}
+
+// renameResultText is the text komando prints for a rename's JSON data.
+func renameResultText(t *testing.T, d map[string]any) string {
+	t.Helper()
+	b, err := json.Marshal(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r renameResult
+	if err := json.Unmarshal(b, &r); err != nil {
+		t.Fatal(err)
+	}
+	return r.Text()
+}
+
+func TestNameTextReplace(t *testing.T) {
+	nt := &nameText{
+		follow: map[string]string{"shop-db": "acme-shop-db", "shop-vpn": "acme-shop-vpn"},
+		groups: map[string]string{"shop": "acme-shop"},
+		left:   map[string]string{"shop": "OLD without its -"},
 	}
 	for in, want := range map[string]string{
 		"shop-db":                     "acme-shop-db",
 		"shop-db.":                    "acme-shop-db.",
+		"shop-db?":                    "acme-shop-db?",
 		"(shop-db, shop-vpn)":         "(acme-shop-db, acme-shop-vpn)",
+		"**shop-db** and *shop-vpn*":  "**acme-shop-db** and *acme-shop-vpn*",
 		"shop-db-replica":             "shop-db-replica",
 		"my-shop-db":                  "my-shop-db",
 		"shop-db.example.com":         "shop-db.example.com",
 		"s3://shop-admin@shop-prod":   "s3://shop-admin@shop-prod",
 		"@shop and tag:x":             "@acme-shop and tag:x",
+		"u@shop, x@shop-db":           "u@shop, x@acme-shop-db",
 		"Jakarta–shop-db ✓ ünïcode":   "Jakarta–acme-shop-db ✓ ünïcode",
 		"":                            "",
-		"shop shop- shop-db shopshop": "acme-shop shop- acme-shop-db shopshop",
+		"shop shop- shop-db shopshop": "shop shop- acme-shop-db shopshop",
+		"shop-db-* and *":             "shop-db-* and *", // no prefix: patterns stay
 	} {
-		if got := replaceNames(in, map[string]string{"shop-db": "acme-shop-db", "shop-vpn": "acme-shop-vpn", "shop": "acme-shop"}); got != want {
-			t.Errorf("replaceNames(%q) = %q, want %q", in, got, want)
+		if got, _ := nt.replace(in); got != want {
+			t.Errorf("replace(%q) = %q, want %q", in, got, want)
 		}
+	}
+	if _, kept := nt.replace("db shop, @shop, u@shop."); len(kept) != 2 || kept[0] != (keptWord{"shop", "OLD without its -"}) {
+		t.Errorf("kept: %v", kept)
+	}
+}
+
+// Labels are free text: without --labels each value that names an old
+// entry stays and is listed with what it would become; --labels replaces
+// it, by the same rules as --notes.
+func TestRenameLabels(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "shop-web", "u@10.0.0.1", "-g", "shop")
+	mustRun(t, "conn", "add", "shop-db", "postgres://app@10.0.0.2/app", "--label", "host=shop-web", "--label", "team=shop", "--label", "dc=eu")
+	mustRun(t, "host", "add", "other", "u@10.0.0.3", "--label", "backup=shop-db")
+
+	d := mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--dry-run")
+	for _, c := range []struct{ entry, field, name, to, why string }{
+		{"conn acme-shop-db", "label host", "shop-web", "acme-shop-web", "labels change only with --labels"},
+		{"host other", "label backup", "shop-db", "acme-shop-db", "labels change only with --labels"},
+		{"conn acme-shop-db", "label team", "shop", "", "OLD without its -"},
+	} {
+		if r := keptReason(d, c.entry, c.field, c.name); !strings.HasPrefix(r, c.why) {
+			t.Errorf("%s %s: %q, want %q", c.entry, c.field, r, c.why)
+		}
+	}
+	if k := d["kept"].([]any); len(k) != 3 {
+		t.Errorf("kept: %v", k)
+	}
+	if text := renameResultText(t, d); !strings.Contains(text, "conn acme-shop-db label host: shop-web (labels change only with --labels; it would become acme-shop-web)") {
+		t.Errorf("text:\n%s", text)
+	}
+	mustRun(t, "rename", "--prefix", "shop-", "acme-shop-")
+	st, _ := store.Load()
+	if l := st.Conns["acme-shop-db"].Labels; l["host"] != "shop-web" || l["team"] != "shop" {
+		t.Errorf("labels changed without --labels: %v", l)
+	}
+
+	// --labels: the values that name entries follow; the bare name stays
+	invHome(t)
+	mustRun(t, "host", "add", "shop-web", "u@10.0.0.1", "-g", "shop")
+	mustRun(t, "conn", "add", "shop-db", "postgres://app@10.0.0.2/app", "--label", "host=shop-web", "--label", "team=shop", "--label", "dc=eu")
+	d = mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--labels")
+	if from, to, ok := updatedRef(d, "conn acme-shop-db", "label host"); !ok || from != "shop-web" || to != "acme-shop-web" {
+		t.Errorf("label host: %q -> %q", from, to)
+	}
+	st, _ = store.Load()
+	if l := st.Conns["acme-shop-db"].Labels; l["host"] != "acme-shop-web" || l["team"] != "shop" || l["dc"] != "eu" {
+		t.Errorf("labels: %v", l)
+	}
+	if !strings.HasPrefix(keptReason(d, "conn acme-shop-db", "label team", "shop"), "OLD without its -") {
+		t.Errorf("kept: %v", d["kept"])
 	}
 }
 

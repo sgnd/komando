@@ -102,6 +102,17 @@ its highlights; the sections below them give the details. Versions follow
 - `import komando` adds a server whose keychain key is not on this computer,
   leaves the key out and says how to bring it (`key add`, then `host edit
   --key`), as it does for an identity file. It used to leave the server out.
+- `rename --prefix --notes` replaces only what clearly means an entry:
+  server, conn, VPN and secret names, `@group`, and a pattern such as
+  `shop-db-*` that matches the same entries afterwards (before, it did not
+  follow). The old prefix without its `-`, group names without `@`, key
+  names, and names that are also the user, host, bucket or database in a
+  conn URL stay, and are listed under `kept` with the reason. Before, `db
+  shop` and `bucket shop-dev` became `acme-shop…` too.
+- `rename --prefix` lists every label value that names an old entry (such
+  as a conn's `host=` label, which `doctor` reads), and `--labels` replaces
+  them by the same rules. Without `--notes`, a warning counts the notes
+  that still name old entries.
 
 ### Fixed
 
