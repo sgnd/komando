@@ -429,7 +429,7 @@ func guardKubeImport(name string, x *kube.Context) error {
 	if e := x.Plugin(); e != nil {
 		line := pluginLine(e)
 		if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() {
-			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig",
+			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig (if this program is intended, --allow-dangerous lets it run)",
 				"context %s logs in with `%s`, which matches destructive rules: %s", name, line, hits[0].Reason))
 		}
 		if isAgent() {

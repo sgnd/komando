@@ -132,6 +132,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Last gaps from the user-journey review: the features index no longer
+  says SQLite restores; the tunnel page says how a person copies the
+  database password; README says Codex asks once in `/hooks` and what
+  `secret keychain` needs on Linux; `komando schema` describes every `meta`
+  field; the proxy-command and credential-plugin stops name
+  `--allow-dangerous`; `KEYCHAIN_FAILED` says a person unlocks the keychain.
 - A flag a group gives all its sub-commands (`cron --user`, `cron --sudo`,
   `docker --sudo`, `pkg --no-sudo`) now shows in the sub-command's `--help`
   and in `komando schema <command>`, where agents look before using one.

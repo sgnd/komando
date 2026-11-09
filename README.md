@@ -150,6 +150,11 @@ that folder opens the vault. Move the key into the system keychain once
 komando secret keychain
 ```
 
+On macOS this uses the system keychain as it is. On Linux it needs
+`secret-tool` (`sudo apt install libsecret-tools`) and a desktop session
+with a keyring; on a server without one, give the vault a passphrase
+instead (`komando secret passphrase`).
+
 You do not need `KOMANDO_VAULT_PASS`: a vault passphrase is optional, mainly
 for a computer without a keychain (see [Settings](docs/features/settings.md#where-komando-keeps-its-data)).
 `komando doctor` checks your whole setup.
@@ -198,7 +203,8 @@ komando guide install
 
 It adds the komando *skill*: a short note the agent reads by itself whenever
 a task touches a server, database, cache or storage. Restart the agent after
-it. Run it again after you update komando.
+it. Run it again after you update komando. In Codex, open `/hooks` once and
+approve komando's guard; Codex asks before it runs a new hook.
 
 Other agents: copy the text of [`AGENTS.md`](AGENTS.md) into your agent's
 instructions file (for example `AGENTS.md` or `CLAUDE.md` in the folder you
