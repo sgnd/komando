@@ -13,13 +13,34 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// komando login renews a person's cloud login without the vendor's CLI.
-// It is for a person: they confirm the login in their browser.
+// komando login HOST keeps a person's server login (login_ssh.go);
+// komando login aws renews a person's cloud login without the vendor's
+// CLI. Both are for a person: they answer the login at the terminal or in
+// their browser.
 
 func loginCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "login",
-		Short: "Log in to a cloud account (AWS IAM Identity Center)",
+		Use:   "login [HOST]",
+		Short: "Log in to a server once and keep it, or to a cloud account",
+		Long: `komando login HOST logs in to a server with a person at the terminal:
+komando asks what the server asks (the password, a two-factor code), then
+keeps that login open in the background for the login_for setting (8h).
+Commands to that server, an AI agent's too, use it and need no login; the
+rules, approvals and audit of each command stay the same. ` + "`komando logout HOST`" + `
+ends it sooner, and ` + "`komando status`" + ` lists the kept logins. A login to a jump
+host is used for every server behind it.
+
+komando login aws logs in to AWS IAM Identity Center (SSO).`,
+		Example: `  komando login web1      # answer the code once; AI agents can then use web1
+  komando logout web1
+  komando login aws --profile prod`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return cmd.Help()
+			}
+			return loginHost(cmd.Context(), args[0])
+		},
 	}
 	c.AddCommand(loginAWSCmd())
 	return c

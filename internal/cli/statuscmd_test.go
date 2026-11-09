@@ -14,7 +14,7 @@ func TestRunningStatusEmpty(t *testing.T) {
 	if d.Vpns == nil || d.Tunnels == nil || d.Jobs == nil {
 		t.Errorf("empty lists must be [] in JSON, not null: %+v", d)
 	}
-	if got := d.Text(); got != "nothing running: no VPN sessions, tunnels or jobs\n" {
+	if got := d.Text(); got != "nothing running: no VPN sessions, server logins, tunnels or jobs\n" {
 		t.Errorf("text: %q", got)
 	}
 }

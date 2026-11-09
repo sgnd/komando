@@ -336,7 +336,7 @@ func TestPasswordIsNeverSentAsACode(t *testing.T) {
 	}{
 		{name: "password only", srv: &otpServer{rounds: [][]string{{"Password: "}}}, stored: pw, ok: true, sentPW: 1, answered: []string{"Password: "}},
 		{name: "password, then a code", srv: &otpServer{rounds: [][]string{{"Password: "}, {"Verification code: "}}}, stored: pw, sentPW: 1, answered: []string{"Password: "},
-			inMessage: `web1 asks "Verification code:" (two-factor login)`, inHint: "komando asks you for the code there"},
+			inMessage: `web1 asks "Verification code:" (two-factor login)`, inHint: "komando asks you for the code once and keeps the login"},
 		{name: "a code first", srv: &otpServer{rounds: [][]string{{"Enter your OTP\x1b[2J: "}, {"Password: "}}}, stored: pw,
 			inMessage: `web1 asks "Enter your OTP [2J:" (two-factor login)`},
 		{name: "password and code in one round", srv: &otpServer{rounds: [][]string{{"Password: ", "One-time token: "}}}, stored: pw,

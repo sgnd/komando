@@ -28,6 +28,7 @@ komando update --dry-run                     # is there a newer komando?
 | `audit_sql` | how SQL text is kept in the audit log | `full`, `hash`, `off` (needs `--yes`) | `full` |
 | `audit_syslog` | also send each audit record to a central log server (a SIEM) | `udp://HOST:514`, `tcp://HOST:514`, `tls://HOST:6514`, `off` (changing it needs `--yes`) | `off` |
 | `mask_personal` | where AI agents see email addresses, phone numbers, card numbers and IBANs hidden (see [Personal data](safety.md#personal-data)) | `protected`, `all`, `off` (showing more needs `--yes`) | `protected` |
+| `login_for` | how long `komando login HOST` keeps a server's login for later commands, an AI agent's too | a duration, e.g. `2h`; an AI agent needs a person's yes to make it longer | `8h` |
 | `vpn_idle` | close a VPN that komando started after this long unused | a duration; `0` = never close | `30m` |
 
 ```bash

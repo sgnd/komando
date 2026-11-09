@@ -337,6 +337,9 @@ func (lk *loginKeys) noAuth(st *store.State, h *store.Host) *out.Error {
 	default:
 		why, hint = "the ssh-agent at SSH_AUTH_SOCK does not answer", loginWay(st, h)
 	}
+	if lk.skipped == "" && Ask == nil && !adhoc(st, h) {
+		hint += "; if only a person knows the password or code, ask the user to run `komando login " + h.Name + "` once, and later commands use that login"
+	}
 	return out.Errf(out.ExitConnect, "NO_AUTH", hint, "no authentication method available for %s: it has no key or password, and %s", h.Name, why)
 }
 
@@ -362,6 +365,15 @@ func adhoc(st *store.State, h *store.Host) bool {
 // refused every way komando tried. It never suggests `key deploy`, which
 // logs in the same way and would fail too.
 func authFailedHint(st *store.State, h *store.Host) string {
+	hint := authFailedCheck(st, h)
+	if Ask == nil && !adhoc(st, h) {
+		// no person here (an AI agent, a script): one can log in once for it
+		hint += "; if only a person knows the password or code, ask the user to run `komando login " + h.Name + "` once, and later commands use that login"
+	}
+	return hint
+}
+
+func authFailedCheck(st *store.State, h *store.Host) string {
 	name := h.Name
 	switch {
 	case adhoc(st, h):
@@ -573,15 +585,17 @@ func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
 	// background process). A person who runs the command is asked.
 	switch e.kind {
 	case askCode:
-		return out.Errf(out.ExitConnect, "AUTH_FAILED",
-			"run the command yourself in a terminal: komando asks you for the code there (an AI agent asks the user to run it)",
+		oe := out.Errf(out.ExitConnect, "AUTH_FAILED",
+			"run `komando login HOST` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it",
 			"%s asks %s (two-factor login); only a person can answer it, and none is at a terminal here", name, strconv.Quote(e.question))
+		oe.Hint = strings.Replace(oe.Hint, "HOST", name, 1) // a command to run as it is
+		return oe
 	case askAgain:
 		return out.Errf(out.ExitConnect, "AUTH_FAILED", authFailedHint(st, h),
 			"%s asks %s again: it refused the stored password, which komando sends only once", name, strconv.Quote(e.question))
 	}
 	return out.Errf(out.ExitConnect, "AUTH_FAILED",
-		"run the command yourself in a terminal: komando shows you the question and sends your answer (an AI agent asks the user to run it)",
+		"run `komando login "+name+"` in a terminal: komando shows you the question once and keeps the login, so later commands (an AI agent's too) need no answer; an AI agent asks the user to run it",
 		"%s asks %s; komando answers only a hidden password question by itself, and no person is at a terminal here", name, strconv.Quote(e.question))
 }
 

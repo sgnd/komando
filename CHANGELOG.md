@@ -15,6 +15,8 @@ its highlights; the sections below them give the details. Versions follow
 - **`komando ssh-gate` gives a phone's SSH key komando and nothing else:**
   no shell, one komando command at a time, run as for an AI agent, and
   read-only if you choose.
+- **`komando login HOST` lets an AI agent reach a two-factor server:** a
+  person answers the code once, and komando keeps that login for 8 hours.
 
 ### Added
 
@@ -41,6 +43,13 @@ its highlights; the sections below them give the details. Versions follow
   See [Safety](docs/features/safety.md#a-key-that-runs-komando-and-nothing-else).
 - `KOMANDO_KEYCHAIN=off` keeps komando away from the keychain (CI runners,
   containers, test runs): a new vault then keeps its key in `vault.key`.
+- `komando login HOST`: a person logs in to a server once, answering its
+  password and two-factor code, and komando keeps that login in the
+  background for the new `login_for` setting (8h). Every command to that
+  server, an AI agent's too, uses it without a code; rules, approvals and
+  audit stay the same. A login to a jump host serves every server behind
+  it. `komando logout HOST` (or `--all`) ends it, and `komando status`
+  lists kept logins. Making `login_for` longer needs a person's yes.
 
 ### Changed
 
@@ -54,6 +63,9 @@ its highlights; the sections below them give the details. Versions follow
   a locked keychain over SSH), the key goes into `vault.key` as before and
   `komando doctor` warns. Existing vaults keep their key where it is: move
   it with `komando secret keychain`.
+- `AUTH_FAILED` and `NO_AUTH` for an AI agent or a script now name
+  `komando login HOST` as the way a person lets it reach a two-factor
+  server.
 
 ## [0.8.0] - 2026-11-09
 

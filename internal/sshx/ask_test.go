@@ -204,7 +204,7 @@ func TestNoPersonNoQuestions(t *testing.T) {
 	h := &store.Host{Name: "web1", Address: host, Port: port, User: "u", PasswordRef: "env:KOMANDO_TEST_PW"}
 	oe := asOutErr(t, dialHost(newState(h), h))
 	if oe.Code != "AUTH_FAILED" || !strings.Contains(oe.Message, "only a person can answer it") ||
-		!strings.Contains(oe.Hint, "komando asks you for the code there") || strings.Contains(oe.Hint, "ssh-command") {
+		!strings.Contains(oe.Hint, "komando asks you for the code once and keeps the login") || strings.Contains(oe.Hint, "ssh-command") {
 		t.Errorf("%s: %s / %s", oe.Code, oe.Message, oe.Hint)
 	}
 }

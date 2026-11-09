@@ -81,7 +81,7 @@ komando schema -o json | python3 -c 'import json,sys; [print(c["code"], c["exit"
 
 | Error | Usually means | Try |
 |-------|---------------|-----|
-| `AUTH_FAILED` | wrong user, key or password; or the server asks for a two-factor code and no person is at a terminal to answer it (the message quotes its question) | `komando host show NAME`; a changed password: `komando secret set NAME`; a two-factor login: run the command in your own terminal, where komando asks you for the code (an AI agent asks the user to) |
+| `AUTH_FAILED` | wrong user, key or password; or the server asks for a two-factor code and no person is at a terminal to answer it (the message quotes its question) | `komando host show NAME`; a changed password: `komando secret set NAME`; a two-factor login: `komando login NAME` once in your terminal (it asks the code and keeps the login, 8h; an AI agent asks the user to run it) |
 | `NO_AUTH` | the server has no key, identity or password, ssh-agent holds no key, and no person is at a terminal to type a password (the message says if `~/.ssh/id_ed25519` is encrypted and not loaded) | `ssh-add` (or `ssh-add ~/.ssh/id_ed25519`), or save a password: `komando secret set NAME`, then `komando host edit NAME --password-ref secret:NAME` (or `--key KEY`); start ssh-agent first if `SSH_AUTH_SOCK` is not set |
 | `KEY_PASSPHRASE_REQUIRED` | the server's key (`--key` or `--identity`) is encrypted, has no passphrase in the vault, and ssh-agent does not hold it (komando uses the agent's copy, as `ssh` does) | `ssh-add PATH`, or store the passphrase: `komando secret set NAME`, `komando key add NAME PATH --passphrase-ref secret:NAME`, then `komando host edit HOST --key NAME --unset identity` (for a `--key` key: `komando key edit NAME --passphrase-ref secret:NAME`) |
 | `CONNECTION_REFUSED`, `CONNECT_TIMEOUT` | server down, wrong port, firewall | check the address and port; `--connect-timeout 30s` |
@@ -164,7 +164,7 @@ jobs run on their servers: `komando job list --refresh` shows which still run
 It contacts nothing, so it is quick and works offline. A job stays on the
 list until `komando job rm`. Whether it still runs is known only on its
 server, which `komando job list --refresh` asks. Agents get the same as JSON
-(`vpns`, `tunnels`, `jobs`). An idle VPN closes after `vpn_idle` (see
+(`vpns`, `logins`, `tunnels`, `jobs`). An idle VPN closes after `vpn_idle` (see
 [Settings](settings.md)).
 
 ### Show it in your shell prompt (optional)

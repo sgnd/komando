@@ -142,6 +142,13 @@ komando secret set web1-pass
 komando host edit web1 --password-ref secret:web1-pass
 ```
 
+A two-factor server needs a fresh code, so a stored password is not enough.
+Log in once and komando keeps that login for 8 hours, for your AI agent too:
+
+```bash
+komando login web1
+```
+
 A new vault keeps its key in the system keychain (the macOS keychain, or
 the Secret Service on Linux), so a backup or a synced copy of `~/.komando`
 does not open it. Where there is no keychain (a Linux server, a container),

@@ -36,7 +36,8 @@ it knows gets secrets hidden in output and the approval window for `--yes`,
    command in their own terminal. If they deny it, do not retry.
 8. **Never** "fix" `HOSTKEY_MISMATCH` yourself: report it, it may be an attack.
    For `VPN_LOGIN_REQUIRED` or `VPN_DOWN`, ask the human to run
-   `komando vpn up <name>`.
+   `komando vpn up <name>`. For a server that asks a two-factor code, ask
+   them to run `komando login <host>` once; your commands then use it.
 9. Secrets stay hidden from agents: output shows `[hidden]` or `[secret:NAME]`,
    and personal data on protected targets `[hidden: email]` (or phone, card,
    iban, column). Never write such a value back; ask the human if a task
