@@ -34,8 +34,7 @@ computer trusts. A registry with a certificate from a private CA (mkcert,
 an internal CA) is refused with `REGISTRY_TLS`. Two ways to fix it:
 
 ```bash
-komando secret set lan-ca < ca.crt            # 1. preferred: trust that CA, the check stays on
-komando secret set lan-ca < lan-ca.crt        # the CA's PEM certificate, from a file
+komando secret set lan-ca < ca.crt            # 1. preferred: trust that CA (its PEM certificate), the check stays on
 komando conn add lan 'registry://me@registry.lan?ca=secret:lan-ca' --password-ref secret:lan-token
 komando conn add lan 'registry://me@registry.lan?tls=skip-verify' --password-ref secret:lan-token   # 2. no check at all
 ```

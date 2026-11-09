@@ -13,7 +13,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// ------------------------------------------------------------------ svc ---
+// svc status and actions.
 
 // svcResult reads `systemctl show` output into units and fails the host
 // when systemd is not running or a unit does not exist.
@@ -166,7 +166,7 @@ func svcListTable(data any) string {
 	return textTable([]string{"unit", "load", "active", "sub", "description"}, rows)
 }
 
-// ----------------------------------------------------------------- logs ---
+// logs.
 
 // journalPriorities are the names journalctl -p takes (also 0-7 and FROM..TO).
 var journalPriorities = map[string]bool{"emerg": true, "alert": true, "crit": true, "err": true, "warning": true, "notice": true, "info": true, "debug": true,

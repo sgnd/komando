@@ -15,6 +15,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unicode"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 // The error catalog (errcodes.go, `komando schema` error_codes) is made
@@ -48,7 +51,11 @@ func TestErrorCodeCatalog(t *testing.T) {
 }
 
 var (
-	codeShape = regexp.MustCompile(`^[A-Z][A-Z0-9]*(_[A-Z0-9]+)+$|^(USAGE|ERROR|FAILED|TIMEOUT|CANCELLED)$`)
+	// codeShape is what a code looks like: upper case, digits and
+	// underscores (NXDOMAIN has none). Only strings in a code's place are
+	// tested: the code argument of out.Errf, a Code field or a call to a
+	// function that passes its argument on as the code.
+	codeShape = regexp.MustCompile(`^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$`)
 	verbs     = regexp.MustCompile(`%[-+# 0-9.]*[a-zA-Z]`)
 	exitNames = map[string]int{"ExitOK": 0, "ExitError": 1, "ExitUsage": 2, "ExitNotFound": 3, "ExitConnect": 4,
 		"ExitRemote": 5, "ExitPolicy": 6, "ExitTimeout": 7, "ExitConflict": 8}
@@ -61,9 +68,24 @@ type codeSite struct {
 	hint, message string
 }
 
+// wrapper is a function that passes one of its arguments on as an error
+// code, like agentYes(code, msg, what): a call to it with a code written
+// in it is a call site too. An argument index of -1 means the function
+// writes that part itself (exit, hint, message).
+type wrapper struct {
+	codeArg, exitArg, hintArg, msgArg int
+	exit                              int
+	hint, message                     string
+}
+
+type goFile struct {
+	path string
+	f    *ast.File
+}
+
 func scanErrorCodes(t *testing.T) []errorCode {
 	t.Helper()
-	var sites []codeSite
+	var files []goFile
 	err := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -78,151 +100,489 @@ func scanErrorCodes(t *testing.T) []errorCode {
 		if err != nil {
 			return err
 		}
-		sites = append(sites, codeSites(path, f)...)
+		files = append(files, goFile{path, f})
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	sort.SliceStable(sites, func(i, j int) bool { return sites[i].file < sites[j].file })
-	byCode := map[string]*errorCode{}
+	sort.SliceStable(files, func(i, j int) bool { return files[i].path < files[j].path })
+	wrappers := findWrappers(files)
+	var sites []codeSite
+	for _, gf := range files {
+		sites = append(sites, codeSites(gf.path, gf.f, wrappers)...)
+	}
+	byCode := map[string][]codeSite{}
 	var order []string
 	for _, s := range sites {
-		c := byCode[s.code]
-		if c == nil {
-			c = &errorCode{Code: s.code, Exit: -1}
-			byCode[s.code] = c
+		if byCode[s.code] == nil {
 			order = append(order, s.code)
 		}
-		if c.Exit < 0 && s.exit >= 0 {
-			c.Exit = s.exit
-		}
-		if c.Example == "" && s.message != "" {
-			c.Example = s.message
-		}
-		if c.Hint == "" && s.hint != "" {
-			c.Hint = s.hint
-		}
+		byCode[s.code] = append(byCode[s.code], s)
 	}
 	sort.Strings(order)
-	var out []errorCode
+	var codes []errorCode
 	for _, code := range order {
-		c := *byCode[code]
-		if c.Exit < 0 {
-			c.Exit = 1
+		ss := byCode[code]
+		if from, ok := renamedFrom[code]; ok {
+			// the error keeps the exit and hint of the one it renames
+			for i := range ss {
+				if ss[i].exit < 0 && ss[i].hint == "" {
+					f := pickSite(byCode[from])
+					ss[i].exit, ss[i].hint = f.Exit, f.Hint
+				}
+			}
 		}
-		if m, ok := meanings[code]; ok && strings.Trim(c.Example, "… ") == "" {
+		c := pickSite(ss)
+		if m, ok := meanings[code]; ok && letters(c.Example) < 4 {
 			c.Example = m
 		}
-		out = append(out, c)
+		if h, ok := hintMeanings[code]; ok && !hasWords(c.Hint) {
+			c.Hint = h
+		}
+		if c.Hint == "" { // what the output gives in its place
+			c.Hint = out.DefaultHint(c.Exit)
+		}
+		codes = append(codes, c)
 	}
-	return out
+	return codes
 }
 
-func codeSites(path string, f *ast.File) []codeSite {
-	var sites []codeSite
-	lit := func(e ast.Expr) string {
-		if b, ok := e.(*ast.BasicLit); ok && b.Kind == token.STRING {
-			if s, err := strconv.Unquote(b.Value); err == nil {
-				return s
+// pickSite makes a code's catalog entry from ONE call site, so the example
+// and the hint belong together. The exit code is the one most sites give
+// (on a tie, the first site's). Among the sites with that exit, it takes
+// the ones with a message and a hint written out in full, else those with
+// both, else those with a hint, else those with a message, else all; of
+// these, the one whose hint most sites give (on a tie, the first).
+func pickSite(ss []codeSite) errorCode {
+	count, most := map[int]int{}, 0
+	for _, s := range ss {
+		if s.exit >= 0 {
+			count[s.exit]++
+			most = max(most, count[s.exit])
+		}
+	}
+	exit := -1
+	for _, s := range ss {
+		if s.exit >= 0 && count[s.exit] == most {
+			exit = s.exit
+			break
+		}
+	}
+	hints := map[string]int{}
+	for _, s := range ss {
+		hints[s.hint]++
+	}
+	said := func(m string) bool { return letters(m) >= 4 } // "…: …" or "… is …" says nothing
+	best := -1
+	for _, want := range []func(codeSite) bool{
+		func(s codeSite) bool { return s.hint != "" && !strings.Contains(s.hint, "…") && said(s.message) },
+		func(s codeSite) bool { return s.hint != "" && said(s.message) },
+		func(s codeSite) bool { return s.hint != "" },
+		func(s codeSite) bool { return said(s.message) },
+		func(codeSite) bool { return true },
+	} {
+		for i, s := range ss {
+			if (s.exit == exit || s.exit < 0) && want(s) && (best < 0 || hints[s.hint] > hints[ss[best].hint]) {
+				best = i
 			}
 		}
+		if best >= 0 {
+			break
+		}
+	}
+	if exit < 0 {
+		exit = 1
+	}
+	s := ss[best]
+	return errorCode{Code: s.code, Exit: exit, Example: s.message, Hint: s.hint}
+}
+
+// lit is a string literal's value, or "".
+func lit(e ast.Expr) string {
+	if b, ok := e.(*ast.BasicLit); ok && b.Kind == token.STRING {
+		if s, err := strconv.Unquote(b.Value); err == nil {
+			return s
+		}
+	}
+	return ""
+}
+
+// srcText is a string as a reader sees it: literals as written, joined
+// with +, the format of an fmt.Sprintf, and "…" for a value the program
+// fills in. It is "" when nothing in it is written in the source.
+func srcText(e ast.Expr) string {
+	var parts []string
+	written := false
+	var walk func(ast.Expr)
+	walk = func(e ast.Expr) {
+		switch x := e.(type) {
+		case *ast.BasicLit:
+			if s := lit(x); x.Kind == token.STRING {
+				parts, written = append(parts, s), written || s != ""
+				return
+			}
+		case *ast.ParenExpr:
+			walk(x.X)
+			return
+		case *ast.BinaryExpr:
+			if x.Op == token.ADD {
+				walk(x.X)
+				walk(x.Y)
+				return
+			}
+		case *ast.CallExpr:
+			if fn, ok := x.Fun.(*ast.SelectorExpr); ok && fn.Sel.Name == "Sprintf" && len(x.Args) > 0 {
+				if id, ok := fn.X.(*ast.Ident); ok && id.Name == "fmt" && lit(x.Args[0]) != "" {
+					parts, written = append(parts, verbs.ReplaceAllString(lit(x.Args[0]), "…")), true
+					return
+				}
+			}
+		}
+		parts = append(parts, "…")
+	}
+	walk(e)
+	if !written {
 		return ""
 	}
-	exitOf := func(e ast.Expr) int {
-		switch x := e.(type) {
-		case *ast.SelectorExpr:
-			if n, ok := exitNames[x.Sel.Name]; ok {
-				return n
-			}
-		case *ast.Ident:
-			if n, ok := exitNames[x.Name]; ok {
-				return n
-			}
+	return strings.Join(parts, "")
+}
+
+func exitOf(e ast.Expr) int {
+	switch x := e.(type) {
+	case *ast.SelectorExpr:
+		if n, ok := exitNames[x.Sel.Name]; ok {
+			return n
 		}
-		return -1
+	case *ast.Ident:
+		if n, ok := exitNames[x.Name]; ok {
+			return n
+		}
 	}
-	codesIn := func(e ast.Expr) []string {
-		if s := lit(e); codeShape.MatchString(s) {
-			return []string{s}
-		}
-		// map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET"}[kind]
-		var codes []string
-		if ix, ok := e.(*ast.IndexExpr); ok {
-			if cl, ok := ix.X.(*ast.CompositeLit); ok {
-				for _, el := range cl.Elts {
-					if kv, ok := el.(*ast.KeyValueExpr); ok && codeShape.MatchString(lit(kv.Value)) {
-						codes = append(codes, lit(kv.Value))
+	return -1
+}
+
+// assign is one value given to a variable, and the statement that gives it.
+type assign struct {
+	stmt ast.Node
+	val  ast.Expr
+}
+
+// localVars lists every value a function gives each of its variables, in
+// source order: `code := "SECRET_UNRESOLVED"` then `code = "SECRET_NOT_FOUND"`.
+func localVars(body ast.Node) map[string][]assign {
+	vars := map[string][]assign{}
+	ast.Inspect(body, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.AssignStmt:
+			if len(x.Lhs) == len(x.Rhs) {
+				for i, l := range x.Lhs {
+					if id, ok := l.(*ast.Ident); ok {
+						vars[id.Name] = append(vars[id.Name], assign{x, x.Rhs[i]})
 					}
 				}
 			}
-		}
-		return codes
-	}
-	add := func(codes []string, exit int, hint, msg string) {
-		for _, c := range codes {
-			sites = append(sites, codeSite{file: path, code: c, exit: exit, hint: hint, message: example(msg)})
-		}
-	}
-	ast.Inspect(f, func(n ast.Node) bool {
-		switch x := n.(type) {
-		case *ast.CallExpr:
-			name := ""
-			switch fn := x.Fun.(type) {
-			case *ast.SelectorExpr:
-				if id, ok := fn.X.(*ast.Ident); ok && id.Name == "out" {
-					name = fn.Sel.Name
-				}
-			case *ast.Ident:
-				if strings.HasSuffix(path, "/out/out.go") {
-					name = fn.Name
-				}
-			}
-			switch {
-			case name == "Errf" && len(x.Args) >= 4:
-				add(codesIn(x.Args[1]), exitOf(x.Args[0]), lit(x.Args[2]), lit(x.Args[3]))
-			case name == "Usage" && len(x.Args) >= 1:
-				add([]string{"USAGE"}, 2, "", lit(x.Args[0]))
-			case name == "NotFound" && len(x.Args) >= 1 && lit(x.Args[0]) != "":
-				k := lit(x.Args[0])
-				add([]string{strings.ToUpper(k) + "_NOT_FOUND"}, 3, fmt.Sprintf("run `komando %s list` to see available %ss", k, k), k+" … not found")
-			}
-		case *ast.CompositeLit:
-			sel, ok := x.Type.(*ast.SelectorExpr)
-			id, ok2 := x.Type.(*ast.Ident)
-			if !(ok && sel.Sel.Name == "Error") && !(ok2 && id.Name == "Error" && strings.HasSuffix(path, "/out/out.go")) {
-				return true
-			}
-			var codes []string
-			exit, hint, msg := -1, "", ""
-			for _, el := range x.Elts {
-				kv, ok := el.(*ast.KeyValueExpr)
-				if !ok {
-					continue
-				}
-				switch k, _ := kv.Key.(*ast.Ident); {
-				case k == nil:
-				case k.Name == "Code":
-					codes = codesIn(kv.Value)
-				case k.Name == "Exit":
-					exit = exitOf(kv.Value)
-				case k.Name == "Hint":
-					hint = lit(kv.Value)
-				case k.Name == "Message":
-					msg = lit(kv.Value)
-				}
-			}
-			add(codes, exit, hint, msg)
-		case *ast.AssignStmt:
-			// soft.Code = "PARTIAL_FAILURE", soft.Code, soft.Hint = "X", "..."
-			for i, l := range x.Lhs {
-				if s, ok := l.(*ast.SelectorExpr); ok && s.Sel.Name == "Code" && i < len(x.Rhs) {
-					add(codesIn(x.Rhs[i]), -1, "", "")
+		case *ast.ValueSpec:
+			if len(x.Names) == len(x.Values) {
+				for i, id := range x.Names {
+					vars[id.Name] = append(vars[id.Name], assign{x, x.Values[i]})
 				}
 			}
 		}
 		return true
 	})
+	return vars
+}
+
+// scope is what a call site can see: the variables of the function it is
+// in, and the statement that gave the code (nil when the code is written
+// at the call itself).
+type scope struct {
+	vars map[string][]assign
+	stmt ast.Node
+}
+
+// valueOf is the expression a variable holds at a site: the value the
+// code's own statement gives it, else the first value it is given.
+func (sc scope) valueOf(e ast.Expr) ast.Expr {
+	id, ok := e.(*ast.Ident)
+	if !ok {
+		return e
+	}
+	as := sc.vars[id.Name]
+	for _, a := range as {
+		if a.stmt == sc.stmt && sc.stmt != nil {
+			return a.val
+		}
+	}
+	if len(as) > 0 {
+		return as[0].val
+	}
+	return e
+}
+
+func (sc scope) str(e ast.Expr) string { return srcText(sc.valueOf(e)) }
+
+func (sc scope) exit(e ast.Expr) int {
+	n := exitOf(sc.valueOf(e))
+	if n == 0 { // "worst := 0" is a start value, not this error's exit
+		return -1
+	}
+	return n
+}
+
+// codesAt are the codes an expression in a code's place can hold, each
+// with the scope it is read in.
+func codesAt(e ast.Expr, vars map[string][]assign) (codes []string, scopes []scope) {
+	if s := lit(e); codeShape.MatchString(s) {
+		return []string{s}, []scope{{vars: vars}}
+	}
+	switch x := e.(type) {
+	case *ast.IndexExpr:
+		// map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET"}[kind]
+		if cl, ok := x.X.(*ast.CompositeLit); ok {
+			for _, el := range cl.Elts {
+				if kv, ok := el.(*ast.KeyValueExpr); ok && codeShape.MatchString(lit(kv.Value)) {
+					codes, scopes = append(codes, lit(kv.Value)), append(scopes, scope{vars: vars})
+				}
+			}
+		}
+	case *ast.Ident:
+		// code := "CERT_PROBLEMS" ... out.Error{Code: code}
+		for _, a := range vars[x.Name] {
+			if s := lit(a.val); codeShape.MatchString(s) {
+				codes, scopes = append(codes, s), append(scopes, scope{vars: vars, stmt: a.stmt})
+			}
+		}
+	}
+	return codes, scopes
+}
+
+// errorSink is a place that makes an error: out.Errf, out.Error{...}, or a
+// wrapper call. Its parts are expressions (nil: not written there).
+type errorSink struct {
+	code, exit, hint, msg ast.Expr
+	w                     *wrapper // a wrapper call: the parts it fills itself
+}
+
+func sinkOf(n ast.Node, path string, wrappers map[string]*wrapper) *errorSink {
+	switch x := n.(type) {
+	case *ast.CallExpr:
+		name := ""
+		switch fn := x.Fun.(type) {
+		case *ast.SelectorExpr:
+			if id, ok := fn.X.(*ast.Ident); ok && id.Name == "out" {
+				name = fn.Sel.Name
+			}
+		case *ast.Ident:
+			if strings.HasSuffix(path, "/out/out.go") {
+				name = fn.Name
+			} else if w := wrappers[filepath.Dir(path)+"."+fn.Name]; w != nil && w.codeArg < len(x.Args) {
+				s := &errorSink{code: x.Args[w.codeArg], w: w}
+				arg := func(i int) ast.Expr {
+					if i >= 0 && i < len(x.Args) {
+						return x.Args[i]
+					}
+					return nil
+				}
+				s.exit, s.hint, s.msg = arg(w.exitArg), arg(w.hintArg), arg(w.msgArg)
+				return s
+			}
+		}
+		if name == "Errf" && len(x.Args) >= 4 {
+			s := &errorSink{code: x.Args[1], exit: x.Args[0], hint: x.Args[2], msg: x.Args[3]}
+			if lit(x.Args[3]) == "%s" && len(x.Args) == 5 {
+				s.msg = x.Args[4]
+			}
+			return s
+		}
+	case *ast.CompositeLit:
+		sel, ok := x.Type.(*ast.SelectorExpr)
+		id, ok2 := x.Type.(*ast.Ident)
+		if !(ok && sel.Sel.Name == "Error") && !(ok2 && id.Name == "Error" && strings.HasSuffix(path, "/out/out.go")) {
+			return nil
+		}
+		s := &errorSink{}
+		for _, el := range x.Elts {
+			kv, ok := el.(*ast.KeyValueExpr)
+			if !ok {
+				continue
+			}
+			switch k, _ := kv.Key.(*ast.Ident); {
+			case k == nil:
+			case k.Name == "Code":
+				s.code = kv.Value
+			case k.Name == "Exit":
+				s.exit = kv.Value
+			case k.Name == "Hint":
+				s.hint = kv.Value
+			case k.Name == "Message":
+				s.msg = kv.Value
+			}
+		}
+		if s.code != nil {
+			return s
+		}
+	case *ast.AssignStmt:
+		// soft.Code, soft.Hint = "PARTIAL_FAILURE", "see each result's error and hint"
+		if len(x.Lhs) != len(x.Rhs) {
+			return nil
+		}
+		s := &errorSink{}
+		for i, l := range x.Lhs {
+			if sel, ok := l.(*ast.SelectorExpr); ok {
+				switch sel.Sel.Name {
+				case "Code":
+					s.code = x.Rhs[i]
+				case "Exit":
+					s.exit = x.Rhs[i]
+				case "Hint":
+					s.hint = x.Rhs[i]
+				case "Message":
+					s.msg = x.Rhs[i]
+				}
+			}
+		}
+		if s.code != nil {
+			return s
+		}
+	}
+	return nil
+}
+
+// findWrappers finds the functions that pass an argument on as an error
+// code (agentYes, localFileErr, renameNotFound), and the functions that
+// pass one on to those, until there are no more. The out package's own
+// Errf, NotFound and Usage are read by name instead.
+func findWrappers(files []goFile) map[string]*wrapper {
+	wrappers := map[string]*wrapper{}
+	for changed := true; changed; {
+		changed = false
+		for _, gf := range files {
+			if strings.HasSuffix(filepath.Dir(gf.path), "/out") {
+				continue
+			}
+			for _, d := range gf.f.Decls {
+				fd, ok := d.(*ast.FuncDecl)
+				if !ok || fd.Body == nil || fd.Recv != nil {
+					continue
+				}
+				key := filepath.Dir(gf.path) + "." + fd.Name.Name
+				if wrappers[key] != nil {
+					continue
+				}
+				params := map[string]int{}
+				i := 0
+				for _, f := range fd.Type.Params.List {
+					for _, n := range f.Names {
+						params[n.Name] = i
+						i++
+					}
+				}
+				argOf := func(e ast.Expr) int {
+					if id, ok := e.(*ast.Ident); ok {
+						if n, ok := params[id.Name]; ok {
+							return n
+						}
+					}
+					return -1
+				}
+				ast.Inspect(fd.Body, func(n ast.Node) bool {
+					if wrappers[key] != nil {
+						return false
+					}
+					s := sinkOf(n, gf.path, wrappers)
+					if s == nil || argOf(s.code) < 0 {
+						return true
+					}
+					w := &wrapper{codeArg: argOf(s.code), exitArg: argOf(s.exit), hintArg: argOf(s.hint), msgArg: argOf(s.msg), exit: -1}
+					if s.exit != nil {
+						w.exit = exitOf(s.exit)
+					}
+					if s.hint != nil && w.hintArg < 0 {
+						w.hint = srcText(s.hint)
+					}
+					if s.msg != nil && w.msgArg < 0 {
+						w.message = srcText(s.msg)
+					}
+					if s.w != nil { // passes it on to another wrapper
+						if w.exit < 0 && w.exitArg < 0 {
+							w.exit = s.w.exit
+						}
+						if w.hint == "" && w.hintArg < 0 {
+							w.hint = s.w.hint
+						}
+						if w.message == "" && w.msgArg < 0 {
+							w.message = s.w.message
+						}
+					}
+					wrappers[key], changed = w, true
+					return false
+				})
+			}
+		}
+	}
+	return wrappers
+}
+
+func codeSites(path string, f *ast.File, wrappers map[string]*wrapper) []codeSite {
+	var sites []codeSite
+	visit := func(body ast.Node, vars map[string][]assign) {
+		ast.Inspect(body, func(n ast.Node) bool {
+			if x, ok := n.(*ast.CallExpr); ok {
+				if fn, ok := x.Fun.(*ast.SelectorExpr); ok {
+					if id, ok := fn.X.(*ast.Ident); ok && id.Name == "out" || strings.HasSuffix(path, "/out/out.go") {
+						switch {
+						case fn.Sel.Name == "Usage" && len(x.Args) >= 1:
+							sites = append(sites, codeSite{path, "USAGE", 2, "", example(srcText(x.Args[0]))})
+						case fn.Sel.Name == "NotFound" && len(x.Args) >= 1 && lit(x.Args[0]) != "":
+							k := lit(x.Args[0])
+							sites = append(sites, codeSite{path, strings.ToUpper(k) + "_NOT_FOUND", 3,
+								fmt.Sprintf("run `komando %s list` to see available %ss", k, k), k + " … not found"})
+						}
+					}
+				}
+			}
+			s := sinkOf(n, path, wrappers)
+			if s == nil {
+				return true
+			}
+			codes, scopes := codesAt(s.code, vars)
+			for i, code := range codes {
+				sc := scopes[i]
+				site := codeSite{file: path, code: code, exit: -1}
+				if s.exit != nil {
+					site.exit = sc.exit(s.exit)
+				}
+				if s.hint != nil {
+					site.hint = sc.str(s.hint)
+				}
+				if s.msg != nil {
+					site.message = example(sc.str(s.msg))
+				}
+				if w := s.w; w != nil {
+					if site.exit < 0 && w.exitArg < 0 {
+						site.exit = w.exit
+					}
+					if site.hint == "" && w.hintArg < 0 {
+						site.hint = w.hint
+					}
+					if site.message == "" && w.msgArg < 0 {
+						site.message = example(w.message)
+					}
+				}
+				sites = append(sites, site)
+			}
+			return true
+		})
+	}
+	for _, d := range f.Decls {
+		if fd, ok := d.(*ast.FuncDecl); ok && fd.Body != nil {
+			visit(fd.Body, localVars(fd.Body))
+		} else {
+			visit(d, nil)
+		}
+	}
 	return sites
 }
 
@@ -231,6 +591,9 @@ func codeSites(path string, f *ast.File) []codeSite {
 func example(format string) string {
 	s := verbs.ReplaceAllString(format, "…")
 	s = strings.Join(strings.Fields(s), " ")
+	for strings.Contains(s, "……") {
+		s = strings.ReplaceAll(s, "……", "…")
+	}
 	if r := []rune(s); len(r) > 160 {
 		s = string(r[:159]) + "…"
 	}
@@ -250,7 +613,7 @@ var meanings = map[string]string{
 	"DB_NOT_FOUND":         "the database named in the conn does not exist",
 	"DB_PRIVILEGE":         "the conn's user lacks a right the command needs",
 	"DB_USER_IN_USE":       "the database user owns objects or has sessions, so it is not removed",
-	"DEPLOY_FAILED":        "a rollout did not finish (its events follow)",
+	"DEPLOY_FAILED":        "key deploy could not add the key to the server's authorized_keys (the server's words follow)",
 	"DOCKER_ERROR":         "docker on the server answered with an error",
 	"DOCKER_PERMISSION":    "the login user may not use docker on the server (add --sudo, or the docker group)",
 	"DRY_RUN_UNSUPPORTED":  "this change cannot be previewed; run it without --dry-run to make it",
@@ -261,11 +624,16 @@ var meanings = map[string]string{
 	"FILE_ERROR":           "a file on this computer cannot be read or written",
 	"HOSTKEY_MISMATCH":     "the server shows a different host key than the one pinned: maybe an attack, never fixed automatically",
 	"HOSTKEY_UNKNOWN":      "host keys are strict and this server's key is not pinned yet (the message shows its fingerprint)",
+	"K8S_CONFLICT":         "the object changed or exists already (the cluster's words follow)",
+	"K8S_ERROR":            "the Kubernetes API answered with an error (its words follow)",
+	"K8S_INVALID":          "the cluster refused the request as written (its words follow)",
 	"K8S_UNREACHABLE":      "the Kubernetes API did not answer (address, --via path or VPN)",
 	"KEYCHAIN_FAILED":      "the system keychain refused (locked, or no Secret Service on Linux)",
 	"KILL_FAILED":          "the session or job could not be stopped",
 	"PARTIAL_FAILURE":      "some targets failed and some worked (see each result)",
 	"READ_FAILED":          "komando could not read from the server or the resource",
+	"REGISTRY_AUTH":        "the registry refused the login or the token's scopes",
+	"REGISTRY_UNSUPPORTED": "the registry does not allow this request",
 	"REGISTRY_UNREACHABLE": "the registry did not answer (address, TLS or --via path)",
 	"REMOTE_ERROR":         "an error from outside komando with no more specific code (its words follow)",
 	"RESTORE_FAILED":       "the restore stopped; what was loaded before the error stays (unless it ran in one transaction)",
@@ -288,6 +656,38 @@ var meanings = map[string]string{
 	"VPN_STOP_FAILED":      "the VPN session could not be stopped",
 	"WEAK_PASSPHRASE":      "the passphrase is shorter than 15 characters",
 	"WRITE_FAILED":         "a file could not be written",
+	"CONNECTION_REFUSED":   "the server refused the connection: nothing listens on that port",
+	"DNS_ERROR":            "the server's name does not resolve on this computer",
+	"OVPN_UNSUPPORTED":     "the OpenVPN profile has an option komando's own client does not support (the message names it)",
+	"SENSITIVE_FILE":       "the file holds secrets or belongs to komando, so an AI agent may not read or copy it",
+	"SSM_FAILED":           "AWS Session Manager could not open a session to the instance",
+}
+
+// renamedFrom are codes given by renaming another error (e.Code =
+// "SWARM_ERROR" on a DOCKER_ERROR), which keeps that error's exit and hint.
+var renamedFrom = map[string]string{"SWARM_ERROR": "DOCKER_ERROR"}
+
+// hintMeanings stand in for a hint the program builds as it runs (from the
+// key's path, or from the tool's error): what it tells the reader to do.
+var hintMeanings = map[string]string{
+	"KEY_PASSPHRASE_REQUIRED": "load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands)",
+	"NO_PASSPHRASE":           "the vault keeps its key in vault.key or the OS keychain already; the hint says which",
+	"VPN_CLIENT_MISSING":      "install the program the message names (macOS: `brew install NAME`; Linux: its package)",
+	"TOOL_FAILED":             "read the message; `komando conn test CONN` checks reachability (for a known problem, the hint names the fix)",
+}
+
+// hasWords reports whether a hint says something beyond the values the
+// program fills in ("…, or …" does not).
+func hasWords(h string) bool { return letters(h) >= 12 }
+
+func letters(s string) int {
+	n := 0
+	for _, r := range s {
+		if unicode.IsLetter(r) {
+			n++
+		}
+	}
+	return n
 }
 
 func writeErrorCodes(t *testing.T, codes []errorCode) {

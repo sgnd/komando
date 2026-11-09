@@ -1,4 +1,4 @@
-# komando — playbook for AI agents
+# komando: playbook for AI agents
 
 You manage real servers, databases, caches, storage, clusters and registries. Be precise,
 look before you act, and make the smallest change that works.
@@ -285,7 +285,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 
 | exit | code examples                     | what to do |
 |------|-----------------------------------|------------|
-| 1    | ERROR, FILE_ERROR, WRITE_FAILED   | read `error.message` and `error.hint` |
+| 1    | ERROR, FILE_ERROR, WRITE_FAILED (a file on this computer) | read `error.message` and `error.hint` |
 | 2    | USAGE, HIDDEN_VALUE               | fix the flags (`komando schema <cmd>`); a group alone (`komando db`) is USAGE and the hint lists its sub-commands; never write `[hidden]` text back |
 | 3    | TARGET_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | `komando list`; the hint suggests the closest name |
 | 3    | SECRET_NOT_FOUND, SECRET_UNRESOLVED | `komando secret list`; ask the human to store the secret |
@@ -295,7 +295,8 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; use `job start` next time |
 | 5    | FAILED                            | read `data.results[].stderr` and `exit_code` |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
-| 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, WRITE_REQUIRES_FLAG, NEEDS_PERSON | stop and ask the human |
+| 5    | WRITE_FAILED (a file on a server) | check that the folder is writable and has free space (`komando exec TARGET --read-only -- df -h`) |
+| 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, WRITE_REQUIRES_FLAG, NEEDS_PERSON, CONFIRM_REQUIRED | stop and ask the human |
 | 7    | TIMEOUT, CONNECT_TIMEOUT          | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file; use exact, unique `--old` text |
 | 8    | NOT_WRITABLE (update)             | ask the human to run the `sudo` command from `error.hint` in their terminal |

@@ -16,7 +16,7 @@ import (
 	"github.com/sgnd/komando/internal/kube"
 )
 
-// ---- reading ---------------------------------------------------------------
+// Verbs that only read.
 
 func (r *kctlRun) describe() error {
 	refs, err := r.refs(r.a.pos)

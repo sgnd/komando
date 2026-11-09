@@ -15,7 +15,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// -------------------------------------------------------------- recipes ---
+// Built-in recipes.
 
 type recipe struct {
 	Name     string            `json:"name"`
@@ -166,7 +166,7 @@ func (l recipeList) Text() string {
 	return textTable([]string{"name", "category", "read-only", "description"}, rows)
 }
 
-// --------------------------------------------------------------- recipe ---
+// The recipe command.
 
 // A recipe is a saved command with {{blanks}}. The built-in ones (health,
 // disk, certs, ...) and the ones people save live in one list, under one

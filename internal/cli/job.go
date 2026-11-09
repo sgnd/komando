@@ -747,7 +747,7 @@ func jobRmCmd() *cobra.Command {
 	return c
 }
 
-// --- text output -------------------------------------------------------------
+// Text output for a person.
 
 type started struct {
 	ID    string     `json:"id,omitempty"`

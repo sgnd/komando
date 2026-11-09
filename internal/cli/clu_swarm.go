@@ -126,7 +126,7 @@ func shortImage(img string) string {
 	return img
 }
 
-// --- lists -------------------------------------------------------------------
+// Swarm list commands.
 
 func swarmFilter(selector string) string {
 	if selector == "" {
@@ -243,7 +243,7 @@ func swarmNodes(ls []map[string]any) []map[string]any {
 	return rows
 }
 
-// --- status ------------------------------------------------------------------
+// Swarm status.
 
 func swarmStatus(ctx context.Context, t clusterTarget) (statusData, error) {
 	st, err := loadState()
@@ -306,7 +306,7 @@ func swarmHealth(host, version string, nodes, services, tasks []map[string]any) 
 		"services": len(services), "healthy": len(problems) == 0, "problems": problems}
 }
 
-// --- describe / get / logs ---------------------------------------------------
+// Swarm describe, get and logs.
 
 func swarmDescribe(ctx context.Context, t clusterTarget, name string) (any, error) {
 	st, err := loadState()
@@ -492,7 +492,7 @@ func swarmLogs(ctx context.Context, t clusterTarget, service string, limit int, 
 	return nil
 }
 
-// --- changes -----------------------------------------------------------------
+// Swarm changes.
 
 // swarmDo runs a change on the manager after the safety checks: risky
 // changes need --allow-dangerous, protected servers --yes. Under --dry-run

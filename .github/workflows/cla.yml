@@ -12,15 +12,16 @@ on:
   pull_request_target:
     types: [opened, closed, synchronize]
 
-permissions:
-  actions: write
-  contents: write # write signatures/cla.json on the cla-signatures branch
-  pull-requests: write
-  statuses: write
+permissions: {}
 
 jobs:
   cla:
     name: CLA signed
+    permissions:
+      actions: write
+      contents: write # write signatures/cla.json on the cla-signatures branch
+      pull-requests: write
+      statuses: write
     if: >-
       github.event_name == 'pull_request_target' ||
       (github.event.issue.pull_request &&

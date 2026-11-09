@@ -50,7 +50,7 @@ type syncSide interface {
 	remove(ctx context.Context, rel string) error
 }
 
-// --- this computer --------------------------------------------------------
+// Sync side: a folder on this computer.
 
 type localSide struct{ root string }
 
@@ -176,7 +176,7 @@ func (l localSide) remove(_ context.Context, rel string) error {
 	return os.Remove(filepath.Join(l.root, filepath.FromSlash(rel)))
 }
 
-// --- a folder on a server, over SFTP ---------------------------------------
+// Sync side: a folder on a server, over SFTP.
 
 type sftpSide struct {
 	sc   *sftp.Client
@@ -261,7 +261,7 @@ func (s sftpSide) remove(_ context.Context, rel string) error {
 	return fsErr(rel, s.sc.Remove(path.Join(s.root, rel)))
 }
 
-// --- a prefix in a storage conn ---------------------------------------------
+// Sync side: a prefix in a storage conn.
 
 type bucketSide struct {
 	b      storex.Bucket
@@ -314,7 +314,7 @@ func (b bucketSide) remove(ctx context.Context, rel string) error {
 	return b.b.Remove(ctx, b.key(rel))
 }
 
-// --- planning ---------------------------------------------------------------
+// Planning what to copy and delete.
 
 type syncOpts struct {
 	delete, onlyNew bool
@@ -508,8 +508,6 @@ func (r *syncResult) Text() string {
 	}
 	return sb.String()
 }
-
-// --- the command --------------------------------------------------------------
 
 func syncCmd() *cobra.Command {
 	var o syncOpts

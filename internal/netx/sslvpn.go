@@ -21,9 +21,9 @@ import (
 
 // builtinSSL are the SSL VPN kinds komando speaks itself. experimentalSSL
 // are written but not yet tested against the vendor's own servers: they
-// are used when openconnect is not installed (before, those VPNs could not
-// work at all), or when KOMANDO_EXPERIMENTAL_VPN names them (or says all);
-// with openconnect installed, it still carries them.
+// are used when openconnect is not installed, or when
+// KOMANDO_EXPERIMENTAL_VPN names them (or says all); with openconnect
+// installed, it still carries them.
 var builtinSSL = map[string]bool{"anyconnect": true}
 var experimentalSSL = map[string]bool{"fortinet": true, "globalprotect": true, "f5": true, "pulse": true}
 

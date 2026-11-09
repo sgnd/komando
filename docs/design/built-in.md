@@ -43,10 +43,10 @@ OpenVPN 3 library) does not qualify.
 | Secrets `aws-sm:` | `aws` CLI | AWS SDK for Go v2 (`secretsmanager`)  ✅ | S |
 | Secrets `gcp-sm:` | `gcloud` CLI | Secret Manager REST API with Google application-default credentials  ✅ | S |
 | Secrets `op://` | `op` CLI | own client for the 1Password Connect REST API (documented, self-hosted). The 1Password Go SDK is **not** used: its core is a prebuilt WebAssembly module, not open source. A personal 1Password account has no documented open API, so `op://` without Connect is removed | M |
-| New: `bw://` (Bitwarden, Vaultwarden) and `kdbx:` (KeePass, KeePassXC files) | — | own clients: Bitwarden's documented API, the open KDBX file format | M |
+| New: `bw://` (Bitwarden, Vaultwarden) and `kdbx:` (KeePass, KeePassXC files) | none | own clients: Bitwarden's documented API, the open KDBX file format | M |
 | Conns with `aws_profile` (RDS IAM tokens, S3 profiles) | `aws` CLI | AWS SDK for Go v2: profiles, SSO cache, assume-role  ✅ | S |
 | EKS / GKE tokens in a kubeconfig | `aws eks get-token`, `gke-gcloud-auth-plugin` | built in for these two; other `exec` plugins still run as configured  ✅ | M |
-| `cluster exec`, `cluster cp` | `kubectl` | Kubernetes exec over WebSocket (`v5.channel.k8s.io`), SPDY for older clusters  ✅ | M |
+| `cluster exec`, `cluster shell` (copy files with `cluster run TARGET -- cp ...`) | `kubectl` | Kubernetes exec over WebSocket (`v5.channel.k8s.io`), SPDY for older clusters  ✅ | M |
 | `cluster forward`, `tunnel` to a pod | `kubectl` | port-forward over WebSocket where the cluster allows it, SPDY otherwise  ✅ | M |
 | `cluster run` (any kubectl verb) | `kubectl` | own implementation of the kubectl verbs that work on any resource, through API discovery: get, describe, apply (server-side), delete, patch, label, annotate, explain, api-resources, auth can-i, top, wait, events, rollout. kubectl plugins (krew) are not covered ✅ | L |
 | `db shell` | `psql`, `mysql`, `sqlite3` | komando's own SQL shell on the drivers it already has ✅ | L |
@@ -59,7 +59,7 @@ OpenVPN 3 library) does not qualify.
 | F5 BIG-IP | `openconnect` + `ocproxy` | own client (HTTPS login, PPP over TLS) 🧪 | L |
 | Pulse / Ivanti | `openconnect` + `ocproxy` | own client (IF-T/TLS, EAP) 🧪 | XL |
 | Docker credential helpers (registry logins saved by `docker login`) | `docker-credential-*` | read the person's saved Docker logins directly where the store is a file; OS keychain stores stay through their helper (the keychain needs cgo or the OS tool) ✅ | S |
-| Approval window, `system` VPN, route check | OS tools | no change: part of the OS | — |
+| Approval window, `system` VPN, route check | OS tools | no change: part of the OS | none |
 
 S = days, M = a week or two, L = several weeks, XL = a month or more,
 including tests against real servers. ✅ built in and tested against the
@@ -77,7 +77,7 @@ Tailscale through `tsnet`; `vault:`, `aws-sm:`, `gcp-sm:` secrets; conns with
 The CLIs are no longer needed.
 
 **Phase 2: Kubernetes without kubectl (L)**
-`cluster exec`, `cluster cp`, `cluster forward` and pod tunnels speak the
+`cluster exec`, `cluster shell`, `cluster forward` and pod tunnels speak the
 Kubernetes protocols themselves. EKS and GKE tokens are made in komando.
 `cluster run` becomes komando's own implementation of the generic kubectl
 verbs, keeping its read-only default and risk checks.
@@ -151,9 +151,9 @@ AWS SSM sessions as a built-in proxy; Docker credential files.
 | Case | Risk | Decision |
 |---|---|---|
 | No open-source server for GlobalProtect, Fortinet, F5, Pulse | Cannot run a full e2e | Logins tested against fake servers written from the protocol (openconnect's test suite has such fakes; komando writes its own). The tunnel tested against a real appliance before a protocol leaves experimental |
-| OpenVPN | — | `make e2e-openvpn` already runs a real OpenVPN server; extended with tls-crypt, tls-crypt-v2, UDP and TCP, and a Pritunl server |
-| AnyConnect | — | `make e2e-vpnclients` runs ocserv with UDP: TLS, then DTLS |
-| Kubernetes | — | `make e2e` runs k3s 1.33 (WebSocket) and k3s 1.29 (SPDY) |
+| OpenVPN | none | `make e2e-openvpn` already runs a real OpenVPN server; extended with tls-crypt, tls-crypt-v2, UDP and TCP, and a Pritunl server |
+| AnyConnect | none | `make e2e-vpnclients` runs ocserv with UDP: TLS, then DTLS |
+| Kubernetes | none | `make e2e` runs k3s 1.33 (WebSocket) and k3s 1.29 (SPDY) |
 
 ## Where it stands (2026-11-03)
 

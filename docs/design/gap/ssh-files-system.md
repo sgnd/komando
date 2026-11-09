@@ -41,7 +41,7 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | Automatic fallback to `~/.ssh/id_ed25519/id_ecdsa/id_rsa` | ssh default identities | PRESENT | `client.go` (only when there is no `--key/--identity`) | – |
 | Encrypted key (passphrase from the vault) | ssh + ssh-agent | PRESENT | `key add/edit --passphrase-ref secret:NAME`; without one, the agent's copy of an encrypted `--key`/`--identity` is used, found by its public key | – |
 | Password login (stored safely) | ssh + sshpass | PARTIAL | password login works via refs `secret:/env:/file:/op:///vault:/aws-sm:/gcp-sm:` (password + keyboard-interactive). But `host add/edit` does not validate the ref format: `--password-ref hunter2` (also `--sudo-ref`) is accepted, stored in plain text in `state.json` and printed in the output. `conn add` and `vpn add` already reject it via `vault.ValidRef`; host does not yet | P1 |
-| Keyboard-interactive / SSH 2FA (Google Authenticator OTP, Duo) | ssh, Teleport | PRESENT | a person at a terminal is asked the password and the code (sshx/auth.go `passwordLogin`); for an AI agent `komando login HOST` keeps a person's login for `login_for` (8h) and its commands use it (sshx/held.go, cli/login_ssh.go); without one the login stops with `AUTH_FAILED` quoting the question, so no wrong code counts against the account | — |
+| Keyboard-interactive / SSH 2FA (Google Authenticator OTP, Duo) | ssh, Teleport | PRESENT | a person at a terminal is asked the password and the code (sshx/auth.go `passwordLogin`); for an AI agent `komando login HOST` keeps a person's login for `login_for` (8h) and its commands use it (sshx/held.go, cli/login_ssh.go); without one the login stops with `AUTH_FAILED` quoting the question, so no wrong code counts against the account | none |
 | `IdentitiesOnly` (limit the keys tried, avoid "Too many authentication failures") | ssh_config | PARTIAL | when `--key/--identity` is set, default keys are not tried; the explicit key is tried first, then all ssh-agent keys are still tried after it (no option to turn off the agent per host) | P2 |
 | Per-host `IdentityAgent` (a different agent per host) | ssh_config | MISSING | only the global `SSH_AUTH_SOCK` | P3 |
 | Jump host / bastion (`-J`, `ProxyJump`), chains of many hops | ssh, Teleport | PRESENT | `--via bastion,db1` for host and conn; `--jump` alias; imported from `ProxyJump` | – |
@@ -49,7 +49,7 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | Access via VPN per connection (many VPNs at once) | tsh, Tailscale SSH, VPN clients | PRESENT | `vpn add` (wireguard, tailscale, openconnect family, openvpn, socks, system) + `--via vpn,bastion` | – |
 | Tailscale SSH (auth based on tailnet identity, no key) | Tailscale SSH | PARTIAL | `vpn add ... tailscale` provides the path, but komando still needs an auth method (`NO_AUTH` when there is no key/agent/password) | P3 |
 | SSH certificate login (user cert signed by a CA, `CertificateFile`) | OpenSSH CA, Teleport, Vault SSH, step-ca | PARTIAL | a user cert already loaded in ssh-agent is used (the agent's signer carries its cert); there is no `CertificateFile`/cert flag per host or per key, so file-based certs cannot be used. Important for teams that use short-lived certs | P2 |
-| Agent forwarding (`-A`, `ForwardAgent`) — e.g. `git pull` from the server using the laptop's key | ssh | MISSING | no `agent.ForwardToAgent` in the code. If added, it must be opt-in per host + audited (risky) | P2 |
+| Agent forwarding (`-A`, `ForwardAgent`), for example `git pull` from the server using the laptop's key | ssh | MISSING | no `agent.ForwardToAgent` in the code. If added, it must be opt-in per host + audited (risky) | P2 |
 | X11 forwarding (`-X/-Y`) | ssh | MISSING | not in the code; remote GUI is outside the 80% daily focus | P3 |
 | Keepalive (`ServerAliveInterval`) | ssh_config, autossh | PRESENT | `keepalive@komando` automatic in `client.go`; the interval cannot be set per host | – |
 | Connect timeout | ssh `ConnectTimeout` | PRESENT | `--connect-timeout`, `config set connect_timeout` (applies to the whole via/VPN chain) | – |
@@ -59,9 +59,9 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | Automatic retry on temporary connection failure | Ansible `retries`, pssh | MISSING | `exec`/modules do not retry; only tunnels reconnect | P2 |
 | IPv6, non-standard port | ssh | PRESENT | `user@[addr]:port`, `--port`; IPv6 edge cases noted in ux.md | – |
 | Ad-hoc host without registering it | ssh `user@host` | PRESENT | target `user@addr:port` | – |
-| `Match` blocks in ssh_config (Match host/user/exec) | ssh_config | PARTIAL | `host import` reads `Include`, wildcard `Host` as defaults, but `Match` is silently ignored (`cur = nil`) — this breaks ux.md §9 "Unsupported fields are reported, not silently dropped" | P2 |
+| `Match` blocks in ssh_config (Match host/user/exec) | ssh_config | PARTIAL | `host import` reads `Include`, wildcard `Host` as defaults, but `Match` is silently ignored (`cur = nil`), which breaks ux.md §9 "Unsupported fields are reported, not silently dropped" | P2 |
 | Report unsupported ssh_config directives (`ProxyCommand`, `LocalForward`, `ForwardAgent`, `CertificateFile`, ...) on import | ssh_config | MISSING | `host import` only reads Host/HostName/User/Port/IdentityFile/ProxyJump/Include; the rest is dropped without a warning | P2 |
-| Print the equivalent OpenSSH command (interop) | — | PRESENT | `host ssh-command NAME` | – |
+| Print the equivalent OpenSSH command (interop) | none | PRESENT | `host ssh-command NAME` | – |
 | Export the inventory to `ssh_config` (so ssh/scp/VS Code Remote use the komando inventory) | Termius, Teleport `tsh config` | MISSING | only per host (`host ssh-command`) and JSON (`host export`) | P3 |
 | Windows hosts (OpenSSH on Windows / WinRM / PowerShell) | Ansible winrm, Salt | MISSING | host model = "SSH (Linux)" (vision.md); `exec` to Windows OpenSSH may work, system modules do not | P3 |
 
@@ -92,7 +92,7 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | Reject a changed host key | ssh | PRESENT | `HOSTKEY_MISMATCH`, never skipped automatically | – |
 | Fetch & pin the host key (keyscan), also behind a bastion | ssh-keyscan | PRESENT | `host trust NAME` (fetched the way komando reaches the server: directly, `--via`, VPN or proxy command; jump hosts are checked under `host_key_policy`, the target is only scanned, never logged in to) | – |
 | Forget / replace the key after a server is rebuilt | ssh-keygen `-R` | PRESENT | `host trust NAME --reset` | – |
-| Import the existing `~/.ssh/known_hosts` (avoid repeating TOFU) | — | MISSING | komando uses its own `~/.komando/known_hosts`; hosts already trusted by OpenSSH are trusted again via TOFU | P2 |
+| Import the existing `~/.ssh/known_hosts` (avoid repeating TOFU) | none | MISSING | komando uses its own `~/.komando/known_hosts`; hosts already trusted by OpenSSH are trusted again via TOFU | P2 |
 | Host certificate / `@cert-authority` in known_hosts | OpenSSH, Teleport | PARTIAL | the known_hosts parser (x/crypto) reads `@cert-authority` lines when written by hand into `~/.komando/known_hosts`, but there is no command to add a CA. Without that line, a host that presents a host cert fails (`CONNECT_FAILED`: "no authorities for hostname"), instead of TOFU | P2 |
 | Verify the fingerprint from another source (DNS SSHFP, out-of-band) | ssh `VerifyHostKeyDNS` | MISSING | `host trust` does not accept `--fingerprint SHA256:...` to compare before pinning | P2 |
 | List pinned host keys | `ssh-keygen -F`, Termius known hosts | PARTIAL | the fingerprint appears in the `host trust` output; there is no list command (the `known_hosts` file can be read by hand) | P3 |
@@ -108,9 +108,9 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | Target by facts (os=ubuntu, arch, version) | Salt grains targeting (`-G`), Ansible `group_by` | MISSING | labels must be filled in by hand | P3 |
 | Per-host variables (env, default user, sudo) | Ansible host_vars | PRESENT | `--env KEY=VALUE` exported to every command, `--user`, `--sudo-ref`, `config set default_user` | – |
 | Per-host variables for recipes/templates (`{{app}}` per host) | Ansible host_vars | MISSING | `recipe run --var` is the same for all hosts; labels cannot be used as `{{var}}` values | P3 |
-| Mark production hosts (need confirmation) | Teleport labels+RBAC, Termius — | PRESENT | `--protected`; protected follows the address | – |
-| Import `~/.ssh/config` | Termius, Warp | PRESENT | `import ssh-config` / `host import` (Include, ProxyJump, wildcard) — see the `Match` gap in §1 | – |
-| Import an Ansible inventory (INI/YAML) | — | MISSING | not among the `import` sources; many teams already have an Ansible inventory | P2 |
+| Mark production hosts (need confirmation) | Teleport labels+RBAC, Termius | PRESENT | `--protected`; protected follows the address | – |
+| Import `~/.ssh/config` | Termius, Warp | PRESENT | `import ssh-config` / `host import` (Include, ProxyJump, wildcard); see the `Match` gap in §1 | – |
+| Import an Ansible inventory (INI/YAML) | none | MISSING | not among the `import` sources; many teams already have an Ansible inventory | P2 |
 | Import from Termius / Royal TSX / MobaXterm / PuTTY | Termius export | MISSING | vision.md lists `termius` in the migration table but it is not implemented yet | P2 |
 | Dynamic inventory from the cloud (EC2/DO/Hetzner tags) | Ansible dynamic inventory, Salt cloud | MISSING | vision.md: "Cloud VMs (DigitalOcean, Hetzner, AWS EC2)" candidate after v1.0; provisioning = NG-IaC, but *reading* the VM list is not provisioning | P2 |
 | Export / move to another computer | Termius sync | PRESENT | `export`, `import komando`, `host export --target` | – |
@@ -137,8 +137,8 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | Run a local script on the remote without copying it | Ansible `script`, pyinfra, `ssh 'bash -s' < x` | PRESENT | `script TARGET FILE --arg --interpreter` | – |
 | PTY for tools that ask for one | ssh `-t` | PRESENT | `--pty` (non-interactive) | – |
 | Dry-run / check mode | `ansible --check`, pyinfra `--dry` | PRESENT | global `--dry-run` (shows the command + whether policy blocks it) | – |
-| Guardrails for dangerous commands | — (Teleport only has RBAC) | PRESENT | `policy list/check/deny/allow`, `--allow-dangerous` | – |
-| Read-only declaration for protected hosts | — | PRESENT | `--read-only` | – |
+| Guardrails for dangerous commands | none (Teleport only has RBAC) | PRESENT | `policy list/check/deny/allow`, `--allow-dangerous` | – |
+| Read-only declaration for protected hosts | none | PRESENT | `--read-only` | – |
 | Per-host time limit and output limit | pssh `-t`, Ansible `timeout` | PRESENT | `--timeout`, `--max-output` | – |
 | Async execution limit (`async`/`poll`) | Ansible async | PRESENT | via `job start` (see §7) | – |
 | Interactive to many terminals at once (type once, all hosts) | ClusterSSH, tmux synchronize-panes, Termius multi-exec | NON-GOAL | NG-TUI: "GUI, TUI ... komando stays a pure CLI." Parallel `exec` already covers the non-interactive need | – |
@@ -166,11 +166,11 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | Read logs incrementally | `tail -f` | PRESENT | `job logs --offset/next_offset`, `--tail`, `--max-bytes` | – |
 | Wait for completion with a time limit | Ansible `async_status`, `wait` | PRESENT | `job wait --wait-timeout --interval` | – |
 | Stop (signal to the process group) | kill | PRESENT | `job kill --signal TERM\|KILL\|INT\|HUP` | – |
-| Clean up jobs | — | PRESENT | `job rm [--keep-remote]` | – |
+| Clean up jobs | none | PRESENT | `job rm [--keep-remote]` | – |
 | Run a local script as a job | Ansible `script` + async | MISSING | `job start` only accepts a command; long scripts (`deploy.sh`) must be uploaded first (`upload` + `job start`) | P2 |
 | Maximum job duration (kill automatically after X) | `timeout`, Ansible `async: N` | MISSING | possible via the command `timeout 2h ...` inside the job | P3 |
 | Attach interactively to a job / send input | tmux attach, screen -r | MISSING | jobs have no stdin/TTY | P3 |
-| Notification when a job finishes | — | NON-GOAL | NG-MON ("continuously running monitoring or alerting"); `job wait` is enough | – |
+| Notification when a job finishes | none | NON-GOAL | NG-MON ("continuously running monitoring or alerting"); `job wait` is enough | – |
 | Slow modules automatically become jobs (`pkg upgrade`, `db dump` on the server) | Ansible async per task | MISSING | `pkg upgrade` runs synchronously with a default `--timeout` of 5m; the agent must remember to use `job start` + a raw command | P2 |
 
 ## 8. Tunnels and forwarding (ssh `-L/-R/-D`, autossh, sshuttle)
@@ -183,7 +183,7 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | Tunnel to a conn by name (free local port) | Teleport `tsh proxy db`, Termius | PRESENT | `tunnel start app-db [--port 15432]` via `--via`/VPN | – |
 | Background tunnel, list, stop | autossh `-f`, Termius | PRESENT | `tunnel list` (liveness, prune), `tunnel stop [--all]` | – |
 | Automatic reconnect when SSH drops | autossh | PARTIAL | `connMgr` reconnects local/dynamic forwards; a code comment says only local/dynamic, not remote forward (`-R`) | P2 |
-| Default bind to 127.0.0.1; binding to another address needs `--yes` | ssh `GatewayPorts` | PARTIAL | the default 127.0.0.1 is already correct, but `-L 0.0.0.0:8080:...` is accepted without `--yes` — network.md: "Tunnels and proxies only listen on 127.0.0.1, unless given `--bind` (needs `--yes`)". This exposes an internal DB to the LAN without confirmation | P1 |
+| Default bind to 127.0.0.1; binding to another address needs `--yes` | ssh `GatewayPorts` | PARTIAL | the default 127.0.0.1 is already correct, but `-L 0.0.0.0:8080:...` is accepted without `--yes`, while network.md says: "Tunnels and proxies only listen on 127.0.0.1, unless given `--bind` (needs `--yes`)". This exposes an internal DB to the LAN without confirmation | P1 |
 | Tunnel survives a laptop reboot (launchd/systemd service) | autossh + systemd | NON-GOAL | NG-POOL/NG-TUI ("daemon"); a tunnel is only a temporary background process | – |
 | Tunnel lifetime limit (stop automatically after X / when idle) | Teleport TTL | MISSING | VPN has `vpn_idle`, tunnels do not; a tunnel someone forgot to stop keeps access open | P3 |
 | Transparent "VPN over SSH" (changes laptop routes) | sshuttle | NON-GOAL | NG-NET: "komando never changes the laptop's routes, DNS, or firewall." Alternative: `tunnel -D` + `vpn add ... socks` | – |
@@ -236,7 +236,7 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | ls (recursive, dotfiles, limit) | ls, sftp | PRESENT | `fs ls -a -r --max` | – |
 | Find files (name/size/age) | find, Ansible `find` | PARTIAL | recipes `big-files`, `big-dirs`; no structured `fs find` | P3 |
 | Search content (grep in a file/folder) | grep -r | PARTIAL | `logs --file --grep` for a single file; possible via exec `grep -r` | P3 |
-| Restore from `.bak` | — | MISSING | `--backup` creates `PATH.bak`, then `PATH.bak.<UTC time>` (never overwritten, they add up); no `fs restore`/rollback; you must `fs mv` by hand | P2 |
+| Restore from `.bak` | none | MISSING | `--backup` creates `PATH.bak`, then `PATH.bak.<UTC time>` (never overwritten, they add up); no `fs restore`/rollback; you must `fs mv` by hand | P2 |
 | Edit in a local editor ($EDITOR) then save back | `vim scp://`, VS Code Remote | MISSING | useful for humans; possible via download→edit→`fs write --if-changed` | P3 |
 
 ## 11. Services (systemctl/service, Ansible `service`/`systemd`)
@@ -273,7 +273,7 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | dist-upgrade / full-upgrade | apt full-upgrade | MISSING | `pkg upgrade` = `apt-get upgrade` (packages that need new dependencies are held back) | P3 |
 | Detect a needed reboot after an upgrade | needrestart, `/var/run/reboot-required` | PRESENT | `facts` → `reboot_required` | – |
 | Install from a local .deb/.rpm file | apt install ./x.deb | MISSING | `upload` + exec | P3 |
-| Non-OS packages (snap, flatpak, pip, global npm) | Ansible `snap`, `pip` | MISSING | NG-FULL — possible via exec | P3 |
+| Non-OS packages (snap, flatpak, pip, global npm) | Ansible `snap`, `pip` | MISSING | NG-FULL; possible via exec | P3 |
 
 ## 13. Users and access (useradd, Ansible `user`/`group`/`authorized_key`, sudoers)
 
@@ -300,8 +300,8 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | List entries (with ID) | crontab -l | PRESENT | `cron list` (line + id) | – |
 | Remove entries | Ansible `cron state=absent` | PRESENT | `cron rm` | – |
 | Another user's crontab | crontab -u | PRESENT | `--user NAME --sudo` | – |
-| All system cron (/etc/crontab, /etc/cron.d, all users) | — | PRESENT | the `cron-all` recipe (text) | – |
-| Schedule validation | — | PARTIAL | only checks 5 fields or `@daily`; values are not validated (e.g. `61 * * * *`) | P3 |
+| All system cron (/etc/crontab, /etc/cron.d, all users) | none | PRESENT | the `cron-all` recipe (text) | – |
+| Schedule validation | none | PARTIAL | only checks 5 fields or `@daily`; values are not validated (e.g. `61 * * * *`) | P3 |
 | Cron env (MAILTO, PATH, SHELL) | Ansible `cronvar` | MISSING | `cron set` only writes the schedule line; env can be written inside the command | P3 |
 | Disable temporarily without deleting | Ansible `cron disabled=yes` | MISSING | only `cron rm` then `cron set` again | P3 |
 | Files in `/etc/cron.d` | Ansible `cron cron_file=` | MISSING | possible via `fs write` | P3 |
@@ -329,7 +329,7 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 |---|---|---|---|---|
 | Structured facts (OS, kernel, arch, CPU, RAM, swap, load, uptime, IP, virt, init, pkg manager, tools, reboot_required, failed_units, timezone) | Ansible setup, Salt grains | PRESENT | `facts TARGET` | – |
 | Facts for all mounts/disks, NICs, hardware (DMI), tool versions | Ansible setup | PARTIAL | facts only cover the root disk; recipes `disk`/`inodes` give text | P3 |
-| Health summary | — | PRESENT | recipes `health`, `memory`, `failed-units`, `time-sync` | – |
+| Health summary | none | PRESENT | recipes `health`, `memory`, `failed-units`, `time-sync` | – |
 | Top CPU/memory processes, find a process | ps, htop | PRESENT | recipes `top-cpu`, `top-mem`, `process` (text) | – |
 | Structured process list (JSON) | ps, Salt `ps` | MISSING | only text via recipes | P2 |
 | Kill a process safely (PID/name, signal, confirmation) | kill, pkill, Ansible | MISSING | possible via exec `kill`; no report of which processes were hit | P2 |
@@ -376,7 +376,7 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | Git checkout/pull on the server (deploy) | Ansible `git` | MISSING | the example recipe `deploy-app` uses `git pull` via exec | P3 |
 | SELinux/AppArmor status & mode | Ansible `selinux` | MISSING | possible via exec | P3 |
 | Kernel modules / limits.conf | Ansible `modprobe`, `pam_limits` | MISSING | possible via exec / `fs write` | P3 |
-| Clear page cache, docker prune, apt clean | — | PRESENT | recipes `drop-caches`, `docker-prune`, `apt-clean` | – |
+| Clear page cache, docker prune, apt clean | none | PRESENT | recipes `drop-caches`, `docker-prune`, `apt-clean` | – |
 
 ## 19. Recipes / snippets (Termius snippets, Fabric tasks, Salt modules)
 
@@ -384,7 +384,7 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 |---|---|---|---|---|
 | 39 built-in recipes (health, disk, certs, security, network, db, web) | Termius snippets, Salt modules | PRESENT | `recipe list [--category]`, `recipe run NAME TARGET` | – |
 | Your own recipes with `{{var}}` blanks and `{{var=x}}` defaults | Termius snippets, Fabric | PRESENT | `recipe add --desc --sudo --read-only --overwrite`, `--var` | – |
-| Recipes are treated as write unless `--read-only` | — | PRESENT | ux.md §3 polarity | – |
+| Recipes are treated as write unless `--read-only` | none | PRESENT | ux.md §3 polarity | – |
 | Share recipes with the team / other machines | Termius team vault | PRESENT | included in `export`/`import komando` | – |
 | Multi-step recipes / recipes with files (scripts) | Fabric tasks, Ansible roles | MISSING | a recipe = one command line; long scripts go through `script` | P3 |
 | Structured recipe output (parser) | Salt modules | MISSING | built-in recipes return text; the important ones already have structured commands (`svc`, `net`, `facts`) | P3 |
@@ -401,8 +401,8 @@ Non-goal quotes used repeatedly (vision.md, "Non-goals" and "Technical rules"):
 | Remote approval (ask someone else for permission, just-in-time access) | Teleport access requests | NON-GOAL | needs a server; NG-TUI "daemon/server" | – |
 | Central multi-user RBAC | Teleport roles | NON-GOAL | NG-TUI "daemon/server"; replacement: SSH users with minimum rights (docs/features/safety.md) | – |
 | Session recording | Teleport | MISSING | see §6 | P3 |
-| Secrets never in arguments/output/audit | — | PARTIAL | AES-256-GCM vault, `secret set` rejects values in arguments (`SECRET_IN_ARGS`), external refs (1Password, Vault, AWS SM, GCP SM); but `host add/edit --password-ref/--sudo-ref` accepts plain values, then stores and prints them (see §1) | P1 |
-| Extendable dangerous-command policy | — | PRESENT | `policy deny REGEX`, `policy check` | – |
+| Secrets never in arguments/output/audit | none | PARTIAL | AES-256-GCM vault, `secret set` rejects values in arguments (`SECRET_IN_ARGS`), external refs (1Password, Vault, AWS SM, GCP SM); but `host add/edit --password-ref/--sudo-ref` accepts plain values, then stores and prints them (see §1) | P1 |
+| Extendable dangerous-command policy | none | PRESENT | `policy deny REGEX`, `policy check` | – |
 | Allowlist (only certain commands allowed for the agent) | Teleport `command` restrictions, `authorized_keys command=` | MISSING | policy is only a deny-list; there is no global "agent may only do read-only" mode | P2 |
 
 ---
@@ -427,17 +427,17 @@ was miscounted, and 8 statuses and 3 priorities were corrected, see the last sec
 
 ## Top P1 gaps
 
-1. **Revoke SSH keys from `authorized_keys`** (offboarding/rotation; `key deploy`/`user add` only add) — §2, §13.
-2. **Folder sync (delta, `--delete`, `--exclude`, dry-run list of changes)** for deploys — §9.
-3. **Transfers do not overwrite without `--overwrite`** (server upload and download overwrite silently; breaks ux.md) — §9.
-4. **Atomic download (tmp + rename)** — §9.
-5. **Streaming upload of large files** (single-file upload still uses `os.ReadFile` to load the whole file into RAM) — §9.
-6. **Controlled reboot + wait to come back + verify** for the patch flow — §18.
-7. **`svc daemon-reload`** for the "write unit → reload → restart" flow — §11.
-8. **Tunnel binds to non-loopback without `--yes`** (contradicts network.md) — §8.
-9. **Diff on `fs write --dry-run`** (dry-run is required for agents but does not show the change) — §10.
-10. **Validate files before installing them** (`visudo -cf`, `sshd -t`, `nginx -t`) so an edit does not lock you out — §10.
-11. **`host add/edit` accepts plain passwords in `--password-ref`/`--sudo-ref`** (stored in `state.json` and printed; `conn`/`vpn` already use `vault.ValidRef`) — §1, §20.
+1. **Revoke SSH keys from `authorized_keys`** (offboarding/rotation; `key deploy`/`user add` only add; §2, §13).
+2. **Folder sync (delta, `--delete`, `--exclude`, dry-run list of changes)** for deploys (§9).
+3. **Transfers do not overwrite without `--overwrite`** (server upload and download overwrite silently; breaks ux.md; §9).
+4. **Atomic download (tmp + rename)** (§9).
+5. **Streaming upload of large files** (single-file upload still uses `os.ReadFile` to load the whole file into RAM; §9).
+6. **Controlled reboot + wait to come back + verify** for the patch flow (§18).
+7. **`svc daemon-reload`** for the "write unit → reload → restart" flow (§11).
+8. **Tunnel binds to non-loopback without `--yes`** (contradicts network.md; §8).
+9. **Diff on `fs write --dry-run`** (dry-run is required for agents but does not show the change; §10).
+10. **Validate files before installing them** (`visudo -cf`, `sshd -t`, `nginx -t`) so an edit does not lock you out (§10).
+11. **`host add/edit` accepts plain passwords in `--password-ref`/`--sudo-ref`** (stored in `state.json` and printed; `conn`/`vpn` already use `vault.ValidRef`; §1, §20).
 
 The next strongest P2 candidates: `ProxyCommand`/AWS SSM, GCP IAP, Cloudflare Access transport (§1), `serial` rolling batches (§5), `download --sudo` (§9), idempotent `lineinfile` (§10), and SSH certificates (§1, §3).
 
@@ -465,7 +465,7 @@ The `#` number is the row order in the tables above.
 | 11 | Access via VPN per connection (many VPNs at on… | PRESENT | Correct | vpn.go:25-44 list of kinds (netx.Kinds); client.go:63-69 VPN at the start of --via |
 | 12 | Tailscale SSH (auth based on tailnet identity… | PARTIAL | Correct | client.go:353-355 NO_AUTH when there is no key/agent/password |
 | 13 | SSH certificate login (user cert signed… | PARTIAL | Corrected: MISSING→PARTIAL | client.go:322-325 `ag.Signers()` (x/crypto agent client.go:819-829) also carries the user cert from the agent; grep CertificateFile/NewCertSigner: 0 results |
-| 14 | Agent forwarding (-A, ForwardAgent) — e.g. git… | MISSING | Correct | grep ForwardToAgent/RequestAgentForwarding: 0 results |
+| 14 | Agent forwarding (-A, ForwardAgent), for example git… | MISSING | Correct | grep ForwardToAgent/RequestAgentForwarding: 0 results |
 | 15 | X11 forwarding (-X/-Y) | MISSING | Correct | grep X11: 0 results |
 | 16 | Keepalive (ServerAliveInterval) | PRESENT | Correct | sshx/client.go:103-115 (keepalive@komando every 30 sec, fixed) |
 | 17 | Connect timeout | PRESENT | Correct | root.go:165 `--connect-timeout`; meta.go:358 `connect_timeout`; client.go:64,89-91 |
@@ -578,7 +578,7 @@ The `#` number is the row order in the tables above.
 | 124 | Atomic download (tmp then rename; no half-written fi… | MISSING | Correct | cp.go:278-292 fetchFile O_TRUNC straight to the destination; ux.md:319 |
 | 125 | Large files without loading them into memory (stream) | PARTIAL | Corrected: MISSING→PARTIAL | cp.go:173 `os.ReadFile` for single-file upload; cp.go:205-214 (upload -r) and cp.go:290 (download) already stream with io.Copy |
 | 126 | Progress on stderr for large files | MISSING | Correct | grep progress: 0 results; ux.md:321 |
-| 127 | Resume an interrupted transfer | MISSING | Corrected: evidence (status unchanged) | grep resume/offset in cp.go & storex: 0 results (ftp.go:41 is only a control-connection comment) — FTP storage has no resume either |
+| 127 | Resume an interrupted transfer | MISSING | Corrected: evidence (status unchanged) | grep resume/offset in cp.go & storex: 0 results (ftp.go:41 is only a control-connection comment), and FTP storage has no resume either |
 | 128 | Delta sync (only what changed), --del… | MISSING | Correct | cp.go:193-223 copies everything again, no delete/exclude; grep exclude in cp.go: 0 results |
 | 129 | Transfer dry-run that shows which files wi… | PARTIAL | Correct | cp.go:114-117 dry-run only src/dst/hosts/direction |
 | 130 | Skip the upload when the content is the same (idempotent) | PARTIAL | Correct | fs.go:517-531 --if-changed; cp.go:172-185 upload without comparison |
@@ -715,7 +715,7 @@ The `#` number is the row order in the tables above.
 | 261 | Multi-step recipes / recipes with files (scripts) | MISSING | Correct | ops.go:275 Snippet with one Command |
 | 262 | Structured recipe output (parser) | MISSING | Correct | ops.go:359 runFleet → text stdout |
 | 263 | Community recipe catalog / plugins | NON-GOAL | Correct | vision.md:227 "plugin system" |
-| 264 | Audit every action (who, what, where, result) | PRESENT | Corrected: evidence (status unchanged) | common.go:369-396 the audit is written after the action and OpenFile errors are ignored (`return`) — it does not fail closed; meta.go:276 flags --command/--failed/--limit/--target |
+| 264 | Audit every action (who, what, where, result) | PRESENT | Corrected: evidence (status unchanged) | common.go:369-396 the audit is written after the action and OpenFile errors are ignored (`return`), so it does not fail closed; meta.go:276 flags --command/--failed/--limit/--target |
 | 265 | Filter the audit by time / export | PARTIAL | Correct | meta.go:276 no --since/--until |
 | 266 | Send the audit to a central place (syslog/SIEM/webhook) | MISSING | Correct | common.go:391 local file only |
 | 267 | Human confirmation for production targets & dangerous… | PRESENT | Correct | common.go:307-347 [y/N] and type the name; non-interactive → reject |

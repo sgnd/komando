@@ -31,8 +31,8 @@ make fuzz               # fuzz the parsers that read untrusted text
 | 4.1.3, 4.3.1 Least privilege, administrative interfaces | `komando ssh-gate` limits another device's SSH key to komando: no shell or forwarding, agent rules, nothing written on the komando computer (nor through a sqlite file, and nothing, a read either, on a target at a loopback address), `--read-only` keys run only reads, every command audited with the key's name | ✅ · 👤 add phone keys with `komando ssh-gate line` |
 | 7.1 Logs record who, what, where, result, without secrets | Every action: time, actor, AI agent, approval, hosts, command; tested to hold no password | ✅ |
 | 7.3 Logs are protected from change | 0600, a hash chain that `komando audit verify` checks, and each record sent to a log server with `audit_syslog` | ✅ with `audit_syslog`; 🟡 without it the same user can rebuild the chain or cut its end |
-| 8.3 Sensitive data is not shown to those who should not see it | Vault values hidden for everyone; passwords, keys and tokens hidden for AI agents | ✅ best effort: an unusual name can slip through |
-| 9.1, 9.2 Connections are encrypted and the server is checked | SSH host keys (stop on mismatch; the first key is shown with its fingerprint), TLS 1.2+ for Redis, Kubernetes, FTPS, HashiCorp Vault and the built-in VPN clients; IKEv1 without 3DES or DH groups below 14; no PAP; plain FTP and WebDAV need `?insecure=1`, and new plain Redis and memcached conns across the network too | 🟡 new Postgres and MySQL conns across the network check the certificate unless the URL says otherwise; saved conns follow their URL, and `doctor` warns about those without verified TLS and prints the fix |
+| 8.3 Sensitive data is not shown to those who should not see it | Vault values hidden for everyone; passwords, keys and tokens hidden for AI agents komando recognises | 🟡 best effort: an unusual name can slip through |
+| 9.1, 9.2 Connections are encrypted and the server is checked | SSH host keys (stop on mismatch; the first key is shown with its fingerprint), TLS 1.2+ for Redis, Kubernetes, FTPS, HashiCorp Vault and the built-in VPN clients; IKEv1 without 3DES or DH groups below 14 by default; no PAP by default; plain FTP and WebDAV need `?insecure=1`, and new plain Redis and memcached conns across the network too | 🟡 new Postgres and MySQL conns across the network check the certificate unless the URL says otherwise; saved conns follow their URL, and `doctor` warns about those without verified TLS and prints the fix. `--legacy-crypto` (3DES, DH groups 2 and 5) and `--allow-pap` turn the weak options back on for one VPN, with a person's yes |
 | 12.3 Files: no path traversal | Folder downloads refuse server paths that lead outside the target | ✅ |
 | 14.2 Dependencies are known and kept up to date | Go modules, `govulncheck` in CI, Dependabot | ✅ |
 
@@ -41,9 +41,9 @@ make fuzz               # fuzz the parsers that read untrusted text
 | Risk | How komando meets it | Status |
 |---|---|---|
 | LLM01 Prompt injection | The agent rules say server output is data, never instructions; risky actions need a person's click, which injected text cannot give | 🟡 no tool can stop injection itself, only limit what it reaches |
-| LLM02 Sensitive information disclosure | Masking for agents, `SENSITIVE_FILE`, the guard on this computer (Claude Code, Cursor, Gemini CLI, Codex), `secret get --reveal` for people only | ✅ |
+| LLM02 Sensitive information disclosure | Masking for agents, `SENSITIVE_FILE`, the guard on this computer (Claude Code, Cursor, Gemini CLI, Codex), `secret get --reveal` for people only | 🟡 masking only works for an agent komando recognises: Claude Code, Codex, Cursor, Gemini CLI, or any agent with `KOMANDO_AGENT=1` set |
 | LLM05 Improper output handling | Masked text is never written back (`HIDDEN_VALUE`); every command an agent sends passes the policy filter | ✅ |
-| LLM06 Excessive agency | Reads by default (`--read-only`, `--write`), protected targets, a person allows `--yes`, `--allow-dangerous` and `--reveal`, the audit log names the agent | ✅ |
+| LLM06 Excessive agency | Reads by default (`--read-only`, `--write`), protected targets, a person allows `--yes`, `--allow-dangerous` and `--reveal`, the audit log names the agent | 🟡 the approval window for `--yes`, `--allow-dangerous` and `--reveal` only works for an agent komando recognises (see LLM02); another agent counts as a script |
 | LLM10 Unbounded consumption | Timeouts, output limits per host, parallelism limits, long work as jobs | ✅ |
 
 ## NIST
@@ -98,4 +98,6 @@ organization.
 - **The guard runs where the agent's harness asks it.** `komando guide
   install` sets it up for Claude Code, Cursor, Gemini CLI (v0.26+) and Codex
   (approve it once in `/hooks`). It is tested with each one's documented hook
-  input; an agent without hooks gets the approval window and the masking only.
+  input. An agent without hooks gets only the approval window and the masking,
+  and only when komando recognises it: Claude Code, Codex, Cursor, Gemini
+  CLI, or any agent with `KOMANDO_AGENT=1` set.

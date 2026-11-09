@@ -19,7 +19,7 @@ import (
 	"github.com/sgnd/komando/internal/kube"
 )
 
-// ---- changing --------------------------------------------------------------
+// Verbs that change the cluster.
 
 func (r *kctlRun) dryQuery() url.Values {
 	q := url.Values{"fieldManager": {"komando"}}

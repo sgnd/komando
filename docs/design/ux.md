@@ -34,21 +34,21 @@ komando storage upload backups ./dump.sql.gz
 | `list` | list items in the **komando inventory** (host, conn, secret, job) | `ls` | read |
 | `ls` | list the **contents inside** a target (files, objects, keys, pods) | `list` | read |
 | `show` | details of one inventory item | `info` | read |
-| `get` | read the **value** of one item inside a target (key, small object, secret) | — | read |
-| `status` / `info` | state of the target (version, health, memory) | — | read |
-| `logs` | logs | — | read |
-| `test` | check connection and login | — | read |
-| `add` | add to the inventory | — | — |
-| `edit` | change the inventory | — | — |
+| `get` | read the **value** of one item inside a target (key, small object, secret) | none | read |
+| `status` / `info` | state of the target (version, health, memory) | none | read |
+| `logs` | logs | none | read |
+| `test` | check connection and login | none | read |
+| `add` | add to the inventory | none | none |
+| `edit` | change the inventory | none | none |
 | `rm` | remove | `remove`, `delete`, `del` | destructive if data is lost |
-| `set` | write one value | — | write |
+| `set` | write one value | none | write |
 | `upload` / `download` | move files between this computer and the target | `put` / `get` | write / read |
 | `run` | send a raw command in that area's own language (SQL, Redis), still classified | `query` for SQL | depends on content |
-| `start` / `stop` / `restart` | start, stop, restart | — | write |
-| `dump` / `restore` | back up and restore | — | write / destructive |
-| `import` / `export` | move configuration in and out | — | — |
-| `install` | install komando files into another program's folder (skill for AI agents: `guide install`) | — | write (local files) |
-| `update` | replace the komando program with a newer release, or the version named (`komando update`; added 2026-11-08) | — | write (the komando program); an older version needs `--yes` |
+| `start` / `stop` / `restart` | start, stop, restart | none | write |
+| `dump` / `restore` | back up and restore | none | write / destructive |
+| `import` / `export` | move configuration in and out | none | none |
+| `install` | install komando files into another program's folder (skill for AI agents: `guide install`) | none | write (local files) |
+| `update` | replace the komando program with a newer release, or the version named (`komando update`; added 2026-11-08) | none | write (the komando program); an older version needs `--yes` |
 
 Rule: **`rm` is always the main word.** `remove`, `delete`, and `del` are only
 aliases, so that anyone who types them still succeeds.
@@ -290,7 +290,7 @@ Owner decision (2026-11-02): komando must be as strong as the original tool. The
 to do it is not to copy every feature of that tool, but three paths that are the same in all areas:
 
 1. **Commands komando understands** (`db schema`, `cache get`, `storage ls`): structured
-   output, safe, easy to use. For 80% of daily work.
+   output, safe, easy to use. For most daily work.
 2. **A raw path in the native language**, still classified, read-only by
    default, and audited: `exec` (shell), `db query` (any SQL), `cache run`
    (any Redis command), `cluster run -- <kubectl args>`. Anything

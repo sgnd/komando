@@ -257,8 +257,6 @@ func age(ts string) string {
 	return humanAge(time.Since(t))
 }
 
-// --- commands ---------------------------------------------------------------
-
 func clusterCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "cluster",

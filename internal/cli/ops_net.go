@@ -105,7 +105,7 @@ func netCheckRun(cmd *cobra.Command, args []string) error {
 		}, text: netCheckText})
 }
 
-// ------------------------------------------------------------ net ports ---
+// net ports.
 
 const netPortsScript = `if command -v ss >/dev/null 2>&1; then echo '#komando:ss'; ss -tulpnH
 elif command -v netstat >/dev/null 2>&1; then echo '#komando:netstat'; netstat -tulpn 2>/dev/null
@@ -203,7 +203,7 @@ func netPortsRun(cmd *cobra.Command, target string, sudo bool) error {
 		}, text: netPortsText})
 }
 
-// -------------------------------------------------------------- net dns ---
+// net dns.
 
 var dnsTypes = map[string]bool{"A": true, "AAAA": true, "CNAME": true, "MX": true, "NS": true, "TXT": true, "SOA": true, "SRV": true, "PTR": true, "CAA": true}
 

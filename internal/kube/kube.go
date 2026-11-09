@@ -429,7 +429,7 @@ func (c *Client) Get(ctx context.Context, path string, q url.Values, v any) erro
 	return json.Unmarshal(b, v)
 }
 
-// --- discovery -------------------------------------------------------------
+// Discovery of resource types.
 
 type ResourceType struct {
 	Path       string // "/api/v1" or "/apis/apps/v1"

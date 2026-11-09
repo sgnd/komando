@@ -123,7 +123,7 @@ func find(ps []v1Payload, typ byte) *v1Payload {
 	return nil
 }
 
-// ---- attributes (TV and TLV)
+// Attributes (TV and TLV).
 
 func attrTV(t, v uint16) []byte {
 	return binary.BigEndian.AppendUint16(binary.BigEndian.AppendUint16(nil, 0x8000|t), v)
@@ -176,7 +176,7 @@ func attrNum(as []attr, t uint16) uint64 {
 	return 0
 }
 
-// ---- notifications
+// Notifications.
 
 var v1Notify = map[uint16]string{
 	1: "INVALID-PAYLOAD-TYPE", 7: "INVALID-HASH-INFORMATION", 9: "INVALID-SPI", 13: "INVALID-PROPOSAL", 14: "NO-PROPOSAL-CHOSEN",
@@ -201,7 +201,7 @@ func notifyError(n uint16) error {
 	return errors.New("the server sent " + name)
 }
 
-// ---- the IKEv1 SA
+// The IKEv1 SA.
 
 type v1msg struct {
 	exch, flags byte
@@ -429,7 +429,7 @@ func (k *ikeV1) roundTrip(ctx context.Context, mid uint32, msg []byte) (v1msg, e
 	return v1msg{}, errors.New("no answer from the server")
 }
 
-// ---- phase 1
+// Phase 1.
 
 func (k *ikeV1) vids() []v1Payload {
 	var ps []v1Payload
@@ -666,7 +666,7 @@ func p1Err(err error) error {
 	return err
 }
 
-// ---- protected exchanges (HASH(1) first)
+// Protected exchanges (HASH(1) first).
 
 func (k *ikeV1) hash1(mid uint32, rest []byte) []byte {
 	return k.suite.hash.prf(k.sA, binary.BigEndian.AppendUint32(nil, mid), rest)
@@ -700,7 +700,7 @@ func newMID() uint32 {
 	}
 }
 
-// ---- XAUTH and Mode Config
+// XAUTH and Mode Config.
 
 const (
 	cfgReq = 1
@@ -898,7 +898,7 @@ func (k *ikeV1) takeConfig(m v1msg) (bool, error) {
 	return true, nil
 }
 
-// ---- quick mode
+// Quick mode.
 
 func (k *ikeV1) espLife() uint32 {
 	if k.o.Lifetime > 0 {
@@ -1045,7 +1045,7 @@ func (k *ikeV1) quickOnce(ctx context.Context, pfs bool) error {
 	return nil
 }
 
-// ---- messages the server starts
+// Messages the server starts.
 
 func (k *ikeV1) unsolicited(m *v1msg) {
 	switch m.exch {

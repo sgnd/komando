@@ -691,7 +691,7 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// ---- reading -------------------------------------------------------------
+// Reading packets.
 
 func (c *Client) readLoop() {
 	for {
@@ -948,7 +948,7 @@ func (c *Client) uncompress(p []byte) []byte {
 // pingString is OpenVPN's keepalive payload.
 var pingString = []byte{0x2a, 0x18, 0x7b, 0xf3, 0x64, 0x1e, 0xb4, 0xcb, 0x07, 0xed, 0x2d, 0x0a, 0x98, 0x1f, 0xc7, 0x48}
 
-// ---- writing -------------------------------------------------------------
+// Writing packets.
 
 // WritePacket encrypts and sends one IP packet.
 func (c *Client) WritePacket(ip []byte) error {
@@ -1105,7 +1105,7 @@ func (c *Client) keepalive() {
 	}
 }
 
-// ---- the TLS stream over the control channel -------------------------------
+// The TLS stream over the control channel.
 
 type ctrlConn struct{ ks *keyState }
 
@@ -1140,7 +1140,7 @@ func (cc *ctrlConn) SetDeadline(t time.Time) error      { return nil }
 func (cc *ctrlConn) SetReadDeadline(t time.Time) error  { return nil }
 func (cc *ctrlConn) SetWriteDeadline(t time.Time) error { return nil }
 
-// ---- transports ----------------------------------------------------------
+// Transports.
 
 type transport interface {
 	Read() ([]byte, error)
@@ -1184,8 +1184,6 @@ func (t *tcpTransport) Write(p []byte) error {
 	return err
 }
 func (t *tcpTransport) Close() error { return t.c.Close() }
-
-// ---- helpers ---------------------------------------------------------------
 
 func writeString(b *bytes.Buffer, s string) {
 	var l [2]byte

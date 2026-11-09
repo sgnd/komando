@@ -16,8 +16,6 @@ import (
 	"github.com/sgnd/komando/internal/sshx"
 )
 
-// ---------------------------------------------------------- docker prune ---
-
 type pruneOpts struct {
 	olderThan time.Duration
 	ageText   string

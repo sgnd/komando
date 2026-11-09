@@ -19,8 +19,6 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// --------------------------------------------------------------- docker ---
-
 func dockerCmd() *cobra.Command {
 	var sudo bool
 	c := &cobra.Command{

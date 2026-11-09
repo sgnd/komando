@@ -1,10 +1,13 @@
 // Package netx opens the networks komando reaches targets through
-// (docs/design/network.md). WireGuard and SOCKS run inside komando's own
-// process, only for the connections that need them. Kinds that need an
-// outside client (Tailscale, the openconnect family, OpenVPN) run as a
-// background session that later commands reuse; most of them hand komando a
-// local SOCKS port, so several VPNs work at once without touching the
-// computer's routes. OpenVPN (OS mode) does change routes.
+// (docs/design/network.md). WireGuard, SOCKS, HTTP proxies, L2TP, IPsec,
+// IKEv2, Tailscale, OpenVPN and AnyConnect run inside komando, in user
+// space, so the computer's routes are not changed. Only the openconnect
+// family (globalprotect, fortinet, pulse, f5) uses an outside client when
+// openconnect is installed; without it komando uses its own experimental
+// client. The deprecated OpenVPN --os-mode runs the openvpn program as root
+// and does change routes. A "system" VPN is one set up in the computer's own
+// settings.
+// Session kinds run as a background session that later commands reuse.
 package netx
 
 import (
