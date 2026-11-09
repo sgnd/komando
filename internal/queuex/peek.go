@@ -22,9 +22,10 @@ type PeekOptions struct {
 
 // PeekResult is what `queue peek` read.
 type PeekResult struct {
-	Topic    string     `json:"topic,omitempty"` // kafka
-	Queue    string     `json:"queue,omitempty"` // rabbitmq
-	From     string     `json:"from"`            // newest | oldest (kafka) | front (rabbitmq)
+	Topic    string     `json:"topic,omitempty"`  // kafka
+	Queue    string     `json:"queue,omitempty"`  // rabbitmq
+	Stream   string     `json:"stream,omitempty"` // nats
+	From     string     `json:"from"`             // newest | oldest (kafka, nats) | front (rabbitmq)
 	Messages []Received `json:"messages"`
 	Count    int        `json:"count"`
 	More     bool       `json:"more"` // the topic holds more than these
@@ -35,11 +36,13 @@ type PeekResult struct {
 	DeliveryLimit int `json:"delivery_limit,omitempty"`
 }
 
-// Received is one message read: from a Kafka partition (KafkaRecord) or
-// the front of a RabbitMQ queue (RabbitDelivery).
+// Received is one message read: from a Kafka partition (KafkaRecord),
+// the front of a RabbitMQ queue (RabbitDelivery) or a NATS stream
+// (NatsMsg).
 type Received struct {
 	*KafkaRecord
 	*RabbitDelivery
+	*NatsMsg
 	Value          string            `json:"value"`
 	Encoding       string            `json:"encoding,omitempty"` // base64 when the value is not UTF-8 text
 	Size           int               `json:"size"`               // the value's size in bytes

@@ -16,8 +16,8 @@ import (
 //   - Postgres without sslmode gets sslmode=verify-full, MySQL without tls=
 //     gets tls=true (verifiedTLSURL). Left out, both would take TLS only
 //     when the server offers it, without checking whose certificate it is.
-//   - redis://, memcached:// and amqp:// name a connection without TLS,
-//     and so does kafka:// without tls=true, so they are refused unless ?insecure=1
+//   - redis://, memcached://, amqp:// and nats:// name a connection without
+//     TLS, and so does kafka:// without tls=true, so they are refused unless ?insecure=1
 //     says that is meant, as for ftp://. Most of these servers have no
 //     TLS: --via an SSH server is the usual way.
 //
@@ -58,6 +58,12 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
 				"reach it --via an SSH server (`--via HOST`), or use amqps:// (port 5671) if the server has TLS; otherwise add ?insecure=1 to accept that the login and the messages travel unencrypted",
 				"amqp:// crosses the network to %s without TLS, so the password and the messages travel unencrypted", t.Address)
+		}
+	case "nats":
+		if !t.Secure && q.Get("insecure") != "1" {
+			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+				"reach it --via an SSH server (`--via HOST`), or use tls:// if the server has TLS; otherwise add ?insecure=1 to accept that the login and the messages travel unencrypted",
+				"nats:// crosses the network to %s without TLS, so the password and the messages travel unencrypted", t.Address)
 		}
 	case "kafka":
 		if !t.Secure && q.Get("insecure") != "1" {

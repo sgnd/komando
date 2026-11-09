@@ -81,14 +81,19 @@ func hostPort(s string, def int) (string, error) {
 	return net.JoinHostPort(host, port), nil
 }
 
-// splitHostList keeps only the first host of a kafka:// URL that lists
-// several (kafka://u@b1:9092,b2:9092), which net/url cannot read, and
-// returns all of them. Other URLs come back unchanged, with no hosts.
+// hostListSchemes are the URL schemes that may list several hosts.
+var hostListSchemes = []string{"kafka://", "nats://", "tls://"}
+
+// splitHostList keeps only the first host of a kafka:// or nats:// URL
+// that lists several (kafka://u@b1:9092,b2:9092), which net/url cannot
+// read, and returns all of them. Other URLs come back unchanged, with no
+// hosts.
 func splitHostList(raw string) (string, []string) {
-	if !strings.HasPrefix(strings.ToLower(raw), "kafka://") {
+	i := slices.IndexFunc(hostListSchemes, func(s string) bool { return strings.HasPrefix(strings.ToLower(raw), s) })
+	if i < 0 {
 		return raw, nil
 	}
-	start := len("kafka://")
+	start := len(hostListSchemes[i])
 	end := len(raw)
 	if i := strings.IndexAny(raw[start:], "/?#"); i >= 0 {
 		end = start + i

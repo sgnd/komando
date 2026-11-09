@@ -9,11 +9,13 @@ import (
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/queuex"
+	_ "github.com/sgnd/komando/internal/queuex/nats"     // nats:// and tls:// conns
 	_ "github.com/sgnd/komando/internal/queuex/rabbitmq" // amqp:// and amqps:// conns
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Queue commands (docs/design/queue.md), for Kafka and RabbitMQ: reading
+// Queue commands (docs/design/queue.md), for Kafka, RabbitMQ and NATS
+// JetStream: reading
 // never moves a consumer group or removes a message; send and create change, behind the usual
 // seatbelts (protected conns need --yes); rm and purge delete messages, so
 // they also need --allow-dangerous. Every change has a real --dry-run.
@@ -21,14 +23,15 @@ import (
 func queueCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "queue",
-		Aliases: []string{"kafka", "rabbitmq"},
-		Short:   "Read and change message queues (Kafka, RabbitMQ) safely",
-		Long: `Work with a kafka:// or amqp:// conn (see ` + "`komando conn`" + `). info, ls, describe,
-peek, groups and lag only read: peek reads Kafka messages without joining a
-consumer group, and gives RabbitMQ messages straight back, so nothing is
-removed. send and create change (protected conns need --yes); rm and purge
-delete messages, so they also need --allow-dangerous. Try any change with
---dry-run first. In RabbitMQ words a topic is a queue.`,
+		Aliases: []string{"kafka", "rabbitmq", "nats"},
+		Short:   "Read and change message queues (Kafka, RabbitMQ, NATS) safely",
+		Long: `Work with a kafka://, amqp:// or nats:// conn (see ` + "`komando conn`" + `). info, ls,
+describe, peek, groups and lag only read: peek reads Kafka messages without
+joining a consumer group, gives RabbitMQ messages straight back, and reads
+NATS stream messages by their number, so nothing is removed. send and create
+change (protected conns need --yes); rm and purge delete messages, so they
+also need --allow-dangerous. Try any change with --dry-run first. In
+RabbitMQ words a topic is a queue; in NATS words it is a stream.`,
 	}
 	c.AddCommand(queueInfoCmd(), queueLsCmd(), queueDescribeCmd(), queuePeekCmd(), queueGroupsCmd(), queueLagCmd(),
 		queueSendCmd(), queueCreateCmd(), queueRmCmd(), queuePurgeCmd())
@@ -38,8 +41,8 @@ delete messages, so they also need --allow-dangerous. Try any change with
 // queueRules are the rules of the destructive queue commands (rm, purge),
 // listed by `komando policy list`.
 var queueRules = []driver.Rule{
-	{ID: "queue-delete", Reason: "deletes topics (or queues) and every message in them"},
-	{ID: "queue-purge", Reason: "deletes every message in a topic or queue (it stays)"},
+	{ID: "queue-delete", Reason: "deletes topics (or queues, or streams) and every message in them"},
+	{ID: "queue-purge", Reason: "deletes every message in a topic, queue or stream (it stays)"},
 }
 
 func queueRisk(id string) driver.Verdict {
@@ -108,7 +111,7 @@ func queueCtx(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 func queueInfoCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "info CONN",
-		Short:   "Server summary: version, brokers or nodes, topic or queue count",
+		Short:   "Server summary: version, brokers or nodes, topic, queue or stream count",
 		Example: `  komando queue info events`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -131,7 +134,7 @@ func queueLsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "ls CONN [PATTERN]",
 		Aliases: []string{"list"},
-		Short:   "List topics (or queues) with their message counts",
+		Short:   "List topics (or queues, or streams) with their message counts",
 		Example: `  komando queue ls events
   komando queue ls events 'orders-*'
   komando queue ls events --internal`,
@@ -149,7 +152,7 @@ func queueLsCmd() *cobra.Command {
 					if err != nil {
 						return nil, err
 					}
-					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts), rabbit: c.Kind == "rabbitmq"}, nil
+					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts), kind: c.Kind}, nil
 				})
 		},
 	}
@@ -160,7 +163,7 @@ func queueLsCmd() *cobra.Command {
 func queueDescribeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "describe CONN TOPIC",
-		Short:   "One topic or queue: messages, settings, and who reads it",
+		Short:   "One topic, queue or stream: messages, settings, and who reads it",
 		Example: `  komando queue describe events orders`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -195,6 +198,10 @@ would get) and give them all back. Nothing is removed, but RabbitMQ marks
 them redelivered, and a quorum queue counts each peek as a delivery: peek
 stops (DELIVERY_LIMIT_NEAR) before a message runs out of them.
 
+NATS: read messages straight from the stream by their sequence number. No
+consumer is made and nothing is acknowledged, so nothing is removed, also
+from a work-queue stream. The newest -n by default, --oldest for the first.
+
 Values that are not UTF-8 text are shown as base64.`,
 		Example: `  komando queue peek events orders
   komando queue peek events orders -n 50 --partition 2
@@ -228,7 +235,7 @@ Values that are not UTF-8 text are shown as base64.`,
 func queueGroupsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "groups CONN",
-		Short:   "List Kafka consumer groups: state, members, topics and total lag",
+		Short:   "List Kafka consumer groups or NATS consumers: state, members, lag",
 		Example: `  komando queue groups events`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -248,10 +255,11 @@ func queueGroupsCmd() *cobra.Command {
 
 func queueLagCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "lag CONN GROUP",
-		Short:   "How far one Kafka consumer group is behind, per topic and partition",
-		Example: `  komando queue lag events billing`,
-		Args:    cobra.ExactArgs(2),
+		Use:   "lag CONN GROUP",
+		Short: "How far one Kafka consumer group (or NATS consumer) is behind",
+		Example: `  komando queue lag events billing
+  komando queue lag stream ORDERS/billing`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withQueue(cmd.Context(), "queue.lag", args[0], driver.Verdict{}, map[string]any{"group": args[1]},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {

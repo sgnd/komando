@@ -1,13 +1,14 @@
 # Queues
 
 Look at and work with message queues safely: Apache Kafka, and what speaks
-its protocol (Redpanda, Amazon MSK, Confluent Cloud, Aiven), and RabbitMQ.
-[All features](README.md)
+its protocol (Redpanda, Amazon MSK, Confluent Cloud, Aiven), RabbitMQ, and
+NATS with JetStream. [All features](README.md)
 
-The same commands work for both. Kafka keeps messages in **topics**;
-RabbitMQ keeps them in **queues**. Where this page says "topic", read
-"queue" for RabbitMQ. What is different for RabbitMQ is in
-[RabbitMQ](#rabbitmq) below.
+The same commands work for all three. Kafka keeps messages in **topics**;
+RabbitMQ keeps them in **queues**; NATS keeps them in **streams**. Where
+this page says "topic", read "queue" for RabbitMQ and "stream" for NATS.
+What is different for each is in [RabbitMQ](#rabbitmq) and
+[NATS JetStream](#nats-jetstream) below.
 
 ## Quick start
 
@@ -226,18 +227,115 @@ komando queue rm jobs emails --allow-dangerous
   groups. `describe` shows a queue's consumers, the messages waiting for
   them (ready) and those not acknowledged yet (unacked).
 
+## NATS JetStream
+
+### Add a NATS server
+
+```bash
+komando secret set nats-pass
+komando conn add stream 'tls://app@nats1.example.com:4222,nats2.example.com:4222' --password-ref secret:nats-pass
+komando conn add stream2 nats://nats.internal:4222 --via web1 --password-ref secret:nats-pass
+komando secret set ngs-creds < user.creds
+komando conn add cloud 'tls://connect.ngs.global?creds=secret:ngs-creds'
+komando queue info stream                     # version, server, the account's streams and limits
+komando queue ls stream                       # streams: subjects, messages, size, consumers
+komando queue peek stream ORDERS              # the newest 10 messages; none is taken away
+```
+
+- `tls://` is NATS with TLS; `nats://` has no TLS. The port is 4222 by
+  default. Like `redis://`, `nats://` straight over the network (no
+  `--via`, not this computer) is refused with `INSECURE_PROTOCOL` unless
+  you add `?insecure=1`.
+- List several servers of a cluster with commas. komando tries them in
+  that order and talks only to the servers in the URL (with `--via`, all
+  of them are reached through the bastion or the VPN).
+- How komando logs in:
+  - a user in the URL and `--password-ref`: user and password;
+  - `--password-ref` without a user: the password is sent as a **token**;
+  - `?creds=secret:NAME`: a `.creds` file (from `nsc`, NGS or Synadia
+    Cloud) that you keep in the vault with `komando secret set NAME < user.creds`;
+  - none of these: no login.
+- `komando conn test stream` logs in and shows the server's version.
+
+| Option | What it does |
+|---|---|
+| `creds=secret:NAME` | log in with the `.creds` file kept in the vault |
+| `domain=NAME` | the JetStream domain, for a leaf node with its own JetStream |
+| `ca=secret:NAME` | `tls://`: also trust your own CA (`komando secret set NAME < ca.pem`) |
+| `tls=skip-verify` | `tls://` without checking the certificate (`komando doctor` warns; prefer `ca=`) |
+| `insecure=1` | accept `nats://` across the network without TLS |
+
+### Streams, subjects and consumers
+
+Plain NATS forgets a message once it is delivered. **JetStream** keeps
+messages in **streams**: a stream keeps every message sent to its
+**subjects** (for example `orders.>`, every subject that starts with
+`orders.`), numbered with a **sequence**. A **consumer** is an
+application's place in a stream: what it has been given and what it has
+acknowledged.
+
+```bash
+komando queue describe stream ORDERS          # settings, limits, sequences, cluster, consumers
+komando queue groups stream                   # every consumer: pending, ack pending, waiting
+komando queue lag stream ORDERS/billing       # one consumer (the name alone works when only one stream has it)
+komando queue peek stream ORDERS -n 5         # the newest 5 messages
+komando queue peek stream ORDERS --oldest     # the first ones still kept
+komando queue send stream orders.new --value '{"id": 42}' --header source=support
+komando queue create stream ORDERS --config subjects='orders.>' --config max_age=7d --dry-run
+komando queue purge stream ORDERS --dry-run   # how many messages would go
+komando queue rm stream ORDERS --allow-dangerous
+```
+
+- **`peek` reads messages by their sequence number.** It makes no consumer
+  and acknowledges nothing, so no application notices and **nothing is
+  removed**, also from a work-queue stream (where an acknowledgement
+  deletes the message). By default it shows the newest `-n` messages;
+  `--oldest` shows the first ones. Deleted messages in between are
+  skipped. In a stream with more than 100000 deleted messages the newest
+  may come out incomplete, and peek says so; `--oldest` always works.
+- `send` takes a **subject**, not a stream name: `orders.new`, not
+  `ORDERS`. komando first checks which stream keeps that subject; when
+  none does, it stops with `STREAM_NOT_FOUND` (plain NATS would drop the
+  message without a word). It then waits for the stream's acknowledgement
+  and says the message's sequence. A `Nats-Msg-Id` header
+  (`--header Nats-Msg-Id=order-42`) lets the stream drop duplicates.
+  There is no `--key` or `--partition`.
+- `create` makes a stream on disk (`storage=file`) that keeps messages
+  until a limit (`retention=limits`). Its subjects are the stream's name
+  unless you give `--config subjects=a.>,b.*`. Other settings:
+  `storage=memory`, `retention=interest|workqueue`, `discard=old|new`,
+  `max_msgs`, `max_bytes`, `max_age` (`24h`, `7d`), `max_msg_size`,
+  `max_msgs_per_subject`, `max_consumers`, `duplicate_window`,
+  `description`. `--replicas 3` keeps 3 copies on a cluster. JetStream
+  cannot check a stream without making it, so `create --dry-run` checks
+  the name and the settings only. A stream that is there already is
+  `STREAM_EXISTS`.
+- `purge` deletes every message of a stream; the stream and its consumers
+  stay. `rm` deletes the stream, its messages and its consumers. Both need
+  `--allow-dangerous`.
+- `groups` lists consumers. **Pending** is what a consumer has not been
+  given yet (shown as its lag); **ack pending** is what it was given and
+  has not acknowledged yet. `state` is `active` (a push consumer with a
+  subscriber, or a pull consumer with requests waiting), `idle` or
+  `paused`.
+- Key-value buckets (`KV_NAME`) and object stores (`OBJ_NAME`) are streams
+  too, and `ls` lists them.
+- A server or account without JetStream: `info` says `jetstream: false`,
+  and the other commands answer `NOT_SUPPORTED`.
+
 ## Troubleshooting
 
 | Code | What to do |
 |---|---|
 | `QUEUE_CONNECT` | the brokers cannot be reached, or want TLS (`?tls=true`) or a login (`?sasl=`); with `--via`, the advertised addresses must be reachable from there |
 | `QUEUE_AUTH` | check the user, the `sasl=` mechanism and the password (`komando conn show NAME`) |
-| `QUEUE_DENIED` | the user lacks a Kafka ACL for the topic, group or cluster, or a RabbitMQ permission on the vhost or queue: ask the admin |
+| `QUEUE_DENIED` | the user lacks a Kafka ACL for the topic, group or cluster, a RabbitMQ permission on the vhost or queue, or a NATS permission on the subject or the JetStream API: ask the admin |
 | `TOPIC_NOT_FOUND`, `CONSUMER_GROUP_NOT_FOUND`, `PARTITION_NOT_FOUND` | check the name with `queue ls`, `queue groups` or `queue describe` |
 | `TOPIC_EXISTS` | `queue create` of a topic that is there |
 | `QUEUE_NOT_FOUND`, `QUEUE_EXISTS` | RabbitMQ: no such queue in the conn's vhost, or one is there already; check the vhost in the URL's path |
 | `DELIVERY_LIMIT_NEAR` | a message of a RabbitMQ quorum queue is close to its delivery limit: stop peeking that queue and let its consumers take the message |
-| `NOT_SUPPORTED` | the engine cannot do this (RabbitMQ: `groups`, `lag`, `ls` and `peek` without `?management=`); the hint says what works instead |
+| `STREAM_NOT_FOUND`, `STREAM_EXISTS`, `CONSUMER_NOT_FOUND` | NATS: no such stream (for `send`: no stream keeps that subject), one is there already, or no such consumer; `queue ls` and `queue groups` show the names |
+| `NOT_SUPPORTED` | the engine cannot do this (RabbitMQ: `groups`, `lag`, `ls` and `peek` without `?management=`; NATS without JetStream); the hint says what works instead |
 
 The design behind these commands is in
 [docs/design/queue.md](../design/queue.md).

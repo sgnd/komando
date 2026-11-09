@@ -19,8 +19,11 @@ type queueInfo struct {
 }
 
 func (d queueInfo) Text() string {
-	if d.RabbitInfo != nil {
+	switch {
+	case d.RabbitInfo != nil:
 		return rabbitInfoText(d.Info)
+	case d.NatsInfo != nil:
+		return natsInfoText(d.Info)
 	}
 	var b strings.Builder
 	version := d.Version
@@ -57,19 +60,23 @@ func orDash(s string) string {
 
 type queueTopics struct {
 	Conn   string         `json:"conn"`
-	Topics []queuex.Topic `json:"topics"` // rabbitmq: queues
+	Topics []queuex.Topic `json:"topics"` // rabbitmq: queues; nats: streams
 	Count  int            `json:"count"`
-	rabbit bool
+	kind   string
 }
 
 func (l queueTopics) Text() string {
 	switch {
-	case len(l.Topics) == 0 && l.rabbit:
+	case len(l.Topics) == 0 && l.kind == "rabbitmq":
 		return "no queues\n"
+	case len(l.Topics) == 0 && l.kind == "nats":
+		return "no streams\n"
 	case len(l.Topics) == 0:
 		return "no topics\n"
-	case l.rabbit:
+	case l.kind == "rabbitmq":
 		return rabbitQueuesText(l.Topics)
+	case l.kind == "nats":
+		return natsStreamsText(l.Topics)
 	}
 	var rows [][]string
 	for _, t := range l.Topics {
@@ -84,8 +91,11 @@ type queueTopic struct {
 }
 
 func (d queueTopic) Text() string {
-	if d.RabbitQueueDetail != nil {
+	switch {
+	case d.RabbitQueueDetail != nil:
 		return rabbitQueueText(d.TopicDetail)
+	case d.NatsStreamDetail != nil:
+		return natsStreamText(d.TopicDetail)
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "topic: %s (%s, %s, %s)\n\n", d.Name, countOf(len(d.Partitions), "partition"), countOf(d.Replicas, "replica"), count64(d.Messages, "message"))
@@ -130,8 +140,11 @@ type queuePeek struct {
 }
 
 func (p queuePeek) Text() string {
-	if p.Queue != "" {
+	switch {
+	case p.Queue != "":
 		return rabbitPeekText(p.PeekResult)
+	case p.Stream != "":
+		return natsPeekText(p.PeekResult)
 	}
 	var b strings.Builder
 	for _, m := range p.Messages {
@@ -179,8 +192,11 @@ type queueGroups struct {
 }
 
 func (l queueGroups) Text() string {
-	if len(l.Groups) == 0 {
+	switch {
+	case len(l.Groups) == 0:
 		return "no consumer groups\n"
+	case l.Groups[0].NatsConsumer != nil:
+		return natsGroupsText(l.Groups)
 	}
 	var rows [][]string
 	for _, g := range l.Groups {
@@ -195,6 +211,9 @@ type queueLag struct {
 }
 
 func (l queueLag) Text() string {
+	if l.NatsConsumer != nil {
+		return natsLagText(l.GroupLag)
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "group: %s (%s, %s), lag %d\n\n", l.Group, l.State, countOf(l.Members, "member"), l.Lag)
 	rows := make([][]string, 0, len(l.Partitions))
@@ -219,6 +238,9 @@ type queueSent struct {
 }
 
 func (s queueSent) Text() string {
+	if s.NatsSent != nil {
+		return natsSentText(s.Sent)
+	}
 	if s.Queue != "" {
 		if s.DryRun {
 			return fmt.Sprintf("would send %s to queue %s (nothing sent)\n", humanBytes(int64(s.Size)), s.Queue)
@@ -241,6 +263,9 @@ type queueCreated struct {
 }
 
 func (c queueCreated) Text() string {
+	if c.NatsCreated != nil {
+		return natsCreatedText(c.Created)
+	}
 	if c.RabbitCreated != nil {
 		typ := c.Type
 		if typ == "" {
@@ -285,7 +310,8 @@ func (d queueDeleted) Text() string {
 		}
 		fmt.Fprintf(&b, "%s %s (%s", verb, t.Name(), count64(t.Messages, "message"))
 		if t.Consumers != nil && *t.Consumers > 0 {
-			fmt.Fprintf(&b, "; its %s %s cancelled", countOf(*t.Consumers, "consumer"), map[bool]string{true: "would be", false: "were"}[d.DryRun])
+			what := map[bool]string{true: "deleted with it", false: "cancelled"}[t.Stream != ""]
+			fmt.Fprintf(&b, "; its %s %s %s", countOf(*t.Consumers, "consumer"), map[bool]string{true: "would be", false: "were"}[d.DryRun], what)
 		}
 		b.WriteString(")\n")
 	}
@@ -298,6 +324,10 @@ type queuePurged struct {
 }
 
 func (p queuePurged) Text() string {
+	if p.Stream != "" {
+		verb := map[bool]string{true: "would delete", false: "deleted"}[p.DryRun]
+		return fmt.Sprintf("%s %s from stream %s; the stream and its consumers stay\n", verb, count64(p.Messages, "message"), p.Stream)
+	}
 	if p.Queue != "" {
 		verb := "deleted"
 		if p.DryRun {

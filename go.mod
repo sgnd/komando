@@ -21,6 +21,8 @@ require (
 	github.com/kr/fs v0.1.0
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/moby/spdystream v0.5.1
+	github.com/nats-io/nats.go v1.55.0
+	github.com/nats-io/nkeys v0.4.16
 	github.com/pion/dtls/v3 v3.1.15
 	github.com/pkg/sftp v1.13.12
 	github.com/rabbitmq/amqp091-go v1.10.0
@@ -88,6 +90,7 @@ require (
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
+	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.33 // indirect

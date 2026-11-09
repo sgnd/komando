@@ -123,6 +123,11 @@ services:
     image: rabbitmq:4.1.8-management
     environment: { RABBITMQ_DEFAULT_USER: app, RABBITMQ_DEFAULT_PASS: rabbitpass }
     networks: [private]
+  nats:
+    # NATS with JetStream, reached --via bastion (checks/nats.sh)
+    image: nats:2.12.1-alpine
+    command: ["-js", "-m", "8222", "--user", "app", "--pass", "natspass"]
+    networks: [private]
   # secret managers komando talks to itself (no vault or aws CLI)
   bao:
     image: openbao/openbao:2.4.3

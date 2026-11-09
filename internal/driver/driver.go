@@ -77,6 +77,8 @@ func init() {
 		Example: "kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512 (private CA: &ca=secret:NAME; --via an SSH server: kafka://broker1.internal:9092)"})
 	register(Kind{Name: "rabbitmq", Family: "queue", Schemes: []string{"amqp", "amqps"}, DefaultPort: 5672,
 		Example: "amqps://app@rabbit.example.com:5671/%2F?management=15671 (amqps = TLS; the path is the vhost; --via an SSH server: amqp://app@rabbit.internal:5672/)"})
+	register(Kind{Name: "nats", Family: "queue", Schemes: []string{"nats", "tls"}, DefaultPort: 4222,
+		Example: "tls://app@nats1.example.com:4222,nats2.example.com:4222 (tls = TLS; a .creds file: ?creds=secret:NAME; --via an SSH server: nats://nats.internal:4222)"})
 	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
 		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
 	register(Kind{Name: "registry", Family: "registry", Schemes: []string{"registry", "oci"}, DefaultPort: 443,
@@ -133,7 +135,7 @@ type Target struct {
 	Region   string `json:"region,omitempty"`   // s3
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
 	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry: skip-verify (registry also false)
-	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka, rabbitmq: secret:NAME holding the PEM CA certificate to trust
+	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka, rabbitmq, nats: secret:NAME holding the PEM CA certificate to trust
 	Resolve  string `json:"resolve,omitempty"`  // registry, s3: IP:port to connect to in place of Address (?resolve=)
 
 	Cluster      bool     `json:"cluster,omitempty"`       // redis: a Redis Cluster; Address is one node (?cluster=1)
@@ -141,10 +143,13 @@ type Target struct {
 	Sentinels    []string `json:"sentinels,omitempty"`     // redis: more Sentinels besides Address (?sentinels=h2:26379,h3:26379)
 	SentinelAuth bool     `json:"sentinel_auth,omitempty"` // redis: the Sentinels want the conn's login too (?sentinel_auth=same)
 
-	Brokers []string `json:"brokers,omitempty"` // kafka: every seed broker the URL lists; Address is the first
+	Brokers []string `json:"brokers,omitempty"` // kafka, nats: every server the URL lists; Address is the first
 	SASL    string   `json:"sasl,omitempty"`    // kafka: plain, scram-sha-256 or scram-sha-512 (?sasl=)
 
 	Management string `json:"management,omitempty"` // rabbitmq: host:port of the management HTTP API (?management=PORT)
+
+	Creds  string `json:"creds,omitempty"`  // nats: secret:NAME holding the .creds file (user JWT and NKey seed) to log in with
+	Domain string `json:"domain,omitempty"` // nats: the JetStream domain (?domain=)
 }
 
 // DialAddress is where a connection goes: the ?resolve= address when the
@@ -167,6 +172,12 @@ func (t Target) Where() string {
 		return t.Address + "/" + strings.TrimSuffix(t.Prefix, "/")
 	}
 	return t.Address
+}
+
+// urlParsers read the URLs of kinds with a shape of their own.
+var urlParsers = map[string]func(*url.URL, Target) (Target, error){
+	"s3": parseS3, "ftp": parseFiles, "ftps": parseFiles, "sftp": parseFiles, "gcs": parseGCS, "azblob": parseAzure,
+	"webdav": parseWebDAV, "mongodb": parseMongo, "rabbitmq": parseAMQP,
 }
 
 // passwordParams are query parameters that would carry a password or key.
@@ -199,25 +210,14 @@ func Parse(raw string) (Target, error) {
 			"conn URLs must not contain a password")
 	}
 	t := Target{Kind: k}
-	if k.Name == "s3" {
-		return parseS3(u, t)
-	}
-	if k.Name == "ftp" || k.Name == "ftps" || k.Name == "sftp" {
-		return parseFiles(u, t)
+	if parse := urlParsers[k.Name]; parse != nil {
+		return parse(u, t)
 	}
 	switch k.Name {
-	case "gcs":
-		return parseGCS(u, t)
-	case "azblob":
-		return parseAzure(u, t)
-	case "webdav":
-		return parseWebDAV(u, t)
-	case "mongodb":
-		return parseMongo(u, t)
 	case "kafka":
 		return parseKafka(u, t, brokers)
-	case "rabbitmq":
-		return parseAMQP(u, t)
+	case "nats":
+		return parseNATS(u, t, brokers)
 	}
 	if k.File {
 		t.Path = u.Opaque
@@ -478,7 +478,8 @@ func (t Target) Describe() string {
 		s += "/" + t.Database
 	}
 	if n := len(t.Brokers) - 1; n > 0 {
-		s += fmt.Sprintf(" (+%d broker%s)", n, map[bool]string{true: "s"}[n > 1])
+		noun := map[bool]string{true: "server", false: "broker"}[t.Kind.Name == "nats"]
+		s += fmt.Sprintf(" (+%d %s%s)", n, noun, map[bool]string{true: "s"}[n > 1])
 	}
 	return t.Kind.Name + " " + s
 }

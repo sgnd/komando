@@ -135,6 +135,23 @@ its highlights; the sections below them give the details. Versions follow
   like `redis://` unless `?insecure=1`. New error codes `QUEUE_NOT_FOUND`,
   `QUEUE_EXISTS` and `DELIVERY_LIMIT_NEAR`. Built on
   github.com/rabbitmq/amqp091-go (BSD-2).
+- **NATS JetStream in `komando queue`:** add a server as a conn,
+  `tls://USER@HOST:4222,HOST2:4222` (or `nats://` --via an SSH server),
+  logging in with a user and `--password-ref`, a token (a password
+  reference without a user), or a `.creds` file kept in the vault
+  (`?creds=secret:NAME`); `?domain=` for a leaf node's JetStream.
+  `queue ls` lists streams, `describe` shows a stream with its limits,
+  cluster and consumers, `groups` and `lag` show consumers (pending, ack
+  pending, waiting). `queue peek` reads messages by their sequence number,
+  the newest or (`--oldest`) the first ones, with no consumer and no
+  acknowledgement, so nothing is removed, also from a work-queue stream.
+  `queue send` takes a subject, checks that a stream keeps it, and waits
+  for the stream's acknowledgement; `queue create` makes a stream
+  (`--config subjects='orders.>' --config max_age=7d`, `--replicas`);
+  `rm` and `purge` need `--allow-dangerous`. `nats://` straight over the
+  network is refused like `redis://` unless `?insecure=1`. New error codes
+  `STREAM_NOT_FOUND`, `STREAM_EXISTS` and `CONSUMER_NOT_FOUND`. Built on
+  github.com/nats-io/nats.go and github.com/nats-io/nkeys (Apache-2.0).
 
 ## [0.8.0] - 2026-11-09
 

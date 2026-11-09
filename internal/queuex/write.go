@@ -26,6 +26,7 @@ type Sent struct {
 	Topic string `json:"topic,omitempty"` // kafka
 	Queue string `json:"queue,omitempty"` // rabbitmq
 	*KafkaSent
+	*NatsSent
 	Size   int  `json:"size"`
 	DryRun bool `json:"dry_run,omitempty"`
 }
@@ -43,7 +44,9 @@ type TopicSpec struct {
 	Partitions int32  // kafka; -1: the broker's default
 	Replicas   int16  // kafka; -1: the broker's default
 	Type       string // rabbitmq: classic, quorum or stream ("": the server's default)
-	Config     map[string]string
+	// nats: Replicas is the stream's copies, Config its settings
+	// (subjects, storage, retention, max_age ...)
+	Config map[string]string
 }
 
 // Created is the topic or queue made (or checked, with dry run).
@@ -52,6 +55,7 @@ type Created struct {
 	Queue string `json:"queue,omitempty"` // rabbitmq
 	*KafkaCreated
 	*RabbitCreated
+	*NatsCreated
 	DryRun bool `json:"dry_run,omitempty"`
 }
 
@@ -64,20 +68,22 @@ type KafkaCreated struct {
 
 // Deleted is one topic or queue `queue rm` deleted (or would).
 type Deleted struct {
-	Topic     string `json:"topic,omitempty"` // kafka
-	Queue     string `json:"queue,omitempty"` // rabbitmq
-	Messages  int64  `json:"messages"`        // how many it held
+	Topic     string `json:"topic,omitempty"`  // kafka
+	Queue     string `json:"queue,omitempty"`  // rabbitmq
+	Stream    string `json:"stream,omitempty"` // nats
+	Messages  int64  `json:"messages"`         // how many it held
 	Consumers *int   `json:"consumers,omitempty"`
 	Exists    bool   `json:"exists"`
 }
 
-// Name is the topic's or the queue's name.
-func (d Deleted) Name() string { return d.Topic + d.Queue }
+// Name is the topic's, the queue's or the stream's name.
+func (d Deleted) Name() string { return d.Topic + d.Queue + d.Stream }
 
 // Purged is what `queue purge` removed (or would).
 type Purged struct {
-	Topic      string `json:"topic,omitempty"` // kafka
-	Queue      string `json:"queue,omitempty"` // rabbitmq
+	Topic      string `json:"topic,omitempty"`  // kafka
+	Queue      string `json:"queue,omitempty"`  // rabbitmq
+	Stream     string `json:"stream,omitempty"` // nats
 	Messages   int64  `json:"messages"`
 	Partitions int    `json:"partitions,omitempty"` // kafka
 	DryRun     bool   `json:"dry_run,omitempty"`

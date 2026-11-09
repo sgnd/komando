@@ -14,10 +14,11 @@ import (
 // Info is the cluster at a glance. Engine says which of the embedded
 // parts is there: KafkaInfo or RabbitInfo (see rabbit.go).
 type Info struct {
-	Engine  string `json:"engine"` // kafka | rabbitmq
+	Engine  string `json:"engine"` // kafka | rabbitmq | nats
 	Version string `json:"version,omitempty"`
 	*KafkaInfo
 	*RabbitInfo
+	*NatsInfo
 }
 
 // KafkaInfo is what `queue info` shows of a Kafka cluster.
@@ -37,12 +38,14 @@ type Broker struct {
 	Version    string `json:"version,omitempty"` // a guess from the API versions it takes
 }
 
-// Topic is one line of `queue ls`: a Kafka topic or a RabbitMQ queue.
+// Topic is one line of `queue ls`: a Kafka topic, a RabbitMQ queue or a
+// NATS JetStream stream.
 type Topic struct {
 	Name     string `json:"name"`
 	Messages int64  `json:"messages"` // kafka: end minus start offset, an upper bound on compacted topics
 	*KafkaTopic
 	*RabbitQueue
+	*NatsStream
 }
 
 // KafkaTopic is what `queue ls` shows of a Kafka topic.
@@ -52,12 +55,14 @@ type KafkaTopic struct {
 	Internal   bool `json:"internal,omitempty"`
 }
 
-// TopicDetail is `queue describe`: a Kafka topic or a RabbitMQ queue.
+// TopicDetail is `queue describe`: a Kafka topic, a RabbitMQ queue or a
+// NATS stream.
 type TopicDetail struct {
 	Name     string `json:"name"`
 	Messages int64  `json:"messages"`
 	*KafkaTopicDetail
 	*RabbitQueueDetail
+	*NatsStreamDetail
 }
 
 // KafkaTopicDetail is what `queue describe` shows of a Kafka topic.
@@ -89,7 +94,8 @@ type GroupOnTopic struct {
 	Lag   int64  `json:"lag"`
 }
 
-// Group is one line of `queue groups`.
+// Group is one line of `queue groups`: a Kafka consumer group, or a NATS
+// consumer (NatsConsumer says more).
 type Group struct {
 	Name     string   `json:"name"`
 	State    string   `json:"state"`
@@ -98,6 +104,7 @@ type Group struct {
 	Topics   []string `json:"topics"`
 	Lag      int64    `json:"lag"`
 	Error    string   `json:"error,omitempty"`
+	*NatsConsumer
 }
 
 // GroupLag is `queue lag`: one group, per topic and partition.
@@ -106,7 +113,8 @@ type GroupLag struct {
 	State      string         `json:"state"`
 	Members    int            `json:"members"`
 	Lag        int64          `json:"lag"`
-	Partitions []PartitionLag `json:"partitions"`
+	Partitions []PartitionLag `json:"partitions"` // nats: none, a stream has no partitions
+	*NatsConsumer
 }
 
 // PartitionLag is where a group is in one partition.
