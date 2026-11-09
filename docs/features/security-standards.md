@@ -27,7 +27,8 @@ make fuzz               # fuzz the parsers that read untrusted text
 |---|---|---|
 | 2.10, 6.4 Secrets are not in code, arguments or history | Vault, `secret:NAME` references, external managers (HashiCorp Vault/OpenBao, AWS and Google Secret Manager, Bitwarden, KeePass, 1Password Connect); secret values on a command line are refused | ✅ |
 | 6.2 Approved algorithms, no home-made crypto | AES-256-GCM (each value bound to its name), scrypt N=2^17 r=8 p=1, `crypto/rand`, Ed25519 keys, Go's SSH and TLS | ✅ |
-| 6.4.2 Key material is protected | Key file and vault mode 0600 in a 0700 folder; `komando secret keychain` keeps the key in the OS keychain; passphrase mode keeps no key on disk | ✅ with the keychain or a passphrase; 🟡 the default key file sits next to the vault (`doctor` warns) |
+| 6.4.2 Key material is protected | A new vault keeps its key in the OS keychain (macOS keychain, Linux Secret Service), read back before it counts; passphrase mode keeps no key on disk; where neither is there, a key file, mode 0600 in a 0700 folder; `komando secret keychain` moves an older vault's key | ✅ with the keychain or a passphrase; 🟡 without a keychain the key file sits next to the vault (`doctor` warns) |
+| 4.1.3, 4.3.1 Least privilege, administrative interfaces | `komando ssh-gate` limits another device's SSH key to komando: no shell or forwarding, agent rules, `--read-only` keys run only reads, every command audited with the key's name | ✅ · 👤 add phone keys with `komando ssh-gate line` |
 | 7.1 Logs record who, what, where, result, without secrets | Every action: time, actor, AI agent, approval, hosts, command; tested to hold no password | ✅ |
 | 7.3 Logs are protected from change | 0600, a hash chain that `komando audit verify` checks, and each record sent to a log server with `audit_syslog` | ✅ with `audit_syslog`; 🟡 without it the same user can rebuild the chain or cut its end |
 | 8.3 Sensitive data is not shown to those who should not see it | Vault values hidden for everyone; passwords, keys and tokens hidden for AI agents | ✅ best effort: an unusual name can slip through |
@@ -51,7 +52,7 @@ make fuzz               # fuzz the parsers that read untrusted text
 |---|---|---|
 | SP 800-63B Passphrase length | `doctor` warns below 15 characters | 🟡 warned, not enforced |
 | SP 800-132 Key derivation | scrypt with a stored cost; older vaults move up on their next change | ✅ |
-| SP 800-53 AC-6 Least privilege | AI agents read by default and need a person for more | ✅ · 👤 give komando an SSH user with only what it needs |
+| SP 800-53 AC-6 Least privilege | AI agents read by default and need a person for more; another device's SSH key runs only komando, read-only if you choose (`ssh-gate`) | ✅ · 👤 give komando an SSH user with only what it needs |
 | SP 800-53 AU-2, AU-3, AU-9 Audit events, content, protection | See ASVS 7 | 🟡 |
 | SP 800-53 SC-8 Transmission confidentiality | See ASVS 9 | 🟡 |
 | SP 800-53 SI-7 Software integrity | Release checksums and signed build provenance | ✅ |
@@ -66,7 +67,7 @@ organization.
 |---|---|
 | A.5.17 Authentication information · CIS 3.11 | Encrypted vault, references instead of values |
 | A.8.2 Privileged access · CIS 5.4 | Protected targets, approval window, policy filter |
-| A.8.5 Secure authentication | SSH keys and agent, host key checks |
+| A.8.5 Secure authentication | SSH keys and agent, host key checks, keys limited to komando (`ssh-gate`) |
 | A.8.15 Logging · CIS 8 | Audit log with hash chain |
 | A.8.24 Use of cryptography · CIS 3.10 | AES-256-GCM, scrypt, SSH, TLS 1.2+ |
 | A.8.28 Secure coding · CIS 16 | Static analysis, fuzzing, pinned build tools |

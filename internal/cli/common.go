@@ -31,6 +31,10 @@ func loadState() (*store.State, error) { return store.Load() }
 // accepts them (docs/design/ux.md, section 1).
 var rmAliases = []string{"remove", "delete", "del"}
 
+// groupOnly marks a group of commands (`komando db`): run on its own it
+// prints its help or a usage error.
+const groupOnly = "komando-group"
+
 // applyConventions applies the rules every command shares, so a new command
 // cannot forget them. TestConventions checks the rest.
 func applyConventions(c *cobra.Command) {
@@ -47,6 +51,10 @@ func applyConventions(c *cobra.Command) {
 		// `komando host lst`: a typo must fail (exit 2) with a suggestion,
 		// not print the help and exit 0 as if it had worked
 		c.Args = cobra.ArbitraryArgs
+		if c.Annotations == nil {
+			c.Annotations = map[string]string{}
+		}
+		c.Annotations[groupOnly] = "true" // it runs nothing (ssh-gate counts on it)
 		c.RunE = func(cmd *cobra.Command, args []string) error {
 			names := []string{}
 			for _, sub := range cmd.Commands() {

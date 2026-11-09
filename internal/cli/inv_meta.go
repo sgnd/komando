@@ -62,6 +62,9 @@ func (l auditList) Text() string {
 				targets = append(targets, k+" "+v)
 			}
 		}
+		if v, ok := e["ssh_command"].(string); ok && v != "" {
+			targets = append(targets, v) // what an ssh-gate key asked for
+		}
 		res := "ok"
 		switch {
 		case e["dry_run"] == true:

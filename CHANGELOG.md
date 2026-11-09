@@ -7,7 +7,28 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+**Highlights:** a new vault keeps its key in the OS keychain, and
+`komando ssh-gate` lets a phone's SSH key run komando and nothing else.
+
 ### Added
+
+- **`komando ssh-gate`: an SSH key that runs komando and nothing else.**
+  For a phone (the Komando app) or another computer that reaches komando
+  over SSH: `komando ssh-gate line --name phone KEY` prints the line for
+  `~/.ssh/authorized_keys` (`restrict,command="/full/path/komando ssh-gate
+  --name phone" ...`). For that key, sshd runs ssh-gate, which takes only
+  one komando command: split into words like a shell, but with no shell and
+  no expansion, so `;`, `|`, `$(...)` and other programs are refused
+  (`SSH_GATE_SYNTAX`, `SSH_GATE_REFUSED`). komando then runs as for an AI
+  agent, whatever the client says it is: secrets stay hidden, `--reveal`,
+  `--allow-dangerous` and commands for a person at a terminal are refused,
+  and `--yes` on a protected target needs a person on the komando computer.
+  `--read-only` keys run only what `komando schema` counts as a read
+  (`SSH_GATE_READ_ONLY`). Every command a key runs or is refused is in
+  `komando audit`, with the key's name, the address it came from and why.
+  See [Safety](docs/features/safety.md#a-key-that-runs-komando-and-nothing-else).
+- `KOMANDO_KEYCHAIN=off` keeps komando away from the keychain (CI runners,
+  containers, test runs): a new vault then keeps its key in `vault.key`.
 
 - **SSH logins ask a person, as `ssh` does.** At a terminal, komando asks
   for a server's password when none is stored, and for the one-time code
@@ -24,6 +45,16 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- **A new vault keeps its key in the OS keychain** (the macOS keychain, or
+  the Secret Service through `secret-tool` on Linux), no longer in
+  `vault.key` beside the vault, so a backup or a synced copy of
+  `~/.komando` does not open it. komando makes the key at the first secret
+  and counts on it only once it reads back. A key the keychain already
+  holds for that folder (a vault moved aside) is used, never replaced.
+  Where the keychain cannot keep it (no `secret-tool`, no desktop session,
+  a locked keychain over SSH), the key goes into `vault.key` as before and
+  `komando doctor` warns. Existing vaults keep their key where it is: move
+  it with `komando secret keychain`.
 - An AI agent that runs `secret set NAME` with no value gets `NEEDS_PERSON`:
   ask the user to run `komando secret set NAME` in their own terminal. It
   used to get a `USAGE` error whose hint was the same command. `komando

@@ -260,7 +260,11 @@ var commandKinds = map[string]cmdKind{
 	"secret rm":         changes,
 	"secret set":        changes,
 
-	"shell":  dependsOn(shellNote),
+	"shell": dependsOn(shellNote),
+
+	"ssh-gate":      dependsOn("runs the komando command an SSH key sent, when ssh-gate allows it"),
+	"ssh-gate line": reads,
+
 	"status": reads,
 
 	"storage":          reads,
