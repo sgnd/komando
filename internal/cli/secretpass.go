@@ -228,7 +228,7 @@ func passphrasePlan(off bool) (passphraseResult, error) {
 			hint := map[string]string{
 				"keyfile":  "its key is in " + store.Path("vault.key") + " already",
 				"keychain": "its key is in the OS keychain; `komando secret keychain --off --yes` moves it into vault.key",
-				"none":     "there is no vault yet; without KOMANDO_VAULT_PASS the first secret makes vault.key",
+				"none":     "there is no vault yet; without KOMANDO_VAULT_PASS the first secret keeps its key in the OS keychain, or in vault.key where the keychain cannot keep it",
 			}[res.From]
 			return res, out.Errf(out.ExitUsage, "NO_PASSPHRASE", hint, "the vault has no passphrase to take away")
 		}

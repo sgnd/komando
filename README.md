@@ -149,9 +149,12 @@ Log in once and komando keeps that login for 8 hours, for your AI agent too:
 komando login web1
 ```
 
-The vault's key is a file in `~/.komando`, so a backup or a synced copy of
-that folder opens the vault. Move the key into the system keychain once
-(before or after your first secret; nothing is re-encrypted):
+A new vault keeps its key in the system keychain (the macOS keychain, or
+the Secret Service on Linux), so a backup or a synced copy of `~/.komando`
+does not open it. Where there is no keychain (a Linux server, a container),
+the key is a file in `~/.komando` and `komando doctor` says so. A vault from
+an older komando keeps its key file until you move the key, once (nothing is
+re-encrypted):
 
 ```bash
 komando secret keychain
