@@ -180,6 +180,7 @@ var errorCodes = []errorCode{
 	{"SQL_HIDDEN_CODE", 2, "-- is followed by a non-ASCII byte", "put a space after -- to start a comment: whether this one starts a comment depends on the server's character set"},
 	{"SQL_STRING_RULES", 6, "this connection parses strings differently (…)", "komando checks SQL with the default quoting rules and an ASCII-safe character set (UTF-8); use a database user or connection without this setting"},
 	{"SQL_TX_CONTROL", 6, "statement … (…) ended komando's transaction, so komando stopped (…)", "leave transactions to komando, and tell the user: what ran before this point may have been committed"},
+	{"SSH_GATE_PATH", 1, "komando cannot tell its own full path, which the line needs", "run komando by its full path, e.g. /usr/local/bin/komando ssh-gate line ..."},
 	{"SSM_FAILED", 4, "…: …", "check the instance ID, its SSM agent and your AWS login (`komando login aws`)"},
 	{"STATE_CORRUPT", 1, "corrupt state file …: …", "the file is empty or broken, most likely cut short by a crash or power loss; ask the user to restore it from a backup (Time Machine or similar), or to move it away to start fresh and then set protected servers, host_key_policy and extra_deny_patterns again"},
 	{"STORAGE_AUTH", 2, "an azblob conn needs the storage account's key or a SAS token", "store the account key or a SAS token with `komando secret set NAME` and pass --password-ref secret:NAME"},
