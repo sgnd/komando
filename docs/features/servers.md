@@ -44,7 +44,7 @@ Useful flags:
 | Flag | What it does |
 |------|--------------|
 | `-g`, `--group` / `-t`, `--tag` / `--label KEY=VALUE` | Sort servers so one [target](targets.md) can pick many. |
-| `--key NAME` / `--identity PATH` | Log in with a key from komando's keychain, or with a key file. |
+| `--key NAME` / `--identity PATH` | Log in with a key from komando's key list (`komando key`), or with a key file. |
 | `--password-ref` / `--sudo-ref` | Where the login or sudo password is kept (see [passwords](#use-a-password)). |
 | `--via bastion` | Reach the server through other servers or a VPN first ([tunnels](tunnels.md)). |
 | `--protected` | Every change to the server, or to this entry, needs `--yes`. |
@@ -240,7 +240,7 @@ komando key show deploy                          # the public part (never the pr
 Keys made with `key gen` are kept in `~/.komando/keys` (mode 600). RSA keys
 need at least 3072 bits.
 
-To use a key file you already have, add it to the keychain. The file stays
+To use a key file you already have, add it to komando's key list. The file stays
 where it is. If it has a passphrase, store the passphrase in the vault first:
 
 ```bash
@@ -256,7 +256,7 @@ keys komando made.
 ## Remove a key from servers
 
 When someone leaves, or a key is replaced, remove it everywhere at once.
-`key revoke` takes a key from the keychain, a `.pub` file, or the key line
+`key revoke` takes a key from komando's key list, a `.pub` file, or the key line
 itself:
 
 ```bash
@@ -275,12 +275,26 @@ At your terminal, komando asks for the password when the server wants one,
 as `ssh` does (`web1: Password:`, hidden as you type). Store it once to skip
 the question, and so that AI agents and scripts can log in: they have no
 one to ask. You type it, nothing is shown, and it is saved encrypted in
-komando's vault (see [Secret](glossary.md)):
+komando's vault (see [Secret](glossary.md)). In one step, while adding the
+server or later:
+
+```bash
+komando host add vps1 root@203.0.113.20 --ask-password   # stored as secret:vps1-pass
+komando host edit web1 --ask-password                     # a new password (stored as secret:web1-pass)
+```
+
+`--ask-password` is for a person at a terminal (an AI agent asks you to run
+it). It never replaces a secret that another server or conn uses. The same
+in two steps, with a name you choose:
 
 ```bash
 komando secret set web1-pass
 komando host edit web1 --password-ref secret:web1-pass
 ```
+
+A `--password-ref secret:NAME` whose secret is not in the vault yet gets a
+warning right away, with the `secret set` command that stores it. After
+`host add`, the line `next:` says what to run next (`komando test web1`).
 
 The password goes to the server's address on every login. So when an AI
 agent gives a server or conn a password reference, or moves one that has
@@ -479,6 +493,11 @@ server's own first:
 komando config set host_key_policy strict   # unknown keys stop with HOSTKEY_UNKNOWN
 komando host trust web1                     # answer: key_type and fingerprint
 ```
+
+`HOSTKEY_UNKNOWN` says which fingerprint the server shows. With `strict`,
+an AI agent cannot pin a first key by itself: `host trust` needs your yes in
+komando's window, which shows the fingerprint to compare (with the default
+`accept-new` the first login pins it anyway).
 
 ## Use OpenSSH with the same settings
 

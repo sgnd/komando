@@ -87,6 +87,20 @@ func TestAgentFlagsNeedAPerson(t *testing.T) {
 		t.Errorf("hint after deny: %q", e.Hint)
 	}
 
+	// a window that closes itself after 2 minutes is no answer, not a Deny
+	asAgent(t, false, true)
+	saved := askOnScreen
+	askOnScreen = func(string) (bool, bool) { approvalGaveUp = true; return false, true }
+	if yesOK() {
+		t.Fatal("nobody answered")
+	}
+	askOnScreen = saved
+	e = &out.Error{Code: "PROTECTED_HOST", Exit: out.ExitPolicy}
+	approvalHint(e)
+	if !strings.Contains(e.Hint, "nobody answered") || strings.Contains(e.Hint, "Deny") {
+		t.Errorf("hint after no answer: %q", e.Hint)
+	}
+
 	asAgent(t, false, false)
 	if dangerOK() {
 		t.Fatal("no window, no yes")

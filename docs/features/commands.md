@@ -10,7 +10,7 @@ komando exec web1 -- uptime                          # one server
 komando exec @web -- 'df -h /'                       # every web server at once
 komando exec web1 --dry-run -- 'apt-get -y upgrade'  # show what would run, run nothing
 komando script @web ./deploy.sh --arg v1.2.3         # run a local script remotely
-komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'   # a long task
+komando job start web1 -- 'tar czf /backup/www.tgz /var/www'   # a long task
 ```
 
 ## Run a command
@@ -23,7 +23,7 @@ shell, on all picked servers in parallel (`run` and `x` are other names for
 komando exec web1 -- uptime
 komando exec @web -P 20 -- 'df -h / | tail -1'           # up to 20 servers at once
 komando exec tag:prod --sudo -- systemctl is-active nginx
-komando exec db1 --read-only -- 'psql -c "select 1"'
+komando exec db1 --read-only -- 'df -h /var/lib/postgresql'   # SQL itself: komando db query
 ```
 
 | Flag | What it does |
@@ -170,7 +170,7 @@ running on the server even if you disconnect, and `job start` returns at
 once with a job ID per server.
 
 ```bash
-komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
+komando job start web1 -- 'tar czf /backup/www.tgz /var/www'
 komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
 komando job status JOB_ID               # running, exited or lost; exit code; last lines
 komando job logs JOB_ID                 # output so far
@@ -237,7 +237,7 @@ komando recipe rm disk-of
 
 Type `komando` alone in a terminal and a menu opens: choose what to do with
 the arrow keys (or `j`/`k`) and Enter, or press its number to choose it at
-once. `?` shows every command (`komando --help`).
+once. `?` shows what komando does, by task, with the command for each.
 
 ```text
 komando · v0.6.0 · 12 servers, 3 conns, 1 VPN
@@ -246,7 +246,8 @@ komando · v0.6.0 · 12 servers, 3 conns, 1 VPN
   2. Test      Check that servers, conns and VPNs answer
   3. Facts     OS, updates, Docker and open ports of a server
   4. Database  Open a SQL shell on a database
-  5. VPN       Connect a VPN and log in
+  5. VPN       Connect a VPN (and log in), or disconnect one
+  6. Add       Add a server (name user@address) or a conn (name URL)
   ...
 
 ↑↓ move · Enter or 1-8 choose · ? help · q quit
@@ -255,8 +256,19 @@ komando · v0.6.0 · 12 servers, 3 conns, 1 VPN
 The menu shows only what has something to act on: Shell and Facts need a
 server, Database a PostgreSQL, MySQL or SQLite conn, and VPN a VPN. While
 komando knows no server yet, the menu starts with Import (when there is a
-`~/.ssh/config` to bring in) and Add: type a name and `user@address`, as
-in `komando host add web1 deploy@10.0.0.5`.
+`~/.ssh/config` to bring in) and Add; later Add comes after the actions.
+Add takes a name and `user@address`, as in `komando host add web1
+deploy@10.0.0.5`, or a name and a URL for a database, cache, bucket or
+cluster, as in `komando conn add app-db postgres://app@10.0.0.5/app`. Two
+more rows show while they are useful and the number keys still reach them
+(9 rows at most): Import, while `~/.ssh/config` names servers komando does
+not know yet, and AI agent (`komando guide install`), while no AI agent on
+this computer has komando's skill.
+
+The header counts the VPNs that are up. In the VPN list an up VPN says
+`up (Enter disconnects)`: choosing it runs `komando vpn down NAME`, and
+choosing one that is down runs `komando vpn up NAME`. A server that asks for
+a password or a one-time code asks you there, as `ssh` does.
 
 After an action that needs one, the list to choose from comes next: servers
 for Shell and Facts, database conns for Database, VPNs for VPN, and all of

@@ -166,7 +166,7 @@ func planReplace(p *out.Printer, src, oldS, newS string, re *regexp.Regexp, all 
 			pl.note = "old text not found but new text already present (already applied?)"
 			return pl, nil
 		}
-		return pl, out.Errf(out.ExitConflict, "NO_MATCH", "read the file with `komando fs cat` and copy the exact text (whitespace matters)", "--old text not found in %s", name)
+		return pl, out.Errf(out.ExitConflict, "NO_MATCH", "read the file with `komando fs cat TARGET "+name+"` and copy the exact text (whitespace matters)", "--old text not found in %s", name)
 	}
 	if pl.n > 1 && !all {
 		return pl, out.Errf(out.ExitConflict, "AMBIGUOUS_MATCH", "add surrounding context to --old so it is unique, or pass --all", "--old matches %d times in %s", pl.n, name)

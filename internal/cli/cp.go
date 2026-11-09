@@ -554,7 +554,7 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 	case r.ExitCode != 0:
 		return xferStats{}, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat TARGET PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
 	case r.StdoutTruncated:
-		return xferStats{}, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy it to a place the SSH user can read with `komando exec --sudo -- cp`, then download that",
+		return xferStats{}, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy it to a place the SSH user can read with `komando exec TARGET --sudo -- cp PATH /tmp/`, then download that",
 			"%s is larger than %s, the most a --sudo download reads", src, humanBytes(sudoMaxBytes))
 	}
 	if intoDir {

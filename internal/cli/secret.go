@@ -239,7 +239,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 					}
 				}
 			}
-			res := map[string]any{"name": args[0], "ref": "secret:" + args[0], "replaced": replaced}
+			res := map[string]any{"name": args[0], "ref": "secret:" + args[0], "replaced": replaced, "action": secretSetAction(replaced)}
 			if w := valueWarning(args[0], v); w != "" {
 				res["warning"] = w
 			}
@@ -728,7 +728,7 @@ the vault. Nothing is re-encrypted: it is the same key, kept elsewhere.
 				err := vault.KeyToFile()
 				audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "file"})
 				if err != nil {
-					return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "unlock the keychain and try again", "%v", err)
+					return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "a person unlocks the keychain on this computer (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring", "%v", err)
 				}
 				out.P.Print("secret.keychain", map[string]any{"key": "vault.key"}, nil)
 				return nil
@@ -736,7 +736,7 @@ the vault. Nothing is re-encrypted: it is the same key, kept elsewhere.
 			tool, err := vault.KeyToKeychain()
 			audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "keychain"})
 			if err != nil {
-				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "the vault still uses vault.key; fix the keychain and try again", "%v", err)
+				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "the vault still uses vault.key, nothing was lost: a person unlocks the keychain (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring", "%v", err)
 			}
 			out.P.Print("secret.keychain", map[string]any{"key": "keychain", "keychain": tool, "vault_key_file": "removed"}, nil)
 			return nil
@@ -757,4 +757,13 @@ func secretInUse(name string, users []string) error {
 	}[kind]
 	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, e.g. `"+hint+"`, or rename it with `komando secret mv`",
 		"secret %s is used by %s", name, strings.Join(users, ", "))
+}
+
+// secretSetAction says what secret set did, or would do under --dry-run,
+// for the text headline ("stored db-pass", "would replace db-pass").
+func secretSetAction(replaced bool) string {
+	if g.dryRun {
+		return map[bool]string{false: "would_store", true: "would_replace"}[replaced]
+	}
+	return map[bool]string{false: "stored", true: "replaced"}[replaced]
 }

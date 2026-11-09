@@ -35,6 +35,8 @@ if [ -n "${KOMANDO_VERSION:-}" ]; then
 fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+# a komando here already: this run is an update
+prev=$(command -v komando 2>/dev/null || true)
 
 echo "Downloading $file ..."
 curl -fsSL "$base/$file" -o "$tmp/$file"
@@ -91,8 +93,30 @@ case ":$PATH:" in
     echo "  export PATH=\"$dir:\$PATH\""
     ;;
 esac
+# another komando earlier in PATH would keep running instead of this one
+hash -r 2>/dev/null || true
+now=$(command -v komando 2>/dev/null || true)
+if [ -n "$now" ] && [ "$now" != "$dir/komando" ]; then
+  echo
+  echo "Note: your terminal runs another komando first: $now"
+  echo "Remove it, or run this installer again with sudo to replace it there."
+  echo "\`komando version\` shows which one runs."
+fi
 echo
-echo "Next: add your first server, then check it:"
-echo "  komando host add web1 ubuntu@203.0.113.10"
-echo "  komando test web1"
-echo "Help: komando --help, or https://github.com/$REPO#first-steps"
+case "${SHELL:-}" in
+  */zsh) completion="echo 'source <(komando completion zsh)' >> ~/.zshrc" ;;
+  */bash) completion="echo 'source <(komando completion bash)' >> ~/.bashrc" ;;
+  *) completion="komando completion --help" ;;
+esac
+if [ -n "$prev" ]; then
+  echo "Updated. Give your AI agents this version's skill too:"
+  echo "  komando guide install"
+else
+  echo "Next: add your first server, then check it:"
+  echo "  komando host add web1 ubuntu@203.0.113.10"
+  echo "  komando test web1"
+  echo "Teach your AI agents (Claude Code, Codex, Cursor, Gemini CLI) to use komando:"
+  echo "  komando guide install"
+fi
+echo "Tab completion of commands and server names: $completion"
+echo "Help: komando (a menu), komando --help, or https://github.com/$REPO#first-steps"

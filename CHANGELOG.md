@@ -35,6 +35,51 @@ its highlights; the sections below them give the details. Versions follow
   See [Safety](docs/features/safety.md#a-key-that-runs-komando-and-nothing-else).
 - `KOMANDO_KEYCHAIN=off` keeps komando away from the keychain (CI runners,
   containers, test runs): a new vault then keeps its key in `vault.key`.
+- `audit --actor NAME`: what one person, AI agent or computer account did
+  (`komando audit --actor budi --since 30d`). A new page, [Rotate keys and
+  passwords](docs/features/rotate.md), gives the steps in order for an SSH
+  key, a server or database password, and for when someone leaves.
+- `komando schema` lists every error code (`error_codes`, over 200): its
+  exit code, an example message and the usual next step. It is made from the
+  source, and a test keeps it in step. The troubleshooting table names the
+  common codes that were missing (`HOSTKEY_UNKNOWN`, `DNS_ERROR`,
+  `HOST_NOT_FOUND`, `VAULT_*`, `IMPORT_INCOMPLETE`).
+- `komando guide uninstall` takes the skill and komando's guard entries out
+  of Claude Code, Codex, Cursor and Gemini CLI, keeping everything else in
+  those files (a changed file is kept as `.bak`). An AI agent needs a
+  person's yes to remove its own guard.
+- A whole `export` carries your own deny rules and settings. `import
+  komando` adds the deny rules and lists the settings that differ with the
+  `komando config set` command for each; it changes none.
+- `doctor` checks AI agents: whether they have komando's skill, whether it
+  is this version's (after an update, `komando guide install` again), and
+  whether Claude Code runs with komando's guard.
+- `--ask-password` on `host add`, `host edit`, `conn add` and `conn edit`: a
+  person types the password once (hidden) and it is stored as
+  `secret:NAME-pass` and used as the reference, in one step instead of
+  three. It never replaces a secret something else uses, asks first on a
+  protected entry, and takes back a new secret when the add fails. An AI
+  agent gets `NEEDS_PERSON`.
+- `host add`, `conn add` and `vpn add` end with `next:` (`komando test
+  web1`, `komando vpn up office`). A `--password-ref secret:NAME` whose
+  secret is not in the vault yet is a warning at once, with the command
+  that stores it. `host rm`, `conn rm` and `vpn rm` name the secrets nothing
+  uses any more (`secrets_unused`) with the `secret rm` command; komando
+  does not remove them by itself.
+- The installer says when another komando earlier in your PATH would run
+  instead, tells an update to run `komando guide install` again, and shows
+  how to turn on tab completion; README has a Tab completion section.
+- **The menu grows with you.** Add stays once there is a server (after the
+  actions) and also adds a conn from a name and a URL (`app-db
+  postgres://...`). VPN connects or disconnects: an up VPN says `up (Enter
+  disconnects)` and the header counts the VPNs that are up. Import shows
+  while `~/.ssh/config` names servers komando does not know, and AI agent
+  (`komando guide install`) while no agent has komando's skill, when the
+  number keys still reach them (9 rows at most). `?` shows what komando
+  does, by task, instead of `komando --help`.
+- `db shell`: `\write` allows changes for the rest of the shell after a
+  yes, and connects again read-write (`\write` again goes back); a
+  destructive statement asks for the conn's name instead of refusing.
 
 - **SSH logins ask a person, as `ssh` does.** At a terminal, komando asks
   for a server's password when none is stored, and for the one-time code
@@ -61,6 +106,47 @@ its highlights; the sections below them give the details. Versions follow
   a locked keychain over SSH), the key goes into `vault.key` as before and
   `komando doctor` warns. Existing vaults keep their key where it is: move
   it with `komando secret keychain`.
+- Hints name whole commands: `komando fs ls TARGET FOLDER`, `komando
+  cluster history CONN deployment/NAME`, `komando net check web1
+  HOST:443` instead of a bare command that fails as typed. `DNS_ERROR`,
+  `CONNECT_TIMEOUT`, `CONNECT_FAILED`, `WAIT_TIMEOUT` and `JOB_LOST` name
+  the command to run next. A typo's hint never shows an example with
+  `--yes`, `--allow-dangerous` or `--reveal`; SQLite `db restore` keeps its
+  own hint.
+- A vault that cannot be opened says why, with the step: `VAULT_LOCKED`
+  (no passphrase given), `VAULT_KEY` (key file missing or broken),
+  `VAULT_DECRYPT` (wrong passphrase), instead of `REMOTE_ERROR`. A server's
+  unreadable password reference names the exact `secret set` (or what the
+  reference needs). `test` on one target ends with that target's own hint.
+- An import that refuses some servers still brings the rest in, but ends
+  with `IMPORT_INCOMPLETE` (exit 1) instead of `ok`; names that exist
+  already are still skipped quietly, so importing again is safe.
+- Docs: one story for moving to another computer (export without
+  passwords, or the whole folder once the vault has a passphrase), uninstall
+  with `guide uninstall` and the keychain item, and "Undo a change" for files.
+- For AI agents, the approval hint says "komando asks the user in a
+  window" only where a flag opens one: not for `--write` or leaving out
+  `--read-only` (komando does not ask; the agent asks the user first), and
+  not for stops no flag lifts (komando's own folder, an unsafe backup line,
+  an `.ovpn` script line). `READ_ONLY_VIOLATION` no longer says to add
+  `--yes` on a server that is not protected.
+- `VPN_DOWN` and `TUNNEL_TIMEOUT` put the last lines of the log in the
+  message and name a command to try, instead of sending an agent to a file
+  in `~/.komando` it may not read.
+- Text for people says what happened first: `stored app-db-pass`, `added
+  the deny rule "rm -rf /srv" (2 custom rules now)`, `removed app-db`,
+  `saved 2 servers, 1 conn to FILE (no passwords)`; `false` fields after
+  such a headline are left out. JSON is unchanged (fields were only added).
+- `komando list` on an empty inventory also shows how to add a database,
+  and `SECRET_NOT_FOUND` for a conn names the secret to set.
+- A person at a terminal confirms `fs rm --recursive`, removing a top-level
+  path, `sync --delete` and removing an essential package by typing the
+  target's name, as `exec` and `db query` already ask, instead of being
+  sent back to add `--allow-dangerous`. One typed name covers the same
+  targets for the rest of the command, so a step two checks catch is asked
+  once.
+- An approval window nobody answers closes after 2 minutes and the agent is
+  told nobody answered, no longer that the user clicked Deny.
 - An AI agent that runs `secret set NAME` with no value gets `NEEDS_PERSON`:
   ask the user to run `komando secret set NAME` in their own terminal. It
   used to get a `USAGE` error whose hint was the same command. `komando
@@ -82,6 +168,22 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Last gaps from the user-journey review: the features index no longer
+  says SQLite restores; the tunnel page says how a person copies the
+  database password; README says Codex asks once in `/hooks` and what
+  `secret keychain` needs on Linux; `komando schema` describes every `meta`
+  field; the proxy-command and credential-plugin stops name
+  `--allow-dangerous`; `KEYCHAIN_FAILED` says a person unlocks the keychain.
+- A flag a group gives all its sub-commands (`cron --user`, `cron --sudo`,
+  `docker --sudo`, `pkg --no-sudo`) now shows in the sub-command's `--help`
+  and in `komando schema <command>`, where agents look before using one.
+- Docs: examples that broke the rules or skipped a step (`psql` and
+  `pg_dump` over `exec`, a `policy check` example that is not blocked,
+  `secret:` references with no `secret set`, conn names an import does not
+  make, a key file from the cloud provider); the `tunnel start` usage line
+  (`-L/-R/-D` are optional for a conn); "keychain" now means only the
+  system keychain (komando's SSH keys are its key list); the env variable
+  table, ID examples and the Go version.
 - AI agents read komando's hints whole again. The secret masker hid the
   command after words such as "password:" (`save its password: [hidden]
   secret set web1-pass`) in `NO_AUTH`, `KEY_PASSPHRASE_REQUIRED`, `komando
@@ -100,6 +202,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- With `host_key_policy strict`, an AI agent's first pin (`host trust`)
+  needs a person's yes; the window shows each fingerprint to compare.
+  `HOSTKEY_UNKNOWN` now says which fingerprint the server shows.
 - **New conns check TLS by default.** `conn add` and `conn edit --url` of a
   conn that crosses the network on its own (no `--via`, not this computer)
   add `sslmode=verify-full` (Postgres) or `tls=true` (MySQL) when the URL

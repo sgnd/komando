@@ -168,6 +168,15 @@ func trustMany(ctx context.Context, st *store.State, hosts []*store.Host, reset 
 		return trustDryRun(st, hosts, reset)
 	}
 	rows := fetchTrustRows(ctx, st, hosts)
+	var first []string
+	for _, r := range rows {
+		if r.Error == nil && !r.same && len(r.OldFingerprint) == 0 {
+			first = append(first, r.Host+" "+r.Fingerprint)
+		}
+	}
+	if err := guardFirstPin(st, first); err != nil {
+		return err
+	}
 	if reset {
 		if err := approveReplacements(st, rows); err != nil {
 			return err

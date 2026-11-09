@@ -2,6 +2,7 @@ package sshx
 
 import (
 	"bytes"
+	"github.com/sgnd/komando/internal/store"
 	"net"
 	"strings"
 	"testing"
@@ -43,7 +44,14 @@ func TestFirstUsePinIsAnnounced(t *testing.T) {
 		t.Errorf("a changed key: %v %q", err, note.String())
 	}
 	strict, _ := hostKeyCallback("web2", "strict")
-	if err := strict("10.0.0.6:22", addr, key); err == nil || len(got) != 1 {
+	err = strict("10.0.0.6:22", addr, key)
+	if err == nil || len(got) != 1 {
 		t.Errorf("strict pinned a new key: %v", err)
+	}
+	// HOSTKEY_UNKNOWN shows the fingerprint, to compare before pinning
+	h := &store.Host{Name: "web2", Address: "10.0.0.6"}
+	if oe := classify(newState(h), h, err); oe.Code != "HOSTKEY_UNKNOWN" || !strings.Contains(oe.Message, "it shows "+fp) ||
+		!strings.Contains(oe.Hint, "`komando host trust web2`") {
+		t.Errorf("HOSTKEY_UNKNOWN: %s / %s", oe.Message, oe.Hint)
 	}
 }

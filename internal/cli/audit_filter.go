@@ -16,6 +16,7 @@ type auditFilter struct {
 	names    map[string]bool // servers and conns picked by --target
 	since    time.Time       // zero: no lower bound (inclusive)
 	until    time.Time       // zero: no upper bound (exclusive)
+	actor    string          // who: part of the actor, the AI agent or the computer account ("" for all)
 }
 
 func (f auditFilter) keep(e map[string]any) bool {
@@ -24,6 +25,16 @@ func (f auditFilter) keep(e map[string]any) bool {
 	}
 	if f.failed && e["ok"] == true {
 		return false
+	}
+	if f.actor != "" {
+		who := ""
+		for _, k := range []string{"actor", "agent", "os_user"} {
+			s, _ := e[k].(string)
+			who += strings.ToLower(s) + "\n"
+		}
+		if !strings.Contains(who, strings.ToLower(f.actor)) {
+			return false
+		}
 	}
 	if f.byTarget && !auditNames(e, f.names) {
 		return false

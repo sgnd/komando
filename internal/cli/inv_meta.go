@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"sort"
@@ -83,7 +84,7 @@ func (l auditList) Text() string {
 
 func auditCmd() *cobra.Command {
 	var limit int
-	var target, command, since, until string
+	var target, command, since, until, actorName string
 	var failed bool
 	c := &cobra.Command{
 		Use:   "audit",
@@ -102,13 +103,14 @@ is given.`,
   komando audit --command host. --failed
   komando audit --since 2h           # everything in the last two hours
   komando audit --since yesterday --until today --target @prod
+  komando audit --actor claude --since 7d        # what Claude Code did this week
   komando audit verify               # was the log changed outside komando?`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if limit < 0 {
 				return out.Errf(out.ExitUsage, "USAGE", "-n takes how many of the newest entries to show; 0 shows all", "invalid -n %d", limit)
 			}
-			flt := auditFilter{command: command, failed: failed, byTarget: target != ""}
+			flt := auditFilter{command: command, failed: failed, byTarget: target != "", actor: actorName}
 			if err := flt.setWindow(since, until, time.Now()); err != nil {
 				return err
 			}
@@ -154,6 +156,7 @@ is given.`,
 	aliasFlag(c.Flags(), "host", "target")
 	c.Flags().StringVar(&command, "command", "", "filter by command prefix (e.g. exec, svc.)")
 	c.Flags().BoolVar(&failed, "failed", false, "only failed/blocked actions")
+	c.Flags().StringVar(&actorName, "actor", "", "only what this one did: part of the name in KOMANDO_ACTOR, the AI agent (claude, codex ...) or the computer account")
 	c.Flags().StringVar(&since, "since", "", "only entries from this time on: 2h, 7d, today, 2026-11-07 or '2026-11-07 14:30'")
 	c.Flags().StringVar(&until, "until", "", "only entries before this time (the same forms as --since)")
 	return c
@@ -283,7 +286,7 @@ func policyCmd() *cobra.Command {
 			if added {
 				audit(nil, "policy.deny", nil, "", true, map[string]any{"pattern": pat})
 			}
-			out.P.Print("policy.deny", map[string]any{"custom": pats, "added": added}, nil)
+			out.P.Print("policy.deny", policyChange{Custom: pats, Added: &added, pattern: pat}, nil)
 			return nil
 		},
 	})
@@ -334,7 +337,7 @@ Removing a rule weakens a safety check, so it needs --yes.`,
 				return err
 			}
 			audit(nil, "policy.allow", nil, "", true, map[string]any{"pattern": removed})
-			out.P.Print("policy.allow", map[string]any{"custom": orEmpty(pats), "removed": removed}, nil)
+			out.P.Print("policy.allow", policyChange{Custom: orEmpty(pats), Removed: removed}, nil)
 			return nil
 		},
 	})
@@ -522,7 +525,7 @@ password, repeat another conn or belong to a protected server without being
 protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true}}
+			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}}
 			add := func(name string, ok bool, detail string) { r.Checks = append(r.Checks, doctorCheck{name, ok, detail}) }
 			st, err := loadState()
 			add("state", err == nil, store.Home())
@@ -557,6 +560,23 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 				}
 			}
 			add("platform", true, runtime.GOOS+"/"+runtime.GOARCH)
+			// AI agents: the skill komando installs, and whether it is this
+			// version's (an update needs `guide install` again)
+			installed, stale := skillStatus()
+			switch {
+			case len(installed) == 0:
+				add("agent_skill", false, "no AI agent has komando's skill yet: `komando guide install` teaches Claude Code, Codex, Cursor and Gemini CLI to use komando")
+			case len(stale) > 0:
+				add("agent_skill", false, "from another komando version in "+strings.Join(stale, ", ")+": run `komando guide install` again, so your AI agents use this version's commands")
+			default:
+				add("agent_skill", true, strings.Join(installed, ", "))
+			}
+			if home, err := os.UserHomeDir(); err == nil && len(installed) > 0 && slices.ContainsFunc(installed, func(p string) bool { return strings.Contains(p, ".claude") }) {
+				b, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
+				on := strings.Contains(string(b), " guide guard")
+				add("agent_guard", on, map[bool]string{true: "Claude Code asks komando before reading files or running shell commands",
+					false: "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it"}[on])
+			}
 			r.Inventory = inventoryChecks(st)
 			r.Security = securityChecks(st)
 			ok := true
@@ -629,4 +649,23 @@ func (p policyList) Text() string {
 	note, _ := p["note"].(string)
 	return textTable([]string{"for", "rule", "stops"}, rows) + "\n" + note +
 		"\nthe patterns: komando policy list -o json; test a command: komando policy check '...'\n"
+}
+
+// policyChange is what policy deny and allow did, in words for people.
+type policyChange struct {
+	Custom  []string `json:"custom"`
+	Added   *bool    `json:"added,omitempty"`   // deny
+	Removed string   `json:"removed,omitempty"` // allow
+	pattern string
+}
+
+func (p policyChange) Text() string {
+	n := countOf(len(p.Custom), "custom rule")
+	switch {
+	case p.Added != nil && *p.Added:
+		return fmt.Sprintf("added the deny rule %q (%s now)\n", p.pattern, n)
+	case p.Added != nil:
+		return fmt.Sprintf("the deny rule %q is there already (%s)\n", p.pattern, n)
+	}
+	return fmt.Sprintf("removed the deny rule %q (%s left)\n", p.Removed, n)
 }

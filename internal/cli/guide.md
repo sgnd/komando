@@ -290,7 +290,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 3    | TARGET_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | `komando list`; the hint suggests the closest name |
 | 3    | SECRET_NOT_FOUND, SECRET_UNRESOLVED | `komando secret list`; ask the human to store the secret |
 | 3    | NO_MATCHING_TARGETS               | use the command the hint names (e.g. `db` for a database) |
-| 4    | AUTH_FAILED, NO_AUTH, CONNECTION_REFUSED, HOSTKEY_* | follow `error.hint`; do not retry blindly; never fix `HOSTKEY_MISMATCH`. A server that asks for a one-time code (two-factor): ask the human to run the command in their own terminal, where komando asks them for it |
+| 4    | AUTH_FAILED, NO_AUTH, CONNECTION_REFUSED, HOSTKEY_* | follow `error.hint`; do not retry blindly; never fix `HOSTKEY_MISMATCH`. `HOSTKEY_UNKNOWN` (host keys are strict): show the user the fingerprint in the message and let them compare it before `host trust` (it asks them). A server that asks for a one-time code (two-factor): ask the human to run the command in their own terminal, where komando asks them for it |
 | 4    | VPN_LOGIN_REQUIRED, VPN_DOWN      | ask the human to run `komando vpn up <name>` |
 | 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; use `job start` next time |
 | 5    | FAILED                            | read `data.results[].stderr` and `exit_code` |

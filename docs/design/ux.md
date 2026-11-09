@@ -233,7 +233,7 @@ run next).
   upper/lower case.
 - Words that have a meaning as a selector (`all`) are refused as names.
 - Rename updates everything that refers to it (groups, `--via`, jump, snippets).
-  Remove is refused (`IN_USE`) if it is still in use, with the list of users.
+  Remove is refused (`HOST_IN_USE`, `SECRET_IN_USE`, `KEY_IN_USE`, ...) if it is still in use, with the list of users.
 - State is written atomically under a file lock, so two komando processes running
   at the same time do not overwrite each other. A state schema change makes a backup first.
 

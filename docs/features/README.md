@@ -29,11 +29,12 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Services, logs, Docker, packages, users](system.md) | day-to-day administration, security updates, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |
 | [Private servers and tunnels](tunnels.md) | reach servers and services that are not on the internet | `--via`, `tunnel` |
 | [VPNs](vpn.md) | reach targets behind WireGuard, OpenVPN, Tailscale, AnyConnect, IPsec and other VPNs, several at once | `vpn`, `--via` |
-| [Databases](databases.md) | query, back up and restore PostgreSQL, MySQL/MariaDB, SQLite | `conn`, `db` |
+| [Databases](databases.md) | query, back up and restore PostgreSQL and MySQL/MariaDB; query and back up SQLite | `conn`, `db` |
 | [Caches](caches.md) | read and change Redis, Valkey and memcached | `cache` |
 | [Storage](storage.md) | browse, download, upload and share files in S3 buckets and on FTPS/SFTP/FTP servers | `storage`, `upload`, `download`, `sync` |
 | [Clusters](cluster.md) | Kubernetes and Docker Swarm: status, list, logs, apply, restart, scale | `cluster` |
 | [Container registries](registry.md) | list repositories and tags, inspect images, delete old ones | `registry` |
+| [Rotate keys and passwords](rotate.md) | change a key or a password everywhere, in order; when someone leaves | `key`, `secret`, `db user`, `audit` |
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit`, `ssh-gate` |
 | [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit verify` |
 | [Results and errors](output.md) | JSON and text output, exit codes, common errors, what is still running | `status`, `prompt`, `schema` |

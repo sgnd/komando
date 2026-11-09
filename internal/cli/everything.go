@@ -38,7 +38,8 @@ type targetList struct {
 }
 
 // emptyInventory is what a person reads when there is nothing yet.
-const emptyInventory = "No servers or conns yet. Add one: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)"
+const emptyInventory = "No servers or conns yet. Add a server: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)\n" +
+	"A database, cache or bucket: komando conn add app-db postgres://app@10.0.0.5/app --ask-password"
 
 func (l targetList) Text() string {
 	if l.empty {
@@ -279,8 +280,11 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 			soft := &out.Error{Code: "PARTIAL_FAILURE", Exit: worst,
 				Message: failedOf(data.Summary.Failed, data.Summary.Total) + ": " + strings.Join(data.Summary.FailedHosts, ", "),
 				Hint:    "see each result's error and hint"}
-			if len(res) == 1 && res[0].Error != nil { // one target: its own error code, as exec gives
+			if len(res) == 1 && res[0].Error != nil { // one target: its own error code and next step, as exec gives
 				soft.Code, soft.Message = res[0].Error.Code, res[0].Name+" failed"
+				if res[0].Error.Hint != "" {
+					soft.Hint = res[0].Error.Hint
+				}
 			}
 			out.P.Print("test", data, soft)
 			return exitCode(worst)

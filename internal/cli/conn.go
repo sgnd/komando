@@ -127,7 +127,7 @@ Conns share names and selectors (@group, tag:x, glob, all) with hosts.`,
 
 func connAddCmd() *cobra.Command {
 	var f connFlags
-	var force bool
+	var force, askPw bool
 	c := &cobra.Command{
 		Use:   "add NAME URL",
 		Short: "Add a conn (kind is taken from the URL scheme)",
@@ -135,12 +135,21 @@ func connAddCmd() *cobra.Command {
   komando conn add shop mysql://shop@db.internal/shop --group shop
   komando conn add local sqlite:///var/lib/app.db
   komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:redis-pass
-  komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:s3-secret`,
+  komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:s3-secret
+  komando conn add app-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			if err := validName("conn", name); err != nil {
 				return err
+			}
+			undoPw := func() {}
+			if askPw {
+				ref, undo, err := askPassword(cmd, "conn", name)
+				if err != nil {
+					return err
+				}
+				f.passwordRef, undoPw = ref, undo
 			}
 			cn := &store.Conn{Name: name, URL: normConnURL(strings.TrimSpace(args[1])), PasswordRef: f.passwordRef, Via: f.via,
 				Groups: dedupe(f.groups), Tags: dedupe(f.tags), Protected: f.protected, Notes: f.notes}
@@ -184,15 +193,19 @@ func connAddCmd() *cobra.Command {
 				return nil
 			})
 			if err != nil {
+				undoPw()
 				return err
 			}
 			res.Action = addVerb(replaced)
+			res.Warnings = append(res.Warnings, missingSecretWarnings(cn.PasswordRef)...)
+			res.Next = "komando test " + name
 			audit(nil, "conn.add", nil, "", true, map[string]any{"conns": []string{name}, "action": res.Action})
 			out.P.Print("conn.add", res, nil)
 			return nil
 		},
 	}
 	f.bind(c, false)
+	askPasswordFlag(c, &askPw)
 	c.Flags().BoolVar(&force, "overwrite", false, "replace an existing conn with the same name")
 	aliasFlag(c.Flags(), "force", "overwrite")
 	return c
@@ -201,6 +214,7 @@ func connAddCmd() *cobra.Command {
 func connEditCmd() *cobra.Command {
 	var f connFlags
 	var url, rename string
+	var askPw bool
 	c := &cobra.Command{
 		Use:   "edit NAME",
 		Short: "Edit a conn (only flags you pass are changed)",
@@ -208,96 +222,115 @@ func connEditCmd() *cobra.Command {
   komando conn edit shop -g shop -t live          # -g/-t add a group/tag`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fl := cmd.Flags()
-			if len(changedFlags(cmd)) == 0 {
-				return out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
-			}
-			if err := editConflicts(fl, f.unset, map[string]string{"via": "via", "password-ref": "password-ref", "notes": "notes", "protected": "protected"},
-				[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
-				return err
-			}
-			var res connResult
-			err := store.Update(func(s *store.State) error {
-				cn, err := findConn(s, args[0])
-				if err != nil {
-					return err
-				}
-				before, _ := json.Marshal(cn)
-				old := *cn
-				set := func(name string, dst *string, v string) {
-					if fl.Changed(name) {
-						*dst = v
-					}
-				}
-				set("url", &cn.URL, normConnURL(strings.TrimSpace(url)))
-				set("via", &cn.Via, f.via)
-				set("password-ref", &cn.PasswordRef, f.passwordRef)
-				set("notes", &cn.Notes, f.notes)
-				if fl.Changed("protected") {
-					cn.Protected = f.protected
-				}
-				cn.Groups = dedupe(append(removeFold(cn.Groups, f.rmGroups), f.addGroups...))
-				cn.Tags = dedupe(append(removeFold(cn.Tags, f.rmTags), f.addTags...))
-				if err := applyKV(&cn.Labels, f.labels); err != nil {
-					return err
-				}
-				if err := applyKV(&cn.Options, f.options); err != nil {
-					return err
-				}
-				for _, u := range f.unset {
-					switch u {
-					case "via":
-						cn.Via = ""
-					case "password-ref":
-						cn.PasswordRef = ""
-					case "notes":
-						cn.Notes = ""
-					case "protected":
-						cn.Protected = false
-					default:
-						return out.Errf(out.ExitUsage, "USAGE", "--unset takes: via, password-ref, notes, protected", "cannot unset %q", u)
-					}
-				}
-				if _, err := checkConn(s, cn); err != nil {
-					return err
-				}
-				if err := guardConnEdit(&old, cn, &res); err != nil {
-					return err
-				}
-				if rename != "" && rename != cn.Name {
-					if _, err := renameConn(s, cn.Name, rename); err != nil {
-						return err
-					}
-				}
-				if !cn.Protected {
-					if twin := protectedTwinConn(s, cn); twin != "" {
-						cn.Protected = true
-						res.Warnings = append(res.Warnings, sameTwinWarning(cn.Kind+" resource", cn.Name, twin))
-					}
-				}
-				after, _ := json.Marshal(cn)
-				ch := string(before) != string(after)
-				if ch {
-					cn.UpdatedAt = time.Now().UTC()
-				}
-				res.Conn, res.Changed = cn, &ch
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-			if *res.Changed {
-				audit(nil, "conn.edit", nil, "", true, map[string]any{"conns": []string{res.Name}, "flags": changedFlags(cmd)})
-			}
-			out.P.Print("conn.edit", res, nil)
-			return nil
+			return runConnEdit(cmd, args, &f, url, rename, askPw)
 		},
 	}
 	f.bind(c, true)
+	askPasswordFlag(c, &askPw)
 	c.Flags().StringVar(&url, "url", "", "new URL (the kind may change with the scheme)")
 	c.Flags().StringVar(&rename, "rename", "", "rename the conn")
 	_ = c.Flags().MarkDeprecated("rename", "use `komando conn mv OLD NEW`")
 	return c
+}
+
+// runConnEdit is the work of `connEditCmd`.
+func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url, rename string, askPw bool) error {
+	fl := cmd.Flags()
+	if len(changedFlags(cmd)) == 0 {
+		return out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
+	}
+	if err := editConflicts(fl, f.unset, map[string]string{"via": "via", "password-ref": "password-ref", "notes": "notes", "protected": "protected"},
+		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
+		return err
+	}
+	undoPw := func() {}
+	if askPw {
+		ref, undo, err := askPassword(cmd, "conn", args[0])
+		if err != nil {
+			return err
+		}
+		_ = fl.Set("password-ref", ref)
+		undoPw = undo
+	}
+	var res connResult
+	err := store.Update(func(s *store.State) error {
+		cn, err := findConn(s, args[0])
+		if err != nil {
+			return err
+		}
+		before, _ := json.Marshal(cn)
+		old := *cn
+		set := func(name string, dst *string, v string) {
+			if fl.Changed(name) {
+				*dst = v
+			}
+		}
+		set("url", &cn.URL, normConnURL(strings.TrimSpace(url)))
+		set("via", &cn.Via, f.via)
+		set("password-ref", &cn.PasswordRef, f.passwordRef)
+		set("notes", &cn.Notes, f.notes)
+		if fl.Changed("protected") {
+			cn.Protected = f.protected
+		}
+		cn.Groups = dedupe(append(removeFold(cn.Groups, f.rmGroups), f.addGroups...))
+		cn.Tags = dedupe(append(removeFold(cn.Tags, f.rmTags), f.addTags...))
+		if err := applyKV(&cn.Labels, f.labels); err != nil {
+			return err
+		}
+		if err := applyKV(&cn.Options, f.options); err != nil {
+			return err
+		}
+		for _, u := range f.unset {
+			switch u {
+			case "via":
+				cn.Via = ""
+			case "password-ref":
+				cn.PasswordRef = ""
+			case "notes":
+				cn.Notes = ""
+			case "protected":
+				cn.Protected = false
+			default:
+				return out.Errf(out.ExitUsage, "USAGE", "--unset takes: via, password-ref, notes, protected", "cannot unset %q", u)
+			}
+		}
+		if _, err := checkConn(s, cn); err != nil {
+			return err
+		}
+		if err := guardConnEdit(&old, cn, &res); err != nil {
+			return err
+		}
+		if rename != "" && rename != cn.Name {
+			if _, err := renameConn(s, cn.Name, rename); err != nil {
+				return err
+			}
+		}
+		if !cn.Protected {
+			if twin := protectedTwinConn(s, cn); twin != "" {
+				cn.Protected = true
+				res.Warnings = append(res.Warnings, sameTwinWarning(cn.Kind+" resource", cn.Name, twin))
+			}
+		}
+		after, _ := json.Marshal(cn)
+		ch := string(before) != string(after)
+		if ch {
+			cn.UpdatedAt = time.Now().UTC()
+		}
+		res.Conn, res.Changed = cn, &ch
+		return nil
+	})
+	if err != nil {
+		undoPw()
+		return err
+	}
+	if fl.Changed("password-ref") {
+		res.Warnings = append(res.Warnings, missingSecretWarnings(res.PasswordRef)...)
+	}
+	if *res.Changed {
+		audit(nil, "conn.edit", nil, "", true, map[string]any{"conns": []string{res.Name}, "flags": changedFlags(cmd)})
+	}
+	out.P.Print("conn.edit", res, nil)
+	return nil
 }
 
 // guardConnEdit: an edit that turns a conn's protection off, or changes
@@ -362,7 +395,7 @@ func connRmCmd() *cobra.Command {
   komando conn rm kind:redis --dry-run`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var names []string
+			var names, unused []string
 			err := store.Update(func(s *store.State) error {
 				var prot []string
 				names = nil
@@ -379,16 +412,22 @@ func connRmCmd() *cobra.Command {
 				if err := guardProtection("conn", "removing", prot); err != nil {
 					return err
 				}
+				var refs []string
 				for _, n := range names {
+					refs = append(refs, s.Conns[n].PasswordRef)
+					for _, r := range urlSecretRefs(s.Conns[n].URL) {
+						refs = append(refs, "secret:"+r.Name)
+					}
 					delete(s.Conns, n)
 				}
+				unused = unusedSecrets(s, refs)
 				return nil
 			})
 			if err != nil {
 				return err
 			}
 			audit(nil, "conn.rm", nil, "", true, map[string]any{"conns": names})
-			out.P.Print("conn.rm", rmResult{Removed: names}, nil)
+			out.P.Print("conn.rm", rmResult{Removed: names, SecretsUnused: unused}, nil)
 			return nil
 		},
 	}
@@ -525,7 +564,7 @@ func resolvePassword(c *store.Conn) (string, error) {
 	if err == nil {
 		return p, nil
 	}
-	hint := "store it with `komando secret set NAME` or fix the conn's --password-ref"
+	hint := netx.SecretHint(c.PasswordRef) + ", or point the conn elsewhere: `komando conn edit " + c.Name + " --password-ref ...`"
 	if errors.Is(err, vault.ErrNotFound) {
 		return "", out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", hint, "password reference %s: %v", c.PasswordRef, err)
 	}

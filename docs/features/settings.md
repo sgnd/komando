@@ -10,7 +10,7 @@ komando config show                          # every setting: KEY VALUE DEFAULT 
 komando config get parallel
 komando config set parallel 20
 komando config set default_timeout 10m
-komando doctor                               # check the setup, the inventory and its security
+komando doctor                               # check the setup, the inventory and its security (also: do AI agents have this version's skill?)
 komando update --dry-run                     # is there a newer komando?
 ```
 
@@ -60,6 +60,9 @@ Most settings also have a flag for one run: `--timeout`,
 | `KOMANDO_KEYCHAIN` | `off`: komando uses no keychain, and a new vault keeps its key in `vault.key` (CI runners, containers, test runs). On a Mac, a path to a keychain file to use instead of the login keychain |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
+| `KOMANDO_EXPERIMENTAL` | turn on features still being tested, by name (`ssm`: komando's own AWS Session Manager client, see [Servers](servers.md)) |
+| `KOMANDO_EXPERIMENTAL_VPN` | turn on VPN kinds still being tested (`fortinet,pulse`, or `all`; see [VPNs](vpn.md)) |
+| `KOMANDO_IPSEC_DEBUG` | `1` writes the IPsec exchange to the VPN's log, to find why a server does not answer |
 | `KOMANDO_AGENT`, `AI_AGENT` | mark the caller as an AI agent, for agents komando does not know by their own variables: output hides secrets and `--yes`, `--allow-dangerous` and `--reveal` need a person to allow them (see [Safety](safety.md#seatbelts-for-ai-agents)). Any value counts, also `0` or empty |
 | `NO_COLOR` | turn off colors in status lines |
 
@@ -122,8 +125,9 @@ random key in `vault.key`. Only a person at a terminal can run it, never an
 AI agent. A `KOMANDO_VAULT_PASS` changed without it opens none of the
 secrets (nothing is lost: set the old value again); `komando doctor` says so.
 
-To move to another computer, use `komando export` (no passwords) instead of
-copying the folder.
+To move to another computer, see [Move to another computer](import.md#move-to-another-computer):
+`komando export` (no passwords), or the whole folder once the vault has a
+passphrase.
 
 ## Update komando
 

@@ -94,7 +94,7 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 		audit(st, "db.shell", nil, "", false, map[string]any{"conns": []string{c.Name}, "error": toErr(err).Code})
 		return err
 	}
-	defer closeDB()
+	defer func() { closeDB() }() // the connection \write opened, when it did
 	audit(st, "db.shell", nil, "", true, rec)
 
 	fd := int(os.Stdin.Fd())
@@ -113,6 +113,17 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 		tm.SetSize(w, h)
 	}
 	sh := &sqlShell{db: db, st: st, conn: c, kind: c.Kind, write: write, term: tm}
+	// \write and \read open the database again: the read-only mode is the
+	// database's own (a read-only transaction), not only komando's check
+	sh.reopen = func(w bool) error {
+		ndb, nclose, err := openDB(ctx, st, c, !w)
+		if err != nil {
+			return err
+		}
+		closeDB()
+		sh.db, closeDB = ndb, nclose
+		return nil
+	}
 	sh.run(ctx)
 	term.Restore(fd, old)
 	showExit(c.Name, 0, false, time.Since(started))
@@ -133,6 +144,49 @@ type sqlShell struct {
 		SetPrompt(string)
 		io.Writer
 	}
+	reopen func(write bool) error // connect again, read-write or read-only
+}
+
+// ask asks the person a question inside the shell (the terminal is the
+// shell's own) and returns the answer; Ctrl-C or Ctrl-D is an empty one.
+func (s *sqlShell) ask(q string) string {
+	s.term.SetPrompt(q)
+	line, err := s.term.ReadLine()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(line)
+}
+
+// switchWrite is \write: changes need a yes first (on a protected conn
+// too, as starting the shell with --write asks), and \write again goes
+// back to read-only.
+func (s *sqlShell) switchWrite() {
+	name := s.conn.Name
+	if s.write {
+		if err := s.reopen(false); err != nil {
+			s.printf("error: %s\n", toErr(err).Message)
+			return
+		}
+		s.write = false
+		s.printf("Read-only again.\n")
+		return
+	}
+	q := fmt.Sprintf("Allow changes to %s for the rest of this shell? [y/N] ", name)
+	if protectedConn(s.st, s.conn) {
+		q = fmt.Sprintf("%s is protected. Allow changes for the rest of this shell? [y/N] ", name)
+	}
+	if a := strings.ToLower(s.ask(q)); a != "y" && a != "yes" {
+		s.printf("Still read-only.\n")
+		return
+	}
+	if err := s.reopen(true); err != nil {
+		s.printf("error: %s\n", toErr(err).Message)
+		return
+	}
+	s.write = true
+	audit(s.st, "db.shell", nil, "", true, map[string]any{"conns": []string{name}, "write": true, "switched": true})
+	s.printf("Changes are allowed now. \\write again goes back to read-only.\n")
 }
 
 func (s *sqlShell) printf(format string, a ...any) {
@@ -202,6 +256,8 @@ func (s *sqlShell) meta(ctx context.Context, line string) bool {
 	switch cmd {
 	case `\q`, `\quit`:
 		return true
+	case `\write`:
+		s.switchWrite()
 	case `\?`, `\h`, `\help`:
 		s.printf("%s", shellHelp)
 	case `\x`:
@@ -255,6 +311,7 @@ func (s *sqlShell) meta(ctx context.Context, line string) bool {
 }
 
 const shellHelp = `  \q            quit (also quit, exit, Ctrl-D)
+  \write        allow changes (asks first); again to go back to read-only
   \d [TABLE]    tables, or one table's columns, indexes and constraints
   \l            databases
   \dn           schemas
@@ -273,12 +330,15 @@ func (s *sqlShell) exec(ctx context.Context, text string, expanded bool) {
 		return
 	}
 	if !s.write && plan.NeedsWrite() {
-		s.printf("error: this %s statement changes data; the shell is read-only (start it with --write)\n", plan.Risk)
+		s.printf("error: this %s statement changes data; the shell is read-only (\\write allows changes)\n", plan.Risk)
 		return
 	}
 	if plan.Risk >= driver.RiskDestructive && !dangerOK() {
-		s.printf("error: refused: %s (start the shell with --allow-dangerous if this is intended)\n", strings.Join(plan.Reasons, "; "))
-		return
+		// as on the command line, a person confirms by typing the name
+		if s.ask(fmt.Sprintf("Dangerous: %s. Type %s to run it: ", strings.Join(plan.Reasons, "; "), s.conn.Name)) != s.conn.Name {
+			s.printf("Not run.\n")
+			return
+		}
 	}
 	rec := map[string]any{"conns": []string{s.conn.Name}, "risk": plan.Risk.String(), "write": s.write, "shell": true}
 	switch s.st.Settings.AuditSQL {

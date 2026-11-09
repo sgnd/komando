@@ -209,7 +209,7 @@ func vpnAddCmd() *cobra.Command {
 					return err
 				}
 				if ovpnServers, err = ovpnRemotes(text); err != nil {
-					return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "remove that line from the .ovpn file", "%s: %v", config, err)
+					return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "remove that line from the .ovpn file", "%s: %v", config, err).NoFlag()
 				}
 				if !osMode { // komando's own client must understand every line
 					p, err := openvpn.Parse(text)
@@ -280,7 +280,7 @@ func vpnAddCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "vpn.add", []string{name}, "", true, map[string]any{"kind": kind, "mfa": v.MFA})
-			res := map[string]any{"vpn": v}
+			res := map[string]any{"vpn": v, "next": "komando vpn up " + name}
 			if notes := vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])); len(notes) > 0 {
 				res["notes"] = notes
 			}
@@ -371,11 +371,16 @@ func vpnRmCmd() *cobra.Command {
 				out.P.Print("vpn.rm", map[string]any{"would_remove": names()}, nil)
 				return nil
 			}
+			var unused []string
 			err := store.Update(func(s *store.State) error {
 				if err := check(s); err != nil {
 					return err
 				}
+				var refs []string
 				for _, name := range args {
+					if v := s.Vpns[name]; v != nil {
+						refs = append(refs, v.KeyRef, v.PSKRef, v.ConfigRef)
+					}
 					if sess := s.Sessions[name]; sess != nil {
 						if err := netx.StopSession(sess); err != nil {
 							return out.Errf(out.ExitError, "VPN_STOP_FAILED", "disconnect it first with `komando vpn down "+name+"`", "%v", err)
@@ -384,13 +389,18 @@ func vpnRmCmd() *cobra.Command {
 					}
 					delete(s.Vpns, name)
 				}
+				unused = unusedSecrets(s, refs)
 				return nil
 			})
 			if err != nil {
 				return err
 			}
 			audit(nil, "vpn.rm", args, "", true, nil)
-			out.P.Print("vpn.rm", map[string]any{"removed": names()}, nil)
+			res := map[string]any{"removed": names()} // a string for one VPN, as it always was
+			if len(unused) > 0 {
+				res["secrets_unused"] = unused
+			}
+			out.P.Print("vpn.rm", textAs{res, rmResult{Removed: args, SecretsUnused: unused}}, nil)
 			return nil
 		},
 	}

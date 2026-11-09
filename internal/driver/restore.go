@@ -388,13 +388,13 @@ func short(text string) string {
 func unsafeLine(line int, text string) error {
 	return out.Errf(out.ExitPolicy, "UNSAFE_BACKUP",
 		"the file contains a client command that could run programs or read files where the restore runs; remove that line if the file is not from a trusted dump",
-		"line %d is a client command, not SQL: %s", line, short(text))
+		"line %d is a client command, not SQL: %s", line, short(text)).NoFlag()
 }
 
 func unsureLine(line int, text, why string) error {
 	return out.Errf(out.ExitPolicy, "UNSAFE_BACKUP",
 		"komando refuses a backup it cannot read with certainty, because a misread file could hide client commands; restore a file written by `komando db dump`, pg_dump or mysqldump, or fix that line",
-		"line %d cannot be checked (%s): %s", line, why, short(text))
+		"line %d cannot be checked (%s): %s", line, why, short(text)).NoFlag()
 }
 
 func switchesDatabase(line int, text string) error {

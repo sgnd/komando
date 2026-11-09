@@ -50,7 +50,7 @@ first with `curl -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/inst
 and then run `sh install.sh`. `KOMANDO_INSTALL_DIR=DIR` picks the folder and
 `KOMANDO_VERSION=v0.5.0` one version. To check that a downloaded archive was
 built by komando's release workflow, run
-`gh attestation verify FILE --repo sgnd/komando`. Developers with Go 1.27 or
+`gh attestation verify FILE --repo sgnd/komando`. Developers with Go 1.27.3 or
 newer can use `go install github.com/sgnd/komando/cmd/komando@latest`.
 
 ### Update
@@ -77,18 +77,34 @@ Without it, the installer cannot write there and puts the new version in
 `~/.local/bin`, and your terminal may keep running the old one. `komando version`
 shows which one runs.
 
+### Tab completion
+
+Press Tab to complete commands, flags and the names of your servers,
+conns, groups and tags. Turn it on once (then open a new terminal):
+
+```bash
+echo 'source <(komando completion zsh)' >> ~/.zshrc     # zsh (macOS)
+echo 'source <(komando completion bash)' >> ~/.bashrc   # bash (Linux)
+```
+
+For fish and PowerShell, see `komando completion --help`.
+
 ### Uninstall
 
 1. Stop what komando still runs: `komando status` lists it; `komando vpn down
    --all` and `komando tunnel stop --all` stop it.
-2. Delete the program: `rm "$(command -v komando)"`.
-3. Delete the skill and the guard, if you installed them: the `komando` folders
-   in `~/.claude/skills` and `~/.agents/skills`, and komando's entry under
-   `hooks` in `~/.claude/settings.json` (and in `.cursor/hooks.json`,
-   `.gemini/settings.json` or `.codex/hooks.json` where you use those agents).
-4. Keep a copy of `~/.komando` if you may need your servers or secrets again
-   (`komando export --to komando-backup.json` saves the servers without
-   passwords), then delete the folder.
+2. Take the skill and the guard out of your AI agents: `komando guide
+   uninstall` (add `--project` in a folder where you ran `guide install
+   --project`).
+3. Keep a copy of `~/.komando` if you may need your servers or secrets again
+   (see [Move to another computer](docs/features/import.md#move-to-another-computer)),
+   then delete the folder. Did you move the vault key into the system keychain
+   (`komando secret keychain`)? Run `komando secret keychain --off --yes`
+   first if you keep the copy; otherwise remove the item named `komando vault
+   ...` from the keychain (macOS: the Keychain Access app).
+4. Delete the program: `rm "$(command -v komando)"` (with `sudo` when it is in
+   `/usr/local/bin`), and the `export PATH=...` line the installer asked you to
+   add, if you added one.
 
 ## First steps
 
@@ -98,7 +114,9 @@ examples; replace them with yours.
 
 komando logs in like `ssh` does: with your SSH key (in `~/.ssh/` or your
 SSH agent). The first time, it remembers the server's identity (its host
-key) and checks it on every later visit.
+key) and checks it on every later visit. Did your cloud provider give you a
+key file to download (AWS calls it a key pair)? Name it when you add the
+server: `komando host add web1 ubuntu@203.0.113.10 --identity ~/Downloads/my-key.pem`.
 
 ```bash
 # 1. Add a server and give it a short name (web1)
@@ -134,6 +152,11 @@ re-encrypted):
 ```bash
 komando secret keychain
 ```
+
+On macOS this uses the system keychain as it is. On Linux it needs
+`secret-tool` (`sudo apt install libsecret-tools`) and a desktop session
+with a keyring; on a server without one, give the vault a passphrase
+instead (`komando secret passphrase`).
 
 You do not need `KOMANDO_VAULT_PASS`: a vault passphrase is optional, mainly
 for a computer without a keychain (see [Settings](docs/features/settings.md#where-komando-keeps-its-data)).
@@ -183,7 +206,8 @@ komando guide install
 
 It adds the komando *skill*: a short note the agent reads by itself whenever
 a task touches a server, database, cache or storage. Restart the agent after
-it. Run it again after you update komando.
+it. Run it again after you update komando. In Codex, open `/hooks` once and
+approve komando's guard; Codex asks before it runs a new hook.
 
 Other agents: copy the text of [`AGENTS.md`](AGENTS.md) into your agent's
 instructions file (for example `AGENTS.md` or `CLAUDE.md` in the folder you

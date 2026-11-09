@@ -7,6 +7,7 @@ commands. [All features](README.md)
 
 ```bash
 komando import kubeconfig                                  # one conn per kubeconfig context
+komando conn mv my-ctx-name prod                           # give it a short name (import names it after the context)
 komando cluster status prod                                # version, nodes, and every problem
 komando cluster ls prod pods --namespace shop              # what runs
 komando cluster logs prod deploy/api --namespace shop -f   # follow the logs

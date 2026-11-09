@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -36,7 +37,7 @@ func guideCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.AddCommand(guideInstallCmd(), guideGuardCmd())
+	c.AddCommand(guideInstallCmd(), guideUninstallCmd(), guideGuardCmd())
 	return c
 }
 
@@ -45,6 +46,39 @@ func guideCmd() *cobra.Command {
 //
 //go:embed skill.md
 var skillText string
+
+// skillStatus says where komando's skill is installed for AI agents (the
+// home folder and the current one, for --project), and which copies are
+// not this komando's skill, from an older or newer komando.
+func skillStatus() (installed, stale []string) {
+	var bases []string
+	if home, err := os.UserHomeDir(); err == nil {
+		bases = append(bases, home)
+	}
+	if wd, err := os.Getwd(); err == nil && !slices.Contains(bases, wd) {
+		bases = append(bases, wd)
+	}
+	for _, base := range bases {
+		for _, d := range skillDirs {
+			p := filepath.Join(base, d, "komando", "SKILL.md")
+			b, err := os.ReadFile(p)
+			if err != nil {
+				continue
+			}
+			installed = append(installed, p)
+			if string(b) != skillText {
+				stale = append(stale, p)
+			}
+		}
+	}
+	return installed, stale
+}
+
+// agentSkillInstalled: some AI agent on this computer has komando's skill.
+func agentSkillInstalled() bool {
+	installed, _ := skillStatus()
+	return len(installed) > 0
+}
 
 // skillDirs are the folders AI agents read skills from: Claude Code reads
 // .claude/skills, Codex, Cursor, Gemini CLI and others read .agents/skills.
@@ -76,8 +110,7 @@ CLI (.gemini/settings.json, v0.26+) and Codex (.codex/hooks.json; approve it
 once in /hooks) where their folders exist. Skip it with --no-guard.
 
 Safe to run again, for example after an update: a changed file is kept as
-.bak. Remove the skill by deleting the komando folders, and the guard by
-deleting its entry under hooks in .claude/settings.json.`,
+.bak. ` + "`komando guide uninstall`" + ` takes the skill and the guard out again.`,
 		Example: `  komando guide install             # for every project on this computer
   komando guide install --project   # only for the folder you are in
   komando guide install --dry-run   # show where it would go`,
@@ -247,7 +280,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 						if k, ok := kindOf(c); ok && s.Runnable {
 							s.Kind, s.KindNote = k.Kind, k.Note
 						}
-						c.LocalFlags().VisitAll(func(f *pflag.Flag) {
+						ownFlags(c).VisitAll(func(f *pflag.Flag) {
 							if f.Hidden || f.Name == "help" {
 								return
 							}
@@ -273,19 +306,14 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 			}
 			if start == root {
 				res["global_flags"] = globals
-				res["envelope"] = map[string]string{
-					"ok":      "bool: true on full success",
-					"command": "dotted command name",
-					"data":    "command-specific result; multi-host commands use data.results[] + data.summary",
-					"error":   "{code, message, hint} when ok=false (data may still be present for partial failures)",
-					"meta":    "{version, duration_ms, dry_run}",
-				}
+				res["envelope"] = schemaEnvelope
 				res["exit_codes"] = map[string]string{
 					"0": "success", "1": "generic error", "2": "usage error", "3": "not found",
 					"4": "connection/auth/host-key failure, or the connection broke mid-command (CONNECTION_LOST: outcome unknown)", "5": "remote command exited non-zero",
 					"6": "blocked by safety policy (needs --yes or --allow-dangerous)", "7": "timeout",
 					"8": "precondition failed (e.g. replace text not found / ambiguous)",
 				}
+				res["error_codes"] = errorCodes // every code: its exit, an example message, the usual next step
 				res["target_selectors"] = map[string]string{
 					"NAME":           "a server, conn or VPN from the inventory",
 					"glob":           "web-* or db-?",
@@ -308,4 +336,13 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 	}
 	c.Flags().BoolVar(&compact, "compact", false, "only paths and short descriptions")
 	return c
+}
+
+// schemaEnvelope describes the one JSON object every command prints.
+var schemaEnvelope = map[string]string{
+	"ok":      "bool: true on full success",
+	"command": "dotted command name",
+	"data":    "command-specific result; multi-host commands use data.results[] + data.summary",
+	"error":   "{code, message, hint} when ok=false (data may still be present for partial failures)",
+	"meta":    "{contract, version, duration_ms, dry_run}, and when they apply: would_be_blocked (a dry run's stop), skipped (targets a command cannot use), host_keys_pinned",
 }

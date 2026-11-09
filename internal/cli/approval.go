@@ -159,6 +159,7 @@ func personAllowsFor(flag, what string, why ...string) bool {
 	}
 	text += "\n\nAllow this once?"
 	var allowed, shown bool
+	approvalGaveUp = false
 	if secret := approvalCodeSecret(); secret != nil {
 		// a second factor: the code from the person's authenticator app
 		code, pressed, ok := askCodeOnScreen(text)
@@ -172,6 +173,8 @@ func personAllowsFor(flag, what string, why ...string) bool {
 	switch {
 	case allowed:
 		approval.allowed = true
+	case shown && approvalGaveUp:
+		approval.why = "no-answer" // the window closed itself: nobody clicked Deny
 	case shown && approval.why == "":
 		approval.why = "denied"
 	case shown:
@@ -283,6 +286,8 @@ func approvalHint(e *out.Error) {
 	switch approval.why {
 	case "denied":
 		e.Hint = "the user clicked Deny in komando's window; do not retry. Ask the user what they want instead"
+	case "no-answer":
+		e.Hint = "nobody answered komando's window within 2 minutes (the user may be away); ask the user whether to try again, and do not retry before they say so"
 	case "wrong-code":
 		e.Hint = "the code typed in komando's window was wrong or missing; ask the user whether to try again"
 	case "no-screen":
@@ -291,11 +296,28 @@ func approvalHint(e *out.Error) {
 		e.Hint = "komando did not ask the user in its window, because " + approval.unshown +
 			". Make the command shorter (put a long script in a file for `komando script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"
 	default:
-		if e.Code == "REVEAL_NEEDS_HUMAN" || e.Code == "NEEDS_PERSON" { // no flag allows these
+		switch {
+		case e.Final, e.Code == "REVEAL_NEEDS_HUMAN", e.Code == "NEEDS_PERSON":
+			return // no flag allows these: adding one asks nobody
+		case e.Code == "WRITE_REQUIRES_FLAG", e.Code == "READ_ONLY_VIOLATION":
+			// --write and leaving out --read-only open no window
+			e.Hint += ". komando does not ask the user about this, so ask them first and go on only when they agree"
 			return
+		case strings.Contains(e.Hint, "komando asks the user in a window"):
+			return // the hint says so already
 		}
 		e.Hint += ". Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"
 	}
+}
+
+// approvalGaveUp: the last approval window closed itself after 2 minutes
+// with no answer, which is not a Deny (the person may be away).
+var approvalGaveUp bool
+
+// zenityTimedOut: zenity ends with exit code 5 when its --timeout runs out.
+func zenityTimedOut(err error) bool {
+	var ee *exec.ExitError
+	return errors.As(err, &ee) && ee.ExitCode() == 5
 }
 
 // askOnScreen shows a native window with Deny and "Allow once". shown is
@@ -311,21 +333,25 @@ var askOnScreen = func(text string) (allowed, shown bool) {
 	switch runtime.GOOS {
 	case "darwin":
 		const script = `on run argv
-display dialog (item 1 of argv) with title "komando: allow?" buttons {"Deny", "Allow once"} default button "Deny" cancel button "Deny" giving up after 120 with icon caution
-return button returned of result
+set r to display dialog (item 1 of argv) with title "komando: allow?" buttons {"Deny", "Allow once"} default button "Deny" cancel button "Deny" giving up after 120 with icon caution
+if gave up of r then return "gave up"
+return button returned of r
 end run`
 		b, err := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script, text).Output()
 		var ee *exec.ExitError
 		if err != nil && !errors.As(err, &ee) {
 			return false, false
 		}
-		return strings.TrimSpace(string(b)) == "Allow once", true
+		answer := strings.TrimSpace(string(b))
+		approvalGaveUp = answer == "gave up"
+		return answer == "Allow once", true
 	case "linux", "freebsd", "openbsd":
 		if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
 			return false, false
 		}
 		if z := systemTool("zenity"); z != "" {
 			err := exec.CommandContext(ctx, z, "--question", "--title=komando: allow?", "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--default-cancel", "--no-markup", "--timeout=120").Run()
+			approvalGaveUp = zenityTimedOut(err)
 			return err == nil, true
 		}
 		if k := systemTool("kdialog"); k != "" {

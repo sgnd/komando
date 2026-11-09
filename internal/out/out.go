@@ -38,9 +38,15 @@ type Error struct {
 	Message string `json:"message"`
 	Hint    string `json:"hint,omitempty"`
 	Exit    int    `json:"-"`
+	// Final: no flag lifts this stop (no --yes, --allow-dangerous or
+	// --reveal), so an AI agent is not told that adding one asks the user
+	Final bool `json:"-"`
 }
 
 func (e *Error) Error() string { return e.Code + ": " + e.Message }
+
+// NoFlag marks a stop that no flag lifts (see Final).
+func (e *Error) NoFlag() *Error { e.Final = true; return e }
 
 func (e *Error) WithHint(h string) *Error { e.Hint = h; return e }
 
@@ -367,12 +373,22 @@ func renderText(data any) string {
 			return sb.String()
 		}
 		if h := headline(m); h != "" {
-			// what happened comes first, in words; the record follows
+			// what happened comes first, in words; the record follows, and
+			// the command to run next comes last
 			sb.WriteString(h + "\n")
-			for _, k := range []string{"action", "changed", "name", "created_at", "updated_at"} {
+			next, _ := m["next"].(string)
+			for _, k := range []string{"action", "changed", "name", "created_at", "updated_at", "next"} {
 				delete(m, k)
 			}
+			for k, v := range m {
+				if v == false { // "replaced: false" says nothing after "stored x"
+					delete(m, k)
+				}
+			}
 			writeAny(&sb, m, "  ")
+			if next != "" {
+				sb.WriteString("next: " + next + "\n")
+			}
 			return sb.String()
 		}
 	}

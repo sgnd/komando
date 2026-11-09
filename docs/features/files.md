@@ -114,6 +114,23 @@ pointing to `sites-available/app`) is followed: the file it points to is
 written, its mode and owner are kept, and the link stays a link. The result
 shows `followed:`.
 
+## Undo a change
+
+`fs replace` and `fs write` with `--backup` keep the previous version next to
+the file and name it in the result (`backup`). To go back, move it over the
+file:
+
+```bash
+komando fs mv web1 /etc/nginx/nginx.conf.bak /etc/nginx/nginx.conf --overwrite --sudo
+komando svc reload web1 nginx                 # if a service reads the file
+```
+
+Without `--backup` there is no copy: `komando audit` says what changed, when
+and where (`komando audit --target web1 --since 2h`), so you can change it
+back by hand. For a database change, restore from a dump (`db dump` before
+the change, `db restore` to go back); for a Kubernetes deployment, `cluster
+rollback`.
+
 ## Move, remove and change files
 
 ```bash

@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -109,7 +110,7 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 			return methods, agentConn, nil // keys are available; an unresolvable password is not fatal
 		}
 		if err != nil {
-			return nil, agentConn, out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "check `komando secret list`", "password for %s: %v", h.Name, err)
+			return nil, agentConn, secretUnresolved(h, err)
 		}
 		methods = append(methods, (&passwordLogin{pw: pw, ask: personFor(h)}).methods()...)
 	} else if ask := personFor(h); ask != nil {
@@ -606,4 +607,25 @@ func expand(p string) string {
 		return filepath.Join(home, p[2:])
 	}
 	return p
+}
+
+// secretUnresolved is the error for a password reference that cannot be
+// read, with the step for its cause: the exact `secret set` for a missing
+// secret, the vault's own error for a locked or broken vault, what the
+// reference names otherwise.
+func secretUnresolved(h *store.Host, err error) *out.Error {
+	var oe *out.Error
+	if errors.As(err, &oe) {
+		return oe // a stop komando made (SENSITIVE_FILE): its own code and hint
+	}
+	switch {
+	case errors.Is(err, vault.ErrNotFound):
+		// the code a host's reference always gave (the contract keeps it)
+		return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", netx.SecretHint(h.PasswordRef)+" (an AI agent asks the user to run it in their own terminal)",
+			"password for %s: %s is not in the vault", h.Name, h.PasswordRef)
+	case errors.Is(err, vault.ErrLocked), errors.Is(err, vault.ErrKey), errors.Is(err, vault.ErrDecrypt):
+		return out.Errf(out.ExitError, "SECRET_UNRESOLVED", "the vault cannot be opened: `komando doctor` says why and what to do",
+			"password for %s (%s): %v", h.Name, h.PasswordRef, err)
+	}
+	return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", netx.SecretHint(h.PasswordRef), "password for %s (%s): %v", h.Name, h.PasswordRef, err)
 }

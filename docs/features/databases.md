@@ -41,6 +41,13 @@ komando conn add app-db postgres://app@10.0.0.5:5432/app \
   --via web1 --password-ref secret:app-db-pass --protected
 ```
 
+Or in one step at your terminal: `--ask-password` asks for it (hidden) and
+stores it as `secret:app-db-pass`:
+
+```bash
+komando conn add app-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password --protected
+```
+
 `--via web1` means "the database is only reachable from web1". komando
 connects through web1 over SSH by itself: there is no tunnel to start and no
 port opens on your computer. `--via` can also be a chain or a VPN (see
@@ -257,7 +264,7 @@ komando db user add app-db app_ro --password-ref secret:app-ro-pass
 komando db grant app-db app_ro --privileges SELECT --on all-tables:public
 komando db grants app-db app_ro                             # what it may do now
 komando db user ls app-db                                   # all users and roles
-komando db user passwd app-db app_ro --password-ref secret:app-ro-pass-2   # rotate
+komando db user passwd app-db app_ro --password-ref secret:app-ro-pass-2   # rotate (the conn's own user: also conn edit, see rotate.md)
 komando db revoke app-db app_ro --privileges SELECT --on all-tables:public
 komando db user rm app-db app_ro --allow-dangerous
 komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10.0.%'   # MySQL
@@ -491,6 +498,7 @@ app-db> \q
 | Command | What it does |
 |---------|--------------|
 | `\q` | quit |
+| `\write` | allow changes for the rest of the shell (it asks first, also on a protected conn); `\write` again goes back to read-only |
 | `\?` | list the commands |
 | `\d [TABLE]` | list tables, or show one table |
 | `\l` / `\dn` / `\du` | databases / schemas / roles |
@@ -498,9 +506,13 @@ app-db> \q
 | `\timing` | show how long each statement takes |
 | `\i FILE` | run SQL from a file |
 
-Up and down arrows recall earlier lines. The shell is for people at a
-terminal: agents and scripts get `NEEDS_TERMINAL` and use `db query`, which
-returns JSON.
+Up and down arrows recall earlier lines. The read-only mode is the
+database's own (a read-only transaction): `\write` connects again with
+changes allowed. A destructive statement (`DROP`, `TRUNCATE`, a `DELETE`
+without `WHERE`) asks you to type the conn's name first, as `db query` does
+at the command line; anything else is `Not run.`. The shell is for people at
+a terminal: agents and scripts get `NEEDS_TERMINAL` and use `db query`,
+which returns JSON.
 
 ## Troubleshooting
 
