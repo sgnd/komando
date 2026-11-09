@@ -108,7 +108,7 @@ func TestSecretKeychainNoTool(t *testing.T) {
 	}
 	key := keyfileHome(t)
 	e := wantCode(t, "KEYCHAIN_FAILED", "secret", "keychain")
-	if e.Exit != out.ExitRemote || e.Hint != "the vault still uses vault.key; fix the keychain and try again" {
+	if e.Exit != out.ExitRemote || e.Hint != "the vault still uses vault.key, nothing was lost: a person unlocks the keychain (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring" {
 		t.Errorf("error: %+v", e)
 	}
 	keyStays(t, key)
