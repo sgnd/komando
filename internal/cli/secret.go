@@ -728,7 +728,7 @@ the vault. Nothing is re-encrypted: it is the same key, kept elsewhere.
 				err := vault.KeyToFile()
 				audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "file"})
 				if err != nil {
-					return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "unlock the keychain and try again", "%v", err)
+					return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "a person unlocks the keychain on this computer (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring", "%v", err)
 				}
 				out.P.Print("secret.keychain", map[string]any{"key": "vault.key"}, nil)
 				return nil
@@ -736,7 +736,7 @@ the vault. Nothing is re-encrypted: it is the same key, kept elsewhere.
 			tool, err := vault.KeyToKeychain()
 			audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "keychain"})
 			if err != nil {
-				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "the vault still uses vault.key; fix the keychain and try again", "%v", err)
+				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "the vault still uses vault.key, nothing was lost: a person unlocks the keychain (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring", "%v", err)
 			}
 			out.P.Print("secret.keychain", map[string]any{"key": "keychain", "keychain": tool, "vault_key_file": "removed"}, nil)
 			return nil

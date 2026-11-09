@@ -125,7 +125,7 @@ func guardKubePlugin(c *store.Conn, x *kube.Context) error {
 	}
 	line := pluginLine(e)
 	if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() {
-		stop := out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig of this conn",
+		stop := out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig of this conn (if this program is intended, --allow-dangerous lets it run)",
 			"the kubeconfig of conn %s logs in with `%s`, which matches destructive rules: %s", c.Name, line, hits[0].Reason)
 		if g.dryRun {
 			out.P.WouldBlock(stop)
