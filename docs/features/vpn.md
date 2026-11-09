@@ -58,9 +58,20 @@ komando vpn add office proxy --address proxy.corp.example:3128
 - **Config files** (`--config`): the WireGuard `.conf` or OpenVPN `.ovpn`
   file is stored in the vault, together with its keys. The original file
   still holds the private key, so delete it if you no longer need it.
+  The vault secrets are named after the VPN: `NAME-key` and `NAME-psk`
+  (WireGuard) or `NAME-config` (OpenVPN). If a secret of that name exists
+  already, `vpn add` stops with `SECRET_EXISTS` and saves nothing, so it
+  never replaces a secret that a server or a file uses. Pick another VPN
+  name, or move the secret away first (`komando secret mv`, or `komando
+  secret rm` if an earlier VPN of that name left it). `--overwrite` may
+  reuse the secrets of the VPN it replaces, when nothing else uses them.
 - **Passwords** (`--password-ref`) work like everywhere else in komando:
   `secret:NAME`, `env:VAR`, a password manager, and so on (see
-  [Servers](servers.md)). For Tailscale it is an auth key.
+  [Servers](servers.md)). For Tailscale it is an auth key. The VPN sends
+  it (and `--psk-ref`) to its server each time it connects, so when an AI
+  agent adds a VPN with one, or points a VPN at another server or address,
+  a person allows it: `--yes` and a click in komando's window, which names
+  the references and the server (`SECRET_DESTINATION`).
 - **`--portal`** is the VPN server for `anyconnect`, `fortinet`,
   `globalprotect`, `f5` and `pulse`.
 - **`--server`** is the VPN server for `l2tp`, `ipsec` and `ikev2`, and
@@ -125,7 +136,8 @@ komando vpn rm office                         # remove (several names allowed)
   WireGuard connects for each command, so nothing stays running.
 - `vpn rm` refuses a VPN that is still on a `--via` path (`VPN_IN_USE`, also
   with `--dry-run`). Change those `--via` paths first. Its keys stay in the
-  vault until `komando secret rm`.
+  vault until `komando secret rm`; a new WireGuard or OpenVPN VPN of the
+  same name needs them gone first.
 - `vpn edit` changes `--check`, `--address`, `--user`, `--password-ref`,
   `--server`, `--psk-ref`, `--id`, `--remote-id`, `--service`, `--mfa`,
   `--notes`, and groups and tags (`-g`, `-t`, which replace the current
@@ -133,6 +145,8 @@ komando vpn rm office                         # remove (several names allowed)
 - To give a WireGuard or OpenVPN VPN a new config file, add it again with
   `--overwrite`.
 - `vpn mv` refuses a VPN that is up: run `komando vpn down NAME` first.
+  Its vault secrets keep their names (`OLD-key` stays), and a new VPN
+  under the old name cannot take them.
 
 ## OpenVPN details
 
@@ -141,7 +155,9 @@ komando has its own OpenVPN client. It supports UDP and TCP, `tls-auth` and
 certificates, a user name and password, or both.
 
 - The profile is checked when you add it. An option the client does not
-  understand is refused by name (`OVPN_UNSUPPORTED`).
+  understand is refused by name (`OVPN_UNSUPPORTED`), and what a person
+  should know about it (no check of the server's certificate, below) is in
+  the answer's `warnings`.
 - The server's certificate must come from the profile's `<ca>`. The client
   also checks what the profile asks for, the way OpenVPN does:
   `remote-cert-tls server` (the certificate must say serverAuth),
@@ -251,10 +267,10 @@ komando test kantor
   for old servers). Single DES and MD5 are never used.
 - `--legacy-crypto` and `--allow-pap` make the login weaker, so turning
   one on needs a person's yes: `--yes` from a person, and for an AI agent
-  also the person's click in komando's window. Add the VPN first, then
-  turn them on with `komando vpn edit`; `--legacy-crypto=false` and
-  `--allow-pap=false` turn them off again. `komando doctor` lists every
-  VPN that has one on.
+  also the person's click in komando's window. Turn them on when you add
+  the VPN (`komando vpn add old-office l2tp ... --legacy-crypto`) or later
+  with `komando vpn edit`; `--legacy-crypto=false` and `--allow-pap=false`
+  turn them off again. `komando doctor` lists every VPN that has one on.
 - When a session ends by itself, `komando vpn status` shows why in
   `last_end`.
 - If the server does not answer, run `KOMANDO_IPSEC_DEBUG=1 komando vpn up

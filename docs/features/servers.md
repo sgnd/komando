@@ -152,6 +152,7 @@ old prefix, in one step:
 ```bash
 komando rename --prefix shop- acme-shop- --dry-run   # the old -> new list per kind, and every reference
 komando rename --prefix shop- acme-shop- --yes       # --yes once, when some of them are protected
+komando rename --prefix shop- acme-shop- --notes --labels --dry-run   # notes and labels too: what changes, what is kept
 ```
 
 - **What it renames.** Every name that starts with `shop-`. When the old
@@ -164,8 +165,22 @@ komando rename --prefix shop- acme-shop- --yes       # --yes once, when some of 
   (`key gen`) moves its files in `~/.komando/keys`.
 - **What stays.** The protected mark, labels, notes and creation time.
   Names inside URLs belong to the resource, not to komando, so in
-  `s3://shop-admin@shop-prod` the user and the bucket stay. `--notes` also
-  replaces the old names in notes, as whole words.
+  `s3://shop-admin@shop-prod` the user and the bucket stay.
+- **Notes and labels.** `--notes` also replaces old names in notes, and
+  `--labels` in label values (label names stay). Only what clearly means
+  an entry follows: server, conn, VPN and secret names as whole words, a
+  group written `@shop`, and a pattern such as `shop-db-*` when it matches
+  the same servers, conns and VPNs after the rename. These stay, because
+  they often mean something else: the old prefix without its `-` (`db shop`
+  is usually a database, not the group), group names without `@`, key
+  names (`bucket shop-dev`), and a name that is also the user, host, bucket
+  or database in a conn URL. The result lists each one under `kept`, with
+  the reason, so you can fix it by hand.
+- **Labels are listed.** Without `--labels`, every label value that names
+  an old entry stays and is listed under `kept` with what it would become.
+  A conn's `host=` label matters: `komando doctor` reads it to warn when a
+  conn of a protected server is not protected itself. Without `--notes`,
+  one warning counts the notes that still name old entries.
 - **All or nothing.** The inventory and the vault are each written once.
   When a new name is taken, or two old names would get one new name,
   nothing changes (`NAME_TAKEN`, with every clash listed). A connected VPN
@@ -256,8 +271,11 @@ lock yourself out.
 
 ## Use a password
 
-Store the password once. You type it, nothing is shown, and it is saved
-encrypted in komando's vault (see [Secret](glossary.md)):
+At your terminal, komando asks for the password when the server wants one,
+as `ssh` does (`web1: Password:`, hidden as you type). Store it once to skip
+the question, and so that AI agents and scripts can log in: they have no
+one to ask. You type it, nothing is shown, and it is saved encrypted in
+komando's vault (see [Secret](glossary.md)):
 
 ```bash
 komando secret set web1-pass
@@ -270,11 +288,18 @@ one to another address, port or `--via` path, a person allows it in
 komando's window (`SECRET_DESTINATION`); see [Safety](safety.md#seatbelts-for-ai-agents).
 
 komando sends the stored password at most once per login, and only when the
-server asks for a password (hidden as you type). A server that also asks
-for a one-time code (two-factor login) gets no answer: the login stops with
+server asks for a password (hidden as you type); a refused one is not sent
+again, so a wrong password in the vault cannot lock the account.
+
+**Two-factor logins.** When a server also asks for a one-time code (or any
+other question), komando shows you the server's question with its name
+(`web1: Verification code:`) and sends what you type, hidden unless the
+server lets it show. Servers that log in at once (`komando exec @web`) ask
+one at a time. Ctrl-C stops the login (`CANCELLED`). Only a person at a
+terminal is asked: for an AI agent or a script the login stops with
 `AUTH_FAILED`, the message quotes the server's question, and no wrong code
-counts against the account. Log in to such a server at a terminal with the
-command `komando host ssh-command web1` prints.
+counts against the account. The agent asks you to run the command in your
+own terminal.
 
 If `sudo` asks for a password on the server, store that too:
 
@@ -394,7 +419,9 @@ says on stderr which key it trusted:
 komando: first connection to web1 (203.0.113.10:22): trusted its ssh-ed25519 host key SHA256:pVt2...
 ```
 
-The audit log keeps it too (`host.key-pinned` in `komando audit`).
+The audit log keeps it too (`host.key-pinned` in `komando audit`), and the
+JSON answer lists it in `meta.host_keys_pinned`, so an AI agent can show
+it to you.
 Compare that fingerprint with the server's own: run
 `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the server's console,
 or look in your cloud console (many show the host key fingerprints in the

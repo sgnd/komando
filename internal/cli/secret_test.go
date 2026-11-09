@@ -256,3 +256,32 @@ func TestSecretDiffAndWarning(t *testing.T) {
 		t.Errorf("paste marks: %q", got)
 	}
 }
+
+// With no value, a script is told how to give one, but an AI agent is
+// sent to the user: a password the user knows is typed by the user, not
+// pasted into the chat for the agent to pipe in.
+func TestSecretSetWithoutValueSendsAgentToUser(t *testing.T) {
+	invHome(t)
+	devnull, err := os.Open(os.DevNull) // not a terminal, not a pipe
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := os.Stdin
+	os.Stdin = devnull
+	t.Cleanup(func() { os.Stdin = saved; devnull.Close() })
+
+	if e := wantCode(t, "USAGE", "secret", "set", "web1-pass"); !strings.Contains(e.Message, "--from-env") {
+		t.Errorf("script: %+v", e)
+	}
+	windows := asAgent(t, true, true)
+	e := wantCode(t, "NEEDS_PERSON", "secret", "set", "web1-pass")
+	if !strings.Contains(e.Hint, "ask the user to run `komando secret set web1-pass` in their own terminal") ||
+		!strings.Contains(e.Hint, "Never ask for a password in the chat") || e.Exit != out.ExitPolicy {
+		t.Errorf("agent: %+v", e)
+	}
+	if strings.Contains(e.Hint, "window") || *windows != 0 {
+		t.Errorf("no flag lets an agent type the user's password; hint %q, %d windows", e.Hint, *windows)
+	}
+	// a value a program makes still works for an agent
+	withStdin(t, "generated-token-123\n", func() { mustRun(t, "secret", "set", "ci-token") })
+}

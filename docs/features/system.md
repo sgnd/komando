@@ -91,7 +91,9 @@ komando docker prune web1 --older-than 30d --dry-run   # what would be removed, 
   `--allow-dangerous`.
 - `docker exec` passes the command's words as written, with no shell, so
   the image needs no `sh`. For pipes or `&&`, write the shell yourself:
-  `-- sh -c 'ls /data | wc -l'`. Add `--read-only` when it only looks.
+  `-- sh -c 'ls /data | wc -l'`. Add `--read-only` when it only looks; it
+  is checked as for `exec`, so on a protected server only commands komando
+  knows read skip `--yes`.
 - `docker raw TARGET -- ARGS...` runs any other docker subcommand, under the
   same rules.
 - `--sudo` runs docker through sudo, when your user is not in the `docker`

@@ -30,6 +30,7 @@ type exportFile struct {
 	Vpns    []*store.Vpn     `json:"vpns"`
 	Recipes []*store.Snippet `json:"recipes"`
 	Secrets []string         `json:"secrets_needed"` // vault names the refs use
+	Keys    []string         `json:"keys_needed"`    // keychain keys the hosts use (the key files are not in the file)
 }
 
 const exportFormat = "komando-export/1"
@@ -167,7 +168,7 @@ func exportCmd() *cobra.Command {
 				}
 			}
 			need := map[string]bool{}
-			f := exportFile{Format: exportFormat, Hosts: sel.Hosts, Conns: sel.Conns, Vpns: sel.Vpns, Recipes: []*store.Snippet{}, Secrets: []string{}}
+			f := exportFile{Format: exportFormat, Hosts: sel.Hosts, Conns: sel.Conns, Vpns: sel.Vpns, Recipes: []*store.Snippet{}, Secrets: []string{}, Keys: []string{}}
 			for _, v := range sel.Vpns {
 				for _, r := range []string{v.KeyRef, v.PSKRef} {
 					if n, ok := strings.CutPrefix(r, "secret:"); ok {
@@ -175,12 +176,24 @@ func exportCmd() *cobra.Command {
 					}
 				}
 			}
+			keys := map[string]bool{}
 			for _, h := range sel.Hosts {
 				for _, r := range []string{h.PasswordRef, h.SudoRef} {
 					if n, ok := strings.CutPrefix(r, "secret:"); ok {
 						need[n] = true
 					}
 				}
+				if k := st.Keys[h.Key]; k != nil {
+					keys[h.Key] = true
+					if n, ok := strings.CutPrefix(k.PassphraseRef, "secret:"); ok {
+						need[n] = true
+					}
+				}
+			}
+			var keyFiles []string // what to copy to the other computer, as the export does not
+			for _, n := range slices.Sorted(maps.Keys(keys)) {
+				f.Keys = append(f.Keys, n)
+				keyFiles = append(keyFiles, st.Keys[n].Path)
 			}
 			for _, c := range sel.Conns {
 				if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok {
@@ -214,7 +227,11 @@ func exportCmd() *cobra.Command {
 			if err := writeAtomic(to, func(tmp string) error { return os.WriteFile(tmp, append(b, '\n'), 0o600) }); err != nil {
 				return err
 			}
-			out.P.Print("export", map[string]any{"file": to, "hosts": len(f.Hosts), "conns": len(f.Conns), "vpns": len(f.Vpns), "recipes": len(f.Recipes), "secrets_needed": f.Secrets}, nil)
+			res := map[string]any{"file": to, "hosts": len(f.Hosts), "conns": len(f.Conns), "vpns": len(f.Vpns), "recipes": len(f.Recipes), "secrets_needed": f.Secrets, "keys_needed": f.Keys}
+			if len(keyFiles) > 0 {
+				res["key_files"] = keyFiles // private keys: copied by hand, never put in an export file
+			}
+			out.P.Print("export", res, nil)
 			return nil
 		},
 	}

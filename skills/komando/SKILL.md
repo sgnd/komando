@@ -83,7 +83,7 @@ Update komando only when the human asks: `komando update` (when it stops with
    `komando fs replace <target> <path> --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:NAME}}'`
    (`{{secret:NAME}}` becomes the vault value on the server). Sending a
    secret somewhere (that, `--env K=secret:NAME`, a password reference on a
-   new or moved server or conn) stops with `SECRET_DESTINATION`: tell the
+   new or moved server, conn or VPN) stops with `SECRET_DESTINATION`: tell the
    human which secret goes where, and when they agree re-run with `--yes`.
    Text that still holds `[hidden]` is never written (`HIDDEN_VALUE`). On
    protected targets personal data (emails, phone numbers, cards, IBANs,
@@ -91,7 +91,9 @@ Update komando only when the human asks: `komando update` (when it stops with
    counts, never write it back, and ask the human if a task needs a real
    value. `secret get --reveal`
    is for people only (`REVEAL_NEEDS_HUMAN`), and so is `secret check`
-   (`NEEDS_PERSON`). Rename or copy a secret with `komando secret mv OLD NEW`
+   (`NEEDS_PERSON`). A password only the human knows: ask them to run
+   `komando secret set NAME` in their own terminal (it asks for it hidden);
+   never ask for a password in the chat. Rename or copy a secret with `komando secret mv OLD NEW`
    / `secret cp OLD NEW` (references follow a mv; the value is never shown),
    instead of asking the human to type it again. Refer to secrets as
    `secret:NAME`, and never put a secret value on a command line. On this

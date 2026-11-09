@@ -137,7 +137,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	}
 	// no reference, or the same place: nothing to ask
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
-	mustRun(t, "conn", "add", "cache", "redis://default@10.0.0.7:6379/0")
+	mustRun(t, "conn", "add", "cache", "rediss://default@10.0.0.7:6379/0")
 	mustRun(t, "conn", "edit", "shop", "--add-tag", "live", "--url", "postgres://other@10.0.0.5/app")
 	mustRun(t, "host", "edit", "web1", "--user", "root")
 	if len(*texts) != 0 {
@@ -195,6 +195,9 @@ func TestWeakTLS(t *testing.T) {
 		{"", "ftps://u@files.example/www?tls=skip-verify", "tls=skip-verify"},
 		{"", "ftp://u@files.example/www?insecure=1", "insecure=1"},
 		{"", "redis://default@cache:6379/0", ""},
+		{"", "redis://default@cache:6379/0?insecure=1", "insecure=1"},
+		{"", "memcached://cache:11211?insecure=1", "insecure=1"},
+		{"", "rediss://default@cache:6379/0?insecure=1", ""},
 		{"rediss://default@cache:6379/0", "redis://default@cache:6379/0", "no TLS any more"},
 		{"memcacheds://cache:11211", "memcached://cache:11211", "no TLS any more"},
 		{"postgres://a@db/app?sslmode=disable", "postgres://b@db/app?sslmode=disable", ""}, // it had it before
@@ -214,7 +217,7 @@ func TestWeakTLS(t *testing.T) {
 	if !strings.Contains(e.Message, "sslmode=disable") {
 		t.Errorf("message: %q", e.Message)
 	}
-	wantCode(t, "SAFETY_SETTING", "conn", "edit", "cache", "--url", "redis://default@10.0.0.7:6379/0")
+	wantCode(t, "SAFETY_SETTING", "conn", "edit", "cache", "--url", "redis://default@10.0.0.7:6379/0?insecure=1")
 	wantCode(t, "SAFETY_SETTING", "conn", "add", "reg", "registry://u@reg.example?tls=skip-verify")
 	mustRun(t, "conn", "edit", "pg", "--add-tag", "x") // nothing new
 	if len(*texts) != 0 {

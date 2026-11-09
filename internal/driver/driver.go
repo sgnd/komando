@@ -286,7 +286,7 @@ func parseRegistryOptions(q url.Values, t *Target) error {
 	}
 	if t.CA == "" {
 		if q.Has("ca") {
-			return out.Usage("registry ca option needs a secret: ?ca=secret:NAME")
+			return out.Usage("the registry ca option takes a secret reference, as in ?ca=secret:NAME")
 		}
 		return nil
 	}

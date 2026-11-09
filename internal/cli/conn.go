@@ -170,6 +170,9 @@ func connAddCmd() *cobra.Command {
 				if _, err := checkConn(s, cn); err != nil {
 					return err
 				}
+				if err := secureConnURL(cn, &res); err != nil {
+					return err
+				}
 				if err := guardConnSends(old, cn); err != nil {
 					return err
 				}
@@ -258,7 +261,7 @@ func connEditCmd() *cobra.Command {
 				if _, err := checkConn(s, cn); err != nil {
 					return err
 				}
-				if err := guardConnEdit(&old, cn); err != nil {
+				if err := guardConnEdit(&old, cn, &res); err != nil {
 					return err
 				}
 				if rename != "" && rename != cn.Name {
@@ -301,8 +304,14 @@ func connEditCmd() *cobra.Command {
 // where or how komando logs in to a protected conn, needs --yes. For an AI
 // agent, so do the secrets it sends to a new place and the settings that
 // turn its network protection down (guardConnSends); one window asks about
-// all of it.
-func guardConnEdit(old, cn *store.Conn) error {
+// all of it. A new URL first gets the secure default (secureConnURL), noted
+// on res.
+func guardConnEdit(old, cn *store.Conn, res *connResult) error {
+	if cn.URL != old.URL {
+		if err := secureConnURL(cn, res); err != nil {
+			return err
+		}
+	}
 	var actions []string
 	if old.Protected && !cn.Protected {
 		actions = append(actions, "turning off protection of")

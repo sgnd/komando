@@ -211,8 +211,10 @@ komando cluster shell prod deploy/api --namespace shop          # interactive, f
 
 - **`cluster exec`** runs one command (not interactive). The
   dangerous-command filter checks it, as with `exec` on servers.
-  `--read-only` says it only looks, so a protected cluster does not need
-  `--yes`.
+  `--read-only` says it only looks, checked as for `exec`: a command that
+  clearly changes something is refused (`READ_ONLY_VIOLATION`), and a
+  protected cluster skips `--yes` only for commands komando knows read
+  (`cat`, `ls`, `printenv` ...; see [Commands](commands.md#protected-servers-and---read-only)).
 - **`cluster forward`** makes a pod or service port reachable on this
   computer only (127.0.0.1). For a service, the service port is forwarded to
   the pod port behind it. Ctrl-C or `--timeout` ends it normally. What goes

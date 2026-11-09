@@ -36,6 +36,9 @@ func TestVerifiedTLSURL(t *testing.T) {
 		"postgres://app@db:5432/app?sslmode=require&application_name=x": "postgres://app@db:5432/app?application_name=x&sslmode=verify-full",
 		"mysql://app@db/app?tls=false":                                  "mysql://app@db/app?tls=true",
 		"rediss://cache:6379/0":                                         "rediss://cache:6379/0",
+		// an option the URL did not have goes at the end, the rest as written
+		"postgres://app@db/app?ca=secret:pg-ca":          "postgres://app@db/app?ca=secret:pg-ca&sslmode=verify-full",
+		"mysql://app@db/app?charset=utf8mb4&ca=secret:x": "mysql://app@db/app?charset=utf8mb4&ca=secret:x&tls=true",
 	} {
 		kind := map[string]string{"postgres": "postgres", "mysql": "mysql", "rediss": "redis"}[strings.SplitN(in, ":", 2)[0]]
 		if got := verifiedTLSURL(in, kind); got != want {

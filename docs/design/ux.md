@@ -182,6 +182,18 @@ run next).
   typed line with a safe default. A choice (a VPN login's realm, say)
   shows its options as numbered lines and takes the number or the name; a
   wrong answer is asked again, up to 3 times.
+- **Logins ask a person, as ssh does** (2026-11-09). What an SSH or VPN
+  login asks that komando cannot answer from the vault (a password when
+  none is stored, a one-time code, any other question) goes to the person
+  at the terminal, with the server's name (`web1: Verification code:`),
+  hidden unless the server lets it show; one question at a time. A stored
+  password still goes out once, only to a hidden password question.
+  Agents and scripts are never asked: they get `NO_AUTH` or `AUTH_FAILED`
+  and a hint that sends a person to run the command.
+- **A value only the person knows is typed by the person.** An agent that
+  runs `secret set NAME` without a value gets `NEEDS_PERSON`: it asks the
+  user to run the command in their own terminal, never for the password in
+  the chat.
 - `--allow-dangerous` and `--yes` apply to one command only and
   are recorded in the audit.
 - **No way around it.** Removing, replacing, or turning off protected

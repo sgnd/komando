@@ -7,6 +7,88 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- **SSH logins ask a person, as `ssh` does.** At a terminal, komando asks
+  for a server's password when none is stored, and for the one-time code
+  of a two-factor login, with the server's name (`web1: Verification
+  code:`), hidden unless the server lets the answer show; servers that log
+  in at once ask one at a time, and Ctrl-C stops the login (`CANCELLED`).
+  `komando shell`, the menu and every other command now reach two-factor
+  servers. A stored password still goes out once, only to a hidden password
+  question. AI agents, scripts and background processes are never asked:
+  the `AUTH_FAILED` hint sends a person to run the command in their own
+  terminal, no longer to `ssh`.
+- `export` names the keychain keys its servers use (`keys_needed`) and
+  their files (`key_files`), which an export file never holds.
+
+### Changed
+
+- An AI agent that runs `secret set NAME` with no value gets `NEEDS_PERSON`:
+  ask the user to run `komando secret set NAME` in their own terminal. It
+  used to get a `USAGE` error whose hint was the same command. `komando
+  guide` and the skill say never to ask for a password in the chat.
+- `import komando` adds a server whose keychain key is not on this computer,
+  leaves the key out and says how to bring it (`key add`, then `host edit
+  --key`), as it does for an identity file. It used to leave the server out.
+- `rename --prefix --notes` replaces only what clearly means an entry:
+  server, conn, VPN and secret names, `@group`, and a pattern such as
+  `shop-db-*` that matches the same entries afterwards (before, it did not
+  follow). The old prefix without its `-`, group names without `@`, key
+  names, and names that are also the user, host, bucket or database in a
+  conn URL stay, and are listed under `kept` with the reason. Before, `db
+  shop` and `bucket shop-dev` became `acme-shop…` too.
+- `rename --prefix` lists every label value that names an old entry (such
+  as a conn's `host=` label, which `doctor` reads), and `--labels` replaces
+  them by the same rules. Without `--notes`, a warning counts the notes
+  that still name old entries.
+
+### Fixed
+
+- AI agents read komando's hints whole again. The secret masker hid the
+  command after words such as "password:" (`save its password: [hidden]
+  secret set web1-pass`) in `NO_AUTH`, `KEY_PASSPHRASE_REQUIRED`, `komando
+  guide` itself and `guide install --help`. A value that starts with a
+  `` `komando `` command is now kept, and a test runs the masker over every
+  hint that names one, the guide and the skill. Kebab-case flags such as
+  `--host-key-policy=strict` are no longer hidden, and a few messages (a
+  locked vault, a missing `secret-tool`, a registry CA reference, a failing
+  credential helper) were reworded so they arrive whole.
+
+### Security
+
+- **New conns check TLS by default.** `conn add` and `conn edit --url` of a
+  conn that crosses the network on its own (no `--via`, not this computer)
+  add `sslmode=verify-full` (Postgres) or `tls=true` (MySQL) when the URL
+  says nothing, and say so in `warnings`. A plain `redis://` or
+  `memcached://` there is refused (`INSECURE_PROTOCOL`) unless the URL
+  has `?insecure=1`, which an AI agent needs a person's yes for. Saved
+  conns keep their URL. `pg_dump` and `pg_restore` 16 or newer get
+  `sslrootcert=system` for such a URL, so `db dump --on` checks the
+  certificate against the system's CAs as komando does; an older one
+  needs the CA in `~/.postgresql/root.crt` and stops with a hint
+  (`DB_CONNECT`).
+- An AI agent that adds a VPN with a password or pre-shared key reference,
+  or points a VPN at another server or address, needs `--yes` and a
+  person's yes (`SECRET_DESTINATION`); the window names the references and
+  the server (for OpenVPN, its profile's `remote` lines). `vpn add` now
+  takes `--legacy-crypto` and `--allow-pap` (a person's yes, as on
+  `vpn edit`) and shows an OpenVPN profile's warnings.
+- `vpn up` hands `KOMANDO_VAULT_PASS` to its background `vpn serve` on
+  stdin instead of in its environment, as `tunnel start` does.
+- `docker exec --read-only` and `cluster exec --read-only` are checked as
+  `exec --read-only` is: a command that clearly changes something is
+  refused (`READ_ONLY_VIOLATION`), and on a protected target only commands
+  komando knows read skip `--yes`. Before, the flag alone skipped it.
+- JSON answers list the SSH host keys a command trusted for the first time
+  in `meta.host_keys_pinned`, so an agent can show the fingerprints.
+- `vpn add NAME wireguard` and `vpn add NAME openvpn` no longer replace a
+  vault secret named `NAME-key`, `NAME-psk` or `NAME-config` that is not
+  that VPN's own (`SECRET_EXISTS`, nothing saved). Before, `vpn add prod
+  ...` silently overwrote a secret `prod-key` that a server used, and an
+  AI agent could put a value it chose there. `--overwrite` still reuses
+  the secrets of the VPN it replaces when nothing else uses them.
+
 ## [0.7.0] - 2026-11-09
 
 ### Highlights
