@@ -40,6 +40,7 @@ var agentVars = []struct{ env, name string }{
 	{"CURSOR_AGENT", "Cursor"},
 	{"KOMANDO_AGENT", "An AI agent"},
 	{"AI_AGENT", "An AI agent"},
+	{gateEnv, "An SSH key through ssh-gate"}, // set by ssh-gate, not by the key (sshgate.go)
 }
 
 // agentName is the AI agent running komando, or "" for a person or a script.
@@ -48,6 +49,11 @@ var agentVars = []struct{ env, name string }{
 // </dev/null` must not turn its own safety stops off. The guard hook
 // (guard.go) refuses shell lines that change or remove these variables.
 func agentName() string {
+	// a key through ssh-gate is named by the gate, whatever else the
+	// environment holds; only a name the gate could have set is shown
+	if v, ok := os.LookupEnv(gateEnv); ok && gateLabel.MatchString(v) {
+		return "ssh-gate key " + v
+	}
 	for _, a := range agentVars {
 		if _, ok := os.LookupEnv(a.env); ok {
 			return a.name

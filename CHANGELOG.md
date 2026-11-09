@@ -7,6 +7,54 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Highlights
+
+- **A new vault keeps its key in the OS keychain**, so a backup or a synced
+  copy of `~/.komando` no longer opens it. Vaults you have keep their key
+  where it is; `komando secret keychain` moves it.
+- **`komando ssh-gate` gives a phone's SSH key komando and nothing else:**
+  no shell, one komando command at a time, run as for an AI agent, and
+  read-only if you choose.
+
+### Added
+
+- **`komando ssh-gate`: an SSH key that runs komando and nothing else.**
+  For a phone (the Komando app) or another computer that reaches komando
+  over SSH: `komando ssh-gate line --name phone KEY` prints the line for
+  `~/.ssh/authorized_keys` (`restrict,command="/full/path/komando ssh-gate
+  --name phone" ...`). For that key, sshd runs ssh-gate, which takes only
+  one komando command: split into words like a shell, but with no shell and
+  no expansion, so `;`, `|`, `$(...)` and other programs are refused
+  (`SSH_GATE_SYNTAX`, `SSH_GATE_REFUSED`). komando then runs as for an AI
+  agent, whatever the client says it is: secrets stay hidden, `--reveal`,
+  `--allow-dangerous` and commands for a person at a terminal are refused,
+  and `--yes` on a protected target needs a person on the komando computer.
+  `--read-only` keys run only what `komando schema` counts as a read
+  (`SSH_GATE_READ_ONLY`). No key writes on the komando computer: downloads,
+  dumps and copies to a folder here, changes to komando's own setup, and
+  every command on a target that is this computer (a sqlite conn,
+  `localhost`, loopback) or not in the inventory (`u@HOST`) are refused;
+  a change komando adds later is refused until it is known to act on
+  servers only. Every command a key runs or is refused is in
+  `komando audit`, with the key's name, the address it came from and why,
+  even with the audit setting off; what the key sent is shown escaped.
+  See [Safety](docs/features/safety.md#a-key-that-runs-komando-and-nothing-else).
+- `KOMANDO_KEYCHAIN=off` keeps komando away from the keychain (CI runners,
+  containers, test runs): a new vault then keeps its key in `vault.key`.
+
+### Changed
+
+- **A new vault keeps its key in the OS keychain** (the macOS keychain, or
+  the Secret Service through `secret-tool` on Linux), no longer in
+  `vault.key` beside the vault, so a backup or a synced copy of
+  `~/.komando` does not open it. komando makes the key at the first secret
+  and counts on it only once it reads back. A key the keychain already
+  holds for that folder (a vault moved aside) is used, never replaced.
+  Where the keychain cannot keep it (no `secret-tool`, no desktop session,
+  a locked keychain over SSH), the key goes into `vault.key` as before and
+  `komando doctor` warns. Existing vaults keep their key where it is: move
+  it with `komando secret keychain`.
+
 ## [0.8.0] - 2026-11-09
 
 ### Highlights

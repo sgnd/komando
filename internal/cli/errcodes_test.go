@@ -272,6 +272,8 @@ var meanings = map[string]string{
 	"REVISION_NOT_FOUND":   "the deployment has no revision with that number (cluster history lists them)",
 	"REVOKE_FAILED":        "the key could not be removed from a server's authorized_keys",
 	"SECRET_MISMATCH":      "secret check: the value typed is not the stored one",
+	"KEYCHAIN_TAKEN":       "another vault's key is already in the keychain under this folder's name, so komando does not replace it",
+	"SSH_GATE_SYNTAX":      "an ssh-gate key sent more than one komando command, or a character a shell would expand (the message names it)",
 	"STORAGE_CONNECT":      "komando could not reach the bucket or file server",
 	"STORAGE_TLS":          "the storage server's TLS certificate does not verify",
 	"SWARM_ERROR":          "Docker Swarm answered with an error",

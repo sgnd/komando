@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -63,6 +64,9 @@ func (l auditList) Text() string {
 				targets = append(targets, k+" "+v)
 			}
 		}
+		if v, ok := e["ssh_command"].(string); ok && v != "" {
+			targets = append(targets, strconv.Quote(v)) // what an ssh-gate key asked for, line breaks and escapes shown as \n, \x1b
+		}
 		res := "ok"
 		switch {
 		case e["dry_run"] == true:
@@ -74,9 +78,20 @@ func (l auditList) Text() string {
 		if len(t) > 60 {
 			t = t[:57] + "..."
 		}
-		rows = append(rows, []string{ts, who, fmt.Sprint(e["command"]), t, res})
+		rows = append(rows, []string{auditCell(ts), auditCell(who), auditCell(fmt.Sprint(e["command"])), auditCell(t), res})
 	}
 	return textTable([]string{"TIME", "ACTOR", "COMMAND", "TARGETS", "OK"}, rows)
+}
+
+// auditCell shows a value from the log on one row: a line break, a
+// terminal escape or another control character comes out escaped (\n,
+// \x1b), so a value cannot add or hide rows.
+func auditCell(s string) string {
+	if strings.IndexFunc(s, func(r rune) bool { return !unicode.IsPrint(r) }) < 0 {
+		return s
+	}
+	q := strconv.Quote(s)
+	return q[1 : len(q)-1]
 }
 
 func auditCmd() *cobra.Command {

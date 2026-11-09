@@ -24,7 +24,7 @@ komando audit verify                      # was the history edited outside koman
 | **Safety settings** | Turning off the audit log or server identity checks, removing a deny rule, or an AI agent setting a `--proxy-command` (a program on this computer) needs `--yes`. |
 | **Server identity** | If a server's fingerprint changes, komando refuses to connect (`HOSTKEY_MISMATCH`). |
 | **Safe edits** | File edits replace exactly the text you name, write the whole file at once (never half-written), and can keep a `.bak` backup. |
-| **Encrypted vault** | Passwords are encrypted with AES-256-GCM. Only names are ever shown. Only a person at a terminal can see a value (`secret get --reveal`). `secret mv` and `secret cp` rename and copy inside the vault, so a value never has to be shown or typed again. `secret check` lets a person compare a value without showing it. The approval code's key can only be changed with `komando config approval-code` (`RESERVED_SECRET`). |
+| **Encrypted vault** | Passwords are encrypted with AES-256-GCM, with the key in the OS keychain (or, where there is none, in a file beside the vault; `komando doctor` warns). Only names are ever shown. Only a person at a terminal can see a value (`secret get --reveal`). `secret mv` and `secret cp` rename and copy inside the vault, so a value never has to be shown or typed again. `secret check` lets a person compare a value without showing it. The approval code's key can only be changed with `komando config approval-code` (`RESERVED_SECRET`). |
 | **Secrets hidden in output** | If a vault secret shows up in what a server sends back (a `.env` file, a log line, `env`), komando prints `[secret:NAME]` instead, also when it is base64- or URL-encoded. Values shorter than 6 characters are not hidden. |
 | **History** | Every action is in `komando audit` (see [below](#history)). |
 
@@ -52,6 +52,47 @@ commands in, so these rules apply to it too:
 
 Scripts and you at your terminal use the flags as before.
 
+## A key that runs komando and nothing else
+
+To reach komando on this computer from another device (the Komando app on
+your phone, another computer), give that device's SSH key only komando:
+`komando ssh-gate line` prints the line for `~/.ssh/authorized_keys`.
+
+```bash
+komando ssh-gate line --name phone ~/phone.pub                  # may read and change
+komando ssh-gate line --name phone-read --read-only ~/phone.pub  # only reads
+```
+
+The line starts with `restrict,command="/full/path/komando ssh-gate --name
+phone"`. Add it to `~/.ssh/authorized_keys` of the account komando runs as,
+instead of the key's plain line. `restrict` turns off port, agent and X11
+forwarding and the terminal (OpenSSH 7.2 or later). For that key, sshd then
+runs `komando ssh-gate` whatever the key asks for, and:
+
+| Seatbelt | What it does |
+|----------|--------------|
+| **Only komando** | The key's command must be one komando command (`ssh HOST komando list -o json`), with at most `KOMANDO_AGENT=NAME` before it. ssh-gate splits it into words like a shell, but runs no shell and expands nothing: an unquoted `;`, `\|`, `&`, `>`, `<`, `$`, backquote or line break is refused, and so is `$` or a backquote inside double quotes (`SSH_GATE_SYNTAX`); put such an argument in single quotes. Any other program, a login shell, `scp` or `sftp` is refused too (`SSH_GATE_REFUSED`). |
+| **komando treats it as an AI agent** | Secret values stay `[hidden]`. `--reveal` and `--allow-dangerous` are refused, and so are commands for a person at a terminal (`shell`, `db shell`, `cluster shell`, `secret passphrase`, `secret check`, `login aws`, `config approval-code`). `--yes` on a protected target needs a person on this computer, which the key is not: change protected servers here. No approval window opens for a key. |
+| **Nothing written here** | Every key, read-only or not, runs commands on servers, never one that writes on this computer: a file it saved here could be `~/.ssh/authorized_keys` or a shell startup file. So `download`, `db dump`, `storage download` (except `--to -`), `export --to`, and `cp` or `sync` to a folder here are refused, and so is any change to komando's own setup: servers, conns, VPNs, groups, settings, policy rules, secrets, keys, recipes, `guide install`, `import`, `host trust`, `tunnel start` and `stop`, and `update` (`SSH_GATE_REFUSED`). Change those here, as a person. Every key, read-only too, is also refused every command, reads included, on a target that is this computer as written: a sqlite conn, which is a file here (`VACUUM INTO`, `ATTACH` and `db restore` write any file), and a server, conn or cluster at `localhost`, a `127.x` or `::1` address, a loopback interface (`fe80::1%lo0`) or this computer's name. Through such a target `exec` would be a shell here (`--read-only` is a filter, not a sandbox), `logs --file`, `fs cat` and `fs ls` would read any file here, a private key too, and Postgres `COPY TO PROGRAM` or `pg_read_file`, Redis `CONFIG SET dir` and a Kubernetes `hostPath` volume run programs or read and write files here. For a conn every host in its URL counts, a list (`a,b`), Postgres `?host=` and `?hostaddr=`, and a socket path. `cluster run -- cp POD:PATH DST` and `key deploy --set-default` are refused too. A change on a target the gate cannot find is refused; a read runs, unless the name is `localhost` or a loopback address (`cert check https://localhost`). A change komando adds later is refused until it is known to act on servers only. |
+| **Read-only keys** | With `--read-only` the key runs only commands komando counts as reads (the `kind` in `komando schema`): `exec`, `script`, `job start`, `docker exec` and `cluster exec` need `--read-only`, `db query`, `cache run` and `cluster run` no `--write`, `db explain` no `--analyze`, `pkg upgradable` no `--refresh`, `pkg security` no `--apply` or `--refresh`, and a recipe must be marked read-only. `storage link` and `cluster forward` are refused too, since they hand out access or open a port here (`SSH_GATE_READ_ONLY`). |
+| **Every command in the history** | Each command a key runs or is refused is in `komando audit`: the key's name (`ssh_gate`), what it sent (`ssh_command`, secret-looking values hidden), the address it came from (`client`) and, when refused, why. What the command then changes is recorded as from `ssh-gate key NAME`. This record is written even when the `audit` setting is off; when it cannot be written, nothing runs. In `komando audit` text, line breaks and terminal escapes in what a key sent show as `\n` and `\x1b`, so a key cannot add or hide rows. |
+
+Give each device its own key and name, so `komando audit` tells them apart
+and you can remove one line to lock one device out. The key reaches komando
+as the account it logs in to: use that account for komando only, or one
+with only the permissions komando needs.
+
+ssh-gate sees only the address komando keeps for a target (and, for a
+Kubernetes conn, the conn's URL, not the server in its stored kubeconfig). A
+key cannot name a target itself: `u@HOST` or an IP that is not in the
+inventory is refused (`SSH_GATE_REFUSED`), because it could be this
+computer's own address. But a listed server, conn or cluster that is this
+same computer under another name or address (its LAN IP, a DNS name, a
+tunnel or port forward that leads back here) cannot be told apart, and any key, read-only too, would read files
+or get a shell here through it (`exec THAT-HOST --read-only -- 'nc -e /bin/sh ...'`). Do
+not list this computer in komando that way: `--read-only` does not make it
+safe.
+
 ## When a seatbelt stops you
 
 | Error | Exit | What to do |
@@ -68,6 +109,9 @@ Scripts and you at your terminal use the flags as before.
 | `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here, or to have komando read one here. Read it with `fs cat` (values hidden); a person may allow `--reveal` for a project file. |
 | `REVEAL_NEEDS_HUMAN` | 6 | Only a person can see secret values. |
 | `NEEDS_PERSON` | 6 | Only a person can do this (`secret check`, setting up `config approval-code`). Ask them to run it in their own terminal. |
+| `SSH_GATE_REFUSED`, `SSH_GATE_READ_ONLY` | 6 | An SSH key limited by `komando ssh-gate` asked for something it may not run (see [above](#a-key-that-runs-komando-and-nothing-else)). No flag allows it: a person runs it on the komando computer. |
+| `SSH_GATE_SYNTAX` | 2 | The key's command is not one komando command. Put an argument with `;`, `\|`, `$`, a backquote and the like in single quotes: `$` and backquotes are refused even in double quotes. |
+| `SSH_GATE_PATH` | 1 | `komando ssh-gate line` cannot tell komando's full path, which the line needs. Run it by its full path, e.g. `/usr/local/bin/komando ssh-gate line ...`. |
 | `HIDDEN_VALUE` | 2 | The text holds `[hidden]` or `[secret:NAME]`. Change one line with `fs replace`, using `{{secret:NAME}}`. |
 | `HOSTKEY_MISMATCH` | 4 | The server's identity changed. Never "fix" it blindly; see [Results and errors](output.md#troubleshooting). |
 | `AUDIT_UNAVAILABLE` | 1 | The audit log cannot be written, so nothing runs. `komando doctor` shows why. |
@@ -182,8 +226,10 @@ another language, gets past it. So:
 
 - give komando, and so your agent, an SSH user with only the permissions it needs;
 - mark production with `komando host edit NAME --protected`;
-- move the vault key into the OS keychain (`komando secret keychain`), so
-  other people or backups that reach `~/.komando` cannot open the vault.
+- keep the vault key in the OS keychain (new vaults do; move an older one's
+  with `komando secret keychain`), so other people or backups that reach
+  `~/.komando` cannot open the vault;
+- give another device's SSH key only komando, with `komando ssh-gate line`.
 
 The dangerous-command filter catches common accidents; it is not a complete
 security boundary. Masking is a best effort: a secret under an unusual name,

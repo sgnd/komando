@@ -185,9 +185,9 @@ func secretCmd() *cobra.Command {
 		Use:     "secret",
 		Aliases: []string{"secrets", "vault"},
 		Short:   "Encrypted vault for passwords and tokens (secret:NAME)",
-		Long: `Secrets are AES-256-GCM encrypted in ~/.komando/vault.json. The key is a random
-vault.key file ('secret keychain' moves it into the OS keychain), or comes from
-$KOMANDO_VAULT_PASS if set at first use ('secret passphrase' changes it). Values
+		Long: `Secrets are AES-256-GCM encrypted in ~/.komando/vault.json. A new vault keeps its
+random key in the OS keychain (in vault.key where it cannot, or KOMANDO_KEYCHAIN=off),
+or uses $KOMANDO_VAULT_PASS if set at first use ('secret passphrase' changes it). Values
 are never printed unless 'secret get --reveal' is used (a person only). 'secret
 mv' and 'secret cp' rename and copy inside the vault; 'secret check' lets a
 person compare a value with the stored one without showing either.`,
@@ -735,6 +735,9 @@ the vault. Nothing is re-encrypted: it is the same key, kept elsewhere.
 			}
 			tool, err := vault.KeyToKeychain()
 			audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "keychain"})
+			if errors.Is(err, vault.ErrKeychainTaken) {
+				return out.Errf(out.ExitConflict, "KEYCHAIN_TAKEN", "the vault still uses vault.key, nothing was lost: put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then try again", "%v", err)
+			}
 			if err != nil {
 				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "the vault still uses vault.key, nothing was lost: a person unlocks the keychain (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring", "%v", err)
 			}

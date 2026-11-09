@@ -1,7 +1,9 @@
 // Package vault stores secrets (passwords, key passphrases, tokens) encrypted
 // with AES-256-GCM, each bound to its name. The key is derived with scrypt
 // from $KOMANDO_VAULT_PASS when set (N=2^17, r=8, p=1: the OWASP minimum),
-// otherwise from a random 32-byte key file (vault.key, mode 0600).
+// otherwise from a random 32-byte key. A new vault keeps that key in the
+// operating system's keychain (keychain.go), or, where there is none, in a
+// key file beside the vault (vault.key, mode 0600).
 package vault
 
 import (
@@ -34,6 +36,10 @@ type file struct {
 	Mode    string            `json:"mode"`               // keyfile | passphrase | keychain
 	ScryptN int               `json:"scrypt_n,omitempty"` // scrypt cost; 0 is the old 2^15
 	Entries map[string]*entry `json:"entries"`
+
+	// isNew: there is no vault.json yet, so its first key also decides where
+	// the key is kept (key)
+	isNew bool
 }
 
 // legacyN is the scrypt cost of vaults made before it was stored. A random
@@ -130,6 +136,7 @@ func load() (*file, error) {
 	f := &file{Version: 1, Entries: map[string]*entry{}}
 	b, err := os.ReadFile(vaultPath())
 	if errors.Is(err, os.ErrNotExist) {
+		f.isNew = true
 		f.Salt = make([]byte, 16)
 		if _, err := rand.Read(f.Salt); err != nil {
 			return nil, err
@@ -137,7 +144,7 @@ func load() (*file, error) {
 		if Passphrase() != "" {
 			f.Mode, f.ScryptN = "passphrase", PassphraseN
 		} else {
-			f.Mode = "keyfile"
+			f.Mode = "keyfile" // or keychain, once its key is made (key)
 		}
 		return f, nil
 	}
@@ -176,7 +183,11 @@ func (f *file) aead() (cipher.AEAD, error) {
 
 // key is what the vault's key is derived from, by its mode: the
 // passphrase, the key in the keychain or the key in vault.key (made when
-// the vault holds nothing yet).
+// the vault holds nothing yet). A new vault without a passphrase gets its
+// key in the keychain when this computer has one that keeps it and can
+// tell it holds no other key for this folder (keychainNewKey), and
+// otherwise in vault.key: a copy of the komando folder (a backup, a synced
+// home) then holds no key that opens it.
 func (f *file) key() ([]byte, error) {
 	var secret []byte
 	switch f.Mode {
@@ -200,6 +211,12 @@ func (f *file) key() ([]byte, error) {
 				// a new key would open none of them, and secrets saved with
 				// it would be lost once the old key is back
 				return nil, fmt.Errorf("%w: %s is missing but the vault holds %d secrets; restore it from a backup", ErrKey, kp, len(f.Entries))
+			}
+			if f.isNew {
+				if k, ok := keychainNewKey(); ok {
+					f.Mode = "keychain"
+					return k, nil
+				}
 			}
 			b, err = newKeyFile(kp)
 		}

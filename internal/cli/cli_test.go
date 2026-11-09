@@ -18,6 +18,9 @@ func TestMain(m *testing.M) {
 		os.Unsetenv(a.env)
 	}
 	askOnScreen = func(string) (bool, bool) { panic("a test opened an approval window") }
+	// a new vault never puts its key in the login keychain of whoever runs
+	// the tests (secret_keychain_test.go uses stand-ins)
+	os.Setenv("KOMANDO_KEYCHAIN", "off")
 	// each test keeps komando's data in its own KOMANDO_HOME, as the
 	// person's usual folder; TestAgentOtherHome checks the real rule
 	realHome := defaultHome

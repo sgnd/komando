@@ -2,6 +2,8 @@ package vault
 
 import (
 	"bytes"
+	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -11,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/sgnd/komando/internal/store"
 )
@@ -21,6 +24,11 @@ import (
 // `secret-tool`). The key never goes on a command line: `security -i` and
 // `secret-tool store` read it from standard input. Moving the key does not
 // re-encrypt anything: it is the same key, kept elsewhere.
+//
+// A new vault without a passphrase starts with its key in the keychain
+// when there is one (keychainNewKey); KOMANDO_KEYCHAIN=off keeps komando
+// away from the keychain (CI runners, containers, test runs), and then a
+// new vault keeps its key in vault.key, as it does where there is none.
 
 // keychainService names this komando home's key, so two homes (a test
 // one, say) keep two keys.
@@ -56,18 +64,50 @@ func systemTool(name string) string {
 
 // keychainCmd runs the keychain tool of this system with args.
 func keychainCmd(args ...string) *exec.Cmd {
-	if keychainOS == "darwin" {
-		return exec.Command(securityTool, args...)
-	}
-	return exec.Command(systemTool("secret-tool"), args...)
+	return keychainCmdCtx(context.Background(), args...)
 }
+
+// keychainCmdCtx is keychainCmd, stopped when ctx ends.
+func keychainCmdCtx(ctx context.Context, args ...string) *exec.Cmd {
+	tool := securityTool
+	if keychainOS != "darwin" {
+		tool = systemTool("secret-tool")
+	}
+	c := exec.CommandContext(ctx, tool, args...)
+	c.WaitDelay = time.Second // a child holding the pipes must not keep komando waiting
+	return c
+}
+
+// newKeyTimeout bounds each keychain call when a new vault makes its key:
+// komando holds the vault lock then, and a Secret Service that waits for an
+// unlock prompt (or a slow D-Bus) must not hang it and every komando
+// waiting on that lock. Past it, the new vault keeps its key in vault.key.
+// `komando secret keychain` has no such limit: a person is there to answer
+// the prompt. Tests shorten it.
+var newKeyTimeout = 5 * time.Second
+
+// errNoKeychainKey: the keychain answered, and holds no key under this
+// komando home's name. Any other error (locked, a dismissed prompt, a
+// timeout) says nothing about whether a key is there.
+var errNoKeychainKey = errors.New("the vault key is not in the keychain")
 
 // keychainFile is a keychain file to use instead of the login keychain
 // (macOS; KOMANDO_KEYCHAIN, for tests and separate keychains).
-func keychainFile() string { return os.Getenv("KOMANDO_KEYCHAIN") }
+func keychainFile() string {
+	if keychainOff() {
+		return ""
+	}
+	return os.Getenv("KOMANDO_KEYCHAIN")
+}
+
+// keychainOff: KOMANDO_KEYCHAIN=off, komando uses no keychain here.
+func keychainOff() bool { return os.Getenv("KOMANDO_KEYCHAIN") == "off" }
 
 // KeychainTool says which tool keeps the key here, or why there is none.
 func KeychainTool() (string, error) {
+	if keychainOff() {
+		return "", errors.New("KOMANDO_KEYCHAIN=off: komando uses no keychain on this computer")
+	}
 	switch keychainOS {
 	case "darwin":
 		if fi, err := os.Stat(securityTool); err != nil || fi.IsDir() {
@@ -83,23 +123,43 @@ func KeychainTool() (string, error) {
 	return "", fmt.Errorf("no keychain support on %s", keychainOS)
 }
 
-func keychainSet(key []byte) error {
+// ErrKeychainTaken: the keychain already holds another key under this
+// komando folder's name, most likely the only key of a vault that was
+// moved aside, so komando does not replace it.
+var ErrKeychainTaken = errors.New("another vault's key is already in the keychain for this komando folder")
+
+func keychainPut(key []byte) error { return keychainPutCtx(context.Background(), key) }
+
+// keychainPutCtx stores key under this komando home's name. macOS refuses
+// the add when an item is there already, but `secret-tool store` replaces
+// one with the same attributes in the default collection (a locked one
+// asks to be unlocked first, then replaces), so the callers first make sure
+// there is none (keychainHas).
+func keychainPutCtx(ctx context.Context, key []byte) error {
 	v := hex.EncodeToString(key)
 	switch keychainOS {
 	case "darwin":
-		line := fmt.Sprintf("add-generic-password -U -a %s -s %q -l %q -w %s", keychainAccount, keychainService(), keychainService(), v)
+		line := fmt.Sprintf("add-generic-password -a %s -s %q -l %q -w %s", keychainAccount, keychainService(), keychainService(), v)
 		if kc := keychainFile(); kc != "" {
 			line += fmt.Sprintf(" %q", kc)
 		}
-		return run(keychainCmd("-i"), line+"\n")
+		return run(keychainCmdCtx(ctx, "-i"), line+"\n")
 	case "linux":
-		return run(keychainCmd("store", "--label="+keychainService(), "service", keychainService(), "account", keychainAccount), v)
+		return run(keychainCmdCtx(ctx, "store", "--label="+keychainService(), "service", keychainService(), "account", keychainAccount), v)
 	}
 	_, err := KeychainTool()
 	return err
 }
 
-func keychainGet() ([]byte, error) {
+func keychainGet() ([]byte, error) { return keychainGetCtx(context.Background()) }
+
+// keychainGetCtx reads the key; errNoKeychainKey when the tool finds none
+// it can read (security exit 44; secret-tool exit 1 with no output). On
+// Linux that is not proof there is none: `secret-tool lookup` says the
+// same for an item in a locked collection (a dismissed unlock prompt,
+// KeePassXC while locked), so keychainHas decides before anything is
+// stored.
+func keychainGetCtx(ctx context.Context) ([]byte, error) {
 	if _, err := KeychainTool(); err != nil {
 		return nil, err
 	}
@@ -110,13 +170,20 @@ func keychainGet() ([]byte, error) {
 		if kc := keychainFile(); kc != "" {
 			args = append(args, kc)
 		}
-		c = keychainCmd(args...)
+		c = keychainCmdCtx(ctx, args...)
 	default:
-		c = keychainCmd("lookup", "service", keychainService(), "account", keychainAccount)
+		c = keychainCmdCtx(ctx, "lookup", "service", keychainService(), "account", keychainAccount)
 	}
 	var errb bytes.Buffer
 	c.Stderr = &errb
 	b, err := c.Output()
+	var ee *exec.ExitError
+	if err != nil && ctx.Err() == nil && errors.As(err, &ee) {
+		code := ee.ExitCode()
+		if (keychainOS == "darwin" && code == 44) || (keychainOS != "darwin" && code == 1 && len(bytes.TrimSpace(b)) == 0 && errb.Len() == 0) {
+			return nil, errNoKeychainKey
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("the vault key is not in the keychain (%s); unlock the keychain and try again", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
 	}
@@ -125,6 +192,98 @@ func keychainGet() ([]byte, error) {
 		return nil, errors.New("the keychain holds something else under komando's vault key name")
 	}
 	return key, nil
+}
+
+// keychainHas says whether the keychain holds an item under this home's
+// name (the attributes keychainPutCtx stores it with), and an error when
+// it cannot tell. macOS: find-generic-password without -w reads only the
+// item's attributes, from a locked keychain too; exit 44 means there is
+// none. Linux: a search cannot see into every locked collection (KeePassXC
+// skips locked databases; gnome-keyring lists their items), and `secret-tool
+// store` goes to the default collection and replaces an item there once it
+// is unlocked. So the default collection must be unlocked first
+// (defaultCollectionUnlocked); then `secret-tool search --all` lists a
+// matching item in it ("[/org/freedesktop/secrets/...]" and its
+// attributes; komando never shows this output) and exits 0 with no output
+// when there is none. Any other answer (locked, an error, output only on
+// stderr, ctx ending) is "cannot tell".
+func keychainHas(ctx context.Context) (bool, error) {
+	if _, err := KeychainTool(); err != nil {
+		return false, err
+	}
+	var c *exec.Cmd
+	switch keychainOS {
+	case "darwin":
+		args := []string{"find-generic-password", "-a", keychainAccount, "-s", keychainService()}
+		if kc := keychainFile(); kc != "" {
+			args = append(args, kc)
+		}
+		c = keychainCmdCtx(ctx, args...)
+	default:
+		if err := defaultCollectionUnlocked(ctx); err != nil {
+			return false, fmt.Errorf("cannot tell whether the keychain holds a vault key for this komando folder (%v); unlock the keychain (your keyring or KeePassXC) and try again", err)
+		}
+		c = keychainCmdCtx(ctx, "search", "--all", "service", keychainService(), "account", keychainAccount)
+	}
+	var outb, errb bytes.Buffer
+	c.Stdout, c.Stderr = &outb, &errb
+	err := c.Run()
+	found, quiet := len(bytes.TrimSpace(outb.Bytes())) > 0, errb.Len() == 0
+	var ee *exec.ExitError
+	switch {
+	case ctx.Err() != nil:
+		err = ctx.Err()
+	case err == nil && (keychainOS == "darwin" || found):
+		return true, nil
+	case err == nil && quiet:
+		return false, nil
+	case keychainOS == "darwin" && errors.As(err, &ee) && ee.ExitCode() == 44:
+		return false, nil
+	case err == nil:
+		err = errors.New("unexpected output")
+	}
+	return false, fmt.Errorf("cannot tell whether the keychain holds a vault key for this komando folder (%s); unlock the keychain and try again", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
+}
+
+// secretsDefault is the Secret Service's default collection, where
+// `secret-tool store` puts an item.
+const secretsDefault = "/org/freedesktop/secrets/aliases/default"
+
+// defaultCollectionUnlocked is nil only when the Secret Service says its
+// default collection is unlocked, read with gdbus or busctl from a system
+// folder (reading the Locked property asks no one to unlock anything). A
+// locked collection, no such tool, an error or any other answer is an
+// error: komando then cannot tell what that collection holds.
+func defaultCollectionUnlocked(ctx context.Context) error {
+	var tool, want string
+	var args []string
+	if tool = systemTool("gdbus"); tool != "" {
+		args = []string{"call", "--session", "--dest", "org.freedesktop.secrets", "--object-path", secretsDefault,
+			"--method", "org.freedesktop.DBus.Properties.Get", "org.freedesktop.Secret.Collection", "Locked"}
+		want = "(<false>,)"
+	} else if tool = systemTool("busctl"); tool != "" {
+		args = []string{"--user", "get-property", "org.freedesktop.secrets", secretsDefault, "org.freedesktop.Secret.Collection", "Locked"}
+		want = "b false"
+	} else {
+		return errors.New("neither gdbus nor busctl is installed to ask whether the keychain is locked")
+	}
+	c := exec.CommandContext(ctx, tool, args...)
+	c.WaitDelay = time.Second
+	var outb, errb bytes.Buffer
+	c.Stdout, c.Stderr = &outb, &errb
+	err := c.Run()
+	got := strings.TrimSpace(outb.String())
+	switch {
+	case ctx.Err() != nil:
+		return ctx.Err()
+	case err != nil:
+		return fmt.Errorf("%s: %s", filepath.Base(tool), strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
+	case got == want:
+		return nil
+	case got == "(<true>,)" || got == "b true":
+		return errors.New("the default keychain collection is locked")
+	}
+	return fmt.Errorf("%s gave an unexpected answer about the keychain's lock", filepath.Base(tool))
 }
 
 func keychainDel() error {
@@ -158,7 +317,68 @@ func run(c *exec.Cmd, stdin string) error {
 	return nil
 }
 
-// KeyToKeychain moves the vault key from vault.key into the keychain.
+// keychainNewKey is the key of a new vault, kept in the keychain, and
+// whether the keychain keeps it. A key already in the keychain under this
+// home's name is used, never replaced: it may open a vault that was moved
+// aside (a backup of this folder). A new random key goes in only when the
+// keychain finds no key it can read and keychainHas says there is no item
+// under this name (on Linux that needs the default collection unlocked, as
+// a lookup or a KeePassXC search hides what a locked one holds); it counts
+// only once it reads back the same. When the keychain cannot tell (a
+// locked collection, a dismissed prompt, an error, no gdbus or busctl, a
+// call past newKeyTimeout), nothing is stored in it: the new vault keeps
+// its key in vault.key, which `komando doctor` points out.
+func keychainNewKey() ([]byte, bool) {
+	if _, err := KeychainTool(); err != nil {
+		return nil, false
+	}
+	ctx := func() (context.Context, context.CancelFunc) {
+		return context.WithTimeout(context.Background(), newKeyTimeout)
+	}
+	get := func() ([]byte, error) {
+		c, cancel := ctx()
+		defer cancel()
+		return keychainGetCtx(c)
+	}
+	k, err := get()
+	if err == nil {
+		return k, true
+	}
+	if !errors.Is(err, errNoKeychainKey) {
+		return nil, false
+	}
+	if keychainOS != "darwin" { // macOS refuses to add over an item; secret-tool replaces it
+		c, cancel := ctx()
+		has, err := keychainHas(c)
+		cancel()
+		if err != nil || has {
+			return nil, false
+		}
+	}
+	key := make([]byte, keyLen)
+	if _, err := rand.Read(key); err != nil {
+		return nil, false
+	}
+	c, cancel := ctx()
+	err = keychainPutCtx(c, key)
+	cancel()
+	if err != nil {
+		return nil, false
+	}
+	back, err := get()
+	if err != nil || !bytes.Equal(back, key) {
+		return nil, false
+	}
+	return key, true
+}
+
+// KeyToKeychain moves the vault key from vault.key into the keychain. It
+// never replaces a key the keychain already holds for this komando folder
+// (ErrKeychainTaken): that one may be the only key of a vault moved aside.
+// The same key there (a move that stopped before vault.json said so) is
+// fine. When keychainHas cannot tell (on Linux, a locked default
+// collection among other things) it stores nothing and asks for the
+// keychain to be unlocked first.
 func KeyToKeychain() (string, error) {
 	tool, err := KeychainTool()
 	if err != nil {
@@ -179,15 +399,33 @@ func KeyToKeychain() (string, error) {
 	case "passphrase":
 		return "", errors.New("this vault is unlocked with KOMANDO_VAULT_PASS, not a key file: nothing to move")
 	}
-	if _, err := f.aead(); err != nil { // makes vault.key when there is none yet
+	if _, err := f.aead(); err != nil { // makes the key when there is none yet
 		return "", err
+	}
+	if f.Mode == "keychain" { // a new vault, and its new key went into the keychain
+		return tool, f.save()
 	}
 	kp := store.Path("vault.key")
 	key, err := os.ReadFile(kp)
 	if err != nil {
 		return "", err
 	}
-	if err := keychainSet(key); err != nil {
+	has, err := keychainHas(context.Background())
+	if err != nil {
+		return "", err
+	}
+	if has {
+		back, err := keychainGet()
+		if errors.Is(err, errNoKeychainKey) { // listed, but lookup finds nothing: locked
+			return "", errors.New("the keychain holds a vault key for this komando folder but keeps it locked; unlock the keychain and try again")
+		}
+		if err != nil {
+			return "", err
+		}
+		if !bytes.Equal(back, key) {
+			return "", fmt.Errorf("%w (%s, account %s); komando does not replace it, as it may be the only key of a vault you moved aside: put that vault back, or once no vault needs that key, delete the item from the keychain yourself, then run it again", ErrKeychainTaken, keychainService(), keychainAccount)
+		}
+	} else if err := keychainPut(key); err != nil {
 		return "", err
 	}
 	back, err := keychainGet()

@@ -56,7 +56,8 @@ Most settings also have a flag for one run: `--timeout`,
 | Variable | What it does |
 |----------|--------------|
 | `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`). For an AI agent, another folder needs a person's yes on every command (see [Safety](safety.md#seatbelts-for-ai-agents)); if you keep the data elsewhere, make `~/.komando` a link to it instead |
-| `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of the `vault.key` file. A new vault takes it at your first secret; `komando secret passphrase` adds or changes it later (see below) |
+| `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of a key in the keychain or in `vault.key`. A new vault takes it at your first secret; `komando secret passphrase` adds or changes it later (see below) |
+| `KOMANDO_KEYCHAIN` | `off`: komando uses no keychain, and a new vault keeps its key in `vault.key` (CI runners, containers, test runs). On a Mac, a path to a keychain file to use instead of the login keychain |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
 | `KOMANDO_EXPERIMENTAL` | turn on features still being tested, by name (`ssm`: komando's own AWS Session Manager client, see [Servers](servers.md)) |
@@ -77,7 +78,7 @@ readable only by you (folder 0700, files 0600).
 |------|----------|
 | `state.json` | servers, conns, VPNs, keys, your own recipes, settings, and the jobs, tunnels and VPN sessions komando started |
 | `vault.json` | encrypted secrets |
-| `vault.key` | the vault's key (not there when you use `KOMANDO_VAULT_PASS` or `komando secret keychain`) |
+| `vault.key` | the vault's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
 | `keys/` | SSH keys made by `komando key gen` |
 | `known_hosts` | remembered server fingerprints |
 | `audit.jsonl` | history of every action |
@@ -85,14 +86,38 @@ readable only by you (folder 0700, files 0600).
 | `tunnels/` | logs of background tunnels |
 | `bitwarden-device` | the device id komando shows to Bitwarden or Vaultwarden |
 
-Back this folder up and keep it private. Then run `komando secret keychain`:
-it moves the vault's key out of `vault.key` into the OS keychain (the macOS
-keychain through `/usr/bin/security`, or the Secret Service on Linux through
-`secret-tool` in `/usr/bin`, `/bin` or `/usr/local/bin`: komando never looks
-for them in `PATH`), so a copy of this folder no longer opens the vault.
-Nothing is re-encrypted, so it works before or after your first secret
-(`--off --yes` moves it back). This is the recommended setup;
-`komando doctor` warns until it is done.
+Back this folder up and keep it private. A new vault keeps its key in the
+OS keychain (the macOS keychain through `/usr/bin/security`, or the Secret
+Service on Linux through `secret-tool` in `/usr/bin`, `/bin` or
+`/usr/local/bin`: komando never looks for them in `PATH`), so a copy of this
+folder does not open the vault. komando makes the key at your first secret,
+reads it back, and only then counts on it. A key the keychain already holds
+for this folder (from a vault you moved aside) is used, never replaced.
+komando stores a new key only when the keychain says it holds nothing for
+this folder. On Linux a locked collection hides its keys from a lookup
+(and KeePassXC hides them from a search too), while `secret-tool store`
+asks to unlock the default collection and then overwrites an item there.
+So komando first asks the Secret Service, through `gdbus` or `busctl` from
+the same system folders, whether the default collection is unlocked, and
+only then checks that `secret-tool search --all` lists no item. Where the
+keychain cannot keep the key or cannot tell (a Linux server without
+`secret-tool` or a desktop session, a default collection that is locked,
+no `gdbus` or `busctl`, a Mac reached over SSH with its keychain locked, an
+item for this folder that stays locked, a container, a keychain that does
+not answer within a few seconds), the key goes into `vault.key` and
+`komando doctor` warns. One case it cannot see: an item in a KeePassXC
+database other than the default one, while that database is locked.
+
+A vault keeps its key where it is: one made before komando used the
+keychain still has `vault.key`. Run `komando secret keychain` to move the
+key into the keychain. Nothing is re-encrypted, so it works before or after
+your first secret (`--off --yes` moves it back). On Linux it stops, and
+asks you to unlock the keychain, while the default collection is locked. It
+refuses when the keychain already holds another key for this folder (most likely the only
+key of a vault you moved aside): put that vault back, or delete the item
+from the keychain yourself once no vault needs it. A vault whose key is in the
+keychain opens only where that keychain is unlocked: on a Mac you reach over
+SSH, unlock it first (`security unlock-keychain`), or use a passphrase.
 
 `KOMANDO_VAULT_PASS` is the other way, mainly for a computer without a
 keychain (a Linux server without `secret-tool`). A new vault takes its mode
