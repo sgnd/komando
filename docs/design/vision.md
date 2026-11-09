@@ -240,7 +240,7 @@ A new family is only added when **all** of these are met:
 | 5 | TUI? | ✅ No. Pure CLI. One exception (2026-11-08): `komando` alone opens a small menu for a person at a terminal. It only runs ordinary commands and is never shown to agents, scripts or pipes. Dashboards, panes and full-screen apps stay out. |
 | 6 | May a feature need Docker or another installed program? | ✅ No (2026-11-03). Every feature is built in; plan in [built-in.md](built-in.md). |
 | 7 | Own implementation or a vendor library? Open source? | ✅ Own implementation where no suitable open library exists, and fully open source: no closed or prebuilt components (2026-11-03). |
-| 8 | For one person or for teams? | ✅ Both (2026-11-09). Team features (shared inventory and rules) are not built yet; they must keep solo use as simple as today. |
+| 8 | Who is komando for? | ✅ Everyone (2026-11-09). The open-source CLI serves two equal ways of use: **a person** working interactively (the menu, questions one step at a time) and **an AI agent** giving direct commands (flags and JSON, never a question). Every CLI feature works both ways. **Teams** (shared inventory and rules, roles and permissions (RBAC), sessions that say who is acting, and the like) are served only by the komando app, not by the open-source CLI. |
 | 9 | How does an AI agent reach a server with a two-factor login? | ✅ A person runs `komando login HOST` once and answers the code; komando keeps that login for some hours (`login_for`, 8h) and the agent's commands use it, like `vpn up` (2026-11-09). |
 
 ### Example for number 3
