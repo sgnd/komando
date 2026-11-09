@@ -52,6 +52,8 @@ func runShell(ctx context.Context, target string) error {
 	h, err := singleHost(st, target)
 	if err != nil {
 		return err
+	} else if h.WinRM() {
+		return notOnWindows("an interactive shell over WinRM", []string{h.Name})
 	}
 	protected := protectedHost(st, h)
 	if protected && !yesOK() && !confirmYes(h.Name+" is protected. Open a shell on it anyway?") {

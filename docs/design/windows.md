@@ -1,7 +1,7 @@
 # Design: Windows servers
 
-Status: **built, 2026-11-10: Windows over SSH (OpenSSH).** WinRM: see
-[WinRM](#winrm). How to use it: [docs/features/windows.md](../features/windows.md).
+Status: **built, 2026-11-10: Windows over SSH (OpenSSH) and over WinRM.**
+How to use it: [docs/features/windows.md](../features/windows.md).
 
 ## Problem
 
@@ -14,7 +14,7 @@ Windows servers are reached two ways:
    with sh syntax (`printf`, `[ -d ]`, `sudo`, `systemctl`) breaks.
 2. **WinRM** (HTTP 5985, HTTPS 5986, NTLM, Basic or Kerberos), which most
    companies use for Ansible. It carries commands only: no SFTP, no
-   tunnels.
+   tunnels. komando speaks it itself (see [WinRM](#winrm)).
 
 ## Decisions
 
@@ -123,11 +123,45 @@ The tests run komando's PowerShell for real against PowerShell 7 in a
 Linux container (`internal/cli/windows_pwsh_test.go`, opt-in), and every
 script is parsed by PowerShell. That checks the bootstrap, quoting, exit
 codes and the file scripts. Windows PowerShell 5.1 itself, Windows
-OpenSSH, services, CIM, Windows Update and the registry were not run on a
-real Windows server.
+OpenSSH, WinRM with NTLM, services, CIM, Windows Update and the registry
+were not run on a real Windows server.
 
 ## WinRM
 
-Next: komando's own WinRM client (WS-Management over HTTPS, NTLM and
-Basic), with the same PowerShell layer on top. See the WinRM section of
-[docs/features/windows.md](../features/windows.md) once it is built.
+`internal/winrm` is komando's own WinRM client: WS-Management SOAP over
+`net/http` and `encoding/xml` (Create a shell, Command, Send the input,
+Receive the output until the command is Done, Signal and Delete). It runs
+the same PowerShell bootstrap as SSH, so every Windows command above works
+the same way over both. NTLM comes from `github.com/Azure/go-ntlmssp`
+(MIT, only `golang.org/x/crypto` under it); no other library is needed.
+`masterzen/winrm` (Apache-2.0) was looked at and left out: it brings
+several more modules (Kerberos, XPath, UUID) for what is about 400 lines.
+
+- **Address**: `winrm://USER@HOST[:PORT]`, options in the query like conn
+  URLs: `auth=basic` (default NTLM, which never sends the password),
+  `tls=skip-verify` (no certificate check), `tls=off` (plain HTTP, port
+  5985), `ca=secret:NAME` (the PEM of a private CA; the check stays on).
+  The host gets `"transport": "winrm"` and a `winrm` block; `os` is
+  `windows`. `host edit --unset transport` goes back to SSH.
+- **TLS** is checked by default against this computer's CAs (and the CA
+  from `ca=`), with TLS 1.2 or later; port 5986.
+- **Password** from `--password-ref` (or `--ask-password`); WinRM has no key
+  login, so `--key` and `--identity` are refused.
+- **Refused**: Basic over plain HTTP (the password would travel in clear,
+  `INSECURE_PROTOCOL`). NTLM over plain HTTP is allowed with a warning:
+  komando does not encrypt WinRM messages itself, so the server must allow
+  unencrypted traffic, and commands and output are readable on the way.
+- **`--via`**: the HTTPS connection goes through the VPN or the SSH
+  bastions of the path, like a tunnel (the last bastion opens the TCP
+  connection). A WinRM server cannot be a jump host itself.
+- **Commands only**: `shell`, tunnels, `host trust`, `login` and
+  `host ssh-command` need SSH and stop with `NOT_SUPPORTED`
+  (`sshx.Options.WinRM` is set only by the commands that run PowerShell).
+- **Not in this version**: Kerberos, CredSSP, NTLM message encryption over
+  HTTP, client certificates.
+
+Tests: the client against an `httptest` WS-Management server (HTTPS with a
+private CA, an unknown CA, skip-verify, a wrong password, SOAP faults, the
+Receive timeout fault, cancelling a command, NTLM offered and the password
+never sent), and `exec`/`test` through it end to end. NTLM against a real
+Windows server was not run.

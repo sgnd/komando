@@ -37,6 +37,13 @@ its highlights; the sections below them give the details. Versions follow
   status/list/start/stop/restart/enable/disable` and `shell` work; other
   commands stop with `NOT_SUPPORTED` and a hint before anything runs. See
   docs/features/windows.md.
+- **Windows servers over WinRM:** `komando host add win2
+  winrm://Administrator@10.0.0.9 --ask-password` reaches a Windows server
+  through WinRM (what Ansible uses) with komando's own client: HTTPS on
+  port 5986 with the certificate checked (`?ca=secret:NAME` for a private
+  CA, `?tls=skip-verify` only when asked), NTLM login (`?auth=basic` for
+  local accounts), `--via` bastions and VPNs. The same Windows commands
+  work as over OpenSSH.
 - `os:windows` and `os:linux` target selectors.
 
 ### Changed
@@ -72,6 +79,8 @@ its highlights; the sections below them give the details. Versions follow
   characters outside ASCII. See docs/features/windows.md.
 - A command komando cannot run on Windows is refused for every Windows
   server, so a sh script is never sent to PowerShell.
+- WinRM refuses Basic login over plain HTTP (the password would travel
+  unencrypted) and warns about `tls=off` and `tls=skip-verify`.
 
 ## [0.8.0] - 2026-11-09
 

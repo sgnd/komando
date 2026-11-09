@@ -230,6 +230,7 @@ func fanout(ctx context.Context, st *store.State, hosts []*store.Host, fn func(c
 	sem := make(chan struct{}, max(1, parallelism(st)))
 	var wg sync.WaitGroup
 	opts := sshOpts(st)
+	opts.WinRM = windowsAllowed(ctx) // the command runs only PowerShell there
 	for i, h := range hosts {
 		wg.Add(1)
 		go func(i int, h *store.Host) {
@@ -258,7 +259,9 @@ func withClient(ctx context.Context, st *store.State, h *store.Host, fn func(c *
 	if err := refuseWindows(ctx, h); err != nil {
 		return err
 	}
-	c, err := sshx.Dial(ctx, st, h, sshOpts(st))
+	o := sshOpts(st)
+	o.WinRM = windowsAllowed(ctx)
+	c, err := sshx.Dial(ctx, st, h, o)
 	if err != nil {
 		return err
 	}

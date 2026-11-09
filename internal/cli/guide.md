@@ -83,7 +83,9 @@ Windows servers (`"os": "windows"` in `komando host show`, pick them with
 `os:windows`): commands run in PowerShell, not sh. `exec`, `script`,
 `facts`, `fs ls/stat/cat/write`, `upload`, `download`, `svc` work; there
 is no `--sudo` (the login's own rights apply). Other commands stop with
-`NOT_SUPPORTED`: use PowerShell through `exec` instead. A target that
+`NOT_SUPPORTED`: use PowerShell through `exec` instead. A server added
+as `winrm://USER@HOST` is reached over WinRM: the same commands, but no
+`shell`, tunnels or `host trust`. A target that
 mixes Windows and Linux servers is refused for `exec` (`MIXED_OS`): run
 it once per shell.
 

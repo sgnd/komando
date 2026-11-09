@@ -17,6 +17,11 @@ komando upload win1 ./site.zip 'C:\deploy\'
 
 ## Add a Windows server
 
+komando reaches Windows over **OpenSSH** or **WinRM**. Both give the same
+commands; WinRM is what most companies already have on for Ansible.
+
+### Over OpenSSH
+
 komando reaches Windows over **OpenSSH**, which is built into Windows
 Server 2019 and later. Turn it on once on the server (as an
 administrator, in PowerShell):
@@ -32,12 +37,46 @@ servers: a key (`--key`), a password (`--ask-password` or
 
 ```bash
 komando host add win1 Administrator@10.0.0.9 --os windows --ask-password
-komando host add win2 'CORP\deploy@10.0.0.10' --os windows --key deploy --via bastion
+komando host add win4 deploy@corp.local@10.0.0.10 --os windows --key deploy --via bastion
 komando host edit win3 --os windows        # a server you added before
 ```
 
-A domain user is written `DOMAIN\user` (in quotes, for your shell). To
-pick only Windows servers, or everything else, use `os:windows` and
+A domain user is written `user@domain`, e.g.
+`deploy@corp.local@10.0.0.10`.
+
+### Over WinRM
+
+Give the address as `winrm://USER@HOST` and a password. komando uses HTTPS
+(port 5986), checks the server's certificate, and logs in with NTLM, which
+never sends the password itself.
+
+```bash
+komando host add win2 winrm://Administrator@10.0.0.9 --ask-password
+komando host add win3 'winrm://deploy@corp.local@win3.corp.local' --password-ref secret:win3 --via bastion
+komando host edit win2 --address 'winrm://10.0.0.9?ca=secret:corp-ca'   # the server's certificate is from your own CA
+```
+
+Options go after `?`, joined with `&`:
+
+| Option | Means |
+|--------|-------|
+| `ca=secret:NAME` | the certificate comes from your own CA: store its PEM with `komando secret set NAME < ca.crt` (the check stays on) |
+| `auth=basic` | Basic login (local accounts only; HTTPS only) instead of NTLM |
+| `tls=skip-verify` | do not check the certificate (komando warns: anyone in between can pose as the server) |
+| `tls=off` | plain HTTP on port 5985: commands and output travel unencrypted, and the server must allow it |
+| `:PORT` | another port than 5986 (5985 with `tls=off`) |
+
+`--via` works: the connection goes through the bastion or VPN. WinRM
+carries commands only, so `shell`, tunnels, `host trust` and `login` need
+OpenSSH. To switch a server back to SSH: `komando host edit win2 --unset
+transport`. Kerberos is not supported yet: use NTLM with a domain user.
+
+On the server, `winrm quickconfig -transport:https` (as an administrator)
+turns on WinRM over HTTPS.
+
+### Pick Windows servers
+
+To pick only Windows servers, or everything else, use `os:windows` and
 `os:linux`:
 
 ```bash
@@ -186,7 +225,7 @@ lists services that should start automatically but stopped with an error.
 | `fs ls`, `stat`, `cat`, `write` | `fs replace`, `fs rm`, `mkdir`, `mv`, `chmod`, `sync` |
 | `upload`, `download`, `cp` (single files) | `job`, `cp -r`, `svc reload` |
 | `svc status`, `list`, `start`, `stop`, `restart`, `enable`, `disable` | `--sudo`, `--pty`, `--mode`, `--owner` |
-| `host trust`, `login`, `tunnel`, `--via` through a Windows server | |
+| `host trust`, `login`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host trust` over WinRM |
 
 For the rest, run PowerShell with `exec`, for example
 `Get-WinEvent -LogName System -MaxEvents 50` for logs, or
@@ -198,6 +237,11 @@ For the rest, run PowerShell with `exec`, for example
   answer. Check that `powershell.exe` is on the login user's PATH.
 - **`pending updates unknown`** in `facts`: Windows does not let many remote
   logins search Windows Update. The last installed update is still shown.
+- **`WINRM_TLS`**: the server's certificate is not trusted. If it comes
+  from your company's CA, add `?ca=secret:NAME` to the address (above).
+- **`AUTH_FAILED` over WinRM**: check the user and password; Basic login
+  works for local accounts only, and the user must be allowed to use WinRM
+  (an administrator, or the Remote Management Users group).
 - **A command works in your own PowerShell but not through komando**:
   komando runs PowerShell without your profile (`-NoProfile`), so aliases
   and modules from your profile are not there.

@@ -1,7 +1,9 @@
 package sshx
 
 import (
+	"context"
 	"io"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -9,6 +11,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -125,4 +128,50 @@ func (c *sharedChain) closeLocked() {
 	if c.vpn != nil {
 		c.vpn.Close()
 	}
+}
+
+// openFirst is how a path starts: a plain dialer, or the VPN it begins
+// with, opened inside this process (its closer ends it).
+func openFirst(ctx context.Context, vpn *store.Vpn, o Options) (netx.Dialer, io.Closer, error) {
+	first := (&net.Dialer{Timeout: o.ConnectTimeout}).DialContext
+	if vpn == nil {
+		return first, nil, nil
+	}
+	return netx.Open(ctx, vpn, o.ConnectTimeout)
+}
+
+// openJumps logs in to the jump hosts in order, or shares the path another
+// server behind the same hosts opened (one login per jump host per
+// command). Jump hosts are logged in to as usual, even when only the
+// target's key is fetched.
+func openJumps(ctx context.Context, st *store.State, vpn *store.Vpn, jumps []*store.Host, o Options) (*sharedChain, error) {
+	jo := o
+	jo.scan = nil
+	return acquireChain(chainKey(vpn, jumps), func() ([]*ssh.Client, io.Closer, error) {
+		first, vpnCloser, err := openFirst(ctx, vpn, o)
+		if err != nil {
+			return nil, nil, err
+		}
+		var chain []*ssh.Client
+		closeAll := func() {
+			for i := len(chain) - 1; i >= 0; i-- {
+				chain[i].Close()
+			}
+			if vpnCloser != nil {
+				vpnCloser.Close()
+			}
+		}
+		var prev *ssh.Client
+		for _, hop := range jumps {
+			c, err := dialHop(ctx, st, hop, jo, first, prev, vpn != nil || prev != nil)
+			if err != nil {
+				closeAll()
+				return nil, nil, err
+			}
+			chain = append(chain, c)
+			prev = c
+		}
+		go keepaliveChain(chain[0])
+		return chain, vpnCloser, nil
+	})
 }

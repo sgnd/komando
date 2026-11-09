@@ -184,6 +184,9 @@ func (e *lostErr) Error() string { return e.err.Error() }
 // runPS starts the bootstrap over SSH, feeds it in and returns its exit
 // code. When ctx ends the session is closed, which ends PowerShell.
 func runPS(ctx context.Context, c *Client, in io.Reader, stdout, stderr io.Writer) (int, error) {
+	if c.Win != nil {
+		return c.Win.Run(ctx, PSCommandLine, in, stdout, stderr)
+	}
 	sess, err := c.NewSession()
 	if err != nil {
 		if c.lost() {

@@ -555,9 +555,10 @@ func renameSecretRefs(st *store.State, from, to string) []string {
 }
 
 // walkSecretRefs finds every reference to secret:name in the state - the
-// password, sudo and passphrase refs, a server's environment variables, a
-// conn URL's options (?ca=secret:NAME) and a VPN's key, preshared key and
-// config - and, when rename is set, points it at secret:rename.
+// password, sudo and passphrase refs, a server's environment variables and
+// WinRM CA (?ca=secret:NAME), a conn URL's options (?ca=secret:NAME) and
+// a VPN's key, preshared key and config - and, when rename is set, points
+// it at secret:rename.
 func walkSecretRefs(st *store.State, name, rename string) []string {
 	ref := "secret:" + name
 	now := time.Now().UTC()
@@ -581,6 +582,9 @@ func walkSecretRefs(st *store.State, name, rename string) []string {
 	}
 	for _, h := range st.Hosts {
 		ps := []*string{&h.PasswordRef, &h.SudoRef}
+		if h.WinRMOpts != nil {
+			ps = append(ps, &h.WinRMOpts.CA) // winrm://...?ca=secret:NAME
+		}
 		env := make([]string, 0, len(h.Env))
 		for k := range h.Env {
 			env = append(env, k)
