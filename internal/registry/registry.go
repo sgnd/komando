@@ -1,5 +1,5 @@
 // Package registry talks to container registries (Docker Hub, GHCR,
-// GitLab, Harbor, ECR, registry:2) over the OCI Distribution API, with
+// GitLab, Harbor, ECR, ACR, registry:2) over the OCI Distribution API, with
 // basic or bearer-token auth.
 package registry
 
@@ -27,12 +27,13 @@ const Accept = "application/vnd.oci.image.index.v1+json, application/vnd.docker.
 
 // Client calls one registry.
 type Client struct {
-	Base     *url.URL
-	User     string
-	Password string
-	http     *http.Client
-	mu       sync.Mutex
-	tokens   map[string]string // scope -> bearer token
+	Base       *url.URL
+	User       string
+	Password   string
+	http       *http.Client
+	skipVerify bool // the certificate is not checked (?tls=skip-verify)
+	mu         sync.Mutex
+	tokens     map[string]string // scope -> bearer token
 }
 
 // TLS says how a client talks to its registry. The zero value is HTTPS
@@ -75,8 +76,15 @@ func New(host string, t TLS, user, password string, dial func(ctx context.Contex
 	} else {
 		tr.Proxy = proxyx.FromEnv() // HTTPS_PROXY and NO_PROXY, as docker reads them
 	}
-	return &Client{Base: &url.URL{Scheme: scheme, Host: host}, User: user, Password: password,
+	return &Client{Base: &url.URL{Scheme: scheme, Host: host}, User: user, Password: password, skipVerify: t.SkipVerify,
 		http: &http.Client{Transport: tr, Timeout: 2 * time.Minute}, tokens: map[string]string{}}
+}
+
+// CheckedTLS says whether the client talks HTTPS and checks the registry's
+// certificate. A cloud login sends a token that is good for far more than
+// the registry, so it goes only to a registry whose certificate is checked.
+func (c *Client) CheckedTLS() bool {
+	return c.Base.Scheme == "https" && !c.skipVerify
 }
 
 // Error is an error answer from the registry.

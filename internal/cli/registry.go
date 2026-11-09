@@ -102,22 +102,17 @@ func openRegistry(ctx context.Context, st *store.State, c *store.Conn) (*registr
 	if a.Dial != nil {
 		dial = a.Dial
 	}
-	user, password := a.Target.User, a.Password
-	if region := ecrRegion(strings.TrimSuffix(host, ":443")); region != "" && c.PasswordRef == "" {
-		// Amazon ECR logins last 12 hours: get a fresh one each time
-		tok, err := ecrToken(ctx, firstNonEmpty(awsProfile(c), "default"), region)
-		if err != nil {
-			a.Close()
-			return nil, nil, err
-		}
-		user, password = "AWS", tok
-	}
 	tc, err := registryTLS(a.Target)
 	if err != nil {
 		a.Close()
 		return nil, nil, err
 	}
-	return registry.New(host, tc, user, password, dial), a.Close, nil
+	rc := registry.New(host, tc, a.Target.User, a.Password, dial)
+	if err := cloudRegistryLogin(ctx, c, host, rc); err != nil {
+		a.Close()
+		return nil, nil, err
+	}
+	return rc, a.Close, nil
 }
 
 // registryTLS turns a registry conn's tls= and ca= options into the

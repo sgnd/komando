@@ -89,6 +89,15 @@ its highlights; the sections below them give the details. Versions follow
   `AZURE_CLIENT_SECRET`), a workload identity on AKS, a token the Azure CLI
   saved while it lasts, or the managed identity on Azure. The token goes
   only to Key Vault hosts, and komando keeps no token.
+- A registry conn for Azure Container Registry
+  (`registry://myregistry.azurecr.io`) without `--password-ref` logs in with
+  your Azure login, as `az acr login` does: komando trades an Azure token for
+  a fresh registry login each time, like it already does for Amazon ECR. It
+  uses the same Azure logins as `azure-kv:`. Without one, the error is
+  `AZURE_LOGIN_REQUIRED`. The Azure token is good for the whole
+  subscription, so it goes only over https with the registry's certificate
+  checked: a conn with `?tls=false` or `?tls=skip-verify` needs
+  `--password-ref`.
 
 ## [0.8.0] - 2026-11-09
 

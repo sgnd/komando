@@ -12,6 +12,8 @@ var errorCodes = []errorCode{
 	{"AWS_FAILED", 4, "AWS profile …: …", "check the profile in ~/.aws/config"},
 	{"AWS_LOGIN_REQUIRED", 4, "AWS profile …: …", "a person runs `komando login aws --profile …` once, then try again"},
 	{"AWS_PROFILE_NOT_FOUND", 3, "there is no AWS profile …", "add the profile to ~/.aws/config (or fix --option aws_profile)"},
+	{"AZURE_FAILED", 4, "…: …", "check that this computer reaches login.microsoftonline.com"},
+	{"AZURE_LOGIN_REQUIRED", 4, "…: …", "check that it answers and accepts the login: `komando test TARGET`"},
 	{"BACKUP_FAILED", 5, "could not make a backup of …: …", "the file was not changed; check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup"},
 	{"BAD_CA", 2, "registry CA …: …", "store the registry's CA certificate (PEM) with `komando secret set NAME < ca.crt`"},
 	{"BAD_FILE", 2, "cannot read backup: …", "the file is not readable text SQL"},

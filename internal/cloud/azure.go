@@ -24,7 +24,7 @@ import (
 // identity of the Azure machine komando runs on. komando keeps no token.
 
 // ErrAzureLogin is wrapped by errors that an Azure login fixes.
-var ErrAzureLogin = errors.New("azure login required")
+var ErrAzureLogin = errors.New("no Azure login")
 
 // Azure addresses. Tests point them at a local server; a program changes
 // the sign-in host only with AZURE_AUTHORITY_HOST (https only), as the
@@ -237,7 +237,13 @@ func AzureTenant(token string) string {
 }
 
 // AzureLoginHint says how to give komando an Azure login for resource.
+// The Azure CLI saves a resource manager token at `az login` and renews it
+// with each az command; a token for another resource only when asked.
 func AzureLoginHint(resource string) string {
+	cli := "`az account get-access-token --resource " + resource + "`"
+	if strings.HasPrefix(resource, "https://management.") {
+		cli = "`az login` (any later az command renews its token)"
+	}
 	return "set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET for a service principal, run komando on Azure with a managed identity, " +
-		"or a person runs `az account get-access-token --resource " + resource + "`: komando uses the token the Azure CLI keeps while it lasts (about an hour)"
+		"or a person runs " + cli + ": komando uses the token the Azure CLI keeps while it lasts (about an hour)"
 }

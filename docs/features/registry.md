@@ -1,8 +1,8 @@
 # Container registries
 
 See which images a registry holds, copy images between registries, and
-clean up old ones. Works with Docker Hub, GHCR, GitLab, Harbor, Amazon ECR
-and your own `registry:2`. [All features](README.md)
+clean up old ones. Works with Docker Hub, GHCR, GitLab, Harbor, Amazon ECR,
+Azure Container Registry and your own `registry:2`. [All features](README.md)
 
 ## Quick start
 
@@ -103,6 +103,40 @@ komando conn add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws.com
 
 If the SSO login has expired, the error is `AWS_LOGIN_REQUIRED`: a person
 runs `komando login aws --profile prod` once.
+
+**Azure Container Registry.** Leave out `--password-ref` and komando logs
+in with your Azure login, the way `az acr login` does: it gets an Azure
+token and trades it with the registry for a registry login that lasts a few
+hours. It does this each time, keeps nothing, and needs no `az` program:
+
+```bash
+komando conn add acr registry://myregistry.azurecr.io
+komando test acr
+```
+
+komando looks for an Azure login in this order:
+
+1. a service principal: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and
+   `AZURE_CLIENT_SECRET`;
+2. a workload identity on AKS: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and
+   `AZURE_FEDERATED_TOKEN_FILE`;
+3. the token the Azure CLI saved after `az login` (Linux and macOS). It
+   lasts about an hour, and any `az` command renews it; komando reads it
+   but cannot renew it itself;
+4. the managed identity of the Azure machine komando runs on
+   (`AZURE_CLIENT_ID` picks a user-assigned one).
+
+The login needs the `AcrPull` role on the registry to look, `AcrPush` to
+copy images into it and `AcrDelete` to delete. Without a login the error
+is `AZURE_LOGIN_REQUIRED`; a missing role gives `REGISTRY_AUTH`. A registry
+token or the admin user works too: put the user in the URL and give
+`--password-ref`, as for any registry.
+
+The Azure token is good for your whole subscription, not only the
+registry, so komando sends it only over https to a registry whose
+certificate is checked. A conn with `?tls=false` or `?tls=skip-verify`
+stops with a usage error; use `?ca=` for a private CA, or a registry token
+with `--password-ref`.
 
 ## Look at images
 
