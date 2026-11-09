@@ -293,7 +293,7 @@ func (r *kctlRun) dispatch() error {
 	return kfail("unknown command %q for komando's kubectl (see `komando cluster run --help`)", r.a.verb)
 }
 
-// ---- resources and objects ----------------------------------------------
+// Resources and objects.
 
 type kref struct {
 	r     kube.ResourceType
@@ -427,7 +427,7 @@ func qualifiedPlural(rt kube.ResourceType) string {
 	return rt.Name
 }
 
-// ---- get -------------------------------------------------------------------
+// The get verb.
 
 func (r *kctlRun) get() error {
 	refs, err := r.refs(r.a.pos)

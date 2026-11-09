@@ -9,7 +9,7 @@ import (
 // What komando offers and accepts in IKEv1: the phase 1 (IKE SA) and ESP
 // suites. Only what was offered may be chosen.
 
-// ---- phase 1 suites
+// Phase 1 suites.
 
 type p1Suite struct {
 	enc   cipherAlg
@@ -184,7 +184,7 @@ func suiteFromP1(as []attr) (p1Suite, error) {
 	return s, nil
 }
 
-// ---- ESP suites (phase 2)
+// ESP suites (phase 2).
 
 var espSuites = []espSuite{
 	{gcm256, integAlg{}}, {gcm128, integAlg{}},

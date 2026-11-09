@@ -70,7 +70,7 @@ func oneServer(st *store.State, target, manyHint string) (*store.Host, error) {
 	return hs[0], nil
 }
 
-// --- fs ls -------------------------------------------------------------------
+// fs ls.
 
 type lsResult struct {
 	Path      string     `json:"path"`
@@ -129,7 +129,7 @@ func lsMode(e fileInfo) string {
 	return t + os.FileMode(m).Perm().String()[1:]
 }
 
-// --- fs write / replace ------------------------------------------------------
+// fs write and fs replace.
 
 // fsChange is the result of fs write and fs replace: JSON as before, and a
 // sentence plus the diff for a person.
@@ -206,7 +206,7 @@ func isASymlink(p string) error {
 	return out.Errf(out.ExitConflict, "IS_A_SYMLINK", "drop --no-follow to write the file it points to", "%s is a symbolic link (--no-follow)", p)
 }
 
-// --- rm, mkdir, mv, chmod ----------------------------------------------------
+// fs rm, mkdir, mv and chmod.
 
 // Exit codes the fs shell scripts use to say what went wrong.
 const (

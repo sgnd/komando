@@ -1,8 +1,11 @@
-// Package cli wires every komando command. Design rules for AI agents:
-//   - stdout is always exactly one JSON envelope (or NDJSON when streaming)
-//   - nothing ever prompts; missing input is an error with a hint
+// Package cli wires every komando command. Design rules:
+//   - piped or agent output is exactly one JSON envelope (or NDJSON when
+//     streaming); a terminal gets text
+//   - an AI agent is never prompted, and missing input is an error with a
+//     hint; a person at a terminal can be asked
 //   - exit codes are stable (see internal/out)
-//   - destructive actions require explicit flags; everything is audited
+//   - destructive actions require explicit flags; changes are audited,
+//     except `update` run as root
 package cli
 
 import (

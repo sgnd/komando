@@ -188,7 +188,7 @@ func checkPassphraseRef(ref string) error {
 	return nil
 }
 
-// --- the same server under another name -------------------------------------
+// The same server under another name.
 
 // normAddr is a host name the way DNS compares it: lower case, without the
 // root dot ("Target." is "target") or IPv6 brackets.

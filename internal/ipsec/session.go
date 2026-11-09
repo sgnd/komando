@@ -228,7 +228,7 @@ func (s *Session) Close() error {
 	return nil
 }
 
-// ---- what runs over the session
+// What runs over the session.
 
 // L2TPLink carries L2TP over ESP transport mode: UDP port 1701 both ways.
 type L2TPLink struct {

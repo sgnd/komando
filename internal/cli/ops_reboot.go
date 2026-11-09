@@ -13,7 +13,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// ----------------------------------------------------------- daemon-reload ---
+// svc daemon-reload.
 
 func svcDaemonReloadCmd() *cobra.Command {
 	var noSudo bool
@@ -59,7 +59,7 @@ func daemonReloadResult(rr *sshx.RunResult) (any, *out.Error) {
 	return d, nil
 }
 
-// ------------------------------------------------------------------ reboot ---
+// reboot.
 
 // bootMark names one boot of a server: the kernel's boot id, and when
 // PID 1 started (a container restarted by its runtime keeps the kernel's

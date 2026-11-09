@@ -26,7 +26,7 @@ import (
 	"strings"
 )
 
-// ---- Diffie-Hellman groups
+// Diffie-Hellman groups.
 
 type dhGroup interface {
 	ID() uint16
@@ -140,7 +140,7 @@ func newDH(id uint16) (dhGroup, error) {
 	return nil, fmt.Errorf("DH group %d is not supported", id)
 }
 
-// ---- hashes and PRFs
+// Hashes and PRFs.
 
 type hashAlg struct {
 	name string
@@ -182,7 +182,7 @@ func (h hashAlg) prfPlus(key, seed []byte, n int) []byte {
 	return out[:n]
 }
 
-// ---- integrity (HMAC, truncated)
+// Integrity (HMAC, truncated).
 
 type integAlg struct {
 	h   hashAlg
@@ -199,7 +199,7 @@ var (
 	integSHA512 = integAlg{hSHA512, 64, 32}
 )
 
-// ---- encryption
+// Encryption.
 
 type cipherAlg struct {
 	name   string

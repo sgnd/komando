@@ -26,7 +26,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// ----------------------------------------------------------------- audit ---
+// audit.
 
 type auditList struct {
 	Count   int              `json:"count"`
@@ -174,7 +174,7 @@ is given.`,
 	return c
 }
 
-// ---------------------------------------------------------------- policy ---
+// policy.
 
 type policyCheck struct {
 	Blocked bool          `json:"blocked"`
@@ -356,7 +356,7 @@ Removing a rule weakens a safety check, so it needs --yes.`,
 	return c
 }
 
-// ---------------------------------------------------------------- doctor ---
+// doctor.
 
 type doctorCheck struct {
 	Name   string `json:"name"`

@@ -90,7 +90,7 @@ Technical facts that affect priority:
 | `\timing` | psql, mysql | PRESENT | `meta.duration_ms` in every answer (total, not per statement) | - |
 | MySQL `--safe-updates` safeguard | mysql `--safe-updates` | PRESENT | Equal/stronger: `sql-update-no-where`, `sql-delete-no-where` | - |
 | Structured result per statement | (not in psql) | PRESENT | `data.results[]` with `columns`, `rows`, `row_count`, `rows_affected` | - |
-| JSON-safe data types (bigint, numeric, bytea, timestamp UTC) | — | PRESENT | `driver.JSONValue`; > 2^53 becomes a string, binary → `{"base64":...}` | - |
+| JSON-safe data types (bigint, numeric, bytea, timestamp UTC) | none | PRESENT | `driver.JSONValue`; > 2^53 becomes a string, binary → `{"base64":...}` | - |
 
 ## 3. Output, paging, data export and import
 
@@ -157,11 +157,11 @@ Technical facts that affect priority:
 | Globals/roles (`pg_dumpall --globals-only`), all DBs | pg_dumpall, mysqldump `--all-databases` | MISSING | | P3 |
 | Restore options: `--clean`, `--create`, `--no-owner`, `--no-acl` | pg_restore, psql | MISSING | Restoring from prod to staging often fails because owners/roles differ; there is no `--no-owner` | P2 |
 | Single-transaction restore + dangerous file check | psql `--single-transaction` | PRESENT | `--single-transaction ON_ERROR_STOP=1` (Postgres only, `dbdump.go:64`; MySQL restore is not atomic because DDL auto-commits); files with `\!`, `\i`, `system` are rejected (`driver/restore.go`) | - |
-| Restore safeguards (destructive + protected) | — | PRESENT | `--allow-dangerous`, `--yes` on a protected conn | - |
+| Restore safeguards (destructive + protected) | none | PRESENT | `--allow-dangerous`, `--yes` on a protected conn | - |
 | zstd/lz4 compression, level | pg_dump `-Z zstd`, gzip | PARTIAL | Only `.gz` | P3 |
 | Dump straight to storage (S3) or keep it on the server | pg_dump \| aws s3 cp | PARTIAL | The file always goes to the laptop; two steps `db dump` then `storage upload` (a large DB through the laptop = slow). Workaround: `job start host -- 'pg_dump ...'` (you must handle the password yourself) | P2 |
 | Dump/restore a large DB as a background job (progress, resume after disconnect) | `nohup pg_dump`, `komando job` | MISSING | `db dump` runs in the foreground, with no progress and no detach; AGENTS.md rule 6 says to use `job` for > 2 minutes, but `job` cannot run `db dump` | P2 |
-| Dump with a pure Go client (no pg_dump installed) | — | MISSING | Needs `postgresql-client`/`mysql-client` on the laptop or the `--via` host; pg_dump version < server → fails (there is a hint) | P3 |
+| Dump with a pure Go client (no pg_dump installed) | none | MISSING | Needs `postgresql-client`/`mysql-client` on the laptop or the `--via` host; pg_dump version < server → fails (there is a hint) | P3 |
 | Scheduled backup + retention | pgBackRest, cron | NON-GOAL | NG-5 (no daemon); can use `cron set` on the host | - |
 | PITR / WAL archiving / base backup (pgBackRest, Barman, wal-g, xtrabackup) | pgBackRest, wal-g | NON-GOAL | NG-1 | - |
 | Backup verification (list contents, `pg_restore -l`) | pg_restore `-l` | MISSING | | P3 |
@@ -194,7 +194,7 @@ Technical facts that affect priority:
 |---|---|---|---|---|
 | List users/roles and their attributes (`\du`, `mysql.user`) | psql, mysql | PARTIAL | Through `db query` | P2 |
 | Create user / change password / grant / revoke | psql, mysql, DataGrip | PARTIAL | `db query --write --allow-dangerous "create user ..."` (rule `sql-privileges`). **Security gap**: the password in `CREATE USER ... PASSWORD '...'` / `ALTER ROLE ... PASSWORD` is recorded in full in `audit.jsonl` when `audit_sql=full` (the default), and `--arg` cannot be used in Postgres DDL. There is no redaction of password literals and no way to take the password from the vault (`secret:`) | **P1** (security: secret leaks into the audit log; "create a read-only user for the app/komando" is a common task, and the docs themselves suggest a dedicated least-privilege user) |
-| Template "read-only user for komando/agent" | — | MISSING | docs/features/databases.md: "give komando a database user with only the rights it needs", but there is no help to create one | P2 |
+| Template "read-only user for komando/agent" | none | MISSING | docs/features/databases.md: "give komando a database user with only the rights it needs", but there is no help to create one | P2 |
 | See effective grants of one user (`SHOW GRANTS FOR`, `\dp`) | mysql, psql | PARTIAL | Through `db query` | P3 |
 | Row-level security, policies | psql | PARTIAL | Through `db query`; `CREATE POLICY` is classified write (not privileges) | P3 |
 
@@ -216,20 +216,20 @@ Technical facts that affect priority:
 | PgBouncer admin console (`SHOW POOLS`, `SHOW STATS`, `PAUSE`, `RELOAD`) | psql to db `pgbouncer` | MISSING | The PgBouncer console does not accept `BEGIN READ ONLY` or the `SHOW standard_conforming_strings` check during `dbx.Open`, so `db query` will almost certainly fail. Workaround: `exec host -- psql -p 6432 pgbouncer -c 'show pools'` | P3 |
 | Query through PgBouncer in transaction mode (normal app DB) | psql | PARTIAL | Probably works (one transaction per command fits); pgx stdlib uses prepared statements, which are a problem in PgBouncer < 1.21 transaction mode. Not tested/documented yet | P2 |
 | ProxySQL admin, pgpool, Odyssey | mysql to the admin port | MISSING | | P3 |
-| Connection pool on the komando side | — | NON-GOAL | NG-5 "No pool and no daemon" | - |
+| Connection pool on the komando side | none | NON-GOAL | NG-5 "No pool and no daemon" | - |
 
 ## 11. DB-specific security and audit
 
 | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
 | Audit every query (who, what, result) | pgaudit (server side), DataGrip log | PRESENT | `audit_sql`: full, hash, off; for `--arg` only the count is recorded | - |
-| Redaction of sensitive data in audit SQL (password literals, PII) | — | MISSING | Only the choice of all/hash/nothing. See section 8 | **P1** (merge with the CREATE USER row) |
-| Block dangerous functions in read-only (dblink, pg_read_file, COPY PROGRAM, lo_export) | — | PRESENT | `sql-remote`, `sql-server-file`, `sql-program` | - |
-| Reject non-default string-parsing settings (classification bypass) | — | PRESENT | `checkStringRules`, `SQL_STRING_RULES` | - |
+| Redaction of sensitive data in audit SQL (password literals, PII) | none | MISSING | Only the choice of all/hash/nothing. See section 8 | **P1** (merge with the CREATE USER row) |
+| Block dangerous functions in read-only (dblink, pg_read_file, COPY PROGRAM, lo_export) | none | PRESENT | `sql-remote`, `sql-server-file`, `sql-program` | - |
+| Reject non-default string-parsing settings (classification bypass) | none | PRESENT | `checkStringRules`, `SQL_STRING_RULES` | - |
 | Type-the-name confirmation on restore/drop at a terminal | DataGrip "production" warning | PRESENT | `confirmDangerous` (`common.go:334`): at a terminal without `--allow-dangerous` you are asked to type the conn name; a protected conn asks `[y/N]` (`confirmProtected`) | - |
 | Limit on the number of changed rows (`--max-rows-affected`) | (not common; Atlas/ pt-archiver) | MISSING | `--dry-run` shows the count, but `--write` without a dry-run has no safety limit (e.g. an UPDATE with a wrong WHERE touches 1 million rows) | P2 (a cheap safety layer for agents) |
 | Masking sensitive columns in output | DataGrip, Satori, pg_anonymizer | MISSING | `conn --option` already exists but is not used by db kinds | P3 |
-| Promised per-conn options (`statement_timeout`, `row_limit`) | — | MISSING | resources-and-db.md: "Options ... per-kind: statement_timeout, row_limit"; `conn --option` is only used by `cluster` (namespace, `cluster.go:78`). The example in `conn edit --help` (`--option statement_timeout=10s`, `conn.go:186`) is misleading: it is accepted but ignored | P3 |
+| Promised per-conn options (`statement_timeout`, `row_limit`) | none | MISSING | resources-and-db.md: "Options ... per-kind: statement_timeout, row_limit"; `conn --option` is only used by `cluster` (namespace, `cluster.go:78`). The example in `conn edit --help` (`--option statement_timeout=10s`, `conn.go:186`) is misleading: it is accepted but ignored | P3 |
 
 ---
 
@@ -278,7 +278,7 @@ Technical facts that affect priority:
 | Delete exact keys | redis-cli `DEL/UNLINK` | PRESENT | `cache rm` (`--allow-dangerous`) | - |
 | Delete by pattern (prefix invalidation: `--scan --pattern 'x:*' \| xargs DEL`) | redis-cli pipeline | MISSING | `cache rm` deliberately has no pattern. Workaround: `cache keys` then `cache rm k1 k2 ...` (limited by `--limit` and argv length). Can be made safe: `--dry-run` shows the count + examples, `--allow-dangerous`, UNLINK in batches | P2 (invalidating the cache per prefix is daily work after a deploy) |
 | Flush DB | redis-cli `FLUSHDB` | PRESENT (through the raw path) | `cache run --write --allow-dangerous -- FLUSHDB` (rule `redis-flush`) | - |
-| Write dry-run | — | PARTIAL | Reported honestly: Redis cannot roll back, `--dry-run` only checks permission (`withCache`). It does not show the old value / whether the key exists | P3 |
+| Write dry-run | none | PARTIAL | Reported honestly: Redis cannot roll back, `--dry-run` only checks permission (`withCache`). It does not show the old value / whether the key exists | P3 |
 
 ## 15. Cache: diagnosis and server operations
 
@@ -327,9 +327,9 @@ Technical facts that affect priority:
 
 | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Commands that delete data are treated the same as `DEL` | — | PARTIAL | `GETDEL`, `HDEL`, `SREM`, `ZREMRANGEBY*`, `LTRIM`, `EXPIRE k 0`, `RESTORE ... REPLACE`, `RENAME` (overwrites the target), `SET` over a key of another type are classified **write**, while `DEL/UNLINK` and `cache rm` need `--allow-dangerous` (`cachex.Classify`). At least `GETDEL`, `RENAME` to an existing key, and `EXPIRE/PEXPIRE` ≤ 0 should equal `data-delete` | P2 |
-| `policy check --for redis "CLIENT LIST"` (one quoted argument) | — | PARTIAL | Small bug: without splitting into words it is classified `write`; `-- CLIENT LIST` is classified `read` (`meta.go` passes raw `args` to `cachex.Classify`). For SQL the arguments are joined, so the two paths differ | P3 |
-| Module reads and plain reads that are not registered yet (`XREAD`, `JSON.GET`, `FT.SEARCH`, `TS.RANGE`, `HELLO`, `CLIENT NO-TOUCH`) | — | PARTIAL | Classified write, so agents must use `--write` to read; this weakens the meaning of `--write` in the audit | P2 |
+| Commands that delete data are treated the same as `DEL` | none | PARTIAL | `GETDEL`, `HDEL`, `SREM`, `ZREMRANGEBY*`, `LTRIM`, `EXPIRE k 0`, `RESTORE ... REPLACE`, `RENAME` (overwrites the target), `SET` over a key of another type are classified **write**, while `DEL/UNLINK` and `cache rm` need `--allow-dangerous` (`cachex.Classify`). At least `GETDEL`, `RENAME` to an existing key, and `EXPIRE/PEXPIRE` ≤ 0 should equal `data-delete` | P2 |
+| `policy check --for redis "CLIENT LIST"` (one quoted argument) | none | PARTIAL | Small bug: without splitting into words it is classified `write`; `-- CLIENT LIST` is classified `read` (`meta.go` passes raw `args` to `cachex.Classify`). For SQL the arguments are joined, so the two paths differ | P3 |
+| Module reads and plain reads that are not registered yet (`XREAD`, `JSON.GET`, `FT.SEARCH`, `TS.RANGE`, `HELLO`, `CLIENT NO-TOUCH`) | none | PARTIAL | Classified write, so agents must use `--write` to read; this weakens the meaning of `--write` in the audit | P2 |
 
 ## 19. Memcached
 

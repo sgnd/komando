@@ -48,7 +48,7 @@ as data.
 | `command` | the command, dotted (`exec`, `db.query`, `svc.restart`) |
 | `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...). `test` results also have `name`, the same value, kept for older scripts: use `host` |
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
-| `error.hint` | always says what to try next |
+| `error.hint` | always says what to try next. Most codes give their own hint; when one gives none, komando puts in a general hint for the exit code (for example, exit 7 suggests `--timeout` or `komando job start`) |
 | `null` | komando could not find out (for example `facts` without the rights to read something). It never stands in for `0` or `false` |
 | `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run; `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails); `host_keys_pinned` when the command trusted a server's SSH host key for the first time (`host`, `address`, `key_type`, `fingerprint`), for the person to compare with the server's own |
 

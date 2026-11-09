@@ -16,7 +16,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// ------------------------------------------------------------------ svc ---
+// svc.
 
 func svcCmd() *cobra.Command {
 	c := &cobra.Command{
@@ -151,7 +151,7 @@ func svcLogsCmd() *cobra.Command {
 	return c
 }
 
-// ----------------------------------------------------------------- logs ---
+// logs.
 
 type logOpts struct {
 	unit, file, container, since, until, grep, priority string
@@ -309,7 +309,7 @@ func runLogs(ctx context.Context, name, target string, lo *logOpts, sudo bool) e
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return lo.result(rr) }})
 }
 
-// ------------------------------------------------------------------ pkg ---
+// pkg.
 
 // pkgShell dispatches on the detected package manager. $ACTION and $PKGS
 // are set by the caller.
@@ -518,7 +518,7 @@ func pkgCmd() *cobra.Command {
 	return c
 }
 
-// ------------------------------------------------------------------ net ---
+// net.
 
 func netCmd() *cobra.Command {
 	c := &cobra.Command{Use: "net", Aliases: []string{"network"}, Short: "Network checks from the servers: ports, HTTP, DNS"}
@@ -617,7 +617,7 @@ func statusMatches(code int, want string) bool {
 	return strconv.Itoa(code) == want
 }
 
-// ----------------------------------------------------------------- user ---
+// user.
 
 func userCmd() *cobra.Command {
 	c := &cobra.Command{Use: "user", Aliases: []string{"users"}, Short: "Linux user accounts: list, add, lock, unlock, rm"}
@@ -728,7 +728,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 	return c
 }
 
-// ----------------------------------------------------------------- cron ---
+// cron.
 
 func cronCmd() *cobra.Command {
 	c := &cobra.Command{

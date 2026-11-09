@@ -3,7 +3,7 @@
 [![CI](https://github.com/sgnd/komando/actions/workflows/ci.yml/badge.svg)](https://github.com/sgnd/komando/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
-**One safe command line for all your DevOps work — servers, databases, caches, storage and more. For you and your AI agent.**
+**One safe command line for all your DevOps work: servers, databases, caches, storage and more. For you and your AI agent.**
 
 Most people juggle many tools: Termius for servers, TablePlus for databases,
 `redis-cli` for caches, a web console for storage, `kubectl` for clusters.
@@ -11,12 +11,12 @@ Each has its own logins, its own commands and its own way to break things.
 **komando** puts them behind one command line, built so that both you and
 AI agents (Claude Code, Codex, your own bot) can use it well:
 
-- **One list for everything you manage**: servers, databases, caches, storage, clusters, registries and VPNs.
-- **Passwords stay locked** in an encrypted vault (or your own password manager). The AI never sees them.
-- **Clear answers**: readable text for you, structured data (JSON) for the AI.
-- **Seatbelts**: read-only unless you say otherwise, dangerous commands are blocked, production can be protected.
-- **A full history** of everything that was done, and by whom.
-- **Nothing else to install**: one file, with its own SSH, database and VPN clients built in.
+- One list for everything you manage: servers, databases, caches, storage, clusters, registries and VPNs.
+- Passwords stay locked in an encrypted vault (or your own password manager). An AI agent that komando recognises (Claude Code, Codex, Cursor, Gemini CLI, or any agent with `KOMANDO_AGENT=1`) never sees them.
+- Readable text for you, structured data (JSON) for the AI.
+- Read-only unless you say otherwise. Dangerous commands are blocked, and production can be protected.
+- A full history of everything that was done, and by whom.
+- Nothing else to install: one file, with its own SSH, database and VPN clients built in.
 
 ```text
 You ──ask──▶ AI agent ──▶ komando ──▶ servers, databases, caches, storage, ...
@@ -261,13 +261,13 @@ Help for any command: `komando <command> --help`. What comes next: the
 
 ## Safety, in one minute
 
-- Commands like `rm -rf /`, `reboot`, `DROP TABLE` or `FLUSHALL` are **blocked** unless a person allows them.
-- **Protected** servers and conns refuse changes without `--yes`. Looking is still allowed (mark read-only `exec` commands with `--read-only`).
-- Database queries and cache commands **only read** unless you add `--write`. For databases, the database itself enforces it.
+- Commands like `rm -rf /`, `reboot`, `DROP TABLE` or `FLUSHALL` are blocked unless a person allows them.
+- Protected servers and conns refuse changes without `--yes`. Looking is still allowed (mark read-only `exec` commands with `--read-only`).
+- Database queries and cache commands only read unless you add `--write`. For databases, the database itself enforces it.
 - `--dry-run` shows what *would* happen, without changing anything.
 - File edits change exactly the text you name, never leave a half-written file, and can keep a backup.
-- If a server's identity (host key) changes, komando **refuses to connect**.
-- When an AI agent asks for `--yes`, `--allow-dangerous` or `--reveal`, komando shows **you** a window to allow it once.
+- If a server's identity (host key) changes, komando refuses to connect.
+- When an AI agent asks for `--yes`, `--allow-dangerous` or `--reveal`, komando shows you a window to allow it once.
 - Everything is recorded: `komando audit`, and `komando audit verify` checks that nobody edited the record.
 
 More: [Safety](docs/features/safety.md) and [Security](SECURITY.md).

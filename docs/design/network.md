@@ -1,4 +1,4 @@
-# Design: networking — bastions, forwarding, and many VPNs at once
+# Design: networking (bastions, forwarding, and many VPNs at once)
 
 Status: **built, 2026-11-02; VPN clients built in since 2026-11-03** (see
 [Phased plan](#phased-plan) and [built-in.md](built-in.md)). How to use it:
@@ -147,7 +147,7 @@ is extended so it can use the **target name**, not an address:
 
 ```bash
 komando tunnel start app-db                 # localhost:<port> → app-db, through its --via
-komando tunnel start app-db --local 15432   # choose the local port
+komando tunnel start app-db --port 15432    # choose the local port
 komando tunnel start web1 -L 8080:localhost:80   # the old form still works
 komando tunnel start office -D 1080         # SOCKS through the VPN: the browser is "inside" the office network
 ```
@@ -160,8 +160,9 @@ The tunnel runs in the background and holds its path (VPN and bastion) while it 
 - VPN keys (WireGuard private key, Tailscale auth key) are **only in the vault**.
   `vpn add --config` reads the file, moves the key into the vault, and
   stores the rest without the key. The original file is not changed.
-- Tunnels and proxies only listen on `127.0.0.1`, unless given
-  `--bind` (needs `--yes`).
+- Tunnels and proxies only listen on `127.0.0.1`. A different listen address
+  goes in the `-L` or `-D` spec (`0.0.0.0:8080:localhost:80`) and needs `--yes`
+  (`OPEN_BIND`).
 - Protected follows the address within the same VPN network (see
   `protectedHost`). The same address on a different VPN is a different
   server.
@@ -175,7 +176,7 @@ The tunnel runs in the background and holds its path (VPN and bastion) while it 
 - VPN drops in the middle of a command: a `VPN_DOWN` or `TIMEOUT` error with the VPN's name.
 - Slow WireGuard handshake on the first connection: `--connect-timeout` applies to the whole chain.
 - Circular chains (`a --via b`, `b --via a`): refused at `add`/`edit`.
-- Removing a VPN that is still used by `--via`: refused (`IN_USE`), the same as for hosts.
+- Removing a VPN that is still used by `--via`: refused (`VPN_IN_USE`), the same as for hosts.
 - Small MTU on stacked VPNs: use the MTU from the configuration; it can be changed per VPN.
 - Binary size: `tsnet` is quite large, but binary size is not limited
   (see [vision.md](vision.md#technical-rules)).

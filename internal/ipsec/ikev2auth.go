@@ -213,7 +213,7 @@ func verifySignature(cert *x509.Certificate, method byte, sig, signed []byte) er
 	return fmt.Errorf("the server authenticates with method %d, which komando does not support", method)
 }
 
-// ---- EAP
+// EAP.
 
 const (
 	eapRequest  = 1
