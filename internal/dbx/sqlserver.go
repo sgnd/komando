@@ -97,17 +97,22 @@ func openSQLServer(rawURL string, t driver.Target, password string, dial DialFun
 }
 
 // readOnlyTx says whether komando asks database/sql for a read-only
-// transaction: SQLite's connection is read-only instead, and SQL Server
-// has none (its transaction is rolled back).
+// transaction: SQLite's connection is read-only instead, SQL Server has
+// none (its transaction is rolled back), and Oracle's is set by markTx.
 func readOnlyTx(kind string, write bool) bool {
-	return !write && kind != "sqlite" && kind != "sqlserver"
+	return !write && kind != "sqlite" && kind != "sqlserver" && kind != "oracle"
 }
 
 // markTx sets the mark stillInTx looks for. SQL Server has savepoints
-// but no RELEASE; @@TRANCOUNT serves instead.
-func markTx(ctx context.Context, tx *sql.Tx, kind string) error {
-	if kind == "sqlserver" {
-		return stillInTx(ctx, tx, kind)
+// but no RELEASE; @@TRANCOUNT serves instead. Oracle starts the
+// transaction with SET TRANSACTION, read-only unless write.
+func markTx(ctx context.Context, tx *sql.Tx, kind string, write bool) error {
+	switch kind {
+	case "sqlserver":
+		return stillInTx(ctx, tx, kind, write)
+	case "oracle":
+		_, err := tx.ExecContext(ctx, oracleTxMode(write))
+		return err
 	}
 	_, err := tx.ExecContext(ctx, "SAVEPOINT "+txMark)
 	return err
@@ -116,7 +121,10 @@ func markTx(ctx context.Context, tx *sql.Tx, kind string) error {
 // stillInTx fails when the transaction komando opened has ended (a COMMIT
 // the classifier did not see, or a MySQL statement that commits
 // implicitly), so no later statement runs outside it.
-func stillInTx(ctx context.Context, tx *sql.Tx, kind string) error {
+func stillInTx(ctx context.Context, tx *sql.Tx, kind string, write bool) error {
+	if kind == "oracle" {
+		return oracleStillInTx(ctx, tx, write)
+	}
 	if kind == "sqlserver" {
 		var n int
 		if err := tx.QueryRowContext(ctx, "SELECT @@TRANCOUNT").Scan(&n); err != nil {

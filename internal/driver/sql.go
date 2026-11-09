@@ -103,6 +103,7 @@ type dialect struct {
 	execAsCode                           bool // restore: read /*! ... */ as the code MySQL runs instead of refusing it
 	unicodeEsc                           bool // Postgres: U&"..." names and U&'...' strings take \XXXX escapes
 	tsql                                 bool // SQL Server: ]] in [names], nested comments, no statement separator needed (sql_tsql.go)
+	oracle                               bool // Oracle: q'[...]' quotes, PL/SQL blocks that a / line ends (sql_oracle.go)
 }
 
 var dialects = map[string]dialect{
@@ -110,6 +111,7 @@ var dialects = map[string]dialect{
 	"mysql":     {backslash: true, backtick: true, execComments: true, dashSpace: true},
 	"sqlite":    {backtick: true, bracket: true},
 	"sqlserver": {bracket: true, crComments: true, tsql: true},
+	"oracle":    {oracle: true},
 }
 
 // nameByte reports whether c continues an unquoted name. Postgres names
@@ -121,11 +123,15 @@ func (d dialect) nameByte(c byte) bool {
 // splitSQL tokenises sql, dropping comments and quoted text, and splits it
 // into statements at top-level semicolons.
 func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error) {
+	src := sql // the text the statements are cut from; sql is what is scanned (d.mask)
+	if sql, err = d.mask(src); err != nil {
+		return nil, nil, err
+	}
 	var cur []token
 	start, depth := 0, 0
 	inExec := false // inside /*! ... */ (execAsCode)
 	flush := func(end int) {
-		text := strings.TrimSpace(sql[start:end])
+		text := strings.TrimSpace(src[start:end])
 		if len(cur) > 0 {
 			stmts = append(stmts, text)
 			toks = append(toks, cur)
@@ -233,7 +239,7 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 				cur = append(cur, token{punct: '$', depth: depth, pos: i - start}) // $1 parameter
 				i++
 			}
-		case c == ';' && depth == 0 && !(d.tsql && definesBody(cur)): // a T-SQL procedure's body runs to the end
+		case c == ';' && depth == 0 && !d.bodyRuns(cur), d.oracle && depth == 0 && slashLine(sql, i): // a procedure's body runs to the end
 			flush(i)
 			i++
 			start = i
@@ -305,7 +311,7 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 		}
 		kw := firstWord(ts)
 		plan.Statements = append(plan.Statements, Statement{SQL: texts[i], Keyword: kw, Risk: risk,
-			Rows: returnsRows(kw, ts) || kind == "sqlserver" && tsqlRows(kw, ts), NoTx: noTx(kind, kw, ts), NoRollback: noRollback(kw, ts, rules),
+			Rows: rowsFor(kind, kw, ts), NoTx: noTx(kind, kw, ts), NoRollback: noRollback(kw, ts, rules),
 			Unknown: unknownFirst(kind, kw)})
 		if risk > plan.Risk {
 			plan.Risk = risk
@@ -329,7 +335,7 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 // unknown statement needs --write.
 func (p SQLPlan) NeedsWrite() bool {
 	for _, s := range p.Statements {
-		if s.Risk == RiskRead || s.Unknown && s.Risk == RiskWrite && p.kind != "mysql" && p.kind != "sqlserver" {
+		if s.Risk == RiskRead || s.Unknown && s.Risk == RiskWrite && !unknownNeedsWrite[p.kind] {
 			continue
 		}
 		return true
@@ -376,10 +382,8 @@ func noTx(kind, kw string, ts []token) bool {
 		return !mysqlInTx[kw]
 	case "sqlite":
 		return kw == "VACUUM"
-	case "sqlserver":
-		return tsqlNoTx(kw, ts)
 	}
-	return false
+	return otherNoTx(kind, kw, ts)
 }
 
 // mysqlInTx are the MySQL statements that do not commit implicitly.
@@ -771,8 +775,8 @@ func Placeholders(kind, sql string) (n int, ok bool) {
 	if err != nil {
 		return 0, false
 	}
-	if kind == "sqlserver" {
-		return tsqlPlaceholders(toks)
+	if kind == "sqlserver" || kind == "oracle" {
+		return otherPlaceholders(kind, toks)
 	}
 	for _, ts := range toks {
 		for i, t := range ts {

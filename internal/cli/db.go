@@ -54,7 +54,7 @@ type dbFlags struct {
 	// mariaAnalyze: the SQL starts with EXPLAIN ANALYZE, which MariaDB
 	// spells ANALYZE
 	mariaAnalyze bool
-	// showplan: db explain on SQL Server (dbx.Options.Showplan)
+	// showplan: db explain on SQL Server and Oracle (dbx.Options.Showplan)
 	showplan string
 }
 
@@ -73,6 +73,11 @@ SQL that starts with a -- comment: pass it after -- or with -f -.
 SQL Server has no read-only transaction: without --write komando rolls the
 SQL back, and a statement it does not know as a read (a bare procedure
 name, EXEC) needs --write. Its placeholders are @p1, @p2, ...
+
+Oracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs
+to the end of the text or to a line with only /, and needs --write and
+--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in
+Oracle, so it needs --write, goes on its own, and a dry run only reports it.
 
 On a MongoDB conn the text is a command document in JSON, its first key
 naming it ({"find": ...}, {"aggregate": ...}, {"update": ...}). komando rates
@@ -129,7 +134,7 @@ func sqlFlagError(cmd *cobra.Command, err error) error {
 func (f *dbFlags) bind(c *cobra.Command) {
 	c.Flags().BoolVar(&f.write, "write", false, "allow changes (runs in a normal transaction; combine with --dry-run to roll back)")
 	c.Flags().IntVarP(&f.limit, "limit", "n", 500, "max rows returned per statement (0 = no limit; output size is capped by --max-output too)")
-	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite, @p1 in sqlserver); repeat in order")
+	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite, @p1 in sqlserver, :1 in oracle); repeat in order")
 }
 
 func dbExplainCmd() *cobra.Command {
@@ -168,6 +173,12 @@ func dbExplainCmd() *cobra.Command {
 					return out.Usage("sqlite has no EXPLAIN ANALYZE; drop --analyze")
 				}
 				prefix = "EXPLAIN QUERY PLAN "
+			case "oracle": // EXPLAIN PLAN and DBMS_XPLAN
+				if analyze {
+					return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "drop --analyze: db explain shows Oracle's plan with its estimated rows",
+						"db explain --analyze is not available for oracle")
+				}
+				f.showplan = "text"
 			case "sqlserver": // no EXPLAIN: a SET SHOWPLAN_TEXT (or STATISTICS PROFILE) session setting
 				f.showplan = map[bool]string{false: "text", true: "profile"}[analyze]
 			default: // MongoDB, and kinds without SQL: the classifier says how
@@ -536,19 +547,45 @@ func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res 
 	return nil
 }
 
+// sqlGap is the space between two words, which may hold comments
+// (IDENTIFIED/**/BY).
+const sqlGap = `(?:\s|/\*.*?\*/|--[^\n]*\n)+`
+
 // sqlSecret matches the password literal in CREATE/ALTER USER and ROLE,
 // SET PASSWORD and PASSWORD() so the audit log never stores it:
 // PASSWORD 'x' (Postgres), IDENTIFIED [WITH plugin] BY 'x', SET PASSWORD
-// [FOR u] = 'x' (MySQL), PASSWORD = N'x' (SQL Server).
-var sqlSecret = regexp.MustCompile(`(?is)(\bPASSWORD\s*(?:FOR\s+\S+\s*)?=?\s*\(?\s*N?|\bIDENTIFIED\s+(?:WITH\s+\S+\s+)?BY\s+)('(?:[^'\\]|''|\\.)*'|"(?:[^"\\]|""|\\.)*"|\$[A-Za-z_]*\$.*?\$[A-Za-z_]*\$)`)
+// [FOR u] = 'x' (MySQL), PASSWORD = N'x' (SQL Server), IDENTIFIED BY
+// VALUES 'hash' (Oracle).
+var sqlSecret = regexp.MustCompile(`(?is)(\bPASSWORD\s*(?:FOR\s+\S+\s*)?=?\s*\(?\s*N?|\bIDENTIFIED` + sqlGap + `(?:WITH\s+\S+\s+)?BY` + sqlGap + `(?:VALUES` + sqlGap + `)?)('(?:[^'\\]|''|\\.)*'|"(?:[^"\\]|""|\\.)*"|\$[A-Za-z_]*\$.*?\$[A-Za-z_]*\$)`)
+
+// oraSecret is Oracle's IDENTIFIED BY password without quotes.
+var oraSecret = regexp.MustCompile(`(?is)(\bIDENTIFIED` + sqlGap + `BY` + sqlGap + `)([A-Za-z][A-Za-z0-9_$#]*)`)
+
+// oraOld is the old password in Oracle's ALTER USER u IDENTIFIED BY new
+// REPLACE old, once the new one is hidden.
+var oraOld = regexp.MustCompile(`(?is)(\bIDENTIFIED` + sqlGap + `BY` + sqlGap + `(?:'\*\*\*'|\*\*\*)` + sqlGap + `REPLACE` + sqlGap + `)('(?:[^']|'')*'|"(?:[^"]|"")*"|[A-Za-z][A-Za-z0-9_$#]*)`)
 
 func redactSQL(q string) string {
-	return sqlSecret.ReplaceAllString(q, "${1}'***'")
+	q = sqlSecret.ReplaceAllString(q, "${1}'***'")
+	q = oraSecret.ReplaceAllStringFunc(q, func(m string) string {
+		p := oraSecret.FindStringSubmatch(m)
+		if strings.EqualFold(p[2], "PASSWORD") || strings.EqualFold(p[2], "VALUES") { // MySQL's IDENTIFIED BY PASSWORD 'hash'
+			return m
+		}
+		return p[1] + "***"
+	})
+	return oraOld.ReplaceAllStringFunc(q, func(m string) string {
+		p := oraOld.FindStringSubmatch(m)
+		if p[2][0] == '\'' || p[2][0] == '"' {
+			return p[1] + "'***'"
+		}
+		return p[1] + "***"
+	})
 }
 
 // classifyQuery is driver.ClassifySQL for runSQL. Under db explain on SQL
-// Server the statements are only planned (SET SHOWPLAN_TEXT), so a
-// change that the rollback would undo reads.
+// Server and Oracle the statements are only planned (SET SHOWPLAN_TEXT,
+// EXPLAIN PLAN), so a change that the rollback would undo reads.
 func classifyQuery(kind, query string, f dbFlags) (driver.SQLPlan, error) {
 	plan, err := driver.ClassifySQL(kind, query)
 	if err != nil || f.showplan != "text" {

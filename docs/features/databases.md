@@ -1,6 +1,6 @@
 # Databases
 
-Add PostgreSQL, MySQL/MariaDB, SQL Server and SQLite databases, then query, inspect,
+Add PostgreSQL, MySQL/MariaDB, SQL Server, Oracle and SQLite databases, then query, inspect,
 back up and restore them safely. [All features](README.md)
 
 ## Quick start
@@ -27,6 +27,7 @@ the URL:
 | PostgreSQL | `postgres://app@10.0.0.5:5432/app?sslmode=require` |
 | MySQL / MariaDB | `mysql://shop@db.internal:3306/shop?tls=true` |
 | SQL Server | `sqlserver://app@db.internal:1433/sales?encrypt=true` (also `mssql://`). See [SQL Server](#sql-server). |
+| Oracle | `oracle://app@db.internal:1521/ORCLPDB1?tls=true` (the path is the service name). See [Oracle](#oracle). |
 | SQLite | `sqlite:///var/lib/app.db` (a file on this computer) |
 | MongoDB | `mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin` (Atlas: `mongodb+srv://app@cluster0.abcde.mongodb.net/shop`). See [MongoDB](#mongodb). |
 
@@ -81,6 +82,7 @@ giving them the password:
 | PostgreSQL | `?sslmode=verify-full` | `?sslmode=require` | `?sslmode=disable` |
 | MySQL / MariaDB | `?tls=true` | `?tls=skip-verify` | `?tls=false` |
 | SQL Server | `?encrypt=true` (or `strict`) | `?encrypt=true&tls=skip-verify` | `?encrypt=disable` |
+| Oracle | `?tls=true` (TCPS) | `?tls=skip-verify` | `?tls=false` |
 
 - Without a setting, a Postgres conn uses TLS when the server offers it,
   but does not check the certificate and goes on without TLS when told to.
@@ -88,11 +90,13 @@ giving them the password:
   encrypts the password with a key the server sends over that same plain
   connection, which someone in between can swap. A SQL Server conn without
   `encrypt=` (or with `encrypt=false`) encrypts only the login, and
-  without `encrypt=` does not check the certificate either.
+  without `encrypt=` does not check the certificate either. An Oracle conn
+  without `tls=true` uses no TLS; Oracle's own network encryption, when the
+  server turns it on, encrypts but does not prove who the server is.
 - **New conns check by default.** When `conn add` (or `conn edit --url`)
   saves such a conn and its URL does not say how to use TLS, komando adds
-  `sslmode=verify-full` (Postgres), `tls=true` (MySQL) or `encrypt=true`
-  (SQL Server) and says so in
+  `sslmode=verify-full` (Postgres), `tls=true` (MySQL, Oracle) or
+  `encrypt=true` (SQL Server) and says so in
   `warnings`. A URL that names a setting keeps it, and a conn through
   `--via` or to this computer is left as written. If the server has no TLS
   or a certificate from its own CA, the first connection's hint says what
@@ -102,7 +106,7 @@ giving them the password:
   `komando conn edit NAME --url ...` line that fixes it.
 - A server whose certificate comes from a private CA (your company's, or a
   cloud's own, such as Amazon RDS or Azure Database): store the CA and name
-  it with `?ca=`, for Postgres, MySQL and SQL Server. The certificate is then fully
+  it with `?ca=`, for Postgres, MySQL, SQL Server and Oracle. The certificate is then fully
   checked: signed by that CA and naming the server, also with
   `sslmode=require`, and never without TLS:
 
@@ -129,14 +133,17 @@ komando db query app-db --file report.sql    # SQL from a file (--file - reads s
 ```
 
 **Use `--arg` for values** instead of pasting them into the SQL. The
-placeholders are `$1`, `$2` in PostgreSQL, `?` in MySQL and SQLite, and
-`@p1`, `@p2` in SQL Server:
+placeholders are `$1`, `$2` in PostgreSQL, `?` in MySQL and SQLite,
+`@p1`, `@p2` in SQL Server, and `:1`, `:2` in Oracle:
 
 ```bash
 komando db query app-db "select * from users where email = $1" --arg bob@example.com
 ```
 
 The number of `--arg` values must match the placeholders (`USAGE`, exit 2).
+In Oracle SQL each placeholder takes its own `--arg`, also a name used
+twice (`where a = :1 or b = :1` takes two); in a PL/SQL block a name used
+twice takes one.
 
 **For spreadsheets and scripts**, `--csv` or `--tsv` prints the rows
 instead of JSON or a table. NULL is an empty field, binary is `\x` hex:
@@ -182,6 +189,7 @@ line. Put `--` before it, or use `--file -`.
 | money, xml and other types | text, with the type named in `columns` |
 | SQL Server decimal, money | text with every digit (`"12.50"`) |
 | SQL Server uniqueidentifier | `"6F9619FF-8B86-D011-B42D-00C04FC964FF"` |
+| Oracle DATE (it holds a time of day too) | `"2026-11-09 13:04:05"` |
 
 In text output, tables line up, also with CJK characters and emoji.
 
@@ -265,6 +273,8 @@ komando db kill app-db 4821 --session --allow-dangerous   # end the whole connec
   apply to it.
 - SQL Server can only end a whole session (`KILL`), so `db kill` needs
   `--session` there.
+- On Oracle the PID is the session's SID (`db activity` shows it, with
+  its serial#).
 
 ## Users and grants
 
@@ -289,7 +299,7 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
 - `--on` takes `database:NAME`, `schema:NAME`, `table:[SCHEMA.]TABLE` or
   `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
   and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).
-  For SQL Server see [SQL Server](#sql-server).
+  For SQL Server see [SQL Server](#sql-server), for Oracle [Oracle](#oracle).
 - Adding users and grants are changes (`--yes` on protected conns).
   Removing a user also needs `--allow-dangerous`.
 
@@ -546,6 +556,92 @@ komando db kill sales 57 --session --allow-dangerous
   writes a `.bak` file on the database server (with `--write` and
   `--allow-dangerous`); `komando download` then fetches it from that server.
 
+## Oracle
+
+Oracle Database conns (19c and later, and Oracle Database Free) take the
+same `db` commands, in Oracle SQL:
+
+```bash
+komando secret set erp-pass
+komando conn add erp 'oracle://app@db.internal:1521/ERPPDB?tls=true' --password-ref secret:erp-pass
+komando db query erp "select id, email from app.users order by id desc fetch first 10 rows only"
+komando db query erp "select * from app.users where email = :1" --arg bob@example.com
+komando db query erp --write --dry-run "update app.users set plan = 'pro' where id = 42"
+komando db schema erp app.orders                   # columns, identity, indexes, foreign keys, checks
+komando db explain erp "select * from app.orders where user_id = 42"   # EXPLAIN PLAN; nothing runs
+komando db info erp
+komando db kill erp 371 --session --allow-dangerous   # 371 is the SID
+```
+
+- **The URL.** The path is the service name, often a pluggable database
+  (`ORCLPDB1`, `FREEPDB1`); `lsnrctl status` on the server lists them. An
+  old database without services: `oracle://app@db:1521?sid=ORCL`. The
+  options are `tls=` (`true`, `skip-verify`, `false`; TCPS listens on its
+  own port, often 2484) and `ca=secret:NAME` for a private CA (with
+  `tls=true`). Logins are user and password; wallets and Kerberos are not
+  supported.
+- **Without `--write` nothing changes.** komando starts every run with
+  `SET TRANSACTION READ ONLY`, and checks after each statement that this
+  transaction is still open.
+- **DDL commits on its own** in Oracle (`CREATE`, `ALTER`, `DROP`, `GRANT`,
+  `TRUNCATE`, `COMMENT`, ...). So it always needs `--write`, must be sent on
+  its own, and a dry run only reports it. `ALTER SESSION` is not DDL.
+- **PL/SQL.** A block (`BEGIN ... END;`, `DECLARE ...`) and `WITH FUNCTION`
+  run code komando cannot follow: they need `--write` and
+  `--allow-dangerous`, and a dry run skips them. A block runs to the end of
+  the text or to a line with only `/`, as in SQL*Plus:
+
+  ```bash
+  komando db query erp --write --allow-dangerous -f - <<'SQL'
+  begin
+    app.close_month(date '2026-10-31');
+  end;
+  /
+  SQL
+  ```
+
+  `CREATE PROCEDURE`, `FUNCTION`, `PACKAGE`, `TRIGGER` and `TYPE` work the
+  same way; creating one is a change, and what the body does counts when
+  it runs.
+- `COMMIT`, `ROLLBACK`, `SAVEPOINT`, `SET TRANSACTION` and
+  `PRAGMA AUTONOMOUS_TRANSACTION` are refused anywhere, also inside a
+  block. Names and text with letters outside ASCII must be quoted
+  (`"Straße"`, `'café'`). `q'[...]'` quotes work.
+- Calls to packages that reach other servers or files (`UTL_HTTP`,
+  `UTL_FILE`, `DBMS_PIPE`, `DBMS_SCHEDULER`, ...) need `--write` and
+  `--allow-dangerous`, and so does a call to any function that is not one
+  of Oracle's own (`app.close_month(1)`, `pkg.f(x)`): it can commit on its
+  own (an autonomous transaction), even in a `SELECT`. A name across a
+  database link (`orders@prodlink`) and an inline external table
+  (`FROM EXTERNAL (...)`, which reads files on the database server and with
+  a `PREPROCESSOR` runs a program there) need the same. A function called
+  without `()` looks like a column, so komando cannot see it: for a hard
+  limit, give the conn a user with only `SELECT` (or `READ`) grants.
+- `db explain` uses `EXPLAIN PLAN` and `DBMS_XPLAN`: nothing runs, so it
+  needs no `--write` for a change either, nor for the DDL that `EXPLAIN
+  PLAN` takes (`CREATE TABLE`, `CREATE INDEX`, `ALTER INDEX`). Other DDL
+  cannot be planned. `--analyze` is not available on
+  Oracle (`NOT_SUPPORTED`); the plan shows Oracle's estimated rows.
+- `db activity`, `locks`, `kill`, and the size and uptime in `db info`,
+  read Oracle's `V$` and `DBA_` views: the conn's user needs
+  `SELECT_CATALOG_ROLE`. Without it `db sizes` shows the user's own tables
+  and the others say what to grant. A table's `CLOB` and `BLOB` data
+  counts in its `total_bytes` (not in `table_bytes`, as with PostgreSQL's
+  TOAST). `db kill` without `--session` stops
+  only the running call (`ALTER SYSTEM CANCEL SQL`, Oracle 18c and later).
+- **Users.** In Oracle a user is also a schema. `db user add` creates the
+  user and lets it log in (`CREATE SESSION`); `--no-login` creates a role.
+  `db user rm` refuses a user that still owns tables (`DB_USER_IN_USE`).
+  Names are upper case, as Oracle stores them. `db grant` takes
+  `--on table:[SCHEMA.]TABLE` (`SELECT`, `INSERT`, `UPDATE`, `DELETE`,
+  `EXECUTE`, ...), `--on database` (system privileges such as
+  `CREATE TABLE` or `SELECT ANY TABLE`), `--on schema:NAME` (Oracle 23ai:
+  `SELECT` becomes `SELECT ANY TABLE ON SCHEMA`), and `--role NAME`.
+- **Backups.** `db dump` and `db restore` are not available for Oracle
+  (`NOT_SUPPORTED`): Data Pump (`expdp`, `impdp`) and RMAN run on the
+  database server and write there. Run them with `komando exec` (or a
+  `komando job` for a big one), then fetch the file with `komando download`.
+
 ## Interactive SQL shell (for people)
 
 ```bash
@@ -554,8 +650,8 @@ komando db shell staging-db --write   # allow changes
 komando db shell app-db --yes         # any shell on a protected conn needs --yes
 ```
 
-`db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB and
-SQLite, so nothing else needs to be installed. It connects through the
+`db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB,
+SQL Server, Oracle and SQLite, so nothing else needs to be installed. It connects through the
 conn's `--via` path, and every statement gets the same checks as
 `db query`: read-only unless you started it with `--write`, destructive
 statements only with `--allow-dangerous`, and each one is written to the

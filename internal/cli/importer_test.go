@@ -166,6 +166,22 @@ func TestImportFileZillaRcloneDBeaver(t *testing.T) {
 	if len(db.Conns) != 1 || db.Conns[0].Name != "shop-prod" || db.Conns[0].URL != "postgres://app@db.lan:5432/shop" {
 		t.Errorf("dbeaver: %+v", db.Conns)
 	}
+	// an Oracle connection by SID, and one by service name
+	ora, err := importDBeaver(writeTemp(t, "data-sources.json", `{"connections":{
+		"oracle-1":{"name":"Old ERP","provider":"oracle","configuration":{"host":"erp.lan","port":"1521","database":"ORCL","user":"app",
+			"provider-properties":{"@dbeaver-sid-service@":"SID"}}},
+		"oracle-2":{"name":"New ERP","provider":"oracle","configuration":{"host":"erp.lan","port":"1521","database":"ERPPDB","user":"app",
+			"provider-properties":{"@dbeaver-sid-service@":"SERVICE"}}}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, c := range ora.Conns {
+		got[c.Name] = c.URL
+	}
+	if got["old-erp"] != "oracle://app@erp.lan:1521?sid=ORCL" || got["new-erp"] != "oracle://app@erp.lan:1521/ERPPDB" {
+		t.Errorf("dbeaver oracle: %v", got)
+	}
 }
 
 // DBeaver keeps passwords elsewhere, so the import says how to set each

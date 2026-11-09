@@ -143,7 +143,7 @@ checked before anything is written).
 These are conns (`komando list kind:conn`). Each has its own command; never
 reach them through `exec`.
 
-**Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, SQLite):
+**Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, SQLite):
 
 ```bash
 komando db schema <conn> [table...]                     # tables, then columns and indexes
@@ -171,6 +171,14 @@ read-only transaction: without `--write` komando rolls everything back, and
 a statement it does not know as a read (a bare procedure name, `EXEC`) needs
 `--write`. End each statement with `;`. `db dump` and `restore` are not
 available there (`NOT_SUPPORTED`).
+
+**Oracle** conns take Oracle SQL with `:1`, `:2` placeholders. DDL
+(`CREATE`, `ALTER`, `DROP`, `GRANT`) commits on its own, so it needs
+`--write`, goes alone, and a dry run only reports it. A PL/SQL block
+(`BEGIN ... END;`) ends with a line holding only `/` and needs `--write`
+and `--allow-dangerous`: ask the human first. Table names are upper case
+(`db schema <conn>` shows them). `db dump` and `restore` are not available
+(`NOT_SUPPORTED`).
 
 **Caches** (Redis, Valkey, memcached): `cache get|keys|info <conn>` read, `cache set`
 changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run

@@ -15,9 +15,10 @@ import (
 // overNetwork):
 //
 //   - Postgres without sslmode gets sslmode=verify-full, MySQL without tls=
-//     gets tls=true, SQL Server without encrypt= gets encrypt=true
-//     (verifiedTLSURL). Left out, both would take TLS only
-//     when the server offers it, without checking whose certificate it is.
+//     gets tls=true, SQL Server without encrypt= gets encrypt=true, Oracle
+//     without tls= gets tls=true (TCPS) (verifiedTLSURL). Left out, they
+//     would take TLS only when the server offers it, without checking whose
+//     certificate it is, or (Oracle) none at all.
 //   - redis://, memcached://, amqp:// and nats:// name a connection without
 //     TLS, and so do kafka:// without tls=true and sqs:// and pubsub://
 //     with an http:// endpoint, so they are refused unless ?insecure=1
@@ -43,7 +44,7 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 		if !q.Has("sslmode") {
 			added = "sslmode=verify-full"
 		}
-	case "mysql":
+	case "mysql", "oracle":
 		if !q.Has("tls") {
 			added = "tls=true"
 		}

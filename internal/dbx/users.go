@@ -103,6 +103,8 @@ from mysql.user order by user, host`)
 		return rows, err
 	case "sqlserver":
 		return mssqlUsers(ctx, db)
+	case "oracle":
+		return oracleUsers(ctx, db)
 	}
 	return nil, notFor(kind, "db user")
 }
@@ -121,8 +123,11 @@ func userSQL(ctx context.Context, db *sql.DB, kind, action string, u UserSpec) (
 	if err := checkRole(u.Name); err != nil {
 		return "", "", err
 	}
-	if kind == "sqlserver" {
+	switch kind {
+	case "sqlserver":
 		return mssqlUserSQL(action, u)
+	case "oracle":
+		return oracleUserSQL(action, u)
 	}
 	host := u.Host
 	if host == "" {
@@ -196,6 +201,9 @@ func UserChange(ctx context.Context, db *sql.DB, kind, action string, u UserSpec
 // userErr names the common failures without echoing the statement.
 func userErr(err error, name string) error {
 	msg := err.Error()
+	if n := oraNumber(err); n != 0 {
+		return oraUserErr(n, firstLine(msg), name)
+	}
 	switch {
 	case strings.Contains(msg, "already exists"), strings.Contains(msg, "1396") && strings.Contains(strings.ToLower(msg), "create user"):
 		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd`", "user %s already exists", name)
@@ -236,13 +244,16 @@ var myPrivs = map[string]bool{"SELECT": true, "INSERT": true, "UPDATE": true, "D
 
 var validObj = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_$]{0,62}$`)
 
+// grantSQLFor are the kinds whose grants have a file of their own.
+var grantSQLFor = map[string]func(context.Context, *sql.DB, Grant) (string, error){"sqlserver": mssqlGrantSQL, "oracle": oracleGrantSQL}
+
 // GrantSQL builds the statement for g.
 func GrantSQL(ctx context.Context, db *sql.DB, kind string, g Grant) (string, error) {
 	if err := checkRole(g.User); err != nil {
 		return "", err
 	}
-	if kind == "sqlserver" {
-		return mssqlGrantSQL(ctx, db, g)
+	if f := grantSQLFor[kind]; f != nil {
+		return f(ctx, db, g)
 	}
 	verb, prep := "grant", " to "
 	if g.Revoke {
@@ -374,6 +385,8 @@ order by 1, 2`, user)
 		return res, rows.Err()
 	case "sqlserver":
 		return mssqlGrants(ctx, db, user)
+	case "oracle":
+		return oracleGrants(ctx, db, user)
 	}
 	return nil, notFor(kind, "db grants")
 }

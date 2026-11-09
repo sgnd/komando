@@ -30,7 +30,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Services, logs, Docker, packages, users](system.md) | day-to-day administration, security updates, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |
 | [Private servers and tunnels](tunnels.md) | reach servers and services that are not on the internet | `--via`, `tunnel` |
 | [VPNs](vpn.md) | reach targets behind WireGuard, OpenVPN, Tailscale, AnyConnect, IPsec and other VPNs, several at once | `vpn`, `--via` |
-| [Databases](databases.md) | query, back up and restore PostgreSQL and MySQL/MariaDB; query and back up SQLite; query SQL Server and MongoDB | `conn`, `db` |
+| [Databases](databases.md) | query, back up and restore PostgreSQL and MySQL/MariaDB; query and back up SQLite; query SQL Server, Oracle and MongoDB | `conn`, `db` |
 | [Caches](caches.md) | read and change Redis, Valkey and memcached | `cache` |
 | [Queues](queues.md) | Kafka topics, RabbitMQ queues, NATS JetStream streams, Amazon SQS queues and Google Cloud Pub/Sub topics: list, peek, lag, send | `queue` |
 | [Storage](storage.md) | browse, download, upload and share files in S3 buckets and on FTPS/SFTP/FTP servers | `storage`, `upload`, `download`, `sync` |

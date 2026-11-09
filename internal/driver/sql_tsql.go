@@ -143,8 +143,11 @@ func (d dialect) skipComment(sql string, i int) (int, error) {
 	return i, nil
 }
 
-// classifyFor is classifyStatement with the T-SQL rules on top.
+// classifyFor is classifyStatement with the T-SQL or Oracle rules on top.
 func classifyFor(kind string, ts []token) (Risk, []string, error) {
+	if kind == "oracle" {
+		return oracleStatement(ts)
+	}
 	risk, rules, err := classifyStatement(ts, true)
 	if err != nil || kind != "sqlserver" {
 		return risk, rules, err
@@ -152,10 +155,18 @@ func classifyFor(kind string, ts []token) (Risk, []string, error) {
 	return tsqlStatement(ts, risk, rules)
 }
 
+// unknownNeedsWrite are the kinds where a statement komando does not know
+// needs --write: their read-only transaction does not cover everything
+// (MySQL admin statements, Oracle DDL), or there is none (SQL Server).
+var unknownNeedsWrite = map[string]bool{"mysql": true, "sqlserver": true, "oracle": true}
+
 // unknownFirst reports a first word komando does not know.
 func unknownFirst(kind, kw string) bool {
-	if kind == "sqlserver" {
+	switch kind {
+	case "sqlserver":
 		return !tsqlFirst[kw]
+	case "oracle":
+		return !oracleFirst[kw]
 	}
 	return !readFirst[kw] && !writeFirst[kw] && !opaqueFirst[kw]
 }
@@ -305,6 +316,36 @@ func tsqlRows(kw string, ts []token) bool {
 	return false
 }
 
+// rowsFor reports a statement that returns rows.
+func rowsFor(kind, kw string, ts []token) bool {
+	switch kind {
+	case "oracle":
+		return oracleRows(kw)
+	case "sqlserver":
+		return returnsRows(kw, ts) || tsqlRows(kw, ts)
+	}
+	return returnsRows(kw, ts)
+}
+
+// otherNoTx is noTx for SQL Server and Oracle.
+func otherNoTx(kind, kw string, ts []token) bool {
+	switch kind {
+	case "sqlserver":
+		return tsqlNoTx(kw, ts)
+	case "oracle":
+		return oracleNoTx(kw, ts)
+	}
+	return false
+}
+
+// otherPlaceholders is Placeholders for SQL Server and Oracle.
+func otherPlaceholders(kind string, toks [][]token) (int, bool) {
+	if kind == "oracle" {
+		return oraclePlaceholders(toks)
+	}
+	return tsqlPlaceholders(toks)
+}
+
 // tsqlNoTx reports statements SQL Server refuses inside a transaction.
 func tsqlNoTx(kw string, ts []token) bool {
 	second := ""
@@ -346,13 +387,18 @@ func tsqlPlaceholders(toks [][]token) (int, bool) {
 	return n, true
 }
 
-// PlanOnly is plan for SQL that SQL Server only plans (SET SHOWPLAN_TEXT
-// ON, db explain): a statement that the rollback would undo reads.
+// PlanOnly is plan for SQL that SQL Server or Oracle only plans (SET
+// SHOWPLAN_TEXT ON, EXPLAIN PLAN; db explain): a statement that the
+// rollback would undo reads, and so does Oracle DDL that EXPLAIN PLAN takes.
 // Statements that may act outside the transaction keep their rating.
 func PlanOnly(plan SQLPlan) SQLPlan {
 	plan.Risk = RiskRead
 	lowered := true
 	for i, s := range plan.Statements {
+		if plan.kind == "oracle" && s.NoTx && !s.NoRollback && oracleExplainable(s.SQL) {
+			s.NoTx = false // EXPLAIN PLAN does not run it, so nothing commits
+			plan.Statements[i] = s
+		}
 		if s.NoTx || s.NoRollback {
 			lowered = false
 			plan.Risk = max(plan.Risk, s.Risk)

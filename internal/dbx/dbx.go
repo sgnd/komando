@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -109,9 +110,9 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		if db, err = sql.Open("sqlite", "file:"+path+"?"+q.Encode()); err != nil {
 			return nil, err
 		}
-	case "sqlserver":
+	case "sqlserver", "oracle":
 		var err error
-		if db, err = openSQLServer(rawURL, t, password, dial, appName); err != nil {
+		if db, err = map[string]opener{"sqlserver": openSQLServer, "oracle": openOracle}[t.Kind.Name](rawURL, t, password, dial, appName); err != nil {
 			return nil, err
 		}
 	case "mongodb":
@@ -210,9 +211,10 @@ type Options struct {
 	MaxBytes int // rough cap on the JSON size of all rows
 	Timeout  time.Duration
 	Args     []any
-	// Showplan is db explain on SQL Server: "text" plans each statement
-	// without running it (SET SHOWPLAN_TEXT), "profile" runs it and
-	// returns the plan with real row counts (SET STATISTICS PROFILE).
+	// Showplan is db explain on SQL Server and Oracle: "text" plans each
+	// statement without running it (SET SHOWPLAN_TEXT, EXPLAIN PLAN);
+	// "profile" (SQL Server) runs it and returns the plan with real row
+	// counts (SET STATISTICS PROFILE).
 	Showplan string
 }
 
@@ -343,7 +345,7 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 	if err := setTimeout(ctx, tx, kind, o.Timeout, true); err != nil {
 		return nil, queryErr(kind, ctx, err)
 	}
-	if err := markTx(ctx, tx, kind); err != nil {
+	if err := markTx(ctx, tx, kind, txWrites(o)); err != nil {
 		return nil, queryErr(kind, ctx, err)
 	}
 	for i, st := range plan.Statements {
@@ -359,7 +361,7 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 		if err := runStatement(ctx, tx, conn, kind, st, o, &budget, &r); err != nil {
 			return nil, queryErr(kind, ctx, err)
 		}
-		if err := stillInTx(ctx, tx, kind); err != nil {
+		if err := stillInTx(ctx, tx, kind, txWrites(o)); err != nil {
 			if ctx.Err() != nil {
 				return nil, queryErr(kind, ctx, err)
 			}
@@ -451,8 +453,11 @@ func mysqlReadOnlySession(ctx context.Context, conn *sql.Conn) (restore func(), 
 // would send an Exec without arguments as a simple query, where a COMMIT
 // hidden from komando's splitter would end the read-only transaction.
 func runStatement(ctx context.Context, q querier, conn *sql.Conn, kind string, st driver.Statement, o Options, budget *int, r *StatementResult) error {
-	if o.Showplan != "" && kind == "sqlserver" {
+	switch {
+	case o.Showplan != "" && kind == "sqlserver":
 		return runShowplan(ctx, q, st, o, r)
+	case o.Showplan != "" && kind == "oracle":
+		return runOraclePlan(ctx, q, st, r)
 	}
 	if !st.Rows && kind == "postgres" && len(o.Args) == 0 {
 		var tag pgconn.CommandTag
@@ -491,8 +496,12 @@ func runStatement(ctx context.Context, q querier, conn *sql.Conn, kind string, s
 	}
 	types := make([]string, len(cts))
 	for i, ct := range cts {
-		types[i] = strings.ToUpper(ct.DatabaseTypeName())
-		r.Columns = append(r.Columns, Column{Name: ct.Name(), Type: strings.ToLower(ct.DatabaseTypeName())})
+		name := ct.DatabaseTypeName()
+		if kind == "oracle" {
+			name = oracleTypeName(name)
+		}
+		types[i] = strings.ToUpper(name)
+		r.Columns = append(r.Columns, Column{Name: ct.Name(), Type: strings.ToLower(name)})
 	}
 	r.Rows = [][]any{}
 	if r.Columns == nil {
@@ -550,17 +559,24 @@ func connectErr(t driver.Target, err error) error {
 		return oe
 	}
 	var pe *pgconn.PgError
-	if errors.As(err, &pe) && (pe.Code == "28P01" || pe.Code == "28000") || isMySQLAuth(err) || isMSAuth(err) {
+	if errors.As(err, &pe) && (pe.Code == "28P01" || pe.Code == "28000") || isMySQLAuth(err) || isMSAuth(err) || isOraAuth(err) {
 		return out.Errf(out.ExitConnect, "DB_AUTH", "check the user in the URL and the password reference (`komando conn show NAME`)", "%v", err)
 	}
 	if errors.As(err, &pe) && pe.Code == "3D000" || isMySQLNoDatabase(err) || isMSNoDatabase(err) {
 		return out.Errf(out.ExitNotFound, "DB_NOT_FOUND", "check the database name at the end of the conn URL (`komando conn show NAME`)", "%v", err)
+	}
+	if t.Kind.Name == "oracle" && isOraNoService(err) {
+		return out.Errf(out.ExitNotFound, "DB_NOT_FOUND", "check the service name at the end of the conn URL (`komando conn show NAME`); `lsnrctl status` on the server lists them", "%v", err)
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "the database did not answer in time; check the address or raise --connect-timeout", "connecting to %s timed out", t.Where())
 	}
 	if t.Kind.File {
 		return out.Errf(out.ExitNotFound, "DB_CONNECT", "check the file path in the conn URL", "cannot open %s: %v", t.Path, err)
+	}
+	if t.Kind.Name == "oracle" && t.Secure && (errors.Is(err, io.EOF) || err.Error() == "EOF") {
+		// a listener without TCPS closes the connection on the TLS hello
+		err = fmt.Errorf("%w (server refused TLS: the listener closed the connection)", err)
 	}
 	if h := tlsHint(t.Kind.Name, err); h != "" {
 		return out.Errf(out.ExitConnect, "DB_CONNECT", h, "cannot connect to %s: %v", t.Where(), err)
@@ -578,6 +594,7 @@ func tlsHint(kind string, err error) string {
 		"postgres":  {"?sslmode=require", "?sslmode=disable"},
 		"mysql":     {"?tls=skip-verify", "?tls=false"},
 		"sqlserver": {"&tls=skip-verify", "?encrypt=disable"},
+		"oracle":    {"?tls=skip-verify", "?tls=false"},
 	}[kind]
 	if weak[0] == "" {
 		return ""
@@ -590,7 +607,8 @@ func tlsHint(kind string, err error) string {
 		ca := "give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`)"
 		return "the server's certificate could not be checked: " + ca + ", or " + via +
 			"; without --via, " + weak[0] + " encrypts without checking it, so anyone on the network path could pretend to be the server"
-	case strings.Contains(msg, "server refused TLS"), errors.Is(err, mysql.ErrNoTLS):
+	case strings.Contains(msg, "server refused TLS"), errors.Is(err, mysql.ErrNoTLS),
+		kind == "oracle" && strings.Contains(msg, "first record does not look like a TLS handshake"):
 		return "the server has no TLS: " + via + "; without --via, " + weak[1] + " sends the password and the data unencrypted"
 	}
 	return ""
@@ -623,6 +641,8 @@ func queryErr(kind string, ctx context.Context, err error) error {
 		return mysqlErr(err)
 	case "sqlserver":
 		return mssqlErr(err)
+	case "oracle":
+		return oracleErr(err)
 	}
 	msg := err.Error()
 	if kind == "sqlite" && (strings.Contains(msg, "readonly database") || strings.Contains(msg, "query_only")) {

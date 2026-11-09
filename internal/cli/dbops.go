@@ -128,7 +128,8 @@ func dbKillCmd() *cobra.Command {
 		Long: `Find the PID with ` + "`komando db activity`" + ` or ` + "`komando db locks`" + `. Without --session
 only the running query stops (its transaction rolls back) and the client
 stays connected. --dry-run shows the session it would stop. SQL Server can
-only end a session (KILL), so there it needs --session.`,
+only end a session (KILL), so there it needs --session. On Oracle the PID
+is the SID that db activity shows.`,
 		Example: `  komando db kill prod-db 4821 --dry-run
   komando db kill prod-db 4821
   komando db kill prod-db 4821 --session --allow-dangerous`,

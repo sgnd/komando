@@ -195,6 +195,16 @@ func plainConn(c *store.Conn) string {
 		return fix("travels unencrypted (no tls=true): anyone on the network path can read the data, and can swap the key the MySQL 8 login encrypts the password with, and so read the password")
 	case "sqlserver":
 		return sqlserverTLSRisk(q, t, fix, notChecked)
+	case "oracle":
+		switch t.TLS {
+		case "true":
+			return ""
+		case "skip-verify":
+			return fix(notChecked)
+		}
+		// Oracle's native network encryption, when the server asks for
+		// it, encrypts but does not prove who the server is
+		return fix("travels without TLS (no tls=true): anyone on the network path can read the data, unless the server turns on Oracle's native encryption, and even then can pretend to be the server")
 	case "redis":
 		if !t.Secure {
 			return fix("travels unencrypted: anyone on the network path can read the password and the data")
@@ -262,7 +272,7 @@ func verifiedTLSURL(raw, kind string) string {
 	switch kind {
 	case "postgres":
 		key, val = "sslmode", "verify-full"
-	case "mysql":
+	case "mysql", "oracle":
 		key, val = "tls", "true"
 	case "sqlserver":
 		return sqlserverVerifiedURL(u)

@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -82,6 +83,13 @@ func TestArgCountAndTimeout(t *testing.T) {
 	}
 	if err := checkArgs("postgres", "select $1", 1); err != nil {
 		t.Error(err)
+	}
+	for kind, sql := range map[string]string{"oracle": "select :1 from dual", "sqlserver": "select @p1", "mysql": "select ?"} {
+		e, _ := checkArgs(kind, sql, 2).(*out.Error)
+		want := map[string]string{"oracle": ":1, :2, ...", "sqlserver": "@p1, @p2, ...", "mysql": "?"}[kind]
+		if e == nil || !strings.Contains(e.Hint, "("+want+")") {
+			t.Errorf("%s hint: %v", kind, e)
+		}
 	}
 	te := timeoutErr(out.Errf(out.ExitTimeout, "TIMEOUT", "", "query timed out"), 30*time.Second).(*out.Error)
 	if te.Message != "query timed out after 30s" || te.Hint != "narrow the query (WHERE, LIMIT), or allow more time with --timeout 1m" {

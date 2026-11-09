@@ -214,6 +214,20 @@ its highlights; the sections below them give the details. Versions follow
   `1e DROP`). A URL option given twice (`encrypt=true&Encrypt=disable`) is
   refused. `db dump` and `restore` say `NOT_SUPPORTED` for now. Built in
   with go-mssqldb (BSD-3-Clause), pure Go.
+- **Oracle conns** (`oracle://app@db.internal:1521/ORCLPDB1?tls=true`, the
+  path is the service name; `?sid=` for old databases): `db query`,
+  `schema`, `explain` (EXPLAIN PLAN and DBMS_XPLAN),
+  `info`, `activity`, `locks`, `sizes`, `kill`, users and grants, `db shell`
+  and `conn test`, through `--via` and VPNs, with TCPS (`tls=true`,
+  `tls=skip-verify`) and `?ca=secret:NAME`. New conns that cross the network
+  get `tls=true`. Without `--write` every run is `SET TRANSACTION READ ONLY`,
+  checked after each statement. DDL commits on its own in Oracle, so it
+  always needs `--write` and runs alone; PL/SQL blocks, calls to stored
+  functions (which can commit on their own), database links and inline
+  external tables need `--write` and `--allow-dangerous`; `COMMIT` and autonomous transactions are refused
+  anywhere; `q'[...]'` quotes and `/` lines are read as Oracle does. `db
+  dump` and `restore` say `NOT_SUPPORTED` (Data Pump runs on the server).
+  Built in with go-ora (MIT), pure Go.
 
 ## [0.8.0] - 2026-11-09
 

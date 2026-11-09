@@ -31,10 +31,11 @@ func dbShellCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "shell CONN",
 		Short: "Interactive SQL shell for people (read-only unless --write)",
-		Long: `Opens komando's own SQL shell on CONN (PostgreSQL, MySQL/MariaDB, SQL Server or SQLite),
+		Long: `Opens komando's own SQL shell on CONN (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle or SQLite),
 through its --via path when it has one. Nothing else needs to be installed.
 
-Each statement ends with ; and runs with the checks of db query: read-only
+Each statement ends with ; (an Oracle PL/SQL block with a line holding
+only /) and runs with the checks of db query: read-only
 unless the shell was started with --write, destructive statements only with
 --allow-dangerous, and every statement is audited. A statement runs in its
 own transaction. A protected conn asks first.
@@ -238,7 +239,7 @@ func (s *sqlShell) run(ctx context.Context) {
 		expanded := false
 		if strings.HasSuffix(text, `\G`) {
 			text, expanded = strings.TrimSpace(strings.TrimSuffix(text, `\G`)), true
-		} else if !statementDone(text) {
+		} else if !shellDone(s.kind, text) {
 			continue
 		}
 		buf.Reset()
@@ -285,14 +286,17 @@ func (s *sqlShell) meta(ctx context.Context, line string) bool {
 		s.printf("%s", schemaData{Tables: tables}.Text())
 	case `\l`, `\list`:
 		s.exec(ctx, map[string]string{"postgres": "SELECT datname AS name FROM pg_database WHERE NOT datistemplate ORDER BY 1",
-			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list", "sqlserver": "SELECT name FROM sys.databases ORDER BY 1"}[s.kind], s.expanded)
+			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list", "sqlserver": "SELECT name FROM sys.databases ORDER BY 1",
+			"oracle": "SELECT name, open_mode FROM v$pdbs ORDER BY 1"}[s.kind], s.expanded)
 	case `\dn`:
 		s.exec(ctx, map[string]string{"postgres": "SELECT nspname AS name FROM pg_namespace WHERE nspname NOT LIKE 'pg\\_%' AND nspname <> 'information_schema' ORDER BY 1",
-			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list", "sqlserver": "SELECT name FROM sys.schemas WHERE schema_id < 16384 ORDER BY 1"}[s.kind], s.expanded)
+			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list", "sqlserver": "SELECT name FROM sys.schemas WHERE schema_id < 16384 ORDER BY 1",
+			"oracle": "SELECT username AS name FROM all_users WHERE oracle_maintained = 'N' ORDER BY 1"}[s.kind], s.expanded)
 	case `\du`:
 		q := map[string]string{"postgres": "SELECT rolname AS role, rolsuper AS superuser, rolcanlogin AS login FROM pg_roles WHERE rolname NOT LIKE 'pg\\_%' ORDER BY 1",
 			"mysql":     "SELECT user, host FROM mysql.user ORDER BY 1, 2",
-			"sqlserver": "SELECT name, LOWER(type_desc) AS type FROM sys.database_principals WHERE type IN ('S', 'U', 'G', 'E', 'X', 'R') ORDER BY 1"}[s.kind]
+			"sqlserver": "SELECT name, LOWER(type_desc) AS type FROM sys.database_principals WHERE type IN ('S', 'U', 'G', 'E', 'X', 'R') ORDER BY 1",
+			"oracle":    "SELECT username AS name, account_status AS status FROM dba_users WHERE oracle_maintained = 'N' ORDER BY 1"}[s.kind]
 		if q == "" {
 			s.printf("SQLite has no roles.\n")
 			return false
@@ -396,6 +400,19 @@ func expandedText(res *dbx.Result) string {
 		fmt.Fprintf(&b, "(%d row%s)\n", r.RowCount, plural(r.RowCount))
 	}
 	return b.String()
+}
+
+// shellDone reports whether text is a whole statement to run: one ending
+// in ; or, for an Oracle PL/SQL block, a last line with only /.
+func shellDone(kind, text string) bool {
+	if kind == "oracle" && driver.OracleBlock(text) {
+		lines := strings.Split(text, "\n")
+		return strings.TrimSpace(lines[len(lines)-1]) == "/"
+	}
+	if kind == "oracle" {
+		return driver.OracleDone(text)
+	}
+	return statementDone(text)
 }
 
 // statementDone reports whether text ends with ; outside quotes, quoted

@@ -16,6 +16,9 @@ import (
 // database type (upper case): a DATE stays a date, a timestamp without a
 // time zone gets none, binary columns are always {"base64": ...}.
 func colValue(kind, dbType string, v any) any {
+	if kind == "oracle" {
+		return oracleValue(v, dbType)
+	}
 	switch x := v.(type) {
 	case time.Time:
 		return timeText(kind, dbType, x)
@@ -155,7 +158,7 @@ func checkArgs(kind, sql string, n int) error {
 	if !ok || want == n {
 		return nil
 	}
-	mark := map[string]string{"postgres": "$1, $2, ..."}[kind]
+	mark := map[string]string{"postgres": "$1, $2, ...", "sqlserver": "@p1, @p2, ...", "oracle": ":1, :2, ..."}[kind]
 	if mark == "" {
 		mark = "?"
 	}

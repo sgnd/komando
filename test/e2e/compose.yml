@@ -147,6 +147,12 @@ services:
     platform: ${E2E_MSSQL_PLATFORM:-linux/amd64}
     environment: { ACCEPT_EULA: "Y", MSSQL_PID: Developer, MSSQL_SA_PASSWORD: "Sales-pass-1", MSSQL_MEMORY_LIMIT_MB: "2048" }
     networks: [private]
+  oracle:
+    # Oracle Database Free (gvenzl's image has amd64 and arm64 builds); it
+    # needs about 2 GB of memory and a minute or two to open FREEPDB1
+    image: ${E2E_ORACLE_IMAGE:-gvenzl/oracle-free:23-slim}
+    environment: { ORACLE_PASSWORD: "Oracle-pass-1" }
+    networks: [private]
   # secret managers komando talks to itself (no vault or aws CLI)
   bao:
     image: openbao/openbao:2.4.3

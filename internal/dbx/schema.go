@@ -54,6 +54,9 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 		ctx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
+	if kind == "oracle" {
+		names = oracleNames(names)
+	}
 	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: readOnlyTx(kind, false)})
 	if err != nil {
 		return nil, queryErr(kind, ctx, err)
@@ -69,6 +72,8 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 		tables, err = mysqlSchema(ctx, tx, names)
 	case "sqlserver":
 		tables, err = mssqlSchema(ctx, tx, names)
+	case "oracle":
+		tables, err = oracleSchema(ctx, tx, names)
 	}
 	if err == nil && len(names) > 0 {
 		err = addConstraints(ctx, tx, kind, tables)
@@ -289,6 +294,8 @@ SELECT 'fk_' || id, 'foreign key',
 FROM pragma_foreign_key_list(?) GROUP BY id ORDER BY id`, t.Name)
 		case "sqlserver":
 			rows, err = tx.QueryContext(ctx, mssqlConstraints, t.Schema, t.Name)
+		case "oracle":
+			rows, err = tx.QueryContext(ctx, oracleConstraints, t.Schema, t.Name)
 		default:
 			return nil
 		}

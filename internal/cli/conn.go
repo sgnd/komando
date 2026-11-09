@@ -647,7 +647,8 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 		}
 		defer db.Close()
 		q := map[string]string{"postgres": "select version()", "mysql": "select version()", "sqlite": "select sqlite_version()",
-			"sqlserver": "select concat('SQL Server ', serverproperty('ProductVersion'), ' ', serverproperty('Edition'))"}[a.Target.Kind.Name]
+			"sqlserver": "select concat('SQL Server ', serverproperty('ProductVersion'), ' ', serverproperty('Edition'))",
+			"oracle":    "select max(product) || ' ' || max(version_full) from product_component_version"}[a.Target.Kind.Name]
 		if q != "" {
 			_ = db.QueryRowContext(cctx, q).Scan(&r.Version)
 		}
