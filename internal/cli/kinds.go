@@ -164,8 +164,9 @@ var commandKinds = map[string]cmdKind{
 	"group mv":   changes,
 	"group rm":   changes,
 
-	"guide":         reads,
-	"guide install": changes,
+	"guide":           reads,
+	"guide install":   changes,
+	"guide uninstall": changes,
 
 	"host":             reads,
 	"host add":         changes,

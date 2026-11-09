@@ -483,7 +483,7 @@ func pkgCmd() *cobra.Command {
 				pkgs := strings.Join(args[1:], " ")
 				if action == "remove" {
 					for _, p := range args[1:] {
-						if essentialPkg(p) && !dangerOK() {
+						if essentialPkg(p) && !dangerOK() && !confirmDangerous(args[:1], "removing "+p+" can lock you out of the server or break it") {
 							if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "if this is truly intended, confirm with the user and re-run with --allow-dangerous",
 								"removing %s can lock you out of the server or break it", p)); err != nil {
 								return err
@@ -558,7 +558,7 @@ func netCmd() *cobra.Command {
 				code, _ := v["code"].(float64)
 				switch {
 				case code == 0:
-					return v, out.Errf(out.ExitConnect, "NO_RESPONSE", "check the URL, and that the server can reach it (`komando net check`)", "no HTTP answer from %s", args[1])
+					return v, out.Errf(out.ExitConnect, "NO_RESPONSE", "check the URL, and that the server can reach it: `komando net check "+args[0]+" HOST:443`", "no HTTP answer from %s", args[1])
 				case expect != "" && !statusMatches(int(code), expect):
 					return v, out.Errf(out.ExitRemote, "UNEXPECTED_STATUS", "check the URL and the service behind it", "HTTP %d, expected %s", int(code), expect)
 				}
@@ -687,7 +687,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 		},
 	}
 	add.Flags().StringVar(&pubKey, "pubkey", "", "public key line to authorize")
-	add.Flags().StringVar(&keyName, "key", "", "authorize this keychain key")
+	add.Flags().StringVar(&keyName, "key", "", "authorize this key from komando's key list")
 	add.Flags().StringVar(&shell, "shell", "/bin/bash", "login shell")
 	add.Flags().BoolVar(&admin, "admin", false, "add to the sudo (Debian) or wheel (RHEL, Alpine) group")
 	lock := &cobra.Command{

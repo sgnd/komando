@@ -225,7 +225,7 @@ func fsExitMap(code int, stderr string) *out.Error {
 	case fsExitNotFolder:
 		return out.Errf(out.ExitConflict, "NOT_A_FOLDER", "pick another name, or remove the file first", "%s", msg)
 	case fsExitNoSource:
-		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the path with `komando fs ls`", "%s", msg)
+		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the path with `komando fs ls TARGET FOLDER`", "%s", msg)
 	case fsExitDestExists:
 		return out.Errf(out.ExitConflict, "FILE_EXISTS", "add --overwrite to replace it", "%s", msg)
 	}

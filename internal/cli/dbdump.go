@@ -374,7 +374,7 @@ func runRestore(ctx context.Context, connExpr, from, on string) error {
 		return err
 	}
 	if t.Kind.File {
-		return out.Usage("sqlite backups are database files: stop the app and copy the file back instead")
+		return out.Errf(out.ExitUsage, "USAGE", sqliteRestoreHint, "sqlite backups are database files: komando does not restore them; copy the file back instead")
 	}
 	h, err := toolHost(st, c, on)
 	if err != nil {
@@ -789,3 +789,6 @@ func dumpErr(err error, c *store.Conn) error {
 	}
 	return out.Errf(out.ExitRemote, "DUMP_FAILED", "check the conn with `komando conn test "+c.Name+"`; with --on HOST, pg_dump or mysqldump on that server runs instead", "%v", err)
 }
+
+// sqliteRestoreHint: a SQLite backup is a copy of the database file.
+const sqliteRestoreHint = "stop the app, then copy the backup file over the database file (`komando upload` or `komando fs mv` on its server)"

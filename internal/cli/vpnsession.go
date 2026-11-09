@@ -265,7 +265,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		// file another program could change between the check and the start
 		clean, err := canonicalOVPN(cfg)
 		if err != nil {
-			return nil, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "add the VPN again without that line", "VPN %s: %v", v.Name, err)
+			return nil, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "add the VPN again without that line", "VPN %s: %v", v.Name, err).NoFlag()
 		}
 		// root writes its pid and log only where the user cannot plant a
 		// symlink: /var/run and syslog
@@ -408,7 +408,7 @@ func spawnServeWith(name, logFile string, wait time.Duration, password string, s
 	if addr == "" {
 		_ = netx.Terminate(pid)
 		b, _ := os.ReadFile(logFile)
-		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "see "+logFile, "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
+		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "the message ends with its log; `komando vpn test "+name+"` tries again, and the whole log is "+logFile+" (for a person to read)", "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
 	}
 	return pid, addr, nil
 }

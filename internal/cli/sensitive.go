@@ -270,11 +270,11 @@ func guardLocalRead(p string) error {
 	case why == komandoData:
 		return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
 			"komando never reads its own folder for an AI agent; use komando commands (`komando list`, `komando secret list`), or ask the user to run this in their own terminal",
-			"%s is %s", p, why)
+			"%s is %s", p, why).NoFlag()
 	case why == procEnv:
 		return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
 			"ask the user for the one value you need",
-			"%s is %s; komando does not read it for an AI agent", p, why)
+			"%s is %s; komando does not read it for an AI agent", p, why).NoFlag()
 	case revealOK():
 		return nil
 	}
@@ -312,7 +312,7 @@ func readImportFile(p string) ([]byte, error) {
 		if why := localSecret(p); why == komandoData || why == procEnv {
 			return nil, out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
 				"komando does not import its own folder or a process environment for an AI agent; ask the user to run this in their own terminal",
-				"%s is %s", p, why)
+				"%s is %s", p, why).NoFlag()
 		}
 	}
 	return os.ReadFile(p)
@@ -356,12 +356,12 @@ func refGuard(kind, name string) error {
 	case "file":
 		if why := localSecret(name); why != "" && why != "a file that holds secrets" {
 			return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "store the password in komando's vault and use secret:NAME; the user sets it up in their own terminal",
-				"the reference file:%s points at %s; komando does not send it for an AI agent", name, why)
+				"the reference file:%s points at %s; komando does not send it for an AI agent", name, why).NoFlag()
 		}
 	case "env":
 		if unlockVars[name] {
 			return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "use secret:NAME; the user sets it up in their own terminal",
-				"the reference env:%s is the password of a secret store; komando does not send it for an AI agent", name)
+				"the reference env:%s is the password of a secret store; komando does not send it for an AI agent", name).NoFlag()
 		}
 	}
 	return nil

@@ -19,8 +19,9 @@ Add the cache as a conn. The URL is `redis://USER@HOST:PORT/DB`; use
 `rediss://` for TLS. The password goes in the vault, never in the URL:
 
 ```bash
+komando secret set cache-pass                 # each password once, typed hidden
 komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:cache-pass
-komando conn add sessions rediss://default@cache.internal:6379/1 --password-ref secret:sessions-pass
+komando conn add sessions rediss://default@cache.internal:6379/1 --ask-password   # or type it now
 ```
 
 `--via` reaches a cache through a bastion or a VPN, like any other conn (see

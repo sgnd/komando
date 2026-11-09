@@ -23,6 +23,7 @@ import (
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 func loadState() (*store.State, error) { return store.Load() }
@@ -154,6 +155,17 @@ func toErr(err error) *out.Error {
 	}
 	if errors.Is(err, context.Canceled) {
 		return &out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError}
+	}
+	switch {
+	case errors.Is(err, vault.ErrLocked):
+		return &out.Error{Code: "VAULT_LOCKED", Message: err.Error(), Exit: out.ExitError,
+			Hint: "the person who set the passphrase exports KOMANDO_VAULT_PASS in the shell that runs komando (an AI agent asks the user; it never sees the passphrase)"}
+	case errors.Is(err, vault.ErrKey):
+		return &out.Error{Code: "VAULT_KEY", Message: err.Error(), Exit: out.ExitError,
+			Hint: "restore ~/.komando/vault.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault"}
+	case errors.Is(err, vault.ErrDecrypt):
+		return &out.Error{Code: "VAULT_DECRYPT", Message: err.Error(), Exit: out.ExitError,
+			Hint: "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use); nothing was lost"}
 	}
 	var pe *os.PathError
 	if errors.As(err, &pe) {
@@ -520,6 +532,10 @@ func confirmDangerous(names []string, reason string) bool {
 	if g.dryRun || !interactive() {
 		return false
 	}
+	key := strings.Join(names, ",")
+	if dangerConfirmed[key] {
+		return true // the person typed it for these targets in this command already
+	}
 	want, what := "yes", "yes"
 	switch {
 	case len(names) == 1:
@@ -530,8 +546,14 @@ func confirmDangerous(names []string, reason string) bool {
 	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
 	ok := ask("Type "+what+" to continue: ") == want
 	personSaidNo = personSaidNo || !ok
+	dangerConfirmed[key] = ok
 	return ok
 }
+
+// dangerConfirmed: the targets a person typed the name of to allow a
+// dangerous step in this command. A second check of the same step (fs rm's
+// own check, then the policy rule for the rm it sends) does not ask again.
+var dangerConfirmed = map[string]bool{}
 
 // guardProtection stops a way around protection: removing a protected
 // target from the inventory, or turning its protection off, would let the

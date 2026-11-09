@@ -277,7 +277,7 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 }
 
 func isADirectory(p string) error {
-	return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "list it with `komando fs ls`", "%s is a folder, not a file", p)
+	return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "list it with `komando fs ls TARGET "+p+"`", "%s is a folder, not a file", p)
 }
 
 type catResult struct {
@@ -408,7 +408,7 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 			for k, v := range vals {
 				fl[k] = *v
 			}
-			if strings.HasPrefix(use, "rm ") && fl["recursive"] && !dangerOK() {
+			if strings.HasPrefix(use, "rm ") && fl["recursive"] && !dangerOK() && !confirmDangerous(args[:1], "rm --recursive deletes whole folders and everything in them") {
 				if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a folder and everything in it would be gone; confirm with the user, then add --allow-dangerous",
 					"rm --recursive deletes whole folders")); err != nil {
 					return err
@@ -416,7 +416,8 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 			}
 			if strings.HasPrefix(use, "rm ") {
 				for _, p := range args[1:] {
-					if cp := path.Clean(p); (cp == "/" || cp == "." || cp == "~" || strings.Count(cp, "/") <= 1 && strings.HasPrefix(cp, "/")) && !dangerOK() {
+					if cp := path.Clean(p); (cp == "/" || cp == "." || cp == "~" || strings.Count(cp, "/") <= 1 && strings.HasPrefix(cp, "/")) && !dangerOK() &&
+						!confirmDangerous(args[:1], fmt.Sprintf("removing the top-level path %s", p)) {
 						if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "pass --allow-dangerous if truly intended",
 							"refusing to remove top-level path %q", p)); err != nil {
 							return err

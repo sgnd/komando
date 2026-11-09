@@ -348,6 +348,7 @@ type hostResult struct {
 	Action   string   `json:"action,omitempty"`  // added | replaced | would_add | would_replace
 	Changed  *bool    `json:"changed,omitempty"` // edit: false when the edit changed nothing
 	Warnings []string `json:"warnings,omitempty"`
+	Next     string   `json:"next,omitempty"` // add: the command to run next
 }
 
 type connResult struct {
@@ -355,6 +356,7 @@ type connResult struct {
 	Action   string   `json:"action,omitempty"`  // added | replaced | would_add | would_replace
 	Changed  *bool    `json:"changed,omitempty"` // edit: false when the edit changed nothing
 	Warnings []string `json:"warnings,omitempty"`
+	Next     string   `json:"next,omitempty"` // add: the command to run next
 }
 
 // sameTwinWarning is the warning when an entry turns out to be a protected

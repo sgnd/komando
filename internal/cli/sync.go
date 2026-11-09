@@ -557,9 +557,10 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
 	return c
 }
 
-// guardDelete: --delete removes files for good, like `storage rm`.
-func guardDelete(o syncOpts) error {
-	if o.delete && !dangerOK() && !g.dryRun {
+// guardDelete: --delete removes files for good, like `storage rm`. A person
+// at the terminal confirms by typing the destination.
+func guardDelete(o syncOpts, dst string) error {
+	if o.delete && !dangerOK() && !g.dryRun && !confirmDangerous([]string{dst}, "--delete removes the files in "+dst+" that the source does not have") {
 		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "check the list with --dry-run, confirm with the user, then add --allow-dangerous",
 			"--delete removes files in the destination that the source does not have")
 	}
@@ -572,7 +573,7 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 	if err != nil {
 		return err
 	}
-	if err := guardDelete(o); err != nil {
+	if err := guardDelete(o, target+":"+remote); err != nil {
 		return err
 	}
 	if err := guardLocalRead(local); err != nil {
@@ -627,7 +628,7 @@ func syncDown(ctx context.Context, name, target, remote, local string, o syncOpt
 	if err != nil {
 		return err
 	}
-	if err := guardDelete(o); err != nil {
+	if err := guardDelete(o, local); err != nil {
 		return err
 	}
 	if isAgent() && !revealOK() {

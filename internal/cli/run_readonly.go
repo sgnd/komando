@@ -787,6 +787,6 @@ func readOnlyMutates(command string, env []string) bool {
 }
 
 func readOnlyStop(what string) error {
-	return policyStop(out.Errf(out.ExitPolicy, "READ_ONLY_VIOLATION", "drop --read-only and confirm with --yes",
+	return policyStop(out.Errf(out.ExitPolicy, "READ_ONLY_VIOLATION", "it changes something, so it is not --read-only: tell the user what it changes, then run it without --read-only (a protected server also needs --yes)",
 		"--read-only, but the command changes something (%s)", what))
 }

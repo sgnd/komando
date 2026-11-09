@@ -497,11 +497,11 @@ func waitJob(ctx context.Context, id string, deadline time.Time, interval time.D
 func waitVerdict(s *jobStatus, waitTimeout time.Duration) *out.Error {
 	switch {
 	case s.State == "running":
-		return out.Errf(out.ExitTimeout, "WAIT_TIMEOUT", "job is still running; call wait again or read logs", "job %s still running after %s", s.ID, waitTimeout)
+		return out.Errf(out.ExitTimeout, "WAIT_TIMEOUT", "it is still running: `komando job wait "+s.ID+"` waits again, `komando job logs "+s.ID+" --tail 50` shows its output so far", "job %s still running after %s", s.ID, waitTimeout)
 	case s.State == "killed":
 		return out.Errf(out.ExitRemote, "JOB_KILLED", "it was stopped with `komando job kill`", "job %s was killed (%s)", s.ID, s.Signal)
 	case s.State == "lost":
-		return out.Errf(out.ExitRemote, "JOB_LOST", "process died without recording an exit code (killed or server rebooted)", "job %s lost", s.ID)
+		return out.Errf(out.ExitRemote, "JOB_LOST", "it stopped without an exit code (killed, or the server restarted): `komando job logs "+s.ID+" --tail 50` shows how far it got; start it again with `komando job start` if needed", "job %s lost", s.ID)
 	case s.ExitCode != nil && *s.ExitCode != 0:
 		return out.Errf(out.ExitRemote, "JOB_FAILED", "read its output with `komando job logs "+s.ID+" --tail 50`", "job exited with %d", *s.ExitCode)
 	}

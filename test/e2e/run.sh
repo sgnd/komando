@@ -150,6 +150,22 @@ check "an agent is not asked for a password" False "$(A exec nopass --read-only 
 check "an agent with no value is sent to the user" NEEDS_PERSON "$(A secret set some-pass </dev/null | jget 'd["error"]["code"]' || true)"
 check "the agent playbook reaches an agent whole" 0 "$(A guide -o text | grep -c 'password: \[hidden\]' || true)"
 $K host rm nopass >/dev/null
+# --ask-password: a person types it once while adding the server; later logins use the vault
+O=$(ptyrun 'agentpass\n' env NO_COLOR=1 "$K" -o text host add askpw "agent@127.0.0.1:$E2E_SSH_DIRECT" --ask-password | tr -d '\r'); check "host add --ask-password" 0 $?
+check "host add says what to run next" 1 "$(grep -c '^next: komando test askpw' <<<"$O")"
+check "the stored password logs in without a question" "stored-ok" "$($K exec askpw --read-only -- echo stored-ok | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "an agent cannot use --ask-password" NEEDS_PERSON "$(A host add askpw2 "agent@127.0.0.1:$E2E_SSH_DIRECT" --ask-password </dev/null | jget 'd["error"]["code"]' || true)"
+check "rm names the secret left behind" "['askpw-pass']" "$($K host rm askpw | jget 'd["data"]["secrets_unused"]')"
+$K secret rm askpw-pass >/dev/null
+# a whole export carries your deny rules, and import adds them in another home
+$K policy deny 'e2e-forbidden-word' >/dev/null
+EXP="$(mktemp -d)/backup.json"
+$K export --to "$EXP" >/dev/null
+OTHER="$(mktemp -d)"; chmod 700 "$OTHER"
+check "import adds the exported deny rule" "['e2e-forbidden-word']" "$(KOMANDO_HOME="$OTHER" "$K" import komando "$EXP" | jget 'd["data"]["deny_rules_added"]')"
+rm -rf "$OTHER" "$(dirname "$EXP")"
+$K policy allow 'e2e-forbidden-word' --yes >/dev/null
+check "audit --actor finds the e2e actor" True "$($K audit --actor e2e -n 5 | jget 'd["data"]["count"] > 0')"
 set -e
 echo "==> secret managers, built in (no vault or aws CLI)"
 for _ in $(seq 1 30); do curl -sf "http://127.0.0.1:$E2E_BAO/v1/sys/health" >/dev/null && curl -s "http://127.0.0.1:$E2E_MOTO/" >/dev/null && break; sleep 1; done
@@ -293,6 +309,7 @@ q $K conn rm pg-bw
 # db shell is komando's own SQL shell: no psql or mysql on PATH
 check "db shell on PostgreSQL" 42 "$(ptyrun 'select 41 + 1 as answer;\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | tr -d '\r' | grep -E '^ *42 *$' | tr -d ' ' | head -1 || true)"
 check "db shell is read-only" True "$(ptyrun 'create table nope(x int);\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | grep -q 'the shell is read-only' && echo True)"
+check "db shell \\write allows changes after a yes" True "$(ptyrun '\write\ny\ncreate temporary table t_e2e(x int);\ninsert into t_e2e values (1);\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg --yes | tr -d '\r' | grep -q '1 row affected' && echo True)"
 check "db shell \\d lists tables" True "$(ptyrun '\d\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | grep -q 'table\|relation' && echo True)"
 q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
 q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref secret:redis-pass

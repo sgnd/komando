@@ -29,7 +29,7 @@ func keyMvCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "mv OLD NEW",
 		Short: "Rename a key, and every server that uses it",
-		Long: `Gives a key in the keychain a new name; the servers that use it follow. A
+		Long: `Gives a key in komando's key list a new name; the servers that use it follow. A
 key komando made (key gen) also moves its files in ~/.komando/keys (the
 private key and the .pub); a key added from elsewhere (key add) stays where
 it is. Public keys already installed on servers keep their comment: they

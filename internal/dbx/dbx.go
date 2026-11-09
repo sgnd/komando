@@ -192,7 +192,7 @@ func checkStringRules(ctx context.Context, db *sql.DB, t driver.Target) error {
 	if bad != "" {
 		return out.Errf(out.ExitPolicy, "SQL_STRING_RULES",
 			"komando checks SQL with the default quoting rules and an ASCII-safe character set (UTF-8); use a database user or connection without this setting",
-			"this connection parses strings differently (%s)", bad)
+			"this connection parses strings differently (%s)", bad).NoFlag()
 	}
 	return nil
 }

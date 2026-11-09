@@ -240,7 +240,7 @@ komando user rm web1 leaver --remove-home --allow-dangerous
 
 - `user add` can run again safely: an existing user is not created twice,
   but its shell, key and admin group are brought in line. `--key`
-  authorizes a key from komando's keychain, `--pubkey` a key line, and
+  authorizes a key from komando's key list, `--pubkey` a key line, and
   `--admin` adds the user to the `sudo` group (Debian) or `wheel` (RHEL,
   Alpine).
 - `user lock` locks the password and expires the account, so SSH keys stop
