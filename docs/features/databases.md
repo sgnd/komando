@@ -78,9 +78,16 @@ giving them the password:
   A MySQL conn without `tls=` is not encrypted, and the MySQL 8 login then
   encrypts the password with a key the server sends over that same plain
   connection, which someone in between can swap.
-- Saved conns keep working as they are. `komando doctor` warns about every
-  conn without checked TLS and prints the `komando conn edit NAME --url ...`
-  line that fixes it.
+- **New conns check by default.** When `conn add` (or `conn edit --url`)
+  saves such a conn and its URL does not say how to use TLS, komando adds
+  `sslmode=verify-full` (Postgres) or `tls=true` (MySQL) and says so in
+  `warnings`. A URL that names a setting keeps it, and a conn through
+  `--via` or to this computer is left as written. If the server has no TLS
+  or a certificate from its own CA, the first connection's hint says what
+  to do (the rows below).
+- Conns saved before keep working as they are. `komando doctor` warns
+  about every conn without checked TLS and prints the
+  `komando conn edit NAME --url ...` line that fixes it.
 - A server whose certificate comes from a private CA (your company's, or a
   cloud's own, such as Amazon RDS or Azure Database): store the CA and name
   it with `?ca=`, for Postgres and MySQL. The certificate is then fully
@@ -296,15 +303,25 @@ archive goes to `pg_restore` on the server. `tool` in the answer says which
 was used. The password goes to a server's tool through its environment,
 never on its command line, so other users of that server cannot see it. For
 MySQL conns with `?tls=...`, the same TLS setting is passed to the server's
-tools (MySQL and MariaDB clients both work).
+tools (MySQL and MariaDB clients both work). For Postgres, `pg_dump` and
+`pg_restore` read the conn URL themselves: with `sslmode=verify-full` (or
+`verify-ca`) they check the database's certificate against
+`~/.postgresql/root.crt` on the server they run on, not against the
+system's CAs as komando does. With `pg_dump` 16 or newer, komando adds
+`sslrootcert=system`, so they use the system's CAs too. An older one needs
+the CA in that file there; without it the dump stops with `DB_CONNECT` and
+a hint (install `postgresql-client` 16 or newer, put the CA in
+`~/.postgresql/root.crt`, or reach the database `--via` that server without
+TLS).
 
 **A private CA (`?ca=secret:NAME`).** The tools on the server check the
 database's certificate against the conn's CA too, the same full check
 komando makes: signed by that CA and naming the server. komando sends the
 CA after the password, on the tool's input, never on its command line. It
 lands in a new folder in `/tmp` that only the login user can open, and goes
-once the tool ends. `pg_dump` and `pg_restore` get it as `sslrootcert=`
-with `sslmode=verify-full` (in place of `ca=`, which libpq does not know).
+once the tool ends. `pg_dump` and `pg_restore` of any version get it as
+`sslrootcert=` with `sslmode=verify-full` (in place of `ca=`, which libpq
+does not know), so `~/.postgresql/root.crt` is not needed.
 `mysqldump` gets `--ssl-ca` and a checked TLS connection, also when the URL
 has no `tls=`.
 

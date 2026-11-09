@@ -56,3 +56,22 @@ q $K conn rm "$N-db"
 q $K host rm "$N-jump"
 q $K key rm "$N-key2" --delete-file
 q $K secret rm "$N-pass"
+
+# notes and labels: only names that clearly mean an entry follow. OLD
+# without its - (a database and a role named $R) and a name that is also
+# the user in a conn URL stay, and are listed in "kept" with the reason.
+echo -n x | $K secret set "$R-ro" >/dev/null
+q $K host add "$R-app" agent@10.9.9.7 -g "$R" --notes "db $R as role $R-ro on $R-db; nodes $R-app*; group @$R"
+q $K conn add "$R-db" "postgres://$R-ro@10.9.9.9/$R" --via "$R-app" --password-ref "secret:$R-ro" --label "host=$R-app" --label "team=$R"
+DRY=$($K rename --prefix "$R-" "$N-" --dry-run)
+check "rename: a label naming an old entry is listed" "$N-app" "$(echo "$DRY" | jget '[k["to"] for k in d["data"]["kept"] if k["entry"] == "conn '"$N"'-db" and k["field"] == "label host"][0]')"
+check "rename: notes stay without --notes, with a warning" True "$(echo "$DRY" | jget 'any("--notes replaces them" in w for w in d["data"]["warnings"])')"
+OUT=$($K rename --prefix "$R-" "$N-" --notes --labels)
+check "rename --notes: names, patterns and @group follow" "db $R as role $R-ro on $N-db; nodes $N-app*; group @$N" "$($K host show "$N-app" | jget 'd["data"]["notes"]')"
+check "rename --notes: OLD without - is kept" True "$(echo "$OUT" | jget 'any(k["name"] == "'"$R"'" and k["field"] == "notes" for k in d["data"]["kept"])')"
+check "rename --notes: a name in a conn URL is kept" True "$(echo "$OUT" | jget 'any(k["name"] == "'"$R"'-ro" and "URL of conn '"$N"'-db" in k["reason"] for k in d["data"]["kept"])')"
+check "rename --labels: host= follows" "$N-app" "$($K conn show "$N-db" | jget 'd["data"]["labels"]["host"]')"
+check "rename --labels: OLD without - stays" "$R" "$($K conn show "$N-db" | jget 'd["data"]["labels"]["team"]')"
+q $K conn rm "$N-db"
+q $K host rm "$N-app"
+q $K secret rm "$N-ro"

@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -87,6 +88,18 @@ type Meta struct {
 	Skipped []Skipped `json:"skipped,omitempty"`
 	// WouldBeBlocked: under --dry-run, the safety stop the real run would hit
 	WouldBeBlocked *Error `json:"would_be_blocked,omitempty"`
+	// HostKeysPinned lists the servers whose host key this command trusted
+	// for the first time (host_key_policy accept-new). Nothing proved the
+	// key is the server's: compare the fingerprint with the server's own.
+	HostKeysPinned []HostKey `json:"host_keys_pinned,omitempty"`
+}
+
+// HostKey is a server's host key, as komando pinned it.
+type HostKey struct {
+	Host        string `json:"host"`
+	Address     string `json:"address"`
+	Type        string `json:"key_type"`
+	Fingerprint string `json:"fingerprint"` // SHA256:...
 }
 
 type Skipped struct {
@@ -105,6 +118,8 @@ type Printer struct {
 	W       io.Writer
 	skipped []Skipped
 	blocked *Error
+	pinned  []HostKey
+	mu      sync.Mutex // pinned: connections run side by side
 
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
@@ -199,7 +214,19 @@ var P = &Printer{Format: "json", W: os.Stdout, Start: time.Now()}
 type Texter interface{ Text() string }
 
 func (p *Printer) meta() Meta {
-	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked}
+	p.mu.Lock()
+	pinned := slices.Clone(p.pinned)
+	p.mu.Unlock()
+	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked,
+		HostKeysPinned: pinned}
+}
+
+// HostKeyPinned records a host key trusted on first use, for
+// meta.host_keys_pinned (a person reads it on stderr).
+func (p *Printer) HostKeyPinned(k HostKey) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.pinned = append(p.pinned, k)
 }
 
 // WouldBlock records, under --dry-run, the first safety stop the real run
@@ -211,7 +238,11 @@ func (p *Printer) WouldBlock(e *Error) {
 }
 
 // Reset forgets what one command recorded (tests run many in one process).
-func (p *Printer) Reset() { p.blocked, p.skipped = nil, nil }
+func (p *Printer) Reset() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.blocked, p.skipped, p.pinned = nil, nil, nil
+}
 
 // Blocked is the stop WouldBlock recorded, or nil.
 func (p *Printer) Blocked() *Error { return p.blocked }

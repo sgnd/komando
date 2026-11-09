@@ -181,7 +181,7 @@ func (c *WGConfig) UAPI() (string, error) {
 	var sb strings.Builder
 	k, err := hexKey(c.PrivateKey)
 	if err != nil {
-		return "", fmt.Errorf("PrivateKey: %w", err)
+		return "", fmt.Errorf("the WireGuard private key does not parse (%w)", err)
 	}
 	fmt.Fprintf(&sb, "private_key=%s\nreplace_peers=true\n", k)
 	for _, p := range c.Peers {

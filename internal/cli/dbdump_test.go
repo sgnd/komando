@@ -94,7 +94,7 @@ func TestDumpOnHost(t *testing.T) {
 	srv := startFakeServer(t)
 	const pw = "s3cret-Pa55"
 	t.Setenv("KOMANDO_TEST_PG_PW", pw)
-	mustRun(t, "conn", "add", "pg", "postgres://app@10.8.0.5:5432/app", "--password-ref", "env:KOMANDO_TEST_PG_PW")
+	mustRun(t, "conn", "add", "pg", "postgres://app@10.8.0.5:5432/app?sslmode=require", "--password-ref", "env:KOMANDO_TEST_PG_PW")
 	mustRun(t, "conn", "add", "lite", "sqlite:///tmp/x.db")
 	dir := t.TempDir()
 	run := func(args ...string) (map[string]any, *out.Error) {

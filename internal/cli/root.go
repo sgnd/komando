@@ -24,6 +24,7 @@ import (
 
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -376,6 +377,12 @@ func newRoot() *cobra.Command {
 			store.DryRun = g.dryRun
 			out.P.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
+			// a person at the terminal answers what an SSH login asks
+			// (a password, a two-factor code); nobody else is asked
+			sshx.Ask = nil
+			if interactive() {
+				sshx.Ask = askSSH
+			}
 			out.P.Secrets = vaultValues
 			if leavesHomeNow(cmd) {
 				out.P.Secrets = nil // its output holds no secrets, and the vault is in ~/.komando

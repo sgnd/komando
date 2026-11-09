@@ -281,7 +281,7 @@ func TestVpnQuestion(t *testing.T) {
 		"Enter the code\u202e from the app?":                                                   "Enter the code from the app? ",
 	}
 	for label, want := range cases {
-		if got := vpnQuestion(label); got != want {
+		if got := loginQuestion(label); got != want {
 			t.Errorf("%q: got %q, want %q", label, got, want)
 		}
 	}

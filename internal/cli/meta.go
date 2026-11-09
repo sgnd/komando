@@ -69,8 +69,8 @@ a task touches a server, database, cache or storage.
 
 It also adds a guard: before the agent reads a file or runs a shell command
 on this computer, komando checks it and stops the ones that would read
-secrets: ~/.komando, private keys, .env files, credential stores, all
-environment variables at once, or ssh around komando. It goes into Claude
+secrets (~/.komando, private keys, .env files, credential stores, all
+environment variables at once) or use ssh around komando. It goes into Claude
 Code (.claude/settings.json), and into Cursor (.cursor/hooks.json), Gemini
 CLI (.gemini/settings.json, v0.26+) and Codex (.codex/hooks.json; approve it
 once in /hooks) where their folders exist. Skip it with --no-guard.
