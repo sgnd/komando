@@ -93,6 +93,11 @@ services:
     image: mongo:7.0.45
     command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]  # the lab is crowded; a small cache is enough
     environment: { MONGO_INITDB_ROOT_USERNAME: root, MONGO_INITDB_ROOT_PASSWORD: mongopass }
+    # The image creates the root user with a temporary mongod, stops it and
+    # starts the real one. Now and then the real one finds port 27017 still
+    # taken and exits with code 48. The restart keeps /data/db, so the
+    # entrypoint skips the temporary mongod and the port is free.
+    restart: on-failure:3
     networks: [private]
   # secret managers komando talks to itself (no vault or aws CLI)
   bao:

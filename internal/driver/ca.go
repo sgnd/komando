@@ -2,6 +2,7 @@ package driver
 
 import (
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"net/url"
 	"strings"
@@ -55,27 +56,55 @@ func parseCA(q url.Values, t *Target) error {
 
 // RootCAs is the pool of the conn's ?ca= certificate, or nil without one.
 func (t Target) RootCAs() (*x509.CertPool, error) {
+	certs, err := t.CAPEM()
+	if certs == "" || err != nil {
+		return nil, err
+	}
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM([]byte(certs))
+	return pool, nil
+}
+
+// CAPEM is the conn's ?ca= certificates as clean PEM: only the
+// CERTIFICATE blocks a pool takes, with no headers, comments or blank
+// lines, for a client that reads them from a file (pg_dump, mysqldump).
+// "" without a ca=.
+func (t Target) CAPEM() (string, error) {
 	if t.CA == "" {
-		return nil, nil
+		return "", nil
 	}
 	if ResolveSecret == nil {
-		return nil, errors.New("no secret store to read the CA from")
+		return "", errors.New("no secret store to read the CA from")
 	}
-	pem, err := ResolveSecret(t.CA)
+	text, err := ResolveSecret(t.CA)
 	if err != nil {
 		code := "SECRET_UNRESOLVED"
 		if errors.Is(err, ErrSecretNotFound) {
 			code = "SECRET_NOT_FOUND"
 		}
-		return nil, out.Errf(out.ExitNotFound, code, "store the CA certificate with `komando secret set NAME < ca.crt`",
+		return "", out.Errf(out.ExitNotFound, code, "store the CA certificate with `komando secret set NAME < ca.crt`",
 			"%s CA %s: %v", t.Kind.Name, t.CA, err)
 	}
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM([]byte(pem)) {
-		return nil, out.Errf(out.ExitUsage, "BAD_CA", "store the CA certificate (PEM, -----BEGIN CERTIFICATE-----) with `komando secret set NAME < ca.crt`",
+	var b strings.Builder
+	for rest := []byte(text); ; {
+		var blk *pem.Block
+		if blk, rest = pem.Decode(rest); blk == nil {
+			break
+		}
+		// what x509.CertPool.AppendCertsFromPEM takes
+		if blk.Type != "CERTIFICATE" || len(blk.Headers) != 0 {
+			continue
+		}
+		if _, err := x509.ParseCertificate(blk.Bytes); err != nil {
+			continue
+		}
+		_ = pem.Encode(&b, &pem.Block{Type: blk.Type, Bytes: blk.Bytes})
+	}
+	if b.Len() == 0 {
+		return "", out.Errf(out.ExitUsage, "BAD_CA", "store the CA certificate (PEM, -----BEGIN CERTIFICATE-----) with `komando secret set NAME < ca.crt`",
 			"%s CA %s holds no PEM certificate", t.Kind.Name, t.CA)
 	}
-	return pool, nil
+	return b.String(), nil
 }
 
 // WithoutCA is a conn URL without its ca= option, for drivers that would

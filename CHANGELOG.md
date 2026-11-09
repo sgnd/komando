@@ -85,6 +85,12 @@ its highlights; the sections below them give the details. Versions follow
   `--host-key-policy=strict` are no longer hidden, and a few messages (a
   locked vault, a missing `secret-tool`, a registry CA reference, a failing
   credential helper) were reworded so they arrive whole.
+- `db dump` and `db restore` of an archive failed for a conn with a
+  private CA (`?ca=secret:NAME`) when `pg_dump` or `pg_restore` ran on a
+  server (`--on HOST` or `--via`): libpq refused the `ca` option. The tools
+  now get the CA in a file on that server, removed when they end, and
+  check the certificate fully against it, as komando does: libpq with
+  `sslrootcert=` and `sslmode=verify-full`, `mysqldump` with `--ssl-ca`.
 
 ### Security
 
