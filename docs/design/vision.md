@@ -9,7 +9,7 @@ document, for example [resources-and-db.md](resources-and-db.md).
 > **komando is one universal client for all devops work:
 > servers, databases, caches, object storage, clusters, registries, secrets, and
 > files. One inventory, one way of working, one safety layer. Usable by
-> people and AI agents.**
+> one person, an AI agent, or a whole team.**
 
 Imagine Termius + TablePlus + Lens + Cyberduck + `docker`/`kubectl`/`aws s3`
 merged into one CLI. All its commands follow the same rules, and
@@ -240,7 +240,7 @@ A new family is only added when **all** of these are met:
 | 5 | TUI? | ✅ No. Pure CLI. One exception (2026-11-08): `komando` alone opens a small menu for a person at a terminal. It only runs ordinary commands and is never shown to agents, scripts or pipes. Dashboards, panes and full-screen apps stay out. |
 | 6 | May a feature need Docker or another installed program? | ✅ No (2026-11-03). Every feature is built in; plan in [built-in.md](built-in.md). |
 | 7 | Own implementation or a vendor library? Open source? | ✅ Own implementation where no suitable open library exists, and fully open source: no closed or prebuilt components (2026-11-03). |
-| 8 | For one person or for teams? | ✅ Both (2026-11-09). Team features (shared inventory and rules) are not built yet; they must keep solo use as simple as today. |
+| 8 | Who is komando for? | ✅ Everyone, in three equal ways (2026-11-09): **a person** working interactively (the menu, questions one step at a time), **an AI agent** giving direct commands (flags and JSON, never a question), and **a team** (shared inventory and rules, roles and permissions (RBAC), sessions that say who is acting, and the like). Every feature works in all three ways. Team features are not built yet; they must keep solo use as simple as today. |
 | 9 | How does an AI agent reach a server with a two-factor login? | ✅ A person runs `komando login HOST` once and answers the code; komando keeps that login for some hours (`login_for`, 8h) and the agent's commands use it, like `vpn up` (2026-11-09). |
 
 ### Example for number 3
