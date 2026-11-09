@@ -17,8 +17,13 @@ type menuRow struct {
 // typing is on) the filter typed so far. It knows nothing about terminals:
 // update takes keys and render returns lines, so both are plain to test.
 type menuList struct {
-	title  string // the question above the rows ("" on the main menu)
-	note   string // one dim line above the rows, when there is something to say
+	title string  // the question above the rows ("" on the main menu)
+	lead  [][]seg // lines under the title: a form's answers so far and its question
+	note  string  // one dim line above the rows, when there is something to say
+	warn  bool    // the note is a problem to fix, not a hint: shown in yellow
+	// mask is how the typed line is drawn, when it must not show as typed
+	// (a password pasted with an address); nil draws it as it is
+	mask   func(string) string
 	rows   []menuRow
 	typing bool   // letters filter the rows instead of being shortcuts
 	prompt string // what the typed line is for, instead of "Filter: " (Add)
@@ -183,7 +188,7 @@ type menuCaret struct{ line, col int }
 // blank, then (title, filter, note, blank) when there is any of them, then
 // after the rows blank and footer.
 func (l *menuList) chrome() int {
-	n := 5
+	n := 5 + len(l.lead)
 	for _, on := range []bool{l.title != "", l.typing, l.note != ""} {
 		if on {
 			n++
@@ -216,12 +221,19 @@ func (l *menuList) render(s menuScreen, width, height int) ([]string, menuCaret)
 	if l.title != "" {
 		lines = append(lines, line{[]seg{{l.title, "1"}}, 7, -1})
 	}
+	for _, ld := range l.lead {
+		lines = append(lines, line{ld, 5, -1})
+	}
 	if l.typing {
 		label, text, count := l.typedLine(len(shown), width)
 		lines = append(lines, line{[]seg{{label, "2"}, {text, ""}, {"_", "2"}, {count, "2"}}, 0, displayWidth(label + text)})
 	}
 	if l.note != "" {
-		lines = append(lines, line{[]seg{{l.note, "2"}}, 5, -1})
+		if l.warn { // a problem with the answer: it stays on any screen
+			lines = append(lines, line{[]seg{{"! " + l.note, "33"}}, 0, -1})
+		} else {
+			lines = append(lines, line{[]seg{{l.note, "2"}}, 5, -1})
+		}
 	}
 	if l.title != "" || l.typing || l.note != "" {
 		lines = append(lines, line{nil, 3, -1})
@@ -259,6 +271,9 @@ func (l *menuList) render(s menuScreen, width, height int) ([]string, menuCaret)
 // label too.
 func (l *menuList) typedLine(shown, width int) (label, text, count string) {
 	label, text, count = "Filter: ", l.filter, fmt.Sprintf("  %d of %d", shown, len(l.rows))
+	if l.mask != nil {
+		text = l.mask(text)
+	}
 	if l.prompt != "" {
 		label, count = l.prompt, ""
 	}

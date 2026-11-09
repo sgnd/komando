@@ -137,8 +137,11 @@ func connAddCmd() *cobra.Command {
   komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:redis-pass
   komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:s3-secret
   komando conn add app-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)`,
-		Args: cobra.ExactArgs(2),
+		Args: formArgs(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return formOrUsage(cmd, "conn", "komando conn add app-db postgres://app@10.0.0.5/app --ask-password")
+			}
 			name := args[0]
 			if err := validName("conn", name); err != nil {
 				return err

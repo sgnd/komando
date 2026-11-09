@@ -47,7 +47,7 @@ type menuAction struct {
 	args         []string // the komando command it runs
 	// pick is what the menu asks for before it runs args, and adds to them:
 	// "host" a server, "target" anything `test` takes (or all), "db" a
-	// database conn, "vpn" a VPN, "line" a typed name and address.
+	// database conn, "vpn" a VPN, "form" the guided add (form.go).
 	pick string
 	// ownExit: the command is a session that ends with its own line
 	// ("komando: left web1 (exit 0, 12m)"), so the menu does not say it again.
@@ -57,7 +57,7 @@ type menuAction struct {
 // The menu's actions. menuMainActions shows the ones that apply.
 var (
 	importAction = menuAction{"Import", "Bring in the servers from ~/.ssh/config", []string{"import", "ssh-config"}, "", false}
-	addAction    = menuAction{"Add", "Add a server (name user@address) or a conn (name URL)", []string{"host", "add"}, "line", false}
+	addAction    = menuAction{"Add", "A server, database, cache, storage, cluster, registry or VPN", nil, "form", false}
 	shellAction  = menuAction{"Shell", "Open a login shell on a server", []string{"shell"}, "host", true}
 	testAction   = menuAction{"Test", "Check that servers, conns and VPNs answer", []string{"test"}, "target", false}
 	factsAction  = menuAction{"Facts", "OS, updates, Docker and open ports of a server", []string{"facts"}, "host", false}
@@ -67,13 +67,16 @@ var (
 	listAction   = menuAction{"List", "Everything komando knows about", []string{"list"}, "", false}
 	auditAction  = menuAction{"Audit", "The last 20 things komando did", []string{"audit", "--limit", "20"}, "", false}
 	doctorAction = menuAction{"Doctor", "Check your setup, the inventory and its security", []string{"doctor"}, "", false}
+	allAction    = menuAction{"All features", "Everything komando does, by area, as questions", nil, "all", false}
 	// helpAction is the ? key, not a row: what komando does, by task
 	helpAction = menuAction{"Help", "What komando does, by task", nil, "", false}
 )
 
-// menuNoServer is said under the header while komando knows no server: the
-// command line Add runs, so the person sees it before choosing.
-const menuNoServer = "No servers yet. Add one: komando host add web1 deploy@10.0.0.5"
+// menuNoServer is said under the header while komando knows nothing yet.
+const menuNoServer = "Nothing here yet. Add asks for a name, an address and a user, one at a time."
+
+// menuNothingAdded is said once after a person cancels an Add.
+const menuNothingAdded = "Nothing was added."
 
 // errMenuQuit: the person left the menu.
 var errMenuQuit = errors.New("menu: quit")
@@ -108,14 +111,21 @@ func runMenu() error {
 		if err != nil {
 			return err
 		}
-		act, args, err := menuPickCommand(ctx, t, st, &mem)
+		try := func(args []string) error { // Try it first, from a form's review
+			again, err := menuRun(ctx, t, self, [][]string{args}, false, "the questions")
+			if err == nil && !again {
+				err = errMenuQuit // q after Try it first: leave the menu
+			}
+			return err
+		}
+		act, cmds, err := menuPickCommand(ctx, t, st, &mem, try)
 		if errors.Is(err, errMenuQuit) || errors.Is(err, context.Canceled) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		run := func() (bool, error) { return menuRun(ctx, t, self, args, act.ownExit) }
+		run := func() (bool, error) { return menuRun(ctx, t, self, cmds, act.ownExit, "the menu") }
 		if act.name == helpAction.name {
 			run = func() (bool, error) { return menuHelp(ctx, t) }
 		}
@@ -126,11 +136,12 @@ func runMenu() error {
 }
 
 // menuPickCommand asks what to do and, for an action on a server, conn or
-// VPN, which one. Esc on the second list goes back to the actions.
-func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory) (menuAction, []string, error) {
+// VPN, which one, and gives the commands to run (Add runs the add, then a
+// test). Esc on the second list goes back to the actions.
+func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory, try formTry) (menuAction, [][]string, error) {
 	acts := menuMainActions(st, sshConfigExists(), sshConfigHasNew(st), !agentSkillInstalled())
 	main := menuMain(acts)
-	if slices.ContainsFunc(acts, func(a menuAction) bool { return a.name == addAction.name }) {
+	if len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0 {
 		main.note = menuNoServer
 	}
 	main.point(mem.action)
@@ -141,6 +152,7 @@ func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *men
 		if err != nil {
 			return menuAction{}, nil, err
 		}
+		main.note = ""
 		act := helpAction
 		if i := slices.IndexFunc(acts, func(a menuAction) bool { return a.name == row.value }); i >= 0 {
 			act = acts[i]
@@ -148,13 +160,22 @@ func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *men
 		mem.action = act.name
 		switch act.pick {
 		case "":
-			return act, act.args, nil
-		case "line":
-			args, err := menuAskServer(ctx, t, scr)
+			return act, [][]string{act.args}, nil
+		case "form", "all":
+			var cmds [][]string
+			if act.pick == "all" {
+				cmds, err = formAllFeatures(ctx, t, st, scr, try)
+			} else {
+				cmds, err = formChoose(ctx, t, st, formGroups(), scr, try)
+			}
 			if errors.Is(err, errMenuBack) {
 				continue
 			}
-			return act, args, err
+			if errors.Is(err, errFormCancel) {
+				main.note = menuNothingAdded
+				continue
+			}
+			return act, cmds, err
 		}
 		list := menuTargets(st, act)
 		list.point(mem.target)
@@ -169,9 +190,9 @@ func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *men
 		}
 		mem.target = row.value
 		if act.pick == "vpn" && menuVpnUp(st, row.value) {
-			return act, []string{"vpn", "down", row.value}, nil // up: choosing it disconnects
+			return act, [][]string{{"vpn", "down", row.value}}, nil // up: choosing it disconnects
 		}
-		return act, append(slices.Clone(act.args), row.value), nil
+		return act, [][]string{append(slices.Clone(act.args), row.value)}, nil
 	}
 }
 
@@ -226,98 +247,39 @@ func menuChoose(ctx context.Context, t *menuTerm, l *menuList, s menuScreen) (me
 	return row, err
 }
 
-// menuAsk reads one line of text on the menu's screen: Enter gives it,
-// Esc clears it and then goes back.
-func menuAsk(ctx context.Context, t *menuTerm, l *menuList, s menuScreen) (string, error) {
-	var text string
-	err := menuShow(ctx, t, l, s, func(k menuKey, page int) (bool, error) {
-		switch k.kind {
-		case keyEnter:
-			text = l.filter
-			return true, nil
-		case keyEsc:
-			if l.filter == "" {
-				return true, errMenuBack
-			}
-			l.setFilter("")
-		case keyQuit:
-			return true, errMenuQuit
-		case keyRune, keyBackspace, keyClear:
-			l.update(k, page)
-		}
-		return false, nil
-	})
-	return text, err
-}
-
-// menuAskServer is Add: one line, a name and user@address, checked here so
-// a typo is fixed in place rather than after a failed command.
-func menuAskServer(ctx context.Context, t *menuTerm, s menuScreen) ([]string, error) {
-	l := &menuList{title: "Add a server or a conn", typing: true, prompt: "Name and user@address, or name and URL: ",
-		empty: "for example: web1 deploy@10.0.0.5 · app-db postgres://app@10.0.0.5/app"}
-	s.footer = "Enter add · Esc back"
-	for {
-		line, err := menuAsk(ctx, t, l, s)
-		if err != nil {
-			return nil, err
-		}
-		args, problem := menuAddArgs(line)
-		if problem == "" {
-			return args, nil
-		}
-		l.empty = problem
-	}
-}
-
-// menuAddArgs turns "web1 deploy@10.0.0.5" into the host add command and
-// "app-db postgres://app@10.0.0.5/app" into conn add, or says what is wrong
-// with it.
-func menuAddArgs(line string) ([]string, string) {
-	f := strings.Fields(line)
-	if len(f) != 2 {
-		return nil, "type a name and user@address, or a name and a URL: web1 deploy@10.0.0.5"
-	}
-	kind, args := "host", slices.Clone(addAction.args)
-	if strings.Contains(f[1], "://") {
-		kind, args = "conn", []string{"conn", "add"}
-	}
-	if err := validName(kind, f[0]); err != nil {
-		return nil, cleanText(toErr(err).Message)
-	}
-	if strings.HasPrefix(f[1], "-") {
-		return nil, "an address cannot start with -"
-	}
-	return append(args, f[0], f[1]), ""
-}
-
-// menuRun runs one komando command in the normal screen, as if it was
-// typed: the command line first, so the person learns it, then its output
-// and exit code. Then it waits: Enter goes back to the menu, q quits. The
-// key help is erased after that, so the scrollback keeps the command, its
-// output and how it ended, not the keys of a menu that is gone.
-func menuRun(ctx context.Context, t *menuTerm, self string, args []string, ownExit bool) (bool, error) {
+// menuRun runs komando commands in the normal screen, as if they were
+// typed, one after the other until one fails: each command line first, so
+// the person learns it, then its output, then how the last one ended. Then
+// it waits: Enter goes back to the menu, q quits. The key help is erased
+// after that, so the scrollback keeps the commands, their output and how
+// they ended, not the keys of a menu that is gone.
+//
+// back is where Enter goes: "the menu", or "the questions" after Try it
+// first.
+func menuRun(ctx context.Context, t *menuTerm, self string, cmds [][]string, ownExit bool, back string) (bool, error) {
 	t.leave()
-	fmt.Fprintf(os.Stderr, "$ komando %s\n", menuCommandLine(args))
-	c := menuCommand(self, args)
-	err := c.Run()
-	// a command that died without undoing raw mode (killed, crashed) must
-	// not leave its terminal modes to the menu or to the next command
-	t.restoreOrig()
 	result := "exit 0"
-	if err != nil {
-		var ee *exec.ExitError
-		if !errors.As(err, &ee) {
+	for _, args := range cmds {
+		fmt.Fprintf(os.Stderr, "$ komando %s\n", menuCommandLine(args))
+		code, err := menuRunOne(self, args)
+		// a command that died without undoing raw mode (killed, crashed) must
+		// not leave its terminal modes to the menu or to the next command
+		t.restoreOrig()
+		if err != nil {
 			return false, err
 		}
-		result = fmt.Sprintf("exit %d", ee.ExitCode())
-		if ee.ExitCode() < 0 { // ended by a signal, most likely Ctrl-C
-			result = "stopped"
+		if code != 0 {
+			result = fmt.Sprintf("exit %d", code)
+			if code < 0 { // ended by a signal, most likely Ctrl-C
+				result = "stopped"
+			}
+			break
 		}
 	}
 	if ownExit && result == "exit 0" {
 		result = "" // "komando: left web1 (exit 0, 12m)" said it already
 	}
-	keys := "Enter back to the menu · q quit "
+	keys := "Enter back to " + back + " · q quit "
 	if result != "" {
 		keys = result + " · " + keys
 	}
@@ -330,6 +292,20 @@ func menuRun(ctx context.Context, t *menuTerm, self string, args []string, ownEx
 		fmt.Fprintln(os.Stderr, menuPaint(result, "2"))
 	}
 	return again, err
+}
+
+// menuRunOne runs one komando command on this terminal: its exit code, -1
+// when a signal ended it.
+func menuRunOne(self string, args []string) (int, error) {
+	err := menuCommand(self, args).Run()
+	var ee *exec.ExitError
+	switch {
+	case err == nil:
+		return 0, nil
+	case errors.As(err, &ee):
+		return ee.ExitCode(), nil
+	}
+	return 0, err
 }
 
 // menuPause waits for Enter or Esc (back to the menu) or q (quit). Keys
@@ -483,7 +459,7 @@ func menuMainActions(st *store.State, sshConfig, newInSSHConfig, skillMissing bo
 	if hosts {
 		acts = append(acts, addAction)
 	}
-	last := []menuAction{listAction, auditAction, doctorAction}
+	last := []menuAction{allAction, listAction, doctorAction}
 	for _, opt := range []struct {
 		show bool
 		act  menuAction

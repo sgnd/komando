@@ -7,6 +7,35 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- **Every feature as questions, for people at a terminal.** Type `komando`,
+  pick Add or All features, and answer one plain question at a time (a
+  name, an address, a user ...), each with an example, a default Enter
+  takes, and a check before the next question. Add has a form for every
+  kind: servers, PostgreSQL, MySQL, MongoDB, SQLite, Redis, Memcached, S3
+  (AWS, MinIO, R2, Wasabi, Spaces, B2), SFTP, FTP, Google Cloud Storage,
+  Azure Blob, WebDAV, Kubernetes, container registries and every VPN kind.
+  All features lists every command by area and asks for what it needs,
+  picking servers, databases and VPNs from your list. The last screen shows
+  the exact command lines before anything runs, and offers **Try it first**
+  (`--dry-run`) for a change. Forms never hold a password (the command asks
+  for it hidden) and never add `--yes`, `--allow-dangerous` or `--reveal`.
+  A password pasted with an address is taken out before it is shown.
+- `komando host add`, `conn add` and `vpn add` typed alone at a terminal ask
+  the same questions; with any argument or flag, or for an AI agent, they
+  work as before.
+- `vpn add --ask-password` and `--ask-psk`: type the VPN login password or
+  the pre-shared key (l2tp, ipsec, ikev2) once, hidden, as with `host add`;
+  they are stored as `secret:NAME-pass` and `secret:NAME-psk`. AI agents get
+  `NEEDS_PERSON`.
+
+### Changed
+
+- The menu's Add asks one question at a time instead of one line
+  (`web1 deploy@10.0.0.5`), and the main menu has **All features** in place
+  of Audit (Audit is under All features, Safety and audit).
+
 ## [0.8.0] - 2026-11-09
 
 ### Highlights

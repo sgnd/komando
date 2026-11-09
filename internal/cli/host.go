@@ -89,8 +89,11 @@ func hostAddCmd() *cobra.Command {
 		Example: `  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
   komando host add db1 --address db.internal --user root --via bastion --protected
   komando host add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)`,
-		Args: cobra.RangeArgs(1, 2),
+		Args: formArgs(cobra.RangeArgs(1, 2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return formOrUsage(cmd, "host", "komando host add web1 deploy@10.0.0.5")
+			}
 			return runHostAdd(cmd, args, &f, force, askPw)
 		},
 	}

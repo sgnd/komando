@@ -247,20 +247,18 @@ komando · v0.6.0 · 12 servers, 3 conns, 1 VPN
   3. Facts     OS, updates, Docker and open ports of a server
   4. Database  Open a SQL shell on a database
   5. VPN       Connect a VPN (and log in), or disconnect one
-  6. Add       Add a server (name user@address) or a conn (name URL)
+  6. Add       A server, database, cache, storage, cluster, registry or VPN
+  7. All features  Everything komando does, by area, as questions
   ...
 
-↑↓ move · Enter or 1-8 choose · ? help · q quit
+↑↓ move · Enter or 1-9 choose · ? help · q quit
 ```
 
 The menu shows only what has something to act on: Shell and Facts need a
 server, Database a PostgreSQL, MySQL or SQLite conn, and VPN a VPN. While
 komando knows no server yet, the menu starts with Import (when there is a
 `~/.ssh/config` to bring in) and Add; later Add comes after the actions.
-Add takes a name and `user@address`, as in `komando host add web1
-deploy@10.0.0.5`, or a name and a URL for a database, cache, bucket or
-cluster, as in `komando conn add app-db postgres://app@10.0.0.5/app`. Two
-more rows show while they are useful and the number keys still reach them
+Two more rows show while they are useful and the number keys still reach them
 (9 rows at most): Import, while `~/.ssh/config` names servers komando does
 not know yet, and AI agent (`komando guide install`), while no AI agent on
 this computer has komando's skill.
@@ -290,6 +288,72 @@ command that is running, not the menu.
 The menu is only for a person at a terminal. AI agents, scripts, pipes and
 `komando` with any flag get the first steps (or, when piped, a `USAGE`
 error) as before. `komando --help` lists every command.
+
+### Add, one question at a time
+
+Add asks what you are adding (a server, a database, a cache, file storage,
+Kubernetes, a container registry or a VPN), then one question at a time,
+in the order you think of it: a name, the address, the user, the port, how
+you log in, and whether it is production. Each question says what it is
+and where to find it, shows an example, and offers a default that Enter
+takes (`Port [22]:`). An answer is checked before the next question: a name
+that is taken, an address with a typo or a file that is not there is said
+in yellow under it, and the answer stays to be fixed.
+
+```text
+Add a server · 3 of 6
+  Name     web1
+  Address  203.0.113.20
+
+Which user do you log in as?
+User: root_
+The login name on the server. Many VPS use root; Ubuntu cloud servers use ubuntu.
+```
+
+The last screen shows every answer and the commands they make, before
+anything runs:
+
+```text
+Add a server: check and run
+This runs:
+  $ komando host add web1 root@203.0.113.20 --ask-password --protected
+  $ komando test web1
+
+> 1. Run it        run the commands above
+  2. Name          web1
+  ...
+  7. More options  reached, one-time code, group, notes
+```
+
+Enter on an answer asks it again; More options asks the rare ones (a jump
+server or VPN, a group, notes). A password is never typed into the menu:
+the command asks for it itself, hidden (`--ask-password`), and keeps it in
+the vault. A password pasted with the address (`root:secret@10.0.0.5`) is
+taken out before it is shown, and nothing keeps it. After the add, `komando
+test` shows that it answers (for a server with a one-time code, `komando
+login` instead).
+
+`komando host add`, `komando conn add` and `komando vpn add` typed alone at
+a terminal ask the same questions. With any argument or flag, or for an AI
+agent or a script, they work as before.
+
+### All features
+
+All features lists every command by area: servers, files, databases,
+cache, file storage, Kubernetes, registries, VPNs and tunnels, secrets and
+keys, your list, jobs and recipes, safety and audit, and setup. Pick an
+area, then what to do (type to filter), and the command asks what it needs:
+a server, database or VPN from your list, then the few things that matter;
+everything else waits under More options. For a command that changes
+something, the review also offers **Try it first**, which runs it with
+`--dry-run` and comes back to the review. The menu never adds `--yes`,
+`--allow-dangerous` or `--reveal`: a change that needs your yes asks you
+when it runs.
+
+Keys in a form: Enter takes the answer (or the default), Esc clears what
+you typed and then goes back one question, numbers choose on a list, and
+Ctrl-C (or `q` on a list) cancels; nothing has run yet, so nothing was
+added.
 
 ## Interactive shell (for people)
 
