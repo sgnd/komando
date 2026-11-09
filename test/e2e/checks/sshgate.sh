@@ -34,7 +34,8 @@ check "exec without --read-only is not a read" SSH_GATE_READ_ONLY "$(kssh gate-r
 check "no shell: another program" SSH_GATE_REFUSED "$(kssh gate-rw id | code || true)"
 check "no shell: a second command" SSH_GATE_SYNTAX "$(kssh gate-rw 'komando list; id' | code || true)"
 check "no shell: a login" SSH_GATE_REFUSED "$(kssh gate-rw | code || true)"
-check "no file copy (sftp)" 1 "$(echo ls | sftp -b - -P "$E2E_SSH_DIRECT" -i "$TMP/gate-rw" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR agent@127.0.0.1 >/dev/null 2>&1; echo $?)"
+# sftp gets ssh-gate's refusal instead of its protocol and gives up (exit 255 or 1)
+check "no file copy (sftp)" True "$(if echo ls | sftp -b - -P "$E2E_SSH_DIRECT" -i "$TMP/gate-rw" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR agent@127.0.0.1 >/dev/null 2>&1; then echo False; else echo True; fi)"
 check "--reveal is refused" SSH_GATE_REFUSED "$(kssh gate-rw komando secret get gx-pass --reveal -o json | code || true)"
 check "a person's command is refused" SSH_GATE_REFUSED "$(kssh gate-rw komando secret passphrase -o json | code || true)"
 # a secret from the key's stdin, never shown back; the vault keeps its key in vault.key here
