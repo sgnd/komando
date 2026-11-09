@@ -252,6 +252,15 @@ run next).
   keys and Enter) that runs the same commands they could type; for agents,
   scripts and any flag the first three steps, not a wall of text; piped, one
   `USAGE` envelope (see Streams and scripts).
+- Every feature works from the menu as questions (internal/cli/form*.go):
+  Add has hand-made forms per kind; All features makes questions for every
+  command from its Use line and flags, made plainer by a formHint. A form
+  asks one question at a time (answers so far stay on screen), checks each
+  answer with the same rules the command uses, and ends on a review that
+  shows the exact command lines. Forms never hold a secret (the command asks
+  with --ask-password) and never add --yes, --allow-dangerous or --reveal.
+  `host add`, `conn add` and `vpn add` alone at a person's terminal open the
+  same form; with any argument or flag, or for an agent, nothing changes.
 - Every command has at least one real example in `--help`.
 - Shell completion completes host, conn, group, and tag names from the inventory.
 - `komando guide` (for agents) and `docs/features/` (for people, one file per feature) are always
