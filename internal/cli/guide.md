@@ -171,12 +171,14 @@ changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run
 <conn> -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
 `cache keys` uses SCAN.
 
-**Queues** (Kafka, Redpanda, MSK): `komando queue info|ls|describe|groups|lag
+**Queues** (Kafka, Redpanda, MSK, RabbitMQ): `komando queue info|ls|describe|groups|lag
 <conn>` read; `komando queue peek <conn> TOPIC -n 20` reads the newest
 messages without joining a consumer group (nothing moves, nothing is
-removed; `--oldest` for the first ones). `queue send <conn> TOPIC --value
-'...'` and `queue create` change; `queue rm` and `queue purge` delete
-messages (need `--allow-dangerous`). Try every change with `--dry-run`.
+removed; `--oldest` for the first ones). On RabbitMQ peek takes the first
+messages of a queue and gives them back (marked redelivered); stop on
+`DELIVERY_LIMIT_NEAR`. `queue send <conn> TOPIC --value '...'` and `queue
+create` change; `queue rm` and `queue purge` delete messages (need
+`--allow-dangerous`). Try every change with `--dry-run`.
 
 **MongoDB** conns use `komando db query <conn> '<command JSON>'`, the
 first key naming the command (`{"find": "users", "filter": {...}}`); reads

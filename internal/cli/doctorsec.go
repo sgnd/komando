@@ -201,7 +201,7 @@ func plainConn(c *store.Conn) string {
 		if !t.Secure {
 			return fix("travels unencrypted: anyone on the network path can read the password and the data")
 		}
-	case "kafka":
+	case "kafka", "rabbitmq":
 		if t.TLS == "skip-verify" {
 			return fix(notChecked)
 		}
@@ -244,7 +244,8 @@ func overNetwork(c *store.Conn, t driver.Target) bool {
 }
 
 // verifiedTLSURL is raw with TLS whose certificate is checked: Postgres
-// sslmode=verify-full, MySQL tls=true, rediss:// and memcacheds://. It
+// sslmode=verify-full, MySQL tls=true, rediss://, memcacheds:// and
+// amqps:// (on port 5671 when it was 5672), kafka tls=true. It
 // is "" for other kinds, or a URL that does not parse. An option the URL
 // did not have is added at the end; the rest stays as written.
 func verifiedTLSURL(raw, kind string) string {
@@ -264,6 +265,17 @@ func verifiedTLSURL(raw, kind string) string {
 		u.Scheme = "memcacheds"
 	case "kafka":
 		key, val = "tls", "true"
+	case "rabbitmq":
+		u.Scheme = "amqps"
+		if u.Port() == "5672" {
+			u.Host = net.JoinHostPort(u.Hostname(), "5671")
+		}
+		q := u.Query()
+		if q.Has("tls") || q.Has("insecure") {
+			q.Del("tls")
+			q.Del("insecure")
+			u.RawQuery = q.Encode()
+		}
 	default:
 		return ""
 	}

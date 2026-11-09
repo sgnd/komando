@@ -1,8 +1,13 @@
 # Queues
 
 Look at and work with message queues safely: Apache Kafka, and what speaks
-its protocol (Redpanda, Amazon MSK, Confluent Cloud, Aiven).
+its protocol (Redpanda, Amazon MSK, Confluent Cloud, Aiven), and RabbitMQ.
 [All features](README.md)
+
+The same commands work for both. Kafka keeps messages in **topics**;
+RabbitMQ keeps them in **queues**. Where this page says "topic", read
+"queue" for RabbitMQ. What is different for RabbitMQ is in
+[RabbitMQ](#rabbitmq) below.
 
 ## Quick start
 
@@ -133,15 +138,106 @@ komando queue rm events old-orders --allow-dangerous      # delete the topic and
   (rules `queue-purge` and `queue-delete` in `komando policy list`). Their
   `--dry-run` lists what would go.
 
+## RabbitMQ
+
+### Add a RabbitMQ server
+
+```bash
+komando secret set rabbit-pass
+komando conn add jobs 'amqps://app@rabbit.example.com:5671/%2F?management=15671' --password-ref secret:rabbit-pass
+komando conn add jobs2 'amqp://app@rabbit.internal:5672/prod?management=15672' --via web1 --password-ref secret:rabbit-pass
+komando queue info jobs                       # version, cluster, nodes, totals
+komando queue ls jobs                         # queues: messages, ready, unacked, consumers
+komando queue peek jobs emails                # the first 10 messages; all of them go back
+```
+
+- `amqps://` is AMQP with TLS (port 5671 by default); `amqp://` has no
+  TLS (port 5672). Like `redis://`, `amqp://` straight over the network
+  (no `--via`, not this computer) is refused with `INSECURE_PROTOCOL`
+  unless you add `?insecure=1`.
+- The path is the **virtual host** (vhost). The default vhost is `/`,
+  written `%2F` or left out (`amqp://app@rabbit.internal/`).
+- The user's password goes in the vault (`--password-ref`), never in the
+  URL. A URL without a user logs in as `guest` (password `guest`, or the
+  one `--password-ref` gives). RabbitMQ lets `guest` in only from the
+  server itself, so that works `--via` the server's SSH.
+
+| Option | What it does |
+|---|---|
+| `management=PORT` | also use the management HTTP API on this port of the same host (HTTPS for `amqps://`), for `ls`, the nodes and the totals in `info`, and the details in `describe` |
+| `ca=secret:NAME` | `amqps://`: also trust your own CA (`komando secret set NAME < ca.pem`) |
+| `tls=skip-verify` | `amqps://` without checking the certificate (`komando doctor` warns; prefer `ca=`) |
+| `insecure=1` | accept `amqp://` across the network without TLS |
+
+The management API is the `rabbitmq_management` plugin. It takes users
+with the `management`, `monitoring` or `administrator` tag; komando only
+reads from it. Without `?management=`, komando uses AMQP alone: `info`
+shows the server's version and `describe` shows how many messages wait and
+how many consumers a queue has, but `ls` cannot list queues
+(`NOT_SUPPORTED`).
+
+### What each command does on RabbitMQ
+
+```bash
+komando queue describe jobs emails            # type, state, messages, arguments, consumers
+komando queue peek jobs emails -n 5           # the first 5 messages; nothing is removed
+komando queue send jobs emails --value '{"to": "a@example.com"}' --header source=support
+komando queue create jobs emails --type quorum --config x-max-length=10000 --dry-run
+komando queue purge jobs emails --dry-run     # how many messages wait
+komando queue rm jobs emails --allow-dangerous
+```
+
+- **`peek` takes messages from the front of the queue and gives every one
+  back.** It reads with `basic.get` and does not acknowledge, then returns
+  them all (`nack` with requeue), so **nothing is removed**. Good to know:
+  - RabbitMQ marks the messages it gets back as **redelivered**. A consumer
+    that treats redelivered messages differently will see that flag.
+  - For the moment peek holds them, no consumer gets them, and a busy
+    queue may hand them out in a slightly different order afterwards.
+  - If the connection breaks, RabbitMQ puts the messages back by itself.
+  - A **quorum queue** counts each peek as one delivery
+    (`x-delivery-count`). After its delivery limit (20 by default since
+    RabbitMQ 4.0, or the queue's own `x-delivery-limit` or policy) it drops
+    a message or sends it to its dead-letter queue. So peek shows the count
+    (`deliveries`) and **stops with `DELIVERY_LIMIT_NEAR`** once a message
+    has fewer than 3 deliveries left: do not peek that queue again. Only
+    the management API tells a queue's type and its own limit, so **peek
+    needs `?management=`** in the conn's URL: without it (or when the
+    management API fails) peek stops before it takes a message
+    (`NOT_SUPPORTED`, or the management API's error).
+  - A **stream** queue cannot be peeked this way (`NOT_SUPPORTED`).
+  - peek always reads from the front (`"from": "front"`); `--oldest`,
+    `--partition` and `--wait` are for Kafka.
+- `send` puts the message straight into the queue (through the default
+  exchange), as a persistent message, and waits until the server confirms
+  it. `--header KEY=VALUE` sets its headers; there is no `--key` or
+  `--partition`.
+- `create` makes a **durable** queue. `--type` picks `classic`, `quorum`
+  or `stream` (left out: the vhost's default). `--config KEY=VALUE` sets
+  the queue's arguments, such as `x-max-length=10000` or
+  `x-overflow=reject-publish`. RabbitMQ cannot check a queue without
+  making it, so `create --dry-run` only checks that the name is free. A
+  queue that is there already is `QUEUE_EXISTS`.
+- `purge` deletes the messages that wait (ready). Messages a consumer
+  holds and has not acknowledged yet stay. `rm` deletes the queue and its
+  messages, and cancels its consumers; `--dry-run` shows how many of each.
+  Both need `--allow-dangerous`.
+- `groups` and `lag` answer `NOT_SUPPORTED`: RabbitMQ has no consumer
+  groups. `describe` shows a queue's consumers, the messages waiting for
+  them (ready) and those not acknowledged yet (unacked).
+
 ## Troubleshooting
 
 | Code | What to do |
 |---|---|
 | `QUEUE_CONNECT` | the brokers cannot be reached, or want TLS (`?tls=true`) or a login (`?sasl=`); with `--via`, the advertised addresses must be reachable from there |
 | `QUEUE_AUTH` | check the user, the `sasl=` mechanism and the password (`komando conn show NAME`) |
-| `QUEUE_DENIED` | the user lacks a Kafka ACL for the topic, group or cluster: ask the cluster's admin |
+| `QUEUE_DENIED` | the user lacks a Kafka ACL for the topic, group or cluster, or a RabbitMQ permission on the vhost or queue: ask the admin |
 | `TOPIC_NOT_FOUND`, `CONSUMER_GROUP_NOT_FOUND`, `PARTITION_NOT_FOUND` | check the name with `queue ls`, `queue groups` or `queue describe` |
 | `TOPIC_EXISTS` | `queue create` of a topic that is there |
+| `QUEUE_NOT_FOUND`, `QUEUE_EXISTS` | RabbitMQ: no such queue in the conn's vhost, or one is there already; check the vhost in the URL's path |
+| `DELIVERY_LIMIT_NEAR` | a message of a RabbitMQ quorum queue is close to its delivery limit: stop peeking that queue and let its consumers take the message |
+| `NOT_SUPPORTED` | the engine cannot do this (RabbitMQ: `groups`, `lag`, `ls` and `peek` without `?management=`); the hint says what works instead |
 
 The design behind these commands is in
 [docs/design/queue.md](../design/queue.md).

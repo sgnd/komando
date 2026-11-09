@@ -19,6 +19,9 @@ type queueInfo struct {
 }
 
 func (d queueInfo) Text() string {
+	if d.RabbitInfo != nil {
+		return rabbitInfoText(d.Info)
+	}
 	var b strings.Builder
 	version := d.Version
 	if version == "" {
@@ -54,13 +57,19 @@ func orDash(s string) string {
 
 type queueTopics struct {
 	Conn   string         `json:"conn"`
-	Topics []queuex.Topic `json:"topics"`
+	Topics []queuex.Topic `json:"topics"` // rabbitmq: queues
 	Count  int            `json:"count"`
+	rabbit bool
 }
 
 func (l queueTopics) Text() string {
-	if len(l.Topics) == 0 {
+	switch {
+	case len(l.Topics) == 0 && l.rabbit:
+		return "no queues\n"
+	case len(l.Topics) == 0:
 		return "no topics\n"
+	case l.rabbit:
+		return rabbitQueuesText(l.Topics)
 	}
 	var rows [][]string
 	for _, t := range l.Topics {
@@ -75,6 +84,9 @@ type queueTopic struct {
 }
 
 func (d queueTopic) Text() string {
+	if d.RabbitQueueDetail != nil {
+		return rabbitQueueText(d.TopicDetail)
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "topic: %s (%s, %s, %s)\n\n", d.Name, countOf(len(d.Partitions), "partition"), countOf(d.Replicas, "replica"), count64(d.Messages, "message"))
 	var rows [][]string
@@ -118,6 +130,9 @@ type queuePeek struct {
 }
 
 func (p queuePeek) Text() string {
+	if p.Queue != "" {
+		return rabbitPeekText(p.PeekResult)
+	}
 	var b strings.Builder
 	for _, m := range p.Messages {
 		key := "-"
@@ -135,10 +150,7 @@ func (p queuePeek) Text() string {
 		if m.Encoding != "" {
 			b.WriteString(", " + m.Encoding)
 		}
-		b.WriteString("\n" + m.Value + "\n")
-		if m.ValueTruncated {
-			fmt.Fprintf(&b, "(cut: the value is %s)\n", humanBytes(int64(m.Size)))
-		}
+		writeValue(&b, m)
 	}
 	switch {
 	case len(p.Messages) == 0:
@@ -150,6 +162,14 @@ func (p queuePeek) Text() string {
 		b.WriteString("(stopped waiting: some messages may be missing; raise --wait)\n")
 	}
 	return b.String()
+}
+
+// writeValue ends a message's header line and writes its value.
+func writeValue(b *strings.Builder, m queuex.Received) {
+	b.WriteString("\n" + m.Value + "\n")
+	if m.ValueTruncated {
+		fmt.Fprintf(b, "(cut: the value is %s)\n", humanBytes(int64(m.Size)))
+	}
 }
 
 type queueGroups struct {
@@ -199,6 +219,12 @@ type queueSent struct {
 }
 
 func (s queueSent) Text() string {
+	if s.Queue != "" {
+		if s.DryRun {
+			return fmt.Sprintf("would send %s to queue %s (nothing sent)\n", humanBytes(int64(s.Size)), s.Queue)
+		}
+		return fmt.Sprintf("sent %s to queue %s; the server confirmed it\n", humanBytes(int64(s.Size)), s.Queue)
+	}
 	if s.DryRun {
 		where := "the partition its key picks"
 		if s.Partition != nil {
@@ -215,6 +241,17 @@ type queueCreated struct {
 }
 
 func (c queueCreated) Text() string {
+	if c.RabbitCreated != nil {
+		typ := c.Type
+		if typ == "" {
+			typ = "the vhost's default type"
+		}
+		verb := "created"
+		if c.DryRun {
+			verb = "would create (the name is free; nothing created):"
+		}
+		return fmt.Sprintf("%s durable queue %s (%s) in vhost %s\n", verb, c.Queue, typ, c.Vhost)
+	}
 	verb := "created"
 	if c.DryRun {
 		verb = "the brokers accept (nothing created):"
@@ -243,10 +280,14 @@ func (d queueDeleted) Text() string {
 	}
 	for _, t := range d.Topics {
 		if !t.Exists {
-			fmt.Fprintf(&b, "%s does not exist\n", t.Topic)
+			fmt.Fprintf(&b, "%s does not exist\n", t.Name())
 			continue
 		}
-		fmt.Fprintf(&b, "%s %s (%s)\n", verb, t.Topic, count64(t.Messages, "message"))
+		fmt.Fprintf(&b, "%s %s (%s", verb, t.Name(), count64(t.Messages, "message"))
+		if t.Consumers != nil && *t.Consumers > 0 {
+			fmt.Fprintf(&b, "; its %s %s cancelled", countOf(*t.Consumers, "consumer"), map[bool]string{true: "would be", false: "were"}[d.DryRun])
+		}
+		b.WriteString(")\n")
 	}
 	return b.String()
 }
@@ -257,6 +298,13 @@ type queuePurged struct {
 }
 
 func (p queuePurged) Text() string {
+	if p.Queue != "" {
+		verb := "deleted"
+		if p.DryRun {
+			verb = "would delete"
+		}
+		return fmt.Sprintf("%s %s waiting in queue %s; the queue stays, and messages a consumer holds stay\n", verb, count64(p.Messages, "message"), p.Queue)
+	}
 	if p.DryRun {
 		return fmt.Sprintf("would delete %s from %s (%s); the topic stays\n", count64(p.Messages, "message"), p.Topic, countOf(p.Partitions, "partition"))
 	}

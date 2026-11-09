@@ -75,6 +75,8 @@ func init() {
 		Example: "memcached://cache.internal:11211 (memcacheds = TLS)"})
 	register(Kind{Name: "kafka", Family: "queue", Schemes: []string{"kafka"}, DefaultPort: 9092,
 		Example: "kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512 (private CA: &ca=secret:NAME; --via an SSH server: kafka://broker1.internal:9092)"})
+	register(Kind{Name: "rabbitmq", Family: "queue", Schemes: []string{"amqp", "amqps"}, DefaultPort: 5672,
+		Example: "amqps://app@rabbit.example.com:5671/%2F?management=15671 (amqps = TLS; the path is the vhost; --via an SSH server: amqp://app@rabbit.internal:5672/)"})
 	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
 		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
 	register(Kind{Name: "registry", Family: "registry", Schemes: []string{"registry", "oci"}, DefaultPort: 443,
@@ -125,13 +127,13 @@ type Target struct {
 	Address  string `json:"address,omitempty"`  // host:port for network kinds (s3: the endpoint)
 	Path     string `json:"path,omitempty"`     // file path for file kinds; gcs, azblob: the endpoint's path (an emulator)
 	User     string `json:"user,omitempty"`     // s3: the access key ID (not secret)
-	Database string `json:"database,omitempty"` // SQL database name, or redis DB number
+	Database string `json:"database,omitempty"` // SQL database name, redis DB number, or rabbitmq vhost
 	Bucket   string `json:"bucket,omitempty"`   // s3
 	Prefix   string `json:"prefix,omitempty"`   // storage: keys are relative to this folder
 	Region   string `json:"region,omitempty"`   // s3
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
 	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry: skip-verify (registry also false)
-	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka: secret:NAME holding the PEM CA certificate to trust
+	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka, rabbitmq: secret:NAME holding the PEM CA certificate to trust
 	Resolve  string `json:"resolve,omitempty"`  // registry, s3: IP:port to connect to in place of Address (?resolve=)
 
 	Cluster      bool     `json:"cluster,omitempty"`       // redis: a Redis Cluster; Address is one node (?cluster=1)
@@ -141,6 +143,8 @@ type Target struct {
 
 	Brokers []string `json:"brokers,omitempty"` // kafka: every seed broker the URL lists; Address is the first
 	SASL    string   `json:"sasl,omitempty"`    // kafka: plain, scram-sha-256 or scram-sha-512 (?sasl=)
+
+	Management string `json:"management,omitempty"` // rabbitmq: host:port of the management HTTP API (?management=PORT)
 }
 
 // DialAddress is where a connection goes: the ?resolve= address when the
@@ -212,6 +216,8 @@ func Parse(raw string) (Target, error) {
 		return parseMongo(u, t)
 	case "kafka":
 		return parseKafka(u, t, brokers)
+	case "rabbitmq":
+		return parseAMQP(u, t)
 	}
 	if k.File {
 		t.Path = u.Opaque
@@ -465,7 +471,10 @@ func (t Target) Describe() string {
 	if t.User != "" {
 		s = t.User + "@" + s
 	}
-	if t.Database != "" {
+	switch {
+	case t.Kind.Name == "rabbitmq":
+		s += " vhost " + t.Database
+	case t.Database != "":
 		s += "/" + t.Database
 	}
 	if n := len(t.Brokers) - 1; n > 0 {

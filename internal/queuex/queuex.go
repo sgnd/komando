@@ -1,7 +1,8 @@
 // Package queuex talks to message queues for `komando queue`: Apache Kafka
 // (and what speaks its protocol: Redpanda, MSK, Confluent Cloud) through
-// franz-go. Reading never moves a consumer group or removes a message;
-// see docs/design/queue.md.
+// franz-go, and other engines that register themselves (RabbitMQ, in
+// internal/queuex/rabbitmq). Reading never moves a consumer group or
+// removes a message; see docs/design/queue.md.
 package queuex
 
 import (
@@ -46,8 +47,20 @@ type Kafka struct {
 	timeout time.Duration
 }
 
+// OpenFunc connects to a conn of one engine and checks that it answers.
+type OpenFunc func(ctx context.Context, t driver.Target, password string, dial DialFunc, timeout time.Duration, clientID string) (Queue, error)
+
+// engines are the engines other than Kafka, by kind name.
+var engines = map[string]OpenFunc{}
+
+// Register makes Open use open for conns of kind (a driver.Kind name).
+func Register(kind string, open OpenFunc) { engines[kind] = open }
+
 // Open connects to a queue conn and checks that a broker answers.
 func Open(ctx context.Context, t driver.Target, password string, dial DialFunc, timeout time.Duration, clientID string) (Queue, error) {
+	if open := engines[t.Kind.Name]; open != nil {
+		return open(ctx, t, password, dial, timeout, clientID)
+	}
 	opts, err := clientOpts(t, password, dial, timeout, clientID)
 	if err != nil {
 		return nil, err

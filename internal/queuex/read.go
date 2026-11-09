@@ -11,11 +11,19 @@ import (
 	"github.com/twmb/franz-go/pkg/kmsg"
 )
 
-// Info is the cluster at a glance.
+// Info is the cluster at a glance. Engine says which of the embedded
+// parts is there: KafkaInfo or RabbitInfo (see rabbit.go).
 type Info struct {
+	Engine  string `json:"engine"` // kafka | rabbitmq
+	Version string `json:"version,omitempty"`
+	*KafkaInfo
+	*RabbitInfo
+}
+
+// KafkaInfo is what `queue info` shows of a Kafka cluster.
+type KafkaInfo struct {
 	ClusterID  string   `json:"cluster_id,omitempty"`
 	Controller int32    `json:"controller"` // broker id, -1 when unknown
-	Version    string   `json:"version,omitempty"`
 	Brokers    []Broker `json:"brokers"`
 	Topics     int      `json:"topics"` // not counting internal ones
 }
@@ -29,22 +37,34 @@ type Broker struct {
 	Version    string `json:"version,omitempty"` // a guess from the API versions it takes
 }
 
-// Topic is one line of `queue ls`.
+// Topic is one line of `queue ls`: a Kafka topic or a RabbitMQ queue.
 type Topic struct {
-	Name       string `json:"name"`
-	Partitions int    `json:"partitions"`
-	Replicas   int    `json:"replicas"`
-	Messages   int64  `json:"messages"` // end minus start offset: an upper bound on compacted topics
-	Internal   bool   `json:"internal,omitempty"`
+	Name     string `json:"name"`
+	Messages int64  `json:"messages"` // kafka: end minus start offset, an upper bound on compacted topics
+	*KafkaTopic
+	*RabbitQueue
 }
 
-// TopicDetail is `queue describe`.
+// KafkaTopic is what `queue ls` shows of a Kafka topic.
+type KafkaTopic struct {
+	Partitions int  `json:"partitions"`
+	Replicas   int  `json:"replicas"`
+	Internal   bool `json:"internal,omitempty"`
+}
+
+// TopicDetail is `queue describe`: a Kafka topic or a RabbitMQ queue.
 type TopicDetail struct {
-	Name       string            `json:"name"`
+	Name     string `json:"name"`
+	Messages int64  `json:"messages"`
+	*KafkaTopicDetail
+	*RabbitQueueDetail
+}
+
+// KafkaTopicDetail is what `queue describe` shows of a Kafka topic.
+type KafkaTopicDetail struct {
 	ID         string            `json:"id,omitempty"`
 	Internal   bool              `json:"internal,omitempty"`
 	Replicas   int               `json:"replicas"`
-	Messages   int64             `json:"messages"`
 	Partitions []Partition       `json:"partitions"`
 	Config     map[string]string `json:"config"` // settings that differ from the broker's defaults
 	Groups     []GroupOnTopic    `json:"groups"`
@@ -108,7 +128,7 @@ func (k *Kafka) Info(ctx context.Context) (*Info, error) {
 	if err != nil {
 		return nil, opErr(err, "metadata")
 	}
-	inf := &Info{ClusterID: md.Cluster, Controller: md.Controller, Brokers: []Broker{}}
+	inf := &Info{Engine: "kafka", KafkaInfo: &KafkaInfo{ClusterID: md.Cluster, Controller: md.Controller, Brokers: []Broker{}}}
 	vers, _ := k.adm.ApiVersions(ctx) // a guess only: no error if it fails
 	for _, b := range md.Brokers {
 		br := Broker{ID: b.NodeID, Address: net.JoinHostPort(b.Host, strconv.Itoa(int(b.Port))), Controller: b.NodeID == md.Controller}
@@ -140,7 +160,7 @@ func (k *Kafka) Topics(ctx context.Context, pattern string, internal bool) ([]To
 	}
 	var names []string
 	for name, td := range tds {
-		if td.Err == nil && (internal || !td.IsInternal) && match(pattern, name) {
+		if td.Err == nil && (internal || !td.IsInternal) && Match(pattern, name) {
 			names = append(names, name)
 		}
 	}
@@ -155,7 +175,7 @@ func (k *Kafka) Topics(ctx context.Context, pattern string, internal bool) ([]To
 	}
 	for _, name := range names {
 		td := tds[name]
-		t := Topic{Name: name, Partitions: len(td.Partitions), Internal: td.IsInternal}
+		t := Topic{Name: name, KafkaTopic: &KafkaTopic{Partitions: len(td.Partitions), Internal: td.IsInternal}}
 		for _, p := range td.Partitions {
 			t.Replicas = max(t.Replicas, len(p.Replicas))
 			t.Messages += count(starts, ends, name, p.Partition)
@@ -165,7 +185,9 @@ func (k *Kafka) Topics(ctx context.Context, pattern string, internal bool) ([]To
 	return res, nil
 }
 
-func match(pattern, name string) bool {
+// Match says whether name matches a shell-style pattern ("" and "*" match
+// everything).
+func Match(pattern, name string) bool {
 	if pattern == "" || pattern == "*" {
 		return true
 	}
@@ -223,7 +245,7 @@ func (k *Kafka) Describe(ctx context.Context, name string) (*TopicDetail, error)
 	if err != nil {
 		return nil, err
 	}
-	d := &TopicDetail{Name: name, Internal: td.IsInternal, Partitions: []Partition{}, Config: map[string]string{}, Groups: []GroupOnTopic{}}
+	d := &TopicDetail{Name: name, KafkaTopicDetail: &KafkaTopicDetail{Internal: td.IsInternal, Partitions: []Partition{}, Config: map[string]string{}, Groups: []GroupOnTopic{}}}
 	if td.ID != (kadm.TopicID{}) {
 		d.ID = td.ID.String()
 	}

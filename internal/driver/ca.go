@@ -23,7 +23,7 @@ var ResolveSecret func(ref string) (string, error)
 var ErrSecretNotFound = errors.New("secret not found")
 
 // caKinds are the kinds whose URL takes ?ca= (registry has its own).
-var caKinds = map[string]bool{"postgres": true, "mysql": true, "redis": true, "memcached": true, "mongodb": true, "kafka": true}
+var caKinds = map[string]bool{"postgres": true, "mysql": true, "redis": true, "memcached": true, "mongodb": true, "kafka": true, "rabbitmq": true}
 
 // parseCA reads ?ca=secret:NAME into t.CA.
 func parseCA(q url.Values, t *Target) error {
@@ -44,6 +44,10 @@ func parseCA(q url.Values, t *Target) error {
 		return out.Usage("?ca= checks a TLS certificate: use %ss:// (TLS)", t.Kind.Name)
 	case t.Kind.Name == "mongodb" && !t.Secure:
 		return out.Usage("?ca= checks a TLS certificate: add tls=true (or use mongodb+srv://)")
+	case t.Kind.Name == "rabbitmq" && !t.Secure:
+		return out.Usage("?ca= checks a TLS certificate: use amqps:// (TLS)")
+	case t.Kind.Name == "rabbitmq" && t.TLS == "skip-verify":
+		return out.Usage("rabbitmq ca= and tls=skip-verify do not go together: with ca= the certificate is checked against that CA")
 	case t.Kind.Name == "kafka" && !t.Secure:
 		return out.Usage("?ca= checks a TLS certificate: add tls=true")
 	case t.Kind.Name == "kafka" && t.TLS == "skip-verify":

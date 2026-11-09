@@ -241,7 +241,7 @@ func TestText(t *testing.T) {
 		{[]byte{0xff, 0x01}, 0, "/wE=", "base64", false},
 		{[]byte{0xff, 0x01, 0x02}, 2, "/wE=", "base64", true},
 	} {
-		got, enc, cut := text(c.in, c.max)
+		got, enc, cut := Text(c.in, c.max)
 		if got != c.want || enc != c.encoding || cut != c.cut {
 			t.Errorf("text(%q, %d) = %q %q %v", c.in, c.max, got, enc, cut)
 		}

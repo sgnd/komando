@@ -9,24 +9,26 @@ import (
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/queuex"
+	_ "github.com/sgnd/komando/internal/queuex/rabbitmq" // amqp:// and amqps:// conns
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Queue commands (docs/design/queue.md): reading never moves a consumer
-// group or removes a message; send and create change, behind the usual
+// Queue commands (docs/design/queue.md), for Kafka and RabbitMQ: reading
+// never moves a consumer group or removes a message; send and create change, behind the usual
 // seatbelts (protected conns need --yes); rm and purge delete messages, so
 // they also need --allow-dangerous. Every change has a real --dry-run.
 
 func queueCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "queue",
-		Aliases: []string{"kafka"},
-		Short:   "Read and change message queues (Kafka topics) safely",
-		Long: `Work with a kafka conn (see ` + "`komando conn`" + `). info, ls, describe, peek, groups
-and lag only read: peek reads messages without joining a consumer group, so
-no application's position moves and nothing is removed. send and create
-change (protected conns need --yes); rm and purge delete messages, so they
-also need --allow-dangerous. Try any change with --dry-run first.`,
+		Aliases: []string{"kafka", "rabbitmq"},
+		Short:   "Read and change message queues (Kafka, RabbitMQ) safely",
+		Long: `Work with a kafka:// or amqp:// conn (see ` + "`komando conn`" + `). info, ls, describe,
+peek, groups and lag only read: peek reads Kafka messages without joining a
+consumer group, and gives RabbitMQ messages straight back, so nothing is
+removed. send and create change (protected conns need --yes); rm and purge
+delete messages, so they also need --allow-dangerous. Try any change with
+--dry-run first. In RabbitMQ words a topic is a queue.`,
 	}
 	c.AddCommand(queueInfoCmd(), queueLsCmd(), queueDescribeCmd(), queuePeekCmd(), queueGroupsCmd(), queueLagCmd(),
 		queueSendCmd(), queueCreateCmd(), queueRmCmd(), queuePurgeCmd())
@@ -36,8 +38,8 @@ also need --allow-dangerous. Try any change with --dry-run first.`,
 // queueRules are the rules of the destructive queue commands (rm, purge),
 // listed by `komando policy list`.
 var queueRules = []driver.Rule{
-	{ID: "queue-delete", Reason: "deletes topics and every message in them"},
-	{ID: "queue-purge", Reason: "deletes every message in a topic (the topic stays)"},
+	{ID: "queue-delete", Reason: "deletes topics (or queues) and every message in them"},
+	{ID: "queue-purge", Reason: "deletes every message in a topic or queue (it stays)"},
 }
 
 func queueRisk(id string) driver.Verdict {
@@ -106,7 +108,7 @@ func queueCtx(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 func queueInfoCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "info CONN",
-		Short:   "Cluster summary: brokers, controller, Kafka version, topic count",
+		Short:   "Server summary: version, brokers or nodes, topic or queue count",
 		Example: `  komando queue info events`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -129,7 +131,7 @@ func queueLsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "ls CONN [PATTERN]",
 		Aliases: []string{"list"},
-		Short:   "List topics with partitions, replicas and message counts",
+		Short:   "List topics (or queues) with their message counts",
 		Example: `  komando queue ls events
   komando queue ls events 'orders-*'
   komando queue ls events --internal`,
@@ -147,18 +149,18 @@ func queueLsCmd() *cobra.Command {
 					if err != nil {
 						return nil, err
 					}
-					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts)}, nil
+					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts), rabbit: c.Kind == "rabbitmq"}, nil
 				})
 		},
 	}
-	c.Flags().BoolVar(&internal, "internal", false, "also list Kafka's own topics (__consumer_offsets, ...)")
+	c.Flags().BoolVar(&internal, "internal", false, "kafka: also list Kafka's own topics (__consumer_offsets, ...)")
 	return c
 }
 
 func queueDescribeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "describe CONN TOPIC",
-		Short:   "One topic: partitions, offsets, its own settings and the groups reading it",
+		Short:   "One topic or queue: messages, settings, and who reads it",
 		Example: `  komando queue describe events orders`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -182,12 +184,18 @@ func queuePeekCmd() *cobra.Command {
 	var wait time.Duration
 	c := &cobra.Command{
 		Use:   "peek CONN TOPIC",
-		Short: "Read the newest (or oldest) messages without moving any consumer group",
-		Long: `Read messages straight from the topic's partitions: no consumer group is
-joined and no offset is committed, so no application notices and nothing is
-removed. By default the newest -n messages over all partitions; --oldest
-reads the first ones still kept. Values that are not UTF-8 text are shown
-as base64.`,
+		Short: "Read the newest (or oldest) messages without removing any",
+		Long: `Kafka: read messages straight from the topic's partitions. No consumer
+group is joined and no offset is committed, so no application notices and
+nothing is removed. By default the newest -n messages over all partitions;
+--oldest reads the first ones still kept.
+
+RabbitMQ: take the first -n messages of the queue (the next ones a consumer
+would get) and give them all back. Nothing is removed, but RabbitMQ marks
+them redelivered, and a quorum queue counts each peek as a delivery: peek
+stops (DELIVERY_LIMIT_NEAR) before a message runs out of them.
+
+Values that are not UTF-8 text are shown as base64.`,
 		Example: `  komando queue peek events orders
   komando queue peek events orders -n 50 --partition 2
   komando queue peek events orders --oldest -n 5`,
@@ -212,15 +220,15 @@ as base64.`,
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 10, "how many messages")
 	c.Flags().BoolVar(&oldest, "oldest", false, "the first messages still kept, not the newest")
-	c.Flags().IntVar(&partition, "partition", -1, "only this partition (numbered from 0)")
-	c.Flags().DurationVar(&wait, "wait", 5*time.Second, "stop when no message came for this long")
+	c.Flags().IntVar(&partition, "partition", -1, "kafka: only this partition (numbered from 0)")
+	c.Flags().DurationVar(&wait, "wait", 5*time.Second, "kafka: stop when no message came for this long")
 	return c
 }
 
 func queueGroupsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "groups CONN",
-		Short:   "List consumer groups: state, members, topics and total lag",
+		Short:   "List Kafka consumer groups: state, members, topics and total lag",
 		Example: `  komando queue groups events`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -241,7 +249,7 @@ func queueGroupsCmd() *cobra.Command {
 func queueLagCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "lag CONN GROUP",
-		Short:   "How far one consumer group is behind, per topic and partition",
+		Short:   "How far one Kafka consumer group is behind, per topic and partition",
 		Example: `  komando queue lag events billing`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

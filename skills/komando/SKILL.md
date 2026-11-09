@@ -1,6 +1,6 @@
 ---
 name: komando
-description: Manage servers, databases, caches, message queues (Kafka), object storage, Kubernetes/Docker Swarm clusters, container registries, VPNs and secrets safely through the komando CLI. Use whenever a task touches a remote server or service - checking health, reading logs, editing config, restarting services, updating packages, querying a database, reading a cache, peeking at a Kafka topic, listing a bucket, deploying to a cluster - or when the user mentions komando, SSH, a host name, a database or a server.
+description: Manage servers, databases, caches, message queues (Kafka, RabbitMQ), object storage, Kubernetes/Docker Swarm clusters, container registries, VPNs and secrets safely through the komando CLI. Use whenever a task touches a remote server or service - checking health, reading logs, editing config, restarting services, updating packages, querying a database, reading a cache, peeking at a Kafka topic or RabbitMQ queue, listing a bucket, deploying to a cluster - or when the user mentions komando, SSH, a host name, a database or a server.
 ---
 
 # komando

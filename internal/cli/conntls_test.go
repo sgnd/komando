@@ -109,3 +109,23 @@ func TestOverNetworkEveryHost(t *testing.T) {
 	invHome(t)
 	wantCode(t, "INSECURE_PROTOCOL", "conn", "add", "k", "kafka://localhost:9092,kafka.example.com:9092")
 }
+
+// TestInsecureProtocolCatalogHint: many kinds give INSECURE_PROTOCOL, so
+// the catalog's hint (`komando schema`) names the TLS form of each, while
+// the error itself keeps its own kind's hint.
+func TestInsecureProtocolCatalogHint(t *testing.T) {
+	for _, c := range errorCodes {
+		if c.Code != "INSECURE_PROTOCOL" {
+			continue
+		}
+		for _, form := range []string{"rediss://", "amqps://", "tls://", "tls=true", "https://", "ftps://", "--via"} {
+			if !strings.Contains(c.Hint, form) {
+				t.Errorf("the catalog's hint does not name %s: %q", form, c.Hint)
+			}
+		}
+	}
+	invHome(t)
+	if e := wantCode(t, "INSECURE_PROTOCOL", "conn", "add", "c", "memcached://cache.example.com:11211"); !strings.Contains(e.Hint, "memcacheds://") || strings.Contains(e.Hint, "amqps") {
+		t.Errorf("memcached's own hint: %q", e.Hint)
+	}
+}

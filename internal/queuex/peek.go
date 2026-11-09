@@ -22,25 +22,37 @@ type PeekOptions struct {
 
 // PeekResult is what `queue peek` read.
 type PeekResult struct {
-	Topic    string     `json:"topic"`
-	From     string     `json:"from"` // newest | oldest
+	Topic    string     `json:"topic,omitempty"` // kafka
+	Queue    string     `json:"queue,omitempty"` // rabbitmq
+	From     string     `json:"from"`            // newest | oldest (kafka) | front (rabbitmq)
 	Messages []Received `json:"messages"`
 	Count    int        `json:"count"`
 	More     bool       `json:"more"` // the topic holds more than these
 	Partial  bool       `json:"partial,omitempty"`
+	Requeued bool       `json:"requeued,omitempty"` // rabbitmq: the messages went back to the queue, marked redelivered
+	// rabbitmq quorum queues: after this many deliveries the queue drops
+	// (or dead-letters) a message, and every peek counts as one
+	DeliveryLimit int `json:"delivery_limit,omitempty"`
 }
 
-// Received is one message read from a partition.
+// Received is one message read: from a Kafka partition (KafkaRecord) or
+// the front of a RabbitMQ queue (RabbitDelivery).
 type Received struct {
-	Partition      int32             `json:"partition"`
-	Offset         int64             `json:"offset"`
-	Timestamp      time.Time         `json:"timestamp"`
-	Key            *string           `json:"key"` // null: no key
+	*KafkaRecord
+	*RabbitDelivery
 	Value          string            `json:"value"`
 	Encoding       string            `json:"encoding,omitempty"` // base64 when the value is not UTF-8 text
 	Size           int               `json:"size"`               // the value's size in bytes
 	ValueTruncated bool              `json:"value_truncated,omitempty"`
 	Headers        map[string]string `json:"headers,omitempty"`
+}
+
+// KafkaRecord is where a message is in a Kafka topic.
+type KafkaRecord struct {
+	Partition int32     `json:"partition"`
+	Offset    int64     `json:"offset"`
+	Timestamp time.Time `json:"timestamp"`
+	Key       *string   `json:"key"` // null: no key
 }
 
 // window is the part of one partition that peek reads: [from, to).
@@ -177,24 +189,25 @@ func pick(recs []*kgo.Record, o PeekOptions, res []Received) []Received {
 }
 
 func received(r *kgo.Record, maxBytes int) Received {
-	m := Received{Partition: r.Partition, Offset: r.Offset, Timestamp: r.Timestamp.UTC(), Size: len(r.Value)}
+	m := Received{KafkaRecord: &KafkaRecord{Partition: r.Partition, Offset: r.Offset, Timestamp: r.Timestamp.UTC()}, Size: len(r.Value)}
 	if r.Key != nil {
-		k, _, _ := text(r.Key, maxBytes)
+		k, _, _ := Text(r.Key, maxBytes)
 		m.Key = &k
 	}
-	m.Value, m.Encoding, m.ValueTruncated = text(r.Value, maxBytes)
+	m.Value, m.Encoding, m.ValueTruncated = Text(r.Value, maxBytes)
 	for _, h := range r.Headers {
 		if m.Headers == nil {
 			m.Headers = map[string]string{}
 		}
-		m.Headers[h.Key], _, _ = text(h.Value, maxBytes)
+		m.Headers[h.Key], _, _ = Text(h.Value, maxBytes)
 	}
 	return m
 }
 
-// text shows bytes as text when they are UTF-8, otherwise as base64; cut
-// to maxBytes first (a rune cut in half at the end is dropped).
-func text(b []byte, maxBytes int) (string, string, bool) {
+// Text shows bytes as text when they are UTF-8, otherwise as base64 (the
+// second value is then "base64"); cut to maxBytes first (a rune cut in
+// half at the end is dropped). The third value says whether it was cut.
+func Text(b []byte, maxBytes int) (string, string, bool) {
 	cut := maxBytes > 0 && len(b) > maxBytes
 	if cut {
 		b = b[:maxBytes]

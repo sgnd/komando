@@ -129,6 +129,38 @@ func TestQueueConnTLS(t *testing.T) {
 	}
 }
 
+func TestQueueTextRabbit(t *testing.T) {
+	yes, unacked, two := true, int64(1), 2
+	for _, c := range []struct {
+		v    interface{ Text() string }
+		want string
+	}{
+		{queueInfo{Info: &queuex.Info{Version: "4.1.4", RabbitInfo: &queuex.RabbitInfo{Product: "RabbitMQ", Vhost: "/", User: "app"}}}, "server:  RabbitMQ 4.1.4\ncluster: -\nvhost:   /\nuser:    app\n\n(add ?management="},
+		{queueInfo{Info: &queuex.Info{RabbitInfo: &queuex.RabbitInfo{Management: true, Platform: "Erlang/OTP 27",
+			Totals: &queuex.RabbitTotals{Queues: 2, Messages: 3, Ready: 2, Unacked: 1}, Nodes: []queuex.RabbitNode{{Name: "rabbit@a", Running: true, Type: "disc"}}}}},
+			"messages: 3 (2 ready, 1 unacked)\n\nNODE      STATE    TYPE\nrabbit@a  running  disc"},
+		{queueTopics{rabbit: true}, "no queues"},
+		{queueTopics{rabbit: true, Topics: []queuex.Topic{{Name: "jobs", Messages: 3, RabbitQueue: &queuex.RabbitQueue{Type: "quorum", Ready: 2, Unacked: 1, Consumers: 1}}}}, "jobs   quorum  3         2      1        1          -"},
+		{queueTopic{TopicDetail: &queuex.TopicDetail{Name: "jobs", RabbitQueueDetail: &queuex.RabbitQueueDetail{Vhost: "/", Ready: 4, Consumers: 1}}}, "ready: 4\nconsumers: 1"},
+		{queueTopic{TopicDetail: &queuex.TopicDetail{Name: "jobs", Messages: 3, RabbitQueueDetail: &queuex.RabbitQueueDetail{Vhost: "/", Management: true, Type: "quorum", Durable: &yes,
+			Exclusive: true, AutoDelete: true, Ready: 2, Unacked: &unacked, Arguments: map[string]any{"x-max-length": 100},
+			ConsumerOf: []queuex.RabbitConsumer{{Tag: "ctag-1", AckRequired: true, Prefetch: 10, Active: true}}}}}, "type: quorum, durable, auto-delete, exclusive"},
+		{queuePeek{PeekResult: &queuex.PeekResult{Queue: "jobs", Count: 1, More: true, Requeued: true, DeliveryLimit: 20, Messages: []queuex.Received{{Value: "hi",
+			RabbitDelivery: &queuex.RabbitDelivery{Redelivered: true, Deliveries: 2, Exchange: "orders", RoutingKey: "paid", Properties: map[string]string{"content_type": "text/plain"}},
+			Headers:        map[string]string{"source": "web"}}}}}, "# message 1, redelivered, delivered 2 times, exchange orders, routing key paid, content_type=text/plain, source=web\nhi\n(the first 1 message"},
+		{queuePeek{PeekResult: &queuex.PeekResult{Queue: "jobs"}}, "no messages waiting"},
+		{queueSent{Sent: &queuex.Sent{Queue: "jobs", Size: 2}}, "sent 2 B to queue jobs"},
+		{queueSent{Sent: &queuex.Sent{Queue: "jobs", DryRun: true}}, "would send 0 B to queue jobs (nothing sent)"},
+		{queueCreated{Created: &queuex.Created{Queue: "jobs", RabbitCreated: &queuex.RabbitCreated{Vhost: "/"}, DryRun: true}}, "would create (the name is free; nothing created): durable queue jobs (the vhost's default type)"},
+		{queueDeleted{Topics: []queuex.Deleted{{Queue: "jobs", Exists: true, Messages: 1, Consumers: &two}}}, "deleted jobs (1 message; its 2 consumers were cancelled)"},
+		{queuePurged{Purged: &queuex.Purged{Queue: "jobs", Messages: 2, DryRun: true}}, "would delete 2 messages waiting in queue jobs"},
+	} {
+		if got := c.v.Text(); !strings.Contains(got, c.want) {
+			t.Errorf("%T: %q does not hold %q", c.v, got, c.want)
+		}
+	}
+}
+
 func TestQueueText(t *testing.T) {
 	key, p, o := "k1", int32(1), int64(7)
 	for _, c := range []struct {
@@ -136,19 +168,19 @@ func TestQueueText(t *testing.T) {
 		want string
 	}{
 		{queueTopics{}, "no topics"},
-		{queueTopics{Topics: []queuex.Topic{{Name: "orders", Partitions: 3, Replicas: 2, Messages: 10}}}, "orders  3           2         10"},
-		{queueTopic{TopicDetail: &queuex.TopicDetail{Name: "orders", Messages: 1, Partitions: []queuex.Partition{{Leader: -1}}}}, "orders (1 partition, 0 replicas, 1 message)"},
+		{queueTopics{Topics: []queuex.Topic{{Name: "orders", Messages: 10, KafkaTopic: &queuex.KafkaTopic{Partitions: 3, Replicas: 2}}}}, "orders  3           2         10"},
+		{queueTopic{TopicDetail: &queuex.TopicDetail{Name: "orders", Messages: 1, KafkaTopicDetail: &queuex.KafkaTopicDetail{Partitions: []queuex.Partition{{Leader: -1}}}}}, "orders (1 partition, 0 replicas, 1 message)"},
 		{queuePeek{PeekResult: &queuex.PeekResult{From: "newest", Count: 1, More: true, Partial: true,
-			Messages: []queuex.Received{{Partition: 1, Offset: 7, Key: &key, Value: "aGk=", Encoding: "base64", ValueTruncated: true, Size: 2048}}}}, "key k1, base64\naGk=\n(cut: the value is 2.0 KiB)"},
+			Messages: []queuex.Received{{KafkaRecord: &queuex.KafkaRecord{Partition: 1, Offset: 7, Key: &key}, Value: "aGk=", Encoding: "base64", ValueTruncated: true, Size: 2048}}}}, "key k1, base64\naGk=\n(cut: the value is 2.0 KiB)"},
 		{queuePeek{PeekResult: &queuex.PeekResult{}}, "no messages"},
 		{queueGroups{Groups: []queuex.Group{{Name: "billing", State: "Stable", Members: 2, Topics: []string{"orders"}, Lag: 5}}}, "billing  Stable"},
 		{queueLag{GroupLag: &queuex.GroupLag{Group: "billing", Members: 1, Partitions: []queuex.PartitionLag{{Topic: "orders", Committed: -1, Lag: -1, Error: "no commit"}}}}, "(, 1 member)"},
-		{queueSent{Sent: &queuex.Sent{Topic: "orders", Partition: &p, Offset: &o, Size: 3}}, "partition 1, offset 7"},
-		{queueSent{Sent: &queuex.Sent{Topic: "orders", DryRun: true}}, "the partition its key picks"},
-		{queueCreated{Created: &queuex.Created{Topic: "orders", Partitions: -1, Replicas: 3, DryRun: true}}, "the default number of partitions, 3 replicas"},
+		{queueSent{Sent: &queuex.Sent{Topic: "orders", KafkaSent: &queuex.KafkaSent{Partition: &p, Offset: &o}, Size: 3}}, "partition 1, offset 7"},
+		{queueSent{Sent: &queuex.Sent{Topic: "orders", KafkaSent: &queuex.KafkaSent{}, DryRun: true}}, "the partition its key picks"},
+		{queueCreated{Created: &queuex.Created{Topic: "orders", KafkaCreated: &queuex.KafkaCreated{Partitions: -1, Replicas: 3}, DryRun: true}}, "the default number of partitions, 3 replicas"},
 		{queueDeleted{Topics: []queuex.Deleted{{Topic: "a", Exists: true, Messages: 2}, {Topic: "b"}}, DryRun: true}, "would delete a (2 messages)\nb does not exist"},
 		{queuePurged{Purged: &queuex.Purged{Topic: "a", Messages: 1, Partitions: 1, DryRun: true}}, "would delete 1 message from a (1 partition)"},
-		{queueInfo{Info: &queuex.Info{Brokers: []queuex.Broker{{ID: 1, Address: "b1:9092", Controller: true}}}}, "version: unknown"},
+		{queueInfo{Info: &queuex.Info{KafkaInfo: &queuex.KafkaInfo{Brokers: []queuex.Broker{{ID: 1, Address: "b1:9092", Controller: true}}}}}, "version: unknown"},
 	} {
 		if got := c.v.Text(); !strings.Contains(got, c.want) {
 			t.Errorf("%T: %q does not hold %q", c.v, got, c.want)

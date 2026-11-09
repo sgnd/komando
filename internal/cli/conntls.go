@@ -16,8 +16,8 @@ import (
 //   - Postgres without sslmode gets sslmode=verify-full, MySQL without tls=
 //     gets tls=true (verifiedTLSURL). Left out, both would take TLS only
 //     when the server offers it, without checking whose certificate it is.
-//   - redis:// and memcached:// name a connection without TLS, and so does
-//     kafka:// without tls=true, so they are refused unless ?insecure=1
+//   - redis://, memcached:// and amqp:// name a connection without TLS,
+//     and so does kafka:// without tls=true, so they are refused unless ?insecure=1
 //     says that is meant, as for ftp://. Most of these servers have no
 //     TLS: --via an SSH server is the usual way.
 //
@@ -46,9 +46,18 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 		}
 	case "redis", "memcached":
 		if !t.Secure && q.Get("insecure") != "1" {
+			// the first hint is the error catalog's (`komando schema`),
+			// which every kind shares; WithHint gives this kind's own
 			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
-				"reach it --via an SSH server (`--via HOST`), or use "+t.Kind.Name+"s:// if the server has TLS; otherwise add ?insecure=1 to accept that the password and data travel unencrypted",
-				"%s:// crosses the network to %s without TLS, so the password and the data travel unencrypted", t.Kind.Name, t.Address)
+				"use the URL's TLS form if the server has TLS (rediss://, memcacheds://, amqps://, nats tls://, kafka tls=true, an https:// endpoint, ftps://, webdavs://), or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the login and the data travel unencrypted",
+				"%s:// crosses the network to %s without TLS, so the password and the data travel unencrypted", t.Kind.Name, t.Address).
+				WithHint("reach it --via an SSH server (`--via HOST`), or use " + t.Kind.Name + "s:// if the server has TLS; otherwise add ?insecure=1 to accept that the password and data travel unencrypted")
+		}
+	case "rabbitmq":
+		if !t.Secure && q.Get("insecure") != "1" {
+			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+				"reach it --via an SSH server (`--via HOST`), or use amqps:// (port 5671) if the server has TLS; otherwise add ?insecure=1 to accept that the login and the messages travel unencrypted",
+				"amqp:// crosses the network to %s without TLS, so the password and the messages travel unencrypted", t.Address)
 		}
 	case "kafka":
 		if !t.Secure && q.Get("insecure") != "1" {

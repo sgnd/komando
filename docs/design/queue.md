@@ -5,8 +5,9 @@ the rules for commands and flags are in [ux.md](ux.md). The user guide is
 [docs/features/queues.md](../features/queues.md).
 
 Status: **Apache Kafka done** (and anything that speaks the Kafka protocol:
-Redpanda, Amazon MSK, Confluent Cloud, Aiven, WarpStream). Other engines
-(RabbitMQ, NATS JetStream, Amazon SQS) come later behind the same verbs.
+Redpanda, Amazon MSK, Confluent Cloud, Aiven, WarpStream), **RabbitMQ
+done** (AMQP 0-9-1, [below](#rabbitmq)). Other engines (NATS JetStream,
+Amazon SQS) come later behind the same verbs.
 
 ## One family, a human word
 
@@ -17,7 +18,11 @@ where they make sense; a verb an engine cannot do answers `NOT_SUPPORTED`
 with a hint, never a different meaning.
 
 In Kafka words a queue is a **topic**. The docs say "topic" for Kafka and
-"queue" for the family; the JSON field is `topic` for Kafka output.
+"queue" for the family; the JSON field is `topic` for Kafka output and
+`queue` for RabbitMQ. The shared result types (queuex `Info`, `Topic`,
+`TopicDetail`, `Received`, `Sent`, `Created`) embed one part per engine
+(`KafkaInfo`, `RabbitInfo`, ...), so each engine's JSON holds only its own
+fields, and `info` says `"engine"`.
 
 ## Conn URL
 
@@ -128,17 +133,80 @@ change things". There is no raw command in this family yet; when one comes
 | `QUEUE_DENIED` | the user lacks the ACL for this (topic, group or cluster); exit 5, not a komando seatbelt |
 | `TOPIC_NOT_FOUND`, `CONSUMER_GROUP_NOT_FOUND`, `PARTITION_NOT_FOUND` | no such topic, group or partition |
 | `TOPIC_EXISTS` | `create` of a topic that is there |
+| `QUEUE_NOT_FOUND`, `QUEUE_EXISTS` | RabbitMQ: no such queue in the vhost, or `create` of one that is there |
+| `DELIVERY_LIMIT_NEAR` | RabbitMQ quorum queue: a message peek showed is close to its delivery limit (exit 8) |
+| `NOT_SUPPORTED` | a verb or flag the engine cannot do, with what works instead |
 | `QUEUE_ERROR` | anything else the broker says, with its message |
+
+## RabbitMQ
+
+The engine is internal/queuex/rabbitmq on github.com/rabbitmq/amqp091-go
+(BSD-2, pure Go); it registers itself with queuex for the kind `rabbitmq`.
+
+```
+amqp[s]://[USER@]HOST[:PORT][/VHOST][?OPTIONS]
+```
+
+- `amqps://` is TLS, port 5671; `amqp://` is plain, port 5672. TLS is added
+  on top of the conn's dial (direct, `--via`, VPN), checked against the
+  host's name.
+- The path is one vhost, URL-encoded: nothing, `/` or `%2F` is the default
+  vhost `/`. A path with a second `/` is refused.
+- `USER` logs in with PLAIN; the password comes from `--password-ref`. No
+  user is RabbitMQ's `guest` (password `guest` unless a reference says
+  otherwise), which RabbitMQ only lets in from the server itself (`--via`).
+- Options: `management=PORT` (the management HTTP API on the same host,
+  HTTPS for `amqps://`, same CA and login; only a port, so the password
+  never goes to a host the URL does not name), `ca=secret:NAME` and
+  `tls=skip-verify` (amqps only, not together), `insecure=1`.
+- `amqp://` straight over the network is refused like `redis://`
+  (`INSECURE_PROTOCOL`); doctor suggests the `amqps://` URL on port 5671.
+
+| Verb | RabbitMQ |
+|---|---|
+| info | server properties of the AMQP login (product, version, cluster name, Erlang); with management also `/api/overview` totals and `/api/nodes` |
+| ls | management only (`/api/queues/VHOST`): type, durable, messages, ready, unacked, consumers, state; otherwise `NOT_SUPPORTED` with the hint to add `?management=` |
+| describe | management: `/api/queues/VHOST/NAME` (arguments, policy, node or leader, consumer details); otherwise a passive `queue.declare` (ready messages and consumers) |
+| peek | `basic.get` without ack up to `-n`, then one `nack(multiple, requeue)`: see below |
+| send | `basic.publish` to the default exchange with the queue as routing key, `mandatory`, persistent, in confirm mode; waits for the ack. A passive declare first gives `QUEUE_NOT_FOUND` and the dry run |
+| create | a passive declare first (`QUEUE_EXISTS`, since a second declare would say "ok"), then a durable `queue.declare` with `--type` as `x-queue-type` and `--config` as arguments (numbers and booleans typed). The dry run makes nothing: RabbitMQ has no validate-only declare |
+| rm | passive declares (messages, consumers), every name must exist, then `queue.delete` |
+| purge | `queue.purge`: only ready messages; unacked ones stay |
+| groups, lag | `NOT_SUPPORTED`: no consumer groups; `describe` shows consumers |
+
+AMQP calls take no context, so every call runs on its own channel and a
+`--timeout` closes the connection. A passive declare of a missing queue
+closes its channel, which is why each call gets a fresh one.
+
+### peek does not lose messages
+
+peek holds the messages it took (unacked) and gives them all back, also
+after an error; if the connection drops, RabbitMQ requeues them itself.
+Requeued messages are marked **redelivered**, which consumers may see.
+
+Quorum queues count every return as a delivery (`x-delivery-count`), and
+since RabbitMQ 4.0 drop or dead-letter a message after 20 deliveries by
+default (tested: a message peeked 21 times is gone). A return without the
+count does not exist in AMQP 0-9-1, so peek guards instead: it reads the
+queue's type and limit from the management API (`x-delivery-limit` or the
+policy's `delivery-limit`; otherwise 20 on RabbitMQ 4 and none before),
+shows each message's `deliveries`, and stops with `DELIVERY_LIMIT_NEAR`
+(exit 8) once a message it gave back has fewer than 3 deliveries left.
+AMQP shows neither the type nor the queue's own limit, and assuming the
+default would lose a message on a queue with a lower one, so without
+`?management=` (or when the management API fails) peek refuses before it
+takes a message (`NOT_SUPPORTED`). A stream queue would end the whole
+connection on `basic.get`, which this check also prevents.
 
 ## Engines later
 
 The verbs map like this; an engine adds a kind with `Family: "queue"`
 and fills the same `queuex` interface.
 
-| Verb | RabbitMQ | NATS JetStream | SQS |
-|---|---|---|---|
-| ls | queues (messages, consumers) | streams | queues |
-| peek | basic.get + requeue (marks redelivered: documented) | direct get | not possible without hiding the message: `NOT_SUPPORTED` |
-| send | publish to an exchange | publish | SendMessage |
-| groups / lag | consumers per queue | consumers and pending | `NOT_SUPPORTED` |
-| purge | queue.purge | stream purge | PurgeQueue |
+| Verb | NATS JetStream | SQS |
+|---|---|---|
+| ls | streams | queues |
+| peek | direct get | not possible without hiding the message: `NOT_SUPPORTED` |
+| send | publish | SendMessage |
+| groups / lag | consumers and pending | `NOT_SUPPORTED` |
+| purge | stream purge | PurgeQueue |

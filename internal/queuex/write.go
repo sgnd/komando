@@ -23,43 +23,63 @@ type Message struct {
 
 // Sent is where a message went (or, with dry run, would go).
 type Sent struct {
-	Topic     string     `json:"topic"`
+	Topic string `json:"topic,omitempty"` // kafka
+	Queue string `json:"queue,omitempty"` // rabbitmq
+	*KafkaSent
+	Size   int  `json:"size"`
+	DryRun bool `json:"dry_run,omitempty"`
+}
+
+// KafkaSent is where a message went in a Kafka topic.
+type KafkaSent struct {
 	Partition *int32     `json:"partition"` // null on a dry run without --partition: chosen when sent
 	Offset    *int64     `json:"offset"`    // null on a dry run
 	Timestamp *time.Time `json:"timestamp,omitempty"`
-	Size      int        `json:"size"`
-	DryRun    bool       `json:"dry_run,omitempty"`
 }
 
-// TopicSpec is a topic `queue create` makes.
+// TopicSpec is a topic (or queue) `queue create` makes.
 type TopicSpec struct {
 	Topic      string
-	Partitions int32 // -1: the broker's default
-	Replicas   int16 // -1: the broker's default
+	Partitions int32  // kafka; -1: the broker's default
+	Replicas   int16  // kafka; -1: the broker's default
+	Type       string // rabbitmq: classic, quorum or stream ("": the server's default)
 	Config     map[string]string
 }
 
-// Created is the topic made (or checked, with dry run).
+// Created is the topic or queue made (or checked, with dry run).
 type Created struct {
-	Topic      string            `json:"topic"`
+	Topic string `json:"topic,omitempty"` // kafka
+	Queue string `json:"queue,omitempty"` // rabbitmq
+	*KafkaCreated
+	*RabbitCreated
+	DryRun bool `json:"dry_run,omitempty"`
+}
+
+// KafkaCreated is the Kafka topic made.
+type KafkaCreated struct {
 	Partitions int32             `json:"partitions"`
 	Replicas   int16             `json:"replicas"`
 	Config     map[string]string `json:"config"`
-	DryRun     bool              `json:"dry_run,omitempty"`
 }
 
-// Deleted is one topic `queue rm` deleted (or would).
+// Deleted is one topic or queue `queue rm` deleted (or would).
 type Deleted struct {
-	Topic    string `json:"topic"`
-	Messages int64  `json:"messages"` // how many it held
-	Exists   bool   `json:"exists"`
+	Topic     string `json:"topic,omitempty"` // kafka
+	Queue     string `json:"queue,omitempty"` // rabbitmq
+	Messages  int64  `json:"messages"`        // how many it held
+	Consumers *int   `json:"consumers,omitempty"`
+	Exists    bool   `json:"exists"`
 }
+
+// Name is the topic's or the queue's name.
+func (d Deleted) Name() string { return d.Topic + d.Queue }
 
 // Purged is what `queue purge` removed (or would).
 type Purged struct {
-	Topic      string `json:"topic"`
+	Topic      string `json:"topic,omitempty"` // kafka
+	Queue      string `json:"queue,omitempty"` // rabbitmq
 	Messages   int64  `json:"messages"`
-	Partitions int    `json:"partitions"`
+	Partitions int    `json:"partitions,omitempty"` // kafka
 	DryRun     bool   `json:"dry_run,omitempty"`
 }
 
@@ -75,7 +95,7 @@ func (k *Kafka) Send(ctx context.Context, m Message, dryRun bool) (*Sent, error)
 			return nil, partitionNotFound(m.Topic, m.Partition, len(td.Partitions))
 		}
 	}
-	res := &Sent{Topic: m.Topic, Size: len(m.Value), DryRun: dryRun}
+	res := &Sent{Topic: m.Topic, KafkaSent: &KafkaSent{}, Size: len(m.Value), DryRun: dryRun}
 	if dryRun {
 		if m.Partition >= 0 {
 			res.Partition = &m.Partition
@@ -108,6 +128,9 @@ func (k *Kafka) Send(ctx context.Context, m Message, dryRun bool) (*Sent, error)
 // Create makes a topic; with dry run the brokers only check it
 // (validate_only), so a bad setting or too many replicas shows now.
 func (k *Kafka) Create(ctx context.Context, s TopicSpec, dryRun bool) (*Created, error) {
+	if s.Type != "" {
+		return nil, NotSupported("--type", "kafka", "--type picks a RabbitMQ queue type; a Kafka topic takes --partitions, --replicas and --config")
+	}
 	cfg := map[string]*string{}
 	for key, v := range s.Config {
 		cfg[key] = &v
@@ -130,7 +153,7 @@ func (k *Kafka) Create(ctx context.Context, s TopicSpec, dryRun bool) (*Created,
 		}
 		return nil, opErr(err, s.Topic)
 	}
-	res := &Created{Topic: s.Topic, Partitions: r.NumPartitions, Replicas: r.ReplicationFactor, Config: map[string]string{}, DryRun: dryRun}
+	res := &Created{Topic: s.Topic, KafkaCreated: &KafkaCreated{Partitions: r.NumPartitions, Replicas: r.ReplicationFactor, Config: map[string]string{}}, DryRun: dryRun}
 	if res.Partitions <= 0 {
 		res.Partitions = s.Partitions
 	}

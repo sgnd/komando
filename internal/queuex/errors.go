@@ -97,3 +97,8 @@ func topicNotFound(topic string) error {
 func groupNotFound(group string) error {
 	return out.Errf(out.ExitNotFound, "CONSUMER_GROUP_NOT_FOUND", "list consumer groups with `komando queue groups CONN`", "consumer group %s does not exist", group)
 }
+
+// NotSupported is the answer of an engine to a verb or flag it cannot do.
+func NotSupported(what, engine, hint string) error {
+	return out.Errf(out.ExitUsage, "NOT_SUPPORTED", hint, "%s is not supported for %s", what, engine)
+}

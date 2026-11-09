@@ -119,6 +119,22 @@ its highlights; the sections below them give the details. Versions follow
   `queue purge` delete messages and need `--allow-dangerous`. Every change
   has a real `--dry-run` (`create` asks the brokers to check the topic
   only). Design: docs/design/queue.md; guide: docs/features/queues.md.
+- **RabbitMQ in `komando queue`:** add a server as a conn,
+  `amqps://USER@HOST:5671/VHOST` (or `amqp://` --via an SSH server; the
+  path is the vhost, `%2F` for `/`), with `?management=15671` to also use
+  the management HTTP API. `queue info` and `describe` work over AMQP
+  alone; `queue ls`, `queue peek`, the nodes and the cluster totals need
+  the management API. `queue peek` takes the first messages of a queue and gives every
+  one back, so nothing is removed (RabbitMQ marks them redelivered); on a
+  quorum queue each peek counts as a delivery, so peek stops with
+  `DELIVERY_LIMIT_NEAR` before a message gets close to its delivery limit.
+  `queue send` publishes a persistent message and waits for the server's
+  confirm; `queue create --type classic|quorum|stream` makes a durable
+  queue (`--config x-max-length=1000` for its arguments); `rm` and `purge`
+  need `--allow-dangerous`. `amqp://` straight over the network is refused
+  like `redis://` unless `?insecure=1`. New error codes `QUEUE_NOT_FOUND`,
+  `QUEUE_EXISTS` and `DELIVERY_LIMIT_NEAR`. Built on
+  github.com/rabbitmq/amqp091-go (BSD-2).
 
 ## [0.8.0] - 2026-11-09
 
