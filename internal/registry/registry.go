@@ -1,6 +1,6 @@
 // Package registry talks to container registries (Docker Hub, GHCR,
-// GitLab, Harbor, ECR, ACR, registry:2) over the OCI Distribution API, with
-// basic or bearer-token auth.
+// GitLab, Harbor, ECR, ACR, Artifact Registry, registry:2) over the OCI
+// Distribution API, with basic or bearer-token auth.
 package registry
 
 import (

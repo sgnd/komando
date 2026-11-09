@@ -2,7 +2,8 @@
 
 See which images a registry holds, copy images between registries, and
 clean up old ones. Works with Docker Hub, GHCR, GitLab, Harbor, Amazon ECR,
-Azure Container Registry and your own `registry:2`. [All features](README.md)
+Azure Container Registry, Google Artifact Registry and your own
+`registry:2`. [All features](README.md)
 
 ## Quick start
 
@@ -137,6 +138,38 @@ registry, so komando sends it only over https to a registry whose
 certificate is checked. A conn with `?tls=false` or `?tls=skip-verify`
 stops with a usage error; use `?ca=` for a private CA, or a registry token
 with `--password-ref`.
+
+**Google Artifact Registry and Container Registry.** Hosts like
+`europe-west1-docker.pkg.dev`, `gcr.io`, `eu.gcr.io`, `us.gcr.io` and
+`asia.gcr.io` log in with your Google login when the conn has no
+`--password-ref`, as `gcloud auth configure-docker` sets up: komando gets a
+Google access token (it lasts an hour) each time and logs in as
+`oauth2accesstoken`. The login is the one komando uses for `gs://` storage
+and `gcp-sm:`: `GOOGLE_APPLICATION_CREDENTIALS` (a service account key
+file), the login from `gcloud auth application-default login`, or the
+machine's service account on Google Cloud. No `gcloud` program is needed:
+
+```bash
+komando conn add gar registry://europe-west1-docker.pkg.dev
+komando registry ls gar my-project/my-repo/api
+```
+
+To use a service account key from the vault instead, store the key file
+and name the user `_json_key`:
+
+```bash
+komando secret set gar-key < key.json
+komando conn add gar registry://_json_key@europe-west1-docker.pkg.dev --password-ref secret:gar-key
+```
+
+The login needs the Artifact Registry Reader role to look, Writer to copy
+images into it, and Repository Administrator to delete. With no Google
+login at all, komando reads without one, so public images still work; a
+login that has run out, or a `GOOGLE_APPLICATION_CREDENTIALS` file or
+gcloud login file that is missing or broken, gives `GCP_LOGIN_REQUIRED`.
+As with Azure, the Google token is good for your whole project, so it goes
+only over https to a registry whose certificate is checked: not with
+`?tls=false` or `?tls=skip-verify`.
 
 ## Look at images
 

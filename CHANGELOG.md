@@ -98,6 +98,15 @@ its highlights; the sections below them give the details. Versions follow
   subscription, so it goes only over https with the registry's certificate
   checked: a conn with `?tls=false` or `?tls=skip-verify` needs
   `--password-ref`.
+- Registry conns for Google Artifact Registry (`REGION-docker.pkg.dev`) and
+  Container Registry (`gcr.io`, `eu.gcr.io`, `us.gcr.io`, `asia.gcr.io`)
+  without `--password-ref` log in with your Google login: komando gets a
+  fresh access token each time and logs in as `oauth2accesstoken`, as
+  `gcloud auth configure-docker` does, with the credentials it already uses
+  for `gs://` storage and `gcp-sm:`. With no Google login at all, public
+  images are read without one; an expired login, or a key file that is set
+  but missing or broken, gives `GCP_LOGIN_REQUIRED`.
+  The token goes only over https with the registry's certificate checked.
 
 ## [0.8.0] - 2026-11-09
 

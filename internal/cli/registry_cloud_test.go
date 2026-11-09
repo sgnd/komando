@@ -99,3 +99,55 @@ func TestACRLoginFromAzure(t *testing.T) {
 		t.Errorf("other failure: %+v", e)
 	}
 }
+
+func TestGoogleRegistryHosts(t *testing.T) {
+	for host, want := range map[string]bool{
+		"europe-west1-docker.pkg.dev": true, "us-docker.pkg.dev:443": true, "gcr.io": true, "EU.gcr.io": true, "asia.gcr.io": true,
+		"docker.pkg.dev": false, "k8s.gcr.io": false, "gcr.io.example.com": false, "evil-docker.pkg.dev.example": false, "ghcr.io": false,
+	} {
+		if got := isGoogleRegistry(host); got != want {
+			t.Errorf("isGoogleRegistry(%q) = %v", host, got)
+		}
+	}
+}
+
+// A Google registry logs in with a Google access token as the password of
+// oauth2accesstoken; without any Google credentials it stays anonymous.
+func TestGoogleRegistryLogin(t *testing.T) {
+	saved := gcpToken
+	defer func() { gcpToken = saved }()
+	ctx := context.Background()
+	gcpToken = func(context.Context) (string, error) { return "ya29.reg", nil }
+	rc := registry.New("europe-west1-docker.pkg.dev", registry.TLS{}, "", "", nil)
+	if err := cloudRegistryLogin(ctx, &store.Conn{}, "europe-west1-docker.pkg.dev", rc); err != nil || rc.User != "oauth2accesstoken" || rc.Password != "ya29.reg" {
+		t.Errorf("login: %v %q %q", err, rc.User, rc.Password)
+	}
+	rc = registry.New("gcr.io", registry.TLS{}, "_json_key", "{key}", nil)
+	if err := cloudRegistryLogin(ctx, &store.Conn{PasswordRef: "secret:gar-key"}, "gcr.io", rc); err != nil || rc.User != "_json_key" {
+		t.Errorf("a service account key keeps its login: %v %q", err, rc.User)
+	}
+	if e := toErr(cloudRegistryLogin(ctx, &store.Conn{}, "gcr.io", registry.New("gcr.io", registry.TLS{Plain: true}, "", "", nil))); e.Code != "USAGE" {
+		t.Errorf("plain http: %+v", e)
+	}
+	// the cloud-platform token is good for the whole project: never to an
+	// unchecked certificate
+	unchecked := registry.New("gcr.io", registry.TLS{SkipVerify: true}, "", "", nil)
+	if e := toErr(cloudRegistryLogin(ctx, &store.Conn{}, "gcr.io", unchecked)); e.Code != "USAGE" || !strings.Contains(e.Message, "skip-verify") || unchecked.Password != "" {
+		t.Errorf("skip-verify: %+v %q", e, unchecked.Password)
+	}
+
+	gcpToken = func(context.Context) (string, error) {
+		return "", fmt.Errorf("%w (%w): could not find default credentials", cloud.ErrGCPLogin, cloud.ErrGCPNoCredentials)
+	}
+	rc = registry.New("gcr.io", registry.TLS{}, "", "", nil)
+	if err := cloudRegistryLogin(ctx, &store.Conn{}, "gcr.io", rc); err != nil || rc.User != "" {
+		t.Errorf("no credentials stays anonymous: %v %q", err, rc.User)
+	}
+	gcpToken = func(context.Context) (string, error) {
+		return "", fmt.Errorf("%w: oauth2: invalid_grant", cloud.ErrGCPLogin)
+	}
+	e := toErr(cloudRegistryLogin(ctx, &store.Conn{}, "us-docker.pkg.dev", registry.New("us-docker.pkg.dev", registry.TLS{}, "", "", nil)))
+	if e.Code != "GCP_LOGIN_REQUIRED" || !strings.Contains(e.Hint, "gcloud auth application-default login") || !strings.Contains(e.Message, "invalid_grant") {
+		t.Errorf("an expired login: %+v", e)
+	}
+}

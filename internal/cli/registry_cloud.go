@@ -18,8 +18,24 @@ import (
 // no --password-ref of its own: Amazon ECR and Azure Container Registry
 // logins last hours, so komando gets a fresh one each time and keeps none.
 
-// azureToken gets an Azure AD access token; tests replace it.
-var azureToken = cloud.AzureToken
+// azureToken gets an Azure AD access token, and gcpToken a Google one;
+// tests replace them.
+var (
+	azureToken = cloud.AzureToken
+	gcpToken   = cloud.GCPAccessToken
+)
+
+// googleRegistry matches Google Artifact Registry (REGION-docker.pkg.dev)
+// and Container Registry (gcr.io and its regional hosts).
+var googleRegistry = regexp.MustCompile(`^([a-z0-9-]+-docker\.pkg\.dev|((us|eu|asia)\.)?gcr\.io)$`)
+
+// isGoogleRegistry says whether host is one; a port does not change it.
+func isGoogleRegistry(host string) bool {
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	return googleRegistry.MatchString(strings.ToLower(host))
+}
 
 // acrHost is an Azure Container Registry host, with the Azure cloud's
 // resource manager address (what `az acr login` exchanges a token for).
@@ -45,7 +61,9 @@ func acrResource(host string) string {
 
 // cloudRegistryLogin logs rc in with a cloud login when c is a cloud
 // registry without a --password-ref: Amazon ECR, Azure Container Registry,
-// or Google Artifact Registry and Container Registry.
+// or Google Artifact Registry and Container Registry. Without any Google
+// credentials, a Google registry is used without a login, as before, so
+// public images there stay readable.
 func cloudRegistryLogin(ctx context.Context, c *store.Conn, host string, rc *registry.Client) error {
 	if c.PasswordRef != "" {
 		return nil
@@ -57,6 +75,22 @@ func cloudRegistryLogin(ctx context.Context, c *store.Conn, host string, rc *reg
 			return err
 		}
 		rc.User, rc.Password = "AWS", tok
+		return nil
+	}
+	if isGoogleRegistry(host) {
+		if !rc.CheckedTLS() {
+			return uncheckedCloudLogin("a Google", host)
+		}
+		tok, err := gcpToken(ctx)
+		switch {
+		case errors.Is(err, cloud.ErrGCPNoCredentials):
+			return nil
+		case err != nil:
+			return out.Errf(out.ExitConnect, "GCP_LOGIN_REQUIRED",
+				"a person runs `gcloud auth application-default login` again, or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file; on Google Cloud the machine's service account is used",
+				"%s: %v", host, err)
+		}
+		rc.User, rc.Password = "oauth2accesstoken", tok
 		return nil
 	}
 	if res := acrResource(host); res != "" {

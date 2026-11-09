@@ -67,6 +67,7 @@ var errorCodes = []errorCode{
 	{"FILE_NOT_FOUND", 3, "identity file …: …", "give the path of a private key file, or register it with `komando key add NAME PATH` and use --key"},
 	{"FILE_TOO_LARGE", 8, "… is larger than …, the most a --sudo download reads", "copy it to a place the SSH user can read with `komando exec TARGET --sudo -- cp PATH /tmp/`, then download that"},
 	{"FOLDER_NOT_FOUND", 3, "folder … does not exist", "add -p/--parents to create it"},
+	{"GCP_LOGIN_REQUIRED", 4, "…: …", "a person runs `gcloud auth application-default login` again, or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file; on Google Cloud the machine's service account is used"},
 	{"GROUP_EXISTS", 8, "group … exists", "pick another name; to merge them, run `komando group add … @…` and then `komando group rm …`"},
 	{"GROUP_NOT_FOUND", 3, "no group named …", "run `komando group list` to see groups"},
 	{"HELM_RELEASE_NOT_FOUND", 3, "no Helm release … in namespace …", "see the releases with `komando cluster helm ls TARGET -A`, and name the namespace with --namespace"},
