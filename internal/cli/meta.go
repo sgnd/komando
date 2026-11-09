@@ -297,13 +297,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 			}
 			if start == root {
 				res["global_flags"] = globals
-				res["envelope"] = map[string]string{
-					"ok":      "bool: true on full success",
-					"command": "dotted command name",
-					"data":    "command-specific result; multi-host commands use data.results[] + data.summary",
-					"error":   "{code, message, hint} when ok=false (data may still be present for partial failures)",
-					"meta":    "{version, duration_ms, dry_run}",
-				}
+				res["envelope"] = schemaEnvelope
 				res["exit_codes"] = map[string]string{
 					"0": "success", "1": "generic error", "2": "usage error", "3": "not found",
 					"4": "connection/auth/host-key failure, or the connection broke mid-command (CONNECTION_LOST: outcome unknown)", "5": "remote command exited non-zero",
@@ -338,4 +332,13 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 	}
 	c.Flags().BoolVar(&compact, "compact", false, "only paths and short descriptions")
 	return c
+}
+
+// schemaEnvelope describes the one JSON object every command prints.
+var schemaEnvelope = map[string]string{
+	"ok":      "bool: true on full success",
+	"command": "dotted command name",
+	"data":    "command-specific result; multi-host commands use data.results[] + data.summary",
+	"error":   "{code, message, hint} when ok=false (data may still be present for partial failures)",
+	"meta":    "{version, duration_ms, dry_run}",
 }

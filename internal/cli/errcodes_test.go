@@ -55,10 +55,10 @@ var (
 )
 
 type codeSite struct {
-	file                string
-	code                string
-	exit                int // -1: not written at this site
-	hint, message, kind string
+	file          string
+	code          string
+	exit          int // -1: not written at this site
+	hint, message string
 }
 
 func scanErrorCodes(t *testing.T) []errorCode {

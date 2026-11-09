@@ -239,13 +239,12 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 					}
 				}
 			}
-			res := map[string]any{"name": args[0], "ref": "secret:" + args[0], "replaced": replaced, "action": map[bool]string{false: "stored", true: "replaced"}[replaced]}
+			res := map[string]any{"name": args[0], "ref": "secret:" + args[0], "replaced": replaced, "action": secretSetAction(replaced)}
 			if w := valueWarning(args[0], v); w != "" {
 				res["warning"] = w
 			}
 			if g.dryRun {
 				res["would_set"] = true
-				res["action"] = "would_" + res["action"].(string)
 				out.P.Print("secret.set", res, nil)
 				return nil
 			}
@@ -758,4 +757,13 @@ func secretInUse(name string, users []string) error {
 	}[kind]
 	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, e.g. `"+hint+"`, or rename it with `komando secret mv`",
 		"secret %s is used by %s", name, strings.Join(users, ", "))
+}
+
+// secretSetAction says what secret set did, or would do under --dry-run,
+// for the text headline ("stored db-pass", "would replace db-pass").
+func secretSetAction(replaced bool) string {
+	if g.dryRun {
+		return map[bool]string{false: "would_store", true: "would_replace"}[replaced]
+	}
+	return map[bool]string{false: "stored", true: "replaced"}[replaced]
 }

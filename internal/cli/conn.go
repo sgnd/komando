@@ -222,102 +222,7 @@ func connEditCmd() *cobra.Command {
   komando conn edit shop -g shop -t live          # -g/-t add a group/tag`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fl := cmd.Flags()
-			if len(changedFlags(cmd)) == 0 {
-				return out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
-			}
-			if err := editConflicts(fl, f.unset, map[string]string{"via": "via", "password-ref": "password-ref", "notes": "notes", "protected": "protected"},
-				[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
-				return err
-			}
-			undoPw := func() {}
-			if askPw {
-				ref, undo, err := askPassword(cmd, "conn", args[0])
-				if err != nil {
-					return err
-				}
-				_ = fl.Set("password-ref", ref)
-				undoPw = undo
-			}
-			var res connResult
-			err := store.Update(func(s *store.State) error {
-				cn, err := findConn(s, args[0])
-				if err != nil {
-					return err
-				}
-				before, _ := json.Marshal(cn)
-				old := *cn
-				set := func(name string, dst *string, v string) {
-					if fl.Changed(name) {
-						*dst = v
-					}
-				}
-				set("url", &cn.URL, normConnURL(strings.TrimSpace(url)))
-				set("via", &cn.Via, f.via)
-				set("password-ref", &cn.PasswordRef, f.passwordRef)
-				set("notes", &cn.Notes, f.notes)
-				if fl.Changed("protected") {
-					cn.Protected = f.protected
-				}
-				cn.Groups = dedupe(append(removeFold(cn.Groups, f.rmGroups), f.addGroups...))
-				cn.Tags = dedupe(append(removeFold(cn.Tags, f.rmTags), f.addTags...))
-				if err := applyKV(&cn.Labels, f.labels); err != nil {
-					return err
-				}
-				if err := applyKV(&cn.Options, f.options); err != nil {
-					return err
-				}
-				for _, u := range f.unset {
-					switch u {
-					case "via":
-						cn.Via = ""
-					case "password-ref":
-						cn.PasswordRef = ""
-					case "notes":
-						cn.Notes = ""
-					case "protected":
-						cn.Protected = false
-					default:
-						return out.Errf(out.ExitUsage, "USAGE", "--unset takes: via, password-ref, notes, protected", "cannot unset %q", u)
-					}
-				}
-				if _, err := checkConn(s, cn); err != nil {
-					return err
-				}
-				if err := guardConnEdit(&old, cn, &res); err != nil {
-					return err
-				}
-				if rename != "" && rename != cn.Name {
-					if _, err := renameConn(s, cn.Name, rename); err != nil {
-						return err
-					}
-				}
-				if !cn.Protected {
-					if twin := protectedTwinConn(s, cn); twin != "" {
-						cn.Protected = true
-						res.Warnings = append(res.Warnings, sameTwinWarning(cn.Kind+" resource", cn.Name, twin))
-					}
-				}
-				after, _ := json.Marshal(cn)
-				ch := string(before) != string(after)
-				if ch {
-					cn.UpdatedAt = time.Now().UTC()
-				}
-				res.Conn, res.Changed = cn, &ch
-				return nil
-			})
-			if err != nil {
-				undoPw()
-				return err
-			}
-			if fl.Changed("password-ref") {
-				res.Warnings = append(res.Warnings, missingSecretWarnings(res.PasswordRef)...)
-			}
-			if *res.Changed {
-				audit(nil, "conn.edit", nil, "", true, map[string]any{"conns": []string{res.Name}, "flags": changedFlags(cmd)})
-			}
-			out.P.Print("conn.edit", res, nil)
-			return nil
+			return runConnEdit(cmd, args, &f, url, rename, askPw)
 		},
 	}
 	f.bind(c, true)
@@ -326,6 +231,106 @@ func connEditCmd() *cobra.Command {
 	c.Flags().StringVar(&rename, "rename", "", "rename the conn")
 	_ = c.Flags().MarkDeprecated("rename", "use `komando conn mv OLD NEW`")
 	return c
+}
+
+// runConnEdit is the work of `connEditCmd`.
+func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url, rename string, askPw bool) error {
+	fl := cmd.Flags()
+	if len(changedFlags(cmd)) == 0 {
+		return out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
+	}
+	if err := editConflicts(fl, f.unset, map[string]string{"via": "via", "password-ref": "password-ref", "notes": "notes", "protected": "protected"},
+		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
+		return err
+	}
+	undoPw := func() {}
+	if askPw {
+		ref, undo, err := askPassword(cmd, "conn", args[0])
+		if err != nil {
+			return err
+		}
+		_ = fl.Set("password-ref", ref)
+		undoPw = undo
+	}
+	var res connResult
+	err := store.Update(func(s *store.State) error {
+		cn, err := findConn(s, args[0])
+		if err != nil {
+			return err
+		}
+		before, _ := json.Marshal(cn)
+		old := *cn
+		set := func(name string, dst *string, v string) {
+			if fl.Changed(name) {
+				*dst = v
+			}
+		}
+		set("url", &cn.URL, normConnURL(strings.TrimSpace(url)))
+		set("via", &cn.Via, f.via)
+		set("password-ref", &cn.PasswordRef, f.passwordRef)
+		set("notes", &cn.Notes, f.notes)
+		if fl.Changed("protected") {
+			cn.Protected = f.protected
+		}
+		cn.Groups = dedupe(append(removeFold(cn.Groups, f.rmGroups), f.addGroups...))
+		cn.Tags = dedupe(append(removeFold(cn.Tags, f.rmTags), f.addTags...))
+		if err := applyKV(&cn.Labels, f.labels); err != nil {
+			return err
+		}
+		if err := applyKV(&cn.Options, f.options); err != nil {
+			return err
+		}
+		for _, u := range f.unset {
+			switch u {
+			case "via":
+				cn.Via = ""
+			case "password-ref":
+				cn.PasswordRef = ""
+			case "notes":
+				cn.Notes = ""
+			case "protected":
+				cn.Protected = false
+			default:
+				return out.Errf(out.ExitUsage, "USAGE", "--unset takes: via, password-ref, notes, protected", "cannot unset %q", u)
+			}
+		}
+		if _, err := checkConn(s, cn); err != nil {
+			return err
+		}
+		if err := guardConnEdit(&old, cn, &res); err != nil {
+			return err
+		}
+		if rename != "" && rename != cn.Name {
+			if _, err := renameConn(s, cn.Name, rename); err != nil {
+				return err
+			}
+		}
+		if !cn.Protected {
+			if twin := protectedTwinConn(s, cn); twin != "" {
+				cn.Protected = true
+				res.Warnings = append(res.Warnings, sameTwinWarning(cn.Kind+" resource", cn.Name, twin))
+			}
+		}
+		after, _ := json.Marshal(cn)
+		ch := string(before) != string(after)
+		if ch {
+			cn.UpdatedAt = time.Now().UTC()
+		}
+		res.Conn, res.Changed = cn, &ch
+		return nil
+	})
+	if err != nil {
+		undoPw()
+		return err
+	}
+	if fl.Changed("password-ref") {
+		res.Warnings = append(res.Warnings, missingSecretWarnings(res.PasswordRef)...)
+	}
+	if *res.Changed {
+		audit(nil, "conn.edit", nil, "", true, map[string]any{"conns": []string{res.Name}, "flags": changedFlags(cmd)})
+	}
+	out.P.Print("conn.edit", res, nil)
+	return nil
 }
 
 // guardConnEdit: an edit that turns a conn's protection off, or changes

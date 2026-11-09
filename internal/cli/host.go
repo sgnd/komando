@@ -91,98 +91,7 @@ func hostAddCmd() *cobra.Command {
   komando host add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := args[0]
-			if err := validName("host", name); err != nil {
-				return err
-			}
-			if err := guardProxyCommand(f.proxyCommand); err != nil {
-				return err
-			}
-			undoPw := func() {}
-			if askPw {
-				ref, undo, err := askPassword(cmd, "host", name)
-				if err != nil {
-					return err
-				}
-				f.passwordRef, undoPw = ref, undo
-			}
-			h := &store.Host{Name: name, Address: f.address, Port: f.port, User: f.user, Key: f.key, Identity: f.identity,
-				PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, ProxyCommand: f.proxyCommand, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
-				Protected: f.protected, Notes: f.notes}
-			if len(args) == 2 {
-				a, err := parseAddressArg(args[1])
-				if err != nil {
-					return err
-				}
-				h.Address = a.Address
-				if a.User != "" && h.User == "" {
-					h.User = a.User
-				}
-				if a.Port != 0 && h.Port == 0 {
-					h.Port = a.Port
-				}
-			}
-			if h.Address == "" {
-				return out.Errf(out.ExitUsage, "USAGE", "e.g. komando host add "+name+" deploy@10.0.0.5, or --address 10.0.0.5",
-					"address required: pass user@address[:port] or --address")
-			}
-			h.Address = normAddr(h.Address)
-			if f.ssm {
-				h.ProxyCommand = ssmProxy
-			}
-			if err := checkHostRefs(h); err != nil {
-				return err
-			}
-			var err error
-			if h.Labels, err = parseKV(f.labels); err != nil {
-				return err
-			}
-			if h.Env, err = parseEnv(f.env); err != nil {
-				return err
-			}
-			if len(h.Labels) == 0 {
-				h.Labels = nil
-			}
-			if len(h.Env) == 0 {
-				h.Env = nil
-			}
-			now := time.Now().UTC()
-			h.CreatedAt, h.UpdatedAt = now, now
-			res := hostResult{Host: h}
-			replaced := false
-			err = store.Update(func(s *store.State) error {
-				if err := checkNewName(s, "host", name, force); err != nil {
-					return err
-				}
-				_, replaced = s.Hosts[name]
-				if h.Key != "" {
-					if _, ok := s.Keys[h.Key]; !ok {
-						return keyNotFound(s, h.Key)
-					}
-				}
-				if err := checkHost(s, h); err != nil {
-					return err
-				}
-				if err := guardHostSends([]*store.Host{h}, s.Hosts); err != nil {
-					return err // s.Hosts holds the server it replaces, if any
-				}
-				if twin := protectedTwinHost(s, h); twin != "" && !h.Protected {
-					h.Protected = true
-					res.Warnings = append(res.Warnings, sameTwinWarning("server", name, twin))
-				}
-				s.Hosts[name] = h
-				return nil
-			})
-			if err != nil {
-				undoPw()
-				return err
-			}
-			res.Action = addVerb(replaced)
-			res.Warnings = append(res.Warnings, missingSecretWarnings(h.PasswordRef, h.SudoRef)...)
-			res.Next = "komando test " + name
-			audit(nil, "host.add", []string{name}, "", true, map[string]any{"action": res.Action})
-			out.P.Print("host.add", res, nil)
-			return nil
+			return runHostAdd(cmd, args, &f, force, askPw)
 		},
 	}
 	f.bind(c, false)
@@ -190,6 +99,102 @@ func hostAddCmd() *cobra.Command {
 	c.Flags().BoolVar(&force, "overwrite", false, "replace an existing host with the same name")
 	aliasFlag(c.Flags(), "force", "overwrite")
 	return c
+}
+
+// runHostAdd is the work of `hostAddCmd`.
+func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bool) error {
+	name := args[0]
+	if err := validName("host", name); err != nil {
+		return err
+	}
+	if err := guardProxyCommand(f.proxyCommand); err != nil {
+		return err
+	}
+	undoPw := func() {}
+	if askPw {
+		ref, undo, err := askPassword(cmd, "host", name)
+		if err != nil {
+			return err
+		}
+		f.passwordRef, undoPw = ref, undo
+	}
+	h := &store.Host{Name: name, Address: f.address, Port: f.port, User: f.user, Key: f.key, Identity: f.identity,
+		PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, ProxyCommand: f.proxyCommand, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
+		Protected: f.protected, Notes: f.notes}
+	if len(args) == 2 {
+		a, err := parseAddressArg(args[1])
+		if err != nil {
+			return err
+		}
+		h.Address = a.Address
+		if a.User != "" && h.User == "" {
+			h.User = a.User
+		}
+		if a.Port != 0 && h.Port == 0 {
+			h.Port = a.Port
+		}
+	}
+	if h.Address == "" {
+		return out.Errf(out.ExitUsage, "USAGE", "e.g. komando host add "+name+" deploy@10.0.0.5, or --address 10.0.0.5",
+			"address required: pass user@address[:port] or --address")
+	}
+	h.Address = normAddr(h.Address)
+	if f.ssm {
+		h.ProxyCommand = ssmProxy
+	}
+	if err := checkHostRefs(h); err != nil {
+		return err
+	}
+	var err error
+	if h.Labels, err = parseKV(f.labels); err != nil {
+		return err
+	}
+	if h.Env, err = parseEnv(f.env); err != nil {
+		return err
+	}
+	if len(h.Labels) == 0 {
+		h.Labels = nil
+	}
+	if len(h.Env) == 0 {
+		h.Env = nil
+	}
+	now := time.Now().UTC()
+	h.CreatedAt, h.UpdatedAt = now, now
+	res := hostResult{Host: h}
+	replaced := false
+	err = store.Update(func(s *store.State) error {
+		if err := checkNewName(s, "host", name, force); err != nil {
+			return err
+		}
+		_, replaced = s.Hosts[name]
+		if h.Key != "" {
+			if _, ok := s.Keys[h.Key]; !ok {
+				return keyNotFound(s, h.Key)
+			}
+		}
+		if err := checkHost(s, h); err != nil {
+			return err
+		}
+		if err := guardHostSends([]*store.Host{h}, s.Hosts); err != nil {
+			return err // s.Hosts holds the server it replaces, if any
+		}
+		if twin := protectedTwinHost(s, h); twin != "" && !h.Protected {
+			h.Protected = true
+			res.Warnings = append(res.Warnings, sameTwinWarning("server", name, twin))
+		}
+		s.Hosts[name] = h
+		return nil
+	})
+	if err != nil {
+		undoPw()
+		return err
+	}
+	res.Action = addVerb(replaced)
+	res.Warnings = append(res.Warnings, missingSecretWarnings(h.PasswordRef, h.SudoRef)...)
+	res.Next = "komando test " + name
+	audit(nil, "host.add", []string{name}, "", true, map[string]any{"action": res.Action})
+	out.P.Print("host.add", res, nil)
+	return nil
 }
 
 // addVerb says what an add did, or would do under --dry-run.
@@ -234,125 +239,7 @@ covers every server in the command, and the question lists them all. Try
   komando host edit vps1 --ask-password          # type a new password (hidden)`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fl := cmd.Flags()
-			if len(changedFlags(cmd)) == 0 {
-				return out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando host edit "+args[0]+" --user deploy (see --help)", "nothing to change")
-			}
-			if err := editConflicts(fl, f.unset, map[string]string{"user": "user", "key": "key", "identity": "identity", "password-ref": "password-ref",
-				"sudo-ref": "sudo-ref", "via": "via", "jump": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected"},
-				[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
-				return err
-			}
-			if err := guardProxyCommand(f.proxyCommand); err != nil {
-				return err
-			}
-			undoPw := func() {}
-			if askPw {
-				if len(args) != 1 {
-					return out.Usage("--ask-password gives one server its password: name one server")
-				}
-				ref, undo, err := askPassword(cmd, "host", args[0])
-				if err != nil {
-					return err
-				}
-				_ = fl.Set("password-ref", ref)
-				undoPw = undo
-			}
-			var res hostResult
-			var many hostEditResult
-			single := false
-			err := store.Update(func(s *store.State) error {
-				hosts, err := pickHosts(s, args)
-				if err != nil {
-					return err
-				}
-				_, ferr := findHost(s, args[0])
-				single = len(args) == 1 && ferr == nil
-				if !single {
-					for _, flag := range []string{"address", "rename"} {
-						if fl.Changed(flag) {
-							return out.Errf(out.ExitUsage, "USAGE", "edit the servers one at a time for this, e.g. komando host edit "+hosts[0].Name+" --"+flag+" ...",
-								"--%s gives one server a value no other server should share; it takes one NAME, not %d servers", flag, len(hosts))
-						}
-					}
-				}
-				type edit struct {
-					h      *store.Host
-					before []byte
-				}
-				var edits []edit
-				olds := map[string]*store.Host{} // the connection settings before the edit
-				for _, h := range hosts {
-					before, _ := json.Marshal(h)
-					conn := *h
-					olds[h.Name] = &conn
-					if err := applyHostEdit(h, &f, fl); err != nil {
-						return editErr(err, h.Name, single)
-					}
-					if h.Key != "" {
-						if _, ok := s.Keys[h.Key]; !ok {
-							return keyNotFound(s, h.Key)
-						}
-					}
-					edits = append(edits, edit{h, before})
-				}
-				if err := guardHostEdit(hosts, olds, single); err != nil {
-					return err
-				}
-				if rename != "" && rename != hosts[0].Name {
-					if _, err := renameHost(s, hosts[0].Name, rename); err != nil {
-						return err
-					}
-				}
-				for _, e := range edits {
-					h := e.h
-					if err := checkHost(s, h); err != nil {
-						return editErr(err, h.Name, single)
-					}
-					var warnings []string
-					if !h.Protected {
-						if twin := protectedTwinHost(s, h); twin != "" {
-							h.Protected = true
-							warnings = append(warnings, sameTwinWarning("server", h.Name, twin))
-						}
-					}
-					after, _ := json.Marshal(h)
-					ch := string(e.before) != string(after)
-					if ch {
-						h.UpdatedAt = time.Now().UTC()
-						many.Changed = append(many.Changed, h.Name)
-					} else {
-						many.Unchanged = append(many.Unchanged, h.Name)
-					}
-					if h.Protected {
-						many.Protected = append(many.Protected, h.Name)
-					}
-					many.Hosts = append(many.Hosts, h)
-					many.Warnings = append(many.Warnings, warnings...)
-					res.Host, res.Changed, res.Warnings = h, &ch, warnings
-				}
-				return nil
-			})
-			if err != nil {
-				undoPw()
-				return err
-			}
-			if single {
-				if fl.Changed("password-ref") || fl.Changed("sudo-ref") {
-					res.Warnings = append(res.Warnings, missingSecretWarnings(res.PasswordRef, res.SudoRef)...)
-				}
-				if *res.Changed {
-					audit(nil, "host.edit", []string{res.Name}, "", true, map[string]any{"flags": changedFlags(cmd)})
-				}
-				out.P.Print("host.edit", res, nil)
-				return nil
-			}
-			if len(many.Changed) > 0 {
-				audit(nil, "host.edit", many.Changed, "", true, map[string]any{"flags": changedFlags(cmd), "targets": args})
-			}
-			many.Changed, many.Unchanged = orEmpty(many.Changed), orEmpty(many.Unchanged)
-			out.P.Print("host.edit", many, nil)
-			return nil
+			return runHostEdit(cmd, args, &f, rename, askPw)
 		},
 	}
 	f.bind(c, true)
@@ -360,6 +247,146 @@ covers every server in the command, and the question lists them all. Try
 	c.Flags().StringVar(&rename, "rename", "", "rename the host")
 	_ = c.Flags().MarkDeprecated("rename", "use `komando host mv OLD NEW`")
 	return c
+}
+
+// runHostEdit is the work of `hostEditCmd`.
+func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, rename string, askPw bool) error {
+	fl := cmd.Flags()
+	undoPw, err := hostEditChecks(cmd, args, f, askPw)
+	if err != nil {
+		return err
+	}
+	var res hostResult
+	var many hostEditResult
+	single := false
+	err = store.Update(func(s *store.State) error {
+		hosts, err := pickHosts(s, args)
+		if err != nil {
+			return err
+		}
+		_, ferr := findHost(s, args[0])
+		single = len(args) == 1 && ferr == nil
+		if !single {
+			for _, flag := range []string{"address", "rename"} {
+				if fl.Changed(flag) {
+					return out.Errf(out.ExitUsage, "USAGE", "edit the servers one at a time for this, e.g. komando host edit "+hosts[0].Name+" --"+flag+" ...",
+						"--%s gives one server a value no other server should share; it takes one NAME, not %d servers", flag, len(hosts))
+				}
+			}
+		}
+		type edit struct {
+			h      *store.Host
+			before []byte
+		}
+		var edits []edit
+		olds := map[string]*store.Host{} // the connection settings before the edit
+		for _, h := range hosts {
+			before, _ := json.Marshal(h)
+			conn := *h
+			olds[h.Name] = &conn
+			if err := applyHostEdit(h, f, fl); err != nil {
+				return editErr(err, h.Name, single)
+			}
+			if h.Key != "" {
+				if _, ok := s.Keys[h.Key]; !ok {
+					return keyNotFound(s, h.Key)
+				}
+			}
+			edits = append(edits, edit{h, before})
+		}
+		if err := guardHostEdit(hosts, olds, single); err != nil {
+			return err
+		}
+		if rename != "" && rename != hosts[0].Name {
+			if _, err := renameHost(s, hosts[0].Name, rename); err != nil {
+				return err
+			}
+		}
+		for _, e := range edits {
+			h := e.h
+			if err := checkHost(s, h); err != nil {
+				return editErr(err, h.Name, single)
+			}
+			var warnings []string
+			if !h.Protected {
+				if twin := protectedTwinHost(s, h); twin != "" {
+					h.Protected = true
+					warnings = append(warnings, sameTwinWarning("server", h.Name, twin))
+				}
+			}
+			after, _ := json.Marshal(h)
+			ch := string(e.before) != string(after)
+			if ch {
+				h.UpdatedAt = time.Now().UTC()
+				many.Changed = append(many.Changed, h.Name)
+			} else {
+				many.Unchanged = append(many.Unchanged, h.Name)
+			}
+			if h.Protected {
+				many.Protected = append(many.Protected, h.Name)
+			}
+			many.Hosts = append(many.Hosts, h)
+			many.Warnings = append(many.Warnings, warnings...)
+			res.Host, res.Changed, res.Warnings = h, &ch, warnings
+		}
+		return nil
+	})
+	if err != nil {
+		undoPw()
+		return err
+	}
+	return printHostEdit(cmd, args, single, res, many)
+}
+
+// hostEditChecks are host edit's checks before it changes anything, and
+// --ask-password; undo takes back a secret it stored when the edit fails.
+func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) (undo func(), err error) {
+	fl := cmd.Flags()
+	undo = func() {}
+	if len(changedFlags(cmd)) == 0 {
+		return undo, out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando host edit "+args[0]+" --user deploy (see --help)", "nothing to change")
+	}
+	if err := editConflicts(fl, f.unset, map[string]string{"user": "user", "key": "key", "identity": "identity", "password-ref": "password-ref",
+		"sudo-ref": "sudo-ref", "via": "via", "jump": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected"},
+		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
+		return undo, err
+	}
+	if err := guardProxyCommand(f.proxyCommand); err != nil {
+		return undo, err
+	}
+	if !askPw {
+		return undo, nil
+	}
+	if len(args) != 1 {
+		return undo, out.Usage("--ask-password gives one server its password: name one server")
+	}
+	ref, undo, err := askPassword(cmd, "host", args[0])
+	if err != nil {
+		return undo, err
+	}
+	_ = fl.Set("password-ref", ref)
+	return undo, nil
+}
+
+// printHostEdit prints what host edit changed: one server, or many.
+func printHostEdit(cmd *cobra.Command, args []string, single bool, res hostResult, many hostEditResult) error {
+	fl := cmd.Flags()
+	if single {
+		if fl.Changed("password-ref") || fl.Changed("sudo-ref") {
+			res.Warnings = append(res.Warnings, missingSecretWarnings(res.PasswordRef, res.SudoRef)...)
+		}
+		if *res.Changed {
+			audit(nil, "host.edit", []string{res.Name}, "", true, map[string]any{"flags": changedFlags(cmd)})
+		}
+		out.P.Print("host.edit", res, nil)
+		return nil
+	}
+	if len(many.Changed) > 0 {
+		audit(nil, "host.edit", many.Changed, "", true, map[string]any{"flags": changedFlags(cmd), "targets": args})
+	}
+	many.Changed, many.Unchanged = orEmpty(many.Changed), orEmpty(many.Unchanged)
+	out.P.Print("host.edit", many, nil)
+	return nil
 }
 
 // hostEditResult is what host edit prints for several servers.

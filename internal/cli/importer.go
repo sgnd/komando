@@ -228,24 +228,9 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	for _, r := range recipes {
 		res.Recipes = append(res.Recipes, r.Name)
 	}
-	for _, p := range plan.DenyRules {
-		if strings.TrimSpace(p) != "" && checkRegex(p) == nil && !slices.Contains(st.Settings.ExtraDenyPattern, p) && !slices.Contains(res.DenyRules, p) {
-			res.DenyRules = append(res.DenyRules, p)
-		}
-	}
-	for _, s := range settings {
-		if v, ok := plan.Settings[s.Key]; ok && v != s.get(&st.Settings) {
-			res.SettingsDiffer = append(res.SettingsDiffer, settingDiffers{s.Key, v, s.get(&st.Settings), "komando config set " + s.Key + " " + shellQuote(v)})
-		}
-	}
+	res.DenyRules, res.SettingsDiffer = importRulesAndSettings(st, plan)
 	res.Action = "added"
-	// servers komando refused are a failure (exit 1), not a quiet skip; a
-	// name that exists already is not: importing again is safe
-	var incomplete error
-	if n := len(v.Invalid); n > 0 {
-		incomplete = out.Errf(out.ExitError, "IMPORT_INCOMPLETE", "fix them in the source and import again: the rest is in, and importing again skips it",
-			"%s not imported (see skipped)", map[bool]string{true: "1 server was", false: strconv.Itoa(n) + " servers were"}[n == 1])
-	}
+	incomplete := importIncomplete(len(v.Invalid))
 	if g.dryRun {
 		res.Action = "would_add"
 		out.P.Print("import", res, toErr(incomplete))
@@ -656,4 +641,32 @@ type settingDiffers struct {
 	File    string `json:"file"`
 	Here    string `json:"here"`
 	Command string `json:"command"`
+}
+
+// importRulesAndSettings: the deny rules of a komando export that are new
+// here (they only stop more, so they are added), and its settings that
+// differ, with the command that sets each (they are never set by import).
+func importRulesAndSettings(st *store.State, plan *importPlan) (rules []string, differ []settingDiffers) {
+	for _, p := range plan.DenyRules {
+		if strings.TrimSpace(p) != "" && checkRegex(p) == nil && !slices.Contains(st.Settings.ExtraDenyPattern, p) && !slices.Contains(rules, p) {
+			rules = append(rules, p)
+		}
+	}
+	for _, s := range settings {
+		if v, ok := plan.Settings[s.Key]; ok && v != s.get(&st.Settings) {
+			differ = append(differ, settingDiffers{s.Key, v, s.get(&st.Settings), "komando config set " + s.Key + " " + shellQuote(v)})
+		}
+	}
+	return rules, differ
+}
+
+// importIncomplete: servers komando refused make the import fail (exit 1),
+// not a quiet skip; a name that exists already does not (importing again
+// is safe).
+func importIncomplete(refused int) error {
+	if refused == 0 {
+		return nil
+	}
+	return out.Errf(out.ExitError, "IMPORT_INCOMPLETE", "fix them in the source and import again: the rest is in, and importing again skips it",
+		"%s not imported (see skipped)", map[bool]string{true: "1 server was", false: strconv.Itoa(refused) + " servers were"}[refused == 1])
 }
