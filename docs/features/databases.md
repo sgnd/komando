@@ -314,6 +314,17 @@ a hint (install `postgresql-client` 16 or newer, put the CA in
 `~/.postgresql/root.crt`, or reach the database `--via` that server without
 TLS).
 
+**A private CA (`?ca=secret:NAME`).** The tools on the server check the
+database's certificate against the conn's CA too, the same full check
+komando makes: signed by that CA and naming the server. komando sends the
+CA after the password, on the tool's input, never on its command line. It
+lands in a new folder in `/tmp` that only the login user can open, and goes
+once the tool ends. `pg_dump` and `pg_restore` of any version get it as
+`sslrootcert=` with `sslmode=verify-full` (in place of `ca=`, which libpq
+does not know), so `~/.postgresql/root.crt` is not needed.
+`mysqldump` gets `--ssl-ca` and a checked TLS connection, also when the URL
+has no `tls=`.
+
 **Running the dump on a server you choose (`--on HOST`).** Useful when the
 conn goes through a VPN (komando then can only write plain SQL itself) but a
 server you manage has `pg_dump` and can reach the database, often the
@@ -337,7 +348,8 @@ komando db dump prod-db --to prod.dump --format custom --on db1
   server has it), so the server keeps serving its users. `low_priority` in
   the answer says so.
 - The backup streams back over SSH into `--to` on this computer (compressed
-  here when it ends in `.gz`); nothing is written on the server.
+  here when it ends in `.gz`); nothing is written on the server, except a
+  private CA's certificate while the tool runs.
 - `pg_dump` refuses a server newer than itself. komando reports that as
   `TOOL_TOO_OLD` with both versions and the package to install
   (`postgresql-client-NN`). A server named with `--on` is never skipped: a

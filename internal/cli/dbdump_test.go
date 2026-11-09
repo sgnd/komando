@@ -192,11 +192,11 @@ func TestDumpOnHost(t *testing.T) {
 }
 
 func TestToolScriptLowPriority(t *testing.T) {
-	s := toolScript([]string{"pg_dump", "--dbname", "postgres://a@h/db"}, "PGPASSWORD", false)
+	s := toolScript([]string{"pg_dump", "--dbname", "postgres://a@h/db"}, "PGPASSWORD", "", false)
 	if strings.Contains(s, "nice") {
 		t.Errorf("not low: %s", s)
 	}
-	s = toolScript([]string{"pg_dump", "--dbname", "postgres://a@h/db"}, "PGPASSWORD", true)
+	s = toolScript([]string{"pg_dump", "--dbname", "postgres://a@h/db"}, "PGPASSWORD", "", true)
 	if strings.Index(s, "nice -n 10") > strings.Index(s, "ionice -c3") || !strings.HasSuffix(s, `exec "$@"`) {
 		t.Errorf("low: %s", s)
 	}
