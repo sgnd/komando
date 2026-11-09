@@ -2,6 +2,8 @@ package vault
 
 import (
 	"crypto/cipher"
+	"encoding/hex"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -76,14 +78,16 @@ func TestKeychainSecretTool(t *testing.T) {
 	keychainOS = "linux"
 	defer func() { keychainOS = saved }()
 	script := `#!/bin/sh
-store="` + dir + `/kept"
+kept="` + dir + `/kept"
 case "$1" in
-  store) for a in "$@"; do [ ${#a} -ge 64 ] && { echo "a key in the arguments" >&2; exit 9; }; done; cat > "$store" ;;
-  lookup) [ -f "$store" ] && cat "$store" || exit 1 ;;
-  clear) rm -f "$store" ;;
+  store) for a in "$@"; do [ ${#a} -ge 64 ] && { echo "a key in the arguments" >&2; exit 9; }; done; cat > "$kept" ;;
+  lookup) [ -f "$kept" ] && cat "$kept" || exit 1 ;;
+  search) if [ -f "$kept" ]; then printf '[/org/freedesktop/secrets/collection/login/1]\nlabel = %s\n' "$4"; fi ;;
+  clear) rm -f "$kept" ;;
 esac
 `
 	os.WriteFile(filepath.Join(dir, "secret-tool"), []byte(script), 0o755)
+	lockTool(t, dir, "gdbus", "echo '(<false>,)'")
 	savedDirs := toolDirs
 	toolDirs = []string{dir} // the stand-in plays the system's secret-tool
 	defer func() { toolDirs = savedDirs }()
@@ -139,4 +143,151 @@ func TestKeychainMacOS(t *testing.T) {
 	if strings.Contains(keychainService(), "/") {
 		t.Error("service name carries the path")
 	}
+}
+
+// keyFileVault is a vault with one secret and its key in vault.key, made
+// with the keychain off; it returns that key.
+func keyFileVault(t *testing.T) []byte {
+	t.Helper()
+	t.Setenv("KOMANDO_KEYCHAIN", "off")
+	if err := Set("db-pass", "s3cret"); err != nil {
+		t.Fatal(err)
+	}
+	key, err := os.ReadFile(store.Path("vault.key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KOMANDO_KEYCHAIN", "")
+	return key
+}
+
+// stillKeyFile checks that a refused `komando secret keychain` left the
+// vault as it was: its key in vault.key, and its secret readable.
+func stillKeyFile(t *testing.T) {
+	t.Helper()
+	if m := modeOnDisk(t); m != "keyfile" {
+		t.Errorf("mode %q, want keyfile", m)
+	}
+	if v, err := Get("db-pass"); err != nil || v != "s3cret" {
+		t.Errorf("Get: %q %v", v, err)
+	}
+}
+
+// `komando secret keychain` never replaces another vault's key kept under
+// this folder's name (Linux): it says so, and the vault keeps vault.key.
+func TestKeyToKeychainItemExistsLinux(t *testing.T) {
+	freshHome(t)
+	calls := keychainStandIn(t, false)
+	keyFileVault(t)
+	other := strings.Repeat("ab", 32)
+	kept := filepath.Join(toolDirs[0], "kept")
+	if err := os.WriteFile(kept, []byte(other), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := KeyToKeychain()
+	if !errors.Is(err, ErrKeychainTaken) || !strings.Contains(err.Error(), "moved aside") {
+		t.Errorf("KeyToKeychain over another key: %v", err)
+	}
+	if strings.Contains(calls(), "store") {
+		t.Errorf("the other key was replaced:\n%s", calls())
+	}
+	if b, _ := os.ReadFile(kept); string(b) != other {
+		t.Errorf("the keychain item changed: %q", b)
+	}
+	stillKeyFile(t)
+}
+
+// A locked item (lookup finds nothing, gnome-keyring's search lists it)
+// is not replaced either, and a search that fails stops the move.
+func TestKeyToKeychainLockedOrUnsure(t *testing.T) {
+	for name, search := range map[string]string{
+		"locked":  `printf '[/org/freedesktop/secrets/collection/login/7]\nlabel = %s\n' "$4"`,
+		"refused": `echo "secret-tool: The name org.freedesktop.secrets was not provided" >&2; exit 1`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			freshHome(t)
+			keyFileVault(t)
+			calls := scriptedSecretTool(t, `case "$1" in
+  lookup) exit 1 ;;
+  search) `+search+` ;;
+  store) exit 0 ;;
+esac
+`)
+			if _, err := KeyToKeychain(); err == nil || errors.Is(err, ErrKeychainTaken) {
+				t.Errorf("KeyToKeychain: %v", err)
+			}
+			if strings.Contains(calls(), "store") {
+				t.Errorf("a key was stored:\n%s", calls())
+			}
+			stillKeyFile(t)
+		})
+	}
+}
+
+// KeePassXC with its database locked: lookup and search show nothing, and
+// `secret-tool store` would prompt to unlock, then replace the item. With
+// the default collection locked, `komando secret keychain` stores nothing
+// and asks for the keychain to be unlocked.
+func TestKeyToKeychainCollectionLocked(t *testing.T) {
+	freshHome(t)
+	keyFileVault(t)
+	calls := scriptedSecretTool(t, keePassXCLocked)
+	lockTool(t, toolDirs[0], "gdbus", "echo '(<true>,)'")
+	_, err := KeyToKeychain()
+	if err == nil || errors.Is(err, ErrKeychainTaken) || !strings.Contains(err.Error(), "locked") || !strings.Contains(err.Error(), "unlock") {
+		t.Errorf("KeyToKeychain with the collection locked: %v", err)
+	}
+	if strings.Contains(calls(), "search") || strings.Contains(calls(), "store") {
+		t.Errorf("searched or stored with the collection locked:\n%s", calls())
+	}
+	stillKeyFile(t)
+}
+
+// The same key already in the keychain (a move that stopped before
+// vault.json said so) finishes the move.
+func TestKeyToKeychainSameKey(t *testing.T) {
+	freshHome(t)
+	calls := keychainStandIn(t, false)
+	key := keyFileVault(t)
+	if err := os.WriteFile(filepath.Join(toolDirs[0], "kept"), []byte(hex.EncodeToString(key)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := KeyToKeychain(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(calls(), "store") {
+		t.Errorf("stored again:\n%s", calls())
+	}
+	if m := modeOnDisk(t); m != "keychain" {
+		t.Errorf("mode %q, want keychain", m)
+	}
+}
+
+// macOS: an item find-generic-password finds holds another key, so
+// `komando secret keychain` refuses and runs no add.
+func TestKeyToKeychainItemExistsMacOS(t *testing.T) {
+	freshHome(t)
+	keyFileVault(t)
+	dir := t.TempDir()
+	savedOS, savedSec := keychainOS, securityTool
+	keychainOS, securityTool = "darwin", filepath.Join(dir, "security")
+	t.Cleanup(func() { keychainOS, securityTool = savedOS, savedSec })
+	script := `#!/bin/sh
+echo "$1" >> "` + dir + `/calls"
+case "$1" in
+  find-generic-password) for a in "$@"; do [ "$a" = -w ] && { echo ` + strings.Repeat("cd", 32) + `; exit 0; }; done
+    echo 'keychain: "login.keychain-db"' ;;
+  -i) cat >> "` + dir + `/added" ;;
+esac
+`
+	if err := os.WriteFile(securityTool, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := KeyToKeychain(); !errors.Is(err, ErrKeychainTaken) {
+		t.Errorf("KeyToKeychain over another key: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "added")); err == nil {
+		t.Error("security -i ran an add")
+	}
+	stillKeyFile(t)
 }

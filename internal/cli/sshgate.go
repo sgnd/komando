@@ -28,8 +28,9 @@ import (
 // a second program. komando then runs as an AI agent does (secret values
 // hidden, no flag that skips a safety stop counts without a person), and
 // the gate writes every command it runs or refuses to the audit log, with
-// the key's name. With --read-only it runs only commands komando treats as
-// reads. `restrict` turns off port, agent and X11 forwarding and the
+// the key's name. No key writes on this computer itself (gateHere), nor
+// runs anything, a read either, on a target that is it (gateLocalTarget). With --read-only it runs only commands komando treats
+// as reads. `restrict` turns off port, agent and X11 forwarding and the
 // terminal, so the key opens nothing else (OpenSSH 7.2 and later).
 
 // gateEnv names the key (its --name) in the environment of the komando the
@@ -70,12 +71,127 @@ var gateReadForm = map[string]func(c *cobra.Command) string{
 
 // gateNotForReadKey are reads a read-only key still does not run, and why.
 var gateNotForReadKey = map[string]string{
-	"download":         "it saves files on the komando computer",
-	"storage.download": "it saves files on the komando computer",
-	"db.dump":          "it saves a file on the komando computer",
-	"export":           "it can save a file on the komando computer",
-	"storage.link":     "it makes a link that opens the data without a login",
-	"cluster.forward":  "it opens a port on the komando computer",
+	"storage.link":    "it makes a link that opens the data without a login",
+	"cluster.forward": "it opens a port on the komando computer",
+}
+
+// No gate key, read-only or not, writes on the komando computer itself: a
+// file it saves there could be ~/.ssh/authorized_keys or a shell startup
+// file, and komando's own setup (inventory, VPN configs, settings, rules,
+// vault, keys, recipes, skills, komando itself) decides what komando runs
+// there next. Either way the key would get a shell here.
+//
+// For changes the rule fails closed: a command of kind change or depends
+// runs only when gateOnServers names it, so one added later is refused until
+// someone decides it acts on servers only. Reads change nothing here
+// (kinds.go), except those that save a file you ask for: gateSavesHere.
+
+// gateOnServers are the changes a key may run: they act on servers,
+// databases, caches, storage and clusters, or connect a VPN komando already
+// knows. A func says why the command as given writes here, or "".
+var gateOnServers = map[string]func(c *cobra.Command) string{
+	"exec": nil, "script": nil, "reboot": nil, "upload": nil, "recipe.run": nil,
+	"cp": gateLocalDst, "sync": gateLocalDst,
+	"job.start": nil, "job.kill": nil, "job.rm": nil,
+	"fs.chmod": nil, "fs.mkdir": nil, "fs.mv": nil, "fs.replace": nil, "fs.rm": nil, "fs.write": nil,
+	"svc.daemon-reload": nil, "svc.disable": nil, "svc.enable": nil, "svc.reload": nil,
+	"svc.restart": nil, "svc.start": nil, "svc.stop": nil,
+	"pkg.install": nil, "pkg.rm": nil, "pkg.security": nil, "pkg.update": nil, "pkg.upgradable": nil, "pkg.upgrade": nil,
+	"user.add": nil, "user.lock": nil, "user.rm": nil, "user.unlock": nil,
+	"cron.rm": nil, "cron.set": nil, "key.deploy": gateSetDefault, "key.revoke": nil,
+	"db.explain": nil, "db.grant": nil, "db.kill": nil, "db.query": nil, "db.restore": nil, "db.revoke": nil,
+	"db.user.add": nil, "db.user.passwd": nil, "db.user.rm": nil,
+	"cache.rm": nil, "cache.run": nil, "cache.set": nil, "storage.rm": nil, "storage.upload": nil,
+	"registry.copy": nil, "registry.prune": nil, "registry.rm": nil,
+	"docker.compose": nil, "docker.exec": nil, "docker.prune": nil, "docker.pull": nil, "docker.raw": nil,
+	"docker.restart": nil, "docker.rm": nil, "docker.start": nil, "docker.stop": nil,
+	"cluster.apply": nil, "cluster.deploy": nil, "cluster.exec": nil, "cluster.restart": nil,
+	"cluster.rm": nil, "cluster.rollback": nil, "cluster.run": gateKubectlCp, "cluster.scale": nil,
+	"vpn.up": nil, "vpn.down": nil,
+}
+
+// gateSavesHere are reads that save a file on this computer, and when.
+var gateSavesHere = map[string]func(c *cobra.Command) string{
+	"download": func(*cobra.Command) string { return "it saves files on this computer" },
+	"db.dump":  func(*cobra.Command) string { return "it saves a file on this computer" },
+	"storage.download": func(c *cobra.Command) string {
+		if to, _ := c.Flags().GetString("to"); to == "-" {
+			return "" // to the key's own output
+		}
+		return "it saves files on this computer (--to - prints one instead)"
+	},
+	"export": func(c *cobra.Command) string {
+		if to, _ := c.Flags().GetString("to"); to != "" {
+			return "--to saves a file on this computer (without it, export prints)"
+		}
+		return ""
+	},
+}
+
+// gateLocalDst: cp and sync write here when DST is not TARGET:PATH. It
+// reads the arguments with the same splitArg the command uses.
+func gateLocalDst(c *cobra.Command) string {
+	args := c.Flags().Args()
+	if len(args) != 2 {
+		return "" // a usage error: nothing runs
+	}
+	if _, _, remote := splitArg(args[1]); !remote {
+		return "its DST is on this computer; a key copies to servers or storage only"
+	}
+	return ""
+}
+
+// gateSetDefault: key deploy --set-default changes komando's own setup.
+func gateSetDefault(c *cobra.Command) string {
+	if on, _ := c.Flags().GetBool("set-default"); on {
+		return "--set-default changes which key komando uses for those servers; deploy without it and set the key here"
+	}
+	return ""
+}
+
+// gateKubectlCp: kubectl cp saves files here whenever its SRC is POD:PATH,
+// whatever DST looks like (kctl's cp reads them so: x:/../y is a local
+// path to it). docker cp on a Swarm manager writes there.
+func gateKubectlCp(c *cobra.Command) string {
+	args := c.Flags().Args()
+	if len(args) < 2 {
+		return ""
+	}
+	a, err := parseKargs(args[1:])
+	if err != nil || a.verb != "cp" || len(a.pos) != 2 {
+		return "" // not cp, or a usage error: nothing is saved here
+	}
+	if src := a.pos[0]; strings.HasPrefix(src, "/") || strings.HasPrefix(src, ".") || !strings.Contains(src, ":") {
+		return "" // SRC is here: it copies to the pod
+	}
+	if st, err := store.Load(); err == nil {
+		if t, err := resolveCluster(st, args[0]); err == nil && t.host != nil {
+			return ""
+		}
+	}
+	return "kubectl cp from a POD:PATH saves files on this computer"
+}
+
+// gateHere says why c writes on this computer, or "".
+func gateHere(c *cobra.Command, name string) string {
+	if f := gateSavesHere[name]; f != nil {
+		return f(c)
+	}
+	if top, _, _ := strings.Cut(name, "."); c == c.Root() || top == "help" || top == "completion" {
+		return "" // first steps, help and shell completion scripts: printed
+	}
+	k, ok := kindOf(c)
+	if ok && k.Kind == kindRead {
+		return ""
+	}
+	f, on := gateOnServers[name]
+	switch {
+	case !on:
+		return "it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself)"
+	case f != nil:
+		return f(c)
+	}
+	return ""
 }
 
 func needFlag(name string) func(c *cobra.Command) string {
@@ -113,26 +229,21 @@ type gateRequest struct {
 	args  []string // after "komando"
 }
 
-// gateRefusal is a stop: the error and, for the audit log, its reason.
-func gateRefusal(code string, exit int, hint, format string, a ...any) *out.Error {
-	return out.Errf(exit, code, hint, format, a...)
-}
-
 // parseGate reads SSH_ORIGINAL_COMMAND into the komando command it asks for.
 func parseGate(raw string) (gateRequest, *out.Error) {
 	req := gateRequest{raw: raw}
 	if strings.TrimSpace(raw) == "" {
-		return req, gateRefusal("SSH_GATE_REFUSED", out.ExitPolicy, "this key runs komando commands only, for example: ssh HOST komando list",
+		return req, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "this key runs komando commands only, for example: ssh HOST komando list",
 			"no command: this key opens no shell")
 	}
 	words, err := gateWords(raw)
 	if err != nil {
-		return req, gateRefusal("SSH_GATE_SYNTAX", out.ExitUsage, "send one komando command, each argument quoted as for a shell (single quotes are safest)", "%v", err)
+		return req, out.Errf(out.ExitUsage, "SSH_GATE_SYNTAX", "send one komando command; put an argument with ; | & $ or backquotes in single quotes ($ and backquotes are refused even in double quotes)", "%v", err)
 	}
 	if len(words) > 0 && assignWord.MatchString(words[0]) {
 		name, val, _ := strings.Cut(words[0], "=")
 		if name != "KOMANDO_AGENT" {
-			return req, gateRefusal("SSH_GATE_REFUSED", out.ExitPolicy, "only KOMANDO_AGENT=NAME may come before komando",
+			return req, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "only KOMANDO_AGENT=NAME may come before komando",
 				"%s=... is not allowed: the key cannot set komando's environment", name)
 		}
 		req.agent, words = val, words[1:]
@@ -142,7 +253,7 @@ func parseGate(raw string) (gateRequest, *out.Error) {
 		if len(words) > 0 {
 			first = words[0]
 		}
-		return req, gateRefusal("SSH_GATE_REFUSED", out.ExitPolicy, "this key runs komando commands only, for example: ssh HOST komando list",
+		return req, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "this key runs komando commands only, for example: ssh HOST komando list",
 			"%q is not komando: this key runs komando and nothing else", first)
 	}
 	req.args = words[1:]
@@ -237,7 +348,7 @@ func gateCheck(args []string, readOnly bool) (name, output string, refused *out.
 		}
 		if a == cobra.ShellCompRequestCmd || a == cobra.ShellCompNoDescRequestCmd {
 			// cobra adds these only as it runs, so Find below cannot see them
-			return a, "", gateRefusal("SSH_GATE_REFUSED", out.ExitPolicy, "run it on the komando computer itself",
+			return a, "", out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run it on the komando computer itself",
 				"komando %s is the shell's completion helper, not for a key", a)
 		}
 	}
@@ -266,27 +377,37 @@ func gateRule(c *cobra.Command, name string, readOnly bool) (string, *out.Error)
 	}
 	for p := c; p != nil; p = p.Parent() {
 		if p.Hidden {
-			return name, gateRefusal("SSH_GATE_REFUSED", out.ExitPolicy, "run it on the komando computer itself",
+			return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run it on the komando computer itself",
 				"komando %s is komando's own plumbing, not for a key", strings.ReplaceAll(name, ".", " "))
 		}
 	}
 	switch {
 	case gateNeedsPerson[name]:
-		return name, gateRefusal("SSH_GATE_REFUSED", out.ExitPolicy, "a person runs it in a terminal on the komando computer itself",
+		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
 			"komando %s needs a person at a terminal on this computer; a key cannot run it", strings.ReplaceAll(name, ".", " "))
 	case g.reveal:
-		return name, gateRefusal("SSH_GATE_REFUSED", out.ExitPolicy, "secret values stay [hidden] for a key; a person reads one in a terminal on the komando computer",
+		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "secret values stay [hidden] for a key; a person reads one in a terminal on the komando computer",
 			"--reveal is refused: a key never gets secret values")
 	case g.allowDangerous:
-		return name, gateRefusal("SSH_GATE_REFUSED", out.ExitPolicy, "a person runs it in a terminal on the komando computer itself",
+		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
 			"--allow-dangerous is refused: a key cannot skip the dangerous-command stop")
 	}
-	if !readOnly || !c.Runnable() || c.Annotations[groupOnly] == "true" {
+	if !c.Runnable() || c.Annotations[groupOnly] == "true" {
 		return name, nil // a group only prints its help
 	}
-	if why := gateWrites(c, name); why != "" {
-		return name, gateRefusal("SSH_GATE_READ_ONLY", out.ExitPolicy, "this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself",
+	here := func(why string) (string, *out.Error) {
+		return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person runs it in a terminal on the komando computer itself",
+			"komando %s is refused for a key: %s; the gate runs commands on servers, not on this computer", strings.ReplaceAll(name, ".", " "), why)
+	}
+	if why := gateHere(c, name); why != "" {
+		return here(why)
+	}
+	if why := gateWrites(c, name); readOnly && why != "" {
+		return name, out.Errf(out.ExitPolicy, "SSH_GATE_READ_ONLY", "this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself",
 			"komando %s is refused for a read-only key: %s", strings.ReplaceAll(name, ".", " "), why)
+	}
+	if why := gateLocalTarget(c, name); why != "" {
+		return here(why)
 	}
 	return name, nil
 }
@@ -355,10 +476,9 @@ func gateRecipeWrites(c *cobra.Command) string {
 // looking values hidden), from where, and whether it ran. A record that
 // cannot be written stops the command.
 func gateAudit(label string, readOnly bool, req gateRequest, name string, refused *out.Error) error {
+	// written even when the audit setting is off: a key's commands are
+	// always in the log
 	st, err := store.Load()
-	if err == nil && !st.Settings.Audit {
-		return nil
-	}
 	if err == nil {
 		auditSyslog = st.Settings.AuditSyslog
 	}
@@ -433,9 +553,14 @@ they are quoted. One KOMANDO_AGENT=NAME may come before komando.
 komando then runs as for an AI agent: secret values stay [hidden], --reveal
 and --allow-dangerous are refused, and --yes for a protected server needs a
 person on this computer. Commands that need a person at a terminal (shell,
-db shell, secret passphrase ...) are refused. With --read-only only commands
-that read run: exec needs --read-only, db query and cache run no --write.
-Every command a key runs or is refused is in ` + "`komando audit`" + `, with --name.`,
+db shell, secret passphrase ...) are refused. The key runs commands on
+servers, never one that writes on this computer: no download or cp to a
+file here, no change to servers, VPNs, settings, rules, secrets, keys or
+recipes in komando, no update, no change on a sqlite file or a target at
+localhost or 127.x. With --read-only only commands that read run: exec
+needs --read-only, db query and cache run no --write. Every command a key
+runs or is refused is in ` + "`komando audit`" + `, with --name, even when the
+audit setting is off.`,
 		Example: `  komando ssh-gate line --name phone ~/phone.pub
   komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'`,
 		Args: cobra.NoArgs,

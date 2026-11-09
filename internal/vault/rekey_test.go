@@ -328,7 +328,8 @@ esac
 	if err := os.WriteFile(filepath.Join(dir, "secret-tool"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("KOMANDO_KEYCHAIN", "") // TestMain turned the keychain off
+	lockTool(t, dir, "gdbus", "echo '(<false>,)'") // the default collection is unlocked
+	t.Setenv("KOMANDO_KEYCHAIN", "")               // TestMain turned the keychain off
 	if _, err := KeychainTool(); err != nil {
 		t.Fatalf("the stand-in secret-tool is not used: %v", err)
 	}

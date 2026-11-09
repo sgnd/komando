@@ -27,9 +27,28 @@ code() { jget 'd["error"]["code"]'; }
 mentions() { jget "'$1' in json.dumps(d)"; } # mentions TEXT: the JSON answer holds TEXT
 
 check "a gate key runs komando" True "$(kssh gate-rw 'KOMANDO_AGENT=Komando komando version -o json' | jget 'd["ok"]')"
-check "a gate key may change things" True "$(kssh gate-rw komando host add gx agent@10.9.9.9 -o json | jget 'd["ok"]')"
+gx komando host add gx agent@10.9.9.9 -o json >/dev/null # a person sets komando up here
+check "no key changes komando's servers" SSH_GATE_REFUSED "$(kssh gate-rw komando host add gy agent@10.9.9.8 -o json | code || true)"
+# no key writes on this computer: a file saved over authorized_keys would give it a shell
+AK0=$(gx sha256sum /home/agent/.ssh/authorized_keys)
+check "no download to this computer" SSH_GATE_REFUSED "$(kssh gate-rw komando download gx /etc/hostname --to .ssh/authorized_keys --overwrite -o json | code || true)"
+check "no cp to this computer" SSH_GATE_REFUSED "$(kssh gate-rw komando cp gx:/etc/hostname .bashrc -o json | code || true)"
+# nor through a target that is this computer: a sqlite file, or a server at 127.0.0.1
+gx komando conn add gxdb sqlite:///home/agent/gx.db -o json >/dev/null
+gx komando host add gme agent@127.0.0.1 -o json >/dev/null
+check "no VACUUM INTO a file here" SSH_GATE_REFUSED "$(kssh gate-rw "komando db query gxdb --write \"VACUUM INTO '/home/agent/.ssh/authorized_keys2'\" -o json" | code || true)"
+check "no change on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-rw komando exec gme -o json -- id | code || true)"
+# --read-only is a denylist, not a sandbox: no key, read-only or not, runs exec here
+check "no read-only exec on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-ro komando exec gme --read-only -o json -- id | code || true)"
+# nor a read there: logs --file and fs cat would read any file here, a private key too
+check "no logs --file on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-ro "komando logs gme --file .ssh/authorized_keys --grep '^ssh' -o json" | code || true)"
+check "no fs cat on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-ro komando fs cat gme /etc/hostname -o json | code || true)"
+gx komando conn add gxpg 'postgres://agent@db.example.com/app?host=127.0.0.1' -o json >/dev/null
+check "no change on a conn whose ?host= is 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-rw "komando db query gxpg --write 'SELECT 1' -o json" | code || true)"
+check "no authorized_keys2" False "$(gx sh -c 'test -e /home/agent/.ssh/authorized_keys2 && echo True || echo False')"
+check "authorized_keys is as it was" "$AK0" "$(gx sha256sum /home/agent/.ssh/authorized_keys)"
 check "a read-only key reads" True "$(kssh gate-ro komando list -o json | mentions gx)"
-check "a read-only key changes nothing" SSH_GATE_READ_ONLY "$(kssh gate-ro komando host rm gx -o json | code || true)"
+check "a read-only key changes nothing" SSH_GATE_READ_ONLY "$(kssh gate-ro komando svc restart gx nginx -o json | code || true)"
 check "exec without --read-only is not a read" SSH_GATE_READ_ONLY "$(kssh gate-ro komando exec gx -o json -- uptime | code || true)"
 check "no shell: another program" SSH_GATE_REFUSED "$(kssh gate-rw id | code || true)"
 check "no shell: a second command" SSH_GATE_SYNTAX "$(kssh gate-rw 'komando list; id' | code || true)"
@@ -38,18 +57,19 @@ check "no shell: a login" SSH_GATE_REFUSED "$(kssh gate-rw | code || true)"
 check "no file copy (sftp)" True "$(if echo ls | sftp -b - -P "$E2E_SSH_DIRECT" -i "$TMP/gate-rw" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR agent@127.0.0.1 >/dev/null 2>&1; then echo False; else echo True; fi)"
 check "--reveal is refused" SSH_GATE_REFUSED "$(kssh gate-rw komando secret get gx-pass --reveal -o json | code || true)"
 check "a person's command is refused" SSH_GATE_REFUSED "$(kssh gate-rw komando secret passphrase -o json | code || true)"
-# a secret from the key's stdin, never shown back; the vault keeps its key in vault.key here
-check "a gate key sets a secret from stdin" True "$(echo -n gx-s3cret | ssh -T -p "$E2E_SSH_DIRECT" -i "$TMP/gate-rw" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR agent@127.0.0.1 komando secret set gx-pass -o json | jget 'd["ok"]')"
+check "no key sets a secret" SSH_GATE_REFUSED "$(kssh gate-rw komando secret set gx-other -o json | code || true)"
+# a secret a person stored, never shown to a key; the vault keeps its key in vault.key here
+check "a person sets a secret here" True "$(echo -n gx-s3cret | gx komando secret set gx-pass -o json | jget 'd["ok"]')"
 check "the value never comes back" False "$(kssh gate-ro komando secret get gx-pass -o json | mentions gx-s3cret)"
 check "no keychain here: the vault uses vault.key" keyfile "$(gx cat /home/agent/.komando/vault.json | jget 'd["mode"]')"
 # the komando a key runs is an agent: --yes on a protected server needs a person, who is not at this screen
-kssh gate-rw komando host edit gx --protected --yes -o json >/dev/null || true
-check "--yes from a key needs a person" False "$(kssh gate-rw komando host rm gx --yes -o json | jget 'd["ok"]' || true)"
-check "the server is still there" True "$(gx komando host show gx -o json | jget 'd["ok"]')"
+gx komando host edit gx --protected -o json >/dev/null
+check "--yes from a key needs a person" PROTECTED_HOST "$(kssh gate-rw komando exec gx --yes -o json -- touch /tmp/gx | code || true)"
 A1=$(gx komando audit -n 200 -o json)
-check "audit: every key command, with the key's name" True "$(jget 'sum(1 for e in d["data"]["entries"] if e["command"] == "ssh-gate" and e.get("ssh_gate") in ("phone", "phone-read")) >= 12' <<<"$A1")"
+check "audit: every key command, with the key's name" True "$(jget 'sum(1 for e in d["data"]["entries"] if e["command"] == "ssh-gate" and e.get("ssh_gate") in ("phone", "phone-read")) >= 14' <<<"$A1")"
+check "audit: what no key may write here" True "$(jget 'any(e.get("blocked") == "SSH_GATE_REFUSED" and e.get("runs") == "download" for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: the refusals and why" True "$(jget 'any(e.get("blocked") == "SSH_GATE_READ_ONLY" and e["ok"] is False and e.get("reason") for e in d["data"]["entries"])' <<<"$A1")"
-check "audit: the change names the key" True "$(jget 'any(e["command"] == "host.add" and e.get("agent") == "ssh-gate key phone" for e in d["data"]["entries"])' <<<"$A1")"
+check "audit: what the key's komando did names the key" True "$(jget 'any(e["command"] != "ssh-gate" and e.get("agent") == "ssh-gate key phone" for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: the client's own name is kept apart" True "$(jget 'any(e.get("client_agent") == "Komando" for e in d["data"]["entries"])' <<<"$A1")"
 gx sh -c "sed -i '/ssh-gate --name phone/d' ~/.ssh/authorized_keys; rm -rf ~/.komando"
 docker exec "$GATE" rm -f /usr/local/bin/komando

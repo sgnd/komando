@@ -30,8 +30,14 @@ its highlights; the sections below them give the details. Versions follow
   `--allow-dangerous` and commands for a person at a terminal are refused,
   and `--yes` on a protected target needs a person on the komando computer.
   `--read-only` keys run only what `komando schema` counts as a read
-  (`SSH_GATE_READ_ONLY`). Every command a key runs or is refused is in
-  `komando audit`, with the key's name, the address it came from and why.
+  (`SSH_GATE_READ_ONLY`). No key writes on the komando computer: downloads,
+  dumps and copies to a folder here, changes to komando's own setup, and
+  every command on a target that is this computer (a sqlite conn,
+  `localhost`, loopback) or not in the inventory (`u@HOST`) are refused;
+  a change komando adds later is refused until it is known to act on
+  servers only. Every command a key runs or is refused is in
+  `komando audit`, with the key's name, the address it came from and why,
+  even with the audit setting off; what the key sent is shown escaped.
   See [Safety](docs/features/safety.md#a-key-that-runs-komando-and-nothing-else).
 - `KOMANDO_KEYCHAIN=off` keeps komando away from the keychain (CI runners,
   containers, test runs): a new vault then keeps its key in `vault.key`.
