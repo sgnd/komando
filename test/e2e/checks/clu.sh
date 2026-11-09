@@ -46,6 +46,28 @@ check "ls text is a table" True "$($K cluster ls lab-k3s deploy --namespace t-e2
 check "unknown kind suggests one" True "$($K cluster ls lab-k3s deploymnt | jget '"did you mean \"deployment\"" in d["error"]["message"]')"
 check "status --namespace filters" t-e2eclu "$($K cluster status lab-k3s --namespace t-e2eclu | jget 'd["data"]["namespace"]')"
 check "describe shows images and selector" "True app=web" "$($K cluster describe lab-k3s deploy/web --namespace t-e2eclu | jget 'str(d["data"]["summary"]["images"].startswith("web=")) + " " + d["data"]["summary"]["selector"]')"
+# Helm: two revisions stored the way helm stores them (a Secret per revision,
+# base64 of gzipped JSON), made with kubectl, as komando needs no helm program
+kc() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T k3s kubectl "$@"; }
+for v in 1 2; do
+  st=superseded; [ "$v" = 2 ] && st=deployed
+  rel=$(python3 -c "
+import base64, gzip, json, sys
+v, st = int(sys.argv[1]), sys.argv[2]
+r = {'name': 'demo', 'namespace': 't-e2eclu', 'version': v,
+     'info': {'first_deployed': '2026-01-01T00:00:00Z', 'last_deployed': '2026-01-0%dT00:00:00Z' % v,
+              'description': 'Upgrade complete' if v == 2 else 'Install complete', 'status': st, 'notes': 'demo notes'},
+     'chart': {'metadata': {'name': 'demo', 'version': '1.%d.0' % v, 'appVersion': '2.%d' % v}, 'values': {'replicas': 1, 'image': 'demo'}},
+     'config': {'replicas': 3}}
+print(base64.b64encode(gzip.compress(json.dumps(r).encode())).decode())" "$v" "$st")
+  kc -n t-e2eclu create secret generic "sh.helm.release.v1.demo.v$v" --type=helm.sh/release.v1 --from-literal=release="$rel" >/dev/null
+  kc -n t-e2eclu label secret "sh.helm.release.v1.demo.v$v" owner=helm name=demo status=$st version=$v >/dev/null
+done
+check "helm ls shows the deployed revision" "demo 2 deployed demo-1.2.0" "$($K cluster helm ls lab-k3s --namespace t-e2eclu | jget '" ".join(str(x) for x in (lambda r: (r["name"], r["revision"], r["status"], r["chart"]))(d["data"]["releases"][0]))')"
+check "helm status shows the notes" True "$($K cluster helm status lab-k3s demo --namespace t-e2eclu | jget '"demo notes" in json.dumps(d)')"
+check "helm history lists both revisions, oldest first" "1 2" "$($K cluster helm history lab-k3s demo --namespace t-e2eclu | jget '" ".join(str(r["revision"]) for r in d["data"]["revisions"])')"
+check "helm values: what was set" 3 "$($K cluster helm values lab-k3s demo --namespace t-e2eclu | jget 'd["data"]["values"]["replicas"]')"
+check "helm values --all: with the chart's defaults" "3 demo" "$($K cluster helm values lab-k3s demo --namespace t-e2eclu --all | jget 'str(d["data"]["values"]["replicas"]) + " " + d["data"]["values"]["image"]')"
 check "scale to the same count is unchanged" "True 1" "$($K cluster scale lab-k3s deploy/web 1 --namespace t-e2eclu | jget 'str(d["data"]["unchanged"]) + " " + str(d["data"]["previous_replicas"])')"
 check "scale refuses pods" USAGE "$($K cluster scale lab-k3s pod/x 1 --namespace t-e2eclu | jget 'd["error"]["code"]')"
 check "a bad label selector is a usage error" 2 "$($K cluster ls lab-k3s pods -l 'app in (' --namespace t-e2eclu >/dev/null; echo $?)"

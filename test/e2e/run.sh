@@ -769,6 +769,10 @@ check "guard lets komando through" "" "$(echo '{"tool_name":"Bash","tool_input":
 mkdir -p "$TMP/home"
 q env HOME="$TMP/home" "$K" guide install
 check "guide install adds the Claude Code guard" True "$(jget '"guide guard" in json.dumps(d["hooks"]["PreToolUse"])' < "$TMP/home/.claude/settings.json")"
+check "guide uninstall takes the guard out only with a yes" SAFETY_SETTING "$(env HOME="$TMP/home" "$K" guide uninstall | jget 'd["error"]["code"]' || true)"
+q env HOME="$TMP/home" "$K" guide uninstall --yes
+check "guide uninstall takes the guard out" False "$(jget '"guide guard" in json.dumps(d.get("hooks", {}))' < "$TMP/home/.claude/settings.json")"
+check "guide uninstall takes the skill out" False "$([ -e "$TMP/home/.claude/skills/komando" ] && echo True || echo False)"
 
 echo "==> audit chain and doctor"
 check "audit chain intact" True "$($K audit verify | jget 'd["data"]["ok"]')"
