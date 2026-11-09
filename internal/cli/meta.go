@@ -179,6 +179,15 @@ func installSkill(path string, dryRun bool) (skillFile, error) {
 	return f, os.Rename(tmp, path)
 }
 
+// schemaEnv are the environment variables `komando schema` lists.
+var schemaEnv = map[string]string{
+	"KOMANDO_HOME":       "state directory (default ~/.komando)",
+	"KOMANDO_OUTPUT":     "default output format json|text",
+	"KOMANDO_ACTOR":      "name recorded in the audit log (e.g. claude-agent)",
+	"KOMANDO_VAULT_PASS": "vault passphrase (optional; otherwise the key is in the OS keychain, or vault.key where there is none; komando secret passphrase sets or changes it)",
+	"KOMANDO_KEYCHAIN":   "off: komando uses no keychain, and a new vault keeps its key in vault.key (CI, containers)",
+}
+
 // ---------------------------------------------------------------- schema ---
 
 type flagSchema struct {
@@ -291,13 +300,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 				res["selector_note"] = "a selector picks servers and conns together; each command uses the ones it works with and lists the rest in meta.skipped"
 				res["secret_refs"] = strings.Join(vault.Refs, " | ") // a string since contract 1
 				res["secret_ref_list"] = vault.Refs
-				res["env"] = map[string]string{
-					"KOMANDO_HOME":       "state directory (default ~/.komando)",
-					"KOMANDO_OUTPUT":     "default output format json|text",
-					"KOMANDO_ACTOR":      "name recorded in the audit log (e.g. claude-agent)",
-					"KOMANDO_VAULT_PASS": "vault passphrase (optional; otherwise the key is in the OS keychain, or vault.key where there is none; komando secret passphrase sets or changes it)",
-					"KOMANDO_KEYCHAIN":   "off: komando uses no keychain, and a new vault keeps its key in vault.key (CI, containers)",
-				}
+				res["env"] = schemaEnv
 			}
 			out.P.Print("schema", res, nil)
 			return nil

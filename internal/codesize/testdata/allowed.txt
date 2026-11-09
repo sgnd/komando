@@ -36,7 +36,6 @@ func internal/cli/job.go jobStartCmd 128
 func internal/cli/kctl_change.go kctlRun.create 240
 func internal/cli/kctl_explain.go kctlRun.explain 102
 func internal/cli/keyrevoke.go keyRevokeCmd 101
-func internal/cli/meta.go schemaCmd 103
 func internal/cli/modules.go cronCmd 117
 func internal/cli/modules.go userCmd 108
 func internal/cli/ops_pkgsec.go pkgSecurity 113
