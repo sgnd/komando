@@ -76,7 +76,9 @@ Update komando only when the human asks: `komando update` (when it stops with
    they clicked Deny, do not retry.
 6. **Never** "fix" `HOSTKEY_MISMATCH` yourself: report it, it may be an attack.
 7. `VPN_LOGIN_REQUIRED` or `VPN_DOWN`: ask the human to run
-   `komando vpn up <name>`. Logins with a code (MFA) are always done by a human.
+   `komando vpn up <name>`. Logins with a code (MFA) are always done by a human:
+   for a server that asks a code (`AUTH_FAILED`, two-factor), ask them to run
+   `komando login <host>` once; your commands then use that login.
 8. Secrets stay hidden from you. Passwords, keys and tokens in any output
    show as `[hidden]` or `[secret:NAME]`; that is expected, do not work
    around it. To change a line with a hidden value, use

@@ -312,8 +312,20 @@ server lets it show. Servers that log in at once (`komando exec @web`) ask
 one at a time. Ctrl-C stops the login (`CANCELLED`). Only a person at a
 terminal is asked: for an AI agent or a script the login stops with
 `AUTH_FAILED`, the message quotes the server's question, and no wrong code
-counts against the account. The agent asks you to run the command in your
-own terminal.
+counts against the account. The agent asks you to log in once for it:
+
+```bash
+komando login web1        # type the password and the code once
+komando logout web1       # end it sooner
+```
+
+`komando login` asks what the server asks and then keeps that login open
+in the background for 8 hours (the `login_for` setting). Every command to
+web1 uses it, your AI agent's too, so nobody types a code again until it
+ends; komando's rules, approvals and audit still apply to each command.
+A login to a jump host is used for every server behind it. `komando status`
+lists the kept logins, and a login ends early when the server closes it or
+its address changes. Only a person at a terminal can run `komando login`.
 
 If `sudo` asks for a password on the server, store that too:
 

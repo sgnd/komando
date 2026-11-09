@@ -127,6 +127,7 @@ type Settings struct {
 	Audit            bool     `json:"audit"`
 	AuditSQL         string   `json:"audit_sql"`               // full | hash | off: how SQL text is kept in the audit log
 	VpnIdle          string   `json:"vpn_idle"`                // a VPN session unused this long is disconnected
+	LoginFor         string   `json:"login_for"`               // how long `komando login HOST` keeps a server's login
 	ApprovalCode     bool     `json:"approval_code,omitempty"` // the approval window asks for a TOTP code
 	AuditSyslog      string   `json:"audit_syslog,omitempty"`  // also send audit records to this log server (udp://, tcp://, tls://)
 	MaskPersonal     string   `json:"mask_personal,omitempty"` // protected | all | off: where AI agents see personal data hidden
@@ -142,6 +143,7 @@ func DefaultSettings() Settings {
 		Audit:          true,
 		AuditSQL:       "full",
 		VpnIdle:        "30m",
+		LoginFor:       "8h",
 		MaskPersonal:   "protected",
 	}
 }
@@ -193,11 +195,30 @@ type VpnSession struct {
 	LastUsed  time.Time `json:"last_used"`
 }
 
+// SSHLogin is a server login a person made with `komando login HOST`
+// (with its password and two-factor code), held by a background komando
+// process so later commands, an AI agent's too, use it without a person.
+// The process serves it on a Unix socket only this user can open, and
+// only to a client with Token.
+type SSHLogin struct {
+	Host      string    `json:"host"`
+	Target    string    `json:"target"` // user@address:port when it logged in: the login is used only while the host still points there
+	PID       int       `json:"pid"`
+	Exe       string    `json:"exe,omitempty"`
+	Socket    string    `json:"socket"`
+	Token     string    `json:"token"`    // the socket's password, random per login
+	HostKey   string    `json:"host_key"` // the socket's own key (authorized_keys form), random per login
+	LogFile   string    `json:"log_file,omitempty"`
+	StartedAt time.Time `json:"started_at"`
+	Until     time.Time `json:"until"`
+}
+
 type State struct {
 	Hosts    map[string]*Host       `json:"hosts"`
 	Conns    map[string]*Conn       `json:"conns,omitempty"`
 	Vpns     map[string]*Vpn        `json:"vpns,omitempty"`
 	Sessions map[string]*VpnSession `json:"vpn_sessions,omitempty"`
+	Logins   map[string]*SSHLogin   `json:"ssh_logins,omitempty"`
 	Keys     map[string]*Key        `json:"keys"`
 	Snippets map[string]*Snippet    `json:"snippets"`
 	Jobs     map[string]*Job        `json:"jobs"`
@@ -273,6 +294,9 @@ func (s *State) init() {
 	if s.Sessions == nil {
 		s.Sessions = map[string]*VpnSession{}
 	}
+	if s.Logins == nil {
+		s.Logins = map[string]*SSHLogin{}
+	}
 	if s.Keys == nil {
 		s.Keys = map[string]*Key{}
 	}
@@ -300,6 +324,9 @@ func (s *State) init() {
 	}
 	if s.Settings.VpnIdle == "" {
 		s.Settings.VpnIdle = d.VpnIdle
+	}
+	if s.Settings.LoginFor == "" {
+		s.Settings.LoginFor = d.LoginFor
 	}
 	if s.Settings.AuditSQL == "" {
 		s.Settings.AuditSQL = d.AuditSQL

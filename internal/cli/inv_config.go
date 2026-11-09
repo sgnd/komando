@@ -167,6 +167,22 @@ var settings = []setting{
 			st.Settings.MaskPersonal = v
 			return nil
 		}},
+	{"login_for", "duration", "how long `komando login HOST` keeps a server's login for later commands (an AI agent's too)",
+		func(s *store.Settings) string { return s.LoginFor },
+		func(st *store.State, v string) (err error) {
+			v, err = positiveDur("login_for", v, false)
+			if err != nil {
+				return err
+			}
+			now, _ := parseDur(st.Settings.LoginFor)
+			if d, _ := parseDur(v); d > now {
+				if err := guardSafety("keeping server logins longer (login_for " + v + ")"); err != nil {
+					return err
+				}
+			}
+			st.Settings.LoginFor = v
+			return nil
+		}},
 	{"vpn_idle", "duration, 0 = never", "a VPN kept up with `vpn up` is closed after this long unused",
 		func(s *store.Settings) string { return s.VpnIdle },
 		func(st *store.State, v string) (err error) {

@@ -29,6 +29,9 @@ import (
 type Options struct {
 	ConnectTimeout time.Duration
 	HostKeyPolicy  string // accept-new | strict | off
+	// Fresh logs in anew, never through a held login (`komando login`
+	// itself, which makes one)
+	Fresh bool
 
 	scan *ssh.PublicKey // FetchHostKey: record the target's key, do not log in
 }
@@ -62,9 +65,17 @@ func (c *Client) Close() error {
 // VPN; it is opened inside this process. The jump hosts are shared with
 // other servers behind them (one login per jump host per command).
 func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Client, error) {
+	if c := useHeld(ctx, st, h, o); c != nil {
+		cl := &Client{Client: c, Host: h}
+		go keepalive(cl)
+		return cl, nil
+	}
 	vpn, hops, err := resolveChain(st, h, map[string]bool{})
 	if err != nil {
 		return nil, err
+	}
+	if len(hops) > 1 && HeldFor(st, hops[0]) != nil && !o.Fresh {
+		vpn = nil // the first jump host's held login is past the VPN already
 	}
 	target := hops[len(hops)-1]
 	jumps := hops[:len(hops)-1]
@@ -146,6 +157,23 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 	}
 }
 
+// useHeld is the connection through h's held login (`komando login`),
+// or nil when there is none or it no longer answers.
+func useHeld(ctx context.Context, st *store.State, h *store.Host, o Options) *ssh.Client {
+	if o.Fresh || o.scan != nil {
+		return nil
+	}
+	l := HeldFor(st, h)
+	if l == nil {
+		return nil
+	}
+	c, err := dialHeld(ctx, l, o.ConnectTimeout)
+	if err != nil {
+		return nil
+	}
+	return c
+}
+
 // pathLost reports a jump host connection that no longer answers.
 func pathLost(c *ssh.Client) bool {
 	_, _, err := c.SendRequest("keepalive@komando", true, nil)
@@ -168,6 +196,9 @@ func keepaliveChain(c *ssh.Client) {
 // first (direct or a VPN), or with the host's own proxy (SSM, a proxy
 // command), which can only start a path.
 func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, first netx.Dialer, prev *ssh.Client, reached bool) (*ssh.Client, error) {
+	if c := useHeld(ctx, st, hop, o); c != nil {
+		return c, nil // a jump host a person logged in to with `komando login`
+	}
 	cfg, agentConn, err := clientConfig(st, hop, o)
 	if err != nil {
 		return nil, err

@@ -78,8 +78,9 @@ func checkExampleLines(t *testing.T, root *cobra.Command, source, text string) i
 			continue
 		}
 		// a group command (host, db, ...) takes no words of its own: the first
-		// word after it must be one of its subcommands
-		if len(rest) > 0 && cmd.HasSubCommands() && !strings.HasPrefix(rest[0], "-") && !strings.HasPrefix(rest[0], "<") {
+		// word after it must be one of its subcommands (login takes a HOST too)
+		ownWords := cmd.Runnable() && cmd.Args != nil
+		if len(rest) > 0 && cmd.HasSubCommands() && !ownWords && !strings.HasPrefix(rest[0], "-") && !strings.HasPrefix(rest[0], "<") {
 			t.Errorf("%s: `komando %s`: %s has no subcommand %q", source, strings.TrimSpace(line), cmd.CommandPath(), rest[0])
 		}
 		checked++

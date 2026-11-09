@@ -26,18 +26,27 @@ type runningVpn struct {
 	UsedBy   []string  `json:"used_by,omitempty"`
 }
 
+// runningLogin is a server login kept by `komando login HOST`.
+type runningLogin struct {
+	Host  string    `json:"host"`
+	Since time.Time `json:"since"`
+	Until time.Time `json:"until"`
+}
+
 type runningData struct {
-	Vpns    []runningVpn `json:"vpns"`
-	Tunnels []tunnelRow  `json:"tunnels"`
-	Jobs    []*store.Job `json:"jobs"`
+	Vpns    []runningVpn   `json:"vpns"`
+	Logins  []runningLogin `json:"logins"`
+	Tunnels []tunnelRow    `json:"tunnels"`
+	Jobs    []*store.Job   `json:"jobs"`
 }
 
 func statusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
-		Short: "What komando left running: VPN sessions, tunnels and jobs",
+		Short: "What komando left running: VPNs, logins, tunnels, jobs",
 		Long: `Lists what still runs after the command that started it ended: VPN
-sessions (from vpn up, or started by a command), tunnels, and the jobs
+sessions (from vpn up, or started by a command), server logins kept by
+` + "`komando login HOST`" + `, tunnels, and the jobs
 started on servers. Nothing is contacted, so it is quick and works offline.
 A job is listed until ` + "`komando job rm`" + `; whether it still runs is known on
 its server: ` + "`komando job list --refresh`" + ` asks.`,
@@ -59,7 +68,7 @@ its server: ` + "`komando job list --refresh`" + ` asks.`,
 var sessionAlive = netx.SessionAlive
 
 func runningStatus(st *store.State) runningData {
-	d := runningData{Vpns: []runningVpn{}, Tunnels: []tunnelRow{}, Jobs: []*store.Job{}}
+	d := runningData{Vpns: []runningVpn{}, Logins: []runningLogin{}, Tunnels: []tunnelRow{}, Jobs: []*store.Job{}}
 	idle, _ := time.ParseDuration(st.Settings.VpnIdle)
 	for _, v := range st.SortedVpns() {
 		s := st.Sessions[v.Name]
@@ -71,6 +80,12 @@ func runningStatus(st *store.State) runningData {
 			r.ClosesAt = s.LastUsed.Add(idle)
 		}
 		d.Vpns = append(d.Vpns, r)
+	}
+	for _, n := range mapKeys(st.Logins) {
+		l := st.Logins[n]
+		if time.Now().Before(l.Until) && sessionAlive(&store.VpnSession{PID: l.PID, Exe: l.Exe}) {
+			d.Logins = append(d.Logins, runningLogin{Host: l.Host, Since: l.StartedAt, Until: l.Until})
+		}
 	}
 	for _, t := range st.Tunnels {
 		if alive(t.PID) {
@@ -86,8 +101,8 @@ func runningStatus(st *store.State) runningData {
 }
 
 func (d runningData) Text() string {
-	if len(d.Vpns)+len(d.Tunnels)+len(d.Jobs) == 0 {
-		return "nothing running: no VPN sessions, tunnels or jobs\n"
+	if len(d.Vpns)+len(d.Logins)+len(d.Tunnels)+len(d.Jobs) == 0 {
+		return "nothing running: no VPN sessions, server logins, tunnels or jobs\n"
 	}
 	now := time.Now()
 	rows := [][]string{}
@@ -101,6 +116,9 @@ func (d runningData) Text() string {
 			}
 		}
 		rows = append(rows, []string{"vpn", v.Name, detail, humanAge(now.Sub(v.Since))})
+	}
+	for _, l := range d.Logins {
+		rows = append(rows, []string{"login", cleanText(l.Host), "kept for " + humanAge(l.Until.Sub(now)) + " more (`komando logout " + cleanText(l.Host) + "` ends it)", humanAge(now.Sub(l.Since))})
 	}
 	for _, t := range d.Tunnels {
 		listen, to := tunnelEnds(t)

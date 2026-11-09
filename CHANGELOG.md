@@ -7,6 +7,22 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `komando login HOST`: a person logs in to a server once, answering its
+  password and two-factor code, and komando keeps that login in the
+  background for the new `login_for` setting (8h). Every command to that
+  server, an AI agent's too, uses it without a code; rules, approvals and
+  audit stay the same. A login to a jump host serves every server behind
+  it. `komando logout HOST` (or `--all`) ends it, and `komando status`
+  lists kept logins. Making `login_for` longer needs a person's yes.
+
+### Changed
+
+- `AUTH_FAILED` and `NO_AUTH` for an AI agent or a script now name
+  `komando login HOST` as the way a person lets it reach a two-factor
+  server.
+
 ## [0.8.0] - 2026-11-09
 
 ### Highlights
