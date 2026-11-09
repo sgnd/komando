@@ -590,6 +590,11 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 	if stdin == nil {
 		stdin = strings.NewReader("")
 	}
+	tool, argv, ca, err := toolWithCA(c, h, tool, argv) // the conn's ?ca= certificate, in a file for the tool (dumpca.go)
+	if err != nil {
+		return err
+	}
+	defer ca.remove()
 	if tool.tls != "" { // the URL asks for TLS: pass it on in this client's own flags
 		var version bytes.Buffer
 		if err := runTool(ctx, st, c, h, dumpTool{passwordEnv: tool.passwordEnv, pkg: tool.pkg}, []string{argv[0], "--version"}, nil, &version, false); err != nil {
@@ -622,7 +627,8 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 		return err
 	}
 	defer sc.Close()
-	code, stderr, err := sshx.Pipe(ctx, sc, "sh -c "+sshx.Q(toolScript(argv, tool.passwordEnv, low)), io.MultiReader(strings.NewReader(password+"\n"), stdin), stdout)
+	caDir, caLines := ca.onServer()
+	code, stderr, err := sshx.Pipe(ctx, sc, "sh -c "+sshx.Q(toolScript(argv, tool.passwordEnv, caDir, low)), io.MultiReader(strings.NewReader(password+"\n"+caLines), stdin), stdout)
 	if err != nil {
 		return toolErr(ctx, argv[0], h.Name, strings.TrimSpace(stderr), err, c, tool)
 	}
@@ -635,29 +641,6 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 		return toolFailed(argv[0], h.Name, code, stderr, c, tool)
 	}
 	return nil
-}
-
-// toolScript is the shell script that runs argv on a server. The first
-// stdin line is the password; it goes into the tool's environment only, so
-// it is never on a command line (`ps`). low adds nice and, where the server
-// has it, ionice's idle class, so a dump does not slow the server down.
-func toolScript(argv []string, passwordEnv string, low bool) string {
-	quoted := make([]string, len(argv))
-	for i, a := range argv {
-		quoted[i] = sshx.Q(a)
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, `command -v %s >/dev/null 2>&1 || { echo "komando: %s is not installed" >&2; exit 127; }
-IFS= read -r KOMANDO_PW; %s=$KOMANDO_PW; export %s; unset KOMANDO_PW
-set -- %s
-`, sshx.Q(argv[0]), argv[0], passwordEnv, passwordEnv, strings.Join(quoted, " "))
-	if low {
-		b.WriteString(`if command -v nice >/dev/null 2>&1; then set -- nice -n 10 "$@"; fi
-if command -v ionice >/dev/null 2>&1 && ionice -c3 true >/dev/null 2>&1; then set -- ionice -c3 "$@"; fi
-`)
-	}
-	b.WriteString(`exec "$@"`)
-	return b.String()
 }
 
 // toolHost picks the server that runs the dump tool: the one named with
