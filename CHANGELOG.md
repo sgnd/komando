@@ -7,6 +7,35 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-09
+
+### Highlights
+
+- **SSH logins ask a person, as `ssh` does:** at a terminal, komando asks
+  for a missing password and for the one-time code of a two-factor login,
+  so `komando shell`, the menu and every other command reach two-factor
+  servers. AI agents are never asked; they send the user to their own
+  terminal.
+- **New database and cache conns check TLS by default:** a conn that
+  crosses the network gets `sslmode=verify-full` (Postgres) or `tls=true`
+  (MySQL), and a plain `redis://` there is refused unless you say
+  `?insecure=1`. Saved conns keep their URL.
+- **Fewer ways for an AI agent to reach a secret:** `secret set` and
+  `--ask-password` from an agent stop with `NEEDS_PERSON`, `vpn add` no
+  longer overwrites another entry's secret, a VPN password or a new VPN
+  address needs a person's yes, and `docker exec --read-only` and `cluster
+  exec --read-only` are checked like `exec --read-only`.
+- **Easier first steps:** `--ask-password` stores a password in one step,
+  `host add`, `conn add` and `vpn add` say what to run next, the menu grows
+  with your inventory, and every hint names a whole command you can run.
+- **Easier to move and to leave:** a whole `export` carries your deny rules
+  and settings and names the keys it needs, `import` keeps servers whose
+  key is not here yet, and `komando guide uninstall` takes komando out of
+  your AI agents again.
+- **For AI agents and their people:** `komando schema` lists every error
+  code with its next step, `doctor` checks each agent's skill, and `audit
+  --actor NAME` shows what one person or agent did.
+
 ### Added
 
 - `audit --actor NAME`: what one person, AI agent or computer account did
@@ -54,7 +83,6 @@ its highlights; the sections below them give the details. Versions follow
 - `db shell`: `\write` allows changes for the rest of the shell after a
   yes, and connects again read-write (`\write` again goes back); a
   destructive statement asks for the conn's name instead of refusing.
-
 - **SSH logins ask a person, as `ssh` does.** At a terminal, komando asks
   for a server's password when none is stored, and for the one-time code
   of a two-factor login, with the server's name (`web1: Verification
@@ -2150,7 +2178,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/sgnd/komando/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/sgnd/komando/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/sgnd/komando/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/sgnd/komando/compare/v0.4.0...v0.5.0
