@@ -655,7 +655,7 @@ var meanings = map[string]string{
 	"VAULT_LOCKED":         "the vault has a passphrase and none was given (KOMANDO_VAULT_PASS)",
 	"VPN_STOP_FAILED":      "the VPN session could not be stopped",
 	"WEAK_PASSPHRASE":      "the passphrase is shorter than 15 characters",
-	"WRITE_FAILED":         "a file could not be written",
+	"WRITE_FAILED":         "a file could not be written (exit 1 on this computer; exit 5 for a file on a server: fs write, fs replace)",
 	"CONNECTION_REFUSED":   "the server refused the connection: nothing listens on that port",
 	"DNS_ERROR":            "the server's name does not resolve on this computer",
 	"OVPN_UNSUPPORTED":     "the OpenVPN profile has an option komando's own client does not support (the message names it)",

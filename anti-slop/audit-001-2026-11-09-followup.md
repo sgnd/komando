@@ -48,7 +48,12 @@ All 23 items of [audit-001-2026-11-09.md](audit-001-2026-11-09.md) were approved
 
 Everything is unstaged on `fix/antislop-audit`. `git checkout release/0.8.0 && git branch -D fix/antislop-audit` discards it, after a `git stash` or `git restore .` to drop the working-tree changes.
 
-## Left open
+## Second round (same day)
 
-- **Codes with only a general hint:** K8S_ERROR, SWARM_ERROR, NO_PASSPHRASE and VPN_CLIENT_MISSING have catalog hints, but some of their call sites give no hint of their own, so those calls get the general hint.
-- **WRITE_FAILED in the catalog:** it is listed as exit 1, the exit most of its call sites use. A write on a server exits 5, and `guide.md` says so.
+- **Kubernetes API errors** (`kubeErr` in cluster.go): K8S_ERROR, K8S_FORBIDDEN, K8S_NOT_FOUND and K8S_CONFLICT now each give their own hint with a whole command.
+- **Checked, no change needed:**
+  - SWARM_ERROR keeps DOCKER_ERROR's hint.
+  - NO_PASSPHRASE and VPN_CLIENT_MISSING build their hint at run time, so they were never empty in real output.
+- **WRITE_FAILED in the catalog:** the entry now says "exit 1 on this computer; exit 5 for a file on a server".
+
+Nothing from the audit is left open. The `cla.yml` permission change can only be proven on GitHub, by a pull request from an outside contributor.
