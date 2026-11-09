@@ -221,7 +221,7 @@ var schemaEnv = map[string]string{
 	"KOMANDO_KEYCHAIN":   "off: komando uses no keychain, and a new vault keeps its key in vault.key (CI, containers)",
 }
 
-// ---------------------------------------------------------------- schema ---
+// schema.
 
 type flagSchema struct {
 	Name      string `json:"name"`

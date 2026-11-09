@@ -174,7 +174,7 @@ need to learn a new contract.
 ### Commands
 
 ```
-komando db query  CONN [SQL | -f FILE | -] [--write] [--limit N] [--param k=v ...]
+komando db query  CONN [SQL | -f FILE | -] [--write] [--limit N] [--arg VALUE ...]
 komando db schema CONN [TABLE...]          # tables, columns, types, indexes, estimated row counts
 komando db explain CONN SQL                # EXPLAIN (no ANALYZE unless --analyze --write)
 komando db dump   CONN --to PATH           # phase 3, through job
@@ -301,7 +301,7 @@ One line per command, using the existing `audit()`:
 - The password never goes in (the URL is stored without a password).
 - SQL can contain sensitive data. Add the setting
   `audit_sql: full | hash | off`, default `full`.
-- `--param` parameters are stored as names only, without their values.
+- `--arg` values are not stored, only how many there were.
 
 ### Errors
 
@@ -339,7 +339,7 @@ as a `--via-cli` fallback if someone asks for it.
 - `komando schema`: included automatically because it uses cobra.
 - `komando policy`: show the SQL rules, grouped by kind.
 - `AGENTS.md`: add the rule "do not use `exec … psql`, use `komando db`".
-- `docs/usage.md`: a new "Databases" section.
+- `docs/features/databases.md`: the databases guide.
 - Tests: unit tests for the SQL tokenizer (case table: comments, strings containing
   `;`, CTEs, `DELETE` without `WHERE`). Integration tests use SQLite, then
   Postgres and MySQL in CI through service containers.
@@ -352,7 +352,7 @@ as a `--via-cli` fallback if someone asks for it.
 | 2 | `db query/schema/explain` for postgres + sqlite, read-only, `--write`, dry-run rollback, `--via` | main feature |
 | 3 | mysql, `db dump`/`restore` via `job`, `audit_sql` | complete for DBs |
 | 4 | `redis` kind (`cache get/keys/ttl/info`; block `FLUSHALL`, `KEYS *` on protected) | proves the abstraction for a second kind |
-| 5 | `s3` kind | — |
+| 5 | `s3` kind | none |
 
 Phase 4 is placed before S3 on purpose. Redis also needs `--via` and per-command
 classification, so it is a good test of whether the `driver`

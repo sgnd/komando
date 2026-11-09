@@ -463,7 +463,7 @@ func (l kindList) Text() string {
 	return sb.String()
 }
 
-// --- access ----------------------------------------------------------------
+// Opening a conn.
 
 // access is what every conn command needs: the parsed URL, the password and
 // a dialer that goes through the --via host (nil Dial = connect directly).
@@ -574,7 +574,7 @@ func resolvePassword(c *store.Conn) (string, error) {
 	return "", out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", hint, "password reference %s: %v", c.PasswordRef, err)
 }
 
-// --- connectivity ----------------------------------------------------------
+// conn test.
 
 type connTestResult struct {
 	Conn      string     `json:"conn"`

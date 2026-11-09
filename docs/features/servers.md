@@ -385,9 +385,9 @@ team already uses:
 
 | Reference | Reads it from | Login it uses |
 |-----------|---------------|---------------|
-| `secret:NAME` | komando's vault (`komando secret set NAME`) | — |
-| `env:VAR` | an environment variable | — |
-| `file:PATH` | a file | — |
+| `secret:NAME` | komando's vault (`komando secret set NAME`) | none needed |
+| `env:VAR` | an environment variable | none needed |
+| `file:PATH` | a file | none needed |
 | `vault:secret/shop#db_password` | HashiCorp Vault or OpenBao, KV v1 or v2 | `VAULT_ADDR` and `VAULT_TOKEN` (or `~/.vault-token`), `VAULT_NAMESPACE`, `VAULT_CACERT` |
 | `aws-sm:shop/db#password` | AWS Secrets Manager; `#key` picks a JSON field | your AWS login (`AWS_PROFILE`, `~/.aws`, SSO via `komando login aws`) |
 | `gcp-sm:db-pass@my-project` | Google Secret Manager, latest version | Google application-default credentials (`GOOGLE_APPLICATION_CREDENTIALS`, or on Google Cloud) |

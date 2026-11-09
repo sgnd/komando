@@ -26,10 +26,10 @@ import (
 	"github.com/sgnd/komando/internal/storex"
 )
 
-// Storage commands work with S3-compatible buckets and FTP/FTPS/SFTP
-// folders through one interface. Like files on a server: ls and download
-// read, upload and rm change (protected conns need --yes), and downloads
-// never overwrite a local file unless --overwrite.
+// Storage commands work with every storage conn kind (S3, GCS, Azure Blob,
+// WebDAV, FTP, FTPS and SFTP) through one interface. Like files on a
+// server: ls and download read, upload and rm change (protected conns need
+// --yes), and downloads never overwrite a local file unless --overwrite.
 
 func storageCmd() *cobra.Command {
 	c := &cobra.Command{

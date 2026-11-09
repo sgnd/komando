@@ -18,7 +18,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// --- export ----------------------------------------------------------------
+// export.
 
 // exportFile is what `komando export` writes and `komando import komando`
 // reads. Secrets stay in the vault; refs are kept, so on a new computer

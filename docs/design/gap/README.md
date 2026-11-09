@@ -40,11 +40,12 @@ compared at all; the result is [extra-coverage.md](extra-coverage.md).
 | [Database and cache](database-cache.md) | psql, pgcli, mysql, mycli, sqlite3, usql, pg_dump, pg_activity, migrate/Atlas, redis-cli, mongosh, sqlcmd, clickhouse, kcat | 66 | 71 | 67 | 15 | 12 |
 | [Storage and registry](storage-registry.md) | aws s3, mc, rclone, s3cmd, gsutil, azcopy, lftp, crane, skopeo, regctl, oras, cosign, trivy | 26 | 19 | 81 | 12 | 10 |
 | [Kubernetes, Swarm, Docker](cluster-docker.md) | kubectl, k9s, stern, helm, kustomize, docker, compose, lazydocker, Swarm CLI | 46 | 83 | 43 | 11 | 23 |
-| [VPN, secrets, platform UX](vpn-secrets-platform.md) | wg, openvpn, openconnect, tailscale, SSM, cloudflared, op, Vault, sops, gh, aws, kubectl, gcloud | 68 | 40 | 81 | 8 | 10 |
+| [VPN, secrets, platform UX](vpn-secrets-platform.md) | wg, openvpn, openconnect, tailscale, SSM, cloudflared, op, Vault, sops, gh, aws, kubectl, gcloud | 68 | 39 (+1 NOT PLANNED) | 81 | 8 | 10 |
 | [Extra areas](extra-coverage.md) | macOS/BSD hosts, network devices, IPMI/Redfish, Proxmox, cloud VMs, DNS providers, pm2/supervisor, restic/borg, SMART/RAID/ZFS, fail2ban, output redaction, basic inventory lifecycle, Terraform/IaC | 6 | 3 | 57 | 1 | 1 |
-| **Total** | | **316** | **257** | **444** | **60** | **69** |
+| **Total** | | **316** | **256** | **444** | **60** | **69** |
 
-Total 1,077 capabilities. After per-row verification, 59 rows were corrected
+Total 1,077 capabilities (the 1,076 in the columns above, plus the one
+NOT PLANNED row in the VPN report: i18n, decided English-only). After per-row verification, 59 rows were corrected
 (status, evidence, or priority); no P1 finding turned out to be wrong.
 
 Short conclusion: the komando foundation (inventory, `exec`, `fs`, security, VPN,
@@ -129,13 +130,16 @@ P1 features, all from before Phase 1) are done, except:
 
 ## 4. Biggest P2 themes
 
-- **Access**: SSH certificates (user cert, `@cert-authority`), agent forwarding, SAML/SSO logins for the corporate VPN clients, `HTTPS_PROXY` for the kube and registry clients, `vpn edit`.
-- **Fleet**: staged execution (Ansible-style `serial`), idempotent `lineinfile`/`blockinfile`, `user unlock` and groups, `download --sudo`, Ansible inventory import.
-- **Secrets**: refs for Azure Key Vault/pass/sops/SSM Parameter Store (Bitwarden and KeePass are done), Vault dynamic credentials, encrypted export including secrets.
-- **Cluster**: commands to many clusters at once (`@group`), read-only helm (list/status/history), capacity (`top` is done through `cluster run`), redaction of `docker inspect` and `compose config`.
-- **Database**: new engines (MongoDB most requested; HTTP-based ones like Elasticsearch/OpenSearch, RabbitMQ, Consul are cheapest for binary size), Redis Cluster/Sentinel, TLS with your own CA, schema migrations.
-- **Storage**: GCS, Azure Blob, WebDAV; self-signed TLS for S3/registry (filezilla/rclone import is done).
-- **Platform**: `--debug`/verbose, CSV output, Homebrew, signed releases + SBOM, Windows build, MCP server, dynamic inventory from the cloud (EC2, GCP, DO, Hetzner), time filter in `audit` (sending the audit to syslog/SIEM is done).
+What is still open. Items that were on this list and now exist in the
+code are under "Done" in each theme.
+
+- **Access**: SSH certificates (user cert, `@cert-authority`), agent forwarding, SAML/SSO logins for the corporate VPN clients (they stay with a person). Done: `HTTPS_PROXY` for the kube and registry clients, `vpn edit`.
+- **Fleet**: staged execution (Ansible-style `serial`), idempotent `lineinfile`/`blockinfile`, user groups other than the admin group, Ansible inventory import. Done: `user unlock`, `download --sudo`.
+- **Secrets**: refs for Azure Key Vault/pass/sops/SSM Parameter Store, Vault dynamic credentials, encrypted export including secrets. Done: Bitwarden and KeePass refs.
+- **Cluster**: capacity (`top` is done through `cluster run`). Done: read commands on many clusters at once (`@group`, `cluster_many.go`), read-only helm (`cluster helm ls/status/history/values`), masking of secrets in all agent output, `docker inspect` and `compose config` included.
+- **Database**: more engines (HTTP-based ones like Elasticsearch/OpenSearch, RabbitMQ, Consul), schema migrations. Done: MongoDB (`mongo.go`), Redis Cluster/Sentinel, TLS with your own CA (`?ca=secret:NAME`).
+- **Storage**: self-signed TLS or your own CA for S3. Done: GCS, Azure Blob, WebDAV, your own CA for registries, filezilla/rclone import.
+- **Platform**: `--debug`/verbose, CSV output outside `db query`, Homebrew, SBOM, Windows build, MCP server, dynamic inventory from the cloud (EC2, GCP, DO, Hetzner). Done: signed build provenance for releases, `db query --csv`, time filter in `audit` (`--since`/`--until`), sending the audit to syslog/SIEM.
 
 ## 5. What is deliberately not built (NON-GOAL)
 
@@ -324,10 +328,10 @@ Every komando command is matched strictly: a row that **names the command inside
 | `pkg upgradable` | 1 | [SSH](ssh-files-system.md) §12 List of pending upgrades | apt list --upgradable |
 | `pkg upgrade` | 5 | [SSH](ssh-files-system.md) §7 Slow modules automatically become jobs (`pkg upgrade`, `db dump` on the server) | Ansible async per task |
 | `policy` | 2 | [DB](database-cache.md) §2 Risk classification before sending | (none) |
-| `policy allow` | 1 | [SSH](ssh-files-system.md) §5 Guardrail for dangerous commands | — (Teleport only RBAC) |
+| `policy allow` | 1 | [SSH](ssh-files-system.md) §5 Guardrail for dangerous commands | none (Teleport only RBAC) |
 | `policy check` | 2 | [DB](database-cache.md) §2 Risk classification before sending | (none) |
-| `policy deny` | 1 | [SSH](ssh-files-system.md) §5 Guardrail for dangerous commands | — (Teleport only RBAC) |
-| `policy list` | 1 | [SSH](ssh-files-system.md) §5 Guardrail for dangerous commands | — (Teleport only RBAC) |
+| `policy deny` | 1 | [SSH](ssh-files-system.md) §5 Guardrail for dangerous commands | none (Teleport only RBAC) |
+| `policy list` | 1 | [SSH](ssh-files-system.md) §5 Guardrail for dangerous commands | none (Teleport only RBAC) |
 | `recipe` | 9 | [Extra](extra-coverage.md) §F App framework commands (`artisan`, `manage.py`, `rails runner`),  | artisan, Django, Rails, `php-fpm -t` |
 | `recipe add` | 3 | [Extra](extra-coverage.md) §F App framework commands (`artisan`, `manage.py`, `rails runner`),  | artisan, Django, Rails, `php-fpm -t` |
 | `recipe list` | 1 | [SSH](ssh-files-system.md) §19 39 built-in recipes (health, disk, certs, security, network, db, web) | Termius snippets, Salt modules |

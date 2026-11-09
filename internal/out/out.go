@@ -50,6 +50,50 @@ func (e *Error) NoFlag() *Error { e.Final = true; return e }
 
 func (e *Error) WithHint(h string) *Error { e.Hint = h; return e }
 
+// MarshalJSON writes the error with a hint even when the code that made it
+// gave none: error.hint always says what to try next.
+func (e Error) MarshalJSON() ([]byte, error) {
+	type plain Error
+	p := plain(e)
+	p.Hint = e.hintOrDefault()
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false) // the outer encoder decides, as for any field
+	if err := enc.Encode(p); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(b.Bytes(), []byte("\n")), nil
+}
+
+func (e Error) hintOrDefault() string {
+	if e.Hint != "" {
+		return e.Hint
+	}
+	return DefaultHint(e.Exit)
+}
+
+// DefaultHint is the next step for an error whose code gives no hint of
+// its own, by its exit code.
+func DefaultHint(exit int) string {
+	switch exit {
+	case ExitUsage:
+		return UsageHint
+	case ExitNotFound:
+		return "check the name; `komando list` shows the servers, conns and VPNs komando knows"
+	case ExitConnect:
+		return "check that it answers and accepts the login: `komando test TARGET`"
+	case ExitRemote:
+		return "read the message: it carries the server's own words about what failed; fix that, then run the command again"
+	case ExitPolicy:
+		return "stop and tell the user what you want to do and why; `komando guide` explains the safety stops"
+	case ExitTimeout:
+		return "give it more time with --timeout (for example --timeout 30m), or run long work as a job: `komando job start TARGET -- COMMAND`"
+	case ExitConflict:
+		return "the state is not what the command expected: look at it again, then run the command again"
+	}
+	return "read the message; `komando doctor` checks this computer's setup"
+}
+
 func Errf(exit int, code, hint, format string, a ...any) *Error {
 	return &Error{Code: code, Message: fmt.Sprintf(format, a...), Hint: hint, Exit: exit}
 }
@@ -289,7 +333,7 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 			fmt.Fprintln(os.Stderr, "dry run: nothing was changed")
 			if p.blocked != nil {
 				fmt.Fprintf(os.Stderr, "without --dry-run this stops here: [%s] %s\n", p.blocked.Code, noteText(p.Redact(p.blocked.Message)))
-				p.hint(p.blocked.Hint)
+				p.hint(p.blocked.hintOrDefault())
 			}
 		}
 		if t, ok := data.(Texter); ok {
@@ -303,7 +347,7 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 		}
 		if softErr != nil {
 			fmt.Fprintf(os.Stderr, "error [%s]: %s\n", softErr.Code, noteText(p.Redact(softErr.Message)))
-			p.hint(softErr.Hint)
+			p.hint(softErr.hintOrDefault())
 		}
 		return
 	}
@@ -318,7 +362,7 @@ func (p *Printer) Fail(command string, err error) int {
 	if p.Format == "text" {
 		p.printSkipped()
 		fmt.Fprintf(os.Stderr, "error [%s]: %s\n", e.Code, noteText(p.Redact(e.Message)))
-		p.hint(e.Hint)
+		p.hint(e.hintOrDefault())
 		return e.Exit
 	}
 	p.writeJSON(Envelope{OK: false, Command: command, Error: e, Meta: p.meta()})

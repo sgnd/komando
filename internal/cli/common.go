@@ -159,10 +159,12 @@ func toErr(err error) *out.Error {
 		return &out.Error{Code: "DRY_RUN_UNSUPPORTED", Message: err.Error(), Hint: "run it again without --dry-run to make the change", Exit: out.ExitUsage}
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
-		return &out.Error{Code: "TIMEOUT", Message: err.Error(), Exit: out.ExitTimeout}
+		return &out.Error{Code: "TIMEOUT", Message: err.Error(), Exit: out.ExitTimeout,
+			Hint: "give it more time with --timeout (for example --timeout 30m), or run long work as a job: `komando job start TARGET -- COMMAND`"}
 	}
 	if errors.Is(err, context.Canceled) {
-		return &out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError}
+		return &out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError,
+			Hint: "it stopped before the end (Ctrl-C or a signal); check what it left, then run it again"}
 	}
 	switch {
 	case errors.Is(err, vault.ErrLocked):

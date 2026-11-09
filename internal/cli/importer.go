@@ -381,7 +381,7 @@ func (r importResult) Text() string {
 	return sb.String()
 }
 
-// --- sources ---------------------------------------------------------------
+// Import sources.
 
 // renameImported gives c the first free name based on its own, moving its
 // password to the matching vault name.

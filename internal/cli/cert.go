@@ -26,8 +26,6 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// ----------------------------------------------------------------- cert ---
-
 // certRoots is the trust store used to verify served chains; nil means the
 // system's. Tests set their own.
 var certRoots *x509.CertPool
@@ -586,7 +584,7 @@ func certFields(c *x509.Certificate) certInfo {
 	return certInfo{Subject: subject, Names: names, Issuer: issuer, NotBefore: c.NotBefore, NotAfter: c.NotAfter}
 }
 
-// ------------------------------------------------- certificates on a server ---
+// Certificates on a server.
 
 // certDiscoverScript finds the certificates a server uses. It prints only
 // file names and the certificate lines of the configs, never the configs

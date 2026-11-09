@@ -26,7 +26,7 @@ status, and no more, so the rules stay simple.
 | **A. Interactive session**: a person types inside | `shell`/`ssh`, `db shell` | entry line + exit line on stderr |
 | **B. Foreground until Ctrl-C** | `cluster forward`, `logs --follow` (host, docker, cluster) | entry line on stderr |
 | **C. Background, outlives the command** | VPN sessions (`vpn up`, or started by a command), `tunnel start`, `job start` | `komando status`, and an optional prompt segment |
-| **D. One-shot** (almost everything else: exec, fs, db query, cache, storage, registry, cluster get/deploy, svc, pkg, ...) | — | nothing new, except one notice when a command starts a VPN by itself |
+| **D. One-shot** (almost everything else: exec, fs, db query, cache, storage, registry, cluster get/deploy, svc, pkg, ...) | none | nothing new, except one notice when a command starts a VPN by itself |
 
 One-shot commands deliberately get no banner: their stdout is data (JSON for
 agents and pipes), and a line on every command is noise.

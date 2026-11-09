@@ -110,7 +110,7 @@ that clearly changes something (`rm`, `mv`, `tee`, `> file`, `sed -i`,
 `--yes` instead.
 
 On a **protected** server or conn, `--read-only` is an allowlist: it skips
-`--yes` only for commands komando knows read — `cat`, `tail`, `head`, `ls`,
+`--yes` only for commands komando knows read: `cat`, `tail`, `head`, `ls`,
 `stat`, `df`, `du`, `free`, `uptime`, `ps`, `grep`, `ss`, `journalctl` and
 `systemctl status`/`is-active`, `docker ps`/`logs`/`inspect`,
 `kubectl get`/`describe`/`logs`, `find` without `-delete`/`-exec`, and the

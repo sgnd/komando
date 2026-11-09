@@ -13,7 +13,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// --- import / export -------------------------------------------------------
+// Import from and export to ~/.ssh/config.
 
 func readFileOrStdin(p string) ([]byte, error) {
 	if p == "-" {

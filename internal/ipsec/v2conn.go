@@ -134,7 +134,7 @@ func (c *v2Conn) keepUp() {
 	}
 }
 
-// ---- requests from the server
+// Requests from the server.
 
 func (k *ikeV2) respond(m *v2msg, ps []v1Payload) {
 	out, err := k.seal(m.exch, m.id, true, ps)

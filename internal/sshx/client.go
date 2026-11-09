@@ -763,8 +763,8 @@ const ssmProxyPrefix = "aws ssm start-session --target %h --document-name AWS-St
 
 // builtinSSM reports whether komando reaches the host through Session
 // Manager itself: when the aws CLI or its session-manager-plugin is not
-// installed (before, the host could not be reached at all), or when
-// KOMANDO_EXPERIMENTAL names ssm. With both installed they still do it.
+// installed, or when KOMANDO_EXPERIMENTAL names ssm. With both installed
+// they still do it.
 func builtinSSM(h *store.Host) bool {
 	if !strings.HasPrefix(h.ProxyCommand, ssmProxyPrefix) {
 		return false

@@ -84,7 +84,7 @@ func v2Error(code uint16) error {
 	return errors.New("the server sent " + name)
 }
 
-// ---- suites
+// Suites.
 
 type ikeSuite struct {
 	enc   cipherAlg
@@ -435,7 +435,7 @@ func pickIKE(b []byte) (ikeSuite, *v2Prop, [][]byte, bool) {
 	return ikeSuite{}, nil, nil, false
 }
 
-// ---- the IKE SA
+// The IKE SA.
 
 type v2msg struct {
 	exch, flags byte
@@ -795,7 +795,7 @@ func (k *ikeV2) roundTrip(ctx context.Context, exch byte, ps []v1Payload, encryp
 
 var errNoAnswer = errors.New("no answer from the server")
 
-// ---- IKE_SA_INIT
+// IKE_SA_INIT.
 
 func (k *ikeV2) natNotifies() []v1Payload {
 	srv := k.t.server.As4()
@@ -898,7 +898,7 @@ func (k *ikeV2) derive(skeyseed, ni, nr, spiI, spiR []byte) {
 	k.skPi, k.skPr = km[:pl], km[pl:2*pl]
 }
 
-// ---- IKE_AUTH
+// IKE_AUTH.
 
 func idPayload(typ byte, id string) []byte {
 	if a, err := netip.ParseAddr(id); err == nil && a.Is4() {

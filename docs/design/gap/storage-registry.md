@@ -40,46 +40,46 @@ Non-goal quotes used (vision.md, "Non-goals"):
 |---|---|---|---|---|
 | List one level (folders as prefixes) | `aws s3 ls`, `mc ls`, `rclone lsf`, `s3cmd ls`, `gsutil ls`, `lftp ls` | PRESENT | `storage ls CONN [PREFIX]`, DIR for prefixes | - |
 | Recursive list | `aws s3 ls --recursive`, `mc ls -r`, `rclone ls` | PRESENT | `storage ls -r`, `--limit` (default 1000) + `more:true` | - |
-| Pagination / continue from a token (`--starting-token`, `--start-after`) | `aws s3api list-objects-v2`, `mc ls` | MISSING | Only `--limit`; a list longer than the limit cannot be continued, only "narrow the prefix". An agent cannot read a large bucket to the end | P2 — agent cannot iterate a large bucket |
-| Total size/count summary (`--summarize`, `du`, `size`) | `aws s3 ls --summarize --human-readable`, `mc du`, `rclone size`, `gsutil du -s` | MISSING | `ls` only gives `count`; no total bytes. Workaround: `ls -r -o json` + sum it yourself | P2 — checking backup capacity is frequent |
+| Pagination / continue from a token (`--starting-token`, `--start-after`) | `aws s3api list-objects-v2`, `mc ls` | MISSING | Only `--limit`; a list longer than the limit cannot be continued, only "narrow the prefix". An agent cannot read a large bucket to the end | P2: agent cannot iterate a large bucket |
+| Total size/count summary (`--summarize`, `du`, `size`) | `aws s3 ls --summarize --human-readable`, `mc du`, `rclone size`, `gsutil du -s` | MISSING | `ls` only gives `count`; no total bytes. Workaround: `ls -r -o json` + sum it yourself | P2: checking backup capacity is frequent |
 | Tree | `mc tree`, `rclone tree` | MISSING | | P3 |
 | Download one object | `aws s3 cp s3://.. .`, `mc cp`, `rclone copy`, `s3cmd get`, `gsutil cp`, `azcopy copy`, `lftp get`, `curl ftp://` | PRESENT | `download CONN KEY [--to]` (alias `storage download`), atomic, does not overwrite files (`FILE_EXISTS`), mode 0600 | - |
-| Recursive folder/prefix download | `aws s3 cp --recursive`, `mc cp -r`, `rclone copy`, `lftp mirror`, `s3cmd get -r`, `azcopy --recursive` | MISSING | `download -r` from storage is rejected: "-r is for servers; storage downloads one object" (`transfer.go`) | **P1** — daily restore of backups/site folders; the agent has to loop per key |
+| Recursive folder/prefix download | `aws s3 cp --recursive`, `mc cp -r`, `rclone copy`, `lftp mirror`, `s3cmd get -r`, `azcopy --recursive` | MISSING | `download -r` from storage is rejected: "-r is for servers; storage downloads one object" (`transfer.go`) | **P1**: daily restore of backups/site folders; the agent has to loop per key |
 | Upload one file | `aws s3 cp`, `mc cp`, `rclone copyto`, `s3cmd put`, `lftp put`, `curl -T` | PRESENT | `upload CONN FILE [KEY]`, `replaced:true`, content-type from the extension; FTP/SFTP through a temporary name, then rename | - |
-| Recursive folder upload | `aws s3 cp --recursive`, `mc cp -r`, `rclone copy`, `lftp mirror -R`, `azcopy`, `s3cmd put -r` | MISSING | `upload` to storage rejects `-r`: "storage takes one file"; `storageUpload` rejects directories | **P1** — deploy a site to FTPS/S3 static hosting, upload backup folders |
-| Upload from stdin / download to stdout (stream, pipe) | `aws s3 cp - s3://..`, `aws s3 cp s3://.. -`, `mc pipe`, `mc cat`, `rclone rcat`/`cat`, `gsutil cat` | MISSING | `upload` needs a regular file (`os.Stat` + `!IsDir`); `--to -` would create a file named `-` | P2 — `db dump \| upload` without a temporary file |
-| Read object content in the terminal (`cat` with head/tail/limit) | `mc cat`, `mc head`, `rclone cat --head/--tail`, `gsutil cat -r`, `aws s3 cp .. -` | MISSING | There is `fs cat --head/--tail` for hosts, but no `storage cat`. The agent has to download to a file and then read it | **P1** — agent pattern (reading logs/config in a bucket/FTP) same as `fs cat` |
-| Stat/head one object (size, ETag, content-type, metadata, version-id, storage class) | `aws s3api head-object`, `mc stat`, `rclone lsjson --stat`, `gsutil stat`, `s3cmd info` | MISSING | Only an internal `Exists()`; `ls` gives size+modified | P2 — verifying uploads/backups |
-| Checksum verification (MD5/ETag/sha256) | `rclone check`, `rclone md5sum/hashsum`, `aws s3api --checksum-algorithm`, `gsutil hash`, `fs stat --sha256` | PARTIAL | Host: `cp` reports sha256 (1 file), `fs stat --sha256`. Storage: no hash in `upload`/`download` results | P2 — backup integrity |
+| Recursive folder upload | `aws s3 cp --recursive`, `mc cp -r`, `rclone copy`, `lftp mirror -R`, `azcopy`, `s3cmd put -r` | MISSING | `upload` to storage rejects `-r`: "storage takes one file"; `storageUpload` rejects directories | **P1**: deploy a site to FTPS/S3 static hosting, upload backup folders |
+| Upload from stdin / download to stdout (stream, pipe) | `aws s3 cp - s3://..`, `aws s3 cp s3://.. -`, `mc pipe`, `mc cat`, `rclone rcat`/`cat`, `gsutil cat` | MISSING | `upload` needs a regular file (`os.Stat` + `!IsDir`); `--to -` would create a file named `-` | P2: `db dump \| upload` without a temporary file |
+| Read object content in the terminal (`cat` with head/tail/limit) | `mc cat`, `mc head`, `rclone cat --head/--tail`, `gsutil cat -r`, `aws s3 cp .. -` | MISSING | There is `fs cat --head/--tail` for hosts, but no `storage cat`. The agent has to download to a file and then read it | **P1**: agent pattern (reading logs/config in a bucket/FTP) same as `fs cat` |
+| Stat/head one object (size, ETag, content-type, metadata, version-id, storage class) | `aws s3api head-object`, `mc stat`, `rclone lsjson --stat`, `gsutil stat`, `s3cmd info` | MISSING | Only an internal `Exists()`; `ls` gives size+modified | P2: verifying uploads/backups |
+| Checksum verification (MD5/ETag/sha256) | `rclone check`, `rclone md5sum/hashsum`, `aws s3api --checksum-algorithm`, `gsutil hash`, `fs stat --sha256` | PARTIAL | Host: `cp` reports sha256 (1 file), `fs stat --sha256`. Storage: no hash in `upload`/`download` results | P2: backup integrity |
 | Multipart upload for large files | `aws s3 cp` (automatic), `aws s3api create-multipart-upload`, `mc cp`, `rclone --s3-chunk-size` | PRESENT (implicit) | minio-go `PutObject` is automatically multipart when the size is known (>16 MiB). No part size/concurrency settings; no `abort`/listing of orphaned uploads | P3 (settings) |
 | Clean up orphaned multipart uploads | `aws s3api list-multipart-uploads/abort-multipart-upload`, `mc rm --incomplete` | MISSING | | P3 |
-| Resume an interrupted transfer | `rclone` (retry), `lftp get -c`, `curl -C -`, `rsync --partial`, `azcopy jobs resume` | MISSING | Failure = start over from the beginning; S3 `MaxRetry = 2` | P2 — large files over VPN/bastion |
-| Progress bar / transfer rate on stderr | `aws s3 cp` (progress), `mc`, `rclone -P`, `azcopy` | MISSING | ux.md edge case: "very large file (progress on stderr)" not built yet | P2 — humans wait without feedback |
+| Resume an interrupted transfer | `rclone` (retry), `lftp get -c`, `curl -C -`, `rsync --partial`, `azcopy jobs resume` | MISSING | Failure = start over from the beginning; S3 `MaxRetry = 2` | P2: large files over VPN/bastion |
+| Progress bar / transfer rate on stderr | `aws s3 cp` (progress), `mc`, `rclone -P`, `azcopy` | MISSING | ux.md edge case: "very large file (progress on stderr)" not built yet | P2: humans wait without feedback |
 | Parallel transfer (many files at once) | `aws s3 --max-concurrent-requests`, `rclone --transfers`, `lftp mirror -P`, `azcopy` | MISSING (storage) | Host `upload @group` is parallel per host; storage is only 1 object per command | P2 (depends on recursive/sync) |
 | Bandwidth limit | `rclone --bwlimit`, `aws s3 --max-bandwidth`, `lftp net:limit-rate`, `rsync --bwlimit` | MISSING | | P3 |
 | Long transfers in the background | `azcopy jobs`, `rclone rc`/`--daemon` | MISSING | `job start` only on a remote host; storage runs on the laptop and the command has to wait until it finishes (time limit only when `--timeout` is given, no default for storage). Workaround: `job start` on a host that has `aws`/`rclone` | P2 |
 | Delete exact objects | `aws s3 rm`, `mc rm`, `rclone deletefile`, `s3cmd del`, `lftp rm` | PRESENT | `storage rm CONN KEY... --allow-dangerous`; protected needs `--yes`; partial failure reports `already deleted` | - |
-| Delete a prefix/folder recursively, by pattern, or by age (`--older-than`) | `aws s3 rm --recursive --exclude/--include`, `mc rm -r --older-than`, `rclone delete --min-age`, `rclone purge`, `s3cmd del -r`, `lftp rm -r` | MISSING (on purpose) | `rm` rejects a trailing `/` and `*?`: "rm takes exact keys". Cleaning up old backups requires `ls` + a manual key list | **P1** — daily backup retention; needs a safe version: preview of count/list in `--dry-run`, `--allow-dangerous`, a maximum limit |
-| Dry-run for changes | `aws s3 --dryrun`, `rclone --dry-run`, `mc mirror --dry-run`, `rsync -n` | PARTIAL | `--dry-run` in `upload`/`rm`/`link` is only "nothing sent: the change would be allowed"; does not check whether the key exists / will be overwritten / how many bytes | P2 — honest dry-run for bulk sync/rm |
+| Delete a prefix/folder recursively, by pattern, or by age (`--older-than`) | `aws s3 rm --recursive --exclude/--include`, `mc rm -r --older-than`, `rclone delete --min-age`, `rclone purge`, `s3cmd del -r`, `lftp rm -r` | MISSING (on purpose) | `rm` rejects a trailing `/` and `*?`: "rm takes exact keys". Cleaning up old backups requires `ls` + a manual key list | **P1**: daily backup retention; needs a safe version: preview of count/list in `--dry-run`, `--allow-dangerous`, a maximum limit |
+| Dry-run for changes | `aws s3 --dryrun`, `rclone --dry-run`, `mc mirror --dry-run`, `rsync -n` | PARTIAL | `--dry-run` in `upload`/`rm`/`link` is only "nothing sent: the change would be allowed"; does not check whether the key exists / will be overwritten / how many bytes | P2: honest dry-run for bulk sync/rm |
 | Include/exclude/glob filter | `aws s3 --include/--exclude`, `rclone --include/--exclude/--filter`, `mc --exclude`, `rsync --exclude`, `lftp mirror -x` | MISSING | Only prefix | P2 (required once sync/recursive is built) |
 | Find objects (name, age, size) | `mc find --name --older-than --larger`, `rclone lsf --min-age`, `gsutil ls` wildcard | MISSING | Workaround: `ls -r -o json` + filter on the agent side | P2 |
-| Rename/move objects | `aws s3 mv`, `mc mv`, `rclone moveto`, `s3cmd mv`, `lftp mv`, `sftp rename` | MISSING | Hosts have `fs mv`; storage does not | P2 — FTP hosting often needs renames |
+| Rename/move objects | `aws s3 mv`, `mc mv`, `rclone moveto`, `s3cmd mv`, `lftp mv`, `sftp rename` | MISSING | Hosts have `fs mv`; storage does not | P2: FTP hosting often needs renames |
 | Server-side copy within/between buckets | `aws s3 cp s3://a s3://b`, `mc cp`, `rclone copy` (server-side), `gsutil cp gs://..` | MISSING | | P2 |
-| Copy between conns/areas (bucket↔bucket, host↔bucket, FTP→S3) without going through the laptop disk | `rclone copy a: b:`, `mc mirror`, `aws s3 cp` on the server | MISSING | `cp` rejects remote-to-remote; `registry copy` has a `CONN:PATH` pattern but storage does not. Workaround: download then upload, or `exec` `aws`/`rclone` on the host | P2 — back up a server to S3 without credentials on the server |
+| Copy between conns/areas (bucket↔bucket, host↔bucket, FTP→S3) without going through the laptop disk | `rclone copy a: b:`, `mc mirror`, `aws s3 cp` on the server | MISSING | `cp` rejects remote-to-remote; `registry copy` has a `CONN:PATH` pattern but storage does not. Workaround: download then upload, or `exec` `aws`/`rclone` on the host | P2: back up a server to S3 without credentials on the server |
 | Create an empty folder | `mc mb` (folder), `rclone mkdir`, `lftp mkdir`, `sftp mkdir` | PARTIAL | Folders are created automatically on upload (FTP/SFTP); no `storage mkdir` | P3 |
-| chmod/chown on file servers (hosting) | `lftp chmod`, `sftp chmod`, `curl -Q "SITE CHMOD"` | MISSING | `fs chmod` is SSH hosts only; sftp/ftp conns without a shell cannot | P2 — 644/755 permissions on shared hosting are common |
+| chmod/chown on file servers (hosting) | `lftp chmod`, `sftp chmod`, `curl -Q "SITE CHMOD"` | MISSING | `fs chmod` is SSH hosts only; sftp/ftp conns without a shell cannot | P2: 644/755 permissions on shared hosting are common |
 | Symlinks, owner/permission info in listings | `lftp ls -l`, `sftp ls -l`, `rclone --links` | MISSING | `Object` has only key/size/modified/dir | P3 |
 
 ## B. Storage: synchronization and comparison
 
 | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| One-way sync local folder ↔ bucket/FTP (optional `--delete`) | `aws s3 sync [--delete]`, `mc mirror [--remove]`, `rclone sync`, `rclone copy`, `s3cmd sync`, `gsutil rsync`, `azcopy sync`, `lftp mirror [-R] [--delete]`, `rsync -a --delete` | MISSING | vision.md promises a `sync` verb for storage ("`ls/get/put/rm/sync`") and the verb table `dump/restore/sync`; not built yet | **P1** — site deploys, folder backups, mirrors; the core of "80% daily" |
+| One-way sync local folder ↔ bucket/FTP (optional `--delete`) | `aws s3 sync [--delete]`, `mc mirror [--remove]`, `rclone sync`, `rclone copy`, `s3cmd sync`, `gsutil rsync`, `azcopy sync`, `lftp mirror [-R] [--delete]`, `rsync -a --delete` | MISSING | vision.md promises a `sync` verb for storage ("`ls/get/put/rm/sync`") and the verb table `dump/restore/sync`; not built yet | **P1**: site deploys, folder backups, mirrors; the core of "80% daily" |
 | Sync a folder to an SSH host (rsync-like, delta) | `rsync -az --delete`, `lftp mirror` over sftp | PARTIAL | `upload -r` copies all files every time (no delta/delete); `fs write --if-changed` is only 1 file. Workaround: `exec` rsync between servers | P2 (P1 if storage sync is built, one verb for both) |
-| Two-way sync | `rclone bisync`, `unison` | MISSING | | P3 — prone to conflicts, not a daily devops pattern |
+| Two-way sync | `rclone bisync`, `unison` | MISSING | | P3: prone to conflicts, not a daily devops pattern |
 | Mirror bucket to bucket (across providers) | `mc mirror`, `rclone sync a: b:`, `aws s3 sync s3:// s3://` | MISSING | | P2 |
 | Watch/continuous mirror | `mc mirror --watch`, `mc watch`, `rclone` + cron | NON-GOAL | NG-c "daemon/server" and NG-d "runs continuously". Workaround: `cron set` on the host | - |
-| Compare content (diff/check) | `rclone check`, `mc diff`, `rclone cryptcheck`, `rsync -n -i` | MISSING | | P2 — backup/deploy verification |
+| Compare content (diff/check) | `rclone check`, `mc diff`, `rclone cryptcheck`, `rsync -n -i` | MISSING | | P2: backup/deploy verification |
 | Dedupe | `rclone dedupe` | MISSING | Specific to Google Drive (duplicate names) | P3 |
 | `--size-only`/`--checksum`/`--update` modes | `rclone`, `aws s3 sync --size-only --exact-timestamps`, `rsync -c/-u` | MISSING | Part of the sync design | P2 (with sync) |
 
@@ -105,7 +105,7 @@ Non-goal quotes used (vision.md, "Non-goals"):
 | Client-side encryption | `rclone crypt` | MISSING | | P3 |
 | Object tagging | `aws s3api put-object-tagging`, `mc tag` | MISSING | | P3 |
 | Object ACL | `aws s3api put-object-acl`, `s3cmd setacl`, `gsutil acl` | MISSING | | P3 |
-| Versioning: list versions, download old versions, undelete (remove delete marker) | `aws s3api list-object-versions`, `mc ls --versions`, `mc undo`, `mc cp --version-id`, `rclone --s3-versions` | MISSING | ux.md edge case mentions "bucket with versioning (delete marker)"; `rm` does not say that the object can still be recovered | P2 — recovery after a wrong delete/overwrite (security) |
+| Versioning: list versions, download old versions, undelete (remove delete marker) | `aws s3api list-object-versions`, `mc ls --versions`, `mc undo`, `mc cp --version-id`, `rclone --s3-versions` | MISSING | ux.md edge case mentions "bucket with versioning (delete marker)"; `rm` does not say that the object can still be recovered | P2: recovery after a wrong delete/overwrite (security) |
 | Object lock: retention, legal hold | `mc retention`, `mc legalhold`, `aws s3api put-object-retention` | MISSING | | P3 |
 | Requester pays, transfer acceleration, dual-stack | `aws s3 --request-payer`, `s3-accelerate` | MISSING | | P3 |
 | S3 Select / object query | `aws s3api select-object-content`, `mc sql` | MISSING | | P3 |
@@ -114,9 +114,9 @@ Non-goal quotes used (vision.md, "Non-goals"):
 
 | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| List buckets in an account/endpoint | `aws s3 ls`, `mc ls alias`, `rclone lsd remote:`, `gsutil ls` | MISSING | A conn requires a bucket ("s3 URL needs a bucket"). For discovery: one conn per bucket | P2 — initial orientation ("which buckets are there?") |
+| List buckets in an account/endpoint | `aws s3 ls`, `mc ls alias`, `rclone lsd remote:`, `gsutil ls` | MISSING | A conn requires a bucket ("s3 URL needs a bucket"). For discovery: one conn per bucket | P2: initial orientation ("which buckets are there?") |
 | Create/remove buckets (`mb`/`rb`) | `aws s3 mb/rb`, `mc mb/rb`, `s3cmd mb`, `gsutil mb`, `rclone mkdir/rmdir` | NON-GOAL (partial) | NG-b "cloud provisioning". `mb` on a local MinIO is sometimes daily; could be P3 if requested | P3 |
-| Bucket policy, CORS, lifecycle, replication, notification, website, default encryption, ownership | `aws s3api put-bucket-*`, `mc ilm`, `mc anonymous`, `mc replicate`, `mc event`, `gsutil cors/lifecycle` | NON-GOAL (change) / MISSING (read) | NG-b "Infrastructure as Code, cloud provisioning" — bucket config belongs to terraform. Reading (e.g. `storage info` showing versioning/lifecycle/policy) does not exist yet | P3 (read only) |
+| Bucket policy, CORS, lifecycle, replication, notification, website, default encryption, ownership | `aws s3api put-bucket-*`, `mc ilm`, `mc anonymous`, `mc replicate`, `mc event`, `gsutil cors/lifecycle` | NON-GOAL (change) / MISSING (read) | NG-b "Infrastructure as Code, cloud provisioning": bucket config belongs to terraform. Reading (e.g. `storage info` showing versioning/lifecycle/policy) does not exist yet | P3 (read only) |
 | Versioning on/off for a bucket | `aws s3api put-bucket-versioning`, `mc version enable` | NON-GOAL | NG-b | - |
 | Bucket info (region, versioning enabled, object lock, size) | `mc stat alias/bucket`, `aws s3api get-bucket-*`, `gsutil ls -L -b` | MISSING | `komando test` only checks that it can be reached | P3 |
 | MinIO admin (users, policies, heal, server info, quota) | `mc admin ...` | NON-GOAL (partial) | NG-a (replacing full tools). `mc admin info` (health) could be P3 | P3 |
@@ -131,13 +131,13 @@ Non-goal quotes used (vision.md, "Non-goals"):
 | AWS S3 | `aws s3`, `mc`, `rclone`, `s3cmd` | PRESENT | `s3://KEY@bucket/prefix?region=` (default AWS endpoint) | - |
 | S3-compatible: MinIO, R2, Wasabi, Spaces, Backblaze B2 (S3 API), Garage, Ceph RGW | `mc`, `rclone`, `aws --endpoint-url` | PRESENT | `?endpoint=https://...`; e2e-tested with Garage (`test/e2e/run.sh`, `test/e2e/garage/`), not MinIO | - |
 | Path-style vs virtual-host set explicitly | `aws configure set s3.addressing_style`, `mc --path`, `rclone force_path_style` | PARTIAL | minio-go BucketLookupAuto; no URL option (`path_style` is rejected: "known: endpoint, region") | P3 |
-| Self-signed TLS for an S3 endpoint (internal MinIO) | `mc --insecure`, `aws --no-verify-ssl`, `rclone --no-check-certificate` | MISSING | No `tls=skip-verify`/custom CA for s3 (it exists for ftps). Workaround: an `http://` endpoint through `--via` | P2 — on-prem MinIO with an internal CA is common |
+| Self-signed TLS for an S3 endpoint (internal MinIO) | `mc --insecure`, `aws --no-verify-ssl`, `rclone --no-check-certificate` | MISSING | No `tls=skip-verify`/custom CA for s3 (it exists for ftps). Workaround: an `http://` endpoint through `--via` | P2: on-prem MinIO with an internal CA is common |
 | Native Google Cloud Storage (service account, OAuth) | `gsutil`, `gcloud storage`, `rclone gcs` | PARTIAL | Through S3 interop (HMAC key, endpoint `https://storage.googleapis.com`) it probably works; no service-account JSON. vision: "later: gcs" | P2 |
 | Azure Blob Storage | `az storage blob`, `azcopy`, `rclone azureblob` | MISSING | vision: "later: ... azblob"; needs a light REST client (SharedKey/SAS), not the full SDK (binary size is no longer limited, but a light client is still simpler) | P2 |
 | WebDAV (Nextcloud, ownCloud, hosting) | `rclone webdav`, `curl`, `cadaver` | MISSING | vision: "later: webdav" | P2 |
 | SFTP (accounts without a shell) | `sftp`, `lftp sftp://`, `rclone sftp` | PRESENT | `sftp://` as a storage conn, host key checked, key/agent/password, `--via` | - |
 | Explicit FTPS (AUTH TLS) | `lftp`, `curl --ssl-reqd`, `ncftp` | PRESENT | `ftps://`, TLS 1.2+, session resume, `?tls=skip-verify` | - |
-| Implicit FTPS (port 990) | `lftp ftps://`, `curl ftps://` | MISSING | Only `DialWithExplicitTLS` | P3 — still used by old hosting |
+| Implicit FTPS (port 990) | `lftp ftps://`, `curl ftps://` | MISSING | Only `DialWithExplicitTLS` | P3: still used by old hosting |
 | Plain FTP | `lftp`, `ncftp`, `curl ftp://` | PRESENT | Rejected without `?insecure=1` (secure by default) | - |
 | FTP active mode / passive options (EPSV off) | `lftp set ftp:passive-mode`, `curl --ftp-port` | MISSING | Only the library's built-in passive mode | P3 |
 | SMB/CIFS | `smbclient`, `rclone smb` | MISSING | | P3 |
@@ -149,17 +149,17 @@ Non-goal quotes used (vision.md, "Non-goals"):
 | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
 | Static access key + secret in the vault | `aws configure`, `mc alias set`, `rclone config` | PRESENT | User = access key ID in the URL, secret through `--password-ref` (vault/env/file/op/vault/aws-sm/gcp-sm) | - |
-| Temporary credentials: session token, AWS profile/SSO, AssumeRole, credential_process, IMDS | `aws sso login`, `aws --profile`, `AWS_SESSION_TOKEN`, `rclone env_auth` | MISSING | `credentials.NewStaticV4(t.User, secret, "")` — the token is always empty | **P1** — many AWS organizations forbid permanent keys; without this, storage cannot be used there |
+| Temporary credentials: session token, AWS profile/SSO, AssumeRole, credential_process, IMDS | `aws sso login`, `aws --profile`, `AWS_SESSION_TOKEN`, `rclone env_auth` | MISSING | `credentials.NewStaticV4(t.User, secret, "")`: the token is always empty | **P1**: many AWS organizations forbid permanent keys; without this, storage cannot be used there |
 | Import `~/.aws/config` + `credentials` | `aws` | MISSING | Planned in the vision.md migration table (`aws`), not in `importSources` | P2 |
 | Import rclone S3/FTP/WebDAV remotes | `rclone.conf` | PARTIAL | `importRclone` only `sftp`; other types are noted as "is not imported" (S3 keys in rclone are not obscured, so they can be imported) | P2 |
-| Import FileZilla FTP/FTPS | `sitemanager.xml` | PARTIAL | `importFileZilla` only Protocol 1 (SFTP); FTP/FTPS are skipped | P2 — FileZilla is the most common tool for FTP hosting |
+| Import FileZilla FTP/FTPS | `sitemanager.xml` | PARTIAL | `importFileZilla` only Protocol 1 (SFTP); FTP/FTPS are skipped | P2: FileZilla is the most common tool for FTP hosting |
 | Import `mc` aliases (`~/.mc/config.json`), `.s3cfg` | `mc`, `s3cmd` | MISSING | | P3 |
 | Import S3 URLs from `.env` | `.env` | PRESENT | `import env` recognizes `s3://` | - |
 | Through a bastion / VPN | `aws` + proxy, `rclone` + ssh tunnel | PRESENT | `--via` for s3 (Transport.DialContext), ftp (data conn too), sftp (sshx) | - |
 | Protected conn, `--yes`, `--allow-dangerous`, audit | (not in other tools) | PRESENT | `withStorage` → `guardConns`, audit without secrets for all storage commands (including `ls`/`download`) | - |
 | Read-only enforced by the server | Read-only IAM key | PARTIAL | Recommended in the docs ("access key that can only do what you need"); komando itself does not distinguish read/write keys per conn | P3 |
 | Downloads do not overwrite, atomic, mode 0600 | `aws s3 cp` (overwrites), `rclone` (overwrites) | PRESENT | Safer than the comparison tools | - |
-| Accidental overwrite on upload (`--no-clobber`/`--if-none-match`) | `rclone --ignore-existing`, `aws s3api put-object --if-none-match`, `mc cp --disable-multipart` | PARTIAL | `replaced:true` is reported afterwards; no option to refuse if it already exists | P2 — the agent overwrites backups without noticing |
+| Accidental overwrite on upload (`--no-clobber`/`--if-none-match`) | `rclone --ignore-existing`, `aws s3api put-object --if-none-match`, `mc cp --disable-multipart` | PARTIAL | `replaced:true` is reported afterwards; no option to refuse if it already exists | P2: the agent overwrites backups without noticing |
 
 ---
 
@@ -167,20 +167,20 @@ Non-goal quotes used (vision.md, "Non-goals"):
 
 | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| List repositories (catalog) | `crane catalog`, `regctl repo ls`, `skopeo` (no), Harbor API | PARTIAL | `registry ls CONN`; **`Catalog()` does not follow the `Link` header** (only `n=limit`, one page), while `Tags()` does follow it. Registries that limit `n` (Harbor/GitLab/registry:2 with a limit) return a truncated list without `more` | **P1** — results are silently incomplete (the agent draws wrong conclusions) |
+| List repositories (catalog) | `crane catalog`, `regctl repo ls`, `skopeo` (no), Harbor API | PARTIAL | `registry ls CONN`; **`Catalog()` does not follow the `Link` header** (only `n=limit`, one page), while `Tags()` does follow it. Registries that limit `n` (Harbor/GitLab/registry:2 with a limit) return a truncated list without `more` | **P1**: results are silently incomplete (the agent draws wrong conclusions) |
 | List tags | `crane ls`, `skopeo list-tags`, `regctl tag ls`, `docker` (no) | PRESENT | `registry ls CONN REPO` with `Link` pagination, `--limit` | - |
-| List tags with digest/date, sorted/semver, filter | `regctl tag ls` + `--include`, Harbor/ECR `describe-images`, `crane ls --full-ref` | MISSING | Only tag names; needs `inspect` per tag | P2 — the basis for cleanup |
+| List tags with digest/date, sorted/semver, filter | `regctl tag ls` + `--include`, Harbor/ECR `describe-images`, `crane ls --full-ref` | MISSING | Only tag names; needs `inspect` per tag | P2: the basis for cleanup |
 | Inspect image: digest, size, platform, created, labels | `skopeo inspect`, `crane manifest`/`config`, `regctl image inspect`, `docker buildx imagetools inspect`, `docker manifest inspect` | PRESENT | `registry inspect CONN REPO[:TAG\|@DIGEST]` | - |
 | Digest only | `crane digest`, `regctl image digest`, `skopeo inspect --format {{.Digest}}` | PRESENT | `digest` field in `inspect` | - |
-| Full config (Env, Entrypoint, Cmd, ExposedPorts, User, WorkingDir) | `crane config`, `skopeo inspect --config`, `regctl image config` | MISSING | `Inspect` only takes `created`, `os/arch`, `Labels` | P2 — the agent needs ports/env for deploys |
-| Raw manifest (JSON) | `crane manifest`, `regctl manifest get --format raw`, `skopeo inspect --raw` | MISSING | | P2 — debugging and the "native CLI features" path |
+| Full config (Env, Entrypoint, Cmd, ExposedPorts, User, WorkingDir) | `crane config`, `skopeo inspect --config`, `regctl image config` | MISSING | `Inspect` only takes `created`, `os/arch`, `Labels` | P2: the agent needs ports/env for deploys |
+| Raw manifest (JSON) | `crane manifest`, `regctl manifest get --format raw`, `skopeo inspect --raw` | MISSING | | P2: debugging and the "native CLI features" path |
 | Inspect per platform (`--platform linux/arm64`) | `crane --platform`, `skopeo --override-arch`, `regctl --platform` | MISSING | For an index, only the platform list; size/labels are not per platform | P2 |
 | Layers & history (command per layer, size per layer) | `dive`, `crane config` (history), `regctl image config` | MISSING | Only the layer count + total size | P3 (interactive dive = NON-GOAL, NG-c "TUI") |
 | Get a blob/file from an image without pulling (`crane export`, `regctl blob get`, `crane blob`) | `crane export`, `regctl blob get`, `regctl image get-file` | MISSING | | P3 |
 | List manifests without tags (untagged) | Harbor/ECR API, `regctl` (not directly) | MISSING | The Distribution API has no standard endpoint | P3 |
 | Referrers (attached signatures, SBOMs, attestations) | `oras discover`, `regctl artifact tree`, `cosign tree` | MISSING | Attestations in an index are skipped (`platform.os == "unknown"`) | P3 |
 | Check Docker Hub rate limit | `curl` header `ratelimit-remaining`, `regctl` | MISSING | ux.md edge case mentions "Docker Hub rate limit" | P3 |
-| Check login/access | `docker login`, `crane auth`, `skopeo login` | PARTIAL | `komando test CONN` / `conn test` only opens a TCP connection to the registry (`testConn`, `Check = "tcp"`), it does not log in. A wrong password/token only shows up at `registry ls`/`inspect` | P2 — the agent thinks the conn is healthy while the token has expired (see also ECR 12 hours) |
+| Check login/access | `docker login`, `crane auth`, `skopeo login` | PARTIAL | `komando test CONN` / `conn test` only opens a TCP connection to the registry (`testConn`, `Check = "tcp"`), it does not log in. A wrong password/token only shows up at `registry ls`/`inspect` | P2: the agent thinks the conn is healthy while the token has expired (see also ECR 12 hours) |
 
 ## I. Registry: writing and copying
 
@@ -189,27 +189,27 @@ Non-goal quotes used (vision.md, "Non-goals"):
 | Copy images between registries (all platforms, same digest) | `crane copy`, `skopeo copy --all`, `regctl image copy`, `oras copy` | PRESENT | `registry copy SRC:IMG DST:[IMG]`; existing layers are skipped, mount on the same registry, `replaced:true`, protected destination needs `--yes`, `--dry-run` | - |
 | Retag in the same registry | `crane tag`, `regctl image copy`, `docker buildx imagetools create -t` | PRESENT | `registry copy reg:app:latest reg:app:stable` (manifest only; blobs are mounted) | - |
 | Copy only certain platforms | `skopeo copy --override-arch`, `crane copy --platform` | MISSING | Always all platforms | P3 |
-| Copy all tags / sync a repo or an image list | `skopeo sync`, `regctl image copy` loop, `crane copy --all-tags` | MISSING | One image per command | P2 — registry migration, mirroring to an internal registry |
-| Copy along with signatures/SBOMs (referrers, `sha256-*.sig` tags) | `cosign copy`, `oras copy -r`, `regctl image copy --referrers` | MISSING | The digest stays the same, so signatures stay valid, but the signature artifacts are not copied | P2 — verification fails at the destination registry |
-| Push an image from the laptop (tarball/OCI layout/local daemon) | `docker push`, `crane push`, `skopeo copy docker-archive:/oci:`, `oras push` | MISSING | On a host: `docker raw push` (raw path). Nothing from the laptop | P3 — build/push belongs to CI |
+| Copy all tags / sync a repo or an image list | `skopeo sync`, `regctl image copy` loop, `crane copy --all-tags` | MISSING | One image per command | P2: registry migration, mirroring to an internal registry |
+| Copy along with signatures/SBOMs (referrers, `sha256-*.sig` tags) | `cosign copy`, `oras copy -r`, `regctl image copy --referrers` | MISSING | The digest stays the same, so signatures stay valid, but the signature artifacts are not copied | P2: verification fails at the destination registry |
+| Push an image from the laptop (tarball/OCI layout/local daemon) | `docker push`, `crane push`, `skopeo copy docker-archive:/oci:`, `oras push` | MISSING | On a host: `docker raw push` (raw path). Nothing from the laptop | P3: build/push belongs to CI |
 | Pull/export to a tarball or OCI layout | `crane pull --format`, `skopeo copy ... docker-archive:`, `docker save` | MISSING | On a host: `docker pull`, `docker raw save` | P3 |
 | Pull an image on a server (deploy) | `docker pull` | PRESENT | `komando docker pull TARGET IMAGE` (host) | - |
-| Registry login on a server so a private `docker pull` works, without exposing the password to the agent | `docker login --password-stdin`, `crane auth login` | MISSING | The `docker raw login` workaround on the host would make the agent see/write the secret; there is no way to use a registry conn's `--password-ref` on a host (or for a k8s `imagePullSecret`) | P2 — secret safety during deploys |
+| Registry login on a server so a private `docker pull` works, without exposing the password to the agent | `docker login --password-stdin`, `crane auth login` | MISSING | The `docker raw login` workaround on the host would make the agent see/write the secret; there is no way to use a registry conn's `--password-ref` on a host (or for a k8s `imagePullSecret`) | P2: secret safety during deploys |
 | Image mutation (labels, env, entrypoint, append layer, flatten, rebase) | `crane mutate/append/flatten/rebase`, `regctl image mod` | NON-GOAL | NG-a "Replacing full tools"; this is build/CI work, not a daily operation | - |
 | Create a multi-arch index from existing images | `docker buildx imagetools create`, `docker manifest create/push`, `regctl index create` | MISSING | | P3 |
 | OCI artifacts (push/pull files, attach) | `oras push/pull/attach`, `regctl artifact put/get` | MISSING | `copy` copies the manifest as is, so tagged artifacts are probably copied too; no file push/pull | P3 |
-| Create a repository before pushing (required by ECR) | `aws ecr create-repository`, Harbor project API | MISSING | `copy` to an ECR repo that does not exist yet will fail | P2 — for ECR, related to the ECR support claim |
+| Create a repository before pushing (required by ECR) | `aws ecr create-repository`, Harbor project API | MISSING | `copy` to an ECR repo that does not exist yet will fail | P2: for ECR, related to the ECR support claim |
 
 ## J. Registry: deleting and cleaning up
 
 | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
 | Delete an image (manifest by digest) | `crane delete`, `skopeo delete`, `regctl manifest rm`, `regctl image delete` | PRESENT | `registry rm --allow-dangerous`, resolves tag → digest, protected `--yes`, GC note | - |
-| Warning about other tags that disappear too | (regctl `tag rm` makes the distinction) | PARTIAL | Help/docs say "every tag that points at it goes too", but the `rm` and `--dry-run` result is only `would_delete: repo@digest` — **it does not say which tags are deleted along with it** (e.g. `latest`, `stable`) | **P1** — security: the agent deletes `old` and also deletes `prod` |
-| Delete only a tag (untag) without deleting the manifest | `regctl tag rm` (OCI 1.1 tag delete / dummy manifest), Harbor/ECR `batch-delete-image --image-ids imageTag=` | MISSING | `rm` always deletes the manifest | P2 — a safe way to clean up tags |
-| Bulk cleanup: keep the N newest tags / delete older than X, with a preview | `regctl` + scripts, Harbor tag retention, ECR lifecycle policy, `crane` + jq | MISSING | Docs: "clean up old ones", but only one image per `rm`; no dates in `ls` | **P1** — a full registry is a daily complaint; the agent has to `inspect` + `rm` one by one |
+| Warning about other tags that disappear too | (regctl `tag rm` makes the distinction) | PARTIAL | Help/docs say "every tag that points at it goes too", but the `rm` and `--dry-run` result is only `would_delete: repo@digest`, so **it does not say which tags are deleted along with it** (e.g. `latest`, `stable`) | **P1** (security): the agent deletes `old` and also deletes `prod` |
+| Delete only a tag (untag) without deleting the manifest | `regctl tag rm` (OCI 1.1 tag delete / dummy manifest), Harbor/ECR `batch-delete-image --image-ids imageTag=` | MISSING | `rm` always deletes the manifest | P2: a safe way to clean up tags |
+| Bulk cleanup: keep the N newest tags / delete older than X, with a preview | `regctl` + scripts, Harbor tag retention, ECR lifecycle policy, `crane` + jq | MISSING | Docs: "clean up old ones", but only one image per `rm`; no dates in `ls` | **P1**: a full registry is a daily complaint; the agent has to `inspect` + `rm` one by one |
 | Registry garbage collection | `registry garbage-collect` (registry:2), Harbor GC API, GitLab cleanup | MISSING | Workaround: `exec`/`docker exec` on the registry:2 host (`registry garbage-collect /etc/docker/registry/config.yml`) | P3 |
-| Retention policy / immutable tags / tag protection (Harbor, ECR, GHCR) | Harbor API, `aws ecr put-lifecycle-policy`, `put-image-tag-mutability` | NON-GOAL | NG-b "cloud provisioning / IaC" — registry config is managed by terraform/the console | - |
+| Retention policy / immutable tags / tag protection (Harbor, ECR, GHCR) | Harbor API, `aws ecr put-lifecycle-policy`, `put-image-tag-mutability` | NON-GOAL | NG-b "cloud provisioning / IaC": registry config is managed by terraform/the console | - |
 
 ## K. Registry: auth and specific providers
 
@@ -217,18 +217,18 @@ Non-goal quotes used (vision.md, "Non-goals"):
 |---|---|---|---|---|
 | Basic auth + bearer token (Docker Hub, GHCR, GitLab, Harbor, registry:2, Quay) | `docker login`, `crane auth`, `skopeo login`, `regctl registry login` | PRESENT | `registry.New`, token per scope, non-https realm rejected | - |
 | Registry without TLS / self-signed | `--insecure-registry`, `skopeo --tls-verify=false`, `regctl registry set --tls disabled` | PRESENT | `?tls=false` (plain HTTP), `?tls=skip-verify`, `?ca=secret:NAME` (private CA from the vault) | - |
-| AWS ECR (12-hour `get-login-password` token) | `aws ecr get-login-password`, `docker-credential-ecr-login`, `crane` (ecr helper) | PARTIAL | The docs claim ECR, but there is no SigV4 token generator; the token has to be copied manually into the vault and expires after 12 hours. `import docker` can read from the `ecr-login` helper only once | **P1** — the support claim cannot be used reliably; the agent gets stuck every 12 hours |
+| AWS ECR (12-hour `get-login-password` token) | `aws ecr get-login-password`, `docker-credential-ecr-login`, `crane` (ecr helper) | PARTIAL | The docs claim ECR, but there is no SigV4 token generator; the token has to be copied manually into the vault and expires after 12 hours. `import docker` can read from the `ecr-login` helper only once | **P1**: the support claim cannot be used reliably; the agent gets stuck every 12 hours |
 | Google Artifact Registry / GCR | `gcloud auth configure-docker`, `docker-credential-gcr` | PARTIAL | Possible with user `_json_key` + the service account JSON as the secret (basic). `oauth2accesstoken` token (1 hour) without refresh | P2 |
 | Azure ACR (AAD token) | `az acr login`, `az acr repository list` | PARTIAL | Admin user / service principal (basic) works; AAD token exchange is missing | P3 |
 | Credential helper at runtime (not only at import) | `docker-credential-*`, `credHelpers` | PARTIAL | `credHelper()` is only called in `import docker`; the password is copied into the vault (not refreshed) | P2 (solves ECR/GCR at the same time) |
 | Harbor-specific features (projects, robot accounts, scan results, replication) | Harbor API/UI | MISSING | Partly NG-a / NG-b | P3 |
-| GHCR/Docker Hub repository listing (no catalog) | `gh api /orgs/x/packages`, Hub API | MISSING | Error `REGISTRY_UNSUPPORTED` "Docker Hub and GHCR have no catalog" — honest, but with no alternative | P3 |
+| GHCR/Docker Hub repository listing (no catalog) | `gh api /orgs/x/packages`, Hub API | MISSING | Error `REGISTRY_UNSUPPORTED` "Docker Hub and GHCR have no catalog": honest, but with no alternative | P3 |
 
 ## L. Registry: supply chain security
 
 | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Signature verification (cosign/notation) | `cosign verify`, `notation verify` | MISSING | The Sigstore SDK is heavy (binary size is no longer limited); workaround `exec cosign` on the host | P2 — verification before deploy (checking "is this image signed" via referrers could be light) |
+| Signature verification (cosign/notation) | `cosign verify`, `notation verify` | MISSING | The Sigstore SDK is heavy (binary size is no longer limited); workaround `exec cosign` on the host | P2: verification before deploy (checking "is this image signed" via referrers could be light) |
 | Image signing | `cosign sign`, `notation sign` | NON-GOAL | NG-a; CI work, signing keys are not for daily agents | - |
 | View SBOMs / attestations | `cosign download sbom/attestation`, `oras discover`, `docker buildx imagetools inspect --format '{{json .SBOM}}'` | MISSING | | P3 |
 | Image vulnerability scan | `trivy image`, `grype`, Harbor/ECR scan | MISSING | Large vulnerability DB + heavy scanner (needs constant DB downloads); workaround `exec trivy` on the host. Reading Harbor/ECR scan results (API) could be P3 | P3 (scanning itself is close to NON-GOAL NG-a) |
@@ -238,7 +238,7 @@ Non-goal quotes used (vision.md, "Non-goals"):
 
 ## Extra notes found during verification
 
-1. `registry.Catalog` does not paginate (see H) — a correctness bug, not just a feature.
+1. `registry.Catalog` does not paginate (see H): a correctness bug, not just a feature.
 2. `registry rm --dry-run` does not name the other tags that are deleted along with it (see J).
 3. S3 does not support session tokens at all (`NewStaticV4(..., "")`), so AWS SSO/STS credentials cannot be used (see G).
 4. `fileTarget`/`cp`: storage and hosts share the same verbs (`upload`/`download`), but the `-r` flag is for hosts only; the sync/recursive design should unify the two.

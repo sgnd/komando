@@ -179,14 +179,14 @@ func pluginLine(e *kube.ExecAuth) string {
 func kubeErr(err error) error {
 	var e *kube.APIError
 	if errors.As(err, &e) {
-		code, exit, hint := "K8S_ERROR", out.ExitRemote, ""
+		code, exit, hint := "K8S_ERROR", out.ExitRemote, "read the cluster's words; `komando cluster events TARGET --warnings` shows what went wrong lately"
 		switch {
 		case e.Code == 401 || e.Code == 403:
-			code, exit = "K8S_FORBIDDEN", out.ExitConnect
+			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: check its token or kubeconfig user with `komando test NAME`"
 		case e.Code == 404:
-			code, exit = "K8S_NOT_FOUND", out.ExitNotFound
+			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster ls TARGET pods` (or deployments, services ...)"
 		case e.Code == 409:
-			code, exit = "K8S_CONFLICT", out.ExitConflict
+			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run the command again"
 		case e.Code == 400 && strings.Contains(e.Message, "is not valid for pod"):
 			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster describe TARGET pod NAME`"
 		case e.Code == 400 || e.Code == 422:
@@ -256,8 +256,6 @@ func age(ts string) string {
 	}
 	return humanAge(time.Since(t))
 }
-
-// --- commands ---------------------------------------------------------------
 
 func clusterCmd() *cobra.Command {
 	c := &cobra.Command{

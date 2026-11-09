@@ -30,42 +30,42 @@ Non-goal quotes from the `vision.md` section "Non-goals":
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Path chain VPN → bastion → target for all targets | `ssh -J`, Termius | PRESENT | `--via a,b` in `host add/edit`, `conn add/edit`; `docs/design/network.md` "One concept: `--via`" | — |
-| Many VPNs active at once, safe with clashing subnets | — (OS VPN is usually one) | PRESENT | userspace/netstack per command; `network.md` "Main idea"; `docs/features/vpn.md` | — |
-| Connect automatically when a target needs a VPN | — | PRESENT | `vpn.go` Long help: "A command that needs it connects it" | — |
-| Background session per VPN, reused + disconnected when idle | `tailscale up`, `nmcli` | PRESENT | `vpn up/down/status`, `vpn serve` (hidden), `config set vpn_idle` (default 30m); `netx.ReapIdle()` in `root.go` | — |
-| MFA always done by a human, agent gets `VPN_LOGIN_REQUIRED` | — | PRESENT | `--mfa`, `vpnsession.go` (VPN_LOGIN_REQUIRED), owner decision in `network.md` | — |
-| VPN status: connected since when, used by whom | `wg show`, `tailscale status` | PARTIAL | `vpn status` shows sessions; no statistics yet (last handshake, rx/tx bytes, latency, assigned IP) | P3 — light diagnostics, not a daily need |
-| Test connectivity through VPN | `tailscale ping`, `ping` | PRESENT | `komando test kind:vpn` uses `--check host:port`; alias `test`/`ping` | — |
-| Change a VPN without remove-and-add | `nmcli con modify` | PARTIAL | no `vpn edit` (inventory has only add/down/list/rm/show/status/test/up); change via `vpn add --overwrite`. Changing `--password-ref`/`--check`/group means repeating all flags | P2 — consistency with `host edit`/`conn edit` (ux.md §1 verb `edit`) |
-| Route clash detection for OS-mode VPN | — | PRESENT | `internal/netx/routes.go`, commit 7149b1c; `network.md` phase 4 | — |
-| Audit of VPN connect/disconnect | — | PRESENT | `audit(st, "vpn.up", ...)` in `vpnsession.go` | — |
-| `doctor` checks the needed VPN clients | — | PRESENT | `meta.go` doctor: `vpnClients(v)` + `installHint` | — |
+| Path chain VPN → bastion → target for all targets | `ssh -J`, Termius | PRESENT | `--via a,b` in `host add/edit`, `conn add/edit`; `docs/design/network.md` "One concept: `--via`" | none |
+| Many VPNs active at once, safe with clashing subnets | none (OS VPN is usually one) | PRESENT | userspace/netstack per command; `network.md` "Main idea"; `docs/features/vpn.md` | none |
+| Connect automatically when a target needs a VPN | none | PRESENT | `vpn.go` Long help: "A command that needs it connects it" | none |
+| Background session per VPN, reused + disconnected when idle | `tailscale up`, `nmcli` | PRESENT | `vpn up/down/status`, `vpn serve` (hidden), `config set vpn_idle` (default 30m); `netx.ReapIdle()` in `root.go` | none |
+| MFA always done by a human, agent gets `VPN_LOGIN_REQUIRED` | none | PRESENT | `--mfa`, `vpnsession.go` (VPN_LOGIN_REQUIRED), owner decision in `network.md` | none |
+| VPN status: connected since when, used by whom | `wg show`, `tailscale status` | PARTIAL | `vpn status` shows sessions; no statistics yet (last handshake, rx/tx bytes, latency, assigned IP) | P3: light diagnostics, not a daily need |
+| Test connectivity through VPN | `tailscale ping`, `ping` | PRESENT | `komando test kind:vpn` uses `--check host:port`; alias `test`/`ping` | none |
+| Change a VPN without remove-and-add | `nmcli con modify` | PARTIAL | no `vpn edit` (inventory has only add/down/list/rm/show/status/test/up); change via `vpn add --overwrite`. Changing `--password-ref`/`--check`/group means repeating all flags | P2: consistency with `host edit`/`conn edit` (ux.md §1 verb `edit`) |
+| Route clash detection for OS-mode VPN | none | PRESENT | `internal/netx/routes.go`, commit 7149b1c; `network.md` phase 4 | none |
+| Audit of VPN connect/disconnect | none | PRESENT | `audit(st, "vpn.up", ...)` in `vpnsession.go` | none |
+| `doctor` checks the needed VPN clients | none | PRESENT | `meta.go` doctor: `vpnClients(v)` + `installHint` | none |
 | DNS inside the VPN (split DNS) without changing laptop DNS | `wg-quick` DNS=, Tailscale MagicDNS | PARTIAL | WireGuard: userspace resolver from `DNS=` (`netx/wireguard.go` line 93; search domain is ignored). Search domain and MagicDNS for openconnect/ocproxy are not guaranteed | P3 |
-| Kill switch / change the laptop's default route | WARP, Mullvad | MISSING | not excluded by `vision.md` "Non-goals" (N1–N4 do not mention it), so not a NON-GOAL; but deliberately not built: `network.md:169` "komando never changes the laptop's routes, DNS, or firewall" | P3 — do not build while the `network.md` decision holds |
-| VPN in menu bar / status GUI | Tunnelblick, Viscosity | NON-GOAL | N1 "GUI, TUI ... komando stays a pure CLI" | — |
-| Corporate HTTP(S) proxy (`HTTPS_PROXY`, CONNECT proxy) | `aws`, `kubectl`, `gh` honor `HTTPS_PROXY` | PARTIAL | `storage` (S3) already honors `HTTPS_PROXY`: `internal/storex/storex.go:72` clones `http.DefaultTransport` (which has `ProxyFromEnvironment`; turned off only when `--via` is set). Cluster and registry do not yet: `internal/kube/kube.go:236`, `internal/registry/registry.go:43` build `http.Transport{}` without `Proxy`. SSH/db/cache do not go through an HTTP proxy; VPN kind is only `socks`, there is no `http-proxy`. `ux.md:295` edge case mentions "corporate proxy" | P2 — offices with a mandatory proxy cannot use cluster/registry |
+| Kill switch / change the laptop's default route | WARP, Mullvad | MISSING | not excluded by `vision.md` "Non-goals" (N1–N4 do not mention it), so not a NON-GOAL; but deliberately not built: `network.md:169` "komando never changes the laptop's routes, DNS, or firewall" | P3: do not build while the `network.md` decision holds |
+| VPN in menu bar / status GUI | Tunnelblick, Viscosity | NON-GOAL | N1 "GUI, TUI ... komando stays a pure CLI" | none |
+| Corporate HTTP(S) proxy (`HTTPS_PROXY`, CONNECT proxy) | `aws`, `kubectl`, `gh` honor `HTTPS_PROXY` | PARTIAL | `storage` (S3) already honors `HTTPS_PROXY`: `internal/storex/storex.go:72` clones `http.DefaultTransport` (which has `ProxyFromEnvironment`; turned off only when `--via` is set). Cluster and registry do not yet: `internal/kube/kube.go:236`, `internal/registry/registry.go:43` build `http.Transport{}` without `Proxy`. SSH/db/cache do not go through an HTTP proxy; VPN kind is only `socks`, there is no `http-proxy`. `ux.md:295` edge case mentions "corporate proxy" | P2: offices with a mandatory proxy cannot use cluster/registry |
 
 ### A2. WireGuard (wg / wg-quick)
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Import wg-quick config, keys move to vault | `wg-quick up` | PRESENT | `vpn add NAME wireguard --config`; `netx.StripWGKeys` → `secret:NAME-key`, `-psk` | — |
-| Runs in-process without root | wireguard-go, `wg-quick` (root) | PRESENT | `netstack.CreateNetTUN` in `netx/wireguard.go:225` | — |
-| MTU, multiple addresses, PSK | `wg-quick` | PRESENT | `WGConfig.MTU`, PSK ref | — |
-| `PostUp`/`Table`/`ListenPort` | `wg-quick` | MISSING | deliberately ignored (`netx/wireguard.go:119`): does not touch the laptop's network. Decision in `network.md:169`, not `vision.md` "Non-goals", so not a NON-GOAL | P3 — do not build (runs scripts/changes laptop routes) |
-| Create a WG key pair / new peer | `wg genkey`, `wg pubkey` | MISSING | no `vpn key`/gen; `key gen` is SSH only | P3 — usually the VPN admin creates the config |
+| Import wg-quick config, keys move to vault | `wg-quick up` | PRESENT | `vpn add NAME wireguard --config`; `netx.StripWGKeys` → `secret:NAME-key`, `-psk` | none |
+| Runs in-process without root | wireguard-go, `wg-quick` (root) | PRESENT | `netstack.CreateNetTUN` in `netx/wireguard.go:225` | none |
+| MTU, multiple addresses, PSK | `wg-quick` | PRESENT | `WGConfig.MTU`, PSK ref | none |
+| `PostUp`/`Table`/`ListenPort` | `wg-quick` | MISSING | deliberately ignored (`netx/wireguard.go:119`): does not touch the laptop's network. Decision in `network.md:169`, not `vision.md` "Non-goals", so not a NON-GOAL | P3: do not build (runs scripts/changes laptop routes) |
+| Create a WG key pair / new peer | `wg genkey`, `wg pubkey` | MISSING | no `vpn key`/gen; `key gen` is SSH only | P3: usually the VPN admin creates the config |
 | Handshake/transfer statistics | `wg show` | MISSING | `vpn status` does not show them | P3 |
-| Warning that the original `.conf` file still holds keys | — | PRESENT | note in `vpn add` output ("still holds the keys") | — |
+| Warning that the original `.conf` file still holds keys | none | PRESENT | note in `vpn add` output ("still holds the keys") | none |
 
 ### A3. OpenVPN / Pritunl
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| `.ovpn` profile (also Pritunl) | `openvpn`, Pritunl client | PRESENT | kind `openvpn`, alias `pritunl` (`vpn.go`) | — |
-| Without changing the laptop's network (Docker container) | — | PRESENT | `openvpnContainer` in `vpnsession.go`; needs Docker | — |
-| OS mode with sudo | `sudo openvpn` | PRESENT | `--os-mode`; pid in `/var/run`, log to syslog | — |
-| Filtering of dangerous directives (`up`, `script-security`, file paths) | — | PRESENT | `ovpnAllowed`, `checkOVPN` (inline-only for ca/cert/key) | — |
+| `.ovpn` profile (also Pritunl) | `openvpn`, Pritunl client | PRESENT | kind `openvpn`, alias `pritunl` (`vpn.go`) | none |
+| Without changing the laptop's network (Docker container) | none | PRESENT | `openvpnContainer` in `vpnsession.go`; needs Docker | none |
+| OS mode with sudo | `sudo openvpn` | PRESENT | `--os-mode`; pid in `/var/run`, log to syslog | none |
+| Filtering of dangerous directives (`up`, `script-security`, file paths) | none | PRESENT | `ovpnAllowed`, `checkOVPN` (inline-only for ca/cert/key) | none |
 | OpenVPN static challenge / OTP | `openvpn --static-challenge` | MISSING | the directive passes the filter (`vpn.go:61`), but there is no way to type the OTP: container mode `docker run -d` + `--daemon` (`ovpn/entrypoint.sh:13`), OS mode `openvpn --daemon` with an `--auth-user-pass` file (`vpnsession.go:258-264`); both have no stdin, including during interactive `vpn up` | P3 |
 | OpenVPN 3 / DCO / Access Server SAML | `openvpn3` | MISSING | OpenVPN 2 only | P3 |
 | OpenVPN without Docker and without sudo (userspace) | `ooni/minivpn` | MISSING | `network.md` mentions evaluating minivpn; not built | P3 |
@@ -74,26 +74,26 @@ Non-goal quotes from the `vision.md` section "Non-goals":
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| GlobalProtect, Fortinet, AnyConnect/ocserv, Pulse/Ivanti, F5 | `openconnect --protocol=` | PRESENT | `netx.Kinds` protocol `gp`, `fortinet`, `anyconnect`, `pulse`, `f5`; via `ocproxy` (local SOCKS) | — |
-| Juniper Network Connect (`nc`) and Array (`array`) protocols | `openconnect --protocol=nc/array` | MISSING | not in `netx.Kinds` | P3 — rare |
-| SAML/SSO login via browser (GP/AnyConnect/Fortinet SSO) | `openconnect --external-browser`, `gp-saml-gui` | MISSING | `vpnsession.go:205` only `--user`, `--passwd-on-stdin`; no SSO option. Many corporate VPNs are now SAML-only | P2 — corporate SAML VPNs cannot be used |
-| Server certificate pinning (`--servercert`) | `openconnect --servercert` | MISSING | no flag; relies on system CA | P2 — secure by default for self-signed portals |
-| Auth group / realm (`--authgroup`, `--usergroup`) | `openconnect --authgroup` | MISSING | no flag | P2 — many AnyConnect portals need a group |
+| GlobalProtect, Fortinet, AnyConnect/ocserv, Pulse/Ivanti, F5 | `openconnect --protocol=` | PRESENT | `netx.Kinds` protocol `gp`, `fortinet`, `anyconnect`, `pulse`, `f5`; via `ocproxy` (local SOCKS) | none |
+| Juniper Network Connect (`nc`) and Array (`array`) protocols | `openconnect --protocol=nc/array` | MISSING | not in `netx.Kinds` | P3: rare |
+| SAML/SSO login via browser (GP/AnyConnect/Fortinet SSO) | `openconnect --external-browser`, `gp-saml-gui` | MISSING | `vpnsession.go:205` only `--user`, `--passwd-on-stdin`; no SSO option. Many corporate VPNs are now SAML-only | P2: corporate SAML VPNs cannot be used |
+| Server certificate pinning (`--servercert`) | `openconnect --servercert` | MISSING | no flag; relies on system CA | P2: secure by default for self-signed portals |
+| Auth group / realm (`--authgroup`, `--usergroup`) | `openconnect --authgroup` | MISSING | no flag | P2: many AnyConnect portals need a group |
 | Client certificate (`-c`, `-k`, PKCS#12) | `openconnect -c` | MISSING | no flag | P3 |
-| GlobalProtect HIP report (`--csd-wrapper`) | `openconnect --csd-wrapper` | MISSING | — | P3 |
+| GlobalProtect HIP report (`--csd-wrapper`) | `openconnect --csd-wrapper` | MISSING | none | P3 |
 | `tunsocks` as an alternative to `ocproxy` | `tunsocks` | MISSING | only `ocproxy` | P3 |
 
 ### A5. Tailscale / Headscale
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Join a tailnet in userspace with auth key / browser login | `tailscale up` | PRESENT | kind `tailscale`; auth key via `--password-ref`, no key → `MFA` (browser login) | — |
-| Headscale (own login server) | `tailscale up --login-server` | PRESENT | `--server` | — |
+| Join a tailnet in userspace with auth key / browser login | `tailscale up` | PRESENT | kind `tailscale`; auth key via `--password-ref`, no key → `MFA` (browser login) | none |
+| Headscale (own login server) | `tailscale up --login-server` | PRESENT | `--server` | none |
 | `tailscale status` / peer list | `tailscale status` | PARTIAL | only `vpn status`/`test`; no list of tailnet nodes | P3 |
-| `tailscale ping` (direct/DERP) | `tailscale ping` | MISSING | — | P3 |
+| `tailscale ping` (direct/DERP) | `tailscale ping` | MISSING | none | P3 |
 | Exit node | `tailscale up --exit-node` | MISSING | not relevant for target access (an exit node changes egress) | P3 |
 | Tailscale SSH | `tailscale ssh` | PARTIAL | hosts in the tailnet can be reached via `--via tailnet` with normal SSH; Tailscale SSH (auth by the tailnet, no keys) is not supported | P3 |
-| `serve` / `funnel` | `tailscale serve/funnel` | NON-GOAL | publishes local services; outside a devops "client"; close to N1 (server) | — |
+| `serve` / `funnel` | `tailscale serve/funnel` | NON-GOAL | publishes local services; outside a devops "client"; close to N1 (server) | none |
 | Send files (`tailscale file cp`) | Taildrop | MISSING | `upload`/`download` via SFTP already meet the need | P3 |
 | ACL tags / ephemeral node | `--advertise-tags`, ephemeral auth key | PARTIAL | depends on the auth key type; no flag | P3 |
 
@@ -103,37 +103,37 @@ Non-goal quotes from the `vision.md` section "Non-goals":
 |---|---|---|---|---|
 | ZeroTier | `zerotier-cli join` | PARTIAL | only via kind `system` + `--check` (VPN managed by the OS); no `zerotier` kind (userspace libzt exists) | P3 |
 | Nebula, NetBird | `nebula`, `netbird up` | PARTIAL | only via `system` | P3 |
-| Built-in OS L2TP/IPsec/IKEv2 | `scutil --nc`, `nmcli` | PRESENT | alias `l2tp/ipsec/ikev2 = system`, `--service` | — |
+| Built-in OS L2TP/IPsec/IKEv2 | `scutil --nc`, `nmcli` | PRESENT | alias `l2tp/ipsec/ikev2 = system`, `--service` | none |
 | Cloudflare WARP (Zero Trust client) | `warp-cli connect` | PARTIAL | via `system --check`; `vpn up` does not run `warp-cli` | P3 |
 
 ### A7. Zero-trust / just-in-time access
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| AWS SSM Session Manager: shell/exec to EC2 without open SSH | `aws ssm start-session`, ProxyCommand `AWS-StartSSHSession` | MISSING | no kind/`--via` step for SSM; `ProxyCommand` is not in the host model | **P1** — standard way to reach private EC2; universal devops client |
-| AWS SSM port forwarding (to RDS/ElastiCache) | `AWS-StartPortForwardingSessionToRemoteHost` | MISSING | same | **P1** — same, for `db`/`cache` on AWS |
-| Generic `ProxyCommand` (escape hatch for SSM/IAP/cloudflared/tsh) | OpenSSH `ProxyCommand` | MISSING | `host.go` `import ssh-config` reads only `HostName/User/Port/IdentityFile/ProxyJump`; `ProxyCommand` is dropped **silently**, which breaks `ux.md` §9 "Unsupported fields are reported" | **P1** — imported hosts fail to connect with no explanation |
-| GCP IAP TCP tunnel | `gcloud compute start-iap-tunnel`, `gcloud compute ssh --tunnel-through-iap` | MISSING | — | P2 |
-| Azure Bastion | `az network bastion ssh/tunnel` | MISSING | — | P3 |
-| Cloudflare Access (SSH/TCP) | `cloudflared access ssh/tcp` | MISSING | — | P2 — common at startups |
-| Cloudflare Tunnel (exposes services) | `cloudflared tunnel` | NON-GOAL | running a connector = server/daemon (N1) | — |
+| AWS SSM Session Manager: shell/exec to EC2 without open SSH | `aws ssm start-session`, ProxyCommand `AWS-StartSSHSession` | MISSING | no kind/`--via` step for SSM; `ProxyCommand` is not in the host model | **P1**: standard way to reach private EC2; universal devops client |
+| AWS SSM port forwarding (to RDS/ElastiCache) | `AWS-StartPortForwardingSessionToRemoteHost` | MISSING | same | **P1**: same, for `db`/`cache` on AWS |
+| Generic `ProxyCommand` (escape hatch for SSM/IAP/cloudflared/tsh) | OpenSSH `ProxyCommand` | MISSING | `host.go` `import ssh-config` reads only `HostName/User/Port/IdentityFile/ProxyJump`; `ProxyCommand` is dropped **silently**, which breaks `ux.md` §9 "Unsupported fields are reported" | **P1**: imported hosts fail to connect with no explanation |
+| GCP IAP TCP tunnel | `gcloud compute start-iap-tunnel`, `gcloud compute ssh --tunnel-through-iap` | MISSING | none | P2 |
+| Azure Bastion | `az network bastion ssh/tunnel` | MISSING | none | P3 |
+| Cloudflare Access (SSH/TCP) | `cloudflared access ssh/tcp` | MISSING | none | P2: common at startups |
+| Cloudflare Tunnel (exposes services) | `cloudflared tunnel` | NON-GOAL | running a connector = server/daemon (N1) | none |
 | Teleport (`tsh ssh`, `tsh db`, `tsh kube`), short-lived certificates | `tsh` | MISSING | no integration; SSH certificates from files are also not loaded (see B3) | P2 |
-| HashiCorp Boundary | `boundary connect` | MISSING | — | P3 |
-| StrongDM | `sdm connect` | MISSING | — | P3 |
+| HashiCorp Boundary | `boundary connect` | MISSING | none | P3 |
+| StrongDM | `sdm connect` | MISSING | none | P3 |
 
 ### A8. Proxies and forwarding for other apps
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Local / remote forward / SOCKS5 over SSH in the background | `ssh -L/-R/-D` | PRESENT | `tunnel start -L/-R/-D`, `tunnel list/stop` | — |
-| Tunnel to a conn by name (via `--via`/VPN) | — | PRESENT | `tunnel start app-db [--port]` | — |
-| SOCKS "inside" a VPN for the browser | — | PRESENT | `tunnel start office -D 1080` (`docs/features/vpn.md`) | — |
-| Binding a tunnel on non-loopback needs confirmation | — | PARTIAL | default `127.0.0.1` (`tunnel.go:66,77`), but `-L 0.0.0.0:8080:...` is accepted without `--yes`. `network.md` "Security": "unless given `--bind` (needs `--yes`)" — not enforced (`guardSafety` is not called in `tunnel.go`) | **P1** — opens DB/SSH ports to the local/cafe network; secure by default |
-| Use an existing (corporate) SOCKS proxy | proxychains | PRESENT | kind `socks` (`--address`, `--user` + `--password-ref`) | — |
-| Force other apps through a proxy | `proxychains`, `tsocks` | PARTIAL | komando provides SOCKS (`tunnel -D`), but does not wrap other programs | P3 — native tools via `tunnel` are enough (ux.md §12) |
-| VPN-over-SSH for whole subnets | `sshuttle` | PARTIAL | `tunnel -D` + `--via` covers komando's own needs; no "route subnet" mode | P3 — changing laptop routes conflicts with `network.md` |
-| Expose local services to the internet | `ngrok` | NON-GOAL | becomes a public server (N1); `tunnel -R` to your own server already exists | — |
-| Forward to a Kubernetes pod / service | `kubectl port-forward` | PARTIAL | `cluster run` classifies `port-forward` as destructive (`cluster.go:863`); no `tunnel start` to a k8s service | P2 — daily dev need (outside this domain, noted) |
+| Local / remote forward / SOCKS5 over SSH in the background | `ssh -L/-R/-D` | PRESENT | `tunnel start -L/-R/-D`, `tunnel list/stop` | none |
+| Tunnel to a conn by name (via `--via`/VPN) | none | PRESENT | `tunnel start app-db [--port]` | none |
+| SOCKS "inside" a VPN for the browser | none | PRESENT | `tunnel start office -D 1080` (`docs/features/vpn.md`) | none |
+| Binding a tunnel on non-loopback needs confirmation | none | PARTIAL | default `127.0.0.1` (`tunnel.go:66,77`), but `-L 0.0.0.0:8080:...` is accepted without `--yes`. `network.md` "Security": "unless given `--bind` (needs `--yes`)". This is not enforced (`guardSafety` is not called in `tunnel.go`) | **P1**: opens DB/SSH ports to the local/cafe network; secure by default |
+| Use an existing (corporate) SOCKS proxy | proxychains | PRESENT | kind `socks` (`--address`, `--user` + `--password-ref`) | none |
+| Force other apps through a proxy | `proxychains`, `tsocks` | PARTIAL | komando provides SOCKS (`tunnel -D`), but does not wrap other programs | P3: native tools via `tunnel` are enough (ux.md §12) |
+| VPN-over-SSH for whole subnets | `sshuttle` | PARTIAL | `tunnel -D` + `--via` covers komando's own needs; no "route subnet" mode | P3: changing laptop routes conflicts with `network.md` |
+| Expose local services to the internet | `ngrok` | NON-GOAL | becomes a public server (N1); `tunnel -R` to your own server already exists | none |
+| Forward to a Kubernetes pod / service | `kubectl port-forward` | PARTIAL | `cluster run` classifies `port-forward` as destructive (`cluster.go:863`); no `tunnel start` to a k8s service | P2: daily dev need (outside this domain, noted) |
 
 ---
 
@@ -143,18 +143,18 @@ Non-goal quotes from the `vision.md` section "Non-goals":
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Encrypted vault (AES-256-GCM, scrypt), list of secret names without values | `pass`/`pass ls`, `gopass ls`, ansible-vault, `vault kv list` | PRESENT | `internal/vault/vault.go`; mode `keyfile` or `passphrase` (`KOMANDO_VAULT_PASS`); `secret list` shows only names and `updated_at` | — |
-| Secret input without arguments (hidden prompt, `--from-env`, stdin) | `gh secret set` | PRESENT | `secret set`; `SECRET_IN_ARGS` rejects positional values | — |
-| `--reveal` only for humans | 1Password (biometrics), `op read` needs a session | PARTIAL | `secret get --reveal` runs from a pipe without TTY/confirmation (`key.go:447-452`; only logged as `secret.reveal` in audit); only a rule in SKILL/AGENTS.md. Vision: "passwords are never seen by AI" | **P1** — an agent can read all passwords; secure by default |
-| Safe `secret rm` | `vault kv delete` (versions remain) | PARTIAL | `key.go` `rm`: no `IN_USE` check (hosts/conns/vpns that refer to it), no confirmation/`--yes`, **no audit line**, permanent delete. `ux.md` §8 asks for `IN_USE` when deleting something still in use | **P1** — one command can cut access to prod without a trace |
+| Encrypted vault (AES-256-GCM, scrypt), list of secret names without values | `pass`/`pass ls`, `gopass ls`, ansible-vault, `vault kv list` | PRESENT | `internal/vault/vault.go`; mode `keyfile` or `passphrase` (`KOMANDO_VAULT_PASS`); `secret list` shows only names and `updated_at` | none |
+| Secret input without arguments (hidden prompt, `--from-env`, stdin) | `gh secret set` | PRESENT | `secret set`; `SECRET_IN_ARGS` rejects positional values | none |
+| `--reveal` only for humans | 1Password (biometrics), `op read` needs a session | PARTIAL | `secret get --reveal` runs from a pipe without TTY/confirmation (`key.go:447-452`; only logged as `secret.reveal` in audit); only a rule in SKILL/AGENTS.md. Vision: "passwords are never seen by AI" | **P1**: an agent can read all passwords; secure by default |
+| Safe `secret rm` | `vault kv delete` (versions remain) | PARTIAL | `key.go` `rm`: no `IN_USE` check (hosts/conns/vpns that refer to it), no confirmation/`--yes`, **no audit line**, permanent delete. `ux.md` §8 asks for `IN_USE` when deleting something still in use | **P1**: one command can cut access to prod without a trace |
 | `secret set` does not overwrite silently | `gh secret set` (overwrites), `pass insert` (asks) | PARTIAL | `vault.Set` always overwrites; no `--overwrite` (ux.md §3 standard flag name) | P2 |
-| Store `vault.key` in the OS keyring (macOS Keychain, libsecret, Windows Credential Manager) | `aws-vault`, `gh auth` (keyring), `docker-credential-*` | MISSING | `vault.key` is stored next to `vault.json` (0600). Possible via the `security`/`secret-tool` CLI without cgo | P2 — secure by default; stealing one folder = all secrets |
+| Store `vault.key` in the OS keyring (macOS Keychain, libsecret, Windows Credential Manager) | `aws-vault`, `gh auth` (keyring), `docker-credential-*` | MISSING | `vault.key` is stored next to `vault.json` (0600). Possible via the `security`/`secret-tool` CLI without cgo | P2: secure by default; stealing one folder = all secrets |
 | Change passphrase / re-key vault | `ansible-vault rekey`, `gopass` | MISSING | no command | P2 |
 | Lock/unlock vault temporarily (session) | `op signin`, `bw unlock` | MISSING | keyfile is always open; passphrase per process via env | P3 |
 | Secret version history / restore | Vault KV v2, gopass (git) | MISSING | one value per name, only `UpdatedAt` | P3 |
-| Generate a random password | `pass generate`, `op item create --generate-password` | MISSING | — | P3 |
-| Rename/copy a secret | `gopass mv/cp` | MISSING | — | P3 |
-| See who uses a secret | — | MISSING | `secret list` only `name`,`updated_at`; `host show`/`conn show` show the ref from the target side | P2 — before rotation/deletion |
+| Generate a random password | `pass generate`, `op item create --generate-password` | MISSING | none | P3 |
+| Rename/copy a secret | `gopass mv/cp` | MISSING | none | P3 |
+| See who uses a secret | none | MISSING | `secret list` only `name`,`updated_at`; `host show`/`conn show` show the ref from the target side | P2: before rotation/deletion |
 | Secret rotation (change on server + vault at once) | Vault dynamic, AWS SM rotation | MISSING | no `secret rotate`; manual: `user`/`db query ALTER USER` + `secret set` | P2 |
 | File permission check for `file:` refs | `ssh` (rejects 0644 keys) | MISSING | `vault.Resolve` reads `file:` without a mode check, even though `ux.md` §7 says "file permissions too loose → error" | P2 |
 
@@ -162,54 +162,54 @@ Non-goal quotes from the `vision.md` section "Non-goals":
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| `env:`, `file:` | — | PRESENT | `vault.Resolve` | — |
-| 1Password (`op read`) | `op read` | PRESENT | `op://VAULT/ITEM/FIELD` → `op read --no-newline` | — |
+| `env:`, `file:` | none | PRESENT | `vault.Resolve` | none |
+| 1Password (`op read`) | `op read` | PRESENT | `op://VAULT/ITEM/FIELD` → `op read --no-newline` | none |
 | 1Password `op run` / `op inject` (env/template) | `op run --env-file`, `op inject` | MISSING | only one value per ref; no env injection (see B4) | P2 |
-| HashiCorp Vault KV | `vault kv get -field` | PRESENT | `vault:PATH#FIELD` | — |
-| Vault dynamic DB credentials + lease renew/revoke | `vault read database/creds/role` | MISSING | refs are KV only; no leases | P2 — short-lived credentials = best practice |
+| HashiCorp Vault KV | `vault kv get -field` | PRESENT | `vault:PATH#FIELD` | none |
+| Vault dynamic DB credentials + lease renew/revoke | `vault read database/creds/role` | MISSING | refs are KV only; no leases | P2: short-lived credentials = best practice |
 | Vault SSH CA (sign public key) | `vault ssh -mode=ca`, `vault write ssh/sign/...` | MISSING | see B3 (SSH certificates from files) | P2 |
-| AWS Secrets Manager | `aws secretsmanager` | PRESENT | `aws-sm:NAME[#KEY]` | — |
-| AWS SSM Parameter Store (SecureString) | `aws ssm get-parameter --with-decryption` | MISSING | only Secrets Manager | P2 — very common on AWS |
-| Google Secret Manager | `gcloud secrets versions access` | PRESENT | `gcp-sm:NAME[@PROJECT]` (always `latest`, no version choice) | — |
+| AWS Secrets Manager | `aws secretsmanager` | PRESENT | `aws-sm:NAME[#KEY]` | none |
+| AWS SSM Parameter Store (SecureString) | `aws ssm get-parameter --with-decryption` | MISSING | only Secrets Manager | P2: very common on AWS |
+| Google Secret Manager | `gcloud secrets versions access` | PRESENT | `gcp-sm:NAME[@PROJECT]` (always `latest`, no version choice) | none |
 | Azure Key Vault | `az keyvault secret show` | MISSING | aws-sm and gcp-sm exist, Azure not yet; not equal for a "universal client" | P2 |
-| Bitwarden / Vaultwarden | `bw get password` | MISSING | — | P2 — popular in small teams |
-| `pass` / `gopass` | `pass show` | MISSING | — | P2 — cheap to add (`external()` pattern) |
-| sops (encrypted files in git) | `sops -d --extract` | MISSING | — | P2 — common in GitOps repos |
-| age | `age -d` | MISSING | — | P3 |
-| Doppler, Infisical | `doppler secrets get`, `infisical secrets get` | MISSING | — | P3 |
+| Bitwarden / Vaultwarden | `bw get password` | MISSING | none | P2: popular in small teams |
+| `pass` / `gopass` | `pass show` | MISSING | none | P2: cheap to add (`external()` pattern) |
+| sops (encrypted files in git) | `sops -d --extract` | MISSING | none | P2: common in GitOps repos |
+| age | `age -d` | MISSING | none | P3 |
+| Doppler, Infisical | `doppler secrets get`, `infisical secrets get` | MISSING | none | P3 |
 | aws-vault / AWS profiles | `aws-vault exec` | PARTIAL | `aws-sm:` uses the `aws` CLI, so `AWS_PROFILE`/SSO apply; no profile choice per ref | P3 |
 | Kubernetes Secret as a source | `kubectl get secret` | MISSING | `cluster get` hides Secret values (correct), no `k8s:` ref | P3 |
-| External MFA/login stays with the human | — | PRESENT | `external()` runs the native CLI, message "(is it signed in?)" | — |
+| External MFA/login stays with the human | none | PRESENT | `external()` runs the native CLI, message "(is it signed in?)" | none |
 | Cache external ref results within one command | `op` session cache | PARTIAL | `external()` is called on every resolve, 60s timeout; many hosts with the same ref = many calls | P3 |
 
 ### B3. SSH identity & keys
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Generate/register/deploy SSH keys | `ssh-keygen`, `ssh-copy-id` | PRESENT | `key gen/add/deploy/list/show/rm/edit` | — |
-| Key passphrase from the vault | — | PRESENT | `key add --passphrase-ref` | — |
-| ssh-agent (including 1Password/Secretive/FIDO agents) | `ssh-agent` | PRESENT | `sshx/client.go:322` `agent.NewClient`; `IdentityAgent` from ssh_config is not read (only `SSH_AUTH_SOCK`) | — |
-| SSH certificate from file (`id_ed25519-cert.pub`) | OpenSSH `CertificateFile` | MISSING | `sshx` loads only the private key; certificates work only if they are in the agent | P2 — needed by Vault SSH CA/Teleport/step-ca |
-| Per-host `IdentityAgent` | OpenSSH | MISSING | — | P3 |
+| Generate/register/deploy SSH keys | `ssh-keygen`, `ssh-copy-id` | PRESENT | `key gen/add/deploy/list/show/rm/edit` | none |
+| Key passphrase from the vault | none | PRESENT | `key add --passphrase-ref` | none |
+| ssh-agent (including 1Password/Secretive/FIDO agents) | `ssh-agent` | PRESENT | `sshx/client.go:322` `agent.NewClient`; `IdentityAgent` from ssh_config is not read (only `SSH_AUTH_SOCK`) | none |
+| SSH certificate from file (`id_ed25519-cert.pub`) | OpenSSH `CertificateFile` | MISSING | `sshx` loads only the private key; certificates work only if they are in the agent | P2: needed by Vault SSH CA/Teleport/step-ca |
+| Per-host `IdentityAgent` | OpenSSH | MISSING | none | P3 |
 | SSH key rotation across many servers | `ssh-copy-id` + remove old | PARTIAL | `key deploy` (idempotent) exists; no "remove old key from authorized_keys" | P2 |
 
 ### B4. Injecting secrets into commands/processes
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Secret as an env var in a remote command without the agent seeing it (`--env DB_PASS=secret:x`) | `op run`, `doppler run`, Ansible `no_log` | MISSING | `exec/job/script --env` and `host --env` accept literal values (`common.go:475` `parseEnv`, without `vault.Resolve`). An agent that needs a password in a script must use `--reveal` (breaks the vision) | **P1** — blocks agents; core of "passwords are never seen by AI" |
+| Secret as an env var in a remote command without the agent seeing it (`--env DB_PASS=secret:x`) | `op run`, `doppler run`, Ansible `no_log` | MISSING | `exec/job/script --env` and `host --env` accept literal values (`common.go:475` `parseEnv`, without `vault.Resolve`). An agent that needs a password in a script must use `--reveal` (breaks the vision) | **P1**: blocks agents; core of "passwords are never seen by AI" |
 | Run local tools with vault secrets in env | `op run -- cmd`, `aws-vault exec` | PARTIAL | only for specific tools: `db shell` (psql/mysql) and tunnel; no general wrapper | P2 |
 | Load `.env` (direnv) | `direnv`, `dotenv` | PARTIAL | `import env` reads `.env` to create a conn; does not export `.env` to commands | P3 |
-| Upload a file with secrets (template) to a server | `op inject`, Ansible template + vault | MISSING | `fs write --content/--from` is literal; no `{{secret:x}}` | P2 — e.g. write an app's `.env` without exposing the password |
-| `host --env` stored in plain text in `state.json` | — | PARTIAL | host `--env` values are stored as plain text; no warning if they contain secrets | P2 |
+| Upload a file with secrets (template) to a server | `op inject`, Ansible template + vault | MISSING | `fs write --content/--from` is literal; no `{{secret:x}}` | P2: e.g. write an app's `.env` without exposing the password |
+| `host --env` stored in plain text in `state.json` | none | PARTIAL | host `--env` values are stored as plain text; no warning if they contain secrets | P2 |
 
 ### B5. Team sharing & central identity
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Share the vault between team members | 1Password shared vault, gopass multi-recipient, sops+age | PARTIAL | local vault per person; the team path = external refs (`op://`, `vault:`). No multi-recipient vault | P2 — document the "team uses external refs" pattern first |
+| Share the vault between team members | 1Password shared vault, gopass multi-recipient, sops+age | PARTIAL | local vault per person; the team path = external refs (`op://`, `vault:`). No multi-recipient vault | P2: document the "team uses external refs" pattern first |
 | Encrypted export including secrets | `ansible-vault`, `gopass export` | MISSING | `export` "no passwords"; `vision.md` Migration: "without secrets (or encrypted)" not built yet | P2 |
-| SSO/OIDC login to komando | `gcloud auth login`, `az login` | NON-GOAL | there is no komando server (N1) | — |
+| SSO/OIDC login to komando | `gcloud auth login`, `az login` | NON-GOAL | there is no komando server (N1) | none |
 
 ---
 
@@ -219,141 +219,141 @@ Non-goal quotes from the `vision.md` section "Non-goals":
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| One config file + `config show/set` | `aws configure`, `gh config` | PRESENT | `config show/set` (host_key_policy, default_user, timeouts, parallel, max_output_bytes, audit, audit_sql, vpn_idle) | — |
-| Guard for security settings | — | PRESENT | `guardSafety` (`SAFETY_SETTING`) | — |
-| Profiles/contexts (several inventories: work vs client) | `aws --profile`, `kubectl config use-context`, `az account set` | PARTIAL | only `KOMANDO_HOME=...`; no `--home`/`context use`. Groups/tags cover part of the need | P3 — groups + selectors are enough (KISS) |
+| One config file + `config show/set` | `aws configure`, `gh config` | PRESENT | `config show/set` (host_key_policy, default_user, timeouts, parallel, max_output_bytes, audit, audit_sql, vpn_idle) | none |
+| Guard for security settings | none | PRESENT | `guardSafety` (`SAFETY_SETTING`) | none |
+| Profiles/contexts (several inventories: work vs client) | `aws --profile`, `kubectl config use-context`, `az account set` | PARTIAL | only `KOMANDO_HOME=...`; no `--home`/`context use`. Groups/tags cover part of the need | P3: groups + selectors are enough (KISS) |
 | Override settings via env (`KOMANDO_TIMEOUT`, `KOMANDO_PARALLEL`) | `AWS_*`, `KUBECONFIG` | PARTIAL | only `KOMANDO_HOME`, `KOMANDO_OUTPUT`, `KOMANDO_ACTOR`, `KOMANDO_VAULT_PASS` | P3 |
-| Per-project configuration (file in the repo) | `.terraform`, `ansible.cfg` | MISSING | — | P3 |
+| Per-project configuration (file in the repo) | `.terraform`, `ansible.cfg` | MISSING | none | P3 |
 
 ### C2. Output
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Stable JSON envelope + exit code | `gh --json`, `kubectl -o json` | PRESENT | `internal/out`, `meta.contract=1`, `docs/features/output.md` | — |
-| Automatic text on TTY, JSON in a pipe | `gh` | PRESENT | `-o auto` (`root.go` `outputFormat`), `KOMANDO_OUTPUT` | — |
-| `--pretty` JSON | `jq .` | PRESENT | `--pretty` | — |
-| NDJSON streaming | `kubectl get -w -o json` | PRESENT | `exec --stream`, `logs --follow` | — |
-| YAML | `kubectl -o yaml`, `az -o yaml` | MISSING | `out.go:89` "yaml-ish not supported, keep it simple" — KISS decision | P3 |
-| CSV/TSV (e.g. `db query`, `list` results) | `az -o tsv`, `psql --csv` | MISSING | json/text only | P2 — exporting query results to a spreadsheet is often requested |
-| Built-in filter/query (JMESPath/jq) | `aws --query`, `gh --jq`, `az --query` | MISSING | users must use `jq` | P3 — `jq` is enough; KISS |
-| Output template (Go template) | `gh --template`, `docker --format` | MISSING | — | P3 |
-| Choose columns/fields | `gh --json f1,f2`, `kubectl -o custom-columns` | MISSING | — | P3 |
+| Stable JSON envelope + exit code | `gh --json`, `kubectl -o json` | PRESENT | `internal/out`, `meta.contract=1`, `docs/features/output.md` | none |
+| Automatic text on TTY, JSON in a pipe | `gh` | PRESENT | `-o auto` (`root.go` `outputFormat`), `KOMANDO_OUTPUT` | none |
+| `--pretty` JSON | `jq .` | PRESENT | `--pretty` | none |
+| NDJSON streaming | `kubectl get -w -o json` | PRESENT | `exec --stream`, `logs --follow` | none |
+| YAML | `kubectl -o yaml`, `az -o yaml` | MISSING | `out.go:89` "yaml-ish not supported, keep it simple" (a KISS decision) | P3 |
+| CSV/TSV (e.g. `db query`, `list` results) | `az -o tsv`, `psql --csv` | MISSING | json/text only | P2: exporting query results to a spreadsheet is often requested |
+| Built-in filter/query (JMESPath/jq) | `aws --query`, `gh --jq`, `az --query` | MISSING | users must use `jq` | P3: `jq` is enough; KISS |
+| Output template (Go template) | `gh --template`, `docker --format` | MISSING | none | P3 |
+| Choose columns/fields | `gh --json f1,f2`, `kubectl -o custom-columns` | MISSING | none | P3 |
 | `--no-headers` | `kubectl --no-headers` | MISSING | text tables always have headers | P3 |
-| Color & `NO_COLOR` | `gh`, `kubectl` | PRESENT | no color at all (grep finds no ANSI codes), so `NO_COLOR` is met automatically; `ux.md` §4 | — |
-| Truncated output with `truncated` + hint | `kubectl logs --limit-bytes` | PRESENT | `--max-output`, `--limit`, `ux.md` §4 | — |
+| Color & `NO_COLOR` | `gh`, `kubectl` | PRESENT | no color at all (grep finds no ANSI codes), so `NO_COLOR` is met automatically; `ux.md` §4 | none |
+| Truncated output with `truncated` + hint | `kubectl logs --limit-bytes` | PRESENT | `--max-output`, `--limit`, `ux.md` §4 | none |
 | Pagination (cursor/continue) | `aws --starting-token`, `gh --paginate` | PARTIAL | `--limit` + `truncated`; no continuation token (`storage ls`, `registry ls`, `cache keys`) | P3 |
-| `--quiet` (exit code only) | `grep -q`, `gh -q` | MISSING | — | P3 |
+| `--quiet` (exit code only) | `grep -q`, `gh -q` | MISSING | none | P3 |
 | `--watch`/refresh | `kubectl get -w`, `watch` | MISSING | `job wait`, `logs --follow` exist; repeated status refresh is close to N3 | P3 |
 
 ### C3. Help, completion, documentation
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| `--help` with real examples | `gh`, `kubectl` | PRESENT | `Example:` in 66 of ±155 commands (`grep -c 'Example:' internal/cli/*.go`); `TestConventions` does not check examples, so commands like `vpn up`, `secret get` have no example | — |
-| "Did you mean" for commands/selectors | `git`, `kubectl` | PRESENT | `komando lst` → suggestion; `ux.md` §2.4 | — |
+| `--help` with real examples | `gh`, `kubectl` | PRESENT | `Example:` in 66 of ±155 commands (`grep -c 'Example:' internal/cli/*.go`); `TestConventions` does not check examples, so commands like `vpn up`, `secret get` have no example | none |
+| "Did you mean" for commands/selectors | `git`, `kubectl` | PRESENT | `komando lst` → suggestion; `ux.md` §2.4 | none |
 | `komando` without arguments: first three steps | `gh` | PARTIAL | shows the full long help, not "three steps" (`ux.md` §10) | P3 |
-| Static completion bash/zsh/fish/powershell | all CLIs | PRESENT | `completion` (cobra) | — |
-| Dynamic completion of host/conn/group/tag/VPN/secret names | `kubectl` (resource names), `gh` | MISSING | 0 `ValidArgsFunction`/`RegisterFlagCompletionFunc`; `__complete exec ""` is empty. `ux.md` §10 promises it | **P1** — daily need, beginner-friendly, promised in ux.md |
+| Static completion bash/zsh/fish/powershell | all CLIs | PRESENT | `completion` (cobra) | none |
+| Dynamic completion of host/conn/group/tag/VPN/secret names | `kubectl` (resource names), `gh` | MISSING | 0 `ValidArgsFunction`/`RegisterFlagCompletionFunc`; `__complete exec ""` is empty. `ux.md` §10 promises it | **P1**: daily need, beginner-friendly, promised in ux.md |
 | Man page | `git`, `gh` (man) | MISSING | cobra/doc can generate it in `make dist` | P3 |
-| Offline docs | `gh help`, `az find` | PRESENT | `guide`, `schema`, `--help`, `docs/features/` | — |
-| i18n | — | NOT PLANNED | decided English-only; Indonesian translations (`README.id.md`, `docs/features/id/`) removed | — |
-| Positioning in root help | — | PARTIAL | `root.go` Short/Long still says "servers (SSH), databases, caches and storage", not yet cluster/registry/VPN/secret (`vision.md` gap 1) | P3 |
+| Offline docs | `gh help`, `az find` | PRESENT | `guide`, `schema`, `--help`, `docs/features/` | none |
+| i18n | none | NOT PLANNED | decided English-only; Indonesian translations (`README.id.md`, `docs/features/id/`) removed | none |
+| Positioning in root help | none | PARTIAL | `root.go` Short/Long still says "servers (SSH), databases, caches and storage", not yet cluster/registry/VPN/secret (`vision.md` gap 1) | P3 |
 
 ### C4. Logging, debug, diagnostics
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| `--verbose`/`--debug`/trace (SSH handshake, HTTP, `--via` path) | `ssh -vvv`, `kubectl -v=8`, `aws --debug` | MISSING | no flag; `-v` is used for `--version` | P2 — diagnosing failed VPN/bastion connections |
-| `doctor` (local checks) | `flyctl doctor`, `brew doctor` | PRESENT | state, keys, ssh-agent, VPN clients, platform | — |
-| `doctor` checks the external secret CLIs (`op`, `vault`, `aws`, `gcloud`) that are referenced | — | MISSING | doctor does not check external refs | P3 |
-| VPN log per session | — | PRESENT | log file per session (`vpnsession.go` `logFile`) | — |
+| `--verbose`/`--debug`/trace (SSH handshake, HTTP, `--via` path) | `ssh -vvv`, `kubectl -v=8`, `aws --debug` | MISSING | no flag; `-v` is used for `--version` | P2: diagnosing failed VPN/bastion connections |
+| `doctor` (local checks) | `flyctl doctor`, `brew doctor` | PRESENT | state, keys, ssh-agent, VPN clients, platform | none |
+| `doctor` checks the external secret CLIs (`op`, `vault`, `aws`, `gcloud`) that are referenced | none | MISSING | doctor does not check external refs | P3 |
+| VPN log per session | none | PRESENT | log file per session (`vpnsession.go` `logFile`) | none |
 
 ### C5. Distribution, releases, platform
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Install script + checksum | `flyctl`, `doctl` | PRESENT | `install.sh` (verifies `checksums.txt`) | — |
-| `go install` | — | PRESENT | README | — |
-| Homebrew | `brew install gh` | MISSING | no tap/formula | P2 — most common install path on macOS; beginner-friendly |
+| Install script + checksum | `flyctl`, `doctl` | PRESENT | `install.sh` (verifies `checksums.txt`) | none |
+| `go install` | none | PRESENT | README | none |
+| Homebrew | `brew install gh` | MISSING | no tap/formula | P2: most common install path on macOS; beginner-friendly |
 | apt/rpm (deb/rpm, repo) | `gh`, `doctl` | MISSING | `make dist` produces only tar.gz | P3 |
 | Scoop/winget | `gh`, `az` | MISSING | Windows is not supported | P3 |
-| Docker image (for CI) | `amazon/aws-cli`, `bitnami/kubectl` | MISSING | — | P3 |
-| Nix | nixpkgs | MISSING | — | P3 |
-| Native Windows | all comparable CLIs | MISSING | `Makefile` `PLATFORMS` only linux/darwin; `install.sh` refuses; `syscall.SysProcAttr{Setsid}` in `vpnsession.go` | P2 — universal client; WSL as a temporary path is already documented |
-| Signed releases / provenance / SBOM | `cosign`, GitHub attestations, `gh` (signed) | PARTIAL | only `checksums.txt` from the same source (`release.yml`); no signature/SBOM | P2 — a tool that holds SSH keys; secure by default |
-| Version check / self-update | `gh` (notification), `flyctl version upgrade` | MISSING | `version` only prints the version; rerun `install.sh` | P2 — security patches arrive fast (SECURITY.md: only the latest release is supported) |
-| Telemetry policy | `gh` (opt-out), `az` | PARTIAL | no telemetry (no outbound network code), but not stated in README/SECURITY | P3 — write "no telemetry" |
-| Single pure Go binary (no size limit) | — | PRESENT | `CGO_ENABLED=0` + `-trimpath -s -w` in `Makefile` `dist`; release builds measured at 35 MB (darwin/arm64) and 37 MB (linux/amd64). Local `bin/komando` is 51 MB because it is a normal build; rule `vision.md:185` | — |
+| Docker image (for CI) | `amazon/aws-cli`, `bitnami/kubectl` | MISSING | none | P3 |
+| Nix | nixpkgs | MISSING | none | P3 |
+| Native Windows | all comparable CLIs | MISSING | `Makefile` `PLATFORMS` only linux/darwin; `install.sh` refuses; `syscall.SysProcAttr{Setsid}` in `vpnsession.go` | P2: universal client; WSL as a temporary path is already documented |
+| Signed releases / provenance / SBOM | `cosign`, GitHub attestations, `gh` (signed) | PARTIAL | only `checksums.txt` from the same source (`release.yml`); no signature/SBOM | P2: a tool that holds SSH keys; secure by default |
+| Version check / self-update | `gh` (notification), `flyctl version upgrade` | MISSING | `version` only prints the version; rerun `install.sh` | P2: security patches arrive fast (SECURITY.md: only the latest release is supported) |
+| Telemetry policy | `gh` (opt-out), `az` | PARTIAL | no telemetry (no outbound network code), but not stated in README/SECURITY | P3: write "no telemetry" |
+| Single pure Go binary (no size limit) | none | PRESENT | `CGO_ENABLED=0` + `-trimpath -s -w` in `Makefile` `dist`; release builds measured at 35 MB (darwin/arm64) and 37 MB (linux/amd64). Local `bin/komando` is 51 MB because it is a normal build; rule `vision.md:185` | none |
 
 ### C6. Inventory, moving machines, teams
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Universal selectors (glob, `@group`, `tag:`, `label:`, `kind:`, `!`) | Ansible patterns, `kubectl -l` | PRESENT | `select.go`, `docs/features/targets.md` | — |
-| Import from other tools | — | PRESENT | `import` with sources `ssh-config`, `pgpass`, `mycnf`, `env`, `kubeconfig`, `docker`, `filezilla`, `rclone`, `dbeaver`, `komando` (`importer.go:49`) | — |
-| Import `~/.aws` (storage conn), Termius, TablePlus | — | PARTIAL | the `vision.md` Migration table lists `aws`, `termius`, `tableplus`; not present yet (`importer.go`) | P3 |
-| Export/import to move machines | `gh` (none), Termius sync | PRESENT | `export [TARGET] --to`, `import komando` | — |
-| Automatic sync between machines | Termius cloud sync | NON-GOAL | needs a server/daemon (N1); export file + git is enough | — |
-| Central team inventory | Ansible inventory in git, Teleport | PARTIAL | the export file can be committed; `import komando FILE` skips names that already exist (reported as `skipped`), and `--overwrite` replaces the whole entry; no per-field merge / diff report | P2 — the "team inventory in git" pattern needs documenting |
-| Dynamic inventory from cloud APIs (EC2, GCP, DO, Hetzner) | Ansible dynamic inventory, `doctl compute droplet list` | MISSING | `vision.md`: "cloud VMs" is a candidate after v1.0 | P2 — cloud servers change often |
+| Universal selectors (glob, `@group`, `tag:`, `label:`, `kind:`, `!`) | Ansible patterns, `kubectl -l` | PRESENT | `select.go`, `docs/features/targets.md` | none |
+| Import from other tools | none | PRESENT | `import` with sources `ssh-config`, `pgpass`, `mycnf`, `env`, `kubeconfig`, `docker`, `filezilla`, `rclone`, `dbeaver`, `komando` (`importer.go:49`) | none |
+| Import `~/.aws` (storage conn), Termius, TablePlus | none | PARTIAL | the `vision.md` Migration table lists `aws`, `termius`, `tableplus`; not present yet (`importer.go`) | P3 |
+| Export/import to move machines | `gh` (none), Termius sync | PRESENT | `export [TARGET] --to`, `import komando` | none |
+| Automatic sync between machines | Termius cloud sync | NON-GOAL | needs a server/daemon (N1); export file + git is enough | none |
+| Central team inventory | Ansible inventory in git, Teleport | PARTIAL | the export file can be committed; `import komando FILE` skips names that already exist (reported as `skipped`), and `--overwrite` replaces the whole entry; no per-field merge / diff report | P2: the "team inventory in git" pattern needs documenting |
+| Dynamic inventory from cloud APIs (EC2, GCP, DO, Hetzner) | Ansible dynamic inventory, `doctl compute droplet list` | MISSING | `vision.md`: "cloud VMs" is a candidate after v1.0 | P2: cloud servers change often |
 | One-shot health summary | `flyctl status`, `kubectl get` | PARTIAL | `test all`, `recipe run health`, `cluster status`, `facts`; no single "status @prod" that combines them | P3 |
-| Cost/usage | `aws ce`, `doctl balance` | MISSING | `vision.md` "Non-goals" N2 mentions only IaC, cloud provisioning, and GitOps; viewing costs is not excluded, so not a NON-GOAL. There is no cost command | P3 — not a daily need; judge with the "criteria for adding a family" |
+| Cost/usage | `aws ce`, `doctl balance` | MISSING | `vision.md` "Non-goals" N2 mentions only IaC, cloud provisioning, and GitOps; viewing costs is not excluded, so not a NON-GOAL. There is no cost command | P3: not a daily need; judge with the "criteria for adding a family" |
 
 ### C7. Process safety, governance, audit
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Global `--dry-run` | `terraform plan`, `kubectl --dry-run=server` | PRESENT | global flag; `dryrun_test.go` | — |
-| Protected + `--yes`, human confirmation `[y/N]`/type the name | `terraform apply` approval | PRESENT | `ux.md` §6, `confirmProtected` | — |
-| Policy for destructive commands + `--allow-dangerous` | — | PRESENT | `policy list/check/deny/allow` | — |
-| Two-person approval / RBAC | Teleport access request, Boundary | NON-GOAL | needs a server (N1); protected + human prompt is the replacement | — |
-| Local audit log (actor, target) | CloudTrail, `ansible` log | PRESENT | `audit.jsonl` (`common.go:370`: ts, command, ok, dry_run, actor, hosts, remote), `KOMANDO_ACTOR`, filter `--target/--command/--failed/--limit`. The `--via` path is not recorded (only `tunnel.start` records the spec) | — |
-| Audit **fails closed** | — | PARTIAL | `common.go` `audit()`: if the file cannot be opened → silent `return`, the result of `f.Write` is ignored. Conflicts with `ux.md` §6 "Fail closed: if the audit cannot be written, the change is refused" | **P1** — a security promise not kept |
+| Global `--dry-run` | `terraform plan`, `kubectl --dry-run=server` | PRESENT | global flag; `dryrun_test.go` | none |
+| Protected + `--yes`, human confirmation `[y/N]`/type the name | `terraform apply` approval | PRESENT | `ux.md` §6, `confirmProtected` | none |
+| Policy for destructive commands + `--allow-dangerous` | none | PRESENT | `policy list/check/deny/allow` | none |
+| Two-person approval / RBAC | Teleport access request, Boundary | NON-GOAL | needs a server (N1); protected + human prompt is the replacement | none |
+| Local audit log (actor, target) | CloudTrail, `ansible` log | PRESENT | `audit.jsonl` (`common.go:370`: ts, command, ok, dry_run, actor, hosts, remote), `KOMANDO_ACTOR`, filter `--target/--command/--failed/--limit`. The `--via` path is not recorded (only `tunnel.start` records the spec) | none |
+| Audit **fails closed** | none | PARTIAL | `common.go` `audit()`: if the file cannot be opened → silent `return`, the result of `f.Write` is ignored. Conflicts with `ux.md` §6 "Fail closed: if the audit cannot be written, the change is refused" | **P1**: a security promise not kept |
 | Filter audit by time (`--since/--until`) and actor | `aws cloudtrail lookup-events` | MISSING | only limit/target/command/failed | P2 |
-| Send audit to syslog/SIEM/HTTP | auditd, Vector | MISSING | local JSONL file (can be tailed by other tools) | P2 — teams/companies need a central trail |
+| Send audit to syslog/SIEM/HTTP | auditd, Vector | MISSING | local JSONL file (can be tailed by other tools) | P2: teams/companies need a central trail |
 | Audit file rotation | logrotate | MISSING | `audit.jsonl` keeps growing; `audit` reads the whole file | P3 |
 | Notifications (Slack/webhook) after an action/job | Ansible callback, `gh` notifications | MISSING | continuous notifications are a NON-GOAL (N3); a one-time notification when `job wait` finishes does not exist | P3 |
-| Scheduling | cron, `gh workflow` | PRESENT | `cron set/list/rm` manage the **remote** crontab (`modules.go:716`); scheduling on the laptop = daemon (N1), so the missing part is a NON-GOAL, not a gap | — |
+| Scheduling | cron, `gh workflow` | PRESENT | `cron set/list/rm` manage the **remote** crontab (`modules.go:716`); scheduling on the laptop = daemon (N1), so the missing part is a NON-GOAL, not a gap | none |
 
 ### C8. AI agent integration
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Skill for Claude Code, Codex, Cursor, Gemini CLI | `claude mcp add`, `npx skills add`, Cursor rules (`.cursor/rules`) | PRESENT | `guide install [--project]` → `.claude/skills`, `.agents/skills`; `skills/komando/SKILL.md`, `AGENTS.md` | — |
-| Agent playbook | — | PRESENT | `komando guide` (`internal/cli/guide.md`) | — |
-| Machine schema of all commands/flags/exit codes | `gh api`-style, OpenAPI | PARTIAL | `schema [--compact]` exists, but its fixed part is stale: `meta.go:243-253` `target_selectors` mentions only "hosts" and has no `kind:`; `secret_refs` only `secret:` / `env:` / `file:` (no `op://`, `vault:`, `aws-sm:`, `gcp-sm:`). Agents are told to use `schema` as the source of truth | **P1** — agents get wrong info; cheap to fix |
-| Schema of the `data` shape per command (output JSON Schema) | — | MISSING | envelope only; the `data` field is not described | P2 — stronger v1.0 contract |
-| MCP server (stdio) | many devops CLIs now have MCP | MISSING | none; skill + CLI already work. A stdio MCP is run by the agent (not a daemon), but adds surface | P2 — non-shell clients (Claude Desktop, IDEs) cannot use komando |
-| Automatic actor name for agents | — | PARTIAL | `KOMANDO_ACTOR` is manual; default `$USER` (agent and human look the same in audit) | P2 — audit cannot tell agents apart if it is not set |
-| Agent cannot answer prompts | — | PRESENT | prompts appear only when stdin **and** stderr are terminals (`common.go:295` `interactive()`); from a pipe/agent the answer is always "no" (`confirmYes`, `common.go:314`). The answer is read from the TTY stdin, not `/dev/tty` (`ux.md` §6) | — |
+| Skill for Claude Code, Codex, Cursor, Gemini CLI | `claude mcp add`, `npx skills add`, Cursor rules (`.cursor/rules`) | PRESENT | `guide install [--project]` → `.claude/skills`, `.agents/skills`; `skills/komando/SKILL.md`, `AGENTS.md` | none |
+| Agent playbook | none | PRESENT | `komando guide` (`internal/cli/guide.md`) | none |
+| Machine schema of all commands/flags/exit codes | `gh api`-style, OpenAPI | PARTIAL | `schema [--compact]` exists, but its fixed part is stale: `meta.go:243-253` `target_selectors` mentions only "hosts" and has no `kind:`; `secret_refs` only `secret:` / `env:` / `file:` (no `op://`, `vault:`, `aws-sm:`, `gcp-sm:`). Agents are told to use `schema` as the source of truth | **P1**: agents get wrong info; cheap to fix |
+| Schema of the `data` shape per command (output JSON Schema) | none | MISSING | envelope only; the `data` field is not described | P2: stronger v1.0 contract |
+| MCP server (stdio) | many devops CLIs now have MCP | MISSING | none; skill + CLI already work. A stdio MCP is run by the agent (not a daemon), but adds surface | P2: non-shell clients (Claude Desktop, IDEs) cannot use komando |
+| Automatic actor name for agents | none | PARTIAL | `KOMANDO_ACTOR` is manual; default `$USER` (agent and human look the same in audit) | P2: audit cannot tell agents apart if it is not set |
+| Agent cannot answer prompts | none | PRESENT | prompts appear only when stdin **and** stderr are terminals (`common.go:295` `interactive()`); from a pipe/agent the answer is always "no" (`confirmYes`, `common.go:314`). The answer is read from the TTY stdin, not `/dev/tty` (`ux.md` §6) | none |
 
 ### C9. Reliability
 
 | Capability | Comparable tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|
-| Idempotency | Ansible | PRESENT | `cron set`, `user add`, `key deploy`, `import`, `fs write --if-changed` | — |
-| Limited parallelism | Ansible forks | PRESENT | `-P/--parallel`, `--fail-fast` | — |
-| Connection retry/backoff | `aws` (retry mode), Ansible `retries` | MISSING | only `minio.MaxRetry=2` and registry token retry; the guide forbids blind retries | P3 — hint + agent decides is already in line with the design |
+| Idempotency | Ansible | PRESENT | `cron set`, `user add`, `key deploy`, `import`, `fs write --if-changed` | none |
+| Limited parallelism | Ansible forks | PRESENT | `-P/--parallel`, `--fail-fast` | none |
+| Connection retry/backoff | `aws` (retry mode), Ansible `retries` | MISSING | only `minio.MaxRetry=2` and registry token retry; the guide forbids blind retries | P3: hint + agent decides is already in line with the design |
 | Rate limit (Docker Hub, APIs) | `crane` | MISSING | only `--parallel` | P3 |
-| Clean Ctrl-C (exit 130, rollback) | — | PARTIAL | `signal.NotifyContext` in `root.go:64` cancels the context; but `context.Canceled` is mapped to `CANCELLED` with exit **1** (`common.go:122-123`, `out.ExitError`), not 130, and audit does not record `interrupted` as promised in `ux.md:183` (§6) | P3 — agents cannot tell Ctrl-C from a normal error |
-| Detached long jobs | `nohup`, Ansible async | PRESENT | `job start/status/logs/wait/kill/rm` | — |
-| State safe for concurrent processes | — | PRESENT | `store.Update` with a file lock (`ux.md` §8) | — |
-| Fuzzy picker / interactive host picker | `fzf`, `gcloud` interactive | NON-GOAL | close to a TUI (N1: "GUI, TUI ... komando stays a pure CLI"); dynamic completion is the replacement | — |
+| Clean Ctrl-C (exit 130, rollback) | none | PARTIAL | `signal.NotifyContext` in `root.go:64` cancels the context; but `context.Canceled` is mapped to `CANCELLED` with exit **1** (`common.go:122-123`, `out.ExitError`), not 130, and audit does not record `interrupted` as promised in `ux.md:183` (§6) | P3: agents cannot tell Ctrl-C from a normal error |
+| Detached long jobs | `nohup`, Ansible async | PRESENT | `job start/status/logs/wait/kill/rm` | none |
+| State safe for concurrent processes | none | PRESENT | `store.Update` with a file lock (`ux.md` §8) | none |
+| Fuzzy picker / interactive host picker | `fzf`, `gcloud` interactive | NON-GOAL | close to a TUI (N1: "GUI, TUI ... komando stays a pure CLI"); dynamic completion is the replacement | none |
 | User aliases/custom commands | `gh alias set`, `git alias` | PARTIAL | `recipe add` (saved remote command with `{{blank}}`); no aliases for komando's own commands | P3 |
 
 ---
 
 ## P1 priority summary (ordered by impact)
 
-1. **Secrets into env/remote commands without `--reveal`** (`exec/job/script --env K=secret:x`, `fs write` template) — B4. Without this, agents are forced to read passwords.
-2. **`secret get --reveal` without a human gate** — B1. Agents can read all secrets; it should need a TTY/confirmation like `--yes`.
-3. **`secret rm` without `IN_USE`, confirmation, and audit** — B1.
-4. **Audit fail-open** (`common.go` `audit()` ignores errors) — C7, breaks `ux.md` §6.
-5. **Tunnel non-loopback bind without `--yes`** — A8, breaks `network.md` "Security".
-6. **AWS SSM Session Manager (shell + port forwarding) as a `--via` step** — A7.
-7. **`ProxyCommand` silently dropped on `import ssh-config`** (and no generic ProxyCommand path) — A7, breaks `ux.md` §9.
-8. **Dynamic completion of target names** — C3, promised in `ux.md` §10.
-9. **Stale `komando schema`** (selectors & secret refs) — C8; agents use the schema as the source of truth.
+1. **Secrets into env/remote commands without `--reveal`** (`exec/job/script --env K=secret:x`, `fs write` template); see B4. Without this, agents are forced to read passwords.
+2. **`secret get --reveal` without a human gate** (B1). Agents can read all secrets; it should need a TTY/confirmation like `--yes`.
+3. **`secret rm` without `IN_USE`, confirmation, and audit** (B1).
+4. **Audit fail-open** (`common.go` `audit()` ignores errors) (C7), breaks `ux.md` §6.
+5. **Tunnel non-loopback bind without `--yes`** (A8), breaks `network.md` "Security".
+6. **AWS SSM Session Manager (shell + port forwarding) as a `--via` step** (A7).
+7. **`ProxyCommand` silently dropped on `import ssh-config`** (and no generic ProxyCommand path); see A7. It breaks `ux.md` §9.
+8. **Dynamic completion of target names** (C3), promised in `ux.md` §10.
+9. **Stale `komando schema`** (selectors & secret refs) (C8); agents use the schema as the source of truth.
 
 (Only nine items deserve P1; the next top P2 candidates: openconnect SAML/SSO, `HTTPS_PROXY`, OS keyring for `vault.key`, `--debug`, Homebrew, signed releases, MCP server, Azure Key Vault/Bitwarden/pass/sops.)
 

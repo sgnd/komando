@@ -51,7 +51,7 @@ compared with other tools).
 | `vpn` (WireGuard, OpenVPN/Pritunl, AnyConnect, Tailscale, SOCKS, OS VPN; Fortinet, GlobalProtect, F5, Pulse/Ivanti experimental) | ✅ done, built in |
 | Secret refs (`vault:`, `aws-sm:`, `gcp-sm:`, `op://` through 1Password Connect, `bw://`, `kdbx:`) | ✅ done, built in |
 | One inventory: universal selectors, `komando list`, `komando test` | ✅ done |
-| Migration | ✅ `import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, dbeaver, komando) and `export` |
+| Migration | ✅ `import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, aws, dbeaver, komando, csv) and `export` |
 
 **Strengths.** The output contract, exit codes, risk-based guards
 (`read`/`write`/`destructive`), `--via` without a local port, and secret
@@ -155,13 +155,14 @@ komando export [--to FILE]          # the whole inventory, without secrets (or e
 | `ssh-config` | `~/.ssh/config` | host (already in `host import`) |
 | `kubeconfig` | `~/.kube/config` | a `k8s` conn per context |
 | `pgpass`, `mycnf` | `~/.pgpass`, `~/.my.cnf` | `db` conn + password into the vault |
-| `aws` | `~/.aws/config` + `credentials` | `storage` conn + key into the vault |
+| `aws` | `~/.aws/config` + `credentials` | `storage` conn per bucket, using the AWS profile (`aws_profile`); no key is copied |
 | `docker` | `~/.docker/config.json` | `registry` conn (uses the credential helper if there is one) |
-| `rclone` | `rclone.conf` | `storage` conn |
-| `filezilla` | `sitemanager.xml` | `storage` conn (ftp/sftp) |
-| `termius`, `tableplus`, `dbeaver` | each tool's export file | host/conn |
+| `rclone` | `rclone.conf` | `storage` conn (sftp remotes) |
+| `filezilla` | `sitemanager.xml` | `storage` conn (SFTP sites only; FTP is skipped) |
+| `dbeaver` | DBeaver's `data-sources.json` | `db` conn (passwords set afterwards) |
 | `env` | `.env` file (`DATABASE_URL`, `REDIS_URL`, ...) | conn |
 | `komando` | `export` file | everything (moving to another machine) |
+| `csv` | a spreadsheet saved as CSV | hosts (the first row names the columns) |
 
 The rules: imported secrets **always go into the vault**, `--dry-run` shows
 what will be created, and existing entries are not overwritten except with
@@ -219,7 +220,7 @@ A new family is only added when **all** of these are met:
 ## Non-goals
 
 - Replacing full tools (`psql`, `kubectl`, `terraform`, `helm`) in
-  everything they do. komando handles 80% of daily work safely. But what
+  everything they do. komando handles the common daily work safely. But what
   komando's own features need from them is built in: no feature needs
   another program installed ([built-in.md](built-in.md)). The rest can still
   be done through `exec` on a host or with the original tool.
@@ -240,7 +241,7 @@ A new family is only added when **all** of these are met:
 | 5 | TUI? | ✅ No. Pure CLI. One exception (2026-11-08): `komando` alone opens a small menu for a person at a terminal. It only runs ordinary commands and is never shown to agents, scripts or pipes. Dashboards, panes and full-screen apps stay out. |
 | 6 | May a feature need Docker or another installed program? | ✅ No (2026-11-03). Every feature is built in; plan in [built-in.md](built-in.md). |
 | 7 | Own implementation or a vendor library? Open source? | ✅ Own implementation where no suitable open library exists, and fully open source: no closed or prebuilt components (2026-11-03). |
-| 8 | For one person or for teams? | ✅ Both (2026-11-09). Team features (shared inventory and rules) are not built yet; they must keep solo use as simple as today. |
+| 8 | Who is komando for? | ✅ Everyone (2026-11-09). The open-source CLI serves two equal ways of use: **a person** working interactively (the menu, questions one step at a time) and **an AI agent** giving direct commands (flags and JSON, never a question). Every CLI feature works both ways. **Teams** (shared inventory and rules, roles and permissions (RBAC), sessions that say who is acting, and the like) are served only by the komando app, not by the open-source CLI. |
 | 9 | How does an AI agent reach a server with a two-factor login? | ✅ A person runs `komando login HOST` once and answers the code; komando keeps that login for some hours (`login_for`, 8h) and the agent's commands use it, like `vpn up` (2026-11-09). |
 
 ### Example for number 3

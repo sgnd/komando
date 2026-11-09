@@ -58,22 +58,22 @@ secrets** (row J1). The other reports only cover secrets in arguments, audit,
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| A1 | macOS host (launchd, Homebrew, `sw_vers`) | Ansible (`community.general.launchd`, `homebrew`), Salt | PARTIAL | `exec`/`fs`/`upload` work over SSH. `facts` falls back to `uname -s` (`ops.go:21`) and reads `/proc`, which does not exist, so memory, load, and uptime are empty. `svc` is systemd only, `pkg` has no `brew` | P3 — the host model in the vision = "SSH (Linux)"; rarely used as a server |
-| A2 | FreeBSD/OpenBSD host (`service`, `sysrc`, `pkg`, `rc.conf`) | Ansible (`sysrc`, `pkgng`), Salt | PARTIAL | same as A1: `exec` works, system modules (`svc`, `pkg`, `facts`) assume Linux | P3 — few users (pfSense/OPNsense firewalls, see A3) |
-| A3 | Routers, switches, firewalls: run `show ...` and get the result (Cisco IOS/NX-OS, Juniper Junos, MikroTik RouterOS, Arista EOS, FortiGate, pfSense) | netmiko, scrapli, Ansible `network_cli`, NAPALM | MISSING | `komando test` runs `id -un`, `hostname`, `sudo -n true` (`host.go:637`), which fail on a device CLI. `exec` without `--env`/`--dir`/`--sudo` (and without `--env` on the host) sends the command as is (`sshx/run.go:68-96` `BuildCommand`), so a single command might work, but it is not tested. Policy only knows Linux shell commands (`reload`, `write erase` are not recognized) | P2 — "universal client"; network devices are part of daily work on-prem and in offices |
-| A4 | Back up network device config and diff between versions | Oxidized, RANCID, NAPALM `get_config` | MISSING | no code for network devices | P3 — needs A3 first |
-| A5 | SNMP get/walk (interface status, UPS, printers, old devices) | `snmpwalk`, `snmpget` | MISSING | no `snmp` kind in `internal/driver` | P3 — continuous monitoring is a NON-GOAL; a one-off read is rarely needed |
+| A1 | macOS host (launchd, Homebrew, `sw_vers`) | Ansible (`community.general.launchd`, `homebrew`), Salt | PARTIAL | `exec`/`fs`/`upload` work over SSH. `facts` falls back to `uname -s` (`ops.go:21`) and reads `/proc`, which does not exist, so memory, load, and uptime are empty. `svc` is systemd only, `pkg` has no `brew` | P3: the host model in the vision = "SSH (Linux)"; rarely used as a server |
+| A2 | FreeBSD/OpenBSD host (`service`, `sysrc`, `pkg`, `rc.conf`) | Ansible (`sysrc`, `pkgng`), Salt | PARTIAL | same as A1: `exec` works, system modules (`svc`, `pkg`, `facts`) assume Linux | P3: few users (pfSense/OPNsense firewalls, see A3) |
+| A3 | Routers, switches, firewalls: run `show ...` and get the result (Cisco IOS/NX-OS, Juniper Junos, MikroTik RouterOS, Arista EOS, FortiGate, pfSense) | netmiko, scrapli, Ansible `network_cli`, NAPALM | MISSING | `komando test` runs `id -un`, `hostname`, `sudo -n true` (`host.go:637`), which fail on a device CLI. `exec` without `--env`/`--dir`/`--sudo` (and without `--env` on the host) sends the command as is (`sshx/run.go:68-96` `BuildCommand`), so a single command might work, but it is not tested. Policy only knows Linux shell commands (`reload`, `write erase` are not recognized) | P2: "universal client"; network devices are part of daily work on-prem and in offices |
+| A4 | Back up network device config and diff between versions | Oxidized, RANCID, NAPALM `get_config` | MISSING | no code for network devices | P3: needs A3 first |
+| A5 | SNMP get/walk (interface status, UPS, printers, old devices) | `snmpwalk`, `snmpget` | MISSING | no `snmp` kind in `internal/driver` | P3: continuous monitoring is a NON-GOAL; a one-off read is rarely needed |
 
 ## B. Out-of-band and virtualization
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| B1 | Status and power on/off/cycle of physical servers through the BMC (iDRAC, iLO, XClarity, Supermicro) | `ipmitool chassis power`, Redfish API, `racadm`, `hponcfg` | MISSING | no `ipmi`/`redfish` code in `internal/` | P2 — the only way in when SSH is dead (complements the P1 "controlled reboot" in the README); Redfish = HTTP API, fits the conn model; power off = destructive |
+| B1 | Status and power on/off/cycle of physical servers through the BMC (iDRAC, iLO, XClarity, Supermicro) | `ipmitool chassis power`, Redfish API, `racadm`, `hponcfg` | MISSING | no `ipmi`/`redfish` code in `internal/` | P2: the only way in when SSH is dead (complements the P1 "controlled reboot" in the README); Redfish = HTTP API, fits the conn model; power off = destructive |
 | B2 | Serial console / Serial-over-LAN | `ipmitool sol activate`, conserver, `screen /dev/ttyUSB0` | MISSING | interactive like `shell` (for humans only) | P3 |
-| B3 | Proxmox VE: list VMs/LXC, start/stop/shutdown, snapshot and rollback | `pvesh`, `qm`, `pct`, proxmoxer, Terraform provider | MISSING | no `proxmox` kind; only through `exec -- qm ...` on a Proxmox node | P2 — very common on-prem/in small businesses; REST API + token fits the family contract; snapshot before risky changes |
+| B3 | Proxmox VE: list VMs/LXC, start/stop/shutdown, snapshot and rollback | `pvesh`, `qm`, `pct`, proxmoxer, Terraform provider | MISSING | no `proxmox` kind; only through `exec -- qm ...` on a Proxmox node | P2: very common on-prem/in small businesses; REST API + token fits the family contract; snapshot before risky changes |
 | B4 | libvirt/KVM: `virsh list/start/shutdown/snapshot-create` | `virsh`, `virt-manager` | MISSING | through `exec -- virsh ...` | P3 |
 | B5 | LXD/Incus: containers and VMs | `lxc`, `incus` | MISSING | through `exec` | P3 |
-| B6 | VMware vSphere: list VMs, power, snapshot | `govc`, PowerCLI | MISSING | no code | P3 — needs vCenter SOAP/REST; binary size |
+| B6 | VMware vSphere: list VMs, power, snapshot | `govc`, PowerCLI | MISSING | no code | P3: needs vCenter SOAP/REST; binary size |
 
 ## C. Cloud CLI as a client (beyond dynamic inventory)
 
@@ -84,28 +84,28 @@ other operations used day to day.
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| C1 | Status, start, stop, reboot of cloud VMs | `aws ec2 start-instances/reboot-instances`, `gcloud compute instances`, `az vm`, `doctl compute droplet-action`, `hcloud server` | MISSING | no `ec2`/`hcloud`/`doctl` code in `internal/` | P2 — vision candidate "cloud VMs"; recovery path when SSH is locked out (not provisioning) |
-| C2 | Snapshot a VM disk/volume before a risky change | `aws ec2 create-snapshot`, `hcloud server create-image`, `doctl compute droplet-action snapshot`, `gcloud compute disks snapshot` | MISSING | none | P2 — a way back for patching and OS upgrades; fits the "dry-run and rollback" rule |
+| C1 | Status, start, stop, reboot of cloud VMs | `aws ec2 start-instances/reboot-instances`, `gcloud compute instances`, `az vm`, `doctl compute droplet-action`, `hcloud server` | MISSING | no `ec2`/`hcloud`/`doctl` code in `internal/` | P2: vision candidate "cloud VMs"; recovery path when SSH is locked out (not provisioning) |
+| C2 | Snapshot a VM disk/volume before a risky change | `aws ec2 create-snapshot`, `hcloud server create-image`, `doctl compute droplet-action snapshot`, `gcloud compute disks snapshot` | MISSING | none | P2: a way back for patching and OS upgrades; fits the "dry-run and rollback" rule |
 | C3 | VM console/serial output when SSH is dead | `aws ec2 get-console-output`, `gcloud compute instances get-serial-port-output`, `hcloud server request-console` | MISSING | none | P3 |
 | C4 | Managed container services as a `cluster` kind (ECS, Cloud Run, Azure Container Apps, Fly Machines) | `aws ecs`, `gcloud run`, `az containerapp`, `flyctl` | MISSING | `cluster` is k8s and swarm only (vision: "later: nomad") | P3 |
 | C5 | Managed DB operations: snapshot, reboot, failover, view parameters | `aws rds`, `gcloud sql`, `az postgres` | MISSING | DB provisioning is already a NON-GOAL ([database-cache.md](database-cache.md):362); snapshot/failover are operations, not yet covered | P3 |
-| C6 | Cloud logs: tail and search (CloudWatch Logs, Cloud Logging, Azure Monitor) | `aws logs tail`, `gcloud logging read`, `az monitor log-analytics query` | MISSING | none | P3 — API per cloud, binary size |
+| C6 | Cloud logs: tail and search (CloudWatch Logs, Cloud Logging, Azure Monitor) | `aws logs tail`, `gcloud logging read`, `az monitor log-analytics query` | MISSING | none | P3: API per cloud, binary size |
 | C7 | Serverless functions: invoke, view logs/versions | `aws lambda`, `gcloud functions` | MISSING | none | P3 |
 
 ## D. DNS, CDN, load balancers, web servers
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| D1 | Manage DNS records at the provider (list/set/rm A, CNAME, TXT) with dry-run | dnscontrol, octoDNS, `flarectl`/Cloudflare API, `aws route53`, `doctl compute domain` | MISSING | no DNS kind; `net dns` only resolves from the server | P2 — vision candidate "DNS (Cloudflare, Route 53)"; small HTTP API; clear risk (`rm` = destructive) |
+| D1 | Manage DNS records at the provider (list/set/rm A, CNAME, TXT) with dry-run | dnscontrol, octoDNS, `flarectl`/Cloudflare API, `aws route53`, `doctl compute domain` | MISSING | no DNS kind; `net dns` only resolves from the server | P2: vision candidate "DNS (Cloudflare, Route 53)"; small HTTP API; clear risk (`rm` = destructive) |
 | D2 | Purge CDN cache, maintenance mode, block IPs in the WAF | Cloudflare API, `aws cloudfront create-invalidation`, `fastly purge` | MISSING | none | P3 |
-| D3 | Take a node out of / put it back into the load balancer during maintenance | HAProxy runtime API (`disable server`), `aws elbv2 deregister-targets`, Traefik/nginx upstream | MISSING | through `exec` + `socat` to the HAProxy socket | P3 — supports rolling updates (`serial`, P2 in [ssh-files-system.md](ssh-files-system.md) §5) |
+| D3 | Take a node out of / put it back into the load balancer during maintenance | HAProxy runtime API (`disable server`), `aws elbv2 deregister-targets`, Traefik/nginx upstream | MISSING | through `exec` + `socat` to the HAProxy socket | P3: supports rolling updates (`serial`, P2 in [ssh-files-system.md](ssh-files-system.md) §5) |
 | D4 | Enable/disable a vhost + test + reload in one step | `a2ensite`/`a2dissite`, `sites-enabled` symlink, Caddy admin API `/load` | MISSING | recipes `nginx-test`, `nginx-sites`, `apache-test` only read; Caddy has no recipe | P3 |
 
 ## E. Certificates and PKI
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| E1 | Scan certificate files on servers (`/etc/ssl`, `/etc/letsencrypt`, `/etc/nginx`, keystores) and their remaining days, across a fleet | `openssl x509 -enddate`, ssl-cert-check, `certbot certificates` | PARTIAL | recipe `certbot-certs` covers certbot certificates only; `cert-expiry` works over the network (s_client), not from files; internal certs (mTLS, DB, kubelet) are not visible | P2 — expired certificates are a common cause of outages; vision candidate "certificates/ACME" |
+| E1 | Scan certificate files on servers (`/etc/ssl`, `/etc/letsencrypt`, `/etc/nginx`, keystores) and their remaining days, across a fleet | `openssl x509 -enddate`, ssl-cert-check, `certbot certificates` | PARTIAL | recipe `certbot-certs` covers certbot certificates only; `cert-expiry` works over the network (s_client), not from files; internal certs (mTLS, DB, kubelet) are not visible | P2: expired certificates are a common cause of outages; vision candidate "certificates/ACME" |
 | E2 | Issue/renew certificates from an internal CA | `step ca certificate`, cfssl, Vault PKI | MISSING | none | P3 |
 | E3 | Check cert/key/CSR files: key matches cert, full chain, SAN | `openssl`, `step certificate inspect` | MISSING | through `exec -- openssl ...` | P3 |
 
@@ -113,10 +113,10 @@ other operations used day to day.
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| F1 | Release deploy: release folder + `current` symlink + rollback to the previous release | Capistrano, Deployer (PHP), Ansistrano | MISSING | the `deploy-app` example in the `recipe add` help is only `git pull` + restart (`ops.go:265`); not a built-in recipe | P3 — close to a playbook (NON-GOAL); `script` is enough |
+| F1 | Release deploy: release folder + `current` symlink + rollback to the previous release | Capistrano, Deployer (PHP), Ansistrano | MISSING | the `deploy-app` example in the `recipe add` help is only `git pull` + restart (`ops.go:265`); not a built-in recipe | P3: close to a playbook (NON-GOAL); `script` is enough |
 | F2 | Zero-downtime container deploy to a VM without an orchestrator | Kamal, docker-rollout | MISSING | only `docker compose up -d` | P3 |
 | F3 | Self-hosted PaaS: list apps, logs, restart, config | `dokku`, Coolify CLI, CapRover | MISSING | through `exec -- dokku ...` | P3 |
-| F4 | Non-systemd process managers: status, restart, logs (pm2, Supervisor, Laravel queue workers) | `pm2 list/restart/logs`, `supervisorctl status/restart` | MISSING | `svc` is systemd only; no pm2/supervisor recipe | P2 — very common on Node/PHP/Python VPSes; restarting workers after a deploy is daily work |
+| F4 | Non-systemd process managers: status, restart, logs (pm2, Supervisor, Laravel queue workers) | `pm2 list/restart/logs`, `supervisorctl status/restart` | MISSING | `svc` is systemd only; no pm2/supervisor recipe | P2: very common on Node/PHP/Python VPSes; restarting workers after a deploy is daily work |
 | F5 | App framework commands (`artisan`, `manage.py`, `rails runner`), PHP-FPM status/reload | artisan, Django, Rails, `php-fpm -t` | MISSING | through `exec`/`recipe add` | P3 |
 
 ## G. Server file backup
@@ -126,7 +126,7 @@ is missing: backup of server folders.
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| G1 | Back up server folders to storage (snapshots, dedup, encryption, retention) | restic, borg, kopia, duplicity | MISSING | `download -r` is only server → laptop (`transfer.go:106-110`); storage rejects `-r` and accepts one file per command (`transfer.go:62-66`, `:96-99`); no direct server → storage path, snapshots, dedup, or retention | P2 — vision goal 2 "back up and restore" for every family; hosts do not have it yet |
+| G1 | Back up server folders to storage (snapshots, dedup, encryption, retention) | restic, borg, kopia, duplicity | MISSING | `download -r` is only server → laptop (`transfer.go:106-110`); storage rejects `-r` and accepts one file per command (`transfer.go:62-66`, `:96-99`); no direct server → storage path, snapshots, dedup, or retention | P2: vision goal 2 "back up and restore" for every family; hosts do not have it yet |
 | G2 | View snapshots, check the age of the last backup, restore one file | `restic snapshots/restore`, `borg list/extract` | MISSING | through `exec` if restic/borg is installed | P3 |
 
 ## H. Observability (one-off, not monitoring)
@@ -136,9 +136,9 @@ Elasticsearch/OpenSearch in §20 of the same report.
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| H1 | Silence alerts during maintenance, view active alerts | `amtool silence add/alert query`, Grafana API | MISSING | none | P3 — a one-off command, does not break the monitoring NON-GOAL |
+| H1 | Silence alerts during maintenance, view active alerts | `amtool silence add/alert query`, Grafana API | MISSING | none | P3: a one-off command, does not break the monitoring NON-GOAL |
 | H2 | Query centralized logs (Loki LogQL, Graylog) | `logcli query`, Graylog API | MISSING | none | P3 |
-| H3 | Ack incidents / view app errors | PagerDuty CLI, Sentry CLI | MISSING | none | P3 — outside the vision's "devops client" |
+| H3 | Ack incidents / view app errors | PagerDuty CLI, Sentry CLI | MISSING | none | P3: outside the vision's "devops client" |
 
 ## I. Disks, RAID, and filesystems
 
@@ -148,9 +148,9 @@ swap (§18).
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| I1 | SMART and NVMe disk health | `smartctl -H -A`, `nvme smart-log` | MISSING | no `smartctl` recipe or code | P2 — a broken disk = data loss; a one-off read command, easy to make a recipe |
-| I2 | Software RAID and pool status, detect degraded | `mdadm --detail`, `/proc/mdstat`, `zpool status`, `btrfs device stats` | MISSING | none | P2 — same as I1 |
-| I3 | Grow the disk after the cloud volume was enlarged | `growpart`, `pvresize`, `lvextend -r`, `resize2fs`, `xfs_growfs` | MISSING | through `exec`; the agent has to guess the step order and the filesystem type | P2 — "disk full" is a daily incident; the wrong order can cause damage |
+| I1 | SMART and NVMe disk health | `smartctl -H -A`, `nvme smart-log` | MISSING | no `smartctl` recipe or code | P2: a broken disk = data loss; a one-off read command, easy to make a recipe |
+| I2 | Software RAID and pool status, detect degraded | `mdadm --detail`, `/proc/mdstat`, `zpool status`, `btrfs device stats` | MISSING | none | P2: same as I1 |
+| I3 | Grow the disk after the cloud volume was enlarged | `growpart`, `pvresize`, `lvextend -r`, `resize2fs`, `xfs_growfs` | MISSING | through `exec`; the agent has to guess the step order and the filesystem type | P2: "disk full" is a daily incident; the wrong order can cause damage |
 | I4 | LVM/ZFS/Btrfs snapshot before an upgrade, and rollback | `lvcreate -s`, `zfs snapshot/rollback`, snapper | MISSING | none | P3 |
 | I5 | Stuck (stale) NFS/SMB mounts | `findmnt`, `showmount`, `umount -l` | MISSING | recipes `disk`, `inodes`, `health` use `df` over all mounts (without `-l`/`-x nfs`), so they can hang on a stuck NFS mount (`facts` only `df /`); the only thing present is a per-host `--timeout` for the whole command (default 5m), not a per-step limit, and there is no recipe to detect stuck mounts | P3 |
 
@@ -158,9 +158,9 @@ swap (§18).
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| J1 | Redact secrets in the **output** of remote commands (`fs cat .env`, `exec -- env`, `logs`, `docker exec ... env`, app config files) | gitleaks/trufflehog rules, Teleport (session redaction) | MISSING | redaction exists only in `cluster get` (`cluster.go:327`) and in `cluster run` audit arguments (`redactArgs`, `cluster.go:1110`). Output of `exec`/`fs cat`/`logs`/`storage` is sent to the agent in full | **P1** — vision: "passwords are never visible to the AI"; agents routinely read `.env`, `wp-config.php`, `application.yml` |
-| J2 | fail2ban/CrowdSec: jail status, blocked IPs, unban | `fail2ban-client status/set ... unbanip`, `cscli decisions` | MISSING | no recipe | P2 — admin/CI IPs are often blocked; parallel `exec` through one bastion can also trigger a ban (see O1) |
-| J3 | One-off hardening/compliance audit (CIS) | Lynis, OpenSCAP `oscap`, kube-bench | MISSING | only recipes `sshd-config`, `sudoers`, `auth-failures` | P3 — `job start -- lynis audit system` is already enough |
+| J1 | Redact secrets in the **output** of remote commands (`fs cat .env`, `exec -- env`, `logs`, `docker exec ... env`, app config files) | gitleaks/trufflehog rules, Teleport (session redaction) | MISSING | redaction exists only in `cluster get` (`cluster.go:327`) and in `cluster run` audit arguments (`redactArgs`, `cluster.go:1110`). Output of `exec`/`fs cat`/`logs`/`storage` is sent to the agent in full | **P1**: the vision says "passwords are never visible to the AI"; agents routinely read `.env`, `wp-config.php`, `application.yml` |
+| J2 | fail2ban/CrowdSec: jail status, blocked IPs, unban | `fail2ban-client status/set ... unbanip`, `cscli decisions` | MISSING | no recipe | P2: admin/CI IPs are often blocked; parallel `exec` through one bastion can also trigger a ban (see O1) |
+| J3 | One-off hardening/compliance audit (CIS) | Lynis, OpenSCAP `oscap`, kube-bench | MISSING | only recipes `sshd-config`, `sudoers`, `auth-failures` | P3: `job start -- lynis audit system` is already enough |
 | J4 | Read auditd logs | `ausearch`, `aureport` | MISSING | through `exec`/`logs --file /var/log/audit/audit.log` | P3 |
 | J5 | File integrity, rootkits, malware | AIDE, rkhunter, debsums, ClamAV | MISSING | none | P3 |
 | J6 | Scan for leaked secrets on servers (`.git` in the webroot, keys in public folders) | gitleaks, trufflehog `filesystem` | MISSING | none | P3 |
@@ -192,16 +192,16 @@ Podman is already covered in [cluster-docker.md](cluster-docker.md):70.
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| N1 | Trigger and watch pipelines | `gh workflow run/watch`, `glab ci run`, Jenkins CLI | MISSING | `gh workflow` is only mentioned as a scheduling comparison ([vpn-secrets-platform.md](vpn-secrets-platform.md) C7) | P3 — not a family in the vision; `gh`/`glab` are already good |
+| N1 | Trigger and watch pipelines | `gh workflow run/watch`, `glab ci run`, Jenkins CLI | MISSING | `gh workflow` is only mentioned as a scheduling comparison ([vpn-secrets-platform.md](vpn-secrets-platform.md) C7) | P3: not a family in the vision; `gh`/`glab` are already good |
 | N2 | Run a config management agent once (check mode) and view the last run result | `puppet agent -t --noop`, `chef-client --why-run`, `salt-call state.apply test=True` | MISSING | through `exec`; Ansible playbooks themselves are already a NON-GOAL | P3 |
-| N3 | Read Terraform/Pulumi output/state as an inventory source | `terraform output -json`, `pulumi stack output` | MISSING | `komando import` has no `terraform`/`pulumi` source (`importSources`, `importer.go:48`) | P3 — goal 4 (migration); IaC itself is a NON-GOAL (N4) |
+| N3 | Read Terraform/Pulumi output/state as an inventory source | `terraform output -json`, `pulumi stack output` | MISSING | `komando import` has no `terraform`/`pulumi` source (`importSources`, `importer.go:48`) | P3: goal 4 (migration); IaC itself is a NON-GOAL (N4) |
 | N4 | Declarative infrastructure: plan/apply/destroy and state (VMs, networks, DNS, managed DBs) | Terraform, OpenTofu, Pulumi | NON-GOAL | vision.md "Non-goals": "Infrastructure as Code, cloud provisioning, or GitOps"; no IaC code in `internal/`. Use the original tool; komando only operates its results | – |
 
 ## O. Fleet reliability
 
 | # | Capability | Comparison tools | komando status | Evidence/notes | Priority |
 |---|---|---|---|---|---|
-| O1 | One bastion connection shared by all hosts in **one** command | OpenSSH ControlMaster, Ansible (persistent connections), pssh | MISSING | `sshx.Dial` (`sshx/client.go:56`) builds a new `--via` chain per host. `exec @prod -P 10` through one bastion opens 10 logins to the bastion at once, close to the default `MaxStartups` limit (10:30:100), and can trigger fail2ban. Different from the NON-GOAL row "multiplexing across commands" ([ssh-files-system.md](ssh-files-system.md):53) | P2 — a fleet behind a bastion is the main pattern; random failures are hard to explain to an agent |
+| O1 | One bastion connection shared by all hosts in **one** command | OpenSSH ControlMaster, Ansible (persistent connections), pssh | MISSING | `sshx.Dial` (`sshx/client.go:56`) builds a new `--via` chain per host. `exec @prod -P 10` through one bastion opens 10 logins to the bastion at once, close to the default `MaxStartups` limit (10:30:100), and can trigger fail2ban. Different from the NON-GOAL row "multiplexing across commands" ([ssh-files-system.md](ssh-files-system.md):53) | P2: a fleet behind a bastion is the main pattern; random failures are hard to explain to an agent |
 
 ## S. Advanced system diagnostics
 

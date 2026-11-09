@@ -35,6 +35,17 @@ its highlights; the sections below them give the details. Versions follow
 - The menu's Add asks one question at a time instead of one line
   (`web1 deploy@10.0.0.5`), and the main menu has **All features** in place
   of Audit (Audit is under All features, Safety and audit).
+- Every JSON error now has an `error.hint`: an error without a hint of its
+  own gets a general next step for its exit code.
+- `komando schema` lists 16 more error codes (among them `CERT_PROBLEMS`,
+  `NXDOMAIN` and `SECRET_DESTINATION`), and each code's example and hint now
+  come from the same place in the code, so the hint fits the code.
+
+### Fixed
+
+- The docs no longer claim more than the code does: secrets are hidden from
+  agents komando recognises, and several design docs named flags, commands
+  and error codes that do not exist.
 
 ## [0.8.0] - 2026-11-09
 
@@ -56,7 +67,7 @@ its highlights; the sections below them give the details. Versions follow
   exec --read-only` are checked like `exec --read-only`.
 - **Easier first steps:** `--ask-password` stores a password in one step,
   `host add`, `conn add` and `vpn add` say what to run next, the menu grows
-  with your inventory, and every hint names a whole command you can run.
+  with your inventory, and more hints now name a whole command you can run.
 - **Easier to move and to leave:** a whole `export` carries your deny rules
   and settings and names the keys it needs, `import` keeps servers whose
   key is not here yet, and `komando guide uninstall` takes komando out of

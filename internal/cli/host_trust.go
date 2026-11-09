@@ -25,7 +25,7 @@ func init() {
 	sshx.PersonAtTerminal = func() bool { return interactive() }
 }
 
-// --- connectivity ----------------------------------------------------------
+// Host connectivity tests.
 
 type testResult struct {
 	Host          string     `json:"host"`
