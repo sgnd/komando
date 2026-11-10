@@ -2,5 +2,5 @@
 # /usr/local/bin/komando. No openconnect, ocproxy or tailscale programs:
 # komando has AnyConnect and Tailscale built in.
 FROM debian:13-slim
-RUN apt-get update -q && apt-get install -y -q --no-install-recommends ca-certificates netcat-openbsd curl \
+RUN apt-get update -q && apt-get install -y -q --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*

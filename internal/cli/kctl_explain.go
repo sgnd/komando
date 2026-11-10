@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -99,7 +100,7 @@ func (r *kctlRun) explain() error {
 	if fieldName != "" {
 		fmt.Fprintf(&r.stdout, "FIELD: %s <%s>\n\n", fieldName, schemaType(schema))
 	}
-	fmt.Fprintf(&r.stdout, "DESCRIPTION:\n%s\n", indentText(firstNonEmpty(str(schema["description"]), "<empty>"), "    "))
+	fmt.Fprintf(&r.stdout, "DESCRIPTION:\n%s\n", indentText(cmp.Or(str(schema["description"]), "<empty>"), "    "))
 	props, _ := schema["properties"].(map[string]any)
 	if len(props) > 0 {
 		r.stdout.WriteString("\nFIELDS:\n")
@@ -165,7 +166,7 @@ func schemaType(s map[string]any) string {
 	case strings.HasPrefix(t, "[]"):
 		return t
 	case t == "object" && s["properties"] == nil && s["additionalProperties"] != nil:
-		return "map[string]" + firstNonEmpty(schemaType(asMap(s["additionalProperties"])), "string")
+		return "map[string]" + cmp.Or(schemaType(asMap(s["additionalProperties"])), "string")
 	case t == "object" || (t == "" && s["properties"] != nil):
 		return "Object"
 	case t == "integer":

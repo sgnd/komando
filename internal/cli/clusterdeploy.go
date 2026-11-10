@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -225,7 +226,7 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 				if !oneOf(r.KindName(), "Deployment", "StatefulSet", "DaemonSet") {
 					return nil, out.Usage("deploy works on deployments, statefulsets and daemonsets")
 				}
-				space := firstNonEmpty(ns, k.Namespace)
+				space := cmp.Or(ns, k.Namespace)
 				var o map[string]any
 				if err := k.Get(ctx, r.ObjectPath(space, name), nil, &o); err != nil {
 					return nil, err
@@ -373,7 +374,7 @@ func clusterHistoryCmd() *cobra.Command {
 				if r.KindName() != "Deployment" {
 					return nil, out.Usage("history works on deployments; for others use `komando cluster run TARGET -- rollout history ...`")
 				}
-				space := firstNonEmpty(ns, k.Namespace)
+				space := cmp.Or(ns, k.Namespace)
 				var d map[string]any
 				if err := k.Get(ctx, r.ObjectPath(space, name), nil, &d); err != nil {
 					return nil, err
@@ -530,7 +531,7 @@ revision. A Swarm service goes back to its previous version.`,
 				if r.KindName() != "Deployment" {
 					return nil, out.Usage("rollback works on deployments; for others use `komando cluster run TARGET --write -- rollout undo ...`")
 				}
-				space := firstNonEmpty(ns, k.Namespace)
+				space := cmp.Or(ns, k.Namespace)
 				var d map[string]any
 				if err := k.Get(ctx, r.ObjectPath(space, name), nil, &d); err != nil {
 					return nil, err

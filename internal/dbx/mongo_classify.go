@@ -14,7 +14,7 @@ import (
 // MongoDB has no read-only transaction, so this rating is what keeps a
 // read a read (a read-only user enforces it on the server too).
 
-// MongoRules are the rules ClassifyMongo reports, for `komando policy`.
+// mongoRules are the rules ClassifyMongo reports, for `komando policy`.
 var mongoRules = []driver.Rule{
 	{ID: "mongo-drop", Reason: "drops a database, collection, index or user"},
 	{ID: "mongo-delete-all", Reason: "a delete with an empty filter removes every document"},

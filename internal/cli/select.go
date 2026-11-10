@@ -410,8 +410,8 @@ func skipVpns(vs []*store.Vpn) {
 	}
 }
 
-// renameNotFound keeps the older, more specific not-found codes for
-// commands that work with one type only.
+// renameNotFound gives a command that works with one type only its own,
+// more specific not-found code.
 func renameNotFound(err error, code string) error {
 	if e := toErr(err); e.Code == "TARGET_NOT_FOUND" {
 		e.Code = code
@@ -435,23 +435,6 @@ func resolveTargets(st *store.State, expr string) ([]*store.Host, error) {
 	}
 	skipVpns(sel.Vpns)
 	return sel.Hosts, nil
-}
-
-// resolveConns is resolveSelection for commands that work on any conn.
-// Servers the selector picked are reported as skipped.
-func resolveConns(st *store.State, expr string) ([]*store.Conn, error) {
-	sel, err := resolveSelection(st, expr)
-	if err != nil {
-		return nil, renameNotFound(err, "CONN_NOT_FOUND")
-	}
-	if len(sel.Conns) == 0 {
-		return nil, noMatch(expr, "conns", selection{Hosts: sel.Hosts, Vpns: sel.Vpns})
-	}
-	for _, h := range sel.Hosts {
-		out.P.Skip(out.Skipped{Name: h.Name, Kind: "host", Reason: useFor(h, nil)})
-	}
-	skipVpns(sel.Vpns)
-	return sel.Conns, nil
 }
 
 // noMatch is the error when a selector picked targets, but none this

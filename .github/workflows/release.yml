@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 jobs:
-  # 1. The same checks as every push (lint, unit, security, e2e): nothing untested reaches the users.
+  # The same checks as every push (lint, unit, security, e2e): nothing untested reaches the users.
   test:
     uses: ./.github/workflows/ci.yml
 
-  # 2. The release, with an archive per platform, checksums.txt and signed build provenance.
+  # The release, with an archive per platform, checksums.txt and signed build provenance.
   release:
     name: Release
     needs: test

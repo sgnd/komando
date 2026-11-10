@@ -520,8 +520,6 @@ func pragmaWrites(ts []token) bool {
 // opaqueFirst are statements whose real effect is hidden from komando.
 var opaqueFirst = map[string]bool{"DO": true, "CALL": true, "PREPARE": true, "EXECUTE": true, "EXEC": true}
 
-// stringRules are settings that change how SQL text is parsed. komando's
-// checks assume the defaults, so changing them is refused.
 // txSettings would switch off the read-only transaction komando runs (SET
 // TRANSACTION READ WRITE) or commit it early (SET autocommit in MySQL).
 var txSettings = map[string]bool{
@@ -530,9 +528,11 @@ var txSettings = map[string]bool{
 	"IMPLICIT_TRANSACTIONS": true, "ANSI_DEFAULTS": true, "REMOTE_PROC_TRANSACTIONS": true, // SQL Server
 }
 
-// The client character set counts too: the server converts the text from
-// it before reading it, and in SJIS, GBK or BIG5 a backslash (0x5c) can be
-// the second byte of a character (SET NAMES, SET CHARACTER SET, SET
+// stringRules are settings that change how SQL text is parsed. komando's
+// checks assume the defaults, so changing them is refused. The client
+// character set counts too: the server converts the text from it before
+// reading it, and in SJIS, GBK or BIG5 a backslash (0x5c) can be the
+// second byte of a character (SET NAMES, SET CHARACTER SET, SET
 // client_encoding, set_config('client_encoding', ...)).
 var stringRules = map[string]bool{
 	"STANDARD_CONFORMING_STRINGS": true, "BACKSLASH_QUOTE": true, "ESCAPE_STRING_WARNING": true, "SQL_MODE": true,
@@ -764,8 +764,8 @@ func settingAllowed(name string) error {
 }
 
 // Placeholders counts the parameters in sql ($1.. in postgres, ? in mysql
-// and sqlite, @p1.. in sqlserver), outside strings and comments. ok is false when the count is
-// not known (sqlite named parameters, or SQL that does not parse).
+// and sqlite, @p1.. in sqlserver), outside strings and comments. ok is false
+// when the count is not known (sqlite named parameters, or SQL that does not parse).
 func Placeholders(kind, sql string) (n int, ok bool) {
 	d, found := dialects[kind]
 	if !found {

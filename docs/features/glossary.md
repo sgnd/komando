@@ -11,7 +11,7 @@ The words used in these docs, in plain language. [All features](README.md)
 | Cache | A fast, temporary store an app uses to speed things up, such as Redis or Valkey. |
 | CLI / terminal | A command-line interface: a window where you type commands instead of clicking. |
 | Cluster | A group of machines that run containers together, managed by Kubernetes or Docker Swarm. |
-| Conn | komando's word for anything you connect to that is not a server: a database, cache, storage bucket, cluster or registry. Add one with `komando conn add`. |
+| Conn | komando's word for anything you connect to that is not a server: a database, cache, queue, storage bucket, cluster or registry. Add one with `komando conn add`. |
 | Container | An app packed with everything it needs, so it runs the same everywhere (Docker). |
 | Container image | The packed app a container starts from, such as `nginx:1.27`. |
 | Container registry | A server that stores container images: Docker Hub, GHCR, Harbor, ECR. |
@@ -25,6 +25,7 @@ The words used in these docs, in plain language. [All features](README.md)
 | Inventory | komando's list of everything you manage: servers, conns and VPNs. See it with `komando list`. |
 | Job | A long task left running on a server, started with `komando job start`. |
 | JSON | Structured text that programs read easily. komando answers agents and scripts in JSON. |
+| Message queue | A service that passes messages from one app to another: Kafka, RabbitMQ, NATS, Amazon SQS, Google Cloud Pub/Sub. See [Queues](queues.md). |
 | Namespace | A named section inside a Kubernetes cluster, used to keep apps apart. |
 | Object storage | A service that stores files as objects in buckets, reached over the internet: S3, MinIO, R2. |
 | Pod | The smallest unit Kubernetes runs: one or more containers together. |

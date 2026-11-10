@@ -3,13 +3,13 @@ package pubsub
 import (
 	"context"
 	"errors"
-	"net"
 	"strings"
 
 	"golang.org/x/oauth2"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/queuex"
 )
 
 const authHint = "check the Google Cloud login: the service account key in the conn's --password-ref, or else gcloud's (`gcloud auth application-default login`, " +
@@ -40,7 +40,7 @@ func connectErr(t driver.Target, err error) error {
 	case errors.As(err, &api):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check the project in the URL and ?endpoint= (the emulator's address, such as http://localhost:8085)",
 			"%s answered: %s", t.Address, msg)
-	case errors.Is(err, context.DeadlineExceeded) || isTimeout(err):
+	case errors.Is(err, context.DeadlineExceeded) || queuex.IsTimeout(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "check ?endpoint=, or raise --connect-timeout; without internet, reach Pub/Sub --via a server that can (or a Private Service Connect endpoint in ?endpoint=)",
 			"connecting to %s timed out", t.Address)
 	case strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify"):
@@ -51,11 +51,6 @@ func connectErr(t driver.Target, err error) error {
 	}
 	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando conn test NAME` to check reachability, or reach Pub/Sub --via a server that can",
 		"cannot connect to %s: %s", t.Address, msg)
-}
-
-func isTimeout(err error) bool {
-	var ne net.Error
-	return errors.As(err, &ne) && ne.Timeout()
 }
 
 func deniedErr(msg string) error {
@@ -72,7 +67,7 @@ func opErr(err error, what string, missing func(string) error) error {
 	if errors.As(err, &e) {
 		return err
 	}
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) || isTimeout(err) {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) || queuex.IsTimeout(err) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "Pub/Sub did not answer in time; raise --timeout", "%s: %v", what, err)
 	}
 	var re *oauth2.RetrieveError

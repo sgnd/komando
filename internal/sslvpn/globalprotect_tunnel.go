@@ -1,6 +1,7 @@
 package sslvpn
 
 import (
+	"cmp"
 	"context"
 	"crypto/tls"
 	"encoding/binary"
@@ -54,7 +55,7 @@ type gpConfig struct {
 
 // GlobalProtectTunnel reads the config and opens the tunnel.
 func GlobalProtectTunnel(ctx context.Context, o Options, s GPSession) (Tunnel, error) {
-	u, err := portalURL(firstNonEmptyS(s.Gateway, o.Portal))
+	u, err := portalURL(cmp.Or(s.Gateway, o.Portal))
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func gpRekey(timeout string) time.Duration {
 func (t *gpTun) getconfig(ctx context.Context) (gpConfig, error) {
 	var cfg gpConfig
 	s, u := t.s, t.u
-	cfgForm := url.Values{"client-type": {"1"}, "protocol-version": {"p1"}, "internal": {"no"}, "app-version": {firstNonEmptyS(s.AppVersion, gpAppVersion)},
+	cfgForm := url.Values{"client-type": {"1"}, "protocol-version": {"p1"}, "internal": {"no"}, "app-version": {cmp.Or(s.AppVersion, gpAppVersion)},
 		"os-version": {gpOS()}, "clientos": {gpOS()}, "hmac-algo": {"sha1,md5,sha256"}, "enc-algo": {"aes-128-cbc,aes-256-cbc"},
 		"preferred-ip": {""}, "user": {s.User}, "authcookie": {s.AuthCookie}, "portal": {s.Portal}, "domain": {s.Domain}, "computer": {s.Computer}}
 	if len(t.addrs) > 0 { // a re-setup asks for the address it has

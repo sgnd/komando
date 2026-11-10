@@ -44,7 +44,7 @@ func windowsNames(hosts []*store.Host) []string {
 // servers yet. what names the command ("pkg upgrade").
 func notOnWindows(what string, names []string) *out.Error {
 	return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-		"run PowerShell with `komando exec "+names[0]+" -- ...` instead, or leave the Windows servers out of the target, e.g. TARGET,!os:windows (docs/features/windows.md lists what works)",
+		"run PowerShell with `komando exec "+names[0]+" -- ...` instead, or leave the Windows servers out of the target, e.g. TARGET,!os:windows ("+releaseSite+"/blob/main/docs/features/windows.md lists what works)",
 		"%s does not work on Windows servers yet: %s", what, strings.Join(names, ", "))
 }
 
@@ -104,7 +104,7 @@ func targetWindows(target string) (bool, error) {
 	}
 	hosts, err := resolveTargets(st, target)
 	if err != nil {
-		return false, nil // runFleet reports it, as before
+		return false, nil // runFleet reports it
 	}
 	return sameOS(hosts)
 }

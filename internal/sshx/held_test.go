@@ -183,7 +183,6 @@ func execSSHDForwarding(t *testing.T) *ssh.Client {
 
 func itoa(n int) string { return strconv.Itoa(n) }
 
-// copyClose copies src to dst, then closes dst.
 func copyClose(dst io.WriteCloser, src io.Reader) (int64, error) {
 	n, err := io.Copy(dst, src)
 	dst.Close()

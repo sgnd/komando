@@ -159,10 +159,7 @@ func dumpPostgres(ctx context.Context, db *sql.DB, o DumpOptions, w *bufio.Write
 	w.WriteString("\n")
 
 	if !o.SchemaOnly {
-		raw, err := rawPg(conn)
-		if err != nil {
-			return err
-		}
+		raw := rawPg(conn)
 		for _, t := range tables {
 			if t.kind == "p" {
 				continue // the rows are in the partitions
@@ -661,7 +658,7 @@ func pgCreateTable(q func(string, ...any) ([][]sql.NullString, error), t pgTable
 
 // rawPg gives COPY TO STDOUT on the session's own connection (so it reads
 // inside the dump's snapshot).
-func rawPg(conn *sql.Conn) (func(ctx context.Context, w *bufio.Writer, sql string) error, error) {
+func rawPg(conn *sql.Conn) func(ctx context.Context, w *bufio.Writer, sql string) error {
 	return func(ctx context.Context, w *bufio.Writer, query string) error {
 		return conn.Raw(func(dc any) error {
 			c, ok := dc.(*stdlib.Conn)
@@ -671,5 +668,5 @@ func rawPg(conn *sql.Conn) (func(ctx context.Context, w *bufio.Writer, sql strin
 			_, err := c.Conn().PgConn().CopyTo(ctx, w, query)
 			return err
 		})
-	}, nil
+	}
 }

@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-// psBypass checks scripts that change something and that the scanner once
-// read as only reading: each must be refused under --read-only and must not
-// count as known to only read.
+// psBypass checks scripts outside the read-only subset: ones that change
+// something, and harmless ones in a shape the subset refuses. Each must be
+// refused under --read-only and must not count as known to only read.
 func psBypass(t *testing.T, scripts ...string) {
 	t.Helper()
 	for _, s := range scripts {
@@ -38,7 +38,7 @@ func TestPSCommentStartsAToken(t *testing.T) {
 		`Write-Output a#; Stop-Service Spooler`,
 		`Write-Output a<#x; Remove-Item C:\data; #>`,
 	)
-	// the denylist read these as reads; the subset refuses every comment
+	// harmless, but the subset refuses every comment
 	psBypass(t,
 		"Get-Date # Remove-Item C:\\x",
 		"Get-Date;# Remove-Item C:\\x",
@@ -55,7 +55,7 @@ func TestPSTypographicDoubleQuotes(t *testing.T) {
 		"Write-Output \u201ex\u201c; Remove-Item C:\\data",
 		"Write-Output \u201c$(Remove-Item C:\\data)\u201d",
 	)
-	psBypass(t, "Write-Output \u201cRemove-Item C:\\data\u201d") // was a read; non-ASCII is refused now
+	psBypass(t, "Write-Output \u201cRemove-Item C:\\data\u201d") // harmless, but non-ASCII is refused
 }
 
 func TestPSHereStrings(t *testing.T) {
@@ -65,7 +65,7 @@ func TestPSHereStrings(t *testing.T) {
 		"@\u2018\nx\n\u2019@; Remove-Item C:\\x",
 		"@\"\n$(Remove-Item C:\\x)\n\"@",
 	)
-	psBypass(t, // were reads; every here-string is refused now
+	psBypass(t, // harmless, but every here-string is refused
 		"@'\nRemove-Item C:\\x\n'@ | Out-String",
 		"@\"\r\nRemove-Item C:\\x\r\n\"@",
 		"@\u201c\nRemove-Item \u201d C:\\x\n\u201d@",
@@ -81,7 +81,7 @@ func TestPSSubexpressionQuotes(t *testing.T) {
 		"@\"\n$(\")\"; Remove-Item C:\\data)\n\"@",
 		`"$(Get-Date) $(Remove-Item C:\data)"`,
 	)
-	psBypass(t, // were reads; $ in a string is refused now
+	psBypass(t, // harmless, but $ in a string is refused
 		`"$("a") Remove-Item $((Get-Date).Year)"`,
 		`"$("$("a"); Remove-Item C:\data")"`,
 	)
@@ -95,7 +95,7 @@ func TestPSPipelineKeywords(t *testing.T) {
 		`return & $x`,
 		`foreach ($f in Remove-Item C:\x) { }`,
 	)
-	// were reads; keywords are refused now
+	// harmless, but keywords are refused
 	psBypass(t, `return Get-Date`, `exit 3`, `throw 'no'`, `foreach ($f in Get-ChildItem C:\x) { $f.Name }`,
 		`foreach ($f in Get-ChildItem C:\x) { $f.Name }; exit 0`)
 	psReads(t, `Get-ChildItem C:\x | ForEach-Object { $_.Name }`)
@@ -118,7 +118,7 @@ func TestPSDotNetMemberNames(t *testing.T) {
 		`Get-Item C:\f | foreach Delete`,
 		`net 'stop' w32time`,
 	)
-	psBypass(t, // were reads; .NET members and % NAME are refused now
+	psBypass(t, // harmless, but .NET members and % NAME are refused
 		`(Get-Item C:\f).'Length'`,
 		`Get-Service | % Name`,
 		`$h.$key`,
@@ -134,7 +134,7 @@ func TestPSOpenForWrite(t *testing.T) {
 		`[IO.File]::OpenWrite('C:\a').Close()`,
 		`[IO.FileStream]::new('C:\a','Truncate')`,
 	)
-	psBypass(t, // were reads; .NET calls are refused now
+	psBypass(t, // harmless, but .NET calls are refused
 		`[guid]::NewGuid()`,
 		`[IO.File]::OpenText('C:\a').ReadToEnd()`,
 		`[IO.File]::OpenRead('C:\a').Length`,
@@ -149,8 +149,7 @@ func TestPSRelativeCommands(t *testing.T) {
 		}
 	}
 	psBypass(t, `.\x\Remove-Item.ps1; & .\stop.ps1; Stop-Service x`)
-	// were reads (and the last two known reads); scripts by path and
-	// statements that are values are refused now
+	// scripts by path and statements that are values are refused
 	psBypass(t, `& .\report.ps1`, `. .\lib.ps1`, `1..10 | % { $_ }`, `1..10 | Sort-Object`, `5; 0x1F; 1.5e3; 2kb`)
 }
 

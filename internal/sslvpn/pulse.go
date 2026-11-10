@@ -3,6 +3,7 @@ package sslvpn
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -515,7 +516,7 @@ func (s *pulseSession) innerAnswer(b []byte, labels map[uint32]string) ([]byte, 
 		if s.o.Prompt == nil {
 			return nil, ErrNeedsPerson
 		}
-		code, err := s.o.Prompt(firstNonEmptyS(strings.TrimSpace(string(e.data)), "One-time code"), false)
+		code, err := s.o.Prompt(cmp.Or(strings.TrimSpace(string(e.data)), "One-time code"), false)
 		if err != nil {
 			return nil, err
 		}
@@ -542,9 +543,9 @@ func (s *pulseSession) innerAnswer(b []byte, labels map[uint32]string) ([]byte, 
 		default:
 			return nil, fmt.Errorf("the VPN asked a password question komando does not know (%#x)", e.data[0])
 		}
-		label := firstNonEmptyS(labels[avpPassLabel], "Password")
+		label := cmp.Or(labels[avpPassLabel], "Password")
 		if s.sentPw {
-			label = firstNonEmptyS(labels[avpPass2Label], "Second password")
+			label = cmp.Or(labels[avpPass2Label], "Second password")
 		}
 		pw, err := secret(label)
 		if err != nil {
@@ -558,7 +559,7 @@ func (s *pulseSession) innerAnswer(b []byte, labels map[uint32]string) ([]byte, 
 		if len(e.data) < 1 || e.data[0] != 0x01 {
 			return nil, errors.New("the VPN asked a password question komando does not know")
 		}
-		pw, err := secret(firstNonEmptyS(labels[avpPassLabel], "Password"))
+		pw, err := secret(cmp.Or(labels[avpPassLabel], "Password"))
 		if err != nil {
 			return nil, err
 		}
@@ -598,7 +599,7 @@ func pulseFatal(b []byte) error {
 	case "8":
 		return errors.New("the VPN ended the session after it was idle")
 	}
-	return fmt.Errorf("the VPN ended the session: %s", firstNonEmptyS(msg, text))
+	return fmt.Errorf("the VPN ended the session: %s", cmp.Or(msg, text))
 }
 
 // PulseLogin logs in (asking o.Prompt for what a person must answer) and

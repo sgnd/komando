@@ -9,7 +9,7 @@ func init() {
 }
 
 var queueConn = formArg{ask: "Which message queue?", pick: "queue",
-	help: "A Kafka, RabbitMQ, NATS, SQS or Pub/Sub conn from your list. Add one with Add, Message queues."}
+	help: "A Kafka, RabbitMQ, NATS, SQS or Pub/Sub conn from your list. Add one first with Add, Message queues."}
 
 var queueHints = map[string]formHint{
 	"queue info":   {args: []formArg{queueConn}},
@@ -18,7 +18,7 @@ var queueHints = map[string]formHint{
 		help: "A pattern: * stands for any letters, so orders-* lists orders-eu, orders-us ..."}},
 		flags: []formFlag{{name: "internal", ask: "Kafka only: also list Kafka's own topics (__consumer_offsets ...)?"}}},
 	"queue describe": {args: []formArg{queueConn, {ask: "Which topic or queue?", example: "orders",
-		help: "Kafka: a topic. RabbitMQ and SQS: a queue. NATS: a stream. Pub/Sub: a topic, or subscriptions/NAME. Its settings, counts and who reads it. Pub/Sub: a topic, or subscriptions/NAME."}}},
+		help: "Shows its settings, message counts and who reads it. Kafka: a topic. RabbitMQ and SQS: a queue. NATS: a stream. Pub/Sub: a topic, or subscriptions/NAME."}}},
 	"queue lag": {args: []formArg{queueConn, {ask: "Which consumer group?", example: "billing",
 		help: "Kafka: a consumer group, as queue groups lists. NATS: STREAM/CONSUMER, or the consumer's name alone."}}},
 	"queue peek": {args: []formArg{queueConn, {ask: "Which topic or queue to look into?", example: "orders",

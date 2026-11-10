@@ -316,9 +316,7 @@ func parse(b []byte) (*response, error) {
 			path = append(path, t.Name.Local)
 			attrs = t.Attr
 			text.Reset()
-			if err := r.start(t); err != nil {
-				return nil, err
-			}
+			r.start(t)
 		case xml.CharData:
 			text.Write(t)
 		case xml.EndElement:
@@ -347,7 +345,7 @@ func attr(attrs []xml.Attr, name string) string {
 }
 
 // start reads what an element says in its attributes.
-func (r *response) start(t xml.StartElement) error {
+func (r *response) start(t xml.StartElement) {
 	switch t.Name.Local {
 	case "Fault":
 		r.fault = &Error{}
@@ -358,7 +356,6 @@ func (r *response) start(t xml.StartElement) error {
 	case "CommandState":
 		r.done = strings.HasSuffix(attr(t.Attr, "State"), "/Done")
 	}
-	return nil
 }
 
 // end reads an element's text.

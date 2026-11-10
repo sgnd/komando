@@ -240,14 +240,14 @@ the arrow keys (or `j`/`k`) and Enter, or press its number to choose it at
 once. `?` shows what komando does, by task, with the command for each.
 
 ```text
-komando · v0.6.0 · 12 servers, 3 conns, 1 VPN
+komando · v0.9.0 · 12 servers, 3 conns, 1 VPN
 
 > 1. Shell     Open a login shell on a server
   2. Test      Check that servers, conns and VPNs answer
   3. Facts     OS, updates, Docker and open ports of a server
   4. Database  Open a SQL shell on a database
   5. VPN       Connect a VPN (and log in), or disconnect one
-  6. Add       A server, database, cache, storage, cluster, registry or VPN
+  6. Add       A server, database, cache, queue, storage, cluster, VPN ...
   7. All features  Everything komando does, by area, as questions
   ...
 
@@ -255,7 +255,7 @@ komando · v0.6.0 · 12 servers, 3 conns, 1 VPN
 ```
 
 The menu shows only what has something to act on: Shell and Facts need a
-server, Database a PostgreSQL, MySQL or SQLite conn, and VPN a VPN. While
+server, Database a database conn, and VPN a VPN. While
 komando knows no server yet, the menu starts with Import (when there is a
 `~/.ssh/config` to bring in) and Add; later Add comes after the actions.
 Two more rows show while they are useful and the number keys still reach them
@@ -272,8 +272,8 @@ After an action that needs one, the list to choose from comes next: servers
 for Shell and Facts, database conns for Database, VPNs for VPN, and all of
 them (or `all`) for Test. Type part of a name, address, group or tag to
 filter it. `protected` comes first in a row's details, so it is the last of
-them a narrow window cuts off. A line too long for the window ends in `…`,
-and a long filter or Add line shows its end, where you type. The menu
+them a narrow window cuts off. A line too long for the window ends in `…`;
+the help and problems under a question wrap instead. A long filter or Add line shows its end, where you type. The menu
 remembers your last action and the last name you chose while it is open,
 and puts the cursor on them.
 
@@ -287,15 +287,15 @@ command that is running, not the menu.
 
 The menu is only for a person at a terminal. AI agents, scripts, pipes and
 `komando` with any flag get the first steps (or, when piped, a `USAGE`
-error) as before. `komando --help` lists every command.
+error). `komando --help` lists every command.
 
 ### Add, one question at a time
 
 Add asks what you are adding (a Linux or Windows server, a database, a
 cache, a message queue, file storage, Kubernetes, a container registry or a
 VPN), then one question at a time, in the order you think of it: a name,
-the address, the user, the port, how you log in, and whether it is
-production. Each question says what it is
+what the server runs, the address, the user, the port, how you log in, and
+whether it is production. Each question says what it is
 and where to find it, shows an example, and offers a default that Enter
 takes (`Port [22]:`). An answer is checked before the next question: a name
 that is taken, an address with a typo or a file that is not there is said
@@ -309,7 +309,7 @@ Add a server · 4 of 7
 
 Which user do you log in as?
 User: root_
-The login name on the server. Many VPS use root; Ubuntu cloud servers use ubuntu.
+The login name on the server. Many VPS use root; Ubuntu cloud servers use ubuntu; Windows uses Administrator, or user@domain for a domain user.
 ```
 
 The last screen shows every answer and the commands they make, before
@@ -337,7 +337,7 @@ login` instead).
 
 `komando host add`, `komando conn add` and `komando vpn add` typed alone at
 a terminal ask the same questions. With any argument or flag, or for an AI
-agent or a script, they work as before.
+agent or a script, they ask nothing.
 
 ### All features
 

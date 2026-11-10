@@ -29,7 +29,6 @@ import (
 // Diffie-Hellman groups.
 
 type dhGroup interface {
-	ID() uint16
 	Public() []byte
 	Shared(peer []byte) ([]byte, error)
 }
@@ -60,7 +59,6 @@ var modpPrimes = map[uint16]*big.Int{
 }
 
 type modp struct {
-	id   uint16
 	p    *big.Int
 	x    *big.Int
 	pub  []byte
@@ -76,10 +74,9 @@ func newMODP(id uint16) (*modp, error) {
 	}
 	x := new(big.Int).SetBytes(xb)
 	pub := new(big.Int).Exp(big.NewInt(2), x, p)
-	return &modp{id: id, p: p, x: x, pub: pub.FillBytes(make([]byte, size)), size: size}, nil
+	return &modp{p: p, x: x, pub: pub.FillBytes(make([]byte, size)), size: size}, nil
 }
 
-func (m *modp) ID() uint16     { return m.id }
 func (m *modp) Public() []byte { return m.pub }
 func (m *modp) Shared(peer []byte) ([]byte, error) {
 	if len(peer) != m.size {
@@ -107,8 +104,6 @@ func newEC(id uint16) (*ecGroup, error) {
 	}
 	return &ecGroup{id: id, curve: c, key: k}, nil
 }
-
-func (e *ecGroup) ID() uint16 { return e.id }
 
 // Public is x|y for the NIST curves (RFC 5903: no 0x04 prefix).
 func (e *ecGroup) Public() []byte {

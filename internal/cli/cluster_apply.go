@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -104,7 +105,7 @@ func kubeApply(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc,
 		}
 		space := ""
 		if r.IsNamespaced() {
-			space = firstNonEmpty(d.Namespace, ns, k.Namespace)
+			space = cmp.Or(d.Namespace, ns, k.Namespace)
 		}
 		path := r.ObjectPath(space, d.Name)
 		name := strings.ToLower(d.Kind) + "/" + d.Name

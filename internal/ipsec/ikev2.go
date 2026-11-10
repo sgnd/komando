@@ -294,36 +294,32 @@ func chosenIKE(b []byte) (ikeSuite, error) {
 }
 
 // chosenESP reads the server's choice for a CHILD SA.
-func chosenESP(b []byte) (espSuite, []byte, uint16, error) {
+func chosenESP(b []byte) (espSuite, []byte, error) {
 	ps := parseProposals(b)
 	if len(ps) != 1 || ps[0].proto != 3 || len(ps[0].spi) != 4 {
-		return espSuite{}, nil, 0, errors.New("the server's SA payload is not one ESP proposal")
+		return espSuite{}, nil, errors.New("the server's SA payload is not one ESP proposal")
 	}
 	p := ps[0]
 	var s espSuite
 	var ok bool
 	if len(p.ts[tENCR]) != 1 {
-		return s, nil, 0, errors.New("the server's ESP proposal has no cipher")
+		return s, nil, errors.New("the server's ESP proposal has no cipher")
 	}
 	if s.c, ok = encFrom(tid(p.ts[tENCR][0])); !ok {
-		return s, nil, 0, errors.New("the server chose an ESP cipher komando did not offer")
+		return s, nil, errors.New("the server chose an ESP cipher komando did not offer")
 	}
 	if !s.c.gcm {
 		if len(p.ts[tINTEG]) != 1 {
-			return s, nil, 0, errors.New("the server's ESP proposal has no integrity algorithm")
+			return s, nil, errors.New("the server's ESP proposal has no integrity algorithm")
 		}
 		if s.integ, ok = integFrom(binary.BigEndian.Uint16(p.ts[tINTEG][0])); !ok {
-			return s, nil, 0, errors.New("the server chose an ESP integrity algorithm komando did not offer")
+			return s, nil, errors.New("the server chose an ESP integrity algorithm komando did not offer")
 		}
 	}
 	if len(p.ts[tESN]) == 1 && binary.BigEndian.Uint16(p.ts[tESN][0]) != 0 {
-		return s, nil, 0, errors.New("the server wants extended sequence numbers, which komando did not offer")
+		return s, nil, errors.New("the server wants extended sequence numbers, which komando did not offer")
 	}
-	var group uint16
-	if len(p.ts[tDH]) == 1 {
-		group = binary.BigEndian.Uint16(p.ts[tDH][0])
-	}
-	return s, p.spi, group, nil
+	return s, p.spi, nil
 }
 
 // pickESP chooses from proposals the server offers (its rekey).
@@ -900,7 +896,7 @@ func (k *ikeV2) derive(skeyseed, ni, nr, spiI, spiR []byte) {
 
 // IKE_AUTH.
 
-func idPayload(typ byte, id string) []byte {
+func idPayload(id string) []byte {
 	if a, err := netip.ParseAddr(id); err == nil && a.Is4() {
 		b := a.As4()
 		return append([]byte{1, 0, 0, 0}, b[:]...)
@@ -954,12 +950,12 @@ func (k *ikeV2) childKeys(s espSuite, gir, ni, nr []byte) (ir, ri espKeys) {
 
 func (k *ikeV2) auth(ctx context.Context, msg1, msg2, ni, nr []byte) error {
 	k.authStarted = true
-	idi := idPayload(pIDi, k.localID())
+	idi := idPayload(k.localID())
 	spi := random(4)
 	cp := []byte{1, 0, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0} // CFG_REQUEST: INTERNAL_IP4_ADDRESS, INTERNAL_IP4_DNS
 	ps := []v1Payload{{typ: pIDi, body: idi}}
 	if k.o.RemoteID != "" {
-		ps = append(ps, v1Payload{typ: pIDr, body: idPayload(pIDr, k.o.RemoteID)})
+		ps = append(ps, v1Payload{typ: pIDr, body: idPayload(k.o.RemoteID)})
 	}
 	eap := k.o.User != "" && k.o.PSK == ""
 	if !eap {
@@ -1105,7 +1101,7 @@ func (k *ikeV2) auth(ctx context.Context, msg1, msg2, ni, nr []byte) error {
 	if p := find(r.ps, pTSr); p != nil {
 		k.tsr = append([]byte{}, p.body...)
 	}
-	suite, peerSPI, _, err := chosenESP(sa.body)
+	suite, peerSPI, err := chosenESP(sa.body)
 	if err != nil {
 		return err
 	}

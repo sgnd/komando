@@ -69,9 +69,9 @@ echo "ok   komando status lists the four sessions"
 [ "$(in_client komando vpn up l2tp | jget 'd["data"]["session"].get("socks_pass", "") + d["data"]["session"].get("socks_user", "")')" = "" ] || fail "vpn up shows the session's SOCKS login"
 echo "ok   vpn up hides the session's SOCKS password"
 
-# 200 seconds of use (longer than five missed dead peer checks): komando rekeys cisco's ESP every ~32s and its IKE SA
-# at ~96s; the server rekeys l2tp's ESP every ~40s;
-# the server rekeys v2psk's CHILD SA (~40s) and IKE SA (~80s) and asks
+# 200 seconds of use (longer than five missed dead peer checks): komando
+# rekeys cisco's ESP every ~32s and its IKE SA at ~96s; the server rekeys
+# l2tp's ESP (~40s) and v2psk's CHILD SA (~40s) and IKE SA (~80s), and asks
 # v2eap to log in again (~72s)
 end=$((SECONDS + 200))
 while [ $SECONDS -lt $end ]; do

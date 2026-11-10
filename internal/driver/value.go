@@ -9,8 +9,8 @@ import (
 	"unicode/utf8"
 )
 
-// JSONValue converts a value from a database, cache or bucket into something JSON keeps exactly:
-// text stays text, binary becomes {"base64": ...}, times become RFC 3339,
+// JSONValue converts a value from a database, cache or bucket into
+// something JSON keeps exactly: text stays text, binary becomes {"base64": ...}, times become RFC 3339,
 // and integers too large for a JSON number become strings.
 func JSONValue(v any) any {
 	switch x := v.(type) {

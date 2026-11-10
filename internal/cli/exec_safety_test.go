@@ -174,7 +174,7 @@ func runRoot(t *testing.T, args ...string) error {
 	return err
 }
 
-// S5: the input of exec --stdin-file and the interpreter of script are
+// The input of exec --stdin-file and the interpreter of script are
 // checked like the command itself.
 func TestStdinAndInterpreterChecked(t *testing.T) {
 	srv := startFakeServer(t)
@@ -261,7 +261,7 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 	}
 }
 
-// H5: a --var value cannot turn into an option, and a read-only recipe is
+// A --var value cannot turn into an option, and a read-only recipe is
 // held to its promise once filled in.
 func TestRecipeVarsChecked(t *testing.T) {
 	srv := startFakeServer(t)
@@ -326,7 +326,7 @@ func TestRecipeVarsChecked(t *testing.T) {
 }
 
 // Every built-in read-only recipe, filled in with its defaults, passes the
-// read-only check (recipe run now applies it).
+// read-only check (recipe run applies it).
 func TestBuiltinRecipesAreReadOnly(t *testing.T) {
 	for _, r := range recipes {
 		if r.Mutating {
@@ -348,7 +348,7 @@ func TestBuiltinRecipesAreReadOnly(t *testing.T) {
 	}
 }
 
-// S7: streamed output is redacted by whole lines, so a secret split across
+// Streamed output is redacted by whole lines, so a secret split across
 // two reads does not reach the agent in pieces.
 func TestStreamRedactsSplitSecrets(t *testing.T) {
 	srv := startFakeServer(t)
@@ -477,7 +477,7 @@ func TestInvalidDenyPatternReported(t *testing.T) {
 	}
 }
 
-// S4: forms that slipped past the read-only check, and everyday reads that
+// Forms that slipped past the read-only check, and everyday reads that
 // must stay read-only.
 func TestReadOnlyBypassesClosed(t *testing.T) {
 	writes := []string{
@@ -715,7 +715,7 @@ func TestReadOnlyBypassesClosed(t *testing.T) {
 	}
 }
 
-// S5: --dry-run is never blocked by the check of the input or of the
+// --dry-run is never blocked by the check of the input or of the
 // read-only promise; it says what the real run would need.
 func TestDryRunReportsInputStops(t *testing.T) {
 	srv := startFakeServer(t)
@@ -749,7 +749,7 @@ func TestDryRunReportsInputStops(t *testing.T) {
 	out.P.Reset()
 }
 
-// S7: a line that only mentions a key header (a log, a grep) holds the
+// A line that only mentions a key header (a log, a grep) holds the
 // stream for at most pemHold; then the lines after it come out, and the
 // key-like lines right after the header stay hidden.
 func TestLineBufferPEMMention(t *testing.T) {

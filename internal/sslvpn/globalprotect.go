@@ -2,6 +2,7 @@ package sslvpn
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/xml"
@@ -580,7 +581,7 @@ func gpGatewayLogin(ctx context.Context, o Options, gw *url.URL, cred, alt gpCre
 			s, err = parseGPLogin(b)
 		}
 		if err == nil {
-			s.User = firstNonEmptyS(s.User, cred.User)
+			s.User = cmp.Or(s.User, cred.User)
 			return s, nil
 		}
 		var le *LoginError

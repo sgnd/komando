@@ -74,11 +74,8 @@ func (l auditList) Text() string {
 		case e["ok"] != true:
 			res = "FAILED"
 		}
-		t := strings.Join(targets, ",")
-		if len(t) > 60 {
-			t = t[:57] + "..."
-		}
-		rows = append(rows, []string{auditCell(ts), auditCell(who), auditCell(fmt.Sprint(e["command"])), auditCell(t), res})
+		t := truncateWidth(auditCell(strings.Join(targets, ",")), 60)
+		rows = append(rows, []string{auditCell(ts), auditCell(who), auditCell(fmt.Sprint(e["command"])), t, res})
 	}
 	return textTable([]string{"TIME", "ACTOR", "COMMAND", "TARGETS", "OK"}, rows)
 }
@@ -165,7 +162,6 @@ is given.`,
 	c.AddCommand(auditVerifyCmd())
 	c.Flags().IntVarP(&limit, "limit", "n", 50, "the newest N entries (0 = all; with --since or --until, all unless given)")
 	c.Flags().StringVar(&target, "target", "", "only entries for these servers or conns (a selector, e.g. @prod)")
-	aliasFlag(c.Flags(), "host", "target")
 	c.Flags().StringVar(&command, "command", "", "only commands that start with this (e.g. exec, svc.)")
 	c.Flags().BoolVar(&failed, "failed", false, "only actions that failed or were blocked")
 	c.Flags().StringVar(&actorName, "actor", "", "only what this one did: part of the name in KOMANDO_ACTOR, the AI agent (claude, codex ...) or the computer account")

@@ -142,7 +142,7 @@ func cliRun(t *testing.T, args ...string) (map[string]any, *out.Error) {
 	return invRun(t, args...)
 }
 
-// K1, K8: under --dry-run, `cluster run` sends nothing the server would not
+// Under --dry-run, `cluster run` sends nothing the server would not
 // dry-run itself: no Secret read, no token, on a protected conn as an agent.
 func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 	invHome(t)
@@ -178,7 +178,7 @@ func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 	if *windows != 0 {
 		t.Errorf("a dry run opened %d approval windows", *windows)
 	}
-	// K1: an agent sees Secret values hidden, so reading them is a read: it
+	// an agent sees Secret values hidden, so reading them is a read: it
 	// runs, with no person asked, and shows no value
 	for _, args := range [][]string{{"get", "secrets", "-A", "-o", "json"}, {"get", "secrets", "-o", "yaml"}} {
 		d, e := cliRun(t, append([]string{"cluster", "run", "prod", "--"}, args...)...)
@@ -202,7 +202,7 @@ func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 	}
 }
 
-// K8: kctl itself never sends a TokenRequest under --dry-run.
+// kctl itself never sends a TokenRequest under --dry-run.
 func TestKctlCreateTokenDryRun(t *testing.T) {
 	l := newLabCluster(t)
 	saved := g.dryRun
@@ -214,7 +214,7 @@ func TestKctlCreateTokenDryRun(t *testing.T) {
 	}
 }
 
-// K1, K6: what kctl prints for an agent has no Secret values and no value
+// What kctl prints for an agent has no Secret values and no value
 // of an env var named like a secret, in every output format.
 func TestKctlGetMasksForAgents(t *testing.T) {
 	l := newLabCluster(t)
@@ -248,7 +248,7 @@ func TestKctlGetMasksForAgents(t *testing.T) {
 	}
 }
 
-// K6: `cluster get` hides env values named like secrets from an agent, also
+// `cluster get` hides env values named like secrets from an agent, also
 // in the last-applied-configuration copy.
 func TestClusterGetHidesSecretEnv(t *testing.T) {
 	invHome(t)
@@ -290,7 +290,7 @@ func TestHideSecretEnv(t *testing.T) {
 	}
 }
 
-// K2: a tar stream from the container cannot write outside DST.
+// A tar stream from the container cannot write outside DST.
 func TestUntarToStaysInside(t *testing.T) {
 	type ent struct{ name, body string }
 	mk := func(es ...ent) []byte {
@@ -393,7 +393,7 @@ func TestUntarToStaysInside(t *testing.T) {
 	}
 }
 
-// K3: delete -f deletes in the file's namespace, and refuses a -n that
+// delete -f deletes in the file's namespace, and refuses a -n that
 // says otherwise.
 func TestKctlDeleteFileNamespace(t *testing.T) {
 	f := &fakeAPI{}
@@ -434,7 +434,7 @@ func TestKctlDeleteFileNamespace(t *testing.T) {
 	}
 }
 
-// K4: scale is rated by the number kctl sends, and only that number goes.
+// scale is rated by the number kctl sends, and only that number goes.
 func TestScaleRatedByNumber(t *testing.T) {
 	for cmd, want := range map[string]driver.Risk{
 		"scale deploy/web --replicas=2":               driver.RiskWrite,
@@ -471,7 +471,7 @@ func TestScaleRatedByNumber(t *testing.T) {
 	}
 }
 
-// K5: every docker command that hands a container the server is rated
+// Every docker command that hands a container the server is rated
 // destructive, whichever verb or flag spelling makes it.
 func TestClassifyDockerHostEscapes(t *testing.T) {
 	for cmd, want := range map[string]driver.Risk{
@@ -512,7 +512,7 @@ func TestClassifyDockerHostEscapes(t *testing.T) {
 	}
 }
 
-// K7: a kubeconfig login program is a program on this computer: an agent
+// A kubeconfig login program is a program on this computer: an agent
 // brings it in, or runs it, only with a person's yes.
 func TestKubeconfigLoginProgramNeedsAPerson(t *testing.T) {
 	invHome(t)
@@ -605,7 +605,7 @@ func TestKubePluginRules(t *testing.T) {
 	}
 }
 
-// K7: an agent's kubeconfig cannot send a file of this computer as its token.
+// An agent's kubeconfig cannot send a file of this computer as its token.
 func TestKubeconfigTokenFileNeedsAPerson(t *testing.T) {
 	invHome(t)
 	l := newLabCluster(t)
@@ -617,7 +617,7 @@ func TestKubeconfigTokenFileNeedsAPerson(t *testing.T) {
 	}
 }
 
-// K9: a port forward on a protected cluster needs the person's yes, like a shell.
+// A port forward on a protected cluster needs the person's yes, like a shell.
 func TestClusterForwardProtected(t *testing.T) {
 	invHome(t)
 	l := newLabCluster(t)
@@ -633,7 +633,7 @@ func TestClusterForwardProtected(t *testing.T) {
 	}
 }
 
-// K10: `cluster run -- logs -f` follows every pod at once and hands each
+// `cluster run -- logs -f` follows every pod at once and hands each
 // line on as it comes; a timeout is a normal end.
 func TestKctlFollowLogs(t *testing.T) {
 	l := newLabCluster(t)
@@ -682,7 +682,7 @@ func TestKctlFollowLogs(t *testing.T) {
 	}
 }
 
-// K11: a pod whose stream does not open is noted and the others go on;
+// A pod whose stream does not open is noted and the others go on;
 // nothing is printed after streamPods returns.
 func TestStreamPodsOnePodFails(t *testing.T) {
 	l := newLabCluster(t)
@@ -719,7 +719,7 @@ func TestStreamPodsOnePodFails(t *testing.T) {
 	}
 }
 
-// K5: --mount read as CSV, host-backed volumes, other containers' volumes,
+// --mount read as CSV, host-backed volumes, other containers' volumes,
 // the host's network and cgroups, credential folders read-only, plugins.
 func TestClassifyDockerMoreHostEscapes(t *testing.T) {
 	for _, c := range []struct {
@@ -770,7 +770,7 @@ func TestClassifyDockerMoreHostEscapes(t *testing.T) {
 	}
 }
 
-// K1: `get secret -o yaml` prints values only when they are not hidden.
+// `get secret -o yaml` prints values only when they are not hidden.
 func TestGetSecretValuesRating(t *testing.T) {
 	saved := out.P.Mask
 	defer func() { out.P.Mask = saved }()
@@ -783,7 +783,7 @@ func TestGetSecretValuesRating(t *testing.T) {
 	}
 }
 
-// K6: an agent's round trip (get -o yaml, edit, apply) never writes the
+// An agent's round trip (get -o yaml, edit, apply) never writes the
 // hidden marker over the real value: nothing is sent.
 func TestApplyRefusesHiddenValues(t *testing.T) {
 	invHome(t)
@@ -828,7 +828,7 @@ func TestApplyRefusesHiddenValues(t *testing.T) {
 	}
 }
 
-// new: an agent's kctl does not send komando's folder or a secret file of
+// An agent's kctl does not send komando's folder or a secret file of
 // this computer to the cluster, where `get` would hand it back.
 func TestKctlLocalSecretFiles(t *testing.T) {
 	invHome(t)
@@ -876,7 +876,7 @@ func TestKctlLocalSecretFiles(t *testing.T) {
 	}
 }
 
-// K7: the window names the program the agent's --yes lets run, and a yes
+// The window names the program the agent's --yes lets run, and a yes
 // given for something else (a protected conn) does not cover it.
 func TestPluginApprovalNamesTheProgram(t *testing.T) {
 	invHome(t)
@@ -922,7 +922,7 @@ func TestPluginApprovalNamesTheProgram(t *testing.T) {
 	}
 }
 
-// K7: a person's import trusts its program for agents' later commands; a
+// A person's import trusts its program for agents' later commands; a
 // change of program or server in the vault asks again; a dry run of
 // exec, shell or forward reports the stop the real run would meet.
 func TestTrustedKubePlugin(t *testing.T) {
@@ -962,7 +962,7 @@ func TestTrustedKubePlugin(t *testing.T) {
 	}
 }
 
-// K7: a yes in a window that did not name an action does not cover it.
+// A yes in a window that did not name an action does not cover it.
 func TestPersonAllowsForAsksAgain(t *testing.T) {
 	t.Setenv("CLAUDECODE", "1")
 	var texts []string
@@ -985,7 +985,7 @@ func TestPersonAllowsForAsksAgain(t *testing.T) {
 	}
 }
 
-// K7: the trust in a login program never comes from an export file.
+// The trust in a login program never comes from an export file.
 func TestImportKomandoDropsTrustedPlugin(t *testing.T) {
 	invHome(t)
 	b, _ := json.Marshal(exportFile{Format: exportFormat, Conns: []*store.Conn{{Name: "k", Kind: "k8s", URL: "k8s://10.0.0.1:6443",

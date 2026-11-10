@@ -25,8 +25,8 @@ import (
 // (type to filter), and komando runs that command as if it was typed, then
 // comes back. It only starts commands the person could type themselves, so
 // every safety check and question works as it does on the command line.
-// Everyone else (AI agents, scripts, pipes, any flag) gets the first steps,
-// as before (docs/design/ux.md, section 10).
+// Everyone else (AI agents, scripts, pipes, any flag) gets the first steps
+// (docs/design/ux.md, section 10).
 
 // menuWanted: `komando` alone, no flags, and a person at a terminal that
 // can draw (stdin, stdout and stderr are terminals, no agent, TERM is not
@@ -57,7 +57,7 @@ type menuAction struct {
 // The menu's actions. menuMainActions shows the ones that apply.
 var (
 	importAction = menuAction{"Import", "Bring in the servers from ~/.ssh/config", []string{"import", "ssh-config"}, "", false}
-	addAction    = menuAction{"Add", "A server, database, cache, storage, cluster, registry or VPN", nil, "form", false}
+	addAction    = menuAction{"Add", "A server, database, cache, queue, storage, cluster, VPN ...", nil, "form", false}
 	shellAction  = menuAction{"Shell", "Open a login shell on a server", []string{"shell"}, "host", true}
 	testAction   = menuAction{"Test", "Check that servers, conns and VPNs answer", []string{"test"}, "target", false}
 	factsAction  = menuAction{"Facts", "OS, updates, Docker and open ports of a server", []string{"facts"}, "host", false}
@@ -65,7 +65,6 @@ var (
 	vpnAction    = menuAction{"VPN", "Connect a VPN (and log in), or disconnect one", []string{"vpn", "up"}, "vpn", false}
 	agentAction  = menuAction{"AI agent", "Teach your AI agents to use komando (once)", []string{"guide", "install"}, "", false}
 	listAction   = menuAction{"List", "Everything komando knows about", []string{"list"}, "", false}
-	auditAction  = menuAction{"Audit", "The last 20 things komando did", []string{"audit", "--limit", "20"}, "", false}
 	doctorAction = menuAction{"Doctor", "Check your setup, the inventory and its security", []string{"doctor"}, "", false}
 	allAction    = menuAction{"All features", "Everything komando does, by area, as questions", nil, "all", false}
 	// helpAction is the ? key, not a row: what komando does, by task
@@ -253,12 +252,11 @@ func menuChoose(ctx context.Context, t *menuTerm, l *menuList, s menuScreen) (me
 	return row, err
 }
 
-// menuRun runs komando commands in the normal screen, as if they were
-// typed, one after the other until one fails: each command line first, so
-// the person learns it, then its output, then how the last one ended. Then
-// it waits: Enter goes back to the menu, q quits. The key help is erased
-// after that, so the scrollback keeps the commands, their output and how
-// they ended, not the keys of a menu that is gone.
+// menuRun runs komando commands in the normal screen, one after the other
+// until one fails: each command line first, so the person learns it, then
+// its output, then how the last one ended. Then it waits (Enter goes back,
+// q quits) and erases the key help, so the scrollback keeps only the
+// commands, their output and how they ended.
 //
 // back is where Enter goes: "the menu", or "the questions" after Try it
 // first.
@@ -295,7 +293,7 @@ func menuRun(ctx context.Context, t *menuTerm, self string, cmds [][]string, own
 	again, err := menuPause(ctx, t)
 	fmt.Fprint(os.Stderr, "\r\x1b[2K")
 	if result != "" {
-		fmt.Fprintln(os.Stderr, menuPaint(result, "2"))
+		fmt.Fprintln(os.Stderr, result)
 	}
 	return again, err
 }
@@ -393,7 +391,7 @@ func sshConfigHasNew(st *store.State) bool {
 // by its pid only, as `komando prompt` does: the list must draw at once.
 func menuVpnUp(st *store.State, name string) bool {
 	s := st.Sessions[name]
-	return s != nil && (s.Container != "" || netx.Alive(s.PID))
+	return s != nil && netx.Alive(s.PID)
 }
 
 // menuHelpTasks is the ? screen: what komando does, by task, and the
@@ -407,16 +405,14 @@ var menuHelpTasks = []struct {
 	{"Health and facts", []string{"komando facts", "komando recipe run health"}},
 	{"Files", []string{"komando fs cat", "komando upload", "komando download"}},
 	{"Services, logs, packages", []string{"komando svc", "komando logs", "komando pkg"}},
-	{"Databases, caches, storage", []string{"komando conn add", "komando db", "komando cache"}},
+	{"Databases and caches", []string{"komando conn add", "komando db", "komando cache"}},
+	{"Storage and message queues", []string{"komando storage", "komando queue"}},
 	{"Clusters and registries", []string{"komando cluster status", "komando registry ls"}},
 	{"VPNs", []string{"komando vpn add", "komando vpn up", "komando vpn down"}},
 	{"Passwords", []string{"komando secret set NAME"}},
 	{"History and safety", []string{"komando audit", "komando doctor"}},
 	{"AI agents", []string{"komando guide install"}},
 }
-
-// menuHelpText is the ? screen as an 80-column terminal shows it.
-var menuHelpText = menuHelpFor(80)
 
 // menuHelpFor is the ? screen for a terminal this wide: a task and its
 // commands on one line when every line fits, else the task on its line and
@@ -721,6 +717,3 @@ func menuCount(n int, word string) string {
 	}
 	return fmt.Sprintf("%d %ss", n, word)
 }
-
-// menuPaint styles text for stderr when colour is on.
-func menuPaint(s, style string) string { return fit([]seg{{s, style}}, displayWidth(s), colorOK()) }

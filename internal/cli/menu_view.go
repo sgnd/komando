@@ -19,8 +19,11 @@ type menuRow struct {
 type menuList struct {
 	title string  // the question above the rows ("" on the main menu)
 	lead  [][]seg // lines under the title: a form's answers so far and its question
-	note  string  // one dim line above the rows, when there is something to say
-	warn  bool    // the note is a problem to fix, not a hint: marked "! " and shown bold
+	// runs are command lines drawn after lead, wrapped on spaces so every
+	// flag shows on a narrow screen (the review's "This runs:")
+	runs []string
+	note string // help or a problem above the rows, wrapped to at most 3 lines
+	warn bool   // the note is a problem to fix, not a hint: marked "! " and shown bold
 	// mask is how the typed line is drawn, when it must not show as typed
 	// (a password pasted with an address); nil draws it as it is
 	mask   func(string) string
@@ -199,16 +202,17 @@ func listKeys(l *menuList, more ...string) string {
 type menuCaret struct{ line, col int }
 
 // chrome is how many lines a screen uses besides the rows: blank, header,
-// blank, then (title, filter, note, blank) when there is any of them, then
+// blank, then (title, filter, note lines, blank) when there is any of them, then
 // after the rows blank and the key help, which takes more than one line on
 // a narrow screen.
 func (l *menuList) chrome(s menuScreen, width int) int {
-	n := 4 + len(l.lead) + len(keyLines(s.footer, width-1))
-	for _, on := range []bool{l.title != "", l.typing, l.note != ""} {
+	n := 4 + len(l.lead) + len(l.runLines(width)) + len(keyLines(s.footer, width-1))
+	for _, on := range []bool{l.title != "", l.typing} {
 		if on {
 			n++
 		}
 	}
+	n += len(l.noteLines(width))
 	if l.title != "" || l.typing || l.note != "" {
 		n++
 	}
@@ -219,6 +223,59 @@ func (l *menuList) chrome(s menuScreen, width int) int {
 // high.
 func (l *menuList) pageSize(s menuScreen, width, height int) int {
 	return max(1, height-l.chrome(s, width))
+}
+
+// noteLines is the note wrapped on spaces to the screen, at most 3 lines,
+// as render draws it: a problem starts with "! ". None when there is no
+// note.
+func (l *menuList) noteLines(width int) []string {
+	if l.note == "" {
+		return nil
+	}
+	if l.warn {
+		return wrapWords("! "+l.note, width-1, 3)
+	}
+	return wrapWords(l.note, width-1, 3)
+}
+
+// runLines is runs as render draws them: each command indented 2, wrapped
+// on spaces into at most 4 lines, the next ones indented 6.
+func (l *menuList) runLines(width int) []string {
+	var out []string
+	for _, r := range l.runs {
+		for i, w := range wrapWords(r, width-1-6, 4) {
+			if i == 0 {
+				out = append(out, "  "+w)
+			} else {
+				out = append(out, "      "+w)
+			}
+		}
+	}
+	return out
+}
+
+// wrapWords cuts s on spaces into lines no wider than width, at most
+// maxLines of them; the last one keeps the rest, and fit cuts it (and a
+// word wider than width) with "…". It always returns at least one line.
+func wrapWords(s string, width, maxLines int) []string {
+	words := strings.Fields(s)
+	if len(words) == 0 || width <= 0 || maxLines <= 1 {
+		return []string{s}
+	}
+	lines := []string{words[0]}
+	for i, w := range words[1:] {
+		last := len(lines) - 1
+		if displayWidth(lines[last]+" "+w) <= width {
+			lines[last] += " " + w
+			continue
+		}
+		if len(lines) == maxLines {
+			lines[last] += " " + strings.Join(words[i+1:], " ")
+			break
+		}
+		lines = append(lines, w)
+	}
+	return lines
 }
 
 // keyLines is the key help cut into lines no wider than width, between its
@@ -263,18 +320,25 @@ func (l *menuList) render(s menuScreen, width, height int) ([]string, menuCaret)
 	for _, ld := range l.lead {
 		lines = append(lines, line{ld, 5, -1})
 	}
+	for _, r := range l.runLines(width) {
+		lines = append(lines, line{[]seg{{r, ""}}, 5, -1})
+	}
 	if l.typing {
 		label, text, count := l.typedLine(len(shown), width)
 		lines = append(lines, line{[]seg{{label, "2"}, {text, ""}, {"_", "2"}, {count, "2"}}, 0, displayWidth(label + text)})
 	}
-	if l.note != "" {
+	for i, n := range l.noteLines(width) {
 		// a problem with the answer: it stays on any screen. The "! " says
 		// so without colour, and bold reads on a light terminal as well as
-		// a dark one, where yellow on white is hard to read.
+		// a dark one, where yellow on white is hard to read. Help is plain:
+		// a beginner needs it, and dim text is hard to read on any theme.
 		if l.warn {
-			lines = append(lines, line{[]seg{{"! " + l.note, "1"}}, 0, -1})
+			if i > 0 {
+				n = "  " + n
+			}
+			lines = append(lines, line{[]seg{{n, "1"}}, 0, -1})
 		} else {
-			lines = append(lines, line{[]seg{{l.note, "2"}}, 5, -1})
+			lines = append(lines, line{[]seg{{n, ""}}, 5, -1})
 		}
 	}
 	if l.title != "" || l.typing || l.note != "" {
@@ -296,7 +360,7 @@ func (l *menuList) render(s menuScreen, width, height int) ([]string, menuCaret)
 		if i > 0 {
 			drop = 8
 		}
-		lines = append(lines, line{[]seg{{k, "2"}}, drop, -1})
+		lines = append(lines, line{[]seg{{k, ""}}, drop, -1})
 	}
 	for d := 1; len(lines) > max(0, height) && d <= 8; d++ {
 		lines = slices.DeleteFunc(lines, func(x line) bool { return x.drop == d })
@@ -351,9 +415,10 @@ func tailCols(s string, n int) string {
 }
 
 // rowLines are the rows on the screen: the current one marked and in
-// colour, numbers on a list without a filter, details lined up in one
-// column for the whole list, so it does not move while a person types. at
-// is the line of the cursor row, or -1.
+// reverse video, numbers on a list without a filter (rows past 9 indented
+// to match), details lined up in one column for the whole list, so it
+// does not move while a person types. at is the line of the cursor row,
+// or -1.
 func (l *menuList) rowLines(shown []int, page int) (lines [][]seg, at int) {
 	if len(shown) == 0 {
 		if l.filter != "" && len(l.rows) > 0 {
@@ -371,11 +436,14 @@ func (l *menuList) rowLines(shown []int, page int) (lines [][]seg, at int) {
 		r := l.rows[shown[i]]
 		mark, style := "  ", ""
 		if i == l.cursor {
-			mark, style, at = "> ", "36;1", len(lines)
+			mark, style, at = "> ", "1;7", len(lines)
 		}
 		label := r.label
-		if !l.typing && i < 9 {
+		switch {
+		case !l.typing && i < 9:
 			label = fmt.Sprintf("%d. %s", i+1, label)
+		case !l.typing && len(shown) > 9:
+			label = "   " + label // in line with the numbered rows
 		}
 		line := []seg{{mark + label, style}}
 		if r.detail != "" {

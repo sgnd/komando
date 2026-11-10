@@ -40,13 +40,12 @@ type Keys struct {
 
 // SQS is a queuex.Queue on one region of an AWS account.
 type SQS struct {
-	t       driver.Target
-	keys    aws.Credentials
-	hc      *http.Client
-	base    string // the endpoint's URL, such as https://sqs.eu-west-1.amazonaws.com
-	agent   string
-	signer  *v4.Signer
-	timeout time.Duration
+	t      driver.Target
+	keys   aws.Credentials
+	hc     *http.Client
+	base   string // the endpoint's URL, such as https://sqs.eu-west-1.amazonaws.com
+	agent  string
+	signer *v4.Signer
 }
 
 // maxResponse is the most komando reads of one answer: ten messages of
@@ -84,13 +83,12 @@ func OpenKeys(ctx context.Context, t driver.Target, k Keys, dial queuex.DialFunc
 		IdleConnTimeout:     30 * time.Second,
 	}
 	s := &SQS{
-		t:       t,
-		keys:    aws.Credentials{AccessKeyID: k.ID, SecretAccessKey: k.Secret, SessionToken: k.Token, Source: "komando"},
-		hc:      &http.Client{Transport: tr, Timeout: timeout},
-		base:    scheme + "://" + host,
-		agent:   clientID,
-		signer:  v4.NewSigner(),
-		timeout: timeout,
+		t:      t,
+		keys:   aws.Credentials{AccessKeyID: k.ID, SecretAccessKey: k.Secret, SessionToken: k.Token, Source: "komando"},
+		hc:     &http.Client{Transport: tr, Timeout: timeout},
+		base:   scheme + "://" + host,
+		agent:  clientID,
+		signer: v4.NewSigner(),
 	}
 	var lq listQueuesOut
 	if err := s.call(ctx, "ListQueues", map[string]any{"MaxResults": 1}, &lq); err != nil {
@@ -110,7 +108,6 @@ func (s *SQS) Close() {
 // apiError is an error SQS answered with: its code (QueueDoesNotExist,
 // AccessDenied, ...) and its message.
 type apiError struct {
-	Status  int
 	Code    string
 	Message string
 }
@@ -191,7 +188,7 @@ func answerErr(resp *http.Response, data []byte) error {
 			msg = msg[:200] + "..."
 		}
 	}
-	return &apiError{Status: resp.StatusCode, Code: code, Message: msg}
+	return &apiError{Code: code, Message: msg}
 }
 
 type listQueuesOut struct {

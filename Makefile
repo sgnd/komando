@@ -7,6 +7,7 @@ STATICCHECK := v0.8.2
 GOVULNCHECK := v1.9.0
 
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
+export PLATFORMS
 
 .PHONY: help build install test cover security fuzz e2e e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses dist clean
 
@@ -56,6 +57,12 @@ fuzz: ## Fuzz the parsers that see untrusted text, 30s each
 	go test ./internal/cloud -run '^$$' -fuzz '^FuzzSSMMessage$$' -fuzztime 30s
 	go test ./internal/cloud -run '^$$' -fuzz '^FuzzBitwardenCipherString$$' -fuzztime 30s
 	go test ./internal/dbx -run '^$$' -fuzz '^FuzzSQLScanner$$' -fuzztime 30s
+	go test ./internal/cli -run '^$$' -fuzz '^FuzzReadOnly$$' -fuzztime 30s
+	go test ./internal/policy -run '^$$' -fuzz '^FuzzPSReadOnly$$' -fuzztime 30s
+	go test ./internal/out -run '^$$' -fuzz '^FuzzView$$' -fuzztime 30s
+	go test ./internal/ipsec -run '^$$' -fuzz '^FuzzParsers$$' -fuzztime 30s
+	go test ./internal/l2tp -run '^$$' -fuzz '^FuzzHandle$$' -fuzztime 30s
+	go test ./internal/sslvpn -run '^$$' -fuzz '^FuzzPulseParsers$$' -fuzztime 30s
 
 lint: ## gofmt + go vet + staticcheck
 	@test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)

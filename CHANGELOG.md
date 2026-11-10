@@ -22,6 +22,16 @@ its highlights; the sections below them give the details. Versions follow
   balancer (the error names the portal's other gateways) and the device
   report (HIP).
 
+### Removed
+
+- Old flag names kept as aliases since 0.1 to 0.3 are gone. Use the new
+  names: `--via` (was `--jump`), `--overwrite` (was `--force`), `recipe run
+  --var` (was `--param`), `logs -n`/`--limit` (was `--lines`), `fs cat
+  --line-numbers` (was `--number`), `job logs --max-bytes` (was `--limit`),
+  `--target` (was `--host`), `host mv` and `conn mv` (was `host edit
+  --rename` and `conn edit --rename`). `recipe add --mutating` is gone too:
+  a recipe counts as a change unless you save it with `--read-only`.
+
 ### Fixed
 
 - A GlobalProtect VPN no longer drops after about 18 minutes. komando

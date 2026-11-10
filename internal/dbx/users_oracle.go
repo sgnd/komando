@@ -83,7 +83,7 @@ func oracleUserSQL(action string, u UserSpec) (stmt, shown string, err error) {
 func oraUserErr(n int, msg, name string) error {
 	switch n {
 	case 1920:
-		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd`", "user %s already exists", name)
+		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd CONN "+name+" --password-ref secret:NAME`", "user %s already exists", name)
 	case 1918, 1919:
 		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user ls CONN`", "user %s does not exist", name)
 	case 1940:
@@ -169,7 +169,7 @@ func oracleGrantSQL(ctx context.Context, db *sql.DB, g Grant) (string, error) {
 	case "table":
 		parts := strings.Split(name, ".")
 		if len(parts) > 2 {
-			return "", out.Usage("--on table:SCHEMA.TABLE")
+			return "", out.Usage("--on table:[SCHEMA.]TABLE takes at most one dot, not %q", name)
 		}
 		q := make([]string, len(parts))
 		for i, p := range oracleNames(parts) {
