@@ -31,6 +31,9 @@ else
   before=$(pid)
   q $K svc restart t-sysd t-svc --wait 10
   check "svc restart gives a new process (systemctl MainPID)" True "$([ "$(pid)" != "$before" ] && [ "$(pid)" != 0 ] && echo True || echo False)"
+  before=$(pid)
+  q $K svc reload t-sysd t-svc
+  check "svc reload keeps the process (systemctl MainPID)" "$before active" "$(pid) $(state)"
   q $K svc disable t-sysd t-svc
   check "svc disable = systemctl is-enabled" disabled "$(sys systemctl is-enabled t-svc || true)"
   q $K svc enable t-sysd t-svc
