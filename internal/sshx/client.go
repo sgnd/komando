@@ -597,7 +597,7 @@ func hostKeyCallback(name, policy string) (ssh.HostKeyCallback, error) {
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		var err error
 		pinned := false
-		lockErr := HostKeys.update(func(t hostKeyTx) error {
+		lockErr := HostKeys().update(func(t hostKeyTx) error {
 			err = t.Check(hostname, remote, key)
 			var ke *knownhosts.KeyError
 			if errors.As(err, &ke) && len(ke.Want) == 0 {
@@ -634,7 +634,7 @@ func SameKey(a, b ssh.PublicKey) bool {
 // PinnedKeys are the keys komando pins for addr (host:port).
 func PinnedKeys(addr string) ([]ssh.PublicKey, error) {
 	var pins []ssh.PublicKey
-	err := HostKeys.view(func(t hostKeyTx) error {
+	err := HostKeys().view(func(t hostKeyTx) error {
 		var err error
 		pins, _, err = t.Pins(addr)
 		return err
@@ -646,7 +646,7 @@ func PinnedKeys(addr string) ([]ssh.PublicKey, error) {
 // replace would remove them, keys that no longer parse included.
 func CountPinned(addr string) (int, error) {
 	var n int
-	err := HostKeys.view(func(t hostKeyTx) error {
+	err := HostKeys().view(func(t hostKeyTx) error {
 		var err error
 		_, n, err = t.Pins(addr)
 		return err
@@ -660,7 +660,7 @@ func CountPinned(addr string) (int, error) {
 // many pins went. Whether a pin may be replaced is the caller's decision
 // (`host trust --reset` needs a person's yes).
 func PinHostKey(addr string, key ssh.PublicKey, replace bool) (removed int, err error) {
-	err = HostKeys.update(func(t hostKeyTx) error {
+	err = HostKeys().update(func(t hostKeyTx) error {
 		pins, matched, err := t.Pins(addr)
 		if err != nil {
 			return err

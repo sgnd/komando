@@ -40,8 +40,14 @@ type hostKeyTx interface {
 	Replace(addr string, key ssh.PublicKey) error
 }
 
-// HostKeys is where this process keeps pins.
-var HostKeys hostKeyStore = fileHostKeys{}
+// HostKeys is where this process keeps pins: the sealed store on a sealed
+// home, known_hosts otherwise.
+func HostKeys() hostKeyStore {
+	if store.Sealed() {
+		return sealedHostKeys{}
+	}
+	return fileHostKeys{}
+}
 
 // fileHostKeys is known_hosts in komando's folder. A lock file keeps
 // komando processes from writing it at the same time; khMu does the same
