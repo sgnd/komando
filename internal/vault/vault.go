@@ -55,6 +55,8 @@ type entry struct {
 	Nonce     []byte    `json:"nonce"`
 	Data      []byte    `json:"data"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	id string // its record in the sealed store
 }
 
 type Info struct {
@@ -133,6 +135,9 @@ func load() (*file, error) {
 	if err := store.EnsureHome(); err != nil {
 		return nil, err
 	}
+	if store.Sealed() {
+		return loadSealed()
+	}
 	f := &file{Version: 1, Entries: map[string]*entry{}}
 	b, err := os.ReadFile(vaultPath())
 	if errors.Is(err, os.ErrNotExist) {
@@ -174,6 +179,9 @@ var (
 )
 
 func (f *file) aead() (cipher.AEAD, error) {
+	if f.Mode == modeSealed {
+		return sealedAEAD()
+	}
 	secret, err := f.key()
 	if err != nil {
 		return nil, err
@@ -326,6 +334,9 @@ func change(fn func(f *file) error) error {
 	if store.DryRun {
 		return store.ErrDryRun
 	}
+	if store.Sealed() {
+		return changeSealed(fn)
+	}
 	unlock, err := store.Lock(lockName)
 	if err != nil {
 		return err
@@ -387,6 +398,9 @@ type Strength struct {
 const MinPassphrase = 15
 
 func Check() (Strength, error) {
+	if store.Sealed() {
+		return sealedStrength()
+	}
 	if _, err := os.Stat(vaultPath()); errors.Is(err, os.ErrNotExist) {
 		return Strength{NoVaultYet: true}, nil
 	}

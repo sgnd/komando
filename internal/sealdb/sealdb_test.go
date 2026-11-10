@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/sgnd/komando/internal/sealrow"
@@ -395,10 +396,10 @@ func TestNestedAndOddPath(t *testing.T) {
 		if _, err := tx.Put("server", "", []byte("a")); err != nil {
 			return err
 		}
-		return d.View(ctx, func(*Tx) error { return nil })
+		return d.Backup(ctx, filepath.Join(dir, "inside.db"))
 	})
 	if !errors.Is(err, ErrNested) {
-		t.Fatalf("nested: %v", err)
+		t.Fatalf("backup inside a step: %v", err)
 	}
 	ents, _ := os.ReadDir(dir)
 	for _, e := range ents {
@@ -468,4 +469,90 @@ func TestMetaAndPeek(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+// Goroutines of one process take turns; only a call from inside a step
+// is refused.
+func TestConcurrentStepsWait(t *testing.T) {
+	d := open(t, filepath.Join(t.TempDir(), "store.db"))
+	var wg sync.WaitGroup
+	for i := range 16 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := d.Update(ctx, func(tx *Tx) error {
+				_, err := tx.Put("server", "", []byte(strconv.Itoa(i)))
+				return err
+			})
+			if err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	_ = d.View(ctx, func(tx *Tx) error {
+		if l, _ := tx.List("server"); len(l) != 16 {
+			t.Fatalf("%d records", len(l))
+		}
+		return nil
+	})
+}
+
+// A step called from inside a step joins it: a read sees the changes so
+// far, a write is a savepoint undone alone on its own error and with the
+// outer step on the outer's.
+func TestNestedSteps(t *testing.T) {
+	d := open(t, filepath.Join(t.TempDir(), "store.db"))
+	count := func() int {
+		n := 0
+		_ = d.View(ctx, func(tx *Tx) error { l, _ := tx.List("server"); n = len(l); return nil })
+		return n
+	}
+	boom := errors.New("boom")
+	err := d.Update(ctx, func(tx *Tx) error {
+		if _, err := tx.Put("server", "", []byte("a")); err != nil {
+			return err
+		}
+		if err := d.View(ctx, func(in *Tx) error {
+			if l, _ := in.List("server"); len(l) != 1 {
+				t.Fatalf("inner read sees %d", len(l))
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+		// an inner write that fails is undone alone
+		if err := d.Update(ctx, func(in *Tx) error {
+			_, _ = in.Put("server", "", []byte("b"))
+			return boom
+		}); !errors.Is(err, boom) {
+			t.Fatalf("inner error: %v", err)
+		}
+		// an inner write that works stays with the outer
+		return d.Update(ctx, func(in *Tx) error {
+			_, err := in.Put("server", "", []byte("c"))
+			return err
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := count(); n != 2 {
+		t.Fatalf("%d records, want 2 (a and c)", n)
+	}
+	// the outer step's error undoes the inner writes too
+	_ = d.Update(ctx, func(tx *Tx) error {
+		_ = d.Update(ctx, func(in *Tx) error { _, err := in.Put("server", "", []byte("d")); return err })
+		return boom
+	})
+	if n := count(); n != 2 {
+		t.Fatalf("%d records after an undone step", n)
+	}
+	// no change inside a read
+	err = d.View(ctx, func(tx *Tx) error {
+		return d.Update(ctx, func(*Tx) error { return nil })
+	})
+	if !errors.Is(err, ErrNested) {
+		t.Fatalf("write inside read: %v", err)
+	}
 }

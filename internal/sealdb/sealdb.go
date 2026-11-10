@@ -21,15 +21,17 @@
 // generation number also kept in the OS keychain) covers the store as a
 // whole.
 //
-// Never call a DB method from inside the fn of View or Update: a store has
-// one connection, so that call would wait for itself. It returns
-// ErrNested instead.
+// A View or Update called from inside another step, on the same goroutine,
+// joins that step: a write runs in a savepoint of it, so it is kept or
+// undone with the outer step, and its own error undoes only its part. An
+// Update inside a View, or a Backup inside any step, returns ErrNested.
 //
 // The package reads no environment and no global state: the caller passes
 // the path and the key.
 package sealdb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -39,7 +41,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -95,9 +99,15 @@ CREATE TABLE IF NOT EXISTS audit (
 
 // DB is an open store.
 type DB struct {
-	db   *sql.DB
-	key  *sealrow.Key
-	busy atomic.Bool // a step is running; see ErrNested
+	db  *sql.DB
+	key *sealrow.Key
+	// one step at a time in this process (the store has one connection);
+	// holder is the goroutine running it, so a call from inside a step is
+	// told apart from another goroutine waiting its turn
+	mu     sync.Mutex
+	holder atomic.Uint64
+	cur    *Tx // the step holder is running
+	depth  int // savepoints inside it
 }
 
 // fileURI makes the SQLite URI for path, escaped so that '?', '#' and '%'
@@ -249,10 +259,14 @@ func (d *DB) Update(ctx context.Context, fn func(*Tx) error) error {
 }
 
 func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error) {
-	if !d.busy.CompareAndSwap(false, true) {
-		return ErrNested
+	release, err := d.enter()
+	if errors.Is(err, ErrNested) {
+		return d.nested(write, fn)
 	}
-	defer d.busy.Store(false)
+	if err != nil {
+		return err
+	}
+	defer release()
 	c, err := d.db.Conn(ctx)
 	if err != nil {
 		return err
@@ -277,7 +291,10 @@ func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error
 			}
 		}
 	}()
-	if err := fn(&Tx{ctx: ctx, c: c, key: d.key, write: write}); err != nil {
+	tx := &Tx{ctx: ctx, c: c, key: d.key, write: write}
+	d.cur = tx
+	defer func() { d.cur = nil }()
+	if err := fn(tx); err != nil {
 		return err
 	}
 	if _, err := c.ExecContext(ctx, "COMMIT"); err != nil {
@@ -287,13 +304,77 @@ func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error
 	return nil
 }
 
+// nested runs fn inside the step this goroutine is already running.
+func (d *DB) nested(write bool, fn func(*Tx) error) error {
+	outer := d.cur
+	if outer == nil {
+		return ErrNested
+	}
+	if !write {
+		// a read sees the outer step's changes so far
+		return fn(&Tx{ctx: outer.ctx, c: outer.c, key: outer.key, write: false})
+	}
+	if !outer.write {
+		return fmt.Errorf("%w: a change inside a read step", ErrNested)
+	}
+	d.depth++
+	sp := "sp" + strconv.Itoa(d.depth)
+	defer func() { d.depth-- }()
+	if _, err := outer.c.ExecContext(outer.ctx, "SAVEPOINT "+sp); err != nil {
+		return err
+	}
+	ok := false
+	defer func() {
+		if !ok {
+			_, _ = outer.c.ExecContext(context.Background(), "ROLLBACK TO "+sp)
+			_, _ = outer.c.ExecContext(context.Background(), "RELEASE "+sp)
+		}
+	}()
+	if err := fn(outer); err != nil {
+		return err
+	}
+	if _, err := outer.c.ExecContext(outer.ctx, "RELEASE "+sp); err != nil {
+		return err
+	}
+	ok = true
+	return nil
+}
+
+// enter waits for this process's turn at the store. A goroutine that is
+// already inside a step gets ErrNested instead of waiting for itself.
+func (d *DB) enter() (release func(), err error) {
+	me := goid()
+	if !d.mu.TryLock() {
+		if d.holder.Load() == me {
+			return nil, ErrNested
+		}
+		d.mu.Lock()
+	}
+	d.holder.Store(me)
+	return func() { d.holder.Store(0); d.mu.Unlock() }, nil
+}
+
+// goid is the running goroutine's number, from the first line of its
+// stack ("goroutine 7 [running]:"). Only used to tell a nested call apart.
+func goid() uint64 {
+	var buf [64]byte
+	b := buf[:runtime.Stack(buf[:], false)]
+	b, _ = bytes.CutPrefix(b, []byte("goroutine "))
+	if i := bytes.IndexByte(b, ' '); i > 0 {
+		b = b[:i]
+	}
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
+}
+
 // Backup writes a consistent copy of the store to dst, which must not
 // exist. A plain copy of the file taken during a write may be broken.
 func (d *DB) Backup(ctx context.Context, dst string) error {
-	if !d.busy.CompareAndSwap(false, true) {
-		return ErrNested
+	release, err := d.enter()
+	if err != nil {
+		return err
 	}
-	defer d.busy.Store(false)
+	defer release()
 	if _, err := os.Lstat(dst); err == nil {
 		return fmt.Errorf("sealdb: %s already exists", dst)
 	}

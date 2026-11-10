@@ -380,6 +380,9 @@ func keychainNewKey() ([]byte, bool) {
 // collection among other things) it stores nothing and asks for the
 // keychain to be unlocked first.
 func KeyToKeychain() (string, error) {
+	if store.Sealed() {
+		return "", errSealedKeyChange
+	}
 	tool, err := KeychainTool()
 	if err != nil {
 		return "", err
@@ -443,6 +446,9 @@ func KeyToKeychain() (string, error) {
 
 // KeyToFile moves the vault key back from the keychain into vault.key.
 func KeyToFile() error {
+	if store.Sealed() {
+		return errSealedKeyChange
+	}
 	unlock, err := store.Lock(lockName) // a parallel Set must not be lost
 	if err != nil {
 		return err

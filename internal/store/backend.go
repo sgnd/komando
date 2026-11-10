@@ -70,9 +70,14 @@ var KeySource func(meta map[string]string, create bool) (master []byte, newMeta 
 // treat it as empty.
 var ErrNoStore = errors.New("store: no store yet")
 
+type openStore struct {
+	db *sealdb.DB
+	fi os.FileInfo // the file it opened, to notice a file put in its place
+}
+
 var (
 	dbMu   sync.Mutex
-	dbOpen = map[string]*sealdb.DB{} // by home
+	dbOpen = map[string]openStore{} // by home
 )
 
 // DB opens the sealed store of this home, once per process. With create,
@@ -82,8 +87,14 @@ func DB(create bool) (*sealdb.DB, error) {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 	home := Home()
-	if d := dbOpen[home]; d != nil {
-		return d, nil
+	if o, ok := dbOpen[home]; ok {
+		// a store removed or replaced (a restore from backup) since it was
+		// opened is opened again, never written through the old handle
+		if fi, err := os.Stat(Path(StoreFile)); err == nil && os.SameFile(fi, o.fi) {
+			return o.db, nil
+		}
+		o.db.Close()
+		delete(dbOpen, home)
 	}
 	if KeySource == nil {
 		return nil, errors.New("store: no key source (the vault package is not linked)")
@@ -117,7 +128,17 @@ func openDB(ctx context.Context, home, path string, meta map[string]string) (*se
 	if err != nil {
 		return nil, err
 	}
-	dbOpen[home] = d
+	return remember(home, path, d)
+}
+
+// remember keeps d as this home's open store, with the file it opened.
+func remember(home, path string, d *sealdb.DB) (*sealdb.DB, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		d.Close()
+		return nil, err
+	}
+	dbOpen[home] = openStore{d, fi}
 	return d, nil
 }
 
@@ -172,16 +193,33 @@ func createDB(ctx context.Context, home, path string) (*sealdb.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	dbOpen[home] = d
-	return d, nil
+	return remember(home, path, d)
 }
 
 // closeDBs closes every open store (tests that change the home).
 func closeDBs() {
 	dbMu.Lock()
 	defer dbMu.Unlock()
-	for h, d := range dbOpen {
-		d.Close()
+	for h, o := range dbOpen {
+		o.db.Close()
 		delete(dbOpen, h)
 	}
+}
+
+// MasterKey returns this home's sealed store master key, for keys made from
+// it under other labels (the vault's entries). ErrNoStore when there is no
+// store yet.
+func MasterKey() ([]byte, error) {
+	meta, err := sealdb.Peek(context.Background(), Path(StoreFile))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, ErrNoStore
+	}
+	if err != nil {
+		return nil, err
+	}
+	if KeySource == nil {
+		return nil, errors.New("store: no key source (the vault package is not linked)")
+	}
+	k, _, err := KeySource(meta, false)
+	return k, err
 }

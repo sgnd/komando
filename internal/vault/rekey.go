@@ -111,6 +111,9 @@ func (f *file) openWith(oldPass string) (map[string][]byte, error) {
 // the vault's current key (see ChangeKey for oldPass). An error that
 // matches ErrWrongKey means one did not.
 func Opens(oldPass string) error {
+	if store.Sealed() {
+		return errSealedKeyChange
+	}
 	f, err := load()
 	if err != nil {
 		return err
@@ -143,6 +146,9 @@ type KeyChange struct {
 // vault is changed all the same.
 func ChangeKey(oldPass, newPass string) (KeyChange, error) {
 	var res KeyChange
+	if store.Sealed() {
+		return res, errSealedKeyChange
+	}
 	if newPass != "" && utf8.RuneCountInString(newPass) < MinPassphrase {
 		return res, ErrShortPassphrase
 	}

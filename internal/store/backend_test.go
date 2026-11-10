@@ -123,3 +123,23 @@ func TestDBCreateRace(t *testing.T) {
 		t.Fatalf("%d keys made by 8 openers", *made)
 	}
 }
+
+// A store file replaced while open (a restore) is opened again.
+func TestDBReopensReplacedFile(t *testing.T) {
+	sealedHome(t)
+	fakeKeys(t)
+	d, err := DB(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(Home()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DB(false); !errors.Is(err, ErrNoStore) {
+		t.Fatalf("after removal: %v", err)
+	}
+	d2, err := DB(true)
+	if err != nil || d2 == d {
+		t.Fatalf("not reopened: %v", err)
+	}
+}
