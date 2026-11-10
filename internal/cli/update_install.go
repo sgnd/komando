@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -65,6 +66,9 @@ func checkSum(sums []byte, name string, data []byte) error {
 
 // binaryFromArchive is the komando file inside a release archive.
 func binaryFromArchive(data []byte) ([]byte, error) {
+	if bytes.HasPrefix(data, []byte("PK\x03\x04")) {
+		return binaryFromZip(data)
+	}
 	zr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
@@ -88,13 +92,40 @@ func binaryFromArchive(data []byte) ([]byte, error) {
 	}
 }
 
+// binaryFromZip is komando.exe inside a Windows release archive.
+func binaryFromZip(data []byte) ([]byte, error) {
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range zr.File {
+		if path.Clean(f.Name) != "komando.exe" || !f.Mode().IsRegular() {
+			continue
+		}
+		if f.UncompressedSize64 > maxBinary {
+			return nil, fmt.Errorf("its komando.exe is %d bytes, more than komando accepts", f.UncompressedSize64)
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer rc.Close()
+		b, err := io.ReadAll(io.LimitReader(rc, maxBinary+1))
+		if err == nil && int64(len(b)) > maxBinary {
+			err = fmt.Errorf("its komando.exe is more than %d bytes, more than komando accepts", maxBinary)
+		}
+		return b, err
+	}
+	return nil, errors.New("it has no komando.exe program")
+}
+
 // replaceSelf writes bin next to exe, checks that it runs and says it is
 // tag, then renames it over exe. A rename is atomic: a komando running now
 // keeps the old file, the next one starts the new one, and nobody ever runs
 // a half-written program.
 func replaceSelf(ctx context.Context, exe string, bin []byte, tag string) error {
 	dir := filepath.Dir(exe)
-	f, err := os.CreateTemp(dir, ".komando-update-*")
+	f, err := os.CreateTemp(dir, ".komando-update-*"+exeSuffix)
 	if err != nil {
 		return out.Errf(out.ExitError, "WRITE_FAILED", "nothing was changed; check that you may write to "+dir, "%v", err)
 	}
@@ -116,7 +147,7 @@ func replaceSelf(ctx context.Context, exe string, bin []byte, tag string) error 
 	if err := tryBinary(ctx, tmp, tag); err != nil {
 		return err
 	}
-	if err := os.Rename(tmp, exe); err != nil {
+	if err := swapExe(tmp, exe); err != nil {
 		return out.Errf(out.ExitError, "WRITE_FAILED", "nothing was changed; check that you may write to "+dir, "%v", err)
 	}
 	return nil

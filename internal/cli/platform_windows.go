@@ -80,3 +80,24 @@ func fileLinks(p string, _ os.FileInfo) uint64 {
 	return uint64(info.NumberOfLinks)
 }
 
+// exeSuffix ends the name of a program file.
+const exeSuffix = ".exe"
+
+// swapExe puts the new program tmp where exe is. Windows does not let a
+// running program's file be replaced, but it may be renamed: exe moves
+// aside to exe.old, tmp takes its name, and exe.old is removed when no
+// komando runs it any more (here, or at the next update). A failed second
+// rename puts exe back.
+func swapExe(tmp, exe string) error {
+	old := exe + ".old"
+	_ = os.Remove(old) // left by an earlier update
+	if err := os.Rename(exe, old); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, exe); err != nil {
+		_ = os.Rename(old, exe)
+		return err
+	}
+	_ = os.Remove(old) // fails while this komando runs from it
+	return nil
+}
