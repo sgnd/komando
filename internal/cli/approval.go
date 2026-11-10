@@ -358,6 +358,10 @@ end run`
 			err := exec.CommandContext(ctx, k, "--title", "komando: allow?", "--warningyesno", text, "--yes-label", "Allow once", "--no-label", "Deny").Run()
 			return err == nil, true
 		}
+	case "windows":
+		_, allowed, gaveUp, shown := approvalWindow(text, false)
+		approvalGaveUp = gaveUp
+		return allowed, shown
 	}
 	return false, false
 }

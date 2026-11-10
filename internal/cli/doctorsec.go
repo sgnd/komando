@@ -5,8 +5,7 @@ import (
 	"maps"
 	"net"
 	"net/url"
-	"os"
-	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -33,9 +32,11 @@ func securityChecks(st *store.State) []securityCheck {
 	}
 
 	// komando's folder and files: this user only (ASVS 14.1, CWE-276)
-	loose := looseFiles()
-	add("permissions", len(loose) == 0, false, map[bool]string{true: store.Home() + " is private to you",
-		false: "others can read " + strings.Join(loose, ", ") + ": run chmod 700 " + store.Home() + " && chmod 600 on the files"}[len(loose) == 0])
+	platformChecks(add)
+	if loose := looseFiles(); runtime.GOOS != "windows" {
+		add("permissions", len(loose) == 0, false, map[bool]string{true: store.Home() + " is private to you",
+			false: "others can read " + strings.Join(loose, ", ") + ": run chmod 700 " + store.Home() + " && chmod 600 on the files"}[len(loose) == 0])
+	}
 
 	if s, err := vault.Check(); err != nil {
 		add("vault", false, false, err.Error())
@@ -104,27 +105,6 @@ func weakVpn(v *store.Vpn) string {
 		why = append(why, "PAP is allowed, which hands the server your password itself; once it offers MS-CHAPv2: komando vpn edit "+v.Name+" --allow-pap=false")
 	}
 	return strings.Join(why, "; ")
-}
-
-// looseFiles lists komando files that other users on this computer can read.
-func looseFiles() []string {
-	var loose []string
-	check := func(p string) {
-		if fi, err := os.Stat(p); err == nil && fi.Mode().Perm()&0o077 != 0 {
-			loose = append(loose, p)
-		}
-	}
-	check(store.Home())
-	for _, f := range []string{"state.json", "vault.json", "vault.key", "audit.jsonl", "known_hosts"} {
-		check(store.Path(f))
-	}
-	keys, _ := filepath.Glob(store.Path("keys", "*"))
-	for _, k := range keys {
-		if !strings.HasSuffix(k, ".pub") {
-			check(k)
-		}
-	}
-	return loose
 }
 
 // vaultKeyChecks: KOMANDO_VAULT_PASS opens a passphrase vault (a changed
