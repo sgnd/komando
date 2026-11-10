@@ -174,7 +174,7 @@ func clusterDeployCmd() *cobra.Command {
 	var wait bool
 	c := &cobra.Command{
 		Use:   "deploy TARGET TYPE/NAME --image IMAGE",
-		Short: "Put out a new image (rolling); --wait follows the rollout to the end",
+		Short: "Roll out a new image; --wait follows the rollout to the end",
 		Long: `Sets the image of a deployment, statefulset or daemonset (Kubernetes) or a
 service (Swarm). With several containers, name one with --container (or
 write --image NAME=IMAGE). --wait stays until every replica runs the new

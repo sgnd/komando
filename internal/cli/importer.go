@@ -147,7 +147,7 @@ type importResult struct {
 	SettingsDiffer []settingDiffers `json:"settings_differ,omitempty"`
 	// aboutAdded are the notes in NotFound about a server that was added
 	// (what was left out of it): the text output does not call them "not
-	// imported". JSON keeps them in not_imported, as before.
+	// imported". JSON keeps them in not_imported.
 	aboutAdded []string
 }
 

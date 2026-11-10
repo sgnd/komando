@@ -25,12 +25,12 @@ func cacheCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "cache",
 		Aliases: []string{"redis"},
-		Short:   "Read and change Redis/Valkey and memcached caches safely",
-		Long: `Work with a redis or memcached conn (see ` + "`komando conn`" + `). get, keys and info only read.
-set changes data (protected conns need --yes); rm deletes keys, so it also
-needs --allow-dangerous. ` + "`cache run`" + ` sends any command, but only reads unless
---write; commands that flush, block, run scripts or reconfigure the server
-also need --allow-dangerous.`,
+		Short:   "Redis/Valkey and memcached: read keys, change them with checks",
+		Long: `Works with a redis or memcached conn (see ` + "`komando conn`" + `). get, keys and
+info only read. set changes data (protected conns need --yes); rm deletes
+keys, so it also needs --allow-dangerous. ` + "`cache run`" + ` sends any command, but
+only reads unless --write; commands that flush, block, run scripts or
+reconfigure the server also need --allow-dangerous.`,
 	}
 	c.AddCommand(cacheGetCmd(), cacheKeysCmd(), cacheInfoCmd(), cacheSetCmd(), cacheRmCmd(), cacheRunCmd())
 	return c
@@ -136,7 +136,7 @@ func cacheGetCmd() *cobra.Command {
 				})
 		},
 	}
-	c.Flags().Int64VarP(&limit, "limit", "n", 100, "max items shown for hashes, lists, sets and sorted sets")
+	c.Flags().Int64VarP(&limit, "limit", "n", 100, "the most items to show of a hash, list, set or sorted set")
 	return c
 }
 
@@ -149,6 +149,9 @@ type keyList struct {
 }
 
 func (l keyList) Text() string {
+	if len(l.Keys) == 0 {
+		return "no keys match " + cachex.Quote(l.Pattern) + "\n"
+	}
 	var sb strings.Builder
 	for _, k := range l.Keys {
 		sb.WriteString(cachex.Quote(k) + "\n")
@@ -164,7 +167,7 @@ func cacheKeysCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "keys CONN [PATTERN]",
 		Aliases: []string{"ls"},
-		Short:   "List keys matching a pattern (uses SCAN, safe on big caches)",
+		Short:   "List keys matching a pattern (uses SCAN, so a big cache is not blocked)",
 		Example: `  komando cache keys cache 'session:*'
   komando cache keys cache --limit 1000`,
 		Args: cobra.RangeArgs(1, 2),
@@ -184,7 +187,7 @@ func cacheKeysCmd() *cobra.Command {
 				})
 		},
 	}
-	c.Flags().IntVarP(&limit, "limit", "n", 100, "max keys returned")
+	c.Flags().IntVarP(&limit, "limit", "n", 100, "the most keys to return")
 	return c
 }
 

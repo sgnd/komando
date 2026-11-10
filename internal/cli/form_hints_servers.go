@@ -75,7 +75,7 @@ var srvRunHints = map[string]formHint{
 		args: []formArg{srvServers, {ask: "What command should it run?", example: "df -h /",
 			help: "Type it as you would on the server itself, pipes and all."}},
 		flags: []formFlag{srvSudo, srvReadOnly, srvDir},
-		hide:  []string{"cmd", "stream"},
+		hide:  []string{"cmd"},
 	},
 	"shell": {
 		args: []formArg{{ask: "Which server?", pick: "server",
@@ -101,7 +101,6 @@ var srvRunHints = map[string]formHint{
 		flags: []formFlag{srvSudo, srvReadOnly,
 			{name: "arg", ask: "Anything to pass to the script?", example: "v1.2.3",
 				help: "One value the script gets as its first argument. Leave empty for none."}},
-		hide: []string{"stream"},
 	},
 }
 

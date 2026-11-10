@@ -251,8 +251,6 @@ type pkgSecData struct {
 	Summary fleetSummary `json:"summary"`
 }
 
-// pkgSecParse reads one server's script output. apply says whether the
-// script was asked to change anything.
 // pkgSecLists fills in what the script found before any change: the
 // package manager, the OS's support, the security updates, what they would
 // remove and how old the package index is.
@@ -282,6 +280,8 @@ func pkgSecLists(r *pkgSecRow, sec map[string]string, refreshed bool) {
 	}
 }
 
+// pkgSecParse reads one server's script output. apply says whether the
+// script was asked to change anything.
 func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecRow {
 	r := pkgSecRow{Host: host, Security: []pkgUpgrade{}, DurationMS: rr.DurationMS}
 	sec := sections(rr.Stdout)

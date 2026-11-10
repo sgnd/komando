@@ -59,7 +59,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 	mode := o.mode
 	if mode != "" {
 		if _, err := strconv.ParseUint(mode, 8, 32); err != nil {
-			return nil, out.Usage("invalid --mode %q", mode)
+			return nil, out.Usage("--mode %q is not an octal mode like 0644", mode)
 		}
 	}
 	if o.owner != "" && !o.sudo {
@@ -351,7 +351,7 @@ func fsWriteCmd() *cobra.Command {
 	var appendMode, ifChanged bool
 	c := &cobra.Command{
 		Use:   "write TARGET PATH",
-		Short: "Write a remote file atomically (content from --content, --from FILE, or stdin)",
+		Short: "Write a file on a server, all or nothing (--content, --from FILE or stdin)",
 		Example: `  komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup
   komando fs write web1 /srv/app/config.yml --from ./config.yml --if-changed`,
 		Args: cobra.ExactArgs(2),
@@ -370,7 +370,7 @@ func fsWriteCmd() *cobra.Command {
 					return err
 				}
 				if data == nil {
-					return out.Usage("provide --content, --from FILE, or pipe data on stdin")
+					return out.Usage("give the content with --content, --from FILE, or on stdin")
 				}
 			}
 			if out.HasHidden(string(data)) {
@@ -416,7 +416,7 @@ func fsWriteCmd() *cobra.Command {
 					}
 					if appendMode {
 						if trunc {
-							return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, e.g. `cat >> FILE`", "file larger than 64MiB")
+							return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, e.g. `cat >> FILE`", "the file is larger than 64MiB, the most fs write --append reads")
 						}
 						data = append(old, data...)
 					}
@@ -443,10 +443,10 @@ func fsWriteCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().StringVar(&content, "content", "", "literal content")
-	c.Flags().StringVar(&from, "from", "", "local source file ('-' = stdin)")
-	c.Flags().BoolVar(&appendMode, "append", false, "append instead of overwrite")
-	c.Flags().BoolVar(&ifChanged, "if-changed", false, "skip the write when content is identical (idempotent)")
+	c.Flags().StringVar(&content, "content", "", "the content, written as given")
+	c.Flags().StringVar(&from, "from", "", "file on this computer to send ('-' = stdin)")
+	c.Flags().BoolVar(&appendMode, "append", false, "add to the end instead of replacing the file")
+	c.Flags().BoolVar(&ifChanged, "if-changed", false, "skip the write when the content is the same (safe to run again)")
 	bindWriteOpts(c, &o)
 	return c
 }
@@ -495,11 +495,11 @@ func fsWritePreview(ctx context.Context, st *store.State, h *store.Host, p0 stri
 }
 
 func bindWriteOpts(c *cobra.Command, o *writeOpts) {
-	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, "write via sudo (root-owned paths)")
+	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, "write with sudo (for files root owns)")
 	c.Flags().BoolVar(&o.backup, "backup", false, "keep the previous version as PATH.bak (PATH.bak.<UTC time> when that exists; a backup is never overwritten)")
-	c.Flags().BoolVarP(&o.mkdirs, "parents", "p", false, "create parent directories")
+	c.Flags().BoolVarP(&o.mkdirs, "parents", "p", false, "create missing parent folders")
 	c.Flags().StringVar(&o.mode, "mode", "", "file mode, e.g. 0640 (default: keep existing or 0644)")
-	c.Flags().StringVar(&o.owner, "owner", "", "owner[:group] (requires --sudo)")
+	c.Flags().StringVar(&o.owner, "owner", "", "owner[:group] (needs --sudo)")
 	c.Flags().StringVar(&o.validate, "validate", "", "check the new file before it goes into place; %s is its path (e.g. 'visudo -cf %s', 'nginx -t -c %s')")
 	c.Flags().BoolVar(&o.noFollow, "no-follow", false, "refuse to write through a symbolic link (by default the file it points to is written and the link stays)")
 }

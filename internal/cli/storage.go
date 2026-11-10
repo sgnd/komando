@@ -200,6 +200,12 @@ type objectList struct {
 }
 
 func (l objectList) Text() string {
+	if len(l.Objects) == 0 && l.Prefix != "" {
+		return "nothing under " + l.Prefix + " in " + l.Conn + "\n"
+	}
+	if len(l.Objects) == 0 {
+		return l.Conn + " is empty: `komando upload " + l.Conn + " FILE` adds a file\n"
+	}
 	var b strings.Builder
 	b.WriteString(objectTable(l.Objects))
 	if l.More {
@@ -230,7 +236,7 @@ func storageLsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "ls CONN [PREFIX]",
 		Aliases: []string{"list"},
-		Short:   "List objects and folders (one level, or everything with --recursive)",
+		Short:   "List objects and folders (one level; --recursive for all)",
 		Example: `  komando storage ls backups
   komando storage ls backups db/2026-11/ --recursive`,
 		Args: cobra.RangeArgs(1, 2),
@@ -530,7 +536,7 @@ func storageCatCmd() *cobra.Command {
 	var maxBytes int64
 	c := &cobra.Command{
 		Use:   "cat CONN KEY",
-		Short: "Show an object's content (text); --head or --tail N lines, at most --max-bytes",
+		Short: "Show an object's text (--head or --tail N lines, --max-bytes)",
 		Example: `  komando storage cat backups logs/app-2026-11-02.log --tail 50
   komando storage cat config prod/app.env`,
 		Args: cobra.ExactArgs(2),

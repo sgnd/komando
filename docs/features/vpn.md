@@ -58,11 +58,11 @@ komando vpn add lab socks --address 127.0.0.1:1080
 komando vpn add office proxy --address proxy.corp.example:3128
 ```
 
-- **`--check host:port`** is an address that answers only through the VPN.
+- `--check host:port` is an address that answers only through the VPN.
   `komando test` and `komando vpn up` connect to it to prove the VPN works.
   Always add one; `system` and `openvpn` VPNs need it.
-- **Config files** (`--config`): the WireGuard `.conf` or OpenVPN `.ovpn`
-  file is stored in the vault, together with its keys. The original file
+- `--config` takes the WireGuard `.conf` or OpenVPN `.ovpn` file. komando
+  stores it in the vault, together with its keys. The original file
   still holds the private key, so delete it if you no longer need it.
   The vault secrets are named after the VPN: `NAME-key` and `NAME-psk`
   (WireGuard) or `NAME-config` (OpenVPN). If a secret of that name exists
@@ -71,20 +71,20 @@ komando vpn add office proxy --address proxy.corp.example:3128
   name, or move the secret away first (`komando secret mv`, or `komando
   secret rm` if an earlier VPN of that name left it). `--overwrite` may
   reuse the secrets of the VPN it replaces, when nothing else uses them.
-- **Passwords** (`--password-ref`) work like everywhere else in komando:
+- `--password-ref` works like everywhere else in komando:
   `secret:NAME`, `env:VAR`, a password manager, and so on (see
   [Servers](servers.md)). For Tailscale it is an auth key. The VPN sends
   it (and `--psk-ref`) to its server each time it connects, so when an AI
   agent adds a VPN with one, or points a VPN at another server or address,
   a person allows it: `--yes` and a click in komando's window, which names
   the references and the server (`SECRET_DESTINATION`).
-- **`--portal`** is the VPN server for `anyconnect`, `fortinet`,
+- `--portal` is the VPN server for `anyconnect`, `fortinet`,
   `globalprotect`, `f5` and `pulse`.
-- **`--server`** is the VPN server for `l2tp`, `ipsec` and `ikev2`, and
-  **`--psk-ref`** its pre-shared key ("shared secret"; for `ipsec` the group
+- `--server` is the VPN server for `l2tp`, `ipsec` and `ikev2`, and
+  `--psk-ref` its pre-shared key ("shared secret"; for `ipsec` the group
   password), as a reference like `--password-ref`. See
   [L2TP/IPsec, IPsec and IKEv2 details](#l2tpipsec-ipsec-and-ikev2-details).
-- **`--service`** (`system` only) is the VPN's name in your computer's
+- `--service` (`system` only) is the VPN's name in your computer's
   settings. With it, `komando vpn up` connects the VPN for you (macOS:
   `scutil`; Linux: NetworkManager). Without it, connect the VPN yourself;
   komando checks it with `--check`.
@@ -205,7 +205,7 @@ certificates, a user name and password, or both.
 the server offers it, and falls back to TLS when UDP is blocked.
 
 `fortinet`, `globalprotect`, `f5` and `pulse` also have their own clients in
-komando. They are **experimental**: written to the vendors' protocols, but
+komando. They are experimental: written to the vendors' protocols, but
 not yet tried against the vendors' own servers. komando uses them:
 
 - when the `openconnect` program is not installed, or
@@ -286,7 +286,7 @@ komando test kantor
 
 ## Troubleshooting
 
-- **`VPN_DOWN`**: the VPN does not answer. The hint depends on the kind:
+- `VPN_DOWN` means the VPN does not answer. The hint depends on the kind:
   connect the `system` VPN, start the SOCKS proxy
   (`komando tunnel start HOST -D ADDRESS`), or check a WireGuard endpoint
   that sends no handshake.

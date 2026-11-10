@@ -1,6 +1,6 @@
 # antislop audit 001: follow-up (2026-11-09)
 
-All 23 items of [audit-001-2026-11-09.md](audit-001-2026-11-09.md) were approved and fixed on branch `fix/antislop-audit`. 67 files changed. Nothing is committed yet.
+All 23 items of [audit-001-2026-11-09.md](audit-001-2026-11-09.md) were approved and fixed on branch `fix/antislop-audit`, merged in pull request #92. 67 files changed.
 
 ## What changed, per item
 
@@ -38,7 +38,7 @@ All 23 items of [audit-001-2026-11-09.md](audit-001-2026-11-09.md) were approved
 
 ## Delivery Gate (text only; komando has no UI)
 
-- **R-02 PASS:** `git grep -c '—'` gives 0 for every file in the repo (the `anti-slop/` reports excluded).
+- **R-02 PASS:** `git grep -c '—'` gives 0 for every file in the repo (these reports, now in `docs/design/antislop/`, excluded).
 - **R-17/R-36/R-38 PASS:** every claim from the audit now matches the code. The checks for each item are in the table above.
 - **R-24/R-26 PASS:** the commands, flags, codes and links named in the audit now exist. The docs example test (`go test ./internal/cli/ -run 'Doc|Help|Example'`) passes.
 - **R-31 PASS:** no decorative comment banners are left in non-test Go files.
@@ -46,7 +46,7 @@ All 23 items of [audit-001-2026-11-09.md](audit-001-2026-11-09.md) were approved
 
 ## Rollback
 
-Everything is unstaged on `fix/antislop-audit`. `git checkout release/0.8.0 && git branch -D fix/antislop-audit` discards it, after a `git stash` or `git restore .` to drop the working-tree changes.
+The fixes were merged in pull request #92. To undo them, revert that merge: `git revert -m 1 9d0c36f`.
 
 ## Second round (same day)
 

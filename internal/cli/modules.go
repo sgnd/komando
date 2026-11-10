@@ -480,13 +480,13 @@ func pkgCmd() *cobra.Command {
 	}
 	upgradable := mk("upgradable", "Pending upgrades (--refresh updates the package index first)", false, false, false)
 	upgradable.Flags().BoolVar(&refresh, "refresh", false, "refresh the package index first (like apt-get update), so the list is current")
-	pkgRm := mk("remove", "Remove packages (ones not installed are skipped; reports what changed)", true, true, true) // "remove" is what the package managers call it
+	pkgRm := mk("remove", "Remove packages and report what changed (skips uninstalled)", true, true, true) // "remove" is what the package managers call it
 	pkgRm.Use = "rm TARGET PACKAGE..."
 	c.AddCommand(
 		mk("install", "Install packages and report what changed (installed ones stay)", true, true, true),
 		pkgRm,
-		mk("update", "Refresh package index", false, true, true),
-		mk("upgrade", "Upgrade all or the given packages (--dry-run lists what would be upgraded)", false, true, true),
+		mk("update", "Refresh the package index", false, true, true),
+		mk("upgrade", "Upgrade all or the given packages (--dry-run lists them)", false, true, true),
 		upgradable,
 		mk("installed", "Show installed versions (all or given packages)", false, false, false),
 		pkgSecurityCmd(&noSudo),
@@ -500,7 +500,7 @@ func netCmd() *cobra.Command {
 	c := &cobra.Command{Use: "net", Aliases: []string{"network"}, Short: "Network checks from the servers: ports, HTTP, DNS"}
 	check := &cobra.Command{
 		Use:     "check TARGET HOST:PORT...",
-		Short:   "Can each server open a TCP connection to HOST:PORT? (structured)",
+		Short:   "Check that each server can open a TCP connection to HOST:PORT",
 		Example: "  komando net check @web db.internal:5432 redis.internal:6379",
 		Args:    cobra.MinimumNArgs(2),
 		RunE:    netCheckRun,
@@ -518,7 +518,7 @@ func netCmd() *cobra.Command {
 	var expect string
 	httpC := &cobra.Command{
 		Use:   "http TARGET URL",
-		Short: "HTTP request from the server: status, timing, IP (structured)",
+		Short: "Send an HTTP request from each server: status, timing, IP",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command := `curl -sS -o /dev/null -m 15 -w '{"code":%{http_code},"time_total":%{time_total},"time_connect":%{time_connect},"time_starttransfer":%{time_starttransfer},"remote_ip":"%{remote_ip}","size":%{size_download},"redirect":"%{redirect_url}"}' ` + sshx.Q(args[1])
@@ -565,7 +565,7 @@ func netCmd() *cobra.Command {
 	var rrType string
 	dns := &cobra.Command{
 		Use:     "dns TARGET NAME",
-		Short:   "Resolve NAME from each server (--type MX, TXT, CNAME, NS ... needs dig there)",
+		Short:   "Resolve NAME from each server (--type MX etc. needs dig there)",
 		Example: "  komando net dns @web db.internal\n  komando net dns web1 example.com --type MX",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -619,13 +619,13 @@ state is read through sudo; with --no-sudo it is left out.`,
 	var admin bool
 	add := &cobra.Command{
 		Use:     "add TARGET USERNAME",
-		Short:   "Create a user (idempotent), optionally authorize an SSH key and grant sudo",
+		Short:   "Create a user if missing, with an SSH key and sudo if asked",
 		Example: "  komando user add @web deploy --key deploy --admin",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			u := args[1]
 			if !nameRe.MatchString(u) {
-				return out.Usage("invalid username")
+				return out.Usage("invalid username %q: start with a letter or digit, then letters, digits, . _ or - (at most 63)", u)
 			}
 			if pubKey != "" {
 				if _, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pubKey)); err != nil {
@@ -709,7 +709,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 func cronCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "cron",
-		Short: "Idempotent crontab entries managed by ID (list, set, rm)",
+		Short: "Manage crontab entries by ID (set replaces, never duplicates)",
 		Long: `Entries are tagged with '# komando:<id>', so 'cron set' replaces the
 entry with the same ID instead of adding a second one, and 'cron rm' removes
 only that entry. Other lines of the crontab are kept as they are.`,

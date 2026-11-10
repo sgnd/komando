@@ -1,7 +1,7 @@
 # Settings and files
 
-Change komando's settings, and find out where it keeps its data.
-[All features](README.md)
+Change komando's settings, see where it keeps its data, and update komando
+itself. [All features](README.md)
 
 ## Quick start
 
@@ -87,21 +87,27 @@ readable only by you (folder 0700, files 0600).
 | `tunnels/` | logs of background tunnels |
 | `bitwarden-device` | the device id komando shows to Bitwarden or Vaultwarden |
 
-Back this folder up and keep it private. A new vault keeps its key in the
-OS keychain (the macOS keychain through `/usr/bin/security`, or the Secret
-Service on Linux through `secret-tool` in `/usr/bin`, `/bin` or
-`/usr/local/bin`: komando never looks for them in `PATH`), so a copy of this
-folder does not open the vault. komando makes the key at your first secret,
-reads it back, and only then counts on it. A key the keychain already holds
-for this folder (from a vault you moved aside) is used, never replaced.
+Back this folder up and keep it private.
+
+### Where the vault's key lives
+
+A new vault keeps its key in the OS keychain (the macOS keychain through
+`/usr/bin/security`, or the Secret Service on Linux through `secret-tool` in
+`/usr/bin`, `/bin` or `/usr/local/bin`: komando never looks for them in
+`PATH`), so a copy of this folder does not open the vault. komando makes the
+key at your first secret, reads it back, and only then counts on it. A key
+the keychain already holds for this folder (from a vault you moved aside) is
+used, never replaced.
+
 komando stores a new key only when the keychain says it holds nothing for
 this folder. On Linux a locked collection hides its keys from a lookup
 (and KeePassXC hides them from a search too), while `secret-tool store`
 asks to unlock the default collection and then overwrites an item there.
 So komando first asks the Secret Service, through `gdbus` or `busctl` from
 the same system folders, whether the default collection is unlocked, and
-only then checks that `secret-tool search --all` lists no item. Where the
-keychain cannot keep the key or cannot tell (a Linux server without
+only then checks that `secret-tool search --all` lists no item.
+
+Where the keychain cannot keep the key or cannot tell (a Linux server without
 `secret-tool` or a desktop session, a default collection that is locked,
 no `gdbus` or `busctl`, a Mac reached over SSH with its keychain locked, an
 item for this folder that stays locked, a container, a keychain that does
@@ -113,14 +119,17 @@ A vault keeps its key where it is: one made before komando used the
 keychain still has `vault.key`. Run `komando secret keychain` to move the
 key into the keychain. Nothing is re-encrypted, so it works before or after
 your first secret (`--off --yes` moves it back). On Linux it stops, and
-asks you to unlock the keychain, while the default collection is locked. It
-refuses when the keychain already holds another key for this folder (most likely the only
-key of a vault you moved aside): put that vault back, or delete the item
-from the keychain yourself once no vault needs it. A vault whose key is in the
-keychain opens only where that keychain is unlocked: on a Mac you reach over
-SSH, unlock it first (`security unlock-keychain`), or use a passphrase.
+asks you to unlock the keychain, while the default collection is locked.
+It refuses when the keychain already holds another key for this folder
+(most likely the only key of a vault you moved aside): put that vault back,
+or delete the item from the keychain yourself once no vault needs it. A
+vault whose key is in the keychain opens only where that keychain is
+unlocked: on a Mac you reach over SSH, unlock it first
+(`security unlock-keychain`), or use a passphrase.
 
-`KOMANDO_VAULT_PASS` is the other way, mainly for a computer without a
+### A passphrase instead of the keychain
+
+`KOMANDO_VAULT_PASS` is the other way to protect the vault, mainly for a computer without a
 keychain (a Linux server without `secret-tool`). A new vault takes its mode
 at your first secret: with the variable set to 15 or more characters, it
 gets that passphrase. Setting or changing the variable on its own does
