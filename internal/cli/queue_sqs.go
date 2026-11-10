@@ -26,7 +26,7 @@ func openQueue(ctx context.Context, c *store.Conn, a *access, timeout time.Durat
 	case profile == "" && t.User != "":
 		return sqs.Open(ctx, t, a.Password, a.Dial, timeout, "komando/"+actor())
 	case profile == "" && a.Password != "":
-		return nil, out.Usage("the conn %s has a password reference but no access key ID: use sqs://ACCESS_KEY_ID@%s, or drop --password-ref to log in with your AWS profile", c.Name, t.Region)
+		return nil, out.Usage("the conn %s has a password reference but no access key ID: use sqs://ACCESS_KEY_ID@%s, or drop the password reference (`komando conn edit %s --unset password-ref`) to log in with your AWS profile", c.Name, t.Region, c.Name)
 	}
 	cr, err := awsCredentials(ctx, profile)
 	if err != nil {

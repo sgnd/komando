@@ -24,7 +24,7 @@ import (
 // login user's profile folder.
 
 // windowsOne is the server target picks when it is one Windows server;
-// h is nil otherwise (the command goes on as before and reports any
+// h is nil otherwise (the command takes its usual path and reports any
 // problem with the target itself).
 func windowsOne(target string) (*store.State, *store.Host) {
 	st, err := loadState()
@@ -88,7 +88,7 @@ func (e winEntry) info() fileInfo {
 
 // winRun runs a komando file script on h and reads its markers. A marker
 // that says the path is missing, a folder or refused is its error.
-func winRun(ctx context.Context, st *store.State, h *store.Host, p, script string, maxOut int) (map[string]string, *sshx.RunResult, error) {
+func winRun(ctx context.Context, st *store.State, h *store.Host, p, script string, maxOut int) (map[string]string, error) {
 	var rr *sshx.RunResult
 	err := withClient(allowWindows(ctx), st, h, func(c *sshx.Client) error {
 		var err error
@@ -96,17 +96,17 @@ func winRun(ctx context.Context, st *store.State, h *store.Host, p, script strin
 		return err
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	m := winMarkers(rr.Stdout)
 	if e := winMarkerErr(p, m); e != nil {
-		return m, rr, e
+		return m, e
 	}
 	if rr.ExitCode != 0 {
-		return m, rr, out.Errf(out.ExitRemote, "COMMAND_FAILED", "read the message; check the path with `komando fs stat "+h.Name+" PATH`",
+		return m, out.Errf(out.ExitRemote, "COMMAND_FAILED", "read the message; check the path with `komando fs stat "+h.Name+" PATH`",
 			"%s", dash(strings.TrimSpace(rr.Stderr)))
 	}
-	return m, rr, nil
+	return m, nil
 }
 
 // winMarkerErr is the error a file script's marker stands for, or nil.
@@ -139,13 +139,13 @@ if ($i.PSIsContainer) { $items = @(Get-ChildItem -LiteralPath $p -Force:$`+strco
 $rows = foreach ($f in $items) { `+winRow+` }
 mark ('path=' + $p)
 mark ('json=' + (ConvertTo-Json -Compress -InputObject @($rows)))`)
-	m, _, err := winRun(ctx, st, h, p, script, 64<<20)
+	m, err := winRun(ctx, st, h, p, script, 64<<20)
 	if err != nil {
 		return nil, err
 	}
 	var es []winEntry
 	if err := json.Unmarshal([]byte(m["json"]), &es); err != nil {
-		return nil, out.Errf(out.ExitRemote, "COMMAND_FAILED", "run it again; if it stays, tell the komando project", "cannot read the folder list: %v", err)
+		return nil, out.Errf(out.ExitRemote, "COMMAND_FAILED", "run it again; if it happens again, report it at "+releaseSite+"/issues", "cannot read the folder list: %v", err)
 	}
 	r := lsResult{Path: m["path"], Entries: []fileInfo{}, recursive: recursive}
 	for _, e := range es {
@@ -168,7 +168,7 @@ func winFsStat(ctx context.Context, st *store.State, h *store.Host, p string, ha
 	script := winPath(p) + winCatch(`if (-not (Test-Path -LiteralPath $p)) { mark 'missing'; mark ('path=' + $p); exit 0 }
 $f = Get-Item -LiteralPath $p -Force
 mark ('json=' + (ConvertTo-Json -Compress -InputObject (`+winRow+`)))`+sum)
-	m, _, err := winRun(ctx, st, h, p, script, 1<<20)
+	m, err := winRun(ctx, st, h, p, script, 1<<20)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ mark ('json=' + (ConvertTo-Json -Compress -InputObject (`+winRow+`)))`+sum)
 	}
 	var e winEntry
 	if err := json.Unmarshal([]byte(m["json"]), &e); err != nil {
-		return nil, out.Errf(out.ExitRemote, "COMMAND_FAILED", "run it again; if it stays, tell the komando project", "cannot read the file's details: %v", err)
+		return nil, out.Errf(out.ExitRemote, "COMMAND_FAILED", "run it again; if it happens again, report it at "+releaseSite+"/issues", "cannot read the file's details: %v", err)
 	}
 	r := map[string]any{"exists": true, "info": e.info()}
 	if s := m["sha256"]; s != "" {
@@ -201,7 +201,7 @@ try {
   mark ('path=' + $p)
   mark ('data=' + [Convert]::ToBase64String($buf, 0, $r))
 } finally { $fs.Close() }`)
-	m, _, err := winRun(ctx, st, h, p, script, int(limit*4/3)+(1<<16))
+	m, err := winRun(ctx, st, h, p, script, int(limit*4/3)+(1<<16))
 	if err != nil {
 		return nil, p, false, err
 	}
@@ -387,7 +387,7 @@ func winFsWrite(ctx context.Context, st *store.State, h *store.Host, p string, d
 		case err != nil:
 			return err
 		case trunc && appendMode:
-			return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, e.g. `Add-Content FILE`", "file larger than 64MiB")
+			return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, e.g. `Add-Content FILE`", "the file is larger than 64MiB, the most fs write --append reads")
 		}
 	}
 	if appendMode {

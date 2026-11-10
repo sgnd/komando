@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -115,7 +116,7 @@ func runMongoQuery(ctx context.Context, name string, st *store.State, c *store.C
 		}
 		return fail(e)
 	}
-	data := mongoQueryData{Conn: c.Name, Database: firstNonEmpty(db, mongoDB(c)), Command: cmd[0].Key, Risk: v.Risk.String(), Write: f.write, DryRun: g.dryRun}
+	data := mongoQueryData{Conn: c.Name, Database: cmp.Or(db, mongoDB(c)), Command: cmd[0].Key, Risk: v.Risk.String(), Write: f.write, DryRun: g.dryRun}
 	if f.write {
 		v.Risk = max(v.Risk, driver.RiskWrite)
 		if err := guardConns(st, []*store.Conn{c}, v); err != nil {

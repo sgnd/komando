@@ -24,7 +24,7 @@ import (
 func dialWinRM(ctx context.Context, st *store.State, h *store.Host, o Options) (*Client, error) {
 	if !o.WinRM || o.scan != nil {
 		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-			"WinRM carries PowerShell commands only: use `komando exec "+h.Name+" -- ...`; for a shell, tunnels or SSH host keys, turn on OpenSSH on the server and add it with --os windows (docs/features/windows.md)",
+			"WinRM carries PowerShell commands only: use `komando exec "+h.Name+" -- ...`; for a shell, tunnels or SSH host keys, turn on OpenSSH on the server and add it with --os windows (https://github.com/sgnd/komando/blob/main/docs/features/windows.md)",
 			"%s is reached over WinRM, which cannot do this (it has no SSH)", h.Name)
 	}
 	pass, err := winrmPassword(h)

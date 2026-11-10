@@ -317,17 +317,15 @@ func run(c *exec.Cmd, stdin string) error {
 	return nil
 }
 
-// keychainNewKey is the key of a new vault, kept in the keychain, and
-// whether the keychain keeps it. A key already in the keychain under this
-// home's name is used, never replaced: it may open a vault that was moved
-// aside (a backup of this folder). A new random key goes in only when the
-// keychain finds no key it can read and keychainHas says there is no item
-// under this name (on Linux that needs the default collection unlocked, as
-// a lookup or a KeePassXC search hides what a locked one holds); it counts
-// only once it reads back the same. When the keychain cannot tell (a
-// locked collection, a dismissed prompt, an error, no gdbus or busctl, a
-// call past newKeyTimeout), nothing is stored in it: the new vault keeps
-// its key in vault.key, which `komando doctor` points out.
+// keychainNewKey is the key of a new vault and whether the keychain keeps
+// it. A key already there under this home's name is used, never replaced:
+// it may open a vault that was moved aside (a backup of this folder). A new
+// random key goes in only when the keychain finds no key it can read and,
+// on Linux, keychainHas says there is no item under this name; it counts
+// only once it reads back the same. When the keychain cannot tell (locked,
+// a dismissed prompt, an error, a call past newKeyTimeout), nothing is
+// stored in it: the new vault keeps its key in vault.key, which `komando
+// doctor` points out.
 func keychainNewKey() ([]byte, bool) {
 	if _, err := KeychainTool(); err != nil {
 		return nil, false

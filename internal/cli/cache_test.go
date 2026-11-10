@@ -26,8 +26,8 @@ func runCache(t *testing.T, args ...string) (string, error) {
 // TestCacheRunScriptsNeedApproval: a read-only script (EVAL_RO, EVALSHA_RO,
 // FCALL_RO) cannot write, but it can loop and leave Redis answering BUSY to
 // every client; module code (TFCALL, RG.PYEXECUTE) can do anything; FUNCTION
-// LOAD REPLACE swaps code the application calls. All
-// of them need --write and --allow-dangerous, and --dry-run sends nothing.
+// LOAD REPLACE swaps code the application calls. All of them need --write
+// and --allow-dangerous, and --dry-run sends nothing.
 // The conn has no server: a command that got as far as connecting fails
 // with CACHE_CONNECT.
 func TestCacheRunScriptsNeedApproval(t *testing.T) {

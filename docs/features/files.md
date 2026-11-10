@@ -212,7 +212,7 @@ Symbolic links are not copied; they are listed as `skipped`. When some files
 in a folder cannot be read, the rest are still copied; the result lists the
 failures under `errors` and komando exits 5.
 
-### Never lose a file
+### What a copy replaces
 
 - Downloads never replace a file that is already on your computer
   (`FILE_EXISTS`). Add `--overwrite` when you mean to.

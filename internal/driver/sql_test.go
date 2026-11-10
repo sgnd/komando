@@ -77,7 +77,7 @@ func TestClassifySQL(t *testing.T) {
 		{"mysql", "set global max_connections = 1", RiskDestructive, "sql-server-config"},
 		{"mysql", "set password for bob = 'x'", RiskDestructive, "sql-privileges"},
 		{"mysql", "drop database shop", RiskDestructive, "sql-drop"},
-		// review findings: each of these once passed with fewer flags than it needs
+		// regression cases: each of these is easy to rate below the flags it needs
 		{"postgres", "do $$ begin perform 1; end $$", RiskDestructive, "sql-opaque"},
 		{"postgres", "PREPARE p AS SELECT pg_terminate_backend(123); EXECUTE p", RiskDestructive, "sql-opaque"},
 		{"postgres", `SELECT "pg_terminate_backend"(1)`, RiskDestructive, "sql-kill"},

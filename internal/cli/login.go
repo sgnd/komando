@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
@@ -74,11 +75,11 @@ profile is the one in ~/.aws/config with sso_start_url or sso_session.`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !interactive() {
-				return out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "ask a person to run `komando login aws --profile "+firstNonEmpty(profile, "default")+"`",
+				return out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "ask a person to run `komando login aws --profile "+cmp.Or(profile, "default")+"`",
 					"logging in needs a person at a terminal and a browser")
 			}
 			if g.dryRun {
-				out.P.Print("login.aws", map[string]any{"profile": firstNonEmpty(profile, "default"), "dry_run": true}, nil)
+				out.P.Print("login.aws", map[string]any{"profile": cmp.Or(profile, "default"), "dry_run": true}, nil)
 				return nil
 			}
 			path, err := cloud.AWSSSOLogin(cmd.Context(), profile, func(url, code string) {
@@ -88,8 +89,8 @@ profile is the one in ~/.aws/config with sso_start_url or sso_session.`,
 			if err != nil {
 				return awsErr(profile, err)
 			}
-			audit(nil, "login.aws", nil, "", true, map[string]any{"profile": firstNonEmpty(profile, "default")})
-			out.P.Print("login.aws", map[string]any{"profile": firstNonEmpty(profile, "default"), "saved": path}, nil)
+			audit(nil, "login.aws", nil, "", true, map[string]any{"profile": cmp.Or(profile, "default")})
+			out.P.Print("login.aws", map[string]any{"profile": cmp.Or(profile, "default"), "saved": path}, nil)
 			return nil
 		},
 	}

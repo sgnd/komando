@@ -64,8 +64,8 @@ var (
 var sfServerObjects = wordSet(`ACCOUNT WAREHOUSE INTEGRATION SHARE CONNECTION ORGANIZATION`)
 
 // snowflakeMask returns sql as the shared lexer should see it, with the
-// same length: // comments become --, a \' inside '...' becomes two quotes, and $$...$$
-// becomes '...' with its text hidden. It refuses letters outside ASCII
+// same length: // comments become --, a \' inside '...' becomes two
+// quotes, and $$...$$ becomes '...' with its text hidden. It refuses letters outside ASCII
 // outside quotes, line comments with unusual line breaks, a /* inside a
 // comment (whether they nest is not documented), and $$ right after a name.
 func snowflakeMask(sql string) (string, error) {

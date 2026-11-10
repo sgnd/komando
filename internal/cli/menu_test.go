@@ -286,7 +286,7 @@ func TestMenuRender(t *testing.T) {
 		t.Errorf("escape codes with colour off:\n%s", text)
 	}
 	s.color = true
-	if text := strings.Join(renderText(l, s, 20, 12), "\n"); !strings.Contains(text, "\x1b[36;1m> u-row") {
+	if text := strings.Join(renderText(l, s, 20, 12), "\n"); !strings.Contains(text, "\x1b[1;7m> u-row") {
 		t.Errorf("no colour on the cursor row:\n%s", text)
 	}
 	// the main menu (no title, no filter): one blank line between the
@@ -518,7 +518,7 @@ func menuEveryTask(t *testing.T) []menuTask {
 	all := slices.Concat(serverTasks, groupTasks(), vpnTasks(st, "office"), dbTasks, cacheTasks, queueTasks,
 		storageTasks, clusterTasks, registryTasks, importTasks, historyTasks, settingsTasks(), runningTasks, menuRunningRows(st))
 	// a connected VPN offers Disconnect
-	st.Sessions = map[string]*store.VpnSession{"office": {Vpn: "office", Container: "c1"}}
+	st.Sessions = map[string]*store.VpnSession{"office": {Vpn: "office", PID: os.Getpid()}}
 	all = append(all, vpnTasks(st, "office")...)
 	all = append(all, menuRunningRows(st)...)
 	var flat []menuTask
@@ -628,7 +628,7 @@ func TestMenuConfirms(t *testing.T) {
 	if tk := vpnTasks(st, "office")[0]; tk.label != "Connect" || tk.confirm != "" {
 		t.Errorf("not connected: %+v", tk)
 	}
-	st.Sessions = map[string]*store.VpnSession{"office": {Vpn: "office", Container: "c1"}}
+	st.Sessions = map[string]*store.VpnSession{"office": {Vpn: "office", PID: os.Getpid()}}
 	tk := vpnTasks(st, "office")[0]
 	if tk.label != "Disconnect" || menuFill(tk.confirm, "office") != "Disconnect office? 1 server or service behind it stops answering." {
 		t.Errorf("connected: %q %q", tk.label, tk.confirm)
@@ -923,5 +923,85 @@ func TestMenuItems(t *testing.T) {
 	}
 	if got := menuItemTitle(st, "server", "web-1"); got != "web-1 (deploy@web-1.lan): what do you want to do?" {
 		t.Errorf("title %q", got)
+	}
+}
+
+func TestMenuNoteWraps(t *testing.T) {
+	long := strings.Repeat("word ", 30)
+	for _, warn := range []bool{false, true} {
+		l := testMenuList(5, false)
+		l.title, l.note, l.warn = "Question", long, warn
+		lines, caret := l.render(menuScreen{footer: "keys"}, 40, 20)
+		if len(lines) > 20 {
+			t.Errorf("warn=%v: %d lines on a 20-line screen", warn, len(lines))
+		}
+		n := 0
+		for _, ln := range lines {
+			if displayWidth(ln) > 39 {
+				t.Errorf("warn=%v: line wider than 39: %q", warn, ln)
+			}
+			if strings.HasPrefix(ln, "word") || strings.HasPrefix(ln, "! word") || strings.HasPrefix(ln, "  word") {
+				n++
+			}
+		}
+		if n < 2 || n > 3 {
+			t.Errorf("warn=%v: the note takes %d lines, want 2 or 3:\n%s", warn, n, strings.Join(lines, "\n"))
+		}
+		if caret.line < 0 || !strings.HasPrefix(lines[caret.line], "> ") {
+			t.Errorf("warn=%v: no cursor row:\n%s", warn, strings.Join(lines, "\n"))
+		}
+	}
+}
+
+func TestMenuRowsPastNineLineUp(t *testing.T) {
+	l := testMenuList(12, false)
+	lines := renderText(l, menuScreen{footer: "keys"}, 80, 24)
+	var nine, ten string
+	for _, ln := range lines {
+		if strings.Contains(ln, "i-row") {
+			nine = ln
+		}
+		if strings.Contains(ln, "j-row") {
+			ten = ln
+		}
+	}
+	if strings.Index(nine, "i-row") != strings.Index(ten, "j-row") || strings.Index(nine, "detail") != strings.Index(ten, "detail") {
+		t.Errorf("row 10 is not in line with row 9:\n%q\n%q", nine, ten)
+	}
+}
+
+// TestRenderRunsWrap: the review's command lines wrap on a narrow screen,
+// so every flag a person must check is on it.
+func TestRenderRunsWrap(t *testing.T) {
+	for _, w := range []int{40, 60} {
+		l := &menuList{title: "Add a server: check and run", runs: []string{
+			"$ komando host add web1 10.0.0.5 --user deploy --ask-password --protected"}}
+		l.rows = []menuRow{{label: "Run it", value: "run"}}
+		lines := renderText(l, menuScreen{footer: "keys"}, w, 24)
+		text := strings.Join(lines, "\n")
+		for _, f := range []string{"web1", "10.0.0.5", "--user", "deploy", "--ask-password", "--protected"} {
+			if !strings.Contains(text, f) {
+				t.Errorf("width %d: %q missing:\n%s", w, f, text)
+			}
+		}
+		for _, ln := range lines {
+			if displayWidth(ln) > w-1 {
+				t.Errorf("width %d: line too wide: %q", w, ln)
+			}
+		}
+		if got, want := l.chrome(menuScreen{footer: "keys"}, w), 7+len(l.runLines(w)); got != want {
+			t.Errorf("width %d: chrome %d, want %d", w, got, want)
+		}
+	}
+}
+
+// TestFormCancelKey: q cancels a form list without a filter, so its key
+// help says so; a list with one shows Ctrl-C.
+func TestFormCancelKey(t *testing.T) {
+	if got := formCancelKey(&menuList{}); got != "q cancel" {
+		t.Errorf("no filter: %q", got)
+	}
+	if got := formCancelKey(&menuList{typing: true}); got != "Ctrl-C cancel" {
+		t.Errorf("filter: %q", got)
 	}
 }

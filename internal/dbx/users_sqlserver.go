@@ -109,7 +109,7 @@ func mssqlGrantSQL(ctx context.Context, db *sql.DB, g Grant) (string, error) {
 	case "table":
 		parts := strings.Split(name, ".")
 		if len(parts) > 2 {
-			return "", out.Usage("--on table:SCHEMA.TABLE")
+			return "", out.Usage("--on table:[SCHEMA.]TABLE takes at most one dot, not %q", name)
 		}
 		q := make([]string, len(parts))
 		for i, p := range parts {

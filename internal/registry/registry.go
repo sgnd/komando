@@ -4,6 +4,7 @@
 package registry
 
 import (
+	"cmp"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -397,7 +398,7 @@ func (c *Client) Inspect(ctx context.Context, repo, ref string) (*Manifest, erro
 	if err != nil {
 		return nil, err
 	}
-	res := &Manifest{Repo: repo, Ref: ref, Digest: h.Get("Docker-Content-Digest"), MediaType: firstNonEmpty(m.MediaType, h.Get("Content-Type"))}
+	res := &Manifest{Repo: repo, Ref: ref, Digest: h.Get("Docker-Content-Digest"), MediaType: cmp.Or(m.MediaType, h.Get("Content-Type"))}
 	first := ""
 	for _, p := range m.Manifests {
 		if p.Platform.OS == "unknown" {
@@ -449,13 +450,4 @@ func (c *Client) Delete(ctx context.Context, repo, digest string) error {
 	}
 	resp.Body.Close()
 	return nil
-}
-
-func firstNonEmpty(v ...string) string {
-	for _, s := range v {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
 }

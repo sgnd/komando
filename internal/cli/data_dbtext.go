@@ -70,7 +70,7 @@ func writeDelimited(w io.Writer, res *dbx.Result, tsv bool) error {
 	return nil
 }
 
-// num reads an integer the database returned (int64, float, or text).
+// dataNum reads an integer the database returned (int64, float, or text).
 func dataNum(v any) (int64, bool) {
 	switch x := v.(type) {
 	case int64:

@@ -85,8 +85,8 @@ komando docker prune web1 --older-than 30d --dry-run   # what would be removed, 
 ```
 
 - Reading (`ps`, `stats`, `images`, `inspect`, `logs`) needs nothing extra.
-- `start`, `stop`, `restart`, `pull`, `run` and `compose up` change things,
-  so protected servers need `--yes`.
+- `start`, `stop`, `restart`, `pull`, `compose up` and a `docker run`
+  through `docker raw` change things, so protected servers need `--yes`.
 - `rm`, `prune`, `compose down -v` and other deletes need
   `--allow-dangerous`.
 - `docker exec` passes the command's words as written, with no shell, so

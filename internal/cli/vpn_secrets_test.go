@@ -36,9 +36,9 @@ func vpnSecretFiles(t *testing.T) (wg, ovpn func(n string) string) {
 
 // `vpn add` keeps a VPN's keys in the vault secrets NAME-key and NAME-psk
 // (WireGuard) or NAME-config (OpenVPN). It never replaces a secret of that
-// name that is not the VPN's own: before, `vpn add prod ...` silently
-// overwrote a secret prod-key that a server used, with a value the caller
-// (an AI agent too) chose.
+// name that is not the VPN's own: `vpn add prod ...` would overwrite a
+// secret prod-key that a server uses, with a value the caller (an AI agent
+// too) chose.
 func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 	invHome(t)
 	wg, ovpn := vpnSecretFiles(t)

@@ -111,7 +111,7 @@ func dbUserChangeCmd(action string) *cobra.Command {
 	}
 	c.Flags().StringVar(&host, "from", "", "MySQL: where the user may connect from (the account host; default %, anywhere)")
 	if action == "add" {
-		c.Flags().BoolVar(&noLogin, "no-login", false, "PostgreSQL: a role that cannot log in (a group to grant to users)")
+		c.Flags().BoolVar(&noLogin, "no-login", false, "a role that cannot log in (a group to grant to users)")
 	}
 	return c
 }
@@ -170,12 +170,11 @@ func dbGrantCmd(revoke bool) *cobra.Command {
 		Use:   verb + " CONN USER (--privileges P,... --on OBJECT | --role ROLE)",
 		Short: map[bool]string{false: "Give a user privileges on a database, schema or table (or a role)", true: "Take privileges (or a role) away from a user"}[revoke],
 		Long: `OBJECT for PostgreSQL: database:NAME, schema:NAME, table:[SCHEMA.]TABLE or
-all-tables:SCHEMA; --role ROLE makes the user a member of ROLE. For MySQL:
-DB.* , DB.TABLE or *.* (with --from for the account host). For ClickHouse:
+all-tables:SCHEMA; --role ROLE ` + map[bool]string{false: "makes the user a member of ROLE", true: "takes the user out of ROLE"}[revoke] + `. For MySQL:
+DB.*, DB.TABLE or *.* (with --from for the account host). For ClickHouse:
 DB.*, DB.TABLE or *.*, or database:DB, table:DB.TABLE. Snowflake: not
 available (db grants reads them). BigQuery: not available (Google Cloud
-IAM). --dry-run shows
-the statement.`,
+IAM). --dry-run shows the statement.`,
 		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public
   komando db ` + verb + ` prod-db app_ro --role readers
   komando db ` + verb + ` shop-db app --privileges SELECT,INSERT,UPDATE --on 'shop.*'`,
@@ -213,7 +212,7 @@ the statement.`,
 	}
 	c.Flags().StringVar(&privs, "privileges", "", "comma-separated: SELECT,INSERT,UPDATE,DELETE,... or ALL")
 	c.Flags().StringVar(&on, "on", "", "what the privileges are on (see above)")
-	c.Flags().StringVar(&role, "role", "", "PostgreSQL: make the user a member of this role")
+	c.Flags().StringVar(&role, "role", "", map[bool]string{false: "make the user a member of this role", true: "take the user out of this role"}[revoke])
 	c.Flags().StringVar(&host, "from", "", "MySQL: where the user connects from (the account host; default %)")
 	return c
 }

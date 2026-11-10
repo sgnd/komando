@@ -3,7 +3,7 @@
 [![CI](https://github.com/sgnd/komando/actions/workflows/ci.yml/badge.svg)](https://github.com/sgnd/komando/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
-**One safe command line for your servers, databases, caches, storage, clusters and VPNs. For you and your AI agent.**
+**One safe command line for your servers, databases, caches, queues, storage, clusters and VPNs. For you and your AI agent.**
 
 Today you may use Termius for servers, TablePlus for databases, `redis-cli`
 for caches, a web console for storage and `kubectl` for clusters. Each has
@@ -11,7 +11,7 @@ its own logins, its own commands and its own way to break things. komando
 puts them behind one command, built so that both you and an AI agent
 (Claude Code, Codex, your own bot) can use it:
 
-- One list for everything you manage: servers, databases, caches, storage, clusters, registries and VPNs.
+- One list for everything you manage: servers, databases, caches, queues, storage, clusters, registries and VPNs.
 - Passwords stay in an encrypted vault (or your own password manager). An AI agent that komando recognises (Claude Code, Codex, Cursor, Gemini CLI, or any agent with `KOMANDO_AGENT=1`) never sees them.
 - Readable text for you, JSON for an AI agent.
 - It only reads unless you say otherwise. Dangerous commands are blocked, and production can be protected.
@@ -98,8 +98,8 @@ everything**, **History and undo** and **Settings and help**.
 ### 2. Add a server
 
 Choose **Add a server** (later: **Add something**, then **Server**).
-komando asks one question at a time: a
-name, the address, the user, the port, how you log in, and whether it is
+komando asks one question at a time: a name, what the server runs (Linux or
+Windows), the address, the user, the port, how you log in, and whether it is
 production. Each question shows an example, and Enter takes the default
 (`Port [22]:`). A wrong answer, such as a name that is taken or a key file
 that is not there, is marked `!` under the question and waits for you to
@@ -117,12 +117,10 @@ This runs:
 
 Choose **Run it**. If you log in with a password, the command adds
 `--ask-password`: it asks for the password itself, hidden, and keeps it in
-the vault. You never type a password into the menu. Answer **Yes, protect
-it** to the production question, and komando asks you before every change
-on that server.
+the vault. You never type a password into the menu.
 
-Add works the same way for a database, a cache, file storage, Kubernetes, a
-container registry or a VPN.
+Add works the same way for a database, a cache, a message queue, file
+storage, Kubernetes, a container registry or a VPN.
 
 ### 3. Test it
 
@@ -260,8 +258,8 @@ work in), or tell your agent:
 > Use the `komando` CLI to manage my servers and databases. Run `komando guide` first and
 > follow it. Never use `--allow-dangerous` or `--yes` without asking me.
 
-Also set `KOMANDO_AGENT=1` in that agent's environment. komando recognises
-only the four agents above by themselves, and its
+Also set `KOMANDO_AGENT=1` in that agent's environment. Without it, komando
+recognises only the four agents above, and its
 [seatbelts for AI agents](docs/features/safety.md#seatbelts-for-ai-agents)
 (secrets hidden in output, a person allows `--yes`) apply only to an agent
 it recognises.
@@ -282,10 +280,11 @@ Then ask in your own words: *"Why is web1 slow?"*, *"Update all servers"*,
 | Manage services, logs, Docker, software, users, schedules; restart servers | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |
 | Test the network, reach private servers | `net`, `tunnel`, `--via` |
 | Reach things behind VPNs, several at once (WireGuard, OpenVPN, Tailscale, AnyConnect, L2TP/IPsec, IKEv2, Cisco IPsec, GlobalProtect, Fortinet, Pulse, F5, ...) | `vpn` |
-| Keep a list of databases, caches, storage, clusters and registries | `conn` |
+| Keep a list of databases, caches, queues, storage, clusters and registries | `conn` |
 | Query, back up and restore databases (PostgreSQL, MySQL/MariaDB; SQLite: query and back up; SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB: query) | `db` |
 | Read and change caches (Redis, Valkey, memcached) | `cache` |
-| Files in S3, MinIO, R2 and on FTPS/SFTP/FTP servers | `storage`, `upload`, `download`, `sync` |
+| Message queues (Kafka, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub): list, peek, lag, send | `queue` |
+| Files in S3, Google Cloud and Azure buckets, on WebDAV/FTPS/SFTP/FTP servers and Windows (SMB) shares | `storage`, `upload`, `download`, `sync` |
 | Kubernetes and Docker Swarm: status, logs, apply, restart, scale | `cluster` |
 | Container registries: tags, image details, copy, clean up | `registry` |
 | History, safety rules and a health check of your setup | `audit`, `policy`, `doctor` |
@@ -379,7 +378,7 @@ For fish and PowerShell, see `komando completion --help`.
 | Host | komando's word for a server in its list. You add one with Add in the menu, or with `komando host add`. |
 | Terminal / CLI | A window where you type commands instead of clicking. |
 | SSH | The secure way to log in to and control a Linux server remotely. |
-| Conn | komando's word for anything you connect to that isn't a server: a database, cache, storage bucket, cluster or registry. |
+| Conn | komando's word for anything you connect to that isn't a server: a database, cache, queue, storage bucket, cluster or registry. |
 | Target | What a command works on: one name, a group (`@web`), a tag, or `all`. |
 | Flag | An option added to a command, like `--yes` or `--dry-run`. |
 | AI agent | An AI that can run commands by itself to finish a task. |

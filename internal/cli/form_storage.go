@@ -30,7 +30,7 @@ func storageForms() []formKind {
 	}
 }
 
-// --- shared ---
+// What the forms share.
 
 var (
 	storeBucketRe    = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{1,221}[a-z0-9]$`)
@@ -184,7 +184,7 @@ func storeSelfSignedQ(show func(formAnswers) bool) formQ {
 		"encrypted, but the certificate is not checked", "the certificate is checked (safer)")), show)
 }
 
-// --- S3 ---
+// S3.
 
 // s3Providers are the services an S3 conn can point at; all but AWS and
 // "another" have an address komando builds from a region or an ID.
@@ -228,7 +228,7 @@ func s3Form() formSpec {
 			help: "Most people use an access key. Safest is a key that can reach only this bucket.",
 			def:  func(*store.State, formAnswers) string { return "key" }},
 		formWhen(formQ{key: "keyid", label: "Access key ID", ask: "What is the access key ID?", example: "AKIAIOSFODNN7EXAMPLE",
-			help:  "The public half of the key (Backblaze calls it keyID). When the command asks Password for the name, paste the secret half; it stays hidden.",
+			help:  "The public half of the key (Backblaze calls it keyID). When the command asks \"Password for\" with the name you gave, paste the secret half; it stays hidden.",
 			check: s3KeyIDProblem}, func(a formAnswers) bool { return a["login"] == "key" }),
 		formWhen(formQ{key: "profile", label: "AWS profile", ask: "Which AWS profile?", example: "default",
 			help:  "A profile name from ~/.aws/config. default is the usual AWS login, SSO too.",
@@ -349,7 +349,7 @@ func s3Build(_ *store.State, a formAnswers) [][]string {
 	return cmds
 }
 
-// --- Google Cloud Storage ---
+// Google Cloud Storage.
 
 func gcsForm() formSpec {
 	return formSpec{title: "Add a Google Cloud Storage bucket", qs: []formQ{
@@ -408,7 +408,7 @@ func gcsKeyProblem(v string) string {
 	return ""
 }
 
-// --- Azure Blob Storage ---
+// Azure Blob Storage.
 
 func azureForm() formSpec {
 	return formSpec{title: "Add an Azure Blob Storage container", qs: []formQ{
@@ -425,7 +425,7 @@ func azureForm() formSpec {
 				return ""
 			}},
 		{key: "login", label: "Login", ask: "Which login do you have?",
-			help: "Either one is pasted hidden when the command asks Password for the name. Paste only the key or the token, not a connection string.",
+			help: "Paste either one when the command asks \"Password for\" with the name you gave; it stays hidden. Paste only the key or the token, not a connection string.",
 			def:  func(*store.State, formAnswers) string { return "key" },
 			choices: func(*store.State, formAnswers) []menuRow {
 				return []menuRow{
@@ -460,7 +460,7 @@ func azureAccountProblem(_ *store.State, _ formAnswers, v string) string {
 	return ""
 }
 
-// --- SFTP ---
+// SFTP.
 
 func sftpForm() formSpec {
 	return formSpec{title: "Add an SFTP file server", qs: []formQ{
@@ -495,7 +495,7 @@ func sftpForm() formSpec {
 	}}
 }
 
-// --- FTP and FTPS ---
+// FTP and FTPS.
 
 func ftpForm() formSpec {
 	plain := func(a formAnswers) bool { return a["encryption"] == "ftp" && a["plain"] == "yes" }
@@ -546,7 +546,7 @@ func ftpForm() formSpec {
 	}}
 }
 
-// --- WebDAV ---
+// WebDAV.
 
 func webdavForm() formSpec {
 	isHTTP := func(a formAnswers) bool { return strings.HasPrefix(strings.ToLower(a["address"]), "http://") }
@@ -617,7 +617,7 @@ func webdavUserDefault(_ *store.State, a formAnswers) string {
 	return ""
 }
 
-// --- SMB ---
+// SMB.
 
 func smbForm() formSpec {
 	return formSpec{title: "Add a Windows share (SMB)", qs: []formQ{
@@ -665,10 +665,10 @@ func smbUserQ() formQ {
 	return q
 }
 
-// --- the storage commands, asked from a menu task ---
+// The storage commands, asked from a menu task.
 
 func init() {
-	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list. Add one with Add, File storage."}
+	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list. Add one first with Add, File storage."}
 	key := func(ask, help, example string) formArg { return formArg{ask: ask, help: help, example: example} }
 	addFormHints(map[string]formHint{
 		"storage ls": {args: []formArg{conn,

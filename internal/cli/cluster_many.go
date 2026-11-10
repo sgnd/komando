@@ -17,8 +17,8 @@ import (
 // Read commands (status, ls, events, helm ls) work on every cluster a
 // selector picks (@prod, kind:k8s, all): one row per cluster in
 // data.results, read at the same time. With one cluster the output is
-// the same as before. Commands that change a cluster stay one cluster at
-// a time.
+// that cluster alone, not a list. Commands that change a cluster stay
+// one cluster at a time.
 
 // clusterRead is what a read command does on one cluster of each engine;
 // a nil func means that engine has no such view, and swarmNo says why.
@@ -121,8 +121,8 @@ func resolveClusters(st *store.State, expr string) ([]clusterTarget, error) {
 	return ts, nil
 }
 
-// readClusters runs r on each cluster. One cluster prints as the command
-// always did; several print a row each and fail softly when some fail.
+// readClusters runs r on each cluster. One cluster prints its own
+// result; several print a row each and fail softly when some fail.
 func readClusters(ctx context.Context, name string, st *store.State, ts []clusterTarget, r clusterRead) error {
 	if len(ts) == 1 {
 		t := ts[0]

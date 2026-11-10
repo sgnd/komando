@@ -25,15 +25,6 @@ komando host add db1 admin@10.0.0.5 --via bastion          # reached through bas
 komando host add web3 --address 203.0.113.12 --user deploy --key deploy
 ```
 
-### A Windows server
-
-Add `--os windows`: komando then runs PowerShell there. See
-[Windows servers](windows.md) for what works.
-
-```bash
-komando host add win1 Administrator@10.0.0.9 --os windows --ask-password
-```
-
 The flags you will use most:
 
 | Flag | What it does |
@@ -61,6 +52,15 @@ connection limits (`MaxStartups`) and its login log see one client.
 
 Already have servers in `~/.ssh/config`? Import them instead:
 `komando import ssh-config` (see [Moving in](import.md)).
+
+### A Windows server
+
+Add `--os windows`: komando then runs PowerShell there. See
+[Windows servers](windows.md) for what works.
+
+```bash
+komando host add win1 Administrator@10.0.0.9 --os windows --ask-password
+```
 
 ### A new server that is still starting
 
@@ -107,7 +107,7 @@ starting with `#` are comments.
 Passwords never go into the file: point `password-ref` and `sudo-ref` at
 the vault (`komando secret set ubuntu-sudo` first).
 
-## Change or remove a server
+## Change a server
 
 `host edit` changes only the options you pass:
 
@@ -209,6 +209,8 @@ their comment; they still work, since the key itself does not change.
 `group mv OLD NEW` renames a group on every member (it needs `--yes` when a
 protected server or conn is in it). To merge two groups, use `group add NEW
 @OLD` and then `group rm OLD`.
+
+## Remove a server
 
 `host rm` removes servers from komando's list. It does not touch the server
 itself. It takes names or a [target](targets.md):
@@ -586,7 +588,6 @@ be used by OpenSSH; use `komando shell NAME` for those.
 - `komando host import --ssh-config FILE` and `host import --json FILE`
   (from `komando host export`) do the same as `komando import`, for servers
   only. A spreadsheet goes through `komando import csv FILE`.
-- `host edit --rename` (older) is the same as `host mv`.
 - `host list` and `host test` are the same as `komando list kind:host` and
   `komando test`.
 - `komando test` tells you, per server, the login user and whether sudo

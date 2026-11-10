@@ -13,6 +13,13 @@ import (
 	"github.com/sgnd/komando/internal/kube"
 )
 
+// runKctl runs one kubectl-style command and returns its exit code with
+// what kubectl would have printed.
+func runKctl(ctx context.Context, k *kube.Client, conn string, args []string) (code int, stdout, stderr string) {
+	code, stdout, stderr, _ = runKctlLive(ctx, k, conn, args, nil)
+	return code, stdout, stderr
+}
+
 func TestParseKargs(t *testing.T) {
 	a, err := parseKargs([]string{"get", "pods", "-n", "shop", "-oyaml", "-lapp=web", "--field-selector=status.phase=Running", "-A", "--", "x"})
 	if err != nil {

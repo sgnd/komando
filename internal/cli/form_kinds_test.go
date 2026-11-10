@@ -87,8 +87,9 @@ func formKindSpec(t *testing.T, group, label string) formSpec {
 	return formSpec{}
 }
 
-// The new kinds build the lines their docs show, from plain answers.
-func TestFormNewKindLines(t *testing.T) {
+// The Windows, registry, database, queue and SMB kinds build the lines their
+// docs show, from plain answers.
+func TestFormKindLines(t *testing.T) {
 	key := filepath.Join(t.TempDir(), "rsa_key.p8")
 	if err := os.WriteFile(key, []byte("-----BEGIN PRIVATE KEY-----\nMIIB\n-----END PRIVATE KEY-----\n"), 0o600); err != nil {
 		t.Fatal(err)

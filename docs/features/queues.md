@@ -24,7 +24,7 @@ komando queue peek events orders              # the newest 10 messages; no consu
 komando queue lag events billing              # how far a consumer group is behind
 ```
 
-In Kafka a queue is a **topic**: messages are kept in order in its
+In Kafka a queue is a topic: messages are kept in order in its
 **partitions**, and a **consumer group** is an application that reads them
 and remembers how far it got (its committed offset). **Lag** is how many
 messages a group still has to read.
@@ -61,7 +61,7 @@ komando conn add local kafka://broker1.internal:9092 --via web1          # no TL
 ### Through a bastion or a VPN
 
 Kafka clients first ask a broker for the cluster's brokers, then connect to
-the addresses the brokers **advertise**. With `--via`, komando reaches
+the addresses the brokers advertise. With `--via`, komando reaches
 every one of them through the bastion or the VPN, so names that only work
 inside the network still work. If `conn test` stops with
 `QUEUE_CONNECT`, check that the advertised addresses are reachable from the
@@ -95,8 +95,8 @@ komando queue peek events orders -n 50 --partition 2
 komando queue peek events orders --oldest -n 5   # the first ones still kept
 ```
 
-`peek` reads straight from the partitions. **It never joins a consumer
-group and never commits an offset**, so no application's position moves
+`peek` reads straight from the partitions. It never joins a consumer
+group and never commits an offset, so no application's position moves
 and no message is removed. It stops once it has the messages that were
 there when it started; if nothing comes for `--wait` (5 seconds), it stops
 and says some may be missing.
@@ -193,8 +193,8 @@ komando queue rm jobs emails --allow-dangerous
 
 - **`peek` takes messages from the front of the queue and gives every one
   back.** It reads with `basic.get` and does not acknowledge, then returns
-  them all (`nack` with requeue), so **nothing is removed**. Good to know:
-  - RabbitMQ marks the messages it gets back as **redelivered**. A consumer
+  them all (`nack` with requeue), so nothing is removed. Good to know:
+  - RabbitMQ marks the messages it gets back as redelivered. A consumer
     that treats redelivered messages differently will see that flag.
   - For the moment peek holds them, no consumer gets them, and a busy
     queue may hand them out in a slightly different order afterwards.
@@ -203,20 +203,20 @@ komando queue rm jobs emails --allow-dangerous
     (`x-delivery-count`). After its delivery limit (20 by default since
     RabbitMQ 4.0, or the queue's own `x-delivery-limit` or policy) it drops
     a message or sends it to its dead-letter queue. So peek shows the count
-    (`deliveries`) and **stops with `DELIVERY_LIMIT_NEAR`** once a message
+    (`deliveries`) and stops with `DELIVERY_LIMIT_NEAR` once a message
     has fewer than 3 deliveries left: do not peek that queue again. Only
-    the management API tells a queue's type and its own limit, so **peek
-    needs `?management=`** in the conn's URL: without it (or when the
+    the management API tells a queue's type and its own limit, so peek
+    needs `?management=` in the conn's URL: without it (or when the
     management API fails) peek stops before it takes a message
     (`NOT_SUPPORTED`, or the management API's error).
-  - A **stream** queue cannot be peeked this way (`NOT_SUPPORTED`).
+  - A stream queue cannot be peeked this way (`NOT_SUPPORTED`).
   - peek always reads from the front (`"from": "front"`); `--oldest`,
     `--partition` and `--wait` are for Kafka.
 - `send` puts the message straight into the queue (through the default
   exchange), as a persistent message, and waits until the server confirms
   it. `--header KEY=VALUE` sets its headers; there is no `--key` or
   `--partition`.
-- `create` makes a **durable** queue. `--type` picks `classic`, `quorum`
+- `create` makes a durable queue. `--type` picks `classic`, `quorum`
   or `stream` (left out: the vhost's default). `--config KEY=VALUE` sets
   the queue's arguments, such as `x-max-length=10000` or
   `x-overflow=reject-publish`. RabbitMQ cannot check a queue without
@@ -254,7 +254,7 @@ komando queue peek stream ORDERS              # the newest 10 messages; none is 
   of them are reached through the bastion or the VPN).
 - How komando logs in:
   - a user in the URL and `--password-ref`: user and password;
-  - `--password-ref` without a user: the password is sent as a **token**;
+  - `--password-ref` without a user: the password is sent as a token;
   - `?creds=secret:NAME`: a `.creds` file (from `nsc`, NGS or Synadia
     Cloud) that you keep in the vault with `komando secret set NAME < user.creds`;
   - none of these: no login.
@@ -290,13 +290,13 @@ komando queue rm stream ORDERS --allow-dangerous
 ```
 
 - **`peek` reads messages by their sequence number.** It makes no consumer
-  and acknowledges nothing, so no application notices and **nothing is
-  removed**, also from a work-queue stream (where an acknowledgement
+  and acknowledges nothing, so no application notices and nothing is
+  removed, also from a work-queue stream (where an acknowledgement
   deletes the message). By default it shows the newest `-n` messages;
   `--oldest` shows the first ones. Deleted messages in between are
   skipped. In a stream with more than 100000 deleted messages the newest
   may come out incomplete, and peek says so; `--oldest` always works.
-- `send` takes a **subject**, not a stream name: `orders.new`, not
+- `send` takes a subject, not a stream name: `orders.new`, not
   `ORDERS`. komando first checks which stream keeps that subject; when
   none does, it stops with `STREAM_NOT_FOUND` (plain NATS would drop the
   message without a word). It then waits for the stream's acknowledgement
@@ -382,7 +382,7 @@ komando queue rm aws old-jobs --allow-dangerous
   With a visibility timeout of 0 nothing is hidden, and komando never
   deletes, so every message stays and consumers can receive it at once.
 - SQS hands out messages in no set order (a FIFO queue: in order within a
-  message group), so `peek` shows **a sample** of what waits, not the
+  message group), so `peek` shows a sample of what waits, not the
   newest. There is no `--oldest` or `--partition`.
 - **Every receive counts.** SQS raises each message's receive count, also
   for a peek. A queue with a dead-letter queue moves a message there after
@@ -454,15 +454,15 @@ travel unencrypted.
 
 ### Topics and subscriptions
 
-In Pub/Sub you **send to a topic**, and the topic hands each message to
-every one of its **subscriptions**. Messages wait in a subscription until a
+In Pub/Sub you send to a topic, and the topic hands each message to
+every one of its subscriptions. Messages wait in a subscription until a
 program that pulls from it acknowledges them. So a subscription is where
 the messages are, and also what other systems call a consumer group.
 
 A name you give is a topic or a subscription:
 
-- `peek` and `purge` take a **subscription** (`billing`).
-- `describe`, `send`, `create` and `rm` take a **topic** (`orders`);
+- `peek` and `purge` take a subscription (`billing`).
+- `describe`, `send`, `create` and `rm` take a topic (`orders`);
   `describe` also finds a subscription when there is no topic of that
   name.
 - Write `subscriptions/NAME` (or `topics/NAME`) to say which, for example
@@ -515,7 +515,7 @@ komando queue rm gcp subscriptions/billing old-orders --dry-run
   pulled and has not acknowledged. The topic's other subscriptions keep
   theirs.
 - `rm` deletes topics, or subscriptions written `subscriptions/NAME`.
-  Deleting a topic does **not** delete its subscriptions: they keep their
+  Deleting a topic does not delete its subscriptions: they keep their
   messages, cut off from the topic. Deleting a subscription deletes the
   messages waiting in it. Both `purge` and `rm` need `--allow-dangerous`.
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"compress/gzip"
 	"context"
 	"encoding/base64"
@@ -195,7 +196,7 @@ func helmLsCmd() *cobra.Command {
 			}
 			return readClusters(cmd.Context(), "cluster.helm.ls", st, ts, clusterRead{swarmNo: helmNoSwarm,
 				kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
-					space := firstNonEmpty(ns, k.Namespace)
+					space := cmp.Or(ns, k.Namespace)
 					if all {
 						space = ""
 					}
@@ -281,7 +282,7 @@ func helmOne(cmd *cobra.Command, name, target, release, ns string, fn func(t clu
 		return out.Usage("%s", helmNoSwarm)
 	}
 	return withKube(cmd.Context(), name, t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-		revs, err := helmRevisions(ctx, k, firstNonEmpty(ns, k.Namespace), release)
+		revs, err := helmRevisions(ctx, k, cmp.Or(ns, k.Namespace), release)
 		if err != nil {
 			return nil, err
 		}

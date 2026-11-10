@@ -51,7 +51,6 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
 	fl.StringVar(&f.sudoRef, "sudo-ref", "", "where the sudo password is, written like --password-ref")
 	fl.StringVar(&f.jump, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path, e.g. vpn1,bastion")
-	aliasFlag(fl, "jump", "via")
 	fl.StringVar(&f.proxyCommand, "proxy-command", "", "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)")
 	fl.StringVar(&f.os, "os", "", "the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)")
 	fl.BoolVar(&f.ssm, "ssm", false, "reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed)")
@@ -103,11 +102,9 @@ func hostAddCmd() *cobra.Command {
 	f.bind(c, false)
 	askPasswordFlag(c, &askPw)
 	c.Flags().BoolVar(&force, "overwrite", false, "replace a server that has the same name")
-	aliasFlag(c.Flags(), "force", "overwrite")
 	return c
 }
 
-// runHostAdd is the work of `hostAddCmd`.
 func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bool) error {
 	name := args[0]
 	if err := validName("host", name); err != nil {
@@ -233,7 +230,6 @@ func parseAddressArg(arg string) (*store.Host, error) {
 
 func hostEditCmd() *cobra.Command {
 	var f hostFlags
-	var rename string
 	var askPw bool
 	c := &cobra.Command{
 		Use:   "edit NAME|TARGET...",
@@ -254,18 +250,15 @@ covers every server in the command.`,
   komando host edit vps1 --ask-password          # type a new password (hidden)`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runHostEdit(cmd, args, &f, rename, askPw)
+			return runHostEdit(cmd, args, &f, askPw)
 		},
 	}
 	f.bind(c, true)
 	askPasswordFlag(c, &askPw)
-	c.Flags().StringVar(&rename, "rename", "", "rename the server")
-	_ = c.Flags().MarkDeprecated("rename", "use `komando host mv OLD NEW`")
 	return c
 }
 
-// runHostEdit is the work of `hostEditCmd`.
-func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, rename string, askPw bool) error {
+func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) error {
 	fl := cmd.Flags()
 	undoPw, err := hostEditChecks(cmd, args, f, askPw)
 	if err != nil {
@@ -282,11 +275,9 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, rename string,
 		_, ferr := findHost(s, args[0])
 		single = len(args) == 1 && ferr == nil
 		if !single {
-			for _, flag := range []string{"address", "rename"} {
-				if fl.Changed(flag) {
-					return out.Errf(out.ExitUsage, "USAGE", "edit the servers one at a time for this, e.g. komando host edit "+hosts[0].Name+" --"+flag+" ...",
-						"--%s gives one server a value no other server should share; it takes one NAME, not %d servers", flag, len(hosts))
-				}
+			if fl.Changed("address") {
+				return out.Errf(out.ExitUsage, "USAGE", "edit the servers one at a time for this, e.g. komando host edit "+hosts[0].Name+" --address ...",
+					"--address gives one server a value no other server should share; it takes one NAME, not %d servers", len(hosts))
 			}
 		}
 		type edit struct {
@@ -311,11 +302,6 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, rename string,
 		}
 		if err := guardHostEdit(hosts, olds, single); err != nil {
 			return err
-		}
-		if rename != "" && rename != hosts[0].Name {
-			if _, err := renameHost(s, hosts[0].Name, rename); err != nil {
-				return err
-			}
 		}
 		for _, e := range edits {
 			h := e.h
@@ -362,7 +348,7 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 		return undo, out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando host edit "+args[0]+" --user deploy (see --help)", "nothing to change")
 	}
 	if err := editConflicts(fl, f.unset, map[string]string{"user": "user", "key": "key", "identity": "identity", "password-ref": "password-ref",
-		"sudo-ref": "sudo-ref", "via": "via", "jump": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected", "os": "os"},
+		"sudo-ref": "sudo-ref", "via": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected", "os": "os"},
 		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
 		return undo, err
 	}
@@ -489,7 +475,6 @@ func guardHostEdit(hosts []*store.Host, olds map[string]*store.Host, single bool
 	return guardProtectionWhy("host", action, names, why)
 }
 
-// applyHostEdit applies the edit flags to h.
 func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 	set := func(name string, dst *string, v string) {
 		if fl.Changed(name) {
@@ -542,7 +527,7 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 			h.PasswordRef = ""
 		case "sudo-ref":
 			h.SudoRef = ""
-		case "via", "jump":
+		case "via":
 			h.Via = ""
 		case "proxy-command":
 			h.ProxyCommand = ""

@@ -15,8 +15,8 @@ import (
 // test against (bigquery://PROJECT/DATASET?location=EU, a dataset the
 // login may create tables in), with KOMANDO_BQTEST_KEY holding a service
 // account key (JSON); without it, gcloud's login is used. They make and
-// drop the table komando_bq_t, and read a few bytes. No such project was
-// at hand when this was written: these tests have not run yet.
+// drop the table komando_bq_t, and read a few bytes. They have not yet
+// run against a real project.
 
 func liveBQ(t *testing.T, readOnly bool) *sql.DB {
 	t.Helper()

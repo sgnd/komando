@@ -296,7 +296,7 @@ func formFlagQ(f *pflag.Flag, ff formFlag, advanced bool) formQ {
 		q.help = formSentence(f.Usage)
 	}
 	def := ff.def
-	if def == "" && f.DefValue != "" && f.DefValue != "[]" && f.DefValue != "0" && f.DefValue != "0s" {
+	if def == "" && f.DefValue != "" && f.DefValue != "[]" && f.DefValue != "0" && f.DefValue != "0s" && f.DefValue != "-1" {
 		def = f.DefValue
 	}
 	switch {
@@ -497,7 +497,7 @@ func formSplitWords(v string) []string {
 	return words
 }
 
-// --- areas ---
+// Areas.
 
 // formAreas sorts the commands by area, and which command words fall in
 // each when no hint says. The menu reaches each command from an item's
@@ -559,6 +559,16 @@ func formQuitIsCancel(err error) error {
 		return errFormCancel
 	}
 	return err
+}
+
+// formCancelKey is the cancel key a form list shows: on a list without a
+// filter q cancels the form (letters are not typed there), so it says so;
+// on a list with one, q is a letter and only Ctrl-C cancels.
+func formCancelKey(l *menuList) string {
+	if l.typing {
+		return "Ctrl-C cancel"
+	}
+	return "q cancel"
 }
 
 // formTry runs a command with --dry-run from the review and comes back to

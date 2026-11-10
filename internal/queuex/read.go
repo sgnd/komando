@@ -12,7 +12,7 @@ import (
 )
 
 // Info is the cluster at a glance. Engine says which of the embedded
-// parts is there: KafkaInfo or RabbitInfo (see rabbit.go).
+// parts is there.
 type Info struct {
 	Engine  string `json:"engine"` // kafka | rabbitmq | nats | sqs | pubsub
 	Version string `json:"version,omitempty"`
@@ -40,8 +40,8 @@ type Broker struct {
 	Version    string `json:"version,omitempty"` // a guess from the API versions it takes
 }
 
-// Topic is one line of `queue ls`: a Kafka topic, a RabbitMQ queue or a
-// NATS JetStream stream.
+// Topic is one line of `queue ls`: a Kafka or Pub/Sub topic, a RabbitMQ or
+// SQS queue, or a NATS JetStream stream.
 type Topic struct {
 	Name     string `json:"name"`
 	Messages int64  `json:"messages"` // kafka: end minus start offset, an upper bound on compacted topics
@@ -59,8 +59,8 @@ type KafkaTopic struct {
 	Internal   bool `json:"internal,omitempty"`
 }
 
-// TopicDetail is `queue describe`: a Kafka topic, a RabbitMQ queue or a
-// NATS stream.
+// TopicDetail is `queue describe`: the engine's part says more about the
+// topic, queue, stream or (Pub/Sub) subscription.
 type TopicDetail struct {
 	Name     string `json:"name"`
 	Messages int64  `json:"messages"`

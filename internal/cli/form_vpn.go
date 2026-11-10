@@ -39,7 +39,7 @@ func vpnForms() []formKind {
 	}
 }
 
-// --- questions the VPN forms share ---
+// Questions the VPN forms share.
 
 // vpnNameQ asks the VPN's name. The vault secrets named after it (NAME
 // plus each suffix) must be free: komando keeps its keys and passwords
@@ -182,7 +182,7 @@ func vpnLegacyQ() formQ {
 		"also allow 3DES and old key exchange", "modern encryption only"))
 }
 
-// --- building the commands ---
+// Building the commands.
 
 // vpnPassArgs adds how komando gets the login password.
 func vpnPassArgs(args []string, a formAnswers) []string {
@@ -198,11 +198,11 @@ func vpnPassArgs(args []string, a formAnswers) []string {
 
 // vpnPskArgs adds --psk-ref for a key already stored, or --ask-psk: vpn
 // add then asks for it hidden and keeps it as secret:NAME-psk.
-func vpnPskArgs(args []string, a formAnswers) ([][]string, []string) {
+func vpnPskArgs(args []string, a formAnswers) []string {
 	if a["psk"] == "ref" {
-		return nil, append(args, "--psk-ref", a["pskref"])
+		return append(args, "--psk-ref", a["pskref"])
 	}
-	return nil, append(args, "--ask-psk")
+	return append(args, "--ask-psk")
 }
 
 // vpnBuild is the commands: the secrets typed first, vpn add, then vpn up
@@ -239,7 +239,7 @@ func vpnFileText(p string) string {
 	return string(b)
 }
 
-// --- WireGuard, OpenVPN, Tailscale ---
+// WireGuard, OpenVPN, Tailscale.
 
 func wireguardForm() formSpec {
 	return formSpec{title: "Add a WireGuard VPN", qs: []formQ{
@@ -356,7 +356,7 @@ func tailscaleForm() formSpec {
 	}}
 }
 
-// --- company VPN apps: a portal ---
+// Company VPN apps: a portal.
 
 // vpnPortalKind is a company SSL VPN: GlobalProtect, FortiClient and the
 // others take the same questions.
@@ -401,7 +401,7 @@ func vpnPortalForm(kind, product string) formSpec {
 	}}
 }
 
-// --- IPsec: L2TP, Cisco IPsec, IKEv2 ---
+// IPsec: L2TP, Cisco IPsec, IKEv2.
 
 func l2tpForm() formSpec {
 	return formSpec{title: "Add an L2TP/IPsec VPN", qs: []formQ{
@@ -418,7 +418,7 @@ func l2tpForm() formSpec {
 			"allow a PAP login", "only safer logins")),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		first, args := vpnPskArgs([]string{"vpn", "add", a["name"], "l2tp", "--server", a["server"]}, a)
+		args := vpnPskArgs([]string{"vpn", "add", a["name"], "l2tp", "--server", a["server"]}, a)
 		args = vpnPassArgs(append(args, "--user", a["user"]), a)
 		if a["legacy"] == "yes" {
 			args = append(args, "--legacy-crypto")
@@ -426,7 +426,7 @@ func l2tpForm() formSpec {
 		if a["pap"] == "yes" {
 			args = append(args, "--allow-pap")
 		}
-		return vpnBuild(a, first, args, vpnPerson(a))
+		return vpnBuild(a, nil, args, vpnPerson(a))
 	}}
 }
 
@@ -444,7 +444,7 @@ func ipsecForm() formSpec {
 		vpnLegacyQ(),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		first, args := vpnPskArgs([]string{"vpn", "add", a["name"], "ipsec", "--server", a["server"]}, a)
+		args := vpnPskArgs([]string{"vpn", "add", a["name"], "ipsec", "--server", a["server"]}, a)
 		if a["id"] != "" {
 			args = append(args, "--id", a["id"])
 		}
@@ -454,7 +454,7 @@ func ipsecForm() formSpec {
 		if a["legacy"] == "yes" {
 			args = append(args, "--legacy-crypto")
 		}
-		return vpnBuild(a, first, args, vpnPerson(a))
+		return vpnBuild(a, nil, args, vpnPerson(a))
 	}}
 }
 
@@ -498,7 +498,7 @@ func ikev2Build(_ *store.State, a formAnswers) [][]string {
 	args := []string{"vpn", "add", a["name"], "ikev2", "--server", a["server"]}
 	var first [][]string
 	if a["auth"] == "psk" {
-		first, args = vpnPskArgs(args, a)
+		args = vpnPskArgs(args, a)
 		a = formAnswers{"name": a["name"], "check": a["check"], "ca": a["ca"], "id": a["id"], "remoteid": a["remoteid"],
 			"group": a["group"], "notes": a["notes"]} // a user typed before is not used
 	} else {
@@ -516,7 +516,7 @@ func ikev2Build(_ *store.State, a formAnswers) [][]string {
 	return vpnBuild(a, first, args, vpnPerson(a))
 }
 
-// --- VPNs komando does not run itself ---
+// VPNs komando does not run itself.
 
 func systemVpnForm() formSpec {
 	return formSpec{title: "Add a VPN on this computer", qs: []formQ{

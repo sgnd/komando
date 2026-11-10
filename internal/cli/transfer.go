@@ -44,7 +44,7 @@ func uploadCmd() *cobra.Command {
 	var o cpOpts
 	c := &cobra.Command{
 		Use:   "upload TARGET FILE [DEST]",
-		Short: "Upload a file to servers (SFTP, many at once) or to storage (S3)",
+		Short: "Upload a file to servers (many at once) or to file storage",
 		Long: `DEST is the path on the servers, or the key in the storage conn. It defaults
 to the file's name (servers: in the login user's home folder; ~/x works too).
 An existing file at DEST is replaced (the result says replaced).
@@ -89,7 +89,7 @@ func downloadCmd() *cobra.Command {
 	var recursive, overwrite, sudo bool
 	c := &cobra.Command{
 		Use:   "download TARGET PATH",
-		Short: "Download files from servers (SFTP) or storage (S3)",
+		Short: "Download files from servers or from file storage",
 		Long: `PATH is the path on the servers, or the key in the storage conn. --to is
 where it lands (a folder per server when several are picked). Files that
 already exist here are kept unless --overwrite. --sudo reads one file as

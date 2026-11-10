@@ -1,7 +1,8 @@
 // Package storex gives `komando storage` one interface over S3-compatible
-// object storage (AWS S3, MinIO, R2, Wasabi, Spaces, B2), FTP/FTPS and
-// SFTP. Keys are relative to the conn's folder, so a conn can be limited to
-// one folder, and no key may leave it.
+// object storage (AWS S3, MinIO, R2, Wasabi, Spaces, B2), Google Cloud
+// Storage, Azure Blob, FTP/FTPS, SFTP, WebDAV and SMB shares. Keys are
+// relative to the conn's folder, so a conn can be limited to one folder,
+// and no key may leave it.
 package storex
 
 import (

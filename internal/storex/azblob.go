@@ -2,6 +2,7 @@ package storex
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -278,7 +279,7 @@ func (b *azBucket) Put(ctx context.Context, key string, r io.Reader, size int64,
 	if err != nil {
 		return err
 	}
-	ct := firstNonEmpty(contentType, "application/octet-stream")
+	ct := cmp.Or(contentType, "application/octet-stream")
 	if size >= 0 && size <= azSingle {
 		hdr := http.Header{"X-Ms-Blob-Type": {"BlockBlob"}, "Content-Type": {ct}}
 		if size == 0 {

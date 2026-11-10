@@ -24,9 +24,9 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// Conns are non-SSH resources (databases for now). They share the name space
-// and selector syntax of hosts, and reach private networks through a host
-// (--via) without opening a local port.
+// Conns are non-SSH resources (databases, caches, queues, storage, clusters,
+// registries). They share the name space and selector syntax of hosts, and
+// reach private networks through a host (--via) without opening a local port.
 
 // checkNewName is the name check for add: the name may be replaced only by
 // the same type with exactly the same name (with --overwrite).
@@ -88,34 +88,34 @@ func (f *connFlags) bind(c *cobra.Command, edit bool) {
 }
 
 // checkConn validates c against the inventory and fills c.Kind from its URL.
-func checkConn(s *store.State, c *store.Conn) (driver.Target, error) {
+func checkConn(s *store.State, c *store.Conn) error {
 	t, err := driver.Parse(c.URL)
 	if err != nil {
-		return t, err
+		return err
 	}
 	c.Kind = t.Kind.Name
 	if c.Via != "" {
 		if t.Kind.File {
-			return t, out.Usage("%s conns are files on this computer, so they take no --via", t.Kind.Name)
+			return out.Usage("%s conns are files on this computer, so they take no --via", t.Kind.Name)
 		}
 		if _, _, err := resolveVia(s, c.Via); err != nil {
-			return t, err
+			return err
 		}
 	}
 	if r := c.PasswordRef; r != "" && !vault.ValidRef(r) {
-		return t, out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref secret:NAME ("+vault.RefHelp()+")",
+		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref secret:NAME ("+vault.RefHelp()+")",
 			"invalid --password-ref: it takes a reference, not the password itself")
 	}
-	return t, checkLabels(c.Groups, c.Tags, c.Labels)
+	return checkLabels(c.Groups, c.Tags, c.Labels)
 }
 
 func connCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "conn",
 		Aliases: []string{"conns"},
-		Short:   "Manage databases, caches, buckets, clusters and registries",
-		Long: `A conn is a database, cache, storage bucket, cluster or registry komando
-talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + `
+		Short:   "Manage databases, caches, queues, storage, clusters, registries",
+		Long: `A conn is a database, cache, message queue, file storage, cluster or registry
+komando talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + `
 lists them). Passwords never go in the URL: store them with
 ` + "`komando secret set`" + ` and pass --password-ref. Use --via HOST when the
 resource is only reachable from a server.
@@ -180,7 +180,7 @@ func connAddCmd() *cobra.Command {
 				}
 				old := s.Conns[name]
 				replaced = old != nil
-				if _, err := checkConn(s, cn); err != nil {
+				if err := checkConn(s, cn); err != nil {
 					return err
 				}
 				if err := secureConnURL(cn, &res); err != nil {
@@ -211,13 +211,12 @@ func connAddCmd() *cobra.Command {
 	f.bind(c, false)
 	askPasswordFlag(c, &askPw)
 	c.Flags().BoolVar(&force, "overwrite", false, "replace a conn that has the same name")
-	aliasFlag(c.Flags(), "force", "overwrite")
 	return c
 }
 
 func connEditCmd() *cobra.Command {
 	var f connFlags
-	var url, rename string
+	var url string
 	var askPw bool
 	c := &cobra.Command{
 		Use:   "edit NAME",
@@ -226,19 +225,16 @@ func connEditCmd() *cobra.Command {
   komando conn edit shop -g shop -t live          # -g/-t add a group/tag`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConnEdit(cmd, args, &f, url, rename, askPw)
+			return runConnEdit(cmd, args, &f, url, askPw)
 		},
 	}
 	f.bind(c, true)
 	askPasswordFlag(c, &askPw)
 	c.Flags().StringVar(&url, "url", "", "new URL (the kind may change with the scheme)")
-	c.Flags().StringVar(&rename, "rename", "", "rename the conn")
-	_ = c.Flags().MarkDeprecated("rename", "use `komando conn mv OLD NEW`")
 	return c
 }
 
-// runConnEdit is the work of `connEditCmd`.
-func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url, rename string, askPw bool) error {
+func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, askPw bool) error {
 	fl := cmd.Flags()
 	if len(changedFlags(cmd)) == 0 {
 		return out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
@@ -298,16 +294,11 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url, rename st
 				return out.Errf(out.ExitUsage, "USAGE", "--unset takes: via, password-ref, notes, protected", "cannot unset %q", u)
 			}
 		}
-		if _, err := checkConn(s, cn); err != nil {
+		if err := checkConn(s, cn); err != nil {
 			return err
 		}
 		if err := guardConnEdit(&old, cn, &res); err != nil {
 			return err
-		}
-		if rename != "" && rename != cn.Name {
-			if _, err := renameConn(s, cn.Name, rename); err != nil {
-				return err
-			}
 		}
 		if !cn.Protected {
 			if twin := protectedTwinConn(s, cn); twin != "" {

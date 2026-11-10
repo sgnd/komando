@@ -33,8 +33,6 @@ komando exec db1 -- uptime                                 # goes through bastio
   It can also start with a VPN: see [VPNs](vpn.md).
 - komando opens the connection through the bastion inside its own process.
   No port opens on your computer, and your network settings do not change.
-- Older docs may say `--jump`. On `komando host add` and `host edit` it
-  still works and means the same as `--via`; conns take only `--via`.
 
 ## Open a private database in your own app
 
@@ -63,13 +61,13 @@ other way round). There are three kinds:
 |------|-----------|---------|---------|
 | `-L` | server → your computer | `-L 15432:localhost:5432` | port 15432 on *your* computer leads to port 5432 as seen from the server |
 | `-R` | your computer → server | `-R 9000:localhost:3000` | port 9000 *on the server* leads to port 3000 on your computer |
-| `-D` | SOCKS5 proxy | `-D 1080` | apps set to proxy `localhost:1080` connect "from" the server |
+| `-D` | SOCKS5 proxy | `-D 1080` | apps set to proxy `localhost:1080` connect through the server |
 
 ```bash
 komando tunnel start db1 -L 15432:localhost:5432    # then connect to localhost:15432
 komando tunnel start web1 -L 8080:localhost:80      # a web app on web1, at localhost:8080
 komando tunnel start web1 -R 9000:localhost:3000    # show your local app to web1
-komando tunnel start bastion -D 1080                # browse "from" the bastion
+komando tunnel start bastion -D 1080                # browse through the bastion
 komando tunnel list                                 # tunnels and whether they still run
 komando tunnel stop t1102-...                       # stop one by its ID
 komando tunnel stop --all
@@ -93,7 +91,7 @@ export NO_PROXY=.internal,10.0.0.0/8     # names and networks reached directly
 
 | What | How it gets out |
 |---|---|
-| Web APIs: Kubernetes clusters (also `cluster exec`, `cluster forward`, `cluster shell`), registries, S3 storage, secret stores (Vault, 1Password, Bitwarden, AWS, GCP), the logins and tunnels of AnyConnect, Fortinet, GlobalProtect, F5 and Pulse VPNs, and `komando update` | through `HTTPS_PROXY` (and `HTTP_PROXY` for `http://` addresses), except what `NO_PROXY` names |
+| Web APIs: Kubernetes clusters (also `cluster exec`, `cluster forward`, `cluster shell`), registries, S3 storage, secret stores (Vault, 1Password, Bitwarden, AWS, GCP, Azure), the logins and tunnels of AnyConnect, Fortinet, GlobalProtect, F5 and Pulse VPNs, and `komando update` | through `HTTPS_PROXY` (and `HTTP_PROXY` for `http://` addresses), except what `NO_PROXY` names |
 | Servers (SSH), databases, caches, FTP and SFTP | not through `HTTPS_PROXY`: `ssh` and `psql` do not read it either, and a company proxy usually lets only web traffic out. Reach them through the proxy added as a VPN, then `--via NAME`: an HTTP proxy with `komando vpn add NAME proxy --address HOST:PORT`, a SOCKS proxy with `komando vpn add NAME socks --address HOST:PORT`; or through a bastion |
 | WireGuard, L2TP/IPsec, IPsec and IKEv2 VPNs | not through a proxy: they use UDP, which a web proxy cannot carry |
 

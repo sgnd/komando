@@ -263,7 +263,7 @@ func storageLsCmd() *cobra.Command {
 		},
 	}
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "include everything below the prefix, not just one level")
-	c.Flags().IntVarP(&limit, "limit", "n", 1000, "max entries returned")
+	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most entries to show")
 	return c
 }
 
@@ -588,7 +588,7 @@ func storageCatCmd() *cobra.Command {
 	}
 	c.Flags().IntVar(&head, "head", 0, "only the first N lines")
 	c.Flags().IntVar(&tail, "tail", 0, "only the last N lines")
-	c.Flags().Int64Var(&maxBytes, "max-bytes", 1<<20, "read at most this much (default 1 MiB)")
+	c.Flags().Int64Var(&maxBytes, "max-bytes", 1<<20, "read at most this many bytes (1048576 is 1 MiB)")
 	return c
 }
 

@@ -33,7 +33,6 @@ func TestPromptText(t *testing.T) {
 		Settings: store.Settings{}, // vpn_idle unset: the default 30m applies
 		Sessions: map[string]*store.VpnSession{
 			"office": {Vpn: "office", PID: me, LastUsed: now.Add(-time.Minute)},
-			"lab":    {Vpn: "lab", Container: "abc", LastUsed: now.Add(-time.Minute)}, // trusted, no docker call
 			"gone":   {Vpn: "gone", PID: dead, LastUsed: now},
 			"idle":   {Vpn: "idle", PID: me, LastUsed: now.Add(-time.Hour)},
 		},
@@ -44,13 +43,13 @@ func TestPromptText(t *testing.T) {
 		},
 	}
 	writePromptState(t, st)
-	if got := promptText(now); got != "vpn:lab,office tun:2\n" {
+	if got := promptText(now); got != "vpn:office tun:2\n" {
 		t.Errorf("got %q", got)
 	}
 
 	st.Settings.VpnIdle = "0" // never closes by itself
 	writePromptState(t, st)
-	if got := promptText(now); got != "vpn:idle,lab,office tun:2\n" {
+	if got := promptText(now); got != "vpn:idle,office tun:2\n" {
 		t.Errorf("vpn_idle 0: got %q", got)
 	}
 

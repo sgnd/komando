@@ -18,7 +18,7 @@ var queueHints = map[string]formHint{
 		help: "A pattern: * stands for any letters, so orders-* lists orders-eu, orders-us ..."}},
 		flags: []formFlag{{name: "internal", ask: "Kafka only: also list Kafka's own topics (__consumer_offsets ...)?"}}},
 	"queue describe": {args: []formArg{queueConn, {ask: "Which topic or queue?", example: "orders",
-		help: "Kafka: a topic. RabbitMQ and SQS: a queue. NATS: a stream. Pub/Sub: a topic, or subscriptions/NAME. Shows its settings, counts and who reads it."}}},
+		help: "Shows its settings, message counts and who reads it. Kafka: a topic. RabbitMQ and SQS: a queue. NATS: a stream. Pub/Sub: a topic, or subscriptions/NAME."}}},
 	"queue lag": {args: []formArg{queueConn, {ask: "Which consumer group?", example: "billing",
 		help: "Kafka: a consumer group, as queue groups lists. NATS: STREAM/CONSUMER, or the consumer's name alone."}}},
 	"queue peek": {args: []formArg{queueConn, {ask: "Which topic or queue to look into?", example: "orders",

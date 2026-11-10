@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -214,7 +215,7 @@ func registryLsCmd() *cobra.Command {
 			})
 		},
 	}
-	c.Flags().IntVarP(&limit, "limit", "n", 1000, "max entries")
+	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most entries to show")
 	return c
 }
 
@@ -307,7 +308,7 @@ func importDocker(path string) (*importPlan, error) {
 			if err == nil {
 				user, pass, _ = strings.Cut(string(raw), ":")
 			}
-		} else if helper := firstNonEmpty(cfg.CredHelpers[server], cfg.CredsStore); helper != "" {
+		} else if helper := cmp.Or(cfg.CredHelpers[server], cfg.CredsStore); helper != "" {
 			user, pass, err = credHelper(helper, server)
 			if err != nil {
 				p.Notes = append(p.Notes, fmt.Sprintf("%s: %v", server, err))

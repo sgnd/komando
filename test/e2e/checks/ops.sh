@@ -21,7 +21,7 @@ check "logs --unit names NO_JOURNAL or NO_SYSTEMD" True "$($K logs direct --unit
 check "logs --file reads the file" direct "$($K logs direct --file /etc/hostname -n 1 | jget "${r0}[\"stdout\"].strip()")"
 check "svc dry-run shows the short command" "svc enable --now t-fixops" "$($K svc enable direct t-fixops --now --dry-run | jget 'd["data"]["would_run"][0]["remote_command"]')"
 
-# cron (fixed earlier): IDs, one line, schedule, % escaping, list rows, rm
+# cron: IDs, one line, schedule, % escaping, list rows, rm
 set +e
 $K cron set direct 't-fixops.x' true --schedule @daily >/dev/null; check "cron ID with a dot is refused" 2 $?
 $K cron set direct t-fixops-c "$(printf 'a\nb')" --schedule @daily >/dev/null; check "cron COMMAND with a newline is refused" 2 $?

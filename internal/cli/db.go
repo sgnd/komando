@@ -346,8 +346,7 @@ func qualified(t dbx.Table) string {
 	return t.Schema + "." + t.Name
 }
 
-// singleConn resolves a selector that must match exactly one conn of the
-// given family (db, cache, storage).
+// dbTimeout is --timeout, or 30s without it.
 func dbTimeout() time.Duration {
 	if g.timeout > 0 {
 		return g.timeout

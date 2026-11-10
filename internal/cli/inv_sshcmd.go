@@ -162,7 +162,6 @@ func vpnProxy(st *store.State, v *store.Vpn) (string, error) {
 	return "nc -X 5 -x " + socks + " %h %p", nil
 }
 
-// sshCommandFor builds the ssh argv for h.
 func sshCommandFor(st *store.State, h *store.Host) ([]string, error) {
 	vpn, hops, err := sshPath(st, h, map[string]bool{})
 	if err != nil {

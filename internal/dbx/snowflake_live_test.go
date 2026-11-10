@@ -15,8 +15,8 @@ import (
 // (snowflake://USER@ACCOUNT/DATABASE/SCHEMA?warehouse=W&role=R, a role
 // that may create tables in that schema), with KOMANDO_SFTEST_SECRET
 // holding a programmatic access token or the user's private key (PEM).
-// They make and drop the table KOMANDO_SF_T. No such account was at hand
-// when this was written: these tests have not run yet.
+// They make and drop the table KOMANDO_SF_T. They have not yet run
+// against a real account.
 
 func liveSF(t *testing.T, readOnly bool) (*sql.DB, string) {
 	t.Helper()

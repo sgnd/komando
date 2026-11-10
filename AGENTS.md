@@ -3,8 +3,8 @@
 Using Claude Code, Codex, Cursor or Gemini CLI? Run `komando guide install`
 instead: it installs these rules as a skill. For any other agent, copy this
 file into your project (or into the agent's system prompt), so the agent
-manages servers, databases, caches, storage, clusters and registries
-through the `komando` CLI.
+manages servers, databases, caches, queues, storage, clusters and
+registries through the `komando` CLI.
 
 For any other agent, also set `KOMANDO_AGENT=1` in its environment (see
 the setup below). Only an agent komando knows gets secrets hidden in output

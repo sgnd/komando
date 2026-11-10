@@ -23,8 +23,8 @@ import (
 // (type to filter), and komando runs that command as if it was typed, then
 // comes back. It only starts commands the person could type themselves, so
 // every safety check and question works as it does on the command line.
-// Everyone else (AI agents, scripts, pipes, any flag) gets the first steps,
-// as before (docs/design/ux.md, section 10).
+// Everyone else (AI agents, scripts, pipes, any flag) gets the first steps
+// (docs/design/ux.md, section 10).
 
 // menuWanted: `komando` alone, no flags, and a person at a terminal that
 // can draw (stdin, stdout and stderr are terminals, no agent, TERM is not

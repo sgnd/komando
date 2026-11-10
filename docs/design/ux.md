@@ -1,8 +1,8 @@
 # komando UX guide
 
 Status: **in effect, 2026-11-02.** This document sets the rules for every
-command, flag, message, and output. New features must follow it. If an
-old command breaks these rules, the fix is listed in the [Backlog](#fix-backlog).
+command, flag, message, and output. New features must follow it. A command
+that breaks these rules is a bug.
 The big goal is in [vision.md](vision.md).
 
 In short: **one way to do each thing, words people understand, safe when
@@ -17,8 +17,8 @@ komando storage upload backups ./dump.sql.gz
 ```
 
 - **Noun** = a work area in human words: `host`, `conn`, `db`,
-  `cache`, `storage`, `cluster`, `registry`, `secret`. Product names are only
-  aliases (`s3`, `redis`, `sql`, `k8s`).
+  `cache`, `queue`, `storage`, `cluster`, `registry`, `secret`, `vpn`.
+  Product names are only aliases (`s3`, `redis`, `sql`, `k8s`, `kafka`).
 - **Verbs** come from the standard list below. A new verb may only be added
   if none of the existing ones fits, and it must be recorded here.
 - **TARGET is always the first argument** after the verb, except for commands
@@ -33,7 +33,7 @@ komando storage upload backups ./dump.sql.gz
 |---|---|---|---|
 | `list` | list items in the **komando inventory** (host, conn, secret, job) | `ls` | read |
 | `ls` | list the **contents inside** a target (files, objects, keys, pods) | `list` | read |
-| `show` | details of one inventory item | `info` | read |
+| `show` | details of one inventory item | none | read |
 | `get` | read the **value** of one item inside a target (key, small object, secret) | none | read |
 | `status` / `info` | state of the target (version, health, memory) | none | read |
 | `logs` | logs | none | read |
@@ -85,6 +85,8 @@ How commands use the selector result:
 6. **Safety checks run for the whole batch before anything
    runs.** If one protected target needs `--yes`, the whole batch stops
    and names every such target. There is no "stopped halfway because it was blocked".
+7. `db query` runs against one database; a selector that picks several is
+   refused with a clear message.
 
 ## 3. Flags
 
@@ -94,7 +96,7 @@ How commands use the selector result:
 |---|---|
 | `-o, --output json\|text` | output format (automatic: text in a terminal, json when piped) |
 | `--dry-run` | show what would happen, without changing anything |
-| `--write` | allow changes in raw commands (`db query`, `cache run`) |
+| `--write` | allow changes in raw commands (`db query`, `cache run`, `cluster run`) |
 | `--yes` | confirm a change on a protected target |
 | `--allow-dangerous` | allow a command blocked by policy, for this command only |
 | `--timeout` | time limit per target |
@@ -125,7 +127,8 @@ How commands use the selector result:
   cannot be proven safe (`exec`, `script`, `snippet`, `docker exec`)
   are treated as *write*, unless marked `--read-only`.
 - **If the server can enforce read-only, the default is read-only** and it needs
-  `--write` (`db query`, `cache run`).
+  `--write` (`db query`, `cache run`). `cluster run` follows the same
+  default: it only reads unless `--write`.
 - Commands with a clear verb (`storage upload`, `svc restart`)
   do not need `--write`; the verb is already a statement of intent.
 
@@ -281,6 +284,8 @@ run next).
   updated in the same commit as the feature.
 - Renaming a command or flag: the old name keeps working as an alias
   for one minor release, with a warning on stderr, then it is removed.
+- The naming rules for commands and flags are guarded by `TestConventions`
+  (`internal/cli/conventions_test.go`).
 
 ## 11. No overlapping features
 
@@ -299,7 +304,7 @@ Current overlaps, and the decision:
 
 | Now | Decision |
 |---|---|
-| `host --jump` and `conn --via` | ✅ `--via` for everything; `--jump` becomes an alias ([network.md](network.md)) |
+| `host --jump` and `conn --via` | ✅ `--via` for everything ([network.md](network.md)) |
 | `host test`, `conn test`, `test` | ✅ only `test`; `host test`/`conn test` = `test` for one kind |
 | `host list`, `conn list`, `list` | ✅ only `list`; `host list`/`conn list` = `list kind:host` / `list kind:conn` |
 | `svc logs`, `docker logs`, `logs --unit/--container` | ✅ only `logs`; `svc logs` and `docker logs` become aliases |
@@ -319,8 +324,8 @@ to do it is not to copy every feature of that tool, but three paths that are the
    (any Redis command), `cluster run -- <kubectl args>`. Anything
    the original tool can do can be done through here.
 3. **The native tool on your laptop, through the komando path**: `komando tunnel start
-   app-db` gives a local port for TablePlus/`psql`, and `komando shell`
-   for interactive SSH, and `komando db shell app-db` opens komando's own SQL
+   app-db` gives a local port for TablePlus/`psql`, `komando shell` opens
+   interactive SSH, and `komando db shell app-db` opens komando's own SQL
    shell with the password from the vault and the `--via` path, with no password on screen.
 
 Paths 2 and 3 do not count as overlapping with path 1: they are emergency doors
@@ -447,65 +452,3 @@ This checklist is used for every feature and every review.
 - `~/.ssh/config` with `Include`, `Match`, and wildcards; kubeconfig with many contexts
 - Importing again, clashing names, unsupported fields
 - JSON contract changes: new fields are allowed, old fields are not removed before a major version
-
-## Fix backlog
-
-Result of an audit of 149 commands at commit `93f7268`. P0 = safety, P1 =
-consistency issues that often hit users, P2 = tidying up. Old names stay
-accepted as aliases for one release. The naming rules for commands and flags
-are guarded by `TestConventions` (`internal/cli/conventions_test.go`).
-
-| # | Prio | Problem | Status |
-|---|---|---|---|
-| 1 | P0 | Snippets could run on a protected host without `--yes` unless marked `--mutating` | ✅ Treated as a change; `--read-only` for safe ones |
-| 2 | P0 | `secret set NAME VALUE` (goes into shell history and `ps`) | ✅ Refused (`SECRET_IN_ARGS`) |
-| 3 | P0 | Selectors only picked hosts | ✅ Universal selectors, `kind:`, `meta.skipped`, `NO_MATCHING_TARGETS`, "did you mean" |
-| 4 | P1 | `logs -f` = file | ✅ `--file` with no short letter; `-f, --follow` follows |
-| 5 | P1 | `rm`, `del`, `remove`, `delete` | ✅ `rm` in every command, the rest are aliases |
-| 6 | P1 | `-n` had three meanings | ✅ `-n, --limit`; `fs cat --line-numbers`; `job logs --max-bytes` |
-| 7 | P1 | `--host` vs `--target` | ✅ `--target` (accepts selectors) |
-| 8 | P1 | `--param` vs `--var` | ✅ `--var` |
-| 9 | P1 | `--force` vs `--overwrite` | ✅ `--overwrite` |
-| 10 | P1 | `-r` vs `-R` | ✅ `-r` |
-| 11 | P1 | `storage get/put` | ✅ `download/upload` (done in another session) |
-| 12 | P1 | `-g` = group and grep | ✅ `-g` only for group |
-| 13 | P1 | Inconsistent sudo | ✅ Sudo rule in section 3; `pkg` and `user` get `--no-sudo` |
-| 14 | P1 | No `list`/`test` for everything | ✅ `komando list`, `komando test` |
-| 15 | P2 | `cache keys` without an `ls` alias | ✅ (another session) |
-| 16 | P2 | `HOST` vs `TARGET` in usage | ✅ `TARGET` |
-| 17 | P2 | People at a terminal only got an error | ✅ `[y/N]` prompt, and type the name for dangerous ones |
-| 18 | P2 | Name `all`, `Web1` vs `web1` | ✅ Refused |
-| 19 | P2 | `komando import` does not exist yet | ✅ `komando import SOURCE` (v0.3) |
-| 20 | P0 | `host add --overwrite` silently removed protected | ✅ Needs `--yes` |
-| 21 | P0 | `host rm` / `edit --protected=false` on a protected target without `--yes` (a way around) | ✅ Needs `--yes` |
-| 23 | P0 | Aliases without protected (`user@address`, a second name, a second conn to the same server) bypassed protected | ✅ Protected follows the address |
-| 24 | P1 | One "y" answer at the terminal applied to other checks in the same command | ✅ Each answer is for one question only; `rm` on many targets is asked once |
-| 25 | P1 | `tunnel start --host-key-policy off --yes` failed in a background process | ✅ |
-| 22 | P0 | `config set audit off`, `host_key_policy off`, `--host-key-policy off`, `policy allow` without confirmation; `audit tru` turned off the audit | ✅ Needs `--yes`; strict on/off values |
-
-Anti-slop audit of 225 commands, 2026-11-07 (at `5847edb`):
-
-| # | Prio | Problem | Status |
-|---|---|---|---|
-| 26 | P1 | `komando` alone printed ~90 lines of help (against section 10) | ✅ First steps; `--help` for everything |
-| 27 | P1 | A command typo printed cobra's multi-line "Did you mean this?" inside the JSON message | ✅ One line with the suggestion; hint names the command meant |
-| 28 | P1 | A flag typo (`--tiemout`) had no suggestion | ✅ "did you mean --timeout?" |
-| 29 | P1 | 247 usage errors shared one hint ("run with --help or `komando schema`") | ✅ The command's own example and `--help` |
-| 30 | P1 | 71 of 197 commands had no example in `--help` | ✅ All have one; `TestConventions` and `TestExamplesParse` guard it |
-| 31 | P1 | Text output of `host add/edit`, `conn add` and the like was a sorted field dump with `action: added` and UTC timestamps | ✅ Headline first (`added web2`), name first, local times |
-| 32 | P2 | `server(s)`, `problem(s)` ... in about 20 messages; "2 of 2 failed" | ✅ `countOf`, `failedOf` |
-| 33 | P2 | `test` on one target said `PARTIAL_FAILURE`, `exec` said the real code | ✅ The target's own code |
-| 34 | P2 | `list` PROTECTED column showed `false` on every row | ✅ `yes` or `-` |
-| 35 | P2 | `export -o text` showed `secrets_needed: [hidden]` for an empty list | ✅ Not masked |
-| 36 | P2 | Every sub-command's `--help` repeats 11 global flags | ✅ Shows `--dry-run`, `-o`, `--timeout`, `--yes`; the rest in `komando --help` |
-| 37 | P2 | 55 `Short` lines are longer than 80 characters and wrap in `komando --help` | ✅ Top level ≤ 64, others ≤ 80 (`TestConventions`); the full sentence moved to Long |
-| 38 | P2 | `config set parallel 5` prints only `5` | ✅ `parallel: 10 → 5`, or `parallel: already 5` |
-| 39 | P2 | `policy list -o text` prints the regular expressions as YAML | ✅ A table of what each rule stops; the patterns with `-o json` |
-| 40 | P2 | Some hints are questions ("is sshd running and the port correct?") instead of a next step | ✅ Each says what to check or run |
-| 41 | P2 | A group command with no sub-command (`komando db`) piped prints help text, not a JSON envelope | ✅ Piped: a `USAGE` envelope (exit 2) naming the sub-commands; `komando` alone piped points to `guide` and `schema`. In a terminal: help as before |
-
-Next:
-- Single-target commands refuse a selector that picks many, with the
-  same message everywhere (done, through `singleHost`/`singleConn`).
-- `db query` against many databases at once (`@prod` containing several
-  databases) is not supported yet; it is now refused with a clear message.

@@ -47,9 +47,8 @@ runs `komando login aws --profile prod` once.
 
 ### Azure Container Registry
 
-Leave out `--password-ref` and komando logs
-in with your Azure login, the way `az acr login` does: it gets an Azure
-token and trades it with the registry for a registry login that lasts a few
+Leave out `--password-ref` and komando logs in with your Azure login, the
+way `az acr login` does: it gets an Azure token and trades it with the registry for a registry login that lasts a few
 hours. It does this each time, keeps nothing, and needs no `az` program:
 
 ```bash
@@ -83,8 +82,7 @@ with `--password-ref`.
 
 ### Google Artifact Registry and Container Registry
 
-Hosts like
-`europe-west1-docker.pkg.dev`, `gcr.io`, `eu.gcr.io`, `us.gcr.io` and
+Hosts like `europe-west1-docker.pkg.dev`, `gcr.io`, `eu.gcr.io`, `us.gcr.io` and
 `asia.gcr.io` log in with your Google login when the conn has no
 `--password-ref`, as `gcloud auth configure-docker` sets up: komando gets a
 Google access token (it lasts an hour) each time and logs in as
@@ -139,7 +137,7 @@ The CA secret counts as used by the conn: `secret list` shows it, `secret rm`
 refuses it, `secret mv` changes the URL too, and `export` lists it under
 `secrets_needed`.
 
-No CA at hand? If the CA is somewhere else (mkcert on another computer)
+If the CA is somewhere else (mkcert on another computer)
 and the registry sends only its own certificate, store that certificate as
 `ca=`. komando then trusts exactly that certificate (it is pinned), still
 checks the name and the dates, and refuses any other. When the registry

@@ -29,7 +29,7 @@ var (
 	queueRegionRe  = regexp.MustCompile(`^[a-z]{2}(-[a-z0-9]+)+-[0-9]+$`)
 )
 
-// --- shared ---
+// What the forms share.
 
 // queueServersQ asks one or more server addresses, comma separated, each
 // with an optional port.
@@ -163,7 +163,7 @@ func queueUser(u string) string {
 	return url.User(u).String() + "@"
 }
 
-// --- Kafka ---
+// Kafka.
 
 func kafkaForm() formSpec {
 	sasl := func(a formAnswers) bool { return a["login"] == "sasl" }
@@ -216,7 +216,7 @@ func kafkaForm() formSpec {
 	}}
 }
 
-// --- RabbitMQ ---
+// RabbitMQ.
 
 func rabbitForm() formSpec {
 	login := func(a formAnswers) bool { return a["user"] != "" }
@@ -273,7 +273,7 @@ func rabbitForm() formSpec {
 	}}
 }
 
-// --- NATS ---
+// NATS.
 
 func natsForm() formSpec {
 	login := func(v string) func(formAnswers) bool { return func(a formAnswers) bool { return a["login"] == v } }
@@ -328,7 +328,7 @@ func natsForm() formSpec {
 	}}
 }
 
-// --- Amazon SQS ---
+// Amazon SQS.
 
 func sqsForm() formSpec {
 	return formSpec{title: "Add Amazon SQS queues", qs: []formQ{
@@ -351,7 +351,7 @@ func sqsForm() formSpec {
 			def:  func(*store.State, formAnswers) string { return "default" }, check: s3ProfileProblem},
 			func(a formAnswers) bool { return a["login"] == "profile" }),
 		formWhen(formQ{key: "keyid", label: "Access key ID", ask: "What is the access key ID?", example: "AKIAIOSFODNN7EXAMPLE",
-			help:  "The public half of the key. When the command asks Password for the name, paste the secret half; it stays hidden.",
+			help:  "The public half of the key. When the command asks \"Password for\" with the name you gave, paste the secret half; it stays hidden.",
 			check: s3KeyIDProblem}, func(a formAnswers) bool { return a["login"] == "key" }),
 		formProtectQ("queues"),
 		formMore(formQ{key: "account", label: "Account ID", ask: "Use queues of another AWS account?", optional: true,
@@ -403,7 +403,7 @@ func queueEndpointQ(example, help string) formQ {
 		}})
 }
 
-// --- Google Pub/Sub ---
+// Google Pub/Sub.
 
 func pubsubForm() formSpec {
 	return formSpec{title: "Add Google Cloud Pub/Sub", qs: []formQ{

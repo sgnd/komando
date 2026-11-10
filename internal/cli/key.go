@@ -65,7 +65,6 @@ func checkKeyType(typ string, bits int) error {
 	return nil
 }
 
-// newSigner makes a private key of the given type and size.
 func newSigner(typ string, bits int) (crypto.Signer, error) {
 	if err := checkKeyType(typ, bits); err != nil {
 		return nil, err
@@ -566,13 +565,4 @@ this key.`,
 	}
 	c.Flags().BoolVar(&setDefault, "set-default", false, "servers that got the key log in with it from now on")
 	return c
-}
-
-func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }

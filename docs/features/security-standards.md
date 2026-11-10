@@ -32,7 +32,7 @@ make fuzz               # fuzz the parsers that read untrusted text
 | 4.1.3, 4.3.1 Least privilege, administrative interfaces | `komando ssh-gate` limits another device's SSH key to komando: no shell or forwarding, agent rules, nothing written on the komando computer (nor through a sqlite file, and nothing, a read either, on a target at a loopback address), `--read-only` keys run only reads, every command audited with the key's name | Met. Yours to do: add phone keys with `komando ssh-gate line` |
 | 7.1 Logs record who, what, where, result, without secrets | Every action: time, actor, AI agent, approval, hosts, command; tested to hold no password | Met |
 | 7.3 Logs are protected from change | 0600, a hash chain that `komando audit verify` checks, and each record sent to a log server with `audit_syslog` | Met with `audit_syslog`. Partly met without it: the same user can rebuild the chain or cut its end |
-| 8.3 Sensitive data is not shown to those who should not see it | Vault values hidden for everyone; passwords, keys and tokens hidden for AI agents komando recognises | Partly met: best effort: an unusual name can slip through |
+| 8.3 Sensitive data is not shown to those who should not see it | Vault values hidden for everyone; passwords, keys and tokens hidden for AI agents komando recognises | Partly met: masking is a best effort, and an unusual name can slip through |
 | 9.1, 9.2 Connections are encrypted and the server is checked | SSH host keys (stop on mismatch; the first key is shown with its fingerprint), TLS 1.2+ for Redis, Kubernetes, FTPS, HashiCorp Vault and the built-in VPN clients; SMB shares sign every message and are encrypted when the server asks for it; IKEv1 without 3DES or DH groups below 14 by default; no PAP by default; plain FTP and WebDAV need `?insecure=1`, and new plain Redis and memcached conns across the network too | Partly met: new Postgres and MySQL conns across the network check the certificate unless the URL says otherwise; saved conns follow their URL, and `doctor` warns about those without verified TLS and prints the fix. `--legacy-crypto` (3DES, DH groups 2 and 5) and `--allow-pap` turn the weak options back on for one VPN, with a person's yes |
 | 12.3 Files: no path traversal | Folder downloads refuse server paths that lead outside the target | Met |
 | 14.2 Dependencies are known and kept up to date | Go modules, `govulncheck` in CI, Dependabot | Met |
@@ -82,7 +82,7 @@ organization.
 | Pinned-Dependencies (actions pinned to a commit, tools to a version) | Met |
 | Dependency-Update-Tool (Dependabot) | Met |
 | SAST and Vulnerabilities (staticcheck, govulncheck) | Met |
-| Fuzzing (masking, policy filter, guard, SQL scanner, OpenVPN, SSM and Bitwarden parsers) | Met |
+| Fuzzing (masking, output views, policy filter (shell and PowerShell), guard, SQL scanner, OpenVPN, IPsec, L2TP, Pulse, SSM and Bitwarden parsers) | Met |
 | Signed-Releases: SLSA Build Level 2 provenance | Met. Check a download with `gh attestation verify komando_*.tar.gz --repo sgnd/komando` |
 | Branch-Protection, Code-Review | Yours to do. In GitHub, protect `main`, require a review and CI |
 

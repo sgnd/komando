@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -196,7 +197,7 @@ func kubeErr(err error) error {
 		if outer := err.Error(); outer != e.Error() {
 			msg = strings.TrimSuffix(outer, e.Error()) + e.Message // keep "deployment/web: " in front
 		}
-		return out.Errf(exit, code, hint, "%s", firstNonEmpty(msg, e.Reason))
+		return out.Errf(exit, code, hint, "%s", cmp.Or(msg, e.Reason))
 	}
 	var oe *out.Error
 	if errors.As(err, &oe) {

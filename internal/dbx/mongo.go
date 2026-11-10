@@ -1,6 +1,7 @@
 package dbx
 
 import (
+	"cmp"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -140,7 +141,7 @@ var cursorCmds = set("find aggregate listCollections listIndexes")
 // RunMongo sends cmd to database db and reads at most limit documents
 // (0: no limit) and maxBytes of them.
 func RunMongo(ctx context.Context, m *Mongo, db string, cmd bson.D, limit, maxBytes int) (*MongoResult, error) {
-	d := m.C.Database(firstOf(db, m.DB))
+	d := m.C.Database(cmp.Or(db, m.DB))
 	res := &MongoResult{}
 	if !cursorCmds[strings.ToLower(cmd[0].Key)] {
 		raw, err := d.RunCommand(ctx, cmd).Raw()
@@ -186,15 +187,6 @@ func extJSON(raw bson.Raw) any {
 		return string(b)
 	}
 	return v
-}
-
-func firstOf(s ...string) string {
-	for _, x := range s {
-		if x != "" {
-			return x
-		}
-	}
-	return ""
 }
 
 // MongoCollection is one collection in `db schema`: its size and indexes,

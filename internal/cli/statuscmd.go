@@ -126,9 +126,7 @@ func (d runningData) Text() string {
 	}
 	for _, j := range d.Jobs {
 		command := cleanText(j.Command)
-		if len([]rune(command)) > 50 {
-			command = string([]rune(command)[:47]) + "..."
-		}
+		command = truncateWidth(command, 50)
 		rows = append(rows, []string{"job", j.ID, cleanText(j.Host) + ": " + command, humanAge(now.Sub(j.StartedAt))})
 	}
 	s := textTable([]string{"kind", "name", "detail", "since"}, rows)

@@ -3,11 +3,11 @@ package cli
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"slices"
 	"sort"
@@ -151,7 +151,7 @@ func (a kargs) val(key string) string {
 }
 
 func (r *kctlRun) ns() string {
-	return firstNonEmpty(r.a.val("namespace"), r.k.Namespace)
+	return cmp.Or(r.a.val("namespace"), r.k.Namespace)
 }
 
 // kctlError ends a command with kubectl's exit code 1. stop, when set, is
@@ -181,15 +181,9 @@ func kwrap(err error) error {
 	return kfail("%v", err)
 }
 
-// runKctl runs one kubectl-style command and returns its exit code with
-// what kubectl would have printed.
-func runKctl(ctx context.Context, k *kube.Client, conn string, args []string) (code int, stdout, stderr string) {
-	code, stdout, stderr, _ = runKctlLive(ctx, k, conn, args, nil)
-	return code, stdout, stderr
-}
-
-// runKctlLive is runKctl that hands a followed log's lines to live as they
-// come (nil: they go to stdout, up to maxFollowBytes). stop is the safety
+// runKctlLive runs one kubectl-style command and returns its exit code with
+// what kubectl would have printed. It hands a followed log's lines to live
+// as they come (nil: they go to stdout, up to maxFollowBytes). stop is the safety
 // stop that ended the command before it sent anything, if one did.
 func runKctlLive(ctx context.Context, k *kube.Client, conn string, args []string, live func(pod, prefix, line string)) (code int, stdout, stderr string, stop *out.Error) {
 	r := &kctlRun{k: k, conn: conn, ctx: ctx, live: live}
@@ -660,7 +654,7 @@ func (r *kctlRun) fillLabels(kr kref, rows [][]string) error {
 			kv = append(kv, k+"="+str(v))
 		}
 		sort.Strings(kv)
-		rows[i][len(rows[i])-1] = firstNonEmpty(strings.Join(kv, ","), "<none>")
+		rows[i][len(rows[i])-1] = cmp.Or(strings.Join(kv, ","), "<none>")
 	}
 	return nil
 }
@@ -752,7 +746,7 @@ func meta(o map[string]any, key string) string {
 	return str(md[key])
 }
 
-// readFiles reads -f FILE (or "-" is not supported: stdin is not passed).
+// readFiles reads -f FILE. "-" is not supported: stdin is not passed.
 func (r *kctlRun) readFiles() ([]kubeDoc, error) {
 	files := r.a.vals["filename"]
 	if len(files) == 0 {
@@ -787,7 +781,7 @@ func (r *kctlRun) sendFiles() ([]kubeDoc, error) {
 	return docs, nil
 }
 
-// wait helper: poll until ok or the context ends.
+// pollUntil calls fn every so often until it says ok, fails, or the context ends.
 func pollUntil(ctx context.Context, every time.Duration, fn func() (bool, error)) error {
 	for {
 		ok, err := fn()
@@ -801,5 +795,3 @@ func pollUntil(ctx context.Context, every time.Duration, fn func() (bool, error)
 		}
 	}
 }
-
-var _ = io.Discard

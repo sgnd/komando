@@ -41,8 +41,8 @@ komando config set audit_syslog tls://siem.example:6514 --yes   # also send the 
 With `audit_syslog` set, each audit record also goes to the log server as it
 is written: syslog (RFC 5424, facility authpriv, program `komando`, message
 id `audit`, the record's JSON as the message) over UDP, TCP or TLS. The
-local log stays the record: a log server that does not answer is said once
-on stderr, and the command goes on. A copy on another machine keeps the
+local log stays the record: when the log server does not answer, komando
+says so once on stderr and the command goes on. A copy on another machine keeps the
 history even if someone with your user account rewrites the local file.
 
 Negative values are refused. Every change is recorded in `komando audit`
@@ -129,10 +129,10 @@ unlocked: on a Mac you reach over SSH, unlock it first
 
 ### A passphrase instead of the keychain
 
-`KOMANDO_VAULT_PASS` is the other way to protect the vault, mainly for a computer without a
-keychain (a Linux server without `secret-tool`). A new vault takes its mode
-at your first secret: with the variable set to 15 or more characters, it
-gets that passphrase. Setting or changing the variable on its own does
+`KOMANDO_VAULT_PASS` is the other way to protect the vault, mainly for a
+computer without a keychain (a Linux server without `secret-tool`). A new
+vault takes its mode at your first secret: with the variable set to 15 or
+more characters, it gets that passphrase. Setting or changing the variable on its own does
 nothing to a vault that exists already; `komando secret passphrase` does
 that (below). A passphrase vault needs the same passphrase in every shell
 and background process.

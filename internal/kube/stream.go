@@ -2,6 +2,7 @@ package kube
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -21,10 +22,10 @@ import (
 
 // exec, attach and port-forward speak the Kubernetes streaming protocols
 // over WebSocket, so kubectl is not needed; clusters before 1.30 get SPDY
-// instead (spdy.go). Each WebSocket message starts
-// with a channel byte: 0 stdin, 1 stdout, 2 stderr, 3 status, 4 resize
-// (exec); for port-forward, channel 0 is data and 1 errors, and each
-// channel's first message is the port.
+// instead (spdy.go). Each WebSocket message starts with a channel byte:
+// 0 stdin, 1 stdout, 2 stderr, 3 status, 4 resize (exec); for port-forward,
+// channel 0 is data and 1 errors, and each channel's first message is the
+// port.
 
 // ExecOptions describe one command in a container.
 type ExecOptions struct {
@@ -103,7 +104,7 @@ func upgradeRefused(resp *http.Response) error {
 	if st.Message == "" {
 		st.Message = strings.TrimSpace(string(b))
 	}
-	return &APIError{Code: resp.StatusCode, Reason: firstNonEmpty(st.Reason, http.StatusText(resp.StatusCode)), Message: st.Message}
+	return &APIError{Code: resp.StatusCode, Reason: cmp.Or(st.Reason, http.StatusText(resp.StatusCode)), Message: st.Message}
 }
 
 // errOldProtocol: the WebSocket was opened, but not with a protocol
@@ -229,7 +230,7 @@ func execStatus(b []byte) error {
 			}
 		}
 	}
-	return fmt.Errorf("exec: %s", firstNonEmpty(st.Message, st.Reason, "failed"))
+	return fmt.Errorf("exec: %s", cmp.Or(st.Message, st.Reason, "failed"))
 }
 
 func orDiscard(w io.Writer) io.Writer {
@@ -237,15 +238,6 @@ func orDiscard(w io.Writer) io.Writer {
 		return io.Discard
 	}
 	return w
-}
-
-func firstNonEmpty(v ...string) string {
-	for _, s := range v {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
 }
 
 // PortForward connects conn to port on a pod, until either side closes.

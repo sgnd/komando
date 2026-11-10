@@ -1,8 +1,7 @@
 # shellcheck shell=bash
 # Long waits outlive SSH connections: when the server (or a NAT on the way)
 # drops komando's connection, `job wait` connects again and keeps waiting
-# until the job ends, as kubectl wait does. (Found in real use: a 25-minute
-# install whose wait ended after ~10 minutes with the job still running.)
+# until the job ends, as kubectl wait does.
 P="${PROJECT:-komando-e2e}"
 JID=$($K job start direct -- 'sleep 15; echo done' | jget 'd["data"]["jobs"][0]["id"]')
 ( rc=0; $K job wait "$JID" --timeout 2m --interval 2s >"$TMP/wait.out" 2>&1 || rc=$?; echo "$rc" >"$TMP/wait.rc" ) &

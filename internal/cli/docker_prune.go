@@ -23,7 +23,7 @@ type pruneOpts struct {
 	volumes   bool
 }
 
-// pruneArgs is the docker command the real run uses.
+// args is the docker command the real run uses.
 func (o pruneOpts) args() []string {
 	a := []string{"system", "prune", "-f"}
 	if o.all {

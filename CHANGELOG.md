@@ -23,6 +23,16 @@ its highlights; the sections below them give the details. Versions follow
   `cluster add` and `registry add` open the same form as `conn add`, and
   "conn" no longer appears in menus, forms or messages.
 
+### Removed
+
+- Old flag names kept as aliases since 0.1 to 0.3 are gone. Use the new
+  names: `--via` (was `--jump`), `--overwrite` (was `--force`), `recipe run
+  --var` (was `--param`), `logs -n`/`--limit` (was `--lines`), `fs cat
+  --line-numbers` (was `--number`), `job logs --max-bytes` (was `--limit`),
+  `--target` (was `--host`), `host mv` and `conn mv` (was `host edit
+  --rename` and `conn edit --rename`). `recipe add --mutating` is gone too:
+  a recipe counts as a change unless you save it with `--read-only`.
+
 ## [0.9.0] - 2026-11-10
 
 ### Highlights

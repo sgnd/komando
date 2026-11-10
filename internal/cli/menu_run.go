@@ -15,12 +15,11 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// menuRun runs komando commands in the normal screen, as if they were
-// typed, one after the other until one fails: each command line first, so
-// the person learns it, then its output, then how the last one ended. Then
-// it waits: Enter goes back to the menu, q quits. The key help is erased
-// after that, so the scrollback keeps the commands, their output and how
-// they ended, not the keys of a menu that is gone.
+// menuRun runs komando commands in the normal screen, one after the other
+// until one fails: each command line first, so the person learns it, then
+// its output, then how the last one ended. Then it waits (Enter goes back,
+// q quits) and erases the key help, so the scrollback keeps only the
+// commands, their output and how they ended.
 //
 // back is where Enter goes: "the menu", or "the questions" after Try it
 // first.
@@ -57,7 +56,7 @@ func menuRun(ctx context.Context, t *menuTerm, self string, cmds [][]string, own
 	again, err := menuPause(ctx, t)
 	fmt.Fprint(os.Stderr, "\r\x1b[2K")
 	if result != "" {
-		fmt.Fprintln(os.Stderr, menuPaint(result, "2"))
+		fmt.Fprintln(os.Stderr, result)
 	}
 	return again, err
 }
@@ -150,7 +149,7 @@ func sshConfigNew(st *store.State) int {
 // by its pid only, as `komando prompt` does: the list must draw at once.
 func menuVpnUp(st *store.State, name string) bool {
 	s := st.Sessions[name]
-	return s != nil && (s.Container != "" || netx.Alive(s.PID))
+	return s != nil && netx.Alive(s.PID)
 }
 
 // The ? text of each screen: what it is for, in one paragraph.

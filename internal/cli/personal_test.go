@@ -78,7 +78,7 @@ func TestPersonalMaskColumns(t *testing.T) {
 		t.Errorf("mask_columns on an ordinary conn: %v", got)
 	}
 
-	// CSV goes through the same masking (it used to skip it)
+	// CSV goes through the same masking
 	var buf bytes.Buffer
 	saved := out.P.W
 	out.P.W = &buf

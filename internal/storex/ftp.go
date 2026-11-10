@@ -404,5 +404,5 @@ func ftpErr(err error, t driver.Target) error {
 	if where == "" {
 		where = "the server"
 	}
-	return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando test CONN` to check reachability", "%s: %v", where, err)
+	return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando conn test NAME` to check reachability", "%s: %v", where, err)
 }

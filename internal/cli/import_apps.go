@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -45,7 +46,7 @@ func importFileZilla(path string) (*importPlan, error) {
 	}
 	p := newPlan()
 	for _, s := range all {
-		label := firstNonEmpty(s.Name, s.Host)
+		label := cmp.Or(s.Name, s.Host)
 		if s.Protocol != 1 { // 0 FTP, 3/4 FTPS
 			p.Notes = append(p.Notes, label+": FTP sites are not imported yet (only SFTP)")
 			continue
@@ -187,7 +188,7 @@ func importDBeaver(path string) (*importPlan, error) {
 			p.Notes = append(p.Notes, fmt.Sprintf("%s: DBeaver provider %q is not a kind komando knows", c.Name, c.Provider))
 			continue
 		}
-		name := p.name(firstNonEmpty(c.Name, cfg.Database, id))
+		name := p.name(cmp.Or(c.Name, cfg.Database, id))
 		var u url.URL
 		if scheme == "sqlite" {
 			u = url.URL{Scheme: "sqlite", Path: cfg.Database}
@@ -262,7 +263,7 @@ func importAWS(path string) (*importPlan, error) {
 			}
 			continue
 		}
-		buckets, err := storex.ListBuckets(ctx, endpoint, creds.AccessKeyID, creds.SecretAccessKey, creds.SessionToken, firstNonEmpty(region, "us-east-1"))
+		buckets, err := storex.ListBuckets(ctx, endpoint, creds.AccessKeyID, creds.SecretAccessKey, creds.SessionToken, cmp.Or(region, "us-east-1"))
 		if err != nil {
 			p.Notes = append(p.Notes, fmt.Sprintf("profile %s: cannot list its buckets: %v", prof, err))
 			continue

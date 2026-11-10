@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -30,7 +31,7 @@ func (r *kctlRun) describe() error {
 			return err
 		}
 		for _, o := range objs {
-			d, err := describeObject(r.ctx, r.k, r.conn, kr.r, meta(o, "name"), firstNonEmpty(meta(o, "namespace"), r.space(kr.r)))
+			d, err := describeObject(r.ctx, r.k, r.conn, kr.r, meta(o, "name"), cmp.Or(meta(o, "namespace"), r.space(kr.r)))
 			if err != nil {
 				return err
 			}
@@ -96,7 +97,7 @@ func (r *kctlRun) logs() error {
 	return nil
 }
 
-// maxFollowBytes caps a followed log kept in memory (runKctl without a
+// maxFollowBytes caps a followed log kept in memory (runKctlLive without a
 // live printer); cluster run prints the lines as they come instead.
 var maxFollowBytes = 8 << 20
 
@@ -526,7 +527,7 @@ func (r *kctlRun) rollout(sub string) error {
 		}
 		res, err := waitRollout(r.ctx, r.k, kr.r, space, name, wait)
 		if res != nil {
-			fmt.Fprintf(&r.stdout, "%s\n", firstNonEmpty(str(res["message"]), fmt.Sprintf("%s %q successfully rolled out", kindLower(kr.r), name)))
+			fmt.Fprintf(&r.stdout, "%s\n", cmp.Or(str(res["message"]), fmt.Sprintf("%s %q successfully rolled out", kindLower(kr.r), name)))
 		}
 		return err
 	case "restart":
@@ -558,7 +559,7 @@ func (r *kctlRun) rollout(sub string) error {
 			var rows [][]string
 			sort.Slice(sets, func(i, j int) bool { return rsRevision(sets[i]) < rsRevision(sets[j]) })
 			for _, s := range sets {
-				rows = append(rows, []string{strconv.Itoa(rsRevision(s)), firstNonEmpty(annotation(s, "kubernetes.io/change-cause"), "<none>")})
+				rows = append(rows, []string{strconv.Itoa(rsRevision(s)), cmp.Or(annotation(s, "kubernetes.io/change-cause"), "<none>")})
 			}
 			r.stdout.WriteString(kubectlTable([]string{"REVISION", "CHANGE-CAUSE"}, rows, false))
 			return nil

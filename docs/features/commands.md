@@ -265,6 +265,9 @@ rest (cron, users, network checks, tunnels, certificates, SSH keys, saved
 commands). Databases, caches, queues, file storage, clusters, registries and
 VPNs each have their own list of tasks the same way.
 
+A line too long for the window ends in `…`; the help and problems under a
+question wrap instead. A long filter shows its end, where you type.
+
 The menu runs the same command you could type, and shows it first
 (`$ komando shell web1`), so every question and safety check works as it
 does on the command line. When the command ends, Enter goes back to the
@@ -280,8 +283,8 @@ error). `komando --help` lists every command.
 Add asks what you are adding (a Linux or Windows server, a database, a
 cache, a message queue, file storage, Kubernetes, a container registry or a
 VPN), then one question at a time, in the order you think of it: a name,
-the address, the user, the port, how you log in, and whether it is
-production. Each question says what it is
+what the server runs, the address, the user, the port, how you log in, and
+whether it is production. Each question says what it is
 and where to find it, shows an example, and offers a default that Enter
 takes (`Port [22]:`). An answer is checked before the next question: a name
 that is taken, an address with a typo or a file that is not there is said
@@ -295,7 +298,7 @@ Add a server · 4 of 7
 
 Which user do you log in as?
 User: root_
-The login name on the server. Many VPS use root; Ubuntu cloud servers use ubuntu.
+The login name on the server. Many VPS use root; Ubuntu cloud servers use ubuntu; Windows uses Administrator, or user@domain for a domain user.
 ```
 
 The last screen shows every answer and the commands they make, before
@@ -324,7 +327,7 @@ login` instead).
 `komando host add`, `komando db add` (and `cache add`, `queue add`,
 `storage add`, `cluster add`, `registry add`, `vpn add`) typed alone at a
 terminal ask the same questions. With any argument or flag, or for an AI
-agent or a script, they work as before.
+agent or a script, they ask nothing.
 
 ### Every task asks what it needs
 

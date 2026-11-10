@@ -13,8 +13,8 @@ import (
 func TestConventions(t *testing.T) {
 	// one meaning per short flag
 	shorts := map[string]string{"n": "limit", "r": "recursive", "g": "group", "t": "tag", "s": "sudo", "o": "output", "y": "yes", "f": "follow"}
-	// renamed flags; the old names may only exist as deprecated aliases
-	retired := []string{"force", "param", "lines", "number", "host", "mutating"}
+	// old flag names that were renamed and then removed; they must not come back
+	retired := []string{"force", "param", "lines", "number", "host", "mutating", "jump", "rename"}
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
 		path := c.CommandPath()
@@ -42,8 +42,8 @@ func TestConventions(t *testing.T) {
 			if want, ok := shorts[f.Shorthand]; ok && f.Name != want && !fileOK {
 				t.Errorf("%s --%s: -%s is reserved for --%s", path, f.Name, f.Shorthand, want)
 			}
-			if slices.Contains(retired, f.Name) && f.Deprecated == "" {
-				t.Errorf("%s --%s: renamed flag must be a deprecated alias (see aliasFlag)", path, f.Name)
+			if slices.Contains(retired, f.Name) {
+				t.Errorf("%s --%s: retired flag name; use the new name (see CHANGELOG, Removed)", path, f.Name)
 			}
 		})
 		for _, sub := range c.Commands() {

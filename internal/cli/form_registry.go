@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"encoding/json"
 	"net"
 	"net/netip"
@@ -12,7 +13,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// --- Container registries ---
+// Container registries.
 
 // registryKind is one registry product: its fixed address (or "" to ask
 // it), the name it usually gets, and where its user and token are found.
@@ -91,7 +92,7 @@ func registryForm(k registryKind) formSpec {
 		formWhen(formMore(formQ{key: "port", label: "Port", ask: "Which port does the registry use?",
 			help: "Almost always 443 (https). A registry:2 container often uses 5000.",
 			def: func(_ *store.State, a formAnswers) string {
-				return firstNonEmpty(registryPort(a["host"]), "443")
+				return cmp.Or(registryPort(a["host"]), "443")
 			}, check: formPortProblem}), is(regOwn)),
 		registryNameQ(k),
 		formWhen(formQ{key: "user", label: "User", ask: "What is your user name on this registry?", addr: true,
@@ -194,8 +195,8 @@ func registryHostProblem(k registryKind, v string) string {
 }
 
 func registryNameQ(k registryKind) formQ {
-	q := formNameQ("conn", "registry", firstNonEmpty(k.name, "harbor"))
-	q.help = "A short name you type later, like komando registry ls " + firstNonEmpty(k.name, "harbor") +
+	q := formNameQ("conn", "registry", cmp.Or(k.name, "harbor"))
+	q.help = "A short name you type later, like komando registry ls " + cmp.Or(k.name, "harbor") +
 		". Letters, digits, dot, dash, underscore."
 	q.def = func(st *store.State, a formAnswers) string {
 		base := k.name
@@ -307,7 +308,7 @@ func registryTLSQs(own func(formAnswers) bool) []formQ {
 	ca := formMore(registrySecretQ("ca", "CA certificate", "Which saved secret holds the CA certificate?",
 		"The CA certificate you stored with komando secret set NAME < ca.crt."))
 	ca.check = cacheCAProblem
-	resolve := formMore(formQ{key: "resolve", label: "Use IP", ask: "Connect to another IP than DNS gives? (optional)", optional: true,
+	resolve := formMore(formQ{key: "resolve", label: "Use IP", ask: "Connect to another IP than DNS gives? (leave empty to use DNS)", optional: true,
 		help:    "Only for a registry whose name is not in DNS yet. The certificate is still checked against the name.",
 		example: "203.0.113.10 or 203.0.113.10:8443",
 		check:   func(_ *store.State, _ formAnswers, v string) string { return registryResolveProblem(v) }})
@@ -333,7 +334,7 @@ func registryResolveProblem(v string) string {
 func registryBuild(k registryKind, a formAnswers) [][]string {
 	host, port := k.host, ""
 	if host == "" {
-		host, port = registryHostOnly(a["host"]), firstNonEmpty(a["port"], registryPort(a["host"]))
+		host, port = registryHostOnly(a["host"]), cmp.Or(a["port"], registryPort(a["host"]))
 	}
 	u := url.URL{Scheme: "registry", Host: formHostPort(host, port, "443")}
 	if a["user"] != "" && !registryCloud(k.id) {
@@ -367,7 +368,7 @@ func registryBuild(k registryKind, a formAnswers) [][]string {
 	return [][]string{formFlags(args, a), {"test", a["name"]}}
 }
 
-// --- every docker login at once ---
+// Every docker login at once.
 
 const dockerConfigDefault = "~/.docker/config.json"
 
@@ -384,7 +385,7 @@ func dockerLoginForm() formSpec {
 			"Without it, a name komando knows already is left as it is.", "no",
 			"the login from docker replaces the old one", "keep the ones you have")),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		file := firstNonEmpty(a["file"], dockerConfigDefault)
+		file := cmp.Or(a["file"], dockerConfigDefault)
 		args := []string{"import", "docker"}
 		if file != dockerConfigDefault {
 			args = append(args, formAbs(file))
@@ -425,7 +426,7 @@ func dockerConfigProblem(v string) string {
 	return ""
 }
 
-// --- the registry commands, asked from a menu task ---
+// The registry commands, asked from a menu task.
 
 func init() {
 	conn := formArg{ask: "Which registry?", pick: "registry",
@@ -433,7 +434,7 @@ func init() {
 	image := formArg{ask: "Which image?", example: "acme/api:1.4.3",
 		help: "The repository and its tag, without the registry's address. komando registry ls shows them."}
 	addFormHints(map[string]formHint{
-		"registry ls": {args: []formArg{conn, {ask: "Which repository? (optional)", example: "acme/api",
+		"registry ls": {args: []formArg{conn, {ask: "Which repository? (leave empty to list them all)", example: "acme/api",
 			help: "Empty: every repository. A repository: its tags. Docker Hub cannot list every repository, give one."}}},
 		"registry inspect": {args: []formArg{conn, image}},
 		"registry rm": {args: []formArg{conn, {ask: "Which image to delete?", example: "acme/api:1.4.3",
@@ -441,7 +442,7 @@ func init() {
 		"registry prune": {args: []formArg{conn, {ask: "In which repository?", example: "acme/api",
 			help: "Old images of this repository are deleted for good; Try it first shows which. komando asks a person first."}},
 			flags: []formFlag{{name: "keep", ask: "Keep how many of the newest images?", example: "10"},
-				{name: "older-than", ask: "Or delete only images older than? (optional)", example: "30d or 12h"}}},
+				{name: "older-than", ask: "Or delete only images older than? (leave empty for any age)", example: "30d or 12h"}}},
 		"registry copy": {args: []formArg{
 			{ask: "Copy which image? Type its registry, a colon, then the image", example: "ghcr:acme/api:1.4.3",
 				help: "Like ghcr:acme/api:1.4.3: ghcr is the registry's name in your list, acme/api:1.4.3 the image."},

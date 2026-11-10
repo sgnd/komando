@@ -16,14 +16,14 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// TestQueueKafka runs the queue commands against an in-process Kafka
-// (franz-go's kfake): reads need no flag, rm and purge need
-// --allow-dangerous, every change has a dry run, and peek moves no group.
 func jsonOf(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
 }
 
+// TestQueueKafka runs the queue commands against an in-process Kafka
+// (franz-go's kfake): reads need no flag, rm and purge need
+// --allow-dangerous, every change has a dry run, and peek moves no group.
 func TestQueueKafka(t *testing.T) {
 	invHome(t)
 	c, err := kfake.NewCluster(kfake.NumBrokers(1))

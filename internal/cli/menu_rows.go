@@ -206,6 +206,3 @@ func menuCount(n int, word string) string {
 	}
 	return fmt.Sprintf("%d %ss", n, word)
 }
-
-// menuPaint styles text for stderr when colour is on.
-func menuPaint(s, style string) string { return fit([]seg{{s, style}}, displayWidth(s), colorOK()) }

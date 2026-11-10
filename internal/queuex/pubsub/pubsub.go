@@ -111,7 +111,7 @@ func tokens(t driver.Target, key string, plain *http.Client) (oauth2.TokenSource
 	tctx := context.WithValue(context.Background(), oauth2.HTTPClient, plain)
 	switch {
 	case key != "" && !t.Secure:
-		return nil, out.Usage("the pubsub endpoint is http:// (the emulator), which takes no login, and komando sends a login over https only: drop --password-ref (`komando conn edit CONN --password-ref ''`)")
+		return nil, out.Usage("the pubsub endpoint is http:// (the emulator), which takes no login, and komando sends a login over https only: drop the password reference (`komando conn edit CONN --unset password-ref`)")
 	case key != "":
 		creds, err := google.CredentialsFromJSONWithType(tctx, []byte(key), google.ServiceAccount, scope)
 		if err != nil {

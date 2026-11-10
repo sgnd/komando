@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// ---- a client with an established key, on an in-memory transport --------
+// A client with an established key, on an in-memory transport.
 
 type memTransport struct {
 	in, out chan []byte
@@ -225,7 +225,7 @@ func TestPacketIDNeverWraps(t *testing.T) {
 	}
 }
 
-// ---- against the fake server --------------------------------------------
+// Against the fake server.
 
 // on renegotiation the client logs in with the auth-token (a one-time code
 // is spent by then); a later PUSH_REPLY that renews the token keeps the

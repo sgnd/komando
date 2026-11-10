@@ -1,6 +1,7 @@
 package storex
 
 import (
+	"cmp"
 	"context"
 	"crypto"
 	"crypto/rand"
@@ -230,7 +231,7 @@ func (b *gcsBucket) Put(ctx context.Context, key string, r io.Reader, size int64
 	if size >= 0 {
 		req.ContentLength = size
 	}
-	req.Header.Set("Content-Type", firstNonEmpty(contentType, "application/octet-stream"))
+	req.Header.Set("Content-Type", cmp.Or(contentType, "application/octet-stream"))
 	resp, err := do(b.c, "gcs", req, http.StatusOK)
 	if err != nil {
 		return err
@@ -253,15 +254,6 @@ func (b *gcsBucket) Remove(ctx context.Context, key string) error {
 		return err
 	}
 	return resp.Body.Close()
-}
-
-func firstNonEmpty(s ...string) string {
-	for _, x := range s {
-		if x != "" {
-			return x
-		}
-	}
-	return ""
 }
 
 // gcsSigner signs V4 links with a service account's private key.
