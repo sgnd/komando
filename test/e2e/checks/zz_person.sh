@@ -59,9 +59,10 @@ q $K logout "$P1-login"
 check "person: after logout the agent is out again" False "$(A exec "$P1-login" --read-only -- true </dev/null | jget 'd["ok"]')"
 q $K host rm "$P1-login"
 
-# the menu: `komando` alone, pick Doctor (the last row), see it run, quit
-O=$(ptykeys '\x1b[F' '\r' '\r' '\x03' -- env TERM=xterm "$K" | tr -d '\r')
-check "person: the menu lists what to do" True "$(grep -q 'Doctor' <<<"$O" && grep -q 'List' <<<"$O" && echo True || echo False)"
+# the menu: `komando` alone, Settings and help (the last row), then
+# Check my setup (4 rows above its last row, Version), see it run, quit
+O=$(ptykeys '\x1b[F' '\r' '\x1b[F' '\x1b[A' '\x1b[A' '\x1b[A' '\x1b[A' '\r' '\r' '\x03' -- env TERM=xterm "$K" | tr -d '\r')
+check "person: the menu lists what to do" True "$(grep -q 'Add' <<<"$O" && grep -q 'Settings and help' <<<"$O" && echo True || echo False)"
 check "person: the menu runs the picked command" True "$(grep -q -i 'security' <<<"$O" && echo True || echo False)"
 check "person: the menu is never shown to an agent" 0 "$(A </dev/null | grep -c -i 'arrow keys' || true)"
 set -e
