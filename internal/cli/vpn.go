@@ -58,6 +58,7 @@ func vpnAddCmd() *cobra.Command {
 		Short: "Add a VPN (see `komando vpn --help` for the kinds)",
 		Example: `  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
   komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
+  komando vpn add client-y globalprotect --portal vpn.client.com   # signs in through a browser window at vpn up
   komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
   komando vpn add tailnet tailscale --password-ref secret:ts-authkey
   komando vpn add kantor l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk --user budi --ask-password   # type the password now (hidden)
@@ -566,8 +567,8 @@ func vpnAddNotes(v *store.Vpn, config string, keysInFile bool) []string {
 	if v.MFA {
 		notes = append(notes, "a person logs in with `komando vpn up "+v.Name+"`; later commands reuse that session")
 	}
-	if k := netx.Kinds[v.Kind]; len(k.Client) > 0 {
-		notes = append(notes, "needs "+strings.Join(k.Client, " and ")+" installed (`komando doctor` checks)")
+	if c := vpnClients(v); len(c) > 0 { // none for a kind komando speaks itself
+		notes = append(notes, "needs "+strings.Join(c, " and ")+" installed (`komando doctor` checks)")
 	}
 	return notes
 }

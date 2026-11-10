@@ -49,6 +49,7 @@ komando secret set kantor                     # the VPN password, typed once (hi
 komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
 komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
 komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
+komando vpn add client-y globalprotect --portal vpn.client.com   # signs in through a browser window at `vpn up`
 komando vpn add tailnet tailscale --password-ref secret:ts-authkey
 komando vpn add kantor l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk --user budi --password-ref secret:kantor --check 10.1.0.5:22
 komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user budi --password-ref secret:asa
@@ -214,6 +215,44 @@ not yet tried against the vendors' own servers. komando uses them:
 
 Otherwise, if `openconnect` is installed, komando runs it together with
 `ocproxy`. That also leaves your computer's network unchanged.
+
+### GlobalProtect with a browser sign-in
+
+Many GlobalProtect portals log in through a web page: your company's
+sign-in (Microsoft, Okta, Google ...) with a one-time code, also when the
+portal uses Palo Alto's Cloud Authentication Service. Add such a VPN with
+only its portal, no user and no password:
+
+```bash
+komando vpn add client-y globalprotect --portal vpn.client.com
+komando vpn up client-y
+```
+
+`komando vpn up` asks the portal how it logs in. For a browser sign-in it
+opens a window of Chrome, Edge, Brave or Chromium (whichever is on your
+computer) with an empty, temporary profile: it shares nothing with your own
+browser and is removed afterwards. Sign in there, with your password and
+code. The window closes by itself and the VPN connects. Later commands, and
+AI agents, use that session; komando never types a password or a code into
+the page.
+
+- The portal lists its gateways. komando takes the one the portal ranks
+  first for your region, and the next one when that gateway cannot be
+  reached.
+- A gateway that does not take the portal's login has a sign-in of its
+  own. komando says so and shows it in the same window; whether you type
+  your password again there is up to your company's sign-in.
+- To sign in only once, give a gateway's own address as `--portal`:
+  komando then skips the portal.
+- Not built yet: Prisma Access gateways behind a load balancer. Such a
+  gateway is refused with an error that names the portal's other
+  gateways; add one of those as the VPN's `--portal`.
+- With none of those browsers, the sign-in opens in your own browser. The
+  last page has a link or button that opens GlobalProtect: copy that
+  link's address (it starts with `globalprotectcallback:`) and paste it
+  into the terminal.
+- Not built yet: the device report (HIP) some companies ask for. A VPN
+  that needs it connects but may let no traffic through.
 
 ## L2TP/IPsec, IPsec and IKEv2 details
 
