@@ -19,8 +19,8 @@ import (
 
 const kindSettings = "settings"
 
-// UseSealedForNewHomes turns the sealed store on or off for fresh homes.
-// Off until S6 is complete; tests turn it on.
+// UseSealedForNewHomes turns the sealed store on or off for fresh homes
+// (on by default; test suites of the file backend turn it off).
 func UseSealedForNewHomes(on bool) { freshSealed = on }
 
 func storeErr(err error) error {

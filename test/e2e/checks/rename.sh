@@ -30,7 +30,11 @@ check "rename: without --yes" PROTECTED_HOST "$($K rename --prefix "$R-" "$N-" |
 check "rename: one --yes" 7 "$($K rename --prefix "$R-" "$N-" --yes | jget 'd["data"]["count"]')"
 check "rename: still protected" True "$($K host show "$N-target" | jget 'd["data"]["protected"]')"
 check "rename: refs follow" True "$($K host show "$N-target" | jget 'd["data"]["via"] == "'"$N"'-jump" and d["data"]["password_ref"] == "secret:'"$N"'-pass" and "'"$N"'" in d["data"]["groups"]')"
-check "rename: the key file moved" True "$([ -f "$KOMANDO_HOME/keys/$N-key" ] && [ ! -e "$KOMANDO_HOME/keys/$R-key" ] && echo True || echo False)"
+if sealed; then
+  check "rename: the sealed key follows" True "$($K key show "$N-key" | jget 'd["data"]["path"].startswith("sealed:")')"
+else
+  check "rename: the key file moved" True "$([ -f "$KOMANDO_HOME/keys/$N-key" ] && [ ! -e "$KOMANDO_HOME/keys/$R-key" ] && echo True || echo False)"
+fi
 check "rename: the secret moved" True "$($K secret list | jget '"'"$N"'-pass" in [s["name"] for s in d["data"]["secrets"]] and "'"$R"'-pass" not in [s["name"] for s in d["data"]["secrets"]]')"
 check "rename: answers through the renamed path" True "$($K test "$N-target" | jget 'd["ok"]')"
 check "rename: nothing left to rename" NOTHING_TO_RENAME "$($K rename --prefix "$R-" "$N-" | code)"
@@ -46,7 +50,7 @@ q $K host rm "$N-solo"
 q $K host edit "$R-solo" --key "$N-key"
 check "key mv" True "$($K key mv "$N-key" "$N-key2" | jget 'd["data"]["action"] == "renamed"')"
 check "key mv: the server follows" "$N-key2" "$($K host show "$R-solo" | jget 'd["data"]["key"]')"
-check "key mv: files moved" True "$([ -f "$KOMANDO_HOME/keys/$N-key2" ] && [ -f "$KOMANDO_HOME/keys/$N-key2.pub" ] && echo True || echo False)"
+sealed || check "key mv: files moved" True "$([ -f "$KOMANDO_HOME/keys/$N-key2" ] && [ -f "$KOMANDO_HOME/keys/$N-key2.pub" ] && echo True || echo False)"
 check "group mv: protected member" PROTECTED_HOST "$($K group mv "$N" "$N-all" | code)"
 check "group mv --yes" True "$($K group mv "$N" "$N-all" --yes | jget 'd["data"]["action"] == "renamed"')"
 check "group mv: members follow" 2 "$($K group list "$N-all" | jget 'len(d["data"]["members"])')"

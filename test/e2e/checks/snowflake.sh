@@ -36,7 +36,7 @@ q $K conn add sf-pat 'snowflake://e2e@e2e-acct/E2E_DB?ca=secret:sf-ca' --via bas
 check "snowflake logs in with a programmatic access token" login "$($K conn test sf-pat | jget 'd["data"]["results"][0]["detail"]["check"]')"
 q $K conn add sf-noca 'snowflake://e2e@e2e-acct/E2E_DB' --via bastion --password-ref secret:sf-pat
 check "snowflake: a certificate from an unknown CA is refused" DB_CONNECT "$($K db query sf-noca 'select 1' | jget 'd["error"]["code"]')"
-check "no snowflake secret in the audit log" 0 "$(grep -c -E 'e2e-pat-1|PRIVATE KEY' "$KOMANDO_HOME/audit.jsonl" || true)"
+check "no snowflake secret in the audit log" 0 "$(audit_text | grep -c -E 'e2e-pat-1|PRIVATE KEY' || true)"
 q $K conn rm sf
 q $K conn rm sf-pat
 q $K conn rm sf-noca

@@ -19,9 +19,7 @@ import (
 // The tests that use a keychain set KOMANDO_KEYCHAIN themselves.
 func TestMain(m *testing.M) {
 	os.Setenv("KOMANDO_KEYCHAIN", "off")
-	if os.Getenv("KOMANDO_TEST_SEALED") == "1" {
-		store.UseSealedForNewHomes(true)
-	}
+	store.UseSealedForNewHomes(os.Getenv("KOMANDO_TEST_SEALED") == "1")
 	os.Exit(m.Run())
 }
 

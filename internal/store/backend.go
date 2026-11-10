@@ -22,9 +22,9 @@ const StoreFile = "store.db"
 // (each with its own key).
 const storeLock = ".store.lock"
 
-// freshSealed makes a fresh home use the sealed store. It is off until the
-// whole store can live there (S6 commit 9); tests turn it on.
-var freshSealed = false
+// freshSealed makes a fresh home use the sealed store. Test suites turn
+// it off to test the file backend (UseSealedForNewHomes).
+var freshSealed = true
 
 // legacyFiles are files only the file backend writes, and that hold data.
 // vault.key alone does not count (the sealed store's key file has its own

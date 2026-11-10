@@ -40,7 +40,7 @@ check "bigquery dump is not supported" NOT_SUPPORTED "$($K db dump bq --to "$TMP
 check "bigquery user add is not supported" NOT_SUPPORTED "$($K db user add bq bob --password-ref secret:bq-ca | jget 'd["error"]["code"]')"
 q $K conn add bq-noca 'bigquery://e2e-project/shop?endpoint=https://bigquery.e2e.internal' --via bastion --password-ref secret:bq-sa
 check "bigquery: a certificate from an unknown CA is refused" DB_CONNECT "$($K db query bq-noca 'select 1' | jget 'd["error"]["code"]')"
-check "no bigquery key in the audit log" 0 "$(grep -c 'PRIVATE KEY' "$KOMANDO_HOME/audit.jsonl" || true)"
+check "no bigquery key in the audit log" 0 "$(audit_text | grep -c 'PRIVATE KEY' || true)"
 q $K conn rm bq
 q $K conn rm bq-noca
 $K secret rm bq-ca bq-sa >/dev/null 2>&1 || true

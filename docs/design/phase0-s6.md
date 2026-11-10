@@ -1,6 +1,6 @@
 # Phase 0, step S6: the sealed store for fresh installs
 
-Status: plan, 2026-11-10. Part of [sync-security.md](sync-security.md)
+Status: built, 2026-11-11 (commits 1 to 9 on `feat/phase0-sealed-store`). Part of [sync-security.md](sync-security.md)
 section 16. Nothing here changes an existing home: that is S9.
 
 ## What S6 does

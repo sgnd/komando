@@ -26,6 +26,7 @@ jobs:
           go-version-file: go.mod
       - run: make lint
       - run: make cover # unit tests + coverage floors
+      - run: make test-sealed # the same tests on the sealed store a new folder gets
       - run: make build
       # the release also builds for macOS: vet and build that code here too
       - run: GOOS=darwin go vet ./... && GOOS=darwin GOARCH=arm64 go build -o /dev/null ./cmd/komando

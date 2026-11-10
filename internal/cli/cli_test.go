@@ -30,10 +30,9 @@ func TestMain(m *testing.M) {
 		}
 		return realHome()
 	}
-	// KOMANDO_TEST_SEALED=1 runs every test on a sealed home (S6)
-	if os.Getenv("KOMANDO_TEST_SEALED") == "1" {
-		store.UseSealedForNewHomes(true)
-	}
+	// new homes are sealed; the suite tests the file backend unless
+	// KOMANDO_TEST_SEALED=1 (CI runs both)
+	store.UseSealedForNewHomes(os.Getenv("KOMANDO_TEST_SEALED") == "1")
 	os.Exit(m.Run())
 }
 

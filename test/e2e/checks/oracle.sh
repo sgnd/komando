@@ -57,7 +57,7 @@ q $K conn rm ro-ora
 q $K db user rm sys-ora e2e_ro --allow-dangerous
 check "oracle db user rm removed it" False "$($K db user ls sys-ora | jget 'any(u["name"] == "E2E_RO" for u in d["data"]["users"])')"
 check "oracle dump is not supported" NOT_SUPPORTED "$($K db dump shop-ora --to "$TMP/o.sql" | jget 'd["error"]["code"]')"
-check "no oracle password in the audit log" 0 "$(grep -c -E 'Shop-pass|Ro-pass-1x|Oracle-pass' "$KOMANDO_HOME/audit.jsonl" || true)"
+check "no oracle password in the audit log" 0 "$(audit_text | grep -c -E 'Shop-pass|Ro-pass-1x|Oracle-pass' || true)"
 q $K conn rm shop-ora
 q $K db query sys-ora --write --allow-dangerous 'drop user e2e_shop cascade'
 q $K conn rm sys-ora

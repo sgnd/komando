@@ -9,7 +9,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
-- **Sealed local store** (not yet switched on for new folders): one file,
+- **Sealed local store** for every new komando folder: one file,
   `store.db`, keeps servers, conns, VPNs, keys, recipes, settings,
   secrets, remembered fingerprints and the audit log, each record sealed
   and bound to its ID, kind and version, so a record edited, swapped or

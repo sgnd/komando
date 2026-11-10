@@ -92,6 +92,14 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 		go keepalive(cl)
 		return cl, nil
 	}
+	// a fresh sealed home makes its store (and key) before connecting: the
+	// keychain may ask the person, which must not eat the connect timeout
+	// while a new server's key waits to be pinned
+	if o.HostKeyPolicy != "off" && store.Sealed() {
+		if _, err := store.DB(true); err != nil {
+			return nil, err
+		}
+	}
 	vpn, hops, err := resolveChain(st, h, map[string]bool{})
 	if err != nil {
 		return nil, err

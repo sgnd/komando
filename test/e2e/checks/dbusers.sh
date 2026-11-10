@@ -39,5 +39,5 @@ check "mariadb: no write without the grant" False "$($K db query dbu-my-ro --wri
 q $K db user rm dbu-my dbu_ro --allow-dangerous --yes
 check "mariadb: the user is gone" False "$($K db user ls dbu-my | jget 'any(u["name"]=="dbu_ro" for u in d["data"]["users"])')"
 q $K conn rm dbu-my dbu-my-ro --yes
-check "no db user password in the audit log" 0 "$(grep -c 'Ro-pass' "$KOMANDO_HOME/audit.jsonl" || true)"
+check "no db user password in the audit log" 0 "$(audit_text | grep -c 'Ro-pass' || true)"
 $K secret rm dbu-pass dbu-pass2 dbu-root >/dev/null 2>&1 || true

@@ -34,8 +34,9 @@ func sealedHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
+	was := freshSealed
 	freshSealed = true
-	t.Cleanup(func() { freshSealed = false })
+	t.Cleanup(func() { freshSealed = was })
 	return home
 }
 
