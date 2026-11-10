@@ -26,11 +26,12 @@ func fsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "fs",
 		Short: "Files on servers: ls, cat, write, replace, rm, mkdir, mv, chmod",
-		Long: `Structured file operations over SFTP. Use --sudo to operate on root-owned
-files (reads via 'sudo cat', writes via a temp file + 'sudo install').
+		Long: `Reads and changes files on servers over SFTP and returns structured
+results. Use --sudo for files that root owns: a read runs ` + "`sudo cat`" + `, a write
+goes to a temporary file first and then into place with ` + "`sudo install`" + `.
 
-'fs replace' is the safest way for an agent to edit config: it fails unless
-the old text matches exactly once (or --all), and can keep a .bak backup.`,
+For an agent, ` + "`fs replace`" + ` is the way to edit a config file: it fails unless the
+old text matches exactly once (or --all), and --backup keeps a .bak copy.`,
 	}
 	c.AddCommand(fsLsCmd(), fsStatCmd(), fsCatCmd(), fsWriteCmd(), fsReplaceCmd(), fsRmCmd(), fsMkdirCmd(), fsMvCmd(), fsChmodCmd())
 	return c
@@ -118,7 +119,7 @@ func fsLsCmd() *cobra.Command {
 	var maxEntries int
 	c := &cobra.Command{
 		Use:   "ls TARGET [PATH]",
-		Short: "List a remote directory (default: the login user's home)",
+		Short: "List a folder on a server (default: the login user's home)",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			arg := ""
@@ -190,8 +191,8 @@ func fsLsCmd() *cobra.Command {
 		},
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "include dotfiles")
-	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "walk recursively")
-	c.Flags().IntVar(&maxEntries, "max", 1000, "max entries returned")
+	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "list the folders inside too")
+	c.Flags().IntVar(&maxEntries, "max", 1000, "the most entries to return")
 	return c
 }
 
@@ -199,7 +200,7 @@ func fsStatCmd() *cobra.Command {
 	var hash bool
 	c := &cobra.Command{
 		Use:   "stat TARGET PATH",
-		Short: "Stat a remote path (exists:false instead of an error when missing)",
+		Short: "Look up a path on a server (exists:false, not an error, when missing)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			res, _, _, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
@@ -304,7 +305,7 @@ func fsCatCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "cat TARGET PATH",
 		Aliases: []string{"read"},
-		Short:   "Read a remote file (with --head/--tail/--line-numbers for agents)",
+		Short:   "Read a file on a server (--head, --tail, --line-numbers)",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if maxBytes <= 0 {
@@ -328,11 +329,11 @@ func fsCatCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "read via sudo")
-	c.Flags().Int64Var(&maxBytes, "max-bytes", 1<<20, "max bytes to read")
-	c.Flags().IntVar(&head, "head", 0, "only first N lines")
-	c.Flags().IntVar(&tail, "tail", 0, "only last N lines")
-	c.Flags().BoolVar(&numbered, "line-numbers", false, "prefix line numbers")
+	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "read with sudo")
+	c.Flags().Int64Var(&maxBytes, "max-bytes", 1<<20, "the most bytes to read")
+	c.Flags().IntVar(&head, "head", 0, "only the first N lines")
+	c.Flags().IntVar(&tail, "tail", 0, "only the last N lines")
+	c.Flags().BoolVar(&numbered, "line-numbers", false, "start each line with its number")
 	aliasFlag(c.Flags(), "number", "line-numbers")
 	return c
 }
@@ -418,8 +419,8 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 				for _, p := range args[1:] {
 					if cp := path.Clean(p); (cp == "/" || cp == "." || cp == "~" || strings.Count(cp, "/") <= 1 && strings.HasPrefix(cp, "/")) && !dangerOK() &&
 						!confirmDangerous(args[:1], fmt.Sprintf("removing the top-level path %s", p)) {
-						if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "pass --allow-dangerous if truly intended",
-							"refusing to remove top-level path %q", p)); err != nil {
+						if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "only if this is intended: confirm with the user, then add --allow-dangerous",
+							"%q is a top-level path; komando does not remove it without --allow-dangerous", p)); err != nil {
 							return err
 						}
 					}
@@ -432,7 +433,7 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 			return runFleet(cmd.Context(), "fs."+strings.Fields(use)[0], args[0], script, nil, execOpts{sudo: sudo, display: shown, exitMap: fsExitMap}, true)
 		},
 	}
-	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run via sudo")
+	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run with sudo")
 	for name, help := range boolFlags {
 		v := new(bool)
 		vals[name] = v
@@ -454,7 +455,7 @@ func quoteAll(a []string) string {
 }
 
 func fsRmCmd() *cobra.Command {
-	c := shellFsCmd("rm TARGET PATH...", "Remove remote files (--recursive for folders; missing ones are reported)", 2, func(a []string, f map[string]bool) (string, string, error) {
+	c := shellFsCmd("rm TARGET PATH...", "Remove files on a server (--recursive for folders; missing ones are reported)", 2, func(a []string, f map[string]bool) (string, string, error) {
 		flags := "-f"
 		if f["recursive"] {
 			flags = "-rf"
@@ -469,13 +470,13 @@ komando exec for that).`
 }
 
 func fsMkdirCmd() *cobra.Command {
-	return shellFsCmd("mkdir TARGET PATH...", "Create remote directories (always -p)", 2, func(a []string, _ map[string]bool) (string, string, error) {
+	return shellFsCmd("mkdir TARGET PATH...", "Create folders on a server, with any missing parents (like mkdir -p)", 2, func(a []string, _ map[string]bool) (string, string, error) {
 		return mkdirScript(a), "mkdir -p -- " + rqAll(a), nil
 	}, nil)
 }
 
 func fsMvCmd() *cobra.Command {
-	c := shellFsCmd("mv TARGET SRC DST", "Move/rename a remote path; never replaces a file unless --overwrite", 3, func(a []string, f map[string]bool) (string, string, error) {
+	c := shellFsCmd("mv TARGET SRC DST", "Move or rename a path on a server (replaces a file only with --overwrite)", 3, func(a []string, f map[string]bool) (string, string, error) {
 		if len(a) != 2 {
 			return "", "", out.Usage("give one SRC and one DST: komando fs mv TARGET SRC DST")
 		}
@@ -488,7 +489,7 @@ An existing file at the destination is never replaced unless --overwrite
 }
 
 func fsChmodCmd() *cobra.Command {
-	return shellFsCmd("chmod TARGET MODE PATH...", "Change mode of remote paths", 3, func(a []string, f map[string]bool) (string, string, error) {
+	return shellFsCmd("chmod TARGET MODE PATH...", "Change the mode of paths on a server", 3, func(a []string, f map[string]bool) (string, string, error) {
 		if !validMode(a[0]) {
 			hint := ""
 			if validMode(a[len(a)-1]) {
@@ -501,7 +502,7 @@ func fsChmodCmd() *cobra.Command {
 			r = "-R "
 		}
 		return chmodScript(a[0], a[1:], f["recursive"]), "chmod " + r + sshx.Q(a[0]) + " -- " + rqAll(a[1:]), nil
-	}, map[string]string{"recursive": "recurse"})
+	}, map[string]string{"recursive": "change folders and everything in them"})
 }
 
 func checkValidate(v string) error {

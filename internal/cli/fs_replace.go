@@ -18,13 +18,13 @@ func fsReplaceCmd() *cobra.Command {
 	var all, isRegex bool
 	c := &cobra.Command{
 		Use:   "replace TARGET PATH --old TEXT --new TEXT",
-		Short: "Edit a remote file by exact replacement; fails if not unique",
+		Short: "Edit a file on a server: replace text that matches once (or --all)",
 		Example: `  komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup
   komando fs replace web1 /etc/ssh/sshd_config --regex --old '(?m)^#?PasswordAuthentication .*$' --new 'PasswordAuthentication no' --sudo`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if oldS == "" {
-				return out.Usage("--old is required")
+				return out.Usage("give the text to replace with --old, and its replacement with --new")
 			}
 			if out.HasHidden(newS) {
 				return hiddenValueErr()
@@ -34,7 +34,7 @@ func fsReplaceCmd() *cobra.Command {
 			switch {
 			case isRegex:
 				if re, err = regexp.Compile(oldS); err != nil {
-					return out.Usage("invalid regex: %v", err)
+					return out.Usage("--old is not a valid Go regular expression: %v", err)
 				}
 			case strings.Contains(oldS, out.Hidden) && !out.P.Mask:
 				// a line an AI agent saw masked: [hidden] stands for the value
@@ -122,8 +122,8 @@ func fsReplaceCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().StringVar(&oldS, "old", "", "text (or regex with --regex) to find")
-	c.Flags().StringVar(&newS, "new", "", "replacement text ($1 groups with --regex)")
+	c.Flags().StringVar(&oldS, "old", "", "the text to find (a regular expression with --regex)")
+	c.Flags().StringVar(&newS, "new", "", "the text to put in its place ($1 for a group with --regex)")
 	c.Flags().BoolVar(&all, "all", false, "replace every occurrence")
 	c.Flags().BoolVar(&isRegex, "regex", false, "treat --old as a Go regular expression")
 	bindWriteOpts(c, &o)

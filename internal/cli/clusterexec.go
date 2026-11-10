@@ -36,8 +36,7 @@ func clusterExecCmd() *cobra.Command {
 output. Commands that only look can say so with --read-only: one that
 clearly changes something is refused, and protected clusters skip --yes
 only for commands komando knows read (cat, ls, printenv ...). For an
-interactive shell use
-` + "`komando cluster shell TARGET POD`" + `.`,
+interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
 		Example: `  komando cluster exec prod deploy/api --namespace shop --read-only -- cat /app/config.yml
   komando cluster exec prod api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear`,
 		Args: cobra.MinimumNArgs(3),

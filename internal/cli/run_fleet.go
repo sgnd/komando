@@ -58,7 +58,7 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 	soft := &out.Error{Exit: worst}
 	if sum.Total == 1 {
 		f := fails[0]
-		soft.Code, soft.Message = "FAILED", "host "+f.host+" failed ("+f.reason+")"
+		soft.Code, soft.Message = "FAILED", "server "+f.host+" failed ("+f.reason+")"
 		if f.err != nil && f.err.Code != "REMOTE_EXIT" {
 			// a connection, timeout or policy problem: its own code and hint
 			soft.Code = f.err.Code

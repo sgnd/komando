@@ -139,7 +139,7 @@ func parseTunnel(kind, spec string) (tunnelSpec, error) {
 			t.BindAddr = net.JoinHostPort(parts[0], parts[1])
 			t.TargetAddr = net.JoinHostPort(parts[2], parts[3])
 		default:
-			return t, out.Usage("invalid forward spec %q", spec)
+			return t, out.Usage("invalid forward spec %q: use PORT:HOST:HOSTPORT or ADDRESS:PORT:HOST:HOSTPORT", spec)
 		}
 	case "dynamic":
 		switch len(parts) {
@@ -148,7 +148,7 @@ func parseTunnel(kind, spec string) (tunnelSpec, error) {
 		case 2:
 			t.BindAddr = net.JoinHostPort(parts[0], parts[1])
 		default:
-			return t, out.Usage("invalid SOCKS spec %q", spec)
+			return t, out.Usage("invalid SOCKS spec %q: use PORT or ADDRESS:PORT", spec)
 		}
 	}
 	return t, nil
@@ -362,7 +362,7 @@ type tunnelList struct {
 
 func (l tunnelList) Text() string {
 	if len(l.Tunnels) == 0 {
-		return "no tunnels\n"
+		return "no tunnels: komando tunnel start TARGET starts one\n"
 	}
 	rows := [][]string{}
 	for _, t := range l.Tunnels {
@@ -408,7 +408,7 @@ func tunnelListen(t *store.Tunnel) string {
 func tunnelListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List tunnels with liveness; dead entries are pruned",
+		Short: "List tunnels and whether each is up; dead ones are removed",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rows := []tunnelRow{}

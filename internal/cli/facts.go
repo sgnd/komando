@@ -554,8 +554,8 @@ func factsCmd() *cobra.Command {
 		Use:     "facts TARGET",
 		Aliases: []string{"info", "inspect"},
 		Short:   "System facts: OS and support, updates, Docker, open ports",
-		Long: `Run this first on unfamiliar hosts: it tells an agent which package manager,
-init system and tools exist so later commands fit the server.
+		Long: `Run this first on a server you do not know yet: it tells an agent which
+package manager, init system and tools exist, so later commands fit the server.
 
 It also reports what needs attention: whether the OS still gets security
 updates (Ubuntu ESM, Debian LTS, end of life), pending and security updates

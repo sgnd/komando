@@ -94,7 +94,7 @@ func netCheckRun(cmd *cobra.Command, args []string) error {
 			return out.Usage("invalid port in %q (1-65535)", hp)
 		}
 		if h == "" || strings.ContainsAny(h, " \t'\"$`;&|\\/") {
-			return out.Usage("invalid host in %q", hp)
+			return out.Usage("invalid host in %q: give a name or IP address, no spaces, quotes or shell characters", hp)
 		}
 		sb.WriteString("chk " + sshx.Q(h) + " " + p + " " + sshx.Q(hp) + "\n")
 	}

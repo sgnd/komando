@@ -24,7 +24,7 @@ body:
     attributes:
       label: komando version
       description: Run `komando version`
-      placeholder: v0.3.0
+      placeholder: v0.8.0
     validations:
       required: true
   - type: input

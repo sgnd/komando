@@ -24,11 +24,11 @@ type hostVet struct {
 
 // vetImportHosts checks imported hosts against s the way host add does:
 // names, ports, users, --via paths. The file may come from someone else, so
-// its hosts may not use secrets or files of this computer (dropForeignHostRefs),
-// unless ownRefs says it is the user's own list (a CSV).
-// A proxy command runs on this computer,
-// so it goes through guardProxyCommand (an AI agent needs a person's yes);
-// that stop ends the whole import. Hosts that pass are put into s.
+// its hosts may not use secrets or files of this computer
+// (dropForeignHostRefs), unless ownRefs says it is the user's own list (a
+// CSV). A proxy command runs on this computer, so it goes through
+// guardProxyCommand (an AI agent needs a person's yes); that stop ends the
+// whole import. Hosts that pass are put into s.
 func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool) (hostVet, error) {
 	var v hostVet
 	var cand []*store.Host
@@ -144,10 +144,10 @@ func hostImportCmd() *cobra.Command {
 	var overwrite bool
 	c := &cobra.Command{
 		Use:   "import",
-		Short: "Add hosts from ~/.ssh/config or a host export (JSON)",
+		Short: "Add servers from ~/.ssh/config or a server export (JSON)",
 		Long: `Adds servers from an OpenSSH config (like ` + "`komando import ssh-config`" + `) or from
 JSON made by ` + "`komando host export`" + `. Existing names are skipped unless
---overwrite; replacing a protected host also needs --yes. Proxy commands
+--overwrite; replacing a protected server also needs --yes. Proxy commands
 run on this computer, so an AI agent needs a person's yes for them.`,
 		Example: `  komando host import --ssh-config ~/.ssh/config --group imported
   komando host import --json fleet.json --overwrite --dry-run`,
@@ -229,8 +229,8 @@ run on this computer, so an AI agent needs a person's yes for them.`,
 	}
 	c.Flags().StringVar(&sshConfig, "ssh-config", "", "OpenSSH config file (default ~/.ssh/config)")
 	c.Flags().StringVar(&jsonFile, "json", "", "JSON file made by komando host export (- for stdin)")
-	c.Flags().StringSliceVarP(&groups, "group", "g", nil, "add imported hosts to group(s)")
-	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace existing hosts with the same name (protected ones also need --yes)")
+	c.Flags().StringSliceVarP(&groups, "group", "g", nil, "put the imported servers in these groups")
+	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace servers that have the same name (protected ones also need --yes)")
 	return c
 }
 
@@ -245,7 +245,7 @@ func hostExportCmd() *cobra.Command {
 	var target string
 	c := &cobra.Command{
 		Use:   "export [TARGET]",
-		Short: "Hosts only, as JSON for `host import --json` (`komando export` saves everything)",
+		Short: "Servers as JSON for `host import --json` (`komando export` saves everything)",
 		Example: `  komando host export @prod > prod-hosts.json
   komando host import --json prod-hosts.json        # on another computer`,
 		Args: cobra.MaximumNArgs(1),

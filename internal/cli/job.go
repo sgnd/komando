@@ -37,10 +37,10 @@ func jobCmd() *cobra.Command {
 		Use:     "job",
 		Aliases: []string{"jobs"},
 		Short:   "Long-running jobs on servers: start, status, logs, wait, kill",
-		Long: `Long tasks should not block an agent's tool call. 'job start' launches the
-command detached on each host and returns job IDs immediately. Poll with
-'job status' or 'job logs --offset N' (pass back next_offset to read only new
-output), or block with 'job wait --timeout'.`,
+		Long: `A long task should not hold up an agent's tool call. ` + "`job start`" + ` starts the
+command in the background on each server and returns the job IDs at once; it
+keeps running when the connection drops. Check on it with ` + "`job status`" + ` or
+` + "`job logs --offset N`" + ` (pass back next_offset), or wait with ` + "`job wait --timeout`" + `.`,
 	}
 	c.AddCommand(jobStartCmd(), jobStatusCmd(), jobLogsCmd(), jobWaitCmd(), jobKillCmd(), jobListCmd(), jobRmCmd())
 	return c
@@ -52,7 +52,7 @@ func jobStartCmd() *cobra.Command {
 	var dir, cmdStr string
 	c := &cobra.Command{
 		Use:   "start TARGET [--] COMMAND...",
-		Short: "Start a detached job on each matched host; returns job IDs immediately",
+		Short: "Start a background job on each server TARGET picks; returns the job IDs",
 		Example: `  komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
   komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'`,
 		Args: cobra.MinimumNArgs(1),
@@ -62,7 +62,7 @@ func jobStartCmd() *cobra.Command {
 				command = strings.Join(args[1:], " ")
 			}
 			if strings.TrimSpace(command) == "" {
-				return out.Usage("no command given")
+				return out.Usage("no command given: komando job start TARGET -- COMMAND")
 			}
 			st, err := loadState()
 			if err != nil {
@@ -167,11 +167,11 @@ func jobStartCmd() *cobra.Command {
 			return finishFleet("job.start", data, runSummary{fleetSummary: data.Summary}, worst, fails)
 		},
 	}
-	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "command string")
-	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run via sudo (uses the host's sudo-ref password if set)")
-	c.Flags().StringSliceVarP(&envs, "env", "e", nil, "export KEY=VALUE")
-	c.Flags().StringVarP(&dir, "dir", "C", "", "remote working directory")
-	c.Flags().BoolVar(&readOnly, "read-only", false, "declare read-only (skip protected-host confirmation)")
+	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
+	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run with sudo (uses the server's --sudo-ref password if set)")
+	c.Flags().StringSliceVarP(&envs, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
+	c.Flags().StringVarP(&dir, "dir", "C", "", "working directory on the server")
+	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
 	return c
 }
 
@@ -272,7 +272,7 @@ func jobStatusCmd() *cobra.Command {
 	var tail int
 	c := &cobra.Command{
 		Use:   "status JOB_ID",
-		Short: "Show job state (running|exited|lost), exit code, runtime and log tail",
+		Short: "Show a job's state (running, exited, lost), exit code, run time and last lines",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, j, h, err := lookupJob(args[0])
@@ -291,7 +291,7 @@ func jobStatusCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().IntVar(&tail, "tail", 20, "include last N log lines (0 = none)")
+	c.Flags().IntVar(&tail, "tail", 20, "also show the last N lines of output (0 = none)")
 	return c
 }
 
@@ -373,12 +373,12 @@ func jobWaitCmd() *cobra.Command {
 	var tail int
 	c := &cobra.Command{
 		Use:   "wait JOB_ID...",
-		Short: "Block until the jobs exit (or --timeout); exit code mirrors the job",
-		Long: `Waits until the job ends, polling every --interval. --timeout (default 10m)
+		Short: "Wait until the jobs end (or --timeout); the exit code follows the job",
+		Long: `Waits until the job ends, checking every --interval. --timeout (default 10m)
 is how long to wait; the job keeps running after it (exit 7, WAIT_TIMEOUT).
 
 A dropped connection does not stop the wait: komando connects again and
-keeps waiting. Give several job IDs (the ones 'job start' printed for a
+keeps waiting. Give several job IDs (the ones ` + "`job start`" + ` printed for a
 group of servers) to wait for all of them at once.`,
 		Example: `  komando job wait j1103-101500-ab12cd34 --timeout 30m
   komando job wait j1103-101500-ab12cd34 j1103-101500-ef56ab78`,
@@ -439,10 +439,10 @@ group of servers) to wait for all of them at once.`,
 			return finishFleet("job.wait", data, runSummary{fleetSummary: data.Summary}, worst, fails)
 		},
 	}
-	c.Flags().DurationVar(&interval, "interval", 3*time.Second, "poll interval")
+	c.Flags().DurationVar(&interval, "interval", 3*time.Second, "how often to check")
 	c.Flags().DurationVar(&waitTimeout, "wait-timeout", 10*time.Minute, "same as --timeout: give up waiting after this long (job keeps running)")
 	_ = c.Flags().MarkHidden("wait-timeout")
-	c.Flags().IntVar(&tail, "tail", 30, "include last N log lines")
+	c.Flags().IntVar(&tail, "tail", 30, "also show the last N lines of output")
 	return c
 }
 
@@ -543,7 +543,7 @@ func jobKillCmd() *cobra.Command {
 	var sudo bool
 	c := &cobra.Command{
 		Use:   "kill JOB_ID",
-		Short: "Signal a job's process group (default TERM)",
+		Short: "Stop a job: send a signal to its process group (default TERM)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sig = strings.TrimPrefix(strings.ToUpper(sig), "SIG")
@@ -591,8 +591,8 @@ func jobKillCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().StringVar(&sig, "signal", "TERM", "signal name (TERM, KILL, INT, HUP)")
-	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "signal via sudo (for jobs started with --sudo)")
+	c.Flags().StringVar(&sig, "signal", "TERM", "signal name or number (TERM, KILL, INT, HUP ...)")
+	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "send the signal with sudo (for jobs started with --sudo)")
 	return c
 }
 
@@ -639,7 +639,7 @@ func jobListCmd() *cobra.Command {
 	var refresh bool
 	c := &cobra.Command{
 		Use:   "list",
-		Short: "List known jobs (--refresh queries live state)",
+		Short: "List the jobs komando started (--refresh asks the servers)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			st, err := loadState()
@@ -686,7 +686,7 @@ func jobListCmd() *cobra.Command {
 	}
 	c.Flags().StringVar(&target, "target", "", "only jobs on these servers (a selector, e.g. @web)")
 	aliasFlag(c.Flags(), "host", "target")
-	c.Flags().BoolVar(&refresh, "refresh", false, "query each host for live state")
+	c.Flags().BoolVar(&refresh, "refresh", false, "ask each server for the job's current state")
 	return c
 }
 
@@ -742,7 +742,7 @@ func jobRmCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().BoolVar(&keepRemote, "keep-remote", false, "keep the remote log directory")
+	c.Flags().BoolVar(&keepRemote, "keep-remote", false, "keep the job's log folder on the server")
 	c.Flags().BoolVar(&force, "kill", false, "kill a running job first, then remove it")
 	return c
 }
@@ -852,7 +852,7 @@ func (l jobList) Text() string {
 		}
 	}
 	if len(rows) == 0 {
-		return "no jobs\n"
+		return "no jobs: start one with komando job start TARGET -- COMMAND\n"
 	}
 	s := textTable([]string{"id", "host", "state", "exit", "age", "command"}, rows)
 	if _, ok := l.Jobs.([]*store.Job); ok {
