@@ -3,8 +3,6 @@ package cli
 import (
 	"context"
 	"net"
-	"os"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,7 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -176,21 +173,10 @@ func trustOne(ctx context.Context, st *store.State, h *store.Host, reset bool) e
 	return nil
 }
 
-// countPinned counts the known_hosts lines for addr, as PinHostKey would
-// replace them, without changing the file.
+// countPinned counts the pins for addr, as PinHostKey would replace them,
+// without changing them.
 func countPinned(addr string) int {
-	b, err := os.ReadFile(sshx.KnownHostsPath())
-	if err != nil {
-		return 0
-	}
-	norm := knownhosts.Normalize(addr)
-	n := 0
-	for _, line := range strings.Split(string(b), "\n") {
-		f := strings.Fields(line)
-		if len(f) > 0 && slices.Contains(strings.Split(f[0], ","), norm) {
-			n++
-		}
-	}
+	n, _ := sshx.CountPinned(addr)
 	return n
 }
 
