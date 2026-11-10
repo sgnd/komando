@@ -73,7 +73,7 @@ komando
 A menu opens. On a new computer it looks like this:
 
 ```text
-komando · v0.8.0 · 0 servers
+komando · v0.9.0 · 0 servers
 
 Nothing here yet. Add asks for a name, an address and a user, one at a time.
 

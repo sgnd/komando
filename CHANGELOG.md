@@ -7,6 +7,31 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-10
+
+### Highlights
+
+- **Every feature as plain questions:** type `komando`, pick Add or All
+  features, and answer one question at a time. Add has a form for every
+  kind of server, database, cache, queue, storage, cluster, registry and
+  VPN, and the last screen shows the exact commands before anything runs.
+- **Windows servers,** over OpenSSH or WinRM: `test`, `exec`, `script`,
+  `facts`, files, services and `shell` run PowerShell there, with Windows
+  forms of the destructive rules.
+- **`komando queue`: message queues.** Kafka, RabbitMQ, NATS JetStream,
+  Amazon SQS and Google Cloud Pub/Sub: look at topics, queues and lag, peek
+  at messages without removing any, send, create, and delete only with
+  `--allow-dangerous`.
+- **Five more databases:** SQL Server, Oracle, ClickHouse, Snowflake and
+  BigQuery work with `db query`, `schema`, `explain`, `info` and the rest,
+  read-only unless you add `--write`.
+- **Windows (SMB) shares as storage,** with komando's own SMB 2 and 3
+  client.
+- **Azure and Google logins in more places:** `azure-kv:` reads secrets
+  from Azure Key Vault, and registry conns for Azure Container Registry,
+  Google Artifact Registry and Container Registry log in with your cloud
+  login.
+
 ### Added
 
 - **Every feature as questions, for people at a terminal.** Type `komando`,
@@ -61,42 +86,6 @@ its highlights; the sections below them give the details. Versions follow
   replaces a file only once the new one is complete, and `storage link`
   answers `NOT_SUPPORTED`. `komando doctor` warns about SMB conns that cross
   the network, since their encryption depends on the server.
-
-### Changed
-
-- The menu's Add asks one question at a time instead of one line
-  (`web1 deploy@10.0.0.5`), and the main menu has **All features** in place
-  of Audit (Audit is under All features, Safety and audit).
-- Every JSON error now has an `error.hint`: an error without a hint of its
-  own gets a general next step for its exit code.
-- `komando schema` lists 16 more error codes (among them `CERT_PROBLEMS`,
-  `NXDOMAIN` and `SECRET_DESTINATION`), and each code's example and hint now
-  come from the same place in the code, so the hint fits the code.
-
-### Fixed
-
-- The docs no longer claim more than the code does: secrets are hidden from
-  agents komando recognises, and several design docs named flags, commands
-  and error codes that do not exist.
-
-### Security
-
-- Windows forms of the destructive rules: a recursive delete of the system
-  drive or a system folder, formatting disks, `Stop-Computer`,
-  `Restart-Computer`, stopping SSH or WinRM, blocking all incoming traffic,
-  deleting users, hidden (`-EncodedCommand`) or downloaded scripts,
-  deleting shadow copies, and deleting a registry hive need
-  `--allow-dangerous`. `exec --read-only` and `script --read-only` on
-  Windows servers fail closed: they accept only a small subset of
-  PowerShell that komando reads exactly (pipelines of listed read cmdlets
-  with literal arguments and safe parameters, and simple `Where-Object`
-  and `ForEach-Object` blocks) and refuse everything else, such as `$`,
-  backticks, `@`, `&`, redirection, comments, .NET calls, keywords and
-  characters outside ASCII. See docs/features/windows.md.
-- A command komando cannot run on Windows is refused for every Windows
-  server, so a sh script is never sent to PowerShell.
-- WinRM refuses Basic login over plain HTTP (the password would travel
-  unencrypted) and warns about `tls=off` and `tls=skip-verify`.
 - `azure-kv:VAULT/NAME[#JSON_KEY]` reads a secret from Azure Key Vault,
   everywhere a `--password-ref` or another secret reference is taken
   (`azure-kv:shop-vault/db-password`, or `.../NAME/VERSION` for an older
@@ -300,8 +289,41 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- The menu's Add asks one question at a time instead of one line
+  (`web1 deploy@10.0.0.5`), and the main menu has **All features** in place
+  of Audit (Audit is under All features, Safety and audit).
+- Every JSON error now has an `error.hint`: an error without a hint of its
+  own gets a general next step for its exit code.
+- `komando schema` lists 16 more error codes (among them `CERT_PROBLEMS`,
+  `NXDOMAIN` and `SECRET_DESTINATION`), and each code's example and hint now
+  come from the same place in the code, so the hint fits the code.
 - The `sql-remote` rule's reason names what it covers now (dblink, an
   Oracle database link, ClickHouse `url()` or `s3()`), not only dblink.
+
+### Fixed
+
+- The docs no longer claim more than the code does: secrets are hidden from
+  agents komando recognises, and several design docs named flags, commands
+  and error codes that do not exist.
+
+### Security
+
+- Windows forms of the destructive rules: a recursive delete of the system
+  drive or a system folder, formatting disks, `Stop-Computer`,
+  `Restart-Computer`, stopping SSH or WinRM, blocking all incoming traffic,
+  deleting users, hidden (`-EncodedCommand`) or downloaded scripts,
+  deleting shadow copies, and deleting a registry hive need
+  `--allow-dangerous`. `exec --read-only` and `script --read-only` on
+  Windows servers fail closed: they accept only a small subset of
+  PowerShell that komando reads exactly (pipelines of listed read cmdlets
+  with literal arguments and safe parameters, and simple `Where-Object`
+  and `ForEach-Object` blocks) and refuse everything else, such as `$`,
+  backticks, `@`, `&`, redirection, comments, .NET calls, keywords and
+  characters outside ASCII. See docs/features/windows.md.
+- A command komando cannot run on Windows is refused for every Windows
+  server, so a sh script is never sent to PowerShell.
+- WinRM refuses Basic login over plain HTTP (the password would travel
+  unencrypted) and warns about `tls=off` and `tls=skip-verify`.
 
 ## [0.8.0] - 2026-11-09
 
@@ -2525,7 +2547,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/sgnd/komando/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/sgnd/komando/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/sgnd/komando/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/sgnd/komando/compare/v0.5.0...v0.6.0
