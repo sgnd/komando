@@ -20,7 +20,9 @@ The same commands work on Kubernetes and on Docker Swarm. You do not need
 
 ## Add a cluster
 
-**Kubernetes.** komando reads your kubeconfig (the login file `kubectl`
+### Kubernetes
+
+komando reads your kubeconfig (the login file `kubectl`
 uses, usually `~/.kube/config`) and adds one conn per context (one cluster
 and user in that file):
 
@@ -43,7 +45,9 @@ command asks again, reads included, until a person imports it again. The
 same goes for a kubeconfig that reads its token from a local file
 (`tokenFile`).
 
-**Docker Swarm.** Nothing to add: use a manager server as the target.
+### Docker Swarm
+
+Nothing to add: use a manager server as the target.
 
 ## Name objects
 
@@ -51,10 +55,11 @@ Every command names objects the way kubectl does: `TYPE NAME` or
 `TYPE/NAME` (`deployment api`, `deploy/api`, `deployment.apps/api`). If you
 mistype a kind, the error suggests the one you probably meant.
 
-- **Namespaces** (see [Glossary](glossary.md)) use `--namespace`. komando keeps `-n` for "how many"
-  (`--limit`); if you write `-n shop`, the error tells you the right flag.
+- Name a namespace (see [Glossary](glossary.md)) with `--namespace`.
+  komando keeps `-n` for "how many" (`--limit`); if you write `-n shop`,
+  the error tells you the right flag.
   `-A` (`--all-namespaces`) works on `ls` and `events`.
-- **Swarm** kinds are `service` (`svc`), `task`, `node` and `stack`. Swarm
+- Swarm kinds are `service` (`svc`), `task`, `node` and `stack`. Swarm
   has no namespaces, so `--namespace` is refused there.
 
 ## Check health and look around
@@ -75,7 +80,7 @@ komando cluster ls swarm1 services                              # also: tasks, n
 komando cluster describe swarm1 service/web                     # image, replicas, update state, task errors
 ```
 
-**`cluster status`** lists each problem by name, for example
+`cluster status` lists each problem by name, for example
 `pod/shop/api-7d9f-x2: api: CrashLoopBackOff`,
 `deployment/shop/api: 1 of 3 replicas ready`, or a node under
 `MemoryPressure`. `healthy` is true when there are none. On Swarm it lists
@@ -83,7 +88,7 @@ nodes that are down or drained and services short of replicas, with the
 error of each task that does not run. A server that is not a Swarm manager
 says so (`NOT_SWARM_MANAGER`, exit 3).
 
-**`cluster ls`** shows the useful columns for each kind: ready replicas,
+`cluster ls` shows the useful columns for each kind: ready replicas,
 restarts, ingress hosts, volume claims, job completions, cron schedules and
 autoscaler targets. In text mode the tables look like kubectl's
 (`NAME READY UP-TO-DATE AVAILABLE AGE` for deployments,
@@ -160,7 +165,7 @@ komando cluster rollback swarm1 service/web --wait
 With several containers in a pod, name the one that gets the image with
 `--container` (or `--image CONTAINER=IMAGE`).
 
-**`--wait`** stays until every replica runs the new version. It stops with:
+`--wait` stays until every replica runs the new version. It stops with:
 
 | Code | When |
 |------|------|
@@ -170,7 +175,7 @@ With several containers in a pod, name the one that gets the image with
 Both name the stuck pods (or Swarm tasks), why they are stuck, and their
 image. Run `cluster rollback` to go back.
 
-**`rollback`** without `--to` goes to the newest earlier revision with
+`rollback` without `--to` goes to the newest earlier revision with
 different images. The revision it replaced (the broken one) is then
 skipped, so rolling back twice does not bring it back. Pick any revision
 with `--to`: a revision that does not exist lists the ones that do, and the
@@ -191,15 +196,15 @@ komando cluster apply swarm1 --file compose.yml --stack shop
 komando cluster scale swarm1 service/web 4
 ```
 
-- **`apply --dry-run`** shows for each object whether it would be created,
+- `apply --dry-run` shows for each object whether it would be created,
   changed or stay the same, with a diff. Secret values never show: a changed
   value reads `(hidden, changed)`. Objects in a namespace that the same file
   creates are reported as created too. `--file -` reads from stdin.
 - An object whose namespace in the file differs from `--namespace` is
   refused, as kubectl does.
-- **`scale`** reports `previous_replicas` (or `unchanged`).
-- A **protected** cluster needs `--yes` before any change.
-- **Scaling to 0** and **`rm`** stop things, so they need `--allow-dangerous`.
+- `scale` reports `previous_replicas` (or `unchanged`).
+- A protected cluster needs `--yes` before any change.
+- Scaling to 0 and `rm` stop things, so they need `--allow-dangerous`.
 
 ## Work inside a pod
 
@@ -210,18 +215,18 @@ komando cluster forward prod svc/api 8080:80 --namespace shop   # 127.0.0.1:8080
 komando cluster shell prod deploy/api --namespace shop          # interactive, for people
 ```
 
-- **`cluster exec`** runs one command (not interactive). The
+- `cluster exec` runs one command (not interactive). The
   dangerous-command filter checks it, as with `exec` on servers.
   `--read-only` says it only looks, checked as for `exec`: a command that
   clearly changes something is refused (`READ_ONLY_VIOLATION`), and a
   protected cluster skips `--yes` only for commands komando knows read
   (`cat`, `ls`, `printenv` ...; see [Commands](commands.md#protected-servers-and---read-only)).
-- **`cluster forward`** makes a pod or service port reachable on this
+- `cluster forward` makes a pod or service port reachable on this
   computer only (127.0.0.1). For a service, the service port is forwarded to
   the pod port behind it. Ctrl-C or `--timeout` ends it normally. What goes
   through it skips komando's checks, so a protected cluster asks first
   (`--yes`), and the audit log records the forward.
-- **`cluster shell`** opens a terminal in the pod (bash, else sh) for a
+- `cluster shell` opens a terminal in the pod (bash, else sh) for a
   person, and asks first on a protected cluster. Agents get
   `NEEDS_TERMINAL` and use `cluster exec` instead.
 - komando speaks Kubernetes' exec and port-forward protocols itself:

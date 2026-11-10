@@ -161,6 +161,9 @@ type helmList map[string]any
 func (l helmList) Text() string {
 	rels, _ := l["releases"].([]map[string]any)
 	if len(rels) == 0 {
+		if ns, ok := l["namespace"].(string); ok && ns != "" {
+			return "no Helm releases in namespace " + ns + " (-A looks in every namespace)\n"
+		}
 		return "no Helm releases\n"
 	}
 	rows := make([][]string, len(rels))

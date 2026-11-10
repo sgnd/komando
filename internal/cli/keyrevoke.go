@@ -23,7 +23,7 @@ func revokeTarget(st *store.State, arg string) (blob, label string, k *store.Key
 	line := arg
 	if key, ok := st.Keys[arg]; ok {
 		if key.PublicKey == "" {
-			return "", "", nil, out.Errf(out.ExitUsage, "NO_PUBLIC_KEY", "place the .pub file next to the key", "public key for %s unknown", key.Name)
+			return "", "", nil, out.Errf(out.ExitUsage, "NO_PUBLIC_KEY", "place "+key.Path+".pub next to the key, then `komando key rm "+key.Name+"` and add it again", "komando does not have the public key of %s", key.Name)
 		}
 		line, label, k = key.PublicKey, "key "+key.Name, key
 	} else if b, rerr := os.ReadFile(expandHome(arg)); rerr == nil {
@@ -86,7 +86,7 @@ yourself out. --dry-run counts the lines it would remove.`,
 			file := `$HOME/.ssh/authorized_keys`
 			if user != "" {
 				if !nameRe.MatchString(user) {
-					return out.Usage("invalid user name %q", user)
+					return out.Usage("invalid user name %q: use letters, digits and . _ -", user)
 				}
 				file = `$(getent passwd ` + sshx.Q(user) + ` | cut -d: -f6)/.ssh/authorized_keys`
 			}

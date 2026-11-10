@@ -67,23 +67,23 @@ func (f *connFlags) bind(c *cobra.Command, edit bool) {
 	fl := c.Flags()
 	fl.StringVar(&f.via, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened")
 	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
-	fl.StringVar(&f.notes, "notes", "", "free-form notes (shown to agents in conn show)")
+	fl.StringVar(&f.notes, "notes", "", "free-form notes (komando conn show shows them to people and agents)")
 	fl.BoolVar(&f.protected, "protected", false, "require --yes for any change (production safety)")
 	if edit {
-		fl.StringSliceVar(&f.addGroups, "add-group", nil, "add to group(s)")
-		fl.StringSliceVar(&f.rmGroups, "rm-group", nil, "remove from group(s)")
-		fl.StringSliceVar(&f.addTags, "add-tag", nil, "add tag(s)")
+		fl.StringSliceVar(&f.addGroups, "add-group", nil, "put it in these groups (comma-separated)")
+		fl.StringSliceVar(&f.rmGroups, "rm-group", nil, "take it out of these groups")
+		fl.StringSliceVar(&f.addTags, "add-tag", nil, "add these tags (comma-separated)")
 		shortAlias(fl, "group", "g", "add-group")
 		shortAlias(fl, "tag", "t", "add-tag")
-		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove tag(s)")
-		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (empty value removes)")
-		fl.StringSliceVar(&f.options, "option", nil, "set kind-specific option KEY=VALUE (empty value removes)")
-		fl.StringSliceVar(&f.unset, "unset", nil, "clear fields: via,password-ref,notes,protected")
+		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove these tags")
+		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (an empty value removes it)")
+		fl.StringSliceVar(&f.options, "option", nil, "set an option of this kind, KEY=VALUE (an empty value removes it)")
+		fl.StringSliceVar(&f.unset, "unset", nil, "clear these settings: via,password-ref,notes,protected")
 	} else {
-		fl.StringSliceVarP(&f.groups, "group", "g", nil, "group(s)")
-		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tag(s)")
+		fl.StringSliceVarP(&f.groups, "group", "g", nil, "put it in these groups (comma-separated)")
+		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, e.g. prod (comma-separated)")
 		fl.StringSliceVar(&f.labels, "label", nil, "label KEY=VALUE (repeatable)")
-		fl.StringSliceVar(&f.options, "option", nil, "kind-specific option KEY=VALUE (repeatable)")
+		fl.StringSliceVar(&f.options, "option", nil, "an option of this kind, KEY=VALUE (repeatable)")
 	}
 }
 
@@ -96,7 +96,7 @@ func checkConn(s *store.State, c *store.Conn) (driver.Target, error) {
 	c.Kind = t.Kind.Name
 	if c.Via != "" {
 		if t.Kind.File {
-			return t, out.Usage("%s conns are local files; --via is not supported", t.Kind.Name)
+			return t, out.Usage("%s conns are files on this computer, so they take no --via", t.Kind.Name)
 		}
 		if _, _, err := resolveVia(s, c.Via); err != nil {
 			return t, err
@@ -115,11 +115,12 @@ func connCmd() *cobra.Command {
 		Aliases: []string{"conns"},
 		Short:   "Manage databases, caches, buckets, clusters and registries",
 		Long: `A conn is a database, cache, storage bucket, cluster or registry komando
-talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + ` lists them). Passwords never go in the URL: store them with
+talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + `
+lists them). Passwords never go in the URL: store them with
 ` + "`komando secret set`" + ` and pass --password-ref. Use --via HOST when the
 resource is only reachable from a server.
 
-Conns share names and selectors (@group, tag:x, glob, all) with hosts.`,
+Conns share names and selectors (@group, tag:x, glob, all) with servers.`,
 	}
 	c.AddCommand(connAddCmd(), connEditCmd(), connMvCmd(), alias(listCmdFor("conn"), "list kind:conn"), connShowCmd(), connRmCmd(), alias(testCmdFor("conn"), "test"), connKindsCmd())
 	return c
@@ -130,7 +131,7 @@ func connAddCmd() *cobra.Command {
 	var force, askPw bool
 	c := &cobra.Command{
 		Use:   "add NAME URL",
-		Short: "Add a conn (kind is taken from the URL scheme)",
+		Short: "Add a conn (the URL scheme sets its kind)",
 		Example: `  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected
   komando conn add shop mysql://shop@db.internal/shop --group shop
   komando conn add local sqlite:///var/lib/app.db
@@ -209,7 +210,7 @@ func connAddCmd() *cobra.Command {
 	}
 	f.bind(c, false)
 	askPasswordFlag(c, &askPw)
-	c.Flags().BoolVar(&force, "overwrite", false, "replace an existing conn with the same name")
+	c.Flags().BoolVar(&force, "overwrite", false, "replace a conn that has the same name")
 	aliasFlag(c.Flags(), "force", "overwrite")
 	return c
 }
@@ -220,7 +221,7 @@ func connEditCmd() *cobra.Command {
 	var askPw bool
 	c := &cobra.Command{
 		Use:   "edit NAME",
-		Short: "Edit a conn (only flags you pass are changed)",
+		Short: "Change a conn (only the flags you pass change)",
 		Example: `  komando conn edit prod-db --via bastion --add-tag critical --option statement_timeout=10s
   komando conn edit shop -g shop -t live          # -g/-t add a group/tag`,
 		Args: cobra.ExactArgs(1),
@@ -373,7 +374,7 @@ func guardConnEdit(old, cn *store.Conn, res *connResult) error {
 func connShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show NAME",
-		Short: "Show full conn configuration (secrets are references, never values)",
+		Short: "Show all settings of a conn (secrets as references, never values)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -393,7 +394,7 @@ func connShowCmd() *cobra.Command {
 func connRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm NAME|TARGET...",
-		Short: "Remove conns from the inventory (does not touch the resource)",
+		Short: "Remove conns from the inventory (the resources are not touched)",
 		Example: `  komando conn rm shop-2
   komando conn rm kind:redis --dry-run`,
 		Args: cobra.MinimumNArgs(1),
@@ -534,7 +535,7 @@ func openAccess(ctx context.Context, st *store.State, c *store.Conn) (*access, e
 func resolveVia(st *store.State, via string) (*store.Host, *store.Vpn, error) {
 	steps := viaChain(via)
 	if len(steps) == 0 {
-		return nil, nil, out.Usage("empty --via")
+		return nil, nil, out.Usage("--via is empty: give server or VPN names, e.g. --via bastion")
 	}
 	for i, s := range steps {
 		if _, ok := st.Vpns[s]; ok {

@@ -155,7 +155,7 @@ func sqlFlagError(cmd *cobra.Command, err error) error {
 
 func (f *dbFlags) bind(c *cobra.Command) {
 	c.Flags().BoolVar(&f.write, "write", false, "allow changes (runs in a normal transaction; combine with --dry-run to roll back)")
-	c.Flags().IntVarP(&f.limit, "limit", "n", 500, "max rows returned per statement (0 = no limit; output size is capped by --max-output too)")
+	c.Flags().IntVarP(&f.limit, "limit", "n", 500, "the most rows to return per statement (0 = no limit; --max-output caps the size too)")
 	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite, @p1 in sqlserver, :1 in oracle, {p1:String} in clickhouse, ? in snowflake and bigquery); repeat in order")
 	c.Flags().StringVar(&f.maxBytes, "max-bytes", "", "BigQuery: the most a query may read, which BigQuery bills by (default 10GB; 0 = no cap)")
 }
@@ -276,6 +276,9 @@ type schemaData struct {
 }
 
 func (d schemaData) Text() string {
+	if len(d.Tables) == 0 {
+		return "no tables found (the database is empty, or the conn's user cannot see them)\n"
+	}
 	var sb strings.Builder
 	detailed := false
 	for _, t := range d.Tables {

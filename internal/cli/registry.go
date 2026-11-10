@@ -240,7 +240,7 @@ func registryInspectCmd() *cobra.Command {
 func registryRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "rm CONN REPO[:TAG|@DIGEST]",
-		Short:   "Delete an image (every tag that points at it goes too); needs --allow-dangerous",
+		Short:   "Delete an image and every tag on it (needs --allow-dangerous)",
 		Example: "  komando registry rm harbor myorg/api:old --allow-dangerous",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

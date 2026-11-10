@@ -37,7 +37,7 @@ as data.
     "results": [ { "host": "web1", "ok": false, "exit_code": 3, "stdout": "", "stderr": "…" } ],
     "summary": { "total": 1, "ok": 0, "failed": 1, "failed_hosts": ["web1"] }
   },
-  "error": { "code": "FAILED", "message": "host web1 failed", "hint": "…" },
+  "error": { "code": "FAILED", "message": "server web1 failed", "hint": "…" },
   "meta": { "contract": 1, "version": "v0.8.0", "duration_ms": 211 }
 }
 ```
@@ -84,7 +84,7 @@ komando schema -o json | python3 -c 'import json,sys; [print(c["code"], c["exit"
 | `AUTH_FAILED` | wrong user, key or password; or the server asks for a two-factor code and no person is at a terminal to answer it (the message quotes its question) | `komando host show NAME`; a changed password: `komando secret set NAME`; a two-factor login: `komando login NAME` once in your terminal (it asks the code and keeps the login, 8h; an AI agent asks the user to run it) |
 | `NO_AUTH` | the server has no key, identity or password, ssh-agent holds no key, and no person is at a terminal to type a password (the message says if `~/.ssh/id_ed25519` is encrypted and not loaded) | `ssh-add` (or `ssh-add ~/.ssh/id_ed25519`), or save a password: `komando secret set NAME`, then `komando host edit NAME --password-ref secret:NAME` (or `--key KEY`); start ssh-agent first if `SSH_AUTH_SOCK` is not set |
 | `KEY_PASSPHRASE_REQUIRED` | the server's key (`--key` or `--identity`) is encrypted, has no passphrase in the vault, and ssh-agent does not hold it (komando uses the agent's copy, as `ssh` does) | `ssh-add PATH`, or store the passphrase: `komando secret set NAME`, `komando key add NAME PATH --passphrase-ref secret:NAME`, then `komando host edit HOST --key NAME --unset identity` (for a `--key` key: `komando key edit NAME --passphrase-ref secret:NAME`) |
-| `CONNECTION_REFUSED`, `CONNECT_TIMEOUT` | server down, wrong port, firewall | check the address and port; `--connect-timeout 30s` |
+| `CONNECTION_REFUSED`, `CONNECT_TIMEOUT`, `DNS_ERROR` | the server is down, the address or port is wrong, a firewall drops the connection, or nothing listens on the port | `komando host show NAME` to check the address and port; a slow link: `--connect-timeout 30s`; a private server: add `--via BASTION` or a VPN |
 | `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting; the message shows the pinned fingerprint and the one the server shows now | compare the new fingerprint with the server's console or your provider first, then `komando host trust NAME --reset --yes`, or `@group` for many at once (a person decides; an agent reports it) |
 | `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando secret list` |
 | `SECRET_IN_USE` | `secret rm` of a secret that something still uses | point them elsewhere, or rename it with `komando secret mv OLD NEW` |
@@ -110,7 +110,6 @@ komando schema -o json | python3 -c 'import json,sys; [print(c["code"], c["exit"
 | `NO_MATCHING_TARGETS` | the target picked only things this command can't use | follow the hint (for example, use `komando db` for a database) |
 | `TARGET_NOT_FOUND`, `HOST_NOT_FOUND`, `CONN_NOT_FOUND`, `TARGET_EMPTY` | a typo in a name, group or tag (`exec` says `HOST_NOT_FOUND`, `test` and `list` say `TARGET_NOT_FOUND`: the same problem) | the hint suggests the closest match; `komando list` |
 | `HOSTKEY_UNKNOWN` | host keys are strict and this server's key is not pinned yet; the message shows its fingerprint | compare it with what the server's owner sees, then `komando host trust NAME` |
-| `DNS_ERROR`, `CONNECT_TIMEOUT`, `CONNECTION_REFUSED` | the address is wrong, a firewall drops the connection, or nothing listens on the port | `komando host show NAME`; a private server: add `--via BASTION` or a VPN |
 | `VAULT_LOCKED`, `VAULT_DECRYPT`, `VAULT_KEY` | the vault cannot be opened: no passphrase, a wrong one, or its key file is gone | set `KOMANDO_VAULT_PASS` in the shell that runs komando; `komando doctor` says which |
 | `IMPORT_INCOMPLETE` | an import brought most things in but refused some (see `skipped`) | fix those entries in the file and import again |
 | `PARTIAL_FAILURE` | the command ran on several servers and at least one failed (with one server you get that server's own code, such as `CONNECTION_REFUSED`) | read `data.results` for each server's exit code and stderr |

@@ -22,8 +22,6 @@ func readFileOrStdin(p string) ([]byte, error) {
 	return readLocalFile(p)
 }
 
-// parseSSHConfig understands Host, HostName, User, Port, IdentityFile,
-// ProxyJump and Include. Wildcard Host patterns become defaults.
 // sshUsed are the ssh_config directives komando turns into host settings.
 // sshHarmless change nothing komando needs (its own client already behaves
 // that way or the option only tunes OpenSSH). Anything else is reported
@@ -55,8 +53,9 @@ func sshConfigErr(path string, err error) error {
 	return localFileErr("FILE_NOT_FOUND", err, "")
 }
 
-// parseSSHConfig reads an OpenSSH config into hosts. notes lists what it
-// could not carry over (Match blocks, ProxyCommand, ...), per host.
+// parseSSHConfig reads an OpenSSH config into hosts, following Include;
+// wildcard Host patterns become defaults. notes lists what it could not
+// carry over (Match blocks, ProxyCommand, ...), per host.
 func parseSSHConfig(path string) (hosts []*store.Host, notes []string, err error) {
 	type block struct {
 		patterns []string

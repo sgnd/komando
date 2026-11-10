@@ -144,6 +144,9 @@ type recipeList struct {
 }
 
 func (l recipeList) Text() string {
+	if len(l.Recipes) == 0 {
+		return "no recipes in this category: `komando recipe list` shows them all\n"
+	}
 	rows := [][]string{}
 	for _, r := range l.Recipes {
 		cat := r.Category
@@ -271,7 +274,7 @@ func recipeAddCmd() *cobra.Command {
 	var sudo, readOnly, mutating, overwrite bool
 	c := &cobra.Command{
 		Use:   "add NAME COMMAND",
-		Short: "Save a recipe; {{name}} is a blank, {{name=default}} has a default",
+		Short: "Save a recipe; {{name}} is a blank, {{name=x}} defaults to x",
 		Example: `  komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --sudo
   komando recipe add disk-usage 'df -h {{path=/}}' --read-only`,
 		Args: cobra.ExactArgs(2),

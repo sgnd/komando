@@ -355,7 +355,7 @@ func newRoot() *cobra.Command {
 	interrupted = false
 	root := &cobra.Command{
 		Use:           "komando",
-		Short:         "One safe command line for servers, databases, caches, storage and clusters",
+		Short:         "One safe CLI for servers, databases, caches, storage, clusters",
 		Long:          rootLong,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -400,10 +400,9 @@ func newRoot() *cobra.Command {
 				out.P.Secrets = nil // its output holds no secrets, and the vault is in ~/.komando
 			}
 			// AI agents see passwords, keys and tokens as [hidden]; people and
-			// scripts see what the server sent (vault values are hidden for all)
-			// (`secret get --reveal` stays for people only: it never asks)
-			// A dry run is never an approval for --reveal: a dry run reads
-			// and prints too, so for an agent it always keeps values hidden.
+			// scripts see what the server sent (vault values are hidden for
+			// all). `secret get --reveal` is for people only: an agent is never
+			// asked and always sees [hidden]. A dry run never approves --reveal.
 			out.P.Mask = isAgent() && (commandName(cmd) == "secret.get" || g.dryRun || !revealOK())
 			startPersonal(cmd)
 			if out.P.Mask && g.dryRun && g.reveal {
@@ -477,7 +476,8 @@ ad-hoc server). Combine with commas; prefix ! to exclude. A target picks servers
 and conns together: each command uses the ones it works with and lists the rest
 in meta.skipped. See them all with ` + "`komando list`" + `.
 
-Start here:  komando guide      (agent playbook)
+Start here:  komando            (alone, in a terminal: a menu of common tasks)
+             komando guide      (agent playbook)
              komando schema     (machine-readable command reference)`
 
 // printFirstSteps is `komando` alone: the menu for a person at a terminal
@@ -510,7 +510,7 @@ More:
 func versionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Print version",
+		Short: "Print the komando version and its home folder",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			out.P.Print("version", map[string]string{"version": Version, "home": store.Home()}, nil)
