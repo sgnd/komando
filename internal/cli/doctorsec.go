@@ -201,6 +201,10 @@ func plainConn(c *store.Conn) string {
 		return tlsFlagRisk(t, fix, notChecked, "travels without TLS (no tls=true): anyone on the network path can read the data, unless the server turns on Oracle's native encryption, and even then can pretend to be the server")
 	case "clickhouse":
 		return tlsFlagRisk(t, fix, notChecked, "travels as plain HTTP (no tls=true): anyone on the network path can read the password and the data")
+	case "bigquery":
+		if !t.Secure {
+			return fix("travels as plain HTTP (an http:// endpoint): anyone on the network path can read the Google token and the data")
+		}
 	case "redis":
 		if !t.Secure {
 			return fix("travels unencrypted: anyone on the network path can read the password and the data")

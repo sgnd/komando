@@ -54,8 +54,10 @@ type dbFlags struct {
 	// mariaAnalyze: the SQL starts with EXPLAIN ANALYZE, which MariaDB
 	// spells ANALYZE
 	mariaAnalyze bool
-	// showplan: db explain on SQL Server and Oracle (dbx.Options.Showplan)
+	// showplan: db explain on SQL Server, Oracle and BigQuery (dbx.Options.Showplan)
 	showplan string
+	// maxBytes: --max-bytes, the most a BigQuery query may read ("" is the default)
+	maxBytes string
 }
 
 func dbQueryCmd() *cobra.Command {
@@ -90,6 +92,14 @@ as a read, and a statement that is not a read needs --write, goes on its
 own, and a dry run only reports it. Give the conn a role that may only
 read. Placeholders are ?.
 
+BigQuery: each statement first goes as a dry run, which runs nothing and
+says what BigQuery sees and how many bytes it would read (which is what
+BigQuery bills). Without --write only a SELECT runs. A query that would
+read more than --max-bytes (default 10GB) does not run, and the job
+carries that cap too. A write needs --write, goes on its own, and
+--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values
+go as STRING, so write CAST(? AS INT64) for a number.
+
 On a MongoDB conn the text is a command document in JSON, its first key
 naming it ({"find": ...}, {"aggregate": ...}, {"update": ...}). komando rates
 it as it rates SQL: what it does not know as a read needs --write. "$db"
@@ -99,7 +109,8 @@ picks another database than the URL's.`,
   komando db query prod-db "select * from users where email = $1" --arg bob@example.com
   komando db query prod-db --write --dry-run "update users set plan = 'pro' where id = 42"
   komando db query prod-db --file migration.sql --write --dry-run
-  komando db query prod-db --csv "select * from orders" > orders.csv`,
+  komando db query prod-db --csv "select * from orders" > orders.csv
+  komando db query bq "select count(*) from shop.orders" --max-bytes 50GB   # BigQuery`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var q string
@@ -145,7 +156,8 @@ func sqlFlagError(cmd *cobra.Command, err error) error {
 func (f *dbFlags) bind(c *cobra.Command) {
 	c.Flags().BoolVar(&f.write, "write", false, "allow changes (runs in a normal transaction; combine with --dry-run to roll back)")
 	c.Flags().IntVarP(&f.limit, "limit", "n", 500, "max rows returned per statement (0 = no limit; output size is capped by --max-output too)")
-	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite, @p1 in sqlserver, :1 in oracle, {p1:String} in clickhouse, ? in snowflake); repeat in order")
+	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite, @p1 in sqlserver, :1 in oracle, {p1:String} in clickhouse, ? in snowflake and bigquery); repeat in order")
+	c.Flags().StringVar(&f.maxBytes, "max-bytes", "", "BigQuery: the most a query may read, which BigQuery bills by (default 10GB; 0 = no cap)")
 }
 
 func dbExplainCmd() *cobra.Command {
@@ -202,6 +214,12 @@ func dbExplainCmd() *cobra.Command {
 						"db explain --analyze is not available for snowflake")
 				}
 				prefix = "EXPLAIN "
+			case "bigquery": // the dry run: statement type, bytes it would read, tables
+				if analyze {
+					return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "drop --analyze: db explain shows BigQuery's dry run; a finished job's stages are in INFORMATION_SCHEMA.JOBS (job_stages)",
+						"db explain --analyze is not available for bigquery")
+				}
+				f.showplan = "text"
 			case "sqlserver": // no EXPLAIN: a SET SHOWPLAN_TEXT (or STATISTICS PROFILE) session setting
 				f.showplan = map[bool]string{false: "text", true: "profile"}[analyze]
 			default: // MongoDB, and kinds without SQL: the classifier says how
@@ -411,6 +429,9 @@ func (d queryData) Text() string {
 		default:
 			sb.WriteString("ok\n")
 		}
+		if r.BytesProcessed != nil && r.Skipped == "" {
+			fmt.Fprintf(&sb, "(BigQuery read %s)\n", humanBytes(*r.BytesProcessed))
+		}
 	}
 	if d.RolledBack {
 		sb.WriteString("dry run: rolled back, nothing changed\n")
@@ -536,7 +557,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		args[i] = a
 	}
 	res, err := dbx.Run(ctx, db, c.Kind, plan, dbx.Options{Write: f.write, DryRun: g.dryRun, Limit: f.limit,
-		MaxBytes: maxOutput(st), Timeout: connTimeout(c), Args: args, Showplan: f.showplan})
+		MaxBytes: maxOutput(st), Timeout: connTimeout(c), Args: args, Showplan: f.showplan, MaxBilled: f.maxBilled(c.Kind)})
 	if err != nil {
 		return fail(err)
 	}
@@ -606,10 +627,37 @@ func redactSQL(q string) string {
 	})
 }
 
-// classifyQuery is driver.ClassifySQL for runSQL. Under db explain on SQL
-// Server and Oracle the statements are only planned (SET SHOWPLAN_TEXT,
-// EXPLAIN PLAN), so a change that the rollback would undo reads.
+// maxBytesFlag reads --max-bytes for dbx.Options.MaxBilled: 0 for the
+// default, -1 for no cap. Only BigQuery bills by the bytes a query reads.
+func maxBytesFlag(kind, s string) (int64, error) {
+	if s == "" {
+		return 0, nil
+	}
+	if kind != "bigquery" {
+		return 0, out.Usage("--max-bytes is for BigQuery conns, which bill by the bytes a query reads; drop it")
+	}
+	n, err := dbx.ParseBytes(s)
+	if n == 0 && err == nil {
+		n = -1
+	}
+	return n, err
+}
+
+// maxBilled is --max-bytes as maxBytesFlag reads it (classifyQuery has
+// checked it).
+func (f dbFlags) maxBilled(kind string) int64 {
+	n, _ := maxBytesFlag(kind, f.maxBytes)
+	return n
+}
+
+// classifyQuery is driver.ClassifySQL for runSQL, after a check of
+// --max-bytes. Under db explain on SQL Server and Oracle the statements
+// are only planned (SET SHOWPLAN_TEXT, EXPLAIN PLAN), and on BigQuery
+// dry-run, so a change that the rollback would undo reads.
 func classifyQuery(kind, query string, f dbFlags) (driver.SQLPlan, error) {
+	if _, err := maxBytesFlag(kind, f.maxBytes); err != nil {
+		return driver.SQLPlan{}, err
+	}
 	plan, err := driver.ClassifySQL(kind, query)
 	if err != nil || f.showplan != "text" {
 		return plan, err

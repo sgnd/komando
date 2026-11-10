@@ -143,7 +143,7 @@ checked before anything is written).
 These are conns (`komando list kind:conn`). Each has its own command; never
 reach them through `exec`.
 
-**Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake, SQLite):
+**Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake, BigQuery, SQLite):
 
 ```bash
 komando db schema <conn> [table...]                     # tables, then columns and indexes
@@ -200,6 +200,19 @@ IMMEDIATE`, stage files and `CREATE OR REPLACE` need `--allow-dangerous`:
 ask the human first. `db kill` takes the `pid` from `db activity`. `db
 dump`, `restore`, `locks`, `user add` and `grant` are not available
 (`NOT_SUPPORTED`).
+
+**BigQuery** conns take GoogleSQL with `?` placeholders (values go as
+`STRING`: write `CAST(? AS INT64)`). BigQuery bills by the bytes a query
+reads: run `db query <conn> --dry-run "..."` first, which runs nothing
+and shows `bytes_processed`. A query over `--max-bytes` (default 10GB)
+stops with `DB_BYTES_LIMIT`: narrow it, or ask the human before you raise
+`--max-bytes`. Without `--write` only what BigQuery itself calls a
+`SELECT` runs; a write needs `--write` and goes alone. `EXPORT DATA`,
+`EXTERNAL_QUERY`, `CREATE OR REPLACE`, `CALL` and `EXECUTE IMMEDIATE`
+need `--allow-dangerous`: ask the human first. Scripts (`DECLARE`,
+`SET`, `BEGIN ... END`) are refused. `db kill` takes the `pid` from `db
+activity`. `db dump`, `restore`, `locks`, `db user` and `grant` are not
+available (`NOT_SUPPORTED`).
 
 **Caches** (Redis, Valkey, memcached): `cache get|keys|info <conn>` read, `cache set`
 changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run

@@ -152,6 +152,8 @@ func classifyFor(kind string, ts []token) (Risk, []string, error) {
 		return clickhouseStatement(ts)
 	case "snowflake":
 		return snowflakeStatement(ts)
+	case "bigquery":
+		return bigqueryStatement(ts)
 	}
 	risk, rules, err := classifyStatement(ts, true)
 	if err != nil || kind != "sqlserver" {
@@ -163,8 +165,8 @@ func classifyFor(kind string, ts []token) (Risk, []string, error) {
 // unknownNeedsWrite are the kinds where a statement komando does not know
 // needs --write: their read-only transaction does not cover everything
 // (MySQL admin statements, Oracle DDL), or there is none (SQL Server,
-// ClickHouse, Snowflake).
-var unknownNeedsWrite = map[string]bool{"mysql": true, "sqlserver": true, "oracle": true, "clickhouse": true, "snowflake": true}
+// ClickHouse, Snowflake, BigQuery).
+var unknownNeedsWrite = map[string]bool{"mysql": true, "sqlserver": true, "oracle": true, "clickhouse": true, "snowflake": true, "bigquery": true}
 
 // unknownFirst reports a first word komando does not know.
 func unknownFirst(kind, kw string) bool {
@@ -177,6 +179,8 @@ func unknownFirst(kind, kw string) bool {
 		return !chFirst[kw]
 	case "snowflake":
 		return !sfFirst[kw]
+	case "bigquery":
+		return !bqFirst[kw]
 	}
 	return !readFirst[kw] && !writeFirst[kw] && !opaqueFirst[kw]
 }
@@ -335,13 +339,15 @@ func rowsFor(kind, kw string, ts []token) bool {
 		return clickhouseRows(kw)
 	case "snowflake":
 		return snowflakeRows(kw)
+	case "bigquery":
+		return bigqueryRows(kw)
 	case "sqlserver":
 		return returnsRows(kw, ts) || tsqlRows(kw, ts)
 	}
 	return returnsRows(kw, ts)
 }
 
-// otherNoTx is noTx for SQL Server, Oracle, ClickHouse and Snowflake (no
+// otherNoTx is noTx for SQL Server, Oracle, ClickHouse, Snowflake and BigQuery (no
 // transactions komando can use: everything but a read runs alone).
 func otherNoTx(kind, kw string, ts []token) bool {
 	switch kind {
@@ -353,6 +359,8 @@ func otherNoTx(kind, kw string, ts []token) bool {
 		return !chReads[kw]
 	case "snowflake":
 		return snowflakeNoTx(ts)
+	case "bigquery":
+		return bigqueryNoTx(ts)
 	}
 	return false
 }
@@ -410,15 +418,16 @@ func tsqlPlaceholders(toks [][]token) (int, bool) {
 }
 
 // PlanOnly is plan for SQL that SQL Server or Oracle only plans (SET
-// SHOWPLAN_TEXT ON, EXPLAIN PLAN; db explain): a statement that the
-// rollback would undo reads, and so does Oracle DDL that EXPLAIN PLAN takes.
+// SHOWPLAN_TEXT ON, EXPLAIN PLAN; db explain) or BigQuery dry-runs: a
+// statement that the rollback would undo reads, and so does Oracle DDL
+// that EXPLAIN PLAN takes and any BigQuery statement a dry run takes.
 // Statements that may act outside the transaction keep their rating.
 func PlanOnly(plan SQLPlan) SQLPlan {
 	plan.Risk = RiskRead
 	lowered := true
 	for i, s := range plan.Statements {
-		if plan.kind == "oracle" && s.NoTx && !s.NoRollback && oracleExplainable(s.SQL) {
-			s.NoTx = false // EXPLAIN PLAN does not run it, so nothing commits
+		if plan.kind == "oracle" && s.NoTx && !s.NoRollback && oracleExplainable(s.SQL) || plan.kind == "bigquery" && !s.NoRollback {
+			s.NoTx = false // EXPLAIN PLAN (a dry run) does not run it, so nothing commits
 			plan.Statements[i] = s
 		}
 		if s.NoTx || s.NoRollback {

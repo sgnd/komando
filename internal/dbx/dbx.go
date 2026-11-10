@@ -110,7 +110,7 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		if db, err = sql.Open("sqlite", "file:"+path+"?"+q.Encode()); err != nil {
 			return nil, err
 		}
-	case "sqlserver", "oracle", "clickhouse", "snowflake":
+	case "sqlserver", "oracle", "clickhouse", "snowflake", "bigquery":
 		var err error
 		if db, err = openers[t.Kind.Name](rawURL, t, password, dial, appName, readOnly); err != nil {
 			return nil, err
@@ -214,8 +214,11 @@ type Options struct {
 	// Showplan is db explain on SQL Server and Oracle: "text" plans each
 	// statement without running it (SET SHOWPLAN_TEXT, EXPLAIN PLAN);
 	// "profile" (SQL Server) runs it and returns the plan with real row
-	// counts (SET STATISTICS PROFILE).
+	// counts (SET STATISTICS PROFILE). On BigQuery "text" is a dry run.
 	Showplan string
+	// MaxBilled is the most a BigQuery query may read (--max-bytes): 0 is
+	// BQDefaultMaxBytes, below 0 no cap.
+	MaxBilled int64
 }
 
 // Column describes a result column.
@@ -237,6 +240,9 @@ type StatementResult struct {
 	Truncated    string   `json:"truncated,omitempty"` // which cap cut the rows: "rows" (--limit) or "bytes" (--max-output)
 	RowsAffected *int64   `json:"rows_affected,omitempty"`
 	Skipped      string   `json:"skipped,omitempty"` // why it did not run (dry run of a non-rollbackable statement)
+	// BytesProcessed is what a BigQuery statement read, which BigQuery
+	// bills by (in a dry run or db explain: what it would read)
+	BytesProcessed *int64 `json:"bytes_processed,omitempty"`
 }
 
 func (r StatementResult) MarshalJSON() ([]byte, error) {
@@ -296,29 +302,7 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 			if len(plan.Statements) != 1 {
 				return nil, out.Usage("%s cannot run inside a transaction; send it on its own", st.Keyword)
 			}
-			if !o.Write {
-				return nil, writeRequired(st.Keyword)
-			}
-			r := StatementResult{SQL: st.SQL, Keyword: st.Keyword, Risk: st.Risk.String()}
-			if o.DryRun {
-				r.Skipped = "dry run: this statement cannot be rolled back, so it was not executed"
-				res.Results = append(res.Results, r)
-				return res, nil
-			}
-			conn, err := db.Conn(ctx)
-			if err != nil {
-				return nil, queryErr(kind, ctx, err)
-			}
-			defer conn.Close()
-			if err := setTimeout(ctx, conn, kind, o.Timeout, false); err != nil {
-				return nil, queryErr(kind, ctx, err)
-			}
-			if err := runStatement(ctx, conn, conn, kind, st, o, &budget, &r); err != nil {
-				return nil, queryErr(kind, ctx, err)
-			}
-			res.Results = append(res.Results, r)
-			res.Committed = true
-			return res, nil
+			return runAlone(ctx, db, kind, st, o, &budget)
 		}
 	}
 
@@ -380,6 +364,36 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 		return nil, queryErr(kind, ctx, err)
 	}
 	res.RolledBack = o.Write // a read-only transaction has nothing to roll back worth reporting
+	return res, nil
+}
+
+// runAlone runs a statement that cannot run inside a transaction: it
+// needs --write, and a dry run only reports it (on BigQuery, BigQuery's
+// own dry run checks it and says how much it would read).
+func runAlone(ctx context.Context, db *sql.DB, kind string, st driver.Statement, o Options, budget *int) (*Result, error) {
+	if !o.Write {
+		return nil, writeRequired(st.Keyword)
+	}
+	res := &Result{Results: []StatementResult{}}
+	r := StatementResult{SQL: st.SQL, Keyword: st.Keyword, Risk: st.Risk.String()}
+	if o.DryRun && kind != "bigquery" {
+		r.Skipped = "dry run: this statement cannot be rolled back, so it was not executed"
+		res.Results = append(res.Results, r)
+		return res, nil
+	}
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return nil, queryErr(kind, ctx, err)
+	}
+	defer conn.Close()
+	if err := setTimeout(ctx, conn, kind, o.Timeout, false); err != nil {
+		return nil, queryErr(kind, ctx, err)
+	}
+	if err := runStatement(ctx, conn, conn, kind, st, o, budget, &r); err != nil {
+		return nil, queryErr(kind, ctx, err)
+	}
+	res.Results = append(res.Results, r)
+	res.Committed = !o.DryRun
 	return res, nil
 }
 
@@ -458,6 +472,12 @@ func runStatement(ctx context.Context, q querier, conn *sql.Conn, kind string, s
 		return runShowplan(ctx, q, st, o, r)
 	case o.Showplan != "" && kind == "oracle":
 		return runOraclePlan(ctx, q, st, r)
+	case o.Showplan != "" && kind == "bigquery":
+		return runBQPlan(ctx, conn, st, o, r)
+	case o.DryRun && kind == "bigquery": // BigQuery's own dry run, for reads too: it costs nothing
+		return bqDryRunOnly(ctx, conn, st, o, r)
+	case kind == "bigquery": // the driver checks the --max-bytes cap and records the bytes read in r
+		ctx = withBQRun(ctx, o.MaxBilled, r)
 	}
 	if !st.Rows && kind == "postgres" && len(o.Args) == 0 {
 		var tag pgconn.CommandTag
@@ -649,6 +669,8 @@ func queryErr(kind string, ctx context.Context, err error) error {
 		return clickhouseErr(err)
 	case "snowflake":
 		return snowflakeErr(err)
+	case "bigquery":
+		return bigqueryErr(err)
 	}
 	msg := err.Error()
 	if kind == "sqlite" && (strings.Contains(msg, "readonly database") || strings.Contains(msg, "query_only")) {

@@ -269,6 +269,29 @@ its highlights; the sections below them give the details. Versions follow
   server. `db dump`, `restore`, `locks`, `user add`/`passwd`/`rm` and
   `grant`/`revoke` say `NOT_SUPPORTED`. Not yet run against a real
   account: see docs/design/snowflake.md.
+- **BigQuery conns** (`bigquery://my-project/analytics?location=EU`, the
+  project jobs run in and a default dataset) over BigQuery's REST API, with
+  komando's own small client (not the Google Cloud SDK): `db query` with `?`
+  placeholders, `schema` (datasets, tables and columns from the API),
+  `explain` (the dry run), `info`, `activity` (jobs that are not done, from
+  `INFORMATION_SCHEMA.JOBS`), `sizes`, `kill` (`jobs.cancel`), `db shell`
+  and `conn test`, through `--via` and VPNs, HTTPS with the certificate
+  checked and `?ca=secret:NAME` for a proxy's CA. The login is the same as
+  for `gs://` conns: gcloud's application default credentials (sent only to
+  `*.googleapis.com`), or a service account key in `--password-ref`. Every
+  statement goes to BigQuery as a dry run first: without `--write` only
+  what BigQuery itself calls a `SELECT` runs, and a query that would read
+  more than the new `--max-bytes` (default 10GB) stops with the new error
+  `DB_BYTES_LIMIT`; each job also carries that cap (`maximumBytesBilled`),
+  and each result says `bytes_processed`. `--dry-run` is BigQuery's own dry
+  run, for reads too. A write needs `--write` and goes alone; `EXPORT DATA`,
+  `EXTERNAL_QUERY`, remote functions, `CREATE OR REPLACE`, `LOAD DATA
+  OVERWRITE`, row access policies, reservations, `CALL` and `EXECUTE
+  IMMEDIATE` need `--allow-dangerous`. Scripts are refused; `#` comments,
+  triple-quoted and raw strings and `` `names` `` are read as BigQuery reads
+  them. A run that times out cancels its job. `db dump`, `restore`, `locks`,
+  `db user` and `grant`/`revoke`/`grants` say `NOT_SUPPORTED`. Not yet run
+  against a real project: see docs/design/bigquery.md.
 
 ### Changed
 

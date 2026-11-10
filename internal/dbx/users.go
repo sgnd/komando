@@ -110,6 +110,8 @@ from mysql.user order by user, host`)
 		return clickhouseUsers(ctx, db)
 	case "snowflake":
 		return snowflakeUsers(ctx, db)
+	case "bigquery":
+		return nil, BQNoUsers("db user ls")
 	}
 	return nil, notFor(kind, "db user")
 }
@@ -137,6 +139,8 @@ func userSQL(ctx context.Context, db *sql.DB, kind, action string, u UserSpec) (
 		return clickhouseUserSQL(ctx, db, action, u)
 	case "snowflake":
 		return "", "", SFNoUserChange("db user " + action)
+	case "bigquery":
+		return "", "", BQNoUsers("db user " + action)
 	}
 	host := u.Host
 	if host == "" {
@@ -261,6 +265,8 @@ var validObj = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_$]{0,62}$`)
 var grantSQLFor = map[string]func(context.Context, *sql.DB, Grant) (string, error){"sqlserver": mssqlGrantSQL, "oracle": oracleGrantSQL, "clickhouse": clickhouseGrantSQL,
 	"snowflake": func(context.Context, *sql.DB, Grant) (string, error) {
 		return "", SFNoUserChange("db grant and revoke")
+	}, "bigquery": func(context.Context, *sql.DB, Grant) (string, error) {
+		return "", BQNoUsers("db grant and revoke")
 	}}
 
 // GrantSQL builds the statement for g.
@@ -407,6 +413,8 @@ order by 1, 2`, user)
 		return clickhouseGrants(ctx, db, user)
 	case "snowflake":
 		return snowflakeGrants(ctx, db, user)
+	case "bigquery":
+		return nil, BQNoUsers("db grants")
 	}
 	return nil, notFor(kind, "db grants")
 }

@@ -58,6 +58,9 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 	if kind == "oracle" || kind == "snowflake" { // unquoted names are upper case
 		names = oracleNames(names)
 	}
+	if kind == "bigquery" { // from the API, not a transaction
+		return bigquerySchema(ctx, db, names)
+	}
 	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: readOnlyTx(kind, false)})
 	if err != nil {
 		return nil, queryErr(kind, ctx, err)

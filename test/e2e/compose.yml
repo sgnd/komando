@@ -166,6 +166,13 @@ services:
     build: snowflake
     networks:
       private: { aliases: [e2e-acct.snowflakecomputing.com] }
+  bigquery:
+    # no Google project here, and goccy/bigquery-emulator cannot do dry
+    # runs: komando's own fake of the REST API and the token endpoint
+    # (test/e2e/bigquery), with a private CA and a service account key
+    build: bigquery
+    networks:
+      private: { aliases: [bigquery.e2e.internal] }
   # secret managers komando talks to itself (no vault or aws CLI)
   bao:
     image: openbao/openbao:2.4.3

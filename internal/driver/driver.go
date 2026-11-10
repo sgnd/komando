@@ -73,6 +73,8 @@ func init() {
 		Example: "clickhouse://app@ch.internal:8443/analytics?tls=true (HTTP interface: 8443 with TLS, 8123 without; private CA: &ca=secret:NAME)"})
 	register(Kind{Name: "snowflake", Family: "db", Schemes: []string{"snowflake"}, DefaultPort: 443,
 		Example: "snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO (the account in place of a host; --password-ref holds a programmatic access token or a private key)"})
+	register(Kind{Name: "bigquery", Family: "db", Schemes: []string{"bigquery"}, DefaultPort: 443,
+		Example: "bigquery://my-project/analytics?location=EU (the project jobs run in, a default dataset; the login is gcloud's, or a service account key in --password-ref)"})
 	register(Kind{Name: "sqlite", Family: "db", Schemes: []string{"sqlite", "sqlite3"}, File: true,
 		Example: "sqlite:///var/lib/app.db"})
 	register(Kind{Name: "mongodb", Family: "db", Schemes: []string{"mongodb", "mongodb+srv"}, DefaultPort: 27017,
@@ -149,7 +151,7 @@ type Target struct {
 	Region   string `json:"region,omitempty"`   // s3, sqs
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
 	TLS      string `json:"tls,omitempty"`      // mysql, oracle, clickhouse: the tls= setting (true, skip-verify, preferred, false); ftps, registry, sqlserver: skip-verify (registry also false)
-	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka, rabbitmq, nats, sqlserver, oracle, clickhouse, snowflake: secret:NAME holding the PEM CA certificate to trust
+	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka, rabbitmq, nats, sqlserver, oracle, clickhouse, snowflake, bigquery: secret:NAME holding the PEM CA certificate to trust
 	Resolve  string `json:"resolve,omitempty"`  // registry, s3: IP:port to connect to in place of Address (?resolve=)
 
 	Cluster      bool     `json:"cluster,omitempty"`       // redis: a Redis Cluster; Address is one node (?cluster=1)
@@ -200,6 +202,7 @@ var urlParsers = map[string]func(*url.URL, Target) (Target, error){
 	"oracle":     parseOracle,
 	"clickhouse": parseClickHouse,
 	"snowflake":  parseSnowflake,
+	"bigquery":   parseBigQuery,
 }
 
 // passwordParams are query parameters that would carry a password or key.

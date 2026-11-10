@@ -219,6 +219,11 @@ func noDumpTool(t driver.Target) error {
 			"Snowflake unloads tables itself: COPY INTO @STAGE FROM TABLE writes files to a stage (run it with `komando db query CONN --write`; it needs --allow-dangerous, so ask the user first), and Time Travel or CLONE keeps a copy inside Snowflake; for a few rows, `komando db query CONN --csv` is a copy on this computer",
 			"db dump and restore are not available for Snowflake")
 	}
+	if t.Kind.Name == "bigquery" {
+		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"BigQuery exports tables itself: EXPORT DATA OPTIONS (uri = 'gs://BUCKET/PATH/*.parquet', format = 'PARQUET') AS SELECT ... writes files to Cloud Storage (run it with `komando db query CONN --write`; it needs --allow-dangerous, so ask the user first), then `komando storage` fetches them; table snapshots and time travel keep a copy inside BigQuery; for a few rows, `komando db query CONN --csv` is a copy on this computer",
+			"db dump and restore are not available for BigQuery")
+	}
 	if t.Kind.Name == "sqlserver" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
 			"SQL Server backs up with its own BACKUP DATABASE, which writes a .bak file on the database server: run it with `komando db query CONN --write` (it needs --allow-dangerous, so ask the user first), then fetch the file with `komando download` from that server",

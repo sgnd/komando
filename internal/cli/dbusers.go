@@ -130,6 +130,9 @@ func changeDB(ctx context.Context, name, connExpr string, v driver.Verdict, rec 
 	if c.Kind == "snowflake" { // users and grants are read-only here
 		return dbx.SFNoUserChange(strings.ReplaceAll(name, ".", " "))
 	}
+	if c.Kind == "bigquery" { // Google Cloud IAM
+		return dbx.BQNoUsers(strings.ReplaceAll(name, ".", " "))
+	}
 	if err := guardConns(st, []*store.Conn{c}, v); err != nil && !g.dryRun {
 		audit(st, name, nil, "", false, map[string]any{"conns": []string{c.Name}, "blocked": toErr(err).Code})
 		return err
@@ -170,7 +173,8 @@ func dbGrantCmd(revoke bool) *cobra.Command {
 all-tables:SCHEMA; --role ROLE makes the user a member of ROLE. For MySQL:
 DB.* , DB.TABLE or *.* (with --from for the account host). For ClickHouse:
 DB.*, DB.TABLE or *.*, or database:DB, table:DB.TABLE. Snowflake: not
-available (db grants reads them). --dry-run shows
+available (db grants reads them). BigQuery: not available (Google Cloud
+IAM). --dry-run shows
 the statement.`,
 		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public
   komando db ` + verb + ` prod-db app_ro --role readers

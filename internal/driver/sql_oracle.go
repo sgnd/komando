@@ -121,7 +121,7 @@ func hiddenCode(hint, format string, args ...any) error {
 	return out.Errf(out.ExitUsage, "SQL_HIDDEN_CODE", hint, format, args...)
 }
 
-// mask returns the text splitSQL scans (Snowflake: snowflakeMask). For Oracle it is sql with each
+// mask returns the text splitSQL scans (Snowflake: snowflakeMask; BigQuery: bigqueryMask). For Oracle it is sql with each
 // q'[...]' quote turned into a plain '...' of the same length (so the
 // positions stay), after refusing what Oracle might read differently from
 // komando: letters outside ASCII outside quotes, and -- comments with a
@@ -129,6 +129,9 @@ func hiddenCode(hint, format string, args ...any) error {
 func (d dialect) mask(sql string) (string, error) {
 	if d.snowflake {
 		return snowflakeMask(sql)
+	}
+	if d.bigquery {
+		return bigqueryMask(sql)
 	}
 	if !d.oracle {
 		return sql, nil

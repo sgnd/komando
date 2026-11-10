@@ -133,7 +133,8 @@ is the SID that db activity shows. On ClickHouse it is the number db
 activity shows for the query (made from its query_id); ClickHouse stops
 queries, not connections, so there is no --session. On Snowflake, too, the
 PID is the number db activity shows for the query; --session ends its
-session (SYSTEM$ABORT_SESSION).`,
+session (SYSTEM$ABORT_SESSION). On BigQuery it is the number db activity
+shows for a job, which db kill cancels (jobs.cancel); there is no --session.`,
 		Example: `  komando db kill prod-db 4821 --dry-run
   komando db kill prod-db 4821
   komando db kill prod-db 4821 --session --allow-dangerous`,

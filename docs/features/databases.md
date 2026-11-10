@@ -1,6 +1,6 @@
 # Databases
 
-Add PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake and SQLite databases, then query, inspect,
+Add PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and SQLite databases, then query, inspect,
 back up and restore them safely. [All features](README.md)
 
 ## Quick start
@@ -30,6 +30,7 @@ the URL:
 | Oracle | `oracle://app@db.internal:1521/ORCLPDB1?tls=true` (the path is the service name). See [Oracle](#oracle). |
 | ClickHouse | `clickhouse://app@ch.internal:8443/analytics?tls=true` (the HTTP interface). See [ClickHouse](#clickhouse). |
 | Snowflake | `snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO` (the account in place of a host). See [Snowflake](#snowflake). |
+| BigQuery | `bigquery://my-project/analytics?location=EU` (the project, and a default dataset). See [BigQuery](#bigquery). |
 | SQLite | `sqlite:///var/lib/app.db` (a file on this computer) |
 | MongoDB | `mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin` (Atlas: `mongodb+srv://app@cluster0.abcde.mongodb.net/shop`). See [MongoDB](#mongodb). |
 
@@ -87,6 +88,7 @@ giving them the password:
 | Oracle | `?tls=true` (TCPS) | `?tls=skip-verify` | `?tls=false` |
 | ClickHouse | `?tls=true` (HTTPS, port 8443) | `?tls=skip-verify` | `?tls=false` (port 8123) |
 | Snowflake | always (HTTPS) | not offered | not offered |
+| BigQuery | always (HTTPS) | not offered | an `http://` endpoint (an emulator) |
 
 - Without a setting, a Postgres conn uses TLS when the server offers it,
   but does not check the certificate and goes on without TLS when told to.
@@ -111,7 +113,7 @@ giving them the password:
   `komando conn edit NAME --url ...` line that fixes it.
 - A server whose certificate comes from a private CA (your company's, or a
   cloud's own, such as Amazon RDS or Azure Database): store the CA and name
-  it with `?ca=`, for Postgres, MySQL, SQL Server, Oracle, ClickHouse and Snowflake (a proxy that inspects TLS). The certificate is then fully
+  it with `?ca=`, for Postgres, MySQL, SQL Server, Oracle, ClickHouse, Snowflake and BigQuery (a proxy that inspects TLS). The certificate is then fully
   checked: signed by that CA and naming the server, also with
   `sslmode=require`, and never without TLS:
 
@@ -139,8 +141,9 @@ komando db query app-db --file report.sql    # SQL from a file (--file - reads s
 
 **Use `--arg` for values** instead of pasting them into the SQL. The
 placeholders are `$1`, `$2` in PostgreSQL, `?` in MySQL and SQLite,
-`@p1`, `@p2` in SQL Server, `:1`, `:2` in Oracle, `?` in Snowflake, and
-`{p1:String}`, `{p2:UInt64}` in ClickHouse (named `p1`, `p2`, with a type):
+`@p1`, `@p2` in SQL Server, `:1`, `:2` in Oracle, `?` in Snowflake and
+BigQuery (where the values go as `STRING`), and `{p1:String}`,
+`{p2:UInt64}` in ClickHouse (named `p1`, `p2`, with a type):
 
 ```bash
 komando db query app-db "select * from users where email = $1" --arg bob@example.com
@@ -200,6 +203,9 @@ line. Put `--` before it, or use `--file -`.
 | ClickHouse Array, Map, Tuple | JSON arrays and objects |
 | Snowflake NUMBER with a scale | text with every digit (`"12.50"`) |
 | Snowflake VARIANT, OBJECT, ARRAY | JSON values, arrays and objects |
+| BigQuery NUMERIC, BIGNUMERIC | text with every digit |
+| BigQuery TIMESTAMP | `"2026-11-09T13:04:05.123456Z"` (UTC) |
+| BigQuery STRUCT, ARRAY, JSON | JSON objects, arrays and values |
 
 In text output, tables line up, also with CJK characters and emoji.
 
@@ -291,6 +297,8 @@ komando db kill app-db 4821 --session --allow-dangerous   # end the whole connec
 - On Snowflake, too, the PID is a number `db activity` makes from the query
   ID; `db kill` cancels the query (`SYSTEM$CANCEL_QUERY`), and `--session`
   ends its session. There is no `db locks`.
+- On BigQuery the PID is a number `db activity` makes from the job ID;
+  `db kill` cancels the job. There is no `--session` or `db locks`.
 
 ## Users and grants
 
@@ -317,7 +325,9 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
   and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).
   For SQL Server see [SQL Server](#sql-server), for Oracle [Oracle](#oracle),
   for ClickHouse [ClickHouse](#clickhouse). On Snowflake, `db user ls` and
-  `db grants` read; adding, changing and granting are not available.
+  `db grants` read; adding, changing and granting are not available. On
+  BigQuery, users and rights are Google Cloud IAM, so these commands are
+  not available.
 - Adding users and grants are changes (`--yes` on protected conns).
   Removing a user also needs `--allow-dangerous`.
 
@@ -805,6 +815,87 @@ komando db grants analytics APP_RO                 # its roles, and what each ro
   Travel and `CLONE`), `db user add`, `passwd` and `rm`, `db grant` and
   `revoke` (send the SQL with `db query --write`), and `db locks`.
 
+## BigQuery
+
+BigQuery conns take the same `db` commands, in GoogleSQL. komando speaks
+BigQuery's REST API with its own client (not the Google Cloud SDK), so
+nothing else needs to be installed:
+
+```bash
+komando conn add warehouse 'bigquery://my-project/analytics?location=EU'   # gcloud's login
+komando db query warehouse --dry-run "select * from orders where placed > '2026-01-01'"  # what it would read
+komando db query warehouse "select region, sum(total) from orders where placed > ? group by 1" --arg 2026-01-01
+komando db query warehouse "select * from logs.events" --max-bytes 200GB   # allow a bigger read
+komando db schema warehouse analytics.orders        # columns, primary key, partitioning, clustering
+komando db explain warehouse "select * from orders where id = 42"
+komando db activity warehouse                       # jobs that are not done
+komando db kill warehouse 4387013457812345          # the pid db activity shows
+```
+
+- **The URL.** `bigquery://PROJECT[/DATASET]?location=EU`: the project the
+  jobs run in (and are billed to), a default dataset for names without one,
+  and where the jobs run (`EU`, `US`, `europe-west1`, ...; without it
+  BigQuery picks from the tables, and `db activity` and `db sizes` use the
+  dataset's location, or `US`). Other options: `ca=secret:NAME` (a proxy
+  that inspects TLS) and `endpoint=URL` (an emulator, or a Private Service
+  Connect address such as `https://bigquery-NAME.p.googleapis.com`). It is
+  HTTPS with the certificate checked; `tls=` is refused.
+- **Login.** The same as for `gs://` conns: gcloud's login (`gcloud auth
+  application-default login`, `GOOGLE_APPLICATION_CREDENTIALS`, or the
+  metadata server on Google Cloud), or a service account key (the JSON
+  file) in `--password-ref`:
+
+  ```bash
+  komando secret set warehouse-key < key.json
+  komando conn add warehouse 'bigquery://my-project/analytics' --password-ref secret:warehouse-key
+  ```
+
+  gcloud's login is only sent to Google's own hosts
+  (`https://*.googleapis.com`); an emulator gets a key the conn names, or
+  no login at all. The login needs `roles/bigquery.jobUser` on the project
+  and `roles/bigquery.dataViewer` on the datasets it reads; give a conn
+  that only reads no more than that.
+- **Every statement is checked by BigQuery first.** komando sends each
+  statement as a dry run (it runs nothing and costs nothing), which says
+  what kind of statement BigQuery sees and how many bytes it would read.
+  Without `--write` only what BigQuery calls a `SELECT` runs, after
+  komando's own check. A write (`INSERT`, `CREATE`, `MERGE`, ...) needs
+  `--write` and goes on its own (each statement is a job of its own, so
+  nothing can be rolled back).
+- **Cost.** BigQuery bills by the bytes a query reads. A query that would
+  read more than `--max-bytes` (default `10GB`; `0` is no cap) does not run
+  (`DB_BYTES_LIMIT`), and every job carries that cap
+  (`maximumBytesBilled`), so BigQuery stops it as well. Each result says
+  `bytes_processed`. `--dry-run` (with or without `--write`) is BigQuery's
+  own dry run for every statement, also a `SELECT`: it shows what each
+  would read and runs nothing. A run that times out cancels its job.
+- **Placeholders** are `?`, and the `--arg` values go as `STRING`: BigQuery
+  does not turn text into numbers by itself, so write `CAST(? AS INT64)`.
+- **Destructive** (`--allow-dangerous`): `DROP`, `TRUNCATE`,
+  `CREATE OR REPLACE` (it drops what had the name), `LOAD DATA OVERWRITE`,
+  `GRANT` and `REVOKE`, row access policies, reservations, capacity
+  commitments and project or organization options, `EXPORT DATA` (it writes
+  outside BigQuery), `EXTERNAL_QUERY` and remote functions (they reach
+  other services), `CALL` and `EXECUTE IMMEDIATE`.
+- **Scripts** (`DECLARE`, `SET`, `IF`, `BEGIN ... END`) are refused: komando
+  sends each statement as a job of its own, so variables would not carry
+  over. `BEGIN` and `COMMIT TRANSACTION` are refused too. A `/*` inside a
+  comment, a raw string with a backslash before a quote, and names or text
+  with letters outside ASCII outside quotes are refused
+  (`SQL_HIDDEN_CODE`); `#` comments, triple-quoted text and `` `names` ``
+  are read as BigQuery reads them.
+- `db schema` reads the API (no query, no cost): the URL's dataset, or
+  every dataset in the project, and a table asked for as `TABLE`,
+  `DATASET.TABLE` or `PROJECT.DATASET.TABLE`. `db explain` is the dry run
+  (statement type, bytes, tables read, result columns); `--analyze` is not
+  available. `db activity` reads `region-LOCATION.INFORMATION_SCHEMA.JOBS`
+  (seeing other people's jobs needs `bigquery.jobs.listAll`) and `db
+  sizes` reads `INFORMATION_SCHEMA.TABLE_STORAGE`.
+- **Not available** (`NOT_SUPPORTED`): `db dump` and `db restore`
+  (`EXPORT DATA` writes tables to Cloud Storage, and table snapshots keep
+  copies inside BigQuery), `db user`, `db grant`, `revoke` and `grants`
+  (Google Cloud IAM), and `db locks`.
+
 ## Interactive SQL shell (for people)
 
 ```bash
@@ -814,7 +905,7 @@ komando db shell app-db --yes         # any shell on a protected conn needs --ye
 ```
 
 `db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB,
-SQL Server, Oracle, ClickHouse, Snowflake and SQLite, so nothing else needs to be installed. It connects through the
+SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and SQLite, so nothing else needs to be installed. It connects through the
 conn's `--via` path, and every statement gets the same checks as
 `db query`: read-only unless you started it with `--write`, destructive
 statements only with `--allow-dangerous`, and each one is written to the
@@ -857,6 +948,7 @@ which returns JSON.
 | `DB_AUTH` | 4 | wrong user name or password |
 | `DB_NOT_FOUND` | 3 | the database does not exist |
 | `DB_PRIVILEGE` | 4 or 5 | the conn's user lacks a right (for example to see lock waits in `db locks`, or to manage users) |
+| `DB_BYTES_LIMIT` | 6 | a BigQuery query would read more than `--max-bytes` (default 10GB), so it did not run |
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object; the message names it |
 | `TOOL_MISSING` | 3 | `pg_dump`, `mysqldump` or `pg_restore` is not installed where it should run |
 | `TOOL_TOO_OLD` | 5 | `pg_dump` is older than the database server, or `pg_restore` older than the archive |

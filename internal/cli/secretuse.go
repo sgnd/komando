@@ -212,6 +212,10 @@ func weakTLS(oldURL, newURL string) []string {
 		case "skip-verify":
 			w = append(w, "tls=skip-verify (the certificate is not checked)")
 		}
+	case "bigquery":
+		if !t.Secure {
+			w = append(w, "an http:// endpoint (travels unencrypted, the Google token too)")
+		}
 	case "ftp":
 		w = append(w, "insecure=1 (travels unencrypted, passwords too)")
 	case "kafka", "rabbitmq", "nats", "sqs", "pubsub":

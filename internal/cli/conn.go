@@ -650,7 +650,8 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 			"sqlserver":  "select concat('SQL Server ', serverproperty('ProductVersion'), ' ', serverproperty('Edition'))",
 			"oracle":     "select max(product) || ' ' || max(version_full) from product_component_version",
 			"clickhouse": "select concat('ClickHouse ', version())",
-			"snowflake":  "select 'Snowflake ' || current_version()"}[a.Target.Kind.Name]
+			"snowflake":  "select 'Snowflake ' || current_version()",
+			"bigquery":   "select 'BigQuery'"}[a.Target.Kind.Name]
 		if q != "" {
 			_ = db.QueryRowContext(cctx, q).Scan(&r.Version)
 		}

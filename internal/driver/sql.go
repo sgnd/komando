@@ -96,14 +96,14 @@ type token struct {
 // Each difference from the server's own scanner is a way to hide SQL, so
 // these follow the servers' lexers, not the SQL standard.
 type dialect struct {
-	backslash, dollar, backtick, bracket bool
-	execComments                         bool // MySQL runs the text inside /*! ... */
-	dashSpace                            bool // MySQL: "--" starts a comment only before white space or a control character ("1 --1" is 1 - -1)
-	crComments                           bool // Postgres: a -- comment ends at \r as well as \n
-	execAsCode                           bool // restore: read /*! ... */ as the code MySQL runs instead of refusing it
-	unicodeEsc                           bool // Postgres: U&"..." names and U&'...' strings take \XXXX escapes
-	tsql                                 bool // SQL Server: ]] in [names], nested comments, no statement separator needed (sql_tsql.go)
-	oracle, clickhouse, snowflake        bool // Oracle: q'[...]' quotes, PL/SQL blocks that a / line ends (sql_oracle.go); ClickHouse, Snowflake (sql_*.go)
+	backslash, dollar, backtick, bracket    bool
+	execComments                            bool // MySQL runs the text inside /*! ... */
+	dashSpace                               bool // MySQL: "--" starts a comment only before white space or a control character ("1 --1" is 1 - -1)
+	crComments                              bool // Postgres: a -- comment ends at \r as well as \n
+	execAsCode                              bool // restore: read /*! ... */ as the code MySQL runs instead of refusing it
+	unicodeEsc                              bool // Postgres: U&"..." names and U&'...' strings take \XXXX escapes
+	tsql                                    bool // SQL Server: ]] in [names], nested comments, no statement separator needed (sql_tsql.go)
+	oracle, clickhouse, snowflake, bigquery bool // Oracle: q'[...]' quotes, PL/SQL blocks that a / line ends (sql_oracle.go); ClickHouse, Snowflake, BigQuery (sql_*.go)
 }
 
 var dialects = map[string]dialect{
