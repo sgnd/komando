@@ -269,7 +269,11 @@ check "key revoke removes it" 1 "$($K key revoke leaver direct | jget 'd["data"]
 check "other keys stay" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 $K host add pc "agent@127.0.0.1" --port "$E2E_SSH_DIRECT" --key deploy --proxy-command 'nc %h %p' >/dev/null
 check "proxy command carries ssh" ok "$($K exec pc -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
-check "ssh-command shows the proxy" True "$($K host ssh-command pc | jget '"ProxyCommand=nc %h %p" in d["data"]["argv"]')"
+if sealed; then # pc logs in with a key komando made, sealed in the store
+  check "ssh-command refuses a sealed key" NOT_SUPPORTED "$($K host ssh-command pc | jget 'd["error"]["code"]' || true)"
+else
+  check "ssh-command shows the proxy" True "$($K host ssh-command pc | jget '"ProxyCommand=nc %h %p" in d["data"]["argv"]')"
+fi
 check "proxy and --via do not mix" USAGE "$($K host add pc2 agent@127.0.0.1 --via bastion --proxy-command 'nc %h %p' | jget 'd["error"]["code"]' || true)"
 $K host add ssm1 ec2-user@i-0abc123 --ssm >/dev/null
 check "--ssm sets the AWS proxy" True "$($K host show ssm1 | jget '"AWS-StartSSHSession" in d["data"]["proxy_command"]')"

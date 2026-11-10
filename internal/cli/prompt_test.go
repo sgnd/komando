@@ -119,3 +119,17 @@ func TestPromptIsQuick(t *testing.T) {
 		t.Errorf("50 VPNs and 50 tunnels took %v", d)
 	}
 }
+
+// A sealed folder has no state.json: the prompt still counts what
+// runtime.json holds, tunnels included.
+func TestPromptWithoutStateFile(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	rt := store.Runtime{Tunnels: map[string]*store.Tunnel{"t1": {ID: "t1", PID: os.Getpid()}}}
+	b, _ := json.Marshal(&rt)
+	if err := os.WriteFile(store.Path("runtime.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := promptText(time.Now()); got != "tun:1\n" {
+		t.Fatalf("prompt %q", got)
+	}
+}

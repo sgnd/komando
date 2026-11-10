@@ -54,24 +54,32 @@ starship, in ~/.config/starship.toml:
 // promptText is the note with a newline, or "" when nothing runs or the
 // state cannot be read: a broken prompt is worse than a missing note.
 func promptText(now time.Time) string {
-	b, err := os.ReadFile(store.Path("state.json"))
-	if err != nil {
-		return ""
-	}
+	// state.json gives the settings on a folder of before; a sealed folder
+	// has none to read without its key, so the defaults apply there
 	var st store.State
-	if json.Unmarshal(b, &st) != nil {
+	if b, err := os.ReadFile(store.Path("state.json")); err == nil {
+		if json.Unmarshal(b, &st) != nil {
+			return ""
+		}
+	} else if !os.IsNotExist(err) {
 		return ""
 	}
-	// VPN sessions live in runtime.json; state.json from before may still
-	// hold some
+	// running VPNs and tunnels live in runtime.json; a state.json from
+	// before may still hold some
 	if rb, err := os.ReadFile(store.Path("runtime.json")); err == nil {
 		var rt store.Runtime
 		if json.Unmarshal(rb, &rt) == nil {
 			if st.Sessions == nil {
 				st.Sessions = map[string]*store.VpnSession{}
 			}
+			if st.Tunnels == nil {
+				st.Tunnels = map[string]*store.Tunnel{}
+			}
 			for k, v := range rt.Sessions {
 				st.Sessions[k] = v
+			}
+			for k, v := range rt.Tunnels {
+				st.Tunnels[k] = v
 			}
 		}
 	}
