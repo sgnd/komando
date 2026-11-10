@@ -28,6 +28,10 @@ func WriteManagedKey(name string, private, public []byte) (string, error) {
 	if err := ensureHome(); err != nil {
 		return "", err
 	}
+	// keys/ until the sealed store keeps keys too (S6 commit 6)
+	if err := os.MkdirAll(Path("keys"), 0o700); err != nil {
+		return "", err
+	}
 	p := ManagedKeyPath(name)
 	if err := WriteFileAtomic(p, private, 0o600); err != nil {
 		return "", err

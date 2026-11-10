@@ -30,6 +30,10 @@ func TestMain(m *testing.M) {
 		}
 		return realHome()
 	}
+	// KOMANDO_TEST_SEALED=1 runs every test on a sealed home (S6)
+	if os.Getenv("KOMANDO_TEST_SEALED") == "1" {
+		store.UseSealedForNewHomes(true)
+	}
 	os.Exit(m.Run())
 }
 

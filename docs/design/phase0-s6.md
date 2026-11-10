@@ -50,6 +50,10 @@ byte for byte.
 ## Commits, in order
 
 0. Background processes all read the passphrase with `ReadPassStdin`.
+   Found already true: `tunnel serve` and `vpn serve` read it before their
+   first store read, and the login holder keeps its `PASS` line (its stdin
+   also carries two-factor questions), which hands the passphrase to the
+   same `ReadPassStdin`. No change needed.
 1. `store`: backend choice, lazy `DB()`, the key seam; `sealdb` meta and
    key check.
 2. `vault`: the store key in all three modes.

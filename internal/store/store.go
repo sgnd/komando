@@ -273,6 +273,8 @@ type State struct {
 	// records themselves, and everything that prints or exports them, stay
 	// as they were.
 	IDs map[string]map[string]Rec `json:"ids,omitempty"`
+
+	settingsRec Rec // the settings record in the sealed store
 }
 
 func Home() string {
@@ -295,6 +297,9 @@ func ensureHome() error {
 	if err := os.MkdirAll(Home(), 0o700); err != nil {
 		return err
 	}
+	if Sealed() {
+		return nil // keys live in the store
+	}
 	return os.MkdirAll(Path("keys"), 0o700)
 }
 
@@ -302,6 +307,9 @@ func statePath() string { return Path("state.json") }
 
 // Load reads state. Callers that mutate must use Update for locking.
 func Load() (*State, error) {
+	if Sealed() {
+		return loadFromStore()
+	}
 	if err := ensureHome(); err != nil {
 		return nil, err
 	}
@@ -398,6 +406,9 @@ func Update(fn func(s *State) error) error {
 			return err
 		}
 		return fn(s)
+	}
+	if Sealed() {
+		return updateStore(fn)
 	}
 	if err := ensureHome(); err != nil {
 		return err

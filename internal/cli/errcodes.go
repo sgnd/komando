@@ -218,6 +218,7 @@ var errorCodes = []errorCode{
 	{"STORAGE_CONNECT", 4, "komando could not reach the bucket or file server", "run `komando conn test NAME` to check reachability"},
 	{"STORAGE_ERROR", 5, "the file is in use", "another program has the file open; close it there and try again"},
 	{"STORAGE_TLS", 4, "the storage server's TLS certificate does not verify", "if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL"},
+	{"STORE_NEWER", 1, "… was made by a newer komando", "update komando: a newer komando made or changed this store"},
 	{"STREAM_EXISTS", 8, "stream … already exists", "pick another name, or see it with `komando queue describe CONN …`"},
 	{"STREAM_NOT_FOUND", 3, "stream … does not exist", "list streams with `komando queue ls CONN`"},
 	{"SUBSCRIPTION_EXISTS", 8, "subscription … already exists", "pick another name, or see it with `komando queue describe CONN subscriptions/…`"},
