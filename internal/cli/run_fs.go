@@ -88,7 +88,7 @@ func (r lsResult) Text() string {
 	for _, e := range es {
 		name := e.Name
 		if r.recursive {
-			name = strings.TrimPrefix(strings.TrimPrefix(e.Path, r.Path), "/")
+			name = strings.TrimLeft(strings.TrimPrefix(e.Path, r.Path), `/\`) // Windows paths have \
 		}
 		if e.Type == "dir" {
 			name += "/"
@@ -123,7 +123,9 @@ func lsMode(e fileInfo) string {
 		t = "?"
 	}
 	m, err := strconv.ParseUint(e.Mode, 8, 32)
-	if err != nil {
+	if err != nil && e.Mode != "" {
+		return e.Mode // Windows: attributes as PowerShell shows them (d-a---)
+	} else if err != nil {
 		return t + "?????????"
 	}
 	return t + os.FileMode(m).Perm().String()[1:]

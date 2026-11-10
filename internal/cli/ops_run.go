@@ -34,6 +34,10 @@ type opsSpec struct {
 	preview string
 	// timeoutAtLeast raises the command timeout (svc --wait)
 	timeoutAtLeast time.Duration
+	// win is the PowerShell the command runs on Windows servers (empty:
+	// the command does not work there), and winParse reads its result
+	win      string
+	winParse func(h *store.Host, r *sshx.RunResult) (any, *out.Error)
 }
 
 type opsRow struct {
@@ -126,11 +130,14 @@ func runOps(ctx context.Context, spec opsSpec) error {
 	if err != nil {
 		return err
 	}
+	if ctx, err = windowsGate(ctx, spec.name, hosts, spec.win != ""); err != nil {
+		return err
+	}
 	shown := spec.command
 	if spec.display != "" {
 		shown = spec.display
 	}
-	guardErr := guard(st, hosts, spec.command, spec.mutating)
+	guardErr := guard(st, hosts, strings.TrimSpace(spec.command+"\n"+spec.win), spec.mutating)
 	if guardErr != nil && !g.dryRun {
 		audit(st, spec.name, hostNames(hosts), shown, false, map[string]any{"blocked": toErr(guardErr).Code})
 		return guardErr
@@ -138,24 +145,20 @@ func runOps(ctx context.Context, spec opsSpec) error {
 	command := spec.command
 	if g.dryRun {
 		if spec.preview == "" {
-			plans := []map[string]any{}
-			for _, h := range hosts {
-				plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": shown, "sudo": spec.sudo})
-			}
-			res := map[string]any{"would_run": plans}
-			if guardErr != nil {
-				res["would_be_blocked"] = toErr(guardErr)
-			} else if b := out.P.Blocked(); b != nil {
-				res["would_be_blocked"] = b
-			}
-			out.P.Print(spec.name, res, nil)
+			opsDryRun(spec, hosts, shown, guardErr)
 			return nil
 		}
 		command = spec.preview // read-only: shows what would change
 	}
 	timeout := max(cmdTimeout(st), spec.timeoutAtLeast)
 	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-		return sshx.Run(ctx, c, sshx.RunRequest{Command: command, Sudo: spec.sudo, Timeout: timeout, MaxOutput: maxOutput(st)})
+		cmd := command
+		if c.Host.Windows() && g.dryRun { // a preview: never run the change itself
+			return nil, notOnWindows("a --dry-run preview of "+commandWord(spec.name), []string{c.Host.Name})
+		} else if c.Host.Windows() {
+			cmd = spec.win
+		}
+		return sshx.Run(ctx, c, sshx.RunRequest{Command: cmd, Sudo: spec.sudo, Timeout: timeout, MaxOutput: maxOutput(st)})
 	})
 	data := opsData{Command: shown, DryRun: g.dryRun, Results: []opsRow{}}
 	worst := 0
@@ -173,8 +176,8 @@ func runOps(ctx context.Context, spec opsSpec) error {
 				s := rr.Stdout
 				r.Stdout = &s
 			}
-			if spec.parse != nil {
-				d, perr := spec.parse(o.Host, rr)
+			if parse := opsParser(spec, o.Host); parse != nil {
+				d, perr := parse(o.Host, rr)
 				r.Error = perr
 				if w, ok := d.(opsWarnings); ok {
 					r.Warnings, d = w.warnings, w.data
@@ -225,6 +228,29 @@ func runOps(ctx context.Context, spec opsSpec) error {
 	}
 	// the same closing as exec: each failed server with its own error and hint
 	return finishFleet(spec.name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+}
+
+// opsDryRun is runOps' --dry-run without a preview: what would run where.
+func opsDryRun(spec opsSpec, hosts []*store.Host, shown string, guardErr error) {
+	plans := []map[string]any{}
+	for _, h := range hosts {
+		plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": shown, "sudo": spec.sudo && !h.Windows()})
+	}
+	res := map[string]any{"would_run": plans}
+	if guardErr != nil {
+		res["would_be_blocked"] = toErr(guardErr)
+	} else if b := out.P.Blocked(); b != nil {
+		res["would_be_blocked"] = b
+	}
+	out.P.Print(spec.name, res, nil)
+}
+
+// opsParser is the parser of spec's result on host h.
+func opsParser(spec opsSpec, h *store.Host) func(h *store.Host, r *sshx.RunResult) (any, *out.Error) {
+	if h.Windows() && spec.winParse != nil {
+		return spec.winParse
+	}
+	return spec.parse
 }
 
 // opsWarnings lets a parser attach warnings (shown on stderr in text mode)

@@ -14,7 +14,7 @@ import (
 // testRound tests every target of sel once, in parallel.
 func testRound(ctx context.Context, st *store.State, sel selection) []targetTest {
 	var res []targetTest
-	for _, o := range fanout(ctx, st, sel.Hosts, testHost) {
+	for _, o := range fanout(allowWindows(ctx), st, sel.Hosts, testHost) {
 		r := targetTest{Name: o.Host.Name, Kind: "host"}
 		if o.Err != nil {
 			r.Error = fixTestError(st, o.Host.Name, toErr(o.Err))

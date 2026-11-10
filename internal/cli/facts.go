@@ -152,7 +152,10 @@ type pendingUpdates struct {
 // staleIndexDays is when an old package index earns a warning.
 const staleIndexDays = 7
 
-func parseFacts(_ *store.Host, s string) (any, error) {
+func parseFacts(h *store.Host, s string) (any, error) {
+	if h.Windows() {
+		return parseWinFacts(s, time.Now()), nil
+	}
 	return parseFactsAt(s, time.Now()), nil
 }
 
@@ -562,6 +565,10 @@ updates (Ubuntu ESM, Debian LTS, end of life), pending and security updates
 (from the server's package index, which it does not refresh), a needed
 reboot, passwordless sudo, Docker and the Swarm role, PM2 apps, listening
 ports and services added by hand under /etc/systemd/system.
+
+On Windows servers it reports the Windows version and its support dates,
+pending updates from the Windows Update cache, a pending reboot, stopped
+automatic services and listening ports.
 
 It only reads, and it uses sudo only when sudo works without a password.
 A value komando cannot read is null ("unknown"), never 0 or false; read

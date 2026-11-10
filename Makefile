@@ -8,7 +8,7 @@ GOVULNCHECK := v1.9.0
 
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
-.PHONY: help build install test cover security fuzz e2e e2e-openvpn e2e-vpnclients e2e-ipsec lint licenses dist clean
+.PHONY: help build install test cover security fuzz e2e e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses dist clean
 
 help: ## Show this help
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -36,6 +36,9 @@ e2e-ipsec: ## komando's own L2TP/IPsec, Cisco IPsec (XAUTH) and IKEv2 clients ag
 
 e2e-vpnclients: ## built-in AnyConnect (ocserv) and Tailscale (Headscale) against real servers, in Docker
 	test/e2e/vpnclients/run.sh
+
+e2e-windows: ## komando's PowerShell for Windows servers, run for real in a PowerShell 7 container of its own
+	test/windows/run.sh
 
 security: ## Known vulnerabilities in the code and its modules (govulncheck)
 	go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK) ./...

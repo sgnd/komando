@@ -141,6 +141,9 @@ func matchSelector(st *store.State, sel string) (selection, error) {
 	if k, ok := strings.CutPrefix(sel, "kind:"); ok {
 		return matchKind(st, k)
 	}
+	if o, ok := strings.CutPrefix(sel, "os:"); ok {
+		return matchOS(st, o)
+	}
 	if hs, ok := matchPattern(st.SortedHosts(), hostAttrs, sel); ok {
 		cs, _ := matchPattern(st.SortedConns(), connAttrs, sel)
 		vs, _ := matchPattern(st.SortedVpns(), vpnAttrs, sel)
@@ -570,4 +573,20 @@ func singleConn(st *store.State, expr, family string) (*store.Conn, error) {
 		return nil, err
 	}
 	return match[0], nil
+}
+
+// matchOS picks servers by their OS: os:windows, or os:linux for every
+// other server (Linux and the other Unixes).
+func matchOS(st *store.State, o string) (selection, error) {
+	o = strings.ToLower(o)
+	if o != store.OSWindows && o != "linux" {
+		return selection{}, out.Usage("unknown OS %q: use os:windows or os:linux", o)
+	}
+	var hs []*store.Host
+	for _, h := range st.SortedHosts() {
+		if osAttr(h) == o {
+			hs = append(hs, h)
+		}
+	}
+	return selection{Hosts: hs}, nil
 }

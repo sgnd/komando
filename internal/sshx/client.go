@@ -34,6 +34,9 @@ type Options struct {
 	Fresh bool
 
 	scan *ssh.PublicKey // FetchHostKey: record the target's key, do not log in
+	// WinRM lets Dial reach a server over WinRM: the caller only runs
+	// PowerShell through Run and RunPS (no SSH sessions, no tunnels)
+	WinRM bool
 }
 
 // Client wraps an ssh.Client plus the path of jump hosts it came through
@@ -46,10 +49,26 @@ type Client struct {
 	once  sync.Once
 	// silent: the keepalive got no answer and closed the connection
 	silent atomic.Bool
+	// Win carries the commands of a Windows server reached over WinRM;
+	// such a Client has no SSH connection (Client is nil)
+	Win WinShell
+}
+
+// WinShell runs one command on a Windows server over WinRM
+// (internal/winrm).
+type WinShell interface {
+	Run(ctx context.Context, command string, stdin io.Reader, stdout, stderr io.Writer) (int, error)
+	Close() error
 }
 
 func (c *Client) Close() error {
-	err := c.Client.Close()
+	var err error
+	if c.Client != nil {
+		err = c.Client.Close()
+	}
+	if c.Win != nil {
+		err = c.Win.Close()
+	}
 	c.once.Do(func() {
 		if c.chain != nil {
 			c.chain.release()
@@ -65,6 +84,9 @@ func (c *Client) Close() error {
 // VPN; it is opened inside this process. The jump hosts are shared with
 // other servers behind them (one login per jump host per command).
 func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Client, error) {
+	if h.WinRM() {
+		return dialWinRM(ctx, st, h, o)
+	}
 	if c := useHeld(ctx, st, h, o); c != nil {
 		cl := &Client{Client: c, Host: h}
 		go keepalive(cl)
@@ -79,21 +101,8 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 	}
 	target := hops[len(hops)-1]
 	jumps := hops[:len(hops)-1]
-	jo := o // jump hosts are logged in to as usual, even when only the target's key is fetched
-	jo.scan = nil
-	openVPN := func() (netx.Dialer, io.Closer, error) {
-		first := (&net.Dialer{Timeout: o.ConnectTimeout}).DialContext
-		if vpn == nil {
-			return first, nil, nil
-		}
-		d, c, err := netx.Open(ctx, vpn, o.ConnectTimeout)
-		if err != nil {
-			return nil, nil, err
-		}
-		return d, c, nil
-	}
 	if len(jumps) == 0 {
-		first, vpnCloser, err := openVPN()
+		first, vpnCloser, err := openFirst(ctx, vpn, o)
 		if err != nil {
 			return nil, err
 		}
@@ -108,35 +117,8 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 		go keepalive(cl)
 		return cl, nil
 	}
-	key := chainKey(vpn, jumps)
 	for attempt := 0; ; attempt++ {
-		sc, err := acquireChain(key, func() ([]*ssh.Client, io.Closer, error) {
-			first, vpnCloser, err := openVPN()
-			if err != nil {
-				return nil, nil, err
-			}
-			var chain []*ssh.Client
-			closeAll := func() {
-				for i := len(chain) - 1; i >= 0; i-- {
-					chain[i].Close()
-				}
-				if vpnCloser != nil {
-					vpnCloser.Close()
-				}
-			}
-			var prev *ssh.Client
-			for _, hop := range jumps {
-				c, err := dialHop(ctx, st, hop, jo, first, prev, vpn != nil || prev != nil)
-				if err != nil {
-					closeAll()
-					return nil, nil, err
-				}
-				chain = append(chain, c)
-				prev = c
-			}
-			go keepaliveChain(chain[0])
-			return chain, vpnCloser, nil
-		})
+		sc, err := openJumps(ctx, st, vpn, jumps, o)
 		if err != nil {
 			return nil, err
 		}
@@ -196,6 +178,10 @@ func keepaliveChain(c *ssh.Client) {
 // first (direct or a VPN), or with the host's own proxy (SSM, a proxy
 // command), which can only start a path.
 func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, first netx.Dialer, prev *ssh.Client, reached bool) (*ssh.Client, error) {
+	if hop.WinRM() {
+		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "take "+hop.Name+" out of the --via path: only SSH servers carry other connections",
+			"%s is reached over WinRM, which cannot carry other connections", hop.Name)
+	}
 	if c := useHeld(ctx, st, hop, o); c != nil {
 		return c, nil // a jump host a person logged in to with `komando login`
 	}

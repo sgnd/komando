@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -291,3 +292,49 @@ sso_region = eu-west-1
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+func TestGCPAccessTokenErrors(t *testing.T) {
+	saved := gcpCredentials
+	defer func() { gcpCredentials = saved }()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("APPDATA", home)
+	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+	gcpCredentials = func(context.Context) (*google.Credentials, error) {
+		return nil, errors.New("could not find default credentials")
+	}
+	if _, err := GCPAccessToken(context.Background()); !errors.Is(err, ErrGCPLogin) || !errors.Is(err, ErrGCPNoCredentials) {
+		t.Errorf("no credentials: %v", err)
+	}
+	// a key file that is set but missing is a broken login, not none
+	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", filepath.Join(home, "missing.json"))
+	gcpCredentials = saved
+	if _, err := GCPAccessToken(context.Background()); !errors.Is(err, ErrGCPLogin) || errors.Is(err, ErrGCPNoCredentials) {
+		t.Errorf("a missing key file: %v", err)
+	}
+	// so is a gcloud login file that does not parse
+	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+	adc := filepath.Join(home, ".config", "gcloud")
+	if runtime.GOOS == "windows" {
+		adc = filepath.Join(home, "gcloud")
+	}
+	if err := os.MkdirAll(adc, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(adc, "application_default_credentials.json"), []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := GCPAccessToken(context.Background()); !errors.Is(err, ErrGCPLogin) || errors.Is(err, ErrGCPNoCredentials) {
+		t.Errorf("a broken gcloud login: %v", err)
+	}
+	gcpCredentials = func(context.Context) (*google.Credentials, error) {
+		return &google.Credentials{TokenSource: failingSource{}}, nil
+	}
+	if _, err := GCPAccessToken(context.Background()); !errors.Is(err, ErrGCPLogin) || errors.Is(err, ErrGCPNoCredentials) {
+		t.Errorf("a login that fails: %v", err)
+	}
+}
+
+type failingSource struct{}
+
+func (failingSource) Token() (*oauth2.Token, error) { return nil, errors.New("invalid_grant") }

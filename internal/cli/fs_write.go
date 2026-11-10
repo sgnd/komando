@@ -386,6 +386,8 @@ func fsWriteCmd() *cobra.Command {
 			h, err := oneServer(st, args[0], "to put one file on many servers use `komando upload "+args[0]+" FILE PATH`")
 			if err != nil {
 				return err
+			} else if h.Windows() {
+				return winFsWrite(cmd.Context(), st, h, args[1], data, o, appendMode, ifChanged)
 			}
 			if err := checkValidate(o.validate); err != nil {
 				return err
@@ -397,45 +399,7 @@ func fsWriteCmd() *cobra.Command {
 				return err
 			}
 			if g.dryRun {
-				// read the current file (read-only) so the preview shows the change
-				res := fsChange{"host": h.Name, "path": args[1], "bytes": len(data), "append": appendMode, "sudo": o.sudo}
-				err := withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
-					sc, err := sftpClient(c)
-					if err != nil {
-						return err
-					}
-					defer sc.Close()
-					p := expandRemote(sc, args[1])
-					res["path"] = p
-					if t, err := resolveLink(sc, p); err == nil && t != p {
-						if o.noFollow {
-							return isASymlink(p)
-						}
-						res["followed"] = t
-					}
-					old, trunc, rerr := readRemote(cmd.Context(), c, sc, p, o.sudo, 1<<20)
-					switch {
-					case rerr != nil && toErr(rerr).Code == "PATH_NOT_FOUND":
-						old, res["exists"] = nil, false
-					case rerr != nil:
-						return rerr
-					case trunc || !utf8.Valid(old) || !utf8.Valid(data):
-						res["diff_skipped"] = "file larger than 1 MiB or not text"
-						return nil
-					}
-					updated := data
-					if appendMode {
-						updated = append(append([]byte(nil), old...), data...)
-					}
-					res["would_change"] = !sameForAgent(old, updated)
-					res["diff"] = unifiedDiff(string(old), string(updated), 3)
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				out.P.Print("fs.write", res, nil)
-				return nil
+				return fsWritePreview(cmd.Context(), st, h, args[1], data, appendMode, o)
 			}
 			var res fsChange
 			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
@@ -485,6 +449,49 @@ func fsWriteCmd() *cobra.Command {
 	c.Flags().BoolVar(&ifChanged, "if-changed", false, "skip the write when the content is the same (safe to run again)")
 	bindWriteOpts(c, &o)
 	return c
+}
+
+// fsWritePreview is fs write --dry-run: it reads the current file (only
+// reads) so the preview shows the change.
+func fsWritePreview(ctx context.Context, st *store.State, h *store.Host, p0 string, data []byte, appendMode bool, o writeOpts) error {
+	res := fsChange{"host": h.Name, "path": p0, "bytes": len(data), "append": appendMode, "sudo": o.sudo}
+	err := withClient(ctx, st, h, func(c *sshx.Client) error {
+		sc, err := sftpClient(c)
+		if err != nil {
+			return err
+		}
+		defer sc.Close()
+		p := expandRemote(sc, p0)
+		res["path"] = p
+		if t, err := resolveLink(sc, p); err == nil && t != p {
+			if o.noFollow {
+				return isASymlink(p)
+			}
+			res["followed"] = t
+		}
+		old, trunc, rerr := readRemote(ctx, c, sc, p, o.sudo, 1<<20)
+		switch {
+		case rerr != nil && toErr(rerr).Code == "PATH_NOT_FOUND":
+			old, res["exists"] = nil, false
+		case rerr != nil:
+			return rerr
+		case trunc || !utf8.Valid(old) || !utf8.Valid(data):
+			res["diff_skipped"] = "file larger than 1 MiB or not text"
+			return nil
+		}
+		updated := data
+		if appendMode {
+			updated = append(append([]byte(nil), old...), data...)
+		}
+		res["would_change"] = !sameForAgent(old, updated)
+		res["diff"] = unifiedDiff(string(old), string(updated), 3)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	out.P.Print("fs.write", res, nil)
+	return nil
 }
 
 func bindWriteOpts(c *cobra.Command, o *writeOpts) {

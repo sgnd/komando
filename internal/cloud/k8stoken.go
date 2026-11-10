@@ -3,7 +3,11 @@ package cloud
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -54,16 +58,46 @@ func EKSToken(ctx context.Context, profile, region, cluster, roleARN string) (st
 	return "k8s-aws-v1." + base64.RawURLEncoding.EncodeToString([]byte(req.URL)), nil
 }
 
+// ErrGCPNoCredentials is wrapped, with ErrGCPLogin, when no Google
+// credentials were found at all (not one that failed).
+var ErrGCPNoCredentials = errors.New("none found")
+
 // GCPAccessToken is an OAuth access token from the application-default
-// credentials, as gke-gcloud-auth-plugin gives GKE.
+// credentials, as gke-gcloud-auth-plugin gives GKE and `gcloud auth
+// print-access-token` a registry login.
 func GCPAccessToken(ctx context.Context) (string, error) {
 	creds, err := gcpCredentials(ctx)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrGCPLogin, err)
+		if gcpCredentialsSet() {
+			// a key file or gcloud login that is there but broken
+			return "", fmt.Errorf("%w: %v", ErrGCPLogin, err)
+		}
+		return "", fmt.Errorf("%w (%w): %v", ErrGCPLogin, ErrGCPNoCredentials, err)
 	}
 	t, err := creds.TokenSource.Token()
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrGCPLogin, err)
 	}
 	return t.AccessToken, nil
+}
+
+// gcpCredentialsSet says whether Google credentials are set up on this
+// computer: GOOGLE_APPLICATION_CREDENTIALS, or the file that `gcloud auth
+// application-default login` writes, where the Google library looks for it.
+// Then a lookup that fails means they are broken, not missing.
+func gcpCredentialsSet() bool {
+	if os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") != "" {
+		return true
+	}
+	var dir string
+	if runtime.GOOS == "windows" {
+		dir = os.Getenv("APPDATA")
+	} else if dir = os.Getenv("HOME"); dir == "" {
+		dir, _ = os.UserHomeDir()
+	}
+	if runtime.GOOS != "windows" {
+		dir = filepath.Join(dir, ".config")
+	}
+	_, err := os.Stat(filepath.Join(dir, "gcloud", "application_default_credentials.json"))
+	return err == nil
 }

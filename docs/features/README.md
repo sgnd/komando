@@ -24,6 +24,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | Feature | What you can do | Commands |
 |---------|-----------------|----------|
 | [Servers](servers.md) | add servers, log in with keys, passwords or your password manager | `host`, `key`, `secret`, `login` |
+| [Windows servers](windows.md) | run PowerShell, files, copies and services on Windows servers | `host add --os windows`, `exec`, `svc` |
 | [Moving in and moving computers](import.md) | import ssh config, .pgpass, my.cnf, .env; export to another computer | `import`, `export` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |
 | [Running commands](commands.md) | run commands and scripts, long tasks, saved commands, the menu | `exec`, `script`, `job`, `recipe`, `shell` |

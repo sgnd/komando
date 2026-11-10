@@ -20,3 +20,4 @@ internal/sslvpn 74
 internal/store 46
 internal/storex 32
 internal/vault 63
+internal/winrm 84

@@ -29,6 +29,22 @@ its highlights; the sections below them give the details. Versions follow
   the pre-shared key (l2tp, ipsec, ikev2) once, hidden, as with `host add`;
   they are stored as `secret:NAME-pass` and `secret:NAME-psk`. AI agents get
   `NEEDS_PERSON`.
+- **Windows servers over OpenSSH:** `komando host add win1
+  Administrator@10.0.0.9 --os windows` marks a Windows server. komando then
+  runs PowerShell there: `test`, `exec`, `script`, `facts` (Windows version
+  and support dates, updates, pending reboot, ports), `fs ls/stat/cat/write`,
+  `upload`, `download`, `cp` (single files), `svc
+  status/list/start/stop/restart/enable/disable` and `shell` work; other
+  commands stop with `NOT_SUPPORTED` and a hint before anything runs. See
+  docs/features/windows.md.
+- **Windows servers over WinRM:** `komando host add win2
+  winrm://Administrator@10.0.0.9 --ask-password` reaches a Windows server
+  through WinRM (what Ansible uses) with komando's own client: HTTPS on
+  port 5986 with the certificate checked (`?ca=secret:NAME` for a private
+  CA, `?tls=skip-verify` only when asked), NTLM login (`?auth=basic` for
+  local accounts), `--via` bastions and VPNs. The same Windows commands
+  work as over OpenSSH.
+- `os:windows` and `os:linux` target selectors.
 
 ### Changed
 
@@ -46,6 +62,51 @@ its highlights; the sections below them give the details. Versions follow
 - The docs no longer claim more than the code does: secrets are hidden from
   agents komando recognises, and several design docs named flags, commands
   and error codes that do not exist.
+
+### Security
+
+- Windows forms of the destructive rules: a recursive delete of the system
+  drive or a system folder, formatting disks, `Stop-Computer`,
+  `Restart-Computer`, stopping SSH or WinRM, blocking all incoming traffic,
+  deleting users, hidden (`-EncodedCommand`) or downloaded scripts,
+  deleting shadow copies, and deleting a registry hive need
+  `--allow-dangerous`. `exec --read-only` and `script --read-only` on
+  Windows servers fail closed: they accept only a small subset of
+  PowerShell that komando reads exactly (pipelines of listed read cmdlets
+  with literal arguments and safe parameters, and simple `Where-Object`
+  and `ForEach-Object` blocks) and refuse everything else, such as `$`,
+  backticks, `@`, `&`, redirection, comments, .NET calls, keywords and
+  characters outside ASCII. See docs/features/windows.md.
+- A command komando cannot run on Windows is refused for every Windows
+  server, so a sh script is never sent to PowerShell.
+- WinRM refuses Basic login over plain HTTP (the password would travel
+  unencrypted) and warns about `tls=off` and `tls=skip-verify`.
+- `azure-kv:VAULT/NAME[#JSON_KEY]` reads a secret from Azure Key Vault,
+  everywhere a `--password-ref` or another secret reference is taken
+  (`azure-kv:shop-vault/db-password`, or `.../NAME/VERSION` for an older
+  version). komando signs in to Azure itself, without the `az` program: with
+  a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`,
+  `AZURE_CLIENT_SECRET`), a workload identity on AKS, a token the Azure CLI
+  saved while it lasts, or the managed identity on Azure. The token goes
+  only to Key Vault hosts, and komando keeps no token.
+- A registry conn for Azure Container Registry
+  (`registry://myregistry.azurecr.io`) without `--password-ref` logs in with
+  your Azure login, as `az acr login` does: komando trades an Azure token for
+  a fresh registry login each time, like it already does for Amazon ECR. It
+  uses the same Azure logins as `azure-kv:`. Without one, the error is
+  `AZURE_LOGIN_REQUIRED`. The Azure token is good for the whole
+  subscription, so it goes only over https with the registry's certificate
+  checked: a conn with `?tls=false` or `?tls=skip-verify` needs
+  `--password-ref`.
+- Registry conns for Google Artifact Registry (`REGION-docker.pkg.dev`) and
+  Container Registry (`gcr.io`, `eu.gcr.io`, `us.gcr.io`, `asia.gcr.io`)
+  without `--password-ref` log in with your Google login: komando gets a
+  fresh access token each time and logs in as `oauth2accesstoken`, as
+  `gcloud auth configure-docker` does, with the credentials it already uses
+  for `gs://` storage and `gcp-sm:`. With no Google login at all, public
+  images are read without one; an expired login, or a key file that is set
+  but missing or broken, gives `GCP_LOGIN_REQUIRED`.
+  The token goes only over https with the registry's certificate checked.
 
 ## [0.8.0] - 2026-11-09
 

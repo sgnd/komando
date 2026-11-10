@@ -114,7 +114,7 @@ func keepValue(name, v string) bool {
 	// URLs (a URL with a password in it is hidden by urlPw), and komando's
 	// own hints: "save its password: `komando secret set web1-pass`" names
 	// the command to run, which no password starts with
-	for _, p := range []string{"[hidden", "[secret:", "secret:", "env:", "file:", "op://", "vault:", "aws-sm:", "gcp-sm:", "${", "$(", "<", "{", "[", "/", "./", "http://", "https://", "`komando"} {
+	for _, p := range []string{"[hidden", "[secret:", "secret:", "env:", "file:", "op://", "vault:", "aws-sm:", "gcp-sm:", "azure-kv:", "${", "$(", "<", "{", "[", "/", "./", "http://", "https://", "`komando"} {
 		if strings.HasPrefix(lv, p) {
 			return true
 		}

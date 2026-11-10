@@ -47,6 +47,8 @@ servers themselves, point them to the menu.
    To read a command's output, add `-o text` (`komando exec web1 --read-only
    -o text -- cat FILE`). Keep JSON when you branch on each server's exit
    code or error, or need to know whether output was cut (`stdout_truncated`).
+   On a Windows server (`os:windows`) commands are PowerShell, there is no
+   sudo, and commands komando cannot run there stop with `NOT_SUPPORTED`.
 2. **Dry-run every change first.** A dry run is never stopped: on a
    protected target or a destructive command it still shows the plan, and
    `meta.would_be_blocked` names the stop the real run would hit, so you can
