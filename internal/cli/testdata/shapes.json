@@ -52,6 +52,7 @@
       "files": {
         "audit": "string",
         "known_hosts": "string",
+        "runtime": "string",
         "state": "string",
         "vault": "string"
       },

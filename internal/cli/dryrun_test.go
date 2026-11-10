@@ -24,10 +24,12 @@ func TestDryRunChangesNothing(t *testing.T) {
 	if err := run("conn", "add", "db1", "postgres://app@10.0.0.2/app"); err != nil {
 		t.Fatal(err)
 	}
-	before, err := os.ReadFile(store.Path("state.json"))
-	if err != nil {
-		t.Fatal(err)
+	files := func() string {
+		b, _ := os.ReadFile(store.Path("state.json"))
+		rt, _ := os.ReadFile(store.Path("runtime.json"))
+		return string(b) + "\x00" + string(rt)
 	}
+	before := files()
 	for _, args := range [][]string{
 		{"host", "add", "web2", "deploy@10.0.0.3"},
 		{"host", "edit", "web1", "--add-tag", "canary"},
@@ -41,9 +43,8 @@ func TestDryRunChangesNothing(t *testing.T) {
 		if err := run(append([]string{"--dry-run"}, args...)...); err != nil {
 			t.Errorf("%v --dry-run: %v", args, err)
 		}
-		after, _ := os.ReadFile(store.Path("state.json"))
-		if string(after) != string(before) {
-			t.Fatalf("%v --dry-run changed state.json", args)
+		if files() != before {
+			t.Fatalf("%v --dry-run changed state.json or runtime.json", args)
 		}
 	}
 	if _, err := os.Stat(store.Path("keys", "k1")); !os.IsNotExist(err) {

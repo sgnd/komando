@@ -3,6 +3,7 @@
 package store
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"os"
@@ -256,16 +257,16 @@ type SSHLogin struct {
 }
 
 type State struct {
-	Hosts    map[string]*Host       `json:"hosts"`
-	Conns    map[string]*Conn       `json:"conns,omitempty"`
-	Vpns     map[string]*Vpn        `json:"vpns,omitempty"`
-	Sessions map[string]*VpnSession `json:"vpn_sessions,omitempty"`
-	Logins   map[string]*SSHLogin   `json:"ssh_logins,omitempty"`
-	Keys     map[string]*Key        `json:"keys"`
-	Snippets map[string]*Snippet    `json:"snippets"`
-	Jobs     map[string]*Job        `json:"jobs"`
-	Tunnels  map[string]*Tunnel     `json:"tunnels"`
-	Settings Settings               `json:"settings"`
+	Hosts    map[string]*Host    `json:"hosts"`
+	Conns    map[string]*Conn    `json:"conns,omitempty"`
+	Vpns     map[string]*Vpn     `json:"vpns,omitempty"`
+	Keys     map[string]*Key     `json:"keys"`
+	Snippets map[string]*Snippet `json:"snippets"`
+	// Runtime data (VPN sessions, logins, jobs, tunnels) lives in its own
+	// file (runtime.go); state.json from before keeps it here, and the next
+	// change moves it.
+	Runtime
+	Settings Settings `json:"settings"`
 
 	// IDs keeps each record's identity (Rec) by kind and name. It is filled
 	// from the records on save and given back to them on load, so the
@@ -321,6 +322,9 @@ func Load() (*State, error) {
 	}
 	s.init()
 	s.loadRecs()
+	if err := s.loadRuntime(); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -340,24 +344,13 @@ func (s *State) init() {
 	if s.Vpns == nil {
 		s.Vpns = map[string]*Vpn{}
 	}
-	if s.Sessions == nil {
-		s.Sessions = map[string]*VpnSession{}
-	}
-	if s.Logins == nil {
-		s.Logins = map[string]*SSHLogin{}
-	}
 	if s.Keys == nil {
 		s.Keys = map[string]*Key{}
 	}
 	if s.Snippets == nil {
 		s.Snippets = map[string]*Snippet{}
 	}
-	if s.Jobs == nil {
-		s.Jobs = map[string]*Job{}
-	}
-	if s.Tunnels == nil {
-		s.Tunnels = map[string]*Tunnel{}
-	}
+	s.Runtime.init()
 	d := DefaultSettings()
 	if s.Settings.HostKeyPolicy == "" {
 		s.Settings.HostKeyPolicy = d.HostKeyPolicy
@@ -409,28 +402,52 @@ func Update(fn func(s *State) error) error {
 	if err := ensureHome(); err != nil {
 		return err
 	}
+	// always this order: the inventory lock, then the runtime lock
 	unlock, err := Lock(".lock")
 	if err != nil {
 		return err
 	}
 	defer unlock()
+	unlockRT, err := Lock(runtimeLock)
+	if err != nil {
+		return err
+	}
+	defer unlockRT()
 	s, err := Load()
 	if err != nil {
 		return err
 	}
 	before := s.recSnapshot()
+	rtBefore, err := json.Marshal(&s.Runtime)
+	if err != nil {
+		return err
+	}
 	if err := fn(s); err != nil {
 		return err
 	}
 	if err := s.bumpRecs(before); err != nil {
 		return err
 	}
+	rtAfter, err := json.Marshal(&s.Runtime)
+	if err != nil {
+		return err
+	}
+	// runtime first: after a crash between the two, runtime.json is
+	// already the record and loadRuntime ignores what state.json still has
+	if s.legacyRuntime || !bytes.Equal(rtBefore, rtAfter) {
+		if err := s.saveRuntime(); err != nil {
+			return err
+		}
+	}
 	return s.save()
 }
 
 func (s *State) save() error {
 	s.saveRecs()
-	b, err := json.MarshalIndent(s, "", "  ")
+	// state.json holds no runtime data
+	inv := *s
+	inv.Runtime = Runtime{}
+	b, err := json.MarshalIndent(&inv, "", "  ")
 	if err != nil {
 		return err
 	}

@@ -115,7 +115,7 @@ func looseFiles() []string {
 		}
 	}
 	check(store.Home())
-	for _, f := range []string{"state.json", "vault.json", "vault.key", "audit.jsonl", "known_hosts"} {
+	for _, f := range []string{"state.json", "runtime.json", "vault.json", "vault.key", "audit.jsonl", "known_hosts"} {
 		check(store.Path(f))
 	}
 	keys, _ := filepath.Glob(store.Path("keys", "*"))

@@ -245,7 +245,7 @@ point your database app or psql at the local address it prints. With a server, g
 				return err
 			}
 			t := &store.Tunnel{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, LogFile: logPath, StartedAt: time.Now().UTC()}
-			if err := store.Update(func(s *store.State) error { s.Tunnels[id] = t; return nil }); err != nil {
+			if err := store.UpdateRuntime(func(s *store.State) error { s.Tunnels[id] = t; return nil }); err != nil {
 				return err
 			}
 			self, err := os.Executable()
@@ -273,7 +273,7 @@ point your database app or psql at the local address it prints. With a server, g
 			lf.Close()
 			pid := p.Process.Pid
 			_ = p.Process.Release()
-			_ = store.Update(func(s *store.State) error {
+			_ = store.UpdateRuntime(func(s *store.State) error {
 				if x, ok := s.Tunnels[id]; ok {
 					x.PID = pid
 				}
@@ -295,7 +295,7 @@ point your database app or psql at the local address it prints. With a server, g
 					return nil
 				}
 				if i := strings.Index(s, "ERROR "); i >= 0 {
-					_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
+					_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, id); return nil })
 					msg := strings.TrimSpace(s[i+6:])
 					if strings.Contains(msg, "address already in use") {
 						return portInUse(ts.BindAddr, "this computer", errors.New(msg))
@@ -309,7 +309,7 @@ point your database app or psql at the local address it prints. With a server, g
 				time.Sleep(150 * time.Millisecond)
 			}
 			_ = netx.Terminate(pid)
-			_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
+			_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, id); return nil })
 			return tunnelTimeout(hostName, logPath)
 		},
 	}
@@ -426,7 +426,7 @@ func tunnelListCmd() *cobra.Command {
 			}
 			sort.Slice(rows, func(i, j int) bool { return rows[i].StartedAt.Before(rows[j].StartedAt) })
 			if len(dead) > 0 {
-				_ = store.Update(func(s *store.State) error {
+				_ = store.UpdateRuntime(func(s *store.State) error {
 					for _, id := range dead {
 						delete(s.Tunnels, id)
 					}
@@ -449,7 +449,7 @@ func tunnelStopCmd() *cobra.Command {
 				return out.Usage("give tunnel IDs or --all")
 			}
 			stopped := []string{}
-			err := store.Update(func(s *store.State) error {
+			err := store.UpdateRuntime(func(s *store.State) error {
 				ids := args
 				if all {
 					ids = nil

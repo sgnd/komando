@@ -77,7 +77,8 @@ readable only by you (folder 0700, files 0600).
 
 | File | Contains |
 |------|----------|
-| `state.json` | servers, conns, VPNs, keys, your own recipes, settings, and the jobs, tunnels and VPN sessions komando started |
+| `state.json` | servers, conns, VPNs, keys, your own recipes and settings |
+| `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started |
 | `vault.json` | encrypted secrets |
 | `vault.key` | the vault's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
 | `keys/` | SSH keys made by `komando key gen` |

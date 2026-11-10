@@ -279,7 +279,7 @@ func configCmd() *cobra.Command {
 				return err
 			}
 			res := configShow{Settings: st.Settings, Home: store.Home(),
-				Files: map[string]string{"state": store.Path("state.json"), "vault": store.Path("vault.json"), "known_hosts": sshx.KnownHostsPath(), "audit": store.Path("audit.jsonl")}}
+				Files: map[string]string{"state": store.Path("state.json"), "runtime": store.Path("runtime.json"), "vault": store.Path("vault.json"), "known_hosts": sshx.KnownHostsPath(), "audit": store.Path("audit.jsonl")}}
 			for _, s := range settings {
 				res.Rows = append(res.Rows, configRow{s.Key, s.get(&st.Settings), s.get(&def), s.Values})
 			}

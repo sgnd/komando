@@ -102,7 +102,7 @@ func LiveSession(v *store.Vpn) *store.VpnSession {
 		stopIfStale(v.Name, s, stale)
 		return nil
 	}
-	_ = store.Update(func(st *store.State) error {
+	_ = store.UpdateRuntime(func(st *store.State) error {
 		if x := st.Sessions[v.Name]; x != nil && sameSession(x, s) {
 			x.LastUsed = time.Now().UTC()
 		}
@@ -245,7 +245,7 @@ func sessionDialer(v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Di
 			case <-stop:
 				return
 			case <-t.C:
-				_ = store.Update(func(st *store.State) error {
+				_ = store.UpdateRuntime(func(st *store.State) error {
 					if x := st.Sessions[v.Name]; x != nil && sameSession(x, s) {
 						x.LastUsed = time.Now().UTC()
 					}
@@ -299,7 +299,7 @@ func stopIfStale(name string, s *store.VpnSession, stale func(*store.VpnSession)
 		return
 	}
 	if StopSession(cur) == nil {
-		_ = store.Update(func(st *store.State) error {
+		_ = store.UpdateRuntime(func(st *store.State) error {
 			if x := st.Sessions[name]; x != nil && sameSession(x, cur) {
 				delete(st.Sessions, name)
 			}

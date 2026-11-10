@@ -62,6 +62,19 @@ func promptText(now time.Time) string {
 	if json.Unmarshal(b, &st) != nil {
 		return ""
 	}
+	// VPN sessions live in runtime.json; state.json from before may still
+	// hold some
+	if rb, err := os.ReadFile(store.Path("runtime.json")); err == nil {
+		var rt store.Runtime
+		if json.Unmarshal(rb, &rt) == nil {
+			if st.Sessions == nil {
+				st.Sessions = map[string]*store.VpnSession{}
+			}
+			for k, v := range rt.Sessions {
+				st.Sessions[k] = v
+			}
+		}
+	}
 	if st.Settings.VpnIdle == "" {
 		st.Settings.VpnIdle = store.DefaultSettings().VpnIdle
 	}

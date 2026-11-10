@@ -213,7 +213,7 @@ var errorCodes = []errorCode{
 	{"SSH_GATE_REFUSED", 6, "komando … needs a person at a terminal on this computer; a key cannot run it", "a person runs it in a terminal on the komando computer itself"},
 	{"SSH_GATE_SYNTAX", 2, "an ssh-gate key sent more than one komando command, or a character a shell would expand (the message names it)", "send one komando command; put an argument with ; | & $ or backquotes in single quotes ($ and backquotes are refused even in double quotes)"},
 	{"SSM_FAILED", 4, "AWS Session Manager could not open a session to the instance", "check the instance ID, its SSM agent and your AWS login (`komando login aws`)"},
-	{"STATE_CORRUPT", 1, "corrupt state file …: …", "the file is empty or broken, most likely cut short by a crash or power loss; ask the user to restore it from a backup (Time Machine or similar), or to move it away to start fresh and then set protected servers, host_key_policy and extra_deny_patterns again"},
+	{"STATE_CORRUPT", 1, "corrupt runtime file …: …", "the file holds only running VPN sessions, logins, jobs and tunnels, no servers or settings: move it away, then connect again"},
 	{"STORAGE_AUTH", 4, "login refused: …", "check the user in the conn URL and its --password-ref"},
 	{"STORAGE_CONNECT", 4, "komando could not reach the bucket or file server", "run `komando conn test NAME` to check reachability"},
 	{"STORAGE_ERROR", 5, "the file is in use", "another program has the file open; close it there and try again"},

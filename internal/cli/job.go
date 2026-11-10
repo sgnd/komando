@@ -141,7 +141,7 @@ func jobStartCmd() *cobra.Command {
 					return nil, out.Errf(out.ExitRemote, "JOB_START_FAILED", "check that /bin/sh and nohup work there: `komando test TARGET`", "could not start job: %s", o)
 				}
 				j := &store.Job{ID: id, Host: c.Host.Name, Command: command, PID: pid, RemoteDir: jobDir(id), StartedAt: time.Now().UTC()}
-				if err := store.Update(func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
+				if err := store.UpdateRuntime(func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
 					return nil, err
 				}
 				return started{ID: id, Host: c.Host.Name, PID: pid, OK: true}, nil
@@ -729,7 +729,7 @@ func jobRmCmd() *cobra.Command {
 					return err
 				}
 				// an unreachable server: the record goes anyway (its logs stay there)
-				if err := store.Update(func(s *store.State) error { delete(s.Jobs, id); return nil }); err != nil {
+				if err := store.UpdateRuntime(func(s *store.State) error { delete(s.Jobs, id); return nil }); err != nil {
 					return err
 				}
 				removed = append(removed, id)
