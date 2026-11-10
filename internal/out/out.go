@@ -298,8 +298,15 @@ func (p *Printer) Reset() {
 func (p *Printer) Blocked() *Error { return p.blocked }
 
 // Skip records a target the command leaves out. It is reported in
-// meta.skipped, and on stderr in text mode.
+// meta.skipped, and on stderr in text mode. A command may resolve its
+// target more than once (exec checks the OS mix first): the same target
+// is listed once.
 func (p *Printer) Skip(s Skipped) {
+	for _, have := range p.skipped {
+		if have.Name == s.Name && have.Kind == s.Kind {
+			return
+		}
+	}
 	p.skipped = append(p.skipped, s)
 }
 
