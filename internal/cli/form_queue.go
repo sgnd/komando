@@ -128,9 +128,9 @@ func queuePasswordQ(show func(formAnswers) bool) formQ {
 		help: "Either way it never shows here. With Confluent Cloud the password is the API secret.",
 		def:  func(*store.State, formAnswers) string { return "ask" },
 		choices: func(*store.State, formAnswers) []menuRow {
-			rows := []menuRow{{label: "I type it next", detail: "hidden; komando keeps it in its vault", value: "ask"}}
+			rows := []menuRow{{label: "I type it next", detail: "hidden; komando keeps it as a saved password", value: "ask"}}
 			if len(secretNames()) > 0 {
-				rows = append(rows, menuRow{label: "It is in komando's vault", detail: "pick it from komando secret list", value: "secret"})
+				rows = append(rows, menuRow{label: "I saved it in komando before", detail: "pick it from your saved passwords", value: "secret"})
 			}
 			return rows
 		}}, show)
@@ -292,7 +292,7 @@ func natsForm() formSpec {
 				rows := []menuRow{{label: "A user and a password", value: "user"},
 					{label: "A token", detail: "one secret without a user", value: "token"}}
 				if len(secretNames()) > 0 {
-					rows = append(rows, menuRow{label: "A .creds file in komando's vault", detail: "from nsc or Synadia Cloud", value: "creds"})
+					rows = append(rows, menuRow{label: "A .creds file I saved in komando before", detail: "from nsc or Synadia Cloud", value: "creds"})
 				}
 				return append(rows, menuRow{label: "No login", value: "none"})
 			}},
@@ -334,7 +334,7 @@ func sqsForm() formSpec {
 	return formSpec{title: "Add Amazon SQS queues", qs: []formQ{
 		formNameQ("conn", "SQS region", "aws"),
 		{key: "region", label: "Region", ask: "Which AWS region are the queues in?", example: "eu-west-1",
-			help:  "Shown at the top right of the AWS console. A conn is all the queues of one region.",
+			help:  "Shown at the top right of the AWS console. One entry covers all the queues of one region.",
 			check: sqsRegionProblem},
 		{key: "login", label: "Login", ask: "How does komando log in to AWS?",
 			help: "No aws CLI needed. Safest is a login that can reach only these queues.",

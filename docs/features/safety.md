@@ -1,7 +1,7 @@
 # Safety
 
 The seatbelts komando puts on every command, and what to do when one stops
-you. [All features](README.md) · [Security standards](security-standards.md)
+you. [All docs](README.md) · [Security standards](security-standards.md)
 
 ## Quick start
 
@@ -132,8 +132,8 @@ or a pipe.
 ```bash
 komando policy deny 'terraform\s+destroy'           # a Go regular expression
 komando policy list                                  # built-in and custom rules, with ids
-komando policy allow 'terraform\s+destroy' --yes     # remove it again
-komando policy allow custom-0 --yes                  # or remove it by its id
+komando policy rm 'terraform\s+destroy'              # remove it again
+komando policy rm custom-0                           # or remove it by its id
 komando policy check 'terraform destroy'             # exit 6 when it would be blocked
 komando policy check --for postgres 'delete from users'   # rate SQL or Redis instead
 ```

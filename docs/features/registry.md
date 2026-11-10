@@ -3,7 +3,7 @@
 See which images a registry holds, copy images between registries, and
 clean up old ones. Works with Docker Hub, GHCR, GitLab, Harbor, Amazon ECR,
 Azure Container Registry, Google Artifact Registry and your own
-`registry:2`. [All features](README.md)
+`registry:2`. [All docs](README.md)
 
 ## Quick start
 

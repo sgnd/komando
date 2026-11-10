@@ -66,9 +66,9 @@ type connFlags struct {
 func (f *connFlags) bind(c *cobra.Command, edit bool) {
 	fl := c.Flags()
 	fl.StringVar(&f.via, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened")
-	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
+	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (komando conn show shows them to people and agents)")
-	fl.BoolVar(&f.protected, "protected", false, "require --yes for any change (production safety)")
+	fl.BoolVar(&f.protected, "protected", false, "production: komando asks you before every change, and an AI agent needs your yes in a window")
 	if edit {
 		fl.StringSliceVar(&f.addGroups, "add-group", nil, "put it in these groups (comma-separated)")
 		fl.StringSliceVar(&f.rmGroups, "rm-group", nil, "take it out of these groups")
@@ -716,4 +716,47 @@ func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 		}
 	}
 	return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", hint, "cannot reach %s: %v", t.Address, err)
+}
+
+// connAddKinds are the `komando KIND add` shortcuts for `conn add`: the
+// same command, under the word a person looks for first. Typed alone at a
+// terminal, each opens the guided form for that kind only.
+var connAddKinds = map[string]struct{ what, form, example string }{
+	"db":       {"database", "Database", "komando db add shop-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
+	"cache":    {"cache", "Cache", "komando cache add cache1 redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
+	"queue":    {"message queue", "Message queues", "komando queue add orders kafka://10.0.0.8:9092 --via web1"},
+	"storage":  {"file storage", "File storage", "komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
+	"cluster":  {"cluster", "Kubernetes", "komando cluster add prod-k8s k8s://api.cluster.example:6443"},
+	"registry": {"image registry", "Container registry", "komando registry add ghcr registry://myuser@ghcr.io --ask-password"},
+}
+
+// connAddCmdFor is `komando KIND add`: conn add with help for one kind.
+func connAddCmdFor(kind string) *cobra.Command {
+	k := connAddKinds[kind]
+	c := connAddCmd()
+	c.Short = "Add a " + k.what + " (same as conn add)"
+	c.Long = "Saves a " + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them."
+	c.Example = "  " + k.example
+	run := c.RunE
+	c.RunE = func(cmd *cobra.Command, args []string) error {
+		if len(args) > 0 {
+			return run(cmd, args)
+		}
+		if menuWanted(cmd, nil) {
+			var gs []formGroup
+			for _, g := range formGroupsFor("conn") {
+				if g.label == k.form {
+					gs = append(gs, g)
+				}
+			}
+			if len(gs) == 0 { // the form was renamed: offer every kind
+				gs = formGroupsFor("conn")
+			}
+			return formCommand(gs)
+		}
+		return out.Errf(out.ExitUsage, "USAGE",
+			"for example: "+k.example+". A person can type `komando "+kind+" add` alone at a terminal to be asked step by step",
+			"komando %s add needs a name and a URL", kind)
+	}
+	return c
 }

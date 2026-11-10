@@ -2,7 +2,7 @@
 
 Add PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake,
 BigQuery, SQLite and MongoDB databases, then query, inspect, back up and
-restore them safely. [All features](README.md)
+restore them safely. [All docs](README.md)
 
 ## Quick start
 

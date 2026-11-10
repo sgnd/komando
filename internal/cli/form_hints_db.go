@@ -105,7 +105,7 @@ var dbChangeHints = map[string]formHint{
 	},
 	"db restore": {
 		args: []formArg{{ask: "Which database should it load the backup into?", pick: "db",
-			help: "What is in it can be overwritten, so pick a test copy when you only want to try."}},
+			help: "What is in it now is replaced. Back it up first with komando db dump, or pick a test copy when you only want to try."}},
 		flags: []formFlag{
 			{name: "from", ask: "Which backup file on this computer?", required: true, local: true, example: "./prod-2026-11-10.sql.gz",
 				help: "A file from `komando db dump`, pg_dump or mysqldump. A .gz file is read as it is."},

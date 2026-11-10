@@ -7,6 +7,22 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Highlights
+
+- **A simpler menu: pick a thing, then what to do with it.** `komando`
+  now shows your servers, databases and services, and VPNs first, then
+  Add something, Check everything, History and undo, and Settings and
+  help. Picking a server shows plain tasks such as Read logs, Restart a
+  service or Edit a file. "All features" is gone; every feature is still
+  reachable, and a test keeps it that way.
+- **Undo for file edits:** `komando fs restore HOST PATH` puts the backup
+  back, and `fs replace`/`fs write --backup` print the undo line.
+- **Errors for people:** text output starts with what happened and that
+  nothing was changed, then the hint, then the code. JSON is unchanged.
+- **Plain words:** `db add`, `cache add`, `queue add`, `storage add`,
+  `cluster add` and `registry add` open the same form as `conn add`, and
+  "conn" no longer appears in menus, forms or messages.
+
 ## [0.10.0] - 2026-11-10
 
 ### Highlights

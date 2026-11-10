@@ -25,7 +25,7 @@ func dbUserCmd() *cobra.Command {
 aws-sm:...), so they are never typed on a command line or shown. PostgreSQL
 gets a SCRAM-SHA-256 verifier komando computes, so the password itself never
 reaches the server or its logs. Adding a user or changing a password is a
-change (protected conns need --yes); removing one needs --allow-dangerous.`,
+change (a production database asks first); removing one needs --allow-dangerous.`,
 	}
 	c.AddCommand(dbUserLsCmd(), dbUserChangeCmd("add"), dbUserChangeCmd("passwd"), dbUserChangeCmd("rm"))
 	return c

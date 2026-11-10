@@ -118,7 +118,7 @@ func fsReplaceCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("fs.replace", res, nil)
+			printChange("fs.replace", h.Name, res, o.sudo)
 			return nil
 		},
 	}

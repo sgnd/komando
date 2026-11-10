@@ -141,13 +141,15 @@ command may still be running there, or may have finished. Check with a
 read-only command before running it again. For long tasks over a shaky link
 use ` + "`komando job start` and `komando job wait`" + `: they survive a drop.
 
-Destructive commands (rm -rf /, mkfs, reboot, DROP DATABASE, ...) are blocked
-unless you pass --allow-dangerous. A protected server needs --yes; with
---read-only it skips --yes for commands komando knows only read.`,
+Commands that destroy things (rm -rf /, mkfs, reboot, DROP DATABASE, ...)
+and any change on a production server: at a terminal komando asks you
+first. --yes and --allow-dangerous answer that question in advance, for
+scripts. --read-only says the command only looks, so a production server
+does not ask for commands komando knows only read.`,
 		Example: `  komando exec web1 -- uptime
   komando exec @web -P 20 -- 'df -h / | tail -1'
   komando exec tag:prod --sudo -- systemctl is-active nginx
-  komando exec db1 --read-only -- 'psql -c "select 1"'
+  komando exec db1 --read-only -- df -h
   cat deploy.sh | komando exec web1 --stdin-file - -- 'bash -s'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

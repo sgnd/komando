@@ -1,7 +1,7 @@
 # Health and network checks
 
 Find out what a server is, whether it is healthy, and what it can reach.
-[All features](README.md)
+[All docs](README.md)
 
 ## Quick start
 

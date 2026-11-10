@@ -6,10 +6,9 @@ file into your project (or into the agent's system prompt), so the agent
 manages servers, databases, caches, queues, storage, clusters and
 registries through the `komando` CLI.
 
-Also set `KOMANDO_AGENT=1` in that agent's environment. komando knows the
-four agents above by their own variables, and only an agent it knows gets
-secrets hidden in output and the approval window for `--yes`,
-`--allow-dangerous` and `--reveal`.
+For any other agent, also set `KOMANDO_AGENT=1` in its environment (see
+the setup below). Only an agent komando knows gets secrets hidden in output
+and the approval window for `--yes`, `--allow-dangerous` and `--reveal`.
 
 komando never asks an agent or a script anything: give every argument and
 flag on the command line. The menu (`komando` alone, with Add and All
@@ -18,7 +17,8 @@ features) is for a person at a terminal.
 ## Rules
 
 1. Use `komando` for all server work. Do not call `ssh` or `scp` directly.
-2. At the start of a session, run `komando guide` and follow it. Run
+2. At the start of a session, run `komando guide` and follow it (piped, it
+   prints the whole playbook; `komando guide TOPIC` prints one part). Run
    `komando schema <command>` when unsure about flags.
 3. Look before you change: `komando list`, `komando test <target>`,
    `komando facts <target>`, then read logs, config and status. To read a
@@ -68,6 +68,7 @@ features) is for a person at a terminal.
 
 ```bash
 komando guide install            # teach Claude Code, Codex, Cursor and Gemini CLI to use komando
+export KOMANDO_AGENT=1           # only for an agent komando does not know (not Claude Code, Codex, Cursor, Gemini CLI)
 export KOMANDO_ACTOR=claude      # the name shown in `komando audit` (add it to ~/.zshrc or ~/.bashrc)
 komando list                     # check that your servers are there
 komando host edit <prod-host> --protected   # production: changes need a person's yes

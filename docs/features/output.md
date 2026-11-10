@@ -1,7 +1,7 @@
 # Results and errors
 
 How komando answers, what the exit codes mean, how to fix common errors,
-and how to see what is still running. [All features](README.md)
+and how to see what is still running. [All docs](README.md)
 
 ## Quick start
 

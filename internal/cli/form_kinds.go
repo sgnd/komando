@@ -17,14 +17,14 @@ import (
 // the products it covers beside it.
 func formGroups() []formGroup {
 	return []formGroup{
-		{"Server", "a Linux or Windows machine you log in to", []formKind{{"Server", "", serverForm}}},
-		{"Database", "PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, ClickHouse, Snowflake, BigQuery, SQLite", dbForms()},
-		{"Cache", "Redis, Valkey, Memcached", cacheForms()},
-		{"Message queues", "Kafka, RabbitMQ, NATS, Amazon SQS, Google Pub/Sub", queueForms()},
-		{"File storage", "S3, MinIO, R2, SFTP, FTP, Google Cloud, Azure, WebDAV, Windows shares", storageForms()},
-		{"Kubernetes", "the clusters in your kubeconfig", clusterForms()},
-		{"Container registry", "Docker Hub, GitHub, GitLab, AWS, Azure, Google, your own", registryForms()},
-		{"VPN", "WireGuard, OpenVPN, Tailscale, your company's VPN app", vpnForms()},
+		{"Server", "a Linux or Windows machine you log in to", []formKind{{"Server", "", serverForm}}, ""},
+		{"Databases", "PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, ClickHouse, Snowflake, BigQuery, SQLite", dbForms(), "Which database?"},
+		{"Caches", "Redis, Valkey, Memcached", cacheForms(), "Which cache?"},
+		{"Queues", "Kafka, RabbitMQ, NATS, Amazon SQS, Google Pub/Sub", queueForms(), "Which message queue?"},
+		{"File storage", "a cloud bucket (S3, R2, Google, Azure) or a file server (SFTP, FTP, WebDAV, Windows share)", storageForms(), "A cloud bucket or a file server?"},
+		{"Clusters", "Kubernetes or Docker Swarm", clusterForms(), "Kubernetes or Docker Swarm?"},
+		{"Images (registries)", "Docker Hub, GitHub, GitLab, AWS, Azure, Google, your own", registryForms(), "Which container registry?"},
+		{"VPN", "your company's VPN app, WireGuard, OpenVPN, Tailscale", vpnForms(), "Which VPN app does your company use?"},
 	}
 }
 
@@ -43,6 +43,22 @@ func formGroupsFor(kind string) []formGroup {
 	return gs
 }
 
+// formFamilyAdd is each `komando FAMILY add` and its Add group.
+var formFamilyAdd = map[string]string{
+	"db add": "Databases", "cache add": "Caches", "queue add": "Queues",
+	"storage add": "File storage", "cluster add": "Clusters", "registry add": "Images (registries)",
+}
+
+// formGroupNamed is the one Add group with this label.
+func formGroupNamed(label string) []formGroup {
+	for _, g := range formGroups() {
+		if g.label == label {
+			return []formGroup{g}
+		}
+	}
+	return nil
+}
+
 // Questions every kind shares.
 
 // formNameQ asks the name komando will know it by.
@@ -54,7 +70,7 @@ func formNameQ(kind, what, example string) formQ {
 }
 
 // formNameProblem is what is wrong with a new name: its letters, "all", or
-// a server, conn or VPN that has it already (names are shared, any case).
+// a server, service or VPN that has it already (names are shared, any case).
 func formNameProblem(st *store.State, kind, v string) string {
 	if err := validName(kind, v); err != nil {
 		if strings.EqualFold(v, "all") {
@@ -69,7 +85,7 @@ func formNameProblem(st *store.State, kind, v string) string {
 }
 
 func formKindWord(k string) string {
-	return map[string]string{"host": "server", "conn": "conn", "vpn": "VPN"}[k]
+	return map[string]string{"host": "server", "conn": "service", "vpn": "VPN"}[k]
 }
 
 // formFreeName is base with the first number after it that no server,
@@ -93,7 +109,7 @@ func formFreeName(st *store.State, base string) string {
 // left open can cost an outage.
 func formProtectQ(what string) formQ {
 	return formQ{key: "protected", label: "Production", ask: "Can a mistake on this " + what + " hurt real users or real data?",
-		help: "Yes means komando asks you before every change there, also changes an AI agent wants to make.",
+		help: "Production: komando asks you before every change, and an AI agent needs your yes in a window.",
 		def:  func(*store.State, formAnswers) string { return "yes" },
 		choices: func(*store.State, formAnswers) []menuRow {
 			return []menuRow{{label: "Yes, protect it", detail: "komando asks you before every change", value: "yes"},
@@ -237,19 +253,19 @@ func formIsLocal(host string) bool {
 // Server.
 
 // serverForm asks for a server in the order people think of it: a name,
-// what it runs, the address, the user, then how to log in. A Windows
+// the address, the user, what it runs, then how to log in. A Windows
 // server is reached over OpenSSH or WinRM (form_winserver.go).
 func serverForm() formSpec {
 	ssh := func(a formAnswers) bool { return !serverWinRM(a) }
 	return formSpec{title: "Add a server", qs: []formQ{
 		formNameQ("host", "server", "web1"),
-		serverOSQ(), serverTransportQ(),
 		{key: "address", label: "Address", ask: "What is the server's address?", addr: true,
 			help:    "Its IP address or host name, from your hosting panel or cloud console.",
 			example: "203.0.113.20 or vps.example.com", check: serverAddressProblem},
 		{key: "user", label: "User", ask: "Which user do you log in as?",
 			help:    "The login name on the server. Many VPS use root; Ubuntu cloud servers use ubuntu; Windows uses Administrator, or user@domain for a domain user.",
 			example: "root", def: serverUserDefault, check: serverUserProblem},
+		serverOSQ(), serverTransportQ(),
 		formWhen(formQ{key: "port", label: "Port", ask: "Which SSH port does it use?",
 			help: "Almost always 22. Change it only if your provider gave you another number.",
 			def: func(_ *store.State, a formAnswers) string {
@@ -278,13 +294,22 @@ func serverForm() formSpec {
 				}
 				return rows
 			}}, ssh),
-		formProtectQ("server"),
-		formViaQ("server", true),
+		formMore(formProtectQ("server")),
+		serverJumpQ(),
 		formWhen(formMore(formYesNoQ("code", "One-time code", "Does it also ask for a one-time code when you log in?",
 			"A 6-digit code from an app like Google Authenticator. Most servers do not.", "no",
 			"after adding, komando login keeps one login for 8 hours", "after adding, komando tests it")), ssh),
 		formGroupQ(), formNotesQ(),
 	}, build: serverBuild}
+}
+
+// serverJumpQ is the server's via question: another server it is reached
+// through (a jump host), or a VPN.
+func serverJumpQ() formQ {
+	q := formViaQ("server", true)
+	q.label, q.ask = "Jump host", "Through another server (a jump host)?"
+	q.help = "Pick a server or VPN when this server only answers from inside that network."
+	return q
 }
 
 // serverUserDefault is the user in a pasted address (root@...), else
@@ -350,7 +375,7 @@ func serverLoginDefault(*store.State, formAnswers) string {
 func serverLoginChoices(st *store.State, _ formAnswers) []menuRow {
 	rows := []menuRow{
 		{label: "My SSH key", detail: "the key in ~/.ssh or ssh-agent, as ssh uses it", value: "usual"},
-		{label: "A password", detail: "you type it next, hidden; komando keeps it in its vault", value: "password"},
+		{label: "A password", detail: "you type it next, hidden; komando keeps it as a saved password", value: "password"},
 		{label: "A key file", detail: "a file somewhere else, like a .pem from your cloud provider", value: "file"},
 	}
 	if len(st.Keys) > 0 {
@@ -422,7 +447,7 @@ func sqlForm(scheme, product, port string) formSpec {
 		{key: "database", label: "Database", ask: "Which database inside the server?", optional: true, example: "app",
 			help: "One server holds several databases. Empty uses the server's default."},
 		formYesNoQ("password", "Password", "Does this user log in with a password?",
-			"Almost always yes. komando asks for it after this, hidden, and keeps it in its vault.", "yes",
+			"Almost always yes. komando asks for it after this, hidden, and keeps it as a saved password.", "yes",
 			"you type it next, hidden", "no password (trust or peer login)"),
 		formProtectQ("database"),
 		dbTLSQ(),
@@ -515,7 +540,7 @@ func mongoForm() formSpec {
 			help: "Empty when the database needs no login."},
 		{key: "database", label: "Database", ask: "Which database should commands use?", optional: true, example: "shop"},
 		formWhen(formYesNoQ("password", "Password", "Does this user log in with a password?",
-			"komando asks for it after this, hidden, and keeps it in its vault.", "yes",
+			"komando asks for it after this, hidden, and keeps it as a saved password.", "yes",
 			"you type it next, hidden", "no password"), func(a formAnswers) bool { return a["user"] != "" }),
 		formWhen(formQ{key: "authsource", label: "User's database", ask: "In which database was this user created?",
 			help: "Usually admin. Wrong here, and the login fails with a clear message.",
@@ -571,11 +596,15 @@ func sqliteForm() formSpec {
 	}}
 }
 
-// The add commands use the hand-made forms above in All features too.
+// The add commands use the hand-made forms above from every menu path.
 func init() {
 	addFormHints(map[string]formHint{
 		"host add": {form: func() []formGroup { return formGroupsFor("host") }},
 		"conn add": {form: func() []formGroup { return formGroupsFor("conn") }},
 		"vpn add":  {form: func() []formGroup { return formGroupsFor("vpn") }},
 	})
+	// db add, cache add, ...: conn add for one family, asked the same way.
+	for cmd, label := range formFamilyAdd {
+		addFormHints(map[string]formHint{cmd: {form: func() []formGroup { return formGroupNamed(label) }}})
+	}
 }

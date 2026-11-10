@@ -439,7 +439,7 @@ func fsWriteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("fs.write", res, nil)
+			printChange("fs.write", h.Name, res, o.sudo)
 			return nil
 		},
 	}

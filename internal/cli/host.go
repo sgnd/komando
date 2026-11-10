@@ -48,14 +48,14 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.user, "user", "", "the user to log in as")
 	fl.StringVar(&f.key, "key", "", "name of a key in komando's key list (see komando key list)")
 	fl.StringVar(&f.identity, "identity", "", "path to a private key file")
-	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
-	fl.StringVar(&f.sudoRef, "sudo-ref", "", "sudo password reference: secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
+	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
+	fl.StringVar(&f.sudoRef, "sudo-ref", "", "where the sudo password is, written like --password-ref")
 	fl.StringVar(&f.jump, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path, e.g. vpn1,bastion")
 	fl.StringVar(&f.proxyCommand, "proxy-command", "", "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)")
 	fl.StringVar(&f.os, "os", "", "the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)")
 	fl.BoolVar(&f.ssm, "ssm", false, "reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed)")
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (komando host show shows them to people and agents)")
-	fl.BoolVar(&f.protected, "protected", false, "require --yes for any change to the server or to this entry (production safety)")
+	fl.BoolVar(&f.protected, "protected", false, "production: komando asks you before every change, and an AI agent needs your yes in a window")
 	if edit {
 		fl.StringSliceVar(&f.addGroups, "add-group", nil, "put it in these groups (comma-separated)")
 		fl.StringSliceVar(&f.rmGroups, "rm-group", nil, "take it out of these groups")
@@ -235,14 +235,16 @@ func hostEditCmd() *cobra.Command {
 		Use:   "edit NAME|TARGET...",
 		Short: "Change one or more servers (only the flags you pass change)",
 		Long: `Changes only the settings you pass. Give one name, several names, or a
-selector (@group, tag:prod, 'web-*') to change many servers at once.
-Changing the login (--user, --key, --password-ref, --sudo-ref, --via, ...)
-of protected servers, or turning their protection off, needs --yes: one yes
-covers every server in the command, and the question lists them all. Try
---dry-run first to see which servers would change.`,
+selector (@group, tag:prod, 'web-*') to change many servers at once. Try
+--dry-run first to see which servers would change.
+
+--protected marks a production server: komando asks you before every change,
+and an AI agent needs your yes in a window. Changing the login of a
+production server, or turning its protection off, asks the same way; one yes
+covers every server in the command.`,
 		Example: `  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo
   komando host edit web1 -g web -t prod          # -g/-t add a group/tag
-  komando host edit db1 --via bastion --yes      # db1 is protected
+  komando host edit db1 --protected              # production: ask before changes
   komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run
   komando host edit web1 web2 web3 --user deploy
   komando host edit vps1 --ask-password          # type a new password (hidden)`,

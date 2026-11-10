@@ -22,20 +22,20 @@ import (
 // NAME`.
 func vpnForms() []formKind {
 	return []formKind{
+		vpnPortalKind("globalprotect", "GlobalProtect", "Palo Alto Networks"),
+		vpnPortalKind("fortinet", "FortiClient", "Fortinet SSL VPN"),
+		vpnPortalKind("anyconnect", "Cisco AnyConnect", "also Cisco Secure Client and ocserv"),
+		vpnPortalKind("pulse", "Pulse Secure or Ivanti", "also Ivanti Secure Access"),
+		vpnPortalKind("f5", "F5 BIG-IP", "also F5 Access and BIG-IP Edge Client"),
 		{"WireGuard", "you have a file ending in .conf", wireguardForm},
 		{"OpenVPN or Pritunl", "you have a file ending in .ovpn", openvpnForm},
 		{"Tailscale or Headscale", "your team uses Tailscale", tailscaleForm},
-		vpnPortalKind("globalprotect", "GlobalProtect", "Palo Alto; your company VPN app is GlobalProtect"),
-		vpnPortalKind("fortinet", "FortiClient", "Fortinet SSL VPN; your company VPN app is FortiClient"),
-		vpnPortalKind("anyconnect", "Cisco AnyConnect", "also Cisco Secure Client and ocserv"),
-		vpnPortalKind("pulse", "Pulse Secure or Ivanti", "your company VPN app is Pulse Secure or Ivanti Secure Access"),
-		vpnPortalKind("f5", "F5 BIG-IP", "your company VPN app is F5 Access or BIG-IP Edge Client"),
-		{"L2TP/IPsec", "a server, a shared secret (PSK) and a user name", l2tpForm},
-		{"Cisco IPsec", "an older Cisco VPN with a group name and a group password", ipsecForm},
-		{"IKEv2", "a server with a shared secret, or a user name and password", ikev2Form},
-		{"A VPN on this computer", "one already set up in your computer's network settings", systemVpnForm},
-		{"SOCKS proxy", "one already running, like komando tunnel start HOST -D 1080", func() formSpec { return vpnProxyForm("socks") }},
-		{"HTTP proxy", "your company's web proxy", func() formSpec { return vpnProxyForm("proxy") }},
+		{"L2TP/IPsec", "other: a server, a shared secret (PSK) and a user name", l2tpForm},
+		{"Cisco IPsec", "other: an older Cisco VPN with a group name and a group password", ipsecForm},
+		{"IKEv2", "other: a server with a shared secret, or a user name and password", ikev2Form},
+		{"A VPN on this computer", "other: one already set up in your computer's network settings", systemVpnForm},
+		{"SOCKS proxy", "other: one already running, like komando tunnel start HOST -D 1080", func() formSpec { return vpnProxyForm("socks") }},
+		{"HTTP proxy", "other: your company's web proxy", func() formSpec { return vpnProxyForm("proxy") }},
 	}
 }
 
@@ -66,7 +66,7 @@ func vpnNameQ(example string, suffixes ...string) formQ {
 // vpnCheckQ asks for an address only the VPN reaches, so komando can tell
 // whether it works.
 func vpnCheckQ(required bool, example string) formQ {
-	q := formQ{key: "check", label: "Test address", ask: "Which address can only be reached through this VPN?", example: example,
+	q := formQ{key: "check", label: "Test address", ask: "Which address can only be reached through this VPN? (optional)", example: example,
 		help: "An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works.",
 		check: func(_ *store.State, _ formAnswers, v string) string {
 			host, port, err := net.SplitHostPort(v)
@@ -75,7 +75,9 @@ func vpnCheckQ(required bool, example string) formQ {
 			}
 			return ""
 		}}
-	if !required {
+	if required {
+		q.ask = strings.TrimSuffix(q.ask, " (optional)")
+	} else {
 		q.optional = true
 		q.help += " Enter skips it."
 	}
@@ -111,7 +113,7 @@ func vpnUserQ(optional bool, help string) formQ {
 // asked only once there is a user name.
 func vpnPassQ(def string, canType bool) formQ {
 	rows := map[string]menuRow{
-		"save": {label: "Save it now, hidden", detail: "the command asks for it without showing it and keeps it in komando's vault", value: "save"},
+		"save": {label: "Save it now, hidden", detail: "the command asks for it without showing it and keeps it as a saved password", value: "save"},
 		"type": {label: "Type it each time I connect", detail: "komando vpn up asks for it; best when you also need a code from your phone", value: "type"},
 		"ref":  {label: "It is in a password manager", detail: "1Password, Bitwarden, KeePass, or an environment variable", value: "ref"},
 	}
@@ -138,7 +140,7 @@ func vpnPassQ(def string, canType bool) formQ {
 // "ref" to the question from.
 func vpnRefQ(key, from string) formQ {
 	return formQ{key: key, label: "Kept in", ask: "Where is it kept?", example: "op://Work/VPN/password",
-		help: "A reference, never the secret itself: op://vault/item/field (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable).",
+		help: "A reference, never the secret itself: op://Work/VPN/password (1Password), bw://item (Bitwarden), env:VPN_PASS (a variable).",
 		show: func(a formAnswers) bool { return a[from] == "ref" },
 		check: func(_ *store.State, _ formAnswers, v string) string {
 			if !vault.ValidRef(v) {
@@ -155,7 +157,7 @@ func vpnPskQ(label, what, help string) formQ {
 	return formQ{key: "psk", label: label, ask: "How should komando get the " + what + "?", help: help,
 		def: func(*store.State, formAnswers) string { return "save" },
 		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "Save it now, hidden", detail: "vpn add asks for it, hidden, and keeps it in komando's vault", value: "save"},
+			return []menuRow{{label: "Save it now, hidden", detail: "vpn add asks for it, hidden, and keeps it as a saved password", value: "save"},
 				{label: "It is in a password manager", detail: "1Password, Bitwarden, KeePass, or an environment variable", value: "ref"}}
 		}}
 }
@@ -163,9 +165,13 @@ func vpnPskQ(label, what, help string) formQ {
 // vpnMfaQ asks whether a login also needs a person: a code from a phone,
 // or a browser sign-in. Not asked when the password is typed each time.
 func vpnMfaQ() formQ {
-	return formWhen(formYesNoQ("mfa", "Phone code", "Does logging in also need a code from your phone, or a sign-in in your browser?",
-		"Then you connect it yourself with komando vpn up; later commands reuse that connection.", "no",
-		"you connect it with komando vpn up", "komando connects it by itself"),
+	return formWhen(formQ{key: "mfa", label: "Extra sign-in step", ask: "After the password, does logging in need one more step?",
+		help: "With an extra step you connect it yourself with komando vpn up; later commands reuse that connection.",
+		def:  func(*store.State, formAnswers) string { return "no" },
+		choices: func(*store.State, formAnswers) []menuRow {
+			return []menuRow{{label: "No, just the password", detail: "komando connects it by itself", value: "no"},
+				{label: "Yes, a code or a phone prompt", detail: "a code from an app or text message, a push to approve, or a browser sign-in", value: "yes"}}
+		}},
 		func(a formAnswers) bool { return a["user"] != "" && a["pass"] != "type" })
 }
 
@@ -239,7 +245,7 @@ func wireguardForm() formSpec {
 	return formSpec{title: "Add a WireGuard VPN", qs: []formQ{
 		vpnNameQ("office", "-key", "-psk"),
 		{key: "config", label: "File", ask: "Where is the WireGuard file?", example: "~/Downloads/office.conf",
-			help:  "The .conf file from your admin or the WireGuard app. komando moves its keys into its vault.",
+			help:  "The .conf file from your admin or the WireGuard app. komando keeps its keys as saved passwords.",
 			check: func(_ *store.State, _ formAnswers, v string) string { return wireguardFileProblem(v) }},
 		vpnCheckQ(false, "10.0.0.5:22"),
 		formGroupQ(), formNotesQ(),
@@ -268,7 +274,7 @@ func openvpnForm() formSpec {
 	return formSpec{title: "Add an OpenVPN VPN", qs: []formQ{
 		vpnNameQ("office", "-config", "-pass"),
 		{key: "config", label: "File", ask: "Where is the OpenVPN file?", example: "~/Downloads/office.ovpn",
-			help:  "The .ovpn profile from your admin or Pritunl. komando keeps a copy in its vault.",
+			help:  "The .ovpn profile from your admin or Pritunl. komando keeps its own safe copy.",
 			check: func(_ *store.State, _ formAnswers, v string) string { return openvpnFileProblem(v) }},
 		vpnCheckQ(true, "10.8.0.1:22"),
 		formWhen(vpnUserQ(false, "This file logs in with a user name and password."), needsUser),

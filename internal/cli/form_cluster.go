@@ -27,17 +27,26 @@ func clusterForms() []formKind {
 
 const kubeconfigDefault = "~/.kube/config"
 
+// kubeconfigSteps is how each cloud makes the file.
+const kubeconfigSteps = "AWS: aws eks update-kubeconfig --name CLUSTER. Google: gcloud container clusters get-credentials CLUSTER. " +
+	"Azure: az aks get-credentials -g GROUP -n CLUSTER. DigitalOcean: Download Config File on the cluster's page. " +
+	"k3s: copy /etc/rancher/k3s/k3s.yaml from the server."
+
 func kubeconfigForm() formSpec {
 	return formSpec{title: "Add Kubernetes clusters", qs: []formQ{
 		{key: "file", label: "File", ask: "Where is your kubeconfig file?",
-			help: "The file kubectl uses. Your cloud console (EKS, GKE, AKS, DigitalOcean) lets you download it; " +
-				"on a k3s server it is /etc/rancher/k3s/k3s.yaml. Every cluster in it is added, named after its context.",
+			help:    "The file kubectl uses. Every cluster in it is added, named after its context. No file yet? " + kubeconfigSteps,
 			example: "~/Downloads/prod-kubeconfig.yaml",
-			def:     func(*store.State, formAnswers) string { return kubeconfigDefault },
-			check:   func(_ *store.State, _ formAnswers, v string) string { return kubeconfigProblem(v) }},
+			def: func(*store.State, formAnswers) string {
+				if formFileProblem(kubeconfigDefault) == "" {
+					return kubeconfigDefault
+				}
+				return ""
+			},
+			check: func(_ *store.State, _ formAnswers, v string) string { return kubeconfigProblem(v) }},
 		{key: "protected", label: "Production", ask: "Can a mistake on these clusters hurt real users or real data?",
-			help: "Yes means komando asks you before every change there, also changes an AI agent wants to make. " +
-				"A cluster whose name is in your list already keeps its own setting: komando conn edit NAME --protected changes it.",
+			help: "Production: komando asks you before every change, and an AI agent needs your yes in a window. " +
+				"A cluster already in your list keeps its own setting.",
 			def: func(*store.State, formAnswers) string { return "yes" },
 			choices: func(*store.State, formAnswers) []menuRow {
 				return []menuRow{{label: "Yes, protect them", detail: "komando asks you before every change", value: "yes"},
@@ -55,7 +64,7 @@ func kubeconfigForm() formSpec {
 func kubeconfigProblem(v string) string {
 	if p := formFileProblem(v); p != "" {
 		if v == kubeconfigDefault {
-			return "there is no " + v + " on this computer; give the file your cloud console or k3s gave you"
+			return "there is no " + v + " on this computer. " + kubeconfigSteps
 		}
 		return p
 	}
@@ -173,7 +182,7 @@ func swarmForm() formSpec {
 	return sp
 }
 
-// The cluster commands in All features.
+// The cluster commands, asked from a menu task.
 
 var (
 	clusterTargetArg = formArg{ask: "Which cluster?", pick: "cluster", free: true,
@@ -233,7 +242,7 @@ func clusterChangeHints() map[string]formHint {
 		"cluster rollback": {args: []formArg{t, clusterRefArg}, flags: []formFlag{clusterWaitFlag}},
 		"cluster restart":  {args: []formArg{t, clusterRefArg}, flags: []formFlag{clusterWaitFlag}},
 		"cluster scale": {args: []formArg{t, clusterRefArg, {ask: "How many copies (replicas) should run?", example: "3",
-			help: "0 stops it; that needs a person's extra yes, and komando stops and says how."}}, flags: []formFlag{clusterWaitFlag}},
+			help: "0 stops every copy, and the app is down until you scale it up again. komando asks a person first."}}, flags: []formFlag{clusterWaitFlag}},
 		"cluster apply": {args: []formArg{t}, flags: []formFlag{{name: "file", ask: "Which YAML file on this computer?", required: true,
 			example: "./k8s/app.yaml", help: "The objects in it are created, or changed to match it."},
 			{name: "stack", ask: "Swarm only: the stack's name (empty on Kubernetes)", example: "shop"}}},

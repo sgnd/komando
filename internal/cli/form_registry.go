@@ -99,8 +99,8 @@ func registryForm(k registryKind) formSpec {
 			help: k.userHelp, example: "octocat", optional: k.id == regOwn,
 			check: func(_ *store.State, _ formAnswers, v string) string { return registryUserProblem(v) }}, notCloud),
 		formWhen(registryLoginQ(k), notCloud),
-		formWhen(registrySecretQ("secret", "Saved token", "Which saved secret holds the token?",
-			"A secret you stored with komando secret set. Type secret:NAME or another reference if it lives elsewhere."),
+		formWhen(registrySecretQ("secret", "Saved token", "Which saved password holds the token?",
+			"One you saved with komando secret set. Kept somewhere else? Type where, like env:REGISTRY_TOKEN."),
 			func(a formAnswers) bool { return !registryCloud(k.id) && a["login"] == regVault }),
 		formWhen(registryProfileQ(), is(regECR)),
 		formProtectQ("registry"),
@@ -234,7 +234,7 @@ func registryLoginQ(k registryKind) formQ {
 		},
 		choices: func(_ *store.State, a formAnswers) []menuRow {
 			rows := []menuRow{
-				{label: "Type it when the command asks", detail: "hidden; komando keeps it in its vault", value: regToken},
+				{label: "Type it when the command asks", detail: "hidden; komando keeps it as a saved password", value: regToken},
 				{label: "It is saved in komando already", detail: "a secret from komando secret set", value: regVault},
 			}
 			if k.id == regOwn {
@@ -251,7 +251,7 @@ func registrySecretQ(key, label, ask, help string) formQ {
 		choices: func(*store.State, formAnswers) []menuRow {
 			var rows []menuRow
 			for _, n := range secretNames() {
-				rows = append(rows, menuRow{label: n, detail: "secret:" + n, value: n})
+				rows = append(rows, menuRow{label: n, detail: "saved password", value: n})
 			}
 			return rows
 		}}
@@ -426,11 +426,11 @@ func dockerConfigProblem(v string) string {
 	return ""
 }
 
-// The registry commands in All features.
+// The registry commands, asked from a menu task.
 
 func init() {
 	conn := formArg{ask: "Which registry?", pick: "registry",
-		help: "A registry from your list. Add one first with Add, Container registry."}
+		help: "A registry from your list. Add one first with Add, Images (registries)."}
 	image := formArg{ask: "Which image?", example: "acme/api:1.4.3",
 		help: "The repository and its tag, without the registry's address. komando registry ls shows them."}
 	addFormHints(map[string]formHint{
@@ -438,15 +438,15 @@ func init() {
 			help: "Empty: every repository. A repository: its tags. Docker Hub cannot list every repository, give one."}}},
 		"registry inspect": {args: []formArg{conn, image}},
 		"registry rm": {args: []formArg{conn, {ask: "Which image to delete?", example: "acme/api:1.4.3",
-			help: "Every tag that points at the same image goes too. Deleting needs a person's extra yes: komando stops and says how."}}},
+			help: "Every tag that points at the same image goes too, and it cannot be undone. komando asks a person first."}}},
 		"registry prune": {args: []formArg{conn, {ask: "In which repository?", example: "acme/api",
-			help: "Old images of this repository are deleted; Try it first shows which. Deleting needs a person's extra yes: komando says how."}},
+			help: "Old images of this repository are deleted for good; Try it first shows which. komando asks a person first."}},
 			flags: []formFlag{{name: "keep", ask: "Keep how many of the newest images?", example: "10"},
 				{name: "older-than", ask: "Or delete only images older than? (leave empty for any age)", example: "30d or 12h"}}},
 		"registry copy": {args: []formArg{
-			{ask: "Copy which image? (registry:image)", example: "ghcr:acme/api:1.4.3",
-				help: "The registry's name in komando, a colon, then the image."},
-			{ask: "Copy it to? (registry:image)", example: "harbor:shop/api:1.4.3",
-				help: "The registry's name, a colon, then the new image. Only harbor: keeps the same name."}}},
+			{ask: "Copy which image? Type its registry, a colon, then the image", example: "ghcr:acme/api:1.4.3",
+				help: "Like ghcr:acme/api:1.4.3: ghcr is the registry's name in your list, acme/api:1.4.3 the image."},
+			{ask: "Copy it where? Type the registry, a colon, then the new name", example: "harbor:shop/api:1.4.3",
+				help: "Like harbor:shop/api:1.4.3. Type only harbor: to keep the same name."}}},
 	})
 }
