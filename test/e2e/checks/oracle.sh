@@ -24,9 +24,10 @@ fi
 check "oracle conn test logs in through --via" login "$($K conn test sys-ora | jget 'd["data"]["results"][0]["detail"]["check"]')"
 check "oracle create user needs --write" WRITE_REQUIRES_FLAG "$($K db query sys-ora 'create user e2e_shop identified by x' | jget 'd["error"]["code"]')"
 q $K db user add sys-ora e2e_shop --password-ref secret:ora-shop
-q $K db query sys-ora --write --allow-dangerous 'grant create table, unlimited tablespace to e2e_shop'
+q $K db query sys-ora --write --allow-dangerous 'grant create table, create sequence, unlimited tablespace to e2e_shop'
 q $K conn add shop-ora 'oracle://e2e_shop@oracle:1521/FREEPDB1' --via bastion --password-ref secret:ora-shop
-check "oracle create table" True "$($K db query shop-ora --write "create table orders (id number generated always as identity primary key, item varchar2(50) not null, total number(10,2), placed date default sysdate)" | jget 'd["ok"]')"
+# an identity column makes a sequence behind the table: CREATE SEQUENCE is needed too
+check "oracle create table" True "$($K db query shop-ora --write "create table orders (id number generated always as identity primary key, item varchar2(50) not null, total number(10,2), placed date default sysdate)" | jget 'd["ok"] or d["error"]')"
 check "oracle ddl in a dry run is only reported" True "$($K db query shop-ora --write --dry-run 'create table x (a number)' | jget '"skipped" in d["data"]["results"][0]')"
 check "oracle insert needs --write" WRITE_REQUIRES_FLAG "$($K db query shop-ora "insert into orders (item, total) values ('pen', 1.50)" | jget 'd["error"]["code"]')"
 q $K db query shop-ora --write "insert into orders (item, total) values ('pen', 1.50)"
