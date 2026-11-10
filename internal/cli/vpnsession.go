@@ -31,6 +31,9 @@ import (
 // unused for the vpn_idle setting (30m) is disconnected.
 
 func init() {
+	netx.LockBusy = func(name string) {
+		noticef("another komando command is connecting or disconnecting vpn %s (a sign-in may be waiting in its browser window); waiting for it to end", name)
+	}
 	netx.StartSession = func(ctx context.Context, name string) error {
 		st, err := loadState()
 		if err != nil {
@@ -180,11 +183,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 	case netx.BuiltinSSL(v.Kind):
 		// log in here, where a person can answer (MFA); the session's
 		// server gets only the cookie
-		var prompt func(string, bool) (string, error)
-		if interactive {
-			prompt = loginPrompt
-		}
-		cookie, err := netx.SSLVPNLogin(ctx, v, prompt)
+		cookie, err := sslLogin(ctx, v, interactive)
 		if err != nil {
 			return nil, err
 		}

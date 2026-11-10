@@ -1,5 +1,6 @@
 # Lowest unit-test coverage (%) each package may have; see test/coverage.sh.
 # Set 1 point under the coverage when the floor came (2026-11-07). Only raise it.
+internal/browserx 82
 internal/cachex 37
 internal/cli 54
 internal/cloud 77
