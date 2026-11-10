@@ -41,7 +41,7 @@ type formArg struct {
 	ask, help, example, def string
 	// pick is the list it is picked from: server (one server), host
 	// (servers, groups, all), target, conn, db, cache, storage, cluster,
-	// registry, vpn, key, group, job, tunnel, secret; "" typed
+	// queue, registry, vpn, key, group, job, tunnel, secret; "" typed
 	pick    string
 	free    bool     // with pick: something not in the list may be typed (tag:prod)
 	local   bool     // a path on this computer: ~/ is your home folder
@@ -172,7 +172,7 @@ func formPickRows(st *store.State, pick string) []menuRow {
 		rows = append(rows, menuRow{label: "all", detail: "everything komando knows", value: "all"})
 	case "conn":
 		rows = menuConnRows(st, "")
-	case "db", "cache", "storage", "cluster", "registry":
+	case "db", "cache", "queue", "storage", "cluster", "registry":
 		rows = menuConnRows(st, pick)
 	case "vpn":
 		rows = menuVpnRows(st)

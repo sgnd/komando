@@ -13,9 +13,14 @@ its highlights; the sections below them give the details. Versions follow
   pick Add or All features, and answer one plain question at a time (a
   name, an address, a user ...), each with an example, a default Enter
   takes, and a check before the next question. Add has a form for every
-  kind: servers, PostgreSQL, MySQL, MongoDB, SQLite, Redis, Memcached, S3
-  (AWS, MinIO, R2, Wasabi, Spaces, B2), SFTP, FTP, Google Cloud Storage,
-  Azure Blob, WebDAV, Kubernetes, container registries and every VPN kind.
+  kind: Linux and Windows servers (OpenSSH or WinRM), PostgreSQL, MySQL,
+  SQL Server, Oracle (service name or SID), MongoDB, ClickHouse, Snowflake
+  (key pair or token), BigQuery (your Google login), SQLite, Redis,
+  Memcached, Kafka, RabbitMQ, NATS, Amazon SQS, Google Pub/Sub, S3 (AWS,
+  MinIO, R2, Wasabi, Spaces, B2), SFTP, FTP, Google Cloud Storage, Azure
+  Blob, WebDAV, Windows shares (SMB), Kubernetes, container registries
+  (also Amazon ECR, Azure and Google with their own logins) and every VPN
+  kind.
   All features lists every command by area and asks for what it needs,
   picking servers, databases and VPNs from your list. The last screen shows
   the exact command lines before anything runs, and offers **Try it first**

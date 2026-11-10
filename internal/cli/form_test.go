@@ -43,7 +43,7 @@ func formSample(st *store.State, q formQ, a formAnswers) string {
 		return d
 	}
 	if q.check != nil {
-		for _, v := range []string{"web9", "10.0.0.5", "5", "5m", "1.5", "x"} {
+		for _, v := range []string{"web9", "10.0.0.5", "5", "5m", "1.5", "x", "my-project", "eu-west-1", "123456789012"} {
 			if q.check(st, a, v) == "" {
 				return v
 			}
@@ -229,6 +229,7 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	invHome(t)
 	p := startPTY(t, "host", "add")
 	p.answer("What do you want to call this server?", "web1\r")
+	p.answer("What does the server run?", "\r") // Linux
 	p.answer("What is the server's address?", "root:hun@ter2@203.0.113.20")
 	p.waitFor("a password was in it")
 	p.answer("a password was in it", "\r")

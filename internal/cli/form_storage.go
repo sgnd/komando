@@ -26,6 +26,7 @@ func storageForms() []formKind {
 		{"Google Cloud Storage bucket", "logs in like gcloud, or with a key file", gcsForm},
 		{"Azure Blob Storage container", "with the account key or a SAS token", azureForm},
 		{"WebDAV folder", "Nextcloud, ownCloud, a NAS", webdavForm},
+		{"Windows share (SMB)", "a Windows file server, Samba, a NAS, Azure Files", smbForm},
 	}
 }
 
@@ -614,6 +615,54 @@ func webdavUserDefault(_ *store.State, a formAnswers) string {
 		}
 	}
 	return ""
+}
+
+// --- SMB ---
+
+func smbForm() formSpec {
+	return formSpec{title: "Add a Windows share", qs: []formQ{
+		formNameQ("conn", "share", "team"),
+		storeHostQ("smb", "fileserver.corp.lan"),
+		{key: "share", label: "Share", ask: "What is the share's name?", example: "team",
+			help: `The part after the server in \\fileserver\team, as Explorer shows it. Azure Files: the file share's name.`,
+			check: func(_ *store.State, _ formAnswers, v string) string {
+				if strings.ContainsAny(v, "/\\ \t:@?#") {
+					return "type only the share's name, like team, without \\ or /"
+				}
+				return ""
+			}},
+		storeFolderQ("share", false, "Empty for the whole share. komando cannot reach files outside this folder.", "reports/2026"),
+		smbUserQ(),
+		{key: "domain", label: "Domain", ask: "Which domain is the account in?", optional: true, example: "CORP",
+			help: `The part before \ in CORP\alice. Empty for an account of the server itself, or Azure Files.`,
+			check: func(_ *store.State, _ formAnswers, v string) string {
+				if strings.ContainsAny(v, " \t/\\@:;?#&=") {
+					return "type only the domain's name, like CORP"
+				}
+				return ""
+			}},
+		formProtectQ("share"),
+		storePortQ("445", "Almost always 445. It is often blocked across the internet: then reach the server through a server in its network.", formPortProblem),
+		storeViaQ("share"),
+		formGroupQ(), formNotesQ(),
+	}, build: func(_ *store.State, a formAnswers) [][]string {
+		u := url.URL{Scheme: "smb", User: url.User(a["user"]), Host: formHostPort(a["host"], a["port"], "445"),
+			Path: "/" + a["share"] + storeFolder(a["folder"]), RawQuery: storeQuery("domain", a["domain"])}
+		return formConnBuild(a, u.String(), true)
+	}}
+}
+
+// smbUserQ is storeUserQ with CORP\alice split: the domain is the next
+// question.
+func smbUserQ() formQ {
+	q := storeUserQ("Your Windows user name, without the domain. Azure Files: the storage account's name. The password is asked hidden when the command runs.")
+	q.check = func(st *store.State, a formAnswers, v string) string {
+		if d, u, ok := strings.Cut(v, `\`); ok {
+			return "type only " + u + " here; the domain " + d + " is the next question"
+		}
+		return storeUserProblem(st, a, v)
+	}
+	return q
 }
 
 // --- the storage commands in All features ---
