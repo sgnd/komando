@@ -1,8 +1,8 @@
 # Storage: buckets and file servers
 
 Browse, download, upload and share files in S3-compatible buckets, Google
-Cloud Storage, Azure Blob Storage, and on WebDAV, FTPS, SFTP and FTP servers,
-all with the same commands. [All features](README.md)
+Cloud Storage, Azure Blob Storage, on WebDAV, FTPS, SFTP and FTP servers, and
+on Windows (SMB) shares, all with the same commands. [All features](README.md)
 
 ## Quick start
 
@@ -24,6 +24,7 @@ komando upload backups ./app.sql.gz 2026/app.sql.gz
 | WebDAV | `webdavs://alice@cloud.example.com/remote.php/dav/files/alice` | Nextcloud, ownCloud, a NAS, Apache or nginx. Add `?tls=skip-verify` only for a self-signed certificate you trust. `webdav://` (no encryption) is refused without `?insecure=1`. |
 | FTPS | `ftps://deploy@files.example.com/public_html` | FTP with TLS. Add `?tls=skip-verify` only for a self-signed certificate you trust. |
 | SFTP | `sftp://deploy@files.example.com/uploads` | File access over SSH, for accounts without a shell. The path starts at the server's root (on hosting, often your home folder). |
+| SMB (Windows shares) | `smb://alice@fileserver.corp.lan/team/reports?domain=CORP` | A Windows file server, Samba, a NAS or Azure Files. The first part of the path is the share. See [Windows shares](#add-a-windows-share-smb). |
 | FTP | `ftp://deploy@files.example.com/www?insecure=1` | No encryption: the password and files travel in clear. Refused without `?insecure=1`. Prefer FTPS or SFTP. |
 
 The folder in the URL is where the conn starts. Keys are relative to it and
@@ -111,6 +112,44 @@ komando download site logs/error.log
   Security) is safer than your own.
 - File servers have no temporary links: `storage link` is for S3, Google
   Cloud and Azure.
+
+## Add a Windows share (SMB)
+
+A shared folder on a Windows server, Samba, a NAS or Azure Files (the
+`\\fileserver\team` you open in Explorer) is a conn too:
+
+```bash
+komando secret set team-share
+komando conn add team 'smb://alice@fileserver.corp.lan/team/reports?domain=CORP' --password-ref secret:team-share
+komando storage ls team
+komando upload team ./q3.pdf 2026/q3.pdf
+```
+
+- **The URL:** `smb://USER@HOST/SHARE/FOLDER`. The first part of the path
+  is the share's name (`team`); the rest is the folder the conn starts in.
+  `cifs://` means the same.
+- **A domain account** (`CORP\alice`): add `?domain=CORP`. The usual SMB
+  form `smb://CORP;alice@host/share` works too; use one of them, not both.
+  A local account on the server needs no domain.
+- **The password** goes in the vault (`--password-ref`), never in the URL.
+  komando logs in with NTLMv2; Kerberos tickets are not used.
+- **Safe on the wire:** komando speaks SMB 2 and 3 and signs every message,
+  so nobody on the way can change what the server sends. The traffic is
+  encrypted when the server asks for it (SMB 3 encryption, which Azure Files
+  turns on by default; on Windows, "Encrypt data access" on the share; on
+  Samba, `smb encrypt = required`). Without it, `komando doctor` warns about
+  conns that cross the network. A guest login cannot sign, so a user name is
+  required.
+- **Port 445 is often blocked** across the internet. Reach the server
+  `--via` an SSH host in its network, or through a VPN, like any other conn.
+- **Azure Files:** `smb://STORAGEACCOUNT@STORAGEACCOUNT.file.core.windows.net/SHARE`
+  with the storage account's key as the password.
+- Uploads go to a temporary name first. An existing file is moved aside,
+  the new one renamed into place, and the old one removed only then; if the
+  rename fails, the old file comes back.
+- A share that does not exist is `BUCKET_NOT_FOUND`, a wrong user or
+  password is `STORAGE_AUTH`, and a file that another program has open says
+  so.
 
 ## Browse and read files
 

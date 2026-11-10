@@ -101,6 +101,8 @@ func init() {
 		Example: "azblob://ACCOUNT@my-container/backups (account key or SAS token: --password-ref secret:NAME)"})
 	register(Kind{Name: "webdav", Family: "storage", Schemes: []string{"webdavs", "webdav"}, DefaultPort: 443,
 		Example: "webdavs://alice@cloud.example.com/remote.php/dav/files/alice (Nextcloud; ?tls=skip-verify for self-signed; webdav:// needs ?insecure=1)"})
+	register(Kind{Name: "smb", Family: "storage", Schemes: []string{"smb", "cifs"}, DefaultPort: 445,
+		Example: "smb://alice@fileserver.corp.lan/team/reports?domain=CORP (a Windows, Samba or Azure Files share)"})
 }
 
 // Lookup returns the kind with this name.
@@ -153,7 +155,7 @@ type Target struct {
 	Management string `json:"management,omitempty"` // rabbitmq: host:port of the management HTTP API (?management=PORT)
 
 	Creds  string `json:"creds,omitempty"`  // nats: secret:NAME holding the .creds file (user JWT and NKey seed) to log in with
-	Domain string `json:"domain,omitempty"` // nats: the JetStream domain (?domain=)
+	Domain string `json:"domain,omitempty"` // nats: the JetStream domain; smb: the Windows domain of the user (both ?domain=; smb also DOMAIN;user)
 
 	Account string `json:"account,omitempty"` // sqs: the AWS account that owns the queues, when not the login's own (?account=)
 	Project string `json:"project,omitempty"` // pubsub: the Google Cloud project
@@ -185,7 +187,7 @@ func (t Target) Where() string {
 var urlParsers = map[string]func(*url.URL, Target) (Target, error){
 	"s3": parseS3, "ftp": parseFiles, "ftps": parseFiles, "sftp": parseFiles, "gcs": parseGCS, "azblob": parseAzure,
 	"webdav": parseWebDAV, "mongodb": parseMongo, "rabbitmq": parseAMQP, "sqs": parseSQS,
-	"pubsub": parsePubsub,
+	"pubsub": parsePubsub, "smb": parseSMB,
 }
 
 // passwordParams are query parameters that would carry a password or key.

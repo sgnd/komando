@@ -34,6 +34,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Caches](caches.md) | read and change Redis, Valkey and memcached | `cache` |
 | [Queues](queues.md) | Kafka topics, RabbitMQ queues, NATS JetStream streams, Amazon SQS queues and Google Cloud Pub/Sub topics: list, peek, lag, send | `queue` |
 | [Storage](storage.md) | browse, download, upload and share files in S3 buckets and on FTPS/SFTP/FTP servers | `storage`, `upload`, `download`, `sync` |
+| [Storage](storage.md) | browse, download, upload and share files in S3, Google Cloud and Azure buckets, on WebDAV/FTPS/SFTP/FTP servers and Windows (SMB) shares | `storage`, `upload`, `download`, `sync` |
 | [Clusters](cluster.md) | Kubernetes and Docker Swarm: status, list, logs, apply, restart, scale | `cluster` |
 | [Container registries](registry.md) | list repositories and tags, inspect images, delete old ones | `registry` |
 | [Rotate keys and passwords](rotate.md) | change a key or a password everywhere, in order; when someone leaves | `key`, `secret`, `db user`, `audit` |

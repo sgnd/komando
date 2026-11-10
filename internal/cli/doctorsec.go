@@ -218,6 +218,9 @@ func plainConn(c *store.Conn) string {
 		if !t.Secure {
 			return "travels unencrypted: use an https endpoint"
 		}
+	case "smb":
+		// signed always; encrypted only when the server is set up for it
+		return "signed, but encrypted only if the server asks for it (SMB 3 encryption on the share or server): turn that on, or reach the share --via an SSH server or a VPN"
 	case "registry":
 		if q.Get("tls") == "false" {
 			return "travels unencrypted: drop ?tls=false"

@@ -87,6 +87,12 @@ services:
     image: rclone/rclone:1.68.2
     command: ["serve", "webdav", "/data", "--addr", ":8080", "--user", "deploy", "--pass", "deploypass"]
     networks: [private]
+  # an SMB share (smb conns) that requires signing and SMB 3 encryption;
+  # the image has no version tags (latest is its 2021 build)
+  samba:
+    image: dperson/samba:latest
+    command: ["-p", "-u", "deploy;deploypass", "-s", "files;/files;no;no;no;deploy", "-g", "server signing = mandatory", "-g", "smb encrypt = required"]
+    networks: [private]
   mongo:
     # 7.0: MongoDB 8.0 and later do not start on Linux 6.19 and newer, the
     # CI runners' kernel (SERVER-121912, a TCMalloc bug)

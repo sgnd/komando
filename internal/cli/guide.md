@@ -192,7 +192,7 @@ first key naming the command (`{"find": "users", "filter": {...}}`); reads
 run as they are, changes need `--write`, and `db schema`/`db info` describe
 the database.
 
-**Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP): `komando storage ls <conn>` and
+**Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP, SMB shares): `komando storage ls <conn>` and
 `komando download <conn> KEY` read; `komando upload <conn> FILE` and
 `storage link` change or share; `storage rm` deletes (needs
 `--allow-dangerous`). Keys are relative to the conn's folder.

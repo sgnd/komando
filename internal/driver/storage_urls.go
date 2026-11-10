@@ -116,3 +116,45 @@ func parseWebDAV(u *url.URL, t Target) (Target, error) {
 	}
 	return t, nil
 }
+
+// parseSMB reads smb://[DOMAIN;]user@host[:port]/share/folder[?domain=D]
+// (cifs:// is the same). The first part of the path is the share; the rest
+// is the folder keys are relative to. The domain may come from either
+// place, not both.
+func parseSMB(u *url.URL, t Target) (Target, error) {
+	if u.Hostname() == "" {
+		return Target{}, out.Usage("smb URL needs a host, e.g. %s", t.Kind.Example)
+	}
+	port := 445
+	if p := u.Port(); p != "" {
+		var err error
+		if port, err = strconv.Atoi(p); err != nil || port < 1 || port > 65535 {
+			return Target{}, out.Usage("invalid port %q in conn URL", p)
+		}
+	}
+	t.Address = net.JoinHostPort(u.Hostname(), strconv.Itoa(port))
+	q := u.Query()
+	if err := onlyOptions(q, "smb", "domain"); err != nil {
+		return Target{}, err
+	}
+	t.User, t.Domain = u.User.Username(), q.Get("domain")
+	if d, user, ok := strings.Cut(t.User, ";"); ok {
+		if t.Domain != "" && !strings.EqualFold(t.Domain, d) {
+			return Target{}, out.Usage("smb URL names two domains (%q before the user and %q in ?domain=): keep one", d, t.Domain)
+		}
+		t.Domain, t.User = d, user
+	}
+	if t.User == "" {
+		return Target{}, out.Errf(out.ExitUsage, "USAGE",
+			"add the user name, e.g. smb://alice@host/share; a guest login is refused because it cannot sign what the server sends",
+			"smb URL needs a user name")
+	}
+	share, folder, _ := strings.Cut(strings.Trim(u.Path, "/"), "/")
+	if share == "" || strings.ContainsAny(share, `\:*?"<>|`) {
+		return Target{}, out.Usage("smb URL needs a share after the host, e.g. %s", t.Kind.Example)
+	}
+	// Secure stays false: it means TLS (cert check, doctor), and SMB signs
+	// its messages instead; storex.OpenSMB always asks for that
+	t.Bucket, t.Prefix = share, folderOf(folder)
+	return t, nil
+}

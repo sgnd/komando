@@ -25,7 +25,7 @@ func TestKeyStaysInsidePrefix(t *testing.T) {
 			t.Errorf("%s: %s %v", rel, got, err)
 		}
 	}
-	for _, bad := range []string{"", "../b/secret", "x/../../y", ".."} {
+	for _, bad := range []string{"", "../b/secret", "x/../../y", "..", `a\..\..\x`, `..\x`, `a/..\..`} {
 		if _, err := s.Key(bad); err == nil {
 			t.Errorf("%q accepted", bad)
 		}

@@ -509,7 +509,7 @@ var formAreas = []struct {
 	{"Databases", "queries, shells, dumps, users", []string{"db"}},
 	{"Cache", "Redis and Memcached keys", []string{"cache"}},
 	{"Message queues", "Kafka, RabbitMQ, NATS, SQS, Pub/Sub", []string{"queue"}},
-	{"File storage", "buckets, SFTP, FTP, WebDAV", []string{"storage"}},
+	{"File storage", "buckets, SFTP, FTP, WebDAV, SMB", []string{"storage"}},
 	{"Kubernetes", "clusters, apps, logs, Helm", []string{"cluster"}},
 	{"Container registries", "images and tags", []string{"registry"}},
 	{"VPNs, logins and tunnels", "connect, log in once, forward ports", []string{"vpn", "tunnel", "login", "logout"}},

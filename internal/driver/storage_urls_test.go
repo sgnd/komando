@@ -46,3 +46,44 @@ func TestCloudStorageURLs(t *testing.T) {
 		t.Errorf("skip-verify, no user: %+v", tg)
 	}
 }
+
+func TestSMBURLs(t *testing.T) {
+	for raw, want := range map[string]string{
+		"smb://alice@fs.corp.lan/team/reports/2026?domain=CORP": "smb alice CORP team reports/2026/ fs.corp.lan:445 fs.corp.lan:445/team/reports/2026",
+		"cifs://CORP;alice@fs.corp.lan:1445/team":               "smb alice CORP team  fs.corp.lan:1445 fs.corp.lan:1445/team",
+		"smb://corp;alice@fs/team/?domain=CORP":                 "smb alice corp team  fs:445 fs:445/team",
+		"smb://bob@10.0.0.5/Public":                             "smb bob  Public  10.0.0.5:445 10.0.0.5:445/Public",
+	} {
+		tg, err := Parse(raw)
+		if err != nil {
+			t.Errorf("%s: %v", raw, err)
+			continue
+		}
+		where := strings.ReplaceAll(tg.Where(), " @ ", "@")
+		share, addr, _ := strings.Cut(where, "@")
+		got := strings.Join([]string{tg.Kind.Name, tg.User, tg.Domain, tg.Bucket, tg.Prefix, tg.Address, addr + "/" + share}, " ")
+		if got != want {
+			t.Errorf("%s:\n got %q\nwant %q", raw, got, want)
+		}
+		if tg.Secure { // Secure means TLS; `cert check` would try a TLS handshake on port 445
+			t.Errorf("%s: marked as TLS", raw)
+		}
+	}
+	for raw, code := range map[string]string{
+		"smb://fs.corp.lan/team":                    "USAGE", // no user: guests cannot sign
+		"smb://alice@fs.corp.lan":                   "USAGE", // no share
+		"smb://alice@fs.corp.lan/te:am":             "USAGE",
+		"smb://alice@fs.corp.lan/team?tls=1":        "USAGE",
+		"smb://A;alice@fs.corp.lan/team?domain=B":   "USAGE",
+		"smb://alice@fs.corp.lan:0/team":            "USAGE",
+		"smb:///team":                               "USAGE",
+		"smb://alice@fs.corp.lan/team?password=x":   "URL_HAS_PASSWORD",
+		"smb://alice:pw@fs.corp.lan/team":           "URL_HAS_PASSWORD",
+		"smb://CORP;alice:pw@fs.corp.lan/team/a/b/": "URL_HAS_PASSWORD",
+	} {
+		_, err := Parse(raw)
+		if oe, ok := err.(*out.Error); !ok || oe.Code != code {
+			t.Errorf("%s: %v, want %s", raw, err, code)
+		}
+	}
+}

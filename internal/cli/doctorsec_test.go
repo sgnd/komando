@@ -19,6 +19,7 @@ func TestPlainConnSaysHowToFix(t *testing.T) {
 		"mysql://app@db.internal/app?tls=skip-verify":        "?tls=true'",
 		"redis://default@cache.internal:6379/0":              "--url 'rediss://default@cache.internal:6379/0'",
 		"memcached://cache.internal:11211":                   "--url 'memcacheds://cache.internal:11211'",
+		"smb://alice@fs.corp.lan/team":                       "encrypted only if the server asks for it",
 	} {
 		if got := plainConn(&store.Conn{Name: "c", URL: u}); !strings.Contains(got, want) {
 			t.Errorf("%s:\n got %q\nwant %q in it", u, got, want)

@@ -45,6 +45,17 @@ its highlights; the sections below them give the details. Versions follow
   local accounts), `--via` bastions and VPNs. The same Windows commands
   work as over OpenSSH.
 - `os:windows` and `os:linux` target selectors.
+- **Windows (SMB) shares as storage conns:** `smb://alice@fileserver/team/reports?domain=CORP`
+  (or `cifs://`, or `CORP;alice@` for the domain) reaches a Windows file
+  server, Samba, a NAS or Azure Files with the same `storage ls`, `cat`,
+  `download`, `upload` and `rm` as the other kinds, also `--via` an SSH host
+  or a VPN. komando speaks SMB 2 and 3 itself (no `smbclient` needed), logs
+  in with the password from `--password-ref`, signs every message and
+  encrypts when the server asks for it. A guest login is refused, a key
+  cannot climb out of the conn's folder with `..` (between `/` or `\`), an upload
+  replaces a file only once the new one is complete, and `storage link`
+  answers `NOT_SUPPORTED`. `komando doctor` warns about SMB conns that cross
+  the network, since their encryption depends on the server.
 
 ### Changed
 
