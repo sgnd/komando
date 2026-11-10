@@ -174,3 +174,12 @@ func TestUnifiedDiff(t *testing.T) {
 		t.Errorf("bad diff:\n%s", d)
 	}
 }
+
+// filesOnly skips a test of the file backend's own files (key files under
+// keys/, folder modes) when the suite runs on sealed homes.
+func filesOnly(t *testing.T) {
+	t.Helper()
+	if os.Getenv("KOMANDO_TEST_SEALED") == "1" {
+		t.Skip("tests the files of the file backend; a sealed home has none")
+	}
+}

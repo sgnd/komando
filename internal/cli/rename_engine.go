@@ -278,7 +278,8 @@ func (w *refRewriter) renameKey(s *store.State, from, to string) []renamePair {
 // name: the same folder, the new name. A key added from elsewhere (key add)
 // keeps its file where it is.
 func managedKeyPath(k *store.Key, from, to string) (string, bool) {
-	if !k.Managed || filepath.Base(k.Path) != from {
+	// a key sealed in the store has no file: its record keeps its ID
+	if !k.Managed || store.SealedKey(k) || filepath.Base(k.Path) != from {
 		return "", false
 	}
 	return filepath.Join(filepath.Dir(k.Path), to), true

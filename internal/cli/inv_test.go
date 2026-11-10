@@ -201,6 +201,7 @@ func TestInvHostImportJSON(t *testing.T) {
 }
 
 func TestInvTrustDryRun(t *testing.T) {
+	filesOnly(t)
 	invHome(t)
 	mustRun(t, "host", "add", "h", "u@10.0.0.1")
 	kh := store.Path("known_hosts")
@@ -216,6 +217,7 @@ func TestInvTrustDryRun(t *testing.T) {
 }
 
 func TestInvKeys(t *testing.T) {
+	filesOnly(t)
 	invHome(t)
 	wantCode(t, "USAGE", "key", "gen", "k", "--type", "rsa", "-b", "1024")
 	wantCode(t, "USAGE", "key", "gen", "k", "-C", "a\nssh-rsa AAAA evil")
@@ -256,6 +258,7 @@ func TestInvKeys(t *testing.T) {
 }
 
 func TestInvCleanPubLine(t *testing.T) {
+	filesOnly(t)
 	invHome(t)
 	mustRun(t, "key", "gen", "k")
 	pub, _ := os.ReadFile(store.Path("keys", "k.pub"))

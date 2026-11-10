@@ -26,9 +26,11 @@ const storeLock = ".store.lock"
 // whole store can live there (S6 commit 9); tests turn it on.
 var freshSealed = false
 
-// legacyFiles are files only the file backend writes. vault.key alone does
-// not count: the sealed store's key file has its own name.
-var legacyFiles = []string{"state.json", "vault.json", "known_hosts", "audit.jsonl"}
+// legacyFiles are files only the file backend writes, and that hold data.
+// vault.key alone does not count (the sealed store's key file has its own
+// name), nor does audit.jsonl: every command may write it before its first
+// change, and a home with only an audit log holds no inventory.
+var legacyFiles = []string{"state.json", "vault.json", "known_hosts"}
 
 // Sealed reports whether this home keeps its data in the sealed store:
 // store.db is there, or the home has none of the files of before and new

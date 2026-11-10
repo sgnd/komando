@@ -67,6 +67,12 @@ func startPTY(t *testing.T, args ...string) *ptyRun {
 	p := &ptyRun{t: t, master: m, tty: tty, report: filepath.Join(t.TempDir(), "report")}
 	p.cmd = exec.Command(os.Args[0], "-test.run=^TestPTYChild$")
 	p.cmd.Env = append(os.Environ(), "KOMANDO_PTY_ARGS="+strings.Join(args, "\x1f"), "KOMANDO_PTY_REPORT="+p.report, "KOMANDO_OUTPUT=text")
+	// this process took the passphrase out of its environment; on a sealed
+	// home the child needs it for every command, as a person's own shell
+	// would give it
+	if pass := vault.Passphrase(); pass != "" && os.Getenv("KOMANDO_TEST_SEALED") == "1" {
+		p.cmd.Env = append(p.cmd.Env, "KOMANDO_VAULT_PASS="+pass)
+	}
 	p.cmd.Stdin, p.cmd.Stdout, p.cmd.Stderr = tty, tty, tty
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}
 	if err := p.cmd.Start(); err != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -146,4 +147,28 @@ func hostsFieldMatches(field, norm string) bool {
 		}
 	}
 	return false
+}
+
+// WritePinsFile writes the pins of addrs (host:port) as a known_hosts file
+// in dir, readable by this user only, for OpenSSH (host ssh-command on a
+// sealed home), and returns its path.
+func WritePinsFile(dir string, addrs []string) (string, error) {
+	var lines []string
+	err := HostKeys().view(func(t hostKeyTx) error {
+		for _, a := range addrs {
+			keys, _, err := t.Pins(a)
+			if err != nil {
+				return err
+			}
+			for _, k := range keys {
+				lines = append(lines, knownhosts.Line([]string{knownhosts.Normalize(a)}, k))
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	p := filepath.Join(dir, "known_hosts")
+	return p, os.WriteFile(p, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
 }

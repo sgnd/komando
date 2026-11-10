@@ -50,7 +50,7 @@ func TestSealedChoice(t *testing.T) {
 	if !Sealed() {
 		t.Fatal("vault.key alone made it a files home")
 	}
-	for _, f := range []string{"state.json", "vault.json", "known_hosts", "audit.jsonl", "keys/k"} {
+	for _, f := range []string{"state.json", "vault.json", "known_hosts", "keys/k"} {
 		t.Run(f, func(t *testing.T) {
 			t.Setenv("KOMANDO_HOME", t.TempDir())
 			_ = os.MkdirAll(Path("keys"), 0o700)

@@ -83,6 +83,7 @@ func opensWith(t *testing.T, pass string) error {
 }
 
 func TestPTYSecretPassphrase(t *testing.T) {
+	filesOnly(t)
 	ptyVault(t, "test-passphrase-long-enough")
 	p := startPTY(t, "secret", "passphrase")
 	p.answer("New vault passphrase (hidden): ", ptyNewPass+"\r")
@@ -113,6 +114,7 @@ func TestPTYSecretPassphrase(t *testing.T) {
 // KOMANDO_VAULT_PASS holds the new passphrase already: komando asks for the
 // one the vault has now.
 func TestPTYSecretPassphraseAsksCurrent(t *testing.T) {
+	filesOnly(t)
 	ptyVault(t, ptyNewPass)
 	p := startPTY(t, "secret", "passphrase")
 	p.answer("Current vault passphrase (hidden): ", "test-passphrase-long-enough\r")
@@ -129,6 +131,7 @@ func TestPTYSecretPassphraseAsksCurrent(t *testing.T) {
 // A wrong current passphrase, a short one or two that differ: nothing
 // changes.
 func TestPTYSecretPassphraseChangesNothing(t *testing.T) {
+	filesOnly(t)
 	for _, c := range []struct {
 		name, code string
 		typed      []string // question, answer
@@ -162,6 +165,7 @@ func TestPTYSecretPassphraseChangesNothing(t *testing.T) {
 // --off takes the passphrase away: a new random key in vault.key, after a
 // person's yes.
 func TestPTYSecretPassphraseOff(t *testing.T) {
+	filesOnly(t)
 	ptyVault(t, "test-passphrase-long-enough")
 	p := startPTY(t, "secret", "passphrase", "--off")
 	p.answer("[y/N] ", "y\r")
@@ -183,6 +187,7 @@ func TestPTYSecretPassphraseOff(t *testing.T) {
 // doctor fails when KOMANDO_VAULT_PASS does not open the vault (changed
 // without `secret passphrase`), and warns about a vault.key nothing uses.
 func TestDoctorVaultKey(t *testing.T) {
+	filesOnly(t)
 	ptyVault(t, "test-passphrase-long-enough")
 	checks := func() map[string]securityCheck {
 		vault.Passphrase()

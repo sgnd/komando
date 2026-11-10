@@ -53,6 +53,8 @@ func shopInventory(t *testing.T) {
 func homeFiles(t *testing.T) string {
 	t.Helper()
 	st, _ := os.ReadFile(store.Path("state.json"))
+	db, _ := os.ReadFile(store.Path(store.StoreFile))
+	st = append(st, db...)
 	vf, _ := os.ReadFile(store.Path("vault.json"))
 	keys, _ := filepath.Glob(store.Path("keys", "*"))
 	for i := range keys {
@@ -82,6 +84,7 @@ func updatedRef(d map[string]any, entry, field string) (from, to string, ok bool
 }
 
 func TestRenamePrefix(t *testing.T) {
+	filesOnly(t)
 	shopInventory(t)
 	stBefore, _ := store.Load()
 	created := stBefore.Hosts["shop-bastion"].CreatedAt
@@ -259,6 +262,7 @@ func TestRenamePrefixTwice(t *testing.T) {
 // A clash anywhere stops the whole rename before anything is written: the
 // inventory, the vault and the key folder stay exactly as they were.
 func TestRenameClashChangesNothing(t *testing.T) {
+	filesOnly(t)
 	shopInventory(t)
 	cases := []struct {
 		name  string
@@ -346,6 +350,7 @@ func keptReason(d map[string]any, entry, field, name string) string {
 // bucket of a conn, and a pattern that would no longer match the same
 // entries.
 func TestRenameNotes(t *testing.T) {
+	filesOnly(t)
 	shopInventory(t)
 	mustRun(t, "key", "gen", "shop-dev")
 	mustRun(t, "conn", "add", "shop-files", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1", "-g", "shop-dev")
@@ -568,6 +573,7 @@ func TestRenameReservedSecret(t *testing.T) {
 }
 
 func TestKeyMv(t *testing.T) {
+	filesOnly(t)
 	invHome(t)
 	mustRun(t, "key", "gen", "deploy")
 	path := store.Path("keys", "deploy")
@@ -669,6 +675,7 @@ func TestGroupMv(t *testing.T) {
 // secrets back and leaves the state unsaved; a vault that does not open
 // stops it before anything moves.
 func TestRenameRollback(t *testing.T) {
+	filesOnly(t)
 	shopInventory(t)
 	secretsNow := func() string {
 		var b strings.Builder

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"net"
+	"os"
 	"strconv"
 	"strings"
 
@@ -110,8 +111,8 @@ func sshPath(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, 
 }
 
 // hopOptions are the ssh options to log in to one hop.
-func hopOptions(st *store.State, h *store.Host) []string {
-	o := []string{"-o", "UserKnownHostsFile=" + sshx.KnownHostsPath()}
+func hopOptions(st *store.State, h *store.Host, knownHosts string) []string {
+	o := []string{"-o", "UserKnownHostsFile=" + knownHosts}
 	if h.EffectivePort() != 22 {
 		o = append(o, "-p", strconv.Itoa(h.EffectivePort()))
 	}
@@ -162,11 +163,43 @@ func vpnProxy(st *store.State, v *store.Vpn) (string, error) {
 	return "nc -X 5 -x " + socks + " %h %p", nil
 }
 
+// sealedSSHFiles readies OpenSSH on a sealed home, where the pins and the
+// keys komando made are sealed and OpenSSH reads files: the pins of the
+// path go to a known_hosts copy in a private temporary folder, for a person
+// only, and a sealed key stops it.
+func sealedSSHFiles(st *store.State, hops []*store.Host) (string, error) {
+	if isAgent() {
+		return "", out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+			"use `komando exec` or `komando shell`; a person who wants OpenSSH runs `komando host ssh-command` in their own terminal",
+			"host ssh-command writes a copy of the pinned host keys for OpenSSH, so only a person at a terminal can run it here")
+	}
+	var addrs []string
+	for _, h := range hops {
+		if k, ok := st.Keys[h.Key]; ok && h.Identity == "" && store.SealedKey(k) {
+			return "", out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+				"use `komando shell "+h.Name+"`, which logs in with it",
+				"key %s is sealed inside komando's store, so OpenSSH cannot read it", k.Name)
+		}
+		addrs = append(addrs, net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())))
+	}
+	dir, err := os.MkdirTemp("", "komando-ssh-")
+	if err != nil {
+		return "", err
+	}
+	return sshx.WritePinsFile(dir, addrs)
+}
+
 // sshCommandFor builds the ssh argv for h.
 func sshCommandFor(st *store.State, h *store.Host) ([]string, error) {
 	vpn, hops, err := sshPath(st, h, map[string]bool{})
 	if err != nil {
 		return nil, err
+	}
+	kh := sshx.KnownHostsPath()
+	if store.Sealed() {
+		if kh, err = sealedSSHFiles(st, hops); err != nil {
+			return nil, err
+		}
 	}
 	// proxy carries the connection to the current hop: a shell command for
 	// ssh's ProxyCommand, with %h %p meaning that hop
@@ -185,14 +218,14 @@ func sshCommandFor(st *store.State, h *store.Host) ([]string, error) {
 				"%s has a proxy command but is reached through another hop", hops[i].Name)
 		}
 		prev := hops[i-1]
-		p := append([]string{"ssh"}, hopOptions(st, prev)...)
+		p := append([]string{"ssh"}, hopOptions(st, prev, kh)...)
 		if proxy != "" {
 			p = append(p, "-o", "ProxyCommand="+escapePct(proxy))
 		}
 		p = append(p, "-W", net.JoinHostPort(hops[i].Address, strconv.Itoa(hops[i].EffectivePort())), hopDest(st, prev))
 		proxy = shellLine(p)
 	}
-	parts := append([]string{"ssh"}, hopOptions(st, h)...)
+	parts := append([]string{"ssh"}, hopOptions(st, h, kh)...)
 	if proxy != "" {
 		parts = append(parts, "-o", "ProxyCommand="+proxy) // ssh fills in %h %p itself
 	}

@@ -150,10 +150,12 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 				}
 				pubLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub))) + " " + comment
 				// a fresh file each time: an old one would keep its mode
-				if _, err := store.WriteManagedKey(name, pem.EncodeToMemory(block), []byte(pubLine+"\n")); err != nil {
+				// on a sealed home the key is a store record, and its path says so
+				kept, err := store.WriteManagedKey(name, pem.EncodeToMemory(block), []byte(pubLine+"\n"))
+				if err != nil {
 					return err
 				}
-				k = &store.Key{Name: name, Path: path, Type: pub.Type(), PublicKey: pubLine, Fingerprint: ssh.FingerprintSHA256(pub), Managed: true, CreatedAt: time.Now().UTC()}
+				k = &store.Key{Name: name, Path: kept, Type: pub.Type(), PublicKey: pubLine, Fingerprint: ssh.FingerprintSHA256(pub), Managed: true, CreatedAt: time.Now().UTC()}
 				s.Keys[name] = k
 				return nil
 			})
