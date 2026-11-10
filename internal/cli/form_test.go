@@ -6,8 +6,10 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -61,7 +63,7 @@ func TestFormEveryCommandBuilds(t *testing.T) {
 	walk = func(c *cobra.Command) {
 		for _, s := range c.Commands() {
 			walk(s)
-			if !s.Runnable() || s.Hidden || s.Name() == "help" || formHints[commandKey(s)].form != nil {
+			if !s.Runnable() || s.Hidden || s.Name() == "help" { // a hand-made form's command has Every option too
 				continue
 			}
 			n++
@@ -307,5 +309,183 @@ func TestFormPicked(t *testing.T) {
 	l.cursor = 1
 	if got := formPicked(l, true); got != "web2" {
 		t.Errorf("moved to web2: %q", got)
+	}
+}
+
+// Nothing is left out of the menu: every command it lists has a hint
+// (written for it, even an empty one), every conn kind and VPN kind has an
+// Add form, and every flag a person could need is offered.
+func TestFormEveryCommandHasAHint(t *testing.T) {
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, s := range c.Commands() {
+			walk(s)
+			if formListed(s) && s.Name() != "help" {
+				if _, ok := formHints[commandKey(s)]; !ok {
+					t.Errorf("%s has no formHint: give it one (form_hints_*.go), so its questions read well", commandKey(s))
+				}
+			}
+		}
+	}
+	walk(newRoot())
+}
+
+// formKindCovers says which conn kinds (driver) and VPN kinds (netx) each
+// Add form adds. A new kind needs a form and a line here.
+var formKindCovers = map[string][]string{
+	"Server": nil, "PostgreSQL": {"postgres"}, "MySQL or MariaDB": {"mysql"}, "MongoDB": {"mongodb"}, "SQLite": {"sqlite"},
+	"Redis or Valkey": {"redis"}, "Memcached": {"memcached"},
+	"S3 bucket": {"s3"}, "SFTP file server": {"sftp"}, "FTP or FTPS file server": {"ftp", "ftps"},
+	"Google Cloud Storage bucket": {"gcs"}, "Azure Blob Storage container": {"azblob"}, "WebDAV folder": {"webdav"},
+	"Kubernetes": {"k8s"}, "Docker Swarm": nil,
+	"Docker Hub": {"registry"}, "GitHub": {"registry"}, "GitLab": {"registry"}, "Amazon ECR": {"registry"},
+	"Your own registry": {"registry"}, "From docker login": {"registry"},
+	"WireGuard": {"wireguard"}, "OpenVPN or Pritunl": {"openvpn"}, "Tailscale or Headscale": {"tailscale"},
+	"GlobalProtect": {"globalprotect"}, "FortiClient": {"fortinet"}, "Cisco AnyConnect": {"anyconnect"},
+	"Pulse Secure or Ivanti": {"pulse"}, "F5 BIG-IP": {"f5"}, "L2TP/IPsec": {"l2tp"}, "Cisco IPsec": {"ipsec"},
+	"IKEv2": {"ikev2"}, "A VPN on this computer": {"system"}, "SOCKS proxy": {"socks"}, "HTTP proxy": {"proxy"},
+}
+
+func TestFormEveryKindHasAnAddForm(t *testing.T) {
+	covered := map[string]bool{}
+	for _, g := range formGroups() {
+		for _, k := range g.kinds {
+			kinds, ok := formKindCovers[k.label]
+			if !ok {
+				t.Errorf("Add form %q is not in formKindCovers", k.label)
+			}
+			for _, x := range kinds {
+				covered[x] = true
+			}
+		}
+	}
+	for _, k := range driver.Kinds() {
+		if !covered[k.Name] {
+			t.Errorf("conn kind %s has no Add form", k.Name)
+		}
+	}
+	for _, k := range netx.KindNames() {
+		if !covered[k] {
+			t.Errorf("VPN kind %s has no Add form", k)
+		}
+	}
+}
+
+// Every example in every command's --help can be made from its questions:
+// each flag it uses is offered (the menu leaves out only --yes,
+// --allow-dangerous, --reveal, -o and --dry-run, which a person gives when
+// the command asks), and its words fit the command's arguments.
+func TestFormEveryHelpExampleIsReachable(t *testing.T) {
+	root := newRoot()
+	n := 0
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, s := range c.Commands() {
+			walk(s)
+			if !formListed(s) || s.Name() == "help" {
+				continue
+			}
+			offered := map[string]bool{}
+			for _, q := range formCmdSpec(s).qs {
+				if f, ok := strings.CutPrefix(q.key, "flag:"); ok {
+					offered[f] = true
+				}
+			}
+			for _, line := range strings.Split(s.Example, "\n") {
+				line = strings.TrimSpace(line)
+				if i := strings.Index(line, " #"); i >= 0 {
+					line = line[:i]
+				}
+				words := formSplitWords(line)
+				key := strings.Fields(commandKey(s))
+				if len(words) < len(key)+1 || words[0] != "komando" {
+					continue // prose
+				}
+				if found, _, err := root.Find(words[1:]); err != nil || found != s {
+					continue // an example of another command (login aws in login's help)
+				}
+				n++
+				for i := len(key) + 1; i < len(words); i++ {
+					w := words[i]
+					if w == "--" {
+						break
+					}
+					if !strings.HasPrefix(w, "-") || w == "-" {
+						continue
+					}
+					name, _, _ := strings.Cut(strings.TrimLeft(w, "-"), "=")
+					f := s.Flags().Lookup(name)
+					if f == nil && len(name) == 1 {
+						f = s.Flags().ShorthandLookup(name)
+					}
+					if f == nil {
+						t.Errorf("%s example %q: no flag %s", commandKey(s), line, w)
+						continue
+					}
+					if f.Value.Type() != "bool" && !strings.Contains(w, "=") {
+						i++ // its value
+					}
+					h := formHints[commandKey(s)]
+					_, why := formHides[commandKey(s)+" "+f.Name]
+					if f.Hidden || why || slices.Contains(h.always, "--"+f.Name) {
+						continue // an old alias of an offered flag, or added to every line
+					}
+					if !offered[f.Name] && !slices.Contains(formNeverFlags, f.Name) && root.PersistentFlags().Lookup(f.Name) == nil {
+						t.Errorf("%s: the menu never offers --%s, which its example `%s` uses", commandKey(s), f.Name, line)
+					}
+				}
+			}
+		}
+	}
+	walk(root)
+	if n < 200 {
+		t.Errorf("only %d examples checked", n)
+	}
+}
+
+// A flag the command marks required is asked among the first questions.
+func TestFormRequiredFlagsAreAsked(t *testing.T) {
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, s := range c.Commands() {
+			walk(s)
+			if !formListed(s) {
+				continue
+			}
+			sp := formCmdSpec(s)
+			s.Flags().VisitAll(func(f *pflag.Flag) {
+				if _, req := f.Annotations[cobra.BashCompOneRequiredFlag]; !req {
+					return
+				}
+				i := slices.IndexFunc(sp.qs, func(q formQ) bool { return q.key == "flag:"+f.Name })
+				if i < 0 || sp.qs[i].advanced || sp.qs[i].optional {
+					t.Errorf("%s: required flag --%s is not one of the first questions", commandKey(s), f.Name)
+				}
+			})
+		}
+	}
+	walk(newRoot())
+}
+
+// formHides are the flags a hint keeps out of the menu, each with why. Any
+// other hide fails: the menu leaves nothing out without a reason.
+var formHides = map[string]string{
+	"host edit group":        "-g is --add-group, which is asked",
+	"host edit tag":          "-t is --add-tag, which is asked",
+	"conn edit group":        "-g is --add-group, which is asked",
+	"conn edit tag":          "-t is --add-tag, which is asked",
+	"job start cmd":          "the same as the command words, which are asked",
+	"exec cmd":               "the same as the command words, which are asked",
+	"guide install no-guard": "it turns off the guard that keeps AI agents away from secret files",
+	"rename prefix":          "always added (rename needs it)",
+}
+
+func TestFormHidesHaveAReason(t *testing.T) {
+	for p, h := range formHints {
+		for _, f := range h.hide {
+			if _, ok := formHides[p+" "+f]; !ok {
+				t.Errorf("%s hides --%s with no reason in formHides", p, f)
+			}
+		}
 	}
 }

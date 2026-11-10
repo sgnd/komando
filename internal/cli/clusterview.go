@@ -105,7 +105,7 @@ func clusterEventsCmd() *cobra.Command {
 				}})
 		},
 	}
-	nsFlags(c, &ns, &all, &limitOpt{&limit, 100, "max events (the newest)"})
+	nsFlags(c, &ns, &all, &limitOpt{&limit, 100, "the most events to show (the newest)"})
 	c.Flags().BoolVar(&warnings, "warnings", false, "only Warning events")
 	c.Flags().StringVar(&of, "for", "", "only events about this object, e.g. deployment/api")
 	return c
@@ -358,6 +358,9 @@ type eventList map[string]any
 func (e eventList) Text() string {
 	rows, _ := e["events"].([]map[string]any)
 	if len(rows) == 0 {
+		if ns := str(e["namespace"]); ns != "" {
+			return "no events in namespace " + ns + " (-A looks in every namespace)\n"
+		}
 		return "no events\n"
 	}
 	cols := listColumns["Event"]

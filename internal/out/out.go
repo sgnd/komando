@@ -350,7 +350,13 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 				fmt.Fprintln(p.W)
 			}
 		} else if data != nil {
-			fmt.Fprint(p.W, SafeText(p.Redact(renderText(data))))
+			s := renderText(data)
+			fmt.Fprint(p.W, SafeText(p.Redact(s)))
+			if s == "" {
+				// an empty list would print nothing, and a person cannot tell
+				// "no results" from "did not run"; stderr keeps pipes clean
+				fmt.Fprintln(os.Stderr, "nothing to show")
+			}
 		}
 		if softErr != nil {
 			fmt.Fprintf(os.Stderr, "error [%s]: %s\n", softErr.Code, noteText(p.Redact(softErr.Message)))

@@ -44,7 +44,7 @@ out: it would let a weak value be guessed from the rest of the file.
 ## Edit a file
 
 `fs replace` is the safest way to change a config file. It changes the file
-only if the old text is found **exactly once**, and `--backup` keeps the
+only if the old text is found exactly once, and `--backup` keeps the
 previous version as `PATH.bak`:
 
 ```bash

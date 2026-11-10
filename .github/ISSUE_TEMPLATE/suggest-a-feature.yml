@@ -29,5 +29,5 @@ body:
       options:
         - label: It is DevOps work on a server, database, cache, storage, cluster, registry or VPN
           required: true
-        - label: It can work as a command (no windows or menus)
+        - label: It can work as a plain command, for a person and for an AI agent (no windows)
           required: true

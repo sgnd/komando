@@ -141,7 +141,7 @@ the pods that exist when it starts. --since takes a duration back from now
 			})
 		},
 	}
-	nsFlags(c, &ns, nil, &limitOpt{&limit, 200, "max lines per pod (from the end)"})
+	nsFlags(c, &ns, nil, &limitOpt{&limit, 200, "the most lines per pod (the last ones)"})
 	c.Flags().StringVarP(&container, "container", "c", "", "container in the pod")
 	c.Flags().StringVar(&since, "since", "", "only newer than this: 10m, 2h, or a time like 2026-01-02T10:00:00Z")
 	c.Flags().BoolVar(&previous, "previous", false, "the previous run of a restarted container")

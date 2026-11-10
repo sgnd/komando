@@ -75,8 +75,12 @@ var (
 // menuNoServer is said under the header while komando knows nothing yet.
 const menuNoServer = "Nothing here yet. Add asks for a name, an address and a user, one at a time."
 
-// menuNothingAdded is said once after a person cancels an Add.
-const menuNothingAdded = "Nothing was added."
+// menuNothingAdded is said once after a person cancels an Add;
+// menuNothingRun after they cancel a command from All features.
+const (
+	menuNothingAdded = "Nothing was added."
+	menuNothingRun   = "Nothing was run."
+)
 
 // errMenuQuit: the person left the menu.
 var errMenuQuit = errors.New("menu: quit")
@@ -145,8 +149,7 @@ func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *men
 		main.note = menuNoServer
 	}
 	main.point(mem.action)
-	scr := menuScreen{header: menuHeader(st), color: colorOK(),
-		footer: fmt.Sprintf("↑↓ move · Enter or 1-%d choose · ? help · q quit", min(9, len(acts)))}
+	scr := menuScreen{header: menuHeader(st), color: colorOK(), footer: listKeys(main, "? help", "q quit")}
 	for {
 		row, err := menuChoose(ctx, t, main, scr)
 		if err != nil {
@@ -173,6 +176,9 @@ func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *men
 			}
 			if errors.Is(err, errFormCancel) {
 				main.note = menuNothingAdded
+				if act.pick == "all" {
+					main.note = menuNothingRun
+				}
 				continue
 			}
 			return act, cmds, err
@@ -180,7 +186,7 @@ func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *men
 		list := menuTargets(st, act)
 		list.point(mem.target)
 		lscr := scr
-		lscr.footer = "↑↓ move · Enter choose · Esc back · type to filter"
+		lscr.footer = listKeys(list, "Esc back", "Ctrl-C quit")
 		row, err = menuChoose(ctx, t, list, lscr)
 		if errors.Is(err, errMenuBack) {
 			continue
@@ -218,7 +224,7 @@ func menuShow(ctx context.Context, t *menuTerm, l *menuList, s menuScreen, handl
 		}
 		dirty = len(keys) > 0
 		for _, k := range keys {
-			if done, err := handle(k, l.pageSize(h)); done || err != nil {
+			if done, err := handle(k, l.pageSize(s, w, h)); done || err != nil {
 				return err
 			}
 		}
@@ -390,31 +396,64 @@ func menuVpnUp(st *store.State, name string) bool {
 	return s != nil && (s.Container != "" || netx.Alive(s.PID))
 }
 
-// menuHelpText is the ? screen: what komando does, by task, and the
-// command for it. It fits 80 columns.
-const menuHelpText = `What komando does, and the command for it:
+// menuHelpTasks is the ? screen: what komando does, by task, and the
+// commands for it.
+var menuHelpTasks = []struct {
+	task string
+	cmds []string
+}{
+	{"See everything, check it", []string{"komando list", "komando test all", "komando status"}},
+	{"Servers", []string{"komando host add", "komando shell", "komando exec"}},
+	{"Health and facts", []string{"komando facts", "komando recipe run health"}},
+	{"Files", []string{"komando fs cat", "komando upload", "komando download"}},
+	{"Services, logs, packages", []string{"komando svc", "komando logs", "komando pkg"}},
+	{"Databases, caches, storage", []string{"komando conn add", "komando db", "komando cache"}},
+	{"Clusters and registries", []string{"komando cluster status", "komando registry ls"}},
+	{"VPNs", []string{"komando vpn add", "komando vpn up", "komando vpn down"}},
+	{"Passwords", []string{"komando secret set NAME"}},
+	{"History and safety", []string{"komando audit", "komando doctor"}},
+	{"AI agents", []string{"komando guide install"}},
+}
 
-  See everything, check it   komando list · komando test all · komando status
-  Servers                    komando host add · komando shell · komando exec
-  Health and facts           komando facts · komando recipe run health
-  Files                      komando fs cat · komando upload · komando download
-  Services, logs, packages   komando svc · komando logs · komando pkg
-  Databases, caches, storage komando conn add · komando db · komando cache
-  Clusters and registries    komando cluster status · komando registry ls
-  VPNs                       komando vpn add · komando vpn up · komando vpn down
-  Passwords                  komando secret set NAME
-  History and safety         komando audit · komando doctor
-  AI agents                  komando guide install
+// menuHelpText is the ? screen as an 80-column terminal shows it.
+var menuHelpText = menuHelpFor(80)
 
-Every command: komando --help · one command: komando COMMAND --help
-`
+// menuHelpFor is the ? screen for a terminal this wide: a task and its
+// commands on one line when every line fits, else the task on its line and
+// its commands under it, cut between commands, so a narrow terminal does
+// not wrap a command in two.
+func menuHelpFor(width int) string {
+	const col = 26 // the longest task
+	wide := true
+	for _, h := range menuHelpTasks {
+		wide = wide && 2+col+1+displayWidth(strings.Join(h.cmds, " · ")) <= width
+	}
+	var b strings.Builder
+	b.WriteString("What komando does, by task:\n\n")
+	for _, h := range menuHelpTasks {
+		cmds := strings.Join(h.cmds, " · ")
+		if wide {
+			fmt.Fprintf(&b, "  %-*s %s\n", col, h.task, cmds)
+			continue
+		}
+		fmt.Fprintf(&b, "  %s\n", h.task)
+		for _, l := range keyLines(cmds, width-5) {
+			fmt.Fprintf(&b, "    %s\n", l)
+		}
+	}
+	b.WriteString("\n")
+	for _, l := range keyLines("Every command: komando --help · one command: komando COMMAND --help", width-1) {
+		b.WriteString(l + "\n")
+	}
+	return b.String()
+}
 
-// menuHelp shows menuHelpText in the normal screen, then waits like a
-// command's end: Enter back to the menu, q quits.
+// menuHelp shows the ? screen in the normal screen, at the terminal's
+// width, then waits like a command's end: Enter back to the menu, q quits.
 func menuHelp(ctx context.Context, t *menuTerm) (bool, error) {
 	t.leave()
-	fmt.Fprint(os.Stderr, menuHelpText)
 	w, _ := t.size()
+	fmt.Fprint(os.Stderr, menuHelpFor(w))
 	fmt.Fprintf(os.Stderr, "\n%s", fit([]seg{{"Enter back to the menu · q quit ", ""}}, w-1, false))
 	again, err := menuPause(ctx, t)
 	fmt.Fprint(os.Stderr, "\r\x1b[2K")
@@ -496,11 +535,11 @@ func menuTargets(st *store.State, act menuAction) *menuList {
 		l.rows = append(append(l.rows, menuConnRows(st, "")...), menuVpnRows(st)...)
 	case "db":
 		l.title = act.name + ": which one?"
-		l.empty = "no database conn yet"
+		l.empty = "no database yet; Esc goes back, then Add brings one in"
 		l.rows = menuConnRows(st, "db")
 	case "vpn":
 		l.title = act.name + ": which one?"
-		l.empty = "no VPN yet"
+		l.empty = "no VPN yet; Esc goes back, then Add brings one in"
 		l.rows = menuVpnRows(st)
 	}
 	return l

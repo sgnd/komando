@@ -43,7 +43,6 @@ var dbLookHints = map[string]formHint{
 			{name: "file", ask: "Or read the SQL from which file on this computer?", example: "./migration.sql", local: true,
 				help: "Only when you left the SQL empty. A .sql file on this computer."},
 			dbArg, dbLimit},
-		hide: []string{"csv", "tsv"},
 	},
 	"db explain": {
 		args: []formArg{dbConn, {ask: "Which query should it explain?", example: "select * from orders where user_id = 42",
@@ -52,7 +51,6 @@ var dbLookHints = map[string]formHint{
 			{name: "analyze", ask: "Run the query too and measure the real time?",
 				help: "Yes runs it for real, which takes as long as the query. A query that changes data then needs a yes to the next question."},
 			dbWrite},
-		hide: []string{"limit"},
 	},
 	"db schema": {
 		args: []formArg{dbConn, {ask: "Which tables? (leave empty to list them all)", example: "users orders",

@@ -47,7 +47,7 @@ command fails on any server, komando exits 5; if it cannot connect, it
 exits 4.
 
 With `-o text`, one server prints like `ssh`: its output, its errors, and a
-closing `error [FAILED]: host web1 failed (exit 3)` when it fails. Several servers
+closing `error [FAILED]: server web1 failed (exit 3)` when it fails. Several servers
 get a block each:
 
 ```text
@@ -73,9 +73,9 @@ cannot know how the command ended. That server's result says so:
 - the output that arrived before the break, with `exit_code` -1 (unknown);
 - in text mode: `=== web2 [FAILED connection lost, outcome unknown]`.
 
-The command may **still be running** on the server, or it may **already
-have finished**. Do not simply run it again (an upgrade or a migration
-twice can hurt). First look, with a read-only command: its log file, `ps`,
+The command may still be running on the server, or it may already have
+finished. Do not run it again yet (an upgrade or a migration twice can
+hurt). First look, with a read-only command: its log file, `ps`,
 or the change it should have made:
 
 ```bash
@@ -83,7 +83,7 @@ komando exec web2 --read-only -- 'tail -20 /var/log/unattended-upgrades/unattend
 komando exec web2 --read-only -- 'ps -ef | grep -v grep | grep apt'
 ```
 
-If the server simply stops answering (a VPN that went away without a word),
+If the server stops answering (a VPN that went away without a word),
 komando notices within about a minute instead of waiting for `--timeout`.
 
 This is different from:
@@ -109,7 +109,7 @@ that clearly changes something (`rm`, `mv`, `tee`, `> file`, `sed -i`,
 `READ_ONLY_VIOLATION`. In that case drop `--read-only` and confirm with
 `--yes` instead.
 
-On a **protected** server or conn, `--read-only` is an allowlist: it skips
+On a protected server or conn, `--read-only` is an allowlist: it skips
 `--yes` only for commands komando knows read: `cat`, `tail`, `head`, `ls`,
 `stat`, `df`, `du`, `free`, `uptime`, `ps`, `grep`, `ss`, `journalctl` and
 `systemctl status`/`is-active`, `docker ps`/`logs`/`inspect`,
@@ -135,8 +135,8 @@ commands whose arguments decide what they do (`find`, `sed`, `git`,
 `wc`, SQL for `psql`) is data and is not read as commands, except that
 `psql` and `mysql` input may not use `\!`, `\o`, `system` or `tee`.
 
-Destructive commands (`rm -rf /`, `mkfs`, `reboot`, `DROP DATABASE`, ...)
-are blocked everywhere unless a person allows them. See [Safety](safety.md).
+komando blocks destructive commands (`rm -rf /`, `mkfs`, `reboot`,
+`DROP DATABASE`, ...) everywhere unless a person allows them. See [Safety](safety.md).
 
 ### Pass a password to a command
 
@@ -299,7 +299,7 @@ production. Each question says what it is
 and where to find it, shows an example, and offers a default that Enter
 takes (`Port [22]:`). An answer is checked before the next question: a name
 that is taken, an address with a typo or a file that is not there is said
-in yellow under it, and the answer stays to be fixed.
+under it, marked `!`, and the answer stays to be fixed.
 
 ```text
 Add a server · 4 of 7
@@ -347,15 +347,15 @@ keys, your list, jobs and recipes, safety and audit, and setup. Pick an
 area, then what to do (type to filter), and the command asks what it needs:
 a server, database or VPN from your list, then the few things that matter;
 everything else waits under More options. For a command that changes
-something, the review also offers **Try it first**, which runs it with
+something, the review also offers *Try it first*, which runs it with
 `--dry-run` and comes back to the review. The menu never adds `--yes`,
 `--allow-dangerous` or `--reveal`: a change that needs your yes asks you
 when it runs.
 
 Keys in a form: Enter takes the answer (or the default), Esc clears what
 you typed and then goes back one question, numbers choose on a list, and
-Ctrl-C (or `q` on a list) cancels; nothing has run yet, so nothing was
-added.
+Ctrl-C (or `q` on a list) cancels before anything runs: the menu then says
+"Nothing was added." after Add, or "Nothing was run." after All features.
 
 ## Interactive shell (for people)
 
