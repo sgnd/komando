@@ -22,8 +22,9 @@ func TestLockWaits(t *testing.T) {
 	if err := Lock(a); err != nil {
 		t.Fatal(err)
 	}
-	got := make(chan struct{})
-	go func() { _ = Lock(b); close(got); _ = Unlock(b) }()
+	got, done := make(chan struct{}), make(chan struct{})
+	go func() { _ = Lock(b); close(got); _ = Unlock(b); close(done) }()
+	defer func() { <-done }()
 	select {
 	case <-got:
 		t.Fatal("second lock did not wait")
