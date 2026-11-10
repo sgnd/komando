@@ -7,6 +7,20 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-10
+
+### Highlights
+
+- **GlobalProtect with a browser sign-in,** including Prisma Access with
+  the Cloud Authentication Service: `vpn up` opens a browser window for
+  the password and one-time code, then picks the best gateway from the
+  portal's list.
+- **GlobalProtect sessions last the whole login.** They no longer drop
+  after about 18 minutes: the tunnel is kept alive and set up again by
+  itself.
+- **Old flag names are gone** (`--jump`, `--force`, `--param`, `--lines`,
+  and others kept since 0.1 to 0.3). See Removed for the new names.
+
 ### Added
 
 - **GlobalProtect with a browser sign-in.** `komando vpn up` now logs in to
@@ -2583,7 +2597,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/sgnd/komando/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/sgnd/komando/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/sgnd/komando/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/sgnd/komando/compare/v0.6.0...v0.7.0
