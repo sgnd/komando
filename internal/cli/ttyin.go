@@ -23,8 +23,7 @@ import (
 // pasted right after pressing Enter on the command) was shown on the screen
 // by the terminal in plain text, before komando could hide it, and would
 // otherwise be read in silently as part of the value. It is thrown away and
-// the person is told, so the value is always what was entered after the
-// prompt, and the person knows the screen may show the earlier text.
+// the person is told that the screen may show it.
 //
 // A paste of more than one line is refused: only its first line would be
 // read, and the shell would run the other lines as commands once komando
@@ -62,7 +61,7 @@ func interruptedErr() error { return toErr(context.Canceled) }
 var errMoreLines = errors.New("more than one line")
 
 // readAnswer prints label on stderr and reads one line from the terminal,
-// without echo when hidden is set. ask and readHidden use it.
+// without echo when hidden is set.
 //
 // komando catches Ctrl-C (SIGINT) for the whole command, so a read that
 // does not watch for it would just go on waiting. readAnswer listens for

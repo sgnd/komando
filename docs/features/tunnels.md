@@ -17,7 +17,7 @@ komando tunnel stop --all                                  # stop every tunnel
 ## Reach private servers through a bastion
 
 Many private servers can only be reached through one public gateway server,
-called a **bastion** or jump host. Tell komando once with `--via`, and every
+called a bastion or jump host. Tell komando once with `--via`, and every
 command goes through it by itself:
 
 ```bash
@@ -113,10 +113,10 @@ export NO_PROXY=.internal,10.0.0.0/8     # names and networks reached directly
 
 ## Good to know
 
-- **Only your computer can use a tunnel.** Tunnels listen on `127.0.0.1`.
-  To listen on another address (`-L 0.0.0.0:8080:...`), add `--yes`;
-  without it the tunnel stops with `OPEN_BIND`. Anyone on that network can
-  then use the tunnel without logging in.
-- **Port already taken?** The tunnel stops with `PORT_IN_USE` (exit 8).
+- Only your computer can use a tunnel: tunnels listen on `127.0.0.1`. To
+  listen on another address (`-L 0.0.0.0:8080:...`), add `--yes`; without
+  it the tunnel stops with `OPEN_BIND`. Anyone on that network can then use
+  the tunnel without logging in.
+- When the port is taken, the tunnel stops with `PORT_IN_USE` (exit 8).
   Pick another port, or `0` for a free one. For `-R` it can also mean that
   sshd on the server has `AllowTcpForwarding` turned off.

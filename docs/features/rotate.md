@@ -1,7 +1,7 @@
 # Rotate keys and passwords, and when someone leaves
 
-How to change a key or a password everywhere komando uses it, in order, and
-what to do when someone who had access leaves. [All features](README.md)
+Change a key or a password everywhere komando uses it, in the right order,
+and take away access when someone leaves. [All features](README.md)
 
 ## Rotate an SSH key
 

@@ -1,6 +1,6 @@
 # Security
 
-komando logs in to real servers, databases and caches, holds their passwords, and is run by AI agents. Security problems matter a lot here.
+komando logs in to real servers, databases and caches, holds their passwords, and is run by AI agents. A security bug in komando can reach all of them.
 
 ## Report a problem
 
@@ -23,7 +23,7 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
 
 ## How komando keeps you safe
 
-- Passwords and keys live in an encrypted vault in `~/.komando/`, whose key a new vault keeps in the OS keychain (the macOS keychain, the Secret Service on Linux), so a backup or a copy of the folder does not open it. Where there is no keychain, the key is a file beside the vault and `komando doctor` warns. An AI agent refers to them as `secret:NAME`. An agent komando recognises (Claude Code, Codex, Cursor, Gemini CLI, or any agent with `KOMANDO_AGENT=1` set) never sees the values. When an agent sends a secret somewhere (into a file on a server, a command's environment, or as the password of a new or moved server, conn or VPN), a person allows it in a window that names the secret and the place.
+- Passwords and keys live in an encrypted vault in `~/.komando/`. A new vault keeps its key in the OS keychain (the macOS keychain, the Secret Service on Linux), so a backup or a copy of the folder does not open it. Where there is no keychain, the key is a file beside the vault and `komando doctor` warns. An AI agent refers to a secret as `secret:NAME`. An agent komando recognises (Claude Code, Codex, Cursor, Gemini CLI, or any agent with `KOMANDO_AGENT=1` set) never sees the values. When an agent sends a secret somewhere (into a file on a server, a command's environment, or as the password of a new or moved server, conn or VPN), a person allows it in a window that names the secret and the place.
 - An AI agent's komando uses your usual data folder: another `KOMANDO_HOME` needs a person's yes.
 - Dangerous commands (`rm -rf /`, `reboot`, `DROP TABLE`, `FLUSHALL`, ...) are blocked unless a human allows them.
 - Protected servers and conns refuse changes without `--yes`. Database queries and cache commands only read unless you add `--write`. On a protected target `--read-only` skips `--yes` only for commands komando knows read; anything it does not recognise still needs `--yes`.
@@ -46,7 +46,12 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
   (`--legacy-crypto` or `--allow-pap` on `komando vpn add` or `vpn edit`). The OpenVPN
   client wants a certificate made for a server even when the profile does
   not ask for it.
-- Another device's SSH key (the Komando app on a phone) can be limited to komando with `komando ssh-gate line`: no shell, no file copy, no forwarding, one komando command at a time, run as for an AI agent (secrets hidden, `--reveal` and `--allow-dangerous` refused), nothing written on the komando computer itself (no downloads there, no change to komando's servers, settings, rules, secrets or keys, nothing at all, not even a read, on a sqlite file or a target at `localhost` or a loopback address), optionally only commands that read, each one in the audit log with the key's name, even with the audit setting off.
+- Another device's SSH key (the Komando app on a phone) can be limited to komando with `komando ssh-gate line`. That key gets:
+  - no shell, no file copy and no forwarding, and one komando command at a time;
+  - the rules of an AI agent: secrets hidden, `--reveal` and `--allow-dangerous` refused;
+  - nothing written on the komando computer itself: no downloads there, no change to komando's servers, settings, rules, secrets or keys, and nothing at all, not even a read, on a sqlite file or a target at `localhost` or a loopback address;
+  - optionally, only commands that read;
+  - an audit log line for each command, with the key's name, even with the audit setting off.
 - Everything is written to the audit log: `komando audit`.
 
 ## Supported versions
@@ -69,9 +74,10 @@ How komando measures up to OWASP ASVS, the OWASP Top 10 for LLM applications, NI
 
 - Give komando (and your AI agent) a server user with only the permissions it needs.
 - Mark production servers with `komando host edit NAME --protected`.
-- Keep `~/.komando/` private and backed up; it holds your vault and keys. A new vault keeps its key in the keychain, so a backup alone cannot open it; a vault from an older komando moves its key there with `komando secret keychain` (on a computer without a keychain, set `KOMANDO_VAULT_PASS` to 15+ characters before your first secret). To change the passphrase later, run `komando secret passphrase` first (it re-encrypts the vault), then update the variable.
+- Keep `~/.komando/` private and backed up; it holds your vault and keys. A new vault keeps its key in the keychain, so a backup alone cannot open it. A vault from an older komando moves its key there with `komando secret keychain`. On a computer without a keychain, set `KOMANDO_VAULT_PASS` to 15+ characters before your first secret; to change that passphrase later, run `komando secret passphrase` first (it re-encrypts the vault), then update the variable.
 - Run `komando doctor` now and then: it checks permissions, the vault, the audit log chain and connections without verified encryption.
 - Run `komando guide install` so Claude Code cannot read `~/.komando`, private keys or `.env` files on your computer.
 - When your AI agent asks for `--yes`, `--allow-dangerous` or `--reveal`, read the command in komando's window before you click "Allow once".
-- Give a phone or another computer that reaches komando over SSH its own key, added with the line `komando ssh-gate line --name NAME` prints, and `--read-only` when it only needs to look. Do not list the komando computer itself as a server, conn or cluster under another name or address (its LAN IP, a DNS name, a tunnel back to it): ssh-gate refuses targets that are not in the inventory and every command on `localhost` and loopback addresses, but cannot tell that such a target is the same computer, so any key, read-only too, could read files or run a shell on it (`--read-only` is a filter, not a sandbox).
+- Give a phone or another computer that reaches komando over SSH its own key, added with the line `komando ssh-gate line --name NAME` prints, and `--read-only` when it only needs to look.
+- Do not list the komando computer itself as a server, conn or cluster under another name or address (its LAN IP, a DNS name, a tunnel back to it). ssh-gate refuses targets that are not in the inventory and every command on `localhost` and loopback addresses, but cannot tell that such a target is the same computer. Any key, a read-only one too, could then read files or run a shell on it (`--read-only` is a filter, not a sandbox).
 - The dangerous-command filter catches accidents. It is not a sandbox.

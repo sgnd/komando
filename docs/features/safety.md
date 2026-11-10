@@ -88,10 +88,10 @@ key cannot name a target itself: `u@HOST` or an IP that is not in the
 inventory is refused (`SSH_GATE_REFUSED`), because it could be this
 computer's own address. But a listed server, conn or cluster that is this
 same computer under another name or address (its LAN IP, a DNS name, a
-tunnel or port forward that leads back here) cannot be told apart, and any key, read-only too, would read files
-or get a shell here through it (`exec THAT-HOST --read-only -- 'nc -e /bin/sh ...'`). Do
-not list this computer in komando that way: `--read-only` does not make it
-safe.
+tunnel or port forward that leads back here) cannot be told apart, and any
+key, read-only too, would read files or get a shell here through it
+(`exec THAT-HOST --read-only -- 'nc -e /bin/sh ...'`). Do not list this
+computer in komando that way: `--read-only` does not make it safe.
 
 ## When a seatbelt stops you
 
@@ -171,16 +171,17 @@ komando conn edit shop-db --option 'mask_columns=name address birth_date'
 komando config set mask_personal protected --yes  # back to the default
 ```
 
-- **`mask_personal`**: `protected` (the default), `all`, or `off`. Showing
-  agents more (`all` to `protected`, or `off`) needs `--yes`.
-- **`mask_columns`**: names and street addresses have no shape komando can
-  find, so name the columns that hold them, split by spaces. Setting it
+- The `mask_personal` setting is `protected` (the default), `all`, or
+  `off`. Showing agents more (`all` to `protected`, or `off`) needs `--yes`.
+- Names and street addresses have no shape komando can find, so name the
+  columns that hold them in `mask_columns`, split by spaces. Setting it
   also turns personal data hiding on for that conn.
-- **A person decides**: with `--reveal`, which a person allows in the
-  approval window, the agent sees the real values for that one command.
-- **Never written back**: a `db query --write`, `cache set` or
-  `cache run --write`, and a file write, that still holds `[hidden: ...]`
-  stops with `HIDDEN_VALUE`, so a masked value never replaces a real one.
+- A person decides when an agent sees the real values: with `--reveal`,
+  which a person allows in the approval window, the agent sees them for
+  that one command.
+- A masked value is never written back: a `db query --write`, `cache set`
+  or `cache run --write`, and a file write, that still holds
+  `[hidden: ...]` stops with `HIDDEN_VALUE`.
 - It is a best effort: a phone number written without `+`, or personal
   data in an image or a binary file, is not found. Hide whole columns
   where it matters.
@@ -211,8 +212,9 @@ outside komando. If the audit log cannot be written, komando refuses to run
 you or your agent. An agent's environment can set that name to anything, so
 its records keep the agent itself (`agent`) and your computer account, read
 from the system (`os_user`), and mark the name as the one it claims
-(`actor_claimed`); `komando audit -o text` shows it as `Claude Code (as claude)`. To keep SQL text out of the history, see `audit_sql` in
-[Settings](settings.md).
+(`actor_claimed`); `komando audit -o text` shows it as
+`Claude Code (as claude)`. To keep SQL text out of the history, see
+`audit_sql` in [Settings](settings.md).
 
 ## What this does not stop
 

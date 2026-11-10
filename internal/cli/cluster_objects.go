@@ -88,7 +88,7 @@ func clusterLsCmd() *cobra.Command {
 			}})
 		},
 	}
-	nsFlags(c, &ns, &all, &limitOpt{&limit, 500, "max items"})
+	nsFlags(c, &ns, &all, &limitOpt{&limit, 500, "the most objects to show"})
 	c.Flags().StringVarP(&selector, "selector", "l", "", "only objects with these labels, e.g. app=api or 'tier in (web,api)'")
 	return c
 }

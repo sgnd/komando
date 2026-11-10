@@ -138,7 +138,7 @@ holds your data: it is created readable only by you.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if to == "" {
-				return out.Usage("--to FILE is required")
+				return out.Usage("give the file to create with --to FILE, e.g. --to prod.sql.gz")
 			}
 			if o.format != "plain" && o.format != "custom" {
 				return out.Usage("--format is plain (SQL) or custom (PostgreSQL archive)")
@@ -167,20 +167,23 @@ file; .gz is read compressed). komando runs the SQL itself, through the
 conn's --via path, never with psql or mysql. A PostgreSQL archive
 (` + "`db dump --format custom`" + `) is recognized by its content and loaded with
 pg_restore on a server: the one named with --on HOST, else the conn's --via
-server; the archive is streamed to it over SSH. A restore can overwrite
-existing data, so it needs --allow-dangerous, plus --yes on a protected
-conn. The whole file is checked first: client commands that could run programs (\! or system)
-and SQL komando cannot follow (a file ending inside a quote, a change to
-how quotes are read) are refused, and SQL that runs programs, touches
-server files or changes privileges is named in the approval. PostgreSQL
-restores run in one transaction: on any error nothing changes. MySQL runs
-the statements in order and stops at the first error.`,
+server; the archive is streamed to it over SSH.
+
+A restore can overwrite existing data, so it needs --allow-dangerous, plus
+--yes on a protected conn. The whole file is checked first: client commands
+that could run programs (\! or system) and SQL komando cannot follow (a file
+ending inside a quote, a change to how quotes are read) are refused, and SQL
+that runs programs, touches server files or changes privileges is named in
+the approval.
+
+PostgreSQL restores run in one transaction: on any error nothing changes.
+MySQL runs the statements in order and stops at the first error.`,
 		Example: `  komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous
   komando db restore staging-db --from prod.dump --on db1 --allow-dangerous`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if from == "" {
-				return out.Usage("--from FILE is required")
+				return out.Usage("give the backup to load with --from FILE")
 			}
 			return runRestore(cmd.Context(), args[0], from, on)
 		},

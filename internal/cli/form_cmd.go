@@ -226,8 +226,10 @@ func formCmdSpec(cmd *cobra.Command) formSpec {
 			asked[ff.name] = true
 		}
 	}
-	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
-		if asked[f.Name] || f.Hidden || f.Deprecated != "" || slices.Contains(formNeverFlags, f.Name) || slices.Contains(h.hide, f.Name) {
+	globals := cmd.Root().PersistentFlags()
+	cmd.Flags().VisitAll(func(f *pflag.Flag) { // its own flags and a parent's (docker --sudo)
+		if asked[f.Name] || f.Hidden || f.Deprecated != "" || slices.Contains(formNeverFlags, f.Name) ||
+			slices.Contains(h.hide, f.Name) || globals.Lookup(f.Name) != nil {
 			return
 		}
 		sp.qs = append(sp.qs, formFlagQ(f, formFlag{name: f.Name}, true))
@@ -544,7 +546,7 @@ func formCommands(root *cobra.Command, area int) []*cobra.Command {
 func formListed(c *cobra.Command) bool {
 	h, hinted := formHints[commandKey(c)]
 	switch {
-	case !c.Runnable() || h.skip:
+	case !c.Runnable() || c.Hidden || h.skip:
 		return false
 	case c.HasSubCommands() && !hinted:
 		return len(formUseArgs(c.Use, c.Flags())) > 0
@@ -577,8 +579,10 @@ func formAllFeatures(ctx context.Context, t *menuTerm, st *store.State, scr menu
 	for _, a := range formAreas {
 		al.rows = append(al.rows, menuRow{label: a.label, detail: a.detail, value: a.label})
 	}
+	ascr := scr
+	ascr.footer = listKeys(al, "Esc back", "Ctrl-C cancel")
 	for {
-		row, err := menuChoose(ctx, t, al, scr)
+		row, err := menuChoose(ctx, t, al, ascr)
 		if err != nil {
 			return nil, formQuitIsCancel(err)
 		}
@@ -601,7 +605,7 @@ func formAllFeatures(ctx context.Context, t *menuTerm, st *store.State, scr menu
 // chosen one's questions.
 func formAreaCommands(ctx context.Context, t *menuTerm, st *store.State, scr menuScreen, root *cobra.Command, area int, try formTry) ([][]string, error) {
 	cl := &menuList{title: formAreas[area].label + ": what do you want to do?", typing: true,
-		empty: "no command here"}
+		empty: "no command in this area; Esc goes back"}
 	byKey := map[string]*cobra.Command{}
 	for _, c := range formCommands(root, area) {
 		key := commandKey(c)
@@ -609,7 +613,7 @@ func formAreaCommands(ctx context.Context, t *menuTerm, st *store.State, scr men
 		cl.rows = append(cl.rows, menuRow{label: key, detail: c.Short, value: key})
 	}
 	lscr := scr
-	lscr.footer = "↑↓ move · Enter choose · Esc back · type to filter"
+	lscr.footer = listKeys(cl, "Esc back", "Ctrl-C cancel")
 	for {
 		row, err := menuChoose(ctx, t, cl, lscr)
 		if err != nil {
@@ -619,7 +623,7 @@ func formAreaCommands(ctx context.Context, t *menuTerm, st *store.State, scr men
 		c := byKey[row.value]
 		var cmds [][]string
 		if h := formHints[row.value]; h.form != nil {
-			cmds, err = formChoose(ctx, t, st, h.form(), scr, try)
+			cmds, err = formGuidedOrAll(ctx, t, st, scr, c, h, try)
 		} else {
 			cmds, err = formFill(ctx, t, st, formCmdSpec(c), scr, formTryFor(c, try))
 		}
@@ -649,4 +653,29 @@ func formTryFor(c *cobra.Command, try formTry) formTry {
 		return nil
 	}
 	return try
+}
+
+// formGuidedOrAll is a command with a hand-made form (host add, conn add,
+// vpn add): step by step, or every option its flags have.
+func formGuidedOrAll(ctx context.Context, t *menuTerm, st *store.State, scr menuScreen, c *cobra.Command, h formHint, try formTry) ([][]string, error) {
+	l := &menuList{title: c.Short + ": how?", rows: []menuRow{
+		{label: "Step by step", detail: "plain questions, the usual choices (recommended)", value: "guided"},
+		{label: "Every option", detail: "every flag of `komando " + commandKey(c) + "`", value: "all"}}}
+	for {
+		row, err := menuChoose(ctx, t, l, scr)
+		if err != nil {
+			return nil, formQuitIsCancel(err)
+		}
+		l.point(row.value)
+		var cmds [][]string
+		if row.value == "guided" {
+			cmds, err = formChoose(ctx, t, st, h.form(), scr, try)
+		} else {
+			cmds, err = formFill(ctx, t, st, formCmdSpec(c), scr, formTryFor(c, try))
+		}
+		if errors.Is(err, errMenuBack) {
+			continue
+		}
+		return cmds, err
+	}
 }

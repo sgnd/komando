@@ -72,7 +72,7 @@ needs --yes (an AI agent also needs a person's yes on the screen). With
 --reset would replace.
 
 TARGET can be many servers (@group, tag:, 'web*', a,b): after a rebuild of
-a whole group, --reset replaces all their keys after ONE yes, which names
+a whole group, --reset replaces all their keys after a single yes, which names
 every server with its new key. Each server is in results, with its old and
 new fingerprint; a server whose key changed is refused without --reset,
 the others are pinned.`,
@@ -97,7 +97,7 @@ the others are pinned.`,
 			return trustOne(cmd.Context(), st, hosts[0], reset) // the answer keeps its old shape
 		},
 	}
-	c.Flags().BoolVar(&reset, "reset", false, "replace the previously pinned key (needs --yes)")
+	c.Flags().BoolVar(&reset, "reset", false, "replace the key pinned before (needs --yes)")
 	return c
 }
 

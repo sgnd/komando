@@ -55,6 +55,9 @@ type vpnStatusData struct {
 }
 
 func (d vpnStatusData) Text() string {
+	if len(d.Vpns) == 0 {
+		return "no VPNs yet: komando vpn add NAME KIND (kinds in `komando vpn --help`)\n"
+	}
 	rows := [][]string{}
 	for _, r := range d.Vpns {
 		up := "no"

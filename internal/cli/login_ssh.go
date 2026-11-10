@@ -435,7 +435,7 @@ commands to that server log in again (a two-factor server asks a person).
 			if all {
 				names = mapKeys(st.Logins)
 			} else if len(names) == 0 {
-				return out.Usage("give server names or --all")
+				return out.Usage("give the server names to log out of, or --all")
 			}
 			if g.dryRun {
 				out.P.Print("logout", map[string]any{"would_log_out": names}, nil)
@@ -489,7 +489,7 @@ func (d logoutData) Text() string {
 		sb.WriteString(cleanText(n) + " was not logged in\n")
 	}
 	if sb.Len() == 0 {
-		sb.WriteString("no kept logins\n")
+		sb.WriteString("no kept logins, so nothing to end (`komando status` lists them)\n")
 	}
 	return sb.String()
 }

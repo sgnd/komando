@@ -25,21 +25,7 @@ komando host add db1 admin@10.0.0.5 --via bastion          # reached through bas
 komando host add web3 --address 203.0.113.12 --user deploy --key deploy
 ```
 
-### A new server that is still starting
-
-Right after you create or rebuild a cloud server, SSH may not answer yet.
-`--wait` tests again every few seconds until every server passes:
-
-```bash
-komando test @new --wait 5m                                  # until SSH answers and the login works
-komando exec @new --read-only -- cloud-init status --wait    # then: until its own start-up is done
-```
-
-It does not wait out a changed host key (`HOSTKEY_MISMATCH`) or a refused
-login (`AUTH_FAILED`: retrying could get your address banned): those fail
-at once. `data.waited_ms` says how long it waited.
-
-Useful flags:
+The flags you will use most:
 
 | Flag | What it does |
 |------|--------------|
@@ -66,6 +52,20 @@ connection limits (`MaxStartups`) and its login log see one client.
 
 Already have servers in `~/.ssh/config`? Import them instead:
 `komando import ssh-config` (see [Moving in](import.md)).
+
+### A new server that is still starting
+
+Right after you create or rebuild a cloud server, SSH may not answer yet.
+`--wait` tests again every few seconds until every server passes:
+
+```bash
+komando test @new --wait 5m                                  # until SSH answers and the login works
+komando exec @new --read-only -- cloud-init status --wait    # then: until its own start-up is done
+```
+
+It does not wait out a changed host key (`HOSTKEY_MISMATCH`) or a refused
+login (`AUTH_FAILED`: retrying could get your address banned): those fail
+at once. `data.waited_ms` says how long it waited.
 
 ## Add many servers from a spreadsheet
 
@@ -155,18 +155,18 @@ komando rename --prefix shop- acme-shop- --yes       # --yes once, when some of 
 komando rename --prefix shop- acme-shop- --notes --labels --dry-run   # notes and labels too: what changes, what is kept
 ```
 
-- **What it renames.** Every name that starts with `shop-`. When the old
-  prefix ends in `-`, the name without it is renamed too: group `shop`
+- It renames every name that starts with `shop-`. When the old prefix
+  ends in `-`, the name without it is renamed too: group `shop`
   becomes `acme-shop`. `--kind host,conn` renames only some kinds.
-- **Every reference follows:** `--via` paths (also a server in the middle
+- Every reference follows: `--via` paths (also a server in the middle
   of one, as in `shop-vpn,shop-bastion`), password, sudo, key, preshared
   key and passphrase references, `secret:NAME` options in conn URLs, the
   key a server uses, group membership, jobs and tunnels. A key komando made
   (`key gen`) moves its files in `~/.komando/keys`.
-- **What stays.** The protected mark, labels, notes and creation time.
+- The protected mark, labels, notes and creation time stay.
   Names inside URLs belong to the resource, not to komando, so in
   `s3://shop-admin@shop-prod` the user and the bucket stay.
-- **Notes and labels.** `--notes` also replaces old names in notes, and
+- `--notes` also replaces old names in notes, and
   `--labels` in label values (label names stay). Only what clearly means
   an entry follows: server, conn, VPN and secret names as whole words, a
   group written `@shop`, and a pattern such as `shop-db-*` when it matches
@@ -176,22 +176,23 @@ komando rename --prefix shop- acme-shop- --notes --labels --dry-run   # notes an
   names (`bucket shop-dev`), and a name that is also the user, host, bucket
   or database in a conn URL. The result lists each one under `kept`, with
   the reason, so you can fix it by hand.
-- **Labels are listed.** Without `--labels`, every label value that names
+- Without `--labels`, every label value that names
   an old entry stays and is listed under `kept` with what it would become.
   A conn's `host=` label matters: `komando doctor` reads it to warn when a
   conn of a protected server is not protected itself. Without `--notes`,
   one warning counts the notes that still name old entries.
-- **All or nothing.** The inventory and the vault are each written once.
+- It renames all or nothing. The inventory and the vault are each written
+  once.
   When a new name is taken, or two old names would get one new name,
   nothing changes (`NAME_TAKEN`, with every clash listed). A connected VPN
   must go down first (`VPN_IN_USE`).
-- **One yes.** Protected servers and conns among them need `--yes` once. An
+- Protected servers and conns among them need `--yes` once. An
   AI agent's `--yes` opens one window for a person, which says how many
   protected entries it covers. Pointing a reference at the new name of the
   same secret, key or VPN needs no yes: the same value goes to the same place.
-- **Safe to repeat.** When the new prefix starts with the old one
-  (`team-` to `team-ops-`), names that have the new prefix already
-  are left alone, so a second run changes nothing.
+- It is safe to repeat. When the new prefix starts with the old one
+  (`team-` to `team-ops-`), names that have the new prefix already are left
+  alone, so a second run changes nothing.
 
 `key mv OLD NEW` renames one key: the servers that use it follow, and a key
 komando made moves its files. Public keys already installed on servers keep
@@ -240,8 +241,8 @@ komando key show deploy                          # the public part (never the pr
 Keys made with `key gen` are kept in `~/.komando/keys` (mode 600). RSA keys
 need at least 3072 bits.
 
-To use a key file you already have, add it to komando's key list. The file stays
-where it is. If it has a passphrase, store the passphrase in the vault first:
+To use a key file you already have, add it to komando's key list. The file
+stays where it is. If it has a passphrase, store the passphrase in the vault first:
 
 ```bash
 komando secret set work-pass
@@ -249,15 +250,15 @@ komando key add work ~/.ssh/id_work --passphrase-ref secret:work-pass
 komando key edit work --passphrase-ref secret:new-pass      # change it later ('' clears it)
 ```
 
-`komando key rm NAME` takes a key out of the keychain; it refuses while
-servers still use it. `--delete-file` also deletes the files, but only for
+`komando key rm NAME` takes a key out of komando's key list; it refuses
+while servers still use it. `--delete-file` also deletes the files, but only for
 keys komando made.
 
 ## Remove a key from servers
 
 When someone leaves, or a key is replaced, remove it everywhere at once.
-`key revoke` takes a key from komando's key list, a `.pub` file, or the key line
-itself:
+`key revoke` takes a key from komando's key list, a `.pub` file, or the key
+line itself:
 
 ```bash
 komando key revoke ~/keys/budi.pub @prod --dry-run   # how many lines per server
@@ -305,7 +306,9 @@ komando sends the stored password at most once per login, and only when the
 server asks for a password (hidden as you type); a refused one is not sent
 again, so a wrong password in the vault cannot lock the account.
 
-**Two-factor logins.** When a server also asks for a one-time code (or any
+### Two-factor logins
+
+When a server also asks for a one-time code (or any
 other question), komando shows you the server's question with its name
 (`web1: Verification code:`) and sends what you type, hidden unless the
 server lets it show. Servers that log in at once (`komando exec @web`) ask
@@ -327,6 +330,8 @@ A login to a jump host is used for every server behind it. `komando status`
 lists the kept logins, and a login ends early when the server closes it or
 its address changes. Only a person at a terminal can run `komando login`.
 
+### Sudo passwords and the vault
+
 If `sudo` asks for a password on the server, store that too:
 
 ```bash
@@ -347,18 +352,18 @@ komando secret check vpn-pass                # is the stored value the one I thi
 komando secret rm old-pass                   # refused while something uses it
 ```
 
-- **Typing it.** `secret set NAME` asks for the value after you press
-  Enter. Paste or type it *after* the prompt appears. Anything typed before
-  the prompt was already shown on the screen by the terminal, so komando
-  does not use it and tells you; enter the value again at the prompt. A
-  paste of more than one line (a key, a certificate) stores nothing: the
-  prompt reads one line, so use `komando secret set NAME < FILE` or a pipe.
-- **From a pipe.** The line break at the end (which `echo` and `pbpaste`
+- `secret set NAME` asks for the value after you press Enter. Paste or type
+  it *after* the prompt appears. Anything typed before the prompt was
+  already shown on the screen by the terminal, so komando does not use it
+  and tells you; enter the value again at the prompt. A paste of more than
+  one line (a key, a certificate) stores nothing: the prompt reads one line,
+  so use `komando secret set NAME < FILE` or a pipe.
+- From a pipe, the line break at the end (which `echo` and `pbpaste`
   add) is not part of the value. Spaces are kept, because a password can hold
   them, but komando warns when the value starts or ends with a space or tab:
   a space copied together with a password is a common reason a login fails.
   `secret get NAME` shows the same warning later.
-- **Renaming.** `secret mv OLD NEW` renames the secret inside the vault and
+- `secret mv OLD NEW` renames the secret inside the vault and
   points every server, conn, key and VPN that used `secret:OLD` at
   `secret:NEW` in the same step, conn URL options such as
   `?ca=secret:OLD` included. Nobody types the value again, and an AI
@@ -366,7 +371,7 @@ komando secret rm old-pass                   # refused while something uses it
   name `secret:OLD` are not changed. `secret cp OLD NEW` makes a copy and
   changes nothing else. When NEW already exists, add `--overwrite`; what uses
   NEW then gets the value of OLD. Try either with `--dry-run` first.
-- **Checking.** `secret check NAME` asks for a value (or reads it from a
+- `secret check NAME` asks for a value (or reads it from a
   pipe) and says whether it is the stored one. When it is not, it says how
   they differ (only spaces at the ends, only upper and lower case, or the
   number of characters) without showing either value. Only a person can run

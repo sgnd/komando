@@ -31,15 +31,15 @@ cannot leave it (`../` is refused, also in a dry run).
 
 ## Add a bucket
 
-For S3, the user part of the URL is the **access key ID**. The **secret
-access key** goes in the vault, like a password:
+For S3, the user part of the URL is the access key ID. The secret access
+key goes in the vault, like a password:
 
 ```bash
 komando secret set backups-secret
 komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:backups-secret
 ```
 
-**Safest setup:** give komando an access key that can only do what you need
+The safest setup is an access key that can only do what komando needs
 (read-only for reports, one bucket only). The service then enforces it.
 
 ### AWS logins (SSO, roles, temporary keys)
@@ -72,15 +72,15 @@ komando secret set files-key                                      # key1 from th
 komando conn add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
 ```
 
-- **Google Cloud Storage** without `--password-ref` uses the login gcloud
+- Google Cloud Storage without `--password-ref` uses the login gcloud
   keeps (`gcloud auth application-default login`), the
   `GOOGLE_APPLICATION_CREDENTIALS` file, or the server's own account on
   Google Cloud. `STORAGE_AUTH` says when there is none. A service account
   key is the JSON file from the console.
-- **Azure Blob Storage** takes the storage account's key (`key1` or `key2`)
+- Azure Blob Storage takes the storage account's key (`key1` or `key2`)
   or a SAS token (the part after `?`, starting with `sv=`). A SAS token that
   can only read and list keeps komando to reading.
-- **Links** (`storage link`) need a key that can sign them: a service
+- Links (`storage link`) need a key that can sign them: a service
   account key for Google Cloud, the account key for Azure. gcloud's own login
   and a SAS token cannot.
 - An emulator or another cloud takes `?endpoint=URL`, for example
@@ -145,12 +145,12 @@ komando upload backups ./reports reports -r                 # a whole folder
 `komando storage upload` sends single files only; for a folder use
 `komando upload -r`, which sends only new and changed files, like `komando sync`.
 
-- **Downloads never overwrite** a file on your computer unless you add
+- Downloads never overwrite a file on your computer unless you add
   `--overwrite`. The file is readable only by you. `--to` takes a file name,
   a folder (one that exists, or a name ending in `/`: the file keeps its
   name inside), or `-` for stdout (`-o text` only). A folder download keeps
   files that are already there.
-- **Uploads replace** an object with the same key; the result says
+- Uploads replace an object with the same key; the result says
   `"replaced": true`. A key ending in `/` is a folder.
 - To keep a folder in step and send only new and changed files, use
   `komando sync` (see [Files](files.md)):
@@ -168,7 +168,7 @@ komando storage link media site/report.pdf                   # Google Cloud and 
 komando storage link backups 2026/app.sql.gz --endpoint https://files.example.com
 ```
 
-- The link works for **anyone who has it** until it expires. Share it like a
+- The link works for anyone who has it until it expires. Share it like a
   password. It is not written to the audit history.
 - The link uses the address in the conn URL. When komando reaches the
   storage through `--via`, the result warns that people outside that network

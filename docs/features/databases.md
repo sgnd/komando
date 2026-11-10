@@ -1,7 +1,7 @@
 # Databases
 
-Add PostgreSQL, MySQL/MariaDB and SQLite databases, then query, inspect,
-back up and restore them safely. [All features](README.md)
+Add PostgreSQL, MySQL/MariaDB, SQLite and MongoDB databases, then query,
+inspect, back up and restore them safely. [All features](README.md)
 
 ## Quick start
 
@@ -18,9 +18,9 @@ Queries only read unless you add `--write`.
 
 ## Add a database
 
-A **conn** is a database, cache or storage bucket that komando knows about,
-the way a host entry is a server it knows about. The kind comes from the start of
-the URL:
+A conn is a database, cache or storage bucket that komando knows about,
+the way a host entry is a server it knows about. The kind comes from the
+start of the URL:
 
 | Kind | URL example |
 |------|-------------|
@@ -32,7 +32,7 @@ the URL:
 `komando conn kinds` lists every kind, including caches, storage, clusters
 and registries.
 
-**Never put the password in the URL**; komando refuses it. Store it in the
+Never put the password in the URL; komando refuses it. Store it in the
 vault, or point at your password manager (see [Servers](servers.md)):
 
 ```bash
@@ -85,7 +85,7 @@ giving them the password:
   A MySQL conn without `tls=` is not encrypted, and the MySQL 8 login then
   encrypts the password with a key the server sends over that same plain
   connection, which someone in between can swap.
-- **New conns check by default.** When `conn add` (or `conn edit --url`)
+- New conns check by default. When `conn add` (or `conn edit --url`)
   saves such a conn and its URL does not say how to use TLS, komando adds
   `sslmode=verify-full` (Postgres) or `tls=true` (MySQL) and says so in
   `warnings`. A URL that names a setting keeps it, and a conn through
@@ -123,7 +123,7 @@ komando db explain app-db "select * from orders where user_id = 42"
 komando db query app-db --file report.sql    # SQL from a file (--file - reads stdin)
 ```
 
-**Use `--arg` for values** instead of pasting them into the SQL. The
+Use `--arg` for values instead of pasting them into the SQL. The
 placeholders are `$1`, `$2` in PostgreSQL, and `?` in MySQL and SQLite:
 
 ```bash
@@ -132,14 +132,14 @@ komando db query app-db "select * from users where email = $1" --arg bob@example
 
 The number of `--arg` values must match the placeholders (`USAGE`, exit 2).
 
-**For spreadsheets and scripts**, `--csv` or `--tsv` prints the rows
+For spreadsheets and scripts, `--csv` or `--tsv` prints the rows
 instead of JSON or a table. NULL is an empty field, binary is `\x` hex:
 
 ```bash
 komando db query app-db --csv "select id, email from users" > users.csv
 ```
 
-**Limits.** A query returns at most 500 rows (`--limit`, `0` for no limit)
+A query returns at most 500 rows (`--limit`, `0` for no limit)
 and `--max-output` bytes. A cut result says which cap it hit:
 `"truncated": "rows"` (raise `--limit`) or `"truncated": "bytes"` (raise
 `--max-output`). A query stops after 30 seconds; use `--timeout 2m` for
@@ -160,7 +160,7 @@ whole, for the agent: see [Personal data](safety.md#personal-data).
 komando conn edit app-db --option 'mask_columns=full_name address birth_date'
 ```
 
-**SQL that starts with a `-- comment`** looks like a flag to the command
+SQL that starts with a `-- comment` looks like a flag to the command
 line. Put `--` before it, or use `--file -`.
 
 ### How values come back (JSON)
@@ -179,7 +179,7 @@ In text output, tables line up, also with CJK characters and emoji.
 
 ## Change data
 
-`komando db query` **does not change your data unless you add `--write`**.
+`komando db query` does not change your data unless you add `--write`.
 Without it, the query runs in a read-only transaction and the database
 itself refuses changes.
 
@@ -295,47 +295,51 @@ komando db dump app-db --to app.dump --format custom --on db1      # pg_dump run
 komando db restore staging-db --from app.dump --on db1 --allow-dangerous   # pg_restore runs on db1
 ```
 
-**Where the backup goes.** Always to a file on **this computer**, readable
-only by you. An existing file is never overwritten.
+### Where the backup goes, and who makes it
 
-**Who does the work.** `pg_dump` or `mysqldump` runs on a server that has
-it: the one you name with `--on HOST`, else the last server of the conn's
-`--via` path. Otherwise (a direct conn or a VPN, or a `--via` server without
-the tool) komando dumps by itself, and nothing has to be installed. `runs_on`
-in the answer (and in `komando audit`) names where the tool ran. A plain
-SQL restore is always run by komando itself,
-through the same `--via` path, never by `psql` or `mysql`: those would obey
-client commands hidden in the file on that server. Only a PostgreSQL
-archive goes to `pg_restore` on the server. `tool` in the answer says which
-was used. The password goes to a server's tool through its environment,
-never on its command line, so other users of that server cannot see it. For
-MySQL conns with `?tls=...`, the same TLS setting is passed to the server's
-tools (MySQL and MariaDB clients both work). For Postgres, `pg_dump` and
-`pg_restore` read the conn URL themselves: with `sslmode=verify-full` (or
-`verify-ca`) they check the database's certificate against
-`~/.postgresql/root.crt` on the server they run on, not against the
-system's CAs as komando does. With `pg_dump` 16 or newer, komando adds
-`sslrootcert=system`, so they use the system's CAs too. An older one needs
-the CA in that file there; without it the dump stops with `DB_CONNECT` and
-a hint (install `postgresql-client` 16 or newer, put the CA in
-`~/.postgresql/root.crt`, or reach the database `--via` that server without
-TLS).
+The backup always goes to a file on this computer, readable only by you.
+An existing file is never overwritten.
 
-**A private CA (`?ca=secret:NAME`).** The tools on the server check the
-database's certificate against the conn's CA too, the same full check
-komando makes: signed by that CA and naming the server. komando sends the
-CA after the password, on the tool's input, never on its command line. It
-lands in a new folder in `/tmp` that only the login user can open, and goes
-once the tool ends. `pg_dump` and `pg_restore` of any version get it as
-`sslrootcert=` with `sslmode=verify-full` (in place of `ca=`, which libpq
-does not know), so `~/.postgresql/root.crt` is not needed.
-`mysqldump` gets `--ssl-ca` and a checked TLS connection, also when the URL
-has no `tls=`.
+`pg_dump` or `mysqldump` runs on a server that has it: the one you name with
+`--on HOST`, else the last server of the conn's `--via` path. Otherwise (a
+direct conn or a VPN, or a `--via` server without the tool) komando dumps by
+itself, and nothing has to be installed. `runs_on` in the answer (and in
+`komando audit`) names where the tool ran. A plain SQL restore is always run
+by komando itself, through the same `--via` path, never by `psql` or
+`mysql`: those would obey client commands hidden in the file on that server.
+Only a PostgreSQL archive goes to `pg_restore` on the server. `tool` in the
+answer says which was used.
 
-**Running the dump on a server you choose (`--on HOST`).** Useful when the
-conn goes through a VPN (komando then can only write plain SQL itself) but a
-server you manage has `pg_dump` and can reach the database, often the
-database server itself:
+The password goes to a server's tool through its environment, never on its
+command line, so other users of that server cannot see it. For MySQL conns
+with `?tls=...`, the same TLS setting is passed to the server's tools (MySQL
+and MariaDB clients both work). For Postgres, `pg_dump` and `pg_restore`
+read the conn URL themselves: with `sslmode=verify-full` (or `verify-ca`)
+they check the database's certificate against `~/.postgresql/root.crt` on
+the server they run on, not against the system's CAs as komando does. With
+`pg_dump` 16 or newer, komando adds `sslrootcert=system`, so they use the
+system's CAs too. An older one needs the CA in that file there; without it
+the dump stops with `DB_CONNECT` and a hint (install `postgresql-client` 16
+or newer, put the CA in `~/.postgresql/root.crt`, or reach the database
+`--via` that server without TLS).
+
+### A private CA (`?ca=secret:NAME`)
+
+The tools on the server check the database's certificate against the conn's
+CA too, the same full check komando makes: signed by that CA and naming the
+server. komando sends the CA after the password, on the tool's input, never
+on its command line. It lands in a new folder in `/tmp` that only the login
+user can open, and goes once the tool ends. `pg_dump` and `pg_restore` of
+any version get it as `sslrootcert=` with `sslmode=verify-full` (in place of
+`ca=`, which libpq does not know), so `~/.postgresql/root.crt` is not
+needed. `mysqldump` gets `--ssl-ca` and a checked TLS connection, also when
+the URL has no `tls=`.
+
+### Run the dump on a server you choose (`--on HOST`)
+
+This helps when the conn goes through a VPN (komando then can only write
+plain SQL itself) but a server you manage has `pg_dump` and can reach the
+database, often the database server itself:
 
 ```bash
 komando db dump prod-db --to prod.dump --format custom --on db1 --dry-run   # where and what would run
@@ -346,8 +350,8 @@ komando db dump prod-db --to prod.dump --format custom --on db1
   exactly one); komando reaches it the usual way, through its own `--via`.
   The conn's password goes to it, so a `user@address` that is not in the
   inventory is refused.
-- The tool there connects to the conn URL's address **as that server sees
-  it**. When the database only listens on `127.0.0.1` on that server, add a
+- The tool there connects to the conn URL's address as that server sees
+  it. When the database only listens on `127.0.0.1` on that server, add a
   second conn for that address reached through it
   (`komando conn add prod-db-local postgres://app@127.0.0.1:5432/app --via db1 --password-ref ...`)
   and dump that one; `CONN_UNREACHABLE` says this when it happens.
@@ -373,8 +377,9 @@ komando db dump prod-db --to prod.dump --format custom --on db1
   `--format custom` only from a `pg_dump` of its own major version, or use
   plain SQL.
 
-**What komando's own dump contains.** Plain SQL that psql and mysql can
-also read:
+### What komando's own dump contains
+
+Plain SQL that psql and mysql can also read:
 
 - PostgreSQL: extensions, schemas, enum/domain/composite types, functions,
   sequences, tables (identity and generated columns, partitions), data,
@@ -394,7 +399,7 @@ also read:
 - `--format custom` needs `pg_dump` on a server (`--on HOST`, or the conn's
   `--via` server).
 
-**Restoring safely.**
+### Restore safely
 
 - A restore can overwrite data, so it needs `--allow-dangerous` (and `--yes`
   on a protected conn).
@@ -422,15 +427,17 @@ also read:
 - `--table` takes table names only; a value that starts with `-` is
   refused.
 
-**SQLite.** `dump` copies the database file (`--to backup.db`). To restore,
+### SQLite and big databases
+
+For SQLite, `dump` copies the database file (`--to backup.db`). To restore,
 stop the app and copy the file back.
 
-**Big databases** take time: `dump` and `restore` have no timeout unless you
+Big databases take time: `dump` and `restore` have no timeout unless you
 pass `--timeout`.
 
 ## MongoDB
 
-A MongoDB conn takes the same `db query`, with a **command document** in
+A MongoDB conn takes the same `db query`, with a command document in
 JSON instead of SQL: its first key names the command, as in `runCommand`.
 `db schema` and `db info` work too.
 
@@ -445,10 +452,10 @@ komando db schema shop-mongo orders               # fields and their types, from
 komando db info shop-mongo                        # version, primary or secondary, sizes
 ```
 
-- **Rated before it is sent**, like SQL: `find`, `aggregate`, `count`,
-  `distinct` and the other reads run as they are. A command that changes
-  data, or one komando does not know as a read, needs `--write`; a
-  protected conn also needs `--yes`. A `delete` or a multi-document
+- komando rates each command before it sends it, as it does SQL: `find`,
+  `aggregate`, `count`, `distinct` and the other reads run as they are. A
+  command that changes data, or one komando does not know as a read, needs
+  `--write`; a protected conn also needs `--yes`. A `delete` or a multi-document
   `update` with an empty filter, `drop`, `dropDatabase`, user and role
   changes and `shutdown` also need `--allow-dangerous`. An `aggregate` with
   `$out` or `$merge` writes.

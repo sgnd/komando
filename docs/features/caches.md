@@ -33,9 +33,11 @@ sends the password and the data unencrypted, so `conn add` (and
 `--via`, or add `?insecure=1` to accept that the traffic is readable on the
 way (for an AI agent that needs a person's yes). The same goes for
 `memcached://`. Conns saved before keep working; `komando doctor` warns
-about them and prints the line that changes them. `rediss://` checks the server's certificate against your computer's
-trusted CAs, or against your own with `?ca=secret:NAME` (a private CA, or a
-cloud's own), as `memcacheds://` does:
+about them and prints the line that changes them.
+
+`rediss://` and `memcacheds://` check the server's certificate against your
+computer's trusted CAs, or against your own with `?ca=secret:NAME` (a
+private CA, or a cloud's own):
 
 ```bash
 komando secret set cache-ca < ca.pem
@@ -44,9 +46,9 @@ komando conn add sessions 'rediss://default@cache.internal:6380/1?ca=secret:cach
 
 ### Redis Cluster and Sentinel
 
-A **Redis Cluster** (or Valkey cluster, ElastiCache and MemoryDB in cluster
-mode) is added by one node's address with `?cluster=1`: komando finds the
-other nodes from it. Behind **Sentinels**, add a Sentinel's address with
+Add a Redis Cluster (or a Valkey cluster, or ElastiCache and MemoryDB in
+cluster mode) by one node's address with `?cluster=1`: komando finds the
+other nodes from it. Behind Sentinels, add a Sentinel's address with
 `?sentinel=` and the master's name: komando asks the Sentinels where the
 master is now, so a failover needs no change.
 
@@ -100,7 +102,7 @@ komando cache rm cache session:42 session:43 --allow-dangerous
 
 ## Any other Redis command
 
-`cache run` sends any command. **It only reads unless you add `--write`:**
+`cache run` sends any command. It only reads unless you add `--write`:
 
 ```bash
 komando cache run cache -- HGETALL user:42
@@ -149,9 +151,10 @@ komando cache run mc -- stats slabs
 
 ## Output
 
-- **Text** (`-o text`) looks like `redis-cli`: one item per line, numbered,
-  nested replies indented. Strings are quoted when they hold spaces, quotes
-  or control characters (a newline shows as `\n`), so a value never breaks
-  the layout. A hash or map entry shows as `name: value`.
-- **JSON** keeps values exactly as they are; binary values come as
-  `{"base64": "..."}`.
+Text output (`-o text`) looks like `redis-cli`: one item per line,
+numbered, nested replies indented. Strings are quoted when they hold
+spaces, quotes or control characters (a newline shows as `\n`), so a value
+never breaks the layout. A hash or map entry shows as `name: value`.
+
+JSON keeps values exactly as they are; binary values come as
+`{"base64": "..."}`.
