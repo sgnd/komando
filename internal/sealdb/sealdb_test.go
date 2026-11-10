@@ -166,19 +166,13 @@ func TestWrongKeyAndSwappedRow(t *testing.T) {
 	})
 	d.Close()
 
-	d2, err := Open(ctx, path, key(t, 2))
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = d2.View(ctx, func(tx *Tx) error { _, err := tx.Get(a); return err })
-	d2.Close()
-	if !errors.Is(err, sealrow.ErrOpen) {
+	if _, err := Open(ctx, path, key(t, 2)); !errors.Is(err, ErrWrongKey) {
 		t.Fatalf("other key: %v", err)
 	}
 
 	// someone with the file swaps the sealed data of two rows
 	raw, _ := sql.Open("sqlite", path)
-	_, err = raw.Exec(`UPDATE records SET data=(SELECT data FROM records WHERE id=?) WHERE id=?`, b, a)
+	_, err := raw.Exec(`UPDATE records SET data=(SELECT data FROM records WHERE id=?) WHERE id=?`, b, a)
 	raw.Close()
 	if err != nil {
 		t.Fatal(err)
@@ -344,8 +338,8 @@ func TestTamperedColumns(t *testing.T) {
 	})
 	d.Close()
 	for _, q := range []string{
-		`UPDATE records SET deleted=1`,
-		`UPDATE records SET mtime=mtime+1`,
+		`UPDATE records SET deleted=1 WHERE type='server'`,
+		`UPDATE records SET mtime=mtime+1 WHERE type='server'`,
 	} {
 		raw, _ := sql.Open("sqlite", path)
 		if _, err := raw.Exec(q); err != nil {
@@ -417,4 +411,61 @@ func TestNestedAndOddPath(t *testing.T) {
 	}
 	c := open(t, filepath.Join(dir, "copy?x.db"))
 	_ = c.View(ctx, func(tx *Tx) error { _, err := tx.List("server"); return err })
+}
+
+func TestWrongKeyOnOpen(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "store.db")
+	open(t, path).Close()
+	if _, err := Open(ctx, path, key(t, 2)); !errors.Is(err, ErrWrongKey) {
+		t.Fatalf("wrong key: %v", err)
+	}
+	raw, _ := sql.Open("sqlite", path)
+	_, _ = raw.Exec(`DELETE FROM records WHERE id='keycheck'`)
+	raw.Close()
+	if _, err := Open(ctx, path, key(t, 1)); !errors.Is(err, ErrTampered) {
+		t.Fatalf("keycheck removed: %v", err)
+	}
+}
+
+func TestMetaAndPeek(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "store.db")
+	if _, err := Peek(ctx, path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("peek missing: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("peek made the file")
+	}
+	d := open(t, path)
+	err := d.Update(ctx, func(tx *Tx) error {
+		if err := tx.SetMeta("format", "9"); err == nil {
+			t.Fatal("format set from outside")
+		}
+		return tx.SetMeta("key_mode", "keyfile")
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = d.View(ctx, func(tx *Tx) error {
+		if v, _ := tx.Meta("key_mode"); v != "keyfile" {
+			t.Fatalf("meta %q", v)
+		}
+		if v, _ := tx.Meta("none"); v != "" {
+			t.Fatalf("unset meta %q", v)
+		}
+		if err := tx.SetMeta("a", "b"); !errors.Is(err, ErrReadOnly) {
+			t.Fatalf("set in view: %v", err)
+		}
+		return nil
+	})
+	m, err := Peek(ctx, path)
+	if err != nil || m["key_mode"] != "keyfile" || m["format"] != strconv.Itoa(Format) {
+		t.Fatalf("peek %v %v", m, err)
+	}
+	// the keycheck is a record, but List of other types never shows it
+	_ = d.View(ctx, func(tx *Tx) error {
+		if l, _ := tx.List("server"); len(l) != 0 {
+			t.Fatalf("list %v", l)
+		}
+		return nil
+	})
 }
