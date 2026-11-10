@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hirochachacha/go-smb2"
+	"github.com/cloudsoda/go-smb2"
 
 	"github.com/sgnd/komando/internal/driver"
 )
@@ -180,14 +180,15 @@ func smbSteps(t *testing.T, ctx context.Context, b Bucket) {
 func TestSMBErrors(t *testing.T) {
 	tg := driver.Target{User: "alice", Domain: "CORP", Bucket: "team"}
 	for err, want := range map[error]string{
-		&smb2.ResponseError{Code: ntLogonFailure}:         "STORAGE_AUTH",
-		&smb2.ResponseError{Code: ntAccountLocked}:        "STORAGE_AUTH",
-		&smb2.ResponseError{Code: ntBadNetworkName}:       "BUCKET_NOT_FOUND",
-		&smb2.InvalidResponseError{Message: "guest x"}:    "STORAGE_AUTH",
-		&smb2.TransportError{Err: errors.New("EOF")}:      "STORAGE_CONNECT",
-		&smb2.ContextError{Err: context.DeadlineExceeded}: "TIMEOUT",
-		fmt.Errorf("x: %w", os.ErrPermission):             "STORAGE_AUTH",
-		errors.New("strange"):                             "STORAGE_ERROR",
+		&smb2.ResponseError{Code: ntLogonFailure}:        "STORAGE_AUTH",
+		&smb2.ResponseError{Code: ntAccountLocked}:       "STORAGE_AUTH",
+		&smb2.ResponseError{Code: ntBadNetworkName}:      "BUCKET_NOT_FOUND",
+		&smb2.InvalidResponseError{Message: "guest x"}:   "STORAGE_AUTH",
+		&smb2.TransportError{Err: errors.New("EOF")}:     "STORAGE_CONNECT",
+		fmt.Errorf("dial: %w", context.DeadlineExceeded): "TIMEOUT",
+		fmt.Errorf("read: %w", os.ErrDeadlineExceeded):   "TIMEOUT",
+		fmt.Errorf("x: %w", os.ErrPermission):            "STORAGE_AUTH",
+		errors.New("strange"):                            "STORAGE_ERROR",
 	} {
 		if got := code(smbLoginErr(err, tg)); got != want {
 			t.Errorf("%v: %s, want %s", err, got, want)
