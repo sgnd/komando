@@ -109,7 +109,7 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 			if hasControl(comment) {
 				return out.Errf(out.ExitUsage, "USAGE", "use one line of plain text, e.g. -C ops@example.com", "the key comment cannot hold line breaks or control characters")
 			}
-			path := store.Path("keys", name)
+			path := store.ManagedKeyPath(name)
 			if _, err := os.Stat(path); err == nil && !overwrite {
 				if st, _ := loadState(); st == nil || st.Keys[name] == nil {
 					return out.Errf(out.ExitConflict, "KEY_FILE_EXISTS", "a key file from earlier is still there: move it away, or pass --overwrite to replace it",
@@ -149,13 +149,8 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 					return keyExists(name)
 				}
 				pubLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub))) + " " + comment
-				if err := os.WriteFile(path, pem.EncodeToMemory(block), 0o600); err != nil {
-					return err
-				}
-				if err := os.Chmod(path, 0o600); err != nil { // an old file keeps its mode
-					return err
-				}
-				if err := os.WriteFile(path+".pub", []byte(pubLine+"\n"), 0o644); err != nil {
+				// a fresh file each time: an old one would keep its mode
+				if _, err := store.WriteManagedKey(name, pem.EncodeToMemory(block), []byte(pubLine+"\n")); err != nil {
 					return err
 				}
 				k = &store.Key{Name: name, Path: path, Type: pub.Type(), PublicKey: pubLine, Fingerprint: ssh.FingerprintSHA256(pub), Managed: true, CreatedAt: time.Now().UTC()}
@@ -435,10 +430,9 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 				case deleteFile && g.dryRun:
 					res["would_delete_file"] = k.Path
 				case deleteFile:
-					if err := os.Remove(k.Path); err != nil && !os.IsNotExist(err) {
+					if err := store.RemoveManagedKey(k); err != nil {
 						return out.Errf(out.ExitError, "DELETE_FAILED", "check the file's permissions", "cannot delete %s: %v", k.Path, err)
 					}
-					_ = os.Remove(k.Path + ".pub")
 					res["file_deleted"] = true
 				}
 				delete(s.Keys, k.Name)

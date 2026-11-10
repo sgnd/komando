@@ -105,7 +105,7 @@ marker and point at each other by name; runtime data shares a file with the
 inventory; `komando export` carries no secrets; the CLI does not build for
 native Windows yet, only under WSL: file locks, stopping background
 processes, terminal input, file ownership checks, the OS key store and the
-"Allow once" window all have Unix-only code (41 compile errors in 13 files).
+"Allow once" window all have Unix-only code (41 compile errors in 14 files).
 
 ## 4. What we defend against
 
@@ -1384,6 +1384,46 @@ Useful for every CLI user, with or without the apps.
   screen, and `komando doctor` says so. Windows is built and tested on every
   change.
 
+How the code meets this (settled while building phase 0, 2026-11-10):
+
+- **Lock files stay.** "No second lock file" is about the database. The
+  small lock files that keep komando processes apart (one per VPN, the
+  known_hosts lock) hold no data and stay as they are.
+- **`vpn/<name>.auth`** holds a VPN's login in plain text today. It moves
+  into the sealed runtime file with the sessions (step S7).
+- **Audit rows** are written inside the database's write step. Only
+  commands that act write one; reading commands do not, so the write lock
+  is not taken for every command.
+- **Background processes get the key one way.** Today `tunnel` and
+  `vpn serve` read it with the passphrase-on-stdin helper, and the server
+  login holder has its own `PASS` line. Both move to the one helper before
+  the runtime file is sealed.
+- **Host key checks** go through one interface in `sshx` (done in S5c), so
+  the sealed store answers them without the known_hosts file. The system
+  `ssh` that `host ssh-command` prints still needs a file: it gets a
+  temporary private copy, for a person only.
+- **Unique names** are checked by opening every server, conn and VPN row
+  inside the write step. That is fast for hundreds of records, which is
+  the expected size.
+- **The generation number in the keychain** is written only when servers,
+  rules, secrets, keys or pins change, and the keychain tools take about
+  0.1 second. A keychain that is locked at that moment leaves the database
+  ahead of the keychain, which is the normal state after a crash: the next
+  command raises the keychain.
+- **"Only a person" checks** for the move, the undo and accepting an old
+  copy use the CLI's existing person-or-agent test. The desktop app's way
+  in (Touch ID) needs the per-call identity of the engine work (track E),
+  which comes before the apps.
+- **New error codes**, the only ones phase 0 adds for agents: `STORE_OLD_COPY`
+  (exit 6: the store is older than the keychain says; a person accepts it
+  on purpose), `STORE_NEWER` (exit 1: made by a newer komando; update
+  komando) and `STORE_MOVED` (exit 1: an older komando meets a moved
+  folder; update komando).
+- **The vault and the inventory need no new layer** for the swap: the
+  vault already reads and writes disk in one place, and every inventory
+  change goes through one function. The sealed store replaces those
+  insides.
+
 Moving existing users:
 
 - Only a person at a terminal, or the desktop app, moves the folder to the
@@ -1505,7 +1545,7 @@ Open until proven, and who settles it:
 Proven on the development Mac on 2026-11-10: every package compiles for
 iPhone (about 61 MB, and only with cgo for linking); the standard library
 has the X-Wing sealing used in section 7.2 and it round-trips; the Windows
-build fails in 13 files as listed in section 3.
+build fails in 14 files as listed in section 3.
 
 Things that can stop or reshape the plan:
 

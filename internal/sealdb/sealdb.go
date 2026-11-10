@@ -67,7 +67,13 @@ var (
 	// ErrTampered: a readable column does not match what was sealed, or an
 	// audit entry is missing.
 	ErrTampered = errors.New("sealdb: store was changed outside komando")
+	// ErrWrongKey: the store was sealed with another key.
+	ErrWrongKey = errors.New("sealdb: the key does not open this store")
 )
+
+// keycheckID is a record every store holds from its start, so a wrong key
+// is told apart from a damaged row.
+const keycheckID, keycheckType = "keycheck", "keycheck"
 
 const schema = `
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
@@ -163,7 +169,10 @@ func (d *DB) init(ctx context.Context) error {
 		var v string
 		err := tx.c.QueryRowContext(ctx, `SELECT v FROM meta WHERE k='format'`).Scan(&v)
 		if errors.Is(err, sql.ErrNoRows) {
-			_, err = tx.c.ExecContext(ctx, `INSERT INTO meta(k,v) VALUES('format',?)`, strconv.Itoa(Format))
+			if _, err = tx.c.ExecContext(ctx, `INSERT INTO meta(k,v) VALUES('format',?)`, strconv.Itoa(Format)); err != nil {
+				return err
+			}
+			_, err = tx.Put(keycheckType, keycheckID, []byte("komando"))
 			return err
 		}
 		if err != nil {
@@ -176,8 +185,52 @@ func (d *DB) init(ctx context.Context) error {
 		if n > Format {
 			return ErrNewerFormat
 		}
+		if _, err := tx.Get(keycheckID); err != nil {
+			if errors.Is(err, sealrow.ErrOpen) {
+				return ErrWrongKey
+			}
+			if errors.Is(err, ErrNotFound) {
+				return fmt.Errorf("record %s: %w", keycheckID, ErrTampered)
+			}
+			return err
+		}
 		return nil
 	})
+}
+
+// Peek reads the readable settings of the store at path (format, key mode,
+// salt) without a key and without making the file. A missing file is
+// os.ErrNotExist.
+func Peek(ctx context.Context, path string) (map[string]string, error) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, err
+	}
+	q := url.Values{}
+	q.Set("mode", "ro")
+	q.Add("_pragma", "busy_timeout("+strconv.Itoa(int(BusyTimeout/time.Millisecond))+")")
+	dsn, err := fileURI(path, q)
+	if err != nil {
+		return nil, err
+	}
+	sdb, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, err
+	}
+	defer sdb.Close()
+	rows, err := sdb.QueryContext(ctx, `SELECT k,v FROM meta`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	m := map[string]string{}
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, err
+		}
+		m[k] = v
+	}
+	return m, rows.Err()
 }
 
 // Close closes the store.
@@ -444,6 +497,29 @@ func (t *Tx) write1(id, typ string, ver uint64, del bool, data []byte) (Record, 
 		return Record{}, err
 	}
 	return Record{ID: id, Type: typ, Version: ver, MTime: time.Unix(0, now.UnixNano()), Deleted: del, Data: data}, nil
+}
+
+// Meta returns one readable setting, "" when it is not set.
+func (t *Tx) Meta(k string) (string, error) {
+	var v string
+	err := t.c.QueryRowContext(t.ctx, `SELECT v FROM meta WHERE k=?`, k).Scan(&v)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return v, err
+}
+
+// SetMeta sets one readable setting. Readable means anyone with the file
+// sees it: never a name, a secret or a host.
+func (t *Tx) SetMeta(k, v string) error {
+	if !t.write {
+		return ErrReadOnly
+	}
+	if k == "format" {
+		return errors.New("sealdb: the format is set by the store itself")
+	}
+	_, err := t.c.ExecContext(t.ctx, `INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v`, k, v)
+	return err
 }
 
 // auditType is the type audit rows are sealed under, so an audit row cannot

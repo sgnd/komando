@@ -137,7 +137,15 @@ func personFor(h *store.Host) func(text string, hidden bool) (string, error) {
 // gives no signer: an explicit one is kept in locked (ssh-agent may hold
 // it), a default one in skipped.
 func (lk *loginKeys) keyFile(path, passRef string, k *store.Key, explicit bool) (ssh.Signer, error) {
-	b, err := os.ReadFile(expand(path))
+	var (
+		b   []byte
+		err error
+	)
+	if k != nil {
+		b, err = store.ReadPrivateKey(k)
+	} else {
+		b, err = os.ReadFile(expand(path))
+	}
 	if err != nil {
 		if explicit {
 			return nil, out.Errf(out.ExitConnect, "KEY_UNREADABLE", "check the key path", "cannot read key %s: %v", path, err)
