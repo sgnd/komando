@@ -77,7 +77,7 @@ version (`komando update v0.6.0`) needs their yes.
 
 ## 2. Targets
 
-`web1` · `web-*` · `@group` · `tag:prod` · `label:dc=jkt` · `kind:host|db|cache|storage|postgres|...` ·
+`web1` · `web-*` · `@group` · `tag:prod` · `label:dc=jkt` · `kind:host|db|cache|queue|storage|postgres|...` ·
 `all` · `user@1.2.3.4:22` (ad-hoc server). Combine with commas and exclude
 with `!`: `@web,!web-3`.
 
@@ -152,12 +152,12 @@ The inventory itself changes in bulk too, each with `--dry-run` first:
 - `komando import csv FILE` adds a whole spreadsheet of servers (all rows
   are checked before anything is written).
 
-## 5. Databases, caches, storage, clusters, registries
+## 5. Databases, caches, queues, storage, clusters, registries
 
 These are conns (`komando list kind:conn`). Each has its own command; never
 reach them through `exec`.
 
-**Databases** (PostgreSQL, MySQL/MariaDB, SQLite):
+**Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake, BigQuery, SQLite):
 
 ```bash
 komando db schema <conn> [table...]                     # tables, then columns and indexes
@@ -180,17 +180,81 @@ priority, password in its environment, backup streamed back over SSH), for examp
 when the conn goes through a VPN and you need `--format custom`. Dry-run it
 first: `runs_on` says where it runs. `db restore` needs `--allow-dangerous`.
 
+**SQL Server** conns take T-SQL with `@p1`, `@p2` placeholders. There is no
+read-only transaction: without `--write` komando rolls everything back, and
+a statement it does not know as a read (a bare procedure name, `EXEC`) needs
+`--write`. End each statement with `;`. `db dump` and `restore` are not
+available there (`NOT_SUPPORTED`).
+
+**Oracle** conns take Oracle SQL with `:1`, `:2` placeholders. DDL
+(`CREATE`, `ALTER`, `DROP`, `GRANT`) commits on its own, so it needs
+`--write`, goes alone, and a dry run only reports it. A PL/SQL block
+(`BEGIN ... END;`) ends with a line holding only `/` and needs `--write`
+and `--allow-dangerous`: ask the human first. Table names are upper case
+(`db schema <conn>` shows them). `db dump` and `restore` are not available
+(`NOT_SUPPORTED`).
+
+**ClickHouse** conns take ClickHouse SQL with `{p1:String}`, `{p2:UInt64}`
+placeholders. There are no transactions: without `--write` the server runs
+everything with `readonly=1`; a write (`INSERT`, `ALTER`, ...) needs
+`--write`, goes alone, and a dry run only reports it, so dry-run and ask the
+human before the real one. Leave out `SETTINGS`, `SET` and `FORMAT`.
+Table functions that reach out (`url()`, `s3()`, `remote()`, `file()`)
+need `--allow-dangerous`: ask the human first. `db kill` takes the `pid`
+from `db activity`. `db dump`, `restore` and `locks` are not available
+(`NOT_SUPPORTED`).
+
+**Snowflake** conns take Snowflake SQL with `?` placeholders. Snowflake has
+no read-only mode: komando's own check is all there is, so without
+`--write` only reads are sent; a write (`INSERT`, `CREATE`, `COPY`, ...)
+needs `--write`, goes alone, and a dry run only reports it, so dry-run and
+ask the human before the real one. Most queries need `?warehouse=` in the
+URL. `SYSTEM$` functions that change something, `CALL`, `EXECUTE
+IMMEDIATE`, stage files and `CREATE OR REPLACE` need `--allow-dangerous`:
+ask the human first. `db kill` takes the `pid` from `db activity`. `db
+dump`, `restore`, `locks`, `user add` and `grant` are not available
+(`NOT_SUPPORTED`).
+
+**BigQuery** conns take GoogleSQL with `?` placeholders (values go as
+`STRING`: write `CAST(? AS INT64)`). BigQuery bills by the bytes a query
+reads: run `db query <conn> --dry-run "..."` first, which runs nothing
+and shows `bytes_processed`. A query over `--max-bytes` (default 10GB)
+stops with `DB_BYTES_LIMIT`: narrow it, or ask the human before you raise
+`--max-bytes`. Without `--write` only what BigQuery itself calls a
+`SELECT` runs; a write needs `--write` and goes alone. `EXPORT DATA`,
+`EXTERNAL_QUERY`, `CREATE OR REPLACE`, `CALL` and `EXECUTE IMMEDIATE`
+need `--allow-dangerous`: ask the human first. Scripts (`DECLARE`,
+`SET`, `BEGIN ... END`) are refused. `db kill` takes the `pid` from `db
+activity`. `db dump`, `restore`, `locks`, `db user` and `grant` are not
+available (`NOT_SUPPORTED`).
+
 **Caches** (Redis, Valkey, memcached): `cache get|keys|info <conn>` read, `cache set`
 changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run
 <conn> -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
 `cache keys` uses SCAN.
+
+**Queues** (Kafka, Redpanda, MSK, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub): `komando queue info|ls|describe|groups|lag
+<conn>` read; `komando queue peek <conn> TOPIC -n 20` reads the newest
+messages without joining a consumer group (nothing moves, nothing is
+removed; `--oldest` for the first ones). On RabbitMQ peek takes the first
+messages of a queue and gives them back (marked redelivered); stop on
+`DELIVERY_LIMIT_NEAR`. On NATS a topic is a stream and peek reads it by
+sequence; `queue send` takes a subject a stream keeps (`orders.new`). On
+SQS peek receives a sample with visibility timeout 0 and deletes nothing,
+but each receive counts toward a dead-letter queue (stop on
+`DELIVERY_LIMIT_NEAR`); a FIFO queue needs `--key` (the message group).
+On Pub/Sub you send to a topic, but peek and purge take a subscription
+(`queue groups` lists them); peek pulls and gives every message back
+unacknowledged. Delete a subscription as `subscriptions/NAME`.
+`queue send <conn> TOPIC --value '...'` and `queue create` change;
+`queue rm` and `queue purge` delete messages (need `--allow-dangerous`). Try every change with `--dry-run`.
 
 **MongoDB** conns use `komando db query <conn> '<command JSON>'`, the
 first key naming the command (`{"find": "users", "filter": {...}}`); reads
 run as they are, changes need `--write`, and `db schema`/`db info` describe
 the database.
 
-**Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP): `komando storage ls <conn>` and
+**Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP, SMB shares): `komando storage ls <conn>` and
 `komando download <conn> KEY` read; `komando upload <conn> FILE` and
 `storage link` change or share; `storage rm` deletes (needs
 `--allow-dangerous`). Keys are relative to the conn's folder.
@@ -209,8 +273,8 @@ and upgrade stay with helm).
 changes, `registry rm` deletes (needs `--allow-dangerous`).
 
 `--dry-run` never changes anything. In `db` it runs the SQL inside a
-transaction and rolls it back (sequences still advance); in `cache` and
-`storage` nothing is sent.
+transaction and rolls it back (sequences still advance); in `cache`,
+`queue` and `storage` nothing is sent.
 
 ## 6. Long-running work
 

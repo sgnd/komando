@@ -44,13 +44,14 @@ type Bucket interface {
 }
 
 // keyIn joins a key relative to the conn with the conn's folder, refusing
-// keys that try to leave it.
+// keys that try to leave it. A \ counts as a separator too: SMB servers
+// read it as one, so a\..\..\x would climb out of the folder.
 func keyIn(prefix, rel string) (string, error) {
 	rel = strings.TrimPrefix(rel, "/")
 	if rel == "" {
 		return "", out.Usage("empty key")
 	}
-	for _, part := range strings.Split(rel, "/") {
+	for _, part := range strings.FieldsFunc(rel, func(r rune) bool { return r == '/' || r == '\\' }) {
 		if part == ".." {
 			return "", out.Usage("key %q leaves the conn's folder", rel)
 		}

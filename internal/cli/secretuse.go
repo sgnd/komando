@@ -124,6 +124,9 @@ func connPlace(c *store.Conn) secretPlace {
 	dest := c.URL
 	if t, err := driver.Parse(c.URL); err == nil {
 		dest = t.Address
+		if len(t.Brokers) > 1 { // kafka: the login goes to every broker
+			dest = strings.Join(t.Brokers, ",")
+		}
 		if t.Kind.File {
 			dest = t.Path
 		}
@@ -187,6 +190,21 @@ func weakTLS(oldURL, newURL string) []string {
 		case "skip-verify":
 			w = append(w, "tls=skip-verify (the certificate is not checked)")
 		}
+	case "sqlserver":
+		o, _ := driver.ParseSQLServerOptions(q)
+		switch {
+		case o.Encrypt == "false" || o.Encrypt == "disable":
+			w = append(w, "encrypt="+o.Encrypt+" (travels unencrypted)")
+		case o.SkipVerify:
+			w = append(w, "tls=skip-verify (the certificate is not checked)")
+		}
+	case "oracle", "clickhouse":
+		switch t.TLS {
+		case "false":
+			w = append(w, "tls=false (travels without TLS)")
+		case "skip-verify":
+			w = append(w, "tls=skip-verify (the certificate is not checked)")
+		}
 	case "registry", "ftps":
 		switch t.TLS {
 		case "false":
@@ -194,8 +212,19 @@ func weakTLS(oldURL, newURL string) []string {
 		case "skip-verify":
 			w = append(w, "tls=skip-verify (the certificate is not checked)")
 		}
+	case "bigquery":
+		if !t.Secure {
+			w = append(w, "an http:// endpoint (travels unencrypted, the Google token too)")
+		}
 	case "ftp":
 		w = append(w, "insecure=1 (travels unencrypted, passwords too)")
+	case "kafka", "rabbitmq", "nats", "sqs", "pubsub":
+		if t.TLS == "skip-verify" {
+			w = append(w, "tls=skip-verify (the certificate is not checked)")
+		}
+		if !t.Secure && q.Get("insecure") == "1" {
+			w = append(w, "insecure=1 (travels unencrypted, passwords too)")
+		}
 	case "redis", "memcached":
 		if !t.Secure && q.Get("insecure") == "1" {
 			w = append(w, "insecure=1 (travels unencrypted, passwords too)")

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"net/url"
+	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -14,11 +15,16 @@ import (
 // overNetwork):
 //
 //   - Postgres without sslmode gets sslmode=verify-full, MySQL without tls=
-//     gets tls=true (verifiedTLSURL). Left out, both would take TLS only
-//     when the server offers it, without checking whose certificate it is.
-//   - redis:// and memcached:// name a connection without TLS, so they are
-//     refused unless ?insecure=1 says that is meant, as for ftp://. Most of
-//     these servers have no TLS: --via an SSH server is the usual way.
+//     gets tls=true, SQL Server without encrypt= gets encrypt=true, Oracle
+//     without tls= gets tls=true (TCPS), ClickHouse without tls= gets
+//     tls=true (HTTPS; port 8123 becomes 8443) (verifiedTLSURL). Left out, they
+//     would take TLS only when the server offers it, without checking whose
+//     certificate it is, or (Oracle) none at all.
+//   - redis://, memcached://, amqp:// and nats:// name a connection without
+//     TLS, and so do kafka:// without tls=true and sqs:// and pubsub://
+//     with an http:// endpoint, so they are refused unless ?insecure=1
+//     says that is meant, as for ftp://. Most of these servers have no
+//     TLS: --via an SSH server is the usual way.
 //
 // Conns saved before keep their URL; `komando doctor` lists them.
 
@@ -39,15 +45,55 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 		if !q.Has("sslmode") {
 			added = "sslmode=verify-full"
 		}
-	case "mysql":
+	case "mysql", "oracle", "clickhouse":
 		if !q.Has("tls") {
 			added = "tls=true"
 		}
+		if added != "" && t.Kind.Name == "clickhouse" && strings.HasSuffix(t.Address, ":8123") {
+			added += " and port 8443 (ClickHouse's HTTPS port)"
+		}
+	case "sqlserver":
+		if o, err := driver.ParseSQLServerOptions(q); err == nil && o.Encrypt == "" {
+			added = "encrypt=true"
+		}
 	case "redis", "memcached":
 		if !t.Secure && q.Get("insecure") != "1" {
+			// the first hint is the error catalog's (`komando schema`),
+			// which every kind shares; WithHint gives this kind's own
 			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
-				"reach it --via an SSH server (`--via HOST`), or use "+t.Kind.Name+"s:// if the server has TLS; otherwise add ?insecure=1 to accept that the password and data travel unencrypted",
-				"%s:// crosses the network to %s without TLS, so the password and the data travel unencrypted", t.Kind.Name, t.Address)
+				"use the URL's TLS form if the server has TLS (rediss://, memcacheds://, amqps://, nats tls://, kafka tls=true, an https:// endpoint, ftps://, webdavs://), or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the login and the data travel unencrypted",
+				"%s:// crosses the network to %s without TLS, so the password and the data travel unencrypted", t.Kind.Name, t.Address).
+				WithHint("reach it --via an SSH server (`--via HOST`), or use " + t.Kind.Name + "s:// if the server has TLS; otherwise add ?insecure=1 to accept that the password and data travel unencrypted")
+		}
+	case "rabbitmq":
+		if !t.Secure && q.Get("insecure") != "1" {
+			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+				"reach it --via an SSH server (`--via HOST`), or use amqps:// (port 5671) if the server has TLS; otherwise add ?insecure=1 to accept that the login and the messages travel unencrypted",
+				"amqp:// crosses the network to %s without TLS, so the password and the messages travel unencrypted", t.Address)
+		}
+	case "nats":
+		if !t.Secure && q.Get("insecure") != "1" {
+			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+				"reach it --via an SSH server (`--via HOST`), or use tls:// if the server has TLS; otherwise add ?insecure=1 to accept that the login and the messages travel unencrypted",
+				"nats:// crosses the network to %s without TLS, so the password and the messages travel unencrypted", t.Address)
+		}
+	case "sqs":
+		if !t.Secure && q.Get("insecure") != "1" {
+			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+				"use an https:// endpoint, or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the messages and the session token travel unencrypted",
+				"the sqs endpoint http://%s crosses the network without TLS, so the messages and the AWS session token travel unencrypted", t.Address)
+		}
+	case "pubsub":
+		if !t.Secure && q.Get("insecure") != "1" {
+			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+				"run the Pub/Sub emulator on this computer, or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the messages travel unencrypted",
+				"the pubsub endpoint http://%s crosses the network without TLS, so the messages travel unencrypted", t.Address)
+		}
+	case "kafka":
+		if !t.Secure && q.Get("insecure") != "1" {
+			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+				"reach the brokers --via an SSH server (`--via HOST`), or add tls=true if they have TLS; otherwise add ?insecure=1 to accept that the login and the messages travel unencrypted",
+				"kafka:// without tls=true crosses the network to %s unencrypted, so the login and the messages can be read on the way", t.Address)
 		}
 	}
 	if added == "" {
@@ -59,4 +105,47 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 			": TLS that checks the server's certificate. If the server has no TLS or a certificate from its own CA, `komando conn test "+c.Name+"` says what to do")
 	}
 	return nil
+}
+
+// sqlserverVerifiedURL is verifiedTLSURL for SQL Server: encrypt=true and
+// no tls=skip-verify. Option names are read without regard to case, so
+// any spelling of them is replaced.
+func sqlserverVerifiedURL(u *url.URL) string {
+	q := u.Query()
+	found := false
+	for k := range q {
+		if strings.EqualFold(k, "encrypt") || strings.EqualFold(k, "tls") {
+			q.Del(k)
+			found = true
+		}
+	}
+	switch {
+	case !found && u.RawQuery == "":
+		u.RawQuery = "encrypt=true"
+	case !found:
+		u.RawQuery += "&encrypt=true"
+	default:
+		q.Set("encrypt", "true")
+		u.RawQuery = q.Encode()
+	}
+	return u.String()
+}
+
+// sqlserverTLSRisk is tlsRisk for a SQL Server conn that crosses the
+// network: what its encrypt= and tls= settings leave open.
+func sqlserverTLSRisk(q url.Values, t driver.Target, fix func(string) string, notChecked string) string {
+	o, err := driver.ParseSQLServerOptions(q)
+	switch {
+	case err != nil:
+		return ""
+	case t.Secure && t.TLS == "skip-verify":
+		return fix(notChecked)
+	case t.Secure:
+		return ""
+	case o.Encrypt == "disable":
+		return fix("travels unencrypted (encrypt=disable): anyone on the network path can read the password and the data")
+	}
+	// encrypt=false or none: TLS for the login only, and (without
+	// encrypt=) with no check of the certificate
+	return fix("only the login is encrypted (no encrypt=true): anyone on the network path can read the data, and without a certificate check can pretend to be the server and get the password")
 }

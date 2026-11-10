@@ -631,7 +631,7 @@ func testConn(ctx context.Context, st *store.State, c *store.Conn) connTestResul
 	return r
 }
 
-// loginCheck logs in to db, cache and registry conns with their stored
+// loginCheck logs in to db, cache, queue and registry conns with their stored
 // password and reads the server version where that is cheap. Other kinds
 // keep the reachability check (`cluster status` logs in to clusters).
 func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, r *connTestResult) error {
@@ -647,7 +647,12 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 			return viaTimeout(c, err)
 		}
 		defer db.Close()
-		q := map[string]string{"postgres": "select version()", "mysql": "select version()", "sqlite": "select sqlite_version()"}[a.Target.Kind.Name]
+		q := map[string]string{"postgres": "select version()", "mysql": "select version()", "sqlite": "select sqlite_version()",
+			"sqlserver":  "select concat('SQL Server ', serverproperty('ProductVersion'), ' ', serverproperty('Edition'))",
+			"oracle":     "select max(product) || ' ' || max(version_full) from product_component_version",
+			"clickhouse": "select concat('ClickHouse ', version())",
+			"snowflake":  "select 'Snowflake ' || current_version()",
+			"bigquery":   "select 'BigQuery'"}[a.Target.Kind.Name]
 		if q != "" {
 			_ = db.QueryRowContext(cctx, q).Scan(&r.Version)
 		}
@@ -663,6 +668,15 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 		}
 		if info, err := rc.Info(cctx, section); err == nil {
 			r.Version = cachex.SummarizeFor(a.Target.Kind.Name, info).Version
+		}
+	case "queue":
+		q, err := openQueue(cctx, c, a, sshOpts(st).ConnectTimeout)
+		if err != nil {
+			return viaTimeout(c, err)
+		}
+		defer q.Close()
+		if inf, err := q.Info(cctx); err == nil {
+			r.Version = inf.Version
 		}
 	case "registry":
 		rg, closeFn, err := openRegistry(cctx, st, c)

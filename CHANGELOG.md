@@ -13,9 +13,14 @@ its highlights; the sections below them give the details. Versions follow
   pick Add or All features, and answer one plain question at a time (a
   name, an address, a user ...), each with an example, a default Enter
   takes, and a check before the next question. Add has a form for every
-  kind: servers, PostgreSQL, MySQL, MongoDB, SQLite, Redis, Memcached, S3
-  (AWS, MinIO, R2, Wasabi, Spaces, B2), SFTP, FTP, Google Cloud Storage,
-  Azure Blob, WebDAV, Kubernetes, container registries and every VPN kind.
+  kind: Linux and Windows servers (OpenSSH or WinRM), PostgreSQL, MySQL,
+  SQL Server, Oracle (service name or SID), MongoDB, ClickHouse, Snowflake
+  (key pair or token), BigQuery (your Google login), SQLite, Redis,
+  Memcached, Kafka, RabbitMQ, NATS, Amazon SQS, Google Pub/Sub, S3 (AWS,
+  MinIO, R2, Wasabi, Spaces, B2), SFTP, FTP, Google Cloud Storage, Azure
+  Blob, WebDAV, Windows shares (SMB), Kubernetes, container registries
+  (also Amazon ECR, Azure and Google with their own logins) and every VPN
+  kind.
   All features lists every command by area and asks for what it needs,
   picking servers, databases and VPNs from your list. The last screen shows
   the exact command lines before anything runs, and offers **Try it first**
@@ -45,6 +50,17 @@ its highlights; the sections below them give the details. Versions follow
   local accounts), `--via` bastions and VPNs. The same Windows commands
   work as over OpenSSH.
 - `os:windows` and `os:linux` target selectors.
+- **Windows (SMB) shares as storage conns:** `smb://alice@fileserver/team/reports?domain=CORP`
+  (or `cifs://`, or `CORP;alice@` for the domain) reaches a Windows file
+  server, Samba, a NAS or Azure Files with the same `storage ls`, `cat`,
+  `download`, `upload` and `rm` as the other kinds, also `--via` an SSH host
+  or a VPN. komando speaks SMB 2 and 3 itself (no `smbclient` needed), logs
+  in with the password from `--password-ref`, signs every message and
+  encrypts when the server asks for it. A guest login is refused, a key
+  cannot climb out of the conn's folder with `..` (between `/` or `\`), an upload
+  replaces a file only once the new one is complete, and `storage link`
+  answers `NOT_SUPPORTED`. `komando doctor` warns about SMB conns that cross
+  the network, since their encryption depends on the server.
 
 ### Changed
 
@@ -107,6 +123,185 @@ its highlights; the sections below them give the details. Versions follow
   images are read without one; an expired login, or a key file that is set
   but missing or broken, gives `GCP_LOGIN_REQUIRED`.
   The token goes only over https with the registry's certificate checked.
+- **`komando queue`: message queues, starting with Apache Kafka** (and
+  what speaks its protocol: Redpanda, Amazon MSK, Confluent Cloud). Add a
+  cluster as a conn, `kafka://USER@BROKER1:9092,BROKER2:9092?tls=true&sasl=scram-sha-512`
+  (SASL PLAIN or SCRAM with `--password-ref`, a private CA with
+  `?ca=secret:NAME`, `--via` an SSH server or a VPN like any conn).
+  `queue info`, `ls`, `describe`, `groups` and `lag` read the brokers,
+  topics, partitions and consumer groups; `queue peek` reads the newest or
+  oldest messages without joining a consumer group, so no application's
+  position moves. `queue send` and `queue create` change; `queue rm` and
+  `queue purge` delete messages and need `--allow-dangerous`. Every change
+  has a real `--dry-run` (`create` asks the brokers to check the topic
+  only). Design: docs/design/queue.md; guide: docs/features/queues.md.
+- **RabbitMQ in `komando queue`:** add a server as a conn,
+  `amqps://USER@HOST:5671/VHOST` (or `amqp://` --via an SSH server; the
+  path is the vhost, `%2F` for `/`), with `?management=15671` to also use
+  the management HTTP API. `queue info` and `describe` work over AMQP
+  alone; `queue ls`, `queue peek`, the nodes and the cluster totals need
+  the management API. `queue peek` takes the first messages of a queue and gives every
+  one back, so nothing is removed (RabbitMQ marks them redelivered); on a
+  quorum queue each peek counts as a delivery, so peek stops with
+  `DELIVERY_LIMIT_NEAR` before a message gets close to its delivery limit.
+  `queue send` publishes a persistent message and waits for the server's
+  confirm; `queue create --type classic|quorum|stream` makes a durable
+  queue (`--config x-max-length=1000` for its arguments); `rm` and `purge`
+  need `--allow-dangerous`. `amqp://` straight over the network is refused
+  like `redis://` unless `?insecure=1`. New error codes `QUEUE_NOT_FOUND`,
+  `QUEUE_EXISTS` and `DELIVERY_LIMIT_NEAR`. Built on
+  github.com/rabbitmq/amqp091-go (BSD-2).
+- **NATS JetStream in `komando queue`:** add a server as a conn,
+  `tls://USER@HOST:4222,HOST2:4222` (or `nats://` --via an SSH server),
+  logging in with a user and `--password-ref`, a token (a password
+  reference without a user), or a `.creds` file kept in the vault
+  (`?creds=secret:NAME`); `?domain=` for a leaf node's JetStream.
+  `queue ls` lists streams, `describe` shows a stream with its limits,
+  cluster and consumers, `groups` and `lag` show consumers (pending, ack
+  pending, waiting). `queue peek` reads messages by their sequence number,
+  the newest or (`--oldest`) the first ones, with no consumer and no
+  acknowledgement, so nothing is removed, also from a work-queue stream.
+  `queue send` takes a subject, checks that a stream keeps it, and waits
+  for the stream's acknowledgement; `queue create` makes a stream
+  (`--config subjects='orders.>' --config max_age=7d`, `--replicas`);
+  `rm` and `purge` need `--allow-dangerous`. `nats://` straight over the
+  network is refused like `redis://` unless `?insecure=1`. New error codes
+  `STREAM_NOT_FOUND`, `STREAM_EXISTS` and `CONSUMER_NOT_FOUND`. Built on
+  github.com/nats-io/nats.go and github.com/nats-io/nkeys (Apache-2.0).
+- **Amazon SQS in `komando queue`:** add a region as a conn,
+  `sqs://eu-west-1`, logging in like komando's other AWS clients: the
+  conn's `--option aws_profile=NAME` (SSO included, renewed with `komando
+  login aws`), an access key ID in the URL (`sqs://AKIA...@eu-west-1`)
+  with the secret key from `--password-ref`, or the usual AWS chain
+  (variables, default profile, the server's role). `?endpoint=` for a VPC
+  endpoint or an emulator (LocalStack, moto), `?account=` for queues
+  another account shares. `queue ls` and `describe` show the waiting,
+  in-flight and delayed messages, settings, dead-letter queue and tags.
+  `queue peek` receives a sample with a visibility timeout of 0 and never
+  deletes, so every message stays and stays visible; since each receive
+  counts toward a dead-letter queue's `maxReceiveCount`, peek stops with
+  `DELIVERY_LIMIT_NEAR` before a message runs out of receives. `queue
+  send` sends text with `--header` values as message attributes (`--key`
+  is a FIFO queue's message group); `queue create` makes a standard or
+  (name.fifo) FIFO queue from SQS settings (`--config
+  VisibilityTimeout=60`); `rm` and `purge` need `--allow-dangerous`. An
+  `http://` endpoint straight over the network is refused unless
+  `?insecure=1`. komando speaks the SQS API itself, signed with the AWS
+  SDK's SigV4 signer it already had: no new dependency.
+- **Google Cloud Pub/Sub in `komando queue`:** add a project as a conn,
+  `pubsub://my-project`, logging in like gs:// storage: a service account
+  key in `--password-ref`, or else gcloud's application default login; the
+  emulator (`?endpoint=http://localhost:8085`) needs none, and a login is
+  only ever sent over HTTPS. You send to a topic; `queue peek` and `purge`
+  take a subscription, where the messages wait, and `queue groups` lists
+  the subscriptions. `queue peek` pulls without acknowledging and gives
+  every message straight back (ack deadline 0), so nothing is removed;
+  with a dead-letter topic it stops with `DELIVERY_LIMIT_NEAR` before a
+  message runs out of deliveries. `queue describe` shows a topic with its
+  subscriptions, or one subscription; `queue create subscriptions/NAME
+  --config topic=TOPIC` makes a subscription, with Pub/Sub's own setting
+  names (`ackDeadlineSeconds=60`, `messageRetentionDuration=7d`);
+  `purge` (a seek to now) and `rm` need `--allow-dangerous`, and `rm`
+  deletes a subscription only when written `subscriptions/NAME`. Pub/Sub
+  does not count messages, so the counts are -1 and the text says so. New
+  error codes `SUBSCRIPTION_NOT_FOUND` and `SUBSCRIPTION_EXISTS`. komando
+  speaks the Pub/Sub REST API itself: no new dependency.
+- **SQL Server conns** (`sqlserver://app@db.internal:1433/sales?encrypt=true`,
+  also `mssql://`): `db query`, `schema`, `explain` (SHOWPLAN; `--analyze`
+  measures), `info`, `activity`, `locks`, `sizes`, `kill --session`, users
+  and grants, `db shell` and `conn test`, through `--via` and VPNs, with
+  `?ca=secret:NAME` and `tls=skip-verify`. New conns that cross the network
+  get `encrypt=true`. SQL Server has no read-only transaction, so without
+  `--write` komando rolls the SQL back and checks its own transaction after
+  each statement; T-SQL gets stricter checks (a change anywhere in the text
+  counts, a bare procedure name runs it, `BEGIN`/`COMMIT` are refused
+  anywhere, and numbers are read as SQL Server reads them, so `1eDROP` is
+  `1e DROP`). A URL option given twice (`encrypt=true&Encrypt=disable`) is
+  refused. `db dump` and `restore` say `NOT_SUPPORTED` for now. Built in
+  with go-mssqldb (BSD-3-Clause), pure Go.
+- **Oracle conns** (`oracle://app@db.internal:1521/ORCLPDB1?tls=true`, the
+  path is the service name; `?sid=` for old databases): `db query`,
+  `schema`, `explain` (EXPLAIN PLAN and DBMS_XPLAN),
+  `info`, `activity`, `locks`, `sizes`, `kill`, users and grants, `db shell`
+  and `conn test`, through `--via` and VPNs, with TCPS (`tls=true`,
+  `tls=skip-verify`) and `?ca=secret:NAME`. New conns that cross the network
+  get `tls=true`. Without `--write` every run is `SET TRANSACTION READ ONLY`,
+  checked after each statement. DDL commits on its own in Oracle, so it
+  always needs `--write` and runs alone; PL/SQL blocks, calls to stored
+  functions (which can commit on their own), database links and inline
+  external tables need `--write` and `--allow-dangerous`; `COMMIT` and autonomous transactions are refused
+  anywhere; `q'[...]'` quotes and `/` lines are read as Oracle does. `db
+  dump` and `restore` say `NOT_SUPPORTED` (Data Pump runs on the server).
+  Built in with go-ora (MIT), pure Go.
+- **ClickHouse conns** (`clickhouse://app@ch.internal:8443/analytics?tls=true`)
+  over ClickHouse's HTTP interface, with komando's own small client (no
+  driver library): `db query` with `{p1:String}` placeholders, `schema`
+  (engines, keys, skipping indexes), `explain` (`EXPLAIN indexes = 1`),
+  `info`, `activity`, `sizes` (from `system.parts`), `kill` (by the `pid`
+  `db activity` makes from the query id), users and grants, `db shell` and
+  `conn test`, through `--via` and VPNs, with `tls=true`, `tls=skip-verify`
+  and `?ca=secret:NAME`. New conns that cross the network get `tls=true`
+  (port 8123 becomes 8443); the native ports 9000 and 9440 are refused with
+  a hint. ClickHouse has no transactions: without `--write` every request
+  carries the server's own `readonly=1` (also every query with rows), and a
+  statement that is not a read needs `--write`, goes alone, and a dry run
+  only reports it. Table functions and engines that reach other servers,
+  files or programs (`url()`, `s3()`, `remote()`, `file()`,
+  `executable()`, ...) need `--allow-dangerous`; `$$` heredocs and
+  unquoted non-ASCII are refused. A user whose profile is read-only gets no
+  settings it would refuse. `db user add` sends a salted SHA-256 hash
+  komando computes, never the password. `db dump`, `restore` and `locks`
+  say `NOT_SUPPORTED`.
+- **Snowflake conns**
+  (`snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=W&role=R`,
+  the account in place of a host) over Snowflake's SQL API, with komando's
+  own small client (no driver library): `db query` with `?` placeholders,
+  `schema`, `explain`, `info`, `activity` (running queries from
+  `QUERY_HISTORY`), `sizes`, `kill` (`SYSTEM$CANCEL_QUERY`; `--session`
+  ends the session), `db user ls` and `db grants` (read only), `db shell`
+  and `conn test`, through `--via` and VPNs, always HTTPS with the
+  certificate checked, and `?ca=secret:NAME` for a proxy's CA. Login is a
+  private key from the vault (komando signs the key-pair token itself) or a
+  programmatic access token; the SQL API takes no passwords, and browser
+  SSO is not supported. Snowflake has no read-only mode, so komando's
+  check is the guard: without `--write` only reads are sent, each request
+  runs exactly one statement, and a statement that is not a read needs
+  `--write`, goes alone, and a dry run only reports it; the docs give the
+  SQL for a read-only role. `CREATE OR REPLACE`, `SYSTEM$` functions that
+  change things, stage files, `CALL` and `EXECUTE IMMEDIATE` need
+  `--allow-dangerous`; `//` comments, `$$` text and `\'` are read as
+  Snowflake reads them. A run that times out cancels the statement on the
+  server. `db dump`, `restore`, `locks`, `user add`/`passwd`/`rm` and
+  `grant`/`revoke` say `NOT_SUPPORTED`. Not yet run against a real
+  account: see docs/design/snowflake.md.
+- **BigQuery conns** (`bigquery://my-project/analytics?location=EU`, the
+  project jobs run in and a default dataset) over BigQuery's REST API, with
+  komando's own small client (not the Google Cloud SDK): `db query` with `?`
+  placeholders, `schema` (datasets, tables and columns from the API),
+  `explain` (the dry run), `info`, `activity` (jobs that are not done, from
+  `INFORMATION_SCHEMA.JOBS`), `sizes`, `kill` (`jobs.cancel`), `db shell`
+  and `conn test`, through `--via` and VPNs, HTTPS with the certificate
+  checked and `?ca=secret:NAME` for a proxy's CA. The login is the same as
+  for `gs://` conns: gcloud's application default credentials (sent only to
+  `*.googleapis.com`), or a service account key in `--password-ref`. Every
+  statement goes to BigQuery as a dry run first: without `--write` only
+  what BigQuery itself calls a `SELECT` runs, and a query that would read
+  more than the new `--max-bytes` (default 10GB) stops with the new error
+  `DB_BYTES_LIMIT`; each job also carries that cap (`maximumBytesBilled`),
+  and each result says `bytes_processed`. `--dry-run` is BigQuery's own dry
+  run, for reads too. A write needs `--write` and goes alone; `EXPORT DATA`,
+  `EXTERNAL_QUERY`, remote functions, `CREATE OR REPLACE`, `LOAD DATA
+  OVERWRITE`, row access policies, reservations, `CALL` and `EXECUTE
+  IMMEDIATE` need `--allow-dangerous`. Scripts are refused; `#` comments,
+  triple-quoted and raw strings and `` `names` `` are read as BigQuery reads
+  them. A run that times out cancels its job. `db dump`, `restore`, `locks`,
+  `db user` and `grant`/`revoke`/`grants` say `NOT_SUPPORTED`. Not yet run
+  against a real project: see docs/design/bigquery.md.
+
+### Changed
+
+- The `sql-remote` rule's reason names what it covers now (dblink, an
+  Oracle database link, ClickHouse `url()` or `s3()`), not only dblink.
 
 ## [0.8.0] - 2026-11-09
 

@@ -299,8 +299,8 @@ func approvalHint(e *out.Error) {
 		switch {
 		case e.Final, e.Code == "REVEAL_NEEDS_HUMAN", e.Code == "NEEDS_PERSON":
 			return // no flag allows these: adding one asks nobody
-		case e.Code == "WRITE_REQUIRES_FLAG", e.Code == "READ_ONLY_VIOLATION":
-			// --write and leaving out --read-only open no window
+		case e.Code == "WRITE_REQUIRES_FLAG", e.Code == "READ_ONLY_VIOLATION", e.Code == "DB_BYTES_LIMIT":
+			// --write, leaving out --read-only and raising --max-bytes open no window
 			e.Hint += ". komando does not ask the user about this, so ask them first and go on only when they agree"
 			return
 		case strings.Contains(e.Hint, "komando asks the user in a window"):

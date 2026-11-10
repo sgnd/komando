@@ -216,7 +216,7 @@ func policyCmd() *cobra.Command {
 				}
 				custom = append(custom, r)
 			}
-			out.P.Print("policy.list", policyList{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "custom_rules": custom, "sql": rulesByID(driver.SQLRules()), "redis": rulesByID(cachex.Rules()), "memcached": rulesByID(cachex.MemcacheRules()), "mongodb": rulesByID(dbx.MongoRules()), "data": rulesByID(driver.DataRules()),
+			out.P.Print("policy.list", policyList{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "custom_rules": custom, "sql": rulesByID(driver.SQLRules()), "redis": rulesByID(cachex.Rules()), "memcached": rulesByID(cachex.MemcacheRules()), "mongodb": rulesByID(dbx.MongoRules()), "queue": rulesByID(queuePolicyRules()), "data": rulesByID(driver.DataRules()),
 				"note": "these rules catch common accidents; they are not a security boundary. Protected servers and conns also need --yes for any change. " +
 					"SQL without --write also runs in a read-only transaction, so the database itself refuses writes."}, nil)
 			return nil
@@ -267,7 +267,7 @@ func policyCmd() *cobra.Command {
 			return exitCode(out.ExitPolicy)
 		},
 	}
-	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: postgres, mysql, sqlite, redis or memcached")
+	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: postgres, mysql, sqlserver, oracle, clickhouse, snowflake, bigquery, sqlite, redis or memcached")
 	c.AddCommand(check)
 	c.AddCommand(&cobra.Command{
 		Use:     "deny REGEX",

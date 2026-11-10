@@ -87,6 +87,12 @@ services:
     image: rclone/rclone:1.68.2
     command: ["serve", "webdav", "/data", "--addr", ":8080", "--user", "deploy", "--pass", "deploypass"]
     networks: [private]
+  # an SMB share (smb conns) that requires signing and SMB 3 encryption;
+  # the image has no version tags (latest is its 2021 build)
+  samba:
+    image: dperson/samba:latest
+    command: ["-p", "-u", "deploy;deploypass", "-s", "files;/files;no;no;no;deploy", "-g", "server signing = mandatory", "-g", "smb encrypt = required"]
+    networks: [private]
   mongo:
     # 7.0: MongoDB 8.0 and later do not start on Linux 6.19 and newer, the
     # CI runners' kernel (SERVER-121912, a TCMalloc bug)
@@ -99,6 +105,75 @@ services:
     # entrypoint skips the temporary mongod and the port is free.
     restart: on-failure:3
     networks: [private]
+  kafka:
+    # one KRaft node that advertises the name the bastion resolves, so
+    # komando reaches every broker --via bastion (checks/kafka.sh)
+    image: apache/kafka:4.1.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx256m  # the lab is crowded
+    networks: [private]
+  rabbitmq:
+    # RabbitMQ with the management API, reached --via bastion
+    # (checks/rabbitmq.sh)
+    image: rabbitmq:4.1.8-management
+    environment: { RABBITMQ_DEFAULT_USER: app, RABBITMQ_DEFAULT_PASS: rabbitpass }
+    networks: [private]
+  nats:
+    # NATS with JetStream, reached --via bastion (checks/nats.sh)
+    image: nats:2.12.1-alpine
+    command: ["-js", "-m", "8222", "--user", "app", "--pass", "natspass"]
+    networks: [private]
+  pubsub:
+    # the Google Cloud Pub/Sub emulator, reached --via bastion (checks/pubsub.sh)
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    command: ["gcloud", "beta", "emulators", "pubsub", "start", "--host-port=0.0.0.0:8085", "--project=test-project"]
+    networks: [private]
+  mssql:
+    # SQL Server images are amd64 only. An arm64 machine needs Rosetta
+    # (Docker Desktop, or colima start --vz-rosetta); under QEMU sqlservr
+    # does not start. There, E2E_MSSQL_IMAGE=mcr.microsoft.com/azure-sql-edge:latest
+    # and E2E_MSSQL_PLATFORM=linux/arm64 run the arm64 build of the same engine.
+    image: ${E2E_MSSQL_IMAGE:-mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04}
+    platform: ${E2E_MSSQL_PLATFORM:-linux/amd64}
+    environment: { ACCEPT_EULA: "Y", MSSQL_PID: Developer, MSSQL_SA_PASSWORD: "Sales-pass-1", MSSQL_MEMORY_LIMIT_MB: "2048" }
+    networks: [private]
+  oracle:
+    # Oracle Database Free (gvenzl's image has amd64 and arm64 builds); it
+    # needs about 2 GB of memory and a minute or two to open FREEPDB1
+    image: ${E2E_ORACLE_IMAGE:-gvenzl/oracle-free:23-slim}
+    environment: { ORACLE_PASSWORD: "Oracle-pass-1" }
+    networks: [private]
+  clickhouse:
+    # komando speaks ClickHouse's HTTP interface (8123); the user may
+    # manage users with SQL (access management)
+    image: ${E2E_CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:24.8-alpine}
+    environment: { CLICKHOUSE_USER: admin, CLICKHOUSE_PASSWORD: "Admin-pass-1", CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1" }
+    ulimits: { nofile: { soft: 262144, hard: 262144 } }
+    networks: [private]
+  snowflake:
+    # no Snowflake account or free emulator runs here: komando's own fake
+    # of the SQL API (test/e2e/snowflake), with a private CA and a key pair
+    build: snowflake
+    networks:
+      private: { aliases: [e2e-acct.snowflakecomputing.com] }
+  bigquery:
+    # no Google project here, and goccy/bigquery-emulator cannot do dry
+    # runs: komando's own fake of the REST API and the token endpoint
+    # (test/e2e/bigquery), with a private CA and a service account key
+    build: bigquery
+    networks:
+      private: { aliases: [bigquery.e2e.internal] }
   # secret managers komando talks to itself (no vault or aws CLI)
   bao:
     image: openbao/openbao:2.4.3

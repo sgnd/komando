@@ -41,7 +41,7 @@ type formArg struct {
 	ask, help, example, def string
 	// pick is the list it is picked from: server (one server), host
 	// (servers, groups, all), target, conn, db, cache, storage, cluster,
-	// registry, vpn, key, group, job, tunnel, secret; "" typed
+	// queue, registry, vpn, key, group, job, tunnel, secret; "" typed
 	pick    string
 	free    bool     // with pick: something not in the list may be typed (tag:prod)
 	local   bool     // a path on this computer: ~/ is your home folder
@@ -172,7 +172,7 @@ func formPickRows(st *store.State, pick string) []menuRow {
 		rows = append(rows, menuRow{label: "all", detail: "everything komando knows", value: "all"})
 	case "conn":
 		rows = menuConnRows(st, "")
-	case "db", "cache", "storage", "cluster", "registry":
+	case "db", "cache", "queue", "storage", "cluster", "registry":
 		rows = menuConnRows(st, pick)
 	case "vpn":
 		rows = menuVpnRows(st)
@@ -510,7 +510,8 @@ var formAreas = []struct {
 	{"Files", "read, edit, copy and move files on servers", []string{"fs", "upload", "download", "cp", "sync"}},
 	{"Databases", "queries, shells, dumps, users", []string{"db"}},
 	{"Cache", "Redis and Memcached keys", []string{"cache"}},
-	{"File storage", "buckets, SFTP, FTP, WebDAV", []string{"storage"}},
+	{"Message queues", "Kafka, RabbitMQ, NATS, SQS, Pub/Sub", []string{"queue"}},
+	{"File storage", "buckets, SFTP, FTP, WebDAV, SMB", []string{"storage"}},
 	{"Kubernetes", "clusters, apps, logs, Helm", []string{"cluster"}},
 	{"Container registries", "images and tags", []string{"registry"}},
 	{"VPNs, logins and tunnels", "connect, log in once, forward ports", []string{"vpn", "tunnel", "login", "logout"}},

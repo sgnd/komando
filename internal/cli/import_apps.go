@@ -148,7 +148,8 @@ func parseINI(text string) (map[string]map[string]string, []string) {
 }
 
 // importDBeaver reads DBeaver's data-sources.json. PostgreSQL, MySQL,
-// MariaDB and SQLite connections become conns; DBeaver keeps passwords in a
+// MariaDB, SQL Server, Oracle, ClickHouse, Snowflake and SQLite connections become conns (an
+// Oracle one by SID gets ?sid=); DBeaver keeps passwords in a
 // separate encrypted file, so they are set afterwards.
 func importDBeaver(path string) (*importPlan, error) {
 	b, err := readSource(path)
@@ -164,6 +165,8 @@ func importDBeaver(path string) (*importPlan, error) {
 				Port     string `json:"port"`
 				Database string `json:"database"`
 				User     string `json:"user"`
+				// Oracle: "@dbeaver-sid-service@" is SID when database is a SID
+				Props map[string]string `json:"provider-properties"`
 			} `json:"configuration"`
 		} `json:"connections"`
 	}
@@ -179,7 +182,7 @@ func importDBeaver(path string) (*importPlan, error) {
 	for _, id := range ids {
 		c := doc.Connections[id]
 		cfg := c.Configuration
-		scheme := map[string]string{"postgresql": "postgres", "mysql": "mysql", "mariadb": "mysql", "sqlite": "sqlite"}[c.Provider]
+		scheme := map[string]string{"postgresql": "postgres", "mysql": "mysql", "mariadb": "mysql", "sqlite": "sqlite", "sqlserver": "sqlserver", "mssql": "sqlserver", "oracle": "oracle", "clickhouse": "clickhouse", "snowflake": "snowflake"}[c.Provider]
 		if scheme == "" {
 			p.Notes = append(p.Notes, fmt.Sprintf("%s: DBeaver provider %q is not a kind komando knows", c.Name, c.Provider))
 			continue
@@ -194,6 +197,9 @@ func importDBeaver(path string) (*importPlan, error) {
 				host += ":" + cfg.Port
 			}
 			u = url.URL{Scheme: scheme, User: url.User(cfg.User), Host: host, Path: "/" + cfg.Database}
+			if scheme == "oracle" && strings.EqualFold(cfg.Props["@dbeaver-sid-service@"], "SID") {
+				u.Path, u.RawQuery = "", url.Values{"sid": {cfg.Database}}.Encode()
+			}
 		}
 		n := len(p.Conns)
 		if p.addConn(name, u.String(), c.Name); len(p.Conns) > n && scheme != "sqlite" {

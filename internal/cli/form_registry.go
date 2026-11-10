@@ -26,6 +26,8 @@ const (
 	regGHCR  = "ghcr"
 	regLab   = "gitlab"
 	regECR   = "ecr"
+	regACR   = "acr"
+	regGAR   = "gar"
 	regOwn   = "own"
 	regToken = "ask"
 	regVault = "secret"
@@ -46,6 +48,8 @@ func registryKinds() []registryKind {
 			tokenHelp: "A personal access token (Preferences, Access tokens) with read_registry, add write_registry to change images; " +
 				"or a deploy token from the project's Settings, Repository."},
 		{id: regECR, title: "Amazon ECR", name: "ecr"},
+		{id: regACR, title: "Azure Container Registry", name: "acr"},
+		{id: regGAR, title: "Google Artifact Registry", name: "gar"},
 		{id: regOwn, title: "your own registry",
 			userHelp:  "The user name you log in to the registry with. Empty when its images are public.",
 			tokenHelp: "The password or access token of that user (Harbor: a robot account's secret)."},
@@ -61,6 +65,8 @@ func registryForms() []formKind {
 		regGHCR: "ghcr.io, with your GitHub user name and a token",
 		regLab:  "registry.gitlab.com or your company's GitLab",
 		regECR:  "logs in with your AWS profile, no password to type",
+		regACR:  "logs in with your Azure login, no password to type",
+		regGAR:  "also Container Registry (gcr.io); logs in with your Google login",
 		regOwn:  "Harbor, Nexus, a registry:2 container, any other",
 	}
 	for _, k := range registryKinds() {
@@ -79,7 +85,7 @@ func registryForm(k registryKind) formSpec {
 	is := func(ids ...string) func(formAnswers) bool {
 		return func(formAnswers) bool { return strings.Contains(" "+strings.Join(ids, " ")+" ", " "+k.id+" ") }
 	}
-	not := func(id string) func(formAnswers) bool { return func(formAnswers) bool { return k.id != id } }
+	notCloud := func(formAnswers) bool { return !registryCloud(k.id) }
 	qs := []formQ{
 		formWhen(registryHostQ(k), func(formAnswers) bool { return k.host == "" }),
 		formWhen(formMore(formQ{key: "port", label: "Port", ask: "Which port does the registry use?",
@@ -90,11 +96,11 @@ func registryForm(k registryKind) formSpec {
 		registryNameQ(k),
 		formWhen(formQ{key: "user", label: "User", ask: "What is your user name on this registry?", addr: true,
 			help: k.userHelp, example: "octocat", optional: k.id == regOwn,
-			check: func(_ *store.State, _ formAnswers, v string) string { return registryUserProblem(v) }}, not(regECR)),
-		formWhen(registryLoginQ(k), not(regECR)),
+			check: func(_ *store.State, _ formAnswers, v string) string { return registryUserProblem(v) }}, notCloud),
+		formWhen(registryLoginQ(k), notCloud),
 		formWhen(registrySecretQ("secret", "Saved token", "Which saved secret holds the token?",
 			"A secret you stored with komando secret set. Type secret:NAME or another reference if it lives elsewhere."),
-			func(a formAnswers) bool { return k.id != regECR && a["login"] == regVault }),
+			func(a formAnswers) bool { return !registryCloud(k.id) && a["login"] == regVault }),
 		formWhen(registryProfileQ(), is(regECR)),
 		formProtectQ("registry"),
 		formWhen(formViaQ("registry", true), is(regOwn, regLab)),
@@ -106,6 +112,10 @@ func registryForm(k registryKind) formSpec {
 		return registryBuild(k, a)
 	}}
 }
+
+// registryCloud: a registry komando logs in to with the cloud's own login
+// (AWS, Azure, Google), so no user or token is asked.
+func registryCloud(id string) bool { return id == regECR || id == regACR || id == regGAR }
 
 func registryHostQ(k registryKind) formQ {
 	q := formQ{key: "host", label: "Address", ask: "What is the registry's address?", addr: true,
@@ -119,6 +129,12 @@ func registryHostQ(k registryKind) formQ {
 	case regECR:
 		q.help = "In the AWS console: Elastic Container Registry, a repository's URI without the part after the /."
 		q.example = "123456789012.dkr.ecr.eu-west-1.amazonaws.com"
+	case regACR:
+		q.help = "In the Azure portal: the registry's Overview, Login server. komando logs in like az acr login; the login needs the AcrPull role."
+		q.example = "myregistry.azurecr.io"
+	case regGAR:
+		q.help = "The part before the project in an image name: europe-west1-docker.pkg.dev, or gcr.io. The login needs the Artifact Registry Reader role."
+		q.example = "europe-west1-docker.pkg.dev"
 	}
 	return q
 }
@@ -164,6 +180,12 @@ func registryHostProblem(k registryKind, v string) string {
 		return "an Amazon ECR address looks like 123456789012.dkr.ecr.eu-west-1.amazonaws.com"
 	case k.id != regECR && ecrRegion(h) != "":
 		return "this is an Amazon ECR address: Esc back to the list and pick Amazon ECR, which logs in with your AWS profile"
+	case k.id == regACR && acrResource(h) == "":
+		return "an Azure Container Registry address looks like myregistry.azurecr.io"
+	case k.id == regGAR && !isGoogleRegistry(h):
+		return "a Google registry address looks like europe-west1-docker.pkg.dev or gcr.io"
+	case registryPort(v) != "" && registryCloud(k.id):
+		return "type the address without a port"
 	}
 	if p := registryPort(v); p != "" {
 		return formPortProblem(nil, nil, p)
@@ -314,7 +336,7 @@ func registryBuild(k registryKind, a formAnswers) [][]string {
 		host, port = registryHostOnly(a["host"]), firstNonEmpty(a["port"], registryPort(a["host"]))
 	}
 	u := url.URL{Scheme: "registry", Host: formHostPort(host, port, "443")}
-	if a["user"] != "" && k.id != regECR {
+	if a["user"] != "" && !registryCloud(k.id) {
 		u.User = url.User(a["user"])
 	}
 	q := url.Values{}
@@ -332,6 +354,7 @@ func registryBuild(k registryKind, a formAnswers) [][]string {
 	u.RawQuery = strings.ReplaceAll(q.Encode(), "%3A", ":") // ca=secret:NAME reads as typed
 	args := []string{"conn", "add", a["name"], u.String()}
 	switch {
+	case registryCloud(k.id) && k.id != regECR: // no secret: the Azure or Google login each time
 	case k.id == regECR: // no secret: komando logs in with the AWS profile each time
 		if p := a["profile"]; p != "" && p != "default" {
 			args = append(args, "--option", "aws_profile="+p)
