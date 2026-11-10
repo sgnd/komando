@@ -27,7 +27,7 @@ require (
 	github.com/nats-io/nkeys v0.4.16
 	github.com/pion/dtls/v3 v3.1.15
 	github.com/pkg/sftp v1.13.12
-	github.com/rabbitmq/amqp091-go v1.10.0
+	github.com/rabbitmq/amqp091-go v1.16.0
 	github.com/redis/go-redis/v9 v9.23.0
 	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/spf13/cobra v1.10.2
