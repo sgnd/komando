@@ -20,6 +20,7 @@ internal/queuex/pubsub 88
 internal/queuex/rabbitmq 56
 internal/queuex/sqs 88
 internal/registry 72
+internal/sealrow 87
 internal/sshx 65
 internal/sslvpn 74
 internal/store 46
