@@ -164,13 +164,13 @@ type cpOpts struct {
 // only their own.
 func (o *cpOpts) bind(c *cobra.Command) {
 	o.bindUp(c, "upload: ")
-	c.Flags().Lookup("sudo").Usage = "single files via sudo: install as root (upload), read as root (download)"
+	c.Flags().Lookup("sudo").Usage = "single files with sudo: install as root (upload), read as root (download)"
 	c.Flags().BoolVar(&o.overwrite, "overwrite", false, "download: replace files that already exist on this computer")
 }
 
 func (o *cpOpts) bindUp(c *cobra.Command, prefix string) {
 	c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "copy folders (a trailing / on SRC copies its contents)")
-	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, prefix+"install into place via sudo (single files)")
+	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, prefix+"install into place with sudo (single files)")
 	c.Flags().BoolVarP(&o.mkdirs, "parents", "p", false, prefix+"create missing parent folders")
 	c.Flags().StringVar(&o.mode, "mode", "", prefix+"file mode, e.g. 0755")
 }
@@ -191,8 +191,8 @@ func cpCmd() *cobra.Command {
 		Short: "Copy files, written SRC DST with TARGET:PATH (upload/download)",
 		Long: `Remote paths are written TARGET:PATH (TARGET: alone, or TARGET:~/x, is the
 login user's home folder). Uploads accept any target selector (@group,
-tag:x, ...) and run in parallel. Downloads from several hosts go to
-DST/<host>/... . Single-file transfers report sha256 for verification.
+tag:x, ...) and run in parallel. Downloads from several servers go to
+DST/<server>/... . A single-file copy reports its sha256, so you can check it.
 
 ` + cpFolderRule,
 		Example: `  komando cp ./app.tar.gz @web:/tmp/app.tar.gz
@@ -212,7 +212,7 @@ DST/<host>/... . Single-file transfers report sha256 for verification.
 							"%q is not a server or conn komando knows", a.t)
 					}
 				}
-				return out.Usage("remote-to-remote copy is not supported; download then upload")
+				return out.Usage("komando cannot copy from one server straight to another: download, then upload")
 			case !srcRemote && !dstRemote:
 				return out.Usage("one side must be remote (TARGET:PATH); a local name with a colon is written ./name")
 			case dstRemote:
