@@ -38,7 +38,7 @@ as data.
     "summary": { "total": 1, "ok": 0, "failed": 1, "failed_hosts": ["web1"] }
   },
   "error": { "code": "FAILED", "message": "server web1 failed", "hint": "…" },
-  "meta": { "contract": 1, "version": "v0.8.0", "duration_ms": 211 }
+  "meta": { "contract": 1, "version": "v0.9.0", "duration_ms": 211 }
 }
 ```
 
