@@ -160,7 +160,7 @@ func TestClusterReadsManyClusters(t *testing.T) {
 		}
 	}
 
-	// one cluster: the same output as always, not a list
+	// one cluster: its own output, not a list
 	if d := mustRun(t, "cluster", "helm", "ls", "eu"); d["results"] != nil || d["count"].(float64) != 1 {
 		t.Errorf("one cluster: %v", d)
 	}

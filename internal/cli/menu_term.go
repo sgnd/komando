@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 
-	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
 
@@ -117,15 +116,14 @@ func (t *menuTerm) keys(ctx context.Context) ([]menuKey, error) {
 	if len(t.pending) > 0 {
 		wait = 30
 	}
-	fds := []unix.PollFd{{Fd: int32(t.in), Events: unix.POLLIN}}
-	n, err := unix.Poll(fds, wait)
-	if errors.Is(err, unix.EINTR) {
+	ready, err := waitInput(t.in, wait)
+	if errors.Is(err, errWaitInterrupted) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	if n == 0 {
+	if !ready {
 		keys, _ := decodeKeys(t.pending, true)
 		t.pending = nil
 		return keys, nil

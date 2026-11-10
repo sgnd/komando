@@ -44,8 +44,6 @@ var builtin = []struct{ id, pattern, reason string }{
 	{"userdel", `\b(userdel|deluser)\b`, "deletes a user account"},
 }
 
-// rmOpts matches one option of rm: short flags with r or f, the long forms,
-// and the "--" end-of-options marker.
 // recursive is the -R / --recursive option of chmod and chown, anywhere
 // among the arguments.
 const recursive = `(-[a-zA-Z]*R[a-zA-Z]*|--recursive)(\s+|$)`
@@ -58,6 +56,8 @@ const cmdStart = `(^|[;&|(]\s*|\b(sudo|doas|nohup|exec|env|nice|setsid|xargs|tim
 // passwd- backup).
 const authFile = `/etc/(passwd|shadow|sudoers)(\s|$|;|&|\||\))`
 
+// rmOpts matches one option of rm: short flags with r or f, the long forms,
+// and the "--" end-of-options marker.
 const rmOpts = `(-[a-zA-Z]*[rRf][a-zA-Z]*\s+|--(recursive|force|no-preserve-root|one-file-system|verbose)\s+|--\s+)`
 
 var compiled []Rule

@@ -372,7 +372,7 @@ func formAsk(ctx context.Context, t *menuTerm, st *store.State, sp formSpec, a f
 		l.rows = formOptionalRows(q, q.choices(st, a))
 		l.empty = "nothing to choose from; Esc goes back"
 		l.point(cur)
-		scr.footer = listKeys(l, "Esc back", "Ctrl-C cancel")
+		scr.footer = listKeys(l, "Esc back", formCancelKey(l))
 		row, err := menuChoose(ctx, t, l, scr)
 		if errors.Is(err, errMenuQuit) {
 			return "", errFormCancel
@@ -492,7 +492,7 @@ func formReview(ctx context.Context, t *menuTerm, st *store.State, sp formSpec, 
 	l := &menuList{title: sp.title + ": check and run", note: "Enter on an answer changes it"}
 	l.lead = append(l.lead, []seg{{"This runs:", "2"}})
 	for _, c := range sp.build(st, a) {
-		l.lead = append(l.lead, []seg{{"  $ komando " + menuCommandLine(c), ""}})
+		l.runs = append(l.runs, "$ komando "+menuCommandLine(c))
 	}
 	l.rows = []menuRow{{label: "Run it", detail: "run the commands above", value: formRunRow}}
 	if dry {
@@ -513,7 +513,7 @@ func formReview(ctx context.Context, t *menuTerm, st *store.State, sp formSpec, 
 	if len(more) > 0 {
 		l.rows = append(l.rows, menuRow{label: "More options", detail: strings.Join(more, ", "), value: formMoreRow})
 	}
-	scr.footer = listKeys(l, "Esc back", "Ctrl-C cancel")
+	scr.footer = listKeys(l, "Esc back", formCancelKey(l))
 	row, err := menuChoose(ctx, t, l, scr)
 	if errors.Is(err, errMenuQuit) {
 		return "", errFormCancel
@@ -532,7 +532,7 @@ func formPick(ctx context.Context, t *menuTerm, groups []formGroup, scr menuScre
 	for {
 		g := groups[0]
 		if len(groups) > 1 {
-			scr.footer = listKeys(gl, "Esc back", "Ctrl-C cancel")
+			scr.footer = listKeys(gl, "Esc back", formCancelKey(gl))
 			row, err := menuChoose(ctx, t, gl, scr)
 			if err != nil {
 				return formSpec{}, true, formQuitIsCancel(err)
@@ -547,7 +547,7 @@ func formPick(ctx context.Context, t *menuTerm, groups []formGroup, scr menuScre
 		for _, k := range g.kinds {
 			kl.rows = append(kl.rows, menuRow{label: k.label, detail: k.detail, value: k.label})
 		}
-		scr.footer = listKeys(kl, "Esc back", "Ctrl-C cancel")
+		scr.footer = listKeys(kl, "Esc back", formCancelKey(kl))
 		row, err := menuChoose(ctx, t, kl, scr)
 		if errors.Is(err, errMenuBack) && len(groups) > 1 {
 			continue

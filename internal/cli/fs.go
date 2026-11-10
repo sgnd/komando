@@ -46,14 +46,14 @@ func sftpClient(c *sshx.Client) (*sftp.Client, error) {
 }
 
 // oneHost resolves target, dials it and runs fn with both ssh and sftp.
-func oneHost(ctx context.Context, target string, fn func(st *store.State, c *sshx.Client, sc *sftp.Client) (any, error)) (any, *store.State, *store.Host, error) {
+func oneHost(ctx context.Context, target string, fn func(st *store.State, c *sshx.Client, sc *sftp.Client) (any, error)) (any, error) {
 	st, err := loadState()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	h, err := singleHost(st, target)
 	if err != nil {
-		return nil, st, nil, err
+		return nil, err
 	}
 	var res any
 	err = withClient(ctx, st, h, func(c *sshx.Client) error {
@@ -65,7 +65,7 @@ func oneHost(ctx context.Context, target string, fn func(st *store.State, c *ssh
 		res, err = fn(st, c, sc)
 		return err
 	})
-	return res, st, h, err
+	return res, err
 }
 
 func fsErr(p string, err error) error {
@@ -129,7 +129,7 @@ func fsLsCmd() *cobra.Command {
 			if st, h := windowsOne(args[0]); h != nil {
 				return printed("fs.ls")(winFsLs(cmd.Context(), st, h, arg, all, recursive, maxEntries))
 			}
-			res, _, _, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
+			res, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
 				dir := expandRemote(sc, arg)
 				permHint := "fs ls reads as the SSH user; list it as root with `komando exec " + args[0] + " --sudo -- ls -la " + sshx.Q(dir) + "`"
 				r := lsResult{Path: dir, Entries: []fileInfo{}, recursive: recursive}
@@ -209,7 +209,7 @@ func fsStatCmd() *cobra.Command {
 			if st, h := windowsOne(args[0]); h != nil {
 				return printed("fs.stat")(winFsStat(cmd.Context(), st, h, args[1], hash))
 			}
-			res, _, _, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
+			res, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
 				p := expandRemote(sc, args[1])
 				fi, err := sc.Lstat(p)
 				if errors.Is(err, os.ErrNotExist) {
@@ -322,7 +322,7 @@ func fsCatCmd() *cobra.Command {
 			if st, h := windowsOne(args[0]); h != nil {
 				res, err = winFsCat(cmd.Context(), st, h, args[1], sudo, maxBytes, head, tail, numbered)
 			} else {
-				res, _, _, err = oneHost(cmd.Context(), args[0], func(_ *store.State, c *sshx.Client, sc *sftp.Client) (any, error) {
+				res, err = oneHost(cmd.Context(), args[0], func(_ *store.State, c *sshx.Client, sc *sftp.Client) (any, error) {
 					p := expandRemote(sc, args[1])
 					b, trunc, err := readRemote(cmd.Context(), c, sc, p, sudo, maxBytes)
 					if err != nil {
@@ -346,7 +346,6 @@ func fsCatCmd() *cobra.Command {
 	c.Flags().IntVar(&head, "head", 0, "only the first N lines")
 	c.Flags().IntVar(&tail, "tail", 0, "only the last N lines")
 	c.Flags().BoolVar(&numbered, "line-numbers", false, "start each line with its number")
-	aliasFlag(c.Flags(), "number", "line-numbers")
 	return c
 }
 

@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
@@ -144,20 +143,10 @@ func moreWaiting(fd int) bool {
 		return false
 	}
 	b := make([]byte, n)
-	n, _ = unix.Read(fd, b)
+	n, _ = readTTY(fd, b)
 	_ = dropTypedAhead(fd)
 	rest := strings.ReplaceAll(string(b[:max(n, 0)]), pasteEnd, "")
 	return strings.TrimSpace(rest) != ""
-}
-
-// echoOff stops the terminal from showing what is typed on fd.
-func echoOff(fd int) error {
-	t, err := unix.IoctlGetTermios(fd, ioctlGetTermios)
-	if err != nil {
-		return err
-	}
-	t.Lflag &^= unix.ECHO
-	return unix.IoctlSetTermios(fd, ioctlSetTermios, t)
 }
 
 // dropEarlyInput throws away what was typed before the prompt, and says

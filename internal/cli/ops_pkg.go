@@ -344,7 +344,7 @@ func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, ref
 				if rr.ExitCode != 0 {
 					return nil, pkgFailure(action, rr, nil)
 				}
-				v, _ := parseInstalled(h, rr.Stdout)
+				v := parseInstalled(h, rr.Stdout)
 				return v, nil
 			},
 			text: func(data any) string {

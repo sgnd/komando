@@ -284,7 +284,7 @@ func TestMenuRender(t *testing.T) {
 		t.Errorf("escape codes with colour off:\n%s", text)
 	}
 	s.color = true
-	if text := strings.Join(renderText(l, s, 20, 12), "\n"); !strings.Contains(text, "\x1b[36;1m> u-row") {
+	if text := strings.Join(renderText(l, s, 20, 12), "\n"); !strings.Contains(text, "\x1b[1;7m> u-row") {
 		t.Errorf("no colour on the cursor row:\n%s", text)
 	}
 	// the main menu (no title, no filter): one blank line between the
@@ -440,7 +440,7 @@ func TestMenuMain(t *testing.T) {
 	root := newRoot()
 	// (Add builds its lines from a form: form_test.go checks those)
 	picked := map[string]string{"host": " web1", "target": " web1", "db": " app-db", "vpn": " office"}
-	all := []menuAction{importAction, shellAction, testAction, factsAction, dbAction, vpnAction, agentAction, listAction, auditAction, doctorAction}
+	all := []menuAction{importAction, shellAction, testAction, factsAction, dbAction, vpnAction, agentAction, listAction, doctorAction}
 	for _, a := range all {
 		line := "komando " + menuCommandLine(a.args) + picked[a.pick]
 		if checkExampleLines(t, root, "menu action "+a.name, line) != 1 {
@@ -460,7 +460,7 @@ func TestMenuMain(t *testing.T) {
 	if helpAction.args != nil {
 		t.Errorf("? runs %v", helpAction.args)
 	}
-	for _, l := range strings.Split(menuHelpText, "\n") {
+	for _, l := range strings.Split(menuHelpFor(80), "\n") {
 		if displayWidth(l) > 80 {
 			t.Errorf("? line wider than 80 columns: %q", l)
 		}
@@ -747,7 +747,7 @@ func TestMenuKeyHelpNarrow(t *testing.T) {
 // The ? screen keeps its columns at 80, and on a narrow terminal puts the
 // commands under their task, each command whole on one line.
 func TestMenuHelpWidths(t *testing.T) {
-	if !strings.Contains(menuHelpFor(80), "\n  Databases, caches, storage komando conn add · komando db · komando cache\n") {
+	if !strings.Contains(menuHelpFor(80), "\n  Databases and caches       komando conn add · komando db · komando cache\n") {
 		t.Errorf("? at 80 columns:\n%s", menuHelpFor(80))
 	}
 	for _, w := range []int{40, 60} {
@@ -777,5 +777,85 @@ func TestMenuTargetsEmptySaysWhatToDo(t *testing.T) {
 		if !strings.Contains(text, "Esc goes back") || !strings.Contains(text, "Add") {
 			t.Errorf("%s with nothing to pick:\n%s", a.name, text)
 		}
+	}
+}
+
+func TestMenuNoteWraps(t *testing.T) {
+	long := strings.Repeat("word ", 30)
+	for _, warn := range []bool{false, true} {
+		l := testMenuList(5, false)
+		l.title, l.note, l.warn = "Question", long, warn
+		lines, caret := l.render(menuScreen{footer: "keys"}, 40, 20)
+		if len(lines) > 20 {
+			t.Errorf("warn=%v: %d lines on a 20-line screen", warn, len(lines))
+		}
+		n := 0
+		for _, ln := range lines {
+			if displayWidth(ln) > 39 {
+				t.Errorf("warn=%v: line wider than 39: %q", warn, ln)
+			}
+			if strings.HasPrefix(ln, "word") || strings.HasPrefix(ln, "! word") || strings.HasPrefix(ln, "  word") {
+				n++
+			}
+		}
+		if n < 2 || n > 3 {
+			t.Errorf("warn=%v: the note takes %d lines, want 2 or 3:\n%s", warn, n, strings.Join(lines, "\n"))
+		}
+		if caret.line < 0 || !strings.HasPrefix(lines[caret.line], "> ") {
+			t.Errorf("warn=%v: no cursor row:\n%s", warn, strings.Join(lines, "\n"))
+		}
+	}
+}
+
+func TestMenuRowsPastNineLineUp(t *testing.T) {
+	l := testMenuList(12, false)
+	lines := renderText(l, menuScreen{footer: "keys"}, 80, 24)
+	var nine, ten string
+	for _, ln := range lines {
+		if strings.Contains(ln, "i-row") {
+			nine = ln
+		}
+		if strings.Contains(ln, "j-row") {
+			ten = ln
+		}
+	}
+	if strings.Index(nine, "i-row") != strings.Index(ten, "j-row") || strings.Index(nine, "detail") != strings.Index(ten, "detail") {
+		t.Errorf("row 10 is not in line with row 9:\n%q\n%q", nine, ten)
+	}
+}
+
+// TestRenderRunsWrap: the review's command lines wrap on a narrow screen,
+// so every flag a person must check is on it.
+func TestRenderRunsWrap(t *testing.T) {
+	for _, w := range []int{40, 60} {
+		l := &menuList{title: "Add a server: check and run", runs: []string{
+			"$ komando host add web1 10.0.0.5 --user deploy --ask-password --protected"}}
+		l.rows = []menuRow{{label: "Run it", value: "run"}}
+		lines := renderText(l, menuScreen{footer: "keys"}, w, 24)
+		text := strings.Join(lines, "\n")
+		for _, f := range []string{"web1", "10.0.0.5", "--user", "deploy", "--ask-password", "--protected"} {
+			if !strings.Contains(text, f) {
+				t.Errorf("width %d: %q missing:\n%s", w, f, text)
+			}
+		}
+		for _, ln := range lines {
+			if displayWidth(ln) > w-1 {
+				t.Errorf("width %d: line too wide: %q", w, ln)
+			}
+		}
+		if got, want := l.chrome(menuScreen{footer: "keys"}, w), 7+len(l.runLines(w)); got != want {
+			t.Errorf("width %d: chrome %d, want %d", w, got, want)
+		}
+	}
+}
+
+// TestFormCancelKey: q cancels a form list without a filter, so its key
+// help says so; a list with one shows Ctrl-C.
+func TestFormCancelKey(t *testing.T) {
+	if got := formCancelKey(&menuList{}); got != "q cancel" {
+		t.Errorf("no filter: %q", got)
+	}
+	if got := formCancelKey(&menuList{typing: true}); got != "Ctrl-C cancel" {
+		t.Errorf("filter: %q", got)
 	}
 }

@@ -12,7 +12,7 @@ func init() {
 // Answers several hints share.
 var (
 	dbConn = formArg{ask: "Which database?", pick: "db",
-		help: "A database you added to komando. Add one first with Add > Database when the list is empty."}
+		help: "A database from your list. Add one first with Add, Database."}
 	dbSQL = formArg{ask: "Which SQL should it run?", example: "select id, email from users order by id desc limit 10",
 		help: "One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {\"find\": \"users\"}."}
 	dbWrite = formFlag{name: "write", ask: "May it change data?",
@@ -122,7 +122,7 @@ var dbUserHints = map[string]formHint{
 		flags: []formFlag{
 			{name: "password-ref", ask: dbPasswordRef.ask, example: dbPasswordRef.example,
 				help: dbPasswordRef.help + " Leave empty only with a user that cannot log in."},
-			{name: "no-login", ask: "PostgreSQL only: a role that cannot log in?",
+			{name: "no-login", ask: "A role that cannot log in (a group)?",
 				help: "Yes makes a group of rights you give to other users later. It needs no password."},
 			dbFrom},
 	},
@@ -134,21 +134,27 @@ var dbUserHints = map[string]formHint{
 		args:  []formArg{dbConn, dbUser},
 		flags: []formFlag{dbFrom},
 	},
-	"db grant":  dbGrantHint("Give the user which rights?"),
-	"db revoke": dbGrantHint("Take which rights away?"),
+	"db grant":  dbGrantHint("Give the user which rights?", false),
+	"db revoke": dbGrantHint("Take which rights away?", true),
 }
 
 // dbGrantHint is grant and revoke: privileges on an object, or a role.
-func dbGrantHint(ask string) formHint {
+func dbGrantHint(ask string, revoke bool) formHint {
+	privHelp := "Separate several with commas, like SELECT,INSERT,UPDATE, or ALL. Leave empty when you give a role instead."
+	roleHelp := "Makes the user a member of a role. Leave empty when you gave rights above."
+	if revoke {
+		privHelp = "Separate several with commas, like SELECT,INSERT,UPDATE, or ALL. Leave empty when you name a role instead."
+		roleHelp = "Takes the user out of a role. Leave empty when you named rights above."
+	}
 	return formHint{
 		args: []formArg{dbConn, dbUser},
 		flags: []formFlag{
 			{name: "privileges", ask: ask, example: "SELECT",
-				help: "Separate several with commas, like SELECT,INSERT,UPDATE, or ALL. Leave empty when you give a role instead."},
+				help: privHelp},
 			{name: "on", ask: "On what?", example: "all-tables:public",
 				help: "PostgreSQL: database:NAME, schema:NAME, table:NAME or all-tables:SCHEMA. MySQL: shop.* or shop.orders. Needed with rights."},
-			{name: "role", ask: "Or which role? (PostgreSQL)", example: "readers",
-				help: "Makes the user a member of a role. Leave empty when you gave rights above."},
+			{name: "role", ask: "Or which role?", example: "readers",
+				help: roleHelp},
 			dbFrom},
 	}
 }

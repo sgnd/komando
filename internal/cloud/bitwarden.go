@@ -159,7 +159,6 @@ func bwLoad(ctx context.Context) ([]bwItem, error) {
 	var tok struct {
 		AccessToken      string `json:"access_token"`
 		ErrorDescription string `json:"error_description"`
-		ErrorModel       *struct{ Message string }
 	}
 	if err := bwForm(ctx, identity+"/connect/token", email, form, &tok); err != nil {
 		return nil, err

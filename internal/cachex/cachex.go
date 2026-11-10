@@ -1,7 +1,7 @@
 // Package cachex talks to Redis-compatible caches (Redis, Valkey, KeyDB,
-// Dragonfly) and classifies their commands by risk. Redis has no read-only
-// transactions, so the classifier is the safety layer: without --write only
-// commands known to be reads are sent.
+// Dragonfly) and memcached, and classifies their commands by risk. Neither
+// has read-only transactions, so the classifier is the safety layer: without
+// --write only commands known to be reads are sent.
 package cachex
 
 import (
@@ -89,7 +89,7 @@ func redisDialer(dial DialFunc, tc *tls.Config, timeout time.Duration) func(ctx 
 	}
 }
 
-// Rule is a named command check, listed by `komando policy`.
+// rules are the named command checks, listed by `komando policy`.
 var rules = []driver.Rule{
 	{ID: "redis-flush", Reason: "deletes every key (FLUSHALL, FLUSHDB, SWAPDB)"},
 	{ID: "redis-blocking", Reason: "blocks the server on large data sets (KEYS, SAVE, DEBUG); use `cache keys` for SCAN"},
@@ -590,9 +590,6 @@ func texts(items []string) []any {
 func text(s string) any {
 	return driver.JSONValue([]byte(s))
 }
-
-// CmdErr maps a redis error to a komando error code.
-func CmdErr(err error) error { return cmdErr(err) }
 
 func cmdErr(err error) error {
 	var oe *out.Error

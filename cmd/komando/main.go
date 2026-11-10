@@ -1,4 +1,5 @@
-// Command komando is an agent-first SSH and server operations CLI.
+// Command komando manages servers, databases, queues, storage, clusters and
+// VPNs, for people and AI agents.
 package main
 
 import (

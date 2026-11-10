@@ -17,10 +17,10 @@ import (
 )
 
 // Queue commands (docs/design/queue.md), for Kafka, RabbitMQ, NATS
-// JetStream, Amazon SQS and Google Cloud Pub/Sub: reading never moves a consumer group or
-// removes a message; send and create change, behind the usual
-// seatbelts (protected conns need --yes); rm and purge delete messages, so
-// they also need --allow-dangerous. Every change has a real --dry-run.
+// JetStream, Amazon SQS and Google Cloud Pub/Sub: reading never moves a
+// consumer group or removes a message; send and create change, so
+// protected conns need --yes; rm and purge delete messages, so they also
+// need --allow-dangerous. Every change has a real --dry-run.
 
 func queueCmd() *cobra.Command {
 	c := &cobra.Command{
@@ -161,7 +161,7 @@ func queueLsCmd() *cobra.Command {
 				})
 		},
 	}
-	c.Flags().BoolVar(&internal, "internal", false, "kafka: also list Kafka's own topics (__consumer_offsets, ...)")
+	c.Flags().BoolVar(&internal, "internal", false, "Kafka: also list its own topics (__consumer_offsets, ...)")
 	return c
 }
 
@@ -244,8 +244,8 @@ Values that are not UTF-8 text are shown as base64.`,
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 10, "how many messages")
 	c.Flags().BoolVar(&oldest, "oldest", false, "the first messages still kept, not the newest")
-	c.Flags().IntVar(&partition, "partition", -1, "kafka: only this partition (numbered from 0)")
-	c.Flags().DurationVar(&wait, "wait", 5*time.Second, "kafka: stop when no message came for this long")
+	c.Flags().IntVar(&partition, "partition", -1, "Kafka: only this partition (numbered from 0)")
+	c.Flags().DurationVar(&wait, "wait", 5*time.Second, "Kafka: stop when no message came for this long")
 	return c
 }
 

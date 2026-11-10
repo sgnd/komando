@@ -200,7 +200,7 @@ func vpnAddCmd() *cobra.Command {
 				if !osMode { // komando's own client must understand every line
 					p, err := openvpn.Parse(text)
 					if err != nil {
-						return out.Errf(out.ExitUsage, "OVPN_UNSUPPORTED", "change the profile, or tell the komando project which option you need", "%s: %v", config, err)
+						return out.Errf(out.ExitUsage, "OVPN_UNSUPPORTED", "change the profile, or report the option you need at "+releaseSite+"/issues", "%s: %v", config, err)
 					}
 					if p.AuthUserPass && user == "" {
 						return out.Usage("%s logs in with a user name and password (auth-user-pass): add --user, and --password-ref (or --mfa to type it at `vpn up`)", config)
@@ -269,26 +269,26 @@ func vpnAddCmd() *cobra.Command {
 		},
 	}
 	f := c.Flags()
-	f.StringVar(&config, "config", "", "wireguard: the .conf file; openvpn: the .ovpn file (both kept in the vault)")
-	f.StringVar(&address, "address", "", "socks: host:port of the proxy; proxy: host:port or http(s)://host:port")
-	f.StringVar(&portal, "portal", "", "globalprotect, fortinet, anyconnect, pulse, f5: the VPN server or portal")
-	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings, so 'vpn up' can connect it")
-	f.StringVar(&server, "server", "", "l2tp, ipsec, ikev2: the VPN server (host or host:port); tailscale: a Headscale login server URL")
-	f.StringVar(&pskRef, "psk-ref", "", "l2tp, ipsec, ikev2: the pre-shared key (ipsec: the group password), as a reference like --password-ref")
-	f.StringVar(&localID, "id", "", "ipsec: the group name; ikev2: your identity (default: --user, or your address)")
-	f.StringVar(&remoteID, "remote-id", "", "ikev2: the server's identity, if not its --server name")
-	f.StringVar(&ca, "ca", "", "ikev2: the CA certificate (PEM) that signed the server's certificate, if not a public one")
+	f.StringVar(&config, "config", "", "WireGuard: the .conf file; OpenVPN: the .ovpn file (both kept in the vault)")
+	f.StringVar(&address, "address", "", "SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port")
+	f.StringVar(&portal, "portal", "", "GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal")
+	f.StringVar(&service, "service", "", "System VPN: its name in your computer's settings, so 'vpn up' can connect it")
+	f.StringVar(&server, "server", "", "L2TP, IPsec, IKEv2: the VPN server (host or host:port); Tailscale: a Headscale login server URL")
+	f.StringVar(&pskRef, "psk-ref", "", "L2TP, IPsec, IKEv2: the pre-shared key (IPsec: the group password), as a reference like --password-ref")
+	f.StringVar(&localID, "id", "", "IPsec: the group name; IKEv2: your identity (default: --user, or your address)")
+	f.StringVar(&remoteID, "remote-id", "", "IKEv2: the server's identity, if not its --server name")
+	f.StringVar(&ca, "ca", "", "IKEv2: the CA certificate (PEM) that signed the server's certificate, if not a public one")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
-	f.StringVar(&passwordRef, "password-ref", "", "password (tailscale: auth key) as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
+	f.StringVar(&passwordRef, "password-ref", "", "password (Tailscale: auth key) as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
 	askPasswordFlag(c, &askPw)
-	f.BoolVar(&askPsk, "ask-psk", false, "l2tp, ipsec, ikev2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-psk and used as --psk-ref")
-	f.BoolVar(&osMode, "os-mode", false, "openvpn: deprecated; run the openvpn program on this computer with sudo (changes its network) instead of komando's own client")
-	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' by a human connects it")
-	f.BoolVar(&legacyCrypto, "legacy-crypto", false, "l2tp, ipsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes)")
-	f.BoolVar(&allowPAP, "allow-pap", false, "l2tp: let the server pick PAP, which hands it your password itself (needs a person's yes)")
+	f.BoolVar(&askPsk, "ask-psk", false, "L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-psk and used as --psk-ref")
+	f.BoolVar(&osMode, "os-mode", false, "OpenVPN: deprecated; run the openvpn program on this computer with sudo (changes its network) instead of komando's own client")
+	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' run by a person connects it")
+	f.BoolVar(&legacyCrypto, "legacy-crypto", false, "L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes)")
+	f.BoolVar(&allowPAP, "allow-pap", false, "L2TP: let the server pick PAP, which hands it your password itself (needs a person's yes)")
 	f.StringVar(&check, "check", "", "host:port reachable only through this VPN (vpn up and test connect to it; needed for system and openvpn)")
-	f.StringSliceVarP(&groups, "group", "g", nil, "group(s)")
-	f.StringSliceVarP(&tags, "tag", "t", nil, "tag(s)")
+	f.StringSliceVarP(&groups, "group", "g", nil, "put it in these groups (comma-separated)")
+	f.StringSliceVarP(&tags, "tag", "t", nil, "tags, e.g. prod (comma-separated)")
 	f.StringVar(&notes, "notes", "", "free-form notes")
 	f.BoolVar(&overwrite, "overwrite", false, "replace a VPN with the same name")
 	return c
@@ -332,7 +332,7 @@ func vpnRmCmd() *cobra.Command {
 				}
 				return nil
 			}
-			// one name: the name itself, as before; several: the list
+			// one name: the name itself; several: the list
 			names := func() any {
 				if len(args) == 1 {
 					return args[0]
@@ -375,7 +375,7 @@ func vpnRmCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "vpn.rm", args, "", true, nil)
-			res := map[string]any{"removed": names()} // a string for one VPN, as it always was
+			res := map[string]any{"removed": names()} // one VPN stays a string, so scripts that read it keep working
 			if len(unused) > 0 {
 				res["secrets_unused"] = unused
 			}

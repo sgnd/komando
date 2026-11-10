@@ -2,6 +2,7 @@ package sslvpn
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"encoding/binary"
@@ -89,7 +90,7 @@ func GlobalProtectLogin(ctx context.Context, o Options) (GPSession, error) {
 		if err != nil {
 			return GPSession{}, err
 		}
-		s.User = firstNonEmptyS(s.User, o.User)
+		s.User = cmp.Or(s.User, o.User)
 		return s, nil
 	}
 	return GPSession{}, &LoginError{Msg: "the GlobalProtect login did not finish"}
@@ -172,10 +173,9 @@ func GlobalProtectTunnel(ctx context.Context, o Options, s GPSession) (Tunnel, e
 		return nil, &LoginError{Msg: "the gateway refused the session; log in again (" + resp.Status + ")"}
 	}
 	var cfg struct {
-		IP   string   `xml:"ip-address"`
-		MTU  string   `xml:"mtu"`
-		DNS  []string `xml:"dns>member"`
-		Keep string   `xml:"timeout"`
+		IP  string   `xml:"ip-address"`
+		MTU string   `xml:"mtu"`
+		DNS []string `xml:"dns>member"`
 	}
 	if err := xml.Unmarshal(b, &cfg); err != nil {
 		return nil, fmt.Errorf("the gateway's config: %w", err)

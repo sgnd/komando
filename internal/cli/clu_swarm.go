@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -276,7 +277,7 @@ func swarmHealth(host, version string, nodes, services, tasks []map[string]any) 
 		if str(n["status"]) == "Ready" {
 			ready++
 		} else {
-			problem(name, strings.ToLower(firstNonEmpty(str(n["status"]), "unknown")))
+			problem(name, strings.ToLower(cmp.Or(str(n["status"]), "unknown")))
 		}
 		if a := str(n["availability"]); a != "" && a != "Active" {
 			problem(name, strings.ToLower(a))

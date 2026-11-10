@@ -88,7 +88,7 @@ func TestHiddenCommitPostgresLive(t *testing.T) {
 	}
 	t.Cleanup(func() { rw.Exec("DROP TABLE IF EXISTS komando_victim"); rw.Exec("DROP SEQUENCE IF EXISTS komando_seq") })
 
-	// the review's payloads: each must be refused or fail, and change nothing
+	// each payload must be refused or fail, and change nothing
 	payloads := []string{
 		"SET application_name = x$$$ ; COMMIT ; DELETE FROM komando_victim ; SET application_name = y$$", // R1
 		"SET application_name = 'a' -- c\r; COMMIT; DELETE FROM komando_victim",                          // R2
@@ -175,7 +175,7 @@ func TestHiddenCommitMySQLLive(t *testing.T) {
 	t.Cleanup(func() { rw.Exec("DROP TABLE IF EXISTS komando_victim") })
 	ro := liveDB(t, "KOMANDO_MYTEST", true, "")
 
-	// D3: quoted names no longer get past the setting check
+	// D3: quoted names do not get past the setting check
 	for _, p := range []string{"SET `autocommit` = 0, `autocommit` = 1", "SET @@session.`autocommit` = 1", "SET `transaction_read_only` = 0"} {
 		if _, err := driver.ClassifySQL("mysql", p); errCode(err) != "SQL_TX_CONTROL" {
 			t.Errorf("%q: %v", p, err)
@@ -270,8 +270,8 @@ func openErr(t *testing.T, env, query string) error {
 	return err
 }
 
-// The review's second round on Postgres: a client encoding that hides a
-// backslash, COMMIT AND CHAIN, and dry runs of what a rollback does not undo.
+// More Postgres cases: a client encoding that hides a backslash, COMMIT
+// AND CHAIN, and dry runs of what a rollback does not undo.
 func TestTxSafetyPostgresLive2(t *testing.T) {
 	ctx := context.Background()
 	rw := liveDB(t, "KOMANDO_PGTEST", false, "")
@@ -352,7 +352,7 @@ func TestTxSafetyPostgresLive2(t *testing.T) {
 	}
 }
 
-// The review's second round on MySQL and MariaDB.
+// More MySQL and MariaDB cases.
 func TestTxSafetyMySQLLive2(t *testing.T) {
 	ctx := context.Background()
 	rw := liveDB(t, "KOMANDO_MYTEST", false, "")

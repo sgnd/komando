@@ -27,7 +27,7 @@ func connectErr(t driver.Target, err error) error {
 		return out.Errf(out.ExitConnect, "QUEUE_AUTH", "the brokers do not take this sasl= mechanism: try scram-sha-512, scram-sha-256 or plain (`komando conn edit NAME --url ...`)", "%s", msg)
 	case isAuthz(err):
 		return deniedErr(err)
-	case errors.Is(err, context.DeadlineExceeded) || isTimeout(err):
+	case errors.Is(err, context.DeadlineExceeded) || IsTimeout(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "check the address, or raise --connect-timeout; a broker that speaks TLS needs ?tls=true", "connecting to %s timed out", t.Address)
 	case t.Secure && (strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify")):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the broker's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the brokers --via an SSH server",
@@ -47,7 +47,8 @@ func closed(msg string) bool {
 	return strings.Contains(msg, "EOF") || strings.Contains(msg, "connection reset")
 }
 
-func isTimeout(err error) bool {
+// IsTimeout reports whether err is a network timeout.
+func IsTimeout(err error) bool {
 	var ne net.Error
 	return errors.As(err, &ne) && ne.Timeout()
 }
@@ -80,7 +81,7 @@ func opErr(err error, what string) error {
 		return groupNotFound(what)
 	case errors.Is(err, kerr.TopicAlreadyExists):
 		return out.Errf(out.ExitConflict, "TOPIC_EXISTS", "pick another name, or see it with `komando queue describe CONN "+what+"`", "topic %s already exists", what)
-	case errors.Is(err, context.DeadlineExceeded) || isTimeout(err):
+	case errors.Is(err, context.DeadlineExceeded) || IsTimeout(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "the brokers did not answer in time; raise --timeout", "%s: %v", what, err)
 	case errors.Is(err, kerr.InvalidReplicationFactor), errors.Is(err, kerr.InvalidPartitions), errors.Is(err, kerr.InvalidConfig),
 		errors.Is(err, kerr.InvalidTopicException), errors.Is(err, kerr.PolicyViolation):

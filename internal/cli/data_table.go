@@ -37,7 +37,7 @@ func runeWidth(r rune) int {
 	return 1
 }
 
-// truncateWidth cuts s to at most w columns, ending in "..." when cut.
+// truncateWidth cuts s to at most w columns, ending in "…" (one column) when cut.
 func truncateWidth(s string, w int) string {
 	if displayWidth(s) <= w {
 		return s
@@ -46,13 +46,13 @@ func truncateWidth(s string, w int) string {
 	used := 0
 	for _, r := range s {
 		rw := runeWidth(r)
-		if used+rw > w-3 {
+		if used+rw > w-1 {
 			break
 		}
 		b.WriteRune(r)
 		used += rw
 	}
-	return b.String() + "..."
+	return b.String() + "…"
 }
 
 // layoutTable aligns rows under headers, two spaces apart, as they are

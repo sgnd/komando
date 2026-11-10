@@ -86,7 +86,7 @@ func TestPSReadOnly(t *testing.T) {
 		}
 	}
 	writes := []string{
-		// these were read-only under the denylist; the subset refuses them
+		// these only read, but are outside the subset
 		`Get-Content C:\app\app.log -Tail 50 2>$null`,
 		`Get-Process 2>&1 | Out-String`,
 		`$x = Get-Date; "now: $($x.ToString('o'))"`,
@@ -143,7 +143,7 @@ func TestPSOnlyReads(t *testing.T) {
 		}
 	}
 	for _, s := range []string{
-		`(Get-Date).ToUniversalTime().ToString('o')`, // was a known read; .NET calls are refused now
+		`(Get-Date).ToUniversalTime().ToString('o')`, // .NET calls are refused
 		`C:\tools\report.exe`,
 		`Remove-Item C:\x`,
 		`$sb.Append('x')`,

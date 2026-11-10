@@ -20,8 +20,9 @@ import (
 
 // The vault key can live in the operating system's keychain instead of
 // vault.key: the macOS login keychain (through the `security` tool every
-// Mac has) or the Secret Service on Linux (GNOME Keyring, KWallet, through
-// `secret-tool`). The key never goes on a command line: `security -i` and
+// Mac has), the Secret Service on Linux (GNOME Keyring, KWallet, through
+// `secret-tool`), or the Windows Credential Manager (advapi32, called
+// directly: credman_windows.go). The key never goes on a command line: `security -i` and
 // `secret-tool store` read it from standard input. Moving the key does not
 // re-encrypt anything: it is the same key, kept elsewhere.
 //
@@ -119,6 +120,11 @@ func KeychainTool() (string, error) {
 			return "", errors.New("secret-tool is not installed in " + strings.Join(toolDirs, ", ") + " (install it with apt install libsecret-tools)")
 		}
 		return "Secret Service (secret-tool)", nil
+	case "windows":
+		if err := credAvailable(); err != nil {
+			return "", err
+		}
+		return "Windows Credential Manager", nil
 	}
 	return "", fmt.Errorf("no keychain support on %s", keychainOS)
 }
@@ -146,6 +152,8 @@ func keychainPutCtx(ctx context.Context, key []byte) error {
 		return run(keychainCmdCtx(ctx, "-i"), line+"\n")
 	case "linux":
 		return run(keychainCmdCtx(ctx, "store", "--label="+keychainService(), "service", keychainService(), "account", keychainAccount), v)
+	case "windows":
+		return credWrite(keychainService(), keychainAccount, []byte(v))
 	}
 	_, err := KeychainTool()
 	return err
@@ -162,6 +170,20 @@ func keychainGet() ([]byte, error) { return keychainGetCtx(context.Background())
 func keychainGetCtx(ctx context.Context) ([]byte, error) {
 	if _, err := KeychainTool(); err != nil {
 		return nil, err
+	}
+	if keychainOS == "windows" {
+		b, err := credRead(keychainService())
+		if err != nil {
+			if errors.Is(err, errNoKeychainKey) {
+				return nil, err
+			}
+			return nil, fmt.Errorf("the vault key is not in the Windows Credential Manager (%v)", err)
+		}
+		key, err := hex.DecodeString(strings.TrimSpace(string(b)))
+		if err != nil || len(key) != 32 {
+			return nil, errors.New("the Credential Manager holds something else under komando's vault key name")
+		}
+		return key, nil
 	}
 	var c *exec.Cmd
 	switch keychainOS {
@@ -210,6 +232,16 @@ func keychainGetCtx(ctx context.Context) ([]byte, error) {
 func keychainHas(ctx context.Context) (bool, error) {
 	if _, err := KeychainTool(); err != nil {
 		return false, err
+	}
+	if keychainOS == "windows" { // a lookup reads the item; the Credential Manager has no locked state
+		_, err := credRead(keychainService())
+		if errors.Is(err, errNoKeychainKey) {
+			return false, nil
+		}
+		if err != nil {
+			return false, fmt.Errorf("cannot tell whether the Credential Manager holds a vault key for this komando folder (%v)", err)
+		}
+		return true, nil
 	}
 	var c *exec.Cmd
 	switch keychainOS {
@@ -299,6 +331,8 @@ func keychainDel() error {
 			return err
 		}
 		return run(keychainCmd("clear", "service", keychainService(), "account", keychainAccount), "")
+	case "windows":
+		return credDelete(keychainService())
 	}
 	return nil
 }
@@ -317,17 +351,15 @@ func run(c *exec.Cmd, stdin string) error {
 	return nil
 }
 
-// keychainNewKey is the key of a new vault, kept in the keychain, and
-// whether the keychain keeps it. A key already in the keychain under this
-// home's name is used, never replaced: it may open a vault that was moved
-// aside (a backup of this folder). A new random key goes in only when the
-// keychain finds no key it can read and keychainHas says there is no item
-// under this name (on Linux that needs the default collection unlocked, as
-// a lookup or a KeePassXC search hides what a locked one holds); it counts
-// only once it reads back the same. When the keychain cannot tell (a
-// locked collection, a dismissed prompt, an error, no gdbus or busctl, a
-// call past newKeyTimeout), nothing is stored in it: the new vault keeps
-// its key in vault.key, which `komando doctor` points out.
+// keychainNewKey is the key of a new vault and whether the keychain keeps
+// it. A key already there under this home's name is used, never replaced:
+// it may open a vault that was moved aside (a backup of this folder). A new
+// random key goes in only when the keychain finds no key it can read and,
+// on Linux, keychainHas says there is no item under this name; it counts
+// only once it reads back the same. When the keychain cannot tell (locked,
+// a dismissed prompt, an error, a call past newKeyTimeout), nothing is
+// stored in it: the new vault keeps its key in vault.key, which `komando
+// doctor` points out.
 func keychainNewKey() ([]byte, bool) {
 	if _, err := KeychainTool(); err != nil {
 		return nil, false
@@ -347,7 +379,7 @@ func keychainNewKey() ([]byte, bool) {
 	if !errors.Is(err, errNoKeychainKey) {
 		return nil, false
 	}
-	if keychainOS != "darwin" { // macOS refuses to add over an item; secret-tool replaces it
+	if keychainOS != "darwin" { // macOS refuses to add over an item; secret-tool and CredWrite replace it
 		c, cancel := ctx()
 		has, err := keychainHas(c)
 		cancel()

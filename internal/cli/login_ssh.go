@@ -63,7 +63,7 @@ func loginHost(ctx context.Context, name string) error {
 		return nil
 	}
 	endLogin(st.Logins[h.Name]) // an old one (expired, or for an older address)
-	l, err := startHolder(ctx, st, h, keep)
+	l, err := startHolder(h, keep)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func endLogin(l *store.SSHLogin) {
 
 // startHolder starts `komando login-holder NAME` and relays its login's
 // questions to the person here until it says READY (or why not).
-func startHolder(ctx context.Context, st *store.State, h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
+func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 	self, err := os.Executable()
 	if err != nil {
 		return nil, err
@@ -133,7 +133,7 @@ func startHolder(ctx context.Context, st *store.State, h *store.Host, keep time.
 		c.Env = os.Environ() // Passphrase took KOMANDO_VAULT_PASS out of it
 	}
 	c.Stderr = lf
-	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // it outlives this command and its terminal
+	c.SysProcAttr = detachAttr() // it outlives this command and its terminal
 	stdin, err := c.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -352,9 +352,8 @@ func heldSocket() (net.Listener, string, ssh.Signer, error) {
 		sock = filepath.Join(os.TempDir(), "komando-"+randToken(6)+".sock")
 	}
 	_ = os.Remove(sock)
-	old := syscall.Umask(0o077)
-	ln, err := net.Listen("unix", sock)
-	syscall.Umask(old)
+	var ln net.Listener
+	withUmask(0o077, func() { ln, err = net.Listen("unix", sock) })
 	if err != nil {
 		return nil, "", nil, err
 	}

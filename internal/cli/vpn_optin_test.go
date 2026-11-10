@@ -109,7 +109,7 @@ MIIB
 // A VPN's login goes to its server on every connection. An AI agent that
 // adds a VPN with a secret, env or file reference, or points one at a new
 // server, needs a person's yes; the window names the references and the
-// server. People and scripts go on as before.
+// server. People and scripts are not asked.
 func TestVpnSecretsNeedAPerson(t *testing.T) {
 	secretHome(t)
 	profile := filepath.Join(t.TempDir(), "office.ovpn")

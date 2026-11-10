@@ -44,7 +44,7 @@ OpenVPN 3 library) does not qualify.
 | Secrets `gcp-sm:` | `gcloud` CLI | Secret Manager REST API with Google application-default credentials  ✅ | S |
 | Secrets `azure-kv:` | `az` CLI | own client: Azure AD client credentials, workload identity, managed identity (IMDS), the Azure CLI's saved token, and the Key Vault REST API  ✅ | S |
 | Secrets `op://` | `op` CLI | own client for the 1Password Connect REST API (documented, self-hosted). The 1Password Go SDK is **not** used: its core is a prebuilt WebAssembly module, not open source. A personal 1Password account has no documented open API, so `op://` without Connect is removed | M |
-| New: `bw://` (Bitwarden, Vaultwarden) and `kdbx:` (KeePass, KeePassXC files) | none | own clients: Bitwarden's documented API, the open KDBX file format | M |
+| New: `bw://` (Bitwarden, Vaultwarden) and `kdbx:` (KeePass, KeePassXC files) | none | own clients: Bitwarden's documented API, the open KDBX file format ✅ | M |
 | Conns with `aws_profile` (RDS IAM tokens, S3 profiles) | `aws` CLI | AWS SDK for Go v2: profiles, SSO cache, assume-role  ✅ | S |
 | EKS / GKE tokens in a kubeconfig | `aws eks get-token`, `gke-gcloud-auth-plugin` | built in for these two; other `exec` plugins still run as configured  ✅ | M |
 | `cluster exec`, `cluster shell` (copy files with `cluster run TARGET -- cp ...`) | `kubectl` | Kubernetes exec over WebSocket (`v5.channel.k8s.io`), SPDY for older clusters  ✅ | M |
@@ -113,7 +113,7 @@ AWS SSM sessions as a built-in proxy; Docker credential files.
 | Vision says komando does not replace `psql`/`kubectl` | The rule contradicts the vision | Vision updated: komando has its own version of what its features need from them, `cluster run` included |
 | A library is open source but ships a compiled core (1Password SDK) | Not fully open source | Not used; komando writes its own client against a documented API, or drops the feature where no open API exists (personal 1Password accounts), and says so in the changelog |
 | Removing `op://` for personal 1Password accounts | People who use it lose it | Announced one release ahead with the error hint naming the alternatives: 1Password Connect, `bw://`, `kdbx:`, or komando's own vault |
-| A library needs cgo | Breaks the pure-Go build and cross-compiling | Not allowed. Checked by building with `CGO_ENABLED=0` for all four platforms in CI |
+| A library needs cgo | Breaks the pure-Go build and cross-compiling | Not allowed. Checked by the release build (`make dist`), which builds all four platforms with `CGO_ENABLED=0` |
 | The OS keychain (macOS Keychain, Secret Service) | Reading it from Go needs cgo or the OS tool | The OS tool counts as part of the OS; Docker logins in a keychain keep their helper |
 | Browser logins (SAML/SSO for VPNs, AWS SSO, GKE) | Need a browser | komando opens the system browser (OS tool) and listens on 127.0.0.1 for the answer, like `gcloud` and `aws sso login` do. MFA stays with a person |
 | A program on the server | Is `pg_dump` over `--via` "not built in"? | No: it runs on the server. komando must also work when the server has no `pg_dump` (Phase 3 engine) |
@@ -143,7 +143,6 @@ AWS SSM sessions as a built-in proxy; Docker credential files.
 | Kubernetes before 1.30 | No WebSocket exec; port-forward over WebSocket is newer still | SPDY fallback for both, chosen by trying WebSocket first (what kubectl does) |
 | `db shell` users expect psql commands | Muscle memory: `\d`, `\dt`, `\x`, `\timing`, `\G` | Common ones built in; an unknown `\` command says what to use instead. Never silently ignored |
 | `db dump` fidelity | A PostgreSQL dump that misses an object loses data | The built-in dump lists what it covers; an object it cannot dump (for example a custom access method) stops the dump with its name. Round-trip e2e: dump, restore into a new database, compare with `pg_dump --schema-only` of both |
-| Existing VPN sessions | A person upgrades while an OpenVPN container runs | `vpn down` keeps stopping old containers; new sessions use the built-in client |
 | Pritunl | Adds its own login (PIN, OTP) on top of OpenVPN | Tested against a Pritunl server, not only plain OpenVPN |
 | Each corporate VPN vendor changes things | A server update breaks the client | Each protocol has its own e2e (real server where one exists, openconnect's fake servers for the logins otherwise) and its own error codes, so a break is reported clearly |
 
@@ -171,9 +170,9 @@ port-forward over SPDY (k3s 1.29, which refuses the WebSocket).
 
 Built in, experimental (🧪): Fortinet, GlobalProtect, F5 and Pulse/Ivanti
 (tested only against fake servers written from the protocols), AWS SSM
-sessions (fake agent; the KMS data key against moto's KMS). Each is used only where nothing worked before (its old program is
-missing) or when asked for with `KOMANDO_EXPERIMENTAL_VPN` /
-`KOMANDO_EXPERIMENTAL`.
+sessions (fake agent; the KMS data key against moto's KMS). Each is used
+only where nothing worked before (its old program is missing) or when asked
+for with `KOMANDO_EXPERIMENTAL_VPN` / `KOMANDO_EXPERIMENTAL`.
 
 Still to do:
 

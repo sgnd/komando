@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Inventory, keys, secrets, settings, policy and selectors (fix/inv).
+# Inventory, keys, secrets, settings, policy and selectors.
 # Uses the lab inventory: direct, bastion, target (protected, via bastion),
 # maria (protected conn), VPN lab (socks). Everything made here is t-e2einv*.
 

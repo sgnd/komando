@@ -1,6 +1,7 @@
 # Session status: "where am I, and what is still running?"
 
-Status: **approved, 2026-11-03**; all phases built. Stress-tested against the
+Status: built (2026-11-03). How to use it:
+[docs/features/output.md](../features/output.md). Stress-tested against the
 cases in [Stress test](#stress-test); several first ideas were dropped there.
 
 ## The question
@@ -11,10 +12,10 @@ A person using komando should always be able to answer two questions:
    through which VPN and bastions, and is it protected (production)?
 2. **What is still running in the background?** VPNs kept up, tunnels, jobs.
 
-Today komando answers neither in one place. `komando ssh web1` passes the
-terminal straight to the server and prints nothing of its own; `db shell`
-prints one line; VPN sessions, tunnels and jobs each have their own list
-command.
+Before this work komando answered neither in one place. `komando ssh web1`
+passed the terminal straight to the server and printed nothing of its own;
+`db shell` printed one line; VPN sessions, tunnels and jobs each had their
+own list command.
 
 ## Four shapes of command
 
@@ -95,6 +96,7 @@ jobs run on their servers: `komando job list --refresh` shows which still run
 - JSON output like every other command, so agents can use it at the start of
   a session.
 - `vpn status`, `tunnel list` and `job list` stay; `status` is the summary.
+- Added later: `status` also lists the server logins `komando login` keeps.
 
 ### Prompt segment (optional, opt-in)
 
@@ -139,16 +141,16 @@ the plan does about it.
 | Secrets | A line could leak a password | Prints names, user, address and route only; never URLs, password refs or VPN session logins |
 | Colour | komando has no colour today | Red only for PROTECTED, only when stderr is a terminal, not with `NO_COLOR` set or `TERM=dumb`; the word is always there (colour-blind people, logs) |
 | Nested komando (komando run on the server) | Two banners | Fine: each says `komando:` and its own target |
-| An agent with a pseudo-terminal runs `komando ssh` | `shell` checks only that stdin is a terminal, not `isAgent()`, so an agent can open an interactive shell, also on a protected host | **Found issue**, fixed in Phase 0 |
-| `komando ssh prod-web1 --dry-run` | `shell.go` never reads `--dry-run`: it opens a real shell | **Found issue**, fixed in Phase 0 |
-| `komando ssh` on a protected host | `db shell` asks for confirmation on a protected conn; `ssh` does not | **Found issue**, fixed in Phase 0 |
+| An agent with a pseudo-terminal runs `komando ssh` | `shell` checks only that stdin is a terminal, not `isAgent()`, so an agent can open an interactive shell, also on a protected host | **Found issue**, fixed: `shell` refuses agents, like `db shell` |
+| `komando ssh prod-web1 --dry-run` | `shell.go` never reads `--dry-run`: it opens a real shell | **Found issue**, fixed: `--dry-run` prints the target and route and exits |
+| `komando ssh` on a protected host | `db shell` asks for confirmation on a protected conn; `ssh` does not | **Found issue**, fixed: `shell` on a protected host asks `[y/N]` like `db shell` (approved by the owner) |
 
 ### Background status (shape C)
 
 | Case | Risk | Decision |
 |---|---|---|
 | Prompt segment calls `netx.LiveSession` | `LiveSession` **writes** `LastUsed`: rendering the prompt would keep every VPN alive forever and defeat `vpn_idle`. It can also stop stale sessions | `prompt` and `status` never call `LiveSession`; they read only |
-| Prompt segment runs on every Enter | `SessionAlive` runs `docker inspect` for OpenVPN containers and `ps` on macOS: slow, and hangs when Docker is down | `prompt` checks the pid only (`kill 0`) plus the idle time, never runs another program; `status` may do the full check |
+| Prompt segment runs on every Enter | `SessionAlive` runs `ps` on macOS: slow on every Enter | `prompt` checks the pid only (`kill 0`) plus the idle time, never runs another program and never changes the state file; `status` may do the full check. Measured: about 30 ms per call on an M-series Mac, of which about 20 ms is Go package start-up (mostly `rs/xid`, pulled in by the S3 client); reading the state takes well under 1 ms |
 | `komando prompt` goes through the root command's setup | `PersistentPreRunE` reaps idle VPNs and checks the audit log is writable: work and writes on every prompt | `prompt` skips that setup |
 | State file missing, corrupt, or being written | Broken prompt | State is written by rename (atomic), so a read sees old or new. On any error `prompt` prints nothing and exits 0: it must never break the person's shell |
 | State holds VPN SOCKS logins | Leak into the prompt | Only VPN names and tunnel counts are printed |
@@ -163,47 +165,3 @@ the plan does about it.
 |---|---|---|
 | `cluster forward`, `logs --follow` | The server prints its own lines too | Entry line is the first line, on stderr, before the stream starts |
 | A one-shot command starts a VPN by itself | The person does not know a VPN is now up for 30 minutes | One notice line on stderr, interactive only. Agents get nothing new; `komando status` shows it |
-
-## Plan
-
-**Phase 0: fix what the stress test found in `shell` (separate change)** ✅ done 2026-11-03
-
-1. `komando shell --dry-run` prints the target and route and exits, like
-   `db shell`.
-2. `shell` uses `interactive()` (refuses agents, like `db shell`).
-3. `shell` on a protected host asks `[y/N]` like `db shell` (`--yes` skips).
-   Approved by the owner.
-
-**Phase 1: the line format (shapes A, B, D)** ✅ done 2026-11-03
-
-1. One small function in `internal/cli` that builds the line from a target,
-   who/mode, route and protected flag, strips control characters, and adds
-   colour when allowed. Used by every caller.
-2. `shell`: entry and exit lines. `db shell`: replace its current line.
-3. `cluster forward` and `logs --follow`: entry line.
-4. VPN started by a command: one notice line.
-
-**Phase 2: `komando status`** (text and JSON). ✅ done 2026-11-03
-
-**Phase 3: `komando prompt`** plus snippets in the docs. ✅ done 2026-11-03
-   Measured: about 30 ms per call on an M-series Mac, of which about 20 ms
-   is Go package start-up before komando runs (mostly `rs/xid`, pulled in
-   by the S3 client). Reading the state itself takes well under 1 ms.
-
-Each phase is released on its own.
-
-## Tests
-
-- Unit: the line builder (golden lines for every shape, with and without
-  route, protected, `NO_COLOR`, `TERM=dumb`); fuzz the control-character
-  stripping; no line when `interactive()` is false.
-- `prompt`: prints nothing and exits 0 with a missing, empty or corrupt state
-  file; never changes the state file (mtime unchanged); runs no other
-  program; stays under 50 ms with 50 VPNs and tunnels.
-- `status`: VPN up/down, dead tunnel, job record, no network.
-- e2e (`make e2e`, which already needs python3): drive `komando ssh` through
-  a pseudo-terminal with Python's `pty` module, through the bastion, and
-  check the entry line, the exit line with the remote exit code, the
-  PROTECTED marker, and that stdout carries no komando line. VPN e2e for the
-  "via vpn" route and the auto-start notice.
-- Full checks per feature: gofmt, vet, staticcheck, `go test -race`, `make e2e`.

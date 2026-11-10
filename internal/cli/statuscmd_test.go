@@ -66,7 +66,7 @@ func TestRunningStatus(t *testing.T) {
 	for _, want := range []string{
 		"vpn", "office", "used 3m ago, closes in 26m if unused", "42m",
 		"tunnel", "t-up", "→ app-db", "2h",
-		"job", "j-1", "web1: pg_dump app", "...", "15m",
+		"job", "j-1", "web1: pg_dump app", "…", "15m",
 		"`komando job list --refresh`",
 	} {
 		if !strings.Contains(text, want) {

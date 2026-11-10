@@ -27,8 +27,7 @@ type recipe struct {
 	Params   map[string]string `json:"params,omitempty"` // name -> default ("" = required)
 }
 
-// recipes is a curated library of read-mostly diagnostics that cover the
-// daily questions of server operations.
+// recipes are the built-in diagnostics; most of them only read.
 var recipes = []recipe{
 	{Name: "health", Category: "system", Desc: "One-shot health summary: uptime, load, memory, disk, failed units", Cmd: `uptime; echo; free -m 2>/dev/null; echo; df -hP -x tmpfs -x devtmpfs -x overlay 2>/dev/null; echo; systemctl --failed --no-legend 2>/dev/null | head -20`},
 	{Name: "disk", Category: "system", Desc: "Filesystem usage", Cmd: `df -hP -x tmpfs -x devtmpfs -x overlay -x squashfs`},
@@ -187,10 +186,8 @@ type recipeRow struct {
 	Params   map[string]string `json:"params,omitempty"`
 }
 
-// retiredRecipes are built-in recipes that a command does better now; a
-// run of one names the command instead (a saved recipe of the same name
-// still wins). docker-prune also skipped the preview and the
-// --allow-dangerous question that `docker prune` asks.
+// retiredRecipes are built-in recipes a command has replaced; a run of one
+// names the command instead (a saved recipe of the same name still wins).
 var retiredRecipes = map[string]string{
 	"cert-expiry":   "komando cert check https://NAME:PORT --via TARGET",
 	"certbot-certs": "komando cert check TARGET",
@@ -271,7 +268,7 @@ func recipeListCmd() *cobra.Command {
 
 func recipeAddCmd() *cobra.Command {
 	var desc string
-	var sudo, readOnly, mutating, overwrite bool
+	var sudo, readOnly, overwrite bool
 	c := &cobra.Command{
 		Use:   "add NAME COMMAND",
 		Short: "Save a recipe; {{name}} is a blank, {{name=x}} defaults to x",
@@ -285,7 +282,7 @@ func recipeAddCmd() *cobra.Command {
 			if builtinRecipe(args[0]) != nil {
 				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "pick another name; see `komando recipe list`", "%q is a built-in recipe", args[0])
 			}
-			s := &store.Snippet{Name: args[0], Command: args[1], Description: desc, Sudo: sudo, ReadOnly: readOnly && !mutating, CreatedAt: time.Now().UTC()}
+			s := &store.Snippet{Name: args[0], Command: args[1], Description: desc, Sudo: sudo, ReadOnly: readOnly, CreatedAt: time.Now().UTC()}
 			if s.ReadOnly {
 				if err := checkReadOnly(s.Command); err != nil {
 					return err
@@ -325,13 +322,10 @@ func recipeAddCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().StringVar(&desc, "desc", "", "description")
+	c.Flags().StringVar(&desc, "desc", "", "what the recipe does, in a few words (shown in recipe list)")
 	c.Flags().BoolVar(&sudo, "sudo", false, "run with sudo")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "the recipe only reads, so protected servers don't need --yes")
-	c.Flags().BoolVar(&mutating, "mutating", false, "")
-	_ = c.Flags().MarkDeprecated("mutating", "recipes count as changes unless saved with --read-only")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace a recipe with the same name")
-	aliasFlag(c.Flags(), "force", "overwrite")
 	return c
 }
 
@@ -401,7 +395,6 @@ func recipeRunCmd() *cobra.Command {
 		},
 	}
 	c.Flags().StringArrayVar(&vars, "var", nil, "fill in a blank: NAME=VALUE (repeatable)")
-	aliasFlag(c.Flags(), "param", "var")
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo even if the recipe asks for it")
 	return c
 }

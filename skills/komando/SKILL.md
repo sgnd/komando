@@ -27,8 +27,9 @@ Update komando only when the human asks: `komando update` (when it stops with
 ## The menu is for people; you get no questions
 
 A person who runs `komando` alone at a terminal gets a menu: Add asks for a
-server, database, cache, storage, cluster, registry or VPN one question at
-a time, and All features offers every command as questions. `komando host
+server, database, cache, storage, message queue, cluster, registry or VPN
+one question at a time, and All features offers every command as
+questions. `komando host
 add` (or `conn add`, `vpn add`) typed alone asks the same questions.
 
 komando never asks an AI agent or a script anything. Give every argument

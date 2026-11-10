@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  # 1. Formatting, go vet, staticcheck, unit tests, and a build.
+  # Formatting, go vet, staticcheck, unit tests, and a build.
   test:
     name: Lint and unit tests
     runs-on: ubuntu-latest
@@ -29,8 +29,26 @@ jobs:
       - run: make build
       # the release also builds for macOS: vet and build that code here too
       - run: GOOS=darwin go vet ./... && GOOS=darwin GOARCH=arm64 go build -o /dev/null ./cmd/komando
+      # ... and for Windows
+      - run: GOOS=windows go vet ./... && GOOS=windows GOARCH=arm64 go build -o /dev/null ./cmd/komando
 
-  # 2. Known vulnerabilities in the code and its modules (govulncheck).
+  # Windows: komando builds there natively and runs; the platform code
+  # (file locks, the console, the Credential Manager) is tested on Windows.
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go build -o komando.exe ./cmd/komando
+      - run: ./komando.exe --version
+      - run: go test ./internal/flock/
+
+  # Known vulnerabilities in the code and its modules (govulncheck).
   security:
     name: Security
     runs-on: ubuntu-latest
@@ -42,7 +60,7 @@ jobs:
           go-version-file: go.mod
       - run: make security
 
-  # 3. Real SSH, databases, caches and storage in Docker.
+  # Real SSH, databases, caches and storage in Docker.
   e2e:
     name: End-to-end tests
     runs-on: ubuntu-latest

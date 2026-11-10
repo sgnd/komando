@@ -18,7 +18,7 @@ Use the [Bug report](https://github.com/sgnd/komando/issues/new?template=bug-rep
 
 A change fits when all of these are true:
 
-- It is DevOps work on a server, database, cache, storage, cluster, registry or VPN.
+- It is DevOps work on a server, database, cache, queue, storage, cluster, registry or VPN.
 - It works as a command, for a person and for an AI agent. No windows, and no prompt an agent or a script can meet.
 - It is safe by default: it only reads unless the user says otherwise.
 - It needs no new dependency, or the dependency is small and well kept.
@@ -92,7 +92,9 @@ A test also reads every `komando ...` example in the docs (`README.md`, `AGENTS.
    make e2e      # needs Docker; run it when the change talks to a server or service
    ```
 
-   VPN changes also have `make e2e-openvpn`, `make e2e-ipsec` and `make e2e-vpnclients` (GitHub runs them every night and on VPN pull requests).
+   VPN changes also have `make e2e-openvpn`, `make e2e-ipsec` and `make e2e-vpnclients` (GitHub runs them every night and on VPN pull requests). Changes to the Windows commands have `make e2e-windows`, which runs komando's PowerShell in a PowerShell container.
+
+   Some packages also have tests against a live service that you start yourself. They are skipped by default; each one's `t.Skip` line names the variable to set.
 
 3. Add a line under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md) if users will notice the change.
 4. Open the pull request. [GitHub](.github/workflows/ci.yml) runs lint, unit tests, the security check and the end-to-end tests again.
@@ -103,7 +105,7 @@ Every version is a GitHub release, and `install.sh` only downloads releases. `ma
 
 `main` takes changes only through a pull request whose `Lint and unit tests`, `Security` and `End-to-end tests` checks pass (the "Protect main" ruleset), and that includes the release commit. A `git push origin main` is refused.
 
-1. On a new branch from `main`, update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, give it a `### Highlights` list, and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`. Change the version in the example output in [`docs/features/output.md`](docs/features/output.md) too.
+1. On a new branch from `main`, update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, give it a `### Highlights` list, and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`. Change the version in the example output in [`docs/features/output.md`](docs/features/output.md) and in the menu samples in [`README.md`](README.md) and [`docs/features/commands.md`](docs/features/commands.md) too.
 2. Commit it as `Release X.Y.Z` and open a pull request. When its checks pass, merge it with **Create a merge commit**.
 3. Tag the merged `main`, and only then push the tag:
 

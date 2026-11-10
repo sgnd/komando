@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -13,7 +14,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -242,7 +242,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 				return nil, netx.LoginRequired(v)
 			}
 			var err error
-			typed, err = loginSecret(fmt.Sprintf("Password for %s on VPN %s (with the PIN or one-time code, if it wants one): ", firstNonEmpty(v.User, "you"), v.Name))
+			typed, err = loginSecret(fmt.Sprintf("Password for %s on VPN %s (with the PIN or one-time code, if it wants one): ", cmp.Or(v.User, "you"), v.Name))
 			if err != nil {
 				return nil, err
 			}
@@ -293,7 +293,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		sd.Stdin, sd.Stdout, sd.Stderr = strings.NewReader(clean), os.Stderr, os.Stderr
 		if err := sd.Run(); err != nil {
 			if !interactive {
-				return nil, out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a human to run `komando vpn up "+v.Name+"` (it needs sudo)",
+				return nil, out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a person to run `komando vpn up "+v.Name+"` (it needs sudo)",
 					"VPN %s runs as root and needs a person to approve sudo", v.Name)
 			}
 			return nil, netx.Down(v, fmt.Errorf("openvpn: %v", err))
@@ -328,7 +328,7 @@ func background(c *exec.Cmd, logFile string) (int, error) {
 	}
 	defer lf.Close()
 	c.Stdout, c.Stderr = lf, lf
-	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	c.SysProcAttr = detachAttr()
 	if err := c.Start(); err != nil {
 		return 0, err
 	}

@@ -44,7 +44,7 @@ func dbNameProblem(_ *store.State, _ formAnswers, v string) string {
 	return ""
 }
 
-// --- SQL Server ---
+// SQL Server.
 
 func sqlServerForm() formSpec {
 	host := formServiceHostQ("database server", "10.0.0.5 or db.example.com")
@@ -81,7 +81,7 @@ func sqlServerForm() formSpec {
 	}}
 }
 
-// --- Oracle ---
+// Oracle.
 
 func oracleForm() formSpec {
 	oracleName := func(_ *store.State, _ formAnswers, v string) string {
@@ -95,7 +95,7 @@ func oracleForm() formSpec {
 		formReachQ("database"),
 		formServiceHostQ("database server", "10.0.0.5 or db.example.com"),
 		dbPortQ("1521", "The usual Oracle port is 1521. Encrypted connections (TCPS) often have their own, like 2484."),
-		{key: "by", label: "Database by", ask: "How is the database named?",
+		{key: "by", label: "Named by", ask: "How is the database named?",
 			help: "Oracle 12c and later use a service name. Only old databases without services have just a SID.",
 			def:  func(*store.State, formAnswers) string { return "service" },
 			choices: func(*store.State, formAnswers) []menuRow {
@@ -131,7 +131,7 @@ func oracleForm() formSpec {
 	}}
 }
 
-// --- ClickHouse ---
+// ClickHouse.
 
 // clickhouseTLSDefault: no TLS through a server or on this computer (the
 // SSH connection is encrypted already), checked TLS over the network.
@@ -187,7 +187,7 @@ func clickhouseForm() formSpec {
 	}}
 }
 
-// --- Snowflake ---
+// Snowflake.
 
 func snowflakeForm() formSpec {
 	login := func(v string) func(formAnswers) bool { return func(a formAnswers) bool { return a["login"] == v } }
@@ -292,7 +292,7 @@ func snowflakeBuild(_ *store.State, a formAnswers) [][]string {
 	return cmds
 }
 
-// --- BigQuery ---
+// BigQuery.
 
 func bigqueryForm() formSpec {
 	return formSpec{title: "Add a Google BigQuery database", qs: []formQ{

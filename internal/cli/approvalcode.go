@@ -114,6 +114,10 @@ end run`
 			b, err := exec.CommandContext(ctx, k, "--title", "komando: allow?", "--password", text).Output()
 			return strings.TrimSpace(string(b)), err == nil, true
 		}
+	case "windows":
+		code, allowed, gaveUp, shown := approvalWindow(text, true)
+		approvalGaveUp = gaveUp
+		return code, allowed, shown
 	}
 	return "", false, false
 }

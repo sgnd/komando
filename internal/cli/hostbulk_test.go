@@ -87,9 +87,6 @@ func TestHostMv(t *testing.T) {
 	if !st.Hosts["prod1"].Protected {
 		t.Error("the protected mark stays")
 	}
-	// the old --rename spelling goes the same way
-	noAgent(t)
-	wantCode(t, "PROTECTED_HOST", "host", "edit", "prod1", "--rename", "prod2")
 }
 
 func TestConnMv(t *testing.T) {
@@ -183,7 +180,6 @@ func TestHostEditMany(t *testing.T) {
 	}
 	// one server's value only
 	wantCode(t, "USAGE", "host", "edit", "a", "d", "--address", "10.9.9.9")
-	wantCode(t, "USAGE", "host", "edit", "@ubuntu", "--rename", "x")
 	wantCode(t, "HOST_NOT_FOUND", "host", "edit", "a", "nosuch", "--add-tag", "x")
 	wantCode(t, "TARGET_EMPTY", "host", "edit", "@nosuch", "--add-tag", "x")
 	// all or nothing: a bad value for one server stops every change

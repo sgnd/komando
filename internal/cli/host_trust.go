@@ -25,16 +25,15 @@ func init() {
 // Host connectivity tests.
 
 type testResult struct {
-	Host          string     `json:"host"`
-	OK            bool       `json:"ok"`
-	LatencyMS     int64      `json:"latency_ms,omitempty"`
-	ServerVersion string     `json:"server_version,omitempty"`
-	RemoteUser    string     `json:"remote_user,omitempty"`
-	Hostname      string     `json:"hostname,omitempty"`
-	SudoNoPasswd  *bool      `json:"sudo_nopasswd,omitempty"`
-	Admin         *bool      `json:"admin,omitempty"` // Windows: the login is an administrator
-	OS            string     `json:"os,omitempty"`    // windows, for a Windows server
-	Error         *out.Error `json:"error,omitempty"`
+	Host          string `json:"host"`
+	OK            bool   `json:"ok"`
+	LatencyMS     int64  `json:"latency_ms,omitempty"`
+	ServerVersion string `json:"server_version,omitempty"`
+	RemoteUser    string `json:"remote_user,omitempty"`
+	Hostname      string `json:"hostname,omitempty"`
+	SudoNoPasswd  *bool  `json:"sudo_nopasswd,omitempty"`
+	Admin         *bool  `json:"admin,omitempty"` // Windows: the login is an administrator
+	OS            string `json:"os,omitempty"`    // windows, for a Windows server
 }
 
 // testHost logs in and checks who we are and whether sudo needs a password.

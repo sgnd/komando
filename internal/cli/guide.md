@@ -43,8 +43,8 @@ komando import ssh-config --dry-run   # (with the human) bring in servers they a
 
 People get a menu; you get no questions. A person who runs `komando` alone
 at a terminal gets a menu: Add asks for a server, database, cache, storage,
-cluster, registry or VPN one question at a time, and All features offers
-every command as questions. `komando host add` (or `conn add`, `vpn add`)
+message queue, cluster, registry or VPN one question at a time, and All
+features offers every command as questions. `komando host add` (or `conn add`, `vpn add`)
 typed alone asks the same questions. komando never asks an AI agent or a
 script anything, so give every argument and flag yourself; `komando` alone
 answers you with a `USAGE` error that points here. When a step needs a

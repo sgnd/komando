@@ -28,10 +28,10 @@ import (
 // `exit N` in the script ends PowerShell with N; otherwise the script's
 // own trailer (PSTrailer) sets $LASTEXITCODE; an uncaught throw ends it
 // with 1. An error inside one statement does not stop the script, as in
-// any PowerShell script. Out-Default writes the
-// output before PowerShell exits (a table is otherwise still waiting to
-// be drawn), as plain text (PowerShell 7 colours it). Input and output are
-// UTF-8, not the console's code page (437 or 850 over OpenSSH).
+// any PowerShell script. Out-Default writes the output before PowerShell
+// exits (a table is otherwise still waiting to be drawn), as plain text
+// (PowerShell 7 colours it). Input and output are UTF-8, not the console's
+// code page (437 or 850 over OpenSSH).
 const psBootstrap = `$ProgressPreference = 'SilentlyContinue'
 if ($PSStyle) { $PSStyle.OutputRendering = 'PlainText' }
 try { [Console]::OutputEncoding = New-Object Text.UTF8Encoding $false } catch {}
@@ -229,10 +229,9 @@ var (
 )
 
 // CleanPSError turns PowerShell's error stream back into text, without
-// PowerShell 7's colours. Windows
-// PowerShell writes it as CLIXML ("#< CLIXML" and XML) when its output is
-// not a console, as over SSH or WinRM: the error and warning lines are
-// kept, progress records are dropped.
+// PowerShell 7's colours. Windows PowerShell writes it as CLIXML
+// ("#< CLIXML" and XML) when its output is not a console, as over SSH or
+// WinRM: the error and warning lines are kept, progress records are dropped.
 func CleanPSError(s string) string {
 	s = ansiColor.ReplaceAllString(s, "")
 	i := strings.Index(s, "#< CLIXML")

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/url"
@@ -93,7 +94,7 @@ func clusterEventsCmd() *cobra.Command {
 						}
 						kind, name = r.KindName(), n
 					}
-					space := firstNonEmpty(ns, k.Namespace)
+					space := cmp.Or(ns, k.Namespace)
 					if all {
 						space = ""
 					}
@@ -154,7 +155,7 @@ func clusterDescribeCmd() *cobra.Command {
 				}
 				space := ""
 				if r.IsNamespaced() {
-					space = firstNonEmpty(ns, k.Namespace)
+					space = cmp.Or(ns, k.Namespace)
 				}
 				return describeObject(ctx, k, t.conn.Name, r, name, space)
 			})

@@ -18,7 +18,7 @@ import (
 
 // `host trust TARGET` pins the host keys of many servers. After a rebuild
 // of a group of servers (same addresses, new keys) every one of them is a
-// HOSTKEY_MISMATCH; --reset replaces them all after ONE yes that names
+// HOSTKEY_MISMATCH; --reset replaces them all after one yes that names
 // every server with its new key, instead of one yes per server.
 
 // trustRow is one server's answer.

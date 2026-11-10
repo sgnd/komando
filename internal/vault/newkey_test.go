@@ -92,8 +92,8 @@ func TestNewVaultKeyInKeychain(t *testing.T) {
 	}
 }
 
-// Where the keychain cannot keep the key, the vault keeps it in vault.key,
-// as before, and nothing is lost.
+// Where the keychain cannot keep the key, the vault keeps it in vault.key
+// and nothing is lost.
 func TestNewVaultKeychainFails(t *testing.T) {
 	freshHome(t)
 	keychainStandIn(t, true)

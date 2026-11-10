@@ -22,11 +22,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"golang.org/x/net/proxy"
 
+	"github.com/sgnd/komando/internal/flock"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -79,7 +79,7 @@ var StartSession func(ctx context.Context, name string) error
 
 // LoginRequired is the error for a VPN that needs a human to log in.
 func LoginRequired(v *store.Vpn) error {
-	return out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a human to run `komando vpn up "+v.Name+"` (it needs their login); then try again",
+	return out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a person to run `komando vpn up "+v.Name+"` (it needs their login); then try again",
 		"VPN %s is not connected and needs a person to log in", v.Name)
 }
 
@@ -111,31 +111,8 @@ func LiveSession(v *store.Vpn) *store.VpnSession {
 	return s
 }
 
-// Alive reports whether a process exists.
-func Alive(pid int) bool {
-	if pid <= 1 {
-		return false
-	}
-	err := syscall.Kill(pid, 0)
-	return err == nil || errors.Is(err, syscall.EPERM) // EPERM: alive, owned by root
-}
-
-// Terminate asks one process to stop. It refuses every pid that is not a
-// single other process: kill(-1) would signal every program of the user,
-// kill(0) the whole process group, kill(1) init.
-func Terminate(pid int) error {
-	if pid <= 1 || pid == os.Getpid() {
-		return fmt.Errorf("refusing to signal pid %d", pid)
-	}
-	return syscall.Kill(pid, syscall.SIGTERM)
-}
-
-// SessionAlive reports whether a session's process or container runs.
+// SessionAlive reports whether a session's process runs.
 func SessionAlive(s *store.VpnSession) bool {
-	if s.Container != "" {
-		b, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", s.Container).Output()
-		return err == nil && strings.TrimSpace(string(b)) == "true"
-	}
 	return Alive(s.PID) && isProgram(s.PID, s.Exe)
 }
 
@@ -179,17 +156,11 @@ func ReapIdle() {
 	}
 }
 
-// StopSession ends a session's process or container (through sudo for
+// StopSession ends a session's process (through sudo for
 // OS-mode ones). A session that is no longer running is already stopped.
 // It reports an error when it could not stop it; the caller keeps the
 // session then.
 func StopSession(s *store.VpnSession) error {
-	if s.Container != "" {
-		if b, err := exec.Command("docker", "rm", "-f", s.Container).CombinedOutput(); err != nil && SessionAlive(s) {
-			return fmt.Errorf("docker rm %s: %v %s", s.Container, err, strings.TrimSpace(string(b)))
-		}
-		return nil
-	}
 	if !SessionAlive(s) {
 		return nil
 	}
@@ -262,7 +233,7 @@ type closerFunc func() error
 func (f closerFunc) Close() error { return f() }
 
 func sameSession(a, b *store.VpnSession) bool {
-	return a.PID == b.PID && a.Container == b.Container && a.StartedAt.Equal(b.StartedAt)
+	return a.PID == b.PID && a.StartedAt.Equal(b.StartedAt)
 }
 
 // Lock holds the per-VPN lock that starting and stopping a session take,
@@ -275,11 +246,11 @@ func Lock(name string) (unlock func(), err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+	if err := flock.Lock(f); err != nil {
 		f.Close()
 		return nil, err
 	}
-	return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }, nil
+	return func() { _ = flock.Unlock(f); f.Close() }, nil
 }
 
 // stopIfStale stops and forgets a session under the VPN's lock, only if

@@ -133,7 +133,7 @@ func lsMode(e fileInfo) string {
 
 // fs write and fs replace.
 
-// fsChange is the result of fs write and fs replace: JSON as before, and a
+// fsChange is the result of fs write and fs replace: JSON for programs, a
 // sentence plus the diff for a person.
 type fsChange map[string]any
 

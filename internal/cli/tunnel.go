@@ -17,7 +17,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -265,7 +264,7 @@ point your database app or psql at the local address it prints. With a server, g
 			}
 			p := exec.Command(self, pargs...)
 			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
-			p.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+			p.SysProcAttr = detachAttr()
 			vault.PassOnStdin(p) // not in its environment: it runs for long
 			if err := p.Start(); err != nil {
 				return err
@@ -343,10 +342,6 @@ func tunnelConn(st *store.State, expr string) (*store.Conn, error) {
 			"%s has no --via, so it is reachable without a tunnel", c.Name)
 	}
 	return c, nil
-}
-
-func alive(pid int) bool {
-	return pid > 0 && syscall.Kill(pid, 0) == nil
 }
 
 type tunnelRow struct {

@@ -2,16 +2,15 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -77,7 +76,7 @@ interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
 				return err
 			}
 			defer done()
-			space := firstNonEmpty(ns, k.Namespace)
+			space := cmp.Or(ns, k.Namespace)
 			pod, err := onePod(cmd.Context(), k, space, args[1])
 			if err != nil {
 				return kubeErr(err)
@@ -203,7 +202,7 @@ Anything can be typed inside, so a protected cluster asks first.`,
 				return err
 			}
 			defer done()
-			space := firstNonEmpty(ns, k.Namespace)
+			space := cmp.Or(ns, k.Namespace)
 			pod, err := onePod(cmd.Context(), k, space, args[1])
 			if err != nil {
 				return kubeErr(err)
@@ -220,7 +219,7 @@ Anything can be typed inside, so a protected cluster asks first.`,
 				resize <- kube.TermSize{Width: uint16(w), Height: uint16(h)}
 			}
 			winch := make(chan os.Signal, 1)
-			signal.Notify(winch, syscall.SIGWINCH)
+			stopResize := notifyResize(fd, winch)
 			go func() {
 				for range winch {
 					if w, h, err := term.GetSize(fd); err == nil {
@@ -234,7 +233,7 @@ Anything can be typed inside, so a protected cluster asks first.`,
 			started := time.Now()
 			err = k.Exec(context.WithoutCancel(cmd.Context()), kube.ExecOptions{Namespace: space, Pod: pod, Container: container, Command: command,
 				Stdin: os.Stdin, Stdout: os.Stdout, TTY: true, Resize: resize})
-			signal.Stop(winch)
+			stopResize()
 			term.Restore(fd, old)
 			var ee *kube.ExitError
 			switch {
@@ -320,7 +319,7 @@ komando forwards to the pod's port behind it.`,
 				return err
 			}
 			defer done()
-			space := firstNonEmpty(ns, k.Namespace)
+			space := cmp.Or(ns, k.Namespace)
 			rport, _ := strconv.Atoi(remote)
 			pod, port, err := forwardTarget(ctx, k, space, args[1], rport)
 			if err != nil {
