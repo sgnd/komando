@@ -90,9 +90,9 @@ func keyGenCmd() *cobra.Command {
 	var overwrite bool
 	c := &cobra.Command{
 		Use:   "gen NAME",
-		Short: "Generate a new key pair stored in ~/.komando/keys (ed25519 default)",
-		Long: `Generates a key pair like ssh-keygen and adds it to komando's key list. The private
-key stays in ~/.komando/keys/NAME (mode 600); deploy the public part with
+		Short: "Make a new key pair in ~/.komando/keys (ed25519 by default)",
+		Long: `Makes a key pair like ssh-keygen and adds it to komando's key list. The private
+key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers with
 ` + "`komando key deploy`" + `. RSA keys need at least 3072 bits.`,
 		Example: `  komando key gen deploy && komando key deploy deploy @web
   komando key gen legacy --type rsa -b 4096 -C ops@example.com`,
@@ -178,7 +178,7 @@ key stays in ~/.komando/keys/NAME (mode 600); deploy the public part with
 }
 
 func keyExists(name string) error {
-	return out.Errf(out.ExitConflict, "KEY_EXISTS", "choose another name, or `komando key rm "+name+"` first", "key %q exists", name)
+	return out.Errf(out.ExitConflict, "KEY_EXISTS", "choose another name, or `komando key rm "+name+"` first", "key %q already exists", name)
 }
 
 // isPublicKey reports whether b is a public key (a .pub file).
@@ -191,7 +191,7 @@ func keyAddCmd() *cobra.Command {
 	var passRef string
 	c := &cobra.Command{
 		Use:   "add NAME PATH",
-		Short: "Register an existing private key file (not copied; referenced by path)",
+		Short: "Add a private key file you already have (komando keeps its path)",
 		Long: `Adds a private key file you already have to komando's key list; the file stays
 where it is. For a key with a passphrase, store the passphrase in the vault
 and pass --passphrase-ref secret:NAME.`,
@@ -335,7 +335,7 @@ value clears it.`,
 			return nil
 		},
 	}
-	c.Flags().StringVar(&passRef, "passphrase-ref", "", "secret:NAME | env:VAR | ... (empty clears)")
+	c.Flags().StringVar(&passRef, "passphrase-ref", "", "where the passphrase is: secret:NAME | env:VAR | ... (empty clears it)")
 	return c
 }
 
@@ -363,7 +363,7 @@ func (l sshKeyList) Text() string {
 func keyListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List keys and which hosts use them",
+		Short: "List keys and the servers that use them",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			st, err := loadState()
@@ -412,7 +412,7 @@ func keyRmCmd() *cobra.Command {
 	var deleteFile bool
 	c := &cobra.Command{
 		Use:   "rm NAME",
-		Short: "Remove a key from komando's key list (fails if hosts still use it)",
+		Short: "Remove a key from komando's key list (not while a server uses it)",
 		Long: `Removes the key from komando's key list. --delete-file also deletes the key files,
 but only for keys komando made (key gen); a key you added stays on disk.`,
 		Args: cobra.ExactArgs(1),
@@ -426,7 +426,7 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 				res["removed"] = k.Name
 				for _, h := range s.SortedHosts() {
 					if h.Key == k.Name {
-						return out.Errf(out.ExitConflict, "KEY_IN_USE", "reassign hosts with `komando host edit "+h.Name+" --key OTHER`", "key used by host %s", h.Name)
+						return out.Errf(out.ExitConflict, "KEY_IN_USE", "give the server another key first: `komando host edit "+h.Name+" --key OTHER`", "server %s still uses this key", h.Name)
 					}
 				}
 				switch {
@@ -460,7 +460,7 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 func deployKey(st *store.State, arg string) (name, line string, err error) {
 	if k, ok := st.Keys[arg]; ok {
 		if k.PublicKey == "" {
-			return "", "", out.Errf(out.ExitUsage, "NO_PUBLIC_KEY", "place "+k.Path+".pub next to the key, then `komando key rm "+k.Name+"` and add it again", "public key for %s unknown", k.Name)
+			return "", "", out.Errf(out.ExitUsage, "NO_PUBLIC_KEY", "place "+k.Path+".pub next to the key, then `komando key rm "+k.Name+"` and add it again", "komando does not have the public key of %s", k.Name)
 		}
 		pub, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(k.PublicKey))
 		if err != nil {
@@ -483,10 +483,11 @@ func keyDeployCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "deploy KEY TARGET",
 		Short: "Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)",
-		Long: `Installs a public key on servers, like ssh-copy-id. KEY is a key in the
-keychain or a .pub file. komando logs in with the hosts' current credentials
-(e.g. a password) and appends the key to ~/.ssh/authorized_keys unless it is
-already there. With --set-default the hosts then use this key.`,
+		Long: `Installs a public key on servers, like ssh-copy-id. KEY is a key in
+komando's key list or a .pub file. komando logs in the way each server is set
+up now (a password, for example) and appends the key to ~/.ssh/authorized_keys
+unless it is already there. With --set-default the servers then log in with
+this key.`,
 		Example: `  komando key gen deploy && komando key deploy deploy @web --set-default
   komando key deploy ~/.ssh/id_ed25519.pub web1`,
 		Args: cobra.ExactArgs(2),
@@ -500,7 +501,7 @@ already there. With --set-default the hosts then use this key.`,
 				return err
 			}
 			if setDefault && st.Keys[name] == nil {
-				return out.Errf(out.ExitUsage, "USAGE", "add the private key first with `komando key add NAME PATH`, then deploy NAME", "--set-default needs a key in the keychain, not a .pub file")
+				return out.Errf(out.ExitUsage, "USAGE", "add the private key first with `komando key add NAME PATH`, then deploy NAME", "--set-default needs a key in komando's key list, not a .pub file")
 			}
 			hosts, err := resolveTargets(st, args[1])
 			if err != nil {
@@ -563,7 +564,7 @@ already there. With --set-default the hosts then use this key.`,
 			return finish("key.deploy", data, data.Summary, worst)
 		},
 	}
-	c.Flags().BoolVar(&setDefault, "set-default", false, "make successful hosts use this key")
+	c.Flags().BoolVar(&setDefault, "set-default", false, "servers that got the key log in with it from now on")
 	return c
 }
 

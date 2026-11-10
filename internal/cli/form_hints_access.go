@@ -85,12 +85,10 @@ func init() {
 
 		// Secrets
 		"secret set": {args: []formArg{{ask: "What name should the secret have?", example: "db-pass", pick: "secret", free: true,
-			help: "Pick one to give it a new value, or type a new name: small letters, digits, - and _. komando asks for the value next and hides it as you type or paste."}},
-			hide: []string{"from-env"}},
+			help: "Pick one to give it a new value, or type a new name: small letters, digits, - and _. komando asks for the value next and hides it as you type or paste."}}},
 		"secret get": {args: []formArg{accSecret}},
 		"secret check": {args: []formArg{{ask: "Which secret should your value be compared with?", example: "vpn-pass", pick: "secret", free: true,
-			help: "Its name in the vault. komando asks for your value next, hidden, and says whether it matches, never showing either."}},
-			hide: []string{"from-env"}},
+			help: "Its name in the vault. komando asks for your value next, hidden, and says whether it matches, never showing either."}}},
 		"secret list": {},
 		"secret mv":   {args: []formArg{accSecret, accSecretNew}, flags: []formFlag{accOverwrite}},
 		"secret cp":   {args: []formArg{accSecret, accSecretNew}, flags: []formFlag{accOverwrite}},

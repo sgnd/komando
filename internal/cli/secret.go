@@ -194,7 +194,7 @@ person compare a value with the stored one without showing either.`,
 	}
 	set := &cobra.Command{
 		Use:   "set NAME",
-		Short: "Store a secret (asks for it hidden; or from --from-env VAR or stdin)",
+		Short: "Store a secret (typed hidden, or from --from-env VAR or stdin)",
 		Long: `Stores or replaces a secret. Replacing one that a protected server or conn
 uses needs --yes: it changes how komando logs in there.
 
@@ -302,7 +302,7 @@ login; 'komando secret check NAME' lets a person compare it.`,
 	}
 	check := &cobra.Command{
 		Use:   "check NAME",
-		Short: "Compare a secret with a value you enter, without showing either (a person only)",
+		Short: "Compare a typed value to a secret; shows neither (a person only)",
 		Long: `Asks for a value (hidden, or from --from-env VAR or a pipe) and says whether it
 is the stored one. When it is not, it says how they differ - only spaces at
 the ends, only upper and lower case, or the number of characters - but never
@@ -367,7 +367,7 @@ picks would be a way to guess the secret one try at a time.`,
 	}
 	rm := &cobra.Command{
 		Use:   "rm NAME...",
-		Short: "Delete secrets (refused while a server, conn, key or VPN uses them)",
+		Short: "Delete secrets (refused while anything still uses them)",
 		Example: `  komando secret rm old-pass
   komando secret rm a-pass b-pass --dry-run`,
 		Args: cobra.MinimumNArgs(1),
@@ -417,14 +417,14 @@ picks would be a way to guess the secret one try at a time.`,
 func secretCopyCmd(move bool) *cobra.Command {
 	var overwrite bool
 	verb, command := "cp", "secret.cp"
-	short := "Copy a secret to a new name inside the vault (the value is never shown)"
+	short := "Copy a secret to a new name in the vault (value never shown)"
 	long := `Stores the value of OLD under NEW as well. The value stays inside the vault:
 it is never printed, so an AI agent can do this too. Nothing that uses OLD
 changes.`
 	example := "  komando secret cp db-pass db-pass-old\n  komando secret cp web-pass shared-pass --overwrite"
 	if move {
 		verb, command = "mv", "secret.mv"
-		short = "Rename a secret, and every reference to it (the value is never shown)"
+		short = "Rename a secret and every reference to it (value never shown)"
 		long = `Renames OLD to NEW inside the vault, and points every server, conn, key and
 VPN that used secret:OLD at secret:NEW in the same step, so nothing stops
 working and nobody types the value again. The value is never printed, so an

@@ -183,11 +183,9 @@ func (f *file) aead() (cipher.AEAD, error) {
 
 // key is what the vault's key is derived from, by its mode: the
 // passphrase, the key in the keychain or the key in vault.key (made when
-// the vault holds nothing yet). A new vault without a passphrase gets its
-// key in the keychain when this computer has one that keeps it and can
-// tell it holds no other key for this folder (keychainNewKey), and
-// otherwise in vault.key: a copy of the komando folder (a backup, a synced
-// home) then holds no key that opens it.
+// the vault holds nothing yet). keychainNewKey decides where a new key
+// goes; a key in the keychain means a copy of the komando folder (a
+// backup, a synced home) holds no key that opens it.
 func (f *file) key() ([]byte, error) {
 	var secret []byte
 	switch f.Mode {

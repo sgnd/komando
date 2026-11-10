@@ -14,8 +14,8 @@ import (
 // --ask-password lets a person give a server or conn its password in the
 // same step as adding it: typed once, hidden, stored in the vault as
 // secret:NAME-pass and used as its --password-ref. Without it a password
-// login took three commands and a secret name the person had to make up
-// (secret set, host edit --password-ref, test).
+// login takes three commands and a made-up secret name (secret set, host
+// edit --password-ref, test).
 
 func askPasswordFlag(c *cobra.Command, ask *bool) {
 	c.Flags().BoolVar(ask, "ask-password", false, "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref")

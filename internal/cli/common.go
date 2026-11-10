@@ -281,8 +281,8 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 		}
 		if len(hits) > 0 && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerous(names, hits[0].Reason) {
 			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
-				"if this is truly intended, confirm with the user and re-run with --allow-dangerous (try --dry-run first)",
-				"command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")))
+				"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
+				"the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")))
 		}
 	}
 	if mutating {
@@ -294,8 +294,8 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 		}
 		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
 			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
-				"protected hosts require explicit confirmation: re-run with --yes after verifying intent",
-				"mutating action targets protected %s: %s", nouns(len(prot), "host"), strings.Join(prot, ", ")))
+				"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
+				"this changes protected %s: %s", nouns(len(prot), "host"), strings.Join(prot, ", ")))
 		}
 	}
 	return nil
@@ -338,8 +338,8 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 	}
 	if v.Risk >= driver.RiskDestructive && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerous(names, strings.Join(v.Reasons, "; ")) {
 		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
-			"if this is truly intended, confirm with the user and re-run with --allow-dangerous (try --dry-run first)",
-			"operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")))
+			"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
+			"the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")))
 	}
 	if v.Risk >= driver.RiskWrite {
 		var prot []string
@@ -350,8 +350,8 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 		}
 		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
 			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
-				"protected conns require explicit confirmation: re-run with --yes after verifying intent",
-				"%s action targets protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", ")))
+				"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
+				"a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", ")))
 		}
 	}
 	return nil
@@ -711,10 +711,10 @@ func finish(command string, data any, sum fleetSummary, worstExit int) error {
 	var soft *out.Error
 	if sum.Failed > 0 {
 		soft = &out.Error{Code: "PARTIAL_FAILURE", Message: failedOf(sum.Failed, sum.Total) + ": " + strings.Join(sum.FailedHosts, ", "),
-			Hint: "see the per-host results (data.results) for exit codes and stderr", Exit: worstExit}
+			Hint: "see each server's result in data.results for its exit code and stderr", Exit: worstExit}
 		if sum.Total == 1 {
 			soft.Code = "FAILED"
-			soft.Message = "host " + sum.FailedHosts[0] + " failed"
+			soft.Message = "server " + sum.FailedHosts[0] + " failed"
 		}
 	}
 	out.P.Print(command, data, soft)

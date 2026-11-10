@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping! Please write issues, pull requests and docs in English.
+Thank you for helping. Please write issues, pull requests and docs in English.
 
 komando is open source under the [AGPL-3.0](LICENSE), and is also sold under a
 [commercial license](COMMERCIAL-LICENSE.md) that pays for its work. Before your
@@ -8,7 +8,7 @@ first pull request is merged, please sign the
 [Contributor License Agreement](CLA.md): a bot asks you on the pull request, and
 you sign once by writing a comment. You keep the copyright of what you wrote.
 
-komando is one command line for DevOps work, for people and their AI agents. It stays simple on purpose: one static binary, no windows, safe by default. The one menu is what `komando` alone opens for a person at a terminal, and it only runs ordinary commands.
+komando is one command line for DevOps work, for people and their AI agents. It stays simple on purpose: one static binary, no windows, safe by default. The menu that `komando` alone opens for a person at a terminal only runs ordinary commands, the same ones you could type.
 
 ## Report a bug or suggest a feature
 
@@ -25,7 +25,7 @@ A change fits when all of these are true:
 
 Bigger features start as a design note in [`docs/design/`](docs/design/) (for example [resources and `komando db`](docs/design/resources-and-db.md)). Open an issue first if you are not sure.
 
-## Get started in 3 commands
+## Build and test
 
 You need [Go](https://go.dev/dl/) (the version in [`go.mod`](go.mod) or newer),
 `make` and `git`. The end-to-end tests also need
@@ -68,7 +68,9 @@ Each area has its own file in `internal/cli/` (`host.go`, `exec.go`, `fs.go`, `d
 9. **Keep pieces small**: a function up to 100 lines, a file up to 800. Split instead of growing ([`internal/codesize`](internal/codesize/codesize_test.go) checks it).
 10. **Never break the JSON**: fields may be added, never renamed or removed. `TestOutputShapes` keeps the shape of the answers; after adding a field, run `go test ./internal/cli -run TestOutputShapes -update-shapes`.
 
-The reasons behind 8–10, and what comes next, are in [docs/design/maintenance.md](docs/design/maintenance.md).
+A new command shows up in the menu's All features on its own: the questions come from its `Use` line and its flags. `TestFormEveryCommandHasAnArea` fails when its first word is in no area of `formAreas` ([`internal/cli/form_cmd.go`](internal/cli/form_cmd.go)); add the word there, or give the command a `formHint` with an `area`. A `formHint` in `internal/cli/form_hints_*.go` also makes the questions read better: which arguments come from a list, and which flags to ask first.
+
+The reasons behind rules 8 to 10, and what comes next, are in [docs/design/maintenance.md](docs/design/maintenance.md).
 
 Update the docs in the same pull request:
 
