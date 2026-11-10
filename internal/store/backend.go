@@ -77,6 +77,9 @@ type openStore struct {
 	db     *sealdb.DB
 	fi     os.FileInfo // the file it opened, to notice a file put in its place
 	master []byte      // its master key, made once per process (scrypt is slow)
+	// lookOnly: an old copy opened under AllowOldCopy (doctor, a dry run);
+	// never handed to a command without it
+	lookOnly bool
 }
 
 var (
@@ -94,7 +97,7 @@ func DB(create bool) (*sealdb.DB, error) {
 	if o, ok := dbOpen[home]; ok {
 		// a store removed or replaced (a restore from backup) since it was
 		// opened is opened again, never written through the old handle
-		if fi, err := os.Stat(Path(StoreFile)); err == nil && os.SameFile(fi, o.fi) {
+		if fi, err := os.Stat(Path(StoreFile)); err == nil && os.SameFile(fi, o.fi) && (!o.lookOnly || AllowOldCopy) {
 			return o.db, nil
 		}
 		o.db.Close()
@@ -131,18 +134,26 @@ func openDB(ctx context.Context, home, path string, meta map[string]string) (*se
 	if err != nil {
 		return nil, err
 	}
-	return remember(home, path, d, master)
+	lookOnly, err := checkGeneration(d, meta)
+	if err != nil {
+		d.Close()
+		return nil, err
+	}
+	if !lookOnly {
+		d.OnGeneration = raiseGeneration
+	}
+	return remember(home, path, d, master, lookOnly)
 }
 
 // remember keeps d as this home's open store, with the file it opened
 // and its master key.
-func remember(home, path string, d *sealdb.DB, master []byte) (*sealdb.DB, error) {
+func remember(home, path string, d *sealdb.DB, master []byte, lookOnly bool) (*sealdb.DB, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		d.Close()
 		return nil, err
 	}
-	dbOpen[home] = openStore{d, fi, master}
+	dbOpen[home] = openStore{d, fi, master, lookOnly}
 	return d, nil
 }
 
@@ -196,7 +207,22 @@ func createDB(ctx context.Context, home, path string) (*sealdb.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return remember(home, path, d, master)
+	// a new store's number goes into the keychain with it: from now on a
+	// missing number is never normal
+	if guarded(meta) {
+		if n, gerr := d.Generation(ctx); gerr == nil {
+			_ = GenerationKeeper.Set(n)
+		}
+	}
+	lookOnly, err := checkGeneration(d, meta)
+	if err != nil {
+		d.Close()
+		return nil, err
+	}
+	if !lookOnly {
+		d.OnGeneration = raiseGeneration
+	}
+	return remember(home, path, d, master, lookOnly)
 }
 
 // closeDBs closes every open store (tests that change the home).

@@ -204,12 +204,13 @@ func TestSealedKeyToKeychainAndBack(t *testing.T) {
 	keychainOS = "linux"
 	t.Cleanup(func() { keychainOS = saved })
 	script := `#!/bin/sh
-kept="` + dir + `/kept"
+d="` + dir + `"
+f() { echo "$d/$(echo "$1" | tr ' /' '__')"; }
 case "$1" in
-  store) cat > "$kept" ;;
-  lookup) [ -f "$kept" ] && cat "$kept" || exit 1 ;;
-  search) if [ -f "$kept" ]; then printf '[/org/freedesktop/secrets/collection/login/1]\nlabel = %s\n' "$4"; fi ;;
-  clear) rm -f "$kept" ;;
+  store) cat > "$(f "$4")" ;;
+  lookup) [ -f "$(f "$3")" ] && cat "$(f "$3")" || exit 1 ;;
+  search) if [ -f "$(f "$4")" ]; then printf '[/org/freedesktop/secrets/collection/login/1]\nlabel = %s\n' "$4"; fi ;;
+  clear) rm -f "$(f "$3")" ;;
 esac
 `
 	os.WriteFile(dir+"/secret-tool", []byte(script), 0o755)

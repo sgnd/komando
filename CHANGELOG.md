@@ -18,6 +18,10 @@ its highlights; the sections below them give the details. Versions follow
   `KOMANDO_VAULT_PASS`. With a passphrase, every command needs it, reads
   included. A store made by a newer komando stops with `STORE_NEWER`.
   Folders from earlier versions keep their files unchanged.
+- **Old copies are noticed:** with the store's key in the OS keychain, the
+  keychain also remembers how many changes the store has had. An older
+  copy put back stops commands with `STORE_OLD_COPY` (exit 6) until a
+  person runs `komando doctor --accept-old-copy`.
 - **Windows:** komando builds and runs natively on Windows, with the vault
   key in Windows Credential Manager, a native "Allow once" window, and
   `.zip` releases.

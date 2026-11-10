@@ -69,3 +69,12 @@ func TestSealedConfigAndDoctor(t *testing.T) {
 		t.Errorf("doctor does not name the store: %v", sec)
 	}
 }
+
+// Accepting an old copy is for a person at a terminal.
+func TestAcceptOldCopyNeedsAPerson(t *testing.T) {
+	invHome(t)
+	t.Setenv("KOMANDO_AGENT", "1")
+	if _, e := invRun(t, "doctor", "--accept-old-copy"); e == nil || e.Code != "NEEDS_PERSON" {
+		t.Fatalf("agent: %+v", e)
+	}
+}

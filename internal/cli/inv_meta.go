@@ -518,7 +518,8 @@ func connHygiene(st *store.State, warn func(name, detail string)) {
 }
 
 func doctorCmd() *cobra.Command {
-	return &cobra.Command{
+	var acceptOld bool
+	c := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check the local setup, the inventory and its security",
 		Long: `Checks komando's folder, vault, audit log and tools, then the inventory:
@@ -528,6 +529,10 @@ password, repeat another conn or belong to a protected server without being
 protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if acceptOld {
+				return acceptOldCopy()
+			}
+			defer lookAtOldCopy()() // doctor must be able to say what is wrong
 			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}}
 			add := func(name string, ok bool, detail string) { r.Checks = append(r.Checks, doctorCheck{name, ok, detail}) }
 			st, err := loadState()
@@ -609,6 +614,8 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			return nil
 		},
 	}
+	c.Flags().BoolVar(&acceptOld, "accept-old-copy", false, "use the komando folder as it is now after a restore from a backup, though it is older than the keychain remembers (a person only)")
+	return c
 }
 
 // policyList is `policy list`: every rule as data; for people a table of

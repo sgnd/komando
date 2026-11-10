@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"net"
 	"net/url"
@@ -45,6 +46,7 @@ func securityChecks(st *store.State) []securityCheck {
 		add("vault", false, false, err.Error())
 	} else if !s.NoVaultYet && store.Sealed() {
 		sealedStoreCheck(add, s)
+		oldCopyCheck(add)
 	} else if !s.NoVaultYet {
 		switch {
 		case s.Mode == "keyfile":
@@ -125,6 +127,25 @@ func sealedStoreCheck(add func(name string, ok, warn bool, detail string), s vau
 		add("vault", false, true, "KOMANDO_VAULT_PASS is shorter than 15 characters (NIST SP 800-63B); change it with `komando secret passphrase`")
 	default:
 		add("vault", true, false, "everything sealed in "+store.StoreFile+" (AES-256-GCM), passphrase with scrypt N=2^17")
+	}
+}
+
+// oldCopyCheck says whether an old copy of the store would be noticed.
+func oldCopyCheck(add func(name string, ok, warn bool, detail string)) {
+	have, kept, guarded, old, err := store.CopyState()
+	switch {
+	case err != nil && old:
+		add("old_copy", false, false, "the keychain's change count for "+store.StoreFile+" cannot be read ("+err.Error()+"): someone may have changed it. If you restored the folder on purpose, run `komando doctor --accept-old-copy`")
+	case err != nil:
+		add("old_copy", false, true, err.Error())
+	case !guarded:
+		add("old_copy", false, true, "an old copy of "+store.StoreFile+" put back (from a backup, or by someone) would not be noticed: that needs the store's key in the OS keychain (`komando secret keychain`)")
+	case old && kept == 0:
+		add("old_copy", false, false, "the keychain has no change count for "+store.StoreFile+" though its key is there: it was removed. If you restored the folder on purpose, run `komando doctor --accept-old-copy`")
+	case old:
+		add("old_copy", false, false, fmt.Sprintf("%s is an older copy (change %d) than the keychain remembers (change %d). If you restored it on purpose, run `komando doctor --accept-old-copy`", store.StoreFile, have, kept))
+	default:
+		add("old_copy", true, false, "an old copy put back would be noticed (the keychain remembers change "+strconv.FormatUint(kept, 10)+")")
 	}
 }
 

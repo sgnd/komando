@@ -610,3 +610,36 @@ func TestRekey(t *testing.T) {
 		return nil
 	})
 }
+
+// The generation counts write steps that change records; audit entries
+// and readable settings do not count, and a step counts once however many
+// records (or savepoints) it changes.
+func TestGeneration(t *testing.T) {
+	d := open(t, filepath.Join(t.TempDir(), "store.db"))
+	var seen []uint64
+	d.OnGeneration = func(n uint64) { seen = append(seen, n) }
+	g0, _ := d.Generation(ctx)
+	_ = d.Update(ctx, func(tx *Tx) error {
+		_, _ = tx.Put("server", "", []byte("a"))
+		_, _ = tx.Put("server", "", []byte("b"))
+		return d.Update(ctx, func(in *Tx) error { _, err := in.Put("server", "", []byte("c")); return err })
+	})
+	_ = d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("x")) })
+	_ = d.Update(ctx, func(tx *Tx) error { return tx.SetMeta("k", "v") })
+	_ = d.View(ctx, func(tx *Tx) error { _, _ = tx.List("server"); return nil })
+	g1, _ := d.Generation(ctx)
+	if g1 != g0+1 || len(seen) != 1 || seen[0] != g1 {
+		t.Fatalf("generation %d -> %d, told %v", g0, g1, seen)
+	}
+	var id string
+	_ = d.View(ctx, func(tx *Tx) error { l, _ := tx.List("server"); id = l[0].ID; return nil })
+	_ = d.Update(ctx, func(tx *Tx) error { return tx.Delete(id) })
+	if g2, _ := d.Generation(ctx); g2 != g1+1 {
+		t.Fatalf("a delete did not count: %d", g2)
+	}
+	// a failed step does not count
+	_ = d.Update(ctx, func(tx *Tx) error { _, _ = tx.Put("server", "", nil); return errors.New("no") })
+	if g3, _ := d.Generation(ctx); g3 != g1+1 {
+		t.Fatalf("a failed step counted: %d", g3)
+	}
+}

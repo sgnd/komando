@@ -85,7 +85,16 @@ A folder komando makes new keeps your data sealed in one file:
 | `vpn/`, `tunnels/` | VPN and tunnel logs, and the state of built-in VPN clients |
 
 Copy `store.db` only with komando running nothing, or a copy taken during a
-change may be broken. The same three ways keep its key as the vault's key
+change may be broken.
+
+When the store's key is in the OS keychain, the keychain also remembers
+how many changes the store has had. An older copy of `store.db` put back
+(from a backup, or by someone) stops every command with `STORE_OLD_COPY`,
+because its servers, rules, secrets or pinned host keys may be old.
+`komando doctor` and dry runs still work. If you restored the folder on
+purpose, run `komando doctor --accept-old-copy` in your own terminal. With
+the key in `store.key` or a passphrase there is nothing to compare with,
+and `komando doctor` says so. The same three ways keep its key as the vault's key
 below: `komando secret keychain` and `komando secret passphrase` move and
 change it, and `komando doctor` says which one is in use.
 

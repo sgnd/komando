@@ -389,7 +389,7 @@ func newRoot() *cobra.Command {
 			out.P.Pretty = g.pretty
 			out.P.Version = Version
 			out.P.DryRun = g.dryRun
-			store.DryRun = g.dryRun
+			store.DryRun, store.AllowOldCopy = g.dryRun, g.dryRun // a dry run may look at an old copy: it changes nothing
 			out.P.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
 			// a person at the terminal answers what an SSH login asks

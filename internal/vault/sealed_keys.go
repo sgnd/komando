@@ -198,6 +198,7 @@ func removeOldStoreKey(from string) (removed, left string) {
 			return "store.key", ""
 		}
 	case "keychain":
+		genDel()
 		if err := keychainDel(); err != nil {
 			return "", fmt.Sprintf("the old key is still in the keychain (%v); nothing uses it now, remove it there", err)
 		}
@@ -309,6 +310,9 @@ func sealedKeyToKeychain() (string, error) {
 	if err := store.SetStoreMeta(map[string]string{"key_mode": "keychain"}); err != nil {
 		return "", err
 	}
+	if err := store.StartGeneration(); err != nil {
+		return "", err
+	}
 	// overwrite, then remove: the key now lives only in the keychain
 	_ = os.WriteFile(kp, make([]byte, len(key)), 0o600)
 	return tool, os.Remove(kp)
@@ -336,5 +340,6 @@ func sealedKeyToFile() error {
 	if err := store.SetStoreMeta(map[string]string{"key_mode": "keyfile"}); err != nil {
 		return err
 	}
+	genDel()
 	return keychainDel()
 }
