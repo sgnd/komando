@@ -1,7 +1,7 @@
 # Servers
 
 Add your servers, choose how komando logs in to them, and keep the list
-tidy. [All features](README.md)
+tidy. [All docs](README.md)
 
 ## Quick start
 
@@ -390,6 +390,26 @@ komando secret rm old-pass                   # refused while something uses it
 Replacing a secret that a protected server or conn uses needs `--yes` (also
 with `secret mv` or `secret cp --overwrite`). Only a person at a terminal can
 see a value, with `secret get --reveal`; AI agents never get it.
+
+### Where saved passwords are kept
+
+Saved passwords are encrypted. A new komando keeps the key that opens them
+in the system keychain (the macOS keychain, or the Secret Service on Linux),
+so a backup or a synced copy of `~/.komando` does not open them. Where there
+is no keychain (a Linux server, a container), the key is a file in
+`~/.komando` and `komando doctor` says so. An older komando keeps its key
+file until you move the key, once (nothing is encrypted again):
+
+```bash
+komando secret keychain
+```
+
+On Linux this needs `secret-tool` (`sudo apt install libsecret-tools`) and a
+desktop session with a keyring. On a server without one, give the saved
+passwords a passphrase instead (`komando secret passphrase`). You do not
+need `KOMANDO_VAULT_PASS`: a passphrase is optional, mainly for a computer
+without a keychain (see
+[Settings](settings.md#where-komando-keeps-its-data)).
 
 ## Passwords from your password manager
 

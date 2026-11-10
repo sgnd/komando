@@ -31,7 +31,7 @@ func vpnCmd() *cobra.Command {
 		Use:   "vpn",
 		Short: "VPNs komando connects by itself when a --via path needs one",
 		Long: `Add a VPN once, then put it first in --via. A command that needs it
-connects it, using the login stored in the vault:
+connects it, using the login you saved:
 
   komando vpn add office wireguard --config ~/Downloads/office.conf
   komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
@@ -49,6 +49,13 @@ Kinds (also: pritunl = openvpn; cisco = ipsec):
 	return c
 }
 
+// vpnFlagHint says how to give a flag a VPN kind needs.
+var vpnFlagHint = map[string]string{
+	"config": "give the file your VPN provider sent, for example --config ~/Downloads/kantor.ovpn (OpenVPN) or --config ~/Downloads/office.conf (WireGuard)",
+	"portal": "give the address you type in the VPN app, for example --portal vpn.example.com",
+	"server": "give the VPN server's address, for example --server vpn.example.com",
+}
+
 func vpnAddCmd() *cobra.Command {
 	var config, address, portal, service, server, user, passwordRef, check, notes, pskRef, localID, remoteID, ca string
 	var groups, tags []string
@@ -56,6 +63,19 @@ func vpnAddCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "add NAME KIND",
 		Short: "Add a VPN (see `komando vpn --help` for the kinds)",
+		Long: `Saves a VPN under a short name. Typed alone at a terminal, it asks step by
+step, starting with the VPN app your company uses.
+
+Which flags go with which VPN:
+  Every VPN                 --user, --password-ref or --ask-password, --check, --mfa
+  WireGuard, OpenVPN        --config FILE (the .conf or .ovpn file)
+  GlobalProtect, Fortinet,  --portal (the VPN server or portal)
+  AnyConnect, Pulse, F5
+  L2TP, IPsec, IKEv2        --server, --psk-ref or --ask-psk; IPsec: --id;
+                            IKEv2: --id, --remote-id, --ca
+  Tailscale                 --password-ref (the auth key); Headscale: --server
+  System VPN                --service (its name in your computer's settings)
+  SOCKS or HTTP proxy       --address`,
 		Example: `  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
   komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
   komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
@@ -108,6 +128,9 @@ func vpnAddCmd() *cobra.Command {
 			need := func(flag string, ok bool) error {
 				used[flag] = true
 				if !ok {
+					if h := vpnFlagHint[flag]; h != "" {
+						return out.Errf(out.ExitUsage, "USAGE", h, "%s needs --%s", kind, flag)
+					}
 					return out.Usage("%s needs --%s", kind, flag)
 				}
 				return nil
@@ -269,7 +292,7 @@ func vpnAddCmd() *cobra.Command {
 		},
 	}
 	f := c.Flags()
-	f.StringVar(&config, "config", "", "wireguard: the .conf file; openvpn: the .ovpn file (both kept in the vault)")
+	f.StringVar(&config, "config", "", "wireguard: the .conf file; openvpn: the .ovpn file (komando keeps a copy)")
 	f.StringVar(&address, "address", "", "socks: host:port of the proxy; proxy: host:port or http(s)://host:port")
 	f.StringVar(&portal, "portal", "", "globalprotect, fortinet, anyconnect, pulse, f5: the VPN server or portal")
 	f.StringVar(&service, "service", "", "system: the VPN's name in your computer's settings, so 'vpn up' can connect it")
@@ -279,9 +302,9 @@ func vpnAddCmd() *cobra.Command {
 	f.StringVar(&remoteID, "remote-id", "", "ikev2: the server's identity, if not its --server name")
 	f.StringVar(&ca, "ca", "", "ikev2: the CA certificate (PEM) that signed the server's certificate, if not a public one")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
-	f.StringVar(&passwordRef, "password-ref", "", "password (tailscale: auth key) as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
+	f.StringVar(&passwordRef, "password-ref", "", "where the password is (tailscale: the auth key): secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
 	askPasswordFlag(c, &askPw)
-	f.BoolVar(&askPsk, "ask-psk", false, "l2tp, ipsec, ikev2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-psk and used as --psk-ref")
+	f.BoolVar(&askPsk, "ask-psk", false, "l2tp, ipsec, ikev2: type the pre-shared key now (hidden, a person at a terminal); it is saved as secret:NAME-psk and used as --psk-ref")
 	f.BoolVar(&osMode, "os-mode", false, "openvpn: deprecated; run the openvpn program on this computer with sudo (changes its network) instead of komando's own client")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' by a human connects it")
 	f.BoolVar(&legacyCrypto, "legacy-crypto", false, "l2tp, ipsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes)")
@@ -297,7 +320,7 @@ func vpnAddCmd() *cobra.Command {
 func vpnShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show NAME",
-		Short: "Show a VPN (keys stay in the vault)",
+		Short: "Show a VPN (saved keys are never shown)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()

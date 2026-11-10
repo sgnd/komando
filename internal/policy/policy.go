@@ -112,7 +112,7 @@ func Invalid(extra []string) map[int]string {
 
 func badPattern(i int, p string, err error) string {
 	return "custom deny pattern " + p + " is not a valid regular expression (" + err.Error() +
-		"), so every command matches it; fix it, or remove it with `komando policy allow custom-" + itoa(i) + " --yes`"
+		"), so every command matches it; fix it, or remove it with `komando policy rm custom-" + itoa(i) + "`"
 }
 
 // Normalize prepares a command for matching: line breaks become ";" (the

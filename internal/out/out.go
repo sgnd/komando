@@ -41,6 +41,34 @@ type Error struct {
 	// Final: no flag lifts this stop (no --yes, --allow-dangerous or
 	// --reveal), so an AI agent is not told that adding one asks the user
 	Final bool `json:"-"`
+
+	// text-mode wording for a person; JSON keeps Message and Hint
+	say, sayHint string
+	cancelled    bool
+}
+
+// Say sets the words a person reads in text mode. JSON is unchanged, so
+// agents and scripts keep the stable Message and Hint. An empty hint keeps
+// the usual one.
+func (e *Error) Say(msg, hint string) *Error { e.say, e.sayHint = msg, hint; return e }
+
+// Cancel marks a stop the person chose at the terminal: text mode prints
+// msg alone, without "Stopped:", a hint or the code.
+func (e *Error) Cancel(msg string) *Error { e.say, e.cancelled = msg, true; return e }
+
+// TextMessage and TextHint are what text mode prints.
+func (e *Error) TextMessage() string {
+	if e.say != "" {
+		return e.say
+	}
+	return e.Message
+}
+
+func (e *Error) TextHint() string {
+	if e.sayHint != "" {
+		return e.sayHint
+	}
+	return e.hintOrDefault()
 }
 
 func (e *Error) Error() string { return e.Code + ": " + e.Message }
@@ -359,8 +387,7 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 			}
 		}
 		if softErr != nil {
-			fmt.Fprintf(os.Stderr, "error [%s]: %s\n", softErr.Code, noteText(p.Redact(softErr.Message)))
-			p.hint(softErr.hintOrDefault())
+			p.printErr(softErr, false)
 		}
 		return
 	}
@@ -374,12 +401,42 @@ func (p *Printer) Fail(command string, err error) int {
 	}
 	if p.Format == "text" {
 		p.printSkipped()
-		fmt.Fprintf(os.Stderr, "error [%s]: %s\n", e.Code, noteText(p.Redact(e.Message)))
-		p.hint(e.hintOrDefault())
+		p.printErr(e, true)
 		return e.Exit
 	}
 	p.writeJSON(Envelope{OK: false, Command: command, Error: e, Meta: p.meta()})
 	return e.Exit
+}
+
+// printErr prints an error for a person: what happened first, then what
+// to do, then the code and exit code for looking it up. stopped is true
+// when the command ended here (Fail), so a safety stop changed nothing.
+func (p *Printer) printErr(e *Error, stopped bool) {
+	msg := noteText(p.Redact(e.TextMessage()))
+	if e.cancelled {
+		fmt.Fprintln(os.Stderr, msg)
+		return
+	}
+	if stopped && e.Exit == ExitPolicy {
+		msg = "Stopped: " + sentence(msg)
+		if !strings.Contains(strings.ToLower(msg), "nothing was changed") {
+			msg += " Nothing was changed."
+		}
+	} else {
+		msg = "Error: " + msg
+	}
+	fmt.Fprintln(os.Stderr, msg)
+	p.hint(e.TextHint())
+	fmt.Fprintf(hintW, "(code %s, exit %d)\n", e.Code, e.Exit)
+}
+
+// sentence ends s with a period unless it ends in punctuation already.
+func sentence(s string) string {
+	s = strings.TrimRight(s, " ")
+	if s == "" || strings.ContainsAny(s[len(s)-1:], ".!?:") {
+		return s
+	}
+	return s + "."
 }
 
 // hint prints an error's hint in text mode, hidden and made safe like the

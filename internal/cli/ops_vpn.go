@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -68,7 +69,7 @@ func (d vpnStatusData) Text() string {
 		if !r.Since.IsZero() {
 			since = humanAge(time.Since(r.Since))
 		}
-		rows = append(rows, []string{r.Name, r.Kind, up, since, strings.Join(r.UsedBy, ","), r.Detail})
+		rows = append(rows, []string{r.Name, r.Kind, up, since, usedByText(r.UsedBy), r.Detail})
 	}
 	return textTable([]string{"name", "kind", "up", "since", "used by", "detail"}, rows)
 }
@@ -362,4 +363,12 @@ func vpnOptIns(v *store.Vpn, changed func(string) bool, legacy, pap bool) error 
 		v.AllowPAP = pap
 	}
 	return nil
+}
+
+// usedByText is a USED BY cell that fits a table: "48 (app-01, app-02, +46)".
+func usedByText(names []string) string {
+	if len(names) <= 3 {
+		return strings.Join(names, ",")
+	}
+	return fmt.Sprintf("%d (%s, %s, +%d)", len(names), names[0], names[1], len(names)-2)
 }

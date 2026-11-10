@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"errors"
 	"slices"
 	"strconv"
@@ -15,22 +14,22 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// Every feature as questions: All features in the menu lists komando's
-// commands by area, and picking one asks for what the command needs, its
-// arguments first (a server, a database ... picked from a list) and the
-// flags that matter, the others under More options. The questions come
+// Every feature as questions: picking a task in the menu (Servers, web1,
+// Read logs) asks for what its command still needs, its arguments first (a
+// server, a database ... picked from a list) and the flags that matter, the
+// others under More options on the review. The questions come
 // from the command itself (its Use line and its flags), so a new command
 // or flag shows up here on its own; a formHint makes one read better.
 
 // formHint makes one command's questions read well.
 type formHint struct {
-	area  string     // its All features area; "" takes it from the command's first word
+	area  string     // its area in formAreas; "" takes it from the command's first word
 	args  []formArg  // by position; a missing one is a typed answer named from Use
 	flags []formFlag // asked in this order; every other flag waits under More options
 	hide  []string   // flags never offered here, besides formNeverFlags
 	// form is a hand-made form used instead (host add, conn add, vpn add)
 	form func() []formGroup
-	// skip keeps it out of All features (ssh-gate: sshd runs it, not a person)
+	// skip keeps it out of the menu (ssh-gate: sshd runs it, not a person)
 	skip bool
 	// always are flags every line gets (rename --prefix)
 	always []string
@@ -498,10 +497,11 @@ func formSplitWords(v string) []string {
 	return words
 }
 
-// --- All features ---
+// --- areas ---
 
-// formAreas is the All features list, in the order people need them, and
-// which command words fall in each when no hint says.
+// formAreas sorts the commands by area, and which command words fall in
+// each when no hint says. The menu reaches each command from an item's
+// tasks (menu.go); the areas keep the hints and tests in order.
 var formAreas = []struct {
 	label, detail string
 	words         []string
@@ -522,27 +522,7 @@ var formAreas = []struct {
 	{"Setup", "AI agents, the prompt, updates", []string{"guide", "prompt", "update", "version", "schema", "completion"}},
 }
 
-// formCommands lists the commands of one area: every runnable command
-// whose hint names the area, or whose first word is one of its words.
-func formCommands(root *cobra.Command, area int) []*cobra.Command {
-	var out []*cobra.Command
-	var walk func(c *cobra.Command)
-	walk = func(c *cobra.Command) {
-		for _, s := range c.Commands() {
-			if s.Hidden || s.Deprecated != "" || s.Name() == "help" {
-				continue
-			}
-			if formListed(s) && formAreaOf(s) == area {
-				out = append(out, s)
-			}
-			walk(s)
-		}
-	}
-	walk(root)
-	return out
-}
-
-// formListed: All features offers it. A group command (cache, cluster
+// formListed: the menu offers it. A group command (cache, cluster
 // helm) that only shows its help is left out; its subcommands are listed.
 func formListed(c *cobra.Command) bool {
 	h, hinted := formHints[commandKey(c)]
@@ -572,69 +552,6 @@ func formAreaOf(c *cobra.Command) int {
 	return -1
 }
 
-// formAllFeatures asks for an area, then a command in it, then that
-// command's questions; Esc goes back one list at a time.
-func formAllFeatures(ctx context.Context, t *menuTerm, st *store.State, scr menuScreen, try formTry) ([][]string, error) {
-	root := newRoot()
-	al := &menuList{title: "All features: which area?"}
-	for _, a := range formAreas {
-		al.rows = append(al.rows, menuRow{label: a.label, detail: a.detail, value: a.label})
-	}
-	ascr := scr
-	ascr.footer = listKeys(al, "Esc back", "Ctrl-C cancel")
-	for {
-		row, err := menuChoose(ctx, t, al, ascr)
-		if err != nil {
-			return nil, formQuitIsCancel(err)
-		}
-		al.point(row.value)
-		area := slices.IndexFunc(formAreas, func(a struct {
-			label, detail string
-			words         []string
-		}) bool {
-			return a.label == row.value
-		})
-		cmds, err := formAreaCommands(ctx, t, st, scr, root, area, try)
-		if errors.Is(err, errMenuBack) {
-			continue
-		}
-		return cmds, err
-	}
-}
-
-// formAreaCommands lists one area's commands (type to filter) and asks the
-// chosen one's questions.
-func formAreaCommands(ctx context.Context, t *menuTerm, st *store.State, scr menuScreen, root *cobra.Command, area int, try formTry) ([][]string, error) {
-	cl := &menuList{title: formAreas[area].label + ": what do you want to do?", typing: true,
-		empty: "no command in this area; Esc goes back"}
-	byKey := map[string]*cobra.Command{}
-	for _, c := range formCommands(root, area) {
-		key := commandKey(c)
-		byKey[key] = c
-		cl.rows = append(cl.rows, menuRow{label: key, detail: c.Short, value: key})
-	}
-	lscr := scr
-	lscr.footer = listKeys(cl, "Esc back", "Ctrl-C cancel")
-	for {
-		row, err := menuChoose(ctx, t, cl, lscr)
-		if err != nil {
-			return nil, formQuitIsCancel(err)
-		}
-		cl.point(row.value)
-		c := byKey[row.value]
-		var cmds [][]string
-		if h := formHints[row.value]; h.form != nil {
-			cmds, err = formGuidedOrAll(ctx, t, st, scr, c, h, try)
-		} else {
-			cmds, err = formFill(ctx, t, st, formCmdSpec(c), scr, formTryFor(c, try))
-		}
-		if errors.Is(err, errMenuBack) {
-			continue
-		}
-		return cmds, err
-	}
-}
-
 // formQuitIsCancel: q or Ctrl-C on a form's list cancels the form, not the
 // menu.
 func formQuitIsCancel(err error) error {
@@ -654,29 +571,4 @@ func formTryFor(c *cobra.Command, try formTry) formTry {
 		return nil
 	}
 	return try
-}
-
-// formGuidedOrAll is a command with a hand-made form (host add, conn add,
-// vpn add): step by step, or every option its flags have.
-func formGuidedOrAll(ctx context.Context, t *menuTerm, st *store.State, scr menuScreen, c *cobra.Command, h formHint, try formTry) ([][]string, error) {
-	l := &menuList{title: c.Short + ": how?", rows: []menuRow{
-		{label: "Step by step", detail: "plain questions, the usual choices (recommended)", value: "guided"},
-		{label: "Every option", detail: "every flag of `komando " + commandKey(c) + "`", value: "all"}}}
-	for {
-		row, err := menuChoose(ctx, t, l, scr)
-		if err != nil {
-			return nil, formQuitIsCancel(err)
-		}
-		l.point(row.value)
-		var cmds [][]string
-		if row.value == "guided" {
-			cmds, err = formChoose(ctx, t, st, h.form(), scr, try)
-		} else {
-			cmds, err = formFill(ctx, t, st, formCmdSpec(c), scr, formTryFor(c, try))
-		}
-		if errors.Is(err, errMenuBack) {
-			continue
-		}
-		return cmds, err
-	}
 }

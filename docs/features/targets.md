@@ -1,7 +1,7 @@
 # Targets
 
 Pick which servers, conns and VPNs a command works on: one name, a group, a
-tag, or everything. [All features](README.md)
+tag, or everything. [All docs](README.md)
 
 ## Quick start
 

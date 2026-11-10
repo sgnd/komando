@@ -1,7 +1,7 @@
 # Moving in and moving computers
 
 Bring in the servers and databases you already have, and move everything to
-another computer. [All features](README.md)
+another computer. [All docs](README.md)
 
 ## Quick start
 

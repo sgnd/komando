@@ -1,7 +1,7 @@
 # Clusters (Kubernetes and Docker Swarm)
 
 See and change what runs in Kubernetes and Docker Swarm with one set of
-commands. [All features](README.md)
+commands. [All docs](README.md)
 
 ## Quick start
 

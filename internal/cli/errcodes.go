@@ -15,6 +15,7 @@ var errorCodes = []errorCode{
 	{"AZURE_FAILED", 4, "…: …", "check that this computer reaches login.microsoftonline.com"},
 	{"AZURE_LOGIN_REQUIRED", 4, "…: …", "check that it answers and accepts the login: `komando test TARGET`"},
 	{"BACKUP_FAILED", 5, "could not make a backup of …: …", "the file was not changed; check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup"},
+	{"BACKUP_NOT_FOUND", 3, "no backup of … found (looked for ….bak)", "komando keeps a backup only when you edit with --backup; give another copy with --from FILE"},
 	{"BAD_CA", 2, "registry CA …: …", "store the registry's CA certificate (PEM) with `komando secret set NAME < ca.crt`"},
 	{"BAD_FILE", 2, "cannot read backup: …", "the file is not readable text SQL"},
 	{"BAD_RELEASE", 1, "… is … bytes, more than komando accepts", "nothing was changed; report it at …/issues"},

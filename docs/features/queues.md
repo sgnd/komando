@@ -3,7 +3,7 @@
 Look at and work with message queues safely: Apache Kafka, and what speaks
 its protocol (Redpanda, Amazon MSK, Confluent Cloud, Aiven), RabbitMQ,
 NATS with JetStream, Amazon SQS and Google Cloud Pub/Sub.
-[All features](README.md)
+[All docs](README.md)
 
 The same commands work for all five. Kafka keeps messages in **topics**;
 RabbitMQ and SQS keep them in **queues**; NATS keeps them in **streams**;

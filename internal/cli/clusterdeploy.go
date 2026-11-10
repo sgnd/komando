@@ -183,7 +183,7 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 		Example: `  komando cluster deploy prod deployment/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait
   komando cluster deploy swarm1 service/web --image nginx:1.27 --wait`,
 		Args: refArgs(1, 0),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (rerr error) {
 			if image == "" {
 				return out.Usage("give the new image with --image")
 			}
@@ -214,9 +214,11 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 					return err
 				}
 				line := "docker service update --with-registry-auth --detach --image " + sshx.Q(image) + " " + sshx.Q(name)
+				defer rollbackNote(&rerr, args[0], "service/"+name, "")
 				return swarmChange(cmd.Context(), "cluster.deploy", t, name, line, wait, false, driver.RiskWrite,
 					map[string]any{"object": "service/" + name, "image": image, "previous_image": serviceImage(ins["Spec"])})
 			}
+			defer rollbackNote(&rerr, args[0], typ+"/"+name, ns)
 			return withKube(cmd.Context(), "cluster.deploy", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name, "image": image}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
@@ -583,4 +585,17 @@ revision. A Swarm service goes back to its previous version.`,
 	c.Flags().IntVar(&to, "to", 0, "the revision to go back to (default: the previous one with other images)")
 	c.Flags().BoolVar(&wait, "wait", false, "wait until the rollback finishes (--timeout, default 5m)")
 	return c
+}
+
+// rollbackNote prints, for a person, how to undo a deploy that went
+// through (text mode only; JSON already carries previous_image).
+func rollbackNote(err *error, target, obj, ns string) {
+	if *err != nil || g.dryRun {
+		return
+	}
+	n := ""
+	if ns != "" {
+		n = " --namespace " + argQ(ns)
+	}
+	textNote("To go back to the previous image: komando cluster rollback %s %s%s", argQ(target), argQ(obj), n)
 }

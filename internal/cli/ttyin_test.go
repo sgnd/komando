@@ -172,9 +172,9 @@ func TestPTYCtrlCAtYesNo(t *testing.T) {
 		if code := p.exit(); code != out.ExitPolicy {
 			t.Errorf("%q: exit %d, want %d; the screen:\n%s", key, code, out.ExitPolicy, p.shown())
 		}
-		p.waitFor("nothing was changed")
+		p.waitFor("Nothing was changed on web.")
 		screen := p.shown()
-		if !strings.Contains(screen, "cancelled: ") || sameLine(screen, "[y/N]", "cancelled") {
+		if !strings.Contains(screen, "Cancelled.") || sameLine(screen, "[y/N]", "Cancelled") || strings.Contains(screen, "Error:") {
 			t.Errorf("%q: want 'cancelled' on a line of its own:\n%s", key, screen)
 		}
 		if echo, _ := p.leftTerminal(); !echo {

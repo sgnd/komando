@@ -282,7 +282,7 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 		if len(hits) > 0 && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerous(names, hits[0].Reason) {
 			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 				"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-				"the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")))
+				"the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")).Say(dangerSay(reasons), dangerHint))
 		}
 	}
 	if mutating {
@@ -295,7 +295,7 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
 			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
 				"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
-				"this changes protected %s: %s", nouns(len(prot), "host"), strings.Join(prot, ", ")))
+				"this changes protected %s: %s", nouns(len(prot), "host"), strings.Join(prot, ", ")).Say(protectedSay(prot, "server"), protectedHint))
 		}
 	}
 	return nil
@@ -339,7 +339,7 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 	if v.Risk >= driver.RiskDestructive && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerous(names, strings.Join(v.Reasons, "; ")) {
 		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 			"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-			"the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")))
+			"the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")).Say(dangerSay(v.Reasons), dangerHint))
 	}
 	if v.Risk >= driver.RiskWrite {
 		var prot []string
@@ -351,7 +351,7 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
 			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
 				"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
-				"a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", ")))
+				"a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", ")).Say(protectedSay(prot, connWord(conns, prot)), protectedHint))
 		}
 	}
 	return nil
@@ -509,6 +509,7 @@ func ask(question string) string {
 // confirmProtected asks a human at the terminal to confirm a change to
 // protected targets. A yes counts as --yes for the rest of this command.
 func confirmProtected(names []string) bool {
+	askedAbout = names
 	return confirmYes(fmt.Sprintf("%s %s protected. Change it anyway?", strings.Join(names, ", "), map[bool]string{true: "is", false: "are"}[len(names) == 1]))
 }
 
@@ -532,6 +533,10 @@ var safetyApproved = map[string]bool{}
 // follows is their decision, not something to retry (Execute words it so).
 var personSaidNo bool
 
+// askedAbout: the targets of the last yes/no question, so a "no" can say
+// where nothing was changed.
+var askedAbout []string
+
 // guardSafety: changes that weaken komando's own safety checks (no audit
 // log, no host key check, fewer deny rules) need --yes, so an agent cannot
 // switch them off by itself.
@@ -543,7 +548,8 @@ func guardSafety(what string) error {
 		safetyApproved[what] = true
 		return nil
 	}
-	return policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what))
+	return policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what).
+		Say(what+" turns off one of komando's safety checks, so komando asks first", "Run it again in a terminal to answer the question, or add --yes in a script if you are sure."))
 }
 
 // confirmDangerous asks a human at the terminal to confirm a destructive
@@ -553,6 +559,7 @@ func confirmDangerous(names []string, reason string) bool {
 	if g.dryRun || !interactive() {
 		return false
 	}
+	askedAbout = names
 	key := strings.Join(names, ",")
 	if dangerConfirmed[key] {
 		return true // the person typed it for these targets in this command already

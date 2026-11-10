@@ -1,7 +1,7 @@
 # Caches
 
 Read and change Redis-compatible caches (Redis, Valkey, KeyDB, Dragonfly)
-and memcached safely. [All features](README.md)
+and memcached safely. [All docs](README.md)
 
 ## Quick start
 

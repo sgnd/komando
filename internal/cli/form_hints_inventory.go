@@ -21,13 +21,13 @@ var (
 	invServers = formArg{ask: "Which servers?", pick: "host", free: true,
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas."}
 	invConn = formArg{ask: "Which conn?", pick: "conn",
-		help: "A conn is a database, cache, file storage, cluster or registry in your list."}
+		help: "A database, cache, queue, file storage, cluster or registry in your list."}
 	invConns = formArg{ask: "Which conns?", pick: "conn", free: true,
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by commas."}
 	invTargets = formArg{ask: "Which ones?", pick: "target", free: true,
-		help: "A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
+		help: "A server, service or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
 	invTargetsAll = formArg{ask: "Which ones? (pick all for everything)", pick: "target", free: true,
-		help: "A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
+		help: "A server, service or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
 	invNewName = formArg{ask: "What should the new name be?", example: "web2",
 		help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}
 	invJob = formArg{ask: "Which job?", pick: "job", free: true,
@@ -50,7 +50,7 @@ var (
 		help:    "Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes.",
 		example: "main shop database"}
 	invAskPassword = formFlag{name: "ask-password", ask: "Change the password?",
-		help: "Yes makes the command ask for it, hidden, when it runs. It is kept in komando's vault, never on the command line."}
+		help: "Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line."}
 	invProtected = formFlag{name: "protected", ask: "Can a mistake on it hurt real users or real data?",
 		help: "Yes means komando asks you before every change there, also changes an AI agent wants to make. No leaves it as it is."}
 	invVia = formFlag{name: "via", ask: "Reach it through which server or VPN?", example: "bastion",
@@ -170,7 +170,7 @@ var invListHints = map[string]formHint{
 	},
 	"group": {},
 	"group add": {args: []formArg{invGroupNew, {ask: "What goes in it?", pick: "target", free: true,
-		help: "A server, conn or VPN, or tag:prod or several names separated by spaces or commas."}}},
+		help: "A server, service or VPN, or tag:prod or several names separated by spaces or commas."}}},
 	"group list": {args: []formArg{{ask: "Which group? (leave empty for all)", pick: "group", free: true,
 		help: "Empty lists every group and tag with what is in it."}}},
 	"group mv": {args: []formArg{invGroup, {ask: "What should the new name be?", example: "web-prod",
@@ -257,11 +257,13 @@ var invSafetyHints = map[string]formHint{
 	"status":       {},
 	"policy":       {},
 	"policy list":  {},
-	"policy check": {args: []formArg{{ask: "Which command do you want to check?", example: "rm -rf /var/www",
+	"policy check": {args: []formArg{{ask: "Which command do you want to check?", example: "rm -rf /",
 		help: "komando says whether it would refuse to run it. Nothing runs."}}},
-	"policy deny": {args: []formArg{{ask: "Which commands should komando refuse? (a pattern)", example: `kubectl\s+delete`,
-		help: `A Go regular expression: \s+ means spaces, .* means anything. Test it with komando policy check.`}}},
+	"policy deny": {args: []formArg{{ask: "Which command should komando block?", example: `kubectl\s+delete`,
+		help: `Like kubectl delete: write it as kubectl\s+delete (\s+ means spaces, .* means anything). Then check it with komando policy check "kubectl delete pod web".`}}},
 	"policy allow": {args: []formArg{{ask: "Which of your own rules should go?", example: "custom-0",
+		help: "Its id (custom-0, custom-1 ...) or the pattern as you wrote it. `komando policy list` shows them. Built-in rules always stay."}}},
+	"policy rm": {args: []formArg{{ask: "Which of your own rules should go?", example: "custom-0",
 		help: "Its id (custom-0, custom-1 ...) or the pattern as you wrote it. `komando policy list` shows them. Built-in rules always stay."}}},
 	"config":      {},
 	"config show": {},

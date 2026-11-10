@@ -183,13 +183,13 @@ type policyCheck struct {
 
 func (p policyCheck) Text() string {
 	if !p.Blocked {
-		return "allowed: no rule matches\n"
+		return "Allowed: no rule blocks this command.\n"
 	}
-	var b strings.Builder
-	for _, m := range p.Matches {
-		b.WriteString("blocked by " + m.ID + ": " + m.Reason + "\n")
+	reasons := make([]string, len(p.Matches))
+	for i, m := range p.Matches {
+		reasons[i] = m.Reason + " (rule " + m.ID + ")"
 	}
-	return b.String()
+	return "Blocked: " + strings.Join(reasons, "; ") + "\n"
 }
 
 func policyCmd() *cobra.Command {
@@ -302,15 +302,23 @@ func policyCmd() *cobra.Command {
 			return nil
 		},
 	})
-	c.AddCommand(&cobra.Command{
-		Use:   "allow PATTERN|custom-N",
-		Short: "Remove a custom deny pattern (built-in rules stay)",
-		Long: `Removes a pattern added with ` + "`policy deny`" + `, given as written or by its id
-(custom-0, custom-1, ... in ` + "`policy list`" + ` and in POLICY_BLOCKED errors). Built-in
-rules cannot be removed: for one intended command, pass --allow-dangerous.
-Removing a rule weakens a safety check, so it needs --yes.`,
-		Example: `  komando policy allow 'kubectl\s+delete' --yes
-  komando policy allow custom-0 --yes`,
+	rm := policyRmCmd()
+	allow := policyRmCmd() // the old name, kept so scripts keep working
+	allow.Use, allow.Hidden = "allow PATTERN|custom-N", true
+	c.AddCommand(rm, allow)
+	return c
+}
+
+// policyRmCmd removes a rule added with policy deny.
+func policyRmCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "rm PATTERN|custom-N",
+		Short: "Remove a rule you added (built-in rules stay)",
+		Long: `Removes a rule added with ` + "`policy deny`" + `. Give it as you wrote it, or by
+its id (custom-0, custom-1, ... in ` + "`policy list`" + `). Built-in rules cannot
+be removed. Removing a rule weakens a safety check, so komando asks first.`,
+		Example: `  komando policy rm 'kubectl\s+delete'
+  komando policy rm custom-0`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			arg := args[0]
@@ -352,8 +360,7 @@ Removing a rule weakens a safety check, so it needs --yes.`,
 			out.P.Print("policy.allow", policyChange{Custom: orEmpty(pats), Removed: removed}, nil)
 			return nil
 		},
-	})
-	return c
+	}
 }
 
 // doctor.

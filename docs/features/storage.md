@@ -2,7 +2,7 @@
 
 Browse, download, upload and share files in S3-compatible buckets, Google
 Cloud Storage, Azure Blob Storage, on WebDAV, FTPS, SFTP and FTP servers, and
-on Windows (SMB) shares, all with the same commands. [All features](README.md)
+on Windows (SMB) shares, all with the same commands. [All docs](README.md)
 
 ## Quick start
 

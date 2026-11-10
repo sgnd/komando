@@ -73,27 +73,32 @@ komando
 A menu opens. On a new computer it looks like this:
 
 ```text
-komando · v0.9.0 · 0 servers
+komando
 
-Nothing here yet. Add asks for a name, an address and a user, one at a time.
+Welcome to komando. Start by adding a server.
 
-> 1. Add           A server, database, cache, storage, cluster, registry or VPN
-  2. AI agent      Teach your AI agents to use komando (once)
-  3. All features  Everything komando does, by area, as questions
-  4. List          Everything komando knows about
-  5. Doctor        Check your setup, the inventory and its security
+> 1. Add a server        Its address and the user you log in with
+  2. Set up my AI agent  Lets Claude, Codex, Cursor or Gemini use komando
+  3. Settings and help   AI agent, passwords, production servers, SSH keys
 
-↑↓ move · Enter or 1-5 choose · ? help · q quit
+↑↓ move · Enter or 1-3 choose · ? help · q quit
 ```
 
 Move with the arrow keys (or `j`/`k`) and press Enter, or press a row's
-number. `?` shows what komando does, by task, and `q` quits. AI agent shows
-while no AI agent on this computer has komando's skill, and Import shows
-when `~/.ssh/config` names servers komando does not know yet.
+number. Esc goes back one step, `?` explains the screen you are on, and `q`
+quits. When `~/.ssh/config` names servers komando does not know yet,
+**Bring in my SSH servers** shows as well.
+
+Once you have added something, the menu starts with what you have:
+**Servers**, **Databases and services** and **VPNs**. Pick one, then pick
+what to do with it: open a shell, check its health, read logs, restart a
+service, run a query. Below them are **Add something**, **Check
+everything**, **History and undo** and **Settings and help**.
 
 ### 2. Add a server
 
-Choose **Add**, then **Server**. komando asks one question at a time: a
+Choose **Add a server** (later: **Add something**, then **Server**).
+komando asks one question at a time: a
 name, the address, the user, the port, how you log in, and whether it is
 production. Each question shows an example, and Enter takes the default
 (`Port [22]:`). A wrong answer, such as a name that is taken or a key file
@@ -122,7 +127,8 @@ container registry or a VPN.
 ### 3. Test it
 
 The add already ran `komando test web1`. Run it again any time, from the
-menu (**Test**) or by typing:
+menu (**Servers**, web1, **Change this server**, **Test it**), with
+**Check everything**, or by typing:
 
 ```bash
 komando test web1
@@ -130,9 +136,10 @@ komando test web1
 
 ### 4. Run a command
 
-In the menu, **Facts** shows what the server is and **Shell** logs you in.
-**All features** lists every command by area and asks for what each one
-needs. Or type the command:
+In the menu, pick **Servers**, then web1: **Check health** shows what the
+server is and how it is doing, and **Open a shell** logs you in. Every other
+task (logs, services, files, Docker, updates) is in the same list, and
+komando asks only for what it still needs. Or type the command:
 
 ```bash
 komando facts web1               # what is this server?

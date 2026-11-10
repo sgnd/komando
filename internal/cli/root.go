@@ -103,9 +103,21 @@ func Execute() int {
 		if personSaidNo && oe.Exit == out.ExitPolicy {
 			oe.Message = "cancelled: " + oe.Message
 			oe.Hint = "nothing was changed"
+			oe.Cancel(cancelledText()) // text mode: the person's own choice, not an error
+		}
+		if cmd != nil && out.P.Format == "text" {
+			notFoundSay(oe, topCommand(cmd))
 		}
 	}
 	return out.P.Fail(name, err)
+}
+
+// topCommand is the command family cmd belongs to ("db" for db query).
+func topCommand(cmd *cobra.Command) string {
+	for cmd.HasParent() && cmd.Parent().HasParent() {
+		cmd = cmd.Parent()
+	}
+	return cmd.Name()
 }
 
 // outputFlag is -o/--output as given, also when flag parsing stopped early
@@ -351,7 +363,7 @@ func checkAuditWritable(cmd *cobra.Command) error {
 func newRoot() *cobra.Command {
 	resetApproval()
 	out.P.Reset()
-	personSaidNo = false
+	personSaidNo, askedAbout = false, nil
 	interrupted = false
 	root := &cobra.Command{
 		Use:           "komando",
@@ -416,9 +428,9 @@ func newRoot() *cobra.Command {
 	pf.StringVarP(&g.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped)")
 	pf.BoolVar(&g.pretty, "pretty", false, "indent JSON output")
 	pf.BoolVar(&g.dryRun, "dry-run", false, "show what would run, changing nothing")
-	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm a change to something protected")
+	pf.BoolVarP(&g.yes, "yes", "y", false, "answer yes in advance, for scripts")
 	pf.BoolVar(&g.allowDangerous, "allow-dangerous", false, "run a command the safety rules would block")
-	pf.BoolVar(&g.reveal, "reveal", false, "show secrets (agents need a person's yes)")
+	pf.BoolVar(&g.reveal, "reveal", false, "show passwords and keys in output (an agent needs a person's yes)")
 	pf.DurationVar(&g.timeout, "timeout", 0, "time limit per server (default: setting, 5m)")
 	pf.DurationVar(&g.connectTimeout, "connect-timeout", 0, "time to connect (default: setting, 15s)")
 	pf.IntVarP(&g.parallel, "parallel", "P", 0, "servers at once (default: setting, 10)")
@@ -457,28 +469,33 @@ func newRoot() *cobra.Command {
 	return root
 }
 
-// rootLong is the top of `komando --help`.
-const rootLong = `komando is one safe command line for DevOps work: servers (SSH), databases,
-caches, storage, clusters and registries, for AI agents and humans alike.
+// rootLong is the top of `komando --help`: what komando is, then the first
+// commands a person types. The notes for scripts come after the command
+// list (rootScriptNotes).
+const rootLong = `komando is one safe command line for servers, databases, caches, storage,
+clusters and registries, for people and AI agents alike.
 
-When piped (how agents call it) every command prints one JSON envelope on
-stdout; in a terminal it prints readable text (force with -o json|text):
-  {"ok":true,"command":"exec","data":{...},"meta":{...}}
-  {"ok":false,"command":"exec","error":{"code":"AUTH_FAILED",...}}
+First steps:
+  komando                                  a menu of common tasks (in a terminal)
+  komando host add web1 ubuntu@203.0.113.10
+  komando test web1                        check that web1 answers
+  komando guide install                    let your AI agent use komando safely
 
-Exit codes: 0 ok, 1 error, 2 usage, 3 not found, 4 connect/auth,
-            5 failed on the server, 6 blocked for safety, 7 timeout,
-            8 precondition/conflict.
+Targets: a server or service name, a pattern (web-*), @group, tag:NAME,
+label:key=value, kind:KIND (host, db, cache, storage, postgres, ...), all, or
+user@addr:port for a server you have not added. Combine with commas; put ! in
+front to leave one out. See them all with ` + "`komando list`" + `.`
 
-Targets: a server or conn name, glob (web-*), @group, tag:NAME, label:key=value,
-kind:KIND (host, db, cache, storage, postgres, ...), all, or user@addr:port (an
-ad-hoc server). Combine with commas; prefix ! to exclude. A target picks servers
-and conns together: each command uses the ones it works with and lists the rest
-in meta.skipped. See them all with ` + "`komando list`" + `.
-
-Start here:  komando            (alone, in a terminal: a menu of common tasks)
-             komando guide      (agent playbook)
-             komando schema     (machine-readable command reference)`
+// rootScriptNotes close `komando --help`: what scripts and agents read.
+const rootScriptNotes = `For scripts and AI agents:
+  When piped, every command prints one JSON envelope on stdout; in a terminal
+  it prints text (force it with -o json or -o text):
+    {"ok":true,"command":"exec","data":{...},"meta":{...}}
+    {"ok":false,"command":"exec","error":{"code":"AUTH_FAILED",...}}
+  Exit codes: 0 ok, 1 error, 2 usage, 3 not found, 4 connect or login,
+              5 failed on the server, 6 blocked for safety, 7 timeout,
+              8 precondition or conflict.
+  komando guide is the playbook for agents; komando schema lists every command.`
 
 // printFirstSteps is `komando` alone: the menu for a person at a terminal
 // (menu.go), else the first steps, not a wall of text (ux.md, section 10).

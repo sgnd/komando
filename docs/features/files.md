@@ -1,6 +1,6 @@
 # Files
 
-Read, edit and copy files on your servers, safely. [All features](README.md)
+Read, edit and copy files on your servers, safely. [All docs](README.md)
 
 ## Quick start
 
@@ -117,11 +117,20 @@ shows `followed:`.
 ## Undo a change
 
 `fs replace` and `fs write` with `--backup` keep the previous version next to
-the file and name it in the result (`backup`). To go back, move it over the
-file:
+the file and name it in the result (`backup`). In a terminal they also print
+the undo command:
+
+```text
+Changed /etc/nginx/nginx.conf on web1. To undo: komando fs restore web1 /etc/nginx/nginx.conf --sudo
+```
+
+`fs restore` puts the newest backup back. Add `--dry-run` first to see the
+change. The file as it is now becomes a new backup, so a restore can be undone
+too. `--from FILE` picks an older backup.
 
 ```bash
-komando fs mv web1 /etc/nginx/nginx.conf.bak /etc/nginx/nginx.conf --overwrite --sudo
+komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run
+komando fs restore web1 /etc/nginx/nginx.conf --sudo
 komando svc reload web1 nginx                 # if a service reads the file
 ```
 

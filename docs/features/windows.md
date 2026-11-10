@@ -1,7 +1,7 @@
 # Windows servers
 
 Manage Windows servers next to your Linux ones: run PowerShell, read and
-write files, copy files, and start and stop services. [All features](README.md)
+write files, copy files, and start and stop services. [All docs](README.md)
 
 ## Quick start
 

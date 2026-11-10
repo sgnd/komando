@@ -1,7 +1,7 @@
 # Settings and files
 
 Change komando's settings, see where it keeps its data, and update komando
-itself. [All features](README.md)
+itself. [All docs](README.md)
 
 ## Quick start
 

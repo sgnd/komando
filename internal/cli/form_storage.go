@@ -20,13 +20,13 @@ import (
 
 func storageForms() []formKind {
 	return []formKind{
-		{"S3 bucket", "Amazon S3, MinIO, Cloudflare R2, Wasabi, DigitalOcean Spaces, Backblaze B2", s3Form},
-		{"SFTP file server", "files over SSH, common on web hosting", sftpForm},
-		{"FTP or FTPS file server", "classic FTP hosting", ftpForm},
-		{"Google Cloud Storage bucket", "logs in like gcloud, or with a key file", gcsForm},
-		{"Azure Blob Storage container", "with the account key or a SAS token", azureForm},
-		{"WebDAV folder", "Nextcloud, ownCloud, a NAS", webdavForm},
-		{"Windows share (SMB)", "a Windows file server, Samba, a NAS, Azure Files", smbForm},
+		{"S3 bucket", "cloud bucket: Amazon S3, MinIO, Cloudflare R2, Wasabi, DigitalOcean Spaces, Backblaze B2", s3Form},
+		{"Google Cloud Storage bucket", "cloud bucket: logs in like gcloud, or with a key file", gcsForm},
+		{"Azure Blob Storage container", "cloud bucket: with the account key or a SAS token", azureForm},
+		{"SFTP file server", "file server: files over SSH, common on web hosting", sftpForm},
+		{"FTP or FTPS file server", "file server: classic FTP hosting", ftpForm},
+		{"WebDAV folder", "file server: Nextcloud, ownCloud, a NAS", webdavForm},
+		{"Windows share (SMB)", "file server: Windows, Samba, a NAS, Azure Files", smbForm},
 	}
 }
 
@@ -478,7 +478,7 @@ func sftpForm() formSpec {
 			choices: func(*store.State, formAnswers) []menuRow {
 				return []menuRow{
 					{label: "My SSH key", detail: "from ssh-agent or ~/.ssh/id_ed25519, id_ecdsa, id_rsa", value: "key"},
-					{label: "A password", detail: "asked hidden when the command runs; kept in komando's vault", value: "password"},
+					{label: "A password", detail: "asked hidden when the command runs; saved as a saved password", value: "password"},
 				}
 			}},
 		storeFolderQ("server", false,
@@ -620,7 +620,7 @@ func webdavUserDefault(_ *store.State, a formAnswers) string {
 // --- SMB ---
 
 func smbForm() formSpec {
-	return formSpec{title: "Add a Windows share", qs: []formQ{
+	return formSpec{title: "Add a Windows share (SMB)", qs: []formQ{
 		formNameQ("conn", "share", "team"),
 		storeHostQ("smb", "fileserver.corp.lan"),
 		{key: "share", label: "Share", ask: "What is the share's name?", example: "team",
@@ -665,7 +665,7 @@ func smbUserQ() formQ {
 	return q
 }
 
-// --- the storage commands in All features ---
+// --- the storage commands, asked from a menu task ---
 
 func init() {
 	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list. Add one with Add, File storage."}
@@ -686,7 +686,7 @@ func init() {
 			key("Which file on this computer?", "Its path; ~/ means your home folder.", "./report.pdf"),
 			key("Where in the storage?", "Empty keeps its name, at the top. A folder ends in /, like reports/2026/.", "reports/2026/")}},
 		"storage rm": {args: []formArg{conn,
-			key("Which files to delete? (several: separate them with spaces)", "Exact names as storage ls shows them. Empty to delete a whole folder with the next question.", "tmp/old.sql.gz")},
+			key("Which files to delete? (several: separate them with spaces)", "Exact names as storage ls shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first.", "tmp/old.sql.gz")},
 			flags: []formFlag{
 				{name: "prefix", ask: "Delete everything in a folder?", help: "Empty when you named the files above. A folder ends in /, like daily/.", example: "daily/"},
 				{name: "older-than", ask: "Only files older than?", help: "With a folder: newer ones are kept. Like 30d (days) or 12h (hours).", example: "30d"}}},

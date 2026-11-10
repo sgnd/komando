@@ -95,7 +95,7 @@ func TestFormEveryCommandBuilds(t *testing.T) {
 	}
 }
 
-// Every command is in an All features area.
+// Every command is in an area of formAreas.
 func TestFormEveryCommandHasAnArea(t *testing.T) {
 	root := newRoot()
 	var walk func(c *cobra.Command)
@@ -103,7 +103,7 @@ func TestFormEveryCommandHasAnArea(t *testing.T) {
 		for _, s := range c.Commands() {
 			walk(s)
 			if s.Runnable() && !s.Hidden && s.Deprecated == "" && s.Name() != "help" && formAreaOf(s) < 0 {
-				t.Errorf("%s is in no All features area", commandKey(s))
+				t.Errorf("%s is in no area of formAreas", commandKey(s))
 			}
 		}
 	}
@@ -231,14 +231,13 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	invHome(t)
 	p := startPTY(t, "host", "add")
 	p.answer("What do you want to call this server?", "web1\r")
-	p.answer("What does the server run?", "\r") // Linux
 	p.answer("What is the server's address?", "root:hun@ter2@203.0.113.20")
 	p.waitFor("a password was in it")
 	p.answer("a password was in it", "\r")
 	p.answer("User [root]: ", "\r")
+	p.answer("What does the server run?", "\r") // Linux
 	p.answer("Port [22]: ", "\r")
 	p.answer("How do you log in?", "2") // A password
-	p.answer("hurt real users", "2")    // No
 	p.waitFor("check and run")
 	p.waitFor("$ komando host add web1 root@203.0.113.20 --ask-password")
 	p.waitFor("$ komando test web1")

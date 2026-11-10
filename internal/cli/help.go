@@ -28,7 +28,10 @@ func ownFlags(c *cobra.Command) *pflag.FlagSet {
 
 func init() {
 	cobra.AddTemplateFunc("ownFlagUsages", func(c *cobra.Command) string {
-		return strings.TrimRight(ownFlags(c).FlagUsages(), " \n")
+		if c.HasParent() {
+			return strings.TrimRight(ownFlags(c).FlagUsages(), " \n")
+		}
+		return rootFlagUsages(c)
 	})
 	cobra.AddTemplateFunc("hasOwnFlags", func(c *cobra.Command) bool {
 		has := false
@@ -58,4 +61,45 @@ func useShortGlobals(root *cobra.Command) {
 	t = strings.Replace(t, "{{if .HasAvailableLocalFlags}}", "{{if hasOwnFlags .}}", 1)
 	t = strings.Replace(t, "{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}", "{{ownFlagUsages .}}", 1)
 	root.SetUsageTemplate(t)
+	root.SetHelpTemplate(rootHelpTemplate)
 }
+
+// safetyOverrides are the root flags that skip a safety check. `komando
+// --help` lists them last, under their own heading, so nobody adds one by
+// habit.
+var safetyOverrides = []string{"yes", "allow-dangerous", "reveal"}
+
+// rootFlagUsages is the Flags block of `komando --help`: the everyday flags,
+// then the safety overrides.
+func rootFlagUsages(root *cobra.Command) string {
+	common := pflag.NewFlagSet("", pflag.ContinueOnError)
+	safety := pflag.NewFlagSet("", pflag.ContinueOnError)
+	ownFlags(root).VisitAll(func(f *pflag.Flag) {
+		for _, n := range safetyOverrides {
+			if f.Name == n {
+				safety.AddFlag(f)
+				return
+			}
+		}
+		common.AddFlag(f)
+	})
+	b := strings.TrimRight(common.FlagUsages(), " \n")
+	if s := strings.TrimRight(safety.FlagUsages(), " \n"); s != "" {
+		b += "\n\nSafety overrides (ask a person first):\n" + s
+	}
+	return b
+}
+
+// helpNotes is the annotation that holds the details of a command, which
+// --help prints after the flags so the first lines say what it is for.
+const helpNotes = "help_notes"
+
+// rootHelpTemplate is cobra's help template plus, for `komando --help`
+// only, the notes for scripts below the command list.
+const rootHelpTemplate = `{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
+
+{{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}{{with index .Annotations "help_notes"}}
+{{.}}
+{{end}}{{if not .HasParent}}
+` + rootScriptNotes + `
+{{end}}`

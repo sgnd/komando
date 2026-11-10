@@ -36,16 +36,18 @@ func storageCmd() *cobra.Command {
 		Use:     "storage",
 		Aliases: []string{"s3"},
 		Short:   "Buckets (S3, GCS, Azure) and WebDAV/FTP/SFTP/SMB file servers",
-		Long: `Work with a storage conn (see ` + "`komando conn`" + `): an S3-compatible, Google Cloud
-Storage or Azure Blob bucket, or a folder on a WebDAV, FTPS, FTP or SFTP
+		Long: `List, copy and share files in a bucket or on a file server. Add one with
+` + "`komando storage add`" + `.
+
+It works with an S3-compatible, Google Cloud Storage or Azure Blob bucket, or a folder on a WebDAV, FTPS, FTP or SFTP
 server or an SMB share (Windows, Samba, Azure Files). Keys are relative to
-the folder in the conn URL; a key ending in / is a folder. ls, cat and
+the folder in the storage URL; a key ending in / is a folder. ls, cat and
 download only read. upload changes files and link shares one (S3, Google
-Cloud and Azure; protected conns need --yes for both); rm deletes, so it also needs --allow-dangerous. Downloads never
+Cloud and Azure; on production storage both ask first); rm deletes, so it also needs --allow-dangerous. Downloads never
 overwrite a local file unless --overwrite, and uploads to file servers go to
 a temporary name first, so a failed upload leaves nothing half written.`,
 	}
-	c.AddCommand(storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
+	c.AddCommand(connAddCmdFor("storage"), storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
 	return c
 }
 

@@ -141,23 +141,32 @@ func personAllowsFor(flag, what string, why ...string) bool {
 		approval.why, approval.unshown = "unshowable", bad
 		return false
 	}
-	text := fmt.Sprintf("%s wants komando to run:\n\n%s\n\n", agentName(), line)
+	// what and where first, the question next, komando's rule details last
+	head, reasons := "wants komando to run", []string{}
 	for _, w := range why {
 		if w = strings.TrimSpace(w); w != "" {
 			if unshowable(w) != "" {
 				w = strconv.QuoteToASCII(w)
 			}
-			text += "komando stops here because: " + w + "\n\n"
+			if on, ok := strings.CutPrefix(w, "it runs on "); ok && head == "wants komando to run" {
+				head = "wants to change " + on
+				continue
+			}
+			reasons = append(reasons, w)
 		}
 	}
-	text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", flag, flagMeaning[flag])
+	text := fmt.Sprintf("%s %s:\n\n%s\n\n", agentName(), head, line)
 	if what != "" {
 		if unshowable(what) != "" {
 			what = strconv.QuoteToASCII(what)
 		}
-		text += " Here it lets this through:\n\n" + what
+		text += "This also lets through:\n\n" + what + "\n\n"
 	}
-	text += "\n\nAllow this once?"
+	text += "Allow this once?\n\n"
+	for _, w := range reasons {
+		text += "Why komando asks: " + w + "\n"
+	}
+	text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", flag, flagMeaning[flag])
 	var allowed, shown bool
 	approvalGaveUp = false
 	if secret := approvalCodeSecret(); secret != nil {

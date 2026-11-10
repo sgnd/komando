@@ -2,7 +2,7 @@
 
 How komando measures up against the international security standards that
 fit a DevOps tool that holds credentials and is driven by AI agents.
-[All features](README.md) · [Safety](safety.md)
+[All docs](README.md) · [Safety](safety.md)
 
 This is a self-assessment, checked against the code and tests. It is not a
 certificate: a certificate (ISO 27001, SOC 2) is given to an organization

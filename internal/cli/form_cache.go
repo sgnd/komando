@@ -184,14 +184,14 @@ func cachePasswordQ(ask, help, def string, advanced bool) formQ {
 		def: func(*store.State, formAnswers) string { return def },
 		choices: func(*store.State, formAnswers) []menuRow {
 			rows := []menuRow{
-				{label: "Yes, I type it next", detail: "hidden; komando keeps it in its vault", value: "ask"},
+				{label: "Yes, I type it next", detail: "hidden; komando keeps it as a saved password", value: "ask"},
 				{label: "No password", detail: "common for a cache inside a private network", value: "none"},
 			}
 			if def == "none" {
 				rows[0], rows[1] = rows[1], rows[0]
 			}
 			if len(secretNames()) > 0 {
-				rows = append(rows, menuRow{label: "Yes, it is in komando's vault", detail: "pick it from komando secret list", value: "secret"})
+				rows = append(rows, menuRow{label: "Yes, I saved it in komando before", detail: "pick it from your saved passwords", value: "secret"})
 			}
 			return rows
 		}}

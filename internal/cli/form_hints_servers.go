@@ -18,8 +18,8 @@ var (
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas."}
 	srvSudo = formFlag{name: "sudo", ask: "Run it with sudo (as root)?",
 		help: "Say yes when it needs admin rights, like changing system files or services."}
-	srvReadOnly = formFlag{name: "read-only", ask: "Does it only look, without changing anything?",
-		help: "Yes lets it run on a production server without asking you first. Say yes only when that is true."}
+	srvReadOnly = formFlag{name: "read-only", ask: "Does it only look, and change nothing on the server?",
+		help: "Not sure? Say no. Yes is only for commands that read, like df -h or cat."}
 	srvDir = formFlag{name: "dir", ask: "In which folder on the server should it run?",
 		help: "Leave empty for the login user's home folder.", example: "/srv/app"}
 	// journalctl takes -1h (or today), docker logs 1h; logs and docker logs
@@ -230,7 +230,7 @@ var srvNetHints = map[string]formHint{
 	"cert check": {
 		args: []formArg{{ask: "Which servers or websites?", pick: "host", free: true, example: "https://shop.example.com",
 			help: "Pick a server, or type a website. Several: separate them with spaces."}},
-		flags: []formFlag{{name: "warn", ask: "Warn when a certificate ends within how long?", example: "14d",
-			help: "Like 30d or 72h."}},
+		flags: []formFlag{{name: "warn", ask: "Warn how long before a certificate ends?", example: "30d",
+			help: "Warns 14 days before. Empty keeps that. Or type 30d or 72h."}},
 	},
 }

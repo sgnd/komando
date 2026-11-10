@@ -107,9 +107,17 @@ var formFsHints = map[string]formHint{
 			{name: "from", ask: "Copy the content from a file on this computer?", example: "./config.yml", local: true,
 				help: "Its path here. Leave it empty to type the content in the next question."},
 			{name: "content", ask: "Or type the content", example: "PORT=8080",
-				help: "Used when no file was given. Never type a password here; use a {{secret:NAME}} reference."},
+				help: "Used when no file was given. Never type a password here: write {{secret:NAME}} and komando puts in the saved password."},
 			formFsSudo("Needed for system files, like most files under /etc."),
 			formFsBackup,
+		}},
+	"fs restore": {args: []formArg{formFsServer,
+		{ask: "Which file should go back to how it was?", example: "/etc/nginx/nginx.conf",
+			help: "The file you changed, not its .bak copy. Try it first to see the difference."}},
+		flags: []formFlag{
+			{name: "from", ask: "Which backup? (leave empty for the newest)", example: "/etc/nginx/nginx.conf.bak",
+				help: "Empty puts back the newest copy. The file as it is now is kept, so you can undo this too."},
+			formFsSudo("Needed for system files, like most files under /etc."),
 		}},
 }
 
@@ -117,7 +125,7 @@ var formFsHints = map[string]formHint{
 var formTransferHints = map[string]formHint{
 	"upload": {args: []formArg{
 		{ask: "To which servers or file storage?", pick: "files", free: true,
-			help: "A server, a group like @web, all, or a file storage conn (S3, SFTP, FTP). Several servers: separate them with spaces or commas."},
+			help: "A server, a group like @web, all, or a file storage (S3, SFTP, FTP). Several servers: separate them with spaces or commas."},
 		{ask: "Which file or folder on this computer?", example: "./app.tar.gz", local: true,
 			help: "Its path here. ./ means the folder you are in, ~/ your home folder."},
 		{ask: "Where should it go?", example: "/tmp/app.tar.gz",
@@ -130,7 +138,7 @@ var formTransferHints = map[string]formHint{
 		}},
 	"download": {args: []formArg{
 		{ask: "From which servers or file storage?", pick: "files", free: true,
-			help: "A server, a group like @web (one folder per server), all, or a file storage conn (S3, SFTP, FTP)."},
+			help: "A server, a group like @web (one folder per server), all, or a file storage (S3, SFTP, FTP)."},
 		{ask: "Which file or folder?", example: "/var/log/nginx/error.log",
 			help: "The full path on the server, or the name in the storage."}},
 		flags: []formFlag{

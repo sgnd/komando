@@ -1,7 +1,7 @@
 # VPNs
 
 Reach servers and databases that sit behind a VPN, even several VPNs at the
-same time, without switching between them. [All features](README.md)
+same time, without switching between them. [All docs](README.md)
 
 ## Quick start
 

@@ -36,12 +36,14 @@ func dbCmd() *cobra.Command {
 		Use:     "db",
 		Aliases: []string{"sql"},
 		Short:   "Query databases safely: read-only by default, structured results",
-		Long: `Run SQL on a conn (see ` + "`komando conn`" + `). Without --write every query runs in a
-read-only transaction (SQL Server: one that is always rolled back), so
-nothing can change. With --write, try --dry-run
-first: it runs the SQL and rolls it back, showing how many rows would change.`,
+		Long: `Look at and query your databases. Add one with ` + "`komando db add`" + `.
+
+Without --write every query runs in a read-only transaction (SQL Server: one
+that is always rolled back), so nothing can change. With --write, try
+--dry-run first: it runs the SQL and rolls it back, showing how many rows
+would change.`,
 	}
-	c.AddCommand(dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
+	c.AddCommand(connAddCmdFor("db"), dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
 	return c
 }
 
@@ -66,9 +68,11 @@ func dbQueryCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "query CONN [SQL]",
 		Short: "Run SQL; read-only unless --write",
-		Long: `Run SQL on a database conn. Without --write it runs in a read-only
-transaction. Each run stops after 30s unless --timeout (or the conn's
-statement_timeout option) allows more. Placeholders take their values from
+		Long: `Runs SQL on a database and prints the rows. Without --write it only reads:
+komando runs it in a read-only transaction, and stops it after 30s.`,
+		Annotations: map[string]string{helpNotes: `More about db query:
+A run stops after 30s unless --timeout (or the statement_timeout option in
+the database URL) allows more. Placeholders take their values from
 --arg, in order. --csv and --tsv print the rows for spreadsheets and scripts.
 SQL that starts with a -- comment: pass it after -- or with -f -.
 
@@ -89,7 +93,7 @@ Placeholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).
 Snowflake has no read-only mode komando can switch on, and each statement
 is a session of its own: without --write komando sends only what it rates
 as a read, and a statement that is not a read needs --write, goes on its
-own, and a dry run only reports it. Give the conn a role that may only
+own, and a dry run only reports it. Log in with a role that may only
 read. Placeholders are ?.
 
 BigQuery: each statement first goes as a dry run, which runs nothing and
@@ -100,10 +104,10 @@ carries that cap too. A write needs --write, goes on its own, and
 --write --dry-run shows BigQuery's dry run. Placeholders are ?; the values
 go as STRING, so write CAST(? AS INT64) for a number.
 
-On a MongoDB conn the text is a command document in JSON, its first key
+On MongoDB the text is a command document in JSON, its first key
 naming it ({"find": ...}, {"aggregate": ...}, {"update": ...}). komando rates
 it as it rates SQL: what it does not know as a read needs --write. "$db"
-picks another database than the URL's.`,
+picks another database than the URL's.`},
 		Example: `  komando db query prod-db "select id, email from users order by id desc limit 10"
   komando db query mongo-db '{"find": "users", "filter": {"plan": "pro"}, "limit": 10}'   # MongoDB
   komando db query prod-db "select * from users where email = $1" --arg bob@example.com

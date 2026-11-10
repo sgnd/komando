@@ -33,7 +33,7 @@ goes to a temporary file first and then into place with ` + "`sudo install`" + `
 For an agent, ` + "`fs replace`" + ` is the way to edit a config file: it fails unless the
 old text matches exactly once (or --all), and --backup keeps a .bak copy.`,
 	}
-	c.AddCommand(fsLsCmd(), fsStatCmd(), fsCatCmd(), fsWriteCmd(), fsReplaceCmd(), fsRmCmd(), fsMkdirCmd(), fsMvCmd(), fsChmodCmd())
+	c.AddCommand(fsLsCmd(), fsStatCmd(), fsCatCmd(), fsWriteCmd(), fsReplaceCmd(), fsRmCmd(), fsMkdirCmd(), fsMvCmd(), fsChmodCmd(), fsRestoreCmd())
 	return c
 }
 

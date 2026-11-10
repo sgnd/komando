@@ -1,7 +1,7 @@
 # Services, logs, Docker, packages, users
 
 Day-to-day server administration, with structured results instead of raw
-terminal output. [All features](README.md)
+terminal output. [All docs](README.md)
 
 ## Quick start
 
