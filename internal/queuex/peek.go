@@ -22,18 +22,21 @@ type PeekOptions struct {
 
 // PeekResult is what `queue peek` read.
 type PeekResult struct {
-	Topic    string     `json:"topic,omitempty"`  // kafka
-	Queue    string     `json:"queue,omitempty"`  // rabbitmq, sqs
-	Stream   string     `json:"stream,omitempty"` // nats
-	From     string     `json:"from"`             // newest | oldest (kafka, nats) | front (rabbitmq) | sample (sqs)
-	Messages []Received `json:"messages"`
-	Count    int        `json:"count"`
-	More     bool       `json:"more"` // the topic holds more than these
-	Partial  bool       `json:"partial,omitempty"`
-	Requeued bool       `json:"requeued,omitempty"` // rabbitmq: the messages went back to the queue, marked redelivered
+	Topic  string `json:"topic,omitempty"`  // kafka
+	Queue  string `json:"queue,omitempty"`  // rabbitmq, sqs
+	Stream string `json:"stream,omitempty"` // nats
+	// pubsub: messages are read from a subscription
+	Subscription string     `json:"subscription,omitempty"`
+	From         string     `json:"from"` // newest | oldest (kafka, nats) | front (rabbitmq) | sample (sqs) | pulled (pubsub)
+	Messages     []Received `json:"messages"`
+	Count        int        `json:"count"`
+	More         bool       `json:"more"` // the topic holds more than these
+	Partial      bool       `json:"partial,omitempty"`
+	Requeued     bool       `json:"requeued,omitempty"` // rabbitmq: the messages went back to the queue, marked redelivered; pubsub: given back unacknowledged
 	// rabbitmq quorum queues: after this many deliveries the queue drops
 	// (or dead-letters) a message, and every peek counts as one; sqs: the
-	// receives after which a message goes to the dead-letter queue
+	// receives after which a message goes to the dead-letter queue; pubsub:
+	// the deliveries after which it goes to the dead-letter topic
 	DeliveryLimit int `json:"delivery_limit,omitempty"`
 }
 
@@ -45,6 +48,7 @@ type Received struct {
 	*RabbitDelivery
 	*NatsMsg
 	*SqsMessage
+	*PubsubMessage
 	Value          string            `json:"value"`
 	Encoding       string            `json:"encoding,omitempty"` // base64 when the value is not UTF-8 text
 	Size           int               `json:"size"`               // the value's size in bytes

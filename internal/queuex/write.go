@@ -28,6 +28,7 @@ type Sent struct {
 	*KafkaSent
 	*NatsSent
 	*SqsSent
+	*PubsubSent
 	Size   int  `json:"size"`
 	DryRun bool `json:"dry_run,omitempty"`
 }
@@ -58,7 +59,9 @@ type Created struct {
 	*RabbitCreated
 	*NatsCreated
 	*SqsCreated
-	DryRun bool `json:"dry_run,omitempty"`
+	*PubsubCreated
+	Subscription string `json:"subscription,omitempty"` // pubsub
+	DryRun       bool   `json:"dry_run,omitempty"`
 }
 
 // KafkaCreated is the Kafka topic made.
@@ -70,26 +73,30 @@ type KafkaCreated struct {
 
 // Deleted is one topic or queue `queue rm` deleted (or would).
 type Deleted struct {
-	Topic     string `json:"topic,omitempty"`  // kafka
-	Queue     string `json:"queue,omitempty"`  // rabbitmq, sqs
-	Stream    string `json:"stream,omitempty"` // nats
-	Messages  int64  `json:"messages"`         // how many it held
-	Consumers *int   `json:"consumers,omitempty"`
-	Exists    bool   `json:"exists"`
+	Topic  string `json:"topic,omitempty"`  // kafka
+	Queue  string `json:"queue,omitempty"`  // rabbitmq, sqs
+	Stream string `json:"stream,omitempty"` // nats
+	// pubsub: a subscription (a topic is in Topic)
+	Subscription string `json:"subscription,omitempty"`
+	Messages     int64  `json:"messages"` // how many it held; -1: not known (pubsub)
+	Consumers    *int   `json:"consumers,omitempty"`
+	Exists       bool   `json:"exists"`
 }
 
 // Name is the topic's, the queue's or the stream's name.
-func (d Deleted) Name() string { return d.Topic + d.Queue + d.Stream }
+func (d Deleted) Name() string { return d.Topic + d.Queue + d.Stream + d.Subscription }
 
 // Purged is what `queue purge` removed (or would).
 type Purged struct {
-	Topic      string `json:"topic,omitempty"`  // kafka
-	Queue      string `json:"queue,omitempty"`  // rabbitmq, sqs
-	Stream     string `json:"stream,omitempty"` // nats
-	Messages   int64  `json:"messages"`
-	Partitions int    `json:"partitions,omitempty"` // kafka
-	InFlight   *int64 `json:"in_flight,omitempty"`  // sqs: received and not yet deleted; purge deletes these too
-	DryRun     bool   `json:"dry_run,omitempty"`
+	Topic  string `json:"topic,omitempty"`  // kafka
+	Queue  string `json:"queue,omitempty"`  // rabbitmq, sqs
+	Stream string `json:"stream,omitempty"` // nats
+	// pubsub: the subscription emptied
+	Subscription string `json:"subscription,omitempty"`
+	Messages     int64  `json:"messages"`             // -1: not known (pubsub)
+	Partitions   int    `json:"partitions,omitempty"` // kafka
+	InFlight     *int64 `json:"in_flight,omitempty"`  // sqs: received and not yet deleted; purge deletes these too
+	DryRun       bool   `json:"dry_run,omitempty"`
 }
 
 // Send publishes one message and waits for the brokers to keep it. The

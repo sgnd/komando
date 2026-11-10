@@ -14,12 +14,13 @@ import (
 // Info is the cluster at a glance. Engine says which of the embedded
 // parts is there: KafkaInfo or RabbitInfo (see rabbit.go).
 type Info struct {
-	Engine  string `json:"engine"` // kafka | rabbitmq | nats | sqs
+	Engine  string `json:"engine"` // kafka | rabbitmq | nats | sqs | pubsub
 	Version string `json:"version,omitempty"`
 	*KafkaInfo
 	*RabbitInfo
 	*NatsInfo
 	*SqsInfo
+	*PubsubInfo
 }
 
 // KafkaInfo is what `queue info` shows of a Kafka cluster.
@@ -48,6 +49,7 @@ type Topic struct {
 	*RabbitQueue
 	*NatsStream
 	*SqsQueue
+	*PubsubTopic
 }
 
 // KafkaTopic is what `queue ls` shows of a Kafka topic.
@@ -66,6 +68,7 @@ type TopicDetail struct {
 	*RabbitQueueDetail
 	*NatsStreamDetail
 	*SqsQueueDetail
+	*PubsubDetail
 }
 
 // KafkaTopicDetail is what `queue describe` shows of a Kafka topic.
@@ -108,6 +111,7 @@ type Group struct {
 	Lag      int64    `json:"lag"`
 	Error    string   `json:"error,omitempty"`
 	*NatsConsumer
+	*PubsubSubscription
 }
 
 // GroupLag is `queue lag`: one group, per topic and partition.

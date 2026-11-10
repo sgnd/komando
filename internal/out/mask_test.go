@@ -125,7 +125,7 @@ func TestSafeText(t *testing.T) {
 }
 
 func TestMaskKeepsPublicKeysAndEnvelope(t *testing.T) {
-	in := `{"ok":true,"data":{"name":"deploy","public_key":"ssh-ed25519 AAAAC3Nz komando-deploy","fingerprint":"SHA256:abc","format":"markdown"}}`
+	in := `{"ok":true,"data":{"name":"deploy","public_key":"ssh-ed25519 AAAAC3Nz komando-deploy","fingerprint":"SHA256:abc","format":"markdown","ordering_key":"customer-42"}}`
 	if got := string(maskJSON([]byte(in))); got != in {
 		t.Errorf("changed:\n%s", got)
 	}

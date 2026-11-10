@@ -172,6 +172,24 @@ its highlights; the sections below them give the details. Versions follow
   `http://` endpoint straight over the network is refused unless
   `?insecure=1`. komando speaks the SQS API itself, signed with the AWS
   SDK's SigV4 signer it already had: no new dependency.
+- **Google Cloud Pub/Sub in `komando queue`:** add a project as a conn,
+  `pubsub://my-project`, logging in like gs:// storage: a service account
+  key in `--password-ref`, or else gcloud's application default login; the
+  emulator (`?endpoint=http://localhost:8085`) needs none, and a login is
+  only ever sent over HTTPS. You send to a topic; `queue peek` and `purge`
+  take a subscription, where the messages wait, and `queue groups` lists
+  the subscriptions. `queue peek` pulls without acknowledging and gives
+  every message straight back (ack deadline 0), so nothing is removed;
+  with a dead-letter topic it stops with `DELIVERY_LIMIT_NEAR` before a
+  message runs out of deliveries. `queue describe` shows a topic with its
+  subscriptions, or one subscription; `queue create subscriptions/NAME
+  --config topic=TOPIC` makes a subscription, with Pub/Sub's own setting
+  names (`ackDeadlineSeconds=60`, `messageRetentionDuration=7d`);
+  `purge` (a seek to now) and `rm` need `--allow-dangerous`, and `rm`
+  deletes a subscription only when written `subscriptions/NAME`. Pub/Sub
+  does not count messages, so the counts are -1 and the text says so. New
+  error codes `SUBSCRIPTION_NOT_FOUND` and `SUBSCRIPTION_EXISTS`. komando
+  speaks the Pub/Sub REST API itself: no new dependency.
 
 ## [0.8.0] - 2026-11-09
 

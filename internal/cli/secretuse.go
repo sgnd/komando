@@ -199,7 +199,7 @@ func weakTLS(oldURL, newURL string) []string {
 		}
 	case "ftp":
 		w = append(w, "insecure=1 (travels unencrypted, passwords too)")
-	case "kafka", "rabbitmq", "nats", "sqs":
+	case "kafka", "rabbitmq", "nats", "sqs", "pubsub":
 		if t.TLS == "skip-verify" {
 			w = append(w, "tls=skip-verify (the certificate is not checked)")
 		}

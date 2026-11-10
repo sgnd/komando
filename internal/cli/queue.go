@@ -10,13 +10,14 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/queuex"
 	_ "github.com/sgnd/komando/internal/queuex/nats"     // nats:// and tls:// conns
+	_ "github.com/sgnd/komando/internal/queuex/pubsub"   // pubsub:// conns
 	_ "github.com/sgnd/komando/internal/queuex/rabbitmq" // amqp:// and amqps:// conns
 	_ "github.com/sgnd/komando/internal/queuex/sqs"      // sqs:// conns
 	"github.com/sgnd/komando/internal/store"
 )
 
 // Queue commands (docs/design/queue.md), for Kafka, RabbitMQ, NATS
-// JetStream and Amazon SQS: reading never moves a consumer group or
+// JetStream, Amazon SQS and Google Cloud Pub/Sub: reading never moves a consumer group or
 // removes a message; send and create change, behind the usual
 // seatbelts (protected conns need --yes); rm and purge delete messages, so
 // they also need --allow-dangerous. Every change has a real --dry-run.
@@ -24,16 +25,18 @@ import (
 func queueCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "queue",
-		Aliases: []string{"kafka", "rabbitmq", "nats", "sqs"},
-		Short:   "Read and change message queues (Kafka, RabbitMQ, NATS, SQS)",
-		Long: `Work with a kafka://, amqp://, nats:// or sqs:// conn (see ` + "`komando conn`" + `). info,
-ls, describe, peek, groups and lag only read: peek reads Kafka messages
-without joining a consumer group, gives RabbitMQ messages straight back,
-reads NATS stream messages by their number, and receives SQS messages
-without hiding or deleting them, so nothing is removed. send and create
-change (protected conns need --yes); rm and purge delete messages, so they
-also need --allow-dangerous. Try any change with --dry-run first. In
-RabbitMQ words a topic is a queue; in NATS words it is a stream.`,
+		Aliases: []string{"kafka", "rabbitmq", "nats", "sqs", "pubsub"},
+		Short:   "Read and change Kafka, RabbitMQ, NATS, SQS and Pub/Sub queues",
+		Long: `Work with a kafka://, amqp://, nats://, sqs:// or pubsub:// conn (see ` + "`komando conn`" + `).
+info, ls, describe, peek, groups and lag only read: peek reads Kafka
+messages without joining a consumer group, gives RabbitMQ and Pub/Sub
+messages straight back, reads NATS stream messages by their number, and
+receives SQS messages without hiding or deleting them, so nothing is
+removed. send and create change (protected conns need --yes); rm and purge
+delete messages, so they also need --allow-dangerous. Try any change with
+--dry-run first. In RabbitMQ words a topic is a queue; in NATS words it is
+a stream. Pub/Sub keeps messages in subscriptions: peek and purge take a
+subscription, and groups lists them.`,
 	}
 	c.AddCommand(queueInfoCmd(), queueLsCmd(), queueDescribeCmd(), queuePeekCmd(), queueGroupsCmd(), queueLagCmd(),
 		queueSendCmd(), queueCreateCmd(), queueRmCmd(), queuePurgeCmd())
@@ -210,6 +213,12 @@ messages in no set order, so this is a sample of what waits. Every receive
 counts toward a dead-letter queue's maxReceiveCount: peek stops
 (DELIVERY_LIMIT_NEAR) before a message runs out of receives.
 
+Google Cloud Pub/Sub: TOPIC is a subscription (messages wait there, not
+in a topic). peek pulls messages without acknowledging them and gives them
+straight back (ack deadline 0), so they stay and are delivered again at
+once. With a dead-letter topic each pull counts as a delivery: peek stops
+(DELIVERY_LIMIT_NEAR) before a message runs out of them.
+
 Values that are not UTF-8 text are shown as base64.`,
 		Example: `  komando queue peek events orders
   komando queue peek events orders -n 50 --partition 2
@@ -243,7 +252,7 @@ Values that are not UTF-8 text are shown as base64.`,
 func queueGroupsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "groups CONN",
-		Short:   "List Kafka consumer groups or NATS consumers: state, members, lag",
+		Short:   "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions",
 		Example: `  komando queue groups events`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -255,7 +264,7 @@ func queueGroupsCmd() *cobra.Command {
 					if err != nil {
 						return nil, err
 					}
-					return queueGroups{Conn: c.Name, Groups: gs, Count: len(gs)}, nil
+					return queueGroups{Conn: c.Name, Groups: gs, Count: len(gs), kind: c.Kind}, nil
 				})
 		},
 	}

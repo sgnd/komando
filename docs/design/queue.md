@@ -7,7 +7,8 @@ the rules for commands and flags are in [ux.md](ux.md). The user guide is
 Status: **Apache Kafka done** (and anything that speaks the Kafka protocol:
 Redpanda, Amazon MSK, Confluent Cloud, Aiven, WarpStream), **RabbitMQ
 done** (AMQP 0-9-1, [below](#rabbitmq)), **NATS JetStream done**
-([below](#nats-jetstream)), **Amazon SQS done** ([below](#amazon-sqs)).
+([below](#nats-jetstream)), **Amazon SQS done** ([below](#amazon-sqs)),
+**Google Cloud Pub/Sub done** ([below](#google-cloud-pubsub)).
 
 ## One family, a human word
 
@@ -19,15 +20,18 @@ with a hint, never a different meaning.
 
 In Kafka words a queue is a **topic**; in NATS words a **stream**. The
 docs say "topic" for Kafka and "queue" for the family; the JSON field is
-`topic` for Kafka output, `queue` for RabbitMQ and SQS, and `stream` for
-NATS. The
+`topic` for Kafka output, `queue` for RabbitMQ and SQS, `stream` for
+NATS, and `topic` or `subscription` for Pub/Sub. The
 shared result types (queuex `Info`, `Topic`, `TopicDetail`, `Group`,
 `GroupLag`, `Received`, `Sent`, `Created`) embed one part per engine
-(`KafkaInfo`, `RabbitInfo`, `NatsInfo`, `SqsInfo`, ...), so each engine's JSON holds
+(`KafkaInfo`, `RabbitInfo`, `NatsInfo`, `SqsInfo`, `PubsubInfo`, ...), so each engine's JSON holds
 only its own fields, and `info` says `"engine"`. Two engines' parts sit at
 the same level of the JSON, so a field name one engine uses with another
 meaning gets a name of its own (NATS: `consumer_count`, `num_replicas`,
-`consumer_info`, `time`; SQS: `account_id`, `created_at`, `sent_at`).
+`consumer_info`, `time`; SQS: `account_id`, `created_at`, `sent_at`;
+Pub/Sub: `api_endpoint`, `topic_count`, `id`, `kms_key_name`). A field
+two parts share at the same level would vanish from the JSON (Go drops
+both), so even the same meaning needs its own name.
 
 ## Conn URL
 
@@ -140,7 +144,8 @@ change things". There is no raw command in this family yet; when one comes
 | `TOPIC_EXISTS` | `create` of a topic that is there |
 | `QUEUE_NOT_FOUND`, `QUEUE_EXISTS` | RabbitMQ: no such queue in the vhost, or `create` of one that is there |
 | `STREAM_NOT_FOUND`, `STREAM_EXISTS`, `CONSUMER_NOT_FOUND` | NATS: no such stream (or no stream keeps the subject `send` was given), `create` of one that is there, no such consumer |
-| `DELIVERY_LIMIT_NEAR` | RabbitMQ quorum queue, or SQS queue with a dead-letter queue: a message peek showed is close to its delivery (receive) limit (exit 8) |
+| `SUBSCRIPTION_NOT_FOUND`, `SUBSCRIPTION_EXISTS` | Pub/Sub: no such subscription, or `create` of one that is there |
+| `DELIVERY_LIMIT_NEAR` | RabbitMQ quorum queue, SQS queue with a dead-letter queue, or Pub/Sub subscription with a dead-letter topic: a message peek showed is close to its delivery (receive) limit (exit 8) |
 | `NOT_SUPPORTED` | a verb or flag the engine cannot do, with what works instead |
 | `QUEUE_ERROR` | anything else the broker says, with its message |
 
@@ -362,3 +367,117 @@ are `QUEUE_DENIED` (exit 5), keys SQS does not take
 `QUEUE_AUTH`, the 60-second rules (`QueueDeletedRecently`,
 `PurgeQueueInProgress`) and the rest are `QUEUE_ERROR` with a hint. An
 endpoint that does not answer SQS JSON is `QUEUE_CONNECT`.
+
+## Google Cloud Pub/Sub
+
+The engine is internal/queuex/pubsub. It speaks the Pub/Sub REST API (v1,
+JSON) over komando's own HTTP client, so every request goes through the
+conn's dial (direct, `--via`, VPN). The login uses golang.org/x/oauth2 and
+its google package (BSD-3), which komando already builds in for gs://
+storage and `gcp-sm:` secrets. No Google Cloud SDK module is added. It
+registers itself with queuex for the kind `pubsub`.
+
+```
+pubsub://PROJECT[?OPTIONS]
+```
+
+- The conn is one Google Cloud project (its ID: 6 to 30 lowercase
+  letters, digits and hyphens); topics and subscriptions are given to each
+  command. A user in the URL is refused: Google logins have no user name.
+- The endpoint is `https://pubsub.googleapis.com`, or `?endpoint=URL`: a
+  regional endpoint (`https://europe-west1-pubsub.googleapis.com`), a
+  Private Service Connect one, or the emulator
+  (`http://localhost:8085`). An `http://` endpoint straight over the
+  network is refused with `INSECURE_PROTOCOL` unless `?insecure=1`;
+  doctor flags it like an `http://` S3 or SQS endpoint.
+- The login is the one gs:// storage uses: the conn's `--password-ref`
+  holds a service account key (the JSON file from the console), or else
+  gcloud's application default credentials
+  (`GOOGLE_APPLICATION_CREDENTIALS`, the file
+  `gcloud auth application-default login` writes, or the metadata server
+  on Google Cloud). The scope asked for is Pub/Sub only. Tokens are
+  fetched through the conn's dial too.
+- **A login only travels over HTTPS.** The emulator takes no login, so an
+  `http://` endpoint gets none: a key in `--password-ref` there is refused
+  (`USAGE`), and application default credentials are not used. On
+  Google's own endpoints a missing login is `QUEUE_AUTH`; an HTTPS
+  endpoint of its own may go without one.
+
+### Topics and subscriptions
+
+Pub/Sub keeps messages in **subscriptions**, not in topics: a topic hands
+every message to each of its subscriptions, and the programs that pull
+from one subscription share its messages. So a subscription is what the
+family calls a consumer group, and also what holds the messages to read.
+
+A name given to a command is `NAME`, `topics/NAME`, `subscriptions/NAME`
+or the full `projects/PROJECT/topics/NAME` of the conn's project (another
+project needs its own conn). A bare name means:
+
+- a **topic** for `describe` (falling back to a subscription of that name
+  when there is no such topic), `send`, `create` and `rm`;
+- a **subscription** for `peek` and `purge`, the verbs that read or empty
+  messages. A topic there gets a hint that lists its subscriptions.
+
+Topics and subscriptions often share a name (`orders` and `orders`), so
+`rm` never guesses: deleting a subscription is written
+`subscriptions/NAME`.
+
+The REST API does not count messages (Cloud Monitoring has the backlog as
+`subscription/num_undelivered_messages`, a separate API and role). The
+shared `messages` fields are `-1` ("not known") for Pub/Sub, and the text
+says so instead of a number. `lag` answers `NOT_SUPPORTED` for the same
+reason.
+
+| Verb | Pub/Sub |
+|---|---|
+| info | project, endpoint, topic and subscription counts (`topics.list` and `subscriptions.list`, every page) |
+| ls | `topics.list`, with each topic's subscription count (one `subscriptions.list`) and its own message retention; `--internal` is `NOT_SUPPORTED` |
+| describe | a topic: labels, retention, KMS key, schema, allowed regions and its subscriptions with their settings; a subscription: topic, delivery (pull, push, bigquery, cloud-storage), ack deadline, retention, ordering, exactly-once, filter, dead-letter topic and `maxDeliveryAttempts`, state |
+| peek | `subscriptions.pull` without ack, then `modifyAckDeadline` 0: see below |
+| groups | `subscriptions.list`: each subscription as a line (`members` 0 and `lag` -1: Pub/Sub does not say) |
+| send | `topics.get` (`TOPIC_NOT_FOUND`, and the dry run), then `topics.publish`: the value as data, `--header` as attributes, `--key` as the ordering key. An empty message without attributes is refused |
+| create | a topic, or a subscription when the name is `subscriptions/NAME` or `--config topic=TOPIC` is given. `--config` takes Pub/Sub's names (any case): topics `messageRetentionDuration`, `kmsKeyName`; subscriptions `topic`, `ackDeadlineSeconds`, `messageRetentionDuration`, `retainAckedMessages`, `enableMessageOrdering`, `enableExactlyOnceDelivery`, `filter`, `deadLetterTopic`, `maxDeliveryAttempts`, `pushEndpoint` (https only); `labels.KEY` on both. Durations take `7d`, `36h` or `600s`. A get first gives `TOPIC_EXISTS` or `SUBSCRIPTION_EXISTS` and, for a subscription, `TOPIC_NOT_FOUND` for its topic. The dry run makes nothing: Pub/Sub has no validate-only create |
+| rm | every name must exist (dry run: which do, and a topic's subscription count), then delete. Deleting a topic leaves its subscriptions and their messages (their topic becomes `_deleted-topic_`); deleting a subscription deletes its messages |
+| purge | `subscriptions.seek` to now: every message published before now counts as acknowledged, also those a subscriber pulled and has not acknowledged; the subscription stays, and other subscriptions keep theirs |
+| lag | `NOT_SUPPORTED`: see above |
+
+`--partition`, `--oldest`, `--type` and `create --partitions`/`--replicas`
+answer `NOT_SUPPORTED` with what to use instead.
+
+### peek gives every message back
+
+A pull hands messages out for the subscription's ack deadline: until then
+no other subscriber gets them, and a subscriber that acknowledges one
+removes it. peek never acknowledges. It pulls with `returnImmediately`
+(so no pull is left waiting on the server to take messages after peek is
+done), 8 at a time, holds what it got until it has `-n` or a few pulls in
+a row bring nothing new, and then gives every one back with
+`modifyAckDeadline` 0, also after an error or a timeout (with a little
+time of its own). Pub/Sub then delivers them again at once. While peek
+runs (a second or two) the messages it holds are not given to other
+subscribers; if komando stops before giving them back, Pub/Sub gives them
+out again after the ack deadline anyway. The result says `requeued`, and
+`from` is `pulled`. A pull that returns at once can come back empty while
+messages wait, so `no messages` says so; `more` is true when peek got as
+many as it asked for, since Pub/Sub does not say how many wait.
+
+With a dead-letter policy every delivery counts (`deliveryAttempt`), and
+after `maxDeliveryAttempts` (5 to 100, default 5) Pub/Sub moves the message
+to the dead-letter topic. peek guards like SQS and RabbitMQ quorum queues:
+it refuses a subscription whose limit is 3 or less, and stops with
+`DELIVERY_LIMIT_NEAR` (exit 8) once a message it showed has fewer than 3
+deliveries left, after giving back what it pulled. Push, BigQuery and
+Cloud Storage subscriptions are delivered by Pub/Sub itself, so peek
+answers `NOT_SUPPORTED` there.
+
+### Errors
+
+Google answers `{"error": {"code", "status", "message"}}`. A 404 is
+`TOPIC_NOT_FOUND` or `SUBSCRIPTION_NOT_FOUND` (on `conn test`: the project
+ID is wrong); 409 `TOPIC_EXISTS` or `SUBSCRIPTION_EXISTS`; 401 and a token
+Google would not give are `QUEUE_AUTH`; 403 `QUEUE_DENIED` (exit 5; the
+hint names the IAM roles, and that the API may need enabling); 429 and
+`RESOURCE_EXHAUSTED`, 400 (bad settings) and the rest are `QUEUE_ERROR`
+with a hint. An endpoint that does not answer Pub/Sub JSON is
+`QUEUE_CONNECT`. The service account key never appears in an error.

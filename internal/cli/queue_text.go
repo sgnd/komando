@@ -26,6 +26,8 @@ func (d queueInfo) Text() string {
 		return natsInfoText(d.Info)
 	case d.SqsInfo != nil:
 		return sqsInfoText(d.Info)
+	case d.PubsubInfo != nil:
+		return pubsubInfoText(d.Info)
 	}
 	var b strings.Builder
 	version := d.Version
@@ -81,6 +83,8 @@ func (l queueTopics) Text() string {
 		return natsStreamsText(l.Topics)
 	case l.kind == "sqs":
 		return sqsQueuesText(l.Topics)
+	case l.kind == "pubsub":
+		return pubsubTopicsText(l.Topics)
 	}
 	var rows [][]string
 	for _, t := range l.Topics {
@@ -102,6 +106,8 @@ func (d queueTopic) Text() string {
 		return natsStreamText(d.TopicDetail)
 	case d.SqsQueueDetail != nil:
 		return sqsQueueText(d.TopicDetail)
+	case d.PubsubDetail != nil:
+		return pubsubDetailText(d.TopicDetail)
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "topic: %s (%s, %s, %s)\n\n", d.Name, countOf(len(d.Partitions), "partition"), countOf(d.Replicas, "replica"), count64(d.Messages, "message"))
@@ -149,6 +155,8 @@ func (p queuePeek) Text() string {
 	switch {
 	case p.From == "sample":
 		return sqsPeekText(p.PeekResult)
+	case p.From == "pulled":
+		return pubsubPeekText(p.PeekResult)
 	case p.Queue != "":
 		return rabbitPeekText(p.PeekResult)
 	case p.Stream != "":
@@ -197,14 +205,19 @@ type queueGroups struct {
 	Conn   string         `json:"conn"`
 	Groups []queuex.Group `json:"groups"`
 	Count  int            `json:"count"`
+	kind   string
 }
 
 func (l queueGroups) Text() string {
 	switch {
+	case len(l.Groups) == 0 && l.kind == "pubsub":
+		return "no subscriptions\n"
 	case len(l.Groups) == 0:
 		return "no consumer groups\n"
 	case l.Groups[0].NatsConsumer != nil:
 		return natsGroupsText(l.Groups)
+	case l.Groups[0].PubsubSubscription != nil:
+		return pubsubGroupsText(l.Groups)
 	}
 	var rows [][]string
 	for _, g := range l.Groups {
@@ -251,6 +264,8 @@ func (s queueSent) Text() string {
 		return natsSentText(s.Sent)
 	case s.SqsSent != nil:
 		return sqsSentText(s.Sent)
+	case s.PubsubSent != nil:
+		return pubsubSentText(s.Sent)
 	}
 	if s.Queue != "" {
 		if s.DryRun {
@@ -279,6 +294,8 @@ func (c queueCreated) Text() string {
 		return natsCreatedText(c.Created)
 	case c.SqsCreated != nil:
 		return sqsCreatedText(c.Created)
+	case c.PubsubCreated != nil:
+		return pubsubCreatedText(c.Created)
 	}
 	if c.RabbitCreated != nil {
 		typ := c.Type
@@ -309,9 +326,13 @@ type queueDeleted struct {
 	Conn   string           `json:"conn"`
 	Topics []queuex.Deleted `json:"topics"`
 	DryRun bool             `json:"dry_run,omitempty"`
+	kind   string
 }
 
 func (d queueDeleted) Text() string {
+	if d.kind == "pubsub" {
+		return pubsubDeletedText(d.Topics, d.DryRun)
+	}
 	var b strings.Builder
 	verb := "deleted"
 	if d.DryRun {
@@ -338,8 +359,11 @@ type queuePurged struct {
 }
 
 func (p queuePurged) Text() string {
-	if p.InFlight != nil {
+	switch {
+	case p.InFlight != nil:
 		return sqsPurgedText(p.Purged)
+	case p.Subscription != "":
+		return pubsubPurgedText(p.Purged)
 	}
 	if p.Stream != "" {
 		verb := map[bool]string{true: "would delete", false: "deleted"}[p.DryRun]

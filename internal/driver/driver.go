@@ -81,6 +81,8 @@ func init() {
 		Example: "tls://app@nats1.example.com:4222,nats2.example.com:4222 (tls = TLS; a .creds file: ?creds=secret:NAME; --via an SSH server: nats://nats.internal:4222)"})
 	register(Kind{Name: "sqs", Family: "queue", Schemes: []string{"sqs"}, DefaultPort: 443,
 		Example: "sqs://eu-west-1 (Amazon SQS; the login is your AWS one: --option aws_profile=NAME, or keys: sqs://ACCESS_KEY_ID@eu-west-1 --password-ref secret:NAME; an emulator: ?endpoint=http://localhost:4566)"})
+	register(Kind{Name: "pubsub", Family: "queue", Schemes: []string{"pubsub"}, DefaultPort: 443,
+		Example: "pubsub://my-project (Google Cloud Pub/Sub; the login is gcloud's application default one, or a service account key: --password-ref secret:NAME; the emulator: ?endpoint=http://localhost:8085)"})
 	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
 		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
 	register(Kind{Name: "registry", Family: "registry", Schemes: []string{"registry", "oci"}, DefaultPort: 443,
@@ -128,7 +130,7 @@ func kindNames() string {
 // Target is a parsed conn URL.
 type Target struct {
 	Kind     Kind   `json:"kind"`
-	Address  string `json:"address,omitempty"`  // host:port for network kinds (s3, sqs: the endpoint)
+	Address  string `json:"address,omitempty"`  // host:port for network kinds (s3, sqs, pubsub: the endpoint)
 	Path     string `json:"path,omitempty"`     // file path for file kinds; gcs, azblob: the endpoint's path (an emulator)
 	User     string `json:"user,omitempty"`     // s3, sqs: the access key ID (not secret)
 	Database string `json:"database,omitempty"` // SQL database name, redis DB number, or rabbitmq vhost
@@ -154,6 +156,7 @@ type Target struct {
 	Domain string `json:"domain,omitempty"` // nats: the JetStream domain (?domain=)
 
 	Account string `json:"account,omitempty"` // sqs: the AWS account that owns the queues, when not the login's own (?account=)
+	Project string `json:"project,omitempty"` // pubsub: the Google Cloud project
 }
 
 // DialAddress is where a connection goes: the ?resolve= address when the
@@ -182,6 +185,7 @@ func (t Target) Where() string {
 var urlParsers = map[string]func(*url.URL, Target) (Target, error){
 	"s3": parseS3, "ftp": parseFiles, "ftps": parseFiles, "sftp": parseFiles, "gcs": parseGCS, "azblob": parseAzure,
 	"webdav": parseWebDAV, "mongodb": parseMongo, "rabbitmq": parseAMQP, "sqs": parseSQS,
+	"pubsub": parsePubsub,
 }
 
 // passwordParams are query parameters that would carry a password or key.
@@ -478,6 +482,8 @@ func (t Target) Describe() string {
 	switch {
 	case t.Kind.Name == "sqs":
 		s = t.Region + " at " + s
+	case t.Kind.Name == "pubsub":
+		s = "project " + t.Project + " at " + s
 	case t.Kind.Name == "rabbitmq":
 		s += " vhost " + t.Database
 	case t.Database != "":

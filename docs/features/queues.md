@@ -2,13 +2,16 @@
 
 Look at and work with message queues safely: Apache Kafka, and what speaks
 its protocol (Redpanda, Amazon MSK, Confluent Cloud, Aiven), RabbitMQ,
-NATS with JetStream, and Amazon SQS. [All features](README.md)
+NATS with JetStream, Amazon SQS and Google Cloud Pub/Sub.
+[All features](README.md)
 
-The same commands work for all four. Kafka keeps messages in **topics**;
-RabbitMQ and SQS keep them in **queues**; NATS keeps them in **streams**.
-Where this page says "topic", read "queue" for RabbitMQ and SQS and
-"stream" for NATS. What is different for each is in [RabbitMQ](#rabbitmq),
-[NATS JetStream](#nats-jetstream) and [Amazon SQS](#amazon-sqs) below.
+The same commands work for all five. Kafka keeps messages in **topics**;
+RabbitMQ and SQS keep them in **queues**; NATS keeps them in **streams**;
+Pub/Sub keeps them in **subscriptions** of a topic. Where this page says
+"topic", read "queue" for RabbitMQ and SQS and "stream" for NATS. What is
+different for each is in [RabbitMQ](#rabbitmq),
+[NATS JetStream](#nats-jetstream), [Amazon SQS](#amazon-sqs) and
+[Google Cloud Pub/Sub](#google-cloud-pubsub) below.
 
 ## Quick start
 
@@ -409,20 +412,128 @@ komando queue rm aws old-jobs --allow-dangerous
 - `groups` and `lag` answer `NOT_SUPPORTED`: SQS has no consumer groups.
   `describe` shows how many messages are in flight.
 
+## Google Cloud Pub/Sub
+
+### Add a Pub/Sub project
+
+A Pub/Sub conn is one Google Cloud project. You give the topic's or the
+subscription's name to each command, not in the URL. komando logs in the
+same way as for gs:// buckets and needs no gcloud or Google SDK:
+
+```bash
+komando conn add gcp pubsub://my-project      # gcloud's login (application default credentials)
+komando secret set pubsub-key < key.json      # or: a service account key
+komando conn add gcp2 pubsub://my-project --password-ref secret:pubsub-key
+komando conn add local 'pubsub://test-project?endpoint=http://localhost:8085'   # the emulator: no login
+komando queue info gcp                         # how many topics and subscriptions
+komando queue ls gcp                           # topics and how many subscriptions each has
+komando queue groups gcp                       # subscriptions: topic, delivery, ack deadline
+komando queue peek gcp billing                 # up to 10 messages of subscription billing; all given back
+```
+
+- How komando logs in: the service account key in `--password-ref`, or
+  else your application default credentials (the
+  `GOOGLE_APPLICATION_CREDENTIALS` file, the one
+  `gcloud auth application-default login` makes, or the server's own
+  account on Google Cloud). Give the login the role it needs:
+  `roles/pubsub.viewer` to look, `roles/pubsub.subscriber` to peek,
+  `roles/pubsub.publisher` to send, `roles/pubsub.editor` to create and
+  delete.
+- A login only ever travels over HTTPS. The emulator (`http://`) takes
+  none, so komando sends none there.
+- `komando conn test gcp` logs in and lists one topic.
+
+| Option | What it does |
+|---|---|
+| `endpoint=URL` | another Pub/Sub server: a regional endpoint (`https://europe-west1-pubsub.googleapis.com`), a private one, or the emulator (`http://localhost:8085`) |
+| `insecure=1` | accept an `http://` endpoint across the network (no `--via`, not this computer) |
+
+An `http://` endpoint straight over the network is refused with
+`INSECURE_PROTOCOL` unless you add `?insecure=1`: the messages would
+travel unencrypted.
+
+### Topics and subscriptions
+
+In Pub/Sub you **send to a topic**, and the topic hands each message to
+every one of its **subscriptions**. Messages wait in a subscription until a
+program that pulls from it acknowledges them. So a subscription is where
+the messages are, and also what other systems call a consumer group.
+
+A name you give is a topic or a subscription:
+
+- `peek` and `purge` take a **subscription** (`billing`).
+- `describe`, `send`, `create` and `rm` take a **topic** (`orders`);
+  `describe` also finds a subscription when there is no topic of that
+  name.
+- Write `subscriptions/NAME` (or `topics/NAME`) to say which, for example
+  to delete a subscription: topics and subscriptions often share a name.
+
+Pub/Sub does not count waiting messages (Cloud Monitoring does), so
+`messages` is `-1` in the JSON and the text says "does not count". `lag`
+answers `NOT_SUPPORTED`.
+
+### What each command does on Pub/Sub
+
+```bash
+komando queue describe gcp orders              # a topic and its subscriptions
+komando queue describe gcp subscriptions/billing
+komando queue send gcp orders --value '{"id": 42}' --header source=support --key customer-7
+komando queue create gcp orders --config messageRetentionDuration=7d --dry-run
+komando queue create gcp subscriptions/billing --config topic=orders --config ackDeadlineSeconds=60
+komando queue purge gcp billing --dry-run      # empties subscription billing
+komando queue rm gcp subscriptions/billing old-orders --dry-run
+```
+
+- **`peek` pulls messages and gives every one back unacknowledged.** It
+  never acknowledges, so nothing is removed: when it is done it sets each
+  message's ack deadline to 0 and Pub/Sub delivers it again at once. For
+  the second or two peek runs, the messages it holds are not handed to
+  other programs; if komando is stopped halfway, Pub/Sub hands them out
+  again after the subscription's ack deadline. Pub/Sub gives no set order,
+  so there is no `--oldest` or `--partition`.
+- **With a dead-letter topic every delivery counts.** After
+  `maxDeliveryAttempts` deliveries Pub/Sub moves a message to the
+  dead-letter topic, and a peek is a delivery. So peek stops with
+  `DELIVERY_LIMIT_NEAR` once a message it showed has fewer than 3 left.
+  Let the subscribers take the message, or peek a subscription of the
+  dead-letter topic.
+- Push, BigQuery and Cloud Storage subscriptions are delivered by Pub/Sub
+  itself: peek a pull subscription of the same topic instead.
+- `send` publishes to a topic. `--header` values become attributes and
+  `--key` is the ordering key (a subscription with ordering gets the
+  messages of one key in order).
+- `create NAME` makes a topic; `create subscriptions/NAME --config
+  topic=TOPIC` makes a subscription. `--config` takes Pub/Sub's own
+  setting names: `messageRetentionDuration` (`7d`, `36h`), `kmsKeyName`;
+  for subscriptions also `ackDeadlineSeconds`, `retainAckedMessages`,
+  `enableMessageOrdering`, `enableExactlyOnceDelivery`, `filter`,
+  `deadLetterTopic`, `maxDeliveryAttempts` and `pushEndpoint`;
+  `labels.KEY=VALUE` on both. Pub/Sub cannot check a topic without making
+  it, so `create --dry-run` checks the names and settings only.
+- `purge` empties a subscription and keeps it: every message published
+  until now counts as acknowledged (a "seek" to now), also those a program
+  pulled and has not acknowledged. The topic's other subscriptions keep
+  theirs.
+- `rm` deletes topics, or subscriptions written `subscriptions/NAME`.
+  Deleting a topic does **not** delete its subscriptions: they keep their
+  messages, cut off from the topic. Deleting a subscription deletes the
+  messages waiting in it. Both `purge` and `rm` need `--allow-dangerous`.
+
 ## Troubleshooting
 
 | Code | What to do |
 |---|---|
 | `QUEUE_CONNECT` | the brokers cannot be reached, or want TLS (`?tls=true`) or a login (`?sasl=`); with `--via`, the advertised addresses must be reachable from there |
-| `QUEUE_AUTH` | check the user, the `sasl=` mechanism and the password (`komando conn show NAME`); SQS: the AWS profile or keys |
+| `QUEUE_AUTH` | check the user, the `sasl=` mechanism and the password (`komando conn show NAME`); SQS: the AWS profile or keys; Pub/Sub: the service account key, or `gcloud auth application-default login` |
 | `AWS_LOGIN_REQUIRED`, `AWS_PROFILE_NOT_FOUND` | SQS: a person runs `komando login aws --profile NAME`, or fix the conn's `aws_profile` option |
-| `QUEUE_DENIED` | the user lacks a Kafka ACL for the topic, group or cluster, a RabbitMQ permission on the vhost or queue, a NATS permission on the subject or the JetStream API, or an IAM permission for SQS (`sqs:ReceiveMessage`, ...): ask the admin |
+| `QUEUE_DENIED` | the user lacks a Kafka ACL for the topic, group or cluster, a RabbitMQ permission on the vhost or queue, a NATS permission on the subject or the JetStream API, an IAM permission for SQS (`sqs:ReceiveMessage`, ...), or a Pub/Sub role (`roles/pubsub.subscriber`, ...; or the Pub/Sub API is not enabled): ask the admin |
 | `TOPIC_NOT_FOUND`, `CONSUMER_GROUP_NOT_FOUND`, `PARTITION_NOT_FOUND` | check the name with `queue ls`, `queue groups` or `queue describe` |
 | `TOPIC_EXISTS` | `queue create` of a topic that is there |
 | `QUEUE_NOT_FOUND`, `QUEUE_EXISTS` | RabbitMQ: no such queue in the conn's vhost, or one is there already; check the vhost in the URL's path. SQS: check the region (the URL's host) and, for another account's queue, `?account=` |
-| `DELIVERY_LIMIT_NEAR` | a message of a RabbitMQ quorum queue is close to its delivery limit, or an SQS message close to its queue's `maxReceiveCount`: stop peeking that queue and let its consumers take the message |
+| `SUBSCRIPTION_NOT_FOUND`, `SUBSCRIPTION_EXISTS` | Pub/Sub: no such subscription (`queue groups` lists them; peek takes a subscription, not a topic), or one is there already |
+| `DELIVERY_LIMIT_NEAR` | a message of a RabbitMQ quorum queue is close to its delivery limit, an SQS message close to its queue's `maxReceiveCount`, or a Pub/Sub message close to its subscription's `maxDeliveryAttempts`: stop peeking and let its consumers take the message |
 | `STREAM_NOT_FOUND`, `STREAM_EXISTS`, `CONSUMER_NOT_FOUND` | NATS: no such stream (for `send`: no stream keeps that subject), one is there already, or no such consumer; `queue ls` and `queue groups` show the names |
-| `NOT_SUPPORTED` | the engine cannot do this (RabbitMQ: `groups`, `lag`, `ls` and `peek` without `?management=`; NATS without JetStream; SQS: `groups`, `lag`, `peek --oldest`); the hint says what works instead |
+| `NOT_SUPPORTED` | the engine cannot do this (RabbitMQ: `groups`, `lag`, `ls` and `peek` without `?management=`; NATS without JetStream; SQS: `groups`, `lag`, `peek --oldest`; Pub/Sub: `lag`, `peek --oldest`, peek of a push subscription); the hint says what works instead |
 
 The design behind these commands is in
 [docs/design/queue.md](../design/queue.md).

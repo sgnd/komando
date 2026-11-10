@@ -44,8 +44,9 @@ var (
 	// a JSON object key that names a secret: its whole string value is hidden
 	secretKey = regexp.MustCompile(`(?i)^[A-Za-z0-9_.-]*(?:passw(?:or)?d|passphrase|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|authorization|[_.-]key)[A-Za-z0-9_.-]*$`)
 	// keys that name a secret but hold no value komando would hide
-	// (snake_case or kebab-case: secret_name, --host-key-policy)
-	notSecretKey = regexp.MustCompile(`(?i)(^(max|min|num|public)[_-]|^public|pub_?keys?$|fingerprint|(ref|refs|[_-](?:name|names|id|count|file|path|type|hint|endpoint|url|uri|host|port|needed|length|len|size|ttl|expiry|expires|timeout|max|min|enabled|required|policy|mode|header|field|param))$)`)
+	// (snake_case or kebab-case: secret_name, --host-key-policy; a Pub/Sub
+	// message's ordering_key, which groups messages)
+	notSecretKey = regexp.MustCompile(`(?i)(^(max|min|num|public)[_-]|^public|pub_?keys?$|^ordering[_-]key$|fingerprint|(ref|refs|[_-](?:name|names|id|count|file|path|type|hint|endpoint|url|uri|host|port|needed|length|len|size|ttl|expiry|expires|timeout|max|min|enabled|required|policy|mode|header|field|param))$)`)
 )
 
 const (

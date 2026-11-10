@@ -32,7 +32,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [VPNs](vpn.md) | reach targets behind WireGuard, OpenVPN, Tailscale, AnyConnect, IPsec and other VPNs, several at once | `vpn`, `--via` |
 | [Databases](databases.md) | query, back up and restore PostgreSQL and MySQL/MariaDB; query and back up SQLite | `conn`, `db` |
 | [Caches](caches.md) | read and change Redis, Valkey and memcached | `cache` |
-| [Queues](queues.md) | Kafka topics, RabbitMQ queues, NATS JetStream streams and Amazon SQS queues: list, peek, lag, send | `queue` |
+| [Queues](queues.md) | Kafka topics, RabbitMQ queues, NATS JetStream streams, Amazon SQS queues and Google Cloud Pub/Sub topics: list, peek, lag, send | `queue` |
 | [Storage](storage.md) | browse, download, upload and share files in S3 buckets and on FTPS/SFTP/FTP servers | `storage`, `upload`, `download`, `sync` |
 | [Clusters](cluster.md) | Kubernetes and Docker Swarm: status, list, logs, apply, restart, scale | `cluster` |
 | [Container registries](registry.md) | list repositories and tags, inspect images, delete old ones | `registry` |

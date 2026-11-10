@@ -128,6 +128,11 @@ services:
     image: nats:2.12.1-alpine
     command: ["-js", "-m", "8222", "--user", "app", "--pass", "natspass"]
     networks: [private]
+  pubsub:
+    # the Google Cloud Pub/Sub emulator, reached --via bastion (checks/pubsub.sh)
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    command: ["gcloud", "beta", "emulators", "pubsub", "start", "--host-port=0.0.0.0:8085", "--project=test-project"]
+    networks: [private]
   # secret managers komando talks to itself (no vault or aws CLI)
   bao:
     image: openbao/openbao:2.4.3

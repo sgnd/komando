@@ -171,7 +171,7 @@ changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run
 <conn> -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
 `cache keys` uses SCAN.
 
-**Queues** (Kafka, Redpanda, MSK, RabbitMQ, NATS JetStream, Amazon SQS): `komando queue info|ls|describe|groups|lag
+**Queues** (Kafka, Redpanda, MSK, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub): `komando queue info|ls|describe|groups|lag
 <conn>` read; `komando queue peek <conn> TOPIC -n 20` reads the newest
 messages without joining a consumer group (nothing moves, nothing is
 removed; `--oldest` for the first ones). On RabbitMQ peek takes the first
@@ -181,6 +181,9 @@ sequence; `queue send` takes a subject a stream keeps (`orders.new`). On
 SQS peek receives a sample with visibility timeout 0 and deletes nothing,
 but each receive counts toward a dead-letter queue (stop on
 `DELIVERY_LIMIT_NEAR`); a FIFO queue needs `--key` (the message group).
+On Pub/Sub you send to a topic, but peek and purge take a subscription
+(`queue groups` lists them); peek pulls and gives every message back
+unacknowledged. Delete a subscription as `subscriptions/NAME`.
 `queue send <conn> TOPIC --value '...'` and `queue create` change;
 `queue rm` and `queue purge` delete messages (need `--allow-dangerous`). Try every change with `--dry-run`.
 

@@ -17,8 +17,8 @@ import (
 //     gets tls=true (verifiedTLSURL). Left out, both would take TLS only
 //     when the server offers it, without checking whose certificate it is.
 //   - redis://, memcached://, amqp:// and nats:// name a connection without
-//     TLS, and so do kafka:// without tls=true and sqs:// with an http://
-//     endpoint, so they are refused unless ?insecure=1
+//     TLS, and so do kafka:// without tls=true and sqs:// and pubsub://
+//     with an http:// endpoint, so they are refused unless ?insecure=1
 //     says that is meant, as for ftp://. Most of these servers have no
 //     TLS: --via an SSH server is the usual way.
 //
@@ -71,6 +71,12 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
 				"use an https:// endpoint, or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the messages and the session token travel unencrypted",
 				"the sqs endpoint http://%s crosses the network without TLS, so the messages and the AWS session token travel unencrypted", t.Address)
+		}
+	case "pubsub":
+		if !t.Secure && q.Get("insecure") != "1" {
+			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+				"run the Pub/Sub emulator on this computer, or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the messages travel unencrypted",
+				"the pubsub endpoint http://%s crosses the network without TLS, so the messages travel unencrypted", t.Address)
 		}
 	case "kafka":
 		if !t.Secure && q.Get("insecure") != "1" {
