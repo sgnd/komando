@@ -27,6 +27,23 @@ komando conn add ghcr registry://myuser@ghcr.io --password-ref secret:ghcr-token
 komando conn add local 'registry://me@registry.lan:5000?tls=false' --via bastion   # no TLS, behind a bastion
 ```
 
+The password is usually an access token. It needs read rights to look,
+write rights to copy into the registry, and delete rights to delete. For
+Docker Hub use `registry://myuser@docker.io`.
+
+### Amazon ECR
+
+ECR logins last 12 hours, so komando gets a fresh one from AWS each time,
+with your usual AWS login (no aws CLI needed). Leave out `--password-ref`
+and name the AWS profile:
+
+```bash
+komando conn add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws.com --option aws_profile=prod
+```
+
+If the SSO login has expired, the error is `AWS_LOGIN_REQUIRED`: a person
+runs `komando login aws --profile prod` once.
+
 ### HTTPS with your own certificate
 
 By default komando checks the registry's certificate against the CAs your
@@ -43,7 +60,7 @@ komando conn add lan 'registry://me@registry.lan?tls=skip-verify' --password-ref
 |---|---|
 | (none) | HTTPS, certificate checked against your computer's CAs |
 | `?ca=secret:NAME` | HTTPS, certificate checked against those CAs plus the PEM certificate in the vault secret `NAME`: a CA, or the registry's own certificate |
-| `?resolve=IP` | connect to this IP address instead of the one DNS gives for the name (like `curl --resolve`). `IP:PORT` sets the port too; write IPv6 in brackets: `[2001:db8::1]:443`. TLS keeps using the name in the URL. Goes with every other option in this table; see "Wrong or missing DNS" below |
+| `?resolve=IP` | connect to this IP address instead of the one DNS gives for the name (like `curl --resolve`). `IP:PORT` sets the port too; write IPv6 in brackets: `[2001:db8::1]:443`. TLS keeps using the name in the URL. Goes with every other option in this table; see [When DNS points somewhere else](#when-dns-points-somewhere-else) |
 | `?tls=skip-verify` | HTTPS, but the certificate is not checked (like Docker's `insecure-registries`). Anyone on the path can pretend to be the registry; `komando doctor` warns about it |
 | `?tls=false` | plain HTTP, nothing encrypted (a `registry:2` on a private network) |
 
@@ -51,33 +68,38 @@ The CA secret counts as used by the conn: `secret list` shows it, `secret rm`
 refuses it, `secret mv` changes the URL too, and `export` lists it under
 `secrets_needed`.
 
-**No CA at hand?** If the CA is somewhere else (mkcert on another
-computer) and the registry sends only its own certificate, store that
-certificate as `ca=`. komando then trusts exactly that certificate (it is
-pinned), still checks the name and the dates, and refuses any other. When
-the registry gets a new certificate, store the new one.
+No CA at hand? If the CA is somewhere else (mkcert on another computer)
+and the registry sends only its own certificate, store that certificate as
+`ca=`. komando then trusts exactly that certificate (it is pinned), still
+checks the name and the dates, and refuses any other. When the registry
+gets a new certificate, store the new one.
 
 ```bash
 komando secret set lan-cert < registry.crt    # the registry's own certificate, PEM
 komando conn add lan 'registry://me@registry.lan?ca=secret:lan-cert'
 ```
 
-**Through a server (`--via`).** komando sends the registry's name to the
-last server on the `--via` path, and that server looks it up, so its
+### When DNS points somewhere else
+
+Sometimes the registry's public DNS points somewhere other than the address
+your servers use, or the name has no DNS at all. There are two ways around
+it.
+
+Through a server (`--via`): komando sends the registry's name to the last
+server on the `--via` path, and that server looks it up, so its
 `/etc/hosts` and its DNS apply. The certificate check and the `Host` header
-still use the name in the URL. This helps when the registry's public DNS
-points somewhere else than the address your servers use:
+still use the name in the URL:
 
 ```bash
 komando conn add app-registry 'registry://me@registry.example.com?ca=secret:app-ca' --via web1
 ```
 
-**Wrong or missing DNS (`?resolve=`).** If you can reach the registry from
-your computer, you do not need a server for this. Give its IP address in
-the URL, as `curl --resolve` does. komando connects to that address and
-still sends the name, so the TLS options work as they do without it: the
-certificate is checked against the name (with or without `ca=`), or not
-checked at all with `tls=skip-verify`:
+With `?resolve=`: if you can reach the registry from your computer, you do
+not need a server for this. Give its IP address in the URL, as
+`curl --resolve` does. komando connects to that address and still sends the
+name, so the TLS options work as they do without it: the certificate is
+checked against the name (with or without `ca=`), or not checked at all
+with `tls=skip-verify`:
 
 ```bash
 komando conn add app-registry 'registry://me@registry.example.com?ca=secret:app-ca&resolve=203.0.113.10'
@@ -88,21 +110,6 @@ komando test app-registry
 Only connections to the registry's own name go to that IP. A login service
 or a download on another host is looked up as usual. With `--via`, the last
 server on the path connects to the IP. `komando tunnel` uses the IP too.
-
-The password is usually an access token. It needs read rights to look,
-write rights to copy into the registry, and delete rights to delete. For
-Docker Hub use `registry://myuser@docker.io`.
-
-**Amazon ECR.** ECR logins last 12 hours, so komando gets a fresh one from
-AWS each time, with your usual AWS login (no aws CLI needed). Leave out
-`--password-ref` and name the AWS profile:
-
-```bash
-komando conn add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws.com --option aws_profile=prod
-```
-
-If the SSO login has expired, the error is `AWS_LOGIN_REQUIRED`: a person
-runs `komando login aws --profile prod` once.
 
 ## Look at images
 

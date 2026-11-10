@@ -20,7 +20,7 @@ type menuList struct {
 	title string  // the question above the rows ("" on the main menu)
 	lead  [][]seg // lines under the title: a form's answers so far and its question
 	note  string  // one dim line above the rows, when there is something to say
-	warn  bool    // the note is a problem to fix, not a hint: shown in yellow
+	warn  bool    // the note is a problem to fix, not a hint: marked "! " and shown bold
 	// mask is how the typed line is drawn, when it must not show as typed
 	// (a password pasted with an address); nil draws it as it is
 	mask   func(string) string
@@ -179,6 +179,20 @@ type menuScreen struct {
 	color  bool
 }
 
+// listKeys is the key help of a list: how to move and choose, as this list
+// takes them (numbers only on a list without a filter, and only as many as
+// it has rows, up to 9), then the screen's own keys, like "Esc back".
+func listKeys(l *menuList, more ...string) string {
+	keys := []string{"↑↓ move", "Enter choose"}
+	if n := min(9, len(l.rows)); !l.typing && n > 1 {
+		keys[1] = fmt.Sprintf("Enter or 1-%d choose", n)
+	}
+	if l.typing {
+		keys = append(keys, "type to filter")
+	}
+	return strings.Join(append(keys, more...), " · ")
+}
+
 // menuCaret is where the hidden cursor is left after drawing (line and
 // column from 0; line -1: after the last line). Nothing shows there, but
 // screen magnifiers and readers follow it to the chosen row.
@@ -186,9 +200,10 @@ type menuCaret struct{ line, col int }
 
 // chrome is how many lines a screen uses besides the rows: blank, header,
 // blank, then (title, filter, note, blank) when there is any of them, then
-// after the rows blank and footer.
-func (l *menuList) chrome() int {
-	n := 5 + len(l.lead)
+// after the rows blank and the key help, which takes more than one line on
+// a narrow screen.
+func (l *menuList) chrome(s menuScreen, width int) int {
+	n := 4 + len(l.lead) + len(keyLines(s.footer, width-1))
 	for _, on := range []bool{l.title != "", l.typing, l.note != ""} {
 		if on {
 			n++
@@ -200,16 +215,40 @@ func (l *menuList) chrome() int {
 	return n
 }
 
-// pageSize is how many rows fit on a screen this many lines high.
-func (l *menuList) pageSize(height int) int { return max(1, height-l.chrome()) }
+// pageSize is how many rows fit on a screen this wide and this many lines
+// high.
+func (l *menuList) pageSize(s menuScreen, width, height int) int {
+	return max(1, height-l.chrome(s, width))
+}
+
+// keyLines is the key help cut into lines no wider than width, between its
+// " · " parts, so a narrow screen shows every key in full instead of
+// cutting off the last ones (often "q quit"). A part too wide on its own
+// is cut by fit, as any line.
+func keyLines(help string, width int) []string {
+	if help == "" {
+		return []string{""}
+	}
+	var lines []string
+	for _, p := range strings.Split(help, " · ") {
+		last := len(lines) - 1
+		if last >= 0 && displayWidth(lines[last]+" · "+p) <= width {
+			lines[last] += " · " + p
+			continue
+		}
+		lines = append(lines, p)
+	}
+	return lines
+}
 
 // render draws the screen as lines no wider than width, at most height of
 // them, so nothing wraps or scrolls and redrawing over them is exact. On a
 // screen too short for everything, the blank lines go first, then the
-// note, the header and the title; the filter, the cursor row and the key
-// help stay. It also says where to leave the hidden cursor.
+// note, the header, the title and the key help's second line; the filter,
+// the cursor row and the key help's first line stay. It also says where to
+// leave the hidden cursor.
 func (l *menuList) render(s menuScreen, width, height int) ([]string, menuCaret) {
-	page := l.pageSize(height)
+	page := l.pageSize(s, width, height)
 	l.clamp(page)
 	shown := l.shown()
 	type line struct {
@@ -229,8 +268,11 @@ func (l *menuList) render(s menuScreen, width, height int) ([]string, menuCaret)
 		lines = append(lines, line{[]seg{{label, "2"}, {text, ""}, {"_", "2"}, {count, "2"}}, 0, displayWidth(label + text)})
 	}
 	if l.note != "" {
-		if l.warn { // a problem with the answer: it stays on any screen
-			lines = append(lines, line{[]seg{{"! " + l.note, "33"}}, 0, -1})
+		// a problem with the answer: it stays on any screen. The "! " says
+		// so without colour, and bold reads on a light terminal as well as
+		// a dark one, where yellow on white is hard to read.
+		if l.warn {
+			lines = append(lines, line{[]seg{{"! " + l.note, "1"}}, 0, -1})
 		} else {
 			lines = append(lines, line{[]seg{{l.note, "2"}}, 5, -1})
 		}
@@ -248,8 +290,15 @@ func (l *menuList) render(s menuScreen, width, height int) ([]string, menuCaret)
 			}
 		}
 	}
-	lines = append(lines, line{nil, 4, -1}, line{[]seg{{s.footer, "2"}}, 0, -1})
-	for d := 1; len(lines) > max(0, height) && d <= 7; d++ {
+	lines = append(lines, line{nil, 4, -1})
+	for i, k := range keyLines(s.footer, width-1) {
+		drop := 0
+		if i > 0 {
+			drop = 8
+		}
+		lines = append(lines, line{[]seg{{k, "2"}}, drop, -1})
+	}
+	for d := 1; len(lines) > max(0, height) && d <= 8; d++ {
 		lines = slices.DeleteFunc(lines, func(x line) bool { return x.drop == d })
 	}
 	lines = lines[max(0, len(lines)-max(0, height)):] // still too many: keep the bottom

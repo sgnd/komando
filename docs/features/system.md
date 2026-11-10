@@ -17,7 +17,7 @@ komando user list web1                                        # who can log in
 ## Services (systemd)
 
 Most Linux servers start and watch their services with systemd. systemd
-calls each service a **unit** (`nginx`, `php8.2-fpm`).
+calls each service a unit (`nginx`, `php8.2-fpm`).
 
 ```bash
 komando svc status @web nginx php8.2-fpm      # state, main PID, restarts, memory

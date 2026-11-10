@@ -42,7 +42,8 @@ komando import ssh-config ~/work/ssh_config --group work
 
 Flags: `-g`/`--group` adds everything imported to a group, and
 `--overwrite` replaces entries that already have the same name (a protected
-one also needs `--yes`). Without `--overwrite`, existing names are skipped.
+one also needs `--yes`). Without `--overwrite`, komando skips names it
+already has.
 
 ### What happens to passwords
 
@@ -71,9 +72,9 @@ databases, put their URLs in a `.env` file and run `komando import env FILE`.
 
 ## Move to another computer
 
-There are two ways. **Export** moves your servers, conns, VPNs, recipes,
+There are two ways. An export moves your servers, conns, VPNs, recipes,
 your own deny rules and settings, but no passwords and no key files: you
-set those again. **Copy the folder** moves everything, passwords included,
+set those again. Copying the folder moves everything, passwords included,
 once the vault has a passphrase.
 
 ### Export and import (no passwords)
@@ -88,8 +89,8 @@ komando export @prod --to prod.json           # only what a target picks (no rec
 komando export                                # print it instead of writing a file
 ```
 
-The file is written with mode 0600. It refuses to replace an existing file
-unless you add `--overwrite`.
+`export` writes the file with mode 0600, and refuses to replace an existing
+file unless you add `--overwrite`.
 
 On the other computer:
 
@@ -102,8 +103,8 @@ The export file holds no passwords, only their names, so set them again
 with `komando secret set`. The import adds your deny rules (they only stop
 more), but changes no setting: it lists the settings that differ, each with
 the `komando config set` command that sets it, because a file from someone
-else must not turn a check off. When something in the file is refused, the
-rest still comes in and the import ends with `IMPORT_INCOMPLETE` (exit 1):
+else must not turn a check off. When komando refuses something in the file,
+the rest still comes in and the import ends with `IMPORT_INCOMPLETE` (exit 1):
 fix those entries and import again (what is in already is skipped).
 
 Private keys are never in an export file either. When a server logs in with
@@ -116,6 +117,19 @@ you bring it (ssh-agent or your default key may log in meanwhile):
 komando key add deploy ~/Downloads/deploy     # the copied key file
 komando host edit db1 --key deploy
 ```
+
+An export file may come from someone else, so komando imports it with
+these limits:
+
+- A `ProxyCommand` is dropped, because it would run on this computer. Set it
+  yourself with `komando host edit NAME --proxy-command ...`.
+- A password reference is kept only if it names a `secret:` that does not
+  exist here yet. Anything else is dropped, so a file cannot point your
+  existing passwords at its servers.
+- Recipes marked read-only are imported as changes. Mark them read-only
+  again yourself with `komando recipe add NAME ... --read-only --overwrite`.
+
+Each dropped setting is listed in the result.
 
 ### Copy the folder (everything, with passwords)
 
@@ -134,15 +148,3 @@ komando doctor                                # the vault opens, the servers are
 On the new computer you can go back to a key file and move it into the
 keychain: `komando secret passphrase --off --yes`, then `komando secret
 keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
-
-An export file may come from someone else, so importing one is careful:
-
-- A `ProxyCommand` is dropped, because it would run on this computer. Set it
-  yourself with `komando host edit NAME --proxy-command ...`.
-- A password reference is kept only if it names a `secret:` that does not
-  exist here yet. Anything else is dropped, so a file cannot point your
-  existing passwords at its servers.
-- Recipes marked read-only are imported as changes. Mark them read-only
-  again yourself with `komando recipe add NAME ... --read-only --overwrite`.
-
-Each dropped setting is listed in the result.

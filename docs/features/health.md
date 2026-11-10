@@ -52,12 +52,16 @@ komando facts @web
 and it uses sudo only when sudo already works without a password (it never
 asks for one).
 
-**What "unknown" means.** When komando cannot read something, the JSON says
+### What "unknown" means
+
+When komando cannot read something, the JSON says
 `null` (and the text says "unknown"), never `0` or `false`. This matters most
 for security updates: a server whose OS is past its support gets no new
 security updates, so its package index shows none pending. komando reports
 those as unknown, with a warning, instead of a reassuring `0`. Agents should
 read `warnings` first.
+
+### The JSON fields
 
 In JSON (`-o json`), each server's `data` has these fields besides the
 basics (`os`, `os_version`, `kernel`, `cpus`, `mem_total_mb`, `tools` ...):
@@ -78,7 +82,9 @@ basics (`os`, `os_version`, `kernel`, `cpus`, `mem_total_mb`, `tools` ...):
 Only names are kept, never command lines or environments (they can hold
 passwords), and secret-looking text is hidden.
 
-**Where the support dates come from.** komando has a small built-in table
+### Where the support dates come from
+
+komando has a small built-in table
 for Ubuntu LTS, Debian, RHEL and its rebuilds (Rocky, AlmaLinux, Oracle
 Linux, CentOS), Alpine and Amazon Linux, taken from each vendor's release
 page (the sources are listed in `internal/cli/facts_support.go`). The JSON
@@ -132,7 +138,7 @@ komando cert check api.example.com:8443 intranet:443 --via bastion
 komando cert check web1 --path /etc/ssl/private/site.pem
 ```
 
-- **On a server** komando finds the certificates itself: certbot's
+- On a server, komando finds the certificates itself: certbot's
   (`/etc/letsencrypt/live/*/cert.pem`) and the files nginx
   (`ssl_certificate`), haproxy (`crt`) and apache (`SSLCertificateFile`)
   use. Add more with `--path`. Files that need root are read with sudo only
@@ -140,7 +146,7 @@ komando cert check web1 --path /etc/ssl/private/site.pem
   certificate part of a file is read: a private key in the same file never
   leaves the server. When certbot is installed, the result also shows its
   renewal timer and whether the last renewal failed.
-- **A website** (`https://NAME`, `NAME:PORT`) or a conn that uses TLS:
+- For a website (`https://NAME`, `NAME:PORT`) or a conn that uses TLS,
   komando connects from this computer, or through `--via` (a server or VPN),
   reads the certificate the site sends, and checks that it is trusted and
   matches the name.

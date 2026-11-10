@@ -43,9 +43,9 @@ type hostFlags struct {
 
 func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl := c.Flags()
-	fl.StringVar(&f.address, "address", "", "hostname or IP (winrm://USER@HOST for a Windows server over WinRM)")
+	fl.StringVar(&f.address, "address", "", "host name or IP address (winrm://USER@HOST for a Windows server over WinRM)")
 	fl.IntVar(&f.port, "port", 0, "SSH port (default 22)")
-	fl.StringVar(&f.user, "user", "", "login user")
+	fl.StringVar(&f.user, "user", "", "the user to log in as")
 	fl.StringVar(&f.key, "key", "", "name of a key in komando's key list (see komando key list)")
 	fl.StringVar(&f.identity, "identity", "", "path to a private key file")
 	fl.StringVar(&f.passwordRef, "password-ref", "", "password reference: secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME")
@@ -55,21 +55,21 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.proxyCommand, "proxy-command", "", "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)")
 	fl.StringVar(&f.os, "os", "", "the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)")
 	fl.BoolVar(&f.ssm, "ssm", false, "reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed)")
-	fl.StringVar(&f.notes, "notes", "", "free-form notes (shown to agents in host show)")
+	fl.StringVar(&f.notes, "notes", "", "free-form notes (komando host show shows them to people and agents)")
 	fl.BoolVar(&f.protected, "protected", false, "require --yes for any change to the server or to this entry (production safety)")
 	if edit {
-		fl.StringSliceVar(&f.addGroups, "add-group", nil, "add to group(s)")
-		fl.StringSliceVar(&f.rmGroups, "rm-group", nil, "remove from group(s)")
-		fl.StringSliceVar(&f.addTags, "add-tag", nil, "add tag(s)")
+		fl.StringSliceVar(&f.addGroups, "add-group", nil, "put it in these groups (comma-separated)")
+		fl.StringSliceVar(&f.rmGroups, "rm-group", nil, "take it out of these groups")
+		fl.StringSliceVar(&f.addTags, "add-tag", nil, "add these tags (comma-separated)")
 		shortAlias(fl, "group", "g", "add-group")
 		shortAlias(fl, "tag", "t", "add-tag")
-		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove tag(s)")
-		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (empty value removes)")
-		fl.StringSliceVar(&f.env, "env", nil, "set env KEY=VALUE exported before commands (empty value removes)")
-		fl.StringSliceVar(&f.unset, "unset", nil, "clear fields: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,os,transport (transport: back to SSH from WinRM)")
+		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove these tags")
+		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (an empty value removes it)")
+		fl.StringSliceVar(&f.env, "env", nil, "set KEY=VALUE, exported before every command (an empty value removes it)")
+		fl.StringSliceVar(&f.unset, "unset", nil, "clear these settings: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,os,transport (transport: back to SSH from WinRM)")
 	} else {
-		fl.StringSliceVarP(&f.groups, "group", "g", nil, "group(s)")
-		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tag(s)")
+		fl.StringSliceVarP(&f.groups, "group", "g", nil, "put it in these groups (comma-separated)")
+		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, e.g. prod (comma-separated)")
 		fl.StringSliceVar(&f.labels, "label", nil, "label KEY=VALUE (repeatable)")
 		fl.StringSliceVar(&f.env, "env", nil, "env KEY=VALUE exported before every command (repeatable)")
 	}
@@ -86,7 +86,7 @@ func hostAddCmd() *cobra.Command {
 	var force, askPw bool
 	c := &cobra.Command{
 		Use:   "add NAME [user@address[:port]]",
-		Short: "Add a server to the list",
+		Short: "Add a server to the inventory",
 		Example: `  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
   komando host add db1 --address db.internal --user root --via bastion --protected
   komando host add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)
@@ -102,7 +102,7 @@ func hostAddCmd() *cobra.Command {
 	}
 	f.bind(c, false)
 	askPasswordFlag(c, &askPw)
-	c.Flags().BoolVar(&force, "overwrite", false, "replace an existing host with the same name")
+	c.Flags().BoolVar(&force, "overwrite", false, "replace a server that has the same name")
 	aliasFlag(c.Flags(), "force", "overwrite")
 	return c
 }
@@ -237,7 +237,7 @@ func hostEditCmd() *cobra.Command {
 	var askPw bool
 	c := &cobra.Command{
 		Use:   "edit NAME|TARGET...",
-		Short: "Edit one or more hosts (only flags you pass are changed)",
+		Short: "Change one or more servers (only the flags you pass change)",
 		Long: `Changes only the settings you pass. Give one name, several names, or a
 selector (@group, tag:prod, 'web-*') to change many servers at once.
 Changing the login (--user, --key, --password-ref, --sudo-ref, --via, ...)
@@ -257,7 +257,7 @@ covers every server in the command, and the question lists them all. Try
 	}
 	f.bind(c, true)
 	askPasswordFlag(c, &askPw)
-	c.Flags().StringVar(&rename, "rename", "", "rename the host")
+	c.Flags().StringVar(&rename, "rename", "", "rename the server")
 	_ = c.Flags().MarkDeprecated("rename", "use `komando host mv OLD NEW`")
 	return c
 }
@@ -649,7 +649,7 @@ func checkHostRefs(h *store.Host) error {
 		return out.Usage("--os takes windows or linux, not %q", h.OS)
 	}
 	if h.ProxyCommand != "" && h.Via != "" {
-		return out.Usage("a host takes --proxy-command or --via, not both (put the proxy on the first host of the --via chain)")
+		return out.Usage("a server takes --proxy-command or --via, not both (put the proxy command on the first server of the --via path)")
 	}
 	for _, r := range []struct{ flag, ref string }{{"--password-ref", h.PasswordRef}, {"--sudo-ref", h.SudoRef}} {
 		if r.ref != "" && !vault.ValidRef(r.ref) {
@@ -686,7 +686,7 @@ func applyKV(m *map[string]string, pairs []string) error {
 func hostShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show NAME",
-		Short: "Show full host configuration (secrets are references, never values)",
+		Short: "Show all settings of a server (secrets as references, never values)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -752,14 +752,14 @@ func hostRmCmd() *cobra.Command {
 						if !batch[o.Name] && slices.Contains(viaChain(o.Via), n) {
 							return out.Errf(out.ExitConflict, "HOST_IN_USE",
 								fmt.Sprintf("change it first: `komando host edit %s --via OTHER` (or --unset via), or remove both together", o.Name),
-								"host %q is on the --via path of host %q", n, o.Name)
+								"server %q is on the --via path of server %q", n, o.Name)
 						}
 					}
 					for _, c := range s.SortedConns() {
 						if slices.Contains(viaChain(c.Via), n) {
 							return out.Errf(out.ExitConflict, "HOST_IN_USE",
 								fmt.Sprintf("change it first: `komando conn edit %s --via OTHER` (or --unset via)", c.Name),
-								"host %q is the --via host of conn %q", n, c.Name)
+								"server %q is on the --via path of conn %q", n, c.Name)
 						}
 					}
 				}
