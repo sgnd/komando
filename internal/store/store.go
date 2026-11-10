@@ -45,6 +45,7 @@ type Host struct {
 	WinRMOpts *WinRMOpts `json:"winrm,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
+	Rec       Rec        `json:"-"`
 }
 
 // TransportWinRM is Host.Transport for a server reached over WinRM.
@@ -108,6 +109,7 @@ type Conn struct {
 	TrustedPlugin string    `json:"trusted_plugin,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+	Rec           Rec       `json:"-"`
 }
 
 type Key struct {
@@ -119,6 +121,7 @@ type Key struct {
 	PassphraseRef string    `json:"passphrase_ref,omitempty"`
 	Managed       bool      `json:"managed"` // generated/stored by komando
 	CreatedAt     time.Time `json:"created_at"`
+	Rec           Rec       `json:"-"`
 }
 
 type Snippet struct {
@@ -131,6 +134,7 @@ type Snippet struct {
 	// as changes too.
 	ReadOnly  bool      `json:"read_only,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
+	Rec       Rec       `json:"-"`
 }
 
 type Job struct {
@@ -216,6 +220,8 @@ type Vpn struct {
 	// Weaker logins a person allowed for this VPN (`vpn edit`, with a yes).
 	LegacyCrypto bool `json:"legacy_crypto,omitempty"` // l2tp, ipsec: also offer 3DES and DH groups 2 and 5
 	AllowPAP     bool `json:"allow_pap,omitempty"`     // l2tp: the server may pick PAP, which sends the password itself
+
+	Rec Rec `json:"-"`
 }
 
 // VpnSession is a VPN kept up in the background between commands.
@@ -260,6 +266,12 @@ type State struct {
 	Jobs     map[string]*Job        `json:"jobs"`
 	Tunnels  map[string]*Tunnel     `json:"tunnels"`
 	Settings Settings               `json:"settings"`
+
+	// IDs keeps each record's identity (Rec) by kind and name. It is filled
+	// from the records on save and given back to them on load, so the
+	// records themselves, and everything that prints or exports them, stay
+	// as they were.
+	IDs map[string]map[string]Rec `json:"ids,omitempty"`
 }
 
 func Home() string {
@@ -308,6 +320,7 @@ func Load() (*State, error) {
 		}
 	}
 	s.init()
+	s.loadRecs()
 	return s, nil
 }
 
@@ -405,13 +418,18 @@ func Update(fn func(s *State) error) error {
 	if err != nil {
 		return err
 	}
+	before := s.recSnapshot()
 	if err := fn(s); err != nil {
+		return err
+	}
+	if err := s.bumpRecs(before); err != nil {
 		return err
 	}
 	return s.save()
 }
 
 func (s *State) save() error {
+	s.saveRecs()
 	b, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err
