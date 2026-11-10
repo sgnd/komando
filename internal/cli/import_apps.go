@@ -148,7 +148,7 @@ func parseINI(text string) (map[string]map[string]string, []string) {
 }
 
 // importDBeaver reads DBeaver's data-sources.json. PostgreSQL, MySQL,
-// MariaDB, SQL Server, Oracle, ClickHouse and SQLite connections become conns (an
+// MariaDB, SQL Server, Oracle, ClickHouse, Snowflake and SQLite connections become conns (an
 // Oracle one by SID gets ?sid=); DBeaver keeps passwords in a
 // separate encrypted file, so they are set afterwards.
 func importDBeaver(path string) (*importPlan, error) {
@@ -182,7 +182,7 @@ func importDBeaver(path string) (*importPlan, error) {
 	for _, id := range ids {
 		c := doc.Connections[id]
 		cfg := c.Configuration
-		scheme := map[string]string{"postgresql": "postgres", "mysql": "mysql", "mariadb": "mysql", "sqlite": "sqlite", "sqlserver": "sqlserver", "mssql": "sqlserver", "oracle": "oracle", "clickhouse": "clickhouse"}[c.Provider]
+		scheme := map[string]string{"postgresql": "postgres", "mysql": "mysql", "mariadb": "mysql", "sqlite": "sqlite", "sqlserver": "sqlserver", "mssql": "sqlserver", "oracle": "oracle", "clickhouse": "clickhouse", "snowflake": "snowflake"}[c.Provider]
 		if scheme == "" {
 			p.Notes = append(p.Notes, fmt.Sprintf("%s: DBeaver provider %q is not a kind komando knows", c.Name, c.Provider))
 			continue

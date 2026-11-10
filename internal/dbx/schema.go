@@ -55,7 +55,7 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 		ctx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
-	if kind == "oracle" {
+	if kind == "oracle" || kind == "snowflake" { // unquoted names are upper case
 		names = oracleNames(names)
 	}
 	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: readOnlyTx(kind, false)})
@@ -77,6 +77,8 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 		tables, err = oracleSchema(ctx, tx, names)
 	case "clickhouse":
 		tables, err = clickhouseSchema(ctx, tx, names)
+	case "snowflake":
+		tables, err = snowflakeSchema(ctx, tx, names)
 	}
 	if err == nil && len(names) > 0 {
 		err = addConstraints(ctx, tx, kind, tables)

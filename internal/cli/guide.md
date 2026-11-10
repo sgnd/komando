@@ -143,7 +143,7 @@ checked before anything is written).
 These are conns (`komando list kind:conn`). Each has its own command; never
 reach them through `exec`.
 
-**Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, SQLite):
+**Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake, SQLite):
 
 ```bash
 komando db schema <conn> [table...]                     # tables, then columns and indexes
@@ -188,6 +188,17 @@ human before the real one. Leave out `SETTINGS`, `SET` and `FORMAT`.
 Table functions that reach out (`url()`, `s3()`, `remote()`, `file()`)
 need `--allow-dangerous`: ask the human first. `db kill` takes the `pid`
 from `db activity`. `db dump`, `restore` and `locks` are not available
+(`NOT_SUPPORTED`).
+
+**Snowflake** conns take Snowflake SQL with `?` placeholders. Snowflake has
+no read-only mode: komando's own check is all there is, so without
+`--write` only reads are sent; a write (`INSERT`, `CREATE`, `COPY`, ...)
+needs `--write`, goes alone, and a dry run only reports it, so dry-run and
+ask the human before the real one. Most queries need `?warehouse=` in the
+URL. `SYSTEM$` functions that change something, `CALL`, `EXECUTE
+IMMEDIATE`, stage files and `CREATE OR REPLACE` need `--allow-dangerous`:
+ask the human first. `db kill` takes the `pid` from `db activity`. `db
+dump`, `restore`, `locks`, `user add` and `grant` are not available
 (`NOT_SUPPORTED`).
 
 **Caches** (Redis, Valkey, memcached): `cache get|keys|info <conn>` read, `cache set`

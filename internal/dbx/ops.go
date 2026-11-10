@@ -131,6 +131,8 @@ SELECT VERSION() AS version, DATABASE() AS `+"`database`"+`, CURRENT_USER() AS u
 		res, err = oracleInfo(ctx, db)
 	case "clickhouse":
 		res, err = clickhouseInfo(ctx, db)
+	case "snowflake":
+		res, err = snowflakeInfo(ctx, db)
 	case "sqlite":
 		res, err = oneRow(ctx, db, `
 SELECT sqlite_version() AS version, (SELECT page_count FROM pragma_page_count()) * (SELECT page_size FROM pragma_page_size()) AS size_bytes,
@@ -169,6 +171,8 @@ ORDER BY time DESC`, all)
 		rows, err = oracleActivity(ctx, db, all)
 	case "clickhouse": // system.processes holds only running queries
 		rows, err = clickhouseActivity(ctx, db)
+	case "snowflake": // running and queued queries
+		rows, err = snowflakeActivity(ctx, db)
 	default:
 		return nil, notFor(kind, "activity")
 	}
@@ -218,6 +222,8 @@ JOIN information_schema.innodb_trx b ON b.trx_id = w.blocking_trx_id`)
 		rows, err = oracleLocks(ctx, db)
 	case "clickhouse":
 		return nil, chNoLocks()
+	case "snowflake":
+		return nil, sfNoLocks()
 	default:
 		return nil, notFor(kind, "locks")
 	}
@@ -264,6 +270,8 @@ FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_schema 
 		err = oracleSizes(ctx, db, limit, res)
 	case "clickhouse":
 		err = clickhouseSizes(ctx, db, limit, res)
+	case "snowflake":
+		err = snowflakeSizes(ctx, db, limit, res)
 	case "sqlite":
 		res["databases"], err = rowsOf(ctx, db, `
 SELECT 'main' AS name, (SELECT page_count FROM pragma_page_count()) * (SELECT page_size FROM pragma_page_size()) AS bytes`)
@@ -320,6 +328,8 @@ func Kill(ctx context.Context, db *sql.DB, kind string, pid int64, session bool)
 			return KillNoSession()
 		}
 		err = clickhouseKill(ctx, db, pid)
+	case "snowflake":
+		err = snowflakeKill(ctx, db, pid, session)
 	default:
 		return notFor(kind, "kill")
 	}

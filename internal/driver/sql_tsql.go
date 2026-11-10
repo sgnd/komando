@@ -150,6 +150,8 @@ func classifyFor(kind string, ts []token) (Risk, []string, error) {
 		return oracleStatement(ts)
 	case "clickhouse":
 		return clickhouseStatement(ts)
+	case "snowflake":
+		return snowflakeStatement(ts)
 	}
 	risk, rules, err := classifyStatement(ts, true)
 	if err != nil || kind != "sqlserver" {
@@ -161,8 +163,8 @@ func classifyFor(kind string, ts []token) (Risk, []string, error) {
 // unknownNeedsWrite are the kinds where a statement komando does not know
 // needs --write: their read-only transaction does not cover everything
 // (MySQL admin statements, Oracle DDL), or there is none (SQL Server,
-// ClickHouse).
-var unknownNeedsWrite = map[string]bool{"mysql": true, "sqlserver": true, "oracle": true, "clickhouse": true}
+// ClickHouse, Snowflake).
+var unknownNeedsWrite = map[string]bool{"mysql": true, "sqlserver": true, "oracle": true, "clickhouse": true, "snowflake": true}
 
 // unknownFirst reports a first word komando does not know.
 func unknownFirst(kind, kw string) bool {
@@ -173,6 +175,8 @@ func unknownFirst(kind, kw string) bool {
 		return !oracleFirst[kw]
 	case "clickhouse":
 		return !chFirst[kw]
+	case "snowflake":
+		return !sfFirst[kw]
 	}
 	return !readFirst[kw] && !writeFirst[kw] && !opaqueFirst[kw]
 }
@@ -329,14 +333,16 @@ func rowsFor(kind, kw string, ts []token) bool {
 		return oracleRows(kw)
 	case "clickhouse":
 		return clickhouseRows(kw)
+	case "snowflake":
+		return snowflakeRows(kw)
 	case "sqlserver":
 		return returnsRows(kw, ts) || tsqlRows(kw, ts)
 	}
 	return returnsRows(kw, ts)
 }
 
-// otherNoTx is noTx for SQL Server, Oracle and ClickHouse (which has no
-// transactions: everything but a read runs alone).
+// otherNoTx is noTx for SQL Server, Oracle, ClickHouse and Snowflake (no
+// transactions komando can use: everything but a read runs alone).
 func otherNoTx(kind, kw string, ts []token) bool {
 	switch kind {
 	case "sqlserver":
@@ -345,6 +351,8 @@ func otherNoTx(kind, kw string, ts []token) bool {
 		return oracleNoTx(kw, ts)
 	case "clickhouse":
 		return !chReads[kw]
+	case "snowflake":
+		return snowflakeNoTx(ts)
 	}
 	return false
 }

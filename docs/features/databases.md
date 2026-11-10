@@ -1,6 +1,6 @@
 # Databases
 
-Add PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse and SQLite databases, then query, inspect,
+Add PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake and SQLite databases, then query, inspect,
 back up and restore them safely. [All features](README.md)
 
 ## Quick start
@@ -29,6 +29,7 @@ the URL:
 | SQL Server | `sqlserver://app@db.internal:1433/sales?encrypt=true` (also `mssql://`). See [SQL Server](#sql-server). |
 | Oracle | `oracle://app@db.internal:1521/ORCLPDB1?tls=true` (the path is the service name). See [Oracle](#oracle). |
 | ClickHouse | `clickhouse://app@ch.internal:8443/analytics?tls=true` (the HTTP interface). See [ClickHouse](#clickhouse). |
+| Snowflake | `snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO` (the account in place of a host). See [Snowflake](#snowflake). |
 | SQLite | `sqlite:///var/lib/app.db` (a file on this computer) |
 | MongoDB | `mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin` (Atlas: `mongodb+srv://app@cluster0.abcde.mongodb.net/shop`). See [MongoDB](#mongodb). |
 
@@ -85,6 +86,7 @@ giving them the password:
 | SQL Server | `?encrypt=true` (or `strict`) | `?encrypt=true&tls=skip-verify` | `?encrypt=disable` |
 | Oracle | `?tls=true` (TCPS) | `?tls=skip-verify` | `?tls=false` |
 | ClickHouse | `?tls=true` (HTTPS, port 8443) | `?tls=skip-verify` | `?tls=false` (port 8123) |
+| Snowflake | always (HTTPS) | not offered | not offered |
 
 - Without a setting, a Postgres conn uses TLS when the server offers it,
   but does not check the certificate and goes on without TLS when told to.
@@ -109,7 +111,7 @@ giving them the password:
   `komando conn edit NAME --url ...` line that fixes it.
 - A server whose certificate comes from a private CA (your company's, or a
   cloud's own, such as Amazon RDS or Azure Database): store the CA and name
-  it with `?ca=`, for Postgres, MySQL, SQL Server, Oracle and ClickHouse. The certificate is then fully
+  it with `?ca=`, for Postgres, MySQL, SQL Server, Oracle, ClickHouse and Snowflake (a proxy that inspects TLS). The certificate is then fully
   checked: signed by that CA and naming the server, also with
   `sslmode=require`, and never without TLS:
 
@@ -137,8 +139,8 @@ komando db query app-db --file report.sql    # SQL from a file (--file - reads s
 
 **Use `--arg` for values** instead of pasting them into the SQL. The
 placeholders are `$1`, `$2` in PostgreSQL, `?` in MySQL and SQLite,
-`@p1`, `@p2` in SQL Server, `:1`, `:2` in Oracle, and `{p1:String}`,
-`{p2:UInt64}` in ClickHouse (named `p1`, `p2`, with a type):
+`@p1`, `@p2` in SQL Server, `:1`, `:2` in Oracle, `?` in Snowflake, and
+`{p1:String}`, `{p2:UInt64}` in ClickHouse (named `p1`, `p2`, with a type):
 
 ```bash
 komando db query app-db "select * from users where email = $1" --arg bob@example.com
@@ -196,6 +198,8 @@ line. Put `--` before it, or use `--file -`.
 | Oracle DATE (it holds a time of day too) | `"2026-11-09 13:04:05"` |
 | ClickHouse Decimal, Int128 and wider | text with every digit (`"12.50"`) |
 | ClickHouse Array, Map, Tuple | JSON arrays and objects |
+| Snowflake NUMBER with a scale | text with every digit (`"12.50"`) |
+| Snowflake VARIANT, OBJECT, ARRAY | JSON values, arrays and objects |
 
 In text output, tables line up, also with CJK characters and emoji.
 
@@ -284,6 +288,9 @@ komando db kill app-db 4821 --session --allow-dangerous   # end the whole connec
 - On ClickHouse the PID is a number `db activity` makes from the query's
   `query_id`; `db kill` stops that query, and there is no `--session` or
   `db locks`.
+- On Snowflake, too, the PID is a number `db activity` makes from the query
+  ID; `db kill` cancels the query (`SYSTEM$CANCEL_QUERY`), and `--session`
+  ends its session. There is no `db locks`.
 
 ## Users and grants
 
@@ -309,7 +316,8 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
   `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
   and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).
   For SQL Server see [SQL Server](#sql-server), for Oracle [Oracle](#oracle),
-  for ClickHouse [ClickHouse](#clickhouse).
+  for ClickHouse [ClickHouse](#clickhouse). On Snowflake, `db user ls` and
+  `db grants` read; adding, changing and granting are not available.
 - Adding users and grants are changes (`--yes` on protected conns).
   Removing a user also needs `--allow-dangerous`.
 
@@ -716,6 +724,87 @@ komando db kill events 8078617214407497              # the pid db activity shows
   'name.zip')` (or `S3(...)`) writes the backup on the server, with
   `--write` and `--allow-dangerous`.
 
+## Snowflake
+
+Snowflake conns take the same `db` commands, in Snowflake SQL. komando
+speaks Snowflake's SQL API (HTTPS) with its own client, so nothing else
+needs to be installed:
+
+```bash
+komando secret set analytics-key < rsa_key.p8      # the user's private key (key-pair login)
+komando conn add analytics 'snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO' \
+  --password-ref secret:analytics-key
+komando db query analytics "select region, sum(total) from orders where placed > ? group by 1" --arg 2026-01-01
+komando db schema analytics public.orders          # columns, primary key, clustering key
+komando db explain analytics "select * from orders where id = 42"
+komando db activity analytics                      # running and queued queries
+komando db kill analytics 4387013457812345         # the pid db activity shows
+komando db grants analytics APP_RO                 # its roles, and what each role may do
+```
+
+- **The URL.** The account goes where other kinds have a host: the
+  account identifier Snowflake shows (`myorg-myaccount`, or a locator with
+  its region such as `xy12345.eu-central-1`; `...snowflakecomputing.com`
+  works too). The path is `/DATABASE/SCHEMA`, both optional; the options
+  are `warehouse=`, `role=` and `ca=secret:NAME` (a proxy that inspects
+  TLS). It is always HTTPS on port 443 with the certificate checked.
+- **Login.** Snowflake's SQL API takes no passwords, so `--password-ref`
+  holds one of two things:
+  - **A private key** (PEM, `-----BEGIN PRIVATE KEY-----`) for key-pair
+    login. komando signs a short-lived token with it for each hour of use.
+    Snowflake must know the public half: `ALTER USER APP_RO SET
+    RSA_PUBLIC_KEY = '...'`. Store the key without a passphrase (the vault
+    encrypts it): `openssl pkcs8 -topk8 -nocrypt -in rsa_key.p8 | komando
+    secret set analytics-key`.
+  - **A programmatic access token** (`ALTER USER APP_RO ADD PROGRAMMATIC
+    ACCESS TOKEN ...`), which Snowflake lets stand where a password goes.
+
+  Browser sign-in (SSO) and OAuth are not supported in this version.
+- **Read-only is komando's check, not Snowflake's.** Snowflake has no
+  read-only mode komando can switch on, and each statement is a session of
+  its own, so nothing can be rolled back. Without `--write` komando sends
+  only statements it rates as reads, one per request, and asks Snowflake to
+  run exactly one statement. A statement that is not a read (`INSERT`,
+  `CREATE`, `COPY`, `CALL`, ...) needs `--write`, goes on its own, and a
+  dry run only reports it. **Give the conn a role that may only read**, so
+  a mistake in komando's checks cannot change anything either:
+
+  ```sql
+  CREATE ROLE ANALYST_RO;
+  GRANT USAGE ON WAREHOUSE REPORTING TO ROLE ANALYST_RO;
+  GRANT USAGE ON DATABASE ANALYTICS TO ROLE ANALYST_RO;
+  GRANT USAGE ON ALL SCHEMAS IN DATABASE ANALYTICS TO ROLE ANALYST_RO;
+  GRANT SELECT ON ALL TABLES IN DATABASE ANALYTICS TO ROLE ANALYST_RO;
+  GRANT SELECT ON FUTURE TABLES IN DATABASE ANALYTICS TO ROLE ANALYST_RO;
+  GRANT ROLE ANALYST_RO TO USER APP_RO;
+  ALTER USER APP_RO SET DEFAULT_ROLE = ANALYST_RO;
+  ```
+
+  and name it in the URL (`?role=ANALYST_RO`).
+- **Destructive** (`--allow-dangerous`): `DROP`, `TRUNCATE`,
+  `CREATE OR REPLACE` (it drops what had the name), users, roles, grants
+  and policies, warehouses, integrations, shares and `ALTER ACCOUNT`,
+  stage files (`PUT`, `GET`, `REMOVE`, `COPY INTO @stage`), URLs and
+  credentials in a statement, `CALL` and `EXECUTE IMMEDIATE`, and
+  `SYSTEM$` functions other than those that only read
+  (`SYSTEM$CANCEL_QUERY` among them).
+- A Snowflake Scripting block (`BEGIN ... END`, `DECLARE`) goes as one
+  statement: `EXECUTE IMMEDIATE $$ ... $$`. `BEGIN` and `COMMIT` are
+  refused. A `/*` inside a comment, `$$` right after a name, and names or
+  text with letters outside ASCII outside quotes are refused
+  (`SQL_HIDDEN_CODE`).
+- **A warehouse.** Most queries need one: give it with `?warehouse=`.
+  `SELECT 1` and `SHOW` do not, so `conn test` works without one.
+- `db schema`, `db sizes` and `db activity` read the URL's database
+  (`INFORMATION_SCHEMA`); activity shows the queries the conn's role may
+  see. `db explain` is `EXPLAIN` (not run); `--analyze` is not available.
+  Unquoted names are upper case, so `db schema analytics orders` finds
+  `ORDERS`.
+- **Not available** (`NOT_SUPPORTED`): `db dump` and `db restore`
+  (Snowflake unloads with `COPY INTO @stage`, and keeps copies with Time
+  Travel and `CLONE`), `db user add`, `passwd` and `rm`, `db grant` and
+  `revoke` (send the SQL with `db query --write`), and `db locks`.
+
 ## Interactive SQL shell (for people)
 
 ```bash
@@ -725,7 +814,7 @@ komando db shell app-db --yes         # any shell on a protected conn needs --ye
 ```
 
 `db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB,
-SQL Server, Oracle, ClickHouse and SQLite, so nothing else needs to be installed. It connects through the
+SQL Server, Oracle, ClickHouse, Snowflake and SQLite, so nothing else needs to be installed. It connects through the
 conn's `--via` path, and every statement gets the same checks as
 `db query`: read-only unless you started it with `--write`, destructive
 statements only with `--allow-dangerous`, and each one is written to the

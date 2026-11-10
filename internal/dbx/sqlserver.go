@@ -113,7 +113,7 @@ func markTx(ctx context.Context, tx *sql.Tx, kind string, write bool) error {
 	case "oracle":
 		_, err := tx.ExecContext(ctx, oracleTxMode(write))
 		return err
-	case "clickhouse": // no transactions: every statement in one is a read
+	case "clickhouse", "snowflake": // no transactions: every statement in one is a read
 		return nil
 	}
 	_, err := tx.ExecContext(ctx, "SAVEPOINT "+txMark)
@@ -127,7 +127,7 @@ func stillInTx(ctx context.Context, tx *sql.Tx, kind string, write bool) error {
 	switch kind {
 	case "oracle":
 		return oracleStillInTx(ctx, tx, write)
-	case "clickhouse":
+	case "clickhouse", "snowflake":
 		return nil
 	}
 	if kind == "sqlserver" {

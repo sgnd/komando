@@ -84,6 +84,12 @@ server's own readonly=1, and a statement that is not a read (INSERT, ALTER,
 CREATE, ...) needs --write, goes on its own, and a dry run only reports it.
 Placeholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).
 
+Snowflake has no read-only mode komando can switch on, and each statement
+is a session of its own: without --write komando sends only what it rates
+as a read, and a statement that is not a read needs --write, goes on its
+own, and a dry run only reports it. Give the conn a role that may only
+read. Placeholders are ?.
+
 On a MongoDB conn the text is a command document in JSON, its first key
 naming it ({"find": ...}, {"aggregate": ...}, {"update": ...}). komando rates
 it as it rates SQL: what it does not know as a read needs --write. "$db"
@@ -139,7 +145,7 @@ func sqlFlagError(cmd *cobra.Command, err error) error {
 func (f *dbFlags) bind(c *cobra.Command) {
 	c.Flags().BoolVar(&f.write, "write", false, "allow changes (runs in a normal transaction; combine with --dry-run to roll back)")
 	c.Flags().IntVarP(&f.limit, "limit", "n", 500, "max rows returned per statement (0 = no limit; output size is capped by --max-output too)")
-	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite, @p1 in sqlserver, :1 in oracle, {p1:String} in clickhouse); repeat in order")
+	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite, @p1 in sqlserver, :1 in oracle, {p1:String} in clickhouse, ? in snowflake); repeat in order")
 }
 
 func dbExplainCmd() *cobra.Command {
@@ -190,6 +196,12 @@ func dbExplainCmd() *cobra.Command {
 						"db explain --analyze is not available for clickhouse")
 				}
 				prefix = "EXPLAIN indexes = 1 "
+			case "snowflake": // EXPLAIN compiles without running
+				if analyze {
+					return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "drop --analyze: Snowflake's real numbers for a finished query are in its query profile (GET_QUERY_OPERATOR_STATS)",
+						"db explain --analyze is not available for snowflake")
+				}
+				prefix = "EXPLAIN "
 			case "sqlserver": // no EXPLAIN: a SET SHOWPLAN_TEXT (or STATISTICS PROFILE) session setting
 				f.showplan = map[bool]string{false: "text", true: "profile"}[analyze]
 			default: // MongoDB, and kinds without SQL: the classifier says how

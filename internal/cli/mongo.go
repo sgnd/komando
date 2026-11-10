@@ -214,6 +214,11 @@ func noDumpTool(t driver.Target) error {
 			"ClickHouse backs up with its own BACKUP TABLE or DATABASE ... TO Disk('backups', 'name.zip') (or S3), which the server writes itself: run it with `komando db query CONN --write` (it needs --allow-dangerous, so ask the user first); for a few rows, `komando db query CONN --csv` is a copy on this computer",
 			"db dump and restore are not available for ClickHouse")
 	}
+	if t.Kind.Name == "snowflake" {
+		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"Snowflake unloads tables itself: COPY INTO @STAGE FROM TABLE writes files to a stage (run it with `komando db query CONN --write`; it needs --allow-dangerous, so ask the user first), and Time Travel or CLONE keeps a copy inside Snowflake; for a few rows, `komando db query CONN --csv` is a copy on this computer",
+			"db dump and restore are not available for Snowflake")
+	}
 	if t.Kind.Name == "sqlserver" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
 			"SQL Server backs up with its own BACKUP DATABASE, which writes a .bak file on the database server: run it with `komando db query CONN --write` (it needs --allow-dangerous, so ask the user first), then fetch the file with `komando download` from that server",

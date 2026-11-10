@@ -21,6 +21,8 @@ func colValue(kind, dbType string, v any) any {
 		return oracleValue(v, dbType)
 	case "clickhouse":
 		return chColValue(v)
+	case "snowflake":
+		return sfColValue(v)
 	}
 	switch x := v.(type) {
 	case time.Time:

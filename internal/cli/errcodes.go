@@ -43,7 +43,7 @@ var errorCodes = []errorCode{
 	{"CONSUMER_NOT_FOUND", 3, "consumer … does not exist", "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER"},
 	{"CONTAINER_NOT_FOUND", 3, "no container …", "its containers: …"},
 	{"CRONTAB_UNREADABLE", 5, "cannot read the crontab (exit …)", "check the user name; reading another user's crontab needs sudo"},
-	{"DB_AUTH", 4, "… failed on … (exit …): …", "check the user in the conn URL and its --password-ref (`komando conn show …`)"},
+	{"DB_AUTH", 4, "Snowflake refused the login of … at …: …", "the conn's secret must be a programmatic access token (Snowflake's SQL API takes no passwords) or the user's private key (PEM) for key-pair login; check the account and user in the URL too (`komando conn show NAME`)"},
 	{"DB_CONNECT", 4, "cannot connect to …: …", "run `komando conn test NAME` to check reachability"},
 	{"DB_ERROR", 5, "… (SQLSTATE …)", "fix the SQL; `komando db schema CONN TABLE` shows columns and types"},
 	{"DB_NOT_FOUND", 3, "… failed on … (exit …): …", "check the database name at the end of the conn URL (`komando conn show …`)"},

@@ -127,6 +127,9 @@ func changeDB(ctx context.Context, name, connExpr string, v driver.Verdict, rec 
 	if err != nil {
 		return err
 	}
+	if c.Kind == "snowflake" { // users and grants are read-only here
+		return dbx.SFNoUserChange(strings.ReplaceAll(name, ".", " "))
+	}
 	if err := guardConns(st, []*store.Conn{c}, v); err != nil && !g.dryRun {
 		audit(st, name, nil, "", false, map[string]any{"conns": []string{c.Name}, "blocked": toErr(err).Code})
 		return err
@@ -166,7 +169,8 @@ func dbGrantCmd(revoke bool) *cobra.Command {
 		Long: `OBJECT for PostgreSQL: database:NAME, schema:NAME, table:[SCHEMA.]TABLE or
 all-tables:SCHEMA; --role ROLE makes the user a member of ROLE. For MySQL:
 DB.* , DB.TABLE or *.* (with --from for the account host). For ClickHouse:
-DB.*, DB.TABLE or *.*, or database:DB, table:DB.TABLE. --dry-run shows
+DB.*, DB.TABLE or *.*, or database:DB, table:DB.TABLE. Snowflake: not
+available (db grants reads them). --dry-run shows
 the statement.`,
 		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public
   komando db ` + verb + ` prod-db app_ro --role readers

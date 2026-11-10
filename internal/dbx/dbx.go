@@ -110,7 +110,7 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		if db, err = sql.Open("sqlite", "file:"+path+"?"+q.Encode()); err != nil {
 			return nil, err
 		}
-	case "sqlserver", "oracle", "clickhouse":
+	case "sqlserver", "oracle", "clickhouse", "snowflake":
 		var err error
 		if db, err = openers[t.Kind.Name](rawURL, t, password, dial, appName, readOnly); err != nil {
 			return nil, err
@@ -647,6 +647,8 @@ func queryErr(kind string, ctx context.Context, err error) error {
 		return oracleErr(err)
 	case "clickhouse":
 		return clickhouseErr(err)
+	case "snowflake":
+		return snowflakeErr(err)
 	}
 	msg := err.Error()
 	if kind == "sqlite" && (strings.Contains(msg, "readonly database") || strings.Contains(msg, "query_only")) {

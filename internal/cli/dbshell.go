@@ -31,7 +31,7 @@ func dbShellCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "shell CONN",
 		Short: "Interactive SQL shell for people (read-only unless --write)",
-		Long: `Opens komando's own SQL shell on CONN (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse or SQLite),
+		Long: `Opens komando's own SQL shell on CONN (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake or SQLite),
 through its --via path when it has one. Nothing else needs to be installed.
 
 Each statement ends with ; (an Oracle PL/SQL block with a line holding
@@ -287,17 +287,19 @@ func (s *sqlShell) meta(ctx context.Context, line string) bool {
 	case `\l`, `\list`:
 		s.exec(ctx, map[string]string{"postgres": "SELECT datname AS name FROM pg_database WHERE NOT datistemplate ORDER BY 1",
 			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list", "sqlserver": "SELECT name FROM sys.databases ORDER BY 1",
-			"oracle": "SELECT name, open_mode FROM v$pdbs ORDER BY 1", "clickhouse": "SHOW DATABASES"}[s.kind], s.expanded)
+			"oracle": "SELECT name, open_mode FROM v$pdbs ORDER BY 1", "clickhouse": "SHOW DATABASES", "snowflake": "SHOW DATABASES"}[s.kind], s.expanded)
 	case `\dn`:
 		s.exec(ctx, map[string]string{"postgres": "SELECT nspname AS name FROM pg_namespace WHERE nspname NOT LIKE 'pg\\_%' AND nspname <> 'information_schema' ORDER BY 1",
 			"mysql": "SHOW DATABASES", "sqlite": "PRAGMA database_list", "sqlserver": "SELECT name FROM sys.schemas WHERE schema_id < 16384 ORDER BY 1",
-			"oracle": "SELECT username AS name FROM all_users WHERE oracle_maintained = 'N' ORDER BY 1", "clickhouse": "SHOW DATABASES"}[s.kind], s.expanded)
+			"oracle": "SELECT username AS name FROM all_users WHERE oracle_maintained = 'N' ORDER BY 1", "clickhouse": "SHOW DATABASES",
+			"snowflake": "SHOW SCHEMAS"}[s.kind], s.expanded)
 	case `\du`:
 		q := map[string]string{"postgres": "SELECT rolname AS role, rolsuper AS superuser, rolcanlogin AS login FROM pg_roles WHERE rolname NOT LIKE 'pg\\_%' ORDER BY 1",
 			"mysql":      "SELECT user, host FROM mysql.user ORDER BY 1, 2",
 			"sqlserver":  "SELECT name, LOWER(type_desc) AS type FROM sys.database_principals WHERE type IN ('S', 'U', 'G', 'E', 'X', 'R') ORDER BY 1",
 			"oracle":     "SELECT username AS name, account_status AS status FROM dba_users WHERE oracle_maintained = 'N' ORDER BY 1",
-			"clickhouse": "SELECT name, 'user' AS type FROM system.users UNION ALL SELECT name, 'role' FROM system.roles ORDER BY 1"}[s.kind]
+			"clickhouse": "SELECT name, 'user' AS type FROM system.users UNION ALL SELECT name, 'role' FROM system.roles ORDER BY 1",
+			"snowflake":  "SHOW USERS"}[s.kind]
 		if q == "" {
 			s.printf("SQLite has no roles.\n")
 			return false

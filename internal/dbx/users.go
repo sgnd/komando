@@ -108,6 +108,8 @@ from mysql.user order by user, host`)
 		return oracleUsers(ctx, db)
 	case "clickhouse":
 		return clickhouseUsers(ctx, db)
+	case "snowflake":
+		return snowflakeUsers(ctx, db)
 	}
 	return nil, notFor(kind, "db user")
 }
@@ -133,6 +135,8 @@ func userSQL(ctx context.Context, db *sql.DB, kind, action string, u UserSpec) (
 		return oracleUserSQL(action, u)
 	case "clickhouse":
 		return clickhouseUserSQL(ctx, db, action, u)
+	case "snowflake":
+		return "", "", SFNoUserChange("db user " + action)
 	}
 	host := u.Host
 	if host == "" {
@@ -254,7 +258,10 @@ var myPrivs = map[string]bool{"SELECT": true, "INSERT": true, "UPDATE": true, "D
 var validObj = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_$]{0,62}$`)
 
 // grantSQLFor are the kinds whose grants have a file of their own.
-var grantSQLFor = map[string]func(context.Context, *sql.DB, Grant) (string, error){"sqlserver": mssqlGrantSQL, "oracle": oracleGrantSQL, "clickhouse": clickhouseGrantSQL}
+var grantSQLFor = map[string]func(context.Context, *sql.DB, Grant) (string, error){"sqlserver": mssqlGrantSQL, "oracle": oracleGrantSQL, "clickhouse": clickhouseGrantSQL,
+	"snowflake": func(context.Context, *sql.DB, Grant) (string, error) {
+		return "", SFNoUserChange("db grant and revoke")
+	}}
 
 // GrantSQL builds the statement for g.
 func GrantSQL(ctx context.Context, db *sql.DB, kind string, g Grant) (string, error) {
@@ -398,6 +405,8 @@ order by 1, 2`, user)
 		return oracleGrants(ctx, db, user)
 	case "clickhouse":
 		return clickhouseGrants(ctx, db, user)
+	case "snowflake":
+		return snowflakeGrants(ctx, db, user)
 	}
 	return nil, notFor(kind, "db grants")
 }

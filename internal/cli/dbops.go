@@ -131,7 +131,9 @@ stays connected. --dry-run shows the session it would stop. SQL Server can
 only end a session (KILL), so there it needs --session. On Oracle the PID
 is the SID that db activity shows. On ClickHouse it is the number db
 activity shows for the query (made from its query_id); ClickHouse stops
-queries, not connections, so there is no --session.`,
+queries, not connections, so there is no --session. On Snowflake, too, the
+PID is the number db activity shows for the query; --session ends its
+session (SYSTEM$ABORT_SESSION).`,
 		Example: `  komando db kill prod-db 4821 --dry-run
   komando db kill prod-db 4821
   komando db kill prod-db 4821 --session --allow-dangerous`,

@@ -247,6 +247,28 @@ its highlights; the sections below them give the details. Versions follow
   settings it would refuse. `db user add` sends a salted SHA-256 hash
   komando computes, never the password. `db dump`, `restore` and `locks`
   say `NOT_SUPPORTED`.
+- **Snowflake conns**
+  (`snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=W&role=R`,
+  the account in place of a host) over Snowflake's SQL API, with komando's
+  own small client (no driver library): `db query` with `?` placeholders,
+  `schema`, `explain`, `info`, `activity` (running queries from
+  `QUERY_HISTORY`), `sizes`, `kill` (`SYSTEM$CANCEL_QUERY`; `--session`
+  ends the session), `db user ls` and `db grants` (read only), `db shell`
+  and `conn test`, through `--via` and VPNs, always HTTPS with the
+  certificate checked, and `?ca=secret:NAME` for a proxy's CA. Login is a
+  private key from the vault (komando signs the key-pair token itself) or a
+  programmatic access token; the SQL API takes no passwords, and browser
+  SSO is not supported. Snowflake has no read-only mode, so komando's
+  check is the guard: without `--write` only reads are sent, each request
+  runs exactly one statement, and a statement that is not a read needs
+  `--write`, goes alone, and a dry run only reports it; the docs give the
+  SQL for a read-only role. `CREATE OR REPLACE`, `SYSTEM$` functions that
+  change things, stage files, `CALL` and `EXECUTE IMMEDIATE` need
+  `--allow-dangerous`; `//` comments, `$$` text and `\'` are read as
+  Snowflake reads them. A run that times out cancels the statement on the
+  server. `db dump`, `restore`, `locks`, `user add`/`passwd`/`rm` and
+  `grant`/`revoke` say `NOT_SUPPORTED`. Not yet run against a real
+  account: see docs/design/snowflake.md.
 
 ### Changed
 

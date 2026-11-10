@@ -103,7 +103,7 @@ type dialect struct {
 	execAsCode                           bool // restore: read /*! ... */ as the code MySQL runs instead of refusing it
 	unicodeEsc                           bool // Postgres: U&"..." names and U&'...' strings take \XXXX escapes
 	tsql                                 bool // SQL Server: ]] in [names], nested comments, no statement separator needed (sql_tsql.go)
-	oracle, clickhouse                   bool // Oracle: q'[...]' quotes, PL/SQL blocks that a / line ends (sql_oracle.go); ClickHouse (sql_clickhouse.go)
+	oracle, clickhouse, snowflake        bool // Oracle: q'[...]' quotes, PL/SQL blocks that a / line ends (sql_oracle.go); ClickHouse, Snowflake (sql_*.go)
 }
 
 var dialects = map[string]dialect{
@@ -114,10 +114,10 @@ var dialects = map[string]dialect{
 	"oracle":    {oracle: true},
 }
 
-// nameByte reports whether c continues an unquoted name. Postgres names
-// may contain $ (x$1), so there a $ inside a name starts no quote.
+// nameByte reports whether c continues an unquoted name. Postgres and
+// Snowflake names may contain $ (x$1, SYSTEM$WAIT): no quote starts there.
 func (d dialect) nameByte(c byte) bool {
-	return isWord(c) || d.dollar && c == '$'
+	return isWord(c) || (d.dollar || d.snowflake) && c == '$'
 }
 
 // splitSQL tokenises sql, dropping comments and quoted text, and splits it
