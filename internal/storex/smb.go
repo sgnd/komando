@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hirochachacha/go-smb2"
+	"github.com/cloudsoda/go-smb2"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -62,7 +62,7 @@ func OpenSMB(ctx context.Context, t driver.Target, password string, dial DialFun
 		Negotiator: smb2.Negotiator{RequireMessageSigning: true},
 		Initiator:  &smb2.NTLMInitiator{User: t.User, Password: password, Domain: t.Domain},
 	}
-	s, err := d.DialContext(ctx, conn)
+	s, err := d.DialConn(ctx, conn, t.Address)
 	if err != nil {
 		conn.Close()
 		return nil, smbLoginErr(err, t)

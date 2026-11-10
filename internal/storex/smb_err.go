@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hirochachacha/go-smb2"
+	"github.com/cloudsoda/go-smb2"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -73,8 +73,7 @@ func smbErr(err error) error {
 	if errors.As(err, &oe) {
 		return oe
 	}
-	var ce *smb2.ContextError
-	if errors.Is(err, context.DeadlineExceeded) || errors.As(err, &ce) && ce.Timeout() {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, os.ErrDeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or leave it unset for large transfers", "the SMB server did not answer in time")
 	}
 	switch {
