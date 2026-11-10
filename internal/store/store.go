@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 
+	"github.com/sgnd/komando/internal/flock"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -425,11 +425,11 @@ func Lock(name string) (unlock func(), err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX); err != nil {
+	if err := flock.Lock(lf); err != nil {
 		lf.Close()
 		return nil, err
 	}
-	return func() { _ = syscall.Flock(int(lf.Fd()), syscall.LOCK_UN); lf.Close() }, nil
+	return func() { _ = flock.Unlock(lf); lf.Close() }, nil
 }
 
 // WriteFileAtomic replaces path with b: a temporary file next to it is

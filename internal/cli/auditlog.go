@@ -9,11 +9,11 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/flock"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -43,10 +43,10 @@ func writeAudit(rec map[string]any) ([]byte, error) {
 		return nil, err
 	}
 	defer f.Close()
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+	if err := flock.Lock(f); err != nil {
 		return nil, err
 	}
-	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	defer flock.Unlock(f)
 	last, err := lastLine(f)
 	if err != nil {
 		return nil, err

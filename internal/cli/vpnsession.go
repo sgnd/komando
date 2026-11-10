@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -329,7 +328,7 @@ func background(c *exec.Cmd, logFile string) (int, error) {
 	}
 	defer lf.Close()
 	c.Stdout, c.Stderr = lf, lf
-	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	c.SysProcAttr = detachAttr()
 	if err := c.Start(); err != nil {
 		return 0, err
 	}

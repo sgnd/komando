@@ -22,11 +22,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"golang.org/x/net/proxy"
 
+	"github.com/sgnd/komando/internal/flock"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -109,25 +109,6 @@ func LiveSession(v *store.Vpn) *store.VpnSession {
 		return nil
 	})
 	return s
-}
-
-// Alive reports whether a process exists.
-func Alive(pid int) bool {
-	if pid <= 1 {
-		return false
-	}
-	err := syscall.Kill(pid, 0)
-	return err == nil || errors.Is(err, syscall.EPERM) // EPERM: alive, owned by root
-}
-
-// Terminate asks one process to stop. It refuses every pid that is not a
-// single other process: kill(-1) would signal every program of the user,
-// kill(0) the whole process group, kill(1) init.
-func Terminate(pid int) error {
-	if pid <= 1 || pid == os.Getpid() {
-		return fmt.Errorf("refusing to signal pid %d", pid)
-	}
-	return syscall.Kill(pid, syscall.SIGTERM)
 }
 
 // SessionAlive reports whether a session's process runs.
@@ -265,11 +246,11 @@ func Lock(name string) (unlock func(), err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+	if err := flock.Lock(f); err != nil {
 		f.Close()
 		return nil, err
 	}
-	return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }, nil
+	return func() { _ = flock.Unlock(f); f.Close() }, nil
 }
 
 // stopIfStale stops and forgets a session under the VPN's lock, only if

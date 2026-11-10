@@ -133,7 +133,7 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 		c.Env = os.Environ() // Passphrase took KOMANDO_VAULT_PASS out of it
 	}
 	c.Stderr = lf
-	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // it outlives this command and its terminal
+	c.SysProcAttr = detachAttr() // it outlives this command and its terminal
 	stdin, err := c.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -352,9 +352,8 @@ func heldSocket() (net.Listener, string, ssh.Signer, error) {
 		sock = filepath.Join(os.TempDir(), "komando-"+randToken(6)+".sock")
 	}
 	_ = os.Remove(sock)
-	old := syscall.Umask(0o077)
-	ln, err := net.Listen("unix", sock)
-	syscall.Umask(old)
+	var ln net.Listener
+	withUmask(0o077, func() { ln, err = net.Listen("unix", sock) })
 	if err != nil {
 		return nil, "", nil, err
 	}

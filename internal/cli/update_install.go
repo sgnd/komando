@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
@@ -134,11 +133,11 @@ func ownLikeFolder(file, dir string) error {
 	if err != nil {
 		return err
 	}
-	st, ok := fi.Sys().(*syscall.Stat_t)
+	uid, gid, ok := fileOwner(fi)
 	if !ok {
 		return nil
 	}
-	return os.Chown(file, int(st.Uid), int(st.Gid))
+	return os.Chown(file, uid, gid)
 }
 
 // tryBinary runs the new program once (--version) before it replaces the
