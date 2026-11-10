@@ -45,7 +45,7 @@ func formSample(st *store.State, q formQ, a formAnswers) string {
 		return d
 	}
 	if q.check != nil {
-		for _, v := range []string{"web9", "10.0.0.5", "5", "5m", "1.5", "x"} {
+		for _, v := range []string{"web9", "10.0.0.5", "5", "5m", "1.5", "x", "my-project", "eu-west-1", "123456789012"} {
 			if q.check(st, a, v) == "" {
 				return v
 			}
@@ -231,6 +231,7 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	invHome(t)
 	p := startPTY(t, "host", "add")
 	p.answer("What do you want to call this server?", "web1\r")
+	p.answer("What does the server run?", "\r") // Linux
 	p.answer("What is the server's address?", "root:hun@ter2@203.0.113.20")
 	p.waitFor("a password was in it")
 	p.answer("a password was in it", "\r")
@@ -343,6 +344,11 @@ var formKindCovers = map[string][]string{
 	"GlobalProtect": {"globalprotect"}, "FortiClient": {"fortinet"}, "Cisco AnyConnect": {"anyconnect"},
 	"Pulse Secure or Ivanti": {"pulse"}, "F5 BIG-IP": {"f5"}, "L2TP/IPsec": {"l2tp"}, "Cisco IPsec": {"ipsec"},
 	"IKEv2": {"ikev2"}, "A VPN on this computer": {"system"}, "SOCKS proxy": {"socks"}, "HTTP proxy": {"proxy"},
+	"SQL Server": {"sqlserver"}, "Oracle Database": {"oracle"}, "ClickHouse": {"clickhouse"},
+	"Snowflake": {"snowflake"}, "Google BigQuery": {"bigquery"},
+	"Apache Kafka": {"kafka"}, "RabbitMQ": {"rabbitmq"}, "NATS JetStream": {"nats"}, "Amazon SQS": {"sqs"},
+	"Google Cloud Pub/Sub": {"pubsub"}, "Windows share (SMB)": {"smb"},
+	"Azure Container Registry": {"registry"}, "Google Artifact Registry": {"registry"},
 }
 
 func TestFormEveryKindHasAnAddForm(t *testing.T) {

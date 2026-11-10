@@ -18,7 +18,7 @@ var (
 	dbWrite = formFlag{name: "write", ask: "May it change data?",
 		help: "No runs it read-only, so nothing can change. Say yes only for insert, update, delete or create."}
 	dbArg = formFlag{name: "arg", ask: "A value for a placeholder in the SQL?",
-		help:    "When the SQL has $1 (PostgreSQL) or ? (MySQL, SQLite), its value goes here, so you never paste it into the SQL. Leave empty when there is none.",
+		help:    "When the SQL has a placeholder ($1 PostgreSQL; ? MySQL, SQLite, Snowflake, BigQuery; @p1 SQL Server; :1 Oracle; {p1:UInt64} ClickHouse), its value goes here, so you never paste it into the SQL. Leave empty when there is none.",
 		example: "bob@example.com"}
 	dbLimit = formFlag{name: "limit", ask: "Show at most how many rows?",
 		help: "0 shows every row. Big results are cut anyway, so keep it small for a first look.", example: "100"}

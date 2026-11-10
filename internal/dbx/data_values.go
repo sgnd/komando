@@ -16,10 +16,21 @@ import (
 // database type (upper case): a DATE stays a date, a timestamp without a
 // time zone gets none, binary columns are always {"base64": ...}.
 func colValue(kind, dbType string, v any) any {
+	switch kind {
+	case "oracle":
+		return oracleValue(v, dbType)
+	case "clickhouse":
+		return chColValue(v)
+	case "snowflake", "bigquery":
+		return sfColValue(v)
+	}
 	switch x := v.(type) {
 	case time.Time:
 		return timeText(kind, dbType, x)
 	case []byte:
+		if kind == "sqlserver" {
+			return mssqlValue(x, dbType)
+		}
 		if kind == "mysql" {
 			v = mysqlValue(x, dbType)
 			if b, ok := v.([]byte); ok && len(b) == 0 && mysqlBinary[strings.TrimPrefix(dbType, "UNSIGNED ")] {
@@ -37,6 +48,15 @@ func colValue(kind, dbType string, v any) any {
 
 var mysqlBinary = map[string]bool{"BLOB": true, "TINYBLOB": true, "MEDIUMBLOB": true, "LONGBLOB": true, "BINARY": true, "VARBINARY": true, "BIT": true, "GEOMETRY": true}
 
+// colType is a column's type as db query shows it: lower case, except
+// ClickHouse's, whose names are case-sensitive (DateTime64, LowCardinality).
+func colType(kind, name string) string {
+	if kind == "clickhouse" {
+		return name
+	}
+	return strings.ToLower(name)
+}
+
 // timeText formats a date or time the way the column stores it.
 func timeText(kind, dbType string, t time.Time) string {
 	const naive = "2006-01-02 15:04:05.999999999"
@@ -46,7 +66,11 @@ func timeText(kind, dbType string, t time.Time) string {
 			return t.Format(naive) // sqlite stores whatever text it was given
 		}
 		return t.Format("2006-01-02")
-	case "TIMESTAMP", "DATETIME":
+	case "TIME":
+		if kind == "sqlserver" { // a time of day; the driver puts it on 0001-01-01
+			return t.Format("15:04:05.9999999")
+		}
+	case "TIMESTAMP", "DATETIME", "DATETIME2", "SMALLDATETIME":
 		if _, off := t.Zone(); kind == "sqlite" && off != 0 {
 			return t.Format(naive + "-07:00")
 		}
@@ -148,7 +172,7 @@ func checkArgs(kind, sql string, n int) error {
 	if !ok || want == n {
 		return nil
 	}
-	mark := map[string]string{"postgres": "$1, $2, ..."}[kind]
+	mark := map[string]string{"postgres": "$1, $2, ...", "sqlserver": "@p1, @p2, ...", "oracle": ":1, :2, ...", "clickhouse": "{p1:String}, {p2:UInt64}, ..."}[kind]
 	if mark == "" {
 		mark = "?"
 	}

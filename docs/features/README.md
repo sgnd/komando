@@ -24,6 +24,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | Feature | What you can do | Commands |
 |---------|-----------------|----------|
 | [Servers](servers.md) | add servers, log in with keys, passwords or your password manager | `host`, `key`, `secret`, `login` |
+| [Windows servers](windows.md) | run PowerShell, files, copies and services on Windows servers | `host add --os windows`, `exec`, `svc` |
 | [Moving in and moving computers](import.md) | import ssh config, .pgpass, my.cnf, .env; export to another computer | `import`, `export` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |
 | [Running commands](commands.md) | run commands and scripts, long tasks, saved commands, the menu | `exec`, `script`, `job`, `recipe`, `shell` |
@@ -32,9 +33,11 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Services, logs, Docker, packages, users](system.md) | day-to-day administration, security updates, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |
 | [Private servers and tunnels](tunnels.md) | reach servers and services that are not on the internet | `--via`, `tunnel` |
 | [VPNs](vpn.md) | reach targets behind WireGuard, OpenVPN, Tailscale, AnyConnect, IPsec and other VPNs, several at once | `vpn`, `--via` |
-| [Databases](databases.md) | query, back up and restore PostgreSQL and MySQL/MariaDB; query and back up SQLite | `conn`, `db` |
+| [Databases](databases.md) | query, back up and restore PostgreSQL and MySQL/MariaDB; query and back up SQLite; query SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB | `conn`, `db` |
 | [Caches](caches.md) | read and change Redis, Valkey and memcached | `cache` |
+| [Queues](queues.md) | Kafka topics, RabbitMQ queues, NATS JetStream streams, Amazon SQS queues and Google Cloud Pub/Sub topics: list, peek, lag, send | `queue` |
 | [Storage](storage.md) | browse, download, upload and share files in S3 buckets and on FTPS/SFTP/FTP servers | `storage`, `upload`, `download`, `sync` |
+| [Storage](storage.md) | browse, download, upload and share files in S3, Google Cloud and Azure buckets, on WebDAV/FTPS/SFTP/FTP servers and Windows (SMB) shares | `storage`, `upload`, `download`, `sync` |
 | [Clusters](cluster.md) | Kubernetes and Docker Swarm: status, list, logs, apply, restart, scale | `cluster` |
 | [Container registries](registry.md) | list repositories and tags, inspect images, delete old ones | `registry` |
 | [Rotate keys and passwords](rotate.md) | change a key or a password everywhere, in order; when someone leaves | `key`, `secret`, `db user`, `audit` |

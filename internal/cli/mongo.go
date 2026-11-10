@@ -204,5 +204,30 @@ func noDumpTool(t driver.Target) error {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "run mongodump on a server that reaches the database, with `komando exec` (or a `komando job` for a big one)",
 			"db dump and restore are for SQL databases, not MongoDB")
 	}
+	if t.Kind.Name == "oracle" {
+		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"Oracle backs up with Data Pump (expdp, impdp) or RMAN, which run on the database server and write there: run them with `komando exec` (or a `komando job` for a big one), then fetch the file with `komando download`",
+			"db dump and restore are not available for Oracle")
+	}
+	if t.Kind.Name == "clickhouse" {
+		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"ClickHouse backs up with its own BACKUP TABLE or DATABASE ... TO Disk('backups', 'name.zip') (or S3), which the server writes itself: run it with `komando db query CONN --write` (it needs --allow-dangerous, so ask the user first); for a few rows, `komando db query CONN --csv` is a copy on this computer",
+			"db dump and restore are not available for ClickHouse")
+	}
+	if t.Kind.Name == "snowflake" {
+		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"Snowflake unloads tables itself: COPY INTO @STAGE FROM TABLE writes files to a stage (run it with `komando db query CONN --write`; it needs --allow-dangerous, so ask the user first), and Time Travel or CLONE keeps a copy inside Snowflake; for a few rows, `komando db query CONN --csv` is a copy on this computer",
+			"db dump and restore are not available for Snowflake")
+	}
+	if t.Kind.Name == "bigquery" {
+		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"BigQuery exports tables itself: EXPORT DATA OPTIONS (uri = 'gs://BUCKET/PATH/*.parquet', format = 'PARQUET') AS SELECT ... writes files to Cloud Storage (run it with `komando db query CONN --write`; it needs --allow-dangerous, so ask the user first), then `komando storage` fetches them; table snapshots and time travel keep a copy inside BigQuery; for a few rows, `komando db query CONN --csv` is a copy on this computer",
+			"db dump and restore are not available for BigQuery")
+	}
+	if t.Kind.Name == "sqlserver" {
+		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"SQL Server backs up with its own BACKUP DATABASE, which writes a .bak file on the database server: run it with `komando db query CONN --write` (it needs --allow-dangerous, so ask the user first), then fetch the file with `komando download` from that server",
+			"db dump and restore are not available for SQL Server yet")
+	}
 	return out.Usage("%s conns have no dump tool", t.Kind.Name)
 }

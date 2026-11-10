@@ -291,18 +291,20 @@ error) as before. `komando --help` lists every command.
 
 ### Add, one question at a time
 
-Add asks what you are adding (a server, a database, a cache, file storage,
-Kubernetes, a container registry or a VPN), then one question at a time,
-in the order you think of it: a name, the address, the user, the port, how
-you log in, and whether it is production. Each question says what it is
+Add asks what you are adding (a Linux or Windows server, a database, a
+cache, a message queue, file storage, Kubernetes, a container registry or a
+VPN), then one question at a time, in the order you think of it: a name,
+the address, the user, the port, how you log in, and whether it is
+production. Each question says what it is
 and where to find it, shows an example, and offers a default that Enter
 takes (`Port [22]:`). An answer is checked before the next question: a name
 that is taken, an address with a typo or a file that is not there is said
 under it, marked `!`, and the answer stays to be fixed.
 
 ```text
-Add a server · 3 of 6
+Add a server · 4 of 7
   Name     web1
+  System   Linux
   Address  203.0.113.20
 
 Which user do you log in as?
@@ -340,7 +342,7 @@ agent or a script, they work as before.
 ### All features
 
 All features lists every command by area: servers, files, databases,
-cache, file storage, Kubernetes, registries, VPNs and tunnels, secrets and
+cache, message queues, file storage, Kubernetes, registries, VPNs and tunnels, secrets and
 keys, your list, jobs and recipes, safety and audit, and setup. Pick an
 area, then what to do (type to filter), and the command asks what it needs:
 a server, database or VPN from your list, then the few things that matter;

@@ -52,6 +52,8 @@ func runShell(ctx context.Context, target string) error {
 	h, err := singleHost(st, target)
 	if err != nil {
 		return err
+	} else if h.WinRM() {
+		return notOnWindows("an interactive shell over WinRM", []string{h.Name})
 	}
 	protected := protectedHost(st, h)
 	if protected && !yesOK() && !confirmYes(h.Name+" is protected. Open a shell on it anyway?") {
@@ -78,7 +80,8 @@ func runShell(ctx context.Context, target string) error {
 	audit(st, "shell", []string{h.Name}, "", true, nil)
 	var started time.Time
 	code, lost := 0, false
-	err = withClient(ctx, st, h, func(c *sshx.Client) error {
+	// a Windows server over SSH gives its own shell (cmd or PowerShell)
+	err = withClient(allowWindows(ctx), st, h, func(c *sshx.Client) error {
 		sess, err := c.NewSession()
 		if err != nil {
 			return err

@@ -130,9 +130,10 @@ func execCmd() *cobra.Command {
 		Use:     "exec TARGET [--] COMMAND...",
 		Aliases: []string{"run", "x"},
 		Short:   "Run a shell command on one or many servers in parallel",
-		Long: `Runs COMMAND through the login shell on every server TARGET picks. Each
-server's result has its stdout, stderr, exit_code and duration. A non-zero
-exit on any server makes komando exit 5 (connection problems exit 4).
+		Long: `Runs COMMAND through the login shell on every server TARGET picks
+(PowerShell on Windows servers). Each server's result has its stdout,
+stderr, exit_code and duration. A non-zero exit on any server makes
+komando exit 5 (connection problems exit 4).
 
 If the connection breaks while the command runs, that server's result has
 error code CONNECTION_LOST (exit 4) and the output that came so far: the
@@ -169,27 +170,9 @@ unless you pass --allow-dangerous. A protected server needs --yes; with
 					return err
 				}
 			}
-			mutating := !readOnly
-			if readOnly {
-				// bash -s alone runs its input, so the input is checked as
-				// its script; any other command is checked itself, and its
-				// input is data (a CSV for wc, SQL for psql)
-				checked := command
-				if o.stdinFile != "" && stdinShell(command) {
-					checked = string(stdin)
-					if err := checkReadOnlyEnv(checked, o.env); err != nil {
-						return err
-					}
-				} else if err := checkReadOnlyEnv(command, o.env); err != nil {
-					return err
-				} else if w := sqlInputWrite(command, stdin); w != "" {
-					if err := readOnlyStop(w); err != nil {
-						return err
-					}
-				}
-				// the denylist passed; a protected target still needs --yes
-				// unless komando knows the command only reads (allowlist)
-				mutating = readOnlyMutates(checked, o.env)
+			mutating, err := execReadOnly(args[0], command, stdin, o, readOnly)
+			if err != nil {
+				return err
 			}
 			return runFleet(cmd.Context(), "exec", args[0], command, stdin, o, mutating)
 		},
@@ -198,6 +181,40 @@ unless you pass --allow-dangerous. A protected server needs --yes; with
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
 	return c
+}
+
+// execReadOnly is exec's --read-only check: a command that changes
+// something is refused, and mutating says whether a protected target still
+// needs --yes. A Windows target is checked as PowerShell.
+func execReadOnly(target, command string, stdin []byte, o execOpts, readOnly bool) (mutating bool, err error) {
+	if !readOnly {
+		return true, nil
+	}
+	if win, err := targetWindows(target); err != nil || win {
+		if err != nil {
+			return true, err
+		}
+		return psReadOnlyCheck(command)
+	}
+	// bash -s alone runs its input, so the input is checked as its script;
+	// any other command is checked itself, and its input is data (a CSV
+	// for wc, SQL for psql)
+	checked := command
+	if o.stdinFile != "" && stdinShell(command) {
+		checked = string(stdin)
+		if err := checkReadOnlyEnv(checked, o.env); err != nil {
+			return true, err
+		}
+	} else if err := checkReadOnlyEnv(command, o.env); err != nil {
+		return true, err
+	} else if w := sqlInputWrite(command, stdin); w != "" {
+		if err := readOnlyStop(w); err != nil {
+			return true, err
+		}
+	}
+	// the denylist passed; a protected target still needs --yes unless
+	// komando knows the command only reads (allowlist)
+	return readOnlyMutates(checked, o.env), nil
 }
 
 func scriptCmd() *cobra.Command {
@@ -215,6 +232,12 @@ func scriptCmd() *cobra.Command {
 			body, err := readFileOrStdin(args[1])
 			if err != nil {
 				return localFileErr("FILE_NOT_FOUND", err, "")
+			}
+			if win, err := targetWindows(args[0]); err != nil || win {
+				if err != nil {
+					return err
+				}
+				return windowsScript(cmd.Context(), args, body, interpreter, argsList, o, readOnly)
 			}
 			if interpreter == "" {
 				interpreter = "sh"
@@ -302,6 +325,28 @@ func guardBody(body string) error {
 	return guard(st, nil, body, false)
 }
 
+// fleetDryRun is runFleet's --dry-run: what would run on each host.
+func fleetDryRun(name string, hosts []*store.Host, req sshx.RunRequest, o execOpts, stdinBytes int, guardErr error) {
+	plans := []map[string]any{}
+	for _, h := range hosts {
+		full, _, err := sshx.BuildCommand(&sshx.Client{Host: h}, req)
+		if err != nil {
+			full = "<error: " + err.Error() + ">"
+		}
+		if o.display != "" {
+			full = o.display
+		}
+		plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": full, "stdin_bytes": stdinBytes})
+	}
+	res := map[string]any{"would_run": plans}
+	if guardErr != nil {
+		res["would_be_blocked"] = toErr(guardErr)
+	} else if b := out.P.Blocked(); b != nil {
+		res["would_be_blocked"] = b
+	}
+	out.P.Print(name, res, nil)
+}
+
 // runFleet executes command on all hosts matching target and prints results.
 func runFleet(ctx context.Context, name, target, command string, stdin []byte, o execOpts, mutating bool) error {
 	st, err := loadState()
@@ -310,6 +355,9 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 	}
 	hosts, err := resolveTargets(st, target)
 	if err != nil {
+		return err
+	}
+	if ctx, err = windowsRunCheck(ctx, name, hosts, o); err != nil {
 		return err
 	}
 	shown := command
@@ -329,24 +377,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		Stdin: stdin, Timeout: cmdTimeout(st), MaxOutput: maxOutput(st), PTY: o.pty}
 
 	if g.dryRun {
-		plans := []map[string]any{}
-		for _, h := range hosts {
-			full, _, err := sshx.BuildCommand(&sshx.Client{Host: h}, req)
-			if err != nil {
-				full = "<error: " + err.Error() + ">"
-			}
-			if o.display != "" {
-				full = o.display
-			}
-			plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": full, "stdin_bytes": len(stdin)})
-		}
-		res := map[string]any{"would_run": plans}
-		if guardErr != nil {
-			res["would_be_blocked"] = toErr(guardErr)
-		} else if b := out.P.Blocked(); b != nil {
-			res["would_be_blocked"] = b
-		}
-		out.P.Print(name, res, nil)
+		fleetDryRun(name, hosts, req, o, len(stdin), guardErr)
 		return nil
 	}
 
@@ -620,12 +651,20 @@ func probeText(ctx context.Context, name, target, command string, sudo bool, par
 	if err != nil {
 		return err
 	}
+	winCommand, onWindows := windowsProbes[name]
+	if ctx, err = windowsGate(ctx, name, hosts, onWindows); err != nil {
+		return err
+	}
 	if g.dryRun {
 		out.P.Print(name, map[string]any{"hosts": hostNames(hosts), "would_run": command}, nil)
 		return nil
 	}
 	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-		return sshx.Run(ctx, c, sshx.RunRequest{Command: command, Sudo: sudo, Timeout: cmdTimeout(st), MaxOutput: maxOutput(st)})
+		cmd := command
+		if c.Host.Windows() {
+			cmd = winCommand
+		}
+		return sshx.Run(ctx, c, sshx.RunRequest{Command: cmd, Sudo: sudo, Timeout: cmdTimeout(st), MaxOutput: maxOutput(st)})
 	})
 	data := probeData{Results: []probeRow{}}
 	worst := 0

@@ -15,9 +15,15 @@ internal/out 66
 internal/policy 83
 internal/ppp 65
 internal/proxyx 59
+internal/queuex 82
+internal/queuex/nats 80
+internal/queuex/pubsub 88
+internal/queuex/rabbitmq 56
+internal/queuex/sqs 88
 internal/registry 72
 internal/sshx 65
 internal/sslvpn 74
 internal/store 46
 internal/storex 32
 internal/vault 63
+internal/winrm 84

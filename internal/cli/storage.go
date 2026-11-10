@@ -27,7 +27,7 @@ import (
 )
 
 // Storage commands work with every storage conn kind (S3, GCS, Azure Blob,
-// WebDAV, FTP, FTPS and SFTP) through one interface. Like files on a
+// WebDAV, FTP, FTPS, SFTP and SMB) through one interface. Like files on a
 // server: ls and download read, upload and rm change (protected conns need
 // --yes), and downloads never overwrite a local file unless --overwrite.
 
@@ -35,13 +35,13 @@ func storageCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "storage",
 		Aliases: []string{"s3"},
-		Short:   "Buckets (S3, GCS, Azure) and file servers (WebDAV, FTP, SFTP)",
+		Short:   "Buckets (S3, GCS, Azure) and WebDAV/FTP/SFTP/SMB file servers",
 		Long: `Work with a storage conn (see ` + "`komando conn`" + `): an S3-compatible, Google Cloud
 Storage or Azure Blob bucket, or a folder on a WebDAV, FTPS, FTP or SFTP
-server. Keys are relative to the folder in the conn URL; a key ending in / is
-a folder. ls, cat and download only read. upload changes files and link
-shares one (S3, Google Cloud and Azure; protected conns need --yes
-for both); rm deletes, so it also needs --allow-dangerous. Downloads never
+server or an SMB share (Windows, Samba, Azure Files). Keys are relative to
+the folder in the conn URL; a key ending in / is a folder. ls, cat and
+download only read. upload changes files and link shares one (S3, Google
+Cloud and Azure; protected conns need --yes for both); rm deletes, so it also needs --allow-dangerous. Downloads never
 overwrite a local file unless --overwrite, and uploads to file servers go to
 a temporary name first, so a failed upload leaves nothing half written.`,
 	}
@@ -155,6 +155,8 @@ func openBucket(ctx context.Context, st *store.State, c *store.Conn) (storex.Buc
 		b, err = storex.OpenGCS(ctx, a.Target, a.Password, a.Dial, dbTimeout())
 	case "azblob":
 		b, err = storex.OpenAzure(a.Target, a.Password, a.Dial, dbTimeout())
+	case "smb":
+		b, err = storex.OpenSMB(ctx, a.Target, a.Password, a.Dial, dbTimeout())
 	default: // ftp, ftps
 		b, err = storex.OpenFTP(ctx, a.Target, a.Password, a.Dial, dbTimeout())
 	}

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -37,6 +39,9 @@ func svcResult(rr *sshx.RunResult) ([]map[string]any, *out.Error) {
 }
 
 func svcTable(data any) string {
+	if w, ok := data.([]winService); ok {
+		return winSvcTable(w)
+	}
 	units, _ := data.([]map[string]any)
 	rows := [][]string{}
 	for _, u := range units {
@@ -70,7 +75,12 @@ func svcStatus(ctx context.Context, target string, units []string) error {
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 			u, err := svcResult(rr)
 			return u, err
-		}, text: svcTable})
+		}, text: svcTable,
+		win: badServiceNames(units) + winSvcStatusScript(units),
+		winParse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
+			s, err := winServices(rr)
+			return s, err
+		}})
 }
 
 // svcScript builds the action script: run systemctl, optionally wait for
@@ -138,7 +148,8 @@ func svcAction(ctx context.Context, action, target string, units []string, sudo,
 	return runOps(ctx, opsSpec{name: "svc." + action, target: target, command: svcScript(action, units, now, wait), display: display,
 		sudo: sudo, mutating: true, timeoutAtLeast: time.Duration(wait+30) * time.Second,
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return svcActionResult(action, wait, rr) },
-		text:  svcTable})
+		text:  svcTable, win: winSvcScript(action, units, now, wait),
+		winParse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return winSvcActionResult(action, wait, rr) }})
 }
 
 func svcListResult(rr *sshx.RunResult) (any, *out.Error) {
@@ -157,7 +168,35 @@ func svcListResult(rr *sshx.RunResult) (any, *out.Error) {
 	return rows, nil
 }
 
+func svcListCmd() *cobra.Command {
+	var state string
+	var failed bool
+	c := &cobra.Command{
+		Use:   "list TARGET",
+		Short: "List service units (filter --state running|failed|...)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			command := noSystemd + "systemctl list-units --type=service --all --no-legend --plain --no-pager"
+			if failed {
+				state = "failed"
+			}
+			if state != "" {
+				command += " --state=" + sshx.Q(state)
+			}
+			return runOps(cmd.Context(), opsSpec{name: "svc.list", target: args[0], command: command,
+				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return svcListResult(rr) }, text: svcListTable,
+				win: winSvcListScript, winParse: winSvcList(state)})
+		},
+	}
+	c.Flags().StringVar(&state, "state", "", "unit state filter")
+	c.Flags().BoolVar(&failed, "failed", false, "only failed units")
+	return c
+}
+
 func svcListTable(data any) string {
+	if w, ok := data.([]winService); ok {
+		return winSvcTable(w)
+	}
 	units, _ := data.([]map[string]string)
 	rows := [][]string{}
 	for _, u := range units {

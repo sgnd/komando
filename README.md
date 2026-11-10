@@ -73,7 +73,7 @@ komando
 A menu opens. On a new computer it looks like this:
 
 ```text
-komando · v0.8.0 · 0 servers
+komando · v0.9.0 · 0 servers
 
 Nothing here yet. Add asks for a name, an address and a user, one at a time.
 
@@ -276,7 +276,7 @@ Then ask in your own words: *"Why is web1 slow?"*, *"Update all servers"*,
 | Test the network, reach private servers | `net`, `tunnel`, `--via` |
 | Reach things behind VPNs, several at once (WireGuard, OpenVPN, Tailscale, AnyConnect, L2TP/IPsec, IKEv2, Cisco IPsec, GlobalProtect, Fortinet, Pulse, F5, ...) | `vpn` |
 | Keep a list of databases, caches, storage, clusters and registries | `conn` |
-| Query, back up and restore databases (PostgreSQL, MySQL/MariaDB; SQLite: query and back up) | `db` |
+| Query, back up and restore databases (PostgreSQL, MySQL/MariaDB; SQLite: query and back up; SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB: query) | `db` |
 | Read and change caches (Redis, Valkey, memcached) | `cache` |
 | Files in S3, MinIO, R2 and on FTPS/SFTP/FTP servers | `storage`, `upload`, `download`, `sync` |
 | Kubernetes and Docker Swarm: status, logs, apply, restart, scale | `cluster` |

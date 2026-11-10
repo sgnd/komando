@@ -126,8 +126,8 @@ func dropForeignRef(owner, what string, r *string) string {
 }
 
 // dropForeignHostRefs applies dropForeignRef to an imported host's password
-// and sudo refs and to its env values that name a secret (komando puts
-// those into every command it runs there).
+// and sudo refs, its WinRM CA, and its env values that name a secret
+// (komando puts those into every command it runs there).
 func dropForeignHostRefs(h *store.Host) []string {
 	var notes []string
 	for _, r := range []struct {
@@ -135,6 +135,11 @@ func dropForeignHostRefs(h *store.Host) []string {
 		ref  *string
 	}{{"password_ref", &h.PasswordRef}, {"sudo_ref", &h.SudoRef}} {
 		if n := dropForeignRef(h.Name, r.what, r.ref); n != "" {
+			notes = append(notes, n)
+		}
+	}
+	if h.WinRMOpts != nil {
+		if n := dropForeignRef(h.Name, "winrm.ca", &h.WinRMOpts.CA); n != "" {
 			notes = append(notes, n)
 		}
 	}
@@ -183,7 +188,7 @@ func exportCmd() *cobra.Command {
 			}
 			keys := map[string]bool{}
 			for _, h := range sel.Hosts {
-				for _, r := range []string{h.PasswordRef, h.SudoRef} {
+				for _, r := range []string{h.PasswordRef, h.SudoRef, winrmCA(h)} {
 					if n, ok := strings.CutPrefix(r, "secret:"); ok {
 						need[n] = true
 					}

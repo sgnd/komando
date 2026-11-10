@@ -33,7 +33,7 @@ var sqlRules = []Rule{
 	{"sql-server-config", "changes server-wide configuration"},
 	{"sql-session-config", "changes a setting whose name komando cannot see (set_config with a computed name)"},
 	{"sql-opaque", "runs code komando cannot inspect (DO, CALL, PREPARE/EXECUTE)"},
-	{"sql-remote", "runs SQL over another connection that the read-only transaction does not cover (dblink)"},
+	{"sql-remote", "reaches another server, which the read-only transaction does not cover (dblink, a database link, ClickHouse url() or s3())"},
 	{"db-restore", "restoring a backup can overwrite existing data"},
 }
 
@@ -96,34 +96,42 @@ type token struct {
 // Each difference from the server's own scanner is a way to hide SQL, so
 // these follow the servers' lexers, not the SQL standard.
 type dialect struct {
-	backslash, dollar, backtick, bracket bool
-	execComments                         bool // MySQL runs the text inside /*! ... */
-	dashSpace                            bool // MySQL: "--" starts a comment only before white space or a control character ("1 --1" is 1 - -1)
-	crComments                           bool // Postgres: a -- comment ends at \r as well as \n
-	execAsCode                           bool // restore: read /*! ... */ as the code MySQL runs instead of refusing it
-	unicodeEsc                           bool // Postgres: U&"..." names and U&'...' strings take \XXXX escapes
+	backslash, dollar, backtick, bracket    bool
+	execComments                            bool // MySQL runs the text inside /*! ... */
+	dashSpace                               bool // MySQL: "--" starts a comment only before white space or a control character ("1 --1" is 1 - -1)
+	crComments                              bool // Postgres: a -- comment ends at \r as well as \n
+	execAsCode                              bool // restore: read /*! ... */ as the code MySQL runs instead of refusing it
+	unicodeEsc                              bool // Postgres: U&"..." names and U&'...' strings take \XXXX escapes
+	tsql                                    bool // SQL Server: ]] in [names], nested comments, no statement separator needed (sql_tsql.go)
+	oracle, clickhouse, snowflake, bigquery bool // Oracle: q'[...]' quotes, PL/SQL blocks that a / line ends (sql_oracle.go); ClickHouse, Snowflake, BigQuery (sql_*.go)
 }
 
 var dialects = map[string]dialect{
-	"postgres": {dollar: true, crComments: true, unicodeEsc: true},
-	"mysql":    {backslash: true, backtick: true, execComments: true, dashSpace: true},
-	"sqlite":   {backtick: true, bracket: true},
+	"postgres":  {dollar: true, crComments: true, unicodeEsc: true},
+	"mysql":     {backslash: true, backtick: true, execComments: true, dashSpace: true},
+	"sqlite":    {backtick: true, bracket: true},
+	"sqlserver": {bracket: true, crComments: true, tsql: true},
+	"oracle":    {oracle: true},
 }
 
-// nameByte reports whether c continues an unquoted name. Postgres names
-// may contain $ (x$1), so there a $ inside a name starts no quote.
+// nameByte reports whether c continues an unquoted name. Postgres and
+// Snowflake names may contain $ (x$1, SYSTEM$WAIT): no quote starts there.
 func (d dialect) nameByte(c byte) bool {
-	return isWord(c) || d.dollar && c == '$'
+	return isWord(c) || (d.dollar || d.snowflake) && c == '$'
 }
 
 // splitSQL tokenises sql, dropping comments and quoted text, and splits it
 // into statements at top-level semicolons.
 func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error) {
+	src := sql // the text the statements are cut from; sql is what is scanned (d.mask)
+	if sql, err = d.mask(src); err != nil {
+		return nil, nil, err
+	}
 	var cur []token
 	start, depth := 0, 0
 	inExec := false // inside /*! ... */ (execAsCode)
 	flush := func(end int) {
-		text := strings.TrimSpace(sql[start:end])
+		text := strings.TrimSpace(src[start:end])
 		if len(cur) > 0 {
 			stmts = append(stmts, text)
 			toks = append(toks, cur)
@@ -145,7 +153,7 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 				"-- is followed by a non-ASCII byte")
 		case c == '-' && i+1 < n && sql[i+1] == '-' && (!d.dashSpace || i+2 >= n || sql[i+2] <= ' ' || sql[i+2] == 0x7f), c == '#' && d.backslash:
 			// MySQL: a control character (0x7f too) counts as white space here
-			for i < n && sql[i] != '\n' && !(d.crComments && sql[i] == '\r') {
+			for i < n && !d.commentEnd(sql, i) {
 				i++
 			}
 		case c == '/' && i+1 < n && sql[i+1] == '*':
@@ -165,23 +173,8 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 					"write the statement without /*! ... */: MySQL runs what is inside, so komando cannot check it",
 					"executable comments (/*! ... */) are not allowed")
 			}
-			level := 0
-			for i < n {
-				if i+1 < n && sql[i] == '/' && sql[i+1] == '*' {
-					level++
-					i += 2
-				} else if i+1 < n && sql[i] == '*' && sql[i+1] == '/' {
-					level--
-					i += 2
-					if level == 0 || !d.dollar { // only Postgres nests comments
-						break
-					}
-				} else {
-					i++
-				}
-			}
-			if level > 0 && d.dollar {
-				return nil, nil, out.Usage("unterminated /* comment in SQL")
+			if i, err = d.skipComment(sql, i); err != nil {
+				return nil, nil, err
 			}
 		case c == '\'' || c == '"' || (c == '`' && d.backtick) || (c == '[' && d.bracket):
 			closeCh := c
@@ -199,9 +192,9 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 					`write the name without U& escapes (U&"\0064blink" is dblink): komando cannot check a name it cannot read`,
 					`U&"..." names are not allowed`)
 			}
-			// MySQL escapes with backslash only inside '' and "", never in `names`;
+			// MySQL escapes with backslash only inside '' and "", never in `names` (ClickHouse there too);
 			// Postgres only inside E'...'
-			esc := d.backslash && c != '`' || c == '\'' && d.dollar && prefix("E")
+			esc := d.backslash && (c != '`' || d.clickhouse) || c == '\'' && d.dollar && prefix("E")
 			j := i + 1
 			for ; j < n; j++ {
 				if esc && sql[j] == '\\' {
@@ -209,7 +202,7 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 					continue
 				}
 				if sql[j] == closeCh {
-					if j+1 < n && sql[j+1] == closeCh && closeCh != ']' {
+					if j+1 < n && sql[j+1] == closeCh && (closeCh != ']' || d.tsql) {
 						j++
 						continue
 					}
@@ -221,7 +214,7 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 			}
 			if c != '\'' { // quoted identifier: never a keyword, but still a function name
 				name := sql[i+1 : j]
-				if closeCh != ']' {
+				if closeCh != ']' || d.tsql {
 					name = strings.ReplaceAll(name, string(closeCh)+string(closeCh), string(closeCh))
 				}
 				cur = append(cur, token{word: "\x00ident", ident: strings.ToUpper(name), depth: depth, pos: i - start})
@@ -246,7 +239,7 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 				cur = append(cur, token{punct: '$', depth: depth, pos: i - start}) // $1 parameter
 				i++
 			}
-		case c == ';' && depth == 0:
+		case c == ';' && depth == 0 && !d.bodyRuns(cur), d.oracle && depth == 0 && slashLine(sql, i): // a procedure's body runs to the end
 			flush(i)
 			i++
 			start = i
@@ -263,8 +256,11 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 		case isWord(c):
 			j := i
 			number := c >= '0' && c <= '9' // 1$$x$$ is 1 and a dollar quote; x$$ is one name
-			for j < n && (isWord(sql[j]) || !number && d.nameByte(sql[j])) {
+			for j < n && !(number && d.tsql) && (isWord(sql[j]) || !number && d.nameByte(sql[j])) {
 				j++
+			}
+			if number && d.tsql {
+				j = tsqlNumberEnd(sql, i) // SQL Server reads 1DROP as 1 DROP, 1eDROP as 1e DROP
 			}
 			if number && d.dollar && j < n && sql[j] == '$' && strings.Trim(sql[i:j], "0123456789") != "" {
 				// 1abc$$ is 1 and the name abc$$ before Postgres 15, a dollar
@@ -309,14 +305,14 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 	plan := SQLPlan{Statements: []Statement{}, kind: kind}
 	seen := map[string]bool{}
 	for i, ts := range toks {
-		risk, rules, err := classifyStatement(ts, true)
+		risk, rules, err := classifyFor(kind, ts)
 		if err != nil {
 			return SQLPlan{}, err
 		}
 		kw := firstWord(ts)
 		plan.Statements = append(plan.Statements, Statement{SQL: texts[i], Keyword: kw, Risk: risk,
-			Rows: returnsRows(kw, ts), NoTx: noTx(kind, kw, ts), NoRollback: noRollback(kw, ts, rules),
-			Unknown: !readFirst[kw] && !writeFirst[kw] && !opaqueFirst[kw]})
+			Rows: rowsFor(kind, kw, ts), NoTx: noTx(kind, kw, ts), NoRollback: noRollback(kw, ts, rules),
+			Unknown: unknownFirst(kind, kw)})
 		if risk > plan.Risk {
 			plan.Risk = risk
 		}
@@ -339,7 +335,7 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 // unknown statement needs --write.
 func (p SQLPlan) NeedsWrite() bool {
 	for _, s := range p.Statements {
-		if s.Risk == RiskRead || s.Unknown && s.Risk == RiskWrite && p.kind != "mysql" {
+		if s.Risk == RiskRead || s.Unknown && s.Risk == RiskWrite && !unknownNeedsWrite[p.kind] {
 			continue
 		}
 		return true
@@ -387,7 +383,7 @@ func noTx(kind, kw string, ts []token) bool {
 	case "sqlite":
 		return kw == "VACUUM"
 	}
-	return false
+	return otherNoTx(kind, kw, ts)
 }
 
 // mysqlInTx are the MySQL statements that do not commit implicitly.
@@ -531,6 +527,7 @@ var opaqueFirst = map[string]bool{"DO": true, "CALL": true, "PREPARE": true, "EX
 var txSettings = map[string]bool{
 	"TRANSACTION": true, "CHARACTERISTICS": true, "TRANSACTION_READ_ONLY": true, "DEFAULT_TRANSACTION_READ_ONLY": true,
 	"TX_READ_ONLY": true, "AUTOCOMMIT": true, "COMPLETION_TYPE": true,
+	"IMPLICIT_TRANSACTIONS": true, "ANSI_DEFAULTS": true, "REMOTE_PROC_TRANSACTIONS": true, // SQL Server
 }
 
 // The client character set counts too: the server converts the text from
@@ -767,7 +764,7 @@ func settingAllowed(name string) error {
 }
 
 // Placeholders counts the parameters in sql ($1.. in postgres, ? in mysql
-// and sqlite), outside strings and comments. ok is false when the count is
+// and sqlite, @p1.. in sqlserver), outside strings and comments. ok is false when the count is
 // not known (sqlite named parameters, or SQL that does not parse).
 func Placeholders(kind, sql string) (n int, ok bool) {
 	d, found := dialects[kind]
@@ -777,6 +774,9 @@ func Placeholders(kind, sql string) (n int, ok bool) {
 	_, toks, err := splitSQL(sql, d)
 	if err != nil {
 		return 0, false
+	}
+	if kind == "sqlserver" || kind == "oracle" || kind == "clickhouse" {
+		return otherPlaceholders(kind, toks)
 	}
 	for _, ts := range toks {
 		for i, t := range ts {

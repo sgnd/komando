@@ -17,12 +17,13 @@ import (
 // the products it covers beside it.
 func formGroups() []formGroup {
 	return []formGroup{
-		{"Server", "a Linux machine you log in to with SSH", []formKind{{"Server", "", serverForm}}},
-		{"Database", "PostgreSQL, MySQL, MariaDB, MongoDB, SQLite", dbForms()},
+		{"Server", "a Linux or Windows machine you log in to", []formKind{{"Server", "", serverForm}}},
+		{"Database", "PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, ClickHouse, Snowflake, BigQuery, SQLite", dbForms()},
 		{"Cache", "Redis, Valkey, Memcached", cacheForms()},
-		{"File storage", "S3, MinIO, R2, SFTP, FTP, Google Cloud, Azure, WebDAV", storageForms()},
+		{"Message queues", "Kafka, RabbitMQ, NATS, Amazon SQS, Google Pub/Sub", queueForms()},
+		{"File storage", "S3, MinIO, R2, SFTP, FTP, Google Cloud, Azure, WebDAV, Windows shares", storageForms()},
 		{"Kubernetes", "the clusters in your kubeconfig", clusterForms()},
-		{"Container registry", "Docker Hub, GitHub, GitLab, your own", registryForms()},
+		{"Container registry", "Docker Hub, GitHub, GitLab, AWS, Azure, Google, your own", registryForms()},
 		{"VPN", "WireGuard, OpenVPN, Tailscale, your company's VPN app", vpnForms()},
 	}
 }
@@ -236,39 +237,31 @@ func formIsLocal(host string) bool {
 // --- Server ---
 
 // serverForm asks for a server in the order people think of it: a name,
-// the address, the user, then how to log in.
+// what it runs, the address, the user, then how to log in. A Windows
+// server is reached over OpenSSH or WinRM (form_winserver.go).
 func serverForm() formSpec {
+	ssh := func(a formAnswers) bool { return !serverWinRM(a) }
 	return formSpec{title: "Add a server", qs: []formQ{
 		formNameQ("host", "server", "web1"),
+		serverOSQ(), serverTransportQ(),
 		{key: "address", label: "Address", ask: "What is the server's address?", addr: true,
 			help:    "Its IP address or host name, from your hosting panel or cloud console.",
 			example: "203.0.113.20 or vps.example.com", check: serverAddressProblem},
 		{key: "user", label: "User", ask: "Which user do you log in as?",
-			help:    "The login name on the server. Many VPS use root; Ubuntu cloud servers use ubuntu.",
-			example: "root",
-			def: func(_ *store.State, a formAnswers) string {
-				if h, err := sshx.ParseAdhoc(a["address"]); err == nil && strings.Contains(a["address"], "@") {
-					return h.User
-				}
-				return ""
-			},
-			check: func(_ *store.State, _ formAnswers, v string) string {
-				if validUser(v) != nil {
-					return "a user name has letters, digits, dot, dash and underscore, and no spaces or colon"
-				}
-				return ""
-			}},
-		{key: "port", label: "Port", ask: "Which SSH port does it use?",
+			help:    "The login name on the server. Many VPS use root; Ubuntu cloud servers use ubuntu; Windows uses Administrator, or user@domain for a domain user.",
+			example: "root", def: serverUserDefault, check: serverUserProblem},
+		formWhen(formQ{key: "port", label: "Port", ask: "Which SSH port does it use?",
 			help: "Almost always 22. Change it only if your provider gave you another number.",
 			def: func(_ *store.State, a formAnswers) string {
 				if h, err := sshx.ParseAdhoc(a["address"]); err == nil && h.Port != 0 {
 					return strconv.Itoa(h.Port)
 				}
 				return "22"
-			}, check: formPortProblem},
-		{key: "login", label: "Login", ask: "How do you log in?", def: serverLoginDefault, choices: serverLoginChoices,
-			help: "Not sure? Pick the first: komando tries your keys and asks for a password if none works."},
-		{key: "identity", label: "Key file", ask: "Where is the key file?",
+			}, check: formPortProblem}, ssh),
+		serverWinRMTLSQ(), serverWinRMPortQ(),
+		formWhen(formQ{key: "login", label: "Login", ask: "How do you log in?", def: serverLoginDefault, choices: serverLoginChoices,
+			help: "Not sure? Pick the first: komando tries your keys and asks for a password if none works."}, ssh),
+		formWhen(formQ{key: "identity", label: "Key file", ask: "Where is the key file?",
 			help:    "The private key file, often ending in .pem. Not the .pub file.",
 			example: "~/Downloads/my-vps.pem", show: func(a formAnswers) bool { return a["login"] == "file" },
 			check: func(_ *store.State, _ formAnswers, v string) string {
@@ -276,22 +269,44 @@ func serverForm() formSpec {
 					return "that is the public half (.pub); give the private key file next to it"
 				}
 				return formFileProblem(v)
-			}},
-		{key: "key", label: "Key", ask: "Which of your komando keys?", show: func(a formAnswers) bool { return a["login"] == "keylist" },
+			}}, ssh),
+		formWhen(formQ{key: "key", label: "Key", ask: "Which of your komando keys?", show: func(a formAnswers) bool { return a["login"] == "keylist" },
 			choices: func(st *store.State, _ formAnswers) []menuRow {
 				var rows []menuRow
 				for _, n := range menuNames(st.Keys, "key") {
 					rows = append(rows, menuRow{label: n, value: n})
 				}
 				return rows
-			}},
+			}}, ssh),
 		formProtectQ("server"),
 		formViaQ("server", true),
-		formMore(formYesNoQ("code", "One-time code", "Does it also ask for a one-time code when you log in?",
+		formWhen(formMore(formYesNoQ("code", "One-time code", "Does it also ask for a one-time code when you log in?",
 			"A 6-digit code from an app like Google Authenticator. Most servers do not.", "no",
-			"after adding, komando login keeps one login for 8 hours", "after adding, komando tests it")),
+			"after adding, komando login keeps one login for 8 hours", "after adding, komando tests it")), ssh),
 		formGroupQ(), formNotesQ(),
 	}, build: serverBuild}
+}
+
+// serverUserDefault is the user in a pasted address (root@...), else
+// Administrator on Windows.
+func serverUserDefault(_ *store.State, a formAnswers) string {
+	if h, err := sshx.ParseAdhoc(a["address"]); err == nil && strings.Contains(a["address"], "@") {
+		return h.User
+	}
+	if a["os"] == "windows" {
+		return "Administrator"
+	}
+	return ""
+}
+
+func serverUserProblem(_ *store.State, _ formAnswers, v string) string {
+	if i := strings.Index(v, `\`); i > 0 {
+		return "write a domain user as user@domain with the domain's full name, like " + v[i+1:] + "@corp.example.com"
+	}
+	if validUser(v) != nil {
+		return "a user name has letters, digits, dot, dash and underscore, and no spaces or colon"
+	}
+	return ""
 }
 
 // serverAddressProblem accepts what people paste: 10.0.0.5, a host name,
@@ -299,6 +314,9 @@ func serverForm() formSpec {
 // answers' defaults), and says what to do with a URL.
 func serverAddressProblem(_ *store.State, _ formAnswers, v string) string {
 	if strings.Contains(v, "://") {
+		if strings.HasPrefix(strings.ToLower(v), "winrm://") {
+			return "type it without winrm://; komando adds it when you pick WinRM (Esc goes back to that question)"
+		}
 		if strings.HasPrefix(v, "ssh://") {
 			return "type it without ssh://, like root@vps.example.com"
 		}
@@ -342,6 +360,9 @@ func serverLoginChoices(st *store.State, _ formAnswers) []menuRow {
 }
 
 func serverBuild(_ *store.State, a formAnswers) [][]string {
+	if serverWinRM(a) {
+		return serverWinRMBuild(a)
+	}
 	addr := a["address"]
 	if h, err := sshx.ParseAdhoc(addr); err == nil {
 		addr = h.Address
@@ -352,6 +373,9 @@ func serverBuild(_ *store.State, a formAnswers) [][]string {
 	args := []string{"host", "add", a["name"], a["user"] + "@" + addr}
 	if a["port"] != "" && a["port"] != "22" {
 		args = append(args, "--port", a["port"])
+	}
+	if a["os"] == "windows" {
+		args = append(args, "--os", "windows")
 	}
 	switch a["login"] {
 	case "password":
@@ -374,7 +398,12 @@ func dbForms() []formKind {
 	return []formKind{
 		{"PostgreSQL", "also Amazon RDS, Supabase, Neon, Cloud SQL", func() formSpec { return sqlForm("postgres", "PostgreSQL", "5432") }},
 		{"MySQL or MariaDB", "also Amazon RDS, PlanetScale", func() formSpec { return sqlForm("mysql", "MySQL", "3306") }},
+		{"SQL Server", "also Azure SQL Managed Instance", sqlServerForm},
+		{"Oracle Database", "19c and later, also Oracle Database Free", oracleForm},
 		{"MongoDB", "also MongoDB Atlas", mongoForm},
+		{"ClickHouse", "also ClickHouse Cloud", clickhouseForm},
+		{"Snowflake", "a cloud data warehouse", snowflakeForm},
+		{"Google BigQuery", "a cloud data warehouse, with your Google login", bigqueryForm},
 		{"SQLite", "a database file on this computer", sqliteForm},
 	}
 }
@@ -396,14 +425,7 @@ func sqlForm(scheme, product, port string) formSpec {
 			"Almost always yes. komando asks for it after this, hidden, and keeps it in its vault.", "yes",
 			"you type it next, hidden", "no password (trust or peer login)"),
 		formProtectQ("database"),
-		{key: "tls", label: "Encryption", ask: "How should the connection be encrypted?", advanced: true,
-			help: "Leave it to komando unless the server has no TLS or a certificate it made itself.",
-			def:  func(*store.State, formAnswers) string { return "" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{{label: "komando decides", detail: "checked TLS over a network, none on the same machine", value: ""},
-					{label: "Encrypt, do not check", detail: "for a certificate the server made itself", value: "nocheck"},
-					{label: "No encryption", detail: "only inside a network you trust", value: "off"}}
-			}},
+		dbTLSQ(),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
 		u := url.URL{Scheme: scheme, User: url.User(a["user"]), Host: formHostPort(a["host"], a["port"], port)}
@@ -424,6 +446,20 @@ func sqlForm(scheme, product, port string) formSpec {
 		u.RawQuery = q.Encode()
 		return formConnBuild(a, u.String(), a["password"] == "yes")
 	}}
+}
+
+// dbTLSQ asks, under More options, how a database connection is
+// encrypted: "" lets conn add choose (checked TLS over a network),
+// "nocheck" encrypts without checking, "off" sends it unencrypted.
+func dbTLSQ() formQ {
+	return formQ{key: "tls", label: "Encryption", ask: "How should the connection be encrypted?", advanced: true,
+		help: "Leave it to komando unless the server has no TLS or a certificate it made itself.",
+		def:  func(*store.State, formAnswers) string { return "" },
+		choices: func(*store.State, formAnswers) []menuRow {
+			return []menuRow{{label: "komando decides", detail: "checked TLS over a network, none on the same machine", value: ""},
+				{label: "Encrypt, do not check", detail: "for a certificate the server made itself", value: "nocheck"},
+				{label: "No encryption", detail: "only inside a network you trust", value: "off"}}
+		}}
 }
 
 // formConnBuild is conn add for the answers, then a test.

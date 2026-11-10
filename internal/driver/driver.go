@@ -1,5 +1,5 @@
 // Package driver describes the kinds of non-SSH resources komando can talk
-// to (databases, caches, object storage) and the risk levels its safety
+// to (databases, caches, queues, object storage) and the risk levels its safety
 // checks work with.
 package driver
 
@@ -49,7 +49,7 @@ type Verdict struct {
 // Kind is a resource type komando knows.
 type Kind struct {
 	Name        string   `json:"name"`
-	Family      string   `json:"family"` // the command that works with it: db | cache | storage | cluster | registry
+	Family      string   `json:"family"` // the command that works with it: db | cache | queue | storage | cluster | registry
 	Schemes     []string `json:"schemes"`
 	DefaultPort int      `json:"default_port,omitempty"`
 	File        bool     `json:"file,omitempty"` // a local file, not a network service
@@ -65,6 +65,16 @@ func init() {
 		Example: "postgres://app@10.0.0.5:5432/app?sslmode=require"})
 	register(Kind{Name: "mysql", Family: "db", Schemes: []string{"mysql", "mariadb"}, DefaultPort: 3306,
 		Example: "mysql://shop@db.internal:3306/shop?tls=true"})
+	register(Kind{Name: "sqlserver", Family: "db", Schemes: []string{"sqlserver", "mssql"}, DefaultPort: 1433,
+		Example: "sqlserver://app@db.internal:1433/sales?encrypt=true (self-signed: &tls=skip-verify; private CA: &ca=secret:NAME)"})
+	register(Kind{Name: "oracle", Family: "db", Schemes: []string{"oracle"}, DefaultPort: 1521,
+		Example: "oracle://app@db.internal:1521/ORCLPDB1?tls=true (the path is the service name; TCPS with a private CA: &ca=secret:NAME)"})
+	register(Kind{Name: "clickhouse", Family: "db", Schemes: []string{"clickhouse"}, DefaultPort: clickhouseHTTP,
+		Example: "clickhouse://app@ch.internal:8443/analytics?tls=true (HTTP interface: 8443 with TLS, 8123 without; private CA: &ca=secret:NAME)"})
+	register(Kind{Name: "snowflake", Family: "db", Schemes: []string{"snowflake"}, DefaultPort: 443,
+		Example: "snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO (the account in place of a host; --password-ref holds a programmatic access token or a private key)"})
+	register(Kind{Name: "bigquery", Family: "db", Schemes: []string{"bigquery"}, DefaultPort: 443,
+		Example: "bigquery://my-project/analytics?location=EU (the project jobs run in, a default dataset; the login is gcloud's, or a service account key in --password-ref)"})
 	register(Kind{Name: "sqlite", Family: "db", Schemes: []string{"sqlite", "sqlite3"}, File: true,
 		Example: "sqlite:///var/lib/app.db"})
 	register(Kind{Name: "mongodb", Family: "db", Schemes: []string{"mongodb", "mongodb+srv"}, DefaultPort: 27017,
@@ -73,6 +83,16 @@ func init() {
 		Example: "rediss://default@cache.internal:6379/0 (rediss = TLS)"})
 	register(Kind{Name: "memcached", Family: "cache", Schemes: []string{"memcached", "memcacheds"}, DefaultPort: 11211,
 		Example: "memcached://cache.internal:11211 (memcacheds = TLS)"})
+	register(Kind{Name: "kafka", Family: "queue", Schemes: []string{"kafka"}, DefaultPort: 9092,
+		Example: "kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512 (private CA: &ca=secret:NAME; --via an SSH server: kafka://broker1.internal:9092)"})
+	register(Kind{Name: "rabbitmq", Family: "queue", Schemes: []string{"amqp", "amqps"}, DefaultPort: 5672,
+		Example: "amqps://app@rabbit.example.com:5671/%2F?management=15671 (amqps = TLS; the path is the vhost; --via an SSH server: amqp://app@rabbit.internal:5672/)"})
+	register(Kind{Name: "nats", Family: "queue", Schemes: []string{"nats", "tls"}, DefaultPort: 4222,
+		Example: "tls://app@nats1.example.com:4222,nats2.example.com:4222 (tls = TLS; a .creds file: ?creds=secret:NAME; --via an SSH server: nats://nats.internal:4222)"})
+	register(Kind{Name: "sqs", Family: "queue", Schemes: []string{"sqs"}, DefaultPort: 443,
+		Example: "sqs://eu-west-1 (Amazon SQS; the login is your AWS one: --option aws_profile=NAME, or keys: sqs://ACCESS_KEY_ID@eu-west-1 --password-ref secret:NAME; an emulator: ?endpoint=http://localhost:4566)"})
+	register(Kind{Name: "pubsub", Family: "queue", Schemes: []string{"pubsub"}, DefaultPort: 443,
+		Example: "pubsub://my-project (Google Cloud Pub/Sub; the login is gcloud's application default one, or a service account key: --password-ref secret:NAME; the emulator: ?endpoint=http://localhost:8085)"})
 	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
 		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
 	register(Kind{Name: "registry", Family: "registry", Schemes: []string{"registry", "oci"}, DefaultPort: 443,
@@ -91,6 +111,8 @@ func init() {
 		Example: "azblob://ACCOUNT@my-container/backups (account key or SAS token: --password-ref secret:NAME)"})
 	register(Kind{Name: "webdav", Family: "storage", Schemes: []string{"webdavs", "webdav"}, DefaultPort: 443,
 		Example: "webdavs://alice@cloud.example.com/remote.php/dav/files/alice (Nextcloud; ?tls=skip-verify for self-signed; webdav:// needs ?insecure=1)"})
+	register(Kind{Name: "smb", Family: "storage", Schemes: []string{"smb", "cifs"}, DefaultPort: 445,
+		Example: "smb://alice@fileserver.corp.lan/team/reports?domain=CORP (a Windows, Samba or Azure Files share)"})
 }
 
 // Lookup returns the kind with this name.
@@ -120,22 +142,33 @@ func kindNames() string {
 // Target is a parsed conn URL.
 type Target struct {
 	Kind     Kind   `json:"kind"`
-	Address  string `json:"address,omitempty"`  // host:port for network kinds (s3: the endpoint)
+	Address  string `json:"address,omitempty"`  // host:port for network kinds (s3, sqs, pubsub: the endpoint)
 	Path     string `json:"path,omitempty"`     // file path for file kinds; gcs, azblob: the endpoint's path (an emulator)
-	User     string `json:"user,omitempty"`     // s3: the access key ID (not secret)
-	Database string `json:"database,omitempty"` // SQL database name, or redis DB number
+	User     string `json:"user,omitempty"`     // s3, sqs: the access key ID (not secret)
+	Database string `json:"database,omitempty"` // SQL database name, redis DB number, or rabbitmq vhost
 	Bucket   string `json:"bucket,omitempty"`   // s3
 	Prefix   string `json:"prefix,omitempty"`   // storage: keys are relative to this folder
-	Region   string `json:"region,omitempty"`   // s3
+	Region   string `json:"region,omitempty"`   // s3, sqs
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
-	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry: skip-verify (registry also false)
-	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached: secret:NAME holding the PEM CA certificate to trust
+	TLS      string `json:"tls,omitempty"`      // mysql, oracle, clickhouse: the tls= setting (true, skip-verify, preferred, false); ftps, registry, sqlserver: skip-verify (registry also false)
+	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka, rabbitmq, nats, sqlserver, oracle, clickhouse, snowflake, bigquery: secret:NAME holding the PEM CA certificate to trust
 	Resolve  string `json:"resolve,omitempty"`  // registry, s3: IP:port to connect to in place of Address (?resolve=)
 
 	Cluster      bool     `json:"cluster,omitempty"`       // redis: a Redis Cluster; Address is one node (?cluster=1)
 	Sentinel     string   `json:"sentinel,omitempty"`      // redis: the master's name at the Sentinels (?sentinel=NAME)
 	Sentinels    []string `json:"sentinels,omitempty"`     // redis: more Sentinels besides Address (?sentinels=h2:26379,h3:26379)
 	SentinelAuth bool     `json:"sentinel_auth,omitempty"` // redis: the Sentinels want the conn's login too (?sentinel_auth=same)
+
+	Brokers []string `json:"brokers,omitempty"` // kafka, nats: every server the URL lists; Address is the first
+	SASL    string   `json:"sasl,omitempty"`    // kafka: plain, scram-sha-256 or scram-sha-512 (?sasl=)
+
+	Management string `json:"management,omitempty"` // rabbitmq: host:port of the management HTTP API (?management=PORT)
+
+	Creds  string `json:"creds,omitempty"`  // nats: secret:NAME holding the .creds file (user JWT and NKey seed) to log in with
+	Domain string `json:"domain,omitempty"` // nats: the JetStream domain; smb: the Windows domain of the user (both ?domain=; smb also DOMAIN;user)
+
+	Account string `json:"account,omitempty"` // sqs: the AWS account that owns the queues, when not the login's own (?account=)
+	Project string `json:"project,omitempty"` // pubsub: the Google Cloud project
 }
 
 // DialAddress is where a connection goes: the ?resolve= address when the
@@ -160,6 +193,18 @@ func (t Target) Where() string {
 	return t.Address
 }
 
+// urlParsers read the URLs of kinds with a shape of their own.
+var urlParsers = map[string]func(*url.URL, Target) (Target, error){
+	"s3": parseS3, "ftp": parseFiles, "ftps": parseFiles, "sftp": parseFiles, "gcs": parseGCS, "azblob": parseAzure,
+	"webdav": parseWebDAV, "mongodb": parseMongo, "rabbitmq": parseAMQP, "sqs": parseSQS,
+	"pubsub": parsePubsub, "smb": parseSMB,
+	"sqlserver":  parseSQLServer,
+	"oracle":     parseOracle,
+	"clickhouse": parseClickHouse,
+	"snowflake":  parseSnowflake,
+	"bigquery":   parseBigQuery,
+}
+
 // passwordParams are query parameters that would carry a password or key.
 var passwordParams = []string{"password", "pass", "pwd", "sslpassword", "secret", "secret_key", "secretkey", "aws_secret_access_key"}
 
@@ -167,7 +212,8 @@ var passwordParams = []string{"password", "pass", "pwd", "sslpassword", "secret"
 // sqlite:///var/lib/app.db. The kind comes from the scheme. URLs that carry
 // a password are refused: passwords belong in the vault.
 func Parse(raw string) (Target, error) {
-	u, err := url.Parse(firstMongoHost(strings.TrimSpace(raw)))
+	first, brokers := splitHostList(firstMongoHost(strings.TrimSpace(raw)))
+	u, err := url.Parse(first)
 	if err != nil || u.Scheme == "" {
 		return Target{}, out.Usage("invalid conn URL %q (expected e.g. postgres://user@host:5432/db)", raw)
 	}
@@ -189,21 +235,14 @@ func Parse(raw string) (Target, error) {
 			"conn URLs must not contain a password")
 	}
 	t := Target{Kind: k}
-	if k.Name == "s3" {
-		return parseS3(u, t)
-	}
-	if k.Name == "ftp" || k.Name == "ftps" || k.Name == "sftp" {
-		return parseFiles(u, t)
+	if parse := urlParsers[k.Name]; parse != nil {
+		return parse(u, t)
 	}
 	switch k.Name {
-	case "gcs":
-		return parseGCS(u, t)
-	case "azblob":
-		return parseAzure(u, t)
-	case "webdav":
-		return parseWebDAV(u, t)
-	case "mongodb":
-		return parseMongo(u, t)
+	case "kafka":
+		return parseKafka(u, t, brokers)
+	case "nats":
+		return parseNATS(u, t, brokers)
 	}
 	if k.File {
 		t.Path = u.Opaque
@@ -457,8 +496,19 @@ func (t Target) Describe() string {
 	if t.User != "" {
 		s = t.User + "@" + s
 	}
-	if t.Database != "" {
+	switch {
+	case t.Kind.Name == "sqs":
+		s = t.Region + " at " + s
+	case t.Kind.Name == "pubsub":
+		s = "project " + t.Project + " at " + s
+	case t.Kind.Name == "rabbitmq":
+		s += " vhost " + t.Database
+	case t.Database != "":
 		s += "/" + t.Database
+	}
+	if n := len(t.Brokers) - 1; n > 0 {
+		noun := map[bool]string{true: "server", false: "broker"}[t.Kind.Name == "nats"]
+		s += fmt.Sprintf(" (+%d %s%s)", n, noun, map[bool]string{true: "s"}[n > 1])
 	}
 	return t.Kind.Name + " " + s
 }

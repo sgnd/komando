@@ -3,7 +3,7 @@
 file internal/cli/cert.go 879
 file internal/cli/job.go 885
 file internal/cli/kctl.go 805
-file internal/cli/modules.go 943
+file internal/cli/modules.go 919
 file internal/driver/sql.go 838
 file internal/ipsec/ikev1.go 1258
 file internal/ipsec/ikev2.go 1120
@@ -18,11 +18,11 @@ func internal/cli/clusterlogs.go clusterLogsCmd 129
 func internal/cli/dbdump.go runDump 135
 func internal/cli/dbdump.go runRestore 102
 func internal/cli/docker.go dockerCmd 153
-func internal/cli/exec.go runFleet 201
+func internal/cli/exec.go runFleet 187
 func internal/cli/facts.go parseFactsAt 106
 func internal/cli/facts_text.go writeFactsHost 126
 func internal/cli/fs_replace.go fsReplaceCmd 117
-func internal/cli/fs_write.go fsWriteCmd 141
+func internal/cli/fs_write.go fsWriteCmd 105
 func internal/cli/fs_write.go writeRemoteFrom 199
 func internal/cli/guard_shell.go checkAgentVars 113
 func internal/cli/guard_shell.go checkShellDepth 112
@@ -36,7 +36,7 @@ func internal/cli/keyrevoke.go keyRevokeCmd 101
 func internal/cli/modules.go cronCmd 117
 func internal/cli/modules.go userCmd 108
 func internal/cli/ops_pkgsec.go pkgSecurity 113
-func internal/cli/ops_run.go runOps 109
+func internal/cli/ops_run.go runOps 108
 func internal/cli/ops_vpn.go vpnEditCmd 150
 func internal/cli/root.go newRoot 109
 func internal/cli/secret.go secretCmd 229
@@ -44,13 +44,12 @@ func internal/cli/tunnel.go tunnelStartCmd 165
 func internal/cli/vpn.go vpnAddCmd 265
 func internal/cli/vpnsession.go startSession 203
 func internal/cloud/bitwarden.go bwLoad 111
-func internal/dbx/dbx.go runPlan 107
 func internal/dbx/dump_mysql.go dumpMySQL 102
 func internal/dbx/dump_pg.go dumpPostgres 316
 func internal/driver/restore.go CheckRestore 105
 func internal/driver/restore.go Lexer.Next 106
 func internal/driver/sql.go classifyStatement 178
-func internal/driver/sql.go splitSQL 167
+func internal/driver/sql.go splitSQL 159
 func internal/ipsec/ikev1.go ikeV1.quickOnce 101
 func internal/ipsec/ikev2.go ikeV2.auth 166
 func internal/ipsec/ikev2.go ikeV2.open 105

@@ -20,7 +20,8 @@ fail() { echo "FAIL $*"; docker exec "$SERVER" sh -c 'tail -n 6 /tmp/*.log' 2>&1
 in_client() { docker exec -i -e KOMANDO_HOME=/tmp/k -e KOMANDO_VAULT_PASS=e2e -e KOMANDO_OUTPUT=json -e "KOMANDO_OVPN_DEBUG=${KOMANDO_OVPN_DEBUG:-}" "$CLIENT" "$@"; }
 jget() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 # ptyrun INPUT CMD...: CMD in a pseudo-terminal inside the client (test/e2e/pty.sh's helper)
-sed -n "/<<'PY'/,/^PY\$/p" "$ROOT/test/e2e/pty.sh" | sed '1d;$d' > "$W/pty.py"
+# only the first Python block (ptyrun): pty.sh holds ptykeys after it
+sed -n "/<<'PY'/,/^PY\$/{p;/^PY\$/q;}" "$ROOT/test/e2e/pty.sh" | sed '1d;$d' > "$W/pty.py"
 ptyrun() { docker exec -i -e KOMANDO_HOME=/tmp/k -e KOMANDO_VAULT_PASS=e2e "$CLIENT" python3 -I - "$@" < "$W/pty.py"; }
 
 (cd "$ROOT" && CGO_ENABLED=0 GOOS=linux GOARCH="$(go env GOARCH)" go build -o "$W/komando" ./cmd/komando)

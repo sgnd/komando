@@ -223,12 +223,14 @@ type outcome struct {
 	Err   error
 }
 
-// fanout dials each host (parallel, bounded) and runs fn on it.
+// fanout dials each host (parallel, bounded) and runs fn on it. A Windows
+// server is dialed only for a command that allowed it (allowWindows).
 func fanout(ctx context.Context, st *store.State, hosts []*store.Host, fn func(ctx context.Context, c *sshx.Client) (any, error)) []outcome {
 	res := make([]outcome, len(hosts))
 	sem := make(chan struct{}, max(1, parallelism(st)))
 	var wg sync.WaitGroup
 	opts := sshOpts(st)
+	opts.WinRM = windowsAllowed(ctx) // the command runs only PowerShell there
 	for i, h := range hosts {
 		wg.Add(1)
 		go func(i int, h *store.Host) {
@@ -236,6 +238,10 @@ func fanout(ctx context.Context, st *store.State, hosts []*store.Host, fn func(c
 			sem <- struct{}{}
 			defer func() { <-sem }()
 			res[i].Host = h
+			if err := refuseWindows(ctx, h); err != nil {
+				res[i].Err = err
+				return
+			}
 			c, err := sshx.Dial(ctx, st, h, opts)
 			if err != nil {
 				res[i].Err = err
@@ -250,7 +256,12 @@ func fanout(ctx context.Context, st *store.State, hosts []*store.Host, fn func(c
 }
 
 func withClient(ctx context.Context, st *store.State, h *store.Host, fn func(c *sshx.Client) error) error {
-	c, err := sshx.Dial(ctx, st, h, sshOpts(st))
+	if err := refuseWindows(ctx, h); err != nil {
+		return err
+	}
+	o := sshOpts(st)
+	o.WinRM = windowsAllowed(ctx)
+	c, err := sshx.Dial(ctx, st, h, o)
 	if err != nil {
 		return err
 	}

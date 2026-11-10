@@ -193,6 +193,18 @@ func plainConn(c *store.Conn) string {
 		// MySQL 8 (caching_sha2_password) then encrypts the password with a
 		// key it sends over the same plain connection
 		return fix("travels unencrypted (no tls=true): anyone on the network path can read the data, and can swap the key the MySQL 8 login encrypts the password with, and so read the password")
+	case "sqlserver":
+		return sqlserverTLSRisk(q, t, fix, notChecked)
+	case "oracle":
+		// Oracle's native network encryption, when the server asks for
+		// it, encrypts but does not prove who the server is
+		return tlsFlagRisk(t, fix, notChecked, "travels without TLS (no tls=true): anyone on the network path can read the data, unless the server turns on Oracle's native encryption, and even then can pretend to be the server")
+	case "clickhouse":
+		return tlsFlagRisk(t, fix, notChecked, "travels as plain HTTP (no tls=true): anyone on the network path can read the password and the data")
+	case "bigquery":
+		if !t.Secure {
+			return fix("travels as plain HTTP (an http:// endpoint): anyone on the network path can read the Google token and the data")
+		}
 	case "redis":
 		if !t.Secure {
 			return fix("travels unencrypted: anyone on the network path can read the password and the data")
@@ -201,16 +213,26 @@ func plainConn(c *store.Conn) string {
 		if !t.Secure {
 			return fix("travels unencrypted: anyone on the network path can read the password and the data")
 		}
+	case "kafka", "rabbitmq", "nats":
+		if t.TLS == "skip-verify" {
+			return fix(notChecked)
+		}
+		if !t.Secure {
+			return fix("travels unencrypted: anyone on the network path can read the login and the messages")
+		}
 	case "ftp":
 		return "travels unencrypted (passwords too): use ftps:// or sftp://"
 	case "ftps":
 		if q.Get("tls") == "skip-verify" {
 			return "encrypted, but the server's certificate is not checked"
 		}
-	case "s3":
+	case "s3", "sqs", "pubsub":
 		if !t.Secure {
 			return "travels unencrypted: use an https endpoint"
 		}
+	case "smb":
+		// signed always; encrypted only when the server is set up for it
+		return "signed, but encrypted only if the server asks for it (SMB 3 encryption on the share or server): turn that on, or reach the share --via an SSH server or a VPN"
 	case "registry":
 		if q.Get("tls") == "false" {
 			return "travels unencrypted: drop ?tls=false"
@@ -220,22 +242,26 @@ func plainConn(c *store.Conn) string {
 }
 
 // overNetwork reports whether c's traffic crosses a network komando does
-// not protect: not through an SSH tunnel or VPN (--via), and not to this
-// computer.
+// not protect: not through an SSH tunnel or VPN (--via), and not only to
+// this computer. Every server the URL names counts (kafka:// and nats://
+// list several), not just the first.
 func overNetwork(c *store.Conn, t driver.Target) bool {
 	if c.Via != "" {
 		return false
 	}
-	if host, _, err := net.SplitHostPort(t.Address); err == nil {
-		if host == "localhost" || net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback() {
-			return false
+	for _, addr := range append([]string{t.Address}, t.Brokers...) {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil || host != "localhost" && (net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback()) {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // verifiedTLSURL is raw with TLS whose certificate is checked: Postgres
-// sslmode=verify-full, MySQL tls=true, rediss:// and memcacheds://. It
+// sslmode=verify-full, MySQL, Oracle and ClickHouse tls=true (ClickHouse
+// on 8443), SQL Server encrypt=true, rediss://, memcacheds://, amqps://
+// (on port 5671 when it was 5672), kafka tls=true, nats tls://. It
 // is "" for other kinds, or a URL that does not parse. An option the URL
 // did not have is added at the end; the rest stays as written.
 func verifiedTLSURL(raw, kind string) string {
@@ -247,12 +273,36 @@ func verifiedTLSURL(raw, kind string) string {
 	switch kind {
 	case "postgres":
 		key, val = "sslmode", "verify-full"
-	case "mysql":
+	case "mysql", "oracle":
 		key, val = "tls", "true"
+	case "sqlserver":
+		return sqlserverVerifiedURL(u)
+	case "clickhouse":
+		return driver.ClickHouseVerified(raw)
 	case "redis":
 		u.Scheme = "rediss"
 	case "memcached":
 		u.Scheme = "memcacheds"
+	case "kafka":
+		key, val = "tls", "true"
+	case "rabbitmq":
+		u.Scheme = "amqps"
+		if u.Port() == "5672" {
+			u.Host = net.JoinHostPort(u.Hostname(), "5671")
+		}
+		q := u.Query()
+		if q.Has("tls") || q.Has("insecure") {
+			q.Del("tls")
+			q.Del("insecure")
+			u.RawQuery = q.Encode()
+		}
+	case "nats":
+		u.Scheme = "tls"
+		if q := u.Query(); q.Has("tls") || q.Has("insecure") {
+			q.Del("tls")
+			q.Del("insecure")
+			u.RawQuery = q.Encode()
+		}
 	default:
 		return ""
 	}
@@ -267,4 +317,17 @@ func verifiedTLSURL(raw, kind string) string {
 		u.RawQuery = q.Encode()
 	}
 	return u.String()
+}
+
+// tlsFlagRisk is the risk of a conn whose TLS is the tls= option (Oracle,
+// ClickHouse): none with tls=true, an unchecked certificate with
+// tls=skip-verify, and plain otherwise.
+func tlsFlagRisk(t driver.Target, fix func(string) string, notChecked, plain string) string {
+	switch t.TLS {
+	case "true":
+		return ""
+	case "skip-verify":
+		return fix(notChecked)
+	}
+	return fix(plain)
 }

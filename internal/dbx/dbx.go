@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -107,6 +108,11 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 			}
 		}
 		if db, err = sql.Open("sqlite", "file:"+path+"?"+q.Encode()); err != nil {
+			return nil, err
+		}
+	case "sqlserver", "oracle", "clickhouse", "snowflake", "bigquery":
+		var err error
+		if db, err = openers[t.Kind.Name](rawURL, t, password, dial, appName, readOnly); err != nil {
 			return nil, err
 		}
 	case "mongodb":
@@ -205,6 +211,14 @@ type Options struct {
 	MaxBytes int // rough cap on the JSON size of all rows
 	Timeout  time.Duration
 	Args     []any
+	// Showplan is db explain on SQL Server and Oracle: "text" plans each
+	// statement without running it (SET SHOWPLAN_TEXT, EXPLAIN PLAN);
+	// "profile" (SQL Server) runs it and returns the plan with real row
+	// counts (SET STATISTICS PROFILE). On BigQuery "text" is a dry run.
+	Showplan string
+	// MaxBilled is the most a BigQuery query may read (--max-bytes): 0 is
+	// BQDefaultMaxBytes, below 0 no cap.
+	MaxBilled int64
 }
 
 // Column describes a result column.
@@ -226,6 +240,9 @@ type StatementResult struct {
 	Truncated    string   `json:"truncated,omitempty"` // which cap cut the rows: "rows" (--limit) or "bytes" (--max-output)
 	RowsAffected *int64   `json:"rows_affected,omitempty"`
 	Skipped      string   `json:"skipped,omitempty"` // why it did not run (dry run of a non-rollbackable statement)
+	// BytesProcessed is what a BigQuery statement read, which BigQuery
+	// bills by (in a dry run or db explain: what it would read)
+	BytesProcessed *int64 `json:"bytes_processed,omitempty"`
 }
 
 func (r StatementResult) MarshalJSON() ([]byte, error) {
@@ -261,6 +278,14 @@ type Result struct {
 // in a dry run they are reported but not executed.
 func Run(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, o Options) (*Result, error) {
 	res, err := runPlan(ctx, db, kind, plan, o)
+	for try := 0; try < oraSnapshotTries && oraSnapshotTooOld(kind, o, err); try++ {
+		select {
+		case <-ctx.Done():
+			return nil, timeoutErr(err, o.Timeout)
+		case <-time.After(oraSnapshotWait):
+		}
+		res, err = runPlan(ctx, db, kind, plan, o)
+	}
 	return res, timeoutErr(err, o.Timeout)
 }
 
@@ -285,29 +310,7 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 			if len(plan.Statements) != 1 {
 				return nil, out.Usage("%s cannot run inside a transaction; send it on its own", st.Keyword)
 			}
-			if !o.Write {
-				return nil, writeRequired(st.Keyword)
-			}
-			r := StatementResult{SQL: st.SQL, Keyword: st.Keyword, Risk: st.Risk.String()}
-			if o.DryRun {
-				r.Skipped = "dry run: this statement cannot be rolled back, so it was not executed"
-				res.Results = append(res.Results, r)
-				return res, nil
-			}
-			conn, err := db.Conn(ctx)
-			if err != nil {
-				return nil, queryErr(kind, ctx, err)
-			}
-			defer conn.Close()
-			if err := setTimeout(ctx, conn, kind, o.Timeout, false); err != nil {
-				return nil, queryErr(kind, ctx, err)
-			}
-			if err := runStatement(ctx, conn, conn, kind, st, o, &budget, &r); err != nil {
-				return nil, queryErr(kind, ctx, err)
-			}
-			res.Results = append(res.Results, r)
-			res.Committed = true
-			return res, nil
+			return runAlone(ctx, db, kind, st, o, &budget)
 		}
 	}
 
@@ -326,7 +329,7 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 		defer restore()
 	}
 	// sqlite has no read-only transactions; the connection is read-only instead
-	tx, err := conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: !o.Write && kind != "sqlite"})
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: readOnlyTx(kind, o.Write)})
 	if err != nil {
 		return nil, queryErr(kind, ctx, err)
 	}
@@ -334,7 +337,7 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 	if err := setTimeout(ctx, tx, kind, o.Timeout, true); err != nil {
 		return nil, queryErr(kind, ctx, err)
 	}
-	if _, err := tx.ExecContext(ctx, "SAVEPOINT "+txMark); err != nil {
+	if err := markTx(ctx, tx, kind, txWrites(o)); err != nil {
 		return nil, queryErr(kind, ctx, err)
 	}
 	for i, st := range plan.Statements {
@@ -350,7 +353,7 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 		if err := runStatement(ctx, tx, conn, kind, st, o, &budget, &r); err != nil {
 			return nil, queryErr(kind, ctx, err)
 		}
-		if err := stillInTx(ctx, tx); err != nil {
+		if err := stillInTx(ctx, tx, kind, txWrites(o)); err != nil {
 			if ctx.Err() != nil {
 				return nil, queryErr(kind, ctx, err)
 			}
@@ -369,6 +372,36 @@ func runPlan(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, 
 		return nil, queryErr(kind, ctx, err)
 	}
 	res.RolledBack = o.Write // a read-only transaction has nothing to roll back worth reporting
+	return res, nil
+}
+
+// runAlone runs a statement that cannot run inside a transaction: it
+// needs --write, and a dry run only reports it (on BigQuery, BigQuery's
+// own dry run checks it and says how much it would read).
+func runAlone(ctx context.Context, db *sql.DB, kind string, st driver.Statement, o Options, budget *int) (*Result, error) {
+	if !o.Write {
+		return nil, writeRequired(st.Keyword)
+	}
+	res := &Result{Results: []StatementResult{}}
+	r := StatementResult{SQL: st.SQL, Keyword: st.Keyword, Risk: st.Risk.String()}
+	if o.DryRun && kind != "bigquery" {
+		r.Skipped = "dry run: this statement cannot be rolled back, so it was not executed"
+		res.Results = append(res.Results, r)
+		return res, nil
+	}
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return nil, queryErr(kind, ctx, err)
+	}
+	defer conn.Close()
+	if err := setTimeout(ctx, conn, kind, o.Timeout, false); err != nil {
+		return nil, queryErr(kind, ctx, err)
+	}
+	if err := runStatement(ctx, conn, conn, kind, st, o, budget, &r); err != nil {
+		return nil, queryErr(kind, ctx, err)
+	}
+	res.Results = append(res.Results, r)
+	res.Committed = !o.DryRun
 	return res, nil
 }
 
@@ -407,18 +440,6 @@ func setTimeout(ctx context.Context, q querier, kind string, d time.Duration, in
 // Postgres COMMIT AND CHAIN, which opens a new transaction at once.
 const txMark = "komando_tx"
 
-// stillInTx fails when the transaction komando opened has ended (a COMMIT
-// the classifier did not see, or a MySQL statement that commits
-// implicitly), so no later statement runs outside it.
-func stillInTx(ctx context.Context, tx *sql.Tx) error {
-	// RELEASE fails when the savepoint is gone; set it again for the next statement
-	if _, err := tx.ExecContext(ctx, "RELEASE SAVEPOINT "+txMark); err != nil {
-		return err
-	}
-	_, err := tx.ExecContext(ctx, "SAVEPOINT "+txMark)
-	return err
-}
-
 func txEscaped(n int, st driver.Statement, err error) error {
 	return out.Errf(out.ExitPolicy, "SQL_TX_CONTROL",
 		"leave transactions to komando, and tell the user: what ran before this point may have been committed",
@@ -454,6 +475,18 @@ func mysqlReadOnlySession(ctx context.Context, conn *sql.Conn) (restore func(), 
 // would send an Exec without arguments as a simple query, where a COMMIT
 // hidden from komando's splitter would end the read-only transaction.
 func runStatement(ctx context.Context, q querier, conn *sql.Conn, kind string, st driver.Statement, o Options, budget *int, r *StatementResult) error {
+	switch {
+	case o.Showplan != "" && kind == "sqlserver":
+		return runShowplan(ctx, q, st, o, r)
+	case o.Showplan != "" && kind == "oracle":
+		return runOraclePlan(ctx, q, st, r)
+	case o.Showplan != "" && kind == "bigquery":
+		return runBQPlan(ctx, conn, st, o, r)
+	case o.DryRun && kind == "bigquery": // BigQuery's own dry run, for reads too: it costs nothing
+		return bqDryRunOnly(ctx, conn, st, o, r)
+	case kind == "bigquery": // the driver checks the --max-bytes cap and records the bytes read in r
+		ctx = withBQRun(ctx, o.MaxBilled, r)
+	}
 	if !st.Rows && kind == "postgres" && len(o.Args) == 0 {
 		var tag pgconn.CommandTag
 		err := conn.Raw(func(dc any) error {
@@ -491,8 +524,12 @@ func runStatement(ctx context.Context, q querier, conn *sql.Conn, kind string, s
 	}
 	types := make([]string, len(cts))
 	for i, ct := range cts {
-		types[i] = strings.ToUpper(ct.DatabaseTypeName())
-		r.Columns = append(r.Columns, Column{Name: ct.Name(), Type: strings.ToLower(ct.DatabaseTypeName())})
+		name := ct.DatabaseTypeName()
+		if kind == "oracle" {
+			name = oracleTypeName(name)
+		}
+		types[i] = strings.ToUpper(name)
+		r.Columns = append(r.Columns, Column{Name: ct.Name(), Type: colType(kind, name)})
 	}
 	r.Rows = [][]any{}
 	if r.Columns == nil {
@@ -550,17 +587,24 @@ func connectErr(t driver.Target, err error) error {
 		return oe
 	}
 	var pe *pgconn.PgError
-	if errors.As(err, &pe) && (pe.Code == "28P01" || pe.Code == "28000") || isMySQLAuth(err) {
+	if errors.As(err, &pe) && (pe.Code == "28P01" || pe.Code == "28000") || isMySQLAuth(err) || isMSAuth(err) || isOraAuth(err) || isCHAuth(err) {
 		return out.Errf(out.ExitConnect, "DB_AUTH", "check the user in the URL and the password reference (`komando conn show NAME`)", "%v", err)
 	}
-	if errors.As(err, &pe) && pe.Code == "3D000" || isMySQLNoDatabase(err) {
+	if errors.As(err, &pe) && pe.Code == "3D000" || isMySQLNoDatabase(err) || isMSNoDatabase(err) || chCode(err) == 81 {
 		return out.Errf(out.ExitNotFound, "DB_NOT_FOUND", "check the database name at the end of the conn URL (`komando conn show NAME`)", "%v", err)
+	}
+	if t.Kind.Name == "oracle" && isOraNoService(err) {
+		return out.Errf(out.ExitNotFound, "DB_NOT_FOUND", "check the service name at the end of the conn URL (`komando conn show NAME`); `lsnrctl status` on the server lists them", "%v", err)
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "the database did not answer in time; check the address or raise --connect-timeout", "connecting to %s timed out", t.Where())
 	}
 	if t.Kind.File {
 		return out.Errf(out.ExitNotFound, "DB_CONNECT", "check the file path in the conn URL", "cannot open %s: %v", t.Path, err)
+	}
+	if t.Kind.Name == "oracle" && t.Secure && (errors.Is(err, io.EOF) || err.Error() == "EOF") {
+		// a listener without TCPS closes the connection on the TLS hello
+		err = fmt.Errorf("%w (server refused TLS: the listener closed the connection)", err)
 	}
 	if h := tlsHint(t.Kind.Name, err); h != "" {
 		return out.Errf(out.ExitConnect, "DB_CONNECT", h, "cannot connect to %s: %v", t.Where(), err)
@@ -575,8 +619,11 @@ func connectErr(t driver.Target, err error) error {
 func tlsHint(kind string, err error) string {
 	msg := err.Error()
 	weak := map[string][2]string{ // encrypt without checking, no encryption at all
-		"postgres": {"?sslmode=require", "?sslmode=disable"},
-		"mysql":    {"?tls=skip-verify", "?tls=false"},
+		"postgres":   {"?sslmode=require", "?sslmode=disable"},
+		"mysql":      {"?tls=skip-verify", "?tls=false"},
+		"sqlserver":  {"&tls=skip-verify", "?encrypt=disable"},
+		"oracle":     {"?tls=skip-verify", "?tls=false"},
+		"clickhouse": {"?tls=skip-verify", "?tls=false"},
 	}[kind]
 	if weak[0] == "" {
 		return ""
@@ -589,7 +636,9 @@ func tlsHint(kind string, err error) string {
 		ca := "give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`)"
 		return "the server's certificate could not be checked: " + ca + ", or " + via +
 			"; without --via, " + weak[0] + " encrypts without checking it, so anyone on the network path could pretend to be the server"
-	case strings.Contains(msg, "server refused TLS"), errors.Is(err, mysql.ErrNoTLS):
+	case strings.Contains(msg, "server refused TLS"), errors.Is(err, mysql.ErrNoTLS),
+		kind == "oracle" && strings.Contains(msg, "first record does not look like a TLS handshake"),
+		kind == "clickhouse" && strings.Contains(msg, "server gave HTTP response to HTTPS client"):
 		return "the server has no TLS: " + via + "; without --via, " + weak[1] + " sends the password and the data unencrypted"
 	}
 	return ""
@@ -617,8 +666,19 @@ func queryErr(kind string, ctx context.Context, err error) error {
 		}
 		return out.Errf(out.ExitRemote, "DB_ERROR", "fix the SQL; `komando db schema CONN TABLE` shows columns and types", "%s (SQLSTATE %s)", pe.Message, pe.Code)
 	}
-	if kind == "mysql" {
+	switch kind {
+	case "mysql":
 		return mysqlErr(err)
+	case "sqlserver":
+		return mssqlErr(err)
+	case "oracle":
+		return oracleErr(err)
+	case "clickhouse":
+		return clickhouseErr(err)
+	case "snowflake":
+		return snowflakeErr(err)
+	case "bigquery":
+		return bigqueryErr(err)
 	}
 	msg := err.Error()
 	if kind == "sqlite" && (strings.Contains(msg, "readonly database") || strings.Contains(msg, "query_only")) {

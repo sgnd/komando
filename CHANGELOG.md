@@ -9,26 +9,6 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
-- **Every feature as questions, for people at a terminal.** Type `komando`,
-  pick Add or All features, and answer one plain question at a time (a
-  name, an address, a user ...), each with an example, a default Enter
-  takes, and a check before the next question. Add has a form for every
-  kind: servers, PostgreSQL, MySQL, MongoDB, SQLite, Redis, Memcached, S3
-  (AWS, MinIO, R2, Wasabi, Spaces, B2), SFTP, FTP, Google Cloud Storage,
-  Azure Blob, WebDAV, Kubernetes, container registries and every VPN kind.
-  All features lists every command by area and asks for what it needs,
-  picking servers, databases and VPNs from your list. The last screen shows
-  the exact command lines before anything runs, and offers **Try it first**
-  (`--dry-run`) for a change. Forms never hold a password (the command asks
-  for it hidden) and never add `--yes`, `--allow-dangerous` or `--reveal`.
-  A password pasted with an address is taken out before it is shown.
-- `komando host add`, `conn add` and `vpn add` typed alone at a terminal ask
-  the same questions; with any argument or flag, or for an AI agent, they
-  work as before.
-- `vpn add --ask-password` and `--ask-psk`: type the VPN login password or
-  the pre-shared key (l2tp, ipsec, ikev2) once, hidden, as with `host add`;
-  they are stored as `secret:NAME-pass` and `secret:NAME-psk`. AI agents get
-  `NEEDS_PERSON`.
 - **GlobalProtect with a browser sign-in.** `komando vpn up` now logs in to
   GlobalProtect portals that use a web sign-in (SAML, or Palo Alto's Cloud
   Authentication Service, as Prisma Access does): it opens a window of
@@ -42,17 +22,6 @@ its highlights; the sections below them give the details. Versions follow
   balancer (the error names the portal's other gateways) and the device
   report (HIP).
 
-### Changed
-
-- The menu's Add asks one question at a time instead of one line
-  (`web1 deploy@10.0.0.5`), and the main menu has **All features** in place
-  of Audit (Audit is under All features, Safety and audit).
-- Every JSON error now has an `error.hint`: an error without a hint of its
-  own gets a general next step for its exit code.
-- `komando schema` lists 16 more error codes (among them `CERT_PROBLEMS`,
-  `NXDOMAIN` and `SECRET_DESTINATION`), and each code's example and hint now
-  come from the same place in the code, so the hint fits the code.
-
 ### Fixed
 
 - A GlobalProtect VPN no longer drops after about 18 minutes. komando
@@ -63,9 +32,324 @@ its highlights; the sections below them give the details. Versions follow
   komando's own client is the one that will run it.
 - A second `komando vpn up NAME` that waits for another one (which may be
   waiting for a sign-in) now says so instead of standing still.
+
+## [0.9.0] - 2026-11-10
+
+### Highlights
+
+- **Every feature as plain questions:** type `komando`, pick Add or All
+  features, and answer one question at a time. Add has a form for every
+  kind of server, database, cache, queue, storage, cluster, registry and
+  VPN, and the last screen shows the exact commands before anything runs.
+- **Windows servers,** over OpenSSH or WinRM: `test`, `exec`, `script`,
+  `facts`, files, services and `shell` run PowerShell there, with Windows
+  forms of the destructive rules.
+- **`komando queue`: message queues.** Kafka, RabbitMQ, NATS JetStream,
+  Amazon SQS and Google Cloud Pub/Sub: look at topics, queues and lag, peek
+  at messages without removing any, send, create, and delete only with
+  `--allow-dangerous`.
+- **Five more databases:** SQL Server, Oracle, ClickHouse, Snowflake and
+  BigQuery work with `db query`, `schema`, `explain`, `info` and the rest,
+  read-only unless you add `--write`.
+- **Windows (SMB) shares as storage,** with komando's own SMB 2 and 3
+  client.
+- **Azure and Google logins in more places:** `azure-kv:` reads secrets
+  from Azure Key Vault, and registry conns for Azure Container Registry,
+  Google Artifact Registry and Container Registry log in with your cloud
+  login.
+
+### Added
+
+- **Every feature as questions, for people at a terminal.** Type `komando`,
+  pick Add or All features, and answer one plain question at a time (a
+  name, an address, a user ...), each with an example, a default Enter
+  takes, and a check before the next question. Add has a form for every
+  kind: Linux and Windows servers (OpenSSH or WinRM), PostgreSQL, MySQL,
+  SQL Server, Oracle (service name or SID), MongoDB, ClickHouse, Snowflake
+  (key pair or token), BigQuery (your Google login), SQLite, Redis,
+  Memcached, Kafka, RabbitMQ, NATS, Amazon SQS, Google Pub/Sub, S3 (AWS,
+  MinIO, R2, Wasabi, Spaces, B2), SFTP, FTP, Google Cloud Storage, Azure
+  Blob, WebDAV, Windows shares (SMB), Kubernetes, container registries
+  (also Amazon ECR, Azure and Google with their own logins) and every VPN
+  kind.
+  All features lists every command by area and asks for what it needs,
+  picking servers, databases and VPNs from your list. The last screen shows
+  the exact command lines before anything runs, and offers **Try it first**
+  (`--dry-run`) for a change. Forms never hold a password (the command asks
+  for it hidden) and never add `--yes`, `--allow-dangerous` or `--reveal`.
+  A password pasted with an address is taken out before it is shown.
+- `komando host add`, `conn add` and `vpn add` typed alone at a terminal ask
+  the same questions; with any argument or flag, or for an AI agent, they
+  work as before.
+- `vpn add --ask-password` and `--ask-psk`: type the VPN login password or
+  the pre-shared key (l2tp, ipsec, ikev2) once, hidden, as with `host add`;
+  they are stored as `secret:NAME-pass` and `secret:NAME-psk`. AI agents get
+  `NEEDS_PERSON`.
+- **Windows servers over OpenSSH:** `komando host add win1
+  Administrator@10.0.0.9 --os windows` marks a Windows server. komando then
+  runs PowerShell there: `test`, `exec`, `script`, `facts` (Windows version
+  and support dates, updates, pending reboot, ports), `fs ls/stat/cat/write`,
+  `upload`, `download`, `cp` (single files), `svc
+  status/list/start/stop/restart/enable/disable` and `shell` work; other
+  commands stop with `NOT_SUPPORTED` and a hint before anything runs. See
+  docs/features/windows.md.
+- **Windows servers over WinRM:** `komando host add win2
+  winrm://Administrator@10.0.0.9 --ask-password` reaches a Windows server
+  through WinRM (what Ansible uses) with komando's own client: HTTPS on
+  port 5986 with the certificate checked (`?ca=secret:NAME` for a private
+  CA, `?tls=skip-verify` only when asked), NTLM login (`?auth=basic` for
+  local accounts), `--via` bastions and VPNs. The same Windows commands
+  work as over OpenSSH.
+- `os:windows` and `os:linux` target selectors.
+- **Windows (SMB) shares as storage conns:** `smb://alice@fileserver/team/reports?domain=CORP`
+  (or `cifs://`, or `CORP;alice@` for the domain) reaches a Windows file
+  server, Samba, a NAS or Azure Files with the same `storage ls`, `cat`,
+  `download`, `upload` and `rm` as the other kinds, also `--via` an SSH host
+  or a VPN. komando speaks SMB 2 and 3 itself (no `smbclient` needed), logs
+  in with the password from `--password-ref`, signs every message and
+  encrypts when the server asks for it. A guest login is refused, a key
+  cannot climb out of the conn's folder with `..` (between `/` or `\`), an upload
+  replaces a file only once the new one is complete, and `storage link`
+  answers `NOT_SUPPORTED`. `komando doctor` warns about SMB conns that cross
+  the network, since their encryption depends on the server.
+- `azure-kv:VAULT/NAME[#JSON_KEY]` reads a secret from Azure Key Vault,
+  everywhere a `--password-ref` or another secret reference is taken
+  (`azure-kv:shop-vault/db-password`, or `.../NAME/VERSION` for an older
+  version). komando signs in to Azure itself, without the `az` program: with
+  a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`,
+  `AZURE_CLIENT_SECRET`), a workload identity on AKS, a token the Azure CLI
+  saved while it lasts, or the managed identity on Azure. The token goes
+  only to Key Vault hosts, and komando keeps no token.
+- A registry conn for Azure Container Registry
+  (`registry://myregistry.azurecr.io`) without `--password-ref` logs in with
+  your Azure login, as `az acr login` does: komando trades an Azure token for
+  a fresh registry login each time, like it already does for Amazon ECR. It
+  uses the same Azure logins as `azure-kv:`. Without one, the error is
+  `AZURE_LOGIN_REQUIRED`. The Azure token is good for the whole
+  subscription, so it goes only over https with the registry's certificate
+  checked: a conn with `?tls=false` or `?tls=skip-verify` needs
+  `--password-ref`.
+- Registry conns for Google Artifact Registry (`REGION-docker.pkg.dev`) and
+  Container Registry (`gcr.io`, `eu.gcr.io`, `us.gcr.io`, `asia.gcr.io`)
+  without `--password-ref` log in with your Google login: komando gets a
+  fresh access token each time and logs in as `oauth2accesstoken`, as
+  `gcloud auth configure-docker` does, with the credentials it already uses
+  for `gs://` storage and `gcp-sm:`. With no Google login at all, public
+  images are read without one; an expired login, or a key file that is set
+  but missing or broken, gives `GCP_LOGIN_REQUIRED`.
+  The token goes only over https with the registry's certificate checked.
+- **`komando queue`: message queues, starting with Apache Kafka** (and
+  what speaks its protocol: Redpanda, Amazon MSK, Confluent Cloud). Add a
+  cluster as a conn, `kafka://USER@BROKER1:9092,BROKER2:9092?tls=true&sasl=scram-sha-512`
+  (SASL PLAIN or SCRAM with `--password-ref`, a private CA with
+  `?ca=secret:NAME`, `--via` an SSH server or a VPN like any conn).
+  `queue info`, `ls`, `describe`, `groups` and `lag` read the brokers,
+  topics, partitions and consumer groups; `queue peek` reads the newest or
+  oldest messages without joining a consumer group, so no application's
+  position moves. `queue send` and `queue create` change; `queue rm` and
+  `queue purge` delete messages and need `--allow-dangerous`. Every change
+  has a real `--dry-run` (`create` asks the brokers to check the topic
+  only). Design: docs/design/queue.md; guide: docs/features/queues.md.
+- **RabbitMQ in `komando queue`:** add a server as a conn,
+  `amqps://USER@HOST:5671/VHOST` (or `amqp://` --via an SSH server; the
+  path is the vhost, `%2F` for `/`), with `?management=15671` to also use
+  the management HTTP API. `queue info` and `describe` work over AMQP
+  alone; `queue ls`, `queue peek`, the nodes and the cluster totals need
+  the management API. `queue peek` takes the first messages of a queue and gives every
+  one back, so nothing is removed (RabbitMQ marks them redelivered); on a
+  quorum queue each peek counts as a delivery, so peek stops with
+  `DELIVERY_LIMIT_NEAR` before a message gets close to its delivery limit.
+  `queue send` publishes a persistent message and waits for the server's
+  confirm; `queue create --type classic|quorum|stream` makes a durable
+  queue (`--config x-max-length=1000` for its arguments); `rm` and `purge`
+  need `--allow-dangerous`. `amqp://` straight over the network is refused
+  like `redis://` unless `?insecure=1`. New error codes `QUEUE_NOT_FOUND`,
+  `QUEUE_EXISTS` and `DELIVERY_LIMIT_NEAR`. Built on
+  github.com/rabbitmq/amqp091-go (BSD-2).
+- **NATS JetStream in `komando queue`:** add a server as a conn,
+  `tls://USER@HOST:4222,HOST2:4222` (or `nats://` --via an SSH server),
+  logging in with a user and `--password-ref`, a token (a password
+  reference without a user), or a `.creds` file kept in the vault
+  (`?creds=secret:NAME`); `?domain=` for a leaf node's JetStream.
+  `queue ls` lists streams, `describe` shows a stream with its limits,
+  cluster and consumers, `groups` and `lag` show consumers (pending, ack
+  pending, waiting). `queue peek` reads messages by their sequence number,
+  the newest or (`--oldest`) the first ones, with no consumer and no
+  acknowledgement, so nothing is removed, also from a work-queue stream.
+  `queue send` takes a subject, checks that a stream keeps it, and waits
+  for the stream's acknowledgement; `queue create` makes a stream
+  (`--config subjects='orders.>' --config max_age=7d`, `--replicas`);
+  `rm` and `purge` need `--allow-dangerous`. `nats://` straight over the
+  network is refused like `redis://` unless `?insecure=1`. New error codes
+  `STREAM_NOT_FOUND`, `STREAM_EXISTS` and `CONSUMER_NOT_FOUND`. Built on
+  github.com/nats-io/nats.go and github.com/nats-io/nkeys (Apache-2.0).
+- **Amazon SQS in `komando queue`:** add a region as a conn,
+  `sqs://eu-west-1`, logging in like komando's other AWS clients: the
+  conn's `--option aws_profile=NAME` (SSO included, renewed with `komando
+  login aws`), an access key ID in the URL (`sqs://AKIA...@eu-west-1`)
+  with the secret key from `--password-ref`, or the usual AWS chain
+  (variables, default profile, the server's role). `?endpoint=` for a VPC
+  endpoint or an emulator (LocalStack, moto), `?account=` for queues
+  another account shares. `queue ls` and `describe` show the waiting,
+  in-flight and delayed messages, settings, dead-letter queue and tags.
+  `queue peek` receives a sample with a visibility timeout of 0 and never
+  deletes, so every message stays and stays visible; since each receive
+  counts toward a dead-letter queue's `maxReceiveCount`, peek stops with
+  `DELIVERY_LIMIT_NEAR` before a message runs out of receives. `queue
+  send` sends text with `--header` values as message attributes (`--key`
+  is a FIFO queue's message group); `queue create` makes a standard or
+  (name.fifo) FIFO queue from SQS settings (`--config
+  VisibilityTimeout=60`); `rm` and `purge` need `--allow-dangerous`. An
+  `http://` endpoint straight over the network is refused unless
+  `?insecure=1`. komando speaks the SQS API itself, signed with the AWS
+  SDK's SigV4 signer it already had: no new dependency.
+- **Google Cloud Pub/Sub in `komando queue`:** add a project as a conn,
+  `pubsub://my-project`, logging in like gs:// storage: a service account
+  key in `--password-ref`, or else gcloud's application default login; the
+  emulator (`?endpoint=http://localhost:8085`) needs none, and a login is
+  only ever sent over HTTPS. You send to a topic; `queue peek` and `purge`
+  take a subscription, where the messages wait, and `queue groups` lists
+  the subscriptions. `queue peek` pulls without acknowledging and gives
+  every message straight back (ack deadline 0), so nothing is removed;
+  with a dead-letter topic it stops with `DELIVERY_LIMIT_NEAR` before a
+  message runs out of deliveries. `queue describe` shows a topic with its
+  subscriptions, or one subscription; `queue create subscriptions/NAME
+  --config topic=TOPIC` makes a subscription, with Pub/Sub's own setting
+  names (`ackDeadlineSeconds=60`, `messageRetentionDuration=7d`);
+  `purge` (a seek to now) and `rm` need `--allow-dangerous`, and `rm`
+  deletes a subscription only when written `subscriptions/NAME`. Pub/Sub
+  does not count messages, so the counts are -1 and the text says so. New
+  error codes `SUBSCRIPTION_NOT_FOUND` and `SUBSCRIPTION_EXISTS`. komando
+  speaks the Pub/Sub REST API itself: no new dependency.
+- **SQL Server conns** (`sqlserver://app@db.internal:1433/sales?encrypt=true`,
+  also `mssql://`): `db query`, `schema`, `explain` (SHOWPLAN; `--analyze`
+  measures), `info`, `activity`, `locks`, `sizes`, `kill --session`, users
+  and grants, `db shell` and `conn test`, through `--via` and VPNs, with
+  `?ca=secret:NAME` and `tls=skip-verify`. New conns that cross the network
+  get `encrypt=true`. SQL Server has no read-only transaction, so without
+  `--write` komando rolls the SQL back and checks its own transaction after
+  each statement; T-SQL gets stricter checks (a change anywhere in the text
+  counts, a bare procedure name runs it, `BEGIN`/`COMMIT` are refused
+  anywhere, and numbers are read as SQL Server reads them, so `1eDROP` is
+  `1e DROP`). A URL option given twice (`encrypt=true&Encrypt=disable`) is
+  refused. `db dump` and `restore` say `NOT_SUPPORTED` for now. Built in
+  with go-mssqldb (BSD-3-Clause), pure Go.
+- **Oracle conns** (`oracle://app@db.internal:1521/ORCLPDB1?tls=true`, the
+  path is the service name; `?sid=` for old databases): `db query`,
+  `schema`, `explain` (EXPLAIN PLAN and DBMS_XPLAN),
+  `info`, `activity`, `locks`, `sizes`, `kill`, users and grants, `db shell`
+  and `conn test`, through `--via` and VPNs, with TCPS (`tls=true`,
+  `tls=skip-verify`) and `?ca=secret:NAME`. New conns that cross the network
+  get `tls=true`. Without `--write` every run is `SET TRANSACTION READ ONLY`,
+  checked after each statement. DDL commits on its own in Oracle, so it
+  always needs `--write` and runs alone; PL/SQL blocks, calls to stored
+  functions (which can commit on their own), database links and inline
+  external tables need `--write` and `--allow-dangerous`; `COMMIT` and autonomous transactions are refused
+  anywhere; `q'[...]'` quotes and `/` lines are read as Oracle does. `db
+  dump` and `restore` say `NOT_SUPPORTED` (Data Pump runs on the server).
+  Built in with go-ora (MIT), pure Go.
+- **ClickHouse conns** (`clickhouse://app@ch.internal:8443/analytics?tls=true`)
+  over ClickHouse's HTTP interface, with komando's own small client (no
+  driver library): `db query` with `{p1:String}` placeholders, `schema`
+  (engines, keys, skipping indexes), `explain` (`EXPLAIN indexes = 1`),
+  `info`, `activity`, `sizes` (from `system.parts`), `kill` (by the `pid`
+  `db activity` makes from the query id), users and grants, `db shell` and
+  `conn test`, through `--via` and VPNs, with `tls=true`, `tls=skip-verify`
+  and `?ca=secret:NAME`. New conns that cross the network get `tls=true`
+  (port 8123 becomes 8443); the native ports 9000 and 9440 are refused with
+  a hint. ClickHouse has no transactions: without `--write` every request
+  carries the server's own `readonly=1` (also every query with rows), and a
+  statement that is not a read needs `--write`, goes alone, and a dry run
+  only reports it. Table functions and engines that reach other servers,
+  files or programs (`url()`, `s3()`, `remote()`, `file()`,
+  `executable()`, ...) need `--allow-dangerous`; `$$` heredocs and
+  unquoted non-ASCII are refused. A user whose profile is read-only gets no
+  settings it would refuse. `db user add` sends a salted SHA-256 hash
+  komando computes, never the password. `db dump`, `restore` and `locks`
+  say `NOT_SUPPORTED`.
+- **Snowflake conns**
+  (`snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=W&role=R`,
+  the account in place of a host) over Snowflake's SQL API, with komando's
+  own small client (no driver library): `db query` with `?` placeholders,
+  `schema`, `explain`, `info`, `activity` (running queries from
+  `QUERY_HISTORY`), `sizes`, `kill` (`SYSTEM$CANCEL_QUERY`; `--session`
+  ends the session), `db user ls` and `db grants` (read only), `db shell`
+  and `conn test`, through `--via` and VPNs, always HTTPS with the
+  certificate checked, and `?ca=secret:NAME` for a proxy's CA. Login is a
+  private key from the vault (komando signs the key-pair token itself) or a
+  programmatic access token; the SQL API takes no passwords, and browser
+  SSO is not supported. Snowflake has no read-only mode, so komando's
+  check is the guard: without `--write` only reads are sent, each request
+  runs exactly one statement, and a statement that is not a read needs
+  `--write`, goes alone, and a dry run only reports it; the docs give the
+  SQL for a read-only role. `CREATE OR REPLACE`, `SYSTEM$` functions that
+  change things, stage files, `CALL` and `EXECUTE IMMEDIATE` need
+  `--allow-dangerous`; `//` comments, `$$` text and `\'` are read as
+  Snowflake reads them. A run that times out cancels the statement on the
+  server. `db dump`, `restore`, `locks`, `user add`/`passwd`/`rm` and
+  `grant`/`revoke` say `NOT_SUPPORTED`. Not yet run against a real
+  account: see docs/design/snowflake.md.
+- **BigQuery conns** (`bigquery://my-project/analytics?location=EU`, the
+  project jobs run in and a default dataset) over BigQuery's REST API, with
+  komando's own small client (not the Google Cloud SDK): `db query` with `?`
+  placeholders, `schema` (datasets, tables and columns from the API),
+  `explain` (the dry run), `info`, `activity` (jobs that are not done, from
+  `INFORMATION_SCHEMA.JOBS`), `sizes`, `kill` (`jobs.cancel`), `db shell`
+  and `conn test`, through `--via` and VPNs, HTTPS with the certificate
+  checked and `?ca=secret:NAME` for a proxy's CA. The login is the same as
+  for `gs://` conns: gcloud's application default credentials (sent only to
+  `*.googleapis.com`), or a service account key in `--password-ref`. Every
+  statement goes to BigQuery as a dry run first: without `--write` only
+  what BigQuery itself calls a `SELECT` runs, and a query that would read
+  more than the new `--max-bytes` (default 10GB) stops with the new error
+  `DB_BYTES_LIMIT`; each job also carries that cap (`maximumBytesBilled`),
+  and each result says `bytes_processed`. `--dry-run` is BigQuery's own dry
+  run, for reads too. A write needs `--write` and goes alone; `EXPORT DATA`,
+  `EXTERNAL_QUERY`, remote functions, `CREATE OR REPLACE`, `LOAD DATA
+  OVERWRITE`, row access policies, reservations, `CALL` and `EXECUTE
+  IMMEDIATE` need `--allow-dangerous`. Scripts are refused; `#` comments,
+  triple-quoted and raw strings and `` `names` `` are read as BigQuery reads
+  them. A run that times out cancels its job. `db dump`, `restore`, `locks`,
+  `db user` and `grant`/`revoke`/`grants` say `NOT_SUPPORTED`. Not yet run
+  against a real project: see docs/design/bigquery.md.
+
+### Changed
+
+- The menu's Add asks one question at a time instead of one line
+  (`web1 deploy@10.0.0.5`), and the main menu has **All features** in place
+  of Audit (Audit is under All features, Safety and audit).
+- Every JSON error now has an `error.hint`: an error without a hint of its
+  own gets a general next step for its exit code.
+- `komando schema` lists 16 more error codes (among them `CERT_PROBLEMS`,
+  `NXDOMAIN` and `SECRET_DESTINATION`), and each code's example and hint now
+  come from the same place in the code, so the hint fits the code.
+- The `sql-remote` rule's reason names what it covers now (dblink, an
+  Oracle database link, ClickHouse `url()` or `s3()`), not only dblink.
+
+### Fixed
+
 - The docs no longer claim more than the code does: secrets are hidden from
   agents komando recognises, and several design docs named flags, commands
   and error codes that do not exist.
+
+### Security
+
+- Windows forms of the destructive rules: a recursive delete of the system
+  drive or a system folder, formatting disks, `Stop-Computer`,
+  `Restart-Computer`, stopping SSH or WinRM, blocking all incoming traffic,
+  deleting users, hidden (`-EncodedCommand`) or downloaded scripts,
+  deleting shadow copies, and deleting a registry hive need
+  `--allow-dangerous`. `exec --read-only` and `script --read-only` on
+  Windows servers fail closed: they accept only a small subset of
+  PowerShell that komando reads exactly (pipelines of listed read cmdlets
+  with literal arguments and safe parameters, and simple `Where-Object`
+  and `ForEach-Object` blocks) and refuse everything else, such as `$`,
+  backticks, `@`, `&`, redirection, comments, .NET calls, keywords and
+  characters outside ASCII. See docs/features/windows.md.
+- A command komando cannot run on Windows is refused for every Windows
+  server, so a sh script is never sent to PowerShell.
+- WinRM refuses Basic login over plain HTTP (the password would travel
+  unencrypted) and warns about `tls=off` and `tls=skip-verify`.
 
 ## [0.8.0] - 2026-11-09
 
@@ -2289,7 +2573,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/sgnd/komando/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/sgnd/komando/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/sgnd/komando/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/sgnd/komando/compare/v0.5.0...v0.6.0

@@ -1,6 +1,6 @@
 ---
 name: komando
-description: Manage servers, databases, caches, object storage, Kubernetes/Docker Swarm clusters, container registries, VPNs and secrets safely through the komando CLI. Use whenever a task touches a remote server or service (checking health, reading logs, editing config, restarting services, updating packages, querying a database, reading a cache, listing a bucket, deploying to a cluster), or when the user mentions komando, SSH, a host name, a database or a server.
+description: Manage servers, databases, caches, message queues (Kafka, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub), object storage, Kubernetes/Docker Swarm clusters, container registries, VPNs and secrets safely through the komando CLI. Use whenever a task touches a remote server or service (checking health, reading logs, editing config, restarting services, updating packages, querying a database, reading a cache, peeking at a message queue, listing a bucket, deploying to a cluster), or when the user mentions komando, SSH, a host name, a database or a server.
 ---
 
 # komando
@@ -15,8 +15,8 @@ sight.
 
 1. `komando guide`: the full playbook for this komando version. Read it and
    follow it. It is the source of truth; this skill is the summary.
-2. `komando list`: the servers and conns (databases, caches, storage,
-   clusters, registries) that exist.
+2. `komando list`: the servers and conns (databases, caches, queues,
+   storage, clusters, registries) that exist.
 3. `komando schema <command>` whenever you are unsure about a flag.
 
 If `komando` is not installed, stop and ask the human to install it:
@@ -47,6 +47,8 @@ servers themselves, point them to the menu.
    To read a command's output, add `-o text` (`komando exec web1 --read-only
    -o text -- cat FILE`). Keep JSON when you branch on each server's exit
    code or error, or need to know whether output was cut (`stdout_truncated`).
+   On a Windows server (`os:windows`) commands are PowerShell, there is no
+   sudo, and commands komando cannot run there stop with `NOT_SUPPORTED`.
 2. **Dry-run every change first.** A dry run is never stopped: on a
    protected target or a destructive command it still shows the plan, and
    `meta.would_be_blocked` names the stop the real run would hit, so you can

@@ -37,6 +37,8 @@ use ` + "`komando shell NAME`" + ` for those.`,
 			h, err := singleHost(st, args[0])
 			if err != nil {
 				return err
+			} else if h.WinRM() {
+				return notOnWindows("an ssh command for a WinRM server", []string{h.Name})
 			}
 			parts, err := sshCommandFor(st, h)
 			if err != nil {

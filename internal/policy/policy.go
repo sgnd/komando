@@ -70,14 +70,17 @@ func init() {
 
 // Check returns the rules a command matches. extra are user patterns from
 // settings (raw regexps). Each rule is tried on the command as written
-// (Normalize) and as the shell reads it (Plain), so quotes and backslashes
-// inside a word (r\m -rf /e""tc) do not hide it. A custom pattern that does
+// (Normalize), as the shell reads it (Plain) and without PowerShell's
+// backticks, so quotes, backslashes and backticks inside a word
+// (r\m -rf /e""tc, Re`move-Item) do not hide it. A custom pattern that does
 // not compile matches every command: a broken rule must not quietly stop
 // protecting anything.
 func Check(cmd string, extra []string) []Rule {
 	hits := []Rule{}
-	norm, plain := Normalize(cmd), Plain(cmd)
-	match := func(re *regexp.Regexp) bool { return re.MatchString(norm) || re.MatchString(plain) }
+	norm, plain, ps := Normalize(cmd), Plain(cmd), psPlain(Normalize(cmd))
+	match := func(re *regexp.Regexp) bool {
+		return re.MatchString(norm) || re.MatchString(plain) || re.MatchString(ps)
+	}
 	for _, r := range compiled {
 		if match(r.re) {
 			hits = append(hits, r)

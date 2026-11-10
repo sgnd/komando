@@ -36,11 +36,49 @@ type Host struct {
 	Env          map[string]string `json:"env,omitempty"` // exported before every command
 	Protected    bool              `json:"protected,omitempty"`
 	Notes        string            `json:"notes,omitempty"`
-	CreatedAt    time.Time         `json:"created_at"`
-	UpdatedAt    time.Time         `json:"updated_at"`
+	// OS is "windows" for a Windows server: commands are PowerShell, not
+	// sh. Empty: Linux or another Unix (docs/design/windows.md).
+	OS string `json:"os,omitempty"`
+	// Transport is "winrm" for a Windows server reached over WinRM, with
+	// its settings in WinRMOpts. Empty: SSH.
+	Transport string     `json:"transport,omitempty"`
+	WinRMOpts *WinRMOpts `json:"winrm,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+// TransportWinRM is Host.Transport for a server reached over WinRM.
+const TransportWinRM = "winrm"
+
+// WinRMOpts is how komando speaks WinRM to a server.
+type WinRMOpts struct {
+	Auth string `json:"auth,omitempty"` // ntlm (default) | basic
+	// TLS: "" checks the certificate (HTTPS, port 5986), skip-verify does
+	// not, off is plain HTTP (port 5985)
+	TLS string `json:"tls,omitempty"`
+	CA  string `json:"ca,omitempty"` // secret:NAME holding the PEM of the CA that signed the server's certificate
+}
+
+// WinRM reports a server reached over WinRM.
+func (h *Host) WinRM() bool { return h != nil && h.Transport == TransportWinRM }
+
+// OSWindows is Host.OS for a Windows server.
+const OSWindows = "windows"
+
+// Windows reports a Windows server: its commands are PowerShell.
+func (h *Host) Windows() bool {
+	return h != nil && (h.OS == OSWindows || h.Transport == TransportWinRM)
 }
 
 func (h *Host) EffectivePort() int {
+	switch {
+	case h.Port != 0:
+		return h.Port
+	case h.WinRM() && h.WinRMOpts != nil && h.WinRMOpts.TLS == "off":
+		return 5985
+	case h.WinRM():
+		return 5986
+	}
 	if h.Port == 0 {
 		return 22
 	}

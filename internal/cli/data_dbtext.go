@@ -132,6 +132,9 @@ func (d dbInfoData) Text() string {
 	add("conn", cellStr(d["conn"]))
 	add("kind", cellStr(d["kind"]))
 	add("version", cellStr(d["version"]))
+	add("project", cellStr(d["project"])) // BigQuery
+	add("dataset", cellStr(d["dataset"]))
+	add("location", cellStr(d["location"]))
 	add("database", cellStr(d["database"]))
 	add("user", cellStr(d["user"]))
 	add("role", cellStr(d["role"]))
