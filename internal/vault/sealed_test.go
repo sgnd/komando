@@ -85,10 +85,7 @@ func TestSealedVault(t *testing.T) {
 	if s, err := Check(); err != nil || s.Mode != "keyfile" {
 		t.Fatalf("check %+v %v", s, err)
 	}
-	if _, err := ChangeKey("", "a passphrase long enough"); !errors.Is(err, errSealedKeyChange) {
-		t.Fatalf("key change: %v", err)
-	}
-	if err := KeyToFile(); !errors.Is(err, errSealedKeyChange) {
+	if err := KeyToFile(); err != nil { // a key file already: nothing to do
 		t.Fatalf("key move: %v", err)
 	}
 }
@@ -130,5 +127,113 @@ func TestSealedVaultBesideInventory(t *testing.T) {
 	}
 	if v, err := Resolve("secret:db"); err != nil || v != "pw" {
 		t.Fatalf("resolve %q %v", v, err)
+	}
+}
+
+// A sealed store's key: from store.key to a passphrase, to another
+// passphrase, back to a key file, and into the keychain and out; every
+// secret and server survives, and the old key no longer opens the store.
+func TestSealedKeyChanges(t *testing.T) {
+	sealedVault(t)
+	n := PassphraseN
+	PassphraseN = 1 << 10
+	t.Cleanup(func() { PassphraseN = n })
+	if err := store.Update(func(s *store.State) error {
+		s.Hosts["web"] = &store.Host{Name: "web"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Set("db", "pw-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ChangeKey("", "short"); !errors.Is(err, ErrShortPassphrase) {
+		t.Fatalf("short: %v", err)
+	}
+	if _, err := ChangeKey("", ""); !errors.Is(err, ErrNoPassphrase) {
+		t.Fatalf("no passphrase: %v", err)
+	}
+	both := func(step string) {
+		t.Helper()
+		if v, err := Get("db"); err != nil || v != "pw-1" {
+			t.Fatalf("%s: secret %q %v", step, v, err)
+		}
+		if st, err := store.Load(); err != nil || st.Hosts["web"] == nil {
+			t.Fatalf("%s: inventory %v", step, err)
+		}
+	}
+	r, err := ChangeKey("", "first passphrase, long")
+	if err != nil || r.From != "keyfile" || r.To != "passphrase" || r.Secrets != 1 || r.Removed != "store.key" {
+		t.Fatalf("to passphrase: %+v %v", r, err)
+	}
+	if _, err := os.Stat(storeKeyFile()); !os.IsNotExist(err) {
+		t.Fatal("store.key left")
+	}
+	both("passphrase")
+	if err := Opens("wrong passphrase entirely"); !errors.Is(err, ErrWrongKey) {
+		t.Fatalf("wrong passphrase opens: %v", err)
+	}
+	r, err = ChangeKey("first passphrase, long", "second passphrase, long")
+	if err != nil || r.To != "passphrase" {
+		t.Fatalf("new passphrase: %+v %v", r, err)
+	}
+	both("second passphrase")
+	if err := Opens("first passphrase, long"); !errors.Is(err, ErrWrongKey) {
+		t.Fatalf("the old passphrase still opens: %v", err)
+	}
+	r, err = ChangeKey("", "")
+	if err != nil || r.To != "keyfile" {
+		t.Fatalf("to key file: %+v %v", r, err)
+	}
+	both("key file")
+	if s, _ := Check(); s.Mode != "keyfile" {
+		t.Fatalf("mode %q", s.Mode)
+	}
+}
+
+func TestSealedKeyToKeychainAndBack(t *testing.T) {
+	sealedVault(t)
+	dir := t.TempDir()
+	saved := keychainOS
+	keychainOS = "linux"
+	t.Cleanup(func() { keychainOS = saved })
+	script := `#!/bin/sh
+kept="` + dir + `/kept"
+case "$1" in
+  store) cat > "$kept" ;;
+  lookup) [ -f "$kept" ] && cat "$kept" || exit 1 ;;
+  search) if [ -f "$kept" ]; then printf '[/org/freedesktop/secrets/collection/login/1]\nlabel = %s\n' "$4"; fi ;;
+  clear) rm -f "$kept" ;;
+esac
+`
+	os.WriteFile(dir+"/secret-tool", []byte(script), 0o755)
+	lockTool(t, dir, "gdbus", "echo '(<false>,)'")
+	savedDirs := toolDirs
+	toolDirs = []string{dir}
+	t.Cleanup(func() { toolDirs = savedDirs })
+	if err := Set("db", "pw"); err != nil { // a key file store
+		t.Fatal(err)
+	}
+	t.Setenv("KOMANDO_KEYCHAIN", "")
+	if _, err := KeyToKeychain(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(storeKeyFile()); !os.IsNotExist(err) {
+		t.Fatal("store.key left after the move")
+	}
+	if s, _ := Check(); s.Mode != "keychain" {
+		t.Fatalf("mode %q", s.Mode)
+	}
+	if v, err := Get("db"); err != nil || v != "pw" {
+		t.Fatalf("with the keychain: %q %v", v, err)
+	}
+	if err := KeyToFile(); err != nil {
+		t.Fatal(err)
+	}
+	if v, err := Get("db"); err != nil || v != "pw" {
+		t.Fatalf("back in a key file: %q %v", v, err)
+	}
+	if _, err := keychainGet(); err == nil {
+		t.Fatal("the key stayed in the keychain")
 	}
 }

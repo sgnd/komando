@@ -144,10 +144,6 @@ func sealedAEAD() (cipher.AEAD, error) {
 	return cipher.NewGCM(blk)
 }
 
-// errSealedKeyChange: moving or changing the key of a sealed store is not
-// built yet (S6 commit 4b).
-var errSealedKeyChange = errors.New("this komando folder keeps its data in the sealed store, whose key cannot be moved or changed yet")
-
 // sealedStrength is Check on a sealed home: the store's key mode.
 func sealedStrength() (Strength, error) {
 	meta, err := sealdb.Peek(context.Background(), store.Path(store.StoreFile))

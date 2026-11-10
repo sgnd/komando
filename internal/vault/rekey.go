@@ -112,7 +112,7 @@ func (f *file) openWith(oldPass string) (map[string][]byte, error) {
 // matches ErrWrongKey means one did not.
 func Opens(oldPass string) error {
 	if store.Sealed() {
-		return errSealedKeyChange
+		return sealedOpens(oldPass)
 	}
 	f, err := load()
 	if err != nil {
@@ -147,7 +147,7 @@ type KeyChange struct {
 func ChangeKey(oldPass, newPass string) (KeyChange, error) {
 	var res KeyChange
 	if store.Sealed() {
-		return res, errSealedKeyChange
+		return sealedChangeKey(oldPass, newPass)
 	}
 	if newPass != "" && utf8.RuneCountInString(newPass) < MinPassphrase {
 		return res, ErrShortPassphrase

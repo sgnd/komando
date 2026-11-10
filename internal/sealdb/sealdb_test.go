@@ -556,3 +556,57 @@ func TestNestedSteps(t *testing.T) {
 		t.Fatalf("write inside read: %v", err)
 	}
 }
+
+func TestRekey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "store.db")
+	d := open(t, path)
+	var id, gone string
+	_ = d.Update(ctx, func(tx *Tx) error {
+		r, _ := tx.Put("server", "", []byte("a"))
+		g, _ := tx.Put("server", "", []byte("b"))
+		id, gone = r.ID, g.ID
+		_ = tx.Delete(gone)
+		return tx.AppendAudit([]byte("e1"))
+	})
+	boom := errors.New("boom")
+	if err := d.Rekey(ctx, key(t, 2), func(*Tx) error { return boom }); !errors.Is(err, boom) {
+		t.Fatalf("failed rekey: %v", err)
+	}
+	if err := d.View(ctx, func(tx *Tx) error { _, err := tx.Get(id); return err }); err != nil {
+		t.Fatalf("a failed rekey changed the key: %v", err)
+	}
+	err := d.Rekey(ctx, key(t, 2), func(tx *Tx) error {
+		r, err := tx.Get(id) // the new key is in force inside
+		if err != nil || string(r.Data) != "a" {
+			t.Fatalf("inside: %q %v", r.Data, err)
+		}
+		return tx.SetMeta("key_mode", "passphrase")
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Close()
+	if _, err := Open(ctx, path, key(t, 1)); !errors.Is(err, ErrWrongKey) {
+		t.Fatalf("old key still opens: %v", err)
+	}
+	d2, err := Open(ctx, path, key(t, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d2.Close()
+	_ = d2.View(ctx, func(tx *Tx) error {
+		if r, err := tx.Get(id); err != nil || string(r.Data) != "a" {
+			t.Fatalf("record: %v", err)
+		}
+		if r, err := tx.Get(gone); err != nil || !r.Deleted {
+			t.Fatalf("deleted record: %+v %v", r, err)
+		}
+		if a, err := tx.Audit(0, 10); err != nil || len(a) != 1 || string(a[0].Data) != "e1" {
+			t.Fatalf("audit: %v %v", a, err)
+		}
+		if m, _ := tx.Meta("key_mode"); m != "passphrase" {
+			t.Fatalf("meta %q", m)
+		}
+		return nil
+	})
+}

@@ -413,7 +413,7 @@ func keychainNewKey() ([]byte, bool) {
 // keychain to be unlocked first.
 func KeyToKeychain() (string, error) {
 	if store.Sealed() {
-		return "", errSealedKeyChange
+		return sealedKeyToKeychain()
 	}
 	tool, err := KeychainTool()
 	if err != nil {
@@ -445,27 +445,8 @@ func KeyToKeychain() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	has, err := keychainHas(context.Background())
-	if err != nil {
+	if err := keychainAdopt(key); err != nil {
 		return "", err
-	}
-	if has {
-		back, err := keychainGet()
-		if errors.Is(err, errNoKeychainKey) { // listed, but lookup finds nothing: locked
-			return "", errors.New("the keychain holds a vault key for this komando folder but keeps it locked; unlock the keychain and try again")
-		}
-		if err != nil {
-			return "", err
-		}
-		if !bytes.Equal(back, key) {
-			return "", fmt.Errorf("%w (%s, account %s); komando does not replace it, as it may be the only key of a vault you moved aside: put that vault back, or once no vault needs that key, delete the item from the keychain yourself, then run it again", ErrKeychainTaken, keychainService(), keychainAccount)
-		}
-	} else if err := keychainPut(key); err != nil {
-		return "", err
-	}
-	back, err := keychainGet()
-	if err != nil || !bytes.Equal(back, key) {
-		return "", fmt.Errorf("the keychain did not keep the key: %v", err)
 	}
 	f.Mode = "keychain"
 	if err := f.save(); err != nil {
@@ -476,10 +457,39 @@ func KeyToKeychain() (string, error) {
 	return tool, os.Remove(kp)
 }
 
+// keychainAdopt puts key in the keychain for this komando folder, unless
+// it is there already. It never replaces another key there
+// (ErrKeychainTaken), and checks that the keychain gives it back.
+func keychainAdopt(key []byte) error {
+	has, err := keychainHas(context.Background())
+	if err != nil {
+		return err
+	}
+	if has {
+		back, err := keychainGet()
+		if errors.Is(err, errNoKeychainKey) { // listed, but lookup finds nothing: locked
+			return errors.New("the keychain holds a vault key for this komando folder but keeps it locked; unlock the keychain and try again")
+		}
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(back, key) {
+			return fmt.Errorf("%w (%s, account %s); komando does not replace it, as it may be the only key of a vault you moved aside: put that vault back, or once no vault needs that key, delete the item from the keychain yourself, then run it again", ErrKeychainTaken, keychainService(), keychainAccount)
+		}
+	} else if err := keychainPut(key); err != nil {
+		return err
+	}
+	back, err := keychainGet()
+	if err != nil || !bytes.Equal(back, key) {
+		return fmt.Errorf("the keychain did not keep the key: %v", err)
+	}
+	return nil
+}
+
 // KeyToFile moves the vault key back from the keychain into vault.key.
 func KeyToFile() error {
 	if store.Sealed() {
-		return errSealedKeyChange
+		return sealedKeyToFile()
 	}
 	unlock, err := store.Lock(lockName) // a parallel Set must not be lost
 	if err != nil {

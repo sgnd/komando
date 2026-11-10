@@ -225,3 +225,45 @@ func MasterKey() ([]byte, error) {
 	k, _, err := KeySource(meta, false)
 	return k, err
 }
+
+// Rekey seals this home's store again under a new master key and keeps
+// meta as its readable key settings, in one write step; then runs inside
+// it, with the new key in force (the vault reseals its values there).
+func Rekey(newMaster []byte, meta map[string]string, then func(tx *sealdb.Tx) error) error {
+	d, err := DB(false)
+	if err != nil {
+		return err
+	}
+	k, err := sealrow.NewKey(newMaster)
+	if err != nil {
+		return err
+	}
+	return d.Rekey(context.Background(), k, func(tx *sealdb.Tx) error {
+		for key, v := range meta {
+			if err := tx.SetMeta(key, v); err != nil {
+				return err
+			}
+		}
+		if then != nil {
+			return then(tx)
+		}
+		return nil
+	})
+}
+
+// SetStoreMeta changes readable key settings of this home's store (a key
+// moved between the keychain and a key file: the same key, kept elsewhere).
+func SetStoreMeta(meta map[string]string) error {
+	d, err := DB(false)
+	if err != nil {
+		return err
+	}
+	return d.Update(context.Background(), func(tx *sealdb.Tx) error {
+		for k, v := range meta {
+			if err := tx.SetMeta(k, v); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
