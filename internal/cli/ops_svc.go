@@ -23,7 +23,7 @@ func svcResult(rr *sshx.RunResult) ([]map[string]any, *out.Error) {
 	if marker(rr.Stdout) == "no-systemd" {
 		return nil, errNoSystemd()
 	}
-	v, _ := parseSvcShow(nil, rr.Stdout)
+	v := parseSvcShow(nil, rr.Stdout)
 	units, _ := v.([]map[string]any)
 	var missing []string
 	for _, u := range units {
@@ -188,7 +188,7 @@ func svcListCmd() *cobra.Command {
 				win: winSvcListScript, winParse: winSvcList(state)})
 		},
 	}
-	c.Flags().StringVar(&state, "state", "", "unit state filter")
+	c.Flags().StringVar(&state, "state", "", "only units in this state, such as running or failed")
 	c.Flags().BoolVar(&failed, "failed", false, "only failed units")
 	return c
 }

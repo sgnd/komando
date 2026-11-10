@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -77,7 +78,7 @@ interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
 				return err
 			}
 			defer done()
-			space := firstNonEmpty(ns, k.Namespace)
+			space := cmp.Or(ns, k.Namespace)
 			pod, err := onePod(cmd.Context(), k, space, args[1])
 			if err != nil {
 				return kubeErr(err)
@@ -203,7 +204,7 @@ Anything can be typed inside, so a protected cluster asks first.`,
 				return err
 			}
 			defer done()
-			space := firstNonEmpty(ns, k.Namespace)
+			space := cmp.Or(ns, k.Namespace)
 			pod, err := onePod(cmd.Context(), k, space, args[1])
 			if err != nil {
 				return kubeErr(err)
@@ -320,7 +321,7 @@ komando forwards to the pod's port behind it.`,
 				return err
 			}
 			defer done()
-			space := firstNonEmpty(ns, k.Namespace)
+			space := cmp.Or(ns, k.Namespace)
 			rport, _ := strconv.Atoi(remote)
 			pod, port, err := forwardTarget(ctx, k, space, args[1], rport)
 			if err != nil {

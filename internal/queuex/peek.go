@@ -40,9 +40,9 @@ type PeekResult struct {
 	DeliveryLimit int `json:"delivery_limit,omitempty"`
 }
 
-// Received is one message read: from a Kafka partition (KafkaRecord),
-// the front of a RabbitMQ queue (RabbitDelivery) or a NATS stream
-// (NatsMsg).
+// Received is one message read; the engine's part says where it was: a
+// Kafka partition, the front of a RabbitMQ queue, a NATS stream, an SQS
+// queue or a Pub/Sub subscription.
 type Received struct {
 	*KafkaRecord
 	*RabbitDelivery

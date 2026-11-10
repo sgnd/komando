@@ -17,14 +17,14 @@ komando upload win1 ./site.zip 'C:\deploy\'
 
 ## Add a Windows server
 
-komando reaches Windows over **OpenSSH** or **WinRM**. Both give the same
-commands; WinRM is what most companies already have on for Ansible.
+komando reaches Windows over OpenSSH or WinRM. Both give the same
+commands; pick WinRM when the server already has it on, for example for
+Ansible.
 
 ### Over OpenSSH
 
-komando reaches Windows over **OpenSSH**, which is built into Windows
-Server 2019 and later. Turn it on once on the server (as an
-administrator, in PowerShell):
+OpenSSH is built into Windows Server 2019 and later. Turn it on once on
+the server (as an administrator, in PowerShell):
 
 ```powershell
 Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0

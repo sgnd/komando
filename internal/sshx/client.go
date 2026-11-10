@@ -242,8 +242,8 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 	return c, nil
 }
 
-// keepaliveEvery is how often an open connection is asked for a sign of
-// life, and how long the answer may take.
+// keepaliveNS is how often an open connection is asked for a sign of life,
+// and how long the answer may take, in nanoseconds. Tests shorten it.
 var keepaliveNS atomic.Int64
 
 func init() { keepaliveNS.Store(int64(30 * time.Second)) }
@@ -428,7 +428,7 @@ var PersonAtTerminal = func() bool { return false }
 // key itself: it reports it, and a person checks the new fingerprint
 // another way first.
 func HostKeyMismatch(host, offered string, pinned []string) *out.Error {
-	msg := fmt.Sprintf("host key for %s changed: possible MITM or server rebuild", host)
+	msg := fmt.Sprintf("host key for %s changed: the server was rebuilt, or someone is intercepting the connection", host)
 	switch {
 	case offered != "" && len(pinned) > 0:
 		msg += fmt.Sprintf("; pinned %s, the server now shows %s", strings.Join(pinned, ", "), offered)

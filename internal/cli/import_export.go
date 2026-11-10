@@ -18,8 +18,6 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// export.
-
 // exportFile is what `komando export` writes and `komando import komando`
 // reads. Secrets stay in the vault; refs are kept, so on a new computer
 // the same `komando secret set NAME` makes them work again.
@@ -161,7 +159,7 @@ func exportCmd() *cobra.Command {
 	var overwrite bool
 	c := &cobra.Command{
 		Use:   "export [TARGET]",
-		Short: "Save servers, conns and recipes to a file (no passwords)",
+		Short: "Save servers, conns, VPNs, recipes and settings (no passwords)",
 		Example: `  komando export --to komando-backup.json
   komando export @prod --to prod.json
   komando import komando komando-backup.json      # on the other computer`,

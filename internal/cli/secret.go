@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -304,8 +305,8 @@ login; 'komando secret check NAME' lets a person compare it.`,
 		Use:   "check NAME",
 		Short: "Compare a typed value to a secret; shows neither (a person only)",
 		Long: `Asks for a value (hidden, or from --from-env VAR or a pipe) and says whether it
-is the stored one. When it is not, it says how they differ - only spaces at
-the ends, only upper and lower case, or the number of characters - but never
+is the stored one. When it is not, it says how they differ (only spaces at
+the ends, only upper and lower case, or the number of characters), but never
 shows either value.
 
 Only a person can run it: for an AI agent, a yes/no answer about a value it
@@ -381,7 +382,7 @@ picks would be a way to guess the secret one try at a time.`,
 				if err := reservedSecret(n); err != nil {
 					return err
 				}
-				if !contains(have, n) {
+				if !slices.Contains(have, n) {
 					return notFoundSuggest("secret", n, have)
 				}
 				if users := secretUsers(st, n); len(users) > 0 {
@@ -400,7 +401,7 @@ picks would be a way to guess the secret one try at a time.`,
 			audit(nil, "secret.rm", nil, "", true, map[string]any{"secrets": args})
 			removed := any(args)
 			if len(args) == 1 {
-				removed = args[0] // one name stays a string, as before
+				removed = args[0] // one name prints as a string, several as a list
 			}
 			out.P.Print("secret.rm", map[string]any{"removed": removed}, nil)
 			return nil
@@ -452,14 +453,14 @@ are not changed.`
 				return out.Usage("the old and the new name are the same")
 			}
 			have := secretNames()
-			if !contains(have, from) {
+			if !slices.Contains(have, from) {
 				return notFoundSuggest("secret", from, have)
 			}
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			replaced := contains(have, to)
+			replaced := slices.Contains(have, to)
 			if replaced && !overwrite {
 				return secretExists(from, to)
 			}

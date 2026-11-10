@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/out"
@@ -20,8 +21,12 @@ func TestDisplayWidth(t *testing.T) {
 			t.Errorf("%q: %d, want %d", s, got, want)
 		}
 	}
-	if got := truncateWidth("日本語のテキスト", 9); got != "日本語..." {
+	if got := truncateWidth("日本語のテキスト", 9); got != "日本語の…" {
 		t.Errorf("truncate: %q", got)
+	}
+	// A long command of multi-byte characters is cut whole, never mid-character.
+	if got := truncateWidth(strings.Repeat("é", 70), 60); !utf8.ValidString(got) || displayWidth(got) != 60 {
+		t.Errorf("multi-byte cut: %q", got)
 	}
 }
 

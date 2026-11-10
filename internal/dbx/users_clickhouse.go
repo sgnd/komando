@@ -83,7 +83,7 @@ func clickhouseUserSQL(ctx context.Context, db *sql.DB, action string, u UserSpe
 func chUserErr(n int, msg, name string) error {
 	switch n {
 	case 493: // ACCESS_ENTITY_ALREADY_EXISTS
-		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd`", "user %s already exists", name)
+		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd CONN "+name+" --password-ref secret:NAME`", "user %s already exists", name)
 	case 192, 511: // UNKNOWN_USER, UNKNOWN_ROLE
 		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user ls CONN`", "%s", msg)
 	case 497:

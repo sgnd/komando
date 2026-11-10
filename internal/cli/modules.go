@@ -22,7 +22,7 @@ func svcCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "svc",
 		Aliases: []string{"service", "systemd"},
-		Short:   "systemd services: status, start, stop, restart, enable, logs",
+		Short:   "Services (systemd, Windows): status, start, stop, restart, logs",
 	}
 	c.AddCommand(svcStatusCmd(), svcListCmd(), svcLogsCmd(), svcDaemonReloadCmd())
 	for _, a := range []string{"start", "stop", "restart", "reload", "enable", "disable"} {
@@ -33,7 +33,7 @@ func svcCmd() *cobra.Command {
 
 var svcProps = []string{"Id", "Description", "LoadState", "ActiveState", "SubState", "UnitFileState", "MainPID", "ActiveEnterTimestamp", "NRestarts", "MemoryCurrent", "Result", "ExecMainStatus"}
 
-func parseSvcShow(_ *store.Host, s string) (any, error) {
+func parseSvcShow(_ *store.Host, s string) any {
 	var units []map[string]any
 	for _, block := range strings.Split(strings.TrimSpace(s), "\n\n") {
 		u := map[string]any{}
@@ -56,7 +56,7 @@ func parseSvcShow(_ *store.Host, s string) (any, error) {
 			units = append(units, u)
 		}
 	}
-	return units, nil
+	return units
 }
 
 func snake(s string) string {
@@ -148,15 +148,14 @@ func (o *logOpts) bind(c *cobra.Command, sources bool) {
 	f := c.Flags()
 	if sources {
 		f.StringVarP(&o.unit, "unit", "u", "", "systemd unit (journalctl)")
-		f.StringVar(&o.file, "file", "", "log file path")
-		f.StringVar(&o.container, "container", "", "docker container name/id")
+		f.StringVar(&o.file, "file", "", "read this log file on the server (full path)")
+		f.StringVar(&o.container, "container", "", "read this Docker container's log (its name or ID)")
 	}
 	f.StringVar(&o.since, "since", "", "start time, e.g. -1h, '2026-01-02 10:00', today (journal and containers)")
 	f.StringVar(&o.until, "until", "", "end time (journal and containers)")
 	f.StringVar(&o.grep, "grep", "", "only lines matching this extended regex (case-insensitive)")
 	f.StringVarP(&o.priority, "priority", "p", "", "journal priority and worse: emerg, alert, crit, err, warning, notice, info, debug (or 0-7)")
-	f.IntVarP(&o.lines, "limit", "n", 200, "max lines (from the end)")
-	aliasFlag(f, "lines", "limit")
+	f.IntVarP(&o.lines, "limit", "n", 200, "the most lines to show (the last ones)")
 	f.BoolVarP(&o.sudo, "sudo", "s", false, "read via sudo (the whole journal, protected files)")
 	f.BoolVarP(&o.follow, "follow", "f", false, "keep printing new lines until Ctrl-C")
 	f.BoolVar(&o.timestamps, "timestamps", false, "show when each container log line was written (containers)")
@@ -166,14 +165,14 @@ func (o *logOpts) build() (string, error) {
 	if err := o.check(); err != nil {
 		return "", err
 	}
-	c, err := o.source()
+	c := o.source()
 	if o.follow {
-		return c, err // followCheck checks the source before streaming
+		return c, nil // followCheck checks the source before streaming
 	}
-	return o.preflight() + c, err
+	return o.preflight() + c, nil
 }
 
-func (o *logOpts) source() (string, error) {
+func (o *logOpts) source() string {
 	n := strconv.Itoa(o.lines)
 	grep := ""
 	if o.grep != "" {
@@ -189,9 +188,9 @@ func (o *logOpts) source() (string, error) {
 			if o.since != "" {
 				c += " --since " + sshx.Q(strings.TrimPrefix(o.since, "-"))
 			}
-			return c + " " + sshx.Q(o.container) + " 2>&1" + grep, nil
+			return c + " " + sshx.Q(o.container) + " 2>&1" + grep
 		case o.file != "":
-			return "tail -n " + n + " -F -- " + sshx.Q(o.file) + grep, nil
+			return "tail -n " + n + " -F -- " + sshx.Q(o.file) + grep
 		}
 		c := "journalctl --no-pager -o short-iso -n " + n + " -f"
 		if o.unit != "" {
@@ -203,7 +202,7 @@ func (o *logOpts) source() (string, error) {
 		if o.priority != "" {
 			c += " -p " + sshx.Q(o.priority)
 		}
-		return c + grep, nil
+		return c + grep
 	}
 	switch {
 	case o.container != "":
@@ -221,12 +220,12 @@ func (o *logOpts) source() (string, error) {
 		if grep != "" {
 			c += grep + " | tail -n " + n
 		}
-		return c, nil
+		return c
 	case o.file != "":
 		if grep != "" {
-			return "grep -iE -- " + sshx.Q(o.grep) + " " + sshx.Q(o.file) + " | tail -n " + n, nil
+			return "grep -iE -- " + sshx.Q(o.grep) + " " + sshx.Q(o.file) + " | tail -n " + n
 		}
-		return "tail -n " + n + " -- " + sshx.Q(o.file), nil
+		return "tail -n " + n + " -- " + sshx.Q(o.file)
 	default:
 		c := "journalctl --no-pager -o short-iso"
 		if o.unit != "" {
@@ -242,9 +241,9 @@ func (o *logOpts) source() (string, error) {
 			c += " -p " + sshx.Q(o.priority)
 		}
 		if grep != "" {
-			return c + grep + " | tail -n " + n, nil
+			return c + grep + " | tail -n " + n
 		}
-		return c + " -n " + n, nil
+		return c + " -n " + n
 	}
 }
 
@@ -280,7 +279,7 @@ func runLogs(ctx context.Context, name, target string, lo *logOpts, sudo bool) e
 		}
 		return followLogs(ctx, target, command, sudo)
 	}
-	shown, _ := lo.source()
+	shown := lo.source()
 	return runOps(ctx, opsSpec{name: name, target: target, command: command, display: shown, sudo: sudo, raw: true,
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return lo.result(rr) }})
 }
@@ -401,7 +400,7 @@ func essentialPkg(name string) bool {
 var pkgFileRe = regexp.MustCompile(`(^\.{0,2}/)|\.(deb|rpm|apk)$|\.pkg\.tar\.`)
 
 // parseInstalled reads "name<TAB>version" lines ("-" when not installed).
-func parseInstalled(_ *store.Host, s string) (any, error) {
+func parseInstalled(_ *store.Host, s string) any {
 	rows := []map[string]any{}
 	for _, l := range strings.Split(strings.TrimSpace(s), "\n") {
 		name, ver, ok := strings.Cut(l, "\t")
@@ -414,7 +413,7 @@ func parseInstalled(_ *store.Host, s string) (any, error) {
 		}
 		rows = append(rows, r)
 	}
-	return rows, nil
+	return rows
 }
 
 func pkgCmd() *cobra.Command {
@@ -664,7 +663,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 	}
 	add.Flags().StringVar(&pubKey, "pubkey", "", "public key line to authorize")
 	add.Flags().StringVar(&keyName, "key", "", "authorize this key from komando's key list")
-	add.Flags().StringVar(&shell, "shell", "/bin/bash", "login shell")
+	add.Flags().StringVar(&shell, "shell", "/bin/bash", "the new user's login shell")
 	add.Flags().BoolVar(&admin, "admin", false, "add to the sudo (Debian) or wheel (RHEL, Alpine) group")
 	lock := &cobra.Command{
 		Use:   "lock TARGET USERNAME",
@@ -689,7 +688,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 	var removeHome bool
 	del := &cobra.Command{
 		Use:   "rm TARGET USERNAME",
-		Short: "Delete a user (dangerous: requires --allow-dangerous)",
+		Short: "Delete a user (needs --allow-dangerous)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := "userdel "
@@ -699,7 +698,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 			return runOne(cmd.Context(), "user.rm", args[0], c+sshx.Q(args[1]), !noSudo, true)
 		},
 	}
-	del.Flags().BoolVar(&removeHome, "remove-home", false, "also delete home directory")
+	del.Flags().BoolVar(&removeHome, "remove-home", false, "also delete the user's home folder and the files in it")
 	c.AddCommand(list, add, lock, unlock, del)
 	return c
 }

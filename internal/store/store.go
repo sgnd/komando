@@ -29,7 +29,7 @@ type Host struct {
 	// carry the SSH connection (OpenSSH ProxyCommand): aws ssm start-session,
 	// gcloud compute start-iap-tunnel, cloudflared access ssh. %h %p %r %n.
 	ProxyCommand string            `json:"proxy_command,omitempty"`
-	OldJump      string            `json:"jump,omitempty"` // before v0.3; moved to Via on load
+	OldJump      string            `json:"jump,omitempty"` // written by v0.1.0 only; moved to Via on load
 	Groups       []string          `json:"groups,omitempty"`
 	Tags         []string          `json:"tags,omitempty"`
 	Labels       map[string]string `json:"labels,omitempty"`
@@ -85,14 +85,11 @@ func (h *Host) EffectivePort() int {
 	return h.Port
 }
 
-func (h *Host) InGroup(g string) bool { return contains(h.Groups, g) }
-func (h *Host) HasTag(t string) bool  { return contains(h.Tags, t) }
-
 // Conn is a non-SSH resource (database, cache, ...) reached directly or
 // through an SSH host. The URL never holds a password; see PasswordRef.
 type Conn struct {
 	Name        string            `json:"name"`
-	Kind        string            `json:"kind"` // postgres | mysql | sqlite
+	Kind        string            `json:"kind"` // a name from driver.Kinds: postgres, redis, s3, kafka ...
 	URL         string            `json:"url"`
 	PasswordRef string            `json:"password_ref,omitempty"` // secret:<name>, env:<VAR> or file:<path>
 	Via         string            `json:"via,omitempty"`          // host used to reach the resource
@@ -126,9 +123,8 @@ type Snippet struct {
 	Command     string `json:"command"`
 	Description string `json:"description,omitempty"`
 	Sudo        bool   `json:"sudo,omitempty"`
-	// ReadOnly snippets skip the protected-host check. Everything else counts
-	// as a change, so snippets saved before this field existed are treated
-	// as changes too.
+	// ReadOnly snippets skip the protected-host check. A snippet without it
+	// counts as a change.
 	ReadOnly  bool      `json:"read_only,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -223,7 +219,6 @@ type VpnSession struct {
 	Vpn       string    `json:"vpn"`
 	PID       int       `json:"pid"`
 	Socks     string    `json:"socks,omitempty"`      // local SOCKS5 address; empty when the OS routes the traffic
-	Container string    `json:"container,omitempty"`  // the Docker container ID holding the VPN (openvpn)
 	SocksUser string    `json:"socks_user,omitempty"` // login for the container's SOCKS port, random per session
 	SocksPass string    `json:"socks_pass,omitempty"`
 	Exe       string    `json:"exe,omitempty"`  // the program the pid must still be, so a reused pid is never signalled
@@ -505,15 +500,9 @@ func (s *State) SortedVpns() []*Vpn {
 	return vs
 }
 
-// NameTaken reports whether a host or conn already uses name. Hosts and conns
-// share one namespace so selectors stay unambiguous.
-func (s *State) NameTaken(name string) (kind string, taken bool) {
-	kind, _, taken = s.FindName(name)
-	return kind, taken
-}
-
 // FindName finds the host or conn whose name equals name, ignoring case, so
-// "Web1" and "web1" cannot both exist. existing is the name as stored.
+// "Web1" and "web1" cannot both exist. existing is the name as stored. Hosts
+// and conns share one namespace so selectors stay unambiguous.
 func (s *State) FindName(name string) (kind, existing string, found bool) {
 	for n := range s.Hosts {
 		if strings.EqualFold(n, name) {
@@ -531,13 +520,4 @@ func (s *State) FindName(name string) (kind, existing string, found bool) {
 		}
 	}
 	return "", "", false
-}
-
-func contains(list []string, v string) bool {
-	for _, x := range list {
-		if strings.EqualFold(x, v) {
-			return true
-		}
-	}
-	return false
 }

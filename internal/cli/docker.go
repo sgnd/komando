@@ -26,9 +26,9 @@ func dockerCmd() *cobra.Command {
 		Aliases: []string{"container", "ctr"},
 		Short:   "Docker: containers, images, logs, compose, prune",
 		Long: `Docker on a server over SSH. Reads need nothing; start, stop, restart, pull,
-run and compose up change things (protected servers need --yes); rm, prune,
-compose down -v and other deletes need --allow-dangerous. The same rules
-apply to ` + "`docker raw`" + `, ` + "`docker compose`" + ` and ` + "`cluster run`" + ` on a Swarm manager.`,
+compose up and a docker run through ` + "`docker raw`" + ` change things (protected
+servers need --yes); rm, prune, compose down -v and other deletes need
+--allow-dangerous. The same rules apply to ` + "`docker raw`" + `, ` + "`docker compose`" + ` and ` + "`cluster run`" + ` on a Swarm manager.`,
 	}
 	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "run docker with sudo")
 	var all bool
@@ -250,15 +250,14 @@ func firstLine(s string) string {
 	return l
 }
 
-// dockerTable parses JSON lines; for a person (-o text) it lays the chosen
-// fields out as a table instead (labels and mounts would drown it).
-// dockerTable sorts the rows by the sortBy fields (docker itself puts the
-// newest first), then lays them out in -o text.
+// dockerTable parses JSON lines and sorts the rows by the sortBy fields
+// (docker itself puts the newest first). For a person (-o text) it lays the
+// chosen fields out as a table instead (labels and mounts would drown it).
 func dockerTable(headers, fields []string, sortBy ...string) func(*store.Host, string) (any, error) {
 	return func(h *store.Host, s string) (any, error) {
-		rows, err := parseJSONLines(h, s)
+		rows := parseJSONLines(h, s)
 		list, ok := rows.([]any)
-		if err == nil && ok {
+		if ok {
 			key := func(r any) string {
 				m, _ := r.(map[string]any)
 				k := ""
@@ -269,8 +268,8 @@ func dockerTable(headers, fields []string, sortBy ...string) func(*store.Host, s
 			}
 			sort.SliceStable(list, func(i, j int) bool { return key(list[i]) < key(list[j]) })
 		}
-		if err != nil || out.P.Format != "text" || !ok {
-			return rows, err
+		if out.P.Format != "text" || !ok {
+			return rows, nil
 		}
 		var cells [][]string
 		for _, r := range list {
@@ -288,7 +287,7 @@ func dockerTable(headers, fields []string, sortBy ...string) func(*store.Host, s
 	}
 }
 
-func parseJSONLines(_ *store.Host, s string) (any, error) {
+func parseJSONLines(_ *store.Host, s string) any {
 	rows := []any{}
 	for _, line := range strings.Split(s, "\n") {
 		line = strings.TrimSpace(line)
@@ -297,11 +296,11 @@ func parseJSONLines(_ *store.Host, s string) (any, error) {
 		}
 		var v any
 		if err := json.Unmarshal([]byte(line), &v); err != nil {
-			return s, nil
+			return s
 		}
 		rows = append(rows, v)
 	}
-	return rows, nil
+	return rows
 }
 
 // guardDocker rates a docker command line (docker raw, compose, the

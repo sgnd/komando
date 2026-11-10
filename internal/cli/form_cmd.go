@@ -297,7 +297,7 @@ func formFlagQ(f *pflag.Flag, ff formFlag, advanced bool) formQ {
 		q.help = formSentence(f.Usage)
 	}
 	def := ff.def
-	if def == "" && f.DefValue != "" && f.DefValue != "[]" && f.DefValue != "0" && f.DefValue != "0s" {
+	if def == "" && f.DefValue != "" && f.DefValue != "[]" && f.DefValue != "0" && f.DefValue != "0s" && f.DefValue != "-1" {
 		def = f.DefValue
 	}
 	switch {
@@ -498,7 +498,7 @@ func formSplitWords(v string) []string {
 	return words
 }
 
-// --- All features ---
+// All features.
 
 // formAreas is the All features list, in the order people need them, and
 // which command words fall in each when no hint says.
@@ -581,7 +581,7 @@ func formAllFeatures(ctx context.Context, t *menuTerm, st *store.State, scr menu
 		al.rows = append(al.rows, menuRow{label: a.label, detail: a.detail, value: a.label})
 	}
 	ascr := scr
-	ascr.footer = listKeys(al, "Esc back", "Ctrl-C cancel")
+	ascr.footer = listKeys(al, "Esc back", formCancelKey(al))
 	for {
 		row, err := menuChoose(ctx, t, al, ascr)
 		if err != nil {
@@ -644,6 +644,16 @@ func formQuitIsCancel(err error) error {
 	return err
 }
 
+// formCancelKey is the cancel key a form list shows: on a list without a
+// filter q cancels the form (letters are not typed there), so it says so;
+// on a list with one, q is a letter and only Ctrl-C cancels.
+func formCancelKey(l *menuList) string {
+	if l.typing {
+		return "Ctrl-C cancel"
+	}
+	return "q cancel"
+}
+
 // formTry runs a command with --dry-run from the review and comes back to
 // it, so a person sees what a change would do before it happens.
 type formTry func(args []string) error
@@ -662,8 +672,10 @@ func formGuidedOrAll(ctx context.Context, t *menuTerm, st *store.State, scr menu
 	l := &menuList{title: c.Short + ": how?", rows: []menuRow{
 		{label: "Step by step", detail: "plain questions, the usual choices (recommended)", value: "guided"},
 		{label: "Every option", detail: "every flag of `komando " + commandKey(c) + "`", value: "all"}}}
+	how := scr
+	how.footer = listKeys(l, "Esc back", formCancelKey(l))
 	for {
-		row, err := menuChoose(ctx, t, l, scr)
+		row, err := menuChoose(ctx, t, l, how)
 		if err != nil {
 			return nil, formQuitIsCancel(err)
 		}

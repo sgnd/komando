@@ -422,8 +422,8 @@ func newRoot() *cobra.Command {
 	pf.DurationVar(&g.timeout, "timeout", 0, "time limit per server (default: setting, 5m)")
 	pf.DurationVar(&g.connectTimeout, "connect-timeout", 0, "time to connect (default: setting, 15s)")
 	pf.IntVarP(&g.parallel, "parallel", "P", 0, "servers at once (default: setting, 10)")
-	pf.StringVar(&g.hostKeyPolicy, "host-key-policy", "", "accept-new|strict|off (default from settings)")
-	pf.IntVar(&g.maxOutput, "max-output", 0, "bytes kept per stream per server (256KiB)")
+	pf.StringVar(&g.hostKeyPolicy, "host-key-policy", "", "accept-new, strict or off: how a server's key is checked (default: setting, accept-new)")
+	pf.IntVar(&g.maxOutput, "max-output", 0, "bytes kept per stream per server (default: setting, 256KiB)")
 
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
 	root.AddGroup(
@@ -449,17 +449,31 @@ func newRoot() *cobra.Command {
 	addCompletion(root)
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
-	for _, c := range root.Commands() {
-		if c.Name() == "help" || c.Name() == "completion" {
-			c.GroupID = "meta"
-		}
-	}
+	labelBuiltinCmds(root)
 	return root
 }
 
+// labelBuiltinCmds files cobra's own help and completion commands under
+// "meta" and gives them komando's wording.
+func labelBuiltinCmds(root *cobra.Command) {
+	for _, c := range root.Commands() {
+		switch c.Name() {
+		case "help":
+			c.GroupID = "meta"
+			c.Short = "Show the help of a command"
+			c.Long = "Shows what a command does, its flags and examples: komando help db query\n(the same as komando db query --help)."
+		case "completion":
+			c.GroupID = "meta"
+			c.Short = "Print a tab-completion script for your shell"
+			c.Long = "Prints a script that lets Tab complete komando's commands, flags and names\nin bash, zsh, fish or PowerShell. Each one's help says how to load it:\nkomando completion zsh --help."
+		}
+	}
+}
+
 // rootLong is the top of `komando --help`.
-const rootLong = `komando is one safe command line for DevOps work: servers (SSH), databases,
-caches, storage, clusters and registries, for AI agents and humans alike.
+const rootLong = `komando is one safe command line for DevOps work: servers (SSH or WinRM),
+databases, caches, queues, storage, clusters and registries, for AI agents
+and humans alike.
 
 When piped (how agents call it) every command prints one JSON envelope on
 stdout; in a terminal it prints readable text (force with -o json|text):
@@ -494,7 +508,7 @@ func printFirstSteps(cmd *cobra.Command, args []string) error {
 }
 
 // firstSteps is what `komando` alone prints.
-const firstSteps = `komando: one safe command line for servers, databases, caches, storage and clusters.
+const firstSteps = `komando: one safe command line for servers, databases, caches, queues, storage, clusters and VPNs.
 
 First steps:
   komando import ssh-config        bring in the servers you already have

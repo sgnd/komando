@@ -36,7 +36,7 @@ komando already does this for bastions: `--via web1` opens SSH to
 `web1`, then connects to the database **from inside the komando process**. No
 local port is opened and no system route changes.
 
-The same idea is extended to VPNs: komando runs the VPN **inside its own
+VPNs work the same way: komando runs the VPN **inside its own
 process** (userspace), only for the connections that need it, then
 closes it when the command finishes.
 
@@ -57,15 +57,14 @@ The result:
 
 ## One concept: `--via`
 
-Today there are two flags for the same thing: `host --jump` and `conn --via`.
-Following the rule "no overlapping features", both are merged
-into **`--via`** for all targets. `--jump` is still accepted as an
-alias for one release.
+There used to be two flags for the same thing: `host --jump` and `conn --via`.
+Following the rule "no overlapping features", `--via` is now the flag for
+all targets.
 
 `--via` holds a chain of hops, from the laptop to the destination, separated by commas:
 
 ```bash
-komando host add db1 admin@10.0.0.5 --via bastion            # SSH bastion (already exists)
+komando host add db1 admin@10.0.0.5 --via bastion            # SSH bastion
 komando host add db1 admin@10.0.0.5 --via office-vpn         # through a VPN
 komando conn add app-db postgres://app@10.0.0.9/app --via office-vpn,bastion   # VPN, then bastion
 ```
@@ -80,8 +79,8 @@ Each step in the chain is a host (SSH bastion) or a VPN.
 ```bash
 komando vpn add vpn-a openvpn --config office.ovpn --user alice --password-ref secret:vpn-a
 komando vpn add vpn-b globalprotect --portal vpn.client.example.com --user alice --password-ref secret:vpn-b
-komando vpn add office wireguard --config ~/Downloads/office.conf     # already exists
-komando vpn add lab socks --address 127.0.0.1:1080                    # already exists
+komando vpn add office wireguard --config ~/Downloads/office.conf
+komando vpn add lab socks --address 127.0.0.1:1080
 
 komando host edit app --via vpn-a,bastion
 komando conn edit app-db --via vpn-b
@@ -99,6 +98,7 @@ komando test kind:vpn
 |---|---|---|---|---|
 | **Userspace** | `wireguard` ✅ | wireguard-go + netstack inside the process | no | yes, clashing subnets are safe |
 | | `socks` ✅ | an existing SOCKS5 proxy | no | yes |
+| | `proxy` | an existing HTTP proxy (CONNECT), such as a company proxy | no | yes |
 | | `tailscale` ✅ | `tsnet` (Tailscale/Headscale) inside the process | no | yes |
 | | `openvpn` (including Pritunl profiles) ✅ | komando's own OpenVPN client on the same userspace stack ([built-in.md](built-in.md)) | no | yes |
 | | `anyconnect` ✅ (CSTP and DTLS), `fortinet`, `globalprotect`, `f5`, `pulse` (experimental) | komando's own clients on the userspace stack; the experimental ones are used when `openconnect` is not installed, or with `KOMANDO_EXPERIMENTAL_VPN` | no | yes |
@@ -142,8 +142,8 @@ Owner decision (2026-11-02): **MFA is always done by a person.**
 ## Forwarding for apps on the laptop
 
 `--via` is only for komando's own connections. For other apps (TablePlus,
-DBeaver, a browser, `psql`), `komando tunnel` opens a port on the laptop. This
-is extended so it can use the **target name**, not an address:
+DBeaver, a browser, `psql`), `komando tunnel` opens a port on the laptop. It
+takes the target's name, not an address:
 
 ```bash
 komando tunnel start app-db                 # localhost:<port> → app-db, through its --via

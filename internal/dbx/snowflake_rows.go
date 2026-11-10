@@ -41,13 +41,13 @@ type sfRows struct {
 	handle string
 }
 
-func newSFRows(ctx context.Context, c *sfConnector, res *sfResult) (*sfRows, error) {
+func newSFRows(ctx context.Context, c *sfConnector, res *sfResult) *sfRows {
 	r := &sfRows{ctx: ctx, c: c, data: res.Data, parts: 1, handle: res.StatementHandle}
 	if res.Meta != nil {
 		r.cols = res.Meta.RowType
 		r.parts = max(1, len(res.Meta.PartitionInfo))
 	}
-	return r, nil
+	return r
 }
 
 func (r *sfRows) Columns() []string {
@@ -216,10 +216,9 @@ func sfColValue(v any) any {
 
 // sfError is a statement Snowflake refused or could not run.
 type sfError struct {
-	Status   int
-	Code     string
-	SQLState string
-	Msg      string
+	Status int
+	Code   string
+	Msg    string
 }
 
 func (e *sfError) Error() string {
@@ -237,7 +236,7 @@ func sfFailure(status int, res *sfResult) error {
 	if msg == "" {
 		msg = fmt.Sprintf("HTTP %d %s", status, http.StatusText(status))
 	}
-	return &sfError{Status: status, Code: res.Code, SQLState: res.SQLState, Msg: strings.TrimSuffix(msg, ".")}
+	return &sfError{Status: status, Code: res.Code, Msg: strings.TrimSuffix(msg, ".")}
 }
 
 // snowflakeErr maps a failed statement to an error code. Snowflake's
@@ -246,7 +245,7 @@ func sfFailure(status int, res *sfResult) error {
 func snowflakeErr(err error) error {
 	var e *sfError
 	if !errors.As(err, &e) {
-		return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando conn test CONN` to check the account and the login", "%v", err)
+		return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando conn test NAME` to check the account and the login", "%v", err)
 	}
 	low := strings.ToLower(e.Msg)
 	switch {

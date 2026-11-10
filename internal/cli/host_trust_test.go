@@ -243,7 +243,7 @@ func trustResults(t *testing.T, d map[string]any) map[string]map[string]any {
 
 // After a rebuild of a group (same addresses, new keys), `host trust
 // @group` refuses the changed keys and pins nothing twice; `--reset` then
-// replaces them all after ONE window that names every changed server.
+// replaces them all after one window that names every changed server.
 func TestHostTrustGroup(t *testing.T) {
 	addrs, keys := trustGroup(t, 3)
 	d := mustRun(t, "host", "trust", "@lab")

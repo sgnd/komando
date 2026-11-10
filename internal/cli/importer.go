@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"cmp"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -302,7 +303,7 @@ func vetImportConns(st *store.State, plan *importPlan, overwrite bool, skip func
 			res.Skipped = append(res.Skipped, importSkip{c.Name, r})
 			continue
 		}
-		if _, err := checkConn(st, c); err != nil {
+		if err := checkConn(st, c); err != nil {
 			res.Skipped = append(res.Skipped, importSkip{c.Name, toErr(err).Message})
 			continue
 		}
@@ -584,20 +585,11 @@ func importMycnf(path string) (*importPlan, error) {
 		}
 		db := kv["database"]
 		suffix := strings.TrimPrefix(strings.TrimPrefix(sec, "client"), "mysql")
-		name := p.name(firstNonEmpty(strings.Trim(suffix, "-_"), db, "mysql"))
+		name := p.name(cmp.Or(strings.Trim(suffix, "-_"), db, "mysql"))
 		u := url.URL{Scheme: "mysql", User: user, Host: host + ":" + port, Path: "/" + db}
 		p.addConn(name, u.String(), "["+sec+"]")
 	}
 	return p, nil
-}
-
-func firstNonEmpty(v ...string) string {
-	for _, s := range v {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
 }
 
 // importEnv picks the values of a .env file that are conn URLs

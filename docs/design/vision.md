@@ -33,7 +33,8 @@ friendly, and so on) still apply to everything.
 
 ## Review of the current state
 
-As of `main` after milestone M7 and the built-in work ([built-in.md](built-in.md)).
+As of `main` after milestone M7, the built-in work ([built-in.md](built-in.md))
+and the kinds added since (`komando conn kinds` lists them all).
 What is still open is listed in [built-in.md](built-in.md#where-it-stands-2026-11-03)
 (programs not yet replaced) and [gap/README.md](gap/README.md) (features
 compared with other tools).
@@ -44,11 +45,14 @@ compared with other tools).
 | Devops modules on top of SSH: svc, logs, docker, pkg, cron, user, net, facts, `recipe` | ✅ mature |
 | Safety layer: policy, protected, dry-run, host key check, audit, JSON envelope + exit codes | ✅ mature |
 | `conn` + `db` (PostgreSQL, MySQL, SQLite; query/schema/explain/dump/restore/shell; `audit_sql`) | ✅ done, dump/restore/shell built in |
-| `cache` (Redis, Valkey) | ✅ done |
-| `storage` (S3, FTP/FTPS, SFTP: ls/download/upload/rm/link/sync) | ✅ done |
+| `db` for SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB | ✅ built, each without dump and restore ([sqlserver.md](sqlserver.md), [oracle.md](oracle.md), [clickhouse.md](clickhouse.md), [snowflake.md](snowflake.md), [bigquery.md](bigquery.md)) |
+| `cache` (Redis, Valkey, memcached) | ✅ done |
+| `storage` (S3, GCS, Azure Blob, WebDAV, FTP/FTPS, SFTP, SMB: ls/cat/download/upload/rm/link, and `komando sync`) | ✅ done |
+| `queue` (Kafka, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub) | ✅ done ([queue.md](queue.md)) |
+| Windows servers over SSH or WinRM | ✅ built, not yet run on a real Windows server ([windows.md](windows.md)) |
 | `cluster` (Kubernetes, Docker Swarm) | ✅ done, `cluster run`/exec/forward built in (no kubectl) |
 | `registry` (ls, inspect, rm, copy) | ✅ done |
-| `vpn` (WireGuard, OpenVPN/Pritunl, AnyConnect, Tailscale, SOCKS, OS VPN; Fortinet, GlobalProtect, F5, Pulse/Ivanti experimental) | ✅ done, built in |
+| `vpn` (WireGuard, OpenVPN/Pritunl, AnyConnect, Tailscale, L2TP/IPsec, Cisco-style IPsec, IKEv2, SOCKS, HTTP proxy, OS VPN; Fortinet, GlobalProtect, F5, Pulse/Ivanti experimental) | ✅ done, built in |
 | Secret refs (`vault:`, `aws-sm:`, `gcp-sm:`, `azure-kv:`, `op://` through 1Password Connect, `bw://`, `kdbx:`) | ✅ done, built in |
 | One inventory: universal selectors, `komando list`, `komando test` | ✅ done |
 | Migration | ✅ `import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, aws, dbeaver, komando, csv) and `export` |
@@ -80,14 +84,15 @@ Command names are always a **category**, not a product name.
 
 | Command | Family | Kind | Status |
 |---|---|---|---|
-| `exec`, `fs`, `cp`, `svc`, `docker`, ... | host | SSH (Linux) | ✅ |
-| `db` | sql | postgres, mysql/mariadb, sqlite; later: mssql, clickhouse | ✅ |
-| `cache` | kv | redis, valkey, keydb, dragonfly; later: memcached | ✅ |
-| `storage` | object/file | s3 (AWS, MinIO, R2, Spaces, Wasabi, B2), ftp/ftps, sftp; later: gcs, azblob, webdav | ✅ |
+| `exec`, `fs`, `cp`, `svc`, `docker`, ... | host | SSH (Linux); Windows over SSH or WinRM ([windows.md](windows.md)) | ✅ |
+| `db` | sql | postgres, mysql/mariadb, sqlite, sqlserver, oracle, clickhouse, snowflake, bigquery, mongodb | ✅ |
+| `cache` | kv | redis, valkey, keydb, dragonfly, memcached | ✅ |
+| `storage` | object/file | s3 (AWS, MinIO, R2, Spaces, Wasabi, B2), gcs, azblob, webdav, ftp/ftps, sftp, smb | ✅ |
+| `queue` | queue | kafka, rabbitmq, nats, sqs, pubsub | ✅ ([queue.md](queue.md)) |
 | `cluster` | orchestrator | k8s (k3s, EKS, GKE, AKS, kind), swarm; later: nomad | ✅ |
-| `registry` | oci | Docker Hub, GHCR, GitLab, Harbor, registry:2; ECR needs a refreshed token (see gap) | ✅ |
+| `registry` | oci | Docker Hub, GHCR, GitLab, Harbor, ECR, ACR, Artifact Registry, registry:2 | ✅ |
 | `secret` | secret | local vault; external refs: `vault:`, `aws-sm:`, `gcp-sm:`, `azure-kv:`, `op://` (1Password Connect), `bw://`, `kdbx:` | ✅ |
-| `vpn` | path | wireguard, socks, system, tailscale, OpenVPN/Pritunl, AnyConnect, Fortinet/GlobalProtect/F5/Pulse (experimental), L2TP/IPsec, Cisco-style IPsec (XAUTH), IKEv2. komando connects the VPN itself, with its own clients, when `--via` needs it | ✅ ([network.md](network.md), [built-in.md](built-in.md)) |
+| `vpn` | path | wireguard, socks, proxy, system, tailscale, OpenVPN/Pritunl, AnyConnect, Fortinet/GlobalProtect/F5/Pulse (experimental), L2TP/IPsec, Cisco-style IPsec (XAUTH), IKEv2. komando connects the VPN itself, with its own clients, when `--via` needs it | ✅ ([network.md](network.md), [built-in.md](built-in.md)) |
 
 Decisions (approved 2026-11-02):
 
@@ -96,15 +101,17 @@ Decisions (approved 2026-11-02):
   aliases (`s3`, `redis`, `sql`).
 
 - **`s3` is renamed to `storage`.** This name covers S3 and FTP with the same
-  verbs (`ls/get/put/rm/sync`). Users do not need to know the protocol.
+  verbs (`ls/download/upload/rm`, and `komando sync`). Users do not need to
+  know the protocol.
 - **SFTP stays under host** (`cp`, `fs`). Accounts that only have SFTP without a shell
   (for example hosting) are registered as an `sftp://` conn in `storage`.
 - **Swarm goes into `cluster`, not `docker`.** `docker` stays for a single host.
   `cluster` is for orchestrators. Verbs that exist in every engine sit directly under
   `cluster` and work on any cluster, because the conn already knows its kind
-  (`komando cluster status prod`, `komando cluster logs prod api`). Things that
-  exist in only one engine go into that engine's subcommand
-  (`komando cluster k8s ...`, `komando cluster swarm ...`).
+  (`komando cluster status prod`, `komando cluster logs prod api`). A feature
+  only one engine has sits under `cluster` too and says so on the other
+  engine (`komando cluster helm` is for Kubernetes). `k8s` and `swarm` are
+  other names for `cluster`, not subcommands.
 
 ### The same verbs in every family
 
@@ -117,7 +124,7 @@ is a summary.
 | `get` / `show` | read one item | read |
 | `schema` / `info` / `status` | structure and state | read |
 | `logs` | logs (pod, service) | read |
-| `put` / `set` / `apply` | change, `--dry-run` required first | write |
+| `upload` / `set` / `apply` | change; try it with `--dry-run` first | write |
 | `rm` / `delete` | remove | destructive |
 | `dump` / `restore` / `sync` | back up, move data; through `job` if it takes long | write |
 | `run` | that family's raw command (SQL, redis cmd), classified | per classification |
@@ -147,7 +154,7 @@ A new family counts as done when all of these points are met:
 
 ```
 komando import SOURCE [FILE] [--dry-run] [--group G]
-komando export [--to FILE]          # the whole inventory, without secrets (or encrypted)
+komando export [--to FILE]          # the whole inventory, without secrets
 ```
 
 | SOURCE | Reads | Result |
@@ -166,7 +173,7 @@ komando export [--to FILE]          # the whole inventory, without secrets (or e
 
 The rules: imported secrets **always go into the vault**, `--dry-run` shows
 what will be created, and existing entries are not overwritten except with
-`--overwrite`. `host import` keeps working as an alias.
+`--overwrite`. `host import` keeps working.
 
 ## Technical rules
 
@@ -180,10 +187,11 @@ what will be created, and existing entries are not overwritten except with
   is not limited: features needed day to day matter more. Still
   choose reasonable dependencies (a light client when there is one) and no plugin
   system.
-- **No pool and no daemon.** One connection per command. Tunnels and jobs
-  stay the only background processes.
+- **No pool and no daemon.** One connection per command. Tunnels, VPN
+  sessions, kept logins and jobs are the only background processes
+  (`komando status` lists them).
 - Integration tests per family in CI use service containers (postgres, redis,
-  minio, k3s, registry:2).
+  an S3 server, k3s, registry:2 and the rest of `test/e2e/compose.yml`).
 
 ## Roadmap
 
@@ -203,9 +211,9 @@ Next: v1.0.
 | **v1.0** | Contract frozen (`schema` version 1), every family passes the checklist, complete documentation in English (the project is English-only; the Indonesian translations were removed) | all |
 
 Candidates after v1.0, judged by the criteria below: DNS (Cloudflare,
-Route 53), message queues (RabbitMQ, Kafka, NATS), search (Elasticsearch,
-OpenSearch), metrics queries (Prometheus), certificates/ACME, cloud VMs
-(DigitalOcean, Hetzner, AWS EC2), and mongodb.
+Route 53), search (Elasticsearch, OpenSearch), metrics queries
+(Prometheus), certificates/ACME and cloud VMs (DigitalOcean, Hetzner, AWS
+EC2). Message queues and MongoDB were on this list and are built.
 
 ## Criteria for adding a family
 
@@ -235,7 +243,7 @@ A new family is only added when **all** of these are met:
 | # | Question | Decision |
 |---|---|---|
 | 1 | `storage` or `s3`? | ✅ `storage`. All command names use human words; product names become aliases. |
-| 2 | One `cluster`, or separate `k8s`/`swarm`? | ✅ One `cluster`. General verbs sit directly under it; engine-specific features in `cluster k8s ...` / `cluster swarm ...`. |
+| 2 | One `cluster`, or separate `k8s`/`swarm`? | ✅ One `cluster`. General verbs sit directly under it; a feature only one engine has sits there too and says so on the other (`cluster helm`). |
 | 3 | Does `@prod` pick hosts and conns together? | ✅ Yes, everything. The full rules are in [ux.md](ux.md#2-targets-and-selectors-apply-to-hosts-and-conns). |
 | 4 | Binary budget? | ✅ One binary, pure Go, **no size limit** (the 40 MB limit was removed). |
 | 5 | TUI? | ✅ No. Pure CLI. One exception (2026-11-08): `komando` alone opens a small menu for a person at a terminal. It only runs ordinary commands and is never shown to agents, scripts or pipes. Dashboards, panes and full-screen apps stay out. |
@@ -243,6 +251,7 @@ A new family is only added when **all** of these are met:
 | 7 | Own implementation or a vendor library? Open source? | ✅ Own implementation where no suitable open library exists, and fully open source: no closed or prebuilt components (2026-11-03). |
 | 8 | Who is komando for? | ✅ Everyone (2026-11-09). The open-source CLI serves two equal ways of use: **a person** working interactively (the menu, questions one step at a time) and **an AI agent** giving direct commands (flags and JSON, never a question). Every CLI feature works both ways. **Teams** (shared inventory and rules, roles and permissions (RBAC), sessions that say who is acting, and the like) are served only by the komando app, not by the open-source CLI. |
 | 9 | How does an AI agent reach a server with a two-factor login? | ✅ A person runs `komando login HOST` once and answers the code; komando keeps that login for some hours (`login_for`, 8h) and the agent's commands use it, like `vpn up` (2026-11-09). |
+| 10 | Should `komando update` check a release's signed build provenance itself? | Open. Options and cost in [update-provenance.md](update-provenance.md). |
 
 ### Example for number 3
 

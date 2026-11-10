@@ -99,10 +99,9 @@ services:
     image: mongo:7.0.45
     command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]  # the lab is crowded; a small cache is enough
     environment: { MONGO_INITDB_ROOT_USERNAME: root, MONGO_INITDB_ROOT_PASSWORD: mongopass }
-    # The image creates the root user with a temporary mongod, stops it and
-    # starts the real one. Now and then the real one finds port 27017 still
-    # taken and exits with code 48. The restart keeps /data/db, so the
-    # entrypoint skips the temporary mongod and the port is free.
+    # The image's temporary mongod (it creates the root user) sometimes still
+    # holds port 27017 when the real one starts, which then exits with code 48.
+    # A restart finds /data/db filled and skips the temporary mongod.
     restart: on-failure:3
     networks: [private]
   kafka:
@@ -151,13 +150,13 @@ services:
   oracle:
     # Oracle Database Free (gvenzl's image has amd64 and arm64 builds); it
     # needs about 2 GB of memory and a minute or two to open FREEPDB1
-    image: ${E2E_ORACLE_IMAGE:-gvenzl/oracle-free:23-slim}
+    image: gvenzl/oracle-free:23-slim
     environment: { ORACLE_PASSWORD: "Oracle-pass-1" }
     networks: [private]
   clickhouse:
     # komando speaks ClickHouse's HTTP interface (8123); the user may
     # manage users with SQL (access management)
-    image: ${E2E_CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:24.8-alpine}
+    image: clickhouse/clickhouse-server:24.8-alpine
     environment: { CLICKHOUSE_USER: admin, CLICKHOUSE_PASSWORD: "Admin-pass-1", CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1" }
     ulimits: { nofile: { soft: 262144, hard: 262144 } }
     networks: [private]

@@ -1,25 +1,17 @@
 # Keeping komando maintainable
 
-komando grew to about 68,000 lines of Go (plus 20,000 lines of tests) in
-its first week. Most of it is written with AI agents. That is fast, but
+komando is written mostly with AI agents. That is fast, but
 nobody holds the whole program in their head, so the code itself must make
 mistakes hard: small pieces, rules that tests check, and outputs that
 cannot change by accident. This page says what is in place, why, and what
 comes next.
 
-## Where things stood (2026-11-07)
+## Why these rules
 
-- `internal/cli` held 40,000 lines: 59% of the program, about 225
-  commands in one Go package. Some functions were 200–270 lines long,
-  seven files over 1,000 lines.
-- The packages under it (`policy`, `driver`, `openvpn`, `cloud`, ...)
-  are small and well tested (75–92%).
 - The safety checks (`guard`, `guardConns`, `guardProtection`,
   `guardSafety`, `guardDocker`, `guardBody`) are called by hand in each
   command. Nothing said which commands change things, so a new command
-  that forgot its check would not be noticed.
-- Weakly tested: `storex` 7%, `ipsec` 20%, `netx` 27%, `dbx` 34%,
-  `cachex` 38%, `cli` 55%.
+  that forgot its check would not have been noticed.
 - The VPN end-to-end tests ran only when someone ran them by hand.
 
 ## Rules now checked by tests
@@ -43,9 +35,6 @@ it before they run a command.
   ways, and behaviour must not change. The kinds table makes the gap
   visible first; merging can follow, one check at a time, with the shape
   test and the e2e tests as a net.
-- **Removing the line numbers in `docs/design/gap/`.** Those reports are
-  a snapshot of commit `4784fc9`, and the line numbers are evidence for
-  that commit. They are read as such, not as pointers into today's code.
 
 ## Next steps
 

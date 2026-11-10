@@ -119,4 +119,4 @@ else
   echo "  komando guide install"
 fi
 echo "Tab completion of commands and server names: $completion"
-echo "Help: komando (a menu), komando --help, or https://github.com/$REPO#first-steps"
+echo "Help: komando (a menu), komando --help, or https://github.com/$REPO#your-first-five-minutes"

@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Running commands, files, transfers, sync, jobs and tunnels behave like the
-# native tools (ssh, scp, rsync, sed -i, nohup): fixes from the QA round.
+# native tools (ssh, scp, rsync, sed -i, nohup).
 R=/tmp/t-e2erun
 L="$TMP/e2erun"
 rm -rf "$L"; mkdir -p "$L/site/sub"

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -191,7 +192,7 @@ func (r *kctlRun) runPod() error {
 	}
 	return r.postObject(map[string]any{"apiVersion": "v1", "kind": "Pod",
 		"metadata": map[string]any{"name": name, "namespace": r.ns(), "labels": labels},
-		"spec":     map[string]any{"restartPolicy": firstNonEmpty(r.a.val("restart"), "Always"), "containers": []any{c}}})
+		"spec":     map[string]any{"restartPolicy": cmp.Or(r.a.val("restart"), "Always"), "containers": []any{c}}})
 }
 
 func (r *kctlRun) exec() error {
@@ -219,7 +220,7 @@ func (r *kctlRun) debug() error {
 		return kfail("debug needs POD --image=IMAGE (and optionally --target=CONTAINER)")
 	}
 	pod := r.a.pos[0]
-	name := firstNonEmpty(r.a.val("container"), fmt.Sprintf("debugger-%d", time.Now().Unix()%100000))
+	name := cmp.Or(r.a.val("container"), fmt.Sprintf("debugger-%d", time.Now().Unix()%100000))
 	ec := map[string]any{"name": name, "image": r.a.val("image"), "stdin": true, "tty": true}
 	if t := r.a.val("target"); t != "" {
 		ec["targetContainerName"] = t

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -65,7 +66,7 @@ func (r *kctlRun) apply(diff bool) error {
 			}
 			continue
 		}
-		fmt.Fprintf(&r.stdout, "%s %s%s\n", o.Object, firstNonEmpty(o.Action, "configured"), r.dryNote())
+		fmt.Fprintf(&r.stdout, "%s %s%s\n", o.Object, cmp.Or(o.Action, "configured"), r.dryNote())
 	}
 	if diff {
 		for _, o := range a.Objects {
@@ -86,7 +87,7 @@ func (r *kctlRun) postObject(obj map[string]any) error {
 	}
 	space := ""
 	if rt.Namespaced {
-		space = firstNonEmpty(meta(obj, "namespace"), r.ns())
+		space = cmp.Or(meta(obj, "namespace"), r.ns())
 	}
 	if _, err := r.k.Do(r.ctx, "POST", rt.ObjectPath(space, ""), r.dryQuery(), b, "application/json"); err != nil {
 		return err
@@ -156,7 +157,7 @@ func (r *kctlRun) create(sub string) error {
 			for k, v := range bin {
 				enc[k] = v
 			}
-			obj["type"], obj["data"] = firstNonEmpty(r.a.val("type"), "Opaque"), enc
+			obj["type"], obj["data"] = cmp.Or(r.a.val("type"), "Opaque"), enc
 		case "tls":
 			crt, err1 := readLocalFile(r.a.val("cert"))
 			key, err2 := readLocalFile(r.a.val("key"))
@@ -169,7 +170,7 @@ func (r *kctlRun) create(sub string) error {
 			obj["type"] = "kubernetes.io/tls"
 			obj["data"] = map[string]any{"tls.crt": base64.StdEncoding.EncodeToString(crt), "tls.key": base64.StdEncoding.EncodeToString(key)}
 		case "docker-registry":
-			server := firstNonEmpty(r.a.val("docker-server"), "https://index.docker.io/v1/")
+			server := cmp.Or(r.a.val("docker-server"), "https://index.docker.io/v1/")
 			auth := base64.StdEncoding.EncodeToString([]byte(r.a.val("docker-username") + ":" + r.a.val("docker-password")))
 			cfg, _ := json.Marshal(map[string]any{"auths": map[string]any{server: map[string]any{"username": r.a.val("docker-username"),
 				"password": r.a.val("docker-password"), "email": r.a.val("docker-email"), "auth": auth}}})
@@ -184,7 +185,7 @@ func (r *kctlRun) create(sub string) error {
 		if image == "" {
 			return kfail("required flag(s) \"image\" not set")
 		}
-		replicas, _ := strconv.Atoi(firstNonEmpty(r.a.val("replicas"), "1"))
+		replicas, _ := strconv.Atoi(cmp.Or(r.a.val("replicas"), "1"))
 		labels := map[string]any{"app": name}
 		c := map[string]any{"name": containerName(image), "image": image}
 		if p := r.a.val("port"); p != "" {
@@ -245,8 +246,8 @@ func (r *kctlRun) create(sub string) error {
 		for _, p := range r.a.vals["tcp"] {
 			port, target, _ := strings.Cut(p, ":")
 			pn, _ := strconv.Atoi(port)
-			tn, _ := strconv.Atoi(firstNonEmpty(target, port))
-			ports = append(ports, map[string]any{"name": port + "-" + firstNonEmpty(target, port), "port": pn, "targetPort": tn, "protocol": "TCP"})
+			tn, _ := strconv.Atoi(cmp.Or(target, port))
+			ports = append(ports, map[string]any{"name": port + "-" + cmp.Or(target, port), "port": pn, "targetPort": tn, "protocol": "TCP"})
 		}
 		st := map[string]string{"clusterip": "ClusterIP", "nodeport": "NodePort", "loadbalancer": "LoadBalancer"}[typ]
 		if st == "" {
@@ -408,7 +409,7 @@ func (r *kctlRun) replace() error {
 		}
 		space := ""
 		if rt.Namespaced {
-			space = firstNonEmpty(d.Namespace, r.ns())
+			space = cmp.Or(d.Namespace, r.ns())
 		}
 		var obj, cur map[string]any
 		json.Unmarshal(d.JSON, &obj)
@@ -462,7 +463,7 @@ func (r *kctlRun) delete() error {
 				if n := r.a.val("namespace"); n != "" && d.Namespace != "" && n != d.Namespace {
 					return kfail("the namespace from the provided object %q does not match the namespace %q. You must pass '--namespace=%s' to perform this operation.", d.Namespace, n, d.Namespace)
 				}
-				space = firstNonEmpty(d.Namespace, r.ns())
+				space = cmp.Or(d.Namespace, r.ns())
 			}
 			targets = append(targets, target{rt, d.Name, space})
 		}
@@ -482,7 +483,7 @@ func (r *kctlRun) delete() error {
 				}
 				for _, o := range objs {
 					// with -A each object is in its own namespace
-					targets = append(targets, target{kr.r, meta(o, "name"), firstNonEmpty(meta(o, "namespace"), r.space(kr.r))})
+					targets = append(targets, target{kr.r, meta(o, "name"), cmp.Or(meta(o, "namespace"), r.space(kr.r))})
 				}
 				if len(objs) == 0 {
 					r.stderr.WriteString("No resources found\n")
@@ -616,7 +617,7 @@ func (r *kctlRun) labelAnnotate() error {
 			}
 			body, _ := json.Marshal(map[string]any{"metadata": map[string]any{field: set}})
 			n := meta(o, "name")
-			if _, err := r.k.Do(r.ctx, "PATCH", kr.r.ObjectPath(firstNonEmpty(meta(o, "namespace"), r.space(kr.r)), n), r.dryQuery(), body, "application/merge-patch+json"); err != nil {
+			if _, err := r.k.Do(r.ctx, "PATCH", kr.r.ObjectPath(cmp.Or(meta(o, "namespace"), r.space(kr.r)), n), r.dryQuery(), body, "application/merge-patch+json"); err != nil {
 				return err
 			}
 			fmt.Fprintf(&r.stdout, "%s/%s %s%s\n", kindQual(kr.r), n, map[string]string{"labels": "labeled", "annotations": "annotated"}[field], r.dryNote())

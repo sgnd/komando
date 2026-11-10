@@ -3,6 +3,7 @@ package sslvpn
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"encoding/binary"
@@ -34,9 +35,7 @@ type acForm struct {
 		Inner []byte `xml:",innerxml"`
 	} `xml:"opaque"`
 	Auth struct {
-		ID      string `xml:"id,attr"`
-		Message string `xml:"message"`
-		Error   *struct {
+		Error *struct {
 			Text string `xml:",chardata"`
 		} `xml:"error"`
 		Form struct {
@@ -49,10 +48,8 @@ type acForm struct {
 			} `xml:"input"`
 			Selects []struct {
 				Name    string `xml:"name,attr"`
-				Label   string `xml:"label,attr"`
 				Options []struct {
 					Value string `xml:"value,attr"`
-					Text  string `xml:",chardata"`
 				} `xml:"option"`
 			} `xml:"select"`
 		} `xml:"form"`
@@ -73,15 +70,6 @@ func xmlEscape(s string) string {
 	var b bytes.Buffer
 	xml.EscapeText(&b, []byte(s))
 	return b.String()
-}
-
-// AnyConnect logs in and opens the tunnel.
-func AnyConnect(ctx context.Context, o Options) (Tunnel, error) {
-	cookie, err := AnyConnectLogin(ctx, o)
-	if err != nil {
-		return nil, err
-	}
-	return AnyConnectTunnel(ctx, o, cookie)
 }
 
 // AnyConnectLogin logs in (asking o.Prompt for what a person must answer)
@@ -159,14 +147,14 @@ func AnyConnectLogin(ctx context.Context, o Options) (string, error) {
 				v = o.User
 			case in.Type == "password" && sent[in.Name]:
 				// the same field again: the answer was wrong
-				return "", &LoginError{Msg: "the VPN refused the login (it asks for " + firstNonEmptyS(in.Label, in.Name) + " again)"}
+				return "", &LoginError{Msg: "the VPN refused the login (it asks for " + cmp.Or(in.Label, in.Name) + " again)"}
 			case in.Type == "password" && !usedPassword:
 				v, usedPassword = o.Password, true
 			case in.Type == "password" || in.Type == "text":
 				if o.Prompt == nil {
 					return "", ErrNeedsPerson
 				}
-				if v, err = o.Prompt(firstNonEmptyS(in.Label, in.Name), in.Type == "password"); err != nil {
+				if v, err = o.Prompt(cmp.Or(in.Label, in.Name), in.Type == "password"); err != nil {
 					return "", err
 				}
 			}
@@ -204,15 +192,6 @@ func samePortal(p url.URL, a *url.URL) bool {
 		return u.Port()
 	}
 	return a.Scheme == "https" && strings.EqualFold(a.Hostname(), p.Hostname()) && port(a) == port(&p)
-}
-
-func firstNonEmptyS(v ...string) string {
-	for _, s := range v {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
 }
 
 type acTun struct {

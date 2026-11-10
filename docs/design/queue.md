@@ -4,17 +4,18 @@ The big goal and the roadmap for all families are in [vision.md](vision.md);
 the rules for commands and flags are in [ux.md](ux.md). The user guide is
 [docs/features/queues.md](../features/queues.md).
 
-Status: **Apache Kafka done** (and anything that speaks the Kafka protocol:
-Redpanda, Amazon MSK, Confluent Cloud, Aiven, WarpStream), **RabbitMQ
-done** (AMQP 0-9-1, [below](#rabbitmq)), **NATS JetStream done**
-([below](#nats-jetstream)), **Amazon SQS done** ([below](#amazon-sqs)),
-**Google Cloud Pub/Sub done** ([below](#google-cloud-pubsub)).
+Status: built for Apache Kafka (and anything that speaks the Kafka protocol:
+Redpanda, Amazon MSK, Confluent Cloud, Aiven, WarpStream), RabbitMQ
+(AMQP 0-9-1, [below](#rabbitmq)), NATS JetStream
+([below](#nats-jetstream)), Amazon SQS ([below](#amazon-sqs)) and
+Google Cloud Pub/Sub ([below](#google-cloud-pubsub)).
 
 ## One family, a human word
 
 The command is `komando queue`, a human word like `cache`, `storage` and
-`cluster`. Product names only appear as URL schemes (`kafka://`) and as an
-alias (`komando kafka` is `komando queue`). Every engine gets the same verbs
+`cluster`. Product names only appear as URL schemes (`kafka://`) and as
+aliases (`komando kafka`, `rabbitmq`, `nats`, `sqs` and `pubsub` are all
+`komando queue`). Every engine gets the same verbs
 where they make sense; a verb an engine cannot do answers `NOT_SUPPORTED`
 with a hint, never a different meaning.
 
@@ -24,8 +25,9 @@ docs say "topic" for Kafka and "queue" for the family; the JSON field is
 NATS, and `topic` or `subscription` for Pub/Sub. The
 shared result types (queuex `Info`, `Topic`, `TopicDetail`, `Group`,
 `GroupLag`, `Received`, `Sent`, `Created`) embed one part per engine
-(`KafkaInfo`, `RabbitInfo`, `NatsInfo`, `SqsInfo`, `PubsubInfo`, ...), so each engine's JSON holds
-only its own fields, and `info` says `"engine"`. Two engines' parts sit at
+(`KafkaInfo`, `RabbitInfo`, `NatsInfo`, `SqsInfo`, `PubsubInfo`, ...), so
+each engine's JSON holds only its own fields, and `info` says `"engine"`.
+Two engines' parts sit at
 the same level of the JSON, so a field name one engine uses with another
 meaning gets a name of its own (NATS: `consumer_count`, `num_replicas`,
 `consumer_info`, `time`; SQS: `account_id`, `created_at`, `sent_at`;

@@ -6,15 +6,15 @@ One page per feature, task by task. AI agents: run `komando guide`.
 
 New to komando? Follow these steps in order:
 
-1. **Install it**: see [Install](../../README.md#install).
-2. **Type `komando`**: a menu opens. Choose **Add**, then **Server**, and
+1. Install it: see [Install](../../README.md#install).
+2. Type `komando`: a menu opens. Choose **Add**, then **Server**, and
    answer one question at a time ([The menu](commands.md#the-menu-for-people)).
    Prefer typing? `komando host add web1 ubuntu@203.0.113.10`
    ([Servers](servers.md)). Already have a list? [Import it](import.md).
-3. **Run your first command**: `komando test web1`, then
+3. Run your first command: `komando test web1`, then
    `komando facts web1` ([Health and network checks](health.md)). In the
    menu, **All features** asks for any command step by step.
-4. **Connect your AI agent**: `komando guide install`
+4. Connect your AI agent: `komando guide install`
    ([Give it to your AI agent](../../README.md#give-it-to-your-ai-agent)).
 
 Unsure about a word? See the [glossary](glossary.md).
@@ -36,10 +36,9 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Databases](databases.md) | query, back up and restore PostgreSQL and MySQL/MariaDB; query and back up SQLite; query SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB | `conn`, `db` |
 | [Caches](caches.md) | read and change Redis, Valkey and memcached | `cache` |
 | [Queues](queues.md) | Kafka topics, RabbitMQ queues, NATS JetStream streams, Amazon SQS queues and Google Cloud Pub/Sub topics: list, peek, lag, send | `queue` |
-| [Storage](storage.md) | browse, download, upload and share files in S3 buckets and on FTPS/SFTP/FTP servers | `storage`, `upload`, `download`, `sync` |
 | [Storage](storage.md) | browse, download, upload and share files in S3, Google Cloud and Azure buckets, on WebDAV/FTPS/SFTP/FTP servers and Windows (SMB) shares | `storage`, `upload`, `download`, `sync` |
 | [Clusters](cluster.md) | Kubernetes and Docker Swarm: status, list, logs, apply, restart, scale | `cluster` |
-| [Container registries](registry.md) | list repositories and tags, inspect images, delete old ones | `registry` |
+| [Container registries](registry.md) | list repositories and tags, inspect and copy images, delete old ones | `registry` |
 | [Rotate keys and passwords](rotate.md) | change a key or a password everywhere, in order; when someone leaves | `key`, `secret`, `db user`, `audit` |
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit`, `ssh-gate` |
 | [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit verify` |

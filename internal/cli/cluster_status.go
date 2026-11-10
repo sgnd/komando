@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/url"
@@ -177,7 +178,7 @@ func rolloutStatus(ctx context.Context, t clusterTarget, typ, name, ns string, w
 		if !oneOf(r.KindName(), "Deployment", "StatefulSet", "DaemonSet") {
 			return nil, out.Usage("rollout status works on deployments, statefulsets and daemonsets")
 		}
-		return waitRollout(ctx, k, r, firstNonEmpty(ns, k.Namespace), name, d)
+		return waitRollout(ctx, k, r, cmp.Or(ns, k.Namespace), name, d)
 	})
 }
 
@@ -195,7 +196,7 @@ func podTrouble(st map[string]any) string {
 			}
 		}
 		if t, ok := state["terminated"].(map[string]any); ok && str(t["reason"]) != "Completed" && m["ready"] != true {
-			return str(m["name"]) + ": " + firstNonEmpty(str(t["reason"]), "terminated")
+			return str(m["name"]) + ": " + cmp.Or(str(t["reason"]), "terminated")
 		}
 	}
 	return ""
@@ -302,7 +303,7 @@ func summarize(kind string, o map[string]any) map[string]any {
 		ing, _ := lb["ingress"].([]any)
 		for _, i := range ing {
 			im, _ := i.(map[string]any)
-			addrs = append(addrs, firstNonEmpty(str(im["ip"]), str(im["hostname"])))
+			addrs = append(addrs, cmp.Or(str(im["ip"]), str(im["hostname"])))
 		}
 		row["address"] = strings.Join(addrs, ",")
 	case "PersistentVolumeClaim":
@@ -364,7 +365,7 @@ func jobState(st map[string]any) string {
 // how often, and when last.
 func eventRow(o map[string]any) map[string]any {
 	inv, _ := o["involvedObject"].(map[string]any)
-	last := firstNonEmpty(str(o["lastTimestamp"]), str(o["eventTime"]), str(o["firstTimestamp"]))
+	last := cmp.Or(str(o["lastTimestamp"]), str(o["eventTime"]), str(o["firstTimestamp"]))
 	if m, ok := o["metadata"].(map[string]any); ok && last == "" {
 		last = str(m["creationTimestamp"])
 	}

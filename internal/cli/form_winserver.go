@@ -43,7 +43,7 @@ func serverWinRM(a formAnswers) bool { return a["os"] == "windows" && a["transpo
 // checked is the default; the other two say what they give up.
 func serverWinRMTLSQ() formQ {
 	return formQ{key: "winrmtls", label: "Encryption", ask: "How does WinRM encrypt the connection?",
-		help: "Pick the first unless komando test says the certificate is not trusted. A certificate from your company's CA: keep the first and see docs/features/windows.md.",
+		help: "Pick the first unless komando test says the certificate is not trusted. A certificate from your company's CA: keep the first and see " + releaseSite + "/blob/main/docs/features/windows.md.",
 		show: serverWinRM,
 		def:  func(*store.State, formAnswers) string { return "" },
 		choices: func(*store.State, formAnswers) []menuRow {

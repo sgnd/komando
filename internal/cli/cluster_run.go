@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -78,7 +79,7 @@ func clusterRmCmd() *cobra.Command {
 				if g.dryRun {
 					q.Set("dryRun", "All")
 				}
-				space := firstNonEmpty(ns, k.Namespace)
+				space := cmp.Or(ns, k.Namespace)
 				if _, err := k.Do(ctx, "DELETE", r.ObjectPath(space, name), q, nil, ""); err != nil {
 					return nil, err
 				}
@@ -364,10 +365,10 @@ func kubectlFailure(code int, stderr string) *out.Error {
 	}
 	if strings.Contains(stderr, "(NotFound)") || strings.Contains(stderr, "not found") {
 		msg = strings.TrimPrefix(msg, "Error from server (NotFound): ")
-		return &out.Error{Code: "K8S_NOT_FOUND", Message: firstNonEmpty(msg, "not found"), Exit: out.ExitNotFound,
+		return &out.Error{Code: "K8S_NOT_FOUND", Message: cmp.Or(msg, "not found"), Exit: out.ExitNotFound,
 			Hint: "list what exists with `komando cluster ls TARGET TYPE`"}
 	}
-	return &out.Error{Code: "FAILED", Message: "kubectl exited " + strconv.Itoa(code) + firstNonEmpty(": "+firstLine(msg), ""), Exit: out.ExitRemote,
+	return &out.Error{Code: "FAILED", Message: "kubectl exited " + strconv.Itoa(code) + cmp.Or(": "+firstLine(msg), ""), Exit: out.ExitRemote,
 		Hint: "read stderr for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems"}
 }
 

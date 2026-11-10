@@ -49,8 +49,8 @@ func TestClassifySQLLexerMatchesServer(t *testing.T) {
 	}
 }
 
-// TestClassifySQLReviewFindings2 lists SQL that once ran with fewer flags
-// than it needs (review of 2026-11-04).
+// TestClassifySQLReviewFindings2 lists SQL that is easy to rate below the
+// flags it needs.
 func TestClassifySQLReviewFindings2(t *testing.T) {
 	cases := []struct {
 		kind, sql string
