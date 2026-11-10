@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -126,12 +125,6 @@ is given.`,
 			if (since != "" || until != "") && !cmd.Flags().Changed("limit") {
 				limit = 0
 			}
-			f, err := os.Open(store.Path("audit.jsonl"))
-			if err != nil {
-				out.P.Print("audit", auditList{Entries: []map[string]any{}}, nil)
-				return nil
-			}
-			defer f.Close()
 			if target != "" {
 				st, err := loadState()
 				if err != nil {
@@ -140,17 +133,19 @@ is given.`,
 				flt.names = targetNames(st, target)
 			}
 			all := []map[string]any{}
-			sc := bufio.NewScanner(f)
-			sc.Buffer(make([]byte, 1<<20), 16<<20)
-			for sc.Scan() {
+			err := eachAudit(func(_ int, b []byte) error {
 				var e map[string]any
-				if json.Unmarshal(sc.Bytes(), &e) != nil {
-					continue
+				if json.Unmarshal(b, &e) != nil {
+					return nil
 				}
 				delete(e, "prev") // the chain is for `audit verify`
 				if flt.keep(e) {
 					all = append(all, e)
 				}
+				return nil
+			})
+			if err != nil {
+				return err
 			}
 			if limit > 0 && len(all) > limit {
 				all = all[len(all)-limit:]
@@ -541,7 +536,9 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 				out.P.Print("doctor", r, toErr(err))
 				return exitCode(1)
 			}
-			if st.Settings.Audit {
+			if st.Settings.Audit && store.Sealed() {
+				add("audit_log", true, "sealed in "+store.Path(store.StoreFile))
+			} else if st.Settings.Audit {
 				f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 				detail := store.Path("audit.jsonl")
 				if err == nil {

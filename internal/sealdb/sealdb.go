@@ -633,7 +633,8 @@ func (t *Tx) AppendAudit(data []byte) error {
 }
 
 // Audit returns up to limit audit entries after seq, oldest first. A
-// missing entry in that range stops it with ErrTampered.
+// missing or damaged entry stops it with ErrTampered, together with the
+// entries before it.
 func (t *Tx) Audit(after int64, limit int) ([]AuditRow, error) {
 	rows, err := t.c.QueryContext(t.ctx, `SELECT seq,id,time,data FROM audit WHERE seq>? ORDER BY seq LIMIT ?`, after, limit)
 	if err != nil {
@@ -652,15 +653,15 @@ func (t *Tx) Audit(after int64, limit int) ([]AuditRow, error) {
 			return nil, err
 		}
 		if seq != want {
-			return nil, fmt.Errorf("audit %d (want %d): %w", seq, want, ErrTampered)
+			return out, fmt.Errorf("audit %d (want %d): %w", seq, want, ErrTampered)
 		}
 		want = seq + 1
 		plain, err := t.key.Open(sealrow.Row{ID: id, Type: auditType, Version: uint64(seq)}, sealed)
 		if err != nil {
-			return nil, fmt.Errorf("audit %d: %w", seq, err)
+			return out, fmt.Errorf("audit %d: %w: %w", seq, ErrTampered, err)
 		}
 		if len(plain) < headLen || int64(binary.BigEndian.Uint64(plain[1:])) != tm {
-			return nil, fmt.Errorf("audit %d: %w", seq, ErrTampered)
+			return out, fmt.Errorf("audit %d: %w", seq, ErrTampered)
 		}
 		out = append(out, AuditRow{Seq: seq, Time: time.Unix(0, tm), Data: plain[headLen:]})
 	}

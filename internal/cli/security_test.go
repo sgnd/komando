@@ -337,6 +337,7 @@ func TestInstallGuardHook(t *testing.T) {
 }
 
 func TestAuditChain(t *testing.T) {
+	filesOnly(t) // the chain of audit.jsonl; TestSealedAudit checks the store
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	if err := os.MkdirAll(store.Home(), 0o700); err != nil {
 		t.Fatal(err)
@@ -376,7 +377,7 @@ func TestAuditRecordsTheAgent(t *testing.T) {
 	defer func() { g.yes = false }()
 	yesOK()
 	audit(nil, "x", nil, "", true, nil)
-	b, _ := os.ReadFile(store.Path("audit.jsonl"))
+	b := []byte(auditText(t))
 	if !strings.Contains(string(b), `"agent":"Claude Code"`) || !strings.Contains(string(b), `"allowed_by_person":true`) {
 		t.Errorf("record: %s", b)
 	}

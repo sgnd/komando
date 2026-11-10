@@ -340,6 +340,9 @@ func checkAuditWritable(cmd *cobra.Command) error {
 	if err != nil || !st.Settings.Audit {
 		return nil // a broken state file shows its own error in the command
 	}
+	if store.Sealed() {
+		return nil // the store itself refuses a write it cannot make
+	}
 	f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions (`komando doctor` checks them); nothing was run",

@@ -38,6 +38,9 @@ func appendAudit(rec map[string]any) error {
 var auditSyslog string
 
 func writeAudit(rec map[string]any) ([]byte, error) {
+	if store.Sealed() {
+		return writeSealedAudit(rec)
+	}
 	f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, err
@@ -115,6 +118,9 @@ func (a auditCheck) Text() string {
 // verifyAudit walks the chain. Records from before the chain existed (no
 // prev) are fine at the start of the file, never after a chained one.
 func verifyAudit() (auditCheck, error) {
+	if store.Sealed() {
+		return verifySealedAudit()
+	}
 	r := auditCheck{OK: true, Note: "every record follows the one before it; an edited, inserted or removed record would break the chain (a cut-off end would not)"}
 	f, err := os.Open(store.Path("audit.jsonl"))
 	if os.IsNotExist(err) {

@@ -183,3 +183,14 @@ func filesOnly(t *testing.T) {
 		t.Skip("tests the files of the file backend; a sealed home has none")
 	}
 }
+
+// auditText is every audit record, one per line, from the file or the
+// sealed store.
+func auditText(t *testing.T) string {
+	t.Helper()
+	var lines []string
+	if err := eachAudit(func(_ int, b []byte) error { lines = append(lines, string(b)); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	return strings.Join(lines, "\n")
+}

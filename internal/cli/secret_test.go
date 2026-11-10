@@ -101,7 +101,7 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 	}
 
 	// the audit names the secrets, never the value
-	b, _ := os.ReadFile(store.Path("audit.jsonl"))
+	b := []byte(auditText(t))
 	if !strings.Contains(string(b), `"secret.mv"`) || strings.Contains(string(b), "the-value") {
 		t.Errorf("audit: %s", b)
 	}
@@ -217,7 +217,7 @@ func TestSecretCheck(t *testing.T) {
 	if diff := d["difference"].(string); !strings.Contains(diff, "spaces") || strings.Contains(diff, "Hunter") {
 		t.Errorf("difference %q", diff)
 	}
-	b, _ := os.ReadFile(store.Path("audit.jsonl"))
+	b := []byte(auditText(t))
 	if !strings.Contains(string(b), `"secret.check"`) || strings.Contains(string(b), "Hunter") {
 		t.Errorf("audit: %s", b)
 	}

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -308,15 +307,10 @@ func TestAuditActorClaimed(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
 	t.Setenv("CLAUDECODE", "1")
 	mustRun(t, "host", "add", "web2", "deploy@10.0.0.2")
-	f, err := os.Open(store.Path("audit.jsonl"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
 	var recs []map[string]any
-	for sc := bufio.NewScanner(f); sc.Scan(); {
+	for _, line := range strings.Split(auditText(t), "\n") {
 		var r map[string]any
-		json.Unmarshal(sc.Bytes(), &r)
+		json.Unmarshal([]byte(line), &r)
 		recs = append(recs, r)
 	}
 	if len(recs) != 2 {

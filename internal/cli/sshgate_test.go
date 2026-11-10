@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
@@ -538,17 +537,10 @@ func gateRun(t *testing.T, line string, gateArgs ...string) (ran []string, env [
 // lastAudit is the newest record in the audit log.
 func lastAudit(t *testing.T) map[string]any {
 	t.Helper()
-	f, err := os.Open(store.Path("audit.jsonl"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
 	var last map[string]any
-	sc := bufio.NewScanner(f)
-	sc.Buffer(nil, 1<<20)
-	for sc.Scan() {
+	for _, line := range strings.Split(auditText(t), "\n") {
 		last = nil
-		_ = json.Unmarshal(sc.Bytes(), &last)
+		_ = json.Unmarshal([]byte(line), &last)
 	}
 	return last
 }
