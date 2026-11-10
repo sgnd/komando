@@ -344,6 +344,11 @@ var formKindCovers = map[string][]string{
 	"GlobalProtect": {"globalprotect"}, "FortiClient": {"fortinet"}, "Cisco AnyConnect": {"anyconnect"},
 	"Pulse Secure or Ivanti": {"pulse"}, "F5 BIG-IP": {"f5"}, "L2TP/IPsec": {"l2tp"}, "Cisco IPsec": {"ipsec"},
 	"IKEv2": {"ikev2"}, "A VPN on this computer": {"system"}, "SOCKS proxy": {"socks"}, "HTTP proxy": {"proxy"},
+	"SQL Server": {"sqlserver"}, "Oracle Database": {"oracle"}, "ClickHouse": {"clickhouse"},
+	"Snowflake": {"snowflake"}, "Google BigQuery": {"bigquery"},
+	"Apache Kafka": {"kafka"}, "RabbitMQ": {"rabbitmq"}, "NATS JetStream": {"nats"}, "Amazon SQS": {"sqs"},
+	"Google Cloud Pub/Sub": {"pubsub"}, "Windows share (SMB)": {"smb"},
+	"Azure Container Registry": {"registry"}, "Google Artifact Registry": {"registry"},
 }
 
 func TestFormEveryKindHasAnAddForm(t *testing.T) {
