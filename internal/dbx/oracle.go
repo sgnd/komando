@@ -135,6 +135,19 @@ func oracleTxMode(write bool) string {
 	return "SET TRANSACTION READ ONLY"
 }
 
+// A read-only transaction that starts within a few seconds of a table's
+// CREATE or ALTER fails with ORA-01466: Oracle cannot tell whether the
+// transaction began before the change. Nothing ran, so komando waits and
+// tries again in a new transaction.
+const oraSnapshotTries = 4
+
+var oraSnapshotWait = time.Second
+
+func oraSnapshotTooOld(kind string, o Options, err error) bool {
+	var oe *out.Error
+	return kind == "oracle" && !txWrites(o) && errors.As(err, &oe) && strings.Contains(oe.Message, "ORA-01466")
+}
+
 // oracleStillInTx: SET TRANSACTION works only as the first statement of a
 // transaction (ORA-01453 otherwise), so it failing shows komando's is
 // still open. Had it ended (a COMMIT komando did not see), the SET opens a
@@ -182,6 +195,8 @@ func oracleErr(err error) error {
 		return out.Errf(out.ExitRemote, "DB_ERROR", "a user cannot grant to or revoke from itself; name another user, or run it from a conn with another user", "%s", msg)
 	case 942: // table or view does not exist (also a missing grant on it)
 		return out.Errf(out.ExitRemote, "DB_ERROR", "check the name (`komando db schema CONN`); names without \"quotes\" are upper case in Oracle, and a table you have no grant on looks missing too", "%s", msg)
+	case 1466: // the table's definition is newer than the read-only transaction can see
+		return out.Errf(out.ExitRemote, "DB_ERROR", "the table was created or altered a moment ago; run the query again in a few seconds", "%s", msg)
 	case 1013: // cancelled
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "narrow the query (WHERE, FETCH FIRST n ROWS ONLY) or raise --timeout", "%s", msg)
 	}
