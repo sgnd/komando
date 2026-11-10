@@ -228,6 +228,30 @@ its highlights; the sections below them give the details. Versions follow
   anywhere; `q'[...]'` quotes and `/` lines are read as Oracle does. `db
   dump` and `restore` say `NOT_SUPPORTED` (Data Pump runs on the server).
   Built in with go-ora (MIT), pure Go.
+- **ClickHouse conns** (`clickhouse://app@ch.internal:8443/analytics?tls=true`)
+  over ClickHouse's HTTP interface, with komando's own small client (no
+  driver library): `db query` with `{p1:String}` placeholders, `schema`
+  (engines, keys, skipping indexes), `explain` (`EXPLAIN indexes = 1`),
+  `info`, `activity`, `sizes` (from `system.parts`), `kill` (by the `pid`
+  `db activity` makes from the query id), users and grants, `db shell` and
+  `conn test`, through `--via` and VPNs, with `tls=true`, `tls=skip-verify`
+  and `?ca=secret:NAME`. New conns that cross the network get `tls=true`
+  (port 8123 becomes 8443); the native ports 9000 and 9440 are refused with
+  a hint. ClickHouse has no transactions: without `--write` every request
+  carries the server's own `readonly=1` (also every query with rows), and a
+  statement that is not a read needs `--write`, goes alone, and a dry run
+  only reports it. Table functions and engines that reach other servers,
+  files or programs (`url()`, `s3()`, `remote()`, `file()`,
+  `executable()`, ...) need `--allow-dangerous`; `$$` heredocs and
+  unquoted non-ASCII are refused. A user whose profile is read-only gets no
+  settings it would refuse. `db user add` sends a salted SHA-256 hash
+  komando computes, never the password. `db dump`, `restore` and `locks`
+  say `NOT_SUPPORTED`.
+
+### Changed
+
+- The `sql-remote` rule's reason names what it covers now (dblink, an
+  Oracle database link, ClickHouse `url()` or `s3()`), not only dblink.
 
 ## [0.8.0] - 2026-11-09
 

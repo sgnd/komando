@@ -129,6 +129,8 @@ SELECT VERSION() AS version, DATABASE() AS `+"`database`"+`, CURRENT_USER() AS u
 		res, err = mssqlInfo(ctx, db)
 	case "oracle":
 		res, err = oracleInfo(ctx, db)
+	case "clickhouse":
+		res, err = clickhouseInfo(ctx, db)
 	case "sqlite":
 		res, err = oneRow(ctx, db, `
 SELECT sqlite_version() AS version, (SELECT page_count FROM pragma_page_count()) * (SELECT page_size FROM pragma_page_size()) AS size_bytes,
@@ -165,6 +167,8 @@ ORDER BY time DESC`, all)
 		rows, err = mssqlActivity(ctx, db, all)
 	case "oracle":
 		rows, err = oracleActivity(ctx, db, all)
+	case "clickhouse": // system.processes holds only running queries
+		rows, err = clickhouseActivity(ctx, db)
 	default:
 		return nil, notFor(kind, "activity")
 	}
@@ -212,6 +216,8 @@ JOIN information_schema.innodb_trx b ON b.trx_id = w.blocking_trx_id`)
 		rows, err = mssqlLocks(ctx, db)
 	case "oracle":
 		rows, err = oracleLocks(ctx, db)
+	case "clickhouse":
+		return nil, chNoLocks()
 	default:
 		return nil, notFor(kind, "locks")
 	}
@@ -256,6 +262,8 @@ FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_schema 
 		err = mssqlSizes(ctx, db, limit, res)
 	case "oracle":
 		err = oracleSizes(ctx, db, limit, res)
+	case "clickhouse":
+		err = clickhouseSizes(ctx, db, limit, res)
 	case "sqlite":
 		res["databases"], err = rowsOf(ctx, db, `
 SELECT 'main' AS name, (SELECT page_count FROM pragma_page_count()) * (SELECT page_size FROM pragma_page_size()) AS bytes`)
@@ -307,6 +315,11 @@ func Kill(ctx context.Context, db *sql.DB, kind string, pid int64, session bool)
 		_, err = db.ExecContext(ctx, "KILL "+strconv.FormatInt(pid, 10))
 	case "oracle":
 		err = oracleKill(ctx, db, pid, session)
+	case "clickhouse":
+		if session {
+			return KillNoSession()
+		}
+		err = clickhouseKill(ctx, db, pid)
 	default:
 		return notFor(kind, "kill")
 	}

@@ -165,7 +165,8 @@ func dbGrantCmd(revoke bool) *cobra.Command {
 		Short: map[bool]string{false: "Give a user privileges on a database, schema or table (or a role)", true: "Take privileges (or a role) away from a user"}[revoke],
 		Long: `OBJECT for PostgreSQL: database:NAME, schema:NAME, table:[SCHEMA.]TABLE or
 all-tables:SCHEMA; --role ROLE makes the user a member of ROLE. For MySQL:
-DB.* , DB.TABLE or *.* (with --from for the account host). --dry-run shows
+DB.* , DB.TABLE or *.* (with --from for the account host). For ClickHouse:
+DB.*, DB.TABLE or *.*, or database:DB, table:DB.TABLE. --dry-run shows
 the statement.`,
 		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public
   komando db ` + verb + ` prod-db app_ro --role readers

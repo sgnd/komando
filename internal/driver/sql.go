@@ -33,7 +33,7 @@ var sqlRules = []Rule{
 	{"sql-server-config", "changes server-wide configuration"},
 	{"sql-session-config", "changes a setting whose name komando cannot see (set_config with a computed name)"},
 	{"sql-opaque", "runs code komando cannot inspect (DO, CALL, PREPARE/EXECUTE)"},
-	{"sql-remote", "runs SQL over another connection that the read-only transaction does not cover (dblink)"},
+	{"sql-remote", "reaches another server, which the read-only transaction does not cover (dblink, a database link, ClickHouse url() or s3())"},
 	{"db-restore", "restoring a backup can overwrite existing data"},
 }
 
@@ -103,7 +103,7 @@ type dialect struct {
 	execAsCode                           bool // restore: read /*! ... */ as the code MySQL runs instead of refusing it
 	unicodeEsc                           bool // Postgres: U&"..." names and U&'...' strings take \XXXX escapes
 	tsql                                 bool // SQL Server: ]] in [names], nested comments, no statement separator needed (sql_tsql.go)
-	oracle                               bool // Oracle: q'[...]' quotes, PL/SQL blocks that a / line ends (sql_oracle.go)
+	oracle, clickhouse                   bool // Oracle: q'[...]' quotes, PL/SQL blocks that a / line ends (sql_oracle.go); ClickHouse (sql_clickhouse.go)
 }
 
 var dialects = map[string]dialect{
@@ -192,9 +192,9 @@ func splitSQL(sql string, d dialect) (stmts []string, toks [][]token, err error)
 					`write the name without U& escapes (U&"\0064blink" is dblink): komando cannot check a name it cannot read`,
 					`U&"..." names are not allowed`)
 			}
-			// MySQL escapes with backslash only inside '' and "", never in `names`;
+			// MySQL escapes with backslash only inside '' and "", never in `names` (ClickHouse there too);
 			// Postgres only inside E'...'
-			esc := d.backslash && c != '`' || c == '\'' && d.dollar && prefix("E")
+			esc := d.backslash && (c != '`' || d.clickhouse) || c == '\'' && d.dollar && prefix("E")
 			j := i + 1
 			for ; j < n; j++ {
 				if esc && sql[j] == '\\' {
@@ -775,7 +775,7 @@ func Placeholders(kind, sql string) (n int, ok bool) {
 	if err != nil {
 		return 0, false
 	}
-	if kind == "sqlserver" || kind == "oracle" {
+	if kind == "sqlserver" || kind == "oracle" || kind == "clickhouse" {
 		return otherPlaceholders(kind, toks)
 	}
 	for _, ts := range toks {

@@ -16,7 +16,8 @@ import (
 //
 //   - Postgres without sslmode gets sslmode=verify-full, MySQL without tls=
 //     gets tls=true, SQL Server without encrypt= gets encrypt=true, Oracle
-//     without tls= gets tls=true (TCPS) (verifiedTLSURL). Left out, they
+//     without tls= gets tls=true (TCPS), ClickHouse without tls= gets
+//     tls=true (HTTPS; port 8123 becomes 8443) (verifiedTLSURL). Left out, they
 //     would take TLS only when the server offers it, without checking whose
 //     certificate it is, or (Oracle) none at all.
 //   - redis://, memcached://, amqp:// and nats:// name a connection without
@@ -44,9 +45,12 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 		if !q.Has("sslmode") {
 			added = "sslmode=verify-full"
 		}
-	case "mysql", "oracle":
+	case "mysql", "oracle", "clickhouse":
 		if !q.Has("tls") {
 			added = "tls=true"
+		}
+		if added != "" && t.Kind.Name == "clickhouse" && strings.HasSuffix(t.Address, ":8123") {
+			added += " and port 8443 (ClickHouse's HTTPS port)"
 		}
 	case "sqlserver":
 		if o, err := driver.ParseSQLServerOptions(q); err == nil && o.Encrypt == "" {

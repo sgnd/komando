@@ -84,7 +84,7 @@ func sqlserverConfig(rawURL string, t driver.Target, password, appName string) (
 	return cfg, nil
 }
 
-func openSQLServer(rawURL string, t driver.Target, password string, dial DialFunc, appName string) (*sql.DB, error) {
+func openSQLServer(rawURL string, t driver.Target, password string, dial DialFunc, appName string, _ bool) (*sql.DB, error) {
 	cfg, err := sqlserverConfig(rawURL, t, password, appName)
 	if err != nil {
 		return nil, err
@@ -113,6 +113,8 @@ func markTx(ctx context.Context, tx *sql.Tx, kind string, write bool) error {
 	case "oracle":
 		_, err := tx.ExecContext(ctx, oracleTxMode(write))
 		return err
+	case "clickhouse": // no transactions: every statement in one is a read
+		return nil
 	}
 	_, err := tx.ExecContext(ctx, "SAVEPOINT "+txMark)
 	return err
@@ -122,8 +124,11 @@ func markTx(ctx context.Context, tx *sql.Tx, kind string, write bool) error {
 // the classifier did not see, or a MySQL statement that commits
 // implicitly), so no later statement runs outside it.
 func stillInTx(ctx context.Context, tx *sql.Tx, kind string, write bool) error {
-	if kind == "oracle" {
+	switch kind {
+	case "oracle":
 		return oracleStillInTx(ctx, tx, write)
+	case "clickhouse":
+		return nil
 	}
 	if kind == "sqlserver" {
 		var n int

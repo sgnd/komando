@@ -16,6 +16,7 @@ type Table struct {
 	Schema      string        `json:"schema,omitempty"`
 	Name        string        `json:"name"`
 	Type        string        `json:"type"`
+	Engine      string        `json:"engine,omitempty"` // ClickHouse: MergeTree, ReplicatedMergeTree, View, ...
 	RowEstimate *int64        `json:"row_estimate,omitempty"`
 	Columns     []TableColumn `json:"columns,omitempty"`
 	Indexes     []Index       `json:"indexes,omitempty"`
@@ -74,6 +75,8 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 		tables, err = mssqlSchema(ctx, tx, names)
 	case "oracle":
 		tables, err = oracleSchema(ctx, tx, names)
+	case "clickhouse":
+		tables, err = clickhouseSchema(ctx, tx, names)
 	}
 	if err == nil && len(names) > 0 {
 		err = addConstraints(ctx, tx, kind, tables)

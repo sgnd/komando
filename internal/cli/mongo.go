@@ -209,6 +209,11 @@ func noDumpTool(t driver.Target) error {
 			"Oracle backs up with Data Pump (expdp, impdp) or RMAN, which run on the database server and write there: run them with `komando exec` (or a `komando job` for a big one), then fetch the file with `komando download`",
 			"db dump and restore are not available for Oracle")
 	}
+	if t.Kind.Name == "clickhouse" {
+		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"ClickHouse backs up with its own BACKUP TABLE or DATABASE ... TO Disk('backups', 'name.zip') (or S3), which the server writes itself: run it with `komando db query CONN --write` (it needs --allow-dangerous, so ask the user first); for a few rows, `komando db query CONN --csv` is a copy on this computer",
+			"db dump and restore are not available for ClickHouse")
+	}
 	if t.Kind.Name == "sqlserver" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
 			"SQL Server backs up with its own BACKUP DATABASE, which writes a .bak file on the database server: run it with `komando db query CONN --write` (it needs --allow-dangerous, so ask the user first), then fetch the file with `komando download` from that server",

@@ -16,8 +16,11 @@ import (
 // database type (upper case): a DATE stays a date, a timestamp without a
 // time zone gets none, binary columns are always {"base64": ...}.
 func colValue(kind, dbType string, v any) any {
-	if kind == "oracle" {
+	switch kind {
+	case "oracle":
 		return oracleValue(v, dbType)
+	case "clickhouse":
+		return chColValue(v)
 	}
 	switch x := v.(type) {
 	case time.Time:
@@ -42,6 +45,15 @@ func colValue(kind, dbType string, v any) any {
 }
 
 var mysqlBinary = map[string]bool{"BLOB": true, "TINYBLOB": true, "MEDIUMBLOB": true, "LONGBLOB": true, "BINARY": true, "VARBINARY": true, "BIT": true, "GEOMETRY": true}
+
+// colType is a column's type as db query shows it: lower case, except
+// ClickHouse's, whose names are case-sensitive (DateTime64, LowCardinality).
+func colType(kind, name string) string {
+	if kind == "clickhouse" {
+		return name
+	}
+	return strings.ToLower(name)
+}
 
 // timeText formats a date or time the way the column stores it.
 func timeText(kind, dbType string, t time.Time) string {
@@ -158,7 +170,7 @@ func checkArgs(kind, sql string, n int) error {
 	if !ok || want == n {
 		return nil
 	}
-	mark := map[string]string{"postgres": "$1, $2, ...", "sqlserver": "@p1, @p2, ...", "oracle": ":1, :2, ..."}[kind]
+	mark := map[string]string{"postgres": "$1, $2, ...", "sqlserver": "@p1, @p2, ...", "oracle": ":1, :2, ...", "clickhouse": "{p1:String}, {p2:UInt64}, ..."}[kind]
 	if mark == "" {
 		mark = "?"
 	}

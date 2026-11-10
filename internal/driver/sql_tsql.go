@@ -63,8 +63,8 @@ var serverScopes = map[string]bool{"DATABASE": true, "SERVER": true, "ENDPOINT":
 // OPENROWSET(BULK ...), backups).
 var tsqlFileWords = map[string]bool{"BACKUP": true, "RESTORE": true, "BULK": true, "OPENROWSET": true, "OPENDATASOURCE": true}
 
-// nests reports whether /* comments nest (Postgres, SQL Server).
-func (d dialect) nests() bool { return d.dollar || d.tsql }
+// nests reports whether /* comments nest (Postgres, SQL Server, ClickHouse).
+func (d dialect) nests() bool { return d.dollar || d.tsql || d.clickhouse }
 
 func isDigit(c byte) bool { return c >= '0' && c <= '9' }
 
@@ -143,10 +143,13 @@ func (d dialect) skipComment(sql string, i int) (int, error) {
 	return i, nil
 }
 
-// classifyFor is classifyStatement with the T-SQL or Oracle rules on top.
+// classifyFor is classifyStatement with the T-SQL, Oracle or ClickHouse rules on top.
 func classifyFor(kind string, ts []token) (Risk, []string, error) {
-	if kind == "oracle" {
+	switch kind {
+	case "oracle":
 		return oracleStatement(ts)
+	case "clickhouse":
+		return clickhouseStatement(ts)
 	}
 	risk, rules, err := classifyStatement(ts, true)
 	if err != nil || kind != "sqlserver" {
@@ -157,8 +160,9 @@ func classifyFor(kind string, ts []token) (Risk, []string, error) {
 
 // unknownNeedsWrite are the kinds where a statement komando does not know
 // needs --write: their read-only transaction does not cover everything
-// (MySQL admin statements, Oracle DDL), or there is none (SQL Server).
-var unknownNeedsWrite = map[string]bool{"mysql": true, "sqlserver": true, "oracle": true}
+// (MySQL admin statements, Oracle DDL), or there is none (SQL Server,
+// ClickHouse).
+var unknownNeedsWrite = map[string]bool{"mysql": true, "sqlserver": true, "oracle": true, "clickhouse": true}
 
 // unknownFirst reports a first word komando does not know.
 func unknownFirst(kind, kw string) bool {
@@ -167,6 +171,8 @@ func unknownFirst(kind, kw string) bool {
 		return !tsqlFirst[kw]
 	case "oracle":
 		return !oracleFirst[kw]
+	case "clickhouse":
+		return !chFirst[kw]
 	}
 	return !readFirst[kw] && !writeFirst[kw] && !opaqueFirst[kw]
 }
@@ -321,27 +327,35 @@ func rowsFor(kind, kw string, ts []token) bool {
 	switch kind {
 	case "oracle":
 		return oracleRows(kw)
+	case "clickhouse":
+		return clickhouseRows(kw)
 	case "sqlserver":
 		return returnsRows(kw, ts) || tsqlRows(kw, ts)
 	}
 	return returnsRows(kw, ts)
 }
 
-// otherNoTx is noTx for SQL Server and Oracle.
+// otherNoTx is noTx for SQL Server, Oracle and ClickHouse (which has no
+// transactions: everything but a read runs alone).
 func otherNoTx(kind, kw string, ts []token) bool {
 	switch kind {
 	case "sqlserver":
 		return tsqlNoTx(kw, ts)
 	case "oracle":
 		return oracleNoTx(kw, ts)
+	case "clickhouse":
+		return !chReads[kw]
 	}
 	return false
 }
 
-// otherPlaceholders is Placeholders for SQL Server and Oracle.
+// otherPlaceholders is Placeholders for SQL Server, Oracle and ClickHouse.
 func otherPlaceholders(kind string, toks [][]token) (int, bool) {
-	if kind == "oracle" {
+	switch kind {
+	case "oracle":
 		return oraclePlaceholders(toks)
+	case "clickhouse":
+		return clickhousePlaceholders(toks)
 	}
 	return tsqlPlaceholders(toks)
 }

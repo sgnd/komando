@@ -153,6 +153,13 @@ services:
     image: ${E2E_ORACLE_IMAGE:-gvenzl/oracle-free:23-slim}
     environment: { ORACLE_PASSWORD: "Oracle-pass-1" }
     networks: [private]
+  clickhouse:
+    # komando speaks ClickHouse's HTTP interface (8123); the user may
+    # manage users with SQL (access management)
+    image: ${E2E_CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:24.8-alpine}
+    environment: { CLICKHOUSE_USER: admin, CLICKHOUSE_PASSWORD: "Admin-pass-1", CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1" }
+    ulimits: { nofile: { soft: 262144, hard: 262144 } }
+    networks: [private]
   # secret managers komando talks to itself (no vault or aws CLI)
   bao:
     image: openbao/openbao:2.4.3

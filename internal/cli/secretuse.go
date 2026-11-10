@@ -198,7 +198,7 @@ func weakTLS(oldURL, newURL string) []string {
 		case o.SkipVerify:
 			w = append(w, "tls=skip-verify (the certificate is not checked)")
 		}
-	case "oracle":
+	case "oracle", "clickhouse":
 		switch t.TLS {
 		case "false":
 			w = append(w, "tls=false (travels without TLS)")

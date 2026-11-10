@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -105,6 +106,8 @@ from mysql.user order by user, host`)
 		return mssqlUsers(ctx, db)
 	case "oracle":
 		return oracleUsers(ctx, db)
+	case "clickhouse":
+		return clickhouseUsers(ctx, db)
 	}
 	return nil, notFor(kind, "db user")
 }
@@ -128,6 +131,8 @@ func userSQL(ctx context.Context, db *sql.DB, kind, action string, u UserSpec) (
 		return mssqlUserSQL(action, u)
 	case "oracle":
 		return oracleUserSQL(action, u)
+	case "clickhouse":
+		return clickhouseUserSQL(ctx, db, action, u)
 	}
 	host := u.Host
 	if host == "" {
@@ -204,6 +209,10 @@ func userErr(err error, name string) error {
 	if n := oraNumber(err); n != 0 {
 		return oraUserErr(n, firstLine(msg), name)
 	}
+	var ce *chError
+	if errors.As(err, &ce) {
+		return chUserErr(ce.Code, ce.Msg, name)
+	}
 	switch {
 	case strings.Contains(msg, "already exists"), strings.Contains(msg, "1396") && strings.Contains(strings.ToLower(msg), "create user"):
 		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd`", "user %s already exists", name)
@@ -245,7 +254,7 @@ var myPrivs = map[string]bool{"SELECT": true, "INSERT": true, "UPDATE": true, "D
 var validObj = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_$]{0,62}$`)
 
 // grantSQLFor are the kinds whose grants have a file of their own.
-var grantSQLFor = map[string]func(context.Context, *sql.DB, Grant) (string, error){"sqlserver": mssqlGrantSQL, "oracle": oracleGrantSQL}
+var grantSQLFor = map[string]func(context.Context, *sql.DB, Grant) (string, error){"sqlserver": mssqlGrantSQL, "oracle": oracleGrantSQL, "clickhouse": clickhouseGrantSQL}
 
 // GrantSQL builds the statement for g.
 func GrantSQL(ctx context.Context, db *sql.DB, kind string, g Grant) (string, error) {
@@ -387,6 +396,8 @@ order by 1, 2`, user)
 		return mssqlGrants(ctx, db, user)
 	case "oracle":
 		return oracleGrants(ctx, db, user)
+	case "clickhouse":
+		return clickhouseGrants(ctx, db, user)
 	}
 	return nil, notFor(kind, "db grants")
 }

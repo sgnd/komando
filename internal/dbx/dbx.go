@@ -110,9 +110,9 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		if db, err = sql.Open("sqlite", "file:"+path+"?"+q.Encode()); err != nil {
 			return nil, err
 		}
-	case "sqlserver", "oracle":
+	case "sqlserver", "oracle", "clickhouse":
 		var err error
-		if db, err = map[string]opener{"sqlserver": openSQLServer, "oracle": openOracle}[t.Kind.Name](rawURL, t, password, dial, appName); err != nil {
+		if db, err = openers[t.Kind.Name](rawURL, t, password, dial, appName, readOnly); err != nil {
 			return nil, err
 		}
 	case "mongodb":
@@ -501,7 +501,7 @@ func runStatement(ctx context.Context, q querier, conn *sql.Conn, kind string, s
 			name = oracleTypeName(name)
 		}
 		types[i] = strings.ToUpper(name)
-		r.Columns = append(r.Columns, Column{Name: ct.Name(), Type: strings.ToLower(name)})
+		r.Columns = append(r.Columns, Column{Name: ct.Name(), Type: colType(kind, name)})
 	}
 	r.Rows = [][]any{}
 	if r.Columns == nil {
@@ -559,10 +559,10 @@ func connectErr(t driver.Target, err error) error {
 		return oe
 	}
 	var pe *pgconn.PgError
-	if errors.As(err, &pe) && (pe.Code == "28P01" || pe.Code == "28000") || isMySQLAuth(err) || isMSAuth(err) || isOraAuth(err) {
+	if errors.As(err, &pe) && (pe.Code == "28P01" || pe.Code == "28000") || isMySQLAuth(err) || isMSAuth(err) || isOraAuth(err) || isCHAuth(err) {
 		return out.Errf(out.ExitConnect, "DB_AUTH", "check the user in the URL and the password reference (`komando conn show NAME`)", "%v", err)
 	}
-	if errors.As(err, &pe) && pe.Code == "3D000" || isMySQLNoDatabase(err) || isMSNoDatabase(err) {
+	if errors.As(err, &pe) && pe.Code == "3D000" || isMySQLNoDatabase(err) || isMSNoDatabase(err) || chCode(err) == 81 {
 		return out.Errf(out.ExitNotFound, "DB_NOT_FOUND", "check the database name at the end of the conn URL (`komando conn show NAME`)", "%v", err)
 	}
 	if t.Kind.Name == "oracle" && isOraNoService(err) {
@@ -591,10 +591,11 @@ func connectErr(t driver.Target, err error) error {
 func tlsHint(kind string, err error) string {
 	msg := err.Error()
 	weak := map[string][2]string{ // encrypt without checking, no encryption at all
-		"postgres":  {"?sslmode=require", "?sslmode=disable"},
-		"mysql":     {"?tls=skip-verify", "?tls=false"},
-		"sqlserver": {"&tls=skip-verify", "?encrypt=disable"},
-		"oracle":    {"?tls=skip-verify", "?tls=false"},
+		"postgres":   {"?sslmode=require", "?sslmode=disable"},
+		"mysql":      {"?tls=skip-verify", "?tls=false"},
+		"sqlserver":  {"&tls=skip-verify", "?encrypt=disable"},
+		"oracle":     {"?tls=skip-verify", "?tls=false"},
+		"clickhouse": {"?tls=skip-verify", "?tls=false"},
 	}[kind]
 	if weak[0] == "" {
 		return ""
@@ -608,7 +609,8 @@ func tlsHint(kind string, err error) string {
 		return "the server's certificate could not be checked: " + ca + ", or " + via +
 			"; without --via, " + weak[0] + " encrypts without checking it, so anyone on the network path could pretend to be the server"
 	case strings.Contains(msg, "server refused TLS"), errors.Is(err, mysql.ErrNoTLS),
-		kind == "oracle" && strings.Contains(msg, "first record does not look like a TLS handshake"):
+		kind == "oracle" && strings.Contains(msg, "first record does not look like a TLS handshake"),
+		kind == "clickhouse" && strings.Contains(msg, "server gave HTTP response to HTTPS client"):
 		return "the server has no TLS: " + via + "; without --via, " + weak[1] + " sends the password and the data unencrypted"
 	}
 	return ""
@@ -643,6 +645,8 @@ func queryErr(kind string, ctx context.Context, err error) error {
 		return mssqlErr(err)
 	case "oracle":
 		return oracleErr(err)
+	case "clickhouse":
+		return clickhouseErr(err)
 	}
 	msg := err.Error()
 	if kind == "sqlite" && (strings.Contains(msg, "readonly database") || strings.Contains(msg, "query_only")) {

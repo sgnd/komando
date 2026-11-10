@@ -129,7 +129,9 @@ func dbKillCmd() *cobra.Command {
 only the running query stops (its transaction rolls back) and the client
 stays connected. --dry-run shows the session it would stop. SQL Server can
 only end a session (KILL), so there it needs --session. On Oracle the PID
-is the SID that db activity shows.`,
+is the SID that db activity shows. On ClickHouse it is the number db
+activity shows for the query (made from its query_id); ClickHouse stops
+queries, not connections, so there is no --session.`,
 		Example: `  komando db kill prod-db 4821 --dry-run
   komando db kill prod-db 4821
   komando db kill prod-db 4821 --session --allow-dangerous`,
@@ -149,6 +151,9 @@ is the SID that db activity shows.`,
 			}
 			if c.Kind == "sqlserver" && !session {
 				return dbx.KillNeedsSession()
+			}
+			if c.Kind == "clickhouse" && session {
+				return dbx.KillNoSession()
 			}
 			v := driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"db-kill"}, Reasons: []string{"stops the running query of session " + args[1]}}
 			if session {

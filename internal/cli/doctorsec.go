@@ -196,15 +196,11 @@ func plainConn(c *store.Conn) string {
 	case "sqlserver":
 		return sqlserverTLSRisk(q, t, fix, notChecked)
 	case "oracle":
-		switch t.TLS {
-		case "true":
-			return ""
-		case "skip-verify":
-			return fix(notChecked)
-		}
 		// Oracle's native network encryption, when the server asks for
 		// it, encrypts but does not prove who the server is
-		return fix("travels without TLS (no tls=true): anyone on the network path can read the data, unless the server turns on Oracle's native encryption, and even then can pretend to be the server")
+		return tlsFlagRisk(t, fix, notChecked, "travels without TLS (no tls=true): anyone on the network path can read the data, unless the server turns on Oracle's native encryption, and even then can pretend to be the server")
+	case "clickhouse":
+		return tlsFlagRisk(t, fix, notChecked, "travels as plain HTTP (no tls=true): anyone on the network path can read the password and the data")
 	case "redis":
 		if !t.Secure {
 			return fix("travels unencrypted: anyone on the network path can read the password and the data")
@@ -259,8 +255,9 @@ func overNetwork(c *store.Conn, t driver.Target) bool {
 }
 
 // verifiedTLSURL is raw with TLS whose certificate is checked: Postgres
-// sslmode=verify-full, MySQL tls=true, rediss://, memcacheds:// and
-// amqps:// (on port 5671 when it was 5672), kafka tls=true, nats tls://. It
+// sslmode=verify-full, MySQL, Oracle and ClickHouse tls=true (ClickHouse
+// on 8443), SQL Server encrypt=true, rediss://, memcacheds://, amqps://
+// (on port 5671 when it was 5672), kafka tls=true, nats tls://. It
 // is "" for other kinds, or a URL that does not parse. An option the URL
 // did not have is added at the end; the rest stays as written.
 func verifiedTLSURL(raw, kind string) string {
@@ -276,6 +273,8 @@ func verifiedTLSURL(raw, kind string) string {
 		key, val = "tls", "true"
 	case "sqlserver":
 		return sqlserverVerifiedURL(u)
+	case "clickhouse":
+		return driver.ClickHouseVerified(raw)
 	case "redis":
 		u.Scheme = "rediss"
 	case "memcached":
@@ -314,4 +313,17 @@ func verifiedTLSURL(raw, kind string) string {
 		u.RawQuery = q.Encode()
 	}
 	return u.String()
+}
+
+// tlsFlagRisk is the risk of a conn whose TLS is the tls= option (Oracle,
+// ClickHouse): none with tls=true, an unchecked certificate with
+// tls=skip-verify, and plain otherwise.
+func tlsFlagRisk(t driver.Target, fix func(string) string, notChecked, plain string) string {
+	switch t.TLS {
+	case "true":
+		return ""
+	case "skip-verify":
+		return fix(notChecked)
+	}
+	return fix(plain)
 }

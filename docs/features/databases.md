@@ -1,6 +1,6 @@
 # Databases
 
-Add PostgreSQL, MySQL/MariaDB, SQL Server, Oracle and SQLite databases, then query, inspect,
+Add PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse and SQLite databases, then query, inspect,
 back up and restore them safely. [All features](README.md)
 
 ## Quick start
@@ -28,6 +28,7 @@ the URL:
 | MySQL / MariaDB | `mysql://shop@db.internal:3306/shop?tls=true` |
 | SQL Server | `sqlserver://app@db.internal:1433/sales?encrypt=true` (also `mssql://`). See [SQL Server](#sql-server). |
 | Oracle | `oracle://app@db.internal:1521/ORCLPDB1?tls=true` (the path is the service name). See [Oracle](#oracle). |
+| ClickHouse | `clickhouse://app@ch.internal:8443/analytics?tls=true` (the HTTP interface). See [ClickHouse](#clickhouse). |
 | SQLite | `sqlite:///var/lib/app.db` (a file on this computer) |
 | MongoDB | `mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin` (Atlas: `mongodb+srv://app@cluster0.abcde.mongodb.net/shop`). See [MongoDB](#mongodb). |
 
@@ -83,6 +84,7 @@ giving them the password:
 | MySQL / MariaDB | `?tls=true` | `?tls=skip-verify` | `?tls=false` |
 | SQL Server | `?encrypt=true` (or `strict`) | `?encrypt=true&tls=skip-verify` | `?encrypt=disable` |
 | Oracle | `?tls=true` (TCPS) | `?tls=skip-verify` | `?tls=false` |
+| ClickHouse | `?tls=true` (HTTPS, port 8443) | `?tls=skip-verify` | `?tls=false` (port 8123) |
 
 - Without a setting, a Postgres conn uses TLS when the server offers it,
   but does not check the certificate and goes on without TLS when told to.
@@ -92,11 +94,12 @@ giving them the password:
   `encrypt=` (or with `encrypt=false`) encrypts only the login, and
   without `encrypt=` does not check the certificate either. An Oracle conn
   without `tls=true` uses no TLS; Oracle's own network encryption, when the
-  server turns it on, encrypts but does not prove who the server is.
+  server turns it on, encrypts but does not prove who the server is. A
+  ClickHouse conn without `tls=true` is plain HTTP.
 - **New conns check by default.** When `conn add` (or `conn edit --url`)
   saves such a conn and its URL does not say how to use TLS, komando adds
-  `sslmode=verify-full` (Postgres), `tls=true` (MySQL, Oracle) or
-  `encrypt=true` (SQL Server) and says so in
+  `sslmode=verify-full` (Postgres), `tls=true` (MySQL, Oracle, ClickHouse,
+  whose port 8123 becomes 8443) or `encrypt=true` (SQL Server) and says so in
   `warnings`. A URL that names a setting keeps it, and a conn through
   `--via` or to this computer is left as written. If the server has no TLS
   or a certificate from its own CA, the first connection's hint says what
@@ -106,7 +109,7 @@ giving them the password:
   `komando conn edit NAME --url ...` line that fixes it.
 - A server whose certificate comes from a private CA (your company's, or a
   cloud's own, such as Amazon RDS or Azure Database): store the CA and name
-  it with `?ca=`, for Postgres, MySQL, SQL Server and Oracle. The certificate is then fully
+  it with `?ca=`, for Postgres, MySQL, SQL Server, Oracle and ClickHouse. The certificate is then fully
   checked: signed by that CA and naming the server, also with
   `sslmode=require`, and never without TLS:
 
@@ -134,7 +137,8 @@ komando db query app-db --file report.sql    # SQL from a file (--file - reads s
 
 **Use `--arg` for values** instead of pasting them into the SQL. The
 placeholders are `$1`, `$2` in PostgreSQL, `?` in MySQL and SQLite,
-`@p1`, `@p2` in SQL Server, and `:1`, `:2` in Oracle:
+`@p1`, `@p2` in SQL Server, `:1`, `:2` in Oracle, and `{p1:String}`,
+`{p2:UInt64}` in ClickHouse (named `p1`, `p2`, with a type):
 
 ```bash
 komando db query app-db "select * from users where email = $1" --arg bob@example.com
@@ -190,6 +194,8 @@ line. Put `--` before it, or use `--file -`.
 | SQL Server decimal, money | text with every digit (`"12.50"`) |
 | SQL Server uniqueidentifier | `"6F9619FF-8B86-D011-B42D-00C04FC964FF"` |
 | Oracle DATE (it holds a time of day too) | `"2026-11-09 13:04:05"` |
+| ClickHouse Decimal, Int128 and wider | text with every digit (`"12.50"`) |
+| ClickHouse Array, Map, Tuple | JSON arrays and objects |
 
 In text output, tables line up, also with CJK characters and emoji.
 
@@ -275,6 +281,9 @@ komando db kill app-db 4821 --session --allow-dangerous   # end the whole connec
   `--session` there.
 - On Oracle the PID is the session's SID (`db activity` shows it, with
   its serial#).
+- On ClickHouse the PID is a number `db activity` makes from the query's
+  `query_id`; `db kill` stops that query, and there is no `--session` or
+  `db locks`.
 
 ## Users and grants
 
@@ -299,7 +308,8 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
 - `--on` takes `database:NAME`, `schema:NAME`, `table:[SCHEMA.]TABLE` or
   `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
   and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).
-  For SQL Server see [SQL Server](#sql-server), for Oracle [Oracle](#oracle).
+  For SQL Server see [SQL Server](#sql-server), for Oracle [Oracle](#oracle),
+  for ClickHouse [ClickHouse](#clickhouse).
 - Adding users and grants are changes (`--yes` on protected conns).
   Removing a user also needs `--allow-dangerous`.
 
@@ -642,6 +652,70 @@ komando db kill erp 371 --session --allow-dangerous   # 371 is the SID
   database server and write there. Run them with `komando exec` (or a
   `komando job` for a big one), then fetch the file with `komando download`.
 
+## ClickHouse
+
+ClickHouse conns (23.3 and later) take the same
+`db` commands, in ClickHouse SQL. komando speaks ClickHouse's HTTP
+interface (port 8443 with TLS, 8123 without) with its own client, so
+nothing else needs to be installed:
+
+```bash
+komando secret set events-pass
+komando conn add events 'clickhouse://app@ch.internal:8443/analytics?tls=true' --password-ref secret:events-pass
+komando db query events "select event, count() from hits where day = today() group by event order by 2 desc limit 10"
+komando db query events "select * from hits where user_id = {p1:UInt64} limit 10" --arg 42
+komando db query events --write "insert into notes (id, text) values (1, 'hello')"
+komando db schema events analytics.hits             # columns, engine, ORDER BY, skipping indexes
+komando db explain events "select count() from hits where user_id = 42"   # the plan, with the indexes used
+komando db sizes events                              # from system.parts
+komando db activity events                           # running queries
+komando db kill events 8078617214407497              # the pid db activity shows
+```
+
+- **The URL.** The path is the database (the user's default when left
+  out). The options are `tls=` (`true`, `skip-verify`, `false`) and
+  `ca=secret:NAME` for a private CA (with `tls=true`). Without a port it is
+  8443 with TLS and 8123 without. Ports 9000 and 9440 are ClickHouse's
+  native protocol, which komando does not speak: it says so.
+- **Without `--write` nothing changes.** ClickHouse has no transactions,
+  but it has its own read-only mode: every request komando sends without
+  `--write`, and every query that returns rows, carries the setting
+  `readonly=1`, and the server refuses writes, DDL and setting changes.
+  `SETTINGS` and `SET` in a read are refused for the same reason.
+- **A write cannot be rolled back.** `INSERT`, `ALTER`, `CREATE`,
+  `OPTIMIZE` and every other statement that is not a read need `--write`,
+  must be sent on their own, and a dry run only reports them. Destructive
+  ones need `--allow-dangerous` as usual: `DROP`, `TRUNCATE`, `DETACH`,
+  `ALTER ... DROP` or `CLEAR`, `SYSTEM`, `KILL QUERY`, users, roles,
+  quotas and grants, `BACKUP` and `FREEZE`.
+- **Reading from elsewhere.** `readonly=1` lets reads through, also reads
+  that reach other servers or the server's files. So the table functions
+  and engines that do (`url()`, `s3()`, `remote()`, `mysql()`,
+  `postgresql()`, `file()`, `executable()`, `Kafka`, ...) need `--write`
+  and `--allow-dangerous`, also inside `DESCRIBE` or `EXPLAIN`.
+- **A read-only user.** A user whose settings profile has `readonly = 1`
+  may not send any setting, so komando sends none (its `--timeout` then
+  only stops the waiting, not the query). For a hard limit, give the conn
+  such a user with only `SELECT` grants.
+- Text in `$$...$$` and names or text with letters outside ASCII outside
+  quotes are refused (`SQL_HIDDEN_CODE`): use `'...'` (with `\'` for a quote) and
+  `` `...` ``. `FORMAT` and `INTO OUTFILE` are refused too: komando reads
+  the rows itself (`--csv`, `--tsv`).
+- `db explain` is `EXPLAIN indexes = 1`; ClickHouse has no
+  `EXPLAIN ANALYZE` (`NOT_SUPPORTED`).
+- **Users.** `db user add` creates a SQL user with a SHA-256 hash of the
+  password and a random salt that komando computes, so the password never
+  reaches the server or its query log; `--no-login` creates a role. The
+  conn's user needs access management (or `CREATE USER` and `GRANT`).
+  `db grant` takes `--on DB.*`, `DB.TABLE`, `*.*`, `database:DB` or
+  `table:DB.TABLE` (`SELECT`, `INSERT`, `ALTER`, `CREATE`, `DROP`,
+  `TRUNCATE`, `OPTIMIZE`, `SHOW`, `KILL QUERY`, ...), and `--role NAME`.
+  Users defined in the server's `users.xml` cannot be changed with SQL.
+- **Backups.** `db dump` and `db restore` are not available for
+  ClickHouse (`NOT_SUPPORTED`). Its own `BACKUP TABLE ... TO Disk('backups',
+  'name.zip')` (or `S3(...)`) writes the backup on the server, with
+  `--write` and `--allow-dangerous`.
+
 ## Interactive SQL shell (for people)
 
 ```bash
@@ -651,7 +725,7 @@ komando db shell app-db --yes         # any shell on a protected conn needs --ye
 ```
 
 `db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB,
-SQL Server, Oracle and SQLite, so nothing else needs to be installed. It connects through the
+SQL Server, Oracle, ClickHouse and SQLite, so nothing else needs to be installed. It connects through the
 conn's `--via` path, and every statement gets the same checks as
 `db query`: read-only unless you started it with `--write`, destructive
 statements only with `--allow-dangerous`, and each one is written to the

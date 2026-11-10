@@ -143,7 +143,7 @@ checked before anything is written).
 These are conns (`komando list kind:conn`). Each has its own command; never
 reach them through `exec`.
 
-**Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, SQLite):
+**Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, SQLite):
 
 ```bash
 komando db schema <conn> [table...]                     # tables, then columns and indexes
@@ -178,6 +178,16 @@ available there (`NOT_SUPPORTED`).
 (`BEGIN ... END;`) ends with a line holding only `/` and needs `--write`
 and `--allow-dangerous`: ask the human first. Table names are upper case
 (`db schema <conn>` shows them). `db dump` and `restore` are not available
+(`NOT_SUPPORTED`).
+
+**ClickHouse** conns take ClickHouse SQL with `{p1:String}`, `{p2:UInt64}`
+placeholders. There are no transactions: without `--write` the server runs
+everything with `readonly=1`; a write (`INSERT`, `ALTER`, ...) needs
+`--write`, goes alone, and a dry run only reports it, so dry-run and ask the
+human before the real one. Leave out `SETTINGS`, `SET` and `FORMAT`.
+Table functions that reach out (`url()`, `s3()`, `remote()`, `file()`)
+need `--allow-dangerous`: ask the human first. `db kill` takes the `pid`
+from `db activity`. `db dump`, `restore` and `locks` are not available
 (`NOT_SUPPORTED`).
 
 **Caches** (Redis, Valkey, memcached): `cache get|keys|info <conn>` read, `cache set`

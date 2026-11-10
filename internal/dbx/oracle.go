@@ -99,10 +99,13 @@ func oracleConfig(rawURL string, t kdriver.Target, password, appName string) (co
 	return *cfg, tc, nil
 }
 
-// opener opens a kind whose driver komando configures itself.
-type opener func(rawURL string, t kdriver.Target, password string, dial DialFunc, appName string) (*sql.DB, error)
+// opener opens a kind whose driver komando configures itself. readOnly:
+// the connection only reads (ClickHouse sends readonly=1 with everything).
+type opener func(rawURL string, t kdriver.Target, password string, dial DialFunc, appName string, readOnly bool) (*sql.DB, error)
 
-func openOracle(rawURL string, t kdriver.Target, password string, dial DialFunc, appName string) (*sql.DB, error) {
+var openers = map[string]opener{"sqlserver": openSQLServer, "oracle": openOracle, "clickhouse": openClickHouse}
+
+func openOracle(rawURL string, t kdriver.Target, password string, dial DialFunc, appName string, _ bool) (*sql.DB, error) {
 	cfg, tc, err := oracleConfig(rawURL, t, password, appName)
 	if err != nil {
 		return nil, err
