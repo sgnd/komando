@@ -38,8 +38,13 @@ func securityChecks(st *store.State) []securityCheck {
 			false: "others can read " + strings.Join(loose, ", ") + ": run chmod 700 " + store.Home() + " && chmod 600 on the files"}[len(loose) == 0])
 	}
 
+	if store.MixedHome() {
+		add("store", false, true, store.Path(store.StoreFile)+" holds this folder's data, but files of an older komando are beside it (state.json, vault.json, known_hosts or keys/): an older komando wrote them, and this komando does not read them")
+	}
 	if s, err := vault.Check(); err != nil {
 		add("vault", false, false, err.Error())
+	} else if !s.NoVaultYet && store.Sealed() {
+		sealedStoreCheck(add, s)
 	} else if !s.NoVaultYet {
 		switch {
 		case s.Mode == "keyfile":
@@ -105,6 +110,22 @@ func weakVpn(v *store.Vpn) string {
 		why = append(why, "PAP is allowed, which hands the server your password itself; once it offers MS-CHAPv2: komando vpn edit "+v.Name+" --allow-pap=false")
 	}
 	return strings.Join(why, "; ")
+}
+
+// sealedStoreCheck says how a sealed home's store is locked.
+func sealedStoreCheck(add func(name string, ok, warn bool, detail string), s vault.Strength) {
+	switch {
+	case s.Mode == "keyfile":
+		add("vault", false, true, "everything is sealed in "+store.StoreFile+", but its key is a file next to it (store.key): anyone with a copy of "+store.Home()+" (a backup) can open it. Move it into the OS keychain with `komando secret keychain`, or use a passphrase of 15+ characters with `komando secret passphrase`")
+	case s.Mode == "keychain":
+		add("vault", true, false, "everything sealed in "+store.StoreFile+" (AES-256-GCM), the key in the OS keychain")
+	case s.Mode == "passphrase" && vault.Passphrase() == "":
+		add("vault", false, true, "the store has a passphrase, but KOMANDO_VAULT_PASS is not set here, so komando cannot open it")
+	case s.ShortPass:
+		add("vault", false, true, "KOMANDO_VAULT_PASS is shorter than 15 characters (NIST SP 800-63B); change it with `komando secret passphrase`")
+	default:
+		add("vault", true, false, "everything sealed in "+store.StoreFile+" (AES-256-GCM), passphrase with scrypt N=2^17")
+	}
 }
 
 // vaultKeyChecks: KOMANDO_VAULT_PASS opens a passphrase vault (a changed

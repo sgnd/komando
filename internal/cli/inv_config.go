@@ -279,8 +279,7 @@ func configCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res := configShow{Settings: st.Settings, Home: store.Home(),
-				Files: map[string]string{"state": store.Path("state.json"), "runtime": store.Path("runtime.json"), "vault": store.Path("vault.json"), "known_hosts": sshx.KnownHostsPath(), "audit": store.Path("audit.jsonl")}}
+			res := configShow{Settings: st.Settings, Home: store.Home(), Files: dataFiles()}
 			for _, s := range settings {
 				res.Rows = append(res.Rows, configRow{s.Key, s.get(&st.Settings), s.get(&def), s.Values})
 			}
@@ -360,4 +359,14 @@ func configCmd() *cobra.Command {
 	})
 	c.AddCommand(set, approvalCodeCmd())
 	return c
+}
+
+// dataFiles is where komando keeps each kind of data: its own file each,
+// or on a sealed home one sealed file for all but the runtime data.
+func dataFiles() map[string]string {
+	if store.Sealed() {
+		db := store.Path(store.StoreFile)
+		return map[string]string{"state": db, "runtime": store.Path("runtime.json"), "vault": db, "known_hosts": db, "audit": db}
+	}
+	return map[string]string{"state": store.Path("state.json"), "runtime": store.Path("runtime.json"), "vault": store.Path("vault.json"), "known_hosts": sshx.KnownHostsPath(), "audit": store.Path("audit.jsonl")}
 }

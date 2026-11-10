@@ -75,6 +75,22 @@ Variables for password managers and cloud logins are listed in
 Everything is in `~/.komando/` (change it with `KOMANDO_HOME`). Files are
 readable only by you (folder 0700, files 0600).
 
+A folder komando makes new keeps your data sealed in one file:
+
+| File | Contains |
+|------|----------|
+| `store.db` | servers, conns, VPNs, keys, recipes, settings, secrets, remembered server fingerprints and the history of every action, each record sealed (AES-256-GCM). Only a random ID, the kind, a version and the time of a change can be read without the key |
+| `store.key` | the store's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
+| `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started |
+| `vpn/`, `tunnels/` | VPN and tunnel logs, and the state of built-in VPN clients |
+
+Copy `store.db` only with komando running nothing, or a copy taken during a
+change may be broken. The same three ways keep its key as the vault's key
+below: `komando secret keychain` and `komando secret passphrase` move and
+change it, and `komando doctor` says which one is in use.
+
+A folder from an earlier komando keeps its files as they were:
+
 | File | Contains |
 |------|----------|
 | `state.json` | servers, conns, VPNs, keys, your own recipes and settings |

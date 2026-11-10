@@ -7,6 +7,31 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- **Sealed local store** (not yet switched on for new folders): one file,
+  `store.db`, keeps servers, conns, VPNs, keys, recipes, settings,
+  secrets, remembered fingerprints and the audit log, each record sealed
+  and bound to its ID, kind and version, so a record edited, swapped or
+  removed outside komando is found. Its key is kept the three ways the
+  vault key is: the OS keychain, a key file (`store.key`) or
+  `KOMANDO_VAULT_PASS`. With a passphrase, every command needs it, reads
+  included. A store made by a newer komando stops with `STORE_NEWER`.
+  Folders from earlier versions keep their files unchanged.
+- **Windows:** komando builds and runs natively on Windows, with the vault
+  key in Windows Credential Manager, a native "Allow once" window, and
+  `.zip` releases.
+
+### Changed
+
+- Running VPN sessions, server logins, jobs and tunnels live in
+  `runtime.json`, apart from the inventory in `state.json`; `config show`
+  lists it. A background VPN marking itself used no longer rewrites the
+  inventory.
+- `known_hosts` is written under a lock, so two komando processes reaching
+  new servers at once no longer write over each other's fingerprints.
+- SSH key files komando makes are written whole or not at all.
+
 ### Removed
 
 - Old flag names kept as aliases since 0.1 to 0.3 are gone. Use the new
