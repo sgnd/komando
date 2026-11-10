@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sealrow"
 )
 
 // Runtime is what komando's background work keeps between commands: VPN
@@ -63,6 +64,14 @@ func (s *State) loadRuntime() error {
 	if err != nil {
 		return err
 	}
+	if b, err = openRuntime(b); err != nil {
+		if errors.Is(err, sealrow.ErrOpen) {
+			return out.Errf(out.ExitError, "STATE_CORRUPT",
+				"the file holds only running VPN sessions, logins, jobs and tunnels: move it away, then connect again (a VPN started before the store's key changed is ended by `komando vpn down`)",
+				"%s does not open with the store's key", runtimePath())
+		}
+		return err
+	}
 	var rt Runtime
 	if err := json.Unmarshal(b, &rt); err != nil {
 		// only live sessions are lost: they are found again or made again
@@ -81,7 +90,34 @@ func (s *State) saveRuntime() error {
 	if err != nil {
 		return err
 	}
-	return WriteFileAtomic(runtimePath(), b, 0o600)
+	if b, err = sealRuntime(b); err != nil {
+		return err
+	}
+	if err := WriteFileAtomic(runtimePath(), b, 0o600); err != nil {
+		return err
+	}
+	if Sealed() {
+		return s.Runtime.writeRuntimePIDs()
+	}
+	return nil
+}
+
+// ReadRuntime reads runtime.json alone, sealed or not, for a caller that
+// needs only the running sessions and tunnels (the shell prompt).
+func ReadRuntime() (*Runtime, error) {
+	b, err := os.ReadFile(runtimePath())
+	if err != nil {
+		return nil, err
+	}
+	if b, err = openRuntime(b); err != nil {
+		return nil, err
+	}
+	var rt Runtime
+	if err := json.Unmarshal(b, &rt); err != nil {
+		return nil, err
+	}
+	rt.init()
+	return &rt, nil
 }
 
 // ErrRuntimeOnly: fn of UpdateRuntime changed the inventory, which

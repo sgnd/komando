@@ -147,6 +147,12 @@ func TestSealedKeyChanges(t *testing.T) {
 	if err := Set("db", "pw-1"); err != nil {
 		t.Fatal(err)
 	}
+	if err := store.UpdateRuntime(func(s *store.State) error {
+		s.Jobs["j1"] = &store.Job{ID: "j1"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := ChangeKey("", "short"); !errors.Is(err, ErrShortPassphrase) {
 		t.Fatalf("short: %v", err)
 	}
@@ -158,8 +164,8 @@ func TestSealedKeyChanges(t *testing.T) {
 		if v, err := Get("db"); err != nil || v != "pw-1" {
 			t.Fatalf("%s: secret %q %v", step, v, err)
 		}
-		if st, err := store.Load(); err != nil || st.Hosts["web"] == nil {
-			t.Fatalf("%s: inventory %v", step, err)
+		if st, err := store.Load(); err != nil || st.Hosts["web"] == nil || st.Jobs["j1"] == nil {
+			t.Fatalf("%s: inventory or runtime %v", step, err)
 		}
 	}
 	r, err := ChangeKey("", "first passphrase, long")

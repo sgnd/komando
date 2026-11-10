@@ -54,6 +54,9 @@ starship, in ~/.config/starship.toml:
 // promptText is the note with a newline, or "" when nothing runs or the
 // state cannot be read: a broken prompt is worse than a missing note.
 func promptText(now time.Time) string {
+	if store.Sealed() {
+		return sealedPromptText(now)
+	}
 	// state.json gives the settings on a folder of before; a sealed folder
 	// has none to read without its key, so the defaults apply there
 	var st store.State
@@ -66,21 +69,18 @@ func promptText(now time.Time) string {
 	}
 	// running VPNs and tunnels live in runtime.json; a state.json from
 	// before may still hold some
-	if rb, err := os.ReadFile(store.Path("runtime.json")); err == nil {
-		var rt store.Runtime
-		if json.Unmarshal(rb, &rt) == nil {
-			if st.Sessions == nil {
-				st.Sessions = map[string]*store.VpnSession{}
-			}
-			if st.Tunnels == nil {
-				st.Tunnels = map[string]*store.Tunnel{}
-			}
-			for k, v := range rt.Sessions {
-				st.Sessions[k] = v
-			}
-			for k, v := range rt.Tunnels {
-				st.Tunnels[k] = v
-			}
+	if rt, err := store.ReadRuntime(); err == nil {
+		if st.Sessions == nil {
+			st.Sessions = map[string]*store.VpnSession{}
+		}
+		if st.Tunnels == nil {
+			st.Tunnels = map[string]*store.Tunnel{}
+		}
+		for k, v := range rt.Sessions {
+			st.Sessions[k] = v
+		}
+		for k, v := range rt.Tunnels {
+			st.Tunnels[k] = v
 		}
 	}
 	if st.Settings.VpnIdle == "" {
@@ -108,6 +108,39 @@ func promptText(now time.Time) string {
 	var parts []string
 	if len(vpns) > 0 {
 		parts = append(parts, "vpn:"+strings.Join(vpns, ","))
+	}
+	if tunnels > 0 {
+		parts = append(parts, "tun:"+strconv.Itoa(tunnels))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " ") + "\n"
+}
+
+// sealedPromptText is the note on a sealed home, from runtime.pids: the
+// prompt never opens the store (no keychain, no passphrase on each Enter),
+// so it counts running VPNs and tunnels without naming them.
+func sealedPromptText(now time.Time) string {
+	p, err := store.ReadRuntimePIDs()
+	if err != nil {
+		return ""
+	}
+	idle, _ := time.ParseDuration(store.DefaultSettings().VpnIdle)
+	vpns, tunnels := 0, 0
+	for _, v := range p.Vpns {
+		if netx.Alive(v.PID) && (idle <= 0 || now.Sub(v.LastUsed) <= idle) {
+			vpns++
+		}
+	}
+	for _, pid := range p.Tunnels {
+		if alive(pid) {
+			tunnels++
+		}
+	}
+	var parts []string
+	if vpns > 0 {
+		parts = append(parts, "vpn:"+strconv.Itoa(vpns))
 	}
 	if tunnels > 0 {
 		parts = append(parts, "tun:"+strconv.Itoa(tunnels))

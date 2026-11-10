@@ -123,6 +123,7 @@ func TestPromptIsQuick(t *testing.T) {
 // A sealed folder has no state.json: the prompt still counts what
 // runtime.json holds, tunnels included.
 func TestPromptWithoutStateFile(t *testing.T) {
+	filesOnly(t) // a sealed home's prompt reads runtime.pids: TestPromptSealed
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	rt := store.Runtime{Tunnels: map[string]*store.Tunnel{"t1": {ID: "t1", PID: os.Getpid()}}}
 	b, _ := json.Marshal(&rt)
@@ -130,6 +131,22 @@ func TestPromptWithoutStateFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := promptText(time.Now()); got != "tun:1\n" {
+		t.Fatalf("prompt %q", got)
+	}
+}
+
+// On a sealed home the prompt counts from runtime.pids, without names and
+// without opening the store.
+func TestPromptSealed(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	store.UseSealedForNewHomes(true)
+	t.Cleanup(func() { store.UseSealedForNewHomes(os.Getenv("KOMANDO_TEST_SEALED") == "1") })
+	p := store.RuntimePIDs{Vpns: []store.VpnPID{{PID: os.Getpid(), LastUsed: time.Now()}}, Tunnels: []int{os.Getpid()}}
+	b, _ := json.Marshal(&p)
+	if err := os.WriteFile(store.Path("runtime.pids"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := promptText(time.Now()); got != "vpn:1 tun:1\n" {
 		t.Fatalf("prompt %q", got)
 	}
 }

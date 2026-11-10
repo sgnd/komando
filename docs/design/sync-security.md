@@ -1389,8 +1389,11 @@ How the code meets this (settled while building phase 0, 2026-11-10):
 - **Lock files stay.** "No second lock file" is about the database. The
   small lock files that keep komando processes apart (one per VPN, the
   known_hosts lock) hold no data and stay as they are.
-- **`vpn/<name>.auth`** holds a VPN's login in plain text today. It moves
-  into the sealed runtime file with the sessions (step S7).
+- **`vpn/<name>.auth`** held a VPN's login in plain text while openvpn
+  (run as root) started. openvpn must read it plain, so it cannot be
+  sealed; it is now a named pipe that openvpn reads once, and the login is
+  never written to disk (step S7). `runtime.json` is sealed with the
+  store's key on a sealed home.
 - **Audit rows** are written inside the database's write step. Only
   commands that act write one; reading commands do not, so the write lock
   is not taken for every command.

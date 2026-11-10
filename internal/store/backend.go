@@ -226,6 +226,9 @@ func MasterKey() ([]byte, error) {
 	return k, err
 }
 
+// Never call Rekey from inside Update or UpdateRuntime: it takes the
+// runtime lock, which they hold.
+//
 // Rekey seals this home's store again under a new master key and keeps
 // meta as its readable key settings, in one write step; then runs inside
 // it, with the new key in force (the vault reseals its values there).
@@ -238,7 +241,20 @@ func Rekey(newMaster []byte, meta map[string]string, then func(tx *sealdb.Tx) er
 	if err != nil {
 		return err
 	}
-	return d.Rekey(context.Background(), k, func(tx *sealdb.Tx) error {
+	// runtime.json is sealed with the same key: hold it still, read it
+	// with the old key, and seal it again with the new one after
+	unlockRT, err := Lock(runtimeLock)
+	if err != nil {
+		return err
+	}
+	defer unlockRT()
+	var rtPlain []byte
+	if b, err := os.ReadFile(runtimePath()); err == nil {
+		if rtPlain, err = openRuntime(b); err != nil {
+			return err
+		}
+	}
+	err = d.Rekey(context.Background(), k, func(tx *sealdb.Tx) error {
 		for key, v := range meta {
 			if err := tx.SetMeta(key, v); err != nil {
 				return err
@@ -249,6 +265,28 @@ func Rekey(newMaster []byte, meta map[string]string, then func(tx *sealdb.Tx) er
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	rtKeyMu.Lock()
+	rtKey, rtKeyHome = k, Home()
+	rtKeyMu.Unlock()
+	// the store has its new key now: nothing below may report a failure,
+	// or the caller would undo a change that is already made. runtime.json
+	// holds only running sessions, found or made again: when it cannot be
+	// sealed again, it goes.
+	if rtPlain == nil {
+		return nil
+	}
+	sealed, err := k.Seal(runtimeRow, rtPlain)
+	clear(rtPlain)
+	if err == nil {
+		err = WriteFileAtomic(runtimePath(), append(append([]byte{}, runtimeMagic...), sealed...), 0o600)
+	}
+	if err != nil {
+		_ = os.Remove(runtimePath())
+	}
+	return nil
 }
 
 // SetStoreMeta changes readable key settings of this home's store (a key

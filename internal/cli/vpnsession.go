@@ -270,8 +270,6 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		// root writes its pid and log only where the user cannot plant a
 		// symlink: /var/run and syslog
 		pidFile := "/var/run/komando-openvpn-" + v.Name + ".pid"
-		authFile := filepath.Join(dir, v.Name+".auth")
-		defer os.Remove(authFile) // openvpn reads it at start; never leave it, also on failure
 		args := []string{"openvpn", "--config", "stdin",
 			// options after --config win over the profile's: whatever it
 			// says, openvpn calls no scripts, only its own ip/route tools
@@ -279,9 +277,11 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 			"--daemon", "komando-" + v.Name, "--writepid", pidFile, "--syslog", "komando-" + v.Name}
 		logFile = "the system log (komando-" + v.Name + ")"
 		if v.User != "" {
-			if err := os.WriteFile(authFile, []byte(v.User+"\n"+password+"\n"), 0o600); err != nil {
+			authFile, done, err := authPipe(dir, v.Name, v.User+"\n"+password+"\n") // never on disk
+			if err != nil {
 				return nil, err
 			}
+			defer done()
 			args = append(args, "--auth-user-pass", authFile)
 		}
 		if !interactive {
