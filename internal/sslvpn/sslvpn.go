@@ -7,7 +7,8 @@
 //
 // The clients are written from the vendors' public behaviour and protocol
 // write-ups; no code from openconnect (LGPL) or openfortivpn (GPL) is
-// used. MFA and browser (SAML) logins stay with a person.
+// used. MFA and browser (SAML) logins stay with a person: a GlobalProtect
+// browser sign-in is shown through Options.Browser.
 package sslvpn
 
 import (
@@ -48,11 +49,21 @@ type Options struct {
 	// Prompt asks a person for another answer (a one-time code, a
 	// group); nil means nobody is there, so such a login fails.
 	Prompt func(label string, secret bool) (string, error)
+	// Browser shows a sign-in page to a person and returns the address the
+	// sign-in ends on (GlobalProtect: globalprotectcallback:...); nil means
+	// nobody is there, so a browser login fails.
+	Browser func(ctx context.Context, p BrowserPage) (string, error)
+	// Notice tells the person what the login is doing (nil: nobody to tell).
+	Notice func(string)
 	// Dial reaches the portal (nil: directly).
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
 	// Insecure skips certificate checks only when the profile asked for it.
 	CA []byte
 }
+
+// BrowserPage is where a browser sign-in starts: an address to open, or a
+// page (a form that posts itself to the sign-in service) to show.
+type BrowserPage struct{ URL, HTML string }
 
 // LoginError is a login the server refused or that needs a person.
 type LoginError struct{ Msg string }

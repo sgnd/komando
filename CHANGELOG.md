@@ -7,6 +7,21 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- **GlobalProtect with a browser sign-in.** `komando vpn up` now logs in to
+  GlobalProtect portals that use a web sign-in (SAML, or Palo Alto's Cloud
+  Authentication Service, as Prisma Access does): it opens a window of
+  Chrome, Edge, Brave or Chromium with an empty temporary profile, you sign
+  in there with your password and one-time code, and komando reads the
+  result and connects. It also reads the portal's list of gateways and
+  takes the best one for your region; before, the portal address had to be
+  the gateway itself. Add such a VPN with only `--portal`. A gateway
+  with a sign-in of its own is shown in the same window. Tried against a
+  real Prisma Access gateway. Not built yet: gateways behind a load
+  balancer (the error names the portal's other gateways) and the device
+  report (HIP).
+
 ### Removed
 
 - Old flag names kept as aliases since 0.1 to 0.3 are gone. Use the new
@@ -16,6 +31,17 @@ its highlights; the sections below them give the details. Versions follow
   `--target` (was `--host`), `host mv` and `conn mv` (was `host edit
   --rename` and `conn edit --rename`). `recipe add --mutating` is gone too:
   a recipe counts as a change unless you save it with `--read-only`.
+
+### Fixed
+
+- A GlobalProtect VPN no longer drops after about 18 minutes. komando
+  now sends the keepalive the gateway expects, sets the tunnel up again
+  before the gateway's own tunnel timeout, and after a drop reconnects
+  with the same login (for up to 5 minutes) instead of ending the session.
+- `vpn add` no longer says a VPN needs `openconnect` and `ocproxy` when
+  komando's own client is the one that will run it.
+- A second `komando vpn up NAME` that waits for another one (which may be
+  waiting for a sign-in) now says so instead of standing still.
 
 ## [0.9.0] - 2026-11-10
 
