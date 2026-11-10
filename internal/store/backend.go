@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -73,8 +74,9 @@ var KeySource func(meta map[string]string, create bool) (master []byte, newMeta 
 var ErrNoStore = errors.New("store: no store yet")
 
 type openStore struct {
-	db *sealdb.DB
-	fi os.FileInfo // the file it opened, to notice a file put in its place
+	db     *sealdb.DB
+	fi     os.FileInfo // the file it opened, to notice a file put in its place
+	master []byte      // its master key, made once per process (scrypt is slow)
 }
 
 var (
@@ -122,7 +124,6 @@ func openDB(ctx context.Context, home, path string, meta map[string]string) (*se
 		return nil, err
 	}
 	k, err := sealrow.NewKey(master)
-	clear(master)
 	if err != nil {
 		return nil, err
 	}
@@ -130,17 +131,18 @@ func openDB(ctx context.Context, home, path string, meta map[string]string) (*se
 	if err != nil {
 		return nil, err
 	}
-	return remember(home, path, d)
+	return remember(home, path, d, master)
 }
 
-// remember keeps d as this home's open store, with the file it opened.
-func remember(home, path string, d *sealdb.DB) (*sealdb.DB, error) {
+// remember keeps d as this home's open store, with the file it opened
+// and its master key.
+func remember(home, path string, d *sealdb.DB, master []byte) (*sealdb.DB, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		d.Close()
 		return nil, err
 	}
-	dbOpen[home] = openStore{d, fi}
+	dbOpen[home] = openStore{d, fi, master}
 	return d, nil
 }
 
@@ -162,7 +164,6 @@ func createDB(ctx context.Context, home, path string) (*sealdb.DB, error) {
 		return nil, err
 	}
 	k, err := sealrow.NewKey(master)
-	clear(master)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +196,7 @@ func createDB(ctx context.Context, home, path string) (*sealdb.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return remember(home, path, d)
+	return remember(home, path, d, master)
 }
 
 // closeDBs closes every open store (tests that change the home).
@@ -212,18 +213,16 @@ func closeDBs() {
 // it under other labels (the vault's entries). ErrNoStore when there is no
 // store yet.
 func MasterKey() ([]byte, error) {
-	meta, err := sealdb.Peek(context.Background(), Path(StoreFile))
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, ErrNoStore
-	}
-	if err != nil {
+	if _, err := DB(false); err != nil {
 		return nil, err
 	}
-	if KeySource == nil {
-		return nil, errors.New("store: no key source (the vault package is not linked)")
+	dbMu.Lock()
+	defer dbMu.Unlock()
+	o, ok := dbOpen[Home()]
+	if !ok {
+		return nil, ErrNoStore
 	}
-	k, _, err := KeySource(meta, false)
-	return k, err
+	return bytes.Clone(o.master), nil
 }
 
 // Never call Rekey from inside Update or UpdateRuntime: it takes the
@@ -271,6 +270,12 @@ func Rekey(newMaster []byte, meta map[string]string, then func(tx *sealdb.Tx) er
 	rtKeyMu.Lock()
 	rtKey, rtKeyHome = k, Home()
 	rtKeyMu.Unlock()
+	dbMu.Lock()
+	if o, ok := dbOpen[Home()]; ok {
+		o.master = bytes.Clone(newMaster)
+		dbOpen[Home()] = o
+	}
+	dbMu.Unlock()
 	// the store has its new key now: nothing below may report a failure,
 	// or the caller would undo a change that is already made. runtime.json
 	// holds only running sessions, found or made again: when it cannot be

@@ -603,6 +603,19 @@ func hostKeyCallback(name, policy string) (ssh.HostKeyCallback, error) {
 		return ssh.InsecureIgnoreHostKey(), nil
 	}
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		// a known server is checked in a read step; only a new one takes
+		// the write step that pins it (and checks again inside it)
+		var known error
+		if verr := HostKeys().view(func(t hostKeyTx) error { known = t.Check(hostname, remote, key); return nil }); verr != nil {
+			return verr
+		}
+		var ke0 *knownhosts.KeyError
+		if !errors.As(known, &ke0) || len(ke0.Want) > 0 {
+			if errors.As(known, &ke0) {
+				return &hostKeyChanged{offered: key, err: ke0}
+			}
+			return known
+		}
 		var err error
 		pinned := false
 		lockErr := HostKeys().update(func(t hostKeyTx) error {

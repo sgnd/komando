@@ -172,6 +172,24 @@ func Open(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
 }
 
 func (d *DB) init(ctx context.Context) error {
+	// a store made already is checked in a read step, so opening it never
+	// waits for, or holds up, another process's write
+	ready := false
+	err := d.run(ctx, false, func(tx *Tx) error {
+		var n int
+		if err := tx.c.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('meta','records','audit')`).Scan(&n); err != nil || n < 3 {
+			return err
+		}
+		var v string
+		if err := tx.c.QueryRowContext(ctx, `SELECT v FROM meta WHERE k='format'`).Scan(&v); err != nil {
+			return nil // made, but not finished: the write step below does it
+		}
+		ready = true
+		return d.checkOpened(tx, v)
+	})
+	if err != nil || ready {
+		return err
+	}
 	return d.run(ctx, true, func(tx *Tx) error {
 		if _, err := tx.c.ExecContext(ctx, schema); err != nil {
 			return err
@@ -188,24 +206,30 @@ func (d *DB) init(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		n, err := strconv.Atoi(v)
-		if err != nil {
-			return fmt.Errorf("sealdb: format %q is not a number", v)
-		}
-		if n > Format {
-			return ErrNewerFormat
-		}
-		if _, err := tx.Get(keycheckID); err != nil {
-			if errors.Is(err, sealrow.ErrOpen) {
-				return ErrWrongKey
-			}
-			if errors.Is(err, ErrNotFound) {
-				return fmt.Errorf("record %s: %w", keycheckID, ErrTampered)
-			}
-			return err
-		}
-		return nil
+		return d.checkOpened(tx, v)
 	})
+}
+
+// checkOpened checks an existing store: its format, and that the key
+// opens it.
+func (d *DB) checkOpened(tx *Tx, v string) error {
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return fmt.Errorf("sealdb: format %q is not a number", v)
+	}
+	if n > Format {
+		return ErrNewerFormat
+	}
+	if _, err := tx.Get(keycheckID); err != nil {
+		if errors.Is(err, sealrow.ErrOpen) {
+			return ErrWrongKey
+		}
+		if errors.Is(err, ErrNotFound) {
+			return fmt.Errorf("record %s: %w", keycheckID, ErrTampered)
+		}
+		return err
+	}
+	return nil
 }
 
 // Peek reads the readable settings of the store at path (format, key mode,
