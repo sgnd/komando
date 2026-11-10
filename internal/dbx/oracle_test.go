@@ -107,6 +107,29 @@ func TestOracleErrors(t *testing.T) {
 			t.Errorf("%d: %v, want DB_ERROR with %q", n, e, hint)
 		}
 	}
+	// ORA-01466 right after a table's DDL: only a read is tried again
+	just := queryErr("oracle", ctx, &network.OracleError{ErrCode: 1466, ErrMsg: "ORA-01466: unable to read data - table definition has changed"})
+	if e, _ := just.(*out.Error); e == nil || !strings.Contains(e.Hint, "again") {
+		t.Errorf("1466: %v, want a hint to run it again", just)
+	}
+	other := queryErr("oracle", ctx, &network.OracleError{ErrCode: 942, ErrMsg: "ORA-00942: m"})
+	for _, c := range []struct {
+		kind string
+		o    Options
+		err  error
+		want bool
+	}{
+		{"oracle", Options{}, just, true},
+		{"oracle", Options{Write: true}, just, false},
+		{"oracle", Options{Showplan: "text"}, just, false},
+		{"oracle", Options{}, other, false},
+		{"oracle", Options{}, nil, false},
+		{"postgres", Options{}, just, false},
+	} {
+		if got := oraSnapshotTooOld(c.kind, c.o, c.err); got != c.want {
+			t.Errorf("oraSnapshotTooOld(%s, %+v, %v) = %v, want %v", c.kind, c.o, c.err, got, c.want)
+		}
+	}
 	tg, _ := driver.Parse("oracle://app@db/ERP")
 	for n, code := range map[int]string{1017: "DB_AUTH", 28000: "DB_AUTH", 12514: "DB_NOT_FOUND"} {
 		if e, ok := connectErr(tg, &network.OracleError{ErrCode: n, ErrMsg: fmt.Sprintf("ORA-%05d: m", n)}).(*out.Error); !ok || e.Code != code {

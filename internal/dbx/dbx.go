@@ -278,6 +278,14 @@ type Result struct {
 // in a dry run they are reported but not executed.
 func Run(ctx context.Context, db *sql.DB, kind string, plan driver.SQLPlan, o Options) (*Result, error) {
 	res, err := runPlan(ctx, db, kind, plan, o)
+	for try := 0; try < oraSnapshotTries && oraSnapshotTooOld(kind, o, err); try++ {
+		select {
+		case <-ctx.Done():
+			return nil, timeoutErr(err, o.Timeout)
+		case <-time.After(oraSnapshotWait):
+		}
+		res, err = runPlan(ctx, db, kind, plan, o)
+	}
 	return res, timeoutErr(err, o.Timeout)
 }
 
