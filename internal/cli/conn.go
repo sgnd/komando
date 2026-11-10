@@ -19,7 +19,6 @@ import (
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/queuex"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -665,7 +664,7 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 			r.Version = cachex.SummarizeFor(a.Target.Kind.Name, info).Version
 		}
 	case "queue":
-		q, err := queuex.Open(cctx, a.Target, a.Password, a.Dial, sshOpts(st).ConnectTimeout, "komando/"+actor())
+		q, err := openQueue(cctx, c, a, sshOpts(st).ConnectTimeout)
 		if err != nil {
 			return viaTimeout(c, err)
 		}

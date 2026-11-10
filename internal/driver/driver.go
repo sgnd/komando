@@ -79,6 +79,8 @@ func init() {
 		Example: "amqps://app@rabbit.example.com:5671/%2F?management=15671 (amqps = TLS; the path is the vhost; --via an SSH server: amqp://app@rabbit.internal:5672/)"})
 	register(Kind{Name: "nats", Family: "queue", Schemes: []string{"nats", "tls"}, DefaultPort: 4222,
 		Example: "tls://app@nats1.example.com:4222,nats2.example.com:4222 (tls = TLS; a .creds file: ?creds=secret:NAME; --via an SSH server: nats://nats.internal:4222)"})
+	register(Kind{Name: "sqs", Family: "queue", Schemes: []string{"sqs"}, DefaultPort: 443,
+		Example: "sqs://eu-west-1 (Amazon SQS; the login is your AWS one: --option aws_profile=NAME, or keys: sqs://ACCESS_KEY_ID@eu-west-1 --password-ref secret:NAME; an emulator: ?endpoint=http://localhost:4566)"})
 	register(Kind{Name: "k8s", Family: "cluster", Schemes: []string{"k8s", "kubernetes"}, DefaultPort: 6443,
 		Example: "k8s://api.cluster.example:6443 (the kubeconfig goes to the vault: `komando import kubeconfig`)"})
 	register(Kind{Name: "registry", Family: "registry", Schemes: []string{"registry", "oci"}, DefaultPort: 443,
@@ -126,13 +128,13 @@ func kindNames() string {
 // Target is a parsed conn URL.
 type Target struct {
 	Kind     Kind   `json:"kind"`
-	Address  string `json:"address,omitempty"`  // host:port for network kinds (s3: the endpoint)
+	Address  string `json:"address,omitempty"`  // host:port for network kinds (s3, sqs: the endpoint)
 	Path     string `json:"path,omitempty"`     // file path for file kinds; gcs, azblob: the endpoint's path (an emulator)
-	User     string `json:"user,omitempty"`     // s3: the access key ID (not secret)
+	User     string `json:"user,omitempty"`     // s3, sqs: the access key ID (not secret)
 	Database string `json:"database,omitempty"` // SQL database name, redis DB number, or rabbitmq vhost
 	Bucket   string `json:"bucket,omitempty"`   // s3
 	Prefix   string `json:"prefix,omitempty"`   // storage: keys are relative to this folder
-	Region   string `json:"region,omitempty"`   // s3
+	Region   string `json:"region,omitempty"`   // s3, sqs
 	Secure   bool   `json:"secure,omitempty"`   // TLS (rediss, https endpoint)
 	TLS      string `json:"tls,omitempty"`      // mysql: the tls= setting (true, skip-verify, preferred, false); ftps, registry: skip-verify (registry also false)
 	CA       string `json:"ca,omitempty"`       // registry, postgres, mysql, redis, memcached, mongodb, kafka, rabbitmq, nats: secret:NAME holding the PEM CA certificate to trust
@@ -150,6 +152,8 @@ type Target struct {
 
 	Creds  string `json:"creds,omitempty"`  // nats: secret:NAME holding the .creds file (user JWT and NKey seed) to log in with
 	Domain string `json:"domain,omitempty"` // nats: the JetStream domain (?domain=)
+
+	Account string `json:"account,omitempty"` // sqs: the AWS account that owns the queues, when not the login's own (?account=)
 }
 
 // DialAddress is where a connection goes: the ?resolve= address when the
@@ -177,7 +181,7 @@ func (t Target) Where() string {
 // urlParsers read the URLs of kinds with a shape of their own.
 var urlParsers = map[string]func(*url.URL, Target) (Target, error){
 	"s3": parseS3, "ftp": parseFiles, "ftps": parseFiles, "sftp": parseFiles, "gcs": parseGCS, "azblob": parseAzure,
-	"webdav": parseWebDAV, "mongodb": parseMongo, "rabbitmq": parseAMQP,
+	"webdav": parseWebDAV, "mongodb": parseMongo, "rabbitmq": parseAMQP, "sqs": parseSQS,
 }
 
 // passwordParams are query parameters that would carry a password or key.
@@ -472,6 +476,8 @@ func (t Target) Describe() string {
 		s = t.User + "@" + s
 	}
 	switch {
+	case t.Kind.Name == "sqs":
+		s = t.Region + " at " + s
 	case t.Kind.Name == "rabbitmq":
 		s += " vhost " + t.Database
 	case t.Database != "":

@@ -24,6 +24,8 @@ func (d queueInfo) Text() string {
 		return rabbitInfoText(d.Info)
 	case d.NatsInfo != nil:
 		return natsInfoText(d.Info)
+	case d.SqsInfo != nil:
+		return sqsInfoText(d.Info)
 	}
 	var b strings.Builder
 	version := d.Version
@@ -67,7 +69,7 @@ type queueTopics struct {
 
 func (l queueTopics) Text() string {
 	switch {
-	case len(l.Topics) == 0 && l.kind == "rabbitmq":
+	case len(l.Topics) == 0 && (l.kind == "rabbitmq" || l.kind == "sqs"):
 		return "no queues\n"
 	case len(l.Topics) == 0 && l.kind == "nats":
 		return "no streams\n"
@@ -77,6 +79,8 @@ func (l queueTopics) Text() string {
 		return rabbitQueuesText(l.Topics)
 	case l.kind == "nats":
 		return natsStreamsText(l.Topics)
+	case l.kind == "sqs":
+		return sqsQueuesText(l.Topics)
 	}
 	var rows [][]string
 	for _, t := range l.Topics {
@@ -96,6 +100,8 @@ func (d queueTopic) Text() string {
 		return rabbitQueueText(d.TopicDetail)
 	case d.NatsStreamDetail != nil:
 		return natsStreamText(d.TopicDetail)
+	case d.SqsQueueDetail != nil:
+		return sqsQueueText(d.TopicDetail)
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "topic: %s (%s, %s, %s)\n\n", d.Name, countOf(len(d.Partitions), "partition"), countOf(d.Replicas, "replica"), count64(d.Messages, "message"))
@@ -141,6 +147,8 @@ type queuePeek struct {
 
 func (p queuePeek) Text() string {
 	switch {
+	case p.From == "sample":
+		return sqsPeekText(p.PeekResult)
 	case p.Queue != "":
 		return rabbitPeekText(p.PeekResult)
 	case p.Stream != "":
@@ -238,8 +246,11 @@ type queueSent struct {
 }
 
 func (s queueSent) Text() string {
-	if s.NatsSent != nil {
+	switch {
+	case s.NatsSent != nil:
 		return natsSentText(s.Sent)
+	case s.SqsSent != nil:
+		return sqsSentText(s.Sent)
 	}
 	if s.Queue != "" {
 		if s.DryRun {
@@ -263,8 +274,11 @@ type queueCreated struct {
 }
 
 func (c queueCreated) Text() string {
-	if c.NatsCreated != nil {
+	switch {
+	case c.NatsCreated != nil:
 		return natsCreatedText(c.Created)
+	case c.SqsCreated != nil:
+		return sqsCreatedText(c.Created)
 	}
 	if c.RabbitCreated != nil {
 		typ := c.Type
@@ -324,6 +338,9 @@ type queuePurged struct {
 }
 
 func (p queuePurged) Text() string {
+	if p.InFlight != nil {
+		return sqsPurgedText(p.Purged)
+	}
 	if p.Stream != "" {
 		verb := map[bool]string{true: "would delete", false: "deleted"}[p.DryRun]
 		return fmt.Sprintf("%s %s from stream %s; the stream and its consumers stay\n", verb, count64(p.Messages, "message"), p.Stream)

@@ -24,9 +24,10 @@ type Message struct {
 // Sent is where a message went (or, with dry run, would go).
 type Sent struct {
 	Topic string `json:"topic,omitempty"` // kafka
-	Queue string `json:"queue,omitempty"` // rabbitmq
+	Queue string `json:"queue,omitempty"` // rabbitmq, sqs
 	*KafkaSent
 	*NatsSent
+	*SqsSent
 	Size   int  `json:"size"`
 	DryRun bool `json:"dry_run,omitempty"`
 }
@@ -52,10 +53,11 @@ type TopicSpec struct {
 // Created is the topic or queue made (or checked, with dry run).
 type Created struct {
 	Topic string `json:"topic,omitempty"` // kafka
-	Queue string `json:"queue,omitempty"` // rabbitmq
+	Queue string `json:"queue,omitempty"` // rabbitmq, sqs
 	*KafkaCreated
 	*RabbitCreated
 	*NatsCreated
+	*SqsCreated
 	DryRun bool `json:"dry_run,omitempty"`
 }
 
@@ -69,7 +71,7 @@ type KafkaCreated struct {
 // Deleted is one topic or queue `queue rm` deleted (or would).
 type Deleted struct {
 	Topic     string `json:"topic,omitempty"`  // kafka
-	Queue     string `json:"queue,omitempty"`  // rabbitmq
+	Queue     string `json:"queue,omitempty"`  // rabbitmq, sqs
 	Stream    string `json:"stream,omitempty"` // nats
 	Messages  int64  `json:"messages"`         // how many it held
 	Consumers *int   `json:"consumers,omitempty"`
@@ -82,10 +84,11 @@ func (d Deleted) Name() string { return d.Topic + d.Queue + d.Stream }
 // Purged is what `queue purge` removed (or would).
 type Purged struct {
 	Topic      string `json:"topic,omitempty"`  // kafka
-	Queue      string `json:"queue,omitempty"`  // rabbitmq
+	Queue      string `json:"queue,omitempty"`  // rabbitmq, sqs
 	Stream     string `json:"stream,omitempty"` // nats
 	Messages   int64  `json:"messages"`
 	Partitions int    `json:"partitions,omitempty"` // kafka
+	InFlight   *int64 `json:"in_flight,omitempty"`  // sqs: received and not yet deleted; purge deletes these too
 	DryRun     bool   `json:"dry_run,omitempty"`
 }
 

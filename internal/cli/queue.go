@@ -11,24 +11,26 @@ import (
 	"github.com/sgnd/komando/internal/queuex"
 	_ "github.com/sgnd/komando/internal/queuex/nats"     // nats:// and tls:// conns
 	_ "github.com/sgnd/komando/internal/queuex/rabbitmq" // amqp:// and amqps:// conns
+	_ "github.com/sgnd/komando/internal/queuex/sqs"      // sqs:// conns
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Queue commands (docs/design/queue.md), for Kafka, RabbitMQ and NATS
-// JetStream: reading
-// never moves a consumer group or removes a message; send and create change, behind the usual
+// Queue commands (docs/design/queue.md), for Kafka, RabbitMQ, NATS
+// JetStream and Amazon SQS: reading never moves a consumer group or
+// removes a message; send and create change, behind the usual
 // seatbelts (protected conns need --yes); rm and purge delete messages, so
 // they also need --allow-dangerous. Every change has a real --dry-run.
 
 func queueCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "queue",
-		Aliases: []string{"kafka", "rabbitmq", "nats"},
-		Short:   "Read and change message queues (Kafka, RabbitMQ, NATS) safely",
-		Long: `Work with a kafka://, amqp:// or nats:// conn (see ` + "`komando conn`" + `). info, ls,
-describe, peek, groups and lag only read: peek reads Kafka messages without
-joining a consumer group, gives RabbitMQ messages straight back, and reads
-NATS stream messages by their number, so nothing is removed. send and create
+		Aliases: []string{"kafka", "rabbitmq", "nats", "sqs"},
+		Short:   "Read and change message queues (Kafka, RabbitMQ, NATS, SQS)",
+		Long: `Work with a kafka://, amqp://, nats:// or sqs:// conn (see ` + "`komando conn`" + `). info,
+ls, describe, peek, groups and lag only read: peek reads Kafka messages
+without joining a consumer group, gives RabbitMQ messages straight back,
+reads NATS stream messages by their number, and receives SQS messages
+without hiding or deleting them, so nothing is removed. send and create
 change (protected conns need --yes); rm and purge delete messages, so they
 also need --allow-dangerous. Try any change with --dry-run first. In
 RabbitMQ words a topic is a queue; in NATS words it is a stream.`,
@@ -89,7 +91,7 @@ func withQueue(ctx context.Context, name, connExpr string, v driver.Verdict, rec
 	timeout := dbTimeout()
 	cctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	q, err := queuex.Open(cctx, a.Target, a.Password, a.Dial, timeout, "komando/"+actor())
+	q, err := openQueue(cctx, c, a, timeout)
 	if err != nil {
 		return fail(viaTimeout(c, err))
 	}
@@ -201,6 +203,12 @@ stops (DELIVERY_LIMIT_NEAR) before a message runs out of them.
 NATS: read messages straight from the stream by their sequence number. No
 consumer is made and nothing is acknowledged, so nothing is removed, also
 from a work-queue stream. The newest -n by default, --oldest for the first.
+
+Amazon SQS: receive messages with a visibility timeout of 0 and never
+delete them, so they stay and consumers can receive them at once. SQS gives
+messages in no set order, so this is a sample of what waits. Every receive
+counts toward a dead-letter queue's maxReceiveCount: peek stops
+(DELIVERY_LIMIT_NEAR) before a message runs out of receives.
 
 Values that are not UTF-8 text are shown as base64.`,
 		Example: `  komando queue peek events orders

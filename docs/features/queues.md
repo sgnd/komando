@@ -1,14 +1,14 @@
 # Queues
 
 Look at and work with message queues safely: Apache Kafka, and what speaks
-its protocol (Redpanda, Amazon MSK, Confluent Cloud, Aiven), RabbitMQ, and
-NATS with JetStream. [All features](README.md)
+its protocol (Redpanda, Amazon MSK, Confluent Cloud, Aiven), RabbitMQ,
+NATS with JetStream, and Amazon SQS. [All features](README.md)
 
-The same commands work for all three. Kafka keeps messages in **topics**;
-RabbitMQ keeps them in **queues**; NATS keeps them in **streams**. Where
-this page says "topic", read "queue" for RabbitMQ and "stream" for NATS.
-What is different for each is in [RabbitMQ](#rabbitmq) and
-[NATS JetStream](#nats-jetstream) below.
+The same commands work for all four. Kafka keeps messages in **topics**;
+RabbitMQ and SQS keep them in **queues**; NATS keeps them in **streams**.
+Where this page says "topic", read "queue" for RabbitMQ and SQS and
+"stream" for NATS. What is different for each is in [RabbitMQ](#rabbitmq),
+[NATS JetStream](#nats-jetstream) and [Amazon SQS](#amazon-sqs) below.
 
 ## Quick start
 
@@ -323,19 +323,106 @@ komando queue rm stream ORDERS --allow-dangerous
 - A server or account without JetStream: `info` says `jetstream: false`,
   and the other commands answer `NOT_SUPPORTED`.
 
+## Amazon SQS
+
+### Add an SQS region
+
+An SQS conn is one AWS region of one account. You give the queue's name to
+each command, not in the URL. komando logs in with your AWS login, the
+same way as for S3 buckets and ECR registries, and needs no aws CLI:
+
+```bash
+komando conn add aws sqs://eu-west-1 --option aws_profile=prod   # a profile in ~/.aws (SSO, a role, keys)
+komando login aws --profile prod              # a person renews an SSO login when it runs out
+komando conn add aws2 sqs://eu-west-1          # no profile: AWS_* variables, ~/.aws default, or the server's role
+komando secret set sqs-secret                  # or: keys of an IAM user
+komando conn add aws3 sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --password-ref secret:sqs-secret
+komando queue info aws                         # region, account, how many queues
+komando queue ls aws                           # queues: waiting, in flight, delayed, dead-letter queue
+komando queue peek aws orders                  # up to 10 messages; none is hidden or deleted
+```
+
+- How komando logs in, in this order: the conn's `aws_profile` option
+  (from `~/.aws/config` and `~/.aws/credentials`, SSO included); the
+  access key ID in the URL with the secret key from `--password-ref`; or,
+  with neither, the usual AWS chain (the `AWS_ACCESS_KEY_ID` and
+  `AWS_PROFILE` variables, the default profile, an EC2 or ECS role).
+- An expired SSO login stops with `AWS_LOGIN_REQUIRED`: a person runs
+  `komando login aws --profile NAME` once.
+- `komando conn test aws` logs in and lists one queue.
+
+| Option | What it does |
+|---|---|
+| `endpoint=URL` | another SQS server: a VPC endpoint, or an emulator such as LocalStack or moto (`http://localhost:4566`) |
+| `account=ID` | the 12-digit AWS account that owns the queues, to use queues another account shared with you |
+| `insecure=1` | accept an `http://` endpoint across the network (no `--via`, not this computer) |
+
+An `http://` endpoint straight over the network is refused with
+`INSECURE_PROTOCOL` unless you add `?insecure=1`: the messages and a
+temporary login's session token would travel unencrypted.
+
+### What each command does on SQS
+
+```bash
+komando queue describe aws orders             # counts, settings, dead-letter queue, tags
+komando queue send aws orders --value '{"id": 42}' --header source=support
+komando queue send aws orders.fifo --key customer-7 --value '{"id": 42}'
+komando queue create aws orders.fifo --config ContentBasedDeduplication=true --dry-run
+komando queue create aws jobs --config VisibilityTimeout=120 --config MessageRetentionPeriod=86400
+komando queue purge aws orders --dry-run      # about how many messages would go
+komando queue rm aws old-jobs --allow-dangerous
+```
+
+- **`peek` receives messages with a visibility timeout of 0 and never
+  deletes them.** Normally a received message is hidden from other
+  consumers for a while and then deleted by the consumer that got it.
+  With a visibility timeout of 0 nothing is hidden, and komando never
+  deletes, so every message stays and consumers can receive it at once.
+- SQS hands out messages in no set order (a FIFO queue: in order within a
+  message group), so `peek` shows **a sample** of what waits, not the
+  newest. There is no `--oldest` or `--partition`.
+- **Every receive counts.** SQS raises each message's receive count, also
+  for a peek. A queue with a dead-letter queue moves a message there after
+  `maxReceiveCount` receives (its `RedrivePolicy`). So peek refuses a queue
+  whose limit is 3 or less, and stops with `DELIVERY_LIMIT_NEAR` once a
+  message it showed has fewer than 3 receives left. Peek the dead-letter
+  queue instead, or let the consumers take the message.
+- The counts SQS gives are approximate. **Messages** are waiting to be
+  received; **in flight** were received and not yet deleted; **delayed**
+  were sent with a delay that has not passed yet.
+- `send` takes text only; `--header` values become message attributes.
+  A FIFO queue (its name ends in `.fifo`) needs `--key`, the message
+  group: messages of one group are received in order. komando gives each
+  FIFO message a new deduplication ID, unless the queue deduplicates by
+  content.
+- `create` makes a standard queue, or a FIFO queue when the name ends in
+  `.fifo`. `--config` takes SQS's own setting names (`VisibilityTimeout`,
+  `MessageRetentionPeriod`, `DelaySeconds`, `MaximumMessageSize`,
+  `ReceiveMessageWaitTimeSeconds`, `RedrivePolicy`, `KmsMasterKeyId`,
+  `ContentBasedDeduplication`, ...). SQS cannot check a queue without making
+  it, so `create --dry-run` checks the name and the setting names only. A
+  queue that is there already is `QUEUE_EXISTS`.
+- `purge` deletes every message, also those in flight, and keeps the queue;
+  SQS allows one purge per queue every 60 seconds. `rm` deletes the queue;
+  SQS needs 60 seconds before a queue of the same name can be made again.
+  Both need `--allow-dangerous`.
+- `groups` and `lag` answer `NOT_SUPPORTED`: SQS has no consumer groups.
+  `describe` shows how many messages are in flight.
+
 ## Troubleshooting
 
 | Code | What to do |
 |---|---|
 | `QUEUE_CONNECT` | the brokers cannot be reached, or want TLS (`?tls=true`) or a login (`?sasl=`); with `--via`, the advertised addresses must be reachable from there |
-| `QUEUE_AUTH` | check the user, the `sasl=` mechanism and the password (`komando conn show NAME`) |
-| `QUEUE_DENIED` | the user lacks a Kafka ACL for the topic, group or cluster, a RabbitMQ permission on the vhost or queue, or a NATS permission on the subject or the JetStream API: ask the admin |
+| `QUEUE_AUTH` | check the user, the `sasl=` mechanism and the password (`komando conn show NAME`); SQS: the AWS profile or keys |
+| `AWS_LOGIN_REQUIRED`, `AWS_PROFILE_NOT_FOUND` | SQS: a person runs `komando login aws --profile NAME`, or fix the conn's `aws_profile` option |
+| `QUEUE_DENIED` | the user lacks a Kafka ACL for the topic, group or cluster, a RabbitMQ permission on the vhost or queue, a NATS permission on the subject or the JetStream API, or an IAM permission for SQS (`sqs:ReceiveMessage`, ...): ask the admin |
 | `TOPIC_NOT_FOUND`, `CONSUMER_GROUP_NOT_FOUND`, `PARTITION_NOT_FOUND` | check the name with `queue ls`, `queue groups` or `queue describe` |
 | `TOPIC_EXISTS` | `queue create` of a topic that is there |
-| `QUEUE_NOT_FOUND`, `QUEUE_EXISTS` | RabbitMQ: no such queue in the conn's vhost, or one is there already; check the vhost in the URL's path |
-| `DELIVERY_LIMIT_NEAR` | a message of a RabbitMQ quorum queue is close to its delivery limit: stop peeking that queue and let its consumers take the message |
+| `QUEUE_NOT_FOUND`, `QUEUE_EXISTS` | RabbitMQ: no such queue in the conn's vhost, or one is there already; check the vhost in the URL's path. SQS: check the region (the URL's host) and, for another account's queue, `?account=` |
+| `DELIVERY_LIMIT_NEAR` | a message of a RabbitMQ quorum queue is close to its delivery limit, or an SQS message close to its queue's `maxReceiveCount`: stop peeking that queue and let its consumers take the message |
 | `STREAM_NOT_FOUND`, `STREAM_EXISTS`, `CONSUMER_NOT_FOUND` | NATS: no such stream (for `send`: no stream keeps that subject), one is there already, or no such consumer; `queue ls` and `queue groups` show the names |
-| `NOT_SUPPORTED` | the engine cannot do this (RabbitMQ: `groups`, `lag`, `ls` and `peek` without `?management=`; NATS without JetStream); the hint says what works instead |
+| `NOT_SUPPORTED` | the engine cannot do this (RabbitMQ: `groups`, `lag`, `ls` and `peek` without `?management=`; NATS without JetStream; SQS: `groups`, `lag`, `peek --oldest`); the hint says what works instead |
 
 The design behind these commands is in
 [docs/design/queue.md](../design/queue.md).

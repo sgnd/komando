@@ -33,7 +33,9 @@ to the same partition); --partition picks one itself.
 RabbitMQ: the message goes straight to the queue (the default exchange),
 persistent, with --header values as its headers.
 NATS: TOPIC is a subject that a stream keeps (orders.new); komando checks
-which stream, publishes, and waits for the stream's acknowledgement.`,
+which stream, publishes, and waits for the stream's acknowledgement.
+Amazon SQS: text only; --header values become message attributes. A FIFO
+queue (name.fifo) needs --key, the message group.`,
 		Example: `  komando queue send events orders --value '{"id": 42, "status": "paid"}' --key 42
   komando queue send events orders --from ./order.json --header source=support
   komando queue send events orders --value test --dry-run`,
@@ -73,7 +75,7 @@ which stream, publishes, and waits for the stream's acknowledgement.`,
 	}
 	c.Flags().StringVar(&value, "value", "", "the message")
 	c.Flags().StringVar(&from, "from", "", "read the message from this file ('-' for stdin)")
-	c.Flags().StringVar(&key, "key", "", "kafka: the message key (picks the partition)")
+	c.Flags().StringVar(&key, "key", "", "kafka: the message key (picks the partition); sqs: the message group of a FIFO queue")
 	c.Flags().StringArrayVar(&headers, "header", nil, "a message header KEY=VALUE (repeatable)")
 	c.Flags().IntVar(&partition, "partition", -1, "kafka: send to this partition (numbered from 0)")
 	return c
@@ -128,7 +130,8 @@ func queueCreateCmd() *cobra.Command {
 		Example: `  komando queue create events orders --partitions 6 --replicas 3 --dry-run
   komando queue create events orders --partitions 6 --replicas 3 --config retention.ms=604800000
   komando queue create jobs emails --type quorum --config x-max-length=10000
-  komando queue create stream ORDERS --replicas 3 --config subjects='orders.>' --config max_age=7d`,
+  komando queue create stream ORDERS --replicas 3 --config subjects='orders.>' --config max_age=7d
+  komando queue create aws orders.fifo --config ContentBasedDeduplication=true`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := parseKV(configs)
@@ -154,7 +157,7 @@ func queueCreateCmd() *cobra.Command {
 	c.Flags().IntVar(&partitions, "partitions", -1, "kafka: how many partitions (-1: the brokers' default)")
 	c.Flags().IntVar(&replicas, "replicas", -1, "kafka: copies of each partition (-1: the brokers' default); nats: copies of the stream (default 1)")
 	c.Flags().StringVar(&typ, "type", "", "rabbitmq: the queue type, classic, quorum or stream (default: the server's)")
-	c.Flags().StringArrayVar(&configs, "config", nil, "a setting KEY=VALUE, e.g. retention.ms=86400000 (kafka), x-max-length=1000 (rabbitmq) or max_age=7d (nats) (repeatable)")
+	c.Flags().StringArrayVar(&configs, "config", nil, "a setting KEY=VALUE, e.g. retention.ms=86400000 (kafka), x-max-length=1000 (rabbitmq), max_age=7d (nats) or VisibilityTimeout=60 (sqs) (repeatable)")
 	return c
 }
 

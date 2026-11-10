@@ -152,6 +152,26 @@ its highlights; the sections below them give the details. Versions follow
   network is refused like `redis://` unless `?insecure=1`. New error codes
   `STREAM_NOT_FOUND`, `STREAM_EXISTS` and `CONSUMER_NOT_FOUND`. Built on
   github.com/nats-io/nats.go and github.com/nats-io/nkeys (Apache-2.0).
+- **Amazon SQS in `komando queue`:** add a region as a conn,
+  `sqs://eu-west-1`, logging in like komando's other AWS clients: the
+  conn's `--option aws_profile=NAME` (SSO included, renewed with `komando
+  login aws`), an access key ID in the URL (`sqs://AKIA...@eu-west-1`)
+  with the secret key from `--password-ref`, or the usual AWS chain
+  (variables, default profile, the server's role). `?endpoint=` for a VPC
+  endpoint or an emulator (LocalStack, moto), `?account=` for queues
+  another account shares. `queue ls` and `describe` show the waiting,
+  in-flight and delayed messages, settings, dead-letter queue and tags.
+  `queue peek` receives a sample with a visibility timeout of 0 and never
+  deletes, so every message stays and stays visible; since each receive
+  counts toward a dead-letter queue's `maxReceiveCount`, peek stops with
+  `DELIVERY_LIMIT_NEAR` before a message runs out of receives. `queue
+  send` sends text with `--header` values as message attributes (`--key`
+  is a FIFO queue's message group); `queue create` makes a standard or
+  (name.fifo) FIFO queue from SQS settings (`--config
+  VisibilityTimeout=60`); `rm` and `purge` need `--allow-dangerous`. An
+  `http://` endpoint straight over the network is refused unless
+  `?insecure=1`. komando speaks the SQS API itself, signed with the AWS
+  SDK's SigV4 signer it already had: no new dependency.
 
 ## [0.8.0] - 2026-11-09
 

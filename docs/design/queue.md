@@ -7,7 +7,7 @@ the rules for commands and flags are in [ux.md](ux.md). The user guide is
 Status: **Apache Kafka done** (and anything that speaks the Kafka protocol:
 Redpanda, Amazon MSK, Confluent Cloud, Aiven, WarpStream), **RabbitMQ
 done** (AMQP 0-9-1, [below](#rabbitmq)), **NATS JetStream done**
-([below](#nats-jetstream)). Amazon SQS comes later behind the same verbs.
+([below](#nats-jetstream)), **Amazon SQS done** ([below](#amazon-sqs)).
 
 ## One family, a human word
 
@@ -19,14 +19,15 @@ with a hint, never a different meaning.
 
 In Kafka words a queue is a **topic**; in NATS words a **stream**. The
 docs say "topic" for Kafka and "queue" for the family; the JSON field is
-`topic` for Kafka output, `queue` for RabbitMQ and `stream` for NATS. The
+`topic` for Kafka output, `queue` for RabbitMQ and SQS, and `stream` for
+NATS. The
 shared result types (queuex `Info`, `Topic`, `TopicDetail`, `Group`,
 `GroupLag`, `Received`, `Sent`, `Created`) embed one part per engine
-(`KafkaInfo`, `RabbitInfo`, `NatsInfo`, ...), so each engine's JSON holds
+(`KafkaInfo`, `RabbitInfo`, `NatsInfo`, `SqsInfo`, ...), so each engine's JSON holds
 only its own fields, and `info` says `"engine"`. Two engines' parts sit at
 the same level of the JSON, so a field name one engine uses with another
 meaning gets a name of its own (NATS: `consumer_count`, `num_replicas`,
-`consumer_info`, `time`).
+`consumer_info`, `time`; SQS: `account_id`, `created_at`, `sent_at`).
 
 ## Conn URL
 
@@ -139,7 +140,7 @@ change things". There is no raw command in this family yet; when one comes
 | `TOPIC_EXISTS` | `create` of a topic that is there |
 | `QUEUE_NOT_FOUND`, `QUEUE_EXISTS` | RabbitMQ: no such queue in the vhost, or `create` of one that is there |
 | `STREAM_NOT_FOUND`, `STREAM_EXISTS`, `CONSUMER_NOT_FOUND` | NATS: no such stream (or no stream keeps the subject `send` was given), `create` of one that is there, no such consumer |
-| `DELIVERY_LIMIT_NEAR` | RabbitMQ quorum queue: a message peek showed is close to its delivery limit (exit 8) |
+| `DELIVERY_LIMIT_NEAR` | RabbitMQ quorum queue, or SQS queue with a dead-letter queue: a message peek showed is close to its delivery (receive) limit (exit 8) |
 | `NOT_SUPPORTED` | a verb or flag the engine cannot do, with what works instead |
 | `QUEUE_ERROR` | anything else the broker says, with its message |
 
@@ -275,15 +276,89 @@ says why on its own, as an asynchronous `Permissions Violation`); komando
 keeps that reason and answers `QUEUE_DENIED`. No JetStream at all is
 `NOT_SUPPORTED` (with the hint about `?domain=` for leaf nodes).
 
-## Engines later
+## Amazon SQS
 
-The verbs map like this; an engine adds a kind with `Family: "queue"`
-and fills the same `queuex` interface.
+The engine is internal/queuex/sqs. It speaks the SQS JSON API
+(`POST /` with `X-Amz-Target: AmazonSQS.<Action>`) over komando's own HTTP
+client, so every request goes through the conn's dial (direct, `--via`,
+VPN), and signs it with the SigV4 signer of the AWS SDK core
+(github.com/aws/aws-sdk-go-v2/aws/signer/v4, Apache-2.0), which komando
+already builds in for Secrets Manager, ECR and Session Manager. No SQS SDK
+module is added. It registers itself with queuex for the kind `sqs`.
+
+```
+sqs://[ACCESS_KEY_ID@]REGION[?OPTIONS]
+```
+
+- The conn is one region of one account; queues are given to each
+  command, like Kafka topics. Putting the queue in the URL
+  (`sqs://REGION/QUEUE`) was left out: one conn would then reach one
+  queue only, unlike every other engine, and `ls` would mean nothing.
+  The account is not in the URL either: SQS finds a queue by name in the
+  login's own account; `?account=ID` names another one
+  (`QueueOwnerAWSAccountId`).
+- The endpoint is `https://sqs.REGION.amazonaws.com` (`.amazonaws.com.cn`
+  for `cn-` regions), or `?endpoint=URL` (a VPC endpoint, LocalStack,
+  moto). An `http://` endpoint straight over the network is refused with
+  `INSECURE_PROTOCOL` unless `?insecure=1`: the messages and a session
+  token would travel in the clear (the secret key never does: SigV4 only
+  sends a signature). doctor flags it like an `http://` S3 endpoint.
+- The login, as for komando's other AWS clients (internal/cloud/aws.go):
+  1. `--option aws_profile=NAME`: the profile's current keys from
+     `~/.aws` (SSO included; `komando login aws --profile NAME` renews it;
+     `AWS_LOGIN_REQUIRED` and `AWS_PROFILE_NOT_FOUND` as for S3 and ECR);
+  2. `ACCESS_KEY_ID@` in the URL with the secret key from
+     `--password-ref` (a password reference without a key ID is refused);
+  3. neither: the SDK's usual chain (`AWS_*` variables, the default
+     profile, the instance's or task's role through IMDS).
+  The CLI resolves 1 and 3 (internal/cli/queue_sqs.go) and hands the keys
+  to `sqs.OpenKeys`; the keys live only in memory for the command.
+- The endpoint's own `AWS_ENDPOINT_URL` variables are not read: the URL
+  says where the conn goes, so `--via` and the audit log name the right
+  place.
 
 | Verb | SQS |
 |---|---|
-| ls | queues |
-| peek | not possible without hiding the message: `NOT_SUPPORTED` |
-| send | SendMessage |
-| groups / lag | `NOT_SUPPORTED` |
-| purge | PurgeQueue |
+| info | region, endpoint, the account (from the queues' URLs or `?account=`), queue count (`ListQueues`, every page) |
+| ls | `ListQueues` with the pattern's literal start as `QueueNamePrefix`, then `GetQueueAttributes` per queue (8 at a time): waiting, in flight, delayed, FIFO, dead-letter queue and `maxReceiveCount`; `--internal` is `NOT_SUPPORTED` |
+| describe | `GetQueueUrl`, `GetQueueAttributes` (All): counts, visibility timeout, retention, delay, size limit, receive wait, encryption, redrive policy, the rest as `attributes`; `ListDeadLetterSourceQueues` and `ListQueueTags` when the login may (otherwise left out) |
+| peek | `ReceiveMessage` with `VisibilityTimeout: 0`, never `DeleteMessage`: see below |
+| send | `GetQueueUrl` and the queue's attributes (`QUEUE_NOT_FOUND`, FIFO, size limit), then `SendMessage`; `--header` as String message attributes; FIFO: `--key` is the `MessageGroupId` (required), and a random `MessageDeduplicationId` unless the queue deduplicates by content. Bodies that are not SQS text are refused before sending. The dry run stops after the checks |
+| create | `GetQueueUrl` first (`QUEUE_EXISTS`: `CreateQueue` with the same settings would answer with the queue that is there), then `CreateQueue`; `.fifo` names get `FifoQueue=true`; `--config` takes SQS attribute names (any case), FIFO-only ones are refused for standard queues. The dry run makes nothing: SQS has no validate-only create |
+| rm | every name must exist (dry run: messages, in flight and delayed), then `DeleteQueue` |
+| purge | `PurgeQueue`: every message, in flight too; SQS allows one per 60 seconds (`QUEUE_ERROR` with that hint) |
+| groups, lag | `NOT_SUPPORTED`: SQS has no consumer groups |
+
+`--key` on a standard queue, `--partition`, `--type`, `--oldest` and
+`create --partitions`/`--replicas` answer `NOT_SUPPORTED` with what to
+use instead.
+
+### peek hides nothing and deletes nothing
+
+A normal receive hides the message for the queue's visibility timeout and
+the consumer deletes it when done. peek asks for a visibility timeout of 0
+and never deletes, so every message stays visible and in the queue, and
+consumers can receive it at once. It long-polls one second per call (so a
+queue with few messages still answers) and stops when a call brings no
+message it has not seen, or when it has as many as SQS counted: SQS gives
+no set order and hands the same messages out again, and every extra call
+would raise their receive counts. `from` is `sample`.
+
+Each receive raises a message's `ApproximateReceiveCount`, and a queue with
+a redrive policy moves a message to its dead-letter queue once the count
+passes `maxReceiveCount`. peek guards like the RabbitMQ quorum queue
+check: it refuses a queue whose `maxReceiveCount` is 3 or less before
+receiving anything, and stops with `DELIVERY_LIMIT_NEAR` (exit 8) once a
+message it showed has fewer than 3 receives left. The result says the
+limit (`delivery_limit`) and each message's `receive_count`.
+
+### Errors
+
+SQS answers `{"__type": "...#Code", "message": ...}` (or the older
+`x-amzn-query-error` header). `QueueDoesNotExist` is `QUEUE_NOT_FOUND`,
+`QueueNameExists` is `QUEUE_EXISTS`, `AccessDenied` and `KmsAccessDenied`
+are `QUEUE_DENIED` (exit 5), keys SQS does not take
+(`InvalidClientTokenId`, `SignatureDoesNotMatch`, `ExpiredToken`, ...) are
+`QUEUE_AUTH`, the 60-second rules (`QueueDeletedRecently`,
+`PurgeQueueInProgress`) and the rest are `QUEUE_ERROR` with a hint. An
+endpoint that does not answer SQS JSON is `QUEUE_CONNECT`.
