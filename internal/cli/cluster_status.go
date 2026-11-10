@@ -24,9 +24,11 @@ func clusterStatusCmd() *cobra.Command {
 run, workloads short of replicas, nodes that are not ready; on Swarm, services
 short of replicas with their tasks' errors). --namespace limits it to one
 namespace. A selector that picks several clusters (@prod, kind:k8s) shows
-each in data.results. With TYPE/NAME (or TYPE NAME) on one cluster: whether
-that workload has rolled out;
---wait stays until it has, it fails, or --timeout (default 5m) passes.`,
+each in data.results.
+
+With TYPE/NAME (or TYPE NAME) on one cluster: whether that workload has
+rolled out. --wait stays until it has, it fails, or --timeout (default 5m)
+passes.`,
 		Example: `  komando cluster status prod-k8s
   komando cluster status @prod                  # every cluster in the group, at once
   komando cluster status prod-k8s deployment/api --namespace shop --wait

@@ -57,7 +57,8 @@ func dockerPruneCmd(sudo *bool) *cobra.Command {
 		Short: "Free disk space: stopped containers, unused images, build cache",
 		Long: `Runs docker system prune on the server. It removes stopped containers,
 dangling images (--all: every image no container uses), unused networks
-and build cache; with --volumes also unused anonymous volumes (data!).
+and build cache; with --volumes also unused anonymous volumes and the data
+in them.
 --older-than 30d keeps everything made in the last 30 days.
 
 --dry-run changes nothing: it lists what would go, with sizes and a total,
@@ -89,7 +90,7 @@ read from docker on the server. The real run deletes and needs
 			return runDocker(cmd.Context(), "docker.prune", args[0], line, *sudo, true)
 		},
 	}
-	c.Flags().StringVar(&o.ageText, "older-than", "", "only what was created before this age (30d, 12h)")
+	c.Flags().StringVar(&o.ageText, "older-than", "", "only what is older than this (30d, 12h)")
 	c.Flags().BoolVarP(&o.all, "all", "a", false, "every image no container uses, not only dangling ones")
 	c.Flags().BoolVar(&o.volumes, "volumes", false, "also unused anonymous volumes (their data is lost)")
 	return c

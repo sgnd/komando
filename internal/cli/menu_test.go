@@ -674,3 +674,108 @@ func TestMenuCommandKeepsVaultPass(t *testing.T) {
 		t.Error("the menu's command must have the terminal")
 	}
 }
+
+// A problem with an answer is marked "! " and drawn bold, not yellow:
+// the mark works without colour, and bold reads on a light terminal too.
+func TestMenuWarnNotColourOnly(t *testing.T) {
+	l := &menuList{title: "Add a server", typing: true, prompt: "Port: ", note: "a port is a number", warn: true}
+	s := menuScreen{footer: "keys", color: true}
+	text := strings.Join(renderText(l, s, 80, 12), "\n")
+	if !strings.Contains(text, "\x1b[1m! a port is a number\x1b[0m") || strings.Contains(text, "\x1b[33m") {
+		t.Errorf("a problem is not bold with its mark, or still yellow:\n%q", text)
+	}
+	s.color = false
+	if text := strings.Join(renderText(l, s, 80, 12), "\n"); !strings.Contains(text, "! a port is a number") {
+		t.Errorf("without colour the problem has no mark:\n%s", text)
+	}
+}
+
+// The key help names only keys the list takes: numbers up to its rows on a
+// list without a filter, none on a list that filters.
+func TestListKeys(t *testing.T) {
+	cases := []struct {
+		l    *menuList
+		want string
+	}{
+		{testMenuList(3, false), "↑↓ move · Enter or 1-3 choose · Esc back"},
+		{testMenuList(12, false), "↑↓ move · Enter or 1-9 choose · Esc back"},
+		{testMenuList(1, false), "↑↓ move · Enter choose · Esc back"},
+		{testMenuList(12, true), "↑↓ move · Enter choose · type to filter · Esc back"},
+	}
+	for _, c := range cases {
+		if got := listKeys(c.l, "Esc back"); got != c.want {
+			t.Errorf("%d rows, typing %v: %q, want %q", len(c.l.rows), c.l.typing, got, c.want)
+		}
+	}
+}
+
+// On a narrow terminal the key help goes on two lines, cut between keys,
+// so "q quit" is not cut off; at 80 columns it is one line. The rows give
+// way for the extra line, and on a very short screen the second line goes.
+func TestMenuKeyHelpNarrow(t *testing.T) {
+	m := testMenuList(9, false)
+	s := menuScreen{header: []seg{{"komando", ""}}, footer: listKeys(m, "? help", "q quit")}
+	lines := renderText(m, s, 40, 24)
+	if len(lines) > 24 || lines[len(lines)-2] != "↑↓ move · Enter or 1-9 choose · ? help" || lines[len(lines)-1] != "q quit" {
+		t.Errorf("key help at 40 columns:\n%s", strings.Join(lines, "\n"))
+	}
+	for _, ln := range lines {
+		if displayWidth(ln) > 39 {
+			t.Errorf("line %q is wider than a 40-column screen", ln)
+		}
+	}
+	if lines := renderText(m, s, 80, 24); lines[len(lines)-1] != s.footer {
+		t.Errorf("key help at 80 columns: %q", lines[len(lines)-1])
+	}
+	l := testMenuList(30, true)
+	l.title = "Shell: which server?"
+	l.cursor = 20
+	s.footer = listKeys(l, "Esc back", "Ctrl-C quit")
+	for h := 3; h <= 14; h++ {
+		lines, caret := l.render(s, 40, h)
+		last := lines[len(lines)-1]
+		if len(lines) > h || !strings.HasPrefix(last, "↑↓ move") && last != "Esc back · Ctrl-C quit" ||
+			caret.line < 0 || !strings.HasPrefix(lines[caret.line], "> u-row") {
+			t.Errorf("height %d at 40 columns:\n%s", h, strings.Join(lines, "\n"))
+		}
+	}
+	if lines := renderText(l, s, 40, 3); len(lines) != 3 || !strings.HasPrefix(lines[2], "↑↓ move") {
+		t.Errorf("a 3-line screen keeps the first line of the key help: %q", lines)
+	}
+}
+
+// The ? screen keeps its columns at 80, and on a narrow terminal puts the
+// commands under their task, each command whole on one line.
+func TestMenuHelpWidths(t *testing.T) {
+	if !strings.Contains(menuHelpFor(80), "\n  Databases, caches, storage komando conn add · komando db · komando cache\n") {
+		t.Errorf("? at 80 columns:\n%s", menuHelpFor(80))
+	}
+	for _, w := range []int{40, 60} {
+		text := menuHelpFor(w)
+		for _, ln := range strings.Split(text, "\n") {
+			if displayWidth(ln) > w {
+				t.Errorf("? at %d columns: %q is wider", w, ln)
+			}
+		}
+		for _, h := range menuHelpTasks {
+			for _, c := range h.cmds {
+				if !strings.Contains(text, c+"\n") && !strings.Contains(text, c+" · ") {
+					t.Errorf("? at %d columns: %q is cut", w, c)
+				}
+			}
+		}
+	}
+}
+
+// An empty list of servers, databases or VPNs says what to do next (Test
+// always has its "all" row).
+func TestMenuTargetsEmptySaysWhatToDo(t *testing.T) {
+	st := &store.State{}
+	for _, a := range []menuAction{shellAction, dbAction, vpnAction} {
+		l := menuTargets(st, a)
+		text := strings.Join(renderText(l, menuScreen{}, 120, 20), "\n")
+		if !strings.Contains(text, "Esc goes back") || !strings.Contains(text, "Add") {
+			t.Errorf("%s with nothing to pick:\n%s", a.name, text)
+		}
+	}
+}

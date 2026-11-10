@@ -233,11 +233,9 @@ type VpnSession struct {
 	LastUsed  time.Time `json:"last_used"`
 }
 
-// SSHLogin is a server login a person made with `komando login HOST`
-// (with its password and two-factor code), held by a background komando
-// process so later commands, an AI agent's too, use it without a person.
-// The process serves it on a Unix socket only this user can open, and
-// only to a client with Token.
+// SSHLogin is a server login a person made with `komando login HOST`, held
+// by a background komando process (sshx/held.go) on a Unix socket only this
+// user can open, and only for a client with Token.
 type SSHLogin struct {
 	Host      string    `json:"host"`
 	Target    string    `json:"target"` // user@address:port when it logged in: the login is used only while the host still points there

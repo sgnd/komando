@@ -30,7 +30,7 @@ run and compose up change things (protected servers need --yes); rm, prune,
 compose down -v and other deletes need --allow-dangerous. The same rules
 apply to ` + "`docker raw`" + `, ` + "`docker compose`" + ` and ` + "`cluster run`" + ` on a Swarm manager.`,
 	}
-	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "run docker via sudo")
+	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "run docker with sudo")
 	var all bool
 	ps := &cobra.Command{
 		Use:   "ps TARGET",
@@ -69,7 +69,7 @@ apply to ` + "`docker raw`" + `, ` + "`docker compose`" + ` and ` + "`cluster ru
 		action := a
 		c.AddCommand(&cobra.Command{
 			Use:   action + " TARGET NAME...",
-			Short: "docker " + action,
+			Short: dockerActionShorts[action],
 			Args:  cobra.MinimumNArgs(2),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				if _, err := guardDocker(append([]string{action}, args[1:]...)); err != nil {
@@ -97,7 +97,7 @@ come with -f. --since and --until take a duration back from now (10m, 2h,
 	_ = logs.Flags().MarkHidden("priority") // journald only
 	inspect := &cobra.Command{
 		Use:   "inspect TARGET NAME",
-		Short: "docker inspect (JSON)",
+		Short: "Show a container, image or other object in full (docker inspect)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// the exit status travels in stdout so a missing object can say
@@ -119,7 +119,7 @@ come with -f. --since and --until take a duration back from now (10m, 2h,
 	var readOnly bool
 	execC := &cobra.Command{
 		Use:   "exec TARGET CONTAINER -- COMMAND [ARG...]",
-		Short: "Run a command inside a container (its words are passed as given, no shell)",
+		Short: "Run a command in a container (its words are passed as given, no shell)",
 		Long: `Runs COMMAND in the container with its arguments exactly as written (like
 ` + "`docker exec`" + `): no shell is added, so the image needs no sh. For pipes or
 && write the shell yourself: -- sh -c 'a | b'. The destructive-command
@@ -155,11 +155,11 @@ server only commands komando knows read skip --yes.`,
 			return runDocker(cmd.Context(), "docker.compose", args[0], c, sudo, mutating)
 		},
 	}
-	compose.Flags().StringVarP(&file, "file", "f", "", "compose file")
-	compose.Flags().StringVar(&dir, "dir", "", "project directory")
+	compose.Flags().StringVarP(&file, "file", "f", "", "the compose file on the server")
+	compose.Flags().StringVar(&dir, "dir", "", "the project folder on the server")
 	raw := &cobra.Command{
 		Use:   "raw TARGET -- DOCKER_ARGS...",
-		Short: "Any docker subcommand (policy still applies)",
+		Short: "Run any docker subcommand (the same safety rules apply)",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mutating, err := guardDocker(args[1:])
@@ -197,11 +197,9 @@ func splitExitMarker(s string) (string, int) {
 
 var dockerNotFound = regexp.MustCompile(`(?i)no such (container|service|object|image|node|task|network|volume|secret|config)|(service|node|task|stack) .* not found|nothing found in stack`)
 
-// dockerErr turns a failed docker command's message into an error with the
-// right exit code: a missing object is "not found" (3), the rest remote (5).
-// runDocker runs a docker command on servers; when docker fails, its words
-// become a typed error (a missing container is NOT_FOUND, exit 3). `docker
-// exec` does not use it: there the exit code is the container command's.
+// runDocker runs a docker command on servers and turns a docker failure
+// into a typed error (dockerErr). `docker exec` does not use it: there the
+// exit code is the container command's.
 func runDocker(ctx context.Context, name, target, command string, sudo, mutating bool) error {
 	return runFleet(ctx, name, target, command, nil, execOpts{sudo: sudo, exitMap: func(code int, stderr string) *out.Error {
 		if code == 0 {
@@ -211,6 +209,19 @@ func runDocker(ctx context.Context, name, target, command string, sudo, mutating
 	}}, mutating)
 }
 
+// dockerActionShorts are the help lines of docker start, stop, restart,
+// rm and pull.
+var dockerActionShorts = map[string]string{
+	"start":   "Start stopped containers (docker start)",
+	"stop":    "Stop running containers (docker stop)",
+	"restart": "Restart containers (docker restart)",
+	"rm":      "Remove containers (docker rm; needs --allow-dangerous)",
+	"pull":    "Pull images from their registry (docker pull)",
+}
+
+// dockerErr turns a failed docker command's message into an error with the
+// right exit code: a missing object, or docker not installed on the
+// server, is not found (3); the rest is remote (5).
 func dockerErr(msg string, code int) *out.Error {
 	var lines []string
 	for _, l := range strings.Split(msg, "\n") {

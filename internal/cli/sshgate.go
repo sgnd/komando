@@ -29,9 +29,10 @@ import (
 // hidden, no flag that skips a safety stop counts without a person), and
 // the gate writes every command it runs or refuses to the audit log, with
 // the key's name. No key writes on this computer itself (gateHere), nor
-// runs anything, a read either, on a target that is it (gateLocalTarget). With --read-only it runs only commands komando treats
-// as reads. `restrict` turns off port, agent and X11 forwarding and the
-// terminal, so the key opens nothing else (OpenSSH 7.2 and later).
+// runs anything, a read either, on a target that is it (gateLocalTarget).
+// With --read-only it runs only commands komando treats as reads.
+// `restrict` turns off port, agent and X11 forwarding and the terminal, so
+// the key opens nothing else (OpenSSH 7.2 and later).
 
 // gateEnv names the key (its --name) in the environment of the komando the
 // gate runs: that komando counts as an agent (agentVars) and its audit

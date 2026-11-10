@@ -36,7 +36,7 @@ type auditList struct {
 // Text is one line per entry, like `git log --oneline`.
 func (l auditList) Text() string {
 	if len(l.Entries) == 0 {
-		return "no audit entries\n"
+		return "no audit entries match (fewer filters show more; `komando config get audit` says whether the log is on)\n"
 	}
 	var rows [][]string
 	for _, e := range l.Entries {
@@ -100,7 +100,7 @@ func auditCmd() *cobra.Command {
 	var failed bool
 	c := &cobra.Command{
 		Use:   "audit",
-		Short: "Show the audit log of actions taken (who, what, where, result)",
+		Short: "Show the audit log: who did what, where, and the result",
 		Long: `Every change komando makes, and every blocked attempt, is a line in
 ~/.komando/audit.jsonl: when, who (and which AI agent), the command, its
 targets and whether it worked. The newest entries come last.
@@ -166,8 +166,8 @@ is given.`,
 	c.Flags().IntVarP(&limit, "limit", "n", 50, "the newest N entries (0 = all; with --since or --until, all unless given)")
 	c.Flags().StringVar(&target, "target", "", "only entries for these servers or conns (a selector, e.g. @prod)")
 	aliasFlag(c.Flags(), "host", "target")
-	c.Flags().StringVar(&command, "command", "", "filter by command prefix (e.g. exec, svc.)")
-	c.Flags().BoolVar(&failed, "failed", false, "only failed/blocked actions")
+	c.Flags().StringVar(&command, "command", "", "only commands that start with this (e.g. exec, svc.)")
+	c.Flags().BoolVar(&failed, "failed", false, "only actions that failed or were blocked")
 	c.Flags().StringVar(&actorName, "actor", "", "only what this one did: part of the name in KOMANDO_ACTOR, the AI agent (claude, codex ...) or the computer account")
 	c.Flags().StringVar(&since, "since", "", "only entries from this time on: 2h, 7d, today, 2026-11-07 or '2026-11-07 14:30'")
 	c.Flags().StringVar(&until, "until", "", "only entries before this time (the same forms as --since)")
@@ -217,7 +217,7 @@ func policyCmd() *cobra.Command {
 				custom = append(custom, r)
 			}
 			out.P.Print("policy.list", policyList{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "custom_rules": custom, "sql": rulesByID(driver.SQLRules()), "redis": rulesByID(cachex.Rules()), "memcached": rulesByID(cachex.MemcacheRules()), "mongodb": rulesByID(dbx.MongoRules()), "data": rulesByID(driver.DataRules()),
-				"note": "guardrails catch common accidents; they are not a security boundary. Protected hosts and conns additionally need --yes for any mutating action. " +
+				"note": "these rules catch common accidents; they are not a security boundary. Protected servers and conns also need --yes for any change. " +
 					"SQL without --write also runs in a read-only transaction, so the database itself refuses writes."}, nil)
 			return nil
 		},

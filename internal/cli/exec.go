@@ -112,14 +112,14 @@ type execOpts struct {
 
 func (o *execOpts) bind(c *cobra.Command) {
 	f := c.Flags()
-	f.BoolVarP(&o.sudo, "sudo", "s", false, "run via sudo (non-interactive; uses host sudo-ref if set)")
-	f.StringVar(&o.sudoUser, "sudo-user", "", "run as this user via sudo -u")
+	f.BoolVarP(&o.sudo, "sudo", "s", false, "run with sudo (never prompts; uses the server's --sudo-ref password if set)")
+	f.StringVar(&o.sudoUser, "sudo-user", "", "run as this user with sudo -u")
 	f.StringSliceVarP(&o.env, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
-	f.StringVarP(&o.dir, "dir", "C", "", "remote working directory")
-	f.StringVar(&o.stdinFile, "stdin-file", "", "send this local file as stdin ('-' = komando's stdin)")
-	f.BoolVar(&o.pty, "pty", false, "allocate a pseudo-terminal (some tools require it)")
-	f.BoolVar(&o.stream, "stream", false, "stream output as NDJSON events while running")
-	f.BoolVar(&o.failFast, "fail-fast", false, "stop starting new hosts after the first failure")
+	f.StringVarP(&o.dir, "dir", "C", "", "working directory on the server")
+	f.StringVar(&o.stdinFile, "stdin-file", "", "send this file on this computer as stdin ('-' = komando's stdin)")
+	f.BoolVar(&o.pty, "pty", false, "allocate a pseudo-terminal (some tools need one)")
+	f.BoolVar(&o.stream, "stream", false, "stream output as NDJSON events while it runs")
+	f.BoolVar(&o.failFast, "fail-fast", false, "start no more servers after the first failure")
 }
 
 func execCmd() *cobra.Command {
@@ -129,21 +129,21 @@ func execCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "exec TARGET [--] COMMAND...",
 		Aliases: []string{"run", "x"},
-		Short:   "Run a shell command on one or many hosts in parallel",
-		Long: `Runs COMMAND through the remote login shell on every host matched by TARGET
-(PowerShell on Windows servers). Per-host stdout, stderr, exit_code and
-duration are returned. A non-zero exit
-on any host makes komando exit 5 (connection problems exit 4).
+		Short:   "Run a shell command on one or many servers in parallel",
+		Long: `Runs COMMAND through the login shell on every server TARGET picks
+(PowerShell on Windows servers). Each server's result has its stdout,
+stderr, exit_code and duration. A non-zero exit on any server makes
+komando exit 5 (connection problems exit 4).
 
 If the connection breaks while the command runs, that server's result has
 error code CONNECTION_LOST (exit 4) and the output that came so far: the
 command may still be running there, or may have finished. Check with a
 read-only command before running it again. For long tasks over a shaky link
-use 'komando job start' and 'komando job wait': they survive a drop.
+use ` + "`komando job start` and `komando job wait`" + `: they survive a drop.
 
 Destructive commands (rm -rf /, mkfs, reboot, DROP DATABASE, ...) are blocked
-unless --allow-dangerous is given. Hosts marked protected need --yes unless
---read-only is declared.`,
+unless you pass --allow-dangerous. A protected server needs --yes; with
+--read-only it skips --yes for commands komando knows only read.`,
 		Example: `  komando exec web1 -- uptime
   komando exec @web -P 20 -- 'df -h / | tail -1'
   komando exec tag:prod --sudo -- systemctl is-active nginx
@@ -178,8 +178,8 @@ unless --allow-dangerous is given. Hosts marked protected need --yes unless
 		},
 	}
 	o.bind(c)
-	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "command string (alternative to args after --)")
-	c.Flags().BoolVar(&readOnly, "read-only", false, "declare the command read-only (skips protected-host confirmation)")
+	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
+	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
 	return c
 }
 
@@ -224,7 +224,7 @@ func scriptCmd() *cobra.Command {
 	var argsList []string
 	c := &cobra.Command{
 		Use:   "script TARGET FILE",
-		Short: "Run a local script on servers (nothing left on disk)",
+		Short: "Run a script from this computer on servers (nothing on disk)",
 		Example: `  komando script @web ./deploy.sh --arg v1.2.3 --sudo
   komando script db1 ./backup.py --interpreter python3`,
 		Args: cobra.ExactArgs(2),
@@ -280,9 +280,9 @@ func scriptCmd() *cobra.Command {
 		},
 	}
 	o.bind(c)
-	c.Flags().StringVar(&interpreter, "interpreter", "", "remote interpreter (default: from shebang, else sh)")
+	c.Flags().StringVar(&interpreter, "interpreter", "", "interpreter on the server (default: from the #! line, else sh)")
 	c.Flags().StringArrayVar(&argsList, "arg", nil, "argument passed to the script (repeatable)")
-	c.Flags().BoolVar(&readOnly, "read-only", false, "declare the script read-only")
+	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the shell script only looks (protected servers: no --yes when komando knows every command reads)")
 	return c
 }
 
@@ -400,7 +400,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			f := failed
 			mu.Unlock()
 			if f {
-				return nil, out.Errf(out.ExitError, "SKIPPED", "run without --fail-fast to reach every server", "skipped due to --fail-fast")
+				return nil, out.Errf(out.ExitError, "SKIPPED", "run without --fail-fast to reach every server", "skipped: another server failed first, and --fail-fast is on")
 			}
 		}
 		r := req
@@ -460,7 +460,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Name < ordered[j].Name })
 		for _, h := range ordered {
 			if failed {
-				results = append(results, outcome{Host: h, Err: out.Errf(out.ExitError, "SKIPPED", "run without --fail-fast to reach every server", "skipped due to --fail-fast")})
+				results = append(results, outcome{Host: h, Err: out.Errf(out.ExitError, "SKIPPED", "run without --fail-fast to reach every server", "skipped: another server failed first, and --fail-fast is on")})
 				continue
 			}
 			results = append(results, fanout(ctx, st, []*store.Host{h}, run)...)
