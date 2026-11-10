@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
 	"net"
@@ -22,7 +23,7 @@ import (
 // connection. On a machine the agent controls, the value can come back in
 // a form output masking does not know (reversed, hex, cut in pieces). So
 // for an agent each of these needs a person's yes: --yes, then komando's
-// window names the secret and the place. People and scripts go on as before.
+// window names the secret and the place. People and scripts are not asked.
 
 // agentYes is a stop for AI agents only. An agent needs --yes and a
 // person's "Allow once" in komando's window, which shows what, then why.
@@ -317,11 +318,11 @@ func vpnPlace(v *store.Vpn, servers string) secretPlace {
 	case "socks", "proxy":
 		dest = v.Address
 	case "tailscale":
-		dest = firstNonEmpty(v.Server, "the Tailscale login server")
+		dest = cmp.Or(v.Server, "the Tailscale login server")
 	case "l2tp", "ipsec", "ikev2":
 		dest = v.Server
 	case "openvpn":
-		dest = firstNonEmpty(servers, "the servers in its .ovpn profile")
+		dest = cmp.Or(servers, "the servers in its .ovpn profile")
 	default: // the SSL VPNs log in at their portal
 		dest = v.Portal
 	}

@@ -356,7 +356,7 @@ func (k *ikeV2) newChild(ctx context.Context, rekey bool) error {
 	if sa == nil || nr == nil {
 		return errors.New("the server's CREATE_CHILD_SA answer is incomplete")
 	}
-	suite, peerSPI, _, err := chosenESP(sa.body)
+	suite, peerSPI, err := chosenESP(sa.body)
 	if err != nil {
 		return err
 	}

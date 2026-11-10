@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,7 +53,7 @@ func guardCalls(agent string, b []byte) []agentCall {
 		case "Shell":
 			return []agentCall{{"Bash", map[string]any{"command": str(input, "command")}}}
 		case "Read", "Write", "Delete":
-			return []agentCall{{"Read", map[string]any{"file_path": firstNonEmpty(str(input, "file_path"), str(input, "path"), str(input, "target_file"))}}}
+			return []agentCall{{"Read", map[string]any{"file_path": cmp.Or(str(input, "file_path"), str(input, "path"), str(input, "target_file"))}}}
 		case "Grep":
 			return []agentCall{{"Grep", map[string]any{"path": str(input, "path"), "glob": str(input, "glob")}}}
 		}

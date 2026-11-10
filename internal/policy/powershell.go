@@ -25,8 +25,8 @@ import (
 // Everything else is refused: other characters, variables, expressions,
 // .NET calls, redirection, comments, here-strings, the call operator,
 // keywords, and commands, aliases and parameters not on the lists. A
-// denylist over a partial tokenizer kept leaking where PowerShell reads a
-// script differently; a subset this small is read the same way by both.
+// denylist over a partial tokenizer leaks where PowerShell reads a script
+// differently; a subset this small is read the same way by both.
 
 // PSReadOnly is why a PowerShell script is not accepted under --read-only,
 // or "" when it is in the read-only subset.

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"net/url"
 	"os"
 	"slices"
@@ -11,7 +12,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// --- Kubernetes and Docker Swarm ---
+// Kubernetes and Docker Swarm.
 
 // clusterForms: a Kubernetes cluster comes from the kubeconfig file kubectl
 // already uses (`import kubeconfig`), never from a typed URL: a k8s conn
@@ -98,7 +99,7 @@ func kubeconfigNames(path string) []string {
 // ends with cluster status, which logs in to each cluster (komando test
 // only checks that its port answers).
 func kubeconfigBuild(st *store.State, a formAnswers) [][]string {
-	file := firstNonEmpty(a["file"], kubeconfigDefault)
+	file := cmp.Or(a["file"], kubeconfigDefault)
 	args := []string{"import", "kubeconfig"}
 	if file != kubeconfigDefault {
 		args = append(args, formAbs(file))
@@ -172,7 +173,7 @@ func swarmForm() formSpec {
 	return sp
 }
 
-// --- the cluster commands in All features ---
+// The cluster commands in All features.
 
 var (
 	clusterTargetArg = formArg{ask: "Which cluster?", pick: "cluster", free: true,
@@ -200,7 +201,7 @@ func init() {
 func clusterReadHints() map[string]formHint {
 	t := clusterTargetArg
 	return map[string]formHint{
-		"cluster status": {args: []formArg{t, {ask: "One workload to check its rollout? (optional)", example: "deployment/api",
+		"cluster status": {args: []formArg{t, {ask: "One workload to check its rollout? (leave empty for the whole cluster)", example: "deployment/api",
 			help: "Empty: the whole cluster, its nodes and what is not healthy."}}},
 		"cluster ls": {args: []formArg{t, {ask: "What do you want to list?", def: "pods",
 			help: "pods, deployments, services, nodes, ingresses, configmaps ... On a Swarm: services, tasks, nodes, stacks."}},
@@ -210,7 +211,7 @@ func clusterReadHints() map[string]formHint {
 		"cluster describe": {args: []formArg{t, clusterTypeArg, clusterNameArg}},
 		"cluster events":   {args: []formArg{t}, flags: []formFlag{{name: "warnings", ask: "Only problems (Warning events)?"}}},
 		"cluster logs": {args: []formArg{t, clusterPodArg},
-			flags: []formFlag{{name: "since", ask: "Only lines newer than? (optional)", example: "10m or 2h",
+			flags: []formFlag{{name: "since", ask: "Only lines newer than? (leave empty for the last lines)", example: "10m or 2h",
 				help: "Empty: the last lines of each pod."}, {name: "follow", ask: "Keep showing new lines? (Ctrl-C stops)"}}},
 		"cluster history": {args: []formArg{t, {ask: "Which deployment?", example: "deployment/api",
 			help: "Written deployment/NAME. komando cluster ls TARGET deployments shows them."}}},
@@ -239,7 +240,7 @@ func clusterChangeHints() map[string]formHint {
 		"cluster rm": {args: []formArg{t, clusterTypeArg, clusterNameArg}},
 		"cluster exec": {args: []formArg{t, clusterPodArg, {ask: "Which command should run in the pod?", example: "env"}},
 			flags: []formFlag{{name: "read-only", ask: "Does the command only look, changing nothing?"}}},
-		"cluster shell": {args: []formArg{t, clusterPodArg, {ask: "A command instead of a shell? (optional)", example: "bash",
+		"cluster shell": {args: []formArg{t, clusterPodArg, {ask: "A command instead of a shell? (leave empty for the usual shell)", example: "bash",
 			help: "Empty: the usual shell of the container."}}},
 		"cluster forward": {args: []formArg{t, {ask: "Which pod or service?", example: "service/web",
 			help: "A kind and name, like service/web or deployment/api."},

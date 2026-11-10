@@ -19,8 +19,8 @@ Queries only read unless you add `--write`.
 
 ## Add a database
 
-A conn is a database, cache or storage bucket that komando knows about,
-the way a host entry is a server it knows about. The kind comes from the
+A conn is a database, cache, queue, storage bucket, cluster or registry
+that komando knows about, the way a host entry is a server it knows about. The kind comes from the
 start of the URL:
 
 | Kind | URL example |
@@ -35,8 +35,8 @@ start of the URL:
 | SQLite | `sqlite:///var/lib/app.db` (a file on this computer) |
 | MongoDB | `mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin` (Atlas: `mongodb+srv://app@cluster0.abcde.mongodb.net/shop`). See [MongoDB](#mongodb). |
 
-`komando conn kinds` lists every kind, including caches, storage, clusters
-and registries.
+`komando conn kinds` lists every kind, including caches, queues, storage,
+clusters and registries.
 
 Never put the password in the URL; komando refuses it. Store it in the
 vault, or point at your password manager (see [Servers](servers.md)):
@@ -114,8 +114,9 @@ giving them the password:
   `komando conn edit NAME --url ...` line that fixes it.
 - A server whose certificate comes from a private CA (your company's, or a
   cloud's own, such as Amazon RDS or Azure Database): store the CA and name
-  it with `?ca=`, for Postgres, MySQL, SQL Server, Oracle, ClickHouse, Snowflake and BigQuery (a proxy that inspects TLS). The certificate is then fully
-  checked: signed by that CA and naming the server, also with
+  it with `?ca=`, for Postgres, MySQL, SQL Server, Oracle, ClickHouse,
+  Snowflake and BigQuery (a proxy that inspects TLS). The certificate is
+  then fully checked: signed by that CA and naming the server, also with
   `sslmode=require`, and never without TLS:
 
   ```bash
@@ -680,9 +681,8 @@ komando db kill erp 371 --session --allow-dangerous   # 371 is the SID
 
 ## ClickHouse
 
-ClickHouse conns (23.3 and later) take the same
-`db` commands, in ClickHouse SQL. komando speaks ClickHouse's HTTP
-interface (port 8443 with TLS, 8123 without) with its own client, so
+ClickHouse conns (23.3 and later) take the same `db` commands, in
+ClickHouse SQL. komando speaks ClickHouse's HTTP interface (port 8443 with TLS, 8123 without) with its own client, so
 nothing else needs to be installed:
 
 ```bash
@@ -784,7 +784,7 @@ komando db grants analytics APP_RO                 # its roles, and what each ro
   only statements it rates as reads, one per request, and asks Snowflake to
   run exactly one statement. A statement that is not a read (`INSERT`,
   `CREATE`, `COPY`, `CALL`, ...) needs `--write`, goes on its own, and a
-  dry run only reports it. **Give the conn a role that may only read**, so
+  dry run only reports it. Give the conn a role that may only read, so
   a mistake in komando's checks cannot change anything either:
 
   ```sql
@@ -913,8 +913,9 @@ komando db shell app-db --yes         # any shell on a protected conn needs --ye
 ```
 
 `db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB,
-SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and SQLite, so nothing else needs to be installed. It connects through the
-conn's `--via` path, and every statement gets the same checks as
+SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and SQLite, so nothing
+else needs to be installed. It connects through the conn's `--via` path,
+and every statement gets the same checks as
 `db query`: read-only unless you started it with `--write`, destructive
 statements only with `--allow-dangerous`, and each one is written to the
 audit log. A statement ends with `;` and runs in its own transaction.

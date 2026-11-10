@@ -63,7 +63,7 @@ func TestMaskKeepsKomandoHints(t *testing.T) {
 	}
 }
 
-// Messages that once lost words to the masker, as they read now.
+// Plain messages with words that look like secret names come out whole.
 func TestMaskKeepsPlainMessages(t *testing.T) {
 	for _, s := range []string{
 		"the vault is locked with a passphrase; set KOMANDO_VAULT_PASS",

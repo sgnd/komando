@@ -44,7 +44,6 @@ func (c *Client) ACRLogin(ctx context.Context, aadToken, tenant string) error {
 	var r struct {
 		RefreshToken string `json:"refresh_token"`
 		Errors       []struct {
-			Code    string `json:"code"`
 			Message string `json:"message"`
 		} `json:"errors"`
 	}

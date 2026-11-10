@@ -537,8 +537,12 @@ func codeSites(path string, f *ast.File, wrappers map[string]*wrapper) []codeSit
 							sites = append(sites, codeSite{path, "USAGE", 2, "", example(srcText(x.Args[0]))})
 						case fn.Sel.Name == "NotFound" && len(x.Args) >= 1 && lit(x.Args[0]) != "":
 							k := lit(x.Args[0])
+							word := k
+							if k == "vpn" {
+								word = "VPN"
+							}
 							sites = append(sites, codeSite{path, strings.ToUpper(k) + "_NOT_FOUND", 3,
-								fmt.Sprintf("run `komando %s list` to see available %ss", k, k), k + " … not found"})
+								fmt.Sprintf("run `komando %s list` to see available %ss", k, word), word + " … not found"})
 						}
 					}
 				}
@@ -678,6 +682,7 @@ var hintMeanings = map[string]string{
 	"NO_PASSPHRASE":           "the vault keeps its key in vault.key or the OS keychain already; the hint says which",
 	"VPN_CLIENT_MISSING":      "install the program the message names (macOS: `brew install NAME`; Linux: its package)",
 	"TOOL_FAILED":             "read the message; `komando conn test CONN` checks reachability (for a known problem, the hint names the fix)",
+	"AZURE_LOGIN_REQUIRED":    "set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET for a service principal, run komando on Azure with a managed identity, or a person runs `az login`",
 }
 
 // hasWords reports whether a hint says something beyond the values the

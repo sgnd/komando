@@ -361,8 +361,7 @@ func jobLogsCmd() *cobra.Command {
 		},
 	}
 	c.Flags().Int64Var(&offset, "offset", 0, "byte offset to read from (use next_offset from the previous call)")
-	c.Flags().Int64Var(&limit, "max-bytes", 256<<10, "max bytes to return")
-	aliasFlag(c.Flags(), "limit", "max-bytes")
+	c.Flags().Int64Var(&limit, "max-bytes", 256<<10, "the most bytes to return")
 	c.Flags().IntVar(&tail, "tail", 0, "return only the last N lines instead")
 	return c
 }
@@ -685,7 +684,6 @@ func jobListCmd() *cobra.Command {
 		},
 	}
 	c.Flags().StringVar(&target, "target", "", "only jobs on these servers (a selector, e.g. @web)")
-	aliasFlag(c.Flags(), "host", "target")
 	c.Flags().BoolVar(&refresh, "refresh", false, "ask each server for the job's current state")
 	return c
 }
@@ -826,9 +824,7 @@ func (l jobList) Text() string {
 		if !started.IsZero() {
 			age = humanAge(time.Since(started))
 		}
-		if len(command) > 60 {
-			command = command[:57] + "..."
-		}
+		command = truncateWidth(command, 60)
 		rows = append(rows, []string{id, host, state, exit, age, command})
 	}
 	switch js := l.Jobs.(type) {
@@ -871,8 +867,8 @@ func transient(err error) bool {
 		return e.Code != "AUTH_FAILED" && e.Code != "NO_AUTH" && !strings.HasPrefix(e.Code, "HOSTKEY")
 	}
 	m := strings.ToLower(err.Error())
-	// (seen when a session is cut at random moments: the handshake or the
-	// opening of a channel meets a connection that is already gone)
+	// Seen when a session is cut at random moments: the handshake or the
+	// opening of a channel meets a connection that is already gone.
 	for _, s := range []string{"eof", "connection reset", "broken pipe", "closed network connection", "i/o timeout", "connection lost", "unexpected packet", "handshake failed"} {
 		if strings.Contains(m, s) {
 			return true

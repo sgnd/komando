@@ -227,7 +227,7 @@ follow the new name. Renaming a protected conn needs --yes.`,
 	}[kind]
 	return &cobra.Command{
 		Use:     "mv OLD NEW",
-		Short:   "Rename a " + kind + " and every reference to it",
+		Short:   "Rename a " + formKindWord(kind) + " and every reference to it",
 		Long:    long,
 		Example: example,
 		Args:    cobra.ExactArgs(2),

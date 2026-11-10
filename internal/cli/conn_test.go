@@ -24,7 +24,7 @@ func testConnState() *store.State {
 	return s
 }
 
-func TestResolveConns(t *testing.T) {
+func TestResolveSelectionConns(t *testing.T) {
 	st := testConnState()
 	cases := map[string]string{
 		"prod-db":        "prod-db",
@@ -36,27 +36,20 @@ func TestResolveConns(t *testing.T) {
 		"dev-db,prod-db": "dev-db,prod-db",
 	}
 	for expr, want := range cases {
-		cs, err := resolveConns(st, expr)
+		sel, err := resolveSelection(st, expr)
 		if err != nil {
 			t.Errorf("%s: %v", expr, err)
 			continue
 		}
 		var names []string
-		for _, c := range cs {
+		for _, c := range sel.Conns {
 			names = append(names, c.Name)
 		}
 		if got := strings.Join(names, ","); got != want {
 			t.Errorf("%s: got %s want %s", expr, got, want)
 		}
 	}
-	// a server name given to a conn command says which command to use
-	if _, err := resolveConns(st, "web-1"); err == nil || toErr(err).Code != "NO_MATCHING_TARGETS" {
-		t.Errorf("expected NO_MATCHING_TARGETS, got %v", err)
-	}
-	if _, err := resolveConns(st, "nope"); err == nil || toErr(err).Code != "CONN_NOT_FOUND" {
-		t.Errorf("expected CONN_NOT_FOUND, got %v", err)
-	}
-	if _, err := resolveConns(st, "@nope"); err == nil || toErr(err).Code != "TARGET_EMPTY" {
+	if _, err := resolveSelection(st, "@nope"); err == nil || toErr(err).Code != "TARGET_EMPTY" {
 		t.Errorf("expected TARGET_EMPTY, got %v", err)
 	}
 }
@@ -102,7 +95,7 @@ func TestGuardConns(t *testing.T) {
 func TestCheckConn(t *testing.T) {
 	st := testConnState()
 	ok := &store.Conn{Name: "x", URL: "postgres://app@10.0.0.9/app", Via: "web-1", PasswordRef: "secret:x"}
-	if _, err := checkConn(st, ok); err != nil || ok.Kind != "postgres" {
+	if err := checkConn(st, ok); err != nil || ok.Kind != "postgres" {
 		t.Errorf("valid conn rejected: %v (kind %q)", err, ok.Kind)
 	}
 	bad := map[string]*store.Conn{
@@ -111,18 +104,18 @@ func TestCheckConn(t *testing.T) {
 		"URL_HAS_PASSWORD": {URL: "postgres://app:pw@db/app"},
 	}
 	for code, c := range bad {
-		if _, err := checkConn(st, c); err == nil || toErr(err).Code != code {
+		if err := checkConn(st, c); err == nil || toErr(err).Code != code {
 			t.Errorf("want %s, got %v", code, err)
 		}
 	}
-	if _, err := checkConn(st, &store.Conn{URL: "postgres://app@db/app", PasswordRef: "hunter2"}); err == nil {
+	if err := checkConn(st, &store.Conn{URL: "postgres://app@db/app", PasswordRef: "hunter2"}); err == nil {
 		t.Error("plain password accepted as --password-ref")
 	}
-	if kind, taken := st.NameTaken("prod-db"); !taken || kind != "conn" {
-		t.Errorf("NameTaken(prod-db) = %s,%v", kind, taken)
+	if kind, _, taken := st.FindName("prod-db"); !taken || kind != "conn" {
+		t.Errorf("FindName(prod-db) = %s,%v", kind, taken)
 	}
-	if kind, taken := st.NameTaken("web-1"); !taken || kind != "host" {
-		t.Errorf("NameTaken(web-1) = %s,%v", kind, taken)
+	if kind, _, taken := st.FindName("web-1"); !taken || kind != "host" {
+		t.Errorf("FindName(web-1) = %s,%v", kind, taken)
 	}
 }
 

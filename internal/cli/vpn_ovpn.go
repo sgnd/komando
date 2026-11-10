@@ -73,12 +73,6 @@ type ovpnItem struct {
 	items []ovpnItem
 }
 
-// checkOVPN says why OpenVPN must not get the profile cfg, or nil.
-func checkOVPN(cfg string) error {
-	_, err := parseOVPN(cfg)
-	return err
-}
-
 // canonicalOVPN is the profile OpenVPN gets: what parseOVPN read in cfg,
 // written again. It holds only allowed directives and inline blocks, with
 // no comments, escapes or quotes OpenVPN could read differently.
@@ -343,7 +337,7 @@ func writeOVPN(b *strings.Builder, items []ovpnItem) {
 	}
 }
 
-// ovpnRemotes checks the profile cfg as checkOVPN does and lists the
+// ovpnRemotes checks the profile cfg as canonicalOVPN does and lists the
 // servers its remote lines name (host, or host:port), for the approval
 // window of a login sent there.
 func ovpnRemotes(cfg string) (string, error) {

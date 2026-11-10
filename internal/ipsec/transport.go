@@ -18,10 +18,9 @@ type udpTransport struct {
 	server netip.Addr
 	port   int // the server's IKE port (500 unless a test says otherwise)
 
-	mu     sync.Mutex
-	conn   *net.UDPConn
-	natt   bool
-	closed bool
+	mu   sync.Mutex
+	conn *net.UDPConn
+	natt bool
 
 	routes map[[8]byte]chan []byte // IKE messages by the initiator's SPI (ours)
 	esp    func([]byte)
@@ -196,7 +195,6 @@ func (t *udpTransport) local() netip.AddrPort {
 func (t *udpTransport) end(err error) {
 	t.once.Do(func() {
 		t.mu.Lock()
-		t.closed = true
 		t.err = err
 		c := t.conn
 		t.mu.Unlock()

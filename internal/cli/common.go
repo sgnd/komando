@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/driver"
@@ -100,15 +99,6 @@ func alias(c *cobra.Command, shared string) *cobra.Command {
 	c.Long = ""
 	c.Example = ""
 	return c
-}
-
-// aliasFlag keeps an old flag name working after a rename: old is hidden,
-// shares the value of now, and prints a note on stderr when used. Old names
-// stay for one minor release (docs/design/ux.md, section 10).
-func aliasFlag(fs *pflag.FlagSet, old, now string) {
-	f := fs.Lookup(now)
-	fs.AddFlag(&pflag.Flag{Name: old, Value: f.Value, DefValue: f.DefValue, NoOptDefVal: f.NoOptDefVal, Usage: f.Usage})
-	_ = fs.MarkDeprecated(old, "use --"+now)
 }
 
 func dur(flag time.Duration, setting string, def time.Duration) time.Duration {
@@ -493,8 +483,9 @@ func sftpHost(c *store.Conn) *store.Host {
 }
 
 // interactive is true when a human sits at a terminal: stdin and stderr are
-// both terminals and no AI agent runs komando. Agents and scripts never are, so they still need --yes and
-// --allow-dangerous (docs/design/ux.md, section 6).
+// both terminals and no AI agent runs komando. Agents and scripts never
+// are, so they still need --yes and --allow-dangerous (docs/design/ux.md,
+// section 6).
 var interactive = func() bool {
 	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())) && !isAgent()
 }

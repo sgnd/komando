@@ -43,7 +43,7 @@ func formGroupsFor(kind string) []formGroup {
 	return gs
 }
 
-// --- questions every kind shares ---
+// Questions every kind shares.
 
 // formNameQ asks the name komando will know it by.
 func formNameQ(kind, what, example string) formQ {
@@ -234,7 +234,7 @@ func formIsLocal(host string) bool {
 	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
-// --- Server ---
+// Server.
 
 // serverForm asks for a server in the order people think of it: a name,
 // what it runs, the address, the user, then how to log in. A Windows
@@ -392,7 +392,7 @@ func serverBuild(_ *store.State, a formAnswers) [][]string {
 	return [][]string{formFlags(args, a), next}
 }
 
-// --- Databases ---
+// Databases.
 
 func dbForms() []formKind {
 	return []formKind{

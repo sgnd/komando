@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/url"
@@ -53,7 +54,7 @@ func clusterLsCmd() *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
-				space := firstNonEmpty(ns, k.Namespace)
+				space := cmp.Or(ns, k.Namespace)
 				if all {
 					space = ""
 				}
@@ -132,7 +133,7 @@ func clusterGetCmd() *cobra.Command {
 					return nil, err
 				}
 				var o map[string]any
-				if err := k.Get(ctx, r.ObjectPath(firstNonEmpty(ns, k.Namespace), name), nil, &o); err != nil {
+				if err := k.Get(ctx, r.ObjectPath(cmp.Or(ns, k.Namespace), name), nil, &o); err != nil {
 					return nil, err
 				}
 				redact(o)
@@ -208,7 +209,7 @@ func clusterRestartCmd() *cobra.Command {
 				if g.dryRun {
 					q.Set("dryRun", "All")
 				}
-				space := firstNonEmpty(ns, k.Namespace)
+				space := cmp.Or(ns, k.Namespace)
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name), q, []byte(patch), "application/strategic-merge-patch+json"); err != nil {
 					return nil, err
 				}
@@ -293,7 +294,7 @@ func clusterScaleCmd() *cobra.Command {
 				if !oneOf(r.KindName(), "Deployment", "StatefulSet", "ReplicaSet", "ReplicationController") {
 					return nil, out.Usage("scale works on deployments, statefulsets and replicasets, not %s", strings.ToLower(r.KindName())+"s")
 				}
-				space := firstNonEmpty(ns, k.Namespace)
+				space := cmp.Or(ns, k.Namespace)
 				var cur struct {
 					Spec struct {
 						Replicas int `json:"replicas"`

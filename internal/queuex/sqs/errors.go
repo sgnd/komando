@@ -3,11 +3,11 @@ package sqs
 import (
 	"context"
 	"errors"
-	"net"
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/queuex"
 )
 
 // loginCodes are SQS's answers to keys it does not take.
@@ -42,7 +42,7 @@ func connectErr(t driver.Target, err error) error {
 	case errors.As(err, &api):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check the region in the URL and ?endpoint= (an emulator's address, such as http://localhost:4566)",
 			"%s answered: %s", t.Address, msg)
-	case errors.Is(err, context.DeadlineExceeded) || isTimeout(err):
+	case errors.Is(err, context.DeadlineExceeded) || queuex.IsTimeout(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "check the region and ?endpoint=, or raise --connect-timeout; inside a VPC without internet, use an SQS VPC endpoint (?endpoint=) or reach it --via a server that can",
 			"connecting to %s timed out", t.Address)
 	case strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify"):
@@ -53,11 +53,6 @@ func connectErr(t driver.Target, err error) error {
 	}
 	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando conn test NAME` to check reachability, or reach SQS --via a server that can",
 		"cannot connect to %s: %s", t.Address, msg)
-}
-
-func isTimeout(err error) bool {
-	var ne net.Error
-	return errors.As(err, &ne) && ne.Timeout()
 }
 
 func deniedErr(msg string) error {
@@ -75,7 +70,7 @@ func opErr(err error, what string) error {
 	if errors.As(err, &e) {
 		return err
 	}
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) || isTimeout(err) {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) || queuex.IsTimeout(err) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "SQS did not answer in time; raise --timeout", "%s: %v", what, err)
 	}
 	var api *apiError

@@ -84,9 +84,9 @@ func printed(format string, data any) string {
 	return b.String()
 }
 
-// TestAgentSeesNoPasswords: CONFIG GET requirepass and masterauth leaked to
-// AI agents in every form (JSON and text, RESP2 and RESP3), because the
-// output masking does not know those names.
+// TestAgentSeesNoPasswords: the output masking does not know requirepass
+// and masterauth, so HideSecrets hides them from AI agents in every form
+// (JSON and text, RESP2 and RESP3).
 func TestAgentSeesNoPasswords(t *testing.T) {
 	const pw, ma = "Zq7pLmN4vR2x", "Kd93hfPq01aB"
 	for _, format := range []string{"json", "text"} {

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
@@ -143,7 +144,7 @@ var settings = []setting{
 			}
 			if v != st.Settings.AuditSyslog {
 				// where the audit goes, or that it stops going there: a person decides
-				if err := guardSafety("sending the audit log to " + firstNonEmpty(v, "no log server")); err != nil {
+				if err := guardSafety("sending the audit log to " + cmp.Or(v, "no log server")); err != nil {
 					return err
 				}
 			}

@@ -16,7 +16,7 @@ komando group list                     # every group and tag with its members
 ## Write a target
 
 Most commands take a *target*. One target picks servers, conns (databases,
-caches, storage, clusters, registries) and VPNs together:
+caches, queues, storage, clusters, registries) and VPNs together:
 
 | Write | Picks |
 |-------|-------|

@@ -77,9 +77,9 @@ attributes and --key is the ordering key.`,
 	}
 	c.Flags().StringVar(&value, "value", "", "the message")
 	c.Flags().StringVar(&from, "from", "", "read the message from this file ('-' for stdin)")
-	c.Flags().StringVar(&key, "key", "", "kafka: the message key (picks the partition); sqs: the message group of a FIFO queue; pubsub: the ordering key")
+	c.Flags().StringVar(&key, "key", "", "Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key")
 	c.Flags().StringArrayVar(&headers, "header", nil, "a message header KEY=VALUE (repeatable)")
-	c.Flags().IntVar(&partition, "partition", -1, "kafka: send to this partition (numbered from 0)")
+	c.Flags().IntVar(&partition, "partition", -1, "Kafka: send to this partition (numbered from 0)")
 	return c
 }
 
@@ -158,10 +158,10 @@ func queueCreateCmd() *cobra.Command {
 				})
 		},
 	}
-	c.Flags().IntVar(&partitions, "partitions", -1, "kafka: how many partitions (-1: the brokers' default)")
-	c.Flags().IntVar(&replicas, "replicas", -1, "kafka: copies of each partition (-1: the brokers' default); nats: copies of the stream (default 1)")
-	c.Flags().StringVar(&typ, "type", "", "rabbitmq: the queue type, classic, quorum or stream (default: the server's)")
-	c.Flags().StringArrayVar(&configs, "config", nil, "a setting KEY=VALUE, e.g. retention.ms=86400000 (kafka), x-max-length=1000 (rabbitmq), max_age=7d (nats), VisibilityTimeout=60 (sqs) or ackDeadlineSeconds=60 (pubsub) (repeatable)")
+	c.Flags().IntVar(&partitions, "partitions", -1, "Kafka: how many partitions (-1: the brokers' default)")
+	c.Flags().IntVar(&replicas, "replicas", -1, "copies of each message. Kafka: copies of each partition (-1 uses the brokers' default); NATS: copies of the stream (-1 means 1)")
+	c.Flags().StringVar(&typ, "type", "", "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)")
+	c.Flags().StringArrayVar(&configs, "config", nil, "a setting KEY=VALUE, e.g. retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)")
 	return c
 }
 

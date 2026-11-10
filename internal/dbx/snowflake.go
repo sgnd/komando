@@ -119,7 +119,7 @@ func (cn *sfConn) QueryContext(ctx context.Context, query string, args []driver.
 	if err != nil {
 		return nil, err
 	}
-	return newSFRows(ctx, cn.c, res)
+	return newSFRows(ctx, cn.c, res), nil
 }
 
 // sfStmt serves database/sql's prepared form; Snowflake gets the text.
@@ -148,11 +148,9 @@ func (s *sfStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (dr
 type sfResult struct {
 	Code               string `json:"code"`
 	Message            string `json:"message"`
-	SQLState           string `json:"sqlState"`
 	StatementHandle    string `json:"statementHandle"`
 	StatementStatusURL string `json:"statementStatusUrl"`
 	Meta               *struct {
-		NumRows       int64      `json:"numRows"`
 		RowType       []sfColumn `json:"rowType"`
 		PartitionInfo []struct {
 			RowCount int64 `json:"rowCount"`

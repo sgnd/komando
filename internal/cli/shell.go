@@ -22,7 +22,7 @@ func shellCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "shell TARGET",
 		Aliases: []string{"ssh", "connect"},
-		Short:   "Interactive login shell (humans only; agents use exec/job)",
+		Short:   "Interactive login shell (for people; agents use exec or job)",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				// `ssh host command` runs a command in ssh; here that is exec
@@ -58,7 +58,7 @@ func runShell(ctx context.Context, target string) error {
 	protected := protectedHost(st, h)
 	if protected && !yesOK() && !confirmYes(h.Name+" is protected. Open a shell on it anyway?") {
 		if err := policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
-			"protected hosts require explicit confirmation: re-run with --yes after verifying intent",
+			"a shell on a protected server needs a person's yes: re-run with --yes after the user confirms",
 			"a shell on protected host %s can change anything", h.Name)); err != nil {
 			return err
 		}

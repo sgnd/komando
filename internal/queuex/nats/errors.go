@@ -3,7 +3,6 @@ package nats
 import (
 	"context"
 	"errors"
-	"net"
 	"strings"
 
 	natsgo "github.com/nats-io/nats.go"
@@ -29,7 +28,7 @@ func connectErr(t driver.Target, err error) error {
 			"the server refused the login: %s", msg)
 	case errors.Is(err, natsgo.ErrSecureConnWanted):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the server has no TLS on this port: use nats:// (--via an SSH server, or ?insecure=1)", "cannot connect to %s: %s", t.Address, msg)
-	case errors.Is(err, context.DeadlineExceeded) || errors.Is(err, natsgo.ErrTimeout) || isTimeout(err):
+	case errors.Is(err, context.DeadlineExceeded) || errors.Is(err, natsgo.ErrTimeout) || queuex.IsTimeout(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "check the address and the port (4222 is the client port; 8222 is monitoring, 6222 the cluster's own), or raise --connect-timeout", "connecting to %s timed out", t.Address)
 	case strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify"):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the server's certificate could not be checked against this computer's CAs: use tls:// with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server",
@@ -40,11 +39,6 @@ func connectErr(t driver.Target, err error) error {
 	}
 	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando conn test NAME` to check reachability, or reach the server --via an SSH server that can",
 		"cannot connect to %s: %s", t.Address, msg)
-}
-
-func isTimeout(err error) bool {
-	var ne net.Error
-	return errors.As(err, &ne) && ne.Timeout()
 }
 
 // opErr turns the server's answer to a command into komando's error codes.
@@ -84,7 +78,7 @@ func (n *Nats) opErr(err error, what string) error {
 }
 
 func noAnswer(err error) bool {
-	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, natsgo.ErrTimeout) || isTimeout(err)
+	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, natsgo.ErrTimeout) || queuex.IsTimeout(err)
 }
 
 func denied(err error) bool {

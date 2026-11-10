@@ -63,7 +63,7 @@ func loginHost(ctx context.Context, name string) error {
 		return nil
 	}
 	endLogin(st.Logins[h.Name]) // an old one (expired, or for an older address)
-	l, err := startHolder(ctx, st, h, keep)
+	l, err := startHolder(h, keep)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func endLogin(l *store.SSHLogin) {
 
 // startHolder starts `komando login-holder NAME` and relays its login's
 // questions to the person here until it says READY (or why not).
-func startHolder(ctx context.Context, st *store.State, h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
+func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 	self, err := os.Executable()
 	if err != nil {
 		return nil, err

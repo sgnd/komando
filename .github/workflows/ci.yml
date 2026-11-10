@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  # 1. Formatting, go vet, staticcheck, unit tests, and a build.
+  # Formatting, go vet, staticcheck, unit tests, and a build.
   test:
     name: Lint and unit tests
     runs-on: ubuntu-latest
@@ -30,7 +30,7 @@ jobs:
       # the release also builds for macOS: vet and build that code here too
       - run: GOOS=darwin go vet ./... && GOOS=darwin GOARCH=arm64 go build -o /dev/null ./cmd/komando
 
-  # 2. Known vulnerabilities in the code and its modules (govulncheck).
+  # Known vulnerabilities in the code and its modules (govulncheck).
   security:
     name: Security
     runs-on: ubuntu-latest
@@ -42,7 +42,7 @@ jobs:
           go-version-file: go.mod
       - run: make security
 
-  # 3. Real SSH, databases, caches and storage in Docker.
+  # Real SSH, databases, caches and storage in Docker.
   e2e:
     name: End-to-end tests
     runs-on: ubuntu-latest

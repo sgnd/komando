@@ -68,9 +68,8 @@ func promptText(now time.Time) string {
 	idle, _ := time.ParseDuration(st.Settings.VpnIdle)
 	var vpns []string
 	for name, s := range st.Sessions {
-		// the process is checked only by its pid: a container would need
-		// `docker inspect`, too slow for a prompt
-		if s == nil || s.Container == "" && !netx.Alive(s.PID) {
+		// the process is checked only by its pid: fast enough for a prompt
+		if s == nil || !netx.Alive(s.PID) {
 			continue
 		}
 		if idle > 0 && now.Sub(s.LastUsed) > idle {

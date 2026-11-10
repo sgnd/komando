@@ -6,6 +6,7 @@ package kube
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -146,7 +147,7 @@ func Parse(b []byte) (*Config, error) {
 	return &c, nil
 }
 
-// Contexts lists the context names in file order.
+// ContextNames lists the context names in file order.
 func (c *Config) ContextNames() []string {
 	var n []string
 	for _, x := range c.Contexts {
@@ -437,7 +438,6 @@ type ResourceType struct {
 	Kind       string
 	Namespaced bool
 	ShortNames []string
-	Verbs      []string
 }
 
 func (c *Client) discover(ctx context.Context) error {
@@ -452,7 +452,6 @@ func (c *Client) discover(ctx context.Context) error {
 				Kind       string   `json:"kind"`
 				Namespaced bool     `json:"namespaced"`
 				ShortNames []string `json:"shortNames"`
-				Verbs      []string `json:"verbs"`
 			} `json:"resources"`
 		}
 		if c.Get(ctx, gvPath, nil, &list) != nil {
@@ -462,7 +461,7 @@ func (c *Client) discover(ctx context.Context) error {
 			if strings.Contains(r.Name, "/") {
 				continue // subresources
 			}
-			res := ResourceType{Path: gvPath, Name: r.Name, Kind: r.Kind, Namespaced: r.Namespaced, ShortNames: r.ShortNames, Verbs: r.Verbs}
+			res := ResourceType{Path: gvPath, Name: r.Name, Kind: r.Kind, Namespaced: r.Namespaced, ShortNames: r.ShortNames}
 			c.discovery[gv+"/"+r.Kind] = res
 			group, version, grouped := strings.Cut(gv, "/")
 			for _, alias := range append([]string{r.Name, strings.ToLower(r.Kind)}, r.ShortNames...) {
@@ -497,7 +496,7 @@ func (c *Client) discover(ctx context.Context) error {
 }
 
 // Resource finds a ResourceType by a name people type: "pods", "pod", "po",
-// "deploy", "deployments.apps" is not needed.
+// "deploy" or "deployments.apps".
 func (c *Client) Resource(ctx context.Context, name string) (ResourceType, error) {
 	if err := c.discover(ctx); err != nil {
 		return ResourceType{}, err
@@ -601,17 +600,17 @@ func builtinToken(ctx context.Context, e *ExecAuth) (tok string, ok bool, err er
 		env[kv.Name] = kv.Value
 	}
 	arg := func(names ...string) string { return execArg(e.Args, names...) }
-	profile := firstNonEmpty(arg("--profile"), env["AWS_PROFILE"], os.Getenv("AWS_PROFILE"))
+	profile := cmp.Or(arg("--profile"), env["AWS_PROFILE"], os.Getenv("AWS_PROFILE"))
 	switch filepath.Base(e.Command) {
 	case "aws":
 		cluster := arg("--cluster-name", "--cluster-id")
 		if cluster == "" {
 			return "", true, errors.New("aws eks get-token in the kubeconfig names no --cluster-name")
 		}
-		tok, err := cloud.EKSToken(ctx, profile, firstNonEmpty(arg("--region"), env["AWS_REGION"], env["AWS_DEFAULT_REGION"]), cluster, arg("--role-arn"))
+		tok, err := cloud.EKSToken(ctx, profile, cmp.Or(arg("--region"), env["AWS_REGION"], env["AWS_DEFAULT_REGION"]), cluster, arg("--role-arn"))
 		return tok, true, err
 	case "aws-iam-authenticator":
-		tok, err := cloud.EKSToken(ctx, profile, firstNonEmpty(arg("--region"), env["AWS_REGION"]), arg("-i", "--cluster-id"), arg("-r", "--role"))
+		tok, err := cloud.EKSToken(ctx, profile, cmp.Or(arg("--region"), env["AWS_REGION"]), arg("-i", "--cluster-id"), arg("-r", "--role"))
 		return tok, true, err
 	case "gke-gcloud-auth-plugin":
 		tok, err := cloud.GCPAccessToken(ctx)
@@ -631,7 +630,6 @@ type Table struct {
 		Cells  []any `json:"cells"`
 		Object struct {
 			Metadata struct {
-				Name      string `json:"name"`
 				Namespace string `json:"namespace"`
 			} `json:"metadata"`
 		} `json:"object"`

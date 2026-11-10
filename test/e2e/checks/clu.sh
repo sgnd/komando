@@ -6,7 +6,7 @@ CLU_K8S_IMG=${CLU_K8S_IMG:-rancher/mirrored-pause:3.6}
 CLU_IMG=${CLU_IMG:-busybox:1.37}
 set +e
 
-# --- Kubernetes ---------------------------------------------------------------
+# Kubernetes
 cat > "$TMP/clu.yaml" <<YAML
 apiVersion: v1
 kind: Namespace
@@ -83,7 +83,7 @@ check "forward ends normally at --timeout" "0 True" "$($K cluster forward lab-k3
 [ "$(jget 'd["ok"]' <"$TMP/o")" = True ] || { echo "  forward stderr:"; head -5 "$TMP/fw.err"; }
 q $K cluster rm lab-k3s namespace t-e2eclu --allow-dangerous
 
-# --- Docker Swarm ---------------------------------------------------------------
+# Docker Swarm
 check "Swarm status has the Kubernetes shape" "True True" "$($K cluster status swarm1 | jget 'str("healthy" in d["data"]) + " " + str(isinstance(d["data"]["problems"], list))')"
 check "not a Swarm manager says so" "3 NOT_SWARM_MANAGER" "$($K cluster status direct >"$TMP/o"; echo $?) $(jget 'd["error"]["code"]' <"$TMP/o")"
 check "a missing service is not found" "3 True" "$($K cluster status swarm1 service/nope >"$TMP/o"; echo $?) $(jget 'd["error"]["message"] != ""' <"$TMP/o")"
@@ -110,7 +110,7 @@ check "docker inspect of a missing object is not found" 3 "$($K docker inspect s
 q $K cluster rm swarm1 service/t-e2eclu-web --allow-dangerous
 q $K docker raw swarm1 --allow-dangerous -- rmi t-e2eclu/busybox:2
 
-# --- registry -------------------------------------------------------------------
+# registry
 check "a missing tag names the tags there" "3 True" "$($K registry inspect reg mirror/busybox:latest >"$TMP/o"; echo $?) $(jget '"mirror/busybox:latest not found; tags: stable" in d["error"]["message"]' <"$TMP/o")"
 check "rm --dry-run names the tags that go" True "$($K registry rm reg mirror/busybox:stable --dry-run | jget '"stable" in d["data"]["would_remove_tags"]')"
 check "copy without CONN: is a usage error" USAGE "$($K registry copy mirror/busybox:stable reg:x | jget 'd["error"]["code"]')"

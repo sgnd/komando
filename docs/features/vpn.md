@@ -42,7 +42,9 @@ and DNS stay the same, so two VPNs that use the same addresses (both
 A VPN that logs in with a password, pre-shared key or auth key reads it
 from the vault: store it first with `komando secret set NAME` (it asks for
 it, hidden), then name it in `--password-ref` or `--psk-ref`. The names
-below (`kantor`, `ts-authkey` ...) are such secrets.
+below (`kantor`, `ts-authkey` ...) are such secrets. Or type it when you
+add the VPN: `--ask-password` stores it as `secret:NAME-pass`, and
+`--ask-psk` stores a pre-shared key as `secret:NAME-psk`.
 
 ```bash
 komando secret set kantor                     # the VPN password, typed once (hidden)
@@ -98,7 +100,7 @@ komando host add db1 admin@10.0.0.5 --via office                         # a ser
 komando conn add app-db postgres://app@10.0.0.9/app --via office,bastion # VPN, then a bastion
 komando exec db1 -- uptime
 komando tunnel start app-db                                              # open it in TablePlus, psql, ...
-komando tunnel start office -D 1080                                      # browse "inside" the VPN
+komando tunnel start office -D 1080                                      # a SOCKS proxy on port 1080 that goes through the VPN
 ```
 
 When a command connects a VPN by itself, it says so on one line:

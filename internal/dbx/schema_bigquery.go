@@ -25,9 +25,7 @@ const bqMaxTables = 10000
 
 type bqTable struct {
 	TableReference struct {
-		ProjectID string `json:"projectId"`
-		DatasetID string `json:"datasetId"`
-		TableID   string `json:"tableId"`
+		TableID string `json:"tableId"`
 	} `json:"tableReference"`
 	Type             string    `json:"type"`
 	NumRows          string    `json:"numRows"`

@@ -30,7 +30,7 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 	secretHome(t)
 	defer func() { g.yes, g.dryRun = false, false }()
 
-	// a person or a script: as before, no window (askOnScreen panics)
+	// a person or a script: no window (askOnScreen panics)
 	got, err := expandSecretRefs("DB={{secret:db-pass}}", "web1:/etc/app.env", false)
 	if err != nil || got != "DB=pa$$1word" {
 		t.Fatalf("script: %q %v", got, err)
@@ -117,7 +117,7 @@ func TestEnvSecretNeedsAPerson(t *testing.T) {
 // that has one, needs a person's yes. Other edits ask nothing.
 func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	secretHome(t)
-	// a script: as before, except that a reserved secret is refused
+	// a script is not asked, but a reserved secret is refused
 	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass")
 	mustRun(t, "host", "add", "jump", "u@10.0.0.3")
 	wantCode(t, "RESERVED_SECRET", "host", "add", "x", "u@10.0.0.9", "--password-ref", "secret:"+approvalSecret)
@@ -257,7 +257,7 @@ func TestAgentOtherHome(t *testing.T) {
 	invHome(t)
 	other := os.Getenv("KOMANDO_HOME")
 
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") // a script: as before
+	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") // a script: not asked
 	texts := windowText(t, true)
 	e := wantCode(t, "SAFETY_SETTING", "list")
 	if !strings.Contains(e.Message, "KOMANDO_HOME points komando at "+other) {

@@ -12,11 +12,11 @@ var (
 	accVpns = formArg{ask: "Which VPNs?", pick: "vpn",
 		help: "Pick one, or type several names separated by spaces."}
 	accNewName = formArg{ask: "What should the new name be?", example: "office-jkt",
-		help: "Small letters, digits, - and _."}
+		help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}
 	accSecret = formArg{ask: "Which secret?", example: "db-pass", pick: "secret", free: true,
 		help: "Its name in komando's vault (the safe store for passwords on this computer). `komando secret list` shows them."}
 	accSecretNew = formArg{ask: "What should the new name be?", example: "db-pass-old",
-		help: "Small letters, digits, - and _."}
+		help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}
 	accOverwrite = formFlag{name: "overwrite", ask: "Replace the new name if it exists already?",
 		help: "No stops when a secret with the new name is there, so nothing is lost by mistake."}
 	accKey = formArg{ask: "Which key?", pick: "key",
@@ -85,7 +85,7 @@ func init() {
 
 		// Secrets
 		"secret set": {args: []formArg{{ask: "What name should the secret have?", example: "db-pass", pick: "secret", free: true,
-			help: "Pick one to give it a new value, or type a new name: small letters, digits, - and _. komando asks for the value next and hides it as you type or paste."}}},
+			help: "Pick one to give it a new value, or type a new name: letters, digits, dot, dash and underscore, starting with a letter or digit. komando asks for the value next and hides it as you type or paste."}}},
 		"secret get": {args: []formArg{accSecret}},
 		"secret check": {args: []formArg{{ask: "Which secret should your value be compared with?", example: "vpn-pass", pick: "secret", free: true,
 			help: "Its name in the vault. komando asks for your value next, hidden, and says whether it matches, never showing either."}}},
@@ -100,18 +100,18 @@ func init() {
 
 		// SSH keys
 		"key gen": {args: []formArg{{ask: "What name should the new key have?", example: "deploy",
-			help: "Small letters, digits, - and _. Next, `komando key deploy` puts it on your servers."}},
+			help: "Letters, digits, dot, dash and underscore, starting with a letter or digit. Next, `komando key deploy` puts it on your servers."}},
 			flags: []formFlag{{name: "type", ask: "Which kind of key?", choices: []string{"ed25519", "rsa", "ecdsa"},
 				help: "ed25519 is short and safe; pick rsa only for an old server that does not take ed25519."}}},
 		"key add": {args: []formArg{
-			{ask: "What name should the key have in komando?", example: "personal", help: "Small letters, digits, - and _."},
+			{ask: "What name should the key have in komando?", example: "personal", help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."},
 			{ask: "Where is the private key file on this computer?", example: "~/.ssh/id_ed25519", local: true,
 				help: "The file without .pub at the end. It stays where it is. ~/ means your home folder."}},
 			flags: []formFlag{accPassRef}},
 		"key edit": {args: []formArg{accKey}, flags: []formFlag{accPassRef}},
 		"key list": {},
 		"key show": {args: []formArg{accKey}},
-		"key mv":   {args: []formArg{accKey, {ask: "What should the new name be?", example: "deploy-2026", help: "Small letters, digits, - and _."}}},
+		"key mv":   {args: []formArg{accKey, {ask: "What should the new name be?", example: "deploy-2026", help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}}},
 		"key rm": {args: []formArg{accKey}, flags: []formFlag{{name: "delete-file", ask: "Also delete the key files?",
 			help: "Only for a key komando made. Deleted key files cannot be brought back."}}},
 		"key deploy": {args: []formArg{accKeyOrPub, accServers},

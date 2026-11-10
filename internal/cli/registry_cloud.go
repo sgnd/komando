@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"net"
@@ -62,15 +63,15 @@ func acrResource(host string) string {
 // cloudRegistryLogin logs rc in with a cloud login when c is a cloud
 // registry without a --password-ref: Amazon ECR, Azure Container Registry,
 // or Google Artifact Registry and Container Registry. Without any Google
-// credentials, a Google registry is used without a login, as before, so
-// public images there stay readable.
+// credentials, a Google registry is used without a login, so public
+// images there stay readable.
 func cloudRegistryLogin(ctx context.Context, c *store.Conn, host string, rc *registry.Client) error {
 	if c.PasswordRef != "" {
 		return nil
 	}
 	host = strings.TrimSuffix(host, ":443")
 	if region := ecrRegion(host); region != "" {
-		tok, err := ecrToken(ctx, firstNonEmpty(awsProfile(c), "default"), region)
+		tok, err := ecrToken(ctx, cmp.Or(awsProfile(c), "default"), region)
 		if err != nil {
 			return err
 		}
@@ -101,7 +102,7 @@ func cloudRegistryLogin(ctx context.Context, c *store.Conn, host string, rc *reg
 		if err != nil {
 			return azureErr(host, res, err)
 		}
-		if err := rc.ACRLogin(ctx, tok, firstNonEmpty(os.Getenv("AZURE_TENANT_ID"), cloud.AzureTenant(tok))); err != nil {
+		if err := rc.ACRLogin(ctx, tok, cmp.Or(os.Getenv("AZURE_TENANT_ID"), cloud.AzureTenant(tok))); err != nil {
 			var re *registry.Error
 			if errors.As(err, &re) && (re.Status == 401 || re.Status == 403) {
 				return out.Errf(out.ExitConnect, "REGISTRY_AUTH",

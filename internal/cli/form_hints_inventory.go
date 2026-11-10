@@ -21,7 +21,7 @@ var (
 	invServers = formArg{ask: "Which servers?", pick: "host", free: true,
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas."}
 	invConn = formArg{ask: "Which conn?", pick: "conn",
-		help: "A conn is a database, cache, file storage, cluster or registry in your list."}
+		help: "A conn is a database, cache, message queue, file storage, cluster or registry in your list."}
 	invConns = formArg{ask: "Which conns?", pick: "conn", free: true,
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by commas."}
 	invTargets = formArg{ask: "Which ones?", pick: "target", free: true,

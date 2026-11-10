@@ -347,8 +347,9 @@ func rowsFor(kind, kw string, ts []token) bool {
 	return returnsRows(kw, ts)
 }
 
-// otherNoTx is noTx for SQL Server, Oracle, ClickHouse, Snowflake and BigQuery (no
-// transactions komando can use: everything but a read runs alone).
+// otherNoTx is noTx for SQL Server, Oracle, ClickHouse, Snowflake and
+// BigQuery (no transactions komando can use: everything but a read runs
+// alone).
 func otherNoTx(kind, kw string, ts []token) bool {
 	switch kind {
 	case "sqlserver":

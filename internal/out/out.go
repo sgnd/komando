@@ -99,9 +99,13 @@ func Errf(exit int, code, hint, format string, a ...any) *Error {
 }
 
 func NotFound(kind, name string) *Error {
+	word := kind // the code and the command keep kind; the prose says VPN
+	if kind == "vpn" {
+		word = "VPN"
+	}
 	return Errf(ExitNotFound, strings.ToUpper(kind)+"_NOT_FOUND",
-		fmt.Sprintf("run `komando %s list` to see available %ss", kind, kind),
-		"%s %q not found", kind, name)
+		fmt.Sprintf("run `komando %s list` to see available %ss", kind, word),
+		"%s %q not found", word, name)
 }
 
 // UsageHint is the hint a usage error gets when its command gives none.
@@ -160,7 +164,7 @@ type Skipped struct {
 
 // Printer is configured once by the root command.
 type Printer struct {
-	Format  string // json | text | yaml-ish not supported, keep it simple
+	Format  string // json | text
 	Pretty  bool
 	Version string
 	Start   time.Time
@@ -329,7 +333,7 @@ func (p *Printer) printSkipped() {
 	}
 }
 
-// Success prints data. A non-nil softErr marks the envelope not-ok but still
+// Print prints data. A non-nil softErr marks the envelope not-ok but still
 // carries data (e.g. multi-host exec with partial failures).
 func (p *Printer) Print(command string, data any, softErr *Error) {
 	env := Envelope{OK: softErr == nil, Command: command, Data: data, Error: softErr, Meta: p.meta()}
@@ -405,7 +409,7 @@ func (p *Printer) writeJSON(v any) {
 	_, _ = p.W.Write(p.redactJSON(b.Bytes()))
 }
 
-// NDJSON emits one streaming event line (used by --stream / follow modes).
+// Event emits one NDJSON line (--stream and follow modes).
 func (p *Printer) Event(v any) {
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)

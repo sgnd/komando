@@ -4,7 +4,7 @@
 # objects, and removes them at the end.
 set +e
 
-# --- databases --------------------------------------------------------------
+# databases
 check "pg date is a date" 2024-02-29 "$($K db query pg "select '2024-02-29'::date d" | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "pg timestamp has no zone" "2024-02-29 10:11:12" "$($K db query pg "select '2024-02-29 10:11:12'::timestamp t" | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "pg timestamptz is an instant" "2024-02-29T08:00:00Z" "$($K db query pg "select '2024-02-29 10:00+02'::timestamptz t" | jget 'd["data"]["results"][0]["rows"][0][0]')"
@@ -32,7 +32,7 @@ q $K db query pg --write --allow-dangerous "drop table t_e2edata_a; drop table t
 echo "select 1;" > "$TMP/e2edata.sql"
 check "restore dry-run checks the file" True "$($K db restore pg --from "$TMP/e2edata.sql" --dry-run | jget 'd["ok"] and d["meta"]["would_be_blocked"]["code"] == "POLICY_BLOCKED"')"
 
-# --- caches -----------------------------------------------------------------
+# caches
 $K cache set cache t-e2edata:a x --ttl -5s >/dev/null; check "negative ttl is usage" 2 $?
 check "ttl takes days" 172800 "$($K cache set cache t-e2edata:a x --ttl 2d | jget 'd["data"]["ttl_seconds"]')"
 check "no ttl is null" None "$($K cache set cache t-e2edata:a $'two\nlines' | jget 'd["data"]["ttl_seconds"]')"
@@ -46,7 +46,7 @@ check "DEL hint points at cache rm" True "$($K cache run cache -- DEL t-e2edata:
 check "cache rm dry-run lists keys" "['t-e2edata:a']" "$($K cache rm cache t-e2edata:a t-e2edata:none --dry-run | jget 'd["data"]["would_delete"]')"
 q $K cache rm cache t-e2edata:a t-e2edata:l --allow-dangerous
 
-# --- storage ----------------------------------------------------------------
+# storage
 echo e2edata > "$TMP/e2edata.txt"
 for c in bucket files-sftp files-ftps; do
   check "$c upload into a folder keeps the name" t-e2edata/dir/e2edata.txt "$($K storage upload "$c" "$TMP/e2edata.txt" t-e2edata/dir/ | jget 'd["data"]["key"]')"

@@ -121,7 +121,7 @@ type UserSpec struct {
 	Name     string
 	Host     string // MySQL account host; "%" when empty
 	Password string
-	NoLogin  bool // PostgreSQL: a role that cannot log in (a group)
+	NoLogin  bool // a role that cannot log in (a group)
 }
 
 // userSQL is the statement for an action on a user; shown is the same
@@ -223,7 +223,7 @@ func userErr(err error, name string) error {
 	}
 	switch {
 	case strings.Contains(msg, "already exists"), strings.Contains(msg, "1396") && strings.Contains(strings.ToLower(msg), "create user"):
-		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd`", "user %s already exists", name)
+		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd CONN "+name+" --password-ref secret:NAME`", "user %s already exists", name)
 	case strings.Contains(msg, "does not exist"), strings.Contains(msg, "1396"):
 		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user ls CONN`", "user %s does not exist", name)
 	case strings.Contains(msg, "permission denied"), strings.Contains(msg, "does not have permission"), strings.Contains(msg, "must have CREATEROLE"), strings.Contains(msg, "Access denied"), strings.Contains(msg, "1227"):
@@ -313,7 +313,7 @@ func GrantSQL(ctx context.Context, db *sql.DB, kind string, g Grant) (string, er
 		case "table":
 			parts := strings.Split(name, ".")
 			if len(parts) > 2 {
-				return "", out.Usage("--on table:SCHEMA.TABLE")
+				return "", out.Usage("--on table:[SCHEMA.]TABLE takes at most one dot, not %q", name)
 			}
 			q := make([]string, len(parts))
 			for i, p := range parts {

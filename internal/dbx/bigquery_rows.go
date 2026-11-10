@@ -42,7 +42,6 @@ type bqSchema struct {
 type bqJob struct {
 	JobReference bqJobRef `json:"jobReference"`
 	Status       struct {
-		State       string      `json:"state"`
 		ErrorResult *bqErrProto `json:"errorResult"`
 	} `json:"status"`
 	Statistics struct {
@@ -297,7 +296,6 @@ func bqFailure(status int, raw []byte) error {
 	var doc struct {
 		Error struct {
 			Message string       `json:"message"`
-			Status  string       `json:"status"`
 			Errors  []bqErrProto `json:"errors"`
 		} `json:"error"`
 	}

@@ -6,6 +6,12 @@ import (
 	"testing"
 )
 
+// checkOVPN says why OpenVPN must not get the profile cfg, or nil.
+func checkOVPN(cfg string) error {
+	_, err := parseOVPN(cfg)
+	return err
+}
+
 // readAsOpenVPN lists the directives of a profile in the order OpenVPN 2.6
 // finds them (options.c: read_config_file, parse_line, read_inline_file):
 // a line is read in pieces of at most 256 bytes; words are split on blanks,
