@@ -15,11 +15,16 @@
 // editing those columns makes the row fail to open. Audit entries are bound
 // to their sequence number, so a removed or moved entry shows as a gap.
 //
-// What the seal cannot catch, by design: a row replaced with an older
-// sealed copy of itself (an old version), a whole row removed, and the last
-// audit entries cut off. The old-copy protection of section 16 (a
-// generation number also kept in the OS keychain) covers the store as a
-// whole.
+// A row replaced with an older sealed copy of itself, a whole row removed,
+// or the last audit entries cut off are caught by the index kept in the
+// generation record (index.go, audit.go). An old copy of the whole store
+// is caught by the generation number also kept in the OS keychain
+// (section 16).
+//
+// Every step first checks that its key still opens the store: another
+// process may have changed the key (Rekey) since this one opened it, and a
+// write sealed with the old key would make the store unreadable. Such a
+// step stops with ErrKeyChanged; the caller opens the store again.
 //
 // A View or Update called from inside another step, on the same goroutine,
 // joins that step: a write runs in a savepoint of it, so it is kept or
@@ -73,6 +78,9 @@ var (
 	ErrTampered = errors.New("sealdb: store was changed outside komando")
 	// ErrWrongKey: the store was sealed with another key.
 	ErrWrongKey = errors.New("sealdb: the key does not open this store")
+	// ErrKeyChanged: another process changed the store's key after this
+	// handle was opened. Close it and open the store with the new key.
+	ErrKeyChanged = errors.New("sealdb: the store's key was changed by another komando; open it again")
 )
 
 // keycheckID is a record every store holds from its start, so a wrong key
@@ -108,6 +116,7 @@ type DB struct {
 	holder atomic.Uint64
 	cur    *Tx // the step holder is running
 	depth  int // savepoints inside it
+	opened bool
 
 	// OnGeneration, when set, is told the new generation after each write
 	// step that changed a record (the store keeps it in the keychain).
@@ -175,6 +184,7 @@ func Open(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
 		sdb.Close()
 		return nil, err
 	}
+	d.opened = true
 	return d, nil
 }
 
@@ -325,7 +335,12 @@ func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error
 			}
 		}
 	}()
-	tx := &Tx{ctx: ctx, c: c, key: d.key, write: write}
+	tx := &Tx{ctx: ctx, c: c, key: d.key, write: write, ix: &ixState{}}
+	if d.opened {
+		if err := tx.checkKey(); err != nil {
+			return err
+		}
+	}
 	d.cur = tx
 	defer func() { d.cur = nil }()
 	if err := fn(tx); err != nil {
@@ -355,7 +370,7 @@ func (d *DB) nested(write bool, fn func(*Tx) error) error {
 	}
 	if !write {
 		// a read sees the outer step's changes so far
-		return fn(&Tx{ctx: outer.ctx, c: outer.c, key: outer.key, write: false})
+		return fn(&Tx{ctx: outer.ctx, c: outer.c, key: outer.key, write: false, ix: outer.ix})
 	}
 	if !outer.write {
 		return fmt.Errorf("%w: a change inside a read step", ErrNested)
@@ -367,8 +382,11 @@ func (d *DB) nested(write bool, fn func(*Tx) error) error {
 		return err
 	}
 	ok := false
+	// the audit head and the change mark go back with the savepoint
+	head, changed := outer.ix.head, outer.changed
 	defer func() {
 		if !ok {
+			outer.ix.head, outer.changed = head, changed
 			_, _ = outer.c.ExecContext(context.Background(), "ROLLBACK TO "+sp)
 			_, _ = outer.c.ExecContext(context.Background(), "RELEASE "+sp)
 		}
@@ -482,7 +500,8 @@ type Tx struct {
 	c       *sql.Conn
 	key     *sealrow.Key
 	write   bool
-	changed bool // a record was put or deleted: the generation goes up
+	changed bool // a record or audit entry was written: the generation goes up
+	ix      *ixState
 }
 
 // The sealed content of a record starts with its deletion marker and change
@@ -511,6 +530,24 @@ func (t *Tx) open(id, typ string, ver uint64, mtime int64, del int, sealed []byt
 
 // Get returns the record with id, deleted or not.
 func (t *Tx) Get(id string) (Record, error) {
+	r, err := t.rawGet(id)
+	if errors.Is(err, ErrNotFound) {
+		if cerr := t.checkRow(id, 0, false); cerr != nil {
+			return Record{}, cerr
+		}
+		return r, err
+	}
+	if err != nil {
+		return Record{}, err
+	}
+	if err := t.checkRow(id, r.Version, true); err != nil {
+		return Record{}, err
+	}
+	return r, nil
+}
+
+// rawGet reads and opens a record without asking the index.
+func (t *Tx) rawGet(id string) (Record, error) {
 	var (
 		typ    string
 		ver    uint64
@@ -538,6 +575,7 @@ func (t *Tx) List(typ string) ([]Record, error) {
 	}
 	defer rows.Close()
 	var out []Record
+	seen := map[string]bool{}
 	for rows.Next() {
 		var (
 			id     string
@@ -552,9 +590,20 @@ func (t *Tx) List(typ string) ([]Record, error) {
 		if err != nil {
 			return nil, err
 		}
+		if err := t.checkRow(id, ver, true); err != nil {
+			return nil, err
+		}
+		seen[id] = true
 		out = append(out, r)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	if err := t.checkList(typ, seen); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // Put writes data as record id of type typ, at the next version. An empty
@@ -572,6 +621,11 @@ func (t *Tx) Put(typ, id string, data []byte) (Record, error) {
 	} else {
 		var old string
 		err := t.c.QueryRowContext(t.ctx, `SELECT type,version FROM records WHERE id=?`, id).Scan(&old, &ver)
+		if err == nil || errors.Is(err, sql.ErrNoRows) {
+			if cerr := t.checkRow(id, ver, err == nil); cerr != nil {
+				return Record{}, cerr
+			}
+		}
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 		case err != nil:
@@ -580,7 +634,9 @@ func (t *Tx) Put(typ, id string, data []byte) (Record, error) {
 			return Record{}, fmt.Errorf("sealdb: record %s is a %s, not a %s", id, old, typ)
 		}
 	}
-	t.changed = true
+	if err := t.touch(id); err != nil {
+		return Record{}, err
+	}
 	return t.write1(id, typ, ver+1, false, data)
 }
 
@@ -597,12 +653,20 @@ func (t *Tx) Delete(id string) error {
 	)
 	err := t.c.QueryRowContext(t.ctx, `SELECT type,version FROM records WHERE id=?`, id).Scan(&typ, &ver)
 	if errors.Is(err, sql.ErrNoRows) {
+		if cerr := t.checkRow(id, 0, false); cerr != nil {
+			return cerr
+		}
 		return ErrNotFound
 	}
 	if err != nil {
 		return err
 	}
-	t.changed = true
+	if err := t.checkRow(id, ver, true); err != nil {
+		return err
+	}
+	if err := t.touch(id); err != nil {
+		return err
+	}
 	_, err = t.write1(id, typ, ver+1, true, nil)
 	return err
 }
@@ -649,67 +713,15 @@ func (t *Tx) SetMeta(k, v string) error {
 	return err
 }
 
-// auditType is the type audit rows are sealed under, so an audit row cannot
-// be opened as a record.
-const auditType = "audit"
-
-// AppendAudit adds one audit entry.
-func (t *Tx) AppendAudit(data []byte) error {
-	if !t.write {
-		return ErrReadOnly
+// checkKey stops a step whose key no longer opens the store's keycheck
+// record: another process changed the key after this handle was opened.
+func (t *Tx) checkKey() error {
+	_, err := t.rawGet(keycheckID)
+	switch {
+	case err == nil, errors.Is(err, ErrNotFound): // not made yet
+		return nil
+	case errors.Is(err, sealrow.ErrOpen):
+		return ErrKeyChanged
 	}
-	id, err := sealrow.NewID()
-	if err != nil {
-		return err
-	}
-	// the next number is taken inside the write lock, so it is the one the
-	// row gets; sqlite_sequence never reuses a number, even after a delete
-	var seq int64
-	err = t.c.QueryRowContext(t.ctx, `SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name='audit'),0)+1`).Scan(&seq)
-	if err != nil {
-		return err
-	}
-	now := time.Now().UnixNano()
-	sealed, err := t.key.Seal(sealrow.Row{ID: id, Type: auditType, Version: uint64(seq)}, head(false, now, data))
-	if err != nil {
-		return err
-	}
-	_, err = t.c.ExecContext(t.ctx, `INSERT INTO audit(seq,id,time,data) VALUES(?,?,?,?)`, seq, id, now, sealed)
 	return err
-}
-
-// Audit returns up to limit audit entries after seq, oldest first. A
-// missing or damaged entry stops it with ErrTampered, together with the
-// entries before it.
-func (t *Tx) Audit(after int64, limit int) ([]AuditRow, error) {
-	rows, err := t.c.QueryContext(t.ctx, `SELECT seq,id,time,data FROM audit WHERE seq>? ORDER BY seq LIMIT ?`, after, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []AuditRow
-	want := after + 1
-	for rows.Next() {
-		var (
-			seq, tm int64
-			id      string
-			sealed  []byte
-		)
-		if err := rows.Scan(&seq, &id, &tm, &sealed); err != nil {
-			return nil, err
-		}
-		if seq != want {
-			return out, fmt.Errorf("audit %d (want %d): %w", seq, want, ErrTampered)
-		}
-		want = seq + 1
-		plain, err := t.key.Open(sealrow.Row{ID: id, Type: auditType, Version: uint64(seq)}, sealed)
-		if err != nil {
-			return out, fmt.Errorf("audit %d: %w: %w", seq, ErrTampered, err)
-		}
-		if len(plain) < headLen || int64(binary.BigEndian.Uint64(plain[1:])) != tm {
-			return out, fmt.Errorf("audit %d: %w", seq, ErrTampered)
-		}
-		out = append(out, AuditRow{Seq: seq, Time: time.Unix(0, tm), Data: plain[headLen:]})
-	}
-	return out, rows.Err()
 }
