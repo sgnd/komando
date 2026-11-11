@@ -238,8 +238,9 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	p.answer("What does the server run?", "\r") // Linux
 	p.answer("Port [22]: ", "\r")
 	p.answer("How do you log in?", "2") // A password
+	p.answer("Can a mistake on this server hurt real users", "\r")
 	p.waitFor("check and run")
-	p.waitFor("$ komando host add web1 root@203.0.113.20 --ask-password")
+	p.waitFor("$ komando host add web1 root@203.0.113.20 --ask-password --protected")
 	p.waitFor("$ komando test web1")
 	p.answer("Run it", "\x03") // Ctrl-C
 	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "nothing was added") {

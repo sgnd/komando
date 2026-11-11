@@ -294,7 +294,7 @@ func serverForm() formSpec {
 				}
 				return rows
 			}}, ssh),
-		formMore(formProtectQ("server")),
+		formProtectQ("server"),
 		serverJumpQ(),
 		formWhen(formMore(formYesNoQ("code", "One-time code", "Does it also ask for a one-time code when you log in?",
 			"A 6-digit code from an app like Google Authenticator. Most servers do not.", "no",

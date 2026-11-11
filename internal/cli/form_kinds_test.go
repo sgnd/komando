@@ -210,8 +210,9 @@ func TestFormNewKindChecks(t *testing.T) {
 	}
 }
 
-// The server form asks name, address and user first; production, the
-// jump host, the one-time code, group and notes wait under More options.
+// The server form asks name, address and user first, production with the
+// rest; the jump host, the one-time code, group and notes wait under More
+// options.
 func TestFormServerOrder(t *testing.T) {
 	sp := serverForm()
 	var keys []string
@@ -223,7 +224,7 @@ func TestFormServerOrder(t *testing.T) {
 	}
 	for _, q := range sp.qs {
 		switch q.key {
-		case "protected", "via", "code", "group", "notes":
+		case "via", "code", "group", "notes":
 			if !q.advanced {
 				t.Errorf("%s is not under More options", q.key)
 			}
@@ -323,5 +324,33 @@ func TestMenuAddGroups(t *testing.T) {
 	}
 	if _, _, err := formPick(context.Background(), nil, nil, menuScreen{}); !errors.Is(err, errMenuBack) {
 		t.Errorf("formPick with nothing to pick: %v", err)
+	}
+}
+
+// The production question is asked of every kind, servers too: its Yes
+// default must take effect without opening More options.
+func TestFormProtectAskedEverywhere(t *testing.T) {
+	for _, g := range formGroups() {
+		for _, k := range g.kinds {
+			for _, q := range k.spec().qs {
+				if q.key == "protected" && q.advanced {
+					t.Errorf("%s > %s: Production is under More options", g.label, k.label)
+				}
+			}
+		}
+	}
+}
+
+// The review shows exactly what Run it runs: an answer a later edit hid
+// (a log file, once a service was picked) is in neither.
+func TestFormReviewShowsWhatRuns(t *testing.T) {
+	st := menuTestState()
+	c, _, _ := newRoot().Find([]string{"logs"})
+	sp := formCmdSpec(c)
+	a := formAnswers{"arg0": "web-1", "flag:file": "/var/log/app.log", "flag:unit": "nginx"}
+	l := formReviewList(st, sp, a, true)
+	want := "$ komando " + menuCommandLine(formBuild(st, sp, a)[0])
+	if len(l.runs) != 1 || l.runs[0] != want || strings.Contains(want, "app.log") {
+		t.Errorf("review %v, runs %q", l.runs, want)
 	}
 }
