@@ -676,7 +676,13 @@ func probeText(ctx context.Context, name, target, command string, sudo bool, par
 		return err
 	}
 	if g.dryRun {
-		out.P.Print(name, map[string]any{"hosts": hostNames(hosts), "would_run": command}, nil)
+		plan := map[string]any{"hosts": hostNames(hosts), "would_run": command}
+		if win := windowsNames(hosts); len(win) == len(hosts) {
+			plan["would_run"] = winCommand
+		} else if len(win) > 0 {
+			plan["would_run_on_windows"] = winCommand
+		}
+		out.P.Print(name, plan, nil)
 		return nil
 	}
 	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {

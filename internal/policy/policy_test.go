@@ -272,3 +272,34 @@ func TestShellScript(t *testing.T) {
 		t.Errorf("FillParams = %q", got)
 	}
 }
+
+// TestSSHStop: stopping the SSH server is caught however systemctl is
+// written, including the way `komando svc stop` writes it.
+func TestSSHStop(t *testing.T) {
+	for _, c := range []string{
+		"systemctl stop ssh",
+		"systemctl stop sshd",
+		"systemctl stop -- 'ssh' >&2; rc=$?",
+		"systemctl disable --now -- 'nginx' 'ssh.service'",
+		"systemctl stop ssh.socket",
+		"systemctl --no-block mask sshd.service",
+		"sudo systemctl stop ssh; echo done",
+		"service ssh stop",
+	} {
+		if !hasRule(Check(c, nil), "sshd-stop") {
+			t.Errorf("%q: sshd-stop expected", c)
+		}
+	}
+	for _, c := range []string{
+		"systemctl restart ssh",
+		"systemctl stop ssh-agent",
+		"systemctl stop myssh",
+		"systemctl show -p Id -- 'ssh'",
+		"systemctl stop nginx; ssh web1 uptime",
+		"service ssh status",
+	} {
+		if hasRule(Check(c, nil), "sshd-stop") {
+			t.Errorf("%q: sshd-stop not expected", c)
+		}
+	}
+}

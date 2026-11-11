@@ -10,7 +10,7 @@ komando host add win1 Administrator@10.0.0.9 --os windows --ask-password
 komando test win1                                   # can komando log in? is it an administrator?
 komando facts win1                                  # Windows version, support, updates, ports
 komando exec win1 --read-only -- Get-Service W3SVC  # simple read commands
-komando svc restart win1 W3SVC --wait 10            # Windows services
+komando svc restart win1 W3SVC --wait 10s           # Windows services
 komando fs cat win1 'C:\inetpub\wwwroot\web.config'
 komando upload win1 ./site.zip 'C:\deploy\'
 ```
@@ -209,7 +209,7 @@ komando download win1 'C:\app\app.log' --to ./logs/
 ```bash
 komando svc list win1 --state running         # running, stopped, or --failed
 komando svc status win1 W3SVC sshd
-komando svc restart win1 W3SVC --wait 10      # fails unless it runs within 10s
+komando svc restart win1 W3SVC --wait 10s     # fails unless it runs within 10s
 komando svc enable win1 MyApp --now           # start automatically, and start now
 ```
 

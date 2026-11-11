@@ -89,7 +89,7 @@ come with -f. --since and --until take a duration back from now (10m, 2h,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lo.container = args[1]
-			return runLogs(cmd.Context(), "docker.logs", args[0], &lo, sudo)
+			return runLogs(cmd.Context(), "docker.logs", args[0], &lo, sudo || lo.sudo) // lo.bind's own --sudo shadows the docker one
 		},
 	}
 	lo.bind(logs, false)

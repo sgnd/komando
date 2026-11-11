@@ -231,7 +231,7 @@ var errorCodes = []errorCode{
 	{"TARGET_EMPTY", 3, "target … matched nothing", "run `komando list` to see servers, conns, groups and tags"},
 	{"TARGET_NOT_FOUND", 3, "no server, conn or VPN named …", "run `komando list` to see servers, conns and VPNs"},
 	{"TIMEOUT", 7, "redis did not answer in time", "raise --timeout"},
-	{"TLS_HANDSHAKE_FAILED", 4, "TLS handshake with … failed: …", "check that … speaks TLS (not plain HTTP) on that port"},
+	{"TLS_HANDSHAKE_FAILED", 4, "TLS handshake with … failed: …", "the server ended the TLS handshake; try again, and check that … is the TLS port (not plain HTTP)"},
 	{"TOOL_FAILED", 5, "a program komando ran on the server failed (its words follow)", "check that … is installed and works: `komando doctor`"},
 	{"TOOL_MISSING", 3, "curl is not installed", "install curl on the server"},
 	{"TOOL_TOO_OLD", 5, "… failed on … (exit …): …", "pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --on HOST"},
@@ -281,6 +281,6 @@ var errorCodes = []errorCode{
 	{"WINRM_UNREACHABLE", 4, "cannot reach … over WinRM: …", "check the address and that WinRM listens there (port 5986 for HTTPS, 5985 for HTTP) and the firewall lets you in"},
 	{"WRITE_FAILED", 1, "a file could not be written (exit 1 on this computer; exit 5 for a file on a server: fs write, fs replace)", "fix the file, then run it again"},
 	{"WRITE_REQUIRES_FLAG", 6, "… needs --write", "this command may change data (or is not known to be a read); re-run with --write"},
-	{"WRONG_KIND", 2, "… is a … URL, not a …: komando … add saves only a …", "add it with `komando … add … …` (or `komando conn add`)"},
+	{"WRONG_KIND", 2, "`komando …` does not work with … conns", "use `komando …` for … conns"},
 	{"WRONG_PASSPHRASE", 2, "that passphrase does not open the vault", "nothing was changed; run it again and type the passphrase the vault has now"},
 }
