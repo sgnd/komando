@@ -100,12 +100,27 @@ func Execute() int {
 			oe.Hint = commandHint(cmd)
 		}
 		approvalHint(oe)
-		if sess.PersonSaidNo() && oe.Exit == out.ExitPolicy {
-			oe.Message = "cancelled: " + oe.Message
-			oe.Hint = "nothing was changed"
+		c := cur()
+		if cmd != nil && callFrom(cmd.Context()) != nil {
+			c = callFrom(cmd.Context())
 		}
+		cancelled(c, oe)
 	}
 	return out.P.Fail(name, err)
+}
+
+// cancelled words a stop the person answered no to at the terminal: it was
+// cancelled, and nothing was changed unless the command already saved
+// something before the question.
+func cancelled(c *call, oe *out.Error) {
+	if !c.sess.PersonSaidNo() || oe.Exit != out.ExitPolicy {
+		return
+	}
+	oe.Message = "cancelled: " + oe.Message
+	oe.Hint = "nothing was changed"
+	if c.wroteBefore() {
+		oe.Hint = "what this command saved before the question stays"
+	}
 }
 
 // outputFlag is -o/--output as given, also when flag parsing stopped early
@@ -353,7 +368,6 @@ func startChecks(cmd *cobra.Command) error {
 }
 
 func newRoot() *cobra.Command {
-	resetApproval()
 	out.P.Reset()
 	interrupted = false
 	root := &cobra.Command{
@@ -365,7 +379,7 @@ func newRoot() *cobra.Command {
 		Version:       Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			resetApproval() // answers count for one command only
+			startCall(cmd) // answers count for one command only
 			if g.output == "" {
 				g.output = os.Getenv("KOMANDO_OUTPUT")
 			}

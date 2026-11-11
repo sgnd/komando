@@ -15,7 +15,9 @@ func TestSSHCommandSealedHome(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	for _, a := range agentVars {
 		t.Setenv(a.env, "")
+		resetApproval()
 		os.Unsetenv(a.env)
+		resetApproval()
 	}
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
 	d := mustRun(t, "host", "ssh-command", "web1")
@@ -36,6 +38,8 @@ func TestSSHCommandSealedHome(t *testing.T) {
 	}
 
 	t.Setenv("KOMANDO_AGENT", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	if _, e := invRun(t, "host", "ssh-command", "web1"); e == nil || e.Code != "NEEDS_PERSON" {
 		t.Fatalf("agent: %+v", e)
 	}
@@ -70,6 +74,8 @@ func TestSealedConfigAndDoctor(t *testing.T) {
 func TestAcceptOldCopyNeedsAPerson(t *testing.T) {
 	invHome(t)
 	t.Setenv("KOMANDO_AGENT", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	if _, e := invRun(t, "doctor", "--accept-old-copy"); e == nil || e.Code != "NEEDS_PERSON" {
 		t.Fatalf("agent: %+v", e)
 	}

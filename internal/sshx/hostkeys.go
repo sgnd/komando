@@ -1,6 +1,7 @@
 package sshx
 
 import (
+	"context"
 	"net"
 	"os"
 	"path/filepath"
@@ -14,9 +15,10 @@ import (
 // store (docs/design/sync-security.md section 16).
 type hostKeyStore interface {
 	// view and update run fn with the pins locked against other komando
-	// processes; only update may change them
-	view(fn func(hostKeyTx) error) error
-	update(fn func(hostKeyTx) error) error
+	// processes; only update may change them. ctx bounds the wait for
+	// another process's lock (the dial's context, in a connection).
+	view(ctx context.Context, fn func(hostKeyTx) error) error
+	update(ctx context.Context, fn func(hostKeyTx) error) error
 }
 
 // hostKeyTx reads and changes pins inside one locked step.
@@ -42,7 +44,7 @@ func HostKeys() hostKeyStore { return sealedHostKeys{} }
 // sealed home), and returns its path.
 func WritePinsFile(dir string, addrs []string) (string, error) {
 	var lines []string
-	err := HostKeys().view(func(t hostKeyTx) error {
+	err := HostKeys().view(context.Background(), func(t hostKeyTx) error {
 		for _, a := range addrs {
 			keys, _, err := t.Pins(a)
 			if err != nil {

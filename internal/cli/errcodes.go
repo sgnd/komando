@@ -222,6 +222,7 @@ var errorCodes = []errorCode{
 	{"STORAGE_CONNECT", 4, "komando could not reach the bucket or file server", "run `komando conn test NAME` to check reachability"},
 	{"STORAGE_ERROR", 5, "the file is in use", "another program has the file open; close it there and try again"},
 	{"STORAGE_TLS", 4, "the storage server's TLS certificate does not verify", "if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL"},
+	{"STORE_BUSY", 8, "komando's store stayed busy for …, so the server's host key could not be checked: …", "another komando process is writing komando's store; a long `komando seal` or a stuck komando: wait for it to finish, then run it again"},
 	{"STORE_KEY_CHANGED", 1, "…: …", "run the command again: another komando changed the store's key while this one ran"},
 	{"STORE_NEWER", 1, "… was made by a newer komando", "update komando: a newer komando made or changed this store"},
 	{"STORE_OLD_COPY", 6, "… …: servers, rules, secrets or pinned host keys may be old", "if the komando folder was restored from a backup on purpose, a person runs `komando doctor --accept-old-copy` in their own terminal; otherwise find out who put an old copy back or changed the keychain"},

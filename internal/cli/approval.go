@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -17,6 +18,9 @@ import (
 	"github.com/sgnd/komando/internal/engine"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 // Who is asking decides how komando's safety stops open (docs/features/safety.md):
@@ -39,21 +43,83 @@ var agentVars = func() []struct{ env, name string } {
 	return out
 }()
 
+// call is one command's run: who calls (engine.Caller, read once from the
+// environment when the command starts) and its approvals
+// (engine.Session): one answer covers the command, and the next command
+// asks again. Each command that runs gets its own, in its context;
+// building a command tree (newRoot, as the guided forms and ssh-gate do
+// inside a running command) makes none and replaces none.
+type call struct {
+	caller  engine.Caller
+	sess    *engine.Session
+	commits uint64 // store.Commits() when the call started
+
+	// ask opens the approval window; nil is askOnScreen. An app that runs
+	// calls side by side gives each its own.
+	ask func(text string) (allowed, shown bool)
+}
+
+func newCall() *call {
+	terminal := term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd()))
+	return &call{
+		caller:  engine.CallerFrom(os.LookupEnv, terminal),
+		sess:    engine.NewSession(),
+		commits: store.Commits(),
+	}
+}
+
+type callKey struct{}
+
+func withCall(ctx context.Context, c *call) context.Context {
+	return context.WithValue(ctx, callKey{}, c)
+}
+
+// callFrom is the call a command carries, or nil.
+func callFrom(ctx context.Context) *call {
+	if ctx == nil {
+		return nil
+	}
+	c, _ := ctx.Value(callKey{}).(*call)
+	return c
+}
+
+// active is the call of the command this CLI process runs. The code under
+// a command that has no context at hand (isAgent, the confirm questions)
+// reads it through cur.
+var active atomic.Pointer[call]
+
+// startCall gives cmd, which is about to run, a call of its own.
+func startCall(cmd *cobra.Command) *call {
+	c := newCall()
+	cmd.SetContext(withCall(cmd.Context(), c))
+	active.Store(c)
+	return c
+}
+
+// cur is the running command's call (a fresh one before any command ran).
+func cur() *call {
+	if c := active.Load(); c != nil {
+		return c
+	}
+	active.CompareAndSwap(nil, newCall())
+	return active.Load()
+}
+
+// resetApproval starts a new call: the answers given so far stop counting.
+func resetApproval() { active.Store(newCall()) }
+
 // agentName is the AI agent running komando, or "" for a person or a
 // script (engine.AgentName). A variable that is there counts whatever its
 // value: an agent told to run `CLAUDECODE=0 komando ...` must not turn its
 // own safety stops off.
-func agentName() string { return engine.AgentName(os.LookupEnv) }
+func agentName() string { return cur().caller.Agent }
 
-func isAgent() bool { return agentName() != "" }
+func isAgent() bool { return cur().caller.IsAgent() }
 
-// sess is this command's approvals (engine.Session): one answer covers
-// the command, and the next command asks again.
-var sess = engine.NewSession()
+func allowedByPerson() bool { return cur().sess.Allowed() }
 
-func resetApproval() { sess = engine.NewSession() }
-
-func allowedByPerson() bool { return sess.Allowed() }
+// wroteBefore reports whether this call already changed komando's store.
+func (c *call) wroteBefore() bool { return store.Commits() != c.commits }
 
 // yesOK reports whether --yes counts. dangerOK and revealOK do the same for
 // --allow-dangerous and --reveal. Call them only where the flag would let
@@ -88,9 +154,14 @@ func personAllows(flag string, why ...string) bool { return personAllowsFor(flag
 // line alone does not show it. A yes given in a window that did not name
 // it does not cover it: the person is asked again, with it named.
 func personAllowsFor(flag, what string, why ...string) bool {
-	if !isAgent() || g.dryRun {
+	return cur().personAllowsFor(flag, what, why...)
+}
+
+func (c *call) personAllowsFor(flag, what string, why ...string) bool {
+	if !c.caller.IsAgent() || g.dryRun {
 		return true
 	}
+	sess := c.sess
 	sess.Lock()
 	defer sess.Unlock()
 	if w := sess.Window(); w.Asked && (what == "" || sess.Shown(what) || !w.Allowed) {
@@ -110,7 +181,7 @@ func personAllowsFor(flag, what string, why ...string) bool {
 		sess.SetUnshown(bad)
 		return false
 	}
-	text := fmt.Sprintf("%s wants komando to run:\n\n%s\n\n", agentName(), line)
+	text := fmt.Sprintf("%s wants komando to run:\n\n%s\n\n", c.caller.Agent, line)
 	for _, w := range why {
 		if w = strings.TrimSpace(w); w != "" {
 			if unshowable(w) != "" {
@@ -136,6 +207,8 @@ func personAllowsFor(flag, what string, why ...string) bool {
 		if pressed && !allowed {
 			sess.SetWhy("wrong-code")
 		}
+	} else if c.ask != nil {
+		allowed, shown = c.ask(text)
 	} else {
 		allowed, shown = askOnScreen(text)
 	}
@@ -252,7 +325,7 @@ func approvalHint(e *out.Error) {
 	if e == nil || e.Exit != out.ExitPolicy || !isAgent() {
 		return
 	}
-	switch sess.Window().Why {
+	switch cur().sess.Window().Why {
 	case "denied":
 		e.Hint = "the user clicked Deny in komando's window; do not retry. Ask the user what they want instead"
 	case "no-answer":
@@ -262,7 +335,7 @@ func approvalHint(e *out.Error) {
 	case "no-screen":
 		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine()
 	case "unshowable":
-		e.Hint = "komando did not ask the user in its window, because " + sess.Window().Unshown +
+		e.Hint = "komando did not ask the user in its window, because " + cur().sess.Window().Unshown +
 			". Make the command shorter (put a long script in a file for `komando script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"
 	default:
 		switch {
@@ -308,7 +381,7 @@ end run`
 			return false, false
 		}
 		answer := strings.TrimSpace(string(b))
-		sess.SetGaveUp(answer == "gave up")
+		cur().sess.SetGaveUp(answer == "gave up")
 		return answer == "Allow once", true
 	case "linux", "freebsd", "openbsd":
 		if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
@@ -316,7 +389,7 @@ end run`
 		}
 		if z := systemTool("zenity"); z != "" {
 			err := exec.CommandContext(ctx, z, "--question", "--title=komando: allow?", "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--default-cancel", "--no-markup", "--timeout=120").Run()
-			sess.SetGaveUp(zenityTimedOut(err))
+			cur().sess.SetGaveUp(zenityTimedOut(err))
 			return err == nil, true
 		}
 		if k := systemTool("kdialog"); k != "" {
@@ -325,7 +398,7 @@ end run`
 		}
 	case "windows":
 		_, allowed, gaveUp, shown := approvalWindow(text, false)
-		sess.SetGaveUp(gaveUp)
+		cur().sess.SetGaveUp(gaveUp)
 		return allowed, shown
 	}
 	return false, false

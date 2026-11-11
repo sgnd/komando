@@ -306,6 +306,8 @@ func TestAuditActorClaimed(t *testing.T) {
 	t.Setenv("KOMANDO_ACTOR", "alice")
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
 	t.Setenv("CLAUDECODE", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	mustRun(t, "host", "add", "web2", "deploy@10.0.0.2")
 	var recs []map[string]any
 	for _, line := range strings.Split(auditText(t), "\n") {

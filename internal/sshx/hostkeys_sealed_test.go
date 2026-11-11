@@ -87,7 +87,7 @@ func TestPinsSameOnBothBackends(t *testing.T) {
 			t.Fatal(err)
 		}
 		var got string
-		_ = HostKeys().view(func(tx hostKeyTx) error {
+		_ = HostKeys().view(context.Background(), func(tx hostKeyTx) error {
 			err := tx.Check(c.host, remote, keys[c.key])
 			var ke *knownhosts.KeyError
 			switch {
@@ -158,7 +158,7 @@ func TestRevokedHostKey(t *testing.T) {
 	}
 	remote, _ := net.ResolveTCPAddr("tcp", "10.0.0.1:22")
 	for _, host := range []string{"web:22", "other:22"} {
-		_ = HostKeys().view(func(tx hostKeyTx) error {
+		_ = HostKeys().view(context.Background(), func(tx hostKeyTx) error {
 			var rv *knownhosts.RevokedError
 			if err := tx.Check(host, remote, keys[0]); !errors.As(err, &rv) {
 				t.Errorf("%s: %v", host, err)
@@ -193,7 +193,7 @@ func TestPinsOfMissingStore(t *testing.T) {
 // that pins a new server on first use.
 func dialPin(t *testing.T, key ssh.PublicKey) error {
 	t.Helper()
-	cb, err := hostKeyCallback("web", "accept-new")
+	cb, err := hostKeyCallback(context.Background(), "web", "accept-new")
 	if err != nil {
 		t.Fatal(err)
 	}

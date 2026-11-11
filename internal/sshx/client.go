@@ -193,7 +193,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 	if c := useHeld(ctx, st, hop, o); c != nil {
 		return c, nil // a jump host a person logged in to with `komando login`
 	}
-	cfg, agentConn, err := clientConfig(st, hop, o)
+	cfg, agentConn, err := clientConfig(ctx, st, hop, o)
 	if err != nil {
 		return nil, err
 	}
@@ -518,7 +518,7 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 
 // clientConfig is the login for one hop. The ssh-agent connection it opens
 // (or nil) is the caller's to close once the handshake is over.
-func clientConfig(st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, io.Closer, error) {
+func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, io.Closer, error) {
 	if o.scan != nil {
 		// FetchHostKey: no login, so no keys, agent or vault secrets are used
 		scan := o.scan
@@ -539,7 +539,7 @@ func clientConfig(st *store.State, h *store.Host, o Options) (*ssh.ClientConfig,
 	if user == "" {
 		user = os.Getenv("USER")
 	}
-	hkc, err := hostKeyCallback(h.Name, o.HostKeyPolicy)
+	hkc, err := hostKeyCallback(ctx, h.Name, o.HostKeyPolicy)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -599,7 +599,7 @@ func keyFileType(t string) string {
 	return "*"
 }
 
-func hostKeyCallback(name, policy string) (ssh.HostKeyCallback, error) {
+func hostKeyCallback(ctx context.Context, name, policy string) (ssh.HostKeyCallback, error) {
 	if policy == "off" {
 		return ssh.InsecureIgnoreHostKey(), nil
 	}
@@ -607,7 +607,7 @@ func hostKeyCallback(name, policy string) (ssh.HostKeyCallback, error) {
 		// a known server is checked in a read step; only a new one takes
 		// the write step that pins it (and checks again inside it)
 		var known error
-		if verr := HostKeys().view(func(t hostKeyTx) error { known = t.Check(hostname, remote, key); return nil }); verr != nil {
+		if verr := HostKeys().view(ctx, func(t hostKeyTx) error { known = t.Check(hostname, remote, key); return nil }); verr != nil {
 			return verr
 		}
 		var ke0 *knownhosts.KeyError
@@ -619,7 +619,7 @@ func hostKeyCallback(name, policy string) (ssh.HostKeyCallback, error) {
 		}
 		var err error
 		pinned := false
-		lockErr := HostKeys().update(func(t hostKeyTx) error {
+		lockErr := HostKeys().update(ctx, func(t hostKeyTx) error {
 			err = t.Check(hostname, remote, key)
 			var ke *knownhosts.KeyError
 			if errors.As(err, &ke) && len(ke.Want) == 0 {
@@ -656,7 +656,7 @@ func SameKey(a, b ssh.PublicKey) bool {
 // PinnedKeys are the keys komando pins for addr (host:port).
 func PinnedKeys(addr string) ([]ssh.PublicKey, error) {
 	var pins []ssh.PublicKey
-	err := HostKeys().view(func(t hostKeyTx) error {
+	err := HostKeys().view(context.Background(), func(t hostKeyTx) error {
 		var err error
 		pins, _, err = t.Pins(addr)
 		return err
@@ -668,7 +668,7 @@ func PinnedKeys(addr string) ([]ssh.PublicKey, error) {
 // replace would remove them, keys that no longer parse included.
 func CountPinned(addr string) (int, error) {
 	var n int
-	err := HostKeys().view(func(t hostKeyTx) error {
+	err := HostKeys().view(context.Background(), func(t hostKeyTx) error {
 		var err error
 		_, n, err = t.Pins(addr)
 		return err
@@ -682,7 +682,7 @@ func CountPinned(addr string) (int, error) {
 // many pins went. Whether a pin may be replaced is the caller's decision
 // (`host trust --reset` needs a person's yes).
 func PinHostKey(addr string, key ssh.PublicKey, replace bool) (removed int, err error) {
-	err = HostKeys().update(func(t hostKeyTx) error {
+	err = HostKeys().update(context.Background(), func(t hostKeyTx) error {
 		pins, matched, err := t.Pins(addr)
 		if err != nil {
 			return err
