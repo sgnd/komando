@@ -63,7 +63,7 @@ Each area has its own file in `internal/cli/` (`host.go`, `exec.go`, `fs.go`, `d
 4. **Multi-host commands** return `data.results[]` + `data.summary` (use `fanout`, `probe` or `runFleet` in `common.go` / `exec.go`).
 5. **Safety**: anything that changes a server must call `guard(...)` with `mutating=true`, respect `--dry-run`, and call `audit(...)`.
 6. **Quote everything** sent to a remote shell with `sshx.Q`.
-7. Add a unit test for pure logic and, when it touches SSH, a check in `test/e2e/run.sh`.
+7. Add a unit test for pure logic and, when it touches SSH, a check in `test/e2e/checks/`, listed in the right area of `test/e2e/run.sh` (`make e2e AREA=NAME` runs that area alone).
 8. **Say what it does**: add the command to `commandKinds` in [`internal/cli/kinds.go`](internal/cli/kinds.go) (`reads`, `changes` or `dependsOn("why")`). A test fails on a command without one.
 9. **Keep pieces small**: a function up to 100 lines, a file up to 800. Split instead of growing ([`internal/codesize`](internal/codesize/codesize_test.go) checks it).
 10. **Never break the JSON**: fields may be added, never renamed or removed. `TestOutputShapes` keeps the shape of the answers; after adding a field, run `go test ./internal/cli -run TestOutputShapes -update-shapes`.

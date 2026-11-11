@@ -16,6 +16,8 @@ ok() { jget 'd["ok"]'; }
 has() { jget "'$1' in json.dumps(d)"; } # has TEXT: the JSON answer mentions TEXT
 C="t-cov-$$"                            # unique per run, so a rerun never meets leftovers
 
+# each part runs in the area that has its containers (run.sh)
+if in_area data; then
 # inventory and settings
 check "version" True "$($K version | ok)"
 # a go build is a source build, which update refuses; a release build checks GitHub
@@ -100,9 +102,31 @@ check "user rm" False "$($K user list direct | has "$C-u")"
 q $K cron set direct "$C-c" true --schedule @daily
 check "cron rm" 1 "$($K cron rm direct "$C-c" | jget 'd["data"]["results"][0]["data"]["removed"]')"
 check "net dns" True "$($K net dns direct localhost | ok)"
-check "net http" True "$($K net http bastion http://registry:5000/v2/ | jget 'd["data"]["results"][0]["data"]["code"] in (200, 401)')"
 check "net ports" True "$($K net ports direct | jget 'any(r["port"] == 22 for r in d["data"]["results"][0]["data"])')"
 
+# VPNs
+check "vpn list" True "$($K vpn list | has corp)"
+check "vpn show" corp "$($K vpn show corp | jget 'd["data"]["vpn"]["name"]')"
+check "vpn test of a VPN that is down" VPN_DOWN "$($K vpn test corp | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
+# renames: a conn reached through a SOCKS VPN keeps working when both get new names
+TUN=$($K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS" | jget 'd["data"]["id"]')
+q $K vpn add "$C-vpn" socks --address "127.0.0.1:$E2E_SOCKS"
+q $K conn add "$C-db" 'postgres://app@pg:5432/app?sslmode=disable' --via "$C-vpn" --password-ref secret:pg-pass
+check "vpn mv takes the conn's --via along" "conn $C-db --via" "$($K vpn mv "$C-vpn" "$C-vpn2" | jget '" ".join(d["data"]["updated"])')"
+check "conn mv" "renamed $C-db2" "$($K conn mv "$C-db" "$C-db2" | jget 'd["data"]["action"] + " " + d["data"]["to"]')"
+check "the conn has both new names" "$C-db2 $C-vpn2" "$($K conn show "$C-db2" | jget 'd["data"]["name"] + " " + d["data"]["via"]')"
+check "the old conn name is gone" CONN_NOT_FOUND "$($K conn show "$C-db" | jget 'd["error"]["code"]' || true)"
+check "db query through the renamed conn and VPN" 1 "$($K db query "$C-db2" 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K conn rm "$C-db2"
+q $K vpn rm "$C-vpn2"
+q $K tunnel stop "$TUN"
+fi
+
+if in_area registry; then
+check "net http" True "$($K net http bastion http://registry:5000/v2/ | jget 'd["data"]["results"][0]["data"]["code"] in (200, 401)')"
+fi
+
+if in_area swarm; then
 # docker on swarm1
 q $K docker raw swarm1 --allow-dangerous -- run -d --name "$C-c" busybox sleep 300
 check "docker ps" True "$($K docker ps swarm1 | has "$C-c")"
@@ -123,20 +147,4 @@ check "docker prune (dry run) lists the stopped container" True "$(echo "$PRUNE"
 check "docker prune (dry run) says the real run needs --allow-dangerous" POLICY_BLOCKED "$(echo "$PRUNE" | jget 'd["data"]["would_be_blocked"]["code"]')"
 check "docker prune --older-than keeps what is new" False "$($K docker prune swarm1 --older-than 30d --dry-run | jget "'$C-c' in [c['name'] for c in d['data']['results'][0]['containers']]")"
 q $K docker rm swarm1 "$C-c" --allow-dangerous
-
-# VPNs
-check "vpn list" True "$($K vpn list | has corp)"
-check "vpn show" corp "$($K vpn show corp | jget 'd["data"]["vpn"]["name"]')"
-check "vpn test of a VPN that is down" VPN_DOWN "$($K vpn test corp | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
-# renames: a conn reached through a SOCKS VPN keeps working when both get new names
-TUN=$($K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS" | jget 'd["data"]["id"]')
-q $K vpn add "$C-vpn" socks --address "127.0.0.1:$E2E_SOCKS"
-q $K conn add "$C-db" 'postgres://app@pg:5432/app?sslmode=disable' --via "$C-vpn" --password-ref secret:pg-pass
-check "vpn mv takes the conn's --via along" "conn $C-db --via" "$($K vpn mv "$C-vpn" "$C-vpn2" | jget '" ".join(d["data"]["updated"])')"
-check "conn mv" "renamed $C-db2" "$($K conn mv "$C-db" "$C-db2" | jget 'd["data"]["action"] + " " + d["data"]["to"]')"
-check "the conn has both new names" "$C-db2 $C-vpn2" "$($K conn show "$C-db2" | jget 'd["data"]["name"] + " " + d["data"]["via"]')"
-check "the old conn name is gone" CONN_NOT_FOUND "$($K conn show "$C-db" | jget 'd["error"]["code"]' || true)"
-check "db query through the renamed conn and VPN" 1 "$($K db query "$C-db2" 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
-q $K conn rm "$C-db2"
-q $K vpn rm "$C-vpn2"
-q $K tunnel stop "$TUN"
+fi

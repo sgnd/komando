@@ -9,7 +9,7 @@ GOVULNCHECK := v1.9.0
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 export PLATFORMS
 
-.PHONY: help build install test cover security fuzz e2e e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses dist clean
+.PHONY: help build install test cover security fuzz e2e e2e-areas e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses dist clean
 
 help: ## Show this help
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -26,8 +26,11 @@ test: ## Fast unit tests
 cover: ## Unit tests, and each package's coverage against its floor (test/coverage-floor.txt)
 	test/coverage.sh
 
-e2e: ## End-to-end tests against Docker SSH servers
-	test/e2e/run.sh
+e2e: ## End-to-end tests in Docker, one area at a time (AREA=ops for one; make e2e-areas lists them)
+	AREA="$(AREA)" test/e2e/run.sh
+
+e2e-areas: ## The e2e areas and the containers each one starts
+	test/e2e/run.sh --list
 
 e2e-openvpn: ## komando's own OpenVPN client against throwaway OpenVPN 2.6 servers (UDP, TCP, tls-auth, tls-crypt, login)
 	test/e2e/openvpn/run.sh

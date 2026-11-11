@@ -65,5 +65,6 @@ test green, including `TestOutputShapes`, and `make e2e`.
 - Add the command to `commandKinds`.
 - Keep functions under 100 lines and files under 800.
 - Add a check to `test/e2e/checks/coverage.sh` so the command runs at
-  least once end to end.
+  least once end to end, inside the `in_area` part whose containers it
+  needs (the areas are in `test/e2e/run.sh`).
 - Never rename or remove a JSON field; add a new one instead.

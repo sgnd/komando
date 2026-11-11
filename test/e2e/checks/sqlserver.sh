@@ -17,7 +17,7 @@ if [ "$($K conn test sa-mssql | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null
   MSC logs --tail 30 mssql 2>&1 | sed 's/^/    /'
 fi
 if [ "$(MSC ps -q --status running mssql 2>/dev/null)" = "" ]; then
-  echo "  mssql is not running here (an arm64 machine under QEMU: see compose.yml); the SQL Server checks are skipped"
+  skipped "mssql is not running here (an arm64 machine under QEMU? see E2E_MSSQL_IMAGE in compose.yml)"
   q $K conn rm sa-mssql
   $K secret rm mssql-sa mssql-ro >/dev/null 2>&1 || true
   set -e

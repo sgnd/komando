@@ -5,8 +5,10 @@ P="${PROJECT:-komando-e2e}"
 nat() { docker exec -i "$P-$1-1" "${@:2}"; }
 D="t-dry-$$"
 # dry CMD...: ran as a dry run (--dry-run first: after -- every word is the remote command's, as with ssh)
+# each part runs in the area that has its containers (run.sh)
 dry() { $K --dry-run "$@" | jget 'd["meta"].get("dry_run", False)'; }
 
+if in_area data; then
 # files on a server
 check "fs write --dry-run" True "$(dry fs write direct "/tmp/$D.txt" --content x)"
 check "fs mkdir --dry-run" True "$(dry fs mkdir direct "/tmp/$D.dir")"
@@ -33,11 +35,18 @@ check "storage upload --dry-run" "True no" "$(dry storage upload files-sftp "$TM
 check "user add --dry-run" "True no" "$(dry user add direct "$D") $(nat direct sh -c "id $D >/dev/null 2>&1 && echo yes || echo no")"
 check "cron set --dry-run" "True 0" "$(dry cron set direct "$D" true --schedule @daily) $(nat direct sh -c "crontab -u agent -l 2>/dev/null | grep -c 'komando:$D' || true")"
 check "pkg install --dry-run" "True no" "$(dry pkg install direct sl) $(nat direct sh -c "dpkg -s sl >/dev/null 2>&1 && echo yes || echo no")"
+fi
 
+if in_area swarm; then
 # docker and clusters
 check "docker stop --dry-run" True "$(dry docker stop swarm1 nothing-runs-here)"
-check "cluster scale --dry-run" "True 1" "$(dry cluster scale lab-k3s deploy/coredns 3 --namespace kube-system) $(nat k3s kubectl get deploy coredns -n kube-system -o jsonpath='{.spec.replicas}')"
+fi
 
+if in_area k8s; then
+check "cluster scale --dry-run" "True 1" "$(dry cluster scale lab-k3s deploy/coredns 3 --namespace kube-system) $(nat k3s kubectl get deploy coredns -n kube-system -o jsonpath='{.spec.replicas}')"
+fi
+
+if in_area data; then
 # inventory and settings (komando's own files)
 # what komando keeps, read through komando: store.db's bytes change with
 # every audit record, and a dry run is recorded too (with dry_run: true)
@@ -53,3 +62,4 @@ printf 'v' | $K secret set "$D" --dry-run >/dev/null
 check "inventory, vault, settings and runtime unchanged by dry runs" "$before" "$(snap)"
 
 q $K exec direct -- "rm -f /tmp/$D.keep"
+fi
