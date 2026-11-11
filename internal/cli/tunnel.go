@@ -163,12 +163,6 @@ func parseTunnel(kind, spec string) (tunnelSpec, error) {
 	return t, nil
 }
 
-// tunnelPort says whether p is a port number from least to 65535.
-func tunnelPort(p string, least int) bool {
-	n, err := strconv.Atoi(p)
-	return err == nil && n >= least && n <= 65535
-}
-
 func tunnelStartCmd() *cobra.Command {
 	var l, r, d string
 	var port int
@@ -241,11 +235,8 @@ point your database app or psql at the local address it prints. With a server, g
 			if vpn != nil && kind == "remote" {
 				return out.Usage("-R needs a server at the end of the path; a VPN cannot listen for you")
 			}
-			if kind == "remote" {
-				// -R opens a port on the server: a change, like any other
-				if err := guard(st, []*store.Host{h}, "", true); err != nil {
-					return err
-				}
+			if err := tunnelGuard(st, h, kind); err != nil {
+				return err
 			}
 			hostName := via
 			if h != nil {
@@ -335,34 +326,6 @@ point your database app or psql at the local address it prints. With a server, g
 	c.Flags().StringVarP(&d, "dynamic", "D", "", "SOCKS5 proxy [bind:]PORT")
 	c.Flags().IntVar(&port, "port", 0, "with a conn: the local port (default: a free one)")
 	return c
-}
-
-// serveErr is how `tunnel serve` reports why it could not start, on its
-// ERROR line, so that start gives the same code, exit and hint
-// (HOSTKEY_MISMATCH, NO_AUTH, CONNECTION_REFUSED ...).
-type serveErr struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Hint    string `json:"hint,omitempty"`
-	Exit    int    `json:"exit"`
-}
-
-// tunnelErr is start's error for the ERROR line of its tunnel process.
-func tunnelErr(line, kind, host, bind string) error {
-	var e serveErr
-	if json.Unmarshal([]byte(line), &e) != nil {
-		e = serveErr{Message: line}
-	}
-	switch {
-	case strings.Contains(e.Message, "address already in use"):
-		return portInUse(bind, "this computer", errors.New(e.Message))
-	case kind == "remote" && strings.Contains(e.Message, "request denied"):
-		return out.Errf(out.ExitConflict, "PORT_IN_USE", "the port may be taken on "+host+" (pick another, or 0 for a free one), or sshd there has AllowTcpForwarding off",
-			"%s refused to listen on %s: %s", host, bind, e.Message)
-	case e.Code != "" && e.Code != "REMOTE_ERROR" && e.Exit != 0:
-		return &out.Error{Code: e.Code, Message: e.Message, Hint: e.Hint, Exit: e.Exit}
-	}
-	return out.Errf(out.ExitConnect, "TUNNEL_FAILED", "check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right", "%s", e.Message)
 }
 
 // tunnelConn finds the conn a tunnel leads to. Only conns reached through

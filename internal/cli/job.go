@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -163,11 +162,8 @@ func jobStartCmd() *cobra.Command {
 				data.Summary.OK++
 			}
 			data.Summary.Total = len(res)
-			if data.Summary.OK > 0 {
-				data.Next = "komando job status <id>  |  komando job logs <id> --offset <next_offset>  |  komando job wait <id>"
-			}
 			audit(st, "job.start", hostNames(hosts), command, data.Summary.Failed == 0, nil)
-			return finishFleet("job.start", data, runSummary{fleetSummary: data.Summary}, worst, fails)
+			return finishFleet("job.start", data.withNext(), runSummary{fleetSummary: data.Summary}, worst, fails)
 		},
 	}
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
@@ -635,71 +631,6 @@ func (k jobKilled) Text() string {
 	return "sent " + k.Signal + " to job " + k.ID + " (pid " + strconv.Itoa(k.PID) + ")"
 }
 
-func jobListCmd() *cobra.Command {
-	var target string
-	var refresh bool
-	c := &cobra.Command{
-		Use:   "list",
-		Short: "List the jobs komando started (--refresh asks the servers)",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			var names map[string]bool
-			if target != "" {
-				names = targetNames(st, target)
-				// a name that is no longer in the inventory still finds its jobs
-				if _, err := resolveSelection(st, target); err != nil {
-					known := false
-					for _, j := range st.Jobs {
-						known = known || names[j.Host]
-					}
-					if !known {
-						return err
-					}
-				}
-			}
-			jobs := []*store.Job{}
-			for _, j := range st.Jobs {
-				if target == "" || names[j.Host] {
-					jobs = append(jobs, j)
-				}
-			}
-			sort.Slice(jobs, func(a, b int) bool { return jobs[a].StartedAt.After(jobs[b].StartedAt) })
-			if !refresh {
-				out.P.Print("job.list", jobList{Count: len(jobs), Jobs: jobs}, nil)
-				return nil
-			}
-			rows := []any{}
-			for _, j := range jobs {
-				h, ok := st.Hosts[j.Host]
-				if !ok {
-					rows = append(rows, map[string]any{"id": j.ID, "host": j.Host, "state": "unknown-host"})
-					continue
-				}
-				var s *jobStatus
-				err := withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
-					var e error
-					s, e = fetchStatus(cmd.Context(), c, j, 0)
-					return e
-				})
-				if err != nil {
-					rows = append(rows, map[string]any{"id": j.ID, "host": j.Host, "state": "unreachable", "error": toErr(err)})
-					continue
-				}
-				rows = append(rows, s)
-			}
-			out.P.Print("job.list", jobList{Count: len(rows), Jobs: rows}, nil)
-			return nil
-		},
-	}
-	c.Flags().StringVar(&target, "target", "", "only jobs on these servers (a selector, e.g. @web)")
-	c.Flags().BoolVar(&refresh, "refresh", false, "ask each server for the job's current state")
-	return c
-}
-
 func jobRmCmd() *cobra.Command {
 	var keepRemote, force bool
 	c := &cobra.Command{
@@ -773,6 +704,14 @@ type jobStarted struct {
 	Next    string       `json:"next,omitempty"` // left out when no job started
 }
 
+// withNext adds the commands that follow, when a job started.
+func (d jobStarted) withNext() jobStarted {
+	if d.Summary.OK > 0 {
+		d.Next = "komando job status <id>  |  komando job logs <id> --offset <next_offset>  |  komando job wait <id>"
+	}
+	return d
+}
+
 func (d jobStarted) Text() string {
 	rows := [][]string{}
 	for _, j := range d.Jobs {
@@ -822,51 +761,6 @@ func (s *jobStatus) Text() string {
 		b.WriteString("--- last lines ---\n" + t + "\n")
 	}
 	return b.String()
-}
-
-type jobList struct {
-	Count int `json:"count"`
-	Jobs  any `json:"jobs"`
-}
-
-func (l jobList) Text() string {
-	rows := [][]string{}
-	add := func(id, host, state, exit string, started time.Time, command string) {
-		age := "-"
-		if !started.IsZero() {
-			age = humanAge(time.Since(started))
-		}
-		command = truncateWidth(command, 60)
-		rows = append(rows, []string{id, host, state, exit, age, command})
-	}
-	switch js := l.Jobs.(type) {
-	case []*store.Job:
-		for _, j := range js {
-			add(j.ID, j.Host, "?", "", j.StartedAt, j.Command)
-		}
-	case []any:
-		for _, r := range js {
-			switch v := r.(type) {
-			case *jobStatus:
-				exit := ""
-				if v.ExitCode != nil {
-					exit = strconv.Itoa(*v.ExitCode)
-				}
-				t, _ := time.Parse(time.RFC3339, v.StartedAt)
-				add(v.ID, v.Host, v.State, exit, t, v.Command)
-			case map[string]any:
-				add(v["id"].(string), v["host"].(string), v["state"].(string), "", time.Time{}, "")
-			}
-		}
-	}
-	if len(rows) == 0 {
-		return "no jobs: start one with komando job start TARGET -- COMMAND\n"
-	}
-	s := textTable([]string{"id", "host", "state", "exit", "age", "command"}, rows)
-	if _, ok := l.Jobs.([]*store.Job); ok {
-		s += "(state: add --refresh to ask the servers)\n"
-	}
-	return s
 }
 
 // transient: the connection broke (dropped, reset, timed out), so trying

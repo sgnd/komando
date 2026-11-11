@@ -349,10 +349,8 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 		return err // before connecting: a file named like a secret (a folder's files are checked one by one)
 	}
 	if g.dryRun {
-		if !up && !o.overwrite && !o.recursive && len(hosts) == 1 {
-			if err := downloadExists(local, remote); err != nil {
-				return err // the real run would stop here
-			}
+		if err := downloadExists(local, remote, !up && !o.overwrite && !o.recursive && len(hosts) == 1); err != nil {
+			return err // the real run would stop here
 		}
 		out.P.Print(name, map[string]any{"src": src, "dst": dst, "hosts": hostNames(hosts), "direction": map[bool]string{true: "upload", false: "download"}[up]}, nil)
 		return nil
@@ -411,11 +409,12 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 }
 
 // downloadExists is the FILE_EXISTS a single-file download of remote to
-// local would meet, or nil.
-func downloadExists(local, remote string) error {
+// local would meet, or nil. check is false when the download does not
+// stop at an existing file (an upload, --overwrite, -r, several servers).
+func downloadExists(local, remote string, check bool) error {
 	fi, err := os.Stat(local)
 	switch {
-	case err != nil:
+	case !check || err != nil:
 		return nil
 	case fi.IsDir():
 		p := filepath.Join(local, path.Base(remote))
