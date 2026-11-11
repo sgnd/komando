@@ -188,7 +188,7 @@ func TestGateCheck(t *testing.T) {
 		{"recipe run my-df web", "", ""},
 		{"recipe run my-clean web", "", "SSH_GATE_READ_ONLY"},
 		{"recipe run drop-caches web", "", "SSH_GATE_READ_ONLY"},
-		{"recipe run dns web", "", ""},
+		{"recipe run disk web", "", ""},
 		{"secret rm db --help", "", ""}, // help only
 		{"db", "", ""},                  // a group: prints its help
 		{"no-such-command", "", ""},     // komando says so, and runs nothing
@@ -316,8 +316,8 @@ func TestGateLocalTargets(t *testing.T) {
 		"docker raw me -- run -v /:/h x":                                          R,
 		"cp ./id.pub me:/home/u/.ssh/x":                                           R,
 		"sync ./site web:/var/www":                                                "",
-		"recipe run dns me":                                                       R, // runs its command here
-		"recipe run dns web":                                                      "",
+		"recipe run disk me":                                                      R, // runs its command here
+		"recipe run disk web":                                                     "",
 		"db query pghostparam --write 'select 1'":                                 R, // pgx dials ?host=
 		"db query pghostaddr --write 'select 1'":                                  R,
 		"db query pgsocket --write 'select 1'":                                    R, // a socket here
@@ -349,7 +349,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"job start v6 --read-only -- du -sh /var":                           R,
 		"docker exec me app --read-only ls":                                 R,
 		"cluster exec k8slocal pod/x --read-only -- ls":                     R,
-		"recipe run dns me":                                                 R,
+		"recipe run disk me":                                                R,
 		"exec web --read-only -- uptime":                                    "",
 		"exec me -- id":                                                     "SSH_GATE_READ_ONLY", // not a read: refused before the place
 		"db query pglocal 'select 1'":                                       R,                    // pg_read_file reads here

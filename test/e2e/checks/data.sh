@@ -21,7 +21,7 @@ check "timeout says how long" "query timed out after 1s" "$($K db query pg 'sele
 check "sql starting with a comment hints -f -" True "$($K db query pg $'-- note\nselect 1' | jget '"-f -" in d["error"]["hint"]')"
 check "set_config is a read" read "$($K db query pg "select set_config('search_path', 'public', true)" | jget 'd["data"]["risk"]')"
 check "pg_read_file hint names files" True "$($K db query pg "select pg_read_file('/etc/hostname')" | jget '"files on the database server" in d["error"]["hint"]')"
-check "csv output" "a,b" "$($K db query pg 'select 1 a, 2 b' --csv | head -1)"
+check "csv output" "a,b" "$($K db query pg 'select 1 a, 2 b' -o csv | head -1)"
 check "db info text shows a human size" True "$($K db info pg -o text | grep -q 'size: .*iB' && echo True || echo False)"
 check "db sizes text is a table" True "$($K db sizes pg -o text | grep -q '^TABLE ' && echo True || echo False)"
 $K db locks maria >/dev/null; check "missing privilege exits 4" 4 $?

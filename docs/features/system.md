@@ -66,7 +66,11 @@ komando logs web1 --container api --since 10m --timestamps
 | `-p`, `--priority` | Journal priority and worse: `emerg` ... `debug`, or 0-7. |
 | `-f`, `--follow` | Keep printing new lines until Ctrl-C. |
 | `-s`, `--sudo` | Read the whole journal or a protected file. |
-| `--timestamps` | Show when each container log line was written. |
+| `--timestamps` | Show when each container log line was written (with `--container` only; journal lines have their time already). |
+
+`komando svc logs TARGET UNIT` and `komando docker logs TARGET CONTAINER`
+are other names for `logs --unit` and `logs --container`, with all the flags
+above.
 
 Without `--sudo`, the journal shows only your own entries, and komando warns
 you. A log file that does not exist exits 3.

@@ -66,6 +66,9 @@ func TestLogOptsCheck(t *testing.T) {
 		{priority: "err..loud"},
 		{file: "/b", priority: "err"},
 		{follow: true, until: "now"},
+		{timestamps: true},                // the journal has its own times
+		{unit: "nginx", timestamps: true}, // --timestamps is for containers
+		{file: "/b", timestamps: true},
 	}
 	for _, o := range bad {
 		if err := o.check(); err == nil || !strings.Contains(err.Error(), "USAGE") {
@@ -78,6 +81,40 @@ func TestLogOptsCheck(t *testing.T) {
 			t.Errorf("%+v: %v", o, err)
 		}
 	}
+}
+
+// svc logs and docker logs only turn their second word into --unit or
+// --container: the flags are the ones of logs, --sudo included.
+func TestLogsAliases(t *testing.T) {
+	invHome(t)
+	run := func(args ...string) map[string]any {
+		t.Helper()
+		d := mustRun(t, append(args, "--dry-run")...)
+		w, _ := d["would_run"].([]any)
+		if len(w) != 1 {
+			t.Fatalf("%v: %v", args, d)
+		}
+		return w[0].(map[string]any)
+	}
+	for _, c := range []struct {
+		args []string
+		cmd  string
+		sudo bool
+	}{
+		{[]string{"docker", "logs", "u@10.9.9.9", "api", "--sudo", "-n", "5"}, "docker logs --tail 5 'api' 2>&1", true},
+		{[]string{"logs", "u@10.9.9.9", "--container", "api", "--sudo", "-n", "5"}, "docker logs --tail 5 'api' 2>&1", true},
+		{[]string{"docker", "logs", "u@10.9.9.9", "api", "--timestamps", "-n", "5"}, "docker logs --timestamps --tail 5 'api' 2>&1", false},
+		{[]string{"svc", "logs", "u@10.9.9.9", "nginx", "-p", "err"}, "journalctl --no-pager -o short-iso -u 'nginx' -p 'err' -n 200", false},
+	} {
+		w := run(c.args...)
+		if !strings.HasSuffix(w["remote_command"].(string), c.cmd) || w["sudo"] != c.sudo {
+			t.Errorf("%v: %v", c.args, w)
+		}
+	}
+	wantCode(t, "USAGE", "svc", "logs", "u@10.9.9.9", "nginx", "--unit", "ssh")
+	wantCode(t, "USAGE", "svc", "logs", "u@10.9.9.9", "nginx", "--container", "api")
+	wantCode(t, "USAGE", "svc", "logs", "u@10.9.9.9", "nginx", "--timestamps")
+	wantCode(t, "USAGE", "docker", "logs", "u@10.9.9.9", "api", "-p", "err")
 }
 
 func TestLogsPreflightAndResult(t *testing.T) {
@@ -473,8 +510,12 @@ func TestRetiredRecipesNameTheirCommand(t *testing.T) {
 		if e.Code != "RECIPE_NOT_FOUND" || !strings.Contains(e.Hint, cmd) {
 			t.Errorf("%s: %+v", name, e)
 		}
-		f := strings.Fields(cmd)
-		if c, _, err := root.Find(f[1:3]); err != nil || c.Name() != f[2] {
+		f := strings.Fields(cmd)[1:]
+		words := f[:2]
+		if strings.ToUpper(f[1]) == f[1] { // a top-level command: logs TARGET
+			words = f[:1]
+		}
+		if c, _, err := root.Find(words); err != nil || c.Name() != words[len(words)-1] {
 			t.Errorf("%s: %q is not a command (%v)", name, cmd, err)
 		}
 	}
