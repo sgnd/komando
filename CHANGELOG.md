@@ -49,6 +49,12 @@ its highlights; the sections below them give the details. Versions follow
   `--target` (was `--host`), `host mv` and `conn mv` (was `host edit
   --rename` and `conn edit --rename`). `recipe add --mutating` is gone too:
   a recipe counts as a change unless you save it with `--read-only`.
+- OpenVPN OS mode (`vpn add --os-mode`), which ran the `openvpn` program
+  with sudo and changed your computer's routes, is gone; komando's own
+  OpenVPN client does the work without sudo. A VPN saved with it is never
+  run another way: `komando vpn up` stops with `VPN_OS_MODE_REMOVED` until
+  you add it again with `komando vpn add NAME openvpn --config FILE.ovpn
+  --check HOST:PORT --overwrite`.
 
 ## [0.9.0] - 2026-11-10
 

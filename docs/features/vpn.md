@@ -192,14 +192,14 @@ certificates, a user name and password, or both.
   code, for Pritunl) at `komando vpn up`.
 - Each session's local port needs a login only komando knows, so other users
   of your computer cannot use it.
-- `--os-mode` is deprecated. It runs the `openvpn` program on your computer
-  with sudo, which changes your computer's network. Because that `openvpn`
-  runs as root, komando passes it only client settings it understands: it
-  reads the `.ovpn`, refuses anything it and OpenVPN could read differently
-  (backslash escapes, stray quotes, over-long lines, odd inline tags) and
-  hands OpenVPN a freshly written copy on its input, with scripts turned
-  off (`--script-security 1`). A profile that leans on one of those tricks
-  is refused; write it in plain form instead.
+- komando reads the `.ovpn` and refuses anything it and OpenVPN could read
+  differently (backslash escapes, stray quotes, over-long lines, odd inline
+  tags). A profile that leans on one of those tricks is refused; write it
+  in plain form instead.
+- The old `--os-mode` (the `openvpn` program run with sudo) is gone. A VPN
+  saved with it stops at `komando vpn up` with `VPN_OS_MODE_REMOVED`; add
+  it again with `komando vpn add NAME openvpn --config FILE.ovpn --check
+  HOST:PORT --overwrite` to use komando's own client.
 
 ## AnyConnect and the experimental SSL VPNs
 
@@ -295,6 +295,6 @@ komando test kantor
 - `komando vpn up` on WireGuard connects to `--check` and fails if nothing
   answers through the tunnel.
 - `komando vpn down` on a SOCKS VPN tells you which tunnel to stop.
-- A `system` or `--os-mode` VPN changes your computer's routes. `vpn up`
+- A `system` VPN changes your computer's routes. `vpn up`
   compares the routes before and after, and warns when two networks claim
   the same addresses.
