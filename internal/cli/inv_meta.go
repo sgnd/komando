@@ -285,10 +285,12 @@ func policyCheckCmd() *cobra.Command {
 			switch {
 			case kind == "":
 			case kind == "redis" || kind == "memcached":
-				if len(args) == 1 { // one quoted argument: "CLIENT LIST"
-					args = strings.Fields(args[0])
+				// one quoted argument ("CLIENT LIST") is split as cache run splits it
+				words, err := cachex.SplitCommand(args)
+				if err != nil {
+					return out.Usage("%v", err)
 				}
-				v = cachex.ClassifyFor(kind, args)
+				v = cachex.ClassifyFor(kind, words)
 				rated = v
 			case kind == "mongodb":
 				doc, _, err := dbx.ParseMongoCommand(strings.Join(args, " "))

@@ -135,6 +135,19 @@ func TestUserLockGuardsTheLogin(t *testing.T) {
 			t.Errorf("%v: want %q, got %s", args, want, b)
 		}
 	}
+	for _, sh := range []string{"/usr/sbin/nologin", "/bin/false"} {
+		for _, u := range []string{"deploy", "root"} {
+			if b := blockedBy(mustRun(t, "user", "add", "web1", u, "--shell", sh, "--dry-run")); b == "" {
+				t.Errorf("user add %s --shell %s is not blocked", u, sh)
+			}
+		}
+	}
+	if b := blockedBy(mustRun(t, "user", "add", "web1", "deploy", "--shell", "/bin/zsh", "--dry-run")); b != "" {
+		t.Errorf("a login shell is fine: %s", b)
+	}
+	if b := blockedBy(mustRun(t, "user", "add", "web1", "alice", "--shell", "/usr/sbin/nologin", "--dry-run")); b != "" {
+		t.Errorf("nologin for another user is fine: %s", b)
+	}
 	if b := blockedBy(mustRun(t, "user", "lock", "web1", "alice", "--dry-run")); b != "" {
 		t.Errorf("another user is fine: %s", b)
 	}
@@ -238,5 +251,21 @@ func TestCertFlagsAndScheme(t *testing.T) {
 	}
 	if c := certTLSConfig("x"); !slices.Equal(c.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384}) {
 		t.Errorf("curves %v", c.CurvePreferences)
+	}
+}
+
+// A container's --since takes every journal-style time back from now and
+// gets it as a Go duration, which docker reads.
+func TestLogTimeForContainers(t *testing.T) {
+	for in, want := range map[string]string{"30m": "30m", "2h": "2h", "7d": "168h", "1w": "168h", "90min": "90m", "1d2h": "26h", "-10m": "10m", "45secs": "45s"} {
+		if got, err := logTime("--since", in, true); err != nil || got != want {
+			t.Errorf("%s: got %q %v, want %q", in, got, err, want)
+		}
+	}
+	if got, _ := logTime("--since", "1w", false); got != "-1w" {
+		t.Errorf("journal: got %q", got)
+	}
+	if _, err := logTime("--since", "today", true); err == nil {
+		t.Error("today for a container")
 	}
 }

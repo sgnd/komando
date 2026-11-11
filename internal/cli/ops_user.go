@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -124,6 +125,17 @@ func cronRemoved(rr *sshx.RunResult) (any, *out.Error) {
 	return nil, nil
 }
 
+// loginShell reports whether a person can log in with shell: not
+// nologin, false or true, and a shell by name (bash, sh, zsh, fish ...).
+func loginShell(shell string) bool {
+	base := path.Base(strings.TrimSpace(shell))
+	switch base {
+	case "nologin", "false", "true", "", ".", "/":
+		return false
+	}
+	return strings.Contains(base, "sh")
+}
+
 // loginUser is the account komando logs in to h as.
 func loginUser(st *store.State, h *store.Host) string {
 	switch {
@@ -208,6 +220,13 @@ state is read through sudo; with --no-sudo it is left out.`,
 			pubKey, err := userPubKey(keyName, pubKey)
 			if err != nil {
 				return err
+			}
+			// an existing user gets --shell too, so a shell nobody can log
+			// in with locks out root or komando's own login like `user lock`
+			if cmd.Flags().Changed("shell") && !loginShell(shell) {
+				if err := lockoutStop(args[0], u, "giving the shell "+shell+" to"); err != nil {
+					return err
+				}
 			}
 			q := sshx.Q(u)
 			sb := strings.Builder{}

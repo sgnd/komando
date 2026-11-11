@@ -268,7 +268,6 @@ var commandKinds = map[string]cmdKind{
 	"registry rm":      changes,
 
 	"schema": reads,
-	"script": dependsOn(unlessReadOnly),
 
 	"secret":            reads,
 	"secret check":      reads,

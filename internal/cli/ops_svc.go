@@ -303,6 +303,36 @@ var (
 	agoTimeRe = regexp.MustCompile(`^\d+ ?` + logTimeUnits + ` ago$`)
 )
 
+var relPartRe = regexp.MustCompile(`(\d+)` + logTimeUnits)
+
+// relDuration adds up a journal-style time back from now ("1d2h", "90min",
+// "1w"), which relTimeRe has already checked.
+func relDuration(rel string) time.Duration {
+	var d time.Duration
+	for _, m := range relPartRe.FindAllStringSubmatch(rel, -1) {
+		n, _ := strconv.ParseInt(m[1], 10, 64)
+		var unit time.Duration
+		switch u := m[2]; {
+		case u == "us":
+			unit = time.Microsecond
+		case u == "ms":
+			unit = time.Millisecond
+		case strings.HasPrefix(u, "s"):
+			unit = time.Second
+		case u == "m" || strings.HasPrefix(u, "min"):
+			unit = time.Minute
+		case strings.HasPrefix(u, "h"):
+			unit = time.Hour
+		case strings.HasPrefix(u, "d"):
+			unit = 24 * time.Hour
+		case strings.HasPrefix(u, "w"):
+			unit = 7 * 24 * time.Hour
+		}
+		d += time.Duration(n) * unit
+	}
+	return d
+}
+
 var logTimeLayouts = []string{"2006-01-02", "2006-01-02 15:04", "2006-01-02 15:04:05", "2006-01-02T15:04", "2006-01-02T15:04:05"}
 
 func logTime(flag, v string, docker bool) (string, error) {
@@ -320,14 +350,16 @@ func logTime(flag, v string, docker bool) (string, error) {
 		if !docker {
 			return "-" + rel, nil
 		}
-		d, err := parseWait(rel)
-		if err != nil {
-			return "", journalOnly
+		// docker takes Go durations only: 1w, 90min or 1d2h become hours,
+		// minutes or seconds
+		d := relDuration(rel)
+		switch {
+		case d%time.Hour == 0:
+			return strconv.FormatInt(int64(d/time.Hour), 10) + "h", nil
+		case d%time.Minute == 0:
+			return strconv.FormatInt(int64(d/time.Minute), 10) + "m", nil
 		}
-		if strings.HasSuffix(rel, "d") {
-			return strconv.Itoa(int(d.Hours())) + "h", nil
-		}
-		return rel, nil
+		return strconv.FormatInt(int64(d/time.Second), 10) + "s", nil
 	case agoTimeRe.MatchString(v):
 		if docker {
 			return "", journalOnly

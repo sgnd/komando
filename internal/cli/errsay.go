@@ -239,24 +239,37 @@ func addHint(family, code string) string {
 // fillHint puts the target into the commands a hint names with a
 // placeholder: drivers and helpers that do not know the conn's name write
 // `komando conn test NAME` or `komando cluster events TARGET`, and the
-// next step should be one to copy. target is the command's first argument;
-// it is used only when it names a server, conn or VPN. `komando conn test`
-// becomes `komando test`, the one spelling.
+// next step should be one to copy. target is the command's first argument.
+// TARGET is filled only with a server or conn, CONN only with a conn, and
+// `komando test NAME` with any of those or a VPN, so `vpn up corp` never
+// turns into `komando exec corp`. `komando conn test` becomes
+// `komando test`, the one spelling.
 func fillHint(e *out.Error, target string) {
 	if e.Hint == "" || !strings.Contains(e.Hint, "`komando ") {
 		return
 	}
 	e.Hint = strings.ReplaceAll(e.Hint, "`komando conn test ", "`komando test ")
+	if target == "" || !placeholder.MatchString(e.Hint) && !strings.Contains(e.Hint, "`komando test NAME") {
+		return // nothing to fill: no need to read the inventory
+	}
 	st, err := loadState()
-	if err != nil || target == "" {
+	if err != nil {
 		return
 	}
-	if _, name, ok := st.FindName(target); ok {
-		e.Hint = hintCmd.ReplaceAllStringFunc(e.Hint, func(c string) string {
-			c = placeholder.ReplaceAllString(c, "${1}"+name)
-			return strings.Replace(c, "`komando test NAME", "`komando test "+name, 1)
-		})
+	kind, name, ok := st.FindName(target)
+	if !ok {
+		return
 	}
+	e.Hint = hintCmd.ReplaceAllStringFunc(e.Hint, func(c string) string {
+		c = placeholder.ReplaceAllStringFunc(c, func(p string) string {
+			word := strings.TrimSpace(p)
+			if word == "CONN" && kind != "conn" || word == "TARGET" && kind == "vpn" {
+				return p
+			}
+			return p[:len(p)-len(word)] + name
+		})
+		return strings.Replace(c, "`komando test NAME", "`komando test "+name, 1)
+	})
 }
 
 var (

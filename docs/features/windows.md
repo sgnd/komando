@@ -86,13 +86,13 @@ komando exec 'all,!os:windows' --read-only -- uptime
 
 ## Run PowerShell
 
-On a Windows server, `exec` and `script` run PowerShell (Windows
+On a Windows server, `exec` and `exec --script` run PowerShell (Windows
 PowerShell, `powershell.exe`, which every Windows Server has).
 
 ```bash
 komando exec win1 --read-only -- 'Get-Service | Where-Object Status -eq Running'
 komando exec win1 -e APP_ENV=prod -C 'C:\app' -- '.\migrate.exe'
-komando script win1 ./deploy.ps1 --arg staging     # --arg values go to param( ) or $args
+komando exec win1 --script ./deploy.ps1 --arg staging  # --arg values go to param( ) or $args
 ```
 
 - The exit code works as in sh: `exit 3` gives 3, and a failed last command

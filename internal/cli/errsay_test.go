@@ -120,6 +120,19 @@ func TestFillHint(t *testing.T) {
 	if e.Hint != "read stderr; `komando cluster events pg --warnings` shows more; `komando secret set NAME`" {
 		t.Errorf("got %q", e.Hint)
 	}
+	// a VPN fills neither TARGET nor CONN, a server fills TARGET but not CONN
+	mustRun(t, "vpn", "add", "corp", "socks", "--address", "127.0.0.1:1080")
+	mustRun(t, "host", "add", "web1", "u@192.0.2.10")
+	e = out.Errf(out.ExitConnect, "VPN_DOWN", "run `komando exec TARGET -- true` or `komando test NAME`", "x")
+	fillHint(e, "corp")
+	if e.Hint != "run `komando exec TARGET -- true` or `komando test corp`" {
+		t.Errorf("vpn: got %q", e.Hint)
+	}
+	e = out.Errf(out.ExitConnect, "X", "`komando exec TARGET -- true`; `komando db query CONN \"select 1\"`", "x")
+	fillHint(e, "web1")
+	if e.Hint != "`komando exec web1 -- true`; `komando db query CONN \"select 1\"`" {
+		t.Errorf("server: got %q", e.Hint)
+	}
 	e = out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando conn test NAME`", "x")
 	fillHint(e, "nosuch") // not a name komando knows: only the spelling changes
 	if e.Hint != "run `komando test NAME`" {
