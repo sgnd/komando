@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -52,7 +53,9 @@ func remoteColon(s string) int {
 			case "tag", "label", "kind", "os":
 				continue
 			}
-			if n := digitsThenColon(s[i+1:]); n > 0 {
+			// a port only after an address (user@, [v6], an IP), so that
+			// web1:12:30.log stays the file 12:30.log
+			if n := digitsThenColon(s[i+1:]); n > 0 && adhocBefore(s[word:i]) {
 				i += n
 				continue
 			}
@@ -60,6 +63,12 @@ func remoteColon(s string) int {
 		}
 	}
 	return -1
+}
+
+// adhocBefore says whether t, the text before a :PORT, is an address
+// rather than a name from the inventory.
+func adhocBefore(t string) bool {
+	return strings.Contains(t, "@") || strings.HasSuffix(t, "]") || net.ParseIP(t) != nil
 }
 
 // digitsThenColon is the length of a port and its closing colon at the
