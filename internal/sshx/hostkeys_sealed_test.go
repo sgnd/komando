@@ -1,9 +1,11 @@
 package sshx
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -12,6 +14,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -87,7 +90,7 @@ func TestPinsSameOnBothBackends(t *testing.T) {
 				t.Fatal(err)
 			}
 			var got string
-			_ = HostKeys().view(func(tx hostKeyTx) error {
+			_ = HostKeys().view(context.Background(), func(tx hostKeyTx) error {
 				err := tx.Check(c.host, remote, keys[c.key])
 				var ke *knownhosts.KeyError
 				switch {
@@ -148,5 +151,20 @@ func TestSealedPinChanges(t *testing.T) {
 	}
 	if _, err := os.Stat(store.Path("known_hosts")); !os.IsNotExist(err) {
 		t.Fatal("known_hosts written in a sealed home")
+	}
+}
+
+func TestStoreBusyIsItsOwnError(t *testing.T) {
+	if err := storeBusy(errors.New("dial tcp: i/o timeout")); err == nil || strings.Contains(err.Error(), "STORE_BUSY") {
+		t.Fatalf("a network error became %v", err)
+	}
+	var oe *out.Error
+	err := storeBusy(errors.New("database is locked (5) (SQLITE_BUSY)"))
+	if !errors.As(err, &oe) || oe.Code != "STORE_BUSY" || oe.Exit != out.ExitConflict {
+		t.Fatalf("got %v", err)
+	}
+	// the handshake wraps the callback's error; classify keeps the code
+	if got := classify(nil, &store.Host{Name: "web1"}, fmt.Errorf("ssh: handshake failed: %w", err)); got.Code != "STORE_BUSY" {
+		t.Fatalf("classify gave %s", got.Code)
 	}
 }

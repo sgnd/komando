@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -28,7 +29,7 @@ type pinRecord struct {
 	Keys []string `json:"keys"`
 }
 
-func (sealedHostKeys) view(fn func(hostKeyTx) error) error {
+func (sealedHostKeys) view(ctx context.Context, fn func(hostKeyTx) error) error {
 	d, err := store.DB(false)
 	if errors.Is(err, store.ErrNoStore) {
 		return fn(&sealedTx{}) // no store yet: no pins
@@ -36,15 +37,33 @@ func (sealedHostKeys) view(fn func(hostKeyTx) error) error {
 	if err != nil {
 		return err
 	}
-	return d.View(context.Background(), func(tx *sealdb.Tx) error { return fn(&sealedTx{tx: tx}) })
+	return storeBusy(d.View(ctx, func(tx *sealdb.Tx) error { return fn(&sealedTx{tx: tx}) }))
 }
 
-func (sealedHostKeys) update(fn func(hostKeyTx) error) error {
+func (sealedHostKeys) update(ctx context.Context, fn func(hostKeyTx) error) error {
 	d, err := store.DB(true)
 	if err != nil {
 		return err
 	}
-	return d.Update(context.Background(), func(tx *sealdb.Tx) error { return fn(&sealedTx{tx: tx}) })
+	return storeBusy(d.Update(ctx, func(tx *sealdb.Tx) error { return fn(&sealedTx{tx: tx}) }))
+}
+
+// storeBusy turns "another komando process holds the store" into its own
+// error, so a connection that waited for the store does not read like a
+// server that did not answer.
+func storeBusy(err error) error {
+	if err == nil || !isBusy(err) {
+		return err
+	}
+	return out.Errf(out.ExitConflict, "STORE_BUSY",
+		"another komando process is writing komando's store; a long `komando seal` or a stuck komando: wait for it to finish, then run it again",
+		"komando's store stayed busy for %s, so the server's host key could not be checked: %v", sealdb.BusyTimeout, err)
+}
+
+// isBusy: SQLite gave up waiting for another writer's lock.
+func isBusy(err error) bool {
+	m := err.Error()
+	return strings.Contains(m, "SQLITE_BUSY") || strings.Contains(m, "database is locked")
 }
 
 type sealedTx struct {
