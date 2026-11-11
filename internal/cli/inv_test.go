@@ -103,6 +103,8 @@ func TestInvHostAddValidation(t *testing.T) {
 		{"USAGE", []string{"@h"}},
 		{"USAGE", []string{"h", "--port", "-5"}},
 		{"USAGE", []string{"h", "--user", "a b"}},
+		{"USAGE", []string{"u@10.0.0.5:2201", "--port", "2200"}},
+		{"USAGE", []string{"u@10.0.0.5", "--user", "v"}},
 		{"VIA_NOT_FOUND", []string{"h", "--via", "nosuch"}},
 		{"VIA_CYCLE", []string{"h", "--via", "n1"}},
 		{"FILE_NOT_FOUND", []string{"h", "--identity", "/no/such/key"}},
@@ -112,6 +114,7 @@ func TestInvHostAddValidation(t *testing.T) {
 	} {
 		wantCode(t, c.code, append([]string{"host", "add", "n1"}, c.args...)...)
 	}
+	mustRun(t, "host", "add", "n2", "u@10.0.0.5:2201", "--port", "2201", "--user", "u") // agreeing is fine
 	mustRun(t, "host", "add", "n1", "h", "--identity", id, "--via", "b1")
 	// a loop through another host
 	wantCode(t, "VIA_CYCLE", "host", "edit", "b1", "--via", "n1")
