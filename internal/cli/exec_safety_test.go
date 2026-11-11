@@ -272,8 +272,8 @@ func TestRecipeVarsChecked(t *testing.T) {
 	}{
 		{[]string{"recipe", "run", "big-files", "prod", "--var", "path=-delete"}, "OPTION_LIKE_VAR"},
 		{[]string{"recipe", "run", "big-dirs", "prod", "--var", "path=--files0-from=/etc/x"}, "OPTION_LIKE_VAR"},
-		{[]string{"recipe", "run", "http-check", "prod", "--var", "url=-o/etc/x"}, "OPTION_LIKE_VAR"},
-		{[]string{"recipe", "run", "journal-errors", "prod", "--var", "since=-2h"}, ""}, // a relative time
+		{[]string{"recipe", "run", "big-dirs", "prod", "--var", "path=-o/etc/x"}, "OPTION_LIKE_VAR"},
+		{[]string{"recipe", "run", "oom", "prod", "--var", "since=-2h"}, ""}, // a relative time
 		{[]string{"recipe", "run", "big-files", "prod", "--var", "path=./-odd-dir"}, ""},
 		{[]string{"recipe", "add", "wipe", "find {{path=/srv}} -delete", "--read-only"}, "READ_ONLY_VIOLATION"},
 	}

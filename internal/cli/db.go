@@ -69,10 +69,8 @@ type dbFlags struct {
 	write bool
 	limit int
 	args  []string
-	csv   bool
-	tsv   bool
-	// limitSet: --limit was given, so rows cut by it are what was asked for
-	limitSet bool
+	// table is csv or tsv: -o csv/-o tsv (or the old --csv/--tsv)
+	table string
 	// mariaAnalyze: the SQL starts with EXPLAIN ANALYZE, which MariaDB
 	// spells ANALYZE
 	mariaAnalyze bool
@@ -85,15 +83,17 @@ type dbFlags struct {
 func dbQueryCmd() *cobra.Command {
 	var f dbFlags
 	var file string
+	var csvFlag, tsvFlag bool
 	c := &cobra.Command{
 		Use:   "query CONN [SQL]",
 		Short: "Run SQL; read-only unless --write",
 		Long: `Runs SQL on a database and prints the rows. Without --write it only reads:
 komando runs it in a read-only transaction, and stops it after 30s.`,
-		Annotations: map[string]string{helpNotes: `More about db query:
+		Annotations: map[string]string{tableOutput: "yes", helpNotes: `More about db query:
 A run stops after 30s unless --timeout (or the statement_timeout option in
 the database URL) allows more. Placeholders take their values from
---arg, in order. --csv and --tsv print the rows for spreadsheets and scripts.
+--arg, in order. -o csv and -o tsv print every row (up to --limit, if
+given) for spreadsheets and scripts.
 SQL that starts with a -- comment: pass it after -- or with -f -.
 
 SQL Server has no read-only transaction: without --write komando rolls the
@@ -133,7 +133,7 @@ picks another database than the URL's.`},
   komando db query prod-db "select * from users where email = $1" --arg bob@example.com
   komando db query prod-db --write --dry-run "update users set plan = 'pro' where id = 42"
   komando db query prod-db --file migration.sql --write --dry-run
-  komando db query prod-db --csv "select * from orders" > orders.csv   # every row
+  komando db query prod-db -o csv "select * from orders" > orders.csv
   komando db query bq "select count(*) from shop.orders" --max-bytes 50GB   # BigQuery`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -152,13 +152,9 @@ picks another database than the URL's.`},
 			default:
 				return out.Usage("give the SQL as an argument or with --file, not both")
 			}
-			if f.csv && f.tsv {
-				return out.Usage("pick one of --csv and --tsv")
+			if err := f.pickTable(cmd, csvFlag, tsvFlag); err != nil {
+				return err
 			}
-			if (f.csv || f.tsv) && !cmd.Flags().Changed("limit") {
-				f.limit = 0 // an export wants every row; --max-output still caps the size
-			}
-			f.limitSet = cmd.Flags().Changed("limit")
 			if st, c, ok := mongoConn(args[0]); ok {
 				return runMongoQuery(cmd.Context(), "db.query", st, c, q, f)
 			}
@@ -167,10 +163,40 @@ picks another database than the URL's.`},
 	}
 	f.bind(c)
 	c.Flags().StringVarP(&file, "file", "f", "", "read SQL from a file ('-' for stdin)")
-	c.Flags().BoolVar(&f.csv, "csv", false, "print every row as CSV (header first) instead of JSON or a table")
-	c.Flags().BoolVar(&f.tsv, "tsv", false, "print every row as tab-separated values (header first)")
+	c.Flags().BoolVar(&csvFlag, "csv", false, "old name of -o csv")
+	c.Flags().BoolVar(&tsvFlag, "tsv", false, "old name of -o tsv")
+	_ = c.Flags().MarkHidden("csv")
+	_ = c.Flags().MarkHidden("tsv")
 	c.SetFlagErrorFunc(sqlFlagError)
 	return c
+}
+
+// pickTable sets f.table from -o csv/tsv or the old --csv/--tsv (which
+// say "use -o csv now" on stderr, for one release). Without --limit an
+// export has every row.
+func (f *dbFlags) pickTable(cmd *cobra.Command, csvFlag, tsvFlag bool) error {
+	f.table = g.table
+	old := ""
+	switch {
+	case csvFlag && tsvFlag:
+		return out.Usage("pick one: -o csv or -o tsv")
+	case csvFlag:
+		old = "csv"
+	case tsvFlag:
+		old = "tsv"
+	}
+	if old != "" {
+		if cmd.Flags().Changed("output") && f.table != old {
+			return out.Usage("--%s and -o %s ask for two formats: use -o %s alone", old, g.output, old)
+		}
+		fmt.Fprintf(os.Stderr, "komando: use -o %s now; --%s goes away in the next release\n", old, old)
+		f.table = old
+		out.P.Format = "text" // errors to stderr, so stdout has only rows
+	}
+	if f.table != "" && !cmd.Flags().Changed("limit") {
+		f.limit = 0
+	}
+	return nil
 }
 
 // sqlFlagError explains the usual cause of an unknown flag here: SQL that
@@ -618,40 +644,32 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 // when personal data is.
 func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res *dbx.Result) error {
 	maskColumns(c, res)
-	if f.csv || f.tsv {
+	if f.table != "" {
+		// a cut export would look whole in a file: refuse it instead
+		for _, r := range res.Results {
+			if r.Truncated == "bytes" {
+				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, e.g. --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump`",
+					"the rows are more than the output size cap (--max-output) allows; nothing was printed")
+			}
+		}
 		// through Redact like every other output: vault values, and for an
 		// AI agent secrets and personal data, stay hidden in CSV too
 		var b strings.Builder
-		if err := writeDelimited(&b, res, f.tsv); err != nil {
+		if err := writeDelimited(&b, res, f.table == "tsv"); err != nil {
 			return err
 		}
 		if _, err := io.WriteString(out.P.W, out.P.Redact(b.String())); err != nil {
 			return err
 		}
-		return delimitedCut(res, f.limitSet)
+		for _, r := range res.Results {
+			if r.Truncated == "rows" {
+				fmt.Fprintf(os.Stderr, "komando: stopped at --limit %d rows per statement\n", f.limit)
+				break
+			}
+		}
+		return nil
 	}
 	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
-	return nil
-}
-
-// delimitedCut fails a CSV or TSV export that lost rows the person did not
-// ask to drop, so a script does not take a cut file for the whole table.
-// The error goes to stderr as text: stdout holds the rows.
-func delimitedCut(res *dbx.Result, limitSet bool) error {
-	for _, r := range res.Results {
-		switch {
-		case r.Truncated == "bytes":
-			e := out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, e.g. --max-output 104857600), or select fewer rows or columns",
-				"the export stopped at %d rows: the output size cap (--max-output) was reached", r.RowCount)
-			f := out.P.Format
-			out.P.Format = "text"
-			code := out.P.Fail("db.query", e)
-			out.P.Format = f
-			return exitCode(code)
-		case r.Truncated == "rows" && limitSet:
-			fmt.Fprintf(os.Stderr, "note: stopped at %d rows (--limit); -n 0 exports every row\n", r.RowCount)
-		}
-	}
 	return nil
 }
 

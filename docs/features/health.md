@@ -94,7 +94,7 @@ Ubuntu, komando also asks `pro status` whether ESM is enabled.
 
 ## Check server health
 
-komando comes with 36 ready-made checks (built-in recipes). Run one on any
+komando comes with 24 ready-made checks (built-in recipes). Run one on any
 target:
 
 ```bash
@@ -103,26 +103,40 @@ komando recipe list --category security           # one category
 komando recipe run health @web
 komando recipe run top-mem web1
 komando recipe run big-dirs web1 --var path=/srv
-komando recipe run updates all
+komando recipe run oom all --var since=-2h
 ```
 
 | Category (`--category`) | Recipes |
 |-------------------------|---------|
 | system | `health`, `disk`, `inodes`, `memory`, `big-dirs`, `big-files`, `cron-all`, `time-sync` |
 | process | `top-cpu`, `top-mem`, `process`, `oom` |
-| service, logs | `failed-units`, `journal-errors` |
-| network | `ports`, `connections`, `dns`, `firewall` |
-| web | `http-check`, `nginx-test`, `nginx-sites`, `apache-test` |
+| network | `connections`, `firewall` |
+| web | `nginx-test`, `nginx-sites`, `apache-test` |
 | security | `auth-failures`, `last-logins`, `sshd-config`, `sudoers` |
-| packages | `updates`, `security-updates` |
-| container | `docker-overview`, `k8s-overview` |
-| database | `postgres-status`, `mysql-status`, `redis-info` |
 | maintenance (these change things) | `apt-clean`, `drop-caches`, `journal-vacuum` |
 
 Some recipes have blanks with defaults, for example `big-dirs` takes
 `--var path=/srv --var depth=2`. `komando recipe list` shows each recipe's
-blanks. Certificates have their own command, `komando cert check`, and
-so does cleaning up docker, `komando docker prune` (with a preview).
+blanks.
+
+Checks that have their own command are no longer recipes. For one
+release, `recipe run` with the old name says which command to use:
+
+| Old recipe | Use now |
+|------------|---------|
+| `ports` | `komando net ports TARGET --sudo` |
+| `dns` | `komando net dns TARGET NAME` |
+| `http-check` | `komando net http TARGET URL` |
+| `failed-units` | `komando svc list TARGET --failed` |
+| `journal-errors` | `komando logs TARGET -p err --since -1h --sudo` |
+| `updates` | `komando pkg upgradable TARGET` |
+| `security-updates` | `komando pkg security TARGET` |
+| `docker-overview` | `komando docker ps TARGET --all` |
+| `k8s-overview` | `komando cluster status CLUSTER` |
+| `mysql-status`, `postgres-status` | `komando db activity CONN` |
+| `redis-info` | `komando cache info CONN` |
+| `cert-expiry`, `certbot-certs` | `komando cert check` |
+| `docker-prune` | `komando docker prune TARGET --dry-run` |
 To save your own checks, see [Recipes](commands.md#recipes-ready-made-and-saved-commands).
 
 ## Check TLS certificates

@@ -212,6 +212,31 @@ func svcListTable(data any) string {
 
 // logs.
 
+// logsAlias is `svc logs TARGET UNIT` and `docker logs TARGET CONTAINER`:
+// it only turns the second word into --unit or --container and runs
+// `logs`, so it takes exactly the flags of `logs` (ux.md section 11: one
+// implementation).
+func logsAlias(use, name, source string) *cobra.Command {
+	var lo logOpts
+	c := &cobra.Command{
+		Use:   use,
+		Short: "Same as `komando logs TARGET --" + source + " NAME`",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed(source) {
+				return out.Usage("give the %s once: as the second word or with --%s, not both", source, source)
+			}
+			_ = cmd.Flags().Set(source, args[1])
+			return runLogs(cmd.Context(), name, args[0], &lo, lo.sudo)
+		},
+	}
+	lo.bind(c)
+	for _, f := range []string{"unit", "file", "container"} {
+		_ = c.Flags().MarkHidden(f)
+	}
+	return c
+}
+
 // journalPriorities are the names journalctl -p takes (also 0-7 and FROM..TO).
 var journalPriorities = map[string]bool{"emerg": true, "alert": true, "crit": true, "err": true, "warning": true, "notice": true, "info": true, "debug": true,
 	"0": true, "1": true, "2": true, "3": true, "4": true, "5": true, "6": true, "7": true}
@@ -242,6 +267,9 @@ func (o *logOpts) check() error {
 		if !journalPriorities[lo] || (isRange && !journalPriorities[hi]) {
 			return out.Usage("invalid priority %q: use emerg, alert, crit, err, warning, notice, info, debug or 0-7 (or a range like err..warning)", o.priority)
 		}
+	}
+	if o.timestamps && o.container == "" {
+		return out.Usage("--timestamps works with --container only; journal lines already start with their time")
 	}
 	if o.follow && o.until != "" {
 		return out.Usage("--until cannot be used with --follow")

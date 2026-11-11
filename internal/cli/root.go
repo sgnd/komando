@@ -46,6 +46,30 @@ type globalFlags struct {
 	parallel       int
 	hostKeyPolicy  string
 	maxOutput      int
+	// table is csv or tsv: -o csv or -o tsv on a command that prints rows
+	// (annotation tableOutput); everything else then prints as text
+	table string
+}
+
+// tableOutput marks a command that takes -o csv and -o tsv.
+const tableOutput = "table_output"
+
+// pickTableOutput fills an empty -o from $KOMANDO_OUTPUT, and turns -o
+// csv or -o tsv into g.table on a command that prints rows; everything
+// else then prints as text, so errors and notes go to stderr and stdout
+// has only rows.
+func pickTableOutput(cmd *cobra.Command) error {
+	if g.output == "" {
+		g.output = os.Getenv("KOMANDO_OUTPUT")
+	}
+	g.table = ""
+	if (g.output == "csv" || g.output == "tsv") && cmd.Flags().Changed("output") {
+		if cmd.Annotations[tableOutput] == "" {
+			return out.Usage("-o %s works with db query only; here use -o json or -o text", g.output)
+		}
+		g.table, g.output = g.output, "text"
+	}
+	return nil
 }
 
 var g globalFlags
@@ -413,15 +437,15 @@ func newRoot() *cobra.Command {
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			safetyApproved = map[string]bool{} // answers count for one command only
 			dangerConfirmed = map[string]bool{}
-			if g.output == "" {
-				g.output = os.Getenv("KOMANDO_OUTPUT")
+			if err := pickTableOutput(cmd); err != nil {
+				return err
 			}
 			f, ok := outputFormat(g.output)
 			if !ok {
 				if !cmd.Flags().Changed("output") && os.Getenv("KOMANDO_OUTPUT") != "" {
 					return out.Usage("KOMANDO_OUTPUT=%s: it must be auto, json or text", os.Getenv("KOMANDO_OUTPUT"))
 				}
-				return out.Usage("--output must be auto, json or text")
+				return out.Usage("--output must be auto, json or text (db query also takes csv and tsv)")
 			}
 			switch {
 			case g.parallel < 0:
@@ -462,7 +486,7 @@ func newRoot() *cobra.Command {
 		},
 	}
 	pf := root.PersistentFlags()
-	pf.StringVarP(&g.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped)")
+	pf.StringVarP(&g.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); db query also\ntakes csv and tsv")
 	pf.BoolVar(&g.pretty, "pretty", false, "indent JSON output")
 	pf.BoolVar(&g.dryRun, "dry-run", false, "show what would run, changing nothing")
 	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm a change on a protected target (an AI agent needs a person's yes)")
