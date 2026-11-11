@@ -161,7 +161,7 @@ holds your data: it is created readable only by you.`,
 				return err
 			}
 			if !g.dryRun {
-				textNote("To load it back: komando db restore %s --from %s --allow-dangerous", argQ(args[0]), argQ(to))
+				textNote("To load it back: %s", restoreNote(args[0], to))
 			}
 			return nil
 		},

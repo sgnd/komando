@@ -3,9 +3,13 @@ package dbx
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 func sqliteDB(t *testing.T) *sql.DB {
@@ -46,5 +50,15 @@ func TestSQLiteInfoSizesAndForeignKeys(t *testing.T) {
 	}
 	if c := tables[0].Constraints[0]; c.Type != "foreign key" || c.Definition != "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE NO ACTION" {
 		t.Errorf("constraint: %+v", c)
+	}
+}
+
+// SQLite has no sessions and no users; each stop says the one that applies.
+func TestNotSupportedHint(t *testing.T) {
+	for what, word := range map[string]string{"db user": "no users", "db grants": "no users", "db kill": "no sessions", "db activity": "no sessions"} {
+		var e *out.Error
+		if err := NotSupported("sqlite", what); !errors.As(err, &e) || !strings.Contains(e.Hint, word) || !strings.HasPrefix(e.Message, what+" ") {
+			t.Errorf("%s: %v", what, err)
+		}
 	}
 }

@@ -95,3 +95,31 @@ func TestKindAddChecksFamily(t *testing.T) {
 	mustRun(t, "db", "add", "pg", "postgres://x@127.0.0.1/x")
 	mustRun(t, "cache", "add", "rc", "redis://127.0.0.1:6379/0")
 }
+
+// The line after db dump names a way back that works: db restore refuses
+// SQLite files, so for those it says to copy the file.
+func TestDumpRestoreNote(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "lite", "sqlite:///var/lib/app.db")
+	mustRun(t, "conn", "add", "pg", "postgres://x@127.0.0.1/x")
+	if n := restoreNote("lite", "b.db"); strings.Contains(n, "db restore") || !strings.Contains(n, "/var/lib/app.db") {
+		t.Errorf("sqlite: %s", n)
+	}
+	if n := restoreNote("pg", "b.sql.gz"); !strings.Contains(n, "komando db restore pg --from b.sql.gz") {
+		t.Errorf("postgres: %s", n)
+	}
+}
+
+// db kill on SQLite names itself, and opens no file (a write open would
+// create a missing one).
+func TestDBKillSQLite(t *testing.T) {
+	invHome(t)
+	path := filepath.Join(t.TempDir(), "none.db")
+	mustRun(t, "conn", "add", "lite", "sqlite://"+path)
+	if e := wantCode(t, "NOT_SUPPORTED", "db", "kill", "lite", "1"); !strings.HasPrefix(e.Message, "db kill ") {
+		t.Errorf("message: %s", e.Message)
+	}
+	if _, err := os.Stat(path); err == nil {
+		t.Error("db kill created the file")
+	}
+}
