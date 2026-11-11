@@ -202,3 +202,36 @@ H1 and M4 can lose data in normal use; fix them first. Then H3 and H2 (an
 agent can undo protection), M3 (lock-out), M5. H4 and M1 need platform
 work and could be written down as known limits for this release if they
 cannot be fixed now.
+
+## Status of the fixes (2026-11-11)
+
+Fixed on this branch:
+
+- M3: the change count is written to the keychain before the store says
+  `key_mode=keychain`, and a new store whose count cannot be saved is
+  removed and the command fails, instead of being refused as an old copy
+  on the next run.
+- M4: `seal --undo` takes the same locks as `seal`. `RemoveStore` first
+  runs an empty write step (waits for other writers, replays a journal left
+  by a crash) and moves a journal with the store instead of deleting it.
+- M5: the new key is written to `store.key.new` and renamed to store.key
+  only when the store names a key file; otherwise it is removed. A leftover
+  `.new` is settled the same way when the store is next opened.
+- L4, L6, L7 (Windows): only the peeked non-key console events are read
+  away; plain-English Credential Manager error; the resize token is no
+  longer `os.Interrupt`.
+
+Fixed in other sessions: H1, H2, M2 (fix-sealdb-integrity); most of H3
+(drop-file-backend).
+
+Not fixed, and why:
+
+- H4: making the macOS keychain item ask the person needs a signed binary
+  using the Security framework; with `/usr/bin/security` and `-T ""` every
+  komando command would show a prompt. Windows and Linux give no isolation
+  between programs of the same user. Write it down as a known limit.
+- M1: needs testing on Windows and macOS. The fix to aim for is a short code
+  shown in the window that has to be typed back into it.
+- L1: failing closed on a slow keychain would make `doctor` and every
+  command hang or fail whenever the keychain is locked; needs a decision.
+- L2, L3, L5: no data loss; L3 belongs in the docs, L5 in the VPN helper.
