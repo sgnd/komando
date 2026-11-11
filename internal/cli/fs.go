@@ -506,7 +506,7 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 			if err != nil {
 				return err
 			}
-			return runFleet(cmd.Context(), "fs."+strings.Fields(use)[0], args[0], script, nil, execOpts{sudo: sudo, display: shown, exitMap: fsExitMap}, true)
+			return runFleet(cmd.Context(), "fs."+strings.Fields(use)[0], args[0], script, nil, execOpts{sudo: sudo, display: shown, exitMap: func(rr *sshx.RunResult) *out.Error { return fsExitMap(rr.ExitCode, rr.Stderr) }}, true)
 		},
 	}
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run with sudo")

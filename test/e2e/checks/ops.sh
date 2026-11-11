@@ -46,7 +46,11 @@ $K user rm direct t-fixopsu --remove-home --allow-dangerous >/dev/null 2>&1 || t
 set +e
 $K user lock direct t-fixops-nouser >/dev/null; check "user lock of an unknown user exits 3" 3 $?
 $K user add direct t-fixopsk --pubkey 'not a key' >/dev/null; check "user add checks --pubkey" 2 $?
+$K user add swarm1 t-fixopsu >/dev/null 2>&1; check "user add without useradd exits 3" 3 $?
+$K user rm swarm1 t-fixopsu --allow-dangerous >/dev/null 2>&1; check "user rm without userdel exits 3" 3 $?
 set -e
+check "user add on Alpine without shadow names TOOL_MISSING" TOOL_MISSING "$($K user add swarm1 t-fixopsu 2>/dev/null | jget "${r0}['error']['code']" || true)"
+check "user rm on Alpine without shadow names TOOL_MISSING" TOOL_MISSING "$($K user rm swarm1 t-fixopsu --allow-dangerous 2>/dev/null | jget "${r0}['error']['code']" || true)"
 
 # pkg: option injection, essential packages, installed rows, changed, unknown
 set +e
