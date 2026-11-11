@@ -9,14 +9,12 @@ import (
 	"strings"
 )
 
-// An --os-mode OpenVPN profile is run by the openvpn program as root, so
-// komando passes on only client settings, and only in a form OpenVPN cannot
-// read another way. parseOVPN reads the profile into directives and inline
-// blocks and refuses anything OpenVPN's own reader could take differently:
-// a backslash (an escape there), a quote inside a word, a line OpenVPN would
-// cut in two, a tag that is not alone on its line. canonicalOVPN then writes
-// what it read again, from scratch: OpenVPN gets that text, never the file
-// the user gave.
+// vpn add checks an OpenVPN profile before it is stored: only client
+// settings, and only in a form every OpenVPN reader takes the same way.
+// parseOVPN reads the profile into directives and inline blocks and refuses
+// anything OpenVPN's own reader could take differently: a backslash (an
+// escape there), a quote inside a word, a line OpenVPN would cut in two, a
+// tag that is not alone on its line.
 
 // ovpnAllowed are the .ovpn client directives komando passes on. Anything
 // that runs programs, writes or reads files by path, or opens a management
@@ -71,25 +69,6 @@ type ovpnItem struct {
 	block bool
 	lines []string
 	items []ovpnItem
-}
-
-// canonicalOVPN is the profile OpenVPN gets: what parseOVPN read in cfg,
-// written again. It holds only allowed directives and inline blocks, with
-// no comments, escapes or quotes OpenVPN could read differently.
-func canonicalOVPN(cfg string) (string, error) {
-	items, err := parseOVPN(cfg)
-	if err != nil {
-		return "", err
-	}
-	var b strings.Builder
-	writeOVPN(&b, items)
-	text := b.String()
-	for _, l := range strings.Split(text, "\n") {
-		if len(l) > ovpnMaxLine { // cannot happen: no line grows when written again
-			return "", errors.New("a line is too long to pass on")
-		}
-	}
-	return text, nil
 }
 
 type ovpnReader struct {
@@ -309,35 +288,7 @@ func ovpnDirective(words []string, inConn bool) (ovpnItem, error) {
 	return ovpnItem{name: name, args: args}, nil
 }
 
-// writeOVPN writes items as OpenVPN reads them: one directive per line, a
-// word with a space (or one that would start a comment) in double quotes.
-func writeOVPN(b *strings.Builder, items []ovpnItem) {
-	for _, it := range items {
-		switch {
-		case it.block && it.name == "connection":
-			b.WriteString("<connection>\n")
-			writeOVPN(b, it.items)
-			b.WriteString("</connection>\n")
-		case it.block:
-			b.WriteString("<" + it.name + ">\n")
-			for _, l := range it.lines {
-				b.WriteString(l + "\n")
-			}
-			b.WriteString("</" + it.name + ">\n")
-		default:
-			b.WriteString(it.name)
-			for _, a := range it.args {
-				if strings.Contains(a, " ") || a[0] == '#' || a[0] == ';' {
-					a = `"` + a + `"`
-				}
-				b.WriteString(" " + a)
-			}
-			b.WriteString("\n")
-		}
-	}
-}
-
-// ovpnRemotes checks the profile cfg as canonicalOVPN does and lists the
+// ovpnRemotes checks the profile cfg with parseOVPN and lists the
 // servers its remote lines name (host, or host:port), for the approval
 // window of a login sent there.
 func ovpnRemotes(cfg string) (string, error) {

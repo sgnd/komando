@@ -4,15 +4,13 @@
 // space, so the computer's routes are not changed. Only the openconnect
 // family (globalprotect, fortinet, pulse, f5) uses an outside client when
 // openconnect is installed; without it komando uses its own experimental
-// client. The deprecated OpenVPN --os-mode runs the openvpn program as root
-// and does change routes. A "system" VPN is one set up in the computer's own
-// settings.
+// client. A "system" VPN is one set up in the computer's own settings and
+// does change routes.
 // Session kinds run as a background session that later commands reuse.
 package netx
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -156,26 +154,15 @@ func ReapIdle() {
 	}
 }
 
-// StopSession ends a session's process (through sudo for
-// OS-mode ones). A session that is no longer running is already stopped.
+// StopSession ends a session's process. A session that is no longer running is already stopped.
 // It reports an error when it could not stop it; the caller keeps the
 // session then.
 func StopSession(s *store.VpnSession) error {
 	if !SessionAlive(s) {
 		return nil
 	}
-	if s.Sudo {
-		if err := exec.Command("sudo", "-n", "kill", strconv.Itoa(s.PID)).Run(); err != nil {
-			return ErrNeedsSudo
-		}
-		return nil
-	}
 	return Terminate(s.PID)
 }
-
-// ErrNeedsSudo means an OS-mode session runs as root and sudo wants a
-// password; a person must run `komando vpn down` in a terminal.
-var ErrNeedsSudo = errors.New("the VPN runs as root and stopping it needs sudo")
 
 func socksDialer(v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Dialer, error) {
 	var auth *proxy.Auth
@@ -200,7 +187,7 @@ func socksDialer(v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Dial
 // LastUsed fresh while the caller holds it (a long `logs --follow` must not
 // look idle), until the closer is closed.
 func sessionDialer(v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Dialer, io.Closer, error) {
-	var d Dialer = (&net.Dialer{Timeout: timeout}).DialContext // OS mode: the computer routes it
+	var d Dialer = (&net.Dialer{Timeout: timeout}).DialContext
 	if s.Socks != "" {
 		var err error
 		if d, err = socksDialer(v, s, timeout); err != nil {
