@@ -335,3 +335,19 @@ func TestRedactArgs(t *testing.T) {
 		t.Errorf("secrets left in: %s", got)
 	}
 }
+
+// `cache add` with a database URL is refused, with the command that fits;
+// each family's own example still goes through.
+func TestFamilyAddWrongKind(t *testing.T) {
+	invHome(t)
+	e := wantCode(t, "WRONG_KIND", "cache", "add", "c1", "postgres://app@192.0.2.40/app", "--dry-run")
+	if e.Exit != 2 || !strings.Contains(e.Hint, "komando db add c1") {
+		t.Errorf("%+v", e)
+	}
+	for kind, k := range connAddKinds {
+		args := strings.Fields(strings.ReplaceAll(k.example, "'", ""))[1:5]
+		if d, e := invRun(t, append(args, "--dry-run")...); e != nil && e.Code == "WRONG_KIND" {
+			t.Errorf("%s add with its own example: %v %+v", kind, d, e)
+		}
+	}
+}

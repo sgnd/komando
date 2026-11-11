@@ -739,6 +739,13 @@ func connAddCmdFor(kind string) *cobra.Command {
 	c.Example = "  " + k.example
 	run := c.RunE
 	c.RunE = func(cmd *cobra.Command, args []string) error {
+		if len(args) == 2 {
+			// `cache add` must not quietly save a database
+			if t, err := driver.Parse(normConnURL(strings.TrimSpace(args[1]))); err == nil && t.Kind.Family != kind {
+				return out.Errf(out.ExitUsage, "WRONG_KIND", fmt.Sprintf("use `komando %s add %s URL` for a %s conn", t.Kind.Family, args[0], t.Kind.Name),
+					"`komando %s add` saves a %s; this URL is a %s conn", kind, k.what, t.Kind.Name)
+			}
+		}
 		if len(args) > 0 {
 			return run(cmd, args)
 		}
