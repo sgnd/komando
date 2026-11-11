@@ -172,7 +172,7 @@ server, which `komando job list --refresh` asks. Agents get the same as JSON
 
 ### Show it in your shell prompt (optional)
 
-`komando status --short` prints a short note such as `vpn:office tun:2`, or nothing
+`komando status --short` prints a short note such as `vpn:2 tun:1` (how many VPNs and tunnels are up), or nothing
 when nothing is running, so your prompt can show it all the time. Add it
 yourself; komando never changes your shell files.
 

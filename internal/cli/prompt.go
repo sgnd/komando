@@ -15,7 +15,7 @@ import (
 )
 
 // `komando status --short` prints a short note for a person's shell prompt,
-// such as "vpn:office tun:2", or nothing. The prompt runs it on every Enter,
+// such as "vpn:1 tun:2", or nothing. The prompt runs it on every Enter,
 // so it only reads the state file: no lock, no writes, no other programs, no
 // network (docs/design/session-status.md). In particular it never calls
 // netx.LiveSession, which marks a VPN as used and would keep it up forever.
