@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -86,7 +87,8 @@ type oldFolder struct {
 	secrets map[string]vault.Secret
 	names   []string // secret names (a dry run reads only these)
 	pins    []oldPin
-	skipped []string // known_hosts entries komando cannot carry
+	revoked []ssh.PublicKey // @revoked keys: never trusted again, for any server
+	skipped []string        // known_hosts entries komando cannot carry
 	keys    map[string]oldKey
 	audit   [][]byte
 	files   map[string][]byte // the files of before, as read, for the archive
@@ -175,14 +177,19 @@ func underKeys(p string) (string, bool) {
 	return filepath.Join("keys", filepath.Base(f)), true
 }
 
-// readPins reads known_hosts lines komando can carry: plain names, no
-// markers (@revoked, @cert-authority), no hashed or wildcard names.
+// readPins reads known_hosts lines komando can carry: plain names, and
+// @revoked keys (kept as never-trust); @cert-authority lines and hashed or
+// wildcard names are skipped and named.
 func (o *oldFolder) readPins(b []byte) {
 	for _, line := range bytes.Split(b, []byte("\n")) {
 		if len(bytes.TrimSpace(line)) == 0 || bytes.HasPrefix(bytes.TrimSpace(line), []byte("#")) {
 			continue
 		}
 		marker, hosts, key, _, _, err := ssh.ParseKnownHosts(line)
+		if err == nil && marker == "revoked" {
+			o.revoked = append(o.revoked, key)
+			continue
+		}
 		if err != nil || marker != "" {
 			o.skipped = append(o.skipped, string(bytes.Fields(line)[0]))
 			continue
@@ -199,6 +206,16 @@ func (o *oldFolder) readPins(b []byte) {
 			o.pins = append(o.pins, oldPin{net.JoinHostPort(host, port), key})
 		}
 	}
+	// a key that is also revoked is never trusted, as with OpenSSH
+	kept := o.pins[:0]
+	for _, p := range o.pins {
+		if slices.ContainsFunc(o.revoked, func(k ssh.PublicKey) bool { return sshx.SameKey(k, p.key) }) {
+			o.skipped = append(o.skipped, p.addr+" (its key is revoked)")
+			continue
+		}
+		kept = append(kept, p)
+	}
+	o.pins = kept
 }
 
 // oldFiles are the files of before the move reads and keeps in the
@@ -221,6 +238,7 @@ type sealResult struct {
 	Recipes  int      `json:"recipes"`
 	Secrets  int      `json:"secrets"`
 	Pins     int      `json:"pinned_host_keys"`
+	Revoked  int      `json:"revoked_host_keys"`
 	Audit    int      `json:"audit_records"`
 	Archive  string   `json:"archive,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
@@ -229,8 +247,8 @@ type sealResult struct {
 func (r sealResult) Text() string {
 	var b strings.Builder
 	verb := map[string]string{"sealed": "Sealed", "would_seal": "Would seal"}[r.Action]
-	fmt.Fprintf(&b, "%s: %d servers, %d conns, %d VPNs, %d keys, %d recipes, %d secrets, %d pinned host keys, %d audit records\n",
-		verb, r.Hosts, r.Conns, r.Vpns, r.Keys, r.Recipes, r.Secrets, r.Pins, r.Audit)
+	fmt.Fprintf(&b, "%s: %d servers, %d conns, %d VPNs, %d keys, %d recipes, %d secrets, %d pinned host keys, %d revoked host keys, %d audit records\n",
+		verb, r.Hosts, r.Conns, r.Vpns, r.Keys, r.Recipes, r.Secrets, r.Pins, r.Revoked, r.Audit)
 	if r.Archive != "" {
 		fmt.Fprintf(&b, "The files of before are in %s; `komando seal --undo` puts them back.\n", r.Archive)
 		b.WriteString("Their old bytes may live on in backups, disk snapshots and the disk itself: change the SSH keys and secrets if that matters.\n")
@@ -260,15 +278,19 @@ func seal() error {
 	}
 	defer vault.WipeSecrets(o.secrets)
 	res := sealResult{Action: "would_seal", Hosts: len(o.st.Hosts), Conns: len(o.st.Conns), Vpns: len(o.st.Vpns), Keys: len(o.st.Keys),
-		Recipes: len(o.st.Snippets), Secrets: len(o.names), Pins: len(o.pins), Audit: len(o.audit)}
+		Recipes: len(o.st.Snippets), Secrets: len(o.names), Pins: len(o.pins), Revoked: len(o.revoked), Audit: len(o.audit)}
 	if len(o.skipped) > 0 {
-		res.Warnings = append(res.Warnings, fmt.Sprintf("%d known_hosts entries cannot be carried over (hashed or wildcard names, @revoked or @cert-authority lines; komando never writes them): those servers are trusted again on their next connection: %s", len(o.skipped), strings.Join(o.skipped, ", ")))
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%d known_hosts entries cannot be carried over (hashed or wildcard names, @cert-authority lines; komando never writes them): unless host_key_policy is strict, those servers are pinned again without asking on their next connection, whatever key they show: %s", len(o.skipped), strings.Join(o.skipped, ", ")))
 	}
 	if g.dryRun {
 		out.P.Print("seal", res, nil)
 		return nil
 	}
-	if !sealConfirm(fmt.Sprintf("Move %d servers, %d secrets and the rest into one sealed file?", res.Hosts, res.Secrets)) {
+	question := fmt.Sprintf("Move %d servers, %d secrets and the rest into one sealed file?", res.Hosts, res.Secrets)
+	if len(o.skipped) > 0 {
+		question = fmt.Sprintf("%d known_hosts entries (%s) cannot be carried over: those servers are pinned again without asking on their next connection. ", len(o.skipped), strings.Join(o.skipped, ", ")) + question
+	}
+	if !sealConfirm(question) {
 		return policyStop(out.Errf(out.ExitError, "CANCELLED", "nothing was changed in "+store.Home(), "the folder was not sealed"))
 	}
 	store.StartBuilding()
@@ -369,6 +391,9 @@ func buildSealed(o *oldFolder) error {
 	}
 	if err := vault.ImportSealed(o.secrets); err != nil {
 		return err
+	}
+	if err := sshx.RevokeHostKeys(o.revoked); err != nil {
+		return fmt.Errorf("revoked host keys: %w", err)
 	}
 	for _, p := range o.pins {
 		if _, err := sshx.PinHostKey(p.addr, p.key, false); err != nil {

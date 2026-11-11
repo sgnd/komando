@@ -258,18 +258,32 @@ func TestSealHardCases(t *testing.T) {
 	f.WriteString("@revoked 10.9.9.9 " + strings.TrimSpace(string(ssh.MarshalAuthorizedKey(k6))) + "\n")
 	f.Close()
 
+	f, _ = os.OpenFile(store.Path("known_hosts"), os.O_APPEND|os.O_WRONLY, 0o600)
+	f.WriteString(knownhosts.Line([]string{"*.example.com"}, k6) + "\n")
+	f.Close()
+	var asked string
+	sealConfirm = func(q string) bool { asked = q; return true }
 	d := mustRun(t, "seal")
-	if d["action"] != "sealed" {
+	if d["action"] != "sealed" || d["revoked_host_keys"].(float64) != 1 {
 		t.Fatalf("seal: %v", d)
+	}
+	if !strings.Contains(asked, "*.example.com") || !strings.Contains(asked, "pinned again without asking") {
+		t.Errorf("the question does not name the entries it drops: %q", asked)
 	}
 	if b, _ := os.ReadFile(stray); string(b) != "STRAY-PRIVATE" {
 		t.Error("a key file the store did not take was replaced")
 	}
-	if pins, _ := sshx.PinnedKeys("[2001:db8::7]:2222"); len(pins) != 1 {
-		t.Error("the IPv6 pin did not come over")
+	if pins, _ := sshx.PinnedKeys("[2001:db8::7]:2222"); len(pins) != 0 {
+		t.Error("a pin whose key is also @revoked came over")
 	}
 	if pins, _ := sshx.PinnedKeys("10.9.9.9:22"); len(pins) != 0 {
 		t.Error("a revoked key became a pin")
+	}
+	if rev, err := sshx.HostKeyRevoked(k6); !rev || err != nil {
+		t.Errorf("the @revoked key was not carried as never-trust: %v", err)
+	}
+	if _, err := sshx.PinHostKey("10.9.9.9:22", k6, false); err == nil {
+		t.Error("a revoked key could be pinned")
 	}
 
 	// the store's key changes after the move: the archive still opens

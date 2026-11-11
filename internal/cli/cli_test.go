@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 func TestMain(m *testing.M) {
@@ -21,6 +22,9 @@ func TestMain(m *testing.M) {
 	// a new vault never puts its key in the login keychain of whoever runs
 	// the tests (secret_keychain_test.go uses stand-ins)
 	os.Setenv("KOMANDO_KEYCHAIN", "off")
+	// every command opens the sealed store with the passphrase: a cheap
+	// scrypt keeps the PTY children (this binary again) fast under -race
+	vault.PassphraseN = 1 << 10
 	// each test keeps komando's data in its own KOMANDO_HOME, as the
 	// person's usual folder; TestAgentOtherHome checks the real rule
 	realHome := defaultHome

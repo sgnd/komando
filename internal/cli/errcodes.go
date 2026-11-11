@@ -78,6 +78,7 @@ var errorCodes = []errorCode{
 	{"HELM_REVISION_NOT_FOUND", 3, "… has no revision …", "see the revisions with `komando cluster helm history TARGET RELEASE`"},
 	{"HIDDEN_VALUE", 2, "…/… holds a value komando hid from you ([hidden] or (hidden)); sending it would write that text over the real value", "leave the hidden entries out of the file (or use valueFrom.secretKeyRef), or change only what you need with `cluster run TARGET --write -- set image|patch ...`"},
 	{"HOSTKEY_MISMATCH", 4, "host key for … changed: the server was rebuilt, or someone is intercepting the connection", "possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust … --reset`"},
+	{"HOSTKEY_REVOKED", 4, "… shows the revoked host key …", "this key was revoked (an @revoked line of your known_hosts, moved by `komando seal`): treat the server as compromised and tell its owner; nothing was sent"},
 	{"HOSTKEY_UNKNOWN", 4, "host key for … is not trusted yet (host keys are strict)", "compare the fingerprint with what the server's owner sees, then run `komando host trust …` (an AI agent asks the user: its pin needs their yes)"},
 	{"HOST_IN_USE", 8, "server … is on the --via path of server …", "change it first: `komando host edit … --via OTHER` (or --unset via), or remove both together"},
 	{"HOST_NOT_FOUND", 3, "host … not found", "run `komando host list` to see available hosts"},

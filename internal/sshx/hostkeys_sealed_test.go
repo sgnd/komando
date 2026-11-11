@@ -140,3 +140,31 @@ func TestSealedPinChanges(t *testing.T) {
 		t.Fatal("known_hosts written in a sealed home")
 	}
 }
+
+// A revoked key is refused for every server, and can never be pinned.
+func TestRevokedHostKey(t *testing.T) {
+	pinHome(t)
+	keys := []ssh.PublicKey{newHostKey(t), newHostKey(t)}
+	if _, err := PinHostKey("web:22", keys[0], false); err != nil {
+		t.Fatal(err)
+	}
+	if err := RevokeHostKeys([]ssh.PublicKey{keys[0], keys[1]}); err != nil {
+		t.Fatal(err)
+	}
+	remote, _ := net.ResolveTCPAddr("tcp", "10.0.0.1:22")
+	for _, host := range []string{"web:22", "other:22"} {
+		_ = HostKeys().view(func(tx hostKeyTx) error {
+			var rv *knownhosts.RevokedError
+			if err := tx.Check(host, remote, keys[0]); !errors.As(err, &rv) {
+				t.Errorf("%s: %v", host, err)
+			}
+			return nil
+		})
+	}
+	if _, err := PinHostKey("new:22", keys[1], false); err == nil {
+		t.Error("a revoked key was pinned")
+	}
+	if rev, _ := HostKeyRevoked(keys[1]); !rev {
+		t.Error("not on the list")
+	}
+}
