@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -620,6 +621,85 @@ func TestMenuTaskSpec(t *testing.T) {
 	}
 }
 
+// Protect or unprotect asks only the production question, and each answer
+// builds a command that does it: No takes protection away.
+func TestMenuProtectTask(t *testing.T) {
+	root := newRoot()
+	st := menuTestState()
+	for _, key := range []string{"host edit", "conn edit"} {
+		i := slices.IndexFunc(menuEveryTask(t), func(tk menuTask) bool { return tk.cmd == key && tk.only != nil })
+		if i < 0 {
+			t.Fatalf("no Protect or unprotect task for %s", key)
+		}
+		tk := menuEveryTask(t)[i]
+		c, _, _ := root.Find(strings.Fields(key))
+		sp, _ := menuTaskSpec(st, c, tk, "")
+		for _, q := range sp.qs {
+			if strings.HasPrefix(q.key, "flag:") && !q.advanced != (q.key == "flag:protected") {
+				t.Errorf("%s: %s advanced %v", key, q.key, q.advanced)
+			}
+		}
+		for v, want := range map[string]string{"true": "--protected", "false": "--protected=false", "": ""} {
+			got := formBuild(st, sp, formAnswers{"arg0": "web-1", "flag:protected": v})[0]
+			if want == "" && len(got) != 3 || want != "" && !slices.Contains(got, want) {
+				t.Errorf("%s, production %q: %v, want %q", key, v, got, want)
+			}
+		}
+	}
+}
+
+// A group offers only what runs on several servers: no shell, tunnel,
+// login or one-file edit, which would stop at "needs exactly one".
+func TestMenuGroupTasks(t *testing.T) {
+	var walk func(ts []menuTask)
+	seen := map[string]bool{}
+	walk = func(ts []menuTask) {
+		for _, tk := range ts {
+			seen[tk.cmd] = true
+			for _, l := range tk.line {
+				seen[l[0]] = true
+			}
+			walk(tk.sub)
+		}
+	}
+	walk(groupTasks())
+	for _, cmd := range []string{"shell", "tunnel start", "login", "fs replace", "fs cat"} {
+		if seen[cmd] {
+			t.Errorf("a group offers %s, which works on one server", cmd)
+		}
+	}
+	for _, cmd := range []string{"logs", "exec", "upload", "recipe run", "group add"} {
+		if !seen[cmd] {
+			t.Errorf("a group lost %s", cmd)
+		}
+	}
+}
+
+// Log in with a code under a server logs in to that server, not asking
+// which one again.
+func TestMenuLoginUsesItem(t *testing.T) {
+	i := slices.IndexFunc(serverMoreTasks, func(tk menuTask) bool { return tk.cmd == "login" })
+	sp, given, ok := menuHandForm(formHints["login"], serverMoreTasks[i], "web-1")
+	if !ok || given["arg0"] != "web-1" {
+		t.Fatalf("login: ok %v, given %v", ok, given)
+	}
+	if got := formBuild(menuTestState(), sp, given)[0]; !slices.Equal(got, []string{"login", "web-1"}) {
+		t.Errorf("login: %v", got)
+	}
+	if _, _, ok := menuHandForm(formHints["login"], menuTask{cmd: "login", noItem: true}, ""); ok {
+		t.Error("with no item the server is not asked")
+	}
+}
+
+// A list from komando export comes back with import komando, which takes
+// its databases, VPNs and settings too, not only its servers.
+func TestMenuImportExported(t *testing.T) {
+	i := slices.IndexFunc(importTasks, func(tk menuTask) bool { return tk.label == "A list exported from komando" })
+	if tk := importTasks[i]; tk.cmd != "import" || !slices.Equal(tk.fill, []string{"komando"}) {
+		t.Errorf("exported list: %s %v", tk.cmd, tk.fill)
+	}
+}
+
 // Disconnecting a VPN asks first and says what stops answering; Reboot
 // asks first. No is the first row, so Enter alone does nothing.
 func TestMenuConfirms(t *testing.T) {
@@ -1024,5 +1104,56 @@ func TestMenuRunningLeavesOutEndedJobs(t *testing.T) {
 	}
 	if !slices.Equal(jobs, []string{"Job live"}) {
 		t.Fatalf("Running now jobs = %v, want only Job live", jobs)
+	}
+}
+
+// Check everything runs doctor even when a server fails test all, and says
+// the worst exit; other lines stop at the first failure, and Ctrl-C stops
+// both.
+func TestMenuRunLines(t *testing.T) {
+	codes := map[string]int{"test": 4, "doctor": 0, "stop": -1}
+	cases := []struct {
+		cmds      [][]string
+		keepGoing bool
+		want      string
+		ran       int
+	}{
+		{checkLines, true, "exit 4", 2},
+		{checkLines, false, "exit 4", 1},
+		{[][]string{{"stop"}, {"doctor"}}, true, "stopped", 1},
+		{[][]string{{"doctor"}}, false, "exit 0", 1},
+	}
+	for _, c := range cases {
+		ran := 0
+		got, err := menuRunLines(c.cmds, c.keepGoing, func(args []string) (int, error) {
+			ran++
+			return codes[args[0]], nil
+		})
+		if err != nil || got != c.want || ran != c.ran {
+			t.Errorf("%v keepGoing %v: %q after %d, want %q after %d", c.cmds, c.keepGoing, got, ran, c.want, c.ran)
+		}
+	}
+	if next, _ := menuOpen(context.Background(), nil, nil, nil, checkAction, menuScreen{}, nil); !next.keepGoing {
+		t.Error("Check everything stops at the first failure")
+	}
+}
+
+// Set up my AI agent, tried first: a dry run says what it would do.
+func TestGuideInstallDryRunText(t *testing.T) {
+	files := []skillFile{{Path: "/h/.claude/skills/komando/SKILL.md", Action: "created"},
+		{Path: "/h/.claude/settings.json", Action: "updated", Backup: "/h/.claude/settings.json.bak"}}
+	g.dryRun = true
+	dry := skillResult{Files: files}.Text()
+	g.dryRun = false
+	for _, line := range strings.Split(dry, "\n") {
+		if strings.HasPrefix(line, "created") || strings.HasPrefix(line, "updated") || strings.Contains(line, "Restart") {
+			t.Errorf("dry run says it was done: %q", line)
+		}
+	}
+	if !strings.Contains(dry, "would create") || !strings.Contains(dry, "would be kept") {
+		t.Errorf("dry run:\n%s", dry)
+	}
+	if real := (skillResult{Files: files}).Text(); !strings.HasPrefix(real, "created  ") {
+		t.Errorf("real run:\n%s", real)
 	}
 }

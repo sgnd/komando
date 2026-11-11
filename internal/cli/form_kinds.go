@@ -297,7 +297,7 @@ func serverForm() formSpec {
 				}
 				return rows
 			}}, ssh),
-		formMore(formProtectQ("server")),
+		formProtectQ("server"),
 		serverJumpQ(),
 		formWhen(formMore(formYesNoQ("code", "One-time code", "Does it also ask for a one-time code when you log in?",
 			"A 6-digit code from an app like Google Authenticator. Most servers do not.", "no",
@@ -348,7 +348,7 @@ func serverAddressProblem(_ *store.State, _ formAnswers, v string) string {
 		if strings.HasPrefix(v, "ssh://") {
 			return "type it without ssh://, like root@vps.example.com"
 		}
-		return "this looks like a web address or a database URL; for a server type only its address. A database: Esc back to the list, then Database"
+		return "this looks like a web address or a database URL; for a server type only its address. To add a database instead, leave with Ctrl-C and type komando db add"
 	}
 	if strings.HasPrefix(v, "-") || strings.ContainsAny(v, " \t/") {
 		return "type only the address, like 203.0.113.20 or vps.example.com"

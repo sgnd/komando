@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"errors"
 	"slices"
 	"strconv"
@@ -38,6 +39,7 @@ type formHint struct {
 // formArg is how one argument is asked.
 type formArg struct {
 	ask, help, example, def string
+	label                   string // its short name on the review; "" takes it from Use
 	// pick is the list it is picked from: server (one server), host
 	// (servers, groups, all), target, conn, db, cache, storage, cluster,
 	// queue, registry, vpn, key, group, job, tunnel, secret; "" typed
@@ -59,6 +61,9 @@ type formFlag struct {
 	show                          func(a formAnswers) bool // as formArg.show
 	local                         bool                     // as formArg.local
 	empty                         bool                     // an empty answer is sent (--new= removes the text)
+	// keep makes a switch three-way for edits: leave it, Yes, or No
+	// (--name=false), since No alone would change nothing
+	keep bool
 }
 
 // formHints is keyed by the command path without "komando " (db query).
@@ -200,14 +205,27 @@ func formPickRows(st *store.State, pick string) []menuRow {
 }
 
 // formWords is a Use name as a person reads it: SQL stays, TARGET is
-// "Target".
+// "Target", SRC_CONN:IMAGE is "Src conn image".
 func formWords(name string) string {
-	n := strings.ToLower(strings.ReplaceAll(name, "_", " "))
-	if len(name) <= 3 {
+	name = strings.Trim(strings.NewReplacer("[", "", "]", "", ":", " ", "_", " ").Replace(name), " ")
+	if slices.Contains(formAcronyms, name) {
+		return name
+	}
+	if w, ok := formPlainNames[name]; ok {
+		return w
+	}
+	n := strings.ToLower(strings.Join(strings.Fields(name), " "))
+	if n == "" {
 		return name
 	}
 	return strings.ToUpper(n[:1]) + n[1:]
 }
+
+// formPlainNames are Use names a beginner would not read as words.
+var formPlainNames = map[string]string{"SRC": "From", "DST": "To", "DEST": "To", "CONN": "Service"}
+
+// formAcronyms stay in capitals as labels.
+var formAcronyms = []string{"SQL", "URL", "PID", "TTL", "ID", "IP", "CSV", "DNS", "OS"}
 
 // formCmdSpec makes the questions for one command.
 func formCmdSpec(cmd *cobra.Command) formSpec {
@@ -246,7 +264,7 @@ func formArgQ(i int, u formUseArg, h formHint) formQ {
 	if ah.pick == "" && ah.ask == "" {
 		ah.pick, ah.free = formArgPick(u.name)
 	}
-	q := formQ{key: "arg" + strconv.Itoa(i), label: formWords(u.name), optional: u.optional,
+	q := formQ{key: "arg" + strconv.Itoa(i), label: cmp.Or(ah.label, formWords(u.name)), optional: u.optional,
 		ask: ah.ask, help: ah.help, example: ah.example}
 	if q.ask == "" {
 		q.ask = formWords(u.name) + "?"
@@ -300,6 +318,11 @@ func formFlagQ(f *pflag.Flag, ff formFlag, advanced bool) formQ {
 		def = f.DefValue
 	}
 	switch {
+	case f.Value.Type() == "bool" && ff.keep:
+		def, q.optional = "", true
+		q.choices = func(*store.State, formAnswers) []menuRow {
+			return []menuRow{{label: "Leave it as it is", value: ""}, {label: "Yes", value: "true"}, {label: "No", value: "false"}}
+		}
 	case f.Value.Type() == "bool":
 		if def == "" {
 			def = "false"
@@ -402,7 +425,7 @@ func formCmdArgs(cmd *cobra.Command, uses []formUseArg, h formHint, a formAnswer
 		v, ok := a["flag:"+f.Name]
 		ff := formFlagHint(h, f.Name)
 		switch {
-		case !ok || v == f.DefValue || slices.Contains(h.always, "--"+f.Name):
+		case !ok || (v == f.DefValue && !ff.keep) || slices.Contains(h.always, "--"+f.Name):
 		case v == "" && ff.empty:
 			flags = append(flags, "--"+f.Name+"=")
 		case v == "":

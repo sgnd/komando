@@ -177,6 +177,12 @@ func usageErr(cmd *cobra.Command, err error) error {
 		return e
 	} else if ok {
 		e.Message = fmt.Sprintf("unknown command %q", name)
+		// not "pick Add something": the first-run menu, where a newcomer
+		// most likely is, has no such row
+		if name == "add" && !cmd.HasParent() {
+			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn add`; typed alone at a terminal, each one asks step by step"
+			return e
+		}
 		if s := cmd.SuggestionsFor(name); len(s) > 0 {
 			e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
 			e.Hint = "see `" + cmd.CommandPath() + " " + s[0] + " --help`"

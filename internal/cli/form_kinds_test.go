@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -183,6 +185,8 @@ func TestFormNewKindChecks(t *testing.T) {
 		{func(v string) string { return serverUserProblem(nil, nil, v) }, `CORP\deploy`, "deploy@corp.example.com"},
 		{func(v string) string { return serverUserProblem(nil, nil, v) }, "deploy@corp.local", ""},
 		{func(v string) string { return serverAddressProblem(nil, nil, v) }, "winrm://10.0.0.9", "without winrm://"},
+		// said on first run too, where Add a server has no list to go back to
+		{func(v string) string { return serverAddressProblem(nil, nil, v) }, "postgres://app@10.0.0.5/shop", "komando db add"},
 		{func(v string) string { return snowflakeAccountProblem(nil, nil, v) }, "https://myorg-myaccount.snowflakecomputing.com", "type only"},
 		{func(v string) string { return snowflakeAccountProblem(nil, nil, v) }, "xy12345.eu-central-1", ""},
 		{gcpProjectProblem, "My Project", "project ID"},
@@ -208,8 +212,9 @@ func TestFormNewKindChecks(t *testing.T) {
 	}
 }
 
-// The server form asks name, address and user first; production, the
-// jump host, the one-time code, group and notes wait under More options.
+// The server form asks name, address and user first, production with the
+// rest; the jump host, the one-time code, group and notes wait under More
+// options.
 func TestFormServerOrder(t *testing.T) {
 	sp := serverForm()
 	var keys []string
@@ -221,7 +226,7 @@ func TestFormServerOrder(t *testing.T) {
 	}
 	for _, q := range sp.qs {
 		switch q.key {
-		case "protected", "via", "code", "group", "notes":
+		case "via", "code", "group", "notes":
 			if !q.advanced {
 				t.Errorf("%s is not under More options", q.key)
 			}
@@ -248,6 +253,10 @@ func TestFormDestructive(t *testing.T) {
 		"queue purge q1 orders": true, "cache rm c1 k": true, "storage rm s3 a": true,
 		"registry prune r repo": true, "cluster scale k deployment/api 0": true,
 		"cluster scale k deployment/api 3": false, "host add web1 root@10.0.0.5": false,
+		"fs rm web1 /srv/old --recursive": true, "docker rm web1 api": true, "docker prune web1 --all": true,
+		"user rm web1 bob --remove-home": true, "db user rm db1 bob": true, "db user list db1": false,
+		"secret rm db-pass": true, "key rm k1 --delete-file": true, "key rm k1": false,
+		"pkg rm web1 nginx": true, "cron rm web1 backup": true, "host rm web1": false,
 	}
 	for line, want := range cases {
 		if got := formDestructive([][]string{strings.Fields(line)}) != ""; got != want {
@@ -293,5 +302,61 @@ func TestFormNoJargon(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// Every Add something row opens all of its groups, together every Add
+// group once, and every `KIND add` typed alone opens its own group.
+func TestMenuAddGroups(t *testing.T) {
+	seen := map[string]int{}
+	for _, r := range menuAddRows {
+		gs := menuAddGroups(r.label)
+		if len(gs) != len(r.groups) {
+			t.Errorf("Add something > %s: %d groups, want %v", r.label, len(gs), r.groups)
+		}
+		for _, g := range gs {
+			seen[g.label]++
+		}
+	}
+	for _, g := range formGroups() {
+		if seen[g.label] != 1 {
+			t.Errorf("Add group %q is offered %d times by Add something", g.label, seen[g.label])
+		}
+	}
+	for kind := range connAddKinds {
+		if gs := formGroupNamed(formFamilyAdd[kind+" add"]); len(gs) != 1 {
+			t.Errorf("komando %s add alone: %d groups, want its own", kind, len(gs))
+		}
+	}
+	if _, _, err := formPick(context.Background(), nil, nil, menuScreen{}); !errors.Is(err, errMenuBack) {
+		t.Errorf("formPick with nothing to pick: %v", err)
+	}
+}
+
+// The production question is asked of every kind, servers too: its Yes
+// default must take effect without opening More options.
+func TestFormProtectAskedEverywhere(t *testing.T) {
+	for _, g := range formGroups() {
+		for _, k := range g.kinds {
+			for _, q := range k.spec().qs {
+				if q.key == "protected" && q.advanced {
+					t.Errorf("%s > %s: Production is under More options", g.label, k.label)
+				}
+			}
+		}
+	}
+}
+
+// The review shows exactly what Run it runs: an answer a later edit hid
+// (a log file, once a service was picked) is in neither.
+func TestFormReviewShowsWhatRuns(t *testing.T) {
+	st := menuTestState()
+	c, _, _ := newRoot().Find([]string{"logs"})
+	sp := formCmdSpec(c)
+	a := formAnswers{"arg0": "web-1", "flag:file": "/var/log/app.log", "flag:unit": "nginx"}
+	l := formReviewList(st, sp, a, true)
+	want := "$ komando " + menuCommandLine(formBuild(st, sp, a)[0])
+	if len(l.runs) != 1 || l.runs[0] != want || strings.Contains(want, "app.log") {
+		t.Errorf("review %v, runs %q", l.runs, want)
 	}
 }

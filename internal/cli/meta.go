@@ -257,6 +257,10 @@ type skillResult struct {
 func (r skillResult) Text() string {
 	var b strings.Builder
 	changed := false
+	kept := "  old version kept as "
+	if g.dryRun {
+		kept = "  old version would be kept as "
+	}
 	for _, f := range r.Files {
 		action := f.Action
 		if action != "unchanged" {
@@ -267,7 +271,7 @@ func (r skillResult) Text() string {
 		}
 		b.WriteString(action + "  " + f.Path + "\n")
 		if f.Backup != "" {
-			b.WriteString("  old version kept as " + f.Backup + "\n")
+			b.WriteString(kept + f.Backup + "\n")
 		}
 		if f.Note != "" {
 			b.WriteString("  " + f.Note + "\n")

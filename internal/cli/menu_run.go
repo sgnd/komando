@@ -16,32 +16,25 @@ import (
 )
 
 // menuRun runs komando commands in the normal screen, one after the other
-// until one fails: each command line first, so the person learns it, then
-// its output, then how the last one ended. Then it waits (Enter goes back,
-// q quits) and erases the key help, so the scrollback keeps only the
-// commands, their output and how they ended.
+// until one fails (all of them with keepGoing): each command line first, so
+// the person learns it, then its output, then how they ended. Then it waits
+// (Enter goes back, q quits) and erases the key help, so the scrollback
+// keeps only the commands, their output and how they ended.
 //
 // back is where Enter goes: "the menu", or "the questions" after Try it
 // first.
-func menuRun(ctx context.Context, t *menuTerm, self string, cmds [][]string, ownExit bool, back string) (bool, error) {
+func menuRun(ctx context.Context, t *menuTerm, self string, cmds [][]string, ownExit, keepGoing bool, back string) (bool, error) {
 	t.leave()
-	result := "exit 0"
-	for _, args := range cmds {
+	result, err := menuRunLines(cmds, keepGoing, func(args []string) (int, error) {
 		fmt.Fprintf(os.Stderr, "$ komando %s\n", menuCommandLine(args))
 		code, err := menuRunOne(self, args)
 		// a command that died without undoing raw mode (killed, crashed) must
 		// not leave its terminal modes to the menu or to the next command
 		t.restoreOrig()
-		if err != nil {
-			return false, err
-		}
-		if code != 0 {
-			result = fmt.Sprintf("exit %d", code)
-			if code < 0 { // ended by a signal, most likely Ctrl-C
-				result = "stopped"
-			}
-			break
-		}
+		return code, err
+	})
+	if err != nil {
+		return false, err
 	}
 	if ownExit && result == "exit 0" {
 		result = "" // "komando: left web1 (exit 0, 12m)" said it already
@@ -59,6 +52,27 @@ func menuRun(ctx context.Context, t *menuTerm, self string, cmds [][]string, own
 		fmt.Fprintln(os.Stderr, result)
 	}
 	return again, err
+}
+
+// menuRunLines runs cmds with run and says how they ended: "exit 0", the
+// highest exit code, or "stopped" when a signal ended one (most likely
+// Ctrl-C), which stops the rest even with keepGoing.
+func menuRunLines(cmds [][]string, keepGoing bool, run func([]string) (int, error)) (string, error) {
+	worst := 0
+	for _, args := range cmds {
+		code, err := run(args)
+		if err != nil {
+			return "", err
+		}
+		if code < 0 {
+			return "stopped", nil
+		}
+		worst = max(worst, code)
+		if code != 0 && !keepGoing {
+			break
+		}
+	}
+	return fmt.Sprintf("exit %d", worst), nil
 }
 
 // menuRunOne runs one komando command on this terminal: its exit code, -1

@@ -51,8 +51,8 @@ var (
 		example: "main shop database"}
 	invAskPassword = formFlag{name: "ask-password", ask: "Change the password?",
 		help: "Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line."}
-	invProtected = formFlag{name: "protected", ask: "Can a mistake on it hurt real users or real data?",
-		help: "Yes means komando asks you before every change there, also changes an AI agent wants to make. No leaves it as it is."}
+	invProtected = formFlag{name: "protected", ask: "Can a mistake on it hurt real users or real data?", keep: true,
+		help: "Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away."}
 	invVia = formFlag{name: "via", ask: "Reach it through which server or VPN?", example: "bastion",
 		help: "The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now."}
 	invWait = formFlag{name: "wait", ask: "Keep trying for how long?",

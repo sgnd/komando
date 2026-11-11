@@ -497,9 +497,21 @@ const (
 // formReview shows every answer and the commands they make. Enter on the
 // first row runs them; on an answer, asks it again.
 func formReview(ctx context.Context, t *menuTerm, st *store.State, sp formSpec, a formAnswers, scr menuScreen, dry bool) (string, error) {
+	l := formReviewList(st, sp, a, dry)
+	scr.footer = listKeys(l, "Esc back", formCancelKey(l))
+	row, err := menuChoose(ctx, t, l, scr)
+	if errors.Is(err, errMenuQuit) {
+		return "", errFormCancel
+	}
+	return row.value, err
+}
+
+// formReviewList is the review screen. Its commands are formBuild's, so
+// what it shows is what Run it runs.
+func formReviewList(st *store.State, sp formSpec, a formAnswers, dry bool) *menuList {
 	l := &menuList{title: sp.title + ": check and run", note: "Enter on an answer changes it"}
 	l.lead = append(l.lead, []seg{{"This runs:", "2"}})
-	cmds := sp.build(st, a)
+	cmds := formBuild(st, sp, a)
 	for _, c := range cmds {
 		l.runs = append(l.runs, "$ komando "+menuCommandLine(c))
 	}
@@ -532,12 +544,7 @@ func formReview(ctx context.Context, t *menuTerm, st *store.State, sp formSpec, 
 	if gone != "" && dry {
 		l.point(formDryRow) // Enter tries it first; running for real is one row up
 	}
-	scr.footer = listKeys(l, "Esc back", formCancelKey(l))
-	row, err := menuChoose(ctx, t, l, scr)
-	if errors.Is(err, errMenuQuit) {
-		return "", errFormCancel
-	}
-	return row.value, err
+	return l
 }
 
 // formDestructive says what a command deletes for good ("deletes keys"),
@@ -562,6 +569,31 @@ func formDestructive(cmds [][]string) string {
 			return "deletes the images"
 		case "db restore":
 			return "replaces what is in the database now"
+		case "db user":
+			if len(c) > 2 && c[2] == "rm" {
+				return "deletes the database user"
+			}
+		case "fs rm":
+			return "deletes the files"
+		case "docker rm":
+			return "deletes the containers"
+		case "docker prune":
+			return "deletes stopped containers and unused images"
+		case "user rm":
+			if slices.Contains(c, "--remove-home") {
+				return "deletes the user and their home folder"
+			}
+			return "deletes the user"
+		case "secret rm":
+			return "deletes the saved passwords"
+		case "key rm":
+			if slices.Contains(c, "--delete-file") {
+				return "deletes the key files"
+			}
+		case "pkg rm":
+			return "removes the packages"
+		case "cron rm":
+			return "deletes the scheduled task"
 		case "cluster scale":
 			if slices.Contains(c, "0") || slices.Contains(c, "--replicas=0") {
 				return "stops every copy of the app"
@@ -575,6 +607,9 @@ func formDestructive(cmds [][]string) string {
 // when the group has more than one. A list with one row is not shown; asked
 // says whether any list was, so Esc on the form has somewhere to go back.
 func formPick(ctx context.Context, t *menuTerm, groups []formGroup, scr menuScreen) (sp formSpec, asked bool, err error) {
+	if len(groups) == 0 {
+		return formSpec{}, false, errMenuBack
+	}
 	gl := &menuList{title: "Add: what is it?"}
 	for _, g := range groups {
 		gl.rows = append(gl.rows, menuRow{label: g.label, detail: g.detail, value: g.label})
@@ -656,7 +691,7 @@ func formCommand(groups []formGroup) error {
 	}
 	scr := menuScreen{header: menuHeader(st), color: colorOK()}
 	try := func(args []string) error {
-		again, err := menuRun(context.Background(), t, self, [][]string{args}, false, "the questions")
+		again, err := menuRun(context.Background(), t, self, [][]string{args}, false, false, "the questions")
 		if err == nil && !again {
 			err = errFormCancel // q after Try it first: leave
 		}

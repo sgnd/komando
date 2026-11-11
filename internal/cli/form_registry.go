@@ -444,9 +444,9 @@ func init() {
 			flags: []formFlag{{name: "keep", ask: "Keep how many of the newest images?", example: "10"},
 				{name: "older-than", ask: "Or delete only images older than? (leave empty for any age)", example: "30d or 12h"}}},
 		"registry copy": {args: []formArg{
-			{ask: "Copy which image? Type its registry, a colon, then the image", example: "ghcr:acme/api:1.4.3",
+			{ask: "Copy which image? Type its registry, a colon, then the image", label: "Copy from", example: "ghcr:acme/api:1.4.3",
 				help: "Like ghcr:acme/api:1.4.3: ghcr is the registry's name in your list, acme/api:1.4.3 the image."},
-			{ask: "Copy it where? Type the registry, a colon, then the new name", example: "harbor:shop/api:1.4.3",
+			{ask: "Copy it where? Type the registry, a colon, then the new name", label: "Copy to", example: "harbor:shop/api:1.4.3",
 				help: "Like harbor:shop/api:1.4.3. Type only harbor: to keep the same name."}}},
 	})
 }

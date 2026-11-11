@@ -508,7 +508,7 @@ func TestInvRmSelector(t *testing.T) {
 }
 
 func TestInvEmptyListText(t *testing.T) {
-	if s := (targetList{Targets: []targetRow{}, empty: true}).Text(); !strings.Contains(s, "No servers or conns yet") {
+	if s := (targetList{Targets: []targetRow{}, empty: true}).Text(); !strings.Contains(s, "No servers, databases or other services yet") || strings.Contains(s, "conns") {
 		t.Errorf("text: %q", s)
 	}
 }
