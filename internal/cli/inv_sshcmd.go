@@ -26,7 +26,9 @@ func hostSSHArgsCmd() *cobra.Command {
 known_hosts file and --via path komando uses. A server behind --via servers gets
 a ProxyCommand per hop (ssh -W), so every hop uses its own key. A SOCKS VPN
 becomes nc -X 5; VPNs that run inside komando cannot be used by OpenSSH:
-use ` + "`komando shell NAME`" + ` for those.`,
+use ` + "`komando shell NAME`" + ` for those. A key made with komando key gen is never
+written to a file: it goes to your running ssh-agent (SSH_AUTH_SOCK) for one
+hour, and the line picks it by its public key.`,
 		Example: `  komando host ssh-command web1
   $(komando host ssh-command web1 -o text)      # open a shell with OpenSSH`,
 		Args: cobra.ExactArgs(1),
@@ -111,13 +113,15 @@ func sshPath(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, 
 }
 
 // hopOptions are the ssh options to log in to one hop.
-func hopOptions(st *store.State, h *store.Host, knownHosts string) []string {
+func hopOptions(st *store.State, h *store.Host, knownHosts string, agentOpts map[string][]string) []string {
 	o := []string{"-o", "UserKnownHostsFile=" + knownHosts}
 	if h.EffectivePort() != 22 {
 		o = append(o, "-p", strconv.Itoa(h.EffectivePort()))
 	}
 	if h.Identity != "" {
 		o = append(o, "-i", expandHome(h.Identity))
+	} else if a, ok := agentOpts[h.Key]; ok {
+		o = append(o, a...)
 	} else if k, ok := st.Keys[h.Key]; ok {
 		o = append(o, "-i", k.Path)
 	}
@@ -166,27 +170,27 @@ func vpnProxy(st *store.State, v *store.Vpn) (string, error) {
 // sealedSSHFiles readies OpenSSH on a sealed home, where the pins and the
 // keys komando made are sealed and OpenSSH reads files: the pins of the
 // path go to a known_hosts copy in a private temporary folder, for a person
-// only, and a sealed key stops it.
-func sealedSSHFiles(st *store.State, hops []*store.Host) (string, error) {
+// only, and a sealed key goes to the running ssh-agent (agentKeys).
+func sealedSSHFiles(st *store.State, hops []*store.Host) (string, map[string][]string, error) {
 	if isAgent() {
-		return "", out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+		return "", nil, out.Errf(out.ExitPolicy, "NEEDS_PERSON",
 			"use `komando exec` or `komando shell`; a person who wants OpenSSH runs `komando host ssh-command` in their own terminal",
 			"host ssh-command writes a copy of the pinned host keys for OpenSSH, so only a person at a terminal can run it here")
 	}
 	var addrs []string
 	for _, h := range hops {
-		if k, ok := st.Keys[h.Key]; ok && h.Identity == "" && store.SealedKey(k) {
-			return "", out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-				"use `komando shell "+h.Name+"`, which logs in with it",
-				"key %s is sealed inside komando's store, so OpenSSH cannot read it", k.Name)
-		}
 		addrs = append(addrs, net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())))
 	}
 	dir, err := os.MkdirTemp("", "komando-ssh-")
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return sshx.WritePinsFile(dir, addrs)
+	kh, err := sshx.WritePinsFile(dir, addrs)
+	if err != nil {
+		return "", nil, err
+	}
+	keys, err := agentKeys(st, hops, dir)
+	return kh, keys, err
 }
 
 // sshCommandFor builds the ssh argv for h.
@@ -195,7 +199,7 @@ func sshCommandFor(st *store.State, h *store.Host) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	kh, err := sealedSSHFiles(st, hops)
+	kh, ak, err := sealedSSHFiles(st, hops)
 	if err != nil {
 		return nil, err
 	}
@@ -216,14 +220,14 @@ func sshCommandFor(st *store.State, h *store.Host) ([]string, error) {
 				"%s has a proxy command but is reached through another hop", hops[i].Name)
 		}
 		prev := hops[i-1]
-		p := append([]string{"ssh"}, hopOptions(st, prev, kh)...)
+		p := append([]string{"ssh"}, hopOptions(st, prev, kh, ak)...)
 		if proxy != "" {
 			p = append(p, "-o", "ProxyCommand="+escapePct(proxy))
 		}
 		p = append(p, "-W", net.JoinHostPort(hops[i].Address, strconv.Itoa(hops[i].EffectivePort())), hopDest(st, prev))
 		proxy = shellLine(p)
 	}
-	parts := append([]string{"ssh"}, hopOptions(st, h, kh)...)
+	parts := append([]string{"ssh"}, hopOptions(st, h, kh, ak)...)
 	if proxy != "" {
 		parts = append(parts, "-o", "ProxyCommand="+proxy) // ssh fills in %h %p itself
 	}

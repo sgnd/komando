@@ -51,8 +51,9 @@ check "trust --reset --dry-run removes nothing" "$N1" "$N2"
 check "trust --reset --dry-run counts the pinned key" True "$([ "$N1" -ge 1 ] && echo True || echo False)"
 
 # ssh-command: a hop per ProxyCommand, VPN as nc -X 5
-# bastion logs in with a key komando made, sealed in the store: OpenSSH cannot read it
-check "ssh-command refuses a key sealed in the store" NOT_SUPPORTED "$($K host ssh-command target | jget 'd["error"]["code"]' || true)"
+# bastion logs in with a key komando made, sealed in the store: OpenSSH
+# gets it from a running ssh-agent only
+check "ssh-command without an ssh-agent" SSH_AGENT_NEEDED "$(env -u SSH_AUTH_SOCK $K host ssh-command target | jget 'd["error"]["code"]' || true)"
 
 # import: a proxy command never comes from a file; protected names
 printf '%s\n' '{"hosts":[{"name":"t-e2einv5","address":"10.9.9.5","proxy_command":"nc %h %p"}]}' >"$TMP/inv-hosts.json"

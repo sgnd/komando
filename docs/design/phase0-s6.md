@@ -40,7 +40,8 @@ byte for byte.
   known_hosts file does (host name and IP, ports, IPv6). A test runs the
   same cases against both.
 - **`host ssh-command`** gives a person a temporary private known_hosts
-  copy; a key sealed in the store stops with a hint to use `komando shell`.
+  copy; a key sealed in the store goes to the running ssh-agent (a later
+  change; first it stopped with a hint to use `komando shell`).
 - **Audit** rows are sealed and numbered; `audit verify` reports the first
   broken number; `audit --follow` reads new rows in short steps.
 - **Agents see** one new error code in S6, `STORE_NEWER`. `STORE_OLD_COPY`
