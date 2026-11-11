@@ -1,6 +1,10 @@
 package cli
 
-import "github.com/spf13/cobra"
+import (
+	"strings"
+
+	"github.com/spf13/cobra"
+)
 
 // What each command does, in one word, so that agents (through `komando
 // schema`) and reviewers see it without reading the code:
@@ -189,8 +193,6 @@ var commandKinds = map[string]cmdKind{
 	"host":             reads,
 	"host add":         changes,
 	"host edit":        changes,
-	"host export":      reads,
-	"host import":      changes,
 	"host list":        reads,
 	"host mv":          changes,
 	"host rm":          changes,
@@ -248,7 +250,6 @@ var commandKinds = map[string]cmdKind{
 	"policy deny":  changes,
 	"policy list":  reads,
 
-	"prompt": reads,
 	"reboot": changes,
 
 	"rename": changes,
@@ -341,7 +342,13 @@ var commandKinds = map[string]cmdKind{
 }
 
 // kindOf is the kind of a command; ok is false for one missing from the table.
+// An old name has the kind of the command that does it now.
 func kindOf(c *cobra.Command) (cmdKind, bool) {
+	if now := c.Annotations[oldNameNote]; now != "" && c.Root() != c {
+		if n, _, err := c.Root().Find(strings.Fields(now)); err == nil && n != c {
+			c = n
+		}
+	}
 	k, ok := commandKinds[commandKey(c)]
 	return k, ok
 }

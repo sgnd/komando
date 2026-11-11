@@ -81,27 +81,29 @@ func TestPromptNeverBreaks(t *testing.T) {
 	}
 }
 
-// TestPromptCommandChangesNothing runs `komando prompt` itself: the root's
+// TestPromptCommandChangesNothing runs `komando status --short` itself: the root's
 // checks (which close idle VPN sessions and need the audit log) are
 // skipped, and the state file stays byte for byte the same.
 func TestPromptCommandChangesNothing(t *testing.T) {
-	st := &store.State{
-		Settings: store.DefaultSettings(),
-		Sessions: map[string]*store.VpnSession{"stale": {Vpn: "stale", PID: 1 << 30}},
-	}
-	p := writePromptState(t, st)
-	before, _ := os.ReadFile(p)
-	root := newRoot()
-	root.SetArgs([]string{"prompt"})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("prompt: %v", err)
-	}
-	after, _ := os.ReadFile(p)
-	if string(before) != string(after) {
-		t.Error("prompt changed the state file")
-	}
-	if _, err := os.Stat(store.Path("keys")); !os.IsNotExist(err) {
-		t.Error("prompt created the keys folder")
+	for _, args := range [][]string{{"status", "--short"}, {"prompt"}} {
+		st := &store.State{
+			Settings: store.DefaultSettings(),
+			Sessions: map[string]*store.VpnSession{"stale": {Vpn: "stale", PID: 1 << 30}},
+		}
+		p := writePromptState(t, st)
+		before, _ := os.ReadFile(p)
+		root := newRoot()
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		after, _ := os.ReadFile(p)
+		if string(before) != string(after) {
+			t.Errorf("%v changed the state file", args)
+		}
+		if _, err := os.Stat(store.Path("keys")); !os.IsNotExist(err) {
+			t.Errorf("%v created the keys folder", args)
+		}
 	}
 }
 

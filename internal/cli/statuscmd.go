@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -41,7 +42,8 @@ type runningData struct {
 }
 
 func statusCmd() *cobra.Command {
-	return &cobra.Command{
+	var short bool
+	c := &cobra.Command{
 		Use:   "status",
 		Short: "What komando left running: VPNs, logins, tunnels, jobs",
 		Long: `Lists what still runs after the command that started it ended: VPN
@@ -49,11 +51,41 @@ sessions (from vpn up, or started by a command), server logins kept by
 ` + "`komando login HOST`" + `, tunnels, and the jobs
 started on servers. Nothing is contacted, so it is quick and works offline.
 A job is listed until ` + "`komando job rm`" + `; whether it still runs is known on
-its server: ` + "`komando job list --refresh`" + ` asks.`,
+its server: ` + "`komando job list --refresh`" + ` asks.
+
+--short prints one line for your shell prompt: "vpn:office tun:2" when the
+VPN office is up and two tunnels run, nothing when nothing runs. It only
+reads komando's state file, prints no JSON and never fails, so it is safe to
+run on every prompt.
+
+zsh (also with oh-my-zsh), in ~/.zshrc:
+  setopt PROMPT_SUBST
+  RPROMPT='$(komando status --short)'
+
+bash, in ~/.bashrc:
+  PS1='$(p=$(komando status --short); [ -n "$p" ] && echo "[$p] ")'"$PS1"
+
+starship, in ~/.config/starship.toml:
+  [custom.komando]
+  command = "komando status --short"
+  when = true`,
 		Example: `  komando status
-  komando status -o json`,
+  komando status -o json
+  komando status --short   # prints e.g. vpn:office tun:2, or nothing`,
 		Args: cobra.NoArgs,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if short {
+				// not the root's checks: they close idle VPNs and check
+				// the audit log, which is work and writes on every prompt
+				return nil
+			}
+			return cmd.Root().PersistentPreRunE(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if short {
+				fmt.Print(promptText(time.Now()))
+				return nil
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -62,6 +94,8 @@ its server: ` + "`komando job list --refresh`" + ` asks.`,
 			return nil
 		},
 	}
+	c.Flags().BoolVar(&short, "short", false, "one line for your shell prompt, like vpn:office tun:2 (no JSON, never fails)")
+	return c
 }
 
 // sessionAlive is netx.SessionAlive; tests replace it.

@@ -103,41 +103,50 @@ for them. Try --dry-run first to see what would be added.`,
   komando import komando backup.json`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var src *importSource
-			for i := range importSources {
-				if importSources[i].Name == args[0] {
-					src = &importSources[i]
-				}
-			}
-			if src == nil {
-				var all []string
-				for _, s := range importSources {
-					all = append(all, s.Name)
-				}
-				return out.Errf(out.ExitUsage, "USAGE", "use one of: "+strings.Join(all, ", ")+" (`komando import --help` says what each brings in)",
-					"unknown source %q", args[0])
-			}
-			path := src.Default
-			if env := os.Getenv("KUBECONFIG"); src.Name == "kubeconfig" && env != "" {
-				path = env // the files kubectl reads, a:b merged as kubectl merges them
-			}
+			path := ""
 			if len(args) == 2 {
 				path = args[1]
 			}
-			if path == "" {
-				return out.Errf(out.ExitUsage, "USAGE", "for example: komando import "+src.Name+" "+map[string]string{"komando": "komando-backup.json", "csv": "servers.csv"}[src.Name],
-					"give the file to import")
-			}
-			plan, err := src.Parse(expandHome(path))
-			if err != nil {
-				return err
-			}
-			return applyImport(src.Name, path, plan, groups, overwrite)
+			return runImport(args[0], path, groups, overwrite)
 		},
 	}
 	c.Flags().StringSliceVarP(&groups, "group", "g", nil, "add everything imported to these groups")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace servers, conns and recipes with the same name")
 	return c
+}
+
+// runImport is `komando import SOURCE [FILE]`; an empty path is the
+// source's usual file.
+func runImport(source, path string, groups []string, overwrite bool) error {
+	var src *importSource
+	for i := range importSources {
+		if importSources[i].Name == source {
+			src = &importSources[i]
+		}
+	}
+	if src == nil {
+		var all []string
+		for _, s := range importSources {
+			all = append(all, s.Name)
+		}
+		return out.Errf(out.ExitUsage, "USAGE", "use one of: "+strings.Join(all, ", ")+" (`komando import --help` says what each brings in)",
+			"unknown source %q", source)
+	}
+	if path == "" {
+		path = src.Default
+		if env := os.Getenv("KUBECONFIG"); src.Name == "kubeconfig" && env != "" {
+			path = env // the files kubectl reads, a:b merged as kubectl merges them
+		}
+	}
+	if path == "" {
+		return out.Errf(out.ExitUsage, "USAGE", "for example: komando import "+src.Name+" "+map[string]string{"komando": "komando-backup.json", "csv": "servers.csv"}[src.Name],
+			"give the file to import")
+	}
+	plan, err := src.Parse(expandHome(path))
+	if err != nil {
+		return err
+	}
+	return applyImport(src.Name, path, plan, groups, overwrite)
 }
 
 type importSkip struct {

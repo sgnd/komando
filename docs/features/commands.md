@@ -214,8 +214,7 @@ Good to know:
 
 A recipe is a saved command. komando comes with 36 ready-made ones
 (`health`, `disk`, `updates`, ...; see [Health](health.md)), and you
-can save your own next to them. `ops` and `snippet` are other names for
-`recipe`.
+can save your own next to them.
 
 ```bash
 komando recipe list                                   # built-in and saved

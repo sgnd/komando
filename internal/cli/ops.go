@@ -160,8 +160,7 @@ func (l recipeList) Text() string {
 
 // A recipe is a saved command with {{blanks}}. The built-in ones (health,
 // disk, oom, ...) and the ones people save live in one list, under one
-// command. `ops` and `snippet` are other names for it (docs/design/ux.md,
-// section 11).
+// command (docs/design/ux.md, section 11).
 
 type recipeRow struct {
 	Name     string            `json:"name"`
@@ -228,7 +227,7 @@ func findRecipe(st *store.State, name string) (recipeRow, bool) {
 func recipeCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "recipe",
-		Aliases: []string{"recipes", "ops", "snippet", "snippets", "diag"},
+		Aliases: []string{"recipes"},
 		Short:   "Ready-made and saved commands: health, disk, oom, your own",
 	}
 	c.AddCommand(recipeListCmd(), recipeAddCmd(), recipeRmCmd(), recipeRunCmd())

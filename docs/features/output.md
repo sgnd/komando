@@ -171,7 +171,7 @@ server, which `komando job list --refresh` asks. Agents get the same as JSON
 
 ### Show it in your shell prompt (optional)
 
-`komando prompt` prints a short note such as `vpn:office tun:2`, or nothing
+`komando status --short` prints a short note such as `vpn:office tun:2`, or nothing
 when nothing is running, so your prompt can show it all the time. Add it
 yourself; komando never changes your shell files.
 
@@ -179,25 +179,26 @@ zsh (also with oh-my-zsh), in `~/.zshrc`:
 
 ```zsh
 setopt PROMPT_SUBST
-RPROMPT='$(komando prompt)'
+RPROMPT='$(komando status --short)'
 ```
 
 bash, in `~/.bashrc`:
 
 ```bash
-PS1='$(p=$(komando prompt); [ -n "$p" ] && echo "[$p] ")'"$PS1"
+PS1='$(p=$(komando status --short); [ -n "$p" ] && echo "[$p] ")'"$PS1"
 ```
 
 starship, in `~/.config/starship.toml`:
 
 ```toml
 [custom.komando]
-command = "komando prompt"
+command = "komando status --short"
 when = true
 ```
 
 It only reads komando's state file (no network, nothing written, never an
-error), so it is safe to run on every prompt. It is a quick hint: a VPN
+error, no JSON), so it is safe to run on every prompt. `komando prompt` is
+its old name and goes away in the next release. It is a quick hint: a VPN
 that crashed a moment ago can still show until the next komando command.
 `komando status` is the full check.
 

@@ -67,16 +67,6 @@ func TestChangeSay(t *testing.T) {
 	g.dryRun = false
 }
 
-func TestHostImportSay(t *testing.T) {
-	g.dryRun = true
-	defer func() { g.dryRun = false }()
-	got := hostImportSay(nil, hostVet{Existing: []string{"web1", "web2"}}, nil)
-	want := "nothing to import\nskipped web1: a server with this name exists (--overwrite replaces it)\nskipped web2: a server with this name exists (--overwrite replaces it)"
-	if got != want {
-		t.Errorf("got %q", got)
-	}
-}
-
 // The error says what the selector did pick, as other commands do.
 func TestKindListSaysWhatItPicked(t *testing.T) {
 	invHome(t)

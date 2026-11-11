@@ -22,7 +22,7 @@ import (
 func svcCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "svc",
-		Aliases: []string{"service", "systemd"},
+		Aliases: []string{"service"},
 		Short:   "Services (systemd, Windows): status, start, stop, restart, logs",
 	}
 	c.AddCommand(svcStatusCmd(), svcListCmd(), svcLogsCmd(), svcDaemonReloadCmd())
