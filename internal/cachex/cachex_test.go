@@ -154,7 +154,7 @@ func TestOneReply(t *testing.T) {
 			t.Errorf("%s: %v", c, err)
 		}
 	}
-	for _, c := range []string{"GET k", "XREAD COUNT 1 STREAMS s 0", "PUBLISH ch hi"} {
+	for _, c := range []string{"GET k", "XREAD COUNT 1 STREAMS s 0", "XREAD STREAMS block 0", "PUBLISH ch hi"} {
 		if err := OneReply(strings.Fields(c)); err != nil {
 			t.Errorf("%s: %v", c, err)
 		}

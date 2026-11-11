@@ -273,7 +273,15 @@ func OneReply(args []string) error {
 		return nil
 	}
 	cmd := strings.ToUpper(args[0])
-	block := (cmd == "XREAD" || cmd == "XREADGROUP") && slices.ContainsFunc(args[1:], func(a string) bool { return strings.EqualFold(a, "BLOCK") })
+	block := false
+	if cmd == "XREAD" || cmd == "XREADGROUP" {
+		for _, a := range args[1:] {
+			if strings.EqualFold(a, "STREAMS") { // stream names and IDs follow; a stream may be called block
+				break
+			}
+			block = block || strings.EqualFold(a, "BLOCK")
+		}
+	}
 	if !noReply[cmd] && !block {
 		return nil
 	}
