@@ -649,7 +649,28 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 	for k, v := range extra {
 		rec[k] = v
 	}
+	if rec["blocked"] != nil {
+		blockAudited = true
+	}
 	_ = appendAudit(rec)
+}
+
+// blockAudited: this command recorded its safety stop already, with what
+// it ran on; auditBlocked does not record it twice.
+var blockAudited bool
+
+// auditBlocked records a safety stop (exit 6) that the command itself did
+// not record, so `audit --failed` shows every blocked attempt: a protected
+// host rm, a deny rule removal, a secret sent somewhere.
+func auditBlocked(cmd *cobra.Command, e *out.Error) {
+	if e.Exit != out.ExitPolicy || blockAudited || g.dryRun || cmd == nil || leavesHomeNow(cmd) {
+		return
+	}
+	st, err := loadState()
+	if err != nil {
+		st = nil // recorded anyway: a broken state file is no reason to lose it
+	}
+	audit(st, commandName(cmd), nil, "", false, map[string]any{"blocked": e.Code, "message": e.Message})
 }
 
 // osUser is the computer account komando runs as, from the system's user

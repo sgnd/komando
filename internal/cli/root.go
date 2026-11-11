@@ -105,6 +105,7 @@ func Execute() int {
 			oe.Hint = "nothing was changed"
 			oe.Cancel(cancelledText()) // text mode: the person's own choice, not an error
 		}
+		auditBlocked(cmd, oe)
 		if cmd != nil && out.P.Format == "text" {
 			notFoundSay(oe, cmd)
 		}
@@ -363,7 +364,7 @@ func checkAuditWritable(cmd *cobra.Command) error {
 func newRoot() *cobra.Command {
 	resetApproval()
 	out.P.Reset()
-	personSaidNo, askedAbout = false, nil
+	personSaidNo, askedAbout, blockAudited = false, nil, false
 	interrupted = false
 	root := &cobra.Command{
 		Use:           "komando",

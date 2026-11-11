@@ -211,6 +211,15 @@ Safe to run again, for example after an update: a changed file is kept as
 					files = append(files, f)
 				}
 			}
+			changed := 0
+			for _, f := range files {
+				if f.Action != "unchanged" {
+					changed++
+				}
+			}
+			if changed > 0 && !g.dryRun {
+				audit(nil, "guide.install", nil, "", true, map[string]any{"files": changed})
+			}
 			out.P.Print("guide.install", skillResult{Files: files}, nil)
 			return nil
 		},

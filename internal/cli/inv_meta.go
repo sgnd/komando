@@ -71,6 +71,8 @@ func (l auditList) Text() string {
 		switch {
 		case e["dry_run"] == true:
 			res = "dry-run"
+		case e["blocked"] != nil:
+			res = "blocked"
 		case e["ok"] != true:
 			res = "FAILED"
 		}
