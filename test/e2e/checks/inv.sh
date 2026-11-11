@@ -51,7 +51,8 @@ check "trust --reset --dry-run removes nothing" "$N1" "$N2"
 check "trust --reset --dry-run counts the pinned key" True "$([ "$N1" -ge 1 ] && echo True || echo False)"
 
 # ssh-command: a hop per ProxyCommand, VPN as nc -X 5
-check "ssh-command via bastion carries the key" True "$($K host ssh-command target | jget '"-W target:22" in d["data"]["command"] and d["data"]["command"].count("UserKnownHostsFile") == 2')"
+# bastion logs in with a key komando made, sealed in the store: OpenSSH cannot read it
+check "ssh-command refuses a key sealed in the store" NOT_SUPPORTED "$($K host ssh-command target | jget 'd["error"]["code"]' || true)"
 
 # import: a proxy command never comes from a file; protected names
 printf '%s\n' '{"hosts":[{"name":"t-e2einv5","address":"10.9.9.5","proxy_command":"nc %h %p"}]}' >"$TMP/inv-hosts.json"
@@ -72,7 +73,8 @@ check "weak RSA refused" USAGE "$($K key gen t-e2einvk --type rsa --bits 1024 | 
 check "comment with a newline refused" USAGE "$($K key gen t-e2einvk -C "$(printf 'a\nb')" | code)"
 check "key gen --dry-run has no fingerprint" None "$($K key gen t-e2einvk --dry-run | jget 'd["data"].get("fingerprint")')"
 q $K key gen t-e2einvk
-PUB="$($K key show t-e2einvk | jget 'd["data"]["path"]').pub"
+PUB="$TMP/t-e2einvk.pub"
+$K key show t-e2einvk | jget 'd["data"]["public_key"]' >"$PUB"
 check "public key given to key add" KEY_INVALID "$($K key add t-e2einvk2 "$PUB" | code)"
 check "plain passphrase in key edit" USAGE "$($K key edit t-e2einvk --passphrase-ref pw123 | code)"
 check "key list text is a table" True "$($K key list -o text | head -1 | grep -q '^NAME *TYPE *FINGERPRINT *USED_BY' && echo True || echo False)"
@@ -104,6 +106,7 @@ check "names in any case" direct "$($K host show DIRECT | jget 'd["data"]["name"
 check "did you mean on host show" True "$($K host show dirct | jget '"direct" in d["error"]["hint"]')"
 check "schema host.add" "komando host add" "$($K schema host.add | jget 'd["data"]["commands"][0]["path"]')"
 check "test text has USER and SUDO" True "$($K test direct -o text | head -1 | grep -q 'USER *SUDO' && echo True || echo False)"
+$K doctor -o text 2>&1 | grep -E '^✗' | sed 's/^/    doctor says: /' || true
 check "doctor text is a checklist" True "$($K doctor -o text 2>/dev/null | grep -q '^✓ state' && echo True || echo False)"
 
 # a rebuilt server (new host keys, same address) inside a group: host trust

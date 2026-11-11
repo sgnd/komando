@@ -74,6 +74,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `komando host ssh-command` on a sealed folder gives OpenSSH a private
+  copy of the pinned host keys (for a person only; an AI agent gets
+  `NEEDS_PERSON`), and stops with `NOT_SUPPORTED` for a server that logs
+  in with a key komando made, which lives sealed in the store: use
+  `komando shell` for that server. Keys made by `komando key gen` have no
+  file any more (`key show` names them `sealed:<id>`).
 - On a sealed folder, `komando status --short` (the shell prompt line)
   counts what runs instead of naming it: `vpn:2 tun:1`, not
   `vpn:office,lab`. It reads only process numbers kept beside the sealed
