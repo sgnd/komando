@@ -74,6 +74,9 @@ func keepOnly(sel selection, only string) selection {
 	return sel
 }
 
+// kindWords names what a host, conn or vpn command works with.
+var kindWords = map[string]string{"host": "servers", "conn": "conns", "vpn": "VPNs"}
+
 func listCmd() *cobra.Command { return listCmdFor("") }
 
 func listCmdFor(only string) *cobra.Command {
@@ -98,11 +101,10 @@ func listCmdFor(only string) *cobra.Command {
 					return err
 				}
 			}
-			sel = keepOnly(sel, only)
-			if target != "" && only != "" && len(sel.Hosts)+len(sel.Conns)+len(sel.Vpns) == 0 {
-				// a selector that picks nothing is an error (ux.md, section 2), as for `host test`
-				return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "use `komando list "+target+"` to see everything it picks",
-					"target %q picked no %ss", target, only)
+			picked := sel
+			if sel = keepOnly(sel, only); target != "" && only != "" && len(sel.Hosts)+len(sel.Conns)+len(sel.Vpns) == 0 {
+				// a selector that picks nothing is an error (ux.md, section 2)
+				return noMatch(target, kindWords[only], picked).WithHint("use `komando list " + target + "` to see everything it picks")
 			}
 			l := targetList{Targets: []targetRow{}, empty: len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0}
 			for _, h := range sel.Hosts {
@@ -251,9 +253,9 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 			if err != nil {
 				return err
 			}
+			picked := sel
 			if sel = keepOnly(sel, only); len(sel.Hosts)+len(sel.Conns)+len(sel.Vpns) == 0 {
-				return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "use `komando test "+args[0]+"` to test everything it picks",
-					"target %q picked no %ss", args[0], only)
+				return noMatch(args[0], kindWords[only], picked).WithHint("use `komando test " + args[0] + "` to test everything it picks")
 			}
 			t0 := time.Now()
 			res := testRound(cmd.Context(), st, sel)

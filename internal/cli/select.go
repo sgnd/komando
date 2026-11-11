@@ -439,7 +439,7 @@ func resolveTargets(st *store.State, expr string) ([]*store.Host, error) {
 
 // noMatch is the error when a selector picked targets, but none this
 // command can work with. The hint names the command that can.
-func noMatch(expr, want string, sel selection) error {
+func noMatch(expr, want string, sel selection) *out.Error {
 	var picked []string
 	hint := ""
 	for _, h := range sel.Hosts {

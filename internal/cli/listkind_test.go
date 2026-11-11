@@ -76,3 +76,15 @@ func TestHostImportSay(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+// The error says what the selector did pick, as other commands do.
+func TestKindListSaysWhatItPicked(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	if e := wantCode(t, "NO_MATCHING_TARGETS", "vpn", "list", "web1"); e.Message != `target "web1" picked no VPNs, only: web1 (server)` {
+		t.Errorf("vpn list: %q", e.Message)
+	}
+	if e := wantCode(t, "NO_MATCHING_TARGETS", "conn", "test", "web1"); e.Message != `target "web1" picked no conns, only: web1 (server)` {
+		t.Errorf("conn test: %q", e.Message)
+	}
+}
