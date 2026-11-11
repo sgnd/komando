@@ -12,12 +12,11 @@ import (
 	"strings"
 	"testing"
 
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/knownhosts"
-
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 func newHostKey(t *testing.T) ssh.PublicKey {
@@ -33,14 +32,12 @@ func newHostKey(t *testing.T) ssh.PublicKey {
 	return k
 }
 
-// pinHome makes a home on the file backend or the sealed store.
-func pinHome(t *testing.T, sealed bool) {
+// pinHome makes a fresh home.
+func pinHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	t.Setenv("KOMANDO_KEYCHAIN", "off")
 	t.Setenv("KOMANDO_VAULT_PASS", "")
-	store.UseSealedForNewHomes(sealed)
-	t.Cleanup(func() { store.UseSealedForNewHomes(false) })
 }
 
 type checkCase struct {
@@ -78,52 +75,45 @@ func TestPinsSameOnBothBackends(t *testing.T) {
 		{"two pins, neither", "multi:22", "1.1.1.1:22", 2, "changed", 2},
 		{"host names are compared as written", "WEB.example.com:22", "10.0.0.9:22", 0, "unknown", 0},
 	}
-	results := map[bool][]string{}
-	for _, sealed := range []bool{false, true} {
-		pinHome(t, sealed)
-		for _, p := range pins {
-			if _, err := PinHostKey(p.addr, keys[p.key], false); err != nil {
-				t.Fatal(err)
-			}
-		}
-		for _, c := range cases {
-			remote, err := net.ResolveTCPAddr("tcp", c.remote)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var got string
-			_ = HostKeys().view(func(tx hostKeyTx) error {
-				err := tx.Check(c.host, remote, keys[c.key])
-				var ke *knownhosts.KeyError
-				switch {
-				case err == nil:
-					got = "ok"
-				case errors.As(err, &ke) && len(ke.Want) == 0:
-					got = "unknown"
-				case errors.As(err, &ke):
-					got = "changed/" + string(rune('0'+len(ke.Want)))
-				default:
-					got = "error: " + err.Error()
-				}
-				return nil
-			})
-			want := c.want
-			if want == "changed" {
-				want += "/" + string(rune('0'+c.wantKeys))
-			}
-			if got != want {
-				t.Errorf("sealed=%v %s: got %s, want %s", sealed, c.name, got, want)
-			}
-			results[sealed] = append(results[sealed], got)
+	pinHome(t)
+	for _, p := range pins {
+		if _, err := PinHostKey(p.addr, keys[p.key], false); err != nil {
+			t.Fatal(err)
 		}
 	}
-	if strings.Join(results[false], ",") != strings.Join(results[true], ",") {
-		t.Fatalf("backends differ:\nfile   %v\nsealed %v", results[false], results[true])
+	for _, c := range cases {
+		remote, err := net.ResolveTCPAddr("tcp", c.remote)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got string
+		_ = HostKeys().view(func(tx hostKeyTx) error {
+			err := tx.Check(c.host, remote, keys[c.key])
+			var ke *knownhosts.KeyError
+			switch {
+			case err == nil:
+				got = "ok"
+			case errors.As(err, &ke) && len(ke.Want) == 0:
+				got = "unknown"
+			case errors.As(err, &ke):
+				got = "changed/" + string(rune('0'+len(ke.Want)))
+			default:
+				got = "error: " + err.Error()
+			}
+			return nil
+		})
+		want := c.want
+		if want == "changed" {
+			want += "/" + string(rune('0'+c.wantKeys))
+		}
+		if got != want {
+			t.Errorf("%s: got %s, want %s", c.name, got, want)
+		}
 	}
 }
 
 func TestSealedPinChanges(t *testing.T) {
-	pinHome(t, true)
+	pinHome(t)
 	a, b := newHostKey(t), newHostKey(t)
 	if pins, _ := PinnedKeys("h:22"); len(pins) != 0 {
 		t.Fatal("pins before any")
@@ -156,6 +146,49 @@ func TestSealedPinChanges(t *testing.T) {
 	}
 }
 
+// A revoked key is refused for every server, and can never be pinned.
+func TestRevokedHostKey(t *testing.T) {
+	pinHome(t)
+	keys := []ssh.PublicKey{newHostKey(t), newHostKey(t)}
+	if _, err := PinHostKey("web:22", keys[0], false); err != nil {
+		t.Fatal(err)
+	}
+	if err := RevokeHostKeys([]ssh.PublicKey{keys[0], keys[1]}); err != nil {
+		t.Fatal(err)
+	}
+	remote, _ := net.ResolveTCPAddr("tcp", "10.0.0.1:22")
+	for _, host := range []string{"web:22", "other:22"} {
+		_ = HostKeys().view(func(tx hostKeyTx) error {
+			var rv *knownhosts.RevokedError
+			if err := tx.Check(host, remote, keys[0]); !errors.As(err, &rv) {
+				t.Errorf("%s: %v", host, err)
+			}
+			return nil
+		})
+	}
+	if _, err := PinHostKey("new:22", keys[1], false); err == nil {
+		t.Error("a revoked key was pinned")
+	}
+	if rev, _ := HostKeyRevoked(keys[1]); !rev {
+		t.Error("not on the list")
+	}
+}
+
+// A sealed folder whose store.db is gone never reads as "no pins": that
+// would trust any key again (review S2).
+func TestPinsOfMissingStore(t *testing.T) {
+	pinHome(t)
+	if _, err := PinHostKey("web:22", newHostKey(t), false); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(store.DBPath(), store.DBPath()+".gone"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PinnedKeys("web:22"); err == nil || !strings.Contains(err.Error(), "STATE_CORRUPT") {
+		t.Fatalf("missing store read as no pins: %v", err)
+	}
+}
+
 // dialPin runs the host key check as a connection does, with the policy
 // that pins a new server on first use.
 func dialPin(t *testing.T, key ssh.PublicKey) error {
@@ -170,7 +203,7 @@ func dialPin(t *testing.T, key ssh.PublicKey) error {
 // A pin removed from the store with plain sqlite stops the connection; it
 // is never pinned again on first use.
 func TestSealedPinRowRemoved(t *testing.T) {
-	pinHome(t, true)
+	pinHome(t)
 	if _, err := PinHostKey("web.example.com:22", newHostKey(t), false); err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +222,7 @@ func TestSealedPinRowRemoved(t *testing.T) {
 
 // A pin that cannot be read stops the connection with HOSTKEY_UNREADABLE.
 func TestSealedPinUnreadable(t *testing.T) {
-	pinHome(t, true)
+	pinHome(t)
 	d, err := store.DB(true)
 	if err != nil {
 		t.Fatal(err)

@@ -1,10 +1,7 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -52,76 +49,11 @@ starship, in ~/.config/starship.toml:
 }
 
 // promptText is the note with a newline, or "" when nothing runs or the
-// state cannot be read: a broken prompt is worse than a missing note.
+// state cannot be read: a broken prompt is worse than a missing note. It
+// reads runtime.pids: the prompt never opens the store (no keychain, no
+// passphrase on each Enter), so it counts running VPNs and tunnels without
+// naming them.
 func promptText(now time.Time) string {
-	if store.Sealed() {
-		return sealedPromptText(now)
-	}
-	// state.json gives the settings on a folder of before; a sealed folder
-	// has none to read without its key, so the defaults apply there
-	var st store.State
-	if b, err := os.ReadFile(store.Path("state.json")); err == nil {
-		if json.Unmarshal(b, &st) != nil {
-			return ""
-		}
-	} else if !os.IsNotExist(err) {
-		return ""
-	}
-	// running VPNs and tunnels live in runtime.json; a state.json from
-	// before may still hold some
-	if rt, err := store.ReadRuntime(); err == nil {
-		if st.Sessions == nil {
-			st.Sessions = map[string]*store.VpnSession{}
-		}
-		if st.Tunnels == nil {
-			st.Tunnels = map[string]*store.Tunnel{}
-		}
-		for k, v := range rt.Sessions {
-			st.Sessions[k] = v
-		}
-		for k, v := range rt.Tunnels {
-			st.Tunnels[k] = v
-		}
-	}
-	if st.Settings.VpnIdle == "" {
-		st.Settings.VpnIdle = store.DefaultSettings().VpnIdle
-	}
-	idle, _ := time.ParseDuration(st.Settings.VpnIdle)
-	var vpns []string
-	for name, s := range st.Sessions {
-		// the process is checked only by its pid: fast enough for a prompt
-		if s == nil || !netx.Alive(s.PID) {
-			continue
-		}
-		if idle > 0 && now.Sub(s.LastUsed) > idle {
-			continue // closed at the next komando command
-		}
-		vpns = append(vpns, cleanText(name))
-	}
-	sort.Strings(vpns)
-	tunnels := 0
-	for _, t := range st.Tunnels {
-		if t != nil && alive(t.PID) {
-			tunnels++
-		}
-	}
-	var parts []string
-	if len(vpns) > 0 {
-		parts = append(parts, "vpn:"+strings.Join(vpns, ","))
-	}
-	if tunnels > 0 {
-		parts = append(parts, "tun:"+strconv.Itoa(tunnels))
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return strings.Join(parts, " ") + "\n"
-}
-
-// sealedPromptText is the note on a sealed home, from runtime.pids: the
-// prompt never opens the store (no keychain, no passphrase on each Enter),
-// so it counts running VPNs and tunnels without naming them.
-func sealedPromptText(now time.Time) string {
 	p, err := store.ReadRuntimePIDs()
 	if err != nil {
 		return ""

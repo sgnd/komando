@@ -3,12 +3,13 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"github.com/sgnd/komando/internal/engine"
 	"os"
 	"regexp"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/sgnd/komando/internal/engine"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"

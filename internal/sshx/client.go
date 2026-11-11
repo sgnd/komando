@@ -92,10 +92,10 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 		go keepalive(cl)
 		return cl, nil
 	}
-	// a fresh sealed home makes its store (and key) before connecting: the
+	// a fresh home makes its store (and key) before connecting: the
 	// keychain may ask the person, which must not eat the connect timeout
 	// while a new server's key waits to be pinned
-	if o.HostKeyPolicy != "off" && store.Sealed() {
+	if o.HostKeyPolicy != "off" {
 		if _, err := store.DB(true); err != nil {
 			return nil, err
 		}
@@ -477,8 +477,13 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 	var hk *hostKeyChanged
 	var ke *knownhosts.KeyError
 	var ua *unanswered
+	var rv *knownhosts.RevokedError
 	msg := err.Error()
 	switch {
+	case errors.As(err, &rv):
+		return out.Errf(out.ExitConnect, "HOSTKEY_REVOKED",
+			"this key was revoked (an @revoked line of your known_hosts, moved by `komando seal`): treat the server as compromised and tell its owner; nothing was sent",
+			"%s shows the revoked host key %s", host, ssh.FingerprintSHA256(rv.Revoked.Key))
 	case errors.As(err, &hk):
 		return hk.outErr(host)
 	case errors.As(err, &ke) && len(ke.Want) > 0, strings.Contains(msg, "HOSTKEY_MISMATCH"):
@@ -549,10 +554,6 @@ func clientConfig(st *store.State, h *store.Host, o Options) (*ssh.ClientConfig,
 		Timeout:         o.ConnectTimeout,
 	}, agentConn, nil
 }
-
-// KnownHostsPath is the known_hosts file of the file store, the only
-// store today; the system ssh reads it too (host ssh-command).
-func KnownHostsPath() string { return store.Path("known_hosts") }
 
 // NewHostKey is a host key komando pinned the first time it reached a
 // server (host_key_policy accept-new). Nothing proved that key is the

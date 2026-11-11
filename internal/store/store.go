@@ -1,10 +1,9 @@
-// Package store persists komando state (inventory, conns, keys, snippets,
-// jobs, tunnels, settings) as JSON files under $KOMANDO_HOME (default ~/.komando).
+// Package store keeps komando state (inventory, conns, keys, snippets,
+// jobs, tunnels, settings) in the sealed store under $KOMANDO_HOME
+// (default ~/.komando).
 package store
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/flock"
-	"github.com/sgnd/komando/internal/out"
 )
 
 type Host struct {
@@ -256,16 +254,9 @@ type State struct {
 	Keys     map[string]*Key     `json:"keys"`
 	Snippets map[string]*Snippet `json:"snippets"`
 	// Runtime data (VPN sessions, logins, jobs, tunnels) lives in its own
-	// file (runtime.go); state.json from before keeps it here, and the next
-	// change moves it.
+	// file (runtime.go); a state.json of before may hold it here.
 	Runtime
 	Settings Settings `json:"settings"`
-
-	// IDs keeps each record's identity (Rec) by kind and name. It is filled
-	// from the records on save and given back to them on load, so the
-	// records themselves, and everything that prints or exports them, stay
-	// as they were.
-	IDs map[string]map[string]Rec `json:"ids,omitempty"`
 
 	settingsRec Rec // the settings record in the sealed store
 }
@@ -287,46 +278,7 @@ func Path(parts ...string) string { return filepath.Join(append([]string{Home()}
 func EnsureHome() error { return ensureHome() }
 
 func ensureHome() error {
-	if err := os.MkdirAll(Home(), 0o700); err != nil {
-		return err
-	}
-	if Sealed() {
-		return nil // keys live in the store
-	}
-	return os.MkdirAll(Path("keys"), 0o700)
-}
-
-func statePath() string { return Path("state.json") }
-
-// Load reads state. Callers that mutate must use Update for locking.
-func Load() (*State, error) {
-	if Sealed() {
-		return loadFromStore()
-	}
-	if err := ensureHome(); err != nil {
-		return nil, err
-	}
-	s := &State{Settings: DefaultSettings()}
-	b, err := os.ReadFile(statePath())
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	if err == nil {
-		// komando only ever writes JSON here: an empty file was cut short (a
-		// crash or power loss), and reading it as a fresh install would drop
-		// every protected flag and the host key policy without a word
-		if err := json.Unmarshal(b, s); err != nil {
-			return nil, out.Errf(out.ExitError, "STATE_CORRUPT",
-				"the file is empty or broken, most likely cut short by a crash or power loss; ask the user to restore it from a backup (Time Machine or similar), or to move it away to start fresh and then set protected servers, host_key_policy and extra_deny_patterns again",
-				"corrupt state file %s: %v", statePath(), err)
-		}
-	}
-	s.init()
-	s.loadRecs()
-	if err := s.loadRuntime(); err != nil {
-		return nil, err
-	}
-	return s, nil
+	return os.MkdirAll(Home(), 0o700)
 }
 
 func (s *State) init() {
@@ -384,8 +336,8 @@ var DryRun bool
 // ErrDryRun is returned by writes that cannot be simulated (the vault).
 var ErrDryRun = errors.New("this command cannot preview its change; nothing was changed")
 
-// Update loads state under an exclusive file lock, applies fn and saves
-// atomically. Safe for concurrent komando processes (parallel agents).
+// Update reads the inventory, applies fn and writes what changed, in one
+// write step of the store. Safe for concurrent komando processes (parallel agents).
 func Update(fn func(s *State) error) error {
 	if DryRun {
 		s, err := Load()
@@ -394,62 +346,7 @@ func Update(fn func(s *State) error) error {
 		}
 		return fn(s)
 	}
-	if Sealed() {
-		return updateStore(fn)
-	}
-	if err := ensureHome(); err != nil {
-		return err
-	}
-	// always this order: the inventory lock, then the runtime lock
-	unlock, err := Lock(".lock")
-	if err != nil {
-		return err
-	}
-	defer unlock()
-	unlockRT, err := Lock(runtimeLock)
-	if err != nil {
-		return err
-	}
-	defer unlockRT()
-	s, err := Load()
-	if err != nil {
-		return err
-	}
-	before := s.recSnapshot()
-	rtBefore, err := json.Marshal(&s.Runtime)
-	if err != nil {
-		return err
-	}
-	if err := fn(s); err != nil {
-		return err
-	}
-	if err := s.bumpRecs(before); err != nil {
-		return err
-	}
-	rtAfter, err := json.Marshal(&s.Runtime)
-	if err != nil {
-		return err
-	}
-	// runtime first: after a crash between the two, runtime.json is
-	// already the record and loadRuntime ignores what state.json still has
-	if s.legacyRuntime || !bytes.Equal(rtBefore, rtAfter) {
-		if err := s.saveRuntime(); err != nil {
-			return err
-		}
-	}
-	return s.save()
-}
-
-func (s *State) save() error {
-	s.saveRecs()
-	// state.json holds no runtime data
-	inv := *s
-	inv.Runtime = Runtime{}
-	b, err := json.MarshalIndent(&inv, "", "  ")
-	if err != nil {
-		return err
-	}
-	return WriteFileAtomic(statePath(), b, 0o600)
+	return updateStore(fn)
 }
 
 // Lock takes an exclusive lock on the file name in the state directory

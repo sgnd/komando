@@ -49,8 +49,57 @@ func (sealedHostKeys) update(fn func(hostKeyTx) error) error {
 }
 
 type sealedTx struct {
-	tx  *sealdb.Tx // nil: no store yet
-	idx map[string]sealedPin
+	tx      *sealdb.Tx // nil: no store yet
+	idx     map[string]sealedPin
+	revoked *sealedPin // the one record of revoked keys; nil until read
+}
+
+// revokedType is the record of host keys never to trust, for any server:
+// the @revoked lines of a known_hosts that `komando seal` moved.
+const revokedType = "pinrevoked"
+
+func (t *sealedTx) revokedKeys() (*sealedPin, error) {
+	if t.revoked != nil {
+		return t.revoked, nil
+	}
+	t.revoked = &sealedPin{}
+	if t.tx == nil {
+		return t.revoked, nil
+	}
+	rows, err := t.tx.List(revokedType)
+	if err != nil {
+		return nil, err
+	}
+	switch len(rows) {
+	case 0:
+	case 1:
+		if err := json.Unmarshal(rows[0].Data, &t.revoked.rec); err != nil {
+			return nil, err
+		}
+		t.revoked.id = rows[0].ID
+	default:
+		return nil, sealdb.ErrTampered
+	}
+	return t.revoked, nil
+}
+
+// isRevoked reports key on the never-trust list.
+func (t *sealedTx) isRevoked(key ssh.PublicKey) (bool, error) {
+	r, err := t.revokedKeys()
+	if err != nil {
+		return false, err
+	}
+	for _, line := range r.rec.Keys {
+		if k, ok := parsePinLine(line); ok && SameKey(k, key) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// errRevoked: a key on the never-trust list.
+func errRevoked(key ssh.PublicKey) error {
+	return &knownhosts.RevokedError{Revoked: knownhosts.KnownKey{Key: key, Filename: store.StoreFile}}
 }
 
 type sealedPin struct {
@@ -98,6 +147,12 @@ func (t *sealedTx) Check(hostname string, remote net.Addr, key ssh.PublicKey) er
 	// as knownhosts: a host name without a port is an error, not a match
 	if _, _, err := net.SplitHostPort(target); err != nil {
 		return err
+	}
+	if rev, err := t.isRevoked(key); err != nil || rev {
+		if err != nil {
+			return err
+		}
+		return errRevoked(key)
 	}
 	idx, err := t.index()
 	if err != nil {
@@ -164,6 +219,12 @@ func pinLine(key ssh.PublicKey) string {
 }
 
 func (t *sealedTx) Add(addr string, key ssh.PublicKey) error {
+	if rev, err := t.isRevoked(key); err != nil || rev {
+		if err != nil {
+			return err
+		}
+		return errRevoked(key)
+	}
 	idx, err := t.index()
 	if err != nil {
 		return err
@@ -173,5 +234,54 @@ func (t *sealedTx) Add(addr string, key ssh.PublicKey) error {
 }
 
 func (t *sealedTx) Replace(addr string, key ssh.PublicKey) error {
+	if rev, err := t.isRevoked(key); err != nil || rev {
+		if err != nil {
+			return err
+		}
+		return errRevoked(key)
+	}
 	return t.put(addr, []string{pinLine(key)})
+}
+
+// RevokeHostKeys puts keys on the never-trust list: no server is reached
+// with them, and none can be pinned (`komando seal` carries a known_hosts
+// file's @revoked lines here).
+func RevokeHostKeys(keys []ssh.PublicKey) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	return sealedHostKeys{}.update(func(ht hostKeyTx) error {
+		t := ht.(*sealedTx)
+		r, err := t.revokedKeys()
+		if err != nil {
+			return err
+		}
+		lines := append([]string{}, r.rec.Keys...)
+		for _, k := range keys {
+			if rev, _ := t.isRevoked(k); !rev {
+				lines = append(lines, pinLine(k))
+			}
+		}
+		b, err := json.Marshal(pinRecord{Addr: "*", Keys: lines})
+		if err != nil {
+			return err
+		}
+		rec, err := t.tx.Put(revokedType, r.id, b)
+		if err != nil {
+			return err
+		}
+		t.revoked = &sealedPin{rec.ID, pinRecord{Addr: "*", Keys: lines}}
+		return nil
+	})
+}
+
+// HostKeyRevoked reports key on the never-trust list.
+func HostKeyRevoked(key ssh.PublicKey) (bool, error) {
+	var rev bool
+	err := sealedHostKeys{}.view(func(ht hostKeyTx) error {
+		var err error
+		rev, err = ht.(*sealedTx).isRevoked(key)
+		return err
+	})
+	return rev, err
 }

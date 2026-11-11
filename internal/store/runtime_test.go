@@ -7,13 +7,15 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 func TestRuntimeLivesApart(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
 	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
-	inv, _ := os.ReadFile(filepath.Join(home, "state.json"))
+	inv, _ := os.ReadFile(filepath.Join(home, StoreFile))
 
 	if err := UpdateRuntime(func(s *State) error {
 		s.Sessions["office"] = &VpnSession{Vpn: "office", PID: 42, SocksPass: "p"}
@@ -22,27 +24,21 @@ func TestRuntimeLivesApart(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	after, _ := os.ReadFile(filepath.Join(home, "state.json"))
+	after, _ := os.ReadFile(filepath.Join(home, StoreFile))
 	if string(after) != string(inv) {
-		t.Fatal("a runtime change rewrote state.json")
+		t.Fatal("a runtime change rewrote the store")
 	}
 	rt, _ := os.ReadFile(filepath.Join(home, "runtime.json"))
-	if !strings.Contains(string(rt), `"office"`) {
-		t.Fatalf("runtime.json: %s", rt)
+	if !strings.HasPrefix(string(rt), string(runtimeMagic)) || strings.Contains(string(rt), "office") {
+		t.Fatal("runtime.json is not sealed")
 	}
 	s, err := Load()
 	if err != nil || s.Sessions["office"] == nil || s.Jobs["j1"] == nil || s.Hosts["web"] == nil {
 		t.Fatalf("load: %v %+v", err, s)
 	}
 
-	// an inventory change keeps runtime data, and state.json never holds it
+	// an inventory change keeps runtime data
 	update(t, func(s *State) { s.Hosts["db"] = &Host{Name: "db"} })
-	inv, _ = os.ReadFile(filepath.Join(home, "state.json"))
-	for _, k := range []string{"vpn_sessions", "jobs", "tunnels", "ssh_logins", "office"} {
-		if strings.Contains(string(inv), `"`+k+`"`) {
-			t.Fatalf("state.json holds %s", k)
-		}
-	}
 	if s, _ := Load(); s.Sessions["office"] == nil {
 		t.Fatal("runtime lost by an inventory change")
 	}
@@ -61,31 +57,6 @@ func TestUpdateRuntimeRefusesInventory(t *testing.T) {
 	}
 	if s, _ := Load(); s.Hosts["web"].Address != "" || s.Jobs["j"] != nil {
 		t.Fatal("something was saved")
-	}
-}
-
-func TestLegacyRuntimeMoves(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("KOMANDO_HOME", home)
-	old := `{"hosts":{"web":{"name":"web"}},"vpn_sessions":{"office":{"vpn":"office","pid":7}},"jobs":{"j1":{"id":"j1"}},"tunnels":{}}`
-	if err := os.WriteFile(filepath.Join(home, "state.json"), []byte(old), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	s, err := Load()
-	if err != nil || s.Sessions["office"] == nil || s.Jobs["j1"] == nil {
-		t.Fatalf("old file: %v", err)
-	}
-	// a runtime-only removal must not bring the entry back from state.json
-	if err := UpdateRuntime(func(s *State) error { delete(s.Jobs, "j1"); return nil }); err != nil {
-		t.Fatal(err)
-	}
-	s, _ = Load()
-	if s.Jobs["j1"] != nil || s.Sessions["office"] == nil {
-		t.Fatalf("after move: jobs %v sessions %v", s.Jobs, s.Sessions)
-	}
-	inv, _ := os.ReadFile(filepath.Join(home, "state.json"))
-	if strings.Contains(string(inv), "vpn_sessions") {
-		t.Fatal("state.json still holds runtime data")
 	}
 }
 
@@ -130,29 +101,35 @@ func TestRuntimeAndInventoryTogether(t *testing.T) {
 	}
 }
 
-// A crash after runtime.json was written and before state.json was: an
-// entry removed in that step must not come back from state.json.
-func TestRuntimeFileIsTheRecord(t *testing.T) {
+// ReadOldState reads a folder of before as an earlier komando did: once
+// runtime.json is there it is the record of runtime data, and what
+// state.json still holds of it is left behind. It writes nothing.
+func TestReadOldState(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
-	old := `{"hosts":{},"vpn_sessions":{"office":{"vpn":"office","pid":7}}}`
+	old := `{"hosts":{"web":{"name":"web","address":"10.0.0.1","via":"bastion"}},"vpn_sessions":{"office":{"vpn":"office","pid":7}},"settings":{"audit":true},"ids":{"host":{"web":{"id":"x","version":3}}}}`
 	if err := os.WriteFile(filepath.Join(home, "state.json"), []byte(old), 0o600); err != nil {
 		t.Fatal(err)
+	}
+	s, err := ReadOldState()
+	if err != nil || s.Sessions["office"] == nil || s.Hosts["web"].Via != "bastion" || !s.Settings.Audit || s.Settings.HostKeyPolicy == "" {
+		t.Fatalf("read: %+v %v", s, err)
 	}
 	if err := os.WriteFile(filepath.Join(home, "runtime.json"), []byte(`{}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s, err := Load()
-	if err != nil || s.Sessions["office"] != nil {
+	if s, err = ReadOldState(); err != nil || s.Sessions["office"] != nil {
 		t.Fatalf("removed session came back: %v", err)
 	}
-	if !s.legacyRuntime {
-		t.Fatal("state.json's leftovers not marked for removal")
+	if ents, _ := os.ReadDir(home); len(ents) != 2 {
+		t.Fatalf("reading wrote files: %v", ents)
 	}
-	update(t, func(*State) {})
-	inv, _ := os.ReadFile(filepath.Join(home, "state.json"))
-	if strings.Contains(string(inv), "office") {
-		t.Fatal("leftover kept in state.json")
+	if err := os.WriteFile(filepath.Join(home, "state.json"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var oe *out.Error
+	if _, err := ReadOldState(); !errors.As(err, &oe) || oe.Code != "STATE_CORRUPT" {
+		t.Fatalf("a cut-short state.json: %v", err)
 	}
 }
 

@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/sealrow"
 )
@@ -38,22 +40,23 @@ func sealedHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
-	was := freshSealed
-	freshSealed = true
-	t.Cleanup(func() { freshSealed = was })
+	t.Cleanup(closeDBs)
 	return home
 }
 
-func TestSealedChoice(t *testing.T) {
-	home := sealedHome(t)
-	if !Sealed() {
-		t.Fatal("fresh home not sealed")
+// A folder with data files of an earlier komando and no store.db needs
+// `komando seal`: nothing opens or makes a store there.
+func TestNeedsSeal(t *testing.T) {
+	sealedHome(t)
+	fakeKeys(t)
+	if NeedsSeal() {
+		t.Fatal("a fresh home needs a seal")
 	}
 	if err := os.WriteFile(Path("vault.key"), []byte("k"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if !Sealed() {
-		t.Fatal("vault.key alone made it a files home")
+	if NeedsSeal() {
+		t.Fatal("vault.key alone needs a seal")
 	}
 	for _, f := range []string{"state.json", "vault.json", "known_hosts", "keys/k"} {
 		t.Run(f, func(t *testing.T) {
@@ -62,22 +65,36 @@ func TestSealedChoice(t *testing.T) {
 			if err := os.WriteFile(Path(f), nil, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if Sealed() {
-				t.Fatalf("%s: a home with old files chose sealed", f)
+			if !NeedsSeal() {
+				t.Fatalf("%s: a home with old files does not need a seal", f)
+			}
+			var oe *out.Error
+			if _, err := DB(true); !errors.As(err, &oe) || oe.Code != "NEEDS_SEAL" {
+				t.Fatalf("a store made beside old files: %v", err)
+			}
+			if _, err := Load(); !errors.As(err, &oe) || oe.Code != "NEEDS_SEAL" {
+				t.Fatalf("Load: %v", err)
+			}
+			if _, err := os.Stat(Path(StoreFile)); !os.IsNotExist(err) {
+				t.Fatal("store.db was made")
+			}
+			// the note a move leaves in place of each file does not count
+			if err := os.WriteFile(Path(f), []byte(MovedNote), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if NeedsSeal() {
+				t.Fatal("a moved note needs a seal")
+			}
+			if err := os.WriteFile(Path(f), nil, 0o600); err != nil {
+				t.Fatal(err)
 			}
 			if err := os.WriteFile(Path(StoreFile), nil, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if !Sealed() || !MixedHome() {
+			if NeedsSeal() || !MixedHome() {
 				t.Fatal("store.db beside old files must win and be reported")
 			}
 		})
-	}
-	freshSealed = false
-	t.Setenv("KOMANDO_HOME", home)
-	_ = os.Remove(Path("vault.key"))
-	if Sealed() {
-		t.Fatal("switch off, yet a fresh home chose sealed")
 	}
 }
 
@@ -146,6 +163,61 @@ func TestDBReopensReplacedFile(t *testing.T) {
 	d2, err := DB(true)
 	if err != nil || d2 == d {
 		t.Fatalf("not reopened: %v", err)
+	}
+}
+
+// A sealed folder whose store.db is missing or moved never starts empty
+// and never falls back to files: any sign it was sealed stops it.
+func TestMissingStoreOfSealedFolder(t *testing.T) {
+	signs := map[string]func(){
+		"archive":      func() { os.WriteFile(Path("before-seal.archive"), []byte("x"), 0o600) },
+		"moved note":   func() { os.WriteFile(Path("vault.json"), []byte(MovedNote), 0o600) },
+		"key note":     func() { os.MkdirAll(Path("keys"), 0o700); os.WriteFile(Path("keys", "k"), []byte(MovedNote), 0o600) },
+		"store key":    func() { os.WriteFile(Path("store.key"), make([]byte, 32), 0o600) },
+		"runtime pids": func() { os.WriteFile(Path("runtime.pids"), []byte("{}"), 0o600) },
+		"keychain count": func() {
+			old := GenerationKeeper
+			GenerationKeeper.Get = func() (uint64, bool, error) { return 3, true, nil }
+			t.Cleanup(func() { GenerationKeeper = old })
+		},
+	}
+	for name, sign := range signs {
+		t.Run(name, func(t *testing.T) {
+			sealedHome(t)
+			fakeKeys(t)
+			sign()
+			// a plain state.json someone put there must not be read either
+			os.WriteFile(Path("state.json"), []byte(`{"hosts":{"x":{"name":"x"}}}`), 0o600)
+			var oe *out.Error
+			for what, err := range map[string]error{"Load": func() error { _, e := Load(); return e }(), "Update": Update(func(*State) error { return nil })} {
+				if !errors.As(err, &oe) || oe.Code != "STATE_CORRUPT" || !strings.Contains(oe.Hint, "seal --undo") {
+					t.Fatalf("%s: %v", what, err)
+				}
+			}
+			if NeedsSeal() {
+				t.Fatal("a sealed folder asks for a seal")
+			}
+			if _, err := os.Stat(Path(StoreFile)); !os.IsNotExist(err) {
+				t.Fatal("an empty store was made")
+			}
+		})
+	}
+}
+
+// A plain state.json beside store.db is never the inventory.
+func TestStateFileBesideStoreIgnored(t *testing.T) {
+	sealedHome(t)
+	fakeKeys(t)
+	if err := Update(func(s *State) error { s.Hosts["real"] = &Host{Name: "real"}; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(Path("state.json"), []byte(`{"hosts":{"planted":{"name":"planted"}},"settings":{"host_key_policy":"off"}}`), 0o600)
+	s, err := Load()
+	if err != nil || s.Hosts["planted"] != nil || s.Hosts["real"] == nil || s.Settings.HostKeyPolicy == "off" {
+		t.Fatalf("%+v %v", s, err)
+	}
+	if NeedsSeal() || !MixedHome() {
+		t.Fatal("store.db must win and the file be reported")
 	}
 }
 

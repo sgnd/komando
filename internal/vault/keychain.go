@@ -19,7 +19,7 @@ import (
 )
 
 // The vault key can live in the operating system's keychain instead of
-// vault.key: the macOS login keychain (through the `security` tool every
+// store.key: the macOS login keychain (through the `security` tool every
 // Mac has), the Secret Service on Linux (GNOME Keyring, KWallet, through
 // `secret-tool`), or the Windows Credential Manager (advapi32, called
 // directly: credman_windows.go). The key never goes on a command line: `security -i` and
@@ -29,7 +29,7 @@ import (
 // A new vault without a passphrase starts with its key in the keychain
 // when there is one (keychainNewKey); KOMANDO_KEYCHAIN=off keeps komando
 // away from the keychain (CI runners, containers, test runs), and then a
-// new vault keeps its key in vault.key, as it does where there is none.
+// new vault keeps its key in store.key, as it does where there is none.
 
 // keychainService names this komando home's key, so two homes (a test
 // one, say) keep two keys.
@@ -82,7 +82,7 @@ func keychainCmdCtx(ctx context.Context, args ...string) *exec.Cmd {
 // newKeyTimeout bounds each keychain call when a new vault makes its key:
 // komando holds the vault lock then, and a Secret Service that waits for an
 // unlock prompt (or a slow D-Bus) must not hang it and every komando
-// waiting on that lock. Past it, the new vault keeps its key in vault.key.
+// waiting on that lock. Past it, the new vault keeps its key in store.key.
 // `komando secret keychain` has no such limit: a person is there to answer
 // the prompt. Tests shorten it.
 var newKeyTimeout = 5 * time.Second
@@ -358,7 +358,7 @@ func run(c *exec.Cmd, stdin string) error {
 // on Linux, keychainHas says there is no item under this name; it counts
 // only once it reads back the same. When the keychain cannot tell (locked,
 // a dismissed prompt, an error, a call past newKeyTimeout), nothing is
-// stored in it: the new vault keeps its key in vault.key, which `komando
+// stored in it: the new vault keeps its key in store.key, which `komando
 // doctor` points out.
 func keychainNewKey() ([]byte, bool) {
 	if _, err := KeychainTool(); err != nil {
@@ -404,58 +404,14 @@ func keychainNewKey() ([]byte, bool) {
 	return key, true
 }
 
-// KeyToKeychain moves the vault key from vault.key into the keychain. It
+// KeyToKeychain moves the vault key from store.key into the keychain. It
 // never replaces a key the keychain already holds for this komando folder
 // (ErrKeychainTaken): that one may be the only key of a vault moved aside.
 // The same key there (a move that stopped before vault.json said so) is
 // fine. When keychainHas cannot tell (on Linux, a locked default
 // collection among other things) it stores nothing and asks for the
 // keychain to be unlocked first.
-func KeyToKeychain() (string, error) {
-	if store.Sealed() {
-		return sealedKeyToKeychain()
-	}
-	tool, err := KeychainTool()
-	if err != nil {
-		return "", err
-	}
-	unlock, err := store.Lock(lockName) // a parallel Set must not be lost
-	if err != nil {
-		return "", err
-	}
-	defer unlock()
-	f, err := load()
-	if err != nil {
-		return "", err
-	}
-	switch f.Mode {
-	case "keychain":
-		return tool, nil
-	case "passphrase":
-		return "", errors.New("this vault is unlocked with KOMANDO_VAULT_PASS, not a key file: nothing to move")
-	}
-	if _, err := f.aead(); err != nil { // makes the key when there is none yet
-		return "", err
-	}
-	if f.Mode == "keychain" { // a new vault, and its new key went into the keychain
-		return tool, f.save()
-	}
-	kp := store.Path("vault.key")
-	key, err := os.ReadFile(kp)
-	if err != nil {
-		return "", err
-	}
-	if err := keychainAdopt(key); err != nil {
-		return "", err
-	}
-	f.Mode = "keychain"
-	if err := f.save(); err != nil {
-		return "", err
-	}
-	// overwrite, then remove: the key now lives only in the keychain
-	_ = os.WriteFile(kp, make([]byte, len(key)), 0o600)
-	return tool, os.Remove(kp)
-}
+func KeyToKeychain() (string, error) { return sealedKeyToKeychain() }
 
 // keychainAdopt puts key in the keychain for this komando folder, unless
 // it is there already. It never replaces another key there
@@ -486,33 +442,5 @@ func keychainAdopt(key []byte) error {
 	return nil
 }
 
-// KeyToFile moves the vault key back from the keychain into vault.key.
-func KeyToFile() error {
-	if store.Sealed() {
-		return sealedKeyToFile()
-	}
-	unlock, err := store.Lock(lockName) // a parallel Set must not be lost
-	if err != nil {
-		return err
-	}
-	defer unlock()
-	f, err := load()
-	if err != nil {
-		return err
-	}
-	if f.Mode != "keychain" {
-		return nil
-	}
-	key, err := keychainGet()
-	if err != nil {
-		return err
-	}
-	if err := store.WriteFileAtomic(store.Path("vault.key"), key, 0o600); err != nil {
-		return err
-	}
-	f.Mode = "keyfile"
-	if err := f.save(); err != nil {
-		return err
-	}
-	return keychainDel()
-}
+// KeyToFile moves the store key back from the keychain into a key file.
+func KeyToFile() error { return sealedKeyToFile() }

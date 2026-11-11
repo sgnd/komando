@@ -104,6 +104,8 @@ komando schema -o json | python3 -c 'import json,sys; [print(c["code"], c["exit"
 | `SAFETY_SETTING` | a change that turns a seatbelt off | a person may add `--yes` |
 | `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{secret:NAME}}`, `--env K=secret:NAME`, a password on a new address) | tell the user which secret goes where; a person may add `--yes` |
 | `NEEDS_PERSON` | an AI agent asked for something only a person can do: type a password into `secret set`, compare one with `secret check`, set the approval code | the agent asks the user to run the command in their own terminal; no flag lets an agent do it |
+| `HOSTKEY_REVOKED` | the server shows a host key that was revoked (an `@revoked` line `komando seal` carried over) | treat the server as compromised; nothing was sent |
+| `NEEDS_SEAL` | the komando folder holds the files of an earlier komando, not yet moved into the sealed store | the agent asks the user to run `komando seal` in their own terminal; every other command stops until then |
 | `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
 | `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |

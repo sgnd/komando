@@ -75,7 +75,7 @@ Variables for password managers and cloud logins are listed in
 Everything is in `~/.komando/` (change it with `KOMANDO_HOME`). Files are
 readable only by you (folder 0700, files 0600).
 
-A folder komando makes new keeps your data sealed in one file:
+komando keeps your data sealed in one file:
 
 | File | Contains |
 |------|----------|
@@ -98,26 +98,19 @@ and `komando doctor` says so. The same three ways keep its key as the vault's ke
 below: `komando secret keychain` and `komando secret passphrase` move and
 change it, and `komando doctor` says which one is in use.
 
-A folder from an earlier komando keeps its files as they were, until you
-run `komando seal` in your terminal. It moves everything into `store.db`,
-reads it back and compares, keeps the old files in a sealed archive
-(`before-seal.archive`), and replaces each old file with a short note, so
-an older komando stops instead of starting with an empty folder.
-`komando seal --undo` puts the old files back. Backups made before the
-move (Time Machine, disk snapshots) still hold the plain files.
-
-| File | Contains |
-|------|----------|
-| `state.json` | servers, conns, VPNs, keys, your own recipes and settings |
-| `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started |
-| `vault.json` | encrypted secrets |
-| `vault.key` | the vault's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
-| `keys/` | SSH keys made by `komando key gen` |
-| `known_hosts` | remembered server fingerprints |
-| `audit.jsonl` | history of every action |
-| `vpn/` | VPN logs and the state of built-in VPN clients |
-| `tunnels/` | logs of background tunnels |
-| `bitwarden-device` | the device id komando shows to Bitwarden or Vaultwarden |
+A folder from an earlier komando (with `state.json`, `vault.json`,
+`known_hosts`, `audit.jsonl` or `keys/`) must be sealed before use: every
+command except `komando seal`, `komando doctor`, `komando version`, `help`,
+`guide` and `schema` stops with `NEEDS_SEAL` until you run `komando seal`
+in your own terminal (an AI agent cannot). It reads the old files once,
+whichever way their vault key was kept (`vault.key`, the keychain or
+`KOMANDO_VAULT_PASS`), moves everything into `store.db`, reads it back and
+compares, keeps the old files in a sealed archive (`before-seal.archive`),
+and replaces each old file with a short note, so an older komando stops
+instead of starting with an empty folder. `komando seal --dry-run` shows
+what it would move. `komando seal --undo` puts the old files back; this
+komando then stops with `NEEDS_SEAL` again. Backups made before the move
+(Time Machine, disk snapshots) still hold the plain files.
 
 Back this folder up and keep it private.
 

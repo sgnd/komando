@@ -336,39 +336,6 @@ func TestInstallGuardHook(t *testing.T) {
 	}
 }
 
-func TestAuditChain(t *testing.T) {
-	filesOnly(t) // the chain of audit.jsonl; TestSealedAudit checks the store
-	t.Setenv("KOMANDO_HOME", t.TempDir())
-	if err := os.MkdirAll(store.Home(), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	// a record from before the chain, then chained ones
-	if err := os.WriteFile(store.Path("audit.jsonl"), []byte(`{"command":"old"}`+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range []string{"a", "b", "c"} {
-		audit(nil, c, nil, "", true, nil)
-	}
-	r, err := verifyAudit()
-	if err != nil || !r.OK || r.Entries != 4 || r.Chained != 3 {
-		t.Fatalf("intact: %+v %v", r, err)
-	}
-	b, _ := os.ReadFile(store.Path("audit.jsonl"))
-	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
-	for name, edit := range map[string][]string{
-		"edited":  {lines[0], lines[1], strings.Replace(lines[2], `"ok":true`, `"ok":false`, 1), lines[3]},
-		"removed": {lines[0], lines[1], lines[3]},
-		"added":   {lines[0], lines[1], `{"command":"x"}`, lines[2], lines[3]},
-	} {
-		if err := os.WriteFile(store.Path("audit.jsonl"), []byte(strings.Join(edit, "\n")+"\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if r, _ := verifyAudit(); r.OK {
-			t.Errorf("%s record not detected", name)
-		}
-	}
-}
-
 func TestAuditRecordsTheAgent(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	_ = os.MkdirAll(store.Home(), 0o700)

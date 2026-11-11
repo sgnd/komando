@@ -59,6 +59,11 @@ func compareSealed(o *oldFolder, want *store.State, paths map[string]string) err
 			return fmt.Errorf("the store does not read back secret %s", i.Name)
 		}
 	}
+	for _, k := range o.revoked {
+		if rev, err := sshx.HostKeyRevoked(k); err != nil || !rev {
+			return fmt.Errorf("the store does not read back a revoked host key")
+		}
+	}
 	for _, p := range o.pins {
 		keys, err := sshx.PinnedKeys(p.addr)
 		found := false

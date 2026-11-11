@@ -15,8 +15,6 @@ import (
 func sealedVault(t *testing.T) {
 	t.Helper()
 	freshHome(t)
-	store.UseSealedForNewHomes(true)
-	t.Cleanup(func() { store.UseSealedForNewHomes(os.Getenv("KOMANDO_TEST_SEALED") == "1") })
 }
 
 func TestSealedVault(t *testing.T) {

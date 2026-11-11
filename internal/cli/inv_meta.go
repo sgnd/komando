@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -21,6 +22,7 @@ import (
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
+	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -97,8 +99,8 @@ func auditCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "audit",
 		Short: "Show the audit log: who did what, where, and the result",
-		Long: `Every change komando makes, and every blocked attempt, is a line in
-~/.komando/audit.jsonl: when, who (and which AI agent), the command, its
+		Long: `Every change komando makes, and every blocked attempt, is a sealed record in
+~/.komando/store.db: when, who (and which AI agent), the command, its
 targets and whether it worked. The newest entries come last.
 
 --since and --until take how long ago (30m, 12h, 7d), today, yesterday,
@@ -132,8 +134,17 @@ is given.`,
 				}
 				flt.names = targetNames(st, target)
 			}
+			// without a filter only the newest records are read
+			var from int64
+			if limit > 0 && command == "" && !failed && target == "" && actorName == "" && since == "" && until == "" {
+				last, err := newestAuditSeq()
+				if err != nil {
+					return err
+				}
+				from = max(0, last-int64(limit))
+			}
 			all := []map[string]any{}
-			err := eachAudit(func(_ int, b []byte) error {
+			err := eachAuditAfter(from, func(_ int, b []byte) error {
 				var e map[string]any
 				if json.Unmarshal(b, &e) != nil {
 					return nil
@@ -144,7 +155,10 @@ is given.`,
 				}
 				return nil
 			})
-			if err != nil {
+			if errors.Is(err, sealdb.ErrTampered) {
+				// the records before the broken one are still shown
+				out.P.Warn(fmt.Sprintf("the audit log is broken after the %d records shown: %v; run `komando audit verify`", len(all), err))
+			} else if err != nil {
 				return err
 			}
 			if limit > 0 && len(all) > limit {
@@ -541,17 +555,8 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 				out.P.Print("doctor", r, toErr(err))
 				return exitCode(1)
 			}
-			if st.Settings.Audit && store.Sealed() {
+			if st.Settings.Audit {
 				add("audit_log", true, "sealed in "+store.Path(store.StoreFile))
-			} else if st.Settings.Audit {
-				f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-				detail := store.Path("audit.jsonl")
-				if err == nil {
-					f.Close()
-				} else {
-					detail = err.Error() + " (changes are refused until this is fixed)"
-				}
-				add("audit_log", err == nil, detail)
 			}
 			hostDetail := countOf(len(st.Hosts), "host")
 			if len(st.Hosts) == 0 {

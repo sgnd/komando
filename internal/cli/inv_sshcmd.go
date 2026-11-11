@@ -195,11 +195,9 @@ func sshCommandFor(st *store.State, h *store.Host) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	kh := sshx.KnownHostsPath()
-	if store.Sealed() {
-		if kh, err = sealedSSHFiles(st, hops); err != nil {
-			return nil, err
-		}
+	kh, err := sealedSSHFiles(st, hops)
+	if err != nil {
+		return nil, err
 	}
 	// proxy carries the connection to the current hop: a shell command for
 	// ssh's ProxyCommand, with %h %p meaning that hop

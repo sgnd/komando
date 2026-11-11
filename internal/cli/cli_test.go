@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 func TestMain(m *testing.M) {
@@ -21,6 +22,9 @@ func TestMain(m *testing.M) {
 	// a new vault never puts its key in the login keychain of whoever runs
 	// the tests (secret_keychain_test.go uses stand-ins)
 	os.Setenv("KOMANDO_KEYCHAIN", "off")
+	// every command opens the sealed store with the passphrase: a cheap
+	// scrypt keeps the PTY children (this binary again) fast under -race
+	vault.PassphraseN = 1 << 10
 	// each test keeps komando's data in its own KOMANDO_HOME, as the
 	// person's usual folder; TestAgentOtherHome checks the real rule
 	realHome := defaultHome
@@ -30,9 +34,6 @@ func TestMain(m *testing.M) {
 		}
 		return realHome()
 	}
-	// new homes are sealed; the suite tests the file backend unless
-	// KOMANDO_TEST_SEALED=1 (CI runs both)
-	store.UseSealedForNewHomes(os.Getenv("KOMANDO_TEST_SEALED") == "1")
 	os.Exit(m.Run())
 }
 
@@ -171,15 +172,6 @@ func TestUnifiedDiff(t *testing.T) {
 	d := unifiedDiff("a\nb\nc\n", "a\nB\nc\n", 1)
 	if !strings.Contains(d, "-b\n") || !strings.Contains(d, "+B\n") {
 		t.Errorf("bad diff:\n%s", d)
-	}
-}
-
-// filesOnly skips a test of the file backend's own files (key files under
-// keys/, folder modes) when the suite runs on sealed homes.
-func filesOnly(t *testing.T) {
-	t.Helper()
-	if os.Getenv("KOMANDO_TEST_SEALED") == "1" {
-		t.Skip("tests the files of the file backend; a sealed home has none")
 	}
 }
 

@@ -1,15 +1,18 @@
 package store
 
 import (
+	"bytes"
 	"os"
 	"testing"
 )
 
 // TestMain keeps the tests away from the keychain of whoever runs them, and
-// on the file backend: this package's sealed tests (sealed_test.go,
-// backend_test.go) turn the store on themselves, with a stand-in key.
+// gives the store a fixed stand-in key (the vault package owns the real
+// ones); tests that count new keys use fakeKeys.
 func TestMain(m *testing.M) {
 	os.Setenv("KOMANDO_KEYCHAIN", "off")
-	UseSealedForNewHomes(false)
+	KeySource = func(meta map[string]string, create bool) ([]byte, map[string]string, error) {
+		return bytes.Repeat([]byte{9}, 32), map[string]string{"key_mode": "test"}, nil
+	}
 	os.Exit(m.Run())
 }

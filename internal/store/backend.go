@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/sealrow"
 )
 
 // The sealed store (docs/design/phase0-s6.md): one SQLite file, store.db,
-// whose records are sealed. A home uses it, or the files of before, by
-// what is in the home folder and nothing else.
+// whose records are sealed. It is the only place komando keeps its data;
+// the files of an earlier komando are only read by `komando seal`.
 
 // StoreFile is the sealed store's file name in the home folder.
 const StoreFile = "store.db"
@@ -24,30 +25,32 @@ const StoreFile = "store.db"
 // (each with its own key).
 const storeLock = ".store.lock"
 
-// freshSealed makes a fresh home use the sealed store. Test suites turn
-// it off to test the file backend (UseSealedForNewHomes).
-var freshSealed = true
-
-// legacyFiles are files only the file backend writes, and that hold data.
-// vault.key alone does not count (the sealed store's key file has its own
-// name), nor does audit.jsonl: every command may write it before its first
-// change, and a home with only an audit log holds no inventory.
+// legacyFiles are files of an earlier komando that hold data. vault.key
+// alone does not count (the sealed store's key file has its own name), nor
+// does audit.jsonl (a home with only an audit log holds no inventory).
 var legacyFiles = []string{"state.json", "vault.json", "known_hosts"}
 
-// Sealed reports whether this home keeps its data in the sealed store:
-// store.db is there, or the home has none of the files of before and new
-// homes are sealed.
-func Sealed() bool {
+// NeedsSeal reports a folder of an earlier komando: it has files of before
+// with data and no store.db. komando works only on the sealed store, so
+// such a folder is moved with `komando seal` before any other use.
+func NeedsSeal() bool {
 	if isSealing() {
-		return true
-	}
-	if _, err := os.Stat(Path(StoreFile)); err == nil {
-		return true
-	}
-	if !freshSealed {
 		return false
 	}
-	return !hasLegacyFiles()
+	if _, err := os.Stat(Path(StoreFile)); err == nil {
+		return false
+	}
+	if !hasLegacyFiles() {
+		return false
+	}
+	return sealedSign() == "" // sealed, and store.db is gone: DB says so (missingStore)
+}
+
+// ErrNeedsSeal stops every command on a folder that NeedsSeal.
+func ErrNeedsSeal() error {
+	return out.Errf(out.ExitError, "NEEDS_SEAL",
+		"a person runs `komando seal` in their own terminal to move this folder into the sealed store; an AI agent cannot, so ask the user",
+		"%s holds the files of an earlier komando (state.json, vault.json, known_hosts or keys/); this komando reads them only to move them", Home())
 }
 
 // MixedHome reports a home with store.db and files of before beside it
@@ -140,8 +143,13 @@ func cachedDB(create bool) (*sealdb.DB, error) {
 	path := DBPath()
 	meta, err := sealdb.Peek(ctx, path)
 	if errors.Is(err, os.ErrNotExist) {
-		if err := missingStore(); err != nil && !isSealing() {
-			return nil, err
+		if !isSealing() {
+			if err := missingStore(); err != nil {
+				return nil, err
+			}
+		}
+		if NeedsSeal() {
+			return nil, ErrNeedsSeal() // never a new store beside the data of before
 		}
 		if !create {
 			return nil, ErrNoStore
@@ -376,4 +384,18 @@ func SetStoreMeta(meta map[string]string) error {
 		}
 		return nil
 	})
+}
+
+// CheckWritable opens this home's store (making it on a fresh home) and
+// checks the file can be written, so a command that changes something,
+// and records it in the audit log, finds out before it runs.
+func CheckWritable() error {
+	if _, err := DB(true); err != nil {
+		return storeErr(err)
+	}
+	f, err := os.OpenFile(DBPath(), os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	return f.Close()
 }

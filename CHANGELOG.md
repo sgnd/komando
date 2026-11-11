@@ -17,11 +17,13 @@ its highlights; the sections below them give the details. Versions follow
   vault key is: the OS keychain, a key file (`store.key`) or
   `KOMANDO_VAULT_PASS`. With a passphrase, every command needs it, reads
   included. A store made by a newer komando stops with `STORE_NEWER`.
-  Folders from earlier versions keep their files unchanged.
+  komando works only on the sealed store.
 - **`komando seal`** moves a folder of an earlier komando into the sealed
   store, after reading everything back and comparing it; the old files are
   kept in a sealed archive and `komando seal --undo` puts them back. A
-  person at a terminal only. `komando doctor` suggests it.
+  person at a terminal only. A folder of before must be sealed before
+  use: until then every other command (except `doctor`, `version`, `help`,
+  `guide` and `schema`) stops with `NEEDS_SEAL`, for agents too.
 - **Old copies are noticed:** with the store's key in the OS keychain, the
   keychain also remembers how many changes the store has had. An older
   copy put back stops commands with `STORE_OLD_COPY` (exit 6) until a
@@ -35,12 +37,9 @@ its highlights; the sections below them give the details. Versions follow
 ### Changed
 
 - Running VPN sessions, server logins, jobs and tunnels live in
-  `runtime.json`, apart from the inventory in `state.json`; `config show`
-  lists it. A background VPN marking itself used no longer rewrites the
-  inventory.
-- `known_hosts` is written under a lock, so two komando processes reaching
-  new servers at once no longer write over each other's fingerprints.
-- SSH key files komando makes are written whole or not at all.
+  `runtime.json` (sealed), apart from the inventory in `store.db`; `config
+  show` lists it. A background VPN marking itself used no longer rewrites
+  the inventory.
 
 ### Known limits
 
@@ -61,6 +60,10 @@ its highlights; the sections below them give the details. Versions follow
   `--target` (was `--host`), `host mv` and `conn mv` (was `host edit
   --rename` and `conn edit --rename`). `recipe add --mutating` is gone too:
   a recipe counts as a change unless you save it with `--read-only`.
+- The files of before as a way of working: `state.json`, `vault.json`,
+  `vault.key`, `known_hosts`, `audit.jsonl` and key files under `keys/` are
+  only read, by `komando seal`. `key gen --overwrite` is no longer needed
+  (keys komando makes live in the store) and does nothing.
 - OpenVPN OS mode (`vpn add --os-mode`), which ran the `openvpn` program
   with sudo and changed your computer's routes, is gone; komando's own
   OpenVPN client does the work without sudo. A VPN saved with it is never

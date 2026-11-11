@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/sgnd/komando/internal/store"
 )
@@ -90,7 +89,7 @@ func TestNewKeyFileNeverReplacesAKey(t *testing.T) {
 	if err := store.EnsureHome(); err != nil {
 		t.Fatal(err)
 	}
-	kp := store.Path("vault.key")
+	kp := storeKeyFile()
 	first, err := newKeyFile(kp)
 	if err != nil || len(first) != keyLen {
 		t.Fatalf("first key: %d bytes, %v", len(first), err)
@@ -105,56 +104,9 @@ func TestNewKeyFileNeverReplacesAKey(t *testing.T) {
 		t.Fatal("newKeyFile replaced the key another process made")
 	}
 	if fi, _ := os.Stat(kp); fi.Mode().Perm() != 0o600 {
-		t.Fatalf("vault.key mode %o", fi.Mode().Perm())
+		t.Fatalf("store.key mode %o", fi.Mode().Perm())
 	}
-	if left, _ := os.ReadDir(store.Home()); len(left) != 2 { // keys/ and vault.key
+	if left, _ := os.ReadDir(store.Home()); len(left) != 1 { // store.key
 		t.Fatalf("temporary files left behind: %v", left)
-	}
-}
-
-func TestShortKeyFileIsRefused(t *testing.T) {
-	keyfileHome(t)
-	if err := Set("db", "s3cret-value"); err != nil {
-		t.Fatal(err)
-	}
-	// what a crash or power loss can leave
-	if err := os.WriteFile(store.Path("vault.key"), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := Set("new", "other-value"); err == nil || !strings.Contains(err.Error(), "cut short") {
-		t.Fatalf("Set with an empty vault.key: %v", err)
-	}
-	if _, err := Get("db"); err == nil || !strings.Contains(err.Error(), "cut short") {
-		t.Fatalf("Get with an empty vault.key: %v", err)
-	}
-}
-
-// Moving the key to or from the keychain rewrites vault.json: it waits for
-// a change another komando process is making, so that change is not lost.
-func TestKeyMoveWaitsForTheVaultLock(t *testing.T) {
-	keyfileHome(t)
-	if err := Set("a", "1"); err != nil {
-		t.Fatal(err)
-	}
-	unlock, err := store.Lock(lockName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	done := make(chan error, 1)
-	go func() { done <- KeyToFile() }()
-	select {
-	case err := <-done:
-		unlock()
-		t.Fatalf("KeyToFile did not wait for the lock (err %v)", err)
-	case <-time.After(200 * time.Millisecond):
-	}
-	unlock()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("KeyToFile still waits after the lock was released")
 	}
 }

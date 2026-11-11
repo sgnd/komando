@@ -2,7 +2,6 @@ package store
 
 import (
 	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 )
@@ -97,32 +96,6 @@ func TestRecNotInRecordJSON(t *testing.T) {
 	b, _ := json.Marshal(&Host{Name: "a", Rec: Rec{ID: "x", Version: 3}})
 	if strings.Contains(string(b), `"x"`) || strings.Contains(string(b), "version") {
 		t.Fatalf("Rec leaks into the record: %s", b)
-	}
-}
-
-func TestRecOldFileAndDuplicateID(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("KOMANDO_HOME", home)
-	// a state.json from before IDs, and one where two hosts share an ID
-	if err := os.WriteFile(home+"/state.json", []byte(`{"hosts":{"a":{"name":"a","address":"1"},"b":{"name":"b","address":"2"}}}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	a := recOf(t, KindHost, "a")
-	if a.ID == "" || a.Version != 1 {
-		t.Fatalf("old record %+v", a)
-	}
-	update(t, func(*State) {})
-	a = recOf(t, KindHost, "a")
-	if recOf(t, KindHost, "a") != a {
-		t.Fatal("ID of an old record not kept after a save")
-	}
-	b, _ := os.ReadFile(home + "/state.json")
-	s := strings.Replace(string(b), recOf(t, KindHost, "b").ID, a.ID, 1)
-	if err := os.WriteFile(home+"/state.json", []byte(s), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if recOf(t, KindHost, "a") != a || recOf(t, KindHost, "b").ID == a.ID {
-		t.Fatal("a shared ID was not split")
 	}
 }
 

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -30,9 +29,8 @@ func keyMvCmd() *cobra.Command {
 		Use:   "mv OLD NEW",
 		Short: "Rename a key, and every server that uses it",
 		Long: `Gives a key in komando's key list a new name; the servers that use it follow. A
-key komando made (key gen) also moves its files in ~/.komando/keys (the
-private key and the .pub); a key added from elsewhere (key add) stays where
-it is. Public keys already installed on servers keep their comment: they
+key komando made (key gen) lives in the sealed store, so no file moves; a key
+added from elsewhere (key add) stays where it is. Public keys already installed on servers keep their comment: they
 still work, since the key itself does not change.`,
 		Example: `  komando key mv deploy deploy-2026
   komando key mv old-ci ci --dry-run`,
@@ -52,11 +50,6 @@ still work, since the key itself does not change.`,
 				}
 				if s.Keys[to] != nil {
 					return nil, renameOpts{}, keyExists(to)
-				}
-				if p, ok := managedKeyPath(k, from, to); ok {
-					if _, err := os.Lstat(p); err == nil {
-						return nil, renameOpts{}, out.Errf(out.ExitConflict, "KEY_FILE_EXISTS", "move that file away, or pick another name", "%s already exists", p)
-					}
 				}
 				return renameSet{"key": {from: to}}, renameOpts{}, nil
 			})
