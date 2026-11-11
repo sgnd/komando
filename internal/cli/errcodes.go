@@ -119,7 +119,7 @@ var errorCodes = []errorCode{
 	{"NOTHING_TO_RENAME", 3, "no … starts with …", "check OLD with `komando list` and `komando secret list`; names are matched from the start, as written"},
 	{"NOT_A_FOLDER", 2, "… is a file, not a folder", "sync works on folders; for one file use `komando upload` or `komando download`"},
 	{"NOT_FOUND", 3, "INFO … returned nothing", "this server has no such section; try `komando cache info CONN --all`"},
-	{"NOT_SUPPORTED", 2, "db explain --analyze is not available for oracle", "drop --analyze: db explain shows Oracle's plan with its estimated rows"},
+	{"NOT_SUPPORTED", 2, "… waits for data that keeps coming, so cache run would never return", "cache run sends one command and prints its one reply; drop BLOCK from XREAD, and use redis-cli for MONITOR or SUBSCRIBE"},
 	{"NOT_SWARM_MANAGER", 3, "… is not a Swarm manager (docker not found)", "Swarm commands run on a manager: `komando exec … --read-only -- docker node ls` shows whether it is one"},
 	{"NOT_TEXT", 2, "… is not text", "download it with `komando storage download CONN KEY`"},
 	{"NOT_WRITABLE", 8, "cannot replace …: …: …", "nothing was changed; make … writable, or install komando in another folder with the install line (KOMANDO_INSTALL_DIR=DIR)"},
