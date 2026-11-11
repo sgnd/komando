@@ -620,3 +620,29 @@ func TestPolicyChangeText(t *testing.T) {
 		}
 	}
 }
+
+// config show JSON has every setting in data.keys, in the form config get
+// and set use, with its default and allowed values, and the approval code.
+func TestConfigShowJSONKeys(t *testing.T) {
+	invHome(t)
+	d := mustRun(t, "config", "show")
+	keys := map[string]map[string]any{}
+	for _, k := range d["keys"].([]any) {
+		m := k.(map[string]any)
+		keys[m["key"].(string)] = m
+	}
+	if len(keys) != len(settings) {
+		t.Errorf("%d keys, want %d", len(keys), len(settings))
+	}
+	for _, want := range []string{"default_user", "audit_syslog", "audit"} {
+		if keys[want] == nil {
+			t.Errorf("no %s: %v", want, keys)
+		}
+	}
+	if keys["audit"]["value"] != "on" || keys["audit_syslog"]["value"] != "off" || keys["parallel"]["default"] != "10" || keys["audit"]["values"] != "on | off" {
+		t.Errorf("values: %v", keys)
+	}
+	if d["approval_code"] != "off" || d["settings"] == nil {
+		t.Errorf("approval_code / settings: %v", d)
+	}
+}

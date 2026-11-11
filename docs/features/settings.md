@@ -6,7 +6,7 @@ itself. [All docs](README.md)
 ## Quick start
 
 ```bash
-komando config show                          # every setting: KEY VALUE DEFAULT ALLOWED, and file locations
+komando config show                          # every setting: KEY VALUE DEFAULT ALLOWED, and file locations (JSON: data.keys)
 komando config get parallel
 komando config set parallel 20
 komando config set default_timeout 10m
