@@ -730,6 +730,19 @@ func (t vpnChangeText) Text() string {
 	if v.MFA {
 		field("login", "a person logs in at `komando vpn up "+v.Name+"`")
 	}
+	if v.CA != "" {
+		field("ca", "its own CA certificate")
+	}
+	if v.OSMode {
+		field("runs", "on this computer itself (sudo, changes routes)")
+	}
+	// the weaker logins a person allowed stay in view
+	if v.LegacyCrypto {
+		field("legacy crypto", "yes (3DES, DH groups 2 and 5)")
+	}
+	if v.AllowPAP {
+		field("allow PAP", "yes (the server may get the password itself)")
+	}
 	if c := strings.TrimSpace(v.Config); c != "" {
 		b.WriteString("  config:\n")
 		for _, l := range strings.Split(c, "\n") {

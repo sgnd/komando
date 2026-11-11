@@ -327,4 +327,9 @@ func TestVpnChangeText(t *testing.T) {
 	if got := (vpnChangeText{verb: "would change", v: v}).Text(); !strings.HasPrefix(got, "would change office (dry run)\n") {
 		t.Errorf("dry run: %s", got)
 	}
+	// a weaker login a person allowed shows in the text too
+	weak := &store.Vpn{Name: "kantor", Kind: "l2tp", Server: "vpn.kantor.id", LegacyCrypto: true, AllowPAP: true}
+	if got := (vpnChangeText{verb: "changed", v: weak}).Text(); !strings.Contains(got, "legacy crypto: yes") || !strings.Contains(got, "allow PAP: yes") {
+		t.Errorf("weaker login: %s", got)
+	}
 }
