@@ -131,7 +131,7 @@ func proxyCommandSkip(cmd string) string {
 		return ""
 	}
 	if hits := policy.Check(cmd, nil); len(hits) > 0 && !g.allowDangerous {
-		return "its proxy command matches destructive rules (" + hits[0].Reason + "): import it again with --allow-dangerous if it is intended"
+		return "its proxy command matches destructive rules (" + hits[0].Reason + "): import it again with --allow-dangerous once the user confirms it is intended"
 	}
 	if isAgent() && !g.yes {
 		return "its proxy command runs on this computer, so an AI agent needs the user's yes: import it again with --yes after the user confirms"
@@ -246,7 +246,11 @@ run on this computer, so an AI agent needs a person's yes for them.`,
 			if notes = append(notes, v.Notes...); len(notes) > 0 {
 				res["notes"] = notes
 			}
-			out.P.Print("host.import", res, nil)
+			incomplete := importIncomplete(len(v.Invalid))
+			out.P.Print("host.import", res, toErr(incomplete))
+			if incomplete != nil {
+				return exitCode(1)
+			}
 			return nil
 		},
 	}

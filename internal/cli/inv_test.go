@@ -188,25 +188,26 @@ func TestInvHostImportJSON(t *testing.T) {
 		t.Fatalf("agent proxy command needs a person: %+v", e)
 	}
 	// without --yes the proxy command server is left out, with the reason,
-	// and nothing else is held back (a dry run says the same)
+	// and nothing else is held back (a dry run says the same); the import
+	// still fails, so the agent does not take it for done
 	for _, dry := range []bool{true, false} {
 		args := []string{"host", "import", "--json", f}
 		if dry {
 			args = append(args, "--dry-run")
 		}
-		d := mustRun(t, args...)
+		d, e := invRun(t, args...)
 		skipped := fmt.Sprint(d["skipped_invalid"])
-		if !strings.Contains(skipped, "px") || !strings.Contains(skipped, "--yes") {
-			t.Errorf("dry %v: px is left out with the reason: %v", dry, d)
+		if e == nil || e.Code != "IMPORT_INCOMPLETE" || !strings.Contains(skipped, "px") || !strings.Contains(skipped, "--yes") {
+			t.Errorf("dry %v: px is left out with the reason: %v %+v", dry, d, e)
 		}
 	}
 	if _, e := invRun(t, "host", "show", "px"); e == nil {
 		t.Error("px was added without a person's yes")
 	}
 	noAgent(t)
-	d := mustRun(t, "host", "import", "--json", f, "--overwrite")
-	if d["skipped_protected"] == nil || d["skipped_invalid"] == nil {
-		t.Errorf("protected and invalid hosts are reported: %v", d)
+	d, e := invRun(t, "host", "import", "--json", f, "--overwrite")
+	if e == nil || e.Code != "IMPORT_INCOMPLETE" || d["skipped_protected"] == nil || d["skipped_invalid"] == nil {
+		t.Errorf("protected and invalid hosts are reported: %v %+v", d, e)
 	}
 	// komando import reads host export output too
 	mustRun(t, "host", "rm", "px")

@@ -63,7 +63,8 @@ appear in komando's list, output or history.
   `Include` file that is missing. `HostName %h.example.com` is understood.
 - A `ProxyCommand` runs on this computer, so an AI agent needs a person's
   yes (`--yes`) to import one. Without it, that server is left out with the
-  reason, and the other servers still come in.
+  reason, the other servers still come in, and the import ends with
+  `IMPORT_INCOMPLETE` (exit 1).
 
 ### Coming from Termius or TablePlus
 
