@@ -92,9 +92,8 @@ is there, because it is the reference.
 
 **Phase 4: OpenVPN in Go (XL)**
 OpenVPN and Pritunl without Docker and without sudo, on the userspace
-network stack. `--os-mode` and the Docker mode are removed one release
-after the built-in client passes `make e2e-openvpn` and the extra cases
-below.
+network stack. `--os-mode` and the Docker mode are removed (`--os-mode`
+on 2026-11-11).
 
 **Phase 5: corporate VPNs in Go (XL, one protocol per release)**
 In order of use: AnyConnect/ocserv, Fortinet, GlobalProtect, F5,

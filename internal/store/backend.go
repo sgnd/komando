@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -229,8 +230,16 @@ func createDB(ctx context.Context, home, path string) (*sealdb.DB, error) {
 	// a new store's number goes into the keychain with it: from now on a
 	// missing number is never normal
 	if guarded(meta) {
-		if n, gerr := d.Generation(ctx); gerr == nil {
-			_ = GenerationKeeper.Set(n)
+		n, gerr := d.Generation(ctx)
+		if gerr == nil && GenerationKeeper.Set != nil {
+			gerr = GenerationKeeper.Set(n)
+		}
+		if gerr != nil {
+			// without its number the new store would be taken for an old
+			// copy on the next run: start again next time instead
+			d.Close()
+			os.Remove(path)
+			return nil, fmt.Errorf("could not save the store's change count in the keychain: %w", gerr)
 		}
 	}
 	lookOnly, err := checkGeneration(d, meta)

@@ -15,7 +15,7 @@ import (
 type waitEnv struct {
 	Data struct {
 		Results []struct {
-			Name  string `json:"name"`
+			Name  string `json:"host"`
 			OK    bool   `json:"ok"`
 			Error *struct {
 				Code string `json:"code"`

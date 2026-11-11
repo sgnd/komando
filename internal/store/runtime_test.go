@@ -107,7 +107,7 @@ func TestRuntimeAndInventoryTogether(t *testing.T) {
 func TestReadOldState(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
-	old := `{"hosts":{"web":{"name":"web","address":"10.0.0.1","jump":"bastion"}},"vpn_sessions":{"office":{"vpn":"office","pid":7}},"settings":{"audit":true},"ids":{"host":{"web":{"id":"x","version":3}}}}`
+	old := `{"hosts":{"web":{"name":"web","address":"10.0.0.1","via":"bastion"}},"vpn_sessions":{"office":{"vpn":"office","pid":7}},"settings":{"audit":true},"ids":{"host":{"web":{"id":"x","version":3}}}}`
 	if err := os.WriteFile(filepath.Join(home, "state.json"), []byte(old), 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -89,9 +89,6 @@ func vpnClients(v *store.Vpn) []string {
 	if netx.BuiltinSSL(v.Kind) {
 		return nil // komando's own client
 	}
-	if v.Kind == "openvpn" && v.OSMode {
-		return []string{"openvpn", "sudo"}
-	}
 	return netx.Kinds[v.Kind].Client
 }
 
@@ -116,6 +113,9 @@ func installHint(bin string) string {
 // startSession connects v in the background and records the session.
 // interactive means a person is at the terminal for the login (and MFA).
 func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactive bool) (*store.VpnSession, error) {
+	if err := osModeGone(v); err != nil {
+		return nil, err
+	}
 	if v.MFA && !interactive {
 		return nil, netx.LoginRequired(v)
 	}
@@ -234,7 +234,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 			netx.StopSession(s)
 			return nil, netx.Down(v, fmt.Errorf("ocproxy did not open its SOCKS port"))
 		}
-	case v.Kind == "openvpn" && !v.OSMode, oneOf(v.Kind, "l2tp", "ipsec", "ikev2"):
+	case v.Kind == "openvpn", oneOf(v.Kind, "l2tp", "ipsec", "ikev2"):
 		// komando's own OpenVPN or IPsec client in a `komando vpn serve` process
 		typed := ""
 		if v.KeyRef == "" && (v.MFA || v.User != "") {
@@ -254,59 +254,6 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		s.PID, s.Socks = pid, addr
 		if self, err := os.Executable(); err == nil {
 			s.Exe = filepath.Base(self)
-		}
-	case v.Kind == "openvpn":
-		cfg, err := vault.Resolve(v.ConfigRef)
-		if err != nil {
-			return nil, out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "add the VPN again with --config", "VPN %s: %v", v.Name, err)
-		}
-		// openvpn runs as root, so it gets the profile as komando read it,
-		// written again (canonicalOVPN), and on its input: there is no
-		// file another program could change between the check and the start
-		clean, err := canonicalOVPN(cfg)
-		if err != nil {
-			return nil, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "add the VPN again without that line", "VPN %s: %v", v.Name, err).NoFlag()
-		}
-		// root writes its pid and log only where the user cannot plant a
-		// symlink: /var/run and syslog
-		pidFile := "/var/run/komando-openvpn-" + v.Name + ".pid"
-		args := []string{"openvpn", "--config", "stdin",
-			// options after --config win over the profile's: whatever it
-			// says, openvpn calls no scripts, only its own ip/route tools
-			"--script-security", "1",
-			"--daemon", "komando-" + v.Name, "--writepid", pidFile, "--syslog", "komando-" + v.Name}
-		logFile = "the system log (komando-" + v.Name + ")"
-		if v.User != "" {
-			authFile, done, err := authPipe(dir, v.Name, v.User+"\n"+password+"\n") // never on disk
-			if err != nil {
-				return nil, err
-			}
-			defer done()
-			args = append(args, "--auth-user-pass", authFile)
-		}
-		if !interactive {
-			args = append([]string{"-n"}, args...) // works only while sudo remembers the person's password
-		}
-		// sudo asks for the password, and openvpn for a private key's, on
-		// the terminal (/dev/tty), not on the input
-		sd := exec.CommandContext(ctx, "sudo", args...)
-		sd.Stdin, sd.Stdout, sd.Stderr = strings.NewReader(clean), os.Stderr, os.Stderr
-		if err := sd.Run(); err != nil {
-			if !interactive {
-				return nil, out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a person to run `komando vpn up "+v.Name+"` (it needs sudo)",
-					"VPN %s runs as root and needs a person to approve sudo", v.Name)
-			}
-			return nil, netx.Down(v, fmt.Errorf("openvpn: %v", err))
-		}
-		s.Sudo, s.Exe = true, "openvpn"
-		waitFor(10*time.Second, func() bool { _, err := os.Stat(pidFile); return err == nil })
-		b, _ := os.ReadFile(pidFile)
-		if s.PID, err = strconv.Atoi(strings.TrimSpace(string(b))); err != nil || s.PID <= 1 {
-			return nil, netx.Down(v, fmt.Errorf("openvpn wrote no pid; check `sudo ps ax | grep openvpn` and %s", logFile))
-		}
-		if !waitFor(timeout, func() bool { return listening(v.Check) }) {
-			netx.StopSession(s)
-			return nil, netx.Down(v, fmt.Errorf("%s did not answer after connecting (see %s)", v.Check, logFile))
 		}
 	default:
 		return nil, out.Usage("%s VPNs need no session", v.Kind)
@@ -466,6 +413,9 @@ func vpnUpCmd() *cobra.Command {
 			if !ok {
 				return out.NotFound("vpn", args[0])
 			}
+			if err := osModeGone(v); err != nil {
+				return err
+			}
 			if s := netx.LiveSession(v); s != nil {
 				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": sessionView(s)}, nil)
 				return nil
@@ -477,7 +427,7 @@ func vpnUpCmd() *cobra.Command {
 			// VPNs that change this computer's routes get a before/after
 			// comparison, so two networks that claim the same addresses are
 			// reported instead of silently breaking one of them
-			osLevel := (v.Kind == "openvpn" && v.OSMode) || (v.Kind == "system" && v.Service != "")
+			osLevel := v.Kind == "system" && v.Service != ""
 			var before []netx.Route
 			if osLevel {
 				before, _ = netx.Routes()
@@ -581,14 +531,8 @@ func vpnDownCmd() *cobra.Command {
 					v = &store.Vpn{Name: n} // a session left from a removed VPN
 				}
 				if s := st.Sessions[n]; s != nil {
-					err := netx.StopSession(s)
-					if errors.Is(err, netx.ErrNeedsSudo) && interactive() {
-						k := exec.Command("sudo", "kill", strconv.Itoa(s.PID)) // the person types the sudo password
-						k.Stdin, k.Stdout, k.Stderr = os.Stdin, os.Stderr, os.Stderr
-						err = k.Run()
-					}
-					if err != nil {
-						return out.Errf(out.ExitError, "VPN_STOP_FAILED", "run `komando vpn down "+n+"` in a terminal (it needs sudo)",
+					if err := netx.StopSession(s); err != nil {
+						return out.Errf(out.ExitError, "VPN_STOP_FAILED", "run `komando vpn down "+n+"` again; if it still fails, end process "+strconv.Itoa(s.PID)+" yourself",
 							"could not disconnect %s: %v", n, err)
 					}
 					down = append(down, n)
@@ -694,4 +638,16 @@ func randToken(n int) string {
 		panic(err)
 	}
 	return hex.EncodeToString(b)
+}
+
+// osModeGone refuses an OpenVPN saved with the removed --os-mode (which ran
+// the openvpn program as root): it is never quietly run another way. Adding
+// it again checks its profile against komando's own client.
+func osModeGone(v *store.Vpn) error {
+	if !v.OSMode {
+		return nil
+	}
+	return out.Errf(out.ExitUsage, "VPN_OS_MODE_REMOVED",
+		"add it again with komando's own client: `komando vpn add "+v.Name+" openvpn --config FILE.ovpn --check HOST:PORT --overwrite` (plus --user and --password-ref if it logs in)",
+		"VPN %s uses OpenVPN OS mode (--os-mode), which komando no longer has", v.Name)
 }

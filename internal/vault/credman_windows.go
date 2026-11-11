@@ -45,7 +45,7 @@ type credential struct {
 
 func credAvailable() error {
 	if err := procCredReadW.Find(); err != nil {
-		return errors.New("the Windows Credential Manager (advapi32 CredReadW) is not available")
+		return errors.New("the Windows Credential Manager is not available on this computer")
 	}
 	return nil
 }

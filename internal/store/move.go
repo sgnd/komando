@@ -45,9 +45,20 @@ func AppendAuditLines(lines [][]byte) error {
 // undo): store.db is renamed to name, never deleted, and this process
 // forgets it.
 func RemoveStore(name string) error {
+	// one empty write step waits for any other writer and replays a
+	// journal left by a crash, so the copy set aside is whole
+	if d, err := DB(false); err == nil {
+		_ = d.Update(context.Background(), func(*sealdb.Tx) error { return nil })
+	}
 	closeDBs()
 	err := os.Rename(Path(StoreFile), Path(name))
-	_ = os.Remove(Path(StoreFile + "-journal"))
+	if err == nil {
+		// a journal still there belongs to a write in flight: it goes with
+		// its store, never away
+		if jerr := os.Rename(Path(StoreFile+"-journal"), Path(name+"-journal")); jerr != nil && !errors.Is(jerr, os.ErrNotExist) {
+			err = jerr
+		}
+	}
 	if err == nil && GenerationKeeper.Del != nil {
 		GenerationKeeper.Del() // no store, no count to compare with
 	}

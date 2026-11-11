@@ -28,7 +28,6 @@ type Host struct {
 	// carry the SSH connection (OpenSSH ProxyCommand): aws ssm start-session,
 	// gcloud compute start-iap-tunnel, cloudflared access ssh. %h %p %r %n.
 	ProxyCommand string            `json:"proxy_command,omitempty"`
-	OldJump      string            `json:"jump,omitempty"` // written by v0.1.0 only; moved to Via on load
 	Groups       []string          `json:"groups,omitempty"`
 	Tags         []string          `json:"tags,omitempty"`
 	Labels       map[string]string `json:"labels,omitempty"`
@@ -203,7 +202,7 @@ type Vpn struct {
 	RemoteID  string            `json:"remote_id,omitempty"`  // ikev2: the server's identity (default: --server)
 	CA        string            `json:"ca,omitempty"`         // ikev2: PEM of the CA that signed the server certificate
 	MFA       bool              `json:"mfa,omitempty"`        // a human must log in (`vpn up`); never automated
-	OSMode    bool              `json:"os_mode,omitempty"`    // openvpn: run on the computer itself (sudo, changes routes)
+	OSMode    bool              `json:"os_mode,omitempty"`    // removed OpenVPN OS mode; kept only so `vpn up` refuses such a VPN
 	Check     string            `json:"check,omitempty"`      // host:port that answers only through the VPN
 	Groups    []string          `json:"groups,omitempty"`
 	Tags      []string          `json:"tags,omitempty"`
@@ -226,8 +225,7 @@ type VpnSession struct {
 	Socks     string    `json:"socks,omitempty"`      // local SOCKS5 address; empty when the OS routes the traffic
 	SocksUser string    `json:"socks_user,omitempty"` // login for the container's SOCKS port, random per session
 	SocksPass string    `json:"socks_pass,omitempty"`
-	Exe       string    `json:"exe,omitempty"`  // the program the pid must still be, so a reused pid is never signalled
-	Sudo      bool      `json:"sudo,omitempty"` // the process runs as root (OS mode)
+	Exe       string    `json:"exe,omitempty"` // the program the pid must still be, so a reused pid is never signalled
 	LogFile   string    `json:"log_file,omitempty"`
 	StartedAt time.Time `json:"started_at"`
 	LastUsed  time.Time `json:"last_used"`
@@ -286,12 +284,6 @@ func ensureHome() error {
 func (s *State) init() {
 	if s.Hosts == nil {
 		s.Hosts = map[string]*Host{}
-	}
-	for _, h := range s.Hosts {
-		if h.OldJump != "" && h.Via == "" {
-			h.Via = h.OldJump
-		}
-		h.OldJump = ""
 	}
 	if s.Conns == nil {
 		s.Conns = map[string]*Conn{}
