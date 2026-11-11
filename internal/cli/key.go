@@ -27,7 +27,7 @@ import (
 )
 
 func keyCmd() *cobra.Command {
-	c := &cobra.Command{Use: "key", Aliases: []string{"keys", "keychain"}, Short: "SSH keys: generate, register, deploy to servers, list"}
+	c := &cobra.Command{Use: "key", Aliases: []string{"keys"}, Short: "SSH keys: generate, register, deploy to servers, list"}
 	c.AddCommand(keyGenCmd(), keyAddCmd(), keyListCmd(), keyShowCmd(), keyRmCmd(), keyDeployCmd(), keyRevokeCmd(), keyEditCmd(), keyMvCmd())
 	return c
 }

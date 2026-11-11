@@ -351,3 +351,11 @@ func TestFamilyAddWrongKind(t *testing.T) {
 		}
 	}
 }
+
+// "keychain" means the OS keychain (`secret keychain`), never the SSH key
+// list.
+func TestKeychainIsNotKey(t *testing.T) {
+	if c, _, err := newRoot().Find([]string{"keychain"}); err == nil && c.Name() == "key" {
+		t.Error("`komando keychain` opens the SSH key list")
+	}
+}
