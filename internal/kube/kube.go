@@ -35,23 +35,29 @@ import (
 
 // Config is the part of a kubeconfig komando uses.
 type Config struct {
-	CurrentContext string `yaml:"current-context"`
-	Clusters       []struct {
-		Name    string  `yaml:"name"`
-		Cluster Cluster `yaml:"cluster"`
-	} `yaml:"clusters"`
-	Users []struct {
-		Name string   `yaml:"name"`
-		User AuthInfo `yaml:"user"`
-	} `yaml:"users"`
-	Contexts []struct {
-		Name    string `yaml:"name"`
-		Context struct {
-			Cluster   string `yaml:"cluster"`
-			User      string `yaml:"user"`
-			Namespace string `yaml:"namespace,omitempty"`
-		} `yaml:"context"`
-	} `yaml:"contexts"`
+	CurrentContext string         `yaml:"current-context"`
+	Clusters       []NamedCluster `yaml:"clusters"`
+	Users          []NamedUser    `yaml:"users"`
+	Contexts       []NamedContext `yaml:"contexts"`
+}
+
+type NamedCluster struct {
+	Name    string  `yaml:"name"`
+	Cluster Cluster `yaml:"cluster"`
+}
+
+type NamedUser struct {
+	Name string   `yaml:"name"`
+	User AuthInfo `yaml:"user"`
+}
+
+type NamedContext struct {
+	Name    string `yaml:"name"`
+	Context struct {
+		Cluster   string `yaml:"cluster"`
+		User      string `yaml:"user"`
+		Namespace string `yaml:"namespace,omitempty"`
+	} `yaml:"context"`
 }
 
 type Cluster struct {
@@ -137,12 +143,20 @@ func execArg(args []string, names ...string) string {
 
 // Parse reads a kubeconfig.
 func Parse(b []byte) (*Config, error) {
-	var c Config
-	if err := yaml.Unmarshal(b, &c); err != nil {
-		return nil, fmt.Errorf("not a kubeconfig: %w", err)
+	c, err := parse(b)
+	if err != nil {
+		return nil, err
 	}
 	if len(c.Contexts) == 0 {
 		return nil, fmt.Errorf("the kubeconfig has no contexts")
+	}
+	return c, nil
+}
+
+func parse(b []byte) (*Config, error) {
+	var c Config
+	if err := yaml.Unmarshal(b, &c); err != nil {
+		return nil, fmt.Errorf("not a kubeconfig: %w", err)
 	}
 	return &c, nil
 }
@@ -239,6 +253,10 @@ func expandHome(p string) string {
 	return p
 }
 
+// DialTimeout limits a direct connection to the API server; without it an
+// address that never answers waits for the system's own limit (75 s and more).
+const DialTimeout = 30 * time.Second
+
 // Dialer opens TCP connections, possibly through a --via path.
 type Dialer func(ctx context.Context, network, addr string) (net.Conn, error)
 
@@ -292,7 +310,8 @@ func New(x *Context, dial Dialer) (*Client, error) {
 		}
 		pick = http.ProxyURL(u)
 	}
-	tr := &http.Transport{TLSClientConfig: tc, TLSHandshakeTimeout: 15 * time.Second, ForceAttemptHTTP2: true, Proxy: pick}
+	tr := &http.Transport{TLSClientConfig: tc, TLSHandshakeTimeout: 15 * time.Second, ForceAttemptHTTP2: true, Proxy: pick,
+		DialContext: (&net.Dialer{Timeout: DialTimeout, KeepAlive: 30 * time.Second}).DialContext}
 	if dial != nil {
 		tr.DialContext = dial
 		tr.Proxy = nil // the --via path is the way out
@@ -486,6 +505,7 @@ func (c *Client) discover(ctx context.Context) error {
 		} `json:"groups"`
 	}
 	if err := c.Get(ctx, "/apis", nil, &groups); err != nil {
+		c.discovery = nil // ask again next time, not an empty list
 		return err
 	}
 	for _, g := range groups.Groups {
@@ -513,13 +533,18 @@ func (c *Client) Resource(ctx context.Context, name string) (ResourceType, error
 	return ResourceType{}, &UnknownKindError{Kind: name, Suggest: Nearest(strings.ToLower(name), known)}
 }
 
-// UnknownKindError is a kind the cluster does not serve.
+// UnknownKindError is a kind the cluster does not serve. APIVersion is
+// set for an object's apiVersion and kind (ResourceFor).
 type UnknownKindError struct {
-	Kind    string
-	Suggest string
+	Kind       string
+	APIVersion string
+	Suggest    string
 }
 
 func (e *UnknownKindError) Error() string {
+	if e.APIVersion != "" {
+		return fmt.Sprintf("the cluster does not serve %s %s", e.APIVersion, e.Kind)
+	}
 	if e.Suggest != "" {
 		return fmt.Sprintf("unknown kind %q; did you mean %q?", e.Kind, e.Suggest)
 	}
@@ -568,7 +593,7 @@ func (c *Client) ResourceFor(ctx context.Context, apiVersion, kind string) (Reso
 	if r, ok := c.discovery[apiVersion+"/"+kind]; ok {
 		return r, nil
 	}
-	return ResourceType{}, fmt.Errorf("the cluster does not serve %s %s", apiVersion, kind)
+	return ResourceType{}, &UnknownKindError{Kind: kind, APIVersion: apiVersion}
 }
 
 // ObjectPath is the API path of a ResourceType (all namespaces when ns is "").

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -113,12 +114,32 @@ func resolveClusters(st *store.State, expr string) ([]clusterTarget, error) {
 		}
 	}
 	for _, h := range sel.Hosts {
-		ts = append(ts, clusterTarget{host: h})
+		if len(sel.Hosts) == 1 && len(ts) == 0 || swarmManager(expr, h) {
+			ts = append(ts, clusterTarget{host: h})
+		} else {
+			out.P.Skip(out.Skipped{Name: h.Name, Kind: "host", Reason: "a server: name it, or tag it swarm (`komando host edit " + h.Name + " --add-tag swarm`), to read it as a Swarm manager"})
+		}
 	}
 	if len(ts) == 0 {
 		return nil, noMatch(expr, "clusters (a k8s conn, or a Swarm manager server)", sel)
 	}
 	return ts, nil
+}
+
+// swarmManager: a server a selector of several targets picks (all,
+// @group) is read as a Swarm manager only when it is tagged swarm or named
+// in the selector itself; otherwise every web server in @prod would be
+// asked for a swarm it does not run.
+func swarmManager(expr string, h *store.Host) bool {
+	if slices.Contains(h.Tags, "swarm") {
+		return true
+	}
+	for _, part := range strings.Split(expr, ",") {
+		if strings.TrimSpace(part) == h.Name {
+			return true
+		}
+	}
+	return false
 }
 
 // readClusters runs r on each cluster. One cluster prints its own
@@ -181,6 +202,8 @@ func readClusters(ctx context.Context, name string, st *store.State, ts []cluste
 // readOne is one cluster's row of readClusters.
 func readOne(ctx context.Context, st *store.State, t clusterTarget, r clusterRead) clusterRow {
 	row := clusterRow{Cluster: t.name(), Engine: t.engine()}
+	ctx, cancel := kubeDeadline(ctx, st)
+	defer cancel()
 	var v any
 	var err error
 	switch {

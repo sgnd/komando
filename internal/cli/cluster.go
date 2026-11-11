@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -203,7 +205,47 @@ func kubeErr(err error) error {
 	if errors.As(err, &oe) {
 		return oe
 	}
-	return out.Errf(out.ExitConnect, "K8S_UNREACHABLE", "check the conn with `komando test NAME` (and its --via path)", "%v", err)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test NAME` (and its --via path)",
+			"the cluster did not answer within the time limit (--timeout)")
+	}
+	return out.Errf(out.ExitConnect, "K8S_UNREACHABLE", "check the conn with `komando test NAME` (and its --via path)", "%s", dialMessage(err))
+}
+
+// dialMessage says "cannot reach HOST:PORT: connection refused" for a
+// failed connection, as `komando test` does, instead of Go's
+// `Get "https://...": dial tcp ...: connect: ...`; other errors keep their words.
+func dialMessage(err error) string {
+	var op *net.OpError
+	if !errors.As(err, &op) || op.Op != "dial" || op.Addr == nil {
+		return err.Error()
+	}
+	why := op.Err
+	var sys *os.SyscallError
+	if errors.As(why, &sys) {
+		why = sys.Err
+	}
+	return "cannot reach " + op.Addr.String() + ": " + why.Error()
+}
+
+// ownTimeLimit marks a command that keeps its own time (logs -f, --wait)
+// when on, so kubeDeadline adds none.
+func ownTimeLimit(ctx context.Context, on bool) context.Context {
+	if !on {
+		return ctx
+	}
+	return context.WithValue(ctx, ownLimitKey{}, true)
+}
+
+type ownLimitKey struct{}
+
+// kubeDeadline gives one cluster's work the --timeout ("time limit per
+// server"), unless the command keeps its own time.
+func kubeDeadline(ctx context.Context, st *store.State) (context.Context, context.CancelFunc) {
+	if ctx.Value(ownLimitKey{}) != nil {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, cmdTimeout(st))
 }
 
 // withKube runs fn on a k8s conn after the safety check for risk.
@@ -217,6 +259,8 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 	if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{name}}); err != nil {
 		return err
 	}
+	ctx, cancel := kubeDeadline(ctx, st)
+	defer cancel()
 	k, done, err := kubeClient(ctx, st, t.conn)
 	if errors.Is(err, errDryRunStopped) {
 		out.P.Print(name, map[string]any{"conn": t.conn.Name, "dry_run": true}, nil)

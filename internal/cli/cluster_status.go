@@ -3,6 +3,7 @@ package cli
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -55,7 +56,7 @@ passes.`,
 				if err != nil {
 					return err
 				}
-				return rolloutStatus(cmd.Context(), ts[0], typ, name, ns, wait)
+				return rolloutStatus(ownTimeLimit(cmd.Context(), wait), ts[0], typ, name, ns, wait)
 			}
 			if wait {
 				return out.Usage("--wait needs an object: `cluster status %s deployment/NAME --wait`", args[0])
@@ -84,29 +85,40 @@ func kubeStatus(ctx context.Context, k *kube.Client, conn, ns string) (any, erro
 	if err := k.Get(ctx, "/version", nil, &ver); err != nil {
 		return nil, err
 	}
-	var nodes, pods, deploys struct {
-		Items []map[string]any `json:"items"`
+	notes := []string{}
+	// an account that may only look at its namespace may not list nodes:
+	// the rest of the status is still worth showing
+	nodes, _, err := listItems(ctx, k, "/api/v1/nodes")
+	var ae *kube.APIError
+	if errors.As(err, &ae) && ae.Code == 403 {
+		notes, err = append(notes, "nodes: this account may not list them"), nil
 	}
-	if err := k.Get(ctx, "/api/v1/nodes", nil, &nodes); err != nil {
+	if err != nil {
 		return nil, err
 	}
-	podPath, deployPath := "/api/v1/pods", "/apis/apps/v1/deployments"
+	space := ""
 	if ns != "" {
-		podPath = "/api/v1/namespaces/" + url.PathEscape(ns) + "/pods"
-		deployPath = "/apis/apps/v1/namespaces/" + url.PathEscape(ns) + "/deployments"
+		space = "/namespaces/" + url.PathEscape(ns)
 	}
-	if err := k.Get(ctx, podPath, url.Values{"limit": {"5000"}}, &pods); err != nil {
+	pods, cutPods, err := listItems(ctx, k, "/api/v1"+space+"/pods")
+	if err != nil {
 		return nil, err
 	}
-	if err := k.Get(ctx, deployPath, url.Values{"limit": {"2000"}}, &deploys); err != nil {
-		return nil, err
+	truncated := cutPods
+	workloads := map[string][]map[string]any{}
+	for _, kind := range []string{"deployments", "statefulsets", "daemonsets"} {
+		items, cut, err := listItems(ctx, k, "/apis/apps/v1"+space+"/"+kind)
+		if err != nil {
+			return nil, err
+		}
+		workloads[kind], truncated = items, truncated || cut
 	}
 	ready := 0
 	problems := []map[string]string{}
 	problem := func(obj, reason string) {
 		problems = append(problems, map[string]string{"object": obj, "problem": reason})
 	}
-	for _, n := range nodes.Items {
+	for _, n := range nodes {
 		name := "node/" + str(n["metadata"].(map[string]any)["name"])
 		if nodeReady(n) == "Ready" {
 			ready++
@@ -118,7 +130,7 @@ func kubeStatus(ctx context.Context, k *kube.Client, conn, ns string) (any, erro
 		}
 	}
 	bad := []string{}
-	for _, p := range pods.Items {
+	for _, p := range pods {
 		m := p["metadata"].(map[string]any)
 		name := str(m["namespace"]) + "/" + str(m["name"])
 		st, _ := p["status"].(map[string]any)
@@ -134,22 +146,75 @@ func kubeStatus(ctx context.Context, k *kube.Client, conn, ns string) (any, erro
 			problem("pod/"+name, strings.ToLower(phase))
 		}
 	}
-	for _, d := range deploys.Items {
-		m, _ := d["metadata"].(map[string]any)
-		spec, _ := d["spec"].(map[string]any)
-		st, _ := d["status"].(map[string]any)
-		want, _ := spec["replicas"].(float64)
-		have, _ := st["readyReplicas"].(float64)
-		if have < want {
-			problem("deployment/"+str(m["namespace"])+"/"+str(m["name"]), fmt.Sprintf("%d of %d replicas ready", int(have), int(want)))
+	for _, kind := range []string{"deployment", "statefulset", "daemonset"} {
+		for _, d := range workloads[kind+"s"] {
+			if want, have := workloadReady(kind, d); have < want {
+				m, _ := d["metadata"].(map[string]any)
+				what := "replicas"
+				if kind == "daemonset" {
+					what = "pods"
+				}
+				problem(kind+"/"+str(m["namespace"])+"/"+str(m["name"]), fmt.Sprintf("%d of %d %s ready", have, want, what))
+			}
 		}
 	}
-	res := statusData{"conn": conn, "version": ver["gitVersion"], "nodes": len(nodes.Items),
+	res := statusData{"conn": conn, "version": ver["gitVersion"], "nodes": len(nodes),
 		"nodes_ready": ready, "pods_not_running": bad, "healthy": len(problems) == 0, "problems": problems}
+	if truncated {
+		// what was not read may hold a problem: say so instead of "healthy"
+		res["truncated"] = true
+		if len(problems) == 0 {
+			res["healthy"] = nil
+		}
+		notes = append(notes, fmt.Sprintf("the cluster has more than %d objects of a kind; only those were checked (narrow it with --namespace)", maxStatusItems))
+	}
+	if len(notes) > 0 {
+		res["notes"] = notes
+	}
 	if ns != "" {
 		res["namespace"] = ns
 	}
 	return res, nil
+}
+
+// workloadReady is how many replicas (pods, for a daemonset) a workload
+// wants and how many are ready.
+func workloadReady(kind string, o map[string]any) (want, have int) {
+	spec, _ := o["spec"].(map[string]any)
+	st, _ := o["status"].(map[string]any)
+	num := func(m map[string]any, k string) int { f, _ := m[k].(float64); return int(f) }
+	if kind == "daemonset" {
+		return num(st, "desiredNumberScheduled"), num(st, "numberReady")
+	}
+	return num(spec, "replicas"), num(st, "readyReplicas")
+}
+
+// maxStatusItems is how many objects of one kind cluster status reads.
+const maxStatusItems = 20000
+
+// listItems reads a list page by page, up to maxStatusItems; cut is true
+// when there were more.
+func listItems(ctx context.Context, k *kube.Client, path string) (items []map[string]any, cut bool, err error) {
+	q := url.Values{"limit": {"500"}}
+	for {
+		var page struct {
+			Items    []map[string]any `json:"items"`
+			Metadata struct {
+				Continue string `json:"continue"`
+			} `json:"metadata"`
+		}
+		if err := k.Get(ctx, path, q, &page); err != nil {
+			return nil, false, err
+		}
+		items = append(items, page.Items...)
+		if page.Metadata.Continue == "" {
+			return items, false, nil
+		}
+		if len(items) >= maxStatusItems {
+			return items, true, nil
+		}
+		q.Set("continue", page.Metadata.Continue)
+	}
 }
 
 // rolloutStatus reports whether one workload has rolled out, and with wait

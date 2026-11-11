@@ -186,6 +186,9 @@ func helmLsCmd() *cobra.Command {
   komando cluster helm ls @prod -A              # every cluster in the group`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := nsOrAll(ns, all); err != nil {
+				return err
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -252,6 +255,14 @@ func helmRevisions(ctx context.Context, k *kube.Client, ns, release string) ([]h
 		revs = append(revs, r)
 	}
 	return revs, nil
+}
+
+// revisionOK checks --revision before komando connects: revisions count from 1.
+func revisionOK(n int) error {
+	if n < 0 {
+		return out.Usage("--revision counts from 1; leave it out for the newest")
+	}
+	return nil
 }
 
 // pickRevision is revision n of revs, or the newest when n is 0.
@@ -321,6 +332,9 @@ func helmStatusCmd() *cobra.Command {
 		Example: `  komando cluster helm status prod-k8s shop-api --namespace shop`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := revisionOK(revision); err != nil {
+				return err
+			}
 			return helmOne(cmd, "cluster.helm.status", args[0], args[1], ns, func(t clusterTarget, revs []helmRelease) (any, error) {
 				r, err := pickRevision(revs, revision)
 				if err != nil {
@@ -385,6 +399,9 @@ func helmValuesCmd() *cobra.Command {
   komando cluster helm values prod-k8s shop-api --namespace shop --all --revision 3`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := revisionOK(revision); err != nil {
+				return err
+			}
 			return helmOne(cmd, "cluster.helm.values", args[0], args[1], ns, func(t clusterTarget, revs []helmRelease) (any, error) {
 				r, err := pickRevision(revs, revision)
 				if err != nil {

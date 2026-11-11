@@ -754,8 +754,31 @@ var connAddKinds = map[string]struct{ what, form, example string }{
 	"cache":    {"cache", "Cache", "komando cache add cache1 redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
 	"queue":    {"message queue", "Message queues", "komando queue add orders kafka://10.0.0.8:9092 --via web1"},
 	"storage":  {"file storage", "File storage", "komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
-	"cluster":  {"cluster", "Kubernetes", "komando cluster add prod-k8s k8s://api.cluster.example:6443"},
+	"cluster":  {"cluster", "Kubernetes", "komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig"},
 	"registry": {"image registry", "Container registry", "komando registry add ghcr registry://myuser@ghcr.io --ask-password"},
+}
+
+// addKindFits refuses a URL of another area in `komando KIND add`
+// (registry add k8s://...), and a Kubernetes conn without its kubeconfig,
+// which could never log in.
+func addKindFits(family, raw, passwordRef string) error {
+	t, err := driver.Parse(normConnURL(strings.TrimSpace(raw)))
+	if err != nil {
+		if family == "cluster" && strings.HasPrefix(raw, "ssh://") {
+			return out.Errf(out.ExitUsage, "USAGE", "add it with `komando host add NAME user@address`; cluster commands then take its name",
+				"a Docker Swarm is reached through its manager server, which is a server, not a conn")
+		}
+		return nil // conn add says what is wrong with it
+	}
+	if t.Kind.Family != family {
+		return out.Errf(out.ExitUsage, "USAGE", "add it with `komando "+t.Kind.Family+" add` (or `komando conn add`)",
+			"%s is a %s URL, not one for `komando %s add`", raw, t.Kind.Name, family)
+	}
+	if t.Kind.Name == "k8s" && passwordRef == "" {
+		return out.Errf(out.ExitUsage, "USAGE", "bring the cluster in with `komando import kubeconfig FILE` (one conn per context), or store the kubeconfig with `komando secret set NAME` and pass --password-ref secret:NAME",
+			"a Kubernetes conn logs in with a whole kubeconfig, which %s alone does not give", raw)
+	}
+	return nil
 }
 
 // connAddCmdFor is `komando KIND add`: conn add with help for one kind.
@@ -765,6 +788,9 @@ func connAddCmdFor(kind string) *cobra.Command {
 	c.Short = "Add a " + k.what + " (same as conn add)"
 	c.Long = "Saves a " + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them."
 	c.Example = "  " + k.example
+	if kind == "cluster" {
+		c.Long += "\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--password-ref). A Docker Swarm manager is a server: `komando host add`."
+	}
 	run := c.RunE
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		if len(args) == 2 {
@@ -773,6 +799,10 @@ func connAddCmdFor(kind string) *cobra.Command {
 				if err := t.Need(kind); err != nil {
 					return err
 				}
+			}
+			ref, _ := cmd.Flags().GetString("password-ref")
+			if err := addKindFits(kind, args[1], ref); err != nil {
+				return err
 			}
 		}
 		if len(args) > 0 {

@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"os"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/sgnd/komando/internal/kube"
@@ -77,19 +76,13 @@ func kubeconfigProblem(v string) string {
 // kubeconfigNames are the names `import kubeconfig` gives the file's
 // contexts (importKubeconfig): sorted, each one that has a server.
 func kubeconfigNames(path string) []string {
-	b, err := os.ReadFile(expandHome(path))
+	cfg, err := kube.Load(os.ReadFile, kubeconfigPaths(path)...)
 	if err != nil {
 		return nil
 	}
-	cfg, err := kube.Parse(b)
-	if err != nil {
-		return nil
-	}
-	contexts := cfg.ContextNames()
-	sort.Strings(contexts)
-	p := newPlan()
+	conns, _ := kubeconfigConnNames(cfg.ContextNames())
 	var names []string
-	for _, n := range contexts {
+	for _, n := range sortedContexts(cfg) {
 		x, err := cfg.Resolve(n)
 		if err != nil {
 			continue
@@ -97,9 +90,7 @@ func kubeconfigNames(path string) []string {
 		if u, err := url.Parse(x.Cluster.Server); err != nil || u.Host == "" {
 			continue
 		}
-		name := p.name(n)
-		p.Conns = append(p.Conns, &store.Conn{Name: name})
-		names = append(names, name)
+		names = append(names, conns[n])
 	}
 	return names
 }
@@ -173,6 +164,7 @@ func swarmForm() formSpec {
 	build := sp.build
 	sp.build = func(st *store.State, a formAnswers) [][]string {
 		cmds := build(st, a)
+		cmds[0] = append(cmds[0], "--tag", "swarm") // so `cluster status all` and @groups read it
 		status := []string{"cluster", "status", a["name"]}
 		if a["code"] == "yes" { // komando login first, then look
 			return append(cmds, status)
