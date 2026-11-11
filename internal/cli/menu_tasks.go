@@ -501,7 +501,6 @@ func menuRunning(ctx context.Context, t *menuTerm, st *store.State, mem *menuMem
 var menuCLIOnly = map[string]string{
 	"ssh-gate":              "sshd runs it",
 	"ssh-gate line":         "set up once by hand",
-	"prompt":                "for the shell prompt",
 	"completion bash":       "for the shell",
 	"completion fish":       "for the shell",
 	"completion powershell": "for the shell",
@@ -514,7 +513,5 @@ var menuCLIOnly = map[string]string{
 	"vpn list":              "the menu is the list",
 	"conn kinds":            "Add something lists the kinds",
 	"secret get":            "--reveal is for a person typing it",
-	"host export":           "Export my list does the same",
-	"host import":           "A list exported from komando reads the whole export; My SSH servers reads ~/.ssh/config",
 	"host trust":            "a changed identity can be an attack; the menu never offers to trust it",
 }

@@ -32,9 +32,9 @@ check "group list" True "$($K group list | has lab)"
 q $K group add "$C-g" direct
 check "group rm" True "$($K group rm "$C-g" direct | ok)"
 check "host trust" True "$($K host trust direct | ok)"
-check "host export" True "$($K host export | has direct)"
-$K host export >"$TMP/hosts.json"
-check "host import (dry run)" True "$($K host import --json "$TMP/hosts.json" --dry-run | ok)"
+check "export" True "$($K export kind:host | has direct)"
+$K export kind:host >"$TMP/hosts.json"
+check "import komando (dry run)" True "$($K import komando "$TMP/hosts.json" --dry-run | ok)"
 check "export" True "$($K export --to "$TMP/$C-export.json" | ok)"
 ssh-keygen -q -t ed25519 -N '' -C "$C" -f "$TMP/$C-key"
 q $K key add "$C-key" "$TMP/$C-key"
@@ -46,7 +46,7 @@ check "policy list" True "$($K policy list | has rm-root)"
 check "policy check blocks rm -rf /" True "$($K policy check 'rm -rf /' | has rm-root || true)"
 q $K policy deny "curl .*$C"
 check "policy deny applies" True "$($K policy check "curl https://$C" | has custom || true)"
-q $K policy allow "curl .*$C" --yes
+q $K policy rm "curl .*$C" --yes
 
 # files and jobs
 q $K fs mkdir direct "/tmp/$C/sub"

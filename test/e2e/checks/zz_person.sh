@@ -27,9 +27,9 @@ check "person: the right name runs it" 0 "$($K db query pg "select count(*) from
 
 # a change that weakens komando's own safety: [y/N]
 q $K policy deny "t-person-word"
-tty 'n\n' policy allow "t-person-word" >/dev/null
+tty 'n\n' policy rm "t-person-word" >/dev/null
 check "person: no keeps the deny rule" True "$($K policy check "echo t-person-word" | jget '"custom" in json.dumps(d)' || true)"
-tty 'y\n' policy allow "t-person-word" >/dev/null
+tty 'y\n' policy rm "t-person-word" >/dev/null
 check "person: yes removes the deny rule" False "$($K policy check "echo t-person-word" | jget '"custom" in json.dumps(d)' || true)"
 
 # removing a group with many members: [y/N]

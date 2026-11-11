@@ -183,34 +183,19 @@ func TestInvHostImportJSON(t *testing.T) {
 		{"name":"prod","address":"10.9.9.9"},
 		{"name":"px","address":"10.0.0.7","proxy_command":"nc %h %p"},
 		{"name":"bad","address":"10.0.0.8","port":99999}]}}`), 0o600)
-	asAgent(t, false, true) // the person says no
-	_, e := invRun(t, "host", "import", "--json", f, "--overwrite", "--yes")
-	if e == nil || e.Code != "SAFETY_SETTING" {
-		t.Fatalf("agent proxy command needs a person: %+v", e)
-	}
-	// without --yes the proxy command server is left out, with the reason,
-	// and nothing else is held back (a dry run says the same); the import
-	// still fails, so the agent does not take it for done
-	for _, dry := range []bool{true, false} {
-		args := []string{"host", "import", "--json", f}
-		if dry {
-			args = append(args, "--dry-run")
-		}
-		d, e := invRun(t, args...)
-		skipped := fmt.Sprint(d["skipped_invalid"])
-		if e == nil || e.Code != "IMPORT_INCOMPLETE" || !strings.Contains(skipped, "px") || !strings.Contains(skipped, "--yes") {
-			t.Errorf("dry %v: px is left out with the reason: %v %+v", dry, d, e)
-		}
-	}
-	if _, e := invRun(t, "host", "show", "px"); e == nil {
-		t.Error("px was added without a person's yes")
-	}
-	noAgent(t)
+	// the old name `host import --json` is `import komando`: a proxy
+	// command from a file is dropped, protected and invalid hosts skipped
 	d, e := invRun(t, "host", "import", "--json", f, "--overwrite")
-	if e == nil || e.Code != "IMPORT_INCOMPLETE" || d["skipped_protected"] == nil || d["skipped_invalid"] == nil {
-		t.Errorf("protected and invalid hosts are reported: %v %+v", d, e)
+	if e == nil || e.Code != "IMPORT_INCOMPLETE" || fmt.Sprint(d["hosts"]) != "[px]" {
+		t.Fatalf("host import --json: %v %+v", d, e)
 	}
-	// komando import reads host export output too
+	if s := fmt.Sprint(d["skipped"], d["not_imported"]); !strings.Contains(s, "prod") || !strings.Contains(s, "bad") || !strings.Contains(s, "proxy_command") {
+		t.Errorf("protected, invalid hosts and the proxy command are reported: %s", s)
+	}
+	if st, _ := store.Load(); st.Hosts["px"].ProxyCommand != "" {
+		t.Error("a proxy command came in from a file")
+	}
+	// komando import reads a plain list of hosts too
 	mustRun(t, "host", "rm", "px")
 	// prod exists (skipped, fine), bad is refused: the rest comes in, and
 	// the refusal makes the import fail (exit 1), not a quiet skip
@@ -381,11 +366,14 @@ func TestInvConfig(t *testing.T) {
 
 func TestInvPolicy(t *testing.T) {
 	invHome(t)
-	wantCode(t, "BUILTIN_RULE", "policy", "allow", "rm-root")
-	wantCode(t, "RULE_NOT_FOUND", "policy", "allow", "nonexistent")
+	wantCode(t, "BUILTIN_RULE", "policy", "rm", "rm-root")
+	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", "nonexistent")
 	wantCode(t, "USAGE", "policy", "deny", " ")
 	mustRun(t, "policy", "deny", `kubectl\s+apply`)
-	mustRun(t, "policy", "allow", policy.CustomID(`kubectl\s+apply`), "--yes")
+	mustRun(t, "policy", "rm", policy.CustomID(`kubectl\s+apply`), "--yes")
+	if a := mustRun(t, "audit", "--command", "policy.rm"); a["count"].(float64) != 1 {
+		t.Errorf("policy rm is audited as policy.rm: %v", a)
+	}
 	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "rm -rf //"); e.Exit != out.ExitPolicy {
 		t.Errorf("exit %d", e.Exit)
 	}

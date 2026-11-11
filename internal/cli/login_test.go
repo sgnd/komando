@@ -182,7 +182,7 @@ func TestLoginCloudNamesReserved(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "h.json")
 	os.WriteFile(f, []byte(`[{"name":"azure","address":"192.0.2.8"},{"name":"b1","address":"192.0.2.9"}]`), 0o600)
 	d, e := invRun(t, "host", "import", "--json", f)
-	if e == nil || e.Code != "IMPORT_INCOMPLETE" || fmt.Sprint(d["imported"]) != "[b1]" || d["skipped_invalid"] == nil {
+	if e == nil || e.Code != "IMPORT_INCOMPLETE" || fmt.Sprint(d["hosts"]) != "[b1]" || !strings.Contains(fmt.Sprint(d["skipped"]), "azure") {
 		t.Errorf("import: %v %+v", d, e)
 	}
 	if p := formNameProblem(&store.State{}, "host", "aws"); !strings.Contains(p, "cloud login") {

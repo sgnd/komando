@@ -53,15 +53,12 @@ check "trust --reset --dry-run counts the pinned key" True "$([ "$N1" -ge 1 ] &&
 # ssh-command: a hop per ProxyCommand, VPN as nc -X 5
 check "ssh-command via bastion carries the key" True "$($K host ssh-command target | jget '"-W target:22" in d["data"]["command"] and d["data"]["command"].count("UserKnownHostsFile") == 2')"
 
-# import: agents need a person for proxy commands; protected names
-cat >"$TMP/inv-hosts.json" <<EOF
-{"hosts":[{"name":"t-e2einv5","address":"10.9.9.5","proxy_command":"nc %h %p"}]}
-EOF
-check "agent import with proxy command" SAFETY_SETTING "$(A host import --json "$TMP/inv-hosts.json" | code)"
-$K host rm t-e2einv5 >/dev/null 2>&1 || true
-$K host export target >"$TMP/inv-target.json"
-check "overwrite of a protected host is skipped_protected" '["target"]' "$($K host import --json "$TMP/inv-target.json" --overwrite | jget 'json.dumps(d["data"]["skipped_protected"])')"
-check "import komando reads host export" target "$($K import komando "$TMP/inv-target.json" --dry-run | jget 'd["data"]["skipped"][0]["name"]')"
+# import: a proxy command never comes from a file; protected names
+printf '%s\n' '{"hosts":[{"name":"t-e2einv5","address":"10.9.9.5","proxy_command":"nc %h %p"}]}' >"$TMP/inv-hosts.json"
+check "import komando drops a proxy command" True "$(A import komando "$TMP/inv-hosts.json" --dry-run | jget '"proxy_command" in str(d["data"]["not_imported"])')"
+$K export target >"$TMP/inv-target.json"
+check "overwrite of a protected host is skipped" target "$($K import komando "$TMP/inv-target.json" --overwrite | jget 'd["data"]["skipped"][0]["name"]')"
+check "old name host import still works" target "$($K host import --json "$TMP/inv-target.json" --dry-run 2>/dev/null | jget 'd["data"]["skipped"][0]["name"]')"
 
 # groups
 q $K group add t-e2einvg direct
@@ -96,7 +93,7 @@ check "negative value names the fix" True "$($K config set parallel -3 | jget '"
 check "config set is audited" True "$($K config set connect_timeout 15s >/dev/null; $K audit -n 1 --command config.set | jget 'd["data"]["entries"][0]["new"] == "15s"')"
 
 # policy
-check "built-in rule cannot be allowed" BUILTIN_RULE "$($K policy allow rm-root | code)"
+check "built-in rule cannot be removed" BUILTIN_RULE "$($K policy rm rm-root | code)"
 check "empty deny pattern" USAGE "$($K policy deny '' | code)"
 set +e; $K policy check 'rm -rf //' >/dev/null; check "policy check exits 6 when blocked" 6 $?; set -e
 check "grep mkfs is allowed" False "$($K policy check 'grep mkfs notes.txt' | jget 'd["data"]["blocked"]')"

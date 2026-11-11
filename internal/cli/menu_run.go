@@ -160,7 +160,7 @@ func sshConfigNew(st *store.State) int {
 }
 
 // menuVpnUp: komando keeps a session of this VPN up. The process is checked
-// by its pid only, as `komando prompt` does: the list must draw at once.
+// by its pid only, as `komando status --short` does: the list must draw at once.
 func menuVpnUp(st *store.State, name string) bool {
 	s := st.Sessions[name]
 	return s != nil && netx.Alive(s.PID)
