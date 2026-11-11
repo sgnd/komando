@@ -759,6 +759,9 @@ func storageUpload(ctx context.Context, name, conn, file, key string) error {
 	if err := guardLocalRead(file); err != nil {
 		return err
 	}
+	if err := hiddenInLocal(file); err != nil {
+		return err
+	}
 	data := func(c *store.Conn, s storex.Bucket, ctx context.Context) (uploadData, error) {
 		replaced, err := s.Exists(ctx, key)
 		return uploadData{Conn: c.Name, File: file, Key: key, Bytes: fi.Size(), Replaced: replaced}, err

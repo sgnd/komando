@@ -557,10 +557,11 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
 
 // guardDelete: --delete removes files for good, like `storage rm`. A person
 // at the terminal confirms by typing the destination.
+// Under --dry-run the stop goes to meta.would_be_blocked.
 func guardDelete(o syncOpts, dst string) error {
-	if o.delete && !dangerOK() && !g.dryRun && !confirmDangerous([]string{dst}, "--delete removes the files in "+dst+" that the source does not have") {
-		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "check the list with --dry-run, confirm with the user, then add --allow-dangerous",
-			"--delete removes files in the destination that the source does not have")
+	if o.delete && !dangerOK() && !confirmDangerous([]string{dst}, "--delete removes the files in "+dst+" that the source does not have") {
+		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "check the list with --dry-run, confirm with the user, then add --allow-dangerous",
+			"--delete removes files in the destination that the source does not have"))
 	}
 	return nil
 }

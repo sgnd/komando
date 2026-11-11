@@ -144,6 +144,9 @@ func matchSelector(st *store.State, sel string) (selection, error) {
 	if o, ok := strings.CutPrefix(sel, "os:"); ok {
 		return matchOS(st, o)
 	}
+	if h := bracketedAdhoc(sel); h != nil { // [2001:db8::1] is an address, not a glob
+		return selection{Hosts: []*store.Host{h}}, nil
+	}
 	if hs, ok := matchPattern(st.SortedHosts(), hostAttrs, sel); ok {
 		cs, _ := matchPattern(st.SortedConns(), connAttrs, sel)
 		vs, _ := matchPattern(st.SortedVpns(), vpnAttrs, sel)
@@ -168,6 +171,21 @@ func matchSelector(st *store.State, sel string) (selection, error) {
 		}
 	}
 	return selection{}, targetNotFound(st, sel)
+}
+
+// bracketedAdhoc is the ad-hoc server an IPv6 address in brackets names
+// ([2001:db8::1], root@[::1]:2222), or nil.
+func bracketedAdhoc(sel string) *store.Host {
+	i, j := strings.IndexByte(sel, '['), strings.IndexByte(sel, ']')
+	if i < 0 || j < i || net.ParseIP(sel[i+1:j]) == nil {
+		return nil
+	}
+	h, err := sshx.ParseAdhoc(sel)
+	if err != nil || validPort(h.Port) != nil {
+		return nil
+	}
+	h.Address = normAddr(h.Address)
+	return h
 }
 
 // looksAdhoc: user@host[:port], or an IP address or host:port without a

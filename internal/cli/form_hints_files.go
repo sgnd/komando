@@ -106,7 +106,7 @@ var formFsHints = map[string]formHint{
 		flags: []formFlag{
 			{name: "from", ask: "Copy the content from a file on this computer?", example: "./config.yml", local: true,
 				help: "Its path here. Leave it empty to type the content in the next question."},
-			{name: "content", ask: "Or type the content", example: "PORT=8080",
+			{name: "content", ask: "Or type the content", example: "PORT=8080", show: func(a formAnswers) bool { return a["flag:from"] == "" },
 				help: "Used when no file was given. Never type a password here: write {{secret:NAME}} and komando puts in the saved password."},
 			formFsSudo("Needed for system files, like most files under /etc."),
 			formFsBackup,

@@ -49,7 +49,7 @@ func uploadCmd() *cobra.Command {
 to the file's name (servers: in the login user's home folder; ~/x works too).
 An existing file at DEST is replaced (the result says replaced).
 
-` + cpFolderRule,
+` + uploadFolderRule,
 		Example: `  komando upload @web ./app.tar.gz /tmp/app.tar.gz
   komando upload web1 ./site /var/www/site -r
   komando upload web1 ./nginx.conf /etc/nginx/nginx.conf --sudo
@@ -70,7 +70,7 @@ An existing file at DEST is replaced (the result says replaced).
 				}
 				if o.recursive {
 					// a folder: sent like `komando sync`, new and changed files only
-					return syncUp(cmd.Context(), "upload", args[1], args[0], dest, syncOpts{})
+					return syncUp(cmd.Context(), "upload", args[1], args[0], storageFolderDest(args[1], dest), syncOpts{})
 				}
 				return storageUpload(cmd.Context(), "upload", args[0], args[1], dest)
 			}
@@ -84,6 +84,26 @@ An existing file at DEST is replaced (the result says replaced).
 	return c
 }
 
+// storageFolderDest is where `upload CONN DIR [DEST] -r` puts the folder,
+// by the rule servers follow: without DEST, a prefix named like the folder;
+// DIR/ sends its contents into DEST; a DEST ending in / gets DEST/DIR.
+func storageFolderDest(dir, dest string) string {
+	base := filepath.Base(filepath.Clean(dir))
+	if base == "." || base == string(filepath.Separator) {
+		base = ""
+	}
+	contents := strings.HasSuffix(dir, "/") || strings.HasSuffix(dir, string(filepath.Separator))
+	switch {
+	case dest == "":
+		return base
+	case contents:
+		return dest
+	case strings.HasSuffix(dest, "/"):
+		return dest + base
+	}
+	return dest
+}
+
 func downloadCmd() *cobra.Command {
 	var to string
 	var recursive, overwrite, sudo bool
@@ -95,7 +115,7 @@ where it lands (a folder per server when several are picked). Files that
 already exist here are kept unless --overwrite. --sudo reads one file as
 root (up to 512 MiB). From storage, --to - writes the object to stdout.
 
-` + cpFolderRule,
+` + downloadFolderRule,
 		Example: `  komando download web1 /var/log/nginx/error.log --to ./logs/
   komando download @web /etc/nginx/nginx.conf --to ./configs/
   komando download backups 2026/db.sql.gz`,
@@ -122,6 +142,9 @@ root (up to 512 MiB). From storage, --to - writes the object to stdout.
 			dest := to
 			if dest == "" {
 				dest = "."
+			}
+			if dest == "-" {
+				return out.Usage("--to - (stdout) is for storage; to print a file from a server, use `komando fs cat %s %s`", args[0], args[1])
 			}
 			if sudo && recursive {
 				return out.Usage("--sudo downloads single files; copy the folder to a readable place with `komando exec --sudo -- cp -r`, then download that")

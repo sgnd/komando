@@ -168,6 +168,9 @@ func toErr(err error) *out.Error {
 	case errors.Is(err, vault.ErrKey):
 		return &out.Error{Code: "VAULT_KEY", Message: err.Error(), Exit: out.ExitError,
 			Hint: "restore ~/.komando/vault.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault"}
+	case errors.Is(err, vault.ErrNotFound):
+		return &out.Error{Code: "SECRET_NOT_FOUND", Message: err.Error(), Exit: out.ExitNotFound,
+			Hint: "check the name with `komando secret list`; a person stores a missing one with `komando secret set NAME`"}
 	case errors.Is(err, vault.ErrDecrypt):
 		return &out.Error{Code: "VAULT_DECRYPT", Message: err.Error(), Exit: out.ExitError,
 			Hint: "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use); nothing was lost"}
