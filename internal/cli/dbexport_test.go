@@ -163,3 +163,19 @@ func TestDBHelpTimeout(t *testing.T) {
 		}
 	}
 }
+
+// An SQS emulator at localhost needs no AWS login: komando does not wait
+// for EC2 metadata, and fails on the closed port instead.
+func TestSQSEmulatorNoLogin(t *testing.T) {
+	invHome(t)
+	t.Setenv("AWS_CONFIG_FILE", os.DevNull)
+	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", os.DevNull)
+	mustRun(t, "conn", "add", "sq", "sqs://eu-west-1?endpoint=http://127.0.0.1:9")
+	_, e := invRun(t, "queue", "ls", "sq")
+	if e == nil || strings.HasPrefix(e.Code, "AWS_") {
+		t.Errorf("want a connect error, got %+v", e)
+	}
+	if !loopback("[::1]:4566") || !loopback("localhost:4566") || loopback("10.0.0.1:4566") {
+		t.Error("loopback")
+	}
+}
