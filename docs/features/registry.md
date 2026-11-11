@@ -208,8 +208,8 @@ komando registry copy harbor:app:latest harbor:app:stable           # another ta
 - Only the destination changes, so only a protected destination needs `--yes`.
 - The result says `"replaced": true` when the destination tag pointed to a
   different image before.
-- `harbor:prod/api` (no tag) keeps the source's tag. Copying an image onto
-  itself is refused.
+- `harbor:prod/api` (no tag) keeps the source's tag; a source given by
+  digest needs a destination tag. Copying an image onto itself is refused.
 - `--dry-run` reads both registries: it shows the source image (`source`)
   and says `"would_replace": true` when the destination tag points to
   another image now.

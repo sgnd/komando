@@ -61,6 +61,10 @@ func TestRegistryChecks(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "--dry-run", "registry", "copy", "lreg:app:1", "lreg:")
 	wantCode(t, "USAGE", "--dry-run", "registry", "copy", "lreg:app:1", "lreg:app:1")
+	// a digest has no tag to keep: the destination must name one, not fall to latest
+	if e := wantCode(t, "USAGE", "--dry-run", "registry", "copy", "lreg:app@sha256:"+strings.Repeat("a", 64), "lreg:b"); !strings.Contains(e.Message, "destination tag") {
+		t.Errorf("digest without a tag: %+v", e)
+	}
 	if e := wantCode(t, "USAGE", "--dry-run", "registry", "rm", "lreg", "app"); !strings.Contains(e.Message, "name the tag") {
 		t.Errorf("rm: %+v", e)
 	}

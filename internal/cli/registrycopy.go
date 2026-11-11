@@ -85,8 +85,10 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 	dstRepo, dstRef := srcRepo, srcRef
 	if dstImage != "" {
 		dstRepo, dstRef = splitImage(dstImage)
-		if !strings.Contains(dstImage[strings.LastIndex(dstImage, "/")+1:], ":") && !strings.Contains(dstImage, "@") && !strings.HasPrefix(srcRef, "sha256:") {
-			dstRef = srcRef // harbor:prod/app keeps the source's tag, as harbor: keeps its name
+		if !strings.Contains(dstImage[strings.LastIndex(dstImage, "/")+1:], ":") && !strings.Contains(dstImage, "@") {
+			// harbor:prod/app keeps the source's tag, as harbor: keeps its
+			// name; a source digest then asks for a tag below, not latest
+			dstRef = srcRef
 		}
 	}
 	if srcName == dstName && srcRepo == dstRepo && srcRef == dstRef {
