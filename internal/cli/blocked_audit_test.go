@@ -51,6 +51,9 @@ func TestBlockedAttemptsAreAudited(t *testing.T) {
 	if strings.Join(got, " ") != want {
 		t.Errorf("blocked in the audit: %v, want %s", got, want)
 	}
+	if d := mustRun(t, "audit", "--failed", "--target", "web2", "-n", "0"); d["count"] != float64(2) {
+		t.Errorf("the blocked host rm and exec name web2: %v", d["entries"])
+	}
 	_, text := runMain(t, "audit", "--failed", "-n", "1", "-o", "text")
 	if !strings.Contains(text, "blocked") || strings.Contains(text, "FAILED") {
 		t.Errorf("text: %q", text)

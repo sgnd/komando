@@ -674,7 +674,21 @@ func auditBlocked(cmd *cobra.Command, e *out.Error) {
 	if err != nil {
 		st = nil // recorded anyway: a broken state file is no reason to lose it
 	}
-	audit(st, commandName(cmd), nil, "", false, map[string]any{"blocked": e.Code, "message": e.Message})
+	var hosts, conns []string
+	if st != nil { // what it was stopped on, for `audit --target`
+		for _, a := range cmd.Flags().Args() {
+			if kind, name, ok := st.FindName(a); ok && kind == "host" {
+				hosts = append(hosts, name)
+			} else if ok && kind == "conn" {
+				conns = append(conns, name)
+			}
+		}
+	}
+	extra := map[string]any{"blocked": e.Code, "message": e.Message}
+	if conns != nil {
+		extra["conns"] = conns
+	}
+	audit(st, commandName(cmd), hosts, "", false, extra)
 }
 
 // osUser is the computer account komando runs as, from the system's user
