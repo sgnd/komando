@@ -526,7 +526,12 @@ func inventoryChecks(st *store.State) []securityCheck {
 	for _, n := range mapKeys(st.Keys) {
 		k := st.Keys[n]
 		name := "key:" + k.Name
-		if _, err := os.Stat(k.Path); err != nil {
+		if store.SealedKey(k) {
+			// a key komando made lives in the store: it must still open
+			if _, err := store.ReadPrivateKey(k); err != nil {
+				fail(name, "the key is missing from the store: "+err.Error())
+			}
+		} else if _, err := os.Stat(k.Path); err != nil {
 			fail(name, k.Path+" not found")
 		}
 		ref(name, "passphrase_ref", k.PassphraseRef)
