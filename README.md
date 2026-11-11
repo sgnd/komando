@@ -46,7 +46,7 @@ Other ways to install:
 - Read the script first with `curl -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/install.sh`,
   then run `sh install.sh`. `KOMANDO_INSTALL_DIR=DIR` picks the folder and
   `KOMANDO_VERSION=v0.5.0` one version.
-- With Go 1.27.3 or newer: `go install github.com/sgnd/komando/cmd/komando@latest`.
+- With Go 1.27.4 or newer: `go install github.com/sgnd/komando/cmd/komando@latest`.
 
 To check that a downloaded archive was built by komando's release workflow,
 run `gh attestation verify FILE --repo sgnd/komando`.

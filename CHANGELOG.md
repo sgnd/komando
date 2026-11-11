@@ -7,6 +7,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Security
+
+- **Built with Go 1.27.4.** It fixes GO-2026-6859 in the standard
+  `net/http` package. Building from source now needs Go 1.27.4 or newer.
+
 ### Fixed
 
 - **Running now lists only jobs that may still run.** komando remembers
