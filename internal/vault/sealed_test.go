@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"crypto/cipher"
 	"errors"
 	"fmt"
 	"os"
@@ -197,8 +198,10 @@ func TestSealedKeyChanges(t *testing.T) {
 	}
 }
 
-func TestSealedKeyToKeychainAndBack(t *testing.T) {
-	sealedVault(t)
+// fakeKeychainFiles puts a secret-tool that keeps items in files on PATH,
+// so the keychain moves run without a real keychain.
+func fakeKeychainFiles(t *testing.T) {
+	t.Helper()
 	dir := t.TempDir()
 	saved := keychainOS
 	keychainOS = "linux"
@@ -218,6 +221,11 @@ esac
 	savedDirs := toolDirs
 	toolDirs = []string{dir}
 	t.Cleanup(func() { toolDirs = savedDirs })
+}
+
+func TestSealedKeyToKeychainAndBack(t *testing.T) {
+	sealedVault(t)
+	fakeKeychainFiles(t)
 	if err := Set("db", "pw"); err != nil { // a key file store
 		t.Fatal(err)
 	}
@@ -242,5 +250,77 @@ esac
 	}
 	if _, err := keychainGet(); err == nil {
 		t.Fatal("the key stayed in the keychain")
+	}
+}
+
+// A move to the keychain whose change count cannot be saved leaves the
+// store on its key file: it must not end up a keychain store with no
+// count, which would never open again.
+func TestSealedKeyToKeychainCountFails(t *testing.T) {
+	sealedVault(t)
+	fakeKeychainFiles(t)
+	if err := Set("db", "pw"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KOMANDO_KEYCHAIN", "")
+	saved := store.GenerationKeeper
+	store.GenerationKeeper.Set = func(uint64) error { return errors.New("keychain locked") }
+	_, err := KeyToKeychain()
+	store.GenerationKeeper = saved
+	if err == nil {
+		t.Fatal("the move worked without a change count")
+	}
+	if s, _ := Check(); s.Mode != "keyfile" {
+		t.Fatalf("mode %q after a failed move", s.Mode)
+	}
+	if v, err := Get("db"); err != nil || v != "pw" {
+		t.Fatalf("after a failed move: %q %v", v, err)
+	}
+}
+
+// A change to a key file that stopped halfway is finished or undone by
+// the next command, never left stuck.
+func TestSealedKeyFileChangeStoppedHalfway(t *testing.T) {
+	sealedVault(t)
+	n := PassphraseN
+	PassphraseN = 1 << 10
+	t.Cleanup(func() { PassphraseN = n })
+	if err := Set("db", "pw"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ChangeKey("", "a passphrase, long enough"); err != nil {
+		t.Fatal(err)
+	}
+	// stopped before the commit: a store.key.new nobody uses
+	if err := os.WriteFile(newKeyFilePath(), make([]byte, 32), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ChangeKey("a passphrase, long enough", ""); err != nil {
+		t.Fatalf("a leftover store.key.new blocks the change: %v", err)
+	}
+	if _, err := os.Stat(newKeyFilePath()); !os.IsNotExist(err) {
+		t.Fatal("store.key.new left after the change")
+	}
+	// stopped after the commit, before the rename
+	if err := os.Rename(storeKeyFile(), newKeyFilePath()); err != nil {
+		t.Fatal(err)
+	}
+	// a new process: the store file is new to this one, the key not known
+	b, err := os.ReadFile(store.DBPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(store.DBPath()+".tmp", b, 0o600)
+	if err := os.Rename(store.DBPath()+".tmp", store.DBPath()); err != nil {
+		t.Fatal(err)
+	}
+	aeadMu.Lock()
+	aeadCache = map[string]cipher.AEAD{}
+	aeadMu.Unlock()
+	if v, err := Get("db"); err != nil || v != "pw" {
+		t.Fatalf("store.key.new not taken as the key: %q %v", v, err)
+	}
+	if _, err := os.Stat(storeKeyFile()); err != nil {
+		t.Fatalf("store.key not in place: %v", err)
 	}
 }

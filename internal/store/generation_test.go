@@ -169,3 +169,47 @@ func TestNewStoreStartsItsCount(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A new store whose change count cannot go into the keychain is not kept:
+// on the next run it would be taken for an old copy and never open.
+func TestNewStoreCountNotSaved(t *testing.T) {
+	kept := keychainStore(t)
+	set := GenerationKeeper.Set
+	GenerationKeeper.Set = func(uint64) error { return errors.New("keychain locked") }
+	err := Update(func(s *State) error { s.Hosts["a"] = &Host{Name: "a"}; return nil })
+	if err == nil || !strings.Contains(err.Error(), "change count") {
+		t.Fatalf("a new store without its count: %v", err)
+	}
+	if _, err := os.Stat(Path(StoreFile)); !os.IsNotExist(err) {
+		t.Fatal("the store without a count was kept")
+	}
+	GenerationKeeper.Set = set
+	update(t, func(s *State) { s.Hosts["a"] = &Host{Name: "a"} })
+	if *kept == 0 {
+		t.Fatal("no number once the keychain works")
+	}
+}
+
+// A store set aside takes a journal left by a write with it, and the copy
+// set aside still opens with everything in it.
+func TestRemoveStoreKeepsItWhole(t *testing.T) {
+	keychainStore(t)
+	update(t, func(s *State) { s.Hosts["a"] = &Host{Name: "a"} })
+	if err := RemoveStore("store.db.aside"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(Path(StoreFile)); !os.IsNotExist(err) {
+		t.Fatal("store.db still there")
+	}
+	if _, err := os.Stat(Path("store.db.aside-journal")); err == nil {
+		t.Fatal("a finished write left a journal")
+	}
+	if err := os.Rename(Path("store.db.aside"), Path(StoreFile)); err != nil {
+		t.Fatal(err)
+	}
+	AllowOldCopy = true // its count left the keychain with it
+	st, err := Load()
+	if err != nil || st.Hosts["a"] == nil {
+		t.Fatalf("the store set aside lost data: %v", err)
+	}
+}
