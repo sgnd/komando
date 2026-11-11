@@ -269,8 +269,7 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 
 	if t.Kind.File { // sqlite: a consistent copy of the database file
 		if o.format == "custom" || o.schemaOnly || len(o.tables) > 0 || on != "" {
-			return out.Errf(out.ExitUsage, "USAGE", "drop those flags: komando db dump "+argQ(c.Name)+" --to backup.db",
-				"sqlite backups copy the whole database file; --format, --schema-only, --table and --on do not apply")
+			return out.Errf(out.ExitUsage, "USAGE", "drop those flags: komando db dump "+argQ(c.Name)+" --to backup.db", "sqlite backups copy the whole database file; --format, --schema-only, --table and --on do not apply")
 		}
 		if strings.HasSuffix(to, ".gz") {
 			return out.Usage("sqlite backups are database files; drop the .gz")
