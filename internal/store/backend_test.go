@@ -169,13 +169,16 @@ func TestDBReopensReplacedFile(t *testing.T) {
 // A sealed folder whose store.db is missing or moved never starts empty
 // and never falls back to files: any sign it was sealed stops it.
 func TestMissingStoreOfSealedFolder(t *testing.T) {
-	signs := map[string]func(){
-		"archive":      func() { os.WriteFile(Path("before-seal.archive"), []byte("x"), 0o600) },
-		"moved note":   func() { os.WriteFile(Path("vault.json"), []byte(MovedNote), 0o600) },
-		"key note":     func() { os.MkdirAll(Path("keys"), 0o700); os.WriteFile(Path("keys", "k"), []byte(MovedNote), 0o600) },
-		"store key":    func() { os.WriteFile(Path("store.key"), make([]byte, 32), 0o600) },
-		"runtime pids": func() { os.WriteFile(Path("runtime.pids"), []byte("{}"), 0o600) },
-		"keychain count": func() {
+	signs := map[string]func(t *testing.T){
+		"archive":    func(*testing.T) { os.WriteFile(Path("before-seal.archive"), []byte("x"), 0o600) },
+		"moved note": func(*testing.T) { os.WriteFile(Path("vault.json"), []byte(MovedNote), 0o600) },
+		"key note": func(*testing.T) {
+			os.MkdirAll(Path("keys"), 0o700)
+			os.WriteFile(Path("keys", "k"), []byte(MovedNote), 0o600)
+		},
+		"store key":    func(*testing.T) { os.WriteFile(Path("store.key"), make([]byte, 32), 0o600) },
+		"runtime pids": func(*testing.T) { os.WriteFile(Path("runtime.pids"), []byte("{}"), 0o600) },
+		"keychain count": func(t *testing.T) {
 			old := GenerationKeeper
 			GenerationKeeper.Get = func() (uint64, bool, error) { return 3, true, nil }
 			t.Cleanup(func() { GenerationKeeper = old })
@@ -185,12 +188,16 @@ func TestMissingStoreOfSealedFolder(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			sealedHome(t)
 			fakeKeys(t)
-			sign()
+			sign(t)
+			want := "STATE_CORRUPT"
+			if name == "keychain count" {
+				want = "STORE_OLD_COPY" // doctor --accept-old-copy clears it
+			}
 			// a plain state.json someone put there must not be read either
 			os.WriteFile(Path("state.json"), []byte(`{"hosts":{"x":{"name":"x"}}}`), 0o600)
 			var oe *out.Error
 			for what, err := range map[string]error{"Load": func() error { _, e := Load(); return e }(), "Update": Update(func(*State) error { return nil })} {
-				if !errors.As(err, &oe) || oe.Code != "STATE_CORRUPT" || !strings.Contains(oe.Hint, "seal --undo") {
+				if !errors.As(err, &oe) || oe.Code != want || (want == "STATE_CORRUPT" && !strings.Contains(oe.Hint, "seal --undo")) {
 					t.Fatalf("%s: %v", what, err)
 				}
 			}

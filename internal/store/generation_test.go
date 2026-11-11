@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/out"
 )
@@ -16,6 +17,7 @@ func keychainStore(t *testing.T) *uint64 {
 	t.Helper()
 	sealedHome(t)
 	oldKS, oldGK := KeySource, GenerationKeeper
+	slowUntil = time.Time{}
 	KeySource = func(meta map[string]string, create bool) ([]byte, map[string]string, error) {
 		return bytes.Repeat([]byte{5}, 32), map[string]string{"key_mode": "keychain"}, nil
 	}
@@ -24,8 +26,14 @@ func keychainStore(t *testing.T) *uint64 {
 	GenerationKeeper = GenerationKeep{
 		Get: func() (uint64, bool, error) { return kept, have, nil },
 		Set: func(n uint64) error { kept, have = n, true; return nil },
+		Del: func() { kept, have = 0, false },
 	}
-	t.Cleanup(func() { KeySource, GenerationKeeper = oldKS, oldGK; closeDBs(); AllowOldCopy = false })
+	t.Cleanup(func() {
+		KeySource, GenerationKeeper = oldKS, oldGK
+		closeDBs()
+		AllowOldCopy = false
+		slowUntil = time.Time{}
+	})
 	return &kept
 }
 
@@ -158,7 +166,11 @@ func TestMissingOrBrokenCountStops(t *testing.T) {
 	if !errors.As(err, &oe) || oe.Code != "KEYCHAIN_SLOW" {
 		t.Errorf("a write with a slow keychain: %v", err)
 	}
+	if _, _, err := keptCount(); !errors.Is(err, ErrKeychainSlow) {
+		t.Errorf("a slow keychain was asked again at once: %v", err)
+	}
 	GenerationKeeper = saved
+	slowUntil = time.Time{} // a minute later
 	closeDBs()
 	update(t, func(s *State) { s.Hosts["b"] = &Host{Name: "b"} })
 }
@@ -218,5 +230,63 @@ func TestRemoveStoreKeepsItWhole(t *testing.T) {
 	st, err := Load()
 	if err != nil || st.Hosts["a"] == nil {
 		t.Fatalf("the store set aside lost data: %v", err)
+	}
+}
+
+// A keyfile-era backup put back after the key moved to the keychain: the
+// store says "file", but the keychain holds a count, so it is an old copy.
+func TestKeyfileBackupAfterKeychainIsStopped(t *testing.T) {
+	kept := keychainStore(t)
+	KeySource = func(meta map[string]string, create bool) ([]byte, map[string]string, error) {
+		return bytes.Repeat([]byte{5}, 32), map[string]string{"key_mode": "file"}, nil
+	}
+	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
+	closeDBs()
+	if err := GenerationKeeper.Set(*kept + 50); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load()
+	var oe *out.Error
+	if !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" {
+		t.Fatalf("keyfile backup: %v", err)
+	}
+}
+
+// A deleted store.db while the keychain holds a count stops; it never
+// starts empty until a person accepts, which forgets the count.
+func TestMissingStoreWithCountStops(t *testing.T) {
+	kept := keychainStore(t)
+	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
+	if *kept == 0 {
+		t.Fatal("no count")
+	}
+	closeDBs()
+	if err := os.Remove(Path(StoreFile)); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load()
+	var oe *out.Error
+	if !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" || oe.Exit != out.ExitPolicy {
+		t.Fatalf("missing store: %v", err)
+	}
+	if _, err := os.Stat(Path(StoreFile)); err == nil {
+		t.Fatal("a fresh store was made")
+	}
+	have, k, guardedStore, old, err := CopyState()
+	if err != nil || have != 0 || k == 0 || !guardedStore || !old {
+		t.Fatalf("copy state %d %d %v %v %v", have, k, guardedStore, old, err)
+	}
+	if _, err := AcceptOldCopy(3); err == nil {
+		t.Fatal("accepted a number nobody saw")
+	}
+	if _, err := AcceptOldCopy(0); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := GenerationKeeper.Get(); ok {
+		t.Fatal("the count was not forgotten")
+	}
+	closeDBs()
+	if _, err := Load(); err != nil {
+		t.Fatalf("after accepting: %v", err)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net"
 	"net/url"
+	"os"
 	"runtime"
 	"slices"
 	"strconv"
@@ -125,6 +126,8 @@ func oldCopyCheck(add func(name string, ok, warn bool, detail string)) {
 		add("old_copy", false, true, err.Error())
 	case !guarded:
 		add("old_copy", false, true, "an old copy of "+store.StoreFile+" put back (from a backup, or by someone) would not be noticed: that needs the store's key in the OS keychain (`komando secret keychain`)")
+	case old && have == 0 && !storeFileThere():
+		add("old_copy", false, false, store.StoreFile+" is missing, though the keychain remembers its change "+strconv.FormatUint(kept, 10)+": put it back from a backup, or run `komando doctor --accept-old-copy` to start an empty store on purpose")
 	case old && kept == 0:
 		add("old_copy", false, false, "the keychain has no change count for "+store.StoreFile+" though its key is there: it was removed. If you restored the folder on purpose, run `komando doctor --accept-old-copy`")
 	case old:
@@ -333,4 +336,10 @@ func tlsFlagRisk(t driver.Target, fix func(string) string, notChecked, plain str
 		return fix(notChecked)
 	}
 	return fix(plain)
+}
+
+// storeFileThere reports store.db in komando's folder.
+func storeFileThere() bool {
+	_, err := os.Stat(store.Path(store.StoreFile))
+	return err == nil
 }

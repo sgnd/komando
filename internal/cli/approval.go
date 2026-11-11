@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode"
@@ -221,10 +222,12 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 	} else {
 		allowed, shown = askOnScreen(text)
 	}
+	gaveUp := tookGaveUp(text)
+	sess.SetGaveUp(gaveUp)
 	switch {
 	case allowed:
 		sess.SetAllowed(true)
-	case shown && sess.GaveUp():
+	case shown && gaveUp:
 		sess.SetWhy("no-answer") // the window closed itself: nobody clicked Deny
 	case shown && sess.Window().Why == "":
 		sess.SetWhy("denied")
@@ -393,7 +396,7 @@ end run`
 			return false, false
 		}
 		answer := strings.TrimSpace(string(b))
-		cur().sess.SetGaveUp(answer == "gave up")
+		noteGaveUp(text, answer == "gave up")
 		return answer == "Allow once", true
 	case "linux", "freebsd", "openbsd":
 		if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
@@ -401,7 +404,7 @@ end run`
 		}
 		if z := systemTool("zenity"); z != "" {
 			err := exec.CommandContext(ctx, z, "--question", "--title=komando: allow?", "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--default-cancel", "--no-markup", "--timeout=120").Run()
-			cur().sess.SetGaveUp(zenityTimedOut(err))
+			noteGaveUp(text, zenityTimedOut(err))
 			return err == nil, true
 		}
 		if k := systemTool("kdialog"); k != "" {
@@ -410,7 +413,7 @@ end run`
 		}
 	case "windows":
 		_, allowed, gaveUp, shown := approvalWindow(text, false)
-		cur().sess.SetGaveUp(gaveUp)
+		noteGaveUp(text, gaveUp)
 		return allowed, shown
 	}
 	return false, false
@@ -493,4 +496,18 @@ func ansiQuote(a string) string {
 	}
 	b.WriteByte('\'')
 	return b.String()
+}
+
+// windowGaveUp holds, by the window's text, whether a window closed itself
+// (nobody clicked Deny): the window code notes it, and the call that showed
+// the window takes it into its own session, so two calls in one process
+// never see each other's.
+var windowGaveUp sync.Map
+
+func noteGaveUp(text string, gaveUp bool) { windowGaveUp.Store(text, gaveUp) }
+
+func tookGaveUp(text string) bool {
+	v, _ := windowGaveUp.LoadAndDelete(text)
+	g, _ := v.(bool)
+	return g
 }

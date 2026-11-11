@@ -160,7 +160,7 @@ func sealedSign() string {
 	// the keychain only for a folder that holds something: a fresh, empty
 	// one is asked nothing (a keychain call can be slow or prompt)
 	if ents, _ := os.ReadDir(Home()); len(ents) > 0 && GenerationKeeper.Get != nil {
-		if _, ok, err := GenerationKeeper.Get(); err == nil && ok {
+		if _, ok, err := probeCount(); err == nil && ok {
 			return "the keychain's change count"
 		}
 	}

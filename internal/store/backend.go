@@ -144,6 +144,9 @@ func cachedDB(create bool) (*sealdb.DB, error) {
 	meta, err := sealdb.Peek(ctx, path)
 	if errors.Is(err, os.ErrNotExist) {
 		if !isSealing() {
+			if err := missingGuardedStore(); err != nil {
+				return nil, err // the keychain's count: doctor --accept-old-copy can clear it
+			}
 			if err := missingStore(); err != nil {
 				return nil, err
 			}
@@ -175,13 +178,13 @@ func openDB(ctx context.Context, home, path string, meta map[string]string) (*se
 	if err != nil {
 		return nil, err
 	}
-	lookOnly, err := checkGeneration(d, meta)
+	lookOnly, raise, err := checkGeneration(d, meta)
 	if err != nil {
 		d.Close()
 		return nil, err
 	}
 	if !lookOnly {
-		d.OnGeneration = committed
+		d.OnGeneration = committer(raise)
 	}
 	return remember(home, path, d, master, lookOnly)
 }
@@ -263,13 +266,13 @@ func createDB(ctx context.Context, home, path string) (*sealdb.DB, error) {
 			return nil, fmt.Errorf("could not save the store's change count in the keychain: %w", gerr)
 		}
 	}
-	lookOnly, err := checkGeneration(d, meta)
+	lookOnly, raise, err := checkGeneration(d, meta)
 	if err != nil {
 		d.Close()
 		return nil, err
 	}
 	if !lookOnly {
-		d.OnGeneration = committed
+		d.OnGeneration = committer(raise)
 	}
 	return remember(home, path, d, master, lookOnly)
 }

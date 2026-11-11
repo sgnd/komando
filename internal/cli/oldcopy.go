@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"strconv"
 
 	"github.com/sgnd/komando/internal/out"
@@ -29,7 +30,11 @@ func acceptOldCopy() error {
 		out.P.Print("doctor.accept-old-copy", map[string]any{"accepted": false, "would_accept": have, "keychain": kept}, nil)
 		return nil
 	}
-	if !confirmYes("komando's folder is an older copy (change " + strconv.FormatUint(have, 10) + ", the keychain remembers " + strconv.FormatUint(kept, 10) + "). Use it from now on?") {
+	q := "komando's folder is an older copy (change " + strconv.FormatUint(have, 10) + ", the keychain remembers " + strconv.FormatUint(kept, 10) + "). Use it from now on?"
+	if _, serr := os.Stat(store.Path(store.StoreFile)); os.IsNotExist(serr) {
+		q = "store.db is missing (the keychain remembers its change " + strconv.FormatUint(kept, 10) + "). Start an empty store, without its servers, secrets and pinned host keys?"
+	}
+	if !confirmYes(q) {
 		return policyStop(out.Errf(out.ExitError, "CANCELLED", "nothing was changed in "+store.Home(), "the older copy was not accepted"))
 	}
 	from, err := store.AcceptOldCopy(have)

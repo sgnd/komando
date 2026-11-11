@@ -11,9 +11,13 @@ var commits atomic.Uint64
 // Commits is how many write steps of this process changed the store.
 func Commits() uint64 { return commits.Load() }
 
-// committed is the sealed store's OnGeneration: a write step committed a
-// change.
-func committed(gen uint64) {
-	commits.Add(1)
-	raiseGeneration(gen)
+// committer is the sealed store's OnGeneration: a write step committed a
+// change; raise (nil for a home with no change count) tells the keychain.
+func committer(raise func(uint64)) func(uint64) {
+	return func(gen uint64) {
+		commits.Add(1)
+		if raise != nil {
+			raise(gen)
+		}
+	}
 }
