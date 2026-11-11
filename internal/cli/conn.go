@@ -770,8 +770,8 @@ func addKindFits(family, raw, passwordRef string) error {
 		}
 		return nil // conn add says what is wrong with it
 	}
-	if t.Kind.Family != family {
-		return out.Errf(out.ExitUsage, "USAGE", "add it with `komando "+t.Kind.Family+" add` (or `komando conn add`)",
+	if t.Kind.Family != family { // `cache add` must not quietly save a database
+		return out.Errf(out.ExitUsage, "WRONG_KIND", "add it with `komando "+t.Kind.Family+" add` (or `komando conn add`)",
 			"%s is a %s URL, not one for `komando %s add`", raw, t.Kind.Name, family)
 	}
 	if t.Kind.Name == "k8s" && passwordRef == "" {
@@ -794,12 +794,6 @@ func connAddCmdFor(kind string) *cobra.Command {
 	run := c.RunE
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		if len(args) == 2 {
-			// `cache add` must not quietly save a database
-			if t, err := driver.Parse(normConnURL(strings.TrimSpace(args[1]))); err == nil {
-				if err := t.Need(kind); err != nil {
-					return err
-				}
-			}
 			ref, _ := cmd.Flags().GetString("password-ref")
 			if err := addKindFits(kind, args[1], ref); err != nil {
 				return err
