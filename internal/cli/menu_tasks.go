@@ -124,7 +124,7 @@ var hostChangeTasks = []menuTask{
 }
 
 var serverMoreTasks = []menuTask{
-	{label: "Run a script from this computer", cmd: "script"},
+	{label: "Run a script from this computer", cmd: "exec"},
 	{label: "Reach a port on this server from my computer", detail: "A tunnel; Running now stops it", cmd: "tunnel start"},
 	{label: "My saved commands", detail: "Run a saved command (a recipe) here", cmd: "recipe run", fill: []string{"", "{}"}},
 	{label: "Save a command", cmd: "recipe add", noItem: true},

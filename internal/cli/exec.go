@@ -131,10 +131,11 @@ func (o *execOpts) bindInput(c *cobra.Command) {
 
 func execCmd() *cobra.Command {
 	var o execOpts
+	var so scriptOpts
 	var cmdStr string
 	var readOnly bool
 	c := &cobra.Command{
-		Use:     "exec TARGET [--] COMMAND...",
+		Use:     "exec TARGET [-- COMMAND...]",
 		Aliases: []string{"run", "x"},
 		Short:   "Run a shell command on one or many servers in parallel",
 		Long: `Runs COMMAND through the login shell on every server TARGET picks
@@ -152,14 +153,29 @@ Commands that destroy things (rm -rf /, mkfs, reboot, DROP DATABASE, ...)
 and any change on a production server: at a terminal komando asks you
 first. --yes and --allow-dangerous answer that question in advance, for
 scripts. --read-only says the command only looks, so a production server
-does not ask for commands komando knows only read.`,
+does not ask for commands komando knows only read.
+
+--script FILE runs a script from this computer instead: it is sent to the
+interpreter (from its #! line, else sh; --interpreter to choose) as input,
+so nothing is left on the server. --arg values become $1, $2 ... .`,
 		Example: `  komando exec web1 -- uptime
   komando exec @web -P 20 -- 'df -h / | tail -1'
   komando exec tag:prod --sudo -- systemctl is-active nginx
   komando exec db1 --read-only -- df -h
+  komando exec @web --script ./deploy.sh --arg v1.2.3 --sudo
+  komando exec db1 --script ./backup.py --interpreter python3
   cat deploy.sh | komando exec web1 --stdin-file - -- 'bash -s'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if so.file != "" {
+				if cmdStr != "" || len(args) > 1 {
+					return out.Usage("give a command or --script FILE, not both")
+				}
+				return runScript(cmd.Context(), "exec", args[0], so, o, readOnly)
+			}
+			if so.interpreter != "" || len(so.args) > 0 {
+				return out.Usage("--interpreter and --arg go with --script FILE")
+			}
 			command, err := commandWords(cmdStr, args[1:], "exec "+args[0])
 			if err != nil {
 				return err
@@ -192,6 +208,8 @@ does not ask for commands komando knows only read.`,
 	o.bind(c)
 	o.bindInput(c)
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
+	c.Flags().StringVar(&so.file, "script", "", "run this script from this computer ('-' = komando's stdin); nothing is left on the server")
+	so.bind(c)
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
 	return c
 }
@@ -230,67 +248,86 @@ func execReadOnly(target, command string, stdin []byte, o execOpts, readOnly boo
 	return readOnlyMutates(checked, o.env), nil
 }
 
+// scriptOpts are exec's --script flags.
+type scriptOpts struct {
+	file, interpreter string
+	args              []string
+}
+
+func (so *scriptOpts) bind(c *cobra.Command) {
+	c.Flags().StringVar(&so.interpreter, "interpreter", "", "with --script: the interpreter on the server (default: from the #! line, else sh)")
+	c.Flags().StringArrayVar(&so.args, "arg", nil, "with --script: an argument for the script, $1 ... (repeatable)")
+}
+
+// scriptCmd is the old name of `exec TARGET --script FILE`, kept for one
+// release (docs/design/ux.md, section 10).
 func scriptCmd() *cobra.Command {
 	var o execOpts
-	var interpreter string
+	var so scriptOpts
 	var readOnly bool
-	var argsList []string
 	c := &cobra.Command{
-		Use:   "script TARGET FILE",
-		Short: "Run a script from this computer on servers (nothing on disk)",
-		Example: `  komando script @web ./deploy.sh --arg v1.2.3 --sudo
-  komando script db1 ./backup.py --interpreter python3`,
+		Use:  "script TARGET FILE",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			body, err := readFileOrStdin(args[1])
-			if err != nil {
-				return localFileErr("FILE_NOT_FOUND", err, "")
-			}
-			if err := hiddenInInput(args[1], body); err != nil {
-				return err
-			}
-			if win, err := targetWindows(args[0]); err != nil || win {
-				if err != nil {
-					return err
-				}
-				return windowsScript(cmd.Context(), args, body, interpreter, argsList, o, readOnly)
-			}
-			if interpreter == "" {
-				interpreter = shebangInterpreter(string(body))
-			}
-			command := scriptCommand(interpreter, argsList)
-			if err := guardBody(string(body)); err != nil {
-				return err
-			}
-			mutating := !readOnly
-			if readOnly {
-				// only a shell script can be checked: the interpreter must
-				// be a plain shell (python, or tee /etc/passwd, is not),
-				// and its arguments ($1 ...) are not seen by the check
-				if len(argsList) > 0 {
-					if err := readOnlyStop("--arg values fill in $1 ... when the script runs; put them in the script instead"); err != nil {
-						return err
-					}
-				} else if !stdinShell(command) {
-					if err := readOnlyStop("the interpreter " + interpreter + " is not a shell; only shell scripts can be --read-only"); err != nil {
-						return err
-					}
-				}
-				if err := checkReadOnlyEnv(string(body), o.env); err != nil {
-					return err
-				}
-				// a protected target still needs --yes unless komando knows
-				// every command in the script only reads (allowlist)
-				mutating = readOnlyMutates(string(body), o.env)
-			}
-			return runFleet(cmd.Context(), "script", args[0], command, body, o, mutating)
+			so.file = args[1]
+			return runScript(cmd.Context(), "script", args[0], so, o, readOnly)
 		},
 	}
 	o.bind(c)
-	c.Flags().StringVar(&interpreter, "interpreter", "", "interpreter on the server (default: from the #! line, else sh)")
-	c.Flags().StringArrayVar(&argsList, "arg", nil, "argument passed to the script (repeatable)")
-	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the shell script only looks (protected servers: no --yes when komando knows every command reads)")
-	return c
+	so.bind(c)
+	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the shell script only looks")
+	return oldName(c, "exec TARGET --script FILE")
+}
+
+// runScript runs a script from this computer on every server target picks:
+// the file goes to the interpreter as stdin, so nothing is left on disk.
+func runScript(ctx context.Context, name, target string, so scriptOpts, o execOpts, readOnly bool) error {
+	if o.stdinFile != "" || o.pty {
+		return out.Usage("--script sends the file as the script's input, so --stdin-file and --pty do not go with it; read other files inside the script")
+	}
+	body, err := readFileOrStdin(so.file)
+	if err != nil {
+		return localFileErr("FILE_NOT_FOUND", err, "")
+	}
+	if err := hiddenInInput(so.file, body); err != nil {
+		return err
+	}
+	argsList, interpreter := so.args, so.interpreter
+	if win, err := targetWindows(target); err != nil || win {
+		if err != nil {
+			return err
+		}
+		return windowsScript(ctx, name, target, so.file, body, interpreter, argsList, o, readOnly)
+	}
+	if interpreter == "" {
+		interpreter = shebangInterpreter(string(body))
+	}
+	command := scriptCommand(interpreter, argsList)
+	if err := guardBody(string(body)); err != nil {
+		return err
+	}
+	mutating := !readOnly
+	if readOnly {
+		// only a shell script can be checked: the interpreter must
+		// be a plain shell (python, or tee /etc/passwd, is not),
+		// and its arguments ($1 ...) are not seen by the check
+		if len(argsList) > 0 {
+			if err := readOnlyStop("--arg values fill in $1 ... when the script runs; put them in the script instead"); err != nil {
+				return err
+			}
+		} else if !stdinShell(command) {
+			if err := readOnlyStop("the interpreter " + interpreter + " is not a shell; only shell scripts can be --read-only"); err != nil {
+				return err
+			}
+		}
+		if err := checkReadOnlyEnv(string(body), o.env); err != nil {
+			return err
+		}
+		// a protected target still needs --yes unless komando knows
+		// every command in the script only reads (allowlist)
+		mutating = readOnlyMutates(string(body), o.env)
+	}
+	return runFleet(ctx, name, target, command, body, o, mutating)
 }
 
 // scriptCommand is how an interpreter reads a script from stdin, with
