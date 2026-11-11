@@ -273,14 +273,8 @@ risky verbs also need --allow-dangerous.`,
 			var risk driver.Risk
 			if t.host != nil {
 				risk = classifyDocker(args[1:])
-			} else {
-				if err := kctlUsage(args[1:]); err != nil {
-					return err
-				}
-				if err := checkKubectlFlags(args[1:]); err != nil {
-					return err
-				}
-				risk = classifyKubectl(args[1:])
+			} else if risk, err = kubectlRisk(args[1:]); err != nil {
+				return err
 			}
 			verb := strings.ToLower(args[1])
 			tool := map[bool]string{true: "docker", false: "kubectl"}[t.host != nil]
@@ -333,11 +327,7 @@ risky verbs also need --allow-dangerous.`,
 					out.P.Print("cluster.run", plan, nil)
 					return nil
 				}
-				if stop.Code == "K8S_UNREACHABLE" && risk > driver.RiskRead {
-					// a connection that broke after the request went out may
-					// still have changed the cluster
-					audit(st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args[1:]), " "), false, map[string]any{"conns": []string{t.conn.Name}, "risk": risk.String(), "error": stop.Code})
-				}
+				auditBrokenWrite(st, t.conn.Name, args[1:], risk, stop)
 				return stop
 			}
 			if risk > driver.RiskRead {
