@@ -59,6 +59,9 @@ type formFlag struct {
 	show                          func(a formAnswers) bool // as formArg.show
 	local                         bool                     // as formArg.local
 	empty                         bool                     // an empty answer is sent (--new= removes the text)
+	// keep makes a switch three-way for edits: leave it, Yes, or No
+	// (--name=false), since No alone would change nothing
+	keep bool
 }
 
 // formHints is keyed by the command path without "komando " (db query).
@@ -300,6 +303,11 @@ func formFlagQ(f *pflag.Flag, ff formFlag, advanced bool) formQ {
 		def = f.DefValue
 	}
 	switch {
+	case f.Value.Type() == "bool" && ff.keep:
+		def, q.optional = "", true
+		q.choices = func(*store.State, formAnswers) []menuRow {
+			return []menuRow{{label: "Leave it as it is", value: ""}, {label: "Yes", value: "true"}, {label: "No", value: "false"}}
+		}
 	case f.Value.Type() == "bool":
 		if def == "" {
 			def = "false"
@@ -402,7 +410,7 @@ func formCmdArgs(cmd *cobra.Command, uses []formUseArg, h formHint, a formAnswer
 		v, ok := a["flag:"+f.Name]
 		ff := formFlagHint(h, f.Name)
 		switch {
-		case !ok || v == f.DefValue || slices.Contains(h.always, "--"+f.Name):
+		case !ok || (v == f.DefValue && !ff.keep) || slices.Contains(h.always, "--"+f.Name):
 		case v == "" && ff.empty:
 			flags = append(flags, "--"+f.Name+"=")
 		case v == "":

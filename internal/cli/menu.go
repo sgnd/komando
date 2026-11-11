@@ -301,6 +301,9 @@ type menuTask struct {
 	// first argument with the item; noItem fills nothing.
 	fill   []string
 	noItem bool
+	// only, when set, are the flags asked at once; the rest wait under
+	// More options
+	only []string
 	// line runs these command lines at once, with {} and {name} filled in
 	line [][]string
 	// sub opens a list of its own; title is its question
@@ -420,6 +423,9 @@ func menuTaskSpec(st *store.State, c *cobra.Command, tk menuTask, item string) (
 	for _, q := range sp.qs {
 		if _, ok := given[q.key]; ok {
 			continue
+		}
+		if tk.only != nil && strings.HasPrefix(q.key, "flag:") {
+			q.advanced = !slices.Contains(tk.only, strings.TrimPrefix(q.key, "flag:"))
 		}
 		if f := q.show; f != nil {
 			q.show = func(a formAnswers) bool { return f(with(a)) }

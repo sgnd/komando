@@ -620,6 +620,42 @@ func TestMenuTaskSpec(t *testing.T) {
 	}
 }
 
+// Protect or unprotect asks only the production question, and each answer
+// builds a command that does it: No takes protection away.
+func TestMenuProtectTask(t *testing.T) {
+	root := newRoot()
+	st := menuTestState()
+	for _, key := range []string{"host edit", "conn edit"} {
+		i := slices.IndexFunc(menuEveryTask(t), func(tk menuTask) bool { return tk.cmd == key && tk.only != nil })
+		if i < 0 {
+			t.Fatalf("no Protect or unprotect task for %s", key)
+		}
+		tk := menuEveryTask(t)[i]
+		c, _, _ := root.Find(strings.Fields(key))
+		sp, _ := menuTaskSpec(st, c, tk, "")
+		for _, q := range sp.qs {
+			if strings.HasPrefix(q.key, "flag:") && !q.advanced != (q.key == "flag:protected") {
+				t.Errorf("%s: %s advanced %v", key, q.key, q.advanced)
+			}
+		}
+		for v, want := range map[string]string{"true": "--protected", "false": "--protected=false", "": ""} {
+			got := formBuild(st, sp, formAnswers{"arg0": "web-1", "flag:protected": v})[0]
+			if want == "" && len(got) != 3 || want != "" && !slices.Contains(got, want) {
+				t.Errorf("%s, production %q: %v, want %q", key, v, got, want)
+			}
+		}
+	}
+}
+
+// A list from komando export comes back with import komando, which takes
+// its databases, VPNs and settings too, not only its servers.
+func TestMenuImportExported(t *testing.T) {
+	i := slices.IndexFunc(importTasks, func(tk menuTask) bool { return tk.label == "A list exported from komando" })
+	if tk := importTasks[i]; tk.cmd != "import" || !slices.Equal(tk.fill, []string{"komando"}) {
+		t.Errorf("exported list: %s %v", tk.cmd, tk.fill)
+	}
+}
+
 // Disconnecting a VPN asks first and says what stops answering; Reboot
 // asks first. No is the first row, so Enter alone does nothing.
 func TestMenuConfirms(t *testing.T) {

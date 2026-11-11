@@ -340,7 +340,7 @@ var registryTasks = []menuTask{
 var importTasks = []menuTask{
 	{label: "My SSH servers", detail: "From ~/.ssh/config", line: [][]string{{"import", "ssh-config"}}},
 	{label: "Another file", detail: ".pgpass, my.cnf, a .env file or another ssh config", cmd: "import", noItem: true},
-	{label: "A list exported from komando", detail: "From another computer", cmd: "host import", noItem: true},
+	{label: "A list exported from komando", detail: "From another computer", cmd: "import", fill: []string{"komando"}},
 }
 
 var historyTasks = []menuTask{
@@ -367,8 +367,8 @@ func settingsTasks() []menuTask {
 			{label: "Change the passphrase", cmd: "secret passphrase", noItem: true},
 		}},
 		{label: "Production servers", detail: "komando asks you before every change on them", sub: []menuTask{
-			{label: "Protect or unprotect a server", cmd: "host edit", noItem: true},
-			{label: "Protect or unprotect a service", cmd: "conn edit", noItem: true},
+			{label: "Protect or unprotect a server", cmd: "host edit", noItem: true, only: []string{"protected"}},
+			{label: "Protect or unprotect a service", cmd: "conn edit", noItem: true, only: []string{"protected"}},
 			{label: "Ask for a code in the approval window", cmd: "config approval-code", noItem: true},
 		}},
 		{label: "Blocked commands", sub: []menuTask{
