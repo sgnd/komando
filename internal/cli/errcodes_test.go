@@ -27,7 +27,12 @@ import (
 //
 //	KOMANDO_UPDATE_ERRCODES=1 go test ./internal/cli/ -run TestErrorCodeCatalog
 func TestErrorCodeCatalog(t *testing.T) {
-	want := scanErrorCodes(t)
+	want, mixed := scanErrorCodes(t)
+	// one code, one exit code: agents branch on either, and the catalog
+	// can show only one
+	for _, m := range mixed {
+		t.Error(m)
+	}
 	if os.Getenv("KOMANDO_UPDATE_ERRCODES") != "" {
 		writeErrorCodes(t, want)
 		return
@@ -83,7 +88,16 @@ type goFile struct {
 	f    *ast.File
 }
 
-func scanErrorCodes(t *testing.T) []errorCode {
+// twoExits are the codes whose exit tells two places apart on purpose:
+// WRITE_FAILED is 1 for a file on this computer and 5 on a server (as any
+// remote failure); VIA_CYCLE is 2 for the --via just given (host add or
+// edit) and 1 for one stored earlier, found when connecting.
+// SQL_TX_CONTROL and SQL_STRING_RULES are 2 for SQL the user wrote, refused
+// before it runs, and 6 (a safety stop) when the server ended komando's
+// transaction or reads SQL by rules komando cannot check.
+var twoExits = map[string]bool{"WRITE_FAILED": true, "VIA_CYCLE": true, "SQL_TX_CONTROL": true, "SQL_STRING_RULES": true}
+
+func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 	t.Helper()
 	var files []goFile
 	err := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
@@ -121,9 +135,17 @@ func scanErrorCodes(t *testing.T) []errorCode {
 		byCode[s.code] = append(byCode[s.code], s)
 	}
 	sort.Strings(order)
-	var codes []errorCode
 	for _, code := range order {
 		ss := byCode[code]
+		exits := map[int][]string{}
+		for _, s := range ss {
+			if s.exit >= 0 {
+				exits[s.exit] = append(exits[s.exit], s.file)
+			}
+		}
+		if len(exits) > 1 && !twoExits[code] {
+			mixed = append(mixed, fmt.Sprintf("%s exits with %d different codes: %v", code, len(exits), exits))
+		}
 		if from, ok := renamedFrom[code]; ok {
 			// the error keeps the exit and hint of the one it renames
 			for i := range ss {
@@ -145,7 +167,7 @@ func scanErrorCodes(t *testing.T) []errorCode {
 		}
 		codes = append(codes, c)
 	}
-	return codes
+	return codes, mixed
 }
 
 // pickSite makes a code's catalog entry from ONE call site, so the example

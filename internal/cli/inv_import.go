@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -223,7 +224,7 @@ run on this computer, so an AI agent needs a person's yes for them.`,
 			if notes = append(notes, v.Notes...); len(notes) > 0 {
 				res["notes"] = notes
 			}
-			out.P.Print("host.import", res, nil)
+			out.P.Print("host.import", textAs{res, textBlob(hostImportSay(added, v, notes))}, nil)
 			return nil
 		},
 	}
@@ -270,4 +271,22 @@ func hostExportCmd() *cobra.Command {
 	c.Flags().StringVar(&target, "target", "", "same as the TARGET argument")
 	_ = c.Flags().MarkHidden("target")
 	return c
+}
+
+// hostImportSay is host import's text, in the words import says it in.
+func hostImportSay(added []string, v hostVet, notes []string) string {
+	lines := []string{changeSay("import", joinAnd(added), "")}
+	for _, n := range v.Existing {
+		lines = append(lines, "skipped "+n+": a server with this name exists (--overwrite replaces it)")
+	}
+	for _, n := range v.Protected {
+		lines = append(lines, "skipped "+n+": it is protected; replacing it needs --yes after the user confirms")
+	}
+	for _, s := range v.Invalid {
+		lines = append(lines, "skipped "+s.Name+": "+s.Reason)
+	}
+	for _, n := range notes {
+		lines = append(lines, "note: "+n)
+	}
+	return strings.Join(lines, "\n")
 }

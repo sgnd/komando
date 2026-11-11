@@ -211,6 +211,15 @@ Safe to run again, for example after an update: a changed file is kept as
 					files = append(files, f)
 				}
 			}
+			changed := 0
+			for _, f := range files {
+				if f.Action != "unchanged" {
+					changed++
+				}
+			}
+			if changed > 0 && !g.dryRun {
+				audit(nil, "guide.install", nil, "", true, map[string]any{"files": changed})
+			}
 			out.P.Print("guide.install", skillResult{Files: files}, nil)
 			return nil
 		},
@@ -301,6 +310,18 @@ type cmdSchema struct {
 	KindNote string       `json:"kind_note,omitempty"` // on what, for depends
 }
 
+// schemaPath reads a command named as one argument: host.add, as in the
+// envelope's command, or 'db query' quoted as one.
+func schemaPath(args []string) []string {
+	if len(args) != 1 {
+		return args
+	}
+	if strings.Contains(args[0], ".") {
+		return strings.Split(args[0], ".")
+	}
+	return strings.Fields(args[0])
+}
+
 func schemaCmd(root *cobra.Command) *cobra.Command {
 	var compact bool
 	c := &cobra.Command{
@@ -312,9 +333,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
   komando schema --compact   # paths + short descriptions only`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			start := root
-			if len(args) == 1 && strings.Contains(args[0], ".") {
-				args = strings.Split(args[0], ".") // host.add, as in the envelope's command
-			}
+			args = schemaPath(args)
 			if len(args) > 0 {
 				found, rest, err := root.Find(args)
 				if err != nil || found == root || len(rest) > 0 {
@@ -354,6 +373,10 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 				}
 			}
 			walk(start)
+			if len(cmds) == 0 { // help, completion and hidden commands are left out on purpose
+				return out.Errf(out.ExitNotFound, "COMMAND_NOT_FOUND", "run `komando schema --compact` to see every command",
+					"no command %q", strings.Join(args, " "))
+			}
 			var globals []flagSchema
 			root.PersistentFlags().VisitAll(func(f *pflag.Flag) {
 				globals = append(globals, flagSchema{f.Name, f.Shorthand, f.Value.Type(), f.DefValue, f.Usage})

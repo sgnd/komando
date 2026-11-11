@@ -38,6 +38,10 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
+				if out.P.Format == "json" {
+					// piped: one JSON envelope, never help text (ux.md, section 4)
+					return out.Usage("komando login needs a server or a cloud account").WithHint("komando login HOST, or komando login aws")
+				}
 				return cmd.Help()
 			}
 			return loginHost(cmd.Context(), args[0])

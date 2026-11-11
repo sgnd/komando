@@ -217,7 +217,7 @@ JOIN information_schema.innodb_trx b ON b.trx_id = w.blocking_trx_id`)
 		}
 		var me *mysql.MySQLError
 		if errors.As(err, &me) && (me.Number == 1227 || me.Number == 1142) {
-			return nil, out.Errf(out.ExitConnect, "DB_PRIVILEGE", "grant it with `GRANT PROCESS ON *.* TO user` (as an admin), or use a conn with an admin user",
+			return nil, out.Errf(out.ExitRemote, "DB_PRIVILEGE", "grant it with `GRANT PROCESS ON *.* TO user` (as an admin), or use a conn with an admin user",
 				"lock waits need the PROCESS privilege, which this user lacks")
 		}
 	case "sqlserver":

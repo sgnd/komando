@@ -600,7 +600,7 @@ func connectErr(t driver.Target, err error) error {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "the database did not answer in time; check the address or raise --connect-timeout", "connecting to %s timed out", t.Where())
 	}
 	if t.Kind.File {
-		return out.Errf(out.ExitNotFound, "DB_CONNECT", "check the file path in the conn URL", "cannot open %s: %v", t.Path, err)
+		return out.Errf(out.ExitConnect, "DB_CONNECT", "check the file path in the conn URL", "cannot open %s: %v", t.Path, err)
 	}
 	if t.Kind.Name == "oracle" && t.Secure && (errors.Is(err, io.EOF) || err.Error() == "EOF") {
 		// a listener without TCPS closes the connection on the TLS hello

@@ -48,7 +48,7 @@ func toolErr(ctx context.Context, tool, where, stderr string, err error, c *stor
 	if errors.As(err, &ee) {
 		return toolFailed(tool, where, ee.ExitCode(), stderr, c, dt)
 	}
-	return out.Errf(out.ExitError, "TOOL_FAILED", "check that "+tool+" is installed and works: `komando doctor`", "%s on %s: %v", tool, where, err)
+	return out.Errf(out.ExitRemote, "TOOL_FAILED", "check that "+tool+" is installed and works: `komando doctor`", "%s on %s: %v", tool, where, err)
 }
 
 // toolHint explains the failures people actually hit with dump tools.

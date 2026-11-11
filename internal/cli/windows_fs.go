@@ -115,7 +115,7 @@ func winMarkerErr(p string, m map[string]string) error {
 	case hasKey(m, "not-found"):
 		return fsErrHint(p, os.ErrNotExist, "")
 	case hasKey(m, "denied"):
-		return out.Errf(out.ExitError, "PERMISSION_DENIED", "log in as a user with the rights to it (Windows has no sudo)", "%s: access denied", p)
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", "log in as a user with the rights to it (Windows has no sudo)", "%s: access denied", p)
 	case hasKey(m, "dir"):
 		return isADirectory(p)
 	case hasKey(m, "no-dir"):

@@ -115,7 +115,7 @@ func tokens(t driver.Target, key string, plain *http.Client) (oauth2.TokenSource
 	case key != "":
 		creds, err := google.CredentialsFromJSONWithType(tctx, []byte(key), google.ServiceAccount, scope)
 		if err != nil {
-			return nil, out.Errf(out.ExitUsage, "QUEUE_AUTH", "the --password-ref of a pubsub conn holds a service account key: the JSON file from the Google Cloud console (IAM, Service accounts, Keys)",
+			return nil, out.Errf(out.ExitConnect, "QUEUE_AUTH", "the --password-ref of a pubsub conn holds a service account key: the JSON file from the Google Cloud console (IAM, Service accounts, Keys)",
 				"pubsub: the stored login is not a service account key")
 		}
 		return creds.TokenSource, nil

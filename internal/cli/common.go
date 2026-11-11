@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,6 +41,10 @@ const groupOnly = "komando-group"
 func applyConventions(c *cobra.Command) {
 	if c.Name() == "rm" {
 		c.Aliases = rmAliases
+	}
+	// list and ls are each other's other name (ux.md, section 1)
+	if other, ok := map[string]string{"list": "ls", "ls": "list"}[c.Name()]; ok && !slices.Contains(c.Aliases, other) {
+		c.Aliases = append(c.Aliases, other)
 	}
 	if c.Example == "" {
 		c.Example = examples[c.CommandPath()]
@@ -169,9 +174,8 @@ func toErr(err error) *out.Error {
 	}
 	var pe *os.PathError
 	if errors.As(err, &pe) {
-		e := localFileErr("FILE_ERROR", err, "")
-		e.Exit = out.ExitError
-		return e
+		e := localFileErr("", err, "") // its words; the exit is not "not found" here
+		return out.Errf(out.ExitError, "FILE_ERROR", e.Hint, "%s", e.Message)
 	}
 	return &out.Error{Code: "REMOTE_ERROR", Message: err.Error(), Exit: out.ExitError,
 		Hint: "run it again with -o json for the details; `komando doctor` checks this computer's setup"}
@@ -648,6 +652,9 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 	}
 	for k, v := range extra {
 		rec[k] = v
+	}
+	if rec["blocked"] != nil {
+		blockAudited = true
 	}
 	_ = appendAudit(rec)
 }
