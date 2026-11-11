@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net"
 	"os"
-	"strings"
 	"testing"
 
 	"golang.org/x/crypto/ssh"
@@ -28,14 +27,12 @@ func newHostKey(t *testing.T) ssh.PublicKey {
 	return k
 }
 
-// pinHome makes a home on the file backend or the sealed store.
-func pinHome(t *testing.T, sealed bool) {
+// pinHome makes a fresh home.
+func pinHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	t.Setenv("KOMANDO_KEYCHAIN", "off")
 	t.Setenv("KOMANDO_VAULT_PASS", "")
-	store.UseSealedForNewHomes(sealed)
-	t.Cleanup(func() { store.UseSealedForNewHomes(false) })
 }
 
 type checkCase struct {
@@ -73,52 +70,45 @@ func TestPinsSameOnBothBackends(t *testing.T) {
 		{"two pins, neither", "multi:22", "1.1.1.1:22", 2, "changed", 2},
 		{"host names are compared as written", "WEB.example.com:22", "10.0.0.9:22", 0, "unknown", 0},
 	}
-	results := map[bool][]string{}
-	for _, sealed := range []bool{false, true} {
-		pinHome(t, sealed)
-		for _, p := range pins {
-			if _, err := PinHostKey(p.addr, keys[p.key], false); err != nil {
-				t.Fatal(err)
-			}
-		}
-		for _, c := range cases {
-			remote, err := net.ResolveTCPAddr("tcp", c.remote)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var got string
-			_ = HostKeys().view(func(tx hostKeyTx) error {
-				err := tx.Check(c.host, remote, keys[c.key])
-				var ke *knownhosts.KeyError
-				switch {
-				case err == nil:
-					got = "ok"
-				case errors.As(err, &ke) && len(ke.Want) == 0:
-					got = "unknown"
-				case errors.As(err, &ke):
-					got = "changed/" + string(rune('0'+len(ke.Want)))
-				default:
-					got = "error: " + err.Error()
-				}
-				return nil
-			})
-			want := c.want
-			if want == "changed" {
-				want += "/" + string(rune('0'+c.wantKeys))
-			}
-			if got != want {
-				t.Errorf("sealed=%v %s: got %s, want %s", sealed, c.name, got, want)
-			}
-			results[sealed] = append(results[sealed], got)
+	pinHome(t)
+	for _, p := range pins {
+		if _, err := PinHostKey(p.addr, keys[p.key], false); err != nil {
+			t.Fatal(err)
 		}
 	}
-	if strings.Join(results[false], ",") != strings.Join(results[true], ",") {
-		t.Fatalf("backends differ:\nfile   %v\nsealed %v", results[false], results[true])
+	for _, c := range cases {
+		remote, err := net.ResolveTCPAddr("tcp", c.remote)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got string
+		_ = HostKeys().view(func(tx hostKeyTx) error {
+			err := tx.Check(c.host, remote, keys[c.key])
+			var ke *knownhosts.KeyError
+			switch {
+			case err == nil:
+				got = "ok"
+			case errors.As(err, &ke) && len(ke.Want) == 0:
+				got = "unknown"
+			case errors.As(err, &ke):
+				got = "changed/" + string(rune('0'+len(ke.Want)))
+			default:
+				got = "error: " + err.Error()
+			}
+			return nil
+		})
+		want := c.want
+		if want == "changed" {
+			want += "/" + string(rune('0'+c.wantKeys))
+		}
+		if got != want {
+			t.Errorf("%s: got %s, want %s", c.name, got, want)
+		}
 	}
 }
 
 func TestSealedPinChanges(t *testing.T) {
-	pinHome(t, true)
+	pinHome(t)
 	a, b := newHostKey(t), newHostKey(t)
 	if pins, _ := PinnedKeys("h:22"); len(pins) != 0 {
 		t.Fatal("pins before any")

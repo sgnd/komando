@@ -19,7 +19,6 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
-	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -492,12 +491,11 @@ func TestAuthFailedHint(t *testing.T) {
 // HOSTKEY_MISMATCH names the full fingerprint the server shows now. An
 // agent is told to report it; a person at a terminal how to check it.
 func TestHostKeyMismatchShowsTheFingerprint(t *testing.T) {
-	home := dialHome(t)
+	dialHome(t)
 	shown, pinned := newSigner(t), newSigner(t)
 	host, port := testSSHD(t, shown)
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
-	line := knownhosts.Line([]string{knownhosts.Normalize(addr)}, pinned.PublicKey())
-	if err := os.WriteFile(filepath.Join(home, "known_hosts"), []byte(line+"\n"), 0o600); err != nil {
+	if _, err := PinHostKey(addr, pinned.PublicKey(), false); err != nil {
 		t.Fatal(err)
 	}
 	h := &store.Host{Name: "web1", Address: host, Port: port, User: "u", Identity: clientKey(t)}

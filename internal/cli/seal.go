@@ -80,8 +80,7 @@ func needsPersonHere(what string, dryRunOK bool) error {
 	return nil
 }
 
-// oldFolder is everything a folder of before holds, read once, with the
-// code of before.
+// oldFolder is everything a folder of before holds, read once, read only.
 type oldFolder struct {
 	st      *store.State // untouched: what the store must read back as
 	secrets map[string]vault.Secret
@@ -117,7 +116,7 @@ func readOldFolder(withSecrets bool) (*oldFolder, error) {
 		o.files[rel] = b
 	}
 	var err error
-	if o.st, err = store.Load(); err != nil {
+	if o.st, err = store.ReadOldState(); err != nil {
 		return nil, err
 	}
 	if withSecrets {
@@ -130,10 +129,8 @@ func readOldFolder(withSecrets bool) (*oldFolder, error) {
 		if k, ok, _ := vault.KeychainKeyOfOldVault(); ok {
 			o.vaultKC = k
 		}
-	} else if list, err := vault.List(); err == nil {
-		for _, i := range list {
-			o.names = append(o.names, i.Name)
-		}
+	} else if o.names, err = vault.OldNames(); err != nil {
+		return nil, err
 	}
 	o.readPins(o.files["known_hosts"])
 	for name, k := range o.st.Keys {

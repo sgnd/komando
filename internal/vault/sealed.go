@@ -58,7 +58,7 @@ func loadSealedTx(tx *sealdb.Tx) (*file, error) {
 func loadSealed() (*file, error) {
 	d, err := store.DB(false)
 	if errors.Is(err, store.ErrNoStore) {
-		return &file{Version: 1, Mode: modeSealed, Entries: map[string]*entry{}, isNew: true}, nil
+		return &file{Version: 1, Mode: modeSealed, Entries: map[string]*entry{}}, nil
 	}
 	if err != nil {
 		return nil, err

@@ -12,15 +12,12 @@ import (
 // random ID that stays when the record is renamed, and a version that goes
 // up by one each time the record changes. The coming sealed store keys its
 // rows by ID, and sync tells changes apart by version.
-//
-// A record made before this existed gets its ID on load; it is kept from
-// the next saved change on.
 type Rec struct {
 	ID      string `json:"id"`
 	Version uint64 `json:"version"`
 }
 
-// Kinds of records, as kept in State.IDs.
+// Kinds of records, the record types in the store.
 const (
 	KindHost   = "host"
 	KindConn   = "conn"
@@ -62,24 +59,6 @@ func newRecID() string {
 		panic(err) // crypto/rand does not fail on supported systems
 	}
 	return hex.EncodeToString(b[:])
-}
-
-// loadRecs gives each record its Rec from IDs, and a new one when it has
-// none or its ID is already taken (an ID copied by hand to a second record).
-func (s *State) loadRecs() {
-	seen := map[string]bool{}
-	refs := s.recs()
-	// names in a fixed order, so which of two records sharing an ID keeps
-	// it does not change between loads
-	sortRefs(refs)
-	for _, r := range refs {
-		if m, ok := s.IDs[r.kind][r.name]; ok && m.ID != "" && !seen[m.ID] {
-			*r.rec = m
-		} else {
-			*r.rec = Rec{ID: newRecID(), Version: 1}
-		}
-		seen[r.rec.ID] = true
-	}
 }
 
 func sortRefs(refs []recRef) {
@@ -158,14 +137,4 @@ func (s *State) bumpRecs(before map[string]recSnap) error {
 		*r.rec = Rec{ID: newRecID(), Version: 1}
 	}
 	return nil
-}
-
-func (s *State) saveRecs() {
-	s.IDs = map[string]map[string]Rec{}
-	for _, r := range s.recs() {
-		if s.IDs[r.kind] == nil {
-			s.IDs[r.kind] = map[string]Rec{}
-		}
-		s.IDs[r.kind][r.name] = *r.rec
-	}
 }

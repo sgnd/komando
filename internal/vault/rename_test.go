@@ -1,7 +1,6 @@
 package vault
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -63,14 +62,13 @@ func TestRenameAndCopy(t *testing.T) {
 		t.Error("renaming to the same name must fail, not delete")
 	}
 
-	// the vault file never holds the value in the clear
-	b, _ := os.ReadFile(store.Path("vault.json"))
+	// the store never holds the value in the clear
+	b, _ := os.ReadFile(store.DBPath())
 	if strings.Contains(string(b), "s3cret") {
-		t.Error("the value is in vault.json in the clear")
+		t.Error("the value is in store.db in the clear")
 	}
-	var f file
-	_ = json.Unmarshal(b, &f)
-	if len(f.Entries) != 3 {
+	f, _ := loadSealed()
+	if f == nil || len(f.Entries) != 3 {
 		t.Errorf("entries: %d", len(f.Entries))
 	}
 }

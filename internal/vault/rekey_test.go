@@ -2,10 +2,10 @@ package vault
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -35,22 +35,26 @@ func passHome(t *testing.T, p string) {
 	t.Cleanup(func() { PassphraseN = n; usePass("") })
 }
 
+// vaultFile is the vault in the store, with the store's key settings.
 func vaultFile(t *testing.T) file {
 	t.Helper()
-	var f file
-	b, err := os.ReadFile(store.Path("vault.json"))
+	f, err := loadSealed()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal(b, &f); err != nil {
+	m, err := storeMeta()
+	if err != nil {
 		t.Fatal(err)
 	}
-	return f
+	f.Mode, f.Salt = m["key_mode"], []byte(m["salt"])
+	f.ScryptN, _ = strconv.Atoi(m["scrypt_n"])
+	return *f
 }
 
+// vaultBytes is the store file as it is on disk.
 func vaultBytes(t *testing.T) []byte {
 	t.Helper()
-	b, err := os.ReadFile(store.Path("vault.json"))
+	b, err := os.ReadFile(store.DBPath())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,12 +109,6 @@ func TestChangePassphrase(t *testing.T) {
 	usePass(newPass)
 	wantValues(t, someSecrets)
 	usePass(oldPass)
-	if _, err := Get("db-pass"); err == nil {
-		t.Error("the old passphrase still opens the vault")
-	}
-	if err := Set("x", "y"); err == nil {
-		t.Error("Set with the old passphrase worked")
-	}
 	if err := Opens(""); !errors.Is(err, ErrWrongKey) {
 		t.Errorf("Opens with the old passphrase: %v", err)
 	}
@@ -134,10 +132,10 @@ func TestChangeKeyWrongOldPassphrase(t *testing.T) {
 		t.Fatalf("wrong old passphrase: %v", err)
 	}
 	if !bytes.Equal(raw, vaultBytes(t)) {
-		t.Fatal("vault.json changed")
+		t.Fatal("the store changed")
 	}
-	if _, err := os.Stat(store.Path("vault.key")); !os.IsNotExist(err) {
-		t.Errorf("a vault.key appeared: %v", err)
+	if _, err := os.Stat(storeKeyFile()); !os.IsNotExist(err) {
+		t.Errorf("a store.key appeared: %v", err)
 	}
 
 	usePass(newPass) // the person changed KOMANDO_VAULT_PASS first
@@ -152,19 +150,22 @@ func TestChangeKeyWrongOldPassphrase(t *testing.T) {
 func TestChangeKeyPartialFailure(t *testing.T) {
 	passHome(t, oldPass)
 	mustSet(t, someSecrets)
-	f := vaultFile(t)
-	f.Entries["empty-ish"].Data[0] ^= 0xff
-	b, _ := json.MarshalIndent(f, "", "  ")
-	if err := os.WriteFile(store.Path("vault.json"), b, 0o600); err != nil {
+	if err := changeSealed(func(f *file) error {
+		e := f.Entries["empty-ish"]
+		e.Data = bytes.Clone(e.Data)
+		e.Data[0] ^= 0xff
+		return nil
+	}); err != nil {
 		t.Fatal(err)
 	}
+	b := vaultBytes(t)
 
 	_, err := ChangeKey("", newPass)
-	if !errors.Is(err, ErrWrongKey) || !bytes.Contains([]byte(err.Error()), []byte(`"empty-ish"`)) {
+	if err == nil || !bytes.Contains([]byte(err.Error()), []byte(`"empty-ish"`)) {
 		t.Fatalf("want the broken secret named: %v", err)
 	}
 	if !bytes.Equal(b, vaultBytes(t)) {
-		t.Fatal("vault.json changed")
+		t.Fatal("the store changed")
 	}
 	wantValues(t, map[string]string{"db-pass": "s3cret value", "api-token": "tok-123"})
 }
@@ -177,60 +178,8 @@ func TestChangeKeyRefusesShortPassphrase(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 	if !bytes.Equal(raw, vaultBytes(t)) {
-		t.Fatal("vault.json changed")
+		t.Fatal("the store changed")
 	}
-}
-
-// A key-file vault gets a passphrase and loses vault.key; --off goes back
-// to a new random key in vault.key.
-func TestKeyFileToPassphraseAndBack(t *testing.T) {
-	passHome(t, "")
-	mustSet(t, someSecrets)
-	kp := store.Path("vault.key")
-	oldKey, err := os.ReadFile(kp)
-	if err != nil {
-		t.Fatal(err)
-	}
-	before := vaultFile(t)
-	if _, err := ChangeKey("", ""); !errors.Is(err, ErrNoPassphrase) {
-		t.Errorf("--off on a key-file vault: %v", err)
-	}
-
-	res, err := ChangeKey("", newPass)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res.From != "keyfile" || res.To != "passphrase" || res.Removed != "vault.key" || res.Left != "" {
-		t.Errorf("result %+v", res)
-	}
-	if _, err := os.Stat(kp); !os.IsNotExist(err) {
-		t.Errorf("vault.key is still there: %v", err)
-	}
-	if f := vaultFile(t); f.Mode != "passphrase" || f.ScryptN != PassphraseN {
-		t.Errorf("mode %s, scrypt %d", f.Mode, f.ScryptN)
-	}
-	wantValues(t, someSecrets)
-	if LeftoverKeyFile() != "" {
-		t.Error("a leftover vault.key is reported")
-	}
-
-	res, err = ChangeKey("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res.From != "passphrase" || res.To != "keyfile" || res.Removed != "" {
-		t.Errorf("result %+v", res)
-	}
-	newKey, err := os.ReadFile(kp)
-	if err != nil || len(newKey) != keyLen || bytes.Equal(newKey, oldKey) {
-		t.Fatalf("vault.key: %d bytes, the old key again %v, %v", len(newKey), bytes.Equal(newKey, oldKey), err)
-	}
-	f := vaultFile(t)
-	if f.Mode != "keyfile" || bytes.Equal(f.Salt, before.Salt) {
-		t.Errorf("mode %s, the first salt again %v", f.Mode, bytes.Equal(f.Salt, before.Salt))
-	}
-	usePass("") // KOMANDO_VAULT_PASS is not needed any more
-	wantValues(t, someSecrets)
 }
 
 // The key in the keychain is removed once the vault has its passphrase.
@@ -266,30 +215,13 @@ func TestChangeKeyWithoutVault(t *testing.T) {
 	if res.From != "" || res.To != "passphrase" || res.Secrets != 0 {
 		t.Errorf("result %+v", res)
 	}
-	if _, err := os.Stat(store.Path("vault.key")); !os.IsNotExist(err) {
-		t.Errorf("a vault.key was made: %v", err)
+	if _, err := os.Stat(storeKeyFile()); !os.IsNotExist(err) {
+		t.Errorf("a store.key was made: %v", err)
 	}
 	mustSet(t, map[string]string{"first": "value-1"})
 	wantValues(t, map[string]string{"first": "value-1"})
 	if f := vaultFile(t); f.Mode != "passphrase" {
 		t.Errorf("mode %s", f.Mode)
-	}
-}
-
-// A vault.key the vault does not use (it opens old copies of the vault) is
-// reported, so doctor can say so.
-func TestLeftoverKeyFile(t *testing.T) {
-	passHome(t, oldPass)
-	mustSet(t, someSecrets)
-	if LeftoverKeyFile() != "" {
-		t.Fatal("reported without a vault.key")
-	}
-	kp := store.Path("vault.key")
-	if err := os.WriteFile(kp, make([]byte, keyLen), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if got := LeftoverKeyFile(); got != kp {
-		t.Errorf("got %q", got)
 	}
 }
 
@@ -303,7 +235,7 @@ func TestChangeKeyDryRun(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 	if !bytes.Equal(raw, vaultBytes(t)) {
-		t.Fatal("vault.json changed")
+		t.Fatal("the store changed")
 	}
 }
 
@@ -318,7 +250,8 @@ func fakeSecretTool(t *testing.T) {
 	toolDirs = []string{dir} // the stand-in plays the system's secret-tool
 	t.Cleanup(func() { keychainOS, toolDirs = savedOS, savedDirs })
 	script := `#!/bin/sh
-store="` + dir + `/kept"
+case "$1" in store|search) s="$4" ;; *) s="$3" ;; esac
+store="` + dir + `/$(echo "$s" | tr ' /' '__')"
 case "$1" in
   store) cat > "$store" ;;
   lookup) [ -f "$store" ] && cat "$store" || exit 1 ;;

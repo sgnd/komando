@@ -1,11 +1,9 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
 
 	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
@@ -32,28 +30,9 @@ func writeSealedAudit(rec map[string]any) ([]byte, error) {
 // the log never holds the store for long.
 const auditPage = 500
 
-// eachAudit calls fn with every audit record, oldest first: the lines of
-// audit.jsonl, or the store's records on a sealed home. A sealed record
+// eachAudit calls fn with every audit record in the store, oldest first. A sealed record
 // that does not open stops it with sealdb.ErrTampered.
 func eachAudit(fn func(n int, rec []byte) error) error {
-	if !store.Sealed() {
-		f, err := os.Open(store.Path("audit.jsonl"))
-		if os.IsNotExist(err) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		sc := bufio.NewScanner(f)
-		sc.Buffer(make([]byte, 1<<20), 16<<20)
-		for n := 1; sc.Scan(); n++ {
-			if err := fn(n, sc.Bytes()); err != nil {
-				return err
-			}
-		}
-		return sc.Err()
-	}
 	d, err := store.DB(false)
 	if errors.Is(err, store.ErrNoStore) {
 		return nil

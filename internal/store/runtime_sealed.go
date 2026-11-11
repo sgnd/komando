@@ -11,7 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/sealrow"
 )
 
-// On a sealed home runtime.json is sealed too (docs/design/sync-security.md
+// runtime.json is sealed too (docs/design/sync-security.md
 // section 16): it holds the SOCKS logins of running VPNs and the tokens of
 // kept server logins. It is sealed with the store's row key, bound to its
 // own ID and type, so it cannot be swapped with a store record. A plain
@@ -49,13 +49,10 @@ func runtimeKey() (*sealrow.Key, error) {
 }
 
 func sealRuntime(plain []byte) ([]byte, error) {
-	if !Sealed() {
-		return plain, nil
-	}
 	k, err := runtimeKey()
 	if errors.Is(err, ErrNoStore) {
 		// no store yet (a VPN brought up before any change): make it, so
-		// the runtime data is never written plain on a sealed home
+		// the runtime data is never written plain
 		if _, err = DB(true); err == nil {
 			k, err = runtimeKey()
 		}

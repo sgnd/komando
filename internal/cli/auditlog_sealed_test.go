@@ -14,8 +14,6 @@ import (
 // stops audit verify at its number.
 func TestSealedAudit(t *testing.T) {
 	invHome(t)
-	store.UseSealedForNewHomes(true)
-	t.Cleanup(func() { store.UseSealedForNewHomes(os.Getenv("KOMANDO_TEST_SEALED") == "1") })
 	mustRun(t, "host", "add", "audited-web", "deploy@10.0.0.1")
 	mustRun(t, "host", "edit", "audited-web", "--add-tag", "x")
 	mustRun(t, "host", "edit", "audited-web", "--add-tag", "y")

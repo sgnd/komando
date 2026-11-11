@@ -2,10 +2,11 @@ package sshx
 
 import (
 	"bytes"
-	"github.com/sgnd/komando/internal/store"
 	"net"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/store"
 
 	"golang.org/x/crypto/ssh"
 )

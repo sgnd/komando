@@ -3,7 +3,11 @@ package vault
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"os"
+	"sort"
 	"time"
 
 	"github.com/sgnd/komando/internal/store"
@@ -18,13 +22,48 @@ type Secret struct {
 	UpdatedAt time.Time
 }
 
-// ExportFiles reads every secret of a folder of before (vault.json), for
-// the move. The caller wipes the values. It refuses a sealed home.
-func ExportFiles() (map[string]Secret, error) {
-	if store.Sealed() {
-		return nil, errors.New("this komando folder is sealed already")
+// loadOld reads vault.json of a folder of before, only reading: a folder
+// without one has no secrets.
+func loadOld() (*file, error) {
+	f := &file{Version: 1, Entries: map[string]*entry{}}
+	b, err := os.ReadFile(store.Path("vault.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return f, nil
 	}
-	f, err := load()
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(b, f); err != nil {
+		return nil, fmt.Errorf("%s: %w", store.Path("vault.json"), err)
+	}
+	if f.Mode == modeSealed {
+		return nil, errors.New("vault.json names the sealed store as its key")
+	}
+	if f.Entries == nil {
+		f.Entries = map[string]*entry{}
+	}
+	return f, nil
+}
+
+// OldNames gives the secret names of a folder of before, without its key
+// (a dry run of the move).
+func OldNames() ([]string, error) {
+	f, err := loadOld()
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(f.Entries))
+	for n := range f.Entries {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+// ExportFiles reads every secret of a folder of before (vault.json), for
+// the move. The caller wipes the values.
+func ExportFiles() (map[string]Secret, error) {
+	f, err := loadOld()
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +71,11 @@ func ExportFiles() (map[string]Secret, error) {
 	if len(f.Entries) == 0 {
 		return out, nil
 	}
-	a, err := f.aead()
+	secret, err := f.key()
+	if err != nil {
+		return nil, err
+	}
+	a, err := f.aeadFor(secret)
 	if err != nil {
 		return nil, err
 	}
@@ -49,9 +92,6 @@ func ExportFiles() (map[string]Secret, error) {
 // ImportSealed puts secrets into a sealed home's store in one write step,
 // keeping when each was last changed.
 func ImportSealed(secrets map[string]Secret) error {
-	if !store.Sealed() {
-		return errors.New("this komando folder is not sealed")
-	}
 	return changeSealed(func(f *file) error {
 		a, err := f.aead()
 		if err != nil {
@@ -79,7 +119,7 @@ func WipeSecrets(m map[string]Secret) {
 // keychain, so the move's archive can bring vault.json back even after
 // the keychain item changes. ok is false for other vaults.
 func KeychainKeyOfOldVault() (key []byte, ok bool, err error) {
-	f, err := load()
+	f, err := loadOld()
 	if err != nil || f.Mode != "keychain" {
 		return nil, false, err
 	}

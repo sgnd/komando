@@ -12,7 +12,7 @@ import (
 
 // Runtime is what komando's background work keeps between commands: VPN
 // sessions, server logins, jobs and tunnels. It lives in runtime.json, apart
-// from the inventory in state.json, so a VPN marking itself used does not
+// from the inventory in store.db, so a VPN marking itself used does not
 // rewrite the inventory, and the coming sealed store can seal it on its own
 // (docs/design/sync-security.md section 16).
 type Runtime struct {
@@ -20,10 +20,6 @@ type Runtime struct {
 	Logins   map[string]*SSHLogin   `json:"ssh_logins,omitempty"`
 	Jobs     map[string]*Job        `json:"jobs,omitempty"`
 	Tunnels  map[string]*Tunnel     `json:"tunnels,omitempty"`
-
-	// legacyRuntime: state.json still holds runtime data from before
-	// runtime.json; the next Update moves it
-	legacyRuntime bool
 }
 
 const runtimeLock = ".runtime.lock"
@@ -45,18 +41,8 @@ func (r *Runtime) init() {
 	}
 }
 
-func (r *Runtime) empty() bool {
-	return len(r.Sessions)+len(r.Logins)+len(r.Jobs)+len(r.Tunnels) == 0
-}
-
-// loadRuntime reads runtime.json. Once it exists it is the only record of
-// runtime data: what state.json still holds from before is ignored, or an
-// entry removed after the move (and before state.json was rewritten, or by
-// a background process still running an older komando) would come back.
-// Such a left-behind entry names a process that has ended, and the checks
-// that find dead processes drop it.
+// loadRuntime reads runtime.json, sealed with the store's key.
 func (s *State) loadRuntime() error {
-	s.legacyRuntime = !s.Runtime.empty()
 	b, err := os.ReadFile(runtimePath())
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -79,7 +65,6 @@ func (s *State) loadRuntime() error {
 			"the file holds only running VPN sessions, logins, jobs and tunnels, no servers or settings: move it away, then connect again",
 			"corrupt runtime file %s: %v", runtimePath(), err)
 	}
-	rt.legacyRuntime = s.legacyRuntime
 	rt.init()
 	s.Runtime = rt
 	return nil
@@ -96,10 +81,7 @@ func (s *State) saveRuntime() error {
 	if err := WriteFileAtomic(runtimePath(), b, 0o600); err != nil {
 		return err
 	}
-	if Sealed() {
-		return s.Runtime.writeRuntimePIDs()
-	}
-	return nil
+	return s.Runtime.writeRuntimePIDs()
 }
 
 // ReadRuntime reads runtime.json alone, sealed or not, for a caller that
@@ -136,11 +118,6 @@ func UpdateRuntime(fn func(s *State) error) error {
 		if err := ensureHome(); err != nil {
 			return err
 		}
-	}
-	if s, err := Load(); !DryRun && err == nil && s.legacyRuntime {
-		// state.json still holds runtime data: move it with both locks, or
-		// an entry removed here would come back from state.json
-		return Update(fn)
 	}
 	if !DryRun {
 		unlock, err := Lock(runtimeLock)

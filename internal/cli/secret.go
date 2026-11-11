@@ -186,8 +186,8 @@ func secretCmd() *cobra.Command {
 		Use:     "secret",
 		Aliases: []string{"secrets", "vault"},
 		Short:   "Encrypted vault for passwords and tokens (secret:NAME)",
-		Long: `Secrets are AES-256-GCM encrypted in ~/.komando/vault.json. A new vault keeps its
-random key in the OS keychain (in vault.key where it cannot, or KOMANDO_KEYCHAIN=off),
+		Long: `Secrets are AES-256-GCM encrypted in ~/.komando/store.db. A new store keeps its
+random key in the OS keychain (in store.key where it cannot, or KOMANDO_KEYCHAIN=off),
 or uses $KOMANDO_VAULT_PASS if set at first use ('secret passphrase' changes it). Values
 are never printed unless 'secret get --reveal' is used (a person only). 'secret
 mv' and 'secret cp' rename and copy inside the vault; 'secret check' lets a
@@ -707,17 +707,17 @@ func secretKeychainCmd() *cobra.Command {
 	var off bool
 	c := &cobra.Command{
 		Use:   "keychain",
-		Short: "Keep the vault key in the OS keychain instead of vault.key",
-		Long: `Moves the vault's key out of the vault.key file into the operating system's
+		Short: "Keep the store key in the OS keychain instead of store.key",
+		Long: `Moves the store's key out of the store.key file into the operating system's
 keychain, so a copy of ` + "~/.komando" + ` (a backup, a synced folder) no longer opens
-the vault. Nothing is re-encrypted: it is the same key, kept elsewhere.
---off moves it back into vault.key, which needs --yes.`,
+the store or its secrets. Nothing is re-encrypted: it is the same key, kept
+elsewhere. --off moves it back into store.key, which needs --yes.`,
 		Example: "  komando secret keychain\n  komando secret keychain --off --yes",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if g.dryRun {
 				tool, err := vault.KeychainTool()
-				res := map[string]any{"dry_run": true, "would": map[bool]string{false: "move the vault key into the keychain", true: "move the vault key back into vault.key"}[off]}
+				res := map[string]any{"dry_run": true, "would": map[bool]string{false: "move the vault key into the keychain", true: "move the vault key back into store.key"}[off]}
 				if err != nil {
 					res["problem"] = err.Error()
 				} else {
@@ -735,22 +735,22 @@ the vault. Nothing is re-encrypted: it is the same key, kept elsewhere.
 				if err != nil {
 					return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "a person unlocks the keychain on this computer (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring", "%v", err)
 				}
-				out.P.Print("secret.keychain", map[string]any{"key": "vault.key"}, nil)
+				out.P.Print("secret.keychain", map[string]any{"key": "store.key"}, nil)
 				return nil
 			}
 			tool, err := vault.KeyToKeychain()
 			audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "keychain"})
 			if errors.Is(err, vault.ErrKeychainTaken) {
-				return out.Errf(out.ExitConflict, "KEYCHAIN_TAKEN", "the vault still uses vault.key, nothing was lost: put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then try again", "%v", err)
+				return out.Errf(out.ExitConflict, "KEYCHAIN_TAKEN", "the store still uses store.key, nothing was lost: put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then try again", "%v", err)
 			}
 			if err != nil {
-				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "the vault still uses vault.key, nothing was lost: a person unlocks the keychain (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring", "%v", err)
+				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "the store still uses store.key, nothing was lost: a person unlocks the keychain (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring", "%v", err)
 			}
 			out.P.Print("secret.keychain", map[string]any{"key": "keychain", "keychain": tool, "vault_key_file": "removed"}, nil)
 			return nil
 		},
 	}
-	c.Flags().BoolVar(&off, "off", false, "move the key back into vault.key (needs --yes)")
+	c.Flags().BoolVar(&off, "off", false, "move the key back into store.key (needs --yes)")
 	return c
 }
 

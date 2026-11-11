@@ -285,16 +285,6 @@ func vaultValues() map[string]string {
 	return m
 }
 
-// localReads change nothing anywhere, so they run even when the audit log
-// is broken; that is how a person finds out what is wrong.
-var localReads = map[string]bool{
-	"version": true, "help": true, "completion": true, "schema": true, "guide": true, "doctor": true,
-	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true,
-	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
-	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
-	"tunnel.list": true, "job.list": true, "status": true,
-}
-
 // leavesHome are commands that, run as root, never touch ~/.komando:
 // `update` replaces only the komando program, often as root (sudo komando
 // update, where HOME may still be the person's), and root must not leave
@@ -305,9 +295,14 @@ var leavesHome = map[string]bool{"update": true}
 
 func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)] && asRoot() }
 
-// startChecks are the last steps before every command: the data folder
-// (guardHome), closing idle VPNs, --host-key-policy off and the audit log.
+// startChecks are the last steps before every command: a folder that needs
+// `komando seal`, the data folder (guardHome), closing idle VPNs and
+// --host-key-policy off. The audit log needs no check: the store refuses a
+// change it cannot record.
 func startChecks(cmd *cobra.Command) error {
+	if err := checkNeedsSeal(cmd); err != nil {
+		return err
+	}
 	if err := guardHome(cmd); err != nil {
 		return err
 	}
@@ -325,30 +320,7 @@ func startChecks(cmd *cobra.Command) error {
 			return err
 		}
 	}
-	return checkAuditWritable(cmd)
-}
-
-// checkAuditWritable refuses to run when the audit log is on but cannot be
-// written: changes must not happen without a record (docs/design/ux.md §6).
-func checkAuditWritable(cmd *cobra.Command) error {
-	name := commandName(cmd)
-	top, _, _ := strings.Cut(name, ".")
-	if g.dryRun || cmd.Hidden || name == "komando" || localReads[name] || leavesHomeNow(cmd) || top == "help" || top == "completion" {
-		return nil
-	}
-	st, err := store.Load()
-	if err != nil || !st.Settings.Audit {
-		return nil // a broken state file shows its own error in the command
-	}
-	if store.Sealed() {
-		return nil // the store itself refuses a write it cannot make
-	}
-	f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-	if err != nil {
-		return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions (`komando doctor` checks them); nothing was run",
-			"the audit log cannot be written: %v", err)
-	}
-	return f.Close()
+	return nil
 }
 
 func newRoot() *cobra.Command {

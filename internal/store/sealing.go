@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -138,13 +139,43 @@ func EndSeal() {
 	}
 }
 
-// missingStore: the files of before are notes of a move, but store.db is
-// gone. Starting empty would drop every protected server and rule.
+// sealedSign names what shows this folder was sealed, or "": a note a move
+// left, the move's archive, the store's key file, runtime.pids, or a change
+// count the keychain keeps for this home.
+func sealedSign() string {
+	for _, f := range append([]string{"before-seal.archive", "store.key", "runtime.pids"}, legacyFiles...) {
+		if _, err := os.Stat(Path(f)); err != nil {
+			continue
+		}
+		if f == "before-seal.archive" || f == "store.key" || f == "runtime.pids" || IsMovedNote(Path(f)) {
+			return f
+		}
+	}
+	keys, _ := filepath.Glob(Path("keys", "*"))
+	for _, k := range keys {
+		if IsMovedNote(k) {
+			return "keys/" + filepath.Base(k)
+		}
+	}
+	// the keychain only for a folder that holds something: a fresh, empty
+	// one is asked nothing (a keychain call can be slow or prompt)
+	if ents, _ := os.ReadDir(Home()); len(ents) > 0 && GenerationKeeper.Get != nil {
+		if _, ok, err := GenerationKeeper.Get(); err == nil && ok {
+			return "the keychain's change count"
+		}
+	}
+	return ""
+}
+
+// missingStore: the folder was sealed, but store.db is gone. Starting
+// empty, or reading files of before, would drop every protected server and
+// rule.
 func missingStore() error {
-	if !IsMovedNote(Path("state.json")) {
+	sign := sealedSign()
+	if sign == "" {
 		return nil
 	}
 	return out.Errf(out.ExitError, "STATE_CORRUPT",
 		"put store.db back from a backup, or run `komando seal --undo` to go back to the files of before (they are in before-seal.archive)",
-		"%s is missing, though this folder was sealed", Path(StoreFile))
+		"%s is missing, though this folder was sealed (%s)", Path(StoreFile), sign)
 }

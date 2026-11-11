@@ -3,13 +3,14 @@ package store
 import (
 	"bytes"
 	"context"
-	"github.com/sgnd/komando/internal/sealrow"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/sealrow"
 
 	"github.com/sgnd/komando/internal/sealdb"
 )
@@ -137,7 +138,6 @@ func TestSealedRuntimeOnly(t *testing.T) {
 func TestSealedAcrossProcesses(t *testing.T) {
 	if home := os.Getenv("STORE_CHILD_HOME"); home != "" {
 		t.Setenv("KOMANDO_HOME", home)
-		freshSealed = true
 		fakeKeys(t)
 		n := os.Getenv("STORE_CHILD_N")
 		for i := range 10 {

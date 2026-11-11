@@ -19,10 +19,6 @@ import (
 
 const kindSettings = "settings"
 
-// UseSealedForNewHomes turns the sealed store on or off for fresh homes
-// (on by default; test suites of the file backend turn it off).
-func UseSealedForNewHomes(on bool) { freshSealed = on }
-
 func storeErr(err error) error {
 	switch {
 	case errors.Is(err, sealdb.ErrNewerFormat), errors.Is(err, sealrow.ErrNewerFormat):
@@ -129,8 +125,8 @@ func dupName(kind, name string) error {
 	return fmt.Errorf("two %s records named %q: %w", kind, name, sealdb.ErrTampered)
 }
 
-// loadFromStore is Load for a sealed home.
-func loadFromStore() (*State, error) {
+// Load reads the inventory. Callers that change it use Update.
+func Load() (*State, error) {
 	// the folder, as before; never the store or a key
 	if err := ensureHome(); err != nil {
 		return nil, err
@@ -156,7 +152,7 @@ func loadFromStore() (*State, error) {
 	return s, s.loadRuntime()
 }
 
-// updateStore is Update for a sealed home: one write step reads the
+// updateStore is Update: one write step reads the
 // inventory, runs fn and writes the records that changed.
 func updateStore(fn func(*State) error) error {
 	if err := ensureHome(); err != nil {
@@ -207,7 +203,7 @@ func updateStore(fn func(*State) error) error {
 	if err != nil {
 		return err
 	}
-	if s.legacyRuntime || !bytes.Equal(rtBefore, rtAfter) {
+	if !bytes.Equal(rtBefore, rtAfter) {
 		return s.saveRuntime()
 	}
 	return nil

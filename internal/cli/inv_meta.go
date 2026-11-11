@@ -97,8 +97,8 @@ func auditCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "audit",
 		Short: "Show the audit log: who did what, where, and the result",
-		Long: `Every change komando makes, and every blocked attempt, is a line in
-~/.komando/audit.jsonl: when, who (and which AI agent), the command, its
+		Long: `Every change komando makes, and every blocked attempt, is a sealed record in
+~/.komando/store.db: when, who (and which AI agent), the command, its
 targets and whether it worked. The newest entries come last.
 
 --since and --until take how long ago (30m, 12h, 7d), today, yesterday,
@@ -541,17 +541,8 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 				out.P.Print("doctor", r, toErr(err))
 				return exitCode(1)
 			}
-			if st.Settings.Audit && store.Sealed() {
+			if st.Settings.Audit {
 				add("audit_log", true, "sealed in "+store.Path(store.StoreFile))
-			} else if st.Settings.Audit {
-				f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-				detail := store.Path("audit.jsonl")
-				if err == nil {
-					f.Close()
-				} else {
-					detail = err.Error() + " (changes are refused until this is fixed)"
-				}
-				add("audit_log", err == nil, detail)
 			}
 			hostDetail := countOf(len(st.Hosts), "host")
 			if len(st.Hosts) == 0 {

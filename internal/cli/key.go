@@ -108,13 +108,6 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 			if hasControl(comment) {
 				return out.Errf(out.ExitUsage, "USAGE", "use one line of plain text, e.g. -C ops@example.com", "the key comment cannot hold line breaks or control characters")
 			}
-			path := store.ManagedKeyPath(name)
-			if _, err := os.Stat(path); err == nil && !overwrite {
-				if st, _ := loadState(); st == nil || st.Keys[name] == nil {
-					return out.Errf(out.ExitConflict, "KEY_FILE_EXISTS", "a key file from earlier is still there: move it away, or pass --overwrite to replace it",
-						"%s already exists", path)
-				}
-			}
 			if g.dryRun {
 				if err := checkKeyType(typ, bits); err != nil {
 					return err
@@ -126,7 +119,7 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 				if _, ok := st.Keys[name]; ok {
 					return keyExists(name)
 				}
-				k := &store.Key{Name: name, Path: path, Type: typ, Managed: true}
+				k := &store.Key{Name: name, Type: typ, Managed: true}
 				out.P.Print("key.gen", keyResult{Key: k, Action: "would_add"}, nil)
 				return nil
 			}
@@ -148,8 +141,7 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 					return keyExists(name)
 				}
 				pubLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub))) + " " + comment
-				// a fresh file each time: an old one would keep its mode
-				// on a sealed home the key is a store record, and its path says so
+				// the key is a store record, and its path says so
 				kept, err := store.WriteManagedKey(name, pem.EncodeToMemory(block), []byte(pubLine+"\n"))
 				if err != nil {
 					return err
@@ -169,7 +161,8 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 	c.Flags().StringVar(&typ, "type", "ed25519", "ed25519 | rsa | ecdsa")
 	c.Flags().IntVarP(&bits, "bits", "b", 0, "key size: RSA 3072-16384 (default 4096), ECDSA 256|384|521")
 	c.Flags().StringVarP(&comment, "comment", "C", "", "public key comment (default komando-NAME)")
-	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace a key file left in ~/.komando/keys from earlier")
+	c.Flags().BoolVar(&overwrite, "overwrite", false, "no longer needed: keys komando makes live in the sealed store")
+	_ = c.Flags().MarkHidden("overwrite")
 	return c
 }
 

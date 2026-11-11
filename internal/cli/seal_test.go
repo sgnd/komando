@@ -1,14 +1,20 @@
 package cli
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
+	"encoding/pem"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"golang.org/x/crypto/scrypt"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -28,34 +34,98 @@ func asSealPerson(t *testing.T) {
 	sealConfirm = func(string) bool { return true }
 	t.Cleanup(func() {
 		interactive, sealConfirm = savedI, savedC
-		store.UseSealedForNewHomes(os.Getenv("KOMANDO_TEST_SEALED") == "1")
 	})
 }
 
-// oldFolderFixture fills a folder of before: servers (one with a key file
-// as its identity), a conn, a secret, a key komando made, a pinned host
-// key, a recipe, deny rules and an audit log.
-func oldFolderFixture(t *testing.T) {
+// oldFolderFixture writes a folder of before as an earlier komando left
+// it: state.json with servers (one with a key file as its identity), a
+// conn, a key komando made, a recipe and deny rules; vault.json with one
+// secret, sealed with the passphrase or a key in vault.key; known_hosts
+// with one pin; keys/deploy; and an audit log.
+func oldFolderFixture(t *testing.T, passphrase bool) {
 	t.Helper()
-	store.UseSealedForNewHomes(false)
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
-	mustRun(t, "host", "add", "db1", "deploy@10.0.0.2", "--via", "web1")
-	mustRun(t, "conn", "add", "pg", "postgres://app@10.0.0.3/app", "--password-ref", "secret:pg-pass")
-	setSecret(t, "pg-pass", "pg-s3cret-value")
-	mustRun(t, "key", "gen", "deploy")
-	mustRun(t, "host", "edit", "web1", "--key", "deploy")
-	mustRun(t, "host", "edit", "web1", "--protected")
-	mustRun(t, "host", "add", "byfile", "u@10.0.0.4", "--identity", store.Path("keys", "deploy"))
-	mustRun(t, "recipe", "add", "up", "uptime", "--read-only")
-	mustRun(t, "policy", "deny", "drop table")
-	pub, _, _ := ed25519.GenerateKey(rand.Reader)
-	k, _ := ssh.NewPublicKey(pub)
-	if _, err := sshx.PinHostKey("10.0.0.1:22", k, false); err != nil {
+	if err := os.MkdirAll(store.Path("keys"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if store.Sealed() {
+	_, priv, _ := ed25519.GenerateKey(rand.Reader)
+	block, _ := ssh.MarshalPrivateKey(priv, "komando-deploy")
+	signer, _ := ssh.NewSignerFromKey(priv)
+	pubLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey()))) + " komando-deploy"
+	keyPath := store.Path("keys", "deploy")
+	writeOld(t, "keys/deploy", pem.EncodeToMemory(block))
+	writeOld(t, "keys/deploy.pub", []byte(pubLine+"\n"))
+	now := time.Unix(1700000000, 0).UTC()
+	st := store.State{
+		Hosts: map[string]*store.Host{
+			"web1":   {Name: "web1", Address: "10.0.0.1", User: "deploy", Key: "deploy", Protected: true, CreatedAt: now, UpdatedAt: now},
+			"db1":    {Name: "db1", Address: "10.0.0.2", User: "deploy", Via: "web1", CreatedAt: now, UpdatedAt: now},
+			"byfile": {Name: "byfile", Address: "10.0.0.4", User: "u", Identity: keyPath, CreatedAt: now, UpdatedAt: now},
+		},
+		Conns: map[string]*store.Conn{"pg": {Name: "pg", Kind: "postgres", URL: "postgres://app@10.0.0.3/app", PasswordRef: "secret:pg-pass", CreatedAt: now, UpdatedAt: now}},
+		Keys: map[string]*store.Key{"deploy": {Name: "deploy", Path: keyPath, Type: signer.PublicKey().Type(), PublicKey: pubLine,
+			Fingerprint: ssh.FingerprintSHA256(signer.PublicKey()), Managed: true, CreatedAt: now}},
+		Snippets: map[string]*store.Snippet{"up": {Name: "up", Command: "uptime", ReadOnly: true, CreatedAt: now}},
+		Settings: store.DefaultSettings(),
+	}
+	st.Settings.ExtraDenyPattern = []string{"drop table"}
+	b, _ := json.MarshalIndent(&st, "", "  ")
+	writeOld(t, "state.json", b)
+	secret := []byte(vault.Passphrase())
+	if !passphrase {
+		secret = make([]byte, 32)
+		rand.Read(secret)
+		writeOld(t, "vault.key", secret)
+	}
+	writeOld(t, "vault.json", oldVault(t, passphrase, secret, map[string]string{"pg-pass": "pg-s3cret-value"}))
+	pub, _, _ := ed25519.GenerateKey(rand.Reader)
+	k, _ := ssh.NewPublicKey(pub)
+	writeOld(t, "known_hosts", []byte(knownhosts.Line([]string{"10.0.0.1"}, k)+"\n"))
+	writeOld(t, "audit.jsonl", []byte(`{"ts":"2023-11-14T22:13:20Z","command":"host.add","ok":true}`+"\n"))
+	if !store.NeedsSeal() {
 		t.Fatal("the fixture is not a folder of before")
 	}
+}
+
+func writeOld(t *testing.T, rel string, b []byte) {
+	t.Helper()
+	if err := os.WriteFile(store.Path(rel), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// oldVault is vault.json as an earlier komando wrote it: each value sealed
+// with AES-256-GCM under scrypt(secret, salt), bound to its name.
+func oldVault(t *testing.T, passphrase bool, secret []byte, values map[string]string) []byte {
+	t.Helper()
+	salt := make([]byte, 16)
+	rand.Read(salt)
+	mode, n := "keyfile", 1<<15 // the cost of a vault that did not store it
+	if passphrase {
+		mode, n = "passphrase", 1<<10
+	}
+	key, err := scrypt.Key(secret, salt, n, 8, 1, 32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blk, _ := aes.NewCipher(key)
+	a, _ := cipher.NewGCM(blk)
+	type entry struct {
+		Nonce     []byte    `json:"nonce"`
+		Data      []byte    `json:"data"`
+		UpdatedAt time.Time `json:"updated_at"`
+	}
+	entries := map[string]entry{}
+	for name, v := range values {
+		nonce := make([]byte, a.NonceSize())
+		rand.Read(nonce)
+		entries[name] = entry{nonce, a.Seal(nil, nonce, []byte(v), []byte(name)), time.Unix(1700000000, 0).UTC()}
+	}
+	f := map[string]any{"version": 1, "salt": salt, "mode": mode, "entries": entries}
+	if passphrase {
+		f["scrypt_n"] = n
+	}
+	b, _ := json.Marshal(f)
+	return b
 }
 
 func TestSealAndUndo(t *testing.T) {
@@ -70,23 +140,23 @@ func sealAndUndo(t *testing.T, passphrase bool) {
 		vault.ReadPassStdin(strings.NewReader("")) // forget one read earlier
 	}
 	asSealPerson(t)
-	oldFolderFixture(t)
-	before, _ := store.Load()
+	oldFolderFixture(t, passphrase)
+	before, _ := store.ReadOldState()
 	priv, _ := os.ReadFile(store.Path("keys", "deploy"))
 
 	d := mustRun(t, "seal", "--dry-run")
 	if d["action"] != "would_seal" || d["hosts"].(float64) != 3 || d["secrets"].(float64) != 1 || d["pinned_host_keys"].(float64) != 1 {
 		t.Fatalf("dry run: %v", d)
 	}
-	if store.Sealed() {
+	if !store.NeedsSeal() {
 		t.Fatal("the dry run sealed")
 	}
 	d = mustRun(t, "seal")
 	if d["action"] != "sealed" {
 		t.Fatalf("seal: %v", d)
 	}
-	if !store.Sealed() || store.MixedHome() {
-		t.Fatalf("sealed %v mixed %v", store.Sealed(), store.MixedHome())
+	if store.NeedsSeal() || store.MixedHome() {
+		t.Fatalf("needs seal %v mixed %v", store.NeedsSeal(), store.MixedHome())
 	}
 	// everything reads back, from the store
 	st, err := store.Load()
@@ -114,6 +184,9 @@ func sealAndUndo(t *testing.T, passphrase bool) {
 	if !strings.Contains(auditText(t), `"command":"host.add"`) {
 		t.Fatal("audit log of before lost")
 	}
+	if v := mustRun(t, "audit", "verify"); v["ok"] != true {
+		t.Fatalf("audit verify after the move: %v", v)
+	}
 	// the files of before hold only the note; nothing readable is left
 	for _, f := range []string{"state.json", "vault.json", "known_hosts", "audit.jsonl", "keys/deploy"} {
 		if !store.IsMovedNote(store.Path(f)) {
@@ -139,30 +212,31 @@ func sealAndUndo(t *testing.T, passphrase bool) {
 	if d["action"] != "undone" {
 		t.Fatalf("undo: %v", d)
 	}
-	if store.Sealed() {
+	if !store.NeedsSeal() {
 		t.Fatal("still sealed after undo")
 	}
-	back, err := store.Load()
+	back, err := store.ReadOldState()
 	if err != nil || !back.Hosts["web1"].Protected || back.Hosts["byfile"].Identity == "" {
 		t.Fatalf("undo: %v", err)
 	}
-	if v, err := vault.Get("pg-pass"); err != nil || v != "pg-s3cret-value" {
-		t.Fatalf("secret after undo %q %v", v, err)
+	secrets, err := vault.ExportFiles()
+	if err != nil || string(secrets["pg-pass"].Value) != "pg-s3cret-value" {
+		t.Fatalf("secret after undo %v", err)
 	}
 	if b, _ := os.ReadFile(store.Path("keys", "deploy")); string(b) != string(priv) {
 		t.Fatal("key file not back")
 	}
+	wantCode(t, "NEEDS_SEAL", "host", "list")
 }
 
 func TestSealNeedsAPerson(t *testing.T) {
 	invHome(t)
-	store.UseSealedForNewHomes(false)
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
+	oldFolderFixture(t, true)
 	t.Setenv("KOMANDO_AGENT", "1")
 	if _, e := invRun(t, "seal"); e == nil || e.Code != "NEEDS_PERSON" {
 		t.Fatalf("agent: %+v", e)
 	}
-	if store.Sealed() {
+	if !store.NeedsSeal() {
 		t.Fatal("an agent sealed the folder")
 	}
 }
@@ -171,7 +245,7 @@ func TestSealNeedsAPerson(t *testing.T) {
 func TestSealHardCases(t *testing.T) {
 	invHome(t)
 	asSealPerson(t)
-	oldFolderFixture(t)
+	oldFolderFixture(t, true)
 	// a key file komando does not list, an IPv6 pin and a revoked line
 	stray := store.Path("keys", "stray")
 	if err := os.WriteFile(stray, []byte("STRAY-PRIVATE"), 0o600); err != nil {
@@ -179,10 +253,8 @@ func TestSealHardCases(t *testing.T) {
 	}
 	pub, _, _ := ed25519.GenerateKey(rand.Reader)
 	k6, _ := ssh.NewPublicKey(pub)
-	if _, err := sshx.PinHostKey("[2001:db8::7]:2222", k6, false); err != nil {
-		t.Fatal(err)
-	}
-	f, _ := os.OpenFile(sshx.KnownHostsPath(), os.O_APPEND|os.O_WRONLY, 0o600)
+	f, _ := os.OpenFile(store.Path("known_hosts"), os.O_APPEND|os.O_WRONLY, 0o600)
+	f.WriteString(knownhosts.Line([]string{"[2001:db8::7]:2222"}, k6) + "\n")
 	f.WriteString("@revoked 10.9.9.9 " + strings.TrimSpace(string(ssh.MarshalAuthorizedKey(k6))) + "\n")
 	f.Close()
 
@@ -219,5 +291,35 @@ func TestSealHardCases(t *testing.T) {
 	}
 	if _, e := invRun(t, "host", "list"); e == nil || e.Code != "STATE_CORRUPT" {
 		t.Fatalf("store lost: %+v", e)
+	}
+}
+
+// A folder of before stops every command but the few that help a person
+// move it, for people, scripts and agents alike, and nothing is made in
+// it meanwhile.
+func TestNeedsSealStopsCommands(t *testing.T) {
+	invHome(t)
+	oldFolderFixture(t, true)
+	for _, agent := range []bool{false, true} {
+		if agent {
+			t.Setenv("KOMANDO_AGENT", "1")
+		}
+		for _, args := range [][]string{{"host", "list"}, {"host", "add", "x", "u@10.0.0.9"}, {"secret", "list"}, {"audit"}, {"exec", "web1", "--read-only", "--", "uptime"}} {
+			e := wantCode(t, "NEEDS_SEAL", args...)
+			if !strings.Contains(e.Hint, "komando seal") || !strings.Contains(e.Hint, "own terminal") {
+				t.Errorf("%v: hint %q", args, e.Hint)
+			}
+		}
+		mustRun(t, "version")
+		mustRun(t, "schema", "host.add")
+		if d := mustRun(t, "seal", "--dry-run"); d["action"] != "would_seal" || d["secrets"].(float64) != 1 {
+			t.Fatalf("seal --dry-run: %v", d)
+		}
+		if _, e := invRun(t, "doctor"); e == nil || e.Code != "NEEDS_SEAL" {
+			t.Fatalf("doctor: %+v", e)
+		}
+	}
+	if _, err := os.Stat(store.Path(store.StoreFile)); !os.IsNotExist(err) {
+		t.Fatal("a store was made beside the files of before")
 	}
 }

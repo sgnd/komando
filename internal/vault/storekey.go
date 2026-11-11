@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"golang.org/x/crypto/scrypt"
@@ -96,4 +97,57 @@ func newStoreMaster() ([]byte, map[string]string, error) {
 		return nil, nil, fmt.Errorf("%w: %s holds %d bytes, not %d", ErrKey, storeKeyFile(), len(k), keyLen)
 	}
 	return k[:keyLen], map[string]string{"key_mode": "keyfile"}, nil
+}
+
+// newKeyFile creates the key file kp with a new random key, but never replaces
+// one that is already there: when another komando process made it first,
+// that key is returned, so every process encrypts with the key on disk.
+// The key is written in full before it appears under its name.
+func newKeyFile(kp string) ([]byte, error) {
+	key := make([]byte, keyLen)
+	if _, err := rand.Read(key); err != nil {
+		return nil, err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(kp), ".tmp-key-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(tmp.Name())
+	_, err = tmp.Write(key)
+	if err == nil {
+		err = tmp.Sync()
+	}
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return nil, err
+	}
+	// a hard link fails when the name exists, and never shows a half-written key
+	switch err = os.Link(tmp.Name(), kp); {
+	case err == nil:
+		return key, nil
+	case errors.Is(err, os.ErrExist):
+		return os.ReadFile(kp)
+	}
+	// a file system without hard links: create the name exclusively
+	f, err := os.OpenFile(kp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return os.ReadFile(kp)
+	}
+	if err != nil {
+		return nil, err
+	}
+	_, err = f.Write(key)
+	if err == nil {
+		err = f.Sync()
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(kp)
+		return nil, err
+	}
+	return key, nil
 }

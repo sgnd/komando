@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -361,12 +360,9 @@ func configCmd() *cobra.Command {
 	return c
 }
 
-// dataFiles is where komando keeps each kind of data: its own file each,
-// or on a sealed home one sealed file for all but the runtime data.
+// dataFiles is where komando keeps each kind of data: one sealed file for
+// all but the runtime data.
 func dataFiles() map[string]string {
-	if store.Sealed() {
-		db := store.Path(store.StoreFile)
-		return map[string]string{"state": db, "runtime": store.Path("runtime.json"), "vault": db, "known_hosts": db, "audit": db}
-	}
-	return map[string]string{"state": store.Path("state.json"), "runtime": store.Path("runtime.json"), "vault": store.Path("vault.json"), "known_hosts": sshx.KnownHostsPath(), "audit": store.Path("audit.jsonl")}
+	db := store.Path(store.StoreFile)
+	return map[string]string{"state": db, "runtime": store.Path("runtime.json"), "vault": db, "known_hosts": db, "audit": db}
 }

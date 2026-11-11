@@ -10,8 +10,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/sgnd/komando/internal/store"
 )
 
 // TestMain keeps every test away from the real keychain: a new vault
@@ -19,7 +17,6 @@ import (
 // The tests that use a keychain set KOMANDO_KEYCHAIN themselves.
 func TestMain(m *testing.M) {
 	os.Setenv("KOMANDO_KEYCHAIN", "off")
-	store.UseSealedForNewHomes(os.Getenv("KOMANDO_TEST_SEALED") == "1")
 	os.Exit(m.Run())
 }
 
@@ -48,7 +45,7 @@ func roundTrip(t *testing.T, kc string) {
 	if _, err := KeyToKeychain(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(store.Path("vault.key")); !os.IsNotExist(err) {
+	if _, err := os.Stat(storeKeyFile()); !os.IsNotExist(err) {
 		t.Error("vault.key is still on disk")
 	}
 	if v, err := Get("db-pass"); err != nil || v != "s3cret" {
@@ -79,7 +76,8 @@ func TestKeychainSecretTool(t *testing.T) {
 	keychainOS = "linux"
 	defer func() { keychainOS = saved }()
 	script := `#!/bin/sh
-kept="` + dir + `/kept"
+case "$1" in store|search) s="$4" ;; *) s="$3" ;; esac
+kept="` + dir + `/$(echo "$s" | tr ' /' '__')"
 case "$1" in
   store) for a in "$@"; do [ ${#a} -ge 64 ] && { echo "a key in the arguments" >&2; exit 9; }; done; cat > "$kept" ;;
   lookup) [ -f "$kept" ] && cat "$kept" || exit 1 ;;
@@ -154,7 +152,7 @@ func keyFileVault(t *testing.T) []byte {
 	if err := Set("db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
-	key, err := os.ReadFile(store.Path("vault.key"))
+	key, err := os.ReadFile(storeKeyFile())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +179,7 @@ func TestKeyToKeychainItemExistsLinux(t *testing.T) {
 	calls := keychainStandIn(t, false)
 	keyFileVault(t)
 	other := strings.Repeat("ab", 32)
-	kept := filepath.Join(toolDirs[0], "kept")
+	kept := keptItem()
 	if err := os.WriteFile(kept, []byte(other), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +248,7 @@ func TestKeyToKeychainSameKey(t *testing.T) {
 	freshHome(t)
 	calls := keychainStandIn(t, false)
 	key := keyFileVault(t)
-	if err := os.WriteFile(filepath.Join(toolDirs[0], "kept"), []byte(hex.EncodeToString(key)), 0o600); err != nil {
+	if err := os.WriteFile(keptItem(), []byte(hex.EncodeToString(key)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := KeyToKeychain(); err != nil {

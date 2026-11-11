@@ -30,9 +30,6 @@ func TestMain(m *testing.M) {
 		}
 		return realHome()
 	}
-	// new homes are sealed; the suite tests the file backend unless
-	// KOMANDO_TEST_SEALED=1 (CI runs both)
-	store.UseSealedForNewHomes(os.Getenv("KOMANDO_TEST_SEALED") == "1")
 	os.Exit(m.Run())
 }
 
@@ -171,15 +168,6 @@ func TestUnifiedDiff(t *testing.T) {
 	d := unifiedDiff("a\nb\nc\n", "a\nB\nc\n", 1)
 	if !strings.Contains(d, "-b\n") || !strings.Contains(d, "+B\n") {
 		t.Errorf("bad diff:\n%s", d)
-	}
-}
-
-// filesOnly skips a test of the file backend's own files (key files under
-// keys/, folder modes) when the suite runs on sealed homes.
-func filesOnly(t *testing.T) {
-	t.Helper()
-	if os.Getenv("KOMANDO_TEST_SEALED") == "1" {
-		t.Skip("tests the files of the file backend; a sealed home has none")
 	}
 }
 
