@@ -183,3 +183,35 @@ func TestOvpnRemotes(t *testing.T) {
 		t.Error("a line OpenVPN must not get was taken")
 	}
 }
+
+// vpn edit --ca: an AI agent that swaps or clears the CA certificate an
+// IKEv2 VPN checks its server with needs a person's yes, since another CA
+// lets another server get the VPN's login. Setting the first one does not.
+func TestVpnEditCANeedsAPerson(t *testing.T) {
+	invHome(t)
+	dir := t.TempDir()
+	ca := func(name, body string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte("-----BEGIN CERTIFICATE-----\n"+body+"\n-----END CERTIFICATE-----\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	mustRun(t, "vpn", "add", "cloud", "ikev2", "--server", "vpn.example.com", "--user", "alice")
+	windows := asAgent(t, false, true)
+	mustRun(t, "vpn", "edit", "cloud", "--ca", ca("first", "MIIA"))
+	for _, args := range [][]string{
+		{"vpn", "edit", "cloud", "--ca", ca("other", "MIIB")},
+		{"vpn", "edit", "cloud", "--ca", ""},
+	} {
+		if _, e := cliRun(t, args...); e == nil || e.Code != "SAFETY_SETTING" {
+			t.Errorf("%v: want SAFETY_SETTING, got %+v", args, e)
+		}
+	}
+	if st, _ := store.Load(); !strings.Contains(st.Vpns["cloud"].CA, "MIIA") {
+		t.Errorf("a refused CA change was saved: %q", st.Vpns["cloud"].CA)
+	}
+	if *windows != 0 {
+		t.Errorf("no --yes, no window: %d", *windows)
+	}
+}

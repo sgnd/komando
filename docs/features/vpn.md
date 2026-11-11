@@ -152,7 +152,9 @@ komando vpn rm office                         # remove (several names allowed)
 - `vpn edit` changes `--check`, `--address`, `--user`, `--password-ref`,
   `--portal`, `--server`, `--psk-ref`, `--id`, `--remote-id`, `--ca`,
   `--service`, `--mfa`, `--notes`, and groups and tags: `-g` and `-t` add
-  one, as in `host edit`; `--rm-group` and `--rm-tag` take one away.
+  one, as in `host edit`; `--rm-group` and `--rm-tag` take one away. An AI
+  agent that swaps or clears a VPN's `--ca` needs a person's yes
+  (`SAFETY_SETTING`): another CA lets another server get the VPN's login.
 - To give a WireGuard or OpenVPN VPN a new config file, add it again with
   `--overwrite`.
 - `vpn mv` refuses a VPN that is up: run `komando vpn down NAME` first.
