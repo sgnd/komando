@@ -212,14 +212,14 @@ $K host add ops "ops@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:ops-pass -
 printf '#!/bin/sh\nwhoami\n' > "$TMP/who.sh"
 check "sudo with password" root "$($K exec ops --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "sudo password then stdin" payload "$($K exec ops --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
-check "script with sudo password" root "$($K script ops "$TMP/who.sh" --sudo | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "script with sudo password" root "$($K exec ops --script "$TMP/who.sh" --sudo | jget 'd["data"]["results"][0]["stdout"].strip()')"
 SJ=$($K job start ops --sudo -- 'whoami; cat; echo end' | jget 'd["data"]["jobs"][0]["id"]')
 check "job with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
 check "job with sudo password runs as root" "root end" "$($K job logs "$SJ" | jget '" ".join(d["data"]["content"].split())')"
 check "job sudo password file is deleted" False "$($K fs stat ops ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
 # sudo never asks on a NOPASSWD host, so the password must not reach the command
 $K host edit direct --sudo-ref secret:agent-pass >/dev/null
-check "unasked sudo password not leaked" False "$($K script direct "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
+check "unasked sudo password not leaked" False "$($K exec direct --script "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
 check "unasked sudo password not in stdin" payload "$($K exec direct --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
 $K host edit direct --unset sudo-ref >/dev/null
 $K host rm ops >/dev/null
