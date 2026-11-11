@@ -276,7 +276,8 @@ func matchPattern[T any](items []T, attrs func(T) selAttrs, sel string) (res []T
 			return has && got == v
 		}
 	case strings.ContainsAny(sel, "*?["):
-		f = func(a selAttrs) bool { ok, _ := path.Match(sel, a.name); return ok }
+		pat := strings.ToLower(sel) // names match in any case, globs too
+		f = func(a selAttrs) bool { ok, _ := path.Match(pat, strings.ToLower(a.name)); return ok }
 	default:
 		return nil, false
 	}
