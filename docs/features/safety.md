@@ -105,9 +105,12 @@ computer in komando that way: `--read-only` does not make it safe.
 | `READ_ONLY_VIOLATION` | 6 | `--read-only` was given, but the command changes something. Drop `--read-only`; a person may confirm with `--yes`. |
 | `CONFIRM_REQUIRED` | 6 | A change that touches many entries (for example deleting a group). Check them first, then a person may add `--yes`. |
 | `OPEN_BIND` | 6 | A tunnel would listen on an address other machines can reach. Keep the default 127.0.0.1, or a person may add `--yes`. |
+| `DB_BYTES_LIMIT` | 6 | A BigQuery query would read more bytes than `--max-bytes` allows, so it did not run. Select fewer columns or filter more; raise `--max-bytes` only if the person agrees to the cost. |
+| `SQL_STRING_RULES` | 6 | The ClickHouse user reads queries in another dialect, so komando cannot check them. Use a user whose settings keep `dialect = 'clickhouse'`. |
 | `UNSAFE_BACKUP` | 6 | The backup file holds a client command, not SQL, that could run programs where the restore runs. Remove that line if the dump is not trusted. |
 | `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here, or to have komando read one here. Read it with `fs cat` (values hidden); a person may allow `--reveal` for a project file. |
 | `REVEAL_NEEDS_HUMAN` | 6 | Only a person can see secret values. |
+| `REVEAL_NEEDS_PERSON` | 6 | An AI agent asked for `--reveal`. Run it without `--dry-run`: komando asks the person in a window on their screen. |
 | `NEEDS_PERSON` | 6 | Only a person can do this (`secret check`, setting up `config approval-code`). Ask them to run it in their own terminal. |
 | `SSH_GATE_REFUSED`, `SSH_GATE_READ_ONLY` | 6 | An SSH key limited by `komando ssh-gate` asked for something it may not run (see [above](#a-key-that-runs-komando-and-nothing-else)). No flag allows it: a person runs it on the komando computer. |
 | `SSH_GATE_SYNTAX` | 2 | The key's command is not one komando command. Put an argument with `;`, `\|`, `$`, a backquote and the like in single quotes: `$` and backquotes are refused even in double quotes. |

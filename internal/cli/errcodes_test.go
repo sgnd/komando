@@ -25,7 +25,9 @@ import (
 // out.NotFound with a code written in it. This test finds them all and
 // fails when errcodes.go is not up to date. To bring it up to date:
 //
-//	KOMANDO_UPDATE_ERRCODES=1 go test ./internal/cli/ -run TestErrorCodeCatalog
+//	KOMANDO_UPDATE_ERRCODES=1 go test ./internal/cli/ -run 'TestErrorCodeCatalog|TestErrorCodesDoc'
+//
+// (TestErrorCodesDoc writes docs/features/error-codes.md from the catalog.)
 func TestErrorCodeCatalog(t *testing.T) {
 	want, mixed := scanErrorCodes(t)
 	// one code, one exit code: agents branch on either, and the catalog

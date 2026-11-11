@@ -16,6 +16,7 @@ New to komando? Follow these steps in order:
    menu, pick **Servers**, then web1, and pick what to do with it.
 4. Connect your AI agent: `komando guide install`
    ([Give it to your AI agent](../../README.md#give-it-to-your-ai-agent)).
+   `komando guide uninstall` takes the skill and the guard out again.
 
 Unsure about a word? See the [glossary](glossary.md).
 
@@ -43,6 +44,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit`, `ssh-gate` |
 | [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit verify` |
 | [Results and errors](output.md) | JSON and text output, exit codes, common errors, what is still running | `status`, `prompt`, `schema` |
+| [Error codes](error-codes.md) | every error code, its exit code and the usual next step | `schema` |
 | [Settings and files](settings.md) | settings, environment variables, where komando keeps its data, and updating komando | `config`, `doctor`, `update` |
 | [Glossary](glossary.md) | the words, in plain language | none |
 

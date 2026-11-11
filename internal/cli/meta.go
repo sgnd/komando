@@ -434,7 +434,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 				res["exit_codes"] = map[string]string{
 					"0": "success", "1": "generic error", "2": "usage error", "3": "not found",
 					"4": "connection/auth/host-key failure, or the connection broke mid-command (CONNECTION_LOST: outcome unknown)", "5": "remote command exited non-zero",
-					"6": "blocked by safety policy (needs --yes or --allow-dangerous)", "7": "timeout",
+					"6": "blocked for safety: needs a person's yes (the flag error.hint names) or a person at a terminal", "7": "timeout",
 					"8": "precondition failed (e.g. replace text not found / ambiguous)",
 				}
 				res["error_codes"] = errorCodes // every code: its exit, an example message, the usual next step
@@ -444,7 +444,8 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 					"@GROUP":         "everything in a group (servers and conns)",
 					"tag:TAG":        "everything with a tag",
 					"label:KEY=VAL":  "everything with a label (label:KEY = any value)",
-					"kind:KIND":      "by type: host, conn, vpn, a conn kind (postgres, redis, s3, ...), a command family (db, cache, storage, cluster, registry) or a VPN kind",
+					"kind:KIND":      "by type: host, conn, vpn, a conn kind (postgres, redis, s3, ...), a command family (db, cache, queue, storage, cluster, registry) or a VPN kind",
+					"os:OS":          "servers by system: os:windows or os:linux",
 					"all":            "everything in the inventory",
 					"user@addr:port": "ad-hoc server not in the inventory",
 					"a,b,!c":         "union of selectors, ! excludes",

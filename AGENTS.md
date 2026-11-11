@@ -11,8 +11,8 @@ the setup below). Only an agent komando knows gets secrets hidden in output
 and the approval window for `--yes`, `--allow-dangerous` and `--reveal`.
 
 komando never asks an agent or a script anything: give every argument and
-flag on the command line. The menu (`komando` alone, with Add and All
-features) is for a person at a terminal.
+flag on the command line. The menu (`komando` alone: pick a server, a
+database or a VPN, then a task) is for a person at a terminal.
 
 ## Rules
 
@@ -36,13 +36,18 @@ features) is for a person at a terminal.
 6. Use `komando job start` for anything that may take more than about
    2 minutes or runs over a shaky link: a job survives a dropped connection.
 7. Never add `--allow-dangerous`, `--yes` or `--reveal` on your own. If a
-   command is blocked (exit 6: `POLICY_BLOCKED`, `PROTECTED_HOST`,
-   `PROTECTED_TARGET`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
-   `SENSITIVE_FILE`, `WRITE_REQUIRES_FLAG`, `READ_ONLY_VIOLATION`,
-   `CONFIRM_REQUIRED`), stop and explain what you want to do and why.
-   Once the human agrees, re-run with the flag: komando asks them in a
-   window on their screen ("Allow once"). With no screen, ask them to run
-   the command in their own terminal. If they deny it, do not retry.
+   command is blocked (exit 6: `CONFIRM_REQUIRED`, `DB_BYTES_LIMIT`,
+   `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`, `PROTECTED_HOST`,
+   `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_HUMAN`,
+   `REVEAL_NEEDS_PERSON`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
+   `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_READ_ONLY`,
+   `SSH_GATE_REFUSED`, `UNSAFE_BACKUP`, `WRITE_REQUIRES_FLAG`), stop and
+   explain what you want to do and why. Once the human agrees, re-run with
+   the flag the hint names: komando asks them in a window on their screen
+   ("Allow once"). With no screen, ask them to run the command in their own
+   terminal. No flag clears `NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN`,
+   `SSH_GATE_READ_ONLY` or `SSH_GATE_REFUSED`: only a person at a terminal
+   can run those. If they deny it, do not retry.
 8. Never "fix" `HOSTKEY_MISMATCH` yourself: report it, it may be an attack.
    For `VPN_LOGIN_REQUIRED` or `VPN_DOWN`, ask the human to run
    `komando vpn up <name>`. For a server that asks for a two-factor code,

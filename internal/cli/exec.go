@@ -140,7 +140,8 @@ func execCmd() *cobra.Command {
 		Long: `Runs COMMAND through the login shell on every server TARGET picks
 (PowerShell on Windows servers). Each server's result has its stdout,
 stderr, exit_code and duration. A non-zero exit on any server makes
-komando exit 5 (connection problems exit 4).
+komando exit 5. A refused connection or login exits 4; a server that does
+not answer within --connect-timeout exits 7 (CONNECT_TIMEOUT).
 
 If the connection breaks while the command runs, that server's result has
 error code CONNECTION_LOST (exit 4) and the output that came so far: the
