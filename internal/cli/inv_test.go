@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -347,7 +348,7 @@ func TestInvPolicy(t *testing.T) {
 	wantCode(t, "RULE_NOT_FOUND", "policy", "allow", "nonexistent")
 	wantCode(t, "USAGE", "policy", "deny", " ")
 	mustRun(t, "policy", "deny", `kubectl\s+apply`)
-	mustRun(t, "policy", "allow", "custom-0", "--yes")
+	mustRun(t, "policy", "allow", policy.CustomID(`kubectl\s+apply`), "--yes")
 	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "rm -rf //"); e.Exit != out.ExitPolicy {
 		t.Errorf("exit %d", e.Exit)
 	}
@@ -539,5 +540,83 @@ func TestExportImportCarriesRulesAndSettings(t *testing.T) {
 	// importing again adds nothing new
 	if d := mustRun(t, "import", "komando", f); d["deny_rules_added"] != nil {
 		t.Errorf("again: %v", d)
+	}
+}
+
+// Custom rule ids stay with their rule: removing one does not move another
+// to its id, so a second rm from an old list cannot hit the wrong rule.
+func TestPolicyCustomIDsStay(t *testing.T) {
+	invHome(t)
+	noAgent(t)
+	mustRun(t, "policy", "deny", `shutdown\s+-h`)
+	mustRun(t, "policy", "deny", `kubectl\s+delete`)
+	ids := map[string]string{}
+	for _, r := range mustRun(t, "policy", "list")["custom_rules"].([]any) {
+		m := r.(map[string]any)
+		ids[m["pattern"].(string)] = m["id"].(string)
+	}
+	kube := ids[`kubectl\s+delete`]
+	mustRun(t, "policy", "rm", ids[`shutdown\s+-h`], "--yes")
+	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", ids[`shutdown\s+-h`], "--yes")
+	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", "custom-0", "--yes")
+	if r := mustRun(t, "policy", "list")["custom_rules"].([]any); len(r) != 1 || r[0].(map[string]any)["id"] != kube {
+		t.Errorf("after rm: %v", r)
+	}
+}
+
+// policy deny refuses a pattern that matches empty text: it would block
+// every command.
+func TestPolicyDenyMatchesEverything(t *testing.T) {
+	invHome(t)
+	for _, p := range []string{".*", "^", "x*", "(?i)"} {
+		wantCode(t, "USAGE", "policy", "deny", p)
+	}
+	mustRun(t, "policy", "deny", ".+")
+}
+
+// policy check --for: a kind it does not rate says which it does, MongoDB
+// commands are rated, and a destructive verdict exits 6 like a blocked
+// shell command.
+func TestPolicyCheckFor(t *testing.T) {
+	invHome(t)
+	for _, k := range []string{"bogus", "sql"} {
+		if e := wantCode(t, "USAGE", "policy", "check", "--for", k, "x"); !strings.Contains(e.Message, "not a kind komando rates") || !strings.Contains(e.Hint, "postgres") {
+			t.Errorf("%s: %+v", k, e)
+		}
+	}
+	if d := mustRun(t, "policy", "check", "--for", "postgres", "select 1"); d["risk"] != "read" {
+		t.Errorf("read: %v", d)
+	}
+	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "postgres", "drop table users"); e.Exit != out.ExitPolicy {
+		t.Errorf("drop: exit %d", e.Exit)
+	}
+	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "mongodb", `{"dropDatabase": 1}`); !strings.Contains(e.Message, "mongo-drop") {
+		t.Errorf("mongodb: %+v", e)
+	}
+	if d := mustRun(t, "policy", "check", "--for", "MongoDB", `{"find": "users"}`); d["risk"] != "read" {
+		t.Errorf("mongodb find: %v", d)
+	}
+	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "redis", "FLUSHALL")
+}
+
+// policy deny and rm say "would" in a dry run, and show the pattern as
+// written, not Go-quoted.
+func TestPolicyChangeText(t *testing.T) {
+	t.Cleanup(func() { g.dryRun = false })
+	yes := true
+	for _, tc := range []struct {
+		dry  bool
+		p    policyChange
+		want string
+	}{
+		{false, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}, "added the deny rule a\\s+b (1 custom rule now)\n"},
+		{true, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}, "would add the deny rule a\\s+b (dry run; 1 custom rule then)\n"},
+		{false, policyChange{Custom: []string{}, Removed: `a\s+b`}, "removed the deny rule a\\s+b (0 custom rules left)\n"},
+		{true, policyChange{Custom: []string{}, Removed: `a\s+b`}, "would remove the deny rule a\\s+b (dry run; 0 custom rules left then)\n"},
+	} {
+		g.dryRun = tc.dry
+		if got := tc.p.Text(); got != tc.want {
+			t.Errorf("got %q, want %q", got, tc.want)
+		}
 	}
 }

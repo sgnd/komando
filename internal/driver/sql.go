@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -112,6 +113,16 @@ var dialects = map[string]dialect{
 	"sqlite":    {backtick: true, bracket: true},
 	"sqlserver": {bracket: true, crComments: true, tsql: true},
 	"oracle":    {oracle: true},
+}
+
+// SQLKinds are the conn kinds ClassifySQL rates, sorted.
+func SQLKinds() []string {
+	k := make([]string, 0, len(dialects))
+	for n := range dialects {
+		k = append(k, n)
+	}
+	sort.Strings(k)
+	return k
 }
 
 // nameByte reports whether c continues an unquoted name. Postgres and

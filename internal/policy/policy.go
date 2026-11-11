@@ -5,6 +5,8 @@
 package policy
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"regexp"
 	"strings"
 )
@@ -86,13 +88,13 @@ func Check(cmd string, extra []string) []Rule {
 			hits = append(hits, r)
 		}
 	}
-	for i, p := range extra {
+	for _, p := range extra {
 		re, err := regexp.Compile(p)
 		switch {
 		case err != nil:
-			hits = append(hits, Rule{ID: "custom-" + itoa(i), Reason: badPattern(i, p, err)})
+			hits = append(hits, Rule{ID: CustomID(p), Reason: badPattern(p, err)})
 		case match(re):
-			hits = append(hits, Rule{ID: "custom-" + itoa(i), Reason: "matches custom deny pattern " + p})
+			hits = append(hits, Rule{ID: CustomID(p), Reason: "matches custom deny pattern " + p})
 		}
 	}
 	return hits
@@ -104,15 +106,22 @@ func Invalid(extra []string) map[int]string {
 	bad := map[int]string{}
 	for i, p := range extra {
 		if _, err := regexp.Compile(p); err != nil {
-			bad[i] = badPattern(i, p, err)
+			bad[i] = badPattern(p, err)
 		}
 	}
 	return bad
 }
 
-func badPattern(i int, p string, err error) string {
+func badPattern(p string, err error) string {
 	return "custom deny pattern " + p + " is not a valid regular expression (" + err.Error() +
-		"), so every command matches it; fix it, or remove it with `komando policy rm custom-" + itoa(i) + "`"
+		"), so every command matches it; fix it, or remove it with `komando policy rm " + CustomID(p) + "`"
+}
+
+// CustomID is the id of a custom deny pattern: made from the pattern, so
+// it stays the same when another rule is removed (a position would move).
+func CustomID(pattern string) string {
+	sum := sha256.Sum256([]byte(pattern))
+	return "custom-" + hex.EncodeToString(sum[:4])
 }
 
 // Normalize prepares a command for matching: line breaks become ";" (the
@@ -151,12 +160,4 @@ func Pattern(r Rule) string {
 		return ""
 	}
 	return r.re.String()
-}
-
-func itoa(i int) string {
-	const d = "0123456789"
-	if i < 10 {
-		return d[i : i+1]
-	}
-	return itoa(i/10) + d[i%10:i%10+1]
 }
