@@ -81,7 +81,7 @@ func Execute() int {
 	}
 	name := "komando"
 	if cmd != nil {
-		name = commandName(cmd)
+		name = envelopeName(cmd)
 	}
 	// argument and flag errors come before PersistentPreRunE, which applies
 	// -o; apply it here so `-o text` (or a terminal) gets text for them too
@@ -270,6 +270,15 @@ func isUsageErr(err error) bool {
 		}
 	}
 	return false
+}
+
+// envelopeName is the command an error envelope names: an alias such as
+// `vpn test` prints the command it stands for, as its result does.
+func envelopeName(c *cobra.Command) string {
+	if n := c.Annotations[aliasOf]; n != "" {
+		return n
+	}
+	return commandName(c)
 }
 
 func commandName(c *cobra.Command) string {

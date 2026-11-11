@@ -73,7 +73,9 @@ komando vpn add office proxy --address proxy.corp.example:3128
   never replaces a secret that a server or a file uses. Pick another VPN
   name, or move the secret away first (`komando secret mv`, or `komando
   secret rm` if an earlier VPN of that name left it). `--overwrite` may
-  reuse the secrets of the VPN it replaces, when nothing else uses them.
+  reuse the secrets of the VPN it replaces, when nothing else uses them,
+  and a secret that nothing uses and that holds the same key already (the
+  same file added again after `vpn rm`) is reused too.
 - `--password-ref` works like everywhere else in komando:
   `secret:NAME`, `env:VAR`, a password manager, and so on (see
   [Servers](servers.md)). For Tailscale it is an auth key. The VPN sends
@@ -146,16 +148,17 @@ komando vpn rm office                         # remove (several names allowed)
 - `vpn rm` refuses a VPN that is still on a `--via` path (`VPN_IN_USE`, also
   with `--dry-run`). Change those `--via` paths first. Its keys stay in the
   vault until `komando secret rm`; a new WireGuard or OpenVPN VPN of the
-  same name needs them gone first.
+  same name needs them gone first, unless it is added from the same file.
 - `vpn edit` changes `--check`, `--address`, `--user`, `--password-ref`,
-  `--server`, `--psk-ref`, `--id`, `--remote-id`, `--service`, `--mfa`,
-  `--notes`, and groups and tags (`-g`, `-t`, which replace the current
-  ones).
+  `--portal`, `--server`, `--psk-ref`, `--id`, `--remote-id`, `--ca`,
+  `--service`, `--mfa`, `--notes`, and groups and tags: `-g` and `-t` add
+  one, as in `host edit`; `--rm-group` and `--rm-tag` take one away.
 - To give a WireGuard or OpenVPN VPN a new config file, add it again with
   `--overwrite`.
 - `vpn mv` refuses a VPN that is up: run `komando vpn down NAME` first.
-  Its vault secrets keep their names (`OLD-key` stays), and a new VPN
-  under the old name cannot take them.
+  The vault secrets `vpn add` made under its name (`OLD-key`, `OLD-psk`,
+  `OLD-config`, `OLD-pass`) move to the new name when only this VPN uses
+  them, so a new VPN can take the old name.
 
 ## OpenVPN details
 
@@ -244,8 +247,9 @@ the page.
 - A gateway that does not take the portal's login has a sign-in of its
   own. komando says so and shows it in the same window; whether you type
   your password again there is up to your company's sign-in.
-- To sign in only once, give a gateway's own address as `--portal`:
-  komando then skips the portal.
+- To sign in only once, give a gateway's own address as `--portal`
+  (`komando vpn edit client-y --portal gw1.client.com`): komando then
+  skips the portal.
 - Not built yet: Prisma Access gateways behind a load balancer. Such a
   gateway is refused with an error that names the portal's other
   gateways; add one of those as the VPN's `--portal`.

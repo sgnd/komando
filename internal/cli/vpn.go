@@ -245,7 +245,14 @@ Which flags go with which VPN:
 			}
 			now := time.Now().UTC()
 			v.CreatedAt, v.UpdatedAt = now, now
-			warnings := append(refWarnings(unlessAsked(v.KeyRef, askPw), unlessAsked(v.PSKRef, askPsk)), ovpnWarn...)
+			// the secrets this add stores itself are not there yet: no warning for them
+			notStored := func(ref string, asked bool) string {
+				if _, own := secrets[strings.TrimPrefix(ref, "secret:")]; own && strings.HasPrefix(ref, "secret:") {
+					return ""
+				}
+				return unlessAsked(ref, asked)
+			}
+			warnings := append(refWarnings(notStored(v.KeyRef, askPw), notStored(v.PSKRef, askPsk)), ovpnWarn...)
 			// the name and the VPN's vault secrets, and what needs a person: a weaker login, a secret sent to a new place
 			check := func(s *store.State) error {
 				if err := vpnAddCheck(s, name, secrets, overwrite); err != nil {
@@ -268,7 +275,7 @@ Which flags go with which VPN:
 				if len(warnings) > 0 {
 					res["warnings"] = warnings
 				}
-				out.P.Print("vpn.add", res, nil)
+				out.P.Print("vpn.add", textAs{res, vpnChangeText{verb: "would add", v: v, warnings: warnings}}, nil)
 				return nil
 			}
 			undoPw, err := vpnAskPassword(cmd, name, askPw, askPsk, check)
@@ -281,13 +288,14 @@ Which flags go with which VPN:
 			}
 			audit(nil, "vpn.add", []string{name}, "", true, map[string]any{"kind": kind, "mfa": v.MFA})
 			res := map[string]any{"vpn": v, "next": "komando vpn up " + name}
-			if notes := vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])); len(notes) > 0 {
+			notes := vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"]))
+			if len(notes) > 0 {
 				res["notes"] = notes
 			}
 			if len(warnings) > 0 {
 				res["warnings"] = warnings
 			}
-			out.P.Print("vpn.add", res, nil)
+			out.P.Print("vpn.add", textAs{res, vpnChangeText{verb: "added", v: v, notes: notes, warnings: warnings, next: "komando vpn up " + name}}, nil)
 			return nil
 		},
 	}
@@ -680,4 +688,59 @@ func vpnAddress(kind, address string) (string, error) {
 		return "", out.Usage("--address must be host:port")
 	}
 	return address, nil
+}
+
+// vpnChangeText is how vpn add and vpn edit read for a person: what
+// happened first, the settings, then notes and warnings, the next command
+// last. Their JSON stays as it was (textAs).
+type vpnChangeText struct {
+	verb     string // added, changed, would add, would change
+	v        *store.Vpn
+	notes    []string
+	warnings []string
+	next     string
+}
+
+func (t vpnChangeText) Text() string {
+	var b strings.Builder
+	b.WriteString(t.verb + " " + t.v.Name)
+	if strings.HasPrefix(t.verb, "would ") {
+		b.WriteString(" (dry run)")
+	}
+	b.WriteString("\n")
+	field := func(k, val string) {
+		if val != "" {
+			b.WriteString("  " + k + ": " + cleanText(val) + "\n")
+		}
+	}
+	v := t.v
+	keyLabel := map[string]string{"wireguard": "private key", "tailscale": "auth key"}[v.Kind]
+	if keyLabel == "" {
+		keyLabel = "password"
+	}
+	field("kind", v.Kind)
+	for _, kv := range [][2]string{{"address", v.Address}, {"portal", v.Portal}, {"server", v.Server}, {"service", v.Service},
+		{"user", v.User}, {keyLabel, v.KeyRef}, {"pre-shared key", v.PSKRef}, {"profile", v.ConfigRef}, {"id", v.LocalID},
+		{"remote id", v.RemoteID}, {"check", v.Check}, {"groups", strings.Join(v.Groups, ", ")}, {"tags", strings.Join(v.Tags, ", ")}, {"notes", v.Notes}} {
+		field(kv[0], kv[1])
+	}
+	if v.MFA {
+		field("login", "a person logs in at `komando vpn up "+v.Name+"`")
+	}
+	if c := strings.TrimSpace(v.Config); c != "" {
+		b.WriteString("  config:\n")
+		for _, l := range strings.Split(c, "\n") {
+			b.WriteString(strings.TrimRight("    "+cleanText(l), " ") + "\n")
+		}
+	}
+	for _, n := range t.notes {
+		b.WriteString("note: " + n + "\n")
+	}
+	for _, w := range t.warnings {
+		b.WriteString("warning: " + w + "\n")
+	}
+	if t.next != "" {
+		b.WriteString("next: " + t.next + "\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
 }

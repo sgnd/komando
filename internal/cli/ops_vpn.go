@@ -170,27 +170,37 @@ func socksTunnel(st *store.State, addr string) string {
 }
 
 func vpnEditCmd() *cobra.Command {
-	var check, address, service, user, passwordRef, notes, server, pskRef, localID, remoteID string
-	var groups, tags []string
+	var check, address, service, user, passwordRef, notes, server, pskRef, localID, remoteID, portal, ca string
+	var addGroups, rmGroups, addTags, rmTags []string
 	var mfa, legacyCrypto, allowPAP bool
 	c := &cobra.Command{
 		Use:   "edit NAME",
-		Short: "Change a VPN's check address, proxy, login or notes",
+		Short: "Change a VPN's check address, server, portal, proxy, login or notes",
 		Long: `Changes the common settings of a VPN. To give a WireGuard or OpenVPN VPN a
-new config file, add it again with --overwrite.`,
+new config file, add it again with --overwrite. -g and -t add a group or a
+tag, as in host edit; --rm-group and --rm-tag take one away.`,
 		Example: `  komando vpn edit office --check 10.0.0.5:22
   komando vpn edit lab --address 127.0.0.1:1081
   komando vpn edit client-x --password-ref secret:client-x-new
-  komando vpn edit kantor --server vpn2.kantor.id --psk-ref secret:kantor-psk-2`,
+  komando vpn edit kantor --server vpn2.kantor.id --psk-ref secret:kantor-psk-2
+  komando vpn edit client-x --portal gw2.client.com
+  komando vpn edit office -g jakarta --rm-group old`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f := cmd.Flags()
 			changed := false
-			for _, n := range []string{"check", "address", "service", "user", "password-ref", "notes", "group", "tag", "mfa", "server", "psk-ref", "id", "remote-id", "legacy-crypto", "allow-pap"} {
+			for _, n := range []string{"check", "address", "service", "user", "password-ref", "notes", "group", "add-group", "rm-group", "tag", "add-tag", "rm-tag",
+				"mfa", "server", "portal", "ca", "psk-ref", "id", "remote-id", "legacy-crypto", "allow-pap"} {
 				changed = changed || f.Changed(n)
 			}
 			if !changed {
-				return out.Usage("nothing to change: give at least one of --check, --address, --service, --server, --user, --password-ref, --psk-ref, --id, --remote-id, --mfa, --legacy-crypto, --allow-pap, --notes, --group, --tag")
+				return out.Usage("nothing to change: give at least one of --check, --address, --service, --server, --portal, --user, --password-ref, --psk-ref, --id, --remote-id, --ca, --mfa, --legacy-crypto, --allow-pap, --notes, -g, --rm-group, -t, --rm-tag")
+			}
+			if err := editConflicts(f, nil, nil, [][2][]string{{addGroups, rmGroups}, {addTags, rmTags}}); err != nil {
+				return err
+			}
+			if f.Changed("portal") && (portal == "" || strings.HasPrefix(portal, "-")) {
+				return out.Usage("--portal must be a server name or URL")
 			}
 			if check != "" {
 				if _, _, err := net.SplitHostPort(check); err != nil {
@@ -211,7 +221,8 @@ new config file, add it again with --overwrite.`,
 				}
 				v := *cur
 				for flag, kinds := range map[string][]string{"address": {"socks", "proxy"}, "service": {"system"},
-					"server": {"l2tp", "ipsec", "ikev2"}, "psk-ref": {"l2tp", "ipsec", "ikev2"}, "id": {"ipsec", "ikev2"}, "remote-id": {"ikev2"}} {
+					"server": {"l2tp", "ipsec", "ikev2"}, "psk-ref": {"l2tp", "ipsec", "ikev2"}, "id": {"ipsec", "ikev2"}, "remote-id": {"ikev2"},
+					"portal": {"globalprotect", "fortinet", "anyconnect", "pulse", "f5"}, "ca": {"ikev2"}} {
 					if f.Changed(flag) && !oneOf(v.Kind, kinds...) {
 						return out.Usage("--%s is not used by %s VPNs", flag, v.Kind)
 					}
@@ -240,6 +251,15 @@ new config file, add it again with --overwrite.`,
 					}
 					v.Server = server
 				}
+				if f.Changed("portal") {
+					v.Portal = portal
+				}
+				if f.Changed("ca") {
+					var err error
+					if v.CA, err = readVpnCA(ca); err != nil {
+						return err
+					}
+				}
 				if f.Changed("psk-ref") {
 					if pskRef == "" && v.Kind != "ikev2" {
 						return out.Usage("%s VPNs need --psk-ref", v.Kind)
@@ -264,12 +284,8 @@ new config file, add it again with --overwrite.`,
 				if f.Changed("notes") {
 					v.Notes = notes
 				}
-				if f.Changed("group") {
-					v.Groups = dedupe(groups)
-				}
-				if f.Changed("tag") {
-					v.Tags = dedupe(tags)
-				}
+				v.Groups = dedupe(append(removeFold(v.Groups, rmGroups), addGroups...))
+				v.Tags = dedupe(append(removeFold(v.Tags, rmTags), addTags...))
 				v.UpdatedAt = time.Now().UTC()
 				res = &v
 				if !g.dryRun {
@@ -286,7 +302,7 @@ new config file, add it again with --overwrite.`,
 				if err := apply(st); err != nil {
 					return err
 				}
-				out.P.Print("vpn.edit", map[string]any{"would_change": res}, nil)
+				out.P.Print("vpn.edit", textAs{map[string]any{"would_change": res}, vpnChangeText{verb: "would change", v: res}}, nil)
 				return nil
 			}
 			if err := store.Update(apply); err != nil {
@@ -294,10 +310,11 @@ new config file, add it again with --overwrite.`,
 			}
 			audit(nil, "vpn.edit", []string{args[0]}, "", true, nil)
 			data := map[string]any{"vpn": res}
-			if w := refWarnings(res.KeyRef, res.PSKRef); len(w) > 0 {
+			w := refWarnings(res.KeyRef, res.PSKRef)
+			if len(w) > 0 {
 				data["warnings"] = w
 			}
-			out.P.Print("vpn.edit", data, nil)
+			out.P.Print("vpn.edit", textAs{data, vpnChangeText{verb: "changed", v: res, warnings: w}}, nil)
 			return nil
 		},
 	}
@@ -306,6 +323,8 @@ new config file, add it again with --overwrite.`,
 	f.StringVar(&address, "address", "", "SOCKS: host:port of the proxy")
 	f.StringVar(&service, "service", "", "System VPN: its name in your computer's settings")
 	f.StringVar(&server, "server", "", "L2TP, IPsec, IKEv2: the VPN server")
+	f.StringVar(&portal, "portal", "", "GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal")
+	f.StringVar(&ca, "ca", "", "IKEv2: the CA certificate (PEM) that signed the server's certificate; \"\" for a public one")
 	f.StringVar(&pskRef, "psk-ref", "", "L2TP, IPsec, IKEv2: the pre-shared key (IPsec: the group password)")
 	f.StringVar(&localID, "id", "", "IPsec: the group name; IKEv2: your identity")
 	f.StringVar(&remoteID, "remote-id", "", "IKEv2: the server's identity")
@@ -315,8 +334,12 @@ new config file, add it again with --overwrite.`,
 	f.BoolVar(&legacyCrypto, "legacy-crypto", false, "L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; turning it on needs a person's yes)")
 	f.BoolVar(&allowPAP, "allow-pap", false, "L2TP: let the server pick PAP, which hands it your password itself (turning it on needs a person's yes)")
 	f.StringVar(&notes, "notes", "", "free-form notes")
-	f.StringSliceVarP(&groups, "group", "g", nil, "put it in these groups (comma-separated), replacing the current ones")
-	f.StringSliceVarP(&tags, "tag", "t", nil, "tags, e.g. prod (comma-separated), replacing the current ones")
+	f.StringSliceVar(&addGroups, "add-group", nil, "put it in these groups (comma-separated)")
+	f.StringSliceVar(&rmGroups, "rm-group", nil, "take it out of these groups")
+	f.StringSliceVar(&addTags, "add-tag", nil, "add these tags (comma-separated)")
+	f.StringSliceVar(&rmTags, "rm-tag", nil, "remove these tags")
+	shortAlias(f, "group", "g", "add-group")
+	shortAlias(f, "tag", "t", "add-tag")
 	return c
 }
 

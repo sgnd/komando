@@ -271,3 +271,60 @@ func TestNeedsPersonLogin(t *testing.T) {
 		}
 	}
 }
+
+// vpn edit: -g and -t add, as in host edit; --portal and --ca change a VPN
+// of a kind that has them.
+func TestVpnEditFlags(t *testing.T) {
+	invHome(t)
+	mustRun(t, "vpn", "add", "v1", "socks", "--address", "127.0.0.1:1080", "-g", "a", "-t", "x")
+	mustRun(t, "vpn", "edit", "v1", "-g", "b", "-t", "y")
+	st, _ := store.Load()
+	if v := st.Vpns["v1"]; strings.Join(v.Groups, ",") != "a,b" || strings.Join(v.Tags, ",") != "x,y" {
+		t.Errorf("-g/-t add: %v %v", v.Groups, v.Tags)
+	}
+	mustRun(t, "vpn", "edit", "v1", "--rm-group", "a", "--rm-tag", "x")
+	st, _ = store.Load()
+	if v := st.Vpns["v1"]; strings.Join(v.Groups, ",") != "b" || strings.Join(v.Tags, ",") != "y" {
+		t.Errorf("--rm-group/--rm-tag: %v %v", v.Groups, v.Tags)
+	}
+	wantCode(t, "USAGE", "vpn", "edit", "v1", "-g", "c", "--rm-group", "c")
+	wantCode(t, "USAGE", "vpn", "edit", "v1", "--portal", "vpn.example.com")
+
+	mustRun(t, "vpn", "add", "client-x", "globalprotect", "--portal", "vpn.example.com")
+	mustRun(t, "vpn", "edit", "client-x", "--portal", "gw1.example.com")
+	st, _ = store.Load()
+	if p := st.Vpns["client-x"].Portal; p != "gw1.example.com" {
+		t.Errorf("--portal: %q", p)
+	}
+	wantCode(t, "USAGE", "vpn", "edit", "client-x", "--portal", "-x")
+	wantCode(t, "USAGE", "vpn", "edit", "client-x", "--ca", "/nonexistent")
+}
+
+// An alias names the command it stands for in every envelope, its
+// errors too.
+func TestAliasEnvelopeName(t *testing.T) {
+	root := newRoot()
+	for path, want := range map[string]string{"vpn test": "test", "host list": "list", "vpn add": "vpn.add"} {
+		c, _, err := root.Find(strings.Fields(path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := envelopeName(c); got != want {
+			t.Errorf("%s: %q, want %q", path, got, want)
+		}
+	}
+}
+
+// vpn add reads as host add: what happened first, the config indented,
+// next last.
+func TestVpnChangeText(t *testing.T) {
+	v := &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "secret:office-key", Config: "[Interface]\nAddress = 10.66.0.2/32\n", Groups: []string{"a"}}
+	got := vpnChangeText{verb: "added", v: v, notes: []string{"n1"}, next: "komando vpn up office"}.Text()
+	want := "added office\n  kind: wireguard\n  private key: secret:office-key\n  groups: a\n  config:\n    [Interface]\n    Address = 10.66.0.2/32\nnote: n1\nnext: komando vpn up office"
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	if got := (vpnChangeText{verb: "would change", v: v}).Text(); !strings.HasPrefix(got, "would change office (dry run)\n") {
+		t.Errorf("dry run: %s", got)
+	}
+}
