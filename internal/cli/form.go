@@ -569,6 +569,31 @@ func formDestructive(cmds [][]string) string {
 			return "deletes the images"
 		case "db restore":
 			return "replaces what is in the database now"
+		case "db user":
+			if len(c) > 2 && c[2] == "rm" {
+				return "deletes the database user"
+			}
+		case "fs rm":
+			return "deletes the files"
+		case "docker rm":
+			return "deletes the containers"
+		case "docker prune":
+			return "deletes stopped containers and unused images"
+		case "user rm":
+			if slices.Contains(c, "--remove-home") {
+				return "deletes the user and their home folder"
+			}
+			return "deletes the user"
+		case "secret rm":
+			return "deletes the saved passwords"
+		case "key rm":
+			if slices.Contains(c, "--delete-file") {
+				return "deletes the key files"
+			}
+		case "pkg rm":
+			return "removes the packages"
+		case "cron rm":
+			return "deletes the scheduled task"
 		case "cluster scale":
 			if slices.Contains(c, "0") || slices.Contains(c, "--replicas=0") {
 				return "stops every copy of the app"
