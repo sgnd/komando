@@ -585,9 +585,11 @@ be used by OpenSSH; use `komando shell NAME` for those.
 
 ## Good to know
 
-- `komando host import --ssh-config FILE` and `host import --json FILE`
-  (from `komando host export`) do the same as `komando import`, for servers
-  only. A spreadsheet goes through `komando import csv FILE`.
+- Bring servers in with `komando import ssh-config [FILE]`, from a
+  spreadsheet with `komando import csv FILE`, and from another computer with
+  `komando export --to FILE` there and `komando import komando FILE` here
+  (`komando export kind:host` saves only the servers). The old names
+  `host import` and `host export` go away in the next release.
 - `host list` and `host test` are the same as `komando list kind:host` and
   `komando test`.
 - `komando test` tells you, per server, the login user and whether sudo

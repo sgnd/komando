@@ -98,32 +98,41 @@ for them. Try --dry-run first to see what would be added.`,
   komando import komando backup.json`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var src *importSource
-			for i := range importSources {
-				if importSources[i].Name == args[0] {
-					src = &importSources[i]
-				}
-			}
-			if src == nil {
-				return out.Usage("unknown source %q (see `komando import --help`)", args[0])
-			}
-			path := src.Default
+			path := ""
 			if len(args) == 2 {
 				path = args[1]
 			}
-			if path == "" {
-				return out.Usage("give the file to import")
-			}
-			plan, err := src.Parse(expandHome(path))
-			if err != nil {
-				return err
-			}
-			return applyImport(src.Name, path, plan, groups, overwrite)
+			return runImport(args[0], path, groups, overwrite)
 		},
 	}
 	c.Flags().StringSliceVarP(&groups, "group", "g", nil, "add everything imported to these groups")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace servers, conns and recipes with the same name")
 	return c
+}
+
+// runImport is `komando import SOURCE [FILE]`; an empty path is the
+// source's usual file.
+func runImport(source, path string, groups []string, overwrite bool) error {
+	var src *importSource
+	for i := range importSources {
+		if importSources[i].Name == source {
+			src = &importSources[i]
+		}
+	}
+	if src == nil {
+		return out.Usage("unknown source %q (see `komando import --help`)", source)
+	}
+	if path == "" {
+		path = src.Default
+	}
+	if path == "" {
+		return out.Usage("give the file to import")
+	}
+	plan, err := src.Parse(expandHome(path))
+	if err != nil {
+		return err
+	}
+	return applyImport(src.Name, path, plan, groups, overwrite)
 }
 
 type importSkip struct {

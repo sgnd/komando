@@ -519,7 +519,7 @@ var formAreas = []struct {
 	{"Your list", "servers, conns, groups: add, change, import", []string{"host", "conn", "group", "list", "rename", "import", "export", "test"}},
 	{"Jobs and recipes", "long tasks and saved commands", []string{"job", "recipe"}},
 	{"Safety and audit", "what happened, rules, checks", []string{"audit", "policy", "doctor", "status", "config", "ssh-gate"}},
-	{"Setup", "AI agents, the prompt, updates", []string{"guide", "prompt", "update", "version", "schema", "completion"}},
+	{"Setup", "AI agents, updates", []string{"guide", "update", "version", "schema", "completion"}},
 }
 
 // formListed: the menu offers it. A group command (cache, cluster

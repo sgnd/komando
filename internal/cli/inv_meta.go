@@ -298,10 +298,7 @@ func policyCmd() *cobra.Command {
 			return nil
 		},
 	})
-	rm := policyRmCmd()
-	allow := policyRmCmd() // the old name, kept so scripts keep working
-	allow.Use, allow.Hidden = "allow PATTERN|custom-N", true
-	c.AddCommand(rm, allow)
+	c.AddCommand(policyRmCmd())
 	return c
 }
 
@@ -352,8 +349,8 @@ be removed. Removing a rule weakens a safety check, so komando asks first.`,
 			if err != nil {
 				return err
 			}
-			audit(nil, "policy.allow", nil, "", true, map[string]any{"pattern": removed})
-			out.P.Print("policy.allow", policyChange{Custom: orEmpty(pats), Removed: removed}, nil)
+			audit(nil, "policy.rm", nil, "", true, map[string]any{"pattern": removed})
+			out.P.Print("policy.rm", policyChange{Custom: orEmpty(pats), Removed: removed}, nil)
 			return nil
 		},
 	}

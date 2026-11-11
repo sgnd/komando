@@ -34,7 +34,7 @@ var shapeCases = [][]string{
 	{"host", "show", "web"},
 	{"host", "show", "nope"},
 	{"host", "ssh-command", "web"},
-	{"host", "export"},
+	{"export"},
 	{"conn", "list"},
 	{"conn", "show", "pg"},
 	{"group", "list"},

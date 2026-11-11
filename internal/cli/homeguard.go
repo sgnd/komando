@@ -63,7 +63,7 @@ var homeFree = map[string]bool{"komando": true, "help": true, "completion": true
 // and the agent guard, which the agent's tool runs before every call.
 func guardHome(cmd *cobra.Command) error {
 	top, _, _ := strings.Cut(commandName(cmd), ".")
-	if !isAgent() || cmd.Hidden || homeFree[top] {
+	if !isAgent() || backgroundCmd(cmd) || homeFree[top] {
 		return nil
 	}
 	h := otherHome()
