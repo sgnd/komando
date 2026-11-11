@@ -57,9 +57,9 @@ func jobStartCmd() *cobra.Command {
   komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command := cmdStr
-			if command == "" {
-				command = strings.Join(args[1:], " ")
+			command, err := commandWords(cmdStr, args[1:], "job start "+args[0])
+			if err != nil {
+				return err
 			}
 			if strings.TrimSpace(command) == "" {
 				return out.Usage("no command given: komando job start TARGET -- COMMAND")
@@ -146,7 +146,7 @@ func jobStartCmd() *cobra.Command {
 				}
 				return started{ID: id, Host: c.Host.Name, PID: pid, OK: true}, nil
 			})
-			data := jobStarted{Next: "komando job status <id>  |  komando job logs <id> --offset <next_offset>  |  komando job wait <id>"}
+			var data jobStarted
 			worst := 0
 			var fails []hostFail
 			for _, o := range res {
@@ -163,13 +163,16 @@ func jobStartCmd() *cobra.Command {
 				data.Summary.OK++
 			}
 			data.Summary.Total = len(res)
+			if data.Summary.OK > 0 {
+				data.Next = "komando job status <id>  |  komando job logs <id> --offset <next_offset>  |  komando job wait <id>"
+			}
 			audit(st, "job.start", hostNames(hosts), command, data.Summary.Failed == 0, nil)
 			return finishFleet("job.start", data, runSummary{fleetSummary: data.Summary}, worst, fails)
 		},
 	}
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run with sudo (uses the server's --sudo-ref password if set)")
-	c.Flags().StringSliceVarP(&envs, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
+	c.Flags().StringArrayVarP(&envs, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
 	c.Flags().StringVarP(&dir, "dir", "C", "", "working directory on the server")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
 	return c
@@ -383,9 +386,6 @@ group of servers) to wait for all of them at once.`,
   komando job wait j1103-101500-ab12cd34 j1103-101500-ef56ab78`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !cmd.Flags().Changed("wait-timeout") && g.timeout > 0 {
-				waitTimeout = g.timeout // --timeout is the wait limit here
-			}
 			deadline := time.Now().Add(waitTimeout)
 			if len(args) == 1 {
 				s, err := waitJob(cmd.Context(), args[0], deadline, interval, tail)
@@ -439,7 +439,9 @@ group of servers) to wait for all of them at once.`,
 		},
 	}
 	c.Flags().DurationVar(&interval, "interval", 3*time.Second, "how often to check")
-	c.Flags().DurationVar(&waitTimeout, "wait-timeout", 10*time.Minute, "same as --timeout: give up waiting after this long (job keeps running)")
+	// its own --timeout: the global one's default (5m, per server) is not this one's
+	c.Flags().DurationVar(&waitTimeout, "timeout", 10*time.Minute, "how long to wait (the job keeps running after)")
+	c.Flags().DurationVar(&waitTimeout, "wait-timeout", 10*time.Minute, "same as --timeout")
 	_ = c.Flags().MarkHidden("wait-timeout")
 	c.Flags().IntVar(&tail, "tail", 30, "also show the last N lines of output")
 	return c
@@ -648,6 +650,16 @@ func jobListCmd() *cobra.Command {
 			var names map[string]bool
 			if target != "" {
 				names = targetNames(st, target)
+				// a name that is no longer in the inventory still finds its jobs
+				if _, err := resolveSelection(st, target); err != nil {
+					known := false
+					for _, j := range st.Jobs {
+						known = known || names[j.Host]
+					}
+					if !known {
+						return err
+					}
+				}
 			}
 			jobs := []*store.Job{}
 			for _, j := range st.Jobs {
@@ -758,7 +770,7 @@ type started struct {
 type jobStarted struct {
 	Jobs    []started    `json:"jobs"`
 	Summary fleetSummary `json:"summary"`
-	Next    string       `json:"next"`
+	Next    string       `json:"next,omitempty"` // left out when no job started
 }
 
 func (d jobStarted) Text() string {

@@ -26,8 +26,11 @@ func shellCmd() *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				// `ssh host command` runs a command in ssh; here that is exec
-				return out.Errf(out.ExitUsage, "USAGE", "run a command with `komando exec "+args[0]+" -- "+strings.Join(args[1:], " ")+"`",
-					"komando %s opens an interactive shell and takes no command", cmd.CalledAs())
+				hint := "run a command with `komando exec " + args[0] + " -- " + strings.Join(args[1:], " ") + "`"
+				if err := komandoFlagsAfterDash("exec "+args[0], args[1:]); err != nil {
+					hint = toErr(err).Hint
+				}
+				return out.Errf(out.ExitUsage, "USAGE", hint, "komando %s opens an interactive shell and takes no command", cmd.CalledAs())
 			}
 			return cobra.ExactArgs(1)(cmd, args)
 		},
