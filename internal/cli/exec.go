@@ -219,7 +219,9 @@ func commandWords(cmdStr string, words []string, verb string) (string, error) {
 func komandoFlagsAfterDash(verb string, words []string) error {
 	valued := map[string]bool{"-o": true, "--output": true, "-P": true, "--parallel": true, "--timeout": true, "--connect-timeout": true, "--max-output": true, "--host-key-policy": true}
 	plain := map[string]bool{"--pretty": true, "--read-only": true, "--stream": true, "--fail-fast": true}
-	safety := map[string]bool{"--dry-run": true, "--yes": true, "-y": true, "--allow-dangerous": true, "--reveal": true}
+	// not --yes or -y: tools on the server take them (yum update -y), and
+	// komando sending them on stops nothing, a protected server still asks
+	safety := map[string]bool{"--dry-run": true, "--allow-dangerous": true, "--reveal": true}
 	cut, found := len(words), false
 scan:
 	for cut > 0 {

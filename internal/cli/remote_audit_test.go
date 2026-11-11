@@ -87,7 +87,10 @@ func TestFlagsAfterDashRefused(t *testing.T) {
 	if e == nil || !strings.Contains(e.Hint, "komando exec web2 -P 2 --dry-run -o json -- uptime") {
 		t.Errorf("hint: %+v", e)
 	}
-	for _, ok := range []string{"kubectl wait --timeout 60s", "rsync --dry-run -a src dst", "uptime"} {
+	if e := toErr(komandoFlagsAfterDash("exec web2", strings.Fields("apt-get upgrade -y --dry-run"))); e == nil || !strings.Contains(e.Hint, "komando exec web2 --dry-run -- apt-get upgrade -y`") {
+		t.Errorf("-y stays with the command: %+v", e)
+	}
+	for _, ok := range []string{"kubectl wait --timeout 60s", "rsync --dry-run -a src dst", "uptime", "yum update -y", "apt-get install nginx --yes"} {
 		if err := komandoFlagsAfterDash("exec web2", strings.Fields(ok)); err != nil {
 			t.Errorf("%q refused: %v", ok, err)
 		}
@@ -306,8 +309,8 @@ func TestJobChecks(t *testing.T) {
 
 func TestDryRunMissingSecretFails(t *testing.T) {
 	auditHome(t)
-	if d, e := invRun(t, "exec", "web2", "-e", "TOKEN=secret:nope", "--dry-run", "--", "echo ok"); e == nil {
-		t.Errorf("a missing secret passed the dry run: %v", d)
+	if d, e := invRun(t, "exec", "web2", "-e", "TOKEN=secret:nope", "--dry-run", "--", "echo ok"); e == nil || e.Code != "SECRET_NOT_FOUND" || e.Exit != out.ExitNotFound {
+		t.Errorf("a missing secret: want SECRET_NOT_FOUND, got %+v %v", e, d)
 	}
 }
 
