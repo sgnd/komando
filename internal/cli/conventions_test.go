@@ -14,7 +14,7 @@ func TestConventions(t *testing.T) {
 	// one meaning per short flag
 	shorts := map[string]string{"n": "limit", "r": "recursive", "g": "group", "t": "tag", "s": "sudo", "o": "output", "y": "yes", "f": "follow"}
 	// old flag names that were renamed and then removed; they must not come back
-	retired := []string{"force", "param", "lines", "number", "host", "mutating", "jump", "rename"}
+	retired := []string{"force", "param", "lines", "number", "host", "mutating", "jump", "rename", "wait-timeout"}
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
 		path := c.CommandPath()

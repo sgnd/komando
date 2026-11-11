@@ -170,10 +170,13 @@ func sealedChangeKey(oldPass, newPass string) (KeyChange, error) {
 		res.Secrets = n
 		return err
 	})
-	if err != nil {
-		if newPass == "" {
-			os.Remove(storeKeyFile())
+	if newPass == "" {
+		// the new key takes its real name only once the store uses it
+		if ferr := settleNewKeyFile(); err == nil {
+			err = ferr
 		}
+	}
+	if err != nil {
 		return res, err
 	}
 	res.To = newMeta["key_mode"]
@@ -227,7 +230,10 @@ func newStoreKey(pass string) ([]byte, map[string]string, error) {
 
 // writeNewKeyFile writes store.key, which must not be there.
 func writeNewKeyFile(key []byte) error {
-	f, err := os.OpenFile(storeKeyFile(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if _, err := os.Stat(storeKeyFile()); err == nil {
+		return fmt.Errorf("%s is already there; nothing uses it, remove it first", storeKeyFile())
+	}
+	f, err := os.OpenFile(newKeyFilePath(), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
@@ -239,6 +245,27 @@ func writeNewKeyFile(key []byte) error {
 		err = cerr
 	}
 	return err
+}
+
+func newKeyFilePath() string { return storeKeyFile() + ".new" }
+
+// settleNewKeyFile is called after a change to a key file, whether it
+// worked or not. When the store now names a key file, store.key.new is
+// its key and becomes store.key; otherwise the change did not happen and
+// store.key.new is removed.
+func settleNewKeyFile() error {
+	np := newKeyFilePath()
+	if _, err := os.Stat(np); err != nil {
+		return nil
+	}
+	meta, err := storeMeta()
+	if err != nil {
+		return err // keep the file: it may be the only key
+	}
+	if meta["key_mode"] == "keyfile" {
+		return os.Rename(np, storeKeyFile())
+	}
+	return os.Remove(np)
 }
 
 // resealSecrets seals every secret's value again with newA, inside the
@@ -307,10 +334,12 @@ func sealedKeyToKeychain() (string, error) {
 	if err := keychainAdopt(key); err != nil {
 		return "", err
 	}
-	if err := store.SetStoreMeta(map[string]string{"key_mode": "keychain"}); err != nil {
+	// the change count first: a keychain store without one never opens
+	if err := store.StartGeneration(); err != nil {
 		return "", err
 	}
-	if err := store.StartGeneration(); err != nil {
+	if err := store.SetStoreMeta(map[string]string{"key_mode": "keychain"}); err != nil {
+		genDel()
 		return "", err
 	}
 	// overwrite, then remove: the key now lives only in the keychain

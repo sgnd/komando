@@ -226,6 +226,12 @@ func unseal() error {
 	if !sealConfirm("Put the files of before back? Changes made since `komando seal`, other than the audit log, stay only in the store, which is kept aside.") {
 		return policyStop(out.Errf(out.ExitError, "CANCELLED", "nothing was changed in "+store.Home(), "the folder was not unsealed"))
 	}
+	// the same locks as seal: no komando writes the files of before while
+	// they come back
+	if err := store.BeginSeal(); err != nil {
+		return err
+	}
+	defer store.EndSeal()
 	if a.VaultKC != nil {
 		if err := vault.RestoreKeychainKey(a.VaultKC); err != nil {
 			return fmt.Errorf("the vault key of before cannot go back into the keychain: %w (nothing was changed)", err)
