@@ -105,14 +105,20 @@ for them. Try --dry-run first to see what would be added.`,
 				}
 			}
 			if src == nil {
-				return out.Usage("unknown source %q (see `komando import --help`)", args[0])
+				var all []string
+				for _, s := range importSources {
+					all = append(all, s.Name)
+				}
+				return out.Errf(out.ExitUsage, "USAGE", "use one of: "+strings.Join(all, ", ")+" (`komando import --help` says what each brings in)",
+					"unknown source %q", args[0])
 			}
 			path := src.Default
 			if len(args) == 2 {
 				path = args[1]
 			}
 			if path == "" {
-				return out.Usage("give the file to import")
+				return out.Errf(out.ExitUsage, "USAGE", "for example: komando import "+src.Name+" "+map[string]string{"komando": "komando-backup.json", "csv": "servers.csv"}[src.Name],
+					"give the file to import")
 			}
 			plan, err := src.Parse(expandHome(path))
 			if err != nil {
@@ -616,12 +622,15 @@ func importEnv(path string) (*importPlan, error) {
 		k, v = strings.TrimSpace(k), strings.Trim(strings.TrimSpace(v), `"'`)
 		scheme, _, _ := strings.Cut(v, "://")
 		if !schemes[strings.ToLower(scheme)] {
-			if strings.HasSuffix(k, "_URL") && strings.Contains(v, "://") {
+			if (strings.HasSuffix(k, "_URL") || strings.HasSuffix(k, "_URI")) && strings.Contains(v, "://") {
 				p.Notes = append(p.Notes, fmt.Sprintf("%s: %s:// is not a kind komando knows (see `komando conn kinds`)", k, scheme))
 			}
 			continue
 		}
-		base := strings.TrimSuffix(strings.TrimSuffix(strings.ToLower(k), "_url"), "_dsn")
+		base := strings.ToLower(k)
+		for _, sfx := range []string{"_url", "_uri", "_dsn"} {
+			base = strings.TrimSuffix(base, sfx)
+		}
 		p.addConn(p.name(strings.ReplaceAll(base, "_", "-")), v, k)
 	}
 	return p, nil
