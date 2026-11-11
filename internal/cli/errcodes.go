@@ -207,7 +207,7 @@ var errorCodes = []errorCode{
 	{"SOURCE_BUILD", 8, "this komando was built from source (version …), so update does not replace it", "build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install"},
 	{"SOURCE_EMPTY", 3, "… has no files to sync, so --delete would remove everything in …", "check the source path; nothing was deleted"},
 	{"SQL_HIDDEN_CODE", 2, "-- is followed by a non-ASCII byte", "put a space after -- to start a comment: whether this one starts a comment depends on the server's character set"},
-	{"SQL_STRING_RULES", 2, "this user's queries are read as …, not ClickHouse SQL", "komando checks ClickHouse SQL; use a user whose settings profile keeps dialect = 'clickhouse'"},
+	{"SQL_STRING_RULES", 6, "this user's queries are read as …, not ClickHouse SQL", "komando checks ClickHouse SQL; use a user whose settings profile keeps dialect = 'clickhouse'"},
 	{"SQL_TX_CONTROL", 2, "… is not allowed in komando db", "leave transactions to komando: without --write it runs a read-only transaction, with --write one transaction that --dry-run rolls back"},
 	{"SSH_GATE_PATH", 1, "komando cannot tell its own full path, which the line needs", "run komando by its full path, e.g. /usr/local/bin/komando ssh-gate line ..."},
 	{"SSH_GATE_READ_ONLY", 6, "komando … is refused for a read-only key: …", "this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself"},

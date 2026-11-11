@@ -92,7 +92,10 @@ type goFile struct {
 // WRITE_FAILED is 1 for a file on this computer and 5 on a server (as any
 // remote failure); VIA_CYCLE is 2 for the --via just given (host add or
 // edit) and 1 for one stored earlier, found when connecting.
-var twoExits = map[string]bool{"WRITE_FAILED": true, "VIA_CYCLE": true}
+// SQL_TX_CONTROL and SQL_STRING_RULES are 2 for SQL the user wrote, refused
+// before it runs, and 6 (a safety stop) when the server ended komando's
+// transaction or reads SQL by rules komando cannot check.
+var twoExits = map[string]bool{"WRITE_FAILED": true, "VIA_CYCLE": true, "SQL_TX_CONTROL": true, "SQL_STRING_RULES": true}
 
 func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 	t.Helper()

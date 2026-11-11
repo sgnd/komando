@@ -196,7 +196,7 @@ func checkStringRules(ctx context.Context, db *sql.DB, t driver.Target) error {
 		}
 	}
 	if bad != "" {
-		return out.Errf(out.ExitUsage, "SQL_STRING_RULES",
+		return out.Errf(out.ExitPolicy, "SQL_STRING_RULES",
 			"komando checks SQL with the default quoting rules and an ASCII-safe character set (UTF-8); use a database user or connection without this setting",
 			"this connection parses strings differently (%s)", bad).NoFlag()
 	}
@@ -441,7 +441,7 @@ func setTimeout(ctx context.Context, q querier, kind string, d time.Duration, in
 const txMark = "komando_tx"
 
 func txEscaped(n int, st driver.Statement, err error) error {
-	return out.Errf(out.ExitUsage, "SQL_TX_CONTROL",
+	return out.Errf(out.ExitPolicy, "SQL_TX_CONTROL",
 		"leave transactions to komando, and tell the user: what ran before this point may have been committed",
 		"statement %d (%s) ended komando's transaction, so komando stopped (%v)", n, st.Keyword, err)
 }
