@@ -102,3 +102,27 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 		}
 	}
 }
+
+// A command in one quoted argument is read as words, so "get foo" is the
+// read GET, and MONITOR, which never returns, is refused before connecting.
+func TestCacheRunQuotedCommand(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	defer func() { g.dryRun, store.DryRun = false, false }()
+	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
+		t.Fatal(err)
+	}
+	code := func(err error) string {
+		var e *out.Error
+		if errors.As(err, &e) {
+			return e.Code
+		}
+		return ""
+	}
+	if _, err := runCache(t, "-o", "json", "cache", "run", "c", "get foo"); code(err) != "CACHE_CONNECT" {
+		t.Errorf("get foo: %v", err)
+	}
+	if _, err := runCache(t, "-o", "json", "cache", "run", "c", "--write", "--dry-run", "--", "MONITOR"); code(err) != "NOT_SUPPORTED" {
+		t.Errorf("MONITOR: %v", err)
+	}
+}

@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/dbx"
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -103,7 +105,20 @@ func dumpErr(err error, c *store.Conn) error {
 }
 
 // sqliteRestoreHint: a SQLite backup is a copy of the database file.
-const sqliteRestoreHint = "stop the app, then copy the backup file over the database file (`komando upload` or `komando fs mv` on its server)"
+const sqliteRestoreHint = "stop the programs that use the database, then copy the backup file over the database file on this computer"
+
+// restoreNote is how to load back the backup to of conn: db restore,
+// or for a SQLite file, which db restore does not take, a copy.
+func restoreNote(conn, to string) string {
+	if st, err := loadState(); err == nil {
+		if c, err := singleConn(st, conn, "db"); err == nil {
+			if t, err := driver.Parse(c.URL); err == nil && t.Kind.File {
+				return fmt.Sprintf("stop the programs that use it, then copy %s over %s", argQ(to), argQ(dbx.SQLitePath(t)))
+			}
+		}
+	}
+	return fmt.Sprintf("komando db restore %s --from %s --allow-dangerous", argQ(conn), argQ(to))
+}
 
 // defaultDumpFile is the file db dump writes without --to:
 // DATABASE-<date>.sql.gz (.dump for a custom archive), in this folder.

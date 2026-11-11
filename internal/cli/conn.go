@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -91,9 +92,17 @@ func (f *connFlags) bind(c *cobra.Command, edit bool) {
 func checkConn(s *store.State, c *store.Conn) error {
 	t, err := driver.Parse(c.URL)
 	if err != nil {
-		return err
+		return kindExample(c.URL, err)
 	}
 	c.Kind = t.Kind.Name
+	if t.Kind.File && !strings.HasPrefix(t.Path, "/") && !strings.HasPrefix(t.Path, "~/") && !filepath.IsAbs(t.Path) {
+		// a relative path would name a different file in every folder komando runs from
+		hint := "write the full path, e.g. " + t.Kind.Example + ", or ~/ for your home folder"
+		if abs, err := filepath.Abs(t.Path); err == nil {
+			hint = "write the full path; for the file in this folder: " + t.Kind.Name + "://" + filepath.ToSlash(abs)
+		}
+		return out.Errf(out.ExitUsage, "USAGE", hint, "%s URL needs the full path of the file, not %q", t.Kind.Name, t.Path)
+	}
 	if c.Via != "" {
 		if t.Kind.File {
 			return out.Usage("%s conns are files on this computer, so they take no --via", t.Kind.Name)
@@ -716,6 +725,25 @@ func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 		}
 	}
 	return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", hint, "cannot reach %s: %v", t.Address, err)
+}
+
+// kindExample gives a URL error without a hint of its own an example of
+// that kind's URL, instead of the command's example of another kind.
+func kindExample(raw string, err error) error {
+	var e *out.Error
+	scheme, _, ok := strings.Cut(raw, ":")
+	if !ok || !errors.As(err, &e) || e.Code != "USAGE" || e.Hint != out.UsageHint {
+		return err
+	}
+	for _, k := range driver.Kinds() {
+		for _, s := range k.Schemes {
+			if strings.EqualFold(s, scheme) && k.Example != "" {
+				e.Hint = "a " + k.Name + " URL looks like " + k.Example
+				return e
+			}
+		}
+	}
+	return err
 }
 
 // connAddKinds are the `komando KIND add` shortcuts for `conn add`: the

@@ -30,6 +30,15 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
+// The MySQL driver logs a dropped connection to stderr itself ("[mysql]
+// packets.go: unexpected EOF"), which breaks the JSON an agent reads with
+// 2>&1; komando reports the error in its own envelope.
+func init() { _ = mysql.SetLogger(quietLog{}) }
+
+type quietLog struct{}
+
+func (quietLog) Print(...any) {}
+
 // DialFunc opens a TCP connection, possibly through an SSH host.
 type DialFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 
@@ -101,13 +110,7 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 			q.Add("_pragma", "query_only(1)")
 		}
 		var err error
-		path := t.Path
-		if strings.HasPrefix(path, "~/") { // same as `conn test`
-			if home, err := os.UserHomeDir(); err == nil {
-				path = filepath.Join(home, path[2:])
-			}
-		}
-		if db, err = sql.Open("sqlite", "file:"+path+"?"+q.Encode()); err != nil {
+		if db, err = sql.Open("sqlite", "file:"+SQLitePath(t)+"?"+q.Encode()); err != nil {
 			return nil, err
 		}
 	case "sqlserver", "oracle", "clickhouse", "snowflake", "bigquery":
@@ -578,6 +581,17 @@ func writeRequired(kw string) *out.Error {
 	return out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG",
 		"this statement changes data; re-run with --write (try --write --dry-run first)",
 		"%s needs --write", kw)
+}
+
+// SQLitePath is the file a sqlite conn opens, with ~/ read as the home
+// folder (as `conn test` does).
+func SQLitePath(t driver.Target) string {
+	if strings.HasPrefix(t.Path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, t.Path[2:])
+		}
+	}
+	return t.Path
 }
 
 // connectErr maps a failed connection to an error code.

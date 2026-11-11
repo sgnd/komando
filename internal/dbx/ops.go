@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -74,9 +75,14 @@ func withTimeout(ctx context.Context, d time.Duration) (context.Context, context
 	return context.WithTimeout(ctx, d)
 }
 
-func notFor(kind, what string) error {
-	return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "SQLite is a file, not a server: it has no sessions, so there is nothing to show or stop",
-		"%s is not available for %s", what, kind)
+// NotSupported is the stop for a db command that kind has no use for:
+// SQLite, a file with no server, has no sessions and no users.
+func NotSupported(kind, what string) error {
+	hint := "SQLite is a file, not a server: it has no sessions, so there is nothing to show or stop"
+	if strings.HasPrefix(what, "db user") || strings.HasPrefix(what, "db grant") {
+		hint = "SQLite is a file, not a server: it has no users; who may read or change it is set by the file's permissions"
+	}
+	return out.Errf(out.ExitUsage, "NOT_SUPPORTED", hint, "%s is not available for %s", what, kind)
 }
 
 // Info is the server at a glance: version, uptime, size, connections, and
@@ -178,7 +184,7 @@ ORDER BY time DESC`, all)
 	case "bigquery": // jobs that are not done
 		rows, err = bigqueryActivity(ctx, db)
 	default:
-		return nil, notFor(kind, "activity")
+		return nil, NotSupported(kind, "db activity")
 	}
 	if err != nil {
 		return nil, queryErr(kind, ctx, err)
@@ -231,7 +237,7 @@ JOIN information_schema.innodb_trx b ON b.trx_id = w.blocking_trx_id`)
 	case "bigquery":
 		return nil, bqNoLocks()
 	default:
-		return nil, notFor(kind, "locks")
+		return nil, NotSupported(kind, "db locks")
 	}
 	if err != nil {
 		return nil, queryErr(kind, ctx, err)
@@ -341,7 +347,7 @@ func Kill(ctx context.Context, db *sql.DB, kind string, pid int64, session bool)
 	case "bigquery":
 		err = bigqueryKill(ctx, db, pid, session)
 	default:
-		return notFor(kind, "kill")
+		return NotSupported(kind, "db kill")
 	}
 	if err != nil {
 		return queryErr(kind, ctx, err)

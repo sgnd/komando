@@ -163,8 +163,10 @@ instead of JSON or a table. NULL is an empty field, binary is `\x` hex:
 komando db query app-db --csv "select id, email from users" > users.csv
 ```
 
-A query returns at most 500 rows (`--limit`, `0` for no limit)
-and `--max-output` bytes. A cut result says which cap it hit:
+`--csv` and `--tsv` export every row, up to `--max-output` bytes; an
+export cut by that cap fails with `OUTPUT_TRUNCATED` (exit 1), so a script
+never takes half a table for all of it. Otherwise a query returns at most
+500 rows (`--limit`, `0` for no limit) and `--max-output` bytes. A cut result says which cap it hit:
 `"truncated": "rows"` (raise `--limit`) or `"truncated": "bytes"` (raise
 `--max-output`). A query stops after 30 seconds; use `--timeout 2m` for
 more, or give one conn its own limit:
@@ -229,7 +231,10 @@ The seatbelts:
 
 - A protected conn also needs `--yes` with `--write`, whatever the SQL is.
 - Destructive SQL needs `--allow-dangerous`: `DROP`, `TRUNCATE`, `DELETE` or
-  `UPDATE` without `WHERE`, privilege changes, and a few more.
+  `UPDATE` without `WHERE`, privilege changes, code that reaches the
+  server's operating system (`CREATE EXTENSION`, a function in C or
+  `plpython3u`, `LOAD`, MySQL `INSTALL PLUGIN` and `SONAME`, SQL Server
+  `CREATE ASSEMBLY`), and a few more.
   `komando policy list` shows them all; `komando policy check --for postgres "..."`
   tests a query.
 - A few admin functions that a read-only transaction does not stop (ending
@@ -470,7 +475,7 @@ Plain SQL that psql and mysql can also read:
   says what would stop the real run.
 - SQL in the file that does more than write data is named next to
   `db-restore` in the approval and in `POLICY_BLOCKED`, with the line where
-  it first appears: `sql-program` (`COPY ... PROGRAM`), `sql-server-file`
+  it first appears: `sql-program` (`COPY ... PROGRAM`, `CREATE EXTENSION`), `sql-server-file`
   (`INTO OUTFILE`, `pg_read_file`), `sql-server-config` (`ALTER SYSTEM`),
   `sql-privileges` (`GRANT`, `CREATE ROLE`), `sql-opaque` (`DO`,
   `PREPARE`), `sql-remote` and `sql-kill`. A pg_dump with privileges names
