@@ -219,7 +219,9 @@ not yet tried against the vendors' own servers. komando uses them:
   (`KOMANDO_EXPERIMENTAL_VPN=fortinet,pulse`, or `all`).
 
 Otherwise, if `openconnect` is installed, komando runs it together with
-`ocproxy`. That also leaves your computer's network unchanged.
+`ocproxy`. That also leaves your computer's network unchanged. A
+GlobalProtect VPN without `--user` always uses komando's own client: only
+that one does the browser sign-in below.
 
 ### GlobalProtect with a browser sign-in
 

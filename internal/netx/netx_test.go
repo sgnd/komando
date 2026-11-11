@@ -95,3 +95,22 @@ func TestBuiltinSSL(t *testing.T) {
 		t.Error("KOMANDO_EXPERIMENTAL_VPN names the kinds to use")
 	}
 }
+
+// A GlobalProtect VPN without a user signs in through a browser, which
+// openconnect cannot do: it uses komando's own client also when
+// openconnect is installed.
+func TestBuiltinSSLForBrowserSignIn(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "openconnect"), []byte("#!/bin/sh\n"), 0o755)
+	t.Setenv("PATH", dir)
+	t.Setenv("KOMANDO_EXPERIMENTAL_VPN", "")
+	if !BuiltinSSLFor(&store.Vpn{Kind: "globalprotect", Portal: "vpn.example.com"}) {
+		t.Error("browser sign-in went to openconnect")
+	}
+	if BuiltinSSLFor(&store.Vpn{Kind: "globalprotect", Portal: "vpn.example.com", User: "budi"}) {
+		t.Error("with a user, openconnect still carries it")
+	}
+	if BuiltinSSLFor(&store.Vpn{Kind: "fortinet", Portal: "vpn.example.com"}) {
+		t.Error("fortinet without a user")
+	}
+}

@@ -92,7 +92,7 @@ func listening(addr string) bool {
 
 // vpnClients are the programs a VPN needs on this computer.
 func vpnClients(v *store.Vpn) []string {
-	if netx.BuiltinSSL(v.Kind) {
+	if netx.BuiltinSSLFor(v) {
 		return nil // komando's own client
 	}
 	if v.Kind == "openvpn" && v.OSMode {
@@ -192,7 +192,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if self, err := os.Executable(); err == nil {
 			s.Exe = filepath.Base(self)
 		}
-	case netx.BuiltinSSL(v.Kind):
+	case netx.BuiltinSSLFor(v):
 		// log in here, where a person can answer (MFA); the session's
 		// server gets only the cookie
 		cookie, err := sslLogin(ctx, v, interactive)
