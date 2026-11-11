@@ -21,6 +21,20 @@ func cancelledText() string {
 	return "Cancelled. Nothing was changed on " + joinAnd(askedAbout) + "."
 }
 
+// changeSay says what a change did, first, in words: "added web1 to
+// @web", or under --dry-run "would add web1 to @web (dry run)". An empty
+// what is "nothing to add".
+func changeSay(verb, what, where string) string {
+	if what == "" {
+		return "nothing to " + verb
+	}
+	s := strings.TrimSpace(map[string]string{"add": "added", "remove": "removed", "save": "saved", "import": "imported"}[verb] + " " + what + " " + where)
+	if g.dryRun {
+		s = strings.TrimSpace("would "+verb+" "+what+" "+where) + " (dry run)"
+	}
+	return s
+}
+
 // joinAnd lists names for a sentence: "a", "a and b", "a, b and c".
 func joinAnd(names []string) string {
 	if len(names) < 2 {

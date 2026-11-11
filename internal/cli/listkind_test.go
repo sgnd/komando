@@ -46,3 +46,33 @@ func TestTestTextHintOnce(t *testing.T) {
 		t.Errorf("two targets:\n%s", s)
 	}
 }
+
+// A change says what happened first, in words, not a dump of fields.
+func TestChangeSay(t *testing.T) {
+	for _, c := range []struct {
+		dry                    bool
+		verb, what, where, say string
+	}{
+		{false, "add", "web1 and web2", "to @web", "added web1 and web2 to @web"},
+		{true, "add", "web1", "to @web", "would add web1 to @web (dry run)"},
+		{false, "add", "", "to @web", "nothing to add"},
+		{false, "remove", "recipe up", "", "removed recipe up"},
+		{false, "save", "recipe up", "", "saved recipe up"},
+	} {
+		g.dryRun = c.dry
+		if got := changeSay(c.verb, c.what, c.where); got != c.say {
+			t.Errorf("got %q, want %q", got, c.say)
+		}
+	}
+	g.dryRun = false
+}
+
+func TestHostImportSay(t *testing.T) {
+	g.dryRun = true
+	defer func() { g.dryRun = false }()
+	got := hostImportSay(nil, hostVet{Existing: []string{"web1", "web2"}}, nil)
+	want := "nothing to import\nskipped web1: a server with this name exists (--overwrite replaces it)\nskipped web2: a server with this name exists (--overwrite replaces it)"
+	if got != want {
+		t.Errorf("got %q", got)
+	}
+}

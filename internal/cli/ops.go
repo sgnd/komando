@@ -318,7 +318,7 @@ func recipeAddCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "recipe.add", nil, s.Command, true, map[string]any{"recipe": s.Name, "read_only": s.ReadOnly})
-			out.P.Print("recipe.add", s, nil)
+			out.P.Print("recipe.add", textAs{s, textBlob(changeSay("save", "recipe "+s.Name, ""))}, nil)
 			return nil
 		},
 	}
@@ -348,11 +348,12 @@ func recipeRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			say := textBlob(changeSay("remove", "recipe "+args[0], ""))
 			if g.dryRun {
-				out.P.Print("recipe.rm", map[string]any{"would_remove": args[0]}, nil)
+				out.P.Print("recipe.rm", textAs{map[string]any{"would_remove": args[0]}, say}, nil)
 				return nil
 			}
-			out.P.Print("recipe.rm", map[string]any{"removed": args[0]}, nil)
+			out.P.Print("recipe.rm", textAs{map[string]any{"removed": args[0]}, say}, nil)
 			return nil
 		},
 	}
