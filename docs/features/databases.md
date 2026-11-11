@@ -233,7 +233,8 @@ The seatbelts:
 - Destructive SQL needs `--allow-dangerous`: `DROP`, `TRUNCATE`, `DELETE` or
   `UPDATE` without `WHERE`, privilege changes, code that reaches the
   server's operating system (`CREATE EXTENSION`, a function in C or
-  `plpython3u`, `LOAD`, MySQL `INSTALL PLUGIN` and `SONAME`), and a few more.
+  `plpython3u`, `LOAD`, MySQL `INSTALL PLUGIN` and `SONAME`, SQL Server
+  `CREATE ASSEMBLY`), and a few more.
   `komando policy list` shows them all; `komando policy check --for postgres "..."`
   tests a query.
 - A few admin functions that a read-only transaction does not stop (ending
