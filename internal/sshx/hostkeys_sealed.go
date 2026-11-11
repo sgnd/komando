@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -107,7 +108,11 @@ func (t *sealedTx) Check(hostname string, remote net.Addr, key ssh.PublicKey) er
 	for i, line := range idx[norm].rec.Keys {
 		k, ok := parsePinLine(line)
 		if !ok {
-			continue
+			// a pin that cannot be read is never "no pin": that would let
+			// any new key in on first use
+			return out.Errf(out.ExitConnect, "HOSTKEY_UNREADABLE",
+				"a person checks the server's key and runs `komando host trust` for it in their own terminal",
+				"the pinned host key for %s cannot be read", norm)
 		}
 		ke.Want = append(ke.Want, knownhosts.KnownKey{Key: k, Filename: store.StoreFile, Line: i + 1})
 		if SameKey(k, key) {

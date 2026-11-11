@@ -1,8 +1,11 @@
 package sshx
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"net"
 	"os"
@@ -12,6 +15,8 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
+	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -148,5 +153,53 @@ func TestSealedPinChanges(t *testing.T) {
 	}
 	if _, err := os.Stat(store.Path("known_hosts")); !os.IsNotExist(err) {
 		t.Fatal("known_hosts written in a sealed home")
+	}
+}
+
+// dialPin runs the host key check as a connection does, with the policy
+// that pins a new server on first use.
+func dialPin(t *testing.T, key ssh.PublicKey) error {
+	t.Helper()
+	cb, err := hostKeyCallback("web", "accept-new")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cb("web.example.com:22", &net.TCPAddr{IP: net.IPv4(10, 0, 0, 9), Port: 22}, key)
+}
+
+// A pin removed from the store with plain sqlite stops the connection; it
+// is never pinned again on first use.
+func TestSealedPinRowRemoved(t *testing.T) {
+	pinHome(t, true)
+	if _, err := PinHostKey("web.example.com:22", newHostKey(t), false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := sql.Open("sqlite", store.DBPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer raw.Close()
+	if _, err := raw.Exec(`DELETE FROM records WHERE type=?`, pinType); err != nil {
+		t.Fatal(err)
+	}
+	if err := dialPin(t, newHostKey(t)); !errors.Is(err, sealdb.ErrTampered) {
+		t.Fatalf("a removed pin let a new key in: %v", err)
+	}
+}
+
+// A pin that cannot be read stops the connection with HOSTKEY_UNREADABLE.
+func TestSealedPinUnreadable(t *testing.T) {
+	pinHome(t, true)
+	d, err := store.DB(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, _ := json.Marshal(pinRecord{Addr: knownhosts.Normalize("web.example.com:22"), Keys: []string{"not a key"}})
+	if err := d.Update(context.Background(), func(tx *sealdb.Tx) error { _, err := tx.Put(pinType, "", rec); return err }); err != nil {
+		t.Fatal(err)
+	}
+	var oe *out.Error
+	if err := dialPin(t, newHostKey(t)); !errors.As(err, &oe) || oe.Code != "HOSTKEY_UNREADABLE" {
+		t.Fatalf("an unreadable pin: %v", err)
 	}
 }
