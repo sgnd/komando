@@ -1116,3 +1116,21 @@ func TestMenuRunLines(t *testing.T) {
 		t.Error("Check everything stops at the first failure")
 	}
 }
+
+// Set up my AI agent, tried first: a dry run says what it would do.
+func TestGuideInstallDryRunText(t *testing.T) {
+	files := []skillFile{{Path: "/h/.claude/skills/komando/SKILL.md", Action: "created"},
+		{Path: "/h/.claude/settings.json", Action: "updated", Backup: "/h/.claude/settings.json.bak"}}
+	dry := skillResult{Files: files, dryRun: true}.Text()
+	for _, line := range strings.Split(dry, "\n") {
+		if strings.HasPrefix(line, "created") || strings.HasPrefix(line, "updated") || strings.Contains(line, "Restart") {
+			t.Errorf("dry run says it was done: %q", line)
+		}
+	}
+	if !strings.Contains(dry, "would be created") || !strings.Contains(dry, "would be kept") {
+		t.Errorf("dry run:\n%s", dry)
+	}
+	if real := (skillResult{Files: files}).Text(); !strings.HasPrefix(real, "created  ") {
+		t.Errorf("real run:\n%s", real)
+	}
+}

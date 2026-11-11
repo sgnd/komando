@@ -38,6 +38,10 @@ func TestTypoSuggestions(t *testing.T) {
 	if strings.Contains(e.Message, "\n") {
 		t.Errorf("one line: %q", e.Message)
 	}
+	// add alone is the menu's Add something: point at the add commands
+	if e := usageFor(t, "add"); strings.Contains(e.Message, "did you mean") || !strings.Contains(e.Hint, "komando host add") || e.Code != "USAGE" {
+		t.Errorf("add: %q / %q", e.Message, e.Hint)
+	}
 	if e := usageFor(t, "zzzz"); strings.Contains(e.Message, "did you mean") {
 		t.Errorf("no suggestion for nonsense: %q", e.Message)
 	}

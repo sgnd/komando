@@ -211,7 +211,7 @@ Safe to run again, for example after an update: a changed file is kept as
 					files = append(files, f)
 				}
 			}
-			out.P.Print("guide.install", skillResult{Files: files}, nil)
+			out.P.Print("guide.install", skillResult{Files: files, dryRun: g.dryRun}, nil)
 			return nil
 		},
 	}
@@ -221,21 +221,30 @@ Safe to run again, for example after an update: a changed file is kept as
 }
 
 type skillResult struct {
-	Files []skillFile `json:"files"`
+	Files  []skillFile `json:"files"`
+	dryRun bool
 }
 
 func (r skillResult) Text() string {
 	var b strings.Builder
 	for _, f := range r.Files {
-		b.WriteString(f.Action + "  " + f.Path + "\n")
+		action, kept := f.Action, "  old version kept as "
+		if r.dryRun && action != "unchanged" {
+			action, kept = "would be "+action, "  old version would be kept as "
+		}
+		b.WriteString(action + "  " + f.Path + "\n")
 		if f.Backup != "" {
-			b.WriteString("  old version kept as " + f.Backup + "\n")
+			b.WriteString(kept + f.Backup + "\n")
 		}
 		if f.Note != "" {
 			b.WriteString("  " + f.Note + "\n")
 		}
 	}
-	b.WriteString("Restart your AI agent so it sees the skill.")
+	if r.dryRun {
+		b.WriteString("Run it again without --dry-run to install.")
+	} else {
+		b.WriteString("Restart your AI agent so it sees the skill.")
+	}
 	return b.String()
 }
 

@@ -155,6 +155,10 @@ func usageErr(cmd *cobra.Command, err error) error {
 	// that points at the command meant
 	if name, ok := quotedAfter(m, "unknown command "); ok {
 		e.Message = fmt.Sprintf("unknown command %q", name)
+		if name == "add" && !cmd.HasParent() { // the menu's Add something, typed
+			e.Hint = "add a server with `komando host add`, a database with `komando db add`, a VPN with `komando vpn add`, or type `komando` alone and pick Add something"
+			return e
+		}
 		if s := cmd.SuggestionsFor(name); len(s) > 0 {
 			e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
 			e.Hint = "see `" + cmd.CommandPath() + " " + s[0] + " --help`"

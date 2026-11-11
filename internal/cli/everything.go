@@ -38,8 +38,8 @@ type targetList struct {
 }
 
 // emptyInventory is what a person reads when there is nothing yet.
-const emptyInventory = "No servers or conns yet. Add a server: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)\n" +
-	"A database, cache or bucket: komando conn add app-db postgres://app@10.0.0.5/app --ask-password"
+const emptyInventory = "No servers, databases or other services yet. Add a server: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)\n" +
+	"A database: komando db add app-db postgres://app@10.0.0.5/app --ask-password. A cache, bucket or cluster: komando conn add"
 
 func (l targetList) Text() string {
 	if l.empty {
@@ -81,7 +81,7 @@ func listCmdFor(only string) *cobra.Command {
 	c := &cobra.Command{
 		Use:     "list [TARGET]",
 		Aliases: []string{"ls"},
-		Short:   "List servers, conns and VPNs (all, or what TARGET picks)",
+		Short:   "List servers, databases, other services and VPNs",
 		Example: "  komando list\n  komando list @prod\n  komando list kind:db",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -224,7 +224,7 @@ func testCmdFor(only string) *cobra.Command {
 	c := &cobra.Command{
 		Use:     "test TARGET",
 		Aliases: []string{"ping"},
-		Short:   "Check that servers, conns and VPNs answer and accept the login",
+		Short:   "Check that servers, services and VPNs answer and let you in",
 		Long: `Logs in to each server (and checks who it is and whether sudo needs a
 password), connects to each conn and checks each VPN.
 
