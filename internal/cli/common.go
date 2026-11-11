@@ -174,9 +174,8 @@ func toErr(err error) *out.Error {
 	}
 	var pe *os.PathError
 	if errors.As(err, &pe) {
-		e := localFileErr("FILE_ERROR", err, "")
-		e.Exit = out.ExitError
-		return e
+		e := localFileErr("", err, "") // its words; the exit is not "not found" here
+		return out.Errf(out.ExitError, "FILE_ERROR", e.Hint, "%s", e.Message)
 	}
 	return &out.Error{Code: "REMOTE_ERROR", Message: err.Error(), Exit: out.ExitError,
 		Hint: "run it again with -o json for the details; `komando doctor` checks this computer's setup"}

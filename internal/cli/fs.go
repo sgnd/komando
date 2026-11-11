@@ -79,7 +79,7 @@ func fsErrHint(p string, err error, permHint string) error {
 	case errors.Is(err, os.ErrNotExist):
 		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "list the folder with `komando fs ls TARGET "+path.Dir(p)+"`", "%s: no such file or directory", p)
 	case errors.Is(err, os.ErrPermission):
-		return out.Errf(out.ExitError, "PERMISSION_DENIED", permHint, "%s: permission denied", p)
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", permHint, "%s: permission denied", p)
 	}
 	return err
 }

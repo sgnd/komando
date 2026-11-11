@@ -51,7 +51,7 @@ func (r *Rabbit) mgmt(ctx context.Context, path, what string, v any) error {
 	case resp.StatusCode == http.StatusNotFound && what != "":
 		return queueNotFound(what)
 	case resp.StatusCode == http.StatusNotFound:
-		return out.Errf(out.ExitNotFound, "QUEUE_ERROR", "check the vhost in the URL's path (%2F is the default vhost \"/\") and that ?management= names the management API's port", "the management API has no %s", path)
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "check the vhost in the URL's path (%2F is the default vhost \"/\") and that ?management= names the management API's port", "the management API has no %s", path)
 	case resp.StatusCode != http.StatusOK:
 		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read the management API's words above", "the management API answered %s: %s", resp.Status, short(body))
 	}
