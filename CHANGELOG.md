@@ -25,10 +25,12 @@ its highlights; the sections below them give the details. Versions follow
 - **Old copies are noticed:** with the store's key in the OS keychain, the
   keychain also remembers how many changes the store has had. An older
   copy put back stops commands with `STORE_OLD_COPY` (exit 6) until a
-  person runs `komando doctor --accept-old-copy`.
+  person runs `komando doctor --accept-old-copy`. When the keychain does
+  not answer in time, komando reads but changes nothing
+  (`KEYCHAIN_SLOW`).
 - **Windows:** komando builds and runs natively on Windows, with the vault
-  key in Windows Credential Manager, a native "Allow once" window, and
-  `.zip` releases.
+  key in Windows Credential Manager, a native "Allow once" window that
+  counts only a real mouse or keyboard, and `.zip` releases.
 
 ### Changed
 
@@ -39,6 +41,16 @@ its highlights; the sections below them give the details. Versions follow
 - `known_hosts` is written under a lock, so two komando processes reaching
   new servers at once no longer write over each other's fingerprints.
 - SSH key files komando makes are written whole or not at all.
+
+### Known limits
+
+- Any program of your user can read the store's key from the keychain
+  (macOS through `/usr/bin/security`, Windows Credential Manager, an
+  unlocked Linux keychain), and on macOS can lower the change count. An
+  agent running as your user is such a program. See "What the keychain
+  does not protect against" in docs/features/settings.md.
+- On macOS a program with Accessibility permission can click "Allow once".
+  Use the approval code, or keep that permission away from agent terminals.
 
 ### Removed
 

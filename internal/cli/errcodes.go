@@ -99,6 +99,7 @@ var errorCodes = []errorCode{
 	{"K8S_NOT_FOUND", 3, "… has no running pod", "check them with `komando cluster ls TARGET pods`"},
 	{"K8S_UNREACHABLE", 4, "the Kubernetes API did not answer (address, --via path or VPN)", "check the conn with `komando test NAME` (and its --via path)"},
 	{"KEYCHAIN_FAILED", 5, "the system keychain refused (locked, or no Secret Service on Linux)", "a person unlocks the keychain on this computer (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring"},
+	{"KEYCHAIN_SLOW", 1, "nothing was changed: the keychain did not answer in time, so komando could not check that … is the newest copy", "try again in a moment; if it keeps happening, run `komando doctor`"},
 	{"KEYCHAIN_TAKEN", 8, "another vault's key is already in the keychain under this folder's name, so komando does not replace it", "the vault still uses vault.key, nothing was lost: put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then try again"},
 	{"KEYSCAN_FAILED", 4, "cannot fetch host key from …: …", "check the address and port with `komando host show …`"},
 	{"KEY_EXISTS", 8, "key … already exists", "choose another name, or `komando key rm …` first"},

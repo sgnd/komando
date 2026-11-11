@@ -43,8 +43,9 @@ func guarded(meta map[string]string) bool {
 }
 
 // ErrKeychainSlow wraps a keychain that did not answer in time. Only this
-// lets a command go on unchecked (the keychain gave the key a moment ago;
-// a busy one must not stop all work); doctor warns about it.
+// lets a command go on unchecked, and then only to read (the keychain gave
+// the key a moment ago; a busy one must not stop all work, but nothing is
+// changed on a store that was not checked); doctor warns about it.
 var ErrKeychainSlow = errors.New("store: the keychain did not answer in time")
 
 func oldCopyErr(have, kept uint64, why string) error {
@@ -68,7 +69,11 @@ func checkGeneration(d *sealdb.DB, meta map[string]string) (lookOnly bool, err e
 	kept, ok, err := GenerationKeeper.Get()
 	switch {
 	case errors.Is(err, ErrKeychainSlow):
-		return false, nil
+		// look only, and opened again (and checked) on the next use
+		d.NoWrites = out.Errf(out.ExitError, "KEYCHAIN_SLOW",
+			"try again in a moment; if it keeps happening, run `komando doctor`",
+			"nothing was changed: the keychain did not answer in time, so komando could not check that %s is the newest copy", Path(StoreFile))
+		return true, nil
 	case err != nil || !ok:
 		// a store whose key is in the keychain always has its number there:
 		// a missing or unreadable one was removed or changed

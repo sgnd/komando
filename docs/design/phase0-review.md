@@ -224,14 +224,24 @@ Fixed on this branch:
 Fixed in other sessions: H1, H2, M2 (fix-sealdb-integrity); most of H3
 (drop-file-backend).
 
-Not fixed, and why:
+Second pass (also on this branch):
 
-- H4: making the macOS keychain item ask the person needs a signed binary
-  using the Security framework; with `/usr/bin/security` and `-T ""` every
-  komando command would show a prompt. Windows and Linux give no isolation
-  between programs of the same user. Write it down as a known limit.
-- M1: needs testing on Windows and macOS. The fix to aim for is a short code
-  shown in the window that has to be typed back into it.
-- L1: failing closed on a slow keychain would make `doctor` and every
-  command hang or fail whenever the keychain is locked; needs a decision.
-- L2, L3, L5: no data loss; L3 belongs in the docs, L5 in the VPN helper.
+- L1: a keychain that does not answer in time opens the store for reading
+  only (`sealdb.DB.NoWrites`); a write stops with `KEYCHAIN_SLOW`, and the
+  next use opens and checks the store again.
+- M1 on Windows: "Allow once" counts only when the click comes from the
+  Allow button and `GetCurrentInputMessageSource` says real hardware, so
+  `PostMessage` and `SendInput` from another program are ignored. Not run
+  on Windows yet.
+- Tests for M3, M4 and M5 (store/generation_test.go, vault/sealed_test.go).
+
+Known limits, written in docs/features/settings.md and CHANGELOG.md (the
+owner chose this for H4 on 2026-11-11):
+
+- H4: any program of the same user can read the keychain item and, on
+  macOS, lower the change count. `-T ""` would show a macOS prompt on
+  every command; the real fix is a signed komando using the Security
+  framework.
+- M1 on macOS: a program with Accessibility permission can click the
+  dialog. The approval code is the defence.
+- L2, L3, L5: no data loss; left as they are.

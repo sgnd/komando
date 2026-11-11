@@ -146,14 +146,21 @@ func TestMissingOrBrokenCountStops(t *testing.T) {
 		}
 		GenerationKeeper = saved
 	}
-	// a slow keychain lets work go on
+	// a slow keychain lets reading go on, never a change
 	saved := GenerationKeeper
 	GenerationKeeper = GenerationKeep{Get: func() (uint64, bool, error) { return 0, false, ErrKeychainSlow }, Set: func(uint64) error { return nil }}
 	closeDBs()
 	if _, err := Load(); err != nil {
 		t.Errorf("slow keychain: %v", err)
 	}
+	err := Update(func(s *State) error { s.Hosts["b"] = &Host{Name: "b"}; return nil })
+	var oe *out.Error
+	if !errors.As(err, &oe) || oe.Code != "KEYCHAIN_SLOW" {
+		t.Errorf("a write with a slow keychain: %v", err)
+	}
 	GenerationKeeper = saved
+	closeDBs()
+	update(t, func(s *State) { s.Hosts["b"] = &Host{Name: "b"} })
 }
 
 // A new store whose key goes into the keychain gets its number there at

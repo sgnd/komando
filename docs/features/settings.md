@@ -159,6 +159,30 @@ vault whose key is in the keychain opens only where that keychain is
 unlocked: on a Mac you reach over SSH, unlock it first
 (`security unlock-keychain`), or use a passphrase.
 
+### What the keychain does not protect against
+
+The keychain keeps the key away from someone who copies this folder. It
+does not keep it away from other programs you run yourself, and that
+includes an AI agent with a shell:
+
+- **macOS:** komando reads the item through `/usr/bin/security`, so any
+  program of your user can read it the same way, with no prompt. It could
+  also lower the change count komando keeps there, and then put back an old
+  copy of `store.db` without `STORE_OLD_COPY`. A fix needs a signed komando
+  that keeps its items for itself; it is planned.
+- **Windows:** Credential Manager gives the item to any program of your
+  user.
+- **Linux:** while the keychain is unlocked, `secret-tool` gives the item
+  to any program of your user.
+
+If an agent works on this computer under your own user, it can reach the
+key. To keep secrets away from it, run the agent as another user, or in a
+container or virtual machine that does not have your keychain.
+
+When the keychain does not answer within a few seconds, komando still reads
+the store but changes nothing: a command that would change something stops
+with `KEYCHAIN_SLOW`. Try again in a moment.
+
 ### A passphrase instead of the keychain
 
 `KOMANDO_VAULT_PASS` is the other way to protect the vault, mainly for a
@@ -238,3 +262,11 @@ komando config approval-code --off --yes # turn it off again
 ```
 
 Only a person at a terminal can turn it on.
+
+On Windows the window counts only a click or key press from a real mouse or
+keyboard: another program cannot press "Allow once" for you. This also
+means a screen reader or other tool that presses buttons for you cannot
+press it. On macOS a program that has Accessibility permission (System
+Settings, Privacy & Security) can click buttons in any window, this one
+included. Do not give that permission to a terminal an agent works in, or
+turn on the approval code.

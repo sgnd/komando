@@ -39,6 +39,7 @@ var (
 	procSetFocus         = user32.NewProc("SetFocus")
 	procLoadCursorW      = user32.NewProc("LoadCursorW")
 	procGetStockObject   = gdi32.NewProc("GetStockObject")
+	procInputSource      = user32.NewProc("GetCurrentInputMessageSource")
 )
 
 const (
@@ -106,14 +107,35 @@ var (
 	winRegErr   error
 	winAnswer   int // idAllow, idDeny, or 0 when it gave up
 	winCodeEdit uintptr
+	winAllowBtn uintptr
 	winCode     string
 )
+
+// imoHardware is INPUT_MESSAGE_SOURCE's origin for a real keyboard or
+// mouse; a message posted by another program has none, and SendInput
+// marks its events as injected.
+const imoHardware = 1
+
+// pressedByPerson says whether the click being handled came from a real
+// keyboard or mouse. Another program can post "Allow" to this window
+// (PostMessage) or fake a click (SendInput); neither counts.
+func pressedByPerson(lParam uintptr) bool {
+	if lParam == 0 || lParam != winAllowBtn || procInputSource.Find() != nil {
+		return false
+	}
+	var src struct{ deviceType, originID uint32 }
+	r, _, _ := procInputSource.Call(uintptr(unsafe.Pointer(&src)))
+	return r != 0 && src.originID == imoHardware
+}
 
 func wndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	switch msg {
 	case wmCommand:
 		switch id := wParam & 0xffff; id {
 		case idAllow, idDeny:
+			if id == idAllow && !pressedByPerson(lParam) {
+				return 0 // not a person: the window stays open
+			}
 			winAnswer = int(id)
 			if id == idAllow && winCodeEdit != 0 {
 				buf := make([]uint16, 64)
@@ -177,7 +199,7 @@ func approvalWindow(text string, withCode bool) (code string, allowed, gaveUp, s
 	if winRegErr != nil {
 		return "", false, false, false
 	}
-	winAnswer, winCode, winCodeEdit = idDeny, "", 0
+	winAnswer, winCode, winCodeEdit, winAllowBtn = idDeny, "", 0, 0
 
 	const w, textH, pad, btnW, btnH, codeH = 560, 240, 12, 110, 28, 24
 	h := pad + textH + pad + btnH + pad + 40 // 40: the title bar and borders
@@ -212,7 +234,7 @@ func approvalWindow(text string, withCode bool) (code string, allowed, gaveUp, s
 		allowStyle, denyStyle = bsDefPush, bsPushButton // as on macOS: Enter after the code allows
 	}
 	deny := child("BUTTON", "Deny", denyStyle|wsTabStop, pad+inner-2*btnW-pad, y, btnW, btnH, idDeny)
-	child("BUTTON", "Allow once", allowStyle|wsTabStop, pad+inner-btnW, y, btnW, btnH, idAllow)
+	winAllowBtn = child("BUTTON", "Allow once", allowStyle|wsTabStop, pad+inner-btnW, y, btnW, btnH, idAllow)
 
 	procShowWindow.Call(hwnd, swShow)
 	procSetForegroundWin.Call(hwnd)

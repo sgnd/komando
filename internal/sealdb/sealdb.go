@@ -112,6 +112,9 @@ type DB struct {
 	// OnGeneration, when set, is told the new generation after each write
 	// step that changed a record (the store keeps it in the keychain).
 	OnGeneration func(uint64)
+	// NoWrites, when set, is the error every write step fails with: the
+	// store could not be checked, so it is read but never changed.
+	NoWrites error
 }
 
 // fileURI makes the SQLite URI for path, escaped so that '?', '#' and '%'
@@ -287,6 +290,9 @@ func (d *DB) Update(ctx context.Context, fn func(*Tx) error) error {
 }
 
 func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error) {
+	if write && d.NoWrites != nil {
+		return d.NoWrites
+	}
 	release, err := d.enter()
 	if errors.Is(err, ErrNested) {
 		return d.nested(write, fn)
