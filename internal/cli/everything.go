@@ -99,6 +99,11 @@ func listCmdFor(only string) *cobra.Command {
 				}
 			}
 			sel = keepOnly(sel, only)
+			if target != "" && only != "" && len(sel.Hosts)+len(sel.Conns)+len(sel.Vpns) == 0 {
+				// a selector that picks nothing is an error (ux.md, section 2), as for `host test`
+				return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "use `komando list "+target+"` to see everything it picks",
+					"target %q picked no %ss", target, only)
+			}
 			l := targetList{Targets: []targetRow{}, empty: len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0}
 			for _, h := range sel.Hosts {
 				l.Targets = append(l.Targets, targetRow{Name: h.Name, Kind: "host",

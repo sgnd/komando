@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,6 +41,10 @@ const groupOnly = "komando-group"
 func applyConventions(c *cobra.Command) {
 	if c.Name() == "rm" {
 		c.Aliases = rmAliases
+	}
+	// list and ls are each other's other name (ux.md, section 1)
+	if other, ok := map[string]string{"list": "ls", "ls": "list"}[c.Name()]; ok && !slices.Contains(c.Aliases, other) {
+		c.Aliases = append(c.Aliases, other)
 	}
 	if c.Example == "" {
 		c.Example = examples[c.CommandPath()]

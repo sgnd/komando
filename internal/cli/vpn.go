@@ -633,6 +633,9 @@ func vpnWhere(v *store.Vpn) string {
 	case "l2tp", "ipsec", "ikev2":
 		return v.Server
 	}
+	if v.Portal != "" {
+		return v.Portal // the openconnect kinds (globalprotect, anyconnect, ...)
+	}
 	return dash(v.Check)
 }
 
