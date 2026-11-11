@@ -189,3 +189,16 @@ func TestLoginCloudNamesReserved(t *testing.T) {
 		t.Errorf("form: %q", p)
 	}
 }
+
+// logout of a name that is neither a server nor a kept login is an error,
+// as login's is; --all with names is refused, not read as --all.
+func TestLogoutArgs(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@192.0.2.7")
+	if d := mustRun(t, "logout", "web1"); fmt.Sprint(d["not_logged_in"]) != "[web1]" {
+		t.Errorf("logout web1: %v", d)
+	}
+	wantCode(t, "HOST_NOT_FOUND", "logout", "nosuch")
+	wantCode(t, "USAGE", "logout", "--all", "web1")
+	mustRun(t, "logout", "--all")
+}
