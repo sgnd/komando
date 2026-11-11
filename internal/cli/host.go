@@ -31,22 +31,6 @@ func validName(kind, n string) error {
 	return nil
 }
 
-// loginClouds are the subcommands of `komando login`: a server with one of
-// these names could never be logged in to, so a new server cannot take one.
-var loginClouds = []string{"aws", "gcp", "azure"}
-
-// checkHostName is validName for a new server name.
-func checkHostName(n string) error {
-	if err := validName("host", n); err != nil {
-		return err
-	}
-	if slices.ContainsFunc(loginClouds, func(c string) bool { return strings.EqualFold(c, n) }) {
-		return out.Errf(out.ExitUsage, "USAGE", "pick another name, e.g. "+strings.ToLower(n)+"-1",
-			"%q cannot be a server name: `komando login %s` is the cloud login", n, strings.ToLower(n))
-	}
-	return nil
-}
-
 type hostFlags struct {
 	address, user, key, identity, passwordRef, sudoRef, jump, notes string
 	proxyCommand, os                                                string
@@ -140,32 +124,8 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 	h := &store.Host{Name: name, Address: f.address, Port: f.port, User: f.user, Key: f.key, Identity: f.identity,
 		PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, ProxyCommand: f.proxyCommand, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
 		Protected: f.protected, Notes: f.notes, OS: f.os}
-	if len(args) == 2 || isWinRMAddress(f.address) {
-		arg := f.address // --address winrm://USER@HOST, as the positional one
-		if len(args) == 2 {
-			arg = args[1]
-		}
-		a, err := parseAddressArg(arg)
-		if err != nil {
-			return err
-		}
-		h.Address, h.Transport, h.WinRMOpts = a.Address, a.Transport, a.WinRMOpts
-		// only the positional address must agree with --user and --port;
-		// with --address winrm://... the flags win, as for every --address
-		if len(args) == 2 && a.User != "" && h.User != "" && a.User != h.User {
-			return out.Errf(out.ExitUsage, "USAGE", "give the user once, in the address or with --user",
-				"user %s in the address and --user %s disagree", a.User, h.User)
-		}
-		if len(args) == 2 && a.Port != 0 && h.Port != 0 && a.Port != h.Port {
-			return out.Errf(out.ExitUsage, "USAGE", "give the port once, in the address or with --port",
-				"port %d in the address and --port %d disagree", a.Port, h.Port)
-		}
-		if a.User != "" && h.User == "" {
-			h.User = a.User
-		}
-		if a.Port != 0 && h.Port == 0 {
-			h.Port = a.Port
-		}
+	if err := setHostAddress(h, args, f.address); err != nil {
+		return err
 	}
 	if h.Address == "" {
 		return out.Errf(out.ExitUsage, "USAGE", "e.g. komando host add "+name+" deploy@10.0.0.5, or --address 10.0.0.5",

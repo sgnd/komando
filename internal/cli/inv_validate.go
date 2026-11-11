@@ -364,3 +364,53 @@ type connResult struct {
 func sameTwinWarning(kind, name, twin string) string {
 	return fmt.Sprintf("%s is the same %s as protected %s, so it is protected too (changes need --yes)", name, kind, twin)
 }
+
+// loginClouds are the subcommands of `komando login`: a server with one of
+// these names could never be logged in to, so a new server cannot take one.
+var loginClouds = []string{"aws", "gcp", "azure"}
+
+// checkHostName is validName for a new server name.
+func checkHostName(n string) error {
+	if err := validName("host", n); err != nil {
+		return err
+	}
+	if slices.ContainsFunc(loginClouds, func(c string) bool { return strings.EqualFold(c, n) }) {
+		return out.Errf(out.ExitUsage, "USAGE", "pick another name, e.g. "+strings.ToLower(n)+"-1",
+			"%q cannot be a server name: `komando login %s` is the cloud login", n, strings.ToLower(n))
+	}
+	return nil
+}
+
+// setHostAddress fills h from the positional user@address[:port] (args[1])
+// or from --address winrm://USER@HOST. Only the positional address must
+// agree with --user and --port; with --address the flags win, as for every
+// --address.
+func setHostAddress(h *store.Host, args []string, flagAddr string) error {
+	arg := flagAddr
+	switch {
+	case len(args) == 2:
+		arg = args[1]
+	case !isWinRMAddress(flagAddr):
+		return nil
+	}
+	a, err := parseAddressArg(arg)
+	if err != nil {
+		return err
+	}
+	h.Address, h.Transport, h.WinRMOpts = a.Address, a.Transport, a.WinRMOpts
+	if len(args) == 2 && a.User != "" && h.User != "" && a.User != h.User {
+		return out.Errf(out.ExitUsage, "USAGE", "give the user once, in the address or with --user",
+			"user %s in the address and --user %s disagree", a.User, h.User)
+	}
+	if len(args) == 2 && a.Port != 0 && h.Port != 0 && a.Port != h.Port {
+		return out.Errf(out.ExitUsage, "USAGE", "give the port once, in the address or with --port",
+			"port %d in the address and --port %d disagree", a.Port, h.Port)
+	}
+	if a.User != "" && h.User == "" {
+		h.User = a.User
+	}
+	if a.Port != 0 && h.Port == 0 {
+		h.Port = a.Port
+	}
+	return nil
+}
