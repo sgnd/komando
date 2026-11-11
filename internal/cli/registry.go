@@ -67,6 +67,8 @@ func withRegistry(ctx context.Context, name, expr string, risk driver.Risk, extr
 		}
 		return err
 	}
+	ctx, cancel := context.WithTimeout(ctx, cmdTimeout(st))
+	defer cancel()
 	rc, closeRC, err := openRegistry(ctx, st, c)
 	if err != nil {
 		return err
@@ -168,7 +170,11 @@ func registryErr(err error) error {
 			"if the registry uses a private CA (mkcert, an internal CA), store that CA with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to the conn URL (preferred: the check stays on); without the CA, store the registry's own certificate the same way, which pins it; ?tls=skip-verify turns the check off",
 			"the registry's TLS certificate is not trusted: %v", err)
 	}
-	return out.Errf(out.ExitConnect, "REGISTRY_UNREACHABLE", "check the conn with `komando test NAME`", "%v", err)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test NAME`",
+			"the registry did not answer within the time limit (--timeout)")
+	}
+	return out.Errf(out.ExitConnect, "REGISTRY_UNREACHABLE", "check the conn with `komando test NAME`", "%s", dialMessage(err))
 }
 
 // certErr says whether err is a failed certificate check.
@@ -199,24 +205,50 @@ func registryLsCmd() *cobra.Command {
   komando registry ls ghcr myorg/api`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 1 {
+				return out.Usage("--limit must be 1 or more")
+			}
 			return withRegistry(cmd.Context(), "registry.ls", args[0], driver.RiskRead, nil, func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
+				// one more than asked tells whether the list was cut
 				if len(args) == 1 {
-					repos, err := r.Catalog(ctx, limit)
+					repos, err := r.Catalog(ctx, limit+1)
 					if err != nil {
 						return nil, err
 					}
-					return map[string]any{"conn": c.Name, "count": len(repos), "repositories": repos}, nil
+					repos, cut := cutList(repos, limit)
+					return withTruncated(map[string]any{"conn": c.Name, "count": len(repos), "repositories": repos}, cut), nil
 				}
-				tags, err := r.Tags(ctx, args[1], limit)
+				tags, err := r.Tags(ctx, args[1], limit+1)
 				if err != nil {
 					return nil, imageErr(ctx, r, args[1], "", err)
 				}
-				return map[string]any{"conn": c.Name, "repo": args[1], "count": len(tags), "tags": tags}, nil
+				tags, cut := cutList(tags, limit)
+				return withTruncated(map[string]any{"conn": c.Name, "repo": args[1], "count": len(tags), "tags": tags}, cut), nil
 			})
 		},
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most entries to show")
 	return c
+}
+
+// cutList keeps the first limit items (never nil, so JSON shows []) and
+// reports whether there were more.
+func cutList(items []string, limit int) ([]string, bool) {
+	if items == nil {
+		items = []string{}
+	}
+	if len(items) > limit {
+		return items[:limit], true
+	}
+	return items, false
+}
+
+// withTruncated marks a cut list, as cluster ls does.
+func withTruncated(res map[string]any, cut bool) map[string]any {
+	if cut {
+		res["truncated"] = true
+	}
+	return res
 }
 
 func registryInspectCmd() *cobra.Command {
@@ -241,11 +273,15 @@ func registryInspectCmd() *cobra.Command {
 
 func registryRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "rm CONN REPO[:TAG|@DIGEST]",
+		Use:     "rm CONN REPO:TAG|REPO@DIGEST",
 		Short:   "Delete an image and every tag on it (needs --allow-dangerous)",
 		Example: "  komando registry rm harbor myorg/api:old --allow-dangerous",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// a forgotten tag must not mean latest, the image that usually runs
+			if _, ref := splitImage(args[1]); ref == "latest" && !strings.HasSuffix(args[1], ":latest") {
+				return out.Usage("name the tag or digest to delete, e.g. %s:1.2 (komando does not pick latest for a delete)", args[1])
+			}
 			return withRegistry(cmd.Context(), "registry.rm", args[0], driver.RiskDestructive, map[string]any{"image": args[1]},
 				func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
 					repo, ref := splitImage(args[1])
