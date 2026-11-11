@@ -30,10 +30,9 @@ func cacheCmd() *cobra.Command {
 ` + "`komando cache add`" + `.
 
 get, keys and info only read. set changes data (a production cache asks
-first); rm deletes
-keys, so it also needs --allow-dangerous. ` + "`cache run`" + ` sends any command, but
-only reads unless --write; commands that flush, block, run scripts or
-reconfigure the server also need --allow-dangerous.`,
+first); rm deletes keys, so it also needs --allow-dangerous. ` + "`cache run`" + `
+sends any command, but only reads unless --write; commands that flush,
+block, run scripts or reconfigure the server also need --allow-dangerous.`,
 	}
 	c.AddCommand(connAddCmdFor("cache"), cacheGetCmd(), cacheKeysCmd(), cacheInfoCmd(), cacheSetCmd(), cacheRmCmd(), cacheRunCmd())
 	return c

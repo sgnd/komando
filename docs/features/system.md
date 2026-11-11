@@ -24,13 +24,16 @@ komando svc status @web nginx php8.2-fpm      # state, main PID, restarts, memor
 komando svc restart @web nginx --wait 10s     # fails unless nginx is active within 10s
 komando svc enable web1 nginx --now           # enable and start
 komando svc stop web1 old-worker
+komando svc start web1 worker
+komando svc disable web1 old-worker --now      # do not start it at boot, and stop it now
 komando svc list web1 --failed                # or --state running
 komando svc logs web1 nginx                   # same as komando logs web1 --unit nginx
 ```
 
 `start`, `stop`, `restart`, `reload`, `enable` and `disable` use sudo and
-report the state afterwards. Add `--no-sudo` for user units or when you log
-in as root.
+report the state afterwards. Add `--no-sudo` when you log in as root. They
+work on system services only: komando does not manage a user's own units
+(`systemctl --user`); use `komando exec` for those.
 
 - `--wait` takes a time (`10s`, `2m`); a bare number counts as seconds.
 - Stopping, disabling or masking the SSH server (`ssh`, `sshd`,
@@ -81,7 +84,11 @@ komando docker ps web1                         # running containers (--all for s
 komando docker stats web1                      # CPU, memory, network and disk use
 komando docker images web1
 komando docker logs web1 api -n 100            # same as komando logs web1 --container api
+komando docker inspect web1 api                # a container, image or other object in full
+komando docker pull web1 nginx:1.27            # fetch an image
+komando docker stop web1 api                   # also: start, restart
 komando docker restart web1 api
+komando docker rm web1 old-api --dry-run       # remove a container (needs --allow-dangerous)
 komando docker exec web1 api -- php artisan migrate:status
 komando docker compose web1 --dir /srv/shop -- up -d --pull always
 komando docker prune web1 --older-than 30d --dry-run   # what would be removed, and how much space

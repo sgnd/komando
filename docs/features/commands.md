@@ -46,8 +46,10 @@ komando exec db1 --read-only -- 'df -h /var/lib/postgresql'   # SQL itself: koma
 ### Results and exit codes
 
 Each server gets its own output, errors, exit code and run time. If the
-command fails on any server, komando exits 5; if it cannot connect, it
-exits 4.
+command fails on any server, komando exits 5. If komando cannot connect or
+log in, it exits 4, except when the server does not answer within
+`--connect-timeout` (`CONNECT_TIMEOUT`): that exits 7, like other
+timeouts.
 
 With `-o text`, one server prints like `ssh`: its output, its errors, and a
 closing `error [FAILED]: server web1 failed (exit 3)` when it fails. Several servers
@@ -244,20 +246,22 @@ komando recipe rm disk-of
 
 Type `komando` alone in a terminal and a menu opens. Pick a thing first
 (a server, a database, a VPN), then what to do with it. Move with the arrow
-keys (or `j`/`k`), choose with Enter or a number, and type to filter.
+keys (or `j`/`k`) and choose with Enter or a number. In a list of servers
+or services, type to filter it.
 
 ```text
-komando  3 servers · 2 databases · 1 VPN (office connected)
+komando  3 servers · 1 database · 2 services · 2 VPNs (office connected)
 
-> 1. Servers                  web1, web2, db1
-  2. Databases and services   shop-db, cache1, orders-queue
-  3. VPNs                     office connected · lab not connected
-  4. Add something            A server, a database, a VPN or another service
-  5. Check everything         See if every server and service answers
-  6. History and undo         What komando and your AI agent changed
-  7. Settings and help        AI agent, saved passwords, production servers
+> 1. Servers                 db1, web1, web2
+  2. Databases and services  cache1, orders-queue, shop-db
+  3. VPNs                    lab not connected · office connected
+  4. Running now (1)         Jobs, tunnels, VPNs and logins komando left running
+  5. Add something           A server, a database, a VPN or another service
+  6. Check everything        See if every server and service answers
+  7. History and undo        What komando and your AI agent changed, and how to put it back
+  8. Settings and help       AI agent, passwords, production servers, SSH keys
 
-Enter choose · Esc back · type to filter · ? help · q quit
+↑↓ move · Enter or 1-8 choose · ? help · q quit
 ```
 
 The first time, with nothing added yet, the menu offers Add a server, Bring
@@ -278,7 +282,7 @@ question wrap instead. A long filter shows its end, where you type.
 The menu runs the same command you could type, and shows it first
 (`$ komando shell web1`), so every question and safety check works as it
 does on the command line. When the command ends, Enter goes back to the
-menu and `q` quits. Esc always goes back one step. Ctrl-C stops the command
+menu and `q` quits. Esc goes back one step (on the main menu, it leaves). Ctrl-C stops the command
 that is running, not the menu. `?` explains the screen you are on.
 
 The menu is only for a person at a terminal. AI agents, scripts, pipes and
@@ -290,7 +294,7 @@ error). `komando --help` lists every command.
 Add asks what you are adding (a Linux or Windows server, a database, a
 cache, a message queue, file storage, Kubernetes, a container registry or a
 VPN), then one question at a time, in the order you think of it: a name,
-what the server runs, the address, the user, the port, how you log in, and
+the address, the user, what the server runs, the port, how you log in, and
 whether it is production. Each question says what it is
 and where to find it, shows an example, and offers a default that Enter
 takes (`Port [22]:`). An answer is checked before the next question: a name
@@ -298,9 +302,8 @@ that is taken, an address with a typo or a file that is not there is said
 under it, marked `!`, and the answer stays to be fixed.
 
 ```text
-Add a server · 4 of 7
+Add a server · 3 of 7
   Name     web1
-  System   Linux
   Address  203.0.113.20
 
 Which user do you log in as?
@@ -317,14 +320,15 @@ This runs:
   $ komando host add web1 root@203.0.113.20 --ask-password --protected
   $ komando test web1
 
-> 1. Run it        run the commands above
-  2. Name          web1
+> 1. Run it          run the commands above
+  2. Try it first    show what it would do, changing nothing (--dry-run)
+  3. Name            web1
   ...
-  7. More options  reached, one-time code, group, notes
+  10. More options   jump host, one-time code, group, notes
 ```
 
 Enter on an answer asks it again; More options asks the rare ones (a jump
-server or VPN, a group, notes). A password is never typed into the menu:
+host or VPN, a one-time code, a group, notes). A password is never typed into the menu:
 the command asks for it itself, hidden (`--ask-password`), and keeps it as
 a saved password. A password pasted with the address (`root:secret@10.0.0.5`) is
 taken out before it is shown, and nothing keeps it. After the add, `komando

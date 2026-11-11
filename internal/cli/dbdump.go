@@ -120,8 +120,9 @@ func dbDumpCmd() *cobra.Command {
 		Use:   "dump DATABASE [--to FILE]",
 		Short: "Save a copy of a database to a file on this computer",
 		Long: `Saves a copy of the database to a file on this computer. Without --to the
-file is DATABASE-<date>.sql.gz in this folder. A file ending in .gz is
-compressed. Afterwards komando prints the command that loads it back.
+file is DATABASE-<date>.sql.gz (SQLite: DATABASE-<date>.db) in this
+folder. A file ending in .gz is compressed. Afterwards komando prints the
+command that loads it back.
 
 pg_dump or mysqldump runs on a server that has it: the one you name with
 --on HOST, else the database's --via server. It connects to the conn URL's
@@ -166,7 +167,7 @@ holds your data: it is created readable only by you.`,
 			return nil
 		},
 	}
-	c.Flags().StringVar(&to, "to", "", "file to create on this computer (default: DATABASE-<date>.sql.gz)")
+	c.Flags().StringVar(&to, "to", "", "file to create on this computer (default: DATABASE-<date>.sql.gz; SQLite: DATABASE-<date>.db)")
 	c.Flags().StringVar(&o.format, "format", "plain", "plain (SQL) or custom (PostgreSQL archive for pg_restore)")
 	c.Flags().BoolVar(&o.schemaOnly, "schema-only", false, "tables, indexes and functions, no rows")
 	c.Flags().StringArrayVar(&o.tables, "table", nil, "only this table (repeatable; SCHEMA.TABLE on PostgreSQL)")
@@ -272,7 +273,7 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 			return out.Errf(out.ExitUsage, "USAGE", "drop those flags: komando db dump "+argQ(c.Name)+" --to backup.db", "sqlite backups copy the whole database file; --format, --schema-only, --table and --on do not apply")
 		}
 		if strings.HasSuffix(to, ".gz") {
-			return out.Usage("sqlite backups are database files; drop the .gz")
+			return out.Errf(out.ExitUsage, "USAGE", "for example: komando db dump "+argQ(c.Name)+" --to backup.db", "sqlite backups are database files; drop the .gz")
 		}
 		data.Tool = []string{"VACUUM INTO"}
 		rec["runs_on"] = "local"

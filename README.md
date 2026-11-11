@@ -98,9 +98,9 @@ everything**, **History and undo** and **Settings and help**.
 ### 2. Add a server
 
 Choose **Add a server** (later: **Add something**, then **Server**).
-komando asks one question at a time: a name, what the server runs (Linux or
-Windows), the address, the user, the port, how you log in, and whether it is
-production. Each question shows an example, and Enter takes the default
+komando asks one question at a time: a name, the address, the user, what
+the server runs (Linux or Windows), the port, how you log in, and whether it
+is production. Each question shows an example, and Enter takes the default
 (`Port [22]:`). A wrong answer, such as a name that is taken or a key file
 that is not there, is marked `!` under the question and waits for you to
 fix it. The production question starts on **Yes, protect it**: komando then

@@ -529,8 +529,9 @@ func labelBuiltinCmds(root *cobra.Command) {
 // rootLong is the top of `komando --help`: what komando is, then the first
 // commands a person types. The notes for scripts come after the command
 // list (rootScriptNotes).
-const rootLong = `komando is one safe command line for servers, databases, caches, storage,
-clusters and registries, for people and AI agents alike.
+const rootLong = `komando is one safe command line for
+` + tagline + `,
+for people and AI agents alike.
 
 First steps:
   komando                                  a menu of common tasks (in a terminal)
@@ -539,9 +540,10 @@ First steps:
   komando guide install                    let your AI agent use komando safely
 
 Targets: a server or service name, a pattern (web-*), @group, tag:NAME,
-label:key=value, kind:KIND (host, db, cache, storage, postgres, ...), all, or
-user@addr:port for a server you have not added. Combine with commas; put ! in
-front to leave one out. See them all with ` + "`komando list`" + `.`
+label:key=value, kind:KIND (host, db, cache, storage, postgres, ...),
+os:windows or os:linux, all, or user@addr:port for a server you have not
+added. Combine with commas; put ! in front to leave one out.
+See them all with ` + "`komando list`" + `.`
 
 // rootScriptNotes close `komando --help`: what scripts and agents read.
 const rootScriptNotes = `For scripts and AI agents:
@@ -567,8 +569,12 @@ func printFirstSteps(cmd *cobra.Command, args []string) error {
 	return err
 }
 
+// tagline is what komando works with, said the same way in `komando`
+// alone, `komando --help` and the README.
+const tagline = "servers, databases, caches, queues, storage, clusters and VPNs"
+
 // firstSteps is what `komando` alone prints.
-const firstSteps = `komando: one safe command line for servers, databases, caches, queues, storage, clusters and VPNs.
+const firstSteps = `komando: one safe command line for ` + tagline + `.
 
 First steps:
   komando import ssh-config        bring in the servers you already have

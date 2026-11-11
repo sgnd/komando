@@ -25,7 +25,8 @@ caches, queues, storage, clusters, registries) and VPNs together:
 | `@prod` | everything in group `prod` |
 | `tag:prod` | everything tagged `prod` |
 | `label:dc=jkt` | everything with label `dc=jkt` (`label:dc` picks everything that has a `dc` label) |
-| `kind:db` | every database (also `kind:host`, `kind:conn`, `kind:vpn`, `kind:cache`, `kind:storage`, `kind:postgres`, ...) |
+| `kind:db` | every database (also `kind:host`, `kind:conn`, `kind:vpn`, `kind:cache`, `kind:queue`, `kind:storage`, `kind:cluster`, `kind:registry`, `kind:postgres`, ...) |
+| `os:windows` | every Windows server (`os:linux`: every other server) |
 | `all` | everything |
 | `@prod,!web3` | combine with `,`; leave out with `!` |
 | `!web3` | everything except `web3` (same as `all,!web3`) |
@@ -43,6 +44,7 @@ only one. A misspelled name, `@group` or `tag:` gets a "did you mean".
 komando list                 # everything: servers, conns and VPNs
 komando list @prod           # only what @prod picks
 komando list kind:db         # only databases
+komando conn list            # only databases and other services (host list, vpn list: the others)
 komando test @prod           # reach and log in to each one
 ```
 

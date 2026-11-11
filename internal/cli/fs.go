@@ -26,7 +26,7 @@ import (
 func fsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "fs",
-		Short: "Files on servers: ls, cat, write, replace, rm, mkdir, mv, chmod",
+		Short: "Files on servers: read, edit, undo an edit, move, remove",
 		Long: `Reads and changes files on servers over SFTP and returns structured
 results. Use --sudo for files that root owns: a read runs ` + "`sudo cat`" + `, a write
 goes to a temporary file first and then into place with ` + "`sudo install`" + `.

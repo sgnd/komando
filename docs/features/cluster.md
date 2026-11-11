@@ -45,9 +45,20 @@ command asks again, reads included, until a person imports it again. The
 same goes for a kubeconfig that reads its token from a local file
 (`tokenFile`).
 
+To add one cluster by hand, store its kubeconfig in the vault first, then
+name it with `cluster add` (the same as `conn add`, but it refuses a URL
+that is not a cluster):
+
+```bash
+komando secret set prod-kubeconfig < prod.kubeconfig
+komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig
+```
+
 ### Docker Swarm
 
-Nothing to add: use a manager server as the target.
+Nothing to add: use a manager server as the target. Give it the tag
+`swarm` (`komando host edit swarm1 --add-tag swarm`) so a group or `all`
+picks it as a cluster too (see below).
 
 ## Name objects
 
@@ -58,7 +69,8 @@ mistype a kind, the error suggests the one you probably meant.
 - Name a namespace (see [Glossary](glossary.md)) with `--namespace`.
   komando keeps `-n` for "how many" (`--limit`); if you write `-n shop`,
   the error tells you the right flag.
-  `-A` (`--all-namespaces`) works on `ls` and `events`.
+  `-A` (`--all-namespaces`) works on `ls`, `events` and `helm ls`. It
+  cannot go with `--namespace`.
 - Swarm kinds are `service` (`svc`), `task`, `node` and `stack`. Swarm
   has no namespaces, so `--namespace` is refused there.
 
