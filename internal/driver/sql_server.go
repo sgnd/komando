@@ -39,10 +39,10 @@ func serverRules(first, second string, ts []token) []string {
 }
 
 // untrustedLangs are function languages that reach the operating system:
-// C and internal load native code, and the untrusted (...U) Perl, Python
-// and Tcl run as the database server's user.
+// C and internal load native code; the untrusted (...U) Perl, Python, Tcl,
+// Lua and Java, PL/sh (a shell) and PL/R run as the database server's user.
 var untrustedLangs = map[string]bool{"C": true, "INTERNAL": true, "PLPYTHONU": true, "PLPYTHON2U": true,
-	"PLPYTHON3U": true, "PLPERLU": true, "PLTCLU": true}
+	"PLPYTHON3U": true, "PLPERLU": true, "PLTCLU": true, "PLLUAU": true, "PLJAVAU": true, "PLSH": true, "PLR": true}
 
 // createModifiers come between CREATE and the kind of object it makes.
 var createModifiers = map[string]bool{"OR": true, "REPLACE": true, "TRUSTED": true, "PROCEDURAL": true,

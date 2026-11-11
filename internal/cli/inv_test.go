@@ -663,6 +663,9 @@ func TestPolicyCheckFor(t *testing.T) {
 		t.Errorf("mongodb find: %v", d)
 	}
 	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "redis", "FLUSHALL")
+	// split as cache run splits it, so both rate a quoted command the same
+	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "redis", `"FLUSHALL"`)
+	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "redis", `FLUSHALL ASYNC`)
 }
 
 // policy deny and rm say "would" in a dry run, and show the pattern as
