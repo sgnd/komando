@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"strings"
 	"testing"
 
 	"golang.org/x/crypto/ssh"
@@ -166,5 +167,20 @@ func TestRevokedHostKey(t *testing.T) {
 	}
 	if rev, _ := HostKeyRevoked(keys[1]); !rev {
 		t.Error("not on the list")
+	}
+}
+
+// A sealed folder whose store.db is gone never reads as "no pins": that
+// would trust any key again (review S2).
+func TestPinsOfMissingStore(t *testing.T) {
+	pinHome(t)
+	if _, err := PinHostKey("web:22", newHostKey(t), false); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(store.DBPath(), store.DBPath()+".gone"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PinnedKeys("web:22"); err == nil || !strings.Contains(err.Error(), "STATE_CORRUPT") {
+		t.Fatalf("missing store read as no pins: %v", err)
 	}
 }

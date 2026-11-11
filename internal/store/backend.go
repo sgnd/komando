@@ -364,3 +364,17 @@ func SetStoreMeta(meta map[string]string) error {
 		return nil
 	})
 }
+
+// CheckWritable opens this home's store (making it on a fresh home) and
+// checks the file can be written, so a command that changes something,
+// and records it in the audit log, finds out before it runs.
+func CheckWritable() error {
+	if _, err := DB(true); err != nil {
+		return storeErr(err)
+	}
+	f, err := os.OpenFile(DBPath(), os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	return f.Close()
+}

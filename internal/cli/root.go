@@ -285,6 +285,35 @@ func vaultValues() map[string]string {
 	return m
 }
 
+// localReads change nothing anywhere, so they run even when the store
+// cannot be written; that is how a person finds out what is wrong.
+var localReads = map[string]bool{
+	"version": true, "help": true, "completion": true, "schema": true, "guide": true, "doctor": true,
+	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true,
+	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
+	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
+	"tunnel.list": true, "job.list": true, "status": true, "seal": true, "prompt": true,
+	"host.list": true, "conn.list": true, "vpn.list": true, "secret.get": true, "recipe.show": true,
+}
+
+// checkStoreWritable refuses to run a command that may change something
+// when the store (which holds the audit log) cannot be written: changes
+// must not happen without a record (docs/design/ux.md §6).
+func checkStoreWritable(cmd *cobra.Command) error {
+	name := commandName(cmd)
+	top, _, _ := strings.Cut(name, ".")
+	if g.dryRun || cmd.Hidden || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) {
+		return nil
+	}
+	err := store.CheckWritable()
+	var oe *out.Error
+	if err == nil || errors.As(err, &oe) {
+		return err
+	}
+	return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions (`komando doctor` checks them); nothing was run",
+		"the store, which keeps the audit log, cannot be written: %v", err)
+}
+
 // leavesHome are commands that, run as root, never touch ~/.komando:
 // `update` replaces only the komando program, often as root (sudo komando
 // update, where HOME may still be the person's), and root must not leave
@@ -320,7 +349,7 @@ func startChecks(cmd *cobra.Command) error {
 			return err
 		}
 	}
-	return nil
+	return checkStoreWritable(cmd)
 }
 
 func newRoot() *cobra.Command {

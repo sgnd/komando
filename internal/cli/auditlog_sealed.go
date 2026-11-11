@@ -32,7 +32,28 @@ const auditPage = 500
 
 // eachAudit calls fn with every audit record in the store, oldest first. A sealed record
 // that does not open stops it with sealdb.ErrTampered.
-func eachAudit(fn func(n int, rec []byte) error) error {
+func eachAudit(fn func(n int, rec []byte) error) error { return eachAuditAfter(0, fn) }
+
+// newestAuditSeq gives the number of the newest audit record (0: none).
+func newestAuditSeq() (int64, error) {
+	d, err := store.DB(false)
+	if errors.Is(err, store.ErrNoStore) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	var n int64
+	err = d.View(context.Background(), func(tx *sealdb.Tx) error {
+		var err error
+		n, err = tx.AuditLast()
+		return err
+	})
+	return n, err
+}
+
+// eachAuditAfter is eachAudit from the record after number after on.
+func eachAuditAfter(after int64, fn func(n int, rec []byte) error) error {
 	d, err := store.DB(false)
 	if errors.Is(err, store.ErrNoStore) {
 		return nil
@@ -40,7 +61,6 @@ func eachAudit(fn func(n int, rec []byte) error) error {
 	if err != nil {
 		return err
 	}
-	var after int64
 	for {
 		var rows []sealdb.AuditRow
 		err := d.View(context.Background(), func(tx *sealdb.Tx) error {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/sgnd/komando/internal/engine"
 	"io"
 	"net"
 	"os"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sgnd/komando/internal/engine"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -632,7 +633,10 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 	for k, v := range extra {
 		rec[k] = v
 	}
-	_ = appendAudit(rec)
+	if err := appendAudit(rec); err != nil {
+		// the action ran (or was refused); its record is missing: say so
+		out.P.Warn(fmt.Sprintf("the audit log could not record %s: %v", command, err))
+	}
 }
 
 // osUser is the computer account komando runs as, from the system's user

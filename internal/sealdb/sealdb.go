@@ -672,6 +672,13 @@ func (t *Tx) AppendAudit(data []byte) error {
 	return err
 }
 
+// AuditLast is the number of the newest audit entry, 0 when there is none.
+func (t *Tx) AuditLast() (int64, error) {
+	var n int64
+	err := t.c.QueryRowContext(t.ctx, `SELECT COALESCE(MAX(seq),0) FROM audit`).Scan(&n)
+	return n, err
+}
+
 // Audit returns up to limit audit entries after seq, oldest first. A
 // missing or damaged entry stops it with ErrTampered, together with the
 // entries before it.

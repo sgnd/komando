@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -21,6 +22,7 @@ import (
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
+	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -132,8 +134,17 @@ is given.`,
 				}
 				flt.names = targetNames(st, target)
 			}
+			// without a filter only the newest records are read
+			var from int64
+			if limit > 0 && command == "" && !failed && target == "" && actorName == "" && since == "" && until == "" {
+				last, err := newestAuditSeq()
+				if err != nil {
+					return err
+				}
+				from = max(0, last-int64(limit))
+			}
 			all := []map[string]any{}
-			err := eachAudit(func(_ int, b []byte) error {
+			err := eachAuditAfter(from, func(_ int, b []byte) error {
 				var e map[string]any
 				if json.Unmarshal(b, &e) != nil {
 					return nil
@@ -144,7 +155,10 @@ is given.`,
 				}
 				return nil
 			})
-			if err != nil {
+			if errors.Is(err, sealdb.ErrTampered) {
+				// the records before the broken one are still shown
+				out.P.Warn(fmt.Sprintf("the audit log is broken after the %d records shown: %v; run `komando audit verify`", len(all), err))
+			} else if err != nil {
 				return err
 			}
 			if limit > 0 && len(all) > limit {

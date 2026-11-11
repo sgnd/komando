@@ -7,7 +7,7 @@ package cli
 var errorCodes = []errorCode{
 	{"AMBIGUOUS_MATCH", 8, "--old matches … times in …", "add surrounding context to --old so it is unique, or pass --all"},
 	{"AUDIT_TAMPERED", 1, "the audit log chain is broken at line …", "keep a copy of the file and find out who changed it; komando keeps adding records after it"},
-	{"AUDIT_UNAVAILABLE", 1, "the audit log cannot be written (…), so the key's command does not run", "fix the file or folder permissions on the komando computer (`komando doctor` checks them); nothing was run"},
+	{"AUDIT_UNAVAILABLE", 1, "the store, which keeps the audit log, cannot be written: …", "fix the file or folder permissions (`komando doctor` checks them); nothing was run"},
 	{"AUTH_FAILED", 4, "… asks … (two-factor login); only a person can answer it, and none is at a terminal here", "run `komando login HOST` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it"},
 	{"AWS_FAILED", 4, "AWS profile …: …", "check the profile in ~/.aws/config"},
 	{"AWS_LOGIN_REQUIRED", 4, "AWS profile …: …", "a person runs `komando login aws --profile …` once, then try again"},
