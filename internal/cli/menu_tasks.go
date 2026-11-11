@@ -426,16 +426,28 @@ func menuRunningRows(st *store.State) []menuTask {
 	}
 	for _, id := range sortedKeys(st.Jobs) {
 		j := st.Jobs[id]
+		if !menuJobRunning(st, j) {
+			continue
+		}
 		rows = append(rows, menuTask{label: "Job " + cleanText(id), detail: cleanText(j.Host + ": " + j.Command + "; choose to stop it"),
 			line: [][]string{{"job", "kill", id}}, confirm: "Stop job " + cleanText(id) + " on " + cleanText(j.Host) + "?", yes: "Stop it"})
 	}
 	return rows
 }
 
+// menuJobRunning is whether a job may still run: its server is still on
+// the list and no check has seen it end. The menu never connects to find
+// out; `job list --refresh` (Check which jobs still run) does.
+func menuJobRunning(st *store.State, j *store.Job) bool {
+	_, ok := st.Hosts[j.Host]
+	return ok && j.Ended == ""
+}
+
 // runningTasks come first on Running now.
 var runningTasks = []menuTask{
 	{label: "Show it all", detail: "VPNs, logins, tunnels and jobs", line: [][]string{{"status"}}},
 	{label: "Port forwards", line: [][]string{{"tunnel", "list"}}},
+	{label: "Check which jobs still run", detail: "Asks each server; finished jobs leave this list", line: [][]string{{"job", "list", "--refresh"}}},
 	{label: "Background jobs", sub: jobTasks},
 }
 

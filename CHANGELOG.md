@@ -7,6 +7,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+
+- **Running now lists only jobs that may still run.** komando remembers
+  a job ended whenever it checks it (`job status`, `wait`, `list
+  --refresh`, `rm`), and leaves out jobs whose server left your list. The
+  new row "Check which jobs still run" asks every server.
+
 ## [0.11.0] - 2026-11-11
 
 ### Highlights
