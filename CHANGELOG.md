@@ -7,6 +7,32 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-11
+
+### Highlights
+
+- **Upgrading: run `komando seal` once.** komando now keeps everything in
+  one sealed file, `store.db`. A folder from an earlier komando must be
+  moved first: until a person runs `komando seal` in their own terminal,
+  every other command stops with `NEEDS_SEAL`, for AI agents too. It reads
+  everything back before switching, keeps the old files in a sealed
+  archive, and `komando seal --undo` puts them back.
+- **Sealed local store:** servers, secrets, pinned host keys and the audit
+  log are sealed record by record, so a record edited, swapped or removed
+  outside komando is noticed. With the key in the OS keychain, an older
+  copy of the folder put back stops commands with `STORE_OLD_COPY`.
+- **Windows:** komando runs natively on Windows, with Credential Manager
+  and its own "Allow once" window.
+- **`ssh-command` keeps working with keys komando made:** the key goes to
+  your running ssh-agent for an hour and is never written to a file.
+- **Simpler and safer:** one command for each job (old names print what to
+  use and go away in the next release), over 150 bugs fixed after a
+  hands-on review of every command, and new stops against locking
+  yourself out of a server.
+- **Changed output:** `status --short` shows `vpn:N` (how many VPNs are
+  up, not their names), a missing database privilege exits 5, and
+  `job wait --wait-timeout` is gone (use `--timeout`).
+
 ### Added
 
 - **Sealed local store** for every new komando folder: one file,
@@ -2803,7 +2829,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/sgnd/komando/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/sgnd/komando/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/sgnd/komando/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/sgnd/komando/compare/v0.8.0...v0.9.0
