@@ -174,7 +174,7 @@ const (
 	menuHelpAdd      = "Pick what you want to add. komando asks one plain question at a time, shows the commands your answers make, and tests the new item after it is added."
 	menuHelpHistory  = "komando keeps a record of every change it made, and who asked for it: you or your AI agent. Here you can read it and put back a file or a rollout."
 	menuHelpSettings = "How komando works on this computer: your AI agent, saved passwords, which servers count as production, which commands are blocked, and your SSH keys."
-	menuHelpRunning  = "These are things komando started that are still running: VPNs, server logins, port forwards and background jobs. Pick one to stop it."
+	menuHelpRunning  = "These run on this computer: VPNs, server logins and port forwards. Pick one to stop it. Background jobs run on the servers and keep going when this computer is off; they have their own list here."
 	menuHelpConfirm  = "komando asks first because this is hard to take back. No goes back and changes nothing."
 )
 

@@ -111,18 +111,7 @@ func svcActionCmd(action string) *cobra.Command {
 }
 
 func svcLogsCmd() *cobra.Command {
-	var lo logOpts
-	c := &cobra.Command{
-		Use:   "logs TARGET UNIT",
-		Short: "Same as `komando logs TARGET --unit UNIT`",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			lo.unit = args[1]
-			return runLogs(cmd.Context(), "svc.logs", args[0], &lo, lo.sudo)
-		},
-	}
-	lo.bind(c, false)
-	return c
+	return logsAlias("logs TARGET UNIT", "svc.logs", "unit")
 }
 
 // logs.
@@ -142,13 +131,11 @@ func (o *logOpts) dockerLogs() string {
 	return "docker logs"
 }
 
-func (o *logOpts) bind(c *cobra.Command, sources bool) {
+func (o *logOpts) bind(c *cobra.Command) {
 	f := c.Flags()
-	if sources {
-		f.StringVarP(&o.unit, "unit", "u", "", "systemd unit (journalctl)")
-		f.StringVar(&o.file, "file", "", "read this log file on the server (full path)")
-		f.StringVar(&o.container, "container", "", "read this Docker container's log (its name or ID)")
-	}
+	f.StringVarP(&o.unit, "unit", "u", "", "systemd unit (journalctl)")
+	f.StringVar(&o.file, "file", "", "read this log file on the server (full path)")
+	f.StringVar(&o.container, "container", "", "read this Docker container's log (its name or ID)")
 	f.StringVar(&o.since, "since", "", "start time: back from now (30m, 2h, 7d), today, yesterday or '2026-01-02 10:00'")
 	f.StringVar(&o.until, "until", "", "end time, in the same forms as --since")
 	f.StringVar(&o.grep, "grep", "", "only lines matching this extended regex (case-insensitive)")
@@ -259,7 +246,7 @@ func logsCmd() *cobra.Command {
 			return runLogs(cmd.Context(), "logs", args[0], &lo, lo.sudo)
 		},
 	}
-	lo.bind(c, true)
+	lo.bind(c)
 	return c
 }
 

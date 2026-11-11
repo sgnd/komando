@@ -56,7 +56,7 @@ var (
 	serversAction   = menuAction{name: "Servers", pick: "servers"}
 	servicesAction  = menuAction{name: "Databases and services", pick: "services"}
 	vpnsAction      = menuAction{name: "VPNs", pick: "vpns"}
-	statusAction    = menuAction{name: "Running now", detail: "Jobs, tunnels, VPNs and logins komando left running", pick: "running"}
+	statusAction    = menuAction{name: "Running now", detail: "VPNs, tunnels and logins on this computer; jobs on servers", pick: "running"}
 	addAction       = menuAction{name: "Add something", detail: "A server, a database, a VPN or another service", pick: "add"}
 	checkAction     = menuAction{name: "Check everything", detail: "See if every server and service answers", pick: "check"}
 	historyAction   = menuAction{name: "History and undo", detail: "What komando and your AI agent changed, and how to put it back", pick: "history"}

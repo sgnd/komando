@@ -118,7 +118,7 @@ How commands use the selector result:
 
 | Flag | Meaning |
 |---|---|
-| `-o, --output json\|text` | output format (automatic: text in a terminal, json when piped) |
+| `-o, --output json\|text` | output format (automatic: text in a terminal, json when piped); `db query` also takes `csv` and `tsv` |
 | `--dry-run` | show what would happen, without changing anything |
 | `--write` | allow changes in raw commands (`db query`, `cache run`, `cluster run`) |
 | `--yes` | confirm a change on a protected target |

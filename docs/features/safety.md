@@ -162,7 +162,7 @@ It exits 6 too when the statement is destructive, which `db query` and
 
 Customer data in production should not end up in an AI model. On protected
 servers and conns, an AI agent sees personal data hidden in what it reads
-from them: `db query` rows (also with `--csv`), `cache get` and `cache run`,
+from them: `db query` rows (also with `-o csv`), `cache get` and `cache run`,
 `storage cat`, `fs cat`, `exec`, `logs` and the other commands that show
 data from a server or resource. komando's own inventory (server addresses,
 conn URLs) is never hidden.

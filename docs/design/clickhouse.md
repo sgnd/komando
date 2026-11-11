@@ -134,5 +134,5 @@ cannot change anything:
   ClickHouse's own functions by name. For a hard limit, give the conn a
   user with only `SELECT` grants (and a `readonly = 1` profile).
 - The experimental transactions, sessions (`session_id`), and
-  `INTO OUTFILE` (the server answers with an error; `--csv` gives a file
+  `INTO OUTFILE` (the server answers with an error; `-o csv` gives a file
   on this computer).

@@ -79,22 +79,10 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 			},
 		})
 	}
-	var lo logOpts
-	logs := &cobra.Command{
-		Use:   "logs TARGET CONTAINER",
-		Short: "Same as `komando logs TARGET --container NAME`",
-		Long: `The last lines of a container's log (-n, default 200), or new lines as they
+	logs := logsAlias("logs TARGET CONTAINER", "docker.logs", "container")
+	logs.Long = `The last lines of a container's log (-n, default 200), or new lines as they
 come with -f. --since and --until take a duration back from now (10m, 2h,
--1h) or a time (2026-01-02T10:00:00).`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			lo.container = args[1]
-			return runLogs(cmd.Context(), "docker.logs", args[0], &lo, sudo || lo.sudo) // lo.bind's own --sudo shadows the docker one
-		},
-	}
-	lo.bind(logs, false)
-	_ = logs.Flags().MarkHidden("sudo")
-	_ = logs.Flags().MarkHidden("priority") // journald only
+-1h) or a time (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 	inspect := &cobra.Command{
 		Use:   "inspect TARGET NAME",
 		Short: "Show a container, image or other object in full (docker inspect)",

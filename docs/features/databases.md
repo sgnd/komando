@@ -156,17 +156,23 @@ In Oracle SQL each placeholder takes its own `--arg`, also a name used
 twice (`where a = :1 or b = :1` takes two); in a PL/SQL block a name used
 twice takes one.
 
-For spreadsheets and scripts, `--csv` or `--tsv` prints the rows
+For spreadsheets and scripts, `-o csv` or `-o tsv` prints the rows
 instead of JSON or a table. NULL is an empty field, binary is `\x` hex:
 
 ```bash
-komando db query app-db --csv "select id, email from users" > users.csv
+komando db query app-db -o csv "select id, email from users" > users.csv
 ```
 
-`--csv` and `--tsv` export every row, up to `--max-output` bytes; an
-export cut by that cap fails with `OUTPUT_TRUNCATED` (exit 1), so a script
-never takes half a table for all of it. Otherwise a query returns at most
-500 rows (`--limit`, `0` for no limit) and `--max-output` bytes. A cut result says which cap it hit:
+A CSV or TSV export has every row, unless you give `--limit` (komando
+then says on stderr when it stopped there). If the rows are more than
+`--max-output` bytes, komando prints nothing and fails with
+`OUTPUT_TRUNCATED` (exit 1), so a file is never cut without you knowing:
+raise `--max-output`, or for a whole database use `komando db dump`.
+Errors go to stderr, so the file holds only rows. `--csv` and `--tsv`
+are the old names; they still work in this release and say to use `-o`.
+
+Otherwise a query returns at most 500 rows (`--limit`, `0` for no limit)
+and `--max-output` bytes. A cut result says which cap it hit:
 `"truncated": "rows"` (raise `--limit`) or `"truncated": "bytes"` (raise
 `--max-output`). A query stops after 30 seconds; use `--timeout 2m` for
 more, or give one conn its own limit:
@@ -731,7 +737,7 @@ komando db kill events 8078617214407497              # the pid db activity shows
 - Text in `$$...$$` and names or text with letters outside ASCII outside
   quotes are refused (`SQL_HIDDEN_CODE`): use `'...'` (with `\'` for a quote) and
   `` `...` ``. `FORMAT` and `INTO OUTFILE` are refused too: komando reads
-  the rows itself (`--csv`, `--tsv`).
+  the rows itself (`-o csv`, `-o tsv`).
 - `db explain` is `EXPLAIN indexes = 1`; ClickHouse has no
   `EXPLAIN ANALYZE` (`NOT_SUPPORTED`).
 - **Users.** `db user add` creates a SQL user with a SHA-256 hash of the

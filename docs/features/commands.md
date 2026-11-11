@@ -255,7 +255,7 @@ komando  3 servers · 1 database · 2 services · 2 VPNs (office connected)
 > 1. Servers                 db1, web1, web2
   2. Databases and services  cache1, orders-queue, shop-db
   3. VPNs                    lab not connected · office connected
-  4. Running now (1)         Jobs, tunnels, VPNs and logins komando left running
+  4. Running now (1)         VPNs, tunnels and logins on this computer; jobs on servers
   5. Add something           A server, a database, a VPN or another service
   6. Check everything        See if every server and service answers
   7. History and undo        What komando and your AI agent changed, and how to put it back
