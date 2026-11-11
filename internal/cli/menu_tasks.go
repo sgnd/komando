@@ -76,7 +76,7 @@ var fileTasks = []menuTask{
 	{label: "Put a backup back", detail: "After a change made with a backup", cmd: "fs restore"},
 	{label: "Copy a file to it", cmd: "upload"},
 	{label: "Copy a file from it", cmd: "download"},
-	{label: "Copy a folder to it", detail: "Copies only what changed", cmd: "sync", noItem: true},
+	{label: "Copy a folder", detail: "To or from any server, file storage or here; only what changed", cmd: "sync", noItem: true},
 	{label: "Copy between servers", cmd: "cp", noItem: true},
 	{label: "File details", detail: "Size, owner, permissions", cmd: "fs stat"},
 	{label: "Make a folder", cmd: "fs mkdir"},

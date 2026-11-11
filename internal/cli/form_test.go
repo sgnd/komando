@@ -494,3 +494,33 @@ func TestFormHidesHaveAReason(t *testing.T) {
 		}
 	}
 }
+
+// Labels read as words: no Use syntax ([LOCAL:]REMOTE, SRC_CONN:IMAGE),
+// no shouting (KEY, SRC) and no "conn".
+func TestFormArgLabels(t *testing.T) {
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, s := range c.Commands() {
+			walk(s)
+			if !s.Runnable() {
+				continue
+			}
+			for _, q := range formCmdSpec(s).qs {
+				if !strings.HasPrefix(q.key, "arg") {
+					continue
+				}
+				l := q.label
+				if strings.ContainsAny(l, "[]:_") || (len(l) > 1 && l == strings.ToUpper(l) && !slices.Contains(formAcronyms, l)) ||
+					strings.Contains(strings.ToLower(l), "conn") {
+					t.Errorf("%s: label %q", commandKey(s), l)
+				}
+			}
+		}
+	}
+	walk(newRoot())
+	for in, want := range map[string]string{"[LOCAL:]REMOTE": "Local remote", "SRC_CONN:IMAGE": "Src conn image", "KEY": "Key", "SQL": "SQL", "SRC": "From"} {
+		if got := formWords(in); got != want {
+			t.Errorf("formWords(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

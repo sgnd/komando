@@ -253,7 +253,7 @@ func clusterChangeHints() map[string]formHint {
 			help: "Empty: the usual shell of the container."}}},
 		"cluster forward": {args: []formArg{t, {ask: "Which pod or service?", example: "service/web",
 			help: "A kind and name, like service/web or deployment/api."},
-			{ask: "Which port of it?", def: "80", example: "80 or 9000:80",
+			{ask: "Which port of it?", label: "Port", def: "80", example: "80 or 9000:80",
 				help: "The port it listens on. LOCAL:REMOTE picks the port on this computer too; you then open 127.0.0.1:LOCAL."}}},
 		"cluster run": {args: []formArg{t, {ask: "Which kubectl or docker command? (without kubectl or docker in front)",
 			example: "get pods -o wide", help: "It runs as the cluster's own tool would run it."}},
