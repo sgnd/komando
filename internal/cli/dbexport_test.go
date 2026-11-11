@@ -80,7 +80,9 @@ func TestDBQueryDryRunCreatesNoFile(t *testing.T) {
 func TestConnAddRelativeFile(t *testing.T) {
 	invHome(t)
 	for _, u := range []string{"sqlite:relative.db", "sqlite:./a/b.db"} {
-		wantCode(t, "USAGE", "conn", "add", "rel", u)
+		if e := wantCode(t, "USAGE", "conn", "add", "rel", u); !strings.Contains(e.Hint, "sqlite:///") {
+			t.Errorf("%s: hint %q", u, e.Hint)
+		}
 	}
 	mustRun(t, "conn", "add", "abs", "sqlite:///var/lib/app.db")
 	mustRun(t, "conn", "add", "home", "sqlite:~/app.db")
@@ -94,7 +96,7 @@ func TestKindAddChecksFamily(t *testing.T) {
 		{"queue", "postgres://x@127.0.0.1/x", "db add"},
 		{"cache", "s3://AKIAEXAMPLE@b/p?region=eu-west-1", "storage add"},
 	} {
-		if e := wantCode(t, "USAGE", c[0], "add", "x", c[1]); !strings.Contains(e.Hint, c[2]) {
+		if e := wantCode(t, "WRONG_KIND", c[0], "add", "x", c[1]); !strings.Contains(e.Hint, c[2]) {
 			t.Errorf("%s add %s: hint %q", c[0], c[1], e.Hint)
 		}
 	}
