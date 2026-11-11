@@ -55,6 +55,13 @@ its highlights; the sections below them give the details. Versions follow
   run another way: `komando vpn up` stops with `VPN_OS_MODE_REMOVED` until
   you add it again with `komando vpn add NAME openvpn --config FILE.ovpn
   --check HOST:PORT --overwrite`.
+- `job wait --wait-timeout` is gone: use `--timeout` (still 10m when not
+  given). The hidden `--target` flag of `komando list` and `host export` is
+  gone too: give the target as the argument.
+- `komando test` results no longer carry `name`: read `host`, as with
+  `facts` and `exec`.
+- A server saved with the 0.1.0 field `jump` is no longer moved to `via`
+  on load.
 
 ## [0.9.0] - 2026-11-10
 

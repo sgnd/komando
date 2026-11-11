@@ -392,8 +392,8 @@ func TestParseFactsUnknownValues(t *testing.T) {
 }
 
 func TestTestResultsCarryHost(t *testing.T) {
-	b, _ := json.Marshal(targetTest{Host: "web1", Name: "web1", Kind: "host", OK: true})
-	if !strings.Contains(string(b), `"host":"web1"`) || !strings.Contains(string(b), `"name":"web1"`) {
+	b, _ := json.Marshal(targetTest{Host: "web1", Kind: "host", OK: true})
+	if !strings.Contains(string(b), `"host":"web1"`) || strings.Contains(string(b), `"name"`) {
 		t.Errorf("test result: %s", b)
 	}
 }

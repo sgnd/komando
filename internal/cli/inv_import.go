@@ -267,7 +267,5 @@ func hostExportCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().StringVar(&target, "target", "", "same as the TARGET argument")
-	_ = c.Flags().MarkHidden("target")
 	return c
 }

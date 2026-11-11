@@ -125,17 +125,13 @@ func listCmdFor(only string) *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().StringVar(&target, "target", "", "same as the TARGET argument")
-	_ = c.Flags().MarkHidden("target")
 	return c
 }
 
 type targetTest struct {
 	// Host names the target, like results[].host of facts, exec and the
-	// other multi-target commands; use it. Name is the same value, kept
-	// for scripts written before host was added (contract 1).
+	// other multi-target commands.
 	Host      string     `json:"host"`
-	Name      string     `json:"name"`
 	Kind      string     `json:"kind"`
 	OK        bool       `json:"ok"`
 	LatencyMS int64      `json:"latency_ms,omitempty"`
@@ -171,11 +167,11 @@ func (d testData) Text() string {
 			}
 		}
 		if r.OK {
-			rows = append(rows, []string{r.Name, r.Kind, "ok", fmt.Sprintf("%dms", r.LatencyMS), user, sudo, note})
+			rows = append(rows, []string{r.Host, r.Kind, "ok", fmt.Sprintf("%dms", r.LatencyMS), user, sudo, note})
 			continue
 		}
-		rows = append(rows, []string{r.Name, r.Kind, r.Error.Code, "", "", "", ""})
-		hints = append(hints, withHost(r.Name, r.Error.Message))
+		rows = append(rows, []string{r.Host, r.Kind, r.Error.Code, "", "", "", ""})
+		hints = append(hints, withHost(r.Host, r.Error.Message))
 		if r.Error.Hint != "" {
 			hints = append(hints, "  hint: "+r.Error.Hint)
 		}
@@ -262,13 +258,13 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 			worst := 0
 			var names []string
 			for _, r := range res {
-				names = append(names, r.Name)
+				names = append(names, r.Host)
 				if r.OK {
 					data.Summary.OK++
 					continue
 				}
 				data.Summary.Failed++
-				data.Summary.FailedHosts = append(data.Summary.FailedHosts, r.Name)
+				data.Summary.FailedHosts = append(data.Summary.FailedHosts, r.Host)
 				worst = worse(worst, r.Error.Exit)
 			}
 			data.Summary.Total = len(res)
@@ -281,7 +277,7 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 				Message: failedOf(data.Summary.Failed, data.Summary.Total) + ": " + strings.Join(data.Summary.FailedHosts, ", "),
 				Hint:    "see each result's error and hint"}
 			if len(res) == 1 && res[0].Error != nil { // one target: its own error code and next step, as exec gives
-				soft.Code, soft.Message = res[0].Error.Code, res[0].Name+" failed"
+				soft.Code, soft.Message = res[0].Error.Code, res[0].Host+" failed"
 				if res[0].Error.Hint != "" {
 					soft.Hint = res[0].Error.Hint
 				}
@@ -306,7 +302,7 @@ func testConns(ctx context.Context, st *store.State, conns []*store.Conn) []targ
 			sem <- struct{}{}
 			defer func() { <-sem }()
 			d := testConn(ctx, st, c)
-			res[i] = targetTest{Name: c.Name, Kind: c.Kind, OK: d.OK, LatencyMS: d.LatencyMS, Detail: d, Error: d.Error}
+			res[i] = targetTest{Host: c.Name, Kind: c.Kind, OK: d.OK, LatencyMS: d.LatencyMS, Detail: d, Error: d.Error}
 		}(i, c)
 	}
 	wg.Wait()
