@@ -37,6 +37,12 @@ type exportFile struct {
 
 const exportFormat = "komando-export/1"
 
+// Text is the export file itself, so `-o text > FILE` can be imported too.
+func (f exportFile) Text() string {
+	b, _ := json.MarshalIndent(f, "", "  ")
+	return string(b) + "\n"
+}
+
 func importKomando(path string) (*importPlan, error) {
 	b, err := readSource(path)
 	if err != nil {

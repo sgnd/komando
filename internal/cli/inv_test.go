@@ -590,3 +590,31 @@ func TestImportSSHConfigProxyCommandAgent(t *testing.T) {
 		t.Errorf("import: %v %+v", d, e)
 	}
 }
+
+// With -o text, host export and export still print JSON that the imports
+// read back, since the output is meant to go to a file.
+func TestExportTextIsImportable(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@192.0.2.10")
+	textOut := func(args ...string) []byte {
+		t.Helper()
+		root := newRoot()
+		root.SetArgs(append([]string{"-o", "text"}, args...))
+		var buf bytes.Buffer
+		saved := out.P.W
+		out.P.W = &buf
+		defer func() { out.P.W = saved; out.P.Format = "json" }()
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		return buf.Bytes()
+	}
+	if hosts, ok := parseHostsJSON(textOut("host", "export")); !ok || len(hosts) != 1 || hosts[0].Name != "web1" {
+		t.Errorf("host export -o text: %v %v", hosts, ok)
+	}
+	f := filepath.Join(t.TempDir(), "exp.json")
+	os.WriteFile(f, textOut("export"), 0o600)
+	if p, err := importKomando(f); err != nil || len(p.Hosts) != 1 {
+		t.Errorf("export -o text: %v %v", p, err)
+	}
+}

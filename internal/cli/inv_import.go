@@ -264,6 +264,16 @@ func orEmpty(s []string) []string {
 	return s
 }
 
+type hostExport struct {
+	Hosts []*store.Host `json:"hosts"`
+}
+
+// Text is JSON too: `host import --json` reads what -o text prints.
+func (e hostExport) Text() string {
+	b, _ := json.MarshalIndent(e, "", "  ")
+	return string(b) + "\n"
+}
+
 func hostExportCmd() *cobra.Command {
 	var target string
 	c := &cobra.Command{
@@ -286,7 +296,7 @@ func hostExportCmd() *cobra.Command {
 					return err
 				}
 			}
-			out.P.Print("host.export", map[string]any{"hosts": hosts}, nil)
+			out.P.Print("host.export", hostExport{Hosts: hosts}, nil)
 			return nil
 		},
 	}
