@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -154,6 +155,21 @@ func TestUserLockGuardsTheLogin(t *testing.T) {
 	wantCode(t, "POLICY_BLOCKED", "user", "lock", "web1", "deploy")
 	if _, e := userResult("x", "locked", &sshx.RunResult{Stdout: "#komando:no-usermod\n", ExitCode: 127}); e == nil || e.Code != "TOOL_MISSING" {
 		t.Errorf("busybox without usermod: %v", e)
+	}
+}
+
+// user add and rm read the same markers through runFleet's exitMap.
+func TestShadowMissing(t *testing.T) {
+	for _, tool := range []string{"useradd", "userdel", "usermod"} {
+		e := shadowMissing(&sshx.RunResult{Stdout: "#komando:no-" + tool + "\n", Stderr: tool + " is missing on this server", ExitCode: 127})
+		if e == nil || e.Code != "TOOL_MISSING" || e.Exit != out.ExitNotFound || !strings.Contains(e.Message, tool) || !strings.Contains(e.Hint, "pkg install TARGET shadow") {
+			t.Errorf("%s: %+v", tool, e)
+		}
+	}
+	for _, rr := range []*sshx.RunResult{nil, {ExitCode: 1, Stderr: "useradd: user 'x' already exists"}, {Stdout: "#komando:no-user\n"}} {
+		if e := shadowMissing(rr); e != nil {
+			t.Errorf("%+v: unexpected %+v", rr, e)
+		}
 	}
 }
 

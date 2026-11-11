@@ -7,6 +7,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+
+- `user add` and `user rm` on a server without `useradd` or `userdel`
+  (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
+  (exit 3) and the hint `komando pkg install TARGET shadow`, like
+  `user lock` and `unlock`, instead of a generic remote failure (exit 5).
+  The JSON result keeps its shape.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights
