@@ -1005,3 +1005,24 @@ func TestFormCancelKey(t *testing.T) {
 		t.Errorf("filter: %q", got)
 	}
 }
+
+// Running now lists only jobs that may still run: not one seen ending,
+// not one whose server left the list.
+func TestMenuRunningLeavesOutEndedJobs(t *testing.T) {
+	st := menuTestState()
+	st.Jobs = map[string]*store.Job{
+		"live": {ID: "live", Host: "web-1", Command: "make"},
+		"done": {ID: "done", Host: "web-1", Command: "make", Ended: "exited"},
+		"gone": {ID: "gone", Host: "deleted-vm", Command: "make"},
+		"lost": {ID: "lost", Host: "web-1", Command: "make", Ended: "lost"},
+	}
+	var jobs []string
+	for _, r := range menuRunningRows(st) {
+		if strings.HasPrefix(r.label, "Job ") {
+			jobs = append(jobs, r.label)
+		}
+	}
+	if !slices.Equal(jobs, []string{"Job live"}) {
+		t.Fatalf("Running now jobs = %v, want only Job live", jobs)
+	}
+}

@@ -136,6 +136,9 @@ type Job struct {
 	PID       int       `json:"pid"`
 	RemoteDir string    `json:"remote_dir"`
 	StartedAt time.Time `json:"started_at"`
+	// Ended is how the job ended (exited, killed, lost) the last time
+	// komando asked its server; empty while it ran or nobody asked yet
+	Ended string `json:"ended,omitempty"`
 }
 
 type Tunnel struct {
