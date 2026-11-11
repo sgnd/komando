@@ -155,6 +155,16 @@ func TestSplitRemote(t *testing.T) {
 		{"./local:file", "", "./local:file", false},
 		{"/abs/path", "", "/abs/path", false},
 		{"file.txt", "", "file.txt", false},
+		{"web1:", "web1", "", true},
+		{"web1:8080", "web1", "8080", true},
+		{"tag:edge:/srv/site", "tag:edge", "/srv/site", true},
+		{"tag:edge:", "tag:edge", "", true},
+		{"label:env=prod:/tmp/x", "label:env=prod", "/tmp/x", true},
+		{"kind:host:/p", "kind:host", "/p", true},
+		{"web1,!tag:old:~/x", "web1,!tag:old", "~/x", true},
+		{"root@192.0.2.50:2222:/tmp/x", "root@192.0.2.50:2222", "/tmp/x", true},
+		{"[2001:db8::1]:/tmp/x", "[2001:db8::1]", "/tmp/x", true},
+		{"root@[2001:db8::1]:22:/tmp/x", "root@[2001:db8::1]:22", "/tmp/x", true},
 	}
 	for _, c := range cases {
 		tg, p, ok := splitRemote(c.in)

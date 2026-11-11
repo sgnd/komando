@@ -21,8 +21,11 @@ import (
 )
 
 // splitRemote parses "TARGET:/path". Local paths (./x, /x, x) return ok=false.
+// The colon that ends TARGET is the first one that is not part of a
+// selector: the one after tag, label, kind or os (tag:edge:/srv), inside
+// [an IPv6 address], or before a port (root@10.0.0.5:2222:/tmp).
 func splitRemote(s string) (target, p string, ok bool) {
-	i := strings.Index(s, ":")
+	i := remoteColon(s)
 	if i <= 0 {
 		return "", s, false
 	}
@@ -31,6 +34,45 @@ func splitRemote(s string) (target, p string, ok bool) {
 		return "", s, false
 	}
 	return t, s[i+1:], true
+}
+
+// remoteColon is the index of the colon that ends TARGET, or -1.
+func remoteColon(s string) int {
+	word := 0 // where the current selector starts (after a comma)
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case ',':
+			word = i + 1
+		case '[':
+			if j := strings.IndexByte(s[i:], ']'); j > 0 {
+				i += j
+			}
+		case ':':
+			switch strings.TrimPrefix(s[word:i], "!") {
+			case "tag", "label", "kind", "os":
+				continue
+			}
+			if n := digitsThenColon(s[i+1:]); n > 0 {
+				i += n
+				continue
+			}
+			return i
+		}
+	}
+	return -1
+}
+
+// digitsThenColon is the length of a port and its closing colon at the
+// start of s ("2222:/tmp" gives 4), or 0.
+func digitsThenColon(s string) int {
+	n := 0
+	for n < len(s) && s[n] >= '0' && s[n] <= '9' {
+		n++
+	}
+	if n == 0 || n > 5 || n >= len(s) || s[n] != ':' {
+		return 0
+	}
+	return n
 }
 
 // splitArg is splitRemote that knows the inventory: "a:b.txt" is a local
@@ -184,6 +226,30 @@ const cpFolderRule = `Folders (-r), like cp and rsync:
 Symbolic links are not copied (they are listed as skipped). For repeatable
 deploys that send only changed files, use ` + "`komando sync`.\n"
 
+// uploadFolderRule is cpFolderRule in upload's words.
+const uploadFolderRule = `Folders (-r), like cp and rsync:
+  FILE/  (trailing slash)  the contents of FILE go into DEST
+  FILE   into a new DEST    DEST becomes the copy of FILE
+  FILE   into a folder DEST of the same name (site -> /var/www/site): DEST
+         is updated in place, so running the same upload again never nests
+         site/site
+  FILE   into another existing folder DEST: the copy is DEST/FILE
+Without DEST the folder keeps its name (servers: in the home folder). In
+storage, a DEST ending in / is an existing folder. Symbolic links are not
+copied (they are listed as skipped). For repeatable deploys that send only
+changed files, use ` + "`komando sync`.\n"
+
+// downloadFolderRule is cpFolderRule in download's words.
+const downloadFolderRule = `Folders (-r), like cp and rsync:
+  PATH/  (trailing slash)  the contents of PATH go into --to
+  PATH   into a new --to    --to becomes the copy of PATH
+  PATH   into a folder --to of the same name (/var/log/app -> ./app): it
+         is updated in place, so downloading again never nests app/app
+  PATH   into another existing folder --to: the copy is --to/NAME
+Without --to it lands in the current folder under its own name. Symbolic
+links are not copied (they are listed as skipped).
+`
+
 func cpCmd() *cobra.Command {
 	var o cpOpts
 	c := &cobra.Command{
@@ -274,6 +340,11 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 		return err // before connecting: a file named like a secret (a folder's files are checked one by one)
 	}
 	if g.dryRun {
+		if !up && !o.overwrite && !o.recursive && len(hosts) == 1 {
+			if err := downloadExists(local, remote); err != nil {
+				return err // the real run would stop here
+			}
+		}
 		out.P.Print(name, map[string]any{"src": src, "dst": dst, "hosts": hostNames(hosts), "direction": map[bool]string{true: "upload", false: "download"}[up]}, nil)
 		return nil
 	}
@@ -328,6 +399,23 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 	data.Summary.Total = len(res)
 	audit(st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
 	return finishFleet(name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+}
+
+// downloadExists is the FILE_EXISTS a single-file download of remote to
+// local would meet, or nil.
+func downloadExists(local, remote string) error {
+	fi, err := os.Stat(local)
+	switch {
+	case err != nil:
+		return nil
+	case fi.IsDir():
+		p := filepath.Join(local, path.Base(remote))
+		if _, err := os.Lstat(p); err == nil {
+			return fileExists(p)
+		}
+		return nil
+	}
+	return fileExists(local)
 }
 
 // treeDest is where a folder copy goes (see cpFolderRule). srcBase is the
