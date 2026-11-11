@@ -302,7 +302,7 @@ var localReads = map[string]bool{
 func checkStoreWritable(cmd *cobra.Command) error {
 	name := commandName(cmd)
 	top, _, _ := strings.Cut(name, ".")
-	if g.dryRun || cmd.Hidden || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) {
+	if g.dryRun || cmd.Hidden || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) || name == "secret.passphrase" { // it opens the store with the passphrase a person types
 		return nil
 	}
 	err := store.CheckWritable()
