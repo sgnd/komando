@@ -71,6 +71,9 @@ func clusterEventsCmd() *cobra.Command {
   komando cluster events prod-k8s --for deployment/api --namespace shop`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := nsOrAll(ns, all); err != nil {
+				return err
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -88,9 +91,9 @@ func clusterEventsCmd() *cobra.Command {
 						if err != nil {
 							return nil, err
 						}
-						r, err := k.Resource(ctx, typ)
+						r, err := resource(ctx, k, typ)
 						if err != nil {
-							return nil, out.Usage("%v", err)
+							return nil, err
 						}
 						kind, name = r.KindName(), n
 					}

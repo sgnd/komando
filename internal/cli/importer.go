@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"fmt"
 	"net/url"
+	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -37,6 +38,9 @@ type importPlan struct {
 	// note that says how to set one is written after the import, with the
 	// name the conn got (shop-2 when shop is taken), and only if it is added.
 	NoPassword map[*store.Conn]bool
+	// ConnNotes are about a conn the import adds (how it logs in); they
+	// land in the result's notes only if it is added.
+	ConnNotes map[*store.Conn][]string
 	// Strict: a server komando refuses stops the whole import (a CSV is a
 	// list the user wrote for komando; a half import would surprise them).
 	Strict bool
@@ -87,8 +91,9 @@ func importCmd() *cobra.Command {
 		Short: "Bring in what you have: ssh config, .pgpass, my.cnf, .env",
 		Long: "Adds servers, conns, VPNs and recipes from files you already have.\n\nSources:\n" + strings.Join(names, "\n") + `
 
-Passwords go to the vault (as <name>-pass) and are referenced from the
-conn; they are never printed. Existing names are skipped unless
+Passwords go to the vault (as <name>-pass; a kubeconfig as
+<name>-kubeconfig) and are referenced from the conn; they are never
+printed. Existing names are skipped unless
 --overwrite (replacing a protected one also needs --yes). Proxy commands
 from an ssh config run on this computer, so an AI agent needs a person's yes
 for them. Try --dry-run first to see what would be added.`,
@@ -108,6 +113,9 @@ for them. Try --dry-run first to see what would be added.`,
 				return out.Usage("unknown source %q (see `komando import --help`)", args[0])
 			}
 			path := src.Default
+			if env := os.Getenv("KUBECONFIG"); src.Name == "kubeconfig" && env != "" {
+				path = env // the files kubectl reads, a:b merged as kubectl merges them
+			}
 			if len(args) == 2 {
 				path = args[1]
 			}
@@ -146,6 +154,9 @@ type importResult struct {
 	// the file has otherwise, left as they are here, with the command
 	DenyRules      []string         `json:"deny_rules_added,omitempty"`
 	SettingsDiffer []settingDiffers `json:"settings_differ,omitempty"`
+	// Notes are about what was added (how a conn logs in, why it got its
+	// name); not_imported is only about what was left out.
+	Notes []string `json:"notes,omitempty"`
 	// aboutAdded are the notes in NotFound about a server that was added
 	// (what was left out of it): the text output does not call them "not
 	// imported". JSON keeps them in not_imported.
@@ -336,6 +347,7 @@ func vetImportConns(st *store.State, plan *importPlan, overwrite bool, skip func
 // conn's final name, so its commands change this conn and no other.
 func (r *importResult) addConn(c *store.Conn, plan *importPlan) {
 	r.Conns = append(r.Conns, c.Name)
+	r.Notes = append(r.Notes, plan.ConnNotes[c]...)
 	if name, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok && plan.Secrets[name] != "" {
 		r.Secrets = append(r.Secrets, name)
 	}
@@ -364,13 +376,16 @@ func (r importResult) Text() string {
 	line("conns "+verb, r.Conns)
 	line("VPNs "+verb, r.Vpns)
 	line("recipes "+verb, r.Recipes)
-	line("passwords stored in the vault", r.Secrets)
+	line("logins stored in the vault", r.Secrets)
 	line("deny rules "+verb, r.DenyRules)
 	for _, d := range r.SettingsDiffer {
 		fmt.Fprintf(&sb, "setting %s is %s in the file, %s here (not changed; `%s` sets it)\n", d.Key, d.File, d.Here, d.Command)
 	}
 	for _, s := range r.Skipped {
 		fmt.Fprintf(&sb, "skipped %s: %s\n", s.Name, s.Reason)
+	}
+	for _, n := range r.Notes {
+		fmt.Fprintln(&sb, n)
 	}
 	for _, n := range r.NotFound {
 		if slices.Contains(r.aboutAdded, n) { // "bastion: its identity file ...": bastion is in
@@ -394,16 +409,18 @@ func renameImported(st *store.State, plan *importPlan, c *store.Conn) {
 			break
 		}
 	}
-	if pw, ok := plan.Secrets[base+"-pass"]; ok && c.PasswordRef == "secret:"+base+"-pass" {
-		delete(plan.Secrets, base+"-pass")
-		plan.Secrets[name+"-pass"] = pw
-		c.PasswordRef = "secret:" + name + "-pass"
+	for _, suffix := range []string{"-pass", "-kubeconfig"} {
+		if pw, ok := plan.Secrets[base+suffix]; ok && c.PasswordRef == "secret:"+base+suffix {
+			delete(plan.Secrets, base+suffix)
+			plan.Secrets[name+suffix] = pw
+			c.PasswordRef = "secret:" + name + suffix
+		}
 	}
 	c.Name = name
 }
 
 func newPlan() *importPlan {
-	return &importPlan{Secrets: map[string]string{}, NoPassword: map[*store.Conn]bool{}}
+	return &importPlan{Secrets: map[string]string{}, NoPassword: map[*store.Conn]bool{}, ConnNotes: map[*store.Conn][]string{}}
 }
 
 var unsafeName = regexp.MustCompile(`[^A-Za-z0-9._-]+`)

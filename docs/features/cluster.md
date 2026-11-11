@@ -28,7 +28,7 @@ and user in that file):
 
 ```bash
 komando import kubeconfig --dry-run        # see what would be added
-komando import kubeconfig                  # reads ~/.kube/config
+komando import kubeconfig                  # reads $KUBECONFIG, else ~/.kube/config
 komando conn edit prod --via bastion       # API server on a private network? reach it like anything else
 ```
 
@@ -99,7 +99,10 @@ under `data.items[]`, for Kubernetes and Swarm alike.
 
 `cluster status`, `cluster ls`, `cluster events` and `cluster helm ls` take
 a selector that picks several clusters: a group, `kind:k8s`, a tag or `all`.
-komando reads them at the same time and shows one block per cluster:
+komando reads them at the same time and shows one block per cluster. A
+server counts as a Swarm manager there only when it has the tag `swarm`
+(the Docker Swarm form adds it) or is named in the selector; other servers
+are listed in `meta.skipped`:
 
 ```bash
 komando group add prod prod-eu,prod-us,prod-ap

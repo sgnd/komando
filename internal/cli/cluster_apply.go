@@ -100,8 +100,12 @@ func kubeApply(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc,
 	creates := map[string]bool{} // namespaces this file creates
 	for _, d := range docs {
 		r, err := k.ResourceFor(ctx, d.APIVersion, d.Kind)
-		if err != nil {
+		var uk *kube.UnknownKindError
+		if errors.As(err, &uk) {
 			return nil, out.Usage("%v", err)
+		}
+		if err != nil {
+			return nil, err // the cluster could not be asked: kubeErr says why
 		}
 		space := ""
 		if r.IsNamespaced() {

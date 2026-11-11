@@ -171,8 +171,16 @@ func (d statusData) Text() string {
 		fmt.Fprintf(&b, ", %v services", n)
 	}
 	b.WriteString("\n")
+	notes, _ := d["notes"].([]string)
+	for _, n := range notes {
+		b.WriteString("note: " + n + "\n")
+	}
 	probs, _ := d["problems"].([]map[string]string)
-	if len(probs) == 0 {
+	switch {
+	case len(probs) == 0 && d["healthy"] == nil:
+		b.WriteString("no problems found in what was checked\n")
+		return b.String()
+	case len(probs) == 0:
 		b.WriteString("healthy: no problems found\n")
 		return b.String()
 	}

@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -272,6 +274,9 @@ risky verbs also need --allow-dangerous.`,
 			if t.host != nil {
 				risk = classifyDocker(args[1:])
 			} else {
+				if err := kctlUsage(args[1:]); err != nil {
+					return err
+				}
 				if err := checkKubectlFlags(args[1:]); err != nil {
 					return err
 				}
@@ -301,7 +306,7 @@ risky verbs also need --allow-dangerous.`,
 			}
 			// under --dry-run every stop only lands in meta.would_be_blocked
 			if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"kubectl " + verb}}); err != nil {
-				return err
+				return execInstead(err, verb)
 			}
 			plan := map[string]any{"conn": t.conn.Name, "dry_run": true, "would_run": "kubectl " + strings.Join(redactArgs(args[1:]), " ")}
 			if g.dryRun && risk > driver.RiskRead && !serverDryRun(args[1:]) {
@@ -353,6 +358,18 @@ risky verbs also need --allow-dangerous.`,
 	return c
 }
 
+// execInstead points a blocked `kubectl exec` or `cp` at komando's own
+// command, where a command that only reads needs no --allow-dangerous.
+func execInstead(err error, verb string) error {
+	var e *out.Error
+	if !oneOf(verb, "exec", "cp") || !errors.As(err, &e) || e.Code != "POLICY_BLOCKED" {
+		return err
+	}
+	c := *e
+	c.Hint = "for a command in a pod, `komando cluster exec TARGET POD --read-only -- CMD` runs one that only reads without it; otherwise: " + e.Hint
+	return &c
+}
+
 // kubectlFailure is the error for a kubectl-style exit code: nil when it worked,
 // not found (3) when the server said NotFound, else remote (5).
 func kubectlFailure(code int, stderr string) *out.Error {
@@ -363,7 +380,8 @@ func kubectlFailure(code int, stderr string) *out.Error {
 	if i := strings.LastIndex(msg, "\n"); i >= 0 && strings.Contains(msg[i:], "Error") {
 		msg = strings.TrimSpace(msg[i:])
 	}
-	if strings.Contains(stderr, "(NotFound)") || strings.Contains(stderr, "not found") {
+	// only the API's NotFound: `sh: foo: not found` from a command in a pod is the command's own failure
+	if strings.Contains(stderr, "Error from server (NotFound)") {
 		msg = strings.TrimPrefix(msg, "Error from server (NotFound): ")
 		return &out.Error{Code: "K8S_NOT_FOUND", Message: cmp.Or(msg, "not found"), Exit: out.ExitNotFound,
 			Hint: "list what exists with `komando cluster ls TARGET TYPE`"}
@@ -373,20 +391,24 @@ func kubectlFailure(code int, stderr string) *out.Error {
 }
 
 // importKubeconfig makes one k8s conn per context; each context's
-// credentials go to the vault as a standalone kubeconfig.
+// credentials go to the vault as a standalone kubeconfig. path may be a
+// KUBECONFIG list (a:b), merged as kubectl merges it.
 func importKubeconfig(path string) (*importPlan, error) {
-	b, err := readSource(path)
-	if err != nil {
-		return nil, err
+	paths := filepath.SplitList(path)
+	for i := range paths {
+		paths[i] = expandHome(paths[i])
 	}
-	cfg, err := kube.Parse(b)
+	cfg, err := kube.Load(readSource, paths...)
 	if err != nil {
+		var oe *out.Error
+		if errors.As(err, &oe) {
+			return nil, oe
+		}
 		return nil, out.Usage("%s: %v", path, err)
 	}
 	p := newPlan()
-	names := cfg.ContextNames()
-	sort.Strings(names)
-	for _, n := range names {
+	names, clash := kubeconfigConnNames(cfg.ContextNames())
+	for _, n := range sortedContexts(cfg) {
 		x, err := cfg.Resolve(n)
 		if err != nil {
 			p.Notes = append(p.Notes, fmt.Sprintf("context %s: %v", n, err))
@@ -405,21 +427,59 @@ func importKubeconfig(path string) (*importPlan, error) {
 			p.Notes = append(p.Notes, fmt.Sprintf("context %s: bad server %q", n, x.Cluster.Server))
 			continue
 		}
-		name := p.name(n)
+		name := names[n]
 		c := &store.Conn{Name: name, URL: "k8s://" + u.Host, PasswordRef: "secret:" + name + "-kubeconfig"}
 		if x.Namespace != "" {
 			c.Options = map[string]string{"namespace": x.Namespace}
 		}
 		p.Secrets[name+"-kubeconfig"] = string(kc)
 		p.Conns = append(p.Conns, c)
+		if why := clash[n]; why != "" {
+			p.ConnNotes[c] = append(p.ConnNotes[c], why)
+		}
 		if e := x.Plugin(); e != nil {
 			// a person imported it, or allowed it (guardKubeImport): agents
 			// may run this program for this conn without asking again
 			c.TrustedPlugin = pluginTrust(pluginLine(e), x.Cluster.Server)
-			p.Notes = append(p.Notes, fmt.Sprintf("context %s (imported) logs in by running `%s` on this computer for every cluster command", n, pluginLine(e)))
+			p.ConnNotes[c] = append(p.ConnNotes[c], fmt.Sprintf("context %s logs in by running `%s` on this computer for every cluster command", n, pluginLine(e)))
 		}
 	}
 	return p, nil
+}
+
+func sortedContexts(cfg *kube.Config) []string {
+	n := cfg.ContextNames()
+	sort.Strings(n)
+	return n
+}
+
+// kubeconfigConnNames gives every context its conn name before any is
+// left out, so a context that cannot be imported (a missing certificate
+// file) keeps its name, and a later context whose name differs only in
+// case (Prod beside prod) cannot take it. clash says, for a context that
+// got another name than it asked for, which context has that name.
+func kubeconfigConnNames(contexts []string) (names, clash map[string]string) {
+	contexts = slices.Clone(contexts)
+	sort.Strings(contexts)
+	p := newPlan()
+	names, clash = map[string]string{}, map[string]string{}
+	first := map[string]string{} // the name a context asks for -> the context that got it
+	// a context already in lower case asks for its own name: it goes first,
+	// so prod is prod and Prod beside it becomes prod-2
+	lower := slices.DeleteFunc(slices.Clone(contexts), func(n string) bool { return n != strings.ToLower(n) })
+	other := slices.DeleteFunc(contexts, func(n string) bool { return n == strings.ToLower(n) })
+	for _, n := range slices.Concat(lower, other) {
+		name := p.name(n)
+		p.Conns = append(p.Conns, &store.Conn{Name: name})
+		names[n] = name
+		base := strings.ToLower(strings.Trim(unsafeName.ReplaceAllString(n, "-"), "-._"))
+		if other, ok := first[base]; ok {
+			clash[n] = fmt.Sprintf("contexts %s and %s both make the conn name %s; context %s is the conn %s", other, n, names[other], n, name)
+		} else {
+			first[base] = n
+		}
+	}
+	return names, clash
 }
 
 // guardKubeImport: an AI agent importing a kubeconfig that runs a program
@@ -435,13 +495,13 @@ func guardKubeImport(name string, x *kube.Context) error {
 				"context %s logs in with `%s`, which matches destructive rules: %s", name, line, hits[0].Reason))
 		}
 		if isAgent() {
-			if err := guardSafety("context " + name + " runs `" + line + "` on this computer whenever komando logs in, also for AI agents' later commands"); err != nil {
+			if err := guardSafety("running `" + line + "` on this computer whenever komando logs in to context " + name + ", also for AI agents' later commands"); err != nil {
 				return err
 			}
 		}
 	}
 	if f := x.User.TokenFile; f != "" && isAgent() {
-		return guardSafety("context " + name + " sends the file " + f + " from this computer to its server as the login token")
+		return guardSafety("sending the file " + f + " from this computer to the server of context " + name + " as its login token")
 	}
 	return nil
 }

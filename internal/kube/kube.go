@@ -35,23 +35,29 @@ import (
 
 // Config is the part of a kubeconfig komando uses.
 type Config struct {
-	CurrentContext string `yaml:"current-context"`
-	Clusters       []struct {
-		Name    string  `yaml:"name"`
-		Cluster Cluster `yaml:"cluster"`
-	} `yaml:"clusters"`
-	Users []struct {
-		Name string   `yaml:"name"`
-		User AuthInfo `yaml:"user"`
-	} `yaml:"users"`
-	Contexts []struct {
-		Name    string `yaml:"name"`
-		Context struct {
-			Cluster   string `yaml:"cluster"`
-			User      string `yaml:"user"`
-			Namespace string `yaml:"namespace,omitempty"`
-		} `yaml:"context"`
-	} `yaml:"contexts"`
+	CurrentContext string         `yaml:"current-context"`
+	Clusters       []NamedCluster `yaml:"clusters"`
+	Users          []NamedUser    `yaml:"users"`
+	Contexts       []NamedContext `yaml:"contexts"`
+}
+
+type NamedCluster struct {
+	Name    string  `yaml:"name"`
+	Cluster Cluster `yaml:"cluster"`
+}
+
+type NamedUser struct {
+	Name string   `yaml:"name"`
+	User AuthInfo `yaml:"user"`
+}
+
+type NamedContext struct {
+	Name    string `yaml:"name"`
+	Context struct {
+		Cluster   string `yaml:"cluster"`
+		User      string `yaml:"user"`
+		Namespace string `yaml:"namespace,omitempty"`
+	} `yaml:"context"`
 }
 
 type Cluster struct {
@@ -137,14 +143,91 @@ func execArg(args []string, names ...string) string {
 
 // Parse reads a kubeconfig.
 func Parse(b []byte) (*Config, error) {
-	var c Config
-	if err := yaml.Unmarshal(b, &c); err != nil {
-		return nil, fmt.Errorf("not a kubeconfig: %w", err)
+	c, err := parse(b)
+	if err != nil {
+		return nil, err
 	}
 	if len(c.Contexts) == 0 {
 		return nil, fmt.Errorf("the kubeconfig has no contexts")
 	}
+	return c, nil
+}
+
+func parse(b []byte) (*Config, error) {
+	var c Config
+	if err := yaml.Unmarshal(b, &c); err != nil {
+		return nil, fmt.Errorf("not a kubeconfig: %w", err)
+	}
 	return &c, nil
+}
+
+// Load reads kubeconfig files the way kubectl reads a KUBECONFIG list:
+// the first file that names a context, cluster or user wins, and so does
+// the first current-context. Relative file paths in a file (a minikube or
+// kind certificate) count from that file's folder, not the current one.
+// read reads one file; "-" is stdin and keeps paths as they are.
+func Load(read func(path string) ([]byte, error), paths ...string) (*Config, error) {
+	all := &Config{}
+	for _, p := range paths {
+		b, err := read(p)
+		if err != nil {
+			return nil, err
+		}
+		c, err := parse(b)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", p, err)
+		}
+		if p != "-" {
+			if abs, err := filepath.Abs(p); err == nil {
+				c.absPaths(filepath.Dir(abs))
+			}
+		}
+		all.merge(c)
+	}
+	if len(all.Contexts) == 0 {
+		return nil, fmt.Errorf("the kubeconfig has no contexts")
+	}
+	return all, nil
+}
+
+// absPaths makes the relative file paths in c count from dir.
+func (c *Config) absPaths(dir string) {
+	fix := func(p *string) {
+		if *p != "" && !filepath.IsAbs(*p) && !strings.HasPrefix(*p, "~/") {
+			*p = filepath.Join(dir, *p)
+		}
+	}
+	for i := range c.Clusters {
+		fix(&c.Clusters[i].Cluster.CertificateAuthority)
+	}
+	for i := range c.Users {
+		u := &c.Users[i].User
+		fix(&u.ClientCertificate)
+		fix(&u.ClientKey)
+		fix(&u.TokenFile)
+	}
+}
+
+// merge adds what o names and c does not yet.
+func (c *Config) merge(o *Config) {
+	if c.CurrentContext == "" {
+		c.CurrentContext = o.CurrentContext
+	}
+	for _, x := range o.Clusters {
+		if !slices.ContainsFunc(c.Clusters, func(y NamedCluster) bool { return y.Name == x.Name }) {
+			c.Clusters = append(c.Clusters, x)
+		}
+	}
+	for _, x := range o.Users {
+		if !slices.ContainsFunc(c.Users, func(y NamedUser) bool { return y.Name == x.Name }) {
+			c.Users = append(c.Users, x)
+		}
+	}
+	for _, x := range o.Contexts {
+		if !slices.ContainsFunc(c.Contexts, func(y NamedContext) bool { return y.Name == x.Name }) {
+			c.Contexts = append(c.Contexts, x)
+		}
+	}
 }
 
 // ContextNames lists the context names in file order.
@@ -239,6 +322,10 @@ func expandHome(p string) string {
 	return p
 }
 
+// DialTimeout limits a direct connection to the API server; without it an
+// address that never answers waits for the system's own limit (75 s and more).
+const DialTimeout = 30 * time.Second
+
 // Dialer opens TCP connections, possibly through a --via path.
 type Dialer func(ctx context.Context, network, addr string) (net.Conn, error)
 
@@ -292,7 +379,8 @@ func New(x *Context, dial Dialer) (*Client, error) {
 		}
 		pick = http.ProxyURL(u)
 	}
-	tr := &http.Transport{TLSClientConfig: tc, TLSHandshakeTimeout: 15 * time.Second, ForceAttemptHTTP2: true, Proxy: pick}
+	tr := &http.Transport{TLSClientConfig: tc, TLSHandshakeTimeout: 15 * time.Second, ForceAttemptHTTP2: true, Proxy: pick,
+		DialContext: (&net.Dialer{Timeout: DialTimeout, KeepAlive: 30 * time.Second}).DialContext}
 	if dial != nil {
 		tr.DialContext = dial
 		tr.Proxy = nil // the --via path is the way out
@@ -486,6 +574,7 @@ func (c *Client) discover(ctx context.Context) error {
 		} `json:"groups"`
 	}
 	if err := c.Get(ctx, "/apis", nil, &groups); err != nil {
+		c.discovery = nil // ask again next time, not an empty list
 		return err
 	}
 	for _, g := range groups.Groups {
@@ -513,13 +602,18 @@ func (c *Client) Resource(ctx context.Context, name string) (ResourceType, error
 	return ResourceType{}, &UnknownKindError{Kind: name, Suggest: Nearest(strings.ToLower(name), known)}
 }
 
-// UnknownKindError is a kind the cluster does not serve.
+// UnknownKindError is a kind the cluster does not serve. APIVersion is
+// set for an object's apiVersion and kind (ResourceFor).
 type UnknownKindError struct {
-	Kind    string
-	Suggest string
+	Kind       string
+	APIVersion string
+	Suggest    string
 }
 
 func (e *UnknownKindError) Error() string {
+	if e.APIVersion != "" {
+		return fmt.Sprintf("the cluster does not serve %s %s", e.APIVersion, e.Kind)
+	}
 	if e.Suggest != "" {
 		return fmt.Sprintf("unknown kind %q; did you mean %q?", e.Kind, e.Suggest)
 	}
@@ -568,7 +662,7 @@ func (c *Client) ResourceFor(ctx context.Context, apiVersion, kind string) (Reso
 	if r, ok := c.discovery[apiVersion+"/"+kind]; ok {
 		return r, nil
 	}
-	return ResourceType{}, fmt.Errorf("the cluster does not serve %s %s", apiVersion, kind)
+	return ResourceType{}, &UnknownKindError{Kind: kind, APIVersion: apiVersion}
 }
 
 // ObjectPath is the API path of a ResourceType (all namespaces when ns is "").

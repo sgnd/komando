@@ -156,7 +156,6 @@ func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 	}{
 		{[]string{"create", "token", "bot", "--duration", "8760h"}, "/token"},
 		{[]string{"create", "-n", "kube-system", "token", "admin"}, "/token"},
-		{[]string{"config", "view", "--raw"}, "GET"},
 		{[]string{"exec", "pod-a", "--", "id"}, "/exec"},
 	} {
 		before := l.seen(c.sent)
@@ -174,6 +173,11 @@ func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 		if m, _ := d["_meta"].(map[string]any); m["would_be_blocked"] == nil {
 			t.Errorf("%v: the stop must be reported: %v", c.args, d)
 		}
+	}
+	// config view is refused before anything is rated or sent
+	before := l.seen("GET")
+	if _, e := cliRun(t, "--dry-run", "cluster", "run", "prod", "--", "config", "view", "--raw"); e == nil || e.Code != "USAGE" || l.seen("GET") != before {
+		t.Errorf("config view: %+v", e)
 	}
 	if *windows != 0 {
 		t.Errorf("a dry run opened %d approval windows", *windows)
