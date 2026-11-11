@@ -76,7 +76,9 @@ exits 1 (code CERT_PROBLEMS), like ` + "`komando doctor`" + `.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w, err := parseAge(warn, "--warn")
 			if err != nil {
-				return err
+				e := toErr(err)
+				e.Hint = "for example: komando cert check @prod --warn 14d"
+				return e
 			}
 			for _, p := range paths {
 				if !strings.HasPrefix(p, "/") || strings.ContainsAny(p, "\n\r\x00") {
@@ -288,6 +290,15 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 	if len(hosts)+len(urls) == 0 {
 		return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "give a server, a TLS conn or a website (https://NAME)", "nothing to check")
 	}
+	if _, err := windowsGate(ctx, "cert.check", hosts, false); err != nil {
+		return err
+	}
+	if len(o.paths) > 0 && len(hosts) == 0 {
+		return out.Usage("--path reads files on servers, and no target here is a server")
+	}
+	if o.via != "" && len(urls) == 0 {
+		return out.Usage("--via is for websites and conns; komando reaches the servers directly")
+	}
 	if g.dryRun {
 		plan := map[string]any{"hosts": hostNames(hosts), "warn": o.warnText}
 		if len(hosts) > 0 {
@@ -446,6 +457,10 @@ func parseCertURL(st *store.State, s string) (addr, serverName string, ok bool, 
 		if perr != nil || u.Hostname() == "" {
 			return "", "", false, out.Usage("cannot read %q as a URL", s)
 		}
+		if sch := strings.ToLower(u.Scheme); sch == "http" || sch == "ws" {
+			return "", "", false, out.Errf(out.ExitUsage, "USAGE", "for example: komando cert check https://"+u.Host,
+				"%s has no certificate: %s is not encrypted", s, sch)
+		}
 		port := u.Port()
 		if port == "" {
 			if port = certURLPorts[strings.ToLower(u.Scheme)]; port == "" {
@@ -527,12 +542,12 @@ func servedCert(ctx context.Context, dial netx.Dialer, address, serverName strin
 	if net.ParseIP(sni) != nil {
 		sni = ""
 	}
-	conn := tls.Client(raw, &tls.Config{ServerName: sni, InsecureSkipVerify: true}) //nolint:gosec // verified below, by hand, to report instead of fail
+	conn := tls.Client(raw, certTLSConfig(sni))
 	if err := conn.HandshakeContext(ctx); err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return certInfo{}, certConnErr(address, via, ctx.Err())
 		}
-		return certInfo{}, out.Errf(out.ExitConnect, "TLS_HANDSHAKE_FAILED", "check that "+address+" speaks TLS (not plain HTTP) on that port",
+		return certInfo{}, out.Errf(out.ExitConnect, "TLS_HANDSHAKE_FAILED", "the server ended the TLS handshake; try again, and check that "+address+" is the TLS port (not plain HTTP)",
 			"TLS handshake with %s failed: %v", address, err)
 	}
 	peers := conn.ConnectionState().PeerCertificates
@@ -552,6 +567,15 @@ func servedCert(ctx context.Context, dial netx.Dialer, address, serverName strin
 	}
 	ci.Verified = &ok
 	return ci, nil
+}
+
+// certTLSConfig skips the check in the handshake (servedCert verifies by
+// hand, to report instead of fail) and offers only the classic key
+// exchanges: some servers and middleboxes drop the large post-quantum
+// hello Go sends by default, and reading a certificate needs none of it.
+func certTLSConfig(sni string) *tls.Config {
+	return &tls.Config{ServerName: sni, InsecureSkipVerify: true, //nolint:gosec // verified by hand in servedCert
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384}}
 }
 
 func certConnErr(address, via string, err error) error {

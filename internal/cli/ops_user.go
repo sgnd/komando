@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"os"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // userListScript prints passwd, the admin groups and (when readable, i.e.
@@ -90,9 +92,18 @@ func userExists(name string) string {
 	return "id " + sshx.Q(name) + " >/dev/null 2>&1 || { echo '#komando:no-user'; exit 0; }\n"
 }
 
+// needShadow stops a script on servers without the shadow tools (useradd,
+// usermod, userdel): busybox, as on Alpine, has only adduser and deluser.
+func needShadow(tool string) string {
+	return "command -v " + tool + " >/dev/null 2>&1 || { echo '#komando:no-" + tool + "'; echo '" + tool + " is missing on this server; on Alpine install the shadow package: komando pkg install TARGET shadow' >&2; exit 127; }\n"
+}
+
 func userResult(name, action string, rr *sshx.RunResult) (any, *out.Error) {
-	if marker(rr.Stdout) == "no-user" {
+	switch marker(rr.Stdout) {
+	case "no-user":
 		return nil, out.Errf(out.ExitNotFound, "USER_NOT_FOUND", "list the accounts with `komando user list TARGET --all`", "user %s does not exist", name)
+	case "no-usermod":
+		return nil, out.Errf(out.ExitNotFound, "TOOL_MISSING", "on Alpine install the shadow package: `komando pkg install TARGET shadow`", "usermod is missing on this server")
 	}
 	if rr.ExitCode != 0 {
 		return nil, nil
@@ -109,4 +120,44 @@ func cronRemoved(rr *sshx.RunResult) (any, *out.Error) {
 		}
 	}
 	return nil, nil
+}
+
+// loginUser is the account komando logs in to h as.
+func loginUser(st *store.State, h *store.Host) string {
+	switch {
+	case h.User != "":
+		return h.User
+	case st.Settings.DefaultUser != "":
+		return st.Settings.DefaultUser
+	}
+	return os.Getenv("USER")
+}
+
+// lockoutStop refuses to lock or delete root or the account komando logs
+// in as: afterwards nobody gets in to undo it. --allow-dangerous lets it
+// through.
+func lockoutStop(target, user, verb string) error {
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	hosts, err := resolveTargets(st, target)
+	if err != nil {
+		return nil // the command itself reports it
+	}
+	var names []string
+	for _, h := range hosts {
+		if user == "root" || user == loginUser(st, h) {
+			names = append(names, h.Name)
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	why := verb + " " + user + " locks komando out of " + strings.Join(names, ", ") + " (it is root or the user komando logs in as)"
+	if dangerOK(why, targetsWhy(st, hosts)) || confirmDangerous(names, why) {
+		return nil
+	}
+	return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "log in as another user first (`komando host edit NAME --user OTHER`); only if this is intended: confirm with the user, then re-run with --allow-dangerous",
+		"%s", why))
 }

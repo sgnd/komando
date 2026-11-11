@@ -230,7 +230,7 @@ var errorCodes = []errorCode{
 	{"TARGET_EMPTY", 3, "target … matched nothing", "run `komando list` to see servers, conns, groups and tags"},
 	{"TARGET_NOT_FOUND", 3, "no server, conn or VPN named …", "run `komando list` to see servers, conns and VPNs"},
 	{"TIMEOUT", 7, "redis did not answer in time", "raise --timeout"},
-	{"TLS_HANDSHAKE_FAILED", 4, "TLS handshake with … failed: …", "check that … speaks TLS (not plain HTTP) on that port"},
+	{"TLS_HANDSHAKE_FAILED", 4, "TLS handshake with … failed: …", "the server ended the TLS handshake; try again, and check that … is the TLS port (not plain HTTP)"},
 	{"TOOL_FAILED", 5, "… failed on … (exit …): …", "read the message; `komando conn test CONN` checks reachability (for a known problem, the hint names the fix)"},
 	{"TOOL_MISSING", 3, "curl is not installed", "install curl on the server"},
 	{"TOOL_TOO_OLD", 5, "… failed on … (exit …): …", "pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --on HOST"},

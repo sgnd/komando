@@ -40,8 +40,8 @@ var (
 		help: "Its name as systemd knows it, like nginx or ssh. `komando svc list` shows them."}
 	srvUnits = formArg{ask: "Which services?", example: "nginx",
 		help: "Their names as systemd knows them, like nginx or ssh. Several: separate them with spaces. `komando svc list` shows them."}
-	srvWait = formFlag{name: "wait", ask: "Wait how many seconds for them to be running?",
-		help: "It fails when a service is not running by then. Leave empty to not wait.", example: "10"}
+	srvWait = formFlag{name: "wait", ask: "How long to wait for them to be running?",
+		help: "Like 10s or 2m. It fails when a service is not running by then. Leave empty to not wait.", example: "10s"}
 	srvPkgs = formArg{ask: "Which packages?", example: "htop jq",
 		help: "Their names as the server's package manager (apt, dnf, apk ...) knows them. Several: separate them with spaces."}
 	srvPkgsAll = formArg{ask: "Which packages? (leave empty for all)", example: "nginx openssl",
@@ -111,7 +111,6 @@ var srvSvcHints = map[string]formHint{
 	"svc enable": {args: []formArg{srvServers, srvUnits}, flags: []formFlag{
 		{name: "now", ask: "Also start them now?", help: "No only makes them start at the next boot."}}},
 	"svc list": {args: []formArg{srvServers}, flags: []formFlag{
-		{name: "failed", ask: "Only the services that failed?"},
 		{name: "state", ask: "Only services in one state?", choices: []string{"running", "exited", "failed", "inactive"},
 			help: "Running are up now, exited ran once and finished, inactive are stopped."}}},
 	"svc logs": {args: []formArg{srvServers, srvUnit},
@@ -132,7 +131,7 @@ var srvPkgHints = map[string]formHint{
 			help: "Yes asks the package sources what is new, so the list is current."},
 		{name: "apply", ask: "Install the security updates now?",
 			help: "No only lists them. Yes installs them, one server at a time."}}},
-	"pkg update": {args: []formArg{srvServers, srvPkgsAll}},
+	"pkg update": {args: []formArg{srvServers}},
 	"pkg upgradable": {args: []formArg{srvServers, srvPkgsAll}, flags: []formFlag{
 		{name: "refresh", ask: "Refresh the package list first?",
 			help: "Yes asks the package sources what is new, so the list is current."}}},

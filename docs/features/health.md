@@ -177,7 +177,7 @@ komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... n
 | Command | Fails when | Exit code |
 |---------|-----------|-----------|
 | `net check` | a port does not answer (`PORT_CLOSED`); the result says why: `refused`, `timeout` (after 5 seconds), `dns` or `unreachable` | 5 |
-| `net http` | nothing answers (`NO_RESPONSE`, within 15 seconds) | 4 |
+| `net http` | nothing answers (`NO_RESPONSE`, within 15 seconds, or `--timeout`) | 4 |
 | `net http --expect 2xx` | the status is another one (`UNEXPECTED_STATUS`); `--expect 200` names one status | 5 |
 | `net dns` | the name does not resolve (`NXDOMAIN`) or has no records of that type (`NO_RECORDS`) | 3 |
 
@@ -189,4 +189,5 @@ Good to know:
   to. `--type` takes A, AAAA, CNAME, MX, NS, TXT, SOA, SRV, PTR or CAA. A and
   AAAA work everywhere; the others need `dig` on the server, and the error
   says which package installs it.
-- `net http` reports the status, timing, the IP it reached and any redirect.
+- `net http` takes `http://` and `https://` URLs only. It reports the status,
+  timing, the IP it reached and any redirect.
