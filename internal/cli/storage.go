@@ -419,7 +419,24 @@ func parseAge(s, flag string) (time.Duration, error) {
 	if d, err := time.ParseDuration(s); err == nil && d > 0 {
 		return d, nil
 	}
-	return 0, out.Usage("%s takes a positive duration like 30d, 12h or 90m (got %q)", flag, s)
+	return 0, out.Errf(out.ExitUsage, "USAGE", "write a number and a unit: 90m, 12h or 30d",
+		"%s takes a positive duration like 30d, 12h or 90m (got %q)", flag, s)
+}
+
+// ageFlag is a duration flag that also takes days (7d), like parseAge.
+type ageFlag struct {
+	d    *time.Duration
+	name string
+}
+
+func (a ageFlag) String() string { return a.d.String() }
+func (a ageFlag) Type() string   { return "duration" }
+func (a ageFlag) Set(s string) error {
+	d, err := parseAge(s, a.name)
+	if err == nil {
+		*a.d = d
+	}
+	return err
 }
 
 func removeKeys(ctx context.Context, s storex.Bucket, keys []string) ([]string, error) {
@@ -648,11 +665,12 @@ The link names the storage address in the conn URL: when komando reaches it
 through --via, only people who can reach that address can use the link.
 --endpoint signs the link for the address they use instead (S3 only).`,
 		Example: `  komando storage link backups reports/q3.pdf --expires 24h
+  komando storage link backups reports/q3.pdf --expires 7d
   komando storage link backups reports/q3.pdf --endpoint https://files.example.com`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if expires <= 0 || expires > 7*24*time.Hour {
-				return out.Usage("--expires must be between 1s and 168h (7 days)")
+				return out.Usage("--expires must be between 1s and 7d (168h)")
 			}
 			var pub *url.URL
 			if endpoint != "" {
@@ -693,7 +711,8 @@ through --via, only people who can reach that address can use the link.
 				})
 		},
 	}
-	c.Flags().DurationVar(&expires, "expires", time.Hour, "how long the link works (max 168h)")
+	expires = time.Hour
+	c.Flags().Var(ageFlag{&expires, "--expires"}, "expires", "how long the link works: 30m, 24h, 7d (max 7d)")
 	c.Flags().StringVar(&endpoint, "endpoint", "", "sign the link for this address, e.g. https://files.example.com (when komando reaches the storage through --via)")
 	return c
 }

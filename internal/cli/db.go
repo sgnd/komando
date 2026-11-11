@@ -47,6 +47,21 @@ that is always rolled back), so nothing can change. With --write, try
 would change.`,
 	}
 	c.AddCommand(connAddCmdFor("db"), dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
+	var withTimeout func(*cobra.Command)
+	withTimeout = func(cmd *cobra.Command) {
+		for _, sub := range cmd.Commands() {
+			switch sub.Name() {
+			case "add", "dump", "restore": // dump and restore have no time limit of their own
+			default:
+				if sub.Annotations == nil {
+					sub.Annotations = map[string]string{}
+				}
+				sub.Annotations[timeoutHelp] = "time limit for each query (default 30s, or the conn's statement_timeout option)"
+				withTimeout(sub)
+			}
+		}
+	}
+	withTimeout(c)
 	return c
 }
 

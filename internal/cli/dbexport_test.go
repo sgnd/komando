@@ -123,3 +123,43 @@ func TestDBKillSQLite(t *testing.T) {
 		t.Error("db kill created the file")
 	}
 }
+
+// --expires takes days like --ttl and --older-than.
+func TestStorageLinkExpiresDays(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "s3l", "s3://AKIAEXAMPLE@b?region=eu-west-1&endpoint=http://127.0.0.1:9")
+	defer func() { g.dryRun = false }()
+	mustRun(t, "storage", "link", "s3l", "a.txt", "--expires", "7d", "--dry-run")
+	if e := wantCode(t, "USAGE", "storage", "link", "s3l", "a.txt", "--expires", "8d", "--dry-run"); !strings.Contains(e.Message, "7d") {
+		t.Errorf("8d: %s", e.Message)
+	}
+	if e := wantCode(t, "USAGE", "storage", "link", "s3l", "a.txt", "--expires", "30x"); !strings.Contains(e.Message, "--expires") {
+		t.Errorf("30x: %s", e.Message)
+	}
+}
+
+// A bad URL of one kind gets that kind's example, not another kind's.
+func TestConnAddKindExample(t *testing.T) {
+	invHome(t)
+	if e := wantCode(t, "USAGE", "queue", "add", "ps", "pubsub://proj"); !strings.Contains(e.Hint, "pubsub://my-project") {
+		t.Errorf("hint: %s", e.Hint)
+	}
+}
+
+// db commands stop a query after 30s, not the global 5m; their help says so.
+func TestDBHelpTimeout(t *testing.T) {
+	root := newRoot()
+	for _, path := range [][]string{{"db", "query"}, {"db", "user", "ls"}, {"db", "dump"}} {
+		c, _, err := root.Find(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var b bytes.Buffer
+		c.SetOut(&b)
+		_ = c.Help()
+		want := map[bool]string{true: "default 30s", false: "default: setting, 5m"}[path[1] != "dump"]
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("%v help: no %q in\n%s", path, want, b.String())
+		}
+	}
+}
