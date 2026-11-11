@@ -14,10 +14,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
-- **Running now lists only jobs that may still run.** komando remembers
-  a job ended whenever it checks it (`job status`, `wait`, `list
-  --refresh`, `rm`), and leaves out jobs whose server left your list. The
-  new row "Check which jobs still run" asks every server.
+- **Running now is what runs on this computer.** It lists and counts
+  VPNs, logins and port forwards only. Background jobs run on the servers
+  and keep going without this computer, so they sit under "Background
+  jobs" (the same list as on a server) and are not counted; its count
+  leaves out jobs that ended: komando remembers a job ended whenever it checks it (`job status`,
+  `wait`, `list --refresh`, `rm`) and leaves out jobs whose server left
+  your list. "Check which jobs still run" asks every server.
 
 ## [0.11.0] - 2026-11-11
 
