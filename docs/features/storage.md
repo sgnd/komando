@@ -180,9 +180,10 @@ komando upload backups ./a.pdf reports/                     # stores reports/a.p
 komando upload backups ./reports reports -r                 # a whole folder
 ```
 
-`komando storage download` is the same command with the same flags.
-`komando storage upload` sends single files only; for a folder use
-`komando upload -r`, which sends only new and changed files, like `komando sync`.
+`komando storage download` and `komando storage upload` are other names for
+the same commands (storage conns only), and `komando cp` writes the same
+copy as `cp ./a.pdf backups:reports/`. A folder upload (`-r`) sends only new
+and changed files, like `komando sync`.
 
 - Downloads never overwrite a file on your computer unless you add
   `--overwrite`. The file is readable only by you. `--to` takes a file name,

@@ -64,6 +64,10 @@ func srvNoUnit(a formAnswers) bool     { return a["flag:unit"] == "" }
 func srvNoUnitFile(a formAnswers) bool { return a["flag:unit"] == "" && a["flag:file"] == "" }
 func srvNoFile(a formAnswers) bool     { return a["flag:file"] == "" }
 
+// exec runs a command, or with no command a script file from here.
+func srvNoCommand(a formAnswers) bool  { return a["arg1"] == "" }
+func srvWithScript(a formAnswers) bool { return a["flag:script"] != "" }
+
 // srvWithShow is f asked only while show says true.
 func srvWithShow(f formFlag, show func(formAnswers) bool) formFlag {
 	f.show = show
@@ -73,9 +77,14 @@ func srvWithShow(f formFlag, show func(formAnswers) bool) formFlag {
 var srvRunHints = map[string]formHint{
 	"exec": {
 		args: []formArg{srvServers, {ask: "What command should it run?", example: "df -h /",
-			help: "Type it as you would on the server itself, pipes and all."}},
-		flags: []formFlag{srvSudo, srvReadOnly, srvDir},
-		hide:  []string{"cmd"},
+			help: "Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead."}},
+		flags: []formFlag{
+			{name: "script", ask: "Which script on this computer?", example: "./deploy.sh", local: true, show: srvNoCommand,
+				help: "A file on this computer. komando sends it to the server and runs it there; nothing is left on disk."},
+			{name: "arg", ask: "Anything to pass to the script?", example: "v1.2.3", show: srvWithScript,
+				help: "One value the script gets as its first argument. Leave empty for none."},
+			srvSudo, srvReadOnly, srvDir},
+		hide: []string{"cmd"},
 	},
 	"shell": {
 		args: []formArg{{ask: "Which server?", pick: "server",
@@ -95,13 +104,6 @@ var srvRunHints = map[string]formHint{
 		},
 	},
 	"reboot": {args: []formArg{srvServers}},
-	"script": {
-		args: []formArg{srvServers, {ask: "Which script on this computer?", example: "./deploy.sh", local: true,
-			help: "A file on this computer. komando sends it to the server and runs it there."}},
-		flags: []formFlag{srvSudo, srvReadOnly,
-			{name: "arg", ask: "Anything to pass to the script?", example: "v1.2.3",
-				help: "One value the script gets as its first argument. Leave empty for none."}},
-	},
 }
 
 var srvSvcHints = map[string]formHint{

@@ -8,7 +8,6 @@ import (
 	"mime"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -267,67 +266,6 @@ func storageLsCmd() *cobra.Command {
 	return c
 }
 
-func storageDownloadCmd() *cobra.Command {
-	var to string
-	var recursive, overwrite bool
-	c := &cobra.Command{
-		Use:     "download CONN KEY",
-		Aliases: []string{"get"},
-		Short:   "Download an object, or a folder with -r, to this computer",
-		Long: `Saves KEY to a file named like the key in the current folder, or to --to:
-a file name, a folder (existing, or ending in /), or - for stdout (text
-output only). An existing file is never replaced unless --overwrite. With -r,
-KEY is a folder and everything under it is downloaded; files already here
-are kept unless --overwrite. --dry-run shows what would be saved where.`,
-		Example: `  komando storage download backups db/app-2026-11-02.sql.gz
-  komando storage download backups reports/q3.pdf --to ~/Downloads/
-  komando storage download backups logs/app.log --to - -o text | less
-  komando storage download backups reports/ -r --to ./reports`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if recursive {
-				if to == "-" {
-					return out.Usage("-r saves a folder; --to - (stdout) takes one file")
-				}
-				dest := to
-				if dest == "" {
-					dest = path.Base(strings.TrimSuffix(args[1], "/"))
-				}
-				return syncDown(cmd.Context(), "storage.download", args[0], args[1], dest, syncOpts{onlyNew: !overwrite})
-			}
-			return storageDownloadTo(cmd.Context(), "storage.download", args[0], args[1], to, overwrite)
-		},
-	}
-	c.Flags().StringVar(&to, "to", "", "file or folder to save to, or - for stdout (default: the key's file name here)")
-	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "download every object under the KEY folder")
-	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace files that already exist on this computer")
-	return c
-}
-
-func storageUploadCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:     "upload CONN FILE [KEY]",
-		Aliases: []string{"put"},
-		Short:   "Same as `komando upload CONN FILE [KEY]`",
-		Long: `Uploads FILE to KEY. Without KEY it keeps the file's name; a KEY ending in /
-is a folder, so the file keeps its name inside it. An existing object is
-replaced (the result says so); --dry-run checks the key and says whether it
-would replace one.`,
-		Example: `  komando storage upload backups prod-2026-11-02.sql.gz
-  komando storage upload backups ./report.pdf reports/2026/
-  komando storage upload backups ./report.pdf reports/2026/q3.pdf --dry-run`,
-		Args: cobra.RangeArgs(2, 3),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			key := ""
-			if len(args) == 3 {
-				key = args[2]
-			}
-			return storageUpload(cmd.Context(), "storage.upload", args[0], args[1], key)
-		},
-	}
-	return c
-}
-
 func storageRmCmd() *cobra.Command {
 	var prefix, olderThan string
 	var limit int
@@ -567,7 +505,7 @@ func storageCatCmd() *cobra.Command {
 						text = strings.ToValidUTF8(text[:len(text)-incompleteRune(text)], "") // cut inside a character
 					}
 					if !utf8.ValidString(text) || strings.ContainsRune(text, 0) {
-						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "download it with `komando storage download CONN KEY`", "%s is not text", args[1])
+						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "download it with `komando download CONN KEY`", "%s is not text", args[1])
 					}
 					lines := strings.SplitAfter(text, "\n")
 					if len(lines) > 0 && lines[len(lines)-1] == "" {

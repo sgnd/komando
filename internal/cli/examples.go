@@ -115,7 +115,6 @@ var details = map[string]string{
 	"komando policy check":      "Test whether a shell command would be blocked (exit 6), or rate SQL, Redis or memcached commands with --for KIND.",
 	"komando recipe":            "Ready-made and saved commands: health, disk, certs, ... plus your own ({{blank}} to fill in).",
 	"komando schema":            "Machine-readable reference of every command, flag, exit code and selector.",
-	"komando script":            "Run a script from this computer on servers. It goes over stdin, so nothing is left on disk.",
 	"komando svc":               "Services on servers: systemd units on Linux, Windows services on Windows servers. status, list, start, stop, restart, enable and disable work on both; reload, daemon-reload and logs are for systemd.",
 	"komando svc daemon-reload": "Reload systemd's unit files (after writing a unit), and say which units still need it.",
 	"komando svc status":        "Structured unit status (active_state, sub_state, main_pid, n_restarts, memory ...).",

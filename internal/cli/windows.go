@@ -168,9 +168,9 @@ func psScriptCall(body string, argv []string) string {
 	return b.String()
 }
 
-// windowsScript is `komando script` on Windows servers: the file is a
+// windowsScript is `komando exec --script` on Windows servers: the file is a
 // PowerShell script, and --arg values are its arguments.
-func windowsScript(ctx context.Context, args []string, body []byte, interpreter string, argv []string, o execOpts, readOnly bool) error {
+func windowsScript(ctx context.Context, name, target, file string, body []byte, interpreter string, argv []string, o execOpts, readOnly bool) error {
 	if i := strings.ToLower(interpreter); i != "" && i != "powershell" && i != "pwsh" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "on Windows servers a script is PowerShell: leave --interpreter out",
 			"--interpreter %s does not work on Windows servers", interpreter)
@@ -186,8 +186,8 @@ func windowsScript(ctx context.Context, args []string, body []byte, interpreter 
 			return err
 		}
 	}
-	o.display = "script " + filepath.Base(args[1])
-	return runFleet(ctx, "script", args[0], command, nil, o, mutating)
+	o.display = "script " + filepath.Base(file)
+	return runFleet(ctx, name, target, command, nil, o, mutating)
 }
 
 // testWindowsHost is testHost for a Windows server: who komando logs in

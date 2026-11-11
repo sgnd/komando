@@ -57,7 +57,6 @@ var gateExec = syscall.Exec
 // change something, or "".
 var gateReadForm = map[string]func(c *cobra.Command) string{
 	"exec":           needFlag("read-only"),
-	"script":         needFlag("read-only"),
 	"job.start":      needFlag("read-only"),
 	"docker.exec":    needFlag("read-only"),
 	"cluster.exec":   needFlag("read-only"),
@@ -91,7 +90,7 @@ var gateNotForReadKey = map[string]string{
 // databases, caches, storage and clusters, or connect a VPN komando already
 // knows. A func says why the command as given writes here, or "".
 var gateOnServers = map[string]func(c *cobra.Command) string{
-	"exec": nil, "script": nil, "reboot": nil, "upload": nil, "recipe.run": nil,
+	"exec": nil, "reboot": nil, "upload": nil, "recipe.run": nil,
 	"cp": gateLocalDst, "sync": gateLocalDst,
 	"job.start": nil, "job.kill": nil, "job.rm": nil,
 	"fs.chmod": nil, "fs.mkdir": nil, "fs.mv": nil, "fs.replace": nil, "fs.rm": nil, "fs.write": nil,
