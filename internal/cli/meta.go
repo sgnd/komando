@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -189,11 +190,13 @@ Safe to run again, for example after an update: a changed file is kept as
 				files = append(files, f)
 			}
 			if !noGuard {
+				prog, note := hookProgram(project)
 				// Claude Code asks komando before each tool call (guard.go)
-				f, err := installGuardHook(filepath.Join(base, ".claude", "settings.json"), komandoPath(), g.dryRun)
+				f, err := installGuardHook(filepath.Join(base, ".claude", "settings.json"), prog, g.dryRun)
 				if err != nil {
 					return out.Errf(out.ExitError, "WRITE_FAILED", "fix the file, or pass --no-guard to skip the guard", "%v", err)
 				}
+				f.Note = note
 				files = append(files, f)
 				// the other agents, where the person uses them
 				for _, h := range agentHooks {
@@ -201,12 +204,13 @@ Safe to run again, for example after an update: a changed file is kept as
 					if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 						continue
 					}
-					f, err := installAgentHook(filepath.Join(dir, h.file), h.add, shellQuote(komandoPath())+" guide guard --for "+h.name, g.dryRun)
+					f, err := installAgentHook(filepath.Join(dir, h.file), h.add, shellQuote(prog)+" guide guard --for "+h.name, g.dryRun)
 					if err != nil {
 						return out.Errf(out.ExitError, "WRITE_FAILED", "fix the file, or pass --no-guard to skip the guard", "%v", err)
 					}
+					f.Note = note
 					if h.name == "codex" && f.Action != "unchanged" {
-						f.Note = "open /hooks in Codex once to approve it"
+						f.Note = strings.TrimPrefix(note+"; ", "; ") + "open /hooks in Codex once to approve it"
 					}
 					files = append(files, f)
 				}
@@ -220,14 +224,39 @@ Safe to run again, for example after an update: a changed file is kept as
 	return c
 }
 
+// hookProgram is how a guard hook calls komando. In a project's own files,
+// which are often shared, it is the name komando has in PATH; a path of
+// this computer gets a note.
+func hookProgram(project bool) (prog, note string) {
+	prog = komandoPath()
+	if !project {
+		return prog, ""
+	}
+	if p, err := exec.LookPath("komando"); err == nil && filepath.IsAbs(prog) {
+		if a, b := statOf(p), statOf(prog); a != nil && b != nil && os.SameFile(a, b) {
+			return "komando", ""
+		}
+	}
+	return prog, "it calls komando at " + prog + ", a path on this computer only; put komando in PATH and run it again before you share this file"
+}
+
 type skillResult struct {
-	Files []skillFile `json:"files"`
+	Files     []skillFile `json:"files"`
+	uninstall bool
 }
 
 func (r skillResult) Text() string {
 	var b strings.Builder
+	changed := false
 	for _, f := range r.Files {
-		b.WriteString(f.Action + "  " + f.Path + "\n")
+		action := f.Action
+		if action != "unchanged" {
+			changed = true
+			if g.dryRun {
+				action = map[string]string{"created": "would create", "updated": "would update", "removed": "would remove"}[action]
+			}
+		}
+		b.WriteString(action + "  " + f.Path + "\n")
 		if f.Backup != "" {
 			b.WriteString("  old version kept as " + f.Backup + "\n")
 		}
@@ -235,8 +264,16 @@ func (r skillResult) Text() string {
 			b.WriteString("  " + f.Note + "\n")
 		}
 	}
-	b.WriteString("Restart your AI agent so it sees the skill.")
-	return b.String()
+	switch {
+	case r.uninstall && len(r.Files) == 0:
+		b.WriteString("komando's skill and guard are not here; nothing to remove.")
+	case !changed || g.dryRun:
+	case r.uninstall:
+		b.WriteString("Restart your AI agent so it stops using komando's skill.")
+	default:
+		b.WriteString("Restart your AI agent so it sees the skill.")
+	}
+	return strings.TrimRight(b.String(), "\n")
 }
 
 func installSkill(path string, dryRun bool) (skillFile, error) {

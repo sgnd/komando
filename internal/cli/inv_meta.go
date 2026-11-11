@@ -587,10 +587,14 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 				add("agent_skill", true, strings.Join(installed, ", "))
 			}
 			if home, err := os.UserHomeDir(); err == nil && len(installed) > 0 && slices.ContainsFunc(installed, func(p string) bool { return strings.Contains(p, ".claude") }) {
-				b, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
-				on := strings.Contains(string(b), " guide guard")
-				add("agent_guard", on, map[bool]string{true: "Claude Code asks komando before reading files or running shell commands",
-					false: "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it"}[on])
+				switch found, problem := claudeGuard(filepath.Join(home, ".claude", "settings.json")); {
+				case !found:
+					add("agent_guard", false, "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it")
+				case problem != "":
+					add("agent_guard", false, "komando's guard in Claude Code cannot run, so Claude Code goes on without it: "+problem+"; `komando guide install` sets it up again")
+				default:
+					add("agent_guard", true, "Claude Code asks komando before reading files or running shell commands")
+				}
 			}
 			r.Inventory = inventoryChecks(st)
 			r.Security = securityChecks(st)
