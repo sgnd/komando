@@ -146,18 +146,26 @@ func lockoutStop(target, user, verb string) error {
 		return nil // the command itself reports it
 	}
 	var names []string
+	login := false
 	for _, h := range hosts {
-		if user == "root" || user == loginUser(st, h) {
+		if user == loginUser(st, h) {
+			login = true
+			names = append(names, h.Name)
+		} else if user == "root" {
 			names = append(names, h.Name)
 		}
 	}
 	if len(names) == 0 {
 		return nil
 	}
-	why := verb + " " + user + " locks komando out of " + strings.Join(names, ", ") + " (it is root or the user komando logs in as)"
+	why := verb + " " + user + " on " + strings.Join(names, ", ") + ": root is the account that repairs a server"
+	hint := "only if this is intended: confirm with the user, then re-run with --allow-dangerous"
+	if login {
+		why = verb + " " + user + " locks komando out of " + strings.Join(names, ", ") + ": it is the user komando logs in as"
+		hint = "log in as another user first (`komando host edit NAME --user OTHER`); " + hint
+	}
 	if dangerOK(why, targetsWhy(st, hosts)) || confirmDangerous(names, why) {
 		return nil
 	}
-	return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "log in as another user first (`komando host edit NAME --user OTHER`); only if this is intended: confirm with the user, then re-run with --allow-dangerous",
-		"%s", why))
+	return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", hint, "%s", why))
 }

@@ -124,15 +124,15 @@ func TestNetHTTPChecksURLAndExpect(t *testing.T) {
 
 func TestUserLockGuardsTheLogin(t *testing.T) {
 	devopsHome(t)
-	for _, args := range [][]string{
-		{"user", "lock", "web1", "deploy"},
-		{"user", "lock", "web1", "root"},
-		{"user", "lock", "web1,web2", "ops"},
-		{"user", "rm", "web1", "deploy"},
+	for want, args := range map[string][]string{
+		"komando out of web1: it is the user komando logs in as": {"user", "lock", "web1", "deploy"},
+		"root on web1: root is the account":                      {"user", "lock", "web1", "root"},
+		"komando out of web2: it is the user":                    {"user", "lock", "web1,web2", "ops"},
+		"deleting deploy locks komando out of web1":              {"user", "rm", "web1", "deploy"},
 	} {
 		d := mustRun(t, append(args, "--dry-run")...)
-		if b := blockedBy(d); !strings.Contains(b, "logs in as") {
-			t.Errorf("%v: want a lockout block, got %s", args, b)
+		if b := blockedBy(d); !strings.Contains(b, want) {
+			t.Errorf("%v: want %q, got %s", args, want, b)
 		}
 	}
 	if b := blockedBy(mustRun(t, "user", "lock", "web1", "alice", "--dry-run")); b != "" {

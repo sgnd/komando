@@ -248,11 +248,12 @@ komando user rm web1 leaver --remove-home --allow-dangerous
   Alpine). Give `--key` or `--pubkey`, not both.
 - `user lock` locks the password and expires the account, so SSH keys stop
   working too, without deleting anything. Locking or deleting `root` or the
-  user komando logs in as needs `--allow-dangerous`: nobody could log in
-  afterwards to undo it.
+  user komando logs in as needs `--allow-dangerous`: komando could not log
+  in afterwards to undo it, and root is the account that repairs a server.
 - On Alpine, `user add`, `lock`, `unlock` and `rm` need the `shadow`
-  package (`useradd`, `usermod`, `userdel`); without it they stop with
-  `TOOL_MISSING`.
+  package (`useradd`, `usermod`, `userdel`). Without it, `lock` and
+  `unlock` stop with `TOOL_MISSING`; `add` and `rm` fail on that server
+  (exit code 127) with a message that names the package.
 - `user list` reads the lock state through sudo (`--no-sudo` leaves it
   out). `admin_group` means "in the sudo, wheel or admin group"; rules in
   `sudoers.d` are not read.
