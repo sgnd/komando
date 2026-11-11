@@ -85,6 +85,8 @@ func TestClassifySQL(t *testing.T) {
 		{"mysql", "create aggregate function f returns integer soname 'x.so'", RiskDestructive, "sql-program"},
 		{"mysql", "load data infile '/etc/passwd' into table t", RiskDestructive, "sql-server-file"},
 		{"oracle", "create or replace library lib as '/tmp/x.so'", RiskDestructive, "sql-program"},
+		{"oracle", "create or replace and compile java source named x as public class X {}", RiskDestructive, "sql-program"},
+		{"sqlserver", "create assembly a from 0x4d5a with permission_set = unsafe", RiskDestructive, "sql-program"},
 		{"oracle", "create function f return number as language c library lib name \"f\";", RiskDestructive, "sql-program"},
 		{"postgres", "select pg_terminate_backend(pid) from pg_stat_activity", RiskDestructive, "sql-kill"},
 		{"postgres", "vacuum full t", RiskDestructive, "sql-vacuum-full"},

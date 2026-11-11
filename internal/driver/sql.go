@@ -829,12 +829,13 @@ var untrustedLangs = map[string]bool{"C": true, "INTERNAL": true, "PLPYTHONU": t
 
 // createModifiers come between CREATE and the kind of object it makes.
 var createModifiers = map[string]bool{"OR": true, "REPLACE": true, "TRUSTED": true, "PROCEDURAL": true,
-	"EDITIONABLE": true, "NONEDITIONABLE": true}
+	"EDITIONABLE": true, "NONEDITIONABLE": true, "AND": true, "COMPILE": true, "RESOLVE": true, "NOFORCE": true}
 
 // loadsNativeCode reports a CREATE that brings code into the server which
 // a read-only transaction does not hold back once called: an extension, a
-// procedural language, an Oracle library, or a function in an untrusted
-// language or from a shared library (MySQL SONAME).
+// procedural language, an Oracle library or Java class, a SQL Server
+// assembly (.NET code), or a function in an untrusted language or from a
+// shared library (MySQL SONAME).
 func loadsNativeCode(ts []token) bool {
 	kind := ""
 	for _, t := range ts[1:] {
@@ -843,7 +844,8 @@ func loadsNativeCode(ts []token) bool {
 			break
 		}
 	}
-	if kind == "EXTENSION" || kind == "LANGUAGE" || kind == "LIBRARY" {
+	switch kind {
+	case "EXTENSION", "LANGUAGE", "LIBRARY", "ASSEMBLY", "JAVA":
 		return true
 	}
 	for i, t := range ts {
