@@ -30,7 +30,7 @@ usual place for that source.
 | `rclone` | `rclone.conf` | servers (SFTP remotes) |
 | `aws` | `~/.aws/config` (and `credentials`) | an S3 storage conn per bucket of each profile; it uses the profile, so no key is copied |
 | `dbeaver` | DBeaver's `data-sources.json` | database conns (set the passwords afterwards) |
-| `komando` | a file from `komando export` or `komando host export` | servers, conns, VPNs and recipes |
+| `komando` | a file from `komando export` | servers, conns, VPNs and recipes |
 | `csv` | a spreadsheet saved as CSV (no default: give the file) | servers, one per row; see [Add many servers from a spreadsheet](servers.md#add-many-servers-from-a-spreadsheet) |
 
 ```bash

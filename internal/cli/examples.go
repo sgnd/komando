@@ -61,7 +61,6 @@ var examples = map[string]string{
 	"komando pkg upgrade":    "  komando pkg upgrade web1 --dry-run   # see what would change first\n  komando pkg upgrade web1 openssl",
 
 	"komando policy list": "  komando policy list",
-	"komando prompt":      "  komando prompt   # prints e.g. vpn:office tun:2, or nothing",
 	"komando recipe list": "  komando recipe list\n  komando recipe list --category security",
 	"komando recipe rm":   "  komando recipe rm du-srv",
 	"komando secret list": "  komando secret list",

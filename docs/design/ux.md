@@ -308,9 +308,11 @@ Current overlaps, and the decision:
 | `host test`, `conn test`, `test` | ✅ only `test`; `host test`/`conn test` = `test` for one kind |
 | `host list`, `conn list`, `list` | ✅ only `list`; `host list`/`conn list` = `list kind:host` / `list kind:conn` |
 | `svc logs`, `docker logs`, `logs --unit/--container` | ✅ only `logs`; `svc logs` and `docker logs` become aliases |
-| `ops run` (built-in recipes) and `snippet run` (your own recipes) | ✅ one `recipe` (a word that is easier to understand); `ops` and `snippet` become other names |
+| `ops run` (built-in recipes) and `snippet run` (your own recipes) | ✅ one `recipe` (a word that is easier to understand); the old names `ops` and `snippet` are gone |
 | `cp` (server) and `storage upload/download` | ✅ `upload`/`download` for servers (SFTP) and storage; `cp` and `storage upload/download` become aliases |
 | `group add/rm` and `edit --add-group/--rm-group` | keep both (many vs one), same code |
+| `host import/export` and `import ssh-config\|komando`, `export` | ✅ only `import` and `export` (one file format, komando-export/1); `host import/export` are old names for one release |
+| `prompt` and `status` | ✅ `status --short`; `prompt` is an old name for one release |
 
 ## 12. Every native CLI feature can be used
 

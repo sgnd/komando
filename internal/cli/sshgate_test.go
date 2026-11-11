@@ -207,7 +207,8 @@ func TestGateCheck(t *testing.T) {
 		{"db dump pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
 		{"cluster forward k8s svc/web 8080", "", "SSH_GATE_READ_ONLY"},
-		{"host export", "", ""},
+		{"host export", R, R}, // an old name: the key uses `export`
+		{"export web", "", ""},
 		// nothing a key runs writes on the komando computer itself
 		{"download web /home/u/.ssh/id_ed25519.pub --to .ssh/authorized_keys --overwrite", R, R},
 		{"cp web:/tmp/rc .bashrc", R, R},
@@ -232,7 +233,9 @@ func TestGateCheck(t *testing.T) {
 		{"rename --prefix a b", R, R},
 		{"config set audit off", R, R},
 		{"policy deny 'x'", R, R},
-		{"policy allow x", R, R},
+		{"policy rm x", R, R},
+		{"prompt", R, R},
+		{"status --short", "", ""},
 		{"secret rm db", R, R},
 		{"secret keychain", R, R},
 		{"key gen k", R, R},

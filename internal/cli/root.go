@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"regexp"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -179,7 +180,13 @@ func usageErr(cmd *cobra.Command, err error) error {
 	// that points at the command meant
 	if name, ok := quotedAfter(m, "unknown command "); ok {
 		e.Message = fmt.Sprintf("unknown command %q", name)
-		if s := cmd.SuggestionsFor(name); len(s) > 0 {
+		s := cmd.SuggestionsFor(name)
+		for _, c := range cmd.Commands() {
+			if slices.Contains(c.SuggestFor, name) { // an old name: only the command that does it now
+				s = []string{c.Name()}
+			}
+		}
+		if len(s) > 0 {
 			e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
 			e.Hint = "see `" + cmd.CommandPath() + " " + s[0] + " --help`"
 		} else {
@@ -369,7 +376,7 @@ func startChecks(cmd *cobra.Command) error {
 func checkAuditWritable(cmd *cobra.Command) error {
 	name := commandName(cmd)
 	top, _, _ := strings.Cut(name, ".")
-	if g.dryRun || cmd.Hidden || name == "komando" || localReads[name] || leavesHomeNow(cmd) || top == "help" || top == "completion" {
+	if g.dryRun || backgroundCmd(cmd) || name == "komando" || localReads[name] || leavesHomeNow(cmd) || top == "help" || top == "completion" {
 		return nil
 	}
 	st, err := store.Load()
@@ -490,8 +497,10 @@ func newRoot() *cobra.Command {
 }
 
 // labelBuiltinCmds files cobra's own help and completion commands under
-// "meta" and gives them komando's wording.
+// "meta" and gives them komando's wording; dropped old names suggest the
+// command that does it now.
 func labelBuiltinCmds(root *cobra.Command) {
+	suggestDroppedNames(root)
 	for _, c := range root.Commands() {
 		switch c.Name() {
 		case "help":

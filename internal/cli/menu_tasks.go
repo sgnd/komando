@@ -344,7 +344,7 @@ var registryTasks = []menuTask{
 var importTasks = []menuTask{
 	{label: "My SSH servers", detail: "From ~/.ssh/config", line: [][]string{{"import", "ssh-config"}}},
 	{label: "Another file", detail: ".pgpass, my.cnf, a .env file or another ssh config", cmd: "import", noItem: true},
-	{label: "A list exported from komando", detail: "From another computer", cmd: "host import", noItem: true},
+	{label: "A list exported from komando", detail: "From another computer", cmd: "import", fill: []string{"komando"}},
 }
 
 var historyTasks = []menuTask{
@@ -477,7 +477,6 @@ func menuRunning(ctx context.Context, t *menuTerm, st *store.State, mem *menuMem
 var menuCLIOnly = map[string]string{
 	"ssh-gate":              "sshd runs it",
 	"ssh-gate line":         "set up once by hand",
-	"prompt":                "for the shell prompt",
 	"completion bash":       "for the shell",
 	"completion fish":       "for the shell",
 	"completion powershell": "for the shell",
@@ -490,6 +489,5 @@ var menuCLIOnly = map[string]string{
 	"vpn list":              "the menu is the list",
 	"conn kinds":            "Add something lists the kinds",
 	"secret get":            "--reveal is for a person typing it",
-	"host export":           "Export my list does the same",
 	"host trust":            "a changed identity can be an attack; the menu never offers to trust it",
 }

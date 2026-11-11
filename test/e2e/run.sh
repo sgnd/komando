@@ -168,7 +168,7 @@ $K export --to "$EXP" >/dev/null
 OTHER="$(mktemp -d)"; chmod 700 "$OTHER"
 check "import adds the exported deny rule" "['e2e-forbidden-word']" "$(KOMANDO_HOME="$OTHER" "$K" import komando "$EXP" | jget 'd["data"]["deny_rules_added"]')"
 rm -rf "$OTHER" "$(dirname "$EXP")"
-$K policy allow 'e2e-forbidden-word' --yes >/dev/null
+$K policy rm 'e2e-forbidden-word' --yes >/dev/null
 check "audit --actor finds the e2e actor" True "$($K audit --actor e2e -n 5 | jget 'd["data"]["count"] > 0')"
 set -e
 echo "==> secret managers, built in (no vault or aws CLI)"

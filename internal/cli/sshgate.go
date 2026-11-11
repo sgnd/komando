@@ -377,6 +377,10 @@ func gateRule(c *cobra.Command, name string, readOnly bool) (string, *out.Error)
 		return name, nil // it only prints the command's help
 	}
 	for p := c; p != nil; p = p.Parent() {
+		if now := p.Annotations[oldNameNote]; now != "" {
+			return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "use `komando "+now+"`",
+				"komando %s is an old name", strings.ReplaceAll(name, ".", " "))
+		}
 		if p.Hidden {
 			return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run it on the komando computer itself",
 				"komando %s is komando's own plumbing, not for a key", strings.ReplaceAll(name, ".", " "))
