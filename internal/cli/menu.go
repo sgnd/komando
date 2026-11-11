@@ -390,6 +390,10 @@ func menuDoTask(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemo
 		return menuNext{}, err
 	}
 	if h := formHints[tk.cmd]; h.form != nil { // a hand-made form (login)
+		if sp, given, ok := menuHandForm(h, tk, item); ok {
+			cmds, err := formFillFrom(ctx, t, st, sp, scr, formTryFor(c, try), given)
+			return menuNext{cmds: cmds}, err
+		}
 		cmds, err := formChoose(ctx, t, st, h.form(), scr, try)
 		return menuNext{cmds: cmds}, err
 	}
@@ -399,6 +403,17 @@ func menuDoTask(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemo
 	}
 	cmds, err := formFill(ctx, t, st, sp, scr, formTryFor(c, try))
 	return menuNext{cmds: cmds, ownExit: tk.ownExit}, err
+}
+
+// menuHandForm is a hand-made form of one kind with the item answered, so
+// the server picked one screen before is not asked again.
+func menuHandForm(h formHint, tk menuTask, item string) (formSpec, formAnswers, bool) {
+	gs := h.form()
+	given := menuGiven(tk, item)
+	if len(given) == 0 || len(gs) != 1 || len(gs[0].kinds) != 1 {
+		return formSpec{}, nil, false
+	}
+	return gs[0].kinds[0].spec(), given, true
 }
 
 // menuTaskSpec is the guided form of a task's command with the item

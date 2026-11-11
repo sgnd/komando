@@ -345,7 +345,7 @@ func serverAddressProblem(_ *store.State, _ formAnswers, v string) string {
 		if strings.HasPrefix(v, "ssh://") {
 			return "type it without ssh://, like root@vps.example.com"
 		}
-		return "this looks like a web address or a database URL; for a server type only its address. A database: Esc back to the list, then Database"
+		return "this looks like a web address or a database URL; for a server type only its address. To add a database instead, leave with Ctrl-C and type komando db add"
 	}
 	if strings.HasPrefix(v, "-") || strings.ContainsAny(v, " \t/") {
 		return "type only the address, like 203.0.113.20 or vps.example.com"

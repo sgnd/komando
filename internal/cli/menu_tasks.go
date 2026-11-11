@@ -164,12 +164,12 @@ var jobTasks = []menuTask{
 }
 
 // groupTasks is what a server offers, run on every server of the group,
-// and the group's own changes.
+// and the group's own changes. Tasks for one server only are left out.
 func groupTasks() []menuTask {
 	var tasks []menuTask
-	for _, tk := range serverTasks {
+	for _, tk := range menuManyServers(serverTasks) {
 		switch tk.label {
-		case "Open a shell", "Change this server", "Remove from list":
+		case "Change this server", "Remove from list":
 			continue
 		case "Reboot":
 			tk.confirm = "Reboot every server in {}? They are away for a minute or more while they start again."
@@ -183,6 +183,30 @@ func groupTasks() []menuTask {
 		{label: "Take a server out", cmd: "group rm", fill: []string{"{name}"}},
 		{label: "Rename the group", cmd: "group mv", fill: []string{"{name}"}},
 	}})
+}
+
+// menuManyServers is tasks without those that work on one server only: a
+// shell, a file edit, a tunnel, a login.
+func menuManyServers(tasks []menuTask) []menuTask {
+	var keep []menuTask
+	for _, tk := range tasks {
+		if menuOneServer(tk) {
+			continue
+		}
+		if tk.sub != nil {
+			tk.sub = menuManyServers(tk.sub)
+		}
+		keep = append(keep, tk)
+	}
+	return keep
+}
+
+func menuOneServer(tk menuTask) bool {
+	if tk.cmd == "tunnel start" || tk.cmd == "login" || slices.ContainsFunc(tk.line, func(l []string) bool { return l[0] == "shell" }) {
+		return true
+	}
+	h := formHints[tk.cmd]
+	return tk.cmd != "" && !tk.noItem && tk.fill == nil && len(h.args) > 0 && h.args[0].pick == "server"
 }
 
 // vpnTasks: Connect, or Disconnect when it is connected, after saying what
@@ -465,5 +489,6 @@ var menuCLIOnly = map[string]string{
 	"conn kinds":            "Add something lists the kinds",
 	"secret get":            "--reveal is for a person typing it",
 	"host export":           "Export my list does the same",
+	"host import":           "A list exported from komando reads the whole export; My SSH servers reads ~/.ssh/config",
 	"host trust":            "a changed identity can be an attack; the menu never offers to trust it",
 }

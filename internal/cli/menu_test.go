@@ -647,6 +647,49 @@ func TestMenuProtectTask(t *testing.T) {
 	}
 }
 
+// A group offers only what runs on several servers: no shell, tunnel,
+// login or one-file edit, which would stop at "needs exactly one".
+func TestMenuGroupTasks(t *testing.T) {
+	var walk func(ts []menuTask)
+	seen := map[string]bool{}
+	walk = func(ts []menuTask) {
+		for _, tk := range ts {
+			seen[tk.cmd] = true
+			for _, l := range tk.line {
+				seen[l[0]] = true
+			}
+			walk(tk.sub)
+		}
+	}
+	walk(groupTasks())
+	for _, cmd := range []string{"shell", "tunnel start", "login", "fs replace", "fs cat"} {
+		if seen[cmd] {
+			t.Errorf("a group offers %s, which works on one server", cmd)
+		}
+	}
+	for _, cmd := range []string{"logs", "exec", "upload", "recipe run", "group add"} {
+		if !seen[cmd] {
+			t.Errorf("a group lost %s", cmd)
+		}
+	}
+}
+
+// Log in with a code under a server logs in to that server, not asking
+// which one again.
+func TestMenuLoginUsesItem(t *testing.T) {
+	i := slices.IndexFunc(serverMoreTasks, func(tk menuTask) bool { return tk.cmd == "login" })
+	sp, given, ok := menuHandForm(formHints["login"], serverMoreTasks[i], "web-1")
+	if !ok || given["arg0"] != "web-1" {
+		t.Fatalf("login: ok %v, given %v", ok, given)
+	}
+	if got := formBuild(menuTestState(), sp, given)[0]; !slices.Equal(got, []string{"login", "web-1"}) {
+		t.Errorf("login: %v", got)
+	}
+	if _, _, ok := menuHandForm(formHints["login"], menuTask{cmd: "login", noItem: true}, ""); ok {
+		t.Error("with no item the server is not asked")
+	}
+}
+
 // A list from komando export comes back with import komando, which takes
 // its databases, VPNs and settings too, not only its servers.
 func TestMenuImportExported(t *testing.T) {

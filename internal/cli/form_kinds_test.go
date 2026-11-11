@@ -185,6 +185,8 @@ func TestFormNewKindChecks(t *testing.T) {
 		{func(v string) string { return serverUserProblem(nil, nil, v) }, `CORP\deploy`, "deploy@corp.example.com"},
 		{func(v string) string { return serverUserProblem(nil, nil, v) }, "deploy@corp.local", ""},
 		{func(v string) string { return serverAddressProblem(nil, nil, v) }, "winrm://10.0.0.9", "without winrm://"},
+		// said on first run too, where Add a server has no list to go back to
+		{func(v string) string { return serverAddressProblem(nil, nil, v) }, "postgres://app@10.0.0.5/shop", "komando db add"},
 		{func(v string) string { return snowflakeAccountProblem(nil, nil, v) }, "https://myorg-myaccount.snowflakecomputing.com", "type only"},
 		{func(v string) string { return snowflakeAccountProblem(nil, nil, v) }, "xy12345.eu-central-1", ""},
 		{gcpProjectProblem, "My Project", "project ID"},
