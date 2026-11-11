@@ -210,7 +210,7 @@ func onlyFile(t *testing.T, exe string) {
 
 func TestUpdateInstallsNewest(t *testing.T) {
 	f := &fakeReleases{newest: "v0.7.0", tags: []string{"v0.7.0"}}
-	exe, home := updateLab(t, "v0.6.0", f)
+	exe, _ := updateLab(t, "v0.6.0", f)
 	d, _ := updateJSON(t)
 	if d["action"] != "updated" || d["from"] != "v0.6.0" || d["to"] != "v0.7.0" || d["path"] != exe {
 		t.Errorf("data = %v", d)
@@ -226,7 +226,7 @@ func TestUpdateInstallsNewest(t *testing.T) {
 	}
 	onlyFile(t, exe)
 	// like any other change, it is in the audit log
-	if a := fileText(t, filepath.Join(home, "audit.jsonl")); !strings.Contains(a, `"command":"update"`) || !strings.Contains(a, `"to":"v0.7.0"`) {
+	if a := auditText(t); !strings.Contains(a, `"command":"update"`) || !strings.Contains(a, `"to":"v0.7.0"`) {
 		t.Errorf("audit: %s", a)
 	}
 }
@@ -262,7 +262,7 @@ func TestUpdateText(t *testing.T) {
 
 func TestUpdateDryRunChangesNothing(t *testing.T) {
 	f := &fakeReleases{newest: "v0.7.0", tags: []string{"v0.7.0"}}
-	exe, home := updateLab(t, "v0.6.0", f)
+	exe, _ := updateLab(t, "v0.6.0", f)
 	d, m := updateJSON(t, "--dry-run")
 	if d["action"] != "updated" || d["to"] != "v0.7.0" || m["dry_run"] != true || d["next"] != nil {
 		t.Errorf("data = %v, meta = %v", d, m)
@@ -275,8 +275,8 @@ func TestUpdateDryRunChangesNothing(t *testing.T) {
 		t.Errorf("text = %q", s)
 	}
 	onlyFile(t, exe)
-	if b, err := os.ReadFile(filepath.Join(home, "audit.jsonl")); err == nil && strings.Contains(string(b), `"command":"update"`) {
-		t.Errorf("a dry run went into the audit: %s", b)
+	if a := auditText(t); strings.Contains(a, `"command":"update"`) {
+		t.Errorf("a dry run went into the audit: %s", a)
 	}
 	// a dry run finds a version that does not exist, as the real run would
 	if e := updateFails(t, "v9.9.9", "--dry-run"); e.Code != "VERSION_NOT_FOUND" || e.Exit != out.ExitNotFound || !strings.Contains(e.Message, "there is no komando release v9.9.9") {
@@ -337,6 +337,8 @@ func TestUpdateOlderAgentNeedsWindow(t *testing.T) {
 	f := &fakeReleases{newest: "v0.7.0", tags: []string{"v0.5.0", "v0.7.0"}}
 	exe, _ := updateLab(t, "v0.7.0", f)
 	t.Setenv("KOMANDO_AGENT", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	savedArgs, savedAsk := os.Args, askOnScreen
 	var texts []string
 	allow := false
@@ -463,6 +465,8 @@ func TestUpdateNotWritable(t *testing.T) {
 		t.Errorf("dry run: meta = %v", m)
 	}
 	t.Setenv("KOMANDO_AGENT", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	if e := updateFails(t, "v0.7.0"); e.Hint != "ask the user to run `sudo "+exe+" update v0.7.0` in their own terminal: it needs their password" {
 		t.Errorf("agent hint: %q", e.Hint)
 	}

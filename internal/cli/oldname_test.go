@@ -68,6 +68,7 @@ func TestExportTextIsTheFile(t *testing.T) {
 // TestDroppedNamesSuggestTheNewOne: a removed old name says which command
 // does it now.
 func TestDroppedNamesSuggestTheNewOne(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir()) // never the person's own folder
 	for _, c := range []struct{ args, want string }{
 		{"ops", "recipe"}, {"snippet", "recipe"}, {"snippets", "recipe"}, {"diag", "recipe"},
 		{"inspect", "facts"}, {"systemd", "svc"}, {"policy allow", "rm"},

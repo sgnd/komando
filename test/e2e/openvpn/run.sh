@@ -54,8 +54,9 @@ docker exec "$SERVER" grep -q 'TLS: soft reset' /tmp/tcp.log || fail "the server
 echo "ok   the session carries on through a key renegotiation"
 [ "$(in_client komando status | python3 -c 'import json,sys; print(sorted(v["name"] for v in json.load(sys.stdin)["data"]["vpns"]))')" = "['crypt', 'login', 'office', 'oldstyle']" ] || fail "status lists the sessions"
 echo "ok   komando status lists the four sessions"
-[ "$(in_client komando status --short)" = "vpn:crypt,login,office,oldstyle" ] || fail "status --short shows the VPNs"
-echo "ok   komando status --short shows them"
+# the prompt note counts them: it reads only runtime.pids, never the sealed store
+[ "$(in_client komando status --short)" = "vpn:4" ] || fail "status --short counts the VPNs: got [$(in_client komando status --short)]"
+echo "ok   komando status --short counts them"
 in_client sh -c 'command -v openvpn || cat /proc/[0-9]*/comm 2>/dev/null | grep -x openvpn' >/dev/null 2>&1 && fail "an openvpn program on the client"
 echo "ok   no openvpn program on the client"
 [ "$(docker exec "$CLIENT" sh -c 'ip route; ip addr' | md5sum)" = "$routes_before" ] || fail "the client's routes or addresses changed"

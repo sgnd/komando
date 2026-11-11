@@ -54,7 +54,7 @@ check "sqlserver db grants shows SELECT on dbo" True "$($K db grants shop-mssql 
 q $K db user rm shop-mssql sales_ro --allow-dangerous
 check "sqlserver db user rm removed it" False "$($K db user ls shop-mssql | jget 'any(u["name"] == "sales_ro" for u in d["data"]["users"])')"
 check "sqlserver dump is not supported yet" NOT_SUPPORTED "$($K db dump shop-mssql --to "$TMP/s.sql" | jget 'd["error"]["code"]')"
-check "no sqlserver password in the audit log" 0 "$(grep -c -E 'Sales-pass|Ro-pass-1x' "$KOMANDO_HOME/audit.jsonl" || true)"
+check "no sqlserver password in the audit log" 0 "$(audit_text | grep -c -E 'Sales-pass|Ro-pass-1x' || true)"
 q $K conn rm ro-mssql shop-mssql
 q $K db query sa-mssql --write --allow-dangerous 'drop database e2e_sales'
 q $K conn rm sa-mssql

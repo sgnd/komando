@@ -1,7 +1,6 @@
 package vault
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,8 +26,9 @@ func keychainStandIn(t *testing.T, failStore bool) (calls func() string) {
 		fail = `echo "no Secret Service" >&2; exit 1;`
 	}
 	script := `#!/bin/sh
-echo "$1" >> "` + dir + `/calls"
-kept="` + dir + `/kept"
+case "$1" in store|search) s="$4" ;; *) s="$3" ;; esac
+case "$s" in *generation) ;; *) echo "$1" >> "` + dir + `/calls" ;; esac
+kept="` + dir + `/$(echo "$s" | tr ' /' '__')"
 case "$1" in
   store) ` + fail + ` for a in "$@"; do [ ${#a} -ge 64 ] && { echo "a key in the arguments" >&2; exit 9; }; done; cat > "$kept" ;;
   lookup) [ -f "$kept" ] && cat "$kept" || exit 1 ;;
@@ -47,23 +47,24 @@ esac
 	}
 }
 
-// modeOnDisk is the mode vault.json names.
+// keptItem is the file the stand-in keeps this folder's key item in.
+func keptItem() string {
+	return filepath.Join(toolDirs[0], strings.NewReplacer(" ", "_", "/", "_").Replace(keychainService()))
+}
+
+// modeOnDisk is the key mode the store names.
 func modeOnDisk(t *testing.T) string {
 	t.Helper()
-	b, err := os.ReadFile(vaultPath())
+	m, err := storeMeta()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var f file
-	if err := json.Unmarshal(b, &f); err != nil {
-		t.Fatal(err)
-	}
-	return f.Mode
+	return m["key_mode"]
 }
 
 func noKeyFile(t *testing.T) {
 	t.Helper()
-	if _, err := os.Stat(store.Path("vault.key")); !os.IsNotExist(err) {
+	if _, err := os.Stat(storeKeyFile()); !os.IsNotExist(err) {
 		t.Errorf("vault.key is on disk: %v", err)
 	}
 }
@@ -103,7 +104,7 @@ func TestNewVaultKeychainFails(t *testing.T) {
 	if m := modeOnDisk(t); m != "keyfile" {
 		t.Fatalf("mode %q, want keyfile", m)
 	}
-	if _, err := os.Stat(store.Path("vault.key")); err != nil {
+	if _, err := os.Stat(storeKeyFile()); err != nil {
 		t.Errorf("no vault.key: %v", err)
 	}
 	if v, err := Get("db-pass"); err != nil || v != "s3cret" {
@@ -111,29 +112,26 @@ func TestNewVaultKeychainFails(t *testing.T) {
 	}
 }
 
-// A key already in the keychain under this folder's name belongs to a vault
-// that was moved aside (a backup): the new vault uses it and never replaces
-// it, so the old vault still opens.
+// A store moved aside leaves its change count in the keychain: komando
+// stops instead of starting an empty store, never replaces the key, and
+// the store put back opens.
 func TestNewVaultKeepsKeychainKey(t *testing.T) {
 	freshHome(t)
 	calls := keychainStandIn(t, false)
 	if err := Set("old", "kept value"); err != nil {
 		t.Fatal(err)
 	}
-	aside := vaultPath() + ".aside"
-	if err := os.Rename(vaultPath(), aside); err != nil {
+	aside := store.DBPath() + ".aside"
+	if err := os.Rename(store.DBPath(), aside); err != nil {
 		t.Fatal(err)
 	}
-	if err := Set("new", "v"); err != nil {
-		t.Fatal(err)
-	}
-	if m := modeOnDisk(t); m != "keychain" {
-		t.Fatalf("mode %q, want keychain", m)
+	if err := Set("new", "v"); err == nil || !strings.Contains(err.Error(), "STATE_CORRUPT") && !strings.Contains(err.Error(), "is missing") {
+		t.Fatalf("a store moved aside: %v", err)
 	}
 	if n := strings.Count(calls(), "store"); n != 1 {
 		t.Errorf("the key was stored %d times, want once:\n%s", n, calls())
 	}
-	if err := os.Rename(aside, vaultPath()); err != nil {
+	if err := os.Rename(aside, store.DBPath()); err != nil {
 		t.Fatal(err)
 	}
 	if v, err := Get("old"); err != nil || v != "kept value" {
@@ -166,11 +164,10 @@ func TestNewVaultKeychainOff(t *testing.T) {
 // Only `komando secret keychain` moves a key.
 func TestExistingVaultKeepsMode(t *testing.T) {
 	freshHome(t)
-	calls := keychainStandIn(t, false)
-	vf, _ := json.Marshal(map[string]any{"version": 1, "salt": []byte("0123456789abcdef"), "mode": "keyfile", "entries": map[string]any{}})
-	if err := os.WriteFile(vaultPath(), vf, 0o600); err != nil {
+	if err := Set("first", "v"); err != nil { // keychain off: a key file store
 		t.Fatal(err)
 	}
+	calls := keychainStandIn(t, false)
 	if err := Set("db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}

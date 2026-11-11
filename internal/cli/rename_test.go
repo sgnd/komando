@@ -48,17 +48,12 @@ func shopInventory(t *testing.T) {
 	}
 }
 
-// homeFiles is state.json, vault.json and the key file names, to check
-// that nothing changed.
+// homeFiles is the store and runtime.json, to check that nothing changed.
 func homeFiles(t *testing.T) string {
 	t.Helper()
-	st, _ := os.ReadFile(store.Path("state.json"))
-	vf, _ := os.ReadFile(store.Path("vault.json"))
-	keys, _ := filepath.Glob(store.Path("keys", "*"))
-	for i := range keys {
-		keys[i] = filepath.Base(keys[i])
-	}
-	return string(st) + "\n--vault--\n" + string(vf) + "\n--keys--\n" + strings.Join(keys, ",")
+	db, _ := os.ReadFile(store.Path(store.StoreFile))
+	rt, _ := os.ReadFile(store.Path("runtime.json"))
+	return string(db) + "\n--runtime--\n" + string(rt)
 }
 
 func pairs(d map[string]any, kind string) map[string]string {
@@ -143,8 +138,8 @@ func TestRenamePrefix(t *testing.T) {
 	if w, _ := d["warnings"].([]any); len(w) != 1 || !strings.Contains(w[0].(string), "the notes of 1 entry name old entries") {
 		t.Errorf("one warning counts the notes that stay: %v", d["warnings"])
 	}
-	if len(d["moved"].([]any)) != 2 {
-		t.Errorf("the key and its .pub would move: %v", d["moved"])
+	if moved, _ := d["moved"].([]any); len(moved) != 0 {
+		t.Errorf("a key in the store has no file to move: %v", d["moved"])
 	}
 	if b := d["_meta"].(map[string]any)["would_be_blocked"]; b == nil || b.(map[string]any)["code"] != "PROTECTED_HOST" {
 		t.Errorf("the dry run shows the stop: %v", b)
@@ -201,17 +196,11 @@ func TestRenamePrefix(t *testing.T) {
 		t.Errorf("vpn: %+v", v)
 	}
 	k := st.Keys["acme-shop-key"]
-	if k == nil || k.Path != store.Path("keys", "acme-shop-key") || k.PassphraseRef != "secret:acme-shop-pass" {
+	if k == nil || !store.SealedKey(k) || k.PassphraseRef != "secret:acme-shop-pass" {
 		t.Errorf("key: %+v", k)
 	}
-	// a managed key's files move
-	for _, f := range []string{"acme-shop-key", "acme-shop-key.pub"} {
-		if _, err := os.Stat(store.Path("keys", f)); err != nil {
-			t.Errorf("%s: %v", f, err)
-		}
-	}
-	if _, err := os.Stat(store.Path("keys", "shop-key")); !os.IsNotExist(err) {
-		t.Errorf("the old key file is still there: %v", err)
+	if b, err := store.ReadPrivateKey(k); err != nil || len(b) == 0 {
+		t.Errorf("the renamed key does not read: %v", err)
 	}
 	if st.Jobs["j1"].Host != "acme-shop-data-01" || st.Tunnels["t1"].Host != "acme-shop-bastion" || st.Tunnels["t1"].Conn != "acme-shop-db" {
 		t.Errorf("jobs and tunnels: %+v %+v", st.Jobs["j1"], st.Tunnels["t1"])
@@ -271,11 +260,6 @@ func TestRenameClashChangesNothing(t *testing.T) {
 			}
 		}},
 		{"a new group name is taken", func() { mustRun(t, "host", "add", "z", "u@10.0.0.8", "-g", "ACME-shop-stg") }},
-		{"a file is in the way of the key", func() {
-			if err := os.WriteFile(store.Path("keys", "acme-shop-key"), []byte("x"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-		}},
 		{"a new key name is taken", func() { mustRun(t, "key", "gen", "acme-shop-key") }},
 	}
 	for _, c := range cases {
@@ -570,13 +554,12 @@ func TestRenameReservedSecret(t *testing.T) {
 func TestKeyMv(t *testing.T) {
 	invHome(t)
 	mustRun(t, "key", "gen", "deploy")
-	path := store.Path("keys", "deploy")
 	mustRun(t, "host", "add", "web", "u@10.0.0.1", "--key", "deploy")
-	mustRun(t, "host", "add", "db", "u@10.0.0.2", "--identity", path, "--protected")
+	mustRun(t, "host", "add", "db", "u@10.0.0.2", "--key", "deploy", "--protected")
 
 	keep := homeFiles(t)
 	d := mustRun(t, "key", "mv", "deploy", "deploy-2026", "--dry-run")
-	if d["action"] != "would_rename" || len(d["moved"].([]any)) != 2 || len(d["updated"].([]any)) != 2 {
+	if moved, _ := d["moved"].([]any); d["action"] != "would_rename" || len(moved) != 0 || len(d["updated"].([]any)) != 2 {
 		t.Errorf("dry run: %v", d)
 	}
 	if homeFiles(t) != keep {
@@ -588,25 +571,17 @@ func TestKeyMv(t *testing.T) {
 		t.Fatalf("key mv: %v", d)
 	}
 	st, _ := store.Load()
-	k, newPath := st.Keys["deploy-2026"], store.Path("keys", "deploy-2026")
-	if st.Keys["deploy"] != nil || k == nil || k.Name != "deploy-2026" || k.Path != newPath || k.PublicKey == "" {
+	k := st.Keys["deploy-2026"]
+	if st.Keys["deploy"] != nil || k == nil || k.Name != "deploy-2026" || !store.SealedKey(k) || k.PublicKey == "" {
 		t.Fatalf("key: %+v", k)
 	}
-	if st.Hosts["web"].Key != "deploy-2026" || st.Hosts["db"].Identity != newPath {
+	if st.Hosts["web"].Key != "deploy-2026" || st.Hosts["db"].Key != "deploy-2026" {
 		t.Errorf("hosts follow: %+v %+v", st.Hosts["web"], st.Hosts["db"])
-	}
-	for _, f := range []string{newPath, newPath + ".pub"} {
-		if _, err := os.Stat(f); err != nil {
-			t.Errorf("%s: %v", f, err)
-		}
-	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Errorf("the old file is still there: %v", err)
 	}
 
 	// a key added from elsewhere keeps its file where it is
 	ext := filepath.Join(t.TempDir(), "id_ext")
-	b, _ := os.ReadFile(newPath)
+	b, _ := store.ReadPrivateKey(k)
 	if err := os.WriteFile(ext, b, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -623,10 +598,6 @@ func TestKeyMv(t *testing.T) {
 	wantCode(t, "KEY_NOT_FOUND", "key", "mv", "nosuch", "x")
 	wantCode(t, "KEY_EXISTS", "key", "mv", "external", "deploy-2026")
 	wantCode(t, "USAGE", "key", "mv", "external", "bad name")
-	if err := os.WriteFile(store.Path("keys", "in-the-way"), []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	wantCode(t, "KEY_FILE_EXISTS", "key", "mv", "deploy-2026", "in-the-way")
 	if d := mustRun(t, "key", "mv", "external", "external"); d["action"] != "unchanged" {
 		t.Errorf("same name: %v", d)
 	}
@@ -665,9 +636,8 @@ func TestGroupMv(t *testing.T) {
 	}
 }
 
-// A failure after the vault changed (a key file that cannot move) puts the
-// secrets back and leaves the state unsaved; a vault that does not open
-// stops it before anything moves.
+// A failure after the vault changed (a VPN folder that cannot move) puts
+// the secrets back and leaves the store unchanged.
 func TestRenameRollback(t *testing.T) {
 	shopInventory(t)
 	secretsNow := func() string {
@@ -681,24 +651,24 @@ func TestRenameRollback(t *testing.T) {
 		}
 		return b.String()
 	}
-	stateNow := func() string { b, _ := os.ReadFile(store.Path("state.json")); return string(b) }
-	keysNow := func() string { k, _ := filepath.Glob(store.Path("keys", "*")); return strings.Join(k, ",") }
-	s0, st0, k0 := secretsNow(), stateNow(), keysNow()
-
-	if err := os.Chmod(store.Path("keys"), 0o500); err != nil {
+	if err := store.Update(func(s *store.State) error {
+		s.Vpns["shop-ts"] = &store.Vpn{Name: "shop-ts", Kind: "tailscale"}
+		return nil
+	}); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(store.Path("keys"), 0o700) })
-	wantCode(t, "RENAME_FAILED", "rename", "--prefix", "shop-", "acme-shop-", "--yes")
-	_ = os.Chmod(store.Path("keys"), 0o700)
-	if secretsNow() != s0 || stateNow() != st0 || keysNow() != k0 {
-		t.Fatalf("a failed rename left changes:\n%s\n%s", secretsNow(), keysNow())
+	vpnDir := store.Path("vpn")
+	if err := os.MkdirAll(filepath.Join(vpnDir, "shop-ts-tailscale"), 0o700); err != nil {
+		t.Fatal(err)
 	}
-
-	t.Setenv("KOMANDO_VAULT_PASS", "not the passphrase")
+	s0, h0 := secretsNow(), homeFiles(t)
+	if err := os.Chmod(vpnDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(vpnDir, 0o700) })
 	wantCode(t, "RENAME_FAILED", "rename", "--prefix", "shop-", "acme-shop-", "--yes")
-	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
-	if secretsNow() != s0 || stateNow() != st0 || keysNow() != k0 {
+	_ = os.Chmod(vpnDir, 0o700)
+	if secretsNow() != s0 || homeFiles(t) != h0 {
 		t.Fatal("a vault that did not open left changes")
 	}
 }

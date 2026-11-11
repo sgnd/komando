@@ -1,21 +1,12 @@
 package cli
 
 import (
-	"bufio"
-	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"io"
-	"os"
 	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/store"
 )
 
 // The audit log is a hash chain: every record carries "prev", the SHA-256 of
@@ -25,7 +16,7 @@ import (
 // send the log elsewhere when that matters.
 
 // appendAudit adds one record, under a lock so parallel komando processes
-// keep the chain in order.
+// keep the chain in order (auditlog_sealed.go).
 func appendAudit(rec map[string]any) error {
 	line, err := writeAudit(rec)
 	if err == nil && auditSyslog != "" {
@@ -37,65 +28,7 @@ func appendAudit(rec map[string]any) error {
 // auditSyslog is the audit_syslog setting of this command's state.
 var auditSyslog string
 
-func writeAudit(rec map[string]any) ([]byte, error) {
-	f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o600)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
-		return nil, err
-	}
-	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-	last, err := lastLine(f)
-	if err != nil {
-		return nil, err
-	}
-	if last != nil {
-		rec["prev"] = lineHash(last)
-	}
-	b, err := json.Marshal(rec)
-	if err != nil {
-		return nil, err
-	}
-	_, err = f.Write(append(b, '\n'))
-	return b, err
-}
-
-func lineHash(b []byte) string {
-	h := sha256.Sum256(b)
-	return hex.EncodeToString(h[:])
-}
-
-// lastLine returns the file's last line without its newline, or nil.
-func lastLine(f *os.File) ([]byte, error) {
-	end, err := f.Seek(0, io.SeekEnd)
-	if err != nil || end == 0 {
-		return nil, err
-	}
-	const chunk = 64 << 10
-	var buf []byte
-	for pos := end; pos > 0; {
-		n := int64(chunk)
-		if pos < n {
-			n = pos
-		}
-		pos -= n
-		part := make([]byte, n)
-		if _, err := f.ReadAt(part, pos); err != nil {
-			return nil, err
-		}
-		buf = append(part, buf...)
-		trimmed := bytes.TrimRight(buf, "\n")
-		if i := bytes.LastIndexByte(trimmed, '\n'); i >= 0 {
-			return trimmed[i+1:], nil
-		}
-		if pos == 0 {
-			return trimmed, nil
-		}
-	}
-	return nil, nil
-}
+func writeAudit(rec map[string]any) ([]byte, error) { return writeSealedAudit(rec) }
 
 type auditCheck struct {
 	OK          bool   `json:"ok"`
@@ -112,47 +45,8 @@ func (a auditCheck) Text() string {
 	return "audit log BROKEN at line " + strconv.Itoa(a.FirstBroken) + "\n" + a.Note
 }
 
-// verifyAudit walks the chain. Records from before the chain existed (no
-// prev) are fine at the start of the file, never after a chained one.
-func verifyAudit() (auditCheck, error) {
-	r := auditCheck{OK: true, Note: "every record follows the one before it; an edited, inserted or removed record would break the chain (a cut-off end would not)"}
-	f, err := os.Open(store.Path("audit.jsonl"))
-	if os.IsNotExist(err) {
-		r.Note = "no audit log yet"
-		return r, nil
-	}
-	if err != nil {
-		return r, err
-	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 1<<20), 16<<20)
-	var prev []byte
-	chained := false
-	for line := 1; sc.Scan(); line++ {
-		b := sc.Bytes()
-		r.Entries++
-		var rec struct {
-			Prev *string `json:"prev"`
-		}
-		bad := json.Unmarshal(b, &rec) != nil
-		switch {
-		case bad:
-		case rec.Prev == nil:
-			bad = chained
-		default:
-			chained = true
-			r.Chained++
-			bad = prev == nil || *rec.Prev != lineHash(prev)
-		}
-		if bad && r.OK {
-			r.OK, r.FirstBroken = false, line
-			r.Note = "a record at or just before this line was changed, added or removed outside komando"
-		}
-		prev = append(prev[:0], b...)
-	}
-	return r, sc.Err()
-}
+// verifyAudit checks the store's audit records (auditlog_sealed.go).
+func verifyAudit() (auditCheck, error) { return verifySealedAudit() }
 
 func auditVerifyCmd() *cobra.Command {
 	return &cobra.Command{

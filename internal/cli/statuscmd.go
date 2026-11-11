@@ -53,10 +53,10 @@ started on servers. Nothing is contacted, so it is quick and works offline.
 A job is listed until ` + "`komando job rm`" + `; whether it still runs is known on
 its server: ` + "`komando job list --refresh`" + ` asks.
 
---short prints one line for your shell prompt: "vpn:office tun:2" when the
-VPN office is up and two tunnels run, nothing when nothing runs. It only
-reads komando's state file, prints no JSON and never fails, so it is safe to
-run on every prompt.
+--short prints one line for your shell prompt: "vpn:1 tun:2" when one VPN
+is up and two tunnels run, nothing when nothing runs. It reads only the
+process numbers komando keeps beside its sealed store (no names, no key),
+prints no JSON and never fails, so it is safe to run on every prompt.
 
 zsh (also with oh-my-zsh), in ~/.zshrc:
   setopt PROMPT_SUBST
@@ -71,7 +71,7 @@ starship, in ~/.config/starship.toml:
   when = true`,
 		Example: `  komando status
   komando status -o json
-  komando status --short   # prints e.g. vpn:office tun:2, or nothing`,
+  komando status --short   # prints e.g. vpn:2 tun:1, or nothing`,
 		Args: cobra.NoArgs,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if short {
@@ -94,7 +94,7 @@ starship, in ~/.config/starship.toml:
 			return nil
 		},
 	}
-	c.Flags().BoolVar(&short, "short", false, "one line for your shell prompt, like vpn:office tun:2 (no JSON, never fails)")
+	c.Flags().BoolVar(&short, "short", false, "one line for your shell prompt, like vpn:1 tun:2 (no JSON, never fails)")
 	return c
 }
 

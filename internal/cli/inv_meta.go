@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -23,6 +23,7 @@ import (
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
+	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -101,8 +102,8 @@ func auditCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "audit",
 		Short: "Show the audit log: who did what, where, and the result",
-		Long: `Every change komando makes, and every blocked attempt, is a line in
-~/.komando/audit.jsonl: when, who (and which AI agent), the command, its
+		Long: `Every change komando makes, and every blocked attempt, is a sealed record in
+~/.komando/store.db: when, who (and which AI agent), the command, its
 targets and whether it worked. The newest entries come last.
 
 --since and --until take how long ago (30m, 12h, 7d), today, yesterday,
@@ -129,12 +130,6 @@ is given.`,
 			if (since != "" || until != "") && !cmd.Flags().Changed("limit") {
 				limit = 0
 			}
-			f, err := os.Open(store.Path("audit.jsonl"))
-			if err != nil {
-				out.P.Print("audit", auditList{Entries: []map[string]any{}}, nil)
-				return nil
-			}
-			defer f.Close()
 			if target != "" {
 				st, err := loadState()
 				if err != nil {
@@ -142,18 +137,32 @@ is given.`,
 				}
 				flt.names = targetNames(st, target)
 			}
+			// without a filter only the newest records are read
+			var from int64
+			if limit > 0 && command == "" && !failed && target == "" && actorName == "" && since == "" && until == "" {
+				last, err := newestAuditSeq()
+				if err != nil {
+					return err
+				}
+				from = max(0, last-int64(limit))
+			}
 			all := []map[string]any{}
-			sc := bufio.NewScanner(f)
-			sc.Buffer(make([]byte, 1<<20), 16<<20)
-			for sc.Scan() {
+			err := eachAuditAfter(from, func(_ int, b []byte) error {
 				var e map[string]any
-				if json.Unmarshal(sc.Bytes(), &e) != nil {
-					continue
+				if json.Unmarshal(b, &e) != nil {
+					return nil
 				}
 				delete(e, "prev") // the chain is for `audit verify`
 				if flt.keep(e) {
 					all = append(all, e)
 				}
+				return nil
+			})
+			if errors.Is(err, sealdb.ErrTampered) {
+				// the records before the broken one are still shown
+				out.P.Warn(fmt.Sprintf("the audit log is broken after the %d records shown: %v; run `komando audit verify`", len(all), err))
+			} else if err != nil {
+				return err
 			}
 			if limit > 0 && len(all) > limit {
 				all = all[len(all)-limit:]
@@ -517,7 +526,12 @@ func inventoryChecks(st *store.State) []securityCheck {
 	for _, n := range mapKeys(st.Keys) {
 		k := st.Keys[n]
 		name := "key:" + k.Name
-		if _, err := os.Stat(k.Path); err != nil {
+		if store.SealedKey(k) {
+			// a key komando made lives in the store: it must still open
+			if _, err := store.ReadPrivateKey(k); err != nil {
+				fail(name, "the key is missing from the store: "+err.Error())
+			}
+		} else if _, err := os.Stat(k.Path); err != nil {
 			fail(name, k.Path+" not found")
 		}
 		ref(name, "passphrase_ref", k.PassphraseRef)
@@ -569,7 +583,8 @@ func connHygiene(st *store.State, warn func(name, detail string)) {
 }
 
 func doctorCmd() *cobra.Command {
-	return &cobra.Command{
+	var acceptOld bool
+	c := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check the local setup, the inventory and its security",
 		Long: `Checks komando's folder, vault, audit log and tools, then the inventory:
@@ -579,6 +594,10 @@ password, repeat another conn or belong to a protected server without being
 protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if acceptOld {
+				return acceptOldCopy()
+			}
+			defer lookAtOldCopy()() // doctor must be able to say what is wrong
 			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}}
 			add := func(name string, ok bool, detail string) { r.Checks = append(r.Checks, doctorCheck{name, ok, detail}) }
 			st, err := loadState()
@@ -588,14 +607,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 				return exitCode(1)
 			}
 			if st.Settings.Audit {
-				f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-				detail := store.Path("audit.jsonl")
-				if err == nil {
-					f.Close()
-				} else {
-					detail = err.Error() + " (changes are refused until this is fixed)"
-				}
-				add("audit_log", err == nil, detail)
+				add("audit_log", true, "sealed in "+store.Path(store.StoreFile))
 			}
 			hostDetail := countOf(len(st.Hosts), "host")
 			if len(st.Hosts) == 0 {
@@ -662,6 +674,8 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			return nil
 		},
 	}
+	c.Flags().BoolVar(&acceptOld, "accept-old-copy", false, "use the komando folder as it is now after a restore from a backup, though it is older than the keychain remembers (a person only)")
+	return c
 }
 
 // policyList is `policy list`: every rule as data; for people a table of

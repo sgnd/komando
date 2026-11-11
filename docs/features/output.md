@@ -96,7 +96,7 @@ komando schema -o json | python3 -c 'import json,sys; [print(c["code"], c["exit"
 | `KEY_FILE_EXISTS` | `key gen` or `key mv`: a file of that name is in `~/.komando/keys` | move it away, or pick another name |
 | `SECRET_MISMATCH` | `secret check`: the value entered is not the stored one | `data.difference` says how they differ; `komando secret set NAME` stores the right one |
 | `sudo: a password is required` | sudo needs a password | `komando secret set NAME`, then `komando host edit HOST --sudo-ref secret:NAME` |
-| `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA, sudo) | a person runs `komando vpn up NAME` once |
+| `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn up NAME` once |
 | `AWS_LOGIN_REQUIRED` | the AWS SSO login has expired | a person runs `komando login aws --profile NAME` |
 | `AZURE_LOGIN_REQUIRED` | no Azure login was found (for an Azure Container Registry) | set a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`), run on Azure with a managed identity, or a person runs `az login` |
 | `GCP_LOGIN_REQUIRED` | the Google login has run out (for Google Artifact Registry) | a person runs `gcloud auth application-default login`, or set `GOOGLE_APPLICATION_CREDENTIALS` to a key file |
@@ -105,6 +105,8 @@ komando schema -o json | python3 -c 'import json,sys; [print(c["code"], c["exit"
 | `SAFETY_SETTING` | a change that turns a seatbelt off | a person may add `--yes` |
 | `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{secret:NAME}}`, `--env K=secret:NAME`, a password on a new address) | tell the user which secret goes where; a person may add `--yes` |
 | `NEEDS_PERSON` | an AI agent asked for something only a person can do: type a password into `secret set`, compare one with `secret check`, set the approval code | the agent asks the user to run the command in their own terminal; no flag lets an agent do it |
+| `HOSTKEY_REVOKED` | the server shows a host key that was revoked (an `@revoked` line `komando seal` carried over) | treat the server as compromised; nothing was sent |
+| `NEEDS_SEAL` | the komando folder holds the files of an earlier komando, not yet moved into the sealed store | the agent asks the user to run `komando seal` in their own terminal; every other command stops until then |
 | `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
 | `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |
@@ -171,7 +173,7 @@ server, which `komando job list --refresh` asks. Agents get the same as JSON
 
 ### Show it in your shell prompt (optional)
 
-`komando status --short` prints a short note such as `vpn:office tun:2`, or nothing
+`komando status --short` prints a short note such as `vpn:2 tun:1` (how many VPNs and tunnels are up), or nothing
 when nothing is running, so your prompt can show it all the time. Add it
 yourself; komando never changes your shell files.
 

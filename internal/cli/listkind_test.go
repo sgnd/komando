@@ -37,7 +37,7 @@ func TestVpnWhereShowsPortal(t *testing.T) {
 // hint under each row.
 func TestTestTextHintOnce(t *testing.T) {
 	fail := func(name string) targetTest {
-		return targetTest{Name: name, Kind: "host", Error: &out.Error{Code: "NO_AUTH", Message: "no login", Hint: "run komando login " + name}}
+		return targetTest{Host: name, Kind: "host", Error: &out.Error{Code: "NO_AUTH", Message: "no login", Hint: "run komando login " + name}}
 	}
 	if s := (testData{Results: []targetTest{fail("local1")}}).Text(); strings.Contains(s, "komando login") {
 		t.Errorf("one target:\n%s", s)

@@ -11,26 +11,35 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
+// writePromptState writes runtime.pids as the store keeps it for the
+// sessions and tunnels of st, in a fresh home, and returns its path.
 func writePromptState(t *testing.T, st *store.State) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
-	b, err := json.Marshal(st)
+	var p store.RuntimePIDs
+	for _, v := range st.Sessions {
+		p.Vpns = append(p.Vpns, store.VpnPID{PID: v.PID, LastUsed: v.LastUsed})
+	}
+	for _, tn := range st.Tunnels {
+		p.Tunnels = append(p.Tunnels, tn.PID)
+	}
+	b, err := json.Marshal(&p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := filepath.Join(home, "state.json")
-	if err := os.WriteFile(p, b, 0o600); err != nil {
+	path := filepath.Join(home, "runtime.pids")
+	if err := os.WriteFile(path, b, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return p
+	return path
 }
 
 func TestPromptText(t *testing.T) {
 	now := time.Now()
 	me, dead := os.Getpid(), 1<<30
 	st := &store.State{
-		Settings: store.Settings{}, // vpn_idle unset: the default 30m applies
+		// the default vpn_idle, 30m, applies: the prompt never opens the store
 		Sessions: map[string]*store.VpnSession{
 			"office": {Vpn: "office", PID: me, LastUsed: now.Add(-time.Minute)},
 			"gone":   {Vpn: "gone", PID: dead, LastUsed: now},
@@ -43,14 +52,8 @@ func TestPromptText(t *testing.T) {
 		},
 	}
 	writePromptState(t, st)
-	if got := promptText(now); got != "vpn:office tun:2\n" {
+	if got := promptText(now); got != "vpn:1 tun:2\n" {
 		t.Errorf("got %q", got)
-	}
-
-	st.Settings.VpnIdle = "0" // never closes by itself
-	writePromptState(t, st)
-	if got := promptText(now); got != "vpn:idle,office tun:2\n" {
-		t.Errorf("vpn_idle 0: got %q", got)
 	}
 
 	writePromptState(t, &store.State{})
@@ -83,7 +86,7 @@ func TestPromptNeverBreaks(t *testing.T) {
 
 // TestPromptCommandChangesNothing runs `komando status --short` itself: the root's
 // checks (which close idle VPN sessions and need the audit log) are
-// skipped, and the state file stays byte for byte the same.
+// skipped, and runtime.pids stays byte for byte the same.
 func TestPromptCommandChangesNothing(t *testing.T) {
 	for _, args := range [][]string{{"status", "--short"}, {"prompt"}} {
 		st := &store.State{
@@ -99,10 +102,10 @@ func TestPromptCommandChangesNothing(t *testing.T) {
 		}
 		after, _ := os.ReadFile(p)
 		if string(before) != string(after) {
-			t.Errorf("%v changed the state file", args)
+			t.Errorf("%v changed runtime.pids", args)
 		}
-		if _, err := os.Stat(store.Path("keys")); !os.IsNotExist(err) {
-			t.Errorf("%v created the keys folder", args)
+		if _, err := os.Stat(store.Path(store.StoreFile)); !os.IsNotExist(err) {
+			t.Errorf("%v made a store", args)
 		}
 	}
 }
@@ -119,5 +122,19 @@ func TestPromptIsQuick(t *testing.T) {
 	promptText(time.Now())
 	if d := time.Since(start); d > 50*time.Millisecond {
 		t.Errorf("50 VPNs and 50 tunnels took %v", d)
+	}
+}
+
+// The prompt counts from runtime.pids, without names and without opening
+// the store.
+func TestPromptSealed(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	p := store.RuntimePIDs{Vpns: []store.VpnPID{{PID: os.Getpid(), LastUsed: time.Now()}}, Tunnels: []int{os.Getpid()}}
+	b, _ := json.Marshal(&p)
+	if err := os.WriteFile(store.Path("runtime.pids"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := promptText(time.Now()); got != "vpn:1 tun:1\n" {
+		t.Fatalf("prompt %q", got)
 	}
 }

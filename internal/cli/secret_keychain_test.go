@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -18,21 +17,17 @@ import (
 // touching the login keychain. The round trip itself is in
 // internal/vault/keychain_test.go.
 
-// keyfileHome is a komando home whose vault opens with vault.key, holding
-// one secret. It returns vault.key's bytes. The vault keeps the passphrase
-// an earlier test gave it, so the mode is written into vault.json first: a
-// new vault takes its mode from there, not from KOMANDO_VAULT_PASS.
+// keyfileHome is a komando home whose store opens with store.key, holding
+// one secret. It returns the key file's bytes.
 func keyfileHome(t *testing.T) []byte {
 	t.Helper()
 	invHome(t)
-	vf, _ := json.Marshal(map[string]any{"version": 1, "salt": []byte("0123456789abcdef"), "mode": "keyfile", "entries": map[string]any{}})
-	if err := os.WriteFile(store.Path("vault.json"), vf, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	t.Setenv("KOMANDO_VAULT_PASS", "")
+	vault.ReadPassStdin(strings.NewReader("")) // forget one read earlier
 	if err := vault.Set("db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
-	key, err := os.ReadFile(store.Path("vault.key"))
+	key, err := os.ReadFile(store.Path("store.key"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,11 +42,11 @@ func atTerminal(t *testing.T) {
 	t.Cleanup(func() { interactive = saved })
 }
 
-// keyStays: vault.key still holds key, and the vault still opens with it.
+// keyStays: store.key still holds key, and the vault still opens with it.
 func keyStays(t *testing.T, key []byte) {
 	t.Helper()
-	if b, err := os.ReadFile(store.Path("vault.key")); err != nil || !bytes.Equal(b, key) {
-		t.Errorf("vault.key changed: %v", err)
+	if b, err := os.ReadFile(store.Path("store.key")); err != nil || !bytes.Equal(b, key) {
+		t.Errorf("store.key changed: %v", err)
 	}
 	if v, err := vault.Get("db-pass"); err != nil || v != "s3cret" {
 		t.Errorf("vault no longer opens: %q %v", v, err)
@@ -73,20 +68,20 @@ func TestSecretKeychainDryRun(t *testing.T) {
 	} else if d["keychain"] != tool || d["problem"] != nil {
 		t.Errorf("keychain %q here, dry run says %v", tool, d)
 	}
-	if d = mustRun(t, "secret", "keychain", "--off", "--dry-run"); d["would"] != "move the vault key back into vault.key" {
+	if d = mustRun(t, "secret", "keychain", "--off", "--dry-run"); d["would"] != "move the vault key back into store.key" {
 		t.Errorf("--off dry run: %v", d)
 	}
 	keyStays(t, key)
 }
 
 // --off weakens where the key is kept, so it is a safety setting: --yes.
-// With the key already in vault.key it changes nothing and says so.
+// With the key already in store.key it changes nothing and says so.
 func TestSecretKeychainOff(t *testing.T) {
 	key := keyfileHome(t)
 	if e := wantCode(t, "SAFETY_SETTING", "secret", "keychain", "--off"); e.Exit != out.ExitPolicy {
 		t.Errorf("exit %d", e.Exit)
 	}
-	if d := mustRun(t, "secret", "keychain", "--off", "--yes"); d["key"] != "vault.key" {
+	if d := mustRun(t, "secret", "keychain", "--off", "--yes"); d["key"] != "store.key" {
 		t.Errorf("--off --yes: %v", d)
 	}
 	keyStays(t, key)
@@ -105,13 +100,13 @@ func TestSecretKeychainPassphraseVault(t *testing.T) {
 	if v, err := vault.Get("db-pass"); err != nil || v != "s3cret" {
 		t.Errorf("vault no longer opens: %q %v", v, err)
 	}
-	if _, err := os.Stat(store.Path("vault.key")); !os.IsNotExist(err) {
+	if _, err := os.Stat(store.Path("store.key")); !os.IsNotExist(err) {
 		t.Errorf("a key file appeared: %v", err)
 	}
 }
 
 // Where no keychain tool is installed (a Linux server or CI runner without
-// secret-tool), the move fails cleanly and the key stays in vault.key.
+// secret-tool), the move fails cleanly and the key stays in store.key.
 func TestSecretKeychainNoTool(t *testing.T) {
 	if _, err := vault.KeychainTool(); err == nil {
 		t.Skip("a keychain tool is installed here; this test must not write to it")
@@ -119,7 +114,7 @@ func TestSecretKeychainNoTool(t *testing.T) {
 	key := keyfileHome(t)
 	atTerminal(t)
 	e := wantCode(t, "KEYCHAIN_FAILED", "secret", "keychain")
-	if e.Exit != out.ExitRemote || e.Hint != "the vault still uses vault.key, nothing was lost: a person unlocks the keychain (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring" {
+	if e.Exit != out.ExitRemote || e.Hint != "the store still uses store.key, nothing was lost: a person unlocks the keychain (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring" {
 		t.Errorf("error: %+v", e)
 	}
 	keyStays(t, key)

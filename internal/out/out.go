@@ -178,6 +178,9 @@ type Meta struct {
 	// for the first time (host_key_policy accept-new). Nothing proved the
 	// key is the server's: compare the fingerprint with the server's own.
 	HostKeysPinned []HostKey `json:"host_keys_pinned,omitempty"`
+	// Warnings are things that went wrong beside the result (an audit
+	// record that could not be written); they are on stderr too.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // HostKey is a server's host key, as komando pinned it.
@@ -205,7 +208,8 @@ type Printer struct {
 	skipped []Skipped
 	blocked *Error
 	pinned  []HostKey
-	mu      sync.Mutex // pinned: connections run side by side
+	warns   []string
+	mu      sync.Mutex // pinned, warns: connections run side by side
 
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
@@ -301,10 +305,10 @@ type Texter interface{ Text() string }
 
 func (p *Printer) meta() Meta {
 	p.mu.Lock()
-	pinned := slices.Clone(p.pinned)
+	pinned, warns := slices.Clone(p.pinned), slices.Clone(p.warns)
 	p.mu.Unlock()
 	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked,
-		HostKeysPinned: pinned}
+		HostKeysPinned: pinned, Warnings: warns}
 }
 
 // HostKeyPinned records a host key trusted on first use, for
@@ -327,7 +331,16 @@ func (p *Printer) WouldBlock(e *Error) {
 func (p *Printer) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.blocked, p.skipped, p.pinned = nil, nil, nil
+	p.blocked, p.skipped, p.pinned, p.warns = nil, nil, nil, nil
+}
+
+// Warn records something that went wrong beside the result: it goes to
+// stderr now and into meta.warnings of the envelope printed after it.
+func (p *Printer) Warn(msg string) {
+	p.mu.Lock()
+	p.warns = append(p.warns, msg)
+	p.mu.Unlock()
+	fmt.Fprintln(os.Stderr, "warning: "+noteText(p.Redact(msg)))
 }
 
 // Blocked is the stop WouldBlock recorded, or nil.

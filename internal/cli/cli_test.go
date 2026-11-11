@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 func TestMain(m *testing.M) {
@@ -16,11 +17,15 @@ func TestMain(m *testing.M) {
 	// agents set the variables themselves
 	for _, a := range agentVars {
 		os.Unsetenv(a.env)
+		resetApproval()
 	}
 	askOnScreen = func(string) (bool, bool) { panic("a test opened an approval window") }
 	// a new vault never puts its key in the login keychain of whoever runs
 	// the tests (secret_keychain_test.go uses stand-ins)
 	os.Setenv("KOMANDO_KEYCHAIN", "off")
+	// every command opens the sealed store with the passphrase: a cheap
+	// scrypt keeps the PTY children (this binary again) fast under -race
+	vault.PassphraseN = 1 << 10
 	// each test keeps komando's data in its own KOMANDO_HOME, as the
 	// person's usual folder; TestAgentOtherHome checks the real rule
 	realHome := defaultHome
@@ -182,4 +187,15 @@ func TestUnifiedDiff(t *testing.T) {
 	if !strings.Contains(d, "-b\n") || !strings.Contains(d, "+B\n") {
 		t.Errorf("bad diff:\n%s", d)
 	}
+}
+
+// auditText is every audit record, one per line, from the file or the
+// sealed store.
+func auditText(t *testing.T) string {
+	t.Helper()
+	var lines []string
+	if err := eachAudit(func(_ int, b []byte) error { lines = append(lines, string(b)); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	return strings.Join(lines, "\n")
 }

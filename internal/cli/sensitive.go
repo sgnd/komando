@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/vault"
@@ -207,7 +206,7 @@ func hardLinkSecret(p, home string) string {
 	if err != nil || !fi.Mode().IsRegular() {
 		return ""
 	}
-	if st, ok := fi.Sys().(*syscall.Stat_t); !ok || st.Nlink < 2 {
+	if fileLinks(p, fi) < 2 {
 		return ""
 	}
 	for _, f := range protectedFilesOf(home) {

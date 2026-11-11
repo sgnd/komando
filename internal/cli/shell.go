@@ -3,9 +3,7 @@ package cli
 import (
 	"context"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -105,8 +103,7 @@ func runShell(ctx context.Context, target string) error {
 		defer term.Restore(fd, old)
 		sess.Stdin, sess.Stdout, sess.Stderr = os.Stdin, os.Stdout, os.Stderr
 		winch := make(chan os.Signal, 1)
-		signal.Notify(winch, syscall.SIGWINCH)
-		defer signal.Stop(winch)
+		defer notifyResize(fd, winch)()
 		go func() {
 			for range winch {
 				if w, h, err := term.GetSize(fd); err == nil {

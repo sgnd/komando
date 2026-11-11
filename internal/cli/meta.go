@@ -324,8 +324,8 @@ var schemaEnv = map[string]string{
 	"KOMANDO_HOME":       "state directory (default ~/.komando)",
 	"KOMANDO_OUTPUT":     "default output format json|text",
 	"KOMANDO_ACTOR":      "name recorded in the audit log (e.g. claude-agent)",
-	"KOMANDO_VAULT_PASS": "vault passphrase (optional; otherwise the key is in the OS keychain, or vault.key where there is none; komando secret passphrase sets or changes it)",
-	"KOMANDO_KEYCHAIN":   "off: komando uses no keychain, and a new vault keeps its key in vault.key (CI, containers)",
+	"KOMANDO_VAULT_PASS": "vault passphrase (optional; otherwise the key is in the OS keychain, or store.key where there is none; komando secret passphrase sets or changes it)",
+	"KOMANDO_KEYCHAIN":   "off: komando uses no keychain, and a new vault keeps its key in store.key (CI, containers)",
 }
 
 // schema.

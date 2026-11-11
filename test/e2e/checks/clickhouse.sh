@@ -52,7 +52,7 @@ q $K conn rm ro-ch
 q $K db user rm admin-ch e2e_ro --allow-dangerous
 check "clickhouse db user rm removed it" False "$($K db user ls admin-ch | jget 'any(u["name"] == "e2e_ro" for u in d["data"]["users"])')"
 check "clickhouse dump is not supported" NOT_SUPPORTED "$($K db dump shop-ch --to "$TMP/c.sql" | jget 'd["error"]["code"]')"
-check "no clickhouse password in the audit log" 0 "$(grep -c -E 'Admin-pass-1|Ro-pass-1x' "$KOMANDO_HOME/audit.jsonl" || true)"
+check "no clickhouse password in the audit log" 0 "$(audit_text | grep -c -E 'Admin-pass-1|Ro-pass-1x' || true)"
 q $K conn rm shop-ch
 q $K db query admin-ch --write --allow-dangerous 'drop database e2e_ch'
 q $K conn rm admin-ch

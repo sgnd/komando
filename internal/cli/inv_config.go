@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -284,7 +283,7 @@ func configCmd() *cobra.Command {
 				return err
 			}
 			res := configShow{Settings: st.Settings, Keys: []configRow{}, ApprovalCode: map[bool]string{true: "on", false: "off"}[st.Settings.ApprovalCode], Home: store.Home(),
-				Files: map[string]string{"state": store.Path("state.json"), "vault": store.Path("vault.json"), "known_hosts": sshx.KnownHostsPath(), "audit": store.Path("audit.jsonl")}}
+				Files: dataFiles()}
 			for _, s := range settings {
 				res.Keys = append(res.Keys, configRow{s.Key, s.get(&st.Settings), s.get(&def), s.Values})
 			}
@@ -364,4 +363,11 @@ func configCmd() *cobra.Command {
 	})
 	c.AddCommand(set, approvalCodeCmd())
 	return c
+}
+
+// dataFiles is where komando keeps each kind of data: one sealed file for
+// all but the runtime data.
+func dataFiles() map[string]string {
+	db := store.Path(store.StoreFile)
+	return map[string]string{"state": db, "runtime": store.Path("runtime.json"), "vault": db, "known_hosts": db, "audit": db}
 }

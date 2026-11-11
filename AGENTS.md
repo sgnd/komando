@@ -41,13 +41,13 @@ database or a VPN, then a task) is for a person at a terminal.
    `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_HUMAN`,
    `REVEAL_NEEDS_PERSON`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
    `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_READ_ONLY`,
-   `SSH_GATE_REFUSED`, `UNSAFE_BACKUP`, `WRITE_REQUIRES_FLAG`), stop and
-   explain what you want to do and why. Once the human agrees, re-run with
+   `SSH_GATE_REFUSED`, `STORE_OLD_COPY`, `UNSAFE_BACKUP`,
+   `WRITE_REQUIRES_FLAG`), stop and explain what you want to do and why. Once the human agrees, re-run with
    the flag the hint names: komando asks them in a window on their screen
    ("Allow once"). With no screen, ask them to run the command in their own
    terminal. No flag clears `NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN`,
-   `SSH_GATE_READ_ONLY` or `SSH_GATE_REFUSED`: only a person at a terminal
-   can run those. If they deny it, do not retry.
+   `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED` or `STORE_OLD_COPY`: only a
+   person at a terminal can run those. If they deny it, do not retry.
 8. Never "fix" `HOSTKEY_MISMATCH` yourself: report it, it may be an attack.
    For `VPN_LOGIN_REQUIRED` or `VPN_DOWN`, ask the human to run
    `komando vpn up <name>`. For a server that asks for a two-factor code,

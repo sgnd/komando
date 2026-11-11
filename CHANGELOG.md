@@ -7,6 +7,53 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- **Sealed local store** for every new komando folder: one file,
+  `store.db`, keeps servers, conns, VPNs, keys, recipes, settings,
+  secrets, remembered fingerprints and the audit log, each record sealed
+  and bound to its ID, kind and version, so a record edited, swapped or
+  removed outside komando is found. Its key is kept the three ways the
+  vault key is: the OS keychain, a key file (`store.key`) or
+  `KOMANDO_VAULT_PASS`. With a passphrase, every command needs it, reads
+  included. A store made by a newer komando stops with `STORE_NEWER`.
+  komando works only on the sealed store.
+- **`komando seal`** moves a folder of an earlier komando into the sealed
+  store, after reading everything back and comparing it; the old files are
+  kept in a sealed archive and `komando seal --undo` puts them back. A
+  person at a terminal only. A folder of before must be sealed before
+  use: until then every other command (except `doctor`, `version`, `help`,
+  `guide` and `schema`) stops with `NEEDS_SEAL`, for agents too.
+- **Old copies are noticed:** with the store's key in the OS keychain, the
+  keychain also remembers how many changes the store has had. An older
+  copy put back stops commands with `STORE_OLD_COPY` (exit 6) until a
+  person runs `komando doctor --accept-old-copy`. When the keychain does
+  not answer in time, komando reads but changes nothing
+  (`KEYCHAIN_SLOW`).
+- **Windows:** komando builds and runs natively on Windows, with the vault
+  key in Windows Credential Manager, a native "Allow once" window that
+  counts only a real mouse or keyboard, and `.zip` releases.
+
+### Removed
+
+- OpenVPN OS mode (`vpn add --os-mode`), which ran the `openvpn` program
+  with sudo and changed your computer's routes, is gone; komando's own
+  OpenVPN client does the work without sudo. A VPN saved with it is never
+  run another way: `komando vpn up` stops with `VPN_OS_MODE_REMOVED` until
+  you add it again with `komando vpn add NAME openvpn --config FILE.ovpn
+  --check HOST:PORT --overwrite`.
+- `job wait --wait-timeout` is gone: use `--timeout` (still 10m when not
+  given). The hidden `--target` flag of `komando list` and `host export` is
+  gone too: give the target as the argument.
+- `komando test` results no longer carry `name`: read `host`, as with
+  `facts` and `exec`.
+- A server saved with the 0.1.0 field `jump` is no longer moved to `via`
+  on load.
+- The files of before as a way of working: `state.json`, `vault.json`,
+  `vault.key`, `known_hosts`, `audit.jsonl` and key files under `keys/` are
+  only read, by `komando seal`. `key gen --overwrite` is no longer needed
+  (keys komando makes live in the store) and does nothing.
+
 ### Security
 
 - **Built with Go 1.27.4.** It fixes GO-2026-6859 in the standard
@@ -27,6 +74,21 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `komando host ssh-command` on a sealed folder gives OpenSSH a private
+  copy of the pinned host keys (for a person only; an AI agent gets
+  `NEEDS_PERSON`), and stops with `NOT_SUPPORTED` for a server that logs
+  in with a key komando made, which lives sealed in the store: use
+  `komando shell` for that server. Keys made by `komando key gen` have no
+  file any more (`key show` names them `sealed:<id>`).
+- On a sealed folder, `komando status --short` (the shell prompt line)
+  counts what runs instead of naming it: `vpn:2 tun:1`, not
+  `vpn:office,lab`. It reads only process numbers kept beside the sealed
+  store, so no VPN name sits in a plain file and the prompt never opens
+  the keychain on each Enter.
+- Running VPN sessions, server logins, jobs and tunnels live in
+  `runtime.json` (sealed), apart from the inventory in `store.db`; `config
+  show` lists it. A background VPN marking itself used no longer rewrites
+  the inventory.
 - **One command for each job.** Shortcuts that stay now run the same code
   as the main command, with the same flags:
   - `cp`, `storage upload` and `storage download` are `upload` and
@@ -65,6 +127,16 @@ its highlights; the sections below them give the details. Versions follow
 - **`policy` rule ids come from the pattern** (`custom-1a2b3c4d`), so
   removing one rule no longer renumbers the others.
 - **`registry rm` needs a tag or digest;** it used to pick `:latest`.
+
+### Known limits
+
+- Any program of your user can read the store's key from the keychain
+  (macOS through `/usr/bin/security`, Windows Credential Manager, an
+  unlocked Linux keychain), and on macOS can lower the change count. An
+  agent running as your user is such a program. See "What the keychain
+  does not protect against" in docs/features/settings.md.
+- On macOS a program with Accessibility permission can click "Allow once".
+  Use the approval code, or keep that permission away from agent terminals.
 
 ### Fixed
 

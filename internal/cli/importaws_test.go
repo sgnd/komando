@@ -22,6 +22,7 @@ func TestImportAWS(t *testing.T) {
 	for _, k := range []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_PROFILE", "AWS_ENDPOINT_URL", "AWS_REGION", "AWS_SHARED_CREDENTIALS_FILE", "AWS_CONFIG_FILE"} {
 		t.Setenv(k, "")
 		os.Unsetenv(k)
+		resetApproval()
 	}
 	host := strings.TrimPrefix(endpoint, "http://")
 	mc, err := minio.New(host, &minio.Options{Creds: credentials.NewStaticV4("test", "test", ""), Region: "us-east-1"})

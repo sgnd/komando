@@ -12,7 +12,9 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
+	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"golang.org/x/crypto/ssh"
 )
 
 // invHome gives a test its own komando home and vault.
@@ -208,15 +210,16 @@ func TestInvHostImportJSON(t *testing.T) {
 func TestInvTrustDryRun(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "h", "u@10.0.0.1")
-	kh := store.Path("known_hosts")
-	line := "10.0.0.1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl\n"
-	os.WriteFile(kh, []byte(line), 0o600)
+	k, _, _, _, _ := ssh.ParseAuthorizedKey([]byte("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"))
+	if _, err := sshx.PinHostKey("10.0.0.1:22", k, false); err != nil {
+		t.Fatal(err)
+	}
 	d := mustRun(t, "host", "trust", "h", "--reset", "--dry-run")
 	if d["would_remove_entries"].(float64) != 1 || d["would_fetch_from"] != "the server directly" {
 		t.Errorf("count: %v", d)
 	}
-	if b, _ := os.ReadFile(kh); string(b) != line {
-		t.Error("--dry-run changed known_hosts")
+	if pins, _ := sshx.PinnedKeys("10.0.0.1:22"); len(pins) != 1 {
+		t.Error("--dry-run changed the pins")
 	}
 }
 
@@ -229,17 +232,14 @@ func TestInvKeys(t *testing.T) {
 		t.Errorf("dry-run: %v", d)
 	}
 	mustRun(t, "key", "gen", "k", "--type", "ecdsa", "-b", "384")
-	// a key file left behind
-	os.WriteFile(store.Path("keys", "old"), []byte("x"), 0o600)
-	wantCode(t, "KEY_FILE_EXISTS", "key", "gen", "old")
-	mustRun(t, "key", "gen", "old", "--overwrite")
-
-	pub := store.Path("keys", "k.pub")
+	st, _ := loadState()
+	pub := filepath.Join(t.TempDir(), "k.pub")
+	os.WriteFile(pub, []byte(st.Keys["k"].PublicKey+"\n"), 0o600)
 	e := wantCode(t, "KEY_INVALID", "key", "add", "p", pub)
 	if !strings.Contains(e.Hint, "public key") || e.Exit != out.ExitUsage {
 		t.Errorf("hint: %+v", e)
 	}
-	wantCode(t, "USAGE", "key", "add", "p", store.Path("keys", "k"), "--passphrase-ref", "pw123")
+	wantCode(t, "USAGE", "key", "add", "p", pub, "--passphrase-ref", "pw123")
 	wantCode(t, "USAGE", "key", "edit", "k", "--passphrase-ref", "pw123")
 	// key edit says what it did, warns about a secret not stored yet, and
 	// clears with --unset like host and conn edit ('' still works)
@@ -259,7 +259,7 @@ func TestInvKeys(t *testing.T) {
 	mustRun(t, "key", "edit", "k", "--passphrase-ref", "")
 
 	ext := filepath.Join(t.TempDir(), "ext")
-	b, _ := os.ReadFile(store.Path("keys", "k"))
+	b, _ := store.ReadPrivateKey(st.Keys["k"])
 	os.WriteFile(ext, b, 0o600)
 	// the same key under a second name is added, with a warning naming the first
 	if d = mustRun(t, "key", "add", "ext", ext); !strings.Contains(fmt.Sprint(d["warnings"]), "same key as k") {
@@ -281,10 +281,9 @@ func TestInvKeys(t *testing.T) {
 func TestInvCleanPubLine(t *testing.T) {
 	invHome(t)
 	mustRun(t, "key", "gen", "k")
-	pub, _ := os.ReadFile(store.Path("keys", "k.pub"))
-	f := filepath.Join(t.TempDir(), "x.pub")
-	os.WriteFile(f, []byte(strings.TrimSpace(string(pub))+" a\rb\n"), 0o600)
 	st, _ := loadState()
+	f := filepath.Join(t.TempDir(), "x.pub")
+	os.WriteFile(f, []byte(st.Keys["k"].PublicKey+" a\rb\n"), 0o600)
 	_, line, err := deployKey(st, f)
 	if err != nil || strings.ContainsAny(line, "\r\n") {
 		t.Errorf("line %q, %v", line, err)
@@ -406,6 +405,7 @@ func TestInvSelectors(t *testing.T) {
 }
 
 func TestInvSSHCommand(t *testing.T) {
+	invHome(t)
 	st := &store.State{Hosts: map[string]*store.Host{}, Keys: map[string]*store.Key{}, Vpns: map[string]*store.Vpn{}, Sessions: map[string]*store.VpnSession{}}
 	st.Keys["k"] = &store.Key{Name: "k", Path: "/keys/k"}
 	st.Hosts["b"] = &store.Host{Name: "b", Address: "10.0.0.1", Port: 2222, User: "jump", Key: "k"}

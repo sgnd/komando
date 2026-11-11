@@ -40,9 +40,6 @@ func RenameMany(pairs map[string]string) error {
 				return fmt.Errorf("%w: %s", ErrExists, to)
 			}
 		}
-		if err := f.upgrade(); err != nil {
-			return err
-		}
 		a, err := f.aead()
 		if err != nil {
 			return err
@@ -57,7 +54,7 @@ func RenameMany(pairs map[string]string) error {
 			e := f.Entries[from]
 			pt, err := a.Open(nil, e.Nonce, e.Data, []byte(from))
 			if err != nil {
-				return fmt.Errorf("cannot decrypt secret %q (wrong KOMANDO_VAULT_PASS or vault.key?)", from)
+				return fmt.Errorf("cannot decrypt secret %q (wrong KOMANDO_VAULT_PASS or store.key?)", from)
 			}
 			plain[from] = pt
 		}

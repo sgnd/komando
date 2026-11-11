@@ -276,3 +276,11 @@ var (
 	hintCmd     = regexp.MustCompile("`komando [^`]*`")
 	placeholder = regexp.MustCompile(`(\s)(?:TARGET|CONN)\b`)
 )
+
+// article is "a" or "an" for word, by its first letter.
+func article(word string) string {
+	if word != "" && strings.ContainsRune("aeiou", rune(word[0])) {
+		return "an"
+	}
+	return "a"
+}

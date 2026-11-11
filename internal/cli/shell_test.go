@@ -15,7 +15,7 @@ func shellLab(t *testing.T, protected bool) {
 	t.Helper()
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	saved, savedG := interactive, g
-	t.Cleanup(func() { interactive, g, personSaidNo = saved, savedG, false; out.P.Reset() })
+	t.Cleanup(func() { interactive, g = saved, savedG; resetApproval(); out.P.Reset() })
 	interactive = func() bool { return true }
 	err := store.Update(func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy", Via: "x y", Protected: protected}

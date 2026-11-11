@@ -92,6 +92,14 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 		go keepalive(cl)
 		return cl, nil
 	}
+	// a fresh home makes its store (and key) before connecting: the
+	// keychain may ask the person, which must not eat the connect timeout
+	// while a new server's key waits to be pinned
+	if o.HostKeyPolicy != "off" {
+		if _, err := store.DB(true); err != nil {
+			return nil, err
+		}
+	}
 	vpn, hops, err := resolveChain(st, h, map[string]bool{})
 	if err != nil {
 		return nil, err
@@ -185,7 +193,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 	if c := useHeld(ctx, st, hop, o); c != nil {
 		return c, nil // a jump host a person logged in to with `komando login`
 	}
-	cfg, agentConn, err := clientConfig(st, hop, o)
+	cfg, agentConn, err := clientConfig(ctx, st, hop, o)
 	if err != nil {
 		return nil, err
 	}
@@ -469,8 +477,13 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 	var hk *hostKeyChanged
 	var ke *knownhosts.KeyError
 	var ua *unanswered
+	var rv *knownhosts.RevokedError
 	msg := err.Error()
 	switch {
+	case errors.As(err, &rv):
+		return out.Errf(out.ExitConnect, "HOSTKEY_REVOKED",
+			"this key was revoked (an @revoked line of your known_hosts, moved by `komando seal`): treat the server as compromised and tell its owner; nothing was sent",
+			"%s shows the revoked host key %s", host, ssh.FingerprintSHA256(rv.Revoked.Key))
 	case errors.As(err, &hk):
 		return hk.outErr(host)
 	case errors.As(err, &ke) && len(ke.Want) > 0, strings.Contains(msg, "HOSTKEY_MISMATCH"):
@@ -505,7 +518,7 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 
 // clientConfig is the login for one hop. The ssh-agent connection it opens
 // (or nil) is the caller's to close once the handshake is over.
-func clientConfig(st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, io.Closer, error) {
+func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, io.Closer, error) {
 	if o.scan != nil {
 		// FetchHostKey: no login, so no keys, agent or vault secrets are used
 		scan := o.scan
@@ -526,7 +539,7 @@ func clientConfig(st *store.State, h *store.Host, o Options) (*ssh.ClientConfig,
 	if user == "" {
 		user = os.Getenv("USER")
 	}
-	hkc, err := hostKeyCallback(h.Name, o.HostKeyPolicy)
+	hkc, err := hostKeyCallback(ctx, h.Name, o.HostKeyPolicy)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -542,10 +555,6 @@ func clientConfig(st *store.State, h *store.Host, o Options) (*ssh.ClientConfig,
 	}, agentConn, nil
 }
 
-var khMu sync.Mutex
-
-func KnownHostsPath() string { return store.Path("known_hosts") }
-
 // NewHostKey is a host key komando pinned the first time it reached a
 // server (host_key_policy accept-new). Nothing proved that key is the
 // server's: the person compares the fingerprint with the server's own.
@@ -557,8 +566,8 @@ type NewHostKey struct {
 }
 
 // HostKeyPinned, when set, is told about every key pinned on first use
-// (for the output and the audit log). Calls come one at a time, under the
-// known_hosts lock, while the connection waits: it must be quick.
+// (for the output and the audit log). It is called after the pin is saved,
+// while the connection waits: it must be quick.
 var HostKeyPinned func(NewHostKey)
 
 // hostKeyNote is where the line about a newly pinned key goes.
@@ -590,86 +599,53 @@ func keyFileType(t string) string {
 	return "*"
 }
 
-func hostKeyCallback(name, policy string) (ssh.HostKeyCallback, error) {
+func hostKeyCallback(ctx context.Context, name, policy string) (ssh.HostKeyCallback, error) {
 	if policy == "off" {
 		return ssh.InsecureIgnoreHostKey(), nil
 	}
-	p := KnownHostsPath()
-	if _, err := os.Stat(p); errors.Is(err, os.ErrNotExist) {
-		if err := os.WriteFile(p, nil, 0o600); err != nil {
-			return nil, err
-		}
-	}
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-		khMu.Lock()
-		defer khMu.Unlock()
-		cb, err := knownhosts.New(p)
-		if err != nil {
-			return err
+		// a known server is checked in a read step; only a new one takes
+		// the write step that pins it (and checks again inside it)
+		var known error
+		if verr := HostKeys().view(ctx, func(t hostKeyTx) error { known = t.Check(hostname, remote, key); return nil }); verr != nil {
+			return verr
 		}
-		err = cb(hostname, remote, key)
-		var ke *knownhosts.KeyError
-		if errors.As(err, &ke) && len(ke.Want) == 0 {
-			if policy == "strict" {
-				return errors.New("HOSTKEY_UNKNOWN " + ssh.FingerprintSHA256(key))
+		var ke0 *knownhosts.KeyError
+		if !errors.As(known, &ke0) || len(ke0.Want) > 0 {
+			if errors.As(known, &ke0) {
+				return &hostKeyChanged{offered: key, err: ke0}
 			}
-			if err := appendKnownHost(p, hostname, key); err != nil {
-				return err
+			return known
+		}
+		var err error
+		pinned := false
+		lockErr := HostKeys().update(ctx, func(t hostKeyTx) error {
+			err = t.Check(hostname, remote, key)
+			var ke *knownhosts.KeyError
+			if errors.As(err, &ke) && len(ke.Want) == 0 {
+				if policy == "strict" {
+					err = errors.New("HOSTKEY_UNKNOWN " + ssh.FingerprintSHA256(key))
+					return nil
+				}
+				if aerr := t.Add(hostname, key); aerr != nil {
+					return aerr
+				}
+				err, pinned = nil, true
+				return nil
 			}
-			pinnedOnFirstUse(name, hostname, key)
+			if errors.As(err, &ke) {
+				err = &hostKeyChanged{offered: key, err: ke}
+			}
 			return nil
+		})
+		if lockErr != nil {
+			return lockErr
 		}
-		if errors.As(err, &ke) {
-			return &hostKeyChanged{offered: key, err: ke}
+		if pinned {
+			pinnedOnFirstUse(name, hostname, key)
 		}
 		return err
 	}, nil
-}
-
-func appendKnownHost(path, hostname string, key ssh.PublicKey) error {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = fmt.Fprintln(f, knownhosts.Line([]string{knownhosts.Normalize(hostname)}, key))
-	return err
-}
-
-// knownHostsLines splits known_hosts into the lines that pin addr (host:port
-// normalised) and the rest, and returns the keys of the first kind.
-func knownHostsLines(p, addr string) (pins []ssh.PublicKey, matched int, keep [][]byte, err error) {
-	b, err := os.ReadFile(p)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, 0, nil, nil
-		}
-		return nil, 0, nil, err
-	}
-	norm := knownhosts.Normalize(addr)
-	for _, line := range bytes.Split(b, []byte("\n")) {
-		f := strings.Fields(string(line))
-		if len(f) > 0 && hostsFieldMatches(f[0], norm) {
-			matched++
-			if _, _, k, _, _, err := ssh.ParseKnownHosts(line); err == nil {
-				pins = append(pins, k)
-			}
-			continue
-		}
-		if len(line) > 0 {
-			keep = append(keep, line)
-		}
-	}
-	return pins, matched, keep, nil
-}
-
-func hostsFieldMatches(field, norm string) bool {
-	for _, h := range strings.Split(field, ",") {
-		if h == norm {
-			return true
-		}
-	}
-	return false
 }
 
 // SameKey reports whether a and b are the same public key.
@@ -677,49 +653,57 @@ func SameKey(a, b ssh.PublicKey) bool {
 	return a != nil && b != nil && bytes.Equal(a.Marshal(), b.Marshal())
 }
 
-// PinnedKeys are the keys komando's known_hosts pins for addr (host:port).
+// PinnedKeys are the keys komando pins for addr (host:port).
 func PinnedKeys(addr string) ([]ssh.PublicKey, error) {
-	khMu.Lock()
-	defer khMu.Unlock()
-	pins, _, _, err := knownHostsLines(KnownHostsPath(), addr)
+	var pins []ssh.PublicKey
+	err := HostKeys().view(context.Background(), func(t hostKeyTx) error {
+		var err error
+		pins, _, err = t.Pins(addr)
+		return err
+	})
 	return pins, err
 }
 
+// CountPinned is how many pins addr (host:port) has, as PinHostKey with
+// replace would remove them, keys that no longer parse included.
+func CountPinned(addr string) (int, error) {
+	var n int
+	err := HostKeys().view(context.Background(), func(t hostKeyTx) error {
+		var err error
+		_, n, err = t.Pins(addr)
+		return err
+	})
+	return n, err
+}
+
 // PinHostKey pins key for addr (host:port). A key that is pinned already is
-// not written again. With replace, every other line for addr goes in the
+// not written again. With replace, every other pin for addr goes in the
 // same write, so a failure never leaves the server unpinned; removed is how
-// many lines went. Whether a pin may be replaced is the caller's decision
+// many pins went. Whether a pin may be replaced is the caller's decision
 // (`host trust --reset` needs a person's yes).
 func PinHostKey(addr string, key ssh.PublicKey, replace bool) (removed int, err error) {
-	khMu.Lock()
-	defer khMu.Unlock()
-	p := KnownHostsPath()
-	pins, matched, keep, err := knownHostsLines(p, addr)
-	if err != nil {
-		return 0, err
-	}
-	have := false
-	for _, k := range pins {
-		have = have || SameKey(k, key)
-	}
-	if !replace {
-		if have {
-			return 0, nil
+	err = HostKeys().update(context.Background(), func(t hostKeyTx) error {
+		pins, matched, err := t.Pins(addr)
+		if err != nil {
+			return err
 		}
-		if _, err := os.Stat(p); errors.Is(err, os.ErrNotExist) {
-			if err := os.WriteFile(p, nil, 0o600); err != nil {
-				return 0, err
+		have := false
+		for _, k := range pins {
+			have = have || SameKey(k, key)
+		}
+		if !replace {
+			if have {
+				return nil
 			}
+			return t.Add(addr, key)
 		}
-		return 0, appendKnownHost(p, addr, key)
-	}
-	keep = append(keep, []byte(knownhosts.Line([]string{knownhosts.Normalize(addr)}, key)))
-	data := append(bytes.Join(keep, []byte("\n")), '\n')
-	removed = matched
-	if have {
-		removed-- // the same key, written again
-	}
-	return removed, store.WriteFileAtomic(p, data, 0o600)
+		removed = matched
+		if have {
+			removed-- // the same key, written again
+		}
+		return t.Replace(addr, key)
+	})
+	return removed, err
 }
 
 var errKeyScanned = errors.New("keyscan-done")

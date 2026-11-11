@@ -500,6 +500,7 @@ func menuRunning(ctx context.Context, t *menuTerm, st *store.State, mem *menuMem
 // for scripts, agents or shells, or the menu must never offer them.
 var menuCLIOnly = map[string]string{
 	"ssh-gate":              "sshd runs it",
+	"seal":                  "a person runs it once, in a terminal",
 	"ssh-gate line":         "set up once by hand",
 	"completion bash":       "for the shell",
 	"completion fish":       "for the shell",

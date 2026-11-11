@@ -2,10 +2,12 @@ package sshx
 
 import (
 	"bytes"
-	"github.com/sgnd/komando/internal/store"
+	"context"
 	"net"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/store"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -22,7 +24,7 @@ func TestFirstUsePinIsAnnounced(t *testing.T) {
 	t.Cleanup(func() { hostKeyNote, HostKeyPinned = oldNote, oldHook })
 	key := newSigner(t).PublicKey()
 	addr := &net.TCPAddr{IP: net.IPv4(10, 0, 0, 5), Port: 22}
-	cb, err := hostKeyCallback("web1", "accept-new")
+	cb, err := hostKeyCallback(context.Background(), "web1", "accept-new")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +45,7 @@ func TestFirstUsePinIsAnnounced(t *testing.T) {
 	if err := cb("10.0.0.5:22", addr, newSigner(t).PublicKey()); err == nil || note.Len() != 0 || len(got) != 1 {
 		t.Errorf("a changed key: %v %q", err, note.String())
 	}
-	strict, _ := hostKeyCallback("web2", "strict")
+	strict, _ := hostKeyCallback(context.Background(), "web2", "strict")
 	err = strict("10.0.0.6:22", addr, key)
 	if err == nil || len(got) != 1 {
 		t.Errorf("strict pinned a new key: %v", err)

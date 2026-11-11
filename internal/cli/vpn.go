@@ -59,7 +59,7 @@ var vpnFlagHint = map[string]string{
 func vpnAddCmd() *cobra.Command {
 	var config, address, portal, service, server, user, passwordRef, check, notes, pskRef, localID, remoteID, ca string
 	var groups, tags []string
-	var overwrite, mfa, osMode, legacyCrypto, allowPAP, askPw, askPsk bool
+	var overwrite, mfa, legacyCrypto, allowPAP, askPw, askPsk bool
 	c := &cobra.Command{
 		Use:   "add NAME KIND",
 		Short: "Add a VPN (see `komando vpn --help` for the kinds)",
@@ -220,22 +220,18 @@ Which flags go with which VPN:
 				if ovpnServers, err = ovpnRemotes(text); err != nil {
 					return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "remove that line from the .ovpn file", "%s: %v", config, err).NoFlag()
 				}
-				if !osMode { // komando's own client must understand every line
-					p, err := openvpn.Parse(text)
-					if err != nil {
-						return out.Errf(out.ExitUsage, "OVPN_UNSUPPORTED", "change the profile, or report the option you need at "+releaseSite+"/issues", "%s: %v", config, err)
-					}
-					if p.AuthUserPass && user == "" {
-						return out.Usage("%s logs in with a user name and password (auth-user-pass): add --user, and --password-ref (or --mfa to type it at `vpn up`)", config)
-					}
-					ovpnWarn = p.Warnings
+				// komando's own client must understand every line
+				p, err := openvpn.Parse(text)
+				if err != nil {
+					return out.Errf(out.ExitUsage, "OVPN_UNSUPPORTED", "change the profile, or report the option you need at "+releaseSite+"/issues", "%s: %v", config, err)
 				}
-				v.ConfigRef, v.OSMode = "secret:"+name+"-config", osMode
+				if p.AuthUserPass && user == "" {
+					return out.Usage("%s logs in with a user name and password (auth-user-pass): add --user, and --password-ref (or --mfa to type it at `vpn up`)", config)
+				}
+				ovpnWarn = p.Warnings
+				v.ConfigRef = "secret:" + name + "-config"
 				secrets[name+"-config"] = text
 				used["user"], used["password-ref"] = true, true
-			}
-			if osMode && kind != "openvpn" {
-				return out.Usage("--os-mode is for openvpn")
 			}
 			for flag, val := range map[string]string{"config": config, "address": address, "portal": portal, "service": service,
 				"server": server, "user": user, "password-ref": passwordRef, "psk-ref": pskRef, "id": localID, "remote-id": remoteID, "ca": ca} {
@@ -305,7 +301,6 @@ Which flags go with which VPN:
 	f.StringVar(&passwordRef, "password-ref", "", "where the password is (Tailscale: the auth key): secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
 	askPasswordFlag(c, &askPw)
 	f.BoolVar(&askPsk, "ask-psk", false, "L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-psk and used as --psk-ref")
-	f.BoolVar(&osMode, "os-mode", false, "OpenVPN: deprecated; run the openvpn program on this computer with sudo (changes its network) instead of komando's own client")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' run by a person connects it")
 	f.BoolVar(&legacyCrypto, "legacy-crypto", false, "L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes)")
 	f.BoolVar(&allowPAP, "allow-pap", false, "L2TP: let the server pick PAP, which hands it your password itself (needs a person's yes)")
@@ -653,7 +648,7 @@ func vpnWhere(v *store.Vpn) string {
 // testVpn opens the VPN and, when it has --check, connects to that address
 // through it.
 func testVpn(ctx context.Context, st *store.State, v *store.Vpn) targetTest {
-	r := targetTest{Name: v.Name, Kind: "vpn"}
+	r := targetTest{Host: v.Name, Kind: "vpn"}
 	t0 := time.Now()
 	timeout := sshOpts(st).ConnectTimeout
 	dial, closer, err := netx.Open(ctx, v, timeout)

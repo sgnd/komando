@@ -140,7 +140,7 @@ func jobStartCmd() *cobra.Command {
 					return nil, out.Errf(out.ExitRemote, "JOB_START_FAILED", "check that /bin/sh and nohup work there: `komando test TARGET`", "could not start job: %s", o)
 				}
 				j := &store.Job{ID: id, Host: c.Host.Name, Command: command, PID: pid, RemoteDir: jobDir(id), StartedAt: time.Now().UTC()}
-				if err := store.Update(func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
+				if err := store.UpdateRuntime(func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
 					return nil, err
 				}
 				return started{ID: id, Host: c.Host.Name, PID: pid, OK: true}, nil
@@ -314,8 +314,8 @@ func jobLogsCmd() *cobra.Command {
 
 func jobWaitCmd() *cobra.Command {
 	var interval time.Duration
-	var waitTimeout time.Duration
 	var tail int
+	var waitTimeout time.Duration
 	c := &cobra.Command{
 		Use:   "wait JOB_ID...",
 		Short: "Wait until the jobs end (or --timeout); the exit code follows the job",
@@ -384,8 +384,6 @@ group of servers) to wait for all of them at once.`,
 	c.Flags().DurationVar(&interval, "interval", 3*time.Second, "how often to check")
 	// its own --timeout: the global one's default (5m, per server) is not this one's
 	c.Flags().DurationVar(&waitTimeout, "timeout", 10*time.Minute, "how long to wait (the job keeps running after)")
-	c.Flags().DurationVar(&waitTimeout, "wait-timeout", 10*time.Minute, "same as --timeout")
-	_ = c.Flags().MarkHidden("wait-timeout")
 	c.Flags().IntVar(&tail, "tail", 30, "also show the last N lines of output")
 	return c
 }
@@ -617,7 +615,7 @@ func jobRmCmd() *cobra.Command {
 					return err
 				}
 				// an unreachable server: the record goes anyway (its logs stay there)
-				if err := store.Update(func(s *store.State) error { delete(s.Jobs, id); return nil }); err != nil {
+				if err := store.UpdateRuntime(func(s *store.State) error { delete(s.Jobs, id); return nil }); err != nil {
 					return err
 				}
 				removed = append(removed, id)

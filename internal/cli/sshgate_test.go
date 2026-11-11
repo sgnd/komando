@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
@@ -542,17 +541,10 @@ func gateRun(t *testing.T, line string, gateArgs ...string) (ran []string, env [
 // lastAudit is the newest record in the audit log.
 func lastAudit(t *testing.T) map[string]any {
 	t.Helper()
-	f, err := os.Open(store.Path("audit.jsonl"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
 	var last map[string]any
-	sc := bufio.NewScanner(f)
-	sc.Buffer(nil, 1<<20)
-	for sc.Scan() {
+	for _, line := range strings.Split(auditText(t), "\n") {
 		last = nil
-		_ = json.Unmarshal(sc.Bytes(), &last)
+		_ = json.Unmarshal([]byte(line), &last)
 	}
 	return last
 }
@@ -620,6 +612,7 @@ func TestSSHGateAuditHidesSecrets(t *testing.T) {
 // could not have set is not shown as it is.
 func TestGateAgentName(t *testing.T) {
 	t.Setenv(gateEnv, "phone")
+	resetApproval()
 	if got := agentName(); got != "ssh-gate key phone" {
 		t.Errorf("agent %q", got)
 	}
@@ -629,6 +622,7 @@ func TestGateAgentName(t *testing.T) {
 	}
 	os.Unsetenv("CLAUDECODE") // t.Setenv puts it back afterwards
 	t.Setenv(gateEnv, "x\n\nkomando list wants")
+	resetApproval()
 	if got := agentName(); got != "An SSH key through ssh-gate" {
 		t.Errorf("agent %q", got)
 	}

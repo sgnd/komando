@@ -14,15 +14,17 @@ import (
 const ptyNewPass = "a fresh and much longer passphrase"
 
 // Neither a script nor an AI agent can change the vault's key: a
-// passphrase it chose, or a key back in vault.key, would let it open the
+// passphrase it chose, or a key back in store.key, would let it open the
 // vault on its own. No flag allows it.
 func TestSecretPassphraseNeedsPerson(t *testing.T) {
 	invHome(t)
 	setSecret(t, "db-pass", "s3cret")
-	raw, _ := os.ReadFile(store.Path("vault.json"))
+	raw, _ := os.ReadFile(store.Path(store.StoreFile))
 	for _, agent := range []bool{false, true} {
 		if agent {
 			t.Setenv("KOMANDO_AGENT", "1")
+			resetApproval()
+			t.Cleanup(resetApproval)
 		}
 		for _, args := range [][]string{{"secret", "passphrase"}, {"secret", "passphrase", "--off", "--yes"}, {"secret", "passphrase", "--dry-run"}} {
 			e := wantCode(t, "NEEDS_PERSON", args...)
@@ -31,8 +33,8 @@ func TestSecretPassphraseNeedsPerson(t *testing.T) {
 			}
 		}
 	}
-	if now, _ := os.ReadFile(store.Path("vault.json")); !bytes.Equal(raw, now) {
-		t.Error("vault.json changed")
+	if now, _ := os.ReadFile(store.Path(store.StoreFile)); !bytes.Equal(raw, now) {
+		t.Error("the store changed")
 	}
 }
 
@@ -62,24 +64,22 @@ func ptyVault(t *testing.T, pass string) []byte {
 	t.Helper()
 	invHome(t)
 	setSecret(t, "db-pass", "s3cret value")
-	t.Setenv("KOMANDO_VAULT_PASS", pass) // komando took it out of its environment
-	raw, err := os.ReadFile(store.Path("vault.json"))
+	t.Setenv("KOMANDO_VAULT_PASS", pass)         // komando took it out of its environment
+	vault.ReadPassStdin(strings.NewReader(pass)) // and startPTY hands the child this one
+	t.Cleanup(func() { vault.ReadPassStdin(strings.NewReader("test-passphrase-long-enough")) })
+	raw, err := os.ReadFile(store.Path(store.StoreFile))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return raw
 }
 
-// opensWith: the vault, as komando reads it from disk, opens with pass.
+// opensWith: the store, as komando reads it from disk, opens with pass
+// (its key file, when it has no passphrase). The child komando changed the
+// key, so this process's open store and key are not asked.
 func opensWith(t *testing.T, pass string) error {
 	t.Helper()
-	t.Setenv("KOMANDO_VAULT_PASS", pass)
-	vault.Passphrase()
-	v, err := vault.Get("db-pass")
-	if err == nil && v != "s3cret value" {
-		t.Errorf("db-pass = %q", v)
-	}
-	return err
+	return vault.Opens(pass)
 }
 
 func TestPTYSecretPassphrase(t *testing.T) {
@@ -104,8 +104,14 @@ func TestPTYSecretPassphrase(t *testing.T) {
 	if err := opensWith(t, "test-passphrase-long-enough"); err == nil {
 		t.Error("the old passphrase still opens the vault")
 	}
-	b, _ := os.ReadFile(store.Path("audit.jsonl"))
-	if !strings.Contains(string(b), `"secret.passphrase"`) || strings.Contains(string(b), ptyNewPass) {
+	// the audit log, read by a komando that opens the store with the new key
+	t.Setenv("KOMANDO_VAULT_PASS", ptyNewPass)
+	vault.ReadPassStdin(strings.NewReader(ptyNewPass))
+	a := startPTY(t, "audit", "-n", "0", "--command", "secret.", "-o", "json")
+	if code := a.exit(); code != 0 {
+		t.Fatalf("audit: exit %d\n%s", code, a.shown())
+	}
+	if b := a.shown(); !strings.Contains(b, `secret.passphrase`) || strings.Contains(b, ptyNewPass) {
 		t.Errorf("audit: %s", b)
 	}
 }
@@ -153,13 +159,13 @@ func TestPTYSecretPassphraseChangesNothing(t *testing.T) {
 		if !strings.Contains(p.shown(), c.code) {
 			t.Errorf("%s: want %s; the screen:\n%s", c.name, c.code, p.shown())
 		}
-		if now, _ := os.ReadFile(store.Path("vault.json")); !bytes.Equal(raw, now) {
-			t.Errorf("%s: vault.json changed", c.name)
+		if now, _ := os.ReadFile(store.Path(store.StoreFile)); !bytes.Equal(raw, now) {
+			t.Errorf("%s: the store changed", c.name)
 		}
 	}
 }
 
-// --off takes the passphrase away: a new random key in vault.key, after a
+// --off takes the passphrase away: a new random key in store.key, after a
 // person's yes.
 func TestPTYSecretPassphraseOff(t *testing.T) {
 	ptyVault(t, "test-passphrase-long-enough")
@@ -169,8 +175,8 @@ func TestPTYSecretPassphraseOff(t *testing.T) {
 		t.Fatalf("exit %d; the screen:\n%s", code, p.shown())
 	}
 	p.waitFor("remove KOMANDO_VAULT_PASS")
-	if fi, err := os.Stat(store.Path("vault.key")); err != nil || fi.Size() != 32 {
-		t.Fatalf("vault.key: %v %v", fi, err)
+	if fi, err := os.Stat(store.Path("store.key")); err != nil || fi.Size() != 32 {
+		t.Fatalf("store.key: %v %v", fi, err)
 	}
 	if err := opensWith(t, "anything at all, it is not used now"); err != nil {
 		t.Fatal(err)
@@ -181,7 +187,7 @@ func TestPTYSecretPassphraseOff(t *testing.T) {
 }
 
 // doctor fails when KOMANDO_VAULT_PASS does not open the vault (changed
-// without `secret passphrase`), and warns about a vault.key nothing uses.
+// without `secret passphrase`).
 func TestDoctorVaultKey(t *testing.T) {
 	ptyVault(t, "test-passphrase-long-enough")
 	checks := func() map[string]securityCheck {
@@ -203,11 +209,5 @@ func TestDoctorVaultKey(t *testing.T) {
 	c := checks()["security:vault_key"]
 	if c.OK || c.Warning || !strings.Contains(c.Detail, "komando secret passphrase") {
 		t.Errorf("a changed passphrase: %+v", c)
-	}
-	if err := os.WriteFile(store.Path("vault.key"), make([]byte, 32), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if c := checks()["security:vault_key_file"]; !c.Warning || !strings.Contains(c.Detail, "old copies") {
-		t.Errorf("a leftover vault.key: %+v", c)
 	}
 }

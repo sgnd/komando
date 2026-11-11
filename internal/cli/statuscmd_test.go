@@ -95,6 +95,7 @@ func TestStatusCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	before, _ := os.ReadFile(store.Path("state.json"))
+	rtBefore, _ := os.ReadFile(store.Path("runtime.json"))
 	root := newRoot()
 	root.SetArgs([]string{"-o", "json", "status"})
 	if err := root.Execute(); err != nil {
@@ -103,5 +104,8 @@ func TestStatusCommand(t *testing.T) {
 	after, _ := os.ReadFile(store.Path("state.json"))
 	if string(before) != string(after) {
 		t.Error("status changed the state file")
+	}
+	if rtAfter, _ := os.ReadFile(store.Path("runtime.json")); string(rtBefore) != string(rtAfter) {
+		t.Error("status changed the runtime file")
 	}
 }

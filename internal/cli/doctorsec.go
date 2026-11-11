@@ -2,11 +2,12 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"net"
 	"net/url"
 	"os"
-	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -33,27 +34,20 @@ func securityChecks(st *store.State) []securityCheck {
 	}
 
 	// komando's folder and files: this user only (ASVS 14.1, CWE-276)
-	loose := looseFiles()
-	add("permissions", len(loose) == 0, false, map[bool]string{true: store.Home() + " is private to you",
-		false: "others can read " + strings.Join(loose, ", ") + ": run chmod 700 " + store.Home() + " && chmod 600 on the files"}[len(loose) == 0])
+	platformChecks(add)
+	if loose := looseFiles(); runtime.GOOS != "windows" {
+		add("permissions", len(loose) == 0, false, map[bool]string{true: store.Home() + " is private to you",
+			false: "others can read " + strings.Join(loose, ", ") + ": run chmod 700 " + store.Home() + " && chmod 600 on the files"}[len(loose) == 0])
+	}
 
+	if store.MixedHome() {
+		add("store", false, true, store.Path(store.StoreFile)+" holds this folder's data, but files of an older komando are beside it (state.json, vault.json, known_hosts or keys/): an older komando wrote them, and this komando does not read them")
+	}
 	if s, err := vault.Check(); err != nil {
 		add("vault", false, false, err.Error())
 	} else if !s.NoVaultYet {
-		switch {
-		case s.Mode == "keyfile":
-			add("vault", false, true, "the vault key is a file next to the vault: anyone with a copy of "+store.Home()+" (a backup) can open it. Move it into the OS keychain with `komando secret keychain`, or give the vault a passphrase of 15+ characters with `komando secret passphrase`")
-		case s.Mode == "keychain":
-			add("vault", true, false, "AES-256-GCM, the key in the OS keychain")
-		case s.Mode == "passphrase" && vault.Passphrase() == "":
-			add("vault", false, true, "the vault has a passphrase, but KOMANDO_VAULT_PASS is not set here, so komando cannot open it")
-		case s.ShortPass:
-			add("vault", false, true, "KOMANDO_VAULT_PASS is shorter than 15 characters (NIST SP 800-63B); change it with `komando secret passphrase`")
-		case s.OldKDF:
-			add("vault", false, true, "the vault uses an older scrypt cost; it moves to the stronger one when you next change a secret or run `komando secret passphrase`")
-		default:
-			add("vault", true, false, "AES-256-GCM, passphrase with scrypt N=2^17")
-		}
+		sealedStoreCheck(add, s)
+		oldCopyCheck(add)
 	}
 	vaultKeyChecks(add)
 
@@ -106,38 +100,50 @@ func weakVpn(v *store.Vpn) string {
 	return strings.Join(why, "; ")
 }
 
-// looseFiles lists komando files that other users on this computer can read.
-func looseFiles() []string {
-	var loose []string
-	check := func(p string) {
-		if fi, err := os.Stat(p); err == nil && fi.Mode().Perm()&0o077 != 0 {
-			loose = append(loose, p)
-		}
+// sealedStoreCheck says how a sealed home's store is locked.
+func sealedStoreCheck(add func(name string, ok, warn bool, detail string), s vault.Strength) {
+	switch {
+	case s.Mode == "keyfile":
+		add("vault", false, true, "everything is sealed in "+store.StoreFile+", but its key is a file next to it (store.key): anyone with a copy of "+store.Home()+" (a backup) can open it. Move it into the OS keychain with `komando secret keychain`, or use a passphrase of 15+ characters with `komando secret passphrase`")
+	case s.Mode == "keychain":
+		add("vault", true, false, "everything sealed in "+store.StoreFile+" (AES-256-GCM), the key in the OS keychain")
+	case s.Mode == "passphrase" && vault.Passphrase() == "":
+		add("vault", false, true, "the store has a passphrase, but KOMANDO_VAULT_PASS is not set here, so komando cannot open it")
+	case s.ShortPass:
+		add("vault", false, true, "KOMANDO_VAULT_PASS is shorter than 15 characters (NIST SP 800-63B); change it with `komando secret passphrase`")
+	default:
+		add("vault", true, false, "everything sealed in "+store.StoreFile+" (AES-256-GCM), passphrase with scrypt N=2^17")
 	}
-	check(store.Home())
-	for _, f := range []string{"state.json", "vault.json", "vault.key", "audit.jsonl", "known_hosts"} {
-		check(store.Path(f))
+}
+
+// oldCopyCheck says whether an old copy of the store would be noticed.
+func oldCopyCheck(add func(name string, ok, warn bool, detail string)) {
+	have, kept, guarded, old, err := store.CopyState()
+	switch {
+	case err != nil && old:
+		add("old_copy", false, false, "the keychain's change count for "+store.StoreFile+" cannot be read ("+err.Error()+"): someone may have changed it. If you restored the folder on purpose, run `komando doctor --accept-old-copy`")
+	case err != nil:
+		add("old_copy", false, true, err.Error())
+	case !guarded:
+		add("old_copy", false, true, "an old copy of "+store.StoreFile+" put back (from a backup, or by someone) would not be noticed: that needs the store's key in the OS keychain (`komando secret keychain`)")
+	case old && have == 0 && !storeFileThere():
+		add("old_copy", false, false, store.StoreFile+" is missing, though the keychain remembers its change "+strconv.FormatUint(kept, 10)+": put it back from a backup, or run `komando doctor --accept-old-copy` to start an empty store on purpose")
+	case old && kept == 0:
+		add("old_copy", false, false, "the keychain has no change count for "+store.StoreFile+" though its key is there: it was removed. If you restored the folder on purpose, run `komando doctor --accept-old-copy`")
+	case old:
+		add("old_copy", false, false, fmt.Sprintf("%s is an older copy (change %d) than the keychain remembers (change %d). If you restored it on purpose, run `komando doctor --accept-old-copy`", store.StoreFile, have, kept))
+	default:
+		add("old_copy", true, false, "an old copy put back would be noticed (the keychain remembers change "+strconv.FormatUint(kept, 10)+")")
 	}
-	keys, _ := filepath.Glob(store.Path("keys", "*"))
-	for _, k := range keys {
-		if !strings.HasSuffix(k, ".pub") {
-			check(k)
-		}
-	}
-	return loose
 }
 
 // vaultKeyChecks: KOMANDO_VAULT_PASS opens a passphrase vault (a changed
-// one locks every secret away), and no vault.key the vault does not use is
-// left behind (it opens old copies of the vault).
+// one locks every secret away).
 func vaultKeyChecks(add func(name string, ok, warn bool, detail string)) {
 	if s, err := vault.Check(); err == nil && s.Mode == "passphrase" && vault.Passphrase() != "" {
 		if err := vault.Opens(""); errors.Is(err, vault.ErrWrongKey) {
 			add("vault_key", false, false, "KOMANDO_VAULT_PASS does not open the vault. If you changed it, run `komando secret passphrase` in your terminal: it asks for the old passphrase and re-encrypts every secret under the new one")
 		}
-	}
-	if kp := vault.LeftoverKeyFile(); kp != "" {
-		add("vault_key_file", false, true, kp+" is left from an earlier key: the vault does not use it, but it opens old copies of the vault (a backup). Remove it")
 	}
 }
 
@@ -330,4 +336,10 @@ func tlsFlagRisk(t driver.Target, fix func(string) string, notChecked, plain str
 		return fix(notChecked)
 	}
 	return fix(plain)
+}
+
+// storeFileThere reports store.db in komando's folder.
+func storeFileThere() bool {
+	_, err := os.Stat(store.Path(store.StoreFile))
+	return err == nil
 }

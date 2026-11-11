@@ -61,7 +61,7 @@ check "no key sets a secret" SSH_GATE_REFUSED "$(kssh gate-rw komando secret set
 # a secret a person stored, never shown to a key; the vault keeps its key in vault.key here
 check "a person sets a secret here" True "$(echo -n gx-s3cret | gx komando secret set gx-pass -o json | jget 'd["ok"]')"
 check "the value never comes back" False "$(kssh gate-ro komando secret get gx-pass -o json | mentions gx-s3cret)"
-check "no keychain here: the vault uses vault.key" keyfile "$(gx cat /home/agent/.komando/vault.json | jget 'd["mode"]')"
+check "no keychain here: the store's key is a file" True "$(gx test -f /home/agent/.komando/store.key && echo True || echo False)"
 # the komando a key runs is an agent: --yes on a protected server needs a person, who is not at this screen
 gx komando host edit gx --protected -o json >/dev/null
 check "--yes from a key needs a person" PROTECTED_HOST "$(kssh gate-rw komando exec gx --yes -o json -- touch /tmp/gx | code || true)"

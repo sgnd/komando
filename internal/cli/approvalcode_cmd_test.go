@@ -95,6 +95,8 @@ func TestApprovalCodeNeedsPerson(t *testing.T) {
 		t.Errorf("script: exit %d", e.Exit)
 	}
 	t.Setenv("KOMANDO_AGENT", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	wantCode(t, "NEEDS_PERSON", "config", "approval-code")
 	if approvalCodeOn(t) {
 		t.Error("turned on")

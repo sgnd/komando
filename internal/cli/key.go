@@ -108,13 +108,6 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 			if hasControl(comment) {
 				return out.Errf(out.ExitUsage, "USAGE", "use one line of plain text, e.g. -C ops@example.com", "the key comment cannot hold line breaks or control characters")
 			}
-			path := store.Path("keys", name)
-			if _, err := os.Stat(path); err == nil && !overwrite {
-				if st, _ := loadState(); st == nil || st.Keys[name] == nil {
-					return out.Errf(out.ExitConflict, "KEY_FILE_EXISTS", "a key file from earlier is still there: move it away, or pass --overwrite to replace it",
-						"%s already exists", path)
-				}
-			}
 			if g.dryRun {
 				if err := checkKeyType(typ, bits); err != nil {
 					return err
@@ -126,7 +119,7 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 				if _, ok := st.Keys[name]; ok {
 					return keyExists(name)
 				}
-				k := &store.Key{Name: name, Path: path, Type: typ, Managed: true}
+				k := &store.Key{Name: name, Type: typ, Managed: true}
 				out.P.Print("key.gen", keyResult{Key: k, Action: "would_add"}, nil)
 				return nil
 			}
@@ -148,16 +141,12 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 					return keyExists(name)
 				}
 				pubLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub))) + " " + comment
-				if err := os.WriteFile(path, pem.EncodeToMemory(block), 0o600); err != nil {
+				// the key is a store record, and its path says so
+				kept, err := store.WriteManagedKey(name, pem.EncodeToMemory(block), []byte(pubLine+"\n"))
+				if err != nil {
 					return err
 				}
-				if err := os.Chmod(path, 0o600); err != nil { // an old file keeps its mode
-					return err
-				}
-				if err := os.WriteFile(path+".pub", []byte(pubLine+"\n"), 0o644); err != nil {
-					return err
-				}
-				k = &store.Key{Name: name, Path: path, Type: pub.Type(), PublicKey: pubLine, Fingerprint: ssh.FingerprintSHA256(pub), Managed: true, CreatedAt: time.Now().UTC()}
+				k = &store.Key{Name: name, Path: kept, Type: pub.Type(), PublicKey: pubLine, Fingerprint: ssh.FingerprintSHA256(pub), Managed: true, CreatedAt: time.Now().UTC()}
 				s.Keys[name] = k
 				return nil
 			})
@@ -172,7 +161,8 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 	c.Flags().StringVar(&typ, "type", "ed25519", "ed25519 | rsa | ecdsa")
 	c.Flags().IntVarP(&bits, "bits", "b", 0, "key size: RSA 3072-16384 (default 4096), ECDSA 256|384|521")
 	c.Flags().StringVarP(&comment, "comment", "C", "", "public key comment (default komando-NAME)")
-	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace a key file left in ~/.komando/keys from earlier")
+	c.Flags().BoolVar(&overwrite, "overwrite", false, "no longer needed: keys komando makes live in the sealed store")
+	_ = c.Flags().MarkHidden("overwrite")
 	return c
 }
 
@@ -461,10 +451,9 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 				case deleteFile && g.dryRun:
 					res["would_delete_file"] = k.Path
 				case deleteFile:
-					if err := os.Remove(k.Path); err != nil && !os.IsNotExist(err) {
+					if err := store.RemoveManagedKey(k); err != nil {
 						return out.Errf(out.ExitError, "DELETE_FAILED", "check the file's permissions", "cannot delete %s: %v", k.Path, err)
 					}
-					_ = os.Remove(k.Path + ".pub")
 					res["file_deleted"] = true
 				}
 				delete(s.Keys, k.Name)

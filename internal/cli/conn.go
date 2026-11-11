@@ -785,12 +785,8 @@ func addKindFits(family, raw, passwordRef string) error {
 func connAddCmdFor(kind string) *cobra.Command {
 	k := connAddKinds[kind]
 	c := connAddCmd()
-	a := "a "
-	if strings.ContainsRune("aeiou", rune(k.what[0])) {
-		a = "an "
-	}
-	c.Short = "Add " + a + k.what + " (same as conn add)"
-	c.Long = "Saves " + a + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them."
+	c.Short = "Add " + article(k.what) + " " + k.what + " (same as conn add)"
+	c.Long = "Saves " + article(k.what) + " " + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them."
 	c.Example = "  " + k.example
 	if kind == "cluster" {
 		c.Long += "\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--password-ref). A Docker Swarm manager is a server: `komando host add`."

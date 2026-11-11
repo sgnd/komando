@@ -1,9 +1,8 @@
 // Package vault stores secrets (passwords, key passphrases, tokens) encrypted
 // with AES-256-GCM, each bound to its name. The key is derived with scrypt
 // from $KOMANDO_VAULT_PASS when set (N=2^17, r=8, p=1: the OWASP minimum),
-// otherwise from a random 32-byte key. A new vault keeps that key in the
-// operating system's keychain (keychain.go), or, where there is none, in a
-// key file beside the vault (vault.key, mode 0600).
+// otherwise from the sealed store's key (sealed.go). An earlier komando kept
+// the vault in vault.json; `komando seal` reads it (move.go).
 package vault
 
 import (
@@ -18,7 +17,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -36,15 +34,10 @@ type file struct {
 	Mode    string            `json:"mode"`               // keyfile | passphrase | keychain
 	ScryptN int               `json:"scrypt_n,omitempty"` // scrypt cost; 0 is the old 2^15
 	Entries map[string]*entry `json:"entries"`
-
-	// isNew: there is no vault.json yet, so its first key also decides where
-	// the key is kept (key)
-	isNew bool
 }
 
-// legacyN is the scrypt cost of vaults made before it was stored. A random
-// key file needs no more; a passphrase vault moves to PassphraseN on its next
-// change (upgrade).
+// legacyN is the scrypt cost of vaults of before that did not store it
+// (read by `komando seal`).
 const legacyN = 1 << 15
 
 // PassphraseN is the scrypt cost for passphrase vaults (OWASP Password
@@ -55,6 +48,8 @@ type entry struct {
 	Nonce     []byte    `json:"nonce"`
 	Data      []byte    `json:"data"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	id string // its record in the sealed store
 }
 
 type Info struct {
@@ -133,39 +128,7 @@ func load() (*file, error) {
 	if err := store.EnsureHome(); err != nil {
 		return nil, err
 	}
-	f := &file{Version: 1, Entries: map[string]*entry{}}
-	b, err := os.ReadFile(vaultPath())
-	if errors.Is(err, os.ErrNotExist) {
-		f.isNew = true
-		f.Salt = make([]byte, 16)
-		if _, err := rand.Read(f.Salt); err != nil {
-			return nil, err
-		}
-		if Passphrase() != "" {
-			f.Mode, f.ScryptN = "passphrase", PassphraseN
-		} else {
-			f.Mode = "keyfile" // or keychain, once its key is made (key)
-		}
-		return f, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(b, f); err != nil {
-		return nil, err
-	}
-	if f.Entries == nil {
-		f.Entries = map[string]*entry{}
-	}
-	return f, nil
-}
-
-func (f *file) save() error {
-	b, err := json.MarshalIndent(f, "", "  ")
-	if err != nil {
-		return err
-	}
-	return store.WriteFileAtomic(vaultPath(), b, 0o600)
+	return loadSealed()
 }
 
 var (
@@ -174,6 +137,9 @@ var (
 )
 
 func (f *file) aead() (cipher.AEAD, error) {
+	if f.Mode == modeSealed {
+		return sealedAEAD()
+	}
 	secret, err := f.key()
 	if err != nil {
 		return nil, err
@@ -181,54 +147,32 @@ func (f *file) aead() (cipher.AEAD, error) {
 	return f.aeadFor(secret)
 }
 
-// key is what the vault's key is derived from, by its mode: the
-// passphrase, the key in the keychain or the key in vault.key (made when
-// the vault holds nothing yet). keychainNewKey decides where a new key
-// goes; a key in the keychain means a copy of the komando folder (a
-// backup, a synced home) holds no key that opens it.
+// key is what a vault of before (vault.json) derives its key from, by its
+// mode: the passphrase, the key in the keychain or the key in vault.key.
+// It only reads: `komando seal` opens such a vault to move it.
 func (f *file) key() ([]byte, error) {
-	var secret []byte
 	switch f.Mode {
 	case "passphrase":
 		p := Passphrase()
 		if p == "" {
 			return nil, ErrLocked
 		}
-		secret = []byte(p)
+		return []byte(p), nil
 	case "keychain":
-		k, err := keychainGet()
-		if err != nil {
-			return nil, err
-		}
-		secret = k
-	default:
-		kp := store.Path("vault.key")
-		b, err := os.ReadFile(kp)
-		if errors.Is(err, os.ErrNotExist) {
-			if len(f.Entries) > 0 {
-				// a new key would open none of them, and secrets saved with
-				// it would be lost once the old key is back
-				return nil, fmt.Errorf("%w: %s is missing but the vault holds %d secrets; restore it from a backup", ErrKey, kp, len(f.Entries))
-			}
-			if f.isNew {
-				if k, ok := keychainNewKey(); ok {
-					f.Mode = "keychain"
-					return k, nil
-				}
-			}
-			b, err = newKeyFile(kp)
-		}
-		if err != nil {
-			return nil, err
-		}
-		if len(b) < keyLen {
-			// an empty or cut-short key would quietly encrypt new secrets
-			// with a key anyone can derive from vault.json
-			return nil, fmt.Errorf("%w: %s holds %d bytes, not %d (cut short?); restore it from a backup", ErrKey, kp, len(b), keyLen)
-		}
-		secret = b
+		return keychainGet()
 	}
-	return secret, nil
+	kp := store.Path("vault.key")
+	b, err := os.ReadFile(kp)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("%w: %s is missing but the vault holds %d secrets; restore it from a backup", ErrKey, kp, len(f.Entries))
+	}
+	if err != nil {
+		return nil, err
+	}
+	if len(b) < keyLen {
+		return nil, fmt.Errorf("%w: %s holds %d bytes, not %d (cut short?); restore it from a backup", ErrKey, kp, len(b), keyLen)
+	}
+	return b, nil
 }
 
 // aeadFor derives the AES key from secret with the vault's salt and scrypt
@@ -259,117 +203,17 @@ func (f *file) aeadFor(secret []byte) (cipher.AEAD, error) {
 	return a, err
 }
 
-// keyLen is the size of the random key in vault.key.
+// keyLen is the size of a random vault key.
 const keyLen = 32
 
-// newKeyFile creates vault.key with a new random key, but never replaces
-// one that is already there: when another komando process made it first,
-// that key is returned, so every process encrypts with the key on disk.
-// The key is written in full before it appears under its name.
-func newKeyFile(kp string) ([]byte, error) {
-	key := make([]byte, keyLen)
-	if _, err := rand.Read(key); err != nil {
-		return nil, err
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(kp), ".tmp-key-*")
-	if err != nil {
-		return nil, err
-	}
-	defer os.Remove(tmp.Name())
-	_, err = tmp.Write(key)
-	if err == nil {
-		err = tmp.Sync()
-	}
-	if cerr := tmp.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return nil, err
-	}
-	// a hard link fails when the name exists, and never shows a half-written key
-	switch err = os.Link(tmp.Name(), kp); {
-	case err == nil:
-		return key, nil
-	case errors.Is(err, os.ErrExist):
-		return os.ReadFile(kp)
-	}
-	// a file system without hard links: create the name exclusively
-	f, err := os.OpenFile(kp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if errors.Is(err, os.ErrExist) {
-		return os.ReadFile(kp)
-	}
-	if err != nil {
-		return nil, err
-	}
-	_, err = f.Write(key)
-	if err == nil {
-		err = f.Sync()
-	}
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		os.Remove(kp)
-		return nil, err
-	}
-	return key, nil
-}
-
-// lockName is the lock file that serializes changes to the vault between
-// komando processes (store.Update uses its own, so neither waits on the other).
-const lockName = ".vault.lock"
-
-// change loads the vault under an exclusive lock, applies fn and saves it,
-// so komando processes running at the same time (parallel agents) never
-// drop each other's secrets.
+// change loads the vault, applies fn and writes what changed, in one write
+// step of the store, so komando processes running at the same time
+// (parallel agents) never drop each other's secrets.
 func change(fn func(f *file) error) error {
 	if store.DryRun {
 		return store.ErrDryRun
 	}
-	unlock, err := store.Lock(lockName)
-	if err != nil {
-		return err
-	}
-	defer unlock()
-	f, err := load()
-	if err != nil {
-		return err
-	}
-	if err := fn(f); err != nil {
-		return err
-	}
-	return f.save()
-}
-
-// upgrade re-encrypts a passphrase vault made with a weaker scrypt cost,
-// with a new salt, before it is changed.
-func (f *file) upgrade() error {
-	if f.Mode != "passphrase" || f.ScryptN >= PassphraseN {
-		return nil
-	}
-	if len(f.Entries) == 0 {
-		f.ScryptN = PassphraseN
-		return nil
-	}
-	old, err := f.aead()
-	if err != nil {
-		return err
-	}
-	plain, err := f.openAll(old)
-	if err != nil {
-		return err
-	}
-	defer wipe(plain)
-	salt, err := newSalt()
-	if err != nil {
-		return err
-	}
-	f.Salt, f.ScryptN = salt, PassphraseN
-	a, err := f.aead()
-	if err != nil {
-		return err
-	}
-	return f.sealAll(a, plain)
+	return changeSealed(fn)
 }
 
 // Strength describes the vault's protection for `komando doctor`: the mode,
@@ -386,30 +230,10 @@ type Strength struct {
 // MinPassphrase is the shortest passphrase doctor accepts without a warning.
 const MinPassphrase = 15
 
-func Check() (Strength, error) {
-	if _, err := os.Stat(vaultPath()); errors.Is(err, os.ErrNotExist) {
-		return Strength{NoVaultYet: true}, nil
-	}
-	f, err := load()
-	if err != nil {
-		return Strength{}, err
-	}
-	s := Strength{Mode: f.Mode, ScryptN: f.ScryptN}
-	if s.ScryptN == 0 {
-		s.ScryptN = legacyN
-	}
-	if f.Mode == "passphrase" {
-		s.OldKDF = s.ScryptN < PassphraseN
-		s.ShortPass = len([]rune(Passphrase())) < MinPassphrase
-	}
-	return s, nil
-}
+func Check() (Strength, error) { return sealedStrength() }
 
 func Set(name, value string) error {
 	return change(func(f *file) error {
-		if err := f.upgrade(); err != nil {
-			return err
-		}
 		a, err := f.aead()
 		if err != nil {
 			return err
@@ -431,7 +255,7 @@ func Set(name, value string) error {
 func (f *file) checkKey(a cipher.AEAD) error {
 	for name, e := range f.Entries {
 		if _, err := a.Open(nil, e.Nonce, e.Data, []byte(name)); err != nil {
-			return fmt.Errorf("%w %q (wrong KOMANDO_VAULT_PASS or vault.key?): nothing was saved", ErrDecrypt, name)
+			return fmt.Errorf("%w %q (wrong KOMANDO_VAULT_PASS or store.key?): nothing was saved", ErrDecrypt, name)
 		}
 		return nil // one is enough: every entry has the same key
 	}
@@ -464,7 +288,7 @@ func Get(name string) (string, error) {
 	}
 	pt, err := a.Open(nil, e.Nonce, e.Data, []byte(name))
 	if err != nil {
-		return "", fmt.Errorf("%w %q (wrong KOMANDO_VAULT_PASS or vault.key?)", ErrDecrypt, name)
+		return "", fmt.Errorf("%w %q (wrong KOMANDO_VAULT_PASS or store.key?)", ErrDecrypt, name)
 	}
 	return string(pt), nil
 }
@@ -502,9 +326,6 @@ func copyEntry(from, to string, overwrite, move bool) error {
 		if _, ok := f.Entries[to]; ok && !overwrite {
 			return ErrExists
 		}
-		if err := f.upgrade(); err != nil {
-			return err
-		}
 		a, err := f.aead()
 		if err != nil {
 			return err
@@ -512,7 +333,7 @@ func copyEntry(from, to string, overwrite, move bool) error {
 		e := f.Entries[from]
 		pt, err := a.Open(nil, e.Nonce, e.Data, []byte(from))
 		if err != nil {
-			return fmt.Errorf("%w %q (wrong KOMANDO_VAULT_PASS or vault.key?)", ErrDecrypt, from)
+			return fmt.Errorf("%w %q (wrong KOMANDO_VAULT_PASS or store.key?)", ErrDecrypt, from)
 		}
 		defer clear(pt)
 		nonce := make([]byte, a.NonceSize())

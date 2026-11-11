@@ -1,18 +1,17 @@
-// Package store persists komando state (inventory, conns, keys, snippets,
-// jobs, tunnels, settings) as JSON files under $KOMANDO_HOME (default ~/.komando).
+// Package store keeps komando state (inventory, conns, keys, snippets,
+// jobs, tunnels, settings) in the sealed store under $KOMANDO_HOME
+// (default ~/.komando).
 package store
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 
-	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/flock"
 )
 
 type Host struct {
@@ -29,7 +28,6 @@ type Host struct {
 	// carry the SSH connection (OpenSSH ProxyCommand): aws ssm start-session,
 	// gcloud compute start-iap-tunnel, cloudflared access ssh. %h %p %r %n.
 	ProxyCommand string            `json:"proxy_command,omitempty"`
-	OldJump      string            `json:"jump,omitempty"` // written by v0.1.0 only; moved to Via on load
 	Groups       []string          `json:"groups,omitempty"`
 	Tags         []string          `json:"tags,omitempty"`
 	Labels       map[string]string `json:"labels,omitempty"`
@@ -45,6 +43,7 @@ type Host struct {
 	WinRMOpts *WinRMOpts `json:"winrm,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
+	Rec       Rec        `json:"-"`
 }
 
 // TransportWinRM is Host.Transport for a server reached over WinRM.
@@ -105,6 +104,7 @@ type Conn struct {
 	TrustedPlugin string    `json:"trusted_plugin,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+	Rec           Rec       `json:"-"`
 }
 
 type Key struct {
@@ -116,6 +116,7 @@ type Key struct {
 	PassphraseRef string    `json:"passphrase_ref,omitempty"`
 	Managed       bool      `json:"managed"` // generated/stored by komando
 	CreatedAt     time.Time `json:"created_at"`
+	Rec           Rec       `json:"-"`
 }
 
 type Snippet struct {
@@ -127,6 +128,7 @@ type Snippet struct {
 	// counts as a change.
 	ReadOnly  bool      `json:"read_only,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
+	Rec       Rec       `json:"-"`
 }
 
 type Job struct {
@@ -203,7 +205,7 @@ type Vpn struct {
 	RemoteID  string            `json:"remote_id,omitempty"`  // ikev2: the server's identity (default: --server)
 	CA        string            `json:"ca,omitempty"`         // ikev2: PEM of the CA that signed the server certificate
 	MFA       bool              `json:"mfa,omitempty"`        // a human must log in (`vpn up`); never automated
-	OSMode    bool              `json:"os_mode,omitempty"`    // openvpn: run on the computer itself (sudo, changes routes)
+	OSMode    bool              `json:"os_mode,omitempty"`    // removed OpenVPN OS mode; kept only so `vpn up` refuses such a VPN
 	Check     string            `json:"check,omitempty"`      // host:port that answers only through the VPN
 	Groups    []string          `json:"groups,omitempty"`
 	Tags      []string          `json:"tags,omitempty"`
@@ -215,6 +217,8 @@ type Vpn struct {
 	// Weaker logins a person allowed for this VPN (`vpn edit`, with a yes).
 	LegacyCrypto bool `json:"legacy_crypto,omitempty"` // l2tp, ipsec: also offer 3DES and DH groups 2 and 5
 	AllowPAP     bool `json:"allow_pap,omitempty"`     // l2tp: the server may pick PAP, which sends the password itself
+
+	Rec Rec `json:"-"`
 }
 
 // VpnSession is a VPN kept up in the background between commands.
@@ -224,8 +228,7 @@ type VpnSession struct {
 	Socks     string    `json:"socks,omitempty"`      // local SOCKS5 address; empty when the OS routes the traffic
 	SocksUser string    `json:"socks_user,omitempty"` // login for the container's SOCKS port, random per session
 	SocksPass string    `json:"socks_pass,omitempty"`
-	Exe       string    `json:"exe,omitempty"`  // the program the pid must still be, so a reused pid is never signalled
-	Sudo      bool      `json:"sudo,omitempty"` // the process runs as root (OS mode)
+	Exe       string    `json:"exe,omitempty"` // the program the pid must still be, so a reused pid is never signalled
 	LogFile   string    `json:"log_file,omitempty"`
 	StartedAt time.Time `json:"started_at"`
 	LastUsed  time.Time `json:"last_used"`
@@ -248,16 +251,17 @@ type SSHLogin struct {
 }
 
 type State struct {
-	Hosts    map[string]*Host       `json:"hosts"`
-	Conns    map[string]*Conn       `json:"conns,omitempty"`
-	Vpns     map[string]*Vpn        `json:"vpns,omitempty"`
-	Sessions map[string]*VpnSession `json:"vpn_sessions,omitempty"`
-	Logins   map[string]*SSHLogin   `json:"ssh_logins,omitempty"`
-	Keys     map[string]*Key        `json:"keys"`
-	Snippets map[string]*Snippet    `json:"snippets"`
-	Jobs     map[string]*Job        `json:"jobs"`
-	Tunnels  map[string]*Tunnel     `json:"tunnels"`
-	Settings Settings               `json:"settings"`
+	Hosts    map[string]*Host    `json:"hosts"`
+	Conns    map[string]*Conn    `json:"conns,omitempty"`
+	Vpns     map[string]*Vpn     `json:"vpns,omitempty"`
+	Keys     map[string]*Key     `json:"keys"`
+	Snippets map[string]*Snippet `json:"snippets"`
+	// Runtime data (VPN sessions, logins, jobs, tunnels) lives in its own
+	// file (runtime.go); a state.json of before may hold it here.
+	Runtime
+	Settings Settings `json:"settings"`
+
+	settingsRec Rec // the settings record in the sealed store
 }
 
 func Home() string {
@@ -277,47 +281,12 @@ func Path(parts ...string) string { return filepath.Join(append([]string{Home()}
 func EnsureHome() error { return ensureHome() }
 
 func ensureHome() error {
-	if err := os.MkdirAll(Home(), 0o700); err != nil {
-		return err
-	}
-	return os.MkdirAll(Path("keys"), 0o700)
-}
-
-func statePath() string { return Path("state.json") }
-
-// Load reads state. Callers that mutate must use Update for locking.
-func Load() (*State, error) {
-	if err := ensureHome(); err != nil {
-		return nil, err
-	}
-	s := &State{Settings: DefaultSettings()}
-	b, err := os.ReadFile(statePath())
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	if err == nil {
-		// komando only ever writes JSON here: an empty file was cut short (a
-		// crash or power loss), and reading it as a fresh install would drop
-		// every protected flag and the host key policy without a word
-		if err := json.Unmarshal(b, s); err != nil {
-			return nil, out.Errf(out.ExitError, "STATE_CORRUPT",
-				"the file is empty or broken, most likely cut short by a crash or power loss; ask the user to restore it from a backup (Time Machine or similar), or to move it away to start fresh and then set protected servers, host_key_policy and extra_deny_patterns again",
-				"corrupt state file %s: %v", statePath(), err)
-		}
-	}
-	s.init()
-	return s, nil
+	return os.MkdirAll(Home(), 0o700)
 }
 
 func (s *State) init() {
 	if s.Hosts == nil {
 		s.Hosts = map[string]*Host{}
-	}
-	for _, h := range s.Hosts {
-		if h.OldJump != "" && h.Via == "" {
-			h.Via = h.OldJump
-		}
-		h.OldJump = ""
 	}
 	if s.Conns == nil {
 		s.Conns = map[string]*Conn{}
@@ -325,24 +294,13 @@ func (s *State) init() {
 	if s.Vpns == nil {
 		s.Vpns = map[string]*Vpn{}
 	}
-	if s.Sessions == nil {
-		s.Sessions = map[string]*VpnSession{}
-	}
-	if s.Logins == nil {
-		s.Logins = map[string]*SSHLogin{}
-	}
 	if s.Keys == nil {
 		s.Keys = map[string]*Key{}
 	}
 	if s.Snippets == nil {
 		s.Snippets = map[string]*Snippet{}
 	}
-	if s.Jobs == nil {
-		s.Jobs = map[string]*Job{}
-	}
-	if s.Tunnels == nil {
-		s.Tunnels = map[string]*Tunnel{}
-	}
+	s.Runtime.init()
 	d := DefaultSettings()
 	if s.Settings.HostKeyPolicy == "" {
 		s.Settings.HostKeyPolicy = d.HostKeyPolicy
@@ -381,8 +339,8 @@ var DryRun bool
 // ErrDryRun is returned by writes that cannot be simulated (the vault).
 var ErrDryRun = errors.New("this command cannot preview its change; nothing was changed")
 
-// Update loads state under an exclusive file lock, applies fn and saves
-// atomically. Safe for concurrent komando processes (parallel agents).
+// Update reads the inventory, applies fn and writes what changed, in one
+// write step of the store. Safe for concurrent komando processes (parallel agents).
 func Update(fn func(s *State) error) error {
 	if DryRun {
 		s, err := Load()
@@ -391,36 +349,16 @@ func Update(fn func(s *State) error) error {
 		}
 		return fn(s)
 	}
-	if err := ensureHome(); err != nil {
-		return err
-	}
-	unlock, err := Lock(".lock")
-	if err != nil {
-		return err
-	}
-	defer unlock()
-	s, err := Load()
-	if err != nil {
-		return err
-	}
-	if err := fn(s); err != nil {
-		return err
-	}
-	return s.save()
-}
-
-func (s *State) save() error {
-	b, err := json.MarshalIndent(s, "", "  ")
-	if err != nil {
-		return err
-	}
-	return WriteFileAtomic(statePath(), b, 0o600)
+	return updateStore(fn)
 }
 
 // Lock takes an exclusive lock on the file name in the state directory
 // and returns the function that releases it. komando processes running at
 // the same time (parallel agents) wait for each other.
 func Lock(name string) (unlock func(), err error) {
+	if heldBySeal(name) {
+		return func() {}, nil // `komando seal` holds it for this process
+	}
 	if err := ensureHome(); err != nil {
 		return nil, err
 	}
@@ -428,11 +366,11 @@ func Lock(name string) (unlock func(), err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX); err != nil {
+	if err := flock.Lock(lf); err != nil {
 		lf.Close()
 		return nil, err
 	}
-	return func() { _ = syscall.Flock(int(lf.Fd()), syscall.LOCK_UN); lf.Close() }, nil
+	return func() { _ = flock.Unlock(lf); lf.Close() }, nil
 }
 
 // WriteFileAtomic replaces path with b: a temporary file next to it is

@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -317,11 +316,11 @@ func folderOwner(dir string) string {
 	if err != nil {
 		return ""
 	}
-	st, ok := fi.Sys().(*syscall.Stat_t)
+	uid, _, ok := fileOwner(fi)
 	if !ok {
 		return ""
 	}
-	if u, err := user.LookupId(strconv.FormatUint(uint64(st.Uid), 10)); err == nil {
+	if u, err := user.LookupId(strconv.Itoa(uid)); err == nil {
 		return u.Username
 	}
 	return ""

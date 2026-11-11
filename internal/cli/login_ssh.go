@@ -67,7 +67,7 @@ func loginHost(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	if err := store.Update(func(s *store.State) error { s.Logins[h.Name] = l; return nil }); err != nil {
+	if err := store.UpdateRuntime(func(s *store.State) error { s.Logins[h.Name] = l; return nil }); err != nil {
 		endLogin(l)
 		return err
 	}
@@ -133,7 +133,7 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 		c.Env = os.Environ() // Passphrase took KOMANDO_VAULT_PASS out of it
 	}
 	c.Stderr = lf
-	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // it outlives this command and its terminal
+	c.SysProcAttr = detachAttr() // it outlives this command and its terminal
 	stdin, err := c.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -296,7 +296,7 @@ func loginHolderCmd() *cobra.Command {
 			why := holdUntil(ctx, c, until)
 			ln.Close()
 			fmt.Fprintf(os.Stderr, "%s ENDED %s (after %s)\n", time.Now().Format("2006/01/02 15:04:05"), why, time.Since(started).Round(time.Second))
-			_ = store.Update(func(s *store.State) error {
+			_ = store.UpdateRuntime(func(s *store.State) error {
 				if x := s.Logins[h.Name]; x != nil && x.PID == os.Getpid() { // not a newer login's record
 					delete(s.Logins, h.Name)
 				}
@@ -352,9 +352,8 @@ func heldSocket() (net.Listener, string, ssh.Signer, error) {
 		sock = filepath.Join(os.TempDir(), "komando-"+randToken(6)+".sock")
 	}
 	_ = os.Remove(sock)
-	old := syscall.Umask(0o077)
-	ln, err := net.Listen("unix", sock)
-	syscall.Umask(old)
+	var ln net.Listener
+	withUmask(0o077, func() { ln, err = net.Listen("unix", sock) })
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -465,7 +464,7 @@ commands to that server log in again (a two-factor server asks a person).
 				}
 				endLogin(l)
 			}
-			if err := store.Update(func(s *store.State) error {
+			if err := store.UpdateRuntime(func(s *store.State) error {
 				for _, n := range append(append([]string{}, done...), none...) {
 					delete(s.Logins, n)
 				}

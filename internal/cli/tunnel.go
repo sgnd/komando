@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -260,7 +259,7 @@ point your database app or psql at the local address it prints. With a server, g
 				return err
 			}
 			t := &store.Tunnel{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, LogFile: logPath, StartedAt: time.Now().UTC()}
-			if err := store.Update(func(s *store.State) error { s.Tunnels[id] = t; return nil }); err != nil {
+			if err := store.UpdateRuntime(func(s *store.State) error { s.Tunnels[id] = t; return nil }); err != nil {
 				return err
 			}
 			self, err := os.Executable()
@@ -280,7 +279,7 @@ point your database app or psql at the local address it prints. With a server, g
 			}
 			p := exec.Command(self, pargs...)
 			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
-			p.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+			p.SysProcAttr = detachAttr()
 			vault.PassOnStdin(p) // not in its environment: it runs for long
 			if err := p.Start(); err != nil {
 				return err
@@ -288,7 +287,7 @@ point your database app or psql at the local address it prints. With a server, g
 			lf.Close()
 			pid := p.Process.Pid
 			_ = p.Process.Release()
-			_ = store.Update(func(s *store.State) error {
+			_ = store.UpdateRuntime(func(s *store.State) error {
 				if x, ok := s.Tunnels[id]; ok {
 					x.PID = pid
 				}
@@ -310,14 +309,14 @@ point your database app or psql at the local address it prints. With a server, g
 					return nil
 				}
 				if i := strings.Index(s, "ERROR "); i >= 0 {
-					_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
+					_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, id); return nil })
 					_ = os.Remove(logPath) // the error says what it held
 					return tunnelErr(strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0]), kind, hostName, ts.BindAddr)
 				}
 				time.Sleep(150 * time.Millisecond)
 			}
 			_ = netx.Terminate(pid)
-			_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
+			_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, id); return nil })
 			return tunnelTimeout(hostName, logPath)
 		},
 	}
@@ -351,10 +350,6 @@ func tunnelConn(st *store.State, expr string) (*store.Conn, error) {
 			"%s has no --via, so it is reachable without a tunnel", c.Name)
 	}
 	return c, nil
-}
-
-func alive(pid int) bool {
-	return pid > 0 && syscall.Kill(pid, 0) == nil
 }
 
 type tunnelRow struct {
@@ -434,7 +429,7 @@ func tunnelListCmd() *cobra.Command {
 			}
 			sort.Slice(rows, func(i, j int) bool { return rows[i].StartedAt.Before(rows[j].StartedAt) })
 			if len(dead) > 0 {
-				_ = store.Update(func(s *store.State) error {
+				_ = store.UpdateRuntime(func(s *store.State) error {
 					for _, id := range dead {
 						delete(s.Tunnels, id)
 					}
@@ -457,7 +452,7 @@ func tunnelStopCmd() *cobra.Command {
 				return out.Usage("give tunnel IDs or --all")
 			}
 			stopped := []string{}
-			err := store.Update(func(s *store.State) error {
+			err := store.UpdateRuntime(func(s *store.State) error {
 				ids := args
 				if all {
 					ids = nil

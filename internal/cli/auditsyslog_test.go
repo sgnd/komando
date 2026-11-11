@@ -80,7 +80,7 @@ func TestAuditGoesToSyslog(t *testing.T) {
 		t.Errorf("udp record %q", msg)
 	}
 	var rec map[string]any
-	if err := json.Unmarshal([]byte(msg[strings.Index(msg, "{"):]), &rec); err != nil || rec["command"] != "host.add" || rec["prev"] == nil {
+	if err := json.Unmarshal([]byte(msg[strings.Index(msg, "{"):]), &rec); err != nil || rec["command"] != "host.add" {
 		t.Errorf("record %v %v", rec, err)
 	}
 	if err := run("config", "set", "audit_syslog", "tcp://"+ln.Addr().String(), "--yes"); err != nil {

@@ -125,11 +125,11 @@ func Execute() int {
 			oe.Hint = commandHint(cmd)
 		}
 		approvalHint(oe)
-		if personSaidNo && oe.Exit == out.ExitPolicy {
-			oe.Message = "cancelled: " + oe.Message
-			oe.Hint = "nothing was changed"
-			oe.Cancel(cancelledText()) // text mode: the person's own choice, not an error
+		c := cur()
+		if cmd != nil && callFrom(cmd.Context()) != nil {
+			c = callFrom(cmd.Context())
 		}
+		cancelled(c, oe)
 		auditBlocked(cmd, oe)
 		if cmd != nil {
 			fillHint(oe, firstArg(cmd))
@@ -137,8 +137,25 @@ func Execute() int {
 		if cmd != nil && out.P.Format == "text" {
 			notFoundSay(oe, cmd)
 		}
+		cancelled(c, oe)
 	}
 	return out.P.Fail(name, err)
+}
+
+// cancelled words a stop the person answered no to at the terminal: it was
+// cancelled, and nothing was changed unless the command already saved
+// something before the question.
+func cancelled(c *call, oe *out.Error) {
+	if !c.sess.PersonSaidNo() || oe.Exit != out.ExitPolicy {
+		return
+	}
+	oe.Message = "cancelled: " + oe.Message
+	oe.Hint = "nothing was changed"
+	if c.wroteBefore() {
+		oe.Hint = "what this command saved before the question stays"
+		return
+	}
+	oe.Cancel(cancelledText()) // text mode: the person's own choice, not an error
 }
 
 // firstArg is the first argument cmd was given (its TARGET or CONN), or "".
@@ -365,14 +382,33 @@ func vaultValues() map[string]string {
 	return m
 }
 
-// localReads change nothing anywhere, so they run even when the audit log
-// is broken; that is how a person finds out what is wrong.
+// localReads change nothing anywhere, so they run even when the store
+// cannot be written; that is how a person finds out what is wrong.
 var localReads = map[string]bool{
 	"version": true, "help": true, "completion": true, "schema": true, "guide": true, "doctor": true,
 	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true,
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
-	"tunnel.list": true, "job.list": true, "status": true,
+	"tunnel.list": true, "job.list": true, "status": true, "seal": true, "prompt": true,
+	"host.list": true, "conn.list": true, "vpn.list": true, "secret.get": true, "recipe.show": true,
+}
+
+// checkStoreWritable refuses to run a command that may change something
+// when the store (which holds the audit log) cannot be written: changes
+// must not happen without a record (docs/design/ux.md §6).
+func checkStoreWritable(cmd *cobra.Command) error {
+	name := commandName(cmd)
+	top, _, _ := strings.Cut(name, ".")
+	if g.dryRun || backgroundCmd(cmd) || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) || top == "help" || top == "completion" || name == "secret.passphrase" { // it opens the store with the passphrase a person types
+		return nil
+	}
+	err := store.CheckWritable()
+	var oe *out.Error
+	if err == nil || errors.As(err, &oe) {
+		return err
+	}
+	return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions (`komando doctor` checks them); nothing was run",
+		"the store, which keeps the audit log, cannot be written: %v", err)
 }
 
 // leavesHome are commands that, run as root, never touch ~/.komando:
@@ -385,9 +421,14 @@ var leavesHome = map[string]bool{"update": true}
 
 func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)] && asRoot() }
 
-// startChecks are the last steps before every command: the data folder
-// (guardHome), closing idle VPNs, --host-key-policy off and the audit log.
+// startChecks are the last steps before every command: a folder that needs
+// `komando seal`, the data folder (guardHome), closing idle VPNs and
+// --host-key-policy off. The audit log needs no check: the store refuses a
+// change it cannot record.
 func startChecks(cmd *cobra.Command) error {
+	if err := checkNeedsSeal(cmd); err != nil {
+		return err
+	}
 	if err := guardHome(cmd); err != nil {
 		return err
 	}
@@ -405,33 +446,12 @@ func startChecks(cmd *cobra.Command) error {
 			return err
 		}
 	}
-	return checkAuditWritable(cmd)
-}
-
-// checkAuditWritable refuses to run when the audit log is on but cannot be
-// written: changes must not happen without a record (docs/design/ux.md §6).
-func checkAuditWritable(cmd *cobra.Command) error {
-	name := commandName(cmd)
-	top, _, _ := strings.Cut(name, ".")
-	if g.dryRun || backgroundCmd(cmd) || name == "komando" || localReads[name] || leavesHomeNow(cmd) || top == "help" || top == "completion" {
-		return nil
-	}
-	st, err := store.Load()
-	if err != nil || !st.Settings.Audit {
-		return nil // a broken state file shows its own error in the command
-	}
-	f, err := os.OpenFile(store.Path("audit.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-	if err != nil {
-		return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions (`komando doctor` checks them); nothing was run",
-			"the audit log cannot be written: %v", err)
-	}
-	return f.Close()
+	return checkStoreWritable(cmd)
 }
 
 func newRoot() *cobra.Command {
-	resetApproval()
 	out.P.Reset()
-	personSaidNo, askedAbout, blockAudited = false, nil, false
+	askedAbout, blockAudited = nil, false
 	interrupted = false
 	root := &cobra.Command{
 		Use:           "komando",
@@ -442,8 +462,7 @@ func newRoot() *cobra.Command {
 		Version:       Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			safetyApproved = map[string]bool{} // answers count for one command only
-			dangerConfirmed = map[string]bool{}
+			startCall(cmd) // answers count for one command only
 			if err := pickTableOutput(cmd); err != nil {
 				return err
 			}
@@ -466,7 +485,7 @@ func newRoot() *cobra.Command {
 			out.P.Pretty = g.pretty
 			out.P.Version = Version
 			out.P.DryRun = g.dryRun
-			store.DryRun = g.dryRun
+			store.DryRun, store.AllowOldCopy = g.dryRun, g.dryRun // a dry run may look at an old copy: it changes nothing
 			out.P.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
 			// a person at the terminal answers what an SSH login asks
@@ -523,7 +542,7 @@ func newRoot() *cobra.Command {
 	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(), tunnelCmd(), shellCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd(), clusterCmd(), registryCmd())
 	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
-	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), updateCmd(), versionCmd(), sshGateCmd())
+	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too

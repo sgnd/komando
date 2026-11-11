@@ -163,6 +163,7 @@ var commandKinds = map[string]cmdKind{
 	"docker stop":    changes,
 
 	"doctor":   reads,
+	"seal":     changes,
 	"download": reads,
 	"exec":     dependsOn(unlessReadOnly),
 	"export":   reads,

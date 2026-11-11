@@ -99,7 +99,7 @@ end run`
 			return "", false, false
 		}
 		btn, typed, _ := strings.Cut(strings.TrimSpace(string(b)), "\n")
-		approvalGaveUp = btn == "gave up"
+		noteGaveUp(text, btn == "gave up")
 		return typed, btn == "Allow once", true
 	case "linux", "freebsd", "openbsd":
 		if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
@@ -107,13 +107,17 @@ end run`
 		}
 		if z := systemTool("zenity"); z != "" {
 			b, err := exec.CommandContext(ctx, z, "--entry", "--hide-text", "--title=komando: allow?", "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--no-markup", "--timeout=120").Output()
-			approvalGaveUp = zenityTimedOut(err)
+			noteGaveUp(text, zenityTimedOut(err))
 			return strings.TrimSpace(string(b)), err == nil, true
 		}
 		if k := systemTool("kdialog"); k != "" {
 			b, err := exec.CommandContext(ctx, k, "--title", "komando: allow?", "--password", text).Output()
 			return strings.TrimSpace(string(b)), err == nil, true
 		}
+	case "windows":
+		code, allowed, gaveUp, shown := approvalWindow(text, true)
+		noteGaveUp(text, gaveUp)
+		return code, allowed, shown
 	}
 	return "", false, false
 }

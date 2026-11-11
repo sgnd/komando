@@ -27,7 +27,7 @@ var (
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas."}
 	accPassRef = formFlag{name: "passphrase-ref", ask: "Where is the key's passphrase kept?", example: "secret:work-key-pass",
 		help: "Only for a key that has a passphrase. Store it first with `komando secret set NAME` (it asks hidden), then type secret:NAME here. Leave empty for a key without one."}
-	accSecretOff = formFlag{name: "off", ask: "Move the key back into the vault.key file instead?",
+	accSecretOff = formFlag{name: "off", ask: "Move the key back into the store.key file instead?",
 		help: "No is the usual answer. Yes makes a copy of ~/.komando open the vault again, so komando asks you to confirm first."}
 )
 
@@ -95,7 +95,7 @@ func init() {
 		"secret rm": {args: []formArg{{ask: "Which secrets?", example: "old-pass", pick: "secret", free: true,
 			help: "Their names in the vault. Several: separate them with spaces. A secret still in use is not deleted."}}},
 		"secret keychain": {flags: []formFlag{accSecretOff}},
-		"secret passphrase": {flags: []formFlag{{name: "off", ask: "Go back to a random key in vault.key instead?",
+		"secret passphrase": {flags: []formFlag{{name: "off", ask: "Go back to a random key in store.key instead?",
 			help: "No is the usual answer: komando asks for the new passphrase twice, hidden. Yes asks you to confirm first."}}},
 
 		// SSH keys

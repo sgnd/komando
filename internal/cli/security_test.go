@@ -19,6 +19,8 @@ import (
 func asAgent(t *testing.T, allow, shown bool) *int {
 	t.Helper()
 	t.Setenv("CLAUDECODE", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	n := new(int)
 	saved := askOnScreen
 	askOnScreen = func(text string) (bool, bool) {
@@ -34,10 +36,13 @@ func asAgent(t *testing.T, allow, shown bool) *int {
 }
 
 func TestWhoIsAsking(t *testing.T) {
+	noAgent(t)
 	if isAgent() {
 		t.Fatal("tests run as a script")
 	}
 	t.Setenv("GEMINI_CLI", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	if agentName() != "Gemini CLI" {
 		t.Errorf("agentName = %q", agentName())
 	}
@@ -46,6 +51,8 @@ func TestWhoIsAsking(t *testing.T) {
 	// stops off; only a variable that is not there is none
 	for _, v := range []string{"0", ""} {
 		t.Setenv("GEMINI_CLI", v)
+		resetApproval()
+		t.Cleanup(resetApproval)
 		if !isAgent() {
 			t.Errorf("GEMINI_CLI=%q is still an agent", v)
 		}
@@ -90,7 +97,7 @@ func TestAgentFlagsNeedAPerson(t *testing.T) {
 	// a window that closes itself after 2 minutes is no answer, not a Deny
 	asAgent(t, false, true)
 	saved := askOnScreen
-	askOnScreen = func(string) (bool, bool) { approvalGaveUp = true; return false, true }
+	askOnScreen = func(text string) (bool, bool) { noteGaveUp(text, true); return false, true }
 	if yesOK() {
 		t.Fatal("nobody answered")
 	}
@@ -336,38 +343,6 @@ func TestInstallGuardHook(t *testing.T) {
 	}
 }
 
-func TestAuditChain(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
-	if err := os.MkdirAll(store.Home(), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	// a record from before the chain, then chained ones
-	if err := os.WriteFile(store.Path("audit.jsonl"), []byte(`{"command":"old"}`+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range []string{"a", "b", "c"} {
-		audit(nil, c, nil, "", true, nil)
-	}
-	r, err := verifyAudit()
-	if err != nil || !r.OK || r.Entries != 4 || r.Chained != 3 {
-		t.Fatalf("intact: %+v %v", r, err)
-	}
-	b, _ := os.ReadFile(store.Path("audit.jsonl"))
-	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
-	for name, edit := range map[string][]string{
-		"edited":  {lines[0], lines[1], strings.Replace(lines[2], `"ok":true`, `"ok":false`, 1), lines[3]},
-		"removed": {lines[0], lines[1], lines[3]},
-		"added":   {lines[0], lines[1], `{"command":"x"}`, lines[2], lines[3]},
-	} {
-		if err := os.WriteFile(store.Path("audit.jsonl"), []byte(strings.Join(edit, "\n")+"\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if r, _ := verifyAudit(); r.OK {
-			t.Errorf("%s record not detected", name)
-		}
-	}
-}
-
 func TestAuditRecordsTheAgent(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	_ = os.MkdirAll(store.Home(), 0o700)
@@ -376,7 +351,7 @@ func TestAuditRecordsTheAgent(t *testing.T) {
 	defer func() { g.yes = false }()
 	yesOK()
 	audit(nil, "x", nil, "", true, nil)
-	b, _ := os.ReadFile(store.Path("audit.jsonl"))
+	b := []byte(auditText(t))
 	if !strings.Contains(string(b), `"agent":"Claude Code"`) || !strings.Contains(string(b), `"allowed_by_person":true`) {
 		t.Errorf("record: %s", b)
 	}
@@ -422,6 +397,7 @@ func TestLooseFiles(t *testing.T) {
 }
 
 func TestAgentProxyCommandNeedsAPerson(t *testing.T) {
+	noAgent(t)
 	if guardProxyCommand("aws ssm start-session --target %h") != nil {
 		t.Fatal("a person or script sets it freely")
 	}

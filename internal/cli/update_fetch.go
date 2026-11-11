@@ -139,7 +139,14 @@ func releaseSums(ctx context.Context, tag string) ([]byte, error) {
 	return sums, nil
 }
 
-func archiveName() string { return "komando_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz" }
+// archiveName is this computer's release archive: a .zip with komando.exe
+// on Windows, a .tar.gz with komando elsewhere.
+func archiveName() string {
+	if runtime.GOOS == "windows" {
+		return "komando_windows_" + runtime.GOARCH + ".zip"
+	}
+	return "komando_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz"
+}
 
 // fetch downloads one release file, up to max bytes. label, when set, shows
 // progress on a terminal.

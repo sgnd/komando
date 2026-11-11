@@ -28,6 +28,9 @@ export KOMANDO_ACTOR="e2e"
 # keychain on a Mac): every run would leave one there. The unit tests cover
 # the keychain with stand-ins (internal/vault/newkey_test.go).
 export KOMANDO_KEYCHAIN=off
+# the audit log and the inventory as text, from the sealed store
+audit_text() { "$K" audit -n 0 -o json 2>/dev/null; }
+inventory_text() { "$K" export -o json 2>/dev/null; }
 # this script is a script, even when an AI agent starts it; the agent
 # checks below say so on purpose (and never open an approval window)
 unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT GEMINI_CLI CODEX_SANDBOX CODEX_THREAD_ID CURSOR_AGENT KOMANDO_AGENT AI_AGENT
@@ -101,9 +104,6 @@ $K secret rm agent-pass-copy >/dev/null
 
 check "completion lists the inventory" True "$($K __complete exec '' 2>/dev/null | grep -qx direct && echo True || echo False)"
 check "schema knows kind: selectors" True "$($K schema | jget '"kind:KIND" in d["data"]["target_selectors"]')"
-chmod 400 "$KOMANDO_HOME/audit.jsonl"
-check "no audit, no change" AUDIT_UNAVAILABLE "$($K host add nope "agent@127.0.0.1:$E2E_SSH_DIRECT" | jget 'd["error"]["code"]' || true)"
-chmod 600 "$KOMANDO_HOME/audit.jsonl"
 
 echo "==> connectivity (incl. jump host)"
 check "host test all ok" 3 "$($K host test @lab | jget 'd["data"]["summary"]["ok"]')"
@@ -258,12 +258,13 @@ check "key revoke removes it" 1 "$($K key revoke leaver direct | jget 'd["data"]
 check "other keys stay" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 $K host add pc "agent@127.0.0.1" --port "$E2E_SSH_DIRECT" --key deploy --proxy-command 'nc %h %p' >/dev/null
 check "proxy command carries ssh" ok "$($K exec pc -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
-check "ssh-command shows the proxy" True "$($K host ssh-command pc | jget '"ProxyCommand=nc %h %p" in d["data"]["argv"]')"
+# pc logs in with a key komando made, sealed in the store
+check "ssh-command refuses a sealed key" NOT_SUPPORTED "$($K host ssh-command pc | jget 'd["error"]["code"]' || true)"
 check "proxy and --via do not mix" USAGE "$($K host add pc2 agent@127.0.0.1 --via bastion --proxy-command 'nc %h %p' | jget 'd["error"]["code"]' || true)"
 $K host add ssm1 ec2-user@i-0abc123 --ssm >/dev/null
 check "--ssm sets the AWS proxy" True "$($K host show ssm1 | jget '"AWS-StartSSHSession" in d["data"]["proxy_command"]')"
 $K host rm pc ssm1 >/dev/null
-check "revoke a public key line" 0 "$($K key revoke "$(cat "$KOMANDO_HOME/keys/leaver.pub")" direct | jget 'd["data"]["results"][0]["removed"]')"
+check "revoke a public key line" 0 "$($K key revoke "$($K key show leaver | jget 'd["data"]["public_key"]')" direct | jget 'd["data"]["results"][0]["removed"]')"
 
 echo "==> tunnel"
 LISTEN=$($K tunnel start target -L 0:localhost:22 | jget 'd["data"]["listen"]')
@@ -777,16 +778,20 @@ check "guide uninstall takes the skill out" False "$([ -e "$TMP/home/.claude/ski
 echo "==> audit chain and doctor"
 check "audit chain intact" True "$($K audit verify | jget 'd["data"]["ok"]')"
 check "audit names the agent" True "$($K audit -n 200 | jget 'any(e.get("agent") == "Claude Code" for e in d["data"]["entries"])')"
-cp "$KOMANDO_HOME/audit.jsonl" "$TMP/audit.bak"
-python3 - "$KOMANDO_HOME/audit.jsonl" <<'PY'
-import sys
-p = sys.argv[1]
-lines = open(p).read().splitlines()
-lines[len(lines) // 2] = lines[len(lines) // 2].replace('{', '{"edited":1,', 1)
-open(p, "w").write("\n".join(lines) + "\n")
+# a record removed from the middle of the store's audit table
+cp "$KOMANDO_HOME/store.db" "$TMP/store.bak"
+python3 - "$KOMANDO_HOME/store.db" <<'PY'
+import sqlite3, sys
+db = sqlite3.connect(sys.argv[1])
+n = db.execute("SELECT max(seq) FROM audit").fetchone()[0]
+db.execute("DELETE FROM audit WHERE seq=?", (n // 2,))
+db.commit()
 PY
-check "edited audit record found" AUDIT_TAMPERED "$($K audit verify | jget 'd["error"]["code"]' || true)"
-cp "$TMP/audit.bak" "$KOMANDO_HOME/audit.jsonl"
+check "removed audit record found" AUDIT_TAMPERED "$($K audit verify | jget 'd["error"]["code"]' || true)"
+cp "$TMP/store.bak" "$KOMANDO_HOME/store.db"
+# nothing in the store can be read without its key
+check "no server name readable in store.db" 0 "$(grep -c -a -E 'bastion|direct-sm|agentpass' "$KOMANDO_HOME/store.db" || true)"
+check "a sealed folder has no files of before" 0 "$(ls "$KOMANDO_HOME" | grep -c -x -E 'state.json|vault.json|known_hosts|audit.jsonl' || true)"
 check "doctor checks security" True "$($K doctor | jget 'any(c["name"] == "security:audit_chain" and c["ok"] for c in d["data"]["security"])')"
 
 # checks per area (test/e2e/checks/*.sh) run here, against the same lab and
@@ -799,7 +804,7 @@ for f in "$E2E"/checks/*.sh; do
 done
 
 # no secret value may reach the state file or the audit log
-LEAKS=$(cat "$KOMANDO_HOME/state.json" "$KOMANDO_HOME/audit.jsonl" | { grep -c -E 'apppass|shoppass|redispass' || true; })
+LEAKS=$({ inventory_text; audit_text; } | { grep -c -E 'apppass|shoppass|redispass' || true; })
 check "no passwords in state or audit" 0 "$LEAKS"
 
 echo

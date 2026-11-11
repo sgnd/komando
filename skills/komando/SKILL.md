@@ -92,13 +92,15 @@ servers themselves, point them to the menu.
    `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_HUMAN`,
    `REVEAL_NEEDS_PERSON`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
    `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_READ_ONLY`,
-   `SSH_GATE_REFUSED`, `UNSAFE_BACKUP`, `WRITE_REQUIRES_FLAG`), stop and
-   tell the human what you want to do and why. When they agree, re-run with
+   `SSH_GATE_REFUSED`, `STORE_OLD_COPY`, `UNSAFE_BACKUP`,
+   `WRITE_REQUIRES_FLAG`), stop and tell the human what you want to do and
+   why. When they agree, re-run with
    the flag the hint names: komando opens a window on their screen and they
    click "Allow once" (you cannot). If the hint says there is no screen, ask
    them to run the command in their own terminal. No flag clears
-   `NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN`, `SSH_GATE_READ_ONLY` or
-   `SSH_GATE_REFUSED`: only a person at a terminal can run those. If they
+   `NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN`, `SSH_GATE_READ_ONLY`,
+   `SSH_GATE_REFUSED` or `STORE_OLD_COPY`: only a person at a terminal can
+   run those. If they
    click Deny, do not retry.
 6. **Never "fix" `HOSTKEY_MISMATCH` yourself.** Report it: it may be an
    attack.

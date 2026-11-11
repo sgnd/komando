@@ -79,7 +79,7 @@ type renameOpts struct {
 
 // renameTx does one rename under the state lock: plan picks the renames
 // from the locked state, applyRenames changes the state, then the vault
-// secrets and the key files and VPN folders move, and the state is saved
+// secrets and the VPN folders move, and the state is saved
 // last. When anything fails (a check, the vault, a file, the save), what
 // already moved is put back and the state is not saved, so nothing
 // changes. Under --dry-run only the plan runs.
@@ -237,7 +237,7 @@ func (w *refRewriter) renameEntries(s *store.State) []renamePair {
 					}
 				}
 			case "key":
-				moves = append(moves, w.renameKey(s, from, p.To)...)
+				w.renameKey(s, from, p.To)
 			}
 			w.res.Renamed[k] = append(w.res.Renamed[k], p)
 		}
@@ -245,43 +245,14 @@ func (w *refRewriter) renameEntries(s *store.State) []renamePair {
 	return moves
 }
 
-// renameKey renames a key; a key komando made moves its files, and a
-// server given that file itself (--identity) follows.
-func (w *refRewriter) renameKey(s *store.State, from, to string) []renamePair {
+// renameKey renames a key. A key komando made lives in the store, so no
+// file moves; a key added from elsewhere (key add) keeps its file where it
+// is.
+func (w *refRewriter) renameKey(s *store.State, from, to string) {
 	key := s.Keys[from]
 	delete(s.Keys, from)
 	key.Name = to
 	s.Keys[to] = key
-	newPath, ok := managedKeyPath(key, from, to)
-	if !ok {
-		return nil
-	}
-	if _, err := os.Stat(key.Path); err != nil {
-		w.res.Warnings = append(w.res.Warnings, "the key file "+key.Path+" is missing, so only the name changed")
-		return nil
-	}
-	moves := []renamePair{{From: key.Path, To: newPath}}
-	if _, err := os.Stat(key.Path + ".pub"); err == nil {
-		moves = append(moves, renamePair{From: key.Path + ".pub", To: newPath + ".pub"})
-	}
-	for _, h := range s.SortedHosts() {
-		if h.Identity == key.Path {
-			h.Identity, h.UpdatedAt = newPath, w.now
-			w.res.Updated = append(w.res.Updated, renameRef{"host " + h.Name, "identity", key.Path, newPath})
-		}
-	}
-	key.Path = newPath
-	return moves
-}
-
-// managedKeyPath is where a key komando made (key gen) lives under its new
-// name: the same folder, the new name. A key added from elsewhere (key add)
-// keeps its file where it is.
-func managedKeyPath(k *store.Key, from, to string) (string, bool) {
-	if !k.Managed || filepath.Base(k.Path) != from {
-		return "", false
-	}
-	return filepath.Join(filepath.Dir(k.Path), to), true
 }
 
 // change sets *p to v and records it.
@@ -570,17 +541,11 @@ func (c *renameChecker) check(k, from, to string) error {
 			c.clashes = append(c.clashes, fmt.Sprintf("secret %s would take the name of secret %s", from, to))
 		}
 	case "key":
-		key := s.Keys[from]
-		if key == nil {
+		if s.Keys[from] == nil {
 			return keyNotFound(s, from)
 		}
 		if s.Keys[to] != nil {
 			c.clashes = append(c.clashes, fmt.Sprintf("key %s would take the name of key %s", from, to))
-		}
-		if p, ok := managedKeyPath(key, from, to); ok {
-			if _, err := os.Lstat(p); err == nil {
-				c.clashes = append(c.clashes, fmt.Sprintf("key %s: the file %s is in the way", from, p))
-			}
 		}
 	case "group":
 		if !slices.Contains(c.groups, from) {

@@ -101,7 +101,7 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 	}
 
 	// the audit names the secrets, never the value
-	b, _ := os.ReadFile(store.Path("audit.jsonl"))
+	b := []byte(auditText(t))
 	if !strings.Contains(string(b), `"secret.mv"`) || strings.Contains(string(b), "the-value") {
 		t.Errorf("audit: %s", b)
 	}
@@ -187,6 +187,8 @@ func TestSecretSetFromPipe(t *testing.T) {
 	}
 	// secret get says so too, for an agent, without the value or its length
 	t.Setenv("KOMANDO_AGENT", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	d = mustRun(t, "secret", "get", "p2")
 	if w, _ := d["warning"].(string); !strings.Contains(w, "space") {
 		t.Errorf("get: %v", d)
@@ -217,13 +219,15 @@ func TestSecretCheck(t *testing.T) {
 	if diff := d["difference"].(string); !strings.Contains(diff, "spaces") || strings.Contains(diff, "Hunter") {
 		t.Errorf("difference %q", diff)
 	}
-	b, _ := os.ReadFile(store.Path("audit.jsonl"))
+	b := []byte(auditText(t))
 	if !strings.Contains(string(b), `"secret.check"`) || strings.Contains(string(b), "Hunter") {
 		t.Errorf("audit: %s", b)
 	}
 
 	// an agent could guess with it one try at a time
 	t.Setenv("KOMANDO_AGENT", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	withStdin(t, "Hunter2 \n", func() {
 		if e := wantCode(t, "NEEDS_PERSON", "secret", "check", "vpn-pass"); e.Exit != out.ExitPolicy || strings.Contains(e.Hint, "add the flag") {
 			t.Errorf("no flag allows it: %+v", e)

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -17,7 +16,7 @@ import (
 func secretHome(t *testing.T) {
 	t.Helper()
 	invHome(t)
-	safetyApproved = map[string]bool{}
+	resetApproval()
 	if err := vault.Set("db-pass", "pa$$1word"); err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +71,7 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 
 	// a person who says no
 	windowText(t, false)
-	safetyApproved = map[string]bool{}
+	resetApproval()
 	if _, err := expandSecretRefs("{{secret:db-pass}}", "web1:/f", false); toErr(err).Code != "SECRET_DESTINATION" {
 		t.Fatalf("denied: %v", err)
 	}
@@ -307,16 +306,13 @@ func TestAuditActorClaimed(t *testing.T) {
 	t.Setenv("KOMANDO_ACTOR", "alice")
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
 	t.Setenv("CLAUDECODE", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	mustRun(t, "host", "add", "web2", "deploy@10.0.0.2")
-	f, err := os.Open(store.Path("audit.jsonl"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
 	var recs []map[string]any
-	for sc := bufio.NewScanner(f); sc.Scan(); {
+	for _, line := range strings.Split(auditText(t), "\n") {
 		var r map[string]any
-		json.Unmarshal(sc.Bytes(), &r)
+		json.Unmarshal([]byte(line), &r)
 		recs = append(recs, r)
 	}
 	if len(recs) != 2 {

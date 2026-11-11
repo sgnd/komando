@@ -56,6 +56,7 @@ func TestTypoSuggestions(t *testing.T) {
 }
 
 func TestFirstSteps(t *testing.T) {
+	invHome(t)
 	root := newRoot()
 	root.SetArgs([]string{"-o", "text"})
 	var buf bytes.Buffer

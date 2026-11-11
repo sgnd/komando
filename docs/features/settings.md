@@ -75,17 +75,42 @@ Variables for password managers and cloud logins are listed in
 Everything is in `~/.komando/` (change it with `KOMANDO_HOME`). Files are
 readable only by you (folder 0700, files 0600).
 
+komando keeps your data sealed in one file:
+
 | File | Contains |
 |------|----------|
-| `state.json` | servers, conns, VPNs, keys, your own recipes, settings, and the jobs, tunnels and VPN sessions komando started |
-| `vault.json` | encrypted secrets |
-| `vault.key` | the vault's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
-| `keys/` | SSH keys made by `komando key gen` |
-| `known_hosts` | remembered server fingerprints |
-| `audit.jsonl` | history of every action |
-| `vpn/` | VPN logs and the state of built-in VPN clients |
-| `tunnels/` | logs of background tunnels |
-| `bitwarden-device` | the device id komando shows to Bitwarden or Vaultwarden |
+| `store.db` | servers, conns, VPNs, keys, recipes, settings, secrets, remembered server fingerprints and the history of every action, each record sealed (AES-256-GCM). Only a random ID, the kind, a version and the time of a change can be read without the key |
+| `store.key` | the store's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
+| `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started |
+| `vpn/`, `tunnels/` | VPN and tunnel logs, and the state of built-in VPN clients |
+
+Copy `store.db` only with komando running nothing, or a copy taken during a
+change may be broken.
+
+When the store's key is in the OS keychain, the keychain also remembers
+how many changes the store has had. An older copy of `store.db` put back
+(from a backup, or by someone) stops every command with `STORE_OLD_COPY`,
+because its servers, rules, secrets or pinned host keys may be old.
+`komando doctor` and dry runs still work. If you restored the folder on
+purpose, run `komando doctor --accept-old-copy` in your own terminal. With
+the key in `store.key` or a passphrase there is nothing to compare with,
+and `komando doctor` says so. The same three ways keep its key as the vault's key
+below: `komando secret keychain` and `komando secret passphrase` move and
+change it, and `komando doctor` says which one is in use.
+
+A folder from an earlier komando (with `state.json`, `vault.json`,
+`known_hosts`, `audit.jsonl` or `keys/`) must be sealed before use: every
+command except `komando seal`, `komando doctor`, `komando version`, `help`,
+`guide` and `schema` stops with `NEEDS_SEAL` until you run `komando seal`
+in your own terminal (an AI agent cannot). It reads the old files once,
+whichever way their vault key was kept (`vault.key`, the keychain or
+`KOMANDO_VAULT_PASS`), moves everything into `store.db`, reads it back and
+compares, keeps the old files in a sealed archive (`before-seal.archive`),
+and replaces each old file with a short note, so an older komando stops
+instead of starting with an empty folder. `komando seal --dry-run` shows
+what it would move. `komando seal --undo` puts the old files back; this
+komando then stops with `NEEDS_SEAL` again. Backups made before the move
+(Time Machine, disk snapshots) still hold the plain files.
 
 Back this folder up and keep it private.
 
@@ -128,6 +153,30 @@ or delete the item from the keychain yourself once no vault needs it. A
 vault whose key is in the keychain opens only where that keychain is
 unlocked: on a Mac you reach over SSH, unlock it first
 (`security unlock-keychain`), or use a passphrase.
+
+### What the keychain does not protect against
+
+The keychain keeps the key away from someone who copies this folder. It
+does not keep it away from other programs you run yourself, and that
+includes an AI agent with a shell:
+
+- **macOS:** komando reads the item through `/usr/bin/security`, so any
+  program of your user can read it the same way, with no prompt. It could
+  also lower the change count komando keeps there, and then put back an old
+  copy of `store.db` without `STORE_OLD_COPY`. A fix needs a signed komando
+  that keeps its items for itself; it is planned.
+- **Windows:** Credential Manager gives the item to any program of your
+  user.
+- **Linux:** while the keychain is unlocked, `secret-tool` gives the item
+  to any program of your user.
+
+If an agent works on this computer under your own user, it can reach the
+key. To keep secrets away from it, run the agent as another user, or in a
+container or virtual machine that does not have your keychain.
+
+When the keychain does not answer within a few seconds, komando still reads
+the store but changes nothing: a command that would change something stops
+with `KEYCHAIN_SLOW`. Try again in a moment.
 
 ### A passphrase instead of the keychain
 
@@ -211,3 +260,11 @@ komando config approval-code --off --yes # turn it off again
 ```
 
 Only a person at a terminal can turn it on.
+
+On Windows the window counts only a click or key press from a real mouse or
+keyboard: another program cannot press "Allow once" for you. This also
+means a screen reader or other tool that presses buttons for you cannot
+press it. On macOS a program that has Accessibility permission (System
+Settings, Privacy & Security) can click buttons in any window, this one
+included. Do not give that permission to a terminal an agent works in, or
+turn on the approval code.

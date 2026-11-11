@@ -16,8 +16,8 @@ type Route struct {
 }
 
 // Routes reads the computer's IPv4 routes (netstat on macOS, ip on Linux).
-// Only VPNs that change the computer's network (OpenVPN --os-mode, system
-// VPNs) need it: the in-process and container kinds never add routes.
+// Only VPNs that change the computer's network (system VPNs) need it: the
+// in-process and container kinds never add routes.
 func Routes() ([]Route, error) {
 	var out []byte
 	var err error

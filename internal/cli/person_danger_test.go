@@ -26,7 +26,7 @@ func personTypes(t *testing.T, answer string) {
 		os.Stdin, os.Stderr, interactive = savedIn, savedErr, savedInteractive
 		r.Close()
 		devnull.Close()
-		personSaidNo = false
+		resetApproval()
 	})
 }
 
@@ -47,7 +47,7 @@ func TestDangerousAsksAPerson(t *testing.T) {
 			mustRun(t, "host", "add", "web1", "u@127.0.0.1:1") // nothing listens: the command fails after the question
 			personTypes(t, "nope")
 			_, e := invRun(t, tc.args...)
-			if e == nil || e.Code != "POLICY_BLOCKED" || !personSaidNo {
+			if e == nil || e.Code != "POLICY_BLOCKED" || !cur().sess.PersonSaidNo() {
 				t.Fatalf("a wrong name stops it: %+v", e)
 			}
 			personTypes(t, "web1")

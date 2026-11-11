@@ -1,8 +1,7 @@
 # Code that was over the size limits (functions 100 lines, files 800)
 # when the rule came. Each may shrink, never grow; see codesize_test.go.
-file internal/cli/common.go 807
-file internal/cli/conn.go 828
-file internal/cli/modules.go 845
+file internal/cli/conn.go 813
+file internal/cli/modules.go 832
 file internal/driver/sql.go 831
 file internal/ipsec/ikev1.go 1258
 file internal/ipsec/ikev2.go 1116
@@ -15,7 +14,7 @@ func internal/cli/clusterdeploy.go clusterRollbackCmd 110
 func internal/cli/clusterexec.go clusterForwardCmd 103
 func internal/cli/clusterlogs.go clusterLogsCmd 129
 func internal/cli/dbdump.go runDump 135
-func internal/cli/docker.go dockerCmd 153
+func internal/cli/docker.go dockerCmd 141
 func internal/cli/exec.go runFleet 186
 func internal/cli/facts.go parseFactsAt 106
 func internal/cli/facts_text.go writeFactsHost 126
@@ -33,11 +32,11 @@ func internal/cli/modules.go cronCmd 116
 func internal/cli/ops_pkgsec.go pkgSecurity 113
 func internal/cli/ops_run.go runOps 108
 func internal/cli/ops_vpn.go vpnEditCmd 145
-func internal/cli/root.go newRoot 104
+func internal/cli/root.go newRoot 102
 func internal/cli/secret.go secretCmd 224
 func internal/cli/tunnel.go tunnelStartCmd 164
-func internal/cli/vpn.go vpnAddCmd 260
-func internal/cli/vpnsession.go startSession 198
+func internal/cli/vpn.go vpnAddCmd 255
+func internal/cli/vpnsession.go startSession 148
 func internal/cloud/bitwarden.go bwLoad 110
 func internal/dbx/dump_mysql.go dumpMySQL 102
 func internal/dbx/dump_pg.go dumpPostgres 313

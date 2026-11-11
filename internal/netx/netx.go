@@ -4,15 +4,13 @@
 // space, so the computer's routes are not changed. Only the openconnect
 // family (globalprotect, fortinet, pulse, f5) uses an outside client when
 // openconnect is installed; without it komando uses its own experimental
-// client. The deprecated OpenVPN --os-mode runs the openvpn program as root
-// and does change routes. A "system" VPN is one set up in the computer's own
-// settings.
+// client. A "system" VPN is one set up in the computer's own settings and
+// does change routes.
 // Session kinds run as a background session that later commands reuse.
 package netx
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -22,11 +20,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"golang.org/x/net/proxy"
 
+	"github.com/sgnd/komando/internal/flock"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -102,32 +100,13 @@ func LiveSession(v *store.Vpn) *store.VpnSession {
 		stopIfStale(v.Name, s, stale)
 		return nil
 	}
-	_ = store.Update(func(st *store.State) error {
+	_ = store.UpdateRuntime(func(st *store.State) error {
 		if x := st.Sessions[v.Name]; x != nil && sameSession(x, s) {
 			x.LastUsed = time.Now().UTC()
 		}
 		return nil
 	})
 	return s
-}
-
-// Alive reports whether a process exists.
-func Alive(pid int) bool {
-	if pid <= 1 {
-		return false
-	}
-	err := syscall.Kill(pid, 0)
-	return err == nil || errors.Is(err, syscall.EPERM) // EPERM: alive, owned by root
-}
-
-// Terminate asks one process to stop. It refuses every pid that is not a
-// single other process: kill(-1) would signal every program of the user,
-// kill(0) the whole process group, kill(1) init.
-func Terminate(pid int) error {
-	if pid <= 1 || pid == os.Getpid() {
-		return fmt.Errorf("refusing to signal pid %d", pid)
-	}
-	return syscall.Kill(pid, syscall.SIGTERM)
 }
 
 // SessionAlive reports whether a session's process runs.
@@ -175,26 +154,15 @@ func ReapIdle() {
 	}
 }
 
-// StopSession ends a session's process (through sudo for
-// OS-mode ones). A session that is no longer running is already stopped.
+// StopSession ends a session's process. A session that is no longer running is already stopped.
 // It reports an error when it could not stop it; the caller keeps the
 // session then.
 func StopSession(s *store.VpnSession) error {
 	if !SessionAlive(s) {
 		return nil
 	}
-	if s.Sudo {
-		if err := exec.Command("sudo", "-n", "kill", strconv.Itoa(s.PID)).Run(); err != nil {
-			return ErrNeedsSudo
-		}
-		return nil
-	}
 	return Terminate(s.PID)
 }
-
-// ErrNeedsSudo means an OS-mode session runs as root and sudo wants a
-// password; a person must run `komando vpn down` in a terminal.
-var ErrNeedsSudo = errors.New("the VPN runs as root and stopping it needs sudo")
 
 func socksDialer(v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Dialer, error) {
 	var auth *proxy.Auth
@@ -219,7 +187,7 @@ func socksDialer(v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Dial
 // LastUsed fresh while the caller holds it (a long `logs --follow` must not
 // look idle), until the closer is closed.
 func sessionDialer(v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Dialer, io.Closer, error) {
-	var d Dialer = (&net.Dialer{Timeout: timeout}).DialContext // OS mode: the computer routes it
+	var d Dialer = (&net.Dialer{Timeout: timeout}).DialContext
 	if s.Socks != "" {
 		var err error
 		if d, err = socksDialer(v, s, timeout); err != nil {
@@ -235,7 +203,7 @@ func sessionDialer(v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Di
 			case <-stop:
 				return
 			case <-t.C:
-				_ = store.Update(func(st *store.State) error {
+				_ = store.UpdateRuntime(func(st *store.State) error {
 					if x := st.Sessions[v.Name]; x != nil && sameSession(x, s) {
 						x.LastUsed = time.Now().UTC()
 					}
@@ -265,18 +233,18 @@ func Lock(name string) (unlock func(), err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if ok, err := flock.TryLock(f); err != nil || !ok {
 		// another komando holds it, maybe for minutes: a person may be
 		// signing in there. Say so instead of standing still without a word
-		if LockBusy != nil {
+		if !ok && err == nil && LockBusy != nil {
 			LockBusy(name)
 		}
-		if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		if err := flock.Lock(f); err != nil {
 			f.Close()
 			return nil, err
 		}
 	}
-	return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }, nil
+	return func() { _ = flock.Unlock(f); f.Close() }, nil
 }
 
 // LockBusy, when set, is told that Lock has to wait for another komando
@@ -300,7 +268,7 @@ func stopIfStale(name string, s *store.VpnSession, stale func(*store.VpnSession)
 		return
 	}
 	if StopSession(cur) == nil {
-		_ = store.Update(func(st *store.State) error {
+		_ = store.UpdateRuntime(func(st *store.State) error {
 			if x := st.Sessions[name]; x != nil && sameSession(x, cur) {
 				delete(st.Sessions, name)
 			}

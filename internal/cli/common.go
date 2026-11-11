@@ -174,7 +174,7 @@ func toErr(err error) *out.Error {
 			Hint: "the person who set the passphrase exports KOMANDO_VAULT_PASS in the shell that runs komando (an AI agent asks the user; it never sees the passphrase)"}
 	case errors.Is(err, vault.ErrKey):
 		return &out.Error{Code: "VAULT_KEY", Message: err.Error(), Exit: out.ExitError,
-			Hint: "restore ~/.komando/vault.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault"}
+			Hint: "restore ~/.komando/store.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault"}
 	case errors.Is(err, vault.ErrNotFound):
 		return &out.Error{Code: "SECRET_NOT_FOUND", Message: err.Error(), Exit: out.ExitNotFound,
 			Hint: "check the name with `komando secret list`; a person stores a missing one with `komando secret set NAME`"}
@@ -526,17 +526,9 @@ func confirmYes(question string) bool {
 	}
 	a := strings.ToLower(ask(question + " [y/N] "))
 	ok := a == "y" || a == "yes"
-	personSaidNo = personSaidNo || !ok
+	cur().sess.SaidNo(!ok)
 	return ok
 }
-
-// safetyApproved remembers the safety changes a person allowed in this
-// command, so checking again inside the state lock does not ask twice.
-var safetyApproved = map[string]bool{}
-
-// personSaidNo: a person at the terminal answered no, so the stop that
-// follows is their decision, not something to retry (Execute words it so).
-var personSaidNo bool
 
 // askedAbout: the targets of the last yes/no question, so a "no" can say
 // where nothing was changed.
@@ -546,11 +538,11 @@ var askedAbout []string
 // log, no host key check, fewer deny rules) need --yes, so an agent cannot
 // switch them off by itself.
 func guardSafety(what string) error {
-	if safetyApproved[what] { // asked already in this command (before the state was locked)
+	if cur().sess.SafetyApproved(what) { // asked already in this command (before the state was locked)
 		return nil
 	}
 	if g.yes && personAllowsFor("--yes", what) || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
-		safetyApproved[what] = true
+		cur().sess.ApproveSafety(what)
 		return nil
 	}
 	return policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what).
@@ -566,7 +558,7 @@ func confirmDangerous(names []string, reason string) bool {
 	}
 	askedAbout = names
 	key := strings.Join(names, ",")
-	if dangerConfirmed[key] {
+	if cur().sess.DangerConfirmed(key) {
 		return true // the person typed it for these targets in this command already
 	}
 	want, what := "yes", "yes"
@@ -578,15 +570,12 @@ func confirmDangerous(names []string, reason string) bool {
 	}
 	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
 	ok := ask("Type "+what+" to continue: ") == want
-	personSaidNo = personSaidNo || !ok
-	dangerConfirmed[key] = ok
+	cur().sess.SaidNo(!ok)
+	if ok {
+		cur().sess.ConfirmDanger(key)
+	}
 	return ok
 }
-
-// dangerConfirmed: the targets a person typed the name of to allow a
-// dangerous step in this command. A second check of the same step (fs rm's
-// own check, then the policy rule for the rm it sends) does not ask again.
-var dangerConfirmed = map[string]bool{}
 
 // guardProtection stops a way around protection: removing a protected
 // target from the inventory, or turning its protection off, would let the
@@ -623,7 +612,7 @@ func hostNames(hs []*store.Host) []string {
 	return n
 }
 
-// audit appends one JSON line per action to $KOMANDO_HOME/audit.jsonl.
+// audit adds one record per action to the sealed store's audit log.
 func audit(st *store.State, command string, hosts []string, remote string, ok bool, extra map[string]any) {
 	if st != nil && !st.Settings.Audit {
 		return
@@ -666,7 +655,10 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 	if rec["blocked"] != nil {
 		blockAudited = true
 	}
-	_ = appendAudit(rec)
+	if err := appendAudit(rec); err != nil {
+		// the action ran (or was refused); its record is missing: say so
+		out.P.Warn(fmt.Sprintf("the audit log could not record %s: %v", command, err))
+	}
 }
 
 // osUser is the computer account komando runs as, from the system's user
@@ -682,12 +674,7 @@ func osUser() string {
 
 // actor is the name the audit log gives whoever runs komando: KOMANDO_ACTOR,
 // else USER. For an AI agent it is a label (actor_claimed), not proof.
-func actor() string {
-	if a := os.Getenv("KOMANDO_ACTOR"); a != "" {
-		return a
-	}
-	return os.Getenv("USER")
-}
+func actor() string { return cur().caller.Actor }
 
 // countOf writes "1 server", "2 servers": people read words, not "server(s)".
 func countOf(n int, noun string) string {

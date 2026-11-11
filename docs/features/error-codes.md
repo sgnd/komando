@@ -10,7 +10,7 @@ This page is made from the code (`komando schema` lists the same under
 |------|------|-----------------|-----------------|
 | `AMBIGUOUS_MATCH` | 8 | --old matches … times in … | add surrounding context to --old so it is unique, or pass --all |
 | `AUDIT_TAMPERED` | 1 | the audit log chain is broken at line … | keep a copy of the file and find out who changed it; komando keeps adding records after it |
-| `AUDIT_UNAVAILABLE` | 1 | the audit log cannot be written: … | fix the file or folder permissions (`komando doctor` checks them); nothing was run |
+| `AUDIT_UNAVAILABLE` | 1 | the store, which keeps the audit log, cannot be written: … | fix the file or folder permissions (`komando doctor` checks them); nothing was run |
 | `AUTH_FAILED` | 4 | … asks … (two-factor login); only a person can answer it, and none is at a terminal here | run `komando login HOST` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it |
 | `AWS_FAILED` | 4 | AWS profile …: … | check the profile in ~/.aws/config |
 | `AWS_LOGIN_REQUIRED` | 4 | AWS profile …: … | a person runs `komando login aws --profile …` once, then try again |
@@ -82,7 +82,9 @@ This page is made from the code (`komando schema` lists the same under
 | `HELM_REVISION_NOT_FOUND` | 3 | … has no revision … | see the revisions with `komando cluster helm history TARGET RELEASE` |
 | `HIDDEN_VALUE` | 2 | …/… holds a value komando hid from you ([hidden] or (hidden)); sending it would write that text over the real value | leave the hidden entries out of the file (or use valueFrom.secretKeyRef), or change only what you need with `cluster run TARGET --write -- set image\|patch ...` |
 | `HOSTKEY_MISMATCH` | 4 | host key for … changed: the server was rebuilt, or someone is intercepting the connection | possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust … --reset` |
+| `HOSTKEY_REVOKED` | 4 | … shows the revoked host key … | this key was revoked (an @revoked line of your known_hosts, moved by `komando seal`): treat the server as compromised and tell its owner; nothing was sent |
 | `HOSTKEY_UNKNOWN` | 4 | host key for … is not trusted yet (host keys are strict) | compare the fingerprint with what the server's owner sees, then run `komando host trust …` (an AI agent asks the user: its pin needs their yes) |
+| `HOSTKEY_UNREADABLE` | 4 | the pinned host key for … cannot be read | a person checks the server's key and runs `komando host trust` for it in their own terminal |
 | `HOST_IN_USE` | 8 | server … is on the --via path of server … | change it first: `komando host edit … --via OTHER` (or --unset via), or remove both together |
 | `HOST_NOT_FOUND` | 3 | host … not found | run `komando host list` to see available hosts |
 | `IMPORT_INCOMPLETE` | 1 | … not imported (see skipped) | fix them in the source and import again: the rest is in, and importing again skips it |
@@ -103,10 +105,10 @@ This page is made from the code (`komando schema` lists the same under
 | `K8S_NOT_FOUND` | 3 | … has no running pod | check them with `komando cluster ls TARGET pods` |
 | `K8S_UNREACHABLE` | 4 | the Kubernetes API did not answer (address, --via path or VPN) | check the conn with `komando test NAME` (and its --via path) |
 | `KEYCHAIN_FAILED` | 5 | the system keychain refused (locked, or no Secret Service on Linux) | a person unlocks the keychain on this computer (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring |
-| `KEYCHAIN_TAKEN` | 8 | another vault's key is already in the keychain under this folder's name, so komando does not replace it | the vault still uses vault.key, nothing was lost: put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then try again |
+| `KEYCHAIN_SLOW` | 1 | nothing was changed: the keychain did not answer in time, so komando could not check that … is the newest copy | try again in a moment; if it keeps happening, run `komando doctor` |
+| `KEYCHAIN_TAKEN` | 8 | another vault's key is already in the keychain under this folder's name, so komando does not replace it | the store still uses store.key, nothing was lost: put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then try again |
 | `KEYSCAN_FAILED` | 4 | cannot fetch host key from …: … | check the address and port with `komando host show …` |
 | `KEY_EXISTS` | 8 | key … already exists | choose another name, or `komando key rm …` first |
-| `KEY_FILE_EXISTS` | 8 | … already exists | a key file from earlier is still there: move it away, or pass --overwrite to replace it |
 | `KEY_INVALID` | 2 | cannot parse …: … | give an OpenSSH or PEM private key file |
 | `KEY_IN_USE` | 8 | server … still uses this key | give the server another key first: `komando host edit … --key OTHER` |
 | `KEY_NOT_FOUND` | 3 | key … does not exist | list keys with `komando cache keys CONN 'pattern*'` |
@@ -118,6 +120,7 @@ This page is made from the code (`komando schema` lists the same under
 | `MIXED_OS` | 2 | the target picks Windows servers (…) and other servers (…) | a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh) |
 | `NAME_TAKEN` | 8 | the rename clashes: … | nothing was renamed; pick other names, or rename or remove what is in the way first |
 | `NEEDS_PERSON` | 6 | setting up the approval code shows its secret, so only a person at a terminal can do it | a person runs `komando config approval-code` in their own terminal |
+| `NEEDS_SEAL` | 1 | … holds the files of an earlier komando (state.json, vault.json, known_hosts or keys/); this komando reads them only to move them | a person runs `komando seal` in their own terminal to move this folder into the sealed store; an AI agent cannot, so ask the user |
 | `NEEDS_TERMINAL` | 2 | cluster shell is interactive and needs a person at a terminal | agents and scripts use `komando cluster exec` |
 | `NOTHING_TO_RENAME` | 3 | no … starts with … | check OLD with `komando list` and `komando secret list`; names are matched from the start, as written |
 | `NOT_A_FOLDER` | 8 | … is a file, not a folder | give a folder path, not a file |
@@ -195,6 +198,7 @@ This page is made from the code (`komando schema` lists the same under
 | `ROLLOUT_TIMEOUT` | 7 | not rolled out after … (replicas …)… | see the tasks with `komando cluster describe … service/…` |
 | `RULE_NOT_FOUND` | 3 | no custom deny rule … | see the custom rules and their ids with `komando policy list` |
 | `SAFETY_SETTING` | 6 | KOMANDO_HOME points komando at …, not at …: its servers, protection, deny rules, host keys and audit log are not the usual ones, so an AI agent needs a person'… | re-run with --yes after the user agrees |
+| `SEAL_UNFINISHED` | 1 | komando now uses the sealed store, but these files of before could not be replaced: … | fix what stops it, then run `komando seal` again: it finishes the job |
 | `SECRET_DESTINATION` | 6 | an AI agent asked to send …; that needs a person's yes | re-run with --yes after the user agrees |
 | `SECRET_EXISTS` | 8 | secret … is used by … already; --ask-password and --ask-psk do not replace it | use it with --… …, or store this one under another name: `komando secret set NAME`, then --… secret:NAME |
 | `SECRET_IN_ARGS` | 2 | refusing a secret value on the command line: it would be saved in shell history | run `komando secret set …` and type it (hidden), use --from-env VAR, or pipe it on stdin |
@@ -218,11 +222,15 @@ This page is made from the code (`komando schema` lists the same under
 | `SSH_GATE_REFUSED` | 6 | komando … needs a person at a terminal on this computer; a key cannot run it | a person runs it in a terminal on the komando computer itself |
 | `SSH_GATE_SYNTAX` | 2 | an ssh-gate key sent more than one komando command, or a character a shell would expand (the message names it) | send one komando command; put an argument with ; \| & $ or backquotes in single quotes ($ and backquotes are refused even in double quotes) |
 | `SSM_FAILED` | 4 | AWS Session Manager could not open a session to the instance | check the instance ID, its SSM agent and your AWS login (`komando login aws`) |
-| `STATE_CORRUPT` | 1 | corrupt state file …: … | the file is empty or broken, most likely cut short by a crash or power loss; ask the user to restore it from a backup (Time Machine or similar), or to move it away to start fresh and then set protected servers, host_key_policy and extra_deny_patterns again |
+| `STATE_CORRUPT` | 1 | corrupt state file …: … | the file is empty or broken, most likely cut short by a crash or power loss; ask the user to restore it from a backup (Time Machine or similar) before sealing |
 | `STORAGE_AUTH` | 4 | an azblob conn needs the storage account's key or a SAS token | store the account key or a SAS token with `komando secret set NAME` and pass --password-ref secret:NAME |
 | `STORAGE_CONNECT` | 4 | komando could not reach the bucket or file server | run `komando conn test NAME` to check reachability |
 | `STORAGE_ERROR` | 5 | the file is in use | another program has the file open; close it there and try again |
 | `STORAGE_TLS` | 4 | the storage server's TLS certificate does not verify | if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL |
+| `STORE_BUSY` | 8 | komando's store stayed busy for …, so the server's host key could not be checked: … | another komando process is writing komando's store; a long `komando seal` or a stuck komando: wait for it to finish, then run it again |
+| `STORE_KEY_CHANGED` | 1 | …: … | run the command again: another komando changed the store's key while this one ran |
+| `STORE_NEWER` | 1 | … was made by a newer komando | update komando: a newer komando made or changed this store |
+| `STORE_OLD_COPY` | 6 | … …: servers, rules, secrets or pinned host keys may be old | if the komando folder was restored from a backup on purpose, a person runs `komando doctor --accept-old-copy` in their own terminal; otherwise find out who put an old copy back or changed the keychain |
 | `STREAM_EXISTS` | 8 | stream … already exists | pick another name, or see it with `komando queue describe CONN …` |
 | `STREAM_NOT_FOUND` | 3 | stream … does not exist | list streams with `komando queue ls CONN` |
 | `SUBSCRIPTION_EXISTS` | 8 | subscription … already exists | pick another name, or see it with `komando queue describe CONN subscriptions/…` |
@@ -271,10 +279,11 @@ This page is made from the code (`komando schema` lists the same under
 | `VPN_CONFIG` | 2 | …: … | check the file is a WireGuard (wg-quick) config |
 | `VPN_DOWN` | 4 | VPN … did not start: … | the message ends with its log; `komando vpn test …` tries again, and the whole log is … (for a person to read) |
 | `VPN_IN_USE` | 8 | VPN … is on the --via path of … | change their --via first |
-| `VPN_LOGIN_REQUIRED` | 4 | VPN … runs as root and needs a person to approve sudo | ask a person to run `komando vpn up …` (it needs sudo) |
+| `VPN_LOGIN_REQUIRED` | 4 | VPN … is not connected and needs a person to log in | ask a person to run `komando vpn up …` (it needs their login); then try again |
 | `VPN_NOT_FOR_OPENSSH` | 2 | VPN … (…) runs inside komando; OpenSSH cannot use it | use `komando shell HOST` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via |
 | `VPN_NOT_FOUND` | 3 | VPN … not found | run `komando vpn list` to see available VPNs |
-| `VPN_STOP_FAILED` | 1 | could not disconnect …: … | run `komando vpn down …` in a terminal (it needs sudo) |
+| `VPN_OS_MODE_REMOVED` | 2 | VPN … uses OpenVPN OS mode (--os-mode), which komando no longer has | add it again with komando's own client: `komando vpn add … openvpn --config FILE.ovpn --check HOST:PORT --overwrite` (plus --user and --password-ref if it logs in) |
+| `VPN_STOP_FAILED` | 1 | could not disconnect …: … | run `komando vpn down …` again; if it still fails, end process … yourself |
 | `WAIT_TIMEOUT` | 7 | job … still running after … | it is still running: `komando job wait …` waits again, `komando job logs … --tail 50` shows its output so far |
 | `WEAK_PASSPHRASE` | 2 | the passphrase is shorter than 15 characters | nothing was changed; run it again with another passphrase |
 | `WINRM_ERROR` | 5 | …: … | read the message; `winrm quickconfig` on the server sets WinRM up, and the user must be allowed to use it (an administrator, or the Remote Management Users group) |

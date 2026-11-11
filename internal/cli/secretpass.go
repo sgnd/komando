@@ -13,6 +13,7 @@ import (
 
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -44,7 +45,7 @@ func (r passphraseResult) Text() string {
 	} else {
 		fmt.Fprintf(&b, "Re-encrypted %d secret%s: the vault's key is now %s.\n", r.Secrets, plural(r.Secrets), keyWhere(r.To))
 		if r.OldKey != "" {
-			fmt.Fprintf(&b, "The old key was removed (%s).\n", map[string]string{"vault.key": "vault.key", "keychain": "from the keychain"}[r.OldKey])
+			fmt.Fprintf(&b, "The old key was removed (%s).\n", map[string]string{"store.key": "store.key", "keychain": "from the keychain"}[r.OldKey])
 		}
 	}
 	if r.Warning != "" {
@@ -69,7 +70,7 @@ func keyWhere(mode string) string {
 	case "keychain":
 		return "a key in the OS keychain"
 	case "keyfile":
-		return "a random key in " + store.Path("vault.key")
+		return "a random key in " + store.Path("store.key")
 	}
 	return "nothing (no vault yet)"
 }
@@ -120,10 +121,10 @@ func secretPassphraseCmd() *cobra.Command {
 		Short: "Change the vault passphrase; re-encrypts secrets (a person only)",
 		Long: `Re-encrypts every secret in the vault under a new passphrase, so you can change
 KOMANDO_VAULT_PASS without losing your secrets. A vault whose key is in
-vault.key or in the OS keychain gets a passphrase this way, and the old key is
+store.key or in the OS keychain gets a passphrase this way, and the old key is
 removed once the new vault is saved and read back.
 
-The vault is opened the usual way: with KOMANDO_VAULT_PASS, vault.key or the
+The vault is opened the usual way: with KOMANDO_VAULT_PASS, store.key or the
 keychain. When KOMANDO_VAULT_PASS does not open a passphrase vault (you changed
 it already, say), komando asks for the current passphrase. Then it asks for
 the new one twice, hidden; it needs 15 or more characters. Every secret is
@@ -133,17 +134,17 @@ Afterwards, put the new passphrase in KOMANDO_VAULT_PASS wherever you set it
 (your shell profile, a password manager, a launch agent), and restart any
 background tunnel or VPN session komando runs: they still hold the old key.
 
---off goes back to a new random key in vault.key (needs --yes): a copy of
+--off goes back to a new random key in store.key (needs --yes): a copy of
 ` + "~/.komando" + ` then opens the vault again. ` + "`komando secret keychain`" + ` can move that
 key into the OS keychain.
 
 Only a person at a terminal can run it: an AI agent that chose the passphrase,
-or put the key back in vault.key, could open the vault on its own.`,
-		Example: "  komando secret passphrase               # asks for the new passphrase twice, hidden\n  komando secret passphrase --dry-run\n  komando secret passphrase --off --yes   # back to a random key in vault.key",
+or put the key back in store.key, could open the vault on its own.`,
+		Example: "  komando secret passphrase               # asks for the new passphrase twice, hidden\n  komando secret passphrase --dry-run\n  komando secret passphrase --off --yes   # back to a random key in store.key",
 		Args:    cobra.NoArgs,
 		RunE:    func(cmd *cobra.Command, _ []string) error { return runSecretPassphrase(off) },
 	}
-	c.Flags().BoolVar(&off, "off", false, "back to a random key in vault.key (needs --yes)")
+	c.Flags().BoolVar(&off, "off", false, "back to a random key in store.key (needs --yes)")
 	return c
 }
 
@@ -165,7 +166,7 @@ func runSecretPassphrase(off bool) error {
 	if isAgent() || !interactive() {
 		return out.Errf(out.ExitPolicy, "NEEDS_PERSON",
 			"ask the user to run `komando secret passphrase` in their own terminal",
-			"only a person at a terminal can change the vault's key: an AI agent that chose the passphrase, or put the key in vault.key, could open the vault on its own")
+			"only a person at a terminal can change the vault's key: an AI agent that chose the passphrase, or put the key in store.key, could open the vault on its own")
 	}
 	res, err := passphrasePlan(off)
 	if err != nil {
@@ -186,7 +187,7 @@ func runSecretPassphrase(off bool) error {
 	}
 	newPass := ""
 	if off {
-		err = guardSafety("moving the vault's key from a passphrase into vault.key next to the vault")
+		err = guardSafety("moving the store's key from a passphrase into store.key next to the store")
 	} else {
 		newPass, err = askNewPassphrase()
 	}
@@ -214,8 +215,10 @@ func passphrasePlan(off bool) (passphraseResult, error) {
 	if err != nil {
 		return res, err
 	}
+	// a passphrase that does not open the store (changed already) is asked
+	// for next (currentPassphrase); ChangeKey counts the secrets then
 	list, err := vault.List()
-	if err != nil {
+	if err != nil && !(s.Mode == "passphrase" && errors.Is(err, sealdb.ErrWrongKey)) {
 		return res, err
 	}
 	res.From, res.Secrets = s.Mode, len(list)
@@ -226,9 +229,9 @@ func passphrasePlan(off bool) (passphraseResult, error) {
 		res.To = "keyfile"
 		if res.From != "passphrase" {
 			hint := map[string]string{
-				"keyfile":  "its key is in " + store.Path("vault.key") + " already",
-				"keychain": "its key is in the OS keychain; `komando secret keychain --off --yes` moves it into vault.key",
-				"none":     "there is no vault yet; without KOMANDO_VAULT_PASS the first secret keeps its key in the OS keychain, or in vault.key where the keychain cannot keep it",
+				"keyfile":  "its key is in " + store.Path("store.key") + " already",
+				"keychain": "its key is in the OS keychain; `komando secret keychain --off --yes` moves it into store.key",
+				"none":     "there is no store yet; without KOMANDO_VAULT_PASS the first change keeps its key in the OS keychain, or in store.key where the keychain cannot keep it",
 			}[res.From]
 			return res, out.Errf(out.ExitUsage, "NO_PASSPHRASE", hint, "the vault has no passphrase to take away")
 		}

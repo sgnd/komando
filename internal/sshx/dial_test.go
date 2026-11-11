@@ -18,7 +18,6 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
-	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -295,11 +294,10 @@ func TestProxyKeepsTheErrorCode(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			home := dialHome(t)
+			dialHome(t)
 			host, port := testSSHD(t, newSigner(t))
 			addr := net.JoinHostPort(host, strconv.Itoa(port))
-			line := knownhosts.Line([]string{knownhosts.Normalize(addr)}, newSigner(t).PublicKey()) // a different key
-			if err := os.WriteFile(filepath.Join(home, "known_hosts"), []byte(line+"\n"), 0o600); err != nil {
+			if _, err := PinHostKey(addr, newSigner(t).PublicKey(), false); err != nil { // a different key
 				t.Fatal(err)
 			}
 			t.Setenv("KOMANDO_TEST_PROXY_ADDR", addr)
@@ -470,7 +468,7 @@ func TestAgentOutlivesASlowTransport(t *testing.T) {
 	host, port := testSSHD(t, newSigner(t))
 	h := &store.Host{Name: "web1", Address: host, Port: port, User: "u"}
 	timeout := 300 * time.Millisecond
-	cfg, agentConn, err := clientConfig(newState(h), h, Options{ConnectTimeout: timeout, HostKeyPolicy: "off"})
+	cfg, agentConn, err := clientConfig(context.Background(), newState(h), h, Options{ConnectTimeout: timeout, HostKeyPolicy: "off"})
 	if err != nil {
 		t.Fatal(err)
 	}

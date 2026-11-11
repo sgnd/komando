@@ -541,7 +541,7 @@ var formAreas = []struct {
 	{"Secrets and keys", "the vault and SSH keys", []string{"secret", "key"}},
 	{"Your list", "servers, conns, groups: add, change, import", []string{"host", "conn", "group", "list", "rename", "import", "export", "test"}},
 	{"Jobs and recipes", "long tasks and saved commands", []string{"job", "recipe"}},
-	{"Safety and audit", "what happened, rules, checks", []string{"audit", "policy", "doctor", "status", "config", "ssh-gate"}},
+	{"Safety and audit", "what happened, rules, checks", []string{"audit", "policy", "doctor", "seal", "status", "config", "ssh-gate"}},
 	{"Setup", "AI agents, updates", []string{"guide", "update", "version", "schema", "completion"}},
 }
 

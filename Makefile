@@ -6,7 +6,7 @@ LDFLAGS := -s -w -X github.com/sgnd/komando/internal/cli.Version=$(VERSION)
 STATICCHECK := v0.8.2
 GOVULNCHECK := v1.9.0
 
-PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
+PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 export PLATFORMS
 
 .PHONY: help build install test cover security fuzz e2e e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses dist clean
@@ -77,13 +77,15 @@ dist: ## Build release archives + checksums into ./dist
 	scripts/third-party-licenses.sh dist/THIRD_PARTY_LICENSES
 	@for p in $(PLATFORMS); do \
 	  os=$${p%/*}; arch=$${p#*/}; name=komando_$${os}_$${arch}; \
+	  exe=komando; [ $$os = windows ] && exe=komando.exe; \
 	  echo "  $$name"; mkdir -p dist/$$name && \
-	  CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$$name/komando ./cmd/komando && \
+	  CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$$name/$$exe ./cmd/komando && \
 	  cp LICENSE README.md dist/THIRD_PARTY_LICENSES dist/$$name/ && \
-	  tar -czf dist/$$name.tar.gz -C dist/$$name . && rm -rf dist/$$name || exit 1; \
+	  if [ $$os = windows ]; then (cd dist/$$name && zip -qX ../$$name.zip *); \
+	  else tar -czf dist/$$name.tar.gz -C dist/$$name .; fi && rm -rf dist/$$name || exit 1; \
 	done
 	rm dist/THIRD_PARTY_LICENSES
-	cd dist && (sha256sum *.tar.gz 2>/dev/null || shasum -a 256 *.tar.gz) > checksums.txt
+	cd dist && (sha256sum *.tar.gz *.zip 2>/dev/null || shasum -a 256 *.tar.gz *.zip) > checksums.txt
 
 clean: ## Remove build output
 	rm -rf bin dist
