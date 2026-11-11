@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/sgnd/komando/internal/engine"
 	"io"
 	"net"
 	"os"
@@ -512,7 +511,7 @@ func confirmYes(question string) bool {
 	}
 	a := strings.ToLower(ask(question + " [y/N] "))
 	ok := a == "y" || a == "yes"
-	sess.SaidNo(!ok)
+	cur().sess.SaidNo(!ok)
 	return ok
 }
 
@@ -520,11 +519,11 @@ func confirmYes(question string) bool {
 // log, no host key check, fewer deny rules) need --yes, so an agent cannot
 // switch them off by itself.
 func guardSafety(what string) error {
-	if sess.SafetyApproved(what) { // asked already in this command (before the state was locked)
+	if cur().sess.SafetyApproved(what) { // asked already in this command (before the state was locked)
 		return nil
 	}
 	if g.yes && personAllowsFor("--yes", what) || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
-		sess.ApproveSafety(what)
+		cur().sess.ApproveSafety(what)
 		return nil
 	}
 	return policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what))
@@ -538,7 +537,7 @@ func confirmDangerous(names []string, reason string) bool {
 		return false
 	}
 	key := strings.Join(names, ",")
-	if sess.DangerConfirmed(key) {
+	if cur().sess.DangerConfirmed(key) {
 		return true // the person typed it for these targets in this command already
 	}
 	want, what := "yes", "yes"
@@ -550,9 +549,9 @@ func confirmDangerous(names []string, reason string) bool {
 	}
 	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
 	ok := ask("Type "+what+" to continue: ") == want
-	sess.SaidNo(!ok)
+	cur().sess.SaidNo(!ok)
 	if ok {
-		sess.ConfirmDanger(key)
+		cur().sess.ConfirmDanger(key)
 	}
 	return ok
 }
@@ -648,7 +647,7 @@ func osUser() string {
 
 // actor is the name the audit log gives whoever runs komando: KOMANDO_ACTOR,
 // else USER. For an AI agent it is a label (actor_claimed), not proof.
-func actor() string { return engine.CallerFrom(os.LookupEnv, false).Actor }
+func actor() string { return cur().caller.Actor }
 
 // countOf writes "1 server", "2 servers": people read words, not "server(s)".
 func countOf(n int, noun string) string {

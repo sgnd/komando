@@ -90,7 +90,7 @@ func TestAgentFlagsNeedAPerson(t *testing.T) {
 	// a window that closes itself after 2 minutes is no answer, not a Deny
 	asAgent(t, false, true)
 	saved := askOnScreen
-	askOnScreen = func(string) (bool, bool) { sess.SetGaveUp(true); return false, true }
+	askOnScreen = func(string) (bool, bool) { cur().sess.SetGaveUp(true); return false, true }
 	if yesOK() {
 		t.Fatal("nobody answered")
 	}
