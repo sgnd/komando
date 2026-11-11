@@ -2,10 +2,14 @@ package store
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"sync"
 	"testing"
+
+	"github.com/sgnd/komando/internal/sealdb"
+	"github.com/sgnd/komando/internal/sealrow"
 )
 
 // fakeKeys is a KeySource with a fixed key per mode, counting new keys.
@@ -142,5 +146,44 @@ func TestDBReopensReplacedFile(t *testing.T) {
 	d2, err := DB(true)
 	if err != nil || d2 == d {
 		t.Fatalf("not reopened: %v", err)
+	}
+}
+
+// A store whose key another process changed is opened again with the new
+// key, never written through the old handle.
+func TestDBReopensAfterKeyChange(t *testing.T) {
+	sealedHome(t)
+	fakeKeys(t)
+	d1, err := DB(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	oldKey, _ := sealrow.NewKey(bytes.Repeat([]byte{7}, 32))
+	newKey, _ := sealrow.NewKey(bytes.Repeat([]byte{9}, 32))
+	other, err := sealdb.Open(ctx, DBPath(), oldKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := other.Rekey(ctx, newKey, nil); err != nil {
+		t.Fatal(err)
+	}
+	other.Close()
+	inner := KeySource
+	KeySource = func(meta map[string]string, create bool) ([]byte, map[string]string, error) {
+		if create {
+			return inner(meta, create)
+		}
+		return bytes.Repeat([]byte{9}, 32), nil, nil
+	}
+	d2, err := DB(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d2 == d1 {
+		t.Fatal("the handle with the old key was kept")
+	}
+	if err := d2.Update(ctx, func(tx *sealdb.Tx) error { return tx.AppendAudit([]byte("x")) }); err != nil {
+		t.Fatal(err)
 	}
 }

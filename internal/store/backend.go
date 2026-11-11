@@ -99,6 +99,27 @@ var (
 // a home without store.db gets one, with a new key; without, it returns
 // ErrNoStore, so a read makes no file and no key.
 func DB(create bool) (*sealdb.DB, error) {
+	d, err := cachedDB(create)
+	if err != nil {
+		return nil, err
+	}
+	// a store whose key another process changed since it was opened
+	// (secret passphrase, secret keychain) is opened again once: writes
+	// through the old handle would be sealed with the old key. Checked
+	// outside dbMu, as the check waits for this handle's running step.
+	if !errors.Is(d.View(context.Background(), func(*sealdb.Tx) error { return nil }), sealdb.ErrKeyChanged) {
+		return d, nil
+	}
+	dbMu.Lock()
+	if o, ok := dbOpen[Home()]; ok && o.db == d {
+		d.Close()
+		delete(dbOpen, Home())
+	}
+	dbMu.Unlock()
+	return cachedDB(create)
+}
+
+func cachedDB(create bool) (*sealdb.DB, error) {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 	home := Home()
