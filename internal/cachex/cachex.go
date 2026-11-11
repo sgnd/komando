@@ -22,6 +22,14 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
+// go-redis logs a failed dial to stderr itself, which breaks the JSON an
+// agent reads with 2>&1; komando reports the error in its own envelope.
+func init() { redis.SetLogger(quietLog{}) }
+
+type quietLog struct{}
+
+func (quietLog) Printf(context.Context, string, ...any) {}
+
 // DialFunc opens a TCP connection, possibly through an SSH host.
 type DialFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 
@@ -44,11 +52,11 @@ func Open(ctx context.Context, t driver.Target, password string, dial DialFunc, 
 	case t.Cluster:
 		c = redis.NewClusterClient(&redis.ClusterOptions{Addrs: []string{t.Address}, Username: t.User, Password: password,
 			Dialer: dialer, DialTimeout: timeout, ReadTimeout: timeout, WriteTimeout: timeout,
-			PoolSize: 1, MaxRetries: -1, MaxRedirects: 3, DisableIdentity: true})
+			PoolSize: 1, MaxRetries: -1, DialerRetries: 1, MaxRedirects: 3, DisableIdentity: true})
 	case t.Sentinel != "":
 		fo := &redis.FailoverOptions{MasterName: t.Sentinel, SentinelAddrs: append([]string{t.Address}, t.Sentinels...),
 			Username: t.User, Password: password, DB: db, Dialer: dialer, DialTimeout: timeout, ReadTimeout: timeout,
-			WriteTimeout: timeout, PoolSize: 1, MaxRetries: -1, DisableIdentity: true}
+			WriteTimeout: timeout, PoolSize: 1, MaxRetries: -1, DialerRetries: 1, DisableIdentity: true}
 		if t.SentinelAuth {
 			fo.SentinelUsername, fo.SentinelPassword = t.User, password
 		}
@@ -56,7 +64,7 @@ func Open(ctx context.Context, t driver.Target, password string, dial DialFunc, 
 	default:
 		c = redis.NewClient(&redis.Options{Addr: t.Address, Username: t.User, Password: password, DB: db,
 			Dialer: dialer, DialTimeout: timeout, ReadTimeout: timeout, WriteTimeout: timeout,
-			PoolSize: 1, MaxRetries: -1, DisableIdentity: true})
+			PoolSize: 1, MaxRetries: -1, DialerRetries: 1, DisableIdentity: true})
 	}
 	if err := c.Ping(ctx).Err(); err != nil {
 		c.Close()
@@ -116,7 +124,7 @@ var readCmds = set(`GET MGET STRLEN GETRANGE SUBSTR EXISTS TYPE TTL PTTL EXPIRET
 HSCAN SSCAN ZSCAN HGET HMGET HGETALL HKEYS HVALS HLEN HEXISTS HSTRLEN HRANDFIELD LRANGE LLEN LINDEX LPOS
 SMEMBERS SISMEMBER SMISMEMBER SCARD SRANDMEMBER SINTER SUNION SDIFF SINTERCARD ZRANGE ZRANGEBYSCORE
 ZRANGEBYLEX ZREVRANGE ZREVRANGEBYSCORE ZREVRANGEBYLEX ZSCORE ZMSCORE ZCARD ZCOUNT ZLEXCOUNT ZRANK ZREVRANK
-ZRANDMEMBER ZINTER ZUNION ZDIFF ZINTERCARD XRANGE XREVRANGE XLEN XPENDING BITCOUNT BITPOS GETBIT BITFIELD_RO
+ZRANDMEMBER ZINTER ZUNION ZDIFF ZINTERCARD XRANGE XREVRANGE XREAD XLEN XPENDING BITCOUNT BITPOS GETBIT BITFIELD_RO
 PFCOUNT GEOPOS GEODIST GEOHASH GEOSEARCH GEORADIUS_RO GEORADIUSBYMEMBER_RO INFO DBSIZE PING ECHO TIME LASTSAVE
 ROLE RANDOMKEY TOUCH LCS SORT_RO DUMP COMMAND
 JSON.GET JSON.MGET JSON.TYPE JSON.STRLEN JSON.ARRLEN JSON.ARRINDEX JSON.OBJKEYS JSON.OBJLEN JSON.RESP
@@ -177,6 +185,101 @@ func set(words string) map[string]bool {
 		m[w] = true
 	}
 	return m
+}
+
+// SplitCommand reads a command given as one argument ("GET foo") the way
+// redis-cli reads a line: words split at spaces, "..." with \" \\ \n \r
+// \t \xHH escapes, and '...' with \' only. Several arguments are kept.
+func SplitCommand(args []string) ([]string, error) {
+	if len(args) != 1 || !strings.ContainsAny(args[0], " \t\n\"'") {
+		return args, nil
+	}
+	var words []string
+	s := args[0]
+	for i := 0; i < len(s); {
+		for i < len(s) && strings.ContainsRune(" \t\r\n", rune(s[i])) {
+			i++
+		}
+		if i == len(s) {
+			break
+		}
+		var w strings.Builder
+		for i < len(s) && !strings.ContainsRune(" \t\r\n", rune(s[i])) {
+			q := s[i]
+			if q != '"' && q != '\'' {
+				w.WriteByte(q)
+				i++
+				continue
+			}
+			i++
+			closed := false
+			for i < len(s) {
+				c := s[i]
+				i++
+				if c == q {
+					closed = true
+					break
+				}
+				if c != '\\' || i == len(s) {
+					w.WriteByte(c)
+					continue
+				}
+				e := s[i]
+				i++
+				switch {
+				case q == '\'' && e == '\'':
+					w.WriteByte(e)
+				case q == '\'':
+					w.WriteByte(c)
+					w.WriteByte(e)
+				case e == 'n':
+					w.WriteByte('\n')
+				case e == 'r':
+					w.WriteByte('\r')
+				case e == 't':
+					w.WriteByte('\t')
+				case e == 'x' && i+2 <= len(s):
+					if b, err := strconv.ParseUint(s[i:i+2], 16, 8); err == nil {
+						w.WriteByte(byte(b))
+						i += 2
+						continue
+					}
+					w.WriteByte(e)
+				default:
+					w.WriteByte(e)
+				}
+			}
+			if !closed {
+				return nil, out.Usage("unbalanced quotes in %q", s)
+			}
+		}
+		words = append(words, w.String())
+	}
+	if len(words) == 0 {
+		return nil, out.Usage("no command given")
+	}
+	return words, nil
+}
+
+// noReply are commands that never answer once: they keep the connection
+// and stream to it until it closes.
+var noReply = set("MONITOR SUBSCRIBE PSUBSCRIBE SSUBSCRIBE SYNC PSYNC")
+
+// OneReply refuses a command that does not answer with one reply, which
+// cache run waits for: MONITOR, SUBSCRIBE and the like, and XREAD or
+// XREADGROUP with BLOCK.
+func OneReply(args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	cmd := strings.ToUpper(args[0])
+	block := (cmd == "XREAD" || cmd == "XREADGROUP") && slices.ContainsFunc(args[1:], func(a string) bool { return strings.EqualFold(a, "BLOCK") })
+	if !noReply[cmd] && !block {
+		return nil
+	}
+	return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+		"cache run sends one command and prints its one reply; drop BLOCK from XREAD, and use redis-cli for MONITOR or SUBSCRIBE",
+		"%s waits for data that keeps coming, so cache run would never return", cmd)
 }
 
 // Classify rates a raw command. Unknown commands are writes.

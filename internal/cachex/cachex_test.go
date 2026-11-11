@@ -118,3 +118,45 @@ func TestConnectErrTLS(t *testing.T) {
 		}
 	}
 }
+
+// A command given as one argument splits like a redis-cli line.
+func TestSplitCommand(t *testing.T) {
+	for _, c := range []struct {
+		in   []string
+		want []string
+	}{
+		{[]string{"GET", "foo"}, []string{"GET", "foo"}},
+		{[]string{"get foo"}, []string{"get", "foo"}},
+		{[]string{`SET "a b" 'it''s'`}, []string{"SET", "a b", "its"}},
+		{[]string{`SET k "x\ny\x41\"q"`}, []string{"SET", "k", "x\nyA\"q"}},
+		{[]string{`SET k 'a\'b\n'`}, []string{"SET", "k", `a'b\n`}},
+		{[]string{"PING"}, []string{"PING"}},
+	} {
+		got, err := SplitCommand(c.in)
+		if err != nil || strings.Join(got, "|") != strings.Join(c.want, "|") {
+			t.Errorf("%q: %q %v", c.in, got, err)
+		}
+	}
+	if _, err := SplitCommand([]string{`GET "foo`}); err == nil {
+		t.Error("unbalanced quote accepted")
+	}
+}
+
+// cache run waits for one reply: XREAD is a read, and commands that
+// stream without end are refused.
+func TestOneReply(t *testing.T) {
+	if v := Classify(strings.Fields("XREAD COUNT 1 STREAMS s 0")); v.Risk != driver.RiskRead {
+		t.Errorf("XREAD: %v", v.Risk)
+	}
+	for _, c := range []string{"MONITOR", "subscribe ch", "PSUBSCRIBE a*", "XREAD BLOCK 0 STREAMS s $", "XREADGROUP GROUP g c block 10 STREAMS s >"} {
+		var e *out.Error
+		if err := OneReply(strings.Fields(c)); !errors.As(err, &e) || e.Code != "NOT_SUPPORTED" {
+			t.Errorf("%s: %v", c, err)
+		}
+	}
+	for _, c := range []string{"GET k", "XREAD COUNT 1 STREAMS s 0", "PUBLISH ch hi"} {
+		if err := OneReply(strings.Fields(c)); err != nil {
+			t.Errorf("%s: %v", c, err)
+		}
+	}
+}

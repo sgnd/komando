@@ -454,11 +454,21 @@ func cacheRunCmd() *cobra.Command {
 		Short: "Send any Redis command; read-only unless --write",
 		Example: `  komando cache run cache -- HGETALL user:42
   komando cache run cache -- ZREVRANGE leaderboard 0 9 WITHSCORES
-  komando cache run cache --write -- EXPIRE session:42 3600`,
+  komando cache run cache --write -- EXPIRE session:42 3600
+  komando cache run cache "GET feature:dark-mode"   # one quoted line works too`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command := args[1:]
-			v := cachex.ClassifyFor(cacheKind(args[0]), command)
+			command, err := cachex.SplitCommand(args[1:])
+			if err != nil {
+				return err
+			}
+			kind := cacheKind(args[0])
+			if kind != "memcached" {
+				if err := cachex.OneReply(command); err != nil {
+					return err
+				}
+			}
+			v := cachex.ClassifyFor(kind, command)
 			rec := map[string]any{"command": strings.ToUpper(command[0])} // arguments may be personal data
 			if v.Risk > driver.RiskRead && !write {
 				st, _ := loadState()
