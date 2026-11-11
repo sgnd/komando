@@ -160,12 +160,18 @@ func passChannel(nc ssh.NewChannel, up *ssh.Client) {
 	go func() {
 		_, _ = io.Copy(uch.Stderr(), dch.Stderr())
 	}()
+	// replying holds asking: the server may answer a request (exec) and
+	// close the channel at once, and the client must get that answer
+	// before dch closes, or its request ends in EOF.
+	var asking sync.Mutex
 	go func() {
 		for r := range dreqs {
+			asking.Lock()
 			ok, err := uch.SendRequest(r.Type, r.WantReply, r.Payload)
 			if r.WantReply {
 				_ = r.Reply(ok && err == nil, nil)
 			}
+			asking.Unlock()
 		}
 		uch.Close() // the client closed its side
 	}()
@@ -181,6 +187,8 @@ func passChannel(nc ssh.NewChannel, up *ssh.Client) {
 	}()
 	out.Wait() // the server's output ended
 	_ = dch.CloseWrite()
-	<-upDone // and it closed the channel (its exit status went first)
+	<-upDone      // and it closed the channel (its exit status went first)
+	asking.Lock() // a request the server answered has its reply sent
 	dch.Close()
+	asking.Unlock()
 }
