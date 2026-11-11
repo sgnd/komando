@@ -30,6 +30,15 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
+// The MySQL driver logs a dropped connection to stderr itself ("[mysql]
+// packets.go: unexpected EOF"), which breaks the JSON an agent reads with
+// 2>&1; komando reports the error in its own envelope.
+func init() { _ = mysql.SetLogger(quietLog{}) }
+
+type quietLog struct{}
+
+func (quietLog) Print(...any) {}
+
 // DialFunc opens a TCP connection, possibly through an SSH host.
 type DialFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 
@@ -574,7 +583,6 @@ func writeRequired(kw string) *out.Error {
 		"%s needs --write", kw)
 }
 
-// connectErr maps a failed connection to an error code.
 // SQLitePath is the file a sqlite conn opens, with ~/ read as the home
 // folder (as `conn test` does).
 func SQLitePath(t driver.Target) string {
@@ -586,6 +594,7 @@ func SQLitePath(t driver.Target) string {
 	return t.Path
 }
 
+// connectErr maps a failed connection to an error code.
 func connectErr(t driver.Target, err error) error {
 	var oe *out.Error
 	if errors.As(err, &oe) {
