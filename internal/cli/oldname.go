@@ -46,7 +46,7 @@ func markOldName(c *cobra.Command, now string) {
 // sayOldName prints the one-line note of an old name on stderr.
 func sayOldName(cmd *cobra.Command) {
 	if now := cmd.Annotations[oldNameNote]; now != "" {
-		fmt.Fprintf(os.Stderr, "note: use `komando %s` now; `%s` goes away in the next release\n", now, cmd.CommandPath())
+		fmt.Fprintf(os.Stderr, "komando: use `komando %s` now; `%s` goes away in the next release\n", now, cmd.CommandPath())
 	}
 }
 
