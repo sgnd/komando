@@ -130,6 +130,8 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 
 	// an AI agent cannot answer the code, and cannot log in for itself
 	t.Setenv("KOMANDO_AGENT", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	_, e := invRun(t, "exec", "web1", "--read-only", "--", "uptime")
 	if e == nil || !strings.Contains(e.Hint, "komando login web1") {
 		t.Fatalf("an agent without a login: %+v", e)
@@ -138,6 +140,7 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 
 	// a person logs in once, at a terminal
 	os.Unsetenv("KOMANDO_AGENT")
+	resetApproval()
 	p := startPTY(t, "login", "web1")
 	p.answer("Password: ", "pw\r")
 	p.answer("Verification code: ", "123456\r")
@@ -148,6 +151,8 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 
 	// now the agent's commands use that login: no code, no new login
 	t.Setenv("KOMANDO_AGENT", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	for range 2 {
 		d := mustRun(t, "exec", "web1", "--read-only", "--", "uptime")
 		if !strings.Contains(asJSON(d), "ran on web1") {
@@ -229,6 +234,8 @@ func TestLoginForSetting(t *testing.T) {
 	mustRun(t, "config", "set", "login_for", "2h") // shorter: fine for anyone
 	wantCode(t, "USAGE", "config", "set", "login_for", "0")
 	t.Setenv("KOMANDO_AGENT", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	mustRun(t, "config", "set", "login_for", "1h")
 	if e := wantCode(t, "SAFETY_SETTING", "config", "set", "login_for", "24h"); e.Exit != out.ExitPolicy {
 		t.Errorf("exit %d", e.Exit)

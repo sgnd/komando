@@ -22,6 +22,8 @@ import (
 func TestVpnUpHidesSocksLogin(t *testing.T) {
 	invHome(t)
 	t.Setenv("CLAUDECODE", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	const pass = "0123456789abcdef0123456789abcdef0123456789abcdef"
 	now := time.Now().UTC()
 	if err := store.Update(func(st *store.State) error {

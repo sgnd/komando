@@ -21,7 +21,9 @@ func asSealPerson(t *testing.T) {
 	t.Helper()
 	for _, a := range agentVars {
 		t.Setenv(a.env, "")
+		resetApproval()
 		os.Unsetenv(a.env)
+		resetApproval()
 	}
 	savedI, savedC := interactive, sealConfirm
 	interactive = func() bool { return true }
@@ -159,6 +161,8 @@ func TestSealNeedsAPerson(t *testing.T) {
 	store.UseSealedForNewHomes(false)
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
 	t.Setenv("KOMANDO_AGENT", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	if _, e := invRun(t, "seal"); e == nil || e.Code != "NEEDS_PERSON" {
 		t.Fatalf("agent: %+v", e)
 	}

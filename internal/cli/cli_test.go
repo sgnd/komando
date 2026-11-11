@@ -16,6 +16,7 @@ func TestMain(m *testing.M) {
 	// agents set the variables themselves
 	for _, a := range agentVars {
 		os.Unsetenv(a.env)
+		resetApproval()
 	}
 	askOnScreen = func(string) (bool, bool) { panic("a test opened an approval window") }
 	// a new vault never puts its key in the login keychain of whoever runs

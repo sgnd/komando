@@ -19,6 +19,8 @@ import (
 func asAgent(t *testing.T, allow, shown bool) *int {
 	t.Helper()
 	t.Setenv("CLAUDECODE", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	n := new(int)
 	saved := askOnScreen
 	askOnScreen = func(text string) (bool, bool) {
@@ -34,10 +36,13 @@ func asAgent(t *testing.T, allow, shown bool) *int {
 }
 
 func TestWhoIsAsking(t *testing.T) {
+	noAgent(t)
 	if isAgent() {
 		t.Fatal("tests run as a script")
 	}
 	t.Setenv("GEMINI_CLI", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	if agentName() != "Gemini CLI" {
 		t.Errorf("agentName = %q", agentName())
 	}
@@ -46,6 +51,8 @@ func TestWhoIsAsking(t *testing.T) {
 	// stops off; only a variable that is not there is none
 	for _, v := range []string{"0", ""} {
 		t.Setenv("GEMINI_CLI", v)
+		resetApproval()
+		t.Cleanup(resetApproval)
 		if !isAgent() {
 			t.Errorf("GEMINI_CLI=%q is still an agent", v)
 		}
@@ -423,6 +430,7 @@ func TestLooseFiles(t *testing.T) {
 }
 
 func TestAgentProxyCommandNeedsAPerson(t *testing.T) {
+	noAgent(t)
 	if guardProxyCommand("aws ssm start-session --target %h") != nil {
 		t.Fatal("a person or script sets it freely")
 	}

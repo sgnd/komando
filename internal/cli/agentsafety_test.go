@@ -21,7 +21,10 @@ func noAgent(t *testing.T) {
 	for _, a := range agentVars {
 		t.Setenv(a.env, "") // restored after the test
 		os.Unsetenv(a.env)
+		resetApproval()
 	}
+	resetApproval() // the caller is read when a call starts
+	t.Cleanup(resetApproval)
 }
 
 // An agent cannot opt out by changing its own variables: komando counts
@@ -30,16 +33,22 @@ func noAgent(t *testing.T) {
 func TestAgentCannotClearItsVariables(t *testing.T) {
 	for _, v := range []string{"0", "false", "1"} {
 		t.Setenv("CLAUDECODE", v)
+		resetApproval()
+		t.Cleanup(resetApproval)
 		if agentName() != "Claude Code" {
 			t.Errorf("CLAUDECODE=%s: agentName = %q", v, agentName())
 		}
 	}
 	t.Setenv("CLAUDECODE", "")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	if agentName() != "Claude Code" {
 		t.Errorf("CLAUDECODE empty: agentName = %q", agentName())
 	}
 	noAgent(t)
 	t.Setenv("CLAUDE_CODE_ENTRYPOINT", "cli")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	if agentName() != "Claude Code" {
 		t.Errorf("CLAUDECODE cleared, CLAUDE_CODE_ENTRYPOINT set: agentName = %q", agentName())
 	}
@@ -327,6 +336,7 @@ func agentFiles(t *testing.T) (kh, home, proj string) {
 // komando does not read komando's own data, private keys or secret files
 // on this computer for an AI agent (to send them to a server).
 func TestLocalReadsForAgents(t *testing.T) {
+	noAgent(t)
 	kh, home, proj := agentFiles(t)
 	defer func() { g.reveal = false }()
 	read := func(p string) string {
@@ -546,6 +556,8 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 	saved := os.Args
 	t.Cleanup(func() { os.Args = saved; g.allowDangerous, g.yes = false, false })
 	t.Setenv("CLAUDECODE", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	var texts []string
 	savedAsk := askOnScreen
 	askOnScreen = func(text string) (bool, bool) { texts = append(texts, text); return false, true }

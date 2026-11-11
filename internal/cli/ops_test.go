@@ -367,6 +367,8 @@ func TestRebootNeedsAllowDangerous(t *testing.T) {
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("KOMANDO_NO_DIALOG", "1")
 	t.Setenv("CLAUDECODE", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	defer func() { g.dryRun, g.allowDangerous = false, false }()
 	run := func(args ...string) error {
 		root := newRoot()
@@ -434,6 +436,8 @@ func TestConfigSetAsksBeforeLocking(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("CLAUDECODE", "1")
+	resetApproval()
+	t.Cleanup(resetApproval)
 	saved := askOnScreen
 	defer func() { askOnScreen = saved; g.yes = false; resetApproval() }()
 	lockFree := false

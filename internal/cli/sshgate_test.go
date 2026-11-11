@@ -608,6 +608,7 @@ func TestSSHGateAuditHidesSecrets(t *testing.T) {
 // could not have set is not shown as it is.
 func TestGateAgentName(t *testing.T) {
 	t.Setenv(gateEnv, "phone")
+	resetApproval()
 	if got := agentName(); got != "ssh-gate key phone" {
 		t.Errorf("agent %q", got)
 	}
@@ -617,6 +618,7 @@ func TestGateAgentName(t *testing.T) {
 	}
 	os.Unsetenv("CLAUDECODE") // t.Setenv puts it back afterwards
 	t.Setenv(gateEnv, "x\n\nkomando list wants")
+	resetApproval()
 	if got := agentName(); got != "An SSH key through ssh-gate" {
 		t.Errorf("agent %q", got)
 	}

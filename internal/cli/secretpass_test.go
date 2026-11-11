@@ -23,6 +23,8 @@ func TestSecretPassphraseNeedsPerson(t *testing.T) {
 	for _, agent := range []bool{false, true} {
 		if agent {
 			t.Setenv("KOMANDO_AGENT", "1")
+			resetApproval()
+			t.Cleanup(resetApproval)
 		}
 		for _, args := range [][]string{{"secret", "passphrase"}, {"secret", "passphrase", "--off", "--yes"}, {"secret", "passphrase", "--dry-run"}} {
 			e := wantCode(t, "NEEDS_PERSON", args...)
