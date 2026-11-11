@@ -261,7 +261,10 @@ the database.
 **Clusters** (Kubernetes, Docker Swarm): `komando cluster status|ls|get|logs
 <conn>` read; `apply` (try `--dry-run` first, the cluster checks it),
 `restart` and `scale` change; `rm` and scaling to 0 need
-`--allow-dangerous`. For anything else, `komando cluster run <conn> --
+`--allow-dangerous`. To release a new image, use `komando cluster deploy
+<conn> deployment/NAME --image IMAGE --wait`; if it goes wrong, `cluster
+rollback <conn> deployment/NAME --wait` puts the earlier images back
+(`cluster history` lists the revisions). For anything else, `komando cluster run <conn> --
 <kubectl args>` (needs `--write` to change). Pick a namespace with
 `--namespace`. `status`, `ls`, `events` and `helm ls` also take a group
 (`@prod`): one row per cluster in `data.results`. Read Helm releases with
@@ -269,7 +272,8 @@ the database.
 and upgrade stay with helm).
 
 **Registries**: `komando registry ls|inspect <conn>` read, `registry copy`
-changes, `registry rm` deletes (needs `--allow-dangerous`).
+changes, `registry rm` and `registry prune` delete (need
+`--allow-dangerous`; `prune --dry-run` shows which tags would go).
 
 `--dry-run` never changes anything. In `db` it runs the SQL inside a
 transaction and rolls it back (sequences still advance); in `cache`,
@@ -329,7 +333,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
   click "Allow once". No screen (an SSH session, a server): the hint asks the
   human to run the command in their own terminal. Deny: do not retry.
 - Read-only work needs no confirmation: declare it with `--read-only`.
-  Snippets count as changes unless saved with `--read-only`.
+  Saved recipes count as changes unless saved with `--read-only`.
 - Never change `KOMANDO_HOME`: komando would use another list of servers,
   without the human's protected servers, deny rules, host keys and audit log.
 
@@ -402,8 +406,9 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 5    | FAILED                            | read `data.results[].stderr` and `exit_code` |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
 | 5    | WRITE_FAILED (a file on a server) | check that the folder is writable and has free space (`komando exec TARGET --read-only -- df -h`) |
-| 6    | POLICY_BLOCKED, PROTECTED_HOST/TARGET, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, WRITE_REQUIRES_FLAG, READ_ONLY_VIOLATION, NEEDS_PERSON, CONFIRM_REQUIRED | stop and ask the human |
-| 7    | TIMEOUT, CONNECT_TIMEOUT          | raise `--timeout` or use `job start` |
+| 6    | CONFIRM_REQUIRED, DB_BYTES_LIMIT, NEEDS_PERSON, OPEN_BIND, POLICY_BLOCKED, PROTECTED_HOST, PROTECTED_TARGET, READ_ONLY_VIOLATION, REVEAL_NEEDS_HUMAN, REVEAL_NEEDS_PERSON, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, SQL_STRING_RULES, SSH_GATE_READ_ONLY, SSH_GATE_REFUSED, UNSAFE_BACKUP, WRITE_REQUIRES_FLAG | stop and ask the human; no flag clears NEEDS_PERSON, REVEAL_NEEDS_HUMAN or SSH_GATE_*: a person runs those in their own terminal |
+| 7    | CONNECT_TIMEOUT                   | the server did not answer: check the address, `--via` or the VPN; on a slow link raise `--connect-timeout` |
+| 7    | TIMEOUT                           | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file; use exact, unique `--old` text |
 | 8    | NOT_WRITABLE (update)             | ask the human to run the `sudo` command from `error.hint` in their terminal |
 | worst of the hosts | PARTIAL_FAILURE | several hosts ran and at least one failed: read `data.results[]` per host (one target fails with its own code instead) |

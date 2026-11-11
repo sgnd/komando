@@ -32,7 +32,7 @@ code are under "Done" in each theme.
 - **Cluster**: capacity (`top` is done through `cluster run`). Done: read commands on many clusters at once (`@group`, `cluster_many.go`), read-only helm (`cluster helm ls/status/history/values`), masking of secrets in all agent output, `docker inspect` and `compose config` included.
 - **Database**: more engines (HTTP-based ones like Elasticsearch/OpenSearch and Consul), schema migrations. Done: MongoDB (`mongo.go`), SQL Server, Oracle, ClickHouse, Snowflake, BigQuery, message queues (`komando queue`: Kafka, RabbitMQ, NATS, SQS, Pub/Sub), Redis Cluster/Sentinel, TLS with your own CA (`?ca=secret:NAME`).
 - **Storage**: self-signed TLS or your own CA for S3. Done: GCS, Azure Blob, WebDAV, SMB shares, your own CA for registries, filezilla/rclone import.
-- **Platform**: `--debug`/verbose, CSV output outside `db query`, Homebrew, SBOM, Windows build, MCP server, dynamic inventory from the cloud (EC2, GCP, DO, Hetzner). Done: signed build provenance for releases, `db query --csv`, time filter in `audit` (`--since`/`--until`), sending the audit to syslog/SIEM.
+- **Platform**: `--debug`/verbose, CSV output outside `db query`, Homebrew, SBOM, Windows build, MCP server, dynamic inventory from the cloud (EC2, GCP, DO, Hetzner). Done: signed build provenance for releases, `db query -o csv`, time filter in `audit` (`--since`/`--until`), sending the audit to syslog/SIEM.
 
 ## 5. What is deliberately not built (NON-GOAL)
 

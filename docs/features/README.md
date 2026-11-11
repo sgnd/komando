@@ -16,6 +16,7 @@ New to komando? Follow these steps in order:
    menu, pick **Servers**, then web1, and pick what to do with it.
 4. Connect your AI agent: `komando guide install`
    ([Give it to your AI agent](../../README.md#give-it-to-your-ai-agent)).
+   `komando guide uninstall` takes the skill and the guard out again.
 
 Unsure about a word? See the [glossary](glossary.md).
 
@@ -27,7 +28,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Windows servers](windows.md) | run PowerShell, files, copies and services on Windows servers | `host add --os windows`, `exec`, `svc` |
 | [Moving in and moving computers](import.md) | import ssh config, .pgpass, my.cnf, .env; export to another computer | `import`, `export` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |
-| [Running commands](commands.md) | run commands and scripts, long tasks, saved commands, the menu | `exec`, `script`, `job`, `recipe`, `shell` |
+| [Running commands](commands.md) | run commands and scripts, long tasks, saved commands, the menu | `exec`, `job`, `recipe`, `shell` |
 | [Health and network checks](health.md) | what is this server, is it healthy, what can it reach, when do certificates expire | `facts`, `recipe`, `net`, `cert` |
 | [Files](files.md) | read, edit and copy files safely; copy whole folders | `fs`, `upload`, `download`, `cp`, `sync` |
 | [Services, logs, Docker, packages, users](system.md) | day-to-day administration, security updates, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |
@@ -43,6 +44,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit`, `ssh-gate` |
 | [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit verify` |
 | [Results and errors](output.md) | JSON and text output, exit codes, common errors, what is still running | `status`, `prompt`, `schema` |
+| [Error codes](error-codes.md) | every error code, its exit code and the usual next step | `schema` |
 | [Settings and files](settings.md) | settings, environment variables, where komando keeps its data, and updating komando | `config`, `doctor`, `update` |
 | [Glossary](glossary.md) | the words, in plain language | none |
 

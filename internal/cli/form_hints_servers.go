@@ -232,6 +232,6 @@ var srvNetHints = map[string]formHint{
 		args: []formArg{{ask: "Which servers or websites?", pick: "host", free: true, example: "https://shop.example.com",
 			help: "Pick a server, or type a website. Several: separate them with spaces."}},
 		flags: []formFlag{{name: "warn", ask: "Warn how long before a certificate ends?", example: "30d",
-			help: "Warns 14 days before. Empty keeps that. Or type 30d or 72h."}},
+			help: "Warns 30 days before. Empty keeps that. Or type 14d or 72h."}},
 	},
 }

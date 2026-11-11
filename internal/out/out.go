@@ -26,7 +26,7 @@ const (
 	ExitNotFound = 3 // host, key, secret, job ... not found
 	ExitConnect  = 4 // ssh connection / auth / host-key failure; CONNECTION_LOST: broke mid-command
 	ExitRemote   = 5 // remote command ran but exited non-zero
-	ExitPolicy   = 6 // blocked by safety policy (needs --yes / --allow-dangerous)
+	ExitPolicy   = 6 // blocked for safety: needs a person's yes or a person at a terminal
 	ExitTimeout  = 7 // command or connection timed out
 	ExitConflict = 8 // precondition failed (e.g. replace text not found / ambiguous)
 )

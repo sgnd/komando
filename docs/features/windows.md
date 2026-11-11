@@ -191,7 +191,7 @@ komando fs ls win1 'C:\inetpub\logs' -r --max 200
 komando fs stat win1 'C:\app\web.config' --sha256
 komando fs cat win1 'C:\app\app.log' --tail 50
 komando fs write win1 'C:\app\web.config' --from ./web.config --backup --if-changed
-komando upload @windows ./tool.exe 'C:\tools\'
+komando upload os:windows ./tool.exe 'C:\tools\'
 komando download win1 'C:\app\app.log' --to ./logs/
 ```
 
@@ -221,7 +221,7 @@ lists services that should start automatically but stopped with an error.
 
 | Works | Not yet (stops with `NOT_SUPPORTED`) |
 |-------|--------------------------------------|
-| `test`, `facts`, `exec`, `script`, `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `reboot` |
+| `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `reboot` |
 | `fs ls`, `stat`, `cat`, `write` | `fs replace`, `fs rm`, `mkdir`, `mv`, `chmod`, `sync` |
 | `upload`, `download`, `cp` (single files) | `job`, `cp -r`, `svc reload` |
 | `svc status`, `list`, `start`, `stop`, `restart`, `enable`, `disable` | `--sudo`, `--pty`, `--mode`, `--owner` |

@@ -34,7 +34,7 @@ komando update --dry-run                     # is there a newer komando?
 ```bash
 komando config set host_key_policy strict    # refuse servers you have not trusted yet
 komando config set audit_sql hash            # keep SQL text out of the history
-komando config set vpn_idle -- 0             # a value that starts with - goes after --
+komando config set vpn_idle 0                # never close a VPN for being unused
 komando config set audit_syslog tls://siem.example:6514 --yes   # also send the audit to a log server
 ```
 
@@ -180,8 +180,11 @@ right now keeps working; the next command starts the new version.
   `--yes` and the "Allow once" window), because an older komando may lack
   safety checks the newer one has. Without a VERSION, `update` never goes
   back, even when the newest release is older than the komando you run.
-- A komando built from source (`make build`, `go build`) is not replaced
-  (`SOURCE_BUILD`): build it again instead.
+- A komando built from source that is not a release (`make build`, or
+  `go build` of a commit between releases) is not replaced
+  (`SOURCE_BUILD`): build it again instead. One that reports a release
+  version (`go install ...@v0.11.0`, or `go build` at a release tag)
+  counts as that release, and `update` replaces it.
 - When GitHub answers with an error (HTTP 5xx) or the connection drops, it
   tries twice more. `--timeout` (default 10 minutes) limits the whole update.
 - It honours `HTTPS_PROXY`. `sudo` drops that variable; keep it with

@@ -216,8 +216,9 @@ destination ending in `/` counts as an existing folder.
 
 `--sudo` works for single files only (downloads up to 512 MiB). For a
 root-owned folder, upload it to a place you own and move it with
-`komando exec web1 --sudo -- cp -r /tmp/site/. /var/www/site/`, or use
-`komando sync` for repeatable deploys.
+`komando exec web1 --sudo -- cp -r /tmp/site/. /var/www/site/`. `komando
+sync` has no `--sudo` either: it writes only where the login user may
+write.
 
 Symbolic links are not copied; they are listed as `skipped`. When some files
 in a folder cannot be read, the rest are still copied; the result lists the

@@ -56,7 +56,7 @@ OpenVPN 3 library) does not qualify.
 | OpenVPN / Pritunl | Docker, or `openvpn` with sudo | komando's own OpenVPN client in Go, on the same userspace network stack WireGuard uses ✅ | XL |
 | AnyConnect / ocserv | `openconnect` + `ocproxy` | own client (CSTP over TLS, DTLS) on the userspace stack ✅ | L |
 | Fortinet SSL VPN | `openconnect` + `ocproxy` | own client (HTTPS login, PPP over TLS) 🧪 | L |
-| GlobalProtect | `openconnect` + `ocproxy` | own client (HTTPS login, GPST over TLS, ESP over UDP) 🧪 | XL |
+| GlobalProtect | `openconnect` + `ocproxy` | own client (HTTPS login, browser sign-in, GPST over TLS, ESP over UDP) ✅ on Prisma Access | XL |
 | F5 BIG-IP | `openconnect` + `ocproxy` | own client (HTTPS login, PPP over TLS) 🧪 | L |
 | Pulse / Ivanti | `openconnect` + `ocproxy` | own client (IF-T/TLS, EAP) 🧪 | XL |
 | Docker credential helpers (registry logins saved by `docker login`) | `docker-credential-*` | read the person's saved Docker logins directly where the store is a file; OS keychain stores stay through their helper (the keychain needs cgo or the OS tool) ✅ | S |
@@ -123,7 +123,7 @@ AWS SSM sessions as a built-in proxy; Docker credential files.
 | Case | Risk | Decision |
 |---|---|---|
 | Binary grows (tsnet, AWS SDK, Kubernetes protocols) | Bigger download | Accepted: no size limit (vision decision 4). Measured per phase and noted |
-| Package start-up (`init`) of big SDKs | Every command gets slower, also `komando prompt` (30 ms today, 20 ms of that start-up) | Prefer small REST clients over full SDKs (GCP: REST, not gRPC; Vault: REST). Measure `GODEBUG=inittrace=1` per phase; budget: `komando prompt` stays under 50 ms |
+| Package start-up (`init`) of big SDKs | Every command gets slower, also `komando status --short` (30 ms today, 20 ms of that start-up) | Prefer small REST clients over full SDKs (GCP: REST, not gRPC; Vault: REST). Measure `GODEBUG=inittrace=1` per phase; budget: `komando status --short` stays under 50 ms |
 | Memory of a userspace VPN | A long session holds a network stack | Same as WireGuard today; measured in the VPN e2e |
 
 ### Security
@@ -168,16 +168,23 @@ AnyConnect over TLS and DTLS (ocserv; DTLS 1.2 with the PSK-NEGOTIATE key,
 packets checked to go over UDP) and Kubernetes exec, terminal and
 port-forward over SPDY (k3s 1.29, which refuses the WebSocket).
 
-Built in, experimental (🧪): Fortinet, GlobalProtect, F5 and Pulse/Ivanti
-(tested only against fake servers written from the protocols), AWS SSM
+Built in and tried against a real server: GlobalProtect (a Prisma Access
+portal and gateway, with the browser sign-in and Cloud Authentication
+Service, 2026-11-10). Gateways behind a load balancer and the HIP check are
+not built.
+
+Built in, experimental (🧪): Fortinet, F5 and Pulse/Ivanti (tested only
+against fake servers written from the protocols), AWS SSM
 sessions (fake agent; the KMS data key against moto's KMS). Each is used
 only where nothing worked before (its old program is missing) or when asked
 for with `KOMANDO_EXPERIMENTAL_VPN` / `KOMANDO_EXPERIMENTAL`.
 
 Still to do:
 
-- Fortinet, GlobalProtect, F5, Pulse/Ivanti: try them against real
-  appliances, then make them the default. Pulse's vendor parts (the
+- Fortinet, F5, Pulse/Ivanti: try them against real appliances, then make
+  them the default.
+- GlobalProtect: Prisma Access gateways behind a load balancer, and the
+  HIP check. Pulse's vendor parts (the
   Juniper EAP attributes and configuration layout) have no public
   specification, so its client is the most likely to need fixes there.
 - Pulse/Ivanti: client certificate logins (EAP-TTLS) and Host Checker are

@@ -16,16 +16,16 @@ komando registry copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2   # copy betwee
 komando registry rm harbor myorg/api:old --dry-run                 # what a delete would remove
 ```
 
-`ls` and `inspect` only read. `copy` writes to the destination. `rm`
-deletes and needs `--allow-dangerous`.
+`ls` and `inspect` only read. `copy` writes to the destination. `rm` and
+`prune` delete and need `--allow-dangerous`.
 
 ## Add a registry
 
 ```bash
 komando import docker                         # from ~/.docker/config.json
-komando secret set ghcr-token                 # or add one by hand
-komando conn add ghcr registry://myuser@ghcr.io --password-ref secret:ghcr-token
-komando conn add local 'registry://me@registry.lan:5000?tls=false' --via bastion   # no TLS, behind a bastion
+komando registry add ghcr registry://myuser@ghcr.io --ask-password   # or add one by hand: asks for the token
+komando registry add ghcr registry://myuser@ghcr.io --password-ref secret:ghcr-token   # a token you stored with secret set
+komando registry add local 'registry://me@registry.lan:5000?tls=false' --via bastion   # no TLS, behind a bastion
 ```
 
 The password is usually an access token. It needs read rights to look,
@@ -39,7 +39,7 @@ with your usual AWS login (no aws CLI needed). Leave out `--password-ref`
 and name the AWS profile:
 
 ```bash
-komando conn add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws.com --option aws_profile=prod
+komando registry add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws.com --option aws_profile=prod
 ```
 
 If the SSO login has expired, the error is `AWS_LOGIN_REQUIRED`: a person
@@ -52,7 +52,7 @@ way `az acr login` does: it gets an Azure token and trades it with the registry 
 hours. It does this each time, keeps nothing, and needs no `az` program:
 
 ```bash
-komando conn add acr registry://myregistry.azurecr.io
+komando registry add acr registry://myregistry.azurecr.io
 komando test acr
 ```
 
@@ -92,7 +92,7 @@ file), the login from `gcloud auth application-default login`, or the
 machine's service account on Google Cloud. No `gcloud` program is needed:
 
 ```bash
-komando conn add gar registry://europe-west1-docker.pkg.dev
+komando registry add gar registry://europe-west1-docker.pkg.dev
 komando registry ls gar my-project/my-repo/api
 ```
 
@@ -101,7 +101,7 @@ and name the user `_json_key`:
 
 ```bash
 komando secret set gar-key < key.json
-komando conn add gar registry://_json_key@europe-west1-docker.pkg.dev --password-ref secret:gar-key
+komando registry add gar registry://_json_key@europe-west1-docker.pkg.dev --password-ref secret:gar-key
 ```
 
 The login needs the Artifact Registry Reader role to look, Writer to copy
@@ -121,8 +121,8 @@ an internal CA) is refused with `REGISTRY_TLS`. Two ways to fix it:
 
 ```bash
 komando secret set lan-ca < ca.crt            # 1. preferred: trust that CA (its PEM certificate), the check stays on
-komando conn add lan 'registry://me@registry.lan?ca=secret:lan-ca' --password-ref secret:lan-token
-komando conn add lan 'registry://me@registry.lan?tls=skip-verify' --password-ref secret:lan-token   # 2. no check at all
+komando registry add lan 'registry://me@registry.lan?ca=secret:lan-ca' --password-ref secret:lan-token
+komando registry add lan 'registry://me@registry.lan?tls=skip-verify' --password-ref secret:lan-token   # 2. no check at all
 ```
 
 | URL option | What it does |
@@ -145,7 +145,7 @@ gets a new certificate, store the new one.
 
 ```bash
 komando secret set lan-cert < registry.crt    # the registry's own certificate, PEM
-komando conn add lan 'registry://me@registry.lan?ca=secret:lan-cert'
+komando registry add lan 'registry://me@registry.lan?ca=secret:lan-cert'
 ```
 
 ### When DNS points somewhere else
@@ -160,7 +160,7 @@ server on the `--via` path, and that server looks it up, so its
 still use the name in the URL:
 
 ```bash
-komando conn add app-registry 'registry://me@registry.example.com?ca=secret:app-ca' --via web1
+komando registry add app-registry 'registry://me@registry.example.com?ca=secret:app-ca' --via web1
 ```
 
 With `?resolve=`: if you can reach the registry from your computer, you do
@@ -171,8 +171,8 @@ checked against the name (with or without `ca=`), or not checked at all
 with `tls=skip-verify`:
 
 ```bash
-komando conn add app-registry 'registry://me@registry.example.com?ca=secret:app-ca&resolve=203.0.113.10'
-komando conn add lan-registry 'registry://me@registry.lan?tls=skip-verify&resolve=203.0.113.20'
+komando registry add app-registry 'registry://me@registry.example.com?ca=secret:app-ca&resolve=203.0.113.10'
+komando registry add lan-registry 'registry://me@registry.lan?tls=skip-verify&resolve=203.0.113.20'
 komando test app-registry
 ```
 

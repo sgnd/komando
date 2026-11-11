@@ -1,6 +1,6 @@
 # komando vision and roadmap
 
-Status: **approved, 2026-11-02; milestones M2–M7 done** (shipped in releases up to v0.3.1) (see [Decisions](#decisions-and-open-questions)). This document replaces the old goal ("an SSH CLI
+Status: **approved, 2026-11-02; milestones M2–M7 done** (shipped in releases up to v0.3.1); the releases since then, up to v0.11.0, added the work in the "After M7" row of the [Roadmap](#roadmap) (see [Decisions](#decisions-and-open-questions)). This document replaces the old goal ("an SSH CLI
 for AI agents") with a new goal. The design for each feature stays in its own
 document, for example [resources-and-db.md](resources-and-db.md).
 
@@ -50,9 +50,9 @@ compared with other tools).
 | `storage` (S3, GCS, Azure Blob, WebDAV, FTP/FTPS, SFTP, SMB: ls/cat/download/upload/rm/link, and `komando sync`) | ✅ done |
 | `queue` (Kafka, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub) | ✅ done ([queue.md](queue.md)) |
 | Windows servers over SSH or WinRM | ✅ built, not yet run on a real Windows server ([windows.md](windows.md)) |
-| `cluster` (Kubernetes, Docker Swarm) | ✅ done, `cluster run`/exec/forward built in (no kubectl) |
-| `registry` (ls, inspect, rm, copy) | ✅ done |
-| `vpn` (WireGuard, OpenVPN/Pritunl, AnyConnect, Tailscale, L2TP/IPsec, Cisco-style IPsec, IKEv2, SOCKS, HTTP proxy, OS VPN; Fortinet, GlobalProtect, F5, Pulse/Ivanti experimental) | ✅ done, built in |
+| `cluster` (Kubernetes, Docker Swarm) | ✅ done, `cluster run`/exec/forward built in (no kubectl); `deploy`, `rollback` and `history`; Helm releases read without helm |
+| `registry` (ls, inspect, rm, copy, prune) | ✅ done |
+| `vpn` (WireGuard, OpenVPN/Pritunl, AnyConnect, Tailscale, L2TP/IPsec, Cisco-style IPsec, IKEv2, SOCKS, HTTP proxy, OS VPN; GlobalProtect tried on Prisma Access; Fortinet, F5, Pulse/Ivanti experimental) | ✅ done, built in |
 | Secret refs (`vault:`, `aws-sm:`, `gcp-sm:`, `azure-kv:`, `op://` through 1Password Connect, `bw://`, `kdbx:`) | ✅ done, built in |
 | One inventory: universal selectors, `komando list`, `komando test` | ✅ done |
 | Migration | ✅ `import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, aws, dbeaver, komando, csv) and `export` |
@@ -159,7 +159,7 @@ komando export [--to FILE]          # the whole inventory, without secrets
 
 | SOURCE | Reads | Result |
 |---|---|---|
-| `ssh-config` | `~/.ssh/config` | host (already in `host import`) |
+| `ssh-config` | `~/.ssh/config` | host |
 | `kubeconfig` | `~/.kube/config` | a `k8s` conn per context |
 | `pgpass`, `mycnf` | `~/.pgpass`, `~/.my.cnf` | `db` conn + password into the vault |
 | `aws` | `~/.aws/config` + `credentials` | `storage` conn per bucket, using the AWS profile (`aws_profile`); no key is copied |
@@ -173,7 +173,7 @@ komando export [--to FILE]          # the whole inventory, without secrets
 
 The rules: imported secrets **always go into the vault**, `--dry-run` shows
 what will be created, and existing entries are not overwritten except with
-`--overwrite`. `host import` keeps working.
+`--overwrite`. `host import` is now an old name of it.
 
 ## Technical rules
 
@@ -197,16 +197,18 @@ what will be created, and existing entries are not overwritten except with
 
 The milestones M2 to M7 are steps of work, not release numbers: all of them
 shipped in the releases up to v0.3.1 (see [CHANGELOG.md](../../CHANGELOG.md)).
-Next: v1.0.
+The releases after that, up to v0.11.0, are in the "After M7" row. Next:
+v1.0.
 
 | Milestone | Contents | Goals reached |
 |---|---|---|
 | **M2** ✅ | `db`, `cache`, `storage` (S3), one inventory (`list`, `test`, selectors for everything), UX rules, new positioning | 1, 3, 4 |
 | **M3** ✅ | Overlaps removed (`--via` for everything, `upload`/`download`, `recipe`, `host/conn list/test` aliases, `logs`); `tunnel start TARGET`; `komando import` (ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, dbeaver, komando) and `export`; `logs --follow` | 1, 4 |
 | **M4** ✅ | `komando vpn`: WireGuard in-process; SOCKS; OpenVPN/Pritunl and the openconnect family (both later replaced by built-in clients); Tailscale userspace; OS VPN through `--service`; `vpn up/down/status` sessions, automatic disconnect when idle; MFA always done by a person | 1, 3, 4 |
-| **M5** ✅ | `cluster` for Kubernetes (direct API, through `--via`/VPN) and Docker Swarm: status, ls, get, logs, apply, restart, scale, rm, `run` | 2, 3 |
-| **M6** ✅ | `registry` (ls, inspect, rm, copy) | 3 |
+| **M5** ✅ | `cluster` for Kubernetes (direct API, through `--via`/VPN) and Docker Swarm: status, ls, get, logs, apply, restart, scale, rm, `run`, describe, events, exec, forward, shell, deploy, rollback, history and Helm reads | 2, 3 |
+| **M6** ✅ | `registry` (ls, inspect, rm, copy, prune) | 3 |
 | **M7** ✅ | `storage` for FTP/FTPS/SFTP; external secret refs (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`); `db shell` | 3, 4 |
+| **After M7** ✅ (v0.4.0 to v0.11.0) | `queue` (Kafka, RabbitMQ, NATS JetStream, SQS, Pub/Sub); Windows servers over OpenSSH and WinRM; SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB; SMB shares; `komando update`; `rename --prefix`; `ssh-gate`; `login HOST` for two-factor servers; the menu and guided forms for people; `fs restore`; GlobalProtect browser sign-in | 1, 2, 3, 4 |
 | **Built in** ✅ | Features work with the komando binary alone (no Docker, kubectl, psql/pg_dump, openvpn, openconnect, aws/vault/gcloud/op CLIs), fully open source; what is left is in [built-in.md](built-in.md#where-it-stands-2026-11-03) | 1, 4 |
 | **v1.0** | Contract frozen (`schema` version 1), every family passes the checklist, complete documentation in English (the project is English-only; the Indonesian translations were removed) | all |
 

@@ -313,7 +313,7 @@ func configCmd() *cobra.Command {
 	set := &cobra.Command{
 		Use:   "set KEY VALUE",
 		Short: "Change a setting",
-		Long:  "Settings:\n" + keysHelp.String() + "\nA value that starts with - goes after --: komando config set vpn_idle -- 0",
+		Long:  "Settings:\n" + keysHelp.String() + "\nTo go back to a default, set the value from the DEFAULT column of `komando config show`.",
 		Example: `  komando config set parallel 20
   komando config set default_timeout 10m
   komando config set host_key_policy strict

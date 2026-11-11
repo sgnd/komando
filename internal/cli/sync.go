@@ -516,8 +516,8 @@ func syncCmd() *cobra.Command {
 		Short: "Copy a folder one way, sending only new and changed files",
 		Long: `One side is a folder on this computer; the other is TARGET:PATH on servers
 (many at once: @web:/var/www/site) or CONN:PREFIX in a storage conn (a bucket
-or a file server). Files that are new, a different size, or newer in SRC are
-copied; the rest are left alone. --delete also removes files SRC no longer has
+or a file server). Files that are new, a different size or file mode, or
+newer in SRC are copied; the rest are left alone. --delete also removes files SRC no longer has
 (that needs --allow-dangerous). --exclude skips names or paths (shell globs,
 repeatable). Try --dry-run first: it lists every file it would touch.`,
 		Example: `  komando sync ./site @web:/var/www/site --exclude .git --dry-run
