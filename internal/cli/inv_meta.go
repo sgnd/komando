@@ -219,6 +219,53 @@ func policyCmd() *cobra.Command {
 			return nil
 		},
 	})
+	c.AddCommand(policyCheckCmd())
+	c.AddCommand(&cobra.Command{
+		Use:     "deny REGEX",
+		Short:   "Add a custom deny pattern (Go regexp)",
+		Example: `  komando policy deny 'kubectl\s+delete'`,
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pat := args[0]
+			if strings.TrimSpace(pat) == "" {
+				return out.Errf(out.ExitUsage, "USAGE", `give a regular expression, e.g. 'kubectl\s+delete'`, "empty pattern: it would match every command")
+			}
+			if err := checkRegex(pat); err != nil {
+				return out.Errf(out.ExitUsage, "USAGE", "the pattern is a Go regular expression (https://pkg.go.dev/regexp/syntax)", "invalid regex: %v", err)
+			}
+			if regexp.MustCompile(pat).MatchString("") {
+				return out.Errf(out.ExitUsage, "USAGE", `give a pattern that needs some text to match, e.g. 'kubectl\s+delete'`, "the pattern %s matches empty text, so it would match every command", pat)
+			}
+			var pats []string
+			added := false
+			err := store.Update(func(s *store.State) error {
+				added = !slices.Contains(s.Settings.ExtraDenyPattern, pat)
+				if added {
+					s.Settings.ExtraDenyPattern = append(s.Settings.ExtraDenyPattern, pat)
+				}
+				pats = s.Settings.ExtraDenyPattern
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+			if added {
+				audit(nil, "policy.deny", nil, "", true, map[string]any{"pattern": pat})
+			}
+			out.P.Print("policy.deny", policyChange{Custom: pats, Added: &added, pattern: pat}, nil)
+			return nil
+		},
+	})
+	rm := policyRmCmd()
+	allow := policyRmCmd() // the old name, kept so scripts keep working
+	allow.Use, allow.Hidden = "allow PATTERN|ID", true
+	c.AddCommand(rm, allow)
+	return c
+}
+
+// policyCheckCmd is `policy check`: whether a shell command would be
+// blocked, or with --for how risky a statement is for a conn kind.
+func policyCheckCmd() *cobra.Command {
 	var kind string
 	check := &cobra.Command{
 		Use:   "check COMMAND",
@@ -289,48 +336,7 @@ func policyCmd() *cobra.Command {
 		},
 	}
 	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: "+strings.Join(policyCheckKinds(), ", ")+" (a command document as JSON)")
-	c.AddCommand(check)
-	c.AddCommand(&cobra.Command{
-		Use:     "deny REGEX",
-		Short:   "Add a custom deny pattern (Go regexp)",
-		Example: `  komando policy deny 'kubectl\s+delete'`,
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			pat := args[0]
-			if strings.TrimSpace(pat) == "" {
-				return out.Errf(out.ExitUsage, "USAGE", `give a regular expression, e.g. 'kubectl\s+delete'`, "empty pattern: it would match every command")
-			}
-			if err := checkRegex(pat); err != nil {
-				return out.Errf(out.ExitUsage, "USAGE", "the pattern is a Go regular expression (https://pkg.go.dev/regexp/syntax)", "invalid regex: %v", err)
-			}
-			if regexp.MustCompile(pat).MatchString("") {
-				return out.Errf(out.ExitUsage, "USAGE", `give a pattern that needs some text to match, e.g. 'kubectl\s+delete'`, "the pattern %s matches empty text, so it would match every command", pat)
-			}
-			var pats []string
-			added := false
-			err := store.Update(func(s *store.State) error {
-				added = !slices.Contains(s.Settings.ExtraDenyPattern, pat)
-				if added {
-					s.Settings.ExtraDenyPattern = append(s.Settings.ExtraDenyPattern, pat)
-				}
-				pats = s.Settings.ExtraDenyPattern
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-			if added {
-				audit(nil, "policy.deny", nil, "", true, map[string]any{"pattern": pat})
-			}
-			out.P.Print("policy.deny", policyChange{Custom: pats, Added: &added, pattern: pat}, nil)
-			return nil
-		},
-	})
-	rm := policyRmCmd()
-	allow := policyRmCmd() // the old name, kept so scripts keep working
-	allow.Use, allow.Hidden = "allow PATTERN|ID", true
-	c.AddCommand(rm, allow)
-	return c
+	return check
 }
 
 // policyCheckKinds are the kinds policy check --for rates.

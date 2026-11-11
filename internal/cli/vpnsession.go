@@ -119,6 +119,18 @@ func installHint(bin string) string {
 	return "install the " + pkg + " package (apt, dnf, ...)"
 }
 
+// vpnUpPlan is what vpn up --dry-run prints. A VPN that needs a person,
+// with nobody at the terminal, would not connect: VPN_LOGIN_REQUIRED goes
+// to meta.would_be_blocked.
+func vpnUpPlan(v *store.Vpn) map[string]any {
+	res := map[string]any{"vpn": v.Name, "kind": v.Kind, "would_connect": true}
+	if (netx.Kinds[v.Kind].Session || v.Kind == "wireguard") && needsPersonLogin(v) && !interactive() {
+		res["would_connect"] = false
+		out.P.WouldBlock(toErr(netx.LoginRequired(v)))
+	}
+	return res
+}
+
 // needsPersonLogin: connecting v needs a person to log in, so startSession
 // refuses it with VPN_LOGIN_REQUIRED when nobody is at the terminal.
 func needsPersonLogin(v *store.Vpn) bool {
@@ -492,12 +504,7 @@ func vpnUpCmd() *cobra.Command {
 				return nil
 			}
 			if g.dryRun {
-				res := map[string]any{"vpn": v.Name, "kind": v.Kind, "would_connect": true}
-				if (netx.Kinds[v.Kind].Session || v.Kind == "wireguard") && needsPersonLogin(v) && !interactive() {
-					res["would_connect"] = false
-					out.P.WouldBlock(toErr(netx.LoginRequired(v)))
-				}
-				out.P.Print("vpn.up", res, nil)
+				out.P.Print("vpn.up", vpnUpPlan(v), nil)
 				return nil
 			}
 			// VPNs that change this computer's routes get a before/after

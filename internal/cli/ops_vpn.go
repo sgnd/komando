@@ -170,9 +170,7 @@ func socksTunnel(st *store.State, addr string) string {
 }
 
 func vpnEditCmd() *cobra.Command {
-	var check, address, service, user, passwordRef, notes, server, pskRef, localID, remoteID, portal, ca string
-	var addGroups, rmGroups, addTags, rmTags []string
-	var mfa, legacyCrypto, allowPAP bool
+	var e vpnEditFlags
 	c := &cobra.Command{
 		Use:   "edit NAME",
 		Short: "Change a VPN's check address, server, portal, proxy, login or notes",
@@ -188,30 +186,25 @@ tag, as in host edit; --rm-group and --rm-tag take one away.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f := cmd.Flags()
-			changed := false
-			for _, n := range []string{"check", "address", "service", "user", "password-ref", "notes", "group", "add-group", "rm-group", "tag", "add-tag", "rm-tag",
-				"mfa", "server", "portal", "ca", "psk-ref", "id", "remote-id", "legacy-crypto", "allow-pap"} {
-				changed = changed || f.Changed(n)
-			}
-			if !changed {
+			if len(changedFlags(cmd)) == 0 {
 				return out.Usage("nothing to change: give at least one of --check, --address, --service, --server, --portal, --user, --password-ref, --psk-ref, --id, --remote-id, --ca, --mfa, --legacy-crypto, --allow-pap, --notes, -g, --rm-group, -t, --rm-tag")
 			}
-			if err := editConflicts(f, nil, nil, [][2][]string{{addGroups, rmGroups}, {addTags, rmTags}}); err != nil {
+			if err := editConflicts(f, nil, nil, [][2][]string{{e.addGroups, e.rmGroups}, {e.addTags, e.rmTags}}); err != nil {
 				return err
 			}
-			if f.Changed("portal") && (portal == "" || strings.HasPrefix(portal, "-")) {
+			if f.Changed("portal") && (e.portal == "" || strings.HasPrefix(e.portal, "-")) {
 				return out.Usage("--portal must be a server name or URL")
 			}
-			if check != "" {
-				if _, _, err := net.SplitHostPort(check); err != nil {
+			if e.check != "" {
+				if _, _, err := net.SplitHostPort(e.check); err != nil {
 					return out.Usage("--check must be host:port")
 				}
 			}
-			if passwordRef != "" && !vault.ValidRef(passwordRef) {
-				return out.Usage("invalid --password-ref %q: %s", passwordRef, vault.RefHelp())
+			if e.passwordRef != "" && !vault.ValidRef(e.passwordRef) {
+				return out.Usage("invalid --password-ref %q: %s", e.passwordRef, vault.RefHelp())
 			}
-			if pskRef != "" && !vault.ValidRef(pskRef) {
-				return out.Usage("invalid --psk-ref %q: %s", pskRef, vault.RefHelp())
+			if e.pskRef != "" && !vault.ValidRef(e.pskRef) {
+				return out.Usage("invalid --psk-ref %q: %s", e.pskRef, vault.RefHelp())
 			}
 			var res *store.Vpn
 			apply := func(s *store.State) error {
@@ -232,60 +225,60 @@ tag, as in host edit; --rm-group and --rm-tag take one away.`,
 				}
 				if f.Changed("address") {
 					var err error
-					if v.Address, err = vpnAddress(v.Kind, address); err != nil {
+					if v.Address, err = vpnAddress(v.Kind, e.address); err != nil {
 						return err
 					}
 				}
 				if f.Changed("check") {
-					if check == "" && oneOf(v.Kind, "system", "openvpn") {
+					if e.check == "" && oneOf(v.Kind, "system", "openvpn") {
 						return out.Usage("%s VPNs need --check", v.Kind)
 					}
-					v.Check = check
+					v.Check = e.check
 				}
 				if f.Changed("service") {
-					v.Service = service
+					v.Service = e.service
 				}
 				if f.Changed("server") {
-					if server == "" || strings.HasPrefix(server, "-") || strings.Contains(server, "/") {
+					if e.server == "" || strings.HasPrefix(e.server, "-") || strings.Contains(e.server, "/") {
 						return out.Usage("--server must be a host name or address (host or host:port)")
 					}
-					v.Server = server
+					v.Server = e.server
 				}
 				if f.Changed("portal") {
-					v.Portal = portal
+					v.Portal = e.portal
 				}
 				if f.Changed("ca") {
 					var err error
-					if v.CA, err = readVpnCA(ca); err != nil {
+					if v.CA, err = readVpnCA(e.ca); err != nil {
 						return err
 					}
 				}
 				if f.Changed("psk-ref") {
-					if pskRef == "" && v.Kind != "ikev2" {
+					if e.pskRef == "" && v.Kind != "ikev2" {
 						return out.Usage("%s VPNs need --psk-ref", v.Kind)
 					}
-					v.PSKRef = pskRef
+					v.PSKRef = e.pskRef
 				}
 				if f.Changed("id") {
-					v.LocalID = localID
+					v.LocalID = e.localID
 				}
 				if f.Changed("remote-id") {
-					v.RemoteID = remoteID
+					v.RemoteID = e.remoteID
 				}
 				if f.Changed("user") {
-					v.User = user
+					v.User = e.user
 				}
 				if f.Changed("password-ref") {
-					v.KeyRef = passwordRef
+					v.KeyRef = e.passwordRef
 				}
 				if f.Changed("mfa") {
-					v.MFA = mfa
+					v.MFA = e.mfa
 				}
 				if f.Changed("notes") {
-					v.Notes = notes
+					v.Notes = e.notes
 				}
-				v.Groups = dedupe(append(removeFold(v.Groups, rmGroups), addGroups...))
-				v.Tags = dedupe(append(removeFold(v.Tags, rmTags), addTags...))
+				v.Groups = dedupe(append(removeFold(v.Groups, e.rmGroups), e.addGroups...))
+				v.Tags = dedupe(append(removeFold(v.Tags, e.rmTags), e.addTags...))
 				v.UpdatedAt = time.Now().UTC()
 				res = &v
 				if !g.dryRun {
@@ -293,7 +286,7 @@ tag, as in host edit; --rm-group and --rm-tag take one away.`,
 				}
 				return nil
 			}
-			apply = withVpnGuards(args[0], f.Changed, &res, legacyCrypto, allowPAP, apply)
+			apply = withVpnGuards(args[0], f.Changed, &res, e.legacyCrypto, e.allowPAP, apply)
 			if g.dryRun {
 				st, err := loadState()
 				if err != nil {
@@ -318,29 +311,41 @@ tag, as in host edit; --rm-group and --rm-tag take one away.`,
 			return nil
 		},
 	}
+	e.bind(c)
+	return c
+}
+
+// vpnEditFlags are vpn edit's flags.
+type vpnEditFlags struct {
+	check, address, service, user, passwordRef, notes, server, pskRef, localID, remoteID, portal, ca string
+	addGroups, rmGroups, addTags, rmTags                                                             []string
+	mfa, legacyCrypto, allowPAP                                                                      bool
+}
+
+func (e *vpnEditFlags) bind(c *cobra.Command) {
 	f := c.Flags()
-	f.StringVar(&check, "check", "", "host:port reachable only through this VPN")
-	f.StringVar(&address, "address", "", "SOCKS: host:port of the proxy")
-	f.StringVar(&service, "service", "", "System VPN: its name in your computer's settings")
-	f.StringVar(&server, "server", "", "L2TP, IPsec, IKEv2: the VPN server")
-	f.StringVar(&portal, "portal", "", "GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal")
-	f.StringVar(&ca, "ca", "", "IKEv2: the CA certificate (PEM) that signed the server's certificate; \"\" for a public one")
-	f.StringVar(&pskRef, "psk-ref", "", "L2TP, IPsec, IKEv2: the pre-shared key (IPsec: the group password)")
-	f.StringVar(&localID, "id", "", "IPsec: the group name; IKEv2: your identity")
-	f.StringVar(&remoteID, "remote-id", "", "IKEv2: the server's identity")
-	f.StringVar(&user, "user", "", "user name for the VPN login")
-	f.StringVar(&passwordRef, "password-ref", "", "password as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
-	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO)")
-	f.BoolVar(&legacyCrypto, "legacy-crypto", false, "L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; turning it on needs a person's yes)")
-	f.BoolVar(&allowPAP, "allow-pap", false, "L2TP: let the server pick PAP, which hands it your password itself (turning it on needs a person's yes)")
-	f.StringVar(&notes, "notes", "", "free-form notes")
-	f.StringSliceVar(&addGroups, "add-group", nil, "put it in these groups (comma-separated)")
-	f.StringSliceVar(&rmGroups, "rm-group", nil, "take it out of these groups")
-	f.StringSliceVar(&addTags, "add-tag", nil, "add these tags (comma-separated)")
-	f.StringSliceVar(&rmTags, "rm-tag", nil, "remove these tags")
+	f.StringVar(&e.check, "check", "", "host:port reachable only through this VPN")
+	f.StringVar(&e.address, "address", "", "SOCKS: host:port of the proxy")
+	f.StringVar(&e.service, "service", "", "System VPN: its name in your computer's settings")
+	f.StringVar(&e.server, "server", "", "L2TP, IPsec, IKEv2: the VPN server")
+	f.StringVar(&e.portal, "portal", "", "GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal")
+	f.StringVar(&e.ca, "ca", "", "IKEv2: the CA certificate (PEM) that signed the server's certificate; \"\" for a public one")
+	f.StringVar(&e.pskRef, "psk-ref", "", "L2TP, IPsec, IKEv2: the pre-shared key (IPsec: the group password)")
+	f.StringVar(&e.localID, "id", "", "IPsec: the group name; IKEv2: your identity")
+	f.StringVar(&e.remoteID, "remote-id", "", "IKEv2: the server's identity")
+	f.StringVar(&e.user, "user", "", "user name for the VPN login")
+	f.StringVar(&e.passwordRef, "password-ref", "", "password as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
+	f.BoolVar(&e.mfa, "mfa", false, "the login needs a person (MFA, SSO)")
+	f.BoolVar(&e.legacyCrypto, "legacy-crypto", false, "L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; turning it on needs a person's yes)")
+	f.BoolVar(&e.allowPAP, "allow-pap", false, "L2TP: let the server pick PAP, which hands it your password itself (turning it on needs a person's yes)")
+	f.StringVar(&e.notes, "notes", "", "free-form notes")
+	f.StringSliceVar(&e.addGroups, "add-group", nil, "put it in these groups (comma-separated)")
+	f.StringSliceVar(&e.rmGroups, "rm-group", nil, "take it out of these groups")
+	f.StringSliceVar(&e.addTags, "add-tag", nil, "add these tags (comma-separated)")
+	f.StringSliceVar(&e.rmTags, "rm-tag", nil, "remove these tags")
 	shortAlias(f, "group", "g", "add-group")
 	shortAlias(f, "tag", "t", "add-tag")
-	return c
+
 }
 
 // withVpnGuards adds to vpn edit's apply what needs a person: turning on

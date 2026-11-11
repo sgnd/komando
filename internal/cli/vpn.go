@@ -245,14 +245,7 @@ Which flags go with which VPN:
 			}
 			now := time.Now().UTC()
 			v.CreatedAt, v.UpdatedAt = now, now
-			// the secrets this add stores itself are not there yet: no warning for them
-			notStored := func(ref string, asked bool) string {
-				if _, own := secrets[strings.TrimPrefix(ref, "secret:")]; own && strings.HasPrefix(ref, "secret:") {
-					return ""
-				}
-				return unlessAsked(ref, asked)
-			}
-			warnings := append(refWarnings(notStored(v.KeyRef, askPw), notStored(v.PSKRef, askPsk)), ovpnWarn...)
+			warnings := append(refWarnings(notStored(v.KeyRef, secrets, askPw), notStored(v.PSKRef, secrets, askPsk)), ovpnWarn...)
 			// the name and the VPN's vault secrets, and what needs a person: a weaker login, a secret sent to a new place
 			check := func(s *store.State) error {
 				if err := vpnAddCheck(s, name, secrets, overwrite); err != nil {
@@ -288,14 +281,13 @@ Which flags go with which VPN:
 			}
 			audit(nil, "vpn.add", []string{name}, "", true, map[string]any{"kind": kind, "mfa": v.MFA})
 			res := map[string]any{"vpn": v, "next": "komando vpn up " + name}
-			notes := vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"]))
-			if len(notes) > 0 {
+			if notes := vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])); len(notes) > 0 {
 				res["notes"] = notes
 			}
 			if len(warnings) > 0 {
 				res["warnings"] = warnings
 			}
-			out.P.Print("vpn.add", textAs{res, vpnChangeText{verb: "added", v: v, notes: notes, warnings: warnings, next: "komando vpn up " + name}}, nil)
+			out.P.Print("vpn.add", textAs{res, vpnChangeText{verb: "added", v: v, notes: vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])), warnings: warnings, next: "komando vpn up " + name}}, nil)
 			return nil
 		},
 	}
@@ -489,6 +481,17 @@ func unlessAsked(ref string, asked bool) string {
 		return ""
 	}
 	return ref
+}
+
+// notStored is unlessAsked that also leaves out the secrets vpn add stores
+// itself (secrets): they are not in the vault yet when it checks.
+func notStored(ref string, secrets map[string]string, asked bool) string {
+	if n, ok := strings.CutPrefix(ref, "secret:"); ok {
+		if _, own := secrets[n]; own {
+			return ""
+		}
+	}
+	return unlessAsked(ref, asked)
 }
 
 // vpnAskPassword asks the password and the pre-shared key of vpn add
