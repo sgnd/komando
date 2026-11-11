@@ -214,6 +214,8 @@ var errorCodes = []errorCode{
 	{"SQL_HIDDEN_CODE", 2, "-- is followed by a non-ASCII byte", "put a space after -- to start a comment: whether this one starts a comment depends on the server's character set"},
 	{"SQL_STRING_RULES", 6, "this user's queries are read as …, not ClickHouse SQL", "komando checks ClickHouse SQL; use a user whose settings profile keeps dialect = 'clickhouse'"},
 	{"SQL_TX_CONTROL", 2, "… is not allowed in komando db", "leave transactions to komando: without --write it runs a read-only transaction, with --write one transaction that --dry-run rolls back"},
+	{"SSH_AGENT_NEEDED", 2, "a key komando made is sealed in its store and never written to a file, so OpenSSH gets it from a running ssh-agent, and none was found (SSH_AUTH_SOCK)", "start one with `eval \"$(ssh-agent)\"` and run this again, or use `komando shell NAME`, which logs in with the key itself"},
+	{"SSH_AGENT_REFUSED", 1, "the ssh-agent did not take key …: …", "check the ssh-agent, or use `komando shell NAME`"},
 	{"SSH_GATE_PATH", 1, "komando cannot tell its own full path, which the line needs", "run komando by its full path, e.g. /usr/local/bin/komando ssh-gate line ..."},
 	{"SSH_GATE_READ_ONLY", 6, "komando … is refused for a read-only key: …", "this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself"},
 	{"SSH_GATE_REFUSED", 6, "komando … needs a person at a terminal on this computer; a key cannot run it", "a person runs it in a terminal on the komando computer itself"},

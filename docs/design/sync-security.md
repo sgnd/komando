@@ -1404,7 +1404,8 @@ How the code meets this (settled while building phase 0, 2026-11-10):
 - **Host key checks** go through one interface in `sshx` (done in S5c), so
   the sealed store answers them without the known_hosts file. The system
   `ssh` that `host ssh-command` prints still needs a file: it gets a
-  temporary private copy, for a person only.
+  temporary private copy, for a person only. A key sealed in the store is
+  never written to a file: it goes to the running ssh-agent for an hour.
 - **Unique names** are checked by opening every server, conn and VPN row
   inside the write step. That is fast for hundreds of records, which is
   the expected size.
@@ -1466,9 +1467,10 @@ Moving existing users:
 What changes for CLI users (the list is decision 26):
 
 - `komando host ssh-command` prints a command that points at the key file
-  and the `known_hosts` file. With both sealed, it writes temporary private
-  copies for a person only, or stops for a sealed key with a hint to use
-  `komando shell`.
+  and the `known_hosts` file. With both sealed, it writes a temporary
+  private copy of the pinned host keys for a person only, and hands a
+  sealed key to the running ssh-agent for an hour (never to a file); with
+  no ssh-agent it stops with `SSH_AGENT_NEEDED`.
 - `komando config show` keeps its `files` keys, with the new values.
 - The audit log can no longer be followed or searched as a plain file.
   `komando audit --follow` and an export take that place; sending to syslog

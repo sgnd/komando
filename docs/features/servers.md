@@ -585,6 +585,14 @@ Servers behind `--via` get one `ProxyCommand` per hop, so each hop uses its
 own key. A SOCKS VPN becomes `nc -X 5`. VPNs that run inside komando cannot
 be used by OpenSSH; use `komando shell NAME` for those.
 
+A key made with `komando key gen` is sealed in komando's store and is never
+written to a file. For OpenSSH, `host ssh-command` gives it to the ssh-agent
+your shell already runs (`SSH_AUTH_SOCK`), which keeps it for one hour, and
+the printed line picks it with its public key. With no ssh-agent it stops
+with `SSH_AGENT_NEEDED`: start one with `eval "$(ssh-agent)"`, or use
+`komando shell NAME`. Only a person at a terminal can run `host ssh-command`;
+an AI agent gets `NEEDS_PERSON`.
+
 ## Good to know
 
 - Bring servers in with `komando import ssh-config [FILE]`, from a

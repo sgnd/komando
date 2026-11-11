@@ -258,8 +258,19 @@ check "key revoke removes it" 1 "$($K key revoke leaver direct | jget 'd["data"]
 check "other keys stay" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 $K host add pc "agent@127.0.0.1" --port "$E2E_SSH_DIRECT" --key deploy --proxy-command 'nc %h %p' >/dev/null
 check "proxy command carries ssh" ok "$($K exec pc -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
-# pc logs in with a key komando made, sealed in the store
-check "ssh-command refuses a sealed key" NOT_SUPPORTED "$($K host ssh-command pc | jget 'd["error"]["code"]' || true)"
+# pc logs in with a key komando made, sealed in the store: OpenSSH gets it
+# from a running ssh-agent, never from a file
+check "ssh-command without an ssh-agent" SSH_AGENT_NEEDED "$(env -u SSH_AUTH_SOCK $K host ssh-command pc | jget 'd["error"]["code"]' || true)"
+if command -v ssh-agent >/dev/null && command -v ssh >/dev/null; then
+  AGENT_ENV=$(ssh-agent -s)
+  eval "$AGENT_ENV" >/dev/null
+  LINE=$($K host ssh-command pc -o text)
+  check "ssh-command gives the ssh-agent the key" True "$(ssh-add -l | grep -q 'komando:deploy' && echo True || echo False)"
+  check "ssh-command line has no private key file" False "$(grep -l 'PRIVATE KEY' $(dirname "$(echo "$LINE" | sed 's/.* -i \([^ ]*\).*/\1/')")/* >/dev/null 2>&1 && echo True || echo False)"
+  check "OpenSSH logs in through the ssh-agent" ok "$(timeout 30 sh -c "$LINE echo ok" </dev/null 2>/dev/null | tr -d '\r')"
+  ssh-agent -k >/dev/null
+  unset SSH_AUTH_SOCK SSH_AGENT_PID
+fi
 check "proxy and --via do not mix" USAGE "$($K host add pc2 agent@127.0.0.1 --via bastion --proxy-command 'nc %h %p' | jget 'd["error"]["code"]' || true)"
 $K host add ssm1 ec2-user@i-0abc123 --ssm >/dev/null
 check "--ssm sets the AWS proxy" True "$($K host show ssm1 | jget '"AWS-StartSSHSession" in d["data"]["proxy_command"]')"
