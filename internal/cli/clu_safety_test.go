@@ -138,7 +138,7 @@ func (l *labCluster) kubeconfigFile(t *testing.T, user string) string {
 func cliRun(t *testing.T, args ...string) (map[string]any, *out.Error) {
 	t.Helper()
 	resetApproval()
-	clear(safetyApproved)
+	resetApproval()
 	return invRun(t, args...)
 }
 

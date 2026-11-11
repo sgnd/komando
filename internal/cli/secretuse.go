@@ -29,11 +29,11 @@ import (
 // person's "Allow once" in komando's window, which shows what, then why.
 // One answer covers the command.
 func agentYes(code, msg, what string, why ...string) error {
-	if !isAgent() || safetyApproved[what] {
+	if !isAgent() || sess.SafetyApproved(what) {
 		return nil
 	}
 	if g.yes && personAllowsFor("--yes", what, why...) {
-		safetyApproved[what] = true
+		sess.ApproveSafety(what)
 		return nil
 	}
 	return policyStop(out.Errf(out.ExitPolicy, code, "re-run with --yes after the user agrees", "%s", msg))

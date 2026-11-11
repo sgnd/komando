@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/sgnd/komando/internal/engine"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -27,62 +27,32 @@ import (
 //     screen to show it on, the agent is refused and the person runs the
 //     command themselves.
 
-// agentVars are environment variables AI coding agents set in the shells
-// they run commands in. KOMANDO_AGENT is for any other agent. A harness
-// that sets more than one is listed with each, so clearing one variable
-// does not make the agent a script.
-var agentVars = []struct{ env, name string }{
-	{"CLAUDECODE", "Claude Code"},
-	{"CLAUDE_CODE_ENTRYPOINT", "Claude Code"},
-	{"GEMINI_CLI", "Gemini CLI"},
-	{"CODEX_SANDBOX", "Codex"},
-	{"CODEX_THREAD_ID", "Codex"},
-	{"CURSOR_AGENT", "Cursor"},
-	{"KOMANDO_AGENT", "An AI agent"},
-	{"AI_AGENT", "An AI agent"},
-	{gateEnv, "An SSH key through ssh-gate"}, // set by ssh-gate, not by the key (sshgate.go)
-}
+// agentVars are the environment variables that make a process an AI
+// agent's (engine.AgentVars): the guard hook refuses shell lines that
+// change or remove them.
+var agentVars = func() []struct{ env, name string } {
+	var out []struct{ env, name string }
+	for _, e := range engine.AgentVars() {
+		out = append(out, struct{ env, name string }{e, ""})
+	}
+	return out
+}()
 
-// agentName is the AI agent running komando, or "" for a person or a script.
-// A variable that is there counts whatever its value, also 0, false and
-// empty: an agent told to run `CLAUDECODE=0 komando ...` or `read CLAUDECODE
-// </dev/null` must not turn its own safety stops off. The guard hook
-// (guard.go) refuses shell lines that change or remove these variables.
-func agentName() string {
-	// a key through ssh-gate is named by the gate, whatever else the
-	// environment holds; only a name the gate could have set is shown
-	if v, ok := os.LookupEnv(gateEnv); ok && gateLabel.MatchString(v) {
-		return "ssh-gate key " + v
-	}
-	for _, a := range agentVars {
-		if _, ok := os.LookupEnv(a.env); ok {
-			return a.name
-		}
-	}
-	return ""
-}
+// agentName is the AI agent running komando, or "" for a person or a
+// script (engine.AgentName). A variable that is there counts whatever its
+// value: an agent told to run `CLAUDECODE=0 komando ...` must not turn its
+// own safety stops off.
+func agentName() string { return engine.AgentName(os.LookupEnv) }
 
 func isAgent() bool { return agentName() != "" }
 
-var approval struct {
-	sync.Mutex
-	asked, allowed bool
-	why            string          // why there was no yes, for the error hint
-	unshown        string          // why the window could not show the command
-	shown          map[string]bool // the actions a window named (personAllowsFor)
-}
+// sess is this command's approvals (engine.Session): one answer covers
+// the command, and the next command asks again.
+var sess = engine.NewSession()
 
-func resetApproval() {
-	approval.Lock()
-	defer approval.Unlock()
-	approval.asked, approval.allowed, approval.why, approval.unshown, approval.shown = false, false, "", "", nil
-}
+func resetApproval() { sess = engine.NewSession() }
 
-func allowedByPerson() bool {
-	approval.Lock()
-	defer approval.Unlock()
-	return approval.allowed
-}
+func allowedByPerson() bool { return sess.Allowed() }
 
 // yesOK reports whether --yes counts. dangerOK and revealOK do the same for
 // --allow-dangerous and --reveal. Call them only where the flag would let
@@ -120,17 +90,14 @@ func personAllowsFor(flag, what string, why ...string) bool {
 	if !isAgent() || g.dryRun {
 		return true
 	}
-	approval.Lock()
-	defer approval.Unlock()
-	if approval.asked && (what == "" || approval.shown[what] || !approval.allowed) {
-		return approval.allowed
+	sess.Lock()
+	defer sess.Unlock()
+	if w := sess.Window(); w.Asked && (what == "" || sess.Shown(what) || !w.Allowed) {
+		return w.Allowed
 	}
-	approval.asked, approval.allowed = true, false
+	sess.SetAsked(false)
 	if what != "" {
-		if approval.shown == nil {
-			approval.shown = map[string]bool{}
-		}
-		approval.shown[what] = true
+		sess.MarkShown(what)
 	}
 	line := commandLine()
 	bad := hiddenArgs(os.Args[1:])
@@ -138,7 +105,8 @@ func personAllowsFor(flag, what string, why ...string) bool {
 		bad = unshowable(line)
 	}
 	if bad != "" {
-		approval.why, approval.unshown = "unshowable", bad
+		sess.SetWhy("unshowable")
+		sess.SetUnshown(bad)
 		return false
 	}
 	text := fmt.Sprintf("%s wants komando to run:\n\n%s\n\n", agentName(), line)
@@ -159,29 +127,29 @@ func personAllowsFor(flag, what string, why ...string) bool {
 	}
 	text += "\n\nAllow this once?"
 	var allowed, shown bool
-	approvalGaveUp = false
+	sess.SetGaveUp(false)
 	if secret := approvalCodeSecret(); secret != nil {
 		// a second factor: the code from the person's authenticator app
 		code, pressed, ok := askCodeOnScreen(text)
 		allowed, shown = pressed && len(secret) > 0 && codeOK(secret, code, time.Now()), ok
 		if pressed && !allowed {
-			approval.why = "wrong-code"
+			sess.SetWhy("wrong-code")
 		}
 	} else {
 		allowed, shown = askOnScreen(text)
 	}
 	switch {
 	case allowed:
-		approval.allowed = true
-	case shown && approvalGaveUp:
-		approval.why = "no-answer" // the window closed itself: nobody clicked Deny
-	case shown && approval.why == "":
-		approval.why = "denied"
+		sess.SetAllowed(true)
+	case shown && sess.GaveUp():
+		sess.SetWhy("no-answer") // the window closed itself: nobody clicked Deny
+	case shown && sess.Window().Why == "":
+		sess.SetWhy("denied")
 	case shown:
 	default:
-		approval.why = "no-screen"
+		sess.SetWhy("no-screen")
 	}
-	return approval.allowed
+	return sess.Window().Allowed
 }
 
 var flagMeaning = map[string]string{
@@ -283,7 +251,7 @@ func approvalHint(e *out.Error) {
 	if e == nil || e.Exit != out.ExitPolicy || !isAgent() {
 		return
 	}
-	switch approval.why {
+	switch sess.Window().Why {
 	case "denied":
 		e.Hint = "the user clicked Deny in komando's window; do not retry. Ask the user what they want instead"
 	case "no-answer":
@@ -293,7 +261,7 @@ func approvalHint(e *out.Error) {
 	case "no-screen":
 		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine()
 	case "unshowable":
-		e.Hint = "komando did not ask the user in its window, because " + approval.unshown +
+		e.Hint = "komando did not ask the user in its window, because " + sess.Window().Unshown +
 			". Make the command shorter (put a long script in a file for `komando script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"
 	default:
 		switch {
@@ -309,10 +277,6 @@ func approvalHint(e *out.Error) {
 		e.Hint += ". Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"
 	}
 }
-
-// approvalGaveUp: the last approval window closed itself after 2 minutes
-// with no answer, which is not a Deny (the person may be away).
-var approvalGaveUp bool
 
 // zenityTimedOut: zenity ends with exit code 5 when its --timeout runs out.
 func zenityTimedOut(err error) bool {
@@ -343,7 +307,7 @@ end run`
 			return false, false
 		}
 		answer := strings.TrimSpace(string(b))
-		approvalGaveUp = answer == "gave up"
+		sess.SetGaveUp(answer == "gave up")
 		return answer == "Allow once", true
 	case "linux", "freebsd", "openbsd":
 		if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
@@ -351,7 +315,7 @@ end run`
 		}
 		if z := systemTool("zenity"); z != "" {
 			err := exec.CommandContext(ctx, z, "--question", "--title=komando: allow?", "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--default-cancel", "--no-markup", "--timeout=120").Run()
-			approvalGaveUp = zenityTimedOut(err)
+			sess.SetGaveUp(zenityTimedOut(err))
 			return err == nil, true
 		}
 		if k := systemTool("kdialog"); k != "" {
@@ -360,7 +324,7 @@ end run`
 		}
 	case "windows":
 		_, allowed, gaveUp, shown := approvalWindow(text, false)
-		approvalGaveUp = gaveUp
+		sess.SetGaveUp(gaveUp)
 		return allowed, shown
 	}
 	return false, false

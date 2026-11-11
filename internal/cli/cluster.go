@@ -148,8 +148,8 @@ func guardKubePlugin(c *store.Conn, x *kube.Context) error {
 		}
 		return errDryRunStopped
 	}
-	if safetyApproved[what] || g.yes && personAllowsFor("--yes", what) {
-		safetyApproved[what] = true
+	if sess.SafetyApproved(what) || g.yes && personAllowsFor("--yes", what) {
+		sess.ApproveSafety(what)
 		return nil
 	}
 	return stop

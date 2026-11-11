@@ -587,8 +587,8 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 		if c.shown == "" {
 			e := toErr(err)
 			approvalHint(e)
-			if approval.why != "unshowable" || !strings.Contains(e.Hint, "did not ask the user") {
-				t.Errorf("%s: why %q, hint %q", c.name, approval.why, e.Hint)
+			if sess.Window().Why != "unshowable" || !strings.Contains(e.Hint, "did not ask the user") {
+				t.Errorf("%s: why %q, hint %q", c.name, sess.Window().Why, e.Hint)
 			}
 			continue
 		}

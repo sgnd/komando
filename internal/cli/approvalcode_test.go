@@ -51,8 +51,8 @@ func TestApprovalNeedsTheCode(t *testing.T) {
 		if got := yesOK(); got != want {
 			t.Errorf("code %q: allowed %v, want %v", typed, got, want)
 		}
-		if !want && approval.why != "wrong-code" {
-			t.Errorf("code %q: why %q", typed, approval.why)
+		if !want && sess.Window().Why != "wrong-code" {
+			t.Errorf("code %q: why %q", typed, sess.Window().Why)
 		}
 	}
 }

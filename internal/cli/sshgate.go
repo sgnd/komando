@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"github.com/sgnd/komando/internal/engine"
 	"os"
 	"regexp"
 	"strings"
@@ -37,11 +38,11 @@ import (
 // gateEnv names the key (its --name) in the environment of the komando the
 // gate runs: that komando counts as an agent (agentVars) and its audit
 // records name the key.
-const gateEnv = "KOMANDO_SSH_GATE"
+const gateEnv = engine.GateEnv
 
 // gateLabel is what --name may be: it goes into authorized_keys, a shell
 // command line and the audit log as it is.
-var gateLabel = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+var gateLabel = engine.GateLabel
 
 // gateExec replaces this process with the command; tests swap it.
 var gateExec = syscall.Exec

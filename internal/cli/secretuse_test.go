@@ -16,7 +16,7 @@ import (
 func secretHome(t *testing.T) {
 	t.Helper()
 	invHome(t)
-	safetyApproved = map[string]bool{}
+	resetApproval()
 	if err := vault.Set("db-pass", "pa$$1word"); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 
 	// a person who says no
 	windowText(t, false)
-	safetyApproved = map[string]bool{}
+	resetApproval()
 	if _, err := expandSecretRefs("{{secret:db-pass}}", "web1:/f", false); toErr(err).Code != "SECRET_DESTINATION" {
 		t.Fatalf("denied: %v", err)
 	}

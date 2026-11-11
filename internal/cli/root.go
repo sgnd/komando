@@ -100,7 +100,7 @@ func Execute() int {
 			oe.Hint = commandHint(cmd)
 		}
 		approvalHint(oe)
-		if personSaidNo && oe.Exit == out.ExitPolicy {
+		if sess.PersonSaidNo() && oe.Exit == out.ExitPolicy {
 			oe.Message = "cancelled: " + oe.Message
 			oe.Hint = "nothing was changed"
 		}
@@ -354,7 +354,6 @@ func checkAuditWritable(cmd *cobra.Command) error {
 func newRoot() *cobra.Command {
 	resetApproval()
 	out.P.Reset()
-	personSaidNo = false
 	interrupted = false
 	root := &cobra.Command{
 		Use:           "komando",
@@ -365,8 +364,7 @@ func newRoot() *cobra.Command {
 		Version:       Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			safetyApproved = map[string]bool{} // answers count for one command only
-			dangerConfirmed = map[string]bool{}
+			resetApproval() // answers count for one command only
 			if g.output == "" {
 				g.output = os.Getenv("KOMANDO_OUTPUT")
 			}
