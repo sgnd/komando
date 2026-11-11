@@ -9,7 +9,7 @@ commands you use often. [All docs](README.md)
 komando exec web1 -- uptime                          # one server
 komando exec @web -- 'df -h /'                       # every web server at once
 komando exec web1 --dry-run -- 'apt-get -y upgrade'  # show what would run, run nothing
-komando script @web ./deploy.sh --arg v1.2.3         # run a local script remotely
+komando exec @web --script ./deploy.sh --arg v1.2.3  # run a local script remotely
 komando job start web1 -- 'tar czf /backup/www.tgz /var/www'   # a long task
 ```
 
@@ -149,19 +149,20 @@ command line as usual.
 
 ## Run a local script
 
-`komando script` sends a script file from this computer to the servers and
-runs it. Nothing is left on the server's disk.
+`komando exec TARGET --script FILE` sends a script file from this computer
+to the servers and runs it. Nothing is left on the server's disk.
 
 ```bash
-komando script @web ./deploy.sh --arg v1.2.3 --sudo
-komando script db1 ./backup.py --interpreter python3
+komando exec @web --script ./deploy.sh --arg v1.2.3 --sudo
+komando exec db1 --script ./backup.py --interpreter python3
 ```
 
 The interpreter comes from the script's `#!` line, or from `--interpreter`
 (otherwise `sh`). `--arg` values reach the script as `$1`, `sys.argv[1]`,
 `$ARGV[0]` and so on, for sh, bash, python, perl, ruby and node alike.
-`script` takes the same flags as `exec` (except `-c`), plus `--arg` and
-`--interpreter`.
+The script is sent as the interpreter's input, so `--stdin-file` and
+`--pty` do not go with `--script`. `komando script TARGET FILE` is the old
+name: it still works in this release and says to use `exec --script`.
 
 ## Long tasks (jobs)
 

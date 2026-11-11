@@ -178,9 +178,10 @@ komando download @web /etc/nginx/nginx.conf --to ./configs/    # → ./configs/<
 Without a destination, `upload` puts the file in the login user's home
 folder under its own name, and `download` saves into the current folder.
 
-`komando cp` does the same with `SRC DST`, like `scp`. Remote paths are
-written `TARGET:PATH`; `TARGET:` alone, or `TARGET:~/x`, is the login user's
-home folder:
+`komando cp` is `upload` or `download` written `SRC DST`, like `scp`: the
+same code, flags and results. Remote paths are written `TARGET:PATH`;
+`TARGET:` alone, or `TARGET:~/x`, is the login user's home folder. A storage
+conn works too (`backups:2026/db.sql.gz`):
 
 ```bash
 komando cp ./app.tar.gz @web:/tmp/app.tar.gz

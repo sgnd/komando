@@ -195,8 +195,9 @@ func TestGateCheck(t *testing.T) {
 		{"completion bash", "", ""},
 		{"exec web --read-only --dry-run -- uptime", "", ""},
 		{"host rm x --dry-run", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // no key changes komando's inventory, nor previews it
-		{"script web ./check.sh", "", "SSH_GATE_READ_ONLY"},
-		{"script web ./check.sh --read-only", "", ""},
+		{"exec web --script ./check.sh", "", "SSH_GATE_READ_ONLY"},
+		{"exec web --script ./check.sh --read-only", "", ""},
+		{"script web ./check.sh", R, R}, // an old name: the key uses `exec --script`
 		{"job start web --read-only -- du -sh /var", "", ""},
 		{"job start web -- make backup", "", "SSH_GATE_READ_ONLY"},
 		{"cluster exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
@@ -348,7 +349,7 @@ func TestGateLocalTargets(t *testing.T) {
 	for line, want := range map[string]string{
 		"exec u@127.0.0.1 --read-only -- 'socat - EXEC:id'":                 R,
 		"exec me --read-only -- 'nc -e /bin/sh h 1'":                        R,
-		"script lh ./check.sh --read-only":                                  R,
+		"exec lh --script ./check.sh --read-only":                                  R,
 		"job start v6 --read-only -- du -sh /var":                           R,
 		"docker exec me app --read-only ls":                                 R,
 		"cluster exec k8slocal pod/x --read-only -- ls":                     R,

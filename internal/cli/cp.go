@@ -193,13 +193,16 @@ func cpCmd() *cobra.Command {
 login user's home folder). Uploads accept any target selector (@group,
 tag:x, ...) and run in parallel. Downloads from several servers go to
 DST/<server>/... . A single-file copy reports its sha256, so you can check it.
+TARGET can be a storage conn too (backups:2026/db.sql.gz). cp is upload or
+download written the cp way: the same code, flags and results.
 
 ` + cpFolderRule,
 		Example: `  komando cp ./app.tar.gz @web:/tmp/app.tar.gz
   komando cp -r ./site web1:/var/www/site
   komando cp ./nginx.conf web1:/etc/nginx/nginx.conf --sudo
   komando cp web1:/var/log/nginx/error.log ./logs/
-  komando cp @web:/etc/nginx/nginx.conf ./configs/`,
+  komando cp @web:/etc/nginx/nginx.conf ./configs/
+  komando cp ./db.sql.gz backups:2026/db.sql.gz`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			srcT, srcP, srcRemote := splitArg(args[0])
@@ -219,12 +222,12 @@ DST/<server>/... . A single-file copy reports its sha256, so you can check it.
 				if o.overwrite {
 					return out.Usage("--overwrite is for downloads; uploads always replace (the result says replaced)")
 				}
-				return colonHint(runCp(cmd.Context(), "cp", dstT, dstP, srcP, true, o), args[1])
+				return colonHint(runUpload(cmd.Context(), cmd, dstT, srcP, dstP, false, o), args[1])
 			}
 			if o.mode != "" || o.mkdirs {
 				return out.Usage("--mode and -p are for uploads")
 			}
-			return colonHint(runCp(cmd.Context(), "cp", srcT, srcP, dstP, false, o), args[0])
+			return colonHint(runDownload(cmd.Context(), cmd, srcT, srcP, dstP, false, o), args[0])
 		},
 	}
 	o.bind(c)

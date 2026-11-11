@@ -121,7 +121,7 @@ var errorCodes = []errorCode{
 	{"NOT_FOUND", 3, "INFO … returned nothing", "this server has no such section; try `komando cache info CONN --all`"},
 	{"NOT_SUPPORTED", 2, "db explain --analyze is not available for oracle", "drop --analyze: db explain shows Oracle's plan with its estimated rows"},
 	{"NOT_SWARM_MANAGER", 3, "… is not a Swarm manager (docker not found)", "Swarm commands run on a manager: `komando exec … --read-only -- docker node ls` shows whether it is one"},
-	{"NOT_TEXT", 2, "… is not text", "download it with `komando storage download CONN KEY`"},
+	{"NOT_TEXT", 2, "… is not text", "download it with `komando download CONN KEY`"},
 	{"NOT_WRITABLE", 8, "cannot replace …: …: …", "nothing was changed; make … writable, or install komando in another folder with the install line (KOMANDO_INSTALL_DIR=DIR)"},
 	{"NO_AUTH", 4, "no authentication method available for …: it has no key or password, and …", "start ssh-agent, then run …"},
 	{"NO_CERTIFICATE", 5, "… sent no certificate", "check that … is the TLS port of the site"},
