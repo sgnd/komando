@@ -9,6 +9,8 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh"
 )
 
 // userListScript prints passwd, the admin groups and (when readable, i.e.
@@ -168,4 +170,138 @@ func lockoutStop(target, user, verb string) error {
 		return nil
 	}
 	return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", hint, "%s", why))
+}
+
+func userCmd() *cobra.Command {
+	c := &cobra.Command{Use: "user", Aliases: []string{"users"}, Short: "Linux user accounts: list, add, lock, unlock, rm"}
+	var noSudo bool
+	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
+	var all bool
+	list := &cobra.Command{
+		Use:     "list TARGET",
+		Aliases: []string{"ls"},
+		Short:   "List accounts with admin group and lock state (--all for system)",
+		Long: `Lists accounts with their uid, home, shell, whether they are in the sudo,
+wheel or admin group (admin_group; rules in sudoers.d are not read) and
+whether the account is locked (expired, as ` + "`komando user lock`" + ` does). The lock
+state is read through sudo; with --no-sudo it is left out.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runOps(cmd.Context(), opsSpec{name: "user.list", target: args[0], command: userListScript, display: "user list", sudo: !noSudo,
+				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return parseUsers(rr.Stdout, all), nil },
+				text:  usersText})
+		},
+	}
+	list.Flags().BoolVar(&all, "all", false, "include system accounts")
+	var pubKey, keyName, shell string
+	var admin bool
+	add := &cobra.Command{
+		Use:     "add TARGET USERNAME",
+		Short:   "Create a user if missing, with an SSH key and sudo if asked",
+		Example: "  komando user add @web deploy --key deploy --admin",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			u := args[1]
+			if !nameRe.MatchString(u) {
+				return out.Usage("invalid username %q: start with a letter or digit, then letters, digits, . _ or - (at most 63)", u)
+			}
+			pubKey, err := userPubKey(keyName, pubKey)
+			if err != nil {
+				return err
+			}
+			q := sshx.Q(u)
+			sb := strings.Builder{}
+			sb.WriteString(needShadow("useradd") + "set -e; if id " + q + " >/dev/null 2>&1; then echo 'exists' >&2; else useradd -m -s " + sshx.Q(shell) + " " + q + "; echo 'created' >&2; fi; ")
+			if cmd.Flags().Changed("shell") {
+				// an existing user gets the shell asked for, too
+				sb.WriteString("[ \"$(getent passwd " + q + " | cut -d: -f7)\" = " + sshx.Q(shell) + " ] || usermod -s " + sshx.Q(shell) + " " + q + "; ")
+			}
+			if admin {
+				sb.WriteString("if getent group sudo >/dev/null; then usermod -aG sudo " + q + "; else usermod -aG wheel " + q + "; fi; ")
+			}
+			if pubKey != "" {
+				sb.WriteString("h=$(getent passwd " + q + " | cut -d: -f6); install -d -m 700 -o " + q + " -g $(id -gn " + q + ") \"$h/.ssh\"; touch \"$h/.ssh/authorized_keys\"; " +
+					"grep -qF " + sshx.Q(pubKey) + " \"$h/.ssh/authorized_keys\" || printf '%s\\n' " + sshx.Q(pubKey) + " >> \"$h/.ssh/authorized_keys\"; " +
+					"chown " + q + ": \"$h/.ssh/authorized_keys\"; chmod 600 \"$h/.ssh/authorized_keys\"; ")
+			}
+			sb.WriteString("id " + q)
+			return runOne(cmd.Context(), "user.add", args[0], sb.String(), !noSudo, true)
+		},
+	}
+	add.Flags().StringVar(&pubKey, "pubkey", "", "public key line to authorize")
+	add.Flags().StringVar(&keyName, "key", "", "authorize this key from komando's key list")
+	add.Flags().StringVar(&shell, "shell", "/bin/bash", "the new user's login shell")
+	add.Flags().BoolVar(&admin, "admin", false, "add to the sudo (Debian) or wheel (RHEL, Alpine) group")
+	lock := &cobra.Command{
+		Use:   "lock TARGET USERNAME",
+		Short: "Lock an account so password and SSH keys stop working",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := lockoutStop(args[0], args[1], "locking"); err != nil {
+				return err
+			}
+			return runOps(cmd.Context(), opsSpec{name: "user.lock", target: args[0], command: userExists(args[1]) + needShadow("usermod") + "usermod -L -e 1 " + sshx.Q(args[1]),
+				display: "user lock " + args[1], sudo: !noSudo, mutating: true,
+				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return userResult(args[1], "locked", rr) }})
+		},
+	}
+	unlock := &cobra.Command{
+		Use:   "unlock TARGET USERNAME",
+		Short: "Unlock an account locked with `user lock`",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runOps(cmd.Context(), opsSpec{name: "user.unlock", target: args[0], command: userExists(args[1]) + needShadow("usermod") + "usermod -U -e '' " + sshx.Q(args[1]),
+				display: "user unlock " + args[1], sudo: !noSudo, mutating: true,
+				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return userResult(args[1], "unlocked", rr) }})
+		},
+	}
+	c.AddCommand(list, add, lock, unlock, userRmCmd(&noSudo))
+	return c
+}
+
+func userRmCmd(noSudo *bool) *cobra.Command {
+	var removeHome bool
+	del := &cobra.Command{
+		Use:   "rm TARGET USERNAME",
+		Short: "Delete a user (needs --allow-dangerous)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := lockoutStop(args[0], args[1], "deleting"); err != nil {
+				return err
+			}
+			c := needShadow("userdel") + "userdel "
+			if removeHome {
+				c += "-r "
+			}
+			return runOne(cmd.Context(), "user.rm", args[0], c+sshx.Q(args[1]), !*noSudo, true)
+		},
+	}
+	del.Flags().BoolVar(&removeHome, "remove-home", false, "also delete the user's home folder and the files in it")
+	return del
+}
+
+// userPubKey is the key line user add authorizes: --pubkey as given, or
+// the public half of the --key from komando's key list.
+func userPubKey(keyName, pubKey string) (string, error) {
+	if keyName != "" && pubKey != "" {
+		return "", out.Usage("give --key or --pubkey, not both")
+	}
+	if pubKey != "" {
+		if _, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pubKey)); err != nil {
+			return "", out.Usage("--pubkey is not an SSH public key line (ssh-ed25519 AAAA... comment): %v", err)
+		}
+		return pubKey, nil
+	}
+	if keyName == "" {
+		return "", nil
+	}
+	st, err := loadState()
+	if err != nil {
+		return "", err
+	}
+	k, ok := st.Keys[keyName]
+	if !ok {
+		return "", out.NotFound("key", keyName)
+	}
+	return k.PublicKey, nil
 }
