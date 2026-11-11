@@ -1,6 +1,6 @@
 # komando vision and roadmap
 
-Status: **approved, 2026-11-02; milestones M2–M7 done** (shipped in releases up to v0.3.1); the releases since then, up to v0.11.0, added the work in the "After M7" row of the [Roadmap](#roadmap) (see [Decisions](#decisions-and-open-questions)). This document replaces the old goal ("an SSH CLI
+Status: **approved, 2026-11-02; milestones M2–M7 done** (shipped in releases up to v0.3.1); the releases since then, up to v0.12.0, added the work in the "After M7" row of the [Roadmap](#roadmap) (see [Decisions](#decisions-and-open-questions)). This document replaces the old goal ("an SSH CLI
 for AI agents") with a new goal. The design for each feature stays in its own
 document, for example [resources-and-db.md](resources-and-db.md).
 
@@ -197,7 +197,7 @@ what will be created, and existing entries are not overwritten except with
 
 The milestones M2 to M7 are steps of work, not release numbers: all of them
 shipped in the releases up to v0.3.1 (see [CHANGELOG.md](../../CHANGELOG.md)).
-The releases after that, up to v0.11.0, are in the "After M7" row. Next:
+The releases after that, up to v0.12.0, are in the "After M7" row. Next:
 v1.0.
 
 | Milestone | Contents | Goals reached |
@@ -208,7 +208,7 @@ v1.0.
 | **M5** ✅ | `cluster` for Kubernetes (direct API, through `--via`/VPN) and Docker Swarm: status, ls, get, logs, apply, restart, scale, rm, `run`, describe, events, exec, forward, shell, deploy, rollback, history and Helm reads | 2, 3 |
 | **M6** ✅ | `registry` (ls, inspect, rm, copy, prune) | 3 |
 | **M7** ✅ | `storage` for FTP/FTPS/SFTP; external secret refs (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`); `db shell` | 3, 4 |
-| **After M7** ✅ (v0.4.0 to v0.11.0) | `queue` (Kafka, RabbitMQ, NATS JetStream, SQS, Pub/Sub); Windows servers over OpenSSH and WinRM; SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB; SMB shares; `komando update`; `rename --prefix`; `ssh-gate`; `login HOST` for two-factor servers; the menu and guided forms for people; `fs restore`; GlobalProtect browser sign-in | 1, 2, 3, 4 |
+| **After M7** ✅ (v0.4.0 to v0.12.0) | `queue` (Kafka, RabbitMQ, NATS JetStream, SQS, Pub/Sub); Windows servers over OpenSSH and WinRM; SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB; SMB shares; `komando update`; `rename --prefix`; `ssh-gate`; `login HOST` for two-factor servers; the menu and guided forms for people; `fs restore`; GlobalProtect browser sign-in; the sealed local store; komando on Windows | 1, 2, 3, 4 |
 | **Built in** ✅ | Features work with the komando binary alone (no Docker, kubectl, psql/pg_dump, openvpn, openconnect, aws/vault/gcloud/op CLIs), fully open source; what is left is in [built-in.md](built-in.md#where-it-stands-2026-11-03) | 1, 4 |
 | **v1.0** | Contract frozen (`schema` version 1), every family passes the checklist, complete documentation in English (the project is English-only; the Indonesian translations were removed) | all |
 

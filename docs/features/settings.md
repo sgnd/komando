@@ -232,7 +232,7 @@ right now keeps working; the next command starts the new version.
 - A komando built from source that is not a release (`make build`, or
   `go build` of a commit between releases) is not replaced
   (`SOURCE_BUILD`): build it again instead. One that reports a release
-  version (`go install ...@v0.11.0`, or `go build` at a release tag)
+  version (`go install ...@v0.12.0`, or `go build` at a release tag)
   counts as that release, and `update` replaces it.
 - When GitHub answers with an error (HTTP 5xx) or the connection drops, it
   tries twice more. `--timeout` (default 10 minutes) limits the whole update.

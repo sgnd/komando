@@ -91,7 +91,7 @@ never goes back.
 
 A komando built from source that is not a release (make build, or go build
 of a commit between releases) is not replaced: build it again instead. One
-that reports a release version (go install ...@v0.11.0, or go build at a
+that reports a release version (go install ...@v0.12.0, or go build at a
 release tag) counts as that release and is replaced. --timeout limits the
 whole update (default 10m).`,
 		Example: `  komando update --dry-run    # is there a newer version?
