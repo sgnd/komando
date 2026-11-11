@@ -31,6 +31,22 @@ func validName(kind, n string) error {
 	return nil
 }
 
+// loginClouds are the subcommands of `komando login`: a server with one of
+// these names could never be logged in to, so a new server cannot take one.
+var loginClouds = []string{"aws", "gcp", "azure"}
+
+// checkHostName is validName for a new server name.
+func checkHostName(n string) error {
+	if err := validName("host", n); err != nil {
+		return err
+	}
+	if slices.ContainsFunc(loginClouds, func(c string) bool { return strings.EqualFold(c, n) }) {
+		return out.Errf(out.ExitUsage, "USAGE", "pick another name, e.g. "+strings.ToLower(n)+"-1",
+			"%q cannot be a server name: `komando login %s` is the cloud login", n, strings.ToLower(n))
+	}
+	return nil
+}
+
 type hostFlags struct {
 	address, user, key, identity, passwordRef, sudoRef, jump, notes string
 	proxyCommand, os                                                string
@@ -107,7 +123,7 @@ func hostAddCmd() *cobra.Command {
 
 func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bool) error {
 	name := args[0]
-	if err := validName("host", name); err != nil {
+	if err := checkHostName(name); err != nil {
 		return err
 	}
 	if err := guardProxyCommand(f.proxyCommand); err != nil {

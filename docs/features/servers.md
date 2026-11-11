@@ -340,6 +340,8 @@ ends; komando's rules, approvals and audit still apply to each command.
 A login to a jump host is used for every server behind it. `komando status`
 lists the kept logins, and a login ends early when the server closes it or
 its address changes. Only a person at a terminal can run `komando login`.
+`komando login aws` is the AWS login, so a server cannot be named `aws`,
+`gcp` or `azure`.
 
 ### Sudo passwords and the vault
 

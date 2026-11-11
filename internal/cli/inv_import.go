@@ -37,7 +37,7 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 		if h == nil || h.Name == "" || h.Address == "" {
 			continue
 		}
-		if err := validName("host", h.Name); err != nil {
+		if err := checkHostName(h.Name); err != nil {
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
 		}
