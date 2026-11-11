@@ -292,6 +292,9 @@ func approvalHint(e *out.Error) {
 	if e == nil || e.Exit != out.ExitPolicy || !isAgent() {
 		return
 	}
+	// "run it in a terminal, or add --yes in a script" is for a person; an
+	// agent reading -o text gets the same advice as in JSON
+	e.PlainHint()
 	switch approval.why {
 	case "denied":
 		e.Hint = "the user clicked Deny in komando's window; do not retry. Ask the user what they want instead"

@@ -94,6 +94,8 @@ type menuMemory struct{ action, target, task string }
 type menuNext struct {
 	cmds    [][]string
 	ownExit bool
+	// keepGoing runs every command even after one fails (Check everything)
+	keepGoing bool
 }
 
 // runMenu shows the menu until the person quits. Whatever happens, the
@@ -122,7 +124,7 @@ func runMenu() error {
 			return err
 		}
 		try := func(args []string) error { // Try it first, from a form's review
-			again, err := menuRun(ctx, t, self, [][]string{args}, false, "the questions")
+			again, err := menuRun(ctx, t, self, [][]string{args}, false, false, "the questions")
 			if err == nil && !again {
 				err = errMenuQuit // q after Try it first: leave the menu
 			}
@@ -135,7 +137,7 @@ func runMenu() error {
 		if err != nil {
 			return err
 		}
-		if again, err := menuRun(ctx, t, self, next.cmds, next.ownExit, "the menu"); err != nil || !again {
+		if again, err := menuRun(ctx, t, self, next.cmds, next.ownExit, next.keepGoing, "the menu"); err != nil || !again {
 			return err
 		}
 	}
@@ -184,7 +186,7 @@ func menuOpen(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory
 	case "":
 		return menuNext{cmds: [][]string{act.args}, ownExit: act.ownExit}, nil
 	case "check":
-		return menuNext{cmds: checkLines}, nil
+		return menuNext{cmds: checkLines, keepGoing: true}, nil
 	case "add-server":
 		cmds, err := formChoose(ctx, t, st, formGroupsFor("host"), scr, try)
 		return menuNext{cmds: cmds}, err
@@ -203,8 +205,7 @@ func menuOpen(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory
 		groups := formGroupsFor("host")
 		switch act.pick {
 		case "services":
-			groups = menuAddGroups("Something else")
-			groups = append(menuAddGroups("Database"), groups...)
+			groups = append(menuAddGroups("Database"), menuAddGroups("Something else")...)
 		case "vpns":
 			groups = formGroupsFor("vpn")
 		}
@@ -266,10 +267,10 @@ var menuAddRows = []struct {
 	groups        []string
 }{
 	{"Server", "A Linux or Windows machine you log in to", []string{"Server"}},
-	{"Database", "PostgreSQL, MySQL, SQL Server, Oracle, MongoDB and others", []string{"Database"}},
+	{"Database", "PostgreSQL, MySQL, SQL Server, Oracle, MongoDB and others", []string{"Databases"}},
 	{"VPN", "WireGuard, OpenVPN, Tailscale or your company's VPN app", []string{"VPN"}},
 	{"Something else", "A cache, a message queue, file storage, a cluster or a container registry",
-		[]string{"Cache", "Message queues", "File storage", "Kubernetes", "Container registry"}},
+		[]string{"Caches", "Queues", "File storage", "Clusters", "Images (registries)"}},
 	{"Bring in what I have", "From ~/.ssh/config, .pgpass, my.cnf or a .env file", nil},
 }
 
@@ -302,6 +303,9 @@ type menuTask struct {
 	// first argument with the item; noItem fills nothing.
 	fill   []string
 	noItem bool
+	// only, when set, are the flags asked at once; the rest wait under
+	// More options
+	only []string
 	// line runs these command lines at once, with {} and {name} filled in
 	line [][]string
 	// sub opens a list of its own; title is its question
@@ -388,6 +392,10 @@ func menuDoTask(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemo
 		return menuNext{}, err
 	}
 	if h := formHints[tk.cmd]; h.form != nil { // a hand-made form (login)
+		if sp, given, ok := menuHandForm(h, tk, item); ok {
+			cmds, err := formFillFrom(ctx, t, st, sp, scr, formTryFor(c, try), given)
+			return menuNext{cmds: cmds}, err
+		}
 		cmds, err := formChoose(ctx, t, st, h.form(), scr, try)
 		return menuNext{cmds: cmds}, err
 	}
@@ -397,6 +405,17 @@ func menuDoTask(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemo
 	}
 	cmds, err := formFill(ctx, t, st, sp, scr, formTryFor(c, try))
 	return menuNext{cmds: cmds, ownExit: tk.ownExit}, err
+}
+
+// menuHandForm is a hand-made form of one kind with the item answered, so
+// the server picked one screen before is not asked again.
+func menuHandForm(h formHint, tk menuTask, item string) (formSpec, formAnswers, bool) {
+	gs := h.form()
+	given := menuGiven(tk, item)
+	if len(given) == 0 || len(gs) != 1 || len(gs[0].kinds) != 1 {
+		return formSpec{}, nil, false
+	}
+	return gs[0].kinds[0].spec(), given, true
 }
 
 // menuTaskSpec is the guided form of a task's command with the item
@@ -421,6 +440,9 @@ func menuTaskSpec(st *store.State, c *cobra.Command, tk menuTask, item string) (
 	for _, q := range sp.qs {
 		if _, ok := given[q.key]; ok {
 			continue
+		}
+		if tk.only != nil && strings.HasPrefix(q.key, "flag:") {
+			q.advanced = !slices.Contains(tk.only, strings.TrimPrefix(q.key, "flag:"))
 		}
 		if f := q.show; f != nil {
 			q.show = func(a formAnswers) bool { return f(with(a)) }

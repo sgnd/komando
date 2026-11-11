@@ -108,7 +108,12 @@ komando cache rm cache session:42 session:43 --allow-dangerous
 komando cache run cache -- HGETALL user:42
 komando cache run cache -- ZREVRANGE leaderboard 0 9 WITHSCORES
 komando cache run cache --write -- EXPIRE session:42 3600
+komando cache run cache "GET feature:dark-mode"   # one quoted line, split like redis-cli
 ```
+
+`cache run` prints one reply, so commands that never stop sending
+(`MONITOR`, `SUBSCRIBE`, `PSUBSCRIBE`, `XREAD ... BLOCK`) stop with
+`NOT_SUPPORTED`.
 
 Commands that delete, wipe, block, run scripts or reconfigure the server
 (`DEL`, `FLUSHALL`, `KEYS`, `EVAL`, `CONFIG SET`, `SHUTDOWN`, ...) also need

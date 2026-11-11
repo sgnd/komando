@@ -115,7 +115,7 @@ func winMarkerErr(p string, m map[string]string) error {
 	case hasKey(m, "not-found"):
 		return fsErrHint(p, os.ErrNotExist, "")
 	case hasKey(m, "denied"):
-		return out.Errf(out.ExitError, "PERMISSION_DENIED", "log in as a user with the rights to it (Windows has no sudo)", "%s: access denied", p)
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", "log in as a user with the rights to it (Windows has no sudo)", "%s: access denied", p)
 	case hasKey(m, "dir"):
 		return isADirectory(p)
 	case hasKey(m, "no-dir"):
@@ -354,6 +354,11 @@ func winFsCat(ctx context.Context, st *store.State, h *store.Host, p string, sud
 	b, abs, trunc, err := winReadFile(ctx, st, h, p, maxBytes)
 	if err != nil {
 		return nil, err
+	}
+	if trunc && tail > 0 {
+		// the part read is the start of the file: its last lines are not the file's
+		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "raise --max-bytes, or save it with `komando download`",
+			"%s is larger than --max-bytes (%s), so --tail cannot show its last lines", abs, humanBytes(maxBytes))
 	}
 	return catContent(h.Name, abs, b, trunc, head, tail, numbered)
 }

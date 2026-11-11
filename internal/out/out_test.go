@@ -44,7 +44,7 @@ func TestTextHeadline(t *testing.T) {
 		{map[string]any{"name": "web2", "changed": false}, []string{"web2: nothing to change"}, []string{"changed:"}},
 		{map[string]any{"name": "web2", "port": 22}, []string{"name: web2\nport: 22"}, nil}, // no change: a plain record, name first
 	} {
-		got := renderText(c.data)
+		got := renderText(c.data, false)
 		for _, w := range c.want {
 			if !strings.Contains(got, w) {
 				t.Errorf("%v: missing %q in\n%s", c.data, w, got)
@@ -56,7 +56,7 @@ func TestTextHeadline(t *testing.T) {
 			}
 		}
 	}
-	if got := renderText(map[string]any{"name": "x", "created_at": "2026-11-07T15:26:25Z"}); strings.Contains(got, "T15:26:25Z") {
+	if got := renderText(map[string]any{"name": "x", "created_at": "2026-11-07T15:26:25Z"}, false); strings.Contains(got, "T15:26:25Z") {
 		t.Errorf("times for people are local, not raw RFC3339: %s", got)
 	}
 }
@@ -76,5 +76,25 @@ func TestHostKeysPinnedMeta(t *testing.T) {
 	p.Print("exec", map[string]any{}, nil)
 	if strings.Contains(b.String(), "host_keys_pinned") {
 		t.Errorf("after Reset: %s", b.String())
+	}
+}
+
+// A preview never says it changed something.
+func TestHeadlineDryRun(t *testing.T) {
+	m := func() map[string]any { return map[string]any{"name": "web2", "changed": true, "user": "zz"} }
+	if got := renderText(m(), false); !strings.HasPrefix(got, "changed web2\n") {
+		t.Errorf("real run: %q", got)
+	}
+	if got := renderText(m(), true); !strings.HasPrefix(got, "would change web2 (dry run)\n") {
+		t.Errorf("dry run: %q", got)
+	}
+}
+
+// A value of several lines stays under its key.
+func TestRenderTextMultiLine(t *testing.T) {
+	got := renderText(map[string]any{"commands": []any{map[string]any{"path": "komando audit", "example": "  komando audit\n  komando audit -n 0"}}}, false)
+	want := "commands:\n  - example: |\n        komando audit\n        komando audit -n 0\n    path: komando audit\n"
+	if got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
 	}
 }

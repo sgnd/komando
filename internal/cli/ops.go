@@ -86,7 +86,7 @@ func render(tmpl string, defaults map[string]string, vars map[string]string) (st
 		return m
 	})
 	if len(missing) > 0 {
-		return "", out.Usage("missing parameter(s): %s (pass --var NAME=VALUE)", strings.Join(dedupe(missing), ", "))
+		return "", out.Usage("missing blank(s): %s (fill in with --var NAME=VALUE)", strings.Join(dedupe(missing), ", "))
 	}
 	return res, nil
 }
@@ -319,7 +319,7 @@ func recipeAddCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "recipe.add", nil, s.Command, true, map[string]any{"recipe": s.Name, "read_only": s.ReadOnly})
-			out.P.Print("recipe.add", s, nil)
+			out.P.Print("recipe.add", textAs{s, textBlob(changeSay("save", "recipe "+s.Name, ""))}, nil)
 			return nil
 		},
 	}
@@ -349,11 +349,12 @@ func recipeRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			say := textBlob(changeSay("remove", "recipe "+args[0], ""))
 			if g.dryRun {
-				out.P.Print("recipe.rm", map[string]any{"would_remove": args[0]}, nil)
+				out.P.Print("recipe.rm", textAs{map[string]any{"would_remove": args[0]}, say}, nil)
 				return nil
 			}
-			out.P.Print("recipe.rm", map[string]any{"removed": args[0]}, nil)
+			out.P.Print("recipe.rm", textAs{map[string]any{"removed": args[0]}, say}, nil)
 			return nil
 		},
 	}
@@ -374,7 +375,11 @@ func recipeRunCmd() *cobra.Command {
 			}
 			r, ok := findRecipe(st, args[0])
 			if !ok {
-				return recipeNotFound(args[0])
+				e := recipeNotFound(args[0])
+				if _, swapped := findRecipe(st, args[1]); swapped && knownTarget(args[0]) {
+					e.Hint = "the recipe name goes first, then the target: `komando recipe run " + args[1] + " " + args[0] + "`"
+				}
+				return e
 			}
 			kv, err := parseKV(vars)
 			if err != nil {
@@ -392,7 +397,7 @@ func recipeRunCmd() *cobra.Command {
 			// that clearly writes, or that komando cannot confirm only
 			// reads, runs as a change, so a protected server asks for --yes
 			mutating := !r.ReadOnly || readOnlyMutates(command, nil)
-			return runFleet(cmd.Context(), "recipe."+r.Name, args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo}, mutating)
+			return runFleet(cmd.Context(), "recipe.run", args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo, recipe: r.Name}, mutating)
 		},
 	}
 	c.Flags().StringArrayVar(&vars, "var", nil, "fill in a blank: NAME=VALUE (repeatable)")

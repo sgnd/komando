@@ -71,7 +71,7 @@ to the file's name (servers: in the login user's home folder; ~/x works too).
 A storage KEY ending in / is a folder, so the file keeps its name inside it.
 An existing file at DEST is replaced (the result says replaced).
 
-` + cpFolderRule,
+` + uploadFolderRule,
 		Example: `  komando upload @web ./app.tar.gz /tmp/app.tar.gz
   komando upload web1 ./site /var/www/site -r
   komando upload web1 ./nginx.conf /etc/nginx/nginx.conf --sudo
@@ -94,6 +94,26 @@ An existing file at DEST is replaced (the result says replaced).
 	return c
 }
 
+// storageFolderDest is where `upload CONN DIR [DEST] -r` puts the folder,
+// by the rule servers follow: without DEST, a prefix named like the folder;
+// DIR/ sends its contents into DEST; a DEST ending in / gets DEST/DIR.
+func storageFolderDest(dir, dest string) string {
+	base := filepath.Base(filepath.Clean(dir))
+	if base == "." || base == string(filepath.Separator) {
+		base = ""
+	}
+	contents := strings.HasSuffix(dir, "/") || strings.HasSuffix(dir, string(filepath.Separator))
+	switch {
+	case dest == "":
+		return base
+	case contents:
+		return dest
+	case strings.HasSuffix(dest, "/"):
+		return dest + base
+	}
+	return dest
+}
+
 func downloadCmdFor(storageOnly bool) *cobra.Command {
 	var o cpOpts
 	var to string
@@ -106,7 +126,7 @@ folder per server when several are picked. Files that already exist here
 are kept unless --overwrite. --sudo reads one file as root (up to 512 MiB).
 From storage, --to - writes the object to stdout.
 
-` + cpFolderRule,
+` + downloadFolderRule,
 		Example: `  komando download web1 /var/log/nginx/error.log --to ./logs/
   komando download @web /etc/nginx/nginx.conf --to ./configs/
   komando download backups 2026/db.sql.gz
@@ -153,7 +173,7 @@ func runUpload(ctx context.Context, cmd *cobra.Command, target, file, dest strin
 		}
 		if o.recursive {
 			// a folder: sent like `komando sync`, new and changed files only
-			return syncUp(ctx, name, file, target, dest, syncOpts{})
+			return syncUp(ctx, name, file, target, storageFolderDest(file, dest), syncOpts{})
 		}
 		return storageUpload(ctx, name, target, file, dest)
 	}

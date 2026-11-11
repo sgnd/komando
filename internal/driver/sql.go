@@ -26,7 +26,7 @@ var sqlRules = []Rule{
 	{"sql-delete-no-where", "DELETE without WHERE removes every row"},
 	{"sql-update-no-where", "UPDATE without WHERE changes every row"},
 	{"sql-privileges", "changes users, roles or privileges"},
-	{"sql-program", "runs a program on the database server (COPY ... PROGRAM)"},
+	{"sql-program", "runs a program or native code on the database server (COPY ... PROGRAM, an extension, plugin or library, a function in C or an untrusted language)"},
 	{"sql-server-file", "reads or writes files on the database server"},
 	{"sql-kill", "kills sessions or shuts the server down"},
 	{"sql-vacuum-full", "VACUUM FULL locks and rewrites tables"},
@@ -666,16 +666,9 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 		if second == "FULL" || hasWord(ts, "FULL") {
 			flag("sql-vacuum-full")
 		}
-	case "COPY":
-		if hasWord(ts, "PROGRAM") {
-			flag("sql-program")
-		}
-		for i, t := range ts { // COPY t TO '/file' or FROM '/file' (not STDIN/STDOUT)
-			if (t.word == "TO" || t.word == "FROM") && t.depth == 0 && i+1 < len(ts) && ts[i+1].punct == '\'' {
-				flag("sql-server-file")
-				break
-			}
-		}
+	}
+	for _, id := range serverRules(first, second, ts) {
+		flag(id)
 	}
 	for i, t := range ts {
 		switch t.word {
@@ -687,8 +680,8 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 			risk = max(risk, RiskWrite)
 		case "DELETE", "UPDATE":
 			prev := word(i - 1)
-			if prev == "ON" || prev == "FOR" || prev == "KEY" || prev == "\x00ident" {
-				continue // ON DELETE CASCADE, FOR UPDATE, ON DUPLICATE KEY UPDATE
+			if prev == "ON" || prev == "FOR" || prev == "KEY" || prev == "\x00ident" || first == "PRAGMA" {
+				continue // ON DELETE CASCADE, FOR UPDATE, ON DUPLICATE KEY UPDATE, PRAGMA journal_mode=DELETE
 			}
 			risk = max(risk, RiskWrite)
 			if prev == "DO" && t.word == "UPDATE" {

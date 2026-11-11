@@ -342,5 +342,10 @@ func guardVpnSends(old, now *store.Vpn, servers string) error {
 	if err != nil {
 		return err
 	}
-	return guardSends([]string{line}, nil)
+	// another CA lets another server pass as this one and get its login
+	var weak []string
+	if old != nil && old.CA != "" && now.CA != old.CA {
+		weak = append(weak, "vpn "+now.Name+" no longer checks its server against the CA certificate it had")
+	}
+	return guardSends([]string{line}, weak)
 }

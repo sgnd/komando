@@ -107,7 +107,7 @@ func hostAddCmd() *cobra.Command {
 
 func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bool) error {
 	name := args[0]
-	if err := validName("host", name); err != nil {
+	if err := checkHostName(name); err != nil {
 		return err
 	}
 	if err := guardProxyCommand(f.proxyCommand); err != nil {
@@ -124,22 +124,8 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 	h := &store.Host{Name: name, Address: f.address, Port: f.port, User: f.user, Key: f.key, Identity: f.identity,
 		PasswordRef: f.passwordRef, SudoRef: f.sudoRef, Via: f.jump, ProxyCommand: f.proxyCommand, Groups: dedupe(f.groups), Tags: dedupe(f.tags),
 		Protected: f.protected, Notes: f.notes, OS: f.os}
-	if len(args) == 2 || isWinRMAddress(f.address) {
-		arg := f.address // --address winrm://USER@HOST, as the positional one
-		if len(args) == 2 {
-			arg = args[1]
-		}
-		a, err := parseAddressArg(arg)
-		if err != nil {
-			return err
-		}
-		h.Address, h.Transport, h.WinRMOpts = a.Address, a.Transport, a.WinRMOpts
-		if a.User != "" && h.User == "" {
-			h.User = a.User
-		}
-		if a.Port != 0 && h.Port == 0 {
-			h.Port = a.Port
-		}
+	if err := setHostAddress(h, args, f.address); err != nil {
+		return err
 	}
 	if h.Address == "" {
 		return out.Errf(out.ExitUsage, "USAGE", "e.g. komando host add "+name+" deploy@10.0.0.5, or --address 10.0.0.5",
@@ -616,7 +602,7 @@ func guardProxyCommand(cmd string) error {
 			"--proxy-command matches destructive rules: %s", hits[0].Reason))
 	}
 	if isAgent() {
-		return guardSafety("--proxy-command runs `" + cmd + "` on this computer whenever komando connects")
+		return guardSafety("running `" + cmd + "` on this computer whenever komando connects (--proxy-command)")
 	}
 	return nil
 }

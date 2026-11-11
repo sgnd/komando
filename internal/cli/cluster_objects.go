@@ -31,6 +31,9 @@ func clusterLsCmd() *cobra.Command {
   komando cluster ls swarm-manager tasks -n 20`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := nsOrAll(ns, all); err != nil {
+				return err
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -196,7 +199,7 @@ func clusterRestartCmd() *cobra.Command {
 				return swarmChange(cmd.Context(), "cluster.restart", t, name, "docker service update --force --detach "+sshx.Q(name), wait, false, driver.RiskWrite,
 					map[string]any{"restarted": "service/" + name})
 			}
-			return withKube(cmd.Context(), "cluster.restart", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(ownTimeLimit(cmd.Context(), wait), "cluster.restart", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err
@@ -286,7 +289,7 @@ func clusterScaleCmd() *cobra.Command {
 				}
 				return swarmScale(cmd.Context(), t, typ, name, n, wait, risk)
 			}
-			return withKube(cmd.Context(), "cluster.scale", t, risk, map[string]any{"object": typ + "/" + name, "replicas": n}, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(ownTimeLimit(cmd.Context(), wait), "cluster.scale", t, risk, map[string]any{"object": typ + "/" + name, "replicas": n}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err

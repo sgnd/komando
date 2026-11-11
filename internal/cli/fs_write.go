@@ -345,36 +345,48 @@ func backupRemote(sc *sftp.Client, p string, now time.Time) (string, error) {
 	}
 }
 
+// fsWriteInput is what fs write puts in the file: --content, --from FILE,
+// or stdin; one of them, never a value komando hid.
+func fsWriteInput(contentSet bool, content, from string) ([]byte, error) {
+	var data []byte
+	var err error
+	switch {
+	case contentSet && from != "":
+		return nil, out.Usage("give the content with --content or --from, not both")
+	case contentSet:
+		data = []byte(content)
+	case from != "":
+		if data, err = readFileOrStdin(from); err != nil {
+			return nil, err
+		}
+	default:
+		if data, err = readStdinIfPiped(); err != nil {
+			return nil, err
+		}
+		if data == nil {
+			return nil, out.Usage("give the content with --content, --from FILE, or on stdin")
+		}
+	}
+	if out.HasHidden(string(data)) {
+		return nil, hiddenValueErr()
+	}
+	return data, nil
+}
+
 func fsWriteCmd() *cobra.Command {
 	var o writeOpts
 	var content, from string
 	var appendMode, ifChanged bool
 	c := &cobra.Command{
 		Use:   "write TARGET PATH",
-		Short: "Write a file on a server, all or nothing (--content, --from FILE or stdin)",
+		Short: "Write a file on one server, all or nothing (--content, --from FILE or stdin)",
 		Example: `  komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup
   komando fs write web1 /srv/app/config.yml --from ./config.yml --if-changed`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var data []byte
-			var err error
-			switch {
-			case cmd.Flags().Changed("content"):
-				data = []byte(content)
-			case from != "":
-				if data, err = readFileOrStdin(from); err != nil {
-					return err
-				}
-			default:
-				if data, err = readStdinIfPiped(); err != nil {
-					return err
-				}
-				if data == nil {
-					return out.Usage("give the content with --content, --from FILE, or on stdin")
-				}
-			}
-			if out.HasHidden(string(data)) {
-				return hiddenValueErr()
+			data, err := fsWriteInput(cmd.Flags().Changed("content"), content, from)
+			if err != nil {
+				return err
 			}
 			if o.owner != "" && !o.sudo {
 				return out.Usage("--owner needs --sudo (only root can give a file to another user)")

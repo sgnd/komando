@@ -237,7 +237,10 @@ The seatbelts:
 
 - A protected conn also needs `--yes` with `--write`, whatever the SQL is.
 - Destructive SQL needs `--allow-dangerous`: `DROP`, `TRUNCATE`, `DELETE` or
-  `UPDATE` without `WHERE`, privilege changes, and a few more.
+  `UPDATE` without `WHERE`, privilege changes, code that reaches the
+  server's operating system (`CREATE EXTENSION`, a function in C or
+  `plpython3u`, `LOAD`, MySQL `INSTALL PLUGIN` and `SONAME`, SQL Server
+  `CREATE ASSEMBLY`), and a few more.
   `komando policy list` shows them all; `komando policy check --for postgres "..."`
   tests a query.
 - A few admin functions that a read-only transaction does not stop (ending
@@ -478,7 +481,7 @@ Plain SQL that psql and mysql can also read:
   says what would stop the real run.
 - SQL in the file that does more than write data is named next to
   `db-restore` in the approval and in `POLICY_BLOCKED`, with the line where
-  it first appears: `sql-program` (`COPY ... PROGRAM`), `sql-server-file`
+  it first appears: `sql-program` (`COPY ... PROGRAM`, `CREATE EXTENSION`), `sql-server-file`
   (`INTO OUTFILE`, `pg_read_file`), `sql-server-config` (`ALTER SYSTEM`),
   `sql-privileges` (`GRANT`, `CREATE ROLE`), `sql-opaque` (`DO`,
   `PREPARE`), `sql-remote` and `sql-kill`. A pg_dump with privileges names
@@ -964,7 +967,7 @@ which returns JSON.
 |-------|------|---------|
 | `DB_AUTH` | 4 | wrong user name or password |
 | `DB_NOT_FOUND` | 3 | the database does not exist |
-| `DB_PRIVILEGE` | 4 or 5 | the conn's user lacks a right (for example to see lock waits in `db locks`, or to manage users) |
+| `DB_PRIVILEGE` | 5 | the conn's user lacks a right (for example to see lock waits in `db locks`, or to manage users) |
 | `DB_BYTES_LIMIT` | 6 | a BigQuery query would read more than `--max-bytes` (default 10GB), so it did not run |
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object; the message names it |
 | `TOOL_MISSING` | 3 | `pg_dump`, `mysqldump` or `pg_restore` is not installed where it should run |

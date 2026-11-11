@@ -119,7 +119,8 @@ the approval for protected servers). Try --dry-run first.`,
 			return reboot(cmd.Context(), args[0], wait, !noSudo)
 		},
 	}
-	c.Flags().DurationVar(&wait, "wait", 5*time.Minute, "how long each server may take to come back")
+	wait = 5 * time.Minute
+	c.Flags().Var(waitFlag{&wait}, "wait", "how long each server may take to come back (10m, 1h)")
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "run without sudo")
 	return c
 }
@@ -135,6 +136,11 @@ func reboot(ctx context.Context, target string, wait time.Duration, sudo bool) e
 	}
 	hosts, err := resolveTargets(st, target)
 	if err != nil {
+		return err
+	}
+	// before any server reboots: a Windows one later in the order would
+	// stop the run halfway
+	if _, err := windowsGate(ctx, "reboot", hosts, false); err != nil {
 		return err
 	}
 	guardErr := guard(st, hosts, "systemctl reboot", true)

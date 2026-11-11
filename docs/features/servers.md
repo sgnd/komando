@@ -258,7 +258,7 @@ stays where it is. If it has a passphrase, store the passphrase in the vault fir
 ```bash
 komando secret set work-pass
 komando key add work ~/.ssh/id_work --passphrase-ref secret:work-pass
-komando key edit work --passphrase-ref secret:new-pass      # change it later ('' clears it)
+komando key edit work --passphrase-ref secret:new-pass      # change it later (--unset passphrase-ref clears it)
 ```
 
 `komando key rm NAME` takes a key out of komando's key list; it refuses
@@ -340,6 +340,8 @@ ends; komando's rules, approvals and audit still apply to each command.
 A login to a jump host is used for every server behind it. `komando status`
 lists the kept logins, and a login ends early when the server closes it or
 its address changes. Only a person at a terminal can run `komando login`.
+`komando login aws` is the AWS login, so a server cannot be named `aws`,
+`gcp` or `azure`.
 
 ### Sudo passwords and the vault
 
@@ -590,6 +592,8 @@ be used by OpenSSH; use `komando shell NAME` for those.
   `komando export --to FILE` there and `komando import komando FILE` here
   (`komando export kind:host` saves only the servers). The old names
   `host import` and `host export` go away in the next release.
+  A server komando refuses is listed under `skipped`, and the import ends
+  with `IMPORT_INCOMPLETE` (exit 1).
 - `host list` and `host test` are the same as `komando list kind:host` and
   `komando test`.
 - `komando test` tells you, per server, the login user and whether sudo

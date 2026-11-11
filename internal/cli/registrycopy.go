@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -22,7 +23,9 @@ func registryCopyCmd() *cobra.Command {
 to another name on the same registry, with every platform of a multi-platform
 image. Layers the destination already has are skipped; on the same registry
 they are linked instead of copied. The image digest stays the same. Leaving
-out the destination image keeps the source name and tag.
+out the destination image keeps the source name and tag; leaving out only
+the tag keeps the source tag. --dry-run reads both registries and says what
+the copy would bring and whether it replaces what the tag points to now.
 
 Only the destination changes: a protected destination needs --yes.`,
 		Example: `  komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2
@@ -40,11 +43,26 @@ type copyData struct {
 	To   string `json:"to"`
 	*registry.CopyResult
 	DryRun bool `json:"dry_run,omitempty"`
+	// a dry run's findings: the source image, and whether the
+	// destination tag points to another image now
+	Source       *registry.Manifest `json:"source,omitempty"`
+	WouldReplace bool               `json:"would_replace,omitempty"`
 }
 
 func (d copyData) Text() string {
 	if d.DryRun {
-		return fmt.Sprintf("dry run: would copy %s to %s\n", d.From, d.To)
+		s := fmt.Sprintf("dry run: would copy %s to %s\n", d.From, d.To)
+		if d.Source != nil {
+			s += fmt.Sprintf("%s, %s", d.Source.Digest, humanBytes(d.Source.Size))
+			if len(d.Source.Platforms) > 0 {
+				s += ", " + strings.Join(d.Source.Platforms, " ")
+			}
+			s += "\n"
+		}
+		if d.WouldReplace {
+			s += "the destination tag points to another image now; the copy would replace it\n"
+		}
+		return s
 	}
 	s := fmt.Sprintf("%s -> %s\n%s, %s, %s copied (%s), %d already there, %d linked\n",
 		d.From, d.To, d.Digest, countOf(d.Manifests, "manifest"), countOf(d.BlobsCopied, "layer"), humanBytes(d.Bytes), d.BlobsSkipped, d.BlobsMounted)
@@ -67,6 +85,14 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 	dstRepo, dstRef := srcRepo, srcRef
 	if dstImage != "" {
 		dstRepo, dstRef = splitImage(dstImage)
+		if !strings.Contains(dstImage[strings.LastIndex(dstImage, "/")+1:], ":") && !strings.Contains(dstImage, "@") {
+			// harbor:prod/app keeps the source's tag, as harbor: keeps its
+			// name; a source digest then asks for a tag below, not latest
+			dstRef = srcRef
+		}
+	}
+	if srcName == dstName && srcRepo == dstRepo && srcRef == dstRef {
+		return out.Usage("%s is the source and the destination; name another repository or tag", from)
 	}
 	if strings.HasPrefix(dstRef, "sha256:") {
 		if dstImage != "" && strings.Contains(dstImage, "@") {
@@ -95,11 +121,10 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 		}
 		return err
 	}
-	if g.dryRun {
-		data.DryRun = true
-		audit(st, "registry.copy", nil, "", true, rec)
-		out.P.Print("registry.copy", data, nil)
-		return nil
+	if g.timeout > 0 { // a big image may take long: only a --timeout given ends it
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, g.timeout)
+		defer cancel()
 	}
 	sc, closeSrc, err := openRegistry(ctx, st, src)
 	if err != nil {
@@ -111,6 +136,24 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 		return err
 	}
 	defer closeDst()
+	if g.dryRun {
+		m, err := sc.Inspect(ctx, srcRepo, srcRef)
+		if err != nil {
+			return registryErr(imageErr(ctx, sc, srcRepo, srcRef, err))
+		}
+		data.DryRun, data.Source = true, m
+		old, err := dc.Inspect(ctx, dstRepo, dstRef)
+		var answered *registry.Error // not there yet, or not readable before a push: both fine here
+		switch {
+		case err == nil:
+			data.WouldReplace = old.Digest != m.Digest
+		case !errors.As(err, &answered):
+			return registryErr(err) // the destination must be reachable too
+		}
+		audit(st, "registry.copy", nil, "", true, rec)
+		out.P.Print("registry.copy", data, nil)
+		return nil
+	}
 	res, err := registry.Copy(ctx, sc, srcRepo, srcRef, dc, dstRepo, dstRef)
 	if err != nil {
 		if _, ierr := sc.Inspect(ctx, srcRepo, srcRef); ierr != nil {

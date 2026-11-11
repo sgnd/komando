@@ -208,6 +208,11 @@ komando registry copy harbor:app:latest harbor:app:stable           # another ta
 - Only the destination changes, so only a protected destination needs `--yes`.
 - The result says `"replaced": true` when the destination tag pointed to a
   different image before.
+- `harbor:prod/api` (no tag) keeps the source's tag; a source given by
+  digest needs a destination tag. Copying an image onto itself is refused.
+- `--dry-run` reads both registries: it shows the source image (`source`)
+  and says `"would_replace": true` when the destination tag points to
+  another image now.
 
 ## Delete images
 
@@ -217,7 +222,7 @@ komando registry rm harbor myorg/api:old --allow-dangerous
 ```
 
 `rm` deletes the image the tag points at, so every other tag on the same
-image goes too. `--dry-run` names them (`would_remove_tags`) before
+image goes too. Name the tag or digest: `rm` never picks `latest` by itself. `--dry-run` names them (`would_remove_tags`) before
 anything is deleted. A protected registry conn also needs `--yes`. The disk
 space comes back after the registry runs its garbage collection.
 

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"fmt"
 	"sort"
 	"strings"
@@ -188,7 +189,7 @@ func groupAddCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "group.add", added, "", true, map[string]any{"group": group})
-			out.P.Print("group.add", res, nil)
+			out.P.Print("group.add", textAs{res, textBlob(changeSay("add", joinAnd(added), "to @"+group))}, nil)
 			return nil
 		},
 	}
@@ -269,7 +270,11 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 			if g.dryRun {
 				key = "would_remove"
 			}
-			out.P.Print("group.rm", map[string]any{"group": group, key: removed}, nil)
+			say := changeSay("remove", joinAnd(removed), "from @"+group)
+			if len(args) == 1 {
+				say = changeSay("remove", "group @"+group, "from "+cmp.Or(joinAnd(removed), "nothing"))
+			}
+			out.P.Print("group.rm", textAs{map[string]any{"group": group, key: removed}, textBlob(say)}, nil)
 			return nil
 		},
 	}

@@ -113,3 +113,22 @@ func TestMemcacheAuth(t *testing.T) {
 		t.Errorf("a wrong password: %v", err)
 	}
 }
+
+// memcached reads an exptime over 30 days as a Unix time.
+func TestMemcacheExptime(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	for _, c := range []struct {
+		ttl  time.Duration
+		want int64
+	}{
+		{0, 0},
+		{time.Millisecond, 1},
+		{time.Hour, 3600},
+		{30 * 24 * time.Hour, 2592000},
+		{31 * 24 * time.Hour, 1_800_000_000 + 2678400},
+	} {
+		if got := mcExptime(c.ttl, now); got != c.want {
+			t.Errorf("%v: %d, want %d", c.ttl, got, c.want)
+		}
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -103,6 +104,8 @@ func TestInvHostAddValidation(t *testing.T) {
 		{"USAGE", []string{"@h"}},
 		{"USAGE", []string{"h", "--port", "-5"}},
 		{"USAGE", []string{"h", "--user", "a b"}},
+		{"USAGE", []string{"u@10.0.0.5:2201", "--port", "2200"}},
+		{"USAGE", []string{"u@10.0.0.5", "--user", "v"}},
 		{"VIA_NOT_FOUND", []string{"h", "--via", "nosuch"}},
 		{"VIA_CYCLE", []string{"h", "--via", "n1"}},
 		{"FILE_NOT_FOUND", []string{"h", "--identity", "/no/such/key"}},
@@ -112,6 +115,7 @@ func TestInvHostAddValidation(t *testing.T) {
 	} {
 		wantCode(t, c.code, append([]string{"host", "add", "n1"}, c.args...)...)
 	}
+	mustRun(t, "host", "add", "n2", "u@10.0.0.5:2201", "--port", "2201", "--user", "u") // agreeing is fine
 	mustRun(t, "host", "add", "n1", "h", "--identity", id, "--via", "b1")
 	// a loop through another host
 	wantCode(t, "VIA_CYCLE", "host", "edit", "b1", "--via", "n1")
@@ -237,12 +241,30 @@ func TestInvKeys(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "key", "add", "p", store.Path("keys", "k"), "--passphrase-ref", "pw123")
 	wantCode(t, "USAGE", "key", "edit", "k", "--passphrase-ref", "pw123")
+	// key edit says what it did, warns about a secret not stored yet, and
+	// clears with --unset like host and conn edit ('' still works)
+	d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp")
+	if d["action"] != "changed" || !strings.Contains(fmt.Sprint(d["warnings"]), "secret kp is not in the vault") {
+		t.Errorf("key edit: %v", d)
+	}
+	if d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp"); d["action"] != "unchanged" {
+		t.Errorf("same again: %v", d)
+	}
+	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "passphrase-ref", "--passphrase-ref", "secret:kp")
+	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "path")
+	if d = mustRun(t, "key", "edit", "k", "--unset", "passphrase-ref"); d["passphrase_ref"] != nil || d["action"] != "changed" {
+		t.Errorf("--unset: %v", d)
+	}
 	mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp")
+	mustRun(t, "key", "edit", "k", "--passphrase-ref", "")
 
 	ext := filepath.Join(t.TempDir(), "ext")
 	b, _ := os.ReadFile(store.Path("keys", "k"))
 	os.WriteFile(ext, b, 0o600)
-	mustRun(t, "key", "add", "ext", ext)
+	// the same key under a second name is added, with a warning naming the first
+	if d = mustRun(t, "key", "add", "ext", ext); !strings.Contains(fmt.Sprint(d["warnings"]), "same key as k") {
+		t.Errorf("same key twice: %v", d)
+	}
 	d = mustRun(t, "key", "rm", "ext", "--delete-file")
 	if d["file_deleted"] != false {
 		t.Errorf("an added key's file stays: %v", d)
@@ -348,7 +370,7 @@ func TestInvPolicy(t *testing.T) {
 	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", "nonexistent")
 	wantCode(t, "USAGE", "policy", "deny", " ")
 	mustRun(t, "policy", "deny", `kubectl\s+apply`)
-	mustRun(t, "policy", "rm", "custom-0", "--yes")
+	mustRun(t, "policy", "rm", policy.CustomID(`kubectl\s+apply`), "--yes")
 	if a := mustRun(t, "audit", "--command", "policy.rm"); a["count"].(float64) != 1 {
 		t.Errorf("policy rm is audited as policy.rm: %v", a)
 	}
@@ -474,7 +496,7 @@ func TestInvRmSelector(t *testing.T) {
 }
 
 func TestInvEmptyListText(t *testing.T) {
-	if s := (targetList{Targets: []targetRow{}, empty: true}).Text(); !strings.Contains(s, "No servers or conns yet") {
+	if s := (targetList{Targets: []targetRow{}, empty: true}).Text(); !strings.Contains(s, "No servers, databases or other services yet") || strings.Contains(s, "conns") {
 		t.Errorf("text: %q", s)
 	}
 }
@@ -543,5 +565,153 @@ func TestExportImportCarriesRulesAndSettings(t *testing.T) {
 	// importing again adds nothing new
 	if d := mustRun(t, "import", "komando", f); d["deny_rules_added"] != nil {
 		t.Errorf("again: %v", d)
+	}
+}
+
+// One ProxyCommand server in an ssh config does not hold back the others
+// for an AI agent: they come in, and it is listed with what it needs.
+func TestImportSSHConfigProxyCommandAgent(t *testing.T) {
+	invHome(t)
+	cfg := filepath.Join(t.TempDir(), "config")
+	os.WriteFile(cfg, []byte("Host a1\n  HostName 192.0.2.1\nHost px\n  HostName 192.0.2.2\n  ProxyCommand nc %h %p\n"), 0o600)
+	asAgent(t, false, true)
+	d, e := invRun(t, "import", "ssh-config", cfg)
+	if e == nil || e.Code != "IMPORT_INCOMPLETE" || fmt.Sprint(d["hosts"]) != "[a1]" || !strings.Contains(fmt.Sprint(d["skipped"]), "px") {
+		t.Errorf("import: %v %+v", d, e)
+	}
+}
+
+// With -o text, host export and export still print JSON that the imports
+// read back, since the output is meant to go to a file.
+func TestExportTextIsImportable(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@192.0.2.10")
+	textOut := func(args ...string) []byte {
+		t.Helper()
+		root := newRoot()
+		root.SetArgs(append([]string{"-o", "text"}, args...))
+		var buf bytes.Buffer
+		saved := out.P.W
+		out.P.W = &buf
+		defer func() { out.P.W = saved; out.P.Format = "json" }()
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		return buf.Bytes()
+	}
+	if hosts, ok := parseHostsJSON(textOut("host", "export")); !ok || len(hosts) != 1 || hosts[0].Name != "web1" {
+		t.Errorf("host export -o text: %v %v", hosts, ok)
+	}
+	f := filepath.Join(t.TempDir(), "exp.json")
+	os.WriteFile(f, textOut("export"), 0o600)
+	if p, err := importKomando(f); err != nil || len(p.Hosts) != 1 {
+		t.Errorf("export -o text: %v %v", p, err)
+	}
+}
+
+// Custom rule ids stay with their rule: removing one does not move another
+// to its id, so a second rm from an old list cannot hit the wrong rule.
+func TestPolicyCustomIDsStay(t *testing.T) {
+	invHome(t)
+	noAgent(t)
+	mustRun(t, "policy", "deny", `shutdown\s+-h`)
+	mustRun(t, "policy", "deny", `kubectl\s+delete`)
+	ids := map[string]string{}
+	for _, r := range mustRun(t, "policy", "list")["custom_rules"].([]any) {
+		m := r.(map[string]any)
+		ids[m["pattern"].(string)] = m["id"].(string)
+	}
+	kube := ids[`kubectl\s+delete`]
+	mustRun(t, "policy", "rm", ids[`shutdown\s+-h`], "--yes")
+	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", ids[`shutdown\s+-h`], "--yes")
+	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", "custom-0", "--yes")
+	if r := mustRun(t, "policy", "list")["custom_rules"].([]any); len(r) != 1 || r[0].(map[string]any)["id"] != kube {
+		t.Errorf("after rm: %v", r)
+	}
+}
+
+// policy deny refuses a pattern that matches empty text: it would block
+// every command.
+func TestPolicyDenyMatchesEverything(t *testing.T) {
+	invHome(t)
+	for _, p := range []string{".*", "^", "x*", "(?i)"} {
+		wantCode(t, "USAGE", "policy", "deny", p)
+	}
+	mustRun(t, "policy", "deny", ".+")
+}
+
+// policy check --for: a kind it does not rate says which it does, MongoDB
+// commands are rated, and a destructive verdict exits 6 like a blocked
+// shell command.
+func TestPolicyCheckFor(t *testing.T) {
+	invHome(t)
+	for _, k := range []string{"bogus", "sql"} {
+		if e := wantCode(t, "USAGE", "policy", "check", "--for", k, "x"); !strings.Contains(e.Message, "not a kind komando rates") || !strings.Contains(e.Hint, "postgres") {
+			t.Errorf("%s: %+v", k, e)
+		}
+	}
+	if d := mustRun(t, "policy", "check", "--for", "postgres", "select 1"); d["risk"] != "read" {
+		t.Errorf("read: %v", d)
+	}
+	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "postgres", "drop table users"); e.Exit != out.ExitPolicy {
+		t.Errorf("drop: exit %d", e.Exit)
+	}
+	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "mongodb", `{"dropDatabase": 1}`); !strings.Contains(e.Message, "mongo-drop") {
+		t.Errorf("mongodb: %+v", e)
+	}
+	if d := mustRun(t, "policy", "check", "--for", "MongoDB", `{"find": "users"}`); d["risk"] != "read" {
+		t.Errorf("mongodb find: %v", d)
+	}
+	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "redis", "FLUSHALL")
+	// split as cache run splits it, so both rate a quoted command the same
+	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "redis", `"FLUSHALL"`)
+	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "redis", `FLUSHALL ASYNC`)
+}
+
+// policy deny and rm say "would" in a dry run, and show the pattern as
+// written, not Go-quoted.
+func TestPolicyChangeText(t *testing.T) {
+	t.Cleanup(func() { g.dryRun = false })
+	yes := true
+	for _, tc := range []struct {
+		dry  bool
+		p    policyChange
+		want string
+	}{
+		{false, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}, "added the deny rule a\\s+b (1 custom rule now)\n"},
+		{true, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}, "would add the deny rule a\\s+b (dry run; 1 custom rule then)\n"},
+		{false, policyChange{Custom: []string{}, Removed: `a\s+b`}, "removed the deny rule a\\s+b (0 custom rules left)\n"},
+		{true, policyChange{Custom: []string{}, Removed: `a\s+b`}, "would remove the deny rule a\\s+b (dry run; 0 custom rules left then)\n"},
+	} {
+		g.dryRun = tc.dry
+		if got := tc.p.Text(); got != tc.want {
+			t.Errorf("got %q, want %q", got, tc.want)
+		}
+	}
+}
+
+// config show JSON has every setting in data.keys, in the form config get
+// and set use, with its default and allowed values, and the approval code.
+func TestConfigShowJSONKeys(t *testing.T) {
+	invHome(t)
+	d := mustRun(t, "config", "show")
+	keys := map[string]map[string]any{}
+	for _, k := range d["keys"].([]any) {
+		m := k.(map[string]any)
+		keys[m["key"].(string)] = m
+	}
+	if len(keys) != len(settings) {
+		t.Errorf("%d keys, want %d", len(keys), len(settings))
+	}
+	for _, want := range []string{"default_user", "audit_syslog", "audit"} {
+		if keys[want] == nil {
+			t.Errorf("no %s: %v", want, keys)
+		}
+	}
+	if keys["audit"]["value"] != "on" || keys["audit_syslog"]["value"] != "off" || keys["parallel"]["default"] != "10" || keys["audit"]["values"] != "on | off" {
+		t.Errorf("values: %v", keys)
+	}
+	if d["approval_code"] != "off" || d["settings"] == nil {
+		t.Errorf("approval_code / settings: %v", d)
 	}
 }

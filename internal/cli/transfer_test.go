@@ -130,9 +130,11 @@ func TestExecScript(t *testing.T) {
 		{"exec", "web1", "--interpreter", "python3", "--", "uptime"},
 		{"exec", "web1", "--script", f, "--stdin-file", f},
 		{"exec", "web1", "--script", f, "--pty"},
-		{"script", "web1", f, "--stdin-file", f},
 	} {
 		wantCode(t, "USAGE", args...)
+	}
+	if scriptCmd().Flags().Lookup("stdin-file") != nil {
+		t.Error("the old script name takes --stdin-file, which a script cannot use")
 	}
 	var plan, old map[string]any
 	note := stderrOf(t, func() {

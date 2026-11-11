@@ -17,7 +17,10 @@ komando job start web1 -- 'tar czf /backup/www.tgz /var/www'   # a long task
 
 Everything after `--` is the command. It runs through the server's login
 shell, on all picked servers in parallel (`run` and `x` are other names for
-`exec`).
+`exec`). komando's own flags go before `--`: `exec web1 -- uptime --dry-run`
+is refused, because `--dry-run` there would be part of the command and the
+command would really run. When the command on the server takes such a flag
+itself (`apt-get upgrade --dry-run`), give it as one string with `-c`.
 
 ```bash
 komando exec web1 -- uptime
@@ -31,7 +34,7 @@ komando exec db1 --read-only -- 'df -h /var/lib/postgresql'   # SQL itself: koma
 | `-c`, `--cmd 'COMMAND'` | Give the command as one string instead of after `--`. |
 | `-s`, `--sudo` / `--sudo-user NAME` | Run as root, or as another user (uses the server's `--sudo-ref` password if set). |
 | `-C`, `--dir PATH` | Run in this folder on the server. |
-| `-e`, `--env KEY=VALUE` | Export a variable first (repeatable). |
+| `-e`, `--env KEY=VALUE` | Export a variable first (repeatable; a comma stays in the value). |
 | `--timeout 10m` | Time limit per server (default 5m). |
 | `-P`, `--parallel 20` | How many servers at once (default 10). |
 | `--fail-fast` | Start no more servers after the first failure. |
@@ -163,6 +166,10 @@ The interpreter comes from the script's `#!` line, or from `--interpreter`
 The script is sent as the interpreter's input, so `--stdin-file` and
 `--pty` do not go with `--script`. `komando script TARGET FILE` is the old
 name: it still works in this release and says to use `exec --script`.
+Through `env` (`#!/usr/bin/env -S bash -e`), the program after env's own
+options is the interpreter, with its arguments. A script that holds a value
+komando hid (`[hidden]`) is refused (`HIDDEN_VALUE`), as is such a file
+given to `exec --stdin-file`.
 
 ## Long tasks (jobs)
 

@@ -207,15 +207,29 @@ func notFound(key string) error {
 	return out.Errf(out.ExitNotFound, "KEY_NOT_FOUND", "list keys with `komando cache keys CONN 'pattern*'`", "key %q does not exist", key)
 }
 
-func (m *memcache) Set(ctx context.Context, key, value string, ttl time.Duration) error {
-	if err := validKey(key); err != nil {
-		return err
-	}
+// mcMaxRelative is the longest expiry memcached reads as seconds from now
+// (30 days); a larger number is a Unix time.
+const mcMaxRelative = 30 * 24 * 60 * 60
+
+// mcExptime is the exptime field for a ttl: seconds from now, or for more
+// than 30 days the Unix time it ends, which memcached would otherwise read
+// as a moment in 1970 and drop the item at once.
+func mcExptime(ttl time.Duration, now time.Time) int64 {
 	exp := int64(ttl / time.Second)
 	if ttl > 0 && exp == 0 {
 		exp = 1
 	}
-	line, err := m.cmd(ctx, fmt.Sprintf("set %s 0 %d %d\r\n%s", key, exp, len(value), value))
+	if exp > mcMaxRelative {
+		exp += now.Unix()
+	}
+	return exp
+}
+
+func (m *memcache) Set(ctx context.Context, key, value string, ttl time.Duration) error {
+	if err := validKey(key); err != nil {
+		return err
+	}
+	line, err := m.cmd(ctx, fmt.Sprintf("set %s 0 %d %d\r\n%s", key, mcExptime(ttl, time.Now()), len(value), value))
 	if err != nil {
 		return mcErr(err)
 	}

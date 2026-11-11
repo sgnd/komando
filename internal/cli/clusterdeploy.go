@@ -220,7 +220,7 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 					map[string]any{"object": "service/" + name, "image": image, "previous_image": serviceImage(ins["Spec"])})
 			}
 			defer rollbackNote(&rerr, args[0], typ+"/"+name, ns)
-			return withKube(cmd.Context(), "cluster.deploy", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name, "image": image}, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(ownTimeLimit(cmd.Context(), wait), "cluster.deploy", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name, "image": image}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err
@@ -525,7 +525,7 @@ revision. A Swarm service goes back to its previous version.`,
 				return swarmChange(cmd.Context(), "cluster.rollback", t, name, "docker service rollback --detach "+sshx.Q(name), wait, true, driver.RiskWrite,
 					map[string]any{"object": "service/" + name, "images": []string{serviceImage(ins["PreviousSpec"])}, "previous_image": serviceImage(ins["Spec"])})
 			}
-			return withKube(cmd.Context(), "cluster.rollback", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name, "to": to}, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(ownTimeLimit(cmd.Context(), wait), "cluster.rollback", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name, "to": to}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err

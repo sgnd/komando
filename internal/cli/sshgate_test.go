@@ -678,3 +678,25 @@ func TestGateShellQuote(t *testing.T) {
 		}
 	}
 }
+
+// ssh-gate typed by a person (no sshd around it) shows how to set it up:
+// no safety stop, no audit record of a key named "key".
+func TestSSHGateBareAtATerminal(t *testing.T) {
+	invHome(t)
+	t.Setenv("SSH_ORIGINAL_COMMAND", "")
+	t.Setenv("SSH_CONNECTION", "")
+	_, e := invRun(t, "ssh-gate")
+	if e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "ssh-gate line") {
+		t.Fatalf("bare ssh-gate: %+v", e)
+	}
+	if _, err := os.Stat(store.Path("audit.jsonl")); err == nil {
+		if a := lastAudit(t); a["command"] == "ssh-gate" {
+			t.Errorf("audited: %v", a)
+		}
+	}
+	// run by sshd for a key that asked for nothing: refused and audited
+	_, _, e = gateRun(t, "", "--name", "phone")
+	if e == nil || e.Code != "SSH_GATE_REFUSED" || lastAudit(t)["ssh_gate"] != "phone" {
+		t.Errorf("sshd, no command: %+v", e)
+	}
+}

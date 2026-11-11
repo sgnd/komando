@@ -77,7 +77,7 @@ var fileTasks = []menuTask{
 	{label: "Put a backup back", detail: "After a change made with a backup", cmd: "fs restore"},
 	{label: "Copy a file to it", cmd: "upload"},
 	{label: "Copy a file from it", cmd: "download"},
-	{label: "Copy a folder to it", detail: "Copies only what changed", cmd: "sync", noItem: true},
+	{label: "Copy a folder", detail: "To or from any server, file storage or here; only what changed", cmd: "sync", noItem: true},
 	{label: "Copy between servers", cmd: "cp", noItem: true},
 	{label: "File details", detail: "Size, owner, permissions", cmd: "fs stat"},
 	{label: "Make a folder", cmd: "fs mkdir"},
@@ -168,12 +168,12 @@ var jobTasks = []menuTask{
 }
 
 // groupTasks is what a server offers, run on every server of the group,
-// and the group's own changes.
+// and the group's own changes. Tasks for one server only are left out.
 func groupTasks() []menuTask {
 	var tasks []menuTask
-	for _, tk := range serverTasks {
+	for _, tk := range menuManyServers(serverTasks) {
 		switch tk.label {
-		case "Open a shell", "Change this server", "Remove from list":
+		case "Change this server", "Remove from list":
 			continue
 		case "Reboot":
 			tk.confirm = "Reboot every server in {}? They are away for a minute or more while they start again."
@@ -187,6 +187,30 @@ func groupTasks() []menuTask {
 		{label: "Take a server out", cmd: "group rm", fill: []string{"{name}"}},
 		{label: "Rename the group", cmd: "group mv", fill: []string{"{name}"}},
 	}})
+}
+
+// menuManyServers is tasks without those that work on one server only: a
+// shell, a file edit, a tunnel, a login.
+func menuManyServers(tasks []menuTask) []menuTask {
+	var keep []menuTask
+	for _, tk := range tasks {
+		if menuOneServer(tk) {
+			continue
+		}
+		if tk.sub != nil {
+			tk.sub = menuManyServers(tk.sub)
+		}
+		keep = append(keep, tk)
+	}
+	return keep
+}
+
+func menuOneServer(tk menuTask) bool {
+	if tk.cmd == "tunnel start" || tk.cmd == "login" || slices.ContainsFunc(tk.line, func(l []string) bool { return l[0] == "shell" }) {
+		return true
+	}
+	h := formHints[tk.cmd]
+	return tk.cmd != "" && !tk.noItem && tk.fill == nil && len(h.args) > 0 && h.args[0].pick == "server"
 }
 
 // vpnTasks: Connect, or Disconnect when it is connected, after saying what
@@ -371,8 +395,8 @@ func settingsTasks() []menuTask {
 			{label: "Change the passphrase", cmd: "secret passphrase", noItem: true},
 		}},
 		{label: "Production servers", detail: "komando asks you before every change on them", sub: []menuTask{
-			{label: "Protect or unprotect a server", cmd: "host edit", noItem: true},
-			{label: "Protect or unprotect a service", cmd: "conn edit", noItem: true},
+			{label: "Protect or unprotect a server", cmd: "host edit", noItem: true, only: []string{"protected"}},
+			{label: "Protect or unprotect a service", cmd: "conn edit", noItem: true, only: []string{"protected"}},
 			{label: "Ask for a code in the approval window", cmd: "config approval-code", noItem: true},
 		}},
 		{label: "Blocked commands", sub: []menuTask{

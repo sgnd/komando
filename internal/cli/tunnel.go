@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -151,6 +152,14 @@ func parseTunnel(kind, spec string) (tunnelSpec, error) {
 			return t, out.Usage("invalid SOCKS spec %q: use PORT or ADDRESS:PORT", spec)
 		}
 	}
+	if _, p, _ := net.SplitHostPort(t.BindAddr); !tunnelPort(p, 0) {
+		return t, out.Usage("%q in %q is not a port: use 0 (a free one) to 65535", p, spec)
+	}
+	if t.TargetAddr != "" {
+		if _, p, _ := net.SplitHostPort(t.TargetAddr); !tunnelPort(p, 1) {
+			return t, out.Usage("%q in %q is not a port: use 1 to 65535", p, spec)
+		}
+	}
 	return t, nil
 }
 
@@ -169,6 +178,9 @@ point your database app or psql at the local address it prints. With a server, g
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			conn, via := "", ""
+			if cmd.Flags().Changed("port") && (l != "" || r != "" || d != "") {
+				return out.Usage("--port is for a conn; with -L, -R or -D the port goes in the spec")
+			}
 			if l == "" && r == "" && d == "" {
 				st, err := loadState()
 				if err != nil {
@@ -222,6 +234,9 @@ point your database app or psql at the local address it prints. With a server, g
 			}
 			if vpn != nil && kind == "remote" {
 				return out.Usage("-R needs a server at the end of the path; a VPN cannot listen for you")
+			}
+			if err := tunnelGuard(st, h, kind); err != nil {
+				return err
 			}
 			hostName := via
 			if h != nil {
@@ -296,15 +311,8 @@ point your database app or psql at the local address it prints. With a server, g
 				}
 				if i := strings.Index(s, "ERROR "); i >= 0 {
 					_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
-					msg := strings.TrimSpace(s[i+6:])
-					if strings.Contains(msg, "address already in use") {
-						return portInUse(ts.BindAddr, "this computer", errors.New(msg))
-					}
-					if kind == "remote" && strings.Contains(msg, "request denied") {
-						return out.Errf(out.ExitConflict, "PORT_IN_USE", "the port may be taken on "+hostName+" (pick another, or 0 for a free one), or sshd there has AllowTcpForwarding off",
-							"%s refused to listen on %s: %s", hostName, ts.BindAddr, msg)
-					}
-					return out.Errf(out.ExitConnect, "TUNNEL_FAILED", "check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right", "%s", msg)
+					_ = os.Remove(logPath) // the error says what it held
+					return tunnelErr(strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0]), kind, hostName, ts.BindAddr)
 				}
 				time.Sleep(150 * time.Millisecond)
 			}
@@ -495,7 +503,9 @@ func tunnelServeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := log.New(os.Stdout, "", log.LstdFlags)
 			fail := func(err error) error {
-				fmt.Printf("ERROR %v\n", err)
+				e := toErr(err)
+				b, _ := json.Marshal(serveErr{Code: e.Code, Message: e.Message, Hint: e.Hint, Exit: e.Exit})
+				fmt.Printf("ERROR %s\n", b)
 				return exitCode(1)
 			}
 			st, err := serveState(passStdin)

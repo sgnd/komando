@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -79,7 +80,7 @@ func fsErrHint(p string, err error, permHint string) error {
 	case errors.Is(err, os.ErrNotExist):
 		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "list the folder with `komando fs ls TARGET "+path.Dir(p)+"`", "%s: no such file or directory", p)
 	case errors.Is(err, os.ErrPermission):
-		return out.Errf(out.ExitError, "PERMISSION_DENIED", permHint, "%s: permission denied", p)
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", permHint, "%s: permission denied", p)
 	}
 	return err
 }
@@ -119,7 +120,7 @@ func fsLsCmd() *cobra.Command {
 	var maxEntries int
 	c := &cobra.Command{
 		Use:   "ls TARGET [PATH]",
-		Short: "List a folder on a server (default: the login user's home)",
+		Short: "List a folder on one server (default: the login user's home)",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			arg := ""
@@ -203,7 +204,7 @@ func fsStatCmd() *cobra.Command {
 	var hash bool
 	c := &cobra.Command{
 		Use:   "stat TARGET PATH",
-		Short: "Look up a path on a server (exists:false, not an error, when missing)",
+		Short: "Look up a path on one server (exists:false, not an error, when missing)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if st, h := windowsOne(args[0]); h != nil {
@@ -283,6 +284,58 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 	return b, false, nil
 }
 
+// readRemoteEnd is readRemote for the end of the file (fs cat --tail): the
+// last limit bytes. When the file is longer, the first line read is cut
+// short, so it is left out, and trunc is true.
+func readRemoteEnd(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, sudo bool, limit int64) ([]byte, bool, error) {
+	var b []byte
+	if sudo {
+		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: "tail -c " + strconv.FormatInt(limit+1, 10) + " -- " + sshx.Q(p), Sudo: true, MaxOutput: int(limit + 1), Timeout: 2 * time.Minute})
+		if err != nil {
+			return nil, false, err
+		}
+		if r.ExitCode != 0 {
+			if strings.Contains(r.Stderr, "No such file") {
+				return nil, false, fsErr(p, os.ErrNotExist)
+			}
+			if strings.Contains(r.Stderr, "Is a directory") {
+				return nil, false, isADirectory(p)
+			}
+			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat TARGET PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
+		}
+		b = []byte(r.Stdout)
+	} else {
+		fi, err := sc.Stat(p)
+		if err != nil {
+			return nil, false, fsErr(p, err)
+		}
+		if fi.IsDir() {
+			return nil, false, isADirectory(p)
+		}
+		f, err := sc.Open(p)
+		if err != nil {
+			return nil, false, fsErr(p, err)
+		}
+		defer f.Close()
+		if from := fi.Size() - limit - 1; from > 0 {
+			if _, err := f.Seek(from, io.SeekStart); err != nil {
+				return nil, false, fsErr(p, err)
+			}
+		}
+		if b, err = io.ReadAll(io.LimitReader(f, limit+1)); err != nil {
+			return nil, false, fsErr(p, err)
+		}
+	}
+	if int64(len(b)) <= limit {
+		return b, false, nil
+	}
+	b = b[1:]
+	if i := bytes.IndexByte(b, '\n'); i >= 0 && i < len(b)-1 {
+		b = b[i+1:]
+	}
+	return b, true, nil
+}
+
 func isADirectory(p string) error {
 	return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "list it with `komando fs ls TARGET "+p+"`", "%s is a folder, not a file", p)
 }
@@ -311,7 +364,7 @@ func fsCatCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "cat TARGET PATH",
 		Aliases: []string{"read"},
-		Short:   "Read a file on a server (--head, --tail, --line-numbers)",
+		Short:   "Read a file on one server (--head, --tail, --line-numbers)",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if maxBytes <= 0 {
@@ -324,11 +377,21 @@ func fsCatCmd() *cobra.Command {
 			} else {
 				res, err = oneHost(cmd.Context(), args[0], func(_ *store.State, c *sshx.Client, sc *sftp.Client) (any, error) {
 					p := expandRemote(sc, args[1])
-					b, trunc, err := readRemote(cmd.Context(), c, sc, p, sudo, maxBytes)
+					read, fromEnd := readRemote, tail > 0 && head == 0
+					if fromEnd {
+						read = readRemoteEnd
+					}
+					b, trunc, err := read(cmd.Context(), c, sc, p, sudo, maxBytes)
 					if err != nil {
 						return nil, err
 					}
-					return catContent(args[0], p, b, trunc, head, tail, numbered)
+					// where the last lines of a long file start is not known
+					num := numbered && !(fromEnd && trunc)
+					r, err := catContent(args[0], p, b, trunc, head, tail, num)
+					if num != numbered {
+						r.Note = strings.TrimSpace(r.Note + " The file is larger than --max-bytes, so these last lines have no line numbers; raise --max-bytes to number them.")
+					}
+					return r, err
 				})
 			}
 			if err != nil {
@@ -349,7 +412,9 @@ func fsCatCmd() *cobra.Command {
 	return c
 }
 
-// catContent is fs cat's result for the file p of target, read as b.
+// catContent is fs cat's result for the file p of target, read as b. A
+// --tail of b counts as the file's end only when b was read from the end
+// (readRemoteEnd) or is the whole file.
 func catContent(target, p string, b []byte, trunc bool, head, tail int, numbered bool) (catResult, error) {
 	sum := hex.EncodeToString(func() []byte { h := sha256.Sum256(b); return h[:] }())
 	r := catResult{Path: p, Bytes: len(b), Truncated: trunc}
@@ -466,7 +531,7 @@ func quoteAll(a []string) string {
 }
 
 func fsRmCmd() *cobra.Command {
-	c := shellFsCmd("rm TARGET PATH...", "Remove files on a server (--recursive for folders; missing ones are reported)", 2, func(a []string, f map[string]bool) (string, string, error) {
+	c := shellFsCmd("rm TARGET PATH...", "Remove files on servers (--recursive for folders; missing ones are reported)", 2, func(a []string, f map[string]bool) (string, string, error) {
 		flags := "-f"
 		if f["recursive"] {
 			flags = "-rf"
@@ -481,17 +546,22 @@ komando exec for that).`
 }
 
 func fsMkdirCmd() *cobra.Command {
-	return shellFsCmd("mkdir TARGET PATH...", "Create folders on a server, with any missing parents (like mkdir -p)", 2, func(a []string, _ map[string]bool) (string, string, error) {
+	return shellFsCmd("mkdir TARGET PATH...", "Create folders on servers, with any missing parents (like mkdir -p)", 2, func(a []string, _ map[string]bool) (string, string, error) {
 		return mkdirScript(a), "mkdir -p -- " + rqAll(a), nil
 	}, nil)
 }
 
 func fsMvCmd() *cobra.Command {
-	c := shellFsCmd("mv TARGET SRC DST", "Move or rename a path on a server (replaces a file only with --overwrite)", 3, func(a []string, f map[string]bool) (string, string, error) {
+	c := shellFsCmd("mv TARGET SRC DST", "Move or rename a path on servers (replaces a file only with --overwrite)", 3, func(a []string, f map[string]bool) (string, string, error) {
 		if len(a) != 2 {
 			return "", "", out.Usage("give one SRC and one DST: komando fs mv TARGET SRC DST")
 		}
-		return mvScript(a[0], a[1], f["overwrite"]), "mv -- " + rqAll(a), nil
+		// -n: an existing file stops the move (FILE_EXISTS); -f replaces it
+		flag := "-n"
+		if f["overwrite"] {
+			flag = "-f"
+		}
+		return mvScript(a[0], a[1], f["overwrite"]), "mv " + flag + " -- " + rqAll(a), nil
 	}, map[string]string{"overwrite": "replace DST if it exists"})
 	c.Long = `Moves SRC to DST. When DST is an existing folder, SRC moves into it (like mv).
 An existing file at the destination is never replaced unless --overwrite
@@ -500,7 +570,7 @@ An existing file at the destination is never replaced unless --overwrite
 }
 
 func fsChmodCmd() *cobra.Command {
-	return shellFsCmd("chmod TARGET MODE PATH...", "Change the mode of paths on a server", 3, func(a []string, f map[string]bool) (string, string, error) {
+	return shellFsCmd("chmod TARGET MODE PATH...", "Change the mode of paths on servers", 3, func(a []string, f map[string]bool) (string, string, error) {
 		if !validMode(a[0]) {
 			hint := ""
 			if validMode(a[len(a)-1]) {

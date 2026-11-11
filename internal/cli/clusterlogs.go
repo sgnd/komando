@@ -80,7 +80,7 @@ the pods that exist when it starts. --since takes a duration back from now
 				}
 				showStatus(statusLine{What: what, Target: t.conn.Name, Route: connRoute(st, t.conn), Protected: protectedConn(st, t.conn), Tail: "Ctrl-C stops"})
 			}
-			return withKube(cmd.Context(), "cluster.logs", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(ownTimeLimit(cmd.Context(), follow), "cluster.logs", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
 				space := cmp.Or(ns, k.Namespace)
 				ref := selector
 				if len(args) == 2 {
@@ -180,9 +180,9 @@ func logPods(ctx context.Context, k *kube.Client, space, ref, selector string) (
 		if !isRef {
 			return []string{ref}, nil // a pod name
 		}
-		r, err := k.Resource(ctx, typ)
+		r, err := resource(ctx, k, typ)
 		if err != nil {
-			return nil, out.Usage("%v", err)
+			return nil, err
 		}
 		if r.KindName() == "Pod" {
 			return []string{name}, nil

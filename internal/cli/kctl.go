@@ -203,6 +203,10 @@ func runKctlLive(ctx context.Context, k *kube.Client, conn string, args []string
 			r.stderr.WriteString(fmt.Sprintf("Error from server (%s): %s\n", strings.ReplaceAll(ae.Reason, " ", ""), ae.Message))
 		case errors.Is(err, context.DeadlineExceeded):
 			r.stderr.WriteString("error: timed out waiting for the condition\n")
+		case r.stdout.Len() == 0 && errors.As(err, new(*url.Error)):
+			// the cluster could not be reached: komando's own stop, not kubectl's words
+			stop = toErr(kubeErr(err))
+			r.stderr.WriteString("error: " + stop.Message + "\n")
 		default:
 			r.stderr.WriteString("error: " + err.Error() + "\n")
 		}
@@ -279,12 +283,9 @@ func (r *kctlRun) dispatch() error {
 		return r.certificate(sub)
 	case "config":
 		return r.config(sub)
-	case "port-forward", "proxy", "attach":
-		return kfail("%s is a session: use `komando cluster forward` (ports) or `komando cluster shell` (a terminal)", r.a.verb)
-	case "edit":
-		return kfail("edit opens an editor: use `komando cluster get TARGET TYPE NAME -o yaml`, change the file, then `cluster run --write -- apply -f FILE`")
 	}
-	return kfail("unknown command %q for komando's kubectl (see `komando cluster run --help`)", r.a.verb)
+	// every verb kctlUsage lets through has a case above: this is a session, edit or unknown verb
+	return kfail("%s", toErr(kctlUsage([]string{r.a.verb})).Message)
 }
 
 // Resources and objects.
@@ -312,7 +313,7 @@ func (r *kctlRun) refs(pos []string) ([]kref, error) {
 		}
 		rt, err := r.k.Resource(r.ctx, t)
 		if err != nil {
-			return nil, kfail("the server doesn't have a resource type %q", t)
+			return nil, kindErr(err, "the server doesn't have a resource type %q", t)
 		}
 		return []kube.ResourceType{rt}, nil
 	}

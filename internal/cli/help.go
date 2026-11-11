@@ -11,6 +11,10 @@ import (
 // other global flags are in `komando --help` (ux.md, anti-slop checklist).
 var commonGlobals = []string{"dry-run", "output", "timeout", "yes"}
 
+// timeoutHelp is the annotation that replaces the --timeout line in a
+// command's help, for a command with a default of its own.
+const timeoutHelp = "timeoutHelp"
+
 // ownFlags are a command's flags, its own and the ones a parent gives all
 // its sub-commands (`cron --user` for `cron list`): the flags of this
 // command, which --help and `komando schema` list. Global flags are not.
@@ -42,9 +46,15 @@ func init() {
 		fs := pflag.NewFlagSet("", pflag.ContinueOnError)
 		c.InheritedFlags().VisitAll(func(f *pflag.Flag) {
 			for _, n := range commonGlobals {
-				if f.Name == n {
-					fs.AddFlag(f)
+				if f.Name != n {
+					continue
 				}
+				if u := c.Annotations[timeoutHelp]; u != "" && n == "timeout" {
+					own := *f // this command's own default, not the global one
+					own.Usage = u
+					f = &own
+				}
+				fs.AddFlag(f)
 			}
 		})
 		return strings.TrimRight(fs.FlagUsages(), " \n")

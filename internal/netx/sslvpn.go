@@ -45,6 +45,13 @@ func BuiltinSSL(kind string) bool {
 	return err != nil
 }
 
+// BuiltinSSLFor is BuiltinSSL for one VPN: a GlobalProtect VPN without a
+// user signs in through a browser, which only komando's own client does,
+// so it never goes to openconnect.
+func BuiltinSSLFor(v *store.Vpn) bool {
+	return BuiltinSSL(v.Kind) || v.Kind == "globalprotect" && v.User == ""
+}
+
 func sslOptions(v *store.Vpn, password string, prompt func(string, bool) (string, error)) sslvpn.Options {
 	return sslvpn.Options{Portal: v.Portal, User: v.User, Password: password, Prompt: prompt}
 }

@@ -59,7 +59,7 @@ func (l localSide) list(context.Context) (map[string]syncFile, error) {
 	if fi, err := os.Stat(l.root); os.IsNotExist(err) {
 		return files, errSideMissing // a new destination folder
 	} else if err == nil && !fi.IsDir() {
-		return nil, out.Errf(out.ExitUsage, "NOT_A_FOLDER", "sync works on folders; for one file use `komando upload` or `komando download`", "%s is a file, not a folder", l.root)
+		return nil, out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync works on folders; for one file use `komando upload` or `komando download`", "%s is a file, not a folder", l.root)
 	}
 	err := filepath.WalkDir(l.root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -191,7 +191,7 @@ func (s sftpSide) list(context.Context) (map[string]syncFile, error) {
 		}
 		return nil, fsErrHint(s.root, err, syncPermHint)
 	} else if !fi.IsDir() {
-		return nil, out.Errf(out.ExitUsage, "NOT_A_FOLDER", "sync works on folders; for one file use `komando download` or `komando upload`", "%s is a file, not a folder", s.root)
+		return nil, out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync works on folders; for one file use `komando download` or `komando upload`", "%s is a file, not a folder", s.root)
 	}
 	w := s.sc.Walk(s.root)
 	for w.Step() {
@@ -223,7 +223,7 @@ func (s sftpSide) open(_ context.Context, rel string) (io.ReadCloser, error) {
 
 func (s sftpSide) write(_ context.Context, rel string, r io.Reader, f syncFile) error {
 	if strings.Contains("/"+rel+"/", "/../") {
-		return out.Errf(out.ExitUsage, "UNSAFE_PATH", "nothing outside the folder was written; rename the file so it has no .. in its path", "path %q leads outside %s", rel, s.root)
+		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "nothing outside the folder was written; rename the file so it has no .. in its path", "path %q leads outside %s", rel, s.root)
 	}
 	dst := path.Join(s.root, rel)
 	if err := s.sc.MkdirAll(path.Dir(dst)); err != nil {
@@ -541,7 +541,7 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
 					return localFileErr("PATH_NOT_FOUND", err, "")
 				}
 				if !fi.IsDir() {
-					return out.Errf(out.ExitUsage, "NOT_A_FOLDER", "sync copies folders; for one file use `komando upload`", "%s is a file, not a folder", srcP)
+					return out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync copies folders; for one file use `komando upload`", "%s is a file, not a folder", srcP)
 				}
 			}
 			if dstRemote {
@@ -557,10 +557,11 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
 
 // guardDelete: --delete removes files for good, like `storage rm`. A person
 // at the terminal confirms by typing the destination.
+// Under --dry-run the stop goes to meta.would_be_blocked.
 func guardDelete(o syncOpts, dst string) error {
-	if o.delete && !dangerOK() && !g.dryRun && !confirmDangerous([]string{dst}, "--delete removes the files in "+dst+" that the source does not have") {
-		return out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "check the list with --dry-run, confirm with the user, then add --allow-dangerous",
-			"--delete removes files in the destination that the source does not have")
+	if o.delete && !dangerOK() && !confirmDangerous([]string{dst}, "--delete removes the files in "+dst+" that the source does not have") {
+		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "check the list with --dry-run, confirm with the user, then add --allow-dangerous",
+			"--delete removes files in the destination that the source does not have"))
 	}
 	return nil
 }

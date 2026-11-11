@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"cmp"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -15,6 +19,20 @@ func cancelledText() string {
 		return "Cancelled. Nothing was changed."
 	}
 	return "Cancelled. Nothing was changed on " + joinAnd(askedAbout) + "."
+}
+
+// changeSay says what a change did, first, in words: "added web1 to
+// @web", or under --dry-run "would add web1 to @web (dry run)". An empty
+// what is "nothing to add".
+func changeSay(verb, what, where string) string {
+	if what == "" {
+		return "nothing to " + verb
+	}
+	s := strings.TrimSpace(map[string]string{"add": "added", "remove": "removed", "save": "saved", "import": "imported"}[verb] + " " + what + " " + where)
+	if g.dryRun {
+		s = strings.TrimSpace("would "+verb+" "+what+" "+where) + " (dry run)"
+	}
+	return s
 }
 
 // joinAnd lists names for a sentence: "a", "a and b", "a, b and c".
@@ -73,14 +91,18 @@ func connWord(conns []*store.Conn, names []string) string {
 	return w
 }
 
-// notFoundSay rewrites an unknown-name error for a person, scoped to the
-// command family: "No database named "x". Did you mean prod-db? Your
-// databases: prod-db, shop-db." JSON is unchanged.
-func notFoundSay(e *out.Error, family string) {
+// notFoundSay rewrites an unknown-name error for a person, scoped to what
+// the command works with: "No database named "x". Did you mean prod-db?
+// Your databases: prod-db, shop-db." A name that exists as another kind
+// says so ("web1 is a server, not a conn"). JSON is unchanged.
+func notFoundSay(e *out.Error, cmd *cobra.Command) {
 	switch e.Code {
-	case "HOST_NOT_FOUND", "CONN_NOT_FOUND", "TARGET_NOT_FOUND":
+	case "HOST_NOT_FOUND", "CONN_NOT_FOUND", "TARGET_NOT_FOUND", "VPN_NOT_FOUND":
 	default:
 		return
+	}
+	if e.TextMessage() != e.Message {
+		return // the command has its own words for a person
 	}
 	i := strings.IndexByte(e.Message, '"')
 	j := -1
@@ -98,22 +120,16 @@ func notFoundSay(e *out.Error, family string) {
 	if err != nil {
 		return
 	}
-	one, many := "server", "servers"
-	var names []string
-	if w, ok := familyWord[family]; ok {
-		one, many = w[0], w[1]
-		for _, c := range st.SortedConns() {
-			if connFamily(c) == family {
-				names = append(names, c.Name)
-			}
+	family := topCommand(cmd)
+	one, many, names := wantedNames(st, e.Code, family)
+	if kind, have, ok := st.FindName(name); ok {
+		if msg, hint := otherKindSay(st, cmd, kind, have, one); msg != "" {
+			e.Say(msg, hint)
 		}
-	} else {
-		for _, h := range st.SortedHosts() {
-			names = append(names, h.Name)
-		}
+		return // or it is the kind wanted, and the error is about something else
 	}
 	if len(names) == 0 {
-		e.Say(fmt.Sprintf("No %s named %q.", one, name), fmt.Sprintf("You have no %s yet: run komando and pick Add.", one))
+		e.Say(fmt.Sprintf("No %s named %q.", one, name), fmt.Sprintf("You have no %s yet: %s.", one, addHint(family, e.Code)))
 		return
 	}
 	msg := fmt.Sprintf("No %s named %q.", one, name)
@@ -126,3 +142,137 @@ func notFoundSay(e *out.Error, family string) {
 	}
 	e.Say(msg, fmt.Sprintf("Your %s: %s. See them all with komando list.", many, strings.Join(list, ", ")))
 }
+
+// wantedNames is what a not-found command works with, in words, and the
+// names of that kind: a family's conns (db: databases), the kind of a
+// host, conn or vpn command, else what the error code says it looked for.
+func wantedNames(st *store.State, code, family string) (one, many string, names []string) {
+	hosts := func() {
+		for _, h := range st.SortedHosts() {
+			names = append(names, h.Name)
+		}
+	}
+	conns := func(family string) {
+		for _, c := range st.SortedConns() {
+			if family == "" || connFamily(c) == family {
+				names = append(names, c.Name)
+			}
+		}
+	}
+	vpns := func() {
+		for _, v := range st.SortedVpns() {
+			names = append(names, v.Name)
+		}
+	}
+	if w, ok := familyWord[family]; ok {
+		conns(family)
+		return w[0], w[1], names
+	}
+	switch {
+	case family == "host" || family != "conn" && family != "vpn" && code == "HOST_NOT_FOUND":
+		hosts()
+		return "server", "servers", names
+	case family == "conn" || family != "vpn" && code == "CONN_NOT_FOUND":
+		conns("")
+		return "conn", "conns", names
+	case family == "vpn" || code == "VPN_NOT_FOUND":
+		vpns()
+		return "VPN", "VPNs", names
+	}
+	hosts()
+	conns("")
+	vpns()
+	slices.SortFunc(names, func(a, b string) int { return strings.Compare(strings.ToLower(a), strings.ToLower(b)) })
+	return "server, conn or VPN", "servers, conns and VPNs", names
+}
+
+// otherKindSay explains a name that exists, but not as what the command
+// wanted (one): "pg2 is a postgres conn, not a server." It says nothing
+// ("", "") when the name is of the kind wanted.
+func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (msg, hint string) {
+	what, use := "", ""
+	switch kind {
+	case "host":
+		if one == "server" || one == "server, conn or VPN" {
+			return "", ""
+		}
+		what, use = "a server", "use it with `komando exec` and the other server commands"
+	case "conn":
+		c := st.Conns[name]
+		f := connFamily(c)
+		if w, ok := familyWord[f]; one == "conn" || one == "server, conn or VPN" || ok && w[0] == one {
+			return "", ""
+		}
+		what, use = "a "+c.Kind+" conn", "use it with `komando "+cmp.Or(f, "conn")+"`"
+	case "vpn":
+		if one == "VPN" || one == "server, conn or VPN" {
+			return "", ""
+		}
+		what, use = "a VPN", "use it in a --via path, or with `komando vpn`"
+	default:
+		return "", ""
+	}
+	// `conn edit web1` for a server: the same verb under host
+	if top := topCommand(cmd); cmd.HasParent() && (top == "host" || top == "conn" || top == "vpn") && top != kind {
+		if c, rest, err := cmd.Root().Find([]string{kind, cmd.Name()}); err == nil && len(rest) == 0 && c.Name() == cmd.Name() {
+			use = "use `komando " + kind + " " + cmd.Name() + " " + name + "`"
+		}
+	}
+	return fmt.Sprintf("%s is %s, not a %s.", name, what, one), strings.ToUpper(use[:1]) + use[1:] + "."
+}
+
+// addHint says how to add the first of what a command works with: the
+// menu for a person at a terminal, the command line for agents and scripts.
+func addHint(family, code string) string {
+	if interactive() {
+		return "run komando and pick Add"
+	}
+	switch {
+	case familyWord[family] != [2]string{} || family == "conn" || family != "host" && family != "vpn" && code == "CONN_NOT_FOUND":
+		return "add one with `komando conn add NAME URL` (`komando conn kinds` lists the kinds)"
+	case family == "vpn" || code == "VPN_NOT_FOUND":
+		return "add one with `komando vpn add NAME KIND` (see `komando vpn add --help`)"
+	}
+	return "add one with `komando host add NAME user@address`, or bring in ~/.ssh/config with `komando import ssh-config`"
+}
+
+// fillHint puts the target into the commands a hint names with a
+// placeholder: drivers and helpers that do not know the conn's name write
+// `komando conn test NAME` or `komando cluster events TARGET`, and the
+// next step should be one to copy. target is the command's first argument.
+// TARGET is filled only with a server or conn, CONN only with a conn, and
+// `komando test NAME` with any of those or a VPN, so `vpn up corp` never
+// turns into `komando exec corp`. `komando conn test` becomes
+// `komando test`, the one spelling.
+func fillHint(e *out.Error, target string) {
+	if e.Hint == "" || !strings.Contains(e.Hint, "`komando ") {
+		return
+	}
+	e.Hint = strings.ReplaceAll(e.Hint, "`komando conn test ", "`komando test ")
+	if target == "" || !placeholder.MatchString(e.Hint) && !strings.Contains(e.Hint, "`komando test NAME") {
+		return // nothing to fill: no need to read the inventory
+	}
+	st, err := loadState()
+	if err != nil {
+		return
+	}
+	kind, name, ok := st.FindName(target)
+	if !ok {
+		return
+	}
+	e.Hint = hintCmd.ReplaceAllStringFunc(e.Hint, func(c string) string {
+		c = placeholder.ReplaceAllStringFunc(c, func(p string) string {
+			word := strings.TrimSpace(p)
+			if word == "CONN" && kind != "conn" || word == "TARGET" && kind == "vpn" {
+				return p
+			}
+			return p[:len(p)-len(word)] + name
+		})
+		return strings.Replace(c, "`komando test NAME", "`komando test "+name, 1)
+	})
+}
+
+var (
+	hintCmd     = regexp.MustCompile("`komando [^`]*`")
+	placeholder = regexp.MustCompile(`(\s)(?:TARGET|CONN)\b`)
+)

@@ -29,6 +29,7 @@ type execHostResult struct {
 }
 
 type execData struct {
+	Recipe  string           `json:"recipe,omitempty"` // recipe run: which recipe
 	Command string           `json:"command"`
 	Results []execHostResult `json:"results"`
 	Summary runSummary       `json:"summary"`
@@ -102,6 +103,7 @@ type execOpts struct {
 	stream    bool
 	failFast  bool
 	display   string // what output and the audit log show instead of a long generated script
+	recipe    string // recipe run: the recipe's name, in the result and the audit log
 	// follow: a log follow (logs --follow). Reaching --timeout is how it
 	// ends, not a failure.
 	follow bool
@@ -114,12 +116,17 @@ func (o *execOpts) bind(c *cobra.Command) {
 	f := c.Flags()
 	f.BoolVarP(&o.sudo, "sudo", "s", false, "run with sudo (never prompts; uses the server's --sudo-ref password if set)")
 	f.StringVar(&o.sudoUser, "sudo-user", "", "run as this user with sudo -u")
-	f.StringSliceVarP(&o.env, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
+	f.StringArrayVarP(&o.env, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
 	f.StringVarP(&o.dir, "dir", "C", "", "working directory on the server")
-	f.StringVar(&o.stdinFile, "stdin-file", "", "send this file on this computer as stdin ('-' = komando's stdin)")
-	f.BoolVar(&o.pty, "pty", false, "allocate a pseudo-terminal (some tools need one)")
 	f.BoolVar(&o.stream, "stream", false, "stream output as NDJSON events while it runs")
 	f.BoolVar(&o.failFast, "fail-fast", false, "start no more servers after the first failure")
+}
+
+// bindInput adds exec's input flags. script has none: its file is the input.
+func (o *execOpts) bindInput(c *cobra.Command) {
+	f := c.Flags()
+	f.StringVar(&o.stdinFile, "stdin-file", "", "send this file on this computer as stdin ('-' = komando's stdin)")
+	f.BoolVar(&o.pty, "pty", false, "allocate a pseudo-terminal (some tools need one)")
 }
 
 func execCmd() *cobra.Command {
@@ -169,9 +176,9 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 			if so.interpreter != "" || len(so.args) > 0 {
 				return out.Usage("--interpreter and --arg go with --script FILE")
 			}
-			command := cmdStr
-			if command == "" {
-				command = strings.Join(args[1:], " ")
+			command, err := commandWords(cmdStr, args[1:], "exec "+args[0])
+			if err != nil {
+				return err
 			}
 			if strings.TrimSpace(command) == "" {
 				return out.Usage("no command given: komando exec TARGET -- COMMAND")
@@ -181,6 +188,9 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 				var err error
 				if stdin, err = readFileOrStdin(o.stdinFile); err != nil {
 					return localFileErr("FILE_NOT_FOUND", err, "check the --stdin-file path")
+				}
+				if err := hiddenInInput(o.stdinFile, stdin); err != nil {
+					return err
 				}
 				// the input may be a script (bash -s): the policy reads it
 				// like the command, as script does with its file
@@ -196,6 +206,7 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 		},
 	}
 	o.bind(c)
+	o.bindInput(c)
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
 	c.Flags().StringVar(&so.file, "script", "", "run this script from this computer ('-' = komando's stdin); nothing is left on the server")
 	so.bind(c)
@@ -278,6 +289,9 @@ func runScript(ctx context.Context, name, target string, so scriptOpts, o execOp
 	if err != nil {
 		return localFileErr("FILE_NOT_FOUND", err, "")
 	}
+	if err := hiddenInInput(so.file, body); err != nil {
+		return err
+	}
 	argsList, interpreter := so.args, so.interpreter
 	if win, err := targetWindows(target); err != nil || win {
 		if err != nil {
@@ -286,16 +300,7 @@ func runScript(ctx context.Context, name, target string, so scriptOpts, o execOp
 		return windowsScript(ctx, name, target, so.file, body, interpreter, argsList, o, readOnly)
 	}
 	if interpreter == "" {
-		interpreter = "sh"
-		if first, _, _ := strings.Cut(string(body), "\n"); strings.HasPrefix(first, "#!") {
-			f := strings.Fields(strings.TrimPrefix(first, "#!"))
-			if len(f) > 0 {
-				interpreter = f[len(f)-1]
-				if !strings.HasSuffix(f[0], "env") {
-					interpreter = strings.Join(f, " ")
-				}
-			}
-		}
+		interpreter = shebangInterpreter(string(body))
 	}
 	command := scriptCommand(interpreter, argsList)
 	if err := guardBody(string(body)); err != nil {
@@ -332,8 +337,8 @@ func scriptCommand(interpreter string, args []string) string {
 	base := interpreter
 	if f := strings.Fields(interpreter); len(f) > 0 {
 		base = path.Base(f[0])
-		if base == "env" && len(f) > 1 {
-			base = path.Base(f[len(f)-1])
+		if i := envProgram(f); i > 0 {
+			base = path.Base(f[i])
 		}
 	}
 	shell := false
@@ -364,13 +369,15 @@ func guardBody(body string) error {
 	return guard(st, nil, body, false)
 }
 
-// fleetDryRun is runFleet's --dry-run: what would run on each host.
-func fleetDryRun(name string, hosts []*store.Host, req sshx.RunRequest, o execOpts, stdinBytes int, guardErr error) {
+// fleetDryRun is runFleet's --dry-run: what would run on each host. A
+// command that cannot be built (a secret that is not in the vault) fails
+// the dry run, as it would fail the real one.
+func fleetDryRun(name string, hosts []*store.Host, req sshx.RunRequest, o execOpts, stdinBytes int, guardErr error) error {
 	plans := []map[string]any{}
 	for _, h := range hosts {
 		full, _, err := sshx.BuildCommand(&sshx.Client{Host: h}, req)
 		if err != nil {
-			full = "<error: " + err.Error() + ">"
+			return err
 		}
 		if o.display != "" {
 			full = o.display
@@ -378,12 +385,24 @@ func fleetDryRun(name string, hosts []*store.Host, req sshx.RunRequest, o execOp
 		plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": full, "stdin_bytes": stdinBytes})
 	}
 	res := map[string]any{"would_run": plans}
+	if o.recipe != "" {
+		res["recipe"] = o.recipe
+	}
 	if guardErr != nil {
 		res["would_be_blocked"] = toErr(guardErr)
 	} else if b := out.P.Blocked(); b != nil {
 		res["would_be_blocked"] = b
 	}
 	out.P.Print(name, res, nil)
+	return nil
+}
+
+// withRecipe adds a recipe run's recipe name to its audit record.
+func withRecipe(rec map[string]any, recipe string) map[string]any {
+	if recipe != "" {
+		rec["recipe"] = recipe
+	}
+	return rec
 }
 
 // runFleet executes command on all hosts matching target and prints results.
@@ -405,7 +424,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 	}
 	guardErr := guard(st, hosts, command, mutating)
 	if guardErr != nil && !g.dryRun {
-		audit(st, name, hostNames(hosts), shown, false, map[string]any{"blocked": toErr(guardErr).Code})
+		audit(st, name, hostNames(hosts), shown, false, withRecipe(map[string]any{"blocked": toErr(guardErr).Code}, o.recipe))
 		return guardErr
 	}
 	env, err := parseEnvTo(o.env, hosts)
@@ -416,8 +435,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		Stdin: stdin, Timeout: cmdTimeout(st), MaxOutput: maxOutput(st), PTY: o.pty}
 
 	if g.dryRun {
-		fleetDryRun(name, hosts, req, o, len(stdin), guardErr)
-		return nil
+		return fleetDryRun(name, hosts, req, o, len(stdin), guardErr)
 	}
 
 	follow := o.follow || (o.stream && name == "logs") // logs --follow
@@ -511,7 +529,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		results = fanout(ctx, st, hosts, run)
 	}
 
-	data := execData{Command: shown, Results: make([]execHostResult, 0, len(results)), streamed: o.stream && out.P.Format == "text"}
+	data := execData{Recipe: o.recipe, Command: shown, Results: make([]execHostResult, 0, len(results)), streamed: o.stream && out.P.Format == "text"}
 	worst := 0
 	var fails []hostFail
 	for _, r := range results {
@@ -566,7 +584,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			codes[r.Host] = -1
 		}
 	}
-	audit(st, name, hostNames(hosts), shown, data.Summary.Failed == 0, map[string]any{"exit_codes": codes, "sudo": req.Sudo})
+	audit(st, name, hostNames(hosts), shown, data.Summary.Failed == 0, withRecipe(map[string]any{"exit_codes": codes, "sudo": req.Sudo}, o.recipe))
 	if o.stream && out.P.Format != "text" {
 		out.P.Event(map[string]any{"event": "done", "summary": data.Summary})
 	}
@@ -695,7 +713,13 @@ func probeText(ctx context.Context, name, target, command string, sudo bool, par
 		return err
 	}
 	if g.dryRun {
-		out.P.Print(name, map[string]any{"hosts": hostNames(hosts), "would_run": command}, nil)
+		plan := map[string]any{"hosts": hostNames(hosts), "would_run": command}
+		if win := windowsNames(hosts); len(win) == len(hosts) {
+			plan["would_run"] = winCommand
+		} else if len(win) > 0 {
+			plan["would_run_on_windows"] = winCommand
+		}
+		out.P.Print(name, plan, nil)
 		return nil
 	}
 	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {

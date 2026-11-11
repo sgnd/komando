@@ -27,7 +27,7 @@ import (
 )
 
 func keyCmd() *cobra.Command {
-	c := &cobra.Command{Use: "key", Aliases: []string{"keys", "keychain"}, Short: "SSH keys: generate, register, deploy to servers, list"}
+	c := &cobra.Command{Use: "key", Aliases: []string{"keys"}, Short: "SSH keys: generate, register, deploy to servers, list"}
 	c.AddCommand(keyGenCmd(), keyAddCmd(), keyListCmd(), keyShowCmd(), keyRmCmd(), keyDeployCmd(), keyRevokeCmd(), keyEditCmd(), keyMvCmd())
 	return c
 }
@@ -39,7 +39,7 @@ const minRSABits = 3072
 // keyResult is a key plus what the person should know about it.
 type keyResult struct {
 	*store.Key
-	Action   string   `json:"action,omitempty"` // added | would_add
+	Action   string   `json:"action,omitempty"` // added | would_add | changed | would_change | unchanged
 	Warnings []string `json:"warnings,omitempty"`
 }
 
@@ -251,6 +251,11 @@ and pass --passphrase-ref secret:NAME.`,
 				if _, ok := s.Keys[k.Name]; ok {
 					return keyExists(k.Name)
 				}
+				for _, o := range s.Keys {
+					if k.Fingerprint != "" && o.Fingerprint == k.Fingerprint {
+						res.Warnings = append(res.Warnings, "this is the same key as "+o.Name+": servers can use that one (`komando host edit NAME --key "+o.Name+"`); `komando key rm "+k.Name+"` removes this second name")
+					}
+				}
 				s.Keys[k.Name] = k
 				return nil
 			})
@@ -298,18 +303,30 @@ func cleanPubLine(pub ssh.PublicKey, comment string) string {
 
 func keyEditCmd() *cobra.Command {
 	var passRef string
+	var unset []string
 	c := &cobra.Command{
 		Use:   "edit NAME",
 		Short: "Change a key's passphrase reference",
 		Long: `Sets where komando finds the passphrase of an encrypted key. Store the
-passphrase with ` + "`komando secret set NAME`" + ` first and pass secret:NAME; an empty
-value clears it.`,
+passphrase with ` + "`komando secret set NAME`" + ` first and pass secret:NAME;
+--unset passphrase-ref clears it.`,
 		Example: `  komando secret set work-key-pass
   komando key edit work --passphrase-ref secret:work-key-pass
-  komando key edit work --passphrase-ref ''      # clear it`,
+  komando key edit work --unset passphrase-ref`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !cmd.Flags().Changed("passphrase-ref") {
+			fl := cmd.Flags()
+			for _, u := range unset {
+				if u != "passphrase-ref" {
+					return out.Usage("--unset takes passphrase-ref, not %q", u)
+				}
+			}
+			switch {
+			case fl.Changed("unset") && fl.Changed("passphrase-ref"):
+				return out.Usage("use --passphrase-ref or --unset passphrase-ref, not both")
+			case fl.Changed("unset"):
+				passRef = ""
+			case !fl.Changed("passphrase-ref"):
 				return out.Errf(out.ExitUsage, "USAGE", "e.g. komando key edit "+args[0]+" --passphrase-ref secret:NAME", "nothing to change")
 			}
 			if err := checkPassphraseRef(passRef); err != nil {
@@ -329,12 +346,22 @@ value clears it.`,
 			if err != nil {
 				return err
 			}
-			audit(nil, "key.edit", nil, "", true, map[string]any{"key": k.Name, "old_passphrase_ref": old, "new_passphrase_ref": passRef})
-			out.P.Print("key.edit", k, nil)
+			res := keyResult{Key: k, Action: "changed", Warnings: missingSecretWarnings(passRef)}
+			switch {
+			case old == passRef:
+				res.Action = "unchanged"
+			case g.dryRun:
+				res.Action = "would_change"
+			}
+			if res.Action == "changed" {
+				audit(nil, "key.edit", nil, "", true, map[string]any{"key": k.Name, "old_passphrase_ref": old, "new_passphrase_ref": passRef})
+			}
+			out.P.Print("key.edit", res, nil)
 			return nil
 		},
 	}
-	c.Flags().StringVar(&passRef, "passphrase-ref", "", "where the passphrase is: secret:NAME | env:VAR | ... (empty clears it)")
+	c.Flags().StringVar(&passRef, "passphrase-ref", "", "where the passphrase is: secret:NAME | env:VAR | ...")
+	c.Flags().StringSliceVar(&unset, "unset", nil, "clear this setting: passphrase-ref")
 	return c
 }
 
@@ -445,6 +472,9 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 			})
 			if err != nil {
 				return err
+			}
+			if g.dryRun {
+				res["would_remove"] = res["removed"] // "removed" stays for scripts that read it (contract 1)
 			}
 			audit(nil, "key.rm", nil, "", true, map[string]any{"key": res["removed"], "file_deleted": res["file_deleted"]})
 			out.P.Print("key.rm", res, nil)

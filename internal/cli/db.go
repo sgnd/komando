@@ -6,8 +6,10 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"regexp"
 	"strconv"
@@ -45,6 +47,21 @@ that is always rolled back), so nothing can change. With --write, try
 would change.`,
 	}
 	c.AddCommand(connAddCmdFor("db"), dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
+	var withTimeout func(*cobra.Command)
+	withTimeout = func(cmd *cobra.Command) {
+		for _, sub := range cmd.Commands() {
+			switch sub.Name() {
+			case "add", "dump", "restore": // dump and restore have no time limit of their own
+			default:
+				if sub.Annotations == nil {
+					sub.Annotations = map[string]string{}
+				}
+				sub.Annotations[timeoutHelp] = "time limit for each query (default 30s, or the conn's statement_timeout option)"
+				withTimeout(sub)
+			}
+		}
+	}
+	withTimeout(c)
 	return c
 }
 
@@ -130,8 +147,10 @@ picks another database than the URL's.`},
 					return localFileErr("FILE_NOT_FOUND", err, "")
 				}
 				q = string(b)
+			case len(args) == 1:
+				return out.Usage("no SQL: give it as an argument, or with -f FILE (-f - reads stdin)")
 			default:
-				return out.Usage("give the SQL as an argument or with --file (not both)")
+				return out.Usage("give the SQL as an argument or with --file, not both")
 			}
 			if err := f.pickTable(cmd, csvFlag, tsvFlag); err != nil {
 				return err
@@ -410,6 +429,15 @@ func openDB(ctx context.Context, st *store.State, c *store.Conn, readOnly bool) 
 	a, err := openAccess(ctx, st, c)
 	if err != nil {
 		return nil, nil, err
+	}
+	if a.Target.Kind.Name == "sqlite" && !readOnly && g.dryRun {
+		// a --write run creates a missing file; a dry run must not
+		if _, err := os.Stat(dbx.SQLitePath(a.Target)); errors.Is(err, fs.ErrNotExist) {
+			a.Close()
+			return nil, nil, out.Errf(out.ExitConnect, "DB_CONNECT",
+				"check the path in the conn URL (`komando conn show "+c.Name+"`); without --dry-run, --write creates a new, empty database there",
+				"cannot open %s: the file does not exist, and a dry run does not create it", a.Target.Path)
+		}
 	}
 	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
 	defer cancel()

@@ -11,8 +11,105 @@ its highlights; the sections below them give the details. Versions follow
 
 - **Built with Go 1.27.4.** It fixes GO-2026-6859 in the standard
   `net/http` package. Building from source now needs Go 1.27.4 or newer.
+- **No more ways to lock yourself out.** Stopping or disabling the SSH
+  service is blocked on Debian and Ubuntu too (`ssh.service`, with any
+  systemctl options), and `user lock`/`user rm` refuse root and the user
+  komando logs in as.
+- **`net http` takes only http:// and https:// URLs.** A URL that started
+  with `-` reached curl as an option.
+- **`tunnel start -R` on a protected server needs a person's yes,** like
+  every other change there.
+- **Every blocked attempt is in the audit log** (exit 6 stops, including
+  safety settings and secrets sent somewhere), so `audit --failed` shows
+  them. `guide install` is audited too.
+- **An AI agent cannot run `secret keychain`;** it needs a person, as
+  `secret passphrase` already did. It used to wait on the keychain prompt.
+
+### Changed
+
+- **One command for each job.** These old names still work in this
+  release, print `komando: use X now`, and go away in the next one:
+  - `cp`, `storage upload` and `storage download` run the same code as
+    `upload` and `download`, with the same flags.
+  - `script TARGET FILE` is now `exec TARGET --script FILE`.
+  - `host import` is `import ssh-config` or `import komando`, and
+    `host export` is `export` (`export kind:host` for servers only).
+  - `prompt` is `status --short`.
+  - `svc logs` and `docker logs` are `logs --unit` and `logs --container`.
+  - `db query --csv`/`--tsv` are `db query -o csv`/`-o tsv`. An export
+    has every row; one larger than `--max-output` fails instead of being
+    cut.
+- **Removed:** the aliases `ops`, `snippet`, `snippets` and `diag` (use
+  `recipe`), `inspect` for `facts`, `systemd` for `svc`, the hidden
+  `policy allow` (use `policy rm`), and the built-in recipes that a
+  command already does (`recipe run ports` now names `net ports`).
+- **One error code, one exit code.** Codes that exited differently in
+  different places now always use the exit in `komando schema`:
+  `DB_AUTH`, `QUEUE_AUTH`, `STORAGE_AUTH` and `DB_CONNECT` exit 4;
+  `DB_PRIVILEGE`, `PERMISSION_DENIED`, `QUEUE_ERROR`, `TOOL_FAILED` and
+  `UNSAFE_PATH` exit 5; `NOT_A_FOLDER` exits 8. A vault that cannot be
+  opened for a server's password gives `VAULT_LOCKED`/`VAULT_KEY`/
+  `VAULT_DECRYPT` instead of `SECRET_UNRESOLVED`.
+- **`list` and `ls` work for every list.** Each command that lists takes
+  both words.
+- **A list for a TARGET that picks nothing of its kind fails** with
+  `NO_MATCHING_TARGETS` (exit 3) instead of an empty success
+  (`vpn list web1`, `host list kind:db`).
+- **`db add`, `cache add` and the other family adds refuse another
+  family's URL** (`WRONG_KIND`), and `cluster add k8s://...` asks for the
+  kubeconfig it needs.
+- **The names aws, gcp and azure are kept for `komando login`;** a server
+  cannot take them.
+- **`policy` rule ids come from the pattern** (`custom-1a2b3c4d`), so
+  removing one rule no longer renumbers the others.
+- **`registry rm` needs a tag or digest;** it used to pick `:latest`.
 
 ### Fixed
+
+- **Over 150 bugs found by a hands-on review of every command.** The main
+  ones:
+  - **Dry runs:** a previewed edit says "would change", not "changed";
+    `sync --delete`, `guide uninstall` and `vpn up` say what the real run
+    would need; `registry copy --dry-run` checks both registries; a
+    `--write --dry-run` on a missing SQLite file no longer creates it;
+    Windows servers show the Windows command.
+  - **Errors:** "not found" names the right kind ("web1 is a server") and
+    never suggests the name you typed; hints name your real server or
+    service instead of `NAME`; an AI agent reading text output gets the
+    same advice as in JSON; a stray argument says the command takes none.
+  - **Files and commands:** `fs cat --tail` on a big file reads its end;
+    `cp` and `sync` accept `tag:`, `label:` and `kind:` and keep the port
+    of `user@addr:port`; `--env KEY=a,b` keeps the comma; a script whose
+    `#!` line uses `env -S` runs the right interpreter; uploading a file
+    that holds a `[hidden]` value is refused everywhere;
+    `upload CONN DIR -r` puts the folder under its own name.
+  - **Databases and caches:** memcached keys with a TTL over 30 days no
+    longer expire at once; `PRAGMA journal_mode=DELETE` is not called a
+    mass delete; statements that load code (`CREATE EXTENSION`, `LOAD`)
+    count as destructive; `cache run "SET a 1"` in one argument works;
+    `XREAD` is a read; `MONITOR`/`SUBSCRIBE` are refused instead of
+    hanging.
+  - **Clusters:** `--timeout` now bounds every cluster and registry call
+    (an unreachable cluster no longer hangs for minutes); `import
+    kubeconfig` reads `$KUBECONFIG`, resolves relative certificate paths
+    from the kubeconfig's folder and no longer gives one context's name to
+    another; `cluster status` checks StatefulSets and DaemonSets.
+  - **Servers:** `docker logs --sudo` uses sudo; `reboot` refuses Windows
+    servers before it starts; `cert check` no longer fails at random on
+    servers that reject post-quantum key shares; `pkg update` refuses
+    package names it would have ignored.
+  - **VPNs and settings:** `vpn up` that fails is audited as failed;
+    `vpn mv` moves the VPN's own secrets to the new name, and adding a VPN again after `vpn rm` reuses them; `vpn edit`
+    can change `--portal`; `config show` JSON lists every setting;
+    `doctor` notices an agent guard that points to a missing program;
+    `guide uninstall` checks first, then removes, so a stop changes
+    nothing.
+  - **Menu and forms:** Add something > Database no longer crashes;
+    `komando db add` alone opens the database form; "Protect or unprotect"
+    can unprotect; the review shows exactly the command that runs; Check
+    everything runs `doctor` even when a server fails; a group's tasks
+    leave out one-server tasks; risky tasks (`fs rm`, `docker prune`,
+    `user rm`) get the "cannot be undone" warning.
 
 - **Running now is what runs on this computer.** It lists and counts
   VPNs, logins and port forwards only. Background jobs run on the servers

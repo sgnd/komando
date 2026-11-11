@@ -51,8 +51,8 @@ var (
 		example: "main shop database"}
 	invAskPassword = formFlag{name: "ask-password", ask: "Change the password?",
 		help: "Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line."}
-	invProtected = formFlag{name: "protected", ask: "Can a mistake on it hurt real users or real data?",
-		help: "Yes means komando asks you before every change there, also changes an AI agent wants to make. No leaves it as it is."}
+	invProtected = formFlag{name: "protected", ask: "Can a mistake on it hurt real users or real data?", keep: true,
+		help: "Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away."}
 	invVia = formFlag{name: "via", ask: "Reach it through which server or VPN?", example: "bastion",
 		help: "The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now."}
 	invWait = formFlag{name: "wait", ask: "Keep trying for how long?",
@@ -250,8 +250,8 @@ var invSafetyHints = map[string]formHint{
 		help: "komando says whether it would refuse to run it. Nothing runs."}}},
 	"policy deny": {args: []formArg{{ask: "Which command should komando block?", example: `kubectl\s+delete`,
 		help: `Like kubectl delete: write it as kubectl\s+delete (\s+ means spaces, .* means anything). Then check it with komando policy check "kubectl delete pod web".`}}},
-	"policy rm": {args: []formArg{{ask: "Which of your own rules should go?", example: "custom-0",
-		help: "Its id (custom-0, custom-1 ...) or the pattern as you wrote it. `komando policy list` shows them. Built-in rules always stay."}}},
+	"policy rm": {args: []formArg{{ask: "Which of your own rules should go?", example: "custom-1a2b3c4d",
+		help: "Its id (custom-1a2b3c4d ...) or the pattern as you wrote it. `komando policy list` shows them. Built-in rules always stay."}}},
 	"config":      {},
 	"config show": {},
 	"config get": {args: []formArg{{ask: "Which setting?", example: "parallel",

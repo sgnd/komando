@@ -203,7 +203,7 @@ komando sync backups:2026/ ./restore
 ## Share a file with a temporary link
 
 ```bash
-komando storage link backups 2026/app.sql.gz --expires 24h   # default 1h, at most 168h (7 days)
+komando storage link backups 2026/app.sql.gz --expires 24h   # default 1h, at most 7d
 komando storage link media site/report.pdf                   # Google Cloud and Azure too
 komando storage link backups 2026/app.sql.gz --endpoint https://files.example.com
 ```

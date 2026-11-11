@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,6 +41,10 @@ const groupOnly = "komando-group"
 func applyConventions(c *cobra.Command) {
 	if c.Name() == "rm" {
 		c.Aliases = rmAliases
+	}
+	// list and ls are each other's other name (ux.md, section 1)
+	if other, ok := map[string]string{"list": "ls", "ls": "list"}[c.Name()]; ok && !slices.Contains(c.Aliases, other) {
+		c.Aliases = append(c.Aliases, other)
 	}
 	if c.Example == "" {
 		c.Example = examples[c.CommandPath()]
@@ -91,10 +96,17 @@ func dash(s string) string {
 	return s
 }
 
+// aliasOf is the annotation that names the command an alias stands for.
+const aliasOf = "alias_of"
+
 // alias marks c as the per-area spelling of a shared command (`host list`
 // for `list kind:host`). It keeps working and says so in its help, so there
 // is one implementation and one name to learn (docs/design/ux.md, section 11).
 func alias(c *cobra.Command, shared string) *cobra.Command {
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
+	c.Annotations[aliasOf] = strings.Fields(shared)[0]
 	c.Short = "Same as `komando " + shared + "`"
 	c.Long = ""
 	c.Example = ""
@@ -163,15 +175,17 @@ func toErr(err error) *out.Error {
 	case errors.Is(err, vault.ErrKey):
 		return &out.Error{Code: "VAULT_KEY", Message: err.Error(), Exit: out.ExitError,
 			Hint: "restore ~/.komando/vault.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault"}
+	case errors.Is(err, vault.ErrNotFound):
+		return &out.Error{Code: "SECRET_NOT_FOUND", Message: err.Error(), Exit: out.ExitNotFound,
+			Hint: "check the name with `komando secret list`; a person stores a missing one with `komando secret set NAME`"}
 	case errors.Is(err, vault.ErrDecrypt):
 		return &out.Error{Code: "VAULT_DECRYPT", Message: err.Error(), Exit: out.ExitError,
 			Hint: "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use); nothing was lost"}
 	}
 	var pe *os.PathError
 	if errors.As(err, &pe) {
-		e := localFileErr("FILE_ERROR", err, "")
-		e.Exit = out.ExitError
-		return e
+		e := localFileErr("", err, "") // its words; the exit is not "not found" here
+		return out.Errf(out.ExitError, "FILE_ERROR", e.Hint, "%s", e.Message)
 	}
 	return &out.Error{Code: "REMOTE_ERROR", Message: err.Error(), Exit: out.ExitError,
 		Hint: "run it again with -o json for the details; `komando doctor` checks this computer's setup"}
@@ -648,6 +662,9 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 	}
 	for k, v := range extra {
 		rec[k] = v
+	}
+	if rec["blocked"] != nil {
+		blockAudited = true
 	}
 	_ = appendAudit(rec)
 }

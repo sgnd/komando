@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // keyOnlyServer is a loopback SSH server that lets in only the key pub
@@ -153,4 +156,49 @@ func TestHostKeyHintFollowsInteractive(t *testing.T) {
 	if !strings.Contains(sshx.HostKeyMismatch("web1", "SHA256:x", nil).Hint, "report this to the user") {
 		t.Error("an agent or a script gets the person's hint")
 	}
+}
+
+// `komando login aws` is the AWS login, so a server named aws could never be
+// logged in to: add, rename and import refuse the names of login's
+// subcommands, in any case.
+func TestLoginCloudNamesReserved(t *testing.T) {
+	var subs []string
+	for _, c := range loginCmd().Commands() {
+		subs = append(subs, c.Name())
+	}
+	slices.Sort(subs)
+	if want := slices.Sorted(slices.Values(loginClouds)); !slices.Equal(subs, want) {
+		t.Fatalf("login subcommands %v, loginClouds %v", subs, want)
+	}
+	invHome(t)
+	for _, n := range []string{"aws", "GCP", "azure"} {
+		e := wantCode(t, "USAGE", "host", "add", n, "u@192.0.2.7")
+		if !strings.Contains(e.Message, "komando login") {
+			t.Errorf("%s: %+v", n, e)
+		}
+	}
+	mustRun(t, "host", "add", "aws-1", "u@192.0.2.7")
+	wantCode(t, "USAGE", "host", "mv", "aws-1", "aws")
+	f := filepath.Join(t.TempDir(), "h.json")
+	os.WriteFile(f, []byte(`[{"name":"azure","address":"192.0.2.8"},{"name":"b1","address":"192.0.2.9"}]`), 0o600)
+	d, e := invRun(t, "host", "import", "--json", f)
+	if e == nil || e.Code != "IMPORT_INCOMPLETE" || fmt.Sprint(d["hosts"]) != "[b1]" || !strings.Contains(fmt.Sprint(d["skipped"]), "azure") {
+		t.Errorf("import: %v %+v", d, e)
+	}
+	if p := formNameProblem(&store.State{}, "host", "aws"); !strings.Contains(p, "cloud login") {
+		t.Errorf("form: %q", p)
+	}
+}
+
+// logout of a name that is neither a server nor a kept login is an error,
+// as login's is; --all with names is refused, not read as --all.
+func TestLogoutArgs(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@192.0.2.7")
+	if d := mustRun(t, "logout", "web1"); fmt.Sprint(d["not_logged_in"]) != "[web1]" {
+		t.Errorf("logout web1: %v", d)
+	}
+	wantCode(t, "HOST_NOT_FOUND", "logout", "nosuch")
+	wantCode(t, "USAGE", "logout", "--all", "web1")
+	mustRun(t, "logout", "--all")
 }

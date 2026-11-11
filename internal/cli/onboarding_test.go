@@ -127,8 +127,8 @@ func TestRmNamesUnusedSecrets(t *testing.T) {
 func TestChangeTextInWords(t *testing.T) {
 	added := true
 	for got, want := range map[string]string{
-		policyChange{Custom: []string{"a", "b"}, Added: &added, pattern: "b"}.Text():                                               "added the deny rule \"b\" (2 custom rules now)\n",
-		policyChange{Custom: []string{"a"}, Removed: "b"}.Text():                                                                   "removed the deny rule \"b\" (1 custom rule left)\n",
+		policyChange{Custom: []string{"a", "b"}, Added: &added, pattern: "b"}.Text():                                               "added the deny rule b (2 custom rules now)\n",
+		policyChange{Custom: []string{"a"}, Removed: "b"}.Text():                                                                   "removed the deny rule b (1 custom rule left)\n",
 		exportResult{File: "f.json", Hosts: 2, Conns: 1, SecretsNeeded: []string{"p"}}.Text():                                      "saved 2 servers, 1 conn to f.json (no passwords)\nset again on the other computer: p (`komando secret set NAME`)\n",
 		renderedText(t, map[string]any{"name": "app-db-pass", "action": "stored", "replaced": false, "ref": "secret:app-db-pass"}): "stored app-db-pass\n  ref: secret:app-db-pass\n",
 	} {

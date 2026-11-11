@@ -38,17 +38,17 @@ func TestImportPgpass(t *testing.T) {
 }
 
 func TestImportEnv(t *testing.T) {
-	p, err := importEnv(writeTemp(t, ".env", "export DATABASE_URL=postgres://app:pw@db:5432/app\nREDIS_URL='redis://default:rpw@cache:6379/0'\nSENTRY_URL=https://x@s/1\nPLAIN=1\n"))
+	p, err := importEnv(writeTemp(t, ".env", "export DATABASE_URL=postgres://app:pw@db:5432/app\nREDIS_URL='redis://default:rpw@cache:6379/0'\nSENTRY_URL=https://x@s/1\nPLAIN=1\nMONGO_URI=mongodb+srv://app@c.mongodb.net/shop\nAPI_URI=https://x/y\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(p.Conns) != 2 || p.Conns[0].Name != "database" || p.Conns[1].Name != "redis" {
+	if len(p.Conns) != 3 || p.Conns[0].Name != "database" || p.Conns[1].Name != "redis" || p.Conns[2].Name != "mongo" {
 		t.Fatalf("conns: %+v", p.Conns)
 	}
 	if p.Conns[1].PasswordRef != "secret:redis-pass" || p.Secrets["redis-pass"] != "rpw" {
 		t.Errorf("redis password: %q %q", p.Conns[1].PasswordRef, p.Secrets["redis-pass"])
 	}
-	if len(p.Notes) != 1 || !strings.Contains(p.Notes[0], "SENTRY_URL") {
+	if len(p.Notes) != 2 || !strings.Contains(p.Notes[0], "SENTRY_URL") || !strings.Contains(p.Notes[1], "API_URI") {
 		t.Errorf("unknown URL should be reported: %v", p.Notes)
 	}
 }
@@ -200,5 +200,19 @@ func TestImportDBeaverPasswordNote(t *testing.T) {
 		!strings.Contains(notes, "shop-prod-2: set its password with `komando secret set shop-prod-2-pass` and `komando conn edit shop-prod-2 --password-ref secret:shop-prod-2-pass`") ||
 		strings.Contains(notes, "conn edit shop-prod ") || strings.Contains(notes, "broken: set its password") {
 		t.Errorf("conns %v, notes %s", d["conns"], notes)
+	}
+}
+
+// A missing file or an unknown source gets a hint about that source, not
+// the ssh-config example.
+func TestImportUsageHints(t *testing.T) {
+	invHome(t)
+	for src, want := range map[string]string{"komando": "komando import komando komando-backup.json", "csv": "komando import csv servers.csv"} {
+		if e := wantCode(t, "USAGE", "import", src, "--dry-run"); !strings.Contains(e.Hint, want) {
+			t.Errorf("%s: %+v", src, e)
+		}
+	}
+	if e := wantCode(t, "USAGE", "import", "bogus"); !strings.Contains(e.Hint, "ssh-config, pgpass") || !strings.Contains(e.Hint, "csv") {
+		t.Errorf("unknown source: %+v", e)
 	}
 }

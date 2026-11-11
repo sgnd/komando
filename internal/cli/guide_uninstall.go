@@ -42,9 +42,11 @@ an agent needs a person's yes (--yes).`,
 			if err != nil {
 				return out.Errf(out.ExitError, "NO_FOLDER", "set HOME, or run it from the project folder", "cannot find the folder: %v", err)
 			}
+			// the whole plan first: a stop for the guard must come before
+			// anything is removed, the skill files too
 			var files []skillFile
 			for _, d := range skillDirs {
-				f, err := removeSkill(filepath.Join(base, d, "komando", "SKILL.md"), g.dryRun)
+				f, err := removeSkill(filepath.Join(base, d, "komando", "SKILL.md"), true)
 				if err != nil {
 					return out.Errf(out.ExitError, "WRITE_FAILED", "check that you may change this folder", "%v", err)
 				}
@@ -66,9 +68,17 @@ an agent needs a person's yes (--yes).`,
 					guards = append(guards, f)
 				}
 			}
-			if len(guards) > 0 && !g.dryRun {
+			if len(guards) > 0 { // under --dry-run the stop lands in meta.would_be_blocked
 				if err := guardSafety("removing komando's guard, which keeps AI agents away from secret files on this computer"); err != nil {
+					audit(nil, "guide.uninstall", nil, "", false, map[string]any{"blocked": toErr(err).Code})
 					return err
+				}
+			}
+			if !g.dryRun {
+				for i := range files {
+					if files[i], err = removeSkill(files[i].Path, false); err != nil {
+						return out.Errf(out.ExitError, "WRITE_FAILED", "check that you may change this folder", "%v", err)
+					}
 				}
 				for i := range guards {
 					if guards[i], err = removeGuard(guards[i].Path, false); err != nil {
@@ -78,11 +88,11 @@ an agent needs a person's yes (--yes).`,
 			}
 			files = append(files, guards...)
 			if len(files) == 0 {
-				out.P.Print("guide.uninstall", skillResult{Files: []skillFile{}}, nil)
+				out.P.Print("guide.uninstall", skillResult{Files: []skillFile{}, uninstall: true}, nil)
 				return nil
 			}
 			audit(nil, "guide.uninstall", nil, "", true, map[string]any{"files": len(files)})
-			out.P.Print("guide.uninstall", skillResult{Files: files}, nil)
+			out.P.Print("guide.uninstall", skillResult{Files: files, uninstall: true}, nil)
 			return nil
 		},
 	}

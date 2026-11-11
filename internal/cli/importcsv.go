@@ -184,7 +184,7 @@ func csvHost(cols, rec []string) (*store.Host, error) {
 	if h.Name == "" {
 		return h, out.Usage("no name")
 	}
-	if err := validName("host", h.Name); err != nil {
+	if err := checkHostName(h.Name); err != nil {
 		return h, err
 	}
 	if h.Address == "" {

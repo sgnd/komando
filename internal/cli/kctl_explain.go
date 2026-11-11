@@ -21,7 +21,7 @@ func (r *kctlRun) explain() error {
 	if err != nil {
 		// TYPE.GROUP spellings: deployments.apps.spec is ambiguous, try
 		// the first two parts as the type
-		return kfail("the server doesn't have a resource type %q", typ)
+		return kindErr(err, "the server doesn't have a resource type %q", typ)
 	}
 	var index struct {
 		Paths map[string]struct {

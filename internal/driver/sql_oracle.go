@@ -249,6 +249,9 @@ func oracleStatement(ts []token) (Risk, []string, error) {
 				return RiskDestructive, []string{"sql-server-config"}, nil
 			}
 		}
+		if loadsNativeCode(ts) { // CREATE LIBRARY, a function AS LANGUAGE C
+			return RiskDestructive, []string{"sql-program"}, nil
+		}
 		return RiskWrite, nil, nil
 	}
 	var risk Risk

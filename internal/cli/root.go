@@ -106,7 +106,7 @@ func Execute() int {
 	}
 	name := "komando"
 	if cmd != nil {
-		name = commandName(cmd)
+		name = envelopeName(cmd)
 	}
 	// argument and flag errors come before PersistentPreRunE, which applies
 	// -o; apply it here so `-o text` (or a terminal) gets text for them too
@@ -130,11 +130,23 @@ func Execute() int {
 			oe.Hint = "nothing was changed"
 			oe.Cancel(cancelledText()) // text mode: the person's own choice, not an error
 		}
+		auditBlocked(cmd, oe)
+		if cmd != nil {
+			fillHint(oe, firstArg(cmd))
+		}
 		if cmd != nil && out.P.Format == "text" {
-			notFoundSay(oe, topCommand(cmd))
+			notFoundSay(oe, cmd)
 		}
 	}
 	return out.P.Fail(name, err)
+}
+
+// firstArg is the first argument cmd was given (its TARGET or CONN), or "".
+func firstArg(cmd *cobra.Command) string {
+	if a := cmd.Flags().Args(); len(a) > 0 {
+		return a[0]
+	}
+	return ""
 }
 
 // topCommand is the command family cmd belongs to ("db" for db query).
@@ -178,8 +190,24 @@ func usageErr(cmd *cobra.Command, err error) error {
 	// cobra writes "unknown command \"exce\" for \"komando\"\n\nDid you mean
 	// this?\n\texec\n": one line, the suggestion in the message, a hint
 	// that points at the command meant
-	if name, ok := quotedAfter(m, "unknown command "); ok {
+	if name, ok := quotedAfter(m, "unknown command "); ok && !cmd.HasSubCommands() && cmd.HasParent() {
+		// cobra.NoArgs says "unknown command" too, but a leaf has no
+		// commands to list: say it takes no arguments, and where it
+		// filters with --target, how to give one
+		e.Message = fmt.Sprintf("%s takes no arguments (got %q)", cmd.CommandPath(), name)
+		e.Hint = commandHint(cmd)
+		if cmd.Flags().Lookup("target") != nil {
+			e.Hint = "pick targets with --target: " + cmd.CommandPath() + " --target " + name
+		}
+		return e
+	} else if ok {
 		e.Message = fmt.Sprintf("unknown command %q", name)
+		// not "pick Add something": the first-run menu, where a newcomer
+		// most likely is, has no such row
+		if name == "add" && !cmd.HasParent() {
+			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn add`; typed alone at a terminal, each one asks step by step"
+			return e
+		}
 		s := cmd.SuggestionsFor(name)
 		for _, c := range cmd.Commands() {
 			if slices.Contains(c.SuggestFor, name) { // an old name: only the command that does it now
@@ -303,6 +331,15 @@ func isUsageErr(err error) bool {
 	return false
 }
 
+// envelopeName is the command an error envelope names: an alias such as
+// `vpn test` prints the command it stands for, as its result does.
+func envelopeName(c *cobra.Command) string {
+	if n := c.Annotations[aliasOf]; n != "" {
+		return n
+	}
+	return commandName(c)
+}
+
 func commandName(c *cobra.Command) string {
 	p := strings.TrimPrefix(c.CommandPath(), "komando")
 	p = strings.TrimSpace(p)
@@ -394,7 +431,7 @@ func checkAuditWritable(cmd *cobra.Command) error {
 func newRoot() *cobra.Command {
 	resetApproval()
 	out.P.Reset()
-	personSaidNo, askedAbout = false, nil
+	personSaidNo, askedAbout, blockAudited = false, nil, false
 	interrupted = false
 	root := &cobra.Command{
 		Use:           "komando",
@@ -459,7 +496,7 @@ func newRoot() *cobra.Command {
 	pf.StringVarP(&g.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); db query also\ntakes csv and tsv")
 	pf.BoolVar(&g.pretty, "pretty", false, "indent JSON output")
 	pf.BoolVar(&g.dryRun, "dry-run", false, "show what would run, changing nothing")
-	pf.BoolVarP(&g.yes, "yes", "y", false, "answer yes in advance, for scripts")
+	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm a change on a protected target (an AI agent needs a person's yes)")
 	pf.BoolVar(&g.allowDangerous, "allow-dangerous", false, "run a command the safety rules would block")
 	pf.BoolVar(&g.reveal, "reveal", false, "show passwords and keys in output (an agent needs a person's yes)")
 	pf.DurationVar(&g.timeout, "timeout", 0, "time limit per server (default: setting, 5m)")
@@ -487,12 +524,12 @@ func newRoot() *cobra.Command {
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd(), clusterCmd(), registryCmd())
 	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
 	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), updateCmd(), versionCmd(), sshGateCmd())
+	root.InitDefaultHelpCmd()
+	root.InitDefaultCompletionCmd()
+	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
 	applyConventions(root)
 	useShortGlobals(root)
 	addCompletion(root)
-	root.InitDefaultHelpCmd()
-	root.InitDefaultCompletionCmd()
-	labelBuiltinCmds(root)
 	return root
 }
 
@@ -511,6 +548,13 @@ func labelBuiltinCmds(root *cobra.Command) {
 			c.GroupID = "meta"
 			c.Short = "Print a tab-completion script for your shell"
 			c.Long = "Prints a script that lets Tab complete komando's commands, flags and names\nin bash, zsh, fish or PowerShell. Each one's help says how to load it:\nkomando completion zsh --help."
+			for _, sh := range c.Commands() {
+				shell := sh.Name()
+				if shell == "powershell" {
+					shell = "PowerShell"
+				}
+				sh.Short = "Print the tab-completion script for " + shell
+			}
 		}
 	}
 }
