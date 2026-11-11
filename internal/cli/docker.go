@@ -189,11 +189,11 @@ var dockerNotFound = regexp.MustCompile(`(?i)no such (container|service|object|i
 // into a typed error (dockerErr). `docker exec` does not use it: there the
 // exit code is the container command's.
 func runDocker(ctx context.Context, name, target, command string, sudo, mutating bool) error {
-	return runFleet(ctx, name, target, command, nil, execOpts{sudo: sudo, exitMap: func(code int, stderr string) *out.Error {
-		if code == 0 {
+	return runFleet(ctx, name, target, command, nil, execOpts{sudo: sudo, exitMap: func(rr *sshx.RunResult) *out.Error {
+		if rr.ExitCode == 0 {
 			return nil
 		}
-		return dockerErr(stderr, code)
+		return dockerErr(rr.Stderr, rr.ExitCode)
 	}}, mutating)
 }
 

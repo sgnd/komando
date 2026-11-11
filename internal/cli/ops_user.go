@@ -101,12 +101,27 @@ func needShadow(tool string) string {
 	return "command -v " + tool + " >/dev/null 2>&1 || { echo '#komando:no-" + tool + "'; echo '" + tool + " is missing on this server; on Alpine install the shadow package: komando pkg install TARGET shadow' >&2; exit 127; }\n"
 }
 
+// shadowMissing is the TOOL_MISSING error for a script stopped by
+// needShadow, read from its #komando:no-TOOL marker; nil otherwise.
+func shadowMissing(rr *sshx.RunResult) *out.Error {
+	if rr == nil {
+		return nil
+	}
+	switch m := marker(rr.Stdout); m {
+	case "no-useradd", "no-usermod", "no-userdel":
+		tool := strings.TrimPrefix(m, "no-")
+		return out.Errf(out.ExitNotFound, "TOOL_MISSING", "on Alpine install the shadow package: `komando pkg install TARGET shadow`", "%s is missing on this server", tool)
+	}
+	return nil
+}
+
 func userResult(name, action string, rr *sshx.RunResult) (any, *out.Error) {
 	switch marker(rr.Stdout) {
 	case "no-user":
 		return nil, out.Errf(out.ExitNotFound, "USER_NOT_FOUND", "list the accounts with `komando user list TARGET --all`", "user %s does not exist", name)
-	case "no-usermod":
-		return nil, out.Errf(out.ExitNotFound, "TOOL_MISSING", "on Alpine install the shadow package: `komando pkg install TARGET shadow`", "usermod is missing on this server")
+	}
+	if e := shadowMissing(rr); e != nil {
+		return nil, e
 	}
 	if rr.ExitCode != 0 {
 		return nil, nil
@@ -244,7 +259,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 					"chown " + q + ": \"$h/.ssh/authorized_keys\"; chmod 600 \"$h/.ssh/authorized_keys\"; ")
 			}
 			sb.WriteString("id " + q)
-			return runOne(cmd.Context(), "user.add", args[0], sb.String(), !noSudo, true)
+			return runFleet(cmd.Context(), "user.add", args[0], sb.String(), nil, execOpts{sudo: !noSudo, exitMap: shadowMissing}, true)
 		},
 	}
 	add.Flags().StringVar(&pubKey, "pubkey", "", "public key line to authorize")
@@ -292,7 +307,7 @@ func userRmCmd(noSudo *bool) *cobra.Command {
 			if removeHome {
 				c += "-r "
 			}
-			return runOne(cmd.Context(), "user.rm", args[0], c+sshx.Q(args[1]), !*noSudo, true)
+			return runFleet(cmd.Context(), "user.rm", args[0], c+sshx.Q(args[1]), nil, execOpts{sudo: !*noSudo, exitMap: shadowMissing}, true)
 		},
 	}
 	del.Flags().BoolVar(&removeHome, "remove-home", false, "also delete the user's home folder and the files in it")

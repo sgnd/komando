@@ -107,9 +107,10 @@ type execOpts struct {
 	// follow: a log follow (logs --follow). Reaching --timeout is how it
 	// ends, not a failure.
 	follow bool
-	// exitMap turns a remote exit code into a typed error (fs commands:
-	// 83 = no such file ...); nil keeps the plain "exit N".
-	exitMap func(code int, stderr string) *out.Error
+	// exitMap turns a failed run into a typed error (fs commands: exit
+	// 83 = no such file; user add/rm: a #komando: marker on stdout); nil
+	// keeps the plain "exit N".
+	exitMap func(rr *sshx.RunResult) *out.Error
 }
 
 func (o *execOpts) bind(c *cobra.Command) {
@@ -559,8 +560,8 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 				hr.Error = out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout or use `komando job start` for long tasks", "command timed out after %s", req.Timeout)
 				worst = worse(worst, out.ExitTimeout)
 				fails = append(fails, hostFail{host: hr.Host, reason: "timed out", err: hr.Error})
-			case !hr.OK && o.exitMap != nil && o.exitMap(hr.ExitCode, hr.Stderr) != nil:
-				hr.Error = o.exitMap(hr.ExitCode, hr.Stderr)
+			case !hr.OK && o.exitMap != nil && o.exitMap(hr.RunResult) != nil:
+				hr.Error = o.exitMap(hr.RunResult)
 				worst = worse(worst, hr.Error.Exit)
 				fails = append(fails, hostFail{host: hr.Host, reason: failReason(hr.ExitCode, hr.Error), err: hr.Error})
 			case !hr.OK:
