@@ -94,6 +94,8 @@ type menuMemory struct{ action, target, task string }
 type menuNext struct {
 	cmds    [][]string
 	ownExit bool
+	// keepGoing runs every command even after one fails (Check everything)
+	keepGoing bool
 }
 
 // runMenu shows the menu until the person quits. Whatever happens, the
@@ -122,7 +124,7 @@ func runMenu() error {
 			return err
 		}
 		try := func(args []string) error { // Try it first, from a form's review
-			again, err := menuRun(ctx, t, self, [][]string{args}, false, "the questions")
+			again, err := menuRun(ctx, t, self, [][]string{args}, false, false, "the questions")
 			if err == nil && !again {
 				err = errMenuQuit // q after Try it first: leave the menu
 			}
@@ -135,7 +137,7 @@ func runMenu() error {
 		if err != nil {
 			return err
 		}
-		if again, err := menuRun(ctx, t, self, next.cmds, next.ownExit, "the menu"); err != nil || !again {
+		if again, err := menuRun(ctx, t, self, next.cmds, next.ownExit, next.keepGoing, "the menu"); err != nil || !again {
 			return err
 		}
 	}
@@ -184,7 +186,7 @@ func menuOpen(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory
 	case "":
 		return menuNext{cmds: [][]string{act.args}, ownExit: act.ownExit}, nil
 	case "check":
-		return menuNext{cmds: checkLines}, nil
+		return menuNext{cmds: checkLines, keepGoing: true}, nil
 	case "add-server":
 		cmds, err := formChoose(ctx, t, st, formGroupsFor("host"), scr, try)
 		return menuNext{cmds: cmds}, err

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -1082,5 +1083,36 @@ func TestFormCancelKey(t *testing.T) {
 	}
 	if got := formCancelKey(&menuList{typing: true}); got != "Ctrl-C cancel" {
 		t.Errorf("filter: %q", got)
+	}
+}
+
+// Check everything runs doctor even when a server fails test all, and says
+// the worst exit; other lines stop at the first failure, and Ctrl-C stops
+// both.
+func TestMenuRunLines(t *testing.T) {
+	codes := map[string]int{"test": 4, "doctor": 0, "stop": -1}
+	cases := []struct {
+		cmds      [][]string
+		keepGoing bool
+		want      string
+		ran       int
+	}{
+		{checkLines, true, "exit 4", 2},
+		{checkLines, false, "exit 4", 1},
+		{[][]string{{"stop"}, {"doctor"}}, true, "stopped", 1},
+		{[][]string{{"doctor"}}, false, "exit 0", 1},
+	}
+	for _, c := range cases {
+		ran := 0
+		got, err := menuRunLines(c.cmds, c.keepGoing, func(args []string) (int, error) {
+			ran++
+			return codes[args[0]], nil
+		})
+		if err != nil || got != c.want || ran != c.ran {
+			t.Errorf("%v keepGoing %v: %q after %d, want %q after %d", c.cmds, c.keepGoing, got, ran, c.want, c.ran)
+		}
+	}
+	if next, _ := menuOpen(context.Background(), nil, nil, nil, checkAction, menuScreen{}, nil); !next.keepGoing {
+		t.Error("Check everything stops at the first failure")
 	}
 }

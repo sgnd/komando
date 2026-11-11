@@ -666,7 +666,7 @@ func formCommand(groups []formGroup) error {
 	}
 	scr := menuScreen{header: menuHeader(st), color: colorOK()}
 	try := func(args []string) error {
-		again, err := menuRun(context.Background(), t, self, [][]string{args}, false, "the questions")
+		again, err := menuRun(context.Background(), t, self, [][]string{args}, false, false, "the questions")
 		if err == nil && !again {
 			err = errFormCancel // q after Try it first: leave
 		}
