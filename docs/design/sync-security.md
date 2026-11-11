@@ -1433,16 +1433,21 @@ How the code meets this (settled while building phase 0, 2026-11-10):
 Moving existing users:
 
 - Only a person at a terminal, or the desktop app, moves the folder to the
-  new format. Until then the new komando keeps using the old files, so agents
-  and scheduled jobs keep working.
+  new format (`komando seal`). komando works only on the sealed store: a
+  folder of before must be sealed before use. Until then every command but
+  `seal`, `doctor`, `version`, `help`, `guide` and `schema` stops with
+  `NEEDS_SEAL`, for agents and scheduled jobs too, and nothing is written
+  beside the old files. komando only reads the old files, to move them, in
+  each of their key modes (`vault.key`, keychain, passphrase).
 - The move covers `state.json`, `vault.json`, `vault.key`, `known_hosts`,
   `audit.jsonl`, the `keys/` folder and the state under `vpn/`.
 - The move first writes one sealed archive of the old folder and can be
   undone from it. The archive is sealed with the store key, so it can be
   opened whenever the store can, and it is kept until a person deletes it.
   Undo is for a person only. It puts the old plain files back, so it goes
-  through the same "accept an old copy" step as a restore from backup. An
-  agent can neither move nor undo.
+  through the same "accept an old copy" step as a restore from backup, and
+  the folder then needs `komando seal` again. An agent can neither move nor
+  undo.
 - An older komando must never see an empty folder: it would start fresh,
   with no protected servers, no deny rules and no pinned host keys. So the
   move does not delete the old files. It replaces each with a short plain

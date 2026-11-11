@@ -9,7 +9,7 @@ GOVULNCHECK := v1.9.0
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 export PLATFORMS
 
-.PHONY: help build install test test-sealed cover security fuzz e2e e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses dist clean
+.PHONY: help build install test cover security fuzz e2e e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses dist clean
 
 help: ## Show this help
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -20,12 +20,8 @@ build: ## Build ./bin/komando
 install: ## Install komando into $GOPATH/bin
 	go install -ldflags "$(LDFLAGS)" ./cmd/komando
 
-test: ## Fast unit tests, on the file backend and on the sealed store
+test: ## Fast unit tests
 	go test ./...
-	KOMANDO_TEST_SEALED=1 go test ./internal/cli/ ./internal/sshx/
-
-test-sealed: ## Unit tests of the packages that keep data, on the sealed store
-	KOMANDO_TEST_SEALED=1 go test ./internal/cli/ ./internal/sshx/
 
 cover: ## Unit tests, and each package's coverage against its floor (test/coverage-floor.txt)
 	test/coverage.sh

@@ -30,11 +30,7 @@ check "rename: without --yes" PROTECTED_HOST "$($K rename --prefix "$R-" "$N-" |
 check "rename: one --yes" 7 "$($K rename --prefix "$R-" "$N-" --yes | jget 'd["data"]["count"]')"
 check "rename: still protected" True "$($K host show "$N-target" | jget 'd["data"]["protected"]')"
 check "rename: refs follow" True "$($K host show "$N-target" | jget 'd["data"]["via"] == "'"$N"'-jump" and d["data"]["password_ref"] == "secret:'"$N"'-pass" and "'"$N"'" in d["data"]["groups"]')"
-if sealed; then
-  check "rename: the sealed key follows" True "$($K key show "$N-key" | jget 'd["data"]["path"].startswith("sealed:")')"
-else
-  check "rename: the key file moved" True "$([ -f "$KOMANDO_HOME/keys/$N-key" ] && [ ! -e "$KOMANDO_HOME/keys/$R-key" ] && echo True || echo False)"
-fi
+check "rename: the sealed key follows" True "$($K key show "$N-key" | jget 'd["data"]["path"].startswith("sealed:")')"
 check "rename: the secret moved" True "$($K secret list | jget '"'"$N"'-pass" in [s["name"] for s in d["data"]["secrets"]] and "'"$R"'-pass" not in [s["name"] for s in d["data"]["secrets"]]')"
 check "rename: answers through the renamed path" True "$($K test "$N-target" | jget 'd["ok"]')"
 check "rename: nothing left to rename" NOTHING_TO_RENAME "$($K rename --prefix "$R-" "$N-" | code)"

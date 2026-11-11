@@ -14,11 +14,11 @@ byte for byte.
 
 ## Decisions
 
-- **Backend choice.** `store.Sealed()` looks only at the home folder:
-  `store.db` there means sealed; old files there mean files; an empty home
-  means sealed. Both at once: sealed wins and `doctor` warns. A read on a
-  fresh home makes no file and no key; the first write makes both, under
-  `.store.lock`.
+- **Backend choice** (as built in S6; see "The file backend goes" below).
+  `store.Sealed()` looked only at the home folder: `store.db` there meant
+  sealed; old files there meant files; an empty home meant sealed. Both at
+  once: sealed wins and `doctor` warns. A read on a fresh home makes no
+  file and no key; the first write makes both, under `.store.lock`.
 - **The store key.** The vault's three key modes give a 32-byte master
   key: the keychain item, a key file named `store.key` (never `vault.key`),
   or scrypt of the passphrase with a stored salt. `sealrow.NewKey` derives
@@ -71,6 +71,26 @@ byte for byte.
    that a fresh home holds no readable names.
 
 Each commit is tested on its own; the switch stays off until commit 9.
+
+## The file backend goes (after S9)
+
+The owner decided users will not go back to an older komando after this
+release, so komando now works only on the sealed store. The file backend's
+write and run paths are gone: `state.json` saves and its `.lock` and `ids`
+map, vault file writes and key moves, `known_hosts` pins, `audit.jsonl`,
+key files under `keys/`, and the switch tests used to run both backends
+(`KOMANDO_TEST_SEALED`, `make test-sealed`, `E2E_BACKEND=files`).
+
+- A folder of before (data files, no `store.db`) must be sealed before use:
+  `store.NeedsSeal()` is true there, and every command but `seal`,
+  `doctor`, `version`, `help`, `guide` and `schema` stops with
+  `NEEDS_SEAL` (exit 1), whose hint says a person runs `komando seal` in
+  their own terminal. `store.DB()` refuses there too, so nothing (a
+  background process, an engine caller) makes a store beside the old data.
+- `komando seal` keeps a read-only reader of the old files:
+  `store.ReadOldState` (state.json and runtime.json), `vault.OldNames` and
+  `vault.ExportFiles` in all three key modes, and its own known_hosts
+  parser. Its tests write old-format files directly.
 
 ## Risks to watch
 

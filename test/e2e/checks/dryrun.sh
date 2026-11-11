@@ -39,7 +39,7 @@ check "docker stop --dry-run" True "$(dry docker stop swarm1 nothing-runs-here)"
 check "cluster scale --dry-run" "True 1" "$(dry cluster scale lab-k3s deploy/coredns 3 --namespace kube-system) $(nat k3s kubectl get deploy coredns -n kube-system -o jsonpath='{.spec.replicas}')"
 
 # inventory and settings (komando's own files)
-before=$({ cat "$KOMANDO_HOME/state.json" "$KOMANDO_HOME/vault.json" "$KOMANDO_HOME/runtime.json" "$KOMANDO_HOME/store.db" 2>/dev/null || true; } | shasum | cut -d' ' -f1)
+before=$({ cat "$KOMANDO_HOME/runtime.json" "$KOMANDO_HOME/store.db" 2>/dev/null || true; } | shasum | cut -d' ' -f1)
 dry host add "$D" agent@127.0.0.1 >/dev/null
 dry conn add "$D" "postgres://app@127.0.0.1/app" >/dev/null
 dry group add "$D" direct >/dev/null
@@ -47,6 +47,6 @@ dry config set parallel 3 >/dev/null
 dry policy deny "$D" >/dev/null
 dry recipe add "$D" 'echo hi' >/dev/null
 printf 'v' | $K secret set "$D" --dry-run >/dev/null
-check "inventory, vault, settings and runtime unchanged by dry runs" "$before" "$({ cat "$KOMANDO_HOME/state.json" "$KOMANDO_HOME/vault.json" "$KOMANDO_HOME/runtime.json" "$KOMANDO_HOME/store.db" 2>/dev/null || true; } | shasum | cut -d' ' -f1)"
+check "inventory, vault, settings and runtime unchanged by dry runs" "$before" "$({ cat "$KOMANDO_HOME/runtime.json" "$KOMANDO_HOME/store.db" 2>/dev/null || true; } | shasum | cut -d' ' -f1)"
 
 q $K exec direct -- "rm -f /tmp/$D.keep"
