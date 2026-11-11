@@ -284,8 +284,8 @@ func (r *kctlRun) dispatch() error {
 	case "config":
 		return r.config(sub)
 	}
-	// kctlUsage refused sessions, edit and unknown verbs before this
-	return kfail("unknown command %q for komando's kubectl (see `komando cluster run --help`)", r.a.verb)
+	// every verb kctlUsage lets through has a case above: this is a session, edit or unknown verb
+	return kfail("%s", toErr(kctlUsage([]string{r.a.verb})).Message)
 }
 
 // Resources and objects.
