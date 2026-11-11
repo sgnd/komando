@@ -89,3 +89,12 @@ func TestHeadlineDryRun(t *testing.T) {
 		t.Errorf("dry run: %q", got)
 	}
 }
+
+// A value of several lines stays under its key.
+func TestRenderTextMultiLine(t *testing.T) {
+	got := renderText(map[string]any{"commands": []any{map[string]any{"path": "komando audit", "example": "  komando audit\n  komando audit -n 0"}}}, false)
+	want := "commands:\n  - example: |\n        komando audit\n        komando audit -n 0\n    path: komando audit\n"
+	if got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}

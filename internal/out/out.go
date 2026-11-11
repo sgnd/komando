@@ -625,6 +625,13 @@ func writeAny(sb *strings.Builder, v any, indent string) {
 			case map[string]any, []any:
 				fmt.Fprintf(sb, "%s%s:\n", indent, k)
 				writeAny(sb, c, indent+"  ")
+			case string:
+				if strings.Contains(strings.TrimRight(c, "\n"), "\n") {
+					// a block, as YAML writes one: every line under the key
+					fmt.Fprintf(sb, "%s%s: |\n%s", indent, k, indentLines(c, indent+"  "))
+					continue
+				}
+				fmt.Fprintf(sb, "%s%s: %v\n", indent, k, scalar(c))
 			default:
 				fmt.Fprintf(sb, "%s%s: %v\n", indent, k, scalar(c))
 			}

@@ -108,7 +108,7 @@ func init() {
 	register(Kind{Name: "gcs", Family: "storage", Schemes: []string{"gs", "gcs"}, DefaultPort: 443,
 		Example: "gs://my-bucket/backups (logs in like gcloud, or with a service account key: --password-ref secret:NAME)"})
 	register(Kind{Name: "azblob", Family: "storage", Schemes: []string{"azblob", "azure"}, DefaultPort: 443,
-		Example: "azblob://ACCOUNT@my-container/backups (account key or SAS token: --password-ref secret:NAME)"})
+		Example: "azblob://ACCOUNT@my-container/backups (the account key or SAS token goes in --password-ref secret:NAME)"})
 	register(Kind{Name: "webdav", Family: "storage", Schemes: []string{"webdavs", "webdav"}, DefaultPort: 443,
 		Example: "webdavs://alice@cloud.example.com/remote.php/dav/files/alice (Nextcloud; ?tls=skip-verify for self-signed; webdav:// needs ?insecure=1)"})
 	register(Kind{Name: "smb", Family: "storage", Schemes: []string{"smb", "cifs"}, DefaultPort: 445,

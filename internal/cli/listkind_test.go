@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -28,5 +30,19 @@ func TestKindListPicksNothing(t *testing.T) {
 func TestVpnWhereShowsPortal(t *testing.T) {
 	if w := vpnWhere(&store.Vpn{Kind: "globalprotect", Portal: "vpn.example.com"}); w != "vpn.example.com" {
 		t.Errorf("got %q", w)
+	}
+}
+
+// One failed target: its hint comes once, with the error; several keep a
+// hint under each row.
+func TestTestTextHintOnce(t *testing.T) {
+	fail := func(name string) targetTest {
+		return targetTest{Name: name, Kind: "host", Error: &out.Error{Code: "NO_AUTH", Message: "no login", Hint: "run komando login " + name}}
+	}
+	if s := (testData{Results: []targetTest{fail("local1")}}).Text(); strings.Contains(s, "komando login") {
+		t.Errorf("one target:\n%s", s)
+	}
+	if s := (testData{Results: []targetTest{fail("a"), fail("b")}}).Text(); strings.Count(s, "komando login") != 2 {
+		t.Errorf("two targets:\n%s", s)
 	}
 }

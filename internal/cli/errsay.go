@@ -3,6 +3,7 @@ package cli
 import (
 	"cmp"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -220,3 +221,31 @@ func addHint(family, code string) string {
 	}
 	return "add one with `komando host add NAME user@address`, or bring in ~/.ssh/config with `komando import ssh-config`"
 }
+
+// fillHint puts the target into the commands a hint names with a
+// placeholder: drivers and helpers that do not know the conn's name write
+// `komando conn test NAME` or `komando cluster events TARGET`, and the
+// next step should be one to copy. target is the command's first argument;
+// it is used only when it names a server, conn or VPN. `komando conn test`
+// becomes `komando test`, the one spelling.
+func fillHint(e *out.Error, target string) {
+	if e.Hint == "" || !strings.Contains(e.Hint, "`komando ") {
+		return
+	}
+	e.Hint = strings.ReplaceAll(e.Hint, "`komando conn test ", "`komando test ")
+	st, err := loadState()
+	if err != nil || target == "" {
+		return
+	}
+	if _, name, ok := st.FindName(target); ok {
+		e.Hint = hintCmd.ReplaceAllStringFunc(e.Hint, func(c string) string {
+			c = placeholder.ReplaceAllString(c, "${1}"+name)
+			return strings.Replace(c, "`komando test NAME", "`komando test "+name, 1)
+		})
+	}
+}
+
+var (
+	hintCmd     = regexp.MustCompile("`komando [^`]*`")
+	placeholder = regexp.MustCompile(`(\s)(?:TARGET|CONN)\b`)
+)

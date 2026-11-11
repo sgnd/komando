@@ -104,3 +104,25 @@ func cancelledTextFor(names []string) string {
 	askedAbout = names
 	return cancelledText()
 }
+
+// A hint written with a placeholder names the target the command was
+// given, so the next step can be copied; `conn test` is spelled `test`.
+func TestFillHint(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "pg", "postgres://u@127.0.0.1:5/db")
+	e := out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando conn test NAME` to check reachability", "x")
+	fillHint(e, "pg")
+	if e.Hint != "run `komando test pg` to check reachability" {
+		t.Errorf("got %q", e.Hint)
+	}
+	e = out.Errf(out.ExitRemote, "FAILED", "read stderr; `komando cluster events TARGET --warnings` shows more; `komando secret set NAME`", "x")
+	fillHint(e, "pg")
+	if e.Hint != "read stderr; `komando cluster events pg --warnings` shows more; `komando secret set NAME`" {
+		t.Errorf("got %q", e.Hint)
+	}
+	e = out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando conn test NAME`", "x")
+	fillHint(e, "nosuch") // not a name komando knows: only the spelling changes
+	if e.Hint != "run `komando test NAME`" {
+		t.Errorf("got %q", e.Hint)
+	}
+}

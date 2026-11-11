@@ -181,7 +181,7 @@ func (d testData) Text() string {
 		}
 		rows = append(rows, []string{r.Name, r.Kind, r.Error.Code, "", "", "", ""})
 		hints = append(hints, withHost(r.Name, r.Error.Message))
-		if r.Error.Hint != "" {
+		if r.Error.Hint != "" && len(d.Results) > 1 { // one target: the error below gives its hint
 			hints = append(hints, "  hint: "+r.Error.Hint)
 		}
 	}

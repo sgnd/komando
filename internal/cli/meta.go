@@ -323,6 +323,8 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 			start := root
 			if len(args) == 1 && strings.Contains(args[0], ".") {
 				args = strings.Split(args[0], ".") // host.add, as in the envelope's command
+			} else if len(args) == 1 {
+				args = strings.Fields(args[0]) // 'db query', quoted as one
 			}
 			if len(args) > 0 {
 				found, rest, err := root.Find(args)
@@ -363,6 +365,10 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 				}
 			}
 			walk(start)
+			if len(cmds) == 0 { // help, completion and hidden commands are left out on purpose
+				return out.Errf(out.ExitNotFound, "COMMAND_NOT_FOUND", "run `komando schema --compact` to see every command",
+					"no command %q", strings.Join(args, " "))
+			}
 			var globals []flagSchema
 			root.PersistentFlags().VisitAll(func(f *pflag.Flag) {
 				globals = append(globals, flagSchema{f.Name, f.Shorthand, f.Value.Type(), f.DefValue, f.Usage})
