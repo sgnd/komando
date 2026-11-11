@@ -15,7 +15,7 @@ import (
 func testRound(ctx context.Context, st *store.State, sel selection) []targetTest {
 	var res []targetTest
 	for _, o := range fanout(allowWindows(ctx), st, sel.Hosts, testHost) {
-		r := targetTest{Name: o.Host.Name, Kind: "host"}
+		r := targetTest{Host: o.Host.Name, Kind: "host"}
 		if o.Err != nil {
 			r.Error = fixTestError(st, o.Host.Name, toErr(o.Err))
 		} else {
@@ -30,10 +30,7 @@ func testRound(ctx context.Context, st *store.State, sel selection) []targetTest
 		res = append(res, vpnTest(ctx, st, v))
 	}
 	// by name, like `komando list`: not all servers before all conns
-	sort.SliceStable(res, func(i, j int) bool { return res[i].Name < res[j].Name })
-	for i := range res {
-		res[i].Host = res[i].Name
-	}
+	sort.SliceStable(res, func(i, j int) bool { return res[i].Host < res[j].Host })
 	return res
 }
 
@@ -83,10 +80,10 @@ func waitForTargets(ctx context.Context, st *store.State, sel selection, res []t
 		cancel()
 		byName := map[string]targetTest{}
 		for _, r := range again {
-			byName[r.Kind+"/"+r.Name] = r
+			byName[r.Kind+"/"+r.Host] = r
 		}
 		for i, r := range res {
-			if n, ok := byName[r.Kind+"/"+r.Name]; ok {
+			if n, ok := byName[r.Kind+"/"+r.Host]; ok {
 				res[i] = n
 			}
 		}
@@ -98,7 +95,7 @@ func waitPending(sel selection, res []targetTest) selection {
 	retry := map[string]bool{}
 	for _, r := range res {
 		if !r.OK && (r.Error == nil || !noWaitFor(r.Error.Code)) {
-			retry[r.Name] = true
+			retry[r.Host] = true
 		}
 	}
 	var p selection

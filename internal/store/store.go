@@ -30,7 +30,6 @@ type Host struct {
 	// carry the SSH connection (OpenSSH ProxyCommand): aws ssm start-session,
 	// gcloud compute start-iap-tunnel, cloudflared access ssh. %h %p %r %n.
 	ProxyCommand string            `json:"proxy_command,omitempty"`
-	OldJump      string            `json:"jump,omitempty"` // written by v0.1.0 only; moved to Via on load
 	Groups       []string          `json:"groups,omitempty"`
 	Tags         []string          `json:"tags,omitempty"`
 	Labels       map[string]string `json:"labels,omitempty"`
@@ -334,12 +333,6 @@ func Load() (*State, error) {
 func (s *State) init() {
 	if s.Hosts == nil {
 		s.Hosts = map[string]*Host{}
-	}
-	for _, h := range s.Hosts {
-		if h.OldJump != "" && h.Via == "" {
-			h.Via = h.OldJump
-		}
-		h.OldJump = ""
 	}
 	if s.Conns == nil {
 		s.Conns = map[string]*Conn{}

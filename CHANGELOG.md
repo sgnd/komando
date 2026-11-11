@@ -49,6 +49,13 @@ its highlights; the sections below them give the details. Versions follow
   `--target` (was `--host`), `host mv` and `conn mv` (was `host edit
   --rename` and `conn edit --rename`). `recipe add --mutating` is gone too:
   a recipe counts as a change unless you save it with `--read-only`.
+- `job wait --wait-timeout` is gone: use `--timeout` (still 10m when not
+  given). The hidden `--target` flag of `komando list` and `host export` is
+  gone too: give the target as the argument.
+- `komando test` results no longer carry `name`: read `host`, as with
+  `facts` and `exec`.
+- A server saved with the 0.1.0 field `jump` is no longer moved to `via`
+  on load.
 
 ## [0.9.0] - 2026-11-10
 

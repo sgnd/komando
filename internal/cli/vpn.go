@@ -616,7 +616,7 @@ func vpnWhere(v *store.Vpn) string {
 // testVpn opens the VPN and, when it has --check, connects to that address
 // through it.
 func testVpn(ctx context.Context, st *store.State, v *store.Vpn) targetTest {
-	r := targetTest{Name: v.Name, Kind: "vpn"}
+	r := targetTest{Host: v.Name, Kind: "vpn"}
 	t0 := time.Now()
 	timeout := sshOpts(st).ConnectTimeout
 	dial, closer, err := netx.Open(ctx, v, timeout)
