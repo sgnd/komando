@@ -98,7 +98,7 @@ func svcActionCmd(action string) *cobra.Command {
 			return svcAction(cmd.Context(), action, args[0], args[1:], !noSudo, now, int(math.Ceil(wait.Seconds())))
 		},
 	}
-	c.Flags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. --user units or root login)")
+	c.Flags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (when you log in as root)")
 	switch action {
 	case "start", "restart", "reload":
 		c.Example = "  komando svc " + action + " @web nginx --wait 10s   # fails unless nginx is active within 10 seconds"

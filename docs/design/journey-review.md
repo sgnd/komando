@@ -1,6 +1,17 @@
 # komando menu redesign: synthesis and completeness check
 
-I checked this against `internal/cli/menu.go` (lines 59-72 action vars, 100-200 `runMenu`/`menuPickCommand`, 472-511 `menuMainActions`), `internal/cli/form_cmd.go` (`formAreas` 503-524, `formCommands` 527, `formAllFeatures` 577, `formAreaCommands` 607, `formGuidedOrAll` 661) and the built `komando --help` (50 commands). I changed no files.
+Status: **done, shipped in v0.11.0.** This was the plan for the menu
+redesign. The menu and forms in `internal/cli/menu*.go` and
+`internal/cli/form*.go` are now the reference; how to use them is in
+[docs/features/commands.md](../features/commands.md#the-menu-for-people).
+Two points shipped differently from the plan: the main menu footer is
+`↑↓ move · Enter or 1-N choose · ? help · q quit`, with no Esc and no
+filter there (typing filters only in the lists of servers and services), and the production question of item 15
+is one of the basic questions again, so its default (Yes, protect it)
+applies.
+
+The function names and line numbers below are from the code before the
+redesign. Several of those functions no longer exist.
 
 ## 1. New main menu: pick a thing first, then what to do with it
 
@@ -125,5 +136,3 @@ When fewer than 15 items exist, rows 1-3 may list the items themselves instead o
 - **`logout`** and the list of kept logins are reachable only via the Log in row and Running now. Make sure both exist.
 - **`host trust`** (the host key) after HOSTKEY_MISMATCH: the menu must never offer to "fix" it. Show "web1's identity changed. This can be an attack. Ask whoever runs web1 before trusting it." with no action row, in line with AGENTS.md rule 8.
 - **`list`** stops being a menu row (the menu is now the list). Keep the command for the CLI.
-
-Built binary for reference: /tmp/claude-journey-komando

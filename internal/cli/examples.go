@@ -40,11 +40,11 @@ var examples = map[string]string{
 	"komando host show": "  komando host show web1",
 	"komando host test": "  komando host test web1\n  komando host test @prod --wait 2m",
 
-	"komando job kill":   "  komando job kill j-81c2\n  komando job kill j-81c2 --signal KILL",
+	"komando job kill":   "  komando job kill j1103-101500-ab12cd34\n  komando job kill j1103-101500-ab12cd34 --signal KILL",
 	"komando job list":   "  komando job list\n  komando job list --refresh --target web1",
-	"komando job logs":   "  komando job logs j-81c2 --tail 100\n  komando job logs j-81c2 --offset 4096   # only what is new since then",
-	"komando job rm":     "  komando job rm j-81c2",
-	"komando job status": "  komando job status j-81c2",
+	"komando job logs":   "  komando job logs j1103-101500-ab12cd34 --tail 100\n  komando job logs j1103-101500-ab12cd34 --offset 4096   # only what is new since then",
+	"komando job rm":     "  komando job rm j1103-101500-ab12cd34",
+	"komando job status": "  komando job status j1103-101500-ab12cd34",
 
 	"komando key list": "  komando key list",
 	"komando key rm":   "  komando key rm old-deploy",
@@ -73,7 +73,7 @@ var examples = map[string]string{
 	"komando svc stop":    "  komando svc stop web1 nginx",
 
 	"komando tunnel list": "  komando tunnel list",
-	"komando tunnel stop": "  komando tunnel stop t-3f2a\n  komando tunnel stop --all",
+	"komando tunnel stop": "  komando tunnel stop t1102-101500-ab12cd34\n  komando tunnel stop --all",
 
 	"komando user list":   "  komando user list web1",
 	"komando user lock":   "  komando user lock web1 alice",
@@ -113,7 +113,7 @@ var details = map[string]string{
 	"komando net ports":         "Listening sockets as structured rows: proto, address, port, process, pid (read with ss or netstat).",
 	"komando pkg":               "Packages on servers through apt, dnf, yum, apk, zypper or pacman (komando finds which one the server has).",
 	"komando policy check":      "Test whether a shell command would be blocked (exit 6), or rate SQL, Redis or memcached commands with --for KIND.",
-	"komando recipe":            "Ready-made and saved commands: health, disk, certs, ... plus your own ({{blank}} to fill in).",
+	"komando recipe":            "Ready-made and saved commands: health, disk, oom, ... plus your own ({{blank}} to fill in).",
 	"komando schema":            "Machine-readable reference of every command, flag, exit code and selector.",
 	"komando svc":               "Services on servers: systemd units on Linux, Windows services on Windows servers. status, list, start, stop, restart, enable and disable work on both; reload, daemon-reload and logs are for systemd.",
 	"komando svc daemon-reload": "Reload systemd's unit files (after writing a unit), and say which units still need it.",

@@ -201,7 +201,7 @@ func (p policyCheck) Text() string {
 }
 
 func policyCmd() *cobra.Command {
-	c := &cobra.Command{Use: "policy", Short: "Rules that block destructive commands: list, test, add"}
+	c := &cobra.Command{Use: "policy", Short: "Rules that block destructive commands: list, check, deny, rm"}
 	c.AddCommand(&cobra.Command{
 		Use:   "list",
 		Short: "List built-in and custom rules",

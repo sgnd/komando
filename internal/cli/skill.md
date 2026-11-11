@@ -87,14 +87,21 @@ servers themselves, point them to the menu.
    command ran: it may still be running, or may have finished. Check with a
    read-only command before you run it again.
 5. **Never add `--allow-dangerous`, `--yes` or `--reveal` on your own.**
-   When a command is blocked (exit 6: `POLICY_BLOCKED`, `PROTECTED_HOST`,
-   `PROTECTED_TARGET`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
-   `SENSITIVE_FILE`, `WRITE_REQUIRES_FLAG`, `READ_ONLY_VIOLATION`,
-   `CONFIRM_REQUIRED`), stop and tell the human what you want to do and
-   why. When they agree, re-run with the flag: komando opens a window on
-   their screen and they click "Allow once" (you cannot). If the hint says
-   there is no screen, ask them to run the command in their own terminal.
-   If they click Deny, do not retry.
+   When a command is blocked (exit 6: `CONFIRM_REQUIRED`, `DB_BYTES_LIMIT`,
+   `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`, `PROTECTED_HOST`,
+   `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_HUMAN`,
+   `REVEAL_NEEDS_PERSON`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
+   `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_READ_ONLY`,
+   `SSH_GATE_REFUSED`, `STORE_OLD_COPY`, `UNSAFE_BACKUP`,
+   `WRITE_REQUIRES_FLAG`), stop and tell the human what you want to do and
+   why. When they agree, re-run with
+   the flag the hint names: komando opens a window on their screen and they
+   click "Allow once" (you cannot). If the hint says there is no screen, ask
+   them to run the command in their own terminal. No flag clears
+   `NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN`, `SSH_GATE_READ_ONLY`,
+   `SSH_GATE_REFUSED` or `STORE_OLD_COPY`: only a person at a terminal can
+   run those. If they
+   click Deny, do not retry.
 6. **Never "fix" `HOSTKEY_MISMATCH` yourself.** Report it: it may be an
    attack.
 7. **Logins that need a person.** `VPN_LOGIN_REQUIRED` or `VPN_DOWN`: ask

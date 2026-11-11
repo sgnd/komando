@@ -1154,3 +1154,35 @@ func TestGuideInstallDryRunText(t *testing.T) {
 		t.Errorf("real run:\n%s", real)
 	}
 }
+
+// TestMenuCommandsMDBlock keeps the main-menu sample in
+// docs/features/commands.md the same as what the menu draws for a small
+// inventory: three servers, a database, a cache, a queue and two VPNs.
+func TestMenuCommandsMDBlock(t *testing.T) {
+	b, err := os.ReadFile("../../docs/features/commands.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := &store.State{
+		Hosts: map[string]*store.Host{"web1": {Name: "web1"}, "web2": {Name: "web2"}, "db1": {Name: "db1"}},
+		Conns: map[string]*store.Conn{
+			"shop-db":      {Name: "shop-db", Kind: "postgres"},
+			"cache1":       {Name: "cache1", Kind: "redis"},
+			"orders-queue": {Name: "orders-queue", Kind: "kafka"},
+		},
+		Vpns:     map[string]*store.Vpn{"office": {Name: "office"}, "lab": {Name: "lab"}},
+		Sessions: map[string]*store.VpnSession{"office": {Vpn: "office", PID: os.Getpid()}},
+	}
+	acts := menuMainActions(st, 0)
+	l := menuMain(acts)
+	scr := menuScreen{header: menuHeader(st), footer: menuKeysFor(l)}
+	lines := renderText(l, scr, 100, 4+len(acts)+1)
+	var b2 strings.Builder
+	for _, ln := range lines {
+		b2.WriteString(strings.TrimRight(ln, " ") + "\n")
+	}
+	want := "```text\n" + strings.TrimLeft(strings.TrimRight(b2.String(), "\n"), "\n") + "\n```"
+	if !strings.Contains(string(b), want) {
+		t.Errorf("docs/features/commands.md menu block is out of date; it should be:\n%s", want)
+	}
+}

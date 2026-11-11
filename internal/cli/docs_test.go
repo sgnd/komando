@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -115,4 +117,75 @@ func cmdHasFlag(c *cobra.Command, name string) bool {
 		}
 	}
 	return false
+}
+
+// TestErrorCodesDoc keeps docs/features/error-codes.md, the table of every
+// error code, the same as the catalog in errcodes.go. Rewrite it with
+// KOMANDO_UPDATE_ERRCODES=1 go test ./internal/cli/ -run TestErrorCodesDoc
+func TestErrorCodesDoc(t *testing.T) {
+	cell := func(s string) string {
+		return strings.ReplaceAll(strings.ReplaceAll(s, "|", `\|`), "\n", " ")
+	}
+	var b strings.Builder
+	b.WriteString("# Error codes\n\n")
+	b.WriteString("Every error code komando gives, with its exit code, an example message and\n")
+	b.WriteString("the usual next step. The error's own `hint` says what to do in your case.\n")
+	b.WriteString("This page is made from the code (`komando schema` lists the same under\n")
+	b.WriteString("`error_codes`). [Results and errors](output.md) explains the common ones.\n")
+	b.WriteString("[All docs](README.md)\n\n")
+	b.WriteString("| Code | Exit | Example message | Usual next step |\n")
+	b.WriteString("|------|------|-----------------|-----------------|\n")
+	for _, c := range errorCodes {
+		fmt.Fprintf(&b, "| `%s` | %d | %s | %s |\n", c.Code, c.Exit, cell(c.Example), cell(c.Hint))
+	}
+	const path = "../../docs/features/error-codes.md"
+	if os.Getenv("KOMANDO_UPDATE_ERRCODES") != "" {
+		if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != b.String() {
+		t.Error("docs/features/error-codes.md is out of date: run KOMANDO_UPDATE_ERRCODES=1 go test ./internal/cli/ -run TestErrorCodesDoc")
+	}
+}
+
+// TestDocsExit6Codes: the agent rules (AGENTS.md, the skill, the guide) list
+// every exit-6 code, and only those, so an agent knows each safety stop.
+func TestDocsExit6Codes(t *testing.T) {
+	var want []string
+	for _, c := range errorCodes {
+		if c.Exit == 6 {
+			want = append(want, c.Code)
+		}
+	}
+	slices.Sort(want)
+	codeWord := regexp.MustCompile(`[A-Z][A-Z0-9_]*[A-Z0-9]`)
+	for file, marks := range map[string][2]string{
+		"../../AGENTS.md": {"(exit 6: ", ")"},
+		"skill.md":        {"(exit 6: ", ")"},
+		"guide.md":        {"| 6    | ", " |"},
+	} {
+		b, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := string(b)
+		i := strings.Index(s, marks[0])
+		if i < 0 {
+			t.Errorf("%s: no %q list", file, marks[0])
+			continue
+		}
+		s = s[i+len(marks[0]):]
+		s = s[:strings.Index(s, marks[1])]
+		got := codeWord.FindAllString(s, -1)
+		slices.Sort(got)
+		if !slices.Equal(got, want) {
+			t.Errorf("%s lists the exit-6 codes %v; the catalog has %v", file, got, want)
+		}
+	}
 }

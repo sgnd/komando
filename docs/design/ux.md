@@ -43,12 +43,35 @@ komando storage upload backups ./dump.sql.gz
 | `rm` | remove | `remove`, `delete`, `del` | destructive if data is lost |
 | `set` | write one value | none | write |
 | `upload` / `download` | move files between this computer and the target | `put` / `get` | write / read |
-| `run` | send a raw command in that area's own language (SQL, Redis), still classified | `query` for SQL | depends on content |
+| `run` | send a raw command in that area's own language (Redis, kubectl), still classified (`cache run`, `cluster run`, and `recipe run` for a saved recipe) | none | depends on content |
+| `query` | the same for SQL and MongoDB: `db query` (databases use `query`, not `run`) | none | read unless `--write` |
 | `start` / `stop` / `restart` | start, stop, restart | none | write |
 | `dump` / `restore` | back up and restore | none | write / destructive |
 | `import` / `export` | move configuration in and out | none | none |
+| `mv` | rename an inventory item and update everything that refers to it (`host`, `conn`, `vpn`, `key`, `secret`, `group mv`); `fs mv` moves a file on a server | none | none (inventory) / write (`fs`) |
+| `cp` | copy an inventory item to a new name (`secret cp`) | none | none |
+| `check` | test something against a rule and report, changing nothing (`cert check`, `net check`, `policy check`, `secret check`) | none | read |
+| `inspect` / `describe` | everything about one object inside a target (`docker inspect`, `registry inspect`; `cluster describe` and `queue describe`, the word kubectl uses) | none | read |
+| `prune` | delete old or unused things by a rule (`docker prune`, `registry prune`) | none | destructive |
+| `restore` | put back a backup (`db restore`, `fs restore`) | none | destructive / write |
+| `kill` | stop something that runs now (`job kill`, `db kill`) | none | write |
+| `wait` | wait until a job ends (`job wait`) | none | read |
+| `up` / `down` | connect and disconnect a VPN | none | none (this computer) |
+| `gen` / `deploy` / `revoke` | SSH keys: make one, put it on servers, take it off (`key gen`, `key deploy`, `key revoke`); `cluster deploy` sets an image, `db user revoke` takes a right away | none | write |
+| `trust` | pin a server's SSH host key (`host trust`) | none | none (this computer) |
 | `install` | install komando files into another program's folder (skill for AI agents: `guide install`) | none | write (local files) |
+| `uninstall` | take out what `install` put in (`guide uninstall`) | none | write (local files) |
 | `update` | replace the komando program with a newer release, or the version named (`komando update`; added 2026-11-08) | none | write (the komando program); an older version needs `--yes` |
+
+Words an area's own tool uses are kept as they are, so people who know
+that tool find them: `scale`, `apply`, `rollback`, `history`, `events`,
+`forward` (kubectl), `ps`, `pull`, `compose`, `raw` (Docker; `run` would
+read as `docker run`), `daemon-reload`, `upgradable`, `upgrade`, `lock`,
+`unlock`, `peek`, `purge`, `send`, `grant`, `passwd`. A few inventory words
+have one home only: `conn kinds` (the kinds `conn add` takes),
+`host ssh-command` (the `ssh` line for a server), `secret keychain` and
+`secret passphrase` (where the vault key is kept). A new verb still needs a
+row here, or a place in this list.
 
 Rule: **`rm` is always the main word.** `remove`, `delete`, and `del` are only
 aliases, so that anyone who types them still succeeds.
@@ -64,7 +87,8 @@ conns alike, because komando is now universal.
 | `web-*`, `db-?` | glob on names |
 | `@GROUP` | all members of the group |
 | `tag:T`, `label:K=V` | everything that has that tag or label |
-| `kind:postgres`, `kind:host` | everything of that kind |
+| `kind:postgres`, `kind:host`, `kind:db` | everything of that kind, or of that command family (`db`, `cache`, `queue`, `storage`, `cluster`, `registry`) |
+| `os:windows`, `os:linux` | servers by system (Windows, or everything else) |
 | `all` | everything |
 | `a,b,!c` | combination; `!` excludes |
 | `user@addr:port` | ad-hoc host (hosts only; conns must be registered) |
@@ -112,19 +136,19 @@ How commands use the selector result:
 | input file | `--file` | `-f` only when the original tool uses it (`db query -f`, `docker compose -f`); in `logs`, `-f` is for follow |
 | to/from a local file | `--to` / `--from` | |
 | replace what exists | `--overwrite` | replaces `--force` |
-| named parameters | `--var KEY=VALUE` | for recipes and snippets |
+| named parameters | `--var KEY=VALUE` | for recipes |
 | positional parameters | `--arg VALUE` | for `$1`/`?` in SQL and script arguments |
 | group / tag | `-g, --group` / `-t, --tag` | |
 | search text | `--grep` | no short letter, because `-g` = group |
 | filter the inventory | `--target SELECTOR` | replaces `--host` in `audit` and `job list` |
 | root rights | `--sudo` / `--no-sudo` | see the sudo rule below |
 | raw command changes nothing | `--read-only` | see the polarity rules |
-| time | `--since`, `--until`, `--ttl`, `--expires` | Go duration format (`10m`, `2h`) or RFC3339 |
+| time | `--since`, `--until`, `--ttl`, `--expires`, `--wait`, `--warn` | a duration: Go format (`10m`, `2h`) or days (`7d`). `--since`/`--until` also take `today`, `yesterday` or a date; `--wait` also takes a bare number of seconds |
 
 ### Polarity rules (important for safety)
 
 - **Anything unknown is treated as a change.** Raw commands whose content
-  cannot be proven safe (`exec`, `script`, `snippet`, `docker exec`)
+  cannot be proven safe (`exec`, `exec --script`, `recipe run`, `docker exec`)
   are treated as *write*, unless marked `--read-only`.
 - **If the server can enforce read-only, the default is read-only** and it needs
   `--write` (`db query`, `cache run`). `cluster run` follows the same
@@ -134,7 +158,7 @@ How commands use the selector result:
 
 ### Sudo rule
 
-System-level commands (`svc`, `pkg`, `user`, `ops`) use sudo automatically
+System-level commands (`svc`, `pkg`, `user`, `recipe`) use sudo automatically
 when needed, and this can be turned off with `--no-sudo`. Other commands (`exec`,
 `fs`, `cp`, `logs`, `cron`, `docker`) do not use sudo unless given
 `--sudo`. One rule, one flag per command.
@@ -235,7 +259,7 @@ run next).
   digit (already in effect). Unique across hosts and conns, ignoring
   upper/lower case.
 - Words that have a meaning as a selector (`all`) are refused as names.
-- Rename updates everything that refers to it (groups, `--via`, jump, snippets).
+- Rename updates everything that refers to it (groups, `--via`, recipes).
   Remove is refused (`HOST_IN_USE`, `SECRET_IN_USE`, `KEY_IN_USE`, ...) if it is still in use, with the list of users.
 - State is written atomically under a file lock, so two komando processes running
   at the same time do not overwrite each other. A state schema change makes a backup first.
@@ -284,8 +308,11 @@ run next).
   updated in the same commit as the feature.
 - Renaming a command or flag: the old name keeps working as an alias
   for one minor release, with a warning on stderr, then it is removed.
-- The naming rules for commands and flags are guarded by `TestConventions`
-  (`internal/cli/conventions_test.go`).
+- `TestConventions` (`internal/cli/conventions_test.go`) guards part of
+  the naming rules: short flags, retired flag names, the `rm` and
+  `list`/`ls` aliases, an example on every command and the length of the
+  one-line help. The verb list in section 1 is kept by review: no test
+  checks it.
 
 ## 11. No overlapping features
 
@@ -307,9 +334,10 @@ Current overlaps, and the decision:
 | `host --jump` and `conn --via` | ✅ `--via` for everything ([network.md](network.md)) |
 | `host test`, `conn test`, `test` | ✅ only `test`; `host test`/`conn test` = `test` for one kind |
 | `host list`, `conn list`, `list` | ✅ only `list`; `host list`/`conn list` = `list kind:host` / `list kind:conn` |
-| `svc logs`, `docker logs`, `logs --unit/--container` | ✅ only `logs`; `svc logs` and `docker logs` become aliases |
+| `svc logs`, `docker logs`, `logs --unit/--container` | ✅ only `logs`; `svc logs` and `docker logs` are aliases that call it |
 | `ops run` (built-in recipes) and `snippet run` (your own recipes) | ✅ one `recipe` (a word that is easier to understand); the old names `ops` and `snippet` are gone |
-| `cp` (server) and `storage upload/download` | ✅ `upload`/`download` for servers (SFTP) and storage; `cp` and `storage upload/download` become aliases |
+| `cp` (server) and `storage upload/download` | ✅ `upload`/`download` for servers (SFTP) and storage; `cp` and `storage upload/download` call them |
+| `script` and `exec` | ✅ `exec --script FILE`; `script` is an old name for one release |
 | `group add/rm` and `edit --add-group/--rm-group` | keep both (many vs one), same code |
 | `host import/export` and `import ssh-config\|komando`, `export` | ✅ only `import` and `export` (one file format, komando-export/1); `host import/export` are old names for one release |
 | `prompt` and `status` | ✅ `status --short`; `prompt` is an old name for one release |

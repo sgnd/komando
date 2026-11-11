@@ -9,7 +9,8 @@ and how to see what is still running. [All docs](README.md)
 komando exec web1 -- uptime              # readable text in a terminal
 komando exec web1 -o json -- uptime      # one JSON object (what agents get)
 komando status                           # VPNs, tunnels and jobs still running
-komando schema exec                      # every flag and exit code, machine-readable
+komando schema exec                      # every flag of exec, machine-readable
+komando schema                           # also every exit code and error code
 komando doctor                           # check the local setup
 ```
 
@@ -63,7 +64,7 @@ as data.
 | 4 | cannot connect or log in, or the connection broke | `AUTH_FAILED`, `NO_AUTH`, `HOSTKEY_MISMATCH`, `VPN_LOGIN_REQUIRED`, `CONNECTION_LOST` |
 | 5 | the command failed on the server | `FAILED`, `ROLLOUT_FAILED` |
 | 6 | blocked for safety | `POLICY_BLOCKED`, `PROTECTED_HOST`, `WRITE_REQUIRES_FLAG` |
-| 7 | timed out | `TIMEOUT`, `ROLLOUT_TIMEOUT` |
+| 7 | timed out | `TIMEOUT`, `CONNECT_TIMEOUT` (the server did not answer within `--connect-timeout`), `ROLLOUT_TIMEOUT` |
 | 8 | a precondition failed or something is in the way | `fs replace` text not found or not unique, `PORT_IN_USE`, `FILE_TOO_LARGE` |
 
 When several servers fail, the exit code is the worst one. The full
@@ -71,9 +72,9 @@ machine-readable reference is `komando schema`.
 
 ## Troubleshooting
 
-The table below has the errors people meet most. Every code komando gives
-(over 200), with its exit code, an example message and the usual next step,
-is in `komando schema` under `error_codes`:
+The table below has the errors people meet most. Every code komando gives,
+with its exit code, an example message and the usual next step, is in
+[Error codes](error-codes.md), and in `komando schema` under `error_codes`:
 
 ```bash
 komando schema -o json | python3 -c 'import json,sys; [print(c["code"], c["exit"], c.get("example","")) for c in json.load(sys.stdin)["data"]["error_codes"]]'

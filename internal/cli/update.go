@@ -89,8 +89,11 @@ Going back to an older version needs a person's yes (--yes for an agent): an
 older komando may lack safety checks this one has. Without a VERSION it
 never goes back.
 
-A komando built from source (make build, or go build) is not replaced: build
-it again instead. --timeout limits the whole update (default 10m).`,
+A komando built from source that is not a release (make build, or go build
+of a commit between releases) is not replaced: build it again instead. One
+that reports a release version (go install ...@v0.11.0, or go build at a
+release tag) counts as that release and is replaced. --timeout limits the
+whole update (default 10m).`,
 		Example: `  komando update --dry-run    # is there a newer version?
   komando update              # install the newest release
   sudo komando update         # komando is in /usr/local/bin

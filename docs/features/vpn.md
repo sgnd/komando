@@ -22,7 +22,7 @@ komando vpn status                                  # which VPNs are up, and wha
 | `anyconnect` | Cisco AnyConnect and ocserv | inside komando | no |
 | `tailscale` | Tailscale, or your own Headscale server (`--server URL`) | inside komando | no |
 | `fortinet` | Fortinet SSL VPN (FortiClient) | inside komando, experimental (see below) | no |
-| `globalprotect` | Palo Alto GlobalProtect | inside komando, experimental | no |
+| `globalprotect` | Palo Alto GlobalProtect | inside komando; tried on Prisma Access (see below) | no |
 | `f5` | F5 BIG-IP SSL VPN | inside komando, experimental | no |
 | `pulse` | Pulse Secure / Ivanti Connect Secure | inside komando, experimental | no |
 | `l2tp` | L2TP/IPsec with a pre-shared key (Windows Server, MikroTik, strongSwan + xl2tpd, many routers) | inside komando | no |
@@ -134,7 +134,8 @@ stays logged in after that.
 ## Manage VPNs
 
 ```bash
-komando list kind:vpn                         # all VPNs
+komando list kind:vpn                         # all VPNs (or: komando vpn list)
+komando vpn test office                       # does it connect? (same as komando test office)
 komando vpn show office                       # its settings and what uses it
 komando vpn edit office --check 10.0.0.6:22   # change a setting (see the list below)
 komando vpn status                            # which are up, since when, what uses them
@@ -207,14 +208,19 @@ certificates, a user name and password, or both.
   it again with `komando vpn add NAME openvpn --config FILE.ovpn --check
   HOST:PORT --overwrite` to use komando's own client.
 
-## AnyConnect and the experimental SSL VPNs
+## AnyConnect and the other SSL VPNs
 
 `anyconnect` runs inside komando. Traffic goes over DTLS (UDP, faster) when
 the server offers it, and falls back to TLS when UDP is blocked.
 
 `fortinet`, `globalprotect`, `f5` and `pulse` also have their own clients in
-komando. They are experimental: written to the vendors' protocols, but
-not yet tried against the vendors' own servers. komando uses them:
+komando. `globalprotect` has been tried against a real Prisma Access portal
+and gateway, with the browser sign-in and Cloud Authentication Service
+below. Prisma Access gateways behind a load balancer and the HIP check
+(host information the gateway may ask for) are not built yet. `fortinet`,
+`f5` and `pulse` are still experimental: written to the vendors'
+protocols, but not yet tried against the vendors' own servers. komando
+uses these clients:
 
 - when the `openconnect` program is not installed, or
 - always, when `KOMANDO_EXPERIMENTAL_VPN` names them

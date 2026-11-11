@@ -66,7 +66,7 @@ needs.
 | Command | On Windows |
 |---------|-----------|
 | `test` | logs in, says the user, the computer name and whether the login is an administrator |
-| `exec`, `script` | run PowerShell; `--read-only`, `--env`, `--dir`, `--stdin-file` work |
+| `exec`, `exec --script` | run PowerShell; `--read-only`, `--env`, `--dir`, `--stdin-file` work |
 | `facts` | OS, build, support dates (Windows Server 2012 to 2025), CPU, memory, disk C:, uptime, IPs, pending and security updates (from the Windows Update cache), last hotfix, pending reboot, stopped automatic services, listening ports |
 | `fs ls`, `stat`, `cat`, `write` | through PowerShell (WinRM has no SFTP); `fs write` keeps `--backup`, `-p`, `--append`, `--if-changed`, `--validate`, `--no-follow`, and replaces the file in one step (keeping its permissions) |
 | `upload`, `download`, `cp` | single files, as base64 lines on the input and output |
@@ -82,7 +82,7 @@ and `withClient`: a Windows server is reached only by a command that marks
 its context with `allowWindows`, so a sh script is never sent to
 PowerShell, whatever new command comes later.
 
-A command for one shell (`exec`, `script`) refuses a target that picks
+A command for one shell (`exec`, `exec --script`) refuses a target that picks
 Windows and Linux servers at once (`MIXED_OS`). Commands komando writes
 itself (`facts`, `svc`, `test`, file commands) work on a mix: each server
 gets its own script.

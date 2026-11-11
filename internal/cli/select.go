@@ -243,11 +243,16 @@ func matchKind(st *store.State, k string) (selection, error) {
 		return selection{Vpns: vs}, nil
 	}
 	known := false
+	var families []string
 	for _, kd := range driver.Kinds() {
 		known = known || kd.Name == k || kd.Family == k
+		if !slices.Contains(families, kd.Family) {
+			families = append(families, kd.Family)
+		}
 	}
 	if !known {
-		return selection{}, out.Usage("unknown kind %q: use host, conn, vpn, a conn kind (see `komando conn kinds`) or db, cache, storage", k)
+		slices.Sort(families)
+		return selection{}, out.Usage("unknown kind %q: use host, conn, vpn, a conn kind (see `komando conn kinds`) or %s", k, strings.Join(families, ", "))
 	}
 	var cs []*store.Conn
 	for _, c := range st.SortedConns() {
