@@ -227,3 +227,47 @@ func TestSessionViewHidesLogin(t *testing.T) {
 		t.Error("sessionView changed the stored session")
 	}
 }
+
+// A VPN that needs a person: the dry run says the real run stops, and the
+// real run is in the audit log as failed.
+func TestVpnUpNeedsPersonDryRunAndAudit(t *testing.T) {
+	invHome(t)
+	noAgent(t)
+	now := time.Now().UTC()
+	if err := store.Update(func(st *store.State) error {
+		st.Vpns["client-x"] = &store.Vpn{Name: "client-x", Kind: "anyconnect", Portal: "vpn.example.test", MFA: true, CreatedAt: now, UpdatedAt: now}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	d := mustRun(t, "vpn", "up", "client-x", "--dry-run")
+	meta, _ := d["_meta"].(map[string]any)
+	if b, _ := meta["would_be_blocked"].(map[string]any); d["would_connect"] != false || b["code"] != "VPN_LOGIN_REQUIRED" {
+		t.Errorf("dry run: %v", d)
+	}
+	wantCode(t, "VPN_LOGIN_REQUIRED", "vpn", "up", "client-x")
+	a := mustRun(t, "audit", "--command", "vpn.up")
+	var real []map[string]any
+	for _, e := range a["entries"].([]any) {
+		if m := e.(map[string]any); m["dry_run"] == false {
+			real = append(real, m)
+		}
+	}
+	if len(real) != 1 || real[0]["ok"] != false || real[0]["error"] != "VPN_LOGIN_REQUIRED" {
+		t.Errorf("audit: %v", real)
+	}
+}
+
+func TestNeedsPersonLogin(t *testing.T) {
+	for v, want := range map[*store.Vpn]bool{
+		{Kind: "wireguard"}:                           false,
+		{Kind: "globalprotect", MFA: true}:            true,
+		{Kind: "l2tp", User: "budi"}:                  true,
+		{Kind: "l2tp", User: "budi", KeyRef: "x"}:     false,
+		{Kind: "openvpn", User: "budi", OSMode: true}: false,
+	} {
+		if needsPersonLogin(v) != want {
+			t.Errorf("%+v: want %v", *v, want)
+		}
+	}
+}
