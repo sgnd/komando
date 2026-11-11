@@ -150,8 +150,8 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 			return err
 		}
 		h.Address, h.Transport, h.WinRMOpts = a.Address, a.Transport, a.WinRMOpts
-		// --address winrm://... with --user or --port: the flags win, as
-		// for every other --address
+		// only the positional address must agree with --user and --port;
+		// with --address winrm://... the flags win, as for every --address
 		if len(args) == 2 && a.User != "" && h.User != "" && a.User != h.User {
 			return out.Errf(out.ExitUsage, "USAGE", "give the user once, in the address or with --user",
 				"user %s in the address and --user %s disagree", a.User, h.User)
