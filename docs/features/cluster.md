@@ -83,7 +83,10 @@ komando cluster describe swarm1 service/web                     # image, replica
 `cluster status` lists each problem by name, for example
 `pod/shop/api-7d9f-x2: api: CrashLoopBackOff`,
 `deployment/shop/api: 1 of 3 replicas ready`, or a node under
-`MemoryPressure`. `healthy` is true when there are none. On Swarm it lists
+`MemoryPressure`; it checks deployments, StatefulSets and DaemonSets.
+`healthy` is true when there are none. On a cluster with more than 20000
+objects of one kind it reads only those, says `truncated: true`, and
+`healthy` is `null` unless it found a problem (narrow it with `--namespace`). On Swarm it lists
 nodes that are down or drained and services short of replicas, with the
 error of each task that does not run. A server that is not a Swarm manager
 says so (`NOT_SWARM_MANAGER`, exit 3).

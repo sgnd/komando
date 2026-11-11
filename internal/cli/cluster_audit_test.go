@@ -90,6 +90,32 @@ func TestClusterUnreachableIsUnreachable(t *testing.T) {
 	}
 }
 
+// A change whose connection breaks after the request went out may have
+// happened: it is K8S_UNREACHABLE and still lands in the audit log.
+func TestClusterRunBrokenWriteIsAudited(t *testing.T) {
+	invHome(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1":
+			w.Write([]byte(`{"resources":[{"name":"configmaps","kind":"ConfigMap","namespaced":true}]}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/apis":
+			w.Write([]byte(`{"groups":[]}`))
+		default:
+			c, _, _ := w.(http.Hijacker).Hijack()
+			c.Close()
+		}
+	}))
+	t.Cleanup(srv.Close)
+	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, srv.URL))
+	if _, e := invRun(t, "cluster", "run", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "K8S_UNREACHABLE" {
+		t.Fatalf("run: %+v", e)
+	}
+	d := mustRun(t, "audit", "--failed")
+	if b, _ := json.Marshal(d); !strings.Contains(string(b), "kubectl create configmap x") {
+		t.Errorf("the broken write is not in the audit log: %s", b)
+	}
+}
+
 // What komando's kubectl never runs is a usage error first, not "needs --write".
 func TestClusterRunUsageFirst(t *testing.T) {
 	invHome(t)
@@ -204,9 +230,15 @@ contexts:
 // With no file named, import kubeconfig reads $KUBECONFIG, as kubectl does.
 func TestImportKubeconfigEnv(t *testing.T) {
 	invHome(t)
-	t.Setenv("KUBECONFIG", kubeconfigAt(t, "https://127.0.0.1:6449")+string(os.PathListSeparator)+filepath.Join(t.TempDir(), "none"))
+	// kubectl leaves out a file of the list that does not exist, and empty entries
+	sep := string(os.PathListSeparator)
+	t.Setenv("KUBECONFIG", kubeconfigAt(t, "https://127.0.0.1:6449")+sep+sep+filepath.Join(t.TempDir(), "none"))
+	if d := mustRun(t, "import", "kubeconfig", "--dry-run"); fmt.Sprint(d["conns"]) != "[prod]" {
+		t.Errorf("a missing file in the list: %v", d)
+	}
+	t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "none")+sep+filepath.Join(t.TempDir(), "none2"))
 	if _, e := invRun(t, "import", "kubeconfig", "--dry-run"); e == nil || e.Code != "FILE_NOT_FOUND" {
-		t.Errorf("a missing file in the list: %+v", e)
+		t.Errorf("no file of the list exists: %+v", e)
 	}
 	t.Setenv("KUBECONFIG", kubeconfigAt(t, "https://127.0.0.1:6449"))
 	if d := mustRun(t, "import", "kubeconfig", "--dry-run"); fmt.Sprint(d["conns"]) != "[prod]" {

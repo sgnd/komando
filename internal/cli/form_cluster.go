@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"net/url"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -77,7 +76,7 @@ func kubeconfigProblem(v string) string {
 // kubeconfigNames are the names `import kubeconfig` gives the file's
 // contexts (importKubeconfig): sorted, each one that has a server.
 func kubeconfigNames(path string) []string {
-	cfg, err := kube.Load(os.ReadFile, filepath.SplitList(expandHome(path))...)
+	cfg, err := kube.Load(os.ReadFile, kubeconfigPaths(path)...)
 	if err != nil {
 		return nil
 	}

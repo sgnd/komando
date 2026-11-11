@@ -744,7 +744,7 @@ func addKindFits(family, raw, passwordRef string) error {
 	}
 	if t.Kind.Family != family {
 		return out.Errf(out.ExitUsage, "USAGE", "add it with `komando "+t.Kind.Family+" add` (or `komando conn add`)",
-			"%s is a %s URL, not a %s", raw, t.Kind.Name, connAddKinds[family].what)
+			"%s is a %s URL, not one for `komando %s add`", raw, t.Kind.Name, family)
 	}
 	if t.Kind.Name == "k8s" && passwordRef == "" {
 		return out.Errf(out.ExitUsage, "USAGE", "bring the cluster in with `komando import kubeconfig FILE` (one conn per context), or store the kubeconfig with `komando secret set NAME` and pass --password-ref secret:NAME",

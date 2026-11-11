@@ -327,11 +327,16 @@ risky verbs also need --allow-dangerous.`,
 			}
 			defer done()
 			code, stdout, stderr, stop := runKctlLive(ctx, k, t.conn.Name, args[1:], printLogLine)
-			if stop != nil { // komando's own stop, before anything was sent
+			if stop != nil { // komando's own stop
 				if g.dryRun && stop.Exit == out.ExitPolicy {
 					out.P.WouldBlock(stop)
 					out.P.Print("cluster.run", plan, nil)
 					return nil
+				}
+				if stop.Code == "K8S_UNREACHABLE" && risk > driver.RiskRead {
+					// a connection that broke after the request went out may
+					// still have changed the cluster
+					audit(st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args[1:]), " "), false, map[string]any{"conns": []string{t.conn.Name}, "risk": risk.String(), "error": stop.Code})
 				}
 				return stop
 			}
@@ -394,11 +399,7 @@ func kubectlFailure(code int, stderr string) *out.Error {
 // credentials go to the vault as a standalone kubeconfig. path may be a
 // KUBECONFIG list (a:b), merged as kubectl merges it.
 func importKubeconfig(path string) (*importPlan, error) {
-	paths := filepath.SplitList(path)
-	for i := range paths {
-		paths[i] = expandHome(paths[i])
-	}
-	cfg, err := kube.Load(readSource, paths...)
+	cfg, err := kube.Load(readSource, kubeconfigPaths(path)...)
 	if err != nil {
 		var oe *out.Error
 		if errors.As(err, &oe) {
@@ -445,6 +446,27 @@ func importKubeconfig(path string) (*importPlan, error) {
 		}
 	}
 	return p, nil
+}
+
+// kubeconfigPaths splits a KUBECONFIG list. Like kubectl, it leaves out
+// empty entries and, in a list, files that do not exist; a list where no
+// file exists keeps them, so the error names the file.
+func kubeconfigPaths(path string) []string {
+	var all, found []string
+	for _, p := range filepath.SplitList(path) {
+		if p == "" {
+			continue
+		}
+		p = expandHome(p)
+		all = append(all, p)
+		if _, err := os.Stat(p); p == "-" || !os.IsNotExist(err) {
+			found = append(found, p)
+		}
+	}
+	if len(all) > 1 && len(found) > 0 {
+		return found
+	}
+	return all
 }
 
 func sortedContexts(cfg *kube.Config) []string {
