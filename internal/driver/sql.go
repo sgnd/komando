@@ -26,7 +26,7 @@ var sqlRules = []Rule{
 	{"sql-delete-no-where", "DELETE without WHERE removes every row"},
 	{"sql-update-no-where", "UPDATE without WHERE changes every row"},
 	{"sql-privileges", "changes users, roles or privileges"},
-	{"sql-program", "runs a program on the database server (COPY ... PROGRAM)"},
+	{"sql-program", "runs a program or native code on the database server (COPY ... PROGRAM, an extension, plugin or library, a function in C or an untrusted language)"},
 	{"sql-server-file", "reads or writes files on the database server"},
 	{"sql-kill", "kills sessions or shuts the server down"},
 	{"sql-vacuum-full", "VACUUM FULL locks and rewrites tables"},
@@ -642,6 +642,9 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 		if second == "ROLE" || second == "USER" || second == "DEFAULT" && first == "ALTER" {
 			flag("sql-privileges")
 		}
+		if first == "CREATE" && loadsNativeCode(ts) {
+			flag("sql-program")
+		}
 		if first == "ALTER" && second == "SYSTEM" {
 			flag("sql-server-config")
 		}
@@ -662,6 +665,18 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 		}
 	case "KILL", "SHUTDOWN":
 		flag("sql-kill")
+	case "INSTALL": // MySQL INSTALL PLUGIN, COMPONENT, SONAME: a shared library
+		flag("sql-program")
+	case "LOAD":
+		switch second {
+		case "DATA", "XML": // MySQL LOAD DATA INFILE: a file on the server unless LOCAL
+			if hasWord(ts, "INFILE") && !hasWord(ts, "LOCAL") {
+				flag("sql-server-file")
+			}
+		case "INDEX":
+		default: // PostgreSQL LOAD 'lib.so'
+			flag("sql-program")
+		}
 	case "VACUUM":
 		if second == "FULL" || hasWord(ts, "FULL") {
 			flag("sql-vacuum-full")
@@ -687,6 +702,9 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 			risk = max(risk, RiskWrite)
 		case "DELETE", "UPDATE":
 			prev := word(i - 1)
+			if first == "PRAGMA" {
+				continue // a value: PRAGMA journal_mode=DELETE
+			}
 			if prev == "ON" || prev == "FOR" || prev == "KEY" || prev == "\x00ident" {
 				continue // ON DELETE CASCADE, FOR UPDATE, ON DUPLICATE KEY UPDATE
 			}
@@ -801,6 +819,54 @@ func Placeholders(kind, sql string) (n int, ok bool) {
 		}
 	}
 	return n, true
+}
+
+// untrustedLangs are function languages that reach the operating system:
+// C and internal load native code, and the untrusted (...U) Perl, Python
+// and Tcl run as the database server's user.
+var untrustedLangs = map[string]bool{"C": true, "INTERNAL": true, "PLPYTHONU": true, "PLPYTHON2U": true,
+	"PLPYTHON3U": true, "PLPERLU": true, "PLTCLU": true}
+
+// createModifiers come between CREATE and the kind of object it makes.
+var createModifiers = map[string]bool{"OR": true, "REPLACE": true, "TRUSTED": true, "PROCEDURAL": true,
+	"EDITIONABLE": true, "NONEDITIONABLE": true}
+
+// loadsNativeCode reports a CREATE that brings code into the server which
+// a read-only transaction does not hold back once called: an extension, a
+// procedural language, an Oracle library, or a function in an untrusted
+// language or from a shared library (MySQL SONAME).
+func loadsNativeCode(ts []token) bool {
+	kind := ""
+	for _, t := range ts[1:] {
+		if !createModifiers[t.word] {
+			kind = t.word
+			break
+		}
+	}
+	if kind == "EXTENSION" || kind == "LANGUAGE" || kind == "LIBRARY" {
+		return true
+	}
+	for i, t := range ts {
+		if t.depth > 0 {
+			continue
+		}
+		if t.word == "SONAME" {
+			return true
+		}
+		if t.word == "LANGUAGE" && i+1 < len(ts) {
+			n := ts[i+1]
+			lang := n.word
+			if n.ident != "" {
+				lang = n.ident
+			} else if n.punct == '\'' {
+				lang = strings.ToUpper(n.str)
+			}
+			if untrustedLangs[lang] {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func hasWord(ts []token, w string) bool {

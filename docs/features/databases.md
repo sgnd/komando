@@ -231,7 +231,9 @@ The seatbelts:
 
 - A protected conn also needs `--yes` with `--write`, whatever the SQL is.
 - Destructive SQL needs `--allow-dangerous`: `DROP`, `TRUNCATE`, `DELETE` or
-  `UPDATE` without `WHERE`, privilege changes, and a few more.
+  `UPDATE` without `WHERE`, privilege changes, code that reaches the
+  server's operating system (`CREATE EXTENSION`, a function in C or
+  `plpython3u`, `LOAD`, MySQL `INSTALL PLUGIN` and `SONAME`), and a few more.
   `komando policy list` shows them all; `komando policy check --for postgres "..."`
   tests a query.
 - A few admin functions that a read-only transaction does not stop (ending
@@ -472,7 +474,7 @@ Plain SQL that psql and mysql can also read:
   says what would stop the real run.
 - SQL in the file that does more than write data is named next to
   `db-restore` in the approval and in `POLICY_BLOCKED`, with the line where
-  it first appears: `sql-program` (`COPY ... PROGRAM`), `sql-server-file`
+  it first appears: `sql-program` (`COPY ... PROGRAM`, `CREATE EXTENSION`), `sql-server-file`
   (`INTO OUTFILE`, `pg_read_file`), `sql-server-config` (`ALTER SYSTEM`),
   `sql-privileges` (`GRANT`, `CREATE ROLE`), `sql-opaque` (`DO`,
   `PREPARE`), `sql-remote` and `sql-kill`. A pg_dump with privileges names
