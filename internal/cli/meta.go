@@ -310,6 +310,18 @@ type cmdSchema struct {
 	KindNote string       `json:"kind_note,omitempty"` // on what, for depends
 }
 
+// schemaPath reads a command named as one argument: host.add, as in the
+// envelope's command, or 'db query' quoted as one.
+func schemaPath(args []string) []string {
+	if len(args) != 1 {
+		return args
+	}
+	if strings.Contains(args[0], ".") {
+		return strings.Split(args[0], ".")
+	}
+	return strings.Fields(args[0])
+}
+
 func schemaCmd(root *cobra.Command) *cobra.Command {
 	var compact bool
 	c := &cobra.Command{
@@ -321,11 +333,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
   komando schema --compact   # paths + short descriptions only`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			start := root
-			if len(args) == 1 && strings.Contains(args[0], ".") {
-				args = strings.Split(args[0], ".") // host.add, as in the envelope's command
-			} else if len(args) == 1 {
-				args = strings.Fields(args[0]) // 'db query', quoted as one
-			}
+			args = schemaPath(args)
 			if len(args) > 0 {
 				found, rest, err := root.Find(args)
 				if err != nil || found == root || len(rest) > 0 {
