@@ -82,10 +82,10 @@ Rules:
 One new top-level command that lists everything komando left running:
 
 ```
-KIND    NAME    DETAIL                                     SINCE
-vpn     office  used 3m ago, closes in 26m if unused       42m
-tunnel  t-3f2a  127.0.0.1:5433 → app-db                    2h
-job     j-81c2  web1: pg_dump app | gzip > /backup/app...  15m
+KIND    NAME                   DETAIL                                     SINCE
+vpn     office                 used 3m ago, closes in 26m if unused       42m
+tunnel  t1102-101500-ab12cd34  127.0.0.1:5433 → app-db                    2h
+job     j1103-101500-ab12cd34  web1: pg_dump app | gzip > /backup/app...  15m
 jobs run on their servers: `komando job list --refresh` shows which still run
 ```
 

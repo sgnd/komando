@@ -101,7 +101,7 @@ komando test kind:vpn
 | | `proxy` | an existing HTTP proxy (CONNECT), such as a company proxy | no | yes |
 | | `tailscale` ✅ | `tsnet` (Tailscale/Headscale) inside the process | no | yes |
 | | `openvpn` (including Pritunl profiles) ✅ | komando's own OpenVPN client on the same userspace stack ([built-in.md](built-in.md)) | no | yes |
-| | `anyconnect` ✅ (CSTP and DTLS), `fortinet`, `globalprotect`, `f5`, `pulse` (experimental) | komando's own clients on the userspace stack; the experimental ones are used when `openconnect` is not installed, or with `KOMANDO_EXPERIMENTAL_VPN` | no | yes |
+| | `anyconnect` ✅ (CSTP and DTLS), `globalprotect` (tried on Prisma Access; no load-balanced gateways or HIP yet), `fortinet`, `f5`, `pulse` (experimental) | komando's own clients on the userspace stack; the others are used when `openconnect` is not installed, or with `KOMANDO_EXPERIMENTAL_VPN` (a GlobalProtect browser sign-in always uses komando's own) | no | yes |
 | | `l2tp`, `ipsec` (Cisco-style, XAUTH), `ikev2` ✅ | komando's own IKEv1/IKEv2, ESP-in-UDP, L2TP and PPP on the userspace stack (`make e2e-ipsec`) | no | yes |
 | **OS mode** | `openvpn --os-mode` | deprecated: the `openvpn` program with sudo | once | limited |
 | | `system` ✅ | a VPN that is already connected on the computer; komando only checks it | depends on the client | depends on the OS |
@@ -110,7 +110,8 @@ komando test kind:vpn
   **detect and warn** before connecting, not silently
   break routes.
 - Every userspace kind is built into komando. `openconnect` + `ocproxy` is
-  only a fallback for the experimental kinds when it is installed.
+  only a fallback for the SSL VPN kinds (not AnyConnect) when it is
+  installed.
   `komando doctor` checks what the registered VPNs need
   and shows how to install it.
 
