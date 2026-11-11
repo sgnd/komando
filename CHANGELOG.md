@@ -74,6 +74,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- On a sealed folder, `komando status --short` (the shell prompt line)
+  counts what runs instead of naming it: `vpn:2 tun:1`, not
+  `vpn:office,lab`. It reads only process numbers kept beside the sealed
+  store, so no VPN name sits in a plain file and the prompt never opens
+  the keychain on each Enter.
 - Running VPN sessions, server logins, jobs and tunnels live in
   `runtime.json` (sealed), apart from the inventory in `store.db`; `config
   show` lists it. A background VPN marking itself used no longer rewrites
