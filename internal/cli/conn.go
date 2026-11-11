@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -94,6 +95,10 @@ func checkConn(s *store.State, c *store.Conn) error {
 		return err
 	}
 	c.Kind = t.Kind.Name
+	if t.Kind.File && !strings.HasPrefix(t.Path, "/") && !strings.HasPrefix(t.Path, "~/") && !filepath.IsAbs(t.Path) {
+		// a relative path would name a different file in every folder komando runs from
+		return out.Usage("%s URL needs the full path of the file, e.g. %s", t.Kind.Name, t.Kind.Example)
+	}
 	if c.Via != "" {
 		if t.Kind.File {
 			return out.Usage("%s conns are files on this computer, so they take no --via", t.Kind.Name)
@@ -739,6 +744,13 @@ func connAddCmdFor(kind string) *cobra.Command {
 	c.Example = "  " + k.example
 	run := c.RunE
 	c.RunE = func(cmd *cobra.Command, args []string) error {
+		if len(args) == 2 {
+			if t, err := driver.Parse(args[1]); err == nil && t.Kind.Family != kind {
+				return out.Errf(out.ExitUsage, "USAGE",
+					fmt.Sprintf("add it with `komando %s add %s %s` (or `komando conn add`)", t.Kind.Family, args[0], args[1]),
+					"%s is a %s URL, not a %s: komando %s add saves only a %s", args[1], t.Kind.Name, k.what, kind, k.what)
+			}
+		}
 		if len(args) > 0 {
 			return run(cmd, args)
 		}

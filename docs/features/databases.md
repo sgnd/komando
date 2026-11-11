@@ -163,8 +163,10 @@ instead of JSON or a table. NULL is an empty field, binary is `\x` hex:
 komando db query app-db --csv "select id, email from users" > users.csv
 ```
 
-A query returns at most 500 rows (`--limit`, `0` for no limit)
-and `--max-output` bytes. A cut result says which cap it hit:
+`--csv` and `--tsv` export every row, up to `--max-output` bytes; an
+export cut by that cap fails with `OUTPUT_TRUNCATED` (exit 1), so a script
+never takes half a table for all of it. Otherwise a query returns at most
+500 rows (`--limit`, `0` for no limit) and `--max-output` bytes. A cut result says which cap it hit:
 `"truncated": "rows"` (raise `--limit`) or `"truncated": "bytes"` (raise
 `--max-output`). A query stops after 30 seconds; use `--timeout 2m` for
 more, or give one conn its own limit:

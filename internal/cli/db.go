@@ -6,8 +6,11 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -53,6 +56,8 @@ type dbFlags struct {
 	args  []string
 	csv   bool
 	tsv   bool
+	// limitSet: --limit was given, so rows cut by it are what was asked for
+	limitSet bool
 	// mariaAnalyze: the SQL starts with EXPLAIN ANALYZE, which MariaDB
 	// spells ANALYZE
 	mariaAnalyze bool
@@ -113,7 +118,7 @@ picks another database than the URL's.`},
   komando db query prod-db "select * from users where email = $1" --arg bob@example.com
   komando db query prod-db --write --dry-run "update users set plan = 'pro' where id = 42"
   komando db query prod-db --file migration.sql --write --dry-run
-  komando db query prod-db --csv "select * from orders" > orders.csv
+  komando db query prod-db --csv "select * from orders" > orders.csv   # every row
   komando db query bq "select count(*) from shop.orders" --max-bytes 50GB   # BigQuery`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -127,12 +132,18 @@ picks another database than the URL's.`},
 					return localFileErr("FILE_NOT_FOUND", err, "")
 				}
 				q = string(b)
+			case len(args) == 1:
+				return out.Usage("no SQL: give it as an argument, or with -f FILE (-f - reads stdin)")
 			default:
-				return out.Usage("give the SQL as an argument or with --file (not both)")
+				return out.Usage("give the SQL as an argument or with --file, not both")
 			}
 			if f.csv && f.tsv {
 				return out.Usage("pick one of --csv and --tsv")
 			}
+			if (f.csv || f.tsv) && !cmd.Flags().Changed("limit") {
+				f.limit = 0 // an export wants every row; --max-output still caps the size
+			}
+			f.limitSet = cmd.Flags().Changed("limit")
 			if st, c, ok := mongoConn(args[0]); ok {
 				return runMongoQuery(cmd.Context(), "db.query", st, c, q, f)
 			}
@@ -141,8 +152,8 @@ picks another database than the URL's.`},
 	}
 	f.bind(c)
 	c.Flags().StringVarP(&file, "file", "f", "", "read SQL from a file ('-' for stdin)")
-	c.Flags().BoolVar(&f.csv, "csv", false, "print the rows as CSV (header first) instead of JSON or a table")
-	c.Flags().BoolVar(&f.tsv, "tsv", false, "print the rows as tab-separated values (header first)")
+	c.Flags().BoolVar(&f.csv, "csv", false, "print every row as CSV (header first) instead of JSON or a table")
+	c.Flags().BoolVar(&f.tsv, "tsv", false, "print every row as tab-separated values (header first)")
 	c.SetFlagErrorFunc(sqlFlagError)
 	return c
 }
@@ -378,6 +389,15 @@ func openDB(ctx context.Context, st *store.State, c *store.Conn, readOnly bool) 
 	if err != nil {
 		return nil, nil, err
 	}
+	if a.Target.Kind.Name == "sqlite" && !readOnly && g.dryRun {
+		// a --write run creates a missing file; a dry run must not
+		if _, err := os.Stat(dbx.SQLitePath(a.Target)); errors.Is(err, fs.ErrNotExist) {
+			a.Close()
+			return nil, nil, out.Errf(out.ExitConnect, "DB_CONNECT",
+				"check the path in the conn URL (`komando conn show "+c.Name+"`); without --dry-run, --write creates a new, empty database there",
+				"cannot open %s: the file does not exist, and a dry run does not create it", a.Target.Path)
+		}
+	}
 	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
 	defer cancel()
 	db, err := dbx.Open(cctx, c.URL, a.Target, a.Password, a.Dial, readOnly, "komando/"+actor())
@@ -590,10 +610,29 @@ func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res 
 		if err := writeDelimited(&b, res, f.tsv); err != nil {
 			return err
 		}
-		_, err := io.WriteString(out.P.W, out.P.Redact(b.String()))
-		return err
+		if _, err := io.WriteString(out.P.W, out.P.Redact(b.String())); err != nil {
+			return err
+		}
+		return delimitedCut(res, f.limitSet)
 	}
 	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
+	return nil
+}
+
+// delimitedCut fails a CSV or TSV export that lost rows the person did not
+// ask to drop, so a script does not take a cut file for the whole table.
+// The error goes to stderr as text: stdout holds the rows.
+func delimitedCut(res *dbx.Result, limitSet bool) error {
+	for _, r := range res.Results {
+		switch {
+		case r.Truncated == "bytes":
+			out.P.Format = "text"
+			return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, e.g. --max-output 104857600), or select fewer rows or columns",
+				"the export stopped at %d rows: the output size cap (--max-output) was reached", r.RowCount)
+		case r.Truncated == "rows" && limitSet:
+			fmt.Fprintf(os.Stderr, "note: stopped at %d rows (--limit); -n 0 exports every row\n", r.RowCount)
+		}
+	}
 	return nil
 }
 
