@@ -616,7 +616,7 @@ func guardProxyCommand(cmd string) error {
 			"--proxy-command matches destructive rules: %s", hits[0].Reason))
 	}
 	if isAgent() {
-		return guardSafety("--proxy-command runs `" + cmd + "` on this computer whenever komando connects")
+		return guardSafety("running `" + cmd + "` on this computer whenever komando connects (--proxy-command)")
 	}
 	return nil
 }

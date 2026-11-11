@@ -258,7 +258,7 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 				return e
 			}
 			e.Hint = "for a website write https://" + a + " or " + a + ":443"
-			return e
+			return e.Say(fmt.Sprintf("Nothing named %q in your list to check.", a), e.Hint)
 		}
 		for _, h := range sel.Hosts {
 			if !seen["h:"+h.Name] {

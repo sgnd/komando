@@ -364,7 +364,11 @@ func (r importResult) Text() string {
 	line("conns "+verb, r.Conns)
 	line("VPNs "+verb, r.Vpns)
 	line("recipes "+verb, r.Recipes)
-	line("passwords stored in the vault", r.Secrets)
+	if g.dryRun {
+		line("passwords it would store in the vault", r.Secrets)
+	} else {
+		line("passwords stored in the vault", r.Secrets)
+	}
 	line("deny rules "+verb, r.DenyRules)
 	for _, d := range r.SettingsDiffer {
 		fmt.Fprintf(&sb, "setting %s is %s in the file, %s here (not changed; `%s` sets it)\n", d.Key, d.File, d.Here, d.Command)

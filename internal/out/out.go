@@ -52,6 +52,10 @@ type Error struct {
 // the usual one.
 func (e *Error) Say(msg, hint string) *Error { e.say, e.sayHint = msg, hint; return e }
 
+// PlainHint drops the hint Say set for a person, so text mode prints Hint
+// as JSON does (an AI agent reads -o text too).
+func (e *Error) PlainHint() *Error { e.sayHint = ""; return e }
+
 // Cancel marks a stop the person chose at the terminal: text mode prints
 // msg alone, without "Stopped:", a hint or the code.
 func (e *Error) Cancel(msg string) *Error { e.say, e.cancelled = msg, true; return e }
@@ -382,7 +386,7 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 				fmt.Fprintln(p.W)
 			}
 		} else if data != nil {
-			s := renderText(data)
+			s := renderText(data, p.DryRun)
 			fmt.Fprint(p.W, SafeText(p.Redact(s)))
 			if s == "" {
 				// an empty list would print nothing, and a person cannot tell
@@ -477,7 +481,7 @@ func (p *Printer) Event(v any) {
 
 // renderText is a generic fallback: JSON round-trip into maps and print
 // key: value lines / simple tables.
-func renderText(data any) string {
+func renderText(data any, dryRun bool) string {
 	b, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Sprint(data)
@@ -490,7 +494,7 @@ func renderText(data any) string {
 			writeResults(&sb, rs, m["summary"])
 			return sb.String()
 		}
-		if h := headline(m); h != "" {
+		if h := headline(m, dryRun); h != "" {
 			// what happened comes first, in words; the record follows, and
 			// the command to run next comes last
 			sb.WriteString(h + "\n")
@@ -516,8 +520,9 @@ func renderText(data any) string {
 
 // headline says in words what a change did to a named item ("added web2",
 // "web2: nothing to change"), for results that carry an action or a
-// changed flag. "" when the result is not such a change.
-func headline(m map[string]any) string {
+// changed flag; under --dry-run, what it would do. "" when the result is
+// not such a change.
+func headline(m map[string]any, dryRun bool) string {
 	name, _ := m["name"].(string)
 	if name == "" {
 		return ""
@@ -533,8 +538,11 @@ func headline(m map[string]any) string {
 		return strings.ReplaceAll(a, "_", " ") + " " + name
 	}
 	if c, ok := m["changed"].(bool); ok {
-		if !c {
+		switch {
+		case !c:
 			return name + ": nothing to change"
+		case dryRun:
+			return "would change " + name + " (dry run)"
 		}
 		return "changed " + name
 	}

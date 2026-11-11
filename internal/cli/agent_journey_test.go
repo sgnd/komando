@@ -32,6 +32,28 @@ func TestApprovalHintOnlyWhereAFlagAsks(t *testing.T) {
 	}
 }
 
+// An AI agent reading -o text gets the agent hint, not the person's "add
+// --yes in a script if you are sure"; a script still gets the person's words.
+func TestSafetyStopTextHintForAgents(t *testing.T) {
+	invHome(t)
+	noAgent(t)
+	e := toErr(guardSafety("turning off the audit log"))
+	approvalHint(e)
+	if !strings.Contains(e.TextHint(), "in a script") {
+		t.Errorf("script: %q", e.TextHint())
+	}
+	asAgent(t, false, true)
+	resetApproval()
+	e = toErr(guardSafety("turning off the audit log"))
+	approvalHint(e)
+	if h := e.TextHint(); strings.Contains(h, "in a script") || !strings.Contains(h, "komando asks the user in a window") {
+		t.Errorf("agent text hint: %q", h)
+	}
+	if !strings.HasPrefix(e.TextMessage(), "turning off the audit log turns off") {
+		t.Errorf("message: %q", e.TextMessage())
+	}
+}
+
 // With host keys strict, an AI agent's first pin needs a person's yes, and
 // the window shows the fingerprint to compare.
 func TestFirstPinByAnAgentUnderStrict(t *testing.T) {

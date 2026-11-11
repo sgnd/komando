@@ -106,7 +106,7 @@ func Execute() int {
 			oe.Cancel(cancelledText()) // text mode: the person's own choice, not an error
 		}
 		if cmd != nil && out.P.Format == "text" {
-			notFoundSay(oe, topCommand(cmd))
+			notFoundSay(oe, cmd)
 		}
 	}
 	return out.P.Fail(name, err)
@@ -428,7 +428,7 @@ func newRoot() *cobra.Command {
 	pf.StringVarP(&g.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped)")
 	pf.BoolVar(&g.pretty, "pretty", false, "indent JSON output")
 	pf.BoolVar(&g.dryRun, "dry-run", false, "show what would run, changing nothing")
-	pf.BoolVarP(&g.yes, "yes", "y", false, "answer yes in advance, for scripts")
+	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm a change on a protected target (an AI agent needs a person's yes)")
 	pf.BoolVar(&g.allowDangerous, "allow-dangerous", false, "run a command the safety rules would block")
 	pf.BoolVar(&g.reveal, "reveal", false, "show passwords and keys in output (an agent needs a person's yes)")
 	pf.DurationVar(&g.timeout, "timeout", 0, "time limit per server (default: setting, 5m)")

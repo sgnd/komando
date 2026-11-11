@@ -446,6 +446,9 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 			if err != nil {
 				return err
 			}
+			if g.dryRun {
+				res["would_remove"] = res["removed"] // "removed" stays for scripts that read it (contract 1)
+			}
 			audit(nil, "key.rm", nil, "", true, map[string]any{"key": res["removed"], "file_deleted": res["file_deleted"]})
 			out.P.Print("key.rm", res, nil)
 			return nil

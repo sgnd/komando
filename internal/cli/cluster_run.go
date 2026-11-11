@@ -435,13 +435,13 @@ func guardKubeImport(name string, x *kube.Context) error {
 				"context %s logs in with `%s`, which matches destructive rules: %s", name, line, hits[0].Reason))
 		}
 		if isAgent() {
-			if err := guardSafety("context " + name + " runs `" + line + "` on this computer whenever komando logs in, also for AI agents' later commands"); err != nil {
+			if err := guardSafety("letting context " + name + " run `" + line + "` on this computer whenever komando logs in, also for AI agents' later commands"); err != nil {
 				return err
 			}
 		}
 	}
 	if f := x.User.TokenFile; f != "" && isAgent() {
-		return guardSafety("context " + name + " sends the file " + f + " from this computer to its server as the login token")
+		return guardSafety("letting context " + name + " send the file " + f + " from this computer to its server as the login token")
 	}
 	return nil
 }
