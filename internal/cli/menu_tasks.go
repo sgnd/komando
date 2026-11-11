@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -154,7 +155,10 @@ var serverMoreTasks = []menuTask{
 	{label: "Background jobs", sub: jobTasks},
 }
 
+// jobTasks is the one Background jobs list, the same on a server and on
+// Running now.
 var jobTasks = []menuTask{
+	{label: "Check which jobs still run", detail: "Asks each server; finished jobs leave Running now", line: [][]string{{"job", "list", "--refresh"}}},
 	{label: "List background jobs", line: [][]string{{"job", "list"}}},
 	{label: "Is a job done?", cmd: "job status", noItem: true},
 	{label: "Read a job's output", cmd: "job logs", noItem: true},
@@ -404,8 +408,10 @@ func settingsTasks() []menuTask {
 	}
 }
 
-// menuRunningRows is what komando left running, each with the command
-// that stops it.
+// menuRunningRows is what komando keeps running on this computer (VPNs,
+// logins, tunnels), each with the command that stops it. Jobs run on the
+// servers and keep going without this computer, so they are not here:
+// see menuJobRows.
 func menuRunningRows(st *store.State) []menuTask {
 	var rows []menuTask
 	for _, n := range sortedKeys(st.Sessions) {
@@ -424,15 +430,19 @@ func menuRunningRows(st *store.State) []menuTask {
 		rows = append(rows, menuTask{label: "Tunnel " + cleanText(id), detail: cleanText(tn.Host + " " + tn.Spec + "; choose to stop it"),
 			line: [][]string{{"tunnel", "stop", id}}})
 	}
-	for _, id := range sortedKeys(st.Jobs) {
-		j := st.Jobs[id]
-		if !menuJobRunning(st, j) {
-			continue
-		}
-		rows = append(rows, menuTask{label: "Job " + cleanText(id), detail: cleanText(j.Host + ": " + j.Command + "; choose to stop it"),
-			line: [][]string{{"job", "kill", id}}, confirm: "Stop job " + cleanText(id) + " on " + cleanText(j.Host) + "?", yes: "Stop it"})
-	}
 	return rows
+}
+
+// menuJobsRunning is how many background jobs may still run on their
+// servers.
+func menuJobsRunning(st *store.State) int {
+	n := 0
+	for _, j := range st.Jobs {
+		if menuJobRunning(st, j) {
+			n++
+		}
+	}
+	return n
 }
 
 // menuJobRunning is whether a job may still run: its server is still on
@@ -443,18 +453,22 @@ func menuJobRunning(st *store.State, j *store.Job) bool {
 	return ok && j.Ended == ""
 }
 
-// runningTasks come first on Running now.
+// runningTasks come first on Running now: what runs on this computer.
 var runningTasks = []menuTask{
-	{label: "Show it all", detail: "VPNs, logins, tunnels and jobs", line: [][]string{{"status"}}},
+	{label: "Show it all", detail: "VPNs, logins and tunnels on this computer, and jobs on servers", line: [][]string{{"status"}}},
 	{label: "Port forwards", line: [][]string{{"tunnel", "list"}}},
-	{label: "Check which jobs still run", detail: "Asks each server; finished jobs leave this list", line: [][]string{{"job", "list", "--refresh"}}},
-	{label: "Background jobs", sub: jobTasks},
 }
 
-// menuRunning is the Running now screen: everything at once, then each
-// thing with a way to stop it.
+// menuRunning is the Running now screen: what komando keeps running on
+// this computer, each with a way to stop it, then Background jobs, which
+// run on the servers without this computer and so are not counted.
 func menuRunning(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory, scr menuScreen, try formTry) (menuNext, error) {
 	tasks := append(slices.Clone(runningTasks), menuRunningRows(st)...)
+	detail := "None may still run on servers"
+	if n := menuJobsRunning(st); n > 0 {
+		detail = fmt.Sprintf("%d may still run on servers, without this computer", n)
+	}
+	tasks = append(tasks, menuTask{label: "Background jobs", detail: detail, sub: jobTasks})
 	return menuTaskList(ctx, t, st, mem, scr, "Running now: what do you want to stop?", "", tasks, menuHelpRunning, try)
 }
 

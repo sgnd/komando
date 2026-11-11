@@ -1006,8 +1006,8 @@ func TestFormCancelKey(t *testing.T) {
 	}
 }
 
-// Running now lists only jobs that may still run: not one seen ending,
-// not one whose server left the list.
+// Running now counts only what runs on this computer; the job count
+// leaves out jobs seen ending and jobs whose server left the list.
 func TestMenuRunningLeavesOutEndedJobs(t *testing.T) {
 	st := menuTestState()
 	st.Jobs = map[string]*store.Job{
@@ -1016,13 +1016,10 @@ func TestMenuRunningLeavesOutEndedJobs(t *testing.T) {
 		"gone": {ID: "gone", Host: "deleted-vm", Command: "make"},
 		"lost": {ID: "lost", Host: "web-1", Command: "make", Ended: "lost"},
 	}
-	var jobs []string
-	for _, r := range menuRunningRows(st) {
-		if strings.HasPrefix(r.label, "Job ") {
-			jobs = append(jobs, r.label)
-		}
+	if n := menuJobsRunning(st); n != 1 {
+		t.Fatalf("jobs that may still run = %d, want 1", n)
 	}
-	if !slices.Equal(jobs, []string{"Job live"}) {
-		t.Fatalf("Running now jobs = %v, want only Job live", jobs)
+	if rows := menuRunningRows(st); len(rows) != 0 {
+		t.Fatalf("Running now counts %d rows with only jobs, want 0", len(rows))
 	}
 }
