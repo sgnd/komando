@@ -32,7 +32,7 @@ var builtin = []struct{ id, pattern, reason string }{
 	{"chown-root", `\bchown\s+(\S+\s+)*` + recursive + `(\S+\s+)*/(\s|$|;|&)|\bchown\s+(\S+\s+)*/\s+(\S+\s+)*` + recursive, "recursive chown of /"},
 	{"firewall-flush", `\b(ip6?tables\s+(-t\s+\S+\s+)?(-F|--flush)|nft\s+flush\s+ruleset|ufw\s+(-\S+\s+)*(disable|reset))(\s|$|;|&)`, "drops firewall rules (may lock you out)"},
 	{"firewall-drop-all", `\bip6?tables\s+(-t\s+filter\s+)?(-P|--policy)\s+(INPUT|OUTPUT)\s+(DROP|REJECT)\b`, "drops all traffic by default (may lock you out)"},
-	{"sshd-stop", `\b(systemctl|service)\s+(stop|disable|mask)\s+(ssh|sshd)\b`, "stops sshd (locks out remote access)"},
+	{"sshd-stop", `\bsystemctl\s+(-\S+\s+)*(stop|disable|mask)\s+([^;&|\n]*\s)?(ssh|sshd)(\.service|\.socket)?(\s|$|;|&|\||\))|\bservice\s+(ssh|sshd)\s+stop\b`, "stops sshd (locks out remote access)"},
 	{"passwd-files", `>\s*/etc/(passwd|shadow|sudoers)\b`, "overwrites authentication files"},
 	{"passwd-files-write", `\b(tee|truncate)\s[^;&|]*` + authFile + `|\bdd\s[^;&|]*\bof=` + authFile + `|\b(mv|cp|install|ln)\s[^;&|]*\s` + authFile + `\s*($|[;&|)])|\bmv\s+(-\S+\s+)*` + authFile, "overwrites authentication files"},
 	{"db-drop", `(?i)\b(drop\s+(database|schema)|flushall|dropdatabase\(\))`, "drops a database"},
