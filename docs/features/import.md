@@ -62,7 +62,8 @@ appear in komando's list, output or history.
   pattern (its settings become defaults for the other servers), or an
   `Include` file that is missing. `HostName %h.example.com` is understood.
 - A `ProxyCommand` runs on this computer, so an AI agent needs a person's
-  yes to import one.
+  yes (`--yes`) to import one. Without it, that server is left out with the
+  reason, and the other servers still come in.
 
 ### Coming from Termius or TablePlus
 

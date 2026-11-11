@@ -180,10 +180,25 @@ func TestInvHostImportJSON(t *testing.T) {
 		{"name":"px","address":"10.0.0.7","proxy_command":"nc %h %p"},
 		{"name":"bad","address":"10.0.0.8","port":99999}]}}`), 0o600)
 	asAgent(t, false, true) // the person says no
-	g.yes = true
-	_, e := invRun(t, "host", "import", "--json", f, "--overwrite")
+	_, e := invRun(t, "host", "import", "--json", f, "--overwrite", "--yes")
 	if e == nil || e.Code != "SAFETY_SETTING" {
 		t.Fatalf("agent proxy command needs a person: %+v", e)
+	}
+	// without --yes the proxy command server is left out, with the reason,
+	// and nothing else is held back (a dry run says the same)
+	for _, dry := range []bool{true, false} {
+		args := []string{"host", "import", "--json", f}
+		if dry {
+			args = append(args, "--dry-run")
+		}
+		d := mustRun(t, args...)
+		skipped := fmt.Sprint(d["skipped_invalid"])
+		if !strings.Contains(skipped, "px") || !strings.Contains(skipped, "--yes") {
+			t.Errorf("dry %v: px is left out with the reason: %v", dry, d)
+		}
+	}
+	if _, e := invRun(t, "host", "show", "px"); e == nil {
+		t.Error("px was added without a person's yes")
 	}
 	noAgent(t)
 	d := mustRun(t, "host", "import", "--json", f, "--overwrite")
@@ -539,5 +554,18 @@ func TestExportImportCarriesRulesAndSettings(t *testing.T) {
 	// importing again adds nothing new
 	if d := mustRun(t, "import", "komando", f); d["deny_rules_added"] != nil {
 		t.Errorf("again: %v", d)
+	}
+}
+
+// One ProxyCommand server in an ssh config does not hold back the others
+// for an AI agent: they come in, and it is listed with what it needs.
+func TestImportSSHConfigProxyCommandAgent(t *testing.T) {
+	invHome(t)
+	cfg := filepath.Join(t.TempDir(), "config")
+	os.WriteFile(cfg, []byte("Host a1\n  HostName 192.0.2.1\nHost px\n  HostName 192.0.2.2\n  ProxyCommand nc %h %p\n"), 0o600)
+	asAgent(t, false, true)
+	d, e := invRun(t, "import", "ssh-config", cfg)
+	if e == nil || e.Code != "IMPORT_INCOMPLETE" || fmt.Sprint(d["hosts"]) != "[a1]" || !strings.Contains(fmt.Sprint(d["skipped"]), "px") {
+		t.Errorf("import: %v %+v", d, e)
 	}
 }

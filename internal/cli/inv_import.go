@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -27,8 +28,10 @@ type hostVet struct {
 // its hosts may not use secrets or files of this computer
 // (dropForeignHostRefs), unless ownRefs says it is the user's own list (a
 // CSV). A proxy command runs on this computer, so it goes through
-// guardProxyCommand (an AI agent needs a person's yes); that stop ends the
-// whole import. Hosts that pass are put into s.
+// guardProxyCommand (an AI agent needs a person's yes). Without --yes (or
+// --allow-dangerous) the host is only left out, so the rest still comes
+// in; a person who says no in the window stops the whole import. Hosts
+// that pass are put into s.
 func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool) (hostVet, error) {
 	var v hostVet
 	var cand []*store.Host
@@ -82,6 +85,10 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
 		}
+		if r := proxyCommandSkip(h.ProxyCommand); r != "" {
+			v.Invalid = append(v.Invalid, importSkip{h.Name, r})
+			continue
+		}
 		if err := guardProxyCommand(h.ProxyCommand); err != nil {
 			return v, err
 		}
@@ -114,6 +121,22 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 		v.Add = append(v.Add, h)
 	}
 	return v, guardHostSends(v.Add, prev)
+}
+
+// proxyCommandSkip says why an import leaves out a host whose proxy
+// command guardProxyCommand would stop and no flag asks to let through.
+// With the flag, guardProxyCommand asks the person instead.
+func proxyCommandSkip(cmd string) string {
+	if cmd == "" {
+		return ""
+	}
+	if hits := policy.Check(cmd, nil); len(hits) > 0 && !g.allowDangerous {
+		return "its proxy command matches destructive rules (" + hits[0].Reason + "): import it again with --allow-dangerous if it is intended"
+	}
+	if isAgent() && !g.yes {
+		return "its proxy command runs on this computer, so an AI agent needs the user's yes: import it again with --yes after the user confirms"
+	}
+	return ""
 }
 
 // parseHostsJSON reads `host export` output (the envelope or its data), a
