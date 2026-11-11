@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"sort"
@@ -208,7 +209,7 @@ func policyCmd() *cobra.Command {
 			var custom []map[string]string
 			bad := policy.Invalid(st.Settings.ExtraDenyPattern)
 			for i, p := range st.Settings.ExtraDenyPattern {
-				r := map[string]string{"id": "custom-" + strconv.Itoa(i), "pattern": p}
+				r := map[string]string{"id": policy.CustomID(p), "pattern": p}
 				if why, ok := bad[i]; ok {
 					r["error"] = why
 				}
@@ -220,53 +221,7 @@ func policyCmd() *cobra.Command {
 			return nil
 		},
 	})
-	var kind string
-	check := &cobra.Command{
-		Use:   "check COMMAND",
-		Short: "Would this command be blocked? (--for KIND rates SQL, Redis ...)",
-		Example: `  komando policy check 'rm -rf /var/www'
-  if komando policy check "$CMD" >/dev/null; then echo allowed; fi
-  komando policy check --for postgres 'delete from users'
-  komando policy check --for redis FLUSHALL`,
-		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			switch kind {
-			case "":
-			case "redis", "memcached":
-				if len(args) == 1 { // one quoted argument: "CLIENT LIST"
-					args = strings.Fields(args[0])
-				}
-				out.P.Print("policy.check", cachex.ClassifyFor(kind, args), nil)
-				return nil
-			default:
-				plan, err := driver.ClassifySQL(kind, strings.Join(args, " "))
-				if err != nil {
-					return err
-				}
-				out.P.Print("policy.check", plan, nil)
-				return nil
-			}
-			hits := policy.Check(strings.Join(args, " "), st.Settings.ExtraDenyPattern)
-			res := policyCheck{Blocked: len(hits) > 0, Matches: hits}
-			if !res.Blocked {
-				out.P.Print("policy.check", res, nil)
-				return nil
-			}
-			ids := make([]string, len(hits))
-			for i, h := range hits {
-				ids[i] = h.ID
-			}
-			out.P.Print("policy.check", res, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "komando would refuse to run it without --allow-dangerous",
-				"blocked by [%s]", strings.Join(ids, ",")))
-			return exitCode(out.ExitPolicy)
-		},
-	}
-	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: postgres, mysql, sqlserver, oracle, clickhouse, snowflake, bigquery, sqlite, redis or memcached")
-	c.AddCommand(check)
+	c.AddCommand(policyCheckCmd())
 	c.AddCommand(&cobra.Command{
 		Use:     "deny REGEX",
 		Short:   "Add a custom deny pattern (Go regexp)",
@@ -279,6 +234,9 @@ func policyCmd() *cobra.Command {
 			}
 			if err := checkRegex(pat); err != nil {
 				return out.Errf(out.ExitUsage, "USAGE", "the pattern is a Go regular expression (https://pkg.go.dev/regexp/syntax)", "invalid regex: %v", err)
+			}
+			if regexp.MustCompile(pat).MatchString("") {
+				return out.Errf(out.ExitUsage, "USAGE", `give a pattern that needs some text to match, e.g. 'kubectl\s+delete'`, "the pattern %s matches empty text, so it would match every command", pat)
 			}
 			var pats []string
 			added := false
@@ -302,21 +260,103 @@ func policyCmd() *cobra.Command {
 	})
 	rm := policyRmCmd()
 	allow := policyRmCmd() // the old name, kept so scripts keep working
-	allow.Use, allow.Hidden = "allow PATTERN|custom-N", true
+	allow.Use, allow.Hidden = "allow PATTERN|ID", true
 	c.AddCommand(rm, allow)
 	return c
+}
+
+// policyCheckCmd is `policy check`: whether a shell command would be
+// blocked, or with --for how risky a statement is for a conn kind.
+func policyCheckCmd() *cobra.Command {
+	var kind string
+	check := &cobra.Command{
+		Use:   "check COMMAND",
+		Short: "Would this command be blocked? (--for KIND rates SQL, Redis ...)",
+		Example: `  komando policy check 'rm -rf /var/www'
+  if komando policy check "$CMD" >/dev/null; then echo allowed; fi
+  komando policy check --for postgres 'delete from users'
+  komando policy check --for redis FLUSHALL`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			st, err := loadState()
+			if err != nil {
+				return err
+			}
+			kind = strings.ToLower(kind)
+			var rated any
+			var v driver.Verdict
+			switch {
+			case kind == "":
+			case kind == "redis" || kind == "memcached":
+				if len(args) == 1 { // one quoted argument: "CLIENT LIST"
+					args = strings.Fields(args[0])
+				}
+				v = cachex.ClassifyFor(kind, args)
+				rated = v
+			case kind == "mongodb":
+				doc, _, err := dbx.ParseMongoCommand(strings.Join(args, " "))
+				if err != nil {
+					return err
+				}
+				v = dbx.ClassifyMongo(doc)
+				rated = v
+			case slices.Contains(driver.SQLKinds(), kind):
+				plan, err := driver.ClassifySQL(kind, strings.Join(args, " "))
+				if err != nil {
+					return err
+				}
+				v, rated = plan.Verdict, plan
+			default:
+				return out.Errf(out.ExitUsage, "USAGE", "--for takes one of: "+strings.Join(policyCheckKinds(), ", "),
+					"--for %q is not a kind komando rates", kind)
+			}
+			if rated != nil {
+				if v.Risk != driver.RiskDestructive {
+					out.P.Print("policy.check", rated, nil)
+					return nil
+				}
+				why := "destructive"
+				if len(v.RuleIDs) > 0 {
+					why = "blocked by [" + strings.Join(v.RuleIDs, ",") + "]"
+				}
+				out.P.Print("policy.check", rated, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "komando would refuse to run it without --allow-dangerous", "%s", why))
+				return exitCode(out.ExitPolicy)
+			}
+			hits := policy.Check(strings.Join(args, " "), st.Settings.ExtraDenyPattern)
+			res := policyCheck{Blocked: len(hits) > 0, Matches: hits}
+			if !res.Blocked {
+				out.P.Print("policy.check", res, nil)
+				return nil
+			}
+			ids := make([]string, len(hits))
+			for i, h := range hits {
+				ids[i] = h.ID
+			}
+			out.P.Print("policy.check", res, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "komando would refuse to run it without --allow-dangerous",
+				"blocked by [%s]", strings.Join(ids, ",")))
+			return exitCode(out.ExitPolicy)
+		},
+	}
+	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: "+strings.Join(policyCheckKinds(), ", ")+" (a command document as JSON)")
+	return check
+}
+
+// policyCheckKinds are the kinds policy check --for rates.
+func policyCheckKinds() []string {
+	return append(driver.SQLKinds(), "redis", "memcached", "mongodb")
 }
 
 // policyRmCmd removes a rule added with policy deny.
 func policyRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm PATTERN|custom-N",
+		Use:   "rm PATTERN|ID",
 		Short: "Remove a rule you added (built-in rules stay)",
 		Long: `Removes a rule added with ` + "`policy deny`" + `. Give it as you wrote it, or by
-its id (custom-0, custom-1, ... in ` + "`policy list`" + `). Built-in rules cannot
-be removed. Removing a rule weakens a safety check, so komando asks first.`,
+its id in ` + "`policy list`" + ` (custom- and eight letters and digits, made from
+the pattern, so it does not change when another rule goes). Built-in rules
+cannot be removed. Removing a rule weakens a safety check, so komando asks first.`,
 		Example: `  komando policy rm 'kubectl\s+delete'
-  komando policy rm custom-0`,
+  komando policy rm custom-1a2b3c4d`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			arg := args[0]
@@ -331,13 +371,11 @@ be removed. Removing a rule weakens a safety check, so komando asks first.`,
 			err := store.Update(func(s *store.State) error {
 				list := s.Settings.ExtraDenyPattern
 				i := slices.Index(list, arg)
-				if n, ok := strings.CutPrefix(arg, "custom-"); ok && i < 0 {
-					if k, err := strconv.Atoi(n); err == nil && k >= 0 && k < len(list) {
-						i = k
-					}
+				if i < 0 {
+					i = slices.IndexFunc(list, func(p string) bool { return policy.CustomID(p) == arg })
 				}
 				if i < 0 {
-					hint := "see the custom rules with `komando policy list`"
+					hint := "see the custom rules and their ids with `komando policy list`"
 					if len(list) == 0 {
 						hint = "there are no custom rules; built-in ones cannot be removed"
 					}
@@ -589,10 +627,14 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 				add("agent_skill", true, strings.Join(installed, ", "))
 			}
 			if home, err := os.UserHomeDir(); err == nil && len(installed) > 0 && slices.ContainsFunc(installed, func(p string) bool { return strings.Contains(p, ".claude") }) {
-				b, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
-				on := strings.Contains(string(b), " guide guard")
-				add("agent_guard", on, map[bool]string{true: "Claude Code asks komando before reading files or running shell commands",
-					false: "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it"}[on])
+				switch found, problem := claudeGuard(filepath.Join(home, ".claude", "settings.json")); {
+				case !found:
+					add("agent_guard", false, "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it")
+				case problem != "":
+					add("agent_guard", false, "komando's guard in Claude Code cannot run, so Claude Code goes on without it: "+problem+"; `komando guide install` sets it up again")
+				default:
+					add("agent_guard", true, "Claude Code asks komando before reading files or running shell commands")
+				}
 			}
 			r.Inventory = inventoryChecks(st)
 			r.Security = securityChecks(st)
@@ -679,10 +721,14 @@ type policyChange struct {
 func (p policyChange) Text() string {
 	n := countOf(len(p.Custom), "custom rule")
 	switch {
+	case p.Added != nil && *p.Added && g.dryRun:
+		return fmt.Sprintf("would add the deny rule %s (dry run; %s then)\n", p.pattern, n)
 	case p.Added != nil && *p.Added:
-		return fmt.Sprintf("added the deny rule %q (%s now)\n", p.pattern, n)
+		return fmt.Sprintf("added the deny rule %s (%s now)\n", p.pattern, n)
 	case p.Added != nil:
-		return fmt.Sprintf("the deny rule %q is there already (%s)\n", p.pattern, n)
+		return fmt.Sprintf("the deny rule %s is there already (%s)\n", p.pattern, n)
+	case g.dryRun:
+		return fmt.Sprintf("would remove the deny rule %s (dry run; %s left then)\n", p.Removed, n)
 	}
-	return fmt.Sprintf("removed the deny rule %q (%s left)\n", p.Removed, n)
+	return fmt.Sprintf("removed the deny rule %s (%s left)\n", p.Removed, n)
 }

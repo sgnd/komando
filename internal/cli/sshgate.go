@@ -566,6 +566,15 @@ audit setting is off.`,
   komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if os.Getenv("SSH_ORIGINAL_COMMAND") == "" && os.Getenv("SSH_CONNECTION") == "" {
+				// typed by a person, not run by sshd for a key: nothing to
+				// let through or refuse, so no stop and no audit record
+				if out.P.Format == "json" {
+					return out.Usage("ssh-gate runs when sshd starts it for a key; `komando ssh-gate line` prints the line that sets that up").
+						WithHint("for example: komando ssh-gate line --name phone ~/phone.pub")
+				}
+				return cmd.Help()
+			}
 			if !gateLabel.MatchString(name) {
 				return out.Usage("--name must be 1 to 64 letters, digits, dots, dashes or underscores")
 			}
@@ -594,6 +603,9 @@ audit setting is off.`,
 	}
 	c.Flags().StringVar(&name, "name", "key", "the key's name in the audit log")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "run only commands that read")
+	// set by the line `ssh-gate line` writes, not typed: its help lists them
+	_ = c.Flags().MarkHidden("name")
+	_ = c.Flags().MarkHidden("read-only")
 	c.AddCommand(sshGateLineCmd())
 	return c
 }

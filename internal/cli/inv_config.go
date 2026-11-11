@@ -221,18 +221,22 @@ type configRow struct {
 }
 
 type configShow struct {
-	Settings store.Settings    `json:"settings"`
-	Home     string            `json:"home"`
-	Files    map[string]string `json:"files"`
-	Rows     []configRow       `json:"-"`
+	Settings store.Settings `json:"settings"`
+	// Keys is every setting as config get and set read and write it
+	// (settings leaves out empty ones and keeps the stored form)
+	Keys         []configRow       `json:"keys"`
+	ApprovalCode string            `json:"approval_code"` // on | off: `komando config approval-code`
+	Home         string            `json:"home"`
+	Files        map[string]string `json:"files"`
 }
 
 func (c configShow) Text() string {
 	var rows [][]string
-	for _, r := range c.Rows {
+	for _, r := range c.Keys {
 		rows = append(rows, []string{r.Key, r.Value, r.Default, r.Values})
 	}
 	t := textTable([]string{"KEY", "VALUE", "DEFAULT", "ALLOWED"}, rows)
+	t += "\napproval code: " + c.ApprovalCode + " (`komando config approval-code` changes it)\n"
 	if len(c.Settings.ExtraDenyPattern) > 0 {
 		t += "\ncustom deny rules: " + strings.Join(c.Settings.ExtraDenyPattern, "  ") + "\n"
 	}
@@ -279,10 +283,10 @@ func configCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res := configShow{Settings: st.Settings, Home: store.Home(),
+			res := configShow{Settings: st.Settings, Keys: []configRow{}, ApprovalCode: map[bool]string{true: "on", false: "off"}[st.Settings.ApprovalCode], Home: store.Home(),
 				Files: map[string]string{"state": store.Path("state.json"), "vault": store.Path("vault.json"), "known_hosts": sshx.KnownHostsPath(), "audit": store.Path("audit.jsonl")}}
 			for _, s := range settings {
-				res.Rows = append(res.Rows, configRow{s.Key, s.get(&st.Settings), s.get(&def), s.Values})
+				res.Keys = append(res.Keys, configRow{s.Key, s.get(&st.Settings), s.get(&def), s.Values})
 			}
 			out.P.Print("config.show", res, nil)
 			return nil

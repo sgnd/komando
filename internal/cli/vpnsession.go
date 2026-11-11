@@ -43,7 +43,9 @@ func init() {
 		if !ok {
 			return out.NotFound("vpn", name)
 		}
-		if _, err = startSession(ctx, st, v, false); err != nil {
+		_, err = startSession(ctx, st, v, false)
+		auditVpnUp(st, v, false, err)
+		if err != nil {
 			return err
 		}
 		// started by a command, not by `vpn up`: say it now stays up
@@ -90,7 +92,7 @@ func listening(addr string) bool {
 
 // vpnClients are the programs a VPN needs on this computer.
 func vpnClients(v *store.Vpn) []string {
-	if netx.BuiltinSSL(v.Kind) {
+	if netx.BuiltinSSLFor(v) {
 		return nil // komando's own client
 	}
 	if v.Kind == "openvpn" && v.OSMode {
@@ -115,6 +117,28 @@ func installHint(bin string) string {
 		return "install it with `brew install " + pkg + "`"
 	}
 	return "install the " + pkg + " package (apt, dnf, ...)"
+}
+
+// vpnUpPlan is what vpn up --dry-run prints. A VPN that needs a person,
+// with nobody at the terminal, would not connect: VPN_LOGIN_REQUIRED goes
+// to meta.would_be_blocked.
+func vpnUpPlan(v *store.Vpn) map[string]any {
+	res := map[string]any{"vpn": v.Name, "kind": v.Kind, "would_connect": true}
+	if (netx.Kinds[v.Kind].Session || v.Kind == "wireguard") && needsPersonLogin(v) && !interactive() {
+		res["would_connect"] = false
+		out.P.WouldBlock(toErr(netx.LoginRequired(v)))
+	}
+	return res
+}
+
+// needsPersonLogin: connecting v needs a person to log in, so startSession
+// refuses it with VPN_LOGIN_REQUIRED when nobody is at the terminal.
+func needsPersonLogin(v *store.Vpn) bool {
+	if v.MFA {
+		return true
+	}
+	ownClient := v.Kind == "openvpn" && !v.OSMode || oneOf(v.Kind, "l2tp", "ipsec", "ikev2")
+	return ownClient && v.KeyRef == "" && v.User != ""
 }
 
 // startSession connects v in the background and records the session.
@@ -180,7 +204,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if self, err := os.Executable(); err == nil {
 			s.Exe = filepath.Base(self)
 		}
-	case netx.BuiltinSSL(v.Kind):
+	case netx.BuiltinSSLFor(v):
 		// log in here, where a person can answer (MFA); the session's
 		// server gets only the cookie
 		cookie, err := sslLogin(ctx, v, interactive)
@@ -315,8 +339,17 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		netx.StopSession(s)
 		return nil, err
 	}
-	audit(st, "vpn.up", []string{v.Name}, "", true, map[string]any{"kind": v.Kind, "interactive": interactive})
 	return s, nil
+}
+
+// auditVpnUp records a vpn up, or a session a command started, with how
+// it ended: a session that started but failed its --check is a failure.
+func auditVpnUp(st *store.State, v *store.Vpn, interactive bool, err error) {
+	rec := map[string]any{"kind": v.Kind, "interactive": interactive}
+	if err != nil {
+		rec["error"] = toErr(err).Code
+	}
+	audit(st, "vpn.up", []string{v.Name}, "", err == nil, rec)
 }
 
 // background starts a process detached from this one, logging to logFile,
@@ -471,7 +504,7 @@ func vpnUpCmd() *cobra.Command {
 				return nil
 			}
 			if g.dryRun {
-				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "kind": v.Kind, "would_connect": true}, nil)
+				out.P.Print("vpn.up", vpnUpPlan(v), nil)
 				return nil
 			}
 			// VPNs that change this computer's routes get a before/after
@@ -509,8 +542,10 @@ func vpnUpCmd() *cobra.Command {
 				out.P.Print("vpn.up", res, nil)
 				return nil
 			}
-			s, err := startSession(cmd.Context(), st, v, interactive())
+			person := interactive()
+			s, err := startSession(cmd.Context(), st, v, person)
 			if err != nil {
+				auditVpnUp(st, v, person, err)
 				return err
 			}
 			res := map[string]any{"vpn": v.Name, "session": sessionView(s)}
@@ -531,11 +566,14 @@ func vpnUpCmd() *cobra.Command {
 					if v.Kind == "wireguard" {
 						why = " (no WireGuard handshake from " + vpnWhere(v) + " yet)"
 					}
-					return out.Errf(out.ExitConnect, "VPN_DOWN", netx.DownHint(v), "VPN %s: no answer from %s through the tunnel%s", v.Name, v.Check, why)
+					err := out.Errf(out.ExitConnect, "VPN_DOWN", netx.DownHint(v), "VPN %s: no answer from %s through the tunnel%s", v.Name, v.Check, why)
+					auditVpnUp(st, v, person, err)
+					return err
 				} else {
 					res["checked"] = v.Check
 				}
 			}
+			auditVpnUp(st, v, person, nil)
 			if w := clashes(); len(w) > 0 {
 				res["warnings"] = w
 			}

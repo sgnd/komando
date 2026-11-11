@@ -96,10 +96,17 @@ func dash(s string) string {
 	return s
 }
 
+// aliasOf is the annotation that names the command an alias stands for.
+const aliasOf = "alias_of"
+
 // alias marks c as the per-area spelling of a shared command (`host list`
 // for `list kind:host`). It keeps working and says so in its help, so there
 // is one implementation and one name to learn (docs/design/ux.md, section 11).
 func alias(c *cobra.Command, shared string) *cobra.Command {
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
+	c.Annotations[aliasOf] = strings.Fields(shared)[0]
 	c.Short = "Same as `komando " + shared + "`"
 	c.Long = ""
 	c.Example = ""

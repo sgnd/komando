@@ -167,8 +167,9 @@ func TestCheckQuotedWords(t *testing.T) {
 func TestInvalidCustomPattern(t *testing.T) {
 	extra := []string{`terraform\s+destroy`, `kubectl\s+delete(`}
 	hits := Check("uptime", extra)
-	if len(hits) != 1 || hits[0].ID != "custom-1" || !strings.Contains(hits[0].Reason, "not a valid regular expression") ||
-		!strings.Contains(hits[0].Reason, "policy rm custom-1") {
+	id := CustomID(extra[1])
+	if len(hits) != 1 || hits[0].ID != id || !strings.Contains(hits[0].Reason, "not a valid regular expression") ||
+		!strings.Contains(hits[0].Reason, "policy rm "+id) {
 		t.Errorf("hits = %+v", hits)
 	}
 	if bad := Invalid(extra); len(bad) != 1 || bad[1] == "" {
@@ -301,5 +302,20 @@ func TestSSHStop(t *testing.T) {
 		if hasRule(Check(c, nil), "sshd-stop") {
 			t.Errorf("%q: sshd-stop not expected", c)
 		}
+	}
+}
+
+// A custom rule's id comes from its pattern, so removing another rule
+// does not give it a new one.
+func TestCustomIDIsStable(t *testing.T) {
+	a, b := CustomID(`shutdown\s+-h`), CustomID(`kubectl\s+delete`)
+	if a == b || !strings.HasPrefix(a, "custom-") || len(a) != len("custom-")+8 {
+		t.Errorf("ids: %s %s", a, b)
+	}
+	if hits := Check("kubectl delete pod x", []string{`kubectl\s+delete`}); len(hits) != 1 || hits[0].ID != b {
+		t.Errorf("alone: %+v", hits)
+	}
+	if hits := Check("kubectl delete pod x", []string{`shutdown\s+-h`, `kubectl\s+delete`}); len(hits) != 1 || hits[0].ID != b {
+		t.Errorf("second: %+v", hits)
 	}
 }

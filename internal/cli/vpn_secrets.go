@@ -48,6 +48,13 @@ func checkVpnSecrets(s *store.State, name string, secrets map[string]string, ove
 		if overwrite && vpnOwnsSecret(s.Vpns[name], n) && slices.Equal(users, []string{"vpn " + name}) {
 			continue
 		}
+		if len(users) == 0 {
+			// left by a removed VPN of this name: adding the same file
+			// again stores the value it has, which changes nothing
+			if old, err := vault.Get(n); err == nil && old == secrets[n] {
+				continue
+			}
+		}
 		used := ""
 		if len(users) > 0 {
 			used = " (used by " + strings.Join(users, ", ") + ")"

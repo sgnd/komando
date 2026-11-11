@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -461,7 +462,7 @@ func TestInvalidDenyPatternReported(t *testing.T) {
 	}
 	found := false
 	for _, c := range securityChecks(st) {
-		if c.Name == "security:deny_rule:custom-0" {
+		if c.Name == "security:deny_rule:"+policy.CustomID(`kubectl\s+delete(`) {
 			found = !c.OK && strings.Contains(c.Detail, "not a valid regular expression")
 		}
 	}

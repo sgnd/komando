@@ -133,9 +133,9 @@ or a pipe.
 komando policy deny 'terraform\s+destroy'           # a Go regular expression
 komando policy list                                  # built-in and custom rules, with ids
 komando policy rm 'terraform\s+destroy'              # remove it again
-komando policy rm custom-0                           # or remove it by its id
+komando policy rm custom-1a2b3c4d                    # or remove it by its id
 komando policy check 'terraform destroy'             # exit 6 when it would be blocked
-komando policy check --for postgres 'delete from users'   # rate SQL or Redis instead
+komando policy check --for postgres 'delete from users'   # rate SQL, Redis or MongoDB instead
 ```
 
 A rule matches the command the way the shell reads it, so quotes and
@@ -143,10 +143,17 @@ backslashes inside a word (`r\m`, `/e""tc`) do not hide it. A custom
 pattern that is not a valid regular expression blocks every command until
 you fix or remove it; `komando doctor` and `policy list` name it.
 
-Built-in rules cannot be removed. `policy check` exits 6 when the command
-would be blocked, so it works in an `if`. `--for` rates a statement for a
-conn kind: `postgres`, `mysql`, `sqlserver`, `oracle`, `clickhouse`,
-`snowflake`, `bigquery`, `sqlite`, `redis` or `memcached`.
+Built-in rules cannot be removed. A custom rule's id (`custom-` and eight
+letters and digits) is made from its pattern, so it stays the same when
+another rule is removed. A pattern that matches empty text (`.*`) is
+refused: it would block every command.
+
+`policy check` exits 6 when the command would be blocked, so it works in an
+`if`. `--for` rates a statement for a conn kind instead: `postgres`,
+`mysql`, `sqlserver`, `oracle`, `clickhouse`, `snowflake`, `bigquery`,
+`sqlite`, `redis`, `memcached` or `mongodb` (a command document as JSON).
+It exits 6 too when the statement is destructive, which `db query` and
+`cache run` refuse without `--allow-dangerous`.
 
 ## Personal data
 

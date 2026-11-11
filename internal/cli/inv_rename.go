@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // `host mv`, `conn mv` and `vpn mv` give an entry a new name. Everything
@@ -30,6 +32,9 @@ type mvResult struct {
 	Updated  []string `json:"updated"`
 	Moved    []string `json:"moved,omitempty"` // key mv: the key files, "OLD -> NEW"
 	Warnings []string `json:"warnings,omitempty"`
+	// undo puts back what rename changed outside the state (vault
+	// secrets) when the state cannot be saved after it
+	undo func()
 }
 
 func (r mvResult) Text() string {
@@ -188,16 +193,37 @@ func renameVpn(s *store.State, from, to string) (mvResult, error) {
 		return res, out.Errf(out.ExitConflict, "VPN_IN_USE", "disconnect it first with `komando vpn down "+from+"`, then rename it",
 			"VPN %s is connected", from)
 	}
+	secrets, kept := vpnOwnSecrets(s, v, to)
+	res.Warnings = append(res.Warnings, kept...)
 	delete(s.Vpns, from)
 	v.Name, v.UpdatedAt = to, time.Now().UTC()
 	s.Vpns[to] = v
 	res.Updated = append(res.Updated, renameVia(s, from, to)...)
+	for _, n := range slices.Sorted(maps.Keys(secrets)) {
+		renameSecretRefs(s, n, secrets[n])
+		res.Updated = append(res.Updated, "secret "+n+", now "+secrets[n])
+	}
+	if len(secrets) > 0 && !g.dryRun {
+		if err := vault.RenameMany(secrets); err != nil {
+			return res, out.Errf(out.ExitError, "RENAME_FAILED", "nothing was renamed; check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
+				"the vault cannot rename the VPN's secrets: %v", err)
+		}
+		back := map[string]string{}
+		for old, now := range secrets {
+			back[now] = old
+		}
+		res.undo = func() { _ = vault.RenameMany(back) }
+	}
 	if v.Kind == "tailscale" {
 		oldDir := netx.TailscaleDir(&store.Vpn{Name: from})
 		if _, err := os.Stat(oldDir); err == nil {
 			res.Updated = append(res.Updated, "login state folder")
 			if !g.dryRun {
 				if err := os.Rename(oldDir, netx.TailscaleDir(v)); err != nil && !errors.Is(err, os.ErrNotExist) {
+					if res.undo != nil {
+						res.undo()
+						res.undo = nil
+					}
 					return res, out.Errf(out.ExitError, "RENAME_FAILED", "nothing was renamed; check the folder's permissions", "cannot move %s: %v", oldDir, err)
 				}
 			}
@@ -205,6 +231,32 @@ func renameVpn(s *store.State, from, to string) (mvResult, error) {
 	}
 	res.Action = mvVerb()
 	return res, nil
+}
+
+// vpnOwnSecrets are the vault secrets `vpn add` made for v under its name
+// (NAME-key, -psk, -config, -pass) that only v uses, mapped to their names
+// for the new name to, so that a renamed VPN leaves its old name free.
+// kept says which of them keep their name, and why.
+func vpnOwnSecrets(s *store.State, v *store.Vpn, to string) (map[string]string, []string) {
+	pairs := map[string]string{}
+	var kept []string
+	have := secretNames()
+	for _, suffix := range []string{"-key", "-psk", "-config", "-pass"} {
+		n := v.Name + suffix
+		ref := "secret:" + n
+		if (v.KeyRef != ref && v.PSKRef != ref && v.ConfigRef != ref) || !slices.Contains(have, n) {
+			continue
+		}
+		switch {
+		case !slices.Equal(secretUsers(s, n), []string{"vpn " + v.Name}):
+			kept = append(kept, "secret "+n+" keeps its name: something else uses it too")
+		case slices.Contains(have, to+suffix):
+			kept = append(kept, "secret "+n+" keeps its name: a secret "+to+suffix+" exists already")
+		default:
+			pairs[n] = to + suffix
+		}
+	}
+	return pairs, kept
 }
 
 func mvVerb() string {
@@ -225,8 +277,10 @@ they stay. Renaming a protected server needs --yes.`,
 		"conn": `Gives a conn a new name. Everything about it stays: URL, password
 reference, protected mark, groups, tags, labels and options. Tunnels to it
 follow the new name. Renaming a protected conn needs --yes.`,
-		"vpn": `Gives a VPN a new name. Its settings and vault references stay, and every
---via path that starts with it follows the new name. Disconnect it first
+		"vpn": `Gives a VPN a new name. Its settings stay, and every --via path that
+starts with it follows the new name. The vault secrets ` + "`vpn add`" + ` made under
+its name (NAME-key, NAME-config, ...) move to the new name when only this VPN
+uses them, so the old name is free again. Disconnect it first
 (` + "`komando vpn down NAME`" + `) if it is up.`,
 	}[kind]
 	return &cobra.Command{
@@ -243,6 +297,9 @@ follow the new name. Renaming a protected conn needs --yes.`,
 				return err
 			})
 			if err != nil {
+				if res.undo != nil {
+					res.undo()
+				}
 				return err
 			}
 			if res.Action == "renamed" {
