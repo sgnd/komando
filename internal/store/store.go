@@ -457,7 +457,11 @@ func (s *State) save() error {
 	if err != nil {
 		return err
 	}
-	return WriteFileAtomic(statePath(), b, 0o600)
+	if err := WriteFileAtomic(statePath(), b, 0o600); err != nil {
+		return err
+	}
+	commits.Add(1)
+	return nil
 }
 
 // Lock takes an exclusive lock on the file name in the state directory

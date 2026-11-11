@@ -151,7 +151,7 @@ func openDB(ctx context.Context, home, path string, meta map[string]string) (*se
 		return nil, err
 	}
 	if !lookOnly {
-		d.OnGeneration = raiseGeneration
+		d.OnGeneration = committed
 	}
 	return remember(home, path, d, master, lookOnly)
 }
@@ -231,7 +231,7 @@ func createDB(ctx context.Context, home, path string) (*sealdb.DB, error) {
 		return nil, err
 	}
 	if !lookOnly {
-		d.OnGeneration = raiseGeneration
+		d.OnGeneration = committed
 	}
 	return remember(home, path, d, master, lookOnly)
 }
