@@ -123,7 +123,7 @@ AWS SSM sessions as a built-in proxy; Docker credential files.
 | Case | Risk | Decision |
 |---|---|---|
 | Binary grows (tsnet, AWS SDK, Kubernetes protocols) | Bigger download | Accepted: no size limit (vision decision 4). Measured per phase and noted |
-| Package start-up (`init`) of big SDKs | Every command gets slower, also `komando prompt` (30 ms today, 20 ms of that start-up) | Prefer small REST clients over full SDKs (GCP: REST, not gRPC; Vault: REST). Measure `GODEBUG=inittrace=1` per phase; budget: `komando prompt` stays under 50 ms |
+| Package start-up (`init`) of big SDKs | Every command gets slower, also `komando status --short` (30 ms today, 20 ms of that start-up) | Prefer small REST clients over full SDKs (GCP: REST, not gRPC; Vault: REST). Measure `GODEBUG=inittrace=1` per phase; budget: `komando status --short` stays under 50 ms |
 | Memory of a userspace VPN | A long session holds a network stack | Same as WireGuard today; measured in the VPN e2e |
 
 ### Security

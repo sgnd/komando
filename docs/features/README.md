@@ -28,7 +28,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Windows servers](windows.md) | run PowerShell, files, copies and services on Windows servers | `host add --os windows`, `exec`, `svc` |
 | [Moving in and moving computers](import.md) | import ssh config, .pgpass, my.cnf, .env; export to another computer | `import`, `export` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |
-| [Running commands](commands.md) | run commands and scripts, long tasks, saved commands, the menu | `exec`, `script`, `job`, `recipe`, `shell` |
+| [Running commands](commands.md) | run commands and scripts, long tasks, saved commands, the menu | `exec`, `job`, `recipe`, `shell` |
 | [Health and network checks](health.md) | what is this server, is it healthy, what can it reach, when do certificates expire | `facts`, `recipe`, `net`, `cert` |
 | [Files](files.md) | read, edit and copy files safely; copy whole folders | `fs`, `upload`, `download`, `cp`, `sync` |
 | [Services, logs, Docker, packages, users](system.md) | day-to-day administration, security updates, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |

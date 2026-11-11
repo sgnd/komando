@@ -274,7 +274,7 @@ Then ask in your own words: *"Why is web1 slow?"*, *"Update all servers"*,
 | See and check everything at once | `list`, `test`, `status` |
 | Keep a list of servers and how to log in | `host`, `group`, `key`, `secret`, `login` |
 | Bring in what you already have, or move to another computer | `import`, `export` |
-| Run commands on one or many servers | `exec`, `script`, `job` (long tasks), `shell` (people only) |
+| Run commands on one or many servers | `exec` (`--script FILE` for a script from this computer), `job` (long tasks), `shell` (people only) |
 | Read, edit and copy files; copy whole folders | `fs`, `upload`, `download`, `cp`, `sync` |
 | Check health (36 ready-made checks, plus your own) and certificates | `facts`, `recipe`, `cert` |
 | Manage services, logs, Docker, software, users, schedules; restart servers | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |

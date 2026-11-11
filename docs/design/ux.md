@@ -136,7 +136,7 @@ How commands use the selector result:
 | input file | `--file` | `-f` only when the original tool uses it (`db query -f`, `docker compose -f`); in `logs`, `-f` is for follow |
 | to/from a local file | `--to` / `--from` | |
 | replace what exists | `--overwrite` | replaces `--force` |
-| named parameters | `--var KEY=VALUE` | for recipes and snippets |
+| named parameters | `--var KEY=VALUE` | for recipes |
 | positional parameters | `--arg VALUE` | for `$1`/`?` in SQL and script arguments |
 | group / tag | `-g, --group` / `-t, --tag` | |
 | search text | `--grep` | no short letter, because `-g` = group |
@@ -148,7 +148,7 @@ How commands use the selector result:
 ### Polarity rules (important for safety)
 
 - **Anything unknown is treated as a change.** Raw commands whose content
-  cannot be proven safe (`exec`, `script`, `snippet`, `docker exec`)
+  cannot be proven safe (`exec`, `exec --script`, `recipe run`, `docker exec`)
   are treated as *write*, unless marked `--read-only`.
 - **If the server can enforce read-only, the default is read-only** and it needs
   `--write` (`db query`, `cache run`). `cluster run` follows the same
@@ -259,7 +259,7 @@ run next).
   digit (already in effect). Unique across hosts and conns, ignoring
   upper/lower case.
 - Words that have a meaning as a selector (`all`) are refused as names.
-- Rename updates everything that refers to it (groups, `--via`, jump, snippets).
+- Rename updates everything that refers to it (groups, `--via`, recipes).
   Remove is refused (`HOST_IN_USE`, `SECRET_IN_USE`, `KEY_IN_USE`, ...) if it is still in use, with the list of users.
 - State is written atomically under a file lock, so two komando processes running
   at the same time do not overwrite each other. A state schema change makes a backup first.
@@ -334,9 +334,10 @@ Current overlaps, and the decision:
 | `host --jump` and `conn --via` | ✅ `--via` for everything ([network.md](network.md)) |
 | `host test`, `conn test`, `test` | ✅ only `test`; `host test`/`conn test` = `test` for one kind |
 | `host list`, `conn list`, `list` | ✅ only `list`; `host list`/`conn list` = `list kind:host` / `list kind:conn` |
-| `svc logs`, `docker logs`, `logs --unit/--container` | ✅ only `logs`; `svc logs` and `docker logs` become aliases |
+| `svc logs`, `docker logs`, `logs --unit/--container` | ✅ only `logs`; `svc logs` and `docker logs` are aliases that call it |
 | `ops run` (built-in recipes) and `snippet run` (your own recipes) | ✅ one `recipe` (a word that is easier to understand); the old names `ops` and `snippet` are gone |
-| `cp` (server) and `storage upload/download` | ✅ `upload`/`download` for servers (SFTP) and storage; `cp` and `storage upload/download` become aliases |
+| `cp` (server) and `storage upload/download` | ✅ `upload`/`download` for servers (SFTP) and storage; `cp` and `storage upload/download` call them |
+| `script` and `exec` | ✅ `exec --script FILE`; `script` is an old name for one release |
 | `group add/rm` and `edit --add-group/--rm-group` | keep both (many vs one), same code |
 | `host import/export` and `import ssh-config\|komando`, `export` | ✅ only `import` and `export` (one file format, komando-export/1); `host import/export` are old names for one release |
 | `prompt` and `status` | ✅ `status --short`; `prompt` is an old name for one release |

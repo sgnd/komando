@@ -27,15 +27,17 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
-- **One command for each job.** These old names still work in this
-  release, print `komando: use X now`, and go away in the next one:
-  - `cp`, `storage upload` and `storage download` run the same code as
-    `upload` and `download`, with the same flags.
+- **One command for each job.** Shortcuts that stay now run the same code
+  as the main command, with the same flags:
+  - `cp`, `storage upload` and `storage download` are `upload` and
+    `download`.
+  - `svc logs` and `docker logs` are `logs --unit` and `logs --container`.
+- **Old names for one release.** These still work, print
+  `komando: use X now`, and go away in the next release:
   - `script TARGET FILE` is now `exec TARGET --script FILE`.
   - `host import` is `import ssh-config` or `import komando`, and
     `host export` is `export` (`export kind:host` for servers only).
   - `prompt` is `status --short`.
-  - `svc logs` and `docker logs` are `logs --unit` and `logs --container`.
   - `db query --csv`/`--tsv` are `db query -o csv`/`-o tsv`. An export
     has every row; one larger than `--max-output` fails instead of being
     cut.

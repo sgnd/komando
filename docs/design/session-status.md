@@ -107,7 +107,7 @@ computer, for the one kind of state that lives between commands:
 ~/projects ⟨vpn:telkomsel tun:2⟩ $
 ```
 
-`komando prompt` prints that short text, or nothing when nothing runs. The
+`komando status --short` (once `komando prompt`) prints that short text, or nothing when nothing runs. The
 person adds it to their prompt themselves; komando never edits shell
 dotfiles. The docs give a snippet for zsh (including oh-my-zsh), bash and
 starship. Jobs are left out: whether a remote job is still running is
@@ -151,7 +151,7 @@ the plan does about it.
 |---|---|---|
 | Prompt segment calls `netx.LiveSession` | `LiveSession` **writes** `LastUsed`: rendering the prompt would keep every VPN alive forever and defeat `vpn_idle`. It can also stop stale sessions | `prompt` and `status` never call `LiveSession`; they read only |
 | Prompt segment runs on every Enter | `SessionAlive` runs `ps` on macOS: slow on every Enter | `prompt` checks the pid only (`kill 0`) plus the idle time, never runs another program and never changes the state file; `status` may do the full check. Measured: about 30 ms per call on an M-series Mac, of which about 20 ms is Go package start-up (mostly `rs/xid`, pulled in by the S3 client); reading the state takes well under 1 ms |
-| `komando prompt` goes through the root command's setup | `PersistentPreRunE` reaps idle VPNs and checks the audit log is writable: work and writes on every prompt | `prompt` skips that setup |
+| `komando status --short` goes through the root command's setup | `PersistentPreRunE` reaps idle VPNs and checks the audit log is writable: work and writes on every prompt | `status --short` skips that setup |
 | State file missing, corrupt, or being written | Broken prompt | State is written by rename (atomic), so a read sees old or new. On any error `prompt` prints nothing and exits 0: it must never break the person's shell |
 | State holds VPN SOCKS logins | Leak into the prompt | Only VPN names and tunnel counts are printed |
 | A VPN process died and its pid was reused | Prompt shows a VPN that is down | Accepted: the prompt is a hint; `komando status` is the full check (it also matches the program name). Documented |

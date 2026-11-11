@@ -261,6 +261,8 @@ komando user rm web1 leaver --remove-home --allow-dangerous
   working too, without deleting anything. Locking or deleting `root` or the
   user komando logs in as needs `--allow-dangerous`: komando could not log
   in afterwards to undo it, and root is the account that repairs a server.
+  The same goes for `user add --shell` with a shell nobody can log in with
+  (`/usr/sbin/nologin`, `/bin/false`) for those two accounts.
 - On Alpine, `user add`, `lock`, `unlock` and `rm` need the `shadow`
   package (`useradd`, `usermod`, `userdel`). Without it, `lock` and
   `unlock` stop with `TOOL_MISSING`; `add` and `rm` fail on that server

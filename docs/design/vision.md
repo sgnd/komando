@@ -159,7 +159,7 @@ komando export [--to FILE]          # the whole inventory, without secrets
 
 | SOURCE | Reads | Result |
 |---|---|---|
-| `ssh-config` | `~/.ssh/config` | host (already in `host import`) |
+| `ssh-config` | `~/.ssh/config` | host |
 | `kubeconfig` | `~/.kube/config` | a `k8s` conn per context |
 | `pgpass`, `mycnf` | `~/.pgpass`, `~/.my.cnf` | `db` conn + password into the vault |
 | `aws` | `~/.aws/config` + `credentials` | `storage` conn per bucket, using the AWS profile (`aws_profile`); no key is copied |
@@ -173,7 +173,7 @@ komando export [--to FILE]          # the whole inventory, without secrets
 
 The rules: imported secrets **always go into the vault**, `--dry-run` shows
 what will be created, and existing entries are not overwritten except with
-`--overwrite`. `host import` keeps working.
+`--overwrite`. `host import` is now an old name of it.
 
 ## Technical rules
 
