@@ -3,13 +3,14 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"math"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -21,7 +22,7 @@ import (
 func svcCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "svc",
-		Aliases: []string{"service", "systemd"},
+		Aliases: []string{"service"},
 		Short:   "Services (systemd, Windows): status, start, stop, restart, logs",
 	}
 	c.AddCommand(svcStatusCmd(), svcListCmd(), svcLogsCmd(), svcDaemonReloadCmd())
@@ -88,23 +89,20 @@ func svcStatusCmd() *cobra.Command {
 
 func svcActionCmd(action string) *cobra.Command {
 	var noSudo, now bool
-	var wait int
+	var wait time.Duration
 	c := &cobra.Command{
 		Use:   action + " TARGET UNIT...",
 		Short: strings.ToUpper(action[:1]) + action[1:] + " units (sudo) and report the resulting state",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if wait < 0 {
-				return out.Usage("--wait must be 0 or more seconds")
-			}
-			return svcAction(cmd.Context(), action, args[0], args[1:], !noSudo, now, wait)
+			return svcAction(cmd.Context(), action, args[0], args[1:], !noSudo, now, int(math.Ceil(wait.Seconds())))
 		},
 	}
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. --user units or root login)")
 	switch action {
 	case "start", "restart", "reload":
-		c.Example = "  komando svc " + action + " @web nginx --wait 10   # fails unless nginx is active within 10s"
-		c.Flags().IntVar(&wait, "wait", 0, "wait up to N seconds for the units to be active; fail if they are not")
+		c.Example = "  komando svc " + action + " @web nginx --wait 10s   # fails unless nginx is active within 10 seconds"
+		c.Flags().Var(waitFlag{&wait}, "wait", "wait up to this long (10s, 2m) for the units to be active; fail if they are not")
 	case "enable", "disable":
 		verb := map[string]string{"enable": "start", "disable": "stop"}[action]
 		c.Flags().BoolVar(&now, "now", false, "also "+verb+" the units now (systemctl "+action+" --now)")
@@ -113,18 +111,7 @@ func svcActionCmd(action string) *cobra.Command {
 }
 
 func svcLogsCmd() *cobra.Command {
-	var lo logOpts
-	c := &cobra.Command{
-		Use:   "logs TARGET UNIT",
-		Short: "Same as `komando logs TARGET --unit UNIT`",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			lo.unit = args[1]
-			return runLogs(cmd.Context(), "svc.logs", args[0], &lo, lo.sudo)
-		},
-	}
-	lo.bind(c, false)
-	return c
+	return logsAlias("logs TARGET UNIT", "svc.logs", "unit")
 }
 
 // logs.
@@ -144,15 +131,13 @@ func (o *logOpts) dockerLogs() string {
 	return "docker logs"
 }
 
-func (o *logOpts) bind(c *cobra.Command, sources bool) {
+func (o *logOpts) bind(c *cobra.Command) {
 	f := c.Flags()
-	if sources {
-		f.StringVarP(&o.unit, "unit", "u", "", "systemd unit (journalctl)")
-		f.StringVar(&o.file, "file", "", "read this log file on the server (full path)")
-		f.StringVar(&o.container, "container", "", "read this Docker container's log (its name or ID)")
-	}
-	f.StringVar(&o.since, "since", "", "start time, e.g. -1h, '2026-01-02 10:00', today (journal and containers)")
-	f.StringVar(&o.until, "until", "", "end time (journal and containers)")
+	f.StringVarP(&o.unit, "unit", "u", "", "systemd unit (journalctl)")
+	f.StringVar(&o.file, "file", "", "read this log file on the server (full path)")
+	f.StringVar(&o.container, "container", "", "read this Docker container's log (its name or ID)")
+	f.StringVar(&o.since, "since", "", "start time: back from now (30m, 2h, 7d), today, yesterday or '2026-01-02 10:00'")
+	f.StringVar(&o.until, "until", "", "end time, in the same forms as --since")
 	f.StringVar(&o.grep, "grep", "", "only lines matching this extended regex (case-insensitive)")
 	f.StringVarP(&o.priority, "priority", "p", "", "journal priority and worse: emerg, alert, crit, err, warning, notice, info, debug (or 0-7)")
 	f.IntVarP(&o.lines, "limit", "n", 200, "the most lines to show (the last ones)")
@@ -174,6 +159,7 @@ func (o *logOpts) build() (string, error) {
 
 func (o *logOpts) source() string {
 	n := strconv.Itoa(o.lines)
+	since, until, _ := o.times() // check() has refused a bad one
 	grep := ""
 	if o.grep != "" {
 		grep = " | grep -iE -- " + sshx.Q(o.grep)
@@ -185,8 +171,8 @@ func (o *logOpts) source() string {
 		switch {
 		case o.container != "":
 			c := o.dockerLogs() + " --tail " + n + " -f"
-			if o.since != "" {
-				c += " --since " + sshx.Q(strings.TrimPrefix(o.since, "-"))
+			if since != "" {
+				c += " --since " + sshx.Q(since)
 			}
 			return c + " " + sshx.Q(o.container) + " 2>&1" + grep
 		case o.file != "":
@@ -196,8 +182,8 @@ func (o *logOpts) source() string {
 		if o.unit != "" {
 			c += " -u " + sshx.Q(o.unit)
 		}
-		if o.since != "" {
-			c += " --since " + sshx.Q(o.since)
+		if since != "" {
+			c += " --since " + sshx.Q(since)
 		}
 		if o.priority != "" {
 			c += " -p " + sshx.Q(o.priority)
@@ -210,11 +196,11 @@ func (o *logOpts) source() string {
 		if o.grep != "" {
 			c = o.dockerLogs()
 		}
-		if o.since != "" {
-			c += " --since " + sshx.Q(strings.TrimPrefix(o.since, "-"))
+		if since != "" {
+			c += " --since " + sshx.Q(since)
 		}
-		if o.until != "" {
-			c += " --until " + sshx.Q(strings.TrimPrefix(o.until, "-"))
+		if until != "" {
+			c += " --until " + sshx.Q(until)
 		}
 		c += " " + sshx.Q(o.container) + " 2>&1"
 		if grep != "" {
@@ -231,11 +217,11 @@ func (o *logOpts) source() string {
 		if o.unit != "" {
 			c += " -u " + sshx.Q(o.unit)
 		}
-		if o.since != "" {
-			c += " --since " + sshx.Q(o.since)
+		if since != "" {
+			c += " --since " + sshx.Q(since)
 		}
-		if o.until != "" {
-			c += " --until " + sshx.Q(o.until)
+		if until != "" {
+			c += " --until " + sshx.Q(until)
 		}
 		if o.priority != "" {
 			c += " -p " + sshx.Q(o.priority)
@@ -260,7 +246,7 @@ func logsCmd() *cobra.Command {
 			return runLogs(cmd.Context(), "logs", args[0], &lo, lo.sudo)
 		},
 	}
-	lo.bind(c, true)
+	lo.bind(c)
 	return c
 }
 
@@ -426,9 +412,10 @@ func pkgCmd() *cobra.Command {
 	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
 	mk := func(action, short string, needPkgs, mutating, sudo bool) *cobra.Command {
 		use := action + " TARGET"
-		if needPkgs {
+		switch {
+		case needPkgs:
 			use += " PACKAGE..."
-		} else {
+		case action != "update":
 			use += " [PACKAGE...]"
 		}
 		return &cobra.Command{
@@ -440,6 +427,10 @@ func pkgCmd() *cobra.Command {
 				}
 				if len(args) < 1 {
 					return out.Usage("give TARGET")
+				}
+				if action == "update" && len(args) > 1 {
+					return out.Errf(out.ExitUsage, "USAGE", "to upgrade packages: komando pkg upgrade "+args[0]+" "+strings.Join(args[1:], " "),
+						"pkg update only refreshes the package index; it takes no package names")
 				}
 				return nil
 			},
@@ -520,7 +511,14 @@ func netCmd() *cobra.Command {
 		Short: "Send an HTTP request from each server: status, timing, IP",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command := `curl -sS -o /dev/null -m 15 -w '{"code":%{http_code},"time_total":%{time_total},"time_connect":%{time_connect},"time_starttransfer":%{time_starttransfer},"remote_ip":"%{remote_ip}","size":%{size_download},"redirect":"%{redirect_url}"}' ` + sshx.Q(args[1])
+			if err := checkHTTPURL(args[1]); err != nil {
+				return err
+			}
+			expect = strings.ToLower(expect)
+			if expect != "" && !expectRe.MatchString(expect) {
+				return out.Usage("--expect takes a status like 200 or a class like 2xx (got %q)", expect)
+			}
+			command := `curl -sS -o /dev/null -m ` + strconv.Itoa(curlSeconds()) + ` --proto =http,https -w '{"code":%{http_code},"time_total":%{time_total},"time_connect":%{time_connect},"time_starttransfer":%{time_starttransfer},"remote_ip":"%{remote_ip}","size":%{size_download},"redirect":"%{redirect_url}"}' --url ` + sshx.Q(args[1])
 			return runOps(cmd.Context(), opsSpec{name: "net.http", target: args[0], command: command, display: "net http " + args[1], parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 				s := strings.Replace(rr.Stdout, `"code":000`, `"code":0`, 1) // curl writes 000 when nothing answered
 				var v map[string]any
@@ -584,139 +582,54 @@ func netCmd() *cobra.Command {
 	return c
 }
 
+// checkHTTPURL takes only http:// and https:// URLs: anything else would
+// reach curl as another protocol, or as an option when it starts with -.
+func checkHTTPURL(s string) error {
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return out.Usage("give the URL with http:// or https:// in front, like https://example.com/health (got %q)", s)
+	}
+	return nil
+}
+
+var expectRe = regexp.MustCompile(`^[1-5]([0-9]{2}|xx)$`)
+
+// curlSeconds is curl's own time limit: 15 seconds, or a moment less than
+// --timeout, so curl reports the timeout before the connection is cut.
+func curlSeconds() int {
+	if g.timeout <= 0 {
+		return 15
+	}
+	return max(1, int(g.timeout.Seconds())-1)
+}
+
 // statusMatches: 200 matches 200, 2xx matches 200-299.
 func statusMatches(code int, want string) bool {
+	want = strings.ToLower(want)
 	if len(want) == 3 && strings.HasSuffix(want, "xx") {
 		return strconv.Itoa(code)[:1] == want[:1]
 	}
 	return strconv.Itoa(code) == want
 }
 
-// user.
-
-func userCmd() *cobra.Command {
-	c := &cobra.Command{Use: "user", Aliases: []string{"users"}, Short: "Linux user accounts: list, add, lock, unlock, rm"}
-	var noSudo bool
-	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
-	var all bool
-	list := &cobra.Command{
-		Use:   "list TARGET",
-		Short: "List accounts with admin group and lock state (--all for system)",
-		Long: `Lists accounts with their uid, home, shell, whether they are in the sudo,
-wheel or admin group (admin_group; rules in sudoers.d are not read) and
-whether the account is locked (expired, as ` + "`komando user lock`" + ` does). The lock
-state is read through sudo; with --no-sudo it is left out.`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOps(cmd.Context(), opsSpec{name: "user.list", target: args[0], command: userListScript, display: "user list", sudo: !noSudo,
-				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return parseUsers(rr.Stdout, all), nil },
-				text:  usersText})
-		},
-	}
-	list.Flags().BoolVar(&all, "all", false, "include system accounts")
-	var pubKey, keyName, shell string
-	var admin bool
-	add := &cobra.Command{
-		Use:     "add TARGET USERNAME",
-		Short:   "Create a user if missing, with an SSH key and sudo if asked",
-		Example: "  komando user add @web deploy --key deploy --admin",
-		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			u := args[1]
-			if !nameRe.MatchString(u) {
-				return out.Usage("invalid username %q: start with a letter or digit, then letters, digits, . _ or - (at most 63)", u)
-			}
-			if pubKey != "" {
-				if _, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pubKey)); err != nil {
-					return out.Usage("--pubkey is not an SSH public key line (ssh-ed25519 AAAA... comment): %v", err)
-				}
-			}
-			if keyName != "" {
-				st, err := loadState()
-				if err != nil {
-					return err
-				}
-				k, ok := st.Keys[keyName]
-				if !ok {
-					return out.NotFound("key", keyName)
-				}
-				pubKey = k.PublicKey
-			}
-			q := sshx.Q(u)
-			sb := strings.Builder{}
-			sb.WriteString("set -e; if id " + q + " >/dev/null 2>&1; then echo 'exists' >&2; else useradd -m -s " + sshx.Q(shell) + " " + q + "; echo 'created' >&2; fi; ")
-			if cmd.Flags().Changed("shell") {
-				// an existing user gets the shell asked for, too
-				sb.WriteString("[ \"$(getent passwd " + q + " | cut -d: -f7)\" = " + sshx.Q(shell) + " ] || usermod -s " + sshx.Q(shell) + " " + q + "; ")
-			}
-			if admin {
-				sb.WriteString("if getent group sudo >/dev/null; then usermod -aG sudo " + q + "; else usermod -aG wheel " + q + "; fi; ")
-			}
-			if pubKey != "" {
-				sb.WriteString("h=$(getent passwd " + q + " | cut -d: -f6); install -d -m 700 -o " + q + " -g $(id -gn " + q + ") \"$h/.ssh\"; touch \"$h/.ssh/authorized_keys\"; " +
-					"grep -qF " + sshx.Q(pubKey) + " \"$h/.ssh/authorized_keys\" || printf '%s\\n' " + sshx.Q(pubKey) + " >> \"$h/.ssh/authorized_keys\"; " +
-					"chown " + q + ": \"$h/.ssh/authorized_keys\"; chmod 600 \"$h/.ssh/authorized_keys\"; ")
-			}
-			sb.WriteString("id " + q)
-			return runOne(cmd.Context(), "user.add", args[0], sb.String(), !noSudo, true)
-		},
-	}
-	add.Flags().StringVar(&pubKey, "pubkey", "", "public key line to authorize")
-	add.Flags().StringVar(&keyName, "key", "", "authorize this key from komando's key list")
-	add.Flags().StringVar(&shell, "shell", "/bin/bash", "the new user's login shell")
-	add.Flags().BoolVar(&admin, "admin", false, "add to the sudo (Debian) or wheel (RHEL, Alpine) group")
-	lock := &cobra.Command{
-		Use:   "lock TARGET USERNAME",
-		Short: "Lock an account so password and SSH keys stop working",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOps(cmd.Context(), opsSpec{name: "user.lock", target: args[0], command: userExists(args[1]) + "usermod -L -e 1 " + sshx.Q(args[1]),
-				display: "user lock " + args[1], sudo: !noSudo, mutating: true,
-				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return userResult(args[1], "locked", rr) }})
-		},
-	}
-	unlock := &cobra.Command{
-		Use:   "unlock TARGET USERNAME",
-		Short: "Unlock an account locked with `user lock`",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOps(cmd.Context(), opsSpec{name: "user.unlock", target: args[0], command: userExists(args[1]) + "usermod -U -e '' " + sshx.Q(args[1]),
-				display: "user unlock " + args[1], sudo: !noSudo, mutating: true,
-				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return userResult(args[1], "unlocked", rr) }})
-		},
-	}
-	var removeHome bool
-	del := &cobra.Command{
-		Use:   "rm TARGET USERNAME",
-		Short: "Delete a user (needs --allow-dangerous)",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := "userdel "
-			if removeHome {
-				c += "-r "
-			}
-			return runOne(cmd.Context(), "user.rm", args[0], c+sshx.Q(args[1]), !noSudo, true)
-		},
-	}
-	del.Flags().BoolVar(&removeHome, "remove-home", false, "also delete the user's home folder and the files in it")
-	c.AddCommand(list, add, lock, unlock, del)
-	return c
-}
-
 // cron.
+
+const cronLong = `Cron runs commands on a schedule (every night at 2, every 5 minutes ...).
+komando manages crontab entries by ID: each is tagged with '# komando:<id>',
+so 'cron set' replaces the entry with the same ID instead of adding a second
+one, and 'cron rm' removes only that entry. Other lines of the crontab are
+kept as they are.`
 
 func cronCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "cron",
 		Short: "Manage crontab entries by ID (set replaces, never duplicates)",
-		Long: `Entries are tagged with '# komando:<id>', so 'cron set' replaces the
-entry with the same ID instead of adding a second one, and 'cron rm' removes
-only that entry. Other lines of the crontab are kept as they are.`,
+		Long:  cronLong,
 	}
 	var user string
 	var sudo bool
 	c.PersistentFlags().StringVar(&user, "user", "", "crontab of this user (uses sudo)")
-	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "use sudo")
+	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "use root's crontab (through sudo)")
 	ct := func() string {
 		if user != "" {
 			return "crontab -u " + sshx.Q(user)
@@ -724,12 +637,12 @@ only that entry. Other lines of the crontab are kept as they are.`,
 		return "crontab"
 	}
 	useSudo := func() bool { return sudo || user != "" }
-	// readCron puts the current crontab in $cur; "no crontab" is empty, any
-	// other error (no permission, busybox not suid) stops before a write
-	// could replace the whole crontab
+	// readCron puts the current crontab in $cur; "no crontab" (busybox: "can't
+	// open ...: No such file") is empty, any other error (no permission,
+	// busybox not suid) stops before a write could replace the whole crontab
 	readCron := func() string {
 		return "cur=$(" + ct() + ` -l 2>&1); rc=$?
-if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*) cur="" ;; *) printf '%s\n' "$cur" >&2; exit $rc ;; esac; fi
+if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file"*) cur="" ;; *) printf '%s\n' "$cur" >&2; exit $rc ;; esac; fi
 `
 	}
 	// without keeps the lines that do not end in the exact tag
@@ -738,9 +651,10 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*) cur="" ;; *) printf '%s\n'
 `
 	}
 	list := &cobra.Command{
-		Use:   "list TARGET",
-		Short: "Show crontab entries",
-		Args:  cobra.ExactArgs(1),
+		Use:     "list TARGET",
+		Aliases: []string{"ls"},
+		Short:   "Show crontab entries",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runOps(cmd.Context(), opsSpec{name: "cron.list", target: args[0], command: readCron() + `printf '%s\n' "$cur"`, display: "cron list", sudo: useSudo(),
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {

@@ -8,10 +8,8 @@ import (
 	"mime"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -36,16 +34,18 @@ func storageCmd() *cobra.Command {
 		Use:     "storage",
 		Aliases: []string{"s3"},
 		Short:   "Buckets (S3, GCS, Azure) and WebDAV/FTP/SFTP/SMB file servers",
-		Long: `Work with a storage conn (see ` + "`komando conn`" + `): an S3-compatible, Google Cloud
-Storage or Azure Blob bucket, or a folder on a WebDAV, FTPS, FTP or SFTP
+		Long: `List, copy and share files in a bucket or on a file server. Add one with
+` + "`komando storage add`" + `.
+
+It works with an S3-compatible, Google Cloud Storage or Azure Blob bucket, or a folder on a WebDAV, FTPS, FTP or SFTP
 server or an SMB share (Windows, Samba, Azure Files). Keys are relative to
-the folder in the conn URL; a key ending in / is a folder. ls, cat and
+the folder in the storage URL; a key ending in / is a folder. ls, cat and
 download only read. upload changes files and link shares one (S3, Google
-Cloud and Azure; protected conns need --yes for both); rm deletes, so it also needs --allow-dangerous. Downloads never
+Cloud and Azure; on production storage both ask first); rm deletes, so it also needs --allow-dangerous. Downloads never
 overwrite a local file unless --overwrite, and uploads to file servers go to
 a temporary name first, so a failed upload leaves nothing half written.`,
 	}
-	c.AddCommand(storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
+	c.AddCommand(connAddCmdFor("storage"), storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
 	return c
 }
 
@@ -265,67 +265,6 @@ func storageLsCmd() *cobra.Command {
 	return c
 }
 
-func storageDownloadCmd() *cobra.Command {
-	var to string
-	var recursive, overwrite bool
-	c := &cobra.Command{
-		Use:     "download CONN KEY",
-		Aliases: []string{"get"},
-		Short:   "Download an object, or a folder with -r, to this computer",
-		Long: `Saves KEY to a file named like the key in the current folder, or to --to:
-a file name, a folder (existing, or ending in /), or - for stdout (text
-output only). An existing file is never replaced unless --overwrite. With -r,
-KEY is a folder and everything under it is downloaded; files already here
-are kept unless --overwrite. --dry-run shows what would be saved where.`,
-		Example: `  komando storage download backups db/app-2026-11-02.sql.gz
-  komando storage download backups reports/q3.pdf --to ~/Downloads/
-  komando storage download backups logs/app.log --to - -o text | less
-  komando storage download backups reports/ -r --to ./reports`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if recursive {
-				if to == "-" {
-					return out.Usage("-r saves a folder; --to - (stdout) takes one file")
-				}
-				dest := to
-				if dest == "" {
-					dest = path.Base(strings.TrimSuffix(args[1], "/"))
-				}
-				return syncDown(cmd.Context(), "storage.download", args[0], args[1], dest, syncOpts{onlyNew: !overwrite})
-			}
-			return storageDownloadTo(cmd.Context(), "storage.download", args[0], args[1], to, overwrite)
-		},
-	}
-	c.Flags().StringVar(&to, "to", "", "file or folder to save to, or - for stdout (default: the key's file name here)")
-	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "download every object under the KEY folder")
-	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace files that already exist on this computer")
-	return c
-}
-
-func storageUploadCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:     "upload CONN FILE [KEY]",
-		Aliases: []string{"put"},
-		Short:   "Same as `komando upload CONN FILE [KEY]`",
-		Long: `Uploads FILE to KEY. Without KEY it keeps the file's name; a KEY ending in /
-is a folder, so the file keeps its name inside it. An existing object is
-replaced (the result says so); --dry-run checks the key and says whether it
-would replace one.`,
-		Example: `  komando storage upload backups prod-2026-11-02.sql.gz
-  komando storage upload backups ./report.pdf reports/2026/
-  komando storage upload backups ./report.pdf reports/2026/q3.pdf --dry-run`,
-		Args: cobra.RangeArgs(2, 3),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			key := ""
-			if len(args) == 3 {
-				key = args[2]
-			}
-			return storageUpload(cmd.Context(), "storage.upload", args[0], args[1], key)
-		},
-	}
-	return c
-}
-
 func storageRmCmd() *cobra.Command {
 	var prefix, olderThan string
 	var limit int
@@ -404,20 +343,6 @@ first; --limit (default 1000) refuses to go on when more would be removed.`,
 	c.Flags().StringVar(&olderThan, "older-than", "", "with --prefix: only objects older than this (30d, 12h, 90m)")
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "refuse when more than this many objects would be removed")
 	return c
-}
-
-// parseAge reads a positive duration with days (30d) as well as Go units
-// (12h, 90m); flag names the flag in the error.
-func parseAge(s, flag string) (time.Duration, error) {
-	if d, ok := strings.CutSuffix(s, "d"); ok {
-		if n, err := strconv.Atoi(d); err == nil && n > 0 {
-			return time.Duration(n) * 24 * time.Hour, nil
-		}
-	}
-	if d, err := time.ParseDuration(s); err == nil && d > 0 {
-		return d, nil
-	}
-	return 0, out.Usage("%s takes a positive duration like 30d, 12h or 90m (got %q)", flag, s)
 }
 
 func removeKeys(ctx context.Context, s storex.Bucket, keys []string) ([]string, error) {
@@ -565,7 +490,7 @@ func storageCatCmd() *cobra.Command {
 						text = strings.ToValidUTF8(text[:len(text)-incompleteRune(text)], "") // cut inside a character
 					}
 					if !utf8.ValidString(text) || strings.ContainsRune(text, 0) {
-						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "download it with `komando storage download CONN KEY`", "%s is not text", args[1])
+						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "download it with `komando download CONN KEY`", "%s is not text", args[1])
 					}
 					lines := strings.SplitAfter(text, "\n")
 					if len(lines) > 0 && lines[len(lines)-1] == "" {
@@ -646,11 +571,12 @@ The link names the storage address in the conn URL: when komando reaches it
 through --via, only people who can reach that address can use the link.
 --endpoint signs the link for the address they use instead (S3 only).`,
 		Example: `  komando storage link backups reports/q3.pdf --expires 24h
+  komando storage link backups reports/q3.pdf --expires 7d
   komando storage link backups reports/q3.pdf --endpoint https://files.example.com`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if expires <= 0 || expires > 7*24*time.Hour {
-				return out.Usage("--expires must be between 1s and 168h (7 days)")
+				return out.Usage("--expires must be between 1s and 7d (168h)")
 			}
 			var pub *url.URL
 			if endpoint != "" {
@@ -691,7 +617,8 @@ through --via, only people who can reach that address can use the link.
 				})
 		},
 	}
-	c.Flags().DurationVar(&expires, "expires", time.Hour, "how long the link works (max 168h)")
+	expires = time.Hour
+	c.Flags().Var(ageFlag{&expires, "--expires"}, "expires", "how long the link works: 30m, 24h, 7d (max 7d)")
 	c.Flags().StringVar(&endpoint, "endpoint", "", "sign the link for this address, e.g. https://files.example.com (when komando reaches the storage through --via)")
 	return c
 }
@@ -755,6 +682,9 @@ func storageUpload(ctx context.Context, name, conn, file, key string) error {
 		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders go with -r: `komando upload CONN DIR KEY -r`)", "cannot upload %s", file)
 	}
 	if err := guardLocalRead(file); err != nil {
+		return err
+	}
+	if err := hiddenInLocal(file); err != nil {
 		return err
 	}
 	data := func(c *store.Conn, s storex.Bucket, ctx context.Context) (uploadData, error) {

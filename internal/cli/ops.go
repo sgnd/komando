@@ -39,29 +39,17 @@ var recipes = []recipe{
 	{Name: "top-mem", Category: "process", Desc: "Top processes by memory", Cmd: `ps -eo pid,user,%mem,rss,etime,cmd --sort=-rss | head -n {{limit}}`, Params: map[string]string{"limit": "15"}},
 	{Name: "process", Category: "process", Desc: "Find processes by name pattern", Cmd: `ps -eo pid,ppid,user,%cpu,%mem,etime,cmd | grep -i -- {{pattern}} | grep -v grep`, Params: map[string]string{"pattern": ""}},
 	{Name: "oom", Category: "process", Desc: "Recent out-of-memory kills", Cmd: `(journalctl -k --since {{since}} --no-pager 2>/dev/null || dmesg -T 2>/dev/null) | grep -iE 'out of memory|oom-kill|killed process' | tail -n 50`, Sudo: true, Params: map[string]string{"since": "-24h"}},
-	{Name: "ports", Category: "network", Desc: "Listening TCP/UDP ports with processes", Cmd: `ss -tulpnH 2>/dev/null || netstat -tulpn`, Sudo: true},
 	{Name: "connections", Category: "network", Desc: "TCP connection counts by state and top remote IPs", Cmd: `ss -Htan | awk '{print $1}' | sort | uniq -c | sort -rn; echo; ss -Htn state established | awk '{split($4,a,":"); print a[1]}' | sort | uniq -c | sort -rn | head -n 10`},
 	{Name: "firewall", Category: "network", Desc: "Firewall status (ufw / firewalld / nftables / iptables)", Cmd: `if command -v ufw >/dev/null; then ufw status verbose; elif command -v firewall-cmd >/dev/null; then firewall-cmd --list-all; elif command -v nft >/dev/null; then nft list ruleset; else iptables -S; fi`, Sudo: true},
-	{Name: "dns", Category: "network", Desc: "Resolver config and a lookup", Cmd: `cat /etc/resolv.conf | grep -v '^#'; echo; getent hosts {{name}} || echo "lookup failed"`, Params: map[string]string{"name": "example.com"}},
-	{Name: "failed-units", Category: "service", Desc: "Failed systemd units", Cmd: `systemctl --failed --no-legend --plain`},
-	{Name: "journal-errors", Category: "logs", Desc: "Error-level journal entries", Cmd: `journalctl -p err --since {{since}} --no-pager -o short-iso | tail -n {{limit}}`, Sudo: true, Params: map[string]string{"since": "-1h", "limit": "100"}},
 	{Name: "auth-failures", Category: "security", Desc: "Failed SSH logins", Cmd: `(journalctl -u ssh -u sshd --since {{since}} --no-pager 2>/dev/null || cat /var/log/auth.log /var/log/secure 2>/dev/null) | grep -iE 'failed password|invalid user|authentication failure' | tail -n {{limit}}`, Sudo: true, Params: map[string]string{"since": "-24h", "limit": "50"}},
 	{Name: "last-logins", Category: "security", Desc: "Recent logins", Cmd: `last -n {{limit}} -a 2>/dev/null || lastlog | head -n {{limit}}`, Params: map[string]string{"limit": "20"}},
 	{Name: "sudoers", Category: "security", Desc: "Users with sudo/wheel and sudoers rules", Cmd: `getent group sudo wheel admin 2>/dev/null; echo; grep -rhv '^\s*#' /etc/sudoers /etc/sudoers.d 2>/dev/null | grep -v '^\s*$'`, Sudo: true},
 	{Name: "sshd-config", Category: "security", Desc: "Effective sshd security settings", Cmd: `sshd -T 2>/dev/null | grep -iE '^(port|permitrootlogin|passwordauthentication|pubkeyauthentication|kbdinteractiveauthentication|x11forwarding|allowusers|allowgroups|maxauthtries) '`, Sudo: true},
-	{Name: "updates", Category: "packages", Desc: "Pending package updates", Cmd: `if command -v apt >/dev/null; then apt list --upgradable 2>/dev/null | tail -n +2; elif command -v dnf >/dev/null; then dnf -q check-update; elif command -v yum >/dev/null; then yum -q check-update; elif command -v apk >/dev/null; then apk -u list; fi; [ -f /var/run/reboot-required ] && echo "*** reboot required ***"; true`},
-	{Name: "security-updates", Category: "packages", Desc: "Pending security updates", Cmd: `if command -v apt >/dev/null; then apt list --upgradable 2>/dev/null | grep -i security; elif command -v dnf >/dev/null; then dnf -q updateinfo list security; fi; true`},
 	{Name: "nginx-test", Category: "web", Desc: "Validate nginx config", Cmd: `nginx -t 2>&1`, Sudo: true},
 	{Name: "nginx-sites", Category: "web", Desc: "nginx server_names and listen directives", Cmd: `nginx -T 2>/dev/null | grep -E '^\s*(server_name|listen|root|proxy_pass)\s' | sed 's/^\s*//' | sort | uniq -c`, Sudo: true},
 	{Name: "apache-test", Category: "web", Desc: "Validate apache config", Cmd: `(apachectl configtest || apache2ctl configtest) 2>&1`, Sudo: true},
-	{Name: "http-check", Category: "web", Desc: "HTTP status/timing of a URL from the server", Cmd: `curl -sS -o /dev/null -m {{timeout}} -w 'code=%{http_code} time_total=%{time_total}s ip=%{remote_ip} size=%{size_download}\n' {{url}}`, Params: map[string]string{"url": "", "timeout": "10"}},
-	{Name: "docker-overview", Category: "container", Desc: "Docker containers, disk usage and unhealthy containers", Cmd: `docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'; echo; docker system df; echo; docker ps --filter health=unhealthy --format '{{.Names}} UNHEALTHY'`, Sudo: true},
-	{Name: "k8s-overview", Category: "container", Desc: "Kubernetes nodes and non-running pods", Cmd: `kubectl get nodes -o wide; echo; kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded`},
 	{Name: "time-sync", Category: "system", Desc: "Clock / NTP sync status", Cmd: `timedatectl 2>/dev/null || date`},
 	{Name: "cron-all", Category: "system", Desc: "All cron entries (system + users)", Cmd: `cat /etc/crontab 2>/dev/null; ls /etc/cron.d 2>/dev/null; for u in $(cut -d: -f1 /etc/passwd); do c=$(crontab -l -u "$u" 2>/dev/null | grep -v '^#'); [ -n "$c" ] && printf '## %s\n%s\n' "$u" "$c"; done; systemctl list-timers --no-pager 2>/dev/null | head -n 30`, Sudo: true},
-	{Name: "mysql-status", Category: "database", Desc: "MySQL/MariaDB status and process list", Cmd: `mysqladmin status; mysql -e 'SHOW FULL PROCESSLIST' | head -n 30`, Sudo: true},
-	{Name: "postgres-status", Category: "database", Desc: "PostgreSQL activity and DB sizes", Cmd: `sudo -u postgres psql -Atc "select datname, pg_size_pretty(pg_database_size(datname)) from pg_database" && sudo -u postgres psql -Atc "select state, count(*) from pg_stat_activity group by 1"`},
-	{Name: "redis-info", Category: "database", Desc: "Redis memory/clients/keyspace", Cmd: `redis-cli info | grep -E '^(redis_version|connected_clients|used_memory_human|maxmemory_human|db[0-9]+|role):'`},
 	{Name: "drop-caches", Category: "maintenance", Desc: "Free page cache (safe but causes I/O)", Cmd: `sync && echo 3 > /proc/sys/vm/drop_caches && free -m`, Sudo: true, Mutating: true},
 	{Name: "journal-vacuum", Category: "maintenance", Desc: "Shrink systemd journal to a size", Cmd: `journalctl --vacuum-size={{size}}`, Sudo: true, Mutating: true, Params: map[string]string{"size": "500M"}},
 	{Name: "apt-clean", Category: "maintenance", Desc: "Clean apt cache and autoremove", Cmd: `apt-get clean && apt-get -y autoremove`, Sudo: true, Mutating: true},
@@ -98,7 +86,7 @@ func render(tmpl string, defaults map[string]string, vars map[string]string) (st
 		return m
 	})
 	if len(missing) > 0 {
-		return "", out.Usage("missing parameter(s): %s (pass --var NAME=VALUE)", strings.Join(dedupe(missing), ", "))
+		return "", out.Usage("missing blank(s): %s (fill in with --var NAME=VALUE)", strings.Join(dedupe(missing), ", "))
 	}
 	return res, nil
 }
@@ -171,9 +159,8 @@ func (l recipeList) Text() string {
 // The recipe command.
 
 // A recipe is a saved command with {{blanks}}. The built-in ones (health,
-// disk, certs, ...) and the ones people save live in one list, under one
-// command. `ops` and `snippet` are other names for it (docs/design/ux.md,
-// section 11).
+// disk, oom, ...) and the ones people save live in one list, under one
+// command (docs/design/ux.md, section 11).
 
 type recipeRow struct {
 	Name     string            `json:"name"`
@@ -188,10 +175,24 @@ type recipeRow struct {
 
 // retiredRecipes are built-in recipes a command has replaced; a run of one
 // names the command instead (a saved recipe of the same name still wins).
+// The ones removed in 0.12 answer this way for one release.
 var retiredRecipes = map[string]string{
 	"cert-expiry":   "komando cert check https://NAME:PORT --via TARGET",
 	"certbot-certs": "komando cert check TARGET",
 	"docker-prune":  "komando docker prune TARGET --dry-run",
+
+	"ports":            "komando net ports TARGET --sudo",
+	"dns":              "komando net dns TARGET NAME",
+	"http-check":       "komando net http TARGET URL",
+	"failed-units":     "komando svc list TARGET --failed",
+	"journal-errors":   "komando logs TARGET -p err --since -1h --sudo",
+	"updates":          "komando pkg upgradable TARGET",
+	"security-updates": "komando pkg security TARGET",
+	"docker-overview":  "komando docker ps TARGET --all",
+	"k8s-overview":     "komando cluster status CLUSTER",
+	"mysql-status":     "komando db activity CONN",
+	"postgres-status":  "komando db activity CONN",
+	"redis-info":       "komando cache info CONN",
 }
 
 // recipeNotFound is the error for a recipe that is not there.
@@ -226,8 +227,8 @@ func findRecipe(st *store.State, name string) (recipeRow, bool) {
 func recipeCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "recipe",
-		Aliases: []string{"recipes", "ops", "snippet", "snippets", "diag"},
-		Short:   "Ready-made and saved commands: health, disk, certs, your own",
+		Aliases: []string{"recipes"},
+		Short:   "Ready-made and saved commands: health, disk, oom, your own",
 	}
 	c.AddCommand(recipeListCmd(), recipeAddCmd(), recipeRmCmd(), recipeRunCmd())
 	return c
@@ -318,7 +319,7 @@ func recipeAddCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "recipe.add", nil, s.Command, true, map[string]any{"recipe": s.Name, "read_only": s.ReadOnly})
-			out.P.Print("recipe.add", s, nil)
+			out.P.Print("recipe.add", textAs{s, textBlob(changeSay("save", "recipe "+s.Name, ""))}, nil)
 			return nil
 		},
 	}
@@ -348,11 +349,12 @@ func recipeRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			say := textBlob(changeSay("remove", "recipe "+args[0], ""))
 			if g.dryRun {
-				out.P.Print("recipe.rm", map[string]any{"would_remove": args[0]}, nil)
+				out.P.Print("recipe.rm", textAs{map[string]any{"would_remove": args[0]}, say}, nil)
 				return nil
 			}
-			out.P.Print("recipe.rm", map[string]any{"removed": args[0]}, nil)
+			out.P.Print("recipe.rm", textAs{map[string]any{"removed": args[0]}, say}, nil)
 			return nil
 		},
 	}
@@ -373,7 +375,11 @@ func recipeRunCmd() *cobra.Command {
 			}
 			r, ok := findRecipe(st, args[0])
 			if !ok {
-				return recipeNotFound(args[0])
+				e := recipeNotFound(args[0])
+				if _, swapped := findRecipe(st, args[1]); swapped && knownTarget(args[0]) {
+					e.Hint = "the recipe name goes first, then the target: `komando recipe run " + args[1] + " " + args[0] + "`"
+				}
+				return e
 			}
 			kv, err := parseKV(vars)
 			if err != nil {
@@ -391,7 +397,7 @@ func recipeRunCmd() *cobra.Command {
 			// that clearly writes, or that komando cannot confirm only
 			// reads, runs as a change, so a protected server asks for --yes
 			mutating := !r.ReadOnly || readOnlyMutates(command, nil)
-			return runFleet(cmd.Context(), "recipe."+r.Name, args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo}, mutating)
+			return runFleet(cmd.Context(), "recipe.run", args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo, recipe: r.Name}, mutating)
 		},
 	}
 	c.Flags().StringArrayVar(&vars, "var", nil, "fill in a blank: NAME=VALUE (repeatable)")

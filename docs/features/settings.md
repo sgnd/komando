@@ -1,12 +1,12 @@
 # Settings and files
 
 Change komando's settings, see where it keeps its data, and update komando
-itself. [All features](README.md)
+itself. [All docs](README.md)
 
 ## Quick start
 
 ```bash
-komando config show                          # every setting: KEY VALUE DEFAULT ALLOWED, and file locations
+komando config show                          # every setting: KEY VALUE DEFAULT ALLOWED, and file locations (JSON: data.keys)
 komando config get parallel
 komando config set parallel 20
 komando config set default_timeout 10m
@@ -143,7 +143,9 @@ database other than the default one, while that database is locked.
 A vault keeps its key where it is: one made before komando used the
 keychain still has `vault.key`. Run `komando secret keychain` to move the
 key into the keychain. Nothing is re-encrypted, so it works before or after
-your first secret (`--off --yes` moves it back). On Linux it stops, and
+your first secret (`--off --yes` moves it back). Only a person at a
+terminal can run it: an AI agent or a script gets `NEEDS_PERSON`, since the
+keychain may ask to be unlocked. On Linux it stops, and
 asks you to unlock the keychain, while the default collection is locked.
 It refuses when the keychain already holds another key for this folder
 (most likely the only key of a vault you moved aside): put that vault back,

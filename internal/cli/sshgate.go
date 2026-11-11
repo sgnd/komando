@@ -59,7 +59,6 @@ var gateExec = syscall.Exec
 // change something, or "".
 var gateReadForm = map[string]func(c *cobra.Command) string{
 	"exec":           needFlag("read-only"),
-	"script":         needFlag("read-only"),
 	"job.start":      needFlag("read-only"),
 	"docker.exec":    needFlag("read-only"),
 	"cluster.exec":   needFlag("read-only"),
@@ -93,7 +92,7 @@ var gateNotForReadKey = map[string]string{
 // databases, caches, storage and clusters, or connect a VPN komando already
 // knows. A func says why the command as given writes here, or "".
 var gateOnServers = map[string]func(c *cobra.Command) string{
-	"exec": nil, "script": nil, "reboot": nil, "upload": nil, "recipe.run": nil,
+	"exec": nil, "reboot": nil, "upload": nil, "recipe.run": nil,
 	"cp": gateLocalDst, "sync": gateLocalDst,
 	"job.start": nil, "job.kill": nil, "job.rm": nil,
 	"fs.chmod": nil, "fs.mkdir": nil, "fs.mv": nil, "fs.replace": nil, "fs.rm": nil, "fs.write": nil,
@@ -379,6 +378,10 @@ func gateRule(c *cobra.Command, name string, readOnly bool) (string, *out.Error)
 		return name, nil // it only prints the command's help
 	}
 	for p := c; p != nil; p = p.Parent() {
+		if now := p.Annotations[oldNameNote]; now != "" {
+			return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "use `komando "+now+"`",
+				"komando %s is an old name", strings.ReplaceAll(name, ".", " "))
+		}
 		if p.Hidden {
 			return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run it on the komando computer itself",
 				"komando %s is komando's own plumbing, not for a key", strings.ReplaceAll(name, ".", " "))
@@ -568,6 +571,15 @@ audit setting is off.`,
   komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if os.Getenv("SSH_ORIGINAL_COMMAND") == "" && os.Getenv("SSH_CONNECTION") == "" {
+				// typed by a person, not run by sshd for a key: nothing to
+				// let through or refuse, so no stop and no audit record
+				if out.P.Format == "json" {
+					return out.Usage("ssh-gate runs when sshd starts it for a key; `komando ssh-gate line` prints the line that sets that up").
+						WithHint("for example: komando ssh-gate line --name phone ~/phone.pub")
+				}
+				return cmd.Help()
+			}
 			if !gateLabel.MatchString(name) {
 				return out.Usage("--name must be 1 to 64 letters, digits, dots, dashes or underscores")
 			}
@@ -596,6 +608,9 @@ audit setting is off.`,
 	}
 	c.Flags().StringVar(&name, "name", "key", "the key's name in the audit log")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "run only commands that read")
+	// set by the line `ssh-gate line` writes, not typed: its help lists them
+	_ = c.Flags().MarkHidden("name")
+	_ = c.Flags().MarkHidden("read-only")
 	c.AddCommand(sshGateLineCmd())
 	return c
 }

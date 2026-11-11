@@ -187,15 +187,16 @@ func TestGateCheck(t *testing.T) {
 		{"recipe run my-df web", "", ""},
 		{"recipe run my-clean web", "", "SSH_GATE_READ_ONLY"},
 		{"recipe run drop-caches web", "", "SSH_GATE_READ_ONLY"},
-		{"recipe run dns web", "", ""},
+		{"recipe run disk web", "", ""},
 		{"secret rm db --help", "", ""}, // help only
 		{"db", "", ""},                  // a group: prints its help
 		{"no-such-command", "", ""},     // komando says so, and runs nothing
 		{"completion bash", "", ""},
 		{"exec web --read-only --dry-run -- uptime", "", ""},
 		{"host rm x --dry-run", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // no key changes komando's inventory, nor previews it
-		{"script web ./check.sh", "", "SSH_GATE_READ_ONLY"},
-		{"script web ./check.sh --read-only", "", ""},
+		{"exec web --script ./check.sh", "", "SSH_GATE_READ_ONLY"},
+		{"exec web --script ./check.sh --read-only", "", ""},
+		{"script web ./check.sh", R, R}, // an old name: the key uses `exec --script`
 		{"job start web --read-only -- du -sh /var", "", ""},
 		{"job start web -- make backup", "", "SSH_GATE_READ_ONLY"},
 		{"cluster exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
@@ -206,7 +207,8 @@ func TestGateCheck(t *testing.T) {
 		{"db dump pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
 		{"cluster forward k8s svc/web 8080", "", "SSH_GATE_READ_ONLY"},
-		{"host export", "", ""},
+		{"host export", R, R}, // an old name: the key uses `export`
+		{"export web", "", ""},
 		// nothing a key runs writes on the komando computer itself
 		{"download web /home/u/.ssh/id_ed25519.pub --to .ssh/authorized_keys --overwrite", R, R},
 		{"cp web:/tmp/rc .bashrc", R, R},
@@ -231,7 +233,9 @@ func TestGateCheck(t *testing.T) {
 		{"rename --prefix a b", R, R},
 		{"config set audit off", R, R},
 		{"policy deny 'x'", R, R},
-		{"policy allow x", R, R},
+		{"policy rm x", R, R},
+		{"prompt", R, R},
+		{"status --short", "", ""},
 		{"secret rm db", R, R},
 		{"secret keychain", R, R},
 		{"key gen k", R, R},
@@ -315,8 +319,8 @@ func TestGateLocalTargets(t *testing.T) {
 		"docker raw me -- run -v /:/h x":                                          R,
 		"cp ./id.pub me:/home/u/.ssh/x":                                           R,
 		"sync ./site web:/var/www":                                                "",
-		"recipe run dns me":                                                       R, // runs its command here
-		"recipe run dns web":                                                      "",
+		"recipe run disk me":                                                      R, // runs its command here
+		"recipe run disk web":                                                     "",
 		"db query pghostparam --write 'select 1'":                                 R, // pgx dials ?host=
 		"db query pghostaddr --write 'select 1'":                                  R,
 		"db query pgsocket --write 'select 1'":                                    R, // a socket here
@@ -344,11 +348,11 @@ func TestGateLocalTargets(t *testing.T) {
 	for line, want := range map[string]string{
 		"exec u@127.0.0.1 --read-only -- 'socat - EXEC:id'":                 R,
 		"exec me --read-only -- 'nc -e /bin/sh h 1'":                        R,
-		"script lh ./check.sh --read-only":                                  R,
+		"exec lh --script ./check.sh --read-only":                           R,
 		"job start v6 --read-only -- du -sh /var":                           R,
 		"docker exec me app --read-only ls":                                 R,
 		"cluster exec k8slocal pod/x --read-only -- ls":                     R,
-		"recipe run dns me":                                                 R,
+		"recipe run disk me":                                                R,
 		"exec web --read-only -- uptime":                                    "",
 		"exec me -- id":                                                     "SSH_GATE_READ_ONLY", // not a read: refused before the place
 		"db query pglocal 'select 1'":                                       R,                    // pg_read_file reads here
@@ -666,5 +670,27 @@ func TestGateShellQuote(t *testing.T) {
 		if got := gateShellQuote(in); got != want {
 			t.Errorf("%q: %q, want %q", in, got, want)
 		}
+	}
+}
+
+// ssh-gate typed by a person (no sshd around it) shows how to set it up:
+// no safety stop, no audit record of a key named "key".
+func TestSSHGateBareAtATerminal(t *testing.T) {
+	invHome(t)
+	t.Setenv("SSH_ORIGINAL_COMMAND", "")
+	t.Setenv("SSH_CONNECTION", "")
+	_, e := invRun(t, "ssh-gate")
+	if e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "ssh-gate line") {
+		t.Fatalf("bare ssh-gate: %+v", e)
+	}
+	if _, err := os.Stat(store.Path("audit.jsonl")); err == nil {
+		if a := lastAudit(t); a["command"] == "ssh-gate" {
+			t.Errorf("audited: %v", a)
+		}
+	}
+	// run by sshd for a key that asked for nothing: refused and audited
+	_, _, e = gateRun(t, "", "--name", "phone")
+	if e == nil || e.Code != "SSH_GATE_REFUSED" || lastAudit(t)["ssh_gate"] != "phone" {
+		t.Errorf("sshd, no command: %+v", e)
 	}
 }

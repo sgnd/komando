@@ -431,10 +431,19 @@ commands to that server log in again (a two-factor server asks a person).
 				return err
 			}
 			names := args
-			if all {
+			switch {
+			case all && len(names) > 0:
+				return out.Errf(out.ExitUsage, "USAGE", "use `komando logout --all` or `komando logout "+strings.Join(names, " ")+"`", "--all logs out of every server; give names or --all, not both")
+			case all:
 				names = mapKeys(st.Logins)
-			} else if len(names) == 0 {
+			case len(names) == 0:
 				return out.Usage("give the server names to log out of, or --all")
+			}
+			for _, n := range names {
+				// a login of a server removed since still ends
+				if _, err := findHost(st, n); err != nil && st.Logins[n] == nil {
+					return err
+				}
 			}
 			if g.dryRun {
 				out.P.Print("logout", map[string]any{"would_log_out": names}, nil)

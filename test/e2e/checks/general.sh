@@ -6,7 +6,7 @@
 stderr_of() { "$@" 2>&1 >/dev/null || true; }
 said() { case "$1" in *"$2"*) echo True ;; *) echo False ;; esac; }
 check "missing args name the usage line" True "$($K fs cat direct | jget '"usage: komando fs cat TARGET PATH" in d["error"]["message"]' || true)"
-check "-o text applies to usage errors" True "$(said "$(stderr_of $K fs cat direct -o text)" 'error [USAGE]')"
+check "-o text applies to usage errors" True "$(said "$(stderr_of $K fs cat direct -o text)" '(code USAGE')"
 set +e; $K host lst >/dev/null 2>&1; check "unknown subcommand fails" 2 $?; set -e
 check "unknown subcommand suggests" True "$($K svc restat direct x | jget '"did you mean restart" in d["error"]["message"]' || true)"
 check "dry-run shows a protected change" PROTECTED_HOST "$($K exec target --dry-run -- touch /tmp/x | jget 'd["meta"]["would_be_blocked"]["code"]')"

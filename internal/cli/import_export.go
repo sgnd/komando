@@ -37,6 +37,13 @@ type exportFile struct {
 
 const exportFormat = "komando-export/1"
 
+// Text is the file itself, as JSON, even with -o text: there is one export
+// format, so `komando export -o text > FILE` is a file import reads too.
+func (f exportFile) Text() string {
+	b, _ := json.MarshalIndent(f, "", "  ")
+	return string(b) + "\n"
+}
+
 func importKomando(path string) (*importPlan, error) {
 	b, err := readSource(path)
 	if err != nil {
@@ -50,9 +57,9 @@ func importKomando(path string) (*importPlan, error) {
 		if err2 := json.Unmarshal(b, &env); err2 == nil && env.Data.Format != "" {
 			f = env.Data
 		} else if hosts, ok := parseHostsJSON(b); ok && len(hosts) > 0 {
-			f = exportFile{Format: exportFormat, Hosts: hosts} // `komando host export` output
+			f = exportFile{Format: exportFormat, Hosts: hosts} // a list of hosts, as `host export` printed before 0.12
 		} else {
-			return nil, out.Errf(out.ExitUsage, "USAGE", "give a file made by `komando export --to FILE` or `komando host export`", "%s is not a komando export file", path)
+			return nil, out.Errf(out.ExitUsage, "USAGE", "give a file made by `komando export --to FILE`", "%s is not a komando export file", path)
 		}
 	}
 	if f.Format != exportFormat {
@@ -154,14 +161,23 @@ func dropForeignHostRefs(h *store.Host) []string {
 	return notes
 }
 
+const exportLong = `Saves your list to a file (komando-export/1, always JSON) that
+` + "`komando import komando FILE`" + ` reads on another computer. Passwords and key
+files are never in it; it lists the secrets and keys to bring along. With a
+TARGET (@prod, kind:host, web1,web2) only those servers, conns and VPNs are
+saved; without one also your recipes, deny rules and settings. Without --to
+it prints the same JSON.`
+
 func exportCmd() *cobra.Command {
 	var to string
 	var overwrite bool
 	c := &cobra.Command{
 		Use:   "export [TARGET]",
 		Short: "Save servers, conns, VPNs, recipes and settings (no passwords)",
+		Long:  exportLong,
 		Example: `  komando export --to komando-backup.json
   komando export @prod --to prod.json
+  komando export kind:host --to servers.json
   komando import komando komando-backup.json      # on the other computer`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

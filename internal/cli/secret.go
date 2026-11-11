@@ -181,23 +181,31 @@ func secretDiff(stored, given string) string {
 	return fmt.Sprintf("the stored value has %d characters, the one you entered %d", ns, ng)
 }
 
+const secretLong = `Save a password once, then point to it as secret:NAME instead of typing it:
+  komando secret set web1-pass
+  komando host edit web1 --password-ref secret:web1-pass
+
+komando never prints a saved value. A person at a terminal can see one with
+` + "`secret get --reveal`" + `, and ` + "`secret check`" + ` compares a value with the saved one
+without showing either. ` + "`secret mv`" + ` and ` + "`secret cp`" + ` rename and copy.
+
+How it is stored: AES-256-GCM in ~/.komando/vault.json. The random key is
+in the OS keychain (or in vault.key where there is none, or with
+KOMANDO_KEYCHAIN=off), or comes from $KOMANDO_VAULT_PASS when that is set at
+first use (` + "`secret passphrase`" + ` changes it).`
+
 func secretCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "secret",
 		Aliases: []string{"secrets", "vault"},
-		Short:   "Encrypted vault for passwords and tokens (secret:NAME)",
-		Long: `Secrets are AES-256-GCM encrypted in ~/.komando/store.db. A new store keeps its
-random key in the OS keychain (in store.key where it cannot, or KOMANDO_KEYCHAIN=off),
-or uses $KOMANDO_VAULT_PASS if set at first use ('secret passphrase' changes it). Values
-are never printed unless 'secret get --reveal' is used (a person only). 'secret
-mv' and 'secret cp' rename and copy inside the vault; 'secret check' lets a
-person compare a value with the stored one without showing either.`,
+		Short:   "Saved passwords and tokens (use them as secret:NAME)",
+		Long:    secretLong,
 	}
 	set := &cobra.Command{
 		Use:   "set NAME",
 		Short: "Store a secret (typed hidden, or from --from-env VAR or stdin)",
-		Long: `Stores or replaces a secret. Replacing one that a protected server or conn
-uses needs --yes: it changes how komando logs in there.
+		Long: `Saves or replaces a password. Replacing one that a production server or
+database uses asks first: it changes how komando logs in there.
 
 A value from a pipe loses the line breaks at its end (echo and pbpaste add
 one). Spaces are kept, since a password can hold them; komando warns when the
@@ -710,11 +718,22 @@ func secretKeychainCmd() *cobra.Command {
 		Short: "Keep the store key in the OS keychain instead of store.key",
 		Long: `Moves the store's key out of the store.key file into the operating system's
 keychain, so a copy of ` + "~/.komando" + ` (a backup, a synced folder) no longer opens
-the store or its secrets. Nothing is re-encrypted: it is the same key, kept
-elsewhere. --off moves it back into store.key, which needs --yes.`,
+the store or its secrets. Nothing is re-encrypted: it is the same key, kept elsewhere.
+--off moves it back into store.key, which needs --yes.
+
+Only a person at a terminal moves the key in: the keychain may ask them to
+unlock it, and an AI agent or a script cannot answer that.`,
 		Example: "  komando secret keychain\n  komando secret keychain --off --yes",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !off && (isAgent() || !interactive()) {
+				// an unlock prompt nobody answers would keep komando waiting
+				err := policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando secret keychain` in their own terminal",
+					"only a person at a terminal can move the vault key into the keychain: it may ask them to unlock it"))
+				if err != nil {
+					return err
+				}
+			}
 			if g.dryRun {
 				tool, err := vault.KeychainTool()
 				res := map[string]any{"dry_run": true, "would": map[bool]string{false: "move the vault key into the keychain", true: "move the vault key back into store.key"}[off]}

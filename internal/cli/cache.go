@@ -26,13 +26,16 @@ func cacheCmd() *cobra.Command {
 		Use:     "cache",
 		Aliases: []string{"redis"},
 		Short:   "Redis/Valkey and memcached: read keys, change them with checks",
-		Long: `Works with a redis or memcached conn (see ` + "`komando conn`" + `). get, keys and
-info only read. set changes data (protected conns need --yes); rm deletes
+		Long: `Read and change keys in Redis, Valkey or memcached. Add a cache with
+` + "`komando cache add`" + `.
+
+get, keys and info only read. set changes data (a production cache asks
+first); rm deletes
 keys, so it also needs --allow-dangerous. ` + "`cache run`" + ` sends any command, but
 only reads unless --write; commands that flush, block, run scripts or
 reconfigure the server also need --allow-dangerous.`,
 	}
-	c.AddCommand(cacheGetCmd(), cacheKeysCmd(), cacheInfoCmd(), cacheSetCmd(), cacheRmCmd(), cacheRunCmd())
+	c.AddCommand(connAddCmdFor("cache"), cacheGetCmd(), cacheKeysCmd(), cacheInfoCmd(), cacheSetCmd(), cacheRmCmd(), cacheRunCmd())
 	return c
 }
 
@@ -451,11 +454,21 @@ func cacheRunCmd() *cobra.Command {
 		Short: "Send any Redis command; read-only unless --write",
 		Example: `  komando cache run cache -- HGETALL user:42
   komando cache run cache -- ZREVRANGE leaderboard 0 9 WITHSCORES
-  komando cache run cache --write -- EXPIRE session:42 3600`,
+  komando cache run cache --write -- EXPIRE session:42 3600
+  komando cache run cache "GET feature:dark-mode"   # one quoted line works too`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command := args[1:]
-			v := cachex.ClassifyFor(cacheKind(args[0]), command)
+			command, err := cachex.SplitCommand(args[1:])
+			if err != nil {
+				return err
+			}
+			kind := cacheKind(args[0])
+			if kind != "memcached" {
+				if err := cachex.OneReply(command); err != nil {
+					return err
+				}
+			}
+			v := cachex.ClassifyFor(kind, command)
 			rec := map[string]any{"command": strings.ToUpper(command[0])} // arguments may be personal data
 			if v.Risk > driver.RiskRead && !write {
 				st, _ := loadState()

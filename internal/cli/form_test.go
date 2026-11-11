@@ -95,7 +95,7 @@ func TestFormEveryCommandBuilds(t *testing.T) {
 	}
 }
 
-// Every command is in an All features area.
+// Every command is in an area of formAreas.
 func TestFormEveryCommandHasAnArea(t *testing.T) {
 	root := newRoot()
 	var walk func(c *cobra.Command)
@@ -103,7 +103,7 @@ func TestFormEveryCommandHasAnArea(t *testing.T) {
 		for _, s := range c.Commands() {
 			walk(s)
 			if s.Runnable() && !s.Hidden && s.Deprecated == "" && s.Name() != "help" && formAreaOf(s) < 0 {
-				t.Errorf("%s is in no All features area", commandKey(s))
+				t.Errorf("%s is in no area of formAreas", commandKey(s))
 			}
 		}
 	}
@@ -231,16 +231,16 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	invHome(t)
 	p := startPTY(t, "host", "add")
 	p.answer("What do you want to call this server?", "web1\r")
-	p.answer("What does the server run?", "\r") // Linux
 	p.answer("What is the server's address?", "root:hun@ter2@203.0.113.20")
 	p.waitFor("a password was in it")
 	p.answer("a password was in it", "\r")
 	p.answer("User [root]: ", "\r")
+	p.answer("What does the server run?", "\r") // Linux
 	p.answer("Port [22]: ", "\r")
 	p.answer("How do you log in?", "2") // A password
-	p.answer("hurt real users", "2")    // No
+	p.answer("Can a mistake on this server hurt real users", "\r")
 	p.waitFor("check and run")
-	p.waitFor("$ komando host add web1 root@203.0.113.20 --ask-password")
+	p.waitFor("$ komando host add web1 root@203.0.113.20 --ask-password --protected")
 	p.waitFor("$ komando test web1")
 	p.answer("Run it", "\x03") // Ctrl-C
 	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "nothing was added") {
@@ -491,6 +491,36 @@ func TestFormHidesHaveAReason(t *testing.T) {
 			if _, ok := formHides[p+" "+f]; !ok {
 				t.Errorf("%s hides --%s with no reason in formHides", p, f)
 			}
+		}
+	}
+}
+
+// Labels read as words: no Use syntax ([LOCAL:]REMOTE, SRC_CONN:IMAGE),
+// no shouting (KEY, SRC) and no "conn".
+func TestFormArgLabels(t *testing.T) {
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, s := range c.Commands() {
+			walk(s)
+			if !s.Runnable() {
+				continue
+			}
+			for _, q := range formCmdSpec(s).qs {
+				if !strings.HasPrefix(q.key, "arg") {
+					continue
+				}
+				l := q.label
+				if strings.ContainsAny(l, "[]:_") || (len(l) > 1 && l == strings.ToUpper(l) && !slices.Contains(formAcronyms, l)) ||
+					strings.Contains(strings.ToLower(l), "conn") {
+					t.Errorf("%s: label %q", commandKey(s), l)
+				}
+			}
+		}
+	}
+	walk(newRoot())
+	for in, want := range map[string]string{"[LOCAL:]REMOTE": "Local remote", "SRC_CONN:IMAGE": "Src conn image", "KEY": "Key", "SQL": "SQL", "SRC": "From"} {
+		if got := formWords(in); got != want {
+			t.Errorf("formWords(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

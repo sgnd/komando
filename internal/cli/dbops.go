@@ -152,6 +152,9 @@ shows for a job, which db kill cancels (jobs.cancel); there is no --session.`,
 			if err != nil {
 				return err
 			}
+			if c.Kind == "sqlite" {
+				return dbx.NotSupported(c.Kind, "db kill")
+			}
 			if c.Kind == "sqlserver" && !session {
 				return dbx.KillNeedsSession()
 			}

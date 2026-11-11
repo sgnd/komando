@@ -1,6 +1,6 @@
 # Glossary
 
-The words used in these docs, in plain language. [All features](README.md)
+The words used in these docs, in plain language. [All docs](README.md)
 
 | Word | Meaning |
 |------|---------|

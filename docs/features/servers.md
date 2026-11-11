@@ -1,7 +1,7 @@
 # Servers
 
 Add your servers, choose how komando logs in to them, and keep the list
-tidy. [All features](README.md)
+tidy. [All docs](README.md)
 
 ## Quick start
 
@@ -258,7 +258,7 @@ stays where it is. If it has a passphrase, store the passphrase in the vault fir
 ```bash
 komando secret set work-pass
 komando key add work ~/.ssh/id_work --passphrase-ref secret:work-pass
-komando key edit work --passphrase-ref secret:new-pass      # change it later ('' clears it)
+komando key edit work --passphrase-ref secret:new-pass      # change it later (--unset passphrase-ref clears it)
 ```
 
 `komando key rm NAME` takes a key out of komando's key list; it refuses
@@ -340,6 +340,8 @@ ends; komando's rules, approvals and audit still apply to each command.
 A login to a jump host is used for every server behind it. `komando status`
 lists the kept logins, and a login ends early when the server closes it or
 its address changes. Only a person at a terminal can run `komando login`.
+`komando login aws` is the AWS login, so a server cannot be named `aws`,
+`gcp` or `azure`.
 
 ### Sudo passwords and the vault
 
@@ -392,6 +394,26 @@ komando secret rm old-pass                   # refused while something uses it
 Replacing a secret that a protected server or conn uses needs `--yes` (also
 with `secret mv` or `secret cp --overwrite`). Only a person at a terminal can
 see a value, with `secret get --reveal`; AI agents never get it.
+
+### Where saved passwords are kept
+
+Saved passwords are encrypted. A new komando keeps the key that opens them
+in the system keychain (the macOS keychain, or the Secret Service on Linux),
+so a backup or a synced copy of `~/.komando` does not open them. Where there
+is no keychain (a Linux server, a container), the key is a file in
+`~/.komando` and `komando doctor` says so. An older komando keeps its key
+file until you move the key, once (nothing is encrypted again):
+
+```bash
+komando secret keychain
+```
+
+On Linux this needs `secret-tool` (`sudo apt install libsecret-tools`) and a
+desktop session with a keyring. On a server without one, give the saved
+passwords a passphrase instead (`komando secret passphrase`). You do not
+need `KOMANDO_VAULT_PASS`: a passphrase is optional, mainly for a computer
+without a keychain (see
+[Settings](settings.md#where-komando-keeps-its-data)).
 
 ## Passwords from your password manager
 
@@ -565,9 +587,13 @@ be used by OpenSSH; use `komando shell NAME` for those.
 
 ## Good to know
 
-- `komando host import --ssh-config FILE` and `host import --json FILE`
-  (from `komando host export`) do the same as `komando import`, for servers
-  only. A spreadsheet goes through `komando import csv FILE`.
+- Bring servers in with `komando import ssh-config [FILE]`, from a
+  spreadsheet with `komando import csv FILE`, and from another computer with
+  `komando export --to FILE` there and `komando import komando FILE` here
+  (`komando export kind:host` saves only the servers). The old names
+  `host import` and `host export` go away in the next release.
+  A server komando refuses is listed under `skipped`, and the import ends
+  with `IMPORT_INCOMPLETE` (exit 1).
 - `host list` and `host test` are the same as `komando list kind:host` and
   `komando test`.
 - `komando test` tells you, per server, the login user and whether sudo

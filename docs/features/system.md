@@ -1,13 +1,13 @@
 # Services, logs, Docker, packages, users
 
 Day-to-day server administration, with structured results instead of raw
-terminal output. [All features](README.md)
+terminal output. [All docs](README.md)
 
 ## Quick start
 
 ```bash
 komando svc status @web nginx                                 # is nginx running?
-komando svc restart @web nginx --wait 10                      # restart, and check it came back
+komando svc restart @web nginx --wait 10s                     # restart, and check it came back
 komando logs web1 --unit nginx --since -30m --grep 'error|crit'
 komando docker ps web1                                        # running containers
 komando pkg upgradable all --refresh                          # pending updates
@@ -21,7 +21,7 @@ calls each service a unit (`nginx`, `php8.2-fpm`).
 
 ```bash
 komando svc status @web nginx php8.2-fpm      # state, main PID, restarts, memory
-komando svc restart @web nginx --wait 10      # fails unless nginx is active within 10s
+komando svc restart @web nginx --wait 10s     # fails unless nginx is active within 10s
 komando svc enable web1 nginx --now           # enable and start
 komando svc stop web1 old-worker
 komando svc list web1 --failed                # or --state running
@@ -32,6 +32,9 @@ komando svc logs web1 nginx                   # same as komando logs web1 --unit
 report the state afterwards. Add `--no-sudo` for user units or when you log
 in as root.
 
+- `--wait` takes a time (`10s`, `2m`); a bare number counts as seconds.
+- Stopping, disabling or masking the SSH server (`ssh`, `sshd`,
+  `ssh.socket`) needs `--allow-dangerous`: it locks you out.
 - A unit that does not exist exits 3 with `UNIT_NOT_FOUND`.
 - A server without systemd (most containers) exits 3 with `NO_SYSTEMD`.
   Read its logs with `--file` or `komando docker logs` instead.
@@ -62,11 +65,15 @@ komando logs web1 --container api --since 10m --timestamps
 | `--container NAME` | Read this Docker container's log. |
 | `-n`, `--limit N` | The last N lines (default 200). |
 | `--grep REGEX` | Only lines that match (extended regex, any case). |
-| `--since` / `--until` | A time range: `-1h`, `10m`, `today`, `'2026-01-02 10:00'` (journal and containers). |
+| `--since` / `--until` | A time range: a time back from now (`30m`, `2h`, `7d`; a `-` in front is fine), `today`, `yesterday`, or a date (`'2026-01-02 10:00'`). Containers take no `today` or `yesterday`. |
 | `-p`, `--priority` | Journal priority and worse: `emerg` ... `debug`, or 0-7. |
 | `-f`, `--follow` | Keep printing new lines until Ctrl-C. |
 | `-s`, `--sudo` | Read the whole journal or a protected file. |
-| `--timestamps` | Show when each container log line was written. |
+| `--timestamps` | Show when each container log line was written (with `--container` only; journal lines have their time already). |
+
+`komando svc logs TARGET UNIT` and `komando docker logs TARGET CONTAINER`
+are other names for `logs --unit` and `logs --container`, with all the flags
+above.
 
 Without `--sudo`, the journal shows only your own entries, and komando warns
 you. A log file that does not exist exits 3.
@@ -242,9 +249,15 @@ komando user rm web1 leaver --remove-home --allow-dangerous
   but its shell, key and admin group are brought in line. `--key`
   authorizes a key from komando's key list, `--pubkey` a key line, and
   `--admin` adds the user to the `sudo` group (Debian) or `wheel` (RHEL,
-  Alpine).
+  Alpine). Give `--key` or `--pubkey`, not both.
 - `user lock` locks the password and expires the account, so SSH keys stop
-  working too, without deleting anything.
+  working too, without deleting anything. Locking or deleting `root` or the
+  user komando logs in as needs `--allow-dangerous`: komando could not log
+  in afterwards to undo it, and root is the account that repairs a server.
+- On Alpine, `user add`, `lock`, `unlock` and `rm` need the `shadow`
+  package (`useradd`, `usermod`, `userdel`). Without it, `lock` and
+  `unlock` stop with `TOOL_MISSING`; `add` and `rm` fail on that server
+  (exit code 127) with a message that names the package.
 - `user list` reads the lock state through sudo (`--no-sudo` leaves it
   out). `admin_group` means "in the sudo, wheel or admin group"; rules in
   `sudoers.d` are not read.

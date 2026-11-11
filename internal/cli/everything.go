@@ -38,8 +38,8 @@ type targetList struct {
 }
 
 // emptyInventory is what a person reads when there is nothing yet.
-const emptyInventory = "No servers or conns yet. Add a server: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)\n" +
-	"A database, cache or bucket: komando conn add app-db postgres://app@10.0.0.5/app --ask-password"
+const emptyInventory = "No servers, databases or other services yet. Add a server: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)\n" +
+	"A database: komando db add app-db postgres://app@10.0.0.5/app --ask-password. A cache, bucket or cluster: komando conn add"
 
 func (l targetList) Text() string {
 	if l.empty {
@@ -74,6 +74,9 @@ func keepOnly(sel selection, only string) selection {
 	return sel
 }
 
+// kindWords names what a host, conn or vpn command works with.
+var kindWords = map[string]string{"host": "servers", "conn": "conns", "vpn": "VPNs"}
+
 func listCmd() *cobra.Command { return listCmdFor("") }
 
 func listCmdFor(only string) *cobra.Command {
@@ -81,7 +84,7 @@ func listCmdFor(only string) *cobra.Command {
 	c := &cobra.Command{
 		Use:     "list [TARGET]",
 		Aliases: []string{"ls"},
-		Short:   "List servers, conns and VPNs (all, or what TARGET picks)",
+		Short:   "List servers, databases, other services and VPNs",
 		Example: "  komando list\n  komando list @prod\n  komando list kind:db",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -98,7 +101,11 @@ func listCmdFor(only string) *cobra.Command {
 					return err
 				}
 			}
-			sel = keepOnly(sel, only)
+			picked := sel
+			if sel = keepOnly(sel, only); target != "" && only != "" && len(sel.Hosts)+len(sel.Conns)+len(sel.Vpns) == 0 {
+				// a selector that picks nothing is an error (ux.md, section 2)
+				return noMatch(target, kindWords[only], picked).WithHint("use `komando list " + target + "` to see everything it picks")
+			}
 			l := targetList{Targets: []targetRow{}, empty: len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0}
 			for _, h := range sel.Hosts {
 				l.Targets = append(l.Targets, targetRow{Name: h.Name, Kind: "host",
@@ -172,7 +179,7 @@ func (d testData) Text() string {
 		}
 		rows = append(rows, []string{r.Host, r.Kind, r.Error.Code, "", "", "", ""})
 		hints = append(hints, withHost(r.Host, r.Error.Message))
-		if r.Error.Hint != "" {
+		if r.Error.Hint != "" && len(d.Results) > 1 { // one target: the error below gives its hint
 			hints = append(hints, "  hint: "+r.Error.Hint)
 		}
 	}
@@ -220,7 +227,7 @@ func testCmdFor(only string) *cobra.Command {
 	c := &cobra.Command{
 		Use:     "test TARGET",
 		Aliases: []string{"ping"},
-		Short:   "Check that servers, conns and VPNs answer and accept the login",
+		Short:   "Check that servers, services and VPNs answer and let you in",
 		Long: `Logs in to each server (and checks who it is and whether sudo needs a
 password), connects to each conn and checks each VPN.
 
@@ -242,9 +249,9 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 			if err != nil {
 				return err
 			}
+			picked := sel
 			if sel = keepOnly(sel, only); len(sel.Hosts)+len(sel.Conns)+len(sel.Vpns) == 0 {
-				return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "use `komando test "+args[0]+"` to test everything it picks",
-					"target %q picked no %ss", args[0], only)
+				return noMatch(args[0], kindWords[only], picked).WithHint("use `komando test " + args[0] + "` to test everything it picks")
 			}
 			t0 := time.Now()
 			res := testRound(cmd.Context(), st, sel)

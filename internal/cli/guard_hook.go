@@ -185,3 +185,84 @@ func shellQuote(s string) string {
 	}
 	return s
 }
+
+// claudeGuard reads a Claude Code settings file: whether it has komando's
+// guard, and "" or what keeps that guard from running. A hook command
+// that is not there fails as a hook error, which Claude Code shows and
+// then goes on without the guard.
+func claudeGuard(path string) (found bool, problem string) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return false, ""
+	}
+	settings := map[string]any{}
+	if json.Unmarshal(b, &settings) != nil {
+		return strings.Contains(string(b), " guide guard"), path + " is not valid JSON, so Claude Code reads no hooks from it"
+	}
+	hooks, _ := settings["hooks"].(map[string]any)
+	pre, _ := hooks["PreToolUse"].([]any)
+	for _, e := range pre {
+		m, ok := e.(map[string]any)
+		if !ok || !isGuardEntry(m) {
+			continue
+		}
+		hs, _ := m["hooks"].([]any)
+		for _, h := range hs {
+			hm, _ := h.(map[string]any)
+			c, _ := hm["command"].(string)
+			if !strings.Contains(c, " guide guard") {
+				continue
+			}
+			found = true
+			if problem = guardProgramProblem(firstWord(c)); problem == "" {
+				return true, ""
+			}
+		}
+	}
+	return found, problem
+}
+
+// guardProgramProblem says why the program a hook names cannot run, or "".
+func guardProgramProblem(prog string) string {
+	if !strings.Contains(prog, "/") {
+		if _, err := exec.LookPath(prog); err != nil {
+			return "its command " + prog + " is not in PATH"
+		}
+		return ""
+	}
+	fi, err := os.Stat(prog)
+	switch {
+	case err != nil:
+		return "its command " + prog + " does not exist"
+	case fi.IsDir() || fi.Mode()&0o111 == 0:
+		return "its command " + prog + " is not a program"
+	}
+	return ""
+}
+
+// firstWord is the first word of a shell command line, unquoted: the
+// program a hook runs (shellQuote writes it).
+func firstWord(line string) string {
+	var b strings.Builder
+	quote := byte(0)
+	line = strings.TrimSpace(line)
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		switch {
+		case quote != 0 && c == quote:
+			quote = 0
+		case quote != 0:
+			b.WriteByte(c)
+		case c == '\'' || c == '"':
+			quote = c
+		case c == '\\' && i+1 < len(line):
+			i++
+			b.WriteByte(line[i])
+		case c == ' ' || c == '\t':
+			return b.String()
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}

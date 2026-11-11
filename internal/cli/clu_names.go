@@ -135,6 +135,14 @@ func nsFlags(c *cobra.Command, ns *string, all *bool, lim *limitOpt) {
 	c.Flags().VarP(&limitValue{lim.p}, "limit", "n", lim.usage)
 }
 
+// nsOrAll refuses --namespace with -A, which kubectl lets -A win silently.
+func nsOrAll(ns string, all bool) error {
+	if ns != "" && all {
+		return out.Usage("--namespace and -A (every namespace) do not go together; pick one")
+	}
+	return nil
+}
+
 // noNamespace refuses --namespace on Swarm, which has none.
 func noNamespace(t clusterTarget, ns string) error {
 	if t.host != nil && ns != "" {

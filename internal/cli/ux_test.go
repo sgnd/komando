@@ -38,6 +38,12 @@ func TestTypoSuggestions(t *testing.T) {
 	if strings.Contains(e.Message, "\n") {
 		t.Errorf("one line: %q", e.Message)
 	}
+	// add alone points at the add commands, which ask step by step; the
+	// first-run menu has no Add something row to send a person to
+	if e := usageFor(t, "add"); strings.Contains(e.Message, "did you mean") || !strings.Contains(e.Hint, "komando host add") ||
+		!strings.Contains(e.Hint, "step by step") || strings.Contains(e.Hint, "Add something") || e.Code != "USAGE" {
+		t.Errorf("add: %q / %q", e.Message, e.Hint)
+	}
 	if e := usageFor(t, "zzzz"); strings.Contains(e.Message, "did you mean") {
 		t.Errorf("no suggestion for nonsense: %q", e.Message)
 	}

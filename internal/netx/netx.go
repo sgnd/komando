@@ -233,12 +233,23 @@ func Lock(name string) (unlock func(), err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := flock.Lock(f); err != nil {
-		f.Close()
-		return nil, err
+	if ok, err := flock.TryLock(f); err != nil || !ok {
+		// another komando holds it, maybe for minutes: a person may be
+		// signing in there. Say so instead of standing still without a word
+		if !ok && err == nil && LockBusy != nil {
+			LockBusy(name)
+		}
+		if err := flock.Lock(f); err != nil {
+			f.Close()
+			return nil, err
+		}
 	}
 	return func() { _ = flock.Unlock(f); f.Close() }, nil
 }
+
+// LockBusy, when set, is told that Lock has to wait for another komando
+// that is starting or stopping the same VPN.
+var LockBusy func(name string)
 
 // stopIfStale stops and forgets a session under the VPN's lock, only if
 // the stored entry is still the one that was found stale.

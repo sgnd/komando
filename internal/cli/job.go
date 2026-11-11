@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -57,9 +56,9 @@ func jobStartCmd() *cobra.Command {
   komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command := cmdStr
-			if command == "" {
-				command = strings.Join(args[1:], " ")
+			command, err := commandWords(cmdStr, args[1:], "job start "+args[0])
+			if err != nil {
+				return err
 			}
 			if strings.TrimSpace(command) == "" {
 				return out.Usage("no command given: komando job start TARGET -- COMMAND")
@@ -146,7 +145,7 @@ func jobStartCmd() *cobra.Command {
 				}
 				return started{ID: id, Host: c.Host.Name, PID: pid, OK: true}, nil
 			})
-			data := jobStarted{Next: "komando job status <id>  |  komando job logs <id> --offset <next_offset>  |  komando job wait <id>"}
+			var data jobStarted
 			worst := 0
 			var fails []hostFail
 			for _, o := range res {
@@ -164,12 +163,12 @@ func jobStartCmd() *cobra.Command {
 			}
 			data.Summary.Total = len(res)
 			audit(st, "job.start", hostNames(hosts), command, data.Summary.Failed == 0, nil)
-			return finishFleet("job.start", data, runSummary{fleetSummary: data.Summary}, worst, fails)
+			return finishFleet("job.start", data.withNext(), runSummary{fleetSummary: data.Summary}, worst, fails)
 		},
 	}
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run with sudo (uses the server's --sudo-ref password if set)")
-	c.Flags().StringSliceVarP(&envs, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
+	c.Flags().StringArrayVarP(&envs, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
 	c.Flags().StringVarP(&dir, "dir", "C", "", "working directory on the server")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
 	return c
@@ -213,59 +212,6 @@ func lookupJob(id string) (*store.State, *store.Job, *store.Host, error) {
 func jobAlive(pid int) string {
 	p := strconv.Itoa(pid)
 	return `{ kill -0 ` + p + ` 2>/dev/null || [ -d /proc/` + p + ` ]; }`
-}
-
-func fetchStatus(ctx context.Context, c *sshx.Client, j *store.Job, tail int) (*jobStatus, error) {
-	// the end time is when the exit (or killed) file was written, so the
-	// runtime of a finished job stays put
-	script := `d="` + jobDir(j.ID) + `"; [ -d "$d" ] || { echo LOST; exit 0; }; end=$(date -u +%s); ` +
-		`if [ -f "$d/exit" ]; then echo "EXIT $(cat "$d/exit")"; end=$(date -u -r "$d/exit" +%s 2>/dev/null || echo $end); ` +
-		`elif ` + jobAlive(j.PID) + `; then echo RUNNING; ` +
-		`elif [ -f "$d/killed" ]; then echo "KILLED $(cat "$d/killed")"; end=$(date -u -r "$d/killed" +%s 2>/dev/null || echo $end); ` +
-		`else echo LOST; fi; ` +
-		`wc -c < "$d/out.log" 2>/dev/null || echo 0; cat "$d/started" 2>/dev/null || echo 0; echo $end`
-	if tail > 0 {
-		script += `; echo ---TAIL---; tail -n ` + strconv.Itoa(tail) + ` "$d/out.log" 2>/dev/null`
-	}
-	// the last line says the answer is whole: a connection cut halfway leaves
-	// it out, and half an answer must never read as "the job is lost"
-	script += "; echo " + statusEnd
-	o, _, err := sshx.Output(ctx, c, script, 30*time.Second)
-	if err != nil {
-		return nil, err
-	}
-	o, whole := strings.CutSuffix(strings.TrimRight(o, "\n"), statusEnd)
-	if !whole {
-		return nil, out.Errf(out.ExitConnect, "CONNECTION_LOST", "try again; the job keeps running on the server", "the connection to %s broke while reading the job's status", j.Host)
-	}
-	head, tailOut, _ := strings.Cut(o, "---TAIL---\n")
-	lines := strings.Split(strings.TrimSpace(head), "\n")
-	s := &jobStatus{ID: j.ID, Host: j.Host, Command: j.Command, PID: j.PID, StartedAt: j.StartedAt.Format(time.RFC3339), Tail: tailOut}
-	if len(lines) > 0 {
-		switch {
-		case lines[0] == "RUNNING":
-			s.State = "running"
-		case strings.HasPrefix(lines[0], "EXIT "):
-			s.State = "exited"
-			if n, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(lines[0], "EXIT "))); err == nil {
-				s.ExitCode = &n
-			}
-		case strings.HasPrefix(lines[0], "KILLED"):
-			s.State = "killed"
-			s.Signal = strings.TrimSpace(strings.TrimPrefix(lines[0], "KILLED"))
-		default:
-			s.State = "lost"
-		}
-	}
-	if len(lines) >= 4 {
-		s.LogBytes, _ = strconv.ParseInt(strings.TrimSpace(lines[1]), 10, 64)
-		startU, _ := strconv.ParseInt(strings.TrimSpace(lines[2]), 10, 64)
-		nowU, _ := strconv.ParseInt(strings.TrimSpace(lines[3]), 10, 64)
-		if startU > 0 {
-			s.RuntimeSec = nowU - startU
-		}
-	}
-	return s, nil
 }
 
 func jobStatusCmd() *cobra.Command {
@@ -369,6 +315,7 @@ func jobLogsCmd() *cobra.Command {
 func jobWaitCmd() *cobra.Command {
 	var interval time.Duration
 	var tail int
+	var waitTimeout time.Duration
 	c := &cobra.Command{
 		Use:   "wait JOB_ID...",
 		Short: "Wait until the jobs end (or --timeout); the exit code follows the job",
@@ -382,10 +329,6 @@ group of servers) to wait for all of them at once.`,
   komando job wait j1103-101500-ab12cd34 j1103-101500-ef56ab78`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			waitTimeout := 10 * time.Minute
-			if g.timeout > 0 {
-				waitTimeout = g.timeout // --timeout is the wait limit here
-			}
 			deadline := time.Now().Add(waitTimeout)
 			if len(args) == 1 {
 				s, err := waitJob(cmd.Context(), args[0], deadline, interval, tail)
@@ -439,6 +382,8 @@ group of servers) to wait for all of them at once.`,
 		},
 	}
 	c.Flags().DurationVar(&interval, "interval", 3*time.Second, "how often to check")
+	// its own --timeout: the global one's default (5m, per server) is not this one's
+	c.Flags().DurationVar(&waitTimeout, "timeout", 10*time.Minute, "how long to wait (the job keeps running after)")
 	c.Flags().IntVar(&tail, "tail", 30, "also show the last N lines of output")
 	return c
 }
@@ -631,61 +576,6 @@ func (k jobKilled) Text() string {
 	return "sent " + k.Signal + " to job " + k.ID + " (pid " + strconv.Itoa(k.PID) + ")"
 }
 
-func jobListCmd() *cobra.Command {
-	var target string
-	var refresh bool
-	c := &cobra.Command{
-		Use:   "list",
-		Short: "List the jobs komando started (--refresh asks the servers)",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			var names map[string]bool
-			if target != "" {
-				names = targetNames(st, target)
-			}
-			jobs := []*store.Job{}
-			for _, j := range st.Jobs {
-				if target == "" || names[j.Host] {
-					jobs = append(jobs, j)
-				}
-			}
-			sort.Slice(jobs, func(a, b int) bool { return jobs[a].StartedAt.After(jobs[b].StartedAt) })
-			if !refresh {
-				out.P.Print("job.list", jobList{Count: len(jobs), Jobs: jobs}, nil)
-				return nil
-			}
-			rows := []any{}
-			for _, j := range jobs {
-				h, ok := st.Hosts[j.Host]
-				if !ok {
-					rows = append(rows, map[string]any{"id": j.ID, "host": j.Host, "state": "unknown-host"})
-					continue
-				}
-				var s *jobStatus
-				err := withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
-					var e error
-					s, e = fetchStatus(cmd.Context(), c, j, 0)
-					return e
-				})
-				if err != nil {
-					rows = append(rows, map[string]any{"id": j.ID, "host": j.Host, "state": "unreachable", "error": toErr(err)})
-					continue
-				}
-				rows = append(rows, s)
-			}
-			out.P.Print("job.list", jobList{Count: len(rows), Jobs: rows}, nil)
-			return nil
-		},
-	}
-	c.Flags().StringVar(&target, "target", "", "only jobs on these servers (a selector, e.g. @web)")
-	c.Flags().BoolVar(&refresh, "refresh", false, "ask each server for the job's current state")
-	return c
-}
-
 func jobRmCmd() *cobra.Command {
 	var keepRemote, force bool
 	c := &cobra.Command{
@@ -756,7 +646,15 @@ type started struct {
 type jobStarted struct {
 	Jobs    []started    `json:"jobs"`
 	Summary fleetSummary `json:"summary"`
-	Next    string       `json:"next"`
+	Next    string       `json:"next,omitempty"` // left out when no job started
+}
+
+// withNext adds the commands that follow, when a job started.
+func (d jobStarted) withNext() jobStarted {
+	if d.Summary.OK > 0 {
+		d.Next = "komando job status <id>  |  komando job logs <id> --offset <next_offset>  |  komando job wait <id>"
+	}
+	return d
 }
 
 func (d jobStarted) Text() string {
@@ -808,51 +706,6 @@ func (s *jobStatus) Text() string {
 		b.WriteString("--- last lines ---\n" + t + "\n")
 	}
 	return b.String()
-}
-
-type jobList struct {
-	Count int `json:"count"`
-	Jobs  any `json:"jobs"`
-}
-
-func (l jobList) Text() string {
-	rows := [][]string{}
-	add := func(id, host, state, exit string, started time.Time, command string) {
-		age := "-"
-		if !started.IsZero() {
-			age = humanAge(time.Since(started))
-		}
-		command = truncateWidth(command, 60)
-		rows = append(rows, []string{id, host, state, exit, age, command})
-	}
-	switch js := l.Jobs.(type) {
-	case []*store.Job:
-		for _, j := range js {
-			add(j.ID, j.Host, "?", "", j.StartedAt, j.Command)
-		}
-	case []any:
-		for _, r := range js {
-			switch v := r.(type) {
-			case *jobStatus:
-				exit := ""
-				if v.ExitCode != nil {
-					exit = strconv.Itoa(*v.ExitCode)
-				}
-				t, _ := time.Parse(time.RFC3339, v.StartedAt)
-				add(v.ID, v.Host, v.State, exit, t, v.Command)
-			case map[string]any:
-				add(v["id"].(string), v["host"].(string), v["state"].(string), "", time.Time{}, "")
-			}
-		}
-	}
-	if len(rows) == 0 {
-		return "no jobs: start one with komando job start TARGET -- COMMAND\n"
-	}
-	s := textTable([]string{"id", "host", "state", "exit", "age", "command"}, rows)
-	if _, ok := l.Jobs.([]*store.Job); ok {
-		s += "(state: add --refresh to ask the servers)\n"
-	}
-	return s
 }
 
 // transient: the connection broke (dropped, reset, timed out), so trying

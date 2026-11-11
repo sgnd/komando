@@ -167,15 +167,40 @@ func TestVpnAddOverwriteReusesOwnSecrets(t *testing.T) {
 		t.Error("the shared profile was replaced")
 	}
 
-	// `vpn mv` keeps the secrets' names, so they belong to the new name
-	// and a new VPN under the old one cannot take them
+	// `vpn mv` moves the secrets only it uses to the new name, so the old
+	// name is free again; one a server uses too keeps its name
 	mustRun(t, "vpn", "mv", "office", "office-east")
-	key2 := get("office-key")
-	e = wantCode(t, "SECRET_EXISTS", "vpn", "add", "office", "wireguard", "--config", wg("1"))
-	if !strings.Contains(e.Message, "vpn office-east") {
-		t.Errorf("after vpn mv: %s", e.Message)
+	key2 := get("office-east-key")
+	if _, err := vault.Get("office-key"); err == nil {
+		t.Error("office-key is still there after vpn mv")
 	}
-	if get("office-key") != key2 {
+	if st, _ := store.Load(); st.Vpns["office-east"].KeyRef != "secret:office-east-key" || st.Vpns["office-east"].PSKRef != "secret:office-east-psk" {
+		t.Errorf("refs after vpn mv: %+v", st.Vpns["office-east"])
+	}
+	mustRun(t, "vpn", "add", "office", "wireguard", "--config", wg("1"))
+	if get("office-east-key") != key2 {
 		t.Error("the renamed VPN's key was replaced")
+	}
+	d := mustRun(t, "vpn", "mv", "lab", "lab-2")
+	if w := d["warnings"].([]any); len(w) != 1 || !strings.Contains(w[0].(string), "lab-config keeps its name") {
+		t.Errorf("shared secret on vpn mv: %v", d)
+	}
+	if st, _ := store.Load(); st.Vpns["lab-2"].ConfigRef != "secret:lab-config" {
+		t.Error("a shared secret moved")
+	}
+}
+
+// After `vpn rm`, adding the VPN again from the same file reuses the key
+// it left behind: the value is the same, so nothing that uses it changes.
+// A different file still stops.
+func TestVpnReAddAfterRm(t *testing.T) {
+	invHome(t)
+	wg, _ := vpnSecretFiles(t)
+	mustRun(t, "vpn", "add", "wg2", "wireguard", "--config", wg("1"))
+	mustRun(t, "vpn", "rm", "wg2")
+	wantCode(t, "SECRET_EXISTS", "vpn", "add", "wg2", "wireguard", "--config", wg("2"))
+	d := mustRun(t, "vpn", "add", "wg2", "wireguard", "--config", wg("1"), "--check", "10.77.0.1:22")
+	if d["warnings"] != nil {
+		t.Errorf("warnings for the keys this add stored: %v", d["warnings"])
 	}
 }

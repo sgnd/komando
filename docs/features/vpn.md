@@ -1,7 +1,7 @@
 # VPNs
 
 Reach servers and databases that sit behind a VPN, even several VPNs at the
-same time, without switching between them. [All features](README.md)
+same time, without switching between them. [All docs](README.md)
 
 ## Quick start
 
@@ -51,6 +51,7 @@ komando secret set kantor                     # the VPN password, typed once (hi
 komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
 komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
 komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
+komando vpn add client-y globalprotect --portal vpn.client.com   # signs in through a browser window at `vpn up`
 komando vpn add tailnet tailscale --password-ref secret:ts-authkey
 komando vpn add kantor l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk --user budi --password-ref secret:kantor --check 10.1.0.5:22
 komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user budi --password-ref secret:asa
@@ -72,7 +73,9 @@ komando vpn add office proxy --address proxy.corp.example:3128
   never replaces a secret that a server or a file uses. Pick another VPN
   name, or move the secret away first (`komando secret mv`, or `komando
   secret rm` if an earlier VPN of that name left it). `--overwrite` may
-  reuse the secrets of the VPN it replaces, when nothing else uses them.
+  reuse the secrets of the VPN it replaces, when nothing else uses them,
+  and a secret that nothing uses and that holds the same key already (the
+  same file added again after `vpn rm`) is reused too.
 - `--password-ref` works like everywhere else in komando:
   `secret:NAME`, `env:VAR`, a password manager, and so on (see
   [Servers](servers.md)). For Tailscale it is an auth key. The VPN sends
@@ -145,16 +148,19 @@ komando vpn rm office                         # remove (several names allowed)
 - `vpn rm` refuses a VPN that is still on a `--via` path (`VPN_IN_USE`, also
   with `--dry-run`). Change those `--via` paths first. Its keys stay in the
   vault until `komando secret rm`; a new WireGuard or OpenVPN VPN of the
-  same name needs them gone first.
+  same name needs them gone first, unless it is added from the same file.
 - `vpn edit` changes `--check`, `--address`, `--user`, `--password-ref`,
-  `--server`, `--psk-ref`, `--id`, `--remote-id`, `--service`, `--mfa`,
-  `--notes`, and groups and tags (`-g`, `-t`, which replace the current
-  ones).
+  `--portal`, `--server`, `--psk-ref`, `--id`, `--remote-id`, `--ca`,
+  `--service`, `--mfa`, `--notes`, and groups and tags: `-g` and `-t` add
+  one, as in `host edit`; `--rm-group` and `--rm-tag` take one away. An AI
+  agent that swaps or clears a VPN's `--ca` needs a person's yes
+  (`SAFETY_SETTING`): another CA lets another server get the VPN's login.
 - To give a WireGuard or OpenVPN VPN a new config file, add it again with
   `--overwrite`.
 - `vpn mv` refuses a VPN that is up: run `komando vpn down NAME` first.
-  Its vault secrets keep their names (`OLD-key` stays), and a new VPN
-  under the old name cannot take them.
+  The vault secrets `vpn add` made under its name (`OLD-key`, `OLD-psk`,
+  `OLD-config`, `OLD-pass`) move to the new name when only this VPN uses
+  them, so a new VPN can take the old name.
 
 ## OpenVPN details
 
@@ -215,7 +221,48 @@ not yet tried against the vendors' own servers. komando uses them:
   (`KOMANDO_EXPERIMENTAL_VPN=fortinet,pulse`, or `all`).
 
 Otherwise, if `openconnect` is installed, komando runs it together with
-`ocproxy`. That also leaves your computer's network unchanged.
+`ocproxy`. That also leaves your computer's network unchanged. A
+GlobalProtect VPN without `--user` always uses komando's own client: only
+that one does the browser sign-in below.
+
+### GlobalProtect with a browser sign-in
+
+Many GlobalProtect portals log in through a web page: your company's
+sign-in (Microsoft, Okta, Google ...) with a one-time code, also when the
+portal uses Palo Alto's Cloud Authentication Service. Add such a VPN with
+only its portal, no user and no password:
+
+```bash
+komando vpn add client-y globalprotect --portal vpn.client.com
+komando vpn up client-y
+```
+
+`komando vpn up` asks the portal how it logs in. For a browser sign-in it
+opens a window of Chrome, Edge, Brave or Chromium (whichever is on your
+computer) with an empty, temporary profile: it shares nothing with your own
+browser and is removed afterwards. Sign in there, with your password and
+code. The window closes by itself and the VPN connects. Later commands, and
+AI agents, use that session; komando never types a password or a code into
+the page.
+
+- The portal lists its gateways. komando takes the one the portal ranks
+  first for your region, and the next one when that gateway cannot be
+  reached.
+- A gateway that does not take the portal's login has a sign-in of its
+  own. komando says so and shows it in the same window; whether you type
+  your password again there is up to your company's sign-in.
+- To sign in only once, give a gateway's own address as `--portal`
+  (`komando vpn edit client-y --portal gw1.client.com`): komando then
+  skips the portal.
+- Not built yet: Prisma Access gateways behind a load balancer. Such a
+  gateway is refused with an error that names the portal's other
+  gateways; add one of those as the VPN's `--portal`.
+- With none of those browsers, the sign-in opens in your own browser. The
+  last page has a link or button that opens GlobalProtect: copy that
+  link's address (it starts with `globalprotectcallback:`) and paste it
+  into the terminal.
+- Not built yet: the device report (HIP) some companies ask for. A VPN
+  that needs it connects but may let no traffic through.
 
 ## L2TP/IPsec, IPsec and IKEv2 details
 

@@ -68,7 +68,7 @@ Each area has its own file in `internal/cli/` (`host.go`, `exec.go`, `fs.go`, `d
 9. **Keep pieces small**: a function up to 100 lines, a file up to 800. Split instead of growing ([`internal/codesize`](internal/codesize/codesize_test.go) checks it).
 10. **Never break the JSON**: fields may be added, never renamed or removed. `TestOutputShapes` keeps the shape of the answers; after adding a field, run `go test ./internal/cli -run TestOutputShapes -update-shapes`.
 
-A new command shows up in the menu's All features on its own: the questions come from its `Use` line and its flags. `TestFormEveryCommandHasAnArea` fails when its first word is in no area of `formAreas` ([`internal/cli/form_cmd.go`](internal/cli/form_cmd.go)); add the word there, or give the command a `formHint` with an `area`. A `formHint` in `internal/cli/form_hints_*.go` also makes the questions read better: which arguments come from a list, and which flags to ask first.
+A new command needs a place in the menu: add a task for it in [`internal/cli/menu_tasks.go`](internal/cli/menu_tasks.go) (or, when the menu must never offer it, a line in `menuCLIOnly` saying why). `TestMenuEveryCommandHasAHome` fails until you do. The questions come from its `Use` line and its flags, and `TestFormEveryCommandHasAnArea` fails when its first word is in no area of `formAreas` ([`internal/cli/form_cmd.go`](internal/cli/form_cmd.go)); add the word there, or give the command a `formHint` with an `area`. A `formHint` in `internal/cli/form_hints_*.go` also makes the questions read better: which arguments come from a list, and which flags to ask first.
 
 The reasons behind rules 8 to 10, and what comes next, are in [docs/design/maintenance.md](docs/design/maintenance.md).
 

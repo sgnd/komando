@@ -27,18 +27,20 @@ func queueCmd() *cobra.Command {
 		Use:     "queue",
 		Aliases: []string{"kafka", "rabbitmq", "nats", "sqs", "pubsub"},
 		Short:   "Read and change Kafka, RabbitMQ, NATS, SQS and Pub/Sub queues",
-		Long: `Work with a kafka://, amqp://, nats://, sqs:// or pubsub:// conn (see ` + "`komando conn`" + `).
+		Long: `Read and send messages on Kafka, RabbitMQ, NATS, SQS and Pub/Sub. Add a queue
+with ` + "`komando queue add`" + `.
+
 info, ls, describe, peek, groups and lag only read: peek reads Kafka
 messages without joining a consumer group, gives RabbitMQ and Pub/Sub
 messages straight back, reads NATS stream messages by their number, and
 receives SQS messages without hiding or deleting them, so nothing is
-removed. send and create change (protected conns need --yes); rm and purge
+removed. send and create change (production queues ask first); rm and purge
 delete messages, so they also need --allow-dangerous. Try any change with
 --dry-run first. In RabbitMQ words a topic is a queue; in NATS words it is
 a stream. Pub/Sub keeps messages in subscriptions: peek and purge take a
 subscription, and groups lists them.`,
 	}
-	c.AddCommand(queueInfoCmd(), queueLsCmd(), queueDescribeCmd(), queuePeekCmd(), queueGroupsCmd(), queueLagCmd(),
+	c.AddCommand(connAddCmdFor("queue"), queueInfoCmd(), queueLsCmd(), queueDescribeCmd(), queuePeekCmd(), queueGroupsCmd(), queueLagCmd(),
 		queueSendCmd(), queueCreateCmd(), queueRmCmd(), queuePurgeCmd())
 	return c
 }

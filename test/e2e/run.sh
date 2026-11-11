@@ -168,7 +168,7 @@ $K export --to "$EXP" >/dev/null
 OTHER="$(mktemp -d)"; chmod 700 "$OTHER"
 check "import adds the exported deny rule" "['e2e-forbidden-word']" "$(KOMANDO_HOME="$OTHER" "$K" import komando "$EXP" | jget 'd["data"]["deny_rules_added"]')"
 rm -rf "$OTHER" "$(dirname "$EXP")"
-$K policy allow 'e2e-forbidden-word' --yes >/dev/null
+$K policy rm 'e2e-forbidden-word' --yes >/dev/null
 check "audit --actor finds the e2e actor" True "$($K audit --actor e2e -n 5 | jget 'd["data"]["count"] > 0')"
 set -e
 echo "==> secret managers, built in (no vault or aws CLI)"
@@ -212,14 +212,14 @@ $K host add ops "ops@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:ops-pass -
 printf '#!/bin/sh\nwhoami\n' > "$TMP/who.sh"
 check "sudo with password" root "$($K exec ops --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "sudo password then stdin" payload "$($K exec ops --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
-check "script with sudo password" root "$($K script ops "$TMP/who.sh" --sudo | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "script with sudo password" root "$($K exec ops --script "$TMP/who.sh" --sudo | jget 'd["data"]["results"][0]["stdout"].strip()')"
 SJ=$($K job start ops --sudo -- 'whoami; cat; echo end' | jget 'd["data"]["jobs"][0]["id"]')
 check "job with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
 check "job with sudo password runs as root" "root end" "$($K job logs "$SJ" | jget '" ".join(d["data"]["content"].split())')"
 check "job sudo password file is deleted" False "$($K fs stat ops ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
 # sudo never asks on a NOPASSWD host, so the password must not reach the command
 $K host edit direct --sudo-ref secret:agent-pass >/dev/null
-check "unasked sudo password not leaked" False "$($K script direct "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
+check "unasked sudo password not leaked" False "$($K exec direct --script "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
 check "unasked sudo password not in stdin" payload "$($K exec direct --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
 $K host edit direct --unset sudo-ref >/dev/null
 $K host rm ops >/dev/null
@@ -714,7 +714,7 @@ q $K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"
 q $K vpn add lab socks --address "127.0.0.1:$E2E_SOCKS" --check pg:5432
 check "status lists the running tunnel" True "$($K status | jget '"127.0.0.1:'"$E2E_SOCKS"'" in [t["spec"] for t in d["data"]["tunnels"]]')"
 check "status in text names it" 1 "$($K -o text status | grep -c '^tunnel ' || true)"
-check "prompt counts the tunnel" 1 "$($K prompt | grep -c 'tun:[1-9]' || true)"
+check "status --short counts the tunnel" 1 "$($K status --short | grep -c 'tun:[1-9]' || true)"
 q $K conn add pg-lab 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref secret:pg-pass
 check "db through a SOCKS VPN" 1 "$($K db query pg-lab 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K host add target-lab agent@target --via lab --password-ref secret:agent-pass
@@ -727,7 +727,7 @@ check "system VPN down says so" VPN_DOWN "$($K db query pg-lab 'select 1' >/dev/
 set +e; $K vpn rm lab >/dev/null; check "VPN in use cannot be removed" 8 $?; set -e
 q $K tunnel stop --all
 check "status after tunnel stop" 0 "$($K status | jget 'len(d["data"]["tunnels"])')"
-check "prompt is empty when nothing runs" "" "$($K prompt)"
+check "status --short is empty when nothing runs" "" "$($K status --short)"
 
 # logs --follow streams until stopped (here by --timeout)
 check "logs --follow streams" True "$($K logs direct --file /etc/hostname --follow --timeout 3s | head -1 | jget '"direct" in d["data"]')"
@@ -736,9 +736,9 @@ check "logs --follow says where for a person" 1 "$(ptyrun '' "$K" logs direct --
 set +e; $K fs rm direct /tmp/somedir --recursive >/dev/null; check "fs rm -r needs --allow-dangerous" 6 $?; set -e
 
 # no way around protection
-q $K snippet add touch-it 'touch /tmp/komando-e2e'
+q $K recipe add touch-it 'touch /tmp/komando-e2e'
 check "recipe list has built-ins and saved" True "$($K recipe list | jget 'any(r["builtin"] for r in d["data"]["recipes"]) and any(not r["builtin"] for r in d["data"]["recipes"])')"
-set +e; $K snippet run touch-it target >/dev/null; check "snippet on protected host needs --yes" 6 $?; set -e
+set +e; $K recipe run touch-it target >/dev/null; check "recipe on protected host needs --yes" 6 $?; set -e
 set +e; $K host rm target >/dev/null; check "removing a protected host needs --yes" 6 $?; set -e
 set +e; $K config set audit off >/dev/null; check "turning off audit needs --yes" 6 $?; set -e
 set +e; $K secret set leaked hunter2 >/dev/null; check "secret value as argument refused" 2 $?; set -e

@@ -604,7 +604,7 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 			}
 			continue
 		}
-		for _, want := range []string{"komando exec web --allow-dangerous -- " + c.shown + "\n", "komando stops here because: [rm-system-dir", "it runs on web (protected)"} {
+		for _, want := range []string{"komando exec web --allow-dangerous -- " + c.shown + "\n", "Why komando asks: [rm-system-dir", "wants to change web (protected)"} {
 			if !strings.Contains(texts[0], want) {
 				t.Errorf("%s: window text has no %q: %q", c.name, want, texts[0])
 			}

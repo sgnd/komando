@@ -3,7 +3,7 @@
 Look at and work with message queues safely: Apache Kafka, and what speaks
 its protocol (Redpanda, Amazon MSK, Confluent Cloud, Aiven), RabbitMQ,
 NATS with JetStream, Amazon SQS and Google Cloud Pub/Sub.
-[All features](README.md)
+[All docs](README.md)
 
 The same commands work for all five. Kafka keeps messages in **topics**;
 RabbitMQ and SQS keep them in **queues**; NATS keeps them in **streams**;
@@ -356,7 +356,7 @@ komando queue peek aws orders                  # up to 10 messages; none is hidd
 
 | Option | What it does |
 |---|---|
-| `endpoint=URL` | another SQS server: a VPC endpoint, or an emulator such as LocalStack or moto (`http://localhost:4566`) |
+| `endpoint=URL` | another SQS server: a VPC endpoint, or an emulator such as LocalStack or moto (`http://localhost:4566`; at localhost with no key or profile, komando logs in with the key `test`) |
 | `account=ID` | the 12-digit AWS account that owns the queues, to use queues another account shared with you |
 | `insecure=1` | accept an `http://` endpoint across the network (no `--via`, not this computer) |
 

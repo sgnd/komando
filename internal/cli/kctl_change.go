@@ -83,7 +83,7 @@ func (r *kctlRun) postObject(obj map[string]any) error {
 	apiVersion, kind := str(obj["apiVersion"]), str(obj["kind"])
 	rt, err := r.k.ResourceFor(r.ctx, apiVersion, kind)
 	if err != nil {
-		return kfail("%v", err)
+		return kindErr(err, "%v", err)
 	}
 	space := ""
 	if rt.Namespaced {
@@ -405,7 +405,7 @@ func (r *kctlRun) replace() error {
 	for _, d := range docs {
 		rt, err := r.k.ResourceFor(r.ctx, d.APIVersion, d.Kind)
 		if err != nil {
-			return kfail("%v", err)
+			return kindErr(err, "%v", err)
 		}
 		space := ""
 		if rt.Namespaced {
@@ -455,7 +455,7 @@ func (r *kctlRun) delete() error {
 		for _, d := range docs {
 			rt, err := r.k.ResourceFor(r.ctx, d.APIVersion, d.Kind)
 			if err != nil {
-				return kfail("%v", err)
+				return kindErr(err, "%v", err)
 			}
 			space := ""
 			if rt.Namespaced {

@@ -9,7 +9,7 @@ func init() {
 }
 
 var queueConn = formArg{ask: "Which message queue?", pick: "queue",
-	help: "A Kafka, RabbitMQ, NATS, SQS or Pub/Sub conn from your list. Add one first with Add, Message queues."}
+	help: "A Kafka, RabbitMQ, NATS, SQS or Pub/Sub queue from your list. Add one with Add, Queues."}
 
 var queueHints = map[string]formHint{
 	"queue info":   {args: []formArg{queueConn}},

@@ -93,7 +93,7 @@ func mongoErr(err error) error {
 	case err == nil:
 		return nil
 	case errors.As(err, &ce) && (ce.Code == 13 || ce.Code == 18):
-		return out.Errf(out.ExitConnect, "DB_PRIVILEGE", "the conn's user lacks the role for this command", "%v", err)
+		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user lacks the role for this command", "%v", err)
 	case errors.As(err, &ce):
 		return out.Errf(out.ExitRemote, "DB_ERROR", "check the command: its first key names it, e.g. {\"find\": \"users\", \"filter\": {}}", "%v", err)
 	case errors.Is(err, context.DeadlineExceeded):

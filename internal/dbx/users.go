@@ -113,7 +113,7 @@ from mysql.user order by user, host`)
 	case "bigquery":
 		return nil, BQNoUsers("db user ls")
 	}
-	return nil, notFor(kind, "db user")
+	return nil, NotSupported(kind, "db user")
 }
 
 // UserSpec is a user to create or change.
@@ -186,7 +186,7 @@ func userSQL(ctx context.Context, db *sql.DB, kind, action string, u UserSpec) (
 			return s, s, nil
 		}
 	default:
-		return "", "", notFor(kind, "db user")
+		return "", "", NotSupported(kind, "db user")
 	}
 	return "", "", fmt.Errorf("unknown user action %q", action)
 }
@@ -366,7 +366,7 @@ func GrantSQL(ctx context.Context, db *sql.DB, kind string, g Grant) (string, er
 		}
 		return verb + " " + strings.Join(privs, ", ") + " on " + d + "." + tb + prep + myAccount(g.User, host, backslashEscapes(ctx, db)), nil
 	}
-	return "", notFor(kind, "db grant")
+	return "", NotSupported(kind, "db grant")
 }
 
 // Grants lists what a user may do.
@@ -416,5 +416,5 @@ order by 1, 2`, user)
 	case "bigquery":
 		return nil, BQNoUsers("db grants")
 	}
-	return nil, notFor(kind, "db grants")
+	return nil, NotSupported(kind, "db grants")
 }

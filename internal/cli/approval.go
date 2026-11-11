@@ -181,23 +181,32 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 		sess.SetUnshown(bad)
 		return false
 	}
-	text := fmt.Sprintf("%s wants komando to run:\n\n%s\n\n", c.caller.Agent, line)
+	// what and where first, the question next, komando's rule details last
+	head, reasons := "wants komando to run", []string{}
 	for _, w := range why {
 		if w = strings.TrimSpace(w); w != "" {
 			if unshowable(w) != "" {
 				w = strconv.QuoteToASCII(w)
 			}
-			text += "komando stops here because: " + w + "\n\n"
+			if on, ok := strings.CutPrefix(w, "it runs on "); ok && head == "wants komando to run" {
+				head = "wants to change " + on
+				continue
+			}
+			reasons = append(reasons, w)
 		}
 	}
-	text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", flag, flagMeaning[flag])
+	text := fmt.Sprintf("%s %s:\n\n%s\n\n", c.caller.Agent, head, line)
 	if what != "" {
 		if unshowable(what) != "" {
 			what = strconv.QuoteToASCII(what)
 		}
-		text += " Here it lets this through:\n\n" + what
+		text += "This also lets through:\n\n" + what + "\n\n"
 	}
-	text += "\n\nAllow this once?"
+	text += "Allow this once?\n\n"
+	for _, w := range reasons {
+		text += "Why komando asks: " + w + "\n"
+	}
+	text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", flag, flagMeaning[flag])
 	var allowed, shown bool
 	sess.SetGaveUp(false)
 	if secret := approvalCodeSecret(); secret != nil {
@@ -325,6 +334,9 @@ func approvalHint(e *out.Error) {
 	if e == nil || e.Exit != out.ExitPolicy || !isAgent() {
 		return
 	}
+	// "run it in a terminal, or add --yes in a script" is for a person; an
+	// agent reading -o text gets the same advice as in JSON
+	e.PlainHint()
 	switch cur().sess.Window().Why {
 	case "denied":
 		e.Hint = "the user clicked Deny in komando's window; do not retry. Ask the user what they want instead"
@@ -336,7 +348,7 @@ func approvalHint(e *out.Error) {
 		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine()
 	case "unshowable":
 		e.Hint = "komando did not ask the user in its window, because " + cur().sess.Window().Unshown +
-			". Make the command shorter (put a long script in a file for `komando script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"
+			". Make the command shorter (put a long script in a file for `komando exec --script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"
 	default:
 		switch {
 		case e.Final, e.Code == "REVEAL_NEEDS_HUMAN", e.Code == "NEEDS_PERSON":

@@ -2,7 +2,7 @@
 
 Browse, download, upload and share files in S3-compatible buckets, Google
 Cloud Storage, Azure Blob Storage, on WebDAV, FTPS, SFTP and FTP servers, and
-on Windows (SMB) shares, all with the same commands. [All features](README.md)
+on Windows (SMB) shares, all with the same commands. [All docs](README.md)
 
 ## Quick start
 
@@ -180,9 +180,10 @@ komando upload backups ./a.pdf reports/                     # stores reports/a.p
 komando upload backups ./reports reports -r                 # a whole folder
 ```
 
-`komando storage download` is the same command with the same flags.
-`komando storage upload` sends single files only; for a folder use
-`komando upload -r`, which sends only new and changed files, like `komando sync`.
+`komando storage download` and `komando storage upload` are other names for
+the same commands (storage conns only), and `komando cp` writes the same
+copy as `cp ./a.pdf backups:reports/`. A folder upload (`-r`) sends only new
+and changed files, like `komando sync`.
 
 - Downloads never overwrite a file on your computer unless you add
   `--overwrite`. The file is readable only by you. `--to` takes a file name,
@@ -202,7 +203,7 @@ komando sync backups:2026/ ./restore
 ## Share a file with a temporary link
 
 ```bash
-komando storage link backups 2026/app.sql.gz --expires 24h   # default 1h, at most 168h (7 days)
+komando storage link backups 2026/app.sql.gz --expires 24h   # default 1h, at most 7d
 komando storage link media site/report.pdf                   # Google Cloud and Azure too
 komando storage link backups 2026/app.sql.gz --endpoint https://files.example.com
 ```

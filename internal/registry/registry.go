@@ -75,6 +75,9 @@ func New(host string, t TLS, user, password string, dial func(ctx context.Contex
 	if dial != nil {
 		tr.DialContext = dial // the --via path is the way out
 	} else {
+		// without a limit, an address that never answers waits for the
+		// system's own (75 s and more)
+		tr.DialContext = (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext
 		tr.Proxy = proxyx.FromEnv() // HTTPS_PROXY and NO_PROXY, as docker reads them
 	}
 	return &Client{Base: &url.URL{Scheme: scheme, Host: host}, User: user, Password: password, skipVerify: t.SkipVerify,

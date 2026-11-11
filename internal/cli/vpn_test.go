@@ -229,3 +229,109 @@ func TestSessionViewHidesLogin(t *testing.T) {
 		t.Error("sessionView changed the stored session")
 	}
 }
+
+// A VPN that needs a person: the dry run says the real run stops, and the
+// real run is in the audit log as failed.
+func TestVpnUpNeedsPersonDryRunAndAudit(t *testing.T) {
+	invHome(t)
+	noAgent(t)
+	now := time.Now().UTC()
+	if err := store.Update(func(st *store.State) error {
+		st.Vpns["client-x"] = &store.Vpn{Name: "client-x", Kind: "anyconnect", Portal: "vpn.example.test", MFA: true, CreatedAt: now, UpdatedAt: now}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	d := mustRun(t, "vpn", "up", "client-x", "--dry-run")
+	meta, _ := d["_meta"].(map[string]any)
+	if b, _ := meta["would_be_blocked"].(map[string]any); d["would_connect"] != false || b["code"] != "VPN_LOGIN_REQUIRED" {
+		t.Errorf("dry run: %v", d)
+	}
+	wantCode(t, "VPN_LOGIN_REQUIRED", "vpn", "up", "client-x")
+	a := mustRun(t, "audit", "--command", "vpn.up")
+	var real []map[string]any
+	for _, e := range a["entries"].([]any) {
+		if m := e.(map[string]any); m["dry_run"] == false {
+			real = append(real, m)
+		}
+	}
+	if len(real) != 1 || real[0]["ok"] != false || real[0]["error"] != "VPN_LOGIN_REQUIRED" {
+		t.Errorf("audit: %v", real)
+	}
+}
+
+func TestNeedsPersonLogin(t *testing.T) {
+	for v, want := range map[*store.Vpn]bool{
+		{Kind: "wireguard"}:                           false,
+		{Kind: "globalprotect", MFA: true}:            true,
+		{Kind: "l2tp", User: "budi"}:                  true,
+		{Kind: "l2tp", User: "budi", KeyRef: "x"}:     false,
+		{Kind: "openvpn", User: "budi", OSMode: true}: false,
+	} {
+		if needsPersonLogin(v) != want {
+			t.Errorf("%+v: want %v", *v, want)
+		}
+	}
+}
+
+// vpn edit: -g and -t add, as in host edit; --portal and --ca change a VPN
+// of a kind that has them.
+func TestVpnEditFlags(t *testing.T) {
+	invHome(t)
+	mustRun(t, "vpn", "add", "v1", "socks", "--address", "127.0.0.1:1080", "-g", "a", "-t", "x")
+	mustRun(t, "vpn", "edit", "v1", "-g", "b", "-t", "y")
+	st, _ := store.Load()
+	if v := st.Vpns["v1"]; strings.Join(v.Groups, ",") != "a,b" || strings.Join(v.Tags, ",") != "x,y" {
+		t.Errorf("-g/-t add: %v %v", v.Groups, v.Tags)
+	}
+	mustRun(t, "vpn", "edit", "v1", "--rm-group", "a", "--rm-tag", "x")
+	st, _ = store.Load()
+	if v := st.Vpns["v1"]; strings.Join(v.Groups, ",") != "b" || strings.Join(v.Tags, ",") != "y" {
+		t.Errorf("--rm-group/--rm-tag: %v %v", v.Groups, v.Tags)
+	}
+	wantCode(t, "USAGE", "vpn", "edit", "v1", "-g", "c", "--rm-group", "c")
+	wantCode(t, "USAGE", "vpn", "edit", "v1", "--portal", "vpn.example.com")
+
+	mustRun(t, "vpn", "add", "client-x", "globalprotect", "--portal", "vpn.example.com")
+	mustRun(t, "vpn", "edit", "client-x", "--portal", "gw1.example.com")
+	st, _ = store.Load()
+	if p := st.Vpns["client-x"].Portal; p != "gw1.example.com" {
+		t.Errorf("--portal: %q", p)
+	}
+	wantCode(t, "USAGE", "vpn", "edit", "client-x", "--portal", "-x")
+	wantCode(t, "USAGE", "vpn", "edit", "client-x", "--ca", "/nonexistent")
+}
+
+// An alias names the command it stands for in every envelope, its
+// errors too.
+func TestAliasEnvelopeName(t *testing.T) {
+	root := newRoot()
+	for path, want := range map[string]string{"vpn test": "test", "host list": "list", "vpn add": "vpn.add"} {
+		c, _, err := root.Find(strings.Fields(path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := envelopeName(c); got != want {
+			t.Errorf("%s: %q, want %q", path, got, want)
+		}
+	}
+}
+
+// vpn add reads as host add: what happened first, the config indented,
+// next last.
+func TestVpnChangeText(t *testing.T) {
+	v := &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "secret:office-key", Config: "[Interface]\nAddress = 10.66.0.2/32\n", Groups: []string{"a"}}
+	got := vpnChangeText{verb: "added", v: v, notes: []string{"n1"}, next: "komando vpn up office"}.Text()
+	want := "added office\n  kind: wireguard\n  private key: secret:office-key\n  groups: a\n  config:\n    [Interface]\n    Address = 10.66.0.2/32\nnote: n1\nnext: komando vpn up office"
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	if got := (vpnChangeText{verb: "would change", v: v}).Text(); !strings.HasPrefix(got, "would change office (dry run)\n") {
+		t.Errorf("dry run: %s", got)
+	}
+	// a weaker login a person allowed shows in the text too
+	weak := &store.Vpn{Name: "kantor", Kind: "l2tp", Server: "vpn.kantor.id", LegacyCrypto: true, AllowPAP: true}
+	if got := (vpnChangeText{verb: "changed", v: weak}).Text(); !strings.Contains(got, "legacy crypto: yes") || !strings.Contains(got, "allow PAP: yes") {
+		t.Errorf("weaker login: %s", got)
+	}
+}

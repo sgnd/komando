@@ -188,3 +188,68 @@ func copyClose(dst io.WriteCloser, src io.Reader) (int64, error) {
 	dst.Close()
 	return n, err
 }
+
+// TestHeldLoginAnswersBeforeTheChannelCloses: a server that answers exec
+// and closes the channel at once (a quick command) still lets the client
+// see the answer and the exit status, not EOF.
+func TestHeldLoginAnswersBeforeTheChannelCloses(t *testing.T) {
+	dialHome(t)
+	cfg := &ssh.ServerConfig{NoClientAuth: true}
+	cfg.AddHostKey(newSigner(t))
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	go func() {
+		for {
+			raw, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer raw.Close()
+				_, chans, reqs, err := ssh.NewServerConn(raw, cfg)
+				if err != nil {
+					return
+				}
+				go ssh.DiscardRequests(reqs)
+				for nch := range chans {
+					ch, creqs, err := nch.Accept()
+					if err != nil {
+						continue
+					}
+					go func() {
+						for r := range creqs {
+							_ = r.Reply(true, nil)
+							if r.Type == "exec" {
+								_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ S uint32 }{0}))
+								_ = ch.Close()
+							}
+						}
+					}()
+				}
+			}()
+		}
+	}()
+	up, err := ssh.Dial("tcp", ln.Addr().String(), &ssh.ClientConfig{User: "u", HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { up.Close() })
+	h := &store.Host{Name: "web1", Address: "127.0.0.1", Port: 1, User: "u"}
+	c, err := dialHeld(context.Background(), heldLogin(t, up, h), 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	for i := range 300 {
+		s, err := c.NewSession()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Run("true"); err != nil {
+			t.Fatalf("run %d: %v", i, err)
+		}
+	}
+}

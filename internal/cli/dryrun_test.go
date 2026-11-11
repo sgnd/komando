@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -51,4 +52,18 @@ func TestDryRunChangesNothing(t *testing.T) {
 		t.Errorf("key gen --dry-run wrote a key file: %v", err)
 	}
 	store.DryRun = false
+}
+
+// A removal's preview says would_remove; removed stays for contract 1.
+func TestRmDryRunSaysWouldRemove(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	d := mustRun(t, "host", "rm", "web1", "--dry-run")
+	if fmt.Sprint(d["would_remove"]) != "[web1]" {
+		t.Errorf("dry run: %v", d)
+	}
+	d = mustRun(t, "host", "rm", "web1")
+	if _, ok := d["would_remove"]; ok || fmt.Sprint(d["removed"]) != "[web1]" {
+		t.Errorf("real run: %v", d)
+	}
 }

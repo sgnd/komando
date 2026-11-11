@@ -1,7 +1,7 @@
 # Running commands
 
 Run commands and scripts on one or many servers, start long tasks, and save
-commands you use often. [All features](README.md)
+commands you use often. [All docs](README.md)
 
 ## Quick start
 
@@ -9,7 +9,7 @@ commands you use often. [All features](README.md)
 komando exec web1 -- uptime                          # one server
 komando exec @web -- 'df -h /'                       # every web server at once
 komando exec web1 --dry-run -- 'apt-get -y upgrade'  # show what would run, run nothing
-komando script @web ./deploy.sh --arg v1.2.3         # run a local script remotely
+komando exec @web --script ./deploy.sh --arg v1.2.3  # run a local script remotely
 komando job start web1 -- 'tar czf /backup/www.tgz /var/www'   # a long task
 ```
 
@@ -17,7 +17,10 @@ komando job start web1 -- 'tar czf /backup/www.tgz /var/www'   # a long task
 
 Everything after `--` is the command. It runs through the server's login
 shell, on all picked servers in parallel (`run` and `x` are other names for
-`exec`).
+`exec`). komando's own flags go before `--`: `exec web1 -- uptime --dry-run`
+is refused, because `--dry-run` there would be part of the command and the
+command would really run. When the command on the server takes such a flag
+itself (`apt-get upgrade --dry-run`), give it as one string with `-c`.
 
 ```bash
 komando exec web1 -- uptime
@@ -31,7 +34,7 @@ komando exec db1 --read-only -- 'df -h /var/lib/postgresql'   # SQL itself: koma
 | `-c`, `--cmd 'COMMAND'` | Give the command as one string instead of after `--`. |
 | `-s`, `--sudo` / `--sudo-user NAME` | Run as root, or as another user (uses the server's `--sudo-ref` password if set). |
 | `-C`, `--dir PATH` | Run in this folder on the server. |
-| `-e`, `--env KEY=VALUE` | Export a variable first (repeatable). |
+| `-e`, `--env KEY=VALUE` | Export a variable first (repeatable; a comma stays in the value). |
 | `--timeout 10m` | Time limit per server (default 5m). |
 | `-P`, `--parallel 20` | How many servers at once (default 10). |
 | `--fail-fast` | Start no more servers after the first failure. |
@@ -149,19 +152,24 @@ command line as usual.
 
 ## Run a local script
 
-`komando script` sends a script file from this computer to the servers and
-runs it. Nothing is left on the server's disk.
+`komando exec TARGET --script FILE` sends a script file from this computer
+to the servers and runs it. Nothing is left on the server's disk.
 
 ```bash
-komando script @web ./deploy.sh --arg v1.2.3 --sudo
-komando script db1 ./backup.py --interpreter python3
+komando exec @web --script ./deploy.sh --arg v1.2.3 --sudo
+komando exec db1 --script ./backup.py --interpreter python3
 ```
 
 The interpreter comes from the script's `#!` line, or from `--interpreter`
 (otherwise `sh`). `--arg` values reach the script as `$1`, `sys.argv[1]`,
 `$ARGV[0]` and so on, for sh, bash, python, perl, ruby and node alike.
-`script` takes the same flags as `exec` (except `-c`), plus `--arg` and
-`--interpreter`.
+The script is sent as the interpreter's input, so `--stdin-file` and
+`--pty` do not go with `--script`. `komando script TARGET FILE` is the old
+name: it still works in this release and says to use `exec --script`.
+Through `env` (`#!/usr/bin/env -S bash -e`), the program after env's own
+options is the interpreter, with its arguments. A script that holds a value
+komando hid (`[hidden]`) is refused (`HIDDEN_VALUE`), as is such a file
+given to `exec --stdin-file`.
 
 ## Long tasks (jobs)
 
@@ -205,8 +213,7 @@ Good to know:
 
 A recipe is a saved command. komando comes with 36 ready-made ones
 (`health`, `disk`, `updates`, ...; see [Health](health.md)), and you
-can save your own next to them. `ops` and `snippet` are other names for
-`recipe`.
+can save your own next to them.
 
 ```bash
 komando recipe list                                   # built-in and saved
@@ -235,55 +242,44 @@ komando recipe rm disk-of
 
 ## The menu (for people)
 
-Type `komando` alone in a terminal and a menu opens: choose what to do with
-the arrow keys (or `j`/`k`) and Enter, or press its number to choose it at
-once. `?` shows what komando does, by task, with the command for each.
+Type `komando` alone in a terminal and a menu opens. Pick a thing first
+(a server, a database, a VPN), then what to do with it. Move with the arrow
+keys (or `j`/`k`), choose with Enter or a number, and type to filter.
 
 ```text
-komando · v0.9.0 · 12 servers, 3 conns, 1 VPN
+komando  3 servers · 2 databases · 1 VPN (office connected)
 
-> 1. Shell     Open a login shell on a server
-  2. Test      Check that servers, conns and VPNs answer
-  3. Facts     OS, updates, Docker and open ports of a server
-  4. Database  Open a SQL shell on a database
-  5. VPN       Connect a VPN (and log in), or disconnect one
-  6. Add       A server, database, cache, queue, storage, cluster, VPN ...
-  7. All features  Everything komando does, by area, as questions
-  ...
+> 1. Servers                  web1, web2, db1
+  2. Databases and services   shop-db, cache1, orders-queue
+  3. VPNs                     office connected · lab not connected
+  4. Add something            A server, a database, a VPN or another service
+  5. Check everything         See if every server and service answers
+  6. History and undo         What komando and your AI agent changed
+  7. Settings and help        AI agent, saved passwords, production servers
 
-↑↓ move · Enter or 1-9 choose · ? help · q quit
+Enter choose · Esc back · type to filter · ? help · q quit
 ```
 
-The menu shows only what has something to act on: Shell and Facts need a
-server, Database a database conn, and VPN a VPN. While
-komando knows no server yet, the menu starts with Import (when there is a
-`~/.ssh/config` to bring in) and Add; later Add comes after the actions.
-Two more rows show while they are useful and the number keys still reach them
-(9 rows at most): Import, while `~/.ssh/config` names servers komando does
-not know yet, and AI agent (`komando guide install`), while no AI agent on
-this computer has komando's skill.
+The first time, with nothing added yet, the menu offers Add a server, Bring
+in my SSH servers (when `~/.ssh/config` names some), Set up my AI agent and
+Settings and help. While something is still running (a job, a tunnel, a VPN,
+a kept login), a Running now row shows it, with a way to stop each one.
 
-The header counts the VPNs that are up. In the VPN list an up VPN says
-`up (Enter disconnects)`: choosing it runs `komando vpn down NAME`, and
-choosing one that is down runs `komando vpn up NAME`. A server that asks for
-a password or a one-time code asks you there, as `ssh` does.
+Pick a server and komando asks what you want to do with it: open a shell,
+check its health, read logs, start or stop services, run a command, work
+with files, Docker, updates, reboot, change it or remove it. More… holds the
+rest (cron, users, network checks, tunnels, certificates, SSH keys, saved
+commands). Databases, caches, queues, file storage, clusters, registries and
+VPNs each have their own list of tasks the same way.
 
-After an action that needs one, the list to choose from comes next: servers
-for Shell and Facts, database conns for Database, VPNs for VPN, and all of
-them (or `all`) for Test. Type part of a name, address, group or tag to
-filter it. `protected` comes first in a row's details, so it is the last of
-them a narrow window cuts off. A line too long for the window ends in `…`;
-the help and problems under a question wrap instead. A long filter or Add line shows its end, where you type. The menu
-remembers your last action and the last name you chose while it is open,
-and puts the cursor on them.
+A line too long for the window ends in `…`; the help and problems under a
+question wrap instead. A long filter shows its end, where you type.
 
 The menu runs the same command you could type, and shows it first
 (`$ komando shell web1`), so every question and safety check works as it
 does on the command line. When the command ends, Enter goes back to the
-menu and `q` quits; the scrollback keeps the command, its output and how it
-ended (`exit 1`). On a list, Esc clears the filter, then goes back to the
-menu, and so does Left; on the menu, Esc (like `q`) quits. Ctrl-C stops the
-command that is running, not the menu.
+menu and `q` quits. Esc always goes back one step. Ctrl-C stops the command
+that is running, not the menu. `?` explains the screen you are on.
 
 The menu is only for a person at a terminal. AI agents, scripts, pipes and
 `komando` with any flag get the first steps (or, when piped, a `USAGE`
@@ -329,33 +325,31 @@ This runs:
 
 Enter on an answer asks it again; More options asks the rare ones (a jump
 server or VPN, a group, notes). A password is never typed into the menu:
-the command asks for it itself, hidden (`--ask-password`), and keeps it in
-the vault. A password pasted with the address (`root:secret@10.0.0.5`) is
+the command asks for it itself, hidden (`--ask-password`), and keeps it as
+a saved password. A password pasted with the address (`root:secret@10.0.0.5`) is
 taken out before it is shown, and nothing keeps it. After the add, `komando
 test` shows that it answers (for a server with a one-time code, `komando
 login` instead).
 
-`komando host add`, `komando conn add` and `komando vpn add` typed alone at
-a terminal ask the same questions. With any argument or flag, or for an AI
+`komando host add`, `komando db add` (and `cache add`, `queue add`,
+`storage add`, `cluster add`, `registry add`, `vpn add`) typed alone at a
+terminal ask the same questions. With any argument or flag, or for an AI
 agent or a script, they ask nothing.
 
-### All features
+### Every task asks what it needs
 
-All features lists every command by area: servers, files, databases,
-cache, message queues, file storage, Kubernetes, registries, VPNs and tunnels, secrets and
-keys, your list, jobs and recipes, safety and audit, and setup. Pick an
-area, then what to do (type to filter), and the command asks what it needs:
-a server, database or VPN from your list, then the few things that matter;
-everything else waits under More options. For a command that changes
-something, the review also offers *Try it first*, which runs it with
-`--dry-run` and comes back to the review. The menu never adds `--yes`,
-`--allow-dangerous` or `--reveal`: a change that needs your yes asks you
-when it runs.
+A task picked in the menu asks only what it needs: the server, database or
+VPN you picked is already filled in, then the few things that matter.
+Everything else waits under More options on the review screen. For a
+command that changes something, the review also offers *Try it first*,
+which runs it with `--dry-run` and comes back to the review. The menu never
+adds `--yes`, `--allow-dangerous` or `--reveal`: a change that needs your
+yes asks you when it runs.
 
 Keys in a form: Enter takes the answer (or the default), Esc clears what
 you typed and then goes back one question, numbers choose on a list, and
-Ctrl-C (or `q` on a list) cancels before anything runs: the menu then says
-"Nothing was added." after Add, or "Nothing was run." after All features.
+Ctrl-C cancels before anything runs: the menu then says "Nothing was added."
+or "Nothing was run."
 
 ## Interactive shell (for people)
 

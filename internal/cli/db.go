@@ -6,8 +6,11 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -36,12 +39,29 @@ func dbCmd() *cobra.Command {
 		Use:     "db",
 		Aliases: []string{"sql"},
 		Short:   "Query databases safely: read-only by default, structured results",
-		Long: `Run SQL on a conn (see ` + "`komando conn`" + `). Without --write every query runs in a
-read-only transaction (SQL Server: one that is always rolled back), so
-nothing can change. With --write, try --dry-run
-first: it runs the SQL and rolls it back, showing how many rows would change.`,
+		Long: `Look at and query your databases. Add one with ` + "`komando db add`" + `.
+
+Without --write every query runs in a read-only transaction (SQL Server: one
+that is always rolled back), so nothing can change. With --write, try
+--dry-run first: it runs the SQL and rolls it back, showing how many rows
+would change.`,
 	}
-	c.AddCommand(dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
+	c.AddCommand(connAddCmdFor("db"), dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
+	var withTimeout func(*cobra.Command)
+	withTimeout = func(cmd *cobra.Command) {
+		for _, sub := range cmd.Commands() {
+			switch sub.Name() {
+			case "add", "dump", "restore": // dump and restore have no time limit of their own
+			default:
+				if sub.Annotations == nil {
+					sub.Annotations = map[string]string{}
+				}
+				sub.Annotations[timeoutHelp] = "time limit for each query (default 30s, or the conn's statement_timeout option)"
+				withTimeout(sub)
+			}
+		}
+	}
+	withTimeout(c)
 	return c
 }
 
@@ -49,8 +69,8 @@ type dbFlags struct {
 	write bool
 	limit int
 	args  []string
-	csv   bool
-	tsv   bool
+	// table is csv or tsv: -o csv/-o tsv (or the old --csv/--tsv)
+	table string
 	// mariaAnalyze: the SQL starts with EXPLAIN ANALYZE, which MariaDB
 	// spells ANALYZE
 	mariaAnalyze bool
@@ -63,13 +83,17 @@ type dbFlags struct {
 func dbQueryCmd() *cobra.Command {
 	var f dbFlags
 	var file string
+	var csvFlag, tsvFlag bool
 	c := &cobra.Command{
 		Use:   "query CONN [SQL]",
 		Short: "Run SQL; read-only unless --write",
-		Long: `Run SQL on a database conn. Without --write it runs in a read-only
-transaction. Each run stops after 30s unless --timeout (or the conn's
-statement_timeout option) allows more. Placeholders take their values from
---arg, in order. --csv and --tsv print the rows for spreadsheets and scripts.
+		Long: `Runs SQL on a database and prints the rows. Without --write it only reads:
+komando runs it in a read-only transaction, and stops it after 30s.`,
+		Annotations: map[string]string{tableOutput: "yes", helpNotes: `More about db query:
+A run stops after 30s unless --timeout (or the statement_timeout option in
+the database URL) allows more. Placeholders take their values from
+--arg, in order. -o csv and -o tsv print every row (up to --limit, if
+given) for spreadsheets and scripts.
 SQL that starts with a -- comment: pass it after -- or with -f -.
 
 SQL Server has no read-only transaction: without --write komando rolls the
@@ -89,7 +113,7 @@ Placeholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).
 Snowflake has no read-only mode komando can switch on, and each statement
 is a session of its own: without --write komando sends only what it rates
 as a read, and a statement that is not a read needs --write, goes on its
-own, and a dry run only reports it. Give the conn a role that may only
+own, and a dry run only reports it. Log in with a role that may only
 read. Placeholders are ?.
 
 BigQuery: each statement first goes as a dry run, which runs nothing and
@@ -100,16 +124,16 @@ carries that cap too. A write needs --write, goes on its own, and
 --write --dry-run shows BigQuery's dry run. Placeholders are ?; the values
 go as STRING, so write CAST(? AS INT64) for a number.
 
-On a MongoDB conn the text is a command document in JSON, its first key
+On MongoDB the text is a command document in JSON, its first key
 naming it ({"find": ...}, {"aggregate": ...}, {"update": ...}). komando rates
 it as it rates SQL: what it does not know as a read needs --write. "$db"
-picks another database than the URL's.`,
+picks another database than the URL's.`},
 		Example: `  komando db query prod-db "select id, email from users order by id desc limit 10"
   komando db query mongo-db '{"find": "users", "filter": {"plan": "pro"}, "limit": 10}'   # MongoDB
   komando db query prod-db "select * from users where email = $1" --arg bob@example.com
   komando db query prod-db --write --dry-run "update users set plan = 'pro' where id = 42"
   komando db query prod-db --file migration.sql --write --dry-run
-  komando db query prod-db --csv "select * from orders" > orders.csv
+  komando db query prod-db -o csv "select * from orders" > orders.csv
   komando db query bq "select count(*) from shop.orders" --max-bytes 50GB   # BigQuery`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -123,11 +147,13 @@ picks another database than the URL's.`,
 					return localFileErr("FILE_NOT_FOUND", err, "")
 				}
 				q = string(b)
+			case len(args) == 1:
+				return out.Usage("no SQL: give it as an argument, or with -f FILE (-f - reads stdin)")
 			default:
-				return out.Usage("give the SQL as an argument or with --file (not both)")
+				return out.Usage("give the SQL as an argument or with --file, not both")
 			}
-			if f.csv && f.tsv {
-				return out.Usage("pick one of --csv and --tsv")
+			if err := f.pickTable(cmd, csvFlag, tsvFlag); err != nil {
+				return err
 			}
 			if st, c, ok := mongoConn(args[0]); ok {
 				return runMongoQuery(cmd.Context(), "db.query", st, c, q, f)
@@ -137,10 +163,40 @@ picks another database than the URL's.`,
 	}
 	f.bind(c)
 	c.Flags().StringVarP(&file, "file", "f", "", "read SQL from a file ('-' for stdin)")
-	c.Flags().BoolVar(&f.csv, "csv", false, "print the rows as CSV (header first) instead of JSON or a table")
-	c.Flags().BoolVar(&f.tsv, "tsv", false, "print the rows as tab-separated values (header first)")
+	c.Flags().BoolVar(&csvFlag, "csv", false, "old name of -o csv")
+	c.Flags().BoolVar(&tsvFlag, "tsv", false, "old name of -o tsv")
+	_ = c.Flags().MarkHidden("csv")
+	_ = c.Flags().MarkHidden("tsv")
 	c.SetFlagErrorFunc(sqlFlagError)
 	return c
+}
+
+// pickTable sets f.table from -o csv/tsv or the old --csv/--tsv (which
+// say "use -o csv now" on stderr, for one release). Without --limit an
+// export has every row.
+func (f *dbFlags) pickTable(cmd *cobra.Command, csvFlag, tsvFlag bool) error {
+	f.table = g.table
+	old := ""
+	switch {
+	case csvFlag && tsvFlag:
+		return out.Usage("pick one: -o csv or -o tsv")
+	case csvFlag:
+		old = "csv"
+	case tsvFlag:
+		old = "tsv"
+	}
+	if old != "" {
+		if cmd.Flags().Changed("output") && f.table != old {
+			return out.Usage("--%s and -o %s ask for two formats: use -o %s alone", old, g.output, old)
+		}
+		fmt.Fprintf(os.Stderr, "komando: use -o %s now; --%s goes away in the next release\n", old, old)
+		f.table = old
+		out.P.Format = "text" // errors to stderr, so stdout has only rows
+	}
+	if f.table != "" && !cmd.Flags().Changed("limit") {
+		f.limit = 0
+	}
+	return nil
 }
 
 // sqlFlagError explains the usual cause of an unknown flag here: SQL that
@@ -374,6 +430,15 @@ func openDB(ctx context.Context, st *store.State, c *store.Conn, readOnly bool) 
 	if err != nil {
 		return nil, nil, err
 	}
+	if a.Target.Kind.Name == "sqlite" && !readOnly && g.dryRun {
+		// a --write run creates a missing file; a dry run must not
+		if _, err := os.Stat(dbx.SQLitePath(a.Target)); errors.Is(err, fs.ErrNotExist) {
+			a.Close()
+			return nil, nil, out.Errf(out.ExitConnect, "DB_CONNECT",
+				"check the path in the conn URL (`komando conn show "+c.Name+"`); without --dry-run, --write creates a new, empty database there",
+				"cannot open %s: the file does not exist, and a dry run does not create it", a.Target.Path)
+		}
+	}
 	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
 	defer cancel()
 	db, err := dbx.Open(cctx, c.URL, a.Target, a.Password, a.Dial, readOnly, "komando/"+actor())
@@ -579,15 +644,30 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 // when personal data is.
 func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res *dbx.Result) error {
 	maskColumns(c, res)
-	if f.csv || f.tsv {
+	if f.table != "" {
+		// a cut export would look whole in a file: refuse it instead
+		for _, r := range res.Results {
+			if r.Truncated == "bytes" {
+				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, e.g. --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump`",
+					"the rows are more than the output size cap (--max-output) allows; nothing was printed")
+			}
+		}
 		// through Redact like every other output: vault values, and for an
 		// AI agent secrets and personal data, stay hidden in CSV too
 		var b strings.Builder
-		if err := writeDelimited(&b, res, f.tsv); err != nil {
+		if err := writeDelimited(&b, res, f.table == "tsv"); err != nil {
 			return err
 		}
-		_, err := io.WriteString(out.P.W, out.P.Redact(b.String()))
-		return err
+		if _, err := io.WriteString(out.P.W, out.P.Redact(b.String())); err != nil {
+			return err
+		}
+		for _, r := range res.Results {
+			if r.Truncated == "rows" {
+				fmt.Fprintf(os.Stderr, "komando: stopped at --limit %d rows per statement\n", f.limit)
+				break
+			}
+		}
+		return nil
 	}
 	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
 	return nil

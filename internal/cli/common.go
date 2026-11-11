@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,6 +41,10 @@ const groupOnly = "komando-group"
 func applyConventions(c *cobra.Command) {
 	if c.Name() == "rm" {
 		c.Aliases = rmAliases
+	}
+	// list and ls are each other's other name (ux.md, section 1)
+	if other, ok := map[string]string{"list": "ls", "ls": "list"}[c.Name()]; ok && !slices.Contains(c.Aliases, other) {
+		c.Aliases = append(c.Aliases, other)
 	}
 	if c.Example == "" {
 		c.Example = examples[c.CommandPath()]
@@ -91,10 +96,17 @@ func dash(s string) string {
 	return s
 }
 
+// aliasOf is the annotation that names the command an alias stands for.
+const aliasOf = "alias_of"
+
 // alias marks c as the per-area spelling of a shared command (`host list`
 // for `list kind:host`). It keeps working and says so in its help, so there
 // is one implementation and one name to learn (docs/design/ux.md, section 11).
 func alias(c *cobra.Command, shared string) *cobra.Command {
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
+	c.Annotations[aliasOf] = strings.Fields(shared)[0]
 	c.Short = "Same as `komando " + shared + "`"
 	c.Long = ""
 	c.Example = ""
@@ -163,15 +175,17 @@ func toErr(err error) *out.Error {
 	case errors.Is(err, vault.ErrKey):
 		return &out.Error{Code: "VAULT_KEY", Message: err.Error(), Exit: out.ExitError,
 			Hint: "restore ~/.komando/store.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault"}
+	case errors.Is(err, vault.ErrNotFound):
+		return &out.Error{Code: "SECRET_NOT_FOUND", Message: err.Error(), Exit: out.ExitNotFound,
+			Hint: "check the name with `komando secret list`; a person stores a missing one with `komando secret set NAME`"}
 	case errors.Is(err, vault.ErrDecrypt):
 		return &out.Error{Code: "VAULT_DECRYPT", Message: err.Error(), Exit: out.ExitError,
 			Hint: "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use); nothing was lost"}
 	}
 	var pe *os.PathError
 	if errors.As(err, &pe) {
-		e := localFileErr("FILE_ERROR", err, "")
-		e.Exit = out.ExitError
-		return e
+		e := localFileErr("", err, "") // its words; the exit is not "not found" here
+		return out.Errf(out.ExitError, "FILE_ERROR", e.Hint, "%s", e.Message)
 	}
 	return &out.Error{Code: "REMOTE_ERROR", Message: err.Error(), Exit: out.ExitError,
 		Hint: "run it again with -o json for the details; `komando doctor` checks this computer's setup"}
@@ -272,7 +286,7 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 		if len(hits) > 0 && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerous(names, hits[0].Reason) {
 			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 				"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-				"the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")))
+				"the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")).Say(dangerSay(reasons), dangerHint))
 		}
 	}
 	if mutating {
@@ -285,7 +299,7 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
 			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
 				"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
-				"this changes protected %s: %s", nouns(len(prot), "host"), strings.Join(prot, ", ")))
+				"this changes protected %s: %s", nouns(len(prot), "host"), strings.Join(prot, ", ")).Say(protectedSay(prot, "server"), protectedHint))
 		}
 	}
 	return nil
@@ -329,7 +343,7 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 	if v.Risk >= driver.RiskDestructive && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerous(names, strings.Join(v.Reasons, "; ")) {
 		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 			"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-			"the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")))
+			"the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")).Say(dangerSay(v.Reasons), dangerHint))
 	}
 	if v.Risk >= driver.RiskWrite {
 		var prot []string
@@ -341,7 +355,7 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
 			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
 				"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
-				"a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", ")))
+				"a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", ")).Say(protectedSay(prot, connWord(conns, prot)), protectedHint))
 		}
 	}
 	return nil
@@ -500,6 +514,7 @@ func ask(question string) string {
 // confirmProtected asks a human at the terminal to confirm a change to
 // protected targets. A yes counts as --yes for the rest of this command.
 func confirmProtected(names []string) bool {
+	askedAbout = names
 	return confirmYes(fmt.Sprintf("%s %s protected. Change it anyway?", strings.Join(names, ", "), map[bool]string{true: "is", false: "are"}[len(names) == 1]))
 }
 
@@ -515,6 +530,10 @@ func confirmYes(question string) bool {
 	return ok
 }
 
+// askedAbout: the targets of the last yes/no question, so a "no" can say
+// where nothing was changed.
+var askedAbout []string
+
 // guardSafety: changes that weaken komando's own safety checks (no audit
 // log, no host key check, fewer deny rules) need --yes, so an agent cannot
 // switch them off by itself.
@@ -526,7 +545,8 @@ func guardSafety(what string) error {
 		cur().sess.ApproveSafety(what)
 		return nil
 	}
-	return policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what))
+	return policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what).
+		Say(what+" turns off one of komando's safety checks, so komando asks first", "Run it again in a terminal to answer the question, or add --yes in a script if you are sure."))
 }
 
 // confirmDangerous asks a human at the terminal to confirm a destructive
@@ -536,6 +556,7 @@ func confirmDangerous(names []string, reason string) bool {
 	if g.dryRun || !interactive() {
 		return false
 	}
+	askedAbout = names
 	key := strings.Join(names, ",")
 	if cur().sess.DangerConfirmed(key) {
 		return true // the person typed it for these targets in this command already
@@ -630,6 +651,9 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 	}
 	for k, v := range extra {
 		rec[k] = v
+	}
+	if rec["blocked"] != nil {
+		blockAudited = true
 	}
 	if err := appendAudit(rec); err != nil {
 		// the action ran (or was refused); its record is missing: say so

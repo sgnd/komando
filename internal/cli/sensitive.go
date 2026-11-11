@@ -52,6 +52,18 @@ func hiddenInLocal(p string) error {
 	})
 }
 
+// hiddenInInput refuses input that holds a value komando hid (exec
+// --stdin-file, a script): it is a masked copy, and a command that writes
+// it out (cat > /etc/redis.conf) would put [hidden] where the real value is.
+func hiddenInInput(what string, b []byte) error {
+	if len(b) > hiddenScanMax || !out.HasHidden(string(b)) {
+		return nil
+	}
+	return out.Errf(out.ExitUsage, "HIDDEN_VALUE",
+		"edit files on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}}",
+		"%s holds a value komando hid ([hidden] or [secret:NAME]); sending it would put that marker where the real value is", what)
+}
+
 var secretRef = regexp.MustCompile(`\{\{\s*secret:([A-Za-z0-9_.@/-]+)\s*\}\}`)
 
 // expandSecretRefs puts vault values in place of {{secret:NAME}} in text

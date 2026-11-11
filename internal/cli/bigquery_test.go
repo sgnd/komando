@@ -45,9 +45,9 @@ func TestBigQueryConns(t *testing.T) {
 	wantCode(t, "SQL_HIDDEN_CODE", "db", "query", "bq", "select 1 # a\x0bdrop table t")
 	wantCode(t, "USAGE", "db", "query", "bq", "declare x int64")
 	wantCode(t, "USAGE", "db", "query", "bq", "select 1", "--max-bytes", "lots")
-	p := mustRun(t, "policy", "check", "--for", "bigquery", "export data options (uri = 'gs://b/*.csv') as select 1")
-	if p["risk"] != "destructive" {
-		t.Errorf("policy check: %v", p)
+	p, e := invRun(t, "policy", "check", "--for", "bigquery", "export data options (uri = 'gs://b/*.csv') as select 1")
+	if p["risk"] != "destructive" || e == nil || e.Code != "POLICY_BLOCKED" {
+		t.Errorf("policy check: %v %+v", p, e)
 	}
 	// --max-bytes is BigQuery's
 	mustRun(t, "conn", "add", "lite", "sqlite://"+t.TempDir()+"/x.db")

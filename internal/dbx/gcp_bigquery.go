@@ -27,7 +27,7 @@ func bqCredentials(key string, plain *http.Client, onGoogle bool) (*google.Crede
 	if key != "" {
 		creds, err := google.CredentialsFromJSONWithType(tctx, []byte(key), google.ServiceAccount, bqScope)
 		if err != nil {
-			return nil, out.Errf(out.ExitUsage, "DB_AUTH", "the --password-ref of a bigquery conn holds a service account key (the JSON file from the console), or leave it out to use gcloud's login",
+			return nil, out.Errf(out.ExitConnect, "DB_AUTH", "the --password-ref of a bigquery conn holds a service account key (the JSON file from the console), or leave it out to use gcloud's login",
 				"bigquery: the stored key is not a service account key: %v", err)
 		}
 		return creds, nil

@@ -68,7 +68,7 @@ func securityChecks(st *store.State) []securityCheck {
 	}
 	bad := policy.Invalid(st.Settings.ExtraDenyPattern)
 	for _, i := range slices.Sorted(maps.Keys(bad)) {
-		add("deny_rule:custom-"+strconv.Itoa(i), false, false, bad[i])
+		add("deny_rule:"+policy.CustomID(st.Settings.ExtraDenyPattern[i]), false, false, bad[i])
 	}
 	for _, c := range st.SortedConns() {
 		if why := plainConn(c); why != "" {

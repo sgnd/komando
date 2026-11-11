@@ -1,6 +1,6 @@
 # Files
 
-Read, edit and copy files on your servers, safely. [All features](README.md)
+Read, edit and copy files on your servers, safely. [All docs](README.md)
 
 ## Quick start
 
@@ -33,7 +33,9 @@ komando fs stat web1 /etc/hosts --sha256              # exists:false instead of 
 `fs cat ... > file` never writes a broken copy; save it with
 `komando download` instead. A file longer than `--max-bytes` (1 MiB) is cut:
 the output says so, and its hash is `sha256_read` (of the part read), not
-`sha256`.
+`sha256`. `--tail` alone reads the end of the file, so the last lines are
+the file's real last lines; for such a long file `--line-numbers` cannot
+know their numbers and leaves them out (the `note` says so).
 
 For an AI agent, `fs cat` masks the whole file first and then takes
 `--head`/`--tail`, so a cut never uncovers part of a secret. A hidden private
@@ -117,11 +119,20 @@ shows `followed:`.
 ## Undo a change
 
 `fs replace` and `fs write` with `--backup` keep the previous version next to
-the file and name it in the result (`backup`). To go back, move it over the
-file:
+the file and name it in the result (`backup`). In a terminal they also print
+the undo command:
+
+```text
+Changed /etc/nginx/nginx.conf on web1. To undo: komando fs restore web1 /etc/nginx/nginx.conf --sudo
+```
+
+`fs restore` puts the newest backup back. Add `--dry-run` first to see the
+change. The file as it is now becomes a new backup, so a restore can be undone
+too. `--from FILE` picks an older backup.
 
 ```bash
-komando fs mv web1 /etc/nginx/nginx.conf.bak /etc/nginx/nginx.conf --overwrite --sudo
+komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run
+komando fs restore web1 /etc/nginx/nginx.conf --sudo
 komando svc reload web1 nginx                 # if a service reads the file
 ```
 
@@ -169,15 +180,20 @@ komando download @web /etc/nginx/nginx.conf --to ./configs/    # → ./configs/<
 Without a destination, `upload` puts the file in the login user's home
 folder under its own name, and `download` saves into the current folder.
 
-`komando cp` does the same with `SRC DST`, like `scp`. Remote paths are
-written `TARGET:PATH`; `TARGET:` alone, or `TARGET:~/x`, is the login user's
-home folder:
+`komando cp` is `upload` or `download` written `SRC DST`, like `scp`: the
+same code, flags and results. Remote paths are written `TARGET:PATH`;
+`TARGET:` alone, or `TARGET:~/x`, is the login user's home folder. A storage
+conn works too (`backups:2026/db.sql.gz`):
 
 ```bash
 komando cp ./app.tar.gz @web:/tmp/app.tar.gz
 komando cp -r ./site web1:/var/www/site
 komando cp web1:/var/log/nginx/error.log ./logs/
 ```
+
+TARGET can be any selector (`tag:edge:/srv/site`, `label:env=prod:/tmp/x`),
+a server you have not added with its port (`root@10.0.0.5:2222:/tmp/x`), or
+an IPv6 address in brackets (`[2001:db8::1]:/tmp/x`).
 
 A local file whose name has a colon (`a:b.txt`) is read as local when it
 exists; otherwise write `./a:b.txt`. Single-file copies report a `sha256`
@@ -193,6 +209,10 @@ result:
 | `cp -r site web1:/var/www/site` | `/var/www/site` is the copy; run it again and it is updated in place (never `site/site`) |
 | `cp -r site/ web1:/var/www/html` | the *contents* of `site` go into `html` |
 | `cp -r site web1:/var/www/html` (html exists) | `/var/www/html/site` |
+
+`upload` to a [storage](storage.md) conn follows the same rule: without a
+destination, `upload backups ./site -r` puts the folder under `site/`, and a
+destination ending in `/` counts as an existing folder.
 
 `--sudo` works for single files only (downloads up to 512 MiB). For a
 root-owned folder, upload it to a place you own and move it with

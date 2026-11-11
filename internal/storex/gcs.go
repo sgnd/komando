@@ -63,7 +63,7 @@ func OpenGCS(_ context.Context, t driver.Target, key string, dial DialFunc, time
 	if key != "" {
 		creds, err = google.CredentialsFromJSONWithType(tctx, []byte(key), google.ServiceAccount, gcsScope)
 		if err != nil {
-			return nil, out.Errf(out.ExitUsage, "STORAGE_AUTH", "the --password-ref of a gcs conn holds a service account key (the JSON file from the console)",
+			return nil, out.Errf(out.ExitConnect, "STORAGE_AUTH", "the --password-ref of a gcs conn holds a service account key (the JSON file from the console)",
 				"gcs: the stored key is not a service account key: %v", err)
 		}
 	} else if creds, err = gcsDefaultCredentials(tctx); err != nil {

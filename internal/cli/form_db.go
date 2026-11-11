@@ -173,7 +173,7 @@ func clickhouseForm() formSpec {
 		{key: "database", label: "Database", ask: "Which database should commands use?", optional: true, example: "analytics",
 			help: "Empty uses the user's default database.", check: dbNameProblem},
 		formYesNoQ("password", "Password", "Does this user log in with a password?",
-			"Almost always yes. komando asks for it after this, hidden, and keeps it in its vault.", "yes",
+			"Almost always yes. komando asks for it after this, hidden, and keeps it as a saved password.", "yes",
 			"you type it next, hidden", "no password"),
 		formProtectQ("database"),
 		formGroupQ(), formNotesQ(),
@@ -205,10 +205,10 @@ func snowflakeForm() formSpec {
 			choices: func(*store.State, formAnswers) []menuRow {
 				rows := []menuRow{
 					{label: "A private key file", detail: "key-pair login; Snowflake knows its public half (RSA_PUBLIC_KEY)", value: "keyfile"},
-					{label: "A programmatic access token", detail: "you paste it next, hidden; komando keeps it in its vault", value: "token"},
+					{label: "A programmatic access token", detail: "you paste it next, hidden; komando keeps it as a saved password", value: "token"},
 				}
 				if len(secretNames()) > 0 {
-					rows = append(rows, menuRow{label: "A key or token in komando's vault", detail: "pick it from komando secret list", value: "secret"})
+					rows = append(rows, menuRow{label: "A key or token I saved in komando before", detail: "pick it from your saved passwords", value: "secret"})
 				}
 				return rows
 			}},

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -8,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -140,19 +143,19 @@ func TestMenuListMoves(t *testing.T) {
 }
 
 func TestMenuHotKey(t *testing.T) {
-	l := menuMain([]menuAction{shellAction, listAction})
+	l := menuMain([]menuAction{serversAction, settingsAction})
 	if o := l.update(menuKey{kind: keyRune, r: '?'}, 10); o != menuChosen {
 		t.Fatalf("?: outcome %v", o)
 	}
-	if row, _ := l.chosen(); row.value != helpAction.name {
-		t.Fatalf("? chose %q, want Help", row.value)
+	if row, _ := l.chosen(); row.value != menuHelpKey {
+		t.Fatalf("? chose %q, want the help", row.value)
 	}
 	l.update(menuKey{kind: keyDown}, 10) // any other key forgets it
-	if row, _ := l.chosen(); row.value != listAction.name {
-		t.Fatalf("after Down: %q, want List", row.value)
+	if row, _ := l.chosen(); row.value != settingsAction.name {
+		t.Fatalf("after Down: %q, want Settings and help", row.value)
 	}
 	f := testMenuList(3, true)
-	f.hot = map[rune]string{'?': "Help"}
+	f.hot = menuHot()
 	if o := f.update(menuKey{kind: keyRune, r: '?'}, 10); o != menuStay || f.filter != "?" {
 		t.Fatalf("? on a list with a filter is typed: %v %q", o, f.filter)
 	}
@@ -295,9 +298,9 @@ func TestMenuRender(t *testing.T) {
 		t.Errorf("main menu screen:\n%s", strings.Join(lines, "\n"))
 	}
 	// with a note (no server yet): the note, a blank line, then the rows
-	m.note = menuNoServer
+	m.note = menuWelcome
 	lines = renderText(m, menuScreen{header: []seg{{"komando", ""}}, footer: "keys"}, 80, 10)
-	if len(lines) != 10 || lines[3] != menuNoServer || lines[4] != "" || !strings.HasPrefix(lines[5], "> 1. a-row") {
+	if len(lines) != 10 || lines[3] != menuWelcome || lines[4] != "" || !strings.HasPrefix(lines[5], "> 1. a-row") {
 		t.Errorf("main menu with a note:\n%s", strings.Join(lines, "\n"))
 	}
 }
@@ -397,170 +400,361 @@ func TestMenuMain(t *testing.T) {
 	empty := &store.State{Hosts: map[string]*store.Host{}}
 	onlyConns := menuTestState()
 	onlyConns.Hosts = map[string]*store.Host{}
+	fixed := []string{"Servers", "Databases and services", "VPNs", "Add something", "Check everything", "History and undo", "Settings and help"}
 	cases := []struct {
-		name                    string
-		st                      *store.State
-		sshConfig, newIn, agent bool // ~/.ssh/config, servers komando does not know in it, no agent skill
-		want                    []string
+		name  string
+		st    *store.State
+		newIn int // servers in ~/.ssh/config komando does not know
+		want  []string
 	}{
-		{"new, with ~/.ssh/config", empty, true, true, false, []string{"Import", "Add", "All features", "List", "Doctor"}},
-		{"new, no ~/.ssh/config", empty, false, false, false, []string{"Add", "All features", "List", "Doctor"}},
-		{"new, no agent skill", empty, false, false, true, []string{"Add", "AI agent", "All features", "List", "Doctor"}},
-		{"conns and a VPN, no server", onlyConns, true, true, false, []string{"Import", "Add", "Test", "Database", "VPN", "All features", "List", "Doctor"}},
-		{"servers: Add stays", testState(), true, false, false, []string{"Shell", "Test", "Facts", "Add", "All features", "List", "Doctor"}},
-		{"servers, more in ~/.ssh/config, no agent skill", testState(), true, true, true, []string{"Shell", "Test", "Facts", "Add", "Import", "AI agent", "All features", "List", "Doctor"}},
-		{"everything", menuTestState(), true, false, false, []string{"Shell", "Test", "Facts", "Database", "VPN", "Add", "All features", "List", "Doctor"}},
-		{"everything: no room for the optional rows", menuTestState(), true, true, true, []string{"Shell", "Test", "Facts", "Database", "VPN", "Add", "All features", "List", "Doctor"}},
+		{"new, with servers in ~/.ssh/config", empty, 12, []string{"Add a server", "Bring in my SSH servers", "Set up my AI agent", "Settings and help"}},
+		{"new, nothing to import", empty, 0, []string{"Add a server", "Set up my AI agent", "Settings and help"}},
+		{"conns and a VPN, no server", onlyConns, 3, fixed},
+		{"servers", testState(), 0, fixed},
+		{"everything", menuTestState(), 0, fixed},
 	}
 	for _, c := range cases {
-		got := actionNames(menuMainActions(c.st, c.sshConfig, c.newIn, c.agent))
+		acts := menuMainActions(c.st, c.newIn)
+		got := actionNames(acts)
 		if !slices.Equal(got, c.want) {
 			t.Errorf("%s: %v, want %v", c.name, got, c.want)
 		}
 		if len(got) > 9 {
 			t.Errorf("%s: %d rows; the number keys reach 9", c.name, len(got))
 		}
+		for _, a := range acts {
+			if slices.Contains(strings.Fields(a.name+" "+a.detail), "conn") || strings.Contains(a.name, "All features") {
+				t.Errorf("%s: row %q %q says conn or All features", c.name, a.name, a.detail)
+			}
+		}
 	}
-	redisOnly := &store.State{Hosts: map[string]*store.Host{}, Conns: map[string]*store.Conn{"cache": menuTestState().Conns["cache"]}}
-	if slices.Contains(actionNames(menuMainActions(redisOnly, false, false, false)), "Database") {
-		t.Error("Database shows with no database conn (only redis)")
+	if acts := menuMainActions(empty, 12); acts[1].detail != "12 servers found in ~/.ssh/config" {
+		t.Errorf("import detail %q", acts[1].detail)
+	}
+	if acts := menuMainActions(menuTestState(), 0); acts[2].detail != "office not connected" {
+		t.Errorf("VPNs detail %q", acts[2].detail)
+	}
+	// Running now shows above Add something while something runs
+	run := menuTestState()
+	run.Tunnels = map[string]*store.Tunnel{"t1": {ID: "t1", Host: "web-1", Kind: "local", Spec: "8080:localhost:80"}}
+	got := actionNames(menuMainActions(run, 0))
+	if want := []string{"Servers", "Databases and services", "VPNs", "Running now (1)", "Add something", "Check everything", "History and undo", "Settings and help"}; !slices.Equal(got, want) {
+		t.Errorf("running: %v", got)
 	}
 	// names the lists leave out (a host "all" from before it was refused,
-	// a hand-edited "-x") do not count: no Shell that opens an empty list
-	// and hides Add
+	// a hand-edited "-x") do not count: still the first-run screen
 	oldNames := &store.State{
 		Hosts: map[string]*store.Host{"all": {Name: "all", Address: "old.lan"}},
 		Conns: map[string]*store.Conn{"-x": {Name: "-x", Kind: "postgres", URL: "postgres://u@db.lan/x"}},
 	}
-	if got := actionNames(menuMainActions(oldNames, false, false, false)); !slices.Equal(got, []string{"Add", "All features", "List", "Doctor"}) {
+	if got := actionNames(menuMainActions(oldNames, 0)); got[0] != "Add a server" {
 		t.Errorf("only names the lists leave out: %v", got)
 	}
-	// every action is a command line komando takes: command, sub-command
-	// and flags, as the docs examples are checked (docs_test.go)
+	// every command line the main menu runs at once is one komando takes
 	root := newRoot()
-	// (Add builds its lines from a form: form_test.go checks those)
-	picked := map[string]string{"host": " web1", "target": " web1", "db": " app-db", "vpn": " office"}
-	all := []menuAction{importAction, shellAction, testAction, factsAction, dbAction, vpnAction, agentAction, listAction, doctorAction}
-	for _, a := range all {
-		line := "komando " + menuCommandLine(a.args) + picked[a.pick]
-		if checkExampleLines(t, root, "menu action "+a.name, line) != 1 {
-			t.Errorf("%s: `%s` was not checked", a.name, line)
+	for _, a := range []menuAction{importAction, agentAction} {
+		if checkExampleLines(t, root, "menu action "+a.name, "komando "+menuCommandLine(a.args)) != 1 {
+			t.Errorf("%s: `%v` was not checked", a.name, a.args)
+		}
+	}
+	for _, l := range checkLines {
+		if checkExampleLines(t, root, "Check everything", "komando "+menuCommandLine(l)) != 1 {
+			t.Errorf("Check everything: `%v` was not checked", l)
 		}
 	}
 	if !slices.ContainsFunc(importSources, func(s importSource) bool { return s.Name == importAction.args[1] }) {
 		t.Errorf("Import runs an unknown source %q", importAction.args[1])
 	}
-	// the other line the menu builds: a VPN to disconnect
-	for _, line := range []string{"komando vpn down office"} {
-		if checkExampleLines(t, root, "menu line", line) != 1 {
-			t.Errorf("`%s` was not checked", line)
-		}
+}
+
+// The header counts in plain words, never "conn", and names a connected VPN.
+func TestMenuHeader(t *testing.T) {
+	st := menuTestState()
+	h := menuHeader(st)
+	text := h[0].text + h[1].text
+	if text != "komando  4 servers · 1 database · 1 service · 1 VPN" {
+		t.Errorf("header %q", text)
 	}
-	// ? shows the tasks, in 80 columns, and the commands it names exist
-	if helpAction.args != nil {
-		t.Errorf("? runs %v", helpAction.args)
+	if h := menuHeader(&store.State{}); len(h) != 1 || h[0].text != "komando" {
+		t.Errorf("empty header %v", h)
 	}
-	for _, l := range strings.Split(menuHelpFor(80), "\n") {
-		if displayWidth(l) > 80 {
-			t.Errorf("? line wider than 80 columns: %q", l)
-		}
-		if !strings.HasPrefix(l, "  ") {
-			continue // the heading and the last line
-		}
-		_, cmds, _ := strings.Cut(l, "komando ")
-		for _, c := range strings.Split("komando "+cmds, " · ") {
-			c = strings.TrimSpace(c)
-			if !strings.HasPrefix(c, "komando ") || strings.Contains(c, "COMMAND") || strings.Contains(c, "--help") {
+}
+
+// Every task of every item, settings, history, add and running screen is a
+// command komando has, and every command line it runs at once is one
+// komando takes, with the item filled in.
+func TestMenuTasksAreCommands(t *testing.T) {
+	root := newRoot()
+	for _, tk := range menuEveryTask(t) {
+		if tk.cmd != "" {
+			c, _, err := root.Find(strings.Fields(tk.cmd))
+			if err != nil || commandKey(c) != tk.cmd {
+				t.Errorf("task %q: no command %q", tk.label, tk.cmd)
 				continue
 			}
-			if words := strings.Fields(c); len(words) > 1 {
-				if _, _, err := root.Find(words[1:]); err != nil {
-					t.Errorf("? names %q: %v", c, err)
-				}
+			if tk.fill != nil && len(tk.fill) > len(formUseArgs(c.Use, c.Flags())) {
+				t.Errorf("task %q fills more arguments than %q takes", tk.label, tk.cmd)
 			}
 		}
-	}
-	// the sessions end with their own line; the menu does not repeat exit 0
-	for _, a := range all {
-		if want := a.name == "Shell" || a.name == "Database"; a.ownExit != want {
-			t.Errorf("%s: ownExit %v", a.name, a.ownExit)
+		for _, l := range tk.line {
+			line := "komando " + menuCommandLine(menuFillLine(l, "web-1"))
+			if checkExampleLines(t, root, "task "+tk.label, line) != 1 {
+				t.Errorf("task %q: `%s` was not checked", tk.label, line)
+			}
+		}
+		if tk.confirm != "" && tk.yes == "" {
+			t.Errorf("task %q asks %q with no yes row", tk.label, tk.confirm)
 		}
 	}
 }
 
-func TestMenuTargets(t *testing.T) {
+// menuEveryTask is every task the menu has, sub lists included, for a
+// state with something running and a connected VPN.
+func menuEveryTask(t *testing.T) []menuTask {
+	t.Helper()
 	st := menuTestState()
-	st.Hosts["web-1"].User, st.Hosts["web-1"].Port, st.Hosts["web-1"].Protected = "deploy", 2222, true
-	st.Hosts["web-alias"] = &store.Host{Name: "web-alias", Address: "WEB-1.lan", Port: 2222} // the same server
-	st.Hosts["bad\x1b[2Jname"] = &store.Host{Name: "bad\x1b[2Jname", Address: "bad.lan"}
-	st.Hosts["-rf"] = &store.Host{Name: "-rf", Address: "flag.lan"}
-	st.Hosts["all"] = &store.Host{Name: "all", Address: "old.lan"} // from before "all" was refused
-	st.Hosts["ctl"] = &store.Host{Name: "ctl", Address: "x\x07.lan\x1b[2J", Tags: []string{"t\x1b]0;title\x07"}}
-	st.Conns["all"] = &store.Conn{Name: "all", Kind: "postgres", URL: "postgres://x@old.lan/x"}
-	st.Conns["prod-db"] = &store.Conn{Name: "prod-db", Kind: "postgres", URL: "postgres://app@10.0.0.9:5432/other"} // same server as app-db
-	st.Conns["app-db"].Protected = true
-	st.Conns["leaky"] = &store.Conn{Name: "leaky", Kind: "mysql", URL: "mysql://app:hunter2@10.0.0.7/app"}    // komando refuses this URL
-	st.Conns["files"] = &store.Conn{Name: "files", Kind: "sftp", URL: "sftp://deploy@web-1.lan:2222/var/www"} // protected web-1 over SFTP
-
-	labels := func(l *menuList) []string {
-		var s []string
-		for _, r := range l.rows {
-			s = append(s, r.label)
+	st.Tunnels = map[string]*store.Tunnel{"t1": {ID: "t1", Host: "web-1", Spec: "8080:localhost:80"}}
+	st.Jobs = map[string]*store.Job{"j1": {ID: "j1", Host: "web-1", Command: "make"}}
+	st.Logins = map[string]*store.SSHLogin{"web-1": {Host: "web-1"}}
+	all := slices.Concat(serverTasks, groupTasks(), vpnTasks(st, "office"), dbTasks, cacheTasks, queueTasks,
+		storageTasks, clusterTasks, registryTasks, importTasks, historyTasks, settingsTasks(), runningTasks, menuRunningRows(st))
+	// a connected VPN offers Disconnect
+	st.Sessions = map[string]*store.VpnSession{"office": {Vpn: "office", PID: os.Getpid()}}
+	all = append(all, vpnTasks(st, "office")...)
+	all = append(all, menuRunningRows(st)...)
+	var flat []menuTask
+	var walk func(ts []menuTask)
+	walk = func(ts []menuTask) {
+		for _, tk := range ts {
+			flat = append(flat, tk)
+			walk(tk.sub)
 		}
-		return s
 	}
-	detail := func(l *menuList, name string) string {
-		i := slices.IndexFunc(l.rows, func(r menuRow) bool { return r.label == name })
+	walk(all)
+	return flat
+}
+
+// Every command a person can use has a home in the menu: a task of some
+// item or screen, an Add form, or a reason it is for scripts only.
+func TestMenuEveryCommandHasAHome(t *testing.T) {
+	root := newRoot()
+	home := map[string]bool{}
+	for _, tk := range menuEveryTask(t) {
+		if tk.cmd != "" {
+			home[tk.cmd] = true
+		}
+		for _, l := range tk.line {
+			if c, _, err := root.Find(l); err == nil {
+				home[commandKey(c)] = true
+			}
+		}
+	}
+	for _, l := range checkLines {
+		c, _, _ := root.Find(l)
+		home[commandKey(c)] = true
+	}
+	for _, g := range formGroups() { // Add something: host add, conn add, vpn add
+		for _, k := range g.kinds {
+			for _, line := range k.spec().build(menuTestState(), formAnswers{"name": "x"}) {
+				if c, _, err := root.Find(line); err == nil {
+					home[commandKey(c)] = true
+				}
+			}
+		}
+	}
+	for _, f := range menuFamilies { // db add, cache add ...: the Add forms
+		home[f.family+" add"] = true
+	}
+	for k := range menuCLIOnly {
+		if home[k] {
+			t.Errorf("%s is in the menu and also marked for scripts only", k)
+		}
+		home[k] = true
+	}
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, s := range c.Commands() {
+			walk(s)
+			// a group command (host, config) shows its list or help; its
+			// subcommands are what the menu offers
+			if s.Hidden || s.Deprecated != "" || s.Name() == "help" || !formListed(s) || s.HasSubCommands() {
+				continue
+			}
+			if !home[commandKey(s)] {
+				t.Errorf("%s has no home in the menu: give it a task, or a reason in menuCLIOnly", commandKey(s))
+			}
+		}
+	}
+	walk(root)
+}
+
+// A task opens its command's form with the item answered: that question
+// is not asked, the command line has it, and a read with nothing left to
+// ask runs at once.
+func TestMenuTaskSpec(t *testing.T) {
+	root := newRoot()
+	st := menuTestState()
+	spec := func(key string, tk menuTask, item string) (formSpec, bool) {
+		c, _, _ := root.Find(strings.Fields(key))
+		tk.cmd = key
+		return menuTaskSpec(st, c, tk, item)
+	}
+	sp, ready := spec("facts", menuTask{label: "Facts"}, "web-1")
+	if !ready || !slices.Equal(sp.build(st, formAnswers{})[0], []string{"facts", "web-1"}) {
+		t.Errorf("facts web-1: ready %v, %v", ready, sp.build(st, formAnswers{}))
+	}
+	for _, q := range sp.qs {
+		if q.key == "arg0" {
+			t.Error("the server is asked again")
+		}
+	}
+	if _, ready := spec("host rm", menuTask{label: "Remove"}, "web-1"); ready {
+		t.Error("a change runs without its review")
+	}
+	sp, _ = spec("group add", menuTask{label: "Add", fill: []string{"{name}"}}, "@web")
+	if got := sp.build(st, formAnswers{"arg1": "db-1"})[0]; !slices.Equal(got, []string{"group", "add", "web", "db-1"}) {
+		t.Errorf("group add: %v", got)
+	}
+	sp, _ = spec("recipe run", menuTask{label: "Run", fill: []string{"", "{}"}}, "web-1")
+	if got := sp.build(st, formAnswers{"arg0": "disk"})[0]; !slices.Equal(got, []string{"recipe", "run", "disk", "web-1"}) {
+		t.Errorf("recipe run: %v", got)
+	}
+}
+
+// Protect or unprotect asks only the production question, and each answer
+// builds a command that does it: No takes protection away.
+func TestMenuProtectTask(t *testing.T) {
+	root := newRoot()
+	st := menuTestState()
+	for _, key := range []string{"host edit", "conn edit"} {
+		i := slices.IndexFunc(menuEveryTask(t), func(tk menuTask) bool { return tk.cmd == key && tk.only != nil })
 		if i < 0 {
-			t.Fatalf("no row %s in %v", name, labels(l))
+			t.Fatalf("no Protect or unprotect task for %s", key)
 		}
-		return l.rows[i].detail
-	}
-
-	test := menuTargets(st, testAction)
-	want := []string{"all", "ctl", "db-1", "dev-1", "web-1", "web-2", "web-alias", "app-db", "cache", "files", "leaky", "prod-db", "office"}
-	if got := labels(test); !slices.Equal(got, want) { // the selector all only: no host or conn named all, no bad name, no -rf
-		t.Errorf("Test rows %v, want %v", got, want)
-	}
-	if test.title != "Test: which one?" {
-		t.Errorf("Test title %q", test.title)
-	}
-	if d := detail(test, "web-1"); d != "protected  deploy@web-1.lan:2222  @web  prod" {
-		t.Errorf("web-1 detail %q (protected first)", d)
-	}
-	if d := detail(test, "web-alias"); !strings.HasPrefix(d, "protected  ") {
-		t.Errorf("the same server as protected web-1 must say so: %q", d)
-	}
-	if d := detail(test, "app-db"); d != "protected  postgres  10.0.0.9:5432  @prod" {
-		t.Errorf("app-db detail %q", d)
-	}
-	if d := detail(test, "files"); !strings.HasPrefix(d, "protected  sftp") {
-		t.Errorf("an SFTP conn to protected web-1 must say so: %q", d)
-	}
-	if d := detail(test, "leaky"); d != "mysql" {
-		t.Errorf("a URL komando cannot read is never shown, it may hold a password: %q", d)
-	}
-	if d := detail(test, "prod-db"); !strings.HasPrefix(d, "protected  ") {
-		t.Errorf("the same database server as protected app-db must say so: %q", d)
-	}
-	if d := detail(test, "office"); d != "vpn socks  127.0.0.1:1080" {
-		t.Errorf("office detail %q", d)
-	}
-	for _, r := range test.rows {
-		if strings.ContainsAny(r.label+r.detail, "\x1b\x07") {
-			t.Errorf("control characters reach the screen: %q %q", r.label, r.detail)
+		tk := menuEveryTask(t)[i]
+		c, _, _ := root.Find(strings.Fields(key))
+		sp, _ := menuTaskSpec(st, c, tk, "")
+		for _, q := range sp.qs {
+			if strings.HasPrefix(q.key, "flag:") && !q.advanced != (q.key == "flag:protected") {
+				t.Errorf("%s: %s advanced %v", key, q.key, q.advanced)
+			}
+		}
+		for v, want := range map[string]string{"true": "--protected", "false": "--protected=false", "": ""} {
+			got := formBuild(st, sp, formAnswers{"arg0": "web-1", "flag:protected": v})[0]
+			if want == "" && len(got) != 3 || want != "" && !slices.Contains(got, want) {
+				t.Errorf("%s, production %q: %v, want %q", key, v, got, want)
+			}
 		}
 	}
+}
 
-	shell := menuTargets(st, shellAction)
-	if got := labels(shell); slices.Contains(got, "all") || slices.Contains(got, "app-db") || slices.Contains(got, "office") || shell.title != "Shell: which server?" {
-		t.Errorf("Shell offers %v (%q): servers only", got, shell.title)
+// A group offers only what runs on several servers: no shell, tunnel,
+// login or one-file edit, which would stop at "needs exactly one".
+func TestMenuGroupTasks(t *testing.T) {
+	var walk func(ts []menuTask)
+	seen := map[string]bool{}
+	walk = func(ts []menuTask) {
+		for _, tk := range ts {
+			seen[tk.cmd] = true
+			for _, l := range tk.line {
+				seen[l[0]] = true
+			}
+			walk(tk.sub)
+		}
 	}
-	if got := labels(menuTargets(st, dbAction)); !slices.Equal(got, []string{"app-db", "leaky", "prod-db"}) {
-		t.Errorf("Database offers %v: database conns only", got)
+	walk(groupTasks())
+	for _, cmd := range []string{"shell", "tunnel start", "login", "fs replace", "fs cat"} {
+		if seen[cmd] {
+			t.Errorf("a group offers %s, which works on one server", cmd)
+		}
 	}
-	if got := labels(menuTargets(st, vpnAction)); !slices.Equal(got, []string{"office"}) {
-		t.Errorf("VPN offers %v", got)
+	for _, cmd := range []string{"logs", "exec", "upload", "recipe run", "group add"} {
+		if !seen[cmd] {
+			t.Errorf("a group lost %s", cmd)
+		}
+	}
+}
+
+// Log in with a code under a server logs in to that server, not asking
+// which one again.
+func TestMenuLoginUsesItem(t *testing.T) {
+	i := slices.IndexFunc(serverMoreTasks, func(tk menuTask) bool { return tk.cmd == "login" })
+	sp, given, ok := menuHandForm(formHints["login"], serverMoreTasks[i], "web-1")
+	if !ok || given["arg0"] != "web-1" {
+		t.Fatalf("login: ok %v, given %v", ok, given)
+	}
+	if got := formBuild(menuTestState(), sp, given)[0]; !slices.Equal(got, []string{"login", "web-1"}) {
+		t.Errorf("login: %v", got)
+	}
+	if _, _, ok := menuHandForm(formHints["login"], menuTask{cmd: "login", noItem: true}, ""); ok {
+		t.Error("with no item the server is not asked")
+	}
+}
+
+// A list from komando export comes back with import komando, which takes
+// its databases, VPNs and settings too, not only its servers.
+func TestMenuImportExported(t *testing.T) {
+	i := slices.IndexFunc(importTasks, func(tk menuTask) bool { return tk.label == "A list exported from komando" })
+	if tk := importTasks[i]; tk.cmd != "import" || !slices.Equal(tk.fill, []string{"komando"}) {
+		t.Errorf("exported list: %s %v", tk.cmd, tk.fill)
+	}
+}
+
+// Disconnecting a VPN asks first and says what stops answering; Reboot
+// asks first. No is the first row, so Enter alone does nothing.
+func TestMenuConfirms(t *testing.T) {
+	st := menuTestState()
+	st.Hosts["web-1"].Via = "office"
+	if tk := vpnTasks(st, "office")[0]; tk.label != "Connect" || tk.confirm != "" {
+		t.Errorf("not connected: %+v", tk)
+	}
+	st.Sessions = map[string]*store.VpnSession{"office": {Vpn: "office", PID: os.Getpid()}}
+	tk := vpnTasks(st, "office")[0]
+	if tk.label != "Disconnect" || menuFill(tk.confirm, "office") != "Disconnect office? 1 server or service behind it stops answering." {
+		t.Errorf("connected: %q %q", tk.label, tk.confirm)
+	}
+	reboot := serverTasks[slices.IndexFunc(serverTasks, func(t menuTask) bool { return t.label == "Reboot" })]
+	if reboot.confirm == "" {
+		t.Error("Reboot runs without asking")
+	}
+}
+
+// Every screen's ? text fits the screen and ends with where the commands
+// for scripts are.
+func TestMenuHelpWidths(t *testing.T) {
+	for _, text := range []string{menuHelpMain, menuHelpItems, menuHelpTasks, menuHelpAdd, menuHelpHistory, menuHelpSettings, menuHelpRunning, menuHelpConfirm} {
+		for _, w := range []int{40, 80} {
+			out := menuHelpFor(text, w)
+			for _, ln := range strings.Split(out, "\n") {
+				if displayWidth(ln) > w {
+					t.Errorf("? at %d columns: %q is wider", w, ln)
+				}
+			}
+			if !strings.Contains(out, "--help") || slices.Contains(strings.Fields(out), "conn") {
+				t.Errorf("? text:\n%s", out)
+			}
+		}
+	}
+}
+
+// README's menu block is what a new computer shows.
+func TestMenuREADMEBlock(t *testing.T) {
+	b, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	acts := menuMainActions(&store.State{}, 0)
+	l := menuMain(acts)
+	l.note = menuWelcome
+	scr := menuScreen{header: menuHeader(&store.State{}), footer: menuKeysFor(l)}
+	lines := renderText(l, scr, 80, 4+len(acts)+3)
+	var b2 strings.Builder
+	for _, ln := range lines {
+		b2.WriteString(strings.TrimRight(ln, " ") + "\n")
+	}
+	want := "```text\n" + strings.TrimLeft(strings.TrimRight(b2.String(), "\n"), "\n") + "\n```"
+	if !strings.Contains(string(b), want) {
+		t.Errorf("README.md menu block is out of date; it should be:\n%s", want)
 	}
 }
 
@@ -744,39 +938,71 @@ func TestMenuKeyHelpNarrow(t *testing.T) {
 	}
 }
 
-// The ? screen keeps its columns at 80, and on a narrow terminal puts the
-// commands under their task, each command whole on one line.
-func TestMenuHelpWidths(t *testing.T) {
-	if !strings.Contains(menuHelpFor(80), "\n  Databases and caches       komando conn add · komando db · komando cache\n") {
-		t.Errorf("? at 80 columns:\n%s", menuHelpFor(80))
+// The lists behind Servers, Databases and services, and VPNs: groups
+// first, services by kind, bad names left out, protected first in the
+// detail, never a URL that may hold a password, no control characters.
+func TestMenuItems(t *testing.T) {
+	st := menuTestState()
+	st.Hosts["web-1"].User, st.Hosts["web-1"].Port, st.Hosts["web-1"].Protected = "deploy", 2222, true
+	st.Hosts["web-alias"] = &store.Host{Name: "web-alias", Address: "WEB-1.lan", Port: 2222} // the same server
+	st.Hosts["bad\x1b[2Jname"] = &store.Host{Name: "bad\x1b[2Jname", Address: "bad.lan"}
+	st.Hosts["-rf"] = &store.Host{Name: "-rf", Address: "flag.lan"}
+	st.Hosts["all"] = &store.Host{Name: "all", Address: "old.lan"}
+	st.Conns["app-db"].Protected = true
+	st.Conns["leaky"] = &store.Conn{Name: "leaky", Kind: "mysql", URL: "mysql://app:hunter2@10.0.0.7/app"}
+	labels := func(l *menuList) []string {
+		var s []string
+		for _, r := range l.rows {
+			s = append(s, r.label)
+		}
+		return s
 	}
-	for _, w := range []int{40, 60} {
-		text := menuHelpFor(w)
-		for _, ln := range strings.Split(text, "\n") {
-			if displayWidth(ln) > w {
-				t.Errorf("? at %d columns: %q is wider", w, ln)
+	detail := func(l *menuList, name string) string {
+		i := slices.IndexFunc(l.rows, func(r menuRow) bool { return r.label == name })
+		if i < 0 {
+			t.Fatalf("no row %s in %v", name, labels(l))
+		}
+		return l.rows[i].detail
+	}
+	servers := menuItems(st, "servers")
+	if got := labels(servers); !slices.Equal(got, []string{"@db", "@web", "db-1", "dev-1", "web-1", "web-2", "web-alias"}) {
+		t.Errorf("Servers rows %v", got)
+	}
+	if d := detail(servers, "web-1"); d != "protected  deploy@web-1.lan:2222  @web  prod" {
+		t.Errorf("web-1 detail %q", d)
+	}
+	if d := detail(servers, "web-alias"); !strings.HasPrefix(d, "protected  ") {
+		t.Errorf("the same server as protected web-1 must say so: %q", d)
+	}
+	services := menuItems(st, "services")
+	if got := labels(services); !slices.Equal(got, []string{"app-db", "leaky", "cache"}) {
+		t.Errorf("services rows %v (databases first)", got)
+	}
+	if d := detail(services, "app-db"); d != "database  protected  postgres  10.0.0.9:5432  @prod" {
+		t.Errorf("app-db detail %q", d)
+	}
+	if d := detail(services, "leaky"); d != "database  mysql" {
+		t.Errorf("a URL komando cannot read is never shown: %q", d)
+	}
+	if got := labels(menuItems(st, "vpns")); !slices.Equal(got, []string{"office"}) {
+		t.Errorf("VPNs %v", got)
+	}
+	for _, l := range []*menuList{servers, services} {
+		for _, r := range l.rows {
+			if strings.ContainsAny(r.label+r.detail, "\x1b\x07") {
+				t.Errorf("control characters reach the screen: %q %q", r.label, r.detail)
 			}
 		}
-		for _, h := range menuHelpTasks {
-			for _, c := range h.cmds {
-				if !strings.Contains(text, c+"\n") && !strings.Contains(text, c+" · ") {
-					t.Errorf("? at %d columns: %q is cut", w, c)
-				}
-			}
-		}
 	}
-}
-
-// An empty list of servers, databases or VPNs says what to do next (Test
-// always has its "all" row).
-func TestMenuTargetsEmptySaysWhatToDo(t *testing.T) {
-	st := &store.State{}
-	for _, a := range []menuAction{shellAction, dbAction, vpnAction} {
-		l := menuTargets(st, a)
-		text := strings.Join(renderText(l, menuScreen{}, 120, 20), "\n")
-		if !strings.Contains(text, "Esc goes back") || !strings.Contains(text, "Add") {
-			t.Errorf("%s with nothing to pick:\n%s", a.name, text)
-		}
+	// each kind gets its own tasks, and the title says what the item is
+	if kind, tasks := menuItemTasks(st, "app-db"); kind != "db" || tasks[1].label != "Run a query" {
+		t.Errorf("app-db: %s %v", kind, tasks[1].label)
+	}
+	if kind, _ := menuItemTasks(st, "@web"); kind != "group" {
+		t.Errorf("@web: %s", kind)
+	}
+	if got := menuItemTitle(st, "server", "web-1"); got != "web-1 (deploy@web-1.lan): what do you want to do?" {
+		t.Errorf("title %q", got)
 	}
 }
 
@@ -857,5 +1083,74 @@ func TestFormCancelKey(t *testing.T) {
 	}
 	if got := formCancelKey(&menuList{typing: true}); got != "Ctrl-C cancel" {
 		t.Errorf("filter: %q", got)
+	}
+}
+
+// Running now counts only what runs on this computer; the job count
+// leaves out jobs seen ending and jobs whose server left the list.
+func TestMenuRunningLeavesOutEndedJobs(t *testing.T) {
+	st := menuTestState()
+	st.Jobs = map[string]*store.Job{
+		"live": {ID: "live", Host: "web-1", Command: "make"},
+		"done": {ID: "done", Host: "web-1", Command: "make", Ended: "exited"},
+		"gone": {ID: "gone", Host: "deleted-vm", Command: "make"},
+		"lost": {ID: "lost", Host: "web-1", Command: "make", Ended: "lost"},
+	}
+	if n := menuJobsRunning(st); n != 1 {
+		t.Fatalf("jobs that may still run = %d, want 1", n)
+	}
+	if rows := menuRunningRows(st); len(rows) != 0 {
+		t.Fatalf("Running now counts %d rows with only jobs, want 0", len(rows))
+	}
+}
+
+// Check everything runs doctor even when a server fails test all, and says
+// the worst exit; other lines stop at the first failure, and Ctrl-C stops
+// both.
+func TestMenuRunLines(t *testing.T) {
+	codes := map[string]int{"test": 4, "doctor": 0, "stop": -1}
+	cases := []struct {
+		cmds      [][]string
+		keepGoing bool
+		want      string
+		ran       int
+	}{
+		{checkLines, true, "exit 4", 2},
+		{checkLines, false, "exit 4", 1},
+		{[][]string{{"stop"}, {"doctor"}}, true, "stopped", 1},
+		{[][]string{{"doctor"}}, false, "exit 0", 1},
+	}
+	for _, c := range cases {
+		ran := 0
+		got, err := menuRunLines(c.cmds, c.keepGoing, func(args []string) (int, error) {
+			ran++
+			return codes[args[0]], nil
+		})
+		if err != nil || got != c.want || ran != c.ran {
+			t.Errorf("%v keepGoing %v: %q after %d, want %q after %d", c.cmds, c.keepGoing, got, ran, c.want, c.ran)
+		}
+	}
+	if next, _ := menuOpen(context.Background(), nil, nil, nil, checkAction, menuScreen{}, nil); !next.keepGoing {
+		t.Error("Check everything stops at the first failure")
+	}
+}
+
+// Set up my AI agent, tried first: a dry run says what it would do.
+func TestGuideInstallDryRunText(t *testing.T) {
+	files := []skillFile{{Path: "/h/.claude/skills/komando/SKILL.md", Action: "created"},
+		{Path: "/h/.claude/settings.json", Action: "updated", Backup: "/h/.claude/settings.json.bak"}}
+	g.dryRun = true
+	dry := skillResult{Files: files}.Text()
+	g.dryRun = false
+	for _, line := range strings.Split(dry, "\n") {
+		if strings.HasPrefix(line, "created") || strings.HasPrefix(line, "updated") || strings.Contains(line, "Restart") {
+			t.Errorf("dry run says it was done: %q", line)
+		}
+	}
+	if !strings.Contains(dry, "would create") || !strings.Contains(dry, "would be kept") {
+		t.Errorf("dry run:\n%s", dry)
+	}
+	if real := (skillResult{Files: files}).Text(); !strings.HasPrefix(real, "created  ") {
+		t.Errorf("real run:\n%s", real)
 	}
 }

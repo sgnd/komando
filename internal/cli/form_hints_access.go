@@ -14,7 +14,7 @@ var (
 	accNewName = formArg{ask: "What should the new name be?", example: "office-jkt",
 		help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}
 	accSecret = formArg{ask: "Which secret?", example: "db-pass", pick: "secret", free: true,
-		help: "Its name in komando's vault (the safe store for passwords on this computer). `komando secret list` shows them."}
+		help: "The name you saved it under. komando secret list shows your saved passwords."}
 	accSecretNew = formArg{ask: "What should the new name be?", example: "db-pass-old",
 		help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}
 	accOverwrite = formFlag{name: "overwrite", ask: "Replace the new name if it exists already?",
@@ -62,13 +62,13 @@ func init() {
 		"vpn rm": {args: []formArg{accVpns}},
 
 		// Tunnels
-		"tunnel start": {args: []formArg{{ask: "To which server or conn?", pick: "target", free: true,
-			help: "Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it."}},
+		"tunnel start": {args: []formArg{{ask: "To which server or service?", pick: "target", free: true,
+			help: "Pick a service (a database, a cache) to reach it from this computer, or a server to forward a port through it."}},
 			flags: []formFlag{
-				{name: "port", ask: "Which port on this computer? (for a conn)", example: "15432",
+				{name: "port", ask: "Which port on this computer? (for a service)", example: "15432",
 					help: "Point your app at localhost and this port. Leave empty for a free one; komando shows which."},
 				{name: "local", ask: "What should it forward? (for a server)", example: "8080:localhost:80",
-					help: "LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a conn."},
+					help: "LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a service."},
 			}},
 		"tunnel list": {},
 		"tunnel stop": {args: []formArg{{ask: "Which tunnels should stop? (leave empty with --all)", pick: "tunnel", free: true,

@@ -69,6 +69,7 @@ type formKind struct {
 type formGroup struct {
 	label, detail string
 	kinds         []formKind
+	ask           string // the question above its kinds ("Which database?")
 }
 
 // errFormCancel: Ctrl-C (or q on a list) in the middle of a form. Nothing
@@ -95,9 +96,16 @@ func formDefault(st *store.State, q formQ, a formAnswers) string {
 // try, when set, runs a command and comes back: the review then offers to
 // run it with --dry-run before it runs for real.
 func formFill(ctx context.Context, t *menuTerm, st *store.State, sp formSpec, scr menuScreen, try formTry) ([][]string, error) {
-	a := formAnswers{}
-	if err := formAskAll(ctx, t, st, sp, a, scr, false, false); err != nil {
-		return nil, err
+	return formFillFrom(ctx, t, st, sp, scr, try, formAnswers{})
+}
+
+// formFillFrom is formFill with answers given already (a is filled in
+// place): with some, it opens on the review, to change one of them.
+func formFillFrom(ctx context.Context, t *menuTerm, st *store.State, sp formSpec, scr menuScreen, try formTry, a formAnswers) ([][]string, error) {
+	if len(a) == 0 {
+		if err := formAskAll(ctx, t, st, sp, a, scr, false, false); err != nil {
+			return nil, err
+		}
 	}
 	askMissing := true
 	for {
@@ -370,7 +378,7 @@ func formAsk(ctx context.Context, t *menuTerm, st *store.State, sp formSpec, a f
 	}
 	if q.choices != nil {
 		l.rows = formOptionalRows(q, q.choices(st, a))
-		l.empty = "nothing to choose from; Esc goes back"
+		l.empty = "nothing here yet; Esc goes back, and Add in the menu adds one"
 		l.point(cur)
 		scr.footer = listKeys(l, "Esc back", formCancelKey(l))
 		row, err := menuChoose(ctx, t, l, scr)
@@ -489,10 +497,30 @@ const (
 // formReview shows every answer and the commands they make. Enter on the
 // first row runs them; on an answer, asks it again.
 func formReview(ctx context.Context, t *menuTerm, st *store.State, sp formSpec, a formAnswers, scr menuScreen, dry bool) (string, error) {
+	l := formReviewList(st, sp, a, dry)
+	scr.footer = listKeys(l, "Esc back", formCancelKey(l))
+	row, err := menuChoose(ctx, t, l, scr)
+	if errors.Is(err, errMenuQuit) {
+		return "", errFormCancel
+	}
+	return row.value, err
+}
+
+// formReviewList is the review screen. Its commands are formBuild's, so
+// what it shows is what Run it runs.
+func formReviewList(st *store.State, sp formSpec, a formAnswers, dry bool) *menuList {
 	l := &menuList{title: sp.title + ": check and run", note: "Enter on an answer changes it"}
 	l.lead = append(l.lead, []seg{{"This runs:", "2"}})
-	for _, c := range sp.build(st, a) {
+	cmds := formBuild(st, sp, a)
+	for _, c := range cmds {
 		l.runs = append(l.runs, "$ komando "+menuCommandLine(c))
+	}
+	gone := formDestructive(cmds)
+	if gone != "" { // a note, so it shows under the commands, not above them
+		l.note, l.warn = "This "+gone+". It cannot be undone.", true
+		if dry {
+			l.note += " Try it first to see what and how much it would delete."
+		}
 	}
 	l.rows = []menuRow{{label: "Run it", detail: "run the commands above", value: formRunRow}}
 	if dry {
@@ -513,18 +541,75 @@ func formReview(ctx context.Context, t *menuTerm, st *store.State, sp formSpec, 
 	if len(more) > 0 {
 		l.rows = append(l.rows, menuRow{label: "More options", detail: strings.Join(more, ", "), value: formMoreRow})
 	}
-	scr.footer = listKeys(l, "Esc back", formCancelKey(l))
-	row, err := menuChoose(ctx, t, l, scr)
-	if errors.Is(err, errMenuQuit) {
-		return "", errFormCancel
+	if gone != "" && dry {
+		l.point(formDryRow) // Enter tries it first; running for real is one row up
 	}
-	return row.value, err
+	return l
+}
+
+// formDestructive says what a command deletes for good ("deletes keys"),
+// or "" when it deletes nothing that cannot come back.
+func formDestructive(cmds [][]string) string {
+	for _, c := range cmds {
+		if len(c) < 2 {
+			continue
+		}
+		switch c[0] + " " + c[1] {
+		case "queue purge":
+			return "deletes every waiting message"
+		case "queue rm":
+			return "deletes the topics or queues with their messages"
+		case "cache rm":
+			return "deletes the keys"
+		case "storage rm":
+			return "deletes the files"
+		case "cluster rm":
+			return "deletes it from the cluster"
+		case "registry rm", "registry prune":
+			return "deletes the images"
+		case "db restore":
+			return "replaces what is in the database now"
+		case "db user":
+			if len(c) > 2 && c[2] == "rm" {
+				return "deletes the database user"
+			}
+		case "fs rm":
+			return "deletes the files"
+		case "docker rm":
+			return "deletes the containers"
+		case "docker prune":
+			return "deletes stopped containers and unused images"
+		case "user rm":
+			if slices.Contains(c, "--remove-home") {
+				return "deletes the user and their home folder"
+			}
+			return "deletes the user"
+		case "secret rm":
+			return "deletes the saved passwords"
+		case "key rm":
+			if slices.Contains(c, "--delete-file") {
+				return "deletes the key files"
+			}
+		case "pkg rm":
+			return "removes the packages"
+		case "cron rm":
+			return "deletes the scheduled task"
+		case "cluster scale":
+			if slices.Contains(c, "0") || slices.Contains(c, "--replicas=0") {
+				return "stops every copy of the app"
+			}
+		}
+	}
+	return ""
 }
 
 // formPick asks what to add: a group (Server, Database, ...), then a kind
 // when the group has more than one. A list with one row is not shown; asked
 // says whether any list was, so Esc on the form has somewhere to go back.
 func formPick(ctx context.Context, t *menuTerm, groups []formGroup, scr menuScreen) (sp formSpec, asked bool, err error) {
+	if len(groups) == 0 {
+		return formSpec{}, false, errMenuBack
+	}
 	gl := &menuList{title: "Add: what is it?"}
 	for _, g := range groups {
 		gl.rows = append(gl.rows, menuRow{label: g.label, detail: g.detail, value: g.label})
@@ -543,7 +628,11 @@ func formPick(ctx context.Context, t *menuTerm, groups []formGroup, scr menuScre
 		if len(g.kinds) == 1 {
 			return g.kinds[0].spec(), len(groups) > 1, nil
 		}
-		kl := &menuList{title: "Add " + strings.ToLower(g.label) + ": which kind?", typing: len(g.kinds) > 9}
+		title := g.ask
+		if title == "" {
+			title = "Add " + strings.ToLower(g.label) + ": which kind?"
+		}
+		kl := &menuList{title: title, typing: len(g.kinds) > 9}
 		for _, k := range g.kinds {
 			kl.rows = append(kl.rows, menuRow{label: k.label, detail: k.detail, value: k.label})
 		}
@@ -562,16 +651,24 @@ func formPick(ctx context.Context, t *menuTerm, groups []formGroup, scr menuScre
 // formChoose is what to add and its answers: Esc on a form's first
 // question goes back to the kinds. It returns the commands to run.
 func formChoose(ctx context.Context, t *menuTerm, st *store.State, groups []formGroup, scr menuScreen, try formTry) ([][]string, error) {
+	_, _, cmds, err := formChooseFull(ctx, t, st, groups, scr, try)
+	return cmds, err
+}
+
+// formChooseFull is formChoose that also gives the form and its answers,
+// to ask them again when the new thing does not answer.
+func formChooseFull(ctx context.Context, t *menuTerm, st *store.State, groups []formGroup, scr menuScreen, try formTry) (formSpec, formAnswers, [][]string, error) {
 	for {
 		sp, asked, err := formPick(ctx, t, groups, scr)
 		if err != nil {
-			return nil, err
+			return sp, nil, nil, err
 		}
-		cmds, err := formFill(ctx, t, st, sp, scr, try)
+		a := formAnswers{}
+		cmds, err := formFillFrom(ctx, t, st, sp, scr, try, a)
 		if errors.Is(err, errMenuBack) && asked {
 			continue
 		}
-		return cmds, err
+		return sp, a, cmds, err
 	}
 }
 
@@ -594,13 +691,13 @@ func formCommand(groups []formGroup) error {
 	}
 	scr := menuScreen{header: menuHeader(st), color: colorOK()}
 	try := func(args []string) error {
-		again, err := menuRun(context.Background(), t, self, [][]string{args}, false, "the questions")
+		again, err := menuRun(context.Background(), t, self, [][]string{args}, false, false, "the questions")
 		if err == nil && !again {
 			err = errFormCancel // q after Try it first: leave
 		}
 		return err
 	}
-	cmds, err := formChoose(context.Background(), t, st, groups, scr, try)
+	sp, a, cmds, err := formChooseFull(context.Background(), t, st, groups, scr, try)
 	t.leave()
 	if errors.Is(err, errFormCancel) || errors.Is(err, errMenuBack) || errors.Is(err, context.Canceled) {
 		fmt.Fprintln(os.Stderr, "komando: nothing was added")
@@ -609,17 +706,47 @@ func formCommand(groups []formGroup) error {
 	if err != nil {
 		return err
 	}
-	for _, c := range cmds {
-		fmt.Fprintf(os.Stderr, "$ komando %s\n", menuCommandLine(c))
-		code, err := menuRunOne(self, c)
-		if err != nil {
+	for {
+		code, reason, err := formRunAll(self, cmds)
+		if err != nil || code == 0 {
 			return err
 		}
-		if code != 0 {
+		rm := formRemoveCmd(cmds)
+		if reason == "" || rm == nil { // the add itself failed: nothing to undo
 			return exitCode(max(code, out.ExitError))
 		}
+		next, err := formAfterFailedCheck(context.Background(), t, scr, a["name"], reason)
+		t.leave()
+		if err != nil {
+			return exitCode(max(code, out.ExitError))
+		}
+		switch next {
+		case formKeepRow:
+			fmt.Fprintf(os.Stderr, "Kept %s in your list. Test it again later: komando test %s\n", a["name"], a["name"])
+			return exitCode(max(code, out.ExitError))
+		case formRemoveRow:
+			c, _, err := formRunAll(self, [][]string{rm})
+			if err != nil {
+				return err
+			}
+			return exitCode(max(c, code, out.ExitError))
+		}
+		// change the answers: the questions again, filled in, then the old
+		// one goes before the new one is added
+		if st, err = loadState(); err != nil {
+			return err
+		}
+		delete(st.Hosts, a["name"]) // its name is free again for the check
+		delete(st.Conns, a["name"])
+		delete(st.Vpns, a["name"])
+		again, err := formFillFrom(context.Background(), t, st, sp, scr, try, a)
+		t.leave()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Kept %s as it was. Test it again later: komando test %s\n", a["name"], a["name"])
+			return exitCode(max(code, out.ExitError))
+		}
+		cmds = append([][]string{rm}, again...)
 	}
-	return nil
 }
 
 // formArgs lets an add command take no arguments, for the questions; with
@@ -643,87 +770,4 @@ func formOrUsage(cmd *cobra.Command, kind, example string) error {
 	return out.Errf(out.ExitUsage, "USAGE",
 		"for example: "+example+". A person can type `komando "+kind+" add` alone at a terminal to be asked step by step",
 		"komando %s add needs a name and what to add", kind)
-}
-
-// formPickOrType is a list that also takes a typed answer: type to filter,
-// Enter picks the row under the cursor, or what was typed when no row is
-// left (a selector like tag:prod, or several names).
-func formPickOrType(ctx context.Context, t *menuTerm, l *menuList, q formQ, st *store.State, a formAnswers, scr menuScreen, cur string) (string, error) {
-	l.rows, l.typing = formOptionalRows(q, q.choices(st, a)), true
-	l.point(cur)
-	l.empty = "Enter takes what you typed"
-	scr.footer = "↑↓ move · type to filter or write it · Enter choose · Esc back · Ctrl-C cancel"
-	for {
-		var v string
-		moved := false
-		err := menuShow(ctx, t, l, scr, func(k menuKey, page int) (bool, error) {
-			if k.kind == keyEnter {
-				v = formPicked(l, moved)
-				return true, nil
-			}
-			switch k.kind {
-			case keyUp, keyDown, keyHome, keyEnd, keyPageUp, keyPageDown:
-				moved = true
-			case keyRune, keyBackspace, keyClear:
-				moved = false
-			}
-			switch l.update(k, page) {
-			case menuQuit:
-				return true, errFormCancel
-			case menuBack:
-				return true, errMenuBack
-			}
-			return false, nil
-		})
-		if err != nil {
-			return "", err
-		}
-		if v == "" && !q.optional {
-			l.note, l.warn = "pick one, or type it", true
-			continue
-		}
-		if p := formTypedProblem(st, q, a, l, v); p != "" { // a row needs no check
-			l.note, l.warn = p, true
-			continue
-		}
-		return v, nil
-	}
-}
-
-// formOptionalRows puts "Leave it empty" first on a list a person may skip.
-func formOptionalRows(q formQ, rows []menuRow) []menuRow {
-	if !q.optional || slices.ContainsFunc(rows, func(r menuRow) bool { return r.value == "" }) {
-		return rows
-	}
-	return append([]menuRow{{label: "Leave it empty", detail: "use the command's usual behaviour", value: ""}}, rows...)
-}
-
-// formTypedProblem checks an answer typed into a list: one of the list's
-// rows is fine as it is.
-func formTypedProblem(st *store.State, q formQ, a formAnswers, l *menuList, v string) string {
-	if v == "" || q.check == nil || slices.ContainsFunc(l.rows, func(r menuRow) bool { return r.value == v }) {
-		return ""
-	}
-	return q.check(st, a, v)
-}
-
-// formPicked is what Enter gives on a list that also takes typing: the
-// row the arrows moved to, a row whose value is exactly what was typed, or
-// else the typed text when it reads as a selector or a list (@web, tag:x,
-// web*, web1 web2) or matches no row, and the first row it filters to.
-func formPicked(l *menuList, moved bool) string {
-	typed := strings.TrimSpace(l.filter)
-	row, ok := l.chosen()
-	switch {
-	case typed == "" || moved:
-		if ok && len(l.shown()) > 0 {
-			return row.value
-		}
-		return typed
-	case slices.ContainsFunc(l.rows, func(r menuRow) bool { return r.value == typed }):
-		return typed
-	case strings.ContainsAny(typed, "@:*, ") || !ok || len(l.shown()) == 0:
-		return typed
-	}
-	return row.value
 }

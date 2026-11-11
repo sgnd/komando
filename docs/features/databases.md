@@ -2,7 +2,7 @@
 
 Add PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake,
 BigQuery, SQLite and MongoDB databases, then query, inspect, back up and
-restore them safely. [All features](README.md)
+restore them safely. [All docs](README.md)
 
 ## Quick start
 
@@ -156,14 +156,22 @@ In Oracle SQL each placeholder takes its own `--arg`, also a name used
 twice (`where a = :1 or b = :1` takes two); in a PL/SQL block a name used
 twice takes one.
 
-For spreadsheets and scripts, `--csv` or `--tsv` prints the rows
+For spreadsheets and scripts, `-o csv` or `-o tsv` prints the rows
 instead of JSON or a table. NULL is an empty field, binary is `\x` hex:
 
 ```bash
-komando db query app-db --csv "select id, email from users" > users.csv
+komando db query app-db -o csv "select id, email from users" > users.csv
 ```
 
-A query returns at most 500 rows (`--limit`, `0` for no limit)
+A CSV or TSV export has every row, unless you give `--limit` (komando
+then says on stderr when it stopped there). If the rows are more than
+`--max-output` bytes, komando prints nothing and fails with
+`OUTPUT_TRUNCATED` (exit 1), so a file is never cut without you knowing:
+raise `--max-output`, or for a whole database use `komando db dump`.
+Errors go to stderr, so the file holds only rows. `--csv` and `--tsv`
+are the old names; they still work in this release and say to use `-o`.
+
+Otherwise a query returns at most 500 rows (`--limit`, `0` for no limit)
 and `--max-output` bytes. A cut result says which cap it hit:
 `"truncated": "rows"` (raise `--limit`) or `"truncated": "bytes"` (raise
 `--max-output`). A query stops after 30 seconds; use `--timeout 2m` for
@@ -229,7 +237,10 @@ The seatbelts:
 
 - A protected conn also needs `--yes` with `--write`, whatever the SQL is.
 - Destructive SQL needs `--allow-dangerous`: `DROP`, `TRUNCATE`, `DELETE` or
-  `UPDATE` without `WHERE`, privilege changes, and a few more.
+  `UPDATE` without `WHERE`, privilege changes, code that reaches the
+  server's operating system (`CREATE EXTENSION`, a function in C or
+  `plpython3u`, `LOAD`, MySQL `INSTALL PLUGIN` and `SONAME`, SQL Server
+  `CREATE ASSEMBLY`), and a few more.
   `komando policy list` shows them all; `komando policy check --for postgres "..."`
   tests a query.
 - A few admin functions that a read-only transaction does not stop (ending
@@ -470,7 +481,7 @@ Plain SQL that psql and mysql can also read:
   says what would stop the real run.
 - SQL in the file that does more than write data is named next to
   `db-restore` in the approval and in `POLICY_BLOCKED`, with the line where
-  it first appears: `sql-program` (`COPY ... PROGRAM`), `sql-server-file`
+  it first appears: `sql-program` (`COPY ... PROGRAM`, `CREATE EXTENSION`), `sql-server-file`
   (`INTO OUTFILE`, `pg_read_file`), `sql-server-config` (`ALTER SYSTEM`),
   `sql-privileges` (`GRANT`, `CREATE ROLE`), `sql-opaque` (`DO`,
   `PREPARE`), `sql-remote` and `sql-kill`. A pg_dump with privileges names
@@ -726,7 +737,7 @@ komando db kill events 8078617214407497              # the pid db activity shows
 - Text in `$$...$$` and names or text with letters outside ASCII outside
   quotes are refused (`SQL_HIDDEN_CODE`): use `'...'` (with `\'` for a quote) and
   `` `...` ``. `FORMAT` and `INTO OUTFILE` are refused too: komando reads
-  the rows itself (`--csv`, `--tsv`).
+  the rows itself (`-o csv`, `-o tsv`).
 - `db explain` is `EXPLAIN indexes = 1`; ClickHouse has no
   `EXPLAIN ANALYZE` (`NOT_SUPPORTED`).
 - **Users.** `db user add` creates a SQL user with a SHA-256 hash of the
@@ -956,7 +967,7 @@ which returns JSON.
 |-------|------|---------|
 | `DB_AUTH` | 4 | wrong user name or password |
 | `DB_NOT_FOUND` | 3 | the database does not exist |
-| `DB_PRIVILEGE` | 4 or 5 | the conn's user lacks a right (for example to see lock waits in `db locks`, or to manage users) |
+| `DB_PRIVILEGE` | 5 | the conn's user lacks a right (for example to see lock waits in `db locks`, or to manage users) |
 | `DB_BYTES_LIMIT` | 6 | a BigQuery query would read more than `--max-bytes` (default 10GB), so it did not run |
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object; the message names it |
 | `TOOL_MISSING` | 3 | `pg_dump`, `mysqldump` or `pg_restore` is not installed where it should run |

@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
-	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -27,8 +25,10 @@ type hostVet struct {
 // its hosts may not use secrets or files of this computer
 // (dropForeignHostRefs), unless ownRefs says it is the user's own list (a
 // CSV). A proxy command runs on this computer, so it goes through
-// guardProxyCommand (an AI agent needs a person's yes); that stop ends the
-// whole import. Hosts that pass are put into s.
+// guardProxyCommand (an AI agent needs a person's yes). Without --yes (or
+// --allow-dangerous) the host is only left out, so the rest still comes
+// in; a person who says no in the window stops the whole import. Hosts
+// that pass are put into s.
 func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool) (hostVet, error) {
 	var v hostVet
 	var cand []*store.Host
@@ -37,7 +37,7 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 		if h == nil || h.Name == "" || h.Address == "" {
 			continue
 		}
-		if err := validName("host", h.Name); err != nil {
+		if err := checkHostName(h.Name); err != nil {
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
 		}
@@ -82,6 +82,10 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
 		}
+		if r := proxyCommandSkip(h.ProxyCommand); r != "" {
+			v.Invalid = append(v.Invalid, importSkip{h.Name, r})
+			continue
+		}
 		if err := guardProxyCommand(h.ProxyCommand); err != nil {
 			return v, err
 		}
@@ -116,8 +120,24 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 	return v, guardHostSends(v.Add, prev)
 }
 
-// parseHostsJSON reads `host export` output (the envelope or its data), a
-// `komando export` file, or a plain list of hosts.
+// proxyCommandSkip says why an import leaves out a host whose proxy
+// command guardProxyCommand would stop and no flag asks to let through.
+// With the flag, guardProxyCommand asks the person instead.
+func proxyCommandSkip(cmd string) string {
+	if cmd == "" {
+		return ""
+	}
+	if hits := policy.Check(cmd, nil); len(hits) > 0 && !g.allowDangerous {
+		return "its proxy command matches destructive rules (" + hits[0].Reason + "): import it again with --allow-dangerous once the user confirms it is intended"
+	}
+	if isAgent() && !g.yes {
+		return "its proxy command runs on this computer, so an AI agent needs the user's yes: import it again with --yes after the user confirms"
+	}
+	return ""
+}
+
+// parseHostsJSON reads a list of hosts: `komando export` output (the
+// envelope or its data), as older `host export` printed it, or a plain list.
 func parseHostsJSON(b []byte) ([]*store.Host, bool) {
 	var list []*store.Host
 	if json.Unmarshal(b, &list) == nil {
@@ -138,100 +158,33 @@ func parseHostsJSON(b []byte) ([]*store.Host, bool) {
 	return doc.Hosts, doc.Hosts != nil
 }
 
+// hostImportCmd is the old name of `import ssh-config [FILE]` (--ssh-config)
+// and `import komando FILE` (--json), kept for one release.
 func hostImportCmd() *cobra.Command {
 	var sshConfig, jsonFile string
 	var groups []string
 	var overwrite bool
 	c := &cobra.Command{
-		Use:   "import",
-		Short: "Add servers from ~/.ssh/config or a server export (JSON)",
-		Long: `Adds servers from an OpenSSH config (like ` + "`komando import ssh-config`" + `) or from
-JSON made by ` + "`komando host export`" + `. Existing names are skipped unless
---overwrite; replacing a protected server also needs --yes. Proxy commands
-run on this computer, so an AI agent needs a person's yes for them.`,
-		Example: `  komando host import --ssh-config ~/.ssh/config --group imported
-  komando host import --json fleet.json --overwrite --dry-run`,
+		Use:  "import",
 		Args: cobra.NoArgs,
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			if jsonFile != "" { // the note names the command that does it now
+				cmd.Annotations[oldNameNote] = "import komando " + jsonFile
+			}
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			var hosts []*store.Host
-			var notes []string
-			switch {
-			case jsonFile != "":
-				b, err := readFileOrStdin(jsonFile)
-				if err != nil {
-					return localFileErr("FILE_NOT_FOUND", err, "give the path of a file made by `komando host export`")
-				}
-				var ok bool
-				if hosts, ok = parseHostsJSON(b); !ok {
-					return out.Errf(out.ExitUsage, "USAGE", "give a file made by `komando host export` or `komando export`", "cannot read hosts from %s", jsonFile)
-				}
-			default:
-				if sshConfig == "" {
-					home, _ := os.UserHomeDir()
-					sshConfig = filepath.Join(home, ".ssh", "config")
-				}
-				var err error
-				hosts, notes, err = parseSSHConfig(sshConfig)
-				if err != nil {
-					return err
-				}
+			if jsonFile != "" {
+				return runImport("komando", jsonFile, groups, overwrite)
 			}
-			for _, gr := range groups {
-				if err := validLabelName("group", gr); err != nil {
-					return err
-				}
-			}
-			if st, err := store.Load(); err == nil {
-				prefetchTwinIPs(st, hosts) // DNS before the inventory lock, not under it
-			}
-			var v hostVet
-			err := store.Update(func(s *store.State) error {
-				var err error
-				if v, err = vetImportHosts(s, hosts, overwrite, false); err != nil {
-					return err
-				}
-				now := time.Now().UTC()
-				for _, h := range v.Add {
-					h.Groups = dedupe(append(h.Groups, groups...))
-					if h.CreatedAt.IsZero() {
-						h.CreatedAt = now
-					}
-					h.UpdatedAt = now
-				}
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-			added := []string{}
-			for _, h := range v.Add {
-				added = append(added, h.Name)
-			}
-			audit(nil, "host.import", added, "", true, nil)
-			key := "imported"
-			if g.dryRun {
-				key = "would_import"
-			}
-			res := map[string]any{key: added, "skipped_existing": orEmpty(v.Existing)}
-			if len(v.Protected) > 0 {
-				res["skipped_protected"] = v.Protected
-				res["hint"] = "replacing protected hosts needs --yes after the user confirms"
-			}
-			if len(v.Invalid) > 0 {
-				res["skipped_invalid"] = v.Invalid
-			}
-			if notes = append(notes, v.Notes...); len(notes) > 0 {
-				res["notes"] = notes
-			}
-			out.P.Print("host.import", res, nil)
-			return nil
+			return runImport("ssh-config", sshConfig, groups, overwrite)
 		},
 	}
 	c.Flags().StringVar(&sshConfig, "ssh-config", "", "OpenSSH config file (default ~/.ssh/config)")
-	c.Flags().StringVar(&jsonFile, "json", "", "JSON file made by komando host export (- for stdin)")
+	c.Flags().StringVar(&jsonFile, "json", "", "a file made by komando export (- for stdin)")
 	c.Flags().StringSliceVarP(&groups, "group", "g", nil, "put the imported servers in these groups")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace servers that have the same name (protected ones also need --yes)")
-	return c
+	c.MarkFlagsMutuallyExclusive("ssh-config", "json")
+	return oldName(c, "import ssh-config")
 }
 
 func orEmpty(s []string) []string {
@@ -241,31 +194,7 @@ func orEmpty(s []string) []string {
 	return s
 }
 
+// hostExportCmd is the old name of `komando export [TARGET]`.
 func hostExportCmd() *cobra.Command {
-	var target string
-	c := &cobra.Command{
-		Use:   "export [TARGET]",
-		Short: "Servers as JSON for `host import --json` (`komando export` saves everything)",
-		Example: `  komando host export @prod > prod-hosts.json
-  komando host import --json prod-hosts.json        # on another computer`,
-		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			if len(args) == 1 {
-				target = args[0]
-			}
-			hosts := st.SortedHosts()
-			if target != "" {
-				if hosts, err = resolveTargets(st, target); err != nil {
-					return err
-				}
-			}
-			out.P.Print("host.export", map[string]any{"hosts": hosts}, nil)
-			return nil
-		},
-	}
-	return c
+	return oldName(exportCmd(), "export")
 }

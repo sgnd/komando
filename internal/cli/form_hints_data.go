@@ -7,7 +7,7 @@ package cli
 
 func init() {
 	conn := formArg{ask: "Which cache?", pick: "cache",
-		help: "A Redis, Valkey or Memcached cache from your list. Add one first with Add, Cache."}
+		help: "A Redis, Valkey or Memcached cache from your list. Add one first with Add, Caches."}
 	key := formArg{ask: "Which key?", example: "session:42",
 		help: "Its exact name. `komando cache keys` lists them."}
 	addFormHints(map[string]formHint{

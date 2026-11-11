@@ -31,7 +31,7 @@ func vpnCmd() *cobra.Command {
 		Use:   "vpn",
 		Short: "VPNs komando connects by itself when a --via path needs one",
 		Long: `Add a VPN once, then put it first in --via. A command that needs it
-connects it, using the login stored in the vault:
+connects it, using the login you saved:
 
   komando vpn add office wireguard --config ~/Downloads/office.conf
   komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
@@ -49,6 +49,13 @@ Kinds (also: pritunl = openvpn; cisco = ipsec):
 	return c
 }
 
+// vpnFlagHint says how to give a flag a VPN kind needs.
+var vpnFlagHint = map[string]string{
+	"config": "give the file your VPN provider sent, for example --config ~/Downloads/kantor.ovpn (OpenVPN) or --config ~/Downloads/office.conf (WireGuard)",
+	"portal": "give the address you type in the VPN app, for example --portal vpn.example.com",
+	"server": "give the VPN server's address, for example --server vpn.example.com",
+}
+
 func vpnAddCmd() *cobra.Command {
 	var config, address, portal, service, server, user, passwordRef, check, notes, pskRef, localID, remoteID, ca string
 	var groups, tags []string
@@ -56,8 +63,21 @@ func vpnAddCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "add NAME KIND",
 		Short: "Add a VPN (see `komando vpn --help` for the kinds)",
+		Long: `Saves a VPN under a short name. Typed alone at a terminal, it asks step by
+step, starting with the VPN app your company uses.
+
+Which flags go with which VPN:
+  Every VPN                 --user, --password-ref or --ask-password, --check, --mfa
+  WireGuard, OpenVPN        --config FILE (the .conf or .ovpn file)
+  GlobalProtect, Fortinet,  --portal (the VPN server or portal)
+  AnyConnect, Pulse, F5
+  L2TP, IPsec, IKEv2        --server, --psk-ref or --ask-psk; IPsec: --id;
+                            IKEv2: --id, --remote-id, --ca
+  Tailscale                 --password-ref (the auth key); Headscale: --server
+  System VPN                --service (its name in your computer's settings)
+  SOCKS or HTTP proxy       --address`,
 		Example: `  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
-  komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
+  komando vpn add client-x globalprotect --portal vpn.client.com   # signs in through a browser window at vpn up
   komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
   komando vpn add tailnet tailscale --password-ref secret:ts-authkey
   komando vpn add kantor l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk --user budi --ask-password   # type the password now (hidden)
@@ -108,6 +128,9 @@ func vpnAddCmd() *cobra.Command {
 			need := func(flag string, ok bool) error {
 				used[flag] = true
 				if !ok {
+					if h := vpnFlagHint[flag]; h != "" {
+						return out.Errf(out.ExitUsage, "USAGE", h, "%s needs --%s", kind, flag)
+					}
 					return out.Usage("%s needs --%s", kind, flag)
 				}
 				return nil
@@ -218,7 +241,7 @@ func vpnAddCmd() *cobra.Command {
 			}
 			now := time.Now().UTC()
 			v.CreatedAt, v.UpdatedAt = now, now
-			warnings := append(refWarnings(unlessAsked(v.KeyRef, askPw), unlessAsked(v.PSKRef, askPsk)), ovpnWarn...)
+			warnings := append(refWarnings(notStored(v.KeyRef, secrets, askPw), notStored(v.PSKRef, secrets, askPsk)), ovpnWarn...)
 			// the name and the VPN's vault secrets, and what needs a person: a weaker login, a secret sent to a new place
 			check := func(s *store.State) error {
 				if err := vpnAddCheck(s, name, secrets, overwrite); err != nil {
@@ -241,7 +264,7 @@ func vpnAddCmd() *cobra.Command {
 				if len(warnings) > 0 {
 					res["warnings"] = warnings
 				}
-				out.P.Print("vpn.add", res, nil)
+				out.P.Print("vpn.add", textAs{res, vpnChangeText{verb: "would add", v: v, warnings: warnings}}, nil)
 				return nil
 			}
 			undoPw, err := vpnAskPassword(cmd, name, askPw, askPsk, check)
@@ -260,7 +283,7 @@ func vpnAddCmd() *cobra.Command {
 			if len(warnings) > 0 {
 				res["warnings"] = warnings
 			}
-			out.P.Print("vpn.add", res, nil)
+			out.P.Print("vpn.add", textAs{res, vpnChangeText{verb: "added", v: v, notes: vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])), warnings: warnings, next: "komando vpn up " + name}}, nil)
 			return nil
 		},
 	}
@@ -275,7 +298,7 @@ func vpnAddCmd() *cobra.Command {
 	f.StringVar(&remoteID, "remote-id", "", "IKEv2: the server's identity, if not its --server name")
 	f.StringVar(&ca, "ca", "", "IKEv2: the CA certificate (PEM) that signed the server's certificate, if not a public one")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
-	f.StringVar(&passwordRef, "password-ref", "", "password (Tailscale: auth key) as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
+	f.StringVar(&passwordRef, "password-ref", "", "where the password is (Tailscale: the auth key): secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
 	askPasswordFlag(c, &askPw)
 	f.BoolVar(&askPsk, "ask-psk", false, "L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-psk and used as --psk-ref")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' run by a person connects it")
@@ -292,7 +315,7 @@ func vpnAddCmd() *cobra.Command {
 func vpnShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show NAME",
-		Short: "Show a VPN (keys stay in the vault)",
+		Short: "Show a VPN (saved keys are never shown)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -455,6 +478,17 @@ func unlessAsked(ref string, asked bool) string {
 	return ref
 }
 
+// notStored is unlessAsked that also leaves out the secrets vpn add stores
+// itself (secrets): they are not in the vault yet when it checks.
+func notStored(ref string, secrets map[string]string, asked bool) string {
+	if n, ok := strings.CutPrefix(ref, "secret:"); ok {
+		if _, own := secrets[n]; own {
+			return ""
+		}
+	}
+	return unlessAsked(ref, asked)
+}
+
 // vpnAskPassword asks the password and the pre-shared key of vpn add
 // --ask-password and --ask-psk once every check that can refuse the add
 // (check: the name, the VPN's own secrets, the weaker settings it asks for,
@@ -561,8 +595,8 @@ func vpnAddNotes(v *store.Vpn, config string, keysInFile bool) []string {
 	if v.MFA {
 		notes = append(notes, "a person logs in with `komando vpn up "+v.Name+"`; later commands reuse that session")
 	}
-	if k := netx.Kinds[v.Kind]; len(k.Client) > 0 {
-		notes = append(notes, "needs "+strings.Join(k.Client, " and ")+" installed (`komando doctor` checks)")
+	if c := vpnClients(v); len(c) > 0 { // none for a kind komando speaks itself
+		notes = append(notes, "needs "+strings.Join(c, " and ")+" installed (`komando doctor` checks)")
 	}
 	return notes
 }
@@ -604,6 +638,9 @@ func vpnWhere(v *store.Vpn) string {
 		return v.Address
 	case "l2tp", "ipsec", "ikev2":
 		return v.Server
+	}
+	if v.Portal != "" {
+		return v.Portal // the openconnect kinds (globalprotect, anyconnect, ...)
 	}
 	return dash(v.Check)
 }
@@ -652,4 +689,72 @@ func vpnAddress(kind, address string) (string, error) {
 		return "", out.Usage("--address must be host:port")
 	}
 	return address, nil
+}
+
+// vpnChangeText is how vpn add and vpn edit read for a person: what
+// happened first, the settings, then notes and warnings, the next command
+// last. Their JSON stays as it was (textAs).
+type vpnChangeText struct {
+	verb     string // added, changed, would add, would change
+	v        *store.Vpn
+	notes    []string
+	warnings []string
+	next     string
+}
+
+func (t vpnChangeText) Text() string {
+	var b strings.Builder
+	b.WriteString(t.verb + " " + t.v.Name)
+	if strings.HasPrefix(t.verb, "would ") {
+		b.WriteString(" (dry run)")
+	}
+	b.WriteString("\n")
+	field := func(k, val string) {
+		if val != "" {
+			b.WriteString("  " + k + ": " + cleanText(val) + "\n")
+		}
+	}
+	v := t.v
+	keyLabel := map[string]string{"wireguard": "private key", "tailscale": "auth key"}[v.Kind]
+	if keyLabel == "" {
+		keyLabel = "password"
+	}
+	field("kind", v.Kind)
+	for _, kv := range [][2]string{{"address", v.Address}, {"portal", v.Portal}, {"server", v.Server}, {"service", v.Service},
+		{"user", v.User}, {keyLabel, v.KeyRef}, {"pre-shared key", v.PSKRef}, {"profile", v.ConfigRef}, {"id", v.LocalID},
+		{"remote id", v.RemoteID}, {"check", v.Check}, {"groups", strings.Join(v.Groups, ", ")}, {"tags", strings.Join(v.Tags, ", ")}, {"notes", v.Notes}} {
+		field(kv[0], kv[1])
+	}
+	if v.MFA {
+		field("login", "a person logs in at `komando vpn up "+v.Name+"`")
+	}
+	if v.CA != "" {
+		field("ca", "its own CA certificate")
+	}
+	if v.OSMode {
+		field("runs", "on this computer itself (sudo, changes routes)")
+	}
+	// the weaker logins a person allowed stay in view
+	if v.LegacyCrypto {
+		field("legacy crypto", "yes (3DES, DH groups 2 and 5)")
+	}
+	if v.AllowPAP {
+		field("allow PAP", "yes (the server may get the password itself)")
+	}
+	if c := strings.TrimSpace(v.Config); c != "" {
+		b.WriteString("  config:\n")
+		for _, l := range strings.Split(c, "\n") {
+			b.WriteString(strings.TrimRight("    "+cleanText(l), " ") + "\n")
+		}
+	}
+	for _, n := range t.notes {
+		b.WriteString("note: " + n + "\n")
+	}
+	for _, w := range t.warnings {
+		b.WriteString("warning: " + w + "\n")
+	}
+	if t.next != "" {
+		b.WriteString("next: " + t.next + "\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
 }

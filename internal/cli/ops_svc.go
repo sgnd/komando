@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -172,12 +173,16 @@ func svcListCmd() *cobra.Command {
 	var state string
 	var failed bool
 	c := &cobra.Command{
-		Use:   "list TARGET",
-		Short: "List service units (filter --state running|failed|...)",
-		Args:  cobra.ExactArgs(1),
+		Use:     "list TARGET",
+		Aliases: []string{"ls"},
+		Short:   "List service units (filter --state running|failed|...)",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command := noSystemd + "systemctl list-units --type=service --all --no-legend --plain --no-pager"
 			if failed {
+				if state != "" && state != "failed" {
+					return out.Usage("give --failed or --state %s, not both", state)
+				}
 				state = "failed"
 			}
 			if state != "" {
@@ -189,7 +194,7 @@ func svcListCmd() *cobra.Command {
 		},
 	}
 	c.Flags().StringVar(&state, "state", "", "only units in this state, such as running or failed")
-	c.Flags().BoolVar(&failed, "failed", false, "only failed units")
+	c.Flags().BoolVar(&failed, "failed", false, "only failed units (the same as --state failed)")
 	return c
 }
 
@@ -206,6 +211,31 @@ func svcListTable(data any) string {
 }
 
 // logs.
+
+// logsAlias is `svc logs TARGET UNIT` and `docker logs TARGET CONTAINER`:
+// it only turns the second word into --unit or --container and runs
+// `logs`, so it takes exactly the flags of `logs` (ux.md section 11: one
+// implementation).
+func logsAlias(use, name, source string) *cobra.Command {
+	var lo logOpts
+	c := &cobra.Command{
+		Use:   use,
+		Short: "Same as `komando logs TARGET --" + source + " NAME`",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed(source) {
+				return out.Usage("give the %s once: as the second word or with --%s, not both", source, source)
+			}
+			_ = cmd.Flags().Set(source, args[1])
+			return runLogs(cmd.Context(), name, args[0], &lo, lo.sudo)
+		},
+	}
+	lo.bind(c)
+	for _, f := range []string{"unit", "file", "container"} {
+		_ = c.Flags().MarkHidden(f)
+	}
+	return c
+}
 
 // journalPriorities are the names journalctl -p takes (also 0-7 and FROM..TO).
 var journalPriorities = map[string]bool{"emerg": true, "alert": true, "crit": true, "err": true, "warning": true, "notice": true, "info": true, "debug": true,
@@ -238,10 +268,119 @@ func (o *logOpts) check() error {
 			return out.Usage("invalid priority %q: use emerg, alert, crit, err, warning, notice, info, debug or 0-7 (or a range like err..warning)", o.priority)
 		}
 	}
+	if o.timestamps && o.container == "" {
+		return out.Usage("--timestamps works with --container only; journal lines already start with their time")
+	}
 	if o.follow && o.until != "" {
 		return out.Usage("--until cannot be used with --follow")
 	}
-	return nil
+	if o.timestamps && o.container == "" {
+		return out.Usage("--timestamps works with container logs only (--container); journal lines always show their time")
+	}
+	if o.file != "" && !strings.HasPrefix(o.file, "/") {
+		return out.Usage("--file takes the full path of the log on the server, starting with / (got %q)", o.file)
+	}
+	_, _, err := o.times()
+	return err
+}
+
+// times is --since and --until in the form the source takes: journalctl
+// reads -2h as "2 hours ago" (2h alone is not a time to it), docker logs
+// reads 2h and has no days.
+func (o *logOpts) times() (since, until string, err error) {
+	docker := o.container != ""
+	if since, err = logTime("--since", o.since, docker); err != nil {
+		return "", "", err
+	}
+	until, err = logTime("--until", o.until, docker)
+	return since, until, err
+}
+
+const logTimeUnits = `(us|ms|s|sec|secs|seconds?|m|min|mins|minutes?|h|hr|hrs|hours?|d|days?|w|weeks?)`
+
+var (
+	relTimeRe = regexp.MustCompile(`^-?(\d+` + logTimeUnits + `)+$`)
+	agoTimeRe = regexp.MustCompile(`^\d+ ?` + logTimeUnits + ` ago$`)
+)
+
+var relPartRe = regexp.MustCompile(`(\d+)` + logTimeUnits)
+
+// relDuration adds up a journal-style time back from now ("1d2h", "90min",
+// "1w"), which relTimeRe has already checked.
+func relDuration(rel string) time.Duration {
+	var d time.Duration
+	for _, m := range relPartRe.FindAllStringSubmatch(rel, -1) {
+		n, _ := strconv.ParseInt(m[1], 10, 64)
+		var unit time.Duration
+		switch u := m[2]; {
+		case u == "us":
+			unit = time.Microsecond
+		case u == "ms":
+			unit = time.Millisecond
+		case strings.HasPrefix(u, "s"):
+			unit = time.Second
+		case u == "m" || strings.HasPrefix(u, "min"):
+			unit = time.Minute
+		case strings.HasPrefix(u, "h"):
+			unit = time.Hour
+		case strings.HasPrefix(u, "d"):
+			unit = 24 * time.Hour
+		case strings.HasPrefix(u, "w"):
+			unit = 7 * 24 * time.Hour
+		}
+		d += time.Duration(n) * unit
+	}
+	return d
+}
+
+var logTimeLayouts = []string{"2006-01-02", "2006-01-02 15:04", "2006-01-02 15:04:05", "2006-01-02T15:04", "2006-01-02T15:04:05"}
+
+func logTime(flag, v string, docker bool) (string, error) {
+	journalOnly := out.Usage("%s %s works with the journal; for a container give a time back from now (30m, 2h, 7d) or a date (2026-01-02T10:00:00)", flag, v)
+	switch {
+	case v == "":
+		return "", nil
+	case v == "today" || v == "yesterday" || v == "now":
+		if docker {
+			return "", journalOnly
+		}
+		return v, nil
+	case relTimeRe.MatchString(v):
+		rel := strings.TrimPrefix(v, "-")
+		if !docker {
+			return "-" + rel, nil
+		}
+		// docker takes Go durations only: 1w, 90min or 1d2h become hours,
+		// minutes or seconds
+		d := relDuration(rel)
+		switch {
+		case d%time.Hour == 0:
+			return strconv.FormatInt(int64(d/time.Hour), 10) + "h", nil
+		case d%time.Minute == 0:
+			return strconv.FormatInt(int64(d/time.Minute), 10) + "m", nil
+		}
+		return strconv.FormatInt(int64(d/time.Second), 10) + "s", nil
+	case agoTimeRe.MatchString(v):
+		if docker {
+			return "", journalOnly
+		}
+		return v, nil
+	}
+	if t, err := time.Parse(time.RFC3339, v); err == nil {
+		if docker {
+			return v, nil
+		}
+		return t.UTC().Format("2006-01-02 15:04:05") + " UTC", nil
+	}
+	for _, l := range logTimeLayouts {
+		if _, err := time.Parse(l, v); err == nil {
+			if docker {
+				return strings.Replace(v, " ", "T", 1), nil
+			}
+			return strings.Replace(v, "T", " ", 1), nil
+		}
+	}
+	return "", out.Usage("%s %q is not a time: give a time back from now (30m, 2h, 7d), today, yesterday, or a date (2026-01-02 10:00)", flag, v)
 }
 
 // preflight checks the source on the server first and stops with a

@@ -234,7 +234,11 @@ func runOps(ctx context.Context, spec opsSpec) error {
 func opsDryRun(spec opsSpec, hosts []*store.Host, shown string, guardErr error) {
 	plans := []map[string]any{}
 	for _, h := range hosts {
-		plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": shown, "sudo": spec.sudo && !h.Windows()})
+		cmd := shown
+		if h.Windows() && spec.win != "" && spec.display == "" {
+			cmd = spec.win // what PowerShell would get, not the sh script
+		}
+		plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": cmd, "sudo": spec.sudo && !h.Windows()})
 	}
 	res := map[string]any{"would_run": plans}
 	if guardErr != nil {

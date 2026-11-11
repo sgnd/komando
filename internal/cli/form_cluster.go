@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"os"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/sgnd/komando/internal/kube"
@@ -27,17 +26,26 @@ func clusterForms() []formKind {
 
 const kubeconfigDefault = "~/.kube/config"
 
+// kubeconfigSteps is how each cloud makes the file.
+const kubeconfigSteps = "AWS: aws eks update-kubeconfig --name CLUSTER. Google: gcloud container clusters get-credentials CLUSTER. " +
+	"Azure: az aks get-credentials -g GROUP -n CLUSTER. DigitalOcean: Download Config File on the cluster's page. " +
+	"k3s: copy /etc/rancher/k3s/k3s.yaml from the server."
+
 func kubeconfigForm() formSpec {
 	return formSpec{title: "Add Kubernetes clusters", qs: []formQ{
 		{key: "file", label: "File", ask: "Where is your kubeconfig file?",
-			help: "The file kubectl uses. Your cloud console (EKS, GKE, AKS, DigitalOcean) lets you download it; " +
-				"on a k3s server it is /etc/rancher/k3s/k3s.yaml. Every cluster in it is added, named after its context.",
+			help:    "The file kubectl uses. Every cluster in it is added, named after its context. No file yet? " + kubeconfigSteps,
 			example: "~/Downloads/prod-kubeconfig.yaml",
-			def:     func(*store.State, formAnswers) string { return kubeconfigDefault },
-			check:   func(_ *store.State, _ formAnswers, v string) string { return kubeconfigProblem(v) }},
+			def: func(*store.State, formAnswers) string {
+				if formFileProblem(kubeconfigDefault) == "" {
+					return kubeconfigDefault
+				}
+				return ""
+			},
+			check: func(_ *store.State, _ formAnswers, v string) string { return kubeconfigProblem(v) }},
 		{key: "protected", label: "Production", ask: "Can a mistake on these clusters hurt real users or real data?",
-			help: "Yes means komando asks you before every change there, also changes an AI agent wants to make. " +
-				"A cluster whose name is in your list already keeps its own setting: komando conn edit NAME --protected changes it.",
+			help: "Production: komando asks you before every change, and an AI agent needs your yes in a window. " +
+				"A cluster already in your list keeps its own setting.",
 			def: func(*store.State, formAnswers) string { return "yes" },
 			choices: func(*store.State, formAnswers) []menuRow {
 				return []menuRow{{label: "Yes, protect them", detail: "komando asks you before every change", value: "yes"},
@@ -55,7 +63,7 @@ func kubeconfigForm() formSpec {
 func kubeconfigProblem(v string) string {
 	if p := formFileProblem(v); p != "" {
 		if v == kubeconfigDefault {
-			return "there is no " + v + " on this computer; give the file your cloud console or k3s gave you"
+			return "there is no " + v + " on this computer. " + kubeconfigSteps
 		}
 		return p
 	}
@@ -68,19 +76,13 @@ func kubeconfigProblem(v string) string {
 // kubeconfigNames are the names `import kubeconfig` gives the file's
 // contexts (importKubeconfig): sorted, each one that has a server.
 func kubeconfigNames(path string) []string {
-	b, err := os.ReadFile(expandHome(path))
+	cfg, err := kube.Load(os.ReadFile, kubeconfigPaths(path)...)
 	if err != nil {
 		return nil
 	}
-	cfg, err := kube.Parse(b)
-	if err != nil {
-		return nil
-	}
-	contexts := cfg.ContextNames()
-	sort.Strings(contexts)
-	p := newPlan()
+	conns, _ := kubeconfigConnNames(cfg.ContextNames())
 	var names []string
-	for _, n := range contexts {
+	for _, n := range sortedContexts(cfg) {
 		x, err := cfg.Resolve(n)
 		if err != nil {
 			continue
@@ -88,9 +90,7 @@ func kubeconfigNames(path string) []string {
 		if u, err := url.Parse(x.Cluster.Server); err != nil || u.Host == "" {
 			continue
 		}
-		name := p.name(n)
-		p.Conns = append(p.Conns, &store.Conn{Name: name})
-		names = append(names, name)
+		names = append(names, conns[n])
 	}
 	return names
 }
@@ -164,6 +164,7 @@ func swarmForm() formSpec {
 	build := sp.build
 	sp.build = func(st *store.State, a formAnswers) [][]string {
 		cmds := build(st, a)
+		cmds[0] = append(cmds[0], "--tag", "swarm") // so `cluster status all` and @groups read it
 		status := []string{"cluster", "status", a["name"]}
 		if a["code"] == "yes" { // komando login first, then look
 			return append(cmds, status)
@@ -173,7 +174,7 @@ func swarmForm() formSpec {
 	return sp
 }
 
-// The cluster commands in All features.
+// The cluster commands, asked from a menu task.
 
 var (
 	clusterTargetArg = formArg{ask: "Which cluster?", pick: "cluster", free: true,
@@ -233,7 +234,7 @@ func clusterChangeHints() map[string]formHint {
 		"cluster rollback": {args: []formArg{t, clusterRefArg}, flags: []formFlag{clusterWaitFlag}},
 		"cluster restart":  {args: []formArg{t, clusterRefArg}, flags: []formFlag{clusterWaitFlag}},
 		"cluster scale": {args: []formArg{t, clusterRefArg, {ask: "How many copies (replicas) should run?", example: "3",
-			help: "0 stops it; that needs a person's extra yes, and komando stops and says how."}}, flags: []formFlag{clusterWaitFlag}},
+			help: "0 stops every copy, and the app is down until you scale it up again. komando asks a person first."}}, flags: []formFlag{clusterWaitFlag}},
 		"cluster apply": {args: []formArg{t}, flags: []formFlag{{name: "file", ask: "Which YAML file on this computer?", required: true,
 			example: "./k8s/app.yaml", help: "The objects in it are created, or changed to match it."},
 			{name: "stack", ask: "Swarm only: the stack's name (empty on Kubernetes)", example: "shop"}}},
@@ -244,7 +245,7 @@ func clusterChangeHints() map[string]formHint {
 			help: "Empty: the usual shell of the container."}}},
 		"cluster forward": {args: []formArg{t, {ask: "Which pod or service?", example: "service/web",
 			help: "A kind and name, like service/web or deployment/api."},
-			{ask: "Which port of it?", def: "80", example: "80 or 9000:80",
+			{ask: "Which port of it?", label: "Port", def: "80", example: "80 or 9000:80",
 				help: "The port it listens on. LOCAL:REMOTE picks the port on this computer too; you then open 127.0.0.1:LOCAL."}}},
 		"cluster run": {args: []formArg{t, {ask: "Which kubectl or docker command? (without kubectl or docker in front)",
 			example: "get pods -o wide", help: "It runs as the cluster's own tool would run it."}},

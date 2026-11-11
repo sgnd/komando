@@ -18,8 +18,8 @@ var (
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas."}
 	srvSudo = formFlag{name: "sudo", ask: "Run it with sudo (as root)?",
 		help: "Say yes when it needs admin rights, like changing system files or services."}
-	srvReadOnly = formFlag{name: "read-only", ask: "Does it only look, without changing anything?",
-		help: "Yes lets it run on a production server without asking you first. Say yes only when that is true."}
+	srvReadOnly = formFlag{name: "read-only", ask: "Does it only look, and change nothing on the server?",
+		help: "Not sure? Say no. Yes is only for commands that read, like df -h or cat."}
 	srvDir = formFlag{name: "dir", ask: "In which folder on the server should it run?",
 		help: "Leave empty for the login user's home folder.", example: "/srv/app"}
 	// journalctl takes -1h (or today), docker logs 1h; logs and docker logs
@@ -40,8 +40,8 @@ var (
 		help: "Its name as systemd knows it, like nginx or ssh. `komando svc list` shows them."}
 	srvUnits = formArg{ask: "Which services?", example: "nginx",
 		help: "Their names as systemd knows them, like nginx or ssh. Several: separate them with spaces. `komando svc list` shows them."}
-	srvWait = formFlag{name: "wait", ask: "Wait how many seconds for them to be running?",
-		help: "It fails when a service is not running by then. Leave empty to not wait.", example: "10"}
+	srvWait = formFlag{name: "wait", ask: "How long to wait for them to be running?",
+		help: "Like 10s or 2m. It fails when a service is not running by then. Leave empty to not wait.", example: "10s"}
 	srvPkgs = formArg{ask: "Which packages?", example: "htop jq",
 		help: "Their names as the server's package manager (apt, dnf, apk ...) knows them. Several: separate them with spaces."}
 	srvPkgsAll = formArg{ask: "Which packages? (leave empty for all)", example: "nginx openssl",
@@ -64,6 +64,10 @@ func srvNoUnit(a formAnswers) bool     { return a["flag:unit"] == "" }
 func srvNoUnitFile(a formAnswers) bool { return a["flag:unit"] == "" && a["flag:file"] == "" }
 func srvNoFile(a formAnswers) bool     { return a["flag:file"] == "" }
 
+// exec runs a command, or with no command a script file from here.
+func srvNoCommand(a formAnswers) bool  { return a["arg1"] == "" }
+func srvWithScript(a formAnswers) bool { return a["flag:script"] != "" }
+
 // srvWithShow is f asked only while show says true.
 func srvWithShow(f formFlag, show func(formAnswers) bool) formFlag {
 	f.show = show
@@ -73,9 +77,14 @@ func srvWithShow(f formFlag, show func(formAnswers) bool) formFlag {
 var srvRunHints = map[string]formHint{
 	"exec": {
 		args: []formArg{srvServers, {ask: "What command should it run?", example: "df -h /",
-			help: "Type it as you would on the server itself, pipes and all."}},
-		flags: []formFlag{srvSudo, srvReadOnly, srvDir},
-		hide:  []string{"cmd"},
+			help: "Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead."}},
+		flags: []formFlag{
+			{name: "script", ask: "Which script on this computer?", example: "./deploy.sh", local: true, show: srvNoCommand,
+				help: "A file on this computer. komando sends it to the server and runs it there; nothing is left on disk."},
+			{name: "arg", ask: "Anything to pass to the script?", example: "v1.2.3", show: srvWithScript,
+				help: "One value the script gets as its first argument. Leave empty for none."},
+			srvSudo, srvReadOnly, srvDir},
+		hide: []string{"cmd"},
 	},
 	"shell": {
 		args: []formArg{{ask: "Which server?", pick: "server",
@@ -95,13 +104,6 @@ var srvRunHints = map[string]formHint{
 		},
 	},
 	"reboot": {args: []formArg{srvServers}},
-	"script": {
-		args: []formArg{srvServers, {ask: "Which script on this computer?", example: "./deploy.sh", local: true,
-			help: "A file on this computer. komando sends it to the server and runs it there."}},
-		flags: []formFlag{srvSudo, srvReadOnly,
-			{name: "arg", ask: "Anything to pass to the script?", example: "v1.2.3",
-				help: "One value the script gets as its first argument. Leave empty for none."}},
-	},
 }
 
 var srvSvcHints = map[string]formHint{
@@ -111,7 +113,6 @@ var srvSvcHints = map[string]formHint{
 	"svc enable": {args: []formArg{srvServers, srvUnits}, flags: []formFlag{
 		{name: "now", ask: "Also start them now?", help: "No only makes them start at the next boot."}}},
 	"svc list": {args: []formArg{srvServers}, flags: []formFlag{
-		{name: "failed", ask: "Only the services that failed?"},
 		{name: "state", ask: "Only services in one state?", choices: []string{"running", "exited", "failed", "inactive"},
 			help: "Running are up now, exited ran once and finished, inactive are stopped."}}},
 	"svc logs": {args: []formArg{srvServers, srvUnit},
@@ -132,7 +133,7 @@ var srvPkgHints = map[string]formHint{
 			help: "Yes asks the package sources what is new, so the list is current."},
 		{name: "apply", ask: "Install the security updates now?",
 			help: "No only lists them. Yes installs them, one server at a time."}}},
-	"pkg update": {args: []formArg{srvServers, srvPkgsAll}},
+	"pkg update": {args: []formArg{srvServers}},
 	"pkg upgradable": {args: []formArg{srvServers, srvPkgsAll}, flags: []formFlag{
 		{name: "refresh", ask: "Refresh the package list first?",
 			help: "Yes asks the package sources what is new, so the list is current."}}},
@@ -230,7 +231,7 @@ var srvNetHints = map[string]formHint{
 	"cert check": {
 		args: []formArg{{ask: "Which servers or websites?", pick: "host", free: true, example: "https://shop.example.com",
 			help: "Pick a server, or type a website. Several: separate them with spaces."}},
-		flags: []formFlag{{name: "warn", ask: "Warn when a certificate ends within how long?", example: "14d",
-			help: "Like 30d or 72h."}},
+		flags: []formFlag{{name: "warn", ask: "Warn how long before a certificate ends?", example: "30d",
+			help: "Warns 14 days before. Empty keeps that. Or type 30d or 72h."}},
 	},
 }

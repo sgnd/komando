@@ -81,7 +81,7 @@ func (d mongoQueryData) Text() string {
 // runMongoQuery rates, guards, sends and audits one command document.
 func runMongoQuery(ctx context.Context, name string, st *store.State, c *store.Conn, text string, f dbFlags) error {
 	switch {
-	case f.csv || f.tsv:
+	case f.table != "":
 		return out.Usage("MongoDB documents have no fixed columns: use -o json, or -o text for one document per line")
 	case len(f.args) > 0:
 		return out.Usage("--arg fills SQL placeholders; write the values into the MongoDB command document")
@@ -212,17 +212,17 @@ func noDumpTool(t driver.Target) error {
 	}
 	if t.Kind.Name == "clickhouse" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-			"ClickHouse backs up with its own BACKUP TABLE or DATABASE ... TO Disk('backups', 'name.zip') (or S3), which the server writes itself: run it with `komando db query CONN --write` (it needs --allow-dangerous, so ask the user first); for a few rows, `komando db query CONN --csv` is a copy on this computer",
+			"ClickHouse backs up with its own BACKUP TABLE or DATABASE ... TO Disk('backups', 'name.zip') (or S3), which the server writes itself: run it with `komando db query CONN --write` (it needs --allow-dangerous, so ask the user first); for a few rows, `komando db query CONN -o csv` is a copy on this computer",
 			"db dump and restore are not available for ClickHouse")
 	}
 	if t.Kind.Name == "snowflake" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-			"Snowflake unloads tables itself: COPY INTO @STAGE FROM TABLE writes files to a stage (run it with `komando db query CONN --write`; it needs --allow-dangerous, so ask the user first), and Time Travel or CLONE keeps a copy inside Snowflake; for a few rows, `komando db query CONN --csv` is a copy on this computer",
+			"Snowflake unloads tables itself: COPY INTO @STAGE FROM TABLE writes files to a stage (run it with `komando db query CONN --write`; it needs --allow-dangerous, so ask the user first), and Time Travel or CLONE keeps a copy inside Snowflake; for a few rows, `komando db query CONN -o csv` is a copy on this computer",
 			"db dump and restore are not available for Snowflake")
 	}
 	if t.Kind.Name == "bigquery" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-			"BigQuery exports tables itself: EXPORT DATA OPTIONS (uri = 'gs://BUCKET/PATH/*.parquet', format = 'PARQUET') AS SELECT ... writes files to Cloud Storage (run it with `komando db query CONN --write`; it needs --allow-dangerous, so ask the user first), then `komando storage` fetches them; table snapshots and time travel keep a copy inside BigQuery; for a few rows, `komando db query CONN --csv` is a copy on this computer",
+			"BigQuery exports tables itself: EXPORT DATA OPTIONS (uri = 'gs://BUCKET/PATH/*.parquet', format = 'PARQUET') AS SELECT ... writes files to Cloud Storage (run it with `komando db query CONN --write`; it needs --allow-dangerous, so ask the user first), then `komando storage` fetches them; table snapshots and time travel keep a copy inside BigQuery; for a few rows, `komando db query CONN -o csv` is a copy on this computer",
 			"db dump and restore are not available for BigQuery")
 	}
 	if t.Kind.Name == "sqlserver" {

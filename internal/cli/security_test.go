@@ -140,13 +140,13 @@ func TestAgentSafetySettingThroughCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	asAgent(t, false, true)
-	err := run("policy", "allow", "kubectl apply", "--yes")
+	err := run("policy", "rm", "kubectl apply", "--yes")
 	var oe *out.Error
 	if !errors.As(err, &oe) || oe.Code != "SAFETY_SETTING" {
 		t.Fatalf("denied in the window: %v", err)
 	}
 	n := asAgent(t, true, true)
-	if err := run("policy", "allow", "kubectl apply", "--yes"); err != nil || *n != 1 {
+	if err := run("policy", "rm", "kubectl apply", "--yes"); err != nil || *n != 1 {
 		t.Fatalf("allowed in the window: %v (windows %d)", err, *n)
 	}
 }

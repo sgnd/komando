@@ -1,7 +1,7 @@
 # Windows servers
 
 Manage Windows servers next to your Linux ones: run PowerShell, read and
-write files, copy files, and start and stop services. [All features](README.md)
+write files, copy files, and start and stop services. [All docs](README.md)
 
 ## Quick start
 
@@ -10,7 +10,7 @@ komando host add win1 Administrator@10.0.0.9 --os windows --ask-password
 komando test win1                                   # can komando log in? is it an administrator?
 komando facts win1                                  # Windows version, support, updates, ports
 komando exec win1 --read-only -- Get-Service W3SVC  # simple read commands
-komando svc restart win1 W3SVC --wait 10            # Windows services
+komando svc restart win1 W3SVC --wait 10s           # Windows services
 komando fs cat win1 'C:\inetpub\wwwroot\web.config'
 komando upload win1 ./site.zip 'C:\deploy\'
 ```
@@ -86,13 +86,13 @@ komando exec 'all,!os:windows' --read-only -- uptime
 
 ## Run PowerShell
 
-On a Windows server, `exec` and `script` run PowerShell (Windows
+On a Windows server, `exec` and `exec --script` run PowerShell (Windows
 PowerShell, `powershell.exe`, which every Windows Server has).
 
 ```bash
 komando exec win1 --read-only -- 'Get-Service | Where-Object Status -eq Running'
 komando exec win1 -e APP_ENV=prod -C 'C:\app' -- '.\migrate.exe'
-komando script win1 ./deploy.ps1 --arg staging     # --arg values go to param( ) or $args
+komando exec win1 --script ./deploy.ps1 --arg staging  # --arg values go to param( ) or $args
 ```
 
 - The exit code works as in sh: `exit 3` gives 3, and a failed last command
@@ -209,7 +209,7 @@ komando download win1 'C:\app\app.log' --to ./logs/
 ```bash
 komando svc list win1 --state running         # running, stopped, or --failed
 komando svc status win1 W3SVC sshd
-komando svc restart win1 W3SVC --wait 10      # fails unless it runs within 10s
+komando svc restart win1 W3SVC --wait 10s     # fails unless it runs within 10s
 komando svc enable win1 MyApp --now           # start automatically, and start now
 ```
 

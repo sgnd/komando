@@ -1,23 +1,21 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
-	"fmt"
+	"maps"
 	"os"
-	"os/exec"
 	"os/signal"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/sgnd/komando/internal/driver"
-	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
-	"github.com/sgnd/komando/internal/vault"
 )
 
 // The menu is what `komando` alone opens for a person at a terminal: pick
@@ -41,53 +39,64 @@ func menuGate(cmd *cobra.Command, args []string, person bool) bool {
 	return person && len(args) == 0 && cmd.Flags().NFlag() == 0
 }
 
-// menuAction is one thing the main menu does.
+// menuAction is one row of the main menu.
 type menuAction struct {
 	name, detail string
-	args         []string // the komando command it runs
-	// pick is what the menu asks for before it runs args, and adds to them:
-	// "host" a server, "target" anything `test` takes (or all), "db" a
-	// database conn, "vpn" a VPN, "form" the guided add (form.go).
+	args         []string // the komando command it runs, when it runs one at once
+	// pick is the screen it opens instead: "servers", "services", "vpns",
+	// "running", "add", "add-server", "check", "history", "settings"
 	pick string
 	// ownExit: the command is a session that ends with its own line
 	// ("komando: left web1 (exit 0, 12m)"), so the menu does not say it again.
 	ownExit bool
 }
 
-// The menu's actions. menuMainActions shows the ones that apply.
+// The rows of the main menu, in the order menuMainActions shows them.
 var (
-	importAction = menuAction{"Import", "Bring in the servers from ~/.ssh/config", []string{"import", "ssh-config"}, "", false}
-	addAction    = menuAction{"Add", "A server, database, cache, queue, storage, cluster, VPN ...", nil, "form", false}
-	shellAction  = menuAction{"Shell", "Open a login shell on a server", []string{"shell"}, "host", true}
-	testAction   = menuAction{"Test", "Check that servers, conns and VPNs answer", []string{"test"}, "target", false}
-	factsAction  = menuAction{"Facts", "OS, updates, Docker and open ports of a server", []string{"facts"}, "host", false}
-	dbAction     = menuAction{"Database", "Open a SQL shell on a database", []string{"db", "shell"}, "db", true}
-	vpnAction    = menuAction{"VPN", "Connect a VPN (and log in), or disconnect one", []string{"vpn", "up"}, "vpn", false}
-	agentAction  = menuAction{"AI agent", "Teach your AI agents to use komando (once)", []string{"guide", "install"}, "", false}
-	listAction   = menuAction{"List", "Everything komando knows about", []string{"list"}, "", false}
-	doctorAction = menuAction{"Doctor", "Check your setup, the inventory and its security", []string{"doctor"}, "", false}
-	allAction    = menuAction{"All features", "Everything komando does, by area, as questions", nil, "all", false}
-	// helpAction is the ? key, not a row: what komando does, by task
-	helpAction = menuAction{"Help", "What komando does, by task", nil, "", false}
+	serversAction   = menuAction{name: "Servers", pick: "servers"}
+	servicesAction  = menuAction{name: "Databases and services", pick: "services"}
+	vpnsAction      = menuAction{name: "VPNs", pick: "vpns"}
+	statusAction    = menuAction{name: "Running now", detail: "VPNs, tunnels and logins on this computer; jobs on servers", pick: "running"}
+	addAction       = menuAction{name: "Add something", detail: "A server, a database, a VPN or another service", pick: "add"}
+	checkAction     = menuAction{name: "Check everything", detail: "See if every server and service answers", pick: "check"}
+	historyAction   = menuAction{name: "History and undo", detail: "What komando and your AI agent changed, and how to put it back", pick: "history"}
+	settingsAction  = menuAction{name: "Settings and help", detail: "AI agent, passwords, production servers, SSH keys", pick: "settings"}
+	addServerAction = menuAction{name: "Add a server", detail: "Its address and the user you log in with", pick: "add-server"}
+	importAction    = menuAction{name: "Bring in my SSH servers", args: []string{"import", "ssh-config"}}
+	agentAction     = menuAction{name: "Set up my AI agent", detail: "Lets Claude, Codex, Cursor or Gemini use komando", args: []string{"guide", "install"}}
 )
 
-// menuNoServer is said under the header while komando knows nothing yet.
-const menuNoServer = "Nothing here yet. Add asks for a name, an address and a user, one at a time."
+// checkLines is what Check everything runs.
+var checkLines = [][]string{{"test", "all"}, {"doctor"}}
+
+// menuWelcome is said above the rows while komando knows nothing yet.
+const menuWelcome = "Welcome to komando. Start by adding a server."
 
 // menuNothingAdded is said once after a person cancels an Add;
-// menuNothingRun after they cancel a command from All features.
+// menuNothingRun after they cancel any other form.
 const (
 	menuNothingAdded = "Nothing was added."
 	menuNothingRun   = "Nothing was run."
 )
 
+// menuHelpKey is the value the ? key gives on any list of the menu.
+const menuHelpKey = "\x00help"
+
 // errMenuQuit: the person left the menu.
 var errMenuQuit = errors.New("menu: quit")
 
 // menuMemory is what the menu remembers between commands, so a person who
-// runs Facts on node-087 finds Facts and node-087 under the cursor next
-// time. It is kept by name, not by place, and only while the menu is open.
-type menuMemory struct{ action, target string }
+// checked node-087 finds Servers and node-087 under the cursor next time.
+// It is kept by name, not by place, and only while the menu is open.
+type menuMemory struct{ action, target, task string }
+
+// menuNext is what the menu runs after a person chose it.
+type menuNext struct {
+	cmds    [][]string
+	ownExit bool
+	// keepGoing runs every command even after one fails (Check everything)
+	keepGoing bool
+}
 
 // runMenu shows the menu until the person quits. Whatever happens, the
 // terminal is put back as it was.
@@ -115,89 +124,420 @@ func runMenu() error {
 			return err
 		}
 		try := func(args []string) error { // Try it first, from a form's review
-			again, err := menuRun(ctx, t, self, [][]string{args}, false, "the questions")
+			again, err := menuRun(ctx, t, self, [][]string{args}, false, false, "the questions")
 			if err == nil && !again {
 				err = errMenuQuit // q after Try it first: leave the menu
 			}
 			return err
 		}
-		act, cmds, err := menuPickCommand(ctx, t, st, &mem, try)
+		next, err := menuPickCommand(ctx, t, st, &mem, try)
 		if errors.Is(err, errMenuQuit) || errors.Is(err, context.Canceled) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		run := func() (bool, error) { return menuRun(ctx, t, self, cmds, act.ownExit, "the menu") }
-		if act.name == helpAction.name {
-			run = func() (bool, error) { return menuHelp(ctx, t) }
-		}
-		if again, err := run(); err != nil || !again {
+		if again, err := menuRun(ctx, t, self, next.cmds, next.ownExit, next.keepGoing, "the menu"); err != nil || !again {
 			return err
 		}
 	}
 }
 
-// menuPickCommand asks what to do and, for an action on a server, conn or
-// VPN, which one, and gives the commands to run (Add runs the add, then a
-// test). Esc on the second list goes back to the actions.
-func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory, try formTry) (menuAction, [][]string, error) {
-	acts := menuMainActions(st, sshConfigExists(), sshConfigHasNew(st), !agentSkillInstalled())
+// menuPickCommand shows the main menu and the screens under it until the
+// person picks something to run. Esc on any screen goes back one step.
+func menuPickCommand(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory, try formTry) (menuNext, error) {
+	acts := menuMainActions(st, sshConfigNew(st))
 	main := menuMain(acts)
-	if len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0 {
-		main.note = menuNoServer
+	if menuEmpty(st) {
+		main.note = menuWelcome
 	}
 	main.point(mem.action)
-	scr := menuScreen{header: menuHeader(st), color: colorOK(), footer: listKeys(main, "? help", "q quit")}
+	scr := menuScreen{header: menuHeader(st), color: colorOK()}
 	for {
-		row, err := menuChoose(ctx, t, main, scr)
+		row, err := menuAsk(ctx, t, main, scr, menuHelpMain)
 		if err != nil {
-			return menuAction{}, nil, err
+			return menuNext{}, err
 		}
 		main.note = ""
-		act := helpAction
-		if i := slices.IndexFunc(acts, func(a menuAction) bool { return a.name == row.value }); i >= 0 {
-			act = acts[i]
+		i := slices.IndexFunc(acts, func(a menuAction) bool { return a.name == row.value })
+		if i < 0 {
+			continue
 		}
+		act := acts[i]
 		mem.action = act.name
-		switch act.pick {
-		case "":
-			return act, [][]string{act.args}, nil
-		case "form", "all":
-			var cmds [][]string
-			if act.pick == "all" {
-				cmds, err = formAllFeatures(ctx, t, st, scr, try)
-			} else {
-				cmds, err = formChoose(ctx, t, st, formGroups(), scr, try)
-			}
-			if errors.Is(err, errMenuBack) {
-				continue
-			}
-			if errors.Is(err, errFormCancel) {
+		next, err := menuOpen(ctx, t, st, mem, act, scr, try)
+		switch {
+		case errors.Is(err, errMenuBack):
+			continue
+		case errors.Is(err, errFormCancel):
+			main.note = menuNothingRun
+			if act.pick == "add" || act.pick == "add-server" {
 				main.note = menuNothingAdded
-				if act.pick == "all" {
-					main.note = menuNothingRun
-				}
-				continue
 			}
-			return act, cmds, err
+			continue
 		}
-		list := menuTargets(st, act)
-		list.point(mem.target)
-		lscr := scr
-		lscr.footer = listKeys(list, "Esc back", "Ctrl-C quit")
-		row, err = menuChoose(ctx, t, list, lscr)
+		return next, err
+	}
+}
+
+// menuOpen is what one row of the main menu does.
+func menuOpen(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory, act menuAction, scr menuScreen, try formTry) (menuNext, error) {
+	switch act.pick {
+	case "":
+		return menuNext{cmds: [][]string{act.args}, ownExit: act.ownExit}, nil
+	case "check":
+		return menuNext{cmds: checkLines, keepGoing: true}, nil
+	case "add-server":
+		cmds, err := formChoose(ctx, t, st, formGroupsFor("host"), scr, try)
+		return menuNext{cmds: cmds}, err
+	case "add":
+		return menuAdd(ctx, t, st, scr, try)
+	case "history":
+		return menuTaskList(ctx, t, st, mem, scr, "History and undo: what do you want to do?", "", historyTasks, menuHelpHistory, try)
+	case "settings":
+		return menuTaskList(ctx, t, st, mem, scr, "Settings and help: what do you want to do?", "", settingsTasks(), menuHelpSettings, try)
+	case "running":
+		return menuRunning(ctx, t, st, mem, scr, try)
+	}
+	// servers, services or VPNs: pick one, then what to do with it
+	list := menuItems(st, act.pick)
+	if len(list.rows) == 0 { // nothing of this kind yet: add one
+		groups := formGroupsFor("host")
+		switch act.pick {
+		case "services":
+			groups = append(menuAddGroups("Database"), menuAddGroups("Something else")...)
+		case "vpns":
+			groups = formGroupsFor("vpn")
+		}
+		cmds, err := formChoose(ctx, t, st, groups, scr, try)
+		if errors.Is(err, errFormCancel) {
+			return menuNext{}, errMenuBack
+		}
+		return menuNext{cmds: cmds}, err
+	}
+	list.point(mem.target)
+	for {
+		row, err := menuAsk(ctx, t, list, scr, menuHelpItems)
+		if err != nil {
+			return menuNext{}, err
+		}
+		mem.target = row.value
+		list.point(row.value)
+		kind, tasks := menuItemTasks(st, row.value)
+		title := menuItemTitle(st, kind, row.value)
+		next, err := menuTaskList(ctx, t, st, mem, scr, title, row.value, tasks, menuHelpTasks, try)
 		if errors.Is(err, errMenuBack) {
 			continue
 		}
+		return next, err
+	}
+}
+
+// menuAdd is Add something: what it is first, then its questions.
+func menuAdd(ctx context.Context, t *menuTerm, st *store.State, scr menuScreen, try formTry) (menuNext, error) {
+	l := &menuList{title: "Add something: what is it?", hot: menuHot()}
+	for _, r := range menuAddRows {
+		l.rows = append(l.rows, menuRow{label: r.label, detail: r.detail, value: r.label})
+	}
+	for {
+		row, err := menuAsk(ctx, t, l, scr, menuHelpAdd)
 		if err != nil {
-			return menuAction{}, nil, err
+			return menuNext{}, err
 		}
-		mem.target = row.value
-		if act.pick == "vpn" && menuVpnUp(st, row.value) {
-			return act, [][]string{{"vpn", "down", row.value}}, nil // up: choosing it disconnects
+		l.point(row.value)
+		var cmds [][]string
+		if row.value == "Bring in what I have" {
+			var next menuNext
+			next, err = menuTaskList(ctx, t, st, &menuMemory{}, scr, "Bring in what I have: from where?", "", importTasks, menuHelpAdd, try)
+			cmds = next.cmds
+		} else {
+			cmds, err = formChoose(ctx, t, st, menuAddGroups(row.value), scr, try)
 		}
-		return act, [][]string{append(slices.Clone(act.args), row.value)}, nil
+		if errors.Is(err, errMenuBack) {
+			continue
+		}
+		return menuNext{cmds: cmds}, err
+	}
+}
+
+// menuAddRows is the Add something list. Each row but the last opens the
+// add forms of these formGroups labels.
+var menuAddRows = []struct {
+	label, detail string
+	groups        []string
+}{
+	{"Server", "A Linux or Windows machine you log in to", []string{"Server"}},
+	{"Database", "PostgreSQL, MySQL, SQL Server, Oracle, MongoDB and others", []string{"Databases"}},
+	{"VPN", "WireGuard, OpenVPN, Tailscale or your company's VPN app", []string{"VPN"}},
+	{"Something else", "A cache, a message queue, file storage, a cluster or a container registry",
+		[]string{"Caches", "Queues", "File storage", "Clusters", "Images (registries)"}},
+	{"Bring in what I have", "From ~/.ssh/config, .pgpass, my.cnf or a .env file", nil},
+}
+
+// menuAddGroups is the add forms of one Add something row.
+func menuAddGroups(label string) []formGroup {
+	i := slices.IndexFunc(menuAddRows, func(r struct {
+		label, detail string
+		groups        []string
+	}) bool {
+		return r.label == label
+	})
+	var gs []formGroup
+	for _, g := range formGroups() {
+		if i >= 0 && slices.Contains(menuAddRows[i].groups, g.label) {
+			gs = append(gs, g)
+		}
+	}
+	return gs
+}
+
+// menuTask is one thing to do with an item (a server, a database ...), or
+// a list of more such things (sub).
+type menuTask struct {
+	label, detail string
+	// cmd is the komando command (its key, "db query"); its questions are
+	// asked in the guided form, with fill already answered
+	cmd string
+	// fill answers the command's arguments by position: "{}" is the item
+	// (web1, @web), "{name}" the item without @, "" asks. nil fills the
+	// first argument with the item; noItem fills nothing.
+	fill   []string
+	noItem bool
+	// only, when set, are the flags asked at once; the rest wait under
+	// More options
+	only []string
+	// line runs these command lines at once, with {} and {name} filled in
+	line [][]string
+	// sub opens a list of its own; title is its question
+	sub   []menuTask
+	title string
+	// confirm is asked first ({} is the item), yes is the row that goes on
+	confirm, yes string
+	ownExit      bool
+}
+
+// menuTaskList shows tasks for item and does the one chosen: a sub list,
+// a command line, or the guided form of a command with item filled in.
+func menuTaskList(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory, scr menuScreen, title, item string, tasks []menuTask, help string, try formTry) (menuNext, error) {
+	l := &menuList{title: title, hot: menuHot(), typing: len(tasks) > 12}
+	for _, tk := range tasks {
+		d := tk.detail
+		if tk.sub != nil && d == "" {
+			d = menuSubDetail(tk.sub)
+		}
+		l.rows = append(l.rows, menuRow{label: tk.label, detail: d, value: tk.label})
+	}
+	l.point(mem.task)
+	for {
+		row, err := menuAsk(ctx, t, l, scr, help)
+		if err != nil {
+			return menuNext{}, err
+		}
+		l.point(row.value)
+		mem.task = row.value
+		tk := tasks[slices.IndexFunc(tasks, func(x menuTask) bool { return x.label == row.value })]
+		next, err := menuDoTask(ctx, t, st, mem, scr, item, tk, try)
+		if errors.Is(err, errMenuBack) {
+			continue
+		}
+		if errors.Is(err, errFormCancel) {
+			l.note = menuNothingRun
+			continue
+		}
+		return next, err
+	}
+}
+
+// menuSubDetail names the first few rows of a sub list.
+func menuSubDetail(sub []menuTask) string {
+	var names []string
+	for _, s := range sub[:min(4, len(sub))] {
+		names = append(names, strings.ToLower(s.label[:1])+s.label[1:])
+	}
+	d := strings.Join(names, ", ")
+	if len(sub) > 4 {
+		d += " and more"
+	}
+	return d
+}
+
+// menuDoTask does one task for item.
+func menuDoTask(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory, scr menuScreen, item string, tk menuTask, try formTry) (menuNext, error) {
+	if tk.sub != nil {
+		title := tk.title
+		if title == "" {
+			title = tk.label + ": what do you want to do?"
+			if item != "" {
+				title = item + ", " + strings.ToLower(tk.label[:1]) + tk.label[1:] + ": what do you want to do?"
+			}
+		}
+		sub := &menuMemory{}
+		return menuTaskList(ctx, t, st, sub, scr, title, item, tk.sub, menuHelpTasks, try)
+	}
+	if tk.confirm != "" {
+		ok, err := menuConfirm(ctx, t, scr, menuFill(tk.confirm, item), tk.yes)
+		if err != nil || !ok {
+			return menuNext{}, cmp.Or(err, errMenuBack)
+		}
+	}
+	if tk.line != nil {
+		var cmds [][]string
+		for _, l := range tk.line {
+			cmds = append(cmds, menuFillLine(l, item))
+		}
+		return menuNext{cmds: cmds, ownExit: tk.ownExit}, nil
+	}
+	c, _, err := newRoot().Find(strings.Fields(tk.cmd))
+	if err != nil {
+		return menuNext{}, err
+	}
+	if h := formHints[tk.cmd]; h.form != nil { // a hand-made form (login)
+		if sp, given, ok := menuHandForm(h, tk, item); ok {
+			cmds, err := formFillFrom(ctx, t, st, sp, scr, formTryFor(c, try), given)
+			return menuNext{cmds: cmds}, err
+		}
+		cmds, err := formChoose(ctx, t, st, h.form(), scr, try)
+		return menuNext{cmds: cmds}, err
+	}
+	sp, ready := menuTaskSpec(st, c, tk, item)
+	if ready { // nothing to ask and it only reads: run it
+		return menuNext{cmds: sp.build(st, formAnswers{}), ownExit: tk.ownExit}, nil
+	}
+	cmds, err := formFill(ctx, t, st, sp, scr, formTryFor(c, try))
+	return menuNext{cmds: cmds, ownExit: tk.ownExit}, err
+}
+
+// menuHandForm is a hand-made form of one kind with the item answered, so
+// the server picked one screen before is not asked again.
+func menuHandForm(h formHint, tk menuTask, item string) (formSpec, formAnswers, bool) {
+	gs := h.form()
+	given := menuGiven(tk, item)
+	if len(given) == 0 || len(gs) != 1 || len(gs[0].kinds) != 1 {
+		return formSpec{}, nil, false
+	}
+	return gs[0].kinds[0].spec(), given, true
+}
+
+// menuTaskSpec is the guided form of a task's command with the item
+// already answered: those questions are not asked, and every check, list
+// and default sees their answers. ready: no question is left before the
+// review and the command only reads, so the menu runs it at once.
+func menuTaskSpec(st *store.State, c *cobra.Command, tk menuTask, item string) (formSpec, bool) {
+	sp := formCmdSpec(c)
+	given := menuGiven(tk, item)
+	if item != "" {
+		sp.title = item + ": " + tk.label
+	}
+	with := func(a formAnswers) formAnswers {
+		m := maps.Clone(a)
+		if m == nil {
+			m = formAnswers{}
+		}
+		maps.Copy(m, given)
+		return m
+	}
+	var qs []formQ
+	for _, q := range sp.qs {
+		if _, ok := given[q.key]; ok {
+			continue
+		}
+		if tk.only != nil && strings.HasPrefix(q.key, "flag:") {
+			q.advanced = !slices.Contains(tk.only, strings.TrimPrefix(q.key, "flag:"))
+		}
+		if f := q.show; f != nil {
+			q.show = func(a formAnswers) bool { return f(with(a)) }
+		}
+		if f := q.def; f != nil {
+			q.def = func(st *store.State, a formAnswers) string { return f(st, with(a)) }
+		}
+		if f := q.choices; f != nil {
+			q.choices = func(st *store.State, a formAnswers) []menuRow { return f(st, with(a)) }
+		}
+		if f := q.check; f != nil {
+			q.check = func(st *store.State, a formAnswers, v string) string { return f(st, with(a), v) }
+		}
+		qs = append(qs, q)
+	}
+	sp.qs = qs
+	build := sp.build
+	sp.build = func(st *store.State, a formAnswers) [][]string { return build(st, with(a)) }
+	ready := !slices.ContainsFunc(qs, func(q formQ) bool { return !q.advanced && q.visible(st, formAnswers{}) })
+	if k, ok := kindOf(c); !ok || k.Kind != kindRead {
+		ready = false
+	}
+	return sp, ready
+}
+
+// menuGiven is a task's answers given before any question.
+func menuGiven(tk menuTask, item string) formAnswers {
+	fill := tk.fill
+	if fill == nil && !tk.noItem && item != "" {
+		fill = []string{"{}"}
+	}
+	given := formAnswers{}
+	for i, f := range fill {
+		if f != "" {
+			given["arg"+strconv.Itoa(i)] = menuFill(f, item)
+		}
+	}
+	return given
+}
+
+// menuFill puts the item in for {} and its name without @ for {name}.
+func menuFill(s, item string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, "{name}", strings.TrimPrefix(item, "@")), "{}", item)
+}
+
+func menuFillLine(l []string, item string) []string {
+	out := make([]string, len(l))
+	for i, w := range l {
+		out[i] = menuFill(w, item)
+	}
+	return out
+}
+
+// menuConfirm asks a yes or no question; No is first, so Enter alone
+// never does the thing.
+func menuConfirm(ctx context.Context, t *menuTerm, scr menuScreen, question, yes string) (bool, error) {
+	l := &menuList{title: question, rows: []menuRow{{label: "No, go back", value: "no"}, {label: cmp.Or(yes, "Yes"), value: "yes"}}}
+	row, err := menuAsk(ctx, t, l, scr, menuHelpConfirm)
+	if errors.Is(err, errMenuBack) {
+		return false, nil
+	}
+	return row.value == "yes", err
+}
+
+// menuHot is the hot keys of every menu list: ? explains the screen.
+func menuHot() map[rune]string { return map[rune]string{'?': menuHelpKey} }
+
+// menuKeysFor is the key help under a list.
+func menuKeysFor(l *menuList) string {
+	more := []string{"Esc back"}
+	if l.title == "" {
+		more = nil // Esc on the main menu leaves
+	}
+	if !l.typing {
+		more = append(more, "? help")
+	}
+	return listKeys(l, append(more, "q quit")...)
+}
+
+// menuAsk shows l until a row is chosen; ? shows the screen's help and
+// comes back to it.
+func menuAsk(ctx context.Context, t *menuTerm, l *menuList, scr menuScreen, help string) (menuRow, error) {
+	scr.footer = menuKeysFor(l)
+	for {
+		row, err := menuChoose(ctx, t, l, scr)
+		if err != nil || row.value != menuHelpKey {
+			return row, err
+		}
+		again, err := menuHelp(ctx, t, help)
+		if err != nil {
+			return menuRow{}, err
+		}
+		if !again {
+			return menuRow{}, errMenuQuit
+		}
 	}
 }
 
@@ -252,468 +592,6 @@ func menuChoose(ctx context.Context, t *menuTerm, l *menuList, s menuScreen) (me
 	return row, err
 }
 
-// menuRun runs komando commands in the normal screen, one after the other
-// until one fails: each command line first, so the person learns it, then
-// its output, then how the last one ended. Then it waits (Enter goes back,
-// q quits) and erases the key help, so the scrollback keeps only the
-// commands, their output and how they ended.
-//
-// back is where Enter goes: "the menu", or "the questions" after Try it
-// first.
-func menuRun(ctx context.Context, t *menuTerm, self string, cmds [][]string, ownExit bool, back string) (bool, error) {
-	t.leave()
-	result := "exit 0"
-	for _, args := range cmds {
-		fmt.Fprintf(os.Stderr, "$ komando %s\n", menuCommandLine(args))
-		code, err := menuRunOne(self, args)
-		// a command that died without undoing raw mode (killed, crashed) must
-		// not leave its terminal modes to the menu or to the next command
-		t.restoreOrig()
-		if err != nil {
-			return false, err
-		}
-		if code != 0 {
-			result = fmt.Sprintf("exit %d", code)
-			if code < 0 { // ended by a signal, most likely Ctrl-C
-				result = "stopped"
-			}
-			break
-		}
-	}
-	if ownExit && result == "exit 0" {
-		result = "" // "komando: left web1 (exit 0, 12m)" said it already
-	}
-	keys := "Enter back to " + back + " · q quit "
-	if result != "" {
-		keys = result + " · " + keys
-	}
-	// one row at most: "\r\x1b[2K" below erases only the row it is on
-	w, _ := t.size()
-	fmt.Fprintf(os.Stderr, "\n%s", fit([]seg{{keys, ""}}, w-1, false))
-	again, err := menuPause(ctx, t)
-	fmt.Fprint(os.Stderr, "\r\x1b[2K")
-	if result != "" {
-		fmt.Fprintln(os.Stderr, result)
-	}
-	return again, err
-}
+// --- what each kind of item offers ---
 
-// menuRunOne runs one komando command on this terminal: its exit code, -1
-// when a signal ended it.
-func menuRunOne(self string, args []string) (int, error) {
-	err := menuCommand(self, args).Run()
-	var ee *exec.ExitError
-	switch {
-	case err == nil:
-		return 0, nil
-	case errors.As(err, &ee):
-		return ee.ExitCode(), nil
-	}
-	return 0, err
-}
-
-// menuPause waits for Enter or Esc (back to the menu) or q (quit). Keys
-// typed while the command ran are thrown away first.
-func menuPause(ctx context.Context, t *menuTerm) (bool, error) {
-	if _, err := term.MakeRaw(t.in); err != nil {
-		return false, err
-	}
-	defer t.restoreOrig()
-	_ = dropTypedAhead(t.in)
-	t.pending = nil
-	for {
-		keys, err := t.keys(ctx)
-		if err != nil {
-			return false, nil
-		}
-		for _, k := range keys {
-			switch {
-			case k.kind == keyEnter || k.kind == keyEsc:
-				return true, nil
-			case k.kind == keyQuit || k.kind == keyRune && (k.r == 'q' || k.r == 'Q'):
-				return false, nil
-			}
-		}
-	}
-}
-
-// menuCommandLine is args as a person would type them: a word a shell
-// would read differently is quoted, so the line can be copied.
-func menuCommandLine(args []string) string {
-	words := make([]string, len(args))
-	for i, a := range args {
-		words[i] = a
-		safe := a != "" && !strings.ContainsFunc(a, func(r rune) bool {
-			return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("@%+=:,./_-", r))
-		})
-		if !safe {
-			words[i] = "'" + strings.ReplaceAll(a, "'", `'\''`) + "'"
-		}
-	}
-	return cleanText(strings.Join(words, " "))
-}
-
-// menuCommand is the komando command the menu runs, on this terminal. It
-// is not tied to a context: Ctrl-C stops the command, not the menu. Its
-// environment is komando's own (vault.SelfEnv): komando took
-// KOMANDO_VAULT_PASS out of its environment when it started, and the
-// command needs it to open a passphrase vault, as it would when typed. The
-// command takes it out again before it starts anything else.
-func menuCommand(self string, args []string) *exec.Cmd {
-	c := exec.Command(self, args...)
-	c.Env = vault.SelfEnv()
-	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
-	return c
-}
-
-// sshConfigExists: Import has something to read.
-func sshConfigExists() bool {
-	_, err := os.Stat(expandHome("~/.ssh/config"))
-	return err == nil
-}
-
-// sshConfigHasNew: ~/.ssh/config names a server komando does not know yet,
-// so Import still brings something in.
-func sshConfigHasNew(st *store.State) bool {
-	hosts, _, err := parseSSHConfig(expandHome("~/.ssh/config"))
-	if err != nil {
-		return false
-	}
-	for _, h := range hosts {
-		if _, _, known := st.FindName(h.Name); !known {
-			return true
-		}
-	}
-	return false
-}
-
-// menuVpnUp: komando keeps a session of this VPN up. The process is checked
-// by its pid only, as `komando prompt` does: the list must draw at once.
-func menuVpnUp(st *store.State, name string) bool {
-	s := st.Sessions[name]
-	return s != nil && netx.Alive(s.PID)
-}
-
-// menuHelpTasks is the ? screen: what komando does, by task, and the
-// commands for it.
-var menuHelpTasks = []struct {
-	task string
-	cmds []string
-}{
-	{"See everything, check it", []string{"komando list", "komando test all", "komando status"}},
-	{"Servers", []string{"komando host add", "komando shell", "komando exec"}},
-	{"Health and facts", []string{"komando facts", "komando recipe run health"}},
-	{"Files", []string{"komando fs cat", "komando upload", "komando download"}},
-	{"Services, logs, packages", []string{"komando svc", "komando logs", "komando pkg"}},
-	{"Databases and caches", []string{"komando conn add", "komando db", "komando cache"}},
-	{"Storage and message queues", []string{"komando storage", "komando queue"}},
-	{"Clusters and registries", []string{"komando cluster status", "komando registry ls"}},
-	{"VPNs", []string{"komando vpn add", "komando vpn up", "komando vpn down"}},
-	{"Passwords", []string{"komando secret set NAME"}},
-	{"History and safety", []string{"komando audit", "komando doctor"}},
-	{"AI agents", []string{"komando guide install"}},
-}
-
-// menuHelpFor is the ? screen for a terminal this wide: a task and its
-// commands on one line when every line fits, else the task on its line and
-// its commands under it, cut between commands, so a narrow terminal does
-// not wrap a command in two.
-func menuHelpFor(width int) string {
-	const col = 26 // the longest task
-	wide := true
-	for _, h := range menuHelpTasks {
-		wide = wide && 2+col+1+displayWidth(strings.Join(h.cmds, " · ")) <= width
-	}
-	var b strings.Builder
-	b.WriteString("What komando does, by task:\n\n")
-	for _, h := range menuHelpTasks {
-		cmds := strings.Join(h.cmds, " · ")
-		if wide {
-			fmt.Fprintf(&b, "  %-*s %s\n", col, h.task, cmds)
-			continue
-		}
-		fmt.Fprintf(&b, "  %s\n", h.task)
-		for _, l := range keyLines(cmds, width-5) {
-			fmt.Fprintf(&b, "    %s\n", l)
-		}
-	}
-	b.WriteString("\n")
-	for _, l := range keyLines("Every command: komando --help · one command: komando COMMAND --help", width-1) {
-		b.WriteString(l + "\n")
-	}
-	return b.String()
-}
-
-// menuHelp shows the ? screen in the normal screen, at the terminal's
-// width, then waits like a command's end: Enter back to the menu, q quits.
-func menuHelp(ctx context.Context, t *menuTerm) (bool, error) {
-	t.leave()
-	w, _ := t.size()
-	fmt.Fprint(os.Stderr, menuHelpFor(w))
-	fmt.Fprintf(os.Stderr, "\n%s", fit([]seg{{"Enter back to the menu · q quit ", ""}}, w-1, false))
-	again, err := menuPause(ctx, t)
-	fmt.Fprint(os.Stderr, "\r\x1b[2K")
-	return again, err
-}
-
-// menuMainActions is the main menu for this inventory: only the actions
-// that have something to act on, counted as the lists count it (a name
-// they leave out does not count). While there is no server, Add (and
-// Import, when ~/.ssh/config exists) come first; Shell and Facts need a
-// server, Test anything to test, Database a database conn and VPN a VPN.
-// Add is always there, after the actions once there is a server. Import
-// (while ~/.ssh/config holds servers komando does not know) and AI agent
-// (while no agent has komando's skill) show when the number keys can
-// still reach them: 9 rows at most.
-func menuMainActions(st *store.State, sshConfig, newInSSHConfig, skillMissing bool) []menuAction {
-	var acts []menuAction
-	hosts := len(menuNames(st.Hosts, "host")) > 0
-	conns := menuNames(st.Conns, "conn")
-	vpns := len(menuNames(st.Vpns, "vpn")) > 0
-	if !hosts {
-		if sshConfig {
-			acts = append(acts, importAction)
-		}
-		acts = append(acts, addAction)
-	}
-	if hosts {
-		acts = append(acts, shellAction)
-	}
-	if hosts || len(conns) > 0 || vpns {
-		acts = append(acts, testAction)
-	}
-	if hosts {
-		acts = append(acts, factsAction)
-	}
-	if slices.ContainsFunc(conns, func(n string) bool { return connFamily(st.Conns[n]) == "db" }) {
-		acts = append(acts, dbAction)
-	}
-	if vpns {
-		acts = append(acts, vpnAction)
-	}
-	if hosts {
-		acts = append(acts, addAction)
-	}
-	last := []menuAction{allAction, listAction, doctorAction}
-	for _, opt := range []struct {
-		show bool
-		act  menuAction
-	}{{hosts && newInSSHConfig, importAction}, {skillMissing, agentAction}} {
-		if opt.show && len(acts)+1+len(last) <= 9 {
-			acts = append(acts, opt.act)
-		}
-	}
-	return append(acts, last...)
-}
-
-func menuMain(acts []menuAction) *menuList {
-	l := &menuList{empty: "nothing to do", hot: map[rune]string{'?': helpAction.name}}
-	for _, a := range acts {
-		l.rows = append(l.rows, menuRow{label: a.name, detail: a.detail, value: a.name})
-	}
-	return l
-}
-
-// menuTargets is the list an action picks from: servers for Shell and
-// Facts, database conns for Database, VPNs for VPN, and for Test all of
-// them (and all), each kind sorted by name.
-func menuTargets(st *store.State, act menuAction) *menuList {
-	l := &menuList{typing: true}
-	switch act.pick {
-	case "host":
-		l.title = act.name + ": which server?"
-		l.empty = "no server yet; Esc goes back, then Add or Import brings one in"
-		l.rows = menuHostRows(st)
-	case "target":
-		l.title = act.name + ": which one?"
-		l.empty = "nothing to test yet"
-		l.rows = append([]menuRow{{label: "all", detail: "every server, conn and VPN", value: "all"}}, menuHostRows(st)...)
-		l.rows = append(append(l.rows, menuConnRows(st, "")...), menuVpnRows(st)...)
-	case "db":
-		l.title = act.name + ": which one?"
-		l.empty = "no database yet; Esc goes back, then Add brings one in"
-		l.rows = menuConnRows(st, "db")
-	case "vpn":
-		l.title = act.name + ": which one?"
-		l.empty = "no VPN yet; Esc goes back, then Add brings one in"
-		l.rows = menuVpnRows(st)
-	}
-	return l
-}
-
-// menuNames is the names a list may offer, sorted. A name the inventory
-// would not accept today (a hand-edited state file, or "all" from before it
-// was refused) is left out: the menu passes the name as an argument, where
-// one starting with - would be read as a flag and "all" would pick
-// everything.
-func menuNames[T any](m map[string]T, kind string) []string {
-	var names []string
-	for n := range m {
-		if validName(kind, n) == nil {
-			names = append(names, n)
-		}
-	}
-	slices.Sort(names)
-	return names
-}
-
-func menuHostRows(st *store.State) []menuRow {
-	var rows []menuRow
-	for _, n := range menuNames(st.Hosts, "host") {
-		rows = append(rows, menuRow{label: n, detail: menuHostDetail(st, st.Hosts[n]), value: n})
-	}
-	return rows
-}
-
-// menuConnRows is the conns of one family ("db"), or all with "".
-func menuConnRows(st *store.State, family string) []menuRow {
-	var rows []menuRow
-	for _, n := range menuNames(st.Conns, "conn") {
-		c := st.Conns[n]
-		if family != "" && connFamily(c) != family {
-			continue
-		}
-		rows = append(rows, menuRow{label: n, detail: menuConnDetail(st, c), value: n})
-	}
-	return rows
-}
-
-func menuVpnRows(st *store.State) []menuRow {
-	var rows []menuRow
-	for _, n := range menuNames(st.Vpns, "vpn") {
-		v := st.Vpns[n]
-		parts := []string{"vpn " + v.Kind}
-		if menuVpnUp(st, n) {
-			parts = []string{"up (Enter disconnects)", "vpn " + v.Kind}
-		}
-		if w := vpnWhere(v); w != "-" {
-			parts = append(parts, w)
-		}
-		rows = append(rows, menuRow{label: n, detail: menuDetail(parts, v.Groups, v.Tags), value: n})
-	}
-	return rows
-}
-
-// menuHostDetail is whether the server is protected (first, so it is the
-// last of the details a narrow screen cuts off), user@address[:port], the
-// way there and its groups and tags.
-func menuHostDetail(st *store.State, h *store.Host) string {
-	addr := h.Address
-	if h.User != "" {
-		addr = h.User + "@" + addr
-	}
-	if h.Port != 0 && h.Port != 22 {
-		addr += fmt.Sprintf(":%d", h.Port)
-	}
-	var parts []string
-	if menuProtectedHost(st, h) {
-		parts = append(parts, "protected")
-	}
-	parts = append(parts, addr)
-	if h.Via != "" {
-		parts = append(parts, "via "+h.Via)
-	}
-	return menuDetail(parts, h.Groups, h.Tags)
-}
-
-// menuConnDetail is protected, kind and where, as `komando list` shows
-// them: never the URL itself, which may hold a user or a password.
-func menuConnDetail(st *store.State, c *store.Conn) string {
-	var parts []string
-	if menuProtectedConn(st, c) {
-		parts = append(parts, "protected")
-	}
-	parts = append(parts, c.Kind)
-	if t, err := driver.Parse(c.URL); err == nil {
-		parts = append(parts, t.Where())
-	}
-	if c.Via != "" {
-		parts = append(parts, "via "+c.Via)
-	}
-	return menuDetail(parts, c.Groups, c.Tags)
-}
-
-// menuProtectedHost is protectedHost without asking DNS: the server's own
-// mark, or a protected server at the same address and port, written the
-// same way. protectedHost also looks names up (2s at most each), and the
-// list must draw at once; the question before the command still checks
-// everything.
-func menuProtectedHost(st *store.State, h *store.Host) bool {
-	if h.Protected {
-		return true
-	}
-	for _, o := range st.Hosts {
-		if o.Protected && o.EffectivePort() == h.EffectivePort() && sameHostName(o.Address, h.Address) {
-			return true
-		}
-	}
-	return false
-}
-
-// menuProtectedConn is protectedConn the same way: the conn's own mark, or
-// a protected conn of the same family at the same address (or file, or
-// bucket), written the same way.
-func menuProtectedConn(st *store.State, c *store.Conn) bool {
-	key := func(c *store.Conn) string {
-		t, err := driver.Parse(c.URL)
-		switch {
-		case err != nil:
-			return ""
-		case t.Kind.File:
-			return "file " + t.Path
-		case t.Bucket != "":
-			return "bucket " + normHostPort(t.Address) + "/" + t.Bucket
-		}
-		return t.Kind.Family + " " + normHostPort(t.Address)
-	}
-	if c.Protected {
-		return true
-	}
-	k := key(c)
-	for _, o := range st.Conns {
-		if o.Protected && k != "" && key(o) == k {
-			return true
-		}
-	}
-	// an SFTP conn is an SSH server: protected when a protected host is it
-	h := sftpHost(c)
-	return h != nil && menuProtectedHost(st, h)
-}
-
-// menuDetail adds groups and tags, and cleans it all for the screen.
-func menuDetail(parts, groups, tags []string) string {
-	for _, g := range groups {
-		parts = append(parts, "@"+g)
-	}
-	parts = append(parts, tags...)
-	return cleanText(strings.Join(parts, "  "))
-}
-
-// menuHeader is the top line: komando, its version, and what it knows.
-func menuHeader(st *store.State) []seg {
-	counts := []string{menuCount(len(st.Hosts), "server")}
-	if n := len(st.Conns); n > 0 {
-		counts = append(counts, menuCount(n, "conn"))
-	}
-	if n := len(st.Vpns); n > 0 {
-		vpns := menuCount(n, "VPN")
-		up := 0
-		for name := range st.Vpns {
-			if menuVpnUp(st, name) {
-				up++
-			}
-		}
-		if up > 0 {
-			vpns += fmt.Sprintf(" (%d up)", up)
-		}
-		counts = append(counts, vpns)
-	}
-	return []seg{{"komando", "1"}, {" · " + Version + " · " + strings.Join(counts, ", "), "2"}}
-}
-
-func menuCount(n int, word string) string {
-	if n == 1 {
-		return "1 " + word
-	}
-	return fmt.Sprintf("%d %ss", n, word)
-}
+// --- screens not tied to one item ---

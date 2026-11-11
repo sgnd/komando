@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,51 +111,51 @@ func TestFormKindLines(t *testing.T) {
 		{"Server", "Server", formAnswers{"name": "win3", "os": "windows", "transport": "winrm", "address": "win3.lan",
 			"user": "Administrator", "winrmtls": "off", "winrmport": "5985", "protected": "no"},
 			"host add win3 winrm://Administrator@win3.lan?tls=off --ask-password"},
-		{"Database", "SQL Server", formAnswers{"name": "sales", "host": "db.internal", "port": "1433", "user": "app",
+		{"Databases", "SQL Server", formAnswers{"name": "sales", "host": "db.internal", "port": "1433", "user": "app",
 			"database": "sales", "protected": "no", "tls": "nocheck"},
 			"conn add sales sqlserver://app@db.internal/sales?encrypt=true&tls=skip-verify --ask-password"},
-		{"Database", "Oracle Database", formAnswers{"name": "erp", "host": "db.internal", "port": "1521", "by": "service",
+		{"Databases", "Oracle Database", formAnswers{"name": "erp", "host": "db.internal", "port": "1521", "by": "service",
 			"service": "ERPPDB", "user": "app", "protected": "no"},
 			"conn add erp oracle://app@db.internal/ERPPDB --ask-password"},
-		{"Database", "Oracle Database", formAnswers{"name": "old", "host": "db", "port": "1521", "by": "sid",
+		{"Databases", "Oracle Database", formAnswers{"name": "old", "host": "db", "port": "1521", "by": "sid",
 			"sid": "ORCL", "user": "app", "protected": "no"},
 			"conn add old oracle://app@db?sid=ORCL --ask-password"},
-		{"Database", "ClickHouse", formAnswers{"name": "events", "via": "web1", "host": "127.0.0.1", "tls": "false", "port": "8123",
+		{"Databases", "ClickHouse", formAnswers{"name": "events", "via": "web1", "host": "127.0.0.1", "tls": "false", "port": "8123",
 			"user": "default", "database": "analytics", "password": "yes", "protected": "no"},
 			"conn add events clickhouse://default@127.0.0.1:8123/analytics?tls=false --ask-password --via web1"},
-		{"Database", "Snowflake", formAnswers{"name": "analytics", "account": "myorg-myaccount", "user": "APP_RO", "login": "keyfile",
+		{"Databases", "Snowflake", formAnswers{"name": "analytics", "account": "myorg-myaccount", "user": "APP_RO", "login": "keyfile",
 			"keyfile": key, "warehouse": "REPORTING", "database": "ANALYTICS", "schema": "PUBLIC", "role": "ANALYST_RO", "protected": "no"},
 			"conn add analytics snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO --password-ref file:" + key},
-		{"Database", "Google BigQuery", formAnswers{"name": "warehouse", "project": "my-project", "dataset": "analytics",
+		{"Databases", "Google BigQuery", formAnswers{"name": "warehouse", "project": "my-project", "dataset": "analytics",
 			"location": "EU", "login": "gcloud", "protected": "no"},
 			"conn add warehouse bigquery://my-project/analytics?location=EU"},
-		{"Message queues", "Apache Kafka", formAnswers{"name": "events", "servers": "b1.example.com:9093, b2.example.com:9093",
+		{"Queues", "Apache Kafka", formAnswers{"name": "events", "servers": "b1.example.com:9093, b2.example.com:9093",
 			"tls": "yes", "login": "sasl", "user": "app", "sasl": "scram-sha-512", "password": "ask", "protected": "no"},
 			"conn add events kafka://app@b1.example.com:9093,b2.example.com:9093?sasl=scram-sha-512&tls=true --ask-password"},
-		{"Message queues", "Apache Kafka", formAnswers{"name": "local", "via": "web1", "servers": "broker1.internal:9092",
+		{"Queues", "Apache Kafka", formAnswers{"name": "local", "via": "web1", "servers": "broker1.internal:9092",
 			"tlsvia": "no", "login": "none", "protected": "no"},
 			"conn add local kafka://broker1.internal:9092 --via web1"},
-		{"Message queues", "RabbitMQ", formAnswers{"name": "jobs", "host": "rabbit.example.com", "tls": "yes", "port": "5671",
+		{"Queues", "RabbitMQ", formAnswers{"name": "jobs", "host": "rabbit.example.com", "tls": "yes", "port": "5671",
 			"vhost": "/", "user": "app", "password": "ask", "management": "15671", "protected": "no"},
 			"conn add jobs amqps://app@rabbit.example.com/%2F?management=15671 --ask-password"},
-		{"Message queues", "NATS JetStream", formAnswers{"name": "stream", "servers": "nats1.example.com:4222,nats2.example.com:4222",
+		{"Queues", "NATS JetStream", formAnswers{"name": "stream", "servers": "nats1.example.com:4222,nats2.example.com:4222",
 			"tls": "yes", "login": "user", "user": "app", "password": "ask", "protected": "no"},
 			"conn add stream tls://app@nats1.example.com:4222,nats2.example.com:4222 --ask-password"},
-		{"Message queues", "NATS JetStream", formAnswers{"name": "lab", "servers": "nats.lab", "tls": "no", "login": "token",
+		{"Queues", "NATS JetStream", formAnswers{"name": "lab", "servers": "nats.lab", "tls": "no", "login": "token",
 			"password": "ask", "protected": "no"},
 			"conn add lab nats://nats.lab?insecure=1 --ask-password"},
-		{"Message queues", "Amazon SQS", formAnswers{"name": "aws", "region": "eu-west-1", "login": "profile", "profile": "prod", "protected": "no"},
+		{"Queues", "Amazon SQS", formAnswers{"name": "aws", "region": "eu-west-1", "login": "profile", "profile": "prod", "protected": "no"},
 			"conn add aws sqs://eu-west-1 --option aws_profile=prod"},
-		{"Message queues", "Amazon SQS", formAnswers{"name": "aws3", "region": "eu-west-1", "login": "key", "keyid": "AKIAIOSFODNN7EXAMPLE", "protected": "no"},
+		{"Queues", "Amazon SQS", formAnswers{"name": "aws3", "region": "eu-west-1", "login": "key", "keyid": "AKIAIOSFODNN7EXAMPLE", "protected": "no"},
 			"conn add aws3 sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --ask-password"},
-		{"Message queues", "Google Cloud Pub/Sub", formAnswers{"name": "gcp", "project": "my-project", "login": "gcloud", "protected": "no"},
+		{"Queues", "Google Cloud Pub/Sub", formAnswers{"name": "gcp", "project": "my-project", "login": "gcloud", "protected": "no"},
 			"conn add gcp pubsub://my-project"},
 		{"File storage", "Windows share (SMB)", formAnswers{"name": "team", "host": "fileserver.corp.lan", "share": "team",
 			"folder": "reports", "user": "alice", "domain": "CORP", "protected": "no", "port": "445"},
 			"conn add team smb://alice@fileserver.corp.lan/team/reports?domain=CORP --ask-password"},
-		{"Container registry", "Azure Container Registry", formAnswers{"name": "acr", "host": "myregistry.azurecr.io", "protected": "no"},
+		{"Images (registries)", "Azure Container Registry", formAnswers{"name": "acr", "host": "myregistry.azurecr.io", "protected": "no"},
 			"conn add acr registry://myregistry.azurecr.io"},
-		{"Container registry", "Google Artifact Registry", formAnswers{"name": "gar", "host": "europe-west1-docker.pkg.dev", "protected": "no"},
+		{"Images (registries)", "Google Artifact Registry", formAnswers{"name": "gar", "host": "europe-west1-docker.pkg.dev", "protected": "no"},
 			"conn add gar registry://europe-west1-docker.pkg.dev"},
 	}
 	for _, c := range cases {
@@ -183,6 +185,8 @@ func TestFormNewKindChecks(t *testing.T) {
 		{func(v string) string { return serverUserProblem(nil, nil, v) }, `CORP\deploy`, "deploy@corp.example.com"},
 		{func(v string) string { return serverUserProblem(nil, nil, v) }, "deploy@corp.local", ""},
 		{func(v string) string { return serverAddressProblem(nil, nil, v) }, "winrm://10.0.0.9", "without winrm://"},
+		// said on first run too, where Add a server has no list to go back to
+		{func(v string) string { return serverAddressProblem(nil, nil, v) }, "postgres://app@10.0.0.5/shop", "komando db add"},
 		{func(v string) string { return snowflakeAccountProblem(nil, nil, v) }, "https://myorg-myaccount.snowflakecomputing.com", "type only"},
 		{func(v string) string { return snowflakeAccountProblem(nil, nil, v) }, "xy12345.eu-central-1", ""},
 		{gcpProjectProblem, "My Project", "project ID"},
@@ -205,5 +209,154 @@ func TestFormNewKindChecks(t *testing.T) {
 	host := sqlServerForm().qs[2]
 	if p := host.check(nil, formAnswers{}, `db\SQLEXPRESS`); !strings.Contains(p, "named instance") {
 		t.Errorf("named instance: %q", p)
+	}
+}
+
+// The server form asks name, address and user first, production with the
+// rest; the jump host, the one-time code, group and notes wait under More
+// options.
+func TestFormServerOrder(t *testing.T) {
+	sp := serverForm()
+	var keys []string
+	for _, q := range sp.qs[:3] {
+		keys = append(keys, q.key)
+	}
+	if got := strings.Join(keys, " "); got != "name address user" {
+		t.Errorf("first questions: %s", got)
+	}
+	for _, q := range sp.qs {
+		switch q.key {
+		case "via", "code", "group", "notes":
+			if !q.advanced {
+				t.Errorf("%s is not under More options", q.key)
+			}
+		case "transport":
+			if q.visible(nil, formAnswers{"os": "linux"}) {
+				t.Error("the Windows connection question shows for Linux")
+			}
+		}
+	}
+}
+
+// Every family add (db add, cache add ...) opens one Add group.
+func TestFormFamilyAddGroups(t *testing.T) {
+	for cmd, label := range formFamilyAdd {
+		if gs := formGroupNamed(label); len(gs) != 1 || len(gs[0].kinds) == 0 {
+			t.Errorf("%s: no Add group %q", cmd, label)
+		}
+	}
+}
+
+// A delete on the review says it cannot be undone; an add does not.
+func TestFormDestructive(t *testing.T) {
+	cases := map[string]bool{
+		"queue purge q1 orders": true, "cache rm c1 k": true, "storage rm s3 a": true,
+		"registry prune r repo": true, "cluster scale k deployment/api 0": true,
+		"cluster scale k deployment/api 3": false, "host add web1 root@10.0.0.5": false,
+		"fs rm web1 /srv/old --recursive": true, "docker rm web1 api": true, "docker prune web1 --all": true,
+		"user rm web1 bob --remove-home": true, "db user rm db1 bob": true, "db user list db1": false,
+		"secret rm db-pass": true, "key rm k1 --delete-file": true, "key rm k1": false,
+		"pkg rm web1 nginx": true, "cron rm web1 backup": true, "host rm web1": false,
+	}
+	for line, want := range cases {
+		if got := formDestructive([][]string{strings.Fields(line)}) != ""; got != want {
+			t.Errorf("%s: destructive %v, want %v", line, got, want)
+		}
+	}
+}
+
+// After an add whose test fails, komando knows how to take it out again
+// and which line says why.
+func TestFormAfterFailedCheck(t *testing.T) {
+	rm := formRemoveCmd([][]string{{"host", "add", "web1", "root@10.0.0.5"}, {"test", "web1"}})
+	if strings.Join(rm, " ") != "host rm web1" {
+		t.Errorf("remove: %v", rm)
+	}
+	if formRemoveCmd([][]string{{"import", "kubeconfig"}, {"cluster", "status", "kind:k8s"}}) != nil {
+		t.Error("an import has no single remove")
+	}
+	if !formIsCheck([]string{"test", "web1"}) || !formIsCheck([]string{"vpn", "up", "office"}) || formIsCheck([]string{"host", "add"}) {
+		t.Error("formIsCheck")
+	}
+	if got := formLastLine("a\n\x1b[1merror\x1b[0m: no route to host\n\n"); got != "error: no route to host" {
+		t.Errorf("last line: %q", got)
+	}
+}
+
+// Forms never say vault or conn to a person.
+func TestFormNoJargon(t *testing.T) {
+	for _, g := range formGroups() {
+		for _, k := range g.kinds {
+			sp := k.spec()
+			for _, q := range sp.qs {
+				text := q.ask + " " + q.help
+				if q.choices != nil {
+					for _, r := range q.choices(testState(), formAnswers{}) {
+						text += " " + r.label + " " + r.detail
+					}
+				}
+				for _, w := range []string{"vault", " conn "} {
+					if strings.Contains(" "+text+" ", w) {
+						t.Errorf("%s %s: %q says %q", g.label, k.label, q.key, strings.TrimSpace(w))
+					}
+				}
+			}
+		}
+	}
+}
+
+// Every Add something row opens all of its groups, together every Add
+// group once, and every `KIND add` typed alone opens its own group.
+func TestMenuAddGroups(t *testing.T) {
+	seen := map[string]int{}
+	for _, r := range menuAddRows {
+		gs := menuAddGroups(r.label)
+		if len(gs) != len(r.groups) {
+			t.Errorf("Add something > %s: %d groups, want %v", r.label, len(gs), r.groups)
+		}
+		for _, g := range gs {
+			seen[g.label]++
+		}
+	}
+	for _, g := range formGroups() {
+		if seen[g.label] != 1 {
+			t.Errorf("Add group %q is offered %d times by Add something", g.label, seen[g.label])
+		}
+	}
+	for kind := range connAddKinds {
+		if gs := formGroupNamed(formFamilyAdd[kind+" add"]); len(gs) != 1 {
+			t.Errorf("komando %s add alone: %d groups, want its own", kind, len(gs))
+		}
+	}
+	if _, _, err := formPick(context.Background(), nil, nil, menuScreen{}); !errors.Is(err, errMenuBack) {
+		t.Errorf("formPick with nothing to pick: %v", err)
+	}
+}
+
+// The production question is asked of every kind, servers too: its Yes
+// default must take effect without opening More options.
+func TestFormProtectAskedEverywhere(t *testing.T) {
+	for _, g := range formGroups() {
+		for _, k := range g.kinds {
+			for _, q := range k.spec().qs {
+				if q.key == "protected" && q.advanced {
+					t.Errorf("%s > %s: Production is under More options", g.label, k.label)
+				}
+			}
+		}
+	}
+}
+
+// The review shows exactly what Run it runs: an answer a later edit hid
+// (a log file, once a service was picked) is in neither.
+func TestFormReviewShowsWhatRuns(t *testing.T) {
+	st := menuTestState()
+	c, _, _ := newRoot().Find([]string{"logs"})
+	sp := formCmdSpec(c)
+	a := formAnswers{"arg0": "web-1", "flag:file": "/var/log/app.log", "flag:unit": "nginx"}
+	l := formReviewList(st, sp, a, true)
+	want := "$ komando " + menuCommandLine(formBuild(st, sp, a)[0])
+	if len(l.runs) != 1 || l.runs[0] != want || strings.Contains(want, "app.log") {
+		t.Errorf("review %v, runs %q", l.runs, want)
 	}
 }

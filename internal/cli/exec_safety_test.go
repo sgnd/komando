@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -271,8 +272,8 @@ func TestRecipeVarsChecked(t *testing.T) {
 	}{
 		{[]string{"recipe", "run", "big-files", "prod", "--var", "path=-delete"}, "OPTION_LIKE_VAR"},
 		{[]string{"recipe", "run", "big-dirs", "prod", "--var", "path=--files0-from=/etc/x"}, "OPTION_LIKE_VAR"},
-		{[]string{"recipe", "run", "http-check", "prod", "--var", "url=-o/etc/x"}, "OPTION_LIKE_VAR"},
-		{[]string{"recipe", "run", "journal-errors", "prod", "--var", "since=-2h"}, ""}, // a relative time
+		{[]string{"recipe", "run", "big-dirs", "prod", "--var", "path=-o/etc/x"}, "OPTION_LIKE_VAR"},
+		{[]string{"recipe", "run", "oom", "prod", "--var", "since=-2h"}, ""}, // a relative time
 		{[]string{"recipe", "run", "big-files", "prod", "--var", "path=./-odd-dir"}, ""},
 		{[]string{"recipe", "add", "wipe", "find {{path=/srv}} -delete", "--read-only"}, "READ_ONLY_VIOLATION"},
 	}
@@ -461,7 +462,7 @@ func TestInvalidDenyPatternReported(t *testing.T) {
 	}
 	found := false
 	for _, c := range securityChecks(st) {
-		if c.Name == "security:deny_rule:custom-0" {
+		if c.Name == "security:deny_rule:"+policy.CustomID(`kubectl\s+delete(`) {
 			found = !c.OK && strings.Contains(c.Detail, "not a valid regular expression")
 		}
 	}

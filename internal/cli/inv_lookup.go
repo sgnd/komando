@@ -189,6 +189,19 @@ type rmResult struct {
 	Note          string   `json:"note,omitempty"`
 }
 
+// MarshalJSON adds would_remove under --dry-run, so a preview does not
+// read as done; removed stays for scripts that read it (contract 1).
+func (r rmResult) MarshalJSON() ([]byte, error) {
+	type plain rmResult
+	if !g.dryRun {
+		return json.Marshal(plain(r))
+	}
+	return json.Marshal(struct {
+		plain
+		WouldRemove []string `json:"would_remove"`
+	}{plain(r), r.Removed})
+}
+
 func (r rmResult) Text() string {
 	t := "removed " + strings.Join(r.Removed, ", ")
 	if g.dryRun {

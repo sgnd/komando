@@ -49,6 +49,7 @@
   "config show": {
     "command": "string",
     "data": {
+      "approval_code": "string",
       "files": {
         "audit": "string",
         "known_hosts": "string",
@@ -57,6 +58,14 @@
         "vault": "string"
       },
       "home": "string",
+      "keys": [
+        {
+          "default": "string",
+          "key": "string",
+          "value": "string",
+          "values": "string"
+        }
+      ],
       "settings": {
         "audit": "bool",
         "audit_sql": "string",
@@ -171,6 +180,69 @@
     },
     "ok": "bool"
   },
+  "export": {
+    "command": "string",
+    "data": {
+      "conns": [
+        {
+          "created_at": "string",
+          "kind": "string",
+          "name": "string",
+          "password_ref": "string",
+          "updated_at": "string",
+          "url": "string"
+        }
+      ],
+      "format": "string",
+      "hosts": [
+        {
+          "address": "string",
+          "created_at": "string",
+          "groups": [
+            "string"
+          ],
+          "name": "string",
+          "tags": [
+            "string"
+          ],
+          "updated_at": "string",
+          "user": "string"
+        }
+      ],
+      "keys_needed": [],
+      "recipes": [
+        {
+          "command": "string",
+          "created_at": "string",
+          "name": "string"
+        }
+      ],
+      "secrets_needed": [
+        "string"
+      ],
+      "settings": {
+        "audit": "string",
+        "audit_sql": "string",
+        "audit_syslog": "string",
+        "connect_timeout": "string",
+        "default_timeout": "string",
+        "default_user": "string",
+        "host_key_policy": "string",
+        "login_for": "string",
+        "mask_personal": "string",
+        "max_output_bytes": "string",
+        "parallel": "string",
+        "vpn_idle": "string"
+      },
+      "vpns": []
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "group list": {
     "command": "string",
     "data": {
@@ -212,32 +284,6 @@
     "meta": {
       "contract": "number",
       "dry_run": "bool",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "host export": {
-    "command": "string",
-    "data": {
-      "hosts": [
-        {
-          "address": "string",
-          "created_at": "string",
-          "groups": [
-            "string"
-          ],
-          "name": "string",
-          "tags": [
-            "string"
-          ],
-          "updated_at": "string",
-          "user": "string"
-        }
-      ]
-    },
-    "meta": {
-      "contract": "number",
       "duration_ms": "number",
       "version": "string"
     },

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sslvpn"
@@ -44,25 +45,45 @@ func BuiltinSSL(kind string) bool {
 	return err != nil
 }
 
+// BuiltinSSLFor is BuiltinSSL for one VPN: a GlobalProtect VPN without a
+// user signs in through a browser, which only komando's own client does,
+// so it never goes to openconnect.
+func BuiltinSSLFor(v *store.Vpn) bool {
+	return BuiltinSSL(v.Kind) || v.Kind == "globalprotect" && v.User == ""
+}
+
 func sslOptions(v *store.Vpn, password string, prompt func(string, bool) (string, error)) sslvpn.Options {
 	return sslvpn.Options{Portal: v.Portal, User: v.User, Password: password, Prompt: prompt}
 }
 
 // SSLVPNLogin logs in at the terminal and returns the session cookie.
-func SSLVPNLogin(ctx context.Context, v *store.Vpn, prompt func(label string, secret bool) (string, error)) (string, error) {
+// browser shows a sign-in page to the person (GlobalProtect with SAML);
+// nil, like a nil prompt, means nobody is there.
+func SSLVPNLogin(ctx context.Context, v *store.Vpn, prompt func(label string, secret bool) (string, error),
+	browser func(context.Context, sslvpn.BrowserPage) (string, error)) (string, error) {
 	password := ""
 	if v.KeyRef != "" {
 		var err error
 		if password, err = secret(v, v.KeyRef); err != nil {
 			return "", err
 		}
-	} else if prompt != nil {
+	} else if prompt != nil && v.Kind != "globalprotect" { // GlobalProtect asks only when the portal wants a password
 		var err error
 		if password, err = prompt("Password for "+v.User, true); err != nil {
 			return "", err
 		}
 	}
 	o := sslOptions(v, password, prompt)
+	if o.Browser = browser; browser != nil {
+		o.Notice = func(s string) { // the text holds what a server wrote
+			fmt.Fprintln(os.Stderr, "komando: "+strings.Map(func(r rune) rune {
+				if unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) {
+					return -1
+				}
+				return r
+			}, s))
+		}
+	}
 	switch v.Kind {
 	case "anyconnect":
 		c, err := sslvpn.AnyConnectLogin(ctx, o)
@@ -92,7 +113,7 @@ func openSSLVPN(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 			return nil, nil, LoginRequired(v)
 		}
 		var err error
-		if cookie, err = SSLVPNLogin(ctx, v, nil); err != nil {
+		if cookie, err = SSLVPNLogin(ctx, v, nil, nil); err != nil {
 			return nil, nil, err
 		}
 	}

@@ -2,50 +2,42 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
 )
 
-// komando prompt prints a short note for a person's shell prompt, such as
-// "vpn:office tun:2", or nothing. The prompt runs it on every Enter, so it
-// only reads the state file: no lock, no writes, no other programs, no
+// `komando status --short` prints a short note for a person's shell prompt,
+// such as "vpn:office tun:2", or nothing. The prompt runs it on every Enter,
+// so it only reads the state file: no lock, no writes, no other programs, no
 // network (docs/design/session-status.md). In particular it never calls
 // netx.LiveSession, which marks a VPN as used and would keep it up forever.
 
+// promptCmd is the old name of `status --short`, kept for one release. Its
+// note goes to stderr only when a person typed it: inside $(komando prompt)
+// stdout is not a terminal, and a note there would be drawn on every prompt.
 func promptCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "prompt",
-		Short: "A short note for your shell prompt: VPNs and tunnels that are up",
-		Long: `Prints what komando keeps running in the background, for your shell prompt:
-"vpn:office tun:2" when the VPN office is up and two tunnels run, nothing when
-nothing runs. It only reads komando's state file and never fails, so it is safe
-to run on every prompt. It is a quick hint; ` + "`komando status`" + ` is the full check.
-
-zsh (also with oh-my-zsh), in ~/.zshrc:
-  setopt PROMPT_SUBST
-  RPROMPT='$(komando prompt)'
-
-bash, in ~/.bashrc:
-  PS1='$(p=$(komando prompt); [ -n "$p" ] && echo "[$p] ")'"$PS1"
-
-starship, in ~/.config/starship.toml:
-  [custom.komando]
-  command = "komando prompt"
-  when = true`,
+	c := &cobra.Command{
+		Use:  "prompt",
 		Args: cobra.NoArgs,
-		// not the root's checks: they reap idle VPNs and check the audit
-		// log, which is work and writes on every prompt
+		// not the root's checks, as for status --short
 		PersistentPreRunE: func(*cobra.Command, []string) error { return nil },
-		Run: func(*cobra.Command, []string) {
+		Run: func(cmd *cobra.Command, _ []string) {
+			if term.IsTerminal(int(os.Stdout.Fd())) {
+				sayOldName(cmd)
+			}
 			fmt.Print(promptText(time.Now()))
 		},
 	}
+	markOldName(c, "status --short")
+	return c
 }
 
 // promptText is the note with a newline, or "" when nothing runs or the

@@ -41,6 +41,38 @@ type Error struct {
 	// Final: no flag lifts this stop (no --yes, --allow-dangerous or
 	// --reveal), so an AI agent is not told that adding one asks the user
 	Final bool `json:"-"`
+
+	// text-mode wording for a person; JSON keeps Message and Hint
+	say, sayHint string
+	cancelled    bool
+}
+
+// Say sets the words a person reads in text mode. JSON is unchanged, so
+// agents and scripts keep the stable Message and Hint. An empty hint keeps
+// the usual one.
+func (e *Error) Say(msg, hint string) *Error { e.say, e.sayHint = msg, hint; return e }
+
+// PlainHint drops the hint Say set for a person, so text mode prints Hint
+// as JSON does (an AI agent reads -o text too).
+func (e *Error) PlainHint() *Error { e.sayHint = ""; return e }
+
+// Cancel marks a stop the person chose at the terminal: text mode prints
+// msg alone, without "Stopped:", a hint or the code.
+func (e *Error) Cancel(msg string) *Error { e.say, e.cancelled = msg, true; return e }
+
+// TextMessage and TextHint are what text mode prints.
+func (e *Error) TextMessage() string {
+	if e.say != "" {
+		return e.say
+	}
+	return e.Message
+}
+
+func (e *Error) TextHint() string {
+	if e.sayHint != "" {
+		return e.sayHint
+	}
+	return e.hintOrDefault()
 }
 
 func (e *Error) Error() string { return e.Code + ": " + e.Message }
@@ -367,7 +399,7 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 				fmt.Fprintln(p.W)
 			}
 		} else if data != nil {
-			s := renderText(data)
+			s := renderText(data, p.DryRun)
 			fmt.Fprint(p.W, SafeText(p.Redact(s)))
 			if s == "" {
 				// an empty list would print nothing, and a person cannot tell
@@ -376,8 +408,7 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 			}
 		}
 		if softErr != nil {
-			fmt.Fprintf(os.Stderr, "error [%s]: %s\n", softErr.Code, noteText(p.Redact(softErr.Message)))
-			p.hint(softErr.hintOrDefault())
+			p.printErr(softErr, false)
 		}
 		return
 	}
@@ -391,12 +422,42 @@ func (p *Printer) Fail(command string, err error) int {
 	}
 	if p.Format == "text" {
 		p.printSkipped()
-		fmt.Fprintf(os.Stderr, "error [%s]: %s\n", e.Code, noteText(p.Redact(e.Message)))
-		p.hint(e.hintOrDefault())
+		p.printErr(e, true)
 		return e.Exit
 	}
 	p.writeJSON(Envelope{OK: false, Command: command, Error: e, Meta: p.meta()})
 	return e.Exit
+}
+
+// printErr prints an error for a person: what happened first, then what
+// to do, then the code and exit code for looking it up. stopped is true
+// when the command ended here (Fail), so a safety stop changed nothing.
+func (p *Printer) printErr(e *Error, stopped bool) {
+	msg := noteText(p.Redact(e.TextMessage()))
+	if e.cancelled {
+		fmt.Fprintln(os.Stderr, msg)
+		return
+	}
+	if stopped && e.Exit == ExitPolicy {
+		msg = "Stopped: " + sentence(msg)
+		if !strings.Contains(strings.ToLower(msg), "nothing was changed") {
+			msg += " Nothing was changed."
+		}
+	} else {
+		msg = "Error: " + msg
+	}
+	fmt.Fprintln(os.Stderr, msg)
+	p.hint(e.TextHint())
+	fmt.Fprintf(hintW, "(code %s, exit %d)\n", e.Code, e.Exit)
+}
+
+// sentence ends s with a period unless it ends in punctuation already.
+func sentence(s string) string {
+	s = strings.TrimRight(s, " ")
+	if s == "" || strings.ContainsAny(s[len(s)-1:], ".!?:") {
+		return s
+	}
+	return s + "."
 }
 
 // hint prints an error's hint in text mode, hidden and made safe like the
@@ -433,7 +494,7 @@ func (p *Printer) Event(v any) {
 
 // renderText is a generic fallback: JSON round-trip into maps and print
 // key: value lines / simple tables.
-func renderText(data any) string {
+func renderText(data any, dryRun bool) string {
 	b, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Sprint(data)
@@ -446,7 +507,7 @@ func renderText(data any) string {
 			writeResults(&sb, rs, m["summary"])
 			return sb.String()
 		}
-		if h := headline(m); h != "" {
+		if h := headline(m, dryRun); h != "" {
 			// what happened comes first, in words; the record follows, and
 			// the command to run next comes last
 			sb.WriteString(h + "\n")
@@ -472,8 +533,9 @@ func renderText(data any) string {
 
 // headline says in words what a change did to a named item ("added web2",
 // "web2: nothing to change"), for results that carry an action or a
-// changed flag. "" when the result is not such a change.
-func headline(m map[string]any) string {
+// changed flag; under --dry-run, what it would do. "" when the result is
+// not such a change.
+func headline(m map[string]any, dryRun bool) string {
 	name, _ := m["name"].(string)
 	if name == "" {
 		return ""
@@ -489,8 +551,11 @@ func headline(m map[string]any) string {
 		return strings.ReplaceAll(a, "_", " ") + " " + name
 	}
 	if c, ok := m["changed"].(bool); ok {
-		if !c {
+		switch {
+		case !c:
 			return name + ": nothing to change"
+		case dryRun:
+			return "would change " + name + " (dry run)"
 		}
 		return "changed " + name
 	}
@@ -573,6 +638,13 @@ func writeAny(sb *strings.Builder, v any, indent string) {
 			case map[string]any, []any:
 				fmt.Fprintf(sb, "%s%s:\n", indent, k)
 				writeAny(sb, c, indent+"  ")
+			case string:
+				if strings.Contains(strings.TrimRight(c, "\n"), "\n") {
+					// a block, as YAML writes one: every line under the key
+					fmt.Fprintf(sb, "%s%s: |\n%s", indent, k, indentLines(c, indent+"  "))
+					continue
+				}
+				fmt.Fprintf(sb, "%s%s: %v\n", indent, k, scalar(c))
 			default:
 				fmt.Fprintf(sb, "%s%s: %v\n", indent, k, scalar(c))
 			}

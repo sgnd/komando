@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -183,7 +185,7 @@ func kubeErr(err error) error {
 		code, exit, hint := "K8S_ERROR", out.ExitRemote, "read the cluster's words; `komando cluster events TARGET --warnings` shows what went wrong lately"
 		switch {
 		case e.Code == 401 || e.Code == 403:
-			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: check its token or kubeconfig user with `komando test NAME`"
+			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: see who it is with `komando cluster run TARGET -- auth whoami` and what it may do with `komando cluster run TARGET -- auth can-i --list`"
 		case e.Code == 404:
 			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster ls TARGET pods` (or deployments, services ...)"
 		case e.Code == 409:
@@ -203,7 +205,47 @@ func kubeErr(err error) error {
 	if errors.As(err, &oe) {
 		return oe
 	}
-	return out.Errf(out.ExitConnect, "K8S_UNREACHABLE", "check the conn with `komando test NAME` (and its --via path)", "%v", err)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test NAME` (and its --via path)",
+			"the cluster did not answer within the time limit (--timeout)")
+	}
+	return out.Errf(out.ExitConnect, "K8S_UNREACHABLE", "check the conn with `komando test NAME` (and its --via path)", "%s", dialMessage(err))
+}
+
+// dialMessage says "cannot reach HOST:PORT: connection refused" for a
+// failed connection, as `komando test` does, instead of Go's
+// `Get "https://...": dial tcp ...: connect: ...`; other errors keep their words.
+func dialMessage(err error) string {
+	var op *net.OpError
+	if !errors.As(err, &op) || op.Op != "dial" || op.Addr == nil {
+		return err.Error()
+	}
+	why := op.Err
+	var sys *os.SyscallError
+	if errors.As(why, &sys) {
+		why = sys.Err
+	}
+	return "cannot reach " + op.Addr.String() + ": " + why.Error()
+}
+
+// ownTimeLimit marks a command that keeps its own time (logs -f, --wait)
+// when on, so kubeDeadline adds none.
+func ownTimeLimit(ctx context.Context, on bool) context.Context {
+	if !on {
+		return ctx
+	}
+	return context.WithValue(ctx, ownLimitKey{}, true)
+}
+
+type ownLimitKey struct{}
+
+// kubeDeadline gives one cluster's work the --timeout ("time limit per
+// server"), unless the command keeps its own time.
+func kubeDeadline(ctx context.Context, st *store.State) (context.Context, context.CancelFunc) {
+	if ctx.Value(ownLimitKey{}) != nil {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, cmdTimeout(st))
 }
 
 // withKube runs fn on a k8s conn after the safety check for risk.
@@ -217,6 +259,8 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 	if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{name}}); err != nil {
 		return err
 	}
+	ctx, cancel := kubeDeadline(ctx, st)
+	defer cancel()
 	k, done, err := kubeClient(ctx, st, t.conn)
 	if errors.Is(err, errDryRunStopped) {
 		out.P.Print(name, map[string]any{"conn": t.conn.Name, "dry_run": true}, nil)
@@ -263,13 +307,13 @@ func clusterCmd() *cobra.Command {
 		Use:     "cluster",
 		Aliases: []string{"k8s", "kube", "swarm"},
 		Short:   "Kubernetes and Docker Swarm: status, logs, restart, scale, apply",
-		Long: `TARGET is a k8s conn (add one with ` + "`komando import kubeconfig`" + `) or a Swarm
-manager server. The same verbs work on both. Reads need nothing; restart,
+		Long: `TARGET is a Kubernetes cluster (bring yours in with ` + "`komando import kubeconfig`" + `)
+or a Swarm manager server. The same verbs work on both. Reads need nothing; restart,
 scale and apply change the cluster (protected targets need --yes; try
 --dry-run); rm needs --allow-dangerous. Anything else: ` + "`cluster run`" + `
 passes the native kubectl or docker command, read-only unless --write.`,
 	}
-	c.AddCommand(clusterStatusCmd(), clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterExecCmd(), clusterShellCmd(), clusterForwardCmd(), clusterRestartCmd(),
+	c.AddCommand(connAddCmdFor("cluster"), clusterStatusCmd(), clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterExecCmd(), clusterShellCmd(), clusterForwardCmd(), clusterRestartCmd(),
 		clusterScaleCmd(), clusterApplyCmd(), clusterRmCmd(), clusterRunCmd(), clusterHelmCmd())
 	return c
 }

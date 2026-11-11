@@ -1,7 +1,7 @@
 # Safety
 
 The seatbelts komando puts on every command, and what to do when one stops
-you. [All features](README.md) · [Security standards](security-standards.md)
+you. [All docs](README.md) · [Security standards](security-standards.md)
 
 ## Quick start
 
@@ -132,10 +132,10 @@ or a pipe.
 ```bash
 komando policy deny 'terraform\s+destroy'           # a Go regular expression
 komando policy list                                  # built-in and custom rules, with ids
-komando policy allow 'terraform\s+destroy' --yes     # remove it again
-komando policy allow custom-0 --yes                  # or remove it by its id
+komando policy rm 'terraform\s+destroy'              # remove it again
+komando policy rm custom-1a2b3c4d                    # or remove it by its id
 komando policy check 'terraform destroy'             # exit 6 when it would be blocked
-komando policy check --for postgres 'delete from users'   # rate SQL or Redis instead
+komando policy check --for postgres 'delete from users'   # rate SQL, Redis or MongoDB instead
 ```
 
 A rule matches the command the way the shell reads it, so quotes and
@@ -143,16 +143,23 @@ backslashes inside a word (`r\m`, `/e""tc`) do not hide it. A custom
 pattern that is not a valid regular expression blocks every command until
 you fix or remove it; `komando doctor` and `policy list` name it.
 
-Built-in rules cannot be removed. `policy check` exits 6 when the command
-would be blocked, so it works in an `if`. `--for` rates a statement for a
-conn kind: `postgres`, `mysql`, `sqlserver`, `oracle`, `clickhouse`,
-`snowflake`, `bigquery`, `sqlite`, `redis` or `memcached`.
+Built-in rules cannot be removed. A custom rule's id (`custom-` and eight
+letters and digits) is made from its pattern, so it stays the same when
+another rule is removed. A pattern that matches empty text (`.*`) is
+refused: it would block every command.
+
+`policy check` exits 6 when the command would be blocked, so it works in an
+`if`. `--for` rates a statement for a conn kind instead: `postgres`,
+`mysql`, `sqlserver`, `oracle`, `clickhouse`, `snowflake`, `bigquery`,
+`sqlite`, `redis`, `memcached` or `mongodb` (a command document as JSON).
+It exits 6 too when the statement is destructive, which `db query` and
+`cache run` refuse without `--allow-dangerous`.
 
 ## Personal data
 
 Customer data in production should not end up in an AI model. On protected
 servers and conns, an AI agent sees personal data hidden in what it reads
-from them: `db query` rows (also with `--csv`), `cache get` and `cache run`,
+from them: `db query` rows (also with `-o csv`), `cache get` and `cache run`,
 `storage cat`, `fs cat`, `exec`, `logs` and the other commands that show
 data from a server or resource. komando's own inventory (server addresses,
 conn URLs) is never hidden.

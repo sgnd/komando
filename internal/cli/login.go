@@ -23,13 +23,13 @@ func loginCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "login [HOST]",
 		Short: "Log in to a server once and keep it, or to a cloud account",
-		Long: `komando login HOST logs in to a server with a person at the terminal:
-komando asks what the server asks (the password, a two-factor code), then
-keeps that login open in the background for the login_for setting (8h).
-Commands to that server, an AI agent's too, use it and need no login; the
-rules, approvals and audit of each command stay the same. ` + "`komando logout HOST`" + `
-ends it sooner, and ` + "`komando status`" + ` lists the kept logins. A login to a jump
-host is used for every server behind it.
+		Long: `Type the password and code once; for 8 hours your commands and your AI
+agent reuse that login. The safety rules, approvals and history of each
+command stay the same.
+
+` + "`komando logout HOST`" + ` ends it sooner, and ` + "`komando status`" + ` lists the kept logins.
+A login to a jump host covers every server behind it. The 8 hours come from
+the login_for setting.
 
 komando login aws logs in to AWS IAM Identity Center (SSO).`,
 		Example: `  komando login web1      # answer the code once; AI agents can then use web1
@@ -38,13 +38,33 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
+				if out.P.Format == "json" {
+					// piped: one JSON envelope, never help text (ux.md, section 4)
+					return out.Usage("komando login needs a server or a cloud account").WithHint("komando login HOST, or komando login aws")
+				}
 				return cmd.Help()
 			}
 			return loginHost(cmd.Context(), args[0])
 		},
 	}
-	c.AddCommand(loginAWSCmd())
+	// a new subcommand goes into loginClouds too, so no server takes its name
+	c.AddCommand(loginAWSCmd(), loginNotBuiltCmd("gcp", "Google Cloud"), loginNotBuiltCmd("azure", "Azure"))
 	return c
+}
+
+// loginNotBuiltCmd answers `komando login gcp|azure` with what to do today
+// instead of "no server named gcp".
+func loginNotBuiltCmd(name, cloud string) *cobra.Command {
+	return &cobra.Command{
+		Use:    name,
+		Short:  cloud + " login is not built yet",
+		Hidden: true,
+		Args:   cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			return out.Errf(out.ExitUsage, "USAGE", "for now, save a service account key: komando secret set "+name+"-key",
+				"%s login is not built yet", cloud)
+		},
+	}
 }
 
 func loginAWSCmd() *cobra.Command {

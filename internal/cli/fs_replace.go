@@ -18,7 +18,7 @@ func fsReplaceCmd() *cobra.Command {
 	var all, isRegex bool
 	c := &cobra.Command{
 		Use:   "replace TARGET PATH --old TEXT --new TEXT",
-		Short: "Edit a file on a server: replace text that matches once (or --all)",
+		Short: "Edit a file on one server: replace text that matches once (or --all)",
 		Example: `  komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup
   komando fs replace web1 /etc/ssh/sshd_config --regex --old '(?m)^#?PasswordAuthentication .*$' --new 'PasswordAuthentication no' --sudo`,
 		Args: cobra.ExactArgs(2),
@@ -118,7 +118,7 @@ func fsReplaceCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("fs.replace", res, nil)
+			printChange("fs.replace", h.Name, res, o.sudo)
 			return nil
 		},
 	}

@@ -94,7 +94,7 @@ How commands use the selector result:
 
 | Flag | Meaning |
 |---|---|
-| `-o, --output json\|text` | output format (automatic: text in a terminal, json when piped) |
+| `-o, --output json\|text` | output format (automatic: text in a terminal, json when piped); `db query` also takes `csv` and `tsv` |
 | `--dry-run` | show what would happen, without changing anything |
 | `--write` | allow changes in raw commands (`db query`, `cache run`, `cluster run`) |
 | `--yes` | confirm a change on a protected target |
@@ -255,15 +255,29 @@ run next).
   keys and Enter) that runs the same commands they could type; for agents,
   scripts and any flag the first three steps, not a wall of text; piped, one
   `USAGE` envelope (see Streams and scripts).
-- Every feature works from the menu as questions (internal/cli/form*.go):
-  Add has hand-made forms per kind; All features makes questions for every
-  command from its Use line and flags, made plainer by a formHint. A form
-  asks one question at a time (answers so far stay on screen), checks each
-  answer with the same rules the command uses, and ends on a review that
-  shows the exact command lines. Forms never hold a secret (the command asks
-  with --ask-password) and never add --yes, --allow-dangerous or --reveal.
-  `host add`, `conn add` and `vpn add` alone at a person's terminal open the
-  same form; with any argument or flag, or for an agent, nothing changes.
+- The menu picks a thing first, then what to do with it
+  (internal/cli/menu.go). With nothing added: Add a server, Bring in my SSH
+  servers (when ~/.ssh/config has new ones), Set up my AI agent, Settings
+  and help. After that the rows keep one order and never move: Servers,
+  Databases and services, VPNs, Running now (only while something runs),
+  Add something, Check everything, History and undo, Settings and help.
+  Picking a server, group, database, cache, queue, storage, cluster,
+  registry or VPN shows that kind's tasks (menuTask), each one a komando
+  command with the item already answered. Esc goes back one step, `?`
+  explains the screen, q quits. Disconnecting a VPN and Reboot ask first,
+  with No on top. `TestMenuEveryCommandHasAHome` fails when a command has no
+  task and no reason in `menuCLIOnly`.
+- Every task opens its command's questions directly (internal/cli/form*.go):
+  Add has hand-made forms per kind; every other command gets questions from
+  its Use line and flags, made plainer by a formHint. A form asks one
+  question at a time (answers so far stay on screen), checks each answer
+  with the same rules the command uses, and ends on a review that shows the
+  exact command lines, with the rarer flags under More options. A read with
+  nothing left to ask runs at once. Forms never hold a secret (the command
+  asks with --ask-password) and never add --yes, --allow-dangerous or
+  --reveal. `host add`, `conn add` and `vpn add` alone at a person's
+  terminal open the same form; with any argument or flag, or for an agent,
+  nothing changes.
 - Every command has at least one real example in `--help`.
 - Shell completion completes host, conn, group, and tag names from the inventory.
 - `komando guide` (for agents) and `docs/features/` (for people, one file per feature) are always
@@ -294,9 +308,11 @@ Current overlaps, and the decision:
 | `host test`, `conn test`, `test` | ✅ only `test`; `host test`/`conn test` = `test` for one kind |
 | `host list`, `conn list`, `list` | ✅ only `list`; `host list`/`conn list` = `list kind:host` / `list kind:conn` |
 | `svc logs`, `docker logs`, `logs --unit/--container` | ✅ only `logs`; `svc logs` and `docker logs` become aliases |
-| `ops run` (built-in recipes) and `snippet run` (your own recipes) | ✅ one `recipe` (a word that is easier to understand); `ops` and `snippet` become other names |
+| `ops run` (built-in recipes) and `snippet run` (your own recipes) | ✅ one `recipe` (a word that is easier to understand); the old names `ops` and `snippet` are gone |
 | `cp` (server) and `storage upload/download` | ✅ `upload`/`download` for servers (SFTP) and storage; `cp` and `storage upload/download` become aliases |
 | `group add/rm` and `edit --add-group/--rm-group` | keep both (many vs one), same code |
+| `host import/export` and `import ssh-config\|komando`, `export` | ✅ only `import` and `export` (one file format, komando-export/1); `host import/export` are old names for one release |
+| `prompt` and `status` | ✅ `status --short`; `prompt` is an old name for one release |
 
 ## 12. Every native CLI feature can be used
 

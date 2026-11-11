@@ -34,6 +34,14 @@ func keyfileHome(t *testing.T) []byte {
 	return key
 }
 
+// atTerminal makes the test run as a person at a terminal.
+func atTerminal(t *testing.T) {
+	t.Helper()
+	saved := interactive
+	interactive = func() bool { return true }
+	t.Cleanup(func() { interactive = saved })
+}
+
 // keyStays: store.key still holds key, and the vault still opens with it.
 func keyStays(t *testing.T, key []byte) {
 	t.Helper()
@@ -83,6 +91,7 @@ func TestSecretKeychainOff(t *testing.T) {
 // every system, before any keychain is written.
 func TestSecretKeychainPassphraseVault(t *testing.T) {
 	invHome(t)
+	atTerminal(t)
 	setSecret(t, "db-pass", "s3cret")
 	e := wantCode(t, "KEYCHAIN_FAILED", "secret", "keychain")
 	if e.Exit != out.ExitRemote {
@@ -103,9 +112,32 @@ func TestSecretKeychainNoTool(t *testing.T) {
 		t.Skip("a keychain tool is installed here; this test must not write to it")
 	}
 	key := keyfileHome(t)
+	atTerminal(t)
 	e := wantCode(t, "KEYCHAIN_FAILED", "secret", "keychain")
 	if e.Exit != out.ExitRemote || e.Hint != "the store still uses store.key, nothing was lost: a person unlocks the keychain (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring" {
 		t.Errorf("error: %+v", e)
+	}
+	keyStays(t, key)
+}
+
+// Moving the key in may wait for an unlock prompt: an AI agent or a script
+// gets NEEDS_PERSON at once, before any keychain is asked. The dry run says
+// so instead of stopping.
+func TestSecretKeychainNeedsPerson(t *testing.T) {
+	key := keyfileHome(t)
+	for _, agent := range []bool{false, true} {
+		if agent {
+			atTerminal(t) // an agent never counts as a person, terminal or not
+			t.Setenv("KOMANDO_AGENT", "1")
+		}
+		e := wantCode(t, "NEEDS_PERSON", "secret", "keychain")
+		if e.Exit != out.ExitPolicy || !strings.Contains(e.Hint, "own terminal") {
+			t.Errorf("agent %v: %+v", agent, e)
+		}
+		d := mustRun(t, "secret", "keychain", "--dry-run")
+		if b, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any); b["code"] != "NEEDS_PERSON" {
+			t.Errorf("agent %v: dry run: %v", agent, d)
+		}
 	}
 	keyStays(t, key)
 }

@@ -1,6 +1,10 @@
 package cli
 
-import "github.com/spf13/cobra"
+import (
+	"strings"
+
+	"github.com/spf13/cobra"
+)
 
 // What each command does, in one word, so that agents (through `komando
 // schema`) and reviewers see it without reading the code:
@@ -98,15 +102,21 @@ var commandKinds = map[string]cmdKind{
 	"config set":           changes,
 	"config show":          reads,
 
-	"conn":       reads,
-	"conn add":   changes,
-	"conn edit":  changes,
-	"conn kinds": reads,
-	"conn list":  reads,
-	"conn mv":    changes,
-	"conn rm":    changes,
-	"conn show":  reads,
-	"conn test":  reads,
+	"conn":         reads,
+	"conn add":     changes,
+	"db add":       changes,
+	"cache add":    changes,
+	"queue add":    changes,
+	"storage add":  changes,
+	"cluster add":  changes,
+	"registry add": changes,
+	"conn edit":    changes,
+	"conn kinds":   reads,
+	"conn list":    reads,
+	"conn mv":      changes,
+	"conn rm":      changes,
+	"conn show":    reads,
+	"conn test":    reads,
 
 	"cp": dependsOn("changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC"),
 
@@ -166,6 +176,7 @@ var commandKinds = map[string]cmdKind{
 	"fs mkdir":   changes,
 	"fs mv":      changes,
 	"fs replace": changes,
+	"fs restore": changes,
 	"fs rm":      changes,
 	"fs stat":    reads,
 	"fs write":   changes,
@@ -183,8 +194,6 @@ var commandKinds = map[string]cmdKind{
 	"host":             reads,
 	"host add":         changes,
 	"host edit":        changes,
-	"host export":      reads,
-	"host import":      changes,
 	"host list":        reads,
 	"host mv":          changes,
 	"host rm":          changes,
@@ -237,12 +246,11 @@ var commandKinds = map[string]cmdKind{
 	"pkg upgrade":    changes,
 
 	"policy":       reads,
-	"policy allow": changes,
+	"policy rm":    changes,
 	"policy check": reads,
 	"policy deny":  changes,
 	"policy list":  reads,
 
-	"prompt": reads,
 	"reboot": changes,
 
 	"rename": changes,
@@ -261,7 +269,6 @@ var commandKinds = map[string]cmdKind{
 	"registry rm":      changes,
 
 	"schema": reads,
-	"script": dependsOn(unlessReadOnly),
 
 	"secret":            reads,
 	"secret check":      reads,
@@ -335,7 +342,13 @@ var commandKinds = map[string]cmdKind{
 }
 
 // kindOf is the kind of a command; ok is false for one missing from the table.
+// An old name has the kind of the command that does it now.
 func kindOf(c *cobra.Command) (cmdKind, bool) {
+	if now := c.Annotations[oldNameNote]; now != "" && c.Root() != c {
+		if n, _, err := c.Root().Find(strings.Fields(now)); err == nil && n != c {
+			c = n
+		}
+	}
 	k, ok := commandKinds[commandKey(c)]
 	return k, ok
 }

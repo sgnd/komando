@@ -7,13 +7,13 @@ One page per feature, task by task. AI agents: run `komando guide`.
 New to komando? Follow these steps in order:
 
 1. Install it: see [Install](../../README.md#install).
-2. Type `komando`: a menu opens. Choose **Add**, then **Server**, and
+2. Type `komando`: a menu opens. Choose **Add a server**, and
    answer one question at a time ([The menu](commands.md#the-menu-for-people)).
    Prefer typing? `komando host add web1 ubuntu@203.0.113.10`
    ([Servers](servers.md)). Already have a list? [Import it](import.md).
 3. Run your first command: `komando test web1`, then
    `komando facts web1` ([Health and network checks](health.md)). In the
-   menu, **All features** asks for any command step by step.
+   menu, pick **Servers**, then web1, and pick what to do with it.
 4. Connect your AI agent: `komando guide install`
    ([Give it to your AI agent](../../README.md#give-it-to-your-ai-agent)).
 

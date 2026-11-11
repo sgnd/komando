@@ -24,6 +24,14 @@ func TestConventions(t *testing.T) {
 		if c.Name() == "rm" && !slices.Equal(c.Aliases, rmAliases) {
 			t.Errorf("%s: aliases %v, want %v", path, c.Aliases, rmAliases)
 		}
+		if other, ok := map[string]string{"list": "ls", "ls": "list"}[c.Name()]; ok {
+			if !slices.Contains(c.Aliases, other) {
+				t.Errorf("%s: aliases %v, want %s too", path, c.Aliases, other)
+			}
+			if sib, _, err := c.Parent().Find([]string{other}); err == nil && sib != c && sib != c.Parent() {
+				t.Errorf("%s: %s is another command here", path, other)
+			}
+		}
 		// every command people run shows one real example (ux.md, section 10)
 		if c.Runnable() && !c.HasSubCommands() && !c.Hidden && c.Example == "" && c.Name() != "help" && c.Parent().Name() != "completion" {
 			t.Errorf("%s: no example; set Example or add one to examples (examples.go)", path)

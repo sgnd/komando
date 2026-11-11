@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"regexp"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -46,6 +47,30 @@ type globalFlags struct {
 	parallel       int
 	hostKeyPolicy  string
 	maxOutput      int
+	// table is csv or tsv: -o csv or -o tsv on a command that prints rows
+	// (annotation tableOutput); everything else then prints as text
+	table string
+}
+
+// tableOutput marks a command that takes -o csv and -o tsv.
+const tableOutput = "table_output"
+
+// pickTableOutput fills an empty -o from $KOMANDO_OUTPUT, and turns -o
+// csv or -o tsv into g.table on a command that prints rows; everything
+// else then prints as text, so errors and notes go to stderr and stdout
+// has only rows.
+func pickTableOutput(cmd *cobra.Command) error {
+	if g.output == "" {
+		g.output = os.Getenv("KOMANDO_OUTPUT")
+	}
+	g.table = ""
+	if (g.output == "csv" || g.output == "tsv") && cmd.Flags().Changed("output") {
+		if cmd.Annotations[tableOutput] == "" {
+			return out.Usage("-o %s works with db query only; here use -o json or -o text", g.output)
+		}
+		g.table, g.output = g.output, "text"
+	}
+	return nil
 }
 
 var g globalFlags
@@ -81,7 +106,7 @@ func Execute() int {
 	}
 	name := "komando"
 	if cmd != nil {
-		name = commandName(cmd)
+		name = envelopeName(cmd)
 	}
 	// argument and flag errors come before PersistentPreRunE, which applies
 	// -o; apply it here so `-o text` (or a terminal) gets text for them too
@@ -105,6 +130,14 @@ func Execute() int {
 			c = callFrom(cmd.Context())
 		}
 		cancelled(c, oe)
+		auditBlocked(cmd, oe)
+		if cmd != nil {
+			fillHint(oe, firstArg(cmd))
+		}
+		if cmd != nil && out.P.Format == "text" {
+			notFoundSay(oe, cmd)
+		}
+		cancelled(c, oe)
 	}
 	return out.P.Fail(name, err)
 }
@@ -120,7 +153,25 @@ func cancelled(c *call, oe *out.Error) {
 	oe.Hint = "nothing was changed"
 	if c.wroteBefore() {
 		oe.Hint = "what this command saved before the question stays"
+		return
 	}
+	oe.Cancel(cancelledText()) // text mode: the person's own choice, not an error
+}
+
+// firstArg is the first argument cmd was given (its TARGET or CONN), or "".
+func firstArg(cmd *cobra.Command) string {
+	if a := cmd.Flags().Args(); len(a) > 0 {
+		return a[0]
+	}
+	return ""
+}
+
+// topCommand is the command family cmd belongs to ("db" for db query).
+func topCommand(cmd *cobra.Command) string {
+	for cmd.HasParent() && cmd.Parent().HasParent() {
+		cmd = cmd.Parent()
+	}
+	return cmd.Name()
 }
 
 // outputFlag is -o/--output as given, also when flag parsing stopped early
@@ -156,9 +207,31 @@ func usageErr(cmd *cobra.Command, err error) error {
 	// cobra writes "unknown command \"exce\" for \"komando\"\n\nDid you mean
 	// this?\n\texec\n": one line, the suggestion in the message, a hint
 	// that points at the command meant
-	if name, ok := quotedAfter(m, "unknown command "); ok {
+	if name, ok := quotedAfter(m, "unknown command "); ok && !cmd.HasSubCommands() && cmd.HasParent() {
+		// cobra.NoArgs says "unknown command" too, but a leaf has no
+		// commands to list: say it takes no arguments, and where it
+		// filters with --target, how to give one
+		e.Message = fmt.Sprintf("%s takes no arguments (got %q)", cmd.CommandPath(), name)
+		e.Hint = commandHint(cmd)
+		if cmd.Flags().Lookup("target") != nil {
+			e.Hint = "pick targets with --target: " + cmd.CommandPath() + " --target " + name
+		}
+		return e
+	} else if ok {
 		e.Message = fmt.Sprintf("unknown command %q", name)
-		if s := cmd.SuggestionsFor(name); len(s) > 0 {
+		// not "pick Add something": the first-run menu, where a newcomer
+		// most likely is, has no such row
+		if name == "add" && !cmd.HasParent() {
+			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn add`; typed alone at a terminal, each one asks step by step"
+			return e
+		}
+		s := cmd.SuggestionsFor(name)
+		for _, c := range cmd.Commands() {
+			if slices.Contains(c.SuggestFor, name) { // an old name: only the command that does it now
+				s = []string{c.Name()}
+			}
+		}
+		if len(s) > 0 {
 			e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
 			e.Hint = "see `" + cmd.CommandPath() + " " + s[0] + " --help`"
 		} else {
@@ -275,6 +348,15 @@ func isUsageErr(err error) bool {
 	return false
 }
 
+// envelopeName is the command an error envelope names: an alias such as
+// `vpn test` prints the command it stands for, as its result does.
+func envelopeName(c *cobra.Command) string {
+	if n := c.Annotations[aliasOf]; n != "" {
+		return n
+	}
+	return commandName(c)
+}
+
 func commandName(c *cobra.Command) string {
 	p := strings.TrimPrefix(c.CommandPath(), "komando")
 	p = strings.TrimSpace(p)
@@ -317,7 +399,7 @@ var localReads = map[string]bool{
 func checkStoreWritable(cmd *cobra.Command) error {
 	name := commandName(cmd)
 	top, _, _ := strings.Cut(name, ".")
-	if g.dryRun || cmd.Hidden || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) || name == "secret.passphrase" { // it opens the store with the passphrase a person types
+	if g.dryRun || backgroundCmd(cmd) || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) || top == "help" || top == "completion" || name == "secret.passphrase" { // it opens the store with the passphrase a person types
 		return nil
 	}
 	err := store.CheckWritable()
@@ -369,6 +451,7 @@ func startChecks(cmd *cobra.Command) error {
 
 func newRoot() *cobra.Command {
 	out.P.Reset()
+	askedAbout, blockAudited = nil, false
 	interrupted = false
 	root := &cobra.Command{
 		Use:           "komando",
@@ -380,15 +463,15 @@ func newRoot() *cobra.Command {
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			startCall(cmd) // answers count for one command only
-			if g.output == "" {
-				g.output = os.Getenv("KOMANDO_OUTPUT")
+			if err := pickTableOutput(cmd); err != nil {
+				return err
 			}
 			f, ok := outputFormat(g.output)
 			if !ok {
 				if !cmd.Flags().Changed("output") && os.Getenv("KOMANDO_OUTPUT") != "" {
 					return out.Usage("KOMANDO_OUTPUT=%s: it must be auto, json or text", os.Getenv("KOMANDO_OUTPUT"))
 				}
-				return out.Usage("--output must be auto, json or text")
+				return out.Usage("--output must be auto, json or text (db query also takes csv and tsv)")
 			}
 			switch {
 			case g.parallel < 0:
@@ -429,12 +512,12 @@ func newRoot() *cobra.Command {
 		},
 	}
 	pf := root.PersistentFlags()
-	pf.StringVarP(&g.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped)")
+	pf.StringVarP(&g.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); db query also\ntakes csv and tsv")
 	pf.BoolVar(&g.pretty, "pretty", false, "indent JSON output")
 	pf.BoolVar(&g.dryRun, "dry-run", false, "show what would run, changing nothing")
-	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm a change to something protected")
+	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm a change on a protected target (an AI agent needs a person's yes)")
 	pf.BoolVar(&g.allowDangerous, "allow-dangerous", false, "run a command the safety rules would block")
-	pf.BoolVar(&g.reveal, "reveal", false, "show secrets (agents need a person's yes)")
+	pf.BoolVar(&g.reveal, "reveal", false, "show passwords and keys in output (an agent needs a person's yes)")
 	pf.DurationVar(&g.timeout, "timeout", 0, "time limit per server (default: setting, 5m)")
 	pf.DurationVar(&g.connectTimeout, "connect-timeout", 0, "time to connect (default: setting, 15s)")
 	pf.IntVarP(&g.parallel, "parallel", "P", 0, "servers at once (default: setting, 10)")
@@ -460,18 +543,20 @@ func newRoot() *cobra.Command {
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd(), clusterCmd(), registryCmd())
 	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
 	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
+	root.InitDefaultHelpCmd()
+	root.InitDefaultCompletionCmd()
+	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
 	applyConventions(root)
 	useShortGlobals(root)
 	addCompletion(root)
-	root.InitDefaultHelpCmd()
-	root.InitDefaultCompletionCmd()
-	labelBuiltinCmds(root)
 	return root
 }
 
 // labelBuiltinCmds files cobra's own help and completion commands under
-// "meta" and gives them komando's wording.
+// "meta" and gives them komando's wording; dropped old names suggest the
+// command that does it now.
 func labelBuiltinCmds(root *cobra.Command) {
+	suggestDroppedNames(root)
 	for _, c := range root.Commands() {
 		switch c.Name() {
 		case "help":
@@ -482,33 +567,44 @@ func labelBuiltinCmds(root *cobra.Command) {
 			c.GroupID = "meta"
 			c.Short = "Print a tab-completion script for your shell"
 			c.Long = "Prints a script that lets Tab complete komando's commands, flags and names\nin bash, zsh, fish or PowerShell. Each one's help says how to load it:\nkomando completion zsh --help."
+			for _, sh := range c.Commands() {
+				shell := sh.Name()
+				if shell == "powershell" {
+					shell = "PowerShell"
+				}
+				sh.Short = "Print the tab-completion script for " + shell
+			}
 		}
 	}
 }
 
-// rootLong is the top of `komando --help`.
-const rootLong = `komando is one safe command line for DevOps work: servers (SSH or WinRM),
-databases, caches, queues, storage, clusters and registries, for AI agents
-and humans alike.
+// rootLong is the top of `komando --help`: what komando is, then the first
+// commands a person types. The notes for scripts come after the command
+// list (rootScriptNotes).
+const rootLong = `komando is one safe command line for servers, databases, caches, storage,
+clusters and registries, for people and AI agents alike.
 
-When piped (how agents call it) every command prints one JSON envelope on
-stdout; in a terminal it prints readable text (force with -o json|text):
-  {"ok":true,"command":"exec","data":{...},"meta":{...}}
-  {"ok":false,"command":"exec","error":{"code":"AUTH_FAILED",...}}
+First steps:
+  komando                                  a menu of common tasks (in a terminal)
+  komando host add web1 ubuntu@203.0.113.10
+  komando test web1                        check that web1 answers
+  komando guide install                    let your AI agent use komando safely
 
-Exit codes: 0 ok, 1 error, 2 usage, 3 not found, 4 connect/auth,
-            5 failed on the server, 6 blocked for safety, 7 timeout,
-            8 precondition/conflict.
+Targets: a server or service name, a pattern (web-*), @group, tag:NAME,
+label:key=value, kind:KIND (host, db, cache, storage, postgres, ...), all, or
+user@addr:port for a server you have not added. Combine with commas; put ! in
+front to leave one out. See them all with ` + "`komando list`" + `.`
 
-Targets: a server or conn name, glob (web-*), @group, tag:NAME, label:key=value,
-kind:KIND (host, db, cache, storage, postgres, ...), all, or user@addr:port (an
-ad-hoc server). Combine with commas; prefix ! to exclude. A target picks servers
-and conns together: each command uses the ones it works with and lists the rest
-in meta.skipped. See them all with ` + "`komando list`" + `.
-
-Start here:  komando            (alone, in a terminal: a menu of common tasks)
-             komando guide      (agent playbook)
-             komando schema     (machine-readable command reference)`
+// rootScriptNotes close `komando --help`: what scripts and agents read.
+const rootScriptNotes = `For scripts and AI agents:
+  When piped, every command prints one JSON envelope on stdout; in a terminal
+  it prints text (force it with -o json or -o text):
+    {"ok":true,"command":"exec","data":{...},"meta":{...}}
+    {"ok":false,"command":"exec","error":{"code":"AUTH_FAILED",...}}
+  Exit codes: 0 ok, 1 error, 2 usage, 3 not found, 4 connect or login,
+              5 failed on the server, 6 blocked for safety, 7 timeout,
+              8 precondition or conflict.
+  komando guide is the playbook for agents; komando schema lists every command.`
 
 // printFirstSteps is `komando` alone: the menu for a person at a terminal
 // (menu.go), else the first steps, not a wall of text (ux.md, section 10).

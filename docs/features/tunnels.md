@@ -1,7 +1,7 @@
 # Private servers and tunnels
 
 Reach servers and services that are not on the internet, and open them in
-the apps on your computer. [All features](README.md)
+the apps on your computer. [All docs](README.md)
 
 ## Quick start
 
