@@ -47,7 +47,7 @@ func notifyResize(fd int, ch chan os.Signal) (stop func()) {
 			}
 			w0, h0 = w, h
 			select {
-			case ch <- os.Interrupt: // any value: the receiver only reads the new size
+			case ch <- syscall.Signal(0): // not Ctrl+C: the receiver only reads the new size
 			default:
 			}
 		}

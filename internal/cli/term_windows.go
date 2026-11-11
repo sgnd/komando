@@ -11,7 +11,31 @@ import (
 )
 
 // The console calls golang.org/x/sys/windows does not wrap.
-var procPeekConsoleInputW = windows.NewLazySystemDLL("kernel32.dll").NewProc("PeekConsoleInputW")
+var (
+	procPeekConsoleInputW = windows.NewLazySystemDLL("kernel32.dll").NewProc("PeekConsoleInputW")
+	procReadConsoleInputW = windows.NewLazySystemDLL("kernel32.dll").NewProc("ReadConsoleInputW")
+)
+
+// dropNoKeys reads away the console events it peeked when none of them
+// is a typed character. Only those: a key pressed meanwhile stays.
+func dropNoKeys(h windows.Handle) {
+	var total uint32
+	if err := windows.GetNumberOfConsoleInputEvents(h, &total); err != nil || total == 0 {
+		return
+	}
+	recs := make([]inputRecord, total)
+	var got uint32
+	if r, _, _ := procPeekConsoleInputW.Call(uintptr(h), uintptr(unsafe.Pointer(&recs[0])), uintptr(total), uintptr(unsafe.Pointer(&got))); r == 0 || got == 0 {
+		return
+	}
+	for _, e := range recs[:got] {
+		if e.eventType == keyEvent && e.keyDown != 0 && e.char != 0 {
+			return
+		}
+	}
+	var read uint32
+	procReadConsoleInputW.Call(uintptr(h), uintptr(unsafe.Pointer(&recs[0])), uintptr(got), uintptr(unsafe.Pointer(&read)))
+}
 
 // inputRecord is the console's INPUT_RECORD with its KEY_EVENT_RECORD.
 type inputRecord struct {
@@ -96,7 +120,7 @@ func waitInput(fd, ms int) (bool, error) {
 		if typedAhead(fd) > 0 {
 			return true, nil
 		}
-		_ = windows.FlushConsoleInputBuffer(h)
+		dropNoKeys(h)
 		if left == 0 {
 			return false, nil
 		}

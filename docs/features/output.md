@@ -95,7 +95,7 @@ komando schema -o json | python3 -c 'import json,sys; [print(c["code"], c["exit"
 | `KEY_FILE_EXISTS` | `key gen` or `key mv`: a file of that name is in `~/.komando/keys` | move it away, or pick another name |
 | `SECRET_MISMATCH` | `secret check`: the value entered is not the stored one | `data.difference` says how they differ; `komando secret set NAME` stores the right one |
 | `sudo: a password is required` | sudo needs a password | `komando secret set NAME`, then `komando host edit HOST --sudo-ref secret:NAME` |
-| `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA, sudo) | a person runs `komando vpn up NAME` once |
+| `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn up NAME` once |
 | `AWS_LOGIN_REQUIRED` | the AWS SSO login has expired | a person runs `komando login aws --profile NAME` |
 | `AZURE_LOGIN_REQUIRED` | no Azure login was found (for an Azure Container Registry) | set a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`), run on Azure with a managed identity, or a person runs `az login` |
 | `GCP_LOGIN_REQUIRED` | the Google login has run out (for Google Artifact Registry) | a person runs `gcloud auth application-default login`, or set `GOOGLE_APPLICATION_CREDENTIALS` to a key file |

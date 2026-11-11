@@ -368,7 +368,6 @@ func jobLogsCmd() *cobra.Command {
 
 func jobWaitCmd() *cobra.Command {
 	var interval time.Duration
-	var waitTimeout time.Duration
 	var tail int
 	c := &cobra.Command{
 		Use:   "wait JOB_ID...",
@@ -383,7 +382,8 @@ group of servers) to wait for all of them at once.`,
   komando job wait j1103-101500-ab12cd34 j1103-101500-ef56ab78`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !cmd.Flags().Changed("wait-timeout") && g.timeout > 0 {
+			waitTimeout := 10 * time.Minute
+			if g.timeout > 0 {
 				waitTimeout = g.timeout // --timeout is the wait limit here
 			}
 			deadline := time.Now().Add(waitTimeout)
@@ -439,8 +439,6 @@ group of servers) to wait for all of them at once.`,
 		},
 	}
 	c.Flags().DurationVar(&interval, "interval", 3*time.Second, "how often to check")
-	c.Flags().DurationVar(&waitTimeout, "wait-timeout", 10*time.Minute, "same as --timeout: give up waiting after this long (job keeps running)")
-	_ = c.Flags().MarkHidden("wait-timeout")
 	c.Flags().IntVar(&tail, "tail", 30, "also show the last N lines of output")
 	return c
 }
