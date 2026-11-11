@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +22,10 @@ func csvRun(t *testing.T, args ...string) (string, *out.Error) {
 	out.P.W = &buf
 	defer func() { out.P.W = saved }()
 	if err := root.Execute(); err != nil {
+		var ec exitCode
+		if errors.As(err, &ec) {
+			return buf.String(), &out.Error{Code: "EXIT", Exit: int(ec)}
+		}
 		return buf.String(), toErr(err)
 	}
 	return buf.String(), nil
@@ -41,8 +46,9 @@ func TestDBQueryCSVExportsEveryRow(t *testing.T) {
 	if e != nil || strings.Count(s, "\n") != 11 {
 		t.Errorf("-n 10: %v, %d lines", e, strings.Count(s, "\n"))
 	}
-	if _, e = csvRun(t, "db", "query", "lite", "--csv", "--max-output", "1024", q); e == nil || e.Code != "OUTPUT_TRUNCATED" {
-		t.Errorf("cut by --max-output: %+v", e)
+	// the error goes to stderr, so stdout stays CSV only
+	if s, e = csvRun(t, "db", "query", "lite", "--csv", "--max-output", "1024", q); e == nil || e.Exit != out.ExitError || strings.Contains(s, "{") {
+		t.Errorf("cut by --max-output: %+v\n%s", e, s)
 	}
 	out.P.Format = "json"
 	if d := mustRun(t, "db", "query", "lite", q); d["results"].([]any)[0].(map[string]any)["truncated"] != "rows" {

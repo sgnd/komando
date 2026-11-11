@@ -641,9 +641,13 @@ func delimitedCut(res *dbx.Result, limitSet bool) error {
 	for _, r := range res.Results {
 		switch {
 		case r.Truncated == "bytes":
-			out.P.Format = "text"
-			return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, e.g. --max-output 104857600), or select fewer rows or columns",
+			e := out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, e.g. --max-output 104857600), or select fewer rows or columns",
 				"the export stopped at %d rows: the output size cap (--max-output) was reached", r.RowCount)
+			f := out.P.Format
+			out.P.Format = "text"
+			code := out.P.Fail("db.query", e)
+			out.P.Format = f
+			return exitCode(code)
 		case r.Truncated == "rows" && limitSet:
 			fmt.Fprintf(os.Stderr, "note: stopped at %d rows (--limit); -n 0 exports every row\n", r.RowCount)
 		}
