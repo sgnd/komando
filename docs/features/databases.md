@@ -956,7 +956,7 @@ which returns JSON.
 |-------|------|---------|
 | `DB_AUTH` | 4 | wrong user name or password |
 | `DB_NOT_FOUND` | 3 | the database does not exist |
-| `DB_PRIVILEGE` | 4 or 5 | the conn's user lacks a right (for example to see lock waits in `db locks`, or to manage users) |
+| `DB_PRIVILEGE` | 5 | the conn's user lacks a right (for example to see lock waits in `db locks`, or to manage users) |
 | `DB_BYTES_LIMIT` | 6 | a BigQuery query would read more than `--max-bytes` (default 10GB), so it did not run |
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object; the message names it |
 | `TOOL_MISSING` | 3 | `pg_dump`, `mysqldump` or `pg_restore` is not installed where it should run |
