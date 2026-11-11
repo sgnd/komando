@@ -721,13 +721,13 @@ func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 // connAddKinds are the `komando KIND add` shortcuts for `conn add`: the
 // same command, under the word a person looks for first. Typed alone at a
 // terminal, each opens the guided form for that kind only.
-var connAddKinds = map[string]struct{ what, form, example string }{
-	"db":       {"database", "Database", "komando db add shop-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
-	"cache":    {"cache", "Cache", "komando cache add cache1 redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
-	"queue":    {"message queue", "Message queues", "komando queue add orders kafka://10.0.0.8:9092 --via web1"},
-	"storage":  {"file storage", "File storage", "komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
-	"cluster":  {"cluster", "Kubernetes", "komando cluster add prod-k8s k8s://api.cluster.example:6443"},
-	"registry": {"image registry", "Container registry", "komando registry add ghcr registry://myuser@ghcr.io --ask-password"},
+var connAddKinds = map[string]struct{ what, example string }{
+	"db":       {"database", "komando db add shop-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
+	"cache":    {"cache", "komando cache add cache1 redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
+	"queue":    {"message queue", "komando queue add orders kafka://10.0.0.8:9092 --via web1"},
+	"storage":  {"file storage", "komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
+	"cluster":  {"cluster", "komando cluster add prod-k8s k8s://api.cluster.example:6443"},
+	"registry": {"image registry", "komando registry add ghcr registry://myuser@ghcr.io --ask-password"},
 }
 
 // connAddCmdFor is `komando KIND add`: conn add with help for one kind.
@@ -743,16 +743,7 @@ func connAddCmdFor(kind string) *cobra.Command {
 			return run(cmd, args)
 		}
 		if menuWanted(cmd, nil) {
-			var gs []formGroup
-			for _, g := range formGroupsFor("conn") {
-				if g.label == k.form {
-					gs = append(gs, g)
-				}
-			}
-			if len(gs) == 0 { // the form was renamed: offer every kind
-				gs = formGroupsFor("conn")
-			}
-			return formCommand(gs)
+			return formCommand(formGroupNamed(formFamilyAdd[kind+" add"]))
 		}
 		return out.Errf(out.ExitUsage, "USAGE",
 			"for example: "+k.example+". A person can type `komando "+kind+" add` alone at a terminal to be asked step by step",

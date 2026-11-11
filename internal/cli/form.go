@@ -575,6 +575,9 @@ func formDestructive(cmds [][]string) string {
 // when the group has more than one. A list with one row is not shown; asked
 // says whether any list was, so Esc on the form has somewhere to go back.
 func formPick(ctx context.Context, t *menuTerm, groups []formGroup, scr menuScreen) (sp formSpec, asked bool, err error) {
+	if len(groups) == 0 {
+		return formSpec{}, false, errMenuBack
+	}
 	gl := &menuList{title: "Add: what is it?"}
 	for _, g := range groups {
 		gl.rows = append(gl.rows, menuRow{label: g.label, detail: g.detail, value: g.label})

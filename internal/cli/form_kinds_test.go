@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -293,5 +295,33 @@ func TestFormNoJargon(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// Every Add something row opens all of its groups, together every Add
+// group once, and every `KIND add` typed alone opens its own group.
+func TestMenuAddGroups(t *testing.T) {
+	seen := map[string]int{}
+	for _, r := range menuAddRows {
+		gs := menuAddGroups(r.label)
+		if len(gs) != len(r.groups) {
+			t.Errorf("Add something > %s: %d groups, want %v", r.label, len(gs), r.groups)
+		}
+		for _, g := range gs {
+			seen[g.label]++
+		}
+	}
+	for _, g := range formGroups() {
+		if seen[g.label] != 1 {
+			t.Errorf("Add group %q is offered %d times by Add something", g.label, seen[g.label])
+		}
+	}
+	for kind := range connAddKinds {
+		if gs := formGroupNamed(formFamilyAdd[kind+" add"]); len(gs) != 1 {
+			t.Errorf("komando %s add alone: %d groups, want its own", kind, len(gs))
+		}
+	}
+	if _, _, err := formPick(context.Background(), nil, nil, menuScreen{}); !errors.Is(err, errMenuBack) {
+		t.Errorf("formPick with nothing to pick: %v", err)
 	}
 }

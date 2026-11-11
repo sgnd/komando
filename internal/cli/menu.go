@@ -203,8 +203,7 @@ func menuOpen(ctx context.Context, t *menuTerm, st *store.State, mem *menuMemory
 		groups := formGroupsFor("host")
 		switch act.pick {
 		case "services":
-			groups = menuAddGroups("Something else")
-			groups = append(menuAddGroups("Database"), groups...)
+			groups = append(menuAddGroups("Database"), menuAddGroups("Something else")...)
 		case "vpns":
 			groups = formGroupsFor("vpn")
 		}
@@ -266,10 +265,10 @@ var menuAddRows = []struct {
 	groups        []string
 }{
 	{"Server", "A Linux or Windows machine you log in to", []string{"Server"}},
-	{"Database", "PostgreSQL, MySQL, SQL Server, Oracle, MongoDB and others", []string{"Database"}},
+	{"Database", "PostgreSQL, MySQL, SQL Server, Oracle, MongoDB and others", []string{"Databases"}},
 	{"VPN", "WireGuard, OpenVPN, Tailscale or your company's VPN app", []string{"VPN"}},
 	{"Something else", "A cache, a message queue, file storage, a cluster or a container registry",
-		[]string{"Cache", "Message queues", "File storage", "Kubernetes", "Container registry"}},
+		[]string{"Caches", "Queues", "File storage", "Clusters", "Images (registries)"}},
 	{"Bring in what I have", "From ~/.ssh/config, .pgpass, my.cnf or a .env file", nil},
 }
 
