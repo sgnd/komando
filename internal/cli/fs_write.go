@@ -351,13 +351,16 @@ func fsWriteCmd() *cobra.Command {
 	var appendMode, ifChanged bool
 	c := &cobra.Command{
 		Use:   "write TARGET PATH",
-		Short: "Write a file on a server, all or nothing (--content, --from FILE or stdin)",
+		Short: "Write a file on one server, all or nothing (--content, --from FILE or stdin)",
 		Example: `  komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup
   komando fs write web1 /srv/app/config.yml --from ./config.yml --if-changed`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var data []byte
 			var err error
+			if cmd.Flags().Changed("content") && from != "" {
+				return out.Usage("give the content with --content or --from, not both")
+			}
 			switch {
 			case cmd.Flags().Changed("content"):
 				data = []byte(content)

@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -151,7 +152,21 @@ func parseTunnel(kind, spec string) (tunnelSpec, error) {
 			return t, out.Usage("invalid SOCKS spec %q: use PORT or ADDRESS:PORT", spec)
 		}
 	}
+	if _, p, _ := net.SplitHostPort(t.BindAddr); !tunnelPort(p, 0) {
+		return t, out.Usage("%q in %q is not a port: use 0 (a free one) to 65535", p, spec)
+	}
+	if t.TargetAddr != "" {
+		if _, p, _ := net.SplitHostPort(t.TargetAddr); !tunnelPort(p, 1) {
+			return t, out.Usage("%q in %q is not a port: use 1 to 65535", p, spec)
+		}
+	}
 	return t, nil
+}
+
+// tunnelPort says whether p is a port number from least to 65535.
+func tunnelPort(p string, least int) bool {
+	n, err := strconv.Atoi(p)
+	return err == nil && n >= least && n <= 65535
 }
 
 func tunnelStartCmd() *cobra.Command {
@@ -169,6 +184,9 @@ point your database app or psql at the local address it prints. With a server, g
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			conn, via := "", ""
+			if cmd.Flags().Changed("port") && (l != "" || r != "" || d != "") {
+				return out.Usage("--port is for a conn; with -L, -R or -D the port goes in the spec")
+			}
 			if l == "" && r == "" && d == "" {
 				st, err := loadState()
 				if err != nil {
@@ -222,6 +240,12 @@ point your database app or psql at the local address it prints. With a server, g
 			}
 			if vpn != nil && kind == "remote" {
 				return out.Usage("-R needs a server at the end of the path; a VPN cannot listen for you")
+			}
+			if kind == "remote" {
+				// -R opens a port on the server: a change, like any other
+				if err := guard(st, []*store.Host{h}, "", true); err != nil {
+					return err
+				}
 			}
 			hostName := via
 			if h != nil {
@@ -296,15 +320,8 @@ point your database app or psql at the local address it prints. With a server, g
 				}
 				if i := strings.Index(s, "ERROR "); i >= 0 {
 					_ = store.Update(func(s *store.State) error { delete(s.Tunnels, id); return nil })
-					msg := strings.TrimSpace(s[i+6:])
-					if strings.Contains(msg, "address already in use") {
-						return portInUse(ts.BindAddr, "this computer", errors.New(msg))
-					}
-					if kind == "remote" && strings.Contains(msg, "request denied") {
-						return out.Errf(out.ExitConflict, "PORT_IN_USE", "the port may be taken on "+hostName+" (pick another, or 0 for a free one), or sshd there has AllowTcpForwarding off",
-							"%s refused to listen on %s: %s", hostName, ts.BindAddr, msg)
-					}
-					return out.Errf(out.ExitConnect, "TUNNEL_FAILED", "check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right", "%s", msg)
+					_ = os.Remove(logPath) // the error says what it held
+					return tunnelErr(strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0]), kind, hostName, ts.BindAddr)
 				}
 				time.Sleep(150 * time.Millisecond)
 			}
@@ -318,6 +335,34 @@ point your database app or psql at the local address it prints. With a server, g
 	c.Flags().StringVarP(&d, "dynamic", "D", "", "SOCKS5 proxy [bind:]PORT")
 	c.Flags().IntVar(&port, "port", 0, "with a conn: the local port (default: a free one)")
 	return c
+}
+
+// serveErr is how `tunnel serve` reports why it could not start, on its
+// ERROR line, so that start gives the same code, exit and hint
+// (HOSTKEY_MISMATCH, NO_AUTH, CONNECTION_REFUSED ...).
+type serveErr struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Hint    string `json:"hint,omitempty"`
+	Exit    int    `json:"exit"`
+}
+
+// tunnelErr is start's error for the ERROR line of its tunnel process.
+func tunnelErr(line, kind, host, bind string) error {
+	var e serveErr
+	if json.Unmarshal([]byte(line), &e) != nil {
+		e = serveErr{Message: line}
+	}
+	switch {
+	case strings.Contains(e.Message, "address already in use"):
+		return portInUse(bind, "this computer", errors.New(e.Message))
+	case kind == "remote" && strings.Contains(e.Message, "request denied"):
+		return out.Errf(out.ExitConflict, "PORT_IN_USE", "the port may be taken on "+host+" (pick another, or 0 for a free one), or sshd there has AllowTcpForwarding off",
+			"%s refused to listen on %s: %s", host, bind, e.Message)
+	case e.Code != "" && e.Code != "REMOTE_ERROR" && e.Exit != 0:
+		return &out.Error{Code: e.Code, Message: e.Message, Hint: e.Hint, Exit: e.Exit}
+	}
+	return out.Errf(out.ExitConnect, "TUNNEL_FAILED", "check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right", "%s", e.Message)
 }
 
 // tunnelConn finds the conn a tunnel leads to. Only conns reached through
@@ -495,7 +540,9 @@ func tunnelServeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := log.New(os.Stdout, "", log.LstdFlags)
 			fail := func(err error) error {
-				fmt.Printf("ERROR %v\n", err)
+				e := toErr(err)
+				b, _ := json.Marshal(serveErr{Code: e.Code, Message: e.Message, Hint: e.Hint, Exit: e.Exit})
+				fmt.Printf("ERROR %s\n", b)
 				return exitCode(1)
 			}
 			st, err := serveState(passStdin)
