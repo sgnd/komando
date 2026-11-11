@@ -258,7 +258,7 @@ stays where it is. If it has a passphrase, store the passphrase in the vault fir
 ```bash
 komando secret set work-pass
 komando key add work ~/.ssh/id_work --passphrase-ref secret:work-pass
-komando key edit work --passphrase-ref secret:new-pass      # change it later ('' clears it)
+komando key edit work --passphrase-ref secret:new-pass      # change it later (--unset passphrase-ref clears it)
 ```
 
 `komando key rm NAME` takes a key out of komando's key list; it refuses

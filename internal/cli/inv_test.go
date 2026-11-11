@@ -254,12 +254,30 @@ func TestInvKeys(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "key", "add", "p", store.Path("keys", "k"), "--passphrase-ref", "pw123")
 	wantCode(t, "USAGE", "key", "edit", "k", "--passphrase-ref", "pw123")
+	// key edit says what it did, warns about a secret not stored yet, and
+	// clears with --unset like host and conn edit ('' still works)
+	d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp")
+	if d["action"] != "changed" || !strings.Contains(fmt.Sprint(d["warnings"]), "secret kp is not in the vault") {
+		t.Errorf("key edit: %v", d)
+	}
+	if d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp"); d["action"] != "unchanged" {
+		t.Errorf("same again: %v", d)
+	}
+	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "passphrase-ref", "--passphrase-ref", "secret:kp")
+	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "path")
+	if d = mustRun(t, "key", "edit", "k", "--unset", "passphrase-ref"); d["passphrase_ref"] != nil || d["action"] != "changed" {
+		t.Errorf("--unset: %v", d)
+	}
 	mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp")
+	mustRun(t, "key", "edit", "k", "--passphrase-ref", "")
 
 	ext := filepath.Join(t.TempDir(), "ext")
 	b, _ := os.ReadFile(store.Path("keys", "k"))
 	os.WriteFile(ext, b, 0o600)
-	mustRun(t, "key", "add", "ext", ext)
+	// the same key under a second name is added, with a warning naming the first
+	if d = mustRun(t, "key", "add", "ext", ext); !strings.Contains(fmt.Sprint(d["warnings"]), "same key as k") {
+		t.Errorf("same key twice: %v", d)
+	}
 	d = mustRun(t, "key", "rm", "ext", "--delete-file")
 	if d["file_deleted"] != false {
 		t.Errorf("an added key's file stays: %v", d)
