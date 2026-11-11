@@ -49,6 +49,7 @@
   "config show": {
     "command": "string",
     "data": {
+      "approval_code": "string",
       "files": {
         "audit": "string",
         "known_hosts": "string",
@@ -56,6 +57,14 @@
         "vault": "string"
       },
       "home": "string",
+      "keys": [
+        {
+          "default": "string",
+          "key": "string",
+          "value": "string",
+          "values": "string"
+        }
+      ],
       "settings": {
         "audit": "bool",
         "audit_sql": "string",
