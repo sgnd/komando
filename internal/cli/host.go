@@ -150,18 +150,20 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 			return err
 		}
 		h.Address, h.Transport, h.WinRMOpts = a.Address, a.Transport, a.WinRMOpts
-		if a.User != "" && h.User != "" && a.User != h.User {
+		// --address winrm://... with --user or --port: the flags win, as
+		// for every other --address
+		if len(args) == 2 && a.User != "" && h.User != "" && a.User != h.User {
 			return out.Errf(out.ExitUsage, "USAGE", "give the user once, in the address or with --user",
 				"user %s in the address and --user %s disagree", a.User, h.User)
 		}
-		if a.Port != 0 && h.Port != 0 && a.Port != h.Port {
+		if len(args) == 2 && a.Port != 0 && h.Port != 0 && a.Port != h.Port {
 			return out.Errf(out.ExitUsage, "USAGE", "give the port once, in the address or with --port",
 				"port %d in the address and --port %d disagree", a.Port, h.Port)
 		}
-		if a.User != "" {
+		if a.User != "" && h.User == "" {
 			h.User = a.User
 		}
-		if a.Port != 0 {
+		if a.Port != 0 && h.Port == 0 {
 			h.Port = a.Port
 		}
 	}
