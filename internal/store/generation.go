@@ -24,6 +24,7 @@ import (
 type GenerationKeep struct {
 	Get func() (n uint64, ok bool, err error)
 	Set func(n uint64) error
+	Del func() // the store went aside (a failed move, an undo)
 }
 
 // GenerationKeeper is set by the vault package (it owns the keychain).
@@ -94,7 +95,7 @@ func checkGeneration(d *sealdb.DB, meta map[string]string) (lookOnly bool, err e
 // it only ever raises the keychain's number, and only while the store's
 // key is still in the keychain.
 func raiseGeneration(n uint64) {
-	meta, err := sealdb.Peek(context.Background(), Path(StoreFile))
+	meta, err := sealdb.Peek(context.Background(), DBPath())
 	if err != nil || !guarded(meta) {
 		return
 	}
@@ -134,7 +135,7 @@ func AcceptOldCopy(want uint64) (from uint64, err error) {
 	if err != nil {
 		return 0, err
 	}
-	meta, err := sealdb.Peek(context.Background(), Path(StoreFile))
+	meta, err := sealdb.Peek(context.Background(), DBPath())
 	if err != nil {
 		return 0, err
 	}
@@ -156,7 +157,7 @@ func AcceptOldCopy(want uint64) (from uint64, err error) {
 // guarded is false when its key is not in the keychain (no protection);
 // slow when the keychain did not answer, so nothing was compared.
 func CopyState() (have, kept uint64, guardedStore, old bool, err error) {
-	meta, err := sealdb.Peek(context.Background(), Path(StoreFile))
+	meta, err := sealdb.Peek(context.Background(), DBPath())
 	if err != nil || !guarded(meta) {
 		return 0, 0, false, false, nil
 	}

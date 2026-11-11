@@ -37,6 +37,9 @@ var legacyFiles = []string{"state.json", "vault.json", "known_hosts"}
 // store.db is there, or the home has none of the files of before and new
 // homes are sealed.
 func Sealed() bool {
+	if isSealing() {
+		return true
+	}
 	if _, err := os.Stat(Path(StoreFile)); err == nil {
 		return true
 	}
@@ -55,12 +58,17 @@ func MixedHome() bool {
 
 func hasLegacyFiles() bool {
 	for _, f := range legacyFiles {
-		if _, err := os.Stat(Path(f)); err == nil {
+		if _, err := os.Stat(Path(f)); err == nil && !IsMovedNote(Path(f)) {
 			return true
 		}
 	}
 	keys, _ := filepath.Glob(Path("keys", "*"))
-	return len(keys) > 0
+	for _, k := range keys {
+		if !IsMovedNote(k) {
+			return true
+		}
+	}
+	return false
 }
 
 // KeySource gives the store's 32-byte master key. meta holds the store's
@@ -97,7 +105,7 @@ func DB(create bool) (*sealdb.DB, error) {
 	if o, ok := dbOpen[home]; ok {
 		// a store removed or replaced (a restore from backup) since it was
 		// opened is opened again, never written through the old handle
-		if fi, err := os.Stat(Path(StoreFile)); err == nil && os.SameFile(fi, o.fi) && (!o.lookOnly || AllowOldCopy) {
+		if fi, err := os.Stat(DBPath()); err == nil && os.SameFile(fi, o.fi) && (!o.lookOnly || AllowOldCopy) {
 			return o.db, nil
 		}
 		o.db.Close()
@@ -107,9 +115,12 @@ func DB(create bool) (*sealdb.DB, error) {
 		return nil, errors.New("store: no key source (the vault package is not linked)")
 	}
 	ctx := context.Background()
-	path := Path(StoreFile)
+	path := DBPath()
 	meta, err := sealdb.Peek(ctx, path)
 	if errors.Is(err, os.ErrNotExist) {
+		if err := missingStore(); err != nil && !isSealing() {
+			return nil, err
+		}
 		if !create {
 			return nil, ErrNoStore
 		}

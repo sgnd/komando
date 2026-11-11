@@ -21,7 +21,7 @@ import (
 // home, holding a number, not a secret.
 
 func init() {
-	store.GenerationKeeper = store.GenerationKeep{Get: genGet, Set: genSet}
+	store.GenerationKeeper = store.GenerationKeep{Get: genGet, Set: genSet, Del: genDel}
 }
 
 // genService names this home's generation item.

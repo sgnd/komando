@@ -146,7 +146,7 @@ func sealedAEAD() (cipher.AEAD, error) {
 
 // sealedStrength is Check on a sealed home: the store's key mode.
 func sealedStrength() (Strength, error) {
-	meta, err := sealdb.Peek(context.Background(), store.Path(store.StoreFile))
+	meta, err := sealdb.Peek(context.Background(), store.DBPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return Strength{NoVaultYet: true}, nil
 	}

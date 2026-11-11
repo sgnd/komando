@@ -1420,8 +1420,11 @@ How the code meets this (settled while building phase 0, 2026-11-10):
 - **New error codes**, the only ones phase 0 adds for agents: `STORE_OLD_COPY`
   (exit 6: the store is older than the keychain says; a person accepts it
   on purpose), `STORE_NEWER` (exit 1: made by a newer komando; update
-  komando) and `STORE_MOVED` (exit 1: an older komando meets a moved
-  folder; update komando).
+  komando) and `SEAL_UNFINISHED` (exit 1: `komando seal` moved
+  everything but could not replace some old files; running it again
+  finishes it). An older komando meeting a moved folder reads the note
+  in place of its files and stops with its own `STATE_CORRUPT`, so no
+  `STORE_MOVED` code was needed.
 - **The vault and the inventory need no new layer** for the swap: the
   vault already reads and writes disk in one place, and every inventory
   change goes through one function. The sealed store replaces those

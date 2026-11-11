@@ -18,6 +18,10 @@ its highlights; the sections below them give the details. Versions follow
   `KOMANDO_VAULT_PASS`. With a passphrase, every command needs it, reads
   included. A store made by a newer komando stops with `STORE_NEWER`.
   Folders from earlier versions keep their files unchanged.
+- **`komando seal`** moves a folder of an earlier komando into the sealed
+  store, after reading everything back and comparing it; the old files are
+  kept in a sealed archive and `komando seal --undo` puts them back. A
+  person at a terminal only. `komando doctor` suggests it.
 - **Old copies are noticed:** with the store's key in the OS keychain, the
   keychain also remembers how many changes the store has had. An older
   copy put back stops commands with `STORE_OLD_COPY` (exit 6) until a

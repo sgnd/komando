@@ -190,6 +190,7 @@ var errorCodes = []errorCode{
 	{"ROLLOUT_TIMEOUT", 7, "not rolled out after … (replicas …)…", "see the tasks with `komando cluster describe … service/…`"},
 	{"RULE_NOT_FOUND", 3, "no custom deny rule …", "see the custom rules with `komando policy list`"},
 	{"SAFETY_SETTING", 6, "KOMANDO_HOME points komando at …, not at …: its servers, protection, deny rules, host keys and audit log are not the usual ones, so an AI agent needs a person'…", "re-run with --yes after the user agrees"},
+	{"SEAL_UNFINISHED", 1, "komando now uses the sealed store, but these files of before could not be replaced: …", "fix what stops it, then run `komando seal` again: it finishes the job"},
 	{"SECRET_DESTINATION", 6, "an AI agent asked to send …; that needs a person's yes", "re-run with --yes after the user agrees"},
 	{"SECRET_EXISTS", 8, "secret … is used by … already; --ask-password and --ask-psk do not replace it", "use it with --… …, or store this one under another name: `komando secret set NAME`, then --… secret:NAME"},
 	{"SECRET_IN_ARGS", 2, "refusing a secret value on the command line: it would be saved in shell history", "run `komando secret set …` and type it (hidden), use --from-env VAR, or pipe it on stdin"},

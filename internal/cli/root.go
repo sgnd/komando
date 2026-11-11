@@ -446,7 +446,7 @@ func newRoot() *cobra.Command {
 	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(), tunnelCmd(), shellCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd(), clusterCmd(), registryCmd())
 	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
-	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), updateCmd(), versionCmd(), sshGateCmd())
+	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
 	applyConventions(root)
 	useShortGlobals(root)
 	addCompletion(root)

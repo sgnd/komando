@@ -29,7 +29,7 @@ import (
 // it, and the old one goes only after.
 
 func storeMeta() (map[string]string, error) {
-	m, err := sealdb.Peek(context.Background(), store.Path(store.StoreFile))
+	m, err := sealdb.Peek(context.Background(), store.DBPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, store.ErrNoStore
 	}
@@ -65,7 +65,7 @@ func opensStore(master []byte) error {
 	if err != nil {
 		return err
 	}
-	d, err := sealdb.Open(context.Background(), store.Path(store.StoreFile), k)
+	d, err := sealdb.Open(context.Background(), store.DBPath(), k)
 	if errors.Is(err, sealdb.ErrWrongKey) {
 		return ErrWrongKey
 	}

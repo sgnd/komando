@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net"
 	"net/url"
+	"os"
 	"runtime"
 	"slices"
 	"strconv"
@@ -39,6 +40,11 @@ func securityChecks(st *store.State) []securityCheck {
 			false: "others can read " + strings.Join(loose, ", ") + ": run chmod 700 " + store.Home() + " && chmod 600 on the files"}[len(loose) == 0])
 	}
 
+	if !store.Sealed() {
+		if _, err := os.Stat(store.Path("state.json")); err == nil {
+			add("store", false, true, "this folder keeps plain files of an earlier komando (server names, settings and the audit log readable by anyone with a copy): run `komando seal` in your terminal to move them into one sealed file")
+		}
+	}
 	if store.MixedHome() {
 		add("store", false, true, store.Path(store.StoreFile)+" holds this folder's data, but files of an older komando are beside it (state.json, vault.json, known_hosts or keys/): an older komando wrote them, and this komando does not read them")
 	}

@@ -464,6 +464,9 @@ func (s *State) save() error {
 // and returns the function that releases it. komando processes running at
 // the same time (parallel agents) wait for each other.
 func Lock(name string) (unlock func(), err error) {
+	if heldBySeal(name) {
+		return func() {}, nil // `komando seal` holds it for this process
+	}
 	if err := ensureHome(); err != nil {
 		return nil, err
 	}

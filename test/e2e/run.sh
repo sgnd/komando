@@ -819,6 +819,11 @@ PY
   check "edited audit record found" AUDIT_TAMPERED "$($K audit verify | jget 'd["error"]["code"]' || true)"
   cp "$TMP/audit.bak" "$KOMANDO_HOME/audit.jsonl"
 fi
+if ! sealed; then # a folder of before: komando seal moves it, a person only
+  check "seal --dry-run counts the old folder" True "$($K seal --dry-run | jget 'd["data"]["action"] == "would_seal" and d["data"]["hosts"] > 0')"
+  check "an agent cannot seal" NEEDS_PERSON "$(KOMANDO_AGENT=1 $K seal | jget 'd["error"]["code"]' || true)"
+  check "the folder is still files" True "$([ ! -e "$KOMANDO_HOME/store.db" ] && echo True || echo False)"
+fi
 check "doctor checks security" True "$($K doctor | jget 'any(c["name"] == "security:audit_chain" and c["ok"] for c in d["data"]["security"])')"
 
 # checks per area (test/e2e/checks/*.sh) run here, against the same lab and

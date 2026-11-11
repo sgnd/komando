@@ -30,7 +30,7 @@ func acceptOldCopy() error {
 		return nil
 	}
 	if !confirmYes("komando's folder is an older copy (change " + strconv.FormatUint(have, 10) + ", the keychain remembers " + strconv.FormatUint(kept, 10) + "). Use it from now on?") {
-		return policyStop(out.Errf(out.ExitPolicy, "CANCELLED", "nothing was changed", "the older copy was not accepted"))
+		return policyStop(out.Errf(out.ExitError, "CANCELLED", "nothing was changed in "+store.Home(), "the older copy was not accepted"))
 	}
 	from, err := store.AcceptOldCopy(have)
 	if err != nil {
