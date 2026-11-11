@@ -53,6 +53,9 @@ func storeMaster(meta map[string]string, create bool) ([]byte, map[string]string
 		return k[:keyLen], nil, nil
 	case "keyfile":
 		kp := storeKeyFile()
+		if _, err := os.Stat(kp); errors.Is(err, os.ErrNotExist) {
+			_ = settleNewKeyFile() // a key change stopped before the rename
+		}
 		b, err := os.ReadFile(kp)
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil, fmt.Errorf("%w: %s is missing, and the store cannot be opened without it; restore it from a backup", ErrKey, kp)
