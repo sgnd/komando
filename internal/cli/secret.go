@@ -719,10 +719,21 @@ func secretKeychainCmd() *cobra.Command {
 		Long: `Moves the vault's key out of the vault.key file into the operating system's
 keychain, so a copy of ` + "~/.komando" + ` (a backup, a synced folder) no longer opens
 the vault. Nothing is re-encrypted: it is the same key, kept elsewhere.
---off moves it back into vault.key, which needs --yes.`,
+--off moves it back into vault.key, which needs --yes.
+
+Only a person at a terminal moves the key in: the keychain may ask them to
+unlock it, and an AI agent or a script cannot answer that.`,
 		Example: "  komando secret keychain\n  komando secret keychain --off --yes",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !off && (isAgent() || !interactive()) {
+				// an unlock prompt nobody answers would keep komando waiting
+				err := policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando secret keychain` in their own terminal",
+					"only a person at a terminal can move the vault key into the keychain: it may ask them to unlock it"))
+				if err != nil {
+					return err
+				}
+			}
 			if g.dryRun {
 				tool, err := vault.KeychainTool()
 				res := map[string]any{"dry_run": true, "would": map[bool]string{false: "move the vault key into the keychain", true: "move the vault key back into vault.key"}[off]}

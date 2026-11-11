@@ -56,7 +56,11 @@ func (r mvResult) Text() string {
 // checkNewEntryName: to is a valid name for kind and no other entry uses
 // it (case-only changes of the entry itself are fine).
 func checkNewEntryName(s *store.State, kind, from, to string) error {
-	if err := validName(kind, to); err != nil {
+	check := func(n string) error { return validName(kind, n) }
+	if kind == "host" {
+		check = checkHostName
+	}
+	if err := check(to); err != nil {
 		return err
 	}
 	if k, existing, ok := s.FindName(to); ok && !(k == kind && existing == from) {

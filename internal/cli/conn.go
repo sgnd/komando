@@ -739,6 +739,14 @@ func connAddCmdFor(kind string) *cobra.Command {
 	c.Example = "  " + k.example
 	run := c.RunE
 	c.RunE = func(cmd *cobra.Command, args []string) error {
+		if len(args) == 2 {
+			// `cache add` must not quietly save a database
+			if t, err := driver.Parse(normConnURL(strings.TrimSpace(args[1]))); err == nil {
+				if err := t.Need(kind); err != nil {
+					return err
+				}
+			}
+		}
 		if len(args) > 0 {
 			return run(cmd, args)
 		}

@@ -103,6 +103,8 @@ func TestInvHostAddValidation(t *testing.T) {
 		{"USAGE", []string{"@h"}},
 		{"USAGE", []string{"h", "--port", "-5"}},
 		{"USAGE", []string{"h", "--user", "a b"}},
+		{"USAGE", []string{"u@10.0.0.5:2201", "--port", "2200"}},
+		{"USAGE", []string{"u@10.0.0.5", "--user", "v"}},
 		{"VIA_NOT_FOUND", []string{"h", "--via", "nosuch"}},
 		{"VIA_CYCLE", []string{"h", "--via", "n1"}},
 		{"FILE_NOT_FOUND", []string{"h", "--identity", "/no/such/key"}},
@@ -112,6 +114,7 @@ func TestInvHostAddValidation(t *testing.T) {
 	} {
 		wantCode(t, c.code, append([]string{"host", "add", "n1"}, c.args...)...)
 	}
+	mustRun(t, "host", "add", "n2", "u@10.0.0.5:2201", "--port", "2201", "--user", "u") // agreeing is fine
 	mustRun(t, "host", "add", "n1", "h", "--identity", id, "--via", "b1")
 	// a loop through another host
 	wantCode(t, "VIA_CYCLE", "host", "edit", "b1", "--via", "n1")
@@ -180,15 +183,31 @@ func TestInvHostImportJSON(t *testing.T) {
 		{"name":"px","address":"10.0.0.7","proxy_command":"nc %h %p"},
 		{"name":"bad","address":"10.0.0.8","port":99999}]}}`), 0o600)
 	asAgent(t, false, true) // the person says no
-	g.yes = true
-	_, e := invRun(t, "host", "import", "--json", f, "--overwrite")
+	_, e := invRun(t, "host", "import", "--json", f, "--overwrite", "--yes")
 	if e == nil || e.Code != "SAFETY_SETTING" {
 		t.Fatalf("agent proxy command needs a person: %+v", e)
 	}
+	// without --yes the proxy command server is left out, with the reason,
+	// and nothing else is held back (a dry run says the same); the import
+	// still fails, so the agent does not take it for done
+	for _, dry := range []bool{true, false} {
+		args := []string{"host", "import", "--json", f}
+		if dry {
+			args = append(args, "--dry-run")
+		}
+		d, e := invRun(t, args...)
+		skipped := fmt.Sprint(d["skipped_invalid"])
+		if e == nil || e.Code != "IMPORT_INCOMPLETE" || !strings.Contains(skipped, "px") || !strings.Contains(skipped, "--yes") {
+			t.Errorf("dry %v: px is left out with the reason: %v %+v", dry, d, e)
+		}
+	}
+	if _, e := invRun(t, "host", "show", "px"); e == nil {
+		t.Error("px was added without a person's yes")
+	}
 	noAgent(t)
-	d := mustRun(t, "host", "import", "--json", f, "--overwrite")
-	if d["skipped_protected"] == nil || d["skipped_invalid"] == nil {
-		t.Errorf("protected and invalid hosts are reported: %v", d)
+	d, e := invRun(t, "host", "import", "--json", f, "--overwrite")
+	if e == nil || e.Code != "IMPORT_INCOMPLETE" || d["skipped_protected"] == nil || d["skipped_invalid"] == nil {
+		t.Errorf("protected and invalid hosts are reported: %v %+v", d, e)
 	}
 	// komando import reads host export output too
 	mustRun(t, "host", "rm", "px")
@@ -236,12 +255,30 @@ func TestInvKeys(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "key", "add", "p", store.Path("keys", "k"), "--passphrase-ref", "pw123")
 	wantCode(t, "USAGE", "key", "edit", "k", "--passphrase-ref", "pw123")
+	// key edit says what it did, warns about a secret not stored yet, and
+	// clears with --unset like host and conn edit ('' still works)
+	d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp")
+	if d["action"] != "changed" || !strings.Contains(fmt.Sprint(d["warnings"]), "secret kp is not in the vault") {
+		t.Errorf("key edit: %v", d)
+	}
+	if d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp"); d["action"] != "unchanged" {
+		t.Errorf("same again: %v", d)
+	}
+	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "passphrase-ref", "--passphrase-ref", "secret:kp")
+	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "path")
+	if d = mustRun(t, "key", "edit", "k", "--unset", "passphrase-ref"); d["passphrase_ref"] != nil || d["action"] != "changed" {
+		t.Errorf("--unset: %v", d)
+	}
 	mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp")
+	mustRun(t, "key", "edit", "k", "--passphrase-ref", "")
 
 	ext := filepath.Join(t.TempDir(), "ext")
 	b, _ := os.ReadFile(store.Path("keys", "k"))
 	os.WriteFile(ext, b, 0o600)
-	mustRun(t, "key", "add", "ext", ext)
+	// the same key under a second name is added, with a warning naming the first
+	if d = mustRun(t, "key", "add", "ext", ext); !strings.Contains(fmt.Sprint(d["warnings"]), "same key as k") {
+		t.Errorf("same key twice: %v", d)
+	}
 	d = mustRun(t, "key", "rm", "ext", "--delete-file")
 	if d["file_deleted"] != false {
 		t.Errorf("an added key's file stays: %v", d)
@@ -539,5 +576,46 @@ func TestExportImportCarriesRulesAndSettings(t *testing.T) {
 	// importing again adds nothing new
 	if d := mustRun(t, "import", "komando", f); d["deny_rules_added"] != nil {
 		t.Errorf("again: %v", d)
+	}
+}
+
+// One ProxyCommand server in an ssh config does not hold back the others
+// for an AI agent: they come in, and it is listed with what it needs.
+func TestImportSSHConfigProxyCommandAgent(t *testing.T) {
+	invHome(t)
+	cfg := filepath.Join(t.TempDir(), "config")
+	os.WriteFile(cfg, []byte("Host a1\n  HostName 192.0.2.1\nHost px\n  HostName 192.0.2.2\n  ProxyCommand nc %h %p\n"), 0o600)
+	asAgent(t, false, true)
+	d, e := invRun(t, "import", "ssh-config", cfg)
+	if e == nil || e.Code != "IMPORT_INCOMPLETE" || fmt.Sprint(d["hosts"]) != "[a1]" || !strings.Contains(fmt.Sprint(d["skipped"]), "px") {
+		t.Errorf("import: %v %+v", d, e)
+	}
+}
+
+// With -o text, host export and export still print JSON that the imports
+// read back, since the output is meant to go to a file.
+func TestExportTextIsImportable(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@192.0.2.10")
+	textOut := func(args ...string) []byte {
+		t.Helper()
+		root := newRoot()
+		root.SetArgs(append([]string{"-o", "text"}, args...))
+		var buf bytes.Buffer
+		saved := out.P.W
+		out.P.W = &buf
+		defer func() { out.P.W = saved; out.P.Format = "json" }()
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		return buf.Bytes()
+	}
+	if hosts, ok := parseHostsJSON(textOut("host", "export")); !ok || len(hosts) != 1 || hosts[0].Name != "web1" {
+		t.Errorf("host export -o text: %v %v", hosts, ok)
+	}
+	f := filepath.Join(t.TempDir(), "exp.json")
+	os.WriteFile(f, textOut("export"), 0o600)
+	if p, err := importKomando(f); err != nil || len(p.Hosts) != 1 {
+		t.Errorf("export -o text: %v %v", p, err)
 	}
 }

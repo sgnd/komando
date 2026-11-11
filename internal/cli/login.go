@@ -47,6 +47,7 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
 			return loginHost(cmd.Context(), args[0])
 		},
 	}
+	// a new subcommand goes into loginClouds too, so no server takes its name
 	c.AddCommand(loginAWSCmd(), loginNotBuiltCmd("gcp", "Google Cloud"), loginNotBuiltCmd("azure", "Azure"))
 	return c
 }

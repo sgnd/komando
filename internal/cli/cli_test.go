@@ -53,6 +53,7 @@ func TestResolveTargets(t *testing.T) {
 		"tag:prod":          "db-1,web-1,web-2",
 		"label:dc=jkt":      "db-1,web-1",
 		"web-*":             "web-1,web-2",
+		"WEB-*":             "web-1,web-2",
 		"all":               "db-1,dev-1,web-1,web-2",
 		"all,!tag:prod":     "dev-1",
 		"@web,db-1":         "db-1,web-1,web-2",

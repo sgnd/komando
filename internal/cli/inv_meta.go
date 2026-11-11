@@ -565,7 +565,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 				hostDetail = "none yet; add with `komando host add` or `komando import ssh-config`"
 			}
 			add("hosts", len(st.Hosts) > 0, hostDetail)
-			add("keys", true, countOf(len(st.Keys), "key")+" in keychain")
+			add("keys", true, countOf(len(st.Keys), "SSH key"))
 			sock := os.Getenv("SSH_AUTH_SOCK")
 			add("ssh_agent", sock != "", map[bool]string{true: sock, false: "not running (optional)"}[sock != ""])
 			_, sshErr := exec.LookPath("ssh")
