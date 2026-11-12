@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `fs` commands refused with `PERMISSION_DENIED` give the same command
+  line with `--sudo` added as their hint (it said only "retry with
+  --sudo"). With `--sudo` already given, the hint no longer suggests it.
 - `exec` that times out, or loses its connection, now gives the exact
   `komando job start TARGET ... -- 'COMMAND'` line in its hint, with the
   same `--sudo`, `--dir` and `--env`, instead of "use `komando job start`".

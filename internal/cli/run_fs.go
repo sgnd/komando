@@ -232,7 +232,7 @@ func fsExitMap(code int, stderr string) *out.Error {
 		return out.Errf(out.ExitConflict, "FILE_EXISTS", "add --overwrite to replace it", "%s", msg)
 	}
 	if strings.Contains(msg, "Permission denied") || strings.Contains(msg, "Operation not permitted") {
-		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", "retry with --sudo", "%s", msg)
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", fsSudoRetry, "%s", msg)
 	}
 	return nil
 }

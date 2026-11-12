@@ -67,3 +67,31 @@ func TestExecTimeoutNamesJobStart(t *testing.T) {
 		}
 	}
 }
+
+func TestFsPermissionHintIsTheLineWithSudo(t *testing.T) {
+	root := fsCmd()
+	sub, _, err := root.Find([]string{"restore"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub.Flags().Bool("yes", false, "the global approval flag")
+	if err := sub.ParseFlags([]string{"--from", "/etc/app.conf.bak", "--yes"}); err != nil {
+		t.Fatal(err)
+	}
+	got := sudoRetryHint(sub, []string{"web1", "/etc/app.conf"})
+	// alone, fs is the root here; under komando it reads `komando fs restore ...`
+	want := "retry with --sudo: `fs restore web1 /etc/app.conf --from /etc/app.conf.bak --sudo`"
+	if got != want {
+		t.Fatalf("got  %s\nwant %s", got, want)
+	}
+	if strings.Contains(got, "--yes") {
+		t.Errorf("an approval flag is in the hint: %s", got)
+	}
+	// with --sudo already, retrying with it is no advice
+	if err := sub.ParseFlags([]string{"--sudo"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := sudoRetryHint(sub, []string{"web1", "/etc/app.conf"}); strings.Contains(got, "retry with --sudo") {
+		t.Errorf("already --sudo: %s", got)
+	}
+}
