@@ -1147,6 +1147,10 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   runs as your own user and ignores komando's rules: only another OS
   user or the signed Mac app. Key file, keychain and passphrase modes do
   not.
+- `upload` over a file that is there keeps that file's mode unless
+  `--mode` is given. Before, it took the local file's mode, so a 0600
+  `.env` on the server became 0644 (readable by every server user). A
+  new file still gets the local file's mode.
 
 ## [0.12.0] - 2026-11-11
 

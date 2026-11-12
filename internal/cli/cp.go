@@ -476,17 +476,16 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 			return xferStats{}, err
 		}
 		defer f.Close()
-		mode := o.mode
-		if mode == "" {
-			mode = "0" + strings.TrimPrefix(fileModeOctal(fi.Mode()), "0")
-		}
+		// a file already there keeps its mode (a 0600 .env stays 0600);
+		// a new one gets the local file's, unless --mode says
+		newMode := "0" + strings.TrimPrefix(fileModeOctal(fi.Mode()), "0")
 		// streamed: a multi-GB backup never sits in memory
 		var in io.Reader = storex.CtxReader(ctx, f)
 		if p := transferProgress(o, filepath.Base(src), fi.Size()); p != nil {
 			defer p.done()
 			in = io.TeeReader(in, p)
 		}
-		r, err := writeRemoteFrom(ctx, c, sc, dst, in, writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: mode})
+		r, err := writeRemoteFrom(ctx, c, sc, dst, in, writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: o.mode, newMode: newMode})
 		if err != nil {
 			return xferStats{}, err
 		}
@@ -549,7 +548,8 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 	return st, err
 }
 
-// putFile sends one file of a folder upload, keeping its mode and time. It
+// putFile sends one file of a folder upload, keeping its time, and its mode
+// unless a file is there already (that one keeps its own). It
 // is written as sync writes it, under a temporary name moved into place,
 // so a broken or interrupted upload never leaves half a file behind.
 func putFile(ctx context.Context, sc *sftp.Client, local, remote string, info os.FileInfo) (int64, error) {
@@ -558,7 +558,11 @@ func putFile(ctx context.Context, sc *sftp.Client, local, remote string, info os
 		return 0, err
 	}
 	defer in.Close()
-	err = sftpSide{sc: sc, root: path.Dir(remote)}.write(ctx, path.Base(remote), in, syncFile{Mode: info.Mode().Perm(), Mtime: info.ModTime()})
+	mode := info.Mode().Perm()
+	if fi, err := sc.Stat(remote); err == nil && fi.Mode().IsRegular() {
+		mode = fi.Mode().Perm() // a file already there keeps its mode
+	}
+	err = sftpSide{sc: sc, root: path.Dir(remote)}.write(ctx, path.Base(remote), in, syncFile{Mode: mode, Mtime: info.ModTime()})
 	if err != nil {
 		return 0, err
 	}

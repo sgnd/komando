@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -186,7 +187,7 @@ func sudoInstallScript(p, mode, tmp string, o writeOpts) string {
 	// keep the mode of the existing file; read it as root, because the SSH
 	// user often cannot see into the directory (/etc/sudoers.d, /root)
 	if mode == "" {
-		sb.WriteString(`m=$(stat -c %a "$p" 2>/dev/null || echo 644); `)
+		sb.WriteString(`m=$(stat -c %a "$p" 2>/dev/null || echo ` + cmp.Or(o.newMode, "644") + `); `)
 	} else {
 		sb.WriteString("m=" + mode + "; ")
 	}

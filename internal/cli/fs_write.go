@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -27,6 +28,7 @@ type writeOpts struct {
 	sudo, backup, mkdirs bool
 	noFollow             bool // refuse a symlink instead of writing its target
 	mode                 string
+	newMode              string // with no mode: the mode of a new file (default 0644); a file there keeps its own
 	owner                string
 	validate             string // command run on the new file (%s) before it goes into place
 }
@@ -97,7 +99,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 		if statErr == nil {
 			mode = fmt.Sprintf("%04o", existing.Mode().Perm())
 		} else {
-			mode = "0644"
+			mode = cmp.Or(o.newMode, "0644")
 		}
 	}
 	perm, _ := strconv.ParseUint(mode, 8, 32)
