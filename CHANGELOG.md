@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `cache keys --limit 0` listed no keys yet said more matched, and
+  `cache get --limit 0` (or a negative limit) quietly showed 100 items;
+  both now stop with `USAGE` before connecting.
 - `cache run` on Redis: more commands that change a cluster or Sentinel
   setup (`CLUSTER MEET`, `ADDSLOTS`, `FLUSHSLOTS`, `REPLICATE`, `SENTINEL
   SET`, `FAILOVER`, `REMOVE`, `CONFIG SET` ...) and that delete keys

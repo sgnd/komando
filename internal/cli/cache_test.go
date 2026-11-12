@@ -237,3 +237,24 @@ func TestCacheRunMemcachedLineInjection(t *testing.T) {
 		t.Errorf("the plain get was not sent as `get a`: %q", lines())
 	}
 }
+
+// --limit 0 used to list nothing yet say more keys match (cache keys) or
+// quietly show 100 items (cache get); it is a usage error before connecting.
+func TestCacheLimitMustBePositive(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"cache", "keys", "c", "--limit", "0"},
+		{"cache", "keys", "c", "*", "-n", "-5"},
+		{"cache", "get", "c", "k", "--limit", "0"},
+	} {
+		_, err := runCache(t, append([]string{"-o", "json"}, args...)...)
+		var e *out.Error
+		if !errors.As(err, &e) || e.Code != "USAGE" {
+			t.Errorf("%q: %v", args, err)
+		}
+	}
+}

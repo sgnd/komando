@@ -132,6 +132,9 @@ func cacheGetCmd() *cobra.Command {
   komando cache get cache leaderboard --limit 10`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 1 {
+				return out.Usage("--limit is the most items to show: 1 or more")
+			}
 			return withCache(cmd.Context(), "cache.get", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
 				func(st *store.State, _ *store.Conn, rc cachex.Store) (any, error) {
 					return rc.Get(cmd.Context(), args[1], limit, maxOutput(st))
@@ -174,6 +177,9 @@ func cacheKeysCmd() *cobra.Command {
   komando cache keys cache --limit 1000`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 1 {
+				return out.Usage("--limit is the most keys to return: 1 or more")
+			}
 			pattern := "*"
 			if len(args) == 2 {
 				pattern = args[1]
