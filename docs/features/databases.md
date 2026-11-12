@@ -260,7 +260,7 @@ The seatbelts:
   server's operating system (`CREATE EXTENSION`, a function in C or
   `plpython3u`, `LOAD`, MySQL `INSTALL PLUGIN` and `SONAME`, SQL Server
   `CREATE ASSEMBLY`), and a few more.
-  `komando policy list` shows them all; `komando policy check --for postgres "..."`
+  `komando policy list` shows them all; `komando policy check --conn-kind postgres "..."`
   tests a query.
 - A few admin functions that a read-only transaction does not stop (ending
   sessions, reading server files, `dblink`) are blocked by komando's own

@@ -557,7 +557,7 @@ func vpnProxyForm(kind string) formSpec {
 		formMore(vpnPassQ("save", false)), formMore(vpnRefQ("ref", "pass")),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		args := []string{"vpn", "add", a["name"], kind, "--address", a["address"]}
+		args := []string{"vpn", "add", a["name"], kind, "--proxy-address", a["address"]}
 		if a["user"] != "" {
 			args = vpnPassArgs(append(args, "--user", a["user"]), a)
 		}

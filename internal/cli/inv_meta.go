@@ -280,16 +280,16 @@ func policyCmd() *cobra.Command {
 }
 
 // policyCheckCmd is `policy check`: whether a shell command would be
-// blocked, or with --for how risky a statement is for a conn kind.
+// blocked, or with --conn-kind how risky a statement is for a conn kind.
 func policyCheckCmd() *cobra.Command {
 	var kind string
 	check := &cobra.Command{
 		Use:   "check COMMAND",
-		Short: "Would this command be blocked? (--for KIND rates SQL, Redis ...)",
+		Short: "Would this command be blocked? (--conn-kind KIND rates SQL, Redis ...)",
 		Example: `  komando policy check 'rm -rf /var/www'
   if komando policy check "$CMD" >/dev/null; then echo allowed; fi
-  komando policy check --for postgres 'delete from users'
-  komando policy check --for redis FLUSHALL`,
+  komando policy check --conn-kind postgres 'delete from users'
+  komando policy check --conn-kind redis FLUSHALL`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -323,8 +323,8 @@ func policyCheckCmd() *cobra.Command {
 				}
 				v, rated = plan.Verdict, plan
 			default:
-				return out.Errf(out.ExitUsage, "USAGE", "--for takes one of: "+strings.Join(policyCheckKinds(), ", "),
-					"--for %q is not a kind komando rates", kind)
+				return out.Errf(out.ExitUsage, "USAGE", "--conn-kind takes one of: "+strings.Join(policyCheckKinds(), ", "),
+					"--conn-kind %q is not a kind komando rates", kind)
 			}
 			if rated != nil {
 				if v.Risk != driver.RiskDestructive {
@@ -353,11 +353,12 @@ func policyCheckCmd() *cobra.Command {
 			return exitCode(out.ExitPolicy)
 		},
 	}
-	check.Flags().StringVar(&kind, "for", "", "rate the argument for a conn kind instead: "+strings.Join(policyCheckKinds(), ", ")+" (a command document as JSON)")
+	check.Flags().StringVar(&kind, "conn-kind", "", "rate the argument for a conn kind instead: "+strings.Join(policyCheckKinds(), ", ")+" (a command document as JSON)")
+	retiredFlag(check, "for", "conn-kind")
 	return check
 }
 
-// policyCheckKinds are the kinds policy check --for rates.
+// policyCheckKinds are the kinds policy check --conn-kind rates.
 func policyCheckKinds() []string {
 	return append(driver.SQLKinds(), "redis", "memcached", "mongodb")
 }

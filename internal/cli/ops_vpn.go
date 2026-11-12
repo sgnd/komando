@@ -178,7 +178,7 @@ func vpnEditCmd() *cobra.Command {
 new config file, add it again with --overwrite. -g and -t add a group or a
 tag, as in host edit; --rm-group and --rm-tag take one away.`,
 		Example: `  komando vpn edit office --check 10.0.0.5:22
-  komando vpn edit lab --address 127.0.0.1:1081
+  komando vpn edit lab --proxy-address 127.0.0.1:1081
   komando vpn edit client-x --password-ref secret:client-x-new
   komando vpn edit kantor --server vpn2.kantor.id --psk-ref secret:kantor-psk-2
   komando vpn edit client-x --portal gw2.client.com
@@ -187,7 +187,7 @@ tag, as in host edit; --rm-group and --rm-tag take one away.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f := cmd.Flags()
 			if len(changedFlags(cmd)) == 0 {
-				return out.Usage("nothing to change: give at least one of --check, --address, --service, --server, --portal, --user, --password-ref, --psk-ref, --id, --remote-id, --ca, --mfa, --legacy-crypto, --allow-pap, --notes, -g, --rm-group, -t, --rm-tag")
+				return out.Usage("nothing to change: give at least one of --check, --proxy-address, --service, --server, --portal, --user, --password-ref, --psk-ref, --id, --remote-id, --ca, --mfa, --legacy-crypto, --allow-pap, --notes, --add-group, --rm-group, --add-tag, --rm-tag")
 			}
 			if err := editConflicts(f, nil, nil, [][2][]string{{e.addGroups, e.rmGroups}, {e.addTags, e.rmTags}}); err != nil {
 				return err
@@ -213,17 +213,17 @@ tag, as in host edit; --rm-group and --rm-tag take one away.`,
 					return out.NotFound("vpn", args[0])
 				}
 				v := *cur
-				for flag, kinds := range map[string][]string{"address": {"socks", "proxy"}, "service": {"system"},
+				for flag, kinds := range map[string][]string{"proxy-address": {"socks", "proxy"}, "service": {"system"},
 					"server": {"l2tp", "ipsec", "ikev2"}, "psk-ref": {"l2tp", "ipsec", "ikev2"}, "id": {"ipsec", "ikev2"}, "remote-id": {"ikev2"},
 					"portal": {"globalprotect", "fortinet", "anyconnect", "pulse", "f5"}, "ca": {"ikev2"}} {
-					if f.Changed(flag) && !oneOf(v.Kind, kinds...) {
+					if flagChanged(cmd, flag) && !oneOf(v.Kind, kinds...) {
 						return out.Usage("--%s is not used by %s VPNs", flag, v.Kind)
 					}
 				}
 				if v.Kind == "wireguard" && (f.Changed("password-ref") || f.Changed("user")) {
 					return out.Usage("WireGuard keys come from its config: add it again with --config and --overwrite")
 				}
-				if f.Changed("address") {
+				if flagChanged(cmd, "proxy-address") {
 					var err error
 					if v.Address, err = vpnAddress(v.Kind, e.address); err != nil {
 						return err
@@ -325,7 +325,8 @@ type vpnEditFlags struct {
 func (e *vpnEditFlags) bind(c *cobra.Command) {
 	f := c.Flags()
 	f.StringVar(&e.check, "check", "", "host:port reachable only through this VPN")
-	f.StringVar(&e.address, "address", "", "SOCKS: host:port of the proxy")
+	f.StringVar(&e.address, "proxy-address", "", "SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port")
+	withRetiredAddress(c)
 	f.StringVar(&e.service, "service", "", "System VPN: its name in your computer's settings")
 	f.StringVar(&e.server, "server", "", "L2TP, IPsec, IKEv2: the VPN server")
 	f.StringVar(&e.portal, "portal", "", "GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal")

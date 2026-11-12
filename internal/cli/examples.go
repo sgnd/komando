@@ -146,7 +146,7 @@ var details = map[string]string{
 	"komando logs":              "Read logs from journald (--unit), a file (--file) or a container (--container).",
 	"komando net ports":         "Listening sockets as structured rows: proto, address, port, process, pid (read with ss or netstat).",
 	"komando pkg":               "Packages on servers through apt, dnf, yum, apk, zypper or pacman (komando finds which one the server has).",
-	"komando policy check":      "Test whether a shell command would be blocked (exit 6), or rate SQL, Redis or memcached commands with --for KIND.",
+	"komando policy check":      "Test whether a shell command would be blocked (exit 6), or rate SQL, Redis or memcached commands with --conn-kind KIND.",
 	"komando recipe":            "Ready-made and saved commands: health, disk, oom, ... plus your own ({{blank}} to fill in).",
 	"komando schema":            "Machine-readable reference of every command, flag, exit code and selector.",
 	"komando svc":               "Services on servers: systemd units on Linux, Windows services on Windows servers. status, list, start, stop, restart, enable and disable work on both; reload, daemon-reload and logs are for systemd.",

@@ -75,7 +75,7 @@ Which flags go with which VPN:
                             IKEv2: --id, --remote-id, --ca
   Tailscale                 --password-ref (the auth key); Headscale: --server
   System VPN                --service (its name in your computer's settings)
-  SOCKS or HTTP proxy       --address`,
+  SOCKS or HTTP proxy       --proxy-address`,
 		Example: `  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
   komando vpn add client-x globalprotect --portal vpn.client.com   # signs in through a browser window at vpn up
   komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
@@ -85,8 +85,8 @@ Which flags go with which VPN:
   komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user budi
   komando vpn add cloud ikev2 --server vpn.example.com --user budi --password-ref secret:cloud
   komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
-  komando vpn add lab socks --address 127.0.0.1:1080
-  komando vpn add office proxy --address proxy.corp.example:3128   # a company HTTP proxy`,
+  komando vpn add lab socks --proxy-address 127.0.0.1:1080
+  komando vpn add office proxy --proxy-address proxy.corp.example:3128   # a company HTTP proxy`,
 		Args: formArgs(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -167,7 +167,7 @@ Which flags go with which VPN:
 				}
 				used["password-ref"] = passwordRef == ""
 			case kind == "socks" || kind == "proxy":
-				if err = need("address", address != ""); err != nil {
+				if err = need("proxy-address", address != ""); err != nil {
 					return err
 				}
 				if v.Address, err = vpnAddress(kind, address); err != nil {
@@ -233,7 +233,7 @@ Which flags go with which VPN:
 				secrets[name+"-config"] = text
 				used["user"], used["password-ref"] = true, true
 			}
-			for flag, val := range map[string]string{"config": config, "address": address, "portal": portal, "service": service,
+			for flag, val := range map[string]string{"config": config, "proxy-address": address, "portal": portal, "service": service,
 				"server": server, "user": user, "password-ref": passwordRef, "psk-ref": pskRef, "id": localID, "remote-id": remoteID, "ca": ca} {
 				if val != "" && !used[flag] {
 					return out.Usage("--%s is not used by %s VPNs", flag, kind)
@@ -289,7 +289,7 @@ Which flags go with which VPN:
 	}
 	f := c.Flags()
 	f.StringVar(&config, "config", "", "WireGuard: the .conf file; OpenVPN: the .ovpn file (both kept in the vault)")
-	f.StringVar(&address, "address", "", "SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port")
+	f.StringVar(&address, "proxy-address", "", "SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port")
 	f.StringVar(&portal, "portal", "", "GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal")
 	f.StringVar(&service, "service", "", "System VPN: its name in your computer's settings, so 'vpn up' can connect it")
 	f.StringVar(&server, "server", "", "L2TP, IPsec, IKEv2: the VPN server (host or host:port); Tailscale: a Headscale login server URL")
@@ -309,7 +309,7 @@ Which flags go with which VPN:
 	f.StringSliceVarP(&tags, "tag", "t", nil, "tags, e.g. prod (comma-separated)")
 	f.StringVar(&notes, "notes", "", "free-form notes")
 	f.BoolVar(&overwrite, "overwrite", false, "replace a VPN with the same name")
-	return c
+	return withRetiredAddress(c)
 }
 
 func vpnShowCmd() *cobra.Command {
@@ -686,7 +686,7 @@ func testVpn(ctx context.Context, st *store.State, v *store.Vpn) targetTest {
 	return r
 }
 
-// vpnAddress checks a socks or proxy VPN's --address: host:port, or for an
+// vpnAddress checks a socks or proxy VPN's --proxy-address: host:port, or for an
 // HTTP proxy also an http(s):// URL, kept as one.
 func vpnAddress(kind, address string) (string, error) {
 	if kind == "proxy" {
@@ -697,7 +697,7 @@ func vpnAddress(kind, address string) (string, error) {
 		return pu.String(), nil
 	}
 	if _, _, err := net.SplitHostPort(address); err != nil {
-		return "", out.Usage("--address must be host:port")
+		return "", out.Usage("--proxy-address must be host:port")
 	}
 	return address, nil
 }
@@ -768,4 +768,11 @@ func (t vpnChangeText) Text() string {
 		b.WriteString("next: " + t.next + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// withRetiredAddress keeps --address on vpn add and edit as a retired
+// spelling of --proxy-address (C-F21).
+func withRetiredAddress(c *cobra.Command) *cobra.Command {
+	retiredFlag(c, "address", "proxy-address")
+	return c
 }

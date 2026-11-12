@@ -164,7 +164,7 @@ komando policy list                                  # built-in and custom rules
 komando policy rm 'terraform\s+destroy'              # remove it again
 komando policy rm custom-1a2b3c4d                    # or remove it by its id
 komando policy check 'terraform destroy'             # exit 6 when it would be blocked
-komando policy check --for postgres 'delete from users'   # rate SQL, Redis or MongoDB instead
+komando policy check --conn-kind postgres 'delete from users'   # rate SQL, Redis or MongoDB instead
 ```
 
 A rule matches the command the way the shell reads it, so quotes and

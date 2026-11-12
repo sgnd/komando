@@ -78,6 +78,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `vpn add/edit --proxy-address` is the address of a SOCKS or HTTP proxy
+  VPN (was `--address`, which on `host add` is the server's address), and
+  `policy check --conn-kind KIND` rates a statement for a conn kind (was
+  `--for`, while `--kind` elsewhere is a list). The old names still work
+  in this release and are noted in `meta.deprecated`.
 - `recipe add --needs-sudo` marks a saved recipe as one that runs with
   sudo (was `--sudo`, which elsewhere runs the command itself with sudo),
   and `cron` reads root's crontab with `--user root` (`--sudo`/`-s` there
