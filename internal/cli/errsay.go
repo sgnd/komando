@@ -247,12 +247,12 @@ func addHint(family, code string) string {
 
 // fillHint puts the target into the commands a hint names with a
 // placeholder: drivers and helpers that do not know the conn's name write
-// `komando test CONN` or `komando cluster events TARGET`, and the next
+// `komando test TARGET` or `komando cluster events TARGET`, and the next
 // step should be one to copy (S-8.7). target is the command's first
 // argument. TARGET is filled with a server or conn, SERVER only with a
 // server, CONN only with a conn, and NAME only in a command of the
 // target's own noun (`komando conn edit NAME` with a conn), so `vpn up
-// corp` never turns into `komando exec corp`. `komando test NAME` takes
+// corp` never turns into `komando exec corp`. `komando test TARGET` takes
 // any of them or a VPN. `komando conn test` becomes `komando test`, the
 // one spelling.
 func fillHint(e *out.Error, target string) {
@@ -282,7 +282,7 @@ func fillHint(e *out.Error, target string) {
 			switch {
 			case word == "CONN" && kind != "conn",
 				word == "SERVER" && kind != "host",
-				word == "TARGET" && kind == "vpn",
+				word == "TARGET" && kind == "vpn" && noun != "test",
 				word == "NAME" && noun != kind && noun != "test":
 				return p
 			}

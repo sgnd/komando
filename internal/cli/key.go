@@ -245,7 +245,7 @@ and pass --passphrase-ref secret:NAME.`,
 				}
 				for _, o := range s.Keys {
 					if k.Fingerprint != "" && o.Fingerprint == k.Fingerprint {
-						res.Warnings = append(res.Warnings, "this is the same key as "+o.Name+": servers can use that one (`komando host edit NAME --key "+o.Name+"`); `komando key rm "+k.Name+"` removes this second name")
+						res.Warnings = append(res.Warnings, "this is the same key as "+o.Name+": servers can use that one (`komando host edit TARGET --key "+o.Name+"`); `komando key rm "+k.Name+"` removes this second name")
 					}
 				}
 				s.Keys[k.Name] = k
@@ -552,7 +552,7 @@ this key.`,
 				return err
 			}
 			if setDefault && st.Keys[name] == nil {
-				return out.Errf(out.ExitUsage, "USAGE", "add the private key first with `komando key add NAME PATH`, then deploy NAME", "--set-default needs a key in komando's key list, not a .pub file")
+				return out.Errf(out.ExitUsage, "USAGE", "add the private key first with `komando key add NAME FILE`, then deploy NAME", "--set-default needs a key in komando's key list, not a .pub file")
 			}
 			hosts, err := resolveTargets(st, args[1])
 			if err != nil {

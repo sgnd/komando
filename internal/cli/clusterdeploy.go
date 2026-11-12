@@ -463,7 +463,7 @@ func pickRollback(sets []map[string]any, current int) (map[string]any, error) {
 	if len(skipped) > 0 {
 		msg += "; skipped " + strings.Join(skipped, ", ") + ": pick one with --to"
 	}
-	return nil, out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "see the revisions with `komando cluster history CONN deployment/NAME`", "%s", msg)
+	return nil, out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "see the revisions with `komando cluster history TARGET TYPE/NAME`", "%s", msg)
 }
 
 func revisionList(sets []map[string]any) string {
@@ -553,7 +553,7 @@ revision. A Swarm service goes back to its previous version.`,
 						}
 					}
 					if target == nil {
-						return nil, out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "see the revisions with `komando cluster history CONN deployment/NAME`",
+						return nil, out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "see the revisions with `komando cluster history TARGET TYPE/NAME`",
 							"revision %d not found; revisions: %s", to, revisionList(sets))
 					}
 				} else if target, err = pickRollback(sets, current); err != nil {

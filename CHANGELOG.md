@@ -115,6 +115,16 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Commands named in hints, help and Next: lines use the words of the
+  command they name: `komando test TARGET` (was `test CONN` and `test
+  NAME`; komando fills in the name you gave, a VPN's too), `komando
+  shell SERVER`, `komando conn rm TARGET`, `komando storage download
+  CONN OBJECT`, `komando registry rm CONN IMAGE`, `komando cluster
+  history TARGET TYPE/NAME`, `komando user lock web1 USER`, `komando
+  policy rm RULE`, `komando queue lag CONN CONSUMER` and others. The
+  groups `host`, `conn`, `vpn`, `key`, `secret`, `group`, `job`, `fs`,
+  `policy`, `config`, `db user` and `cluster helm` show examples that
+  walk look, dry run, change.
 - Examples use one set of sample names: servers `web1`, `web2`, `db1`,
   `@web`; databases `prod-db`, `staging-db`; cache `prod-redis`; queue
   `prod-kafka`; storage `backups`; registries `ghcr`, `harbor`;

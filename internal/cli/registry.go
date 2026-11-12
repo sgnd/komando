@@ -209,10 +209,10 @@ func registryErr(err error) error {
 			"the registry's TLS certificate is not trusted: %v", err)
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
-		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test NAME`",
+		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test TARGET`",
 			"the registry did not answer within the time limit (--timeout)")
 	}
-	return out.Errf(out.ExitConnect, "REGISTRY_UNREACHABLE", "check the conn with `komando test NAME`", "%s", dialMessage(err))
+	return out.Errf(out.ExitConnect, "REGISTRY_UNREACHABLE", "check the conn with `komando test TARGET`", "%s", dialMessage(err))
 }
 
 // retryAfter turns a Retry-After header (seconds, or an HTTP date) into
@@ -574,7 +574,7 @@ func pruneTags(ctx context.Context, r *registry.Client, repo string, rule regist
 		return nil, imageErr(ctx, r, repo, "", err)
 	}
 	if len(tags) > max {
-		return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "komando prunes a repository of at most 1000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN REPO:TAG`",
+		return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "komando prunes a repository of at most 1000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN IMAGE`",
 			"%s has more than %d tags", repo, max)
 	}
 	// a HEAD per tag for its digest, then one read per image:

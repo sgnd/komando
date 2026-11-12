@@ -51,7 +51,7 @@ Kinds (also: pritunl = openvpn; cisco = ipsec):
 
 // vpnFlagHint says how to give a flag a VPN kind needs.
 var vpnFlagHint = map[string]string{
-	"config": "give the file your VPN provider sent, for example --config ~/Downloads/kantor.ovpn (OpenVPN) or --config ~/Downloads/office.conf (WireGuard)",
+	"config": "give the file your VPN provider sent, for example --config ~/Downloads/office.ovpn (OpenVPN) or --config ~/Downloads/office.conf (WireGuard)",
 	"portal": "give the address you type in the VPN app, for example --portal vpn.example.com",
 	"server": "give the VPN server's address, for example --server vpn.example.com",
 }
@@ -80,9 +80,9 @@ Which flags go with which VPN:
   SOCKS or HTTP proxy       --proxy-address`,
 		Example: `  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
   komando vpn add client-x globalprotect --portal vpn.client.com   # signs in through a browser window at vpn up
-  komando vpn add office openvpn --config kantor.ovpn --user alice --password-ref secret:kantor --check 10.8.0.1:22
+  komando vpn add office openvpn --config office.ovpn --user alice --password-ref secret:office --check 10.8.0.1:22
   komando vpn add tailnet tailscale --password-ref secret:ts-authkey
-  komando vpn add office l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk --user alice --ask-password   # type the password now (hidden)
+  komando vpn add office l2tp --server vpn.example.com --psk-ref secret:office-psk --user alice --ask-password   # type the password now (hidden)
   komando vpn add old-office l2tp --server vpn.example.com --psk-ref secret:old-psk --user alice --legacy-crypto --allow-pap
   komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user alice
   komando vpn add cloud ikev2 --server vpn.example.com --user alice --password-ref secret:cloud

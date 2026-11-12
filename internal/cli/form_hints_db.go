@@ -172,7 +172,7 @@ func init() {
 		"db kill":        {next: []string{"db activity {}"}},
 		"db sizes":       {next: []string{"db schema {} TABLE", "db dump {} --to backup.sql"}},
 		"db restore":     {next: []string{"db schema {}", "db query {} \"select count(*) from TABLE\""}},
-		"db user list":   {next: []string{"db user show {} USER", "db user add {} NAME --password-ref secret:NAME"}},
+		"db user list":   {next: []string{"db user show {} USER", "db user add {} USER --password-ref secret:NAME"}},
 		"db user add":    {next: []string{"db grant {} USER --privileges SELECT --on all-tables:public", "db user show {} USER"}},
 		"db user passwd": {next: []string{"db user show {} USER"}},
 		"db grant":       {next: []string{"db user show {} USER"}},

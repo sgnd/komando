@@ -91,7 +91,7 @@ or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
 		Example: `  komando vpn edit office --check 10.0.0.5:22
   komando vpn edit lab --proxy-address 127.0.0.1:1081
   komando vpn edit client-x --password-ref secret:client-x-new
-  komando vpn edit office --server vpn2.kantor.id --psk-ref secret:kantor-psk-2
+  komando vpn edit office --server vpn2.example.com --psk-ref secret:office-psk-2
   komando vpn edit client-x --portal gw2.client.com
   komando vpn edit office -g jakarta --rm-group old --label site=jkt
   komando vpn edit @office --protected --dry-run`,
@@ -350,7 +350,7 @@ func vpnRmCmd() *cobra.Command {
 				var prot []string
 				for _, v := range vs {
 					if users := vpnUsers(s, v.Name); len(users) > 0 {
-						return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first: `komando host edit NAME --via OTHER`", "VPN %s is on the --via path of %s", v.Name, strings.Join(users, ", "))
+						return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first: `komando host edit TARGET --via OTHER`", "VPN %s is on the --via path of %s", v.Name, strings.Join(users, ", "))
 					}
 					if v.Protected {
 						prot = append(prot, v.Name)

@@ -47,8 +47,8 @@ that is always rolled back), so nothing can change. With --write, try
 would change.
 
 Each database is a conn: list them with ` + "`komando list kind:db`" + `, check one with
-` + "`komando test NAME`" + `, change it with ` + "`komando conn edit NAME`" + `, rename it with
-` + "`komando conn rename OLD NEW`" + ` and remove it with ` + "`komando conn rm NAME`" + `.`,
+` + "`komando test TARGET`" + `, change it with ` + "`komando conn edit NAME`" + `, rename it with
+` + "`komando conn rename OLD NEW`" + ` and remove it with ` + "`komando conn rm TARGET`" + `.`,
 		Example: `  komando db add prod-db postgres://app@10.0.0.5:5432/shop --password-ref secret:shop-pw
   komando db query prod-db "select id, email from users order by id desc limit 10"
   komando db schema prod-db users

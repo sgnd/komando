@@ -46,7 +46,7 @@ type Kind struct {
 // Kinds are the VPN kinds komando knows.
 var Kinds = map[string]Kind{
 	"wireguard":     {Desc: "WireGuard, run inside komando (no admin rights, many at once)"},
-	"socks":         {Desc: "a SOCKS5 proxy that is already running (`komando tunnel start HOST -D`, a company proxy)"},
+	"socks":         {Desc: "a SOCKS5 proxy that is already running (`komando tunnel start TARGET -D`, a company proxy)"},
 	"proxy":         {Desc: "an HTTP proxy (CONNECT), such as a company proxy: every connection is tunneled through it"},
 	"system":        {Desc: "a VPN set up in your computer's settings; --service lets `vpn up` connect it"},
 	"l2tp":          {Desc: "L2TP/IPsec with a pre-shared key, run inside komando (no admin rights)", Session: true},
@@ -377,7 +377,7 @@ func DownHint(v *store.Vpn) string {
 	case v.Kind == "system":
 		return "connect the VPN " + v.Name + " on this computer first, then run it again"
 	case v.Kind == "socks":
-		return "start the SOCKS proxy at " + v.Address + ", e.g. `komando tunnel start HOST -D " + v.Address + "`, then run it again"
+		return "start the SOCKS proxy at " + v.Address + ", e.g. `komando tunnel start TARGET -D " + v.Address + "`, then run it again"
 	case v.Kind == "proxy":
 		return "check that the proxy at " + v.Address + " answers and lets this port through (many company proxies allow only 443), and its login (`komando vpn show " + v.Name + "`)"
 	case v.Kind == "wireguard":

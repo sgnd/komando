@@ -32,7 +32,58 @@ var examples = map[string]string{
 		"  komando net check @web db.internal:5432           # can the servers reach it?\n" +
 		"  komando net dns web1 db.internal\n" +
 		"  komando net http web1 http://localhost:8080/health --expect 200",
+	"komando cluster helm": "  komando cluster helm list prod-k8s -A\n" +
+		"  komando cluster helm status prod-k8s shop --namespace shop\n" +
+		"  komando cluster helm history prod-k8s shop --namespace shop\n" +
+		"  komando cluster helm values prod-k8s shop --namespace shop",
+	"komando config": "  komando config show\n" +
+		"  komando config get default_timeout\n" +
+		"  komando config set default_timeout 10m --dry-run\n" +
+		"  komando config set default_timeout 10m",
+	"komando conn": "  komando conn add prod-db postgres://app@10.0.0.9/shop --password-ref secret:prod-db-pass\n" +
+		"  komando test prod-db                              # does it answer and let komando in?\n" +
+		"  komando conn edit prod-db --via web1 --dry-run\n" +
+		"  komando conn rm prod-db                           # from komando only",
+	"komando db user": "  komando db user list prod-db\n" +
+		"  komando db user show prod-db app\n" +
+		"  komando db user add prod-db app --password-ref secret:app-pass --dry-run\n" +
+		"  komando db user add prod-db app --password-ref secret:app-pass",
+	"komando fs": "  komando fs list web1 /etc/nginx\n" +
+		"  komando fs cat web1 /etc/nginx/nginx.conf\n" +
+		"  komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 512' --new 'worker_connections 1024' --backup --dry-run\n" +
+		"  komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 512' --new 'worker_connections 1024' --backup\n" +
+		"  komando fs restore web1 /etc/nginx/nginx.conf     # undo the edit",
+	"komando group": "  komando group list\n" +
+		"  komando group add web web1,web2 --dry-run\n" +
+		"  komando group add web web1,web2\n" +
+		"  komando group rm web web2",
+	"komando host": "  komando host add web1 deploy@10.0.0.5\n" +
+		"  komando test web1\n" +
+		"  komando host edit web1 --protected --dry-run\n" +
+		"  komando host edit web1 --protected\n" +
+		"  komando host rm web1                              # from komando only",
+	"komando job": "  komando job start @web -- ./deploy.sh\n" +
+		"  komando job list\n" +
+		"  komando job wait j1103-101500-ab12cd34 --timeout 30m\n" +
+		"  komando job logs j1103-101500-ab12cd34 --limit 50",
+	"komando key": "  komando key gen deploy\n" +
+		"  komando key deploy deploy @web --dry-run\n" +
+		"  komando key deploy deploy @web\n" +
+		"  komando key list",
+	"komando policy": "  komando policy list\n" +
+		"  komando policy check 'rm -rf /srv/app'\n" +
+		"  komando policy deny 'systemctl stop postgresql' --dry-run\n" +
+		"  komando policy deny 'systemctl stop postgresql'",
+	"komando secret": "  komando secret set prod-db-pass                   # typed hidden\n" +
+		"  komando secret list\n" +
+		"  komando conn edit prod-db --password-ref secret:prod-db-pass\n" +
+		"  komando secret rm old-pass --dry-run",
+	"komando vpn": "  komando vpn add office wireguard --config ~/Downloads/office.conf\n" +
+		"  komando vpn test office\n" +
+		"  komando host edit db1 --via office --dry-run\n" +
+		"  komando vpn up office",
 	"komando cert": "  komando cert check web1                           # certificates on the server\n" +
+		"  komando cert check @web --warn 30d\n" +
 		"  komando cert check https://shop.example.com --warn 14d",
 	"komando recipe": "  komando recipe list\n" +
 		"  komando recipe run health @web\n" +

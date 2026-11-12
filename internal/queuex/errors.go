@@ -39,7 +39,7 @@ func connectErr(t driver.Target, err error) error {
 	case !t.Secure && closed(msg):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the broker closed the connection: it may want TLS (?tls=true) or a SASL login (?sasl=...)", "cannot connect to %s: %s", t.Address, msg)
 	}
-	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando test CONN` to check reachability; brokers must be reachable at the addresses they advertise (use --via a server that can reach them)",
+	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando test TARGET` to check reachability; brokers must be reachable at the addresses they advertise (use --via a server that can reach them)",
 		"cannot connect to %s: %s", t.Address, msg)
 }
 

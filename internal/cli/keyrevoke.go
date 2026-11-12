@@ -146,5 +146,5 @@ func guardRevokeSelf(st *store.State, hosts []*store.Host, key string) error {
 	}
 	askTypes([]string{key}, "keys")
 	return guardConns(st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
-		Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit NAME --key OTHER`)"}})
+		Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit TARGET --key OTHER`)"}})
 }

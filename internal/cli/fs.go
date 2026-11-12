@@ -319,7 +319,7 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 			if strings.Contains(r.Stderr, "Is a directory") {
 				return nil, false, isADirectory(p)
 			}
-			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat TARGET PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
+			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat SERVER PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
 		}
 		return []byte(r.Stdout), r.StdoutTruncated, nil
 	}
@@ -358,7 +358,7 @@ func readRemoteEnd(ctx context.Context, c *sshx.Client, sc *sftp.Client, p strin
 			if strings.Contains(r.Stderr, "Is a directory") {
 				return nil, false, isADirectory(p)
 			}
-			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat TARGET PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
+			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat SERVER PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
 		}
 		b = []byte(r.Stdout)
 	} else {

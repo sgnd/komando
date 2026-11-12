@@ -87,7 +87,7 @@ func (b *ftpBucket) Stat(_ context.Context, rel string) (Object, error) {
 		}
 		return Object{Key: rel, Size: int64(e.Size), Modified: e.Time.UTC()}, nil
 	}
-	return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [FOLDER]`", "%s not found", rel)
+	return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [PREFIX]`", "%s not found", rel)
 }
 
 // isMarker reports a listed key ending in / that is a folder marker (an

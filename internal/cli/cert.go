@@ -409,7 +409,7 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 // checked and flags that would do nothing for them.
 func certTargetsFit(ctx context.Context, hosts []*store.Host, urls []certURL, o certOpts) error {
 	if len(hosts)+len(urls) == 0 {
-		return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "give a server, a TLS conn or a website (https://NAME): `komando cert check https://NAME`", "nothing to check")
+		return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "give a server, a TLS conn or a website (https://NAME): `komando cert check URL`", "nothing to check")
 	}
 	if _, err := windowsGate(ctx, "cert.check", hosts, false); err != nil {
 		return err
@@ -601,7 +601,7 @@ func parseCertDiscovery(s string) discovered {
 			d.notes = append(d.notes, "certbot is installed but no renewal timer or cron job was found")
 		}
 		if len(lines(m["certbot-live"])) == 0 && !d.root {
-			d.notes = append(d.notes, "certbot's certificates need root to read: allow passwordless sudo for the login user, or check the website with `komando cert check https://NAME`")
+			d.notes = append(d.notes, "certbot's certificates need root to read: allow passwordless sudo for the login user, or check the website with `komando cert check URL`")
 		}
 		d.certbot = cb
 	}

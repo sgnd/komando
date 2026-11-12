@@ -23,13 +23,13 @@ func inventoryVerbHint(group *cobra.Command, verb string) string {
 	case "ls", "list":
 		return "list " + family + " conns with `komando list kind:" + family + "`"
 	case "rm", "remove", "delete", "del":
-		return "remove a conn with `komando conn rm NAME`"
+		return "remove a conn with `komando conn rm TARGET`"
 	case "show":
 		return "show a conn's settings with `komando conn show NAME`"
 	case "edit":
 		return "change a conn with `komando conn edit NAME`"
 	case "test":
-		return "check that a conn answers with `komando test NAME`"
+		return "check that a conn answers with `komando test TARGET`"
 	case "mv", "rename":
 		return "rename a conn with `komando conn rename OLD NEW`"
 	}

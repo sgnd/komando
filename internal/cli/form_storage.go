@@ -699,9 +699,9 @@ func init() {
 // Next: lines for the storage commands.
 func init() {
 	addFormHints(map[string]formHint{
-		"storage list":     {next: []string{"storage cat {} KEY --tail 50", "download {} KEY", "storage list {} FOLDER/ --recursive"}},
-		"storage cat":      {next: []string{"download {} KEY"}},
-		"storage upload":   {next: []string{"storage list {} FOLDER/", "storage link {} KEY --expires 24h"}},
+		"storage list":     {next: []string{"storage cat {} OBJECT --tail 50", "storage download {} OBJECT", "storage list {} PREFIX/ --recursive"}},
+		"storage cat":      {next: []string{"storage download {} OBJECT"}},
+		"storage upload":   {next: []string{"storage list {} PREFIX/", "storage link {} OBJECT --expires 24h"}},
 		"storage download": {next: []string{"storage list {}"}},
 		"storage rm":       {next: []string{"storage list {} --recursive"}},
 	})

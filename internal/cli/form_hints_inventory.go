@@ -314,7 +314,7 @@ func init() {
 		"job wait":     {next: []string{"job logs {} --limit 50", "job rm {}"}},
 		"job kill":     {next: []string{"job status {}", "job rm {}"}},
 		"job list":     {next: []string{"job list --refresh", "job status JOB", "job rm JOB"}},
-		"policy deny":  {next: []string{"policy check 'COMMAND'", "policy list", "policy rm ID"}},
+		"policy deny":  {next: []string{"policy check 'COMMAND'", "policy list", "policy rm RULE"}},
 		"policy check": {next: []string{"policy list"}},
 		"audit":        {next: []string{"audit verify", "audit --failed"}},
 		"update":       {next: []string{"guide install", "version"}},

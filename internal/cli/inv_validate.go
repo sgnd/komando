@@ -97,7 +97,7 @@ func checkHost(s *store.State, h *store.Host) error {
 	}
 	if h.Identity != "" {
 		if _, err := os.Stat(expandHome(h.Identity)); err != nil {
-			return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a private key file, or register it with `komando key add NAME PATH` and use --key",
+			return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a private key file, or register it with `komando key add NAME FILE` and use --key",
 				"identity file %s: %v", h.Identity, errText(err))
 		}
 	}

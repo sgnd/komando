@@ -174,7 +174,7 @@ func init() {
 		"fs write":   {next: []string{"fs cat {} PATH", "fs restore {} PATH"}},
 		"fs restore": {next: []string{"fs cat {} PATH"}},
 		"fs list":    {next: []string{"fs cat {} PATH", "fs stat {} PATH"}},
-		"upload":     {next: []string{"fs stat {} DEST --sha256", "svc reload {} UNIT"}},
+		"upload":     {next: []string{"fs stat {} PATH --sha256", "svc reload {} UNIT"}},
 		"download":   {next: []string{"fs cat {} PATH", "download {} PATH --overwrite"}},
 	})
 }

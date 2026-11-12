@@ -15,13 +15,13 @@ func TestDataGroupInventoryVerbsPointToSharedCommands(t *testing.T) {
 	}{
 		{[]string{"db", "ls"}, "komando list kind:db"},
 		{[]string{"db", "list"}, "komando list kind:db"},
-		{[]string{"db", "rm", "shop"}, "komando conn rm NAME"},
-		{[]string{"db", "remove", "shop"}, "komando conn rm NAME"},
+		{[]string{"db", "rm", "shop"}, "komando conn rm TARGET"},
+		{[]string{"db", "remove", "shop"}, "komando conn rm TARGET"},
 		{[]string{"cache", "show", "c1"}, "komando conn show NAME"},
 		{[]string{"queue", "edit", "q1"}, "komando conn edit NAME"},
-		{[]string{"storage", "test", "s1"}, "komando test NAME"},
+		{[]string{"storage", "test", "s1"}, "komando test TARGET"},
 		{[]string{"cluster", "mv", "a", "b"}, "komando conn rename OLD NEW"},
-		{[]string{"registry", "test", "r1"}, "komando test NAME"},
+		{[]string{"registry", "test", "r1"}, "komando test TARGET"},
 	} {
 		e := wantCode(t, "USAGE", c.args...)
 		if !strings.Contains(e.Hint, c.want) || !strings.Contains(e.Message, "unknown command") {

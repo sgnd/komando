@@ -55,9 +55,9 @@ var queueHints = map[string]formHint{
 func init() {
 	addFormHints(map[string]formHint{
 		"queue list":     {next: []string{"queue describe {} TOPIC", "queue peek {} TOPIC", "queue groups {}"}},
-		"queue describe": {next: []string{"queue peek {} TOPIC", "queue lag {} GROUP"}},
+		"queue describe": {next: []string{"queue peek {} TOPIC", "queue lag {} CONSUMER"}},
 		"queue peek":     {next: []string{"queue describe {} TOPIC", "queue send {} TOPIC --value V --dry-run"}},
-		"queue groups":   {next: []string{"queue lag {} GROUP"}},
+		"queue groups":   {next: []string{"queue lag {} CONSUMER"}},
 		"queue send":     {next: []string{"queue peek {} TOPIC -n 1"}},
 		"queue create":   {next: []string{"queue send {} TOPIC --value V --dry-run", "queue describe {} TOPIC"}},
 		"queue purge":    {next: []string{"queue list {}"}},

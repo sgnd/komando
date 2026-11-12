@@ -55,7 +55,7 @@ default            192.168.100.1      UGScg                 en0
 }
 
 func TestDownHintsPerKind(t *testing.T) {
-	for kind, want := range map[string]string{"socks": "tunnel start HOST -D 127.0.0.1:1080", "system": "connect the VPN", "wireguard": "endpoint", "tailscale": "vpn up x"} {
+	for kind, want := range map[string]string{"socks": "tunnel start TARGET -D 127.0.0.1:1080", "system": "connect the VPN", "wireguard": "endpoint", "tailscale": "vpn up x"} {
 		h := DownHint(&store.Vpn{Name: "x", Kind: kind, Address: "127.0.0.1:1080"})
 		if !strings.Contains(h, want) || strings.Contains(h, "komando test x") {
 			t.Errorf("%s: %q", kind, h)

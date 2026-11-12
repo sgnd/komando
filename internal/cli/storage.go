@@ -362,7 +362,7 @@ func storageCatCmd() *cobra.Command {
 						text = strings.ToValidUTF8(text[:len(text)-incompleteRune(text)], "") // cut inside a character
 					}
 					if !utf8.ValidString(text) || strings.ContainsRune(text, 0) {
-						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "download it with `komando download CONN KEY`", "%s is not text", args[1])
+						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "download it with `komando storage download CONN OBJECT`", "%s is not text", args[1])
 					}
 					lines := strings.SplitAfter(text, "\n")
 					if len(lines) > 0 && lines[len(lines)-1] == "" {

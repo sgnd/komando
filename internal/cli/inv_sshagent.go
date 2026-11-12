@@ -38,7 +38,7 @@ var openAgent = func() (agent.ExtendedAgent, string, func(), error) {
 
 func errNoAgent() error {
 	return out.Errf(out.ExitUsage, "SSH_AGENT_NEEDED",
-		"start one with `eval \"$(ssh-agent)\"` and run this again, or use `komando shell NAME`, which logs in with the key itself",
+		"start one with `eval \"$(ssh-agent)\"` and run this again, or use `komando shell SERVER`, which logs in with the key itself",
 		"a key komando made is sealed in its store and never written to a file, so OpenSSH gets it from a running ssh-agent, and none was found (SSH_AUTH_SOCK)")
 }
 
@@ -78,7 +78,7 @@ func agentKeys(st *store.State, hops []*store.Host, dir string) (map[string][]st
 			return nil, err
 		}
 		if err := ag.Add(agent.AddedKey{PrivateKey: priv, Comment: "komando:" + k.Name, LifetimeSecs: agentLifetime}); err != nil {
-			return nil, out.Errf(out.ExitError, "SSH_AGENT_REFUSED", "check the ssh-agent, or use `komando shell NAME`", "the ssh-agent did not take key %s: %v", k.Name, err)
+			return nil, out.Errf(out.ExitError, "SSH_AGENT_REFUSED", "check the ssh-agent, or use `komando shell SERVER`", "the ssh-agent did not take key %s: %v", k.Name, err)
 		}
 		added = append(added, k.Name)
 		pub := filepath.Join(dir, fmt.Sprintf("key%d.pub", i+1))

@@ -189,7 +189,7 @@ func lockoutStop(target, user, verb string) error {
 	}
 	why := verb + " " + user + " on " + strings.Join(names, ", ") + ": root is the account that repairs a server"
 	if login {
-		why = verb + " " + user + " locks komando out of " + strings.Join(names, ", ") + ": it is the user komando logs in as (log in as another user first: `komando host edit NAME --user OTHER`)"
+		why = verb + " " + user + " locks komando out of " + strings.Join(names, ", ") + ": it is the user komando logs in as (log in as another user first: `komando host edit TARGET --user OTHER`)"
 	}
 	if dangerOK(why, targetsWhy(st, hosts)) || confirmDangerous(names, why) {
 		return nil

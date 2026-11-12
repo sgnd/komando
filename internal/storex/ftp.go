@@ -393,9 +393,9 @@ func ftpErr(err error, t driver.Target) error {
 		case ftp.StatusNotLoggedIn:
 			return out.Errf(out.ExitConnect, "STORAGE_AUTH", "check the user in the conn URL and its --password-ref", "login refused: %s", te.Msg)
 		case ftp.StatusFileUnavailable:
-			return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [FOLDER]`", "%s", te.Msg)
+			return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [PREFIX]`", "%s", te.Msg)
 		}
-		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test CONN` to check the conn", "FTP %d: %s", te.Code, te.Msg)
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test TARGET` to check the conn", "FTP %d: %s", te.Code, te.Msg)
 	}
 	if strings.Contains(err.Error(), "certificate") {
 		return out.Errf(out.ExitConnect, "STORAGE_TLS", "if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL", "%v", err)
@@ -407,5 +407,5 @@ func ftpErr(err error, t driver.Target) error {
 	if where == "" {
 		where = "the server"
 	}
-	return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando test CONN` to check reachability", "%s: %v", where, err)
+	return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando test TARGET` to check reachability", "%s: %v", where, err)
 }

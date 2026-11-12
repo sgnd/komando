@@ -454,8 +454,8 @@ func init() {
 // Next: lines for the registry commands.
 func init() {
 	addFormHints(map[string]formHint{
-		"registry list":    {next: []string{"registry list {} REPO", "registry inspect {} REPO:TAG", "registry prune {} REPO --keep 10 --dry-run"}},
-		"registry inspect": {next: []string{"registry copy {}:REPO:TAG OTHER:", "registry rm {} REPO:TAG --dry-run"}},
-		"registry copy":    {next: []string{"registry inspect OTHER REPO:TAG"}},
+		"registry list":    {next: []string{"registry list {} REPO", "registry inspect {} IMAGE", "registry prune {} REPO --keep 10 --dry-run"}},
+		"registry inspect": {next: []string{"registry copy {}:IMAGE DST_CONN", "registry rm {} IMAGE --dry-run"}},
+		"registry copy":    {next: []string{"registry inspect CONN IMAGE"}},
 	})
 }

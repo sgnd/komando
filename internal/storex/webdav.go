@@ -184,7 +184,7 @@ func (b *davBucket) Stat(ctx context.Context, rel string) (Object, error) {
 		return Object{}, err
 	}
 	if len(got) == 0 {
-		return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [FOLDER]`", "%s not found", rel)
+		return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [PREFIX]`", "%s not found", rel)
 	}
 	if got[0].Dir {
 		return Object{}, isFolder(rel)

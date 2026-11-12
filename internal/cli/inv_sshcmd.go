@@ -26,7 +26,7 @@ func hostSSHArgsCmd() *cobra.Command {
 known_hosts file and --via path komando uses. A server behind --via servers gets
 a ProxyCommand per hop (ssh -W), so every hop uses its own key. A SOCKS VPN
 becomes nc -X 5; VPNs that run inside komando cannot be used by OpenSSH:
-use ` + "`komando shell NAME`" + ` for those. A key made with komando key gen is never
+use ` + "`komando shell SERVER`" + ` for those. A key made with komando key gen is never
 written to a file: it goes to your running ssh-agent (SSH_AUTH_SOCK) for one
 hour, and the line picks it by its public key.`,
 		Example: `  komando host ssh-command web1

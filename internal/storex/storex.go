@@ -349,12 +349,12 @@ func toErr(err error) error {
 	}
 	var ne net.Error
 	if errors.As(err, &ne) || strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "no such host") {
-		return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando test CONN` to check reachability", "%v", err)
+		return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando test TARGET` to check reachability", "%v", err)
 	}
 	if r.Code != "" {
-		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test CONN` to check the conn", "%s: %s", r.Code, r.Message)
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test TARGET` to check the conn", "%s: %s", r.Code, r.Message)
 	}
-	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test CONN` to check the conn", "%v", err)
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test TARGET` to check the conn", "%v", err)
 }
 
 // regionErr names the bucket's region when the conn's is wrong (AWS says

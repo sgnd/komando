@@ -623,7 +623,7 @@ func connectErr(t driver.Target, err error) error {
 	if h := tlsHint(t.Kind.Name, err); h != "" {
 		return out.Errf(out.ExitConnect, "DB_CONNECT", h, "cannot connect to %s: %v", t.Where(), err)
 	}
-	return out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando test CONN` to check reachability", "cannot connect to %s: %v", t.Where(), err)
+	return out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando test TARGET` to check reachability", "cannot connect to %s: %v", t.Where(), err)
 }
 
 // tlsHint says what to do when TLS stopped the connection: the server's

@@ -48,13 +48,13 @@ func downloadCmd() *cobra.Command { return downloadCmdFor(false) }
 // storageUploadCmd and storageDownloadCmd are `upload` and `download`
 // spelled inside the storage area: the same code, for storage conns only.
 func storageUploadCmd() *cobra.Command {
-	c := alias(uploadCmdFor(true), "upload CONN FILE [OBJECT]", "Upload a file to a storage conn")
+	c := alias(uploadCmdFor(true), "upload TARGET FILE [DEST]", "Upload a file to a storage conn")
 	c.Example = `  komando storage upload backups ./report.pdf reports/2026/`
 	return c
 }
 
 func storageDownloadCmd() *cobra.Command {
-	c := alias(downloadCmdFor(true), "download CONN OBJECT", "Download an object from a storage conn")
+	c := alias(downloadCmdFor(true), "download TARGET PATH", "Download an object from a storage conn")
 	c.Example = `  komando storage download backups reports/q3.pdf --to ~/Downloads/`
 	return c
 }
