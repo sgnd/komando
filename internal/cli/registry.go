@@ -561,6 +561,50 @@ func credHelper(helper, server string) (string, string, error) {
 	return r.Username, r.Secret, nil
 }
 
+// pruneTags reads each tag's digest, and the build date of each image a
+// tag of the rule may take.
+func pruneTags(ctx context.Context, r *registry.Client, repo string, rule registry.PruneRule) ([]registry.TagInfo, error) {
+	const max = 1000
+	tags, err := r.Tags(ctx, repo, max+1)
+	if err != nil {
+		return nil, imageErr(ctx, r, repo, "", err)
+	}
+	if len(tags) > max {
+		return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "komando prunes a repository of at most 1000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN REPO:TAG`",
+			"%s has more than %d tags", repo, max)
+	}
+	// a HEAD per tag for its digest, then one read per image:
+	// tags often share images, and Docker Hub counts every
+	// manifest read as a pull
+	infos := make([]registry.TagInfo, 0, len(tags))
+	built := map[string]time.Time{}
+	for _, t := range tags {
+		d, err := r.Digest(ctx, repo, t)
+		if err != nil {
+			return nil, err
+		}
+		if d == "" { // the registry did not say: read the manifest
+			m, err := r.Inspect(ctx, repo, t)
+			if err != nil {
+				return nil, err
+			}
+			d = m.Digest
+		}
+		// only an image a tag may go with needs its build date
+		cand := t != "latest" && (rule.Match == nil || rule.Match.MatchString(t))
+		if _, ok := built[d]; !ok && d != "" && cand {
+			m, err := r.Inspect(ctx, repo, d)
+			if err != nil {
+				return nil, err
+			}
+			ts, _ := time.Parse(time.RFC3339Nano, m.Created)
+			built[d] = ts
+		}
+		infos = append(infos, registry.TagInfo{Tag: t, Digest: d, Created: built[d]})
+	}
+	return infos, nil
+}
+
 // rmWhat says what `registry rm` takes: the image and every tag on it.
 // Tags come from the registry, so only names a tag may have are shown.
 func rmWhat(ctx context.Context, r *registry.Client, repo, ref string) string {
@@ -711,46 +755,12 @@ it can go). An image a kept tag points at is never deleted. Needs
 				},
 				func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
 					repo := r.Repo(args[1])
-					const max = 1000
-					tags, err := r.Tags(ctx, repo, max+1)
+					infos, err := pruneTags(ctx, r, repo, rule)
 					if err != nil {
-						return nil, imageErr(ctx, r, repo, "", err)
-					}
-					if len(tags) > max {
-						return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "komando prunes a repository of at most 1000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN REPO:TAG`",
-							"%s has more than %d tags", repo, max)
-					}
-					// a HEAD per tag for its digest, then one read per image:
-					// tags often share images, and Docker Hub counts every
-					// manifest read as a pull
-					infos := make([]registry.TagInfo, 0, len(tags))
-					built := map[string]time.Time{}
-					for _, t := range tags {
-						d, err := r.Digest(ctx, repo, t)
-						if err != nil {
-							return nil, err
-						}
-						if d == "" { // the registry did not say: read the manifest
-							m, err := r.Inspect(ctx, repo, t)
-							if err != nil {
-								return nil, err
-							}
-							d = m.Digest
-						}
-						// only an image a tag may go with needs its build date
-						cand := t != "latest" && (rule.Match == nil || rule.Match.MatchString(t))
-						if _, ok := built[d]; !ok && d != "" && cand {
-							m, err := r.Inspect(ctx, repo, d)
-							if err != nil {
-								return nil, err
-							}
-							ts, _ := time.Parse(time.RFC3339Nano, m.Created)
-							built[d] = ts
-						}
-						infos = append(infos, registry.TagInfo{Tag: t, Digest: d, Created: built[d]})
+						return nil, err
 					}
 					plan := rule.Plan(infos)
-					res := pruneData{"conn": c.Name, "repo": repo, "tags": len(tags), "delete": plan.Delete, "keep": plan.Keep}
+					res := pruneData{"conn": c.Name, "repo": repo, "tags": len(infos), "delete": plan.Delete, "keep": plan.Keep}
 					if plan.Delete == nil {
 						res["delete"] = []registry.PruneImage{}
 					}
