@@ -470,8 +470,9 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   defaults (`10m`, not `10m0s`). The bare number of seconds that
   `svc restart --wait 10` and `reboot --wait 600` took still works and is
   noted in `meta.deprecated`.
-- One rule table now decides what a command needs before it runs. At a
-  terminal, a command komando asked you to fill in asks you to type the
+- One rule table now says what a command needs before it runs; the
+  stops stay in the commands, and a test checks each recorded stop
+  against the table. At a terminal, a command komando asked you to fill in asks you to type the
   target's name for every change that stops an AI agent as dangerous:
   `reboot`, `svc stop` of sshd, `sync --delete` and `db kill` now ask
   for the name instead of `Run it?`. What AI agents and scripts get is

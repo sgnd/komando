@@ -253,8 +253,12 @@ run next).
 ## 6. Confirmation and safety
 
 One rule table (`internal/cli/risk.go`) says what each command and flag
-combination needs; the stops, the person's questions, `komando schema`'s
-`confirm` and this table all come from it (command-standard S-7.1, S-7.2).
+combination needs; the person's questions, `komando schema`'s `confirm`
+and this table come from it (command-standard S-7.1, S-7.2). The stops an
+AI agent or a script gets stay in the commands themselves, which see what
+a table cannot (which server is protected, what a SQL statement does).
+TestStandardConfirmTable checks every stop TestAgentGolden records against
+the table, so the two cannot drift apart.
 
 <!-- tiers: made by TestTiersDoc from risk.go; KOMANDO_UPDATE_TIERS=1 writes it -->
 
