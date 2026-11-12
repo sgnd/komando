@@ -9,6 +9,8 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `fs mkdir -p` (and `--parents`) is accepted and changes nothing:
+  `fs mkdir` always makes the missing parents.
 - More short flags, each with the meaning it has everywhere else:
   `cluster apply -f FILE`; `-c` for `--container` on `logs` and
   `cluster deploy`; `-a` for `--all` on `cache info`,

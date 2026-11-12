@@ -600,9 +600,13 @@ komando exec for that).`
 }
 
 func fsMkdirCmd() *cobra.Command {
-	return shellFsCmd("mkdir TARGET PATH...", "Create folders on servers, with any missing parents (like mkdir -p)", 2, func(a []string, _ map[string]bool) (string, string, error) {
+	c := shellFsCmd("mkdir TARGET PATH...", "Create folders on servers, with any missing parents (like mkdir -p)", 2, func(a []string, _ map[string]bool) (string, string, error) {
 		return mkdirScript(a), "mkdir -p -- " + rqAll(a), nil
 	}, nil)
+	// it always makes the parents; -p, typed from habit, changes nothing
+	c.Flags().BoolP("parents", "p", false, "make missing parents (always done)")
+	_ = c.Flags().MarkHidden("parents")
+	return c
 }
 
 func fsMvCmd() *cobra.Command {
