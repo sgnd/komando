@@ -1,6 +1,5 @@
 # Code that was over the size limits (functions 100 lines, files 800)
 # when the rule came. Each may shrink, never grow; see codesize_test.go.
-file internal/cli/conn.go 813
 file internal/cli/modules.go 832
 file internal/driver/sql.go 831
 file internal/ipsec/ikev1.go 1258
@@ -34,7 +33,7 @@ func internal/cli/ops_run.go runOps 108
 func internal/cli/ops_vpn.go vpnEditCmd 145
 func internal/cli/root.go newRoot 102
 func internal/cli/secret.go secretCmd 224
-func internal/cli/tunnel.go tunnelStartCmd 164
+func internal/cli/tunnel.go tunnelStartCmd 141
 func internal/cli/vpn.go vpnAddCmd 255
 func internal/cli/vpnsession.go startSession 148
 func internal/cloud/bitwarden.go bwLoad 110

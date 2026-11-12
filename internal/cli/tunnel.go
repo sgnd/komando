@@ -14,7 +14,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -54,59 +53,9 @@ IPv6 addresses go in brackets, as with ssh: -L 8080:[::1]:80.`,
 	return c
 }
 
-// tunnelAlive reports whether t's background process still runs, and is
-// komando: after a crash or a restart its pid may belong to another
-// program, which tunnel stop must never signal.
-func tunnelAlive(t *store.Tunnel) bool {
-	return alive(t.PID) && netx.SessionAlive(&store.VpnSession{PID: t.PID, Exe: tunnelExe()})
-}
-
-// tunnelExe is the program name tunnel processes run as: this komando's
-// (they are started from os.Executable).
-var tunnelExe = func() string {
-	self, err := os.Executable()
-	if err != nil {
-		return ""
-	}
-	return filepath.Base(self)
-}
-
 // tunnelServeCommand is the background `komando tunnel serve ID` process
 // (self is komando); tests put a stand-in here.
 var tunnelServeCommand = func(self string, args []string) *exec.Cmd { return exec.Command(self, args...) }
-
-type tunnelSpec struct {
-	Kind       string
-	BindAddr   string
-	TargetAddr string
-}
-
-// guardBind asks for --yes before a tunnel listens on anything but this
-// computer's loopback (or, for -R, the server's): other machines on the
-// network could then use it, without a login (docs/design/network.md).
-func guardBind(t tunnelSpec) error {
-	host, _, err := net.SplitHostPort(t.BindAddr)
-	if err != nil || host == "localhost" {
-		return nil
-	}
-	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
-		return nil
-	}
-	if yesOK() {
-		return nil
-	}
-	where := "this computer"
-	if t.Kind == "remote" {
-		where = "the server"
-	}
-	return policyStop(out.Errf(out.ExitPolicy, "OPEN_BIND", "keep the default 127.0.0.1, or re-run with --yes if other machines should reach it",
-		"the tunnel would listen on %s of %s, open to its network", host, where))
-}
-
-func portInUse(addr, where string, err error) error {
-	return out.Errf(out.ExitConflict, "PORT_IN_USE", "pick another port, or 0 for a free one",
-		"%s on %s is already in use (%v)", addr, where, err)
-}
 
 // tunnelInfo is a started (or, under --dry-run, planned) tunnel.
 type tunnelInfo struct {
@@ -147,76 +96,6 @@ func (t tunnelInfo) Text() string {
 		return "would start a tunnel: " + line + "\n"
 	}
 	return "tunnel " + t.ID + " is up: " + line + "\nstop it with: komando tunnel stop " + t.ID + "\n"
-}
-
-// specParts splits a forward spec at its colons, keeping an IPv6 address
-// in brackets as one part without them (8080:[::1]:80, as ssh takes it).
-func specParts(spec string) ([]string, bool) {
-	var parts []string
-	for spec != "" {
-		var p string
-		if strings.HasPrefix(spec, "[") {
-			end := strings.Index(spec, "]")
-			if end < 0 || (end+1 < len(spec) && spec[end+1] != ':') {
-				return nil, false
-			}
-			p, spec = spec[1:end], spec[end+1:]
-		} else if i := strings.IndexByte(spec, ':'); i >= 0 {
-			p, spec = spec[:i], spec[i:]
-		} else {
-			p, spec = spec, ""
-		}
-		if strings.ContainsAny(p, "[]") {
-			return nil, false
-		}
-		parts = append(parts, p)
-		if rest, ok := strings.CutPrefix(spec, ":"); ok {
-			spec = rest
-			if spec == "" {
-				parts = append(parts, "")
-			}
-		}
-	}
-	return parts, true
-}
-
-func parseTunnel(kind, spec string) (tunnelSpec, error) {
-	parts, ok := specParts(spec)
-	if !ok {
-		parts = nil // reported below as an invalid spec
-	}
-	t := tunnelSpec{Kind: kind}
-	switch kind {
-	case "local", "remote":
-		switch len(parts) {
-		case 3:
-			t.BindAddr = "127.0.0.1:" + parts[0]
-			t.TargetAddr = net.JoinHostPort(parts[1], parts[2])
-		case 4:
-			t.BindAddr = net.JoinHostPort(parts[0], parts[1])
-			t.TargetAddr = net.JoinHostPort(parts[2], parts[3])
-		default:
-			return t, out.Usage("invalid forward spec %q: use PORT:HOST:HOSTPORT or ADDRESS:PORT:HOST:HOSTPORT", spec)
-		}
-	case "dynamic":
-		switch len(parts) {
-		case 1:
-			t.BindAddr = "127.0.0.1:" + parts[0]
-		case 2:
-			t.BindAddr = net.JoinHostPort(parts[0], parts[1])
-		default:
-			return t, out.Usage("invalid SOCKS spec %q: use PORT or ADDRESS:PORT", spec)
-		}
-	}
-	if _, p, _ := net.SplitHostPort(t.BindAddr); !tunnelPort(p, 0) {
-		return t, out.Usage("%q in %q is not a port: use 0 (a free one) to 65535", p, spec)
-	}
-	if t.TargetAddr != "" {
-		if _, p, _ := net.SplitHostPort(t.TargetAddr); !tunnelPort(p, 1) {
-			return t, out.Usage("%q in %q is not a port: use 1 to 65535", p, spec)
-		}
-	}
-	return t, nil
 }
 
 func tunnelStartCmd() *cobra.Command {
@@ -350,42 +229,8 @@ point your database app or psql at the local address it prints. With a server, g
 				}
 				return nil
 			})
-			// wait for READY / ERROR from the child; Ctrl-C stops it, so a
-			// tunnel the person cancelled does not come up after all
-			deadline := time.Now().Add(sshOpts(st).ConnectTimeout + 5*time.Second)
-			undo := func() {
-				_ = netx.Terminate(pid)
-				_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, id); return nil })
-			}
-			for time.Now().Before(deadline) {
-				if err := cmd.Context().Err(); err != nil {
-					undo()
-					_ = os.Remove(logPath)
-					e := toErr(err)
-					e.Hint = "the tunnel was stopped before it came up; nothing is left running (`komando tunnel list` shows the rest)"
-					return e
-				}
-				b, _ := os.ReadFile(logPath)
-				s := string(b)
-				if i := strings.Index(s, "READY "); i >= 0 {
-					addr := strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0])
-					audit(st, "tunnel.start", []string{hostName}, "", true, map[string]any{"kind": kind, "spec": spec, "id": id})
-					info := tunnelInfo{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, Listen: addr, Target: ts.TargetAddr, PID: pid, Log: logPath}
-					if kind == "remote" {
-						info.RemoteListen, info.ListenOn = addr, hostName
-					}
-					out.P.Print("tunnel.start", info, nil)
-					return nil
-				}
-				if i := strings.Index(s, "ERROR "); i >= 0 {
-					_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, id); return nil })
-					_ = os.Remove(logPath) // the error says what it held
-					return tunnelErr(strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0]), kind, hostName, ts.BindAddr)
-				}
-				time.Sleep(150 * time.Millisecond)
-			}
-			undo()
-			return tunnelTimeout(hostName, logPath)
+			info := tunnelInfo{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, Target: ts.TargetAddr, PID: pid, Log: logPath}
+			return tunnelWait(cmd.Context(), st, info, ts.BindAddr, sshOpts(st).ConnectTimeout+5*time.Second)
 		},
 	}
 	c.Flags().StringVarP(&l, "local", "L", "", "local forward [bind:]LPORT:RHOST:RPORT")
@@ -393,6 +238,47 @@ point your database app or psql at the local address it prints. With a server, g
 	c.Flags().StringVarP(&d, "dynamic", "D", "", "SOCKS5 proxy [bind:]PORT")
 	c.Flags().IntVar(&port, "port", 0, "with a conn: the local port (default: a free one)")
 	return c
+}
+
+// tunnelWait waits for the READY or ERROR line of the tunnel process that
+// tunnel start started (info: its ID, pid and log), and prints the tunnel
+// or why it did not start. Ctrl-C (ctx) ends that process, so a tunnel the
+// person cancelled does not come up after all.
+func tunnelWait(ctx context.Context, st *store.State, info tunnelInfo, bind string, wait time.Duration) error {
+	deadline := time.Now().Add(wait)
+	undo := func() {
+		_ = netx.Terminate(info.PID)
+		_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, info.ID); return nil })
+	}
+	for time.Now().Before(deadline) {
+		if err := ctx.Err(); err != nil {
+			undo()
+			_ = os.Remove(info.Log)
+			e := toErr(err)
+			e.Hint = "the tunnel was stopped before it came up; nothing is left running (`komando tunnel list` shows the rest)"
+			return e
+		}
+		b, _ := os.ReadFile(info.Log)
+		s := string(b)
+		if i := strings.Index(s, "READY "); i >= 0 {
+			addr := strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0])
+			audit(st, "tunnel.start", []string{info.Host}, "", true, map[string]any{"kind": info.Kind, "spec": info.Spec, "id": info.ID})
+			info.Listen = addr
+			if info.Kind == "remote" {
+				info.RemoteListen, info.ListenOn = addr, info.Host
+			}
+			out.P.Print("tunnel.start", info, nil)
+			return nil
+		}
+		if i := strings.Index(s, "ERROR "); i >= 0 {
+			_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, info.ID); return nil })
+			_ = os.Remove(info.Log) // the error says what it held
+			return tunnelErr(strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0]), info.Kind, info.Host, bind)
+		}
+		time.Sleep(150 * time.Millisecond)
+	}
+	undo()
+	return tunnelTimeout(info.Host, info.Log)
 }
 
 // tunnelConn finds the conn a tunnel leads to. Only conns reached through
