@@ -229,7 +229,11 @@ komando cluster scale swarm1 service/web 4
   refused, as kubectl does.
 - `scale` reports `previous_replicas` (or `unchanged`).
 - A protected cluster needs `--yes` before any change.
-- Scaling to 0 and `rm` stop things, so they need `--allow-dangerous`.
+- Scaling to 0 and `rm` stop things. A person at a terminal is asked to
+  type the object's name (`Type the name api-7d9f-x2 to continue`); any
+  other answer, the cluster's name too, changes nothing. A script or an AI
+  agent adds `--allow-dangerous` instead (for an agent, the person allows
+  it in komando's window).
 
 ## Work inside a pod
 

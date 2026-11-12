@@ -61,6 +61,9 @@ func clusterRmCmd() *cobra.Command {
 				} else if err := swarmStackExists(cmd.Context(), t, name); err != nil {
 					return err // stack rm of a missing stack says "Nothing found" and exits 0
 				}
+				if err := confirmObject(nil, name, "removes "+kind+" "+name); err != nil {
+					return err
+				}
 				_, ran, err := swarmDo(cmd.Context(), "cluster.rm", t, line, nil, driver.RiskDestructive, "removes "+kind+" "+name)
 				if err != nil {
 					return err
@@ -71,6 +74,9 @@ func clusterRmCmd() *cobra.Command {
 				}
 				out.P.Print("cluster.rm", res, nil)
 				return nil
+			}
+			if err := confirmObject([]string{t.conn.Name}, name, "deletes "+typ+"/"+name+" from the cluster"); err != nil {
+				return err
 			}
 			return withKube(cmd.Context(), "cluster.rm", t, driver.RiskDestructive, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)

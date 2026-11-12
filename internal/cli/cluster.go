@@ -305,6 +305,27 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 	return nil
 }
 
+// confirmObject: deleting a cluster object, or stopping every replica of
+// one, asks a person at a terminal to type that object's name ("Type the
+// name api-7d9f-x2 to continue"), not the cluster's or "yes": the name
+// says what goes, as gh repo delete does. A right answer also counts for
+// the cluster check guardConns (or swarmDo) makes next, keyed by the same
+// names, so the person is asked once; a wrong one stops here and nothing
+// changes. Agents and scripts are unchanged: they use --allow-dangerous,
+// and a dry run never asks.
+func confirmObject(names []string, obj, reason string) error {
+	if g.allowDangerous || g.dryRun || !interactive() {
+		return nil
+	}
+	if !confirmDangerous([]string{obj}, reason) {
+		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
+			"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
+			"the operation matches destructive rules [cluster]: %s", reason).Say(dangerSay([]string{reason}), dangerHint))
+	}
+	cur().sess.ConfirmDanger(strings.Join(names, ","))
+	return nil
+}
+
 // age is a Kubernetes timestamp as a kubectl age (40s, 5m, 3h, 12d).
 func age(ts string) string {
 	t, err := time.Parse(time.RFC3339, ts)

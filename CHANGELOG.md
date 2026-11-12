@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `cluster rm` and `cluster scale ... 0` at a person's terminal ask to
+  type the object's name (`Type the name web to continue`). Before,
+  Kubernetes asked for the cluster's name and Swarm for "yes", so the
+  answer did not say what would go. Scripts and agents are unchanged
+  (`--allow-dangerous`).
 - Cluster commands refuse `.` and `..` as an object or namespace name
   before anything is sent (`K8S_INVALID`): as a path segment, `cluster rm
   prod pod ..` named another object than the one typed.
