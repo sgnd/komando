@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `komando db ls`, `cache show NAME`, `queue edit NAME`, `storage test NAME`
+  and the like now say which shared command does it (`komando list
+  kind:db`, `komando conn show`, `komando conn edit`, `komando test`,
+  `komando conn rm`, `komando conn mv`) instead of only "unknown command".
 - A blocked command given a selector (`host rm @prod`, `tag:edge`) now
   records the servers and conns it picked in the audit log instead of `-`,
   so `komando audit --failed --target web2` finds it.
