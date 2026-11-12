@@ -14,6 +14,11 @@ its highlights; the sections below them give the details. Versions follow
   (exit 3) and the hint `komando pkg install TARGET shadow`, like
   `user lock` and `unlock`, instead of a generic remote failure (exit 5).
   The JSON result keeps its shape.
+- `komando login aws --profile ROLE` now works for a profile that assumes a
+  role from an SSO profile (`role_arn` with `source_profile`): it logs in
+  to that SSO, as the role's commands need. The SSO token file is written
+  through a new private temporary file, so a file left at the old
+  temporary name (or a link there) never gets the token.
 
 ## [0.12.0] - 2026-11-11
 

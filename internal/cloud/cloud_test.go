@@ -338,3 +338,45 @@ func TestGCPAccessTokenErrors(t *testing.T) {
 type failingSource struct{}
 
 func (failingSource) Token() (*oauth2.Token, error) { return nil, errors.New("invalid_grant") }
+
+// A profile that assumes a role from an SSO profile logs in to that SSO;
+// a profile with neither says ErrAWSNotSSO.
+func TestAWSProfileSSO(t *testing.T) {
+	home := awsEnv(t)
+	os.WriteFile(filepath.Join(home, "config"), []byte("[profile old]\nsso_start_url = https://old.awsapps.com/start\nsso_region = us-east-1\n"+
+		"sso_account_id = 1\nsso_role_name = r\n[profile role]\nrole_arn = arn:aws:iam::1:role/x\nsource_profile = old\n[profile plain]\nregion = eu-west-1\n"), 0o600)
+	s, err := AWSProfileSSO(context.Background(), "role")
+	if err != nil || s.StartURL != "https://old.awsapps.com/start" || s.Profile != "old" || s.key != s.StartURL {
+		t.Errorf("role: %+v %v", s, err)
+	}
+	if _, err := AWSProfileSSO(context.Background(), "plain"); !errors.Is(err, ErrAWSNotSSO) {
+		t.Errorf("plain: %v", err)
+	}
+	if _, err := AWSProfileSSO(context.Background(), "nope"); !AWSProfileMissing(err) {
+		t.Errorf("missing: %v", err)
+	}
+}
+
+// The token file is replaced by a new private file: an old file others
+// could read, or a link planted at the old temporary name, gets no token.
+func TestWriteTokenFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cache", "x.json")
+	os.MkdirAll(filepath.Dir(path), 0o700)
+	os.WriteFile(path, []byte("old"), 0o644)
+	elsewhere := filepath.Join(dir, "elsewhere")
+	os.Symlink(elsewhere, path+".tmp")
+	if err := writeTokenFile(path, []byte("tok")); err != nil {
+		t.Fatal(err)
+	}
+	fi, err := os.Stat(path)
+	if b, _ := os.ReadFile(path); err != nil || string(b) != "tok" || fi.Mode().Perm() != 0o600 {
+		t.Errorf("%s: %v %v", path, fi, err)
+	}
+	if _, err := os.Stat(elsewhere); err == nil {
+		t.Error("the token went through the link")
+	}
+	if left, _ := filepath.Glob(filepath.Join(dir, "cache", ".komando-*")); len(left) != 0 {
+		t.Errorf("left %v", left)
+	}
+}
