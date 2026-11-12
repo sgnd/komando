@@ -82,7 +82,7 @@ var errorCodes = []errorCode{
 	{"HOSTKEY_REVOKED", 4, "… shows the revoked host key …", "this key was revoked (an @revoked line of your known_hosts, moved by `komando seal`): treat the server as compromised and tell its owner; nothing was sent"},
 	{"HOSTKEY_UNKNOWN", 4, "host key for … is not trusted yet (host keys are strict)", "compare the fingerprint with what the server's owner sees, then run `komando host trust …` (an AI agent asks the user: its pin needs their yes)"},
 	{"HOSTKEY_UNREADABLE", 4, "the pinned host key for … cannot be read", "a person checks the server's key and runs `komando host trust` for it in their own terminal"},
-	{"HOST_IN_USE", 8, "server … is on the --via path of server …", "change it first: `komando host edit … --via OTHER` (or --unset via), or remove both together"},
+	{"HOST_IN_USE", 8, "server … is on the --via path of …", "change them first: … (or --via OTHER), or remove them in the same command"},
 	{"HOST_NOT_FOUND", 3, "host … not found", "run `komando host list` to see available hosts"},
 	{"IMPORT_INCOMPLETE", 1, "… not imported (see skipped)", "fix them in the source and import again: the rest is in, and importing again skips it"},
 	{"INSECURE_PROTOCOL", 2, "…:// crosses the network to … without TLS, so the password and the data travel unencrypted", "use the URL's TLS form if the server has TLS (rediss://, memcacheds://, amqps://, nats tls://, kafka tls=true, an https:// endpoint, ftps://, webdavs://), or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the login and the data travel unencrypted"},
