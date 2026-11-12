@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Secret masking for AI agents no longer hides words in komando's own
+  messages: "Would re-encrypt 3 secrets: the vault's key" and
+  "KOMANDO_KEYCHAIN=off: ..." now read whole. Real values after `secrets:`
+  or `NAME=` are still hidden.
 - Text output on a terminal that cannot show Unicode (`TERM=dumb`, or a
   locale such as `LANG=C` that is not UTF-8) now writes komando's marks in
   ASCII (`+` for ✓, `*` for ●, `->` for →) instead of broken characters.

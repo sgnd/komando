@@ -134,3 +134,33 @@ func TestMaskKeepsPublicKeysAndEnvelope(t *testing.T) {
 		t.Errorf("Kubernetes Secret values leaked: %s", got)
 	}
 }
+
+// komando's own sentences are not secrets: masking them garbled messages
+// for agents ("3 secrets: [hidden] vault's key").
+func TestMaskSecretsLeavesKomandoSentences(t *testing.T) {
+	for _, s := range []string{
+		"Would re-encrypt 3 secrets: the vault's key changes",
+		"the vault cannot rename the VPN's secrets: open store.db: permission denied",
+		"KOMANDO_KEYCHAIN=off: komando keeps the vault key in store.key",
+		"set KOMANDO_KEYCHAIN=off.",
+	} {
+		if got := MaskSecrets(s); got != s {
+			t.Errorf("MaskSecrets(%q) = %q, want it unchanged", s, got)
+		}
+	}
+	// the same shapes with a real value stay hidden
+	for in, want := range map[string]string{
+		"secrets: hunter2 rest":        "secrets: [hidden] rest",
+		"secrets: hunter\n":            "secrets: [hidden]\n",
+		"secrets: Hunter2pw more":      "secrets: [hidden] more",
+		"secret: hunter more":          "secret: [hidden] more",
+		"passwords:hunter more":        "passwords:[hidden] more",
+		"API_KEY=offline: x":           "API_KEY=[hidden] x",
+		"MY_SECRET=s3cret: and more":   "MY_SECRET=[hidden] and more",
+		"KOMANDO_KEYCHAIN=s3cretvalue": "KOMANDO_KEYCHAIN=[hidden]",
+	} {
+		if got := MaskSecrets(in); got != want {
+			t.Errorf("MaskSecrets(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
