@@ -38,7 +38,7 @@ func TestStorageTransferIsUploadDownload(t *testing.T) {
 		t.Errorf("storage download flags: %v", got)
 	}
 	for _, p := range []string{"storage upload", "storage download"} {
-		if c := find(p); c.Hidden || !strings.HasPrefix(c.Short, "Same as `komando ") {
+		if c := find(p); c.Hidden || !strings.HasPrefix(c.Long, "Same as `komando ") {
 			t.Errorf("%s: hidden %v, short %q", p, c.Hidden, c.Short)
 		}
 	}

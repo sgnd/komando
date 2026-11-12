@@ -176,7 +176,7 @@ func svcListCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "list TARGET",
 		Aliases: []string{"ls"},
-		Short:   "List service units (filter --state running|failed|...)",
+		Short:   "List the service units of servers",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command := noSystemd + "systemctl list-units --type=service --all --no-legend --plain --no-pager"
@@ -225,7 +225,8 @@ func logsAlias(use, name, source string) *cobra.Command {
 	var lo logOpts
 	c := &cobra.Command{
 		Use:   use,
-		Short: "Same as `komando logs TARGET --" + source + " NAME`",
+		Short: map[string]string{"unit": "Read a service unit's logs", "container": "Read a container's logs"}[source],
+		Long:  "Same as `komando logs TARGET --" + source + " " + strings.ToUpper(source) + "`.",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed(source) {

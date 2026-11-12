@@ -400,7 +400,7 @@ func helmValuesCmd() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
 		Use:   "values TARGET RELEASE",
-		Short: "The values a Helm release was installed with (--all: with the chart's defaults)",
+		Short: "Show the values a Helm release was installed with",
 		Example: `  komando cluster helm values prod-k8s shop-api --namespace shop
   komando cluster helm values prod-k8s shop-api --namespace shop --all --revision 3`,
 		Args: cobra.ExactArgs(2),
@@ -453,7 +453,7 @@ func mergeValues(base, over map[string]any) map[string]any {
 func clusterHelmCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "helm",
-		Short: "Helm releases, read-only: ls, status, history, values (no helm program needed)",
+		Short: "Helm releases, read only: see their state, history and values",
 		Long: `Reads the Helm releases stored in a Kubernetes cluster, without the helm
 program. It only reads: install, upgrade and rollback stay with helm. The
 kubeconfig's user needs to list Secrets where the releases are.`,

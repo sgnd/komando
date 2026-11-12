@@ -379,7 +379,7 @@ func fsWriteCmd() *cobra.Command {
 	var appendMode, ifChanged bool
 	c := &cobra.Command{
 		Use:   "write SERVER PATH",
-		Short: "Write a file on one server, all or nothing (--content, --from FILE or stdin)",
+		Short: "Write a file on one server, all or nothing",
 		Example: `  komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup
   komando fs write web1 /srv/app/config.yml --from ./config.yml --if-changed`,
 		Args: cobra.ExactArgs(2),

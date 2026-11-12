@@ -334,7 +334,7 @@ func vpnChanged(a, b *store.Vpn) bool {
 func vpnRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm TARGET...",
-		Short: "Remove VPNs from komando (their keys stay in the vault)",
+		Short: "Remove VPNs (from komando only)",
 		Example: `  komando vpn rm old-office
   komando vpn rm @lab --dry-run       # what a selector would remove`,
 		Args: cobra.MinimumNArgs(1),

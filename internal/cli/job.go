@@ -34,7 +34,7 @@ func jobCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "job",
 		Aliases: []string{"jobs"},
-		Short:   "Long-running jobs on servers: start, status, logs, wait, kill",
+		Short:   "Long-running jobs on servers: start, follow, wait for, stop",
 		Long: `A long task should not hold up an agent's tool call. ` + "`job start`" + ` starts the
 command in the background on each server and returns the job IDs at once; it
 keeps running when the connection drops. Check on it with ` + "`job status`" + ` or
@@ -51,7 +51,7 @@ func jobStartCmd() *cobra.Command {
 	var so scriptOpts
 	c := &cobra.Command{
 		Use:   "start TARGET -- COMMAND...",
-		Short: "Start a background job on each server TARGET picks; returns the job IDs",
+		Short: "Start a background job on each server TARGET picks",
 		Long: `Starts COMMAND in the background on each server TARGET picks and returns
 the job IDs at once; the job keeps running when the connection drops.
 
@@ -174,7 +174,7 @@ func jobStatusCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "status JOB",
 		Aliases: []string{"show"},
-		Short:   "Show a job's state (running, exited, lost), exit code, run time and last lines",
+		Short:   "Show a job's state, exit code, run time and last lines",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, j, h, err := lookupJob(args[0])
@@ -215,7 +215,7 @@ func jobLogsCmd() *cobra.Command {
 	var tail int
 	c := &cobra.Command{
 		Use:   "logs JOB",
-		Short: "Read job output: what is new since --offset, or the last --limit lines",
+		Short: "Read a job's output, piece by piece or its last lines",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if offset < 0 {
@@ -276,7 +276,7 @@ func jobWaitCmd() *cobra.Command {
 	var waitTimeout time.Duration
 	c := &cobra.Command{
 		Use:   "wait JOB...",
-		Short: "Wait until the jobs end (or --timeout); the exit code follows the job",
+		Short: "Wait until the jobs end",
 		Long: `Waits until the job ends, checking every --interval. --timeout (default 10m)
 is how long to wait; the job keeps running after it (exit 7, WAIT_TIMEOUT).
 

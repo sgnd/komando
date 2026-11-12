@@ -39,7 +39,7 @@ func readDB(ctx context.Context, name, connExpr string, fn func(ctx context.Cont
 func dbInfoCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "info CONN",
-		Short:   "Version, uptime, size, connections, and whether it is a primary or a replica",
+		Short:   "Show the version, size, connections and the replica role",
 		Example: "  komando db info prod-db",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

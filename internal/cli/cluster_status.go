@@ -21,7 +21,7 @@ func clusterStatusCmd() *cobra.Command {
 	var wait bool
 	c := &cobra.Command{
 		Use:   "status TARGET [TYPE/NAME]",
-		Short: "Version, nodes and what is not healthy; or one rollout",
+		Short: "Show the version, the nodes and what is not healthy",
 		Long: `Without an object: the version, the nodes, and every problem (pods that do not
 run, workloads short of replicas, nodes that are not ready; on Swarm, services
 short of replicas with their tasks' errors). --namespace limits it to one

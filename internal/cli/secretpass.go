@@ -118,7 +118,7 @@ func secretPassphraseCmd() *cobra.Command {
 	var off bool
 	c := &cobra.Command{
 		Use:   "passphrase",
-		Short: "Change the vault passphrase; re-encrypts secrets (a person only)",
+		Short: "Change the vault passphrase and encrypt the secrets again",
 		Long: `Re-encrypts every secret in the vault under a new passphrase, so you can change
 KOMANDO_VAULT_PASS without losing your secrets. A vault whose key is in
 store.key or in the OS keychain gets a passphrase this way, and the old key is

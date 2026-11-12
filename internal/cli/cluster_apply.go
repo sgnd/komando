@@ -25,7 +25,7 @@ func clusterApplyCmd() *cobra.Command {
 	var file, ns, stack string
 	c := &cobra.Command{
 		Use:   "apply TARGET --file FILE",
-		Short: "Apply YAML (Kubernetes) or deploy a stack (Swarm)",
+		Short: "Apply Kubernetes YAML or deploy a Swarm stack",
 		Long: `Kubernetes: applies every object in FILE server-side and says per object
 whether it was created, configured or unchanged. --dry-run asks the server
 what would change and shows it as a diff (Secret values stay hidden; a

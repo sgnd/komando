@@ -25,7 +25,7 @@ import (
 func loginCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "login [SERVER]",
-		Short: "Log in to a server once and keep it, or to a cloud account",
+		Short: "Log in once to a server or a cloud account",
 		Long: `Type the password and code once; for 8 hours your commands and your AI
 agent reuse that login. The safety rules, approvals and history of each
 command stay the same.
@@ -91,7 +91,7 @@ func loginAWSCmd() *cobra.Command {
 	var profile string
 	c := &cobra.Command{
 		Use:   "aws",
-		Short: "Log in to AWS IAM Identity Center (SSO) for a profile, like `aws sso login`",
+		Short: "Log in to AWS IAM Identity Center for a profile",
 		Long: `Opens the AWS sign-in page in your browser and waits until you confirm the
 code shown here. The login is saved where the aws CLI keeps it
 (~/.aws/sso/cache), so komando, the AWS SDKs and the aws CLI all use it. The

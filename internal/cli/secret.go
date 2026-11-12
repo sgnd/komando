@@ -208,7 +208,7 @@ func secretCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "secret",
 		Aliases: []string{"secrets", "vault"},
-		Short:   "Saved passwords and tokens (use them as secret:NAME)",
+		Short:   "Saved passwords and tokens: store, check, use as secret:NAME",
 		Long:    secretLong,
 	}
 	c.AddCommand(addAliases(secretSetCmd(), "add"), secretGetCmd(), secretCheckCmd(), secretListCmd(), secretCopyCmd(true),

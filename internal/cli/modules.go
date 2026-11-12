@@ -23,7 +23,7 @@ func svcCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "svc",
 		Aliases: []string{"service"},
-		Short:   "Services (systemd, Windows): status, start, stop, restart, logs",
+		Short:   "Services on servers: check, start, stop, read logs",
 	}
 	c.AddCommand(svcStatusCmd(), svcListCmd(), svcLogsCmd(), svcDaemonReloadCmd())
 	for _, a := range []string{"start", "stop", "restart", "reload", "enable", "disable"} {
@@ -365,7 +365,7 @@ func pkgCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "pkg",
 		Aliases: []string{"package", "packages"},
-		Short:   "Packages on servers (apt, dnf, yum, apk, zypper, pacman)",
+		Short:   "Packages on servers: install, update, remove, check for updates",
 	}
 	var noSudo, refresh bool
 	var limit int
@@ -455,7 +455,7 @@ func pkgCmd() *cobra.Command {
 // net.
 
 func netCmd() *cobra.Command {
-	c := &cobra.Command{Use: "net", Aliases: []string{"network"}, Short: "Network checks from the servers: ports, HTTP, DNS"}
+	c := &cobra.Command{Use: "net", Aliases: []string{"network"}, Short: "Network checks from servers: open ports, reachability, HTTP, DNS"}
 	check := &cobra.Command{
 		Use:     "check TARGET ADDRESS:PORT...",
 		Short:   "Check that each server can open a TCP connection to HOST:PORT",
@@ -532,7 +532,7 @@ func netCmd() *cobra.Command {
 	var rrType string
 	dns := &cobra.Command{
 		Use:     "dns TARGET DOMAIN",
-		Short:   "Resolve NAME from each server (--type MX etc. needs dig there)",
+		Short:   "Resolve a domain name from each server",
 		Example: "  komando net dns @web db.internal\n  komando net dns web1 example.com --type MX",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -593,7 +593,7 @@ kept as they are.`
 func cronCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "cron",
-		Short: "Manage crontab entries by ID (set replaces, never duplicates)",
+		Short: "Scheduled tasks on servers: see, set and remove them",
 		Long:  cronLong,
 	}
 	var user string
@@ -659,7 +659,7 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 	_ = set.MarkFlagRequired("schedule")
 	rm := &cobra.Command{
 		Use:   "rm TARGET NAME",
-		Short: "Remove the entry with this ID",
+		Short: "Remove a scheduled task",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cronID.MatchString(args[1]) {

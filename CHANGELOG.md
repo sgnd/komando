@@ -115,6 +115,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Command summaries (`Short`, the line in every list) follow one shape:
+  a verb phrase with no flags, semicolons or approval notes ("needs
+  --allow-dangerous" is gone from them; the generated Safety line in the
+  help says it). Group summaries name the area and its main jobs in plain
+  verbs (`Services on servers: check, start, stop, read logs`).
+  Inventory `rm` commands end with "(from komando only)", and `secret
+  rm` says the value goes for good. `host list`, `conn test`, `svc logs`
+  and the other second spellings say what they do; "Same as `komando
+  ...`" moved to the first line of their help.
 - `komando --help` starts with Start (`host add`, `conn add`, `import
   ssh-config`, `list`, `test TARGET`, `guide install`), and a new
   Inventory group holds `host`, `conn`, `group`, `import`, `export` and

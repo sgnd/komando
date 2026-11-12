@@ -125,7 +125,7 @@ func connCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "conn",
 		Aliases: []string{"conns"},
-		Short:   "Manage databases, caches, queues, storage, clusters, registries",
+		Short:   "Conns (databases, caches, queues, ...): add, change, remove",
 		Long: `A conn is a database, cache, message queue, file storage, cluster or registry
 komando talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + `
 lists them). Passwords never go in the URL: store them with
@@ -134,7 +134,7 @@ resource is only reachable from a server.
 
 Conns share names and selectors (@group, tag:x, glob, all) with servers.`,
 	}
-	c.AddCommand(connAddCmd(), connEditCmd(), connMvCmd(), alias(listCmdFor("conn"), "list kind:conn"), connShowCmd(), connRmCmd(), alias(testCmdFor("conn"), "test"), connKindsCmd())
+	c.AddCommand(connAddCmd(), connEditCmd(), connMvCmd(), alias(listCmdFor("conn"), "list kind:conn", "List conns"), connShowCmd(), connRmCmd(), alias(testCmdFor("conn"), "test", "Check that conns answer and let you in"), connKindsCmd())
 	return c
 }
 
@@ -397,7 +397,7 @@ func connShowCmd() *cobra.Command {
 func connRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm TARGET...",
-		Short: "Remove conns from the inventory (the resources are not touched)",
+		Short: "Remove conns (from komando only)",
 		Example: `  komando conn rm shop-2
   komando conn rm kind:redis --dry-run`,
 		Args: cobra.MinimumNArgs(1),
@@ -753,8 +753,8 @@ func addKindFits(family, raw, passwordRef string) error {
 func connAddCmdFor(kind string) *cobra.Command {
 	k := connAddKinds[kind]
 	c := connAddCmd()
-	c.Short = "Add " + article(k.what) + " " + k.what + " (same as conn add)"
-	c.Long = "Saves " + article(k.what) + " " + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them."
+	c.Short = "Add " + article(k.what) + " " + k.what
+	c.Long = "Same as `komando conn add NAME URL`, for " + article(k.what) + " " + k.what + ".\n\nSaves " + article(k.what) + " " + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them."
 	c.Example = "  " + k.example
 	if kind == "cluster" {
 		c.Long += "\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--password-ref). A Docker Swarm manager is a server: `komando host add`."

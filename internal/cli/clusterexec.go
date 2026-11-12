@@ -30,7 +30,7 @@ func clusterExecCmd() *cobra.Command {
 	var readOnly bool
 	c := &cobra.Command{
 		Use:   "exec TARGET POD|TYPE/NAME -- COMMAND...",
-		Short: "Run a command in a pod (not interactive; policy checks it)",
+		Short: "Run a command in a pod, checked by the policy",
 		Long: `Runs COMMAND in the pod (for TYPE/NAME, in one of its pods) and returns its
 output. Commands that only look can say so with --read-only: one that
 clearly changes something is refused, and protected clusters skip --yes
@@ -161,7 +161,7 @@ func clusterShellCmd() *cobra.Command {
 	var ns, container string
 	c := &cobra.Command{
 		Use:   "shell TARGET POD|TYPE/NAME [-- COMMAND...]",
-		Short: "Interactive shell in a pod (for people), like kubectl exec -it",
+		Short: "Open a shell in a pod, like kubectl exec",
 		Long: `Opens a terminal in the pod's container: bash when it has one, else sh, or
 COMMAND. For people at a terminal; agents use ` + "`komando cluster exec`" + `.
 Anything can be typed inside, so a protected cluster asks first.`,

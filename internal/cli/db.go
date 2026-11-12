@@ -38,7 +38,7 @@ func dbCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "db",
 		Aliases: []string{"sql"},
-		Short:   "Query databases safely: read-only by default, structured results",
+		Short:   "Databases: query safely, look at the schema, back up, restore",
 		Long: `Look at and query your databases. Add one with ` + "`komando db add`" + `.
 
 Without --write every query runs in a read-only transaction (SQL Server: one
@@ -119,7 +119,7 @@ func dbQueryCmd() *cobra.Command {
 	var csvFlag, tsvFlag bool
 	c := &cobra.Command{
 		Use:   "query CONN [SQL]",
-		Short: "Run SQL; read-only unless --write",
+		Short: "Run SQL (read only by default)",
 		Long: `Runs SQL on a database and prints the rows. Without --write it only reads:
 komando runs it in a read-only transaction, and stops it after 30s.`,
 		Annotations: map[string]string{tableOutput: "yes", helpNotes: `More about db query:

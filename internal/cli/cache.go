@@ -25,7 +25,7 @@ func cacheCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "cache",
 		Aliases: []string{"redis"},
-		Short:   "Redis/Valkey and memcached: read keys, change them with checks",
+		Short:   "Caches (Redis, Valkey, memcached): read and change keys",
 		Long: `Read and change keys in Redis, Valkey or memcached. Add a cache with
 ` + "`komando cache add`" + `.
 
@@ -329,7 +329,7 @@ func cacheSetCmd() *cobra.Command {
 	var ttlFlag string
 	c := &cobra.Command{
 		Use:   "set CONN KEY VALUE",
-		Short: "Set a string key (replaces any old value); --ttl to expire it",
+		Short: "Set a string key, replacing any old value",
 		Example: `  komando cache set cache feature:dark-mode on
   komando cache set cache maintenance true --ttl 30m
   komando cache set cache report:weekly done --ttl 7d`,
@@ -409,7 +409,7 @@ func yesNo(b bool) string {
 func cacheRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm CONN KEY...",
-		Short: "Delete keys by exact name (no patterns; needs --allow-dangerous)",
+		Short: "Delete keys by exact name, never by pattern",
 		Example: `  komando cache rm cache session:42 session:43 --dry-run
   komando cache rm cache session:42 session:43 --allow-dangerous`,
 		Args: cobra.MinimumNArgs(2),
@@ -479,7 +479,7 @@ func cacheRunCmd() *cobra.Command {
 	var write bool
 	c := &cobra.Command{
 		Use:   "run CONN -- COMMAND...",
-		Short: "Send any Redis or memcached command; read-only unless --write",
+		Short: "Send any Redis or memcached command (read only by default)",
 		Example: `  komando cache run cache -- HGETALL user:42
   komando cache run cache -- ZREVRANGE leaderboard 0 9 WITHSCORES
   komando cache run cache --write -- EXPIRE session:42 3600

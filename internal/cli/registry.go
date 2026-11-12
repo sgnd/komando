@@ -35,7 +35,7 @@ func registryCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "registry",
 		Aliases: []string{"oci"},
-		Short:   "Container registries: repositories, tags, images, cleanup",
+		Short:   "Container registries: see images, copy them, clean up",
 		Long: `Look at, copy and clean up container images. Add a registry with
 ` + "`komando registry add ghcr registry://myuser@ghcr.io --ask-password`" + `,
 or bring in the ones you use with ` + "`komando import docker`" + `.
@@ -379,7 +379,7 @@ func registryInspectCmd() *cobra.Command {
 func registryRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm CONN IMAGE",
-		Short: "Delete an image and every tag on it (needs --allow-dangerous)",
+		Short: "Delete an image and every tag on it",
 		Long: `Deletes the image a tag (or digest) points at. A registry deletes images,
 not tags: every other tag on the same image goes too, latest included.
 --dry-run names each tag that would go. The space comes back after the

@@ -198,7 +198,7 @@ func lockoutStop(target, user, verb string) error {
 }
 
 func userCmd() *cobra.Command {
-	c := &cobra.Command{Use: "user", Aliases: []string{"users"}, Short: "Linux user accounts: list, add, lock, unlock, rm"}
+	c := &cobra.Command{Use: "user", Aliases: []string{"users"}, Short: "Linux user accounts: see, add, lock, remove"}
 	var noSudo bool
 	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
 	var all bool
@@ -285,7 +285,7 @@ func userRmCmd(noSudo *bool) *cobra.Command {
 	var removeHome bool
 	del := &cobra.Command{
 		Use:   "rm TARGET USER",
-		Short: "Delete a user (needs --allow-dangerous)",
+		Short: "Delete a user account",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := checkUsername(args[1]); err != nil {

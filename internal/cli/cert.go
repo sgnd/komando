@@ -43,7 +43,7 @@ func certCheckCmd() *cobra.Command {
 	var paths []string
 	c := &cobra.Command{
 		Use:   "check TARGET|URL...",
-		Short: "Certificate expiry on servers (certbot, nginx, haproxy, apache) and of websites",
+		Short: "Check when the certificates of servers and websites expire",
 		Long: `Reads certificates and says when they expire. It only reads.
 
 A server (or @group, tag:, ...): komando looks for the certificates the

@@ -33,7 +33,7 @@ func storageCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "storage",
 		Aliases: []string{"s3"},
-		Short:   "Buckets (S3, GCS, Azure) and WebDAV/FTP/SFTP/SMB file servers",
+		Short:   "Buckets (S3, GCS, Azure) and file servers: browse, copy, remove",
 		Long: `List, copy and share files in a bucket or on a file server. Add one with
 ` + "`komando storage add`" + `.
 
@@ -285,7 +285,7 @@ func storageLsCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
 		Use:   "list CONN [PREFIX]",
-		Short: "List objects and folders (one level; --recursive for all)",
+		Short: "List the objects and folders of a storage conn",
 		Example: `  komando storage list backups
   komando storage list backups db/2026-11/ --recursive`,
 		Args: cobra.RangeArgs(1, 2),
@@ -333,7 +333,7 @@ func storageCatCmd() *cobra.Command {
 	var maxBytes int64
 	c := &cobra.Command{
 		Use:   "cat CONN OBJECT",
-		Short: "Show an object's text (--head or --tail N lines, --max-bytes)",
+		Short: "Show the text of an object",
 		Example: `  komando storage cat backups logs/app-2026-11-02.log --tail 50
   komando storage cat config prod/app.env`,
 		Args: cobra.ExactArgs(2),

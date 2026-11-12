@@ -22,7 +22,7 @@ func queueSendCmd() *cobra.Command {
 	var partition int
 	c := &cobra.Command{
 		Use:   "send CONN TOPIC",
-		Short: "Publish one message (--value, --from FILE, or stdin)",
+		Short: "Publish one message",
 		Long: `Publish one message to an existing topic (or queue) and wait until the
 server keeps it. The value comes from --value, from a file (--from FILE;
 '-' is stdin), or from data piped on stdin. --dry-run checks the topic and
@@ -128,7 +128,7 @@ func queueCreateCmd() *cobra.Command {
 	var typ string
 	c := &cobra.Command{
 		Use:   "create CONN TOPIC",
-		Short: "Create a topic, queue or stream (Kafka: --dry-run asks the brokers to check it)",
+		Short: "Create a topic, queue or stream",
 		Example: `  komando queue create events orders --partitions 6 --replicas 3 --dry-run
   komando queue create events orders --partitions 6 --replicas 3 --config retention.ms=604800000
   komando queue create jobs emails --type quorum --config x-max-length=10000
@@ -168,7 +168,7 @@ func queueCreateCmd() *cobra.Command {
 func queueRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm CONN TOPIC...",
-		Short: "Delete topics, queues or streams and their messages (needs --allow-dangerous)",
+		Short: "Delete topics, queues or streams with their messages",
 		Example: `  komando queue rm events old-orders --dry-run
   komando queue rm events old-orders --allow-dangerous`,
 		Args: cobra.MinimumNArgs(2),
@@ -192,7 +192,7 @@ func queueRmCmd() *cobra.Command {
 func queuePurgeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "purge CONN TOPIC",
-		Short: "Empty a topic, queue or stream and keep it (needs --allow-dangerous)",
+		Short: "Empty a topic, queue or stream and keep it",
 		Example: `  komando queue purge events orders-retry --dry-run
   komando queue purge events orders-retry --allow-dangerous`,
 		Args: cobra.ExactArgs(2),

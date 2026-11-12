@@ -267,7 +267,7 @@ func (c configSet) Text() string {
 }
 
 func configCmd() *cobra.Command {
-	c := &cobra.Command{Use: "config", Short: "Show or change settings: timeouts, parallelism, host keys, audit"}
+	c := &cobra.Command{Use: "config", Short: "Settings: read and change timeouts, host keys, the audit"}
 	var keysHelp strings.Builder
 	for _, s := range settings {
 		keysHelp.WriteString("  " + s.Key + strings.Repeat(" ", 17-len(s.Key)) + s.Values + "\n      " + s.Help + "\n")

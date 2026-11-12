@@ -25,7 +25,7 @@ func dockerCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "docker",
 		Aliases: []string{"container", "ctr"},
-		Short:   "Docker: containers, images, logs, compose, prune",
+		Short:   "Docker on servers: check, read logs, run compose, clean up",
 		Long: `Docker on a server over SSH. Reads need nothing; start, stop, restart, pull,
 compose up and a docker run through ` + "`docker raw`" + ` change things (protected
 servers need --yes); rm, prune, compose down -v and other deletes need
@@ -80,7 +80,7 @@ or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 	var file, dir string
 	compose := &cobra.Command{
 		Use:     "compose TARGET -- ARGS...",
-		Short:   "docker compose with -f/--dir (e.g. ps, up -d, pull, logs --tail 50)",
+		Short:   "Run docker compose for a project folder",
 		Example: "  komando docker compose app1 --dir /srv/shop -- up -d --pull always",
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -171,7 +171,7 @@ var dockerActionShorts = map[string]string{
 	"start":   "Start stopped containers (docker start)",
 	"stop":    "Stop running containers (docker stop)",
 	"restart": "Restart containers (docker restart)",
-	"rm":      "Remove containers (docker rm; needs --allow-dangerous)",
+	"rm":      "Remove containers",
 	"pull":    "Pull images from their registry (docker pull)",
 }
 

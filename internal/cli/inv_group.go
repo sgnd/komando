@@ -102,7 +102,7 @@ func groupCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "group",
 		Aliases: []string{"groups"},
-		Short:   "List groups and manage membership",
+		Short:   "Groups of servers, conns and VPNs: see and change who is in them",
 		Long: `A group is a name on servers, conns and VPNs; @GROUP picks all of them in any
 command. Group names use letters, digits and . _ - and match in any case.
 A group exists while something is in it.`,
@@ -204,7 +204,7 @@ func groupAddCmd() *cobra.Command {
 func groupRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm GROUP [TARGET...]",
-		Short: "Take servers, conns and VPNs out of GROUP (without TARGET: delete the group)",
+		Short: "Take entries out of a group, or delete the group (from komando only)",
 		Long: `Takes the entries TARGET picks out of GROUP; entries that are not in it are
 left alone. Without TARGET the group is deleted: every member leaves it.
 Deleting a group with more than 3 members needs --yes; try --dry-run first.`,

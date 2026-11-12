@@ -28,7 +28,7 @@ func clusterRmCmd() *cobra.Command {
 	var ns string
 	c := &cobra.Command{
 		Use:   "rm TARGET TYPE/NAME",
-		Short: "Delete an object, service or stack (needs --allow-dangerous)",
+		Short: "Delete an object, service or stack",
 		Example: `  komando cluster rm prod-k8s pod api-7d9f-x2 --namespace shop --allow-dangerous
   komando cluster rm swarm-manager service/web --allow-dangerous`,
 		Args: refArgs(1, 0),
@@ -248,7 +248,7 @@ func clusterRunCmd() *cobra.Command {
 	var write bool
 	c := &cobra.Command{
 		Use:   "run TARGET -- ARGS...",
-		Short: "Run any kubectl or docker command (read-only unless --write)",
+		Short: "Run any kubectl or docker command (read only by default)",
 		Long: `For Kubernetes, komando runs the kubectl command itself (no kubectl
 needed) and reaches the API through the conn's --via path: get (tables,
 wide, name, json, yaml, jsonpath, custom-columns, -w), describe, logs,

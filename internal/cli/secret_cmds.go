@@ -21,7 +21,7 @@ import (
 func secretSetCmd() *cobra.Command {
 	set := &cobra.Command{
 		Use:   "set NAME",
-		Short: "Store a secret (typed hidden, or from --from-env VAR or stdin)",
+		Short: "Store a secret, typed hidden or from a variable or a pipe",
 		Long: `Saves or replaces a password. Replacing one that a production server or
 database uses asks first: it changes how komando logs in there.
 
@@ -99,7 +99,7 @@ func secretGetCmd() *cobra.Command {
 	get := &cobra.Command{
 		Use:     "show NAME",
 		Aliases: []string{"get"},
-		Short:   "Check a secret exists; --reveal prints its value",
+		Short:   "Show that a secret exists, its value hidden",
 		Long: `Says whether the secret exists and what uses it, without its value. A person
 at a terminal can add --reveal to print it; AI agents never get the value
 (they reference it as secret:NAME instead). A warning says when the value
@@ -148,7 +148,7 @@ login; 'komando secret check NAME' lets a person compare it.`,
 func secretCheckCmd() *cobra.Command {
 	check := &cobra.Command{
 		Use:   "check NAME",
-		Short: "Compare a typed value to a secret; shows neither (a person only)",
+		Short: "Compare a typed value to a secret without showing either",
 		Long: `Asks for a value (hidden, or from --from-env VAR or a pipe) and says whether it
 is the stored one. When it is not, it says how they differ (only spaces at
 the ends, only upper and lower case, or the number of characters), but never
@@ -226,7 +226,7 @@ func secretListCmd() *cobra.Command {
 func secretRmCmd() *cobra.Command {
 	rm := &cobra.Command{
 		Use:   "rm NAME...",
-		Short: "Delete secrets (refused while anything still uses them)",
+		Short: "Delete secrets for good",
 		Example: `  komando secret rm old-pass
   komando secret rm a-pass b-pass --dry-run`,
 		Args: cobra.MinimumNArgs(1),

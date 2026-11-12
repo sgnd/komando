@@ -20,7 +20,7 @@ func shellCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "shell SERVER",
 		Aliases: []string{"ssh", "connect"},
-		Short:   "Interactive login shell (for people; agents use exec or job)",
+		Short:   "Open a login shell on one server",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				// `ssh host command` runs a command in ssh; here that is exec

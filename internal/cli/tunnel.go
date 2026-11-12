@@ -37,7 +37,7 @@ func tunnelCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "tunnel",
 		Aliases: []string{"pf"},
-		Short:   "Background port forwarding: local (-L), remote (-R), SOCKS5 (-D)",
+		Short:   "Background port forwarding: start, see, stop",
 		Long: `Specs:
   -L [bind:]LPORT:RHOST:RPORT   local port -> RHOST:RPORT as seen from the server
   -R [rbind:]RPORT:LHOST:LPORT  server port -> LHOST:LPORT on this machine
@@ -103,7 +103,7 @@ func tunnelStartCmd() *cobra.Command {
 	var port int
 	c := &cobra.Command{
 		Use:   "start TARGET (-L SPEC | -R SPEC | -D SPEC)",
-		Short: "Start a background tunnel; returns its ID and bound address",
+		Short: "Start a background tunnel",
 		Long: `With a conn name and no -L/-R/-D, the tunnel leads to that conn through its --via path:
 point your database app or psql at the local address it prints. With a server, give one of -L, -R or -D.`,
 		Example: `  komando tunnel start app-db               # localhost:<free port> -> app-db
@@ -366,7 +366,7 @@ func tunnelListCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
 		Use:   "list",
-		Short: "List tunnels and whether each is up; dead ones are removed",
+		Short: "List tunnels and whether each is up",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rows := []tunnelRow{}

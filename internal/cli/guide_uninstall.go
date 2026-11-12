@@ -23,7 +23,7 @@ func guideUninstallCmd() *cobra.Command {
 	var project bool
 	c := &cobra.Command{
 		Use:   "uninstall",
-		Short: "Take the komando skill and guard out of Claude Code, Codex, Cursor, Gemini CLI",
+		Short: "Take the komando skill and guard out of your AI agents",
 		Long: `Removes what ` + "`komando guide install`" + ` added: komando/SKILL.md in ~/.claude/skills
 and ~/.agents/skills, and komando's guard entries in .claude/settings.json,
 .cursor/hooks.json, .gemini/settings.json and .codex/hooks.json. Everything

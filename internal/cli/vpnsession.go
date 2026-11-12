@@ -444,7 +444,7 @@ func sessionView(s *store.VpnSession) store.VpnSession {
 func vpnUpCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "up NAME",
-		Short: "Connect a VPN now and keep it up (a person logs in here)",
+		Short: "Connect a VPN now and keep it up",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()

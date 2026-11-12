@@ -27,7 +27,7 @@ func queueCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "queue",
 		Aliases: []string{"kafka", "rabbitmq", "nats", "sqs", "pubsub"},
-		Short:   "Read and change Kafka, RabbitMQ, NATS, SQS and Pub/Sub queues",
+		Short:   "Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage",
 		Long: `Read and send messages on Kafka, RabbitMQ, NATS, SQS and Pub/Sub. Add a queue
 with ` + "`komando queue add`" + `.
 

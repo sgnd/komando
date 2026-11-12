@@ -43,7 +43,7 @@ func keyRevokeCmd() *cobra.Command {
 	var user string
 	c := &cobra.Command{
 		Use:   "revoke NAME TARGET",
-		Short: "Remove a public key from authorized_keys on many servers (offboarding, rotation)",
+		Short: "Take a public key off servers' authorized_keys",
 		Long: `KEY is a key in komando's key list, a .pub file, or a public key line. Every line
 with that key is removed from ~/.ssh/authorized_keys of the login user, or
 of --user NAME (with sudo). The file keeps its owner and mode. Revoking the

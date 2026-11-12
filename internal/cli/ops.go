@@ -228,7 +228,7 @@ func recipeCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "recipe",
 		Aliases: []string{"recipes"},
-		Short:   "Ready-made and saved commands: health, disk, oom, your own",
+		Short:   "Ready-made and saved commands: run them, save your own",
 	}
 	c.AddCommand(recipeListCmd(), recipeAddCmd(), recipeRmCmd(), recipeRunCmd(), recipeShowCmd())
 	return c
@@ -240,7 +240,7 @@ func recipeListCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
-		Short:   "List built-in and saved recipes (filter with --category)",
+		Short:   "List built-in and saved recipes",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := checkRecipeCategory(category); err != nil {
@@ -278,7 +278,7 @@ func recipeAddCmd() *cobra.Command {
 	var sudo, readOnly, overwrite bool
 	c := &cobra.Command{
 		Use:   "add NAME COMMAND",
-		Short: "Save a recipe; {{name}} is a blank, {{name=x}} defaults to x",
+		Short: "Save a command as a recipe with blanks to fill in",
 		Example: `  komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo
   komando recipe add disk-usage 'df -h {{path=/}}' --read-only`,
 		Args: cobra.ExactArgs(2),
@@ -340,7 +340,7 @@ func recipeAddCmd() *cobra.Command {
 func recipeRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm NAME",
-		Short: "Delete a saved recipe",
+		Short: "Remove a saved recipe (from komando only)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if builtinRecipe(args[0]) != nil {

@@ -175,7 +175,7 @@ func clusterDeployCmd() *cobra.Command {
 	var wait bool
 	c := &cobra.Command{
 		Use:   "deploy TARGET TYPE/NAME --image IMAGE",
-		Short: "Roll out a new image; --wait follows the rollout to the end",
+		Short: "Roll out a new image",
 		Long: `Sets the image of a deployment, statefulset or daemonset (Kubernetes) or a
 service (Swarm). With several containers, name one with --container (or
 write --image NAME=IMAGE). --wait stays until every replica runs the new
@@ -485,7 +485,7 @@ func clusterRollbackCmd() *cobra.Command {
 	var wait bool
 	c := &cobra.Command{
 		Use:   "rollback TARGET TYPE/NAME",
-		Short: "Go back to the previous version (or --revision N, see `cluster history`)",
+		Short: "Go back to an earlier version of a workload",
 		Long: `Without --revision, a deployment goes back to the newest earlier revision that runs
 other images than now. After a rollback, the revision it replaced (the bad
 one) is skipped, so a second rollback does not bring it back; --revision picks any

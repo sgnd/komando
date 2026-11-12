@@ -202,7 +202,7 @@ func (p policyCheck) Text() string {
 }
 
 func policyCmd() *cobra.Command {
-	c := &cobra.Command{Use: "policy", Short: "Rules that block destructive commands: list, check, deny, rm"}
+	c := &cobra.Command{Use: "policy", Short: "Rules that block destructive commands: see, test, add, remove"}
 	var limit int
 	list := &cobra.Command{
 		Use:   "list",
@@ -285,7 +285,7 @@ func policyCheckCmd() *cobra.Command {
 	var kind string
 	check := &cobra.Command{
 		Use:   "check COMMAND",
-		Short: "Would this command be blocked? (--conn-kind KIND rates SQL, Redis ...)",
+		Short: "Check whether a command would be blocked",
 		Example: `  komando policy check 'rm -rf /var/www'
   if komando policy check "$CMD" >/dev/null; then echo allowed; fi
   komando policy check --conn-kind postgres 'delete from users'
@@ -367,7 +367,7 @@ func policyCheckKinds() []string {
 func policyRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm RULE",
-		Short: "Remove a rule you added (built-in rules stay)",
+		Short: "Remove a deny rule you added (from komando only)",
 		Long: `Removes a rule added with ` + "`policy deny`" + `. Give it as you wrote it, or by
 its id in ` + "`policy list`" + ` (custom- and eight letters and digits, made from
 the pattern, so it does not change when another rule goes). Built-in rules

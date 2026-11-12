@@ -27,7 +27,7 @@ import (
 )
 
 func keyCmd() *cobra.Command {
-	c := &cobra.Command{Use: "key", Aliases: []string{"keys"}, Short: "SSH keys: generate, register, deploy to servers, list"}
+	c := &cobra.Command{Use: "key", Aliases: []string{"keys"}, Short: "SSH keys: make, add, put on servers, take off"}
 	c.AddCommand(keyGenCmd(), keyAddCmd(), keyListCmd(), keyShowCmd(), keyRmCmd(), keyDeployCmd(), keyRevokeCmd(), keyEditCmd(), keyMvCmd())
 	return c
 }
@@ -434,7 +434,7 @@ func keyRmCmd() *cobra.Command {
 	var deleteFile bool
 	c := &cobra.Command{
 		Use:   "rm NAME",
-		Short: "Remove a key from komando's key list (not while a server uses it)",
+		Short: "Remove a key (from komando only)",
 		Long: `Removes the key from komando's key list. --delete-file also deletes the private
 key komando keeps for a key it made (key gen), for good; a key file you
 added stays on disk.`,

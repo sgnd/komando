@@ -103,7 +103,7 @@ func clusterGetCmd() *cobra.Command {
 	var ns string
 	c := &cobra.Command{
 		Use:   "get TARGET TYPE/NAME",
-		Short: "Show one object in full (Secret values are hidden); TYPE/NAME works too",
+		Short: "Show one object in full, Secret values hidden",
 		Example: `  komando cluster get prod-k8s deployment api --namespace shop
   komando cluster get prod-k8s deployment.apps/api --namespace shop
   komando cluster get swarm-manager service/web`,
@@ -171,7 +171,7 @@ func clusterRestartCmd() *cobra.Command {
 	var wait bool
 	c := &cobra.Command{
 		Use:   "restart TARGET TYPE/NAME",
-		Short: "Restart a deployment, statefulset or daemonset (rolling), or a Swarm service",
+		Short: "Restart a workload with a rolling restart, or a Swarm service",
 		Example: `  komando cluster restart prod-k8s deployment/api --namespace shop --wait
   komando cluster restart swarm-manager service/web`,
 		Args: refArgs(1, 0),
@@ -260,7 +260,7 @@ func clusterScaleCmd() *cobra.Command {
 	var wait bool
 	c := &cobra.Command{
 		Use:   "scale TARGET TYPE/NAME REPLICAS",
-		Short: "Set the number of replicas (0 stops it: needs --allow-dangerous)",
+		Short: "Set the number of replicas",
 		Example: `  komando cluster scale prod-k8s deployment/api 3 --namespace shop --wait
   komando cluster scale swarm-manager service/web 4`,
 		Args: refArgs(1, 1),

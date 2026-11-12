@@ -29,7 +29,7 @@ func vpnCmd() *cobra.Command {
 	}
 	c := &cobra.Command{
 		Use:   "vpn",
-		Short: "VPNs komando connects by itself when a --via path needs one",
+		Short: "VPNs komando connects when a path needs one: add, connect, check",
 		Long: `Add a VPN once, then put it first in --via. A command that needs it
 connects it, using the login you saved:
 
@@ -45,7 +45,7 @@ Kinds (also: pritunl = openvpn; cisco = ipsec):
 ` + strings.Join(kinds, "\n"),
 	}
 	c.AddCommand(vpnAddCmd(), vpnShowCmd(), vpnEditCmd(), vpnMvCmd(), vpnRmCmd(), vpnUpCmd(), vpnDownCmd(), vpnStatusCmd(), vpnServeCmd(),
-		alias(listCmdFor("vpn"), "list kind:vpn"), alias(testCmdFor("vpn"), "test"))
+		alias(listCmdFor("vpn"), "list kind:vpn", "List VPNs"), alias(testCmdFor("vpn"), "test", "Check that VPNs connect"))
 	return c
 }
 
@@ -63,7 +63,7 @@ func vpnAddCmd() *cobra.Command {
 	var inv vpnEditFlags // --label, --protected
 	c := &cobra.Command{
 		Use:   "add NAME KIND",
-		Short: "Add a VPN (see `komando vpn --help` for the kinds)",
+		Short: "Add a VPN",
 		Long: `Saves a VPN under a short name. Typed alone at a terminal, it asks step by
 step, starting with the VPN app your company uses.
 

@@ -421,7 +421,7 @@ func fsCatCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "cat SERVER PATH",
 		Aliases: []string{"read"},
-		Short:   "Read a file on one server (--head, --tail, --line-numbers)",
+		Short:   "Read a file on one server",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if maxBytes <= 0 {
@@ -577,7 +577,7 @@ func quoteAll(a []string) string {
 }
 
 func fsRmCmd() *cobra.Command {
-	c := shellFsCmd("rm TARGET PATH...", "Remove files on servers (--recursive for folders; missing ones are reported)", 2, func(a []string, f map[string]bool) (string, string, error) {
+	c := shellFsCmd("rm TARGET PATH...", "Remove files on servers", 2, func(a []string, f map[string]bool) (string, string, error) {
 		flags := "-f"
 		if f["recursive"] {
 			flags = "-rf"
@@ -592,7 +592,7 @@ komando exec for that).`
 }
 
 func fsMkdirCmd() *cobra.Command {
-	c := shellFsCmd("mkdir TARGET PATH...", "Create folders on servers, with any missing parents (like mkdir -p)", 2, func(a []string, _ map[string]bool) (string, string, error) {
+	c := shellFsCmd("mkdir TARGET PATH...", "Create folders on servers, with any missing parents", 2, func(a []string, _ map[string]bool) (string, string, error) {
 		return mkdirScript(a), "mkdir -p -- " + rqAll(a), nil
 	}, nil)
 	// it always makes the parents; -p, typed from habit, changes nothing
@@ -602,7 +602,7 @@ func fsMkdirCmd() *cobra.Command {
 }
 
 func fsMvCmd() *cobra.Command {
-	c := shellFsCmd("mv TARGET SRC DST", "Move or rename a path on servers (replaces a file only with --overwrite)", 3, func(a []string, f map[string]bool) (string, string, error) {
+	c := shellFsCmd("mv TARGET SRC DST", "Move or rename a path on servers", 3, func(a []string, f map[string]bool) (string, string, error) {
 		if len(a) != 2 {
 			return "", "", out.Usage("give one SRC and one DST: komando fs mv TARGET SRC DST")
 		}
