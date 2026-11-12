@@ -66,8 +66,8 @@ This page is made from the code (`komando schema` lists the same under
 | `DOCKER_PERMISSION` | 5 | the login user may not use docker on the server (add --sudo, or the docker group) | add --sudo, or add the login user to the docker group |
 | `DOCTOR_FAILED` | 1 | some checks failed | fix the checks marked ✗ (ok: false) |
 | `DRY_RUN_UNSUPPORTED` | 2 | this change cannot be previewed; run it without --dry-run to make it | run it again without --dry-run to make the change |
-| `DUMP_FAILED` | 5 | the backup stopped before the end; no partial file is left | check the conn with `komando conn test …`; with --on HOST, pg_dump or mysqldump on that server runs instead |
-| `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object (the message names it) | run pg_dump on a server that has it and can reach the database (--on HOST), or dump the other tables with --table |
+| `DUMP_FAILED` | 5 | the backup stopped before the end; no partial file is left | check the conn with `komando conn test …`; with --run-on HOST, pg_dump or mysqldump on that server runs instead |
+| `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object (the message names it) | run pg_dump on a server that has it and can reach the database (--run-on HOST), or dump the other tables with --table |
 | `ERROR` | 1 | an error with no more specific code (read the message) | read the message; `komando doctor` checks this computer's setup |
 | `FAILED` | 5 | kubectl exited … | read stderr for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems |
 | `FILE_ERROR` | 1 | a file on this computer cannot be read or written | check that the folder exists and is writable |
@@ -248,7 +248,7 @@ This page is made from the code (`komando schema` lists the same under
 | `TLS_HANDSHAKE_FAILED` | 4 | TLS handshake with … failed: … | the server ended the TLS handshake; try again, and check that … is the TLS port (not plain HTTP) |
 | `TOOL_FAILED` | 5 | a program komando ran on the server failed (its words follow) | check that … is installed and works: `komando doctor` |
 | `TOOL_MISSING` | 3 | curl is not installed | install curl on the server |
-| `TOOL_TOO_OLD` | 5 | … failed on … (exit …): … | pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --on HOST |
+| `TOOL_TOO_OLD` | 5 | … failed on … (exit …): … | pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --run-on HOST |
 | `TOO_MANY` | 8 | … objects match, more than --max-remove … | narrow --prefix or --older-than, or raise --max-remove above … after checking the list |
 | `TOO_MANY_TAGS` | 2 | … has more than … tags | komando prunes a repository of at most 1000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN REPO:TAG` |
 | `TOPIC_EXISTS` | 8 | topic … already exists | pick another name, or see it with `komando queue describe CONN …` |

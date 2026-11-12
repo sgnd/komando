@@ -57,9 +57,9 @@ func toolErr(ctx context.Context, tool, where, stderr string, err error, c *stor
 func toolHint(stderr, conn string) string {
 	switch {
 	case strings.Contains(stderr, "server version mismatch"):
-		return "pg_dump is older than the server; install a postgresql-client at least as new as the server where the tool runs, or name a server that has one with --on HOST"
+		return "pg_dump is older than the server; install a postgresql-client at least as new as the server where the tool runs, or name a server that has one with --run-on HOST"
 	case strings.Contains(stderr, `"transaction_timeout"`):
-		return "PostgreSQL 17 tools set transaction_timeout, which servers older than 17 do not know: restore with the server's own major version of the tools (--on a server with that postgresql-client), or into a server 17 or newer (the restore ran in one transaction, so nothing changed)"
+		return "PostgreSQL 17 tools set transaction_timeout, which servers older than 17 do not know: restore with the server's own major version of the tools (--run-on a server with that postgresql-client), or into a server 17 or newer (the restore ran in one transaction, so nothing changed)"
 	case strings.Contains(stderr, "unrecognized configuration parameter"):
 		return "the backup was made by a newer pg_dump than this server understands; restore it into a server of that version or newer (the restore ran in one transaction, so nothing changed)"
 	case strings.Contains(stderr, "already exists"):
@@ -98,10 +98,10 @@ func dumpErr(err error, c *store.Conn) error {
 	var ue *dbx.UnsupportedError
 	if errors.As(err, &ue) {
 		return out.Errf(out.ExitUsage, "DUMP_UNSUPPORTED",
-			"run pg_dump on a server that has it and can reach the database (--on HOST), or dump the other tables with --table",
+			"run pg_dump on a server that has it and can reach the database (--run-on HOST), or dump the other tables with --table",
 			"%v", err)
 	}
-	return out.Errf(out.ExitRemote, "DUMP_FAILED", "check the conn with `komando conn test "+c.Name+"`; with --on HOST, pg_dump or mysqldump on that server runs instead", "%v", err)
+	return out.Errf(out.ExitRemote, "DUMP_FAILED", "check the conn with `komando conn test "+c.Name+"`; with --run-on HOST, pg_dump or mysqldump on that server runs instead", "%v", err)
 }
 
 // sqliteRestoreHint: a SQLite backup is a copy of the database file.

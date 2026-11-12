@@ -25,7 +25,7 @@ import (
 
 // Backups always land on (and restore from) this computer. The database's
 // own dump tool (pg_dump, mysqldump) runs on a server: the one named with
-// --on, else the last server of the database's --via path. The data is streamed
+// --run-on, else the last server of the database's --via path. The data is streamed
 // over SSH, with the password in the tool's environment, and a dump runs at
 // low priority (nice, ionice). Without such a server (a direct connection or a
 // VPN), or when the --via server lacks the tool, komando dumps itself
@@ -125,7 +125,7 @@ folder. A file ending in .gz is compressed. Afterwards komando prints the
 command that loads it back.
 
 pg_dump or mysqldump runs on a server that has it: the one you name with
---on HOST, else the database's --via server. It connects to the conn URL's
+--run-on HOST, else the database's --via server. It connects to the conn URL's
 address from that server, runs at low priority (nice, ionice) and streams
 the backup back over SSH. Without such a server (a direct connection or a VPN)
 komando writes plain SQL itself. PostgreSQL can also write its own archive
@@ -137,7 +137,7 @@ holds your data: it is created readable only by you.`,
   komando db dump prod-db --to backups/    # the same name, inside backups/
   komando db dump prod-db --to prod-2026-11-02.sql.gz
   komando db dump prod-db --to prod.dump --format custom
-  komando db dump prod-db --to prod.dump --format custom --on db1
+  komando db dump prod-db --to prod.dump --format custom --run-on db1
   komando db dump prod-db --to orders.sql --table public.orders --table public.order_items
   komando db dump prod-db --to schema.sql --schema-only
   komando db dump local --to backup.db`,
@@ -183,7 +183,8 @@ holds your data: it is created readable only by you.`,
 	c.Flags().StringVar(&o.format, "format", "plain", "plain (SQL) or custom (PostgreSQL archive for pg_restore)")
 	c.Flags().BoolVar(&o.schemaOnly, "schema-only", false, "tables, indexes and functions, no rows")
 	c.Flags().StringArrayVar(&o.tables, "table", nil, "only this table (repeatable; SCHEMA.TABLE on PostgreSQL)")
-	c.Flags().StringVar(&on, "on", "", "run pg_dump or mysqldump on this server (default: the database's --via server)")
+	c.Flags().StringVar(&on, "run-on", "", "run pg_dump or mysqldump on this server (default: the database's --via server)")
+	retiredFlag(c, "on", "run-on")
 	return c
 }
 
@@ -196,7 +197,7 @@ func dbRestoreCmd() *cobra.Command {
 file; .gz is read compressed). komando runs the SQL itself, through the
 conn's --via path, never with psql or mysql. A PostgreSQL archive
 (` + "`db dump --format custom`" + `) is recognized by its content and loaded with
-pg_restore on a server: the one named with --on HOST, else the database's --via
+pg_restore on a server: the one named with --run-on HOST, else the database's --via
 server; the archive is streamed to it over SSH.
 
 In a terminal komando first offers to save a copy of the database as it is
@@ -214,7 +215,7 @@ PostgreSQL restores run in one transaction: on any error nothing changes.
 MySQL runs the statements in order and stops at the first error.`,
 		Example: `  komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run   # checks the file, changes nothing
   komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous
-  komando db restore staging-db --from prod.dump --on db1 --allow-dangerous`,
+  komando db restore staging-db --from prod.dump --run-on db1 --allow-dangerous`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if from == "" {
@@ -225,7 +226,8 @@ MySQL runs the statements in order and stops at the first error.`,
 		},
 	}
 	c.Flags().StringVar(&from, "from", "", "SQL file on this computer")
-	c.Flags().StringVar(&on, "on", "", "run pg_restore for a PostgreSQL archive on this server (default: the database's --via server)")
+	c.Flags().StringVar(&on, "run-on", "", "run pg_restore for a PostgreSQL archive on this server (default: the database's --via server)")
+	retiredFlag(c, "on", "run-on")
 	return c
 }
 
@@ -284,7 +286,7 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 
 	if t.Kind.File { // sqlite: a consistent copy of the database file
 		if o.format == "custom" || o.schemaOnly || len(o.tables) > 0 || on != "" {
-			return out.Errf(out.ExitUsage, "USAGE", "drop those flags: komando db dump "+argQ(c.Name)+" --to backup.db", "sqlite backups copy the whole database file; --format, --schema-only, --table and --on do not apply")
+			return out.Errf(out.ExitUsage, "USAGE", "drop those flags: komando db dump "+argQ(c.Name)+" --to backup.db", "sqlite backups copy the whole database file; --format, --schema-only, --table and --run-on do not apply")
 		}
 		if strings.HasSuffix(to, ".gz") {
 			return out.Errf(out.ExitUsage, "USAGE", "for example: komando db dump "+argQ(c.Name)+" --to backup.db", "sqlite backups are database files; drop the .gz")
@@ -327,7 +329,7 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 	}
 	builtin := h == nil
 	if builtin && o.format == "custom" {
-		return out.Usage("--format custom is pg_dump's archive; it needs pg_dump on a server: add --on HOST (a server with pg_dump that can reach the database). komando's own dump writes plain SQL")
+		return out.Usage("--format custom is pg_dump's archive; it needs pg_dump on a server: add --run-on HOST (a server with pg_dump that can reach the database). komando's own dump writes plain SQL")
 	}
 	data.Tool = tool.dump
 	if builtin { // komando dumps here, through the --via path if there is one
@@ -373,7 +375,7 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 				return err
 			}
 			// the --via server has no usable pg_dump/mysqldump: komando
-			// dumps it itself (a server named with --on is never skipped)
+			// dumps it itself (a server named with --run-on is never skipped)
 			data.Tool, data.RunsOn, data.LowPriority = []string{"komando"}, "local", false
 			rec["runs_on"] = "local"
 			if _, err := f.Seek(0, 0); err != nil {
@@ -445,10 +447,10 @@ func runRestore(ctx context.Context, connExpr, from, on string) error {
 		}
 	}
 	if !custom && on != "" {
-		return out.Usage("%s is plain SQL, which komando always restores itself (psql and mysql would obey client commands in it); --on is only for pg_dump archives", from)
+		return out.Usage("%s is plain SQL, which komando always restores itself (psql and mysql would obey client commands in it); --run-on is only for pg_dump archives", from)
 	}
 	if custom && h == nil {
-		return out.Usage("%s is a pg_dump archive; restoring it needs pg_restore on a server: add --on HOST (a server with pg_restore that can reach the database). komando restores plain SQL itself", from)
+		return out.Usage("%s is a pg_dump archive; restoring it needs pg_restore on a server: add --run-on HOST (a server with pg_restore that can reach the database). komando restores plain SQL itself", from)
 	}
 	// the file is checked first, so a dry run also says whether it is fine
 	if err := guardConns(st, []*store.Conn{c}, v); err != nil {
@@ -630,7 +632,7 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 	if h == nil {
 		if _, err := exec.LookPath(argv[0]); err != nil {
 			return out.Errf(out.ExitNotFound, "TOOL_MISSING",
-				fmt.Sprintf("install %s on this computer, or run it on a server that has it (--on HOST)", tool.pkg),
+				fmt.Sprintf("install %s on this computer, or run it on a server that has it (--run-on HOST)", tool.pkg),
 				"%s is not installed here", argv[0])
 		}
 		p := exec.CommandContext(ctx, argv[0], argv[1:]...)
@@ -644,7 +646,7 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 	}
 	// komando reaches the server through its own --via path
 	if h.Windows() {
-		return notOnWindows("running the dump tool --on a server", []string{h.Name})
+		return notOnWindows("running the dump tool --run-on a server", []string{h.Name})
 	}
 	sc, err := sshx.Dial(ctx, st, h, sshOpts(st))
 	if err != nil {
@@ -658,7 +660,7 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 	}
 	if code == 127 {
 		return out.Errf(out.ExitNotFound, "TOOL_MISSING",
-			fmt.Sprintf("install it on %s (`komando pkg install %s %s`), or name a server that has it with --on HOST", h.Name, h.Name, tool.pkg),
+			fmt.Sprintf("install it on %s (`komando pkg install %s %s`), or name a server that has it with --run-on HOST", h.Name, h.Name, tool.pkg),
 			"%s is not installed on %s", argv[0], h.Name)
 	}
 	if code != 0 {
@@ -668,7 +670,7 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 }
 
 // toolHost picks the server that runs the dump tool: the one named with
-// --on, else the last server of the database's --via path (the path before it
+// --run-on, else the last server of the database's --via path (the path before it
 // is how komando reaches that server). nil means none: a direct conn, or
 // one reached through a VPN.
 func toolHost(st *store.State, c *store.Conn, on string) (*store.Host, error) {
@@ -679,8 +681,8 @@ func toolHost(st *store.State, c *store.Conn, on string) (*store.Host, error) {
 		}
 		// the conn's password goes to this server: only one from the inventory
 		if st.Hosts[h.Name] != h {
-			return nil, out.Errf(out.ExitUsage, "USAGE", "add the server first (`komando host add NAME USER@ADDRESS`), then use --on NAME",
-				"--on takes a server from the inventory, not %q", on)
+			return nil, out.Errf(out.ExitUsage, "USAGE", "add the server first (`komando host add NAME USER@ADDRESS`), then use --run-on NAME",
+				"--run-on takes a server from the inventory, not %q", on)
 		}
 		return h, nil
 	}
@@ -707,9 +709,9 @@ func toolFailed(tool, where string, code int, stderr string, c *store.Conn, dt d
 	msg := fmt.Sprintf("%s failed on %s (exit %d): %s", tool, where, code, lastLines(stderr, 5))
 	if server, client, ok := pgVersionMismatch(stderr); ok {
 		major := strings.SplitN(server, ".", 2)[0]
-		hint := fmt.Sprintf("pg_dump %s is older than the server (%s): install postgresql-client-%s where the tool runs, or name a server that has it with --on HOST", client, server, major)
+		hint := fmt.Sprintf("pg_dump %s is older than the server (%s): install postgresql-client-%s where the tool runs, or name a server that has it with --run-on HOST", client, server, major)
 		if where != "local" {
-			hint = fmt.Sprintf("pg_dump %s on %s is older than the server (%s): install postgresql-client-%s there (`komando pkg install %s postgresql-client-%s`; Debian and Ubuntu may need the PostgreSQL apt repository), or name another server with --on HOST", client, where, server, major, where, major)
+			hint = fmt.Sprintf("pg_dump %s on %s is older than the server (%s): install postgresql-client-%s there (`komando pkg install %s postgresql-client-%s`; Debian and Ubuntu may need the PostgreSQL apt repository), or name another server with --run-on HOST", client, where, server, major, where, major)
 		}
 		return out.Errf(out.ExitRemote, "TOOL_TOO_OLD", hint, "%s", msg)
 	}
@@ -718,7 +720,7 @@ func toolFailed(tool, where string, code int, stderr string, c *store.Conn, dt d
 	}
 	if archiveTooNew(stderr) {
 		return out.Errf(out.ExitRemote, "TOOL_TOO_OLD",
-			"the archive was made by a newer pg_dump than "+tool+" on "+where+" reads: install a newer "+dt.pkg+" there, or name a server that has one with --on HOST (nothing was changed)",
+			"the archive was made by a newer pg_dump than "+tool+" on "+where+" reads: install a newer "+dt.pkg+" there, or name a server that has one with --run-on HOST (nothing was changed)",
 			"%s", msg)
 	}
 	switch {
@@ -752,6 +754,6 @@ func unreachableHint(tool, where string, c *store.Conn) string {
 		}
 		local = cp.String()
 	}
-	return fmt.Sprintf("%s runs on %s and connects to %s from there. If the database listens only on 127.0.0.1 on %s, add a conn for that address reached through it (`komando conn add %s-local %s --via %s --password-ref ...`) and dump that conn; otherwise name a server that can reach %s with --on HOST",
+	return fmt.Sprintf("%s runs on %s and connects to %s from there. If the database listens only on 127.0.0.1 on %s, add a conn for that address reached through it (`komando conn add %s-local %s --via %s --password-ref ...`) and dump that conn; otherwise name a server that can reach %s with --run-on HOST",
 		tool, where, addr, where, c.Name, local, where, addr)
 }

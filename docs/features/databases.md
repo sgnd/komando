@@ -375,8 +375,8 @@ komando db dump app-db --to schema.sql --schema-only   # no rows
 komando db restore staging-db --from app-2026-11-02.sql.gz --dry-run    # checks the file, changes nothing
 komando db restore staging-db --from app-2026-11-02.sql.gz --allow-dangerous
 komando db restore staging-db --from app.dump --allow-dangerous   # an archive: pg_restore on the conn's --via server
-komando db dump app-db --to app.dump --format custom --on db1      # pg_dump runs on the server db1
-komando db restore staging-db --from app.dump --on db1 --allow-dangerous   # pg_restore runs on db1
+komando db dump app-db --to app.dump --format custom --run-on db1      # pg_dump runs on the server db1
+komando db restore staging-db --from app.dump --run-on db1 --allow-dangerous   # pg_restore runs on db1
 ```
 
 ### Where the backup goes, and who makes it
@@ -387,7 +387,7 @@ An existing file is never overwritten. Without `--to` it is
 folder puts that name inside it.
 
 `pg_dump` or `mysqldump` runs on a server that has it: the one you name with
-`--on HOST`, else the last server of the conn's `--via` path. Otherwise (a
+`--run-on HOST`, else the last server of the conn's `--via` path. Otherwise (a
 direct conn or a VPN, or a `--via` server without the tool) komando dumps by
 itself, and nothing has to be installed. `runs_on` in the answer (and in
 `komando audit`) names where the tool ran. A plain SQL restore is always run
@@ -421,15 +421,15 @@ any version get it as `sslrootcert=` with `sslmode=verify-full` (in place of
 needed. `mysqldump` gets `--ssl-ca` and a checked TLS connection, also when
 the URL has no `tls=`.
 
-### Run the dump on a server you choose (`--on HOST`)
+### Run the dump on a server you choose (`--run-on HOST`)
 
 This helps when the conn goes through a VPN (komando then can only write
 plain SQL itself) but a server you manage has `pg_dump` and can reach the
 database, often the database server itself:
 
 ```bash
-komando db dump prod-db --to prod.dump --format custom --on db1 --dry-run   # where and what would run
-komando db dump prod-db --to prod.dump --format custom --on db1
+komando db dump prod-db --to prod.dump --format custom --run-on db1 --dry-run   # where and what would run
+komando db dump prod-db --to prod.dump --format custom --run-on db1
 ```
 
 - `HOST` is a server from your inventory (a name or a selector that picks
@@ -449,13 +449,13 @@ komando db dump prod-db --to prod.dump --format custom --on db1
   private CA's certificate while the tool runs.
 - `pg_dump` refuses a server newer than itself. komando reports that as
   `TOOL_TOO_OLD` with both versions and the package to install
-  (`postgresql-client-NN`). A server named with `--on` is never skipped: a
+  (`postgresql-client-NN`). A server named with `--run-on` is never skipped: a
   missing or old tool there is an error, while a `--via` server without a
   usable tool falls back to komando's own plain SQL dump.
-- `db restore --on HOST` runs `pg_restore` there for an archive, streaming
+- `db restore --run-on HOST` runs `pg_restore` there for an archive, streaming
   the file to it over SSH. It has the same gate as any restore
   (`--allow-dangerous`, plus `--yes` on a protected conn). Plain SQL is
-  always restored by komando itself, so `--on` with a SQL file is refused.
+  always restored by komando itself, so `--run-on` with a SQL file is refused.
 - PostgreSQL 17 tools write `SET transaction_timeout`, which servers before
   17 do not know. komando's own restore of plain SQL skips that line on such
   servers. `pg_restore` 17 cannot load an archive into them, and an older
@@ -482,7 +482,7 @@ Plain SQL that psql and mysql can also read:
 - An object it cannot write (an aggregate, an operator, a foreign table,
   ...) stops the dump with its name (`DUMP_UNSUPPORTED`) instead of being
   left out silently.
-- `--format custom` needs `pg_dump` on a server (`--on HOST`, or the conn's
+- `--format custom` needs `pg_dump` on a server (`--run-on HOST`, or the conn's
   `--via` server).
 
 ### Restore safely

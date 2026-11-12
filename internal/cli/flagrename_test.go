@@ -24,6 +24,8 @@ var flagRenames = []struct {
 	{[]string{"cluster", "rollback"}, "revision", "to", false},
 	{[]string{"cluster", "rollback"}, "revision", "to-revision", true},
 	{[]string{"queue", "peek"}, "idle", "wait", false},
+	{[]string{"db", "dump"}, "run-on", "on", false},
+	{[]string{"db", "restore"}, "run-on", "on", false},
 	{[]string{"rename"}, "starts-with", "prefix", false},
 	{[]string{"rename"}, "in-notes", "notes", false},
 	{[]string{"rename"}, "in-labels", "labels", false},

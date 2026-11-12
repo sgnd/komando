@@ -78,6 +78,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `db dump` and `db restore` name the server that runs pg_dump,
+  mysqldump or pg_restore with `--run-on HOST` (was `--on`, which on
+  `db grant` names what the privileges are on). `--on` still works on
+  dump and restore for at least two releases (a shipped skill cites it)
+  and is noted in `meta.deprecated`.
 - `komando rename` switches read as switches: `--starts-with` (was
   `--prefix`, which elsewhere takes a value), `--in-notes` (was
   `--notes`) and `--in-labels` (was `--labels`). The old names still work

@@ -27,7 +27,7 @@ var (
 	dbFrom = formFlag{name: "from-host", ask: "MySQL only: from where does this user connect?",
 		help:    "The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL.",
 		example: "10.0.0.%"}
-	dbOn = formFlag{name: "on", ask: "Which server should run the backup tool?", pick: "server",
+	dbOn = formFlag{name: "run-on", ask: "Which server should run the backup tool?", pick: "server",
 		help: "A server that has pg_dump or mysqldump and can reach the database. Leave empty to use the server the database is reached through."}
 	dbPasswordRef = formFlag{name: "password-ref", ask: "Where is the password kept?", required: true,
 		example: "secret:app-ro-pass",
@@ -110,7 +110,7 @@ var dbChangeHints = map[string]formHint{
 		flags: []formFlag{
 			{name: "from", ask: "Which backup file on this computer?", required: true, local: true, example: "./prod-2026-11-10.sql.gz",
 				help: "A file from `komando db dump`, pg_dump or mysqldump. A .gz file is read as it is."},
-			{name: "on", ask: "Which server should run pg_restore?", pick: "server",
+			{name: "run-on", ask: "Which server should run pg_restore?", pick: "server",
 				help: "Only for a PostgreSQL custom archive. Leave empty to use the server the database is reached through."}},
 	},
 }

@@ -102,7 +102,7 @@ func TestDumpOnHost(t *testing.T) {
 	}
 
 	// no server to run pg_dump on: custom is refused, with --on in the hint
-	if _, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "a.dump"), "--format", "custom", "--dry-run"); e == nil || !strings.Contains(e.Message, "--on HOST") {
+	if _, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "a.dump"), "--format", "custom", "--dry-run"); e == nil || !strings.Contains(e.Message, "--run-on HOST") {
 		t.Fatalf("custom without a server: %+v", e)
 	}
 	d, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "a.dump"), "--format", "custom", "--on", "dev", "--dry-run")
@@ -169,7 +169,7 @@ func TestDumpOnHost(t *testing.T) {
 	if _, e = run("db", "restore", "pg", "--from", to, "--on", "dev"); e == nil || e.Code != "POLICY_BLOCKED" {
 		t.Errorf("restore without --allow-dangerous: %+v", e)
 	}
-	if _, e = run("db", "restore", "pg", "--from", to); e == nil || !strings.Contains(e.Message, "--on HOST") {
+	if _, e = run("db", "restore", "pg", "--from", to); e == nil || !strings.Contains(e.Message, "--run-on HOST") {
 		t.Errorf("archive restore without a server: %+v", e)
 	}
 	srv.reply()
