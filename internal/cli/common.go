@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/user"
@@ -90,36 +89,6 @@ func applyConventions(c *cobra.Command) {
 	for _, sub := range c.Commands() {
 		applyConventions(sub)
 	}
-}
-
-// dataGroups are the command groups for one family of conns. Listing,
-// removing, showing, editing and testing those conns is the same for every
-// family, so it lives in `komando list`, `komando conn` and `komando test`.
-var dataGroups = map[string]bool{"db": true, "cache": true, "queue": true, "storage": true, "cluster": true, "registry": true}
-
-// inventoryVerbHint names the shared command for an inventory verb that a
-// data group does not have (`komando db ls`, `komando cache show web1`),
-// or "".
-func inventoryVerbHint(group *cobra.Command, verb string) string {
-	if !group.HasParent() || group.Parent().HasParent() || !dataGroups[group.Name()] {
-		return ""
-	}
-	family := group.Name()
-	switch strings.ToLower(verb) {
-	case "ls", "list":
-		return "list " + family + " conns with `komando list kind:" + family + "`"
-	case "rm", "remove", "delete", "del":
-		return "remove a conn with `komando conn rm NAME`"
-	case "show":
-		return "show a conn's settings with `komando conn show NAME`"
-	case "edit":
-		return "change a conn with `komando conn edit NAME`"
-	case "test":
-		return "check that a conn answers with `komando test NAME`"
-	case "mv", "rename":
-		return "rename a conn with `komando conn mv OLD NEW`"
-	}
-	return ""
 }
 
 func dash(s string) string {
@@ -777,36 +746,6 @@ func worse(a, b int) int {
 		return b
 	}
 	return a
-}
-
-func readStdinIfPiped(limit int64, what string) ([]byte, error) {
-	fi, err := os.Stdin.Stat()
-	if err != nil || fi.Mode()&os.ModeCharDevice != 0 {
-		return nil, nil
-	}
-	return readLimited(os.Stdin, limit, what)
-}
-
-// maxStdinValue is the most komando reads from stdin for one value (a
-// secret, a queue message): far more than any of them, and a wrong pipe
-// (`cat big.iso | komando secret set x`) stops early instead of filling
-// memory.
-const maxStdinValue = 1 << 20
-
-// readLimited reads all of r, up to limit bytes (none when limit is 0).
-// More than that is a USAGE error that names what was read.
-func readLimited(r io.Reader, limit int64, what string) ([]byte, error) {
-	if limit <= 0 {
-		return io.ReadAll(r)
-	}
-	b, err := io.ReadAll(io.LimitReader(r, limit+1))
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(b)) > limit {
-		return nil, out.Usage("%s on stdin is more than %s, the most komando reads for it", what, humanBytes(limit))
-	}
-	return b, nil
 }
 
 func parseKV(pairs []string) (map[string]string, error) {
