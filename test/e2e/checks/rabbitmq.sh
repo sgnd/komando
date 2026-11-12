@@ -34,7 +34,7 @@ check "rabbitmq ls -n 1 is cut and says so" "1 True" "$($K queue create jobs e2e
 # a person purges by typing the queue's name; a wrong one stops it
 pty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }
 O=$(pty 'wrong\n' queue purge jobs e2e-emails); RC=$?
-check "rabbitmq person: purge names the queue" 1 "$(grep -q 'Dangerous: deletes every message in e2e-emails' <<<"$O" && echo 1)"
+check "rabbitmq person: purge names the queue" 1 "$(grep -q 'This deletes every message in e2e-emails' <<<"$O" && echo 1)"
 check "rabbitmq person: a wrong name stops purge (6)" 6 "$RC"
 check "rabbitmq person: the messages are still there" 2 "$($K queue peek jobs e2e-emails | jget 'd["data"]["count"]')"
 pty 'e2e-emails\n' queue purge jobs e2e-emails >/dev/null

@@ -51,12 +51,12 @@ func guardFsRm(target string, paths []string, recursive bool) error {
 	}
 	if recursive {
 		return stop("a folder and everything in it would be gone; confirm with the user, then add "+flags,
-			"rm --recursive deletes whole folders and everything in them", "rm --recursive deletes whole folders")
+			"deletes whole folders and everything in them (rm --recursive)", "rm --recursive deletes whole folders")
 	}
 	for _, p := range paths {
 		if cp := path.Clean(p); cp == "/" || cp == "." || cp == "~" || strings.Count(cp, "/") <= 1 && strings.HasPrefix(cp, "/") {
 			return stop("only if this is intended: confirm with the user, then add "+flags,
-				fmt.Sprintf("removing the top-level path %s", p), "%q is a top-level path; komando does not remove it without --allow-dangerous", p)
+				fmt.Sprintf("removes the top-level path %s", p), "%q is a top-level path; komando does not remove it without --allow-dangerous", p)
 		}
 	}
 	return stop("a deleted file has no copy; confirm with the user, then add --allow-dangerous"+dry,

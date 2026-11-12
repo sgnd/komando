@@ -41,7 +41,7 @@ check "kafka peek --wait is a Kafka flag" 2 "$($K queue peek events e2e-orders -
 # a person purges and removes by typing the topic's name; a wrong one stops it
 pty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }
 O=$(pty 'wrong\n' queue purge events e2e-orders); RC=$?
-check "kafka person: purge names the topic" 1 "$(grep -q 'Dangerous: deletes every message in e2e-orders' <<<"$O" && echo 1)"
+check "kafka person: purge names the topic" 1 "$(grep -q 'This deletes every message in e2e-orders' <<<"$O" && echo 1)"
 check "kafka person: purge asks for the name" 1 "$(grep -c 'Type the name e2e-orders to continue' <<<"$O")"
 check "kafka person: a wrong name stops purge (6)" 6 "$RC"
 check "kafka person: the messages are still there" 2 "$($K queue describe events e2e-orders | jget 'd["data"]["messages"]')"

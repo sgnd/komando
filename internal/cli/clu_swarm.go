@@ -570,7 +570,7 @@ func swarmChange(ctx context.Context, name string, t clusterTarget, service, lin
 	res["host"] = t.host.Name
 	why := line
 	if risk >= driver.RiskDestructive {
-		why = "scaling " + service + " to 0 stops it"
+		why = "stops every copy of " + service + " (scale to 0)"
 	}
 	_, ran, err := swarmDo(ctx, name, t, line, nil, risk, why)
 	if err != nil {

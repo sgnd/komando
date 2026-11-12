@@ -630,6 +630,15 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   `audit log broken at line N`, and a failed server's block in a
   several-server result ends with `Error: <what> (code CODE)` and `Hint:`
   (was `error [CODE]:` and `hint:`).
+- The typed question for a step that cannot be undone starts `This <what it
+  does>.` (was `Dangerous: <what>.`), and every rule reason reads after
+  "This": `deletes / or the home folder recursively` (was `recursive
+  delete of / or home`), `starts a fork bomb ...`, `changes the owner of
+  / recursively`, `removes every row (DELETE without WHERE)`, `restores
+  a backup, which can overwrite existing data`, `matches your deny rule
+  ...` (was `matches custom deny pattern ...`). These are also the
+  `reason` values of `komando policy list` and part of `POLICY_BLOCKED`
+  messages; rule IDs are unchanged.
 
 ### Removed
 

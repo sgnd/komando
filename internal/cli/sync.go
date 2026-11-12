@@ -573,7 +573,7 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
 // at the terminal confirms by typing the destination.
 // Under --dry-run the stop goes to meta.would_be_blocked.
 func guardDelete(o syncOpts, dst string) error {
-	if o.delete && !dangerOK() && !confirmDangerous([]string{dst}, "--delete removes the files in "+dst+" that the source does not have") {
+	if o.delete && !dangerOK() && !confirmDangerous([]string{dst}, "deletes the files in "+dst+" that the source does not have (--delete)") {
 		return policyStop(approvalErr("POLICY_BLOCKED",
 			"--delete removes files in the destination that the source does not have"))
 	}

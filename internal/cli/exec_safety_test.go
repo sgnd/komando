@@ -463,14 +463,14 @@ func TestInvalidDenyPatternReported(t *testing.T) {
 	found := false
 	for _, c := range securityChecks(st) {
 		if c.Name == "security:deny_rule:"+policy.CustomID(`kubectl\s+delete(`) {
-			found = !c.OK && strings.Contains(c.Detail, "not a valid regular expression")
+			found = !c.OK && strings.Contains(c.Detail, "not a regular expression komando can read")
 		}
 	}
 	if !found {
 		t.Error("doctor does not report the broken deny rule")
 	}
 	got := captureOutput(t, func() error { return runRoot(t, "policy", "list") })
-	if !strings.Contains(got, `"error":"custom deny pattern`) {
+	if !strings.Contains(got, `"error":"matches every command: your deny rule`) {
 		t.Errorf("policy list: %s", got)
 	}
 	if err := runRoot(t, "exec", "prod", "--read-only", "--", "uptime"); toErr(err) == nil || toErr(err).Code != "POLICY_BLOCKED" {

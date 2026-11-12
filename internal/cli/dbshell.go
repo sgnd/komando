@@ -347,7 +347,7 @@ func (s *sqlShell) exec(ctx context.Context, text string, expanded bool) {
 	}
 	if plan.Risk >= driver.RiskDestructive && !dangerOK() {
 		// as on the command line, a person confirms by typing the name
-		if s.ask(fmt.Sprintf("Dangerous: %s. Type %s to run it: ", strings.Join(plan.Reasons, "; "), s.conn.Name)) != s.conn.Name {
+		if s.ask(fmt.Sprintf("%s Type %s to run it: ", dangerLine(strings.Join(plan.Reasons, "; ")), s.conn.Name)) != s.conn.Name {
 			s.printf("Not run.\n")
 			return
 		}

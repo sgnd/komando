@@ -17,8 +17,8 @@ import (
 // mongoRules are the rules ClassifyMongo reports, for `komando policy`.
 var mongoRules = []driver.Rule{
 	{ID: "mongo-drop", Reason: "drops a database, collection, index or user"},
-	{ID: "mongo-delete-all", Reason: "a delete with an empty filter removes every document"},
-	{ID: "mongo-update-all", Reason: "an update of many documents with an empty filter changes every document"},
+	{ID: "mongo-delete-all", Reason: "removes every document (a delete with an empty filter)"},
+	{ID: "mongo-update-all", Reason: "changes every document (an update of many documents with an empty filter)"},
 	{ID: "mongo-admin", Reason: "shuts down, reconfigures or locks the server, or kills operations"},
 	{ID: "mongo-privileges", Reason: "changes users, roles or privileges"},
 }

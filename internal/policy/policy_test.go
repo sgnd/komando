@@ -168,7 +168,7 @@ func TestInvalidCustomPattern(t *testing.T) {
 	extra := []string{`terraform\s+destroy`, `kubectl\s+delete(`}
 	hits := Check("uptime", extra)
 	id := CustomID(extra[1])
-	if len(hits) != 1 || hits[0].ID != id || !strings.Contains(hits[0].Reason, "not a valid regular expression") ||
+	if len(hits) != 1 || hits[0].ID != id || !strings.Contains(hits[0].Reason, "not a regular expression komando can read") ||
 		!strings.Contains(hits[0].Reason, "policy rm "+id) {
 		t.Errorf("hits = %+v", hits)
 	}

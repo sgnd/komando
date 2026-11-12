@@ -60,7 +60,7 @@ or a CI job), komando asks instead of stopping:
 - komando asks in one of three ways:
   - a change on a protected server, conn or VPN: `web1 (protected): this
     command changes it. Continue? [y/N]`;
-  - a step that cannot be undone: `Dangerous: <what it does>.` and you
+  - a step that cannot be undone: `This <what it does>.` and you
     type the name of what goes: the key, file, secret, topic or image
     when one goes (`Type the name session:42 to continue`), how many when
     several go (`Type 37 (objects under daily/ in backups) to continue`),

@@ -292,7 +292,7 @@ func clusterScaleCmd() *cobra.Command {
 				return swarmScale(cmd.Context(), t, typ, name, n, wait, risk)
 			}
 			if n == 0 {
-				if err := confirmObject([]string{t.conn.Name}, name, "scaling "+typ+"/"+name+" to 0 stops it"); err != nil {
+				if err := confirmObject([]string{t.conn.Name}, name, "stops every copy of "+typ+"/"+name+" (scale to 0)"); err != nil {
 					return err
 				}
 			}
@@ -357,7 +357,7 @@ func swarmScale(ctx context.Context, t clusterTarget, typ, name string, n int, w
 	}
 	line := "docker service scale --detach " + sshx.Q(name+"="+strconv.Itoa(n))
 	if n == 0 {
-		if err := confirmObject(nil, name, "scaling service/"+name+" to 0 stops it"); err != nil {
+		if err := confirmObject(nil, name, "stops every copy of service/"+name+" (scale to 0)"); err != nil {
 			return err
 		}
 	}

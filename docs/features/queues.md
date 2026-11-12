@@ -152,7 +152,7 @@ komando queue rm events old-orders --allow-dangerous      # delete the topic and
 
   ```
   $ komando queue purge events orders-retry
-  Dangerous: deletes every message in orders-retry (it stays).
+  This deletes every message in orders-retry (it stays).
   Type the name orders-retry to continue: orders-retry
   ```
 

@@ -6241,23 +6241,23 @@ no tunnels yet: `komando tunnel start TARGET -L SPEC`
 ### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: recursive delete of / or home","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: deletes / or the home folder recursively","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- rm -rf / (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (recursive delete of / or home), so komando asks first; nothing was changed
+Stopped: this can delete or break things (deletes / or the home folder recursively), so komando asks first; nothing was changed
 ### komando -o json exec web1 -- rm -rf / (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: recursive delete of / or home","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: deletes / or the home folder recursively","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- rm -rf / (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (recursive delete of / or home), so komando asks first; nothing was changed
+Stopped: this can delete or break things (deletes / or the home folder recursively), so komando asks first; nothing was changed
 ### komando -o json exec web1 -- reboot (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6281,23 +6281,23 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json exec web1 -- foo bar (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches custom deny pattern foo.*bar","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches your deny rule foo.*bar","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- foo bar (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (matches custom deny pattern foo.*bar), so komando asks first; nothing was changed
+Stopped: this can delete or break things (matches your deny rule foo.*bar), so komando asks first; nothing was changed
 ### komando -o json exec web1 -- foo bar (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches custom deny pattern foo.*bar","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches your deny rule foo.*bar","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- foo bar (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (matches custom deny pattern foo.*bar), so komando asks first; nothing was changed
+Stopped: this can delete or break things (matches your deny rule foo.*bar), so komando asks first; nothing was changed
 ### komando -o json job start web1 -- reboot (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6427,7 +6427,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (rm --recursive deletes whole folders and everything in them), so komando asks first; nothing was changed
+Stopped: this can delete or break things (deletes whole folders and everything in them (rm --recursive)), so komando asks first; nothing was changed
 ### komando -o json fs rm web1 /tmp/x --recursive (script json, gate inventory)
 exit 6
 --- stdout
@@ -6437,7 +6437,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (rm --recursive deletes whole folders and everything in them), so komando asks first; nothing was changed
+Stopped: this can delete or break things (deletes whole folders and everything in them (rm --recursive)), so komando asks first; nothing was changed
 ### komando -o json fs rm web1 / (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6447,7 +6447,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (removing the top-level path /), so komando asks first; nothing was changed
+Stopped: this can delete or break things (removes the top-level path /), so komando asks first; nothing was changed
 ### komando -o json fs rm web1 / (script json, gate inventory)
 exit 6
 --- stdout
@@ -6457,7 +6457,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (removing the top-level path /), so komando asks first; nothing was changed
+Stopped: this can delete or break things (removes the top-level path /), so komando asks first; nothing was changed
 ### komando -o json sync testdata web1:/tmp/x --delete (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6561,23 +6561,23 @@ Stopped: this can delete or break things (drops a database object or column), so
 ### komando -o json db query pdb --write UPDATE x SET a=1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: changes every row (UPDATE without WHERE)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query pdb --write UPDATE x SET a=1 (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (UPDATE without WHERE changes every row), so komando asks first; nothing was changed
+Stopped: this can delete or break things (changes every row (UPDATE without WHERE)), so komando asks first; nothing was changed
 ### komando -o json db query pdb --write UPDATE x SET a=1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: changes every row (UPDATE without WHERE)","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query pdb --write UPDATE x SET a=1 (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (UPDATE without WHERE changes every row), so komando asks first; nothing was changed
+Stopped: this can delete or break things (changes every row (UPDATE without WHERE)), so komando asks first; nothing was changed
 ### komando -o json db user rm db1 bob (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6601,23 +6601,23 @@ Stopped: this can delete or break things (removes the user bob), so komando asks
 ### komando -o json db restore db1 --from testdata/golden_restore.sql (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restoring a backup can overwrite existing data","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restores a backup, which can overwrite existing data","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db restore db1 --from testdata/golden_restore.sql (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (restoring a backup can overwrite existing data), so komando asks first; nothing was changed
+Stopped: this can delete or break things (restores a backup, which can overwrite existing data), so komando asks first; nothing was changed
 ### komando -o json db restore db1 --from testdata/golden_restore.sql (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restoring a backup can overwrite existing data","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json db restore db1 --from testdata/golden_restore.sql --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restores a backup, which can overwrite existing data","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json db restore db1 --from testdata/golden_restore.sql --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db restore db1 --from testdata/golden_restore.sql (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (restoring a backup can overwrite existing data), so komando asks first; nothing was changed
+Stopped: this can delete or break things (restores a backup, which can overwrite existing data), so komando asks first; nothing was changed
 ### komando -o json queue purge q1 t (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7261,23 +7261,23 @@ Stopped: SET needs --write; nothing was changed
 ### komando -o json db query db1 DELETE FROM x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row)","hint":"this SQL DELETE without WHERE removes every row: only if that is intended, confirm with the user and run it again with --write --allow-dangerous. komando does not ask the user about this, so ask them first and go on only when they agree"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: removes every row (DELETE without WHERE))","hint":"this SQL removes every row (DELETE without WHERE): only if that is intended, confirm with the user and run it again with --write --allow-dangerous. komando does not ask the user about this, so ask them first and go on only when they agree"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query db1 DELETE FROM x (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row); nothing was changed
+Stopped: destructive statement needs --write (and --allow-dangerous: removes every row (DELETE without WHERE)); nothing was changed
 ### komando -o json db query db1 DELETE FROM x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row)","hint":"this SQL DELETE without WHERE removes every row: only if that is intended, confirm with the user and run it again with --write --allow-dangerous"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: removes every row (DELETE without WHERE))","hint":"this SQL removes every row (DELETE without WHERE): only if that is intended, confirm with the user and run it again with --write --allow-dangerous"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query db1 DELETE FROM x (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row); nothing was changed
+Stopped: destructive statement needs --write (and --allow-dangerous: removes every row (DELETE without WHERE)); nothing was changed
 ### komando -o json group rm big (agent json, gate inventory)
 exit 6
 --- stdout

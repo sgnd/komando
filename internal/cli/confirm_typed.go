@@ -39,6 +39,20 @@ func typedAnswer(items []string, of string) (want, shown string) {
 	return n, n + " (" + of + ")"
 }
 
+// dangerLine is the first line of the typed question (S-7.2, M-11):
+// "This deletes ... ." A reason is a verb phrase without a subject
+// ("deletes the files", "stops every copy of deployment/api"), so it reads
+// after "This". A reason that is not one (a command line such as "docker
+// rm web") still reads as a sentence: "This is dangerous: docker rm web."
+func dangerLine(reason string) string {
+	reason = strings.TrimRight(reason, " .")
+	first, _, _ := strings.Cut(reason, " ")
+	if len(first) > 2 && strings.HasSuffix(first, "s") && first == strings.ToLower(first) && !strings.ContainsAny(first, "-/:") {
+		return "This " + reason + "."
+	}
+	return "This is dangerous: " + reason + "."
+}
+
 // confirmDangerous asks a person at the terminal to confirm a step that
 // cannot be undone by typing what goes (typedAnswer), so a reflex "y" is
 // not enough.
@@ -63,7 +77,7 @@ func confirmDangerousOn(names, prot []string, reason string) bool {
 	if want != "" && c.sess.DangerConfirmed(want) {
 		return true // the person typed it in this command already: one question per command (S-7.4)
 	}
-	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
+	fmt.Fprintln(os.Stderr, dangerLine(reason))
 	if want == "" { // never "yes": with nothing to name, a person passes the flag
 		fmt.Fprintln(os.Stderr, "komando has no name for you to type here; if you mean it, run it again with --allow-dangerous.")
 		c.sess.SaidNo(true)

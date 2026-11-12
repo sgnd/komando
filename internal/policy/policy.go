@@ -18,10 +18,10 @@ type Rule struct {
 }
 
 var builtin = []struct{ id, pattern, reason string }{
-	{"rm-root", `\brm\s+` + rmOpts + `+(/[/.]*\*?|~/?\*?|\$\{?HOME\}?/?\*?)(\s|$|;|&)`, "recursive delete of / or home"},
-	{"rm-cd-root", `\bcd\s+(/|~|\$\{?HOME\}?)/?\s*(&&|;)\s*(sudo\s+)?rm\s+` + rmOpts + `+(\*|\.)(\s|$|;|&)`, "recursive delete of everything in / or home"},
-	{"find-delete-root", `\bfind\s+/((etc|usr|var|boot|bin|sbin|lib|lib64|opt|srv|home|root)/?)?\s.*(-delete\b|-exec\s+rm\s)`, "deletes files across / or a system directory"},
-	{"rm-system-dir", `\brm\s+` + rmOpts + `+/(etc|usr|var|boot|bin|sbin|lib|lib64|opt|srv|home|root|var/lib|usr/(bin|sbin|lib|lib64|local))/?\*?(\s|$|;|&)`, "recursive delete of a system directory"},
+	{"rm-root", `\brm\s+` + rmOpts + `+(/[/.]*\*?|~/?\*?|\$\{?HOME\}?/?\*?)(\s|$|;|&)`, "deletes / or the home folder recursively"},
+	{"rm-cd-root", `\bcd\s+(/|~|\$\{?HOME\}?)/?\s*(&&|;)\s*(sudo\s+)?rm\s+` + rmOpts + `+(\*|\.)(\s|$|;|&)`, "deletes everything in / or the home folder recursively"},
+	{"find-delete-root", `\bfind\s+/((etc|usr|var|boot|bin|sbin|lib|lib64|opt|srv|home|root)/?)?\s.*(-delete\b|-exec\s+rm\s)`, "deletes files across / or a system folder"},
+	{"rm-system-dir", `\brm\s+` + rmOpts + `+/(etc|usr|var|boot|bin|sbin|lib|lib64|opt|srv|home|root|var/lib|usr/(bin|sbin|lib|lib64|local))/?\*?(\s|$|;|&)`, "deletes a system folder recursively"},
 	{"mkfs", cmdStart + `((/usr)?/s?bin/)?mkfs(\.\w+)?(\s|$|;|&)`, "formats a filesystem"},
 	{"dd-device", `\bdd\b.*\bof=/dev/(sd|nvme|vd|xvd|hd|mmcblk|disk)`, "writes raw data to a block device"},
 	{"redirect-device", `>\s*/dev/(sd|nvme|vd|xvd|hd)[a-z0-9]*`, "overwrites a block device"},
@@ -29,9 +29,9 @@ var builtin = []struct{ id, pattern, reason string }{
 	{"fdisk", `\b(fdisk|parted|sfdisk)\b`, "edits partition tables"},
 	{"power", `(^|[;&|(]\s*|\b(sudo|doas|nohup|exec|env|nice|setsid)\s+(-\S+\s+)*)((/usr)?/s?bin/)?(shutdown|poweroff|halt|reboot|init\s+[06])(\s|$|;|&|\))`, "powers off or reboots the server"},
 	{"power-systemctl", `\bsystemctl\s+(poweroff|reboot|halt|kexec)\b`, "powers off or reboots the server"},
-	{"fork-bomb", `:\(\)\s*\{\s*:\|:&\s*\};:`, "fork bomb"},
-	{"chmod-root", `\bchmod\s+(\S+\s+)*` + recursive + `(\S+\s+)*/(\s|$|;|&)|\bchmod\s+(\S+\s+)*/\s+(\S+\s+)*` + recursive, "recursive chmod of /"},
-	{"chown-root", `\bchown\s+(\S+\s+)*` + recursive + `(\S+\s+)*/(\s|$|;|&)|\bchown\s+(\S+\s+)*/\s+(\S+\s+)*` + recursive, "recursive chown of /"},
+	{"fork-bomb", `:\(\)\s*\{\s*:\|:&\s*\};:`, "starts a fork bomb (the server runs out of processes)"},
+	{"chmod-root", `\bchmod\s+(\S+\s+)*` + recursive + `(\S+\s+)*/(\s|$|;|&)|\bchmod\s+(\S+\s+)*/\s+(\S+\s+)*` + recursive, "changes the permissions of / recursively"},
+	{"chown-root", `\bchown\s+(\S+\s+)*` + recursive + `(\S+\s+)*/(\s|$|;|&)|\bchown\s+(\S+\s+)*/\s+(\S+\s+)*` + recursive, "changes the owner of / recursively"},
 	{"firewall-flush", `\b(ip6?tables\s+(-t\s+\S+\s+)?(-F|--flush)|nft\s+flush\s+ruleset|ufw\s+(-\S+\s+)*(disable|reset))(\s|$|;|&)`, "drops firewall rules (may lock you out)"},
 	{"firewall-drop-all", `\bip6?tables\s+(-t\s+filter\s+)?(-P|--policy)\s+(INPUT|OUTPUT)\s+(DROP|REJECT)\b`, "drops all traffic by default (may lock you out)"},
 	{"sshd-stop", `\bsystemctl\s+(-\S+\s+)*(stop|disable|mask)\s+([^;&|\n]*\s)?(ssh|sshd)(\.service|\.socket)?(\s|$|;|&|\||\))|\bservice\s+(ssh|sshd)\s+stop\b`, "stops sshd (locks out remote access)"},
@@ -94,7 +94,7 @@ func Check(cmd string, extra []string) []Rule {
 		case err != nil:
 			hits = append(hits, Rule{ID: CustomID(p), Reason: badPattern(p, err)})
 		case match(re):
-			hits = append(hits, Rule{ID: CustomID(p), Reason: "matches custom deny pattern " + p})
+			hits = append(hits, Rule{ID: CustomID(p), Reason: "matches your deny rule " + p})
 		}
 	}
 	return hits
@@ -113,8 +113,8 @@ func Invalid(extra []string) map[int]string {
 }
 
 func badPattern(p string, err error) string {
-	return "custom deny pattern " + p + " is not a valid regular expression (" + err.Error() +
-		"), so every command matches it; fix it, or remove it with `komando policy rm " + CustomID(p) + "`"
+	return "matches every command: your deny rule " + p + " is not a regular expression komando can read (" + err.Error() +
+		"); fix it, or remove it with `komando policy rm " + CustomID(p) + "`"
 }
 
 // CustomID is the id of a custom deny pattern: made from the pattern, so
