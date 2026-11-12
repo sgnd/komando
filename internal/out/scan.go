@@ -15,9 +15,8 @@ type ValueScanner struct {
 
 // NewValueScanner watches for p's secret values; with none, it finds nothing.
 func (p *Printer) NewValueScanner() *ValueScanner {
-	p.load()
 	s := &ValueScanner{}
-	for _, h := range p.hide {
+	for _, h := range p.hideList() {
 		s.vals = append(s.vals, []byte(h.raw))
 		if len(h.raw) > s.keep {
 			s.keep = len(h.raw)

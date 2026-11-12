@@ -412,6 +412,11 @@ func ValidRef(ref string) bool {
 // secrets it must not have.
 var RefGuard func(kind, name string) error
 
+// OnResolve, when set, gets every value Resolve read. komando's CLI sets
+// it to hide the value in its output: a value from env:, file:, op://, a
+// cloud secret manager... is in no list komando keeps.
+var OnResolve func(value string)
+
 // RefHelp is the hint for an invalid reference.
 func RefHelp() string { return "use one of: " + strings.Join(Refs, ", ") }
 
@@ -431,6 +436,14 @@ func RefHelp() string { return "use one of: " + strings.Join(Refs, ", ") }
 // komando talks to those services itself (internal/cloud); the login stays
 // with the person and komando never stores the values.
 func Resolve(ref string) (string, error) {
+	v, err := resolve(ref)
+	if err == nil && v != "" && OnResolve != nil {
+		OnResolve(v)
+	}
+	return v, err
+}
+
+func resolve(ref string) (string, error) {
 	switch {
 	case ref == "":
 		return "", nil

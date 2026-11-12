@@ -1167,6 +1167,11 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   need a person's yes (SECRET_DESTINATION) when HOST is not the conn's
   own `--via` server: the conn's password goes there. Before, an agent
   could send it to any server in the inventory.
+- A password komando reads from `env:`, `file:`, `op://`, `bw://`,
+  `kdbx:`, `vault:` or a cloud secret manager is hidden in its output as
+  `[hidden]` from then on, like a value from komando's own vault (also
+  its base64 and URL-encoded forms). Before, only values that looked like
+  a password were masked.
 
 ## [0.12.0] - 2026-11-11
 

@@ -313,8 +313,7 @@ func (p *Printer) View(s string) View {
 	if p.NoRedact {
 		return v
 	}
-	p.load()
-	for _, h := range p.hide {
+	for _, h := range p.hideList() {
 		v.hide(literal(v.Text, h.raw), h.label)
 	}
 	if !p.Mask {

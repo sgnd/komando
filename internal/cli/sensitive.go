@@ -384,4 +384,7 @@ func isSensitive(err error) bool {
 	return errors.As(err, &e) && e.Code == "SENSITIVE_FILE"
 }
 
-func init() { vault.RefGuard = refGuard }
+func init() {
+	vault.RefGuard = refGuard
+	vault.OnResolve = func(v string) { out.P.AddValue(v) } // hidden in output, as vault values are
+}
