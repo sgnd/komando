@@ -1138,6 +1138,11 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   only the command line, so a person allowed a script they never saw. A
   file that is not valid text, or holds bidi or zero-width characters,
   gets no window, as for such a command line.
+- On a Linux or BSD X11 desktop the approval window needs the approval
+  code (`komando config approval-code`): another program there can click
+  "Allow once" (xdotool). Without the code komando opens no window and
+  the agent is told to ask you to turn it on or to run the command in
+  your own terminal. On Wayland the window now opens on Wayland only.
 
 ## [0.12.0] - 2026-11-11
 
