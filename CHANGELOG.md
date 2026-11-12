@@ -32,6 +32,11 @@ its highlights; the sections below them give the details. Versions follow
   the Windows refusal (it said `pkg.remove` / `pkg remove`), and `pkg`
   commands given no package give the usual `missing arguments; usage: ...`
   error.
+- `reboot --dry-run` puts `would_be_blocked` in `data` too, like every
+  other dry run; `user add` and `user rm` show `user rm bob --remove-home`
+  in dry runs and the audit log instead of the shell script; `recipe list
+  --category` with an unknown category is a usage error that lists them,
+  not an empty list.
 
 ## [0.12.0] - 2026-11-11
 

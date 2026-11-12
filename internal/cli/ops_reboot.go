@@ -152,6 +152,8 @@ func reboot(ctx context.Context, target string, wait time.Duration, sudo bool) e
 		res := map[string]any{"would_run": plans, "order": "one server at a time"}
 		if guardErr != nil {
 			res["would_be_blocked"] = toErr(guardErr)
+		} else if b := out.P.Blocked(); b != nil {
+			res["would_be_blocked"] = b // the same place as the other commands' dry runs
 		}
 		out.P.Print("reboot", res, nil)
 		return nil

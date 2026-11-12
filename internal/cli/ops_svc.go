@@ -274,9 +274,6 @@ func (o *logOpts) check() error {
 	if o.follow && o.until != "" {
 		return out.Usage("--until cannot be used with --follow")
 	}
-	if o.timestamps && o.container == "" {
-		return out.Usage("--timestamps works with container logs only (--container); journal lines always show their time")
-	}
 	if o.file != "" && !strings.HasPrefix(o.file, "/") {
 		return out.Usage("--file takes the full path of the log on the server, starting with / (got %q)", o.file)
 	}

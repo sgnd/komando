@@ -586,3 +586,34 @@ func TestPkgRmIsPkgRm(t *testing.T) {
 		t.Errorf("missing package: %v", e)
 	}
 }
+
+// reboot --dry-run says it would be blocked in data, like every other
+// dry run; user add/rm show the command, not the shell script; a recipe
+// category typo is a usage error, not an empty list.
+func TestOpsDryRunShapes(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if err := store.Update(func(st *store.State) error {
+		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { g.dryRun = false }()
+	for args, want := range map[string]string{
+		"reboot web1":                               `"data":{"order":"one server at a time","would_be_blocked":{"code":"POLICY_BLOCKED"`,
+		"user rm web1 bob --remove-home":            `"remote_command":"user rm bob --remove-home"`,
+		"user add web1 bob --admin --shell /bin/sh": `"remote_command":"user add bob --shell /bin/sh --admin"`,
+	} {
+		o := captureOutput(t, func() error {
+			return runRoot(t, append([]string{"-o", "json", "--dry-run"}, strings.Fields(args)...)...)
+		})
+		g.dryRun = false
+		if !strings.Contains(o, want) {
+			t.Errorf("%s: want %s in %s", args, want, o)
+		}
+	}
+	if e := toErr(runRoot(t, "-o", "json", "recipe", "list", "--category", "secrity")); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "security") {
+		t.Errorf("unknown category: %v", e)
+	}
+}

@@ -242,6 +242,9 @@ func recipeListCmd() *cobra.Command {
 		Short:   "List built-in and saved recipes (filter with --category)",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := checkRecipeCategory(category); err != nil {
+				return err
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -403,4 +406,23 @@ func recipeRunCmd() *cobra.Command {
 	c.Flags().StringArrayVar(&vars, "var", nil, "fill in a blank: NAME=VALUE (repeatable)")
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo even if the recipe asks for it")
 	return c
+}
+
+// checkRecipeCategory refuses a --category no recipe has, so a typo is not
+// an empty list.
+func checkRecipeCategory(c string) error {
+	if c == "" || c == "saved" {
+		return nil
+	}
+	cats := []string{}
+	for _, r := range recipes {
+		if r.Category == c {
+			return nil
+		}
+		if !slices.Contains(cats, r.Category) {
+			cats = append(cats, r.Category)
+		}
+	}
+	sort.Strings(cats)
+	return out.Usage("no category %q: use %s, or saved for your own", c, strings.Join(cats, ", "))
 }
