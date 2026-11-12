@@ -86,7 +86,7 @@ func init() {
 		// Secrets
 		"secret set": {args: []formArg{{ask: "What name should the secret have?", example: "db-pass", pick: "secret", free: true,
 			help: "Pick one to give it a new value, or type a new name: letters, digits, dot, dash and underscore, starting with a letter or digit. komando asks for the value next and hides it as you type or paste."}}},
-		"secret get": {args: []formArg{accSecret}},
+		"secret show": {args: []formArg{accSecret}},
 		"secret check": {args: []formArg{{ask: "Which secret should your value be compared with?", example: "vpn-pass", pick: "secret", free: true,
 			help: "Its name in the vault. komando asks for your value next, hidden, and says whether it matches, never showing either."}}},
 		"secret list": {},
@@ -148,7 +148,7 @@ func init() {
 		"login aws":    {next: []string{"test CONN", "storage ls CONN", "import aws"}},
 		"secret set": {next: []string{"host edit HOST --password-ref secret:{}", "conn edit CONN --password-ref secret:{}",
 			"secret list"}},
-		"secret list":       {next: []string{"secret get NAME", "secret set NAME"}},
+		"secret list":       {next: []string{"secret show NAME", "secret set NAME"}},
 		"secret rename":         {next: []string{"secret list", "test TARGET"}},
 		"secret cp":         {next: []string{"secret list"}},
 		"secret keychain":   {next: []string{"doctor"}},

@@ -4698,26 +4698,6 @@ exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando secret cp OLD NEW
-### komando -o json secret get (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.get","error":{"code":"USAGE","message":"missing arguments; usage: komando secret get NAME","hint":"for example: komando secret get db-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret get (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret get NAME
-### komando -o json secret get (script json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.get","error":{"code":"USAGE","message":"missing arguments; usage: komando secret get NAME","hint":"for example: komando secret get db-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret get (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret get NAME
 ### komando -o json secret rename (agent json)
 exit 2
 --- stdout
@@ -4798,6 +4778,26 @@ exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando secret set NAME
+### komando -o json secret show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"secret.get","error":{"code":"USAGE","message":"missing arguments; usage: komando secret show NAME","hint":"for example: komando secret show db-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text secret show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando secret show NAME
+### komando -o json secret show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"secret.get","error":{"code":"USAGE","message":"missing arguments; usage: komando secret show NAME","hint":"for example: komando secret show db-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text secret show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando secret show NAME
 ### komando -o json shell (agent json)
 exit 2
 --- stdout

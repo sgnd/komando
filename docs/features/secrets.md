@@ -59,14 +59,14 @@ needs it and never stores it.
 ## Check one
 
 ```bash
-komando secret get web1-pass      # does it exist, what uses it, a warning about spaces (no value)
+komando secret show web1-pass      # does it exist, what uses it, a warning about spaces (no value)
 komando secret check web1-pass    # type the value you think it is: match or how they differ
 ```
 
 `secret check` never shows either value: it says whether they match, or
 whether they differ only in spaces at the ends, only in upper and lower
 case, or in length. Only a person can run it. A person at a terminal can
-print a value with `komando secret get NAME --reveal` (for example piped
+print a value with `komando secret show NAME --reveal` (for example piped
 into `pbcopy`).
 
 ## Rename, copy and remove
@@ -119,7 +119,7 @@ An agent never sees a value: output shows `[secret:NAME]` or `[hidden]`.
 | preview a change | the same command with `--dry-run` | `meta.would_be_blocked` names what the real run needs |
 | use a secret | `secret:NAME` in a flag | `SECRET_DESTINATION`: a person allows where it goes |
 | rename, copy, remove | `secret rename`, `secret cp`, `secret rm` | |
-| read or compare a value | asks the user (`secret get --reveal`, `secret check`) | `REVEAL_NEEDS_HUMAN`, `NEEDS_PERSON` |
+| read or compare a value | asks the user (`secret show --reveal`, `secret check`) | `REVEAL_NEEDS_HUMAN`, `NEEDS_PERSON` |
 
 The agent never asks for a password in the chat: the hint names the
 command the user runs in their own terminal.

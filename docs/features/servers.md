@@ -356,7 +356,7 @@ Manage the vault (all of it on one page: [Secrets](secrets.md)):
 
 ```bash
 komando secret list                          # names, when they changed, what uses them
-komando secret get web1-pass                 # does it exist, and who uses it (no value)
+komando secret show web1-pass                 # does it exist, and who uses it (no value)
 komando secret set db-pass --from-env DB_PASS
 pbpaste | komando secret set vpn-pass        # from the clipboard (macOS; xclip -o on Linux)
 komando secret rename vpn-password office-vpn    # rename it, and everything that uses it
@@ -375,7 +375,7 @@ komando secret rm old-pass                   # refused while something uses it
   add) is not part of the value. Spaces are kept, because a password can hold
   them, but komando warns when the value starts or ends with a space or tab:
   a space copied together with a password is a common reason a login fails.
-  `secret get NAME` shows the same warning later.
+  `secret show NAME` shows the same warning later.
 - `secret rename OLD NEW` renames the secret inside the vault and
   points every server, conn, key and VPN that used `secret:OLD` at
   `secret:NEW` in the same step, conn URL options such as
@@ -393,7 +393,7 @@ komando secret rm old-pass                   # refused while something uses it
 
 Replacing a secret that a protected server or conn uses needs `--yes` (also
 with `secret rename` or `secret cp --overwrite`). Only a person at a terminal can
-see a value, with `secret get --reveal`; AI agents never get it.
+see a value, with `secret show --reveal`; AI agents never get it.
 
 ### Where saved passwords are kept
 

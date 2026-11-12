@@ -191,7 +191,7 @@ This page is made from the code (`komando schema` lists the same under
 | `RESERVED_SECRET` | 2 | secret … belongs to komando's approval code | a person manages it with `komando config approval-code` |
 | `RESTORE_FAILED` | 5 | the restore stopped; what was loaded before the error stays (unless it ran in one transaction) | nothing was changed (PostgreSQL restores in one transaction); fix the file and try again |
 | `RESTORE_UNSUPPORTED` | 2 | line … switches to another database: … | the file switches databases (pg_dump --create or pg_dumpall); dump the one database without --create and restore that into this conn |
-| `REVEAL_NEEDS_HUMAN` | 6 | --reveal only works for a person at a terminal | ask a person to run `komando secret get … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead |
+| `REVEAL_NEEDS_HUMAN` | 6 | --reveal only works for a person at a terminal | ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead |
 | `REVEAL_NEEDS_PERSON` | 6 | --reveal needs the user's yes | values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen |
 | `REVISION_NOT_FOUND` | 3 | no earlier revision to go back to | see the revisions with `komando cluster history CONN deployment/NAME` |
 | `REVOKE_FAILED` | 5 | the key could not be removed from a server's authorized_keys | run it again; to look at the file: `komando fs cat HOST ~/.ssh/authorized_keys` |

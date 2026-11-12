@@ -42,7 +42,7 @@ make fuzz               # fuzz the parsers that read untrusted text
 | Risk | How komando meets it | Status |
 |---|---|---|
 | LLM01 Prompt injection | The agent rules say server output is data, never instructions; risky actions need a person's click, which injected text cannot give | Partly met: no tool can stop injection itself, only limit what it reaches |
-| LLM02 Sensitive information disclosure | Masking for agents, `SENSITIVE_FILE`, the guard on this computer (Claude Code, Cursor, Gemini CLI, Codex), `secret get --reveal` for people only | Partly met: masking only works for an agent komando recognises: Claude Code, Codex, Cursor, Gemini CLI, or any agent with `KOMANDO_AGENT=1` set |
+| LLM02 Sensitive information disclosure | Masking for agents, `SENSITIVE_FILE`, the guard on this computer (Claude Code, Cursor, Gemini CLI, Codex), `secret show --reveal` for people only | Partly met: masking only works for an agent komando recognises: Claude Code, Codex, Cursor, Gemini CLI, or any agent with `KOMANDO_AGENT=1` set |
 | LLM05 Improper output handling | Masked text is never written back (`HIDDEN_VALUE`); every command an agent sends passes the policy filter | Met |
 | LLM06 Excessive agency | Reads by default (`--read-only`, `--write`), protected targets, a person allows `--yes`, `--allow-dangerous` and `--reveal`, the audit log names the agent | Partly met: the approval window for `--yes`, `--allow-dangerous` and `--reveal` only works for an agent komando recognises (see LLM02); another agent counts as a script |
 | LLM10 Unbounded consumption | Timeouts, output limits per host, parallelism limits, long work as jobs | Met |

@@ -55,6 +55,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `secret show NAME` is the name for checking a secret (it never prints
+  the value to an agent); `secret get` keeps working for good. The
+  envelope's `command` stays `secret.get`, so an agent's output is
+  masked as before.
 - **Renaming an item is `rename`**: `host rename`, `conn rename`,
   `vpn rename`, `key rename`, `secret rename` and `group rename OLD NEW`.
   `mv` keeps working there for good and prints nothing extra; the

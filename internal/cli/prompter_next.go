@@ -53,7 +53,7 @@ func promptNext() {
 // itemCommands; "" finds the kind in the inventory (a server, conn or VPN).
 var showKinds = map[string]string{
 	"host show": "", "conn show": "", "vpn show": "",
-	"group list": "group", "key show": "key", "job status": "job", "secret get": "secret", "config get": "setting",
+	"group list": "group", "key show": "key", "job status": "job", "secret show": "secret", "config get": "setting",
 }
 
 // itemCommands are the commands that work on one item of a kind, {} the

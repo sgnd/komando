@@ -31,6 +31,7 @@ func TestStandardRenamedIDs(t *testing.T) {
 		{[]string{"key", "rename"}, []string{"key", "mv"}, "key.mv"},
 		{[]string{"secret", "rename"}, []string{"secret", "mv"}, "secret.mv"},
 		{[]string{"group", "rename"}, []string{"group", "mv"}, "group.mv"},
+		{[]string{"secret", "show"}, []string{"secret", "get"}, "secret.get"},
 	} {
 		now, old := findCmd(t, root, c.now...), findCmd(t, root, c.old...)
 		if now != old {

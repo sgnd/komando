@@ -326,7 +326,7 @@ Next time: komando logs web1
 - After a command you ran ends well, komando may say what usually comes
   next (`Next: komando db info app-db`). `komando host show web1` (`conn
   show`, `vpn show`, `group list GROUP`, `key show`, `job status`,
-  `secret get`, `config get`) ends with the commands for that item.
+  `secret show`, `config get`) ends with the commands for that item.
 
 `komando` alone shows the commands by group, START first. A command typed
 in full runs as it always did. Nothing is ever asked of an AI agent, a

@@ -191,7 +191,7 @@ const secretLong = `Save a password once, then point to it as secret:NAME instea
   komando host edit web1 --password-ref secret:web1-pass
 
 komando never prints a saved value. A person at a terminal can see one with
-` + "`secret get --reveal`" + `, and ` + "`secret check`" + ` compares a value with the saved one
+` + "`secret show --reveal`" + `, and ` + "`secret check`" + ` compares a value with the saved one
 without showing either. ` + "`secret rename`" + ` and ` + "`secret cp`" + ` rename and copy.
 
 How it is stored: each secret sealed with AES-256-GCM in ~/.komando/store.db.

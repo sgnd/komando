@@ -93,18 +93,20 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 	return set
 }
 
-// secretGetCmd is `secret get`.
+// secretGetCmd is `secret show` (`secret get` before, a permanent synonym;
+// the ID stays secret.get, so the agent mask line keys it as before).
 func secretGetCmd() *cobra.Command {
 	get := &cobra.Command{
-		Use:   "get NAME",
+		Use:     "show NAME",
+		Aliases: []string{"get"},
 		Short: "Check a secret exists; --reveal prints its value",
 		Long: `Says whether the secret exists and what uses it, without its value. A person
 at a terminal can add --reveal to print it; AI agents never get the value
 (they reference it as secret:NAME instead). A warning says when the value
 starts or ends with a space, tab or line break, a common cause of a failing
 login; 'komando secret check NAME' lets a person compare it.`,
-		Example: `  komando secret get db-pass
-  komando secret get db-pass --reveal | pbcopy   # a person, at a terminal`,
+		Example: `  komando secret show db-pass
+  komando secret show db-pass --reveal | pbcopy   # a person, at a terminal`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v, err := vault.Get(args[0])
@@ -119,7 +121,7 @@ login; 'komando secret check NAME' lets a person compare it.`,
 				// agents never see passwords (docs/design/vision.md); a person at
 				// a terminal can still pipe the value, e.g. into pbcopy
 				return out.Errf(out.ExitPolicy, "REVEAL_NEEDS_HUMAN",
-					"ask a person to run `komando secret get "+args[0]+" --reveal` in a terminal; to use the secret in a command, reference it (secret:"+args[0]+") instead",
+					"ask a person to run `komando secret show "+args[0]+" --reveal` in a terminal; to use the secret in a command, reference it (secret:"+args[0]+") instead",
 					"--reveal only works for a person at a terminal")
 			}
 			res := map[string]any{"name": args[0], "exists": true, "ref": "secret:" + args[0]}
@@ -138,6 +140,7 @@ login; 'komando secret check NAME' lets a person compare it.`,
 			return nil
 		},
 	}
+	withID(get, "secret.get")
 	return get
 }
 
@@ -158,7 +161,7 @@ picks would be a way to guess the secret one try at a time.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if isAgent() {
 				return out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-					"ask the user to run `komando secret check "+args[0]+"` in their own terminal; `komando secret get "+args[0]+"` says whether the value starts or ends with a space",
+					"ask the user to run `komando secret check "+args[0]+"` in their own terminal; `komando secret show "+args[0]+"` says whether the value starts or ends with a space",
 					"only a person can check a secret's value: for an AI agent it would be a way to guess it")
 			}
 			stored, err := vault.Get(args[0])

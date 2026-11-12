@@ -46,7 +46,7 @@ komando tunnel start app-db --port 15432     # choose the port yourself
 ```
 
 Point the app at that address, with the database's user name and password.
-The password is in komando's vault: at your terminal, `komando secret get
+The password is in komando's vault: at your terminal, `komando secret show
 app-db-pass --reveal | pbcopy` copies it (macOS; `xclip` on Linux) without
 showing it. AI agents never get it; they use `komando db query` instead.
 The tunnel runs in the background until you stop it with
