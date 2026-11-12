@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -45,7 +46,18 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
 				}
 				return cmd.Help()
 			}
-			return loginHost(cmd.Context(), args[0])
+			if i := slices.IndexFunc(loginClouds, func(c string) bool { return strings.EqualFold(c, args[0]) }); i >= 0 {
+				// no server can have that name (checkHostName): it is the cloud login
+				return out.Usage("cloud logins are lower case: komando login %s", loginClouds[i]).WithHint("komando login " + loginClouds[i])
+			}
+			err := loginHost(cmd.Context(), args[0])
+			if e := toErr(err); e != nil && e.Code == "HOST_NOT_FOUND" {
+				if c := closest(args[0], loginClouds[:1]); c != "" { // only aws is built
+					e.Hint += " For the AWS login: komando login " + c
+				}
+				return e
+			}
+			return err
 		},
 	}
 	// a new subcommand goes into loginClouds too, so no server takes its name

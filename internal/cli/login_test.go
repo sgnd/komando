@@ -283,3 +283,18 @@ func TestLoginCloudComing(t *testing.T) {
 		}
 	}
 }
+
+// `login AWS` is the AWS login (no server can be named so), and a server
+// name close to aws that does not exist points at it too.
+func TestLoginCloudTypos(t *testing.T) {
+	invHome(t)
+	if e := wantCode(t, "USAGE", "login", "AWS"); e.Hint != "komando login aws" {
+		t.Errorf("AWS: %+v", e)
+	}
+	if e := wantCode(t, "HOST_NOT_FOUND", "login", "asw"); !strings.Contains(e.Hint, "komando login aws") {
+		t.Errorf("asw: %+v", e)
+	}
+	if e := wantCode(t, "HOST_NOT_FOUND", "login", "web1"); strings.Contains(e.Hint, "login aws") {
+		t.Errorf("web1: %+v", e)
+	}
+}

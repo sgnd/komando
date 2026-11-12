@@ -46,7 +46,7 @@ func awsErr(profile string, err error) error {
 		return out.Errf(out.ExitNotFound, "AWS_PROFILE_NOT_FOUND", "add the profile to ~/.aws/config (or fix --option aws_profile)",
 			"there is no AWS profile %q", profile)
 	case errors.Is(err, cloud.ErrAWSNotSSO):
-		return out.Errf(out.ExitConnect, "AWS_FAILED", awsKeysHint(profile), "AWS profile %s: %v", profile, err)
+		return out.Errf(out.ExitConnect, "AWS_FAILED", awsKeysHint(profile), "AWS profile %s has no SSO login (no sso_start_url or sso_session)", profile)
 	case errors.Is(err, cloud.ErrAWSLogin):
 		if _, serr := cloud.AWSProfileSSO(context.Background(), profile); errors.Is(serr, cloud.ErrAWSNotSSO) {
 			return out.Errf(out.ExitConnect, "AWS_FAILED", awsKeysHint(profile), "AWS profile %s has no keys and no SSO login: %v", profile, err)
