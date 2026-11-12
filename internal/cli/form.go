@@ -757,9 +757,6 @@ func formArgs(rule cobra.PositionalArgs) cobra.PositionalArgs {
 // for a person at a terminal (no flags either, as for the menu), the usual
 // usage error for everyone else, AI agents and scripts included.
 func formOrUsage(cmd *cobra.Command, kind, example string) error {
-	if menuWanted(cmd, nil) {
-		return formCommand(formGroupsFor(kind))
-	}
 	return out.Errf(out.ExitUsage, "USAGE",
 		"for example: "+example+". A person can type `komando "+kind+" add` alone at a terminal to be asked step by step",
 		"komando %s add needs a name and what to add", kind)

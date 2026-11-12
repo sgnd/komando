@@ -4,7 +4,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -264,70 +263,49 @@ func TestFormNameProblem(t *testing.T) {
 	}
 }
 
-// `komando host add` alone at a terminal asks, one question at a time,
-// takes a pasted password out before it is ever drawn, and shows the
-// commands it would run; Ctrl-C there adds nothing.
+// `komando host add` alone at a person's terminal asks the server's own
+// questions line by line; a pasted user:password@ is never drawn, the
+// lines are shown before they run, and No adds nothing.
 func TestFormHostAddAtATerminal(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts a process")
 	}
 	invHome(t)
-	p := startPTY(t, "host", "add")
-	p.answer("What do you want to call this server?", "web1\r")
-	p.answer("What is the server's address?", "root:hun@ter2@203.0.113.20")
-	p.waitFor("a password was in it")
-	p.answer("a password was in it", "\r")
-	p.answer("User [root]: ", "\r")
-	p.answer("What does the server run?", "\r") // Linux
+	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "host", "add")
+	p.answer("Name, e.g. web1: ", "web1\r")
+	p.answer("Address, e.g.", "root:hun@ter2@203.0.113.20\r")
+	p.answer("a password was in it", "\r") // User [root]
+	p.answer("System [Linux]: ", "\r")
 	p.answer("Port [22]: ", "\r")
-	p.answer("How do you log in?", "2") // A password
-	p.answer("Can a mistake on this server hurt real users", "\r")
-	p.waitFor("check and run")
+	p.answer("Login [My SSH key]: ", "2\r") // A password
+	p.answer("Production [Yes, protect it]: ", "\r")
 	p.waitFor("$ komando host add web1 root@203.0.113.20 --ask-password --protected")
 	p.waitFor("$ komando test web1")
-	p.answer("Run it", "\x03") // Ctrl-C
-	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "nothing was added") {
+	p.answer("Run it? [y/N, d = --dry-run first]: ", "\r") // Enter is No
+	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "Nothing was run") {
 		t.Errorf("exit %d; the screen:\n%s", code, p.shown())
 	}
 	if strings.Contains(p.shown(), "ter2") || strings.Contains(p.shown(), "hun") {
 		t.Errorf("the pasted password was drawn:\n%s", p.shown())
 	}
 	if _, err := invRun(t, "host", "show", "web1"); err == nil {
-		t.Error("web1 was added after Ctrl-C")
+		t.Error("web1 was added after No")
 	}
 }
 
-// Esc from the review goes back one question at a time, and Esc on the
-// first one leaves the form, changing nothing: it never comes round to the
-// review again, where only q or Ctrl-C could leave (docs/design/ux.md, 10).
-func TestFormEscLeavesFromReview(t *testing.T) {
+// Ctrl-C at any question of an add stops it, and nothing was added.
+func TestFormAddCtrlC(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts a process")
 	}
 	invHome(t)
-	p := startPTY(t, "host", "add")
-	p.answer("What do you want to call this server?", "web1\r")
-	p.answer("What is the server's address?", "203.0.113.20\r")
-	p.answer("Which user do you log in as?", "root\r")
-	for range 6 { // the rest as they come: Enter takes each default
-		time.Sleep(400 * time.Millisecond)
-		if strings.Contains(p.shown(), "check and run") {
-			break
-		}
-		p.answer("Enter", "\r")
-	}
-	p.waitFor("check and run")
-	for range 20 { // more than the questions and their typed lines need
-		time.Sleep(250 * time.Millisecond)
-		if _, err := p.master.WriteString("\x1b"); err != nil {
-			break // komando has ended
-		}
-	}
-	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "nothing was added") {
+	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "db", "add")
+	p.answer("KIND: ", "\x03")
+	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "Nothing was run") {
 		t.Errorf("exit %d; the screen:\n%s", code, p.shown())
 	}
-	if _, err := invRun(t, "host", "show", "web1"); err == nil {
-		t.Error("web1 was added after Esc")
+	if echo, _ := p.leftTerminal(); !echo {
+		t.Error("the terminal was left without echo")
 	}
 }
 

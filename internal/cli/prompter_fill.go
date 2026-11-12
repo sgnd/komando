@@ -59,7 +59,12 @@ func promptFill(args []string) ([]string, error) {
 	promptOn = true
 	defer func() { promptOn = false }()
 	if formAddCmd(cmd) && len(cmd.Flags().Args()) == 0 {
-		return args, nil // its own questions, for now in the add form
+		local := false
+		cmd.LocalFlags().Visit(func(*pflag.Flag) { local = true })
+		if local {
+			return args, nil // part typed: the usage error says what is missing
+		}
+		return nil, promptAdd(st, cmd) // its own questions (prompter_add.go)
 	}
 	f := newFill(st, cmd)
 	if len(f.missing) == 0 {
@@ -368,11 +373,4 @@ func promptStopped(err error) error {
 		return err
 	}
 	return (&out.Error{Code: "CANCELLED", Message: "interrupted", Hint: "nothing was run", Exit: out.ExitError}).Cancel("Stopped. Nothing was run.")
-}
-
-// formAddCmd: host add, conn add, vpn add or a family's add (db add ...),
-// which have questions of their own.
-func formAddCmd(cmd *cobra.Command) bool {
-	k := commandKey(cmd)
-	return k == "host add" || k == "conn add" || k == "vpn add" || formFamilyAdd[k] != ""
 }

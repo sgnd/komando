@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"golang.org/x/term"
 
@@ -154,10 +155,16 @@ func askText(q promptQ) (string, error) {
 func askPick(q promptQ, rows []menuRow, free bool) (string, error) {
 	shown := rows
 	promptRows(shown)
+	shownDef := q.def
+	for _, r := range rows {
+		if r.value == q.def && q.def != "" {
+			shownDef = r.label // the default as the list names it
+		}
+	}
 	for try := 0; try < promptTries; {
 		label := q.label
-		if q.def != "" {
-			label += " [" + q.def + "]"
+		if shownDef != "" {
+			label += " [" + shownDef + "]"
 		}
 		v, err := promptLine(label + ": ")
 		if err != nil {
@@ -257,4 +264,77 @@ func askTypeName(name string) (bool, error) {
 		return false, err
 	}
 	return v == name, nil
+}
+
+// promptReadMasked reads one line drawn through mask as it is typed (a
+// password pasted with an address is never drawn); tests stand in for it.
+var promptReadMasked = readMaskedLine
+
+// askMasked is askText for a line that may hold a pasted password: the
+// screen shows it through mask, never as typed.
+func askMasked(q promptQ, mask func(string) string) (string, error) {
+	if !promptOn {
+		return askText(q) // askText says what is wrong
+	}
+	saved := promptRead
+	promptRead = func(label string) (string, error) { return promptReadMasked(label, mask) }
+	defer func() { promptRead = saved }()
+	return askText(q)
+}
+
+// readMaskedLine reads a line in raw mode, drawing it through mask after
+// every key or paste. Ctrl-C stops (as at any question), Ctrl-U clears,
+// Backspace takes one character back; other control keys are ignored.
+func readMaskedLine(label string, mask func(string) string) (string, error) {
+	fd := int(os.Stdin.Fd())
+	old, err := term.MakeRaw(fd)
+	if err != nil {
+		return readAnswer(label, false)
+	}
+	defer func() { _ = term.Restore(fd, old) }()
+	var line []rune
+	draw := func() { fmt.Fprint(promptW, "\r\x1b[2K"+label+mask(string(line))) }
+	draw()
+	buf := make([]byte, 4096)
+	for {
+		n, err := os.Stdin.Read(buf)
+		if err != nil {
+			return "", err
+		}
+		b := buf[:n]
+		for len(b) > 0 {
+			switch c := b[0]; {
+			case c == 3: // Ctrl-C
+				fmt.Fprint(promptW, "\r\n")
+				interrupted = true
+				return "", interruptedErr()
+			case c == '\r' || c == '\n' || c == 4 && len(line) == 0:
+				fmt.Fprint(promptW, "\r\n")
+				return string(line), nil
+			case c == 0x7f || c == 8:
+				if len(line) > 0 {
+					line = line[:len(line)-1]
+				}
+				b = b[1:]
+			case c == 0x15: // Ctrl-U
+				line, b = nil, b[1:]
+			case c == 0x1b: // an escape sequence (arrows, bracketed paste marks): skipped
+				i := 1
+				if len(b) > 1 && (b[1] == '[' || b[1] == 'O') {
+					i = 2
+					for i < len(b) && (b[i] < 0x40 || b[i] > 0x7e) {
+						i++
+					}
+					i++
+				}
+				b = b[min(i, len(b)):]
+			case c < 0x20:
+				b = b[1:]
+			default:
+				r, size := utf8.DecodeRune(b)
+				line, b = append(line, r), b[size:]
+			}
+		}
+		draw()
+	}
 }

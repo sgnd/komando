@@ -32,6 +32,14 @@ its highlights; the sections below them give the details. Versions follow
   target's name; a protected target asks its usual [y/N] instead. A
   protected server is never picked for you. A command typed in full, and
   everything AI agents and scripts get, stays exactly as before.
+- `komando host add`, `conn add`, `vpn add`, `db add`, `cache add`,
+  `queue add`, `storage add`, `cluster add` and `registry add` typed alone
+  at a terminal now ask their questions line by line in the normal screen
+  (which kind, name, address or the parts of the URL, how to log in,
+  production), show the commands, ask `Run it?`, and run them. A password
+  pasted with the address is never drawn. When the test after an add
+  fails, komando says the three commands to change, test again or remove
+  it, instead of a menu.
 
 ### Fixed
 
