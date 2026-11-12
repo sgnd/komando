@@ -57,8 +57,8 @@ Most settings also have a flag for one run: `--timeout`,
 | Variable | What it does |
 |----------|--------------|
 | `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`). For an AI agent, another folder needs a person's yes on every command (see [Safety](safety.md#seatbelts-for-ai-agents)); if you keep the data elsewhere, make `~/.komando` a link to it instead |
-| `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of a key in the keychain or in `vault.key`. A new vault takes it at your first secret; `komando secret passphrase` adds or changes it later (see below) |
-| `KOMANDO_KEYCHAIN` | `off`: komando uses no keychain, and a new vault keeps its key in `vault.key` (CI runners, containers, test runs). On a Mac, a path to a keychain file to use instead of the login keychain |
+| `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of a key in the keychain or in `store.key`. A new vault takes it at your first secret; `komando secret passphrase` adds or changes it later (see below) |
+| `KOMANDO_KEYCHAIN` | `off`: komando uses no keychain, and a new vault keeps its key in `store.key` (CI runners, containers, test runs). On a Mac, a path to a keychain file to use instead of the login keychain |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
 | `KOMANDO_EXPERIMENTAL` | turn on features still being tested, by name (`ssm`: komando's own AWS Session Manager client, see [Servers](servers.md)) |
@@ -136,12 +136,12 @@ Where the keychain cannot keep the key or cannot tell (a Linux server without
 `secret-tool` or a desktop session, a default collection that is locked,
 no `gdbus` or `busctl`, a Mac reached over SSH with its keychain locked, an
 item for this folder that stays locked, a container, a keychain that does
-not answer within a few seconds), the key goes into `vault.key` and
+not answer within a few seconds), the key goes into `store.key` and
 `komando doctor` warns. One case it cannot see: an item in a KeePassXC
 database other than the default one, while that database is locked.
 
 A vault keeps its key where it is: one made before komando used the
-keychain still has `vault.key`. Run `komando secret keychain` to move the
+keychain still has `store.key`. Run `komando secret keychain` to move the
 key into the keychain. Nothing is re-encrypted, so it works before or after
 your first secret (`--off --yes` moves it back). Only a person at a
 terminal can run it: an AI agent or a script gets `NEEDS_PERSON`, since the
@@ -189,15 +189,15 @@ that (below). A passphrase vault needs the same passphrase in every shell
 and background process.
 
 To change the passphrase, or to give a passphrase to a vault whose key is in
-`vault.key` or the keychain, run `komando secret passphrase` in your terminal.
+`store.key` or the keychain, run `komando secret passphrase` in your terminal.
 It asks for the new passphrase twice (hidden, 15 or more characters) and
 re-encrypts every secret under it; if one cannot be decrypted, nothing
 changes. When `KOMANDO_VAULT_PASS` holds the new value already, it asks for
-the current one. The old `vault.key` or keychain item is removed only after
+the current one. The old `store.key` or keychain item is removed only after
 the new vault is saved and read back. Then put the new passphrase in
 `KOMANDO_VAULT_PASS` wherever you set it, and restart background tunnels and
 VPN sessions: they still hold the old key. `--off --yes` goes back to a new
-random key in `vault.key`. Only a person at a terminal can run it, never an
+random key in `store.key`. Only a person at a terminal can run it, never an
 AI agent. A `KOMANDO_VAULT_PASS` changed without it opens none of the
 secrets (nothing is lost: set the old value again); `komando doctor` says so.
 

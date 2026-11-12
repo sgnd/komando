@@ -195,10 +195,15 @@ komando never prints a saved value. A person at a terminal can see one with
 ` + "`secret get --reveal`" + `, and ` + "`secret check`" + ` compares a value with the saved one
 without showing either. ` + "`secret mv`" + ` and ` + "`secret cp`" + ` rename and copy.
 
-How it is stored: AES-256-GCM in ~/.komando/vault.json. The random key is
-in the OS keychain (or in vault.key where there is none, or with
-KOMANDO_KEYCHAIN=off), or comes from $KOMANDO_VAULT_PASS when that is set at
-first use (` + "`secret passphrase`" + ` changes it).`
+How it is stored: each secret sealed with AES-256-GCM in ~/.komando/store.db.
+The random key is in the OS keychain (or in store.key where there is none,
+or with KOMANDO_KEYCHAIN=off), or comes from $KOMANDO_VAULT_PASS when that is
+set at first use (` + "`secret passphrase`" + ` changes it).
+
+A --password-ref (and the other -ref flags) can also read a password your
+team keeps elsewhere; komando reads it when needed and never stores it:
+  env:VAR  file:PATH  vault:PATH#FIELD  aws-sm:NAME[#KEY]  gcp-sm:NAME[@PROJECT]
+  azure-kv:VAULT/NAME[#KEY]  op://VAULT/ITEM/FIELD  bw://ITEM/FIELD  kdbx:FILE#GROUP/ENTRY`
 
 func secretCmd() *cobra.Command {
 	c := &cobra.Command{

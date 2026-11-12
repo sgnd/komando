@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `komando secret --help` and the Settings and Moving pages named
+  `vault.json` and `vault.key`, the files of an earlier komando; they now
+  say `store.db` and `store.key`. The help also lists the other places a
+  `-ref` flag can read a password from (`env:`, `file:`, `vault:`,
+  `aws-sm:`, `gcp-sm:`, `azure-kv:`, `op://`, `bw://`, `kdbx:`).
 - `secret set NAME --from-env VAR` refuses an empty (or blank) variable
   with `USAGE`, as an empty pipe is refused, instead of storing an empty
   password.
