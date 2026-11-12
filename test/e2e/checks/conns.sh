@@ -42,6 +42,9 @@ $K db query pg --write "drop table t" >/dev/null; check "pg drop needs --allow-d
 set -e
 check "pg dry run rolls back" 2 "$($K db query pg --write --dry-run 'delete from t where id > 0' >/dev/null; $K db query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K db dump pg --to "$TMP/pg.sql.gz"
+mkdir -p "$TMP/dumps"
+check "db dump --to a folder names the file after the conn" True "$($K db dump pg --to "$TMP/dumps/" | jget 'd["data"]["file"].endswith("/pg-'"$(date +%F)"'.sql.gz")' || true)"
+check "a db hint names the conn" True "$($K db schema pg no_such_table | jget '"komando db schema pg" in d["error"]["hint"]' || true)"
 check "pg dump is private" 600 "$(stat -c %a "$TMP/pg.sql.gz" 2>/dev/null || stat -f %Lp "$TMP/pg.sql.gz")"
 q $K db query pg --write --allow-dangerous "drop table t; drop sequence s"
 q $K db restore pg --from "$TMP/pg.sql.gz" --allow-dangerous
@@ -56,6 +59,7 @@ for _ in $(seq 1 20); do PID=$($K db activity pg | jget '[s["pid"] for s in d["d
 check "db activity sees the slow query" True "$([ -n "$PID" ] && echo True || echo False)"
 check "db kill --dry-run names the query" True "$($K db kill pg "$PID" --dry-run | jget '"pg_sleep" in d["data"]["session"]["query"]')"
 check "db kill --session needs --allow-dangerous" POLICY_BLOCKED "$($K db kill pg "$PID" --session | jget 'd["error"]["code"]' || true)"
+check "db kill --session --dry-run says it would be blocked" POLICY_BLOCKED "$($K db kill pg "$PID" --session --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]' || true)"
 check "db kill cancels it" "cancel query" "$($K db kill pg "$PID" | jget 'd["data"]["done"]')"
 for _ in $(seq 1 10); do grep -q '"ok"' "$TMP/slow.json" 2>/dev/null && break; sleep 1; done
 check "the cancelled query stopped" False "$(jget 'd["ok"]' < "$TMP/slow.json")"
