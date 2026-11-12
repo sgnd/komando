@@ -142,7 +142,7 @@ var errorCodes = []errorCode{
 	{"NO_TUNNEL_NEEDED", 2, "… has no --via, so it is reachable without a tunnel", "connect to … directly"},
 	{"NXDOMAIN", 3, "… does not resolve from this server", "check the name, and the server's DNS (/etc/resolv.conf)"},
 	{"OBJECT_NOT_FOUND", 3, "… not found", "list files with `komando storage list CONN [FOLDER]`"},
-	{"OPEN_BIND", 6, "the tunnel would listen on … of …, open to its network", "keep the default 127.0.0.1, or re-run with --yes if other machines should reach it"},
+	{"OPEN_BIND", 6, "the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer)", "keep the default 127.0.0.1, or re-run with --yes if other machines should reach it"},
 	{"OPTION_LIKE_VAR", 2, "the value of … may not start with '-' (… would be read as an option)", "for a path that starts with -, write ./…"},
 	{"OUTPUT_TRUNCATED", 1, "the rows are more than the output size cap (--max-output) allows; nothing was printed", "raise --max-output (bytes, e.g. --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump`"},
 	{"OVPN_UNSUPPORTED", 2, "the OpenVPN profile has an option komando's own client does not support (the message names it)", "change the profile, or report the option you need at …/issues"},

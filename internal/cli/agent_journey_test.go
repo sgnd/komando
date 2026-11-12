@@ -18,7 +18,7 @@ func TestApprovalHintOnlyWhereAFlagAsks(t *testing.T) {
 		e          *out.Error
 		want, nope string
 	}{
-		{&out.Error{Code: "POLICY_BLOCKED", Hint: "check it", Exit: out.ExitPolicy}, "komando asks the user in a window", ""},
+		{&out.Error{Code: "POLICY_BLOCKED", Hint: "check it", Exit: out.ExitPolicy}, "komando then asks them in a window", ""},
 		{(&out.Error{Code: "UNSAFE_BACKUP", Hint: "fix that line", Exit: out.ExitPolicy}).NoFlag(), "fix that line", "window"},
 		{&out.Error{Code: "WRITE_REQUIRES_FLAG", Hint: "re-run with --write", Exit: out.ExitPolicy}, "komando does not ask the user about this", "window"},
 		{&out.Error{Code: "READ_ONLY_VIOLATION", Hint: "it changes something", Exit: out.ExitPolicy}, "komando does not ask the user about this", "window"},
@@ -46,7 +46,7 @@ func TestSafetyStopTextHintForAgents(t *testing.T) {
 	resetApproval()
 	e = toErr(guardSafety("turning off the audit log"))
 	approvalHint(e)
-	if h := e.TextHint(); strings.Contains(h, "in a script") || !strings.Contains(h, "komando asks the user in a window") {
+	if h := e.TextHint(); strings.Contains(h, "in a script") || !strings.Contains(h, "komando then asks them in a window") {
 		t.Errorf("agent text hint: %q", h)
 	}
 	if !strings.HasPrefix(e.TextMessage(), "turning off the audit log turns off") {

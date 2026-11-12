@@ -92,6 +92,16 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Every safety stop that a flag lifts now has one hint wording, naming
+  every flag the real run needs. An AI agent reads `check with --dry-run,
+  ask the user; once they agree, run it again with --yes (komando then asks
+  them in a window on their screen)`; a script reads `check with --dry-run,
+  then run it again with --allow-dangerous:` followed by its own command
+  line with the flag filled in (the flag goes before `--`). In a dry
+  run, `meta.would_be_blocked.hint` says to run it again without
+  `--dry-run`. Codes, messages and exit codes are unchanged; a few
+  messages gained the advice their hint carried (a credential plugin, a
+  proxy command, an open tunnel address, trusting a kubeconfig program).
 - `storage link` and `cluster forward` are `kind: change` in `komando
   schema` (were `read`): they hand out access and already stopped on a
   protected target. An ssh-gate key added with `--read-only` is refused

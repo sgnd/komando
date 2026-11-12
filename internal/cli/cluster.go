@@ -129,7 +129,7 @@ func guardKubePlugin(c *store.Conn, x *kube.Context) error {
 	line := pluginLine(e)
 	if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() && !policyAsk("the kubeconfig of conn "+c.Name+" logs in with `"+line+"`, which matches "+hits[0].Reason, c.Name) {
 		stop := out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig of this conn (if this program is intended, --allow-dangerous lets it run)",
-			"the kubeconfig of conn %s logs in with `%s`, which matches destructive rules: %s", c.Name, line, hits[0].Reason)
+			"the kubeconfig of conn %s logs in with `%s`, which matches destructive rules: %s (a credential plugin only prints a token: check the kubeconfig of this conn)", c.Name, line, hits[0].Reason)
 		if g.dryRun {
 			out.P.WouldBlock(stop)
 			return errDryRunStopped
@@ -143,7 +143,7 @@ func guardKubePlugin(c *store.Conn, x *kube.Context) error {
 	stop := out.Errf(out.ExitPolicy, "SAFETY_SETTING",
 		"a program on this computer is outside the agent guard's view: re-run with --yes after the user confirms it (read-only commands ask too). "+
 			"To trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves",
-		"%s; an AI agent needs a person's yes each time", what)
+		"%s; an AI agent needs a person's yes each time (to trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves)", what)
 	if g.dryRun { // a dry run never runs it: --yes is not asked for here
 		if !g.yes {
 			out.P.WouldBlock(stop)

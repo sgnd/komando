@@ -56,7 +56,7 @@ func guardBind(t tunnelSpec) error {
 		where = "the server"
 	}
 	return policyStop(out.Errf(out.ExitPolicy, "OPEN_BIND", "keep the default 127.0.0.1, or re-run with --yes if other machines should reach it",
-		"the tunnel would listen on %s of %s, open to its network", host, where))
+		"the tunnel would listen on %s of %s, open to its network (the default 127.0.0.1 keeps it to that computer)", host, where))
 }
 
 func portInUse(addr, where string, err error) error {

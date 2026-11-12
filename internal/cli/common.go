@@ -300,7 +300,7 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 		if len(hits) > 0 && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(names, prot, hits[0].Reason) {
 			// a dry run goes on to the protection check, so meta.would_need names both flags
 			if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", dangerFlagsHint(len(prot) > 0),
-				"the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")).Say(dangerSay(reasons), dangerHint)); err != nil {
+				"the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")).Say(dangerSay(reasons), dangerHint).Need(protNeed(prot)...)); err != nil {
 				return err
 			}
 		}
@@ -368,7 +368,7 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 	}
 	if v.Risk >= driver.RiskDestructive && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerousOn(names, prot, strings.Join(v.Reasons, "; ")) {
 		if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", dangerFlagsHint(len(prot) > 0),
-			"the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")).Say(dangerSay(v.Reasons), dangerHint)); err != nil {
+			"the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")).Say(dangerSay(v.Reasons), dangerHint).Need(protNeed(prot)...)); err != nil {
 			return err
 		}
 	}

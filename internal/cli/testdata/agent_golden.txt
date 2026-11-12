@@ -6241,7 +6241,7 @@ no tunnels: komando tunnel start TARGET starts one
 ### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: recursive delete of / or home","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: recursive delete of / or home","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- rm -rf / (agent text, gate inventory)
 exit 6
@@ -6251,7 +6251,7 @@ Stopped: this can delete or break things (recursive delete of / or home), so kom
 ### komando -o json exec web1 -- rm -rf / (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: recursive delete of / or home","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: recursive delete of / or home","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json exec web1 --allow-dangerous -- rm -rf /`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- rm -rf / (script text, gate inventory)
 exit 6
@@ -6261,7 +6261,7 @@ Stopped: this can delete or break things (recursive delete of / or home), so kom
 ### komando -o json exec web1 -- reboot (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- reboot (agent text, gate inventory)
 exit 6
@@ -6271,7 +6271,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json exec web1 -- reboot (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json exec web1 --allow-dangerous -- reboot`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- reboot (script text, gate inventory)
 exit 6
@@ -6281,7 +6281,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json exec web1 -- foo bar (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches custom deny pattern foo.*bar","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches custom deny pattern foo.*bar","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- foo bar (agent text, gate inventory)
 exit 6
@@ -6291,7 +6291,7 @@ Stopped: this can delete or break things (matches custom deny pattern foo.*bar),
 ### komando -o json exec web1 -- foo bar (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches custom deny pattern foo.*bar","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches custom deny pattern foo.*bar","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json exec web1 --allow-dangerous -- foo bar`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- foo bar (script text, gate inventory)
 exit 6
@@ -6301,7 +6301,7 @@ Stopped: this can delete or break things (matches custom deny pattern foo.*bar),
 ### komando -o json job start web1 -- reboot (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start web1 -- reboot (agent text, gate inventory)
 exit 6
@@ -6311,7 +6311,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json job start web1 -- reboot (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json job start web1 --allow-dangerous -- reboot`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start web1 -- reboot (script text, gate inventory)
 exit 6
@@ -6321,7 +6321,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json reboot web1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text reboot web1 (agent text, gate inventory)
 exit 6
@@ -6331,7 +6331,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json reboot web1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json reboot web1 --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text reboot web1 (script text, gate inventory)
 exit 6
@@ -6341,7 +6341,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json reboot prod1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text reboot prod1 (agent text, gate inventory)
 exit 6
@@ -6351,7 +6351,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json reboot prod1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes: `komando -o json reboot prod1 --allow-dangerous --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text reboot prod1 (script text, gate inventory)
 exit 6
@@ -6361,7 +6361,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json svc stop web1 sshd (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"svc.stop","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [sshd-stop,win-remote-access]: stops sshd (locks out remote access); stops remote access (SSH or WinRM), which locks you out","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"svc.stop","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [sshd-stop,win-remote-access]: stops sshd (locks out remote access); stops remote access (SSH or WinRM), which locks you out","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text svc stop web1 sshd (agent text, gate inventory)
 exit 6
@@ -6371,7 +6371,7 @@ Stopped: this can delete or break things (stops sshd (locks out remote access); 
 ### komando -o json svc stop web1 sshd (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"svc.stop","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [sshd-stop,win-remote-access]: stops sshd (locks out remote access); stops remote access (SSH or WinRM), which locks you out","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"svc.stop","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [sshd-stop,win-remote-access]: stops sshd (locks out remote access); stops remote access (SSH or WinRM), which locks you out","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json svc stop web1 sshd --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text svc stop web1 sshd (script text, gate inventory)
 exit 6
@@ -6381,7 +6381,7 @@ Stopped: this can delete or break things (stops sshd (locks out remote access); 
 ### komando -o json user rm web1 bob (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"user.rm","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [userdel]: deletes a user account","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.rm","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [userdel]: deletes a user account","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user rm web1 bob (agent text, gate inventory)
 exit 6
@@ -6391,7 +6391,7 @@ Stopped: this can delete or break things (deletes a user account), so komando as
 ### komando -o json user rm web1 bob (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"user.rm","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [userdel]: deletes a user account","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.rm","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [userdel]: deletes a user account","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json user rm web1 bob --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user rm web1 bob (script text, gate inventory)
 exit 6
@@ -6401,7 +6401,7 @@ Stopped: this can delete or break things (deletes a user account), so komando as
 ### komando -o json pkg rm web1 openssh-server (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"pkg.rm","error":{"code":"POLICY_BLOCKED","message":"removing openssh-server can lock you out of the server or break it","hint":"if this is truly intended, confirm with the user and re-run with --allow-dangerous. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"pkg.rm","error":{"code":"POLICY_BLOCKED","message":"removing openssh-server can lock you out of the server or break it","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text pkg rm web1 openssh-server (agent text, gate inventory)
 exit 6
@@ -6411,7 +6411,7 @@ Stopped: removing openssh-server can lock you out of the server or break it. Not
 ### komando -o json pkg rm web1 openssh-server (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"pkg.rm","error":{"code":"POLICY_BLOCKED","message":"removing openssh-server can lock you out of the server or break it","hint":"if this is truly intended, confirm with the user and re-run with --allow-dangerous"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"pkg.rm","error":{"code":"POLICY_BLOCKED","message":"removing openssh-server can lock you out of the server or break it","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json pkg rm web1 openssh-server --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text pkg rm web1 openssh-server (script text, gate inventory)
 exit 6
@@ -6421,7 +6421,7 @@ Stopped: removing openssh-server can lock you out of the server or break it. Not
 ### komando -o json fs rm web1 /tmp/x --recursive (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"rm --recursive deletes whole folders","hint":"a folder and everything in it would be gone; confirm with the user, then add --allow-dangerous. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"rm --recursive deletes whole folders","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs rm web1 /tmp/x --recursive (agent text, gate inventory)
 exit 6
@@ -6431,7 +6431,7 @@ Stopped: this can delete or break things (rm --recursive deletes whole folders a
 ### komando -o json fs rm web1 /tmp/x --recursive (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"rm --recursive deletes whole folders","hint":"a folder and everything in it would be gone; confirm with the user, then add --allow-dangerous"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"rm --recursive deletes whole folders","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json fs rm web1 /tmp/x --recursive --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs rm web1 /tmp/x --recursive (script text, gate inventory)
 exit 6
@@ -6441,7 +6441,7 @@ Stopped: this can delete or break things (rm --recursive deletes whole folders a
 ### komando -o json fs rm web1 / (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"\"/\" is a top-level path; komando does not remove it without --allow-dangerous","hint":"only if this is intended: confirm with the user, then add --allow-dangerous. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"\"/\" is a top-level path; komando does not remove it without --allow-dangerous","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs rm web1 / (agent text, gate inventory)
 exit 6
@@ -6451,7 +6451,7 @@ Stopped: this can delete or break things (removing the top-level path /), so kom
 ### komando -o json fs rm web1 / (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"\"/\" is a top-level path; komando does not remove it without --allow-dangerous","hint":"only if this is intended: confirm with the user, then add --allow-dangerous"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"\"/\" is a top-level path; komando does not remove it without --allow-dangerous","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json fs rm web1 / --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs rm web1 / (script text, gate inventory)
 exit 6
@@ -6461,7 +6461,7 @@ Stopped: this can delete or break things (removing the top-level path /), so kom
 ### komando -o json sync testdata web1:/tmp/x --delete (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"sync","error":{"code":"POLICY_BLOCKED","message":"--delete removes files in the destination that the source does not have","hint":"check the list with --dry-run, confirm with the user, then add --allow-dangerous. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"sync","error":{"code":"POLICY_BLOCKED","message":"--delete removes files in the destination that the source does not have","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text sync testdata web1:/tmp/x --delete (agent text, gate inventory)
 exit 6
@@ -6471,7 +6471,7 @@ Stopped: --delete removes files in the destination that the source does not have
 ### komando -o json sync testdata web1:/tmp/x --delete (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"sync","error":{"code":"POLICY_BLOCKED","message":"--delete removes files in the destination that the source does not have","hint":"check the list with --dry-run, confirm with the user, then add --allow-dangerous"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"sync","error":{"code":"POLICY_BLOCKED","message":"--delete removes files in the destination that the source does not have","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json sync testdata web1:/tmp/x --delete --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text sync testdata web1:/tmp/x --delete (script text, gate inventory)
 exit 6
@@ -6481,7 +6481,7 @@ Stopped: --delete removes files in the destination that the source does not have
 ### komando -o json cache rm cache1 k (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache rm cache1 k (agent text, gate inventory)
 exit 6
@@ -6491,7 +6491,7 @@ Stopped: this can delete or break things (deletes data that cannot be recovered 
 ### komando -o json cache rm cache1 k (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json cache rm cache1 k --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache rm cache1 k (script text, gate inventory)
 exit 6
@@ -6501,7 +6501,7 @@ Stopped: this can delete or break things (deletes data that cannot be recovered 
 ### komando -o json cache rm pcache k (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache rm pcache k (agent text, gate inventory)
 exit 6
@@ -6511,7 +6511,7 @@ Stopped: this can delete or break things (deletes data that cannot be recovered 
 ### komando -o json cache rm pcache k (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes: `komando -o json cache rm pcache k --allow-dangerous --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache rm pcache k (script text, gate inventory)
 exit 6
@@ -6521,7 +6521,7 @@ Stopped: this can delete or break things (deletes data that cannot be recovered 
 ### komando -o json cache run cache1 --write -- FLUSHALL (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [redis-flush]: deletes every key (FLUSHALL, FLUSHDB, SWAPDB)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [redis-flush]: deletes every key (FLUSHALL, FLUSHDB, SWAPDB)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run cache1 --write -- FLUSHALL (agent text, gate inventory)
 exit 6
@@ -6531,7 +6531,7 @@ Stopped: this can delete or break things (deletes every key (FLUSHALL, FLUSHDB, 
 ### komando -o json cache run cache1 --write -- FLUSHALL (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [redis-flush]: deletes every key (FLUSHALL, FLUSHDB, SWAPDB)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [redis-flush]: deletes every key (FLUSHALL, FLUSHDB, SWAPDB)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json cache run cache1 --write --allow-dangerous -- FLUSHALL`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run cache1 --write -- FLUSHALL (script text, gate inventory)
 exit 6
@@ -6541,7 +6541,7 @@ Stopped: this can delete or break things (deletes every key (FLUSHALL, FLUSHDB, 
 ### komando -o json db query db1 --write DROP TABLE x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-drop]: drops a database object or column","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-drop]: drops a database object or column","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query db1 --write DROP TABLE x (agent text, gate inventory)
 exit 6
@@ -6551,7 +6551,7 @@ Stopped: this can delete or break things (drops a database object or column), so
 ### komando -o json db query db1 --write DROP TABLE x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-drop]: drops a database object or column","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-drop]: drops a database object or column","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json db query db1 --write 'DROP TABLE x' --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query db1 --write DROP TABLE x (script text, gate inventory)
 exit 6
@@ -6561,7 +6561,7 @@ Stopped: this can delete or break things (drops a database object or column), so
 ### komando -o json db query pdb --write UPDATE x SET a=1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query pdb --write UPDATE x SET a=1 (agent text, gate inventory)
 exit 6
@@ -6571,7 +6571,7 @@ Stopped: this can delete or break things (UPDATE without WHERE changes every row
 ### komando -o json db query pdb --write UPDATE x SET a=1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes: `komando -o json db query pdb --write 'UPDATE x SET a=1' --allow-dangerous --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query pdb --write UPDATE x SET a=1 (script text, gate inventory)
 exit 6
@@ -6581,7 +6581,7 @@ Stopped: this can delete or break things (UPDATE without WHERE changes every row
 ### komando -o json db user rm db1 bob (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.user.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-user-rm]: removes the user bob","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-user-rm]: removes the user bob","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user rm db1 bob (agent text, gate inventory)
 exit 6
@@ -6591,7 +6591,7 @@ Stopped: this can delete or break things (removes the user bob), so komando asks
 ### komando -o json db user rm db1 bob (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.user.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-user-rm]: removes the user bob","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-user-rm]: removes the user bob","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json db user rm db1 bob --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user rm db1 bob (script text, gate inventory)
 exit 6
@@ -6601,7 +6601,7 @@ Stopped: this can delete or break things (removes the user bob), so komando asks
 ### komando -o json db restore db1 --from testdata/golden_restore.sql (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restoring a backup can overwrite existing data","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restoring a backup can overwrite existing data","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db restore db1 --from testdata/golden_restore.sql (agent text, gate inventory)
 exit 6
@@ -6611,7 +6611,7 @@ Stopped: this can delete or break things (restoring a backup can overwrite exist
 ### komando -o json db restore db1 --from testdata/golden_restore.sql (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restoring a backup can overwrite existing data","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restoring a backup can overwrite existing data","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json db restore db1 --from testdata/golden_restore.sql --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db restore db1 --from testdata/golden_restore.sql (script text, gate inventory)
 exit 6
@@ -6621,7 +6621,7 @@ Stopped: this can delete or break things (restoring a backup can overwrite exist
 ### komando -o json queue purge q1 t (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"queue.purge","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-purge]: deletes every message in t (it stays)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.purge","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-purge]: deletes every message in t (it stays)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text queue purge q1 t (agent text, gate inventory)
 exit 6
@@ -6631,7 +6631,7 @@ Stopped: this can delete or break things (deletes every message in t (it stays))
 ### komando -o json queue purge q1 t (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"queue.purge","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-purge]: deletes every message in t (it stays)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.purge","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-purge]: deletes every message in t (it stays)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json queue purge q1 t --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text queue purge q1 t (script text, gate inventory)
 exit 6
@@ -6641,7 +6641,7 @@ Stopped: this can delete or break things (deletes every message in t (it stays))
 ### komando -o json queue rm q1 t (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"queue.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-delete]: deletes t and every message in it","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-delete]: deletes t and every message in it","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text queue rm q1 t (agent text, gate inventory)
 exit 6
@@ -6651,7 +6651,7 @@ Stopped: this can delete or break things (deletes t and every message in it), so
 ### komando -o json queue rm q1 t (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"queue.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-delete]: deletes t and every message in it","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [queue-delete]: deletes t and every message in it","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json queue rm q1 t --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text queue rm q1 t (script text, gate inventory)
 exit 6
@@ -6661,7 +6661,7 @@ Stopped: this can delete or break things (deletes t and every message in it), so
 ### komando -o json storage rm st1 k (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage rm st1 k (agent text, gate inventory)
 exit 6
@@ -6671,7 +6671,7 @@ Stopped: this can delete or break things (deletes data that cannot be recovered 
 ### komando -o json storage rm st1 k (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json storage rm st1 k --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage rm st1 k (script text, gate inventory)
 exit 6
@@ -6681,7 +6681,7 @@ Stopped: this can delete or break things (deletes data that cannot be recovered 
 ### komando -o json registry rm reg1 a:1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.rm","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.rm","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry rm reg1 a:1 (agent text, gate inventory)
 exit 6
@@ -6691,7 +6691,7 @@ Stopped: this can delete or break things (registry.rm), so komando asks first. N
 ### komando -o json registry rm reg1 a:1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.rm","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.rm","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json registry rm reg1 a:1 --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry rm reg1 a:1 (script text, gate inventory)
 exit 6
@@ -6701,7 +6701,7 @@ Stopped: this can delete or break things (registry.rm), so komando asks first. N
 ### komando -o json registry prune reg1 a --keep 5 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"registry.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.prune; deletes old images of a (--dry-run lists them)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.prune; deletes old images of a (--dry-run lists them)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry prune reg1 a --keep 5 (agent text, gate inventory)
 exit 6
@@ -6711,7 +6711,7 @@ Stopped: this can delete or break things (registry.prune; deletes old images of 
 ### komando -o json registry prune reg1 a --keep 5 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"registry.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.prune; deletes old images of a (--dry-run lists them)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [registry]: registry.prune; deletes old images of a (--dry-run lists them)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json registry prune reg1 a --keep 5 --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry prune reg1 a --keep 5 (script text, gate inventory)
 exit 6
@@ -6721,7 +6721,7 @@ Stopped: this can delete or break things (registry.prune; deletes old images of 
 ### komando -o json docker rm web1 c1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker rm c1","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker rm c1","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker rm web1 c1 (agent text, gate inventory)
 exit 6
@@ -6731,7 +6731,7 @@ Stopped: this can delete or break things (docker rm c1), so komando asks first. 
 ### komando -o json docker rm web1 c1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker rm c1","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker rm c1","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json docker rm web1 c1 --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker rm web1 c1 (script text, gate inventory)
 exit 6
@@ -6741,7 +6741,7 @@ Stopped: this can delete or break things (docker rm c1), so komando asks first. 
 ### komando -o json docker prune web1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker system prune -f","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker system prune -f","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker prune web1 (agent text, gate inventory)
 exit 6
@@ -6751,7 +6751,7 @@ Stopped: this can delete or break things (docker system prune -f), so komando as
 ### komando -o json docker prune web1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker system prune -f","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.prune","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker system prune -f","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json docker prune web1 --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker prune web1 (script text, gate inventory)
 exit 6
@@ -6761,7 +6761,7 @@ Stopped: this can delete or break things (docker system prune -f), so komando as
 ### komando -o json docker raw web1 -- system prune -af (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.raw","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker system prune -af","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.raw","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker system prune -af","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker raw web1 -- system prune -af (agent text, gate inventory)
 exit 6
@@ -6771,7 +6771,7 @@ Stopped: this can delete or break things (docker system prune -af), so komando a
 ### komando -o json docker raw web1 -- system prune -af (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.raw","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker system prune -af","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.raw","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker system prune -af","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json docker raw web1 --allow-dangerous -- system prune -af`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker raw web1 -- system prune -af (script text, gate inventory)
 exit 6
@@ -6781,7 +6781,7 @@ Stopped: this can delete or break things (docker system prune -af), so komando a
 ### komando -o json exec prod1 -- touch /tmp/x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec prod1 -- touch /tmp/x (agent text, gate inventory)
 exit 6
@@ -6791,7 +6791,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json exec prod1 -- touch /tmp/x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json exec prod1 --yes -- touch /tmp/x`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec prod1 -- touch /tmp/x (script text, gate inventory)
 exit 6
@@ -6801,7 +6801,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json job start prod1 -- touch x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start prod1 -- touch x (agent text, gate inventory)
 exit 6
@@ -6811,7 +6811,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json job start prod1 -- touch x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json job start prod1 --yes -- touch x`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start prod1 -- touch x (script text, gate inventory)
 exit 6
@@ -6821,7 +6821,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json svc restart prod1 nginx (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text svc restart prod1 nginx (agent text, gate inventory)
 exit 6
@@ -6831,7 +6831,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json svc restart prod1 nginx (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json svc restart prod1 nginx --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text svc restart prod1 nginx (script text, gate inventory)
 exit 6
@@ -6841,7 +6841,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json user add prod1 bob (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"user.add","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.add","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user add prod1 bob (agent text, gate inventory)
 exit 6
@@ -6851,7 +6851,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json user add prod1 bob (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"user.add","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.add","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json user add prod1 bob --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user add prod1 bob (script text, gate inventory)
 exit 6
@@ -6861,7 +6861,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json pkg install prod1 vim (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text pkg install prod1 vim (agent text, gate inventory)
 exit 6
@@ -6871,7 +6871,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json pkg install prod1 vim (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json pkg install prod1 vim --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text pkg install prod1 vim (script text, gate inventory)
 exit 6
@@ -6881,7 +6881,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json fs write prod1 /tmp/x --content hi (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs write prod1 /tmp/x --content hi (agent text, gate inventory)
 exit 6
@@ -6891,7 +6891,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json fs write prod1 /tmp/x --content hi (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json fs write prod1 /tmp/x --content hi --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs write prod1 /tmp/x --content hi (script text, gate inventory)
 exit 6
@@ -6901,7 +6901,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json fs rm prod1 /tmp/x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on prod1 for good","hint":"a deleted file has no copy; confirm with the user, then add --allow-dangerous and --yes (a protected server; try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on prod1 for good","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs rm prod1 /tmp/x (agent text, gate inventory)
 exit 6
@@ -6911,7 +6911,7 @@ Stopped: this can delete or break things (deletes /tmp/x on prod1 for good), so 
 ### komando -o json fs rm prod1 /tmp/x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on prod1 for good","hint":"a deleted file has no copy; confirm with the user, then add --allow-dangerous and --yes (a protected server; try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on prod1 for good","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes: `komando -o json fs rm prod1 /tmp/x --allow-dangerous --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs rm prod1 /tmp/x (script text, gate inventory)
 exit 6
@@ -6921,7 +6921,7 @@ Stopped: this can delete or break things (deletes /tmp/x on prod1 for good), so 
 ### komando -o json docker stop prod1 c1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker stop prod1 c1 (agent text, gate inventory)
 exit 6
@@ -6931,7 +6931,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json docker stop prod1 c1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json docker stop prod1 c1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker stop prod1 c1 (script text, gate inventory)
 exit 6
@@ -6941,7 +6941,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json cron rm prod1 1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron rm prod1 1 (agent text, gate inventory)
 exit 6
@@ -6951,7 +6951,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json cron rm prod1 1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json cron rm prod1 1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron rm prod1 1 (script text, gate inventory)
 exit 6
@@ -6961,7 +6961,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json upload prod1 testdata/golden_restore.sql /tmp/h (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"upload","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text upload prod1 testdata/golden_restore.sql /tmp/h (agent text, gate inventory)
 exit 6
@@ -6971,7 +6971,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json upload prod1 testdata/golden_restore.sql /tmp/h (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"upload","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json upload prod1 testdata/golden_restore.sql /tmp/h --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text upload prod1 testdata/golden_restore.sql /tmp/h (script text, gate inventory)
 exit 6
@@ -6981,7 +6981,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json host rm prod1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.rm","error":{"code":"PROTECTED_HOST","message":"removing protected host: prod1","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.rm","error":{"code":"PROTECTED_HOST","message":"removing protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host rm prod1 (agent text, gate inventory)
 exit 6
@@ -6991,7 +6991,7 @@ Stopped: removing protected host: prod1. Nothing was changed.
 ### komando -o json host rm prod1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.rm","error":{"code":"PROTECTED_HOST","message":"removing protected host: prod1","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.rm","error":{"code":"PROTECTED_HOST","message":"removing protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json host rm prod1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host rm prod1 (script text, gate inventory)
 exit 6
@@ -7001,7 +7001,7 @@ Stopped: removing protected host: prod1. Nothing was changed.
 ### komando -o json host edit prod1 --protected=false (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"PROTECTED_HOST","message":"turning off protection of protected host: prod1","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.edit","error":{"code":"PROTECTED_HOST","message":"turning off protection of protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host edit prod1 --protected=false (agent text, gate inventory)
 exit 6
@@ -7011,7 +7011,7 @@ Stopped: turning off protection of protected host: prod1. Nothing was changed.
 ### komando -o json host edit prod1 --protected=false (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"PROTECTED_HOST","message":"turning off protection of protected host: prod1","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.edit","error":{"code":"PROTECTED_HOST","message":"turning off protection of protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json host edit prod1 --protected=false --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host edit prod1 --protected=false (script text, gate inventory)
 exit 6
@@ -7021,7 +7021,7 @@ Stopped: turning off protection of protected host: prod1. Nothing was changed.
 ### komando -o json cache set pcache k v (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.set","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.set","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache set pcache k v (agent text, gate inventory)
 exit 6
@@ -7031,7 +7031,7 @@ Stopped: pcache is a protected cache (production), so komando asks before changi
 ### komando -o json cache set pcache k v (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.set","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.set","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"check with --dry-run, then run it again with --yes: `komando -o json cache set pcache k v --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache set pcache k v (script text, gate inventory)
 exit 6
@@ -7041,7 +7041,7 @@ Stopped: pcache is a protected cache (production), so komando asks before changi
 ### komando -o json cache run pcache --write -- SET k v (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run pcache --write -- SET k v (agent text, gate inventory)
 exit 6
@@ -7051,7 +7051,7 @@ Stopped: pcache is a protected cache (production), so komando asks before changi
 ### komando -o json cache run pcache --write -- SET k v (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"check with --dry-run, then run it again with --yes: `komando -o json cache run pcache --write --yes -- SET k v`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run pcache --write -- SET k v (script text, gate inventory)
 exit 6
@@ -7061,7 +7061,7 @@ Stopped: pcache is a protected cache (production), so komando asks before changi
 ### komando -o json db kill pdb 1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.kill","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pdb","hint":"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.kill","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pdb","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db kill pdb 1 (agent text, gate inventory)
 exit 6
@@ -7071,7 +7071,7 @@ Stopped: pdb is a protected database (production), so komando asks before changi
 ### komando -o json db kill pdb 1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.kill","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pdb","hint":"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.kill","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pdb","hint":"check with --dry-run, then run it again with --yes: `komando -o json db kill pdb 1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db kill pdb 1 (script text, gate inventory)
 exit 6
@@ -7081,7 +7081,7 @@ Stopped: pdb is a protected database (production), so komando asks before changi
 ### komando -o json conn rm pcache (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"conn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected conn: pcache","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected conn: pcache","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text conn rm pcache (agent text, gate inventory)
 exit 6
@@ -7091,7 +7091,7 @@ Stopped: removing protected conn: pcache. Nothing was changed.
 ### komando -o json conn rm pcache (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"conn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected conn: pcache","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected conn: pcache","hint":"check with --dry-run, then run it again with --yes: `komando -o json conn rm pcache --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text conn rm pcache (script text, gate inventory)
 exit 6
@@ -7101,7 +7101,7 @@ Stopped: removing protected conn: pcache. Nothing was changed.
 ### komando -o json conn edit pcache --protected=false (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"conn.edit","error":{"code":"PROTECTED_TARGET","message":"turning off protection of protected conn: pcache","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.edit","error":{"code":"PROTECTED_TARGET","message":"turning off protection of protected conn: pcache","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text conn edit pcache --protected=false (agent text, gate inventory)
 exit 6
@@ -7111,7 +7111,7 @@ Stopped: turning off protection of protected conn: pcache. Nothing was changed.
 ### komando -o json conn edit pcache --protected=false (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"conn.edit","error":{"code":"PROTECTED_TARGET","message":"turning off protection of protected conn: pcache","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.edit","error":{"code":"PROTECTED_TARGET","message":"turning off protection of protected conn: pcache","hint":"check with --dry-run, then run it again with --yes: `komando -o json conn edit pcache --protected=false --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text conn edit pcache --protected=false (script text, gate inventory)
 exit 6
@@ -7121,7 +7121,7 @@ Stopped: turning off protection of protected conn: pcache. Nothing was changed.
 ### komando -o json vpn rm pvpn (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected VPN: pvpn","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected VPN: pvpn","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn rm pvpn (agent text, gate inventory)
 exit 6
@@ -7131,7 +7131,7 @@ Stopped: removing protected VPN: pvpn. Nothing was changed.
 ### komando -o json vpn rm pvpn (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected VPN: pvpn","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected VPN: pvpn","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn rm pvpn --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn rm pvpn (script text, gate inventory)
 exit 6
@@ -7141,7 +7141,7 @@ Stopped: removing protected VPN: pvpn. Nothing was changed.
 ### komando -o json vpn edit pvpn --notes x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"PROTECTED_TARGET","message":"changing protected VPN: pvpn","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.edit","error":{"code":"PROTECTED_TARGET","message":"changing protected VPN: pvpn","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn edit pvpn --notes x (agent text, gate inventory)
 exit 6
@@ -7151,7 +7151,7 @@ Stopped: changing protected VPN: pvpn. Nothing was changed.
 ### komando -o json vpn edit pvpn --notes x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"PROTECTED_TARGET","message":"changing protected VPN: pvpn","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.edit","error":{"code":"PROTECTED_TARGET","message":"changing protected VPN: pvpn","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn edit pvpn --notes x --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn edit pvpn --notes x (script text, gate inventory)
 exit 6
@@ -7161,7 +7161,7 @@ Stopped: changing protected VPN: pvpn. Nothing was changed.
 ### komando -o json policy rm foo.*bar (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"policy.rm","error":{"code":"SAFETY_SETTING","message":"removing the deny rule foo.*bar weakens komando's safety checks","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.rm","error":{"code":"SAFETY_SETTING","message":"removing the deny rule foo.*bar weakens komando's safety checks","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text policy rm foo.*bar (agent text, gate inventory)
 exit 6
@@ -7171,7 +7171,7 @@ Stopped: removing the deny rule foo.*bar turns off one of komando's safety check
 ### komando -o json policy rm foo.*bar (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"policy.rm","error":{"code":"SAFETY_SETTING","message":"removing the deny rule foo.*bar weakens komando's safety checks","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.rm","error":{"code":"SAFETY_SETTING","message":"removing the deny rule foo.*bar weakens komando's safety checks","hint":"check with --dry-run, then run it again with --yes: `komando -o json policy rm 'foo.*bar' --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text policy rm foo.*bar (script text, gate inventory)
 exit 6
@@ -7181,7 +7181,7 @@ Stopped: removing the deny rule foo.*bar turns off one of komando's safety check
 ### komando -o json config set audit off (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"config.set","error":{"code":"SAFETY_SETTING","message":"turning off the audit log weakens komando's safety checks","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.set","error":{"code":"SAFETY_SETTING","message":"turning off the audit log weakens komando's safety checks","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config set audit off (agent text, gate inventory)
 exit 6
@@ -7191,7 +7191,7 @@ Stopped: turning off the audit log turns off one of komando's safety checks, so 
 ### komando -o json config set audit off (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"config.set","error":{"code":"SAFETY_SETTING","message":"turning off the audit log weakens komando's safety checks","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.set","error":{"code":"SAFETY_SETTING","message":"turning off the audit log weakens komando's safety checks","hint":"check with --dry-run, then run it again with --yes: `komando -o json config set audit off --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config set audit off (script text, gate inventory)
 exit 6
@@ -7201,7 +7201,7 @@ Stopped: turning off the audit log turns off one of komando's safety checks, so 
 ### komando -o json vpn edit pvpn --protected=false (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off the protection of VPN pvpn weakens komando's safety checks","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off the protection of VPN pvpn weakens komando's safety checks","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn edit pvpn --protected=false (agent text, gate inventory)
 exit 6
@@ -7211,7 +7211,7 @@ Stopped: turning off the protection of VPN pvpn turns off one of komando's safet
 ### komando -o json vpn edit pvpn --protected=false (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off the protection of VPN pvpn weakens komando's safety checks","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off the protection of VPN pvpn weakens komando's safety checks","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn edit pvpn --protected=false --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn edit pvpn --protected=false (script text, gate inventory)
 exit 6
@@ -7221,7 +7221,7 @@ Stopped: turning off the protection of VPN pvpn turns off one of komando's safet
 ### komando -o json vpn edit pvpn --mfa=false (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off --mfa of VPN pvpn (komando could then connect it without a person) weakens komando's safety checks","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off --mfa of VPN pvpn (komando could then connect it without a person) weakens komando's safety checks","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn edit pvpn --mfa=false (agent text, gate inventory)
 exit 6
@@ -7231,7 +7231,7 @@ Stopped: turning off --mfa of VPN pvpn (komando could then connect it without a 
 ### komando -o json vpn edit pvpn --mfa=false (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off --mfa of VPN pvpn (komando could then connect it without a person) weakens komando's safety checks","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off --mfa of VPN pvpn (komando could then connect it without a person) weakens komando's safety checks","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn edit pvpn --mfa=false --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn edit pvpn --mfa=false (script text, gate inventory)
 exit 6
@@ -7281,7 +7281,7 @@ Stopped: destructive statement needs --write (and --allow-dangerous: DELETE with
 ### komando -o json group rm big (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"group.rm","error":{"code":"CONFIRM_REQUIRED","message":"deleting group big takes 4 entries out of it","hint":"check the members with `komando group list big`, then re-run with --yes. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.rm","error":{"code":"CONFIRM_REQUIRED","message":"deleting group big takes 4 entries out of it","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text group rm big (agent text, gate inventory)
 exit 6
@@ -7291,7 +7291,7 @@ Stopped: deleting group big takes 4 entries out of it. Nothing was changed.
 ### komando -o json group rm big (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"group.rm","error":{"code":"CONFIRM_REQUIRED","message":"deleting group big takes 4 entries out of it","hint":"check the members with `komando group list big`, then re-run with --yes"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.rm","error":{"code":"CONFIRM_REQUIRED","message":"deleting group big takes 4 entries out of it","hint":"check with --dry-run, then run it again with --yes: `komando -o json group rm big --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text group rm big (script text, gate inventory)
 exit 6
@@ -7401,7 +7401,7 @@ Error: "gcp" cannot be a VPN name: `komando login gcp` is the cloud login
 ### komando -o json secret rm gsec (agent json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"secret.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the saved secret gsec for good","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the saved secret gsec for good","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text secret rm gsec (agent text, release note)
 exit 6
@@ -7411,7 +7411,7 @@ Stopped: this can delete or break things (deletes the saved secret gsec for good
 ### komando -o json secret rm gsec (script json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"secret.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the saved secret gsec for good","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the saved secret gsec for good","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json secret rm gsec --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text secret rm gsec (script text, release note)
 exit 6
@@ -7421,7 +7421,7 @@ Stopped: this can delete or break things (deletes the saved secret gsec for good
 ### komando -o json key rm gkey --delete-file (agent json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the key files of gkey for good","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the key files of gkey for good","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key rm gkey --delete-file (agent text, release note)
 exit 6
@@ -7431,7 +7431,7 @@ Stopped: this can delete or break things (deletes the key files of gkey for good
 ### komando -o json key rm gkey --delete-file (script json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the key files of gkey for good","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the key files of gkey for good","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json key rm gkey --delete-file --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key rm gkey --delete-file (script text, release note)
 exit 6
@@ -7441,7 +7441,7 @@ Stopped: this can delete or break things (deletes the key files of gkey for good
 ### komando -o json fs rm web1 /tmp/x (agent json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on web1 for good","hint":"a deleted file has no copy; confirm with the user, then add --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on web1 for good","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs rm web1 /tmp/x (agent text, release note)
 exit 6
@@ -7451,7 +7451,7 @@ Stopped: this can delete or break things (deletes /tmp/x on web1 for good), so k
 ### komando -o json fs rm web1 /tmp/x (script json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on web1 for good","hint":"a deleted file has no copy; confirm with the user, then add --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on web1 for good","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json fs rm web1 /tmp/x --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs rm web1 /tmp/x (script text, release note)
 exit 6

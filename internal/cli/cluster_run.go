@@ -515,7 +515,7 @@ func guardKubeImport(name string, x *kube.Context) error {
 		line := pluginLine(e)
 		if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() && !policyAsk("context "+name+" logs in with `"+line+"`, which matches "+hits[0].Reason, name) {
 			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig (if this program is intended, --allow-dangerous lets it run)",
-				"context %s logs in with `%s`, which matches destructive rules: %s", name, line, hits[0].Reason))
+				"context %s logs in with `%s`, which matches destructive rules: %s (a credential plugin only prints a token: check the kubeconfig)", name, line, hits[0].Reason))
 		}
 		if isAgent() {
 			if err := guardSafety("letting context " + name + " run `" + line + "` on this computer whenever komando logs in, also for AI agents' later commands"); err != nil {

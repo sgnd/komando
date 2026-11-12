@@ -49,7 +49,7 @@ func guardFsRm(target string, paths []string, recursive bool) error {
 			return nil
 		}
 		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", hint, msg, a...).
-			Say(dangerSay([]string{reason}), dangerHint))
+			Say(dangerSay([]string{reason}), dangerHint).Need(protNeed(prot)...))
 	}
 	if recursive {
 		return stop("a folder and everything in it would be gone; confirm with the user, then add "+flags,

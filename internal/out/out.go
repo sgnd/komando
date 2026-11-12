@@ -45,6 +45,28 @@ type Error struct {
 	// text-mode wording for a person; JSON keeps Message and Hint
 	say, sayHint string
 	cancelled    bool
+	need         []string // more flags the real run needs (Need)
+}
+
+// Need records flags the real run needs besides the one this stop's code
+// names, e.g. --yes on a protected target for a POLICY_BLOCKED stop.
+func (e *Error) Need(flags ...string) *Error { e.need = append(e.need, flags...); return e }
+
+// Flags are every flag the real run needs, from this stop's code and
+// Need, sorted; none for a stop no flag lifts.
+func (e *Error) Flags() []string {
+	f := ApprovalFlag(e)
+	if f == "" {
+		return nil
+	}
+	res := []string{f}
+	for _, n := range e.need {
+		if !slices.Contains(res, n) {
+			res = append(res, n)
+		}
+	}
+	slices.Sort(res)
+	return res
 }
 
 // Say sets the words a person reads in text mode. JSON is unchanged, so
@@ -387,10 +409,12 @@ func (p *Printer) WouldBlock(e *Error) {
 	if p.blocked == nil {
 		p.blocked = e
 	}
-	if f := ApprovalFlag(e); f != "" && !slices.Contains(p.need, f) {
-		p.need = append(p.need, f)
-		slices.Sort(p.need)
+	for _, f := range e.Flags() {
+		if !slices.Contains(p.need, f) {
+			p.need = append(p.need, f)
+		}
 	}
+	slices.Sort(p.need)
 }
 
 // ApprovalFlag is the flag that lets a safety stop through (--yes,

@@ -329,6 +329,7 @@ func hiddenArgs(args []string) string {
 // server is exactly when people need one.
 func policyStop(e *out.Error) error {
 	if g.dryRun {
+		stdApprovalHint(e)
 		out.P.WouldBlock(e)
 		return nil
 	}
@@ -338,7 +339,11 @@ func policyStop(e *out.Error) error {
 // approvalHint rewrites the hint of a safety stop for an AI agent: it tells
 // it how a person allows the command, or that the person said no.
 func approvalHint(e *out.Error) {
-	if e == nil || e.Exit != out.ExitPolicy || !isAgent() {
+	if e == nil || e.Exit != out.ExitPolicy {
+		return
+	}
+	if !isAgent() {
+		stdApprovalHint(e)
 		return
 	}
 	// "run it in a terminal, or add --yes in a script" is for a person; an
@@ -364,6 +369,8 @@ func approvalHint(e *out.Error) {
 			// --write, leaving out --read-only and raising --max-bytes open no window
 			e.Hint += ". komando does not ask the user about this, so ask them first and go on only when they agree"
 			return
+		case stdApprovalHint(e):
+			return // the one approval hint (S-8.6)
 		case strings.Contains(e.Hint, "komando asks the user in a window"):
 			return // the hint says so already
 		}
@@ -438,9 +445,12 @@ func systemTool(name string) string {
 // character that does not show as itself (plainRune) is written as $'...'
 // with escapes (\n, \x1b, \u3164), which shells read back as the same
 // text, so a person sees every character and can run it as it is.
-func commandLine() string {
+func commandLine() string { return commandLineOf(os.Args[1:]) }
+
+// commandLineOf is commandLine for args.
+func commandLineOf(args []string) string {
 	parts := []string{"komando"}
-	for _, a := range os.Args[1:] {
+	for _, a := range args {
 		switch {
 		case needsEscapes(a):
 			a = ansiQuote(a)
