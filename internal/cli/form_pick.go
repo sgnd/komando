@@ -12,8 +12,12 @@ import (
 // Enter picks the row under the cursor, or what was typed when no row is
 // left (a selector like tag:prod, or several names).
 func formPickOrType(ctx context.Context, t *menuTerm, l *menuList, q formQ, st *store.State, a formAnswers, scr menuScreen, cur string) (string, error) {
-	l.rows, l.typing = formOptionalRows(q, q.choices(st, a)), true
+	base := formOptionalRows(q, q.choices(st, a))
+	l.rows, l.typing = base, true
 	l.point(cur)
+	if cur != "" && !slices.ContainsFunc(base, func(r menuRow) bool { return r.value == cur }) {
+		l.filter, l.rows = cur, formTypedRow(base, cur) // a typed answer comes back as typed
+	}
 	l.empty = "Enter takes what you typed"
 	scr.footer = "↑↓ move · type to filter or write it · Enter choose · Esc back · Ctrl-C cancel"
 	for {
@@ -30,7 +34,9 @@ func formPickOrType(ctx context.Context, t *menuTerm, l *menuList, q formQ, st *
 			case keyRune, keyBackspace, keyClear:
 				moved = false
 			}
-			switch l.update(k, page) {
+			o := l.update(k, page)
+			l.rows = formTypedRow(base, l.filter)
+			switch o {
 			case menuQuit:
 				return true, errFormCancel
 			case menuBack:
@@ -51,6 +57,19 @@ func formPickOrType(ctx context.Context, t *menuTerm, l *menuList, q formQ, st *
 		}
 		return v, nil
 	}
+}
+
+// formTypedRow puts what was typed on top of the rows, unless a row is
+// exactly it, so Enter takes what was typed and the arrows pick a row. The
+// filter matches inside names and details, so without it typing a new name
+// ("db") gave the first row it matched ("db-pass"): the wrong secret or
+// group, and no way to type a name that is part of another.
+func formTypedRow(rows []menuRow, filter string) []menuRow {
+	typed := strings.TrimSpace(filter)
+	if typed == "" || slices.ContainsFunc(rows, func(r menuRow) bool { return r.value == typed }) {
+		return rows
+	}
+	return append([]menuRow{{label: typed, detail: "as typed", value: typed}}, rows...)
 }
 
 // formOptionalRows puts "Leave it empty" first on a list a person may skip.

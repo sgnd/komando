@@ -18,6 +18,12 @@ its highlights; the sections below them give the details. Versions follow
   question at a time, and Esc on the first question now leaves the form
   (nothing runs). Before, it went round to the review again, so Esc
   never got you out; only q or Ctrl-C did.
+- Guided forms, lists that also take typing (a secret's name, a group,
+  servers): what you type is now a row of its own at the top, and Enter
+  takes it. Before, Enter took the first row that contained the text, so
+  typing a new secret name `db` saved over `db-pass`, and a name that is
+  part of another could not be typed. A typed answer also comes back as
+  typed when you change it from the review.
 
 ## [0.12.0] - 2026-11-11
 

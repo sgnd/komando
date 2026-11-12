@@ -347,6 +347,36 @@ func TestFormPicked(t *testing.T) {
 	}
 }
 
+// On a list that also takes typing (a secret's name, a group), what was
+// typed is a row of its own on top: Enter takes it, never the first row
+// the text happens to be part of ("db" is not "db-pass"), and the arrows
+// still pick a row. A typed answer comes back as typed on Back.
+func TestFormTypedNameIsTaken(t *testing.T) {
+	base := []menuRow{{label: "db-pass", value: "db-pass"}, {label: "web-1", detail: "10.0.0.5", value: "web-1"}}
+	pick := func(typed string, downs int) string {
+		l := &menuList{typing: true, rows: base}
+		for _, r := range typed {
+			l.update(menuKey{kind: keyRune, r: r}, 10)
+			l.rows = formTypedRow(base, l.filter)
+		}
+		for range downs {
+			l.update(menuKey{kind: keyDown}, 10)
+			l.rows = formTypedRow(base, l.filter)
+		}
+		return formPicked(l, downs > 0)
+	}
+	for _, c := range []struct {
+		typed string
+		downs int
+		want  string
+	}{{"db", 0, "db"}, {"pass", 0, "pass"}, {"10.0", 0, "10.0"}, {"db-pass", 0, "db-pass"},
+		{"db", 1, "db-pass"}, {"", 0, "db-pass"}, {"", 1, "web-1"}, {"@web", 0, "@web"}} {
+		if got := pick(c.typed, c.downs); got != c.want {
+			t.Errorf("typed %q, %d down: %q, want %q", c.typed, c.downs, got, c.want)
+		}
+	}
+}
+
 // Nothing is left out of the menu: every command it lists has a hint
 // (written for it, even an empty one), every conn kind and VPN kind has an
 // Add form, and every flag a person could need is offered.
