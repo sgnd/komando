@@ -73,6 +73,9 @@ func smbErr(err error) error {
 	if errors.As(err, &oe) {
 		return oe
 	}
+	if errors.Is(err, context.Canceled) {
+		return err // Ctrl-C: komando says CANCELLED
+	}
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, os.ErrDeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or leave it unset for large transfers", "the SMB server did not answer in time")
 	}

@@ -259,7 +259,7 @@ func (b *ftpBucket) List(_ context.Context, prefix string, recursive bool, limit
 	return objs, more, nil
 }
 
-func (b *ftpBucket) Get(_ context.Context, key string, w io.Writer) (int64, error) {
+func (b *ftpBucket) Get(ctx context.Context, key string, w io.Writer) (int64, error) {
 	p, err := b.path(key)
 	if err != nil {
 		return 0, err
@@ -269,7 +269,7 @@ func (b *ftpBucket) Get(_ context.Context, key string, w io.Writer) (int64, erro
 		return 0, ftpErr(err, driver.Target{})
 	}
 	defer r.Close()
-	n, err := io.Copy(w, r)
+	n, err := io.Copy(CtxWriter(ctx, w), r)
 	return n, ftpErr(err, driver.Target{})
 }
 
@@ -315,7 +315,7 @@ func isNotImplemented(err error) bool {
 
 // Put uploads to a temporary name and renames it into place, so a failed
 // upload never leaves half a file under the real name.
-func (b *ftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ string) error {
+func (b *ftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, _ string) error {
 	p, err := b.path(key)
 	if err != nil {
 		return err
@@ -329,7 +329,7 @@ func (b *ftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ s
 		}
 	}
 	tmp := path.Join(dir, ".komando-upload-"+path.Base(p))
-	if err := b.c.Stor(tmp, r); err != nil {
+	if err := b.c.Stor(tmp, CtxReader(ctx, r)); err != nil {
 		_ = b.c.Delete(tmp)
 		return ftpErr(err, driver.Target{})
 	}
@@ -383,6 +383,9 @@ func ftpErr(err error, t driver.Target) error {
 	var oe *out.Error
 	if errors.As(err, &oe) {
 		return oe
+	}
+	if errors.Is(err, context.Canceled) {
+		return err // Ctrl-C: komando says CANCELLED
 	}
 	var te *textproto.Error
 	if errors.As(err, &te) {

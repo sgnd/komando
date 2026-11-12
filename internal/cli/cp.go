@@ -19,6 +19,7 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/storex"
 )
 
 // splitRemote parses "TARGET:/path". Local paths (./x, /x, x) return ok=false.
@@ -466,7 +467,7 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 			mode = "0" + strings.TrimPrefix(fileModeOctal(fi.Mode()), "0")
 		}
 		// streamed: a multi-GB backup never sits in memory
-		r, err := writeRemoteFrom(ctx, c, sc, dst, f, writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: mode})
+		r, err := writeRemoteFrom(ctx, c, sc, dst, storex.CtxReader(ctx, f), writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: mode})
 		if err != nil {
 			return xferStats{}, err
 		}
@@ -485,6 +486,9 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 	}
 	st := xferStats{Dest: dst}
 	err = filepath.Walk(src, func(p string, info os.FileInfo, err error) error {
+		if cerr := ctx.Err(); cerr != nil {
+			return cerr // Ctrl-C: stop here, the files sent so far stay
+		}
 		rel, _ := filepath.Rel(src, p)
 		if err != nil {
 			st.Errors = append(st.Errors, xferErr{Path: rel, Message: err.Error()})
@@ -505,7 +509,10 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 		if skipLocalSecret(p) {
 			return nil
 		}
-		n, err := putFile(sc, p, rp, info)
+		n, err := putFile(ctx, sc, p, rp, info)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			st.Errors = append(st.Errors, xferErr{Path: filepath.ToSlash(rel), Message: toErr(err).Message})
 			return nil
@@ -517,25 +524,20 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 	return st, err
 }
 
-// putFile sends one file of a folder upload, keeping its mode and time.
-func putFile(sc *sftp.Client, local, remote string, info os.FileInfo) (int64, error) {
+// putFile sends one file of a folder upload, keeping its mode and time. It
+// is written as sync writes it, under a temporary name moved into place,
+// so a broken or interrupted upload never leaves half a file behind.
+func putFile(ctx context.Context, sc *sftp.Client, local, remote string, info os.FileInfo) (int64, error) {
 	in, err := os.Open(local)
 	if err != nil {
 		return 0, err
 	}
 	defer in.Close()
-	o, err := sc.OpenFile(remote, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	err = sftpSide{sc: sc, root: path.Dir(remote)}.write(ctx, path.Base(remote), in, syncFile{Mode: info.Mode().Perm(), Mtime: info.ModTime()})
 	if err != nil {
-		return 0, fsErr(remote, err)
+		return 0, err
 	}
-	n, err := io.Copy(o, in)
-	o.Close()
-	if err != nil {
-		return n, err
-	}
-	_ = sc.Chmod(remote, info.Mode().Perm())
-	_ = sc.Chtimes(remote, info.ModTime(), info.ModTime())
-	return n, nil
+	return info.Size(), nil
 }
 
 func fileModeOctal(m os.FileMode) string {
@@ -577,7 +579,7 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			return xferStats{}, fsErrHint(src, err, downloadPermHint)
 		}
 		defer in.Close()
-		n, sum, masked, err := fetchFile(in, dst, fi.Mode().Perm(), fi.ModTime(), o.overwrite)
+		n, sum, masked, err := fetchFile(ctx, in, dst, fi.Mode().Perm(), fi.ModTime(), o.overwrite)
 		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, err
 	}
 	if !o.recursive {
@@ -589,6 +591,9 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 	st := xferStats{Dest: dst}
 	w := sc.Walk(src)
 	for w.Step() {
+		if err := ctx.Err(); err != nil {
+			return st, err // Ctrl-C: the files saved so far stay
+		}
 		rel := strings.TrimPrefix(strings.TrimPrefix(w.Path(), src), "/")
 		if w.Err() != nil {
 			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: toErr(fsErrHint(w.Path(), w.Err(), downloadPermHint)).Message})
@@ -618,8 +623,11 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: toErr(fsErrHint(w.Path(), err, downloadPermHint)).Message})
 			continue
 		}
-		n, _, masked, err := fetchFile(in, lp, w.Stat().Mode().Perm(), w.Stat().ModTime(), o.overwrite)
+		n, _, masked, err := fetchFile(ctx, in, lp, w.Stat().Mode().Perm(), w.Stat().ModTime(), o.overwrite)
 		in.Close()
+		if ctx.Err() != nil {
+			return st, ctx.Err()
+		}
 		if err != nil {
 			e := toErr(err)
 			if e.Code == "FILE_EXISTS" {
@@ -665,7 +673,7 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return xferStats{}, err
 	}
-	n, sum, masked, err := fetchFile(bytes.NewReader([]byte(r.Stdout)), dst, 0o644, time.Time{}, overwrite)
+	n, sum, masked, err := fetchFile(ctx, bytes.NewReader([]byte(r.Stdout)), dst, 0o644, time.Time{}, overwrite)
 	return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, err
 }
 
@@ -673,7 +681,7 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 // fs cat shows it, secret values as [hidden] (masked; the sum is then left
 // out: it would let a weak hidden value be guessed). The real file never
 // reaches dst: the temporary file is masked before it is moved there.
-func fetchFile(in io.Reader, dst string, perm os.FileMode, mtime time.Time, overwrite bool) (n int64, sum string, masked bool, err error) {
+func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, mtime time.Time, overwrite bool) (n int64, sum string, masked bool, err error) {
 	if _, err := os.Lstat(dst); err == nil && !overwrite {
 		return 0, "", false, fileExists(dst)
 	}
@@ -683,7 +691,8 @@ func fetchFile(in io.Reader, dst string, perm os.FileMode, mtime time.Time, over
 	}
 	defer os.Remove(tmp.Name()) // no-op once it has been moved into place
 	h := sha256.New()
-	n, err = io.Copy(io.MultiWriter(tmp, h), in)
+	// the destination watches ctx: an SFTP source keeps reading in parallel
+	n, err = io.Copy(storex.CtxWriter(ctx, io.MultiWriter(tmp, h)), in)
 	if err == nil && out.P.Mask && !revealOK() {
 		if masked, err = maskDownload(tmp, n); masked {
 			n, _ = tmp.Seek(0, io.SeekEnd)

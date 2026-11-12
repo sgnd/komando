@@ -9,6 +9,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Ctrl-C now stops `upload`, `download`, `cp` and `sync` (servers, and
+  SFTP, FTP and SMB storage conns). komando caught the signal and went on
+  copying to the last byte; a big upload ran for 20 s after Ctrl-C, and
+  `sync` had to be killed. The copy now stops within a moment with
+  `CANCELLED` (exit 1), and the file being copied is not left behind.
+- A folder upload (`upload -r`, `cp -r`) writes each file under a
+  temporary name and moves it into place, as `sync` does, so an
+  interrupted upload no longer leaves a file on the server cut short.
+
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

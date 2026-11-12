@@ -51,6 +51,8 @@ func webErr(what string, resp *http.Response, err error) error {
 		switch {
 		case errors.As(err, &oe):
 			return oe
+		case errors.Is(err, context.Canceled):
+			return err // Ctrl-C: komando says CANCELLED
 		case errors.Is(err, context.DeadlineExceeded):
 			return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or leave it unset for large transfers", "storage did not answer in time")
 		}

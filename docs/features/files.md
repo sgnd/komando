@@ -229,8 +229,19 @@ failures under `errors` and komando exits 5.
 - Downloads never replace a file that is already on your computer
   (`FILE_EXISTS`). Add `--overwrite` when you mean to.
 - Uploads replace the file on the server and say so (`replaced: true`).
-- A download is written under a temporary name first, so a broken
-  connection never leaves half a file.
+- Every file, both ways, is written under a temporary name first and moved
+  into place when complete, so a broken connection never leaves half a
+  file. (Moving a new file into place on a server makes the SSH user its
+  owner; use `--sudo` for a single file whose owner must stay.)
+
+### Big files and Ctrl-C
+
+- Ctrl-C stops a copy, or a sync, within a moment. The file being copied is
+  not left behind, files already copied stay, and komando exits 1 with
+  `CANCELLED`. Run the same command again to finish: `sync` sends only
+  what is still missing.
+- For a copy that may take longer than a few minutes, or over a shaky
+  link, run it on the server as a job: `komando job start`.
 
 ## Keep a folder in step (sync)
 
@@ -257,5 +268,7 @@ komando sync backups:2026/ ./restore                               # from storag
   `--delete` never runs from an empty source, so a typo cannot wipe the
   destination.
 - Symbolic links are not copied; they are listed as `skipped`.
+- Ctrl-C stops it within a moment; files already copied stay, and the
+  next run sends the rest.
 
 For a single file, use `komando upload` or `komando download`.
