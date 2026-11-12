@@ -217,3 +217,28 @@ func TestStorageLsFolderWithoutSlash(t *testing.T) {
 		t.Errorf("d: %s", got)
 	}
 }
+
+// tempKeyBucket makes links with temporary keys, as an S3 conn with an
+// SSO or role profile does.
+type tempKeyBucket struct{ *memBucket }
+
+func (tempKeyBucket) TemporaryKeys() bool { return true }
+
+func (tempKeyBucket) Link(_ context.Context, key string, _ time.Duration) (*url.URL, error) {
+	return url.Parse("https://shop-dev.s3.amazonaws.com/" + key + "?X-Amz-Security-Token=x")
+}
+
+// A link signed with temporary AWS keys says it can end early.
+func TestStorageLinkTemporaryKeysWarns(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "bk", "s3://shop-dev/backups?region=eu-west-1", "--option", "aws_profile=dev")
+	saved := openBucket
+	openBucket = func(context.Context, *store.State, *store.Conn) (storex.Bucket, error) {
+		return tempKeyBucket{&memBucket{objs: map[string]string{"a.txt": "a"}}}, nil
+	}
+	t.Cleanup(func() { openBucket = saved })
+	d := mustRun(t, "storage", "link", "bk", "a.txt", "--expires", "24h")
+	if w, _ := d["warning"].(string); !strings.Contains(w, "temporary AWS keys (profile dev)") {
+		t.Errorf("warning: %q", w)
+	}
+}

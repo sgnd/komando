@@ -67,7 +67,13 @@ type s3Bucket struct {
 	prefix string
 	creds  *credentials.Credentials // kept to sign links for another address (LinkAt)
 	region string
+	temp   bool // temporary keys (a session token): links end when they do
 }
+
+// TemporaryKeys reports whether the bucket logs in with temporary keys
+// (SSO, an assumed role): a link signed with them stops working when they
+// expire, which can be before the link's own time is up.
+func (s *s3Bucket) TemporaryKeys() bool { return s.temp }
 
 func init() {
 	// a CLI call should fail fast and let the caller decide to retry
@@ -98,7 +104,7 @@ func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial D
 	if err != nil {
 		return nil, out.Usage("invalid storage settings: %v", err)
 	}
-	return &s3Bucket{c: c, bucket: t.Bucket, prefix: t.Prefix, creds: creds, region: t.Region}, nil
+	return &s3Bucket{c: c, bucket: t.Bucket, prefix: t.Prefix, creds: creds, region: t.Region, temp: sessionToken != ""}, nil
 }
 
 // BucketInfo is one bucket an account can see, and where it lives.

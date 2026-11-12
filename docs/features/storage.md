@@ -223,6 +223,10 @@ komando storage link backups 2026/app.sql.gz --endpoint https://files.example.co
   storage through `--via`, the result warns that people outside that network
   cannot open it. Use `--endpoint` to sign it for the public address.
 - The download keeps the file's name, also with non-ASCII letters.
+- A conn that logs in with an AWS profile (SSO, an assumed role) signs the
+  link with temporary keys, so the link stops working when they expire,
+  often after an hour, whatever `--expires` says. The result warns about
+  it. For a link that lasts, give the conn an access key of its own.
 
 ## Delete files
 

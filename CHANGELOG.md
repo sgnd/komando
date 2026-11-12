@@ -38,6 +38,9 @@ its highlights; the sections below them give the details. Versions follow
 - `storage ls CONN db` on a bucket (S3, Google Cloud, Azure) lists what is
   in the folder `db`, as on a file server; it used to list only the folder
   itself (`DIR db/`).
+- `storage link` on an S3 conn with an AWS profile (SSO, an assumed role)
+  warns that the link ends when the temporary keys do, which can be long
+  before `expires_at`.
 
 ## [0.12.0] - 2026-11-11
 

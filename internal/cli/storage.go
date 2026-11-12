@@ -206,6 +206,16 @@ func (c closeBoth) Close() error {
 	return err
 }
 
+// TemporaryKeys passes through to the bucket inside (S3 only).
+func (c closeBoth) TemporaryKeys() bool { return temporaryKeys(c.Bucket) }
+
+// temporaryKeys: the bucket logs in with temporary keys, so its links end
+// when the keys do.
+func temporaryKeys(b storex.Bucket) bool {
+	t, ok := b.(interface{ TemporaryKeys() bool })
+	return ok && t.TemporaryKeys()
+}
+
 // LinkAt passes through to the bucket inside (S3 only), so storage link
 // --endpoint works for conns reached through --via, the case it is for.
 func (c closeBoth) LinkAt(ctx context.Context, key string, expires time.Duration, endpoint *url.URL) (*url.URL, error) {
@@ -686,6 +696,10 @@ through --via, only people who can reach that address can use the link.
 						via = "" // signed for the address people use
 					}
 					d := linkData{Conn: c.Name, Key: args[1], URL: u.String(), ExpiresAt: time.Now().Add(expires).UTC(), Warning: linkWarning(u, via)}
+					if temporaryKeys(s) {
+						w := "the link is signed with temporary AWS keys (profile " + awsProfile(c) + "), so it stops working when they expire, which can be before expires_at; for a link that lasts, give the conn an access key of its own (--password-ref)"
+						d.Warning = strings.TrimPrefix(d.Warning+"; "+w, "; ")
+					}
 					if d.Warning != "" && out.P.Format == "text" {
 						fmt.Fprintln(os.Stderr, "warning: "+d.Warning)
 					}
