@@ -118,6 +118,9 @@ server only commands komando knows read skip --yes.`,
 		Example: "  komando docker exec app1 api -- php artisan migrate:status\n  komando docker exec app1 api --read-only -- sh -c 'ls /data | wc -l'",
 		Args:    cobra.MinimumNArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkContainerName(args[1]); err != nil {
+				return err
+			}
 			return dockerExec(cmd.Context(), args, sudo, readOnly)
 		},
 	}
@@ -160,6 +163,18 @@ server only commands komando knows read skip --yes.`,
 	}
 	c.AddCommand(logs, inspect, execC, compose, raw, dockerPruneCmd(&sudo))
 	return c
+}
+
+// containerNameRe is a container's name or ID as docker makes them. A
+// CONTAINER that starts with - would reach docker as an option of its own
+// (docker exec --privileged ...), past the checks of the command.
+var containerNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`)
+
+func checkContainerName(name string) error {
+	if !containerNameRe.MatchString(name) {
+		return out.Usage("invalid container %q: give its name or ID as `komando docker ps TARGET --all` lists it", name)
+	}
+	return nil
 }
 
 // dockerExecLine runs argv in a container as given: each word quoted for

@@ -94,6 +94,7 @@ $K net check direct 127.0.0.1:99999 >/dev/null; check "net check checks the port
 $K net http direct http://127.0.0.1:1/ >/dev/null; check "net http without an answer exits 4" 4 $?
 $K net dns direct localhost --type BOGUS >/dev/null; check "net dns checks --type" 2 $?
 $K net dns direct --type MX -- -f/etc/passwd >/dev/null; check "net dns refuses a name that is a dig option" 2 $?
+$K docker exec swarm1 -- --privileged -u root t-fixops id >/dev/null; check "docker exec refuses a container that is a docker option" 2 $?
 set -e
 check "net check says why" refused "$($K net check direct 127.0.0.1:1 | jget "${r0}['data'][0]['reason']" || true)"
 check "net dns --type A" True "$($K net dns direct localhost --type A | jget "'127.0.0.1' in ${r0}['data']['records']")"

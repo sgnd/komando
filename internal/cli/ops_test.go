@@ -644,3 +644,35 @@ func TestDockerUseNamesTheArgument(t *testing.T) {
 		}
 	}
 }
+
+// A CONTAINER that starts with - would be an option of docker itself:
+// docker exec --privileged gets the server's devices and capabilities,
+// past the check of the command.
+func TestDockerContainerIsNeverAnOption(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if err := store.Update(func(st *store.State) error {
+		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { g.dryRun = false }()
+	for _, args := range [][]string{
+		{"--dry-run", "docker", "exec", "web1", "--", "--privileged", "-u", "root", "api", "sh"},
+		{"--dry-run", "docker", "exec", "web1", "--", "-e", "X=1", "api", "id"},
+		{"--dry-run", "logs", "web1", "--container=--details"},
+		{"--dry-run", "docker", "logs", "web1", "--", "--since=1h"},
+	} {
+		if e := toErr(runRoot(t, append([]string{"-o", "json"}, args...)...)); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "invalid container") {
+			t.Errorf("%v: %v", args, e)
+		}
+		g.dryRun = false
+	}
+	o := captureOutput(t, func() error {
+		return runRoot(t, "-o", "json", "--dry-run", "docker", "exec", "web1", "shop_api.1", "--", "id")
+	})
+	if !strings.Contains(o, `docker exec -i 'shop_api.1' 'id'`) {
+		t.Errorf("a real name: %s", o)
+	}
+}

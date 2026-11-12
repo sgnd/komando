@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Security: `docker exec` and `logs --container` refuse a CONTAINER that
+  is not a container name or ID. One starting with `-` reached docker as an
+  option, so `docker exec web1 -- --privileged -u root api sh` ran a
+  privileged exec (a way out of the container) without
+  `--allow-dangerous`.
 - Security: `net dns` refuses a name that is not a host name or an
   address. A name starting with `-` reached `dig` as an option, so
   `net dns web1 --type MX -- -f/etc/passwd` read a file on the server
