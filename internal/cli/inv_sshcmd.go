@@ -199,6 +199,14 @@ func sshCommandFor(st *store.State, h *store.Host) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	for _, hop := range hops {
+		// saved before addresses were checked for it: ssh would read it as
+		// an option (-oProxyCommand=...), not as the server
+		if strings.HasPrefix(hop.Address, "-") || strings.HasPrefix(hop.User, "-") {
+			return nil, out.Errf(out.ExitUsage, "USAGE", "fix it with `komando host edit "+hop.Name+" --address ADDRESS --user USER`",
+				"server %s has an address or user that starts with -, which ssh would read as an option", hop.Name)
+		}
+	}
 	kh, ak, err := sealedSSHFiles(st, hops)
 	if err != nil {
 		return nil, err

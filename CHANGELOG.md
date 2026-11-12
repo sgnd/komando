@@ -87,6 +87,44 @@ its highlights; the sections below them give the details. Versions follow
 - Guided forms can no longer put `--yes`, `--allow-dangerous` or
   `--reveal` in a command, even if a command's form hints name one. No
   form did; a test now checks every command's form for it.
+- `import --overwrite --dry-run` now lists a protected conn as skipped,
+  as the real run does, instead of "would add" plus a block the real run
+  never hit. A protected conn is skipped like a protected server.
+- Commands komando prints for you to copy quote every shell character
+  (`;`, `|`, `&`, `*`, `~`, line breaks) and an empty value (`''`). The
+  `config set` line an import gives for a differing setting is now
+  runnable as shown, and a value from an imported file cannot add a
+  second command to it.
+- `host rm` of a server others go through (`--via`) names every server
+  and conn that uses it, each with its `edit ... --unset via` command,
+  instead of one per try.
+- `key rm` names every server that still uses the key (with one
+  `host edit A B --key OTHER` line) and its text output says "removed key
+  NAME" instead of printing raw fields. JSON is unchanged.
+- `import` ends with the command that checks what came in (`next: komando
+  test ...`, JSON `next`), lists the names `--overwrite` replaced
+  (`replaced`), and its dry run no longer says "the rest is in" when a
+  server would be left out. A setting that differs shows `-` for an empty
+  value.
+- `import` now applies the TLS default `conn add` gives: a database URL
+  without TLS settings gets verified TLS (`sslmode=verify-full`,
+  `tls=true`, ...), and a clear-text `redis://`, `amqp://`, `nats://`,
+  `kafka://` or `http://` endpoint to another computer is skipped with the
+  `INSECURE_PROTOCOL` reason instead of being saved, so a password from a
+  `.env` or `.pgpass` file no longer crosses the network unencrypted.
+- `group add GROUP A B` and `group rm GROUP A B` take several targets, like
+  `host rm` and `host edit`, instead of failing with "too many arguments".
+- A server address that starts with `-` is refused (`host add`, `host
+  edit`, every import). `user@-oProxyCommand=...` was saved, and `host
+  ssh-command` could print it where `ssh` reads it as an option. A server
+  saved that way before gets an error from `host ssh-command` instead of
+  the line.
+- `export` no longer tells you to copy `sealed:...` "key files" for keys
+  komando made (they have no file): it says to run `komando key gen NAME`
+  on the other computer and deploy that key (JSON `keys_sealed`). The
+  import note for a missing key says the same.
+- Asked for a missing argument, `import` offers its sources and `config
+  get`/`config set` their settings as a list to pick from.
 
 ## [0.12.0] - 2026-11-11
 

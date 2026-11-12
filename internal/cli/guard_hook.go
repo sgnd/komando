@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -179,12 +180,19 @@ func statOf(p string) os.FileInfo {
 	return fi
 }
 
+// shellQuote writes s as one shell word: as it is when every character is
+// plain, else in single quotes. An empty value is a pair of quotes (an argument, not
+// nothing), and ; | & < > ( ) * ? ~ # and line breaks are quoted too, so a
+// value read from a file cannot add a second command to a line komando
+// prints for a person to copy.
 func shellQuote(s string) string {
-	if strings.ContainsAny(s, " '\"$`\\") {
-		return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+	if s != "" && plainShellWord.MatchString(s) {
+		return s
 	}
-	return s
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
+
+var plainShellWord = regexp.MustCompile(`^[A-Za-z0-9_./:=@%+,-]+$`)
 
 // claudeGuard reads a Claude Code settings file: whether it has komando's
 // guard, and "" or what keeps that guard from running. A hook command

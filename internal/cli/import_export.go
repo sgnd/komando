@@ -214,11 +214,8 @@ func exportCmd() *cobra.Command {
 					}
 				}
 			}
-			var keyFiles []string // what to copy to the other computer, as the export does not
-			for _, n := range slices.Sorted(maps.Keys(keys)) {
-				f.Keys = append(f.Keys, n)
-				keyFiles = append(keyFiles, st.Keys[n].Path)
-			}
+			var keyFiles, keysSealed []string // what to copy to the other computer, as the export does not
+			f.Keys, keyFiles, keysSealed = exportKeys(st, keys)
 			for _, c := range sel.Conns {
 				if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok {
 					need[n] = true
@@ -257,13 +254,28 @@ func exportCmd() *cobra.Command {
 				return err
 			}
 			out.P.Print("export", exportResult{File: to, Hosts: len(f.Hosts), Conns: len(f.Conns), Vpns: len(f.Vpns), Recipes: len(f.Recipes),
-				DenyRules: len(f.DenyRules), Settings: len(f.Settings) > 0, SecretsNeeded: f.Secrets, KeysNeeded: f.Keys, KeyFiles: keyFiles}, nil)
+				DenyRules: len(f.DenyRules), Settings: len(f.Settings) > 0, SecretsNeeded: f.Secrets, KeysNeeded: f.Keys, KeyFiles: keyFiles, KeysSealed: keysSealed}, nil)
 			return nil
 		},
 	}
 	c.Flags().StringVar(&to, "to", "", "write to this file (0600) instead of printing")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace the file if it exists")
 	return c
+}
+
+// exportKeys are the keys the exported servers use, sorted: their files to
+// copy by hand, and the keys komando made (sealed in store.db, no file).
+func exportKeys(st *store.State, keys map[string]bool) (names, files, sealed []string) {
+	names = []string{} // keys_needed is a list, never null
+	for _, n := range slices.Sorted(maps.Keys(keys)) {
+		names = append(names, n)
+		if store.SealedKey(st.Keys[n]) {
+			sealed = append(sealed, n)
+		} else {
+			files = append(files, st.Keys[n].Path)
+		}
+	}
+	return names, files, sealed
 }
 
 // exportResult is what `export --to FILE` saved, and what to bring along.
@@ -278,6 +290,9 @@ type exportResult struct {
 	SecretsNeeded []string `json:"secrets_needed"`
 	KeysNeeded    []string `json:"keys_needed"`
 	KeyFiles      []string `json:"key_files,omitempty"` // private keys: copied by hand, never put in an export file
+	// KeysSealed are keys komando made (key gen): sealed in store.db, so
+	// there is no file to copy; the other computer makes its own
+	KeysSealed []string `json:"keys_sealed,omitempty"`
 }
 
 func (r exportResult) Text() string {
@@ -302,6 +317,10 @@ func (r exportResult) Text() string {
 	}
 	if len(r.KeyFiles) > 0 {
 		t += "copy these key files too: " + strings.Join(r.KeyFiles, ", ") + "\n"
+	}
+	for _, k := range r.KeysSealed {
+		t += "key " + k + " was made by komando and stays sealed here: on the other computer run `komando key gen " + k +
+			"`, then put its public key on the servers from here (`komando key deploy FILE.pub TARGET`)\n"
 	}
 	return t
 }

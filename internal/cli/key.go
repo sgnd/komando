@@ -440,10 +440,18 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 					return err
 				}
 				res["removed"] = k.Name
+				var users []string // every server, so one edit frees the key
 				for _, h := range s.SortedHosts() {
 					if h.Key == k.Name {
-						return out.Errf(out.ExitConflict, "KEY_IN_USE", "give the server another key first: `komando host edit "+h.Name+" --key OTHER`", "server %s still uses this key", h.Name)
+						users = append(users, h.Name)
 					}
+				}
+				if len(users) > 0 {
+					hint := "give the server another key first: `komando host edit " + strings.Join(users, " ") + " --key OTHER`"
+					if len(users) == 1 {
+						return out.Errf(out.ExitConflict, "KEY_IN_USE", hint, "server %s still uses this key", users[0])
+					}
+					return out.Errf(out.ExitConflict, "KEY_IN_USE", hint, "servers %s still use this key", joinAnd(users))
 				}
 				switch {
 				case deleteFile && !k.Managed:
@@ -466,7 +474,16 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 				res["would_remove"] = res["removed"] // "removed" stays for scripts that read it (contract 1)
 			}
 			audit(nil, "key.rm", nil, "", true, map[string]any{"key": res["removed"], "file_deleted": res["file_deleted"]})
-			out.P.Print("key.rm", res, nil)
+			say := changeSay("remove", "key "+res["removed"].(string), "")
+			if res["file_deleted"] == true {
+				say += "\nits key files were deleted"
+			} else if f, ok := res["would_delete_file"].(string); ok {
+				say += "\nwould delete " + f
+			}
+			if n, ok := res["note"].(string); ok {
+				say += "\nnote: " + n
+			}
+			out.P.Print("key.rm", textAs{res, textBlob(say)}, nil)
 			return nil
 		},
 	}

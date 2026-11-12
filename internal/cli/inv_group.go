@@ -137,11 +137,12 @@ A group exists while something is in it.`,
 
 func groupAddCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "add GROUP TARGET",
+		Use:   "add GROUP TARGET...",
 		Short: "Add servers, conns and VPNs matching TARGET to GROUP",
 		Example: `  komando group add web web1,web2
+  komando group add web web3 web4
   komando group add prod 'tag:live,!staging-*'`,
-		Args: cobra.ExactArgs(2),
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			group := strings.TrimPrefix(args[0], "@")
 			if err := validLabelName("group", group); err != nil {
@@ -150,7 +151,7 @@ func groupAddCmd() *cobra.Command {
 			res := map[string]any{"group": group}
 			var added []string
 			err := store.Update(func(s *store.State) error {
-				sel, err := resolveSelection(s, args[1])
+				sel, err := resolveSelection(s, strings.Join(args[1:], ","))
 				if err != nil {
 					return err
 				}
@@ -197,7 +198,7 @@ func groupAddCmd() *cobra.Command {
 
 func groupRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm GROUP [TARGET]",
+		Use:   "rm GROUP [TARGET...]",
 		Short: "Take servers, conns and VPNs out of GROUP (without TARGET: delete the group)",
 		Long: `Takes the entries TARGET picks out of GROUP; entries that are not in it are
 left alone. Without TARGET the group is deleted: every member leaves it.
@@ -205,7 +206,7 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 		Example: `  komando group rm web web2
   komando group rm old-batch --dry-run   # who would leave it
   komando group rm old-batch --yes`,
-		Args: cobra.RangeArgs(1, 2),
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			group := strings.TrimPrefix(args[0], "@")
 			removed := []string{}
@@ -216,7 +217,7 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 				}
 				pick := map[string]bool{}
 				if len(args) == 2 {
-					sel, err := resolveSelection(s, args[1])
+					sel, err := resolveSelection(s, strings.Join(args[1:], ","))
 					if err != nil {
 						return err
 					}

@@ -54,6 +54,16 @@ appear in komando's list, output or history.
 
 - Importing the same file again changes nothing. A different database that
   happens to have the same name gets the next free name (`shop-2`).
+- Conns get the same TLS default as `conn add`: a database URL that says
+  nothing about TLS gets TLS that checks the certificate (for example
+  `sslmode=verify-full`, said in a note), and a `redis://`, `amqp://` or
+  other clear-text URL to another computer is skipped unless it ends in
+  `?insecure=1`.
+- With `--overwrite`, the result lists what it replaced. A protected server
+  or conn is skipped (`--yes` after the person agrees replaces it), in the
+  dry run too.
+- The result ends with the command that checks what came in, for example
+  `next: komando test @shop`.
 - Servers are checked like `host add` (ports, users, `--via`). A bad one is
   skipped, with the reason. A `csv` import is stricter: one bad row stops
   the whole import, and nothing is added.
@@ -111,7 +121,10 @@ fix those entries and import again (what is in already is skipped).
 
 Private keys are never in an export file either. When a server logs in with
 a key from `komando key`, `export` names the key (`keys_needed`) and its file
-(`key_files`): copy that file to the other computer yourself. The import
+(`key_files`): copy that file to the other computer yourself. A key
+komando made (`key gen`) is sealed in komando and has no file
+(`keys_sealed`): make a new one on the other computer with `komando key gen
+NAME` and put it on the servers with `komando key deploy`. The import
 still adds the server, says which key it needs, and leaves the key out until
 you bring it (ssh-agent or your default key may log in meanwhile):
 

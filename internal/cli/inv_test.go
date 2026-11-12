@@ -512,8 +512,9 @@ func TestExportImportKeepsServersWithKeys(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "u@10.0.0.21")
 	f := filepath.Join(t.TempDir(), "backup.json")
 	d := mustRun(t, "export", "--to", f)
-	if fmt.Sprint(d["keys_needed"]) != "[deploy]" || len(d["key_files"].([]any)) != 1 {
-		t.Errorf("export names the key and its file: %v", d)
+	// a key komando made has no file: it is named as sealed instead
+	if fmt.Sprint(d["keys_needed"]) != "[deploy]" || fmt.Sprint(d["keys_sealed"]) != "[deploy]" || d["key_files"] != nil {
+		t.Errorf("export names the key as sealed, with no file: %v", d)
 	}
 	b, _ := os.ReadFile(f)
 	if strings.Contains(string(b), "PRIVATE KEY") || !strings.Contains(string(b), `"keys_needed": [`) {
@@ -525,7 +526,7 @@ func TestExportImportKeepsServersWithKeys(t *testing.T) {
 	if len(d["hosts"].([]any)) != 2 {
 		t.Fatalf("both servers come in: %v", d)
 	}
-	if !strings.Contains(fmt.Sprint(d), "run `komando key add deploy PATH` and `komando host edit db1 --key deploy`") {
+	if !strings.Contains(fmt.Sprint(d), "run `komando key add deploy PATH`") || !strings.Contains(fmt.Sprint(d), "`komando key gen deploy`") || !strings.Contains(fmt.Sprint(d), "then `komando host edit db1 --key deploy`") {
 		t.Errorf("the import says how to bring the key: %v", d)
 	}
 	h := mustRun(t, "host", "show", "db1")

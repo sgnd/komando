@@ -122,3 +122,27 @@ o=$($K host trust @lab --reset --yes)
 check "host trust @lab --reset --yes re-pins it, with the old key named" "True True" \
   "$(jget '[str(r["fingerprint"] != r["old_fingerprints"][0]) + " " + str(r["old_fingerprints"][0] == "'"$oldfp"'") for r in d["data"]["results"] if r["host"] == "direct"][0]' <<<"$o")"
 check "the rebuilt server works again" direct "$($K exec direct --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
+
+# command journeys (audit-core 2026-11-12)
+# host rm names every user of a --via server at once
+q $K host add t-e2einv8 agent@10.9.9.8
+q $K host add t-e2einv9 agent@10.9.9.9 --via t-e2einv8
+q $K conn add t-e2einva redis://10.9.9.10:6379/0 --via t-e2einv8
+check "rm a via host names every user" "True True" \
+  "$($K host rm t-e2einv8 | jget 'str("t-e2einv9" in d["error"]["message"]) + " " + str("conn edit t-e2einva --unset via" in d["error"]["hint"])' || true)"
+# group add/rm take several names
+check "group add takes several names" ok "$($K group add t-e2einvg t-e2einv8 t-e2einv9 | code)"
+check "group rm takes several names" ok "$($K group rm t-e2einvg t-e2einv8 t-e2einv9 | code)"
+q $K conn rm t-e2einva
+q $K host rm t-e2einv8 t-e2einv9
+# import: the TLS default of conn add, a next step, a protected conn skipped in the dry run too
+printf 'REDIS_URL=redis://:pw@t-e2einv.example:6379/0\nDATABASE_URL=postgres://app:pw@t-e2einv.example:5432/shop\n' >"$TMP/inv.env"
+o=$($K import env "$TMP/inv.env" --group t-e2einvi)
+check "import skips a clear-text login over the network" True "$(jget 'any(s["name"] == "redis" and "without TLS" in s["reason"] for s in d["data"]["skipped"])' <<<"$o")"
+check "import gives a database verified TLS" True "$($K conn show database | jget '"sslmode=verify-full" in d["data"]["url"]')"
+check "import says what to run next" "komando test @t-e2einvi" "$(jget 'd["data"]["next"]' <<<"$o")"
+q $K conn rm database
+q $K secret rm database-pass
+printf '{"format":"komando-export/1","conns":[{"name":"maria","kind":"mysql","url":"mysql://x@10.9.9.9:3306/x?tls=true"}]}' >"$TMP/inv-maria.json"
+check "import --overwrite --dry-run skips a protected conn" "maria []" \
+  "$($K import komando "$TMP/inv-maria.json" --overwrite --dry-run | jget 'd["data"]["skipped"][0]["name"] + " " + str(d["data"]["conns"])')"

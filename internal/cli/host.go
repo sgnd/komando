@@ -695,6 +695,45 @@ func keptHostKeys(s *store.State, gone map[string]string) []string {
 	return kept
 }
 
+// hostsInUse stops host rm when a server or conn left in the inventory
+// reaches one of names through --via. It names every such user at once, so
+// one round of edits clears them all. Servers removed in the same command
+// (batch) do not count.
+func hostsInUse(s *store.State, names []string, batch map[string]bool) error {
+	var users, fixes []string
+	for _, n := range names {
+		for _, o := range s.SortedHosts() {
+			if !batch[o.Name] && slices.Contains(viaChain(o.Via), n) {
+				users = append(users, "server "+o.Name+viaNote(names, n))
+				fixes = append(fixes, "`komando host edit "+o.Name+" --unset via`")
+			}
+		}
+		for _, c := range s.SortedConns() {
+			if slices.Contains(viaChain(c.Via), n) {
+				users = append(users, "conn "+c.Name+viaNote(names, n))
+				fixes = append(fixes, "`komando conn edit "+c.Name+" --unset via`")
+			}
+		}
+	}
+	if len(users) == 0 {
+		return nil
+	}
+	hint := "change them first: " + strings.Join(fixes, ", ") + " (or --via OTHER), or remove them in the same command"
+	if len(names) == 1 {
+		return out.Errf(out.ExitConflict, "HOST_IN_USE", hint, "server %q is on the --via path of %s", names[0], strings.Join(users, ", "))
+	}
+	return out.Errf(out.ExitConflict, "HOST_IN_USE", hint, "these servers are on a --via path: %s", strings.Join(users, ", "))
+}
+
+// viaNote names the removed server a user goes through, when several are
+// removed at once.
+func viaNote(names []string, n string) string {
+	if len(names) == 1 {
+		return ""
+	}
+	return " (via " + n + ")"
+}
+
 func hostRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm NAME|TARGET...",
@@ -719,22 +758,8 @@ func hostRmCmd() *cobra.Command {
 						prot = append(prot, h.Name)
 					}
 				}
-				for _, n := range names {
-					for _, o := range s.SortedHosts() {
-						// a host removed in the same command does not count
-						if !batch[o.Name] && slices.Contains(viaChain(o.Via), n) {
-							return out.Errf(out.ExitConflict, "HOST_IN_USE",
-								fmt.Sprintf("change it first: `komando host edit %s --via OTHER` (or --unset via), or remove both together", o.Name),
-								"server %q is on the --via path of server %q", n, o.Name)
-						}
-					}
-					for _, c := range s.SortedConns() {
-						if slices.Contains(viaChain(c.Via), n) {
-							return out.Errf(out.ExitConflict, "HOST_IN_USE",
-								fmt.Sprintf("change it first: `komando conn edit %s --via OTHER` (or --unset via)", c.Name),
-								"server %q is on the --via path of conn %q", n, c.Name)
-						}
-					}
+				if err := hostsInUse(s, names, batch); err != nil {
+					return err
 				}
 				if err := guardProtection("host", "removing", prot); err != nil {
 					return err
