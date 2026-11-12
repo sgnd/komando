@@ -78,6 +78,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `host edit`, `conn edit` and `vpn edit` show `--add-group` and
+  `--add-tag` in help; `--group/-g` and `--tag/-t` still work there, for
+  good, and are no longer listed.
 - `docker logs` no longer shows `--priority` (a container log has none)
   and `svc logs` no longer shows `--timestamps` (the journal always has
   times). Both are still accepted in this release, do nothing as before,

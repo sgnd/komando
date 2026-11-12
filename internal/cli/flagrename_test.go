@@ -24,6 +24,12 @@ var flagRenames = []struct {
 	{[]string{"cluster", "rollback"}, "revision", "to", false},
 	{[]string{"cluster", "rollback"}, "revision", "to-revision", true},
 	{[]string{"queue", "peek"}, "idle", "wait", false},
+	{[]string{"host", "edit"}, "add-group", "group", true},
+	{[]string{"host", "edit"}, "add-tag", "tag", true},
+	{[]string{"conn", "edit"}, "add-group", "group", true},
+	{[]string{"conn", "edit"}, "add-tag", "tag", true},
+	{[]string{"vpn", "edit"}, "add-group", "group", true},
+	{[]string{"vpn", "edit"}, "add-tag", "tag", true},
 }
 
 func TestStandardFlagRenames(t *testing.T) {

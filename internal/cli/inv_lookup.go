@@ -106,7 +106,9 @@ func keyNotFound(s *store.State, name string) error {
 // on edit commands -g and -t add a group or tag, like on add.
 func shortAlias(fs *pflag.FlagSet, name, short, of string) {
 	f := fs.Lookup(of)
-	fs.AddFlag(&pflag.Flag{Name: name, Shorthand: short, Value: f.Value, DefValue: f.DefValue, Usage: "same as --" + of})
+	// hidden: on edit commands help shows --add-group/--add-tag only (S-5.13)
+	fs.AddFlag(&pflag.Flag{Name: name, Shorthand: short, Value: f.Value, DefValue: f.DefValue, Usage: "same as --" + of, Hidden: true,
+		Annotations: map[string][]string{flagAliasOf: {of}}})
 }
 
 // isSelector: arg is a selector (@group, glob, tag:, label:, kind:, all,
