@@ -70,6 +70,9 @@ Every command names objects the way kubectl does: `TYPE NAME` or
 mistype a kind, the error suggests the one you probably meant.
 
 - Name a namespace (see [Glossary](glossary.md)) with `--namespace`.
+  Without it, komando uses the cluster's usual namespace: the one its
+  kubeconfig context names, else `default`. Change it for good with
+  `komando conn edit prod --option namespace=shop`.
   komando keeps `-n` for "how many" (`--limit`); if you write `-n shop`,
   the error tells you the right flag.
   `-A` (`--all-namespaces`) works on `ls`, `events` and `helm ls`. It

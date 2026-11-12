@@ -344,7 +344,16 @@ func clusterCmd() *cobra.Command {
 or a Swarm manager server. The same verbs work on both. Reads need nothing; restart,
 scale and apply change the cluster (protected targets need --yes; try
 --dry-run); rm needs --allow-dangerous. Anything else: ` + "`cluster run`" + `
-passes the native kubectl or docker command, read-only unless --write.`,
+passes the native kubectl or docker command, read-only unless --write.
+
+A cluster's usual namespace is its kubeconfig context's; change it with
+` + "`komando conn edit NAME --option namespace=shop`" + `, or name one per command
+with --namespace.`,
+		Example: `  komando import kubeconfig                       # one cluster per kubeconfig context
+  komando cluster status prod                     # version, nodes, what is not healthy
+  komando cluster ls prod pods --namespace shop
+  komando cluster logs prod deploy/api --namespace shop -f
+  komando cluster deploy prod deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait`,
 	}
 	c.AddCommand(connAddCmdFor("cluster"), clusterStatusCmd(), clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterExecCmd(), clusterShellCmd(), clusterForwardCmd(), clusterRestartCmd(),
 		clusterScaleCmd(), clusterApplyCmd(), clusterRmCmd(), clusterRunCmd(), clusterHelmCmd())
