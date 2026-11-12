@@ -117,6 +117,9 @@ func errText(err error) string {
 // the host is not on its own path, and no step's own path leads back.
 func checkHostVia(s *store.State, h *store.Host) error {
 	steps := viaChain(h.Via)
+	if err := viaTwice(steps); err != nil {
+		return err
+	}
 	for i, step := range steps {
 		if strings.EqualFold(step, h.Name) {
 			return out.Errf(out.ExitUsage, "VIA_CYCLE", "--via names the servers (or VPN) in front of this one, not the server itself",

@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A `--via` path that names a server or VPN twice (`office,office`,
+  `a,b,a`) is refused with `VIA_CYCLE` and the path without the repeat;
+  a VPN named twice got the wrong hint "put the VPN first", and a repeated
+  server was accepted.
 - `vpn down NAME --all` and `tunnel stop ID --all` are refused with
   `USAGE`, as `logout HOST --all` is; the names, even unknown ones, were
   ignored. `tunnel stop` is now in the audit log.

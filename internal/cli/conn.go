@@ -537,6 +537,9 @@ func resolveVia(st *store.State, via string) (*store.Host, *store.Vpn, error) {
 	if len(steps) == 0 {
 		return nil, nil, out.Usage("--via is empty: give server or VPN names, e.g. --via bastion")
 	}
+	if err := viaTwice(steps); err != nil {
+		return nil, nil, err
+	}
 	for i, s := range steps {
 		if _, ok := st.Vpns[s]; ok {
 			if i > 0 {
@@ -561,6 +564,34 @@ func resolveVia(st *store.State, via string) (*store.Host, *store.Vpn, error) {
 		h = &cp
 	}
 	return h, nil, nil
+}
+
+// viaTwice refuses a --via path that names a step twice (office,office or
+// a,b,a): a typo, and a VPN named twice was told to "put the VPN first".
+func viaTwice(steps []string) error {
+	seen := map[string]bool{}
+	for _, s := range steps {
+		k := strings.ToLower(s)
+		if seen[k] {
+			return out.Errf(out.ExitUsage, "VIA_CYCLE", "name each server or VPN once: --via "+strings.Join(dedupeFold(steps), ","),
+				"%s is twice in the --via path %s", s, strings.Join(steps, ","))
+		}
+		seen[k] = true
+	}
+	return nil
+}
+
+// dedupeFold keeps the first of names that differ only in case.
+func dedupeFold(names []string) []string {
+	var keep []string
+	seen := map[string]bool{}
+	for _, n := range names {
+		if k := strings.ToLower(n); !seen[k] {
+			seen[k] = true
+			keep = append(keep, n)
+		}
+	}
+	return keep
 }
 
 func resolvePassword(c *store.Conn) (string, error) {

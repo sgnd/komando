@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -141,4 +142,24 @@ func TestAllWithNames(t *testing.T) {
 	wantCode(t, "USAGE", "logout", "web1", "--all")
 	mustRun(t, "vpn", "down", "--all")
 	mustRun(t, "tunnel", "stop", "--all")
+}
+
+// TestViaTwice: a --via path that names a step twice is refused with
+// VIA_CYCLE and the path without the repeat; office,office was told to
+// "put the VPN first", and a,b,a was accepted.
+func TestViaTwice(t *testing.T) {
+	invHome(t)
+	mustRun(t, "vpn", "add", "office", "socks", "--address", "127.0.0.1:1")
+	mustRun(t, "host", "add", "bastion", "u@10.0.0.1")
+	mustRun(t, "host", "add", "b2", "u@10.0.0.3")
+	e := wantCode(t, "VIA_CYCLE", "host", "add", "app", "u@10.0.0.2", "--via", "office,office")
+	if !strings.Contains(e.Hint, "--via office") || strings.Contains(e.Hint, "office,office") {
+		t.Errorf("hint: %s", e.Hint)
+	}
+	e = wantCode(t, "VIA_CYCLE", "host", "add", "app", "u@10.0.0.2", "--via", "bastion,b2,bastion")
+	if !strings.Contains(e.Hint, "--via bastion,b2") {
+		t.Errorf("hint: %s", e.Hint)
+	}
+	wantCode(t, "VIA_CYCLE", "conn", "add", "pg", "postgres://u@10.0.0.9/db", "--via", "office,bastion,bastion")
+	mustRun(t, "host", "add", "app", "u@10.0.0.2", "--via", "office,bastion,b2")
 }
