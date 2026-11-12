@@ -501,6 +501,9 @@ func tunnelStopCmd() *cobra.Command {
 			if !all && len(args) == 0 {
 				return out.Usage("give tunnel IDs or --all")
 			}
+			if all && len(args) > 0 {
+				return out.Errf(out.ExitUsage, "USAGE", "use `komando tunnel stop --all` or `komando tunnel stop "+strings.Join(args, " ")+"`", "--all stops every tunnel; give IDs or --all, not both")
+			}
 			stopped := []string{}
 			err := store.UpdateRuntime(func(s *store.State) error {
 				ids := args
@@ -529,6 +532,9 @@ func tunnelStopCmd() *cobra.Command {
 			if g.dryRun {
 				out.P.Print("tunnel.stop", map[string]any{"would_stop": stopped}, nil)
 				return nil
+			}
+			if len(stopped) > 0 {
+				audit(nil, "tunnel.stop", stopped, "", true, nil)
 			}
 			out.P.Print("tunnel.stop", map[string]any{"stopped": stopped}, nil)
 			return nil

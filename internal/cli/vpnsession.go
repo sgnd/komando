@@ -552,6 +552,9 @@ func vpnDownCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if all && len(args) > 0 {
+				return out.Errf(out.ExitUsage, "USAGE", "use `komando vpn down --all` or `komando vpn down "+strings.Join(args, " ")+"`", "--all disconnects every VPN session; give names or --all, not both")
+			}
 			names := args
 			if all {
 				names = nil

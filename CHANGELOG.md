@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `vpn down NAME --all` and `tunnel stop ID --all` are refused with
+  `USAGE`, as `logout HOST --all` is; the names, even unknown ones, were
+  ignored. `tunnel stop` is now in the audit log.
 - `tunnel start -L/-R/-D` takes IPv6 addresses in brackets, as ssh does
   (`-L 8080:[::1]:80`); they were refused as an invalid spec. An open IPv6
   bind (`[::]`) still needs a person's yes.

@@ -131,3 +131,14 @@ func TestParseTunnelIPv6(t *testing.T) {
 		}
 	}
 }
+
+// TestAllWithNames: vpn down and tunnel stop refuse names together with
+// --all, as logout does; the names (even unknown ones) were ignored.
+func TestAllWithNames(t *testing.T) {
+	invHome(t)
+	wantCode(t, "USAGE", "vpn", "down", "nosuch", "--all")
+	wantCode(t, "USAGE", "tunnel", "stop", "t-nosuch", "--all")
+	wantCode(t, "USAGE", "logout", "web1", "--all")
+	mustRun(t, "vpn", "down", "--all")
+	mustRun(t, "tunnel", "stop", "--all")
+}
