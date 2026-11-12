@@ -22,6 +22,9 @@ its highlights; the sections below them give the details. Versions follow
   `config set` line an import gives for a differing setting is now
   runnable as shown, and a value from an imported file cannot add a
   second command to it.
+- `host rm` of a server others go through (`--via`) names every server
+  and conn that uses it, each with its `edit ... --unset via` command,
+  instead of one per try.
 
 ## [0.12.0] - 2026-11-11
 

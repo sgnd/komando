@@ -53,3 +53,23 @@ func TestShellQuote(t *testing.T) {
 		}
 	}
 }
+
+// host rm names every server and conn that goes through the server, so one
+// round of edits clears them all.
+func TestHostRmInUseNamesEveryUser(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "b1", "u@10.0.0.1")
+	mustRun(t, "host", "add", "h1", "u@10.0.0.2", "--via", "b1")
+	mustRun(t, "conn", "add", "c1", "redis://10.0.0.3:6379/0", "--via", "b1")
+	e := wantCode(t, "HOST_IN_USE", "host", "rm", "b1")
+	for _, want := range []string{"server h1", "conn c1"} {
+		if !strings.Contains(e.Message, want) {
+			t.Errorf("message %q lacks %q", e.Message, want)
+		}
+	}
+	for _, want := range []string{"komando host edit h1 --unset via", "komando conn edit c1 --unset via"} {
+		if !strings.Contains(e.Hint, want) {
+			t.Errorf("hint %q lacks %q", e.Hint, want)
+		}
+	}
+}
