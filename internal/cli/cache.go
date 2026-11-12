@@ -33,11 +33,11 @@ get, keys and info only read. set changes data (a protected cache asks
 first); rm deletes keys, so it also needs --allow-dangerous. ` + "`cache run`" + `
 sends any command, but only reads unless --write; commands that flush,
 block, run scripts or reconfigure the server also need --allow-dangerous.`,
-		Example: `  komando cache add cache redis://default@10.0.0.7:6379/0 --via web1 --ask-password
-  komando cache info cache
-  komando cache keys cache 'session:*'
-  komando cache get cache session:42
-  komando cache set cache maintenance on --ttl 30m --dry-run`,
+		Example: `  komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
+  komando cache info prod-redis
+  komando cache keys prod-redis 'session:*'
+  komando cache get prod-redis session:42
+  komando cache set prod-redis maintenance on --ttl 30m --dry-run`,
 	}
 	c.AddCommand(connAddCmdFor("cache"), cacheGetCmd(), cacheKeysCmd(), cacheInfoCmd(), cacheSetCmd(), cacheRmCmd(), cacheRunCmd())
 	return c
@@ -147,8 +147,8 @@ func cacheGetCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "get CONN KEY",
 		Short: "Show a key: its type, time to live and value (any type)",
-		Example: `  komando cache get cache session:42
-  komando cache get cache leaderboard --limit 10`,
+		Example: `  komando cache get prod-redis session:42
+  komando cache get prod-redis leaderboard --limit 10`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 {
@@ -192,8 +192,8 @@ func cacheKeysCmd() *cobra.Command {
 		Use:     "keys CONN [PATTERN]",
 		Aliases: []string{"list", "ls"},
 		Short:   "List keys matching a pattern (uses SCAN, so a big cache is not blocked)",
-		Example: `  komando cache keys cache 'session:*'
-  komando cache keys cache --limit 1000`,
+		Example: `  komando cache keys prod-redis 'session:*'
+  komando cache keys prod-redis --limit 1000`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 {
@@ -230,9 +230,9 @@ func cacheInfoCmd() *cobra.Command {
 limit, eviction policy, clients, keys per database and the hit rate. A
 SECTION (server, clients, memory, persistence, stats, replication, cpu,
 commandstats, keyspace, ...) or --all shows the raw INFO fields.`,
-		Example: `  komando cache info cache
-  komando cache info cache memory
-  komando cache info cache --all`,
+		Example: `  komando cache info prod-redis
+  komando cache info prod-redis memory
+  komando cache info prod-redis --all`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			section := ""
@@ -330,9 +330,9 @@ func cacheSetCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "set CONN KEY VALUE",
 		Short: "Set a string key, replacing any old value",
-		Example: `  komando cache set cache feature:dark-mode on
-  komando cache set cache maintenance true --ttl 30m
-  komando cache set cache report:weekly done --ttl 7d`,
+		Example: `  komando cache set prod-redis feature:dark-mode on
+  komando cache set prod-redis maintenance true --ttl 30m
+  komando cache set prod-redis report:weekly done --ttl 7d`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ttl, err := parseTTL(ttlFlag)
@@ -410,8 +410,8 @@ func cacheRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm CONN KEY...",
 		Short: "Delete keys by exact name, never by pattern",
-		Example: `  komando cache rm cache session:42 session:43 --dry-run
-  komando cache rm cache session:42 session:43 --allow-dangerous`,
+		Example: `  komando cache rm prod-redis session:42 session:43 --dry-run
+  komando cache rm prod-redis session:42 session:43 --allow-dangerous`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keys := args[1:]
@@ -480,10 +480,10 @@ func cacheRunCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "run CONN -- COMMAND...",
 		Short: "Send any Redis or memcached command (read only by default)",
-		Example: `  komando cache run cache -- HGETALL user:42
-  komando cache run cache -- ZREVRANGE leaderboard 0 9 WITHSCORES
-  komando cache run cache --write -- EXPIRE session:42 3600
-  komando cache run cache -- "GET feature:dark-mode"   # one quoted line works too`,
+		Example: `  komando cache run prod-redis -- HGETALL user:42
+  komando cache run prod-redis -- ZREVRANGE leaderboard 0 9 WITHSCORES
+  komando cache run prod-redis --write -- EXPIRE session:42 3600
+  komando cache run prod-redis -- "GET feature:dark-mode"   # one quoted line works too`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command, err := cachex.SplitCommand(args[1:])

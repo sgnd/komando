@@ -99,7 +99,7 @@ komando cluster list prod pods -l app=api                         # only objects
 komando cluster describe prod deployment/api --namespace shop   # images, strategy, pods, events
 komando cluster events prod --namespace shop --warnings         # what went wrong, oldest first
 komando cluster events prod --for deployment/api --namespace shop
-komando cluster get prod deploy api --namespace shop            # the whole object (Secret values hidden)
+komando cluster get prod-k8s deploy/api --namespace shop           # the whole object (Secret values hidden)
 
 komando cluster status swarm1                                   # a Swarm manager
 komando cluster list swarm1 services                              # also: tasks, nodes, stacks
@@ -221,7 +221,7 @@ komando cluster apply prod --file app.yaml --dry-run       # the server checks i
 komando cluster apply prod --file app.yaml                 # created / configured / unchanged per object
 komando cluster restart prod deployment/api --namespace shop --wait
 komando cluster scale prod deployment/api 3 --namespace shop --wait
-komando cluster rm prod pod api-7d9f-x2 --namespace shop --allow-dangerous
+komando cluster rm prod-k8s pod/api-7d9f-x2 --namespace shop --allow-dangerous
 
 komando cluster apply swarm1 --file compose.yml --stack shop --dry-run   # checked like docker stack config
 komando cluster apply swarm1 --file compose.yml --stack shop

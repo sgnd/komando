@@ -115,6 +115,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Examples use one set of sample names: servers `web1`, `web2`, `db1`,
+  `@web`; databases `prod-db`, `staging-db`; cache `prod-redis`; queue
+  `prod-kafka`; storage `backups`; registries `ghcr`, `harbor`;
+  clusters `prod-k8s`, `swarm1`; VPN `office`; users `alice`, `app`. A
+  conn is never named after its family (`cache`, `events`), and cluster
+  objects are written `TYPE/NAME` (`pod/api-7d9f-x2`).
 - Help says "conn" for a database, cache, queue, storage, cluster or
   registry komando talks to (`conn kinds`, `conn rename`, `list`, the
   name check of the add questions), never "service" or "resource", which

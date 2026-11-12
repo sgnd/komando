@@ -91,7 +91,7 @@ or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
 		Example: `  komando vpn edit office --check 10.0.0.5:22
   komando vpn edit lab --proxy-address 127.0.0.1:1081
   komando vpn edit client-x --password-ref secret:client-x-new
-  komando vpn edit kantor --server vpn2.kantor.id --psk-ref secret:kantor-psk-2
+  komando vpn edit office --server vpn2.kantor.id --psk-ref secret:kantor-psk-2
   komando vpn edit client-x --portal gw2.client.com
   komando vpn edit office -g jakarta --rm-group old --label site=jkt
   komando vpn edit @office --protected --dry-run`,

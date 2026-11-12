@@ -36,7 +36,7 @@ Swarm: deploys FILE (a compose file) as the stack --stack; --dry-run checks
 the file with ` + "`docker stack config`" + ` on the manager.`,
 		Example: `  komando cluster apply prod-k8s --file app.yaml --dry-run
   komando cluster apply prod-k8s --file app.yaml
-  komando cluster apply swarm-manager --file compose.yml --stack shop`,
+  komando cluster apply swarm1 --file compose.yml --stack shop`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if file == "" {

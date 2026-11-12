@@ -34,7 +34,7 @@ func vpnCmd() *cobra.Command {
 connects it, using the login you saved:
 
   komando vpn add office wireguard --config ~/Downloads/office.conf
-  komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
+  komando vpn add client-x globalprotect --portal vpn.client.com --user alice --password-ref secret:client-x --mfa
   komando host add app admin@10.0.0.5 --via office,bastion
   komando exec app -- uptime
 
@@ -80,12 +80,12 @@ Which flags go with which VPN:
   SOCKS or HTTP proxy       --proxy-address`,
 		Example: `  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
   komando vpn add client-x globalprotect --portal vpn.client.com   # signs in through a browser window at vpn up
-  komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
+  komando vpn add office openvpn --config kantor.ovpn --user alice --password-ref secret:kantor --check 10.8.0.1:22
   komando vpn add tailnet tailscale --password-ref secret:ts-authkey
-  komando vpn add kantor l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk --user budi --ask-password   # type the password now (hidden)
+  komando vpn add office l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk --user alice --ask-password   # type the password now (hidden)
   komando vpn add old-office l2tp --server vpn.example.com --psk-ref secret:old-psk --user alice --legacy-crypto --allow-pap
-  komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user budi
-  komando vpn add cloud ikev2 --server vpn.example.com --user budi --password-ref secret:cloud
+  komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user alice
+  komando vpn add cloud ikev2 --server vpn.example.com --user alice --password-ref secret:cloud
   komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
   komando vpn add lab socks --proxy-address 127.0.0.1:1080
   komando vpn add office proxy --proxy-address proxy.corp.example:3128   # a company HTTP proxy`,

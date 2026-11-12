@@ -27,8 +27,8 @@ func clusterLsCmd() *cobra.Command {
 		Example: `  komando cluster list prod-k8s pods --namespace shop
   komando cluster list prod-k8s deploy -A
   komando cluster list @prod nodes                # every cluster in the group
-  komando cluster list swarm-manager services
-  komando cluster list swarm-manager tasks --limit 20`,
+  komando cluster list swarm1 services
+  komando cluster list swarm1 tasks --limit 20`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := nsOrAll(ns, all); err != nil {
@@ -104,9 +104,9 @@ func clusterGetCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "get TARGET TYPE/NAME",
 		Short: "Show one object in full, Secret values hidden",
-		Example: `  komando cluster get prod-k8s deployment api --namespace shop
+		Example: `  komando cluster get prod-k8s deployment/api --namespace shop
   komando cluster get prod-k8s deployment.apps/api --namespace shop
-  komando cluster get swarm-manager service/web`,
+  komando cluster get swarm1 service/web`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -173,7 +173,7 @@ func clusterRestartCmd() *cobra.Command {
 		Use:   "restart TARGET TYPE/NAME",
 		Short: "Restart a workload with a rolling restart, or a Swarm service",
 		Example: `  komando cluster restart prod-k8s deployment/api --namespace shop --wait
-  komando cluster restart swarm-manager service/web`,
+  komando cluster restart swarm1 service/web`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -262,7 +262,7 @@ func clusterScaleCmd() *cobra.Command {
 		Use:   "scale TARGET TYPE/NAME REPLICAS",
 		Short: "Set the number of replicas",
 		Example: `  komando cluster scale prod-k8s deployment/api 3 --namespace shop --wait
-  komando cluster scale swarm-manager service/web 4`,
+  komando cluster scale swarm1 service/web 4`,
 		Args: refArgs(1, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			n, err := strconv.Atoi(args[len(args)-1])

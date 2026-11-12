@@ -149,11 +149,11 @@ func connAddCmd() *cobra.Command {
   komando conn add local sqlite:///var/lib/app.db
   komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:redis-pass
   komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:s3-secret
-  komando conn add app-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)`,
+  komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)`,
 		Args: formArgs(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return formOrUsage(cmd, "conn", "komando conn add app-db postgres://app@10.0.0.5/app --ask-password")
+				return formOrUsage(cmd, "conn", "komando conn add prod-db postgres://app@10.0.0.5/app --ask-password")
 			}
 			name := args[0]
 			if err := checkEntryName("conn", name); err != nil {
@@ -718,8 +718,8 @@ func kindExample(raw string, err error) error {
 // same command, under the word a person looks for first. Typed alone at a
 // terminal, each opens the guided form for that kind only.
 var connAddKinds = map[string]struct{ what, form, example string }{
-	"db":       {"database", "Database", "komando db add shop-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
-	"cache":    {"cache", "Cache", "komando cache add cache1 redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
+	"db":       {"database", "Database", "komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
+	"cache":    {"cache", "Cache", "komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
 	"queue":    {"message queue", "Message queues", "komando queue add orders kafka://10.0.0.8:9092 --via web1"},
 	"storage":  {"file storage", "File storage", "komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
 	"cluster":  {"cluster", "Kubernetes", "komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig"},

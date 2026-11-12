@@ -187,7 +187,7 @@ available (db user show reads them). BigQuery: not available (Google Cloud
 IAM). --dry-run shows the statement.`,
 		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public
   komando db ` + verb + ` prod-db app_ro --role readers
-  komando db ` + verb + ` shop-db app --privileges SELECT,INSERT,UPDATE --on 'shop.*'`,
+  komando db ` + verb + ` prod-db app --privileges SELECT,INSERT,UPDATE --on 'shop.*'`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gr := dbx.Grant{User: args[1], Host: host, On: on, Role: role, Revoke: revoke}

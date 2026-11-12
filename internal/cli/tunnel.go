@@ -106,8 +106,8 @@ func tunnelStartCmd() *cobra.Command {
 		Short: "Start a background tunnel",
 		Long: `With a conn name and no -L/-R/-D, the tunnel leads to that conn through its --via path:
 point your database app or psql at the local address it prints. With a server, give one of -L, -R or -D.`,
-		Example: `  komando tunnel start app-db               # localhost:<free port> -> app-db
-  komando tunnel start app-db --port 15432
+		Example: `  komando tunnel start prod-db               # localhost:<free port> -> prod-db
+  komando tunnel start prod-db --port 15432
   komando tunnel start web1 -L 8080:localhost:80
   komando tunnel start bastion -D 1080       # SOCKS proxy`,
 		Args: cobra.ExactArgs(1),

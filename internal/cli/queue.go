@@ -40,11 +40,11 @@ delete messages, so they also need --allow-dangerous. Try any change with
 --dry-run first. In RabbitMQ words a topic is a queue; in NATS words it is
 a stream. Pub/Sub keeps messages in subscriptions: peek and purge take a
 subscription, and groups lists them.`,
-		Example: `  komando queue add events kafka://10.0.0.8:9092 --via web1
-  komando queue list events
-  komando queue peek events orders -n 5
-  komando queue send events orders --value '{"id": 42}' --dry-run
-  komando queue lag events billing`,
+		Example: `  komando queue add prod-kafka kafka://10.0.0.8:9092 --via web1
+  komando queue list prod-kafka
+  komando queue peek prod-kafka orders -n 5
+  komando queue send prod-kafka orders --value '{"id": 42}' --dry-run
+  komando queue lag prod-kafka billing`,
 	}
 	c.AddCommand(connAddCmdFor("queue"), queueInfoCmd(), queueLsCmd(), queueDescribeCmd(), queuePeekCmd(), queueGroupsCmd(), queueLagCmd(),
 		queueSendCmd(), queueCreateCmd(), queueRmCmd(), queuePurgeCmd())
@@ -140,7 +140,7 @@ func queueInfoCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "info CONN",
 		Short:   "Server summary: version, brokers or nodes, topic, queue or stream count",
-		Example: `  komando queue info events`,
+		Example: `  komando queue info prod-kafka`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withQueue(cmd.Context(), "queue.info", args[0], driver.Verdict{}, nil,
@@ -163,10 +163,10 @@ func queueLsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "list CONN [PATTERN]",
 		Short: "List topics (or queues, or streams) with their message counts",
-		Example: `  komando queue list events
-  komando queue list events 'orders-*'
-  komando queue list events --internal
-  komando queue list events -n 50`,
+		Example: `  komando queue list prod-kafka
+  komando queue list prod-kafka 'orders-*'
+  komando queue list prod-kafka --internal
+  komando queue list prod-kafka -n 50`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 {
@@ -204,7 +204,7 @@ func queueDescribeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "describe CONN TOPIC",
 		Short:   "One topic, queue or stream: messages, settings, and who reads it",
-		Example: `  komando queue describe events orders`,
+		Example: `  komando queue describe prod-kafka orders`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withQueue(cmd.Context(), "queue.describe", args[0], driver.Verdict{}, map[string]any{"topic": args[1]},
@@ -255,9 +255,9 @@ once. With a dead-letter topic each pull counts as a delivery: peek stops
 (DELIVERY_LIMIT_NEAR) before a message runs out of them.
 
 Values that are not UTF-8 text are shown as base64.`,
-		Example: `  komando queue peek events orders
-  komando queue peek events orders -n 50 --partition 2
-  komando queue peek events orders --oldest -n 5`,
+		Example: `  komando queue peek prod-kafka orders
+  komando queue peek prod-kafka orders -n 50 --partition 2
+  komando queue peek prod-kafka orders --oldest -n 5`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 || limit > 10000 {
@@ -293,7 +293,7 @@ func queueGroupsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "groups CONN",
 		Short:   "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions",
-		Example: `  komando queue groups events`,
+		Example: `  komando queue groups prod-kafka`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withQueue(cmd.Context(), "queue.groups", args[0], driver.Verdict{}, nil,
@@ -317,7 +317,7 @@ func queueLagCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "lag CONN CONSUMER",
 		Short: "How far one Kafka consumer group (or NATS consumer) is behind",
-		Example: `  komando queue lag events billing
+		Example: `  komando queue lag prod-kafka billing
   komando queue lag stream ORDERS/billing`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

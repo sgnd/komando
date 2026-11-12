@@ -29,8 +29,8 @@ func clusterRmCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "rm TARGET TYPE/NAME",
 		Short: "Delete an object, service or stack",
-		Example: `  komando cluster rm prod-k8s pod api-7d9f-x2 --namespace shop --allow-dangerous
-  komando cluster rm swarm-manager service/web --allow-dangerous`,
+		Example: `  komando cluster rm prod-k8s pod/api-7d9f-x2 --namespace shop --allow-dangerous
+  komando cluster rm swarm1 service/web --allow-dangerous`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -260,7 +260,7 @@ manager. Commands that change things need --write; delete, drain and other
 risky verbs also need --allow-dangerous.`,
 		Example: `  komando cluster run prod-k8s -- get pods -A -o wide
   komando cluster run prod-k8s --write -- rollout undo deployment/api -n shop
-  komando cluster run swarm-manager -- service ps web`,
+  komando cluster run swarm1 -- service ps web`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()

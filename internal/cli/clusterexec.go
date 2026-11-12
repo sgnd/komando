@@ -36,8 +36,8 @@ output. Commands that only look can say so with --read-only: one that
 clearly changes something is refused, and protected clusters skip --yes
 only for commands komando knows read (cat, ls, printenv ...). For an
 interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
-		Example: `  komando cluster exec prod deploy/api --namespace shop --read-only -- cat /app/config.yml
-  komando cluster exec prod api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear`,
+		Example: `  komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
+  komando cluster exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear`,
 		Args: cobra.MinimumNArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -165,8 +165,8 @@ func clusterShellCmd() *cobra.Command {
 		Long: `Opens a terminal in the pod's container: bash when it has one, else sh, or
 COMMAND. For people at a terminal; agents use ` + "`komando cluster exec`" + `.
 Anything can be typed inside, so a protected cluster asks first.`,
-		Example: `  komando cluster shell prod deploy/api --namespace shop
-  komando cluster shell prod api-7d9f-x2 -c api -- /bin/ash`,
+		Example: `  komando cluster shell prod-k8s deploy/api --namespace shop
+  komando cluster shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !interactive() {
@@ -262,9 +262,9 @@ func clusterForwardCmd() *cobra.Command {
 service, through the conn's --via path. It runs until Ctrl-C (or --timeout).
 Only this computer can use it. For a service, REMOTE is the service's port;
 komando forwards to the pod's port behind it.`,
-		Example: `  komando cluster forward prod svc/api 8080:80 --namespace shop
-  komando cluster forward prod deploy/db 15432:5432 --namespace shop
-  komando cluster forward prod svc/api :80 --namespace shop   # any free local port`,
+		Example: `  komando cluster forward prod-k8s svc/api 8080:80 --namespace shop
+  komando cluster forward prod-k8s deploy/db 15432:5432 --namespace shop
+  komando cluster forward prod-k8s svc/api :80 --namespace shop   # any free local port`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			local, remote, ok := strings.Cut(args[2], ":")

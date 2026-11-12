@@ -34,7 +34,7 @@ passes.`,
 		Example: `  komando cluster status prod-k8s
   komando cluster status @prod                  # every cluster in the group, at once
   komando cluster status prod-k8s deployment/api --namespace shop --wait
-  komando cluster status swarm-manager service/web --wait`,
+  komando cluster status swarm1 service/web --wait`,
 		Args: cobra.RangeArgs(1, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()

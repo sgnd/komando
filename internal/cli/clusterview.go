@@ -121,9 +121,9 @@ func clusterDescribeCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "describe TARGET TYPE/NAME",
 		Short: "One object in short: state, images, conditions, pods, events",
-		Example: `  komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop
+		Example: `  komando cluster describe prod-k8s pod/api-7d9f-x2 --namespace shop
   komando cluster describe prod-k8s deployment/api --namespace shop
-  komando cluster describe swarm-manager service/web`,
+  komando cluster describe swarm1 service/web`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()

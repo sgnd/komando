@@ -81,8 +81,8 @@ the others are pinned.`,
 		Example: `  komando host trust web1
   komando host trust web1 --reset --dry-run   # how many pinned keys would go
   komando host trust web1 --reset             # after a real rebuild (a person, at a terminal)
-  komando host trust @cluster                 # pin new servers; changed keys are refused
-  komando host trust @cluster --reset         # after rebuilding the whole group: one yes`,
+  komando host trust @web                 # pin new servers; changed keys are refused
+  komando host trust @web --reset         # after rebuilding the whole group: one yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()

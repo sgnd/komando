@@ -49,8 +49,8 @@ with that key is removed from ~/.ssh/authorized_keys of the login user, or
 of --user NAME (with sudo). The file keeps its owner and mode. Revoking the
 key komando itself logs in with needs --allow-dangerous: you would lock
 yourself out. --dry-run counts the lines it would remove.`,
-		Example: `  komando key revoke ~/keys/budi.pub @prod --dry-run
-  komando key revoke "ssh-ed25519 AAAAC3Nz...xyz budi@laptop" @prod
+		Example: `  komando key revoke ~/keys/alice.pub @prod --dry-run
+  komando key revoke "ssh-ed25519 AAAAC3Nz...xyz alice@laptop" @prod
   komando key revoke old-deploy @web --user deploy`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -38,7 +38,7 @@ the pods that exist when it starts. --since takes a duration back from now
 		Example: `  komando cluster logs prod-k8s api-7d9f-x2 --namespace shop --since 10m
   komando cluster logs prod-k8s deploy/api --namespace shop -f
   komando cluster logs prod-k8s -l app=api --namespace shop --limit 50
-  komando cluster logs swarm-manager service/web -f`,
+  komando cluster logs swarm1 service/web -f`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 1 && selector == "" {

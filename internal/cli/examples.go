@@ -44,8 +44,8 @@ var examples = map[string]string{
 	"komando config show":  "  komando config show",
 	"komando conn kinds":   "  komando conn kinds",
 	"komando conn list":    "  komando conn list\n  komando conn list @prod",
-	"komando conn show":    "  komando conn show app-db",
-	"komando conn test":    "  komando conn test app-db\n  komando conn test kind:postgres",
+	"komando conn show":    "  komando conn show prod-db",
+	"komando conn test":    "  komando conn test prod-db\n  komando conn test kind:postgres",
 	"komando cron list":    "  komando cron list web1",
 	"komando cron rm":      "  komando cron rm web1 nightly-backup",
 

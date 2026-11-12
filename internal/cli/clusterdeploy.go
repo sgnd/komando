@@ -181,7 +181,7 @@ service (Swarm). With several containers, name one with --container (or
 write --image NAME=IMAGE). --wait stays until every replica runs the new
 image, the rollout fails, or --timeout (default 5m) passes; go back with
 ` + "`komando cluster rollback`" + `.`,
-		Example: `  komando cluster deploy prod deployment/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait
+		Example: `  komando cluster deploy prod-k8s deployment/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait
   komando cluster deploy swarm1 service/web --image nginx:1.27 --wait`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) (rerr error) {
@@ -351,7 +351,7 @@ func clusterHistoryCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "history TARGET TYPE/NAME",
 		Short:   "Revisions of a deployment, newest first, with their images",
-		Example: "  komando cluster history prod deployment/api --namespace shop",
+		Example: "  komando cluster history prod-k8s deployment/api --namespace shop",
 		Args:    refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -490,8 +490,8 @@ func clusterRollbackCmd() *cobra.Command {
 other images than now. After a rollback, the revision it replaced (the bad
 one) is skipped, so a second rollback does not bring it back; --revision picks any
 revision. A Swarm service goes back to its previous version.`,
-		Example: `  komando cluster rollback prod deployment/api --namespace shop --wait
-  komando cluster rollback prod deployment/api --revision 3 --namespace shop
+		Example: `  komando cluster rollback prod-k8s deployment/api --namespace shop --wait
+  komando cluster rollback prod-k8s deployment/api --revision 3 --namespace shop
   komando cluster rollback swarm1 service/web`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {

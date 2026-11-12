@@ -191,7 +191,7 @@ func kubeErr(err error) error {
 		case e.Code == 409:
 			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run it again"
 		case e.Code == 400 && strings.Contains(e.Message, "is not valid for pod"):
-			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster describe TARGET pod NAME`"
+			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster describe TARGET pod/NAME`"
 			thing = "k8s_container"
 		case e.Code == 400 || e.Code == 422:
 			code, exit, hint = "K8S_INVALID", out.ExitUsage, "the cluster refused it as written: check the label selector (-l) or the object's YAML"
@@ -350,10 +350,10 @@ A cluster's usual namespace is its kubeconfig context's; change it with
 ` + "`komando conn edit NAME --option namespace=shop`" + `, or name one per command
 with --namespace.`,
 		Example: `  komando import kubeconfig                       # one cluster per kubeconfig context
-  komando cluster status prod                     # version, nodes, what is not healthy
-  komando cluster list prod pods --namespace shop
-  komando cluster logs prod deploy/api --namespace shop -f
-  komando cluster deploy prod deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait`,
+  komando cluster status prod-k8s                     # version, nodes, what is not healthy
+  komando cluster list prod-k8s pods --namespace shop
+  komando cluster logs prod-k8s deploy/api --namespace shop -f
+  komando cluster deploy prod-k8s deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait`,
 	}
 	status := clusterStatusCmd()
 	c.AddCommand(synonymWrapper(status, "info TARGET", "cluster.status", "cluster status TARGET", cobra.ExactArgs(1)))
