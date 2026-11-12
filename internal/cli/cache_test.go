@@ -124,8 +124,12 @@ func TestCacheRunQuotedCommand(t *testing.T) {
 		}
 		return ""
 	}
-	if _, err := runCache(t, "-o", "json", "cache", "run", "c", "get foo"); code(err) != "CACHE_CONNECT" {
+	if _, err := runCache(t, "-o", "json", "cache", "run", "c", "--", "get foo"); code(err) != "CACHE_CONNECT" {
 		t.Errorf("get foo: %v", err)
+	}
+	// without -- the words could hold komando's own flags: refused
+	if _, err := runCache(t, "-o", "json", "cache", "run", "c", "get foo"); code(err) != "USAGE" {
+		t.Errorf("get foo without --: %v", err)
 	}
 	if _, err := runCache(t, "-o", "json", "cache", "run", "c", "--write", "--dry-run", "--", "MONITOR"); code(err) != "NOT_SUPPORTED" {
 		t.Errorf("MONITOR: %v", err)

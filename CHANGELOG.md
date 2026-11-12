@@ -20,6 +20,34 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- At a terminal, `group rm` now ends with the way back:
+  `Next: komando group add GROUP TARGET...`. Deleting a group of more than
+  3 members still needs `--yes` from an AI agent or a script.
+- **Commands that hand words to another program now need `--` before
+  them**: `exec`, `job start`, `docker exec`, `docker compose`,
+  `docker raw`, `cluster exec`, `cluster shell`, `cluster run` and
+  `cache run`. `komando exec web1 apt-get install -y nginx` read `-y`
+  as komando's own `--yes`, and a trailing `--dry-run` was taken by
+  komando while the rest ran; such a line is now a usage error (exit 2)
+  that runs nothing and shows the form with `--`. komando's flags still
+  go anywhere before `--`, and `-c` and `--script` are unchanged.
+  `job start TARGET COMMAND` without `--` and `cache run CONN "GET k"`
+  are refused too: write `job start TARGET -- COMMAND` and
+  `cache run CONN -- "GET k"`.
+- A flag that gets a new name keeps its old name as a hidden spelling of
+  the same flag, so every safety check (the ssh gate's read-only keys
+  included) sees the flag under either name. A test checks each spelling.
+- An old name or flag that komando still accepts (`komando script`,
+  `db query --csv`) no longer prints "goes away in the next release":
+  it keeps working. It now says so on stderr only at a terminal, and JSON
+  output names it in a new `meta.deprecated` field (`used`, `now`), so
+  `2>&1 | jq` and AI agents see no new text. A short alias such as `x`
+  for `exec` prints nothing at all.
+- Every command now carries a stable ID (its dotted path, such as
+  `fs.ls`), and the envelopes, the audit log, personal-data hiding, the
+  ssh-gate tables and the other checks keyed by command use it. A command
+  that is renamed later keeps its ID, so no check can miss it under the
+  new name. A test lists every ID and fails if one disappears.
 - `komando --help` now lists the commands under the same headings as
   `komando` alone: Servers, Data, Platform, Access, Overview and Setup.
 - At a person's terminal, many more commands end with a `Next:` line of
@@ -566,6 +594,13 @@ its highlights; the sections below them give the details. Versions follow
   menu.
 - README: the Windows `.zip` is an install option, and `prompt` (now
   `status --short`) is no longer listed as a command.
+
+### Fixed
+
+- `group rm GROUP TARGET TARGET` (two or more targets) deleted the whole
+  group instead of taking just those targets out of it. Now it takes out
+  only the targets named; `group rm GROUP` alone still deletes the group
+  (and asks first when it has more than 3 members).
 
 ## [0.12.0] - 2026-11-11
 

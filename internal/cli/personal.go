@@ -21,7 +21,7 @@ import (
 // from a target; komando's own inventory (server addresses, conn URLs)
 // is never hidden. --reveal, which a person allows, shows everything.
 
-// personalCmds are the command paths (as in commandKinds) whose output
+// personalCmds are the command IDs (as in commandKinds) whose output
 // carries data read from a server or resource.
 var personalCmds = map[string]bool{
 	"cache get": true, "cache keys": true, "cache run": true,
@@ -47,7 +47,7 @@ var personalCmd bool
 // personal data; notePersonal then turns it on per target.
 func startPersonal(cmd *cobra.Command) {
 	out.P.Personal = false
-	personalCmd = out.P.Mask && personalCmds[strings.ReplaceAll(commandName(cmd), ".", " ")]
+	personalCmd = out.P.Mask && personalCmds[idKey(cmd)]
 }
 
 // notePersonal turns on personal data masking when the command works on a

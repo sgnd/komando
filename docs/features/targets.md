@@ -76,5 +76,8 @@ komando group rm old --dry-run          # delete a whole group: who would leave 
 komando group rm old --yes              # more than 3 members needs --yes
 ```
 
+At a terminal, `group rm` ends with the way back:
+`Next: komando group add old TARGET...`.
+
 Group, tag and label names use letters, digits and `. _ -`, like server
 names, so every one can be written in a target.

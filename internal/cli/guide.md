@@ -102,6 +102,11 @@ as `winrm://USER@HOST` is reached over WinRM: the same commands, but no
 mixes Windows and Linux servers is refused for `exec` (`MIXED_OS`): run
 it once per shell.
 
+Commands that hand words to another program (`exec`, `job start`, `docker
+exec/compose/raw`, `cluster exec/shell/run`, `cache run`) take those words
+only after `--`; komando's flags go before it. Without `--` the command
+stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
+
 ## 3. Read before you write
 
 | Need                         | Command |

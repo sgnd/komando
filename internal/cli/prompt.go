@@ -20,7 +20,7 @@ import (
 // network (docs/design/session-status.md). In particular it never calls
 // netx.LiveSession, which marks a VPN as used and would keep it up forever.
 
-// promptCmd is the old name of `status --short`, kept for one release. Its
+// promptCmd is the old name of `status --short`; it keeps working. Its
 // note goes to stderr only when a person typed it: inside $(komando prompt)
 // stdout is not a terminal, and a note there would be drawn on every prompt.
 func promptCmd() *cobra.Command {

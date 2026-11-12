@@ -78,3 +78,15 @@ func TestDroppedNamesSuggestTheNewOne(t *testing.T) {
 		}
 	}
 }
+
+// A synonym (a cobra alias such as `x` for exec) is permanent and silent:
+// no stderr line and no meta.deprecated.
+func TestSynonymsPrintNothing(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	var d map[string]any
+	note := stderrOf(t, func() { d = mustRun(t, "--dry-run", "x", "web1", "--", "uptime") })
+	if m, _ := d["_meta"].(map[string]any); note != "" || m["deprecated"] != nil {
+		t.Errorf("x printed %q, meta %v", note, m)
+	}
+}

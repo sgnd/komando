@@ -44,7 +44,7 @@ const (
 	shellNote      = "an shellNote shell for a person: whatever they type"
 )
 
-// commandKinds is keyed by the command path without "komando ".
+// commandKinds is keyed by the command ID (cmdid.go), with spaces for dots.
 var commandKinds = map[string]cmdKind{
 	"audit":        reads,
 	"audit verify": reads,
@@ -349,7 +349,7 @@ func kindOf(c *cobra.Command) (cmdKind, bool) {
 			c = n
 		}
 	}
-	k, ok := commandKinds[commandKey(c)]
+	k, ok := commandKinds[idKey(c)]
 	return k, ok
 }
 
