@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+
+	"github.com/sgnd/komando/internal/dbx"
 )
 
 // The flag value types every command shares (docs/design/command-standard.md,
@@ -143,4 +145,51 @@ func spanText(fs *pflag.FlagSet, p *string, name, def string, positive bool, usa
 	*p = def
 	var d time.Duration
 	fs.Var(&durFlag{d: &d, text: p, positive: positive, name: name}, name, usage)
+}
+
+// bytesFlag is every byte-size flag (Type "bytes"): --max-bytes and
+// --max-output. It takes a number of bytes or KB/MB/GB (KiB, MiB, GiB),
+// where KB = KiB = 1024 bytes.
+type bytesFlag struct {
+	n    *int64
+	i    *int    // or this one, for an int variable
+	text *string // or this one: the size as typed, "" when not given
+}
+
+func (v *bytesFlag) String() string {
+	switch {
+	case v.text != nil:
+		return *v.text
+	case v.i != nil:
+		return strconv.Itoa(*v.i)
+	}
+	return strconv.FormatInt(*v.n, 10)
+}
+
+func (v *bytesFlag) Type() string { return "bytes" }
+
+func (v *bytesFlag) Set(s string) error {
+	n, err := parseSize(s)
+	if err != nil {
+		return err
+	}
+	switch {
+	case v.text != nil:
+		*v.text = s
+	case v.i != nil:
+		*v.i = int(n)
+	default:
+		*v.n = n
+	}
+	return nil
+}
+
+func (v *bytesFlag) check(s string) error { _, err := parseSize(s); return err }
+
+func parseSize(s string) (int64, error) {
+	n, err := dbx.ParseBytes(s)
+	if err != nil {
+		return 0, fmt.Errorf("give a size like 1048576, 256KiB, 10MB or 1GB (got %q)", s)
+	}
+	return n, nil
 }

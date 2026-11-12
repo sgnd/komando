@@ -164,6 +164,10 @@ Every flag that takes a time reads it the same way: a number and a unit,
 such as `30s`, `10m`, `2h`, `1h30m` or `7d`. A number without a unit is
 refused (`--older-than 30` could mean seconds or days), except `0`.
 
+Every size flag (`--max-bytes`, `--max-output`) takes bytes (`1048576`)
+or a size with a unit: `256KiB`, `10MB`, `1GB`. KB and KiB both mean
+1024 bytes, MB and MiB both 1024 KiB.
+
 ## Run a local script
 
 `komando exec TARGET --script FILE` sends a script file from this computer

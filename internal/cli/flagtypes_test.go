@@ -111,3 +111,39 @@ func walkLeaves(root *cobra.Command, fn func(path string, f *pflag.Flag)) {
 	}
 	root.PersistentFlags().VisitAll(func(f *pflag.Flag) { fn("komando", f) })
 }
+
+// S-5.3: one byte-size type; KB = KiB = 1024.
+func TestStandardBytes(t *testing.T) {
+	n := 0
+	walkLeaves(newRoot(), func(path string, f *pflag.Flag) {
+		if f.Name != "max-bytes" && f.Name != "max-output" {
+			return
+		}
+		n++
+		if _, ok := f.Value.(*bytesFlag); !ok || f.Value.Type() != "bytes" {
+			t.Errorf("%s --%s: type %s, want the shared bytes type", path, f.Name, f.Value.Type())
+		}
+	})
+	if n < 6 {
+		t.Errorf("found %d size flags, want --max-output and 5 --max-bytes", n)
+	}
+	for in, want := range map[string]int64{"1048576": 1 << 20, "256KiB": 256 << 10, "256KB": 256 << 10, "10GB": 10 << 30, "1MiB": 1 << 20, "0": 0} {
+		var got int64
+		if err := (&bytesFlag{n: &got}).Set(in); err != nil || got != want {
+			t.Errorf("%s: %d %v, want %d", in, got, err, want)
+		}
+	}
+	for _, in := range []string{"-1", "lots", "10XB"} {
+		var got int64
+		if err := (&bytesFlag{n: &got}).Set(in); err == nil {
+			t.Errorf("%s was taken as %d", in, got)
+		}
+	}
+	invHome(t)
+	if code, s := runMain(t, "list", "--max-output", "256KiB"); code != 0 {
+		t.Errorf("--max-output 256KiB: exit %d %s", code, s)
+	}
+	if e := mainErr(t, "list", "--max-output", "lots"); e.Code != "USAGE" || !strings.HasPrefix(e.Message, "--max-output: ") {
+		t.Errorf("--max-output lots: %+v", e)
+	}
+}

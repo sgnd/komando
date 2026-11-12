@@ -568,7 +568,7 @@ func newRoot() *cobra.Command {
 	durVar(pf, &g.connectTimeout, "connect-timeout", 0, "time to connect (default: setting, 15s)")
 	pf.IntVarP(&g.parallel, "parallel", "P", 0, "servers at once (default: setting, 10)")
 	pf.StringVar(&g.hostKeyPolicy, "host-key-policy", "", "accept-new, strict or off: how a server's key is checked (default: setting, accept-new)")
-	pf.IntVar(&g.maxOutput, "max-output", 0, "bytes kept per stream per server (default: setting, 256KiB)")
+	pf.Var(&bytesFlag{i: &g.maxOutput}, "max-output", "bytes kept per stream per server, e.g. 1MiB (default: setting, 256KiB)")
 
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
 	addCommands(root)

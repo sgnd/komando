@@ -20,6 +20,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Every size flag reads sizes the same way: `--max-output`, and
+  `--max-bytes` on `fs cat`, `storage cat`, `job logs`, `db query` and
+  `db explain`, take bytes or `256KiB`, `10MB`, `1GB` (KB = KiB = 1024).
+  `--max-output 256KiB` was refused before. `komando schema` lists them
+  with type `bytes`.
 - Every flag that takes a time (`--timeout`, `--connect-timeout`,
   `--wait`, `--interval`, `--expires`, `--ttl`, `--warn`, `--older-than`)
   reads it the same way: `30s`, `10m`, `2h` or `7d`, and `0`. Days now
