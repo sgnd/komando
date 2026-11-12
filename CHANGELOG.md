@@ -39,6 +39,8 @@ its highlights; the sections below them give the details. Versions follow
   `kafka://` or `http://` endpoint to another computer is skipped with the
   `INSECURE_PROTOCOL` reason instead of being saved, so a password from a
   `.env` or `.pgpass` file no longer crosses the network unencrypted.
+- `group add GROUP A B` and `group rm GROUP A B` take several targets, like
+  `host rm` and `host edit`, instead of failing with "too many arguments".
 
 ## [0.12.0] - 2026-11-11
 

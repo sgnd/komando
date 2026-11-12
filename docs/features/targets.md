@@ -69,6 +69,7 @@ Or manage a group for many entries at once:
 
 ```bash
 komando group add prod 'web-*'          # add everything a target picks
+komando group add prod web7 web8        # several names
 komando group list prod                 # the members of one group
 komando group rm prod web3              # take web3 out of prod
 komando group rm old --dry-run          # delete a whole group: who would leave it
