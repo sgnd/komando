@@ -62,6 +62,9 @@ test green, including `TestOutputShapes`, and `make e2e`.
 
 ## Rules for every new feature
 
+The full list of contributor rules, with where code goes and how files are
+named, is in [code-layout.md](code-layout.md).
+
 - Add the command to `commandKinds`.
 - Keep functions under 100 lines and files under 800.
 - Add a check to `test/e2e/checks/coverage.sh` so the command runs at

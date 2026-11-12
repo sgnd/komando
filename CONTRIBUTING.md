@@ -55,7 +55,7 @@ Recipes are ready-made checks (`komando recipe list`). They live in one list in 
 
 ## Add or change a command
 
-Each area has its own file in `internal/cli/` (`host.go`, `exec.go`, `fs.go`, `db.go`, `cluster.go`, ...). Follow these rules. They are what makes komando usable by AI agents:
+Each command has its own files in `internal/cli/`, named for its noun (`host.go`, `db_dump.go`, `cluster_swarm.go`, ...). Where code goes and how packages and files are named is in [docs/design/code-layout.md](docs/design/code-layout.md), with every contributor rule in one list. Follow these rules. They are what makes komando usable by AI agents:
 
 1. **Print results only via `out.P.Print`.** It writes one JSON envelope when piped (agents) and readable text in a terminal (humans). Give a result type a `Text() string` method if the generic text view is not clear enough.
 2. **Never prompt an agent or a script.** Missing input is an error with a `hint`. A person at a terminal may be asked a yes/no question (see `confirmYes`), never anything a flag cannot answer.
