@@ -728,6 +728,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `fs write`, `fs replace`, `fs restore` and `upload` with `--sudo`
+  follow a link only when root made it and it leads into a folder root
+  owns; any other link stops with IS_A_SYMLINK. Before, a link another
+  user planted (an app's `.env` to `/etc/sudoers.d/x`) had root write a
+  file of that user's choosing.
 - `key revoke --user` edits that user's authorized_keys as the user, with
   a random temporary name. Before, root wrote a predictable temporary
   file in the user's `.ssh`, so a link the user planted there sent their
