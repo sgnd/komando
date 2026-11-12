@@ -110,8 +110,9 @@ func withStoragePreview(ctx context.Context, name, connExpr string, v driver.Ver
 	return nil
 }
 
-// openBucket connects to a storage conn of any kind.
-func openBucket(ctx context.Context, st *store.State, c *store.Conn) (storex.Bucket, error) {
+// openBucket connects to a storage conn of any kind (a variable so tests
+// can give a bucket in memory).
+var openBucket = func(ctx context.Context, st *store.State, c *store.Conn) (storex.Bucket, error) {
 	t, err := driver.Parse(c.URL)
 	if err != nil {
 		return nil, err
@@ -406,8 +407,14 @@ func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Dura
 	if err != nil {
 		return err
 	}
-	if err := guardConns(st, []*store.Conn{c}, driver.DataDelete()); err != nil {
-		return err // under --dry-run this only records the stop
+	// a person at the terminal sees what goes before typing the name; an
+	// agent, a script or --allow-dangerous are stopped (or let through)
+	// before anything is listed, as for every destructive command
+	person := !g.dryRun && !g.allowDangerous && interactive()
+	if !person {
+		if err := guardConns(st, []*store.Conn{c}, driver.DataDelete()); err != nil {
+			return err // under --dry-run this only records the stop
+		}
 	}
 	b, err := openBucket(ctx, st, c)
 	if err != nil {
@@ -447,6 +454,15 @@ func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Dura
 		out.P.Print("storage.rm", p, nil)
 		return nil
 	}
+	if person && len(keys) > 0 {
+		fmt.Fprint(os.Stderr, rmPreview(p))
+		v := driver.DataDelete()
+		v.Reasons = []string{fmt.Sprintf("deletes %d object%s (%s) %s for good, unless the bucket keeps old versions",
+			len(keys), plural(len(keys)), humanBytes(p.Bytes), p.where())}
+		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+			return err
+		}
+	}
 	done, err := removeKeys(ctx, b, keys)
 	rec["conns"], rec["deleted"] = []string{c.Name}, len(done)
 	audit(st, "storage.rm", nil, "", err == nil, rec)
@@ -456,6 +472,30 @@ func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Dura
 	p.Deleted = done
 	out.P.Print("storage.rm", p, nil)
 	return nil
+}
+
+// rmPreview is what a person sees before typing the name: the first
+// objects and how many there are in all.
+func rmPreview(p rmPlan) string {
+	const show = 20
+	objs := p.objs
+	if len(objs) > show {
+		objs = objs[:show]
+	}
+	s := objectTable(objs)
+	if more := len(p.objs) - len(objs); more > 0 {
+		s += fmt.Sprintf("... and %d more\n", more)
+	}
+	return s + fmt.Sprintf("%d object%s (%s) %s\n", p.Count, plural(p.Count), humanBytes(p.Bytes), p.where())
+}
+
+// where names the folder rm --prefix empties: "under daily/ in backups",
+// or "in all of backups".
+func (p rmPlan) where() string {
+	if p.Prefix == "" {
+		return "in all of " + p.Conn
+	}
+	return "under " + p.Prefix + " in " + p.Conn
 }
 
 func storageCatCmd() *cobra.Command {

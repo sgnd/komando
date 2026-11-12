@@ -23,6 +23,11 @@ its highlights; the sections below them give the details. Versions follow
   (`INSECURE_PROTOCOL`): the token goes in every request as it is, so it
   would travel unencrypted. The account key, which only signs, still works
   with an emulator such as Azurite.
+- `storage rm --prefix` typed at a terminal without `--allow-dangerous`
+  now lists what would be deleted (the first 20 objects, the count and the
+  size) before asking to type the conn's name; it used to ask first, with
+  nothing shown. Agents and scripts are stopped as before, before anything
+  is listed.
 
 ## [0.12.0] - 2026-11-11
 

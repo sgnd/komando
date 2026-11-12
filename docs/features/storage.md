@@ -229,13 +229,23 @@ komando storage rm backups --prefix daily/ --older-than 30d --dry-run          #
 komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous  # delete them
 ```
 
-- Deleted objects are gone, so `rm` needs `--allow-dangerous`.
+- Deleted objects are gone (unless the bucket keeps old versions, see
+  below), so `rm` needs `--allow-dangerous`. A person at a terminal can
+  leave it out: komando first lists what would go (the first 20 objects,
+  the count and the size), then asks to type the conn's name. Anything
+  else cancels and deletes nothing.
 - Without `--prefix`, `rm` takes exact keys only, no patterns.
 - `--prefix` removes everything under a folder (`/` for the whole conn);
   `--older-than` (`30d`, `12h`, `90m`) keeps the newer ones.
 - `--prefix` refuses to remove more than `--limit` objects (1000 by
   default). Check the dry-run list, and raise the limit if that is what you
   mean.
+- **Buckets that keep old versions** (S3 versioning, Google Cloud object
+  versioning or soft delete, Azure blob versioning or soft delete): `rm`
+  removes the current object only. The provider keeps the old versions (S3
+  adds a delete marker), they still cost storage, and they can be brought
+  back in the provider's console or CLI. komando does not list or remove
+  old versions; a lifecycle rule on the bucket does that.
 
 ## Good to know
 

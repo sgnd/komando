@@ -2,11 +2,17 @@ package cli
 
 import (
 	"context"
+	"io"
+	"net/url"
 	"os"
+	"sort"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/storex"
 )
 
 // An sftp:// conn reaches an SSH server, so it must not be a way around
@@ -48,5 +54,130 @@ func TestOpenBucketSMB(t *testing.T) {
 		if oe, ok := err.(*out.Error); !ok || oe.Code != "FOLDER_NOT_FOUND" {
 			t.Error(err)
 		}
+	}
+}
+
+// memBucket is a storage conn in memory, for the command layer's tests.
+type memBucket struct {
+	objs   map[string]string
+	listed int // List calls
+}
+
+func (m *memBucket) List(_ context.Context, prefix string, recursive bool, limit int) ([]storex.Object, bool, error) {
+	m.listed++
+	var objs []storex.Object
+	dirs := map[string]bool{}
+	for k, v := range m.objs {
+		if !strings.HasPrefix(k, prefix) {
+			continue
+		}
+		rest := strings.TrimPrefix(k, prefix)
+		if i := strings.Index(rest, "/"); !recursive && i >= 0 {
+			if d := prefix + rest[:i+1]; !dirs[d] {
+				dirs[d] = true
+				objs = append(objs, storex.Object{Key: d, Dir: true})
+			}
+			continue
+		}
+		objs = append(objs, storex.Object{Key: k, Size: int64(len(v)), Modified: time.Now().Add(-time.Hour)})
+	}
+	sort.Slice(objs, func(i, j int) bool { return objs[i].Key < objs[j].Key })
+	if limit > 0 && len(objs) > limit {
+		return objs[:limit], true, nil
+	}
+	return objs, false, nil
+}
+
+func (m *memBucket) Get(_ context.Context, key string, w io.Writer) (int64, error) {
+	v, ok := m.objs[key]
+	if !ok {
+		return 0, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "object not found")
+	}
+	n, err := io.WriteString(w, v)
+	return int64(n), err
+}
+
+func (m *memBucket) Exists(_ context.Context, key string) (bool, error) {
+	_, ok := m.objs[key]
+	return ok, nil
+}
+
+func (m *memBucket) Stat(_ context.Context, key string) (storex.Object, error) {
+	v, ok := m.objs[key]
+	if !ok {
+		return storex.Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "%s not found", key)
+	}
+	return storex.Object{Key: key, Size: int64(len(v))}, nil
+}
+
+func (m *memBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ string) error {
+	b, err := io.ReadAll(r)
+	m.objs[key] = string(b)
+	return err
+}
+
+func (m *memBucket) Remove(_ context.Context, key string) error { delete(m.objs, key); return nil }
+
+func (m *memBucket) Link(context.Context, string, time.Duration) (*url.URL, error) {
+	return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "", "no links")
+}
+
+func (m *memBucket) Close() error { return nil }
+
+// withMemBucket adds the storage conn bk, backed by m.
+func withMemBucket(t *testing.T, m *memBucket) {
+	t.Helper()
+	invHome(t)
+	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
+	saved := openBucket
+	openBucket = func(context.Context, *store.State, *store.Conn) (storex.Bucket, error) { return m, nil }
+	t.Cleanup(func() { openBucket = saved })
+}
+
+// typing answers what komando asks on the terminal with answer.
+func typing(t *testing.T, answer string) {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.WriteString(answer)
+	w.Close()
+	saved, savedI := os.Stdin, interactive
+	os.Stdin, interactive = r, func() bool { return true }
+	t.Cleanup(func() { os.Stdin, interactive = saved, savedI; r.Close() })
+}
+
+// rm --prefix at a person's terminal lists what goes before asking for
+// the name; a wrong name deletes nothing, the right one deletes it all.
+func TestStorageRmPrefixShowsBeforeAsking(t *testing.T) {
+	m := &memBucket{objs: map[string]string{"daily/a.gz": "aa", "daily/b.gz": "bbb", "keep.txt": "k"}}
+	withMemBucket(t, m)
+	typing(t, "wrong\n")
+	var e *out.Error
+	said := stderrOf(t, func() { _, e = invRun(t, "storage", "rm", "bk", "--prefix", "daily") })
+	if e == nil || e.Code != "POLICY_BLOCKED" || len(m.objs) != 3 {
+		t.Fatalf("a wrong name: %+v, %d objects left", e, len(m.objs))
+	}
+	list, typeName := strings.Index(said, "daily/b.gz"), strings.Index(said, "Type the name bk")
+	if list < 0 || typeName < list || !strings.Contains(said, "2 objects (5 B) under daily/ in bk") {
+		t.Errorf("the list comes before the question:\n%s", said)
+	}
+	typing(t, "bk\n")
+	stderrOf(t, func() { mustRun(t, "storage", "rm", "bk", "--prefix", "daily/") })
+	if _, ok := m.objs["keep.txt"]; len(m.objs) != 1 || !ok {
+		t.Errorf("after the right name: %v", m.objs)
+	}
+}
+
+// An agent (no terminal) is stopped before komando lists anything.
+func TestStorageRmPrefixAgentStopsFirst(t *testing.T) {
+	m := &memBucket{objs: map[string]string{"daily/a.gz": "aa"}}
+	withMemBucket(t, m)
+	saved := interactive
+	interactive = func() bool { return false }
+	t.Cleanup(func() { interactive = saved })
+	if e := wantCode(t, "POLICY_BLOCKED", "storage", "rm", "bk", "--prefix", "daily/"); e.Exit != out.ExitPolicy || m.listed != 0 || len(m.objs) != 1 {
+		t.Errorf("exit %d, listed %d, %d objects", e.Exit, m.listed, len(m.objs))
 	}
 }
