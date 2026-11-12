@@ -72,7 +72,7 @@ q $K db dump pg --to "$TMP/schema.sql" --schema-only
 check "schema-only dump has no rows" 0 "$(grep -c "COPY public.t " "$TMP/schema.sql" || true)"
 # --on HOST: pg_dump/pg_restore run on a chosen server, whatever the conn's own path
 q $K conn add pg-on 'postgres://app@pg:5432/app?sslmode=disable' --password-ref secret:pg-pass
-check "custom dump without a server names --on" True "$($K db dump pg-on --to "$TMP/on0.dump" --format custom | jget '"--on HOST" in d["error"]["message"]' || true)"
+check "custom dump without a server names --run-on" True "$($K db dump pg-on --to "$TMP/on0.dump" --format custom | jget '"--run-on HOST" in d["error"]["message"]' || true)"
 check "dump --on dry run says where and how" "bastion True" "$($K db dump pg-on --to "$TMP/on.dump" --format custom --on bastion --dry-run | jget 'd["data"]["runs_on"] + " " + str(d["data"]["low_priority"])')"
 q $K db dump pg-on --to "$TMP/on.dump" --format custom --table public.t2 --on bastion
 check "dump --on writes a pg archive" PGDMP "$(head -c 5 "$TMP/on.dump")"
