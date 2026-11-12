@@ -76,11 +76,15 @@ komando queue info events                     # brokers (id, address, rack), con
 komando queue ls events                       # every topic, with partitions, replicas, messages
 komando queue ls events 'orders-*'            # topics matching a pattern
 komando queue ls events --internal            # also __consumer_offsets and friends
+komando queue ls events -n 50                 # only the first 50 by name
 komando queue describe events orders          # partitions, offsets, settings, the groups reading it
 komando queue groups events                   # consumer groups: state, members, topics, lag
 komando queue lag events billing              # one group, per topic and partition
 ```
 
+- `ls` shows at most 1000 topics (or queues, or streams), the first by
+  name; `-n` changes that. A longer list says so (`"truncated": true`, and
+  a line in the text) so you can narrow it with a pattern.
 - The message count is the end offset minus the start offset of each
   partition. On a compacted topic (`cleanup.policy=compact`) fewer messages
   may be left.

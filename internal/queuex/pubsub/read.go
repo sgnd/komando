@@ -117,7 +117,7 @@ func (p *Pubsub) Info(ctx context.Context) (*queuex.Info, error) {
 // Topics lists the topics whose name matches pattern (shell style:
 // orders-*), with how many subscriptions each has. Pub/Sub does not count
 // messages, so messages is -1.
-func (p *Pubsub) Topics(ctx context.Context, pattern string, internal bool) ([]queuex.Topic, error) {
+func (p *Pubsub) Topics(ctx context.Context, pattern string, internal bool, limit int) ([]queuex.Topic, error) {
 	if internal {
 		return nil, queuex.NotSupported("--internal", "pubsub", "Pub/Sub has no topics of its own: drop --internal")
 	}
@@ -141,7 +141,7 @@ func (p *Pubsub) Topics(ctx context.Context, pattern string, internal bool) ([]q
 		}
 	}
 	sort.Slice(res, func(i, j int) bool { return res[i].Name < res[j].Name })
-	return res, nil
+	return queuex.First(res, limit), nil
 }
 
 // getTopic reads one topic, or TOPIC_NOT_FOUND.

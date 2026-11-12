@@ -93,6 +93,18 @@ func TestQueueKafka(t *testing.T) {
 	if e := wantCode(t, "POLICY_BLOCKED", "queue", "rm", "events", "orders", "audit"); !strings.Contains(e.Message, "deletes orders, audit and every message") {
 		t.Errorf("rm names the topics: %s", e.Message)
 	}
+
+	// a long list is cut at --limit, the first by name, and says so
+	mustRun(t, "queue", "create", "events", "audit", "--partitions", "1", "--replicas", "1")
+	if d := mustRun(t, "queue", "ls", "events", "-n", "1"); d["count"].(float64) != 1 || d["truncated"] != true || d["topics"].([]any)[0].(map[string]any)["name"] != "audit" {
+		t.Errorf("ls -n 1: %v", d)
+	}
+	if d := mustRun(t, "queue", "ls", "events", "-n", "2"); d["count"].(float64) != 2 || d["truncated"] != nil {
+		t.Errorf("ls -n 2: %v", d)
+	}
+	wantCode(t, "USAGE", "queue", "ls", "events", "-n", "0")
+	mustRun(t, "queue", "rm", "events", "audit", "--allow-dangerous")
+	g.allowDangerous = false
 	if d := mustRun(t, "--dry-run", "queue", "purge", "events", "orders"); d["messages"].(float64) != 2 || !strings.Contains(jsonOf(d), "POLICY_BLOCKED") {
 		t.Errorf("dry-run purge: %v", d)
 	}
@@ -173,6 +185,7 @@ func TestQueueText(t *testing.T) {
 		want string
 	}{
 		{queueTopics{}, "no topics"},
+		{queueTopics{Conn: "events", Count: 1, Truncated: true, Topics: []queuex.Topic{{Name: "a", KafkaTopic: &queuex.KafkaTopic{}}}}, "only the first 1 by name: narrow it with a pattern (komando queue ls events 'orders-*') or raise --limit"},
 		{queueTopics{Topics: []queuex.Topic{{Name: "orders", Messages: 10, KafkaTopic: &queuex.KafkaTopic{Partitions: 3, Replicas: 2}}}}, "orders  3           2         10"},
 		{queueTopic{TopicDetail: &queuex.TopicDetail{Name: "orders", Messages: 1, KafkaTopicDetail: &queuex.KafkaTopicDetail{Partitions: []queuex.Partition{{Leader: -1}}}}}, "orders (1 partition, 0 replicas, 1 message)"},
 		{queuePeek{PeekResult: &queuex.PeekResult{From: "newest", Count: 1, More: true, Partial: true,

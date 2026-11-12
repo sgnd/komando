@@ -50,7 +50,7 @@ func (s *SQS) listQueues(ctx context.Context, prefix string) ([]string, error) {
 
 // Topics lists the queues whose name matches pattern (shell style:
 // orders-*), with their message counts.
-func (s *SQS) Topics(ctx context.Context, pattern string, internal bool) ([]queuex.Topic, error) {
+func (s *SQS) Topics(ctx context.Context, pattern string, internal bool, limit int) ([]queuex.Topic, error) {
 	if internal {
 		return nil, queuex.NotSupported("--internal", "sqs", "SQS has no queues of its own: drop --internal")
 	}
@@ -68,6 +68,9 @@ func (s *SQS) Topics(ctx context.Context, pattern string, internal bool) ([]queu
 			matched = append(matched, u)
 		}
 	}
+	// one GetQueueAttributes per queue: only for those shown
+	sort.Slice(matched, func(i, j int) bool { return queueNameOf(matched[i]) < queueNameOf(matched[j]) })
+	matched = queuex.First(matched, limit)
 	res := make([]queuex.Topic, len(matched))
 	errs := make([]error, len(matched))
 	var wg sync.WaitGroup

@@ -13,6 +13,10 @@ its highlights; the sections below them give the details. Versions follow
   "Dangerous:" prompt, the approval window and the agent's `POLICY_BLOCKED`
   message now say `deletes every message in orders-retry`, not only "a
   topic, queue or stream" on the conn.
+- `queue ls` shows at most `--limit` (`-n`, default 1000) topics, queues or
+  streams, the first by name, and marks a longer list `"truncated": true`
+  with a hint to narrow it. On SQS and Kafka it no longer reads every
+  queue's counts first, so a big account answers within the time limit.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

@@ -113,7 +113,7 @@ func TestInfoAndList(t *testing.T) {
 	if err != nil || inf.Engine != "sqs" || inf.Queues != 4 || inf.AccountID != fakeAccount || inf.Region != "us-east-1" {
 		t.Fatalf("info: %+v %v", inf, err)
 	}
-	ts, err := q.Topics(context.Background(), "orders*", false)
+	ts, err := q.Topics(context.Background(), "orders*", false, 0)
 	if err != nil || len(ts) != 2 {
 		t.Fatalf("ls: %+v %v", ts, err)
 	}
@@ -123,15 +123,15 @@ func TestInfoAndList(t *testing.T) {
 	if last := f.last["ListQueues"].(map[string]any); last["QueueNamePrefix"] != "orders" {
 		t.Errorf("the prefix goes to SQS: %v", last)
 	}
-	all, _ := q.Topics(context.Background(), "", false)
+	all, _ := q.Topics(context.Background(), "", false, 0)
 	if len(all) != 4 || all[1].Name != "emails.fifo" || !all[1].Fifo {
 		t.Errorf("all: %+v", all)
 	}
-	if _, err := q.Topics(context.Background(), "", true); code(err) != "NOT_SUPPORTED" {
+	if _, err := q.Topics(context.Background(), "", true, 0); code(err) != "NOT_SUPPORTED" {
 		t.Errorf("--internal: %v", err)
 	}
 	f.fail["ListQueues"] = "AccessDenied"
-	if _, err := q.Topics(context.Background(), "", false); code(err) != "QUEUE_DENIED" {
+	if _, err := q.Topics(context.Background(), "", false, 0); code(err) != "QUEUE_DENIED" {
 		t.Errorf("denied: %v", err)
 	}
 }

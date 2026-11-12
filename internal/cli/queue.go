@@ -154,15 +154,20 @@ func queueInfoCmd() *cobra.Command {
 
 func queueLsCmd() *cobra.Command {
 	var internal bool
+	var limit int
 	c := &cobra.Command{
 		Use:     "ls CONN [PATTERN]",
 		Aliases: []string{"list"},
 		Short:   "List topics (or queues, or streams) with their message counts",
 		Example: `  komando queue ls events
   komando queue ls events 'orders-*'
-  komando queue ls events --internal`,
+  komando queue ls events --internal
+  komando queue ls events -n 50`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 1 {
+				return out.Usage("--limit must be 1 or more")
+			}
 			pattern := ""
 			if len(args) == 2 {
 				pattern = args[1]
@@ -171,15 +176,19 @@ func queueLsCmd() *cobra.Command {
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					ts, err := q.Topics(ctx, pattern, internal)
+					// one more than asked tells whether the list was cut
+					ts, err := q.Topics(ctx, pattern, internal, limit+1)
 					if err != nil {
 						return nil, err
 					}
-					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts), kind: c.Kind}, nil
+					cut := len(ts) > limit
+					ts = queuex.First(ts, limit)
+					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts), Truncated: cut, kind: c.Kind}, nil
 				})
 		},
 	}
 	c.Flags().BoolVar(&internal, "internal", false, "Kafka: also list its own topics (__consumer_offsets, ...)")
+	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most topics (or queues, or streams) to show, the first by name")
 	return c
 }
 

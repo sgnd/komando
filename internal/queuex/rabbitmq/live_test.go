@@ -71,7 +71,7 @@ func TestRabbitLive(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer q2.Close()
-	if _, err := q2.Topics(ctx, "", false); code(err) != "NOT_SUPPORTED" {
+	if _, err := q2.Topics(ctx, "", false, 0); code(err) != "NOT_SUPPORTED" {
 		t.Errorf("ls without management: %v", err)
 	}
 	if inf, err := q2.Info(ctx); err != nil || inf.Version == "" || inf.Management {
@@ -123,7 +123,7 @@ func liveQueue(ctx context.Context, t *testing.T, q queuex.Queue, typ string) {
 	if err != nil || d.Messages != 3 || d.Ready != 3 || d.Type != typ || d.Arguments["x-max-length"] == nil {
 		t.Fatalf("describe: %+v %+v %v", d, d.RabbitQueueDetail, err)
 	}
-	ts, err := q.Topics(ctx, "komando-live-"+typ[:1]+"*", false)
+	ts, err := q.Topics(ctx, "komando-live-"+typ[:1]+"*", false, 0)
 	if err != nil || len(ts) != 1 || ts[0].Messages != 3 || ts[0].Type != typ {
 		t.Fatalf("ls: %+v %v", ts, err)
 	}
