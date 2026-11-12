@@ -119,11 +119,10 @@ func formFillFrom(ctx context.Context, t *menuTerm, st *store.State, sp formSpec
 		pick, err := formReview(ctx, t, st, sp, a, scr, try != nil)
 		switch {
 		case errors.Is(err, errMenuBack): // Esc: the questions again, from the last
-			err := formAskAll(ctx, t, st, sp, a, scr, false, true)
-			if errors.Is(err, errMenuBack) && !formHasBasic(st, sp, a) {
-				return nil, errMenuBack // no question to go back to: the list before
-			}
-			if err != nil && !errors.Is(err, errMenuBack) {
+			// Esc on the first question (or with none to go back to) leaves
+			// the form for the list before, as Esc does everywhere: never
+			// round to the review again, which Esc could not leave
+			if err := formAskAll(ctx, t, st, sp, a, scr, false, true); err != nil {
 				return nil, err
 			}
 		case err != nil:
@@ -215,12 +214,6 @@ func formMissing(st *store.State, sp formSpec, a formAnswers) (int, bool) {
 // none is a choice already made.
 func formEmptyRow(st *store.State, q formQ, a formAnswers) bool {
 	return q.choices != nil && slices.ContainsFunc(q.choices(st, a), func(r menuRow) bool { return r.value == "" })
-}
-
-// formHasBasic: a basic question shows, so Esc on the review has one to
-// go back to.
-func formHasBasic(st *store.State, sp formSpec, a formAnswers) bool {
-	return slices.ContainsFunc(sp.qs, func(q formQ) bool { return !q.advanced && q.visible(st, a) })
 }
 
 // formEdit asks one question again; the questions its new answer brings in

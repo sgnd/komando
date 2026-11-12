@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -251,6 +252,40 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	}
 	if _, err := invRun(t, "host", "show", "web1"); err == nil {
 		t.Error("web1 was added after Ctrl-C")
+	}
+}
+
+// Esc from the review goes back one question at a time, and Esc on the
+// first one leaves the form, changing nothing: it never comes round to the
+// review again, where only q or Ctrl-C could leave (docs/design/ux.md, 10).
+func TestFormEscLeavesFromReview(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a process")
+	}
+	invHome(t)
+	p := startPTY(t, "host", "add")
+	p.answer("What do you want to call this server?", "web1\r")
+	p.answer("What is the server's address?", "203.0.113.20\r")
+	p.answer("Which user do you log in as?", "root\r")
+	for range 6 { // the rest as they come: Enter takes each default
+		time.Sleep(400 * time.Millisecond)
+		if strings.Contains(p.shown(), "check and run") {
+			break
+		}
+		p.answer("Enter", "\r")
+	}
+	p.waitFor("check and run")
+	for range 20 { // more than the questions and their typed lines need
+		time.Sleep(250 * time.Millisecond)
+		if _, err := p.master.WriteString("\x1b"); err != nil {
+			break // komando has ended
+		}
+	}
+	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "nothing was added") {
+		t.Errorf("exit %d; the screen:\n%s", code, p.shown())
+	}
+	if _, err := invRun(t, "host", "show", "web1"); err == nil {
+		t.Error("web1 was added after Esc")
 	}
 }
 

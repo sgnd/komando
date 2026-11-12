@@ -14,6 +14,10 @@ its highlights; the sections below them give the details. Versions follow
   (exit 3) and the hint `komando pkg install TARGET shadow`, like
   `user lock` and `unlock`, instead of a generic remote failure (exit 5).
   The JSON result keeps its shape.
+- Menu and guided forms: Esc from the review screen goes back one
+  question at a time, and Esc on the first question now leaves the form
+  (nothing runs). Before, it went round to the review again, so Esc
+  never got you out; only q or Ctrl-C did.
 
 ## [0.12.0] - 2026-11-11
 
