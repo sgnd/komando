@@ -7,6 +7,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Changed
+
+- A test now records what AI agents and scripts get from every command
+  typed with too few arguments (stdout, stderr and exit code, in JSON and
+  text). It guards the move from the menu to typed commands that ask a
+  person for what is missing: agents and scripts must see no change.
+
 ### Fixed
 
 - `user add` and `user rm` on a server without `useradd` or `userdel`

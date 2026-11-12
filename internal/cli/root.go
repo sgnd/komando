@@ -81,7 +81,11 @@ type exitCode int
 
 func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
 
-func Execute() int {
+func Execute() int { return executeArgs(os.Args[1:]) }
+
+// executeArgs runs komando with these arguments (os.Args[1:] for the real
+// program): one command, its envelope or text, and its exit code.
+func executeArgs(args []string) int {
 	if Version == "dev" {
 		// `go install ...@v1.2.3` records the module version in the binary
 		if bi, ok := debug.ReadBuildInfo(); ok && isRelease(bi.Main.Version) {
@@ -94,6 +98,7 @@ func Execute() int {
 		out.P.Format = f
 	}
 	root := newRoot()
+	root.SetArgs(args)
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	cmd, err := root.ExecuteContextC(ctx)
