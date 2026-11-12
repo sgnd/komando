@@ -438,13 +438,13 @@ func tunnelStopCmd() *cobra.Command {
 				return err
 			}
 			if g.dryRun {
-				out.P.Print("tunnel.stop", map[string]any{"would_stop": stopped}, nil)
+				out.P.Print("tunnel.stop", textAs{map[string]any{"would_stop": stopped}, stoppedText(stopped)}, nil)
 				return nil
 			}
 			if len(stopped) > 0 {
 				audit(nil, "tunnel.stop", stopped, "", true, nil)
 			}
-			out.P.Print("tunnel.stop", map[string]any{"stopped": stopped}, nil)
+			out.P.Print("tunnel.stop", textAs{map[string]any{"stopped": stopped}, stoppedText(stopped)}, nil)
 			return nil
 		},
 	}
@@ -743,4 +743,17 @@ func socks5Auth(conn net.Conn, cm *connMgr, logger *log.Logger, user, pass strin
 		rc.Write(b)
 	}
 	pipe(conn, rc)
+}
+
+// stoppedText is tunnel stop's text: the tunnels it stopped, or none.
+func stoppedText(ids []string) out.Texter {
+	return textFn(func() string {
+		switch {
+		case len(ids) == 0:
+			return "no tunnels were running\n"
+		case g.dryRun:
+			return "would stop " + joinAnd(ids) + "\n"
+		}
+		return "stopped " + joinAnd(ids) + "\n"
+	})
 }

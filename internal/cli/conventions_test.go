@@ -1,11 +1,20 @@
 package cli
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/pem"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"golang.org/x/crypto/ssh"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 // TestConventions checks the naming rules of docs/design/ux.md on every
@@ -53,4 +62,47 @@ func TestConventions(t *testing.T) {
 		}
 	}
 	walk(newRoot())
+}
+
+// genericText are the change commands whose -o text still comes from the
+// generic renderer (S-9.7). The list may only shrink: give the command a
+// Text method of its own (changeText for one record), then drop it here.
+var genericText = []string{}
+
+// S-9.7: every change command that works on komando's own list has its own
+// text. Each runs here in -o text (dry runs where a person's yes is
+// needed); one that falls back to the generic renderer fails, unless it is
+// in genericText.
+func TestChangeCommandsOwnText(t *testing.T) {
+	invHome(t)
+	used := map[string]string{}
+	var line string
+	out.OnGenericText = func(c string) { used[c] = line }
+	defer func() { out.OnGenericText = nil }()
+	setSecret(t, "s1", "x")
+	_, priv, _ := ed25519.GenerateKey(rand.Reader)
+	block, _ := ssh.MarshalPrivateKey(priv, "")
+	pub := filepath.Join(t.TempDir(), "id")
+	if err := os.WriteFile(pub, pem.EncodeToMemory(block), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range [][]string{
+		{"host", "add", "web1", "u@10.0.0.1"}, {"host", "edit", "web1", "--port", "2222"}, {"host", "rename", "web1", "web2"},
+		{"conn", "add", "app-db", "postgres://app@10.0.0.9/app"}, {"conn", "edit", "app-db", "--notes", "x"}, {"conn", "rename", "app-db", "db2"},
+		{"vpn", "add", "office", "socks", "--proxy-address", "10.0.0.1:1080"}, {"vpn", "edit", "office", "--notes", "x"}, {"vpn", "rename", "office", "off2"},
+		{"group", "add", "g1", "web2"}, {"group", "rename", "g1", "g2"}, {"group", "rm", "g2", "web2"},
+		{"key", "gen", "k1"}, {"key", "add", "k3", pub}, {"key", "rename", "k1", "k2"},
+		{"secret", "set", "s4", "--from-env", "PATH"}, {"secret", "rename", "s1", "s2"}, {"secret", "cp", "s2", "s3"},
+		{"recipe", "add", "r1", "uptime", "--read-only"}, {"recipe", "rm", "r1"}, {"policy", "deny", "foo bar"},
+		{"config", "set", "default_timeout", "5m"}, {"rename", "db2", "db3"}, {"--dry-run", "host", "trust", "web2"},
+		{"--dry-run", "export", "--to", filepath.Join(t.TempDir(), "x.json")}, {"--dry-run", "secret", "rm", "s3"},
+		{"--dry-run", "seal"}, {"tunnel", "stop", "--all"}, {"host", "rm", "web2"}, {"conn", "rm", "db3"},
+		{"vpn", "rm", "off2"}, {"key", "rm", "k2"},
+	} {
+		line = strings.Join(a, " ")
+		if _, err := textRun(t, a...); err != nil {
+			t.Errorf("%s: %v", line, err)
+		}
+	}
+	allowCheck(t, "S-9.7 (the generic renderer)", used, genericText)
 }

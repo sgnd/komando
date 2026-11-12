@@ -520,6 +520,14 @@ its highlights; the sections below them give the details. Versions follow
   BY` in `key list` and `secret list`). A script that greps `-o text`
   for `no` in these columns reads `-o json` instead, which is unchanged.
 
+- Change commands say what they did in words with `-o text`, never raw
+  JSON keys: `host add/edit`, `conn add/edit`, `key gen/add` and `secret
+  set` list each field as words (`password ref: secret:web1-pass`, was
+  `password_ref`) and each warning as `warning: ...`; `secret rename/cp`
+  (`renamed secret s1 to s2`), `secret rm`, `tunnel stop`, `host trust`
+  (`would fetch the host key of web1 ... and remove 1 pinned key`) and
+  `seal` on a sealed folder have a line of their own. JSON is unchanged.
+
 ### Removed
 
 - The menu that `komando` alone opened at a terminal, its task lists and

@@ -7466,10 +7466,7 @@ exit 0
 ### komando -o text host trust prod1 --reset --dry-run (agent text, release note)
 exit 0
 --- stdout
-address: 127.0.0.2:1
-host: prod1
-would_fetch_from: the server directly
-would_remove_entries: 1
+would fetch the host key of prod1 (127.0.0.2:1) from the server directly, and remove 1 pinned key
 --- stderr
 dry run: nothing was changed
 without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
@@ -7481,10 +7478,7 @@ exit 0
 ### komando -o text host trust prod1 --reset --dry-run (script text, release note)
 exit 0
 --- stdout
-address: 127.0.0.2:1
-host: prod1
-would_fetch_from: the server directly
-would_remove_entries: 1
+would fetch the host key of prod1 (127.0.0.2:1) from the server directly, and remove 1 pinned key
 --- stderr
 dry run: nothing was changed
 without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)

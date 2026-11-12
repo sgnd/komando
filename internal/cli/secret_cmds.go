@@ -78,14 +78,14 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 			}
 			if g.dryRun {
 				res["would_set"] = true
-				out.P.Print("secret.set", res, nil)
+				out.P.Print("secret.set", textAs{res, textFn(func() string { return changeText(res) })}, nil)
 				return nil
 			}
 			if err := vault.Set(args[0], v); err != nil {
 				return err
 			}
 			audit(nil, "secret.set", nil, "", true, map[string]any{"secret": args[0], "replaced": replaced})
-			out.P.Print("secret.set", res, nil)
+			out.P.Print("secret.set", textAs{res, textFn(func() string { return changeText(res) })}, nil)
 			return nil
 		},
 	}
@@ -252,7 +252,9 @@ func secretRmCmd() *cobra.Command {
 				return err
 			}
 			if g.dryRun {
-				out.P.Print("secret.rm", map[string]any{"would_remove": args}, nil)
+				out.P.Print("secret.rm", textAs{map[string]any{"would_remove": args}, textFn(func() string {
+					return "would remove " + nouns(len(args), "secret") + " " + joinAnd(args) + " for good\n"
+				})}, nil)
 				return nil
 			}
 			// all or none, and under the state lock (then the vault lock, as
@@ -278,7 +280,9 @@ func secretRmCmd() *cobra.Command {
 			if len(args) == 1 {
 				removed = args[0] // one name prints as a string, several as a list
 			}
-			out.P.Print("secret.rm", map[string]any{"removed": removed}, nil)
+			out.P.Print("secret.rm", textAs{map[string]any{"removed": removed}, textFn(func() string {
+				return "removed " + nouns(len(args), "secret") + " " + joinAnd(args) + "\n"
+			})}, nil)
 			return nil
 		},
 	}

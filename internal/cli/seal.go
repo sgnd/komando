@@ -323,7 +323,7 @@ func seal() error {
 // nothing to do.
 func finishSeal() error {
 	if _, err := os.Stat(store.Path(sealArchive)); err != nil || g.dryRun {
-		out.P.Print("seal", map[string]any{"action": "already_sealed", "store": store.Path(store.StoreFile)}, nil)
+		out.P.Print("seal", alreadySealed(), nil)
 		return nil
 	}
 	o := &oldFolder{files: map[string][]byte{}, keys: map[string]oldKey{}}
@@ -343,7 +343,7 @@ func finishSeal() error {
 		return out.Errf(out.ExitError, "SEAL_UNFINISHED", "fix what stops it, then run `komando seal` again",
 			"these files of before could not be replaced: %s", strings.Join(left, "; "))
 	}
-	out.P.Print("seal", map[string]any{"action": "already_sealed", "store": store.Path(store.StoreFile)}, nil)
+	out.P.Print("seal", alreadySealed(), nil)
 	return nil
 }
 
@@ -404,4 +404,12 @@ func buildSealed(o *oldFolder) error {
 		return err
 	}
 	return compareSealed(o, &want, paths)
+}
+
+// alreadySealed is seal's result for a folder that is sealed already.
+func alreadySealed() textAs {
+	p := store.Path(store.StoreFile)
+	return textAs{map[string]any{"action": "already_sealed", "store": p}, textFn(func() string {
+		return "the komando folder is sealed already: " + p + "\n"
+	})}
 }

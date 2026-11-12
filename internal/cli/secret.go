@@ -283,7 +283,7 @@ are not changed.`
 				if move {
 					res["would_update"] = orEmpty(secretUsers(st, from))
 				}
-				out.P.Print(command, res, nil)
+				out.P.Print(command, textAs{res, secretCopyText(move, res)}, nil)
 				return nil
 			}
 			var updated []string
@@ -308,7 +308,7 @@ are not changed.`
 			if move {
 				res["updated"] = orEmpty(updated)
 			}
-			out.P.Print(command, res, nil)
+			out.P.Print(command, textAs{res, secretCopyText(move, res)}, nil)
 			return nil
 		},
 	}
@@ -594,4 +594,27 @@ func secretSetAction(replaced bool) string {
 		return map[bool]string{false: "would_store", true: "would_replace"}[replaced]
 	}
 	return map[bool]string{false: "stored", true: "replaced"}[replaced]
+}
+
+// secretCopyText is secret rename's and secret cp's text: what moved
+// where, and what follows the new name.
+func secretCopyText(move bool, res map[string]any) out.Texter {
+	return textFn(func() string {
+		verb := map[bool]string{true: "renamed", false: "copied"}[move]
+		if g.dryRun {
+			verb = map[bool]string{true: "would rename", false: "would copy"}[move]
+		}
+		s := fmt.Sprintf("%s secret %v to %v", verb, res["from"], res["to"])
+		if res["replaced"] == true {
+			s += " (its old value replaced)"
+		}
+		users, _ := res["updated"].([]string)
+		if g.dryRun {
+			users, _ = res["would_update"].([]string)
+		}
+		if len(users) > 0 {
+			s += "\n  " + map[bool]string{true: "would point at ", false: "now points at "}[g.dryRun] + res["ref"].(string) + ": " + strings.Join(users, ", ")
+		}
+		return s + "\n"
+	})
 }

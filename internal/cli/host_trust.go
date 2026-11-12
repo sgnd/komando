@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"sort"
 	"strconv"
@@ -129,7 +130,7 @@ func trustOne(ctx context.Context, st *store.State, h *store.Host, reset bool) e
 				}
 			}
 		}
-		out.P.Print("host.trust", res, nil)
+		out.P.Print("host.trust", textAs{res, trustText(res)}, nil)
 		return nil
 	}
 	key, err := sshx.FetchHostKey(ctx, st, h, sshOpts(st))
@@ -172,7 +173,7 @@ func trustOne(ctx context.Context, st *store.State, h *store.Host, reset bool) e
 		res["already_pinned"] = true
 	}
 	audit(st, "host.trust", []string{h.Name}, "", true, map[string]any{"reset": reset, "removed_entries": removed, "fingerprint": fp})
-	out.P.Print("host.trust", res, nil)
+	out.P.Print("host.trust", textAs{res, trustText(res)}, nil)
 	return nil
 }
 
@@ -293,4 +294,22 @@ func guardFirstPin(st *store.State, what []string) error {
 		return nil
 	}
 	return guardSafety("pinning a first host key while host keys are strict (compare it with what the server's owner sees): " + strings.Join(what, ", "))
+}
+
+// trustText is host trust's text for one server: the key it pinned, or
+// where it would fetch it from.
+func trustText(res map[string]any) out.Texter {
+	return textFn(func() string {
+		switch {
+		case g.dryRun:
+			s := fmt.Sprintf("would fetch the host key of %v (%v) from %v", res["host"], res["address"], res["would_fetch_from"])
+			if n, ok := res["would_remove_entries"].(int); ok && n > 0 {
+				s += fmt.Sprintf(", and remove %d pinned %s", n, map[bool]string{true: "key", false: "keys"}[n == 1])
+			}
+			return s + "\n"
+		case res["already_pinned"] == true:
+			return fmt.Sprintf("%v: its host key is pinned already (%v %v)\n", res["host"], res["key_type"], res["fingerprint"])
+		}
+		return fmt.Sprintf("pinned the host key of %v (%v %v)\n", res["host"], res["key_type"], res["fingerprint"])
+	})
 }

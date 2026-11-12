@@ -438,6 +438,10 @@ func (p *Printer) printSkipped() {
 	}
 }
 
+// OnGenericText, when set (by a test), hears each command whose -o text
+// came from the generic renderer, not a Text method of its own (S-9.7).
+var OnGenericText func(command string)
+
 // Print prints data. A non-nil softErr marks the envelope not-ok but still
 // carries data (e.g. multi-host exec with partial failures).
 func (p *Printer) Print(command string, data any, softErr *Error) {
@@ -459,6 +463,9 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 				fmt.Fprintln(p.W)
 			}
 		} else if data != nil {
+			if OnGenericText != nil {
+				OnGenericText(command)
+			}
 			s := renderText(data, p.DryRun)
 			fmt.Fprint(p.W, SafeText(p.Redact(s)))
 			if s == "" {
@@ -588,6 +595,9 @@ func renderText(data any, dryRun bool) string {
 	writeAny(&sb, v, "")
 	return sb.String()
 }
+
+// Headline is headline, for a command's own Text method.
+func Headline(m map[string]any, dryRun bool) string { return headline(m, dryRun) }
 
 // headline says in words what a change did to a named item ("added web2",
 // "web2: nothing to change"), for results that carry an action or a
