@@ -44,6 +44,9 @@ func OpenAzure(t driver.Target, secret string, dial DialFunc, timeout time.Durat
 	scheme := map[bool]string{true: "https", false: "http"}[t.Secure]
 	b := &azBucket{c: webClient(dial, timeout, false), base: scheme + "://" + hostOf(t), account: t.User,
 		container: t.Bucket, prefix: t.Prefix, now: time.Now}
+	if err := trustCA(b.c.Transport.(*http.Transport), t); err != nil {
+		return nil, err
+	}
 	if t.Path != "" {
 		b.base += "/" + t.Path
 	}

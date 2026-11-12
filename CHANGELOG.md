@@ -46,6 +46,11 @@ its highlights; the sections below them give the details. Versions follow
   for an AWS profile, MinIO, Google Cloud, Azure and SFTP; `storage rm
   CONN` with no key names the next step, including `conn rm CONN` for
   taking the storage itself out of komando's list.
+- S3, Google Cloud and Azure conns take `&ca=secret:NAME`, for an
+  endpoint whose certificate comes from a private CA (a company MinIO, a
+  TLS-inspecting proxy). There was no way to use one. A certificate that
+  does not verify is now `STORAGE_TLS` with that hint, not a generic
+  `STORAGE_ERROR`.
 
 ## [0.12.0] - 2026-11-11
 

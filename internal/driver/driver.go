@@ -420,7 +420,9 @@ func parseFiles(u *url.URL, t Target) (Target, error) {
 	return t, nil
 }
 
-// parseS3 reads s3://ACCESS_KEY_ID@bucket/prefix?endpoint=URL&region=R. The
+// parseS3 reads s3://ACCESS_KEY_ID@bucket/prefix?endpoint=URL&region=R
+// (&ca=secret:NAME for an endpoint whose certificate comes from a private
+// CA). The
 // endpoint defaults to AWS; any S3-compatible service (MinIO, R2, Wasabi,
 // Spaces) works with its own endpoint.
 func parseS3(u *url.URL, t Target) (Target, error) {
@@ -453,11 +455,14 @@ func parseS3(u *url.URL, t Target) (Target, error) {
 	}
 	t.Address = net.JoinHostPort(e.Hostname(), port)
 	for k := range q {
-		if k != "endpoint" && k != "region" && k != "resolve" {
-			return Target{}, out.Usage("unknown s3 URL option %q (known: endpoint, region, resolve)", k)
+		if k != "endpoint" && k != "region" && k != "resolve" && k != "ca" {
+			return Target{}, out.Usage("unknown s3 URL option %q (known: endpoint, region, resolve, ca)", k)
 		}
 	}
 	if t.Resolve, err = parseResolve(q, t.Address); err != nil {
+		return Target{}, err
+	}
+	if err := parseCA(q, &t); err != nil {
 		return Target{}, err
 	}
 	return t, nil

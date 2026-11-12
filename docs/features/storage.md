@@ -45,6 +45,17 @@ argument; a missing one is a `USAGE` error whose hint is a full example.
 | SMB (Windows shares) | `smb://alice@fileserver.corp.lan/team/reports?domain=CORP` | A Windows file server, Samba, a NAS or Azure Files. The first part of the path is the share. See [Windows shares](#add-a-windows-share-smb). |
 | FTP | `ftp://deploy@files.example.com/www?insecure=1` | No encryption: the password and files travel in clear. Refused without `?insecure=1`. Prefer FTPS or SFTP. |
 
+**A certificate from your own CA** (a company MinIO, or a proxy that
+inspects TLS): store the CA and name it in the URL, for S3, Google Cloud
+and Azure. komando then trusts that CA as well as the usual ones, and
+still checks the certificate fully. Without it, the error is
+`STORAGE_TLS` with this hint.
+
+```bash
+komando secret set corp-ca < corp-ca.crt
+komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.corp.lan:9000&ca=secret:corp-ca' --ask-password
+```
+
 The folder in the URL is where the conn starts. Keys are relative to it and
 cannot leave it (`../` is refused, also in a dry run).
 

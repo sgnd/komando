@@ -57,6 +57,9 @@ func OpenGCS(_ context.Context, t driver.Target, key string, dial DialFunc, time
 		b.base += "/" + t.Path
 	}
 	plain := webClient(dial, timeout, false)
+	if err := trustCA(plain.Transport.(*http.Transport), t); err != nil {
+		return nil, err
+	}
 	var creds *google.Credentials
 	var err error
 	tctx := context.WithValue(context.Background(), oauth2.HTTPClient, plain) // tokens too go the conn's way
