@@ -278,6 +278,13 @@ func usageErr(cmd *cobra.Command, err error) error {
 			return e
 		}
 	}
+	if rest, ok := strings.CutPrefix(m, "unknown shorthand flag: '"); ok && len(rest) > 1 {
+		_, word, _ := strings.Cut(rest, " in ")
+		if s := shorthandSuggest(cmd, rest[:1], strings.TrimSpace(word)); s != "" {
+			e.Message += "; " + s
+		}
+		return e
+	}
 	if flag, ok := strings.CutPrefix(m, "unknown flag: "); ok {
 		if s := closestFlag(cmd, strings.TrimLeft(flag, "-")); s != "" {
 			e.Message += "; did you mean --" + s + "?"
@@ -355,6 +362,38 @@ func closestFlag(cmd *cobra.Command, typed string) string {
 		best = prefixed[0] // --conn for --connect-timeout
 	}
 	return best
+}
+
+// shorthandSuggest is the did-you-mean for an unknown short letter typed in
+// word (S-5.16): first the habits of other tools (-it, -n, -L, -w), then
+// the long flags of cmd that start with the same letter, at most two.
+func shorthandSuggest(cmd *cobra.Command, letter, word string) string {
+	has := func(name string) bool { f := cmd.Flags().Lookup(name); return f != nil && !f.Hidden }
+	switch {
+	case word == "-it" || word == "-ti":
+		if strings.HasPrefix(cmd.CommandPath(), "komando cluster") {
+			return "komando runs one command and returns; for a shell in a pod: `komando cluster shell TARGET POD`"
+		}
+		return "komando runs one command and returns; for a shell on a server: `komando shell TARGET`"
+	case letter == "n" && has("limit"):
+		return "did you mean --limit?"
+	case letter == "L" || letter == "R" || letter == "D":
+		return "port forwarding is `komando tunnel start TARGET -" + letter + " SPEC`"
+	case letter == "w" && has("wait"):
+		return "did you mean --wait?"
+	}
+	var near []string
+	visit := func(f *pflag.Flag) {
+		// never an approval flag: a typo is no reason to hand one out
+		if !f.Hidden && f.Deprecated == "" && strings.HasPrefix(f.Name, strings.ToLower(letter)) && !approvalFlag.MatchString("--"+f.Name) && !slices.Contains(near, "--"+f.Name) {
+			near = append(near, "--"+f.Name)
+		}
+	}
+	cmd.Flags().VisitAll(visit)
+	if len(near) == 0 || len(near) > 2 {
+		return ""
+	}
+	return "did you mean " + strings.Join(near, " or ") + "?"
 }
 
 // exampleWith is the first example of cmd that uses flag, or "".

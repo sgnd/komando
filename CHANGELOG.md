@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- An unknown short flag gets a did-you-mean: `-n` where a command counts
+  with `--limit`, `-it` (komando runs one command; `komando shell` or
+  `komando cluster shell` for a shell), `-L`/`-R`/`-D` (port forwarding
+  is `komando tunnel start`), `-w` for `--wait`, and otherwise the long
+  flags that start with the same letter.
 - `fs mkdir -p` (and `--parents`) is accepted and changes nothing:
   `fs mkdir` always makes the missing parents.
 - More short flags, each with the meaning it has everywhere else:
