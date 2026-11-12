@@ -76,6 +76,7 @@ func TestPkgSecSupport(t *testing.T) {
 
 // The shared shell is valid sh, and the scripts that use it too.
 func TestHostStateShellParses(t *testing.T) {
+	unixOnly(t, "checks a server's sh script with sh -n")
 	sh, err := exec.LookPath("sh")
 	if err != nil {
 		t.Skip("no sh")

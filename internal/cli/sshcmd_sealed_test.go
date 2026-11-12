@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestSSHCommandSealedHome(t *testing.T) {
 		t.Fatalf("command %q", cmd)
 	}
 	kh := strings.Fields(cmd[i+len("UserKnownHostsFile="):])[0]
-	if fi, err := os.Stat(kh); err != nil || fi.Mode().Perm() != 0o600 {
+	if fi, err := os.Stat(kh); err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("known_hosts copy %s: %v", kh, err)
 	}
 

@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -77,7 +78,11 @@ func keyOnlySSHD(t *testing.T, pub ssh.PublicKey) (string, int) {
 // agent is never touched.
 func scratchAgent(t *testing.T, keys ...any) {
 	t.Helper()
-	dir, err := os.MkdirTemp("/tmp", "kag")
+	base := "/tmp" // short: a Unix socket path has a small limit
+	if runtime.GOOS == "windows" {
+		base = "" // no /tmp there; the user's TEMP is short enough
+	}
+	dir, err := os.MkdirTemp(base, "kag")
 	if err != nil {
 		t.Fatal(err)
 	}

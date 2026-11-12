@@ -138,6 +138,7 @@ func TestCertFromPEMIgnoresKeys(t *testing.T) {
 // The remote filter prints the certificate blocks of a bundle and never a
 // line of its private key.
 func TestCertBlocksAwkDropsKeys(t *testing.T) {
+	unixOnly(t, "runs a server's awk script")
 	if _, err := exec.LookPath("awk"); err != nil {
 		t.Skip("no awk")
 	}

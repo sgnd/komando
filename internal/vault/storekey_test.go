@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -17,7 +18,7 @@ func TestStoreMasterKeyFile(t *testing.T) {
 	if err != nil || len(k) != keyLen || meta["key_mode"] != "keyfile" {
 		t.Fatalf("%d %v %v", len(k), meta, err)
 	}
-	if fi, err := os.Stat(storeKeyFile()); err != nil || fi.Mode().Perm() != 0o600 {
+	if fi, err := os.Stat(storeKeyFile()); err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("store.key: %v", err)
 	}
 	if _, err := os.Stat(store.Path("vault.key")); !os.IsNotExist(err) {

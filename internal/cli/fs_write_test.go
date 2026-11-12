@@ -20,6 +20,7 @@ import (
 // local file system: writeRemote runs against it as against a server.
 func localSFTP(t *testing.T) *sftp.Client {
 	t.Helper()
+	unixOnly(t, "a local SFTP server stands in for a Unix server (paths, modes)")
 	cr, sw := io.Pipe()
 	sr, cw := io.Pipe()
 	srv, err := sftp.NewServer(struct {
@@ -267,6 +268,7 @@ func TestBackupName(t *testing.T) {
 // The --sudo backup runs as root on the server; here it runs as the test
 // user in a plain shell, which is enough to check what it writes where.
 func TestSudoBackupScript(t *testing.T) {
+	unixOnly(t, "runs a server's sh script")
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no sh")
 	}

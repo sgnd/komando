@@ -78,7 +78,7 @@ func TestSessionUseOpenConnIsNotIdle(t *testing.T) {
 func TestSpawnServeCtrlC(t *testing.T) {
 	invHome(t)
 	saved := serveCommand
-	serveCommand = func(string, string, string, *store.VpnSession) *exec.Cmd { return exec.Command("sleep", "60") }
+	serveCommand = func(string, string, string, *store.VpnSession) *exec.Cmd { return sleeperCmd() }
 	t.Cleanup(func() { serveCommand = saved })
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(300*time.Millisecond, cancel)

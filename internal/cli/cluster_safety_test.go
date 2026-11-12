@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -362,7 +363,7 @@ func TestUntarToStaysInside(t *testing.T) {
 		t.Errorf("folder copy: %v", err)
 	}
 	fi, err := os.Stat(filepath.Join(dst, "a", "b.txt"))
-	if err != nil || fi.Mode().Perm() != 0o755 {
+	if err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o755 {
 		t.Errorf("folder copy: %v %v (the mode is kept, as kubectl cp does)", fi, err)
 	}
 	if err := untarTo(mk(ent{"x", "1"}), filepath.Join(root, "out", "renamed.txt"), "x"); err != nil {
@@ -392,7 +393,7 @@ func TestUntarToStaysInside(t *testing.T) {
 	if err := untarTo(b.Bytes(), run, "run.sh"); err != nil {
 		t.Fatal(err)
 	}
-	if fi, _ := os.Stat(run); fi.Mode() != 0o644 {
+	if fi, _ := os.Stat(run); runtime.GOOS != "windows" && fi.Mode() != 0o644 {
 		t.Errorf("run.sh: %v, want -rw-r--r-- (no setuid, setgid, world-write, kept exec bit)", fi.Mode())
 	}
 }

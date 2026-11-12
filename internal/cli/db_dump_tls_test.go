@@ -14,6 +14,7 @@ import (
 // counts its runs in the returned file.
 func fakePgDump(t *testing.T, version string) string {
 	t.Helper()
+	unixOnly(t, "an sh script plays pg_dump")
 	dir := t.TempDir()
 	runs := filepath.Join(dir, "runs")
 	script := "#!/bin/sh\necho run >> " + runs + "\necho 'pg_dump (PostgreSQL) " + version + " (Debian " + version + "-1)'\n"

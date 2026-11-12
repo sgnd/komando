@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -405,14 +404,14 @@ func TestVpnDownSaysWhatStops(t *testing.T) {
 		t.Errorf("vpn without a person's login: %v", a)
 	}
 	// a running session (a stand-in process) is stopped, and down says so
-	sleeper := exec.Command("sleep", "60")
+	sleeper := sleeperCmd()
 	if err := sleeper.Start(); err != nil {
-		t.Skip("no sleep program:", err)
+		t.Fatal(err)
 	}
 	defer func() { _ = sleeper.Process.Kill(); _ = sleeper.Wait() }()
 	g.dryRun, store.DryRun = false, false // left on by the dry run above
 	if err := store.UpdateRuntime(func(st *store.State) error {
-		st.Sessions["client-x"] = &store.VpnSession{Vpn: "client-x", PID: sleeper.Process.Pid, Exe: "sleep", StartedAt: now, LastUsed: now}
+		st.Sessions["client-x"] = &store.VpnSession{Vpn: "client-x", PID: sleeper.Process.Pid, Exe: sleeperExe(), StartedAt: now, LastUsed: now}
 		return nil
 	}); err != nil {
 		t.Fatal(err)

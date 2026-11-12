@@ -2,9 +2,12 @@ package cli
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -36,6 +39,36 @@ func TestMain(m *testing.M) {
 		return realHome()
 	}
 	os.Exit(m.Run())
+}
+
+// unixOnly skips a test on Windows: it needs what only a Unix computer has
+// here (file modes, a POSIX shell, a Unix program, or a local stand-in
+// for a Unix server); why says which.
+func unixOnly(t *testing.T, why string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix only: " + why)
+	}
+}
+
+// sleeperCmd is a stand-in program that waits a minute: this test program
+// again (TestSleeperChild), so it runs on every system; Windows has no
+// sleep.
+func sleeperCmd() *exec.Cmd {
+	c := exec.Command(os.Args[0], "-test.run=^TestSleeperChild$")
+	c.Env = append(os.Environ(), "KOMANDO_TEST_SLEEPER=1")
+	return c
+}
+
+// sleeperExe is the program name a sleeperCmd process runs as.
+func sleeperExe() string { return filepath.Base(os.Args[0]) }
+
+func TestSleeperChild(t *testing.T) {
+	if os.Getenv("KOMANDO_TEST_SLEEPER") != "1" {
+		t.Skip("the stand-in program of sleeperCmd")
+	}
+	time.Sleep(time.Minute)
+	os.Exit(0)
 }
 
 func testState() *store.State {

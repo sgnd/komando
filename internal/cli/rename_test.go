@@ -639,6 +639,7 @@ func TestGroupMv(t *testing.T) {
 // A failure after the vault changed (a VPN folder that cannot move) puts
 // the secrets back and leaves the store unchanged.
 func TestRenameRollback(t *testing.T) {
+	unixOnly(t, "a folder made read-only with chmod (Windows folders ignore it)")
 	shopInventory(t)
 	secretsNow := func() string {
 		var b strings.Builder

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -136,7 +137,7 @@ func TestDumpOnHost(t *testing.T) {
 	if b, _ := os.ReadFile(to); string(b) != "PGDMP archive bytes" {
 		t.Errorf("file holds %q", b)
 	}
-	if fi, _ := os.Stat(to); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(to); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Errorf("file mode %v", fi.Mode().Perm())
 	}
 	ex := srv.take()

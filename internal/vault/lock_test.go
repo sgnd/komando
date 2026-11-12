@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -103,7 +104,7 @@ func TestNewKeyFileNeverReplacesAKey(t *testing.T) {
 	if !bytes.Equal(second, first) || !bytes.Equal(onDisk, first) {
 		t.Fatal("newKeyFile replaced the key another process made")
 	}
-	if fi, _ := os.Stat(kp); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(kp); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("store.key mode %o", fi.Mode().Perm())
 	}
 	if left, _ := os.ReadDir(store.Home()); len(left) != 1 { // store.key

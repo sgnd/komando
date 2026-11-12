@@ -270,7 +270,7 @@ sso_region = eu-west-1
 	if shown != "ABCD-EFGH https://device.sso/?code=ABCD-EFGH" {
 		t.Errorf("shown %q", shown)
 	}
-	if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 || !strings.HasPrefix(path, filepath.Join(home, ".aws", "sso", "cache")) {
+	if fi, err := os.Stat(path); err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 || !strings.HasPrefix(path, filepath.Join(home, ".aws", "sso", "cache")) {
 		t.Fatalf("cache file %s: %v %v", path, fi, err)
 	}
 	var cache map[string]any
@@ -370,7 +370,7 @@ func TestWriteTokenFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	fi, err := os.Stat(path)
-	if b, _ := os.ReadFile(path); err != nil || string(b) != "tok" || fi.Mode().Perm() != 0o600 {
+	if b, _ := os.ReadFile(path); err != nil || string(b) != "tok" || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Errorf("%s: %v %v", path, fi, err)
 	}
 	if _, err := os.Stat(elsewhere); err == nil {

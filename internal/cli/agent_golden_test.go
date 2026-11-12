@@ -28,6 +28,7 @@ func TestAgentGolden(t *testing.T) {
 	if testing.Short() || raceOn { // the same bytes with or without the race detector, which makes it slow
 		t.Skip("runs every command")
 	}
+	unixOnly(t, "the recording is made on Unix: local paths and doctor's platform notes differ on Windows")
 	var b strings.Builder
 	variants := []struct {
 		name  string

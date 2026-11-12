@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -120,7 +121,7 @@ func TestFileHoldsNoPlainText(t *testing.T) {
 	if bytes.Contains(b, []byte("prod-db")) {
 		t.Fatal("plain name in the file")
 	}
-	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(path); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("mode %v", fi.Mode().Perm())
 	}
 	if _, err := os.Stat(path + "-wal"); err == nil {
@@ -236,7 +237,7 @@ func TestBackup(t *testing.T) {
 	if err := d.Backup(ctx, dst); err == nil {
 		t.Fatal("overwrote a backup")
 	}
-	if fi, _ := os.Stat(dst); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(dst); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("backup mode %v", fi.Mode().Perm())
 	}
 	c := open(t, dst)
@@ -389,7 +390,7 @@ func TestNestedAndOddPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := open(t, path)
-	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(path); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("mode %v", fi.Mode().Perm())
 	}
 	err := d.Update(ctx, func(tx *Tx) error {

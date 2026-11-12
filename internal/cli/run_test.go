@@ -193,6 +193,7 @@ func TestScriptCommand(t *testing.T) {
 }
 
 func TestScriptCommandRunsLocally(t *testing.T) {
+	unixOnly(t, "runs the script command with sh")
 	for _, interp := range []string{"perl", "python3", "sh"} {
 		if _, err := exec.LookPath(interp); err != nil {
 			continue
@@ -237,6 +238,7 @@ func TestFailReason(t *testing.T) {
 // runSh runs a generated fs script in dir with the local sh.
 func runSh(t *testing.T, dir, script string) (string, int) {
 	t.Helper()
+	unixOnly(t, "runs a server's sh script")
 	cmd := exec.Command("sh", "-c", script)
 	cmd.Dir = dir
 	o, err := cmd.CombinedOutput()
@@ -377,6 +379,7 @@ func TestSyncMissingSourceAndEmptyDelete(t *testing.T) {
 }
 
 func TestSyncLinksModesAndNewFolder(t *testing.T) {
+	unixOnly(t, "symbolic links and file modes")
 	g.dryRun = false
 	src := t.TempDir()
 	dst := filepath.Join(t.TempDir(), "new")

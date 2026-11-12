@@ -171,12 +171,18 @@ func ownLikeFolder(file, dir string) error {
 	return os.Chown(file, uid, gid)
 }
 
+// runVersion runs file --version and gives what it printed. The update
+// tests on Windows replace it: a script cannot stand in for a program there.
+var runVersion = func(ctx context.Context, file string) ([]byte, error) {
+	return exec.CommandContext(ctx, file, "--version").Output()
+}
+
 // tryBinary runs the new program once (--version) before it replaces the
 // old one: a file for another computer, or a broken one, stops here.
 func tryBinary(parent context.Context, file, tag string) error {
 	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
 	defer cancel()
-	b, err := exec.CommandContext(ctx, file, "--version").Output()
+	b, err := runVersion(ctx, file)
 	if perr := parent.Err(); perr != nil {
 		return perr // Ctrl-C or --timeout: updateErr says which
 	}

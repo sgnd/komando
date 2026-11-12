@@ -2,8 +2,10 @@ package cli
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -69,12 +71,27 @@ func (f *fakeReleases) archive(tag string) []byte {
 	if s, ok := f.says[tag]; ok {
 		says = s
 	}
+	script := "#!/bin/sh\necho " + says + "\n"
+	if runtime.GOOS == "windows" { // a .zip with komando.exe, as the Makefile makes it
+		var b bytes.Buffer
+		zw := zip.NewWriter(&b)
+		files := []struct{ name, body string }{{"LICENSE", "license text\n"}, {"komando.exe", script}}
+		if f.noBinary {
+			files = files[:1]
+		}
+		for _, e := range files {
+			w, _ := zw.Create(e.name)
+			_, _ = w.Write([]byte(e.body))
+		}
+		_ = zw.Close()
+		return b.Bytes()
+	}
 	var b bytes.Buffer
 	zw := gzip.NewWriter(&b)
 	tw := tar.NewWriter(zw)
 	// like `tar -czf X -C dir .` in the Makefile: a ./ folder and ./ names
 	_ = tw.WriteHeader(&tar.Header{Name: "./", Typeflag: tar.TypeDir, Mode: 0o755})
-	files := []struct{ name, body string }{{"./LICENSE", "license text\n"}, {"./komando", "#!/bin/sh\necho " + says + "\n"}}
+	files := []struct{ name, body string }{{"./LICENSE", "license text\n"}, {"./komando", script}}
 	if f.noBinary {
 		files = files[:1]
 	}
@@ -109,7 +126,7 @@ func (f *fakeReleases) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "gateway timeout", http.StatusServiceUnavailable)
 		return
 	}
-	name := "komando_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz"
+	name := archiveName()
 	if r.URL.Path == "/releases/latest" {
 		select {
 		case <-time.After(f.slow):
@@ -150,6 +167,23 @@ func updateLab(t *testing.T, running string, f *fakeReleases) (exe, home string)
 	releasePlatforms = map[string]bool{platform(): true} // the tests run where no release is made, too
 	selfPath = func() (string, error) { return exe, nil }
 	asRoot = func() bool { return false }
+	if runtime.GOOS == "windows" {
+		// the stand-in komando is an sh script (echo VERSION), which Windows
+		// cannot run: read what it would print instead
+		savedRun := runVersion
+		runVersion = func(_ context.Context, file string) ([]byte, error) {
+			b, err := os.ReadFile(file)
+			if err != nil {
+				return nil, err
+			}
+			v, ok := strings.CutPrefix(string(b), "#!/bin/sh\necho ")
+			if !ok {
+				return nil, errors.New("not a program")
+			}
+			return []byte(v), nil
+		}
+		t.Cleanup(func() { runVersion = savedRun })
+	}
 	home = filepath.Join(t.TempDir(), "home")
 	t.Setenv("KOMANDO_HOME", home)
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
@@ -222,7 +256,7 @@ func TestUpdateInstallsNewest(t *testing.T) {
 	if got := fileText(t, exe); !strings.Contains(got, "echo v0.7.0") {
 		t.Errorf("komando was not replaced: %q", got)
 	}
-	if fi, _ := os.Stat(exe); fi.Mode().Perm() != 0o755 {
+	if fi, _ := os.Stat(exe); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o755 {
 		t.Errorf("mode = %v, want 0755", fi.Mode().Perm())
 	}
 	onlyFile(t, exe)
@@ -443,6 +477,7 @@ func TestUpdateErrors(t *testing.T) {
 }
 
 func TestUpdateNotWritable(t *testing.T) {
+	unixOnly(t, "a folder made read-only with chmod (Windows folders ignore it)")
 	if os.Geteuid() == 0 {
 		t.Skip("root may write anywhere")
 	}

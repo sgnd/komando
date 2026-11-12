@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -57,7 +58,11 @@ func keyOnlyServer(t *testing.T, pub ssh.PublicKey) string {
 // under /tmp and points SSH_AUTH_SOCK at it (never the user's own agent).
 func scratchAgentWith(t *testing.T, keys ...any) {
 	t.Helper()
-	dir, err := os.MkdirTemp("/tmp", "kag")
+	base := "/tmp" // short: a Unix socket path has a small limit
+	if runtime.GOOS == "windows" {
+		base = "" // no /tmp there; the user's TEMP is short enough
+	}
+	dir, err := os.MkdirTemp(base, "kag")
 	if err != nil {
 		t.Fatal(err)
 	}

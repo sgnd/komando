@@ -76,6 +76,7 @@ func TestAuditListNewest(t *testing.T) {
 // A store that cannot be written stops a change before it runs, and an
 // audit record that cannot be written is a warning, never silence.
 func TestAuditUnwritable(t *testing.T) {
+	unixOnly(t, "files made read-only with chmod 0400/0500")
 	invHome(t)
 	mustRun(t, "host", "add", "web", "u@10.0.0.1")
 	db := store.Path(store.StoreFile)

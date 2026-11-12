@@ -27,6 +27,7 @@ func TestUnifiedDiffHeaders(t *testing.T) {
 
 // TestUnifiedDiffMatchesDiffU compares hunks with the system diff -u.
 func TestUnifiedDiffMatchesDiffU(t *testing.T) {
+	unixOnly(t, "compares with the diff program")
 	if _, err := exec.LookPath("diff"); err != nil {
 		t.Skip("no diff")
 	}

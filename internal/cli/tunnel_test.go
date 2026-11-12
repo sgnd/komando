@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -77,7 +78,7 @@ func TestTunnelStartCtrlC(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:2")
 	var child *exec.Cmd
 	saved := tunnelServeCommand
-	tunnelServeCommand = func(string, []string) *exec.Cmd { child = exec.Command("sleep", "60"); return child }
+	tunnelServeCommand = func(string, []string) *exec.Cmd { child = sleeperCmd(); return child }
 	t.Cleanup(func() { tunnelServeCommand = saved })
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(500*time.Millisecond, cancel)
@@ -170,7 +171,12 @@ func TestViaTwice(t *testing.T) {
 // program (after a crash or a restart) is forgotten, never signalled.
 func TestTunnelStopOtherProgram(t *testing.T) {
 	invHome(t)
-	other := exec.Command("sleep", "60")
+	// a program other than komando (and this test program) that waits:
+	// sleep, or ping on Windows, which has no sleep
+	other, otherName := exec.Command("sleep", "60"), "sleep"
+	if runtime.GOOS == "windows" {
+		other, otherName = exec.Command("ping", "-n", "60", "127.0.0.1"), "ping.exe"
+	}
 	if err := other.Start(); err != nil {
 		t.Skip("no sleep program:", err)
 	}
@@ -212,7 +218,7 @@ func TestTunnelStopOtherProgram(t *testing.T) {
 	}
 	// komando's own process (this test binary stands in) is still seen
 	saved := tunnelExe
-	tunnelExe = func() string { return "sleep" }
+	tunnelExe = func() string { return otherName }
 	defer func() { tunnelExe = saved }()
 	if !tunnelAlive(&store.Tunnel{PID: other.Process.Pid}) {
 		t.Error("a running tunnel process is not seen")

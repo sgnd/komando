@@ -24,6 +24,7 @@ func completionScript(t *testing.T, shell string, flags ...string) string {
 // ~/.zshrc never ran compinit (a new Mac): the script turns it on itself,
 // while "#compdef komando" stays the first line for the fpath way.
 func TestZshCompletionWorksWithoutCompinit(t *testing.T) {
+	unixOnly(t, "loads the script in zsh")
 	for _, flags := range [][]string{nil, {"--no-descriptions"}} {
 		lines := strings.SplitN(completionScript(t, "zsh", flags...), "\n", 4)
 		if len(lines) < 4 || lines[0] != "#compdef komando" || lines[1]+"\n" != zshInit || lines[2] != "compdef _komando komando" {
@@ -49,6 +50,7 @@ func TestZshCompletionWorksWithoutCompinit(t *testing.T) {
 // The bash line is eval "$(komando completion bash)": it works in bash 3.2
 // (macOS), where source <(...) reads nothing.
 func TestBashCompletionLoadsWithEval(t *testing.T) {
+	unixOnly(t, "loads the script in bash")
 	if !strings.Contains(completionHelp["bash"], `eval "$(komando completion bash)"`) {
 		t.Fatal("bash help does not give the eval line")
 	}
