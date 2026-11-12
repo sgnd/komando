@@ -17,6 +17,11 @@ its highlights; the sections below them give the details. Versions follow
 - `import --overwrite --dry-run` now lists a protected conn as skipped,
   as the real run does, instead of "would add" plus a block the real run
   never hit. A protected conn is skipped like a protected server.
+- Commands komando prints for you to copy quote every shell character
+  (`;`, `|`, `&`, `*`, `~`, line breaks) and an empty value (`''`). The
+  `config set` line an import gives for a differing setting is now
+  runnable as shown, and a value from an imported file cannot add a
+  second command to it.
 
 ## [0.12.0] - 2026-11-11
 

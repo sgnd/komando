@@ -35,3 +35,21 @@ func TestImportOverwriteSkipsProtectedConn(t *testing.T) {
 		t.Errorf("the protected conn changed: %v", d)
 	}
 }
+
+func TestShellQuote(t *testing.T) {
+	for in, want := range map[string]string{
+		"":                     "''",
+		"root":                 "root",
+		"/usr/local/bin/k":     "/usr/local/bin/k",
+		"a b":                  "'a b'",
+		"x;rm -rf ~":           "'x;rm -rf ~'",
+		"it's":                 `'it'\''s'`,
+		"$(id)":                "'$(id)'",
+		"a\nb":                 "'a\nb'",
+		"secret:web1-pass,x=1": "secret:web1-pass,x=1",
+	} {
+		if got := shellQuote(in); got != want {
+			t.Errorf("shellQuote(%q) = %s, want %s", in, got, want)
+		}
+	}
+}
