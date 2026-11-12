@@ -130,6 +130,7 @@ var riskRows = []riskRow{
 	{id: "host.edit", when: protectionOff, tier: tierSafety, what: "turns protection off"},
 	{id: "conn.edit", when: protectionOff, tier: tierSafety, what: "turns protection off"},
 	{id: "vpn.edit", when: protectionOff, tier: tierSafety, what: "turns protection off"},
+	{id: "vpn.edit", when: anyWord("--mfa=false"), tier: tierSafety, what: "turns --mfa off (komando may then connect it without a person)"},
 	{id: "host.trust", when: anyWord("--reset", "--replace", "--reset=true", "--replace=true"), tier: tierSafety, what: "replaces a pinned host key"},
 	{id: "update", tier: tierSafety, dynamic: "it installs an older version"},
 	{id: "tunnel.start", tier: tierSafety, dynamic: "it listens on an open address (OPEN_BIND)"},

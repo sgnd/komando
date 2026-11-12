@@ -593,17 +593,21 @@ func guardProtectionWhy(kind, action string, names []string, why string) error {
 		return nil
 	}
 	asked := func() bool { return confirmProtected(names) }
+	word := map[string]string{"vpn": "VPN"}[kind]
+	if word == "" {
+		word = kind
+	}
 	if why == "" {
-		why = fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), kind), strings.Join(names, ", "))
+		why = fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))
 	} else {
 		asked = func() bool { return confirmYes(why + ". Change them anyway?") }
 	}
 	if yesOK(why) || asked() {
 		return nil
 	}
-	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET"}[kind]
+	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET", "vpn": "PROTECTED_TARGET"}[kind]
 	return policyStop(out.Errf(out.ExitPolicy, code, "re-run with --yes after the user confirms",
-		"%s protected %s: %s", action, nouns(len(names), kind), strings.Join(names, ", ")))
+		"%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", ")))
 }
 
 func hostNames(hs []*store.Host) []string {

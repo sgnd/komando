@@ -5741,23 +5741,23 @@ Error: komando vpn add needs a name and what to add
 ### komando -o json vpn edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn edit NAME","hint":"for example: komando vpn edit office --check 10.0.0.5:22"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn edit NAME|TARGET...","hint":"for example: komando vpn edit office --check 10.0.0.5:22"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn edit (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn edit NAME
+Error: missing arguments; usage: komando vpn edit NAME|TARGET...
 ### komando -o json vpn edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn edit NAME","hint":"for example: komando vpn edit office --check 10.0.0.5:22"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn edit NAME|TARGET...","hint":"for example: komando vpn edit office --check 10.0.0.5:22"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn edit (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn edit NAME
+Error: missing arguments; usage: komando vpn edit NAME|TARGET...
 ### komando -o json vpn rename (agent json)
 exit 2
 --- stdout
@@ -5801,23 +5801,23 @@ Error: missing arguments; usage: komando vpn rename OLD NEW
 ### komando -o json vpn rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rm NAME...","hint":"for example: komando vpn rm old-office"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rm NAME|TARGET...","hint":"for example: komando vpn rm old-office"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn rm NAME...
+Error: missing arguments; usage: komando vpn rm NAME|TARGET...
 ### komando -o json vpn rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rm NAME...","hint":"for example: komando vpn rm old-office"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rm NAME|TARGET...","hint":"for example: komando vpn rm old-office"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn rm NAME...
+Error: missing arguments; usage: komando vpn rm NAME|TARGET...
 ### komando -o json vpn show (agent json)
 exit 2
 --- stdout
@@ -7098,6 +7098,46 @@ exit 6
 --- stdout
 --- stderr
 Stopped: turning off protection of protected conn: pcache. Nothing was changed.
+### komando -o json vpn rm pvpn (agent json, gate inventory)
+exit 6
+--- stdout
+{"ok":false,"command":"vpn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected VPN: pvpn","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn rm pvpn (agent text, gate inventory)
+exit 6
+--- stdout
+--- stderr
+Stopped: removing protected VPN: pvpn. Nothing was changed.
+### komando -o json vpn rm pvpn (script json, gate inventory)
+exit 6
+--- stdout
+{"ok":false,"command":"vpn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected VPN: pvpn","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn rm pvpn (script text, gate inventory)
+exit 6
+--- stdout
+--- stderr
+Stopped: removing protected VPN: pvpn. Nothing was changed.
+### komando -o json vpn edit pvpn --notes x (agent json, gate inventory)
+exit 6
+--- stdout
+{"ok":false,"command":"vpn.edit","error":{"code":"PROTECTED_TARGET","message":"changing protected VPN: pvpn","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn edit pvpn --notes x (agent text, gate inventory)
+exit 6
+--- stdout
+--- stderr
+Stopped: changing protected VPN: pvpn. Nothing was changed.
+### komando -o json vpn edit pvpn --notes x (script json, gate inventory)
+exit 6
+--- stdout
+{"ok":false,"command":"vpn.edit","error":{"code":"PROTECTED_TARGET","message":"changing protected VPN: pvpn","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn edit pvpn --notes x (script text, gate inventory)
+exit 6
+--- stdout
+--- stderr
+Stopped: changing protected VPN: pvpn. Nothing was changed.
 ### komando -o json policy rm foo.*bar (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7138,6 +7178,46 @@ exit 6
 --- stdout
 --- stderr
 Stopped: turning off the audit log turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+### komando -o json vpn edit pvpn --protected=false (agent json, gate inventory)
+exit 6
+--- stdout
+{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off the protection of VPN pvpn weakens komando's safety checks","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn edit pvpn --protected=false (agent text, gate inventory)
+exit 6
+--- stdout
+--- stderr
+Stopped: turning off the protection of VPN pvpn turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+### komando -o json vpn edit pvpn --protected=false (script json, gate inventory)
+exit 6
+--- stdout
+{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off the protection of VPN pvpn weakens komando's safety checks","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn edit pvpn --protected=false (script text, gate inventory)
+exit 6
+--- stdout
+--- stderr
+Stopped: turning off the protection of VPN pvpn turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+### komando -o json vpn edit pvpn --mfa=false (agent json, gate inventory)
+exit 6
+--- stdout
+{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off --mfa of VPN pvpn (komando could then connect it without a person) weakens komando's safety checks","hint":"re-run with --yes after the user confirms. Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn edit pvpn --mfa=false (agent text, gate inventory)
+exit 6
+--- stdout
+--- stderr
+Stopped: turning off --mfa of VPN pvpn (komando could then connect it without a person) turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+### komando -o json vpn edit pvpn --mfa=false (script json, gate inventory)
+exit 6
+--- stdout
+{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off --mfa of VPN pvpn (komando could then connect it without a person) weakens komando's safety checks","hint":"re-run with --yes after the user confirms"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn edit pvpn --mfa=false (script text, gate inventory)
+exit 6
+--- stdout
+--- stderr
+Stopped: turning off --mfa of VPN pvpn (komando could then connect it without a person) turns off one of komando's safety checks, so komando asks first. Nothing was changed.
 ### komando -o json cache run cache1 -- SET k v (agent json, gate inventory)
 exit 6
 --- stdout

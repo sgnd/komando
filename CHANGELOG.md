@@ -9,6 +9,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `vpn add/edit --label KEY=VALUE` and `--protected`, and `vpn edit
+  --unset` (user, password-ref, psk-ref, id, remote-id, ca, check, notes),
+  as on host and conn. `vpn edit` and `vpn rm` take several names or a
+  selector (`NAME|TARGET...`). A protected VPN needs `--yes` (a person's
+  yes) to be changed, replaced or removed (`PROTECTED_TARGET`);
+  `--protected=false` and `--mfa=false` need it too (`SAFETY_SETTING`).
+  `vpn edit` of several VPNs prints `{"vpns": [...], "changed": [...]}`;
+  one VPN prints `{"vpn": ...}` as before.
 - `fs write --value TEXT` works as another name for `--content`.
 - `komando rename OLD NEW` renames one entry of any kind: the server,
   conn, VPN, secret, key or group named OLD, through that kind's own

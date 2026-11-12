@@ -8,7 +8,7 @@ file internal/sslvpn/pulse.go 839
 func internal/cli/cert.go runCertCheck 176
 func internal/cli/cluster_run.go clusterRunCmd 114
 func internal/cli/cluster_status.go summarize 115
-func internal/cli/clusterdeploy.go clusterRollbackCmd 110
+func internal/cli/clusterdeploy.go clusterRollbackCmd 109
 func internal/cli/clusterexec.go clusterForwardCmd 103
 func internal/cli/clusterlogs.go clusterLogsCmd 125
 func internal/cli/dbdump.go runDump 135
@@ -26,9 +26,8 @@ func internal/cli/kctl_explain.go kctlRun.explain 102
 func internal/cli/keyrevoke.go keyRevokeCmd 101
 func internal/cli/ops_pkgsec.go pkgSecurity 113
 func internal/cli/ops_run.go runOps 108
-func internal/cli/ops_vpn.go vpnEditCmd 145
 func internal/cli/tunnel.go tunnelStartCmd 141
-func internal/cli/vpn.go vpnAddCmd 255
+func internal/cli/vpn.go vpnAddCmd 249
 func internal/cli/vpnsession.go startSession 148
 func internal/cloud/bitwarden.go bwLoad 110
 func internal/dbx/dump_mysql.go dumpMySQL 102

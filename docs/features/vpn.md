@@ -152,7 +152,8 @@ komando vpn show office                       # its settings and what uses it
 komando vpn edit office --check 10.0.0.6:22   # change a setting (see the list below)
 komando vpn status                            # which are up, since when, what uses them
 komando vpn rename office office-jkt              # rename; every --via path follows
-komando vpn rm office                         # remove (several names allowed)
+komando vpn rm office                         # remove (several names or a selector allowed)
+komando vpn edit @office --protected          # mark VPNs protected (like host edit)
 ```
 
 - `vpn status`: a session VPN is up while its session runs, a SOCKS VPN when
@@ -164,10 +165,21 @@ komando vpn rm office                         # remove (several names allowed)
   same name needs them gone first, unless it is added from the same file.
 - `vpn edit` changes `--check`, `--proxy-address`, `--user`, `--password-ref`,
   `--portal`, `--server`, `--psk-ref`, `--id`, `--remote-id`, `--ca`,
-  `--service`, `--mfa`, `--notes`, and groups and tags: `-g` and `-t` add
-  one, as in `host edit`; `--rm-group` and `--rm-tag` take one away. An AI
+  `--service`, `--mfa`, `--notes`, `--label KEY=VALUE` (an empty value
+  removes it), `--protected`, and groups and tags: `-g` and `-t` add
+  one, as in `host edit`; `--rm-group` and `--rm-tag` take one away.
+  `--unset` clears `user`, `password-ref`, `psk-ref`, `id`, `remote-id`,
+  `ca`, `check` or `notes`; it does not take `mfa` or `protected`. An AI
   agent that swaps or clears a VPN's `--ca` needs a person's yes
   (`SAFETY_SETTING`): another CA lets another server get the VPN's login.
+- `vpn edit` and `vpn rm` take several names or a selector (`@office`,
+  `tag:lab`), as `host edit` and `host rm` do. `vpn add` takes `--label`
+  and `--protected` too.
+- A protected VPN (`--protected`) needs a person's yes before it is
+  changed, replaced or removed (`PROTECTED_TARGET`, `--yes` for an agent
+  or a script). Turning its protection off (`--protected=false`) or
+  turning `--mfa` off weakens a check, so it needs that yes too
+  (`SAFETY_SETTING`).
 - To give a WireGuard or OpenVPN VPN a new config file, add it again with
   `--overwrite`.
 - `vpn rename` refuses a VPN that is up: run `komando vpn down NAME` first.

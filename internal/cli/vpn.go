@@ -60,6 +60,7 @@ func vpnAddCmd() *cobra.Command {
 	var config, address, portal, service, server, user, passwordRef, check, notes, pskRef, localID, remoteID, ca string
 	var groups, tags []string
 	var overwrite, mfa, legacyCrypto, allowPAP, askPw, askPsk bool
+	var inv vpnEditFlags // --label, --protected
 	c := &cobra.Command{
 		Use:   "add NAME KIND",
 		Short: "Add a VPN (see `komando vpn --help` for the kinds)",
@@ -67,7 +68,8 @@ func vpnAddCmd() *cobra.Command {
 step, starting with the VPN app your company uses.
 
 Which flags go with which VPN:
-  Every VPN                 --user, --password-ref or --ask-password, --check, --mfa
+  Every VPN                 --user, --password-ref or --ask-password, --check, --mfa,
+                            --protected, --label, -g, -t, --notes
   WireGuard, OpenVPN        --config FILE (the .conf or .ovpn file)
   GlobalProtect, Fortinet,  --portal (the VPN server or portal)
   AnyConnect, Pulse, F5
@@ -106,24 +108,17 @@ Which flags go with which VPN:
 			if !ok {
 				return out.Usage("unknown VPN kind %q (see `komando vpn --help`)", kind)
 			}
-			if check != "" {
-				if _, _, err := net.SplitHostPort(check); err != nil {
-					return out.Usage("--check must be host:port")
-				}
-			}
 			if err := vpnAskPasswordRef(cmd, name, kind, askPw, &passwordRef); err != nil {
 				return err
 			}
 			if err := vpnAskPSKRef(cmd, name, kind, askPsk, &pskRef); err != nil {
 				return err
 			}
-			for _, r := range []string{passwordRef, pskRef} {
-				if r != "" && !vault.ValidRef(r) {
-					return out.Usage("invalid reference %q: %s", r, vault.RefHelp())
-				}
-			}
-			v := &store.Vpn{Name: name, Kind: kind, Check: check, User: user, KeyRef: passwordRef, MFA: mfa,
+			v := &store.Vpn{Name: name, Kind: kind, Check: check, User: user, KeyRef: passwordRef, MFA: mfa, Protected: inv.protected,
 				Groups: dedupe(groups), Tags: dedupe(tags), Notes: notes}
+			if err := vpnAddFlagChecks(v, pskRef, inv.labels); err != nil {
+				return err
+			}
 			used := map[string]bool{}
 			need := func(flag string, ok bool) error {
 				used[flag] = true
@@ -233,11 +228,9 @@ Which flags go with which VPN:
 				secrets[name+"-config"] = text
 				used["user"], used["password-ref"] = true, true
 			}
-			for flag, val := range map[string]string{"config": config, "proxy-address": address, "portal": portal, "service": service,
-				"server": server, "user": user, "password-ref": passwordRef, "psk-ref": pskRef, "id": localID, "remote-id": remoteID, "ca": ca} {
-				if val != "" && !used[flag] {
-					return out.Usage("--%s is not used by %s VPNs", flag, kind)
-				}
+			if err := vpnUnusedFlags(kind, used, map[string]string{"config": config, "proxy-address": address, "portal": portal, "service": service,
+				"server": server, "user": user, "password-ref": passwordRef, "psk-ref": pskRef, "id": localID, "remote-id": remoteID, "ca": ca}); err != nil {
+				return err
 			}
 			now := time.Now().UTC()
 			v.CreatedAt, v.UpdatedAt = now, now
@@ -309,6 +302,7 @@ Which flags go with which VPN:
 	f.StringSliceVarP(&tags, "tag", "t", nil, "tags, e.g. prod (comma-separated)")
 	f.StringVar(&notes, "notes", "", "free-form notes")
 	f.BoolVar(&overwrite, "overwrite", false, "replace a VPN with the same name")
+	inv.bindInv(c, false)
 	return withRetiredAddress(c)
 }
 
@@ -327,77 +321,6 @@ func vpnShowCmd() *cobra.Command {
 				return out.NotFound("vpn", args[0])
 			}
 			out.P.Print("vpn.show", map[string]any{"vpn": v, "used_by": vpnUsers(st, v.Name)}, nil)
-			return nil
-		},
-	}
-}
-
-func vpnRmCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "rm NAME...",
-		Short: "Remove VPNs from komando (their keys stay in the vault)",
-		Args:  cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// all or nothing, like host rm: a VPN in use stops the whole call
-			check := func(s *store.State) error {
-				for _, name := range args {
-					if _, ok := s.Vpns[name]; !ok {
-						return out.NotFound("vpn", name)
-					}
-					if users := vpnUsers(s, name); len(users) > 0 {
-						return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first", "VPN %s is on the --via path of %s", name, strings.Join(users, ", "))
-					}
-				}
-				return nil
-			}
-			// one name: the name itself; several: the list
-			names := func() any {
-				if len(args) == 1 {
-					return args[0]
-				}
-				return args
-			}
-			if g.dryRun { // the same checks as the real removal
-				st, err := loadState()
-				if err != nil {
-					return err
-				}
-				if err := check(st); err != nil {
-					return err
-				}
-				out.P.Print("vpn.rm", map[string]any{"would_remove": names()}, nil)
-				return nil
-			}
-			var unused []string
-			err := store.Update(func(s *store.State) error {
-				if err := check(s); err != nil {
-					return err
-				}
-				var refs []string
-				for _, name := range args {
-					if v := s.Vpns[name]; v != nil {
-						refs = append(refs, v.KeyRef, v.PSKRef, v.ConfigRef)
-					}
-					if sess := s.Sessions[name]; sess != nil {
-						if err := netx.StopSession(sess); err != nil {
-							return out.Errf(out.ExitError, "VPN_STOP_FAILED", "disconnect it first with `komando vpn down "+name+"`", "%v", err)
-						}
-						delete(s.Sessions, name)
-					}
-					delete(s.Vpns, name)
-				}
-				unused = unusedSecrets(s, refs)
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-			audit(nil, "vpn.rm", args, "", true, nil)
-			res := map[string]any{"removed": names()} // one VPN stays a string, so scripts that read it keep working
-			if len(unused) > 0 {
-				res["secrets_unused"] = unused
-			}
-			out.P.Print("vpn.rm", textAs{res, rmResult{Removed: args, SecretsUnused: unused}}, nil)
 			return nil
 		},
 	}
@@ -736,8 +659,14 @@ func (t vpnChangeText) Text() string {
 		{"remote id", v.RemoteID}, {"check", v.Check}, {"groups", strings.Join(v.Groups, ", ")}, {"tags", strings.Join(v.Tags, ", ")}, {"notes", v.Notes}} {
 		field(kv[0], kv[1])
 	}
+	if len(v.Labels) > 0 {
+		field("labels", strings.Join(kvPairs(v.Labels), ", "))
+	}
 	if v.MFA {
 		field("login", "a person logs in at `komando vpn up "+v.Name+"`")
+	}
+	if v.Protected {
+		field("protected", "yes (changing or removing it needs a person's yes)")
 	}
 	if v.CA != "" {
 		field("ca", "its own CA certificate")

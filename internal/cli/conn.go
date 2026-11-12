@@ -49,6 +49,9 @@ func checkNewName(s *store.State, kind, name string, overwrite bool) error {
 	if c, ok := s.Conns[name]; ok && c.Protected {
 		return guardProtection("conn", "replacing", []string{name})
 	}
+	if v, ok := s.Vpns[name]; ok && v.Protected {
+		return guardProtection("vpn", "replacing", []string{name})
+	}
 	return nil
 }
 

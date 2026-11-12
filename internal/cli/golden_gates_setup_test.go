@@ -35,6 +35,7 @@ func goldenGateSetup(t *testing.T) {
 			{"conn", "add", "st1", "sftp://u@127.0.0.1:1/up"},
 			{"conn", "add", "reg1", "registry://u@127.0.0.1:1?tls=false"},
 			{"policy", "deny", "foo.*bar"},
+			{"vpn", "add", "pvpn", "socks", "--proxy-address", "127.0.0.1:1", "--protected", "--mfa"},
 		} {
 			mustRun(t, a...)
 		}
@@ -117,9 +118,13 @@ var goldenGates = [][]string{
 	{"db", "kill", "pdb", "1"},
 	{"conn", "rm", "pcache"},
 	{"conn", "edit", "pcache", "--protected=false"},
+	{"vpn", "rm", "pvpn"},
+	{"vpn", "edit", "pvpn", "--notes", "x"},
 	// SAFETY_SETTING: weakens komando's own checks (--yes)
 	{"policy", "rm", "foo.*bar"},
 	{"config", "set", "audit", "off"},
+	{"vpn", "edit", "pvpn", "--protected=false"},
+	{"vpn", "edit", "pvpn", "--mfa=false"},
 	// WRITE_REQUIRES_FLAG: a read command asked to write
 	{"cache", "run", "cache1", "--", "SET", "k", "v"},
 	{"db", "query", "db1", "DELETE FROM x"},
