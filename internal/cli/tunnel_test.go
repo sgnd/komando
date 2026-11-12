@@ -99,3 +99,35 @@ func TestTunnelStartCtrlC(t *testing.T) {
 		t.Errorf("tunnel kept: %v", st.Tunnels)
 	}
 }
+
+// TestParseTunnelIPv6: IPv6 addresses go in brackets, as with ssh; an open
+// IPv6 bind ([::]) still needs a person's yes, the loopback ([::1]) not.
+func TestParseTunnelIPv6(t *testing.T) {
+	g.yes = false
+	for _, c := range []struct {
+		kind, spec, bind, target string
+		open                     bool
+	}{
+		{"local", "8080:[::1]:80", "127.0.0.1:8080", "[::1]:80", false},
+		{"local", "[::1]:8080:[fd00::5]:5432", "[::1]:8080", "[fd00::5]:5432", false},
+		{"local", "[::]:8080:db:5432", "[::]:8080", "db:5432", true},
+		{"dynamic", "[::1]:1080", "[::1]:1080", "", false},
+		{"dynamic", "[::]:1080", "[::]:1080", "", true},
+	} {
+		ts, err := parseTunnel(c.kind, c.spec)
+		if err != nil {
+			t.Fatalf("%s: %v", c.spec, err)
+		}
+		if ts.BindAddr != c.bind || ts.TargetAddr != c.target {
+			t.Errorf("%s: bind %q target %q", c.spec, ts.BindAddr, ts.TargetAddr)
+		}
+		if err := guardBind(ts); (err != nil) != c.open {
+			t.Errorf("%s: guardBind = %v, want blocked=%v", c.spec, err, c.open)
+		}
+	}
+	for _, bad := range []string{"8080:::1:80", "8080:[::1:80", "8080:[::1]x:80", "8080:db:"} {
+		if _, err := parseTunnel("local", bad); err == nil {
+			t.Errorf("%s: accepted", bad)
+		}
+	}
+}

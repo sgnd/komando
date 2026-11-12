@@ -42,7 +42,8 @@ func tunnelCmd() *cobra.Command {
   -L [bind:]LPORT:RHOST:RPORT   local port -> RHOST:RPORT as seen from the server
   -R [rbind:]RPORT:LHOST:LPORT  server port -> LHOST:LPORT on this machine
   -D [bind:]PORT                SOCKS5 proxy through the server
-LPORT/PORT 0 picks a free port; the chosen address is returned.`,
+LPORT/PORT 0 picks a free port; the chosen address is returned.
+IPv6 addresses go in brackets, as with ssh: -L 8080:[::1]:80.`,
 		Example: `  komando tunnel start db1 -L 15432:localhost:5432
   komando tunnel start bastion -D 1080
   komando tunnel list
@@ -130,8 +131,42 @@ func (t tunnelInfo) Text() string {
 	return "tunnel " + t.ID + " is up: " + line + "\nstop it with: komando tunnel stop " + t.ID + "\n"
 }
 
+// specParts splits a forward spec at its colons, keeping an IPv6 address
+// in brackets as one part without them (8080:[::1]:80, as ssh takes it).
+func specParts(spec string) ([]string, bool) {
+	var parts []string
+	for spec != "" {
+		var p string
+		if strings.HasPrefix(spec, "[") {
+			end := strings.Index(spec, "]")
+			if end < 0 || (end+1 < len(spec) && spec[end+1] != ':') {
+				return nil, false
+			}
+			p, spec = spec[1:end], spec[end+1:]
+		} else if i := strings.IndexByte(spec, ':'); i >= 0 {
+			p, spec = spec[:i], spec[i:]
+		} else {
+			p, spec = spec, ""
+		}
+		if strings.ContainsAny(p, "[]") {
+			return nil, false
+		}
+		parts = append(parts, p)
+		if rest, ok := strings.CutPrefix(spec, ":"); ok {
+			spec = rest
+			if spec == "" {
+				parts = append(parts, "")
+			}
+		}
+	}
+	return parts, true
+}
+
 func parseTunnel(kind, spec string) (tunnelSpec, error) {
-	parts := strings.Split(spec, ":")
+	parts, ok := specParts(spec)
+	if !ok {
+		parts = nil // reported below as an invalid spec
+	}
 	t := tunnelSpec{Kind: kind}
 	switch kind {
 	case "local", "remote":

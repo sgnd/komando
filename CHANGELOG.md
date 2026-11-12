@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `tunnel start -L/-R/-D` takes IPv6 addresses in brackets, as ssh does
+  (`-L 8080:[::1]:80`); they were refused as an invalid spec. An open IPv6
+  bind (`[::]`) still needs a person's yes.
 - Ctrl-C while `vpn up` (or a command that connects a VPN by itself)
   waits for the VPN's session now stops it at once (`CANCELLED`); the wait
   of up to 75 seconds ignored it, so the VPN could come up after the
