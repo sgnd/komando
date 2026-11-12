@@ -97,7 +97,7 @@ if in_area data; then
 # what an agent may not do alone: each stops with a code that says why
 acode "db write needs --write" WRITE_REQUIRES_FLAG db query pg 'create table t_agent(x int)'
 acode "db write on a protected conn needs a person" PROTECTED_TARGET db query maria --write 'create table t_agent(x int)'
-acode "cache write needs --write" WRITE_REQUIRES_FLAG cache run cache SET t-agent 1
+acode "cache write needs --write" WRITE_REQUIRES_FLAG cache run cache -- SET t-agent 1
 acode "storage rm needs --allow-dangerous" POLICY_BLOCKED storage rm bucket e2e/nothing
 fi
 
