@@ -42,7 +42,7 @@ func revokeTarget(st *store.State, arg string) (blob, label string, k *store.Key
 func keyRevokeCmd() *cobra.Command {
 	var user string
 	c := &cobra.Command{
-		Use:   "revoke KEY TARGET",
+		Use:   "revoke NAME TARGET",
 		Short: "Remove a public key from authorized_keys on many servers (offboarding, rotation)",
 		Long: `KEY is a key in komando's key list, a .pub file, or a public key line. Every line
 with that key is removed from ~/.ssh/authorized_keys of the login user, or

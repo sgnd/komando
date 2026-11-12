@@ -102,7 +102,7 @@ func clusterLsCmd() *cobra.Command {
 func clusterGetCmd() *cobra.Command {
 	var ns string
 	c := &cobra.Command{
-		Use:   "get TARGET TYPE NAME",
+		Use:   "get TARGET TYPE/NAME",
 		Short: "Show one object in full (Secret values are hidden); TYPE/NAME works too",
 		Example: `  komando cluster get prod-k8s deployment api --namespace shop
   komando cluster get prod-k8s deployment.apps/api --namespace shop

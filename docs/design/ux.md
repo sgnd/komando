@@ -21,8 +21,18 @@ komando storage upload backups ./dump.sql.gz
   Product names are only aliases (`s3`, `redis`, `sql`, `k8s`, `kafka`).
 - **Verbs** come from the standard list below. A new verb may only be added
   if none of the existing ones fits, and it must be recorded here.
-- **TARGET is always the first argument** after the verb, except for commands
-  that have no target (`host list`, `secret set`).
+- **The noun's own item comes first, then TARGET** (S-1.2): `key deploy
+  NAME TARGET`, `recipe run NAME TARGET`, `group add GROUP TARGET...`.
+  Commands without an item start with TARGET: `svc restart TARGET
+  UNIT...`. Commands with neither take no TARGET (`host list`, `secret
+  set NAME`).
+- **Argument words have one meaning** (S-4.2): TARGET picks one or more of
+  the kinds the command serves, SERVER is exactly one server, CONN one conn
+  of the command's family, NAME an item of the command's own noun, USER an
+  account, KEY a cache key, OBJECT a storage object, CONSUMER a queue
+  consumer group, TYPE/NAME a cluster object, and `-- COMMAND...` or
+  `-- ARGS...` what runs. A required flag shows in the usage line with an
+  UPPERCASE value (`db restore CONN --from FILE`).
 - Cross-area commands that are used often may live at the top level (`exec`,
   `logs`, `cp`, `list`, `test`), but only as shortcuts with the same
   shape.

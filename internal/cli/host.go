@@ -84,7 +84,7 @@ func hostAddCmd() *cobra.Command {
 	var f hostFlags
 	var force, askPw bool
 	c := &cobra.Command{
-		Use:   "add NAME [user@address[:port]]",
+		Use:   "add NAME [[USER@]ADDRESS[:PORT]]",
 		Short: "Add a server to the inventory",
 		Example: `  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
   komando host add db1 --address db.internal --user root --via bastion --protected
@@ -218,7 +218,7 @@ func hostEditCmd() *cobra.Command {
 	var f hostFlags
 	var askPw bool
 	c := &cobra.Command{
-		Use:   "edit NAME|TARGET...",
+		Use:   "edit TARGET...",
 		Short: "Change one or more servers (only the flags you pass change)",
 		Long: `Changes only the settings you pass. Give one name, several names, or a
 selector (@group, tag:prod, 'web-*') to change many servers at once. Try
@@ -736,7 +736,7 @@ func viaNote(names []string, n string) string {
 
 func hostRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm NAME|TARGET...",
+		Use:   "rm TARGET...",
 		Short: "Remove servers from the inventory (the servers are not touched)",
 		Example: `  komando host rm web3
   komando host rm @old --dry-run     # what a selector would remove

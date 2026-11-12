@@ -352,7 +352,7 @@ func withTruncated(res map[string]any, cut bool) map[string]any {
 
 func registryInspectCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "inspect CONN REPO[:TAG|@DIGEST]",
+		Use:     "inspect CONN IMAGE",
 		Aliases: []string{"get", "show", "describe"},
 		Short:   "Digest, size, platforms, created time and labels of an image",
 		Example: `  komando registry inspect ghcr myorg/api:1.4.2
@@ -378,7 +378,7 @@ func registryInspectCmd() *cobra.Command {
 
 func registryRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm CONN REPO:TAG|REPO@DIGEST",
+		Use:   "rm CONN IMAGE",
 		Short: "Delete an image and every tag on it (needs --allow-dangerous)",
 		Long: `Deletes the image a tag (or digest) points at. A registry deletes images,
 not tags: every other tag on the same image goes too, latest included.

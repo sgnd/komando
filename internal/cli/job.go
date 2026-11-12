@@ -172,7 +172,7 @@ func jobAlive(pid int) string {
 func jobStatusCmd() *cobra.Command {
 	var tail int
 	c := &cobra.Command{
-		Use:     "status JOB_ID",
+		Use:     "status JOB",
 		Aliases: []string{"show"},
 		Short:   "Show a job's state (running, exited, lost), exit code, run time and last lines",
 		Args:    cobra.ExactArgs(1),
@@ -214,7 +214,7 @@ func jobLogsCmd() *cobra.Command {
 	var limit int64
 	var tail int
 	c := &cobra.Command{
-		Use:   "logs JOB_ID",
+		Use:   "logs JOB",
 		Short: "Read job output: what is new since --offset, or the last --limit lines",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -275,7 +275,7 @@ func jobWaitCmd() *cobra.Command {
 	var tail int
 	var waitTimeout time.Duration
 	c := &cobra.Command{
-		Use:   "wait JOB_ID...",
+		Use:   "wait JOB...",
 		Short: "Wait until the jobs end (or --timeout); the exit code follows the job",
 		Long: `Waits until the job ends, checking every --interval. --timeout (default 10m)
 is how long to wait; the job keeps running after it (exit 7, WAIT_TIMEOUT).
@@ -461,7 +461,7 @@ func jobKillCmd() *cobra.Command {
 	var sig string
 	var sudo bool
 	c := &cobra.Command{
-		Use:     "kill JOB_ID",
+		Use:     "kill JOB",
 		Aliases: []string{"stop"},
 		Short:   "Stop a job: send a signal to its process group (default TERM)",
 		Args:    cobra.ExactArgs(1),
@@ -557,7 +557,7 @@ func (k jobKilled) Text() string {
 func jobRmCmd() *cobra.Command {
 	var keepRemote, force bool
 	c := &cobra.Command{
-		Use:   "rm JOB_ID...",
+		Use:   "rm JOB...",
 		Short: "Forget jobs and delete their logs on the server",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

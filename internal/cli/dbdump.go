@@ -191,7 +191,7 @@ holds your data: it is created readable only by you.`,
 func dbRestoreCmd() *cobra.Command {
 	var from, on string
 	c := &cobra.Command{
-		Use:   "restore CONN",
+		Use:   "restore CONN --from FILE",
 		Short: "Load a backup into a database (needs --allow-dangerous)",
 		Long: `Runs the SQL in FILE (from ` + "`db dump`" + `, pg_dump, mysqldump or any plain SQL
 file; .gz is read compressed). komando runs the SQL itself, through the

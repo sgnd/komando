@@ -55,7 +55,7 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 come with -f. --since and --until take a time back from now (10m, 2h, 7d)
 or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 	inspect := &cobra.Command{
-		Use:     "inspect TARGET NAME",
+		Use:     "inspect TARGET CONTAINER|IMAGE",
 		Aliases: []string{"describe"},
 		Short:   "Show a container, image or other object in full (docker inspect)",
 		Args:    cobra.ExactArgs(2),
@@ -102,7 +102,7 @@ or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 	compose.Flags().StringVarP(&file, "file", "f", "", "the compose file on the server")
 	compose.Flags().StringVarP(&dir, "dir", "C", "", "the project folder on the server")
 	raw := &cobra.Command{
-		Use:   "raw TARGET -- DOCKER_ARGS...",
+		Use:   "raw TARGET -- ARGS...",
 		Short: "Run any docker subcommand (the same safety rules apply)",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -607,7 +607,7 @@ func hostPathEscapes(p string, readOnly bool) bool {
 func dockerExecCmd(sudo *bool) *cobra.Command {
 	var readOnly bool
 	execC := &cobra.Command{
-		Use:   "exec TARGET CONTAINER -- COMMAND [ARG...]",
+		Use:   "exec TARGET CONTAINER -- COMMAND...",
 		Short: "Run a command in a container (its words are passed as given, no shell)",
 		Long: `Runs COMMAND in the container with its arguments exactly as written (like
 ` + "`docker exec`" + `): no shell is added, so the image needs no sh. For pipes or

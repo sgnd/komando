@@ -61,9 +61,9 @@ func dbUserChangeCmd(action string) *cobra.Command {
 	var ref, host string
 	var noLogin bool
 	parts := map[string][3]string{
-		"add":    {"add CONN NAME", "Create a user with a password from a secret reference", "  komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},
-		"passwd": {"passwd CONN NAME", "Set a user's password from a secret reference (rotation)", "  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},
-		"rm":     {"rm CONN NAME", "Remove a user (needs --allow-dangerous)", "  komando db user rm prod-db old_app --dry-run   # shows the statement\n  komando db user rm prod-db old_app --allow-dangerous"},
+		"add":    {"add CONN USER --password-ref REF", "Create a user with a password from a secret reference", "  komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},
+		"passwd": {"passwd CONN USER --password-ref REF", "Set a user's password from a secret reference (rotation)", "  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},
+		"rm":     {"rm CONN USER", "Remove a user (needs --allow-dangerous)", "  komando db user rm prod-db old_app --dry-run   # shows the statement\n  komando db user rm prod-db old_app --allow-dangerous"},
 	}[action]
 	c := &cobra.Command{
 		Use:     parts[0],

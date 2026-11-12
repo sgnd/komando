@@ -2,6 +2,7 @@ package cli
 
 import (
 	"cmp"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -149,16 +150,39 @@ func formUseArgs(use string, flags *pflag.FlagSet) []formUseArg {
 			skip = fl == nil || fl.Value.Type() != "bool"
 			continue
 		}
-		a := formUseArg{optional: strings.HasPrefix(w, "[") || optRest, dashes: dashes}
-		w = strings.Trim(w, "[]")
-		a.many = strings.HasSuffix(w, "...")
-		a.name = strings.TrimSuffix(w, "...")
+		a := formUseArg{optional: strings.HasPrefix(w, "[") && strings.HasSuffix(w, "]") && balanced(w[1:len(w)-1]) || optRest, dashes: dashes}
+		if a.optional && strings.HasPrefix(w, "[") {
+			w = w[1 : len(w)-1]
+		}
+		a.many = strings.HasSuffix(strings.TrimRight(w, "]"), "...")
+		// the word without its optional parts: [USER@]ADDRESS[:PORT] is ADDRESS
+		a.name = optionalPart.ReplaceAllString(strings.ReplaceAll(w, "...", ""), "")
 		if i := strings.IndexAny(a.name, "[|"); i > 0 {
 			a.name = a.name[:i]
 		}
+		a.name = strings.Trim(a.name, "[]") // the ] of an optional rest after --
 		out = append(out, a)
 	}
 	return out
+}
+
+// optionalPart is an optional piece inside a Use word ([USER@], [:PORT]).
+var optionalPart = regexp.MustCompile(`\[[^\[\]]*\]`)
+
+// balanced: s opens and closes its brackets in order.
+func balanced(s string) bool {
+	n := 0
+	for _, r := range s {
+		switch r {
+		case '[':
+			n++
+		case ']':
+			if n--; n < 0 {
+				return false
+			}
+		}
+	}
+	return n == 0
 }
 
 // formArgPick is the list an argument is picked from when no hint says.
@@ -166,18 +190,18 @@ func formArgPick(name string) (string, bool) {
 	switch name {
 	case "TARGET":
 		return "target", true
-	case "HOST", "SERVER":
-		return "host", true
+	case "SERVER":
+		return "server", false
 	case "CONN":
 		return "conn", false
 	case "VPN":
 		return "vpn", false
-	case "DATABASE":
-		return "db", false
 	case "GROUP":
 		return "group", true
-	case "JOB", "ID":
+	case "JOB":
 		return "job", true
+	case "TUNNEL":
+		return "tunnel", true
 	}
 	return "", false
 }
@@ -264,7 +288,18 @@ func formCmdSpec(cmd *cobra.Command) formSpec {
 	sp := formSpec{title: cmd.Short}
 	uses := formUseArgs(cmd.Use, cmd.Flags())
 	for i, u := range uses {
-		sp.qs = append(sp.qs, formArgQ(i, u, h))
+		q := formArgQ(i, u, h)
+		// TARGET says which kinds it picks, and offers only those (C-A04)
+		if kinds := targetKinds(cmd); u.name == "TARGET" && kinds != "" {
+			if i >= len(h.args) || h.args[i].label == "" {
+				q.label = "Target (" + kinds + ")"
+			}
+			if i >= len(h.args) || h.args[i].pick == "" && h.args[i].ask == "" {
+				pick := targetPick(kinds)
+				q.choices = func(st *store.State, _ formAnswers) []menuRow { return formPickRows(st, pick) }
+			}
+		}
+		sp.qs = append(sp.qs, q)
 	}
 	asked := map[string]bool{}
 	for _, ff := range h.flags {

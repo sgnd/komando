@@ -27,7 +27,7 @@ import (
 func clusterRmCmd() *cobra.Command {
 	var ns string
 	c := &cobra.Command{
-		Use:   "rm TARGET TYPE NAME",
+		Use:   "rm TARGET TYPE/NAME",
 		Short: "Delete an object, service or stack (needs --allow-dangerous)",
 		Example: `  komando cluster rm prod-k8s pod api-7d9f-x2 --namespace shop --allow-dangerous
   komando cluster rm swarm-manager service/web --allow-dangerous`,

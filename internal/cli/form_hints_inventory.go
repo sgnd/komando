@@ -172,7 +172,7 @@ var invListHints = map[string]formHint{
 var invJobHints = map[string]formHint{
 	"job": {},
 	"job start": {
-		next: []string{"job list", "job status JOB_ID"},
+		next: []string{"job list", "job status JOB"},
 		args: []formArg{invServers, {ask: "What command should it run?", example: "apt-get -y upgrade",
 			help: "A long task that keeps running when your connection drops. Type it as you would on the server."}},
 		flags: []formFlag{invSudo, invReadOnly,
@@ -313,7 +313,7 @@ func init() {
 		"job status":   {next: []string{"job logs {} --limit 50", "job wait {}", "job kill {}"}},
 		"job wait":     {next: []string{"job logs {} --limit 50", "job rm {}"}},
 		"job kill":     {next: []string{"job status {}", "job rm {}"}},
-		"job list":     {next: []string{"job list --refresh", "job status JOB_ID", "job rm JOB_ID"}},
+		"job list":     {next: []string{"job list --refresh", "job status JOB", "job rm JOB"}},
 		"policy deny":  {next: []string{"policy check 'COMMAND'", "policy list", "policy rm ID"}},
 		"policy check": {next: []string{"policy list"}},
 		"audit":        {next: []string{"audit verify", "audit --failed"}},

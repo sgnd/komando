@@ -315,7 +315,7 @@ func queueGroupsCmd() *cobra.Command {
 
 func queueLagCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "lag CONN GROUP",
+		Use:   "lag CONN CONSUMER",
 		Short: "How far one Kafka consumer group (or NATS consumer) is behind",
 		Example: `  komando queue lag events billing
   komando queue lag stream ORDERS/billing`,

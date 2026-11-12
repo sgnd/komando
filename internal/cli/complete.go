@@ -46,16 +46,16 @@ func addCompletion(c *cobra.Command) {
 		if i := strings.LastIndex(w, "|"); i >= 0 {
 			w = w[i+1:] // NAME|TARGET: complete targets
 		}
-		if w == "NAME" {
+		// completion is keyed by (group, word): NAME is the command's own
+		// noun, KEY a cache key (none), SETTING a setting (S-4.2)
+		switch {
+		case w == "NAME":
 			w = c.Parent().Name()
-		}
-		if w == "DATABASE" { // db dump and db restore name a conn (a database komando knows)
-			w = "CONN"
-		}
-		if w == "KEY" && c.Parent().Name() == "config" {
+		case w == "SERVER":
+			w = "host"
+		case w == "SETTING":
 			w = "setting"
-		}
-		if w == "VALUE" && c.Parent().Name() == "config" {
+		case w == "VALUE" && c.Parent().Name() == "config":
 			w = "setting-value"
 		}
 		kinds = append(kinds, w)
@@ -63,7 +63,7 @@ func addCompletion(c *cobra.Command) {
 	known := false
 	for _, k := range kinds {
 		switch k {
-		case "TARGET", "CONN", "host", "conn", "vpn", "key", "KEY", "secret", "recipe", "GROUP", "setting", "setting-value":
+		case "TARGET", "CONN", "host", "conn", "vpn", "key", "secret", "recipe", "GROUP", "setting", "setting-value":
 			known = true
 		}
 	}
@@ -80,7 +80,7 @@ func addCompletion(c *cobra.Command) {
 		}
 		switch kinds[i] {
 		case "TARGET":
-			return targetCompletions(toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
+			return keepTargets(targetCompletions(toComplete), targetKinds(c)), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
 		case "setting-value":
 			if len(args) > 0 {
 				if s, err := findSetting(args[0]); err == nil {
@@ -88,11 +88,14 @@ func addCompletion(c *cobra.Command) {
 				}
 			}
 			return nil, cobra.ShellCompDirectiveNoFileComp
-		case "KEY":
-			return completionNames("key"), cobra.ShellCompDirectiveDefault // a key name or a .pub file
 		case "CONN":
 			return connsOfFamily(completionNames("CONN"), commandFamily(c)), cobra.ShellCompDirectiveNoFileComp
-		case "host", "conn", "vpn", "key", "secret", "recipe", "GROUP", "setting":
+		case "key":
+			if c.Name() == "deploy" || c.Name() == "revoke" {
+				return completionNames("key"), cobra.ShellCompDirectiveDefault // a key name or a .pub file
+			}
+			return completionNames("key"), cobra.ShellCompDirectiveNoFileComp
+		case "host", "conn", "vpn", "secret", "recipe", "GROUP", "setting":
 			return completionNames(kinds[i]), cobra.ShellCompDirectiveNoFileComp
 		}
 		return nil, cobra.ShellCompDirectiveDefault

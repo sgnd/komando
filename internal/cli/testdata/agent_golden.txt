@@ -181,43 +181,43 @@ Error: missing arguments; usage: komando cache rm CONN KEY...
 ### komando -o json cache run (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND [ARG...]","hint":"for example: komando cache run cache -- HGETALL user:42"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND...","hint":"for example: komando cache run cache -- HGETALL user:42"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cache run CONN -- COMMAND [ARG...]
+Error: missing arguments; usage: komando cache run CONN -- COMMAND...
 ### komando -o json cache run (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND [ARG...]","hint":"for example: komando cache run cache -- HGETALL user:42"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND...","hint":"for example: komando cache run cache -- HGETALL user:42"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cache run CONN -- COMMAND [ARG...]
+Error: missing arguments; usage: komando cache run CONN -- COMMAND...
 ### komando -o json cache run x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND [ARG...]","hint":"for example: komando cache run cache -- HGETALL user:42"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND...","hint":"for example: komando cache run cache -- HGETALL user:42"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cache run CONN -- COMMAND [ARG...]
+Error: missing arguments; usage: komando cache run CONN -- COMMAND...
 ### komando -o json cache run x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND [ARG...]","hint":"for example: komando cache run cache -- HGETALL user:42"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"missing arguments; usage: komando cache run CONN -- COMMAND...","hint":"for example: komando cache run cache -- HGETALL user:42"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cache run CONN -- COMMAND [ARG...]
+Error: missing arguments; usage: komando cache run CONN -- COMMAND...
 ### komando -o json cache set (agent json)
 exit 2
 --- stdout
@@ -261,23 +261,23 @@ Error: missing arguments; usage: komando cache set CONN KEY VALUE
 ### komando -o json cert check (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cert.check","error":{"code":"USAGE","message":"missing arguments; usage: komando cert check TARGET...","hint":"for example: komando cert check web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cert.check","error":{"code":"USAGE","message":"missing arguments; usage: komando cert check TARGET|URL...","hint":"for example: komando cert check web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cert check (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cert check TARGET...
+Error: missing arguments; usage: komando cert check TARGET|URL...
 ### komando -o json cert check (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cert.check","error":{"code":"USAGE","message":"missing arguments; usage: komando cert check TARGET...","hint":"for example: komando cert check web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cert.check","error":{"code":"USAGE","message":"missing arguments; usage: komando cert check TARGET|URL...","hint":"for example: komando cert check web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cert check (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cert check TARGET...
+Error: missing arguments; usage: komando cert check TARGET|URL...
 ### komando -o json cluster add (agent json)
 exit 2
 --- stdout
@@ -361,43 +361,43 @@ Error: missing arguments; usage: komando cluster deploy TARGET TYPE/NAME --image
 ### komando -o json cluster describe (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster describe TARGET TYPE NAME","hint":"for example: komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster describe TARGET TYPE/NAME","hint":"for example: komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster describe (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster describe TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster describe TARGET TYPE/NAME
 ### komando -o json cluster describe (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster describe TARGET TYPE NAME","hint":"for example: komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster describe TARGET TYPE/NAME","hint":"for example: komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster describe (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster describe TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster describe TARGET TYPE/NAME
 ### komando -o json cluster describe x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster describe TARGET TYPE NAME","hint":"for example: komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster describe TARGET TYPE/NAME","hint":"for example: komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster describe x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster describe TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster describe TARGET TYPE/NAME
 ### komando -o json cluster describe x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster describe TARGET TYPE NAME","hint":"for example: komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.describe","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster describe TARGET TYPE/NAME","hint":"for example: komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster describe x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster describe TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster describe TARGET TYPE/NAME
 ### komando -o json cluster events (agent json)
 exit 2
 --- stdout
@@ -501,43 +501,43 @@ Error: missing arguments; usage: komando cluster forward TARGET TYPE/NAME [LOCAL
 ### komando -o json cluster get (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.get","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster get TARGET TYPE NAME","hint":"for example: komando cluster get prod-k8s deployment api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.get","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster get TARGET TYPE/NAME","hint":"for example: komando cluster get prod-k8s deployment api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster get (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster get TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster get TARGET TYPE/NAME
 ### komando -o json cluster get (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.get","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster get TARGET TYPE NAME","hint":"for example: komando cluster get prod-k8s deployment api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.get","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster get TARGET TYPE/NAME","hint":"for example: komando cluster get prod-k8s deployment api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster get (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster get TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster get TARGET TYPE/NAME
 ### komando -o json cluster get x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.get","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster get TARGET TYPE NAME","hint":"for example: komando cluster get prod-k8s deployment api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.get","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster get TARGET TYPE/NAME","hint":"for example: komando cluster get prod-k8s deployment api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster get x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster get TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster get TARGET TYPE/NAME
 ### komando -o json cluster get x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.get","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster get TARGET TYPE NAME","hint":"for example: komando cluster get prod-k8s deployment api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.get","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster get TARGET TYPE/NAME","hint":"for example: komando cluster get prod-k8s deployment api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster get x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster get TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster get TARGET TYPE/NAME
 ### komando -o json cluster helm history (agent json)
 exit 2
 --- stdout
@@ -681,43 +681,43 @@ Error: missing arguments; usage: komando cluster helm values TARGET RELEASE
 ### komando -o json cluster history (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.history","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster history TARGET deployment/NAME","hint":"for example: komando cluster history prod deployment/api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.history","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster history TARGET TYPE/NAME","hint":"for example: komando cluster history prod deployment/api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster history (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster history TARGET deployment/NAME
+Error: missing arguments; usage: komando cluster history TARGET TYPE/NAME
 ### komando -o json cluster history (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.history","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster history TARGET deployment/NAME","hint":"for example: komando cluster history prod deployment/api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.history","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster history TARGET TYPE/NAME","hint":"for example: komando cluster history prod deployment/api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster history (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster history TARGET deployment/NAME
+Error: missing arguments; usage: komando cluster history TARGET TYPE/NAME
 ### komando -o json cluster history x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.history","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster history TARGET deployment/NAME","hint":"for example: komando cluster history prod deployment/api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.history","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster history TARGET TYPE/NAME","hint":"for example: komando cluster history prod deployment/api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster history x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster history TARGET deployment/NAME
+Error: missing arguments; usage: komando cluster history TARGET TYPE/NAME
 ### komando -o json cluster history x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.history","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster history TARGET deployment/NAME","hint":"for example: komando cluster history prod deployment/api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.history","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster history TARGET TYPE/NAME","hint":"for example: komando cluster history prod deployment/api --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster history x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster history TARGET deployment/NAME
+Error: missing arguments; usage: komando cluster history TARGET TYPE/NAME
 ### komando -o json cluster list (agent json)
 exit 2
 --- stdout
@@ -821,43 +821,43 @@ Error: missing arguments; usage: komando cluster restart TARGET TYPE/NAME
 ### komando -o json cluster rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster rm TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster rm TARGET TYPE/NAME
 ### komando -o json cluster rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster rm TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster rm TARGET TYPE/NAME
 ### komando -o json cluster rm x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster rm x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster rm TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster rm TARGET TYPE/NAME
 ### komando -o json cluster rm x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster rm x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cluster rm TARGET TYPE NAME
+Error: missing arguments; usage: komando cluster rm TARGET TYPE/NAME
 ### komando -o json cluster rollback (agent json)
 exit 2
 --- stdout
@@ -1041,63 +1041,63 @@ Error: missing arguments; usage: komando cluster status TARGET [TYPE/NAME]
 ### komando -o json config get (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.get","error":{"code":"USAGE","message":"missing arguments; usage: komando config get KEY","hint":"for example: komando config get parallel"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.get","error":{"code":"USAGE","message":"missing arguments; usage: komando config get SETTING","hint":"for example: komando config get parallel"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config get (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config get KEY
+Error: missing arguments; usage: komando config get SETTING
 ### komando -o json config get (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.get","error":{"code":"USAGE","message":"missing arguments; usage: komando config get KEY","hint":"for example: komando config get parallel"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.get","error":{"code":"USAGE","message":"missing arguments; usage: komando config get SETTING","hint":"for example: komando config get parallel"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config get (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config get KEY
+Error: missing arguments; usage: komando config get SETTING
 ### komando -o json config set (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set KEY VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set SETTING VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config set (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config set KEY VALUE
+Error: missing arguments; usage: komando config set SETTING VALUE
 ### komando -o json config set (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set KEY VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set SETTING VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config set (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config set KEY VALUE
+Error: missing arguments; usage: komando config set SETTING VALUE
 ### komando -o json config set x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set KEY VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set SETTING VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config set x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config set KEY VALUE
+Error: missing arguments; usage: komando config set SETTING VALUE
 ### komando -o json config set x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set KEY VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set SETTING VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config set x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config set KEY VALUE
+Error: missing arguments; usage: komando config set SETTING VALUE
 ### komando -o json conn add (agent json)
 exit 2
 --- stdout
@@ -1181,23 +1181,23 @@ Error: missing arguments; usage: komando conn rename OLD NEW
 ### komando -o json conn rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"conn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rm NAME|TARGET...","hint":"for example: komando conn rm shop-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rm TARGET...","hint":"for example: komando conn rm shop-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text conn rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando conn rm NAME|TARGET...
+Error: missing arguments; usage: komando conn rm TARGET...
 ### komando -o json conn rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"conn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rm NAME|TARGET...","hint":"for example: komando conn rm shop-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rm TARGET...","hint":"for example: komando conn rm shop-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text conn rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando conn rm NAME|TARGET...
+Error: missing arguments; usage: komando conn rm TARGET...
 ### komando -o json conn show (agent json)
 exit 2
 --- stdout
@@ -1301,83 +1301,83 @@ Error: missing arguments; usage: komando cron list TARGET
 ### komando -o json cron rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cron.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cron rm TARGET ID","hint":"for example: komando cron rm web1 nightly-backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cron rm TARGET NAME","hint":"for example: komando cron rm web1 nightly-backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cron rm TARGET ID
+Error: missing arguments; usage: komando cron rm TARGET NAME
 ### komando -o json cron rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cron.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cron rm TARGET ID","hint":"for example: komando cron rm web1 nightly-backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cron rm TARGET NAME","hint":"for example: komando cron rm web1 nightly-backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cron rm TARGET ID
+Error: missing arguments; usage: komando cron rm TARGET NAME
 ### komando -o json cron rm x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cron.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cron rm TARGET ID","hint":"for example: komando cron rm web1 nightly-backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cron rm TARGET NAME","hint":"for example: komando cron rm web1 nightly-backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron rm x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cron rm TARGET ID
+Error: missing arguments; usage: komando cron rm TARGET NAME
 ### komando -o json cron rm x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cron.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cron rm TARGET ID","hint":"for example: komando cron rm web1 nightly-backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cron rm TARGET NAME","hint":"for example: komando cron rm web1 nightly-backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron rm x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cron rm TARGET ID
+Error: missing arguments; usage: komando cron rm TARGET NAME
 ### komando -o json cron set (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cron.set","error":{"code":"USAGE","message":"missing arguments; usage: komando cron set TARGET ID COMMAND","hint":"for example: komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.set","error":{"code":"USAGE","message":"missing arguments; usage: komando cron set TARGET NAME COMMAND --schedule SCHEDULE","hint":"for example: komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron set (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cron set TARGET ID COMMAND
+Error: missing arguments; usage: komando cron set TARGET NAME COMMAND --schedule SCHEDULE
 ### komando -o json cron set (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cron.set","error":{"code":"USAGE","message":"missing arguments; usage: komando cron set TARGET ID COMMAND","hint":"for example: komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.set","error":{"code":"USAGE","message":"missing arguments; usage: komando cron set TARGET NAME COMMAND --schedule SCHEDULE","hint":"for example: komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron set (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cron set TARGET ID COMMAND
+Error: missing arguments; usage: komando cron set TARGET NAME COMMAND --schedule SCHEDULE
 ### komando -o json cron set x1 x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cron.set","error":{"code":"USAGE","message":"missing arguments; usage: komando cron set TARGET ID COMMAND","hint":"for example: komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.set","error":{"code":"USAGE","message":"missing arguments; usage: komando cron set TARGET NAME COMMAND --schedule SCHEDULE","hint":"for example: komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron set x1 x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cron set TARGET ID COMMAND
+Error: missing arguments; usage: komando cron set TARGET NAME COMMAND --schedule SCHEDULE
 ### komando -o json cron set x1 x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cron.set","error":{"code":"USAGE","message":"missing arguments; usage: komando cron set TARGET ID COMMAND","hint":"for example: komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.set","error":{"code":"USAGE","message":"missing arguments; usage: komando cron set TARGET NAME COMMAND --schedule SCHEDULE","hint":"for example: komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron set x1 x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cron set TARGET ID COMMAND
+Error: missing arguments; usage: komando cron set TARGET NAME COMMAND --schedule SCHEDULE
 ### komando -o json db activity (agent json)
 exit 2
 --- stdout
@@ -1621,23 +1621,23 @@ Error: missing arguments; usage: komando db query CONN [SQL]
 ### komando -o json db restore (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando db restore CONN","hint":"for example: komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando db restore CONN --from FILE","hint":"for example: komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db restore (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db restore CONN
+Error: missing arguments; usage: komando db restore CONN --from FILE
 ### komando -o json db restore (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando db restore CONN","hint":"for example: komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando db restore CONN --from FILE","hint":"for example: komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db restore (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db restore CONN
+Error: missing arguments; usage: komando db restore CONN --from FILE
 ### komando -o json db revoke (agent json)
 exit 2
 --- stdout
@@ -1741,43 +1741,43 @@ Error: missing arguments; usage: komando db sizes CONN
 ### komando -o json db user add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN NAME","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user add CONN NAME
+Error: missing arguments; usage: komando db user add CONN USER --password-ref REF
 ### komando -o json db user add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN NAME","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user add CONN NAME
+Error: missing arguments; usage: komando db user add CONN USER --password-ref REF
 ### komando -o json db user add x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN NAME","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user add x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user add CONN NAME
+Error: missing arguments; usage: komando db user add CONN USER --password-ref REF
 ### komando -o json db user add x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN NAME","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando db user add CONN USER --password-ref REF","hint":"for example: komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user add x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user add CONN NAME
+Error: missing arguments; usage: komando db user add CONN USER --password-ref REF
 ### komando -o json db user list (agent json)
 exit 2
 --- stdout
@@ -1801,83 +1801,83 @@ Error: missing arguments; usage: komando db user list CONN
 ### komando -o json db user passwd (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN NAME","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user passwd (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user passwd CONN NAME
+Error: missing arguments; usage: komando db user passwd CONN USER --password-ref REF
 ### komando -o json db user passwd (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN NAME","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user passwd (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user passwd CONN NAME
+Error: missing arguments; usage: komando db user passwd CONN USER --password-ref REF
 ### komando -o json db user passwd x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN NAME","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user passwd x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user passwd CONN NAME
+Error: missing arguments; usage: komando db user passwd CONN USER --password-ref REF
 ### komando -o json db user passwd x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN NAME","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.passwd","error":{"code":"USAGE","message":"missing arguments; usage: komando db user passwd CONN USER --password-ref REF","hint":"for example: komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user passwd x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user passwd CONN NAME
+Error: missing arguments; usage: komando db user passwd CONN USER --password-ref REF
 ### komando -o json db user rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando db user rm CONN NAME","hint":"for example: komando db user rm prod-db old_app --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando db user rm CONN USER","hint":"for example: komando db user rm prod-db old_app --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user rm CONN NAME
+Error: missing arguments; usage: komando db user rm CONN USER
 ### komando -o json db user rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando db user rm CONN NAME","hint":"for example: komando db user rm prod-db old_app --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando db user rm CONN USER","hint":"for example: komando db user rm prod-db old_app --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user rm CONN NAME
+Error: missing arguments; usage: komando db user rm CONN USER
 ### komando -o json db user rm x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando db user rm CONN NAME","hint":"for example: komando db user rm prod-db old_app --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando db user rm CONN USER","hint":"for example: komando db user rm prod-db old_app --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user rm x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user rm CONN NAME
+Error: missing arguments; usage: komando db user rm CONN USER
 ### komando -o json db user rm x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando db user rm CONN NAME","hint":"for example: komando db user rm prod-db old_app --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando db user rm CONN USER","hint":"for example: komando db user rm prod-db old_app --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user rm x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando db user rm CONN NAME
+Error: missing arguments; usage: komando db user rm CONN USER
 ### komando -o json db user show (agent json)
 exit 2
 --- stdout
@@ -1961,43 +1961,43 @@ Error: missing arguments; usage: komando docker compose TARGET -- ARGS...
 ### komando -o json docker exec (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND [ARG...]","hint":"for example: komando docker exec app1 api -- php artisan migrate:status"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND...","hint":"for example: komando docker exec app1 api -- php artisan migrate:status"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker exec (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND [ARG...]
+Error: missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND...
 ### komando -o json docker exec (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND [ARG...]","hint":"for example: komando docker exec app1 api -- php artisan migrate:status"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND...","hint":"for example: komando docker exec app1 api -- php artisan migrate:status"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker exec (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND [ARG...]
+Error: missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND...
 ### komando -o json docker exec x1 x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND [ARG...]","hint":"for example: komando docker exec app1 api -- php artisan migrate:status"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND...","hint":"for example: komando docker exec app1 api -- php artisan migrate:status"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker exec x1 x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND [ARG...]
+Error: missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND...
 ### komando -o json docker exec x1 x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND [ARG...]","hint":"for example: komando docker exec app1 api -- php artisan migrate:status"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.exec","error":{"code":"USAGE","message":"missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND...","hint":"for example: komando docker exec app1 api -- php artisan migrate:status"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker exec x1 x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND [ARG...]
+Error: missing arguments; usage: komando docker exec TARGET CONTAINER -- COMMAND...
 ### komando -o json docker images (agent json)
 exit 2
 --- stdout
@@ -2021,43 +2021,43 @@ Error: missing arguments; usage: komando docker images TARGET
 ### komando -o json docker inspect (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando docker inspect TARGET NAME","hint":"for example: komando docker inspect web1 api"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando docker inspect TARGET CONTAINER|IMAGE","hint":"for example: komando docker inspect web1 api"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker inspect (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker inspect TARGET NAME
+Error: missing arguments; usage: komando docker inspect TARGET CONTAINER|IMAGE
 ### komando -o json docker inspect (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando docker inspect TARGET NAME","hint":"for example: komando docker inspect web1 api"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando docker inspect TARGET CONTAINER|IMAGE","hint":"for example: komando docker inspect web1 api"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker inspect (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker inspect TARGET NAME
+Error: missing arguments; usage: komando docker inspect TARGET CONTAINER|IMAGE
 ### komando -o json docker inspect x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando docker inspect TARGET NAME","hint":"for example: komando docker inspect web1 api"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando docker inspect TARGET CONTAINER|IMAGE","hint":"for example: komando docker inspect web1 api"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker inspect x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker inspect TARGET NAME
+Error: missing arguments; usage: komando docker inspect TARGET CONTAINER|IMAGE
 ### komando -o json docker inspect x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando docker inspect TARGET NAME","hint":"for example: komando docker inspect web1 api"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando docker inspect TARGET CONTAINER|IMAGE","hint":"for example: komando docker inspect web1 api"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker inspect x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker inspect TARGET NAME
+Error: missing arguments; usage: komando docker inspect TARGET CONTAINER|IMAGE
 ### komando -o json docker logs (agent json)
 exit 2
 --- stdout
@@ -2181,43 +2181,43 @@ Error: missing arguments; usage: komando docker pull TARGET IMAGE...
 ### komando -o json docker raw (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.raw","error":{"code":"USAGE","message":"missing arguments; usage: komando docker raw TARGET -- DOCKER_ARGS...","hint":"for example: komando docker raw web1 -- network ls"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.raw","error":{"code":"USAGE","message":"missing arguments; usage: komando docker raw TARGET -- ARGS...","hint":"for example: komando docker raw web1 -- network ls"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker raw (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker raw TARGET -- DOCKER_ARGS...
+Error: missing arguments; usage: komando docker raw TARGET -- ARGS...
 ### komando -o json docker raw (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.raw","error":{"code":"USAGE","message":"missing arguments; usage: komando docker raw TARGET -- DOCKER_ARGS...","hint":"for example: komando docker raw web1 -- network ls"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.raw","error":{"code":"USAGE","message":"missing arguments; usage: komando docker raw TARGET -- ARGS...","hint":"for example: komando docker raw web1 -- network ls"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker raw (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker raw TARGET -- DOCKER_ARGS...
+Error: missing arguments; usage: komando docker raw TARGET -- ARGS...
 ### komando -o json docker raw x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.raw","error":{"code":"USAGE","message":"missing arguments; usage: komando docker raw TARGET -- DOCKER_ARGS...","hint":"for example: komando docker raw web1 -- network ls"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.raw","error":{"code":"USAGE","message":"missing arguments; usage: komando docker raw TARGET -- ARGS...","hint":"for example: komando docker raw web1 -- network ls"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker raw x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker raw TARGET -- DOCKER_ARGS...
+Error: missing arguments; usage: komando docker raw TARGET -- ARGS...
 ### komando -o json docker raw x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"docker.raw","error":{"code":"USAGE","message":"missing arguments; usage: komando docker raw TARGET -- DOCKER_ARGS...","hint":"for example: komando docker raw web1 -- network ls"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.raw","error":{"code":"USAGE","message":"missing arguments; usage: komando docker raw TARGET -- ARGS...","hint":"for example: komando docker raw web1 -- network ls"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker raw x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando docker raw TARGET -- DOCKER_ARGS...
+Error: missing arguments; usage: komando docker raw TARGET -- ARGS...
 ### komando -o json docker restart (agent json)
 exit 2
 --- stdout
@@ -2481,43 +2481,43 @@ Error: missing arguments; usage: komando facts TARGET
 ### komando -o json fs cat (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs cat TARGET PATH","hint":"for example: komando fs cat web1 /etc/nginx/nginx.conf"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs cat SERVER PATH","hint":"for example: komando fs cat web1 /etc/nginx/nginx.conf"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs cat (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs cat TARGET PATH
+Error: missing arguments; usage: komando fs cat SERVER PATH
 ### komando -o json fs cat (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs cat TARGET PATH","hint":"for example: komando fs cat web1 /etc/nginx/nginx.conf"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs cat SERVER PATH","hint":"for example: komando fs cat web1 /etc/nginx/nginx.conf"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs cat (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs cat TARGET PATH
+Error: missing arguments; usage: komando fs cat SERVER PATH
 ### komando -o json fs cat x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs cat TARGET PATH","hint":"for example: komando fs cat web1 /etc/nginx/nginx.conf"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs cat SERVER PATH","hint":"for example: komando fs cat web1 /etc/nginx/nginx.conf"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs cat x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs cat TARGET PATH
+Error: missing arguments; usage: komando fs cat SERVER PATH
 ### komando -o json fs cat x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs cat TARGET PATH","hint":"for example: komando fs cat web1 /etc/nginx/nginx.conf"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs cat SERVER PATH","hint":"for example: komando fs cat web1 /etc/nginx/nginx.conf"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs cat x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs cat TARGET PATH
+Error: missing arguments; usage: komando fs cat SERVER PATH
 ### komando -o json fs chmod (agent json)
 exit 2
 --- stdout
@@ -2561,23 +2561,23 @@ Error: missing arguments; usage: komando fs chmod TARGET MODE PATH...
 ### komando -o json fs list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando fs list TARGET [PATH]","hint":"for example: komando fs list web1 /var/www"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando fs list SERVER [PATH]","hint":"for example: komando fs list web1 /var/www"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs list (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs list TARGET [PATH]
+Error: missing arguments; usage: komando fs list SERVER [PATH]
 ### komando -o json fs list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando fs list TARGET [PATH]","hint":"for example: komando fs list web1 /var/www"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando fs list SERVER [PATH]","hint":"for example: komando fs list web1 /var/www"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs list (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs list TARGET [PATH]
+Error: missing arguments; usage: komando fs list SERVER [PATH]
 ### komando -o json fs mkdir (agent json)
 exit 2
 --- stdout
@@ -2661,83 +2661,83 @@ Error: missing arguments; usage: komando fs mv TARGET SRC DST
 ### komando -o json fs replace (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs replace (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT
+Error: missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT
 ### komando -o json fs replace (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs replace (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT
+Error: missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT
 ### komando -o json fs replace x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs replace x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT
+Error: missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT
 ### komando -o json fs replace x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs replace x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT
+Error: missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT
 ### komando -o json fs restore (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore TARGET PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore SERVER PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs restore (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs restore TARGET PATH
+Error: missing arguments; usage: komando fs restore SERVER PATH
 ### komando -o json fs restore (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore TARGET PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore SERVER PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs restore (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs restore TARGET PATH
+Error: missing arguments; usage: komando fs restore SERVER PATH
 ### komando -o json fs restore x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore TARGET PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore SERVER PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs restore x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs restore TARGET PATH
+Error: missing arguments; usage: komando fs restore SERVER PATH
 ### komando -o json fs restore x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore TARGET PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore SERVER PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs restore x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs restore TARGET PATH
+Error: missing arguments; usage: komando fs restore SERVER PATH
 ### komando -o json fs rm (agent json)
 exit 2
 --- stdout
@@ -2781,83 +2781,83 @@ Error: missing arguments; usage: komando fs rm TARGET PATH...
 ### komando -o json fs stat (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.stat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs stat TARGET PATH","hint":"for example: komando fs stat web1 /etc/nginx/nginx.conf --sha256"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.stat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs stat SERVER PATH","hint":"for example: komando fs stat web1 /etc/nginx/nginx.conf --sha256"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs stat (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs stat TARGET PATH
+Error: missing arguments; usage: komando fs stat SERVER PATH
 ### komando -o json fs stat (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.stat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs stat TARGET PATH","hint":"for example: komando fs stat web1 /etc/nginx/nginx.conf --sha256"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.stat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs stat SERVER PATH","hint":"for example: komando fs stat web1 /etc/nginx/nginx.conf --sha256"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs stat (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs stat TARGET PATH
+Error: missing arguments; usage: komando fs stat SERVER PATH
 ### komando -o json fs stat x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.stat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs stat TARGET PATH","hint":"for example: komando fs stat web1 /etc/nginx/nginx.conf --sha256"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.stat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs stat SERVER PATH","hint":"for example: komando fs stat web1 /etc/nginx/nginx.conf --sha256"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs stat x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs stat TARGET PATH
+Error: missing arguments; usage: komando fs stat SERVER PATH
 ### komando -o json fs stat x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.stat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs stat TARGET PATH","hint":"for example: komando fs stat web1 /etc/nginx/nginx.conf --sha256"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.stat","error":{"code":"USAGE","message":"missing arguments; usage: komando fs stat SERVER PATH","hint":"for example: komando fs stat web1 /etc/nginx/nginx.conf --sha256"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs stat x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs stat TARGET PATH
+Error: missing arguments; usage: komando fs stat SERVER PATH
 ### komando -o json fs write (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.write","error":{"code":"USAGE","message":"missing arguments; usage: komando fs write TARGET PATH","hint":"for example: komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.write","error":{"code":"USAGE","message":"missing arguments; usage: komando fs write SERVER PATH","hint":"for example: komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs write (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs write TARGET PATH
+Error: missing arguments; usage: komando fs write SERVER PATH
 ### komando -o json fs write (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.write","error":{"code":"USAGE","message":"missing arguments; usage: komando fs write TARGET PATH","hint":"for example: komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.write","error":{"code":"USAGE","message":"missing arguments; usage: komando fs write SERVER PATH","hint":"for example: komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs write (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs write TARGET PATH
+Error: missing arguments; usage: komando fs write SERVER PATH
 ### komando -o json fs write x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.write","error":{"code":"USAGE","message":"missing arguments; usage: komando fs write TARGET PATH","hint":"for example: komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.write","error":{"code":"USAGE","message":"missing arguments; usage: komando fs write SERVER PATH","hint":"for example: komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs write x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs write TARGET PATH
+Error: missing arguments; usage: komando fs write SERVER PATH
 ### komando -o json fs write x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.write","error":{"code":"USAGE","message":"missing arguments; usage: komando fs write TARGET PATH","hint":"for example: komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.write","error":{"code":"USAGE","message":"missing arguments; usage: komando fs write SERVER PATH","hint":"for example: komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs write x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs write TARGET PATH
+Error: missing arguments; usage: komando fs write SERVER PATH
 ### komando -o json group add (agent json)
 exit 2
 --- stdout
@@ -2981,23 +2981,23 @@ Error: komando host add needs a name and what to add
 ### komando -o json host edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando host edit NAME|TARGET...","hint":"for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando host edit TARGET...","hint":"for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host edit (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host edit NAME|TARGET...
+Error: missing arguments; usage: komando host edit TARGET...
 ### komando -o json host edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando host edit NAME|TARGET...","hint":"for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando host edit TARGET...","hint":"for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host edit (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host edit NAME|TARGET...
+Error: missing arguments; usage: komando host edit TARGET...
 ### komando -o json host rename (agent json)
 exit 2
 --- stdout
@@ -3041,23 +3041,23 @@ Error: missing arguments; usage: komando host rename OLD NEW
 ### komando -o json host rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando host rm NAME|TARGET...","hint":"for example: komando host rm web3"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando host rm TARGET...","hint":"for example: komando host rm web3"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host rm NAME|TARGET...
+Error: missing arguments; usage: komando host rm TARGET...
 ### komando -o json host rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando host rm NAME|TARGET...","hint":"for example: komando host rm web3"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando host rm TARGET...","hint":"for example: komando host rm web3"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host rm NAME|TARGET...
+Error: missing arguments; usage: komando host rm TARGET...
 ### komando -o json host show (agent json)
 exit 2
 --- stdout
@@ -3161,63 +3161,63 @@ Error: missing arguments; usage: komando import SOURCE [FILE]
 ### komando -o json job kill (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.kill","error":{"code":"USAGE","message":"missing arguments; usage: komando job kill JOB_ID","hint":"for example: komando job kill j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.kill","error":{"code":"USAGE","message":"missing arguments; usage: komando job kill JOB","hint":"for example: komando job kill j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job kill (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job kill JOB_ID
+Error: missing arguments; usage: komando job kill JOB
 ### komando -o json job kill (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.kill","error":{"code":"USAGE","message":"missing arguments; usage: komando job kill JOB_ID","hint":"for example: komando job kill j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.kill","error":{"code":"USAGE","message":"missing arguments; usage: komando job kill JOB","hint":"for example: komando job kill j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job kill (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job kill JOB_ID
+Error: missing arguments; usage: komando job kill JOB
 ### komando -o json job logs (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB_ID","hint":"for example: komando job logs j1103-101500-ab12cd34 --limit 100"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB","hint":"for example: komando job logs j1103-101500-ab12cd34 --limit 100"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job logs (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job logs JOB_ID
+Error: missing arguments; usage: komando job logs JOB
 ### komando -o json job logs (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB_ID","hint":"for example: komando job logs j1103-101500-ab12cd34 --limit 100"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB","hint":"for example: komando job logs j1103-101500-ab12cd34 --limit 100"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job logs (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job logs JOB_ID
+Error: missing arguments; usage: komando job logs JOB
 ### komando -o json job rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando job rm JOB_ID...","hint":"for example: komando job rm j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando job rm JOB...","hint":"for example: komando job rm j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job rm JOB_ID...
+Error: missing arguments; usage: komando job rm JOB...
 ### komando -o json job rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando job rm JOB_ID...","hint":"for example: komando job rm j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando job rm JOB...","hint":"for example: komando job rm j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job rm JOB_ID...
+Error: missing arguments; usage: komando job rm JOB...
 ### komando -o json job start (agent json)
 exit 2
 --- stdout
@@ -3241,123 +3241,123 @@ Error: missing arguments; usage: komando job start TARGET -- COMMAND...
 ### komando -o json job status (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.status","error":{"code":"USAGE","message":"missing arguments; usage: komando job status JOB_ID","hint":"for example: komando job status j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.status","error":{"code":"USAGE","message":"missing arguments; usage: komando job status JOB","hint":"for example: komando job status j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job status (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job status JOB_ID
+Error: missing arguments; usage: komando job status JOB
 ### komando -o json job status (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.status","error":{"code":"USAGE","message":"missing arguments; usage: komando job status JOB_ID","hint":"for example: komando job status j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.status","error":{"code":"USAGE","message":"missing arguments; usage: komando job status JOB","hint":"for example: komando job status j1103-101500-ab12cd34"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job status (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job status JOB_ID
+Error: missing arguments; usage: komando job status JOB
 ### komando -o json job wait (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.wait","error":{"code":"USAGE","message":"missing arguments; usage: komando job wait JOB_ID...","hint":"for example: komando job wait j1103-101500-ab12cd34 --timeout 30m"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.wait","error":{"code":"USAGE","message":"missing arguments; usage: komando job wait JOB...","hint":"for example: komando job wait j1103-101500-ab12cd34 --timeout 30m"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job wait (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job wait JOB_ID...
+Error: missing arguments; usage: komando job wait JOB...
 ### komando -o json job wait (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.wait","error":{"code":"USAGE","message":"missing arguments; usage: komando job wait JOB_ID...","hint":"for example: komando job wait j1103-101500-ab12cd34 --timeout 30m"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.wait","error":{"code":"USAGE","message":"missing arguments; usage: komando job wait JOB...","hint":"for example: komando job wait j1103-101500-ab12cd34 --timeout 30m"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job wait (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job wait JOB_ID...
+Error: missing arguments; usage: komando job wait JOB...
 ### komando -o json key add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME PATH","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME FILE","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key add NAME PATH
+Error: missing arguments; usage: komando key add NAME FILE
 ### komando -o json key add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME PATH","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME FILE","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key add NAME PATH
+Error: missing arguments; usage: komando key add NAME FILE
 ### komando -o json key add x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME PATH","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME FILE","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key add x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key add NAME PATH
+Error: missing arguments; usage: komando key add NAME FILE
 ### komando -o json key add x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME PATH","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME FILE","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key add x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key add NAME PATH
+Error: missing arguments; usage: komando key add NAME FILE
 ### komando -o json key deploy (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy KEY TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy NAME TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key deploy (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key deploy KEY TARGET
+Error: missing arguments; usage: komando key deploy NAME TARGET
 ### komando -o json key deploy (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy KEY TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy NAME TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key deploy (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key deploy KEY TARGET
+Error: missing arguments; usage: komando key deploy NAME TARGET
 ### komando -o json key deploy x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy KEY TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy NAME TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key deploy x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key deploy KEY TARGET
+Error: missing arguments; usage: komando key deploy NAME TARGET
 ### komando -o json key deploy x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy KEY TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy NAME TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key deploy x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key deploy KEY TARGET
+Error: missing arguments; usage: komando key deploy NAME TARGET
 ### komando -o json key edit (agent json)
 exit 2
 --- stdout
@@ -3441,43 +3441,43 @@ Error: missing arguments; usage: komando key rename OLD NEW
 ### komando -o json key revoke (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke KEY TARGET","hint":"for example: komando key revoke ~/keys/budi.pub @prod --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke NAME TARGET","hint":"for example: komando key revoke ~/keys/budi.pub @prod --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key revoke (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key revoke KEY TARGET
+Error: missing arguments; usage: komando key revoke NAME TARGET
 ### komando -o json key revoke (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke KEY TARGET","hint":"for example: komando key revoke ~/keys/budi.pub @prod --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke NAME TARGET","hint":"for example: komando key revoke ~/keys/budi.pub @prod --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key revoke (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key revoke KEY TARGET
+Error: missing arguments; usage: komando key revoke NAME TARGET
 ### komando -o json key revoke x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke KEY TARGET","hint":"for example: komando key revoke ~/keys/budi.pub @prod --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke NAME TARGET","hint":"for example: komando key revoke ~/keys/budi.pub @prod --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key revoke x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key revoke KEY TARGET
+Error: missing arguments; usage: komando key revoke NAME TARGET
 ### komando -o json key revoke x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke KEY TARGET","hint":"for example: komando key revoke ~/keys/budi.pub @prod --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke NAME TARGET","hint":"for example: komando key revoke ~/keys/budi.pub @prod --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key revoke x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key revoke KEY TARGET
+Error: missing arguments; usage: komando key revoke NAME TARGET
 ### komando -o json key rm (agent json)
 exit 2
 --- stdout
@@ -3541,83 +3541,83 @@ Error: missing arguments; usage: komando logs TARGET
 ### komando -o json net check (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"net.check","error":{"code":"USAGE","message":"missing arguments; usage: komando net check TARGET HOST:PORT...","hint":"for example: komando net check @web db.internal:5432 redis.internal:6379"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"net.check","error":{"code":"USAGE","message":"missing arguments; usage: komando net check TARGET ADDRESS:PORT...","hint":"for example: komando net check @web db.internal:5432 redis.internal:6379"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text net check (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando net check TARGET HOST:PORT...
+Error: missing arguments; usage: komando net check TARGET ADDRESS:PORT...
 ### komando -o json net check (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"net.check","error":{"code":"USAGE","message":"missing arguments; usage: komando net check TARGET HOST:PORT...","hint":"for example: komando net check @web db.internal:5432 redis.internal:6379"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"net.check","error":{"code":"USAGE","message":"missing arguments; usage: komando net check TARGET ADDRESS:PORT...","hint":"for example: komando net check @web db.internal:5432 redis.internal:6379"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text net check (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando net check TARGET HOST:PORT...
+Error: missing arguments; usage: komando net check TARGET ADDRESS:PORT...
 ### komando -o json net check x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"net.check","error":{"code":"USAGE","message":"missing arguments; usage: komando net check TARGET HOST:PORT...","hint":"for example: komando net check @web db.internal:5432 redis.internal:6379"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"net.check","error":{"code":"USAGE","message":"missing arguments; usage: komando net check TARGET ADDRESS:PORT...","hint":"for example: komando net check @web db.internal:5432 redis.internal:6379"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text net check x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando net check TARGET HOST:PORT...
+Error: missing arguments; usage: komando net check TARGET ADDRESS:PORT...
 ### komando -o json net check x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"net.check","error":{"code":"USAGE","message":"missing arguments; usage: komando net check TARGET HOST:PORT...","hint":"for example: komando net check @web db.internal:5432 redis.internal:6379"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"net.check","error":{"code":"USAGE","message":"missing arguments; usage: komando net check TARGET ADDRESS:PORT...","hint":"for example: komando net check @web db.internal:5432 redis.internal:6379"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text net check x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando net check TARGET HOST:PORT...
+Error: missing arguments; usage: komando net check TARGET ADDRESS:PORT...
 ### komando -o json net dns (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"net.dns","error":{"code":"USAGE","message":"missing arguments; usage: komando net dns TARGET NAME","hint":"for example: komando net dns @web db.internal"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"net.dns","error":{"code":"USAGE","message":"missing arguments; usage: komando net dns TARGET DOMAIN","hint":"for example: komando net dns @web db.internal"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text net dns (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando net dns TARGET NAME
+Error: missing arguments; usage: komando net dns TARGET DOMAIN
 ### komando -o json net dns (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"net.dns","error":{"code":"USAGE","message":"missing arguments; usage: komando net dns TARGET NAME","hint":"for example: komando net dns @web db.internal"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"net.dns","error":{"code":"USAGE","message":"missing arguments; usage: komando net dns TARGET DOMAIN","hint":"for example: komando net dns @web db.internal"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text net dns (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando net dns TARGET NAME
+Error: missing arguments; usage: komando net dns TARGET DOMAIN
 ### komando -o json net dns x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"net.dns","error":{"code":"USAGE","message":"missing arguments; usage: komando net dns TARGET NAME","hint":"for example: komando net dns @web db.internal"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"net.dns","error":{"code":"USAGE","message":"missing arguments; usage: komando net dns TARGET DOMAIN","hint":"for example: komando net dns @web db.internal"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text net dns x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando net dns TARGET NAME
+Error: missing arguments; usage: komando net dns TARGET DOMAIN
 ### komando -o json net dns x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"net.dns","error":{"code":"USAGE","message":"missing arguments; usage: komando net dns TARGET NAME","hint":"for example: komando net dns @web db.internal"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"net.dns","error":{"code":"USAGE","message":"missing arguments; usage: komando net dns TARGET DOMAIN","hint":"for example: komando net dns @web db.internal"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text net dns x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando net dns TARGET NAME
+Error: missing arguments; usage: komando net dns TARGET DOMAIN
 ### komando -o json net http (agent json)
 exit 2
 --- stdout
@@ -3901,23 +3901,23 @@ Error: missing arguments; usage: komando policy deny REGEX
 ### komando -o json policy rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando policy rm PATTERN|ID","hint":"for example: komando policy rm 'kubectl\\s+delete'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando policy rm RULE","hint":"for example: komando policy rm 'kubectl\\s+delete'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text policy rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy rm PATTERN|ID
+Error: missing arguments; usage: komando policy rm RULE
 ### komando -o json policy rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"policy.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando policy rm PATTERN|ID","hint":"for example: komando policy rm 'kubectl\\s+delete'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"policy.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando policy rm RULE","hint":"for example: komando policy rm 'kubectl\\s+delete'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text policy rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando policy rm PATTERN|ID
+Error: missing arguments; usage: komando policy rm RULE
 ### komando -o json queue add (agent json)
 exit 2
 --- stdout
@@ -4061,43 +4061,43 @@ Error: missing arguments; usage: komando queue info CONN
 ### komando -o json queue lag (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN GROUP","hint":"for example: komando queue lag events billing"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN CONSUMER","hint":"for example: komando queue lag events billing"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text queue lag (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue lag CONN GROUP
+Error: missing arguments; usage: komando queue lag CONN CONSUMER
 ### komando -o json queue lag (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN GROUP","hint":"for example: komando queue lag events billing"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN CONSUMER","hint":"for example: komando queue lag events billing"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text queue lag (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue lag CONN GROUP
+Error: missing arguments; usage: komando queue lag CONN CONSUMER
 ### komando -o json queue lag x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN GROUP","hint":"for example: komando queue lag events billing"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN CONSUMER","hint":"for example: komando queue lag events billing"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text queue lag x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue lag CONN GROUP
+Error: missing arguments; usage: komando queue lag CONN CONSUMER
 ### komando -o json queue lag x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN GROUP","hint":"for example: komando queue lag events billing"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.lag","error":{"code":"USAGE","message":"missing arguments; usage: komando queue lag CONN CONSUMER","hint":"for example: komando queue lag events billing"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text queue lag x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando queue lag CONN GROUP
+Error: missing arguments; usage: komando queue lag CONN CONSUMER
 ### komando -o json queue list (agent json)
 exit 2
 --- stdout
@@ -4421,83 +4421,83 @@ Error: komando registry add needs a name and a URL
 ### komando -o json registry copy (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN:[IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry copy (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN:[IMAGE]
+Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]
 ### komando -o json registry copy (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN:[IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry copy (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN:[IMAGE]
+Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]
 ### komando -o json registry copy x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN:[IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry copy x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN:[IMAGE]
+Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]
 ### komando -o json registry copy x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN:[IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.copy","error":{"code":"USAGE","message":"missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]","hint":"for example: komando registry copy ghcr:org/app:1.4.2 harbor:prod/app:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry copy x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN:[IMAGE]
+Error: missing arguments; usage: komando registry copy SRC_CONN:IMAGE DST_CONN[:IMAGE]
 ### komando -o json registry inspect (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN REPO[:TAG|@DIGEST]","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN IMAGE","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry inspect (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry inspect CONN REPO[:TAG|@DIGEST]
+Error: missing arguments; usage: komando registry inspect CONN IMAGE
 ### komando -o json registry inspect (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN REPO[:TAG|@DIGEST]","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN IMAGE","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry inspect (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry inspect CONN REPO[:TAG|@DIGEST]
+Error: missing arguments; usage: komando registry inspect CONN IMAGE
 ### komando -o json registry inspect x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN REPO[:TAG|@DIGEST]","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN IMAGE","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry inspect x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry inspect CONN REPO[:TAG|@DIGEST]
+Error: missing arguments; usage: komando registry inspect CONN IMAGE
 ### komando -o json registry inspect x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN REPO[:TAG|@DIGEST]","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.inspect","error":{"code":"USAGE","message":"missing arguments; usage: komando registry inspect CONN IMAGE","hint":"for example: komando registry inspect ghcr myorg/api:1.4.2"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry inspect x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry inspect CONN REPO[:TAG|@DIGEST]
+Error: missing arguments; usage: komando registry inspect CONN IMAGE
 ### komando -o json registry list (agent json)
 exit 2
 --- stdout
@@ -4561,43 +4561,43 @@ Error: missing arguments; usage: komando registry prune CONN REPO
 ### komando -o json registry rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN REPO:TAG|REPO@DIGEST","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN IMAGE","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry rm CONN REPO:TAG|REPO@DIGEST
+Error: missing arguments; usage: komando registry rm CONN IMAGE
 ### komando -o json registry rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN REPO:TAG|REPO@DIGEST","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN IMAGE","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry rm CONN REPO:TAG|REPO@DIGEST
+Error: missing arguments; usage: komando registry rm CONN IMAGE
 ### komando -o json registry rm x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN REPO:TAG|REPO@DIGEST","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN IMAGE","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry rm x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry rm CONN REPO:TAG|REPO@DIGEST
+Error: missing arguments; usage: komando registry rm CONN IMAGE
 ### komando -o json registry rm x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN REPO:TAG|REPO@DIGEST","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando registry rm CONN IMAGE","hint":"for example: komando registry rm harbor myorg/api:old --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry rm x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando registry rm CONN REPO:TAG|REPO@DIGEST
+Error: missing arguments; usage: komando registry rm CONN IMAGE
 ### komando -o json rename (agent json)
 exit 2
 --- stdout
@@ -4801,43 +4801,43 @@ Error: missing arguments; usage: komando secret show NAME
 ### komando -o json shell (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"shell","error":{"code":"USAGE","message":"missing arguments; usage: komando shell TARGET","hint":"for example: komando shell web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"shell","error":{"code":"USAGE","message":"missing arguments; usage: komando shell SERVER","hint":"for example: komando shell web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text shell (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando shell TARGET
+Error: missing arguments; usage: komando shell SERVER
 ### komando -o json shell (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"shell","error":{"code":"USAGE","message":"missing arguments; usage: komando shell TARGET","hint":"for example: komando shell web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"shell","error":{"code":"USAGE","message":"missing arguments; usage: komando shell SERVER","hint":"for example: komando shell web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text shell (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando shell TARGET
+Error: missing arguments; usage: komando shell SERVER
 ### komando -o json ssh-gate line (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"ssh-gate.line","error":{"code":"USAGE","message":"missing arguments; usage: komando ssh-gate line PUBLIC_KEY","hint":"for example: komando ssh-gate line --name phone ~/phone.pub"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"ssh-gate.line","error":{"code":"USAGE","message":"missing arguments; usage: komando ssh-gate line PUBLIC_KEY --name NAME","hint":"for example: komando ssh-gate line --name phone ~/phone.pub"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text ssh-gate line (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando ssh-gate line PUBLIC_KEY
+Error: missing arguments; usage: komando ssh-gate line PUBLIC_KEY --name NAME
 ### komando -o json ssh-gate line (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"ssh-gate.line","error":{"code":"USAGE","message":"missing arguments; usage: komando ssh-gate line PUBLIC_KEY","hint":"for example: komando ssh-gate line --name phone ~/phone.pub"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"ssh-gate.line","error":{"code":"USAGE","message":"missing arguments; usage: komando ssh-gate line PUBLIC_KEY --name NAME","hint":"for example: komando ssh-gate line --name phone ~/phone.pub"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text ssh-gate line (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando ssh-gate line PUBLIC_KEY
+Error: missing arguments; usage: komando ssh-gate line PUBLIC_KEY --name NAME
 ### komando -o json storage add (agent json)
 exit 2
 --- stdout
@@ -4861,123 +4861,123 @@ Error: komando storage add needs a name and a URL
 ### komando -o json storage cat (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN KEY","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN OBJECT","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage cat (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage cat CONN KEY
+Error: missing arguments; usage: komando storage cat CONN OBJECT
 ### komando -o json storage cat (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN KEY","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN OBJECT","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage cat (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage cat CONN KEY
+Error: missing arguments; usage: komando storage cat CONN OBJECT
 ### komando -o json storage cat x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN KEY","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN OBJECT","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage cat x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage cat CONN KEY
+Error: missing arguments; usage: komando storage cat CONN OBJECT
 ### komando -o json storage cat x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN KEY","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.cat","error":{"code":"USAGE","message":"missing arguments; usage: komando storage cat CONN OBJECT","hint":"for example: komando storage cat backups logs/app-2026-11-02.log --tail 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage cat x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage cat CONN KEY
+Error: missing arguments; usage: komando storage cat CONN OBJECT
 ### komando -o json storage download (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN KEY","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN OBJECT","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage download (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage download CONN KEY
+Error: missing arguments; usage: komando storage download CONN OBJECT
 ### komando -o json storage download (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN KEY","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN OBJECT","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage download (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage download CONN KEY
+Error: missing arguments; usage: komando storage download CONN OBJECT
 ### komando -o json storage download x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN KEY","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN OBJECT","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage download x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage download CONN KEY
+Error: missing arguments; usage: komando storage download CONN OBJECT
 ### komando -o json storage download x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN KEY","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN OBJECT","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage download x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage download CONN KEY
+Error: missing arguments; usage: komando storage download CONN OBJECT
 ### komando -o json storage link (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN KEY","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN OBJECT","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage link (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage link CONN KEY
+Error: missing arguments; usage: komando storage link CONN OBJECT
 ### komando -o json storage link (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN KEY","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN OBJECT","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage link (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage link CONN KEY
+Error: missing arguments; usage: komando storage link CONN OBJECT
 ### komando -o json storage link x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN KEY","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN OBJECT","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage link x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage link CONN KEY
+Error: missing arguments; usage: komando storage link CONN OBJECT
 ### komando -o json storage link x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN KEY","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.link","error":{"code":"USAGE","message":"missing arguments; usage: komando storage link CONN OBJECT","hint":"for example: komando storage link backups reports/q3.pdf --expires 24h"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage link x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage link CONN KEY
+Error: missing arguments; usage: komando storage link CONN OBJECT
 ### komando -o json storage list (agent json)
 exit 2
 --- stdout
@@ -5001,63 +5001,63 @@ Error: missing arguments; usage: komando storage list CONN [PREFIX]
 ### komando -o json storage rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando storage rm CONN [KEY...]","hint":"for example: komando storage rm backups --prefix daily/ --older-than 30d --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando storage rm CONN [OBJECT...]","hint":"for example: komando storage rm backups --prefix daily/ --older-than 30d --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage rm CONN [KEY...]
+Error: missing arguments; usage: komando storage rm CONN [OBJECT...]
 ### komando -o json storage rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando storage rm CONN [KEY...]","hint":"for example: komando storage rm backups --prefix daily/ --older-than 30d --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando storage rm CONN [OBJECT...]","hint":"for example: komando storage rm backups --prefix daily/ --older-than 30d --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage rm CONN [KEY...]
+Error: missing arguments; usage: komando storage rm CONN [OBJECT...]
 ### komando -o json storage upload (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [KEY]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [OBJECT]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage upload (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage upload CONN FILE [KEY]
+Error: missing arguments; usage: komando storage upload CONN FILE [OBJECT]
 ### komando -o json storage upload (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [KEY]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [OBJECT]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage upload (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage upload CONN FILE [KEY]
+Error: missing arguments; usage: komando storage upload CONN FILE [OBJECT]
 ### komando -o json storage upload x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [KEY]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [OBJECT]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage upload x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage upload CONN FILE [KEY]
+Error: missing arguments; usage: komando storage upload CONN FILE [OBJECT]
 ### komando -o json storage upload x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [KEY]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [OBJECT]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage upload x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando storage upload CONN FILE [KEY]
+Error: missing arguments; usage: komando storage upload CONN FILE [OBJECT]
 ### komando -o json svc daemon-reload (agent json)
 exit 2
 --- stdout
@@ -5481,23 +5481,23 @@ Error: missing arguments; usage: komando test TARGET
 ### komando -o json tunnel start (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"tunnel.start","error":{"code":"USAGE","message":"missing arguments; usage: komando tunnel start TARGET [-L spec | -R spec | -D spec]","hint":"for example: komando tunnel start app-db"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"tunnel.start","error":{"code":"USAGE","message":"missing arguments; usage: komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)","hint":"for example: komando tunnel start app-db"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text tunnel start (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando tunnel start TARGET [-L spec | -R spec | -D spec]
+Error: missing arguments; usage: komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)
 ### komando -o json tunnel start (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"tunnel.start","error":{"code":"USAGE","message":"missing arguments; usage: komando tunnel start TARGET [-L spec | -R spec | -D spec]","hint":"for example: komando tunnel start app-db"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"tunnel.start","error":{"code":"USAGE","message":"missing arguments; usage: komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)","hint":"for example: komando tunnel start app-db"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text tunnel start (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando tunnel start TARGET [-L spec | -R spec | -D spec]
+Error: missing arguments; usage: komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)
 ### komando -o json upload (agent json)
 exit 2
 --- stdout
@@ -5541,43 +5541,43 @@ Error: missing arguments; usage: komando upload TARGET FILE [DEST]
 ### komando -o json user add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando user add TARGET USERNAME","hint":"for example: komando user add @web deploy --key deploy --admin"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando user add TARGET USER","hint":"for example: komando user add @web deploy --key deploy --admin"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user add TARGET USERNAME
+Error: missing arguments; usage: komando user add TARGET USER
 ### komando -o json user add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando user add TARGET USERNAME","hint":"for example: komando user add @web deploy --key deploy --admin"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando user add TARGET USER","hint":"for example: komando user add @web deploy --key deploy --admin"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user add TARGET USERNAME
+Error: missing arguments; usage: komando user add TARGET USER
 ### komando -o json user add x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando user add TARGET USERNAME","hint":"for example: komando user add @web deploy --key deploy --admin"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando user add TARGET USER","hint":"for example: komando user add @web deploy --key deploy --admin"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user add x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user add TARGET USERNAME
+Error: missing arguments; usage: komando user add TARGET USER
 ### komando -o json user add x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando user add TARGET USERNAME","hint":"for example: komando user add @web deploy --key deploy --admin"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.add","error":{"code":"USAGE","message":"missing arguments; usage: komando user add TARGET USER","hint":"for example: komando user add @web deploy --key deploy --admin"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user add x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user add TARGET USERNAME
+Error: missing arguments; usage: komando user add TARGET USER
 ### komando -o json user list (agent json)
 exit 2
 --- stdout
@@ -5601,123 +5601,123 @@ Error: missing arguments; usage: komando user list TARGET
 ### komando -o json user lock (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.lock","error":{"code":"USAGE","message":"missing arguments; usage: komando user lock TARGET USERNAME","hint":"for example: komando user lock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.lock","error":{"code":"USAGE","message":"missing arguments; usage: komando user lock TARGET USER","hint":"for example: komando user lock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user lock (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user lock TARGET USERNAME
+Error: missing arguments; usage: komando user lock TARGET USER
 ### komando -o json user lock (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.lock","error":{"code":"USAGE","message":"missing arguments; usage: komando user lock TARGET USERNAME","hint":"for example: komando user lock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.lock","error":{"code":"USAGE","message":"missing arguments; usage: komando user lock TARGET USER","hint":"for example: komando user lock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user lock (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user lock TARGET USERNAME
+Error: missing arguments; usage: komando user lock TARGET USER
 ### komando -o json user lock x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.lock","error":{"code":"USAGE","message":"missing arguments; usage: komando user lock TARGET USERNAME","hint":"for example: komando user lock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.lock","error":{"code":"USAGE","message":"missing arguments; usage: komando user lock TARGET USER","hint":"for example: komando user lock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user lock x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user lock TARGET USERNAME
+Error: missing arguments; usage: komando user lock TARGET USER
 ### komando -o json user lock x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.lock","error":{"code":"USAGE","message":"missing arguments; usage: komando user lock TARGET USERNAME","hint":"for example: komando user lock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.lock","error":{"code":"USAGE","message":"missing arguments; usage: komando user lock TARGET USER","hint":"for example: komando user lock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user lock x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user lock TARGET USERNAME
+Error: missing arguments; usage: komando user lock TARGET USER
 ### komando -o json user rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando user rm TARGET USERNAME","hint":"for example: komando user rm web1 alice --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando user rm TARGET USER","hint":"for example: komando user rm web1 alice --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user rm TARGET USERNAME
+Error: missing arguments; usage: komando user rm TARGET USER
 ### komando -o json user rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando user rm TARGET USERNAME","hint":"for example: komando user rm web1 alice --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando user rm TARGET USER","hint":"for example: komando user rm web1 alice --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user rm TARGET USERNAME
+Error: missing arguments; usage: komando user rm TARGET USER
 ### komando -o json user rm x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando user rm TARGET USERNAME","hint":"for example: komando user rm web1 alice --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando user rm TARGET USER","hint":"for example: komando user rm web1 alice --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user rm x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user rm TARGET USERNAME
+Error: missing arguments; usage: komando user rm TARGET USER
 ### komando -o json user rm x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando user rm TARGET USERNAME","hint":"for example: komando user rm web1 alice --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando user rm TARGET USER","hint":"for example: komando user rm web1 alice --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user rm x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user rm TARGET USERNAME
+Error: missing arguments; usage: komando user rm TARGET USER
 ### komando -o json user unlock (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.unlock","error":{"code":"USAGE","message":"missing arguments; usage: komando user unlock TARGET USERNAME","hint":"for example: komando user unlock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.unlock","error":{"code":"USAGE","message":"missing arguments; usage: komando user unlock TARGET USER","hint":"for example: komando user unlock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user unlock (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user unlock TARGET USERNAME
+Error: missing arguments; usage: komando user unlock TARGET USER
 ### komando -o json user unlock (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.unlock","error":{"code":"USAGE","message":"missing arguments; usage: komando user unlock TARGET USERNAME","hint":"for example: komando user unlock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.unlock","error":{"code":"USAGE","message":"missing arguments; usage: komando user unlock TARGET USER","hint":"for example: komando user unlock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user unlock (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user unlock TARGET USERNAME
+Error: missing arguments; usage: komando user unlock TARGET USER
 ### komando -o json user unlock x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.unlock","error":{"code":"USAGE","message":"missing arguments; usage: komando user unlock TARGET USERNAME","hint":"for example: komando user unlock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.unlock","error":{"code":"USAGE","message":"missing arguments; usage: komando user unlock TARGET USER","hint":"for example: komando user unlock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user unlock x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user unlock TARGET USERNAME
+Error: missing arguments; usage: komando user unlock TARGET USER
 ### komando -o json user unlock x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"user.unlock","error":{"code":"USAGE","message":"missing arguments; usage: komando user unlock TARGET USERNAME","hint":"for example: komando user unlock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.unlock","error":{"code":"USAGE","message":"missing arguments; usage: komando user unlock TARGET USER","hint":"for example: komando user unlock web1 alice"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user unlock x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando user unlock TARGET USERNAME
+Error: missing arguments; usage: komando user unlock TARGET USER
 ### komando -o json vpn add (agent json)
 exit 2
 --- stdout
@@ -5741,23 +5741,23 @@ Error: komando vpn add needs a name and what to add
 ### komando -o json vpn edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn edit NAME|TARGET...","hint":"for example: komando vpn edit office --check 10.0.0.5:22"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn edit TARGET...","hint":"for example: komando vpn edit office --check 10.0.0.5:22"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn edit (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn edit NAME|TARGET...
+Error: missing arguments; usage: komando vpn edit TARGET...
 ### komando -o json vpn edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn edit NAME|TARGET...","hint":"for example: komando vpn edit office --check 10.0.0.5:22"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn edit TARGET...","hint":"for example: komando vpn edit office --check 10.0.0.5:22"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn edit (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn edit NAME|TARGET...
+Error: missing arguments; usage: komando vpn edit TARGET...
 ### komando -o json vpn rename (agent json)
 exit 2
 --- stdout
@@ -5801,23 +5801,23 @@ Error: missing arguments; usage: komando vpn rename OLD NEW
 ### komando -o json vpn rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rm NAME|TARGET...","hint":"for example: komando vpn rm old-office"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rm TARGET...","hint":"for example: komando vpn rm old-office"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn rm (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn rm NAME|TARGET...
+Error: missing arguments; usage: komando vpn rm TARGET...
 ### komando -o json vpn rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rm NAME|TARGET...","hint":"for example: komando vpn rm old-office"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rm TARGET...","hint":"for example: komando vpn rm old-office"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn rm (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn rm NAME|TARGET...
+Error: missing arguments; usage: komando vpn rm TARGET...
 ### komando -o json vpn show (agent json)
 exit 2
 --- stdout

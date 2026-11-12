@@ -21,7 +21,7 @@ func fsRestoreCmd() *cobra.Command {
 	var sudo bool
 	var from string
 	c := &cobra.Command{
-		Use:   "restore TARGET PATH",
+		Use:   "restore SERVER PATH",
 		Short: "Undo a file edit: put back the copy --backup kept (PATH.bak)",
 		Long: `Puts back the newest backup of PATH that fs write or fs replace --backup
 made (PATH.bak, or PATH.bak.<UTC time> when there are several). The file as

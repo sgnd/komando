@@ -424,7 +424,7 @@ func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
 func logoutCmd() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
-		Use:   "logout [HOST...]",
+		Use:   "logout [SERVER...]",
 		Short: "End server logins kept by `komando login` (--all for every one)",
 		Long: `Ends what ` + "`komando login SERVER`" + ` keeps: the connection closes, and later
 commands to that server log in again (a two-factor server asks a person).

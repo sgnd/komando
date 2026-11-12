@@ -260,7 +260,7 @@ func init() {
 		"cluster status":   {next: []string{"cluster list {} pods", "cluster events {} --warnings"}},
 		"cluster list":     {next: []string{"cluster describe {} TYPE NAME", "cluster logs {} TYPE/NAME"}},
 		"cluster deploy":   {next: []string{"cluster status {} TYPE/NAME --wait", "cluster rollback {} TYPE/NAME"}},
-		"cluster rollback": {next: []string{"cluster history {} deployment/NAME"}},
+		"cluster rollback": {next: []string{"cluster history {} TYPE/NAME"}},
 		"cluster apply":    {next: []string{"cluster status {}"}},
 		"cluster rm":       {next: []string{"cluster list {} TYPE"}},
 		"cluster scale":    {next: []string{"cluster status {} TYPE/NAME --wait"}},

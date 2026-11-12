@@ -633,7 +633,7 @@ func sshGateLineCmd() *cobra.Command {
 	var name string
 	var readOnly bool
 	c := &cobra.Command{
-		Use:   "line PUBLIC_KEY",
+		Use:   "line PUBLIC_KEY --name NAME",
 		Short: "Print the authorized_keys line that limits a key to komando",
 		Long: `Prints the line to add to ~/.ssh/authorized_keys on this computer, so the
 key runs komando through ssh-gate and nothing else. PUBLIC_KEY is the key's

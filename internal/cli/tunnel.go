@@ -102,7 +102,7 @@ func tunnelStartCmd() *cobra.Command {
 	var l, r, d string
 	var port int
 	c := &cobra.Command{
-		Use:   "start TARGET [-L spec | -R spec | -D spec]",
+		Use:   "start TARGET (-L SPEC | -R SPEC | -D SPEC)",
 		Short: "Start a background tunnel; returns its ID and bound address",
 		Long: `With a conn name and no -L/-R/-D, the tunnel leads to that conn through its --via path:
 point your database app or psql at the local address it prints. With a server, give one of -L, -R or -D.`,
@@ -403,7 +403,7 @@ func tunnelListCmd() *cobra.Command {
 func tunnelStopCmd() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
-		Use:   "stop [ID...]",
+		Use:   "stop [TUNNEL...]",
 		Short: "Stop tunnels by ID (--all for every tunnel)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !all && len(args) == 0 {

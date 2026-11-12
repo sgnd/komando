@@ -79,7 +79,7 @@ func vpnNames(vs []*store.Vpn) []string {
 func vpnEditCmd() *cobra.Command {
 	var e vpnEditFlags
 	c := &cobra.Command{
-		Use:   "edit NAME|TARGET...",
+		Use:   "edit TARGET...",
 		Short: "Change one or more VPNs (only the flags you pass change)",
 		Long: `Changes the common settings of a VPN. To give a WireGuard or OpenVPN VPN a
 new config file, add it again with --overwrite. -g and -t add a group or a
@@ -333,7 +333,7 @@ func vpnChanged(a, b *store.Vpn) bool {
 
 func vpnRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm NAME|TARGET...",
+		Use:   "rm TARGET...",
 		Short: "Remove VPNs from komando (their keys stay in the vault)",
 		Example: `  komando vpn rm old-office
   komando vpn rm @lab --dry-run       # what a selector would remove`,

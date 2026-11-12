@@ -366,7 +366,7 @@ func policyCheckKinds() []string {
 // policyRmCmd removes a rule added with policy deny.
 func policyRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm PATTERN|ID",
+		Use:   "rm RULE",
 		Short: "Remove a rule you added (built-in rules stay)",
 		Long: `Removes a rule added with ` + "`policy deny`" + `. Give it as you wrote it, or by
 its id in ` + "`policy list`" + ` (custom- and eight letters and digits, made from

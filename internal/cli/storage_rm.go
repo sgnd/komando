@@ -22,7 +22,7 @@ func storageRmCmd() *cobra.Command {
 	var prefix, olderThan string
 	var limit int
 	c := &cobra.Command{
-		Use:   "rm CONN [KEY...]",
+		Use:   "rm CONN [OBJECT...]",
 		Short: "Delete objects by key or --prefix (needs --allow-dangerous)",
 		Long: `Without --prefix, rm takes exact keys (no patterns). With --prefix it removes
 every object under that folder, or with --older-than only the ones older

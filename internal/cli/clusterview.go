@@ -119,7 +119,7 @@ func clusterEventsCmd() *cobra.Command {
 func clusterDescribeCmd() *cobra.Command {
 	var ns string
 	c := &cobra.Command{
-		Use:   "describe TARGET TYPE NAME",
+		Use:   "describe TARGET TYPE/NAME",
 		Short: "One object in short: state, images, conditions, pods, events",
 		Example: `  komando cluster describe prod-k8s pod api-7d9f-x2 --namespace shop
   komando cluster describe prod-k8s deployment/api --namespace shop

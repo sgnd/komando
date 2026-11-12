@@ -292,7 +292,7 @@ func configCmd() *cobra.Command {
 		},
 	})
 	c.AddCommand(&cobra.Command{
-		Use:     "get KEY",
+		Use:     "get SETTING",
 		Short:   "Print one setting",
 		Example: "  komando config get parallel\n  komando config get host_key_policy -o text",
 		Args:    cobra.ExactArgs(1),
@@ -310,7 +310,7 @@ func configCmd() *cobra.Command {
 		},
 	})
 	set := &cobra.Command{
-		Use:   "set KEY VALUE",
+		Use:   "set SETTING VALUE",
 		Short: "Change a setting",
 		Long:  "Settings:\n" + keysHelp.String() + "\nTo go back to a default, set the value from the DEFAULT column of `komando config show`.",
 		Example: `  komando config set parallel 20

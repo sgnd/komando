@@ -543,8 +543,8 @@ func TestFormPickKinds(t *testing.T) {
 	if !slices.Contains(got, "app-db") {
 		t.Errorf("db dump <TAB>: %v", got)
 	}
-	if p, _ := formArgPick("DATABASE"); p != "db" {
-		t.Errorf("DATABASE picks %q", p)
+	if p, _ := formArgPick("SERVER"); p != "server" {
+		t.Errorf("SERVER picks %q", p) // one server (S-4.2)
 	}
 	st, _ := loadState()
 	names := func(rows []menuRow) (n []string) {

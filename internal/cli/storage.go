@@ -332,7 +332,7 @@ func storageCatCmd() *cobra.Command {
 	var head, tail int
 	var maxBytes int64
 	c := &cobra.Command{
-		Use:   "cat CONN KEY",
+		Use:   "cat CONN OBJECT",
 		Short: "Show an object's text (--head or --tail N lines, --max-bytes)",
 		Example: `  komando storage cat backups logs/app-2026-11-02.log --tail 50
   komando storage cat config prod/app.env`,
@@ -434,7 +434,7 @@ func storageLinkCmd() *cobra.Command {
 	var expires time.Duration
 	var endpoint string
 	c := &cobra.Command{
-		Use:     "link CONN KEY",
+		Use:     "link CONN OBJECT",
 		Aliases: []string{"presign", "share"},
 		Short:   "Make a temporary download link that works without a login",
 		Long: `Prints a URL anyone can use to download KEY until it expires (default 1 hour,

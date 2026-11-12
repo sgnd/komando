@@ -228,13 +228,13 @@ once with a job ID per server.
 komando job start web1 -- 'tar czf /backup/www.tgz /var/www'
 komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
 komando job start @web --script ./migrate.sh --arg v2   # a script from this computer
-komando job status JOB_ID               # running, exited or lost; exit code; last lines
-komando job logs JOB_ID                 # output so far
-komando job wait JOB_ID --timeout 30m   # wait until it ends
-komando job wait JOB_ID1 JOB_ID2        # wait for several (one per server)
-komando job kill JOB_ID                 # stop it (TERM; --signal KILL for a hard stop)
+komando job status JOB               # running, exited or lost; exit code; last lines
+komando job logs JOB                 # output so far
+komando job wait JOB --timeout 30m   # wait until it ends
+komando job wait JOB1 JOB2        # wait for several (one per server)
+komando job kill JOB                 # stop it (TERM; --signal KILL for a hard stop)
 komando job list                        # every job; --refresh asks the servers
-komando job rm JOB_ID                   # forget it and delete its remote logs
+komando job rm JOB                   # forget it and delete its remote logs
 ```
 
 Good to know:

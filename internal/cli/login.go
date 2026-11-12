@@ -24,7 +24,7 @@ import (
 
 func loginCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "login [HOST]",
+		Use:   "login [SERVER]",
 		Short: "Log in to a server once and keep it, or to a cloud account",
 		Long: `Type the password and code once; for 8 hours your commands and your AI
 agent reuse that login. The safety rules, approvals and history of each

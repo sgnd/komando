@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +13,10 @@ import (
 
 // Every db command names its conn CONN in Use, so completion and the
 // prompter's picker find it, and no Use line carries flags (they show in
-// [flags] and in the help).
+// [flags] and in the help) except a required one, with its UPPERCASE
+// value (S-4.3: db restore --from FILE).
+var requiredInUse = regexp.MustCompile(` --[a-z-]+ [A-Z_]+`)
+
 func TestDBUseLines(t *testing.T) {
 	root := newRoot()
 	db, _, err := root.Find([]string{"db"})
@@ -30,7 +34,7 @@ func TestDBUseLines(t *testing.T) {
 		if len(f) < 2 || f[1] != "CONN" {
 			t.Errorf("%s: Use %q: the first argument must be CONN", c.CommandPath(), c.Use)
 		}
-		if strings.Contains(c.Use, "--") || strings.Contains(c.Use, "(") {
+		if u := requiredInUse.ReplaceAllString(c.Use, ""); strings.Contains(u, "--") || strings.Contains(u, "(") {
 			t.Errorf("%s: Use %q carries flags", c.CommandPath(), c.Use)
 		}
 	}

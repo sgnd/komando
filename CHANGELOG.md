@@ -115,6 +115,27 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Usage lines give each argument word one meaning (`komando schema`'s
+  `usage` values change; every command takes the same arguments as
+  before). SSH keys are `key deploy NAME TARGET` and `key revoke NAME
+  TARGET`; a storage object is `OBJECT` and a setting `SETTING`, so `KEY`
+  is only a cache key; `queue lag CONN CONSUMER`; the `fs` commands that
+  take one server and `shell` say `SERVER`; `login [SERVER]`, `logout
+  [SERVER...]`, `net check TARGET ADDRESS:PORT...`, `net dns TARGET
+  DOMAIN`; accounts are `USER` (`user add TARGET USER`, `db user add CONN
+  USER`); `job ... JOB`, `tunnel stop [TUNNEL...]`, `cron set/rm TARGET
+  NAME`, `policy rm RULE`; cluster objects are `TYPE/NAME` (`TYPE NAME`
+  still works); what runs after `--` is `-- COMMAND...` or `-- ARGS...`;
+  a required flag shows with its value (`db restore CONN --from FILE`,
+  `cron set ... --schedule SCHEDULE`, `ssh-gate line PUBLIC_KEY --name
+  NAME`, `db user add/passwd ... --password-ref REF`, `tunnel start
+  TARGET (-L SPEC | -R SPEC | -D SPEC)`); `host add NAME
+  [[USER@]ADDRESS[:PORT]]`, `host/conn/vpn edit` and `rm TARGET...`,
+  `registry inspect/rm CONN IMAGE`, `cert check TARGET|URL...`.
+- A person asked for a TARGET reads which kinds it takes (`Target
+  (servers)`, `Target (clusters)`, `Target (servers or file storage)`),
+  and the picker and Tab offer only those. `fs cat` and the other
+  one-server commands pick one server.
 - More error hints name the komando command to run: `AMBIGUOUS_MATCH`
   (`komando fs cat`), `BUILTIN_RULE` (`komando policy list`),
   `CACHE_AUTH` and `DB_CONNECT` (`komando conn show`),

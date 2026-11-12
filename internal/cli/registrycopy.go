@@ -16,7 +16,7 @@ import (
 
 func registryCopyCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "copy SRC_CONN:IMAGE DST_CONN:[IMAGE]",
+		Use:     "copy SRC_CONN:IMAGE DST_CONN[:IMAGE]",
 		Aliases: []string{"cp"},
 		Short:   "Copy an image (all platforms) between registries or repositories",
 		Long: `Copies IMAGE (REPO[:TAG] or REPO@DIGEST) from one registry conn to another, or

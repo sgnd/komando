@@ -457,7 +457,7 @@ func pkgCmd() *cobra.Command {
 func netCmd() *cobra.Command {
 	c := &cobra.Command{Use: "net", Aliases: []string{"network"}, Short: "Network checks from the servers: ports, HTTP, DNS"}
 	check := &cobra.Command{
-		Use:     "check TARGET HOST:PORT...",
+		Use:     "check TARGET ADDRESS:PORT...",
 		Short:   "Check that each server can open a TCP connection to HOST:PORT",
 		Example: "  komando net check @web db.internal:5432 redis.internal:6379",
 		Args:    cobra.MinimumNArgs(2),
@@ -531,7 +531,7 @@ func netCmd() *cobra.Command {
 	httpC.Flags().StringVar(&expect, "expect", "", "fail unless the status matches, e.g. 200 or 2xx (like curl -f)")
 	var rrType string
 	dns := &cobra.Command{
-		Use:     "dns TARGET NAME",
+		Use:     "dns TARGET DOMAIN",
 		Short:   "Resolve NAME from each server (--type MX etc. needs dig there)",
 		Example: "  komando net dns @web db.internal\n  komando net dns web1 example.com --type MX",
 		Args:    cobra.ExactArgs(2),
@@ -631,7 +631,7 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 	list := cronListCmd(readCron, useSudo)
 	var schedule string
 	set := &cobra.Command{
-		Use:   "set TARGET ID COMMAND",
+		Use:   "set TARGET NAME COMMAND --schedule SCHEDULE",
 		Short: "Create or replace the entry with this ID",
 		Example: `  komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'
   komando cron set @web clean-tmp 'find /tmp -mtime +7 -delete' --schedule @daily`,
@@ -658,7 +658,7 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 	set.Flags().StringVar(&schedule, "schedule", "", "cron schedule: 5 fields like '*/5 * * * *', or @hourly, @daily, @weekly, @monthly, @yearly, @reboot")
 	_ = set.MarkFlagRequired("schedule")
 	rm := &cobra.Command{
-		Use:   "rm TARGET ID",
+		Use:   "rm TARGET NAME",
 		Short: "Remove the entry with this ID",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

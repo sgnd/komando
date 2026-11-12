@@ -18,7 +18,7 @@ import (
 // from an agent. Agents should use exec / job instead.
 func shellCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "shell TARGET",
+		Use:     "shell SERVER",
 		Aliases: []string{"ssh", "connect"},
 		Short:   "Interactive login shell (for people; agents use exec or job)",
 		Args: func(cmd *cobra.Command, args []string) error {

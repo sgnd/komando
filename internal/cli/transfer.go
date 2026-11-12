@@ -48,13 +48,13 @@ func downloadCmd() *cobra.Command { return downloadCmdFor(false) }
 // storageUploadCmd and storageDownloadCmd are `upload` and `download`
 // spelled inside the storage area: the same code, for storage conns only.
 func storageUploadCmd() *cobra.Command {
-	c := alias(uploadCmdFor(true), "upload CONN FILE [KEY]")
+	c := alias(uploadCmdFor(true), "upload CONN FILE [OBJECT]")
 	c.Example = `  komando storage upload backups ./report.pdf reports/2026/`
 	return c
 }
 
 func storageDownloadCmd() *cobra.Command {
-	c := alias(downloadCmdFor(true), "download CONN KEY")
+	c := alias(downloadCmdFor(true), "download CONN OBJECT")
 	c.Example = `  komando storage download backups reports/q3.pdf --to ~/Downloads/`
 	return c
 }
@@ -86,7 +86,7 @@ An existing file at DEST is replaced (the result says replaced).
 		},
 	}
 	if storageOnly {
-		c.Use, c.Aliases = "upload CONN FILE [KEY]", []string{"put"}
+		c.Use, c.Aliases = "upload CONN FILE [OBJECT]", []string{"put"}
 		c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "upload a folder (new and changed files, like komando sync)")
 		return c
 	}
@@ -143,7 +143,7 @@ From storage, --to - writes the object to stdout.
 	c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "download a folder (servers) or every object under a prefix (storage)")
 	c.Flags().BoolVar(&o.overwrite, "overwrite", false, "replace files that already exist on this computer")
 	if storageOnly {
-		c.Use, c.Aliases = "download CONN KEY", []string{"get"}
+		c.Use, c.Aliases = "download CONN OBJECT", []string{"get"}
 		return c
 	}
 	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, "read the file as root (single files)")

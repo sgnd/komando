@@ -396,7 +396,7 @@ func connShowCmd() *cobra.Command {
 
 func connRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm NAME|TARGET...",
+		Use:   "rm TARGET...",
 		Short: "Remove conns from the inventory (the resources are not touched)",
 		Example: `  komando conn rm shop-2
   komando conn rm kind:redis --dry-run`,

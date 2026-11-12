@@ -478,7 +478,7 @@ func (p cacheRmPreview) Text() string {
 func cacheRunCmd() *cobra.Command {
 	var write bool
 	c := &cobra.Command{
-		Use:   "run CONN -- COMMAND [ARG...]",
+		Use:   "run CONN -- COMMAND...",
 		Short: "Send any Redis or memcached command; read-only unless --write",
 		Example: `  komando cache run cache -- HGETALL user:42
   komando cache run cache -- ZREVRANGE leaderboard 0 9 WITHSCORES

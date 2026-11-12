@@ -172,7 +172,7 @@ func fsLsCmd() *cobra.Command {
 	var recursive bool
 	var maxEntries int
 	c := &cobra.Command{
-		Use:   "list TARGET [PATH]",
+		Use:   "list SERVER [PATH]",
 		Short: "List a folder on one server (default: the login user's home)",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -260,7 +260,7 @@ func fsLsCmd() *cobra.Command {
 func fsStatCmd() *cobra.Command {
 	var hash bool
 	c := &cobra.Command{
-		Use:   "stat TARGET PATH",
+		Use:   "stat SERVER PATH",
 		Short: "Look up a path on one server (exists:false, not an error, when missing)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -419,7 +419,7 @@ func fsCatCmd() *cobra.Command {
 	var head, tail int
 	var numbered bool
 	c := &cobra.Command{
-		Use:     "cat TARGET PATH",
+		Use:     "cat SERVER PATH",
 		Aliases: []string{"read"},
 		Short:   "Read a file on one server (--head, --tail, --line-numbers)",
 		Args:    cobra.ExactArgs(2),

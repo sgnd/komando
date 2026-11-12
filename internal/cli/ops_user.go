@@ -223,7 +223,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 	var pubKey, keyName, shell string
 	var admin bool
 	add := &cobra.Command{
-		Use:     "add TARGET USERNAME",
+		Use:     "add TARGET USER",
 		Aliases: []string{"create"},
 		Short:   "Create a user if missing, with an SSH key and sudo if asked",
 		Example: "  komando user add @web deploy --key deploy --admin",
@@ -284,7 +284,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 func userRmCmd(noSudo *bool) *cobra.Command {
 	var removeHome bool
 	del := &cobra.Command{
-		Use:   "rm TARGET USERNAME",
+		Use:   "rm TARGET USER",
 		Short: "Delete a user (needs --allow-dangerous)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -348,7 +348,7 @@ func checkUsername(u string) error {
 // userLockCmds are `user lock` and `user unlock`.
 func userLockCmds(noSudo *bool) (lock, unlock *cobra.Command) {
 	lock = &cobra.Command{
-		Use:   "lock TARGET USERNAME",
+		Use:   "lock TARGET USER",
 		Short: "Lock an account so password and SSH keys stop working",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -364,7 +364,7 @@ func userLockCmds(noSudo *bool) (lock, unlock *cobra.Command) {
 		},
 	}
 	unlock = &cobra.Command{
-		Use:   "unlock TARGET USERNAME",
+		Use:   "unlock TARGET USER",
 		Short: "Unlock an account locked with `user lock`",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

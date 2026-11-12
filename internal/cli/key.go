@@ -181,7 +181,7 @@ func isPublicKey(b []byte) bool {
 func keyAddCmd() *cobra.Command {
 	var passRef string
 	c := &cobra.Command{
-		Use:   "add NAME PATH",
+		Use:   "add NAME FILE",
 		Short: "Add a private key file you already have (komando keeps its path)",
 		Long: `Adds a private key file you already have to komando's key list; the file stays
 where it is. For a key with a passphrase, store the passphrase in the vault
@@ -532,7 +532,7 @@ func deployKey(st *store.State, arg string) (name, line string, err error) {
 func keyDeployCmd() *cobra.Command {
 	var setDefault bool
 	c := &cobra.Command{
-		Use:   "deploy KEY TARGET",
+		Use:   "deploy NAME TARGET",
 		Short: "Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)",
 		Long: `Installs a public key on servers, like ssh-copy-id. KEY is a key in
 komando's key list or a .pub file. komando logs in the way each server is set

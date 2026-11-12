@@ -349,7 +349,7 @@ func clusterHistoryCmd() *cobra.Command {
 	var ns string
 	var limit int
 	c := &cobra.Command{
-		Use:     "history TARGET deployment/NAME",
+		Use:     "history TARGET TYPE/NAME",
 		Short:   "Revisions of a deployment, newest first, with their images",
 		Example: "  komando cluster history prod deployment/api --namespace shop",
 		Args:    refArgs(1, 0),

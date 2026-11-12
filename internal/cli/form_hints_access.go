@@ -154,6 +154,6 @@ func init() {
 		"secret keychain":   {next: []string{"doctor"}},
 		"secret passphrase": {next: []string{"doctor", "tunnel list", "vpn status"}},
 		"key gen":           {next: []string{"key deploy {} TARGET --set-default", "key show {}"}},
-		"key deploy":        {next: []string{"test TARGET", "key revoke OLD_KEY TARGET"}},
+		"key deploy":        {next: []string{"test TARGET", "key revoke NAME TARGET"}},
 	})
 }
