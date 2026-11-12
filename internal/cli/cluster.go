@@ -320,7 +320,7 @@ func confirmObject(names []string, obj, reason string) error {
 	if !confirmDangerous([]string{obj}, reason) {
 		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 			"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-			"the operation matches destructive rules [cluster]: %s", reason).Say(dangerSay([]string{reason}), dangerHint))
+			"the command matches destructive rules [%s]: %s", "cluster", reason).Say(dangerSay([]string{reason}), dangerHint))
 	}
 	cur().sess.ConfirmDanger(strings.Join(names, ","))
 	return nil

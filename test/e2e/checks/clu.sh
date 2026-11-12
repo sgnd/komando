@@ -132,7 +132,7 @@ check "docker inspect of a missing object is not found" 3 "$($K docker inspect s
 ptty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }
 O=$(ptty 'yes\n' cluster rm swarm1 service/t-e2eclu-web); RC=$?
 check "person: Swarm rm asks for the service's name" 1 "$(grep -c 'Type the name t-e2eclu-web to continue' <<<"$O")"
-check "person: yes removes nothing" "6 True" "$RC $($K cluster status swarm1 svc/t-e2eclu-web | jget 'd["ok"]')"
+check "person: yes removes nothing" "6 True" "$RC $($K cluster ls swarm1 svc | jget 'any(i["name"]=="t-e2eclu-web" for i in d["data"]["items"])')"
 O=$(ptty 't-e2eclu-web\n' cluster rm swarm1 service/t-e2eclu-web); RC=$?
 check "person: the service's name removes it, asked once" "0 1 3" "$RC $(grep -c 'Type the name' <<<"$O") $($K cluster status swarm1 svc/t-e2eclu-web >/dev/null; echo $?)"
 q $K docker raw swarm1 --allow-dangerous -- rmi t-e2eclu/busybox:2
