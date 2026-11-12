@@ -27,7 +27,8 @@ check "person: a wrong name deleted nothing" True "$($K registry inspect reg t-p
 O=$(rtty 't-person/busybox:stable\n' registry rm reg t-person/busybox:stable); RC=$?
 check "person: the right name deletes the image" "0 1" "$RC $(grep -c 'with it went every tag on that image: also, stable' <<<"$O")"
 check "person: both tags are gone" "[]" "$($K registry ls reg t-person/busybox | jget 'd["data"]["tags"]')"
-check "person: registry ls in text says what is next" 1 "$(rtty '' registry ls reg | grep -c 'Next: komando registry ls reg REPO')"
+# Next: is said only at a terminal that is not dumb (rtty's is)
+check "person: registry list in text says what is next" 1 "$(ptyrun '' env NO_COLOR=1 TERM=xterm CI= "$K" -o text registry list reg | tr -d '\r' | grep -c 'Next: komando registry list reg REPO')"
 check "agent: registry names are checked first" USAGE "$($K registry inspect reg 'tools/../_catalog:1' | jget 'd["error"]["code"]' || true)"
 set -e
 # prune: three images built one after the other; keepme is the same image as v1

@@ -68,8 +68,9 @@ check "an agent with no value is sent to the user" NEEDS_PERSON "$(A secret set 
 check "the agent playbook reaches an agent whole" 0 "$(A guide -o text | grep -c 'password: \[hidden\]' || true)"
 $K host rm nopass >/dev/null
 # --ask-password: a person types it once while adding the server; later logins use the vault
-O=$(ptyrun 'agentpass\n' env NO_COLOR=1 "$K" -o text host add askpw "agent@127.0.0.1:$E2E_SSH_DIRECT" --ask-password | tr -d '\r'); check "host add --ask-password" 0 $?
-check "host add says what to run next" 1 "$(grep -c '^next: komando test askpw' <<<"$O")"
+# Next: is said on stderr to a person at a terminal that is not dumb (not CI)
+O=$(ptyrun 'agentpass\n' env NO_COLOR=1 TERM=xterm CI= "$K" -o text host add askpw "agent@127.0.0.1:$E2E_SSH_DIRECT" --ask-password | tr -d '\r'); check "host add --ask-password" 0 $?
+check "host add says what to run next" 1 "$(grep -c '^Next: komando test askpw' <<<"$O")"
 check "the stored password logs in without a question" "stored-ok" "$($K exec askpw --read-only -- echo stored-ok | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "an agent cannot use --ask-password" NEEDS_PERSON "$(A host add askpw2 "agent@127.0.0.1:$E2E_SSH_DIRECT" --ask-password </dev/null | jget 'd["error"]["code"]' || true)"
 check "rm names the secret left behind" "['askpw-pass']" "$($K host rm askpw | jget 'd["data"]["secrets_unused"]')"
