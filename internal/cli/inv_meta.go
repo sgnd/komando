@@ -532,6 +532,9 @@ func inventoryChecks(st *store.State) []securityCheck {
 		}
 	}
 	connHygiene(st, warn)
+	for _, e := range cloudNamed(st) {
+		warn(e.kind+":"+e.name, cloudNameText(e))
+	}
 	for _, n := range mapKeys(st.Keys) {
 		k := st.Keys[n]
 		name := "key:" + k.Name

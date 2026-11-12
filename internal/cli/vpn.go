@@ -99,7 +99,7 @@ Which flags go with which VPN:
 			case "cisco", "xauth":
 				kind = "ipsec"
 			}
-			if err := validName("vpn", name); err != nil {
+			if err := checkEntryName("vpn", name); err != nil {
 				return err
 			}
 			k, ok := netx.Kinds[kind]

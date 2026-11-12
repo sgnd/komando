@@ -407,7 +407,7 @@ func entryNames(st *store.State) map[string]bool {
 // importSkipper says why an entry of kind is not added (or "").
 func importSkipper(st *store.State, overwrite bool) func(kind, name string) string {
 	return func(kind, name string) string {
-		if err := validName(kind, name); err != nil {
+		if err := checkEntryName(kind, name); err != nil {
 			return toErr(err).Message
 		}
 		// a protected conn is skipped like a protected server (vetImportHosts),

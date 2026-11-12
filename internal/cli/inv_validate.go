@@ -371,20 +371,34 @@ func sameTwinWarning(kind, name, twin string) string {
 }
 
 // loginClouds are the subcommands of `komando login`: a server with one of
-// these names could never be logged in to, so a new server cannot take one.
+// these names could never be logged in to, so no new server, conn or VPN
+// takes one (S-1.5), as none takes "all".
 var loginClouds = []string{"aws", "gcp", "azure"}
 
-// checkHostName is validName for a new server name.
-func checkHostName(n string) error {
-	if err := validName("host", n); err != nil {
+// reservedCloud is the cloud name n is (any case), or "".
+func reservedCloud(n string) string {
+	if i := slices.IndexFunc(loginClouds, func(c string) bool { return strings.EqualFold(c, n) }); i >= 0 {
+		return loginClouds[i]
+	}
+	return ""
+}
+
+// checkEntryName is validName for the name of a new server, conn or VPN:
+// the cloud names are refused too.
+func checkEntryName(kind, n string) error {
+	if err := validName(kind, n); err != nil {
 		return err
 	}
-	if slices.ContainsFunc(loginClouds, func(c string) bool { return strings.EqualFold(c, n) }) {
-		return out.Errf(out.ExitUsage, "USAGE", "pick another name, e.g. "+strings.ToLower(n)+"-1",
-			"%q cannot be a server name: `komando login %s` is the cloud login", n, strings.ToLower(n))
+	if c := reservedCloud(n); c != "" && (kind == "host" || kind == "conn" || kind == "vpn") {
+		word := map[string]string{"host": "server", "conn": "conn", "vpn": "VPN"}[kind]
+		return out.Errf(out.ExitUsage, "USAGE", "pick another name, e.g. "+c+"-1",
+			"%q cannot be a %s name: `komando login %s` is the cloud login", n, word, c)
 	}
 	return nil
 }
+
+// checkHostName is checkEntryName for a new server name.
+func checkHostName(n string) error { return checkEntryName("host", n) }
 
 // setHostAddress fills h from the positional user@address[:port] (args[1])
 // or from --address winrm://USER@HOST. Only the positional address must

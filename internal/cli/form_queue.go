@@ -332,7 +332,7 @@ func natsForm() formSpec {
 
 func sqsForm() formSpec {
 	return formSpec{title: "Add Amazon SQS queues", qs: []formQ{
-		formNameQ("conn", "SQS region", "aws"),
+		formNameQ("conn", "SQS region", "sqs"),
 		{key: "region", label: "Region", ask: "Which AWS region are the queues in?", example: "eu-west-1",
 			help:  "Shown at the top right of the AWS console. One entry covers all the queues of one region.",
 			check: sqsRegionProblem},
@@ -407,7 +407,7 @@ func queueEndpointQ(example, help string) formQ {
 
 func pubsubForm() formSpec {
 	return formSpec{title: "Add Google Cloud Pub/Sub", qs: []formQ{
-		formNameQ("conn", "Pub/Sub project", "gcp"),
+		formNameQ("conn", "Pub/Sub project", "pubsub"),
 		{key: "project", label: "Project", ask: "Which Google Cloud project are the topics in?", example: "my-project",
 			help:  "The project ID (not its name), from the project picker in the Google Cloud console.",
 			check: func(_ *store.State, _ formAnswers, v string) string { return gcpProjectProblem(v) }},

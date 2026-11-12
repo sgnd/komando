@@ -120,8 +120,12 @@ and name what works today:
 
 ## Good to know
 
-- `aws`, `gcp` and `azure` cannot be server names: `komando login aws` is
-  the cloud login. `komando login AWS` is the AWS login too.
+- `aws`, `gcp` and `azure` (any case) cannot be the name of a new server,
+  conn or VPN, as `all` cannot: `komando login aws` is the cloud login.
+  An entry that has such a name from an older komando keeps working; then
+  `komando login aws` still logs in to AWS and says on stderr how to
+  rename the entry (`komando host rename aws NEW`), and `komando doctor`
+  warns about it.
 - komando opens only an `https://` sign-in address in the browser. On a
   machine without a browser, open the printed address on any device.
 - Ctrl-C while komando waits for the sign-in stops it (`CANCELLED`); the

@@ -14,6 +14,7 @@ import (
 
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // komando login HOST keeps a person's server login (login_ssh.go);
@@ -80,6 +81,7 @@ func loginNotBuiltCmd(name, cloud, today string) *cobra.Command {
 		Hidden: true,
 		Args:   cobra.ArbitraryArgs,
 		RunE: func(*cobra.Command, []string) error {
+			noteCloudNamed(name)
 			return out.Errf(out.ExitUsage, "USAGE", today, "komando login %s is not built yet: the %s browser login comes in a later release", name, cloud)
 		},
 	}
@@ -107,6 +109,7 @@ NEEDS_PERSON and asks you to run it. A profile with keys in
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			profile := cmp.Or(profile, "default")
+			noteCloudNamed("aws")
 			again := "komando login aws --profile " + shellQuote(profile)
 			// the sign-in is in the person's browser, never the agent's
 			var stop *out.Error
@@ -162,5 +165,52 @@ func openBrowser(ctx context.Context, url string) {
 	}
 	if _, err := exec.LookPath(name); err == nil {
 		_ = exec.CommandContext(ctx, name, url).Start()
+	}
+}
+
+// cloudEntry is a server, conn or VPN with a cloud's name, from before the
+// names were reserved (S-1.5).
+type cloudEntry struct{ kind, name, cloud string }
+
+// cloudNamed are the entries named like a cloud login, in a stable order.
+func cloudNamed(st *store.State) []cloudEntry {
+	var es []cloudEntry
+	for _, h := range st.SortedHosts() {
+		if c := reservedCloud(h.Name); c != "" {
+			es = append(es, cloudEntry{"host", h.Name, c})
+		}
+	}
+	for _, cn := range st.SortedConns() {
+		if c := reservedCloud(cn.Name); c != "" {
+			es = append(es, cloudEntry{"conn", cn.Name, c})
+		}
+	}
+	for _, v := range st.SortedVpns() {
+		if c := reservedCloud(v.Name); c != "" {
+			es = append(es, cloudEntry{"vpn", v.Name, c})
+		}
+	}
+	return es
+}
+
+// cloudNameText says that an entry's name is a cloud login's and how to
+// rename it.
+func cloudNameText(e cloudEntry) string {
+	word := map[string]string{"host": "server", "conn": "conn", "vpn": "VPN"}[e.kind]
+	return fmt.Sprintf("the %s %s has the name of a cloud login: `komando login %s` is the %s login, never this %s. Give it another name: `komando %s rename %s NEW`",
+		word, e.name, e.cloud, map[string]string{"aws": "AWS", "gcp": "Google Cloud", "azure": "Azure"}[e.cloud], word, e.kind, e.name)
+}
+
+// noteCloudNamed: `login CLOUD` is always the cloud login; an older entry
+// with that name gets a note on stderr (and in meta.warnings) that says so.
+func noteCloudNamed(cloud string) {
+	st, err := loadState()
+	if err != nil {
+		return
+	}
+	for _, e := range cloudNamed(st) {
+		if e.cloud == cloud {
+			out.P.Warn(cloudNameText(e))
+		}
 	}
 }

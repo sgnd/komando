@@ -135,4 +135,8 @@ var goldenGates = [][]string{
 var goldenNotes = [][]string{
 	// C-V16: update takes only a version; a server is a usage error
 	{"update", "web1"},
+	// C-V24: aws, gcp and azure are no new server's, conn's or VPN's name
+	{"host", "add", "azure", "u@10.0.0.1"},
+	{"conn", "add", "aws", "redis://127.0.0.1:1/0"},
+	{"vpn", "add", "gcp", "socks", "--proxy-address", "127.0.0.1:1080"},
 }

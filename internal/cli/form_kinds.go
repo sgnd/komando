@@ -78,8 +78,8 @@ func formNameProblem(st *store.State, kind, v string) string {
 		}
 		return "use letters, digits, dot, dash and underscore, starting with a letter or digit (at most 63)"
 	}
-	if kind == "host" && checkHostName(v) != nil {
-		return "komando login " + strings.ToLower(v) + " is the cloud login; pick another name, like " + strings.ToLower(v) + "-1"
+	if c := reservedCloud(v); c != "" && checkEntryName(kind, v) != nil {
+		return "komando login " + c + " is the cloud login; pick another name, like " + c + "-1"
 	}
 	if k, existing, ok := st.FindName(v); ok {
 		return fmt.Sprintf("%s is already a %s; pick another name, like %s", existing, formKindWord(k), formFreeName(st, v))

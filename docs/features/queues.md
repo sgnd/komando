@@ -354,14 +354,14 @@ each command, not in the URL. komando logs in with your AWS login, the
 same way as for S3 buckets and ECR registries, and needs no aws CLI:
 
 ```bash
-komando conn add aws sqs://eu-west-1 --option aws_profile=prod   # a profile in ~/.aws (SSO, a role, keys)
+komando conn add sqs sqs://eu-west-1 --option aws_profile=prod   # a profile in ~/.aws (SSO, a role, keys)
 komando login aws --profile prod              # a person renews an SSO login when it runs out
-komando conn add aws2 sqs://eu-west-1          # no profile: AWS_* variables, ~/.aws default, or the server's role
+komando conn add sqs2 sqs://eu-west-1          # no profile: AWS_* variables, ~/.aws default, or the server's role
 komando secret set sqs-secret                  # or: keys of an IAM user
-komando conn add aws3 sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --password-ref secret:sqs-secret
-komando queue info aws                         # region, account, how many queues
-komando queue list aws                           # queues: waiting, in flight, delayed, dead-letter queue
-komando queue peek aws orders                  # up to 10 messages; none is hidden or deleted
+komando conn add sqs3 sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --password-ref secret:sqs-secret
+komando queue info sqs                         # region, account, how many queues
+komando queue list sqs                           # queues: waiting, in flight, delayed, dead-letter queue
+komando queue peek sqs orders                  # up to 10 messages; none is hidden or deleted
 ```
 
 - How komando logs in, in this order: the conn's `aws_profile` option
@@ -371,7 +371,7 @@ komando queue peek aws orders                  # up to 10 messages; none is hidd
   `AWS_PROFILE` variables, the default profile, an EC2 or ECS role).
 - An expired SSO login stops with `AWS_LOGIN_REQUIRED`: a person runs
   `komando login aws --profile NAME` once.
-- `komando conn test aws` logs in and lists one queue.
+- `komando conn test sqs` logs in and lists one queue.
 
 | Option | What it does |
 |---|---|
@@ -386,13 +386,13 @@ temporary login's session token would travel unencrypted.
 ### What each command does on SQS
 
 ```bash
-komando queue describe aws orders             # counts, settings, dead-letter queue, tags
-komando queue send aws orders --value '{"id": 42}' --header source=support
-komando queue send aws orders.fifo --key customer-7 --value '{"id": 42}'
-komando queue create aws orders.fifo --config ContentBasedDeduplication=true --dry-run
-komando queue create aws jobs --config VisibilityTimeout=120 --config MessageRetentionPeriod=86400
-komando queue purge aws orders --dry-run      # about how many messages would go
-komando queue rm aws old-jobs --allow-dangerous
+komando queue describe sqs orders             # counts, settings, dead-letter queue, tags
+komando queue send sqs orders --value '{"id": 42}' --header source=support
+komando queue send sqs orders.fifo --key customer-7 --value '{"id": 42}'
+komando queue create sqs orders.fifo --config ContentBasedDeduplication=true --dry-run
+komando queue create sqs jobs --config VisibilityTimeout=120 --config MessageRetentionPeriod=86400
+komando queue purge sqs orders --dry-run      # about how many messages would go
+komando queue rm sqs old-jobs --allow-dangerous
 ```
 
 - **`peek` receives messages with a visibility timeout of 0 and never
@@ -440,14 +440,14 @@ subscription's name to each command, not in the URL. komando logs in the
 same way as for gs:// buckets and needs no gcloud or Google SDK:
 
 ```bash
-komando conn add gcp pubsub://my-project      # gcloud's login (application default credentials)
+komando conn add pubsub pubsub://my-project      # gcloud's login (application default credentials)
 komando secret set pubsub-key < key.json      # or: a service account key
-komando conn add gcp2 pubsub://my-project --password-ref secret:pubsub-key
+komando conn add pubsub2 pubsub://my-project --password-ref secret:pubsub-key
 komando conn add local 'pubsub://test-project?endpoint=http://localhost:8085'   # the emulator: no login
-komando queue info gcp                         # how many topics and subscriptions
-komando queue list gcp                           # topics and how many subscriptions each has
-komando queue groups gcp                       # subscriptions: topic, delivery, ack deadline
-komando queue peek gcp billing                 # up to 10 messages of subscription billing; all given back
+komando queue info pubsub                         # how many topics and subscriptions
+komando queue list pubsub                           # topics and how many subscriptions each has
+komando queue groups pubsub                       # subscriptions: topic, delivery, ack deadline
+komando queue peek pubsub billing                 # up to 10 messages of subscription billing; all given back
 ```
 
 - How komando logs in: the service account key in `--password-ref`, or
@@ -460,7 +460,7 @@ komando queue peek gcp billing                 # up to 10 messages of subscripti
   delete.
 - A login only ever travels over HTTPS. The emulator (`http://`) takes
   none, so komando sends none there.
-- `komando conn test gcp` logs in and lists one topic.
+- `komando conn test pubsub` logs in and lists one topic.
 
 | Option | What it does |
 |---|---|
@@ -494,13 +494,13 @@ answers `NOT_SUPPORTED`.
 ### What each command does on Pub/Sub
 
 ```bash
-komando queue describe gcp orders              # a topic and its subscriptions
-komando queue describe gcp subscriptions/billing
-komando queue send gcp orders --value '{"id": 42}' --header source=support --key customer-7
-komando queue create gcp orders --config messageRetentionDuration=7d --dry-run
-komando queue create gcp subscriptions/billing --config topic=orders --config ackDeadlineSeconds=60
-komando queue purge gcp billing --dry-run      # empties subscription billing
-komando queue rm gcp subscriptions/billing old-orders --dry-run
+komando queue describe pubsub orders              # a topic and its subscriptions
+komando queue describe pubsub subscriptions/billing
+komando queue send pubsub orders --value '{"id": 42}' --header source=support --key customer-7
+komando queue create pubsub orders --config messageRetentionDuration=7d --dry-run
+komando queue create pubsub subscriptions/billing --config topic=orders --config ackDeadlineSeconds=60
+komando queue purge pubsub billing --dry-run      # empties subscription billing
+komando queue rm pubsub subscriptions/billing old-orders --dry-run
 ```
 
 - **`peek` pulls messages and gives every one back unacknowledged.** It

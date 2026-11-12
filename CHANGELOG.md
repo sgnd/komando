@@ -79,6 +79,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `aws`, `gcp` and `azure` are reserved names for conns and VPNs too, as
+  for servers and as `all` is: `conn add`, `vpn add`, `rename` and
+  `import` refuse them (usage error, exit 2). An older entry with such a
+  name keeps working; `komando login aws` stays the cloud login and notes
+  on stderr (and in `meta.warnings`) how to rename it, and `doctor` warns.
 - `komando update NAME` with the name of a server or conn (or a selector
   like `@web`) is a usage error (exit 2) whose hint is
   `komando pkg upgrade NAME`; before, it was taken as a version to

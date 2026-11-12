@@ -7238,3 +7238,63 @@ exit 2
 --- stdout
 --- stderr
 Error: "web1" is the server web1, not a komando version: `komando update` updates komando itself; `komando pkg upgrade web1` updates the packages there
+### komando -o json host add azure u@10.0.0.1 (agent json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"host.add","error":{"code":"USAGE","message":"\"azure\" cannot be a server name: `komando login azure` is the cloud login","hint":"pick another name, e.g. azure-1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host add azure u@10.0.0.1 (agent text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: "azure" cannot be a server name: `komando login azure` is the cloud login
+### komando -o json host add azure u@10.0.0.1 (script json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"host.add","error":{"code":"USAGE","message":"\"azure\" cannot be a server name: `komando login azure` is the cloud login","hint":"pick another name, e.g. azure-1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host add azure u@10.0.0.1 (script text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: "azure" cannot be a server name: `komando login azure` is the cloud login
+### komando -o json conn add aws redis://127.0.0.1:1/0 (agent json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"conn.add","error":{"code":"USAGE","message":"\"aws\" cannot be a conn name: `komando login aws` is the cloud login","hint":"pick another name, e.g. aws-1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text conn add aws redis://127.0.0.1:1/0 (agent text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: "aws" cannot be a conn name: `komando login aws` is the cloud login
+### komando -o json conn add aws redis://127.0.0.1:1/0 (script json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"conn.add","error":{"code":"USAGE","message":"\"aws\" cannot be a conn name: `komando login aws` is the cloud login","hint":"pick another name, e.g. aws-1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text conn add aws redis://127.0.0.1:1/0 (script text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: "aws" cannot be a conn name: `komando login aws` is the cloud login
+### komando -o json vpn add gcp socks --proxy-address 127.0.0.1:1080 (agent json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.add","error":{"code":"USAGE","message":"\"gcp\" cannot be a VPN name: `komando login gcp` is the cloud login","hint":"pick another name, e.g. gcp-1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn add gcp socks --proxy-address 127.0.0.1:1080 (agent text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: "gcp" cannot be a VPN name: `komando login gcp` is the cloud login
+### komando -o json vpn add gcp socks --proxy-address 127.0.0.1:1080 (script json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.add","error":{"code":"USAGE","message":"\"gcp\" cannot be a VPN name: `komando login gcp` is the cloud login","hint":"pick another name, e.g. gcp-1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn add gcp socks --proxy-address 127.0.0.1:1080 (script text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: "gcp" cannot be a VPN name: `komando login gcp` is the cloud login

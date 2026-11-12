@@ -153,7 +153,7 @@ func connAddCmd() *cobra.Command {
 				return formOrUsage(cmd, "conn", "komando conn add app-db postgres://app@10.0.0.5/app --ask-password")
 			}
 			name := args[0]
-			if err := validName("conn", name); err != nil {
+			if err := checkEntryName("conn", name); err != nil {
 				return err
 			}
 			undoPw := func() {}
