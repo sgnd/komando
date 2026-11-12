@@ -114,7 +114,13 @@ check "memcached run reads" True "$($K cache run mc -- stats | jget 'any("curr_i
 set +e
 $K cache run mc -- flush_all >/dev/null; check "memcached flush_all blocked" 6 $?
 $K cache rm mc greeting >/dev/null; check "memcached rm needs --allow-dangerous" 6 $?
+# a newline in an argument would start a second command after the read
+$K cache run mc -- get $'greeting\r\nflush_all' >/dev/null; check "memcached run refuses a newline in a word" 2 $?
+$K cache run mc --write -- ' flush_all' x >/dev/null; check "memcached flush_all behind a space still needs --allow-dangerous" 6 $?
 set -e
+check "memcached keys survived the injection tries" "['greeting']" "$($K cache keys mc 'greet*' | jget 'd["data"]["keys"]')"
+check "memcached run takes GET in capitals" halo "$($K cache run mc -- GET greeting | jget 'd["data"]["reply"][0]["value"]')"
+check "memcached stats reset needs --write" WRITE_REQUIRES_FLAG "$($K cache run mc -- stats reset | jget 'd["error"]["code"]' || true)"
 check "memcached rm --dry-run names the key" "['greeting']" "$($K cache rm mc greeting --dry-run | jget 'd["data"]["would_delete"]')"
 q $K cache rm mc greeting --allow-dangerous
 check "memcached key gone" KEY_NOT_FOUND "$($K cache get mc greeting | jget 'd["error"]["code"]' || true)"
