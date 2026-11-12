@@ -340,7 +340,7 @@ func (p *Printer) Warn(msg string) {
 	p.mu.Lock()
 	p.warns = append(p.warns, msg)
 	p.mu.Unlock()
-	fmt.Fprintln(os.Stderr, "warning: "+noteText(p.Redact(msg)))
+	fmt.Fprintln(os.Stderr, Marks("warning: "+noteText(p.Redact(msg))))
 }
 
 // Blocked is the stop WouldBlock recorded, or nil.
@@ -388,19 +388,19 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 			// a person must never read a preview as a result
 			fmt.Fprintln(os.Stderr, "dry run: nothing was changed")
 			if p.blocked != nil {
-				fmt.Fprintf(os.Stderr, "without --dry-run this stops here: [%s] %s\n", p.blocked.Code, noteText(p.Redact(p.blocked.Message)))
+				fmt.Fprintf(os.Stderr, "without --dry-run this stops here: [%s] %s\n", p.blocked.Code, Marks(noteText(p.Redact(p.blocked.Message))))
 				p.hint(p.blocked.hintOrDefault())
 			}
 		}
 		if t, ok := data.(Texter); ok {
-			s := SafeText(p.Redact(t.Text()))
+			s := Marks(SafeText(p.Redact(t.Text())))
 			fmt.Fprint(p.W, s)
 			if s != "" && !strings.HasSuffix(s, "\n") {
 				fmt.Fprintln(p.W)
 			}
 		} else if data != nil {
 			s := renderText(data, p.DryRun)
-			fmt.Fprint(p.W, SafeText(p.Redact(s)))
+			fmt.Fprint(p.W, Marks(SafeText(p.Redact(s))))
 			if s == "" {
 				// an empty list would print nothing, and a person cannot tell
 				// "no results" from "did not run"; stderr keeps pipes clean
@@ -433,7 +433,7 @@ func (p *Printer) Fail(command string, err error) int {
 // to do, then the code and exit code for looking it up. stopped is true
 // when the command ended here (Fail), so a safety stop changed nothing.
 func (p *Printer) printErr(e *Error, stopped bool) {
-	msg := noteText(p.Redact(e.TextMessage()))
+	msg := Marks(noteText(p.Redact(e.TextMessage())))
 	if e.cancelled {
 		fmt.Fprintln(os.Stderr, msg)
 		return
@@ -465,7 +465,7 @@ func sentence(s string) string {
 // terminal escapes.
 func (p *Printer) hint(h string) {
 	if h != "" {
-		fmt.Fprintf(hintW, "hint: %s\n", noteText(p.Redact(h)))
+		fmt.Fprintf(hintW, "hint: %s\n", Marks(noteText(p.Redact(h))))
 	}
 }
 

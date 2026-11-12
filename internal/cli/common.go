@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/user"
@@ -81,6 +80,9 @@ func applyConventions(c *cobra.Command) {
 				e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
 			}
 			e.Hint = has
+			if h := inventoryVerbHint(cmd, args[0]); h != "" {
+				e.Hint = h + "; " + has
+			}
 			return e
 		}
 	}
@@ -745,15 +747,6 @@ func worse(a, b int) int {
 		return b
 	}
 	return a
-}
-
-func readStdinIfPiped() ([]byte, error) {
-	fi, err := os.Stdin.Stat()
-	if err != nil || fi.Mode()&os.ModeCharDevice != 0 {
-		return nil, nil
-	}
-	b, err := io.ReadAll(os.Stdin)
-	return b, err
 }
 
 func parseKV(pairs []string) (map[string]string, error) {

@@ -704,7 +704,7 @@ var renamedFrom = map[string]string{"SWARM_ERROR": "DOCKER_ERROR"}
 // key's path, or from the tool's error): what it tells the reader to do.
 var hintMeanings = map[string]string{
 	"KEY_PASSPHRASE_REQUIRED": "load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands)",
-	"NO_PASSPHRASE":           "the vault keeps its key in vault.key or the OS keychain already; the hint says which",
+	"NO_PASSPHRASE":           "the vault keeps its key in store.key or the OS keychain already; the hint says which",
 	"VPN_CLIENT_MISSING":      "install the program the message names (macOS: `brew install NAME`; Linux: its package)",
 	"TOOL_FAILED":             "read the message; `komando conn test CONN` checks reachability (for a known problem, the hint names the fix)",
 	"AZURE_LOGIN_REQUIRED":    "set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET for a service principal, run komando on Azure with a managed identity, or a person runs `az login`",

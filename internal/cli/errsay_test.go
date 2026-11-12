@@ -80,6 +80,19 @@ func TestNotFoundSayNoMenuForScripts(t *testing.T) {
 	if h := e.TextHint(); strings.Contains(h, "pick Add") || !strings.Contains(h, "komando host add NAME user@address") {
 		t.Errorf("hint: %q", h)
 	}
+	// a person at a terminal gets the add command to type alone (it asks
+	// step by step): there is no menu to pick Add in
+	saved := interactive
+	interactive = func() bool { return true }
+	t.Cleanup(func() { interactive = saved })
+	for _, c := range [][2]string{{"HOST_NOT_FOUND", "`komando host add`"}, {"CONN_NOT_FOUND", "`komando conn add`"}, {"VPN_NOT_FOUND", "`komando vpn add`"}} {
+		e = out.Errf(out.ExitNotFound, c[0], "h", "%q not found", "nosuch")
+		cmd := map[string][]string{"HOST_NOT_FOUND": {"host", "show"}, "CONN_NOT_FOUND": {"conn", "show"}, "VPN_NOT_FOUND": {"vpn", "up"}}[c[0]]
+		notFoundSay(e, sayCmd(t, cmd...))
+		if h := e.TextHint(); strings.Contains(h, "pick Add") || strings.Contains(h, "menu") || !strings.Contains(h, c[1]) {
+			t.Errorf("%s at a terminal: %q", c[0], h)
+		}
+	}
 	e = out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "for a website write https://shop.example.com", "no server, conn or VPN named %q", "shop.example.com")
 	e.Say("Nothing named \"shop.example.com\" in your list to check.", e.Hint)
 	notFoundSay(e, sayCmd(t, "cert", "check"))

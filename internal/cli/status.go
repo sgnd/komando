@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -55,7 +56,7 @@ func (s statusLine) format(color bool) string {
 // agents and scripts.
 func showStatus(s statusLine) {
 	if interactive() {
-		fmt.Fprintln(os.Stderr, s.format(colorOK()))
+		fmt.Fprintln(os.Stderr, out.Marks(s.format(colorOK())))
 	}
 }
 

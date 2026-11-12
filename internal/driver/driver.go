@@ -455,8 +455,8 @@ func parseS3(u *url.URL, t Target) (Target, error) {
 	}
 	t.Address = net.JoinHostPort(e.Hostname(), port)
 	for k := range q {
-		if k != "endpoint" && k != "region" && k != "resolve" && k != "ca" {
-			return Target{}, out.Usage("unknown s3 URL option %q (known: endpoint, region, resolve, ca)", k)
+		if k != "endpoint" && k != "region" && k != "resolve" && k != "ca" && k != "insecure" {
+			return Target{}, out.Usage("unknown s3 URL option %q (known: endpoint, region, resolve, ca, insecure)", k)
 		}
 	}
 	if t.Resolve, err = parseResolve(q, t.Address); err != nil {

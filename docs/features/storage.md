@@ -115,7 +115,10 @@ komando conn add files azblob://mystorageacct@uploads/2026 --password-ref secret
   and a SAS token cannot.
 - An emulator or another cloud takes `?endpoint=URL`, for example
   `azblob://devstoreaccount1@media?endpoint=http://127.0.0.1:10000/devstoreaccount1`
-  for Azurite.
+  for Azurite. An `http://` endpoint on another computer sends the files
+  (and for S3 the AWS session token) unencrypted, so it is refused
+  (`INSECURE_PROTOCOL`) unless the conn goes `--via` an SSH server or the
+  URL adds `&insecure=1`. One on this computer (localhost, 127.0.0.1) is fine.
 - gcloud's own login goes only to Google (`https://…googleapis.com`), never
   to an emulator or another endpoint. A service account key needs an
   `https://` endpoint: over `http://` its token would travel unencrypted,

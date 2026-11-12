@@ -63,7 +63,7 @@ func parseGCS(u *url.URL, t Target) (Target, error) {
 	}
 	t.Prefix = folderOf(u.Path)
 	q := u.Query()
-	if err := onlyOptions(q, "gcs", "endpoint", "ca"); err != nil {
+	if err := onlyOptions(q, "gcs", "endpoint", "ca", "insecure"); err != nil {
 		return Target{}, err
 	}
 	if err := endpointOf(q, "gcs", "https://storage.googleapis.com", &t); err != nil {
@@ -87,7 +87,7 @@ func parseAzure(u *url.URL, t Target) (Target, error) {
 			"remove the SAS token from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME",
 			"conn URLs must not contain a password")
 	}
-	if err := onlyOptions(q, "azblob", "endpoint", "ca"); err != nil {
+	if err := onlyOptions(q, "azblob", "endpoint", "ca", "insecure"); err != nil {
 		return Target{}, err
 	}
 	if err := endpointOf(q, "azblob", "https://"+t.User+".blob.core.windows.net", &t); err != nil {

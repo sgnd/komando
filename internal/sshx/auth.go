@@ -651,7 +651,7 @@ func secretUnresolved(h *store.Host, err error) *out.Error {
 		return out.Errf(out.ExitError, "VAULT_LOCKED", "the person who set the passphrase exports KOMANDO_VAULT_PASS in the shell that runs komando (an AI agent asks the user; it never sees the passphrase)",
 			"password for %s (%s): %v", h.Name, h.PasswordRef, err)
 	case errors.Is(err, vault.ErrKey):
-		return out.Errf(out.ExitError, "VAULT_KEY", "restore ~/.komando/vault.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault",
+		return out.Errf(out.ExitError, "VAULT_KEY", "restore ~/.komando/store.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault",
 			"password for %s (%s): %v", h.Name, h.PasswordRef, err)
 	case errors.Is(err, vault.ErrDecrypt):
 		return out.Errf(out.ExitError, "VAULT_DECRYPT", "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use); nothing was lost",

@@ -21,8 +21,9 @@ import (
 //     would take TLS only when the server offers it, without checking whose
 //     certificate it is, or (Oracle) none at all.
 //   - redis://, memcached://, amqp:// and nats:// name a connection without
-//     TLS, and so do kafka:// without tls=true and sqs:// and pubsub://
-//     with an http:// endpoint, so they are refused unless ?insecure=1
+//     TLS, and so do kafka:// without tls=true and sqs://, pubsub://,
+//     s3://, gs:// and azblob:// with an http:// endpoint, so they are
+//     refused unless ?insecure=1
 //     says that is meant, as for ftp://. Most of these servers have no
 //     TLS: --via an SSH server is the usual way.
 //
@@ -88,6 +89,13 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
 				"run the Pub/Sub emulator on this computer, or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the messages travel unencrypted",
 				"the pubsub endpoint http://%s crosses the network without TLS, so the messages travel unencrypted", t.Address)
+		}
+	case "s3", "gcs", "azblob":
+		if !t.Secure && q.Get("insecure") != "1" {
+			what := map[bool]string{true: "the files and the AWS session token", false: "the files and the login"}[t.Kind.Name == "s3"]
+			return out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+				"use an https:// endpoint, or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that "+what+" travel unencrypted",
+				"the %s endpoint http://%s crosses the network without TLS, so %s travel unencrypted", t.Kind.Name, t.Address, what)
 		}
 	case "kafka":
 		if !t.Secure && q.Get("insecure") != "1" {

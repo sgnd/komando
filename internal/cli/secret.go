@@ -89,7 +89,7 @@ func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 		}
 		return v, nil
 	}
-	b, err := readStdinIfPiped()
+	b, err := readStdinIfPiped(maxStdinValue, "the value")
 	if err != nil {
 		return "", err
 	}

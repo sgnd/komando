@@ -74,3 +74,21 @@ func TestGuideInstallIsAudited(t *testing.T) {
 		t.Errorf("second run: %v", d)
 	}
 }
+
+// A blocked command given a selector (@group, tag:, a pattern) records the
+// servers and conns it picked, not "-": `audit --target web2` finds it.
+func TestBlockedAttemptNamesSelectedTargets(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--protected", "--group", "prod")
+	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--protected", "--tag", "edge")
+	for _, sel := range []string{"@prod", "tag:edge"} {
+		if code, _ := runMain(t, "host", "rm", sel); code != out.ExitPolicy {
+			t.Fatalf("host rm %s: exit %d", sel, code)
+		}
+	}
+	for _, name := range []string{"web2", "web3"} {
+		if d := mustRun(t, "audit", "--failed", "--target", name, "-n", "0"); d["count"] != float64(1) {
+			t.Errorf("the blocked host rm names %s: %v", name, d["entries"])
+		}
+	}
+}

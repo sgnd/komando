@@ -97,7 +97,7 @@ func queueValue(cmd *cobra.Command, value, from string) ([]byte, error) {
 			return nil, err
 		}
 	default:
-		if data, err = readStdinIfPiped(); err != nil {
+		if data, err = readStdinIfPiped(maxQueueMessage, "the message"); err != nil {
 			return nil, err
 		}
 		if data == nil {
