@@ -728,6 +728,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- An AI agent's `download`, `cp`, `storage download` and `sync` never put
+  the real text on this computer's disk: a text file is masked in memory
+  before it is written. Before, the unmasked bytes sat in the temporary
+  file until the download ended (and stayed there after a crash). A
+  binary or larger file that holds a value from komando's vault now stops
+  with SENSITIVE_FILE instead of being saved as is.
 - `fs write`, `fs replace`, `fs restore` and `upload` with `--sudo`
   follow a link only when root made it and it leads into a folder root
   owns; any other link stops with IS_A_SYMLINK. Before, a link another

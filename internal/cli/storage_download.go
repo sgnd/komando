@@ -131,13 +131,21 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 					return err
 				}
 				defer f.Close()
-				if n, err = s.Get(ctx, key, f); err != nil {
-					return err
-				}
-				if mask {
-					if masked, err = maskDownload(f, n); err != nil {
+				if !mask {
+					if n, err = s.Get(ctx, key, f); err != nil {
 						return err
 					}
+					return f.Sync()
+				}
+				// masked before it reaches the disk (fetchMasked)
+				pr, pw := io.Pipe()
+				defer pr.Close()
+				go func() {
+					_, err := s.Get(ctx, key, pw)
+					pw.CloseWithError(err)
+				}()
+				if n, masked, err = fetchMasked(ctx, pr, f, io.Discard, nil); err != nil {
+					return err
 				}
 				return f.Sync()
 			}
