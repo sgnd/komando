@@ -161,8 +161,8 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 	} else {
 		_, err = io.Copy(storex.CtxWriter(ctx, tmp), r)
 	}
-	mode := f.Mode
-	if mode == 0 {
+	mode := localMode(f.Mode)
+	if f.Mode == 0 {
 		mode = 0o644
 	}
 	if err == nil {

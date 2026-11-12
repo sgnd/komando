@@ -1155,6 +1155,9 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   its command, output and pid files 0600, whatever the server's umask.
   Before, other server users could read a job's output. The job itself
   still runs with the login's own umask.
+- `download`, `cp` from a server, `storage download` and `sync` down keep
+  the file's mode from the server but never make it writable by other
+  users here: a 0777 file is saved 0755, a 0666 one 0644.
 
 ## [0.12.0] - 2026-11-11
 

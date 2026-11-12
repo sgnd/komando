@@ -192,7 +192,7 @@ func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, 
 		n, err = io.Copy(storex.CtxWriter(ctx, w), in)
 	}
 	if err == nil {
-		err = tmp.Chmod(perm | 0o200)
+		err = tmp.Chmod(localMode(perm))
 	}
 	if cerr := tmp.Close(); err == nil {
 		err = cerr
@@ -280,3 +280,8 @@ func placeNew(tmp, dst string) error {
 func fileExists(p string) error {
 	return out.Errf(out.ExitConflict, "FILE_EXISTS", "choose another --to, remove the file, or pass --overwrite", "%s already exists on this computer", p)
 }
+
+// localMode is the mode a file from a server gets on this computer: the
+// server's, but never writable by others than you (a 0777 file is 0755
+// here), and always readable and writable by you.
+func localMode(perm os.FileMode) os.FileMode { return perm.Perm()&0o755 | 0o600 }
