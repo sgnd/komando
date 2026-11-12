@@ -668,7 +668,7 @@ func smbUserQ() formQ {
 // The storage commands, asked from a menu task.
 
 func init() {
-	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list. Add one first with Add, File storage."}
+	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add."}
 	key := func(ask, help, example string) formArg { return formArg{ask: ask, help: help, example: example} }
 	addFormHints(map[string]formHint{
 		"storage ls": {args: []formArg{conn,

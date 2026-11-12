@@ -41,6 +41,11 @@ its highlights; the sections below them give the details. Versions follow
 - `storage link` on an S3 conn with an AWS profile (SSO, an assumed role)
   warns that the link ends when the temporary keys do, which can be long
   before `expires_at`.
+- `komando storage --help` shows the whole journey (add, test, list,
+  edit, remove the conn) with examples; `storage add --help` has examples
+  for an AWS profile, MinIO, Google Cloud, Azure and SFTP; `storage rm
+  CONN` with no key names the next step, including `conn rm CONN` for
+  taking the storage itself out of komando's list.
 
 ## [0.12.0] - 2026-11-11
 

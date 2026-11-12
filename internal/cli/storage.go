@@ -46,9 +46,23 @@ files and link shares one (S3, Google Cloud and Azure; on production
 storage both ask first); rm deletes, so it also needs --allow-dangerous.
 Downloads never overwrite a local file unless --overwrite, and uploads to
 file servers go to a temporary name first, so a failed upload leaves
-nothing half written.`,
+nothing half written.
+
+The storage itself: komando storage add, komando test CONN, komando conn
+edit CONN, komando conn rm CONN. komando list kind:storage lists them.`,
+		Example: `  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
+  komando storage ls backups 2026/
+  komando download backups 2026/app.sql.gz --to ./
+  komando storage rm backups --prefix daily/ --older-than 30d --dry-run`,
 	}
-	c.AddCommand(connAddCmdFor("storage"), storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
+	add := connAddCmdFor("storage")
+	add.Example += `
+  komando storage add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod   # AWS SSO or a role
+  komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.internal:9000' --via bastion --ask-password
+  komando storage add media gs://my-bucket/site   # logs in like gcloud
+  komando storage add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
+  komando storage add site 'sftp://deploy@files.example.com/uploads'`
+	c.AddCommand(add, storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
 	return c
 }
 
@@ -332,7 +346,9 @@ first; --limit (default 1000) refuses to go on when more would be removed.`,
 				return out.Usage("--older-than goes with --prefix (use --prefix / for the whole conn)")
 			}
 			if prefix == "" && len(keys) == 0 {
-				return out.Usage("give exact keys, or --prefix FOLDER/")
+				return out.Errf(out.ExitUsage, "USAGE",
+					fmt.Sprintf("for example: komando storage rm %s KEY, or komando storage rm %s --prefix FOLDER/ --dry-run (komando storage ls %s shows the keys). To take %s out of komando's list, not its files: komando conn rm %s", args[0], args[0], args[0], args[0], args[0]),
+					"give exact keys, or --prefix FOLDER/")
 			}
 			if prefix != "" && len(keys) > 0 {
 				return out.Usage("give keys or --prefix, not both")

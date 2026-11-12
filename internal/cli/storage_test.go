@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -241,4 +242,18 @@ func TestStorageLinkTemporaryKeysWarns(t *testing.T) {
 	if w, _ := d["warning"].(string); !strings.Contains(w, "temporary AWS keys (profile dev)") {
 		t.Errorf("warning: %q", w)
 	}
+}
+
+// The steps around the storage's own entry, as storage --help names them.
+func TestStorageJourneyCommands(t *testing.T) {
+	withMemBucket(t, &memBucket{objs: map[string]string{}})
+	if d := mustRun(t, "list", "kind:storage"); !strings.Contains(fmt.Sprint(d), "bk") {
+		t.Errorf("list kind:storage: %v", d)
+	}
+	e := wantCode(t, "USAGE", "storage", "rm", "bk")
+	if !strings.Contains(e.Hint, "komando conn rm bk") || !strings.Contains(e.Hint, "komando storage ls bk") {
+		t.Errorf("rm without keys: %q", e.Hint)
+	}
+	mustRun(t, "conn", "edit", "bk", "--add-tag", "backup")
+	mustRun(t, "conn", "rm", "bk")
 }

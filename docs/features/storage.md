@@ -14,6 +14,24 @@ komando download backups 2026/app.sql.gz             # into the current folder
 komando upload backups ./app.sql.gz 2026/app.sql.gz
 ```
 
+## The whole journey
+
+| Step | Command |
+|------|---------|
+| Add | `komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password` |
+| Check it works | `komando test backups` |
+| See your storages | `komando list kind:storage` |
+| Browse, read | `komando storage ls backups 2026/` · `komando storage cat backups logs/app.log --tail 50` |
+| Copy | `komando upload backups ./app.sql.gz 2026/` · `komando download backups 2026/app.sql.gz` |
+| Share | `komando storage link backups 2026/app.sql.gz --expires 24h` |
+| Clean up | `komando storage rm backups --prefix daily/ --older-than 30d --dry-run`, then without `--dry-run` |
+| Change it | `komando conn edit backups --url '...'` · `--via bastion` · `--protected` |
+| Remove it from komando (the files stay) | `komando conn rm backups` |
+
+A person who leaves out the storage's name at a terminal is asked for it,
+with a list of the storages komando knows. An AI agent gives every
+argument; a missing one is a `USAGE` error whose hint is a full example.
+
 ## Supported storage
 
 | Kind | URL example | Notes |
