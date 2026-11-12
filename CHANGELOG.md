@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A cluster whose kubeconfig logs in with a program that is not installed
+  (`kubelogin`, `oidc-login` ...) now stops with `TOOL_MISSING` (exit 3)
+  and the kubeconfig's own `installHint`, and a login program that fails
+  with `LOGIN_FAILED` (exit 4), instead of `K8S_UNREACHABLE` and a hint to
+  test the network.
 - `cluster apply` sends the whole file to the server as a dry run before
   it applies anything: when the cluster refuses one object, nothing in the
   file is applied (`K8S_INVALID`, "nothing was applied: ..."). Before, the

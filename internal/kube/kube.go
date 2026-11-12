@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
@@ -90,6 +91,25 @@ type ExecAuth struct {
 		Name  string `yaml:"name"`
 		Value string `yaml:"value"`
 	} `yaml:"env,omitempty"`
+	// InstallHint is what the kubeconfig says to do when Command is not
+	// installed (kubectl prints it too).
+	InstallHint string `yaml:"installHint,omitempty"`
+}
+
+// PluginError is a credential plugin that could not log in: its program
+// is not on this computer (Missing), it failed, or it printed no token.
+type PluginError struct {
+	Command     string
+	InstallHint string
+	Missing     bool
+	Detail      string // the plugin's own words (stderr), or why its output was no token
+}
+
+func (e *PluginError) Error() string {
+	if e.Missing {
+		return fmt.Sprintf("credential plugin %s is not installed on this computer", e.Command)
+	}
+	return fmt.Sprintf("credential plugin %s: %s", e.Command, e.Detail)
 }
 
 // Context is one resolved kubeconfig context.
@@ -354,8 +374,11 @@ func (c *Client) bearer(ctx context.Context) (string, error) {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	b, err := cmd.Output()
+	if errors.Is(err, exec.ErrNotFound) || errors.Is(err, fs.ErrNotExist) {
+		return "", &PluginError{Command: e.Command, InstallHint: strings.TrimSpace(e.InstallHint), Missing: true}
+	}
 	if err != nil {
-		return "", fmt.Errorf("credential plugin %s: %v %s", e.Command, err, strings.TrimSpace(stderr.String()))
+		return "", &PluginError{Command: e.Command, Detail: strings.TrimSpace(err.Error() + " " + strings.TrimSpace(stderr.String()))}
 	}
 	var cred struct {
 		Status struct {
@@ -363,7 +386,7 @@ func (c *Client) bearer(ctx context.Context) (string, error) {
 		} `json:"status"`
 	}
 	if err := json.Unmarshal(b, &cred); err != nil || cred.Status.Token == "" {
-		return "", fmt.Errorf("credential plugin %s gave no token", e.Command)
+		return "", &PluginError{Command: e.Command, Detail: "it printed no token (komando reads status.token of an ExecCredential)"}
 	}
 	c.token = cred.Status.Token
 	return c.token, nil

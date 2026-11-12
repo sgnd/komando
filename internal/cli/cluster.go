@@ -205,6 +205,18 @@ func kubeErr(err error) error {
 	if errors.As(err, &oe) {
 		return oe
 	}
+	var pe *kube.PluginError
+	if errors.As(err, &pe) {
+		if pe.Missing {
+			hint := "install " + pe.Command + " on this computer (the conn's kubeconfig logs in with it), or import a kubeconfig that logs in another way: `komando import kubeconfig FILE --overwrite`"
+			if pe.InstallHint != "" {
+				hint = "the kubeconfig says: " + pe.InstallHint
+			}
+			return out.Errf(out.ExitNotFound, "TOOL_MISSING", hint, "%s", pe.Error())
+		}
+		return out.Errf(out.ExitConnect, "LOGIN_FAILED", "run the program in a terminal to see why it cannot log in (it may need a person to sign in first), then try again",
+			"%s", cleanText(pe.Error()))
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test NAME` (and its --via path)",
 			"the cluster did not answer within the time limit (--timeout)")

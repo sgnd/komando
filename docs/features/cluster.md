@@ -37,7 +37,10 @@ EKS and GKE logins itself (`aws eks get-token`, `aws-iam-authenticator`,
 `gke-gcloud-auth-plugin`), so you do not need those programs. Other
 credential plugins run as the kubeconfig says: they are programs on this
 computer, so an AI agent needs a person's yes (`--yes`) to import such a
-kubeconfig, as with a host's `--proxy-command`. A kubeconfig a person
+kubeconfig, as with a host's `--proxy-command`. When that program is not
+installed, cluster commands stop with `TOOL_MISSING` (exit 3) and the
+kubeconfig's own `installHint`; when it runs but cannot log in (it may
+want a person to sign in first), with `LOGIN_FAILED` (exit 4). A kubeconfig a person
 imported (or allowed) is trusted for that program and server: agents then
 use the conn without asking. If the kubeconfig in the vault changes to
 another program or server (for example with `secret set`), every agent
