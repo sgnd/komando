@@ -221,14 +221,16 @@ komando queue rm jobs emails --allow-dangerous
     RabbitMQ 4.0, or the queue's own `x-delivery-limit` or policy) it drops
     a message or sends it to its dead-letter queue. So peek shows the count
     (`deliveries`) and stops with `DELIVERY_LIMIT_NEAR` once a message
-    has fewer than 3 deliveries left: do not peek that queue again. Only
+    has fewer than 3 deliveries left: do not peek that queue again. It
+    takes no message after that one, so the messages behind it are not
+    counted down too. Only
     the management API tells a queue's type and its own limit, so peek
     needs `?management=` in the conn's URL: without it (or when the
     management API fails) peek stops before it takes a message
     (`NOT_SUPPORTED`, or the management API's error).
   - A stream queue cannot be peeked this way (`NOT_SUPPORTED`).
-  - peek always reads from the front (`"from": "front"`); `--oldest`,
-    `--partition` and `--wait` are for Kafka.
+  - peek always reads from the front (`"from": "front"`), which is
+    already the oldest; `--partition` and `--wait` are for Kafka.
 - `send` puts the message straight into the queue (through the default
   exchange), as a persistent message, and waits until the server confirms
   it. `--header KEY=VALUE` sets its headers; there is no `--key` or

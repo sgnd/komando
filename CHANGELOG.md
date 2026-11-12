@@ -19,6 +19,9 @@ its highlights; the sections below them give the details. Versions follow
   queue's counts first, so a big account answers within the time limit.
 - `queue peek --wait` on RabbitMQ, NATS, SQS or Pub/Sub is refused
   (`NOT_SUPPORTED`) instead of being ignored: only a Kafka peek waits.
+- `queue peek` on a RabbitMQ quorum queue takes no more messages once one
+  is near its delivery limit, so a single peek no longer counts down the
+  deliveries of every message behind it.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like
