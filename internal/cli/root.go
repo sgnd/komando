@@ -111,6 +111,7 @@ func executeArgs(args []string) int {
 		args = filled
 		os.Args = append([]string{os.Args[0]}, filled...) // what the audit and the approval window name
 	}
+	runAs.cmd, runAs.id = nil, ""
 	root := newRoot()
 	root.SetArgs(args)
 	ctx, cancel := signalContext()
@@ -355,8 +356,25 @@ func envelopeName(c *cobra.Command) string {
 }
 
 // commandName is c's stable ID (cmdid.go): what the envelopes, the audit
-// log and every table keyed by command use.
-func commandName(c *cobra.Command) string { return cmdID(c) }
+// log and every table keyed by command use. For the run that called
+// runsAs it is the ID given there.
+func commandName(c *cobra.Command) string {
+	if runAs.cmd == c && runAs.id != "" {
+		return runAs.id
+	}
+	return cmdID(c)
+}
+
+// runAs is the ID one run of a command takes in its envelope and audit
+// (pkg upgrade --security runs as pkg.security). The command keeps its own
+// ID in the tree, so nothing keyed by that ID changes for a later run.
+var runAs struct {
+	cmd *cobra.Command
+	id  string
+}
+
+// runsAs makes this run of c name itself id (runAs).
+func runsAs(c *cobra.Command, id string) { runAs.cmd, runAs.id = c, id }
 
 // vaultValues returns every vault secret by name, so output can hide them
 // (a remote .env, a log line). A vault that cannot be opened hides nothing.

@@ -524,7 +524,7 @@ func pkgUpgradeSecurity(c *cobra.Command, noSudo *bool) *cobra.Command {
 		if len(args) > 1 {
 			return out.Usage("--security installs every pending security update; it takes no package names (see them with `komando pkg security %s`)", args[0])
 		}
-		withID(cmd, "pkg.security") // the same command as pkg security --apply was
+		runsAs(cmd, "pkg.security") // the same command as pkg security --apply was, for this run
 		return pkgSecurity(cmd.Context(), args[0], true, refresh, keepGoing, !*noSudo)
 	}
 	c.Flags().BoolVar(&security, "security", false, "install only the security updates, one server at a time")

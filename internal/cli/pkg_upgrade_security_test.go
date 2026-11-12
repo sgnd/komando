@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"io"
 	"strings"
 	"testing"
 
@@ -39,6 +41,30 @@ func TestPkgUpgradeSecurity(t *testing.T) {
 	}
 	if f := findCmd(t, newRoot(), "pkg", "security").Flags().Lookup("apply"); f == nil || !f.Hidden {
 		t.Error("pkg security --apply must be hidden")
+	}
+}
+
+// A --security run names itself pkg.security for that run only: the
+// command keeps its own ID in the tree, so a plain `pkg upgrade` on the
+// same tree is never read as pkg.security (whose read form a read-only
+// ssh-gate key may run).
+func TestPkgUpgradeSecurityKeepsID(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
+	c := findCmd(t, newRoot(), "pkg", "upgrade")
+	if err := c.ParseFlags([]string{"--security"}); err != nil {
+		t.Fatal(err)
+	}
+	c.SetContext(context.Background())
+	saved := out.P.W
+	out.P.W = io.Discard
+	_ = c.RunE(c, []string{"web1"}) // the closed port fails
+	out.P.W = saved
+	if id := cmdID(c); id != "pkg.upgrade" {
+		t.Errorf("after a --security run the command's ID is %q", id)
+	}
+	if code, text := runMain(t, "pkg", "upgrade", "web1", "--security"); !strings.Contains(text, `"command":"pkg.security"`) {
+		t.Errorf("the run still names pkg.security: exit %d %s", code, text)
 	}
 }
 
