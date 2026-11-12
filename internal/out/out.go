@@ -181,8 +181,8 @@ type Meta struct {
 	// Warnings are things that went wrong beside the result (an audit
 	// record that could not be written); they are on stderr too.
 	Warnings []string `json:"warnings,omitempty"`
-	// Deprecated: the command used a retired flag or argument shape that
-	// still works for now; Now is how to write it today.
+	// The retired flag or argument shape the command used (it still
+	// works), and how to write it today (meta.deprecated).
 	Deprecated *Deprecated `json:"deprecated,omitempty"`
 }
 
