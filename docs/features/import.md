@@ -121,7 +121,10 @@ fix those entries and import again (what is in already is skipped).
 
 Private keys are never in an export file either. When a server logs in with
 a key from `komando key`, `export` names the key (`keys_needed`) and its file
-(`key_files`): copy that file to the other computer yourself. The import
+(`key_files`): copy that file to the other computer yourself. A key
+komando made (`key gen`) is sealed in komando and has no file
+(`keys_sealed`): make a new one on the other computer with `komando key gen
+NAME` and put it on the servers with `komando key deploy`. The import
 still adds the server, says which key it needs, and leaves the key out until
 you bring it (ssh-agent or your default key may log in meanwhile):
 
