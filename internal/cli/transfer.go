@@ -122,8 +122,11 @@ func downloadCmdFor(storageOnly bool) *cobra.Command {
 		Short: "Download files from servers or from file storage",
 		Long: `PATH is the path on the servers, or the key in the storage conn. --to is
 where it lands: a file name, or a folder (existing, or ending in /); a
-folder per server when several are picked. Files that already exist here
-are kept unless --overwrite. --sudo reads one file as root (up to 512 MiB).
+folder per server when several are picked. A file that is already here is
+replaced only with --overwrite: without it, one file stops with FILE_EXISTS,
+a folder from servers stops at the first such file, and a folder from
+storage keeps them and copies the rest. --sudo reads one file as root (up
+to 512 MiB).
 From storage, --to - writes the object to stdout.
 
 ` + downloadFolderRule,
