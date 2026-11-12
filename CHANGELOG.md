@@ -34,6 +34,11 @@ its highlights; the sections below them give the details. Versions follow
   databases (groups, `all` and `kind:` as before). It listed every conn,
   so a database could be picked for a cache command.
 
+- `make licenses` (and so `make dist`) stopped at "archive/tar does not
+  have module info" when Go ran a downloaded toolchain (go.mod's `go`
+  line newer than the installed Go): the script now hands go-licenses
+  Go's own GOROOT. Run on its own, it also covers the Windows builds.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights

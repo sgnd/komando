@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 GOLICENSES=${GOLICENSES:-github.com/google/go-licenses/v2@v2.0.1}
-PLATFORMS=${PLATFORMS:-linux/amd64 linux/arm64 darwin/amd64 darwin/arm64}
+PLATFORMS=${PLATFORMS:-linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64}
 out=${1:-dist/THIRD_PARTY_LICENSES}
 mod=$(go list -m)
 tmp=$(mktemp -d)
@@ -16,6 +16,12 @@ trap 'rm -rf "$tmp"' EXIT
 # One record per license file: \036 NAME \t VERSION \t SPDX \t URL, then the text.
 printf '%s' $'{{range .}}\036{{.Name}}\t{{.Version}}\t{{.LicenseName}}\t{{.LicenseURL}}\n{{.LicenseText}}\n{{end}}' >"$tmp/tpl"
 GOBIN="$tmp/bin" go install "$GOLICENSES"
+# go-licenses tells the standard library from modules by GOROOT. When go
+# runs a downloaded toolchain (GOTOOLCHAIN, go.mod's go line), go-licenses
+# does not find that GOROOT by itself and stops at "archive/tar does not
+# have module info".
+GOROOT=$(go env GOROOT)
+export GOROOT
 for p in $PLATFORMS; do
   GOOS=${p%/*} GOARCH=${p#*/} CGO_ENABLED=0 "$tmp/bin/go-licenses" report ./cmd/komando \
     --ignore "$mod" --template "$tmp/tpl" 2>"$tmp/err" >>"$tmp/records" || { cat "$tmp/err" >&2; exit 1; }
