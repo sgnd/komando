@@ -41,7 +41,7 @@ make e2e      # real SSH tests in Docker (bastion + private target)
 
 ## Easiest first contribution: add a recipe
 
-Recipes are ready-made checks (`komando recipe list`). They live in one list in [`internal/cli/ops.go`](internal/cli/ops.go). Add an entry like:
+Recipes are ready-made checks (`komando recipe list`). They live in one list in [`internal/cli/recipe.go`](internal/cli/recipe.go). Add an entry like:
 
 ```go
 {Name: "swap-usage", Category: "system", Desc: "Processes using swap",

@@ -10,7 +10,7 @@ import (
 
 // docker exec and cluster exec run a command's words as given, with no
 // shell added. Their --read-only is held to the same promise as exec's
-// (run_readonly.go): a command that clearly changes something is refused
+// (readonly.go): a command that clearly changes something is refused
 // (READ_ONLY_VIOLATION), and on a protected target it skips --yes only
 // when komando knows every part of it only reads (the allowlist).
 
