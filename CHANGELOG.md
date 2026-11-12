@@ -34,6 +34,9 @@ its highlights; the sections below them give the details. Versions follow
   comes in a later release and what works today (application default
   credentials, a service principal, or a key in `--password-ref`), for any
   arguments, instead of a hint to store a "service account key" for Azure.
+- `komando import aws` names the right fix per profile: `komando login aws
+  --profile NAME` only for an SSO profile, the credentials file for a
+  profile without keys or SSO (it said "the login has expired" for both).
 
 ## [0.12.0] - 2026-11-11
 

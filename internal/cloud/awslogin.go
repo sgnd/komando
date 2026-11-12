@@ -33,13 +33,17 @@ var ErrAWSNotSSO = errors.New("the profile does not use SSO")
 
 // awsSharedConfig is a profile of ~/.aws/config and credentials, with the
 // environment's file names, as LoadDefaultConfig uses them.
-func awsSharedConfig(ctx context.Context, profile string) (config.SharedConfig, error) {
+// files, when given, are the config and credentials file instead.
+func awsSharedConfig(ctx context.Context, profile string, files ...string) (config.SharedConfig, error) {
 	return config.LoadSharedConfigProfile(ctx, profile, func(o *config.LoadSharedConfigOptions) {
 		if f := os.Getenv("AWS_CONFIG_FILE"); f != "" {
 			o.ConfigFiles = []string{f}
 		}
 		if f := os.Getenv("AWS_SHARED_CREDENTIALS_FILE"); f != "" {
 			o.CredentialsFiles = []string{f}
+		}
+		if len(files) == 2 {
+			o.ConfigFiles, o.CredentialsFiles = files[:1], files[1:]
 		}
 	})
 }
@@ -54,11 +58,12 @@ type AWSSSO struct {
 
 // AWSProfileSSO is the SSO login behind a profile, or an error wrapping
 // ErrAWSNotSSO when it has none.
-func AWSProfileSSO(ctx context.Context, profile string) (AWSSSO, error) {
+// files, when given, are the config and credentials file to read (import).
+func AWSProfileSSO(ctx context.Context, profile string, files ...string) (AWSSSO, error) {
 	if profile == "" {
 		profile = "default"
 	}
-	sc, err := awsSharedConfig(ctx, profile)
+	sc, err := awsSharedConfig(ctx, profile, files...)
 	if err != nil {
 		return AWSSSO{}, err
 	}
