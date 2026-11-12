@@ -20,6 +20,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `queue peek/send --partition` and `queue create --partitions/--replicas`
+  no longer show `-1` as their default: their help says "default: the
+  broker's", and `komando schema` lists no default for them. Leaving them
+  out, or giving `-1` as before, still means the broker decides.
 - Every size flag reads sizes the same way: `--max-output`, and
   `--max-bytes` on `fs cat`, `storage cat`, `job logs`, `db query` and
   `db explain`, take bytes or `256KiB`, `10MB`, `1GB` (KB = KiB = 1024).

@@ -79,7 +79,7 @@ attributes and --key is the ordering key.`,
 	c.Flags().StringVar(&from, "from", "", "read the message from this file ('-' for stdin)")
 	c.Flags().StringVar(&key, "key", "", "Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key")
 	c.Flags().StringArrayVar(&headers, "header", nil, "a message header KEY=VALUE (repeatable)")
-	c.Flags().IntVar(&partition, "partition", -1, "Kafka: send to this partition (numbered from 0)")
+	optIntVar(c.Flags(), &partition, "partition", "Kafka: send to this partition, numbered from 0 (default: the broker's choice)")
 	return c
 }
 
@@ -143,7 +143,7 @@ func queueCreateCmd() *cobra.Command {
 				return err
 			}
 			if partitions == 0 || partitions < -1 || replicas == 0 || replicas < -1 || replicas > 32767 {
-				return out.Usage("--partitions and --replicas must be at least 1 (or -1 for the brokers' default)")
+				return out.Usage("--partitions and --replicas must be at least 1 (leave them out for the broker's default)")
 			}
 			s := queuex.TopicSpec{Topic: args[1], Partitions: int32(partitions), Replicas: int16(replicas), Type: typ, Config: cfg}
 			return withQueue(cmd.Context(), "queue.create", args[0], queueRisk(""), map[string]any{"topic": args[1], "partitions": partitions, "replicas": replicas},
@@ -158,8 +158,8 @@ func queueCreateCmd() *cobra.Command {
 				})
 		},
 	}
-	c.Flags().IntVar(&partitions, "partitions", -1, "Kafka: how many partitions (-1: the brokers' default)")
-	c.Flags().IntVar(&replicas, "replicas", -1, "copies of each message. Kafka: copies of each partition (-1 uses the brokers' default); NATS: copies of the stream (-1 means 1)")
+	optIntVar(c.Flags(), &partitions, "partitions", "Kafka: how many partitions (default: the broker's)")
+	optIntVar(c.Flags(), &replicas, "replicas", "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)")
 	c.Flags().StringVar(&typ, "type", "", "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)")
 	c.Flags().StringArrayVar(&configs, "config", nil, "a setting KEY=VALUE, e.g. retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)")
 	return c

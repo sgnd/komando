@@ -147,3 +147,19 @@ func TestStandardBytes(t *testing.T) {
 		t.Errorf("--max-output lots: %+v", e)
 	}
 }
+
+// S-5.7: an unset optional number shows no default, never -1; -1 given
+// still means "left out", as before.
+func TestStandardNoMinusOneDefault(t *testing.T) {
+	walkLeaves(newRoot(), func(path string, f *pflag.Flag) {
+		if f.DefValue == "-1" {
+			t.Errorf("%s --%s shows default -1", path, f.Name)
+		}
+	})
+	p := 0
+	v := &optInt{&p}
+	p = -1
+	if v.String() != "" || v.Set("-1") != nil || p != -1 || v.Set("2") != nil || p != 2 || v.Set("-2") == nil {
+		t.Errorf("optInt: %d", p)
+	}
+}

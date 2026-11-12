@@ -193,3 +193,33 @@ func parseSize(s string) (int64, error) {
 	}
 	return n, nil
 }
+
+// optInt is a number that may be left out: the other side (the broker)
+// decides then. It shows no default, never -1 (S-5.7).
+type optInt struct{ p *int } // -1 while not given
+
+func (v *optInt) String() string {
+	if *v.p < 0 {
+		return ""
+	}
+	return strconv.Itoa(*v.p)
+}
+
+func (v *optInt) Type() string { return "int" }
+
+func (v *optInt) Set(s string) error {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil || n < -1 { // -1, the old way to write "left out", still means that
+		return fmt.Errorf("give a whole number of 0 or more (got %q)", s)
+	}
+	*v.p = n
+	return nil
+}
+
+func (v *optInt) check(s string) error { return (&optInt{p: new(int)}).Set(s) }
+
+// optIntVar adds an optInt flag; *p is -1 until it is given.
+func optIntVar(fs *pflag.FlagSet, p *int, name, usage string) {
+	*p = -1
+	fs.Var(&optInt{p}, name, usage)
+}
