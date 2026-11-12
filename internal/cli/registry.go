@@ -312,7 +312,7 @@ func registryLsCmd() *cobra.Command {
 						return nil, catalogErr(r, err)
 					}
 					repos, cut := cutList(repos, limit)
-					return lsData(withTruncated(map[string]any{"conn": c.Name, "count": len(repos), "repositories": repos}, cut)), nil
+					return listed(withTruncated(map[string]any{"conn": c.Name, "count": len(repos), "repositories": repos}, cut)), nil
 				}
 				repo := r.Repo(args[1])
 				tags, err := r.Tags(ctx, repo, limit+1)
@@ -320,7 +320,7 @@ func registryLsCmd() *cobra.Command {
 					return nil, imageErr(ctx, r, repo, "", err)
 				}
 				tags, cut := cutList(tags, limit)
-				return lsData(withTruncated(map[string]any{"conn": c.Name, "repo": repo, "count": len(tags), "tags": tags}, cut)), nil
+				return listed(withTruncated(map[string]any{"conn": c.Name, "repo": repo, "count": len(tags), "tags": tags}, cut)), nil
 			})
 		},
 	}

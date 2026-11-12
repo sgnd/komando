@@ -38,14 +38,19 @@ func (f fillDone) Error() string { return "exit " + strconv.Itoa(f.code) }
 // promptFill is args with what was missing asked and added, or args as
 // they are. Its error is a cancel at a question (or fillDone).
 func promptFill(args []string) ([]string, error) {
-	promptConfirmed, fillSeen = "", fillInfo{}
+	promptConfirmed, fillSeen, nextNow = "", fillInfo{}, nil
 	if !promptable(outputFlag()) {
 		return args, nil
 	}
 	fillSeen.person = true
 	scratch := newRoot() // its flags are parsed here; the real run parses its own
 	cmd, rest, err := scratch.Find(args)
-	if err != nil || cmd == scratch || !cmd.Runnable() || cmd.Hidden || slices.Contains(promptSkip, strings.Fields(commandKey(cmd))[0]) {
+	if err != nil || cmd == scratch || !cmd.Runnable() || slices.Contains(promptSkip, strings.Fields(commandKey(cmd))[0]) {
+		return args, nil
+	}
+	// a hidden command is never filled in; a hidden show (tunnel show
+	// TUNNEL) still lists the commands for its item afterwards
+	if _, show := showKinds[commandKey(cmd)]; cmd.Hidden && !show {
 		return args, nil
 	}
 	if err := cmd.ParseFlags(rest); err != nil {
@@ -56,7 +61,10 @@ func promptFill(args []string) ([]string, error) {
 	}
 	fillSeen.key = commandKey(cmd)
 	if pos := cmd.Flags().Args(); len(pos) > 0 {
-		fillSeen.first = pos[0]
+		fillSeen.first, fillSeen.args = pos[0], pos
+	}
+	if cmd.Hidden {
+		return args, nil
 	}
 	st, err := loadState()
 	if err != nil {
@@ -87,6 +95,9 @@ func promptFill(args []string) ([]string, error) {
 	fillSeen.prompted, fillSeen.line = true, filled
 	if fillSeen.first == "" && len(f.missing) > 0 && f.sp.qs[f.missing[0]].key == "arg0" {
 		fillSeen.first = f.a["arg0"]
+	}
+	if v, ok := f.a["arg1"]; ok && len(fillSeen.args) < 2 { // rename's NEW, asked
+		fillSeen.args = []string{fillSeen.first, v}
 	}
 	fmt.Fprintln(promptW, "$ komando "+out.MaskSecrets(menuCommandLine(filled)))
 	if err := f.confirm(filled); err != nil {

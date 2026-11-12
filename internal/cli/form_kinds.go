@@ -602,8 +602,8 @@ func sqliteForm() formSpec {
 // The add commands use the hand-made forms above from every menu path.
 func init() {
 	addFormHints(map[string]formHint{
-		"host add": {form: func() []formGroup { return formGroupsFor("host") }, next: []string{"facts {}", "logs {} --since 1h", "host edit {} --protected"}},
-		"conn add": {form: func() []formGroup { return formGroupsFor("conn") }, next: []string{"conn show {}", "test {}"}},
+		"host add": {form: func() []formGroup { return formGroupsFor("host") }, next: []string{"test {}", "host show {}", "host edit {} --protected"}},
+		"conn add": {form: func() []formGroup { return formGroupsFor("conn") }, next: []string{"test {}", "conn show {}"}},
 		"vpn add":  {form: func() []formGroup { return formGroupsFor("vpn") }, next: []string{"vpn up {}", "vpn test {}", "host add NAME USER@ADDRESS --via {}"}},
 	})
 	// db add, cache add, ...: conn add for one family, asked the same way.

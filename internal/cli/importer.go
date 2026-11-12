@@ -433,6 +433,9 @@ func (r *importResult) replacedAndNext(existed map[string]bool, groups []string)
 		}
 	}
 	r.Next = importNext(added, groups)
+	if r.Next != "" && !g.dryRun {
+		sayNext(r.Next)
+	}
 }
 
 // importNext is the test command for what an import brings in: its group
@@ -494,9 +497,6 @@ func (r importResult) Text() string {
 		} else {
 			fmt.Fprintf(&sb, "not imported: %s\n", n)
 		}
-	}
-	if r.Next != "" && !g.dryRun {
-		fmt.Fprintf(&sb, "next: %s\n", r.Next)
 	}
 	return sb.String()
 }

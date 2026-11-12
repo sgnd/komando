@@ -18,10 +18,10 @@ type lsData map[string]any
 func (d lsData) Text() string {
 	var b strings.Builder
 	items, _ := d["repositories"].([]string)
-	what, next := "repositories", "komando registry list "+fmt.Sprint(d["conn"])+" REPO"
+	what := "repositories"
 	if repo, ok := d["repo"].(string); ok {
 		items, _ = d["tags"].([]string)
-		what, next = "tags in "+repo, "komando registry inspect "+fmt.Sprint(d["conn"])+" "+repo+":TAG"
+		what = "tags in " + repo
 	}
 	if len(items) == 0 {
 		fmt.Fprintf(&b, "no %s yet; an image appears here after docker push\n", what)
@@ -33,8 +33,18 @@ func (d lsData) Text() string {
 	if d["truncated"] == true {
 		fmt.Fprintf(&b, "(the first %d %s; there are more: raise -n)\n", len(items), what)
 	}
-	fmt.Fprintf(&b, "Next: %s\n", next)
 	return b.String()
+}
+
+// listed is registry list's result; a person's Next: line names the
+// command for one of its items (a repository's tags, a tag's details).
+func listed(m map[string]any) lsData {
+	if repo, ok := m["repo"].(string); ok {
+		sayNext("komando registry inspect " + fmt.Sprint(m["conn"]) + " " + repo + ":TAG")
+	} else {
+		sayNext("komando registry list " + fmt.Sprint(m["conn"]) + " REPO")
+	}
+	return lsData(m)
 }
 
 // rmData is `registry rm`: the image, and every tag that goes with it.

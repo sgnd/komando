@@ -25,8 +25,11 @@ func TestJobStartNextHasTheIDs(t *testing.T) {
 	if !strings.Contains(many.Next, "komando job wait j1 j3") {
 		t.Errorf("several jobs: %q", many.Next)
 	}
-	if txt := many.Text(); !strings.Contains(txt, "komando job wait j1 j3") {
-		t.Errorf("several jobs, text:\n%s", txt)
+	if txt := many.Text(); strings.Contains(txt, "komando job") {
+		t.Errorf("several jobs, text names a next command on stdout:\n%s", txt)
+	}
+	if len(nextNow) == 0 || nextNow[0] != "komando job wait j1 j3" {
+		t.Errorf("several jobs, Next: %q", nextNow)
 	}
 	if h := many.fleetHint(); strings.Contains(h, "data.results") {
 		t.Errorf("job start hint points at data.results: %q", h)

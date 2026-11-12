@@ -62,8 +62,8 @@ appear in komando's list, output or history.
 - With `--overwrite`, the result lists what it replaced. A protected server
   or conn is skipped (`--yes` after the person agrees replaces it), in the
   dry run too.
-- The result ends with the command that checks what came in, for example
-  `next: komando test @shop`.
+- The result names the command that checks what came in in `data.next`,
+  and a person sees it on stderr: `Next: komando test @shop`.
 - Servers are checked like `host add` (ports, users, `--via`). A bad one is
   skipped, with the reason. A `csv` import is stricter: one bad row stops
   the whole import, and nothing is added.

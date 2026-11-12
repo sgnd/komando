@@ -488,6 +488,19 @@ its highlights; the sections below them give the details. Versions follow
   when it asked you for something, the line to type next time. All of
   this goes to stderr, and only at a person's terminal.
 
+- **What to run next is on stderr only.** `next:` lines are gone from
+  stdout (`host add`, `conn add`, `vpn add`, `import`, `update`,
+  `registry list`; job start's "follow it with:" and policy deny's "try
+  it:" lines). A person sees one `Next:` line on stderr, at most three
+  commands, filled in: `host add web1` gives `Next: komando test web1 ·
+  komando host show web1 · ...`, `job start` the real job IDs. JSON keeps
+  `data.next` (and `data.next_steps`) as before. A script that read the
+  `next:` line from `-o text` reads `data.next` instead.
+- Every add, edit, rename and rm says what comes next: add → `test` and
+  `show`, edit → `show` and `test`, rename → `show NEW`, rm → `list`
+  (`fs rm` → `fs list`, `docker rm` → `docker ps --all`). `tunnel show`
+  and `recipe show` end with the commands for that tunnel or recipe.
+
 ### Removed
 
 - The menu that `komando` alone opened at a terminal, its task lists and

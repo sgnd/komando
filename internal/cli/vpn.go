@@ -276,7 +276,7 @@ Which flags go with which VPN:
 			if len(warnings) > 0 {
 				res["warnings"] = warnings
 			}
-			out.P.Print("vpn.add", textAs{res, vpnChangeText{verb: "added", v: v, notes: vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])), warnings: warnings, next: "komando vpn up " + name}}, nil)
+			out.P.Print("vpn.add", textAs{res, vpnChangeText{verb: "added", v: v, notes: vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])), warnings: warnings}}, nil)
 			return nil
 		},
 	}
@@ -626,14 +626,14 @@ func vpnAddress(kind, address string) (string, error) {
 }
 
 // vpnChangeText is how vpn add and vpn edit read for a person: what
-// happened first, the settings, then notes and warnings, the next command
-// last. Their JSON stays as it was (textAs).
+// happened first, the settings, then notes and warnings. The command to
+// run next is data.next and the Next: line on stderr. Their JSON stays as
+// it was (textAs).
 type vpnChangeText struct {
 	verb     string // added, changed, would add, would change
 	v        *store.Vpn
 	notes    []string
 	warnings []string
-	next     string
 }
 
 func (t vpnChangeText) Text() string {
@@ -692,9 +692,6 @@ func (t vpnChangeText) Text() string {
 	}
 	for _, w := range t.warnings {
 		b.WriteString("warning: " + w + "\n")
-	}
-	if t.next != "" {
-		b.WriteString("next: " + t.next + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

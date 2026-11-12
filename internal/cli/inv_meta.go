@@ -750,6 +750,9 @@ type policyChange struct {
 func (p policyChange) denied() policyChange {
 	p.ID = policy.CustomID(p.pattern)
 	p.Next = "komando policy check 'COMMAND' says whether it blocks a command  |  komando policy rm " + p.ID + " removes it"
+	if !g.dryRun {
+		sayNext("komando policy check 'COMMAND'", "komando policy rm "+p.ID)
+	}
 	return p
 }
 
@@ -759,7 +762,7 @@ func (p policyChange) Text() string {
 	case p.Added != nil && *p.Added && g.dryRun:
 		return fmt.Sprintf("would add the deny rule %s as %s (dry run; %s then)\n", p.pattern, p.ID, n)
 	case p.Added != nil && *p.Added:
-		return fmt.Sprintf("added the deny rule %s as %s (%s now)\ntry it:   komando policy check 'COMMAND'\nundo it:  komando policy rm %s\n", p.pattern, p.ID, n, p.ID)
+		return fmt.Sprintf("added the deny rule %s as %s (%s now)\n", p.pattern, p.ID, n)
 	case p.Added != nil:
 		return fmt.Sprintf("the deny rule %s is there already, as %s (%s)\n", p.pattern, p.ID, n)
 	case g.dryRun:

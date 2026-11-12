@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
+
+	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/store"
 )
@@ -16,17 +19,28 @@ import (
 
 // fillInfo is what promptFill saw of this command.
 type fillInfo struct {
-	person   bool   // a person at a terminal (promptable)
-	key      string // the command (db query)
-	first    string // its first argument, usually the target
-	prompted bool   // komando asked for something
+	person   bool     // a person at a terminal (promptable)
+	key      string   // the command (db query)
+	first    string   // its first argument, usually the target
+	args     []string // the positional arguments as given (rename's NEW)
+	prompted bool     // komando asked for something
 	line     []string
 }
 
 var fillSeen fillInfo
 
+// nextNow are the Next: lines a command worked out while it ran (the IDs
+// of the jobs it started, the group an import made). They take the place
+// of its formHint's list. Agents read the same in data.next.
+var nextNow []string
+
+// sayNext sets the Next: lines a person sees after this command, each a
+// whole `komando ...` line. Nothing next is ever printed on stdout (S-9.3).
+func sayNext(lines ...string) { nextNow = lines }
+
 // promptNext prints Next time: and Next: for a person, after a run that
 // ended well. A Next: line with {} needs the command's first argument.
+// Next: is one line on stderr, at most three commands (S-9.3).
 func promptNext() {
 	if !fillSeen.person || fillSeen.key == "" {
 		return
@@ -37,16 +51,142 @@ func promptNext() {
 	if kind, ok := showKinds[fillSeen.key]; ok && fillSeen.first != "" {
 		showCommands(kind, fillSeen.first)
 	}
-	var lines []string
-	for _, n := range formHints[fillSeen.key].next {
-		if strings.Contains(n, "{}") && fillSeen.first == "" {
-			continue
-		}
-		lines = append(lines, "komando "+strings.ReplaceAll(n, "{}", fillSeen.first))
+	lines := nextNow
+	if len(lines) == 0 {
+		lines = nextLines(fillSeen.key, fillSeen.first, fillSeen.args)
+	}
+	if len(lines) > 3 {
+		lines = lines[:3]
 	}
 	if len(lines) > 0 {
 		fmt.Fprintln(promptW, "Next: "+strings.Join(lines, " · "))
 	}
+}
+
+// nextLines are the Next: lines of the command key, filled in: its
+// formHint's list, or else the one its verb gives (verbNext). A line with
+// {} needs first; one with NEW needs rename's second argument.
+func nextLines(key, first string, args []string) []string {
+	next := formHints[key].next
+	if len(next) == 0 {
+		next = verbNext(key)
+	}
+	newName := ""
+	if len(args) > 1 {
+		newName = args[1]
+	}
+	var lines []string
+	for _, n := range next {
+		if strings.Contains(n, "{}") && first == "" || strings.Contains(n, " NEW") && newName == "" {
+			continue
+		}
+		n = strings.ReplaceAll(n, "{}", first)
+		if newName != "" {
+			n = strings.ReplaceAll(n, " NEW", " "+newName)
+		}
+		lines = append(lines, "komando "+n)
+	}
+	return lines
+}
+
+// verbNext is the Next: list every add, edit, rename and rm has when its
+// formHint names none (S-9.4): add -> test and show, edit -> show and
+// test, rename -> show NEW, rm -> list. A command of a noun without a
+// show (user, cron, cache) gets the noun's list of the same target. The
+// lines are written as formHint next lines are ({}, NEW).
+func verbNext(key string) []string {
+	w := strings.Fields(key)
+	if len(w) < 2 {
+		if key == "rename" {
+			return []string{"list NEW"}
+		}
+		return nil
+	}
+	noun, verb := strings.Join(w[:len(w)-1], " "), w[len(w)-1]
+	root := nextRoot()
+	cmd := cmdByKey(root, key)
+	if cmd == nil {
+		return nil
+	}
+	show, list := cmdByKey(root, noun+" show"), cmdByKey(root, noun+" list")
+	inventory := slices.Contains([]string{"host", "conn", "vpn"}, noun)
+	// sameFirst: c takes the same first argument as cmd (user list TARGET
+	// after user add TARGET USER), so {} fills it
+	sameFirst := func(c *cobra.Command) bool {
+		a, b := useArgs(cmd), useArgs(c)
+		return len(a) > 0 && len(b) > 0 && a[0] == b[0] && !strings.HasPrefix(b[0], "[")
+	}
+	listLine := func() string {
+		switch {
+		case list == nil:
+			return ""
+		case sameFirst(list):
+			return commandKey(list) + " {}"
+		case len(useArgs(list)) > 0 && !strings.HasPrefix(useArgs(list)[0], "["):
+			return "" // its list needs an argument rm does not have
+		}
+		return commandKey(list)
+	}
+	showLine := func(arg string) string {
+		if show == nil || len(useArgs(show)) != 1 {
+			return ""
+		}
+		return commandKey(show) + " " + arg
+	}
+	var next []string
+	add := func(l ...string) {
+		for _, s := range l {
+			if s != "" {
+				next = append(next, s)
+			}
+		}
+	}
+	switch verb {
+	case "add":
+		if inventory {
+			add("test {}")
+		}
+		if s := showLine("{}"); s != "" && sameFirst(show) {
+			add(s)
+		} else {
+			add(listLine())
+		}
+	case "edit":
+		add(showLine("{}"))
+		if inventory {
+			add("test {}")
+		}
+	case "rename":
+		if s := showLine("NEW"); s != "" {
+			add(s)
+		} else {
+			add(listLine())
+		}
+	case "rm":
+		add(listLine())
+	}
+	return next
+}
+
+// nextRoot is the command tree verbNext reads.
+var nextRoot = sync.OnceValue(newRoot)
+
+// cmdByKey is the command whose key is key, or nil (an alias does not count).
+func cmdByKey(root *cobra.Command, key string) *cobra.Command {
+	c, _, err := root.Find(strings.Fields(key))
+	if err != nil || c == root || commandKey(c) != key {
+		return nil
+	}
+	return c
+}
+
+// useArgs are the argument words of c's Use line, without [flags].
+func useArgs(c *cobra.Command) []string {
+	f := strings.Fields(c.Use)
+	if len(f) > 0 {
+		f = f[1:]
+	}
+	return slices.DeleteFunc(f, func(s string) bool { return s == "[flags]" })
 }
 
 // showKinds are the commands that show one item, and its kind for
@@ -54,6 +194,7 @@ func promptNext() {
 var showKinds = map[string]string{
 	"host show": "", "conn show": "", "vpn show": "",
 	"group list": "group", "key show": "key", "job status": "job", "secret show": "secret", "config get": "setting",
+	"tunnel show": "tunnel", "recipe show": "recipe",
 }
 
 // itemCommands are the commands that work on one item of a kind, {} the
@@ -103,6 +244,8 @@ var itemCommands = map[string][]string{
 	"job":     {"job logs {} --limit 50", "job wait {}", "job kill {}", "job rm {}"},
 	"secret":  {"secret check {}", "secret set {}", "secret rename {} NEW", "secret cp {} NEW", "secret rm {}"},
 	"setting": {"config set {} VALUE"},
+	"tunnel":  {"tunnel stop {}", "tunnel list"},
+	"recipe":  {"recipe run {} TARGET", "recipe add {} COMMAND --overwrite --dry-run", "recipe rm {}"},
 }
 
 // itemKinds are the itemCommands lists for name, shown by a command that

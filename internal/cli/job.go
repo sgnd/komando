@@ -668,8 +668,10 @@ func (d jobStarted) withNext() jobStarted {
 	switch {
 	case len(ids) == 1:
 		d.Next = "komando job status " + ids[0] + "  |  komando job logs " + ids[0] + " --offset 0  |  komando job wait " + ids[0]
+		sayNext("komando job logs "+ids[0]+" --limit 20", "komando job wait "+ids[0], "komando job status "+ids[0])
 	case len(ids) > 1:
 		d.Next = "komando job wait " + strings.Join(ids, " ") + "  |  komando job status <id>  |  komando job logs <id> --offset <next_offset>"
+		sayNext("komando job wait "+strings.Join(ids, " "), "komando job logs JOB --limit 20", "komando job status JOB")
 	}
 	return d
 }
@@ -683,14 +685,7 @@ func (d jobStarted) Text() string {
 		}
 		rows = append(rows, []string{j.ID, j.Host, strconv.Itoa(j.PID), "started"})
 	}
-	s := textTable([]string{"id", "host", "pid", "state"}, rows)
-	switch ids := d.ids(); {
-	case len(ids) == 1:
-		s += "\nfollow it with: komando job logs " + ids[0] + " --limit 20   |   komando job wait " + ids[0] + "\n"
-	case len(ids) > 1:
-		s += "\nwait for them all: komando job wait " + strings.Join(ids, " ") + "\none's output:      komando job logs <id> --limit 20\n"
-	}
-	return s
+	return textTable([]string{"id", "host", "pid", "state"}, rows)
 }
 
 func (s *jobStatus) describe() string {

@@ -336,9 +336,12 @@ Next time: komando logs web1
 - Ctrl-C at a question stops it and nothing runs. komando never adds
   `--yes`, `--allow-dangerous`, `--reveal` or `--write` for you.
 - After a command you ran ends well, komando may say what usually comes
-  next (`Next: komando db info app-db`). `komando host show web1` (`conn
-  show`, `vpn show`, `group list GROUP`, `key show`, `job status`,
-  `secret show`, `config get`) ends with the commands for that item.
+  next, on one line on stderr with at most three commands (`Next: komando
+  db info app-db`). Every add, edit, rename and rm has one. Nothing "next"
+  is printed on stdout; scripts and agents read `data.next`. `komando host
+  show web1` (`conn show`, `vpn show`, `group list GROUP`, `key show`,
+  `job status`, `secret show`, `config get`, `tunnel show`, `recipe
+  show`) ends with the commands for that item.
 
 `komando` alone shows the commands by group, START first. A command typed
 in full runs as it always did. Nothing is ever asked of an AI agent, a

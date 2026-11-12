@@ -314,7 +314,8 @@ komando host edit web1 --password-ref secret:web1-pass
 
 A `--password-ref secret:NAME` whose secret is not in the vault yet gets a
 warning right away, with the `secret set` command that stores it. After
-`host add`, the line `next:` says what to run next (`komando test web1`).
+`host add`, `data.next` says what to run next (`komando test web1`); a
+person sees it on stderr as `Next: komando test web1 · ...`.
 
 The password goes to the server's address on every login. So when an AI
 agent gives a server or conn a password reference, or moves one that has

@@ -240,6 +240,7 @@ var srvNetHints = map[string]formHint{
 // Next: lines for the server commands (server and ops areas).
 func init() {
 	addFormHints(map[string]formHint{
+		"docker rm":         {next: []string{"docker ps {} --all"}},
 		"exec":              {next: []string{"job start {} -- COMMAND", "logs {}", "facts {}"}},
 		"facts":             {next: []string{"pkg upgradable {}", "logs {}", "svc list {}"}},
 		"svc list":          {next: []string{"svc status {} UNIT", "logs {} --unit UNIT --since 30m", "svc restart {} UNIT --wait 10s"}},

@@ -68,9 +68,6 @@ func (r updateResult) Text() string {
 	}
 	fmt.Fprintf(&b, "  %s\n", r.Path)
 	fmt.Fprintf(&b, "what changed: %s\n", r.Release)
-	if r.Next != "" {
-		fmt.Fprintf(&b, "next: %s\n", r.Next)
-	}
 	return b.String()
 }
 
@@ -184,6 +181,7 @@ func runUpdate(ctx context.Context, want string) (updateResult, error) {
 		return r, err
 	}
 	r.Next = nextAfterUpdate()
+	sayNext(r.Next)
 	return r, nil
 }
 

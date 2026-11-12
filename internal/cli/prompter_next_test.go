@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -109,6 +112,7 @@ func TestPersonHelp(t *testing.T) {
 // and what usually comes next; nobody else sees anything.
 func TestPromptNext(t *testing.T) {
 	invHome(t)
+	nextNow = nil
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
 	drawn := promptFake(t)
 	fillSeen = fillInfo{person: true, key: "db add", first: "app-db", prompted: true, line: []string{"db", "add", "app-db", "postgres://app@10.0.0.9/app"}}
@@ -133,6 +137,8 @@ func TestPromptNext(t *testing.T) {
 		{"key show", "deploy", "komando key deploy deploy TARGET", "db "},
 		{"job status", "7f3", "komando job logs 7f3 --limit 50", "conn "},
 		{"group rm", "old", "Next: komando group add old TARGET...", "group rm"},
+		{"tunnel show", "db-tunnel", "komando tunnel stop db-tunnel", "conn "},
+		{"recipe show", "health", "komando recipe run health TARGET", "conn "},
 	} {
 		drawn.Reset()
 		fillSeen = fillInfo{person: true, key: c.key, first: c.first}
@@ -191,6 +197,78 @@ func TestHelpGroupsMatchPersonHelp(t *testing.T) {
 			if got := title[c.GroupID]; got != f[0] {
 				t.Errorf("%s is under %q in --help, %q in komando alone", name, got, f[0])
 			}
+		}
+	}
+}
+
+// Nothing next goes to stdout (S-9.3): the commands to run next are
+// data.next for agents and one Next: line on stderr for a person, which
+// only promptNext prints.
+func TestNextOnlyOnStderr(t *testing.T) {
+	files, _ := filepath.Glob("*.go")
+	more, _ := filepath.Glob("../out/*.go")
+	stdoutNext := regexp.MustCompile(`"(\\n)?([Nn]ext|follow it with|try it|undo it|wait for them all): `)
+	for _, f := range append(files, more...) {
+		if strings.HasSuffix(f, "_test.go") || f == "prompter_next.go" {
+			continue
+		}
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, l := range strings.Split(string(b), "\n") {
+			if stdoutNext.MatchString(l) {
+				t.Errorf("%s:%d: a next line outside promptNext: %s", f, i+1, strings.TrimSpace(l))
+			}
+		}
+	}
+	// a command that worked out its next lines puts them in the Next: line
+	invHome(t)
+	drawn := promptFake(t)
+	fillSeen = fillInfo{person: true, key: "job start", first: "web1"}
+	defer func() { fillSeen, nextNow = fillInfo{}, nil }()
+	jobStarted{Jobs: []started{{ID: "j1", Host: "web1", OK: true}}}.withNext()
+	promptNext()
+	if got := drawn.String(); got != "Next: komando job logs j1 --limit 20 · komando job wait j1 · komando job status j1\n" {
+		t.Errorf("job start: %q", got)
+	}
+}
+
+// S-9.4: every add, edit, rename and rm has a Next: list, from its formHint
+// or its verb: add -> test, show; edit -> show, test; rename -> show NEW;
+// rm -> list. Each line is a command that parses.
+func TestStandardNextPerVerb(t *testing.T) {
+	for _, c := range allCommands(newRoot()) {
+		if !c.Runnable() || c.Hidden {
+			continue
+		}
+		key := commandKey(c)
+		w := strings.Fields(key)
+		if !slices.Contains([]string{"add", "edit", "rename", "rm"}, w[len(w)-1]) {
+			continue
+		}
+		lines := nextLines(key, "web1", []string{"web1", "web2"})
+		if len(lines) == 0 {
+			t.Errorf("%s: no Next: line (S-9.4); give it a formHint next or a show/list command", key)
+			continue
+		}
+		for _, l := range lines {
+			formParse(t, key+" next", formSplitWords(strings.TrimPrefix(l, "komando ")))
+		}
+	}
+	for key, want := range map[string]string{
+		"host add":    "komando test web1",
+		"conn add":    "komando test web1",
+		"host rename": "komando host show web2",
+		"key rename":  "komando key show web2",
+		"rename":      "komando list web2",
+		"user add":    "komando user list web1",
+		"cron rm":     "komando cron list web1",
+		"host rm":     "komando host list",
+		"vpn edit":    "komando vpn show web1",
+	} {
+		if got := nextLines(key, "web1", []string{"web1", "web2"}); len(got) == 0 || got[0] != want {
+			t.Errorf("%s: Next: %q, want %q first", key, got, want)
 		}
 	}
 }

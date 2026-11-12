@@ -569,10 +569,10 @@ func renderText(data any, dryRun bool) string {
 			return sb.String()
 		}
 		if h := headline(m, dryRun); h != "" {
-			// what happened comes first, in words; the record follows, and
-			// the command to run next comes last
+			// what happened comes first, in words; the record follows. The
+			// command to run next is data.next, and for a person the Next:
+			// line on stderr: nothing next goes to stdout (S-9.3)
 			sb.WriteString(h + "\n")
-			next, _ := m["next"].(string)
 			for _, k := range []string{"action", "changed", "name", "created_at", "updated_at", "next"} {
 				delete(m, k)
 			}
@@ -582,9 +582,6 @@ func renderText(data any, dryRun bool) string {
 				}
 			}
 			writeAny(&sb, m, "  ")
-			if next != "" {
-				sb.WriteString("next: " + next + "\n")
-			}
 			return sb.String()
 		}
 	}
