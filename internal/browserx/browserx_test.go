@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -305,5 +307,22 @@ func TestRealBrowser(t *testing.T) {
 		if err != nil || got != tc.want {
 			t.Errorf("%s: %q %v", name, got, err)
 		}
+	}
+}
+
+// On Windows the browsers are not on PATH: Find looks where they install.
+func TestWindowsBrowsers(t *testing.T) {
+	env := map[string]string{`ProgramFiles`: `C:\Program Files`, `LOCALAPPDATA`: `C:\Users\me\AppData\Local`}
+	got := windowsBrowsers(func(k string) string { return env[k] })
+	want := []string{
+		filepath.Join(`C:\Program Files`, "Google", "Chrome", "Application", "chrome.exe"),
+		filepath.Join(`C:\Users\me\AppData\Local`, "Google", "Chrome", "Application", "chrome.exe"),
+		filepath.Join(`C:\Program Files`, "Microsoft", "Edge", "Application", "msedge.exe"),
+		filepath.Join(`C:\Users\me\AppData\Local`, "Microsoft", "Edge", "Application", "msedge.exe"),
+		filepath.Join(`C:\Program Files`, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+		filepath.Join(`C:\Users\me\AppData\Local`, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("windowsBrowsers =\n%q\nwant\n%q", got, want)
 	}
 }

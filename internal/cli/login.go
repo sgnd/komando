@@ -156,16 +156,27 @@ NEEDS_PERSON and asks you to run it. A profile with keys in
 // openBrowser opens url with the operating system's own opener. When there
 // is none (a server), the person opens the printed address themselves.
 func openBrowser(ctx context.Context, url string) {
-	name := "xdg-open"
-	if runtime.GOOS == "darwin" {
-		name = "open"
-	}
 	if !strings.HasPrefix(url, "https://") { // only a web page, never a file or an app
 		return
 	}
-	if _, err := exec.LookPath(name); err == nil {
-		_ = exec.CommandContext(ctx, name, url).Start()
+	argv := browserOpener(runtime.GOOS, url)
+	if _, err := exec.LookPath(argv[0]); err == nil {
+		_ = exec.CommandContext(ctx, argv[0], argv[1:]...).Start()
 	}
+}
+
+// browserOpener is the command that opens url in the person's own browser
+// on the system goos: open on macOS, the shell's URL handler on Windows
+// (Go passes the address as one quoted word, so no cmd.exe reads it), and
+// xdg-open elsewhere.
+func browserOpener(goos, url string) []string {
+	switch goos {
+	case "darwin":
+		return []string{"open", url}
+	case "windows":
+		return []string{"rundll32", "url.dll,FileProtocolHandler", url}
+	}
+	return []string{"xdg-open", url}
 }
 
 // cloudEntry is a server, conn or VPN with a cloud's name, from before the

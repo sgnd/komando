@@ -309,3 +309,17 @@ func TestLoginCloudTypos(t *testing.T) {
 		t.Errorf("web1: %+v", e)
 	}
 }
+
+func TestBrowserOpener(t *testing.T) {
+	const u = "https://device.sso.example/?code=AB&x=1"
+	for goos, want := range map[string][]string{
+		"darwin":  {"open", u},
+		"linux":   {"xdg-open", u},
+		"freebsd": {"xdg-open", u},
+		"windows": {"rundll32", "url.dll,FileProtocolHandler", u},
+	} {
+		if got := browserOpener(goos, u); !slices.Equal(got, want) {
+			t.Errorf("%s: %q, want %q", goos, got, want)
+		}
+	}
+}
