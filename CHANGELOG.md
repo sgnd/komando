@@ -28,7 +28,7 @@ its highlights; the sections below them give the details. Versions follow
 
 - `komando db` shows five runnable examples and how to list, test,
   change, rename and remove a database (`list kind:db`, `test`, `conn edit`,
-  `rename`, `conn rm`). The `db dump` question for `--to` is no longer
+  `conn mv`, `conn rm`). The `db dump` question for `--to` is no longer
   marked required: without it the backup is `CONN-<date>.sql.gz`.
 
 ## [0.12.0] - 2026-11-11
