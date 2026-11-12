@@ -154,7 +154,14 @@ func TestAzureBlob(t *testing.T) {
 	if _, _, err := b.List(context.Background(), "", false, 0); code(err) != "BUCKET_NOT_FOUND" {
 		t.Errorf("missing container: %v", err)
 	}
-	sas, _ := OpenAzure(tg, "sv=2021-08-06&sp=rl&sig=abc", nil, time.Second)
+	if _, err := OpenAzure(tg, "sv=2021-08-06&sp=rl&sig=abc", nil, time.Second); code(err) != "INSECURE_PROTOCOL" {
+		t.Errorf("a SAS token over http: %v", err)
+	}
+	tgs, _ := driver.Parse("azblob://acct@media/site?endpoint=https://acct.blob.core.windows.net")
+	sas, err := OpenAzure(tgs, "sv=2021-08-06&sp=rl&sig=abc", nil, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := sas.Link(context.Background(), "b.txt", time.Hour); code(err) != "NOT_SUPPORTED" {
 		t.Errorf("a SAS-token conn makes no links: %v", err)
 	}

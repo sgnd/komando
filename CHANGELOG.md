@@ -19,6 +19,10 @@ its highlights; the sections below them give the details. Versions follow
   other `?endpoint=` used to send the person's gcloud token there too, in
   clear over `http://`. A service account key with an `http://` endpoint
   is refused with `INSECURE_PROTOCOL`.
+- Azure Blob: a SAS token with an `http://` endpoint is refused
+  (`INSECURE_PROTOCOL`): the token goes in every request as it is, so it
+  would travel unencrypted. The account key, which only signs, still works
+  with an emulator such as Azurite.
 
 ## [0.12.0] - 2026-11-11
 

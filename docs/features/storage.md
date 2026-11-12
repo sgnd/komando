@@ -91,6 +91,8 @@ komando conn add files azblob://mystorageacct@uploads/2026 --password-ref secret
   to an emulator or another endpoint. A service account key needs an
   `https://` endpoint: over `http://` its token would travel unencrypted,
   so komando refuses it (`INSECURE_PROTOCOL`).
+  A SAS token is refused over `http://` for the same reason; the Azure
+  account key only signs, so an emulator like Azurite works with it.
 
 ## Add a file server (WebDAV, FTPS, SFTP, FTP)
 
