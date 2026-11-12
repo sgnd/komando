@@ -40,7 +40,7 @@ func TestConventions(t *testing.T) {
 		}
 		// command lists fit 80 columns: `komando --help` puts a top-level
 		// Short at column 15, a sub-command's a little further right
-		if limit := map[bool]int{true: 64, false: 80}[c.Parent() == c.Root()]; len(c.Short) > limit {
+		if limit := map[bool]int{true: 64, false: 72}[c.Parent() == c.Root()]; len(c.Short) > limit {
 			t.Errorf("%s: Short is %d characters, over %d; move the detail to Long", path, len(c.Short), limit)
 		}
 		c.LocalFlags().VisitAll(func(f *pflag.Flag) {

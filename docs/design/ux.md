@@ -563,10 +563,18 @@ Guidelines](https://clig.dev) and the rules above.
   own `Example`). `TestConventions` fails without one, and
   `TestExamplesParse` fails when an example names a command or flag that
   does not exist.
-- [ ] `Short` is one sentence fragment, no full stop, and does not repeat
-  the command name: 64 characters at most for a top-level command, 80
-  for others (`TestConventions`). The detail goes in Long (or `details`
-  in `examples.go`).
+- [ ] `Short` is an imperative verb phrase in sentence case: no full stop,
+  no flags, no semicolons, no "e.g." or "Same as", at most one
+  parenthesis; 64 characters at most for a top-level command, 72 for
+  others. A group's Short is the area and 3 or 4 jobs in plain verbs. A
+  person-only command's ends with "(person only)", which komando adds
+  (`TestStandardShort`). The detail goes in Long (or `details` in
+  `examples.go`).
+- [ ] A change command's Long says what it does first; komando adds the
+  `Safety:` line after that paragraph and wraps it at 76 columns
+  (`TestStandardLong`). It shows a `--dry-run` example, and an example
+  with an approval flag comes right after its dry run, marked `# after a
+  person's yes` (`TestStandardExamples`).
 - [ ] A sub-command's `--help` lists only the global flags that matter
   there; `komando --help` lists them all.
 

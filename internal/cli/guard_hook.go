@@ -26,7 +26,7 @@ func guideGuardCmd() *cobra.Command {
 	var agent string
 	c := &cobra.Command{
 		Use:    "guard",
-		Short:  "Hook for AI agents: stop tool calls that would read secrets on this computer",
+		Short:  "Stop AI agent tool calls that would read secrets on this computer",
 		Hidden: true,
 		Args:   cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
