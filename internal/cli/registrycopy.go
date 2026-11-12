@@ -91,6 +91,14 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 			dstRef = srcRef
 		}
 	}
+	for _, img := range [][2]string{{srcRepo, srcRef}, {dstRepo, dstRef}} {
+		if err := registry.CheckRepo(img[0]); err != nil {
+			return out.Usage("%v", err)
+		}
+		if err := registry.CheckRef(img[1]); err != nil {
+			return out.Usage("%v", err)
+		}
+	}
 	if srcName == dstName && srcRepo == dstRepo && srcRef == dstRef {
 		return out.Usage("%s is the source and the destination; name another repository or tag", from)
 	}
@@ -136,6 +144,7 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 		return err
 	}
 	defer closeDst()
+	srcRepo, dstRepo = sc.Repo(srcRepo), dc.Repo(dstRepo) // Docker Hub: nginx is library/nginx
 	if g.dryRun {
 		m, err := sc.Inspect(ctx, srcRepo, srcRef)
 		if err != nil {
