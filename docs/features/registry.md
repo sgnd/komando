@@ -281,8 +281,9 @@ komando registry prune harbor myorg/api --keep 10 --dry-run   # what would go, a
 komando registry prune harbor myorg/api --keep 10 --older-than 30d --match '^v' --allow-dangerous
 ```
 
-`prune` deletes old images of one repository. Give `--keep`,
-`--older-than`, or both:
+`prune` deletes old images of one repository. An AI agent or a script
+adds `--allow-dangerous`; at a terminal you type the repository's name
+instead. Give `--keep`, `--older-than`, or both:
 
 - `--keep N` keeps the newest N matching tags.
 - `--older-than 30d` deletes only images built before that age. With both,

@@ -752,6 +752,7 @@ it can go). An image a kept tag points at is never deleted. Needs
 			if err := repoArg(args[1]); err != nil {
 				return err
 			}
+			askTypes(args[1:2], "repositories") // the repository whose old images go (OD-8)
 			return withRegistry(cmd.Context(), "registry.prune", args[0], driver.RiskDestructive, map[string]any{"repo": args[1]},
 				func(context.Context, *registry.Client) string {
 					return "deletes old images of " + args[1] + " (--dry-run lists them)"

@@ -87,6 +87,8 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- At a terminal, `registry prune` asks you to type the repository whose
+  old images go (`Type the name shop/api`), not the conn's name.
 - **`secret rm`, `key rm --delete-file` (a key komando made) and every
   `fs rm` now need `--allow-dangerous`** from an AI agent or a script:
   what they delete has no copy. Without it they stop with
