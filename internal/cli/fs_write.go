@@ -360,7 +360,7 @@ func fsWriteInput(contentSet bool, content, from string) ([]byte, error) {
 			return nil, err
 		}
 	default:
-		if data, err = readStdinIfPiped(); err != nil {
+		if data, err = readStdinIfPiped(0, "the content"); err != nil {
 			return nil, err
 		}
 		if data == nil {

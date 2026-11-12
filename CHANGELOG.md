@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `secret set` and `queue send` read at most 1 MiB from stdin and stop
+  with a clear `USAGE` error beyond it, so a wrong pipe cannot fill memory.
+  `fs write` from stdin is not capped.
 - A second Ctrl-C now ends komando at once when the clean stop after the
   first one hangs; before, every later Ctrl-C was ignored.
 - Secret masking for AI agents no longer hides words in komando's own
