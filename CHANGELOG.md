@@ -32,6 +32,57 @@ New fields, all additive (left out when they have nothing to say):
   the flag each needs) and `default_from` on a flag whose default comes
   from a setting.
 
+Values in `komando schema` that changed (field names are the same):
+
+| What | Before | Now |
+|---|---|---|
+| `flags[].type` of `--env` (host add/edit), `--label` (10 commands), `--option` (8) | `stringSlice` | `stringArray`: repeat the flag, commas are kept |
+| `flags[].type` of `--ttl`, `--warn`, `--older-than` (3 commands) | `string` | `duration` |
+| `flags[].type` of `cache get --limit` | `int64` | `int` |
+| `--limit` on 34 list commands | not there | `int`, default 0 (all) where there was no limit |
+| `flags[].type` of `--max-output` and every `--max-bytes` | `int`, `int64` or `string` | `bytes` (`256KiB`, `1MB`; KB means 1024) |
+| `default` of a duration | `1h0m0s` | `1h` |
+| `default` of `--timeout`, `--connect-timeout`, `--parallel`, `--host-key-policy`, `--max-output` | the value | `0` or empty, with `default_from` naming the setting |
+| `default` of queue `--partition`, `--partitions`, `--replicas` | `-1` | none (the help says "the broker's") |
+| `kind` of `storage link` and `cluster forward` | `read` | `change` |
+| `shorthand` `-n` on `cluster events`, `cluster logs`, `cluster list` | `--limit` | `--namespace` (as on the other 17 cluster commands, which gain it) |
+| `path` and `usage` of renamed commands | `secret get`, `... ls`, `... mv`, `db grants`, `pkg security --apply` | `secret show`, `... list`, `... rename`, `db user show`, `pkg upgrade --security` |
+| `usage` argument words | `KEY` for several things, `HOST`, `NAME` | one meaning per word (`OBJECT`, `SETTING`, `SERVER`, `USER`, `JOB`, `TUNNEL`, `TYPE/NAME`, ...) |
+
+The old names in the last two rows still work, and `komando schema OLD`
+describes the command they run. Synonyms (`ls`, `mv`, `get`, `keys`,
+plurals) stay for good. Retired flags and names work for at least one
+more release and set `meta.deprecated`: `db dump/restore --on`
+(`--run-on`), `--from` on `db user`, `db grant` and `db revoke`
+(`--from-host`), `fs ls
+--max` (`--limit`), `fs restore --from` (`--copy`), `storage rm --limit`
+and `-n` (`--max-remove`), `vpn add/edit --address` (`--proxy-address`),
+`rename --prefix`, `--notes`, `--labels` (`--starts-with`,
+`--in-notes`, `--in-labels`), `recipe add --sudo` (`--needs-sudo`),
+`queue peek --wait` (`--idle`), `cluster rollback --to` (`--revision`),
+`policy check --for` (`--conn-kind`), `pkg security --apply` (`pkg
+upgrade --security`) and the top-level `forward` (`tunnel`).
+
+Exit and error codes that changed:
+
+| Command | Before | Now |
+|---|---|---|
+| `exec`, `job start`, `docker exec/compose/raw`, `cluster exec/shell/run`, `cache run` with words for the server and no `--` | ran (and took komando flags such as `-y` from those words) | `USAGE`, exit 2; nothing runs |
+| `cluster events/logs/list -n 50` | a limit of 50 | `USAGE`, exit 2 (`-n` is the namespace; use `--limit 50`) |
+| `--option a=on,b=x` (any KEY=VALUE flag with a comma before another KEY=) | two options | `USAGE`, exit 2 (repeat the flag) |
+| `update web1` (a server or conn name) | tried to install version web1 | `USAGE`, exit 2, hint `komando pkg upgrade` |
+| `host add aws ...` (`gcp`, `azure`; conn add and vpn add too) | added | `USAGE`, exit 2 (the names are kept for `komando login aws`) |
+| `secret rm`, `key rm --delete-file`, `fs rm` | ran | `POLICY_BLOCKED`, exit 6, until a person agrees and `--allow-dangerous` is added |
+| `storage link`, `cluster forward` through a read-only ssh-gate key | ran | `SSH_GATE_READ_ONLY`, exit 6 |
+| `host trust --reset` (or a changed key) from an agent or a script | `SAFETY_SETTING`, exit 6, lifted by `--yes` | `NEEDS_PERSON`, exit 6; no flag lifts it |
+| a person answers no to a filled-in command | exit 1 | `DECLINED`, exit 6 |
+| `forward ...`, `storage rm -n 10` | ran | still run now, with `meta.deprecated`; in a later release `forward` is an unknown command and `-n` a `USAGE` error |
+
+Text output (`-o text`) is not part of the contract, but agents read it:
+the `next:` lines moved to stderr (`data.next` is unchanged), tables say
+`yes` or `-` for a yes-or-no column and show times with their zone, and
+an empty list reads `no <things> yet` or `no <things> match ...`.
+
 ### Added
 
 - `error.suggestion` holds the name komando thinks you meant when a
