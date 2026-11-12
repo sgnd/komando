@@ -117,7 +117,7 @@ check "vpn test hint is not itself" True "$($K vpn test lab | jget '"tunnel star
 check "vpn edit changes notes" t-fixops "$($K vpn edit corp --notes t-fixops | jget 'd["data"]["vpn"]["notes"]')"
 q $K vpn edit corp --notes ''
 
-# a person at a terminal: deletes ask for the server's name, a protected
+# a person at a terminal: deletes ask for the name of what goes, a protected
 # server asks [y/N], "no" changes nothing (komando's own questions, no flags)
 tty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; } # tty ANSWER ARGS...
 set +e
@@ -126,7 +126,7 @@ check "person: docker prune asks for the server's name" 1 "$(grep -c 'Type the n
 check "person: docker prune never asks a bare yes" 0 "$(grep -c 'Type yes' <<<"$O")"
 check "person: a wrong name stops docker prune (6)" 6 "$RC"
 O=$(tty 'wrong\n' pkg rm direct openssh-server); RC=$?
-check "person: removing an essential package asks for the name" 1 "$(grep -c 'Type the name direct to continue' <<<"$O")"
+check "person: removing an essential package asks for its name" 1 "$(grep -c 'Type the name openssh-server to continue' <<<"$O")"
 check "person: a wrong name keeps the package (6)" "6 True" "$RC $($K pkg installed direct openssh-server | jget "${r0}['data'][0]['installed']")"
 q $K host add t-fixops-p "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent-pass --protected
 q $K host trust t-fixops-p

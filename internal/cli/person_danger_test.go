@@ -31,26 +31,27 @@ func personTypes(t *testing.T, answer string) {
 }
 
 // A dangerous command a person runs at the terminal asks them to type the
-// target's name, as exec and db query do, instead of sending them back to
-// add --allow-dangerous. A wrong name stops it.
+// name of what goes (OD-8), instead of sending them back to add
+// --allow-dangerous. A wrong name (the server's) stops it.
 func TestDangerousAsksAPerson(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		args []string
+		name, answer string
+		args         []string
 	}{
-		{"fs rm --recursive", []string{"fs", "rm", "web1", "/srv/app/old", "-r"}},
-		{"fs rm of a top-level path", []string{"fs", "rm", "web1", "/srv"}},
-		{"pkg rm of an essential package", []string{"pkg", "rm", "web1", "openssh-server"}},
+		{"fs rm --recursive", "/srv/app/old", []string{"fs", "rm", "web1", "/srv/app/old", "-r"}},
+		{"fs rm of a top-level path", "/srv", []string{"fs", "rm", "web1", "/srv"}},
+		{"fs rm of one file", "/srv/app/x.log", []string{"fs", "rm", "web1", "/srv/app/x.log"}},
+		{"pkg rm of an essential package", "openssh-server", []string{"pkg", "rm", "web1", "openssh-server"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			invHome(t)
 			mustRun(t, "host", "add", "web1", "u@127.0.0.1:1") // nothing listens: the command fails after the question
-			personTypes(t, "nope")
+			personTypes(t, "web1")
 			_, e := invRun(t, tc.args...)
 			if e == nil || e.Code != "POLICY_BLOCKED" || !cur().sess.PersonSaidNo() {
 				t.Fatalf("a wrong name stops it: %+v", e)
 			}
-			personTypes(t, "web1")
+			personTypes(t, tc.answer)
 			if _, e = invRun(t, tc.args...); e == nil || e.Code == "POLICY_BLOCKED" {
 				t.Fatalf("the typed name lets it through to the server: %+v", e)
 			}

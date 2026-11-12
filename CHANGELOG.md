@@ -87,6 +87,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- **`secret rm`, `key rm --delete-file` (a key komando made) and every
+  `fs rm` now need `--allow-dangerous`** from an AI agent or a script:
+  what they delete has no copy. Without it they stop with
+  `POLICY_BLOCKED` (exit 6); `--dry-run` shows what would go and lists
+  the flag in `meta.would_need`. At a terminal a person types the name
+  of what goes instead. `fs rm` on a protected server stops with
+  `POLICY_BLOCKED` first now (was `PROTECTED_HOST`), and its hint names
+  `--yes` as well. `cron rm` and `pkg rm` (not an essential package) need
+  no flag, as before.
 - A command komando filled in at a terminal asks `Run it?` and then, for
   a step that cannot be undone, the typed name once, in the command
   itself; before, a prompted `cache rm` or `cluster rm` asked for a name

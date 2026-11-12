@@ -155,9 +155,11 @@ They behave like the commands you know, with these safety differences:
 
 - `fs mv` never replaces an existing file (`FILE_EXISTS`, exit 8) unless you
   add `--overwrite`. Moving into an existing folder puts the file inside it.
-- `fs rm` on a path that is not there says `not found` and still succeeds,
-  like `rm -f`. A folder needs `--recursive`, which also needs
-  `--allow-dangerous`.
+- `fs rm` deletes for good, so it needs `--allow-dangerous` from an AI
+  agent or a script (`POLICY_BLOCKED` otherwise; `--dry-run` shows what
+  goes). At a terminal you type the path instead (several paths: how
+  many). On a path that is not there it says `not found` and still
+  succeeds, like `rm -f`. A folder needs `--recursive` as well.
 - Paths are taken literally: `'/tmp/*.log'` is not a pattern. Use
   `komando exec` for that.
 - All of them take `--sudo`; `fs chmod -r` changes a whole folder.

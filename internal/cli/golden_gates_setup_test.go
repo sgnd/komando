@@ -20,6 +20,7 @@ func goldenGateSetup(t *testing.T) {
 	home := os.Getenv("KOMANDO_HOME")
 	if goldenGateHome == "" {
 		noAgent(t)
+		t.Setenv("GOLDEN_SECRET", "golden-value")
 		for _, a := range [][]string{
 			{"host", "add", "web1", "u@127.0.0.1:1"},
 			{"host", "add", "prod1", "u@127.0.0.2:1", "--protected"},
@@ -36,6 +37,8 @@ func goldenGateSetup(t *testing.T) {
 			{"conn", "add", "reg1", "registry://u@127.0.0.1:1?tls=false"},
 			{"policy", "deny", "foo.*bar"},
 			{"vpn", "add", "pvpn", "socks", "--proxy-address", "127.0.0.1:1", "--protected", "--mfa"},
+			{"secret", "set", "gsec", "--from-env", "GOLDEN_SECRET"},
+			{"key", "gen", "gkey"},
 		} {
 			mustRun(t, a...)
 		}
@@ -144,4 +147,8 @@ var goldenNotes = [][]string{
 	{"host", "add", "azure", "u@10.0.0.1"},
 	{"conn", "add", "aws", "redis://127.0.0.1:1/0"},
 	{"vpn", "add", "gcp", "socks", "--proxy-address", "127.0.0.1:1080"},
+	// C-C03, C-C06 (OD-7): deletes that leave no copy are dangerous
+	{"secret", "rm", "gsec"},
+	{"key", "rm", "gkey", "--delete-file"},
+	{"fs", "rm", "web1", "/tmp/x"},
 }

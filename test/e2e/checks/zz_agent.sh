@@ -134,7 +134,8 @@ acode "only a person compares a value" NEEDS_PERSON secret check ops-pass
 check "agent: a generated token can come on stdin" True "$(echo gen-token-123 | A secret set t-agent-token | jget 'd["ok"]' || true)"
 check "agent: the token is listed, without its value" "True False" "$(ag secret list | jget '"t-agent-token" in json.dumps(d), "gen-token-123" in json.dumps(d)' || true)"
 check "agent: rename a secret it cannot read" True "$(ag secret mv t-agent-token t-agent-token2 | jget 'd["ok"]' || true)"
-check "agent: remove it" True "$(ag secret rm t-agent-token2 | jget 'd["ok"]' || true)"
+check "agent: removing a secret needs a person's yes" POLICY_BLOCKED "$(ag secret rm t-agent-token2 | jget 'd["error"]["code"]' || true)"
+q $K secret rm t-agent-token2 --allow-dangerous
 check "agent: nothing was stored for the typed password" SECRET_NOT_FOUND "$(ag secret get t-agent-pass | jget 'd["error"]["code"]' || true)"
 fi
 

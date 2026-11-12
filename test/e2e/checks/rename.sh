@@ -54,8 +54,8 @@ check "group mv: members follow" 2 "$($K group list "$N-all" | jget 'len(d["data
 q $K host rm "$N-target" "$R-solo" --yes
 q $K conn rm "$N-db"
 q $K host rm "$N-jump"
-q $K key rm "$N-key2" --delete-file
-q $K secret rm "$N-pass"
+q $K key rm "$N-key2" --delete-file --allow-dangerous
+q $K secret rm "$N-pass" --allow-dangerous
 
 # notes and labels: only names that clearly mean an entry follow. OLD
 # without its - (a database and a role named $R) and a name that is also
@@ -74,4 +74,4 @@ check "rename --labels: host= follows" "$N-app" "$($K conn show "$N-db" | jget '
 check "rename --labels: OLD without - stays" "$R" "$($K conn show "$N-db" | jget 'd["data"]["labels"]["team"]')"
 q $K conn rm "$N-db"
 q $K host rm "$N-app"
-q $K secret rm "$N-ro"
+q $K secret rm "$N-ro" --allow-dangerous

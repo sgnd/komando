@@ -138,7 +138,7 @@ computer in komando that way: `--read-only` does not make it safe.
 
 | Error | Exit | What to do |
 |-------|------|------------|
-| `POLICY_BLOCKED` | 6 | Check the command. At a terminal komando asks you to type the target's name instead (`exec`, `db query`, `cache`, `fs rm -r`, `sync --delete`, removing an essential package ...); otherwise a person may re-run it with `--allow-dangerous`. |
+| `POLICY_BLOCKED` | 6 | Check the command. At a terminal komando asks you to type the name of what goes instead (`exec`, `db query`, `cache`, `fs rm`, `secret rm`, `key rm --delete-file`, `sync --delete`, removing an essential package ...); otherwise a person may re-run it with `--allow-dangerous`. |
 | `PROTECTED_HOST`, `PROTECTED_TARGET` | 6 | A change to something protected. A person may add `--yes`; commands that only look can add `--read-only`. |
 | `SAFETY_SETTING` | 6 | A change that turns a seatbelt off. A person may add `--yes`. |
 | `SECRET_DESTINATION` | 6 | An agent asked to send a secret somewhere new (see [above](#seatbelts-for-ai-agents)). Tell the user which secret goes where; a person may add `--yes`. |

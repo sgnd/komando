@@ -40,5 +40,5 @@ check "no snowflake secret in the audit log" 0 "$(audit_text | grep -c -E 'e2e-p
 q $K conn rm sf
 q $K conn rm sf-pat
 q $K conn rm sf-noca
-$K secret rm sf-ca sf-key sf-pat >/dev/null 2>&1 || true
+$K secret rm sf-ca sf-key sf-pat --allow-dangerous >/dev/null 2>&1 || true
 set -e

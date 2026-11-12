@@ -438,6 +438,15 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			res := map[string]any{"removed": args[0], "file_deleted": false}
+			if deleteFile { // key files komando made have no copy: T3 (OD-7); asked before the state is locked
+				if st, err := loadState(); err == nil {
+					if k, err := findKey(st, args[0]); err == nil && k.Managed && !keyInUse(st, k.Name) {
+						if err := guardLocalDelete([]string{k.Name}, "keys", "deletes the key files of "+k.Name+" for good"); err != nil {
+							return err
+						}
+					}
+				}
+			}
 			err := store.Update(func(s *store.State) error {
 				k, err := findKey(s, args[0])
 				if err != nil {
@@ -605,4 +614,14 @@ this key.`,
 	}
 	c.Flags().BoolVar(&setDefault, "set-default", false, "servers that got the key log in with it from now on")
 	return c
+}
+
+// keyInUse: a server logs in with key name (key rm refuses it then).
+func keyInUse(st *store.State, name string) bool {
+	for _, h := range st.Hosts {
+		if h.Key == name {
+			return true
+		}
+	}
+	return false
 }

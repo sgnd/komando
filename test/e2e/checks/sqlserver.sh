@@ -19,7 +19,7 @@ fi
 if [ "$(MSC ps -q --status running mssql 2>/dev/null)" = "" ]; then
   skipped "mssql is not running here (an arm64 machine under QEMU? see E2E_MSSQL_IMAGE in compose.yml)"
   q $K conn rm sa-mssql
-  $K secret rm mssql-sa mssql-ro >/dev/null 2>&1 || true
+  $K secret rm mssql-sa mssql-ro --allow-dangerous >/dev/null 2>&1 || true
   set -e
   return 0
 fi
@@ -58,5 +58,5 @@ check "no sqlserver password in the audit log" 0 "$(audit_text | grep -c -E 'Sal
 q $K conn rm ro-mssql shop-mssql
 q $K db query sa-mssql --write --allow-dangerous 'drop database e2e_sales'
 q $K conn rm sa-mssql
-$K secret rm mssql-sa mssql-ro >/dev/null 2>&1 || true
+$K secret rm mssql-sa mssql-ro --allow-dangerous >/dev/null 2>&1 || true
 set -e

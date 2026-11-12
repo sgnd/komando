@@ -6407,7 +6407,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: rm --recursive deletes whole folders. Nothing was changed.
+Stopped: this can delete or break things (rm --recursive deletes whole folders and everything in them), so komando asks first. Nothing was changed.
 ### komando -o json fs rm web1 /tmp/x --recursive (script json, gate inventory)
 exit 6
 --- stdout
@@ -6417,7 +6417,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: rm --recursive deletes whole folders. Nothing was changed.
+Stopped: this can delete or break things (rm --recursive deletes whole folders and everything in them), so komando asks first. Nothing was changed.
 ### komando -o json fs rm web1 / (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6427,7 +6427,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: "/" is a top-level path; komando does not remove it without --allow-dangerous. Nothing was changed.
+Stopped: this can delete or break things (removing the top-level path /), so komando asks first. Nothing was changed.
 ### komando -o json fs rm web1 / (script json, gate inventory)
 exit 6
 --- stdout
@@ -6437,7 +6437,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: "/" is a top-level path; komando does not remove it without --allow-dangerous. Nothing was changed.
+Stopped: this can delete or break things (removing the top-level path /), so komando asks first. Nothing was changed.
 ### komando -o json sync testdata web1:/tmp/x --delete (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6881,23 +6881,23 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json fs rm prod1 /tmp/x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on prod1 for good","hint":"a deleted file has no copy; confirm with the user, then add --allow-dangerous and --yes (a protected server; try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs rm prod1 /tmp/x (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: this can delete or break things (deletes /tmp/x on prod1 for good), so komando asks first. Nothing was changed.
 ### komando -o json fs rm prod1 /tmp/x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on prod1 for good","hint":"a deleted file has no copy; confirm with the user, then add --allow-dangerous and --yes (a protected server; try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs rm prod1 /tmp/x (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: this can delete or break things (deletes /tmp/x on prod1 for good), so komando asks first. Nothing was changed.
 ### komando -o json docker stop prod1 c1 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7378,3 +7378,63 @@ exit 2
 --- stdout
 --- stderr
 Error: "gcp" cannot be a VPN name: `komando login gcp` is the cloud login
+### komando -o json secret rm gsec (agent json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"secret.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the saved secret gsec for good","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text secret rm gsec (agent text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: this can delete or break things (deletes the saved secret gsec for good), so komando asks first. Nothing was changed.
+### komando -o json secret rm gsec (script json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"secret.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the saved secret gsec for good","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text secret rm gsec (script text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: this can delete or break things (deletes the saved secret gsec for good), so komando asks first. Nothing was changed.
+### komando -o json key rm gkey --delete-file (agent json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the key files of gkey for good","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text key rm gkey --delete-file (agent text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: this can delete or break things (deletes the key files of gkey for good), so komando asks first. Nothing was changed.
+### komando -o json key rm gkey --delete-file (script json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the key files of gkey for good","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text key rm gkey --delete-file (script text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: this can delete or break things (deletes the key files of gkey for good), so komando asks first. Nothing was changed.
+### komando -o json fs rm web1 /tmp/x (agent json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on web1 for good","hint":"a deleted file has no copy; confirm with the user, then add --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text fs rm web1 /tmp/x (agent text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: this can delete or break things (deletes /tmp/x on web1 for good), so komando asks first. Nothing was changed.
+### komando -o json fs rm web1 /tmp/x (script json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"fs.rm","error":{"code":"POLICY_BLOCKED","message":"fs rm deletes /tmp/x on web1 for good","hint":"a deleted file has no copy; confirm with the user, then add --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text fs rm web1 /tmp/x (script text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: this can delete or break things (deletes /tmp/x on web1 for good), so komando asks first. Nothing was changed.

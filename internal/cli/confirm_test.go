@@ -58,4 +58,17 @@ func TestWouldNeedEveryFlag(t *testing.T) {
 	if e := wantCode(t, "POLICY_BLOCKED", "reboot", "web1"); strings.Contains(e.Hint, "--yes") {
 		t.Errorf("hint, not protected: %q", e.Hint)
 	}
+	// fs rm of one file is dangerous (OD-7); on a protected server the dry
+	// run still names --yes, and so does the first stop's hint
+	_, text = runMain(t, "--dry-run", "fs", "rm", "prod1", "/tmp/x")
+	if !strings.Contains(text, `"would_need":["--allow-dangerous","--yes"]`) {
+		t.Errorf("fs rm dry run: %s", text)
+	}
+	if e := wantCode(t, "POLICY_BLOCKED", "fs", "rm", "prod1", "/tmp/x"); !strings.Contains(e.Hint, "--allow-dangerous and --yes") {
+		t.Errorf("fs rm hint: %q", e.Hint)
+	}
+	_, text = runMain(t, "--dry-run", "secret", "rm", "nothing-here")
+	if strings.Contains(text, "would_need") {
+		t.Errorf("a missing secret stops before the gate: %s", text)
+	}
 }

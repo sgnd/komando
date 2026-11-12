@@ -91,6 +91,8 @@ func TestKeyRmInUseAndText(t *testing.T) {
 		t.Errorf("want both servers named: %s / %s", e.Message, e.Hint)
 	}
 	mustRun(t, "host", "edit", "a", "b", "--unset", "key")
+	wantCode(t, "POLICY_BLOCKED", "key", "rm", "k1", "--delete-file") // its files have no copy (OD-7)
+	personTypes(t, "k1")
 	txt := coreText(t, "key", "rm", "k1", "--delete-file")
 	if !strings.Contains(txt, "removed key k1") || strings.Contains(txt, "file_deleted") {
 		t.Errorf("text: %q", txt)

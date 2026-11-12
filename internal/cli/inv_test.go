@@ -316,6 +316,8 @@ func TestInvSecrets(t *testing.T) {
 	}
 	wantCode(t, "SECRET_IN_USE", "secret", "rm", "s1", "s2")
 	mustRun(t, "host", "rm", "prod", "--yes")
+	wantCode(t, "POLICY_BLOCKED", "secret", "rm", "s1", "s2") // a deleted secret has no copy (OD-7)
+	personTypes(t, "2")                                       // a person types how many go
 	mustRun(t, "secret", "rm", "s1", "s2")
 	d = mustRun(t, "secret", "list")
 	if d["count"].(float64) != 0 {

@@ -84,6 +84,9 @@ komando secret rm old-pass other-old-pass                  # all of them, or non
 - When NEW exists, add `--overwrite`; what uses NEW then gets the value of OLD.
 - `secret rm` is refused while anything uses a name (`SECRET_IN_USE` lists
   what does); point those at another secret first, or rename it.
+- A deleted secret has no copy, so `secret rm` needs `--allow-dangerous`
+  from an AI agent or a script (`POLICY_BLOCKED` otherwise). At a terminal
+  you type the secret's name instead (several: how many).
 
 ## Where they are kept, and the key
 

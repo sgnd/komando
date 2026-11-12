@@ -13,7 +13,7 @@ check "the server follows the rename" secret:agent-pass-renamed "$($K host show 
 check "secret mv back" 3 "$($K secret mv agent-pass-renamed agent-pass | jget 'len(d["data"]["updated"])')"
 $K secret cp agent-pass agent-pass-copy >/dev/null
 check "secret cp to a taken name needs --overwrite" SECRET_EXISTS "$($K secret cp agent-pass agent-pass-copy | jget 'd["error"]["code"]' || true)"
-$K secret rm agent-pass-copy >/dev/null
+$K secret rm agent-pass-copy --allow-dangerous >/dev/null
 
 check "completion lists the inventory" True "$($K __complete exec '' 2>/dev/null | grep -qx direct && echo True || echo False)"
 check "schema knows kind: selectors" True "$($K schema | jget '"kind:KIND" in d["data"]["target_selectors"]')"
@@ -73,7 +73,7 @@ check "host add says what to run next" 1 "$(grep -c '^next: komando test askpw' 
 check "the stored password logs in without a question" "stored-ok" "$($K exec askpw --read-only -- echo stored-ok | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "an agent cannot use --ask-password" NEEDS_PERSON "$(A host add askpw2 "agent@127.0.0.1:$E2E_SSH_DIRECT" --ask-password </dev/null | jget 'd["error"]["code"]' || true)"
 check "rm names the secret left behind" "['askpw-pass']" "$($K host rm askpw | jget 'd["data"]["secrets_unused"]')"
-$K secret rm askpw-pass >/dev/null
+$K secret rm askpw-pass --allow-dangerous >/dev/null
 # a whole export carries your deny rules, and import adds them in another home
 $K policy deny 'e2e-forbidden-word' >/dev/null
 EXP="$(mktemp -d)/backup.json"

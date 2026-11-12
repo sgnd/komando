@@ -16,7 +16,7 @@ if [ "$($K conn test admin-ch | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null
   CHC logs --tail 30 clickhouse 2>&1 | sed 's/^/    /'
   echo "  the ClickHouse checks are skipped (the server could not run here)"
   q $K conn rm admin-ch
-  $K secret rm ch-admin ch-ro >/dev/null 2>&1 || true
+  $K secret rm ch-admin ch-ro --allow-dangerous >/dev/null 2>&1 || true
   set -e
   return 0
 fi
@@ -56,5 +56,5 @@ check "no clickhouse password in the audit log" 0 "$(audit_text | grep -c -E 'Ad
 q $K conn rm shop-ch
 q $K db query admin-ch --write --allow-dangerous 'drop database e2e_ch'
 q $K conn rm admin-ch
-$K secret rm ch-admin ch-ro >/dev/null 2>&1 || true
+$K secret rm ch-admin ch-ro --allow-dangerous >/dev/null 2>&1 || true
 set -e

@@ -268,7 +268,8 @@ komando key edit work --passphrase-ref secret:new-pass      # change it later (-
 
 `komando key rm NAME` takes a key out of komando's key list; it refuses
 while servers still use it. `--delete-file` also deletes the files, but only for
-keys komando made.
+keys komando made; those have no copy, so it needs `--allow-dangerous` from
+an AI agent or a script, and a person at a terminal types the key's name.
 
 ## Remove a key from servers
 

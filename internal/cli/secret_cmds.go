@@ -247,6 +247,10 @@ func secretRmCmd() *cobra.Command {
 					return secretInUse(n, users)
 				}
 			}
+			// a deleted secret has no copy: T3 (OD-7)
+			if err := guardLocalDelete(dedupe(args), "secrets", "deletes the saved "+nouns(len(dedupe(args)), "secret")+" "+joinAnd(dedupe(args))+" for good"); err != nil {
+				return err
+			}
 			if g.dryRun {
 				out.P.Print("secret.rm", map[string]any{"would_remove": args}, nil)
 				return nil

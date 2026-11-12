@@ -14,7 +14,7 @@ check "person: no to a protected server stops (6)" 6 "$RC"
 check "person: no changed nothing" False "$($K fs stat target "/tmp/$P1" | jget 'd["data"]["exists"]')"
 tty 'y\n' exec target -- touch "/tmp/$P1" >/dev/null
 check "person: yes to a protected server runs it" True "$($K fs stat target "/tmp/$P1" | jget 'd["data"]["exists"]')"
-q $K fs rm target "/tmp/$P1" --yes
+q $K fs rm target "/tmp/$P1" --yes --allow-dangerous
 
 # a destructive command: type the name to go on
 q $K db query pg --write "create table if not exists t_person(x int)"
@@ -58,7 +58,7 @@ check "person: secret check says how they differ" 1 "$(grep -c 'characters' <<<"
 O=$(tty '\n' secret set "$P1-empty"); RC=$?
 check "person: an empty answer stores nothing (2)" 2 "$RC"
 check "person: the empty secret is not there" SECRET_NOT_FOUND "$($K secret get "$P1-empty" | jget 'd["error"]["code"]' || true)"
-q $K secret rm "$P1-pass"
+q $K secret rm "$P1-pass" --allow-dangerous
 
 # komando login HOST: a person logs in once, then an AI agent can use it
 q $K host add "$P1-login" "agent@127.0.0.1:$E2E_SSH_DIRECT"

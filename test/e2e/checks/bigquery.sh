@@ -43,5 +43,5 @@ check "bigquery: a certificate from an unknown CA is refused" DB_CONNECT "$($K d
 check "no bigquery key in the audit log" 0 "$(audit_text | grep -c 'PRIVATE KEY' || true)"
 q $K conn rm bq
 q $K conn rm bq-noca
-$K secret rm bq-ca bq-sa >/dev/null 2>&1 || true
+$K secret rm bq-ca bq-sa --allow-dangerous >/dev/null 2>&1 || true
 set -e

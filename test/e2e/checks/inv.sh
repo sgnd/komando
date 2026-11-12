@@ -79,7 +79,7 @@ $K key show t-e2einvk | jget 'd["data"]["public_key"]' >"$PUB"
 check "public key given to key add" KEY_INVALID "$($K key add t-e2einvk2 "$PUB" | code)"
 check "plain passphrase in key edit" USAGE "$($K key edit t-e2einvk --passphrase-ref pw123 | code)"
 check "key list text is a table" True "$($K key list -o text | head -1 | grep -q '^NAME *TYPE *FINGERPRINT *USED_BY' && echo True || echo False)"
-q $K key rm t-e2einvk --delete-file
+q $K key rm t-e2einvk --delete-file --allow-dangerous
 
 # secrets
 check "secret get shows no length" False "$($K secret get agent-pass | jget '"length" in d["data"]')"
@@ -87,7 +87,7 @@ check "replacing a protected host's secret" PROTECTED_TARGET "$(echo -n x | $K s
 printf 'a' | $K secret set t-e2einvs1 >/dev/null
 printf 'b' | $K secret set t-e2einvs2 >/dev/null
 check "secret set says replaced" True "$(printf 'c' | $K secret set t-e2einvs2 | jget 'd["data"]["replaced"]')"
-check "secret rm takes many" ok "$($K secret rm t-e2einvs1 t-e2einvs2 | code)"
+check "secret rm takes many" ok "$($K secret rm t-e2einvs1 t-e2einvs2 --allow-dangerous | code)"
 
 # settings
 check "config get" 10 "$($K config get parallel | jget 'd["data"]["default"]')"
@@ -142,7 +142,7 @@ check "import skips a clear-text login over the network" True "$(jget 'any(s["na
 check "import gives a database verified TLS" True "$($K conn show database | jget '"sslmode=verify-full" in d["data"]["url"]')"
 check "import says what to run next" "komando test @t-e2einvi" "$(jget 'd["data"]["next"]' <<<"$o")"
 q $K conn rm database
-q $K secret rm database-pass
+q $K secret rm database-pass --allow-dangerous
 printf '{"format":"komando-export/1","conns":[{"name":"maria","kind":"mysql","url":"mysql://x@10.9.9.9:3306/x?tls=true"}]}' >"$TMP/inv-maria.json"
 check "import --overwrite --dry-run skips a protected conn" "maria []" \
   "$($K import komando "$TMP/inv-maria.json" --overwrite --dry-run | jget 'd["data"]["skipped"][0]["name"] + " " + str(d["data"]["conns"])')"

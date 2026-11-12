@@ -543,21 +543,9 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 			for k, v := range vals {
 				fl[k] = *v
 			}
-			if strings.HasPrefix(use, "rm ") && fl["recursive"] && !dangerOK() && !confirmDangerous(args[:1], "rm --recursive deletes whole folders and everything in them") {
-				if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a folder and everything in it would be gone; confirm with the user, then add --allow-dangerous",
-					"rm --recursive deletes whole folders")); err != nil {
+			if strings.HasPrefix(use, "rm ") && len(args) > 1 {
+				if err := guardFsRm(args[0], args[1:], fl["recursive"]); err != nil {
 					return err
-				}
-			}
-			if strings.HasPrefix(use, "rm ") {
-				for _, p := range args[1:] {
-					if cp := path.Clean(p); (cp == "/" || cp == "." || cp == "~" || strings.Count(cp, "/") <= 1 && strings.HasPrefix(cp, "/")) && !dangerOK() &&
-						!confirmDangerous(args[:1], fmt.Sprintf("removing the top-level path %s", p)) {
-						if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "only if this is intended: confirm with the user, then add --allow-dangerous",
-							"%q is a top-level path; komando does not remove it without --allow-dangerous", p)); err != nil {
-							return err
-						}
-					}
 				}
 			}
 			script, shown, err := build(args[1:], fl)
