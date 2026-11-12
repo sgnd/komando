@@ -71,13 +71,14 @@ $K storage cat bucket t-e2edata/dir/e2edata.txt --head 1 --tail 1 >/dev/null; ch
 check "cat cap is said on stderr" True "$($K storage cat bucket t-e2edata/dir/e2edata.txt --max-bytes 2 -o text 2>&1 >/dev/null | grep -q 'raise --max-bytes' && echo True || echo False)"
 check "link through --via warns" True "$($K storage link bucket t-e2edata/dir/e2edata.txt | jget '"bastion" in d["data"]["warning"]')"
 check "rm dry-run text has one key per line" True "$($K storage rm bucket --prefix t-e2edata/ --dry-run -o text 2>/dev/null | grep -q '  t-e2edata/dir/e2edata.txt$' && echo True || echo False)"
-# a person deleting a folder sees the list, then types how many objects go
+# a person deleting a folder sees the list, then types what goes: the one
+# object's name here (several are asked as a count)
 O=$(ptyrun 'wrong\n' env NO_COLOR=1 TERM=dumb "$K" -o text storage rm bucket --prefix t-e2edata/dir/ | tr -d '\r'); RC=$?
-check "person: storage rm --prefix lists before asking" 1 "$(sed -n '/e2edata.txt/,$p' <<<"$O" | grep -c 'Type 1 (objects under t-e2edata/dir/ in bucket) to continue')"
+check "person: storage rm --prefix lists before asking" 1 "$(sed -n '/e2edata.txt/,$p' <<<"$O" | grep -c 'Type the name t-e2edata/dir/e2edata.txt to continue')"
 check "person: a wrong name stops storage rm (6)" 6 "$RC"
 check "person: a wrong name deleted nothing" True "$($K storage ls bucket t-e2edata/dir/ | jget 'len(d["data"]["objects"]) == 1')"
-ptyrun '1\n' env NO_COLOR=1 TERM=dumb "$K" -o text storage rm bucket --prefix t-e2edata/dir/ >/dev/null
-$K storage ls bucket t-e2edata/dir/ >/dev/null; check "person: the right count deleted the folder" 3 $?
+ptyrun 't-e2edata/dir/e2edata.txt\n' env NO_COLOR=1 TERM=dumb "$K" -o text storage rm bucket --prefix t-e2edata/dir/ >/dev/null
+$K storage ls bucket t-e2edata/dir/ >/dev/null; check "person: the right name deleted the folder" 3 $?
 for c in bucket files-sftp files-ftps; do
   q $K storage rm "$c" --prefix t-e2edata/ --allow-dangerous
 done
