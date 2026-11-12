@@ -2,10 +2,13 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // The next step of a server journey is a command to copy, with the real
@@ -124,4 +127,52 @@ func TestJobStartScript(t *testing.T) {
 	}
 	wantCode(t, "POLICY_BLOCKED", "job", "start", "web1", "--script", bad)
 	wantCode(t, "READ_ONLY_VIOLATION", "job", "start", "web1", "--script", script, "--read-only", "--arg", "x")
+}
+
+// job start --script: the script goes on the input after the sudo
+// password, into the job's private folder, and the job opens and removes
+// it; neither is on the command line.
+func TestJobStartScriptOnTheWire(t *testing.T) {
+	srv := startFakeServer(t)
+	const pw = "hunter2-Sudo-pw"
+	if err := vault.Set("dev-sudo", pw); err != nil {
+		t.Fatal(err)
+	}
+	// prod is the same server, protected: unprotect it for this change
+	if err := store.Update(func(st *store.State) error {
+		st.Hosts["dev"].SudoRef, st.Hosts["prod"].Protected = "secret:dev-sudo", false
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	body := "#!/bin/bash\necho deploy-marker \"$1\"\n"
+	script := filepath.Join(t.TempDir(), "deploy.sh")
+	if err := os.WriteFile(script, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	srv.reply("4242\n")
+	if err := runRoot(t, "job", "start", "dev", "--sudo", "--script", script, "--arg", "v1"); err != nil {
+		t.Fatal(err)
+	}
+	e := srv.take()[0]
+	if strings.Contains(e.cmd, pw) || strings.Contains(e.cmd, "deploy-marker") {
+		t.Fatalf("the password or the script is on the command line: %s", e.cmd)
+	}
+	if e.stdin != pw+"\n"+body {
+		t.Fatalf("stdin = %q", e.stdin)
+	}
+	for _, want := range []string{`(umask 077; cat > "$d/script")`, `{ rm -f "$2"; /bin/bash -s -- `, `; } < "$2"`, ` sh "$d/env" "$d/script"`} {
+		if !strings.Contains(e.cmd, want) {
+			t.Fatalf("command lacks %q:\n%s", want, e.cmd)
+		}
+	}
+	st, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, j := range st.Jobs {
+		if j.Command != "--script "+script+" --arg v1" {
+			t.Errorf("job command: %q", j.Command)
+		}
+	}
 }

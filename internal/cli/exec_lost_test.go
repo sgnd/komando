@@ -81,7 +81,7 @@ func TestJobStartSudoPassword(t *testing.T) {
 	if e.stdin != pw+"\n" {
 		t.Fatalf("stdin = %q", e.stdin)
 	}
-	for _, want := range []string{`(umask 077; cat > "$d/pw")`, `{ rm -f "$d/pw"; sudo -S -p `, `exec </dev/null; uptime`, `; } < "$d/pw"`} {
+	for _, want := range []string{`(umask 077; dd bs=1 count=16 of="$d/pw" 2>/dev/null)`, `{ rm -f "$d/pw"; sudo -S -p `, `exec </dev/null; uptime`, `; } < "$d/pw"`} {
 		if !strings.Contains(e.cmd, want) {
 			t.Fatalf("command lacks %q:\n%s", want, e.cmd)
 		}
