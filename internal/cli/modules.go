@@ -824,11 +824,3 @@ func parseCronLine(t string) map[string]any {
 	}
 	return r
 }
-
-// followLogs streams a log command until Ctrl-C (or --timeout, if given).
-func followLogs(ctx context.Context, target, command string, sudo bool) error {
-	if g.timeout == 0 {
-		g.timeout = 24 * time.Hour // the person stops it with Ctrl-C
-	}
-	return runFleet(ctx, "logs", target, command, nil, execOpts{sudo: sudo, stream: true, follow: true}, false)
-}

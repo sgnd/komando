@@ -105,26 +105,7 @@ or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 			})
 		},
 	}
-	var readOnly bool
-	execC := &cobra.Command{
-		Use:   "exec TARGET CONTAINER -- COMMAND [ARG...]",
-		Short: "Run a command in a container (its words are passed as given, no shell)",
-		Long: `Runs COMMAND in the container with its arguments exactly as written (like
-` + "`docker exec`" + `): no shell is added, so the image needs no sh. For pipes or
-&& write the shell yourself: -- sh -c 'a | b'. The destructive-command
-policy checks the command; --read-only declares that it only looks: a
-command that clearly changes something is refused, and on a protected
-server only commands komando knows read skip --yes.`,
-		Example: "  komando docker exec app1 api -- php artisan migrate:status\n  komando docker exec app1 api --read-only -- sh -c 'ls /data | wc -l'",
-		Args:    cobra.MinimumNArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := checkContainerName(args[1]); err != nil {
-				return err
-			}
-			return dockerExec(cmd.Context(), args, sudo, readOnly)
-		},
-	}
-	execC.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
+	execC := dockerExecCmd(&sudo)
 	var file, dir string
 	compose := &cobra.Command{
 		Use:     "compose TARGET -- ARGS...",
@@ -642,4 +623,29 @@ func hostPathEscapes(p string, readOnly bool) bool {
 		"/root", "/etc/shadow", "/etc/gshadow", "/etc/ssh", "/etc/kubernetes", "/var/lib/kubelet", "/var/lib/etcd",
 		"/etc/rancher", "/var/lib/rancher") ||
 		!readOnly && under("/etc", "/boot", "/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/opt", "/var/spool")
+}
+
+// dockerExecCmd is `docker exec TARGET CONTAINER -- COMMAND`.
+func dockerExecCmd(sudo *bool) *cobra.Command {
+	var readOnly bool
+	execC := &cobra.Command{
+		Use:   "exec TARGET CONTAINER -- COMMAND [ARG...]",
+		Short: "Run a command in a container (its words are passed as given, no shell)",
+		Long: `Runs COMMAND in the container with its arguments exactly as written (like
+` + "`docker exec`" + `): no shell is added, so the image needs no sh. For pipes or
+&& write the shell yourself: -- sh -c 'a | b'. The destructive-command
+policy checks the command; --read-only declares that it only looks: a
+command that clearly changes something is refused, and on a protected
+server only commands komando knows read skip --yes.`,
+		Example: "  komando docker exec app1 api -- php artisan migrate:status\n  komando docker exec app1 api --read-only -- sh -c 'ls /data | wc -l'",
+		Args:    cobra.MinimumNArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkContainerName(args[1]); err != nil {
+				return err
+			}
+			return dockerExec(cmd.Context(), args, *sudo, readOnly)
+		},
+	}
+	execC.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
+	return execC
 }
