@@ -346,7 +346,7 @@ func storageCatCmd() *cobra.Command {
 				return out.Usage("--head and --tail take a number of lines (1 or more)")
 			}
 			if maxBytes < 1 {
-				return out.Usage("--max-bytes must be 1 or more")
+				return out.Usage("--max-bytes takes 1 or more")
 			}
 			return withStorage(cmd.Context(), "storage.cat", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
@@ -449,13 +449,13 @@ through --via, only people who can reach that address can use the link.
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if expires <= 0 || expires > 7*24*time.Hour {
-				return out.Usage("--expires must be between 1s and 7d (168h)")
+				return out.Usage("--expires takes 1s to 7d (168h)")
 			}
 			var pub *url.URL
 			if endpoint != "" {
 				u, err := url.Parse(endpoint)
 				if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || strings.Trim(u.Path, "/") != "" {
-					return out.Usage("--endpoint must be http(s)://HOST[:PORT], for example https://files.example.com")
+					return out.Usage("--endpoint takes http(s)://HOST[:PORT], for example https://files.example.com")
 				}
 				pub = u
 			}

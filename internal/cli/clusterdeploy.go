@@ -490,7 +490,7 @@ func clusterRollbackCmd() *cobra.Command {
 		Use:   "rollback TARGET TYPE/NAME",
 		Short: "Go back to an earlier version of a workload",
 		Long: `Without --revision, a deployment goes back to the newest earlier revision that runs
-other images than now. After a rollback, the revision it replaced (the bad
+other images than now. After a rollback, the revision it replaced (the broken
 one) is skipped, so a second rollback does not bring it back; --revision picks any
 revision. A Swarm service goes back to its previous version.`,
 		Example: `  komando cluster rollback prod-k8s deployment/api --namespace shop --wait

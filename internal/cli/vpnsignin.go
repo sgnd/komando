@@ -47,7 +47,7 @@ func (w *signInWindow) show(ctx context.Context, p sslvpn.BrowserPage) (string, 
 	defer cancel()
 	if exe := browserx.Find(); exe != "" {
 		if w.b == nil {
-			fmt.Fprintln(os.Stderr, "komando: a browser window opens for the sign-in. Finish it there (password, one-time code); the window closes by itself.")
+			fmt.Fprintln(os.Stderr, "komando: a browser window opens for the sign-in. Finish it there (password,\n  one-time code); the window closes by itself.")
 			var err error
 			if w.b, err = browserx.Open(exe); err != nil {
 				return "", err
@@ -79,8 +79,11 @@ func (w *signInWindow) show(ctx context.Context, p sslvpn.BrowserPage) (string, 
 			return "", err
 		}
 	}
-	fmt.Fprintln(os.Stderr, "komando: the sign-in opens in your browser. komando can read the result by itself only from Chrome, Edge, Brave or Chromium, and found none.\n"+
-		"When the sign-in is done, the last page has a link or button that opens GlobalProtect. Copy that link's address (it starts with "+sslvpn.GPCallback+") and paste it here.")
+	fmt.Fprintln(os.Stderr, "komando: the sign-in opens in your browser. komando can read the result by\n"+
+		"  itself only from Chrome, Edge, Brave or Chromium, and found none. When the\n"+
+		"  sign-in is done, the last page has a link or button that opens GlobalProtect.\n"+
+		"  Copy that link's address (it starts with "+sslvpn.GPCallback+")\n"+
+		"  and paste it here.")
 	if p.URL != "" {
 		fmt.Fprintln(os.Stderr, "komando: sign in at "+cleanText(p.URL))
 	}

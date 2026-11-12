@@ -218,7 +218,7 @@ func Parse(text string) (*Config, error) {
 				}
 				continue
 			}
-			return nil, fmt.Errorf("line %d: unknown option %s (komando refuses options it does not understand)", line, name)
+			return nil, fmt.Errorf("line %d: komando does not know the option %s (it refuses options it does not understand)", line, name)
 		}
 	}
 	if block != "" {

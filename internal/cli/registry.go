@@ -297,7 +297,7 @@ func registryLsCmd() *cobra.Command {
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 {
-				return out.Usage("--limit must be 1 or more")
+				return out.Usage("--limit takes 1 or more")
 			}
 			if len(args) == 2 {
 				if err := repoArg(args[1]); err != nil {
@@ -720,7 +720,7 @@ func registryPruneCmd() *cobra.Command {
 		Short: "Delete old images: keep the newest N, or drop older than an age",
 		Long: `Reads every tag's image and build date, then deletes the images the rule
 lets go: --keep N keeps the newest N matching tags, --older-than deletes
-only images built before that age; with both, a tag must pass both to go.
+only images built before that age; with both, a tag goes only when it passes both.
 "latest", tags that do not match --match, and tags with no build date
 always stay (a multi-platform index has the date of its first image, so
 it can go). An image a kept tag points at is never deleted. Needs
@@ -731,7 +731,7 @@ it can go). An image a kept tag points at is never deleted. Needs
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rule := registry.PruneRule{Keep: keep}
 			if keep < 0 {
-				return out.Usage("--keep must be 0 or more")
+				return out.Usage("--keep takes 0 or more")
 			}
 			if !cmd.Flags().Changed("keep") && olderThan == "" {
 				return out.Usage("say what to keep: --keep N, --older-than AGE, or both")

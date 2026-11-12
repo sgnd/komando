@@ -264,7 +264,7 @@ func (o *logOpts) check() error {
 		return out.Usage("give one source: --unit, --file or --container")
 	}
 	if o.lines < 0 {
-		return out.Usage("-n must be 0 or more")
+		return out.Usage("-n takes 0 or more")
 	}
 	if o.file != "" && (o.since != "" || o.until != "") {
 		return out.Usage("--since and --until work with the journal (--unit) and --container; a plain file has no time index, filter it with --grep")

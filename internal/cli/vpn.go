@@ -187,7 +187,7 @@ Which flags go with which VPN:
 					return err
 				}
 				if strings.HasPrefix(portal, "-") {
-					return out.Usage("--portal must be a server name or URL")
+					return out.Usage("--portal takes a server name or URL")
 				}
 				v.Portal = portal
 				used["user"], used["password-ref"] = true, true
@@ -331,7 +331,7 @@ func vpnShowCmd() *cobra.Command {
 // takes.
 func vpnAddIPsec(v *store.Vpn, used map[string]bool, server, pskRef, localID, remoteID, ca string) (err error) {
 	if strings.HasPrefix(server, "-") || strings.Contains(server, "/") {
-		return out.Usage("--server must be a host name or address (host or host:port)")
+		return out.Usage("--server takes a host name or address (host or host:port)")
 	}
 	v.Server, v.PSKRef, used["psk-ref"], used["user"], used["password-ref"] = server, pskRef, true, true, true
 	switch v.Kind {
@@ -500,7 +500,7 @@ func readVpnCA(path string) (string, error) {
 		return "", localFileErr("FILE_NOT_FOUND", err, "give the path of the CA certificate (PEM)")
 	}
 	if !strings.Contains(string(b), "-----BEGIN CERTIFICATE-----") {
-		return "", out.Usage("--ca must be a PEM certificate file")
+		return "", out.Usage("--ca takes a PEM certificate file")
 	}
 	return string(b), nil
 }
@@ -620,7 +620,7 @@ func vpnAddress(kind, address string) (string, error) {
 		return pu.String(), nil
 	}
 	if _, _, err := net.SplitHostPort(address); err != nil {
-		return "", out.Usage("--proxy-address must be host:port")
+		return "", out.Usage("--proxy-address takes host:port")
 	}
 	return address, nil
 }

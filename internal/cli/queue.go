@@ -170,7 +170,7 @@ func queueLsCmd() *cobra.Command {
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 {
-				return out.Usage("--limit must be 1 or more")
+				return out.Usage("--limit takes 1 or more")
 			}
 			pattern := ""
 			if len(args) == 2 {
@@ -261,7 +261,7 @@ Values that are not UTF-8 text are shown as base64.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 || limit > 10000 {
-				return out.Usage("--limit must be between 1 and 10000")
+				return out.Usage("--limit takes 1 to 10000")
 			}
 			o := queuex.PeekOptions{Topic: args[1], Limit: limit, Oldest: oldest, Partition: int32(partition), Wait: wait}
 			return withQueue(cmd.Context(), "queue.peek", args[0], driver.Verdict{}, map[string]any{"topic": args[1], "limit": limit},

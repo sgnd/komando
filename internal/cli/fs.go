@@ -431,7 +431,7 @@ func fsCatCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if maxBytes <= 0 {
-				return out.Usage("--max-bytes must be more than 0")
+				return out.Usage("--max-bytes takes a number more than 0")
 			}
 			var res any
 			var err error

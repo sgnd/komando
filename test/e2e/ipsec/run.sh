@@ -145,7 +145,7 @@ usage "needs --server" l2tp --psk-ref secret:l2tp-psk --user u
 usage "l2tp needs --psk-ref" l2tp --server ipsecsrv --user u
 usage "ikev2 needs --psk-ref" ikev2 --server ipsecsrv
 usage "--config is not used" ipsec --server ipsecsrv --psk-ref secret:group --config /etc/hosts
-usage "--ca must be a PEM" ikev2 --server ipsecsrv --user u --ca /etc/hosts
+usage "--ca takes a PEM" ikev2 --server ipsecsrv --user u --ca /etc/hosts
 out=$(in_client komando vpn edit v2psk --remote-id x --id y --dry-run 2>&1); grep -q would_change <<<"$out" || fail "vpn edit --remote-id on ikev2"
 out=$(in_client komando vpn edit l2tp --remote-id x 2>&1 || true); grep -q "not used by l2tp" <<<"$out" || fail "vpn edit --remote-id on l2tp is refused"
 echo "ok   vpn add and vpn edit refuse settings that cannot work"

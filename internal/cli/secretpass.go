@@ -281,7 +281,7 @@ func currentPassphrase(from string) (string, error) {
 
 // askNewPassphrase asks for the new passphrase twice, hidden.
 func askNewPassphrase() (string, error) {
-	fmt.Fprintf(os.Stderr, "Choose a new vault passphrase: %d or more characters (a few random words work well).\n", vault.MinPassphrase)
+	fmt.Fprintf(os.Stderr, "Choose a new vault passphrase: %d or more characters (random words work well).\n", vault.MinPassphrase)
 	p1, err := readHidden("New vault passphrase (hidden): ")
 	if err != nil {
 		return "", err

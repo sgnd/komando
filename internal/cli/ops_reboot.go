@@ -114,7 +114,7 @@ the approval for protected servers). Try --dry-run first.`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if wait <= 0 {
-				return out.Usage("--wait must be more than 0")
+				return out.Usage("--wait takes a time more than 0")
 			}
 			return reboot(cmd.Context(), args[0], wait, !noSudo)
 		},

@@ -143,7 +143,7 @@ func queueCreateCmd() *cobra.Command {
 				return err
 			}
 			if partitions == 0 || partitions < -1 || replicas == 0 || replicas < -1 || replicas > 32767 {
-				return out.Usage("--partitions and --replicas must be at least 1 (leave them out for the broker's default)")
+				return out.Usage("--partitions and --replicas take 1 or more (leave them out for the broker's default)")
 			}
 			s := queuex.TopicSpec{Topic: args[1], Partitions: int32(partitions), Replicas: int16(replicas), Type: typ, Config: cfg}
 			return withQueue(cmd.Context(), "queue.create", args[0], queueRisk(""), map[string]any{"topic": args[1], "partitions": partitions, "replicas": replicas},

@@ -46,7 +46,7 @@ func ProxyURL(address string) (*url.URL, error) {
 	a := strings.TrimSpace(address)
 	if !strings.Contains(a, "://") {
 		if _, _, err := net.SplitHostPort(a); err != nil {
-			return nil, fmt.Errorf("--address must be HOST:PORT or an http(s):// URL, not %q", address)
+			return nil, fmt.Errorf("--address takes HOST:PORT or an http(s):// URL, not %q", address)
 		}
 		a = "http://" + a
 	}

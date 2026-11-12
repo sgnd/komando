@@ -123,7 +123,7 @@ func clickhouseGrantSQL(_ context.Context, _ *sql.DB, g Grant) (string, error) {
 	for _, p := range g.Privs {
 		p = strings.ToUpper(strings.Join(strings.Fields(p), " "))
 		if !chPrivs[p] {
-			return "", out.Usage("unknown privilege %q (ClickHouse: SELECT, INSERT, ALTER, CREATE, DROP, TRUNCATE, OPTIMIZE, SHOW, KILL QUERY, ...)", p)
+			return "", out.Usage("unknown privilege %q (known on ClickHouse: SELECT, INSERT, ALTER, CREATE, DROP, TRUNCATE, OPTIMIZE, SHOW, KILL QUERY, ...)", p)
 		}
 		if p == "DICTGET" {
 			p = "dictGet"

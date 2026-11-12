@@ -586,7 +586,7 @@ audit setting is off.`,
 				return cmd.Help()
 			}
 			if !gateLabel.MatchString(name) {
-				return out.Usage("--name must be 1 to 64 letters, digits, dots, dashes or underscores")
+				return out.Usage("--name takes 1 to 64 letters, digits, dots, dashes or underscores")
 			}
 			req, refused := parseGate(os.Getenv("SSH_ORIGINAL_COMMAND"))
 			runs := ""
@@ -646,7 +646,7 @@ this komando by its full path, as sshd does not search PATH.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !gateLabel.MatchString(name) {
-				return out.Usage("--name must be 1 to 64 letters, digits, dots, dashes or underscores")
+				return out.Usage("--name takes 1 to 64 letters, digits, dots, dashes or underscores")
 			}
 			key, err := gatePublicKey(args[0])
 			if err != nil {

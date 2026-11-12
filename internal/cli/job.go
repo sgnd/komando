@@ -219,10 +219,10 @@ func jobLogsCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if offset < 0 {
-				return out.Usage("--offset must be 0 or more (it is a byte position; use --limit N for the last lines)")
+				return out.Usage("--offset takes 0 or more (it is a byte position; use --limit N for the last lines)")
 			}
 			if limit <= 0 {
-				return out.Usage("--max-bytes must be more than 0")
+				return out.Usage("--max-bytes takes a number more than 0")
 			}
 			st, j, h, err := lookupJob(args[0])
 			if err != nil {

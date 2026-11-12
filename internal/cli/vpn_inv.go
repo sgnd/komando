@@ -213,11 +213,11 @@ func vpnEditChecks(cmd *cobra.Command, e *vpnEditFlags) error {
 		return err
 	}
 	if f.Changed("portal") && (e.portal == "" || strings.HasPrefix(e.portal, "-")) {
-		return out.Usage("--portal must be a server name or URL")
+		return out.Usage("--portal takes a server name or URL")
 	}
 	if e.check != "" {
 		if _, _, err := net.SplitHostPort(e.check); err != nil {
-			return out.Usage("--check must be host:port")
+			return out.Usage("--check takes host:port")
 		}
 	}
 	for flag, ref := range map[string]string{"password-ref": e.passwordRef, "psk-ref": e.pskRef} {
@@ -274,7 +274,7 @@ func applyVpnEdit(cmd *cobra.Command, e *vpnEditFlags, v *store.Vpn) error {
 func applyVpnFields(f *pflag.FlagSet, e *vpnEditFlags, v *store.Vpn) error {
 	if f.Changed("server") {
 		if e.server == "" || strings.HasPrefix(e.server, "-") || strings.Contains(e.server, "/") {
-			return out.Usage("--server must be a host name or address (host or host:port)")
+			return out.Usage("--server takes a host name or address (host or host:port)")
 		}
 	}
 	if f.Changed("ca") {
@@ -448,7 +448,7 @@ func vpnUnusedFlags(kind string, used map[string]bool, given map[string]string) 
 func vpnAddFlagChecks(v *store.Vpn, pskRef string, labels []string) error {
 	if v.Check != "" {
 		if _, _, err := net.SplitHostPort(v.Check); err != nil {
-			return out.Usage("--check must be host:port")
+			return out.Usage("--check takes host:port")
 		}
 	}
 	for _, r := range []string{v.KeyRef, pskRef} {

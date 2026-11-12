@@ -32,7 +32,7 @@ func readHidden(label string) (string, error) {
 	fd := int(os.Stdin.Fd())
 	if !interrupted && dropEarlyInput(fd) {
 		fmt.Fprintln(os.Stderr, "Note: what was typed before this question showed was not used.")
-		fmt.Fprintln(os.Stderr, "If it was the secret, clear the screen (it may be in the scrollback), then type it below.")
+		fmt.Fprintln(os.Stderr, "If it was the secret, clear the screen (it may be in the scrollback),\nthen type it below.")
 	}
 	v, err := readAnswer(label, true)
 	if errors.Is(err, errMoreLines) {
