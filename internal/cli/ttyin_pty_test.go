@@ -214,9 +214,9 @@ func TestPTYCtrlCAtHiddenPrompt(t *testing.T) {
 	if code := p.exit(); code != out.ExitError {
 		t.Errorf("exit %d, want %d; the screen:\n%s", code, out.ExitError, p.shown())
 	}
-	p.waitFor("interrupted")
+	p.waitFor("Stopped (Ctrl-C)")
 	screen := p.shown()
-	if !strings.Contains(screen, "CANCELLED") || sameLine(screen, "hidden", "interrupted") {
+	if !strings.Contains(screen, "CANCELLED") || sameLine(screen, "hidden", "Stopped (Ctrl-C)") {
 		t.Errorf("want CANCELLED on a line of its own:\n%s", screen)
 	}
 	if strings.Contains(screen, "half-typed") {

@@ -334,7 +334,7 @@ func relayAsk(in *bufio.Reader, say func(string)) func(host, text string, hidden
 		line, err := in.ReadString('\n')
 		word, rest, _ := strings.Cut(strings.TrimRight(line, "\r\n"), " ")
 		if err != nil || word != "ANS" {
-			stop = &out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError}
+			stop = (&out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError}).Say("Stopped (Ctrl-C); the login was not kept", "")
 			return "", stop
 		}
 		a, err := base64.StdEncoding.DecodeString(rest)

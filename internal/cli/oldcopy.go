@@ -35,7 +35,7 @@ func acceptOldCopy() error {
 		q = "store.db is missing (the keychain remembers its change " + strconv.FormatUint(kept, 10) + "). Start an empty store, without its servers, secrets and pinned host keys?"
 	}
 	if !confirmYes(q) {
-		return policyStop(out.Errf(out.ExitError, "CANCELLED", "nothing was changed in "+store.Home(), "the older copy was not accepted"))
+		return policyStop(out.Errf(out.ExitError, "CANCELLED", "run `komando doctor --accept-old-copy` again to be asked again", "%s", "the older copy was not accepted; nothing was changed in "+store.Home()))
 	}
 	from, err := store.AcceptOldCopy(have)
 	if err != nil {

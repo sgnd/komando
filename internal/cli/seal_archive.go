@@ -229,7 +229,7 @@ func unseal() error {
 		return nil
 	}
 	if !sealConfirm("Put the files of before back? Changes made since `komando seal`, other than the audit log, stay only in the store, which is kept aside.") {
-		return policyStop(out.Errf(out.ExitError, "CANCELLED", "nothing was changed in "+store.Home(), "the folder was not unsealed"))
+		return policyStop(out.Errf(out.ExitError, "CANCELLED", "run `komando seal --undo` again to be asked again", "%s", "the folder was not unsealed; nothing was changed in "+store.Home()))
 	}
 	// the same locks as seal: no komando writes the files of before while
 	// they come back

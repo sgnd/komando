@@ -87,3 +87,16 @@ func TestTextWrapsAt80(t *testing.T) {
 		t.Errorf("a pipe gets %d lines, want 3 (error, hint, code):\n%s", n, got)
 	}
 }
+
+// A person's stop line set with Say ("Stopped (Ctrl-C) ...") is its own
+// label: no "Error:" in front of it (M-12).
+func TestTextStopLineHasNoErrorLabel(t *testing.T) {
+	p := &Printer{Format: "text"}
+	e := (&Error{Code: "CANCELLED", Message: "interrupted", Exit: ExitError}).
+		Say("Stopped (Ctrl-C) before the end; what already ran stays as it is", "check what it left, then run it again")
+	got := captureStderr(t, func() { p.Fail("x", e) })
+	want := "Stopped (Ctrl-C) before the end; what already ran stays as it is\nHint: check what it left, then run it again\n(code CANCELLED, exit 1)\n"
+	if got != want {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}

@@ -231,7 +231,7 @@ func TestLoginCtrlCAtTheCode(t *testing.T) {
 	if code := p.exit(); code != out.ExitError {
 		t.Fatalf("exit %d, want %d; the screen:\n%s", code, out.ExitError, p.shown())
 	}
-	p.waitFor("interrupted")
+	p.waitFor("Stopped (Ctrl-C)")
 }
 
 func TestLoginForSetting(t *testing.T) {

@@ -410,7 +410,7 @@ func promptStopped(err error) error {
 	if errors.As(err, &oe) || errors.As(err, &done) {
 		return err
 	}
-	return (&out.Error{Code: "CANCELLED", Message: "interrupted; nothing was run", Hint: "run it again", Exit: out.ExitError}).Cancel("Stopped.")
+	return (&out.Error{Code: "CANCELLED", Message: "interrupted; nothing was run", Hint: "run it again", Exit: out.ExitError}).Cancel("Stopped. Nothing was run.")
 }
 
 // promptConfirmed is what the person said yes to before the command ran

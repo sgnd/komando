@@ -619,6 +619,12 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   a terminal errors, hints and warnings wrap at 80 columns without
   breaking a backticked command. An AI agent and a pipe still get each on
   one line.
+- Ctrl-C reads the same everywhere: `Stopped. Nothing was run.` at a
+  question, `Stopped (Ctrl-C) before the end; what already ran stays as it
+  is` while a command runs, and `Stopped (Ctrl-C); the login was not kept`
+  in `komando login`. A no at `seal`, `seal --undo` and `doctor
+  --accept-old-copy` says what stayed in the message and the command to
+  run again in the hint (the hint said "nothing was changed in ...").
 
 ### Removed
 

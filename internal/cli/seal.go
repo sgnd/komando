@@ -291,7 +291,7 @@ func seal() error {
 		question = fmt.Sprintf("%d known_hosts entries (%s) cannot be carried over: those servers are pinned again without asking on their next connection. ", len(o.skipped), strings.Join(o.skipped, ", ")) + question
 	}
 	if !sealConfirm(question) {
-		return policyStop(out.Errf(out.ExitError, "CANCELLED", "nothing was changed in "+store.Home(), "the folder was not sealed"))
+		return policyStop(out.Errf(out.ExitError, "CANCELLED", "run `komando seal` again to be asked again", "%s", "the folder was not sealed; nothing was changed in "+store.Home()))
 	}
 	store.StartBuilding()
 	if err := buildSealed(o); err != nil {

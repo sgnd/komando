@@ -492,7 +492,9 @@ func (p *Printer) printErr(e *Error, stopped bool) {
 		return
 	}
 	label := "Error: "
-	if stopped && e.Exit == ExitPolicy {
+	if strings.HasPrefix(msg, "Stopped") {
+		label = "" // a person's stop line (Say) is its own label (M-12)
+	} else if stopped && e.Exit == ExitPolicy {
 		// a one-line error is a fragment (M-3): the state joins it after
 		// a semicolon, and no full stop ends it
 		label = "Stopped: "
