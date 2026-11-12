@@ -158,7 +158,7 @@ func removeGuard(path string, check bool) (skillFile, error) {
 	if len(hooks) == 0 {
 		delete(settings, "hooks")
 	}
-	f.Action, f.Backup = "updated", path+".bak"
+	f.Action, f.Backup = "updated", settingsBackup(path)
 	if check || g.dryRun {
 		return f, nil
 	}
@@ -169,7 +169,7 @@ func removeGuard(path string, check bool) (skillFile, error) {
 	if err := enc.Encode(settings); err != nil {
 		return f, err
 	}
-	if err := os.WriteFile(f.Backup, old, 0o600); err != nil {
+	if err := saveSettingsBackup(f.Backup, old); err != nil {
 		return f, err
 	}
 	return f, store.WriteFileAtomic(path, buf.Bytes(), 0o600)

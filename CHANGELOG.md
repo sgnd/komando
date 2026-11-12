@@ -1158,6 +1158,11 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
 - `download`, `cp` from a server, `storage download` and `sync` down keep
   the file's mode from the server but never make it writable by other
   users here: a 0777 file is saved 0755, a 0666 one 0644.
+- `guide install`, `guide guard` and `guide uninstall` keep the old
+  agent settings file as `.bak`, or `.bak.<UTC time>` when a `.bak` is
+  there already, always 0600. Before, they wrote over your own
+  `settings.json.bak` and kept its mode (often 0644, while settings can
+  hold tokens).
 
 ## [0.12.0] - 2026-11-11
 
