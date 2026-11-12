@@ -288,6 +288,9 @@ func toErr(err error) error {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or leave it unset for large transfers", "storage did not answer in time")
 	}
 	r := minio.ToErrorResponse(err)
+	if err := regionErr(r); err != nil {
+		return err
+	}
 	switch r.Code {
 	case "NoSuchKey", "NotFound":
 		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "object not found")
@@ -304,4 +307,29 @@ func toErr(err error) error {
 		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%s: %s", r.Code, r.Message)
 	}
 	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%v", err)
+}
+
+// regionErr names the bucket's region when the conn's is wrong (AWS says
+// which one it is), or nil when the answer was about something else.
+func regionErr(r minio.ErrorResponse) error {
+	switch r.Code {
+	case "AuthorizationHeaderMalformed", "PermanentRedirect", "InvalidRegion", "IllegalLocationConstraintException", "AuthorizationQueryParametersError":
+		if r.Region == "" && r.Code != "PermanentRedirect" && r.Code != "InvalidRegion" && !strings.Contains(strings.ToLower(r.Message), "region") {
+			return nil
+		}
+	default:
+		// an answer without a body (HEAD): the status, and the region
+		// header AWS adds
+		if r.Region == "" || (r.StatusCode != http.StatusBadRequest && r.StatusCode != http.StatusMovedPermanently) {
+			return nil
+		}
+	}
+	if r.Region == "" {
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR",
+			"set the bucket's region in the conn URL (region=...) with `komando conn edit NAME --url URL`; `komando conn show NAME` shows the URL now",
+			"the bucket is not in the region the conn uses (%s: %s)", r.Code, r.Message)
+	}
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR",
+		"set region="+r.Region+" in the conn URL (and leave out a regional endpoint) with `komando conn edit NAME --url URL`; `komando conn show NAME` shows the URL now",
+		"the bucket is in region %s, not in the one the conn uses", r.Region)
 }

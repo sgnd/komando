@@ -28,6 +28,10 @@ its highlights; the sections below them give the details. Versions follow
   size) before asking to type the conn's name; it used to ask first, with
   nothing shown. Agents and scripts are stopped as before, before anything
   is listed.
+- S3: a bucket in another region than the conn's `region=` (or its
+  regional endpoint) now says which region it is in and how to fix the
+  conn (`conn edit NAME --url ...`), instead of a bare `STORAGE_ERROR:
+  AuthorizationHeaderMalformed` or `400 Bad Request`.
 
 ## [0.12.0] - 2026-11-11
 
