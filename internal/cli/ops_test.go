@@ -527,3 +527,35 @@ func TestRetiredRecipesNameTheirCommand(t *testing.T) {
 		t.Errorf("unknown recipe: %+v", e)
 	}
 }
+
+// When sudo refuses before the command runs, the error says why and what
+// to run next, instead of a bare "exit code 1".
+func TestSudoProblem(t *testing.T) {
+	cases := []struct {
+		stderr string
+		exit   int
+		code   string
+		hint   string
+	}{
+		{"sudo: a password is required\n", 1, "PERMISSION_DENIED", "`komando host edit web1 --sudo-ref secret:web1-sudo`"},
+		{"sudo: a terminal is required to read the password; either use the -S option", 1, "PERMISSION_DENIED", "`komando secret set web1-sudo`"},
+		{"deploy is not in the sudoers file.  This incident will be reported.", 1, "PERMISSION_DENIED", "`komando host edit web1 --user OTHER`"},
+		{"Sorry, user deploy may not run sudo on web1.", 1, "PERMISSION_DENIED", "wheel"},
+		{"sh: 1: sudo: not found", 127, "TOOL_MISSING", "--no-sudo"},
+		{"bash: sudo: command not found", 127, "TOOL_MISSING", "--no-sudo"},
+		{"E: Unable to locate package nope", 100, "", ""},
+		{"sudo: a password is required", 0, "", ""}, // it ran: not a sudo problem
+	}
+	for _, c := range cases {
+		e := sudoProblem("web1", &sshx.RunResult{Stderr: c.stderr, ExitCode: c.exit})
+		switch {
+		case c.code == "" && e != nil:
+			t.Errorf("%q: %v", c.stderr, e)
+		case c.code != "" && (e == nil || e.Code != c.code || !strings.Contains(e.Hint, c.hint)):
+			t.Errorf("%q: %+v", c.stderr, e)
+		}
+	}
+	if e := sudoProblem("", &sshx.RunResult{Stderr: "sudo: a password is required", ExitCode: 1}); !strings.Contains(e.Hint, "--sudo-ref secret:NAME-sudo") {
+		t.Errorf("a group names NAME: %q", e.Hint)
+	}
+}

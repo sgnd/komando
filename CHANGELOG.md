@@ -18,6 +18,12 @@ its highlights; the sections below them give the details. Versions follow
   ask the person to type the server's name, like every other destructive
   command, instead of accepting a bare `yes`; `docker prune --all` asks
   once instead of twice.
+- `svc`, `pkg`, `user`, `cron`, `docker` and `recipe run` now say why
+  when sudo refuses before the command runs: `PERMISSION_DENIED` (sudo
+  wants a password komando does not have, or the user may not use sudo)
+  with the `host edit --sudo-ref` or `--user` command to run next, and
+  `TOOL_MISSING` when the server has no sudo (add `--no-sudo` as root),
+  instead of `COMMAND_FAILED` / `SVC_FAILED` with "read stderr".
 
 ## [0.12.0] - 2026-11-11
 

@@ -397,7 +397,7 @@ func recipeRunCmd() *cobra.Command {
 			// that clearly writes, or that komando cannot confirm only
 			// reads, runs as a change, so a protected server asks for --yes
 			mutating := !r.ReadOnly || readOnlyMutates(command, nil)
-			return runFleet(cmd.Context(), "recipe.run", args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo, recipe: r.Name}, mutating)
+			return runFleet(cmd.Context(), "recipe.run", args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo, recipe: r.Name, exitMap: orSudo(soleHost(args[1]), nil)}, mutating)
 		},
 	}
 	c.Flags().StringArrayVar(&vars, "var", nil, "fill in a blank: NAME=VALUE (repeatable)")

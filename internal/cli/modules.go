@@ -463,7 +463,7 @@ func pkgCmd() *cobra.Command {
 					return runPkg(cmd.Context(), action, args[0], args[1:], useSudo, refresh)
 				}
 				command := "ACTION=" + action + " PKGS=" + sshx.Q(pkgs) + "; " + pkgShell
-				o := execOpts{sudo: useSudo, display: strings.TrimSpace("pkg " + action + " " + pkgs)}
+				o := execOpts{sudo: useSudo, display: strings.TrimSpace("pkg " + action + " " + pkgs), exitMap: orSudo(soleHost(args[0]), nil)}
 				return runFleet(cmd.Context(), "pkg."+action, args[0], command, nil, o, mutating)
 			},
 		}
@@ -707,7 +707,7 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 			// cron reads an unescaped % as a newline: date +%F would break
 			line := schedule + " " + escapeCronPercent(args[2]) + " # komando:" + args[1]
 			command := readCron() + without(args[1]) + `{ [ -n "$new" ] && printf '%s\n' "$new"; printf '%s\n' ` + sshx.Q(line) + "; } | " + ct() + " - && echo " + sshx.Q(line)
-			return runFleet(cmd.Context(), "cron.set", args[0], command, nil, execOpts{sudo: useSudo(), display: "cron set " + args[1] + ": " + line}, true)
+			return runFleet(cmd.Context(), "cron.set", args[0], command, nil, execOpts{sudo: useSudo(), display: "cron set " + args[1] + ": " + line, exitMap: orSudo(soleHost(args[0]), nil)}, true)
 		},
 	}
 	set.Flags().StringVar(&schedule, "schedule", "", "cron schedule: 5 fields like '*/5 * * * *', or @hourly, @daily, @weekly, @monthly, @yearly, @reboot")

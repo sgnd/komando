@@ -259,7 +259,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 					"chown " + q + ": \"$h/.ssh/authorized_keys\"; chmod 600 \"$h/.ssh/authorized_keys\"; ")
 			}
 			sb.WriteString("id " + q)
-			return runFleet(cmd.Context(), "user.add", args[0], sb.String(), nil, execOpts{sudo: !noSudo, exitMap: shadowMissing}, true)
+			return runFleet(cmd.Context(), "user.add", args[0], sb.String(), nil, execOpts{sudo: !noSudo, exitMap: orSudo(soleHost(args[0]), shadowMissing)}, true)
 		},
 	}
 	add.Flags().StringVar(&pubKey, "pubkey", "", "public key line to authorize")
@@ -307,7 +307,7 @@ func userRmCmd(noSudo *bool) *cobra.Command {
 			if removeHome {
 				c += "-r "
 			}
-			return runFleet(cmd.Context(), "user.rm", args[0], c+sshx.Q(args[1]), nil, execOpts{sudo: !*noSudo, exitMap: shadowMissing}, true)
+			return runFleet(cmd.Context(), "user.rm", args[0], c+sshx.Q(args[1]), nil, execOpts{sudo: !*noSudo, exitMap: orSudo(soleHost(args[0]), shadowMissing)}, true)
 		},
 	}
 	del.Flags().BoolVar(&removeHome, "remove-home", false, "also delete the user's home folder and the files in it")

@@ -176,7 +176,9 @@ func runOps(ctx context.Context, spec opsSpec) error {
 				s := rr.Stdout
 				r.Stdout = &s
 			}
-			if parse := opsParser(spec, o.Host); parse != nil {
+			if e := sudoProblem(o.Host.Name, rr); spec.sudo && !o.Host.Windows() && e != nil {
+				r.Error = e // sudo stopped before the command ran: nothing to parse
+			} else if parse := opsParser(spec, o.Host); parse != nil {
 				d, perr := parse(o.Host, rr)
 				r.Error = perr
 				if w, ok := d.(opsWarnings); ok {
@@ -320,4 +322,62 @@ const noSystemd = "[ -d /run/systemd/system ] || { echo '#komando:no-systemd'; e
 func errNoSystemd() *out.Error {
 	return out.Errf(out.ExitNotFound, "NO_SYSTEMD", "this server runs without systemd (a container?); read logs with `komando logs TARGET --file PATH` or `komando docker logs`",
 		"systemd is not running on this server")
+}
+
+// sudoProblem reads why `sudo -n` refused before the command ran: sudo
+// wants a password komando does not have, the login user may not use it,
+// or the server has no sudo (a minimal image where you log in as root).
+// host names the server in the hint; "" leaves NAME (a group).
+func sudoProblem(host string, rr *sshx.RunResult) *out.Error {
+	if rr == nil || rr.ExitCode == 0 {
+		return nil
+	}
+	name := host
+	if name == "" {
+		name = "NAME"
+	}
+	e := strings.ToLower(rr.Stderr)
+	switch {
+	case strings.Contains(e, "sudo: a password is required"), strings.Contains(e, "sudo: a terminal is required"),
+		strings.Contains(e, "no tty present and no askpass"):
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED",
+			"store the sudo password: a person runs `komando secret set "+name+"-sudo`, then `komando host edit "+name+" --sudo-ref secret:"+name+"-sudo`; when you log in as root, add --no-sudo",
+			"sudo asks for a password komando does not have")
+	case strings.Contains(e, "is not in the sudoers file"), strings.Contains(e, "is not allowed to run sudo"),
+		strings.Contains(e, "may not run sudo"):
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED",
+			"log in as a user who may use sudo (`komando host edit "+name+" --user OTHER`), or add the login user to the sudo (Debian) or wheel (RHEL) group",
+			"the login user may not use sudo")
+	case rr.ExitCode == 127 && (strings.Contains(e, "sudo: not found") || strings.Contains(e, "sudo: command not found")):
+		return out.Errf(out.ExitNotFound, "TOOL_MISSING",
+			"when you log in as root, add --no-sudo; otherwise install sudo on the server",
+			"sudo is not installed on this server")
+	}
+	return nil
+}
+
+// orSudo is an exitMap that names a sudo problem first, then tries next.
+func orSudo(host string, next func(*sshx.RunResult) *out.Error) func(*sshx.RunResult) *out.Error {
+	return func(rr *sshx.RunResult) *out.Error {
+		if e := sudoProblem(host, rr); e != nil {
+			return e
+		}
+		if next == nil {
+			return nil
+		}
+		return next(rr)
+	}
+}
+
+// soleHost is target when it names one server, "" otherwise (a group, a
+// list or a pattern), for hints that name the server.
+func soleHost(target string) string {
+	st, err := loadState()
+	if err != nil {
+		return ""
+	}
+	if hosts, err := resolveTargets(st, target); err == nil && len(hosts) == 1 {
+		return hosts[0].Name
+	}
+	return ""
 }
