@@ -19,6 +19,10 @@ its highlights; the sections below them give the details. Versions follow
   to that SSO, as the role's commands need. The SSO token file is written
   through a new private temporary file, so a file left at the old
   temporary name (or a link there) never gets the token.
+- An AWS profile without SSO and without keys no longer says
+  `AWS_LOGIN_REQUIRED` with the hint `komando login aws`, which cannot help
+  it: it is `AWS_FAILED` and the hint says where the keys go. Ctrl-C while
+  komando talks to AWS is `CANCELLED`, not `AWS_FAILED`.
 
 ## [0.12.0] - 2026-11-11
 

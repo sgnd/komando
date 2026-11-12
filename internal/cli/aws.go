@@ -33,21 +33,36 @@ func awsCredentials(ctx context.Context, profile string) (awsCreds, error) {
 }
 
 // awsErr turns an AWS SDK error into komando's: a missing profile, or a
-// login a person renews.
+// login a person renews. Only an SSO profile can be renewed with `komando
+// login aws`; a profile without SSO lacks keys, and says where they go.
 func awsErr(profile string, err error) error {
 	if profile == "" {
 		profile = "default"
 	}
 	switch {
+	case errors.Is(err, context.Canceled):
+		return toErr(err) // Ctrl-C: CANCELLED
 	case cloud.AWSProfileMissing(err):
 		return out.Errf(out.ExitNotFound, "AWS_PROFILE_NOT_FOUND", "add the profile to ~/.aws/config (or fix --option aws_profile)",
 			"there is no AWS profile %q", profile)
+	case errors.Is(err, cloud.ErrAWSNotSSO):
+		return out.Errf(out.ExitConnect, "AWS_FAILED", awsKeysHint(profile), "AWS profile %s: %v", profile, err)
 	case errors.Is(err, cloud.ErrAWSLogin):
+		if _, serr := cloud.AWSProfileSSO(context.Background(), profile); errors.Is(serr, cloud.ErrAWSNotSSO) {
+			return out.Errf(out.ExitConnect, "AWS_FAILED", awsKeysHint(profile), "AWS profile %s has no keys and no SSO login: %v", profile, err)
+		}
 		// a person logs in, like VPN MFA: agents ask for it
 		return out.Errf(out.ExitConnect, "AWS_LOGIN_REQUIRED", "a person runs `komando login aws --profile "+profile+"` once, then try again",
 			"AWS profile %s: %v", profile, err)
 	}
 	return out.Errf(out.ExitConnect, "AWS_FAILED", "check the profile in ~/.aws/config", "AWS profile %s: %v", profile, err)
+}
+
+// awsKeysHint is the next step for a profile without SSO: there is nothing
+// to log in to, its keys are missing.
+func awsKeysHint(profile string) string {
+	return "this profile has no SSO login, so `komando login aws` cannot renew it: put its keys under [" + profile +
+		"] in ~/.aws/credentials (aws_access_key_id, aws_secret_access_key), or use an SSO profile (--option aws_profile=NAME)"
 }
 
 var ecrHost = regexp.MustCompile(`^\d+\.dkr\.ecr(-fips)?\.([a-z0-9-]+)\.amazonaws\.com(\.cn)?$`)
