@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"net"
 	"strings"
 	"testing"
@@ -693,5 +694,23 @@ func TestUserNamesAreChecked(t *testing.T) {
 			t.Errorf("user %s -r: %v", verb, e)
 		}
 		g.dryRun = false
+	}
+}
+
+// Ctrl-C ends logs --follow: the lines so far are the result, exit 0,
+// not CANCELLED (it is how a person stops a follow, like --timeout).
+func TestFollowEndsCleanlyOnCtrlC(t *testing.T) {
+	s := startFakeServer(t)
+	lines := make([]string, 60)
+	for i := range lines {
+		lines[i] = "line\n"
+	}
+	s.reply(lines...)
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(400*time.Millisecond, cancel)
+	defer cancel()
+	err := runFleet(ctx, "logs", "dev", "tail -n 200 -F -- '/var/log/x'", nil, execOpts{stream: true, follow: true}, false)
+	if err != nil {
+		t.Fatalf("Ctrl-C on a follow: %v", err)
 	}
 }

@@ -136,7 +136,7 @@ check "person: no to svc restart stops (6)" 6 "$RC"
 O=$(tty 'wrong\n' reboot t-fixops-p); RC=$?
 check "person: reboot asks for the server's name" 1 "$(grep -c 'Type the name t-fixops-p to continue' <<<"$O")"
 check "person: a wrong name stops the reboot (6)" 6 "$RC"
-q $K host rm t-fixops-p
+q $K host rm t-fixops-p --yes # a protected server: a script removes it with --yes (no agent here)
 # logs --follow ends with Ctrl-C: a clean stop, not an error
 O=$(ptyrun $'\x03' env NO_COLOR=1 TERM=dumb "$K" -o text logs direct --file /etc/hostname --follow | tr -d '\r'); RC=$?
 check "person: logs --follow shows the lines before Ctrl-C" 1 "$(grep -c '^direct' <<<"$O")"

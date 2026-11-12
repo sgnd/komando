@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -536,6 +537,18 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 	var fails []hostFail
 	for _, r := range results {
 		hr := execHostResult{Host: r.Host.Name}
+		if r.Err != nil && follow && errors.Is(ctx.Err(), context.Canceled) {
+			// Ctrl-C is how a person ends logs --follow, like --timeout:
+			// what came so far is the result, not an error
+			hr.RunResult, _ = r.Value.(*sshx.RunResult)
+			if hr.RunResult == nil {
+				hr.RunResult = &sshx.RunResult{}
+			}
+			hr.ExitCode, hr.OK = 0, true
+			data.Summary.OK++
+			data.Results = append(data.Results, hr)
+			continue
+		}
 		if r.Err != nil {
 			hr.Error = toErr(r.Err)
 			if hr.Error.Code == "SKIPPED" {

@@ -52,6 +52,9 @@ its highlights; the sections below them give the details. Versions follow
 - `user lock`, `unlock` and `rm` check USERNAME like `user add` does, so a
   name starting with `-` is a usage error instead of an option of
   `usermod` or `userdel`.
+- Ctrl-C ends `logs --follow` (and `svc logs`, `docker logs -f`) cleanly
+  with exit 0 and the lines so far, as `--timeout` does, instead of an
+  `interrupted` error with exit 1.
 
 ## [0.12.0] - 2026-11-11
 
