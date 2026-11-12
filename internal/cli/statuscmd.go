@@ -122,7 +122,7 @@ func runningStatus(st *store.State) runningData {
 		}
 	}
 	for _, t := range st.Tunnels {
-		if alive(t.PID) {
+		if tunnelAlive(t) {
 			d.Tunnels = append(d.Tunnels, tunnelRow{Tunnel: t, Alive: true, Listen: tunnelListen(t)})
 		}
 	}

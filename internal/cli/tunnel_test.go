@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -191,6 +192,17 @@ func TestTunnelStopOtherProgram(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatal(err)
+	}
+	// status and the restart list after a key change must not count it
+	st, err := loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(runningStatus(st).Tunnels); n != 0 {
+		t.Errorf("status lists another program's pid as a running tunnel (%d)", n)
+	}
+	if r := runningServes(); slices.Contains(r, "tunnel t-old") {
+		t.Errorf("restart list names another program's pid: %v", r)
 	}
 	mustRun(t, "tunnel", "stop", "t-old")
 	select {

@@ -101,7 +101,7 @@ func runningServes() []string {
 	}
 	var r []string
 	for id, t := range st.Tunnels {
-		if alive(t.PID) {
+		if tunnelAlive(t) {
 			r = append(r, "tunnel "+id)
 		}
 	}

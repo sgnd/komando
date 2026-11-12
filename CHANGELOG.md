@@ -80,6 +80,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `komando status` and the restart list after `secret passwd` no longer
+  count a tunnel whose process id now belongs to another program (after a
+  crash or a restart) as running.
 - `komando db ls`, `cache show NAME`, `queue edit NAME`, `storage test NAME`
   and the like now say which shared command does it (`komando list
   kind:db`, `komando conn show`, `komando conn edit`, `komando test`,
