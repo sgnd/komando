@@ -201,8 +201,7 @@ func guardRenameProtected(what string, prot []string) error {
 	if hosts > 0 {
 		code = "PROTECTED_HOST"
 	}
-	return policyStop(out.Errf(out.ExitPolicy, code, "see them all with --dry-run, then re-run with --yes after the user confirms (one yes covers all of them)",
-		"%s changes %s: %s", what, count, strings.Join(names, ", ")))
+	return policyStop(approvalErr(code, fmt.Sprintf("%s changes %s (one yes covers all of them): %s", what, count, strings.Join(names, ", "))))
 }
 
 func renameCmd() *cobra.Command {

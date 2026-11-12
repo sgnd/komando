@@ -579,7 +579,7 @@ func runStatement(ctx context.Context, q querier, conn *sql.Conn, kind string, s
 
 func writeRequired(kw string) *out.Error {
 	return out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG",
-		"this statement changes data; re-run with --write (try --write --dry-run first)",
+		"this statement changes data; run it again with --write (try --write --dry-run first)",
 		"%s needs --write", kw)
 }
 

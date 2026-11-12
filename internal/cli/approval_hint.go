@@ -74,3 +74,15 @@ func protNeed(prot []string) []string {
 	}
 	return nil
 }
+
+// approvalErr is a stop a flag lifts (C-C10): POLICY_BLOCKED
+// (--allow-dangerous), or PROTECTED_HOST, PROTECTED_TARGET, SAFETY_SETTING,
+// SECRET_DESTINATION, OPEN_BIND and CONFIRM_REQUIRED (--yes). why says what
+// would happen; need adds the other flags the real run needs (--yes on a
+// protected target). The hint is the one approval hint for every one of
+// those flags, for an agent or a script, as approvalHint gives at exit.
+func approvalErr(code, why string, need ...string) *out.Error {
+	e := out.Errf(out.ExitPolicy, code, "", "%s", why).Need(need...)
+	e.Hint = approvalText(e.Flags(), isAgent(), g.dryRun)
+	return e
+}

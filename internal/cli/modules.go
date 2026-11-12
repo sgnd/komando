@@ -415,8 +415,8 @@ func pkgCmd() *cobra.Command {
 							askTypes([]string{p}, "packages on "+args[0])
 						}
 						if essentialPkg(p) && !dangerOK() && !confirmDangerous(args[:1], "removing "+p+" can lock you out of the server or break it") {
-							if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "if this is truly intended, confirm with the user and re-run with --allow-dangerous",
-								"removing %s can lock you out of the server or break it", p)); err != nil {
+							if err := policyStop(approvalErr("POLICY_BLOCKED",
+								"removing "+p+" can lock you out of the server or break it")); err != nil {
 								return err
 							}
 							break // --dry-run: show the plan, marked would_be_blocked

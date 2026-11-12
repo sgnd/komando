@@ -290,7 +290,7 @@ risky verbs also need --allow-dangerous.`,
 				risk = driver.RiskDestructive
 			}
 			if risk > driver.RiskRead && !write {
-				if err := policyStop(out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "this changes the cluster; re-run with --write (try --dry-run first)",
+				if err := policyStop(out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "this changes the cluster; run it again with --write (try --dry-run first)",
 					"%q is not a read-only command", verb)); err != nil {
 					return err
 				}

@@ -163,7 +163,7 @@ func guardSensitiveCopy(remotePath string) error {
 		return nil
 	}
 	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-		revealHint("read it with `komando fs cat` instead (passwords, keys and tokens show as [hidden]); if the user wants the real file on this computer, re-run with --reveal"),
+		revealHint("read it with `komando fs cat` instead (passwords, keys and tokens show as [hidden]); if the user wants the real file on this computer, run it again with --reveal"),
 		"%s holds secrets; komando does not copy it to this computer for an AI agent", remotePath)
 }
 
@@ -289,7 +289,7 @@ func guardLocalRead(p string) error {
 	case revealOK():
 		return nil
 	}
-	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", revealHint("if the user wants komando to send this file, re-run with --reveal; komando asks the user in a window on their screen"),
+	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", revealHint("if the user wants komando to send this file, run it again with --reveal; komando asks the user in a window on their screen"),
 		"%s is %s; komando does not read it for an AI agent", p, why)
 }
 

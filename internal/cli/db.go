@@ -608,12 +608,12 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	}
 	if !f.write && plan.NeedsWrite() {
 		e := out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG",
-			"this SQL changes data; re-run with --write (try --write --dry-run first)",
+			"this SQL changes data; run it again with --write (try --write --dry-run first)",
 			"%s statement needs --write", plan.Risk)
 		if len(plan.RuleIDs) > 0 {
 			// say what the matched rule found, not a generic "changes data"
 			e.Message += fmt.Sprintf(" (and --allow-dangerous: %s)", strings.Join(plan.Reasons, "; "))
-			e.Hint = "this SQL " + strings.Join(plan.Reasons, "; ") + ": only if that is intended, confirm with the user and re-run with --write --allow-dangerous"
+			e.Hint = "this SQL " + strings.Join(plan.Reasons, "; ") + ": only if that is intended, confirm with the user and run it again with --write --allow-dangerous"
 		}
 		return fail(e)
 	}

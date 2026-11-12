@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -36,7 +35,7 @@ func agentYes(code, msg, what string, why ...string) error {
 		cur().sess.ApproveSafety(what)
 		return nil
 	}
-	return policyStop(out.Errf(out.ExitPolicy, code, "re-run with --yes after the user agrees", "%s", msg))
+	return policyStop(approvalErr(code, msg))
 }
 
 // guardSecretUse stops an AI agent from sending the secrets refs (written

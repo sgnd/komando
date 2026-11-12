@@ -6781,7 +6781,7 @@ Stopped: this can delete or break things (docker system prune -af), so komando a
 ### komando -o json exec prod1 -- touch /tmp/x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec prod1 -- touch /tmp/x (agent text, gate inventory)
 exit 6
@@ -6791,7 +6791,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json exec prod1 -- touch /tmp/x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json exec prod1 --yes -- touch /tmp/x`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json exec prod1 --yes -- touch /tmp/x`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec prod1 -- touch /tmp/x (script text, gate inventory)
 exit 6
@@ -6801,7 +6801,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json job start prod1 -- touch x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start prod1 -- touch x (agent text, gate inventory)
 exit 6
@@ -6811,7 +6811,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json job start prod1 -- touch x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json job start prod1 --yes -- touch x`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json job start prod1 --yes -- touch x`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start prod1 -- touch x (script text, gate inventory)
 exit 6
@@ -6821,7 +6821,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json svc restart prod1 nginx (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text svc restart prod1 nginx (agent text, gate inventory)
 exit 6
@@ -6831,7 +6831,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json svc restart prod1 nginx (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json svc restart prod1 nginx --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json svc restart prod1 nginx --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text svc restart prod1 nginx (script text, gate inventory)
 exit 6
@@ -6841,7 +6841,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json user add prod1 bob (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"user.add","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.add","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user add prod1 bob (agent text, gate inventory)
 exit 6
@@ -6851,7 +6851,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json user add prod1 bob (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"user.add","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json user add prod1 bob --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.add","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json user add prod1 bob --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user add prod1 bob (script text, gate inventory)
 exit 6
@@ -6861,7 +6861,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json pkg install prod1 vim (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text pkg install prod1 vim (agent text, gate inventory)
 exit 6
@@ -6871,7 +6871,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json pkg install prod1 vim (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json pkg install prod1 vim --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json pkg install prod1 vim --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text pkg install prod1 vim (script text, gate inventory)
 exit 6
@@ -6881,7 +6881,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json fs write prod1 /tmp/x --content hi (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs write prod1 /tmp/x --content hi (agent text, gate inventory)
 exit 6
@@ -6891,7 +6891,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json fs write prod1 /tmp/x --content hi (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json fs write prod1 /tmp/x --content hi --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json fs write prod1 /tmp/x --content hi --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs write prod1 /tmp/x --content hi (script text, gate inventory)
 exit 6
@@ -6921,7 +6921,7 @@ Stopped: this can delete or break things (deletes /tmp/x on prod1 for good), so 
 ### komando -o json docker stop prod1 c1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker stop prod1 c1 (agent text, gate inventory)
 exit 6
@@ -6931,7 +6931,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json docker stop prod1 c1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json docker stop prod1 c1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json docker stop prod1 c1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker stop prod1 c1 (script text, gate inventory)
 exit 6
@@ -6941,7 +6941,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json cron rm prod1 1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron rm prod1 1 (agent text, gate inventory)
 exit 6
@@ -6951,7 +6951,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json cron rm prod1 1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json cron rm prod1 1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json cron rm prod1 1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron rm prod1 1 (script text, gate inventory)
 exit 6
@@ -6961,7 +6961,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json upload prod1 testdata/golden_restore.sql /tmp/h (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"upload","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text upload prod1 testdata/golden_restore.sql /tmp/h (agent text, gate inventory)
 exit 6
@@ -6971,7 +6971,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json upload prod1 testdata/golden_restore.sql /tmp/h (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"PROTECTED_HOST","message":"this changes protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json upload prod1 testdata/golden_restore.sql /tmp/h --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"upload","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json upload prod1 testdata/golden_restore.sql /tmp/h --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text upload prod1 testdata/golden_restore.sql /tmp/h (script text, gate inventory)
 exit 6
@@ -7241,7 +7241,7 @@ Stopped: turning off --mfa of VPN pvpn (komando could then connect it without a 
 ### komando -o json cache run cache1 -- SET k v (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"WRITE_REQUIRES_FLAG","message":"SET needs --write","hint":"this command may change data (or is not known to be a read); re-run with --write. komando does not ask the user about this, so ask them first and go on only when they agree"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"WRITE_REQUIRES_FLAG","message":"SET needs --write","hint":"this command may change data (or is not known to be a read); run it again with --write. komando does not ask the user about this, so ask them first and go on only when they agree"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run cache1 -- SET k v (agent text, gate inventory)
 exit 6
@@ -7251,7 +7251,7 @@ Stopped: SET needs --write. Nothing was changed.
 ### komando -o json cache run cache1 -- SET k v (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"WRITE_REQUIRES_FLAG","message":"SET needs --write","hint":"this command may change data (or is not known to be a read); re-run with --write"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"WRITE_REQUIRES_FLAG","message":"SET needs --write","hint":"this command may change data (or is not known to be a read); run it again with --write"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run cache1 -- SET k v (script text, gate inventory)
 exit 6
@@ -7261,7 +7261,7 @@ Stopped: SET needs --write. Nothing was changed.
 ### komando -o json db query db1 DELETE FROM x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row)","hint":"this SQL DELETE without WHERE removes every row: only if that is intended, confirm with the user and re-run with --write --allow-dangerous. komando does not ask the user about this, so ask them first and go on only when they agree"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row)","hint":"this SQL DELETE without WHERE removes every row: only if that is intended, confirm with the user and run it again with --write --allow-dangerous. komando does not ask the user about this, so ask them first and go on only when they agree"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query db1 DELETE FROM x (agent text, gate inventory)
 exit 6
@@ -7271,7 +7271,7 @@ Stopped: destructive statement needs --write (and --allow-dangerous: DELETE with
 ### komando -o json db query db1 DELETE FROM x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row)","hint":"this SQL DELETE without WHERE removes every row: only if that is intended, confirm with the user and re-run with --write --allow-dangerous"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"WRITE_REQUIRES_FLAG","message":"destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row)","hint":"this SQL DELETE without WHERE removes every row: only if that is intended, confirm with the user and run it again with --write --allow-dangerous"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query db1 DELETE FROM x (script text, gate inventory)
 exit 6

@@ -108,11 +108,11 @@ func runMongoQuery(ctx context.Context, name string, st *store.State, c *store.C
 		return err
 	}
 	if !f.write && v.Risk > driver.RiskRead {
-		e := out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "this command may change data; re-run with --write (try --write --dry-run first)",
+		e := out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "this command may change data; run it again with --write (try --write --dry-run first)",
 			"%s needs --write", cmd[0].Key)
 		if len(v.RuleIDs) > 0 {
 			e.Message += " and --allow-dangerous: " + strings.Join(v.Reasons, "; ")
-			e.Hint = "this command " + strings.Join(v.Reasons, "; ") + ": only if that is intended, confirm with the user and re-run with --write --allow-dangerous"
+			e.Hint = "this command " + strings.Join(v.Reasons, "; ") + ": only if that is intended, confirm with the user and run it again with --write --allow-dangerous"
 		}
 		return fail(e)
 	}

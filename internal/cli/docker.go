@@ -298,9 +298,8 @@ func guardDocker(target string, args []string) (mutating bool, err error) {
 		v := driver.Verdict{Risk: risk, RuleIDs: []string{"docker"}, Reasons: []string{reason}}
 		hosts, _ := resolveTargets(st, target) // an unknown target fails later, with its own error
 		if !dangerOK(fmt.Sprintf("[docker] %s", reason), targetsWhy(st, hosts)) && !confirmDangerous(hostNames(hosts), reason) {
-			return true, policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
-				"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-				"the operation matches destructive rules [docker]: %s", reason).Say(dangerSay(v.Reasons), dangerHint))
+			return true, policyStop(approvalErr("POLICY_BLOCKED",
+				"the operation matches destructive rules [docker]: "+reason).Say(dangerSay(v.Reasons), dangerHint))
 		}
 	}
 	return risk > driver.RiskRead, nil

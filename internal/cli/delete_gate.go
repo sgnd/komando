@@ -22,9 +22,7 @@ func guardLocalDelete(items []string, of, reason string) error {
 	if dangerOK(reason) || confirmDangerous(items, reason) {
 		return nil
 	}
-	return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
-		"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-		"%s", reason).Say(dangerSay([]string{reason}), dangerHint))
+	return policyStop(approvalErr("POLICY_BLOCKED", reason).Say(dangerSay([]string{reason}), dangerHint))
 }
 
 // guardFsRm is fs rm's stop: every rm deletes for good. A folder with

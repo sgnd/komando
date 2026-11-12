@@ -188,15 +188,13 @@ func lockoutStop(target, user, verb string) error {
 		return nil
 	}
 	why := verb + " " + user + " on " + strings.Join(names, ", ") + ": root is the account that repairs a server"
-	hint := "only if this is intended: confirm with the user, then re-run with --allow-dangerous"
 	if login {
-		why = verb + " " + user + " locks komando out of " + strings.Join(names, ", ") + ": it is the user komando logs in as"
-		hint = "log in as another user first (`komando host edit NAME --user OTHER`); " + hint
+		why = verb + " " + user + " locks komando out of " + strings.Join(names, ", ") + ": it is the user komando logs in as (log in as another user first: `komando host edit NAME --user OTHER`)"
 	}
 	if dangerOK(why, targetsWhy(st, hosts)) || confirmDangerous(names, why) {
 		return nil
 	}
-	return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", hint, "%s", why))
+	return policyStop(approvalErr("POLICY_BLOCKED", why))
 }
 
 func userCmd() *cobra.Command {

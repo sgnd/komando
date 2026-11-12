@@ -319,8 +319,8 @@ func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecR
 	r.Before = &before
 	r.RebootRequired = before.RebootRequired
 	if e, ok := sec["essential"]; ok {
-		return fail(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "if this is truly intended, confirm with the user and re-run with --allow-dangerous",
-			"the security updates would remove %s, which can lock you out of the server or break it; nothing was changed", strings.Join(strings.Fields(e), ", ")))
+		return fail(approvalErr("POLICY_BLOCKED",
+			"the security updates would remove "+strings.Join(strings.Fields(e), ", ")+", which can lock you out of the server or break it; nothing was changed"))
 	}
 	if _, ok := sec["nothing"]; ok {
 		r.After = &before
@@ -363,7 +363,7 @@ func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecR
 	case rc != "0":
 		return fail(out.Errf(out.ExitRemote, "PKG_FAILED", "read stderr for the package manager's message", "the security upgrade failed (exit %s)", rc))
 	case len(r.Unexpected) > 0:
-		return fail(out.Errf(out.ExitConflict, "UNEXPECTED_CHANGE", "check the server (`komando docker ps "+host+"`, `komando svc list "+host+" --failed`); servers after it were not patched: re-run with --keep-going to patch them anyway",
+		return fail(out.Errf(out.ExitConflict, "UNEXPECTED_CHANGE", "check the server (`komando docker ps "+host+"`, `komando svc list "+host+" --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway",
 			"%s changed after patching: %s", host, strings.Join(r.Unexpected, "; ")))
 	}
 	r.OK = true
@@ -618,8 +618,8 @@ func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, 
 		if apply && g.dryRun && r.Error == nil && !g.allowDangerous {
 			for _, p := range r.WouldRemove {
 				if essentialPkg(p) {
-					out.P.WouldBlock(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "if this is truly intended, confirm with the user and re-run with --allow-dangerous",
-						"on %s the security updates would remove %s, which can lock you out of the server or break it", r.Host, p))
+					out.P.WouldBlock(approvalErr("POLICY_BLOCKED",
+						"on "+r.Host+" the security updates would remove "+p+", which can lock you out of the server or break it"))
 					break
 				}
 			}

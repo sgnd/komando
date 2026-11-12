@@ -36,7 +36,7 @@ This page is made from the code (`komando schema` lists the same under
 | `CODE_WRONG` | 2 | that code does not match; nothing was changed | check the phone's clock and run it again |
 | `COMMAND_FAILED` | 5 | exit code … | read stderr for the reason |
 | `COMMAND_NOT_FOUND` | 3 | no command … | run `komando schema --compact` to see every command |
-| `CONFIRM_REQUIRED` | 6 | deleting group … takes … entries out of it | check the members with `komando group list …`, then re-run with --yes |
+| `CONFIRM_REQUIRED` | 6 | deleting group … takes … entries out of it | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `CONNECTION_LOST` | 4 | the connection to … broke while reading the job's status | run it again; the job keeps running on the server |
 | `CONNECTION_REFUSED` | 4 | the server refused the connection: nothing listens on that port | check that sshd runs on the server and listens on this port: komando host show … |
 | `CONNECT_FAILED` | 4 | cannot reach …: … | check the name and port; if the site is only reachable from a server or VPN, add --via NAME |
@@ -147,7 +147,7 @@ This page is made from the code (`komando schema` lists the same under
 | `NO_TUNNEL_NEEDED` | 2 | … has no --via, so it is reachable without a tunnel | connect to … directly |
 | `NXDOMAIN` | 3 | … does not resolve from this server | check the name, and the server's DNS (/etc/resolv.conf) |
 | `OBJECT_NOT_FOUND` | 3 | … not found | list files with `komando storage list CONN [FOLDER]` |
-| `OPEN_BIND` | 6 | the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer) | keep the default 127.0.0.1, or re-run with --yes if other machines should reach it |
+| `OPEN_BIND` | 6 | the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer) | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `OPTION_LIKE_VAR` | 2 | the value of … may not start with '-' (… would be read as an option) | for a path that starts with -, write ./… |
 | `OUTPUT_TRUNCATED` | 1 | the rows are more than the output size cap (--max-output) allows; nothing was printed | raise --max-output (bytes, e.g. --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump` |
 | `OVPN_UNSUPPORTED` | 2 | the OpenVPN profile has an option komando's own client does not support (the message names it) | change the profile, or report the option you need at …/issues |
@@ -159,12 +159,12 @@ This page is made from the code (`komando schema` lists the same under
 | `PATH_NOT_FOUND` | 3 | … does not exist (or holds no files) | check the source path; nothing was changed |
 | `PERMISSION_DENIED` | 5 | cannot read … | add --sudo |
 | `PKG_FAILED` | 5 | pkg … failed (exit …) | read stderr for the package manager's message |
-| `POLICY_BLOCKED` | 6 | removing … can lock you out of the server or break it | if this is truly intended, confirm with the user and re-run with --allow-dangerous |
+| `POLICY_BLOCKED` | 6 | the command matches destructive rules [rm-rf]: deletes files recursively | check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen) |
 | `PORT_CLOSED` | 5 | cannot connect to … | check the address, firewall or service on the other side |
 | `PORT_IN_USE` | 8 | cannot listen on 127.0.0.1:…: … | pick another LOCAL port |
 | `POWERSHELL_FAILED` | 5 | the login check in PowerShell failed on … (exit …): … | komando runs every command on Windows in Windows PowerShell (powershell.exe): check that it is on the PATH of the login user, and read the message |
-| `PROTECTED_HOST` | 6 | … is protected; a new password or key changes how komando logs in there | re-run with --yes after the user confirms |
-| `PROTECTED_TARGET` | 6 | … is protected; a new password or key changes how komando logs in there | re-run with --yes after the user confirms |
+| `PROTECTED_HOST` | 6 | this changes protected server …: … | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
+| `PROTECTED_TARGET` | 6 | a change action on protected conn …: … | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `PROXY_FAILED` | 4 | proxy command for …: … | check the program in --proxy-command is installed |
 | `PROXY_NOT_FIRST` | 2 | … has a proxy command but is reached through another hop | a proxy command can only start a path; put that host first in --via |
 | `QUEUE_AUTH` | 4 | the brokers refused the login: … | check the user in the URL, the sasl= option and the password reference (`komando conn show NAME`) |
@@ -201,9 +201,9 @@ This page is made from the code (`komando schema` lists the same under
 | `ROLLOUT_FAILED` | 5 | pods stuck for … | see why with `komando cluster describe TARGET …`; `komando cluster rollback` goes back |
 | `ROLLOUT_TIMEOUT` | 7 | not rolled out after … (replicas …)… | see the tasks with `komando cluster describe … service/…` |
 | `RULE_NOT_FOUND` | 3 | no custom deny rule named … | see the custom rules and their ids with `komando policy list` |
-| `SAFETY_SETTING` | 6 | KOMANDO_HOME points komando at …, not at …: its servers, protection, deny rules, host keys and audit log are not the usual ones, so an AI agent needs a person'… | re-run with --yes after the user agrees |
+| `SAFETY_SETTING` | 6 | … weakens komando's safety checks | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `SEAL_UNFINISHED` | 1 | komando now uses the sealed store, but these files of before could not be replaced: … | fix what stops it, then run `komando seal` again: it finishes the job |
-| `SECRET_DESTINATION` | 6 | an AI agent asked to send …; that needs a person's yes | re-run with --yes after the user agrees |
+| `SECRET_DESTINATION` | 6 | an AI agent asked to send …; that needs a person's yes | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `SECRET_EXISTS` | 8 | secret … is used by … already; --ask-password and --ask-psk do not replace it | use it with --… …, or store this one under another name: `komando secret set NAME`, then --… secret:NAME |
 | `SECRET_IN_ARGS` | 2 | refusing a secret value on the command line: it would be saved in shell history | run `komando secret set …` and type it (hidden), use --from-env VAR, or pipe it on stdin |
 | `SECRET_IN_USE` | 8 | secret … is used by … | point them at another secret first, e.g. `…`, or rename it with `komando secret rename` |
@@ -259,7 +259,7 @@ This page is made from the code (`komando schema` lists the same under
 | `TUNNEL_FAILED` | 4 | the server refused the port forwarding (AllowTcpForwarding, address) | check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right |
 | `TUNNEL_NOT_FOUND` | 3 | no tunnel named … | see them with `komando tunnel list` |
 | `TUNNEL_TIMEOUT` | 7 | tunnel did not become ready… | check that … answers: `komando test …`; the whole log is … (for a person to read) |
-| `UNEXPECTED_CHANGE` | 8 | … changed after patching: … | check the server (`komando docker ps …`, `komando svc list … --failed`); servers after it were not patched: re-run with --keep-going to patch them anyway |
+| `UNEXPECTED_CHANGE` | 8 | … changed after patching: … | check the server (`komando docker ps …`, `komando svc list … --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway |
 | `UNEXPECTED_STATUS` | 5 | HTTP …, expected … | check the URL and the service behind it |
 | `UNIT_NOT_ACTIVE` | 5 | not active after …s: … | read why with `komando logs TARGET --unit UNIT -n 50` |
 | `UNIT_NOT_FOUND` | 3 | no unit named … | check the name with `komando svc list TARGET` |
@@ -299,7 +299,7 @@ This page is made from the code (`komando schema` lists the same under
 | `WINRM_TLS` | 4 | …: the WinRM server's certificate cannot be trusted: … | if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit … --address winrm://...`) |
 | `WINRM_UNREACHABLE` | 4 | cannot reach … over WinRM: … | check the address and that WinRM listens there (port 5986 for HTTPS, 5985 for HTTP) and the firewall lets you in |
 | `WRITE_FAILED` | 1 | …; nothing was changed | check that you may write to … |
-| `WRITE_REQUIRES_FLAG` | 6 | … needs --write | this command may change data (or is not known to be a read); re-run with --write |
+| `WRITE_REQUIRES_FLAG` | 6 | … needs --write | this command may change data (or is not known to be a read); run it again with --write |
 | `WRONG_KIND` | 2 | … is a … URL, not one for `komando … add` | add it with `komando … add` (or `komando conn add`) |
 | `WRONG_PASSPHRASE` | 2 | that passphrase does not open the vault; nothing was changed | run it again and type the passphrase the vault has now |
 

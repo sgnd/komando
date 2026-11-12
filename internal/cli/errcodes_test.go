@@ -172,6 +172,14 @@ func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 		if c.Hint == "" { // what the output gives in its place
 			c.Hint = out.DefaultHint(c.Exit)
 		}
+		// a stop a flag lifts gets the one approval hint (S-8.6, C-C10):
+		// the catalog shows the agent variant, as TestAgentGolden pins it
+		if f := out.ApprovalFlag(&out.Error{Code: code, Exit: out.ExitPolicy}); f != "" && f != "--reveal" {
+			c.Hint = approvalText([]string{f}, true, false)
+			if m, ok := approvalMeanings[code]; ok {
+				c.Example = m
+			}
+		}
 		codes = append(codes, c)
 	}
 	return codes, mixed
@@ -744,6 +752,18 @@ var meanings = map[string]string{
 	"OVPN_UNSUPPORTED":     "the OpenVPN profile has an option komando's own client does not support (the message names it)",
 	"SENSITIVE_FILE":       "the file holds secrets or belongs to komando, so an AI agent may not read or copy it",
 	"SSM_FAILED":           "AWS Session Manager could not open a session to the instance",
+}
+
+// approvalMeanings are the example messages of the stops a flag lifts,
+// whose sites build the message from what the command does.
+var approvalMeanings = map[string]string{
+	"POLICY_BLOCKED":     "the command matches destructive rules [rm-rf]: deletes files recursively",
+	"PROTECTED_HOST":     "this changes protected server …: …",
+	"PROTECTED_TARGET":   "a change action on protected conn …: …",
+	"SAFETY_SETTING":     "… weakens komando's safety checks",
+	"SECRET_DESTINATION": "an AI agent asked to send …; that needs a person's yes",
+	"OPEN_BIND":          "the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer)",
+	"CONFIRM_REQUIRED":   "deleting group … takes … entries out of it",
 }
 
 // renamedFrom are codes given by renaming another error (e.Code =

@@ -66,8 +66,8 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 			replaced := gerr == nil
 			if replaced {
 				if prot := protectedUsers(st, secretUsers(st, args[0])); len(prot) > 0 && !yesOK() && !confirmProtected(prot) {
-					if err := policyStop(out.Errf(out.ExitPolicy, "PROTECTED_TARGET", "re-run with --yes after the user confirms",
-						"secret %s is used by protected %s; replacing it changes how komando logs in there", args[0], strings.Join(prot, ", "))); err != nil {
+					if err := policyStop(approvalErr("PROTECTED_TARGET",
+						"secret "+args[0]+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there")); err != nil {
 						return err
 					}
 				}

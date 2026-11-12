@@ -140,10 +140,8 @@ func guardKubePlugin(c *store.Conn, x *kube.Context) error {
 		return nil
 	}
 	what := "the kubeconfig of conn " + c.Name + " runs `" + line + "` on this computer to log in"
-	stop := out.Errf(out.ExitPolicy, "SAFETY_SETTING",
-		"a program on this computer is outside the agent guard's view: re-run with --yes after the user confirms it (read-only commands ask too). "+
-			"To trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves",
-		"%s; an AI agent needs a person's yes each time (to trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves)", what)
+	stop := approvalErr("SAFETY_SETTING",
+		what+"; a program on this computer is outside the agent guard's view, so an AI agent needs a person's yes each time, read-only commands too (to trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves)")
 	if g.dryRun { // a dry run never runs it: --yes is not asked for here
 		if !g.yes {
 			out.P.WouldBlock(stop)
@@ -322,9 +320,8 @@ func confirmObject(names []string, obj, reason string) error {
 	}
 	askTypes([]string{obj}, "objects")
 	if !confirmDangerous(names, reason) {
-		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
-			"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-			"the command matches destructive rules [%s]: %s", "cluster", reason).Say(dangerSay([]string{reason}), dangerHint))
+		return policyStop(approvalErr("POLICY_BLOCKED",
+			"the command matches destructive rules [cluster]: "+reason).Say(dangerSay([]string{reason}), dangerHint))
 	}
 	return nil
 }

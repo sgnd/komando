@@ -957,7 +957,7 @@ func TestTrustedKubePlugin(t *testing.T) {
 		t.Setenv("CLAUDECODE", "1")
 		resetApproval()
 		t.Cleanup(resetApproval)
-		if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Hint, "read-only commands ask too") {
+		if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "read-only commands too") {
 			t.Errorf("a changed kubeconfig runs without a yes: %+v", e)
 		}
 		for _, args := range [][]string{

@@ -107,6 +107,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Every safety stop a flag lifts is built by one helper, so its hint
+  reads the same wherever it comes from, results per server included
+  (`check with --dry-run, ask the user; once they agree, run it again
+  with --yes`). `komando schema`'s `error_codes` shows that hint for
+  `POLICY_BLOCKED`, `PROTECTED_*`, `SAFETY_SETTING`,
+  `SECRET_DESTINATION`, `OPEN_BIND` and `CONFIRM_REQUIRED`. The
+  `PROTECTED_HOST` message says "server" (was "host"). Advice a hint
+  carried (log in as another user first, trusting a kubeconfig program)
+  is in the message now. "re-run with" reads "run it again with".
 - Error hints say only the next step. What happened ("nothing was
   changed", "nothing was renamed", "the file was not changed") moved to
   the end of `error.message`, and every retry reads "run it again"

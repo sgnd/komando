@@ -58,9 +58,8 @@ func runShell(ctx context.Context, target string) error {
 	}
 	protected := protectedHost(st, h)
 	if protected && !yesOK() && !confirmYes(h.Name+" (protected): this opens a shell on it. Continue?") {
-		if err := policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
-			"a shell on a protected server needs a person's yes: re-run with --yes after the user confirms",
-			"a shell on protected host %s can change anything", h.Name)); err != nil {
+		if err := policyStop(approvalErr("PROTECTED_HOST",
+			"a shell on protected server "+h.Name+" can change anything")); err != nil {
 			return err
 		}
 	}

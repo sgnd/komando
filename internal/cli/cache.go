@@ -510,7 +510,7 @@ func cacheRunCmd() *cobra.Command {
 			if v.Risk > driver.RiskRead && !write {
 				st, _ := loadState()
 				e := out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG",
-					"this command may change data (or is not known to be a read); re-run with --write",
+					"this command may change data (or is not known to be a read); run it again with --write",
 					"%s needs --write", strings.ToUpper(command[0]))
 				if len(v.RuleIDs) > 0 {
 					e.Message += " and --allow-dangerous: " + strings.Join(v.Reasons, "; ")
@@ -552,7 +552,7 @@ func runHint(cmd string, v driver.Verdict) string {
 	case slices.Contains(v.RuleIDs, "data-delete"):
 		return "to delete keys, confirm with the user first and use `komando cache rm CONN KEY... --allow-dangerous` (try --dry-run first)"
 	}
-	return "only if that is intended: confirm with the user first, then re-run with --write --allow-dangerous"
+	return "only if that is intended: confirm with the user first, then run it again with --write --allow-dangerous"
 }
 
 type cacheReply struct {

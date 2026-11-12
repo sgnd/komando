@@ -240,7 +240,7 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 						pick[m] = true
 					}
 					if len(members) > manyMembers && !yesOK() && !confirmYes(fmt.Sprintf("Delete group %s from %d entries?", group, len(members))) {
-						if err := policyStop(out.Errf(out.ExitPolicy, "CONFIRM_REQUIRED", "check the members with `komando group list "+group+"`, then re-run with --yes",
+						if err := policyStop(out.Errf(out.ExitPolicy, "CONFIRM_REQUIRED", "check the members with `komando group list "+group+"`, then run it again with --yes",
 							"deleting group %s takes %d entries out of it", group, len(members))); err != nil {
 							return err
 						}

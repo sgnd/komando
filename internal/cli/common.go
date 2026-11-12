@@ -301,28 +301,17 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 		}
 		if len(hits) > 0 && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(names, prot, hits[0].Reason) {
 			// a dry run goes on to the protection check, so meta.would_need names both flags
-			if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", dangerFlagsHint(len(prot) > 0),
-				"the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")).Say(dangerSay(reasons), dangerHint).Need(protNeed(prot)...)); err != nil {
+			if err := policyStop(approvalErr("POLICY_BLOCKED",
+				fmt.Sprintf("the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), protNeed(prot)...).Say(dangerSay(reasons), dangerHint)); err != nil {
 				return err
 			}
 		}
 	}
 	if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
-		return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
-			"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
-			"this changes protected %s: %s", nouns(len(prot), "host"), strings.Join(prot, ", ")).Say(protectedSay(prot, "server"), protectedHint))
+		return policyStop(approvalErr("PROTECTED_HOST",
+			fmt.Sprintf("this changes protected %s: %s", nouns(len(prot), "server"), strings.Join(prot, ", "))).Say(protectedSay(prot, "server"), protectedHint))
 	}
 	return nil
-}
-
-// dangerFlagsHint is the hint of a POLICY_BLOCKED stop: when the targets
-// are protected too, the real run needs --yes as well, and the first stop
-// says so (S-7.5), so an agent asks the user once for both.
-func dangerFlagsHint(protected bool) string {
-	if protected && !g.yes {
-		return "only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first)"
-	}
-	return "only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"
 }
 
 // targetsWhy names the hosts a command runs on, for the approval window.
@@ -369,15 +358,14 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 		}
 	}
 	if v.Risk >= driver.RiskDestructive && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerousOn(names, prot, strings.Join(v.Reasons, "; ")) {
-		if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", dangerFlagsHint(len(prot) > 0),
-			"the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")).Say(dangerSay(v.Reasons), dangerHint).Need(protNeed(prot)...)); err != nil {
+		if err := policyStop(approvalErr("POLICY_BLOCKED",
+			fmt.Sprintf("the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), protNeed(prot)...).Say(dangerSay(v.Reasons), dangerHint)); err != nil {
 			return err
 		}
 	}
 	if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
-		return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
-			"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
-			"a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", ")).Say(protectedSay(prot, connWord(conns, prot)), protectedHint))
+		return policyStop(approvalErr("PROTECTED_TARGET",
+			fmt.Sprintf("a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", "))).Say(protectedSay(prot, connWord(conns, prot)), protectedHint))
 	}
 	return nil
 }
@@ -562,7 +550,7 @@ func guardSafety(what string) error {
 		cur().sess.ApproveSafety(what)
 		return nil
 	}
-	return policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what).
+	return policyStop(approvalErr("SAFETY_SETTING", what+" weakens komando's safety checks").
 		Say(what+" turns off one of komando's safety checks, so komando asks first", "Run it again in a terminal to answer the question, or add --yes in a script if you are sure."))
 }
 
@@ -593,8 +581,7 @@ func guardProtectionWhy(kind, action string, names []string, why string) error {
 		return nil
 	}
 	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET", "vpn": "PROTECTED_TARGET"}[kind]
-	return policyStop(out.Errf(out.ExitPolicy, code, "re-run with --yes after the user confirms",
-		"%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", ")))
+	return policyStop(approvalErr(code, fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))))
 }
 
 func hostNames(hs []*store.Host) []string {
