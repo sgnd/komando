@@ -69,7 +69,10 @@ or a CI job), komando asks instead of stopping:
   database session), else `Run it? [y/N, d = --dry-run first]`. One rule
   table decides which: every command that stops an AI agent as dangerous
   asks you for the name.
-- No is the default; Enter, Ctrl-C or Ctrl-D is a no, and nothing runs.
+- No is the default; Enter or Ctrl-D is a no, and nothing runs. A no
+  exits 6, like a stop: `Cancelled. Nothing was changed.` (`DECLINED`
+  when komando asked before the command ran, else the stop's own code).
+  Ctrl-C stops komando there instead: `Stopped.`, exit 1 (`CANCELLED`).
   A yes counts for that one command only, as `--yes` or
   `--allow-dangerous` would, and `komando audit` records it with
   `confirm: tty` and what you said yes to.

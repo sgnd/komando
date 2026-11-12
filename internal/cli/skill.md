@@ -90,7 +90,7 @@ not know? Set `KOMANDO_AGENT=1`.
    read-only command before you run it again.
 5. **Never add `--allow-dangerous`, `--yes` or `--reveal` on your own.**
    When a command is blocked (exit 6: `CONFIRM_REQUIRED`, `DB_BYTES_LIMIT`,
-   `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`, `PROTECTED_HOST`,
+   `DECLINED`, `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`, `PROTECTED_HOST`,
    `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_HUMAN`,
    `REVEAL_NEEDS_PERSON`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
    `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_READ_ONLY`,

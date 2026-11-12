@@ -84,9 +84,13 @@ func TestPromptFillCancel(t *testing.T) {
 		promptFake(t, c.answers...)
 		got, err := promptFill(c.args)
 		var oe *out.Error
+		want, exit := "DECLINED", out.ExitPolicy // a no exits 6, as at any safety question (S-8.9)
+		if c.answers == nil {
+			want, exit = "CANCELLED", out.ExitError // Ctrl-C
+		}
 		if err == nil || got != nil {
 			t.Errorf("%v %v: ran %v", c.args, c.answers, got)
-		} else if e := promptStopped(err); !errors.As(e, &oe) || oe.Code != "CANCELLED" {
+		} else if e := promptStopped(err); !errors.As(e, &oe) || oe.Code != want || oe.Exit != exit {
 			t.Errorf("%v: %v", c.args, e)
 		}
 	}

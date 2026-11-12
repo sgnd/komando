@@ -87,6 +87,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- A person who answers no when komando asks before running a filled-in
+  command (`Run it?`, the typed name) gets exit 6, like a no at any safety
+  question, with the new code `DECLINED` and `Cancelled. Nothing was
+  changed.` (was `CANCELLED`, exit 1). Ctrl-C there stays `CANCELLED`,
+  exit 1, and now says `Stopped.`. AI agents and scripts are never asked,
+  so nothing changes for them.
 - `aws`, `gcp` and `azure` are reserved names for conns and VPNs too, as
   for servers and as `all` is: `conn add`, `vpn add`, `rename` and
   `import` refuse them (usage error, exit 2). An older entry with such a

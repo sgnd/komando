@@ -56,6 +56,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DB_USER_EXISTS` | 8 | user … already exists | change its password with `komando db user passwd CONN … --password-ref secret:NAME` |
 | `DB_USER_IN_USE` | 8 | the database user owns objects or has sessions, so it is not removed | end its sessions first: find them with `komando db activity CONN --all`, then `komando db kill CONN PID --session` |
 | `DB_USER_NOT_FOUND` | 3 | user … does not exist | list users with `komando db user list CONN` |
+| `DECLINED` | 6 | not run: the person said no | nothing was changed |
 | `DELETE_FAILED` | 1 | cannot delete …: … | check the file's permissions |
 | `DELIVERY_LIMIT_NEAR` | 8 | subscription … moves a message to its dead-letter topic after … deliveries, and peek would count as one | do not peek this subscription: every delivery counts, and a message delivered too often goes to the dead-letter topic. Peek a subscription of the dead-letter topic instead, or raise maxDeliveryAttempts |
 | `DEPLOY_FAILED` | 5 | key deploy could not add the key to the server's authorized_keys (the server's words follow) | check that ~/.ssh is writable there: `komando fs stat HOST ~/.ssh` |

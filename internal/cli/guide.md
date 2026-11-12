@@ -419,7 +419,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 5    | FAILED                            | read `data.results[].stderr` and `exit_code` |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
 | 5    | WRITE_FAILED (a file on a server) | check that the folder is writable and has free space (`komando exec TARGET --read-only -- df -h`) |
-| 6    | CONFIRM_REQUIRED, DB_BYTES_LIMIT, NEEDS_PERSON, OPEN_BIND, POLICY_BLOCKED, PROTECTED_HOST, PROTECTED_TARGET, READ_ONLY_VIOLATION, REVEAL_NEEDS_HUMAN, REVEAL_NEEDS_PERSON, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, SQL_STRING_RULES, SSH_GATE_READ_ONLY, SSH_GATE_REFUSED, STORE_OLD_COPY, UNSAFE_BACKUP, WRITE_REQUIRES_FLAG | stop and ask the human; no flag clears NEEDS_PERSON, REVEAL_NEEDS_HUMAN, SSH_GATE_* or STORE_OLD_COPY: a person runs those in their own terminal |
+| 6    | CONFIRM_REQUIRED, DB_BYTES_LIMIT, DECLINED, NEEDS_PERSON, OPEN_BIND, POLICY_BLOCKED, PROTECTED_HOST, PROTECTED_TARGET, READ_ONLY_VIOLATION, REVEAL_NEEDS_HUMAN, REVEAL_NEEDS_PERSON, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, SQL_STRING_RULES, SSH_GATE_READ_ONLY, SSH_GATE_REFUSED, STORE_OLD_COPY, UNSAFE_BACKUP, WRITE_REQUIRES_FLAG | stop and ask the human; no flag clears NEEDS_PERSON, REVEAL_NEEDS_HUMAN, SSH_GATE_* or STORE_OLD_COPY: a person runs those in their own terminal |
 | 7    | CONNECT_TIMEOUT                   | the server did not answer: check the address, `--via` or the VPN; on a slow link raise `--connect-timeout` |
 | 7    | TIMEOUT                           | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file; use exact, unique `--old` text |
