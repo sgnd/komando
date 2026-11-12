@@ -32,7 +32,7 @@ func TestStandardAliasSpelling(t *testing.T) {
 				t.Errorf("%s --%s: a flag spelling is hidden", c.CommandPath(), f.Name)
 			case now == nil:
 				t.Errorf("%s --%s: stands for --%s, which is no flag", c.CommandPath(), f.Name, a[0])
-			case now.Value != f.Value:
+			case now.Value != f.Value && !wrapsValue(f.Value, now.Value):
 				t.Errorf("%s --%s: does not share the value of --%s", c.CommandPath(), f.Name, a[0])
 			}
 		})
@@ -60,6 +60,13 @@ func TestStandardAliasSpelling(t *testing.T) {
 		}
 	}
 	t.Logf("%d hidden spellings of gate-read flags checked", n)
+}
+
+// wrapsValue reports whether v sets base itself after a check of its own
+// (cluster -n, which refuses a number first): the same variable.
+func wrapsValue(v, base pflag.Value) bool {
+	w, ok := v.(interface{ wraps() pflag.Value })
+	return ok && w.wraps() == base
 }
 
 // spellingAnswer is the code a read-only gate key gets for command id given

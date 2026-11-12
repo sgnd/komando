@@ -109,17 +109,17 @@ func (v *limitValue) Set(s string) error {
 // a count (--limit) on cluster events, logs and ls, where only a number
 // parsed; a number given as -n is therefore refused, always, so no old
 // command line is read as a namespace named 50 (S-5.14).
-type nsShort struct{ ns *string }
+type nsShort struct{ base pflag.Value } // --namespace's own value
 
-func (v *nsShort) String() string { return *v.ns }
-func (v *nsShort) Type() string   { return "string" }
+func (v *nsShort) String() string     { return v.base.String() }
+func (v *nsShort) Type() string       { return "string" }
+func (v *nsShort) wraps() pflag.Value { return v.base }
 func (v *nsShort) Set(s string) error {
 	if s != "" && strings.Trim(s, "0123456789") == "" {
 		return flagHint(fmt.Sprintf("%s is a count, but -n is --namespace in cluster commands", s),
 			fmt.Sprintf("`--limit %s`, or `--namespace=%s` for a namespace named %s", s, s, s))
 	}
-	*v.ns = s
-	return nil
+	return v.base.Set(s)
 }
 
 // limitOpt describes a command's --limit.
@@ -137,12 +137,12 @@ func nsFlags(c *cobra.Command, ns *string, all *bool, lim *limitOpt) {
 	// --namespace. The parser finds -n through the set's own table, which
 	// AddFlag fills, so the shorthand is set on the flag for the parser and
 	// then moved to --namespace for every set derived from this one (help).
-	short := &pflag.Flag{Name: "n", Shorthand: "n", Usage: "-n NAMESPACE", Value: &nsShort{ns}, Hidden: true,
+	fl.StringVar(ns, "namespace", "", "Kubernetes namespace (default: the context's, else default)")
+	long := fl.Lookup("namespace")
+	short := &pflag.Flag{Name: "n", Shorthand: "n", Usage: "-n NAMESPACE", Value: &nsShort{long.Value}, Hidden: true,
 		Annotations: map[string][]string{flagAliasOf: {"namespace"}}}
 	fl.AddFlag(short)
-	short.Shorthand = ""
-	fl.StringVar(ns, "namespace", "", "Kubernetes namespace (default: the context's, else default)")
-	fl.Lookup("namespace").Shorthand = "n"
+	short.Shorthand, long.Shorthand = "", "n"
 	if all != nil {
 		fl.BoolVarP(all, "all-namespaces", "A", false, "every namespace")
 	}
