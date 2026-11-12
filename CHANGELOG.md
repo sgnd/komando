@@ -9,6 +9,8 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A second Ctrl-C now ends komando at once when the clean stop after the
+  first one hangs; before, every later Ctrl-C was ignored.
 - Secret masking for AI agents no longer hides words in komando's own
   messages: "Would re-encrypt 3 secrets: the vault's key" and
   "KOMANDO_KEYCHAIN=off: ..." now read whole. Real values after `secrets:`

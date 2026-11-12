@@ -94,7 +94,7 @@ func Execute() int {
 		out.P.Format = f
 	}
 	root := newRoot()
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signalContext()
 	defer cancel()
 	cmd, err := root.ExecuteContextC(ctx)
 	if err == nil {
@@ -670,4 +670,13 @@ func outputFormat(v string) (string, bool) {
 // pseudo version).
 func isRelease(v string) bool {
 	return strings.HasPrefix(v, "v") && !strings.HasPrefix(v, "v0.0.0-") && !strings.Contains(v, "+")
+}
+
+// signalContext is cancelled by the first Ctrl-C (or SIGTERM), so the
+// command stops cleanly. After that komando stops catching them: a second
+// Ctrl-C ends it at once, as with kubectl and gh, when the clean stop hangs.
+func signalContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	context.AfterFunc(ctx, cancel)
+	return ctx, cancel
 }
