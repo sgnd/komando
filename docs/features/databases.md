@@ -17,6 +17,25 @@ komando db dump app-db --to app-2026-11-02.sql.gz           # back up to this co
 
 Queries only read unless you add `--write`.
 
+## A database from start to end
+
+Every step is a command; a person and an AI agent type the same ones.
+
+```bash
+komando db add app-db postgres://app@10.0.0.5:5432/app --password-ref secret:app-db-pass
+komando test app-db                                  # can komando log in?
+komando db query app-db "select count(*) from users"
+komando db query app-db --write --dry-run "update users set plan = 'pro' where id = 42"
+komando db dump app-db --to backups/                 # backups/app-db-<date>.sql.gz
+komando db restore app-db --from backups/app-db-2026-11-12.sql.gz --dry-run
+komando conn edit app-db --protected                 # changes then need a person's yes
+komando conn mv app-db shop-db                       # rename; every reference follows
+komando conn rm shop-db                              # komando forgets it; the database stays
+```
+
+`komando list kind:db` lists your databases. A command's error always ends
+with a hint that names the next command to run, with your conn in it.
+
 ## Add a database
 
 A conn is a database, cache, queue, storage bucket, cluster or registry
