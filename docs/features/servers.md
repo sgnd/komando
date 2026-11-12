@@ -352,7 +352,7 @@ komando secret set web1-sudo
 komando host edit web1 --sudo-ref secret:web1-sudo
 ```
 
-Manage the vault:
+Manage the vault (all of it on one page: [Secrets](secrets.md)):
 
 ```bash
 komando secret list                          # names, when they changed, what uses them

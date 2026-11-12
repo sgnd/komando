@@ -11,6 +11,9 @@ its highlights; the sections below them give the details. Versions follow
 
 - `upload`, `download` and `cp` show the progress of a file of 8 MiB or
   more going to or from one server on stderr, at a person's terminal only.
+- A [Secrets](docs/features/secrets.md) page: save, use, check, rename,
+  copy and remove secrets, where the key is kept, and what an AI agent
+  runs or gets at each step.
 - `job start --script FILE` (with `--arg` and `--interpreter`) runs a
   script from this computer as a background job, as `exec --script` does
   in the foreground. A long `exec --script` that times out names it.
@@ -177,6 +180,38 @@ its highlights; the sections below them give the details. Versions follow
   file is applied (`K8S_INVALID`, "nothing was applied: ..."). Before, the
   objects above the refused one were applied and the file was left half
   done.
+- On a Mac whose user has no default keychain (a changed `HOME`: `sudo -E`,
+  a sandbox, CI, a test run), komando no longer makes macOS show a
+  "Keychain Not Found" dialog. It asks `security default-keychain` first
+  (no dialog); without one, a new store keeps its key in `store.key`, the
+  change count is not kept in the keychain, and `secret keychain` says
+  "no default macOS keychain for this user".
+- An AI agent reading `secret passphrase --dry-run` and `secret keychain
+  --dry-run` as text saw words of komando's own sentences as `[hidden]`
+  ("3 secrets: [hidden] vault's key", "KOMANDO_KEYCHAIN=[hidden]"); the
+  sentences are reworded so nothing is masked.
+- `secret passphrase --dry-run` previews for an AI agent or a script too
+  (what would change, how many secrets, whether the current key opens
+  them) with `meta.would_be_blocked: NEEDS_PERSON`, as `secret keychain`
+  and `seal` do, instead of stopping: a dry run is never blocked.
+- `secret rm A B` removes every name in one change of the vault, or none:
+  a failure part way no longer leaves some removed without an audit entry,
+  and a reference another komando adds meanwhile is seen before the
+  secret goes.
+- `komando secret --help` and the Settings and Moving pages named
+  `vault.json` and `vault.key`, the files of an earlier komando; they now
+  say `store.db` and `store.key`. The help also lists the other places a
+  `-ref` flag can read a password from (`env:`, `file:`, `vault:`,
+  `aws-sm:`, `gcp-sm:`, `azure-kv:`, `op://`, `bw://`, `kdbx:`).
+- `secret set NAME --from-env VAR` refuses an empty (or blank) variable
+  with `USAGE`, as an empty pipe is refused, instead of storing an empty
+  password.
+- `secret set` and `secret check` never ask an AI agent for a value at a
+  hidden prompt, also when the agent runs komando under a terminal: it
+  gets `NEEDS_PERSON` at once instead of a prompt that waits forever.
+  `secret set NAME --dry-run` without a value previews (`replaced`,
+  `would_set`) with `meta.would_be_blocked: NEEDS_PERSON` instead of
+  stopping.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

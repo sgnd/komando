@@ -149,7 +149,7 @@ Each dropped setting is listed in the result.
 ### Copy the folder (everything, with passwords)
 
 The vault's key must travel with it, so give the vault a passphrase first.
-A key in `vault.key` or in the system keychain does not travel: a copied
+A key in `store.key` or in the system keychain does not travel: a copied
 folder whose key stayed in the old computer's keychain cannot open its
 secrets.
 

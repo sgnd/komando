@@ -154,7 +154,7 @@ func TestNewVaultKeychainOff(t *testing.T) {
 	if got := calls(); got != "" {
 		t.Errorf("the keychain was run:\n%s", got)
 	}
-	if _, err := KeyToKeychain(); err == nil || !strings.Contains(err.Error(), "KOMANDO_KEYCHAIN=off") {
+	if _, err := KeyToKeychain(); err == nil || !strings.Contains(err.Error(), "KOMANDO_KEYCHAIN is off") {
 		t.Errorf("secret keychain with the keychain off: %v", err)
 	}
 }

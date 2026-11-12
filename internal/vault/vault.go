@@ -303,6 +303,23 @@ func Delete(name string) error {
 	})
 }
 
+// DeleteMany removes several secrets in one change of the vault: all of
+// them, or none when one is missing (an error that matches ErrNotFound and
+// ends with ": NAME").
+func DeleteMany(names []string) error {
+	return change(func(f *file) error {
+		for _, n := range names {
+			if _, ok := f.Entries[n]; !ok {
+				return fmt.Errorf("%w: %s", ErrNotFound, n)
+			}
+		}
+		for _, n := range names {
+			delete(f.Entries, n)
+		}
+		return nil
+	})
+}
+
 // ErrExists is returned by Copy and Rename when the new name is taken and
 // overwrite is false.
 var ErrExists = errors.New("secret already exists")

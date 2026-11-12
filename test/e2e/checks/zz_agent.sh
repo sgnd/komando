@@ -122,6 +122,20 @@ fi
 
 if in_area data; then
 acode "an agent cannot change the vault passphrase" NEEDS_PERSON secret passphrase
+check "agent: secret passphrase --dry-run previews" "True NEEDS_PERSON" "$(ag secret passphrase --dry-run | jget 'd["data"]["dry_run"], d["meta"]["would_be_blocked"]["code"]' || true)"
+# secrets: the user types a password, never the agent
+acode "an agent does not type a password" NEEDS_PERSON secret set t-agent-pass
+check "agent: secret set --dry-run previews" "True NEEDS_PERSON" "$(ag secret set t-agent-pass --dry-run | jget 'd["data"]["would_set"], d["meta"]["would_be_blocked"]["code"]' || true)"
+acode "a value on the command line is refused" SECRET_IN_ARGS secret set t-agent-pass hunter22
+export T_AGENT_EMPTY=
+acode "an empty --from-env is refused" USAGE secret set t-agent-pass --from-env T_AGENT_EMPTY
+unset T_AGENT_EMPTY
+acode "only a person compares a value" NEEDS_PERSON secret check ops-pass
+check "agent: a generated token can come on stdin" True "$(echo gen-token-123 | A secret set t-agent-token | jget 'd["ok"]' || true)"
+check "agent: the token is listed, without its value" "True False" "$(ag secret list | jget '"t-agent-token" in json.dumps(d), "gen-token-123" in json.dumps(d)' || true)"
+check "agent: rename a secret it cannot read" True "$(ag secret mv t-agent-token t-agent-token2 | jget 'd["ok"]' || true)"
+check "agent: remove it" True "$(ag secret rm t-agent-token2 | jget 'd["ok"]' || true)"
+check "agent: nothing was stored for the typed password" SECRET_NOT_FOUND "$(ag secret get t-agent-pass | jget 'd["error"]["code"]' || true)"
 fi
 
 # not one password of the lab in anything the agent saw
