@@ -78,7 +78,7 @@ PUB="$TMP/t-e2einvk.pub"
 $K key show t-e2einvk | jget 'd["data"]["public_key"]' >"$PUB"
 check "public key given to key add" KEY_INVALID "$($K key add t-e2einvk2 "$PUB" | code)"
 check "plain passphrase in key edit" USAGE "$($K key edit t-e2einvk --passphrase-ref pw123 | code)"
-check "key list text is a table" True "$($K key list -o text | head -1 | grep -q '^NAME *TYPE *FINGERPRINT *USED_BY' && echo True || echo False)"
+check "key list text is a table" True "$($K key list -o text | head -1 | grep -q '^NAME *TYPE *FINGERPRINT *USED BY' && echo True || echo False)"
 q $K key rm t-e2einvk --delete-file --allow-dangerous
 
 # secrets
