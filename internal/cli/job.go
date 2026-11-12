@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -15,7 +14,6 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
-	"github.com/sgnd/komando/internal/vault"
 )
 
 // Jobs are detached remote processes (nohup/setsid) whose output lives in
@@ -66,58 +64,11 @@ the job has opened it. --arg values become $1, $2 ... .`,
   komando job start @web --script ./deploy.sh --arg v1.2.3 --sudo`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var command, shown string
-			var body []byte
-			mutating := !readOnly
-			if so.file != "" {
-				if cmdStr != "" || len(args) > 1 {
-					return out.Usage("give a command or --script FILE, not both")
-				}
-				var err error
-				if body, err = readFileOrStdin(so.file); err != nil {
-					return localFileErr("FILE_NOT_FOUND", err, "")
-				}
-				if err := hiddenInInput(so.file, body); err != nil {
-					return err
-				}
-				if err := guardBody(string(body)); err != nil {
-					return err
-				}
-				interpreter := cmp.Or(so.interpreter, shebangInterpreter(string(body)))
-				if win, err := targetWindows(args[0]); err != nil || win {
-					if err == nil {
-						err = out.Usage("job start --script runs on Linux and other Unix servers; on Windows use `komando exec TARGET --script FILE`")
-					}
-					return err
-				}
-				if readOnly {
-					if mutating, err = scriptReadOnly(string(body), interpreter, so.args, envs); err != nil {
-						return err
-					}
-				}
-				// the job reads the script from its file ($2), which it removes
-				// once it has it open: nothing is left on the server
-				command = `{ rm -f "$2"; ` + scriptCommand(interpreter, so.args) + `; } < "$2"`
-				shown = shellLine(append([]string{"--script", so.file}, scriptArgsShown(so.args)...))
-			} else {
-				if so.interpreter != "" || len(so.args) > 0 {
-					return out.Usage("--interpreter and --arg go with --script FILE")
-				}
-				var err error
-				if command, err = commandWords(cmdStr, args[1:], "job start "+args[0]); err != nil {
-					return err
-				}
-				if strings.TrimSpace(command) == "" {
-					return out.Usage("no command given: komando job start TARGET -- COMMAND (or --script FILE)")
-				}
-				if readOnly {
-					if err := checkReadOnlyEnv(command, envs); err != nil {
-						return err
-					}
-					mutating = readOnlyMutates(command, envs)
-				}
-				shown = command
+			sp, err := jobWhat(args, cmdStr, so, readOnly, envs)
+			if err != nil {
+				return err
 			}
+			sp.sudo, sp.dir = sudo, dir
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -126,85 +77,26 @@ the job has opened it. --arg values become $1, $2 ... .`,
 			if err != nil {
 				return err
 			}
-			if err := guard(st, hosts, command, mutating); err != nil {
+			if err := guard(st, hosts, sp.command, sp.mutating); err != nil {
 				return err
 			}
-			env, err := parseEnvTo(envs, hosts)
-			if err != nil {
+			if sp.env, err = parseEnvTo(envs, hosts); err != nil {
 				return err
 			}
 			if g.dryRun {
-				plan := map[string]any{"hosts": hostNames(hosts), "command": shown}
-				if body != nil {
-					plan["script_bytes"] = len(body)
+				plan := map[string]any{"hosts": hostNames(hosts), "command": sp.shown}
+				if sp.body != nil {
+					plan["script_bytes"] = len(sp.body)
 				}
 				out.P.Print("job.start", plan, nil)
 				return nil
 			}
 			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-				id := newID("j")
-				// The exports go, on stdin, to a private file the job reads and
-				// deletes: a command line is visible to every user on the
-				// server (ps), secrets included, and a job runs for long.
-				exports, err := sshx.EnvExports(c, env)
+				s, err := startJob(ctx, c, sp)
 				if err != nil {
 					return nil, err
 				}
-				inner, _, err := sshx.BuildCommand(c, sshx.RunRequest{Command: command, Dir: dir, NoEnv: true})
-				if err != nil {
-					return nil, err
-				}
-				if exports != "" {
-					inner = `. "$1"; rm -f "$1"; ` + inner
-				}
-				var pw []byte // the sudo password, sent as input, never on a command line
-				pwFile := ""
-				// the job's shell gets the env file as $1 and the script as $2
-				shArgs := ` sh "$d/env" "$d/script"`
-				switch {
-				case sudo && c.Host.SudoRef != "":
-					p, err := vault.Resolve(c.Host.SudoRef)
-					if err != nil {
-						return nil, err
-					}
-					pw = []byte(p + "\n")
-					// The password waits in a private file. The job opens it as
-					// sudo's input and deletes it at once; the command itself
-					// gets no input, so it can never read the password.
-					pwFile = sshx.SaveInput(len(pw), `"$d/pw"`) + ` && `
-					inner = `{ rm -f "$d/pw"; sudo -S -p '' sh -c ` + sshx.Q("exec </dev/null; "+inner) + shArgs + `; } < "$d/pw"`
-				case sudo:
-					inner = "sudo -n sh -c " + sshx.Q(inner) + shArgs
-				default:
-					inner = "sh -c " + sshx.Q(inner) + shArgs
-				}
-				wrapper := "( " + inner + " ); echo $? > \"$d/exit\""
-				envFile := ""
-				if exports != "" {
-					envFile = sshx.SaveInput(len(exports), `"$d/env"`) + ` && `
-				}
-				scriptFile := ""
-				if body != nil {
-					scriptFile = `(umask 077; cat > "$d/script") && `
-				}
-				script := `d="` + jobDir(id) + `"; mkdir -p "$d" && ` + envFile + pwFile + scriptFile + `printf '%s\n' ` + sshx.Q(shown) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
-					`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & ` +
-					`else nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
-				input := append(append([]byte(exports), pw...), body...)
-				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: input, Timeout: 30 * time.Second, MaxOutput: 64 << 10})
-				if err != nil {
-					return nil, err
-				}
-				o, code := strings.TrimSpace(r.Stdout), r.ExitCode
-				pid, perr := strconv.Atoi(strings.TrimSpace(o))
-				if code != 0 || perr != nil {
-					return nil, out.Errf(out.ExitRemote, "JOB_START_FAILED", "check that /bin/sh and nohup work there: `komando test TARGET`", "could not start job: %s", o)
-				}
-				j := &store.Job{ID: id, Host: c.Host.Name, Command: shown, PID: pid, RemoteDir: jobDir(id), StartedAt: time.Now().UTC()}
-				if err := store.UpdateRuntime(func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
-					return nil, err
-				}
-				return started{ID: id, Host: c.Host.Name, PID: pid, OK: true}, nil
+				return s, nil
 			})
 			var data jobStarted
 			worst := 0
@@ -223,7 +115,7 @@ the job has opened it. --arg values become $1, $2 ... .`,
 				data.Summary.OK++
 			}
 			data.Summary.Total = len(res)
-			audit(st, "job.start", hostNames(hosts), shown, data.Summary.Failed == 0, nil)
+			audit(st, "job.start", hostNames(hosts), sp.shown, data.Summary.Failed == 0, nil)
 			return finishFleet("job.start", data.withNext(), runSummary{fleetSummary: data.Summary}, worst, fails)
 		},
 	}
