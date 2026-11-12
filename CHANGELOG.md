@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando schema OLD` describes the command an old or second name runs:
+  an alias (`schema fs ls`), a command ID as the envelope writes it
+  (`schema secret.get`, `schema host.mv`), an old name (`schema script`)
+  or a hidden synonym (`schema group show`). Before, hidden names gave
+  `COMMAND_NOT_FOUND`.
 - More names find the command you mean, each for good and silently:
   plurals and help words for every noun (`servers`, `server`,
   `databases`, `dbs`, `files`, `vpns`, `caches`, `queues`, `clusters`,

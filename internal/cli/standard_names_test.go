@@ -146,3 +146,31 @@ func TestSynonymWrappers(t *testing.T) {
 		t.Errorf("group show: exit %d %s", code, text)
 	}
 }
+
+// `komando schema OLD` describes the command OLD runs: an alias, a command
+// ID, an old name or a hidden synonym (G-03, S-9.8).
+func TestSchemaResolvesOldNames(t *testing.T) {
+	invHome(t)
+	for _, c := range []struct {
+		args []string
+		path string
+	}{
+		{[]string{"fs.ls"}, "komando fs list"},
+		{[]string{"fs", "ls"}, "komando fs list"},
+		{[]string{"secret", "get"}, "komando secret show"},
+		{[]string{"secret.get"}, "komando secret show"},
+		{[]string{"host.mv"}, "komando host rename"},
+		{[]string{"group", "show"}, "komando group list"},
+		{[]string{"cluster", "info"}, "komando cluster status"},
+		{[]string{"script"}, "komando exec"},
+		{[]string{"servers"}, "komando host"},
+	} {
+		d := mustRun(t, append([]string{"schema"}, c.args...)...)
+		cmds := d["commands"].([]any)
+		if len(cmds) == 0 || cmds[0].(map[string]any)["path"] != c.path {
+			t.Errorf("schema %v: %v", c.args, cmds[:min(len(cmds), 1)])
+		}
+	}
+	wantCode(t, "COMMAND_NOT_FOUND", "schema", "no-such-thing")
+	wantCode(t, "COMMAND_NOT_FOUND", "schema", "tunnel", "serve") // komando's own background command
+}
