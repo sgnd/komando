@@ -224,7 +224,7 @@ func (b *smbBucket) Get(ctx context.Context, key string, w io.Writer) (int64, er
 		return 0, smbErr(err)
 	}
 	defer f.Close()
-	n, err := io.Copy(w, f)
+	n, err := io.Copy(CtxWriter(ctx, w), f)
 	return n, smbErr(err)
 }
 
@@ -249,7 +249,7 @@ func (b *smbBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, _
 	if err != nil {
 		return smbErr(err)
 	}
-	if _, err := io.Copy(f, r); err != nil {
+	if _, err := io.Copy(f, CtxReader(ctx, r)); err != nil {
 		f.Close()
 		_ = fs.Remove(tmp)
 		return smbErr(err)

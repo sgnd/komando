@@ -220,17 +220,37 @@ root-owned folder, upload it to a place you own and move it with
 sync` has no `--sudo` either: it writes only where the login user may
 write.
 
-Symbolic links are not copied; they are listed as `skipped`. When some files
-in a folder cannot be read, the rest are still copied; the result lists the
-failures under `errors` and komando exits 5.
+A folder given as a symbolic link (`./current -> releases/42`) is copied as
+the folder it names, as `scp -r` does. Symbolic links inside a folder are not
+copied; they are listed as `skipped`. When some files in a folder cannot be
+read, the rest are still copied; the result lists the failures under
+`errors` and komando exits 5.
 
 ### What a copy replaces
 
-- Downloads never replace a file that is already on your computer
-  (`FILE_EXISTS`). Add `--overwrite` when you mean to.
+- Downloads never replace a file that is already on your computer. One
+  file stops with `FILE_EXISTS` (exit 8); a folder from a server stops at
+  the first file that is already here; a folder from storage keeps those
+  files and copies the rest. Add `--overwrite` when you mean to replace
+  them.
 - Uploads replace the file on the server and say so (`replaced: true`).
-- A download is written under a temporary name first, so a broken
-  connection never leaves half a file.
+- Every file, both ways, is written under a temporary name first and moved
+  into place when complete, so a broken connection never leaves half a
+  file. (Moving a new file into place on a server makes the SSH user its
+  owner; use `--sudo` for a single file whose owner must stay.)
+
+### Big files and Ctrl-C
+
+- At a terminal, a file of 8 MiB or more going to or from one server shows
+  its progress on stderr (`app.tar.gz: 120.0 of 512.0 MB`). Nothing is
+  shown when stderr is not a terminal, or for an AI agent; stdout never
+  gets it.
+- Ctrl-C stops a copy, or a sync, within a moment. The file being copied is
+  not left behind, files already copied stay, and komando exits 1 with
+  `CANCELLED`. Run the same command again to finish: `sync` sends only
+  what is still missing.
+- For a copy that may take longer than a few minutes, or over a shaky
+  link, run it on the server as a job: `komando job start`.
 
 ## Keep a folder in step (sync)
 
@@ -256,6 +276,10 @@ komando sync backups:2026/ ./restore                               # from storag
 - A source that does not exist is an error (`PATH_NOT_FOUND`, exit 3), and
   `--delete` never runs from an empty source, so a typo cannot wipe the
   destination.
-- Symbolic links are not copied; they are listed as `skipped`.
+- Symbolic links inside the folder are not copied; they are listed as
+  `skipped`. A source folder given as a link is synced as the folder it
+  names.
+- Ctrl-C stops it within a moment; files already copied stay, and the
+  next run sends the rest.
 
 For a single file, use `komando upload` or `komando download`.

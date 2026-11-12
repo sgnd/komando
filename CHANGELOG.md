@@ -9,6 +9,8 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `upload`, `download` and `cp` show the progress of a file of 8 MiB or
+  more going to or from one server on stderr, at a person's terminal only.
 - `job start --script FILE` (with `--arg` and `--interpreter`) runs a
   script from this computer as a background job, as `exec --script` does
   in the foreground. A long `exec --script` that times out names it.
@@ -102,6 +104,20 @@ its highlights; the sections below them give the details. Versions follow
 - `ssh-gate`: a key that may change things can now run `fs restore`, the
   undo of `fs replace --backup` and `fs write --backup`, on a server.
   It was refused as if it changed komando's own setup.
+- Ctrl-C now stops `upload`, `download`, `cp` and `sync` (servers, and
+  SFTP, FTP and SMB storage conns). komando caught the signal and went on
+  copying to the last byte; a big upload ran for 20 s after Ctrl-C, and
+  `sync` had to be killed. The copy now stops within a moment with
+  `CANCELLED` (exit 1), and the file being copied is not left behind.
+- A folder upload (`upload -r`, `cp -r`) writes each file under a
+  temporary name and moves it into place, as `sync` does, so an
+  interrupted upload no longer leaves a file on the server cut short.
+- A download refused with `FILE_EXISTS` no longer prints
+  "downloaded 1 file (0 B)" above the error, and its JSON result no longer
+  counts the file.
+- `upload -r`, `cp -r` and `sync` copy a folder given as a symbolic link
+  (`./current -> releases/42`) as the folder it names. They sent nothing
+  and still reported success ("skipped 1 file: .").
 
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`

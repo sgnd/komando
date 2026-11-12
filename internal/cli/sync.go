@@ -61,7 +61,13 @@ func (l localSide) list(context.Context) (map[string]syncFile, error) {
 	} else if err == nil && !fi.IsDir() {
 		return nil, out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync works on folders; for one file use `komando upload` or `komando download`", "%s is a file, not a folder", l.root)
 	}
-	err := filepath.WalkDir(l.root, func(p string, d fs.DirEntry, err error) error {
+	// a folder given as a symbolic link is the folder it names; links
+	// inside it are listed as skipped
+	root := l.root
+	if real, err := filepath.EvalSymlinks(root); err == nil {
+		root = real
+	}
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -69,7 +75,7 @@ func (l localSide) list(context.Context) (map[string]syncFile, error) {
 			return nil
 		}
 		if !d.Type().IsRegular() {
-			rel, _ := filepath.Rel(l.root, p)
+			rel, _ := filepath.Rel(root, p)
 			files[filepath.ToSlash(rel)] = syncFile{Skip: true}
 			return nil
 		}
@@ -77,7 +83,7 @@ func (l localSide) list(context.Context) (map[string]syncFile, error) {
 		if err != nil {
 			return err
 		}
-		rel, _ := filepath.Rel(l.root, p)
+		rel, _ := filepath.Rel(root, p)
 		files[filepath.ToSlash(rel)] = syncFile{Size: fi.Size(), Mtime: fi.ModTime(), Mode: fi.Mode().Perm()}
 		return nil
 	})
@@ -136,7 +142,7 @@ func (l localSide) open(_ context.Context, rel string) (io.ReadCloser, error) {
 	return os.Open(filepath.Join(l.root, filepath.FromSlash(rel)))
 }
 
-func (l localSide) write(_ context.Context, rel string, r io.Reader, f syncFile) error {
+func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFile) error {
 	if !filepath.IsLocal(filepath.FromSlash(rel)) {
 		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "nothing outside the folder was written; check the source for odd file names", "the source sent the path %q, which leads outside %s", rel, l.root)
 	}
@@ -149,7 +155,8 @@ func (l localSide) write(_ context.Context, rel string, r io.Reader, f syncFile)
 		return err
 	}
 	defer os.Remove(tmp.Name())
-	n, err := io.Copy(tmp, r)
+	// the destination watches ctx: an SFTP source keeps reading in parallel
+	n, err := io.Copy(storex.CtxWriter(ctx, tmp), r)
 	if err == nil && out.P.Mask && !revealOK() {
 		_, err = maskDownload(tmp, n) // as download does: secret values as [hidden]
 	}
@@ -221,7 +228,7 @@ func (s sftpSide) open(_ context.Context, rel string) (io.ReadCloser, error) {
 	return f, nil
 }
 
-func (s sftpSide) write(_ context.Context, rel string, r io.Reader, f syncFile) error {
+func (s sftpSide) write(ctx context.Context, rel string, r io.Reader, f syncFile) error {
 	if strings.Contains("/"+rel+"/", "/../") {
 		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "nothing outside the folder was written; rename the file so it has no .. in its path", "path %q leads outside %s", rel, s.root)
 	}
@@ -232,9 +239,9 @@ func (s sftpSide) write(_ context.Context, rel string, r io.Reader, f syncFile) 
 	tmp := path.Join(path.Dir(dst), fmt.Sprintf(".komando-sync-%d-%s", time.Now().UnixNano(), path.Base(dst)))
 	o, err := s.sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
 	if err != nil {
-		return fsErr(tmp, err)
+		return fsErr(dst, err) // the file the person named, not the temporary one
 	}
-	_, err = io.Copy(o, r)
+	_, err = io.Copy(o, storex.CtxReader(ctx, r))
 	if cerr := o.Close(); err == nil {
 		err = cerr
 	}
@@ -448,6 +455,9 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 		return res, nil
 	}
 	for _, a := range acts {
+		if err := ctx.Err(); err != nil {
+			return res, err // Ctrl-C: what was copied so far stays
+		}
 		switch a.Op {
 		case "copy", "update":
 			r, err := src.open(ctx, a.Path)
@@ -456,6 +466,9 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 			}
 			err = dst.write(ctx, a.Path, r, sf[a.Path])
 			r.Close()
+			if ctx.Err() != nil {
+				return res, ctx.Err()
+			}
 			if err != nil {
 				return res, fmt.Errorf("%s: %w", a.Path, err)
 			}

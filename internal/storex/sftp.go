@@ -117,7 +117,7 @@ func (b *sftpBucket) List(_ context.Context, prefix string, recursive bool, limi
 	return objs, false, nil
 }
 
-func (b *sftpBucket) Get(_ context.Context, key string, w io.Writer) (int64, error) {
+func (b *sftpBucket) Get(ctx context.Context, key string, w io.Writer) (int64, error) {
 	p, err := b.path(key)
 	if err != nil {
 		return 0, err
@@ -127,7 +127,7 @@ func (b *sftpBucket) Get(_ context.Context, key string, w io.Writer) (int64, err
 		return 0, sftpErr(err)
 	}
 	defer f.Close()
-	n, err := io.Copy(w, f)
+	n, err := io.Copy(CtxWriter(ctx, w), f)
 	return n, sftpErr(err)
 }
 
@@ -146,7 +146,7 @@ func (b *sftpBucket) Exists(_ context.Context, key string) (bool, error) {
 }
 
 // Put writes a temporary file (mode 0600) and renames it into place.
-func (b *sftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ string) error {
+func (b *sftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, _ string) error {
 	p, err := b.path(key)
 	if err != nil {
 		return err
@@ -160,7 +160,7 @@ func (b *sftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ 
 		return sftpErr(err)
 	}
 	_ = f.Chmod(0o600)
-	if _, err := io.Copy(f, r); err != nil {
+	if _, err := io.Copy(f, CtxReader(ctx, r)); err != nil {
 		f.Close()
 		_ = b.c.Remove(tmp)
 		return sftpErr(err)
@@ -227,6 +227,8 @@ func sftpErr(err error) error {
 		return oe
 	}
 	switch {
+	case errors.Is(err, context.Canceled):
+		return err // Ctrl-C: komando says CANCELLED
 	case errors.Is(err, os.ErrNotExist):
 		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage ls CONN [FOLDER]`", "file not found")
 	case errors.Is(err, os.ErrPermission):
