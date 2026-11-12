@@ -2,7 +2,6 @@ package out
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 )
 
@@ -30,6 +29,9 @@ func TestUnicodeOK(t *testing.T) {
 }
 
 func TestTextMarksFallBackToASCII(t *testing.T) {
+	// a result's text is data (a file, a row, a log line): it is shown as
+	// it is, so a person can copy it into fs replace --old. Only komando's
+	// own lines (errors, hints, warnings) fall back to ASCII.
 	data := textOf("✓ state  ok\n● web1  ok · 2 updates\nupdated komando v1 → v2…\n")
 	t.Setenv("LC_ALL", "")
 	t.Setenv("LC_CTYPE", "")
@@ -37,21 +39,15 @@ func TestTextMarksFallBackToASCII(t *testing.T) {
 	t.Setenv("TERM", "dumb")
 	var buf bytes.Buffer
 	(&Printer{Format: "text", W: &buf}).Print("x", data, nil)
-	got := buf.String()
-	if strings.ContainsAny(got, "✓●→·…") {
-		t.Fatalf("TERM=dumb printed non-ASCII marks: %q", got)
+	if got := buf.String(); got != string(data) {
+		t.Fatalf("TERM=dumb changed the data: %q", got)
 	}
-	for _, w := range []string{"+ state  ok", "* web1  ok - 2 updates", "v1 -> v2..."} {
-		if !strings.Contains(got, w) {
-			t.Errorf("missing %q in %q", w, got)
-		}
+	if got := Marks("v1 → v2…"); got != "v1 -> v2..." {
+		t.Errorf("komando's own line: %q", got)
 	}
-
 	t.Setenv("TERM", "xterm-256color")
-	buf.Reset()
-	(&Printer{Format: "text", W: &buf}).Print("x", data, nil)
-	if !strings.Contains(buf.String(), "✓ state") || !strings.Contains(buf.String(), "v1 → v2") {
-		t.Errorf("a UTF-8 terminal must keep the marks: %q", buf.String())
+	if got := Marks("v1 → v2"); got != "v1 → v2" {
+		t.Errorf("a UTF-8 terminal must keep the marks: %q", got)
 	}
 }
 

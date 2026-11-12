@@ -393,14 +393,14 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 			}
 		}
 		if t, ok := data.(Texter); ok {
-			s := Marks(SafeText(p.Redact(t.Text())))
+			s := SafeText(p.Redact(t.Text())) // data: a file or a row is shown as it is
 			fmt.Fprint(p.W, s)
 			if s != "" && !strings.HasSuffix(s, "\n") {
 				fmt.Fprintln(p.W)
 			}
 		} else if data != nil {
 			s := renderText(data, p.DryRun)
-			fmt.Fprint(p.W, Marks(SafeText(p.Redact(s))))
+			fmt.Fprint(p.W, SafeText(p.Redact(s)))
 			if s == "" {
 				// an empty list would print nothing, and a person cannot tell
 				// "no results" from "did not run"; stderr keeps pipes clean

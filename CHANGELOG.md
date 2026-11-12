@@ -87,6 +87,8 @@ its highlights; the sections below them give the details. Versions follow
   is `komando test all` and `komando doctor`.
 
 ### Fixed
+- An s3, gcs or azblob conn with `?insecure=1` now needs a person's yes when an AI agent adds it, like the other kinds: an AWS session token would travel in clear.
+- On a terminal without Unicode, a result's text (a file, a row, a log line) is no longer rewritten in ASCII; only komando's own lines are.
 
 - `queue purge` and `queue rm` name what they would delete: the person's
   "Dangerous:" prompt, the approval window and the agent's `POLICY_BLOCKED`

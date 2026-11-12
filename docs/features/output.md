@@ -143,8 +143,9 @@ komando: following logs on web1, web2 (Ctrl-C stops)
 - A protected server or database says `PROTECTED`, in red unless `NO_COLOR`
   is set.
 - On a terminal that cannot show them (`TERM=dumb`, or a locale such as
-  `LANG=C` that is not UTF-8), komando writes its marks in ASCII: `+` for
-  ✓, `x` for ✗, `*` for ●, `->` for →, `-` for ·.
+  `LANG=C` that is not UTF-8), komando writes the marks in its own lines (errors,
+  hints, warnings) in ASCII: `+` for ✓, `x` for ✗, `*` for ●, `->` for →,
+  `-` for ·. A result (a file, a row, a log line) is always shown as it is.
 - When a `shell` or `db shell` ends, one more line says how:
   `komando: left web1 (exit 0, 12m)` or
   `komando: connection to web1 lost after 3m`.

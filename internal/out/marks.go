@@ -40,8 +40,9 @@ var UnicodeOK = func() bool {
 }
 
 // Marks returns s as the terminal can show it: unchanged, or with komando's
-// marks (✓ ✗ ● → · …) spelled in ASCII when UnicodeOK is false. Only those
-// marks change; other text, a file's content included, is left alone.
+// marks (✓ ✗ ● → · …) spelled in ASCII when UnicodeOK is false. It is used
+// for komando's own lines (errors, hints, warnings, status), never for a
+// result's text: that is data (a file, a row, a log line) and is shown as it is.
 func Marks(s string) string {
 	if UnicodeOK() {
 		return s
