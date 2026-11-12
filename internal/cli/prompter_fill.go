@@ -353,12 +353,9 @@ func (f *fill) confirm(filled []string) error {
 	if slices.ContainsFunc(targets, func(n string) bool { return promptProtected(f.st, n) }) {
 		return nil // the command asks: "web1 is protected. Change it anyway? [y/N]"
 	}
-	words := filled
-	if path := strings.Fields(commandKey(f.cmd)); len(words) >= len(path) && slices.Equal(words[:len(path)], path) {
-		words = words[len(path):]
-	}
+	// the words after the command's own, whatever name or alias was typed
+	_, words, items := lineWords(filled)
 	if r := riskOf(f.cmd, words); r.typed != "" && len(targets) == 1 { // the rule table, risk.go
-		items := riskArgs(words)
 		if len(items) > 0 {
 			items = items[1:] // what goes: the words after the target
 		}

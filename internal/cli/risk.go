@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // One rule table says how much each command and flag combination needs
@@ -209,12 +210,41 @@ func (r riskRow) typedWhat() string {
 
 // riskOfLine is riskOf for a command line ("cache rm c1 k").
 func riskOfLine(line []string) riskRow {
+	c, words, _ := lineWords(line)
+	if c == nil {
+		return riskRow{tier: tierRead}
+	}
+	return riskOf(c, words)
+}
+
+// lineWords finds the command of line and gives its words as riskOf
+// reads them: the positional arguments, then each flag set as
+// --name=value, then -- and what follows it. The command's own words
+// (whatever name, alias or plural was typed) and a global flag before them
+// are not among them. pos is the positional arguments before any --. c is
+// nil when line names no command.
+func lineWords(line []string) (c *cobra.Command, words, pos []string) {
 	root := newRoot()
 	c, rest, err := root.Find(line)
 	if err != nil || c == root {
-		return riskRow{tier: tierRead}
+		return nil, nil, nil
 	}
-	return riskOf(c, rest)
+	if c.ParseFlags(rest) != nil {
+		return c, rest, riskArgs(rest) // the run says what is wrong
+	}
+	args := c.Flags().Args()
+	pos, after := args, []string(nil)
+	if d := c.Flags().ArgsLenAtDash(); d >= 0 {
+		pos, after = args[:d], args[d:]
+	}
+	words = slices.Clone(pos)
+	c.Flags().Visit(func(f *pflag.Flag) {
+		words = append(words, "--"+f.Name+"="+f.Value.String())
+	})
+	if after != nil {
+		words = append(append(words, "--"), after...)
+	}
+	return c, words, pos
 }
 
 // riskRowIDs are the IDs the table names (TestTablesKeyedByID).

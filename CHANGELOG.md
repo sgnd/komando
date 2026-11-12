@@ -623,6 +623,7 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   is `komando test all` and `komando doctor`.
 
 ### Fixed
+- When komando fills in `cron rm`, `pkg rm` or `db kill` for a person, the name to type counts only what goes: written as an alias (`cron remove`), a plural (`crons rm`) or after `-o text`, the command's own words were counted too ("Type 3" for one task).
 - The hidden synonyms `cluster info`, `group show`, `tunnel show` and `recipe show` get every check of the command they name: an AI agent with `KOMANDO_HOME` set to another folder needs a person's yes (`SAFETY_SETTING`), and a command that writes the audit log stops when it cannot (`AUDIT_UNAVAILABLE`). They used to skip both, like komando's own background commands.
 - An s3, gcs or azblob conn with `?insecure=1` now needs a person's yes when an AI agent adds it, like the other kinds: an AWS session token would travel in clear.
 - On a terminal without Unicode, a result's text (a file, a row, a log line) is no longer rewritten in ASCII; only komando's own lines are.

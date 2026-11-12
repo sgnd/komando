@@ -51,6 +51,12 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"cron", "rm", "web1"}, []string{"backup", "backup"}, "cron rm web1 backup", []string{"This deletes the scheduled task.", "Type the name backup to continue"}},
 		{[]string{"pkg", "rm", "web1"}, []string{"nginx curl", "2"}, "pkg rm web1 nginx curl", []string{"This removes the packages.", "Type 2 (packages on web1) to continue"}},
 		{[]string{"svc", "stop", "web1"}, []string{"nginx", "y"}, "svc stop web1 nginx", []string{"Run it? [y/N, d = --dry-run first]"}},
+		// an alias, a plural noun or a global flag before the command is
+		// not counted as what goes
+		{[]string{"cron", "remove", "web1"}, []string{"backup", "backup"}, "cron remove web1 backup", []string{"Type the name backup to continue"}},
+		{[]string{"crons", "rm", "web1"}, []string{"backup", "backup"}, "crons rm web1 backup", []string{"Type the name backup to continue"}},
+		{[]string{"-o", "text", "cron", "rm", "web1"}, []string{"backup", "backup"}, "-o text cron rm web1 backup", []string{"Type the name backup to continue"}},
+		{[]string{"packages", "rm", "web1"}, []string{"nginx curl", "2"}, "packages rm web1 nginx curl", []string{"Type 2 (packages on web1) to continue"}},
 	} {
 		drawn := promptFake(t, c.answers...)
 		got, err := promptFill(c.args)
