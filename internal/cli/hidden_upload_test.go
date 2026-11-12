@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,5 +74,56 @@ func TestDownloadMasksSecretsForAgents(t *testing.T) {
 	_, sum, masked, err = fetchFile(context.Background(), strings.NewReader(conf), dst, 0o644, time.Time{}, false, nil)
 	if got, _ := os.ReadFile(dst); err != nil || masked || sum == "" || string(got) != conf {
 		t.Fatalf("person download changed: masked=%v err=%v file=%q", masked, err, got)
+	}
+}
+
+// tmpPeek gives data, then before saying it is done looks at what the
+// download's temporary files in dir hold so far.
+type tmpPeek struct {
+	data []byte
+	dir  string
+	seen []byte
+}
+
+func (r *tmpPeek) Read(b []byte) (int, error) {
+	if len(r.data) > 0 {
+		n := copy(b, r.data)
+		r.data = r.data[n:]
+		return n, nil
+	}
+	tmps, _ := filepath.Glob(filepath.Join(r.dir, ".komando-download-*"))
+	for _, f := range tmps {
+		got, _ := os.ReadFile(f)
+		r.seen = append(r.seen, got...)
+	}
+	return 0, io.EOF
+}
+
+// For an AI agent the real text never reaches the disk, not even in the
+// download's temporary file; a binary file that holds a vault value is
+// stopped, not saved.
+func TestAgentDownloadNeverOnDiskUnmasked(t *testing.T) {
+	saved := out.P
+	t.Cleanup(func() { out.P = saved })
+	out.P = &out.Printer{Format: "json", W: io.Discard, Mask: true,
+		Secrets: func() map[string]string { return map[string]string{"db": "vault-value-77"} }}
+	dir := t.TempDir()
+	r := &tmpPeek{data: []byte("requirepass hunter2pass\nDB=vault-value-77\n"), dir: dir}
+	if _, _, _, err := fetchFile(context.Background(), r, filepath.Join(dir, "a.conf"), 0o644, time.Time{}, false, nil); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(r.seen), "hunter2pass") || strings.Contains(string(r.seen), "vault-value-77") {
+		t.Fatalf("the real text was on disk during the download: %q", r.seen)
+	}
+	dst := filepath.Join(dir, "a.bin")
+	_, _, _, err := fetchFile(context.Background(), strings.NewReader("\x00\x01DB=vault-value-77"), dst, 0o644, time.Time{}, false, nil)
+	if toErr(err).Code != "SENSITIVE_FILE" {
+		t.Fatalf("a binary file with a vault value: %v", err)
+	}
+	if _, err := os.Stat(dst); err == nil {
+		t.Fatal("it was saved")
+	}
+	if tmps, _ := filepath.Glob(filepath.Join(dir, ".komando-download-*")); len(tmps) > 0 {
+		t.Fatalf("left over: %v", tmps)
 	}
 }

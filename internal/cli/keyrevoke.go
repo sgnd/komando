@@ -84,18 +84,10 @@ yourself out. --dry-run counts the lines it would remove.`,
 			if err := guard(st, hosts, "", true); err != nil {
 				return err
 			}
-			file := `$HOME/.ssh/authorized_keys`
-			if user != "" {
-				if !nameRe.MatchString(user) {
-					return out.Usage("invalid user name %q: use letters, digits and . _ -", user)
-				}
-				file = `$(getent passwd ` + sshx.Q(user) + ` | cut -d: -f6)/.ssh/authorized_keys`
+			if user != "" && !nameRe.MatchString(user) {
+				return out.Usage("invalid user name %q: use letters, digits and . _ -", user)
 			}
-			count := `f="` + file + `"; [ -f "$f" ] || { echo 0; exit 0; }; n=$(grep -cF -- ` + sshx.Q(blob) + ` "$f" || true); `
-			script := count + `if [ "$n" -gt 0 ]; then t="$f.komando-$$"; (umask 077; grep -vF -- ` + sshx.Q(blob) + ` "$f" > "$t" || true) && cat "$t" > "$f" && rm -f "$t"; fi; echo "$n"`
-			if g.dryRun {
-				script = count + `echo "$n"`
-			}
+			script := revokeScript(user, blob, g.dryRun)
 			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Sudo: user != "", Timeout: 30 * time.Second, MaxOutput: 4096})
 				if err != nil {
@@ -140,4 +132,21 @@ yourself out. --dry-run counts the lines it would remove.`,
 	}
 	c.Flags().StringVar(&user, "user", "", "edit this user's authorized_keys instead of the login user's (uses sudo)")
 	return c
+}
+
+// revokeScript removes the key blob from authorized_keys and prints how
+// many lines held it (dry: only counts). With user it runs as root, but
+// the file belongs to that user, often the one leaving: it is read and
+// written as the user (su), never by root through a link they planted.
+func revokeScript(user, blob string, dry bool) string {
+	edit := `f="$1/.ssh/authorized_keys"; [ -f "$f" ] || { echo 0; exit 0; }; n=$(grep -cF -- "$2" "$f" || true); `
+	if !dry {
+		edit += `if [ "$n" -gt 0 ]; then t=$(umask 077; mktemp "$f.XXXXXX") && { grep -vF -- "$2" "$f" > "$t" || true; } && cat "$t" > "$f"; rm -f "$t"; fi; `
+	}
+	edit += `echo "$n"`
+	if user == "" {
+		return "sh -c " + sshx.Q(edit) + ` sh "$HOME" ` + sshx.Q(blob)
+	}
+	q := sshx.Q(user)
+	return asUserFunc(q) + "h=$(getent passwd " + q + " | cut -d: -f6); ku " + sshx.Q(edit) + ` sh "$h" ` + sshx.Q(blob)
 }

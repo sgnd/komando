@@ -66,8 +66,13 @@ func TestCorruptRuntime(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(home, "runtime.json"), []byte("{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "runtime") {
+	// plain, so never komando's own: read as empty, not trusted
+	if _, err := Load(); err != nil {
 		t.Fatalf("err %v", err)
+	}
+	// broken while `komando seal` reads a folder of before: stop
+	if err := SealPlainRuntime(); err == nil || !strings.Contains(err.Error(), "runtime") {
+		t.Fatalf("seal err %v", err)
 	}
 }
 
