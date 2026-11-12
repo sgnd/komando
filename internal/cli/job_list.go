@@ -116,7 +116,7 @@ func (l jobList) Text() string {
 		}
 	}
 	if len(rows) == 0 {
-		return "no jobs: start one with komando job start TARGET -- COMMAND\n"
+		return noneYet("jobs", "job start TARGET -- COMMAND")
 	}
 	s := textTable([]string{"id", "host", "state", "exit", "age", "command"}, rows)
 	if _, ok := l.Jobs.([]*store.Job); ok {

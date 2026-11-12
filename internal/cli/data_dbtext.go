@@ -167,7 +167,7 @@ type activityData struct {
 
 func (d activityData) Text() string {
 	if len(d.Sessions) == 0 {
-		return "no sessions found (idle ones show with --all)\n"
+		return noneYet("busy sessions", "", "idle ones show with --all")
 	}
 	var rows [][]string
 	for _, s := range d.Sessions {

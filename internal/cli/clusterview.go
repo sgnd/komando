@@ -364,9 +364,9 @@ func (e eventList) Text() string {
 	rows, _ := e["events"].([]map[string]any)
 	if len(rows) == 0 {
 		if ns := str(e["namespace"]); ns != "" {
-			return "no events in namespace " + ns + " (-A looks in every namespace)\n"
+			return noneYet("events in namespace "+ns, "", "-A looks in every namespace")
 		}
-		return "no events\n"
+		return noneYet("events", "")
 	}
 	cols := listColumns["Event"]
 	if str(e["namespace"]) == "" {

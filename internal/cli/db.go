@@ -366,7 +366,7 @@ type schemaData struct {
 
 func (d schemaData) Text() string {
 	if len(d.Tables) == 0 {
-		return "no tables found (the database is empty, or the conn's user cannot see them)\n"
+		return noneYet("tables", "", "the database is empty, or the conn's user cannot see them")
 	}
 	var sb strings.Builder
 	detailed := false

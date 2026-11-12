@@ -57,7 +57,7 @@ type vpnStatusData struct {
 
 func (d vpnStatusData) Text() string {
 	if len(d.Vpns) == 0 {
-		return "no VPNs yet: komando vpn add NAME KIND (kinds in `komando vpn --help`)\n"
+		return noneYet("VPNs", "vpn add NAME KIND", "kinds in `komando vpn --help`")
 	}
 	rows := [][]string{}
 	for _, r := range d.Vpns {
@@ -86,11 +86,13 @@ func vpnStatusRows(st *store.State) []vpnStatusRow {
 			r.Up, r.Since, r.LastUsed, r.Socks = true, s.StartedAt, s.LastUsed, s.Socks
 			r.Detail = "session running"
 		} else if v.Kind == "socks" || v.Kind == "proxy" || v.Kind == "system" {
+			rows[i] = r // before the check fills it, not after (a lost answer read "no")
 			wg.Add(1)
 			go func(i int, v *store.Vpn) {
 				defer wg.Done()
 				rows[i].Up, rows[i].Detail = vpnReachable(v)
 			}(i, v)
+			continue
 		} else if v.Kind == "wireguard" {
 			r.Detail = "connects for each command"
 		} else {

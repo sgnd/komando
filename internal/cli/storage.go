@@ -251,10 +251,10 @@ type objectList struct {
 
 func (l objectList) Text() string {
 	if len(l.Objects) == 0 && l.Prefix != "" {
-		return "nothing under " + l.Prefix + " in " + l.Conn + "\n"
+		return noneMatch("objects", l.Prefix+" in "+l.Conn)
 	}
 	if len(l.Objects) == 0 {
-		return l.Conn + " is empty: `komando upload " + l.Conn + " FILE` adds a file\n"
+		return noneYet("objects in "+l.Conn, "upload "+l.Conn+" FILE")
 	}
 	var b strings.Builder
 	b.WriteString(objectTable(l.Objects))

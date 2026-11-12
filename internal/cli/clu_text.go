@@ -44,7 +44,7 @@ func (l kubeList) Text() string {
 		if ns := str(l["namespace"]); ns != "" {
 			where = " in namespace " + ns
 		}
-		return fmt.Sprintf("no %s found%s\n", strings.ToLower(str(l["type"]))+"s", where)
+		return noneYet(strings.ToLower(str(l["type"]))+"s"+where, "")
 	}
 	kind := str(l["type"])
 	if _, swarm := l["host"]; swarm {

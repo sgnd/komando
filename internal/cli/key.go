@@ -369,7 +369,7 @@ type sshKeyList struct {
 
 func (l sshKeyList) Text() string {
 	if len(l.Keys) == 0 {
-		return "no keys yet: komando key gen NAME, or komando key add NAME PATH\n"
+		return noneYet("SSH keys", "key gen NAME", "or `komando key add NAME FILE`")
 	}
 	var rows [][]string
 	for _, k := range l.Keys {

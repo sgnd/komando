@@ -501,6 +501,15 @@ its highlights; the sections below them give the details. Versions follow
   (`fs rm` → `fs list`, `docker rm` → `docker ps --all`). `tunnel show`
   and `recipe show` end with the commands for that tunnel or recipe.
 
+- A list with nothing in it says so in one wording on stdout:
+  ``no SSH keys yet: `komando key gen NAME` ``, ``no conns yet: `komando
+  conn add NAME URL` ``, `no cache keys match "user:*"`, `no audit
+  entries match --failed (fewer filters show more)`. `conn list`, `vpn
+  list` and `host list` with none of their kind, `docker ps/images`, `fs
+  list` of an empty folder, `cluster history` and `cluster helm history`
+  printed only a header or `(none)` before. JSON still returns an empty
+  array.
+
 ### Removed
 
 - The menu that `komando` alone opened at a terminal, its task lists and
@@ -515,6 +524,8 @@ its highlights; the sections below them give the details. Versions follow
 - An s3, gcs or azblob conn with `?insecure=1` now needs a person's yes when an AI agent adds it, like the other kinds: an AWS session token would travel in clear.
 - On a terminal without Unicode, a result's text (a file, a row, a log line) is no longer rewritten in ASCII; only komando's own lines are.
 
+- `vpn status` could show a SOCKS, proxy or system VPN as down when it
+  answered: the row was written over after the check filled it in.
 - `queue purge` and `queue rm` name what they would delete: the person's
   "Dangerous:" prompt, the approval window and the agent's `POLICY_BLOCKED`
   message now say `deletes every message in orders-retry`, not only "a

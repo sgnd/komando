@@ -163,9 +163,9 @@ func (l helmList) Text() string {
 	rels, _ := l["releases"].([]map[string]any)
 	if len(rels) == 0 {
 		if ns, ok := l["namespace"].(string); ok && ns != "" {
-			return "no Helm releases in namespace " + ns + " (-A looks in every namespace)\n"
+			return noneYet("Helm releases in namespace "+ns, "", "-A looks in every namespace")
 		}
-		return "no Helm releases\n"
+		return noneYet("Helm releases", "")
 	}
 	rows := make([][]string, len(rels))
 	for i, r := range rels {
@@ -386,6 +386,9 @@ type helmHistory map[string]any
 
 func (h helmHistory) Text() string {
 	revs, _ := h["revisions"].([]map[string]any)
+	if len(revs) == 0 {
+		return noneYet("revisions", "")
+	}
 	rows := make([][]string, len(revs))
 	for i, r := range revs {
 		rows[i] = []string{fmt.Sprint(r["revision"]), fmt.Sprint(r["updated"]), fmt.Sprint(r["status"]),

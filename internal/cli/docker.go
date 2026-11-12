@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -245,7 +246,11 @@ func dockerTableN(limit int, headers, fields []string, sortBy ...string) func(*s
 			cells = append(cells, row)
 		}
 		if len(cells) == 0 {
-			return "(none)\n", nil
+			things := "containers"
+			if slices.Contains(headers, "repository") {
+				things = "images"
+			}
+			return noneYet(things, ""), nil
 		}
 		return textTable(headers, cells), nil
 	}

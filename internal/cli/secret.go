@@ -31,7 +31,7 @@ type secretList struct {
 
 func (l secretList) Text() string {
 	if len(l.Secrets) == 0 {
-		return "no secrets yet: komando secret set NAME\n"
+		return noneYet("secrets", "secret set NAME")
 	}
 	var rows [][]string
 	for _, s := range l.Secrets {

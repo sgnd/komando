@@ -174,7 +174,10 @@ type keyList struct {
 
 func (l keyList) Text() string {
 	if len(l.Keys) == 0 {
-		return "no keys match " + cachex.Quote(l.Pattern) + "\n"
+		if l.Pattern == "" || l.Pattern == "*" {
+			return noneYet("cache keys", "")
+		}
+		return noneMatch("cache keys", cachex.Quote(l.Pattern))
 	}
 	var sb strings.Builder
 	for _, k := range l.Keys {

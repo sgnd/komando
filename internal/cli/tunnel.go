@@ -319,7 +319,7 @@ type tunnelList struct {
 
 func (l tunnelList) Text() string {
 	if len(l.Tunnels) == 0 {
-		return "no tunnels: komando tunnel start TARGET starts one\n"
+		return noneYet("tunnels", "tunnel start TARGET -L SPEC")
 	}
 	rows := [][]string{}
 	for _, t := range l.Tunnels {

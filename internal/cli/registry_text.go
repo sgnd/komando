@@ -24,8 +24,7 @@ func (d lsData) Text() string {
 		what = "tags in " + repo
 	}
 	if len(items) == 0 {
-		fmt.Fprintf(&b, "no %s yet; an image appears here after docker push\n", what)
-		return b.String()
+		return noneYet(what, "", "an image appears here after docker push")
 	}
 	for _, s := range items {
 		b.WriteString(s + "\n")

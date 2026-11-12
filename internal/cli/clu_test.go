@@ -394,7 +394,7 @@ func TestKubeListText(t *testing.T) {
 	if !strings.HasPrefix(all.Text(), "NAMESPACE  NAME") {
 		t.Errorf("every namespace adds the column:\n%s", all.Text())
 	}
-	if !strings.Contains((kubeList{"type": "Pod", "namespace": "x", "items": []map[string]any{}}).Text(), "no pods found in namespace x") {
+	if !strings.Contains((kubeList{"type": "Pod", "namespace": "x", "items": []map[string]any{}}).Text(), "no pods in namespace x yet") {
 		t.Error("empty list")
 	}
 }

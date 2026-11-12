@@ -6226,7 +6226,7 @@ exit 0
 ### komando -o text forward list (agent text)
 exit 0
 --- stdout
-no tunnels: komando tunnel start TARGET starts one
+no tunnels yet: `komando tunnel start TARGET -L SPEC`
 --- stderr
 ### komando -o json forward list (script json)
 exit 0
@@ -6236,7 +6236,7 @@ exit 0
 ### komando -o text forward list (script text)
 exit 0
 --- stdout
-no tunnels: komando tunnel start TARGET starts one
+no tunnels yet: `komando tunnel start TARGET -L SPEC`
 --- stderr
 ### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6

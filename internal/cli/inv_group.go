@@ -33,7 +33,7 @@ func (l groupList) Text() string {
 	name := func(sel string) string { return strings.TrimPrefix(strings.TrimPrefix(sel, "@"), "tag:") }
 	sort.SliceStable(rows, func(i, j int) bool { return name(rows[i][0]) < name(rows[j][0]) })
 	if len(rows) == 0 {
-		return "no groups or tags yet: komando group add GROUP TARGET\n"
+		return noneYet("groups or tags", "group add GROUP TARGET...")
 	}
 	return textTable([]string{"SELECTOR", "TYPE", "MEMBERS"}, rows)
 }

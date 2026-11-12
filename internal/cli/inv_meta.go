@@ -33,12 +33,16 @@ import (
 type auditList struct {
 	Count   int              `json:"count"`
 	Entries []map[string]any `json:"entries"`
+	filters []string         // the filter flags given, for the empty line
 }
 
 // Text is one line per entry, like `git log --oneline`.
 func (l auditList) Text() string {
+	if len(l.Entries) == 0 && len(l.filters) > 0 {
+		return noneMatch("audit entries", strings.Join(l.filters, " "), "fewer filters show more")
+	}
 	if len(l.Entries) == 0 {
-		return "no audit entries match (fewer filters show more; `komando config get audit` says whether the log is on)\n"
+		return noneYet("audit entries", "", "`komando config get audit` says whether the log is on")
 	}
 	var rows [][]string
 	for _, e := range l.Entries {
@@ -168,7 +172,13 @@ is given.`,
 				out.P.Cut(limit) // older records were not read
 			}
 			all = cutLast(all, limit)
-			out.P.Print("audit", auditList{Count: len(all), Entries: all}, nil)
+			var given []string
+			for _, f := range []string{"target", "command", "failed", "actor", "since", "until"} {
+				if cmd.Flags().Changed(f) {
+					given = append(given, "--"+f)
+				}
+			}
+			out.P.Print("audit", auditList{Count: len(all), Entries: all, filters: given}, nil)
 			return nil
 		},
 	}

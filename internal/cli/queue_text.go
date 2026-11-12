@@ -81,11 +81,11 @@ func (l queueTopics) Text() string {
 func (l queueTopics) table() string {
 	switch {
 	case len(l.Topics) == 0 && (l.kind == "rabbitmq" || l.kind == "sqs"):
-		return "no queues\n"
+		return noneYet("queues", "queue create "+l.Conn+" QUEUE")
 	case len(l.Topics) == 0 && l.kind == "nats":
-		return "no streams\n"
+		return noneYet("streams", "queue create "+l.Conn+" STREAM")
 	case len(l.Topics) == 0:
-		return "no topics\n"
+		return noneYet("topics", "queue create "+l.Conn+" TOPIC")
 	case l.kind == "rabbitmq":
 		return rabbitQueuesText(l.Topics)
 	case l.kind == "nats":
@@ -220,9 +220,9 @@ type queueGroups struct {
 func (l queueGroups) Text() string {
 	switch {
 	case len(l.Groups) == 0 && l.kind == "pubsub":
-		return "no subscriptions\n"
+		return noneYet("subscriptions", "")
 	case len(l.Groups) == 0:
-		return "no consumer groups\n"
+		return noneYet("consumer groups", "")
 	case l.Groups[0].NatsConsumer != nil:
 		return natsGroupsText(l.Groups)
 	case l.Groups[0].PubsubSubscription != nil:

@@ -35,6 +35,7 @@ type targetList struct {
 	Count   int         `json:"count"`
 	Targets []targetRow `json:"targets"`
 	empty   bool        // the inventory itself is empty
+	only    string      // host list, conn list, vpn list: that kind only
 }
 
 // emptyInventory is what a person reads when there is nothing yet.
@@ -44,6 +45,16 @@ const emptyInventory = "No servers, databases or other services yet. Add a serve
 func (l targetList) Text() string {
 	if l.empty {
 		return emptyInventory + "\n"
+	}
+	if len(l.Targets) == 0 {
+		switch l.only {
+		case "host":
+			return noneYet("servers", "host add NAME USER@ADDRESS")
+		case "conn":
+			return noneYet("conns", "conn add NAME URL")
+		case "vpn":
+			return noneYet("VPNs", "vpn add NAME KIND")
+		}
 	}
 	var sb strings.Builder
 	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
@@ -107,7 +118,7 @@ func listCmdFor(only string) *cobra.Command {
 				// a selector that picks nothing is an error (ux.md, section 2)
 				return noMatch(target, kindWords[only], picked).WithHint("use `komando list " + target + "` to see everything it picks")
 			}
-			l := targetList{Targets: []targetRow{}, empty: len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0}
+			l := targetList{Targets: []targetRow{}, empty: len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0, only: only}
 			for _, h := range sel.Hosts {
 				l.Targets = append(l.Targets, targetRow{Name: h.Name, Kind: "host",
 					Where: net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())), Via: h.Via,
