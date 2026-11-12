@@ -29,10 +29,15 @@ func cacheCmd() *cobra.Command {
 		Long: `Read and change keys in Redis, Valkey or memcached. Add a cache with
 ` + "`komando cache add`" + `.
 
-get, keys and info only read. set changes data (a production cache asks
+get, keys and info only read. set changes data (a protected cache asks
 first); rm deletes keys, so it also needs --allow-dangerous. ` + "`cache run`" + `
 sends any command, but only reads unless --write; commands that flush,
 block, run scripts or reconfigure the server also need --allow-dangerous.`,
+		Example: `  komando cache add cache redis://default@10.0.0.7:6379/0 --via web1 --ask-password
+  komando cache info cache
+  komando cache keys cache 'session:*'
+  komando cache get cache session:42
+  komando cache set cache maintenance on --ttl 30m --dry-run`,
 	}
 	c.AddCommand(connAddCmdFor("cache"), cacheGetCmd(), cacheKeysCmd(), cacheInfoCmd(), cacheSetCmd(), cacheRmCmd(), cacheRunCmd())
 	return c
@@ -456,7 +461,7 @@ func cacheRunCmd() *cobra.Command {
 	var write bool
 	c := &cobra.Command{
 		Use:   "run CONN -- COMMAND [ARG...]",
-		Short: "Send any Redis command; read-only unless --write",
+		Short: "Send any Redis or memcached command; read-only unless --write",
 		Example: `  komando cache run cache -- HGETALL user:42
   komando cache run cache -- ZREVRANGE leaderboard 0 9 WITHSCORES
   komando cache run cache --write -- EXPIRE session:42 3600

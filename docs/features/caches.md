@@ -7,7 +7,7 @@ and memcached safely. [All docs](README.md)
 
 ```bash
 komando secret set cache-pass
-komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:cache-pass
+komando cache add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:cache-pass
 komando cache info cache                      # version, role, memory, clients, keys, hit rate
 komando cache keys cache 'session:*'          # find keys (safe on big caches)
 komando cache get cache session:42            # value, type and time to live
@@ -20,7 +20,7 @@ Add the cache as a conn. The URL is `redis://USER@HOST:PORT/DB`; use
 
 ```bash
 komando secret set cache-pass                 # each password once, typed hidden
-komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:cache-pass
+komando cache add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:cache-pass
 komando conn add sessions rediss://default@cache.internal:6379/1 --ask-password   # or type it now
 ```
 
@@ -141,6 +141,39 @@ Commands that delete, wipe, block, run scripts or reconfigure the server
   hashes in `ACL LIST` and `ACL GETUSER` show as `[hidden]`, even when a
   password is a word like `yes`. A hash field named like a secret
   (`password`, `token`, ...) is hidden the same over RESP2 and RESP3.
+
+## Leave something out
+
+At a terminal, `komando cache get` with the cache or the key left out asks
+for just that, with a list of your caches to pick from, then shows the full
+command. An AI agent, a script or a pipe never gets a question: the same
+command stops with `USAGE` (exit 2) and a hint with an example.
+
+```bash
+komando cache get                             # a person: asks CONN (cache), then KEY
+komando cache get -o json                     # an agent: USAGE, exit 2, hint: komando cache get cache session:42
+```
+
+## Check, change, rename or remove a cache
+
+A cache is a conn, so the conn commands work on it:
+
+```bash
+komando test cache                            # can komando reach it and log in?
+komando conn show cache                       # its URL, way in and password reference
+komando conn edit cache --via web2            # reach it another way
+komando conn edit cache --protected           # every change then needs a person's yes
+komando conn mv cache sessions-cache           # rename it
+komando conn rm cache                         # remove it from the list (the cache is untouched)
+```
+
+komando has no backup command for caches. Redis saves its own snapshot,
+which you can then fetch from its server:
+
+```bash
+komando cache run cache --write -- BGSAVE
+komando download web1 /var/lib/redis/dump.rdb --sudo --to ./
+```
 
 ## memcached
 

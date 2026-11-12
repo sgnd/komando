@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `komando cache` (the bare group) shows examples of the usual journey;
+  its questions for a person name commands (`komando cache add`,
+  `--dry-run`) instead of menu rows. The caches page shows `cache add`, what
+  happens when an argument is left out, how to test, change, rename and
+  remove a cache, and how to save a Redis snapshot.
 - `policy check --for memcached` rates the words memcached reads, like
   `cache run`: a line with a newline or other control character is
   dangerous (new rule `memcached-line`), and `mg "key T30"` is a write.
