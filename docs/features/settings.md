@@ -134,7 +134,10 @@ only then checks that `secret-tool search --all` lists no item.
 
 Where the keychain cannot keep the key or cannot tell (a Linux server without
 `secret-tool` or a desktop session, a default collection that is locked,
-no `gdbus` or `busctl`, a Mac reached over SSH with its keychain locked, an
+no `gdbus` or `busctl`, a Mac reached over SSH with its keychain locked, a
+Mac user with no default keychain (a changed `HOME`, as under `sudo -E`, a
+sandbox or CI: komando asks `security default-keychain` first, so macOS
+shows no "Keychain Not Found" dialog), an
 item for this folder that stays locked, a container, a keychain that does
 not answer within a few seconds), the key goes into `store.key` and
 `komando doctor` warns. One case it cannot see: an item in a KeePassXC

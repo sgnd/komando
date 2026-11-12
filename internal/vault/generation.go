@@ -30,7 +30,7 @@ func genService() string { return keychainService() + " generation" }
 const genTimeout = 5 * time.Second
 
 func genGet() (uint64, bool, error) {
-	if _, err := KeychainTool(); err != nil {
+	if _, err := autoKeychainTool(); err != nil {
 		return 0, false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), genTimeout)
@@ -83,7 +83,7 @@ func genGet() (uint64, bool, error) {
 }
 
 func genSet(n uint64) error {
-	if _, err := KeychainTool(); err != nil {
+	if _, err := autoKeychainTool(); err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), genTimeout)
@@ -107,6 +107,9 @@ func genSet(n uint64) error {
 // genDel removes the generation item: the store's key left the keychain,
 // so there is nothing to compare with.
 func genDel() {
+	if _, err := autoKeychainTool(); err != nil {
+		return
+	}
 	switch keychainOS {
 	case "windows":
 		_ = credDelete(genService())

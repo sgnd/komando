@@ -304,7 +304,7 @@ func resealSecrets(tx *sealdb.Tx, oldA, newA cipher.AEAD) (int, error) {
 // sealedKeyToKeychain is KeyToKeychain on a sealed home: the key in
 // store.key moves into the keychain.
 func sealedKeyToKeychain() (string, error) {
-	tool, err := KeychainTool()
+	tool, err := autoKeychainTool() // a clear error, never macOS's dialog
 	if err != nil {
 		return "", err
 	}

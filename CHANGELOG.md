@@ -15,6 +15,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- On a Mac whose user has no default keychain (a changed `HOME`: `sudo -E`,
+  a sandbox, CI, a test run), komando no longer makes macOS show a
+  "Keychain Not Found" dialog. It asks `security default-keychain` first
+  (no dialog); without one, a new store keeps its key in `store.key`, the
+  change count is not kept in the keychain, and `secret keychain` says
+  "no default macOS keychain for this user".
 - An AI agent reading `secret passphrase --dry-run` and `secret keychain
   --dry-run` as text saw words of komando's own sentences as `[hidden]`
   ("3 secrets: [hidden] vault's key", "KOMANDO_KEYCHAIN=[hidden]"); the

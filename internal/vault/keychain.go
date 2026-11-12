@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sgnd/komando/internal/store"
@@ -127,6 +128,60 @@ func KeychainTool() (string, error) {
 		return "Windows Credential Manager", nil
 	}
 	return "", fmt.Errorf("no keychain support on %s", keychainOS)
+}
+
+// defaultKeychainTimeout bounds `security default-keychain`.
+var defaultKeychainTimeout = 3 * time.Second
+
+var (
+	defaultKCMu   sync.Mutex
+	defaultKCSeen = map[string]error{} // securityTool + HOME -> the answer
+)
+
+// macDefaultKeychain is nil unless komando would use the login keychain
+// on macOS and this user has no default keychain. `security
+// add-generic-password` without a keychain file then makes macOS show a
+// "Keychain Not Found" dialog on the person's screen (a changed HOME:
+// sudo -E, a sandbox, CI, a test run; or no login keychain), while
+// `security default-keychain` only exits 1, with no dialog. So komando
+// asks that first, once per process.
+func macDefaultKeychain() error {
+	if keychainOS != "darwin" || keychainFile() != "" {
+		return nil
+	}
+	home := os.Getenv("HOME")
+	id := securityTool + "\x00" + home
+	defaultKCMu.Lock()
+	defer defaultKCMu.Unlock()
+	if err, ok := defaultKCSeen[id]; ok {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultKeychainTimeout)
+	defer cancel()
+	c := exec.CommandContext(ctx, securityTool, "default-keychain")
+	c.WaitDelay = time.Second
+	var err error
+	if out, rerr := c.CombinedOutput(); rerr != nil || len(bytes.TrimSpace(out)) == 0 {
+		err = fmt.Errorf("no default macOS keychain for this user (HOME=%s); open Keychain Access, or run komando with your usual HOME", home)
+	}
+	defaultKCSeen[id] = err
+	return err
+}
+
+// autoKeychainTool is KeychainTool for a keychain use komando makes on its
+// own (a new store's key, the store's change count) and for `secret
+// keychain`: on macOS it also needs a default keychain, so komando never
+// makes macOS show a dialog. A use nobody asked for then goes on without
+// the keychain.
+func autoKeychainTool() (string, error) {
+	tool, err := KeychainTool()
+	if err != nil {
+		return "", err
+	}
+	if err := macDefaultKeychain(); err != nil {
+		return "", err
+	}
+	return tool, nil
 }
 
 // ErrKeychainTaken: the keychain already holds another key under this
@@ -361,7 +416,7 @@ func run(c *exec.Cmd, stdin string) error {
 // stored in it: the new vault keeps its key in store.key, which `komando
 // doctor` points out.
 func keychainNewKey() ([]byte, bool) {
-	if _, err := KeychainTool(); err != nil {
+	if _, err := autoKeychainTool(); err != nil {
 		return nil, false
 	}
 	ctx := func() (context.Context, context.CancelFunc) {

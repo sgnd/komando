@@ -98,7 +98,14 @@ komando secret passphrase          # give the store a passphrase, or change it
 komando secret passphrase --dry-run
 ```
 
-Both change where the key is, so only a person at a terminal runs them;
+komando uses the keychain on its own only when a new store makes its key,
+and to keep the store's change count beside a key that is there. It leaves
+the keychain alone with `KOMANDO_KEYCHAIN=off` (CI, containers, test runs),
+where there is no keychain tool, and on a Mac whose user has no default
+keychain (a changed `HOME`): the key then goes into `store.key`, and
+`komando doctor` says so. It never makes macOS ask where to keep it.
+
+Both commands change where the key is, so only a person at a terminal runs them;
 `--dry-run` previews them for anyone. Details: [Settings and files](settings.md#where-the-vaults-key-lives).
 
 ## For AI agents

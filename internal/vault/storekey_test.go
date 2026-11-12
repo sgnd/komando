@@ -82,7 +82,7 @@ func TestStoreMasterKeychain(t *testing.T) {
 	savedOS, savedSec := keychainOS, securityTool
 	keychainOS, securityTool = "darwin", filepath.Join(dir, "security")
 	t.Cleanup(func() { keychainOS, securityTool = savedOS, savedSec })
-	script := "#!/bin/sh\ncase \"$1\" in find-generic-password) for a in \"$@\"; do [ \"$a\" = -w ] && { echo " + strings.Repeat("cd", 32) + "; exit 0; }; done ;; esac\n"
+	script := "#!/bin/sh\ncase \"$1\" in default-keychain) echo login.keychain-db ;; find-generic-password) for a in \"$@\"; do [ \"$a\" = -w ] && { echo " + strings.Repeat("cd", 32) + "; exit 0; }; done ;; esac\n"
 	if err := os.WriteFile(securityTool, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
