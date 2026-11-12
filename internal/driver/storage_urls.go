@@ -63,7 +63,7 @@ func parseGCS(u *url.URL, t Target) (Target, error) {
 	}
 	t.Prefix = folderOf(u.Path)
 	q := u.Query()
-	if err := onlyOptions(q, "gcs", "endpoint"); err != nil {
+	if err := onlyOptions(q, "gcs", "endpoint", "insecure"); err != nil {
 		return Target{}, err
 	}
 	return t, endpointOf(q, "gcs", "https://storage.googleapis.com", &t)
@@ -78,7 +78,7 @@ func parseAzure(u *url.URL, t Target) (Target, error) {
 	}
 	t.Prefix = folderOf(u.Path)
 	q := u.Query()
-	if err := onlyOptions(q, "azblob", "endpoint"); err != nil {
+	if err := onlyOptions(q, "azblob", "endpoint", "insecure"); err != nil {
 		return Target{}, err
 	}
 	return t, endpointOf(q, "azblob", "https://"+t.User+".blob.core.windows.net", &t)

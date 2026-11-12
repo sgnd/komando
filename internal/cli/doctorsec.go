@@ -232,7 +232,7 @@ func plainConn(c *store.Conn) string {
 		if q.Get("tls") == "skip-verify" {
 			return "encrypted, but the server's certificate is not checked"
 		}
-	case "s3", "sqs", "pubsub":
+	case "s3", "gcs", "azblob", "sqs", "pubsub":
 		if !t.Secure {
 			return "travels unencrypted: use an https endpoint"
 		}

@@ -9,6 +9,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `conn add` and `conn edit` refuse an `s3://`, `gs://` or `azblob://` conn
+  whose `http://` endpoint crosses the network (`INSECURE_PROTOCOL`), as
+  they already did for `sqs://` and `pubsub://`: the files and the AWS
+  session token would travel unencrypted. Use https, `--via HOST`, or add
+  `?insecure=1`; an endpoint on this computer is fine. `komando doctor`
+  now flags such gs:// and azblob:// conns too.
 - `secret set` and `queue send` read at most 1 MiB from stdin and stop
   with a clear `USAGE` error beyond it, so a wrong pipe cannot fill memory.
   `fs write` from stdin is not capped.
