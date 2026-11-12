@@ -43,6 +43,10 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"svc", "restart", "prod1"}, []string{"nginx"}, "svc restart prod1 nginx", nil}, // protected: the command asks, not Run it?
 		{[]string{"cache", "rm", "cache1"}, []string{"k1", "cache1"}, "cache rm cache1 k1", []string{"This deletes the keys.", "Type cache1 to confirm"}},
 		{[]string{"host", "rm", "--dry-run"}, []string{"web1"}, "host rm --dry-run web1", nil}, // a dry run runs at once
+		// the rule table (risk.go): what stops an agent asks a person for the name
+		{[]string{"reboot"}, []string{"web1", "web1"}, "reboot web1", []string{"This restarts the server", "Type web1 to confirm"}},
+		{[]string{"svc", "stop", "web1"}, []string{"sshd", "web1"}, "svc stop web1 sshd", []string{"This stops sshd", "Type web1 to confirm"}},
+		{[]string{"svc", "stop", "web1"}, []string{"nginx", "y"}, "svc stop web1 nginx", []string{"Run it? [y/N, d = --dry-run first]"}},
 	} {
 		drawn := promptFake(t, c.answers...)
 		got, err := promptFill(c.args)

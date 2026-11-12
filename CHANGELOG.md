@@ -20,6 +20,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- One rule table now decides what a command needs before it runs. At a
+  terminal, a command komando asked you to fill in asks you to type the
+  target's name for every change that stops an AI agent as dangerous:
+  `reboot`, `svc stop` of sshd, `sync --delete` and `db kill` now ask
+  for the name instead of `Run it?`. What AI agents and scripts get is
+  unchanged.
 - The test that records what AI agents and scripts get now also records
   every safety stop komando can show without a server (50 command lines:
   dangerous commands, protected servers and conns, safety settings,

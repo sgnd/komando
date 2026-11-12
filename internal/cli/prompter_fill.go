@@ -328,7 +328,7 @@ func (f *fill) targets() []string {
 }
 
 // confirm asks before a filled-in change runs: the name typed for one that
-// cannot be undone, else Run it? (d runs it with --dry-run first and asks
+// cannot be undone (a T3 row of riskOf), else Run it? (d runs it with --dry-run first and asks
 // again). A protected target asks [y/N] in the command itself, so it is
 // not asked twice. A read, or a dry run, runs at once.
 func (f *fill) confirm(filled []string) error {
@@ -339,7 +339,11 @@ func (f *fill) confirm(filled []string) error {
 	if slices.ContainsFunc(targets, func(n string) bool { return promptProtected(f.st, n) }) {
 		return nil // the command asks: "web1 is protected. Change it anyway? [y/N]"
 	}
-	if gone := formDestructive([][]string{append(strings.Fields(f.key), filled...)}); gone != "" && len(targets) == 1 {
+	words := filled
+	if path := strings.Fields(commandKey(f.cmd)); len(words) >= len(path) && slices.Equal(words[:len(path)], path) {
+		words = words[len(path):]
+	}
+	if gone := riskOf(f.cmd, words).typedWhat(); gone != "" && len(targets) == 1 { // the rule table, risk.go
 		fmt.Fprintln(promptW, "This "+gone+".")
 		ok, err := askTypeName(targets[0])
 		if err != nil {
