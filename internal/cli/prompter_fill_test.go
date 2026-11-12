@@ -148,10 +148,11 @@ func TestPromptFillAtATerminal(t *testing.T) {
 	}
 }
 
-// A command the safety policy blocks asks a person at a terminal whether
-// it runs anyway, this once: yes runs it (and the audit says a person said
-// yes at the terminal), no runs nothing; an AI agent is not asked and gets
-// POLICY_BLOCKED as before.
+// A command the safety policy blocks asks a person at a terminal to type
+// the name of what it is about to run it anyway, this once (a policy hit
+// is a T3: a [y/N] is not enough): the name runs it (and the audit says a
+// person said yes at the terminal), "y" runs nothing; an AI agent is not
+// asked and gets POLICY_BLOCKED as before.
 func TestPolicyAskAtATerminal(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts processes")
@@ -159,7 +160,7 @@ func TestPolicyAskAtATerminal(t *testing.T) {
 	add := []string{"host", "add", "web1", "root@10.0.0.5", "--proxy-command", "rm -rf /"}
 	invHome(t)
 	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, add...)
-	p.answer("Run it anyway, this once? [y/N] ", "n\r")
+	p.answer("Type the name web1 to run it anyway, this once: ", "y\r")
 	if code := p.exit(); code != out.ExitPolicy {
 		t.Errorf("no: exit %d\n%s", code, p.shown())
 	}
@@ -171,7 +172,7 @@ func TestPolicyAskAtATerminal(t *testing.T) {
 		t.Errorf("agent: exit %d\n%s", code, a.shown())
 	}
 	p = startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, add...)
-	p.answer("Run it anyway, this once? [y/N] ", "y\r")
+	p.answer("Type the name web1 to run it anyway, this once: ", "web1\r")
 	if code := p.exit(); code != 0 {
 		t.Errorf("yes: exit %d\n%s", code, p.shown())
 	}

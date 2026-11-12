@@ -131,7 +131,7 @@ check "person: a wrong name keeps the package (6)" "6 True" "$RC $($K pkg instal
 q $K host add t-fixops-p "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent-pass --protected
 q $K host trust t-fixops-p
 O=$(tty 'n\n' svc restart t-fixops-p ssh); RC=$?
-check "person: svc restart on a protected server asks [y/N]" 1 "$(grep -c 't-fixops-p is protected. Change it anyway? \[y/N\]' <<<"$O")"
+check "person: svc restart on a protected server asks [y/N]" 1 "$(grep -c 't-fixops-p (protected): this command changes it. Continue? \[y/N\]' <<<"$O")"
 check "person: no to svc restart stops (6)" 6 "$RC"
 O=$(tty 'wrong\n' reboot t-fixops-p); RC=$?
 check "person: reboot asks for the server's name" 1 "$(grep -c 'Type the name t-fixops-p to continue' <<<"$O")"

@@ -298,6 +298,7 @@ risky verbs also need --allow-dangerous.`,
 			if t.host != nil {
 				line := "docker " + quoteAll(args[1:])
 				if risk == driver.RiskDestructive && !dangerOK() {
+					askTypes([]string{t.host.Name}, "servers")
 					if err := guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}}); err != nil {
 						return err
 					}
@@ -512,7 +513,7 @@ func kubeconfigConnNames(contexts []string) (names, clash map[string]string) {
 func guardKubeImport(name string, x *kube.Context) error {
 	if e := x.Plugin(); e != nil {
 		line := pluginLine(e)
-		if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() && !policyAsk("context "+name+" logs in with `"+line+"`, which matches "+hits[0].Reason) {
+		if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() && !policyAsk("context "+name+" logs in with `"+line+"`, which matches "+hits[0].Reason, name) {
 			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig (if this program is intended, --allow-dangerous lets it run)",
 				"context %s logs in with `%s`, which matches destructive rules: %s", name, line, hits[0].Reason))
 		}

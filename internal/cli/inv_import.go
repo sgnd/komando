@@ -86,7 +86,7 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 			v.Invalid = append(v.Invalid, importSkip{h.Name, r})
 			continue
 		}
-		if err := guardProxyCommand(h.ProxyCommand); err != nil {
+		if err := guardProxyCommand(h.ProxyCommand, h.Name); err != nil {
 			return v, err
 		}
 		cand = append(cand, h)

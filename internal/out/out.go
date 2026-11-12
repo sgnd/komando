@@ -174,6 +174,10 @@ type Meta struct {
 	Skipped []Skipped `json:"skipped,omitempty"`
 	// WouldBeBlocked: under --dry-run, the safety stop the real run would hit
 	WouldBeBlocked *Error `json:"would_be_blocked,omitempty"`
+	// WouldNeed: under --dry-run, every approval flag the real run needs
+	// (--allow-dangerous and --yes for a delete on a protected server),
+	// sorted; would_be_blocked names only the first stop.
+	WouldNeed []string `json:"would_need,omitempty"`
 	// HostKeysPinned lists the servers whose host key this command trusted
 	// for the first time (host_key_policy accept-new). Nothing proved the
 	// key is the server's: compare the fingerprint with the server's own.
@@ -219,6 +223,7 @@ type Printer struct {
 	W       io.Writer
 	skipped []Skipped
 	blocked *Error
+	need    []string // meta.would_need
 	pinned  []HostKey
 	warns   []string
 	mu      sync.Mutex // pinned, warns: connections run side by side
@@ -324,7 +329,7 @@ func (p *Printer) meta() Meta {
 	p.mu.Lock()
 	pinned, warns, dep, cut := slices.Clone(p.pinned), slices.Clone(p.warns), p.deprecated, p.cut
 	p.mu.Unlock()
-	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked,
+	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked, WouldNeed: slices.Clone(p.need),
 		HostKeysPinned: pinned, Warnings: warns, Deprecated: dep, Truncated: cut}
 }
 
@@ -376,18 +381,40 @@ func (p *Printer) HostKeyPinned(k HostKey) {
 }
 
 // WouldBlock records, under --dry-run, the first safety stop the real run
-// would hit (meta.would_be_blocked).
+// would hit (meta.would_be_blocked), and the flag every stop needs
+// (meta.would_need).
 func (p *Printer) WouldBlock(e *Error) {
 	if p.blocked == nil {
 		p.blocked = e
 	}
+	if f := ApprovalFlag(e); f != "" && !slices.Contains(p.need, f) {
+		p.need = append(p.need, f)
+		slices.Sort(p.need)
+	}
+}
+
+// ApprovalFlag is the flag that lets a safety stop through (--yes,
+// --allow-dangerous, --reveal), or "" for a stop no flag lifts.
+func ApprovalFlag(e *Error) string {
+	if e == nil || e.Final || e.Exit != ExitPolicy {
+		return ""
+	}
+	switch e.Code {
+	case "POLICY_BLOCKED":
+		return "--allow-dangerous"
+	case "PROTECTED_HOST", "PROTECTED_TARGET", "SAFETY_SETTING", "OPEN_BIND", "SECRET_DESTINATION", "CONFIRM_REQUIRED":
+		return "--yes"
+	case "REVEAL_NEEDS_PERSON":
+		return "--reveal"
+	}
+	return ""
 }
 
 // Reset forgets what one command recorded (tests run many in one process).
 func (p *Printer) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.blocked, p.skipped, p.pinned, p.warns, p.deprecated = nil, nil, nil, nil, nil
+	p.blocked, p.need, p.skipped, p.pinned, p.warns, p.deprecated = nil, nil, nil, nil, nil, nil
 	p.cut, p.cutNoted, p.cutAt = false, false, 0
 }
 

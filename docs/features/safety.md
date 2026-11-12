@@ -57,12 +57,22 @@ Scripts and you at your terminal use the flags as before.
 When you run a command yourself at a terminal (not an AI agent, a script
 or a CI job), komando asks instead of stopping:
 
-- A change on a protected server or conn asks `web1 is protected. Change
-  it anyway? [y/N]`.
-- A command the dangerous-command filter blocks asks you to type the
-  target's name (`Dangerous: ... Type the name web1 to continue`),
-  or for a `--proxy-command` or a cluster's login program that matches a
-  rule, `Blocked by policy: ... Run it anyway, this once? [y/N]`.
+- komando asks in one of three ways:
+  - a change on a protected server, conn or VPN: `web1 (protected): this
+    command changes it. Continue? [y/N]`;
+  - a step that cannot be undone: `Dangerous: <what it does>.` and you
+    type the name of what goes: the key, file, secret, topic or image
+    when one goes (`Type the name session:42 to continue`), how many when
+    several go (`Type 37 (objects under daily/ in backups) to continue`),
+    or the server's or conn's name for a step on the whole target (a
+    reboot, a restore, a command the filter blocks). Never the word yes.
+    On a protected target the same question says so, and your answer
+    covers the protection too: komando asks once;
+  - a change that turns off one of komando's own checks: `This turns off
+    a komando safety check: <what>. Continue? [y/N]`.
+- A `--proxy-command` or a cluster's login program that matches a rule
+  says `Blocked by policy: ...` and asks you to type the server's or
+  conn's name to run it anyway, this once.
 - When komando asked you for a missing argument, it asks before the
   command runs: the target's name for one that cannot be undone (deleting
   data or files, a reboot, stopping sshd, `sync --delete`, ending a

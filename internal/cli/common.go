@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -281,6 +282,14 @@ func withClient(ctx context.Context, st *store.State, h *store.Host, fn func(c *
 // guard enforces the safety policy before anything mutating runs.
 func guard(st *store.State, hosts []*store.Host, command string, mutating bool) error {
 	names := hostNames(hosts)
+	var prot []string
+	if mutating {
+		for _, h := range hosts {
+			if protectedHost(st, h) {
+				prot = append(prot, h.Name)
+			}
+		}
+	}
 	if command != "" {
 		hits := policy.Check(command, st.Settings.ExtraDenyPattern)
 		ids := make([]string, len(hits))
@@ -288,26 +297,30 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 		for i, h := range hits {
 			ids[i], reasons[i] = h.ID, h.Reason
 		}
-		if len(hits) > 0 && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerous(names, hits[0].Reason) {
-			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
-				"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-				"the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")).Say(dangerSay(reasons), dangerHint))
-		}
-	}
-	if mutating {
-		var prot []string
-		for _, h := range hosts {
-			if protectedHost(st, h) {
-				prot = append(prot, h.Name)
+		if len(hits) > 0 && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(names, prot, hits[0].Reason) {
+			// a dry run goes on to the protection check, so meta.would_need names both flags
+			if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", dangerFlagsHint(len(prot) > 0),
+				"the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")).Say(dangerSay(reasons), dangerHint)); err != nil {
+				return err
 			}
 		}
-		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
-			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
-				"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
-				"this changes protected %s: %s", nouns(len(prot), "host"), strings.Join(prot, ", ")).Say(protectedSay(prot, "server"), protectedHint))
-		}
+	}
+	if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
+		return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
+			"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
+			"this changes protected %s: %s", nouns(len(prot), "host"), strings.Join(prot, ", ")).Say(protectedSay(prot, "server"), protectedHint))
 	}
 	return nil
+}
+
+// dangerFlagsHint is the hint of a POLICY_BLOCKED stop: when the targets
+// are protected too, the real run needs --yes as well, and the first stop
+// says so (S-7.5), so an agent asks the user once for both.
+func dangerFlagsHint(protected bool) string {
+	if protected && !g.yes {
+		return "only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first)"
+	}
+	return "only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"
 }
 
 // targetsWhy names the hosts a command runs on, for the approval window.
@@ -345,23 +358,24 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 	for i, c := range conns {
 		names[i] = c.Name
 	}
-	if v.Risk >= driver.RiskDestructive && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerous(names, strings.Join(v.Reasons, "; ")) {
-		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
-			"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-			"the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")).Say(dangerSay(v.Reasons), dangerHint))
-	}
+	var prot []string
 	if v.Risk >= driver.RiskWrite {
-		var prot []string
 		for _, c := range conns {
 			if protectedConn(st, c) {
 				prot = append(prot, c.Name)
 			}
 		}
-		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
-			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
-				"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
-				"a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", ")).Say(protectedSay(prot, connWord(conns, prot)), protectedHint))
+	}
+	if v.Risk >= driver.RiskDestructive && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerousOn(names, prot, strings.Join(v.Reasons, "; ")) {
+		if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", dangerFlagsHint(len(prot) > 0),
+			"the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")).Say(dangerSay(v.Reasons), dangerHint)); err != nil {
+			return err
 		}
+	}
+	if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
+		return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
+			"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
+			"a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", ")).Say(protectedSay(prot, connWord(conns, prot)), protectedHint))
 	}
 	return nil
 }
@@ -542,7 +556,7 @@ func guardSafety(what string) error {
 	if cur().sess.SafetyApproved(what) { // asked already in this command (before the state was locked)
 		return nil
 	}
-	if g.yes && personAllowsFor("--yes", what) || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
+	if g.yes && personAllowsFor("--yes", what) || confirmYes("This turns off a komando safety check: "+what+". Continue?") {
 		cur().sess.ApproveSafety(what)
 		return nil
 	}
@@ -550,30 +564,75 @@ func guardSafety(what string) error {
 		Say(what+" turns off one of komando's safety checks, so komando asks first", "Run it again in a terminal to answer the question, or add --yes in a script if you are sure."))
 }
 
-// confirmDangerous asks a human at the terminal to confirm a destructive
-// action by typing the target's name (or how many targets there are), so a
-// reflex "y" is not enough.
+// typedSpec is what a person types to let a step that cannot be undone
+// through (S-7.3, OD-8): the name of the one thing that goes, or how many
+// things go, labelled; for a whole target, its name.
+type typedSpec struct {
+	items []string
+	of    string // what the items are: "keys in cache1"
+}
+
+// askTypes tells this command's typed question what goes away: the items
+// (keys, files, secrets) and what they are. Without it the question asks
+// for the target (the server or conn) a whole-target step changes.
+func askTypes(items []string, of string) { cur().typed = &typedSpec{items, of} }
+
+// maxTypedName is the longest name a person is asked to type; a longer
+// one, or several, is asked as a count.
+const maxTypedName = 60
+
+// typedAnswer is what a person types for items, and how the question
+// shows it. It is never the bare word yes; no items, no answer.
+func typedAnswer(items []string, of string) (want, shown string) {
+	switch {
+	case len(items) == 0:
+		return "", ""
+	case len(items) == 1 && utf8.RuneCountInString(items[0]) <= maxTypedName && unshowable(items[0]) == "" &&
+		strings.TrimSpace(items[0]) == items[0] && items[0] != "":
+		return items[0], "the name " + items[0]
+	}
+	n := strconv.Itoa(len(items))
+	return n, n + " (" + of + ")"
+}
+
+// confirmDangerous asks a person at the terminal to confirm a step that
+// cannot be undone by typing what goes (typedAnswer), so a reflex "y" is
+// not enough.
 func confirmDangerous(names []string, reason string) bool {
+	return confirmDangerousOn(names, nil, reason)
+}
+
+// confirmDangerousOn is confirmDangerous on targets names, prot of which
+// are protected: one typed question covers the protection too (S-7.4),
+// so confirmProtected does not ask again about them.
+func confirmDangerousOn(names, prot []string, reason string) bool {
 	if g.dryRun || !interactive() {
 		return false
 	}
 	askedAbout = names
-	key := strings.Join(names, ",")
-	if cur().sess.DangerConfirmed(key) {
-		return true // the person typed it for these targets in this command already
+	c := cur()
+	items, of := names, "the number of targets"
+	if c.typed != nil {
+		items, of = c.typed.items, c.typed.of
 	}
-	want, what := "yes", "yes"
-	switch {
-	case len(names) == 1:
-		want, what = names[0], "the name "+names[0]
-	case len(names) > 1:
-		want, what = fmt.Sprint(len(names)), fmt.Sprintf("%d (the number of targets)", len(names))
+	want, shown := typedAnswer(items, of)
+	if want != "" && c.sess.DangerConfirmed(want) {
+		return true // the person typed it in this command already: one question per command (S-7.4)
 	}
 	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
-	ok := ask("Type "+what+" to continue: ") == want
-	cur().sess.SaidNo(!ok)
+	if want == "" { // never "yes": with nothing to name, a person passes the flag
+		fmt.Fprintln(os.Stderr, "komando has no name for you to type here; if you mean it, run it again with --allow-dangerous.")
+		c.sess.SaidNo(true)
+		return false
+	}
+	if len(prot) > 0 {
+		fmt.Fprintf(os.Stderr, "%s (protected): your answer covers that too.\n", strings.Join(prot, ", "))
+	}
+	ok := ask("Type "+shown+" to continue: ") == want
+	c.sess.SaidNo(!ok)
 	if ok {
-		cur().sess.ConfirmDanger(key)
+		c.sess.ConfirmDanger(want)
+		c.typedProt = append(c.typedProt, prot...)
 		ttyYes("typed " + want + ": " + reason)
 	}
 	return ok
@@ -600,7 +659,7 @@ func guardProtectionWhy(kind, action string, names []string, why string) error {
 	if why == "" {
 		why = fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))
 	} else {
-		asked = func() bool { return confirmYes(why + ". Change them anyway?") }
+		asked = func() bool { return confirmYes(why + ". Continue?") }
 	}
 	if yesOK(why) || asked() {
 		return nil

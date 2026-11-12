@@ -147,12 +147,13 @@ komando queue rm events old-orders --allow-dangerous      # delete the topic and
   (rules `queue-purge` and `queue-delete` in `komando policy list`). Their
   `--dry-run` lists what would go.
 - A person at a terminal can leave `--allow-dangerous` out: komando says
-  what would be deleted and asks for the conn's name instead.
+  what would be deleted and asks for the topic's or queue's name instead
+  (the count, when several go).
 
   ```
   $ komando queue purge events orders-retry
   Dangerous: deletes every message in orders-retry (it stays).
-  Type the name events to continue: events
+  Type the name orders-retry to continue: orders-retry
   ```
 
   Anything else stops it and changes nothing. An AI agent gets

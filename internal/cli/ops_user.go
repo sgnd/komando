@@ -296,6 +296,7 @@ func userRmCmd(noSudo *bool) *cobra.Command {
 			if err := lockoutStop(args[0], args[1], "deleting"); err != nil {
 				return err
 			}
+			askTypes(args[1:2], "users")
 			c := needShadow("userdel") + "userdel "
 			if removeHome {
 				c += "-r "

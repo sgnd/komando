@@ -87,6 +87,21 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- At a terminal, a step that cannot be undone asks you to type the name
+  of what goes (the key, file, secret, topic, image or user), or how many
+  when several go (`Type 37 (objects under daily/ in backups) to
+  continue`), or the server's or conn's name for a whole-target step;
+  never the word yes. On a protected target that one question covers the
+  protection too, so komando no longer asks a [y/N] after it. A policy hit
+  on a `--proxy-command` or a cluster login program asks for the name
+  instead of [y/N]. The questions use three forms: `NAME (protected): ...
+  Continue? [y/N]`, `Dangerous: ...` with the typed name, and `This turns
+  off a komando safety check: ... Continue? [y/N]`.
+- A destructive step on a protected target: the POLICY_BLOCKED hint now
+  names both flags (`--allow-dangerous and --yes`), and a dry run lists
+  every flag the real run needs in the new `meta.would_need`
+  (`["--allow-dangerous","--yes"]`); before, a dry run stopped looking at
+  the first stop.
 - A person who answers no when komando asks before running a filled-in
   command (`Run it?`, the typed name) gets exit 6, like a no at any safety
   question, with the new code `DECLINED` and `Cancelled. Nothing was

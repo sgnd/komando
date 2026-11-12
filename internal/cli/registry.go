@@ -395,6 +395,7 @@ registry's garbage collection.`,
 			if err != nil {
 				return err
 			}
+			askTypes(args[1:2], "images")
 			return withRegistry(cmd.Context(), "registry.rm", args[0], driver.RiskDestructive, map[string]any{"image": args[1]},
 				func(ctx context.Context, r *registry.Client) string { return rmWhat(ctx, r, r.Repo(repo), ref) },
 				func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {

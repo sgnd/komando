@@ -322,8 +322,8 @@ Next time: komando logs web1
 - It then shows the whole line (`$ komando ...`). A read runs at once. A
   change asks `Run it? [y/N, d = --dry-run first]` (Enter is No; `d` shows
   what it would do and asks again). One that deletes for good asks you to
-  type the target's name. A protected target asks its usual
-  `Change it anyway? [y/N]` instead.
+  type the name of what goes (or how many). A protected target asks its
+  usual `(protected): ... Continue? [y/N]` instead.
 - `komando host add` (or `conn add`, `vpn add`, `db add`, `cache add`,
   `queue add`, `storage add`, `cluster add`, `registry add`) typed alone
   asks that kind's own questions: which kind, a name, the address or the

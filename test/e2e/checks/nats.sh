@@ -32,9 +32,9 @@ check "nats ls -n 1 is cut and says so" "1 True" "$($K queue create stream E2E_Z
 pty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }
 O=$(pty 'wrong\n' queue purge stream E2E_ORDERS); RC=$?
 check "nats person: a wrong name stops purge (6)" "6 2" "$RC $($K queue describe stream E2E_ORDERS | jget 'd["data"]["messages"]')"
-pty 'stream\n' queue purge stream E2E_ORDERS >/dev/null
+pty 'E2E_ORDERS\n' queue purge stream E2E_ORDERS >/dev/null
 check "nats person: the right name purges" 0 "$($K queue describe stream E2E_ORDERS | jget 'd["data"]["messages"]')"
-pty 'stream\n' queue rm stream E2E_ZZ >/dev/null
+pty 'E2E_ZZ\n' queue rm stream E2E_ZZ >/dev/null
 check "nats person: the right name removes the stream" STREAM_NOT_FOUND "$($K queue describe stream E2E_ZZ | jget 'd["error"]["code"]')"
 q $K queue rm stream E2E_ORDERS --allow-dangerous
 q $K conn rm stream

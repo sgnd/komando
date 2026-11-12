@@ -82,6 +82,7 @@ func dbUserChangeCmd(action string) *cobra.Command {
 			}
 			v := driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"db-user"}, Reasons: []string{"db user " + action + " " + args[1]}}
 			if action == "rm" {
+				askTypes(args[1:2], "users")
 				v = driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-user-rm"}, Reasons: []string{"removes the user " + args[1]}}
 			}
 			return changeDB(cmd.Context(), "db.user."+action, args[0], v, map[string]any{"user": args[1]},

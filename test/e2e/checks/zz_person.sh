@@ -9,7 +9,7 @@ tty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r';
 
 # a change to a protected server: [y/N]
 O=$(tty 'n\n' exec target -- touch "/tmp/$P1"); RC=$?
-check "person: a protected server asks first" 1 "$(grep -c 'target is protected. Change it anyway? \[y/N\]' <<<"$O")"
+check "person: a protected server asks first" 1 "$(grep -c 'target (protected): this command changes it. Continue? \[y/N\]' <<<"$O")"
 check "person: no to a protected server stops (6)" 6 "$RC"
 check "person: no changed nothing" False "$($K fs stat target "/tmp/$P1" | jget 'd["data"]["exists"]')"
 tty 'y\n' exec target -- touch "/tmp/$P1" >/dev/null
@@ -79,7 +79,7 @@ O=$(ptykeys 'target\r' -- env TERM=xterm "$K" host show | tr -d '\r')
 check "person: a missing NAME is asked, then the line runs" True "$(grep -q 'NAME' <<<"$O" && grep -q '\$ komando host show target' <<<"$O" && echo True || echo False)"
 # a change on a protected server: the server's own [y/N] is the question, and no changes nothing
 O=$(ptykeys "/tmp/$P1-dir\r" 'n\r' -- env TERM=xterm "$K" fs mkdir target | tr -d '\r')
-check "person: a filled-in change on a protected server asks [y/N]" 1 "$(grep -c 'Change it anyway? \[y/N\]' <<<"$O")"
+check "person: a filled-in change on a protected server asks [y/N]" 1 "$(grep -c '(protected): this command changes it. Continue? \[y/N\]' <<<"$O")"
 check "person: no to it made nothing" False "$($K fs stat target "/tmp/$P1-dir" | jget 'd["data"]["exists"]')"
 check "person: an agent at a terminal is never asked" 0 "$(ptykeys -- env TERM=xterm KOMANDO_AGENT=1 "$K" host show </dev/null | grep -c 'NAME:' || true)"
 set -e

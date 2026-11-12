@@ -110,7 +110,7 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 	if err := checkHostName(name); err != nil {
 		return err
 	}
-	if err := guardProxyCommand(f.proxyCommand); err != nil {
+	if err := guardProxyCommand(f.proxyCommand, name); err != nil {
 		return err
 	}
 	undoPw := func() {}
@@ -338,7 +338,7 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
 		return undo, err
 	}
-	if err := guardProxyCommand(f.proxyCommand); err != nil {
+	if err := guardProxyCommand(f.proxyCommand, args...); err != nil {
 		return undo, err
 	}
 	if !askPw {
@@ -593,11 +593,11 @@ const ssmProxy = "aws ssm start-session --target %h --document-name AWS-StartSSH
 // connects, outside the agent guard's view. It passes the policy filter, and
 // from an AI agent it needs a person's yes (--yes, then the window). --ssm
 // sets komando's own command and needs neither.
-func guardProxyCommand(cmd string) error {
+func guardProxyCommand(cmd string, names ...string) error {
 	if cmd == "" {
 		return nil
 	}
-	if hits := policy.Check(cmd, nil); len(hits) > 0 && !dangerOK() && !policyAsk("--proxy-command `"+cmd+"` matches "+hits[0].Reason) {
+	if hits := policy.Check(cmd, nil); len(hits) > 0 && !dangerOK() && !policyAsk("--proxy-command `"+cmd+"` matches "+hits[0].Reason, names...) {
 		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a proxy command only carries the connection, e.g. `aws ssm start-session ...`; if this one is intended, --allow-dangerous lets it through",
 			"--proxy-command matches destructive rules: %s", hits[0].Reason))
 	}

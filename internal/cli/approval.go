@@ -56,6 +56,9 @@ type call struct {
 	commits uint64   // store.Commits() when the call started
 	ttyYes  []string // what a person said yes to at the terminal (the audit's confirm: tty)
 
+	typed     *typedSpec // what this command's typed question asks for (askTypes)
+	typedProt []string   // protected targets a typed answer covered
+
 	// ask opens the approval window; nil is askOnScreen. An app that runs
 	// calls side by side gives each its own.
 	ask func(text string) (allowed, shown bool)

@@ -21,10 +21,10 @@ q $K registry copy reg:mirror/busybox:stable reg:t-person/busybox:also
 set +e
 O=$(rtty 'wrong\n' registry rm reg t-person/busybox:stable); RC=$?
 check "person: registry rm says every tag that goes" 1 "$(grep -c 'every tag on it: also, stable' <<<"$O")"
-check "person: registry rm asks to type the name" 1 "$(grep -c 'Type the name reg to continue' <<<"$O")"
+check "person: registry rm asks to type the name" 1 "$(grep -c 'Type the name t-person/busybox:stable to continue' <<<"$O")"
 check "person: a wrong name stops registry rm (6)" 6 "$RC"
 check "person: a wrong name deleted nothing" True "$($K registry inspect reg t-person/busybox:also | jget 'd["ok"]')"
-O=$(rtty 'reg\n' registry rm reg t-person/busybox:stable); RC=$?
+O=$(rtty 't-person/busybox:stable\n' registry rm reg t-person/busybox:stable); RC=$?
 check "person: the right name deletes the image" "0 1" "$RC $(grep -c 'with it went every tag on that image: also, stable' <<<"$O")"
 check "person: both tags are gone" "[]" "$($K registry ls reg t-person/busybox | jget 'd["data"]["tags"]')"
 check "person: registry ls in text says what is next" 1 "$(rtty '' registry ls reg | grep -c 'Next: komando registry ls reg REPO')"

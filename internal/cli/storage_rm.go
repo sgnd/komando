@@ -61,6 +61,7 @@ first; --max-remove (default 1000) refuses to go on when more would be removed.`
 				}
 			}
 			rec := map[string]any{"keys": keys, "prefix": prefix, "older_than": olderThan}
+			askTypes(keys, "files in "+args[0])
 			if prefix != "" {
 				// list first, even in a dry run: the answer is the list
 				return storageRmPrefix(cmd.Context(), args[0], folderKey(prefix), age, limit, rec)
@@ -215,6 +216,7 @@ func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Dura
 		v := driver.DataDelete()
 		v.Reasons = []string{fmt.Sprintf("deletes %d object%s (%s) %s for good, unless the bucket keeps old versions",
 			len(keys), plural(len(keys)), humanBytes(p.Bytes), p.where())}
+		askTypes(keys, "objects "+p.where())
 		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
 			return err
 		}

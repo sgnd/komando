@@ -74,6 +74,7 @@ yourself out. --dry-run counts the lines it would remove.`,
 					}
 				}
 				if len(self) > 0 && !dangerOK() {
+					askTypes([]string{k.Name}, "keys")
 					if err := guardConns(st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
 						Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit HOST --key OTHER`)"}}); err != nil {
 						return err

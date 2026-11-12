@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -24,16 +25,33 @@ func ttyYes(what string) {
 }
 
 // policyAsk asks a person at the terminal whether a command the safety
-// policy blocks runs anyway, this once: a yes counts as --allow-dangerous
-// for this check of this command only. Never under --dry-run, for an AI
-// agent, a script or CI.
-func policyAsk(rule string) bool {
-	return confirmYes("Blocked by policy: " + rule + ". Run it anyway, this once?")
+// policy blocks runs anyway, this once, by typing the name of the conn or
+// server it is about (names): a hit is a T3, so a [y/N] is not enough (S-7.2). A right
+// answer counts as --allow-dangerous for this check of this command only.
+// Never under --dry-run, for an AI agent, a script or CI.
+func policyAsk(rule string, names ...string) bool {
+	if g.dryRun || !interactive() {
+		return false
+	}
+	fmt.Fprintf(os.Stderr, "Blocked by policy: %s.\n", rule)
+	want, shown := typedAnswer(names, "the number of targets")
+	ok := want != "" && ask("Type "+shown+" to run it anyway, this once: ") == want
+	cur().sess.SaidNo(!ok)
+	if ok {
+		ttyYes("typed " + want + ": blocked by policy: " + rule)
+	}
+	return ok
 }
 
-// confirmProtected asks a human at the terminal to confirm a change to
+// confirmProtected asks a person at the terminal to confirm a change to
 // protected targets. A yes counts as --yes for the rest of this command.
+// Targets a typed answer covered already (confirmDangerousOn) are not
+// asked about again.
 func confirmProtected(names []string) bool {
+	if len(names) > 0 && !slices.ContainsFunc(names, func(n string) bool { return !slices.Contains(cur().typedProt, n) }) {
+		return true
+	}
 	askedAbout = names
-	return confirmYes(fmt.Sprintf("%s %s protected. Change it anyway?", strings.Join(names, ", "), map[bool]string{true: "is", false: "are"}[len(names) == 1]))
+	it := map[bool]string{true: "it", false: "them"}[len(names) == 1]
+	return confirmYes(fmt.Sprintf("%s (protected): this command changes %s. Continue?", strings.Join(names, ", "), it))
 }

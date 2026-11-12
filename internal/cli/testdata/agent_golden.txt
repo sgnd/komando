@@ -6321,7 +6321,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json reboot prod1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text reboot prod1 (agent text, gate inventory)
 exit 6
@@ -6331,7 +6331,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json reboot prod1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"reboot","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power-systemctl]: powers off or reboots the server","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text reboot prod1 (script text, gate inventory)
 exit 6
@@ -6481,7 +6481,7 @@ Stopped: this can delete or break things (deletes data that cannot be recovered 
 ### komando -o json cache rm pcache k (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache rm pcache k (agent text, gate inventory)
 exit 6
@@ -6491,7 +6491,7 @@ Stopped: this can delete or break things (deletes data that cannot be recovered 
 ### komando -o json cache rm pcache k (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.rm","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache rm pcache k (script text, gate inventory)
 exit 6
@@ -6541,7 +6541,7 @@ Stopped: this can delete or break things (drops a database object or column), so
 ### komando -o json db query pdb --write UPDATE x SET a=1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first). Tell the user what you want to do and why; when you add the flag, komando asks the user in a window on their screen"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query pdb --write UPDATE x SET a=1 (agent text, gate inventory)
 exit 6
@@ -6551,7 +6551,7 @@ Stopped: this can delete or break things (UPDATE without WHERE changes every row
 ### komando -o json db query pdb --write UPDATE x SET a=1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"only if this is intended: confirm with the user, then re-run with --allow-dangerous and --yes (a protected target; try --dry-run first)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query pdb --write UPDATE x SET a=1 (script text, gate inventory)
 exit 6

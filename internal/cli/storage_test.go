@@ -150,21 +150,22 @@ func typing(t *testing.T, answer string) {
 }
 
 // rm --prefix at a person's terminal lists what goes before asking for
-// the name; a wrong name deletes nothing, the right one deletes it all.
+// how many go (S-7.3: several items, so the count, labelled); the bucket's
+// name deletes nothing, the right count deletes it all.
 func TestStorageRmPrefixShowsBeforeAsking(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"daily/a.gz": "aa", "daily/b.gz": "bbb", "keep.txt": "k"}}
 	withMemBucket(t, m)
-	typing(t, "wrong\n")
+	typing(t, "bk\n")
 	var e *out.Error
 	said := stderrOf(t, func() { _, e = invRun(t, "storage", "rm", "bk", "--prefix", "daily") })
 	if e == nil || e.Code != "POLICY_BLOCKED" || len(m.objs) != 3 {
 		t.Fatalf("a wrong name: %+v, %d objects left", e, len(m.objs))
 	}
-	list, typeName := strings.Index(said, "daily/b.gz"), strings.Index(said, "Type the name bk")
+	list, typeName := strings.Index(said, "daily/b.gz"), strings.Index(said, "Type 2 (objects under daily/ in bk) to continue")
 	if list < 0 || typeName < list || !strings.Contains(said, "2 objects (5 B) under daily/ in bk") {
 		t.Errorf("the list comes before the question:\n%s", said)
 	}
-	typing(t, "bk\n")
+	typing(t, "2\n")
 	stderrOf(t, func() { mustRun(t, "storage", "rm", "bk", "--prefix", "daily/") })
 	if _, ok := m.objs["keep.txt"]; len(m.objs) != 1 || !ok {
 		t.Errorf("after the right name: %v", m.objs)

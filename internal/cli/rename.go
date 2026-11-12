@@ -194,7 +194,7 @@ func guardRenameProtected(what string, prot []string) error {
 		shown, more = shown[:8], fmt.Sprintf(" and %d more", len(names)-8)
 	}
 	why := fmt.Sprintf("%s changes %s in one step: %s%s", what, count, strings.Join(shown, ", "), more)
-	if yesOK(why) || confirmYes(why+". Change them anyway?") {
+	if yesOK(why) || confirmYes(why+". Continue?") {
 		return nil
 	}
 	code := "PROTECTED_TARGET"

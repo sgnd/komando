@@ -505,6 +505,9 @@ func swarmDo(ctx context.Context, name string, t clusterTarget, line string, std
 		return "", false, err
 	}
 	if risk >= driver.RiskDestructive && !dangerOK() {
+		if cur().typed == nil {
+			askTypes([]string{t.host.Name}, "servers") // the whole cluster: its manager's name
+		}
 		if err := guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{name}, Reasons: []string{why}}); err != nil {
 			return "", false, err
 		}

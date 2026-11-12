@@ -415,6 +415,7 @@ func cacheRmCmd() *cobra.Command {
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keys := args[1:]
+			askTypes(keys, "keys in "+args[0])
 			return withCachePreview(cmd.Context(), "cache.rm", args[0], driver.DataDelete(), map[string]any{"keys": keys},
 				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
 					n, err := rc.Del(cmd.Context(), keys...)

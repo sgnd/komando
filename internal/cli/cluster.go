@@ -127,7 +127,7 @@ func guardKubePlugin(c *store.Conn, x *kube.Context) error {
 		return nil
 	}
 	line := pluginLine(e)
-	if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() && !policyAsk("the kubeconfig of conn "+c.Name+" logs in with `"+line+"`, which matches "+hits[0].Reason) {
+	if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() && !policyAsk("the kubeconfig of conn "+c.Name+" logs in with `"+line+"`, which matches "+hits[0].Reason, c.Name) {
 		stop := out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig of this conn (if this program is intended, --allow-dangerous lets it run)",
 			"the kubeconfig of conn %s logs in with `%s`, which matches destructive rules: %s", c.Name, line, hits[0].Reason)
 		if g.dryRun {
@@ -309,20 +309,20 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 // one, asks a person at a terminal to type that object's name ("Type the
 // name api-7d9f-x2 to continue"), not the cluster's or "yes": the name
 // says what goes, as gh repo delete does. A right answer also counts for
-// the cluster check guardConns (or swarmDo) makes next, keyed by the same
-// names, so the person is asked once; a wrong one stops here and nothing
+// the cluster check guardConns (or swarmDo) makes next, which asks for the
+// same name (askTypes), so the person is asked once; a wrong one stops here and nothing
 // changes. Agents and scripts are unchanged: they use --allow-dangerous,
 // and a dry run never asks.
 func confirmObject(names []string, obj, reason string) error {
 	if g.allowDangerous || g.dryRun || !interactive() {
 		return nil
 	}
-	if !confirmDangerous([]string{obj}, reason) {
+	askTypes([]string{obj}, "objects")
+	if !confirmDangerous(names, reason) {
 		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
 			"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
 			"the command matches destructive rules [%s]: %s", "cluster", reason).Say(dangerSay([]string{reason}), dangerHint))
 	}
-	cur().sess.ConfirmDanger(strings.Join(names, ","))
 	return nil
 }
 

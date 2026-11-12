@@ -40,6 +40,9 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 			Short: dockerActionShorts[action],
 			Args:  cobra.MinimumNArgs(2),
 			RunE: func(cmd *cobra.Command, args []string) error {
+				if action == "rm" {
+					askTypes(args[1:], "containers")
+				}
 				if _, err := guardDocker(args[0], append([]string{action}, args[1:]...)); err != nil {
 					return err
 				}
