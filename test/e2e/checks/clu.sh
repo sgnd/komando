@@ -45,7 +45,7 @@ $K cluster status lab-k3s deployment/web --namespace t-e2eclu --wait --timeout 9
 check "TYPE NAME, TYPE/NAME and group-qualified kinds" "web web web" \
   "$($K cluster get lab-k3s deployment web --namespace t-e2eclu | jget 'd["data"]["metadata"]["name"]') $($K cluster get lab-k3s deploy/web --namespace t-e2eclu | jget 'd["data"]["metadata"]["name"]') $($K cluster get lab-k3s deployment.apps/web --namespace t-e2eclu | jget 'd["data"]["metadata"]["name"]')"
 check "status takes TYPE NAME" True "$($K cluster status lab-k3s deployment web --namespace t-e2eclu | jget 'd["data"]["rolled_out"]')"
-check "-n NAMESPACE explains --namespace" "2 True" "$($K cluster get lab-k3s deploy web -n t-e2eclu >"$TMP/o"; echo $?) $(jget '"--namespace t-e2eclu" in d["error"]["message"]' <"$TMP/o")"
+check "-n is --namespace on cluster get" web "$($K cluster get lab-k3s deploy web -n t-e2eclu | jget 'd["data"]["metadata"]["name"]')"
 check "-A lists every namespace" True "$($K cluster ls lab-k3s deploy -A | jget 'any(i["namespace"]=="t-e2eclu" for i in d["data"]["items"])')"
 check "ls text is a table" True "$($K cluster ls lab-k3s deploy --namespace t-e2eclu -o text | head -1 | grep -q '^NAME  *READY  *UP-TO-DATE  *AVAILABLE  *AGE' && echo True)"
 check "unknown kind suggests one" True "$($K cluster ls lab-k3s deploymnt | jget '"did you mean \"deployment\"" in d["error"]["message"]')"
