@@ -163,3 +163,27 @@ func TestStandardNoMinusOneDefault(t *testing.T) {
 		t.Errorf("optInt: %d", p)
 	}
 }
+
+// S-5.7: a default taken from a setting keeps `default` and names the
+// setting in `default_from`; the setting is a real `komando config` key.
+func TestStandardDefaultFrom(t *testing.T) {
+	keys := map[string]bool{}
+	for _, s := range settings {
+		keys[s.Key] = true
+	}
+	walkLeaves(newRoot(), func(path string, f *pflag.Flag) {
+		fs := newFlagSchema(f)
+		inText := strings.Contains(f.Usage, "(default: setting")
+		if inText != (fs.DefaultFrom != "") {
+			t.Errorf("%s --%s: usage %q but default_from %q", path, f.Name, f.Usage, fs.DefaultFrom)
+		}
+		if k, ok := strings.CutPrefix(fs.DefaultFrom, "setting:"); fs.DefaultFrom != "" && (!ok || !keys[k] || !strings.Contains(f.Usage, "setting "+k+",")) {
+			t.Errorf("%s --%s: default_from %q is no setting named in its usage", path, f.Name, fs.DefaultFrom)
+		}
+	})
+	invHome(t)
+	_, s := runMain(t, "schema")
+	if !strings.Contains(s, `"name":"timeout","type":"duration","default":"0","default_from":"setting:default_timeout"`) {
+		t.Errorf("schema --timeout: %s", s[strings.Index(s, `"global_flags"`):][:600])
+	}
+}

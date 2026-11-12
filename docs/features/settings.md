@@ -50,7 +50,9 @@ with the old and the new value.
 
 Most settings also have a flag for one run: `--timeout`,
 `--connect-timeout`, `--parallel` (`-P`), `--max-output` and
-`--host-key-policy`.
+`--host-key-policy`. Left out, the flag takes the setting: `komando
+schema` shows such a flag with `"default": "0"` (not given) and
+`"default_from": "setting:default_timeout"` (the setting it reads).
 
 ## Environment variables
 

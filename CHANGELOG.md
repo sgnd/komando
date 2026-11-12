@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando schema` names where a flag's real default comes from:
+  `--timeout`, `--connect-timeout`, `--parallel`, `--host-key-policy` and
+  `--max-output` carry `default_from` (`setting:default_timeout` and so
+  on), and their help names the setting. Help texts give example values
+  as "e.g. 30m", so they are not read as defaults.
 - `upload`, `download` and `cp` show the progress of a file of 8 MiB or
   more going to or from one server on stderr, at a person's terminal only.
 - A [Secrets](docs/features/secrets.md) page: save, use, check, rename,

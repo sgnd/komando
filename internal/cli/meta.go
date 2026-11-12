@@ -335,7 +335,21 @@ type flagSchema struct {
 	Shorthand string `json:"shorthand,omitempty"`
 	Type      string `json:"type"`
 	Default   string `json:"default,omitempty"`
-	Usage     string `json:"usage"`
+	// DefaultFrom is where the real default comes from when Default is
+	// only "not given" (0): "setting:KEY", a `komando config` key
+	DefaultFrom string `json:"default_from,omitempty"`
+	Usage       string `json:"usage"`
+}
+
+// defaultFrom annotates a flag whose default is a setting (flagSchema.DefaultFrom).
+const defaultFrom = "komando.default-from"
+
+func newFlagSchema(f *pflag.Flag) flagSchema {
+	s := flagSchema{Name: f.Name, Shorthand: f.Shorthand, Type: f.Value.Type(), Default: f.DefValue, Usage: f.Usage}
+	if a := f.Annotations[defaultFrom]; len(a) == 1 {
+		s.DefaultFrom = a[0]
+	}
+	return s
 }
 
 type cmdSchema struct {
@@ -404,7 +418,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 							if f.Hidden || f.Name == "help" {
 								return
 							}
-							s.Flags = append(s.Flags, flagSchema{f.Name, f.Shorthand, f.Value.Type(), f.DefValue, f.Usage})
+							s.Flags = append(s.Flags, newFlagSchema(f))
 						})
 						cmds = append(cmds, s)
 					}
@@ -420,7 +434,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 			}
 			var globals []flagSchema
 			root.PersistentFlags().VisitAll(func(f *pflag.Flag) {
-				globals = append(globals, flagSchema{f.Name, f.Shorthand, f.Value.Type(), f.DefValue, f.Usage})
+				globals = append(globals, newFlagSchema(f))
 			})
 			res := map[string]any{
 				"name":     "komando",
