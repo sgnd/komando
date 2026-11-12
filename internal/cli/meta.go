@@ -368,6 +368,27 @@ type cmdSchema struct {
 	Confirm []confirmSchema `json:"confirm,omitempty"`
 }
 
+// newCmdSchema is c in `komando schema`.
+func newCmdSchema(c *cobra.Command) cmdSchema {
+	s := cmdSchema{Path: c.CommandPath(), Usage: c.UseLine(), Short: c.Short, Long: c.Long, Aliases: c.Aliases, Example: c.Example, Runnable: c.Runnable()}
+	if n := c.Annotations[helpNotes]; n != "" {
+		s.Long += "\n\n" + n
+	}
+	if k, ok := kindOf(c); ok && s.Runnable {
+		s.Kind, s.KindNote = k.Kind, k.Note
+	}
+	if s.Runnable {
+		s.Confirm = confirmOf(c)
+	}
+	ownFlags(c).VisitAll(func(f *pflag.Flag) {
+		if f.Hidden || f.Name == "help" {
+			return
+		}
+		s.Flags = append(s.Flags, newFlagSchema(f))
+	})
+	return s
+}
+
 // schemaPath reads a command named as one argument: host.add, as in the
 // envelope's command, or 'db query' quoted as one.
 func schemaPath(args []string) []string {
@@ -458,23 +479,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 					if compact {
 						cmds = append(cmds, map[string]string{"path": c.CommandPath(), "short": c.Short})
 					} else {
-						s := cmdSchema{Path: c.CommandPath(), Usage: c.UseLine(), Short: c.Short, Long: c.Long, Aliases: c.Aliases, Example: c.Example, Runnable: c.Runnable()}
-						if n := c.Annotations[helpNotes]; n != "" {
-							s.Long += "\n\n" + n
-						}
-						if k, ok := kindOf(c); ok && s.Runnable {
-							s.Kind, s.KindNote = k.Kind, k.Note
-						}
-						if s.Runnable {
-							s.Confirm = confirmOf(c)
-						}
-						ownFlags(c).VisitAll(func(f *pflag.Flag) {
-							if f.Hidden || f.Name == "help" {
-								return
-							}
-							s.Flags = append(s.Flags, newFlagSchema(f))
-						})
-						cmds = append(cmds, s)
+						cmds = append(cmds, newCmdSchema(c))
 					}
 				}
 				for _, sub := range c.Commands() {

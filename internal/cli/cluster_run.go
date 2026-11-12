@@ -297,11 +297,8 @@ risky verbs also need --allow-dangerous.`,
 			}
 			if t.host != nil {
 				line := "docker " + quoteAll(args[1:])
-				if risk == driver.RiskDestructive && !dangerOK() {
-					askTypes([]string{t.host.Name}, "servers")
-					if err := guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}}); err != nil {
-						return err
-					}
+				if err := guardSwarmRun(st, t.host.Name, risk, verb); err != nil {
+					return err
 				}
 				return runOne(cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
 			}
@@ -563,4 +560,14 @@ func nilData(v any) bool {
 		return r.IsNil()
 	}
 	return false
+}
+
+// guardSwarmRun is cluster run's stop for a destructive docker command on
+// a Swarm manager: a person types the server's name.
+func guardSwarmRun(st *store.State, host string, risk driver.Risk, verb string) error {
+	if risk != driver.RiskDestructive || dangerOK() {
+		return nil
+	}
+	askTypes([]string{host}, "servers")
+	return guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
 }

@@ -67,18 +67,8 @@ yourself out. --dry-run counts the lines it would remove.`,
 				return err
 			}
 			if k != nil && user == "" {
-				var self []string
-				for _, h := range hosts {
-					if h.Key == k.Name {
-						self = append(self, h.Name)
-					}
-				}
-				if len(self) > 0 && !dangerOK() {
-					askTypes([]string{k.Name}, "keys")
-					if err := guardConns(st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
-						Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit HOST --key OTHER`)"}}); err != nil {
-						return err
-					}
+				if err := guardRevokeSelf(st, hosts, k.Name); err != nil {
+					return err
 				}
 			}
 			if err := guard(st, hosts, "", true); err != nil {
@@ -140,4 +130,21 @@ yourself out. --dry-run counts the lines it would remove.`,
 	}
 	c.Flags().StringVar(&user, "user", "", "edit this user's authorized_keys instead of the login user's (uses sudo)")
 	return c
+}
+
+// guardRevokeSelf stops key revoke of the key komando logs in to hosts
+// with: that locks komando out. A person types the key's name.
+func guardRevokeSelf(st *store.State, hosts []*store.Host, key string) error {
+	var self []string
+	for _, h := range hosts {
+		if h.Key == key {
+			self = append(self, h.Name)
+		}
+	}
+	if len(self) == 0 || dangerOK() {
+		return nil
+	}
+	askTypes([]string{key}, "keys")
+	return guardConns(st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
+		Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit HOST --key OTHER`)"}})
 }

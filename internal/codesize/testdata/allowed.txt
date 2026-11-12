@@ -6,7 +6,7 @@ file internal/ipsec/ikev2.go 1116
 file internal/openvpn/client.go 1234
 file internal/sslvpn/pulse.go 839
 func internal/cli/cert.go runCertCheck 176
-func internal/cli/cluster_run.go clusterRunCmd 114
+func internal/cli/cluster_run.go clusterRunCmd 112
 func internal/cli/cluster_status.go summarize 115
 func internal/cli/clusterdeploy.go clusterRollbackCmd 109
 func internal/cli/clusterexec.go clusterForwardCmd 103
@@ -23,7 +23,6 @@ func internal/cli/host_sshconfig.go parseSSHConfig 126
 func internal/cli/importer.go applyImport 124
 func internal/cli/kctl_change.go kctlRun.create 240
 func internal/cli/kctl_explain.go kctlRun.explain 102
-func internal/cli/keyrevoke.go keyRevokeCmd 101
 func internal/cli/ops_pkgsec.go pkgSecurity 113
 func internal/cli/ops_run.go runOps 108
 func internal/cli/tunnel.go tunnelStartCmd 141
