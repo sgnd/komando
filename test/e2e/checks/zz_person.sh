@@ -45,6 +45,13 @@ O=$(tty 'personpass\n' secret set "$P1-pass"); RC=$?
 check "person: secret set asks for the value" 0 "$RC"
 check "person: the typed value is not echoed" 0 "$(grep -c personpass <<<"$O")"
 check "person: the typed value was stored" True "$(echo personpass | $K secret check "$P1-pass" | jget 'd["data"]["match"]')"
+O=$(tty 'wrongpass1\n' secret check "$P1-pass"); RC=$?
+check "person: secret check says a value differs (1)" 1 "$RC"
+check "person: secret check shows neither value" 0 "$(grep -c -E 'wrongpass1|personpass' <<<"$O")"
+check "person: secret check says how they differ" 1 "$(grep -c 'characters' <<<"$O")"
+O=$(tty '\n' secret set "$P1-empty"); RC=$?
+check "person: an empty answer stores nothing (2)" 2 "$RC"
+check "person: the empty secret is not there" SECRET_NOT_FOUND "$($K secret get "$P1-empty" | jget 'd["error"]["code"]' || true)"
 q $K secret rm "$P1-pass"
 
 # komando login HOST: a person logs in once, then an AI agent can use it
