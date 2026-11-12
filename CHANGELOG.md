@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Cluster commands refuse `.` and `..` as an object or namespace name
+  before anything is sent (`K8S_INVALID`): as a path segment, `cluster rm
+  prod pod ..` named another object than the one typed.
 - A cluster whose kubeconfig logs in with a program that is not installed
   (`kubelogin`, `oidc-login` ...) now stops with `TOOL_MISSING` (exit 3)
   and the kubeconfig's own `installHint`, and a login program that fails

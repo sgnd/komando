@@ -419,6 +419,13 @@ func (c *Client) send(ctx context.Context, method, path string, q url.Values, bo
 }
 
 func (c *Client) sendAccept(ctx context.Context, method, path string, q url.Values, body []byte, contentType, accept string) (*http.Response, error) {
+	// "." and ".." are no object or namespace names: sent as a path
+	// segment they would name another object (pods/.. is the namespace)
+	for _, seg := range strings.Split(path, "/") {
+		if seg == "." || seg == ".." {
+			return nil, &APIError{Code: 400, Reason: "BadRequest", Message: `a name or namespace may not be "." or ".."`}
+		}
+	}
 	u := *c.Base
 	u.Path = strings.TrimSuffix(u.Path, "/") + path
 	u.RawQuery = q.Encode()
