@@ -48,6 +48,12 @@ command asks again, reads included, until a person imports it again. The
 same goes for a kubeconfig that reads its token from a local file
 (`tokenFile`).
 
+komando checks the API server's certificate against the kubeconfig's CA.
+A context with `insecure-skip-tls-verify` and no CA skips that check, as
+kubectl does; the import names it in its notes, because its login goes
+to whoever answers at that address. With a CA, the certificate is always
+checked, even if `insecure-skip-tls-verify` is set too.
+
 To add one cluster by hand, store its kubeconfig in the vault first, then
 name it with `cluster add` (the same as `conn add`, but it refuses a URL
 that is not a cluster):

@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"encoding/base64"
+	"encoding/pem"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -132,5 +133,24 @@ func TestDotNamesRefused(t *testing.T) {
 	}
 	if sent != 0 {
 		t.Errorf("%d requests sent", sent)
+	}
+}
+
+// With a CA in the kubeconfig the server is always checked against it,
+// even when insecure-skip-tls-verify is set too (kubectl refuses the pair).
+func TestCAWinsOverInsecure(t *testing.T) {
+	srv := httptest.NewTLSServer(http.NotFoundHandler())
+	defer srv.Close()
+	ca := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw})
+	x := &Context{}
+	x.Cluster.Server = "https://10.255.255.1:6443"
+	x.Cluster.InsecureSkipTLSVerify = true
+	x.Cluster.CertificateAuthorityData = base64.StdEncoding.EncodeToString(ca)
+	k, err := New(x, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k.http.Transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify {
+		t.Error("a CA was given, yet the server's certificate is not checked")
 	}
 }

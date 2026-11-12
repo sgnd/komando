@@ -297,8 +297,10 @@ func New(x *Context, dial Dialer) (*Client, error) {
 	if err != nil || base.Host == "" {
 		return nil, fmt.Errorf("bad server URL %q", x.Cluster.Server)
 	}
+	// insecure-skip-tls-verify counts only without a CA: with one, the
+	// server is checked against it (kubectl refuses the pair outright)
 	tc := &tls.Config{MinVersion: tls.VersionTLS12, ServerName: x.Cluster.TLSServerName,
-		InsecureSkipVerify: x.Cluster.InsecureSkipTLSVerify} //nolint:gosec // only when the kubeconfig says so
+		InsecureSkipVerify: x.Cluster.InsecureSkipTLSVerify && x.Cluster.CertificateAuthorityData == ""} //nolint:gosec // only when the kubeconfig says so
 	if d := x.Cluster.CertificateAuthorityData; d != "" {
 		pem, err := base64.StdEncoding.DecodeString(d)
 		if err != nil {

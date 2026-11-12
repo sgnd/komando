@@ -434,6 +434,10 @@ func importKubeconfig(path string) (*importPlan, error) {
 		if why := clash[n]; why != "" {
 			p.ConnNotes[c] = append(p.ConnNotes[c], why)
 		}
+		if x.Cluster.InsecureSkipTLSVerify && x.Cluster.CertificateAuthorityData == "" && x.Cluster.CertificateAuthority == "" {
+			p.ConnNotes[c] = append(p.ConnNotes[c], fmt.Sprintf("context %s does not check the server's certificate (insecure-skip-tls-verify): "+
+				"its login goes to whoever answers at %s; add the cluster's CA (certificate-authority-data) to the kubeconfig and import it again", n, u.Host))
+		}
 		if e := x.Plugin(); e != nil {
 			// a person imported it, or allowed it (guardKubeImport): agents
 			// may run this program for this conn without asking again

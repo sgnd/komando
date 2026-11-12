@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `import kubeconfig` notes a context that skips the API server's
+  certificate check (`insecure-skip-tls-verify` without a CA), and a
+  kubeconfig with both a CA and `insecure-skip-tls-verify` now checks the
+  server against the CA instead of checking nothing.
 - `cluster rm` and `cluster scale ... 0` at a person's terminal ask to
   type the object's name (`Type the name web to continue`). Before,
   Kubernetes asked for the cluster's name and Swarm for "yes", so the
