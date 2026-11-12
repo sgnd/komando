@@ -160,6 +160,33 @@ its highlights; the sections below them give the details. Versions follow
 - Asked for a missing argument, `import` offers its sources and `config
   get`/`config set` their settings as a list to pick from.
 
+- `db dump` and `db restore` name their argument `CONN` (it was
+  `DATABASE`), and no `db` usage line carries flags any more (`restore`,
+  `user add`/`passwd`, `grant`/`revoke`), so shell completion and pickers
+  offer your databases there. `db restore` without `--from` and `db grant`
+  or `revoke` without `--privileges`/`--role` now give a runnable example
+  in the hint.
+
+- `db kill --dry-run` now fills `meta.would_be_blocked` (a protected
+  conn, or `--session` without `--allow-dangerous`), as every other dry
+  run does; before, it skipped the check and looked allowed.
+
+- `komando db` shows five runnable examples and how to list, test,
+  change, rename and remove a database (`list kind:db`, `test`, `conn edit`,
+  `conn mv`, `conn rm`). The `db dump` question for `--to` is no longer
+  marked required: without it the backup is `CONN-<date>.sql.gz`.
+
+- `db dump --to FOLDER` saves `CONN-<date>.sql.gz` inside that folder
+  (it failed with `FILE_EXISTS`), and `--to -` is refused with a usage
+  error instead of creating a file named `-`.
+
+- `db` error hints name the conn you gave (`komando db schema prod-db
+  TABLE`), not a `CONN` placeholder, so the hint is the exact next
+  command.
+
+- `db restore` and `db user rm` typed without their arguments now hint a
+  runnable `--dry-run` example (the hint said only "see --help").
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights

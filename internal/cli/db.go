@@ -44,12 +44,22 @@ func dbCmd() *cobra.Command {
 Without --write every query runs in a read-only transaction (SQL Server: one
 that is always rolled back), so nothing can change. With --write, try
 --dry-run first: it runs the SQL and rolls it back, showing how many rows
-would change.`,
+would change.
+
+Each database is a conn: list them with ` + "`komando list kind:db`" + `, check one with
+` + "`komando test NAME`" + `, change it with ` + "`komando conn edit NAME`" + `, rename it with
+` + "`komando conn mv OLD NEW`" + ` and remove it with ` + "`komando conn rm NAME`" + `.`,
+		Example: `  komando db add prod-db postgres://app@10.0.0.5:5432/shop --password-ref secret:shop-pw
+  komando db query prod-db "select id, email from users order by id desc limit 10"
+  komando db schema prod-db users
+  komando db dump prod-db --to prod.sql.gz
+  komando db restore staging-db --from prod.sql.gz --dry-run`,
 	}
 	c.AddCommand(connAddCmdFor("db"), dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
 	var withTimeout func(*cobra.Command)
 	withTimeout = func(cmd *cobra.Command) {
 		for _, sub := range cmd.Commands() {
+			connHints(sub)
 			switch sub.Name() {
 			case "add", "dump", "restore": // dump and restore have no time limit of their own
 			default:
@@ -64,6 +74,29 @@ would change.`,
 	withTimeout(c)
 	return c
 }
+
+// connHints makes the hints of a db command name the conn it was given:
+// `komando db schema CONN TABLE` becomes `komando db schema prod-db TABLE`,
+// so a hint is the exact next command for a person and an agent.
+func connHints(c *cobra.Command) {
+	if f := strings.Fields(c.Use); c.RunE == nil || len(f) < 2 || f[1] != "CONN" {
+		return
+	}
+	run := c.RunE
+	c.RunE = func(cmd *cobra.Command, args []string) error {
+		err := run(cmd, args)
+		var e *out.Error
+		if len(args) > 0 && errors.As(err, &e) {
+			e.Hint = connInHint.ReplaceAllStringFunc(e.Hint, func(m string) string {
+				return strings.TrimSuffix(m, "CONN") + argQ(args[0])
+			})
+		}
+		return err
+	}
+}
+
+// connInHint is CONN inside a komando db or conn command in a hint.
+var connInHint = regexp.MustCompile("`komando (?:db|conn) [a-z ]*?CONN\\b")
 
 type dbFlags struct {
 	write bool

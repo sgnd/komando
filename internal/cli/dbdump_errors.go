@@ -121,7 +121,7 @@ func restoreNote(conn, to string) string {
 }
 
 // defaultDumpFile is the file db dump writes without --to:
-// DATABASE-<date>.sql.gz (.dump for a custom archive), in this folder.
+// CONN-<date>.sql.gz (.dump for a custom archive), in this folder.
 func defaultDumpFile(conn, format string, now time.Time) string {
 	name := strings.Map(func(r rune) rune {
 		if r == '/' || r == '\\' || r == ':' || r == ' ' || r == '@' || r == '*' {

@@ -17,6 +17,25 @@ komando db dump app-db --to app-2026-11-02.sql.gz           # back up to this co
 
 Queries only read unless you add `--write`.
 
+## A database from start to end
+
+Every step is a command; a person and an AI agent type the same ones.
+
+```bash
+komando db add app-db postgres://app@10.0.0.5:5432/app --password-ref secret:app-db-pass
+komando test app-db                                  # can komando log in?
+komando db query app-db "select count(*) from users"
+komando db query app-db --write --dry-run "update users set plan = 'pro' where id = 42"
+komando db dump app-db --to backups/                 # backups/app-db-<date>.sql.gz
+komando db restore app-db --from backups/app-db-2026-11-12.sql.gz --dry-run
+komando conn edit app-db --protected                 # changes then need a person's yes
+komando conn mv app-db shop-db                       # rename; every reference follows
+komando conn rm shop-db                              # komando forgets it; the database stays
+```
+
+`komando list kind:db` lists your databases. A command's error always ends
+with a hint that names the next command to run, with your conn in it.
+
 ## Add a database
 
 A conn is a database, cache, queue, storage bucket, cluster or registry
@@ -347,12 +366,15 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
 ## Back up and restore
 
 ```bash
+komando db dump app-db                                  # app-db-<date>.sql.gz in this folder
+komando db dump app-db --to backups/                    # the same name, inside backups/
 komando db dump app-db --to app-2026-11-02.sql.gz      # plain SQL, compressed (.gz)
 komando db dump app-db --to app.dump --format custom   # PostgreSQL archive, for pg_restore
 komando db dump app-db --to orders.sql --table public.orders   # one table (repeatable)
 komando db dump app-db --to schema.sql --schema-only   # no rows
+komando db restore staging-db --from app-2026-11-02.sql.gz --dry-run    # checks the file, changes nothing
 komando db restore staging-db --from app-2026-11-02.sql.gz --allow-dangerous
-komando db restore staging-db --from app.dump --allow-dangerous   # an archive goes to pg_restore
+komando db restore staging-db --from app.dump --allow-dangerous   # an archive: pg_restore on the conn's --via server
 komando db dump app-db --to app.dump --format custom --on db1      # pg_dump runs on the server db1
 komando db restore staging-db --from app.dump --on db1 --allow-dangerous   # pg_restore runs on db1
 ```
@@ -360,7 +382,9 @@ komando db restore staging-db --from app.dump --on db1 --allow-dangerous   # pg_
 ### Where the backup goes, and who makes it
 
 The backup always goes to a file on this computer, readable only by you.
-An existing file is never overwritten.
+An existing file is never overwritten. Without `--to` it is
+`CONN-<date>.sql.gz` (SQLite: `CONN-<date>.db`) in this folder; `--to` a
+folder puts that name inside it.
 
 `pg_dump` or `mysqldump` runs on a server that has it: the one you name with
 `--on HOST`, else the last server of the conn's `--via` path. Otherwise (a

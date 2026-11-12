@@ -25,6 +25,12 @@ check "person: the table is still there" 1 "$($K db query pg "select count(*) fr
 tty 'pg\n' db query pg --write "drop table t_person" >/dev/null
 check "person: the right name runs it" 0 "$($K db query pg "select count(*) from information_schema.tables where table_name='t_person'" | jget 'd["data"]["results"][0]["rows"][0][0]')"
 
+# `komando db` alone: examples and the conn journey, exit 0
+O=$(tty '' db); RC=$?
+check "person: komando db shows how to list databases" 1 "$(grep -c 'komando list kind:db' <<<"$O")"
+check "person: komando db shows examples" 1 "$(grep -c '^  komando db dump prod-db --to prod.sql.gz' <<<"$O")"
+check "person: komando db alone exits 0" 0 "$RC"
+
 # a change that weakens komando's own safety: [y/N]
 q $K policy deny "t-person-word"
 tty 'n\n' policy rm "t-person-word" >/dev/null
