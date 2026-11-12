@@ -205,11 +205,11 @@ func findSetting(key string) (*setting, error) {
 			return &settings[i], nil
 		}
 	}
-	hint := "settings: " + strings.Join(settingKeys(), ", ")
+	e := out.Errf(out.ExitUsage, "UNKNOWN_SETTING", "settings: "+strings.Join(settingKeys(), ", "), "unknown setting %q", key)
 	if c := closest(key, settingKeys()); c != "" {
-		hint = "did you mean " + c + "? (" + hint + ")"
+		suggest(e, key, c)
 	}
-	return nil, out.Errf(out.ExitUsage, "UNKNOWN_SETTING", hint, "unknown setting %q", key)
+	return nil, e
 }
 
 type configRow struct {

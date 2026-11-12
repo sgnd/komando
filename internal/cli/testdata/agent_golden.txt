@@ -7508,6 +7508,146 @@ exit 6
 --- stdout
 --- stderr
 Stopped: replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack). Nothing was changed.
+### komando -o json ps (agent json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"ps\"; komando does this with `komando docker ps TARGET`","hint":"run `komando docker ps TARGET` instead","suggestion":"docker ps TARGET"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text ps (agent text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "ps"; komando does this with `komando docker ps TARGET`
+### komando -o json ps (script json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"ps\"; komando does this with `komando docker ps TARGET`","hint":"run `komando docker ps TARGET` instead","suggestion":"docker ps TARGET"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text ps (script text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "ps"; komando does this with `komando docker ps TARGET`
+### komando -o json get (agent json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"get\"; komando does this with `komando list`","hint":"run `komando list` instead","suggestion":"list"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text get (agent text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "get"; komando does this with `komando list`
+### komando -o json get (script json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"get\"; komando does this with `komando list`","hint":"run `komando list` instead","suggestion":"list"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text get (script text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "get"; komando does this with `komando list`
+### komando -o json delete web1 (agent json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"delete\"; komando does this with `komando host rm web1`","hint":"run `komando host rm web1` instead","suggestion":"host rm web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text delete web1 (agent text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "delete"; komando does this with `komando host rm web1`
+### komando -o json delete web1 (script json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"delete\"; komando does this with `komando host rm web1`","hint":"run `komando host rm web1` instead","suggestion":"host rm web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text delete web1 (script text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "delete"; komando does this with `komando host rm web1`
+### komando -o json kubectl get pods (agent json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"kubectl\"; komando does this with `komando cluster run TARGET -- ...`","hint":"run `komando cluster run TARGET -- ...` instead","suggestion":"cluster run TARGET -- ..."},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text kubectl get pods (agent text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "kubectl"; komando does this with `komando cluster run TARGET -- ...`
+### komando -o json kubectl get pods (script json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"kubectl\"; komando does this with `komando cluster run TARGET -- ...`","hint":"run `komando cluster run TARGET -- ...` instead","suggestion":"cluster run TARGET -- ..."},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text kubectl get pods (script text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "kubectl"; komando does this with `komando cluster run TARGET -- ...`
+### komando -o json psql (agent json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"psql\"; komando does this with `komando db query CONN`","hint":"run `komando db query CONN` instead","suggestion":"db query CONN"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text psql (agent text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "psql"; komando does this with `komando db query CONN`
+### komando -o json psql (script json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"psql\"; komando does this with `komando db query CONN`","hint":"run `komando db query CONN` instead","suggestion":"db query CONN"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text psql (script text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "psql"; komando does this with `komando db query CONN`
+### komando -o json exce web1 -- uptime (agent json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"exce\"; did you mean exec?","hint":"run it again with exec: `komando -o json exec web1 -- uptime`","suggestion":"exec"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text exce web1 -- uptime (agent text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "exce"; did you mean exec?
+### komando -o json exce web1 -- uptime (script json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"komando","error":{"code":"USAGE","message":"unknown command \"exce\"; did you mean exec?","hint":"run it again with exec: `komando -o json exec web1 -- uptime`","suggestion":"exec"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text exce web1 -- uptime (script text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "exce"; did you mean exec?
+### komando -o json svc restat web1 nginx (agent json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"svc","error":{"code":"USAGE","message":"unknown command \"restat\" for \"komando svc\"; did you mean restart?","hint":"run it again with restart: `komando -o json svc restart web1 nginx`","suggestion":"restart"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text svc restat web1 nginx (agent text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "restat" for "komando svc"; did you mean restart?
+### komando -o json svc restat web1 nginx (script json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"svc","error":{"code":"USAGE","message":"unknown command \"restat\" for \"komando svc\"; did you mean restart?","hint":"run it again with restart: `komando -o json svc restart web1 nginx`","suggestion":"restart"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text svc restat web1 nginx (script text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: unknown command "restat" for "komando svc"; did you mean restart?
 ### komando schema storage link (schema values)
 exit 0
 komando storage link kind=change confirm=[{"tier":"change"}]

@@ -238,24 +238,16 @@ func usageErr(cmd *cobra.Command, err error) error {
 		}
 		return e
 	} else if ok {
-		e.Message = fmt.Sprintf("unknown command %q", name)
 		if name == "add" && !cmd.HasParent() {
+			e.Message = fmt.Sprintf("unknown command %q", name)
 			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn add`; typed alone at a terminal, each one asks step by step"
 			return e
 		}
-		s := cmd.SuggestionsFor(name)
-		for _, c := range cmd.Commands() {
-			if slices.Contains(c.SuggestFor, name) { // an old name: only the command that does it now
-				s = []string{c.Name()}
-			}
+		var rest []string
+		if i := slices.Index(os.Args, name); i > 0 {
+			rest = os.Args[i+1:]
 		}
-		if len(s) > 0 {
-			e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
-			e.Hint = "see `" + cmd.CommandPath() + " " + s[0] + " --help`"
-		} else {
-			e.Hint = "see `" + cmd.CommandPath() + " --help` for the list of commands"
-		}
-		return e
+		return unknownCommandErr(cmd, name, rest)
 	}
 	// a flag value's own message and hint (flagHint), without pflag's
 	// "invalid argument ... for ... flag:" around it
@@ -287,6 +279,10 @@ func usageErr(cmd *cobra.Command, err error) error {
 	if flag, ok := strings.CutPrefix(m, "unknown flag: "); ok {
 		if s := closestFlag(cmd, strings.TrimLeft(flag, "-")); s != "" {
 			e.Message += "; did you mean --" + s + "?"
+			// a safety override is never handed out as a line to run
+			if name, _, _ := strings.Cut(flag, "="); !slices.Contains(safetyOverrides, s) {
+				suggest(e, name, "--"+s)
+			}
 		}
 		return e
 	}

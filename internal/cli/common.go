@@ -77,12 +77,10 @@ func applyConventions(c *cobra.Command) {
 				}
 				return cmd.Help()
 			}
-			e := out.Usage("unknown command %q for %q", args[0], cmd.CommandPath())
-			cmd.SuggestionsMinimumDistance = 2
-			if s := cmd.SuggestionsFor(args[0]); len(s) > 0 {
-				e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
+			e := unknownCommandErr(cmd, args[0], args[1:])
+			if e.Suggestion == "" {
+				e.Hint = has
 			}
-			e.Hint = has
 			if h := inventoryVerbHint(cmd, args[0]); h != "" {
 				e.Hint = h + "; " + has
 			}

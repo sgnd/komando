@@ -75,10 +75,11 @@ func resolveSelection(st *store.State, expr string) (selection, error) {
 	}
 	if len(items) == 0 {
 		hint := "run `komando list` to see servers, conns, groups and tags"
+		near := ""
 		if len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0 {
 			hint = "the inventory is empty. Add a server: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)"
-		} else if s := closestSelector(st, expr); s != "" {
-			hint = fmt.Sprintf("did you mean %q? (%s)", s, hint)
+		} else {
+			near = closestSelector(st, expr)
 		}
 		msg := fmt.Sprintf("target %q matched nothing", expr)
 		if e := strings.TrimSpace(expr); !strings.Contains(e, ",") {
@@ -88,7 +89,11 @@ func resolveSelection(st *store.State, expr string) (selection, error) {
 				msg = fmt.Sprintf("nothing has the tag %q", t)
 			}
 		}
-		return sel, out.Errf(out.ExitNotFound, "TARGET_EMPTY", hint, "%s", msg)
+		e := out.Errf(out.ExitNotFound, "TARGET_EMPTY", hint, "%s", msg)
+		if near != "" {
+			suggest(e, strings.TrimSpace(expr), near)
+		}
+		return sel, e
 	}
 	notePersonal(st, sel.Hosts, sel.Conns)
 	return sel, nil
@@ -316,11 +321,11 @@ func matchPattern[T any](items []T, attrs func(T) selAttrs, sel string) (res []T
 // when a host, conn, group or tag is spelled almost the same.
 func targetNotFound(st *store.State, sel string) error {
 	names := allNames(st)
-	hint := "run `komando list` to see servers, conns and VPNs"
+	e := out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "run `komando list` to see servers, conns and VPNs", "no server, conn or VPN named %q", sel)
 	if s := closest(sel, names); s != "" {
-		hint = fmt.Sprintf("did you mean %q? (%s)", s, hint)
+		suggest(e, sel, s)
 	}
-	return out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", hint, "no server, conn or VPN named %q", sel)
+	return e
 }
 
 // closestSelector suggests a group or tag for a misspelled @group or tag:

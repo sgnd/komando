@@ -169,4 +169,13 @@ var goldenNotes = [][]string{
 	// a key pinned, the real run stops before it connects
 	{"host", "trust", "prod1", "--reset", "--dry-run"},
 	{"host", "trust", "prod1", "--reset"},
+	// C-E11 (S-5.17): words from other tools get komando's command, a
+	// typo the nearest name, as error.suggestion and in the hint
+	{"ps"},
+	{"get"},
+	{"delete", "web1"},
+	{"kubectl", "get", "pods"},
+	{"psql"},
+	{"exce", "web1", "--", "uptime"},
+	{"svc", "restat", "web1", "nginx"},
 }

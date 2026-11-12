@@ -40,7 +40,10 @@ type Error struct {
 	// Thing says which kind of item a code shared by several kinds is
 	// about (KEY_NOT_FOUND: ssh_key or cache_key), S-8.3; additive
 	Thing string `json:"thing,omitempty"`
-	Exit  int    `json:"-"`
+	// Suggestion is the word komando thinks was meant ("did you mean"),
+	// S-8.8; the hint has the whole command line with it; additive
+	Suggestion string `json:"suggestion,omitempty"`
+	Exit       int    `json:"-"`
 	// Final: no flag lifts this stop (no --yes, --allow-dangerous or
 	// --reveal), so an AI agent is not told that adding one asks the user
 	Final bool `json:"-"`

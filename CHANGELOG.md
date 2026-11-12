@@ -9,6 +9,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `error.suggestion` holds the name komando thinks you meant when a
+  command, server, conn, group, secret, setting or flag is misspelled,
+  and the hint is then the whole command line with it in place (`run it
+  again with exec: komando exec web1 -- uptime`). Additive. Words from
+  other tools get the komando command that does that job: `komando ps`
+  suggests `komando docker ps TARGET`, `kubectl` `komando cluster run
+  TARGET -- ...`, `psql` and `mysql` `komando db query CONN`, `get`
+  `komando list`, `delete web1` `komando host rm web1`.
 - docs/features/error-codes.md has a table of the codes that mean the
   same (`PROTECTED_HOST` and `PROTECTED_TARGET`, `TARGET_EMPTY` and
   `NO_MATCHING_TARGETS`, ...) and which one new errors use. All of them
@@ -107,6 +115,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- An unknown command word suggests at most two names, within one typo
+  for a word of four letters or fewer and two for a longer one: `komando
+  ps` no longer suggests cp, db, fs, pkg and vpn. The hint names a
+  command only when there is one suggestion.
 - Commands in hints use the words of the command they name, and komando
   fills them in: drivers say `komando test CONN` (was `komando conn
   test NAME`), and `komando login SERVER`, `komando shell SERVER`,

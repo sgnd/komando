@@ -305,8 +305,8 @@ func TestInvSecrets(t *testing.T) {
 		t.Error("secret get leaks the length")
 	}
 	e := wantCode(t, "SECRET_NOT_FOUND", "secret", "get", "s3")
-	if !strings.Contains(e.Hint, "did you mean") {
-		t.Errorf("hint %q", e.Hint)
+	if e.Suggestion == "" || !strings.Contains(e.Hint, e.Suggestion) {
+		t.Errorf("no suggestion: %+v", e)
 	}
 	mustRun(t, "host", "add", "prod", "u@10.0.0.2", "--protected", "--password-ref", "secret:s1")
 	wantCode(t, "PROTECTED_TARGET", "secret", "set", "s1", "--from-env", "INV_S")

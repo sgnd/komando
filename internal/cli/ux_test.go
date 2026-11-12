@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -31,10 +32,14 @@ func usageFor(t *testing.T, args ...string) *out.Error {
 }
 
 func TestTypoSuggestions(t *testing.T) {
+	saved := os.Args
+	t.Cleanup(func() { os.Args = saved })
+	os.Args = []string{"komando", "exce", "web1"}
 	e := usageFor(t, "exce", "web1")
-	if e.Message != `unknown command "exce"; did you mean exec?` || e.Hint != "see `komando exec --help`" {
+	if e.Message != `unknown command "exce"; did you mean exec?` || e.Hint != "run it again with exec: `komando exec web1`" || e.Suggestion != "exec" {
 		t.Errorf("command typo: %q / %q", e.Message, e.Hint)
 	}
+	os.Args = saved
 	if strings.Contains(e.Message, "\n") {
 		t.Errorf("one line: %q", e.Message)
 	}

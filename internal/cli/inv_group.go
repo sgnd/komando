@@ -87,11 +87,11 @@ func groupMembersOf(st *store.State, group string) []string {
 }
 
 func groupNotFound(st *store.State, group string) error {
-	hint := "run `komando group list` to see groups"
+	e := out.Errf(out.ExitNotFound, "GROUP_NOT_FOUND", "run `komando group list` to see groups", "no group named %q", group)
 	if s := closest(group, mapKeys(allGroups(st).Groups)); s != "" {
-		hint = fmt.Sprintf("did you mean %q? (%s)", s, hint)
+		suggest(e, group, s)
 	}
-	return out.Errf(out.ExitNotFound, "GROUP_NOT_FOUND", hint, "no group named %q", group)
+	return e
 }
 
 // manyMembers: removing a whole group from more than this many entries

@@ -134,11 +134,11 @@ func checkHostVia(s *store.State, h *store.Host) error {
 			continue
 		}
 		if _, ok := s.Hosts[step]; !ok {
-			hint := "--via takes server and VPN names; see `komando list`"
+			e := out.Errf(out.ExitNotFound, "VIA_NOT_FOUND", "--via takes server and VPN names; see them with `komando list`", "no server or VPN named %q", step)
 			if c := closest(step, viaNames(s)); c != "" {
-				hint = fmt.Sprintf("did you mean %q? (%s)", c, hint)
+				suggest(e, step, c)
 			}
-			return out.Errf(out.ExitNotFound, "VIA_NOT_FOUND", hint, "no server or VPN named %q", step)
+			return e
 		}
 	}
 	// a cycle through other hosts: a -> b -> a

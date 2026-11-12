@@ -37,7 +37,7 @@ func foldMatch(n string, names []string) (string, bool) {
 func notFoundSuggest(kind, name string, names []string) *out.Error {
 	e := out.NotFound(kind, name)
 	if s := closest(name, names); s != "" {
-		e.Hint = fmt.Sprintf("did you mean %q? (%s)", s, e.Hint)
+		suggest(e, name, s)
 	}
 	return e
 }
