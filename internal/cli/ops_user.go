@@ -229,8 +229,8 @@ state is read through sudo; with --no-sudo it is left out.`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			u := args[1]
-			if !nameRe.MatchString(u) {
-				return out.Usage("invalid username %q: start with a letter or digit, then letters, digits, . _ or - (at most 63)", u)
+			if err := checkUsername(u); err != nil {
+				return err
 			}
 			pubKey, err := userPubKey(keyName, pubKey)
 			if err != nil {
@@ -280,6 +280,9 @@ state is read through sudo; with --no-sudo it is left out.`,
 		Short: "Lock an account so password and SSH keys stop working",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkUsername(args[1]); err != nil {
+				return err
+			}
 			if err := lockoutStop(args[0], args[1], "locking"); err != nil {
 				return err
 			}
@@ -293,6 +296,9 @@ state is read through sudo; with --no-sudo it is left out.`,
 		Short: "Unlock an account locked with `user lock`",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkUsername(args[1]); err != nil {
+				return err
+			}
 			return runOps(cmd.Context(), opsSpec{name: "user.unlock", target: args[0], command: userExists(args[1]) + needShadow("usermod") + "usermod -U -e '' " + sshx.Q(args[1]),
 				display: "user unlock " + args[1], sudo: !noSudo, mutating: true,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return userResult(args[1], "unlocked", rr) }})
@@ -309,6 +315,9 @@ func userRmCmd(noSudo *bool) *cobra.Command {
 		Short: "Delete a user (needs --allow-dangerous)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkUsername(args[1]); err != nil {
+				return err
+			}
 			if err := lockoutStop(args[0], args[1], "deleting"); err != nil {
 				return err
 			}
@@ -351,4 +360,13 @@ func userPubKey(keyName, pubKey string) (string, error) {
 		return "", out.NotFound("key", keyName)
 	}
 	return k.PublicKey, nil
+}
+
+// checkUsername: an account name, never an option of useradd, usermod or
+// userdel.
+func checkUsername(u string) error {
+	if !nameRe.MatchString(u) {
+		return out.Usage("invalid username %q: start with a letter or digit, then letters, digits, . _ or - (at most 63)", u)
+	}
+	return nil
 }

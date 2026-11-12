@@ -676,3 +676,22 @@ func TestDockerContainerIsNeverAnOption(t *testing.T) {
 		t.Errorf("a real name: %s", o)
 	}
 }
+
+// USERNAME is checked for every user command, not only add.
+func TestUserNamesAreChecked(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if err := store.Update(func(st *store.State) error {
+		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { g.dryRun = false }()
+	for _, verb := range []string{"add", "lock", "unlock", "rm"} {
+		if e := toErr(runRoot(t, "-o", "json", "--dry-run", "user", verb, "web1", "--", "-r")); e == nil || e.Code != "USAGE" {
+			t.Errorf("user %s -r: %v", verb, e)
+		}
+		g.dryRun = false
+	}
+}

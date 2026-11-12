@@ -49,6 +49,9 @@ its highlights; the sections below them give the details. Versions follow
 - `docker start`, `stop`, `restart` and `rm` name their argument
   `CONTAINER...` and `docker pull` `IMAGE...` (was `NAME...`) in help and
   usage errors.
+- `user lock`, `unlock` and `rm` check USERNAME like `user add` does, so a
+  name starting with `-` is a usage error instead of an option of
+  `usermod` or `userdel`.
 
 ## [0.12.0] - 2026-11-11
 
