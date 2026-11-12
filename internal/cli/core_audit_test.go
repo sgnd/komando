@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -188,5 +189,17 @@ func TestHostAddressNeverAnOption(t *testing.T) {
 	st := &store.State{Hosts: map[string]*store.Host{"old": {Name: "old", Address: "-oproxycommand=x"}}}
 	if _, err := sshCommandFor(st, st.Hosts["old"]); err == nil || !strings.Contains(err.Error(), "option") {
 		t.Errorf("want a refusal, got %v", err)
+	}
+}
+
+// export names a key komando made as sealed (no file to copy), not by its
+// sealed: path as a "key file".
+func TestExportSealedKey(t *testing.T) {
+	invHome(t)
+	mustRun(t, "key", "gen", "k1")
+	mustRun(t, "host", "add", "a", "u@10.0.0.1", "--key", "k1")
+	d := mustRun(t, "export", "--to", filepath.Join(t.TempDir(), "e.json"))
+	if fmt.Sprint(d["keys_sealed"]) != "[k1]" || d["key_files"] != nil {
+		t.Errorf("keys_sealed %v key_files %v", d["keys_sealed"], d["key_files"])
 	}
 }

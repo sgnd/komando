@@ -214,10 +214,14 @@ func exportCmd() *cobra.Command {
 					}
 				}
 			}
-			var keyFiles []string // what to copy to the other computer, as the export does not
+			var keyFiles, keysSealed []string // what to copy to the other computer, as the export does not
 			for _, n := range slices.Sorted(maps.Keys(keys)) {
 				f.Keys = append(f.Keys, n)
-				keyFiles = append(keyFiles, st.Keys[n].Path)
+				if store.SealedKey(st.Keys[n]) { // made by key gen: in store.db, no file to copy
+					keysSealed = append(keysSealed, n)
+				} else {
+					keyFiles = append(keyFiles, st.Keys[n].Path)
+				}
 			}
 			for _, c := range sel.Conns {
 				if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok {
@@ -257,7 +261,7 @@ func exportCmd() *cobra.Command {
 				return err
 			}
 			out.P.Print("export", exportResult{File: to, Hosts: len(f.Hosts), Conns: len(f.Conns), Vpns: len(f.Vpns), Recipes: len(f.Recipes),
-				DenyRules: len(f.DenyRules), Settings: len(f.Settings) > 0, SecretsNeeded: f.Secrets, KeysNeeded: f.Keys, KeyFiles: keyFiles}, nil)
+				DenyRules: len(f.DenyRules), Settings: len(f.Settings) > 0, SecretsNeeded: f.Secrets, KeysNeeded: f.Keys, KeyFiles: keyFiles, KeysSealed: keysSealed}, nil)
 			return nil
 		},
 	}
@@ -278,6 +282,9 @@ type exportResult struct {
 	SecretsNeeded []string `json:"secrets_needed"`
 	KeysNeeded    []string `json:"keys_needed"`
 	KeyFiles      []string `json:"key_files,omitempty"` // private keys: copied by hand, never put in an export file
+	// KeysSealed are keys komando made (key gen): sealed in store.db, so
+	// there is no file to copy; the other computer makes its own
+	KeysSealed []string `json:"keys_sealed,omitempty"`
 }
 
 func (r exportResult) Text() string {
@@ -302,6 +309,10 @@ func (r exportResult) Text() string {
 	}
 	if len(r.KeyFiles) > 0 {
 		t += "copy these key files too: " + strings.Join(r.KeyFiles, ", ") + "\n"
+	}
+	for _, k := range r.KeysSealed {
+		t += "key " + k + " was made by komando and stays sealed here: on the other computer run `komando key gen " + k +
+			"`, then put its public key on the servers from here (`komando key deploy FILE.pub TARGET`)\n"
 	}
 	return t
 }

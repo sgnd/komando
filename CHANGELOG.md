@@ -46,6 +46,10 @@ its highlights; the sections below them give the details. Versions follow
   ssh-command` could print it where `ssh` reads it as an option. A server
   saved that way before gets an error from `host ssh-command` instead of
   the line.
+- `export` no longer tells you to copy `sealed:...` "key files" for keys
+  komando made (they have no file): it says to run `komando key gen NAME`
+  on the other computer and deploy that key (JSON `keys_sealed`). The
+  import note for a missing key says the same.
 
 ## [0.12.0] - 2026-11-11
 

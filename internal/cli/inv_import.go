@@ -70,7 +70,7 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 				// as with an identity file: the server comes in, its key
 				// is said, and ssh-agent or a default key may log in
 				// meanwhile (a key file is never in an export file)
-				later[h] = append(later[h], fmt.Sprintf("%s: its key %s is not on this computer, so it was left out; copy the key file from the old computer, then run `komando key add %s PATH` and `komando host edit %s --key %s`", h.Name, h.Key, h.Key, h.Name, h.Key))
+				later[h] = append(later[h], fmt.Sprintf("%s: its key %s is not on this computer, so it was left out; copy the key file from the old computer and run `komando key add %s PATH` (a key komando made has no file: run `komando key gen %s` and put it on the server from the old computer), then `komando host edit %s --key %s`", h.Name, h.Key, h.Key, h.Key, h.Name, h.Key))
 				h.Key = ""
 			}
 		}
