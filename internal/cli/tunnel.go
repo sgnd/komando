@@ -52,6 +52,10 @@ LPORT/PORT 0 picks a free port; the chosen address is returned.`,
 	return c
 }
 
+// tunnelServeCommand is the background `komando tunnel serve ID` process
+// (self is komando); tests put a stand-in here.
+var tunnelServeCommand = func(self string, args []string) *exec.Cmd { return exec.Command(self, args...) }
+
 type tunnelSpec struct {
 	Kind       string
 	BindAddr   string
@@ -277,7 +281,7 @@ point your database app or psql at the local address it prints. With a server, g
 					pargs = append(pargs, "--yes") // checked by this command already
 				}
 			}
-			p := exec.Command(self, pargs...)
+			p := tunnelServeCommand(self, pargs)
 			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
 			p.SysProcAttr = detachAttr()
 			vault.PassOnStdin(p) // not in its environment: it runs for long
@@ -293,9 +297,21 @@ point your database app or psql at the local address it prints. With a server, g
 				}
 				return nil
 			})
-			// wait for READY / ERROR from the child
+			// wait for READY / ERROR from the child; Ctrl-C stops it, so a
+			// tunnel the person cancelled does not come up after all
 			deadline := time.Now().Add(sshOpts(st).ConnectTimeout + 5*time.Second)
+			undo := func() {
+				_ = netx.Terminate(pid)
+				_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, id); return nil })
+			}
 			for time.Now().Before(deadline) {
+				if err := cmd.Context().Err(); err != nil {
+					undo()
+					_ = os.Remove(logPath)
+					e := toErr(err)
+					e.Hint = "the tunnel was stopped before it came up; nothing is left running (`komando tunnel list` shows the rest)"
+					return e
+				}
 				b, _ := os.ReadFile(logPath)
 				s := string(b)
 				if i := strings.Index(s, "READY "); i >= 0 {
@@ -315,8 +331,7 @@ point your database app or psql at the local address it prints. With a server, g
 				}
 				time.Sleep(150 * time.Millisecond)
 			}
-			_ = netx.Terminate(pid)
-			_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, id); return nil })
+			undo()
 			return tunnelTimeout(hostName, logPath)
 		},
 	}

@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Ctrl-C while `tunnel start` waits for its tunnel now stops the
+  background process and forgets the tunnel (`CANCELLED`); it was ignored,
+  so the tunnel could still come up after the person cancelled.
 - `komando login HOST --dry-run` with nobody at a terminal (an AI agent)
   now prints the plan with `would_log_in: false` and `NEEDS_TERMINAL` in
   `meta.would_be_blocked`, instead of failing: a dry run is never blocked.

@@ -1,9 +1,15 @@
 package cli
 
 import (
+	"bytes"
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 func TestGuardBind(t *testing.T) {
@@ -57,5 +63,39 @@ func TestCheckValidate(t *testing.T) {
 	}
 	if checkValidate("nginx -t") == nil {
 		t.Errorf("--validate without a %%s placeholder must be refused")
+	}
+}
+
+// TestTunnelStartCtrlC: Ctrl-C while tunnel start waits for its background
+// process stops that process and forgets the tunnel; it used to wait on and
+// could still bring the tunnel up after the person cancelled.
+func TestTunnelStartCtrlC(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@127.0.0.1:2")
+	var child *exec.Cmd
+	saved := tunnelServeCommand
+	tunnelServeCommand = func(string, []string) *exec.Cmd { child = exec.Command("sleep", "60"); return child }
+	t.Cleanup(func() { tunnelServeCommand = saved })
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(500*time.Millisecond, cancel)
+	root := newRoot()
+	root.SetArgs([]string{"-o", "json", "tunnel", "start", "web1", "-L", "0:localhost:80"})
+	var buf bytes.Buffer
+	savedW := out.P.W
+	out.P.W = &buf
+	t0 := time.Now()
+	err := root.ExecuteContext(ctx)
+	out.P.W = savedW
+	if e := toErr(err); e == nil || e.Code != "CANCELLED" {
+		t.Fatalf("want CANCELLED, got %v", err)
+	}
+	if d := time.Since(t0); d > 5*time.Second {
+		t.Errorf("took %s after Ctrl-C", d)
+	}
+	if child == nil || child.Wait() == nil { // killed: Wait reports the signal
+		t.Error("the background process was not stopped")
+	}
+	if st := mustState(t); len(st.Tunnels) != 0 {
+		t.Errorf("tunnel kept: %v", st.Tunnels)
 	}
 }
