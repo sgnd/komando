@@ -39,6 +39,16 @@ its highlights; the sections below them give the details. Versions follow
   line newer than the installed Go): the script now hands go-licenses
   Go's own GOROOT. Run on its own, it also covers the Windows builds.
 
+- The install line says what went wrong in words: a `KOMANDO_VERSION`
+  that does not exist, no connection, a missing `curl` or `tar`, a
+  checksum that does not match. It checks `KOMANDO_INSTALL_DIR` before it
+  downloads, and puts komando in place with a rename inside that folder,
+  never by writing into a komando that is running. On Windows (Git Bash)
+  it points to the `.zip` download; it no longer calls `komando` alone a
+  menu.
+- README: the Windows `.zip` is an install option, and `prompt` (now
+  `status --short`) is no longer listed as a command.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights

@@ -43,7 +43,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Rotate keys and passwords](rotate.md) | change a key or a password everywhere, in order; when someone leaves | `key`, `secret`, `db user`, `audit` |
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit`, `ssh-gate` |
 | [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit verify` |
-| [Results and errors](output.md) | JSON and text output, exit codes, common errors, what is still running | `status`, `prompt`, `schema` |
+| [Results and errors](output.md) | JSON and text output, exit codes, common errors, what is still running | `status`, `schema` |
 | [Error codes](error-codes.md) | every error code, its exit code and the usual next step | `schema` |
 | [Settings and files](settings.md) | settings, environment variables, where komando keeps its data, and updating komando | `config`, `doctor`, `update` |
 | [Glossary](glossary.md) | the words, in plain language | none |

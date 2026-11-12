@@ -24,7 +24,8 @@ one plain question at a time. Unsure about a word? See [Key terms](#key-terms).
 ## Install
 
 Open a terminal (macOS: the **Terminal** app; Linux: your terminal; Windows:
-install [WSL](https://learn.microsoft.com/windows/wsl/install) first) and paste:
+[WSL](https://learn.microsoft.com/windows/wsl/install), or take the Windows
+download below) and paste:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
@@ -43,6 +44,9 @@ and add that line to `~/.zshrc` (macOS) or `~/.bashrc` (Linux) so it stays.
 Other ways to install:
 
 - Download a file from [Releases](https://github.com/sgnd/komando/releases).
+  On Windows without WSL, take `komando_windows_amd64.zip` (or `_arm64.zip`),
+  unpack `komando.exe` into a folder in your `PATH`; `komando update` keeps
+  it up to date.
 - Read the script first with `curl -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/install.sh`,
   then run `sh install.sh`. `KOMANDO_INSTALL_DIR=DIR` picks the folder and
   `KOMANDO_VERSION=v0.5.0` one version.
@@ -288,7 +292,7 @@ Then ask in your own words: *"Why is web1 slow?"*, *"Update all servers"*,
 | Kubernetes and Docker Swarm: status, logs, apply, restart, scale | `cluster` |
 | Container registries: tags, image details, copy, clean up | `registry` |
 | History, safety rules and a health check of your setup | `audit`, `policy`, `doctor` |
-| What is still running; settings | `status`, `prompt`, `config` |
+| What is still running; settings | `status`, `config` |
 | Help for AI agents | `guide`, `schema` |
 
 Every task, step by step, one page per feature:
