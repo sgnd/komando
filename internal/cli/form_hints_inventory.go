@@ -25,9 +25,9 @@ var (
 	invConns = formArg{ask: "Which conns?", pick: "conn", free: true,
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by commas."}
 	invTargets = formArg{ask: "Which ones?", pick: "target", free: true,
-		help: "A server, service or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
+		help: "A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
 	invTargetsAll = formArg{ask: "Which ones? (pick all for everything)", pick: "target", free: true,
-		help: "A server, service or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
+		help: "A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
 	invNewName = formArg{ask: "What should the new name be?", example: "web2",
 		help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}
 	invJob = formArg{ask: "Which job?", pick: "job", free: true,
@@ -159,7 +159,7 @@ var invListHints = map[string]formHint{
 	},
 	"group": {},
 	"group add": {args: []formArg{invGroupNew, {ask: "What goes in it?", pick: "target", free: true,
-		help: "A server, service or VPN, or tag:prod or several names separated by spaces or commas."}}},
+		help: "A server, conn or VPN, or tag:prod or several names separated by spaces or commas."}}},
 	"group list": {args: []formArg{{ask: "Which group? (leave empty for all)", pick: "group", free: true,
 		help: "Empty lists every group and tag with what is in it."}}},
 	"group rename": {args: []formArg{invGroup, {ask: "What should the new name be?", example: "web-prod",

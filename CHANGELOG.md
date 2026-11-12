@@ -655,6 +655,10 @@ instead.
   "your list" (not "inventory"), and plain words before JSON paths and
   stream names: `each server's result has its exit code and error output
   (data.results in -o json)`, `read the error output (stderr) ...`.
+- The questions komando asks for a missing argument say "conn" for a
+  database, cache or other conn (`To which server or conn?`, `No conns
+  yet: ...`) and "like" for an example (`Name, like web1:`, was `Name,
+  e.g. web1:`).
 
 ### Removed
 

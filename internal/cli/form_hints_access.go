@@ -62,13 +62,13 @@ func init() {
 		"vpn rm":     {args: []formArg{accVpns}},
 
 		// Tunnels
-		"tunnel start": {args: []formArg{{ask: "To which server or service?", pick: "target", free: true,
-			help: "Pick a service (a database, a cache) to reach it from this computer, or a server to forward a port through it."}},
+		"tunnel start": {args: []formArg{{ask: "To which server or conn?", pick: "target", free: true,
+			help: "Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it."}},
 			flags: []formFlag{
-				{name: "port", ask: "Which port on this computer? (for a service)", example: "15432",
+				{name: "port", ask: "Which port on this computer? (for a conn)", example: "15432",
 					help: "Point your app at localhost and this port. Leave empty for a free one; komando shows which."},
 				{name: "local", ask: "What should it forward? (for a server)", example: "8080:localhost:80",
-					help: "LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a service."},
+					help: "LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a conn."},
 			}},
 		"tunnel list": {},
 		"tunnel stop": {args: []formArg{{ask: "Which tunnels should stop? (leave empty with --all)", pick: "tunnel", free: true,

@@ -272,8 +272,8 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	}
 	invHome(t)
 	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "host", "add")
-	p.answer("Name, e.g. web1: ", "web1\r")
-	p.answer("Address, e.g.", "root:hun@ter2@203.0.113.20\r")
+	p.answer("Name, like web1: ", "web1\r")
+	p.answer("Address, like", "root:hun@ter2@203.0.113.20\r")
 	p.answer("a password was in it", "\r") // User [root]
 	p.answer("System [Linux]: ", "\r")
 	p.answer("Port [22]: ", "\r")

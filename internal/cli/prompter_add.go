@@ -136,7 +136,7 @@ func promptAddAsk(st *store.State, sp formSpec, a formAnswers, i int) (string, e
 	q := sp.qs[i]
 	label, def := q.label, formDefault(st, q, a)
 	if q.example != "" && q.choices == nil && def == "" {
-		label += ", e.g. " + q.example
+		label += ", like " + q.example
 	}
 	pq := promptQ{label: label, def: def, optional: q.optional, help: strings.TrimSpace(q.ask + " " + q.help)}
 	check := func(v string) string {
@@ -160,7 +160,7 @@ func promptAddAsk(st *store.State, sp formSpec, a formAnswers, i int) (string, e
 		}
 		v, err := ask(pq)
 		if clean, found := pastedSecret(v); q.addr && found {
-			fmt.Fprintln(promptW, "  ! a password was in it: komando took it out and keeps nothing; choose A password below and the add command asks for it, hidden.")
+			fmt.Fprintln(promptW, "  ! a password was in it: komando took it out and kept nothing.\n    Pick A password below; komando then asks for it, hidden.")
 			v = clean
 		}
 		return v, err
