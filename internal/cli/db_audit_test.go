@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/out"
 )
@@ -42,4 +45,26 @@ func TestDBKillDryRunWouldBeBlocked(t *testing.T) {
 	if b := out.P.Blocked(); b == nil || b.Code != "PROTECTED_TARGET" {
 		t.Fatalf("would_be_blocked = %+v, want PROTECTED_TARGET", b)
 	}
+}
+
+// db dump --to FOLDER puts the usual CONN-<date> file in it; --to - is
+// refused (it would have made a file named "-").
+func TestDBDumpToFolder(t *testing.T) {
+	invHome(t)
+	dir := t.TempDir()
+	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(dir, "app.db"))
+	mustRun(t, "db", "query", "lite", "--write", "create table t (id int)")
+	backups := filepath.Join(dir, "backups")
+	if err := os.Mkdir(backups, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	d := mustRun(t, "db", "dump", "kind:db", "--to", backups)
+	want := filepath.Join(backups, "lite-"+time.Now().Format("2006-01-02")+".db")
+	if d["file"] != want {
+		t.Fatalf("file %v, want %s", d["file"], want)
+	}
+	if _, err := os.Stat(want); err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, "USAGE", "db", "dump", "lite", "--to", "-")
 }

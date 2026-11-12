@@ -134,6 +134,7 @@ a server). --table and --schema-only narrow the dump. SQLite databases are copie
 as a database file instead. An existing FILE is never overwritten. The file
 holds your data: it is created readable only by you.`,
 		Example: `  komando db dump prod-db                  # saves prod-db-<date>.sql.gz here
+  komando db dump prod-db --to backups/              # the same name, inside backups/
   komando db dump prod-db --to prod-2026-11-02.sql.gz
   komando db dump prod-db --to prod.dump --format custom
   komando db dump prod-db --to prod.dump --format custom --on db1
@@ -142,18 +143,26 @@ holds your data: it is created readable only by you.`,
   komando db dump local --to backup.db`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			conn := args[0]
+			conn, file := args[0], false
 			if st, err := loadState(); err == nil {
 				if c, err := singleConn(st, args[0], "db"); err == nil {
 					conn = c.Name // the file and the note name the conn, not a selector
-					if t, err := driver.Parse(c.URL); err == nil && t.Kind.File && to == "" {
-						to = defaultDumpFile(conn, o.format, time.Now())
-						to = strings.TrimSuffix(to, ".sql.gz") + ".db"
+					if t, err := driver.Parse(c.URL); err == nil && t.Kind.File {
+						file = true
 					}
 				}
 			}
-			if to == "" {
-				to = defaultDumpFile(conn, o.format, time.Now())
+			def := defaultDumpFile(conn, o.format, time.Now())
+			if file {
+				def = strings.TrimSuffix(def, ".sql.gz") + ".db"
+			}
+			switch fi, err := os.Stat(to); {
+			case to == "-":
+				return out.Usage("db dump writes a file on this computer, not to stdout: give --to FILE, or a folder for %s", def)
+			case to == "":
+				to = def
+			case err == nil && fi.IsDir(): // --to backups/: the usual name inside it
+				to = filepath.Join(to, def)
 			}
 			if o.format != "plain" && o.format != "custom" {
 				return out.Usage("--format is plain (SQL) or custom (PostgreSQL archive)")

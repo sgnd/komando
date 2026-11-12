@@ -347,12 +347,15 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
 ## Back up and restore
 
 ```bash
+komando db dump app-db                                  # app-db-<date>.sql.gz in this folder
+komando db dump app-db --to backups/                    # the same name, inside backups/
 komando db dump app-db --to app-2026-11-02.sql.gz      # plain SQL, compressed (.gz)
 komando db dump app-db --to app.dump --format custom   # PostgreSQL archive, for pg_restore
 komando db dump app-db --to orders.sql --table public.orders   # one table (repeatable)
 komando db dump app-db --to schema.sql --schema-only   # no rows
+komando db restore staging-db --from app-2026-11-02.sql.gz --dry-run    # checks the file, changes nothing
 komando db restore staging-db --from app-2026-11-02.sql.gz --allow-dangerous
-komando db restore staging-db --from app.dump --allow-dangerous   # an archive goes to pg_restore
+komando db restore staging-db --from app.dump --allow-dangerous   # an archive: pg_restore on the conn's --via server
 komando db dump app-db --to app.dump --format custom --on db1      # pg_dump runs on the server db1
 komando db restore staging-db --from app.dump --on db1 --allow-dangerous   # pg_restore runs on db1
 ```
@@ -360,7 +363,9 @@ komando db restore staging-db --from app.dump --on db1 --allow-dangerous   # pg_
 ### Where the backup goes, and who makes it
 
 The backup always goes to a file on this computer, readable only by you.
-An existing file is never overwritten.
+An existing file is never overwritten. Without `--to` it is
+`CONN-<date>.sql.gz` (SQLite: `CONN-<date>.db`) in this folder; `--to` a
+folder puts that name inside it.
 
 `pg_dump` or `mysqldump` runs on a server that has it: the one you name with
 `--on HOST`, else the last server of the conn's `--via` path. Otherwise (a

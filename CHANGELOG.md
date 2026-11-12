@@ -31,6 +31,10 @@ its highlights; the sections below them give the details. Versions follow
   `conn mv`, `conn rm`). The `db dump` question for `--to` is no longer
   marked required: without it the backup is `CONN-<date>.sql.gz`.
 
+- `db dump --to FOLDER` saves `CONN-<date>.sql.gz` inside that folder
+  (it failed with `FILE_EXISTS`), and `--to -` is refused with a usage
+  error instead of creating a file named `-`.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights
