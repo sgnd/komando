@@ -21,7 +21,7 @@ sigint() {
   if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid"; wait "$pid" 2>/dev/null; echo "999"; return; fi
   wait "$pid"; echo "$?"
 }
-leftovers() { $K exec direct --read-only -o text -- 'ls -a /tmp /tmp/e2efiles-dir /tmp/e2efiles-sync 2>/dev/null | grep -c "^\.komando-"'; }
+leftovers() { $K exec direct --read-only -o text -- 'ls -a /tmp /tmp/e2efiles-dir /tmp/e2efiles-sync 2>/dev/null | grep -c "^\.komando-" || true'; }
 
 check "Ctrl-C stops an upload" 1 "$(sigint $K upload direct "$F/big.bin" /tmp/e2efiles-big.bin -o text)"
 check "Ctrl-C upload says CANCELLED" True "$(grep -q CANCELLED "$F/out" && echo True || echo False)"
