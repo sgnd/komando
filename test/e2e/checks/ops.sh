@@ -93,6 +93,7 @@ $K net check direct 127.0.0.1:1 >/dev/null; check "net check of a closed port fa
 $K net check direct 127.0.0.1:99999 >/dev/null; check "net check checks the port" 2 $?
 $K net http direct http://127.0.0.1:1/ >/dev/null; check "net http without an answer exits 4" 4 $?
 $K net dns direct localhost --type BOGUS >/dev/null; check "net dns checks --type" 2 $?
+$K net dns direct --type MX -- -f/etc/passwd >/dev/null; check "net dns refuses a name that is a dig option" 2 $?
 set -e
 check "net check says why" refused "$($K net check direct 127.0.0.1:1 | jget "${r0}['data'][0]['reason']" || true)"
 check "net dns --type A" True "$($K net dns direct localhost --type A | jget "'127.0.0.1' in ${r0}['data']['records']")"
@@ -114,3 +115,33 @@ check "vpn down --all with nothing up" True "$($K vpn down --all | jget 'd["ok"]
 check "vpn test hint is not itself" True "$($K vpn test lab | jget '"tunnel start" in d["data"]["results"][0]["error"]["hint"]' || true)"
 check "vpn edit changes notes" t-fixops "$($K vpn edit corp --notes t-fixops | jget 'd["data"]["vpn"]["notes"]')"
 q $K vpn edit corp --notes ''
+
+# a person at a terminal: deletes ask for the server's name, a protected
+# server asks [y/N], "no" changes nothing (komando's own questions, no flags)
+tty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; } # tty ANSWER ARGS...
+set +e
+O=$(tty 'wrong\n' docker prune swarm1); RC=$?
+check "person: docker prune asks for the server's name" 1 "$(grep -c 'Type the name swarm1 to continue' <<<"$O")"
+check "person: docker prune never asks a bare yes" 0 "$(grep -c 'Type yes' <<<"$O")"
+check "person: a wrong name stops docker prune (6)" 6 "$RC"
+O=$(tty 'wrong\n' pkg rm direct openssh-server); RC=$?
+check "person: removing an essential package asks for the name" 1 "$(grep -c 'Type the name direct to continue' <<<"$O")"
+check "person: a wrong name keeps the package (6)" "6 True" "$RC $($K pkg installed direct openssh-server | jget "${r0}['data'][0]['installed']")"
+q $K host add t-fixops-p "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent-pass --protected
+q $K host trust t-fixops-p
+O=$(tty 'n\n' svc restart t-fixops-p ssh); RC=$?
+check "person: svc restart on a protected server asks [y/N]" 1 "$(grep -c 't-fixops-p is protected. Change it anyway? \[y/N\]' <<<"$O")"
+check "person: no to svc restart stops (6)" 6 "$RC"
+O=$(tty 'wrong\n' reboot t-fixops-p); RC=$?
+check "person: reboot asks for the server's name" 1 "$(grep -c 'Type the name t-fixops-p to continue' <<<"$O")"
+check "person: a wrong name stops the reboot (6)" 6 "$RC"
+q $K host rm t-fixops-p
+# logs --follow ends with Ctrl-C: a clean stop, not an error
+O=$(ptyrun $'\x03' env NO_COLOR=1 TERM=dumb "$K" -o text logs direct --file /etc/hostname --follow | tr -d '\r'); RC=$?
+check "person: logs --follow shows the lines before Ctrl-C" 1 "$(grep -c '^direct' <<<"$O")"
+check "person: Ctrl-C ends logs --follow cleanly (0)" "0 0" "$RC $(grep -ci 'error' <<<"$O")"
+set -e
+
+# a group: one result per server, each with its own error
+check "svc status @lab gives one result per server" "bastion direct" "$($K svc status @lab ssh | jget "' '.join(sorted(r['host'] for r in d['data']['results']))" || true)"
+check "pkg installed @lab: each server answers" "True True" "$($K pkg installed @lab bash | jget "' '.join(str(r['ok']) for r in d['data']['results'])")"

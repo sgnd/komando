@@ -244,6 +244,17 @@ func TestNetDNS(t *testing.T) {
 	if _, err := dnsCommand("x", "BOGUS"); err == nil {
 		t.Fatal("unknown type must be refused")
 	}
+	// a name is never an option of dig or getent (dig -f FILE reads a file)
+	for _, bad := range []string{"-f/etc/passwd", "-f", "a b", "x;id", "", "$(id)"} {
+		if _, err := dnsCommand(bad, "MX"); err == nil {
+			t.Errorf("%q must be refused", bad)
+		}
+	}
+	for _, good := range []string{"db.internal", "_sip._tcp.example.com", "10.0.0.5", "2001:db8::1", "localhost"} {
+		if _, err := dnsCommand(good, "PTR"); err != nil {
+			t.Errorf("%q: %v", good, err)
+		}
+	}
 	c, _ := dnsCommand("example.com", "mx")
 	if !strings.Contains(c, "dig +short -t MX 'example.com'") || !strings.Contains(c, "no-dig") {
 		t.Fatalf("MX: %s", c)
