@@ -226,7 +226,7 @@ func weakTLS(oldURL, newURL string) []string {
 		if !t.Secure && q.Get("insecure") == "1" {
 			w = append(w, "insecure=1 (travels unencrypted, passwords too)")
 		}
-	case "redis", "memcached":
+	case "redis", "memcached", "s3", "gcs", "azblob":
 		if !t.Secure && q.Get("insecure") == "1" {
 			w = append(w, "insecure=1 (travels unencrypted, passwords too)")
 		}

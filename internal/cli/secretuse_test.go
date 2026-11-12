@@ -201,6 +201,9 @@ func TestWeakTLS(t *testing.T) {
 		{"memcacheds://cache:11211", "memcached://cache:11211", "no TLS any more"},
 		{"postgres://a@db/app?sslmode=disable", "postgres://b@db/app?sslmode=disable", ""}, // it had it before
 		{"redis://default@cache:6379/0", "redis://default@cache:6379/1", ""},
+		{"", "s3://b?endpoint=http://10.0.0.5:9000&insecure=1", "insecure=1"},
+		{"", "gs://b?endpoint=http://10.0.0.5:4443&insecure=1", "insecure=1"},
+		{"", "azblob://acct@media?endpoint=http://10.0.0.5:10000/acct&insecure=1", "insecure=1"},
 	} {
 		got := strings.Join(weakTLS(c.old, c.now), "; ")
 		if (c.want == "") != (got == "") || !strings.Contains(got, c.want) {
@@ -218,6 +221,9 @@ func TestWeakTLS(t *testing.T) {
 	}
 	wantCode(t, "SAFETY_SETTING", "conn", "edit", "cache", "--url", "redis://default@10.0.0.7:6379/0?insecure=1")
 	wantCode(t, "SAFETY_SETTING", "conn", "add", "reg", "registry://u@reg.example?tls=skip-verify")
+	// an s3 conn with aws_profile has no secret reference, but its AWS
+	// session token would travel in clear: a person says yes first
+	wantCode(t, "SAFETY_SETTING", "conn", "add", "files3", "s3://b?endpoint=http://10.0.0.5:9000&insecure=1", "--option", "aws_profile=dev")
 	mustRun(t, "conn", "edit", "pg", "--add-tag", "x") // nothing new
 	if len(*texts) != 0 {
 		t.Fatalf("no flag, no window: %q", *texts)
