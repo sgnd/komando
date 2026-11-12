@@ -13,6 +13,23 @@ set +e; $K registry rm reg tools/busybox:1.37 >/dev/null; check "registry rm nee
 check "registry rm names the tags it takes" True "$($K registry rm reg tools/busybox:1.37 --allow-dangerous --dry-run | jget '"1.37" in d["data"]["tags"]')"
 q $K registry rm reg tools/busybox:1.37 --allow-dangerous
 check "registry rm removed it" REGISTRY_NOT_FOUND "$($K registry inspect reg tools/busybox:1.37 | jget 'd["error"]["code"]' || true)"
+# a person deleting an image: told which tags go, then types the conn's name
+rtty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }
+# its own repository: clu.sh uses mirror/busybox:stable later
+q $K registry copy reg:mirror/busybox:stable reg:t-person/busybox:stable
+q $K registry copy reg:mirror/busybox:stable reg:t-person/busybox:also
+set +e
+O=$(rtty 'wrong\n' registry rm reg t-person/busybox:stable); RC=$?
+check "person: registry rm says every tag that goes" 1 "$(grep -c 'every tag on it: also, stable' <<<"$O")"
+check "person: registry rm asks to type the name" 1 "$(grep -c 'Type the name reg to continue' <<<"$O")"
+check "person: a wrong name stops registry rm (6)" 6 "$RC"
+check "person: a wrong name deleted nothing" True "$($K registry inspect reg t-person/busybox:also | jget 'd["ok"]')"
+O=$(rtty 'reg\n' registry rm reg t-person/busybox:stable); RC=$?
+check "person: the right name deletes the image" "0 1" "$RC $(grep -c 'with it went every tag on that image: also, stable' <<<"$O")"
+check "person: both tags are gone" "[]" "$($K registry ls reg t-person/busybox | jget 'd["data"]["tags"]')"
+check "person: registry ls in text says what is next" 1 "$(rtty '' registry ls reg | grep -c 'Next: komando registry ls reg REPO')"
+check "agent: registry names are checked first" USAGE "$($K registry inspect reg 'tools/../_catalog:1' | jget 'd["error"]["code"]' || true)"
+set -e
 # prune: three images built one after the other; keepme is the same image as v1
 for v in 1 2 3; do
   printf 'FROM busybox:1.37\nRUN echo %s > /build\n' "$v" | docker build -q -t "127.0.0.1:$E2E_REGISTRY/prune/app:v$v" - >/dev/null

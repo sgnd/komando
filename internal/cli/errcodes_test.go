@@ -666,6 +666,7 @@ var meanings = map[string]string{
 	"READ_FAILED":          "komando could not read from the server or the resource",
 	"REGISTRY_AUTH":        "the registry refused the login or the token's scopes",
 	"REGISTRY_UNSUPPORTED": "the registry does not allow this request",
+	"REGISTRY_RATE_LIMIT":  "the registry turned the request down: too many requests (Docker Hub's pull limit)",
 	"REGISTRY_UNREACHABLE": "the registry did not answer (address, TLS or --via path)",
 	"REMOTE_ERROR":         "an error from outside komando with no more specific code (its words follow)",
 	"RESTORE_FAILED":       "the restore stopped; what was loaded before the error stays (unless it ran in one transaction)",

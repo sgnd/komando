@@ -10,10 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"os/exec"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,23 +36,33 @@ func registryCmd() *cobra.Command {
 		Use:     "registry",
 		Aliases: []string{"oci"},
 		Short:   "Container registries: repositories, tags, images, cleanup",
-		Long: `Look at and clean up container images. Add a registry with
-` + "`komando registry add ghcr registry://myuser@ghcr.io --ask-password`" + `, or bring
-in the ones you use with ` + "`komando import docker`" + ` (from ~/.docker/config.json). ls and inspect
-only read; rm and prune delete images and need --allow-dangerous.
+		Long: `Look at, copy and clean up container images. Add a registry with
+` + "`komando registry add ghcr registry://myuser@ghcr.io --ask-password`" + `,
+or bring in the ones you use with ` + "`komando import docker`" + `.
+ls and inspect only read, copy writes to the destination, rm and prune
+delete images and need --allow-dangerous (try --dry-run first).
 
-TLS options in the registry URL: ?ca=secret:NAME trusts a private CA, or pins the
-registry's own certificate (saved with komando secret set; the check stays on), ?tls=skip-verify does not check the certificate,
-?tls=false is plain HTTP. With --via the last server looks the name up.
-?resolve=IP connects to that IP instead of what DNS says (like curl --resolve);
-TLS keeps using the name in the URL, and tls= and ca= work as without it.`,
+TLS options in the registry URL: ?ca=secret:NAME trusts a private CA (or
+pins the registry's own certificate; the check stays on), ?tls=skip-verify
+does not check the certificate, ?tls=false is plain HTTP. ?resolve=IP
+connects to that IP instead of what DNS says (like curl --resolve). With
+--via the last server looks the name up.`,
+		Example: `  komando registry add ghcr registry://myuser@ghcr.io --ask-password
+  komando registry ls ghcr myorg/api
+  komando registry inspect ghcr myorg/api:1.4.2
+  komando registry copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2
+  komando registry prune harbor prod/api --keep 10 --dry-run`,
 	}
 	c.AddCommand(connAddCmdFor("registry"), registryLsCmd(), registryInspectCmd(), registryCopyCmd(), registryRmCmd(), registryPruneCmd())
 	return c
 }
 
 // withRegistry opens a registry conn and runs fn after the safety check.
+// what, when not nil, reads what a delete takes before the check, so the
+// question a person answers (and the approval a person gives an agent)
+// names the image and its tags, not only the command.
 func withRegistry(ctx context.Context, name, expr string, risk driver.Risk, extra map[string]any,
+	what func(ctx context.Context, r *registry.Client) string,
 	fn func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error)) error {
 	st, err := loadState()
 	if err != nil {
@@ -60,20 +72,39 @@ func withRegistry(ctx context.Context, name, expr string, risk driver.Risk, extr
 	if err != nil {
 		return err
 	}
-	if err := guardConns(st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"registry"}, Reasons: []string{name}}); err != nil {
+	ctx, cancel := context.WithTimeout(ctx, cmdTimeout(st))
+	defer cancel()
+	var rc *registry.Client
+	var closeRC func()
+	defer func() {
+		if closeRC != nil {
+			closeRC()
+		}
+	}()
+	open := func() (err error) {
+		if rc == nil {
+			rc, closeRC, err = openRegistry(ctx, st, c)
+		}
+		return err
+	}
+	reasons := []string{name}
+	// a registry that does not answer is reported after the check, so a
+	// blocked delete stays blocked whatever the network does
+	if what != nil && !g.dryRun && open() == nil {
+		if s := what(ctx, rc); s != "" {
+			reasons = append(reasons, s)
+		}
+	}
+	if err := guardConns(st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"registry"}, Reasons: reasons}); err != nil {
 		if g.dryRun {
 			out.P.Print(name, map[string]any{"conn": c.Name, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
 			return nil
 		}
 		return err
 	}
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout(st))
-	defer cancel()
-	rc, closeRC, err := openRegistry(ctx, st, c)
-	if err != nil {
+	if err := open(); err != nil {
 		return err
 	}
-	defer closeRC()
 	res, err := fn(ctx, c, rc)
 	if err != nil {
 		err = registryErr(err)
@@ -153,6 +184,12 @@ func registryErr(err error) error {
 			code, exit = "REGISTRY_NOT_FOUND", out.ExitNotFound
 		case 405:
 			code, hint = "REGISTRY_UNSUPPORTED", "this registry does not allow it (Docker Hub and GHCR have no catalog; deletes may be turned off)"
+		case 429:
+			code, hint = "REGISTRY_RATE_LIMIT", "the registry limits how many requests it takes (Docker Hub: pulls per 6 hours, fewer without a login); wait and run it again"
+			if e.RetryAfter != "" {
+				hint += " after " + retryAfter(e.RetryAfter)
+			}
+			hint += ", or log in: put the user in the conn URL and give --password-ref"
 		}
 		return out.Errf(exit, code, hint, "%s", e.Error())
 	}
@@ -175,6 +212,59 @@ func registryErr(err error) error {
 			"the registry did not answer within the time limit (--timeout)")
 	}
 	return out.Errf(out.ExitConnect, "REGISTRY_UNREACHABLE", "check the conn with `komando test NAME`", "%s", dialMessage(err))
+}
+
+// retryAfter turns a Retry-After header (seconds, or an HTTP date) into
+// words: "120 s", or the local time.
+func retryAfter(v string) string {
+	if n, err := strconv.Atoi(v); err == nil {
+		return (time.Duration(n) * time.Second).String()
+	}
+	if t, err := http.ParseTime(v); err == nil {
+		return t.Local().Format("15:04:05")
+	}
+	return v
+}
+
+// catalogErr explains a refused catalog: Docker Hub and GHCR have none, and
+// elsewhere a token may read repositories without being allowed to list them.
+func catalogErr(r *registry.Client, err error) error {
+	var e *registry.Error
+	if !errors.As(err, &e) {
+		return err
+	}
+	noCatalog := r.DockerHub() || r.Base.Host == "ghcr.io"
+	switch {
+	case noCatalog && (e.Status == 401 || e.Status == 403 || e.Status == 404 || e.Status == 405):
+		return out.Errf(out.ExitRemote, "REGISTRY_UNSUPPORTED", "name the repository: `komando registry ls CONN REPO` (on Docker Hub, nginx means library/nginx)",
+			"%s has no list of every repository", r.Base.Host)
+	case e.Status == 401 || e.Status == 403:
+		return out.Errf(out.ExitConnect, "REGISTRY_AUTH", "the login may read images but not list every repository: name one with `komando registry ls CONN REPO`; else check the user in the conn URL and its --password-ref",
+			"the registry refused to list its repositories: %s", e.Error())
+	}
+	return err
+}
+
+// imageArg splits and checks REPO[:TAG|@DIGEST] before it goes into a URL.
+func imageArg(s string) (repo, ref string, err error) {
+	repo, ref = splitImage(s)
+	if err := registry.CheckRepo(repo); err != nil {
+		return "", "", out.Usage("%s: %v", s, err)
+	}
+	if err := registry.CheckRef(ref); err != nil {
+		return "", "", out.Usage("%s: %v", s, err)
+	}
+	return repo, ref, nil
+}
+
+func repoArg(s string) error {
+	if err := registry.CheckRepo(s); err != nil {
+		if strings.ContainsAny(s, ":@") {
+			return out.Usage("%v; give only the repository, without a tag", err)
+		}
+		return out.Usage("%v", err)
+	}
+	return nil
 }
 
 // certErr says whether err is a failed certificate check.
@@ -208,22 +298,28 @@ func registryLsCmd() *cobra.Command {
 			if limit < 1 {
 				return out.Usage("--limit must be 1 or more")
 			}
-			return withRegistry(cmd.Context(), "registry.ls", args[0], driver.RiskRead, nil, func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
+			if len(args) == 2 {
+				if err := repoArg(args[1]); err != nil {
+					return err
+				}
+			}
+			return withRegistry(cmd.Context(), "registry.ls", args[0], driver.RiskRead, nil, nil, func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
 				// one more than asked tells whether the list was cut
 				if len(args) == 1 {
 					repos, err := r.Catalog(ctx, limit+1)
 					if err != nil {
-						return nil, err
+						return nil, catalogErr(r, err)
 					}
 					repos, cut := cutList(repos, limit)
-					return withTruncated(map[string]any{"conn": c.Name, "count": len(repos), "repositories": repos}, cut), nil
+					return lsData(withTruncated(map[string]any{"conn": c.Name, "count": len(repos), "repositories": repos}, cut)), nil
 				}
-				tags, err := r.Tags(ctx, args[1], limit+1)
+				repo := r.Repo(args[1])
+				tags, err := r.Tags(ctx, repo, limit+1)
 				if err != nil {
-					return nil, imageErr(ctx, r, args[1], "", err)
+					return nil, imageErr(ctx, r, repo, "", err)
 				}
 				tags, cut := cutList(tags, limit)
-				return withTruncated(map[string]any{"conn": c.Name, "repo": args[1], "count": len(tags), "tags": tags}, cut), nil
+				return lsData(withTruncated(map[string]any{"conn": c.Name, "repo": repo, "count": len(tags), "tags": tags}, cut)), nil
 			})
 		},
 	}
@@ -256,11 +352,17 @@ func registryInspectCmd() *cobra.Command {
 		Use:     "inspect CONN REPO[:TAG|@DIGEST]",
 		Aliases: []string{"get", "show"},
 		Short:   "Digest, size, platforms, created time and labels of an image",
-		Example: "  komando registry inspect ghcr myorg/api:1.4.2",
-		Args:    cobra.ExactArgs(2),
+		Example: `  komando registry inspect ghcr myorg/api:1.4.2
+  komando registry inspect dockerhub nginx            # Docker Hub: library/nginx:latest
+  komando registry inspect harbor shop/api@sha256:4c2e...`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withRegistry(cmd.Context(), "registry.inspect", args[0], driver.RiskRead, nil, func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
-				repo, ref := splitImage(args[1])
+			repo, ref, err := imageArg(args[1])
+			if err != nil {
+				return err
+			}
+			return withRegistry(cmd.Context(), "registry.inspect", args[0], driver.RiskRead, nil, nil, func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
+				repo := r.Repo(repo)
 				m, err := r.Inspect(ctx, repo, ref)
 				if err != nil {
 					return nil, imageErr(ctx, r, repo, ref, err)
@@ -273,18 +375,28 @@ func registryInspectCmd() *cobra.Command {
 
 func registryRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "rm CONN REPO:TAG|REPO@DIGEST",
-		Short:   "Delete an image and every tag on it (needs --allow-dangerous)",
-		Example: "  komando registry rm harbor myorg/api:old --allow-dangerous",
-		Args:    cobra.ExactArgs(2),
+		Use:   "rm CONN REPO:TAG|REPO@DIGEST",
+		Short: "Delete an image and every tag on it (needs --allow-dangerous)",
+		Long: `Deletes the image a tag (or digest) points at. A registry deletes images,
+not tags: every other tag on the same image goes too, latest included.
+--dry-run names each tag that would go. The space comes back after the
+registry's garbage collection.`,
+		Example: `  komando registry rm harbor myorg/api:old --dry-run
+  komando registry rm harbor myorg/api:old --allow-dangerous`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// a forgotten tag must not mean latest, the image that usually runs
 			if _, ref := splitImage(args[1]); ref == "latest" && !strings.HasSuffix(args[1], ":latest") {
 				return out.Usage("name the tag or digest to delete, e.g. %s:1.2 (komando does not pick latest for a delete)", args[1])
 			}
+			repo, ref, err := imageArg(args[1])
+			if err != nil {
+				return err
+			}
 			return withRegistry(cmd.Context(), "registry.rm", args[0], driver.RiskDestructive, map[string]any{"image": args[1]},
+				func(ctx context.Context, r *registry.Client) string { return rmWhat(ctx, r, r.Repo(repo), ref) },
 				func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
-					repo, ref := splitImage(args[1])
+					repo := r.Repo(repo)
 					m, err := r.Inspect(ctx, repo, ref)
 					if err != nil {
 						return nil, imageErr(ctx, r, repo, ref, err)
@@ -294,8 +406,12 @@ func registryRmCmd() *cobra.Command {
 					}
 					// deleting by digest removes every tag on it: name them all
 					tags, checked, more := tagsOn(ctx, r, repo, m.Digest)
-					res := map[string]any{"conn": c.Name, "tags": tags}
-					if more {
+					res := rmData{"conn": c.Name, "tags": tags}
+					switch {
+					case tags == nil:
+						res["tags"] = []string{}
+						res["tags_note"] = "komando could not list the repository's tags; other tags may point at this image too"
+					case more:
 						res["tags_note"] = fmt.Sprintf("only the first %d tags were checked; others may point at this image too", checked)
 					}
 					if g.dryRun {
@@ -315,7 +431,10 @@ func registryRmCmd() *cobra.Command {
 }
 
 // importDocker reads ~/.docker/config.json: inline auths, and credential
-// helpers (docker-credential-*) when the config names one.
+// helpers (docker-credential-*) when the config names one. A cloud
+// registry whose docker login is a short-lived token (Amazon ECR, Google
+// with gcloud, Azure with az acr login) is added without it: komando logs
+// in with the cloud login each time, so the conn does not die in hours.
 func importDocker(path string) (*importPlan, error) {
 	b, err := readSource(path)
 	if err != nil {
@@ -323,7 +442,8 @@ func importDocker(path string) (*importPlan, error) {
 	}
 	var cfg struct {
 		Auths map[string]struct {
-			Auth string `json:"auth"`
+			Auth          string `json:"auth"`
+			IdentityToken string `json:"identitytoken"`
 		} `json:"auths"`
 		CredsStore  string            `json:"credsStore"`
 		CredHelpers map[string]string `json:"credHelpers"`
@@ -331,12 +451,25 @@ func importDocker(path string) (*importPlan, error) {
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		return nil, out.Usage("%s: %v", path, err)
 	}
+	// a credHelpers entry needs no auths entry (docker-credential-ecr-login)
+	servers := make([]string, 0, len(cfg.Auths)+len(cfg.CredHelpers))
+	for server := range cfg.Auths {
+		servers = append(servers, server)
+	}
+	for server := range cfg.CredHelpers {
+		if _, ok := cfg.Auths[server]; !ok {
+			servers = append(servers, server)
+		}
+	}
+	sort.Strings(servers) // the same names on every run
 	p := newPlan()
-	for server, a := range cfg.Auths {
-		host := strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(server, "https://"), "http://"), "/")
-		host = strings.TrimSuffix(host, "/v1")
-		if host == "index.docker.io" {
-			host = "docker.io"
+	for _, server := range servers {
+		a := cfg.Auths[server]
+		host := dockerHost(server)
+		helper := cmp.Or(cfg.CredHelpers[server], cfg.CredsStore)
+		name := p.name(strings.Split(host, ".")[0])
+		if host == "docker.io" {
+			name = p.name("dockerhub")
 		}
 		user, pass := "", ""
 		if a.Auth != "" {
@@ -344,7 +477,17 @@ func importDocker(path string) (*importPlan, error) {
 			if err == nil {
 				user, pass, _ = strings.Cut(string(raw), ":")
 			}
-		} else if helper := cmp.Or(cfg.CredHelpers[server], cfg.CredsStore); helper != "" {
+		}
+		if cloud := cloudLoginOf(host, user, a.IdentityToken != "", cfg.CredHelpers[server]); cloud != "" {
+			u := url.URL{Scheme: "registry", Host: host}
+			p.addConn(name, u.String(), server)
+			if n := len(p.Conns); n > 0 && p.Conns[n-1].Name == name {
+				p.ConnNotes[p.Conns[n-1]] = append(p.ConnNotes[p.Conns[n-1]],
+					name+": logs in with your "+cloud+" login each time; docker's token there lasts only hours, so it is not kept")
+			}
+			continue
+		}
+		if a.Auth == "" && helper != "" {
 			user, pass, err = credHelper(helper, server)
 			if err != nil {
 				p.Notes = append(p.Notes, fmt.Sprintf("%s: %v", server, err))
@@ -355,9 +498,9 @@ func importDocker(path string) (*importPlan, error) {
 			p.Notes = append(p.Notes, server+": no login stored")
 			continue
 		}
-		name := p.name(strings.Split(host, ".")[0])
-		if host == "docker.io" {
-			name = p.name("dockerhub")
+		if user == "<token>" || a.IdentityToken != "" {
+			p.Notes = append(p.Notes, server+": docker keeps an identity token for it, which komando cannot use; add it with a user and --password-ref")
+			continue
 		}
 		u := url.URL{Scheme: "registry", User: url.UserPassword(user, pass), Host: host}
 		p.addConn(name, u.String(), server)
@@ -365,18 +508,128 @@ func importDocker(path string) (*importPlan, error) {
 	return p, nil
 }
 
+// dockerHost is the registry address in a docker config key
+// ("https://index.docker.io/v1/" is Docker Hub).
+func dockerHost(server string) string {
+	host := strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(server, "https://"), "http://"), "/")
+	host = strings.TrimSuffix(host, "/v1")
+	if host == "index.docker.io" || host == "registry-1.docker.io" {
+		host = "docker.io"
+	}
+	return strings.ToLower(host)
+}
+
+// cloudLoginOf names the cloud login komando uses for host ("AWS",
+// "Google", "Azure") when docker's own login there is a short-lived token,
+// or "". A Google service account key (_json_key) and an Azure admin user
+// or registry token last, so they are kept as they are.
+func cloudLoginOf(host, user string, identityToken bool, helper string) string {
+	switch {
+	case ecrRegion(host) != "":
+		return "AWS"
+	case isGoogleRegistry(host) && (user == "oauth2accesstoken" || helper == "gcloud" || helper == "gcr" || (user == "" && helper == "")):
+		return "Google"
+	case acrResource(host) != "" && (identityToken || user == "<token>" || user == "00000000-0000-0000-0000-000000000000"):
+		return "Azure"
+	}
+	return ""
+}
+
+// helperName is what may follow docker-credential-: a plain program name,
+// never a path a config file could point somewhere else with.
+var helperName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
 func credHelper(helper, server string) (string, string, error) {
-	c := exec.Command("docker-credential-"+helper, "get")
+	if !helperName.MatchString(helper) {
+		return "", "", fmt.Errorf("the credential helper name %q is not a program name; komando did not run it", helper)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second) // a helper may wait for a click
+	defer cancel()
+	c := exec.CommandContext(ctx, "docker-credential-"+helper, "get")
 	c.Stdin = strings.NewReader(server)
 	b, err := c.Output()
 	if err != nil {
+		if ctx.Err() != nil {
+			return "", "", fmt.Errorf("the credential helper docker-credential-%s did not answer within 30 s", helper)
+		}
 		return "", "", fmt.Errorf("the credential helper docker-credential-%s failed (%v)", helper, err)
 	}
 	var r struct{ Username, Secret string }
 	if err := json.Unmarshal(b, &r); err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("the credential helper docker-credential-%s gave no login", helper)
 	}
 	return r.Username, r.Secret, nil
+}
+
+// pruneTags reads each tag's digest, and the build date of each image a
+// tag of the rule may take.
+func pruneTags(ctx context.Context, r *registry.Client, repo string, rule registry.PruneRule) ([]registry.TagInfo, error) {
+	const max = 1000
+	tags, err := r.Tags(ctx, repo, max+1)
+	if err != nil {
+		return nil, imageErr(ctx, r, repo, "", err)
+	}
+	if len(tags) > max {
+		return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "komando prunes a repository of at most 1000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN REPO:TAG`",
+			"%s has more than %d tags", repo, max)
+	}
+	// a HEAD per tag for its digest, then one read per image:
+	// tags often share images, and Docker Hub counts every
+	// manifest read as a pull
+	infos := make([]registry.TagInfo, 0, len(tags))
+	built := map[string]time.Time{}
+	for _, t := range tags {
+		d, err := r.Digest(ctx, repo, t)
+		if err != nil {
+			return nil, err
+		}
+		if d == "" { // the registry did not say: read the manifest
+			m, err := r.Inspect(ctx, repo, t)
+			if err != nil {
+				return nil, err
+			}
+			d = m.Digest
+		}
+		// only an image a tag may go with needs its build date
+		cand := t != "latest" && (rule.Match == nil || rule.Match.MatchString(t))
+		if _, ok := built[d]; !ok && d != "" && cand {
+			m, err := r.Inspect(ctx, repo, d)
+			if err != nil {
+				return nil, err
+			}
+			ts, _ := time.Parse(time.RFC3339Nano, m.Created)
+			built[d] = ts
+		}
+		infos = append(infos, registry.TagInfo{Tag: t, Digest: d, Created: built[d]})
+	}
+	return infos, nil
+}
+
+// rmWhat says what `registry rm` takes: the image and every tag on it.
+// Tags come from the registry, so only names a tag may have are shown.
+func rmWhat(ctx context.Context, r *registry.Client, repo, ref string) string {
+	d, err := r.Digest(ctx, repo, ref)
+	if err != nil || registry.CheckRef(d) != nil {
+		return ""
+	}
+	tags, _, more := tagsOn(ctx, r, repo, d)
+	shown := []string{}
+	for _, t := range tags {
+		if registry.CheckRef(t) == nil {
+			shown = append(shown, t)
+		}
+	}
+	s := "deletes " + repo + "@" + shortDigest(d)
+	switch {
+	case len(shown) > 0:
+		s += " and every tag on it: " + strings.Join(shown, ", ")
+	case ref == d:
+		s += ", an image no tag points at"
+	}
+	if more {
+		s += ", and maybe more"
+	}
+	return s
 }
 
 // tagsOn lists the tags of repo that point at digest, checking at most 200
@@ -391,7 +644,7 @@ func tagsOn(ctx context.Context, r *registry.Client, repo, digest string) (tags 
 		all, more = all[:max], true
 	}
 	tags = []string{}
-	for _, t := range all {
+	for _, t := range all { // HEAD requests: Docker Hub does not count them as pulls
 		if d, err := r.Digest(ctx, repo, t); err == nil && d == digest {
 			tags = append(tags, t)
 		}
@@ -440,7 +693,7 @@ func (d inspectData) Text() string {
 		row("size", fmt.Sprintf("%s in %s, compressed", humanBytes(d.Size), countOf(d.Layers, "layer")))
 	}
 	row("platforms", strings.Join(d.Platforms, ", "))
-	row("created", d.Created)
+	row("created", localCreated(d.Created))
 	if len(d.Labels) > 0 {
 		keys := make([]string, 0, len(d.Labels))
 		for k := range d.Labels {
@@ -464,9 +717,10 @@ func registryPruneCmd() *cobra.Command {
 		Long: `Reads every tag's image and build date, then deletes the images the rule
 lets go: --keep N keeps the newest N matching tags, --older-than deletes
 only images built before that age; with both, a tag must pass both to go.
-"latest", tags that do not match --match, and tags with no build date (a
-multi-platform index) always stay. An image a kept tag points at is never
-deleted. Needs --allow-dangerous; --dry-run shows the plan.`,
+"latest", tags that do not match --match, and tags with no build date
+always stay (a multi-platform index has the date of its first image, so
+it can go). An image a kept tag points at is never deleted. Needs
+--allow-dangerous; --dry-run shows the plan.`,
 		Example: `  komando registry prune harbor shop/api --keep 10 --dry-run
   komando registry prune harbor shop/api --keep 5 --older-than 30d --match '^v' --allow-dangerous`,
 		Args: cobra.ExactArgs(2),
@@ -492,32 +746,21 @@ deleted. Needs --allow-dangerous; --dry-run shows the plan.`,
 				}
 				rule.Match = re
 			}
-			repo := args[1]
-			return withRegistry(cmd.Context(), "registry.prune", args[0], driver.RiskDestructive, map[string]any{"repo": repo},
+			if err := repoArg(args[1]); err != nil {
+				return err
+			}
+			return withRegistry(cmd.Context(), "registry.prune", args[0], driver.RiskDestructive, map[string]any{"repo": args[1]},
+				func(context.Context, *registry.Client) string {
+					return "deletes old images of " + args[1] + " (--dry-run lists them)"
+				},
 				func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
-					const max = 1000
-					tags, err := r.Tags(ctx, repo, max+1)
+					repo := r.Repo(args[1])
+					infos, err := pruneTags(ctx, r, repo, rule)
 					if err != nil {
-						return nil, imageErr(ctx, r, repo, "", err)
-					}
-					if len(tags) > max {
-						return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "prune a narrower set with --match, or in several runs",
-							"%s has more than %d tags", repo, max)
-					}
-					infos := make([]registry.TagInfo, 0, len(tags))
-					for _, t := range tags {
-						m, err := r.Inspect(ctx, repo, t)
-						if err != nil {
-							return nil, err
-						}
-						ti := registry.TagInfo{Tag: t, Digest: m.Digest}
-						if ts, err := time.Parse(time.RFC3339Nano, m.Created); err == nil {
-							ti.Created = ts
-						}
-						infos = append(infos, ti)
+						return nil, err
 					}
 					plan := rule.Plan(infos)
-					res := map[string]any{"conn": c.Name, "repo": repo, "tags": len(tags), "delete": plan.Delete, "keep": plan.Keep}
+					res := pruneData{"conn": c.Name, "repo": repo, "tags": len(infos), "delete": plan.Delete, "keep": plan.Keep}
 					if plan.Delete == nil {
 						res["delete"] = []registry.PruneImage{}
 					}

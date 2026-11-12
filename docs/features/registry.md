@@ -19,6 +19,11 @@ komando registry rm harbor myorg/api:old --dry-run                 # what a dele
 `ls` and `inspect` only read. `copy` writes to the destination. `rm` and
 `prune` delete and need `--allow-dangerous`.
 
+At a terminal, leave out the registry or the image and komando asks for
+it, with a list of your registries to pick from, then shows the whole
+command it runs. An AI agent gives every argument; a missing one is a
+`USAGE` error (exit 2) whose hint shows an example.
+
 ## Add a registry
 
 ```bash
@@ -31,6 +36,30 @@ komando registry add local 'registry://me@registry.lan:5000?tls=false' --via bas
 The password is usually an access token. It needs read rights to look,
 write rights to copy into the registry, and delete rights to delete. For
 Docker Hub use `registry://myuser@docker.io`.
+
+`import docker` reads each `docker login` from `~/.docker/config.json`,
+asking the credential helper (`credsStore`, `credHelpers`) when docker
+keeps the login there. Amazon ECR, Google registries logged in through
+gcloud, and Azure registries logged in with `az acr login` hold a token
+that lasts only hours: komando adds those without it and logs in with
+your AWS, Google or Azure login each time (see below).
+
+### Docker Hub
+
+```bash
+komando registry add dockerhub registry://myuser@docker.io --ask-password
+komando registry ls dockerhub myuser/app        # tags of your repository
+komando registry inspect dockerhub nginx        # an official image: library/nginx:latest
+```
+
+- An official image's name without a `/` (`nginx`) means
+  `library/nginx`, as with `docker pull`.
+- Docker Hub has no list of every repository: `registry ls dockerhub`
+  without a repository gives `REGISTRY_UNSUPPORTED`; name one.
+- Docker Hub limits pulls (fewer without a login) and counts every manifest
+  read. Past the limit, komando stops with `REGISTRY_RATE_LIMIT` and says
+  when to try again. `ls` and `rm` read tags with requests Docker Hub does
+  not count; `prune` reads each image once.
 
 ### Amazon ECR
 
@@ -191,6 +220,15 @@ komando registry inspect ghcr myorg/api:1.4.2 # digest, size, platforms, created
 A tag or repository that is not there is "not found" (exit 3), and the
 message says what is there: `mirror/busybox:latest not found; tags: stable`.
 
+`ls` shows at most 1000 entries (`-n` changes it). A cut list has
+`"truncated": true` in JSON and the line `(the first 1000 tags in shop/api;
+there are more: raise -n)` at a terminal.
+
+Names follow the OCI rules: a repository is lower-case letters, digits,
+`.`, `_`, `-` and `/` between parts (`shop/api`); a tag is up to 128
+letters, digits, `.`, `_` and `-`; a digest is `sha256:` and 64 hex digits.
+Anything else is refused with `USAGE` before komando sends a request.
+
 ## Copy images
 
 ```bash
@@ -222,9 +260,19 @@ komando registry rm harbor myorg/api:old --allow-dangerous
 ```
 
 `rm` deletes the image the tag points at, so every other tag on the same
-image goes too. Name the tag or digest: `rm` never picks `latest` by itself. `--dry-run` names them (`would_remove_tags`) before
-anything is deleted. A protected registry conn also needs `--yes`. The disk
-space comes back after the registry runs its garbage collection.
+image goes too. Name the tag or digest: `rm` never picks `latest` by
+itself. `--dry-run` names every tag that would go (`would_remove_tags`)
+before anything is deleted:
+
+```
+$ komando registry rm harbor shop/api:1.9 --dry-run
+would delete shop/api@sha256:4c2e...
+with it goes every tag on that image: 1.9, latest
+latest is one of them: docker pull without a tag stops working
+```
+
+A protected registry conn also needs `--yes`. The disk space comes back
+after the registry runs its garbage collection.
 
 ### Delete old images
 
@@ -243,4 +291,8 @@ komando registry prune harbor myorg/api --keep 10 --older-than 30d --match '^v' 
   expression, such as `^v` for tags starting with v).
 
 `latest`, tags that do not match, and tags with no build date always stay,
-and so does any image that a kept tag points at.
+and so does any image that a kept tag points at. A multi-platform index
+has the build date of its first image, so the rules apply to it like to
+any image. `prune` reads each tag's digest, then each image once, and
+stops with `TOO_MANY_TAGS` above 1000 tags (`--match` does not lift it,
+since every tag is read): delete some first with `registry rm`.

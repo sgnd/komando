@@ -178,12 +178,13 @@ This page is made from the code (`komando schema` lists the same under
 | `RECIPE_CHANGED` | 8 | recipe … changed while komando was starting | run the command again |
 | `RECIPE_EXISTS` | 8 | recipe … exists | pass --overwrite to replace it |
 | `RECIPE_NOT_FOUND` | 3 | recipe … not found | run `komando recipe list` to see available recipes |
-| `REGISTRY_AUTH` | 4 | the registry refused the login or the token's scopes | check the user in the conn URL and its --password-ref (a token with the right scopes) |
+| `REGISTRY_AUTH` | 4 | the registry refused to list its repositories: … | the login may read images but not list every repository: name one with `komando registry ls CONN REPO`; else check the user in the conn URL and its --password-ref |
 | `REGISTRY_ERROR` | 5 | the registry did not say the image's digest | run it again; if it keeps failing, the registry may not support this image format |
 | `REGISTRY_NOT_FOUND` | 3 | repository … not found | list the repositories with `komando registry ls CONN` |
+| `REGISTRY_RATE_LIMIT` | 5 | the registry turned the request down: too many requests (Docker Hub's pull limit) | the registry limits how many requests it takes (Docker Hub: pulls per 6 hours, fewer without a login); wait and run it again |
 | `REGISTRY_TLS` | 4 | the registry's TLS certificate is for another name: … | use the host name the certificate is for in the conn URL; with --via the server on the path looks the name up (its /etc/hosts applies) |
 | `REGISTRY_UNREACHABLE` | 4 | the registry did not answer (address, TLS or --via path) | check the conn with `komando test NAME` |
-| `REGISTRY_UNSUPPORTED` | 5 | the registry does not allow this request | this registry does not allow it (Docker Hub and GHCR have no catalog; deletes may be turned off) |
+| `REGISTRY_UNSUPPORTED` | 5 | … has no list of every repository | name the repository: `komando registry ls CONN REPO` (on Docker Hub, nginx means library/nginx) |
 | `RELEASES_UNREACHABLE` | 4 | cannot reach komando's releases: … | check this computer's internet connection (and HTTPS_PROXY), then try again |
 | `REMOTE_ERROR` | 1 | an error from outside komando with no more specific code (its words follow) | run it again with -o json for the details; `komando doctor` checks this computer's setup |
 | `RENAME_FAILED` | 1 | the vault cannot rename the VPN's secrets: … | nothing was renamed; check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS) |
@@ -249,7 +250,7 @@ This page is made from the code (`komando schema` lists the same under
 | `TOOL_MISSING` | 3 | curl is not installed | install curl on the server |
 | `TOOL_TOO_OLD` | 5 | … failed on … (exit …): … | pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --on HOST |
 | `TOO_MANY` | 8 | … objects match, more than --limit … | narrow --prefix or --older-than, or raise --limit above … after checking the list |
-| `TOO_MANY_TAGS` | 2 | … has more than … tags | prune a narrower set with --match, or in several runs |
+| `TOO_MANY_TAGS` | 2 | … has more than … tags | komando prunes a repository of at most 1000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN REPO:TAG` |
 | `TOPIC_EXISTS` | 8 | topic … already exists | pick another name, or see it with `komando queue describe CONN …` |
 | `TOPIC_NOT_FOUND` | 3 | topic … does not exist | list topics with `komando queue ls CONN` |
 | `TUNNEL_FAILED` | 4 | the server refused the port forwarding (AllowTcpForwarding, address) | check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right |

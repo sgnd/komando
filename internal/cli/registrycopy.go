@@ -91,6 +91,9 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 			dstRef = srcRef
 		}
 	}
+	if err := checkImages(srcRepo, srcRef, dstRepo, dstRef); err != nil {
+		return err
+	}
 	if srcName == dstName && srcRepo == dstRepo && srcRef == dstRef {
 		return out.Usage("%s is the source and the destination; name another repository or tag", from)
 	}
@@ -136,19 +139,10 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 		return err
 	}
 	defer closeDst()
+	srcRepo, dstRepo = sc.Repo(srcRepo), dc.Repo(dstRepo) // Docker Hub: nginx is library/nginx
 	if g.dryRun {
-		m, err := sc.Inspect(ctx, srcRepo, srcRef)
-		if err != nil {
-			return registryErr(imageErr(ctx, sc, srcRepo, srcRef, err))
-		}
-		data.DryRun, data.Source = true, m
-		old, err := dc.Inspect(ctx, dstRepo, dstRef)
-		var answered *registry.Error // not there yet, or not readable before a push: both fine here
-		switch {
-		case err == nil:
-			data.WouldReplace = old.Digest != m.Digest
-		case !errors.As(err, &answered):
-			return registryErr(err) // the destination must be reachable too
+		if err := copyDryRun(ctx, &data, sc, srcRepo, srcRef, dc, dstRepo, dstRef); err != nil {
+			return err
 		}
 		audit(st, "registry.copy", nil, "", true, rec)
 		out.P.Print("registry.copy", data, nil)
@@ -168,6 +162,38 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 	rec["digest"], rec["bytes"] = res.Digest, res.Bytes
 	audit(st, "registry.copy", nil, "", true, rec)
 	out.P.Print("registry.copy", data, nil)
+	return nil
+}
+
+// copyDryRun reads both registries: the source image, and whether the
+// destination tag points to another image now.
+func copyDryRun(ctx context.Context, data *copyData, sc *registry.Client, srcRepo, srcRef string, dc *registry.Client, dstRepo, dstRef string) error {
+	m, err := sc.Inspect(ctx, srcRepo, srcRef)
+	if err != nil {
+		return registryErr(imageErr(ctx, sc, srcRepo, srcRef, err))
+	}
+	data.DryRun, data.Source = true, m
+	old, err := dc.Inspect(ctx, dstRepo, dstRef)
+	var answered *registry.Error // not there yet, or not readable before a push: both fine here
+	switch {
+	case err == nil:
+		data.WouldReplace = old.Digest != m.Digest
+	case !errors.As(err, &answered):
+		return registryErr(err) // the destination must be reachable too
+	}
+	return nil
+}
+
+// checkImages checks repository and tag (or digest) pairs.
+func checkImages(repoRef ...string) error {
+	for i := 0; i+1 < len(repoRef); i += 2 {
+		if err := registry.CheckRepo(repoRef[i]); err != nil {
+			return out.Usage("%v", err)
+		}
+		if err := registry.CheckRef(repoRef[i+1]); err != nil {
+			return out.Usage("%v", err)
+		}
+	}
 	return nil
 }
 
