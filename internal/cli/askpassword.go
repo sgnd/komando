@@ -48,7 +48,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 		return "", undo, out.Usage("use --%s or --%s, not both", a.flag, a.refFlag)
 	}
 	if err := validName(kind, name); err != nil {
-		return "", undo, out.Errf(out.ExitUsage, "USAGE", fmt.Sprintf("give one %s by its name, e.g. komando %s edit web1 --%s", map[string]string{"host": "server", "conn": "conn", "vpn": "VPN"}[kind], kind, a.flag),
+		return "", undo, out.Errf(out.ExitUsage, "USAGE", fmt.Sprintf("give one %s by its name, for example komando %s edit web1 --%s", map[string]string{"host": "server", "conn": "conn", "vpn": "VPN"}[kind], kind, a.flag),
 			"--%s gives one %s its %s; %q is not one name", a.flag, kind, a.what, name)
 	}
 	sec := name + "-" + a.suffix

@@ -68,7 +68,7 @@ func (c *oracleConnector) Driver() driver.Driver { return go_ora.NewDriver() }
 func oracleConfig(rawURL string, t kdriver.Target, password, appName string) (configurations.ConnectionConfig, *tls.Config, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return configurations.ConnectionConfig{}, nil, out.Usage("invalid oracle URL: %v", err)
+		return configurations.ConnectionConfig{}, nil, out.Usage("komando cannot read the oracle URL: %v", err)
 	}
 	o, err := kdriver.ParseOracleOptions(u.Query())
 	if err != nil {
@@ -82,7 +82,7 @@ func oracleConfig(rawURL string, t kdriver.Target, password, appName string) (co
 	}
 	cfg, err := go_ora.ParseConfig(dsn.String())
 	if err != nil {
-		return configurations.ConnectionConfig{}, nil, out.Usage("invalid oracle settings: %v", err)
+		return configurations.ConnectionConfig{}, nil, out.Usage("komando cannot use the oracle settings: %v", err)
 	}
 	cfg.Password = password
 	cfg.ProgramName = appName

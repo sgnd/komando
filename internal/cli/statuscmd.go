@@ -71,7 +71,7 @@ starship, in ~/.config/starship.toml:
   when = true`,
 		Example: `  komando status
   komando status -o json
-  komando status --short   # prints e.g. vpn:2 tun:1, or nothing`,
+  komando status --short   # prints for example vpn:2 tun:1, or nothing`,
 		Args: cobra.NoArgs,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if short {

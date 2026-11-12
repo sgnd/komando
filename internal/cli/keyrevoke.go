@@ -75,7 +75,7 @@ yourself out. --dry-run counts the lines it would remove.`,
 				return err
 			}
 			if user != "" && !nameRe.MatchString(user) {
-				return out.Usage("invalid user name %q: use letters, digits and . _ -", user)
+				return out.Usage("%q cannot be a user name: use letters, digits and . _ -", user)
 			}
 			script := revokeScript(user, blob, g.dryRun)
 			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {

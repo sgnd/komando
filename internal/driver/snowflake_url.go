@@ -39,7 +39,7 @@ var sfAccount = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`)
 func ParseSnowflakeURL(raw string) (SnowflakeConn, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
-		return SnowflakeConn{}, out.Usage("invalid conn URL: %v", err)
+		return SnowflakeConn{}, out.Usage("komando cannot read the conn URL: %v", err)
 	}
 	var s SnowflakeConn
 	host := u.Hostname()
@@ -47,7 +47,7 @@ func ParseSnowflakeURL(raw string) (SnowflakeConn, error) {
 		host = host[:len(host)-len(snowflakeDomain)]
 	}
 	if host == "" {
-		return SnowflakeConn{}, out.Usage("snowflake URL needs an account, e.g. %s", kinds["snowflake"].Example)
+		return SnowflakeConn{}, out.Usage("snowflake URL needs an account, for example %s", kinds["snowflake"].Example)
 	}
 	if !sfAccount.MatchString(host) || strings.Contains(host, "..") || strings.HasSuffix(host, ".") {
 		return SnowflakeConn{}, out.Errf(out.ExitUsage, "USAGE",
@@ -64,7 +64,7 @@ func ParseSnowflakeURL(raw string) (SnowflakeConn, error) {
 	acct, _, _ := strings.Cut(host, ".")
 	s.JWTAccount = strings.ToUpper(acct)
 	if s.User = u.User.Username(); s.User == "" {
-		return SnowflakeConn{}, out.Usage("snowflake URL needs a user, e.g. %s", kinds["snowflake"].Example)
+		return SnowflakeConn{}, out.Usage("snowflake URL needs a user, for example %s", kinds["snowflake"].Example)
 	}
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 	if len(parts) > 2 {

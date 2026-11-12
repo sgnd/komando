@@ -390,7 +390,7 @@ registry's garbage collection.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// a forgotten tag must not mean latest, the image that usually runs
 			if _, ref := splitImage(args[1]); ref == "latest" && !strings.HasSuffix(args[1], ":latest") {
-				return out.Usage("name the tag or digest to delete, e.g. %s:1.2 (komando does not pick latest for a delete)", args[1])
+				return out.Usage("name the tag or digest to delete, for example %s:1.2 (komando does not pick latest for a delete)", args[1])
 			}
 			repo, ref, err := imageArg(args[1])
 			if err != nil {

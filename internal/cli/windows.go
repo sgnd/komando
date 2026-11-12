@@ -44,7 +44,7 @@ func windowsNames(hosts []*store.Host) []string {
 // servers yet. what names the command ("pkg upgrade").
 func notOnWindows(what string, names []string) *out.Error {
 	return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-		"run PowerShell with `komando exec "+names[0]+" -- ...` instead, or leave the Windows servers out of the target, e.g. TARGET,!os:windows ("+releaseSite+"/blob/main/docs/features/windows.md lists what works)",
+		"run PowerShell with `komando exec "+names[0]+" -- ...` instead, or leave the Windows servers out of the target, for example TARGET,!os:windows ("+releaseSite+"/blob/main/docs/features/windows.md lists what works)",
 		"%s does not work on Windows servers yet: %s", what, strings.Join(names, ", "))
 }
 
@@ -123,7 +123,7 @@ func windowsRunCheck(ctx context.Context, name string, hosts []*store.Host, o ex
 	}
 	switch {
 	case o.sudo || o.sudoUser != "":
-		return ctx, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "Windows has no sudo: log in as a user with the rights the command needs (an administrator), e.g. `komando host edit "+hosts[0].Name+" --user Administrator`",
+		return ctx, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "Windows has no sudo: log in as a user with the rights the command needs (an administrator), for example `komando host edit "+hosts[0].Name+" --user Administrator`",
 			"--sudo does not work on Windows servers")
 	case o.pty:
 		return ctx, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "run it without --pty; for an interactive session a person uses `komando shell "+hosts[0].Name+"`",

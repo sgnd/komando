@@ -665,7 +665,7 @@ func TestDockerContainerIsNeverAnOption(t *testing.T) {
 		{"--dry-run", "logs", "web1", "--container=--details"},
 		{"--dry-run", "docker", "logs", "web1", "--", "--since=1h"},
 	} {
-		if e := toErr(runRoot(t, append([]string{"-o", "json"}, args...)...)); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "invalid container") {
+		if e := toErr(runRoot(t, append([]string{"-o", "json"}, args...)...)); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "is not a container name or ID") {
 			t.Errorf("%v: %v", args, e)
 		}
 		g.dryRun = false

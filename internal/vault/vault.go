@@ -586,7 +586,7 @@ func resolve(ref string) (string, error) {
 	case strings.HasPrefix(ref, "vault:"):
 		path, field, ok := strings.Cut(strings.TrimPrefix(ref, "vault:"), "#")
 		if !ok || field == "" {
-			return "", fmt.Errorf("vault: references need #FIELD, e.g. vault:secret/shop#db_password")
+			return "", fmt.Errorf("vault: references need #FIELD, for example vault:secret/shop#db_password")
 		}
 		return cloud.VaultKV(context.Background(), path, field)
 	case strings.HasPrefix(ref, "aws-sm:"):
@@ -617,7 +617,7 @@ func resolve(ref string) (string, error) {
 		}
 		return jsonKey(v, key)
 	}
-	return "", fmt.Errorf("invalid secret reference %q (%s)", ref, RefHelp())
+	return "", fmt.Errorf("%q is not a secret reference (%s)", ref, RefHelp())
 }
 
 func firstLine(s, fallback string) string {

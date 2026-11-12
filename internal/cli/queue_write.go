@@ -101,7 +101,7 @@ func queueValue(cmd *cobra.Command, value, from string) ([]byte, error) {
 			return nil, err
 		}
 		if data == nil {
-			return nil, out.Usage("give the message with --value, --from FILE, or pipe it on stdin")
+			return nil, out.Usage("give the message with --value, --from FILE, or pipe it in (stdin)")
 		}
 	}
 	if len(data) > maxQueueMessage {

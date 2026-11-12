@@ -356,7 +356,7 @@ func installSkill(path string, dryRun bool) (skillFile, error) {
 var schemaEnv = map[string]string{
 	"KOMANDO_HOME":       "state directory (default ~/.komando)",
 	"KOMANDO_OUTPUT":     "default output format json|text",
-	"KOMANDO_ACTOR":      "name recorded in the audit log (e.g. claude-agent)",
+	"KOMANDO_ACTOR":      "name recorded in the audit log (for example claude-agent)",
 	"KOMANDO_VAULT_PASS": "vault passphrase (optional; otherwise the key is in the OS keychain, or store.key where there is none; komando secret passphrase sets or changes it)",
 	"KOMANDO_KEYCHAIN":   "off: komando uses no keychain, and a new vault keeps its key in store.key (CI, containers)",
 }
@@ -541,7 +541,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 					"0": "success", "1": "generic error", "2": "usage error", "3": "not found",
 					"4": "connection/auth/host-key failure, or the connection broke mid-command (CONNECTION_LOST: outcome unknown)", "5": "remote command exited non-zero",
 					"6": "blocked for safety: needs a person's yes (the flag error.hint names) or a person at a terminal", "7": "timeout",
-					"8": "precondition failed (e.g. replace text not found / ambiguous)",
+					"8": "precondition failed (for example replace text not found / ambiguous)",
 				}
 				res["error_codes"] = errorCodes // every code: its exit, an example message, the usual next step
 				res["target_selectors"] = map[string]string{

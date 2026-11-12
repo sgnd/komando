@@ -267,7 +267,7 @@ func clusterScaleCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			n, err := strconv.Atoi(args[len(args)-1])
 			if err != nil || n < 0 {
-				return out.Usage("REPLICAS must be a number, 0 or more")
+				return out.Usage("REPLICAS takes a number, 0 or more")
 			}
 			st, err := loadState()
 			if err != nil {

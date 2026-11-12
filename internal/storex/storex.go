@@ -107,7 +107,7 @@ func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial D
 		Transport: tr,
 	})
 	if err != nil {
-		return nil, out.Usage("invalid storage settings: %v", err)
+		return nil, out.Usage("komando cannot use the storage settings: %v", err)
 	}
 	return &s3Bucket{c: c, bucket: t.Bucket, prefix: t.Prefix, creds: creds, region: t.Region, temp: sessionToken != ""}, nil
 }
@@ -156,7 +156,7 @@ func ListBuckets(ctx context.Context, endpoint, accessKey, secret, sessionToken,
 	if endpoint != "" {
 		u, err := url.Parse(endpoint)
 		if err != nil || u.Host == "" {
-			return nil, fmt.Errorf("bad S3 endpoint %q", endpoint)
+			return nil, fmt.Errorf("the S3 endpoint %q is not a URL with a host", endpoint)
 		}
 		host, secure = u.Host, u.Scheme == "https"
 	}

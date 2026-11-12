@@ -125,7 +125,7 @@ var containerNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`)
 
 func checkContainerName(name string) error {
 	if !containerNameRe.MatchString(name) {
-		return out.Usage("invalid container %q: give its name or ID as `komando docker ps TARGET --all` lists it", name)
+		return out.Usage("%q is not a container name or ID: give it as `komando docker ps TARGET --all` lists it", name)
 	}
 	return nil
 }
@@ -330,7 +330,7 @@ func skipGlobals(args []string, flags map[string]bool, tool string) ([]string, e
 		name, _, hasValue := strings.Cut(args[0], "=")
 		takes, known := flags[name]
 		if !known {
-			return nil, out.Usage("put the %s command first (e.g. `-- rm web`): %s before it is not a flag komando knows", tool, name)
+			return nil, out.Usage("put the %s command first (for example `-- rm web`): %s before it is not a flag komando knows", tool, name)
 		}
 		args = args[1:]
 		if takes && !hasValue {

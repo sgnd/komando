@@ -21,8 +21,8 @@ func isWinRMAddress(s string) bool { return strings.HasPrefix(strings.ToLower(s)
 // port and WinRM settings.
 func parseWinRMAddress(s string) (*store.Host, error) {
 	bad := func(why string) error {
-		return out.Errf(out.ExitUsage, "USAGE", "write it as winrm://USER@HOST[:PORT], e.g. winrm://Administrator@10.0.0.9 (options: ?auth=basic, ?tls=skip-verify or ?tls=off, ?ca=secret:NAME)",
-			"invalid WinRM address %q: %s", s, why)
+		return out.Errf(out.ExitUsage, "USAGE", "write it as winrm://USER@HOST[:PORT], for example winrm://Administrator@10.0.0.9 (options: ?auth=basic, ?tls=skip-verify or ?tls=off, ?ca=secret:NAME)",
+			"komando cannot read the WinRM address %q: %s", s, why)
 	}
 	rest := s[len("winrm://"):]
 	rest, query, _ := strings.Cut(rest, "?")
@@ -97,7 +97,7 @@ func winrmCA(h *store.Host) string {
 func checkWinRM(h *store.Host) error {
 	if !h.WinRM() {
 		if h.Transport != "" {
-			return out.Usage("unknown transport %q: a server is reached over SSH, or over WinRM with a winrm:// address", h.Transport)
+			return out.Usage("%q is not a way komando reaches a server: SSH, or WinRM with a winrm:// address", h.Transport)
 		}
 		h.WinRMOpts = nil
 		return nil
@@ -116,7 +116,7 @@ func checkWinRM(h *store.Host) error {
 	case o.TLS != "" && o.TLS != "skip-verify" && o.TLS != "off":
 		return out.Usage("WinRM tls=%s: leave it out to check the certificate, or use skip-verify or off", o.TLS)
 	case o.CA != "" && !vault.ValidRef(o.CA):
-		return out.Usage("WinRM ca=%s: it takes a reference to the CA's PEM, e.g. ca=secret:NAME (%s)", o.CA, vault.RefHelp())
+		return out.Usage("WinRM ca=%s: it takes a reference to the CA's PEM, for example ca=secret:NAME (%s)", o.CA, vault.RefHelp())
 	case o.Auth == "basic" && o.TLS == "off":
 		return out.Errf(out.ExitUsage, "WINRM_INSECURE", "use HTTPS (leave tls=off out), or NTLM (leave auth=basic out), which never sends the password",
 			"Basic login over plain HTTP sends the password unencrypted")

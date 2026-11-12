@@ -72,7 +72,7 @@ var familyWord = map[string][2]string{
 }
 
 // connWord names the kind of the protected conns ("database"), or
-// "service" when they are of different kinds.
+// "conn" when they are of different kinds.
 func connWord(conns []*store.Conn, names []string) string {
 	w := ""
 	for _, c := range conns {
@@ -81,12 +81,12 @@ func connWord(conns []*store.Conn, names []string) string {
 		}
 		f, ok := familyWord[connFamily(c)]
 		if !ok || w != "" && w != f[0] {
-			return "service"
+			return "conn"
 		}
 		w = f[0]
 	}
 	if w == "" {
-		return "service"
+		return "conn"
 	}
 	return w
 }

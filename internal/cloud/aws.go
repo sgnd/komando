@@ -130,7 +130,7 @@ func ECRToken(ctx context.Context, profile, region string) (string, error) {
 	}
 	_, pw, ok := strings.Cut(string(b), ":") // "AWS:<password>"
 	if !ok {
-		return "", errors.New("ECR login has an unknown form")
+		return "", errors.New("komando cannot read the ECR login AWS sent")
 	}
 	return pw, nil
 }

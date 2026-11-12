@@ -57,10 +57,10 @@ func checkKeyType(typ string, bits int) error {
 		}
 	case "ecdsa":
 		if bits != 0 && bits != 256 && bits != 384 && bits != 521 {
-			return out.Errf(out.ExitUsage, "USAGE", "ECDSA takes --bits 256, 384 or 521", "invalid --bits %d for ecdsa", bits)
+			return out.Errf(out.ExitUsage, "USAGE", "ECDSA takes --bits 256, 384 or 521", "an ecdsa key has 256, 384 or 521 bits, not %d", bits)
 		}
 	default:
-		return out.Errf(out.ExitUsage, "USAGE", "use ed25519 (the default), rsa or ecdsa", "unknown key type %q", typ)
+		return out.Errf(out.ExitUsage, "USAGE", "use ed25519 (the default), rsa or ecdsa", "komando does not make %q keys", typ)
 	}
 	return nil
 }
@@ -108,7 +108,7 @@ bits.`,
 				comment = "komando-" + name
 			}
 			if hasControl(comment) {
-				return out.Errf(out.ExitUsage, "USAGE", "use one line of plain text, e.g. -C ops@example.com", "the key comment cannot hold line breaks or control characters")
+				return out.Errf(out.ExitUsage, "USAGE", "use one line of plain text, for example -C ops@example.com", "the key comment cannot hold line breaks or control characters")
 			}
 			if g.dryRun {
 				if err := checkKeyType(typ, bits); err != nil {
@@ -199,7 +199,7 @@ and pass --passphrase-ref secret:NAME.`,
 			p, _ := filepath.Abs(expandHome(args[1]))
 			b, err := os.ReadFile(p)
 			if err != nil {
-				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a private key file, e.g. ~/.ssh/id_ed25519", "%s: %v", p, errText(err))
+				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a private key file, for example ~/.ssh/id_ed25519", "%s: %v", p, errText(err))
 			}
 			if isPublicKey(b) {
 				return out.Errf(out.ExitUsage, "KEY_INVALID", "this is a public key; pass the private key file: "+strings.TrimSuffix(args[1], ".pub"),
@@ -319,7 +319,7 @@ passphrase with ` + "`komando secret set NAME`" + ` first and pass secret:NAME;
 			case fl.Changed("unset"):
 				passRef = ""
 			case !fl.Changed("passphrase-ref"):
-				return out.Errf(out.ExitUsage, "USAGE", "e.g. komando key edit "+args[0]+" --passphrase-ref secret:NAME", "nothing to change")
+				return out.Errf(out.ExitUsage, "USAGE", "for example komando key edit "+args[0]+" --passphrase-ref secret:NAME", "nothing to change")
 			}
 			if err := checkPassphraseRef(passRef); err != nil {
 				return err

@@ -397,7 +397,7 @@ func winFsWrite(ctx context.Context, st *store.State, h *store.Host, p string, d
 		case err != nil:
 			return err
 		case trunc && appendMode:
-			return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, e.g. `Add-Content FILE`", "the file is larger than 64MiB, the most fs write --append reads")
+			return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, for example `Add-Content FILE`", "the file is larger than 64MiB, the most fs write --append reads")
 		}
 	}
 	if appendMode {

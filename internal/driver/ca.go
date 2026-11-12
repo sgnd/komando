@@ -34,7 +34,7 @@ func parseCA(q url.Values, t *Target) error {
 	if name, ok := strings.CutPrefix(ca, "secret:"); !ok || name == "" {
 		return out.Errf(out.ExitUsage, "USAGE",
 			"store the CA certificate with `komando secret set NAME < ca.crt`, then use ?ca=secret:NAME",
-			"%s ca option must be secret:NAME, not %q", t.Kind.Name, ca)
+			"the %s ca option takes secret:NAME, not %q", t.Kind.Name, ca)
 	}
 	t.CA = ca
 	// with a CA the certificate is checked: it needs TLS, and a setting

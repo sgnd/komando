@@ -75,7 +75,7 @@ func parseAVPs(b []byte) ([]avp, error) {
 		flags := binary.BigEndian.Uint16(b)
 		n := int(flags & 0x3ff)
 		if n < 6 || n > len(b) {
-			return nil, errors.New("bad AVP length")
+			return nil, errors.New("an L2TP attribute's length does not match")
 		}
 		vendor, t := binary.BigEndian.Uint16(b[2:]), binary.BigEndian.Uint16(b[4:])
 		if flags&0x4000 != 0 {

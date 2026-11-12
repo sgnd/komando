@@ -99,7 +99,7 @@ func pkgFailure(action string, rr *sshx.RunResult, missing []string) *out.Error 
 		return out.Errf(out.ExitNotFound, "PACKAGE_NOT_FOUND", "check the name; refresh the index with `komando pkg update TARGET` if the package is new",
 			"%s: no such package in the server's package index", what)
 	}
-	return out.Errf(out.ExitRemote, "PKG_FAILED", "read stderr for the package manager's message", "pkg %s failed (exit %d)", action, rr.ExitCode)
+	return out.Errf(out.ExitRemote, "PKG_FAILED", "read the error output (stderr) for the package manager's message", "pkg %s failed (exit %d)", action, rr.ExitCode)
 }
 
 type pkgRow struct {

@@ -112,7 +112,7 @@ func parseTunnel(kind, spec string) (tunnelSpec, error) {
 			t.BindAddr = net.JoinHostPort(parts[0], parts[1])
 			t.TargetAddr = net.JoinHostPort(parts[2], parts[3])
 		default:
-			return t, out.Usage("invalid forward spec %q: use PORT:HOST:HOSTPORT or ADDRESS:PORT:HOST:HOSTPORT", spec)
+			return t, out.Usage("komando cannot read the forward %q: use PORT:HOST:HOSTPORT or ADDRESS:PORT:HOST:HOSTPORT", spec)
 		}
 	case "dynamic":
 		switch len(parts) {
@@ -121,7 +121,7 @@ func parseTunnel(kind, spec string) (tunnelSpec, error) {
 		case 2:
 			t.BindAddr = net.JoinHostPort(parts[0], parts[1])
 		default:
-			return t, out.Usage("invalid SOCKS spec %q: use PORT or ADDRESS:PORT", spec)
+			return t, out.Usage("komando cannot read the SOCKS address %q: use PORT or ADDRESS:PORT", spec)
 		}
 	}
 	if _, p, _ := net.SplitHostPort(t.BindAddr); !tunnelPort(p, 0) {

@@ -93,7 +93,7 @@ func openIPsec(ctx context.Context, v *store.Vpn, timeout time.Duration) (Dialer
 		t := s.Tunnel()
 		return stackDialer(v, t, t.Addresses(), t.DNS(), t.MTU())
 	}
-	return nil, nil, configErr(v, fmt.Errorf("unknown kind %q", v.Kind))
+	return nil, nil, configErr(v, fmt.Errorf("komando has no VPN kind %q (a bug: report it)", v.Kind))
 }
 
 // l2tpTun is L2TP over its IPsec session; closing it ends both.

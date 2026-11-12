@@ -275,7 +275,7 @@ func fsWriteInput(contentSet bool, content, from string) ([]byte, error) {
 			return nil, err
 		}
 		if data == nil {
-			return nil, out.Usage("give the content with --content, --from FILE, or on stdin")
+			return nil, out.Usage("give the content with --content, --from FILE, or pipe it in (stdin)")
 		}
 	}
 	if out.HasHidden(string(data)) {
@@ -339,7 +339,7 @@ func fsWriteCmd() *cobra.Command {
 					}
 					if appendMode {
 						if trunc {
-							return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, e.g. `cat >> FILE`", "the file is larger than 64MiB, the most fs write --append reads")
+							return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, for example `cat >> FILE`", "the file is larger than 64MiB, the most fs write --append reads")
 						}
 						data = append(old, data...)
 					}

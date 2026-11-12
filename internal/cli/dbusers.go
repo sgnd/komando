@@ -270,5 +270,5 @@ func dbExecErr(err error) error {
 	if strings.Contains(msg, "permission denied") || strings.Contains(msg, "1044") || strings.Contains(msg, "1142") || strings.Contains(msg, "Access denied") {
 		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user may only grant what it has itself (WITH GRANT OPTION)", "%s", msg)
 	}
-	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement is in data.sql", "%s", msg)
+	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement komando sent is in the result (data.sql in -o json)", "%s", msg)
 }

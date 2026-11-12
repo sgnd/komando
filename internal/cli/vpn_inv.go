@@ -222,7 +222,7 @@ func vpnEditChecks(cmd *cobra.Command, e *vpnEditFlags) error {
 	}
 	for flag, ref := range map[string]string{"password-ref": e.passwordRef, "psk-ref": e.pskRef} {
 		if ref != "" && !vault.ValidRef(ref) {
-			return out.Usage("invalid --%s %q: %s", flag, ref, vault.RefHelp())
+			return out.Usage("--%s %q is not a reference: %s", flag, ref, vault.RefHelp())
 		}
 	}
 	_, err := parseKV(e.labels)
@@ -453,7 +453,7 @@ func vpnAddFlagChecks(v *store.Vpn, pskRef string, labels []string) error {
 	}
 	for _, r := range []string{v.KeyRef, pskRef} {
 		if r != "" && !vault.ValidRef(r) {
-			return out.Usage("invalid reference %q: %s", r, vault.RefHelp())
+			return out.Usage("%q is not a reference: %s", r, vault.RefHelp())
 		}
 	}
 	return applyKV(&v.Labels, labels)

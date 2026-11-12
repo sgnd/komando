@@ -412,7 +412,7 @@ func lostError(c *Client, started bool) error {
 			"the connection to %s was lost before the command started%s; it did not run", name, why)
 	}
 	return out.Errf(out.ExitConnect, "CONNECTION_LOST",
-		"do not just run it again: first check on the server with a read-only command whether it finished (its log, `ps`, the change it makes), e.g. `komando exec "+name+" --read-only -- 'ps -ef'`; for long tasks over a shaky link use `komando job start` and `komando job wait`, which survive a dropped connection",
+		"do not just run it again: first check on the server with a read-only command whether it finished (its log, `ps`, the change it makes), for example `komando exec "+name+" --read-only -- 'ps -ef'`; for long tasks over a shaky link use `komando job start` and `komando job wait`, which survive a dropped connection",
 		"the connection to %s was lost while the command was running%s; the command may still be running there, or it may have finished: komando cannot tell", name, why)
 }
 

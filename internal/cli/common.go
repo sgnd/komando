@@ -707,7 +707,7 @@ func finish(command string, data any, sum fleetSummary, worstExit int) error {
 	var soft *out.Error
 	if sum.Failed > 0 {
 		soft = &out.Error{Code: "PARTIAL_FAILURE", Message: failedOf(sum.Failed, sum.Total) + ": " + strings.Join(sum.FailedHosts, ", "),
-			Hint: "see each server's result in data.results for its exit code and stderr", Exit: worstExit}
+			Hint: "each server's result has its own exit code and error output (data.results in -o json)", Exit: worstExit}
 		if sum.Total == 1 {
 			soft.Code = "FAILED"
 			soft.Message = "server " + sum.FailedHosts[0] + " failed"

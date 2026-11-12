@@ -87,10 +87,10 @@ func netCheckRun(cmd *cobra.Command, args []string) error {
 			return out.Usage("expected HOST:PORT (or [IPv6]:PORT), got %q", hp)
 		}
 		if n, err := strconv.Atoi(p); err != nil || n < 1 || n > 65535 {
-			return out.Usage("invalid port in %q (1-65535)", hp)
+			return out.Usage("the port in %q is not a number from 1 to 65535", hp)
 		}
 		if h == "" || strings.ContainsAny(h, " \t'\"$`;&|\\/") {
-			return out.Usage("invalid host in %q: give a name or IP address, no spaces, quotes or shell characters", hp)
+			return out.Usage("the address in %q is not a name or IP address: no spaces, quotes or shell characters", hp)
 		}
 		sb.WriteString("chk " + sshx.Q(h) + " " + p + " " + sshx.Q(hp) + "\n")
 	}
@@ -212,7 +212,7 @@ var dnsNameRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,252}$`)
 
 func dnsCommand(name, typ string) (string, error) {
 	if !dnsNameRe.MatchString(name) {
-		return "", out.Usage("invalid name %q: give a host name like db.internal or an IP address", name)
+		return "", out.Usage("%q is not a host name or IP address: give one like db.internal or 10.0.0.5", name)
 	}
 	q := sshx.Q(name)
 	if typ == "" {
@@ -236,7 +236,7 @@ func dnsCommand(name, typ string) (string, error) {
 
 func dnsResult(name, typ, s string) (any, *out.Error) {
 	if marker(s) == "no-dig" {
-		return nil, out.Errf(out.ExitNotFound, "DIG_MISSING", "install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), e.g. `komando pkg install TARGET dnsutils`; A and AAAA work without it",
+		return nil, out.Errf(out.ExitNotFound, "DIG_MISSING", "install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it",
 			"%s records need dig, which is not installed on this server", strings.ToUpper(typ))
 	}
 	var recs []string

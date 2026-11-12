@@ -18,7 +18,7 @@ var kafkaSASL = []string{"plain", "scram-sha-256", "scram-sha-512"}
 // lists, as splitHostList found them; Address is the first.
 func parseKafka(u *url.URL, t Target, brokers []string) (Target, error) {
 	if len(brokers) == 0 || u.Hostname() == "" {
-		return Target{}, out.Usage("kafka URL needs a broker, e.g. %s", t.Kind.Example)
+		return Target{}, out.Usage("kafka URL needs a broker, for example %s", t.Kind.Example)
 	}
 	if p := strings.Trim(u.Path, "/"); p != "" {
 		return Target{}, out.Usage("a kafka URL names brokers only: drop %q from it (topics are given to each command)", "/"+p)
@@ -47,12 +47,12 @@ func parseKafka(u *url.URL, t Target, brokers []string) (Target, error) {
 	case "skip-verify":
 		t.Secure, t.TLS = true, "skip-verify"
 	default:
-		return Target{}, out.Usage("kafka tls option must be true or skip-verify, not %q", v)
+		return Target{}, out.Usage("the kafka tls option takes true or skip-verify, not %q", v)
 	}
 	t.SASL = strings.ToLower(q.Get("sasl"))
 	switch {
 	case t.SASL != "" && !slices.Contains(kafkaSASL, t.SASL):
-		return Target{}, out.Usage("kafka sasl option must be one of %s, not %q", strings.Join(kafkaSASL, ", "), q.Get("sasl"))
+		return Target{}, out.Usage("the kafka sasl option takes one of %s, not %q", strings.Join(kafkaSASL, ", "), q.Get("sasl"))
 	case t.SASL != "" && t.User == "":
 		return Target{}, out.Usage("sasl=%s logs in as a user: put it in the URL, as in kafka://USER@broker:9092?sasl=%s", t.SASL, t.SASL)
 	case t.SASL == "" && t.User != "":
@@ -76,7 +76,7 @@ func hostPort(s string, def int) (string, error) {
 		return "", out.Usage("empty broker address in the conn URL")
 	}
 	if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
-		return "", out.Usage("invalid port %q in conn URL", port)
+		return "", out.Usage("the port %q in the conn URL is not a number from 1 to 65535", port)
 	}
 	return net.JoinHostPort(host, port), nil
 }

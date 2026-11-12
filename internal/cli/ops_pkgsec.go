@@ -297,7 +297,7 @@ func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecR
 		if rr.TimedOut {
 			return fail(out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "pkg security timed out before it started"))
 		}
-		return fail(out.Errf(out.ExitRemote, "PKG_FAILED", "read stderr for the reason", "pkg security failed (exit %d)", rr.ExitCode))
+		return fail(out.Errf(out.ExitRemote, "PKG_FAILED", "read the error output (stderr) for the reason", "pkg security failed (exit %d)", rr.ExitCode))
 	}
 	pkgSecLists(&r, sec, refreshed)
 	var ess []string
@@ -359,9 +359,9 @@ func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecR
 		return fail(out.Errf(out.ExitTimeout, "TIMEOUT", "the upgrade keeps running on the server; see what is left with `komando pkg security "+host+"` in a few minutes, and give more time with --timeout",
 			"komando stopped waiting for the upgrade"))
 	case rc == "":
-		return fail(out.Errf(out.ExitRemote, "PKG_FAILED", "read stderr; check the server with `komando pkg security "+host+"`", "the upgrade ended before it reported back"))
+		return fail(out.Errf(out.ExitRemote, "PKG_FAILED", "read the error output (stderr); check the server with `komando pkg security "+host+"`", "the upgrade ended before it reported back"))
 	case rc != "0":
-		return fail(out.Errf(out.ExitRemote, "PKG_FAILED", "read stderr for the package manager's message", "the security upgrade failed (exit %s)", rc))
+		return fail(out.Errf(out.ExitRemote, "PKG_FAILED", "read the error output (stderr) for the package manager's message", "the security upgrade failed (exit %s)", rc))
 	case len(r.Unexpected) > 0:
 		return fail(out.Errf(out.ExitConflict, "UNEXPECTED_CHANGE", "check the server (`komando docker ps "+host+"`, `komando svc list "+host+" --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway",
 			"%s changed after patching: %s", host, strings.Join(r.Unexpected, "; ")))

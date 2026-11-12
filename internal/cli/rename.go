@@ -310,7 +310,7 @@ func renameWant(kinds []string) (map[string]bool, error) {
 	for _, k := range kinds {
 		k = strings.TrimSpace(strings.ToLower(k))
 		if !slices.Contains(renameKinds, k) {
-			return nil, out.Errf(out.ExitUsage, "USAGE", "--kind takes: "+strings.Join(renameKinds, ", "), "unknown kind %q", k)
+			return nil, out.Errf(out.ExitUsage, "USAGE", "--kind takes: "+strings.Join(renameKinds, ", "), "%q is not a kind rename knows", k)
 		}
 		want[k] = true
 	}

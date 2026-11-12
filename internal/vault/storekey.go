@@ -69,7 +69,7 @@ func storeMaster(meta map[string]string, create bool) ([]byte, map[string]string
 		}
 		return b[:keyLen], nil, nil
 	}
-	return nil, nil, fmt.Errorf("%w: the store names an unknown key mode %q; update komando", ErrKey, meta["key_mode"])
+	return nil, nil, fmt.Errorf("%w: the store names a key mode this komando does not know (%q); update komando", ErrKey, meta["key_mode"])
 }
 
 // newStoreMaster picks where a new store's key lives, as a new vault does:

@@ -28,7 +28,7 @@ var queueHints = map[string]formHint{
 			{name: "oldest", ask: "The oldest messages still kept, not the newest?",
 				help: "Kafka and NATS only. RabbitMQ always reads from the front; SQS and Pub/Sub give no order."}}},
 	"queue send": {args: []formArg{queueConn, {ask: "Send to which topic or queue?", example: "orders",
-		help: "It must exist already. NATS: a subject, like orders.new. Pub/Sub: a topic."}},
+		help: "It has to exist already. NATS: a subject, like orders.new. Pub/Sub: a topic."}},
 		flags: []formFlag{
 			{name: "value", ask: "What is the message? (leave empty to read it from a file)", example: `{"id": 42, "status": "paid"}`,
 				help: "The text of the message, often JSON."},

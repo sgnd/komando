@@ -32,7 +32,7 @@ func ParseOracleOptions(q url.Values) (OracleOptions, error) {
 			if o.TLS != "true" && o.TLS != "skip-verify" && o.TLS != "false" {
 				return o, out.Errf(out.ExitUsage, "USAGE",
 					"tls=true is TCPS with the certificate checked; skip-verify is TCPS without the check; false is plain TCP",
-					"oracle tls option must be true, skip-verify or false, not %q", v)
+					"the oracle tls option takes true, skip-verify or false, not %q", v)
 			}
 		case "ca":
 		case "sid":
@@ -71,16 +71,16 @@ func validOracleName(s string) bool {
 // reaches an old database by its SID instead.
 func parseOracle(u *url.URL, t Target) (Target, error) {
 	if u.Hostname() == "" {
-		return Target{}, out.Usage("oracle URL needs a host, e.g. %s", t.Kind.Example)
+		return Target{}, out.Usage("oracle URL needs a host, for example %s", t.Kind.Example)
 	}
 	if u.User.Username() == "" {
-		return Target{}, out.Usage("oracle URL needs a user name, e.g. oracle://app@db.internal:1521/ORCLPDB1")
+		return Target{}, out.Usage("oracle URL needs a user name, for example oracle://app@db.internal:1521/ORCLPDB1")
 	}
 	port := t.Kind.DefaultPort
 	if p := u.Port(); p != "" {
 		var err error
 		if port, err = strconv.Atoi(p); err != nil || port < 1 || port > 65535 {
-			return Target{}, out.Usage("invalid port %q in conn URL", p)
+			return Target{}, out.Usage("the port %q in the conn URL is not a number from 1 to 65535", p)
 		}
 	}
 	t.Address = net.JoinHostPort(u.Hostname(), strconv.Itoa(port))

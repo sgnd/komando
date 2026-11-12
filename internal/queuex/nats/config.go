@@ -51,7 +51,7 @@ func setting(cfg *jetstream.StreamConfig, key, v string) error {
 			}
 		}
 		if len(cfg.Subjects) == 0 {
-			return out.Usage("--config subjects= needs at least one subject, e.g. subjects=orders.>")
+			return out.Usage("--config subjects= needs at least one subject, for example subjects=orders.>")
 		}
 	case "description":
 		cfg.Description = v

@@ -149,7 +149,7 @@ shows for a job, which db kill cancels (jobs.cancel); there is no --session.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pid, err := strconv.ParseInt(args[1], 10, 64)
 			if err != nil || pid <= 0 {
-				return out.Usage("PID must be a session number from `komando db activity`")
+				return out.Usage("PID takes a session number from `komando db activity`")
 			}
 			st, err := loadState()
 			if err != nil {

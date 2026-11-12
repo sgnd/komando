@@ -76,7 +76,7 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 			soft.Hint = f.err.Hint
 		}
 		if soft.Hint == "" && out.P.Format != "text" {
-			soft.Hint = "see data.results for the exit code and stderr"
+			soft.Hint = "each server's result has its exit code and error output (data.results in -o json)"
 		}
 	} else {
 		parts := make([]string, len(fails))
@@ -89,7 +89,7 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 			soft.Message += fmt.Sprintf("; %d skipped by --fail-fast: %s", sum.Skipped, strings.Join(sum.SkippedHosts, ", "))
 		}
 		if out.P.Format != "text" {
-			soft.Hint = "see the per-host results (data.results) for exit codes and stderr"
+			soft.Hint = "each server's result has its exit code and error output (data.results in -o json)"
 		}
 	}
 	return exitCode(worst)

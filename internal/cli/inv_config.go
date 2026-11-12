@@ -28,11 +28,11 @@ func positiveDur(key, v string, zeroOK bool) (string, error) {
 	}
 	d, err := parseDur(v)
 	if err != nil || d < 0 || (d == 0 && !zeroOK) {
-		ex := "e.g. 30s, 5m, 1h"
+		ex := "for example 30s, 5m, 1h"
 		if zeroOK {
 			ex += ", or 0 for never"
 		}
-		return "", out.Errf(out.ExitUsage, "USAGE", key+" takes a duration: "+ex, "invalid %s %q", key, v)
+		return "", out.Errf(out.ExitUsage, "USAGE", key+" takes a duration: "+ex, "%s %q is not a duration", key, v)
 	}
 	return v, nil
 }
@@ -40,7 +40,7 @@ func positiveDur(key, v string, zeroOK bool) (string, error) {
 func intAtLeast(key, v string, minV int) (int, error) {
 	n, err := strconv.Atoi(v)
 	if err != nil || n < minV {
-		return 0, out.Errf(out.ExitUsage, "USAGE", key+" takes a whole number of at least "+strconv.Itoa(minV), "invalid %s %q", key, v)
+		return 0, out.Errf(out.ExitUsage, "USAGE", key+" takes a whole number of at least "+strconv.Itoa(minV), "%s %q is not a whole number", key, v)
 	}
 	return n, nil
 }
@@ -51,7 +51,7 @@ var settings = []setting{
 		func(st *store.State, v string) error {
 			v = strings.ToLower(v)
 			if v != "accept-new" && v != "strict" && v != "off" {
-				return out.Errf(out.ExitUsage, "USAGE", "use accept-new (the default), strict or off", "invalid host_key_policy %q", v)
+				return out.Errf(out.ExitUsage, "USAGE", "use accept-new (the default), strict or off", "host_key_policy %q is not accept-new, strict or off", v)
 			}
 			rank := map[string]int{"off": 0, "accept-new": 1, "": 1, "strict": 2}
 			if rank[v] < rank[st.Settings.HostKeyPolicy] {
@@ -102,7 +102,7 @@ var settings = []setting{
 		func(st *store.State, v string) error {
 			on, ok := map[string]bool{"true": true, "on": true, "1": true, "false": false, "off": false, "0": false}[strings.ToLower(v)]
 			if !ok {
-				return out.Errf(out.ExitUsage, "USAGE", "use on or off", "invalid audit %q", v)
+				return out.Errf(out.ExitUsage, "USAGE", "use on or off", "audit %q is not on or off", v)
 			}
 			if !on && st.Settings.Audit {
 				if err := guardSafety("turning off the audit log"); err != nil {
@@ -117,7 +117,7 @@ var settings = []setting{
 		func(st *store.State, v string) error {
 			v = strings.ToLower(v)
 			if v != "full" && v != "hash" && v != "off" {
-				return out.Errf(out.ExitUsage, "USAGE", "use full (the default), hash or off", "invalid audit_sql %q", v)
+				return out.Errf(out.ExitUsage, "USAGE", "use full (the default), hash or off", "audit_sql %q is not full, hash or off", v)
 			}
 			if v == "off" && st.Settings.AuditSQL != "off" {
 				if err := guardSafety("leaving SQL out of the audit log"); err != nil {
@@ -157,7 +157,7 @@ var settings = []setting{
 			rank := map[string]int{"off": 0, "protected": 1, "all": 2}
 			n, ok := rank[v]
 			if !ok {
-				return out.Errf(out.ExitUsage, "USAGE", "use protected (the default), all or off", "invalid mask_personal %q", v)
+				return out.Errf(out.ExitUsage, "USAGE", "use protected (the default), all or off", "mask_personal %q is not protected, all or off", v)
 			}
 			if n < rank[st.Settings.MaskPersonal] {
 				if err := guardSafety("showing AI agents more personal data (mask_personal " + v + ")"); err != nil {
@@ -205,7 +205,7 @@ func findSetting(key string) (*setting, error) {
 			return &settings[i], nil
 		}
 	}
-	e := out.Errf(out.ExitUsage, "UNKNOWN_SETTING", "see the settings with `komando config show`: "+strings.Join(settingKeys(), ", "), "unknown setting %q", key)
+	e := out.Errf(out.ExitUsage, "UNKNOWN_SETTING", "see the settings with `komando config show`: "+strings.Join(settingKeys(), ", "), "komando has no setting named %q", key)
 	if c := closest(key, settingKeys()); c != "" {
 		suggest(e, key, c)
 	}

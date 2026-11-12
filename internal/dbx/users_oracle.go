@@ -76,7 +76,7 @@ func oracleUserSQL(action string, u UserSpec) (stmt, shown string, err error) {
 			"if n > 0 then execute immediate " + oralit("drop user "+id) + "; else execute immediate " + oralit("drop role "+id) + "; end if; end;"
 		return s, s, nil
 	}
-	return "", "", out.Usage("unknown user action %q", action)
+	return "", "", out.Usage("komando has no user action %q (a bug: report it)", action)
 }
 
 // oraUserErr is userErr for Oracle's error numbers.
@@ -95,7 +95,7 @@ func oraUserErr(n int, msg, name string) error {
 	case 28003, 28007, 988:
 		return out.Errf(out.ExitRemote, "DB_ERROR", "the password does not meet the database's password rules; store another one in the vault", "%s", msg)
 	}
-	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement is in data.sql (password hidden)", "%s", msg)
+	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement komando sent is in the result, its password hidden (data.sql in -o json)", "%s", msg)
 }
 
 var oraObjPrivs = map[string]bool{"SELECT": true, "READ": true, "INSERT": true, "UPDATE": true, "DELETE": true, "ALTER": true,
@@ -145,7 +145,7 @@ func oracleGrantSQL(ctx context.Context, db *sql.DB, g Grant) (string, error) {
 			p = oraSchemaPrivs[p]
 		case (typ == "schema" || typ == "all-tables") && strings.HasSuffix(p, " ANY TABLE") && oraSysPrivs[p]:
 		default:
-			return "", out.Usage("unknown privilege %q for --on %s", p, typ)
+			return "", out.Usage("%q is not a privilege komando grants for --on %s", p, typ)
 		}
 		privs = append(privs, p)
 	}

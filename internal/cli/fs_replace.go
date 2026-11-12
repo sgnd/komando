@@ -192,7 +192,7 @@ func planReplace(p *out.Printer, src, oldS, newS string, re *regexp.Regexp, all 
 	now, asked := p.View(pl.updated).Text, p.View(pl.shown).Text
 	for _, v := range view.Hidden(src) {
 		if v != "" && strings.Count(now, v) > strings.Count(asked, v) {
-			return pl, out.Errf(out.ExitUsage, "HIDDEN_VALUE", "keep the name or text around a hidden value that marks it as secret, or replace the value too, e.g. --old 'NAME=[hidden]' --new 'NAME={{secret:VAULT_NAME}}'",
+			return pl, out.Errf(out.ExitUsage, "HIDDEN_VALUE", "keep the name or text around a hidden value that marks it as secret, or replace the value too, for example --old 'NAME=[hidden]' --new 'NAME={{secret:VAULT_NAME}}'",
 				"the edit would show a value komando hid")
 		}
 	}

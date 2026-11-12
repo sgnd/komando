@@ -295,7 +295,7 @@ type Client struct {
 func New(x *Context, dial Dialer) (*Client, error) {
 	base, err := url.Parse(x.Cluster.Server)
 	if err != nil || base.Host == "" {
-		return nil, fmt.Errorf("bad server URL %q", x.Cluster.Server)
+		return nil, fmt.Errorf("the kubeconfig's server %q is not a URL with a host", x.Cluster.Server)
 	}
 	// insecure-skip-tls-verify counts only without a CA: with one, the
 	// server is checked against it (kubectl refuses the pair outright)

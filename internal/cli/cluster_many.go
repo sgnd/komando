@@ -190,7 +190,7 @@ func readClusters(ctx context.Context, name string, st *store.State, ts []cluste
 	if m.Summary.Failed > 0 {
 		soft = &out.Error{Code: "PARTIAL_FAILURE", Exit: worst,
 			Message: failedOf(m.Summary.Failed, m.Summary.Total) + ": " + strings.Join(m.Summary.FailedClusters, ", "),
-			Hint:    "see each cluster's error in data.results"}
+			Hint:    "each cluster's result above has its own error (data.results in -o json)"}
 	}
 	out.P.Print(name, m, soft)
 	if soft != nil {

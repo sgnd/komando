@@ -455,7 +455,7 @@ through --via, only people who can reach that address can use the link.
 			if endpoint != "" {
 				u, err := url.Parse(endpoint)
 				if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || strings.Trim(u.Path, "/") != "" {
-					return out.Usage("--endpoint must be http(s)://HOST[:PORT], e.g. https://files.example.com")
+					return out.Usage("--endpoint must be http(s)://HOST[:PORT], for example https://files.example.com")
 				}
 				pub = u
 			}

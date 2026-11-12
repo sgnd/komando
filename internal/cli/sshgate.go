@@ -654,7 +654,7 @@ this komando by its full path, as sshd does not search PATH.`,
 			}
 			self := komandoPath()
 			if !strings.HasPrefix(self, "/") {
-				return out.Errf(out.ExitError, "SSH_GATE_PATH", "run komando by its full path, e.g. /usr/local/bin/komando ssh-gate line ...",
+				return out.Errf(out.ExitError, "SSH_GATE_PATH", "run komando by its full path, for example /usr/local/bin/komando ssh-gate line ...",
 					"komando cannot tell its own full path, which the line needs")
 			}
 			command := gateShellQuote(self) + " ssh-gate --name " + name

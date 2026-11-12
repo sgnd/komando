@@ -28,14 +28,14 @@ func TestParseClickHouse(t *testing.T) {
 		"clickhouse://app@ch.internal:9000/db":                        "native protocol",
 		"clickhouse://app@ch.internal:9440/db?tls=true":               "native protocol",
 		"clickhouse://app@ch.internal:8123/db?tls=true":               "plain HTTP port",
-		"clickhouse://app@ch.internal/db?tls=yes":                     "must be true",
+		"clickhouse://app@ch.internal/db?tls=yes":                     "takes true",
 		"clickhouse://app@ch.internal/db?secure=1":                    "unknown clickhouse URL option",
 		"clickhouse://app@ch.internal/db?ca=secret:x":                 "with tls=true",
 		"clickhouse://app@ch.internal/db?tls=skip-verify&ca=secret:x": "with tls=true",
 		"clickhouse://app@ch.internal/db?ca=/tmp/ca.pem&tls=true":     "secret:NAME",
 		"clickhouse://app@ch.internal/a/b":                            "one database name",
 		"clickhouse:///db":                                            "needs a host",
-		"clickhouse://app:pw@ch.internal/db":                          "must not contain a password",
+		"clickhouse://app:pw@ch.internal/db":                          "holds no password",
 	} {
 		_, err := Parse(raw)
 		if err == nil || !strings.Contains(err.Error(), msg) {

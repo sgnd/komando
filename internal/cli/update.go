@@ -198,7 +198,7 @@ func updatable() (string, error) {
 	}
 	exe, err := selfPath()
 	if err != nil {
-		return "", out.Errf(out.ExitError, "SELF_NOT_FOUND", "run komando by its full path, e.g. /usr/local/bin/komando update",
+		return "", out.Errf(out.ExitError, "SELF_NOT_FOUND", "run komando by its full path, for example /usr/local/bin/komando update",
 			"cannot find the komando program that is running: %v", err)
 	}
 	return exe, nil

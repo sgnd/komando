@@ -80,12 +80,12 @@ func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 	if fromEnv, _ := cmd.Flags().GetString("from-env"); fromEnv != "" {
 		v, ok := os.LookupEnv(fromEnv)
 		if !ok {
-			return "", out.Errf(out.ExitUsage, "USAGE", "export "+fromEnv+" first, or pipe the value on stdin", "env %s not set", fromEnv)
+			return "", out.Errf(out.ExitUsage, "USAGE", "export "+fromEnv+" first, or pipe the value in (stdin)", "env %s not set", fromEnv)
 		}
 		// the same rule as a pipe and the prompt: an empty value is a
 		// mistake (a variable exported in another shell), never a password
 		if strings.TrimSpace(v) == "" {
-			return "", out.Errf(out.ExitUsage, "USAGE", "export "+fromEnv+" with the value first, or pipe the value on stdin", "env %s is empty", fromEnv)
+			return "", out.Errf(out.ExitUsage, "USAGE", "export "+fromEnv+" with the value first, or pipe the value in (stdin)", "env %s is empty", fromEnv)
 		}
 		return v, nil
 	}
@@ -98,7 +98,7 @@ func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 		// echo, pbpaste and files add them. The same rule as file: references.
 		v := strings.TrimRight(string(b), "\r\n")
 		if strings.TrimSpace(v) == "" {
-			return "", out.Usage("empty value on stdin")
+			return "", out.Usage("the value piped in (stdin) is empty")
 		}
 		return v, nil
 	}
@@ -111,10 +111,10 @@ func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 			// the agent back to --from-env or stdin would make it ask for
 			// the password in the chat, where it stays in the transcript.
 			return "", out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-				fmt.Sprintf("ask the user to run `%s %s` in their own terminal: it asks for the value, hidden. Never ask for a password in the chat. A value a program makes (a new token) can come on stdin or with --from-env VAR", cmd.CommandPath(), name),
+				fmt.Sprintf("ask the user to run `%s %s` in their own terminal: it asks for the value, hidden. Never ask for a password in the chat. A value a program makes (a new token) can be piped in (stdin) or given with --from-env VAR", cmd.CommandPath(), name),
 				"no value for %s: a password is typed by the user, so it never passes through an AI agent", name)
 		}
-		return "", out.Usage("no value: use --from-env VAR or pipe the value on stdin")
+		return "", out.Usage("no value: use --from-env VAR or pipe the value in (stdin)")
 	}
 	v, err := readHidden(label)
 	if err != nil {
@@ -583,7 +583,7 @@ func secretInUse(name string, users []string) error {
 		"key":  "komando key edit " + who + " --passphrase-ref ...",
 		"vpn":  "komando vpn edit " + who + " ...",
 	}[kind]
-	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, e.g. `"+hint+"`, or rename it with `komando secret rename`",
+	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, for example `"+hint+"`, or rename it with `komando secret rename`",
 		"secret %s is used by %s", name, strings.Join(users, ", "))
 }
 

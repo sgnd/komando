@@ -483,7 +483,7 @@ func newRoot() *cobra.Command {
 			f, ok := outputFormat(g.output)
 			if !ok {
 				if !cmd.Flags().Changed("output") && os.Getenv("KOMANDO_OUTPUT") != "" {
-					return out.Usage("KOMANDO_OUTPUT=%s: it must be auto, json or text", os.Getenv("KOMANDO_OUTPUT"))
+					return out.Usage("KOMANDO_OUTPUT=%s: it takes auto, json or text", os.Getenv("KOMANDO_OUTPUT"))
 				}
 				return out.Usage("--output must be auto, json or text (db query also takes csv and tsv)")
 			}
@@ -491,9 +491,9 @@ func newRoot() *cobra.Command {
 			case g.parallel < 0:
 				return out.Usage("-P/--parallel must be 1 or more (0 means the setting, default 10)")
 			case g.timeout < 0, g.connectTimeout < 0:
-				return out.Usage("--timeout and --connect-timeout must be positive, e.g. 30s or 5m")
+				return out.Usage("--timeout and --connect-timeout must be positive, for example 30s or 5m")
 			case g.maxOutput < 0:
-				return out.Usage("--max-output must be a number of bytes, e.g. 1048576")
+				return out.Usage("--max-output must be a number of bytes, for example 1048576")
 			}
 			out.P.Format = f
 			out.P.Pretty = g.pretty

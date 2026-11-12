@@ -128,7 +128,7 @@ func AnyConnectLogin(ctx context.Context, o Options) (string, error) {
 		if f.Auth.Form.Action != "" {
 			a, err := u.Parse(f.Auth.Form.Action)
 			if err != nil {
-				return "", fmt.Errorf("the portal sent a bad login form action %q", f.Auth.Form.Action)
+				return "", fmt.Errorf("the portal's login form sends to an address komando cannot use: %q", f.Auth.Form.Action)
 			}
 			// the login (with the stored password) goes only to the portal
 			// itself, over https

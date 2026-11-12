@@ -47,7 +47,7 @@ func connectErr(t driver.Target, err error) error {
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the endpoint's certificate could not be checked against this computer's CAs; check ?endpoint=",
 			"cannot connect to %s: %s", t.Address, msg)
 	case strings.Contains(msg, "not Pub/Sub JSON") || strings.Contains(msg, "server gave HTTP response to HTTPS client"):
-		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check ?endpoint=: it must be a Pub/Sub server (http:// for the emulator)", "cannot connect to %s: %s", t.Address, msg)
+		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check ?endpoint=: it names a Pub/Sub server (http:// for the emulator)", "cannot connect to %s: %s", t.Address, msg)
 	}
 	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando test TARGET` to check reachability, or reach Pub/Sub --via a server that can",
 		"cannot connect to %s: %s", t.Address, msg)

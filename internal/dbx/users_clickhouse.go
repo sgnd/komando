@@ -76,7 +76,7 @@ func clickhouseUserSQL(ctx context.Context, db *sql.DB, action string, u UserSpe
 		s := "drop " + what + id
 		return s, s, nil
 	}
-	return "", "", out.Usage("unknown user action %q", action)
+	return "", "", out.Usage("komando has no user action %q (a bug: report it)", action)
 }
 
 // chUserErr is userErr for ClickHouse's error codes.
@@ -91,7 +91,7 @@ func chUserErr(n int, msg, name string) error {
 	case 495: // ACCESS_STORAGE_READONLY
 		return out.Errf(out.ExitRemote, "DB_ERROR", "this user is defined in the server's users.xml, which SQL cannot change: edit that file on the server", "%s", msg)
 	}
-	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement is in data.sql (password hidden)", "%s", msg)
+	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement komando sent is in the result, its password hidden (data.sql in -o json)", "%s", msg)
 }
 
 // chPrivs are the privileges db grant takes on ClickHouse.

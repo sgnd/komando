@@ -21,14 +21,14 @@ import (
 //	?insecure=1          accept amqp:// (no TLS) across the network
 func parseAMQP(u *url.URL, t Target) (Target, error) {
 	if u.Hostname() == "" {
-		return Target{}, out.Usage("rabbitmq URL needs a host, e.g. %s", t.Kind.Example)
+		return Target{}, out.Usage("rabbitmq URL needs a host, for example %s", t.Kind.Example)
 	}
 	t.Secure = strings.EqualFold(u.Scheme, "amqps")
 	port := map[bool]int{true: 5671, false: 5672}[t.Secure]
 	if p := u.Port(); p != "" {
 		n, err := strconv.Atoi(p)
 		if err != nil || n < 1 || n > 65535 {
-			return Target{}, out.Usage("invalid port %q in conn URL", p)
+			return Target{}, out.Usage("the port %q in the conn URL is not a number from 1 to 65535", p)
 		}
 		port = n
 	}
@@ -64,7 +64,7 @@ func parseAMQP(u *url.URL, t Target) (Target, error) {
 		if err != nil || n < 1 || n > 65535 {
 			return Target{}, out.Errf(out.ExitUsage, "USAGE",
 				"give the management API's port on the same host, as in ?management=15672 (15671 for HTTPS)",
-				"rabbitmq management option must be a port, not %q", q.Get("management"))
+				"the rabbitmq management option takes a port, not %q", q.Get("management"))
 		}
 		t.Management = net.JoinHostPort(u.Hostname(), strconv.Itoa(n))
 	}

@@ -27,7 +27,7 @@ func syslogTarget(v string) (network, addr string, err error) {
 	}
 	u, err := url.Parse(v)
 	if err != nil || u.Host == "" || u.Path != "" && u.Path != "/" || u.User != nil || u.RawQuery != "" {
-		return "", "", out.Errf(out.ExitUsage, "USAGE", "use udp://HOST:514, tcp://HOST:514 or tls://HOST:6514 (or off)", "invalid audit_syslog %q", v)
+		return "", "", out.Errf(out.ExitUsage, "USAGE", "use udp://HOST:514, tcp://HOST:514 or tls://HOST:6514 (or off)", "audit_syslog %q is not a syslog address", v)
 	}
 	port := u.Port()
 	switch u.Scheme {
@@ -40,10 +40,10 @@ func syslogTarget(v string) (network, addr string, err error) {
 			port = "6514"
 		}
 	default:
-		return "", "", out.Errf(out.ExitUsage, "USAGE", "use udp://, tcp:// or tls://", "audit_syslog: unknown transport %q", u.Scheme)
+		return "", "", out.Errf(out.ExitUsage, "USAGE", "use udp://, tcp:// or tls://", "audit_syslog: %q is not udp, tcp or tls", u.Scheme)
 	}
 	if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
-		return "", "", out.Errf(out.ExitUsage, "USAGE", "a port is 1 to 65535", "audit_syslog: bad port %q", port)
+		return "", "", out.Errf(out.ExitUsage, "USAGE", "a port is 1 to 65535", "audit_syslog: the port %q is not a number from 1 to 65535", port)
 	}
 	return u.Scheme, net.JoinHostPort(u.Hostname(), port), nil
 }

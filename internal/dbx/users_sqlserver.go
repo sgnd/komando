@@ -56,7 +56,7 @@ func mssqlUserSQL(action string, u UserSpec) (stmt, shown string, err error) {
 			" else drop user " + id + "; if suser_id(" + mslit(u.Name) + ") is not null drop login " + id
 		return wrap(s), s, nil
 	}
-	return "", "", out.Usage("unknown user action %q", action)
+	return "", "", out.Usage("komando has no user action %q (a bug: report it)", action)
 }
 
 var msPrivs = map[string]bool{"SELECT": true, "INSERT": true, "UPDATE": true, "DELETE": true, "EXECUTE": true, "REFERENCES": true,
@@ -84,7 +84,7 @@ func mssqlGrantSQL(ctx context.Context, db *sql.DB, g Grant) (string, error) {
 	for _, p := range g.Privs {
 		p = strings.ToUpper(strings.Join(strings.Fields(p), " "))
 		if !msPrivs[p] {
-			return "", out.Usage("unknown privilege %q", p)
+			return "", out.Usage("%q is not a privilege komando grants on SQL Server", p)
 		}
 		privs = append(privs, p)
 	}

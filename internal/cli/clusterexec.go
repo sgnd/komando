@@ -170,7 +170,7 @@ Anything can be typed inside, so a protected cluster asks first.`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !interactive() {
-				return out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "agents and scripts use `komando cluster exec`", "cluster shell is interactive and needs a person at a terminal")
+				return out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "agents and scripts use `komando cluster exec`", "cluster shell needs a person at a terminal")
 			}
 			st, err := loadState()
 			if err != nil {
@@ -276,7 +276,7 @@ komando forwards to the pod's port behind it.`,
 			}
 			for _, p := range []string{local, remote} {
 				if n, err := strconv.Atoi(p); err != nil || n < 0 || n > 65535 {
-					return out.Usage("ports are written LOCAL:REMOTE, e.g. 8080:80 (or :80 for any free local port)")
+					return out.Usage("ports are written LOCAL:REMOTE, for example 8080:80 (or :80 for any free local port)")
 				}
 			}
 			args[2] = local + ":" + remote

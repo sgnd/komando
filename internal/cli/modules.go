@@ -405,7 +405,7 @@ func pkgCmd() *cobra.Command {
 						if pkgFileRe.MatchString(p) {
 							return out.Usage("%q looks like a package file: pkg installs packages by name from the server's repositories; for a local file, copy it with `komando upload` and install it with `komando exec`", p)
 						}
-						return out.Usage("invalid package name %q (give exact names, no options or patterns)", p)
+						return out.Usage("%q is not a package name: give exact names, no options or patterns", p)
 					}
 				}
 				pkgs := strings.Join(args[1:], " ")
@@ -641,10 +641,10 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 				return err
 			}
 			if !cronID.MatchString(args[1]) {
-				return out.Usage("invalid ID %q: use letters, digits, - and _", args[1])
+				return out.Usage("%q cannot be an ID: use letters, digits, - and _", args[1])
 			}
 			if strings.ContainsAny(args[2], "\r\n") {
-				return out.Usage("COMMAND must be one line (cron runs one line per entry)")
+				return out.Usage("COMMAND has more than one line; cron runs one line per entry")
 			}
 			if strings.TrimSpace(args[2]) == "" {
 				return out.Usage("COMMAND is empty")
@@ -663,7 +663,7 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cronID.MatchString(args[1]) {
-				return out.Usage("invalid ID %q: use letters, digits, - and _", args[1])
+				return out.Usage("%q cannot be an ID: use letters, digits, - and _", args[1])
 			}
 			command := readCron() + without(args[1]) + `n=$(( $(printf '%s\n' "$cur" | grep -c .) - $(printf '%s\n' "$new" | grep -c .) ))
 if [ "$n" -gt 0 ]; then { [ -n "$new" ] && printf '%s\n' "$new"; } | ` + ct() + ` - || exit $?; fi
@@ -699,7 +699,7 @@ func checkCronSchedule(s string) error {
 	}
 	f := strings.Fields(s)
 	if len(f) != 5 {
-		return out.Usage("--schedule needs 5 fields (minute hour day month weekday), e.g. '0 2 * * *', or @daily")
+		return out.Usage("--schedule needs 5 fields (minute hour day month weekday), for example '0 2 * * *', or @daily")
 	}
 	limits := [5][2]int{{0, 59}, {0, 23}, {1, 31}, {1, 12}, {0, 7}}
 	names := [5]string{"minute", "hour", "day of month", "month", "day of week"}
@@ -708,7 +708,7 @@ func checkCronSchedule(s string) error {
 			rng, step, hasStep := strings.Cut(part, "/")
 			if hasStep {
 				if n, err := strconv.Atoi(step); err != nil || n < 1 {
-					return out.Usage("invalid step %q in the %s field", step, names[i])
+					return out.Usage("the step %q in the %s field is not a number of 1 or more", step, names[i])
 				}
 			}
 			if rng == "*" {

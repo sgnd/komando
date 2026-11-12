@@ -644,7 +644,7 @@ func fsChmodCmd() *cobra.Command {
 
 func checkValidate(v string) error {
 	if v != "" && !strings.Contains(v, "%s") {
-		return out.Usage("--validate needs %%s where the new file's path goes, e.g. --validate 'visudo -cf %%s'")
+		return out.Usage("--validate needs %%s where the new file's path goes, for example --validate 'visudo -cf %%s'")
 	}
 	return nil
 }

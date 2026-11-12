@@ -10,7 +10,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -188,7 +190,7 @@ func userSQL(ctx context.Context, db *sql.DB, kind, action string, u UserSpec) (
 	default:
 		return "", "", NotSupported(kind, "db user")
 	}
-	return "", "", fmt.Errorf("unknown user action %q", action)
+	return "", "", fmt.Errorf("komando has no user action %q (a bug: report it)", action)
 }
 
 func hidden(pw string) string {
@@ -233,7 +235,7 @@ func userErr(err error, name string) error {
 	case strings.Contains(msg, "is currently logged in"):
 		return out.Errf(out.ExitConflict, "DB_USER_IN_USE", "end its sessions first: find them with `komando db activity CONN --all`, then `komando db kill CONN PID --session`", "%s", firstLine(msg))
 	}
-	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement is in data.sql (password hidden)", "%s", firstLine(msg))
+	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement komando sent is in the result, its password hidden (data.sql in -o json)", "%s", firstLine(msg))
 }
 
 func firstLine(s string) string {
@@ -286,7 +288,7 @@ func GrantSQL(ctx context.Context, db *sql.DB, kind string, g Grant) (string, er
 	for _, p := range g.Privs {
 		p = strings.ToUpper(strings.TrimSpace(p))
 		if !known[p] {
-			return "", out.Usage("unknown privilege %q", p)
+			return "", out.Usage("%q is not a privilege komando grants on %s (known: %s)", p, kind, strings.Join(slices.Sorted(maps.Keys(known)), ", "))
 		}
 		privs = append(privs, p)
 	}

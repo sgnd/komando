@@ -75,11 +75,11 @@ func (d copyData) Text() string {
 func runRegistryCopy(ctx context.Context, from, to string) error {
 	srcName, srcImage, ok := strings.Cut(from, ":")
 	if !ok || srcImage == "" || strings.Contains(srcName, "/") {
-		return out.Usage("write the source as CONN:IMAGE, e.g. ghcr:org/app:1.4.2 (%q has no registry conn in front)", from)
+		return out.Usage("write the source as CONN:IMAGE, for example ghcr:org/app:1.4.2 (%q has no registry conn in front)", from)
 	}
 	dstName, dstImage, ok := strings.Cut(to, ":")
 	if !ok || strings.Contains(dstName, "/") {
-		return out.Usage("write the destination as CONN:IMAGE or CONN: (same name), e.g. harbor:prod/app:1.4.2 (%q has no registry conn in front)", to)
+		return out.Usage("write the destination as CONN:IMAGE or CONN: (same name), for example harbor:prod/app:1.4.2 (%q has no registry conn in front)", to)
 	}
 	srcRepo, srcRef := splitImage(srcImage)
 	dstRepo, dstRef := srcRepo, srcRef

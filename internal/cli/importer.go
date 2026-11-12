@@ -130,7 +130,7 @@ func runImport(source, path string, groups []string, overwrite bool) error {
 			all = append(all, s.Name)
 		}
 		return out.Errf(out.ExitUsage, "USAGE", "use one of: "+strings.Join(all, ", ")+" (`komando import --help` says what each brings in)",
-			"unknown source %q", source)
+			"komando cannot import from %q", source)
 	}
 	if path == "" {
 		path = src.Default

@@ -83,6 +83,12 @@ the `next:` lines moved to stderr (`data.next` is unchanged), tables say
 `yes` or `-` for a yes-or-no column and show times with their zone, and
 an empty list reads `no <things> yet` or `no <things> match ...`.
 
+`error.message` and `error.hint` are free text, and this release rewrites
+many of them in plainer words (see "Changed" below); error codes and exit
+codes are the same. A script that matches message text (`invalid port`,
+`must be`, `unknown column`, `data.results`) should match the code
+instead.
+
 ### Added
 
 - `error.suggestion` holds the name komando thinks you meant when a
@@ -639,6 +645,16 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   ...` (was `matches custom deny pattern ...`). These are also the
   `reason` values of `komando policy list` and part of `POLICY_BLOCKED`
   messages; rule IDs are unchanged.
+- Error messages and hints say what is true about the input, never blame:
+  `"x y" cannot be a server name`, `the port "0" in the conn URL is not a
+  number from 1 to 65535`, `komando cannot read the conn URL ...`, `the
+  kafka tls option takes true or skip-verify, not "yes"` (were `invalid
+  ...`, `bad ...`, `... must be ...`). "unknown" appears only with the
+  known values (`db grant --privileges` lists them). Hints use "for
+  example" (not "e.g."), "server" and "conn" (not "host" or "service"),
+  "your list" (not "inventory"), and plain words before JSON paths and
+  stream names: `each server's result has its exit code and error output
+  (data.results in -o json)`, `read the error output (stderr) ...`.
 
 ### Removed
 

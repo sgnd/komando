@@ -545,9 +545,9 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
 			dstT, dstP, dstRemote := splitArg(args[1])
 			switch {
 			case srcRemote && dstRemote:
-				return out.Usage("one side must be a folder on this computer; sync remote to remote by way of a local folder")
+				return out.Usage("both sides are remote; sync needs one folder on this computer (go remote to remote by way of a local folder)")
 			case !srcRemote && !dstRemote:
-				return out.Usage("one side must be remote: TARGET:PATH (servers) or CONN:PREFIX (storage); a local name with a colon is written ./name")
+				return out.Usage("neither side is remote: write one as TARGET:PATH (servers) or CONN:PREFIX (storage); a local name with a colon is written ./name")
 			}
 			if !srcRemote {
 				fi, err := os.Stat(srcP)
@@ -658,7 +658,7 @@ func syncDown(ctx context.Context, name, target, remote, local string, o syncOpt
 	if err != nil {
 		return err
 	}
-	h, err := oneServer(st, target, "sync downloads from one server; name one, e.g. `komando sync SERVER:"+remote+" "+local+"`")
+	h, err := oneServer(st, target, "sync downloads from one server; name one, for example `komando sync SERVER:"+remote+" "+local+"`")
 	if err != nil {
 		return err
 	}

@@ -42,7 +42,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 				// A value on the command line lands in shell history and in
 				// `ps` for every user on the machine.
 				return out.Errf(out.ExitUsage, "SECRET_IN_ARGS",
-					fmt.Sprintf("run `komando secret set %s` and type it (hidden), use --from-env VAR, or pipe it on stdin", args[0]),
+					fmt.Sprintf("run `komando secret set %s` and type it (hidden), use --from-env VAR, or pipe it in (stdin)", args[0]),
 					"refusing a secret value on the command line: it would be saved in shell history")
 			}
 			v, err := secretInput(cmd, args[0], "Paste or type the value for "+args[0]+", then press Enter (it stays hidden): ")

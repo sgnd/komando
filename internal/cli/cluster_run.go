@@ -274,7 +274,7 @@ risky verbs also need --allow-dangerous.`,
 			// The command must start with its verb: a leading flag could
 			// hide the real verb behind a flag value (-n get delete ...).
 			if strings.HasPrefix(args[1], "-") {
-				return out.Usage("start with the command (e.g. `-- get pods -n shop`); put flags after it")
+				return out.Usage("start with the command (for example `-- get pods -n shop`); put flags after it")
 			}
 			var risk driver.Risk
 			if t.host != nil {
@@ -386,7 +386,7 @@ func kubectlFailure(code int, stderr string) *out.Error {
 			Hint: "list what exists with `komando cluster list TARGET TYPE`"}
 	}
 	return &out.Error{Code: "FAILED", Message: "kubectl exited " + strconv.Itoa(code) + cmp.Or(": "+firstLine(msg), ""), Exit: out.ExitRemote,
-		Hint: "read stderr for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems"}
+		Hint: "read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems"}
 }
 
 // importKubeconfig makes one k8s conn per context; each context's

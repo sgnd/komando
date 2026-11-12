@@ -435,7 +435,7 @@ func MemcacheWords(args []string) ([]string, error) {
 	}
 	words := strings.Fields(strings.Join(args, " "))
 	if len(words) == 0 {
-		return nil, out.Usage("give a memcached command, e.g. `stats` or `get KEY`")
+		return nil, out.Usage("give a memcached command, for example `stats` or `get KEY`")
 	}
 	if words[0] = strings.ToLower(words[0]); words[0] == "watch" {
 		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED",

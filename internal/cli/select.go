@@ -77,7 +77,7 @@ func resolveSelection(st *store.State, expr string) (selection, error) {
 		hint := "run `komando list` to see servers, conns, groups and tags"
 		near := ""
 		if len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0 {
-			hint = "the inventory is empty. Add a server: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)"
+			hint = "your list is empty: add a server with `komando host add web1 deploy@10.0.0.5`, or import ~/.ssh/config with `komando import ssh-config`"
 		} else {
 			near = closestSelector(st, expr)
 		}

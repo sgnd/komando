@@ -357,7 +357,7 @@ func userPubKey(keyName, pubKey string) (string, error) {
 // userdel.
 func checkUsername(u string) error {
 	if !nameRe.MatchString(u) {
-		return out.Usage("invalid username %q: start with a letter or digit, then letters, digits, . _ or - (at most 63)", u)
+		return out.Usage("%q cannot be a user name: start with a letter or digit, then letters, digits, . _ or - (at most 63)", u)
 	}
 	return nil
 }

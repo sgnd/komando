@@ -44,7 +44,7 @@ func runShell(ctx context.Context, target string) error {
 	if !interactive() {
 		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL",
 			"agents and scripts use `komando exec` or `komando job start`",
-			"shell is interactive and needs a person at a terminal")
+			"shell needs a person at a terminal")
 	}
 	st, err := loadState()
 	if err != nil {

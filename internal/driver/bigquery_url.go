@@ -40,14 +40,14 @@ var (
 func ParseBigQueryURL(raw string) (BigQueryConn, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
-		return BigQueryConn{}, out.Usage("invalid conn URL: %v", err)
+		return BigQueryConn{}, out.Usage("komando cannot read the conn URL: %v", err)
 	}
 	if u.User != nil {
 		return BigQueryConn{}, out.Usage("bigquery URL has no user: the login is gcloud's, or a service account key in --password-ref (%s)", kinds["bigquery"].Example)
 	}
 	if u.Port() != "" || !bqProject.MatchString(u.Hostname()) {
 		return BigQueryConn{}, out.Errf(out.ExitUsage, "USAGE",
-			"write the project ID as the console shows it (6 to 30 lower-case letters, digits and -), e.g. "+kinds["bigquery"].Example,
+			"write the project ID as the console shows it (6 to 30 lower-case letters, digits and -), for example "+kinds["bigquery"].Example,
 			"bigquery project %q is not a project ID", u.Host)
 	}
 	b := BigQueryConn{Project: u.Hostname(), Endpoint: BigQueryEndpoint}

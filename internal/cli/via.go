@@ -16,7 +16,7 @@ import (
 func resolveVia(st *store.State, via string) (*store.Host, *store.Vpn, error) {
 	steps := viaChain(via)
 	if len(steps) == 0 {
-		return nil, nil, out.Usage("--via is empty: give server or VPN names, e.g. --via bastion")
+		return nil, nil, out.Usage("--via is empty: give server or VPN names, for example --via bastion")
 	}
 	if err := viaTwice(steps); err != nil {
 		return nil, nil, err

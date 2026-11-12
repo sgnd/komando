@@ -199,7 +199,7 @@ func runOps(ctx context.Context, spec opsSpec) error {
 			case r.Error != nil:
 				r.Error.Exit = max(r.Error.Exit, 1)
 			case rr.ExitCode != 0:
-				r.Error = out.Errf(out.ExitRemote, "COMMAND_FAILED", "read stderr for the reason", "exit code %d", rr.ExitCode)
+				r.Error = out.Errf(out.ExitRemote, "COMMAND_FAILED", "read the error output (stderr) for the reason", "exit code %d", rr.ExitCode)
 			}
 			r.OK = r.Error == nil
 			if !r.OK {

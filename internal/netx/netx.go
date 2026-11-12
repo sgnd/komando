@@ -353,7 +353,7 @@ func OpenDirect(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 		}
 		return (&net.Dialer{Timeout: timeout}).DialContext, nopCloser{}, nil
 	}
-	return nil, nil, configErr(v, fmt.Errorf("unknown kind %q", v.Kind))
+	return nil, nil, configErr(v, fmt.Errorf("komando has no VPN kind %q (a bug: report it)", v.Kind))
 }
 
 // socksErr says plainly when nothing runs at the proxy's address (the
@@ -377,7 +377,7 @@ func DownHint(v *store.Vpn) string {
 	case v.Kind == "system":
 		return "connect the VPN " + v.Name + " on this computer first, then run it again"
 	case v.Kind == "socks":
-		return "start the SOCKS proxy at " + v.Address + ", e.g. `komando tunnel start TARGET -D " + v.Address + "`, then run it again"
+		return "start the SOCKS proxy at " + v.Address + ", for example `komando tunnel start TARGET -D " + v.Address + "`, then run it again"
 	case v.Kind == "proxy":
 		return "check that the proxy at " + v.Address + " answers and lets this port through (many company proxies allow only 443), and its login (`komando vpn show " + v.Name + "`)"
 	case v.Kind == "wireguard":

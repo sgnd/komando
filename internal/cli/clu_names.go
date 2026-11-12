@@ -29,18 +29,18 @@ func objectRef(words []string) (typ, name string, err error) {
 			return "", "", out.Usage("write TYPE/NAME or TYPE NAME, not both (%s %s)", words[0], words[1])
 		}
 		if words[0] == "" || words[1] == "" {
-			return "", "", out.Usage("give TYPE/NAME or TYPE NAME, e.g. deployment/api")
+			return "", "", out.Usage("give TYPE/NAME or TYPE NAME, for example deployment/api")
 		}
 		return words[0], words[1], nil
 	}
-	return "", "", out.Usage("give TYPE/NAME or TYPE NAME, e.g. deployment/api")
+	return "", "", out.Usage("give TYPE/NAME or TYPE NAME, for example deployment/api")
 }
 
 // splitRef parses TYPE/NAME, as in deployment/api.
 func splitRef(ref string) (string, string, error) {
 	typ, name, ok := strings.Cut(ref, "/")
 	if !ok || typ == "" || name == "" || strings.Contains(name, "/") {
-		return "", "", out.Usage("give TYPE/NAME (or TYPE NAME), e.g. deployment/api")
+		return "", "", out.Usage("give TYPE/NAME (or TYPE NAME), for example deployment/api")
 	}
 	return typ, name, nil
 }

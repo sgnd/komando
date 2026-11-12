@@ -142,7 +142,7 @@ func verifySignature(cert *x509.Certificate, method byte, sig, signed []byte) er
 	case authECDSA256, authECDSA384, authECDSA512:
 		k, ok := pub.(*ecdsa.PublicKey)
 		if !ok || len(sig)%2 != 0 {
-			return errors.New("bad ECDSA signature")
+			return errors.New("the server's ECDSA signature does not check out")
 		}
 		h := map[byte]crypto.Hash{authECDSA256: crypto.SHA256, authECDSA384: crypto.SHA384, authECDSA512: crypto.SHA512}[method]
 		r, s := new(big.Int).SetBytes(sig[:len(sig)/2]), new(big.Int).SetBytes(sig[len(sig)/2:])
@@ -152,11 +152,11 @@ func verifySignature(cert *x509.Certificate, method byte, sig, signed []byte) er
 		return nil
 	case authDigital:
 		if len(sig) < 1 || int(sig[0])+1 > len(sig) {
-			return errors.New("bad signature payload")
+			return errors.New("komando cannot read the server's signature")
 		}
 		var alg pkix.AlgorithmIdentifier
 		if _, err := asn1.Unmarshal(sig[1:1+sig[0]], &alg); err != nil {
-			return errors.New("bad signature algorithm")
+			return errors.New("the server signed with an algorithm komando cannot read")
 		}
 		s := sig[1+sig[0]:]
 		switch {
@@ -179,7 +179,7 @@ func verifySignature(cert *x509.Certificate, method byte, sig, signed []byte) er
 			}
 			var p pssParams
 			if _, err := asn1.Unmarshal(alg.Parameters.FullBytes, &p); err != nil {
-				return errors.New("bad RSA-PSS parameters")
+				return errors.New("komando cannot read the server's RSA-PSS settings")
 			}
 			h, ok := hashFor(p.Hash.Algorithm)
 			if !ok {
@@ -249,7 +249,7 @@ func (e *eapClient) answer(req []byte) ([]byte, error) {
 	id, typ := req[1], req[4]
 	n := int(binary.BigEndian.Uint16(req[2:]))
 	if n > len(req) || n < 5 {
-		return nil, errors.New("bad EAP length")
+		return nil, errors.New("an EAP message's length does not match")
 	}
 	data := req[5:n]
 	switch typ {
@@ -257,7 +257,7 @@ func (e *eapClient) answer(req []byte) ([]byte, error) {
 		return eapPacket(eapResponse, id, eapIdentity, []byte(e.user)), nil
 	case eapMD5:
 		if len(data) < 1 || int(data[0])+1 > len(data) {
-			return nil, errors.New("bad EAP-MD5 challenge")
+			return nil, errors.New("komando cannot read the server's EAP-MD5 challenge")
 		}
 		h := md5.New()
 		h.Write([]byte{id})
@@ -266,13 +266,13 @@ func (e *eapClient) answer(req []byte) ([]byte, error) {
 		return eapPacket(eapResponse, id, eapMD5, append([]byte{16}, h.Sum(nil)...)), nil
 	case eapMSCHAPv2:
 		if len(data) < 4 {
-			return nil, errors.New("bad EAP-MSCHAPv2 request")
+			return nil, errors.New("komando cannot read the server's EAP-MSCHAPv2 request")
 		}
 		op, msid := data[0], data[1]
 		switch op {
 		case 1: // challenge
 			if len(data) < 5+16 || data[4] != 16 {
-				return nil, errors.New("bad EAP-MSCHAPv2 challenge")
+				return nil, errors.New("komando cannot read the server's EAP-MSCHAPv2 challenge")
 			}
 			var pc [16]byte
 			copy(pc[:], random(16))
@@ -301,7 +301,7 @@ func (e *eapClient) answer(req []byte) ([]byte, error) {
 		case 4: // failure
 			return nil, &AuthError{Msg: "the VPN refused the login (EAP-MSCHAPv2" + mschapWords(string(data[4:])) + ")"}
 		}
-		return nil, fmt.Errorf("unknown EAP-MSCHAPv2 operation %d", op)
+		return nil, fmt.Errorf("the server asked for an EAP-MSCHAPv2 step komando does not know (%d)", op)
 	}
 	// any other method: ask for MS-CHAPv2
 	return eapPacket(eapResponse, id, eapNak, []byte{eapMSCHAPv2}), nil

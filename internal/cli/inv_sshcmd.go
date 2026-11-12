@@ -224,7 +224,7 @@ func sshCommandFor(st *store.State, h *store.Host) ([]string, error) {
 	}
 	for i := 1; i < len(hops); i++ {
 		if hops[i].ProxyCommand != "" {
-			return nil, out.Errf(out.ExitUsage, "PROXY_NOT_FIRST", "a proxy command can only start a path; put that host first in --via",
+			return nil, out.Errf(out.ExitUsage, "PROXY_NOT_FIRST", "a proxy command can only start a path; put that server first in --via",
 				"%s has a proxy command but is reached through another hop", hops[i].Name)
 		}
 		prev := hops[i-1]

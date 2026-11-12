@@ -26,8 +26,8 @@ var userRe = regexp.MustCompile(`^[A-Za-z0-9_.][A-Za-z0-9_.@$-]{0,63}$`)
 
 func validUser(u string) error {
 	if !userRe.MatchString(u) {
-		return out.Errf(out.ExitUsage, "USAGE", "a login name has letters, digits and . _ - @ $ (no spaces), e.g. --user deploy",
-			"invalid user %q", u)
+		return out.Errf(out.ExitUsage, "USAGE", "a login name has letters, digits and . _ - @ $ (no spaces), for example --user deploy",
+			"%q cannot be a login name", u)
 	}
 	return nil
 }
@@ -35,7 +35,7 @@ func validUser(u string) error {
 func validPort(p int) error {
 	if p < 0 || p > 65535 {
 		return out.Errf(out.ExitUsage, "USAGE", "a port is a number from 1 to 65535; leave it out for 22",
-			"invalid port %d", p)
+			"%d is not a port number", p)
 	}
 	return nil
 }
@@ -45,8 +45,8 @@ func validPort(p int) error {
 // (@GROUP, tag:TAG, label:KEY=VALUE).
 func validLabelName(kind, n string) error {
 	if !nameRe.MatchString(n) {
-		return out.Errf(out.ExitUsage, "USAGE", "use letters, digits and . _ - (max 63), e.g. web or prod-eu",
-			"invalid %s name %q", kind, n)
+		return out.Errf(out.ExitUsage, "USAGE", "use letters, digits and . _ - (max 63), for example web or prod-eu",
+			"%q cannot be a %s name", kind, n)
 	}
 	return nil
 }
@@ -69,7 +69,7 @@ func checkLabels(groups, tags []string, labels map[string]string) error {
 		}
 		if strings.ContainsAny(v, ",") || hasControl(v) {
 			return out.Errf(out.ExitUsage, "USAGE", "a label value cannot hold commas or control characters (it would break label:KEY=VALUE selectors)",
-				"invalid value for label %s", k)
+				"the value of label %s holds a comma or a control character", k)
 		}
 	}
 	return nil
@@ -93,7 +93,7 @@ func checkHost(s *store.State, h *store.Host) error {
 	// a leading - would read as an option in the ssh line host ssh-command
 	// prints (ssh -oProxyCommand=...), so it is never an address
 	if h.Address == "" || strings.HasPrefix(h.Address, "-") || strings.ContainsAny(h.Address, " /@") || hasControl(h.Address) {
-		return out.Errf(out.ExitUsage, "USAGE", "give a host name or IP address, e.g. 10.0.0.5 or web1.example.com", "invalid address %q", h.Address)
+		return out.Errf(out.ExitUsage, "USAGE", "give a host name or IP address, for example 10.0.0.5 or web1.example.com", "%q is not a host name or IP address", h.Address)
 	}
 	if h.Identity != "" {
 		if _, err := os.Stat(expandHome(h.Identity)); err != nil {
@@ -125,7 +125,7 @@ func checkHostVia(s *store.State, h *store.Host) error {
 	for i, step := range steps {
 		if strings.EqualFold(step, h.Name) {
 			return out.Errf(out.ExitUsage, "VIA_CYCLE", "--via names the servers (or VPN) in front of this one, not the server itself",
-				"host %q cannot reach itself through itself", h.Name)
+				"server %q is in its own --via path", h.Name)
 		}
 		if _, ok := s.Vpns[step]; ok {
 			if i > 0 {
@@ -188,7 +188,7 @@ func checkPassphraseRef(ref string) error {
 	if ref != "" && !vault.ValidRef(ref) {
 		return out.Errf(out.ExitUsage, "USAGE",
 			"store the passphrase with `komando secret set NAME` and pass --passphrase-ref secret:NAME ("+vault.RefHelp()+")",
-			"invalid --passphrase-ref: it takes a reference, not the passphrase itself")
+			"--passphrase-ref takes a reference, not the passphrase itself")
 	}
 	return nil
 }
@@ -391,7 +391,7 @@ func checkEntryName(kind, n string) error {
 	}
 	if c := reservedCloud(n); c != "" && (kind == "host" || kind == "conn" || kind == "vpn") {
 		word := map[string]string{"host": "server", "conn": "conn", "vpn": "VPN"}[kind]
-		return out.Errf(out.ExitUsage, "USAGE", "pick another name, e.g. "+c+"-1",
+		return out.Errf(out.ExitUsage, "USAGE", "pick another name, for example "+c+"-1",
 			"%q cannot be a %s name: `komando login %s` is the cloud login", n, word, c)
 	}
 	return nil

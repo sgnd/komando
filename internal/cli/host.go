@@ -23,7 +23,7 @@ var nameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`)
 
 func validName(kind, n string) error {
 	if !nameRe.MatchString(n) {
-		return out.Usage("invalid %s name %q (letters, digits, . _ -; max 63)", kind, n)
+		return out.Usage("%q cannot be a %s name: use letters, digits and . _ - (at most 63)", kind, n)
 	}
 	if (kind == "host" || kind == "conn" || kind == "vpn") && strings.EqualFold(n, "all") {
 		return out.Usage("%q cannot be a %s name: as a target it means everything", n, kind)
@@ -128,7 +128,7 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 		return err
 	}
 	if h.Address == "" {
-		return out.Errf(out.ExitUsage, "USAGE", "e.g. komando host add "+name+" deploy@10.0.0.5, or --address 10.0.0.5",
+		return out.Errf(out.ExitUsage, "USAGE", "for example komando host add "+name+" deploy@10.0.0.5, or --address 10.0.0.5",
 			"address required: pass user@address[:port] or --address")
 	}
 	h.Address = normAddr(h.Address)
@@ -209,7 +209,7 @@ func parseAddressArg(arg string) (*store.Host, error) {
 	}
 	a, err := sshx.ParseAdhoc(arg)
 	if err != nil {
-		return nil, out.Errf(out.ExitUsage, "USAGE", "write it as user@address[:port], e.g. deploy@10.0.0.5:2222", "invalid address %q", arg)
+		return nil, out.Errf(out.ExitUsage, "USAGE", "write it as user@address[:port], for example deploy@10.0.0.5:2222", "komando cannot read %q as an address", arg)
 	}
 	return a, nil
 }
@@ -262,7 +262,7 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) er
 		single = len(args) == 1 && ferr == nil
 		if !single {
 			if fl.Changed("address") {
-				return out.Errf(out.ExitUsage, "USAGE", "edit the servers one at a time for this, e.g. komando host edit "+hosts[0].Name+" --address ...",
+				return out.Errf(out.ExitUsage, "USAGE", "edit the servers one at a time for this, for example komando host edit "+hosts[0].Name+" --address ...",
 					"--address gives one server a value no other server should share; it takes one NAME, not %d servers", len(hosts))
 			}
 		}
@@ -331,7 +331,7 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 	fl := cmd.Flags()
 	undo = func() {}
 	if len(changedFlags(cmd)) == 0 {
-		return undo, out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando host edit "+args[0]+" --user deploy (see --help)", "nothing to change")
+		return undo, out.Errf(out.ExitUsage, "USAGE", "pass what to change, for example komando host edit "+args[0]+" --user deploy (see --help)", "nothing to change")
 	}
 	if err := editConflicts(fl, f.unset, map[string]string{"user": "user", "key": "key", "identity": "identity", "password-ref": "password-ref",
 		"sudo-ref": "sudo-ref", "via": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected", "os": "os"},
@@ -598,8 +598,8 @@ func guardProxyCommand(cmd string, names ...string) error {
 		return nil
 	}
 	if hits := policy.Check(cmd, nil); len(hits) > 0 && !dangerOK() && !policyAsk("--proxy-command `"+cmd+"` matches "+hits[0].Reason, names...) {
-		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a proxy command only carries the connection, e.g. `aws ssm start-session ...`; if this one is intended, --allow-dangerous lets it through",
-			"--proxy-command matches destructive rules: %s (a proxy command only carries the connection, e.g. `aws ssm start-session ...`)", hits[0].Reason))
+		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a proxy command only carries the connection, for example `aws ssm start-session ...`; if this one is intended, --allow-dangerous lets it through",
+			"--proxy-command matches destructive rules: %s (a proxy command only carries the connection, for example `aws ssm start-session ...`)", hits[0].Reason))
 	}
 	if isAgent() {
 		return guardSafety("running `" + cmd + "` on this computer whenever komando connects (--proxy-command)")
@@ -626,7 +626,7 @@ func checkHostRefs(h *store.Host) error {
 	}
 	for _, r := range []struct{ flag, ref string }{{"--password-ref", h.PasswordRef}, {"--sudo-ref", h.SudoRef}} {
 		if r.ref != "" && !vault.ValidRef(r.ref) {
-			return out.Usage("invalid %s: it takes a reference, not the password itself (%s); store the password with `komando secret set NAME` first", r.flag, vault.RefHelp())
+			return out.Usage("%s takes a reference, not the password itself (%s); store the password with `komando secret set NAME` first", r.flag, vault.RefHelp())
 		}
 	}
 	return nil
@@ -785,7 +785,7 @@ func hostRmCmd() *cobra.Command {
 			audit(nil, "host.rm", names, "", true, nil)
 			res := rmResult{Removed: names, HostKeysKept: kept, SecretsUnused: unused}
 			if len(kept) > 0 {
-				res.Note = "the pinned host keys of " + strings.Join(kept, ", ") + " stay in komando's known_hosts, so a server added again at the same address must show the same key. " +
+				res.Note = "the pinned host keys of " + strings.Join(kept, ", ") + " stay in komando's known_hosts, so a server added again at the same address has to show the same key. " +
 					"If it was rebuilt, add it again and replace the pin with `komando host trust NAME --reset` (a person confirms the new key)"
 			}
 			out.P.Print("host.rm", res, nil)

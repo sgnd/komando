@@ -28,7 +28,7 @@ func endpointOf(q url.Values, kind, def string, t *Target) error {
 	}
 	u, err := url.Parse(e)
 	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
-		return out.Usage("%s endpoint must be a URL like https://storage.example.com", kind)
+		return out.Usage("the %s endpoint is a URL like https://storage.example.com", kind)
 	}
 	t.Secure = u.Scheme == "https"
 	port := u.Port()
@@ -77,7 +77,7 @@ func parseGCS(u *url.URL, t Target) (Target, error) {
 func parseAzure(u *url.URL, t Target) (Target, error) {
 	t.User, t.Bucket = u.User.Username(), u.Host
 	if t.User == "" || t.Bucket == "" || strings.Contains(t.Bucket, ":") {
-		return Target{}, out.Usage("azblob URL is azblob://ACCOUNT@container/folder, e.g. %s", t.Kind.Example)
+		return Target{}, out.Usage("azblob URL is azblob://ACCOUNT@container/folder, for example %s", t.Kind.Example)
 	}
 	t.Prefix = folderOf(u.Path)
 	q := u.Query()
@@ -85,7 +85,7 @@ func parseAzure(u *url.URL, t Target) (Target, error) {
 		// a SAS token pasted into the URL: it is a password
 		return Target{}, out.Errf(out.ExitUsage, "URL_HAS_PASSWORD",
 			"remove the SAS token from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME",
-			"conn URLs must not contain a password")
+			"a conn URL holds no password or token")
 	}
 	if err := onlyOptions(q, "azblob", "endpoint", "ca", "insecure"); err != nil {
 		return Target{}, err
@@ -100,14 +100,14 @@ func parseAzure(u *url.URL, t Target) (Target, error) {
 // HTTP and needs ?insecure=1, as plain FTP does).
 func parseWebDAV(u *url.URL, t Target) (Target, error) {
 	if u.Hostname() == "" {
-		return Target{}, out.Usage("webdav URL needs a host, e.g. %s", t.Kind.Example)
+		return Target{}, out.Usage("webdav URL needs a host, for example %s", t.Kind.Example)
 	}
 	t.Secure = strings.EqualFold(u.Scheme, "webdavs")
 	port := map[bool]int{true: 443, false: 80}[t.Secure]
 	if p := u.Port(); p != "" {
 		var err error
 		if port, err = strconv.Atoi(p); err != nil || port < 1 || port > 65535 {
-			return Target{}, out.Usage("invalid port %q in conn URL", p)
+			return Target{}, out.Usage("the port %q in the conn URL is not a number from 1 to 65535", p)
 		}
 	}
 	t.Address = net.JoinHostPort(u.Hostname(), strconv.Itoa(port))
@@ -119,7 +119,7 @@ func parseWebDAV(u *url.URL, t Target) (Target, error) {
 	}
 	if t.Secure {
 		if t.TLS = q.Get("tls"); t.TLS != "" && t.TLS != "skip-verify" {
-			return Target{}, out.Usage("webdav tls option must be skip-verify (or left out to verify the certificate)")
+			return Target{}, out.Usage("the webdav tls option takes only skip-verify (leave it out to check the certificate)")
 		}
 	} else if q.Get("insecure") != "1" {
 		return Target{}, out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
@@ -135,13 +135,13 @@ func parseWebDAV(u *url.URL, t Target) (Target, error) {
 // place, not both.
 func parseSMB(u *url.URL, t Target) (Target, error) {
 	if u.Hostname() == "" {
-		return Target{}, out.Usage("smb URL needs a host, e.g. %s", t.Kind.Example)
+		return Target{}, out.Usage("smb URL needs a host, for example %s", t.Kind.Example)
 	}
 	port := 445
 	if p := u.Port(); p != "" {
 		var err error
 		if port, err = strconv.Atoi(p); err != nil || port < 1 || port > 65535 {
-			return Target{}, out.Usage("invalid port %q in conn URL", p)
+			return Target{}, out.Usage("the port %q in the conn URL is not a number from 1 to 65535", p)
 		}
 	}
 	t.Address = net.JoinHostPort(u.Hostname(), strconv.Itoa(port))
@@ -158,12 +158,12 @@ func parseSMB(u *url.URL, t Target) (Target, error) {
 	}
 	if t.User == "" {
 		return Target{}, out.Errf(out.ExitUsage, "USAGE",
-			"add the user name, e.g. smb://alice@host/share; a guest login is refused because it cannot sign what the server sends",
+			"add the user name, for example smb://alice@host/share; a guest login is refused because it cannot sign what the server sends",
 			"smb URL needs a user name")
 	}
 	share, folder, _ := strings.Cut(strings.Trim(u.Path, "/"), "/")
 	if share == "" || strings.ContainsAny(share, `\:*?"<>|`) {
-		return Target{}, out.Usage("smb URL needs a share after the host, e.g. %s", t.Kind.Example)
+		return Target{}, out.Usage("smb URL needs a share after the host, for example %s", t.Kind.Example)
 	}
 	// Secure stays false: it means TLS (cert check, doctor), and SMB signs
 	// its messages instead; storex.OpenSMB always asks for that

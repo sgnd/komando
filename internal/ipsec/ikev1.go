@@ -103,7 +103,7 @@ func parseChain(first byte, b []byte) ([]v1Payload, error) {
 		}
 		n := int(binary.BigEndian.Uint16(b[2:]))
 		if n < 4 || n > len(b) {
-			return nil, errors.New("bad payload length")
+			return nil, errors.New("a payload's length does not match")
 		}
 		ps = append(ps, v1Payload{typ: t, body: b[4:n], raw: b[:n]})
 		t, b = b[0], b[n:]
@@ -316,7 +316,7 @@ func (k *ikeV1) parse(raw []byte) (*v1msg, error) {
 	}
 	n := int(binary.BigEndian.Uint32(raw[24:]))
 	if n > len(raw) || n < v1HdrLen {
-		return nil, errors.New("bad length")
+		return nil, errors.New("a message's length does not match")
 	}
 	raw = raw[:n]
 	m := &v1msg{exch: raw[18], flags: raw[19], rc: raw[8:16], mid: binary.BigEndian.Uint32(raw[20:])}
@@ -336,7 +336,7 @@ func (k *ikeV1) parse(raw []byte) (*v1msg, error) {
 		}
 		bs := k.bs()
 		if len(body) == 0 || len(body)%bs != 0 {
-			return nil, errors.New("bad encrypted length")
+			return nil, errors.New("the encrypted length does not match")
 		}
 		pt, err := cbcDecrypt(k.suite.enc, k.key, k.iv(m.mid), body)
 		if err != nil {
@@ -999,7 +999,7 @@ func (k *ikeV1) quickOnce(ctx context.Context, pfs bool) error {
 		return err
 	}
 	if len(c.spi) != 4 {
-		return errors.New("quick mode: bad SPI")
+		return errors.New("quick mode: the server sent an SPI komando cannot use")
 	}
 	var gqm []byte
 	if dh != nil {

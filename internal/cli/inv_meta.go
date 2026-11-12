@@ -125,7 +125,7 @@ is given.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if limit < 0 {
-				return out.Errf(out.ExitUsage, "USAGE", "-n takes how many of the newest entries to show; 0 shows all", "invalid -n %d", limit)
+				return out.Errf(out.ExitUsage, "USAGE", "-n takes how many of the newest entries to show; 0 shows all", "-n takes 0 or more, not %d", limit)
 			}
 			flt := auditFilter{command: command, failed: failed, byTarget: target != "", actor: actorName}
 			if err := flt.setWindow(since, until, time.Now()); err != nil {
@@ -257,13 +257,13 @@ func policyCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pat := args[0]
 			if strings.TrimSpace(pat) == "" {
-				return out.Errf(out.ExitUsage, "USAGE", `give a regular expression, e.g. 'kubectl\s+delete'`, "empty pattern: it would match every command")
+				return out.Errf(out.ExitUsage, "USAGE", `give a regular expression, for example 'kubectl\s+delete'`, "empty pattern: it would match every command")
 			}
 			if err := checkRegex(pat); err != nil {
-				return out.Errf(out.ExitUsage, "USAGE", "the pattern is a Go regular expression (https://pkg.go.dev/regexp/syntax)", "invalid regex: %v", err)
+				return out.Errf(out.ExitUsage, "USAGE", "the pattern is a Go regular expression (https://pkg.go.dev/regexp/syntax)", "komando cannot read the pattern: %v", err)
 			}
 			if regexp.MustCompile(pat).MatchString("") {
-				return out.Errf(out.ExitUsage, "USAGE", `give a pattern that needs some text to match, e.g. 'kubectl\s+delete'`, "the pattern %s matches empty text, so it would match every command", pat)
+				return out.Errf(out.ExitUsage, "USAGE", `give a pattern that needs some text to match, for example 'kubectl\s+delete'`, "the pattern %s matches empty text, so it would match every command", pat)
 			}
 			var pats []string
 			added := false
@@ -631,7 +631,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			if st.Settings.Audit {
 				add("audit_log", true, "sealed in "+store.Path(store.StoreFile))
 			}
-			hostDetail := countOf(len(st.Hosts), "host")
+			hostDetail := countOf(len(st.Hosts), "server")
 			if len(st.Hosts) == 0 {
 				hostDetail = "none yet; add with `komando host add` or `komando import ssh-config`"
 			}
@@ -691,7 +691,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			}
 			var soft *out.Error
 			if !ok {
-				soft = out.Errf(out.ExitError, "DOCTOR_FAILED", "fix the checks marked ✗ (ok: false), then run `komando doctor` again", "some checks failed")
+				soft = out.Errf(out.ExitError, "DOCTOR_FAILED", "fix the checks marked ✗ (ok: false in -o json), then run `komando doctor` again", "some checks failed")
 			}
 			out.P.Print("doctor", r, soft)
 			if soft != nil {

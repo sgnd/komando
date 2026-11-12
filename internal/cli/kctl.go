@@ -79,7 +79,7 @@ var kBoolFlags = map[string]string{
 func parseKargs(args []string) (kargs, error) {
 	a := kargs{vals: map[string][]string{}, bools: map[string]bool{}}
 	if len(args) == 0 {
-		return a, errors.New("name a command, e.g. `-- get pods`")
+		return a, errors.New("name a command, for example `-- get pods`")
 	}
 	a.verb = strings.ToLower(args[0])
 	for i := 1; i < len(args); i++ {

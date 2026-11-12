@@ -44,9 +44,9 @@ func TestParseAMQPRefuses(t *testing.T) {
 		"amqps://rabbit?tls=true":                    "can only be skip-verify",
 		"amqp://rabbit?ca=secret:x":                  "use amqps",
 		"amqps://rabbit?tls=skip-verify&ca=secret:x": "do not go together",
-		"amqp://rabbit?management=http://x":          "must be a port",
+		"amqp://rabbit?management=http://x":          "takes a port",
 		"amqp://rabbit?heartbeat=10":                 "unknown rabbitmq URL option",
-		"amqp://rabbit:0":                            "invalid port",
+		"amqp://rabbit:0":                            "is not a number from 1 to 65535",
 		"amqp:///vhost":                              "needs a host",
 	} {
 		_, err := Parse(raw)

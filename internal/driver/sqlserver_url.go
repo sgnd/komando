@@ -44,11 +44,11 @@ func ParseSQLServerOptions(q url.Values) (SQLServerOptions, error) {
 			if o.Encrypt != "true" && o.Encrypt != "strict" && o.Encrypt != "false" && o.Encrypt != "disable" {
 				return o, out.Errf(out.ExitUsage, "USAGE",
 					"encrypt=true encrypts everything and checks the certificate; strict is the same with TDS 8.0; false encrypts only the login; disable encrypts nothing",
-					"sqlserver encrypt option must be true, strict, false or disable, not %q", v)
+					"the sqlserver encrypt option takes true, strict, false or disable, not %q", v)
 			}
 		case "tls":
 			if v != "skip-verify" {
-				return o, out.Usage("sqlserver tls option must be skip-verify (encrypt without checking the certificate), not %q", v)
+				return o, out.Usage("the sqlserver tls option takes only skip-verify (encrypt without checking the certificate), not %q", v)
 			}
 			o.SkipVerify = true
 		case "applicationintent":
@@ -57,7 +57,7 @@ func ParseSQLServerOptions(q url.Values) (SQLServerOptions, error) {
 				o.ReadOnly = true
 			case "readwrite":
 			default:
-				return o, out.Usage("sqlserver applicationintent option must be readonly or readwrite, not %q", v)
+				return o, out.Usage("the sqlserver applicationintent option takes readonly or readwrite, not %q", v)
 			}
 		case "database":
 			o.Database = v
@@ -92,16 +92,16 @@ func ParseSQLServerOptions(q url.Values) (SQLServerOptions, error) {
 // that maps names to ports answers over UDP, which an SSH --via cannot carry.
 func parseSQLServer(u *url.URL, t Target) (Target, error) {
 	if u.Hostname() == "" {
-		return Target{}, out.Usage("sqlserver URL needs a host, e.g. %s", t.Kind.Example)
+		return Target{}, out.Usage("sqlserver URL needs a host, for example %s", t.Kind.Example)
 	}
 	if u.User.Username() == "" {
-		return Target{}, out.Usage("sqlserver URL needs a user name, e.g. sqlserver://app@db.internal:1433/sales")
+		return Target{}, out.Usage("sqlserver URL needs a user name, for example sqlserver://app@db.internal:1433/sales")
 	}
 	port := t.Kind.DefaultPort
 	if p := u.Port(); p != "" {
 		var err error
 		if port, err = strconv.Atoi(p); err != nil || port < 1 || port > 65535 {
-			return Target{}, out.Usage("invalid port %q in conn URL", p)
+			return Target{}, out.Usage("the port %q in the conn URL is not a number from 1 to 65535", p)
 		}
 	}
 	t.Address = net.JoinHostPort(u.Hostname(), strconv.Itoa(port))

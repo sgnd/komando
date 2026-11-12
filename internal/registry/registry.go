@@ -230,7 +230,7 @@ func (c *Client) token(ctx context.Context, challenge, scope string) (string, er
 	}
 	realm, err := url.Parse(params["realm"])
 	if err != nil || realm.Host == "" {
-		return "", fmt.Errorf("bad auth challenge %q", challenge)
+		return "", fmt.Errorf("komando cannot read the registry's login challenge %q", challenge)
 	}
 	if realm.Scheme != "https" && c.Base.Scheme == "https" {
 		// the password would travel in clear to the token service

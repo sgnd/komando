@@ -43,7 +43,7 @@ func daemonReloadResult(rr *sshx.RunResult) (any, *out.Error) {
 		return nil, errNoSystemd()
 	}
 	if m != "rc=0" {
-		return nil, out.Errf(out.ExitRemote, "SVC_FAILED", "read stderr for systemd's reason; a unit file with a mistake is named there",
+		return nil, out.Errf(out.ExitRemote, "SVC_FAILED", "read the error output (stderr) for systemd's reason; a unit file with a mistake is named there",
 			"systemctl daemon-reload failed (%s)", strings.TrimPrefix(m, "rc="))
 	}
 	stale := []string{}
@@ -196,7 +196,7 @@ func rebootOne(ctx context.Context, st *store.State, h *store.Host, wait time.Du
 			return err
 		}
 		if rr.ExitCode != 0 {
-			return out.Errf(out.ExitRemote, "REBOOT_FAILED", "read stderr; without sudo rights a reboot is refused",
+			return out.Errf(out.ExitRemote, "REBOOT_FAILED", "read the error output (stderr); without sudo rights a reboot is refused",
 				"the reboot command failed (exit %d): %s", rr.ExitCode, strings.TrimSpace(rr.Stderr))
 		}
 		before = marker(rr.Stdout)

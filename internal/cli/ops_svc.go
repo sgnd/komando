@@ -123,7 +123,7 @@ func svcActionResult(action string, wait int, rr *sshx.RunResult) (any, *out.Err
 	}
 	rc, _ := strconv.Atoi(strings.TrimPrefix(marker(rr.Stdout), "rc="))
 	if rc != 0 {
-		return units, out.Errf(out.ExitRemote, "SVC_FAILED", "the unit's last journal lines are in stderr; more with `komando logs TARGET --unit UNIT`",
+		return units, out.Errf(out.ExitRemote, "SVC_FAILED", "the unit's last journal lines are in the error output (stderr); more with `komando logs TARGET --unit UNIT`",
 			"systemctl %s failed (exit %d)", action, rc)
 	}
 	if wait > 0 {
@@ -275,7 +275,7 @@ func (o *logOpts) check() error {
 		}
 		lo, hi, isRange := strings.Cut(o.priority, "..")
 		if !journalPriorities[lo] || (isRange && !journalPriorities[hi]) {
-			return out.Usage("invalid priority %q: use emerg, alert, crit, err, warning, notice, info, debug or 0-7 (or a range like err..warning)", o.priority)
+			return out.Usage("%q is not a log priority: use emerg, alert, crit, err, warning, notice, info, debug or 0-7 (or a range like err..warning)", o.priority)
 		}
 	}
 	if o.timestamps && o.container == "" {
@@ -450,7 +450,7 @@ func (o *logOpts) result(rr *sshx.RunResult) (any, *out.Error) {
 	case "no-systemd":
 		return "", errNoSystemd()
 	case "no-file":
-		return "", out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "check the path, e.g. `komando fs list TARGET /var/log`", "%s does not exist", o.file)
+		return "", out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "check the path, for example `komando fs list TARGET /var/log`", "%s does not exist", o.file)
 	case "no-read":
 		return "", out.Errf(out.ExitRemote, "PERMISSION_DENIED", "add --sudo", "cannot read %s", o.file)
 	}

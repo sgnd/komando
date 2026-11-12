@@ -632,7 +632,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 			res := &dbx.Result{Results: []dbx.StatementResult{}}
 			for _, s := range plan.Statements {
 				res.Results = append(res.Results, dbx.StatementResult{SQL: s.SQL, Keyword: s.Keyword, Risk: s.Risk.String(),
-					Skipped: "dry run: the real run would be blocked (meta.would_be_blocked), so nothing was executed"})
+					Skipped: "dry run: the real run would stop at a safety check, so nothing was run"})
 			}
 			rec["committed"] = false
 			audit(st, name, nil, "", true, rec)
@@ -681,7 +681,7 @@ func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res 
 		// a cut export would look whole in a file: refuse it instead
 		for _, r := range res.Results {
 			if r.Truncated == "bytes" {
-				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, e.g. --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump`",
+				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump`",
 					"the rows are more than the output size cap (--max-output) allows; nothing was printed")
 			}
 		}

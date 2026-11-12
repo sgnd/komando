@@ -22,7 +22,7 @@ const (
 // is 8443 with TLS and 8123 without.
 func parseClickHouse(u *url.URL, t Target) (Target, error) {
 	if u.Hostname() == "" {
-		return Target{}, out.Usage("clickhouse URL needs a host, e.g. %s", t.Kind.Example)
+		return Target{}, out.Usage("clickhouse URL needs a host, for example %s", t.Kind.Example)
 	}
 	q := u.Query()
 	for key := range q {
@@ -36,7 +36,7 @@ func parseClickHouse(u *url.URL, t Target) (Target, error) {
 	default:
 		return Target{}, out.Errf(out.ExitUsage, "USAGE",
 			"tls=true is HTTPS with the certificate checked; skip-verify is HTTPS without the check; false is plain HTTP",
-			"clickhouse tls option must be true, skip-verify or false, not %q", q.Get("tls"))
+			"the clickhouse tls option takes true, skip-verify or false, not %q", q.Get("tls"))
 	}
 	t.Secure = t.TLS == "true" || t.TLS == "skip-verify"
 	port := clickhouseHTTP
@@ -46,7 +46,7 @@ func parseClickHouse(u *url.URL, t Target) (Target, error) {
 	if p := u.Port(); p != "" {
 		var err error
 		if port, err = strconv.Atoi(p); err != nil || port < 1 || port > 65535 {
-			return Target{}, out.Usage("invalid port %q in conn URL", p)
+			return Target{}, out.Usage("the port %q in the conn URL is not a number from 1 to 65535", p)
 		}
 	}
 	switch {

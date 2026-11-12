@@ -59,7 +59,7 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 	if !interactive() {
 		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL",
 			"agents and scripts use `komando db query CONN \"SQL\"`, which returns JSON and checks every statement",
-			"db shell is interactive and needs a person at a terminal")
+			"db shell needs a person at a terminal")
 	}
 	st, err := loadState()
 	if err != nil {

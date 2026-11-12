@@ -14,7 +14,7 @@ import (
 // (shown, and checked by `conn test`); the driver reads the whole URL.
 func parseMongo(u *url.URL, t Target) (Target, error) {
 	if u.Host == "" {
-		return Target{}, out.Usage("mongodb URL needs a host, e.g. %s", t.Kind.Example)
+		return Target{}, out.Usage("mongodb URL needs a host, for example %s", t.Kind.Example)
 	}
 	srv := strings.EqualFold(u.Scheme, "mongodb+srv")
 	first := u.Host
@@ -29,7 +29,7 @@ func parseMongo(u *url.URL, t Target) (Target, error) {
 		port = "27017"
 	}
 	if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
-		return Target{}, out.Usage("invalid port %q in conn URL", port)
+		return Target{}, out.Usage("the port %q in the conn URL is not a number from 1 to 65535", port)
 	}
 	t.Address = net.JoinHostPort(host, port)
 	t.User = u.User.Username()

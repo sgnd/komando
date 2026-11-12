@@ -85,9 +85,9 @@ func parseHostsCSV(b []byte) ([]*store.Host, error) {
 		switch {
 		case strings.EqualFold(strings.TrimSpace(h), "env"):
 			return nil, out.Errf(out.ExitUsage, "USAGE", "for prod, staging and the like use a tags column; environment variables for commands are set with `komando host edit TARGET --env KEY=VALUE`",
-				"unknown column %q", h)
+				"the file has a column komando does not import: %q", h)
 		case f == "":
-			return nil, csvErr("unknown column %q", strings.TrimSpace(h))
+			return nil, csvErr("the file has a column komando does not import: %q", strings.TrimSpace(h))
 		case seen[f]:
 			return nil, csvErr("column %q appears twice", f)
 		}

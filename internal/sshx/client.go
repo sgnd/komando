@@ -205,7 +205,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 	var c *ssh.Client
 	switch {
 	case hop.ProxyCommand != "" && reached:
-		return nil, out.Errf(out.ExitUsage, "PROXY_NOT_FIRST", "a proxy command can only start a path; put that host first in --via",
+		return nil, out.Errf(out.ExitUsage, "PROXY_NOT_FIRST", "a proxy command can only start a path; put that server first in --via",
 			"%s has a proxy command but is reached through another hop", hop.Name)
 	case builtinSSM(hop):
 		// AWS Session Manager, spoken by komando itself
@@ -361,7 +361,7 @@ func ParseAdhoc(s string) (*store.Host, error) {
 		h.Address = s
 	}
 	if h.Address == "" || strings.ContainsAny(h.Address, " /") {
-		return nil, fmt.Errorf("invalid host spec")
+		return nil, fmt.Errorf("the server address is empty or holds a space or a slash")
 	}
 	return h, nil
 }

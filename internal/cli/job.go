@@ -430,7 +430,7 @@ func (d jobWaited) fleetHint() string {
 			running = append(running, r.ID)
 		}
 	}
-	hint := "each job's state and error are in data.jobs"
+	hint := "each job's state and error are listed with it (data.jobs in -o json)"
 	if out.P.Format == "text" {
 		hint = "each job's state is above"
 	}
@@ -647,7 +647,7 @@ func (d jobStarted) fleetHint() string {
 	if out.P.Format == "text" {
 		return "each server's error is above"
 	}
-	return "each server's error is in data.jobs"
+	return "each server's error is listed with its job (data.jobs in -o json)"
 }
 
 // ids are the IDs of the jobs that started.

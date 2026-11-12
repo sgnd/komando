@@ -50,7 +50,7 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 	case "postgres":
 		cfg, err := pgx.ParseConfig(driver.WithoutCA(rawURL))
 		if err != nil {
-			return nil, out.Usage("invalid postgres URL: %v", err)
+			return nil, out.Usage("komando cannot read the postgres URL: %v", err)
 		}
 		pool, err := t.RootCAs()
 		if err != nil {

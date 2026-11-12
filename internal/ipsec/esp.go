@@ -98,7 +98,7 @@ func (e *espSA) seal(next byte, payload []byte) ([]byte, error) {
 	seq := e.seq
 	e.mu.Unlock()
 	if seq == 0 {
-		return nil, errors.New("ESP: the sequence numbers ran out; the SA must be rekeyed")
+		return nil, errors.New("ESP: the sequence numbers ran out; the tunnel needs new keys (connect again)")
 	}
 	align := 4
 	if !e.suite.c.gcm {
@@ -152,7 +152,7 @@ func (e *espSA) open(pkt []byte) (next byte, payload []byte, err error) {
 	} else {
 		bs, icv := e.suite.c.blockSize(), e.suite.integ.icv
 		if len(pkt) < 8+bs+bs+icv || (len(pkt)-8-bs-icv)%bs != 0 {
-			return 0, nil, errors.New("ESP: bad length")
+			return 0, nil, errors.New("ESP: a packet's length does not match")
 		}
 		body, mac := pkt[:len(pkt)-icv], pkt[len(pkt)-icv:]
 		if !hmac.Equal(mac, e.suite.integ.mac(e.in.integ, body)) {
@@ -163,11 +163,11 @@ func (e *espSA) open(pkt []byte) (next byte, payload []byte, err error) {
 		cipher.NewCBCDecrypter(e.blkIn, body[8:8+bs]).CryptBlocks(plain, ct)
 	}
 	if len(plain) < 2 {
-		return 0, nil, errors.New("ESP: bad padding")
+		return 0, nil, errors.New("ESP: a packet's padding is broken")
 	}
 	padLen := int(plain[len(plain)-2])
 	if padLen+2 > len(plain) {
-		return 0, nil, errors.New("ESP: bad padding")
+		return 0, nil, errors.New("ESP: a packet's padding is broken")
 	}
 	e.replayMark(seq)
 	return plain[len(plain)-1], plain[:len(plain)-2-padLen], nil

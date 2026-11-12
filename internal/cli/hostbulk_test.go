@@ -236,8 +236,8 @@ func TestImportCSV(t *testing.T) {
 	}
 
 	for _, c := range []struct{ text, want string }{
-		{"name,address,colour\nx,10.0.0.1,red\n", `unknown column "colour"`},
-		{"name,address,env\nx,10.0.0.1,prod\n", `unknown column "env"`},
+		{"name,address,colour\nx,10.0.0.1,red\n", `does not import: "colour"`},
+		{"name,address,env\nx,10.0.0.1,prod\n", `does not import: "env"`},
 		{"name,user\nx,u\n", "name and an address column"},
 		{"name,address,address\n", "appears twice"},
 		{"name,address\n", "only the header row"},

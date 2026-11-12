@@ -306,7 +306,7 @@ download written the cp way: the same code, flags and results.
 				}
 				return out.Usage("komando cannot copy from one server straight to another: download, then upload")
 			case !srcRemote && !dstRemote:
-				return out.Usage("one side must be remote (TARGET:PATH); a local name with a colon is written ./name")
+				return out.Usage("neither side is on a server: write one as TARGET:PATH (a local name with a colon is written ./name)")
 			case dstRemote:
 				if o.overwrite {
 					return out.Usage("--overwrite is for downloads; uploads always replace (the result says replaced)")
@@ -336,7 +336,7 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 			return out.Usage("%s is a folder; add -r", local)
 		}
 		if fi.IsDir() && o.sudo {
-			return out.Usage("--sudo uploads single files; upload the folder to a place you own (e.g. /tmp/%s), then `komando exec %s --sudo -- cp -r /tmp/%s/. DEST/`",
+			return out.Usage("--sudo uploads single files; upload the folder to a place you own (for example /tmp/%s), then `komando exec %s --sudo -- cp -r /tmp/%s/. DEST/`",
 				filepath.Base(local), target, filepath.Base(local))
 		}
 	}

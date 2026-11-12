@@ -100,7 +100,7 @@ func checkConn(s *store.State, c *store.Conn) error {
 	c.Kind = t.Kind.Name
 	if t.Kind.File && !strings.HasPrefix(t.Path, "/") && !strings.HasPrefix(t.Path, "~/") && !filepath.IsAbs(t.Path) {
 		// a relative path would name a different file in every folder komando runs from
-		hint := "write the full path, e.g. " + t.Kind.Example + ", or ~/ for your home folder"
+		hint := "write the full path, for example " + t.Kind.Example + ", or ~/ for your home folder"
 		if abs, err := filepath.Abs(t.Path); err == nil {
 			hint = "write the full path; for the file in this folder: " + t.Kind.Name + "://" + filepath.ToSlash(abs)
 		}
@@ -116,7 +116,7 @@ func checkConn(s *store.State, c *store.Conn) error {
 	}
 	if r := c.PasswordRef; r != "" && !vault.ValidRef(r) {
 		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref secret:NAME ("+vault.RefHelp()+")",
-			"invalid --password-ref: it takes a reference, not the password itself")
+			"--password-ref takes a reference, not the password itself")
 	}
 	return checkLabels(c.Groups, c.Tags, c.Labels)
 }
@@ -249,7 +249,7 @@ func connEditCmd() *cobra.Command {
 func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, askPw bool) error {
 	fl := cmd.Flags()
 	if len(changedFlags(cmd)) == 0 {
-		return out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
+		return out.Errf(out.ExitUsage, "USAGE", "pass what to change, for example komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
 	}
 	if err := editConflicts(fl, f.unset, map[string]string{"via": "via", "password-ref": "password-ref", "notes": "notes", "protected": "protected"},
 		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
@@ -682,7 +682,7 @@ func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 		_ = viaTimeout(c, e)
 		return e
 	}
-	hint := "check the address and port; if the service is only reachable from a server, set `komando conn edit " + c.Name + " --via HOST`"
+	hint := "check the address and port; if it is only reachable from a server, set `komando conn edit " + c.Name + " --via SERVER`"
 	if steps := viaChain(c.Via); len(steps) > 0 {
 		last := steps[len(steps)-1]
 		hint = "the address is resolved on " + last + "; check it from there with `komando net check " + last + " " + t.Address + "`"
