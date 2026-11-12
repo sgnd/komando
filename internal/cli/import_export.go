@@ -215,14 +215,7 @@ func exportCmd() *cobra.Command {
 				}
 			}
 			var keyFiles, keysSealed []string // what to copy to the other computer, as the export does not
-			for _, n := range slices.Sorted(maps.Keys(keys)) {
-				f.Keys = append(f.Keys, n)
-				if store.SealedKey(st.Keys[n]) { // made by key gen: in store.db, no file to copy
-					keysSealed = append(keysSealed, n)
-				} else {
-					keyFiles = append(keyFiles, st.Keys[n].Path)
-				}
-			}
+			f.Keys, keyFiles, keysSealed = exportKeys(st, keys)
 			for _, c := range sel.Conns {
 				if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok {
 					need[n] = true
@@ -268,6 +261,21 @@ func exportCmd() *cobra.Command {
 	c.Flags().StringVar(&to, "to", "", "write to this file (0600) instead of printing")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace the file if it exists")
 	return c
+}
+
+// exportKeys are the keys the exported servers use, sorted: their files to
+// copy by hand, and the keys komando made (sealed in store.db, no file).
+func exportKeys(st *store.State, keys map[string]bool) (names, files, sealed []string) {
+	names = []string{} // keys_needed is a list, never null
+	for _, n := range slices.Sorted(maps.Keys(keys)) {
+		names = append(names, n)
+		if store.SealedKey(st.Keys[n]) {
+			sealed = append(sealed, n)
+		} else {
+			files = append(files, st.Keys[n].Path)
+		}
+	}
+	return names, files, sealed
 }
 
 // exportResult is what `export --to FILE` saved, and what to bring along.

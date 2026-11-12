@@ -197,32 +197,9 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	if err != nil {
 		return err
 	}
-	existed := map[string]bool{} // before this import put anything in st
-	for n := range st.Hosts {
-		existed[n] = true
-	}
-	for n := range st.Conns {
-		existed[n] = true
-	}
-	for n := range st.Vpns {
-		existed[n] = true
-	}
+	existed := entryNames(st) // before this import puts anything in st
 	// decide first, so secrets are stored only for what is really added
-	skip := func(kind, name string) string {
-		if err := validName(kind, name); err != nil {
-			return toErr(err).Message
-		}
-		// a protected conn is skipped like a protected server (vetImportHosts),
-		// so a dry run lists it as skipped, as the real run does, and the
-		// rest of the file still comes in
-		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && c.Protected && !yesOK() {
-			return importProtectedSkip
-		}
-		if err := checkNewName(st, kind, name, overwrite); err != nil {
-			return toErr(err).Message
-		}
-		return ""
-	}
+	skip := importSkipper(st, overwrite)
 	var vpns []*store.Vpn
 	for _, v := range plan.Vpns {
 		if r := skip("vpn", v.Name); r != "" {
@@ -281,12 +258,7 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 		res.Recipes = append(res.Recipes, r.Name)
 	}
 	res.DenyRules, res.SettingsDiffer = importRulesAndSettings(st, plan)
-	for _, n := range slices.Concat(res.Hosts, res.Conns, res.Vpns) {
-		if existed[n] {
-			res.Replaced = append(res.Replaced, n)
-		}
-	}
-	res.Next = importNext(slices.Concat(res.Hosts, res.Conns, res.Vpns), groups)
+	res.replacedAndNext(existed, groups)
 	res.Action = "added"
 	incomplete := importIncomplete(len(v.Invalid))
 	if g.dryRun {
@@ -415,6 +387,52 @@ func (r *importResult) addConn(c *store.Conn, plan *importPlan) {
 		note := c.Name + ": set its password with `komando secret set " + c.Name + "-pass` and `komando conn edit " + c.Name + " --password-ref secret:" + c.Name + "-pass`"
 		r.NotFound, r.aboutAdded = append(r.NotFound, note), append(r.aboutAdded, note)
 	}
+}
+
+// entryNames are the names of the servers, conns and VPNs in st.
+func entryNames(st *store.State) map[string]bool {
+	n := map[string]bool{}
+	for k := range st.Hosts {
+		n[k] = true
+	}
+	for k := range st.Conns {
+		n[k] = true
+	}
+	for k := range st.Vpns {
+		n[k] = true
+	}
+	return n
+}
+
+// importSkipper says why an entry of kind is not added (or "").
+func importSkipper(st *store.State, overwrite bool) func(kind, name string) string {
+	return func(kind, name string) string {
+		if err := validName(kind, name); err != nil {
+			return toErr(err).Message
+		}
+		// a protected conn is skipped like a protected server (vetImportHosts),
+		// so a dry run lists it as skipped, as the real run does, and the
+		// rest of the file still comes in
+		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && c.Protected && !yesOK() {
+			return importProtectedSkip
+		}
+		if err := checkNewName(st, kind, name, overwrite); err != nil {
+			return toErr(err).Message
+		}
+		return ""
+	}
+}
+
+// replacedAndNext fills in what the import replaces (names that existed
+// before it) and the command that tests what it adds.
+func (r *importResult) replacedAndNext(existed map[string]bool, groups []string) {
+	added := slices.Concat(r.Hosts, r.Conns, r.Vpns)
+	for _, n := range added {
+		if existed[n] {
+			r.Replaced = append(r.Replaced, n)
+		}
+	}
+	r.Next = importNext(added, groups)
 }
 
 // importNext is the test command for what an import brings in: its group
