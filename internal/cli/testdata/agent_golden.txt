@@ -6218,6 +6218,26 @@ exit 3
 --- stdout
 --- stderr
 Error: No file storage named "x1".
+### komando -o json forward list (agent json)
+exit 0
+--- stdout
+{"ok":true,"command":"tunnel.list","data":{"count":0,"tunnels":[]},"meta":{"contract":1,"version":"V","duration_ms":0,"deprecated":{"used":"komando forward list","now":"komando tunnel list"}}}
+--- stderr
+### komando -o text forward list (agent text)
+exit 0
+--- stdout
+no tunnels: komando tunnel start TARGET starts one
+--- stderr
+### komando -o json forward list (script json)
+exit 0
+--- stdout
+{"ok":true,"command":"tunnel.list","data":{"count":0,"tunnels":[]},"meta":{"contract":1,"version":"V","duration_ms":0,"deprecated":{"used":"komando forward list","now":"komando tunnel list"}}}
+--- stderr
+### komando -o text forward list (script text)
+exit 0
+--- stdout
+no tunnels: komando tunnel start TARGET starts one
+--- stderr
 ### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7488,3 +7508,134 @@ exit 6
 --- stdout
 --- stderr
 Stopped: replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack). Nothing was changed.
+### komando schema storage link (schema values)
+exit 0
+komando storage link kind=change confirm=null
+  --endpoint type=string
+  --expires type=duration default=1h
+### komando schema cluster forward (schema values)
+exit 0
+komando cluster forward kind=change confirm=null
+  --namespace shorthand=n type=string
+### komando schema host add (schema values)
+exit 0
+komando host add kind=change confirm=null
+  --address type=string
+  --ask-password type=bool default=false
+  --env shorthand=e type=stringArray default=[]
+  --group shorthand=g type=stringSlice default=[]
+  --identity type=string
+  --key type=string
+  --label type=stringArray default=[]
+  --notes type=string
+  --os type=string
+  --overwrite type=bool default=false
+  --password-ref type=string
+  --port type=int default=0
+  --protected type=bool default=false
+  --proxy-command type=string
+  --ssm type=bool default=false
+  --sudo-ref type=string
+  --tag shorthand=t type=stringSlice default=[]
+  --user type=string
+  --via type=string
+### komando schema conn add (schema values)
+exit 0
+komando conn add kind=change confirm=null
+  --ask-password type=bool default=false
+  --group shorthand=g type=stringSlice default=[]
+  --label type=stringArray default=[]
+  --notes type=string
+  --option type=stringArray default=[]
+  --overwrite type=bool default=false
+  --password-ref type=string
+  --protected type=bool default=false
+  --tag shorthand=t type=stringSlice default=[]
+  --via type=string
+### komando schema cache set (schema values)
+exit 0
+komando cache set kind=change confirm=null
+  --ttl type=duration
+### komando schema cert check (schema values)
+exit 0
+komando cert check kind=read confirm=null
+  --path type=stringSlice default=[]
+  --via type=string
+  --warn type=duration default=30d
+### komando schema registry prune (schema values)
+exit 0
+komando registry prune kind=change confirm=null
+  --keep type=int default=0
+  --match type=string
+  --older-than type=duration
+### komando schema cluster logs (schema values)
+exit 0
+komando cluster logs kind=read confirm=null
+  --container shorthand=c type=string
+  --follow shorthand=f type=bool default=false
+  --limit type=int default=200
+  --namespace shorthand=n type=string
+  --previous type=bool default=false
+  --selector shorthand=l type=string
+  --since type=string
+  --timestamps type=bool default=false
+### komando schema cache get (schema values)
+exit 0
+komando cache get kind=read confirm=null
+  --limit shorthand=n type=int default=100
+### komando schema fs list (schema values)
+exit 0
+komando fs list kind=read confirm=null
+  --all shorthand=a type=bool default=false
+  --limit shorthand=n type=int default=1000
+  --recursive shorthand=r type=bool default=false
+### komando schema fs cat (schema values)
+exit 0
+komando fs cat kind=read confirm=null
+  --head type=int default=0
+  --line-numbers type=bool default=false
+  --max-bytes type=bytes default=1048576
+  --sudo shorthand=s type=bool default=false
+  --tail type=int default=0
+### komando schema exec (schema values)
+exit 0
+komando exec kind=depends confirm=null
+  --arg type=stringArray default=[]
+  --cmd shorthand=c type=string
+  --dir shorthand=C type=string
+  --env shorthand=e type=stringArray default=[]
+  --fail-fast type=bool default=false
+  --interpreter type=string
+  --pty type=bool default=false
+  --read-only type=bool default=false
+  --script type=string
+  --stdin-file type=string
+  --stream type=bool default=false
+  --sudo shorthand=s type=bool default=false
+  --sudo-user type=string
+### komando schema queue create (schema values)
+exit 0
+komando queue create kind=change confirm=null
+  --config type=stringArray default=[]
+  --partitions type=int
+  --replicas type=int
+  --type type=string
+### komando schema cluster events (schema values)
+exit 0
+komando cluster events kind=read confirm=null
+  --all-namespaces shorthand=A type=bool default=false
+  --for type=string
+  --limit type=int default=100
+  --namespace shorthand=n type=string
+  --warnings type=bool default=false
+### komando schema cluster list (schema values)
+exit 0
+komando cluster list kind=read confirm=null
+  --all-namespaces shorthand=A type=bool default=false
+  --limit type=int default=500
+  --namespace shorthand=n type=string
+  --selector shorthand=l type=string
+### komando schema cluster get (schema values)
+exit 0
+komando cluster get kind=read confirm=null
+  --namespace shorthand=n type=string

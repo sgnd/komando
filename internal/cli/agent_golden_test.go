@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -55,6 +56,13 @@ func TestAgentGolden(t *testing.T) {
 			stdout, stderr, code := goldenRunWith(t, v.agent, full, goldenGateSetup)
 			fmt.Fprintf(&b, "### komando %s (%s, release note)\nexit %d\n--- stdout\n%s--- stderr\n%s", strings.Join(full, " "), v.name, code, stdout, stderr)
 		}
+	}
+	// the schema values of the release notes (changes.md 11a): kind,
+	// approvals and each flag's type, shorthand and default, without the
+	// help text, which the cases above already pin
+	for _, path := range goldenSchema {
+		stdout, _, code := goldenRun(t, false, append([]string{"-o", "json", "schema"}, path...))
+		fmt.Fprintf(&b, "### komando schema %s (schema values)\nexit %d\n%s", strings.Join(path, " "), code, schemaValues(t, stdout))
 	}
 	got := b.String()
 	file := filepath.Join("testdata", "agent_golden.txt")
@@ -154,6 +162,55 @@ var goldenExtra = [][]string{
 	{"cluster", "logs", "x1", "x2", "-n", "50"},
 	// C-F03: storage rm -n is --max-remove for one release (noted), then USAGE
 	{"storage", "rm", "x1", "--prefix", "a/", "-n", "10", "--dry-run"},
+	// C-V17: the top-level forward is a retired name for one release (noted)
+	{"forward", "list"},
+}
+
+// goldenSchema are commands whose schema values the release notes list
+// (changes.md 11a), one or more per row.
+var goldenSchema = [][]string{
+	{"storage", "link"}, {"cluster", "forward"}, // C-C08: kind read -> change
+	{"host", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
+	{"cache", "set"}, {"cert", "check"}, {"registry", "prune"}, // C-F04: duration
+	{"cluster", "logs"}, // C-F05, C-S01
+	{"cache", "get"}, {"fs", "list"}, // C-F08: --limit int
+	{"fs", "cat"}, {"exec"}, // C-F09: bytes
+	{"queue", "create"}, // C-F22: no -1 default
+	{"cluster", "events"}, {"cluster", "list"}, {"cluster", "get"}, // C-S01: -n
+}
+
+// schemaValues is one line per command of a schema answer, then one per
+// flag: what an agent branches on, not what it reads to a person.
+func schemaValues(t *testing.T, stdout string) string {
+	t.Helper()
+	var d struct {
+		Data struct {
+			Commands []struct {
+				Path    string           `json:"path"`
+				Kind    string           `json:"kind"`
+				Confirm any              `json:"confirm"`
+				Flags   []map[string]any `json:"flags"`
+			} `json:"commands"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &d); err != nil {
+		t.Fatalf("schema: %v: %s", err, stdout)
+	}
+	var b strings.Builder
+	for _, c := range d.Data.Commands {
+		conf, _ := json.Marshal(c.Confirm)
+		fmt.Fprintf(&b, "%s kind=%s confirm=%s\n", c.Path, c.Kind, conf)
+		for _, f := range c.Flags {
+			fmt.Fprintf(&b, "  --%v", f["name"])
+			for _, k := range []string{"shorthand", "type", "default", "default_from"} {
+				if v, ok := f[k]; ok {
+					fmt.Fprintf(&b, " %s=%v", k, v)
+				}
+			}
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
 }
 
 // goldenNoise is what differs between runs and machines, not between
