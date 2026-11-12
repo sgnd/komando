@@ -276,7 +276,8 @@ versions. The conn itself: `komando test <conn>`, `conn edit`, `conn rm`.
 rollback <conn> deployment/NAME --wait` puts the earlier images back
 (`cluster history` lists the revisions). For anything else, `komando cluster run <conn> --
 <kubectl args>` (needs `--write` to change). Pick a namespace with
-`--namespace`. `status`, `ls`, `events` and `helm ls` also take a group
+`--namespace` (`-n`); how many is `--limit` (a number after `-n` is
+refused). `status`, `ls`, `events` and `helm ls` also take a group
 (`@prod`): one row per cluster in `data.results`. Read Helm releases with
 `komando cluster helm ls|status|history|values` (no helm needed; install
 and upgrade stay with helm).

@@ -75,12 +75,14 @@ Every command names objects the way kubectl does: `TYPE NAME` or
 `TYPE/NAME` (`deployment api`, `deploy/api`, `deployment.apps/api`). If you
 mistype a kind, the error suggests the one you probably meant.
 
-- Name a namespace (see [Glossary](glossary.md)) with `--namespace`.
+- Name a namespace (see [Glossary](glossary.md)) with `--namespace`, or
+  `-n` as in kubectl.
   Without it, komando uses the cluster's usual namespace: the one its
   kubeconfig context names, else `default`. Change it for good with
   `komando conn edit prod --option namespace=shop`.
-  komando keeps `-n` for "how many" (`--limit`); if you write `-n shop`,
-  the error tells you the right flag.
+  How many lines or objects to show is `--limit` (it has no short form
+  here). A number after `-n` (`-n 50`) is refused, with a hint: write
+  `--limit 50`, or `--namespace=50` for a namespace named 50.
   `-A` (`--all-namespaces`) works on `ls`, `events` and `helm ls`. It
   cannot go with `--namespace`.
 - Swarm kinds are `service` (`svc`), `task`, `node` and `stack`. Swarm
@@ -166,9 +168,9 @@ tokens in the values show as `[hidden]`, as everywhere.
 ## Read logs
 
 ```bash
-komando cluster logs prod api-7d9f-x2 --namespace shop --since 10m -n 100   # one pod
+komando cluster logs prod api-7d9f-x2 --namespace shop --since 10m --limit 100   # one pod
 komando cluster logs prod deploy/api --namespace shop -f                    # every pod of a workload, following
-komando cluster logs prod -l app=api --namespace shop -n 50                 # every pod with a label
+komando cluster logs prod -l app=api -n shop --limit 50                 # every pod with a label
 komando cluster logs prod api-7d9f-x2 --namespace shop --previous           # the run before the last restart
 komando cluster logs swarm1 service/web -f --timeout 1m                     # a Swarm service
 ```

@@ -264,6 +264,9 @@ func usageErr(cmd *cobra.Command, err error) error {
 		if head, own, ok := strings.Cut(m, " flag: "); ok {
 			name := head[strings.LastIndex(head, " ")+1:] // "--warn" or "-n, --namespace"
 			name = strings.Trim(name, `"`)
+			if len(name) == 3 { // a one-letter flag (cluster -n): its short spelling
+				name = name[1:]
+			}
 			msg, hint, hinted := strings.Cut(own, flagHintSep)
 			e.Message = name + ": " + msg
 			switch {

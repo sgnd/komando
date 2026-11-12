@@ -6138,6 +6138,66 @@ exit 2
 --- stdout
 --- stderr
 Error: --env: A=...,B=... holds 2 KEY=VALUE pairs; repeat --env for each KEY=VALUE
+### komando -o json cluster ls x1 pods -n 50 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.ls","error":{"code":"USAGE","message":"-n: 50 is a count, but -n is --namespace in cluster commands","hint":"`--limit 50`, or `--namespace=50` for a namespace named 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster ls x1 pods -n 50 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: -n: 50 is a count, but -n is --namespace in cluster commands
+### komando -o json cluster ls x1 pods -n 50 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.ls","error":{"code":"USAGE","message":"-n: 50 is a count, but -n is --namespace in cluster commands","hint":"`--limit 50`, or `--namespace=50` for a namespace named 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster ls x1 pods -n 50 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: -n: 50 is a count, but -n is --namespace in cluster commands
+### komando -o json cluster events x1 -n 50 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.events","error":{"code":"USAGE","message":"-n: 50 is a count, but -n is --namespace in cluster commands","hint":"`--limit 50`, or `--namespace=50` for a namespace named 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster events x1 -n 50 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: -n: 50 is a count, but -n is --namespace in cluster commands
+### komando -o json cluster events x1 -n 50 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.events","error":{"code":"USAGE","message":"-n: 50 is a count, but -n is --namespace in cluster commands","hint":"`--limit 50`, or `--namespace=50` for a namespace named 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster events x1 -n 50 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: -n: 50 is a count, but -n is --namespace in cluster commands
+### komando -o json cluster logs x1 x2 -n 50 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.logs","error":{"code":"USAGE","message":"-n: 50 is a count, but -n is --namespace in cluster commands","hint":"`--limit 50`, or `--namespace=50` for a namespace named 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster logs x1 x2 -n 50 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: -n: 50 is a count, but -n is --namespace in cluster commands
+### komando -o json cluster logs x1 x2 -n 50 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.logs","error":{"code":"USAGE","message":"-n: 50 is a count, but -n is --namespace in cluster commands","hint":"`--limit 50`, or `--namespace=50` for a namespace named 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster logs x1 x2 -n 50 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: -n: 50 is a count, but -n is --namespace in cluster commands
 ### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6
 --- stdout

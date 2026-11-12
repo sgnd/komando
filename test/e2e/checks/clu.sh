@@ -115,7 +115,7 @@ q $K docker raw swarm1 -- tag "$CLU_IMG" t-e2eclu/busybox:2
 q $K cluster run swarm1 --write -- service create --detach --name t-e2eclu-web "$CLU_IMG" sleep 86400
 check "Swarm service rolls out" True "$($K cluster status swarm1 svc/t-e2eclu-web --wait --timeout 90s | jget 'd["data"]["rolled_out"]')"
 check "Swarm ls has items with ready" "1/1" "$($K cluster ls swarm1 svc | jget '[i["ready"] for i in d["data"]["items"] if i["name"]=="t-e2eclu-web"][0]')"
-check "Swarm ls tasks -n limits" 1 "$($K cluster ls swarm1 tasks -n 1 | jget 'len(d["data"]["items"])')"
+check "Swarm ls tasks -n limits" 1 "$($K cluster ls swarm1 tasks --limit 1 | jget 'len(d["data"]["items"])')"
 check "Swarm describe has a summary and tasks" "$CLU_IMG True" "$($K cluster describe swarm1 service t-e2eclu-web | jget 'd["data"]["summary"]["image"] + " " + str(len(d["data"]["tasks"]) > 0)')"
 check "Swarm scale to the same count is unchanged" True "$($K cluster scale swarm1 svc/t-e2eclu-web 1 | jget 'd["data"]["unchanged"]')"
 check "Swarm deploy --wait" "True $CLU_IMG" "$($K cluster deploy swarm1 svc/t-e2eclu-web --image t-e2eclu/busybox:2 --wait --timeout 90s | jget 'str(d["data"]["rolled_out"]) + " " + d["data"]["previous_image"]')"

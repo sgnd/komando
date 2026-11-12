@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
@@ -84,31 +85,40 @@ func resource(ctx context.Context, k *kube.Client, typ string) (kube.ResourceTyp
 	return r, err
 }
 
-// limitValue is --limit/-n. In komando -n always means how many (one
-// meaning per short flag); kubectl users type -n NAMESPACE out of habit, so
-// a name there gets an answer that says what to write instead.
+// limitValue is a cluster command's --limit: how many (it has no -n there,
+// where -n is --namespace).
 type limitValue struct {
-	limit *int // nil: the command counts nothing; -n is only there to explain
+	limit *int
 }
 
-func (v *limitValue) String() string {
-	if v.limit == nil {
-		return ""
-	}
-	return strconv.Itoa(*v.limit)
-}
-func (v *limitValue) Type() string { return "int" }
+func (v *limitValue) String() string { return strconv.Itoa(*v.limit) }
+func (v *limitValue) Type() string   { return "int" }
 func (v *limitValue) Set(s string) error {
 	n, err := strconv.Atoi(s)
 	switch {
 	case err != nil:
-		return fmt.Errorf("-n is how many (a number); a namespace is --namespace %s", s)
-	case v.limit == nil:
-		return fmt.Errorf("this command counts nothing: -n is how many in komando; a namespace is --namespace NAME")
+		return fmt.Errorf("--limit is how many (a number); a namespace is --namespace %s", s)
 	case n < 0:
 		return errors.New("a count is 0 or more")
 	}
 	*v.limit = n
+	return nil
+}
+
+// nsShort is -n in cluster commands: --namespace, as in kubectl. -n was
+// a count (--limit) on cluster events, logs and ls, where only a number
+// parsed; a number given as -n is therefore refused, always, so no old
+// command line is read as a namespace named 50 (S-5.14).
+type nsShort struct{ ns *string }
+
+func (v *nsShort) String() string { return *v.ns }
+func (v *nsShort) Type() string   { return "string" }
+func (v *nsShort) Set(s string) error {
+	if s != "" && strings.Trim(s, "0123456789") == "" {
+		return flagHint(fmt.Sprintf("%s is a count, but -n is --namespace in cluster commands", s),
+			fmt.Sprintf("`--limit %s`, or `--namespace=%s` for a namespace named %s", s, s, s))
+	}
+	*v.ns = s
 	return nil
 }
 
@@ -119,20 +129,27 @@ type limitOpt struct {
 	usage string
 }
 
-// nsFlags adds --namespace, --all-namespaces/-A when all is set, and
-// --limit/-n (lim nil: a hidden -n that explains namespaces are --namespace).
+// nsFlags adds -n/--namespace, --all-namespaces/-A when all is set, and
+// --limit when lim is set (no shorthand: -n is the namespace here).
 func nsFlags(c *cobra.Command, ns *string, all *bool, lim *limitOpt) {
-	c.Flags().StringVar(ns, "namespace", "", "Kubernetes namespace (default: the context's, else default)")
+	fl := c.Flags()
+	// -n goes to nsShort, which refuses a number; help and schema show it on
+	// --namespace. The parser finds -n through the set's own table, which
+	// AddFlag fills, so the shorthand is set on the flag for the parser and
+	// then moved to --namespace for every set derived from this one (help).
+	short := &pflag.Flag{Name: "n", Shorthand: "n", Usage: "-n NAMESPACE", Value: &nsShort{ns}, Hidden: true,
+		Annotations: map[string][]string{flagAliasOf: {"namespace"}}}
+	fl.AddFlag(short)
+	short.Shorthand = ""
+	fl.StringVar(ns, "namespace", "", "Kubernetes namespace (default: the context's, else default)")
+	fl.Lookup("namespace").Shorthand = "n"
 	if all != nil {
-		c.Flags().BoolVarP(all, "all-namespaces", "A", false, "every namespace")
+		fl.BoolVarP(all, "all-namespaces", "A", false, "every namespace")
 	}
-	if lim == nil {
-		c.Flags().VarP(&limitValue{}, "limit", "n", "")
-		_ = c.Flags().MarkHidden("limit")
-		return
+	if lim != nil {
+		*lim.p = lim.def
+		fl.Var(&limitValue{lim.p}, "limit", lim.usage)
 	}
-	*lim.p = lim.def
-	c.Flags().VarP(&limitValue{lim.p}, "limit", "n", lim.usage)
 }
 
 // nsOrAll refuses --namespace with -A, which kubectl lets -A win silently.

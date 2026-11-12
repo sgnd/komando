@@ -25,6 +25,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- **In `cluster` commands, `-n` is now `--namespace`, as in kubectl**, on
+  all 20 commands that take a namespace. `cluster events`, `logs` and
+  `ls` keep `--limit`, now without a short form. A number after `-n`
+  there (`-n 50`, the old count) is refused (exit 2) with the hint
+  "`--limit 50`, or `--namespace=50` for a namespace named 50", so an
+  old command line never reads 50 as a namespace.
 - **`--env` (host add/edit), `--label` and `--option` take one KEY=VALUE
   each time and no longer split on commas.** Repeat the flag for more:
   `--label team=ops --label env=prod`. A value keeps its commas, and

@@ -28,7 +28,7 @@ func clusterLsCmd() *cobra.Command {
   komando cluster ls prod-k8s deploy -A
   komando cluster ls @prod nodes                # every cluster in the group
   komando cluster ls swarm-manager services
-  komando cluster ls swarm-manager tasks -n 20`,
+  komando cluster ls swarm-manager tasks --limit 20`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := nsOrAll(ns, all); err != nil {

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/spf13/cobra"
 	"strconv"
 	"strings"
 	"testing"
@@ -143,14 +144,77 @@ func TestLimitValue(t *testing.T) {
 	n := 0
 	v := &limitValue{&n}
 	if err := v.Set("5"); err != nil || n != 5 {
-		t.Errorf("-n 5: %v %d", err, n)
+		t.Errorf("--limit 5: %v %d", err, n)
 	}
 	if err := v.Set("shop"); err == nil || !strings.Contains(err.Error(), "--namespace shop") {
-		t.Errorf("-n shop must point at --namespace: %v", err)
+		t.Errorf("--limit shop must point at --namespace: %v", err)
 	}
-	if err := (&limitValue{}).Set("3"); err == nil {
-		t.Error("a command without a count must refuse -n")
+}
+
+// C-S01: -n is --namespace on every cluster command that has one; a
+// number given as -n (the old count on events, logs, ls) is refused,
+// and --namespace=N still names a namespace N.
+func TestClusterDashN(t *testing.T) {
+	root := newRoot()
+	n := 0
+	for _, c := range allCommands(root) {
+		ns := c.Flags().Lookup("namespace")
+		if ns == nil || !strings.HasPrefix(c.CommandPath(), "komando cluster ") {
+			continue
+		}
+		n++
+		if ns.Shorthand != "n" {
+			t.Errorf("%s: --namespace has no -n", c.CommandPath())
+		}
+		if l := c.Flags().Lookup("limit"); l != nil && l.Shorthand != "" {
+			t.Errorf("%s: --limit has -%s", c.CommandPath(), l.Shorthand)
+		}
+		if h := c.LocalFlags().FlagUsages(); !strings.Contains(h, "-n, --namespace") { // derived sets do not panic, and show it
+			t.Errorf("%s help: %s", c.CommandPath(), h)
+		}
+		for _, args := range [][]string{{"-n", "shop"}, {"-nshop"}, {"-n=shop"}, {"--namespace", "50"}, {"--namespace=50"}, {"-An", "x"}} {
+			var got string
+			cmd := clusterParse(t, c.CommandPath(), args)
+			if cmd == nil {
+				continue // -A on a command without it
+			}
+			got, _ = cmd.Flags().GetString("namespace")
+			if want := map[string]string{"-n": "shop", "-nshop": "shop", "-n=shop": "shop", "--namespace": "50", "--namespace=50": "50", "-An": "x"}[args[0]]; got != want {
+				t.Errorf("%s %v: namespace %q, want %q", c.CommandPath(), args, got, want)
+			}
+		}
+		for _, args := range [][]string{{"-n", "50"}, {"-n50"}, {"-n=7"}} {
+			cmd := newRoot()
+			found, _, _ := cmd.Find(strings.Fields(strings.TrimPrefix(c.CommandPath(), "komando ")))
+			if err := found.ParseFlags(args); err == nil || !strings.Contains(err.Error(), "is a count, but") {
+				t.Errorf("%s %v: %v", c.CommandPath(), args, err)
+			}
+		}
 	}
+	if n != 20 {
+		t.Errorf("%d cluster commands have --namespace, want 20", n)
+	}
+	invHome(t)
+	e := mainErr(t, "cluster", "ls", "x1", "pods", "-n", "50")
+	if e.Code != "USAGE" || e.Exit != 2 || e.Message != "-n: 50 is a count, but -n is --namespace in cluster commands" ||
+		e.Hint != "`--limit 50`, or `--namespace=50` for a namespace named 50" {
+		t.Errorf("cluster ls -n 50: %+v", e)
+	}
+}
+
+// clusterParse parses args for the command at path in a fresh tree; nil
+// when the command has no flag args need.
+func clusterParse(t *testing.T, path string, args []string) *cobra.Command {
+	t.Helper()
+	found, _, _ := newRoot().Find(strings.Fields(strings.TrimPrefix(path, "komando ")))
+	if strings.HasPrefix(args[0], "-A") && found.Flags().Lookup("all-namespaces") == nil {
+		return nil
+	}
+	if err := found.ParseFlags(args); err != nil {
+		t.Errorf("%s %v: %v", path, args, err)
+		return nil
+	}
+	return found
 }
 
 func TestSwarmRolloutState(t *testing.T) {
