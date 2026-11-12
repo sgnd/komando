@@ -225,6 +225,10 @@ make sure it works here, and only then puts it in place of the old one. If
 anything fails, the old komando stays as it was. A komando that is running
 right now keeps working; the next command starts the new version.
 
+- `update` takes only a komando version. `komando update web1`, with the
+  name of a server or conn (or a selector like `@web`), is a usage error
+  that points at `komando pkg upgrade web1`, which updates the packages
+  there.
 - On Windows it works the same way, from the release's `.zip`: the running
   `komando.exe` is renamed aside (Windows does not let a running program be
   replaced) and the new one takes its name.

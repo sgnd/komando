@@ -47,6 +47,15 @@ func TestAgentGolden(t *testing.T) {
 			fmt.Fprintf(&b, "### komando %s (%s, gate inventory)\nexit %d\n--- stdout\n%s--- stderr\n%s", strings.Join(full, " "), v.name, code, stdout, stderr)
 		}
 	}
+	// the exit and error code changes of the release notes (changes.md
+	// 11b) that need servers or conns to show, in the same home
+	for _, args := range goldenNotes {
+		for _, v := range variants {
+			full := append([]string{"-o", v.out}, args...)
+			stdout, stderr, code := goldenRunWith(t, v.agent, full, goldenGateSetup)
+			fmt.Fprintf(&b, "### komando %s (%s, release note)\nexit %d\n--- stdout\n%s--- stderr\n%s", strings.Join(full, " "), v.name, code, stdout, stderr)
+		}
+	}
 	got := b.String()
 	file := filepath.Join("testdata", "agent_golden.txt")
 	if os.Getenv("KOMANDO_GOLDEN_UPDATE") == "1" {

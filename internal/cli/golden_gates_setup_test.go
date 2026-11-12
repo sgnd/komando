@@ -128,3 +128,11 @@ var goldenGates = [][]string{
 	// NEEDS_PERSON: only a person at a terminal
 	{"config", "approval-code"},
 }
+
+// goldenNotes are the command lines of the release notes' exit and error
+// code changes (changes.md 11b) that need the gate inventory: each one
+// stays as decided.
+var goldenNotes = [][]string{
+	// C-V16: update takes only a version; a server is a usage error
+	{"update", "web1"},
+}

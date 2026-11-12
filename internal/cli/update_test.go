@@ -519,3 +519,20 @@ func TestReleasePlatformsMatchMakefile(t *testing.T) {
 		t.Errorf("releasePlatforms = %v, make dist builds %v", got, built)
 	}
 }
+
+// `komando update web1` names a server, not a version: a usage error that
+// points at `pkg upgrade` (S-3.6, C-V16), before anything is fetched.
+func TestUpdateRefusesATarget(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1", "-g", "web")
+	mustRun(t, "conn", "add", "db1", "postgres://u@127.0.0.1:1/app")
+	for _, w := range []string{"web1", "WEB1", "db1", "@web"} {
+		e := wantCode(t, "USAGE", "update", w)
+		if e.Hint != "komando pkg upgrade "+w || !strings.Contains(e.Message, "not a komando version") {
+			t.Errorf("update %s: %+v", w, e)
+		}
+	}
+	if err := updateNotATarget("v0.6.0"); err != nil {
+		t.Errorf("a version: %v", err)
+	}
+}

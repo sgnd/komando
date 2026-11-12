@@ -79,6 +79,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `komando update NAME` with the name of a server or conn (or a selector
+  like `@web`) is a usage error (exit 2) whose hint is
+  `komando pkg upgrade NAME`; before, it was taken as a version to
+  install. A version (`update v0.6.0`) works as before.
 - **Security updates are installed with `komando pkg upgrade TARGET
   --security`** (with `--keep-going` and `--refresh`): the same rollout
   as before, one server at a time with a check before and after, the

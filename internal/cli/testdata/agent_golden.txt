@@ -7218,3 +7218,23 @@ exit 6
 --- stdout
 --- stderr
 Stopped: setting up the approval code shows its secret, so only a person at a terminal can do it. Nothing was changed.
+### komando -o json update web1 (agent json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"update","error":{"code":"USAGE","message":"\"web1\" is the server web1, not a komando version: `komando update` updates komando itself; `komando pkg upgrade web1` updates the packages there","hint":"komando pkg upgrade web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text update web1 (agent text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: "web1" is the server web1, not a komando version: `komando update` updates komando itself; `komando pkg upgrade web1` updates the packages there
+### komando -o json update web1 (script json, release note)
+exit 2
+--- stdout
+{"ok":false,"command":"update","error":{"code":"USAGE","message":"\"web1\" is the server web1, not a komando version: `komando update` updates komando itself; `komando pkg upgrade web1` updates the packages there","hint":"komando pkg upgrade web1"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text update web1 (script text, release note)
+exit 2
+--- stdout
+--- stderr
+Error: "web1" is the server web1, not a komando version: `komando update` updates komando itself; `komando pkg upgrade web1` updates the packages there

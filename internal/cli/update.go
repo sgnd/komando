@@ -108,6 +108,9 @@ whole update (default 10m).`,
 			if len(args) == 1 {
 				want = args[0]
 			}
+			if err := updateNotATarget(want); err != nil {
+				return err
+			}
 			r, err := runUpdate(cmd.Context(), want)
 			if err != nil {
 				return updateErr(err)
@@ -202,6 +205,34 @@ func updatable() (string, error) {
 }
 
 func platform() string { return runtime.GOOS + "/" + runtime.GOARCH }
+
+// updateNotATarget refuses a server, conn or selector given as the
+// version (S-3.6): `komando update web1` means the server's packages, which
+// `pkg upgrade` updates, never a komando version named web1. A name in the
+// inventory counts first, even one shaped like a version.
+func updateNotATarget(want string) error {
+	if want == "" || want == "latest" {
+		return nil
+	}
+	st, err := loadState()
+	if err != nil {
+		st = nil // the version check that follows says what is wrong
+	}
+	what := ""
+	if st != nil {
+		if kind, name, ok := st.FindName(want); ok && kind != "vpn" {
+			what = map[string]string{"host": "server", "conn": "conn"}[kind] + " " + name
+		}
+	}
+	if what == "" && (strings.HasPrefix(want, "@") || strings.HasPrefix(want, "tag:") || strings.HasPrefix(want, "label:")) {
+		what = "selector " + want
+	}
+	if what == "" {
+		return nil
+	}
+	return out.Errf(out.ExitUsage, "USAGE", "komando pkg upgrade "+want,
+		"%q is the %s, not a komando version: `komando update` updates komando itself; `komando pkg upgrade %s` updates the packages there", want, what, want)
+}
 
 // pickVersion is the version asked for (v added when missing), or the
 // newest release for none or "latest".
