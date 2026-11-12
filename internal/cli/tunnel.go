@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -51,6 +52,23 @@ IPv6 addresses go in brackets, as with ssh: -L 8080:[::1]:80.`,
 	}
 	c.AddCommand(tunnelStartCmd(), tunnelListCmd(), tunnelStopCmd(), tunnelServeCmd())
 	return c
+}
+
+// tunnelAlive reports whether t's background process still runs, and is
+// komando: after a crash or a restart its pid may belong to another
+// program, which tunnel stop must never signal.
+func tunnelAlive(t *store.Tunnel) bool {
+	return alive(t.PID) && netx.SessionAlive(&store.VpnSession{PID: t.PID, Exe: tunnelExe()})
+}
+
+// tunnelExe is the program name tunnel processes run as: this komando's
+// (they are started from os.Executable).
+var tunnelExe = func() string {
+	self, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	return filepath.Base(self)
 }
 
 // tunnelServeCommand is the background `komando tunnel serve ID` process
@@ -471,7 +489,7 @@ func tunnelListCmd() *cobra.Command {
 				return err
 			}
 			for _, t := range st.Tunnels {
-				r := tunnelRow{Tunnel: t, Alive: alive(t.PID), Listen: tunnelListen(t)}
+				r := tunnelRow{Tunnel: t, Alive: tunnelAlive(t), Listen: tunnelListen(t)}
 				if !r.Alive {
 					dead = append(dead, t.ID)
 				}
@@ -518,7 +536,7 @@ func tunnelStopCmd() *cobra.Command {
 					if !ok {
 						return out.NotFound("tunnel", id)
 					}
-					if alive(t.PID) && !g.dryRun {
+					if tunnelAlive(t) && !g.dryRun {
 						_ = netx.Terminate(t.PID)
 					}
 					delete(s.Tunnels, id)

@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `tunnel stop` never signals a process that is not komando: after a
+  crash or a restart a tunnel's pid may belong to another program, which
+  it used to end. `tunnel list` shows such a tunnel as down and forgets it.
 - A `--via` path that names a server or VPN twice (`office,office`,
   `a,b,a`) is refused with `VIA_CYCLE` and the path without the repeat;
   a VPN named twice got the wrong hint "put the VPN first", and a repeated

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 func TestGuardBind(t *testing.T) {
@@ -162,4 +163,46 @@ func TestViaTwice(t *testing.T) {
 	}
 	wantCode(t, "VIA_CYCLE", "conn", "add", "pg", "postgres://u@10.0.0.9/db", "--via", "office,bastion,bastion")
 	mustRun(t, "host", "add", "app", "u@10.0.0.2", "--via", "office,bastion,b2")
+}
+
+// TestTunnelStopOtherProgram: a tunnel whose pid now belongs to another
+// program (after a crash or a restart) is forgotten, never signalled.
+func TestTunnelStopOtherProgram(t *testing.T) {
+	invHome(t)
+	other := exec.Command("sleep", "60")
+	if err := other.Start(); err != nil {
+		t.Skip("no sleep program:", err)
+	}
+	exited := make(chan struct{})
+	go func() { _ = other.Wait(); close(exited) }()
+	defer func() { _ = other.Process.Kill(); <-exited }()
+	if err := store.UpdateRuntime(func(s *store.State) error {
+		s.Tunnels["t-old"] = &store.Tunnel{ID: "t-old", Host: "web1", Kind: "local", Spec: "0:localhost:80", PID: other.Process.Pid, StartedAt: time.Now()}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	d := mustRun(t, "tunnel", "list")
+	if r := d["tunnels"].([]any)[0].(map[string]any); r["alive"] != false {
+		t.Errorf("another program's pid listed as the tunnel: %v", r)
+	}
+	if err := store.UpdateRuntime(func(s *store.State) error {
+		s.Tunnels["t-old"] = &store.Tunnel{ID: "t-old", Host: "web1", Kind: "local", Spec: "0:localhost:80", PID: other.Process.Pid, StartedAt: time.Now()}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, "tunnel", "stop", "t-old")
+	select {
+	case <-exited:
+		t.Fatal("tunnel stop signalled another program")
+	case <-time.After(300 * time.Millisecond):
+	}
+	// komando's own process (this test binary stands in) is still seen
+	saved := tunnelExe
+	tunnelExe = func() string { return "sleep" }
+	defer func() { tunnelExe = saved }()
+	if !tunnelAlive(&store.Tunnel{PID: other.Process.Pid}) {
+		t.Error("a running tunnel process is not seen")
+	}
 }
