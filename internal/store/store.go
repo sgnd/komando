@@ -5,6 +5,8 @@ package store
 
 import (
 	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -281,8 +283,25 @@ func Path(parts ...string) string { return filepath.Join(append([]string{Home()}
 // EnsureHome creates the state directory tree.
 func EnsureHome() error { return ensureHome() }
 
+// ensureHome makes komando's folder when it is missing, private to this
+// user: mode 0700, and on Windows an access list of its own (privateHome).
+// A new folder that cannot be made private is removed again, so komando
+// keeps nothing in it; doctor checks a folder that was already there.
 func ensureHome() error {
-	return os.MkdirAll(Home(), 0o700)
+	h := Home()
+	_, err := os.Stat(h)
+	fresh := errors.Is(err, fs.ErrNotExist)
+	if err := os.MkdirAll(h, 0o700); err != nil {
+		return err
+	}
+	if !fresh {
+		return nil
+	}
+	if err := privateHome(h); err != nil {
+		_ = os.Remove(h) // only while it is still empty
+		return fmt.Errorf("could not make %s private to you (%w); set KOMANDO_HOME to a folder on an NTFS drive", h, err)
+	}
+	return nil
 }
 
 func (s *State) init() {

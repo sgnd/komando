@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"time"
 
 	"tailscale.com/tsnet"
@@ -31,7 +30,7 @@ func newTailscale(v *store.Vpn) (*tsnet.Server, error) {
 			return nil, err
 		}
 	}
-	if err := os.MkdirAll(TailscaleDir(v), 0o700); err != nil {
+	if err := store.MkdirPrivate("vpn", v.Name+"-tailscale"); err != nil {
 		return nil, err
 	}
 	if err := adoptTSStateFile(v); err != nil {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -386,6 +387,9 @@ func TestPlainConn(t *testing.T) {
 }
 
 func TestLooseFiles(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes: Windows uses access lists (internal/store TestPrivateHomeWindows)")
+	}
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	_ = os.Chmod(store.Home(), 0o700)
 	if err := os.WriteFile(store.Path("vault.key"), []byte("k"), 0o644); err != nil {

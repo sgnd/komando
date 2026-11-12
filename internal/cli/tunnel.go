@@ -191,7 +191,7 @@ point your database app or psql at the local address it prints. With a server, g
 			}
 			id := newID("t")
 			logPath := store.Path("tunnels", id+".log")
-			if err := os.MkdirAll(store.Path("tunnels"), 0o700); err != nil {
+			if err := store.MkdirPrivate("tunnels"); err != nil {
 				return err
 			}
 			t := &store.Tunnel{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, LogFile: logPath, StartedAt: time.Now().UTC()}

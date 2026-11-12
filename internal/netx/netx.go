@@ -226,7 +226,7 @@ func sameSession(a, b *store.VpnSession) bool {
 // Lock holds the per-VPN lock that starting and stopping a session take,
 // so a stale stop can never hit a session another process just started.
 func Lock(name string) (unlock func(), err error) {
-	if err := os.MkdirAll(store.Path("vpn"), 0o700); err != nil {
+	if err := store.MkdirPrivate("vpn"); err != nil {
 		return nil, err
 	}
 	f, err := os.OpenFile(store.Path("vpn", name+".lock"), os.O_CREATE|os.O_RDWR, 0o600)

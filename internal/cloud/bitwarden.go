@@ -400,7 +400,7 @@ func bwDeviceID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	id := fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
-	_ = os.MkdirAll(store.Home(), 0o700)
+	_ = store.EnsureHome()
 	_ = os.WriteFile(p, []byte(id), 0o600)
 	return id
 }

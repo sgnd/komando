@@ -11,10 +11,8 @@ import (
 
 // platformChecks are doctor's notes about what Windows lacks: the
 // Credential Manager for the vault key, and a desktop for the approval
-// window. File modes say nothing on Windows (access lists decide), so the
-// permissions check is a note too.
+// window.
 func platformChecks(add func(name string, ok, warn bool, detail string)) {
-	add("permissions", false, true, "Windows keeps "+store.Home()+" private through its access list, which komando does not check yet; keep it inside your user profile")
 	if _, err := vault.KeychainTool(); err != nil {
 		add("keychain", false, true, "no Windows Credential Manager here ("+err.Error()+"): the vault key stays in store.key unless you set a passphrase with `komando secret passphrase`")
 	}
@@ -23,5 +21,10 @@ func platformChecks(add func(name string, ok, warn bool, detail string)) {
 	}
 }
 
-// looseFiles: file modes do not show who may read a file on Windows.
-func looseFiles() []string { return nil }
+// looseFiles lists komando's folder and the files inside that someone
+// else may open: Windows decides that by access lists, not file modes.
+func looseFiles() []string { return store.LooseFiles() }
+
+// privateFix is the commands that give komando's folder its own access
+// list again and make everything inside take it over.
+func privateFix() string { return store.PrivateFix() }

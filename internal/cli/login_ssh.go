@@ -123,7 +123,7 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 		return nil, err
 	}
 	dir := store.Path("login")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := store.MkdirPrivate("login"); err != nil {
 		return nil, err
 	}
 	logFile := filepath.Join(dir, safeFileName(h.Name)+".log")

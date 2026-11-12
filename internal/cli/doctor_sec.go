@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -35,9 +34,10 @@ func securityChecks(st *store.State) []securityCheck {
 
 	// komando's folder and files: this user only (ASVS 14.1, CWE-276)
 	platformChecks(add)
-	if loose := looseFiles(); runtime.GOOS != "windows" {
-		add("permissions", len(loose) == 0, false, map[bool]string{true: store.Home() + " is private to you",
-			false: "others can read " + strings.Join(loose, ", ") + ": run chmod 700 " + store.Home() + " && chmod 600 on the files"}[len(loose) == 0])
+	if loose := looseFiles(); len(loose) == 0 {
+		add("permissions", true, false, store.Home()+" is private to you")
+	} else {
+		add("permissions", false, false, "others can read "+strings.Join(loose, ", ")+": run "+privateFix())
 	}
 
 	if store.MixedHome() {

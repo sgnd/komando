@@ -13,6 +13,9 @@ import (
 // platformChecks: macOS and Linux need no notes beyond the shared ones.
 func platformChecks(func(name string, ok, warn bool, detail string)) {}
 
+// privateFix is the commands that make komando's folder and files private.
+func privateFix() string { return "chmod 700 " + store.Home() + " && chmod 600 on the files" }
+
 // looseFiles lists komando files that other users on this computer can read.
 func looseFiles() []string {
 	var loose []string

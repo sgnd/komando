@@ -59,8 +59,7 @@ func init() {
 }
 
 func vpnDir() (string, error) {
-	d := store.Path("vpn")
-	return d, os.MkdirAll(d, 0o700)
+	return store.Path("vpn"), store.MkdirPrivate("vpn")
 }
 
 func freePort() (int, error) {
