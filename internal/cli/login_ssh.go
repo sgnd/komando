@@ -136,7 +136,7 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 		StartedAt: time.Now().UTC(), Until: time.Now().Add(keep).UTC()}
 	c := holderCommand(self, h.Name)
 	if c.Env == nil {
-		c.Env = os.Environ() // Passphrase took KOMANDO_VAULT_PASS out of it
+		c.Env = os.Environ() // vault.TakeUnlockEnv took KOMANDO_VAULT_PASS and the like out of it
 	}
 	c.Stderr = lf
 	c.SysProcAttr = detachAttr() // it outlives this command and its terminal
@@ -158,9 +158,10 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 		_ = c.Wait()
 		return nil, e
 	}
-	// the token, how long to keep the login and the vault passphrase go on
-	// its input, never in its arguments or environment
-	fmt.Fprintf(stdin, "TOKEN %s\nUNTIL %d\nPASS %s\n", l.Token, l.Until.Unix(), base64.StdEncoding.EncodeToString([]byte(vault.Passphrase())))
+	// the token, how long to keep the login, the vault passphrase and the
+	// other secret stores' unlock values go on its input, never in its
+	// arguments or environment
+	fmt.Fprintf(stdin, "TOKEN %s\nUNTIL %d\nPASS %s\n", l.Token, l.Until.Unix(), base64.StdEncoding.EncodeToString([]byte(vault.Handoff())))
 	var cancelled error
 	in := bufio.NewReader(stdout)
 	for {

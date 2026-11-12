@@ -1172,6 +1172,14 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   `[hidden]` from then on, like a value from komando's own vault (also
   its base64 and URL-encoded forms). Before, only values that looked like
   a password were masked.
+- komando takes the password managers' unlock variables
+  (`KOMANDO_BW_PASSWORD`, `KOMANDO_BW_CLIENT_SECRET`,
+  `KOMANDO_KDBX_PASSWORD`, `KOMANDO_KDBX_KEYFILE`, `OP_CONNECT_TOKEN`,
+  `VAULT_TOKEN`, `BAO_TOKEN`) out of its environment when it starts, as it
+  already did with `KOMANDO_VAULT_PASS`. Before, every program it ran and
+  every background tunnel, VPN session and login inherited them, where
+  `ps eww` showed them for hours. Those background processes now get them
+  on their input.
 
 ## [0.12.0] - 2026-11-11
 

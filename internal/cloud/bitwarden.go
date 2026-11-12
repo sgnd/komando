@@ -124,7 +124,7 @@ func bwEndpoints(server string) (identity, api string) {
 }
 
 func bwLoad(ctx context.Context) ([]bwItem, error) {
-	email, password := os.Getenv("KOMANDO_BW_EMAIL"), os.Getenv("KOMANDO_BW_PASSWORD")
+	email, password := os.Getenv("KOMANDO_BW_EMAIL"), UnlockEnv("KOMANDO_BW_PASSWORD")
 	if email == "" || password == "" {
 		return nil, errors.New("bitwarden: set KOMANDO_BW_EMAIL and KOMANDO_BW_PASSWORD (the master password decrypts the vault here)")
 	}
@@ -146,7 +146,7 @@ func bwLoad(ctx context.Context) ([]bwItem, error) {
 	}
 	form := url.Values{"scope": {"api offline_access"}, "deviceType": {bwDeviceType()}, "deviceName": {"komando"},
 		"deviceIdentifier": {bwDeviceID()}, "client_id": {"cli"}}
-	if id, sec := os.Getenv("KOMANDO_BW_CLIENT_ID"), os.Getenv("KOMANDO_BW_CLIENT_SECRET"); id != "" && sec != "" {
+	if id, sec := os.Getenv("KOMANDO_BW_CLIENT_ID"), UnlockEnv("KOMANDO_BW_CLIENT_SECRET"); id != "" && sec != "" {
 		form.Set("grant_type", "client_credentials")
 		form.Set("scope", "api")
 		form.Set("client_id", id)

@@ -28,7 +28,7 @@ func KeePass(ref string) (string, error) {
 			file = filepath.Join(home, file[2:])
 		}
 	}
-	pw, keyFile := os.Getenv("KOMANDO_KDBX_PASSWORD"), os.Getenv("KOMANDO_KDBX_KEYFILE")
+	pw, keyFile := UnlockEnv("KOMANDO_KDBX_PASSWORD"), UnlockEnv("KOMANDO_KDBX_KEYFILE")
 	var creds *gokeepasslib.DBCredentials
 	var err error
 	switch {

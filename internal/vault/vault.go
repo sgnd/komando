@@ -11,12 +11,14 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -77,6 +79,46 @@ func Passphrase() string {
 	return pass
 }
 
+// UnlockVars are the variables, besides KOMANDO_VAULT_PASS, that unlock
+// the secret stores komando reads (KeePass, Bitwarden, 1Password Connect,
+// HashiCorp Vault / OpenBao).
+var UnlockVars = []string{"KOMANDO_KDBX_PASSWORD", "KOMANDO_KDBX_KEYFILE", "KOMANDO_BW_PASSWORD",
+	"KOMANDO_BW_CLIENT_SECRET", "OP_CONNECT_TOKEN", "VAULT_TOKEN", "BAO_TOKEN"}
+
+// unlock holds the UnlockVars TakeUnlockEnv took (under passMu).
+var unlock = map[string]string{}
+
+func init() { cloud.UnlockEnv = unlockEnv }
+
+// TakeUnlockEnv takes KOMANDO_VAULT_PASS and the UnlockVars out of this
+// process's environment when komando starts, so no program it starts
+// (ssh, kubectl, a VPN client, a dump tool, a background tunnel) inherits
+// them: a long-running one would show them for hours (`ps eww`,
+// /proc/PID/environ). komando reads them from memory (cloud.UnlockEnv);
+// its own background processes get them on stdin (PassOnStdin).
+func TakeUnlockEnv() {
+	Passphrase()
+	passMu.Lock()
+	defer passMu.Unlock()
+	for _, n := range UnlockVars {
+		if v, ok := os.LookupEnv(n); ok {
+			unlock[n] = v
+			_ = os.Unsetenv(n)
+		}
+	}
+}
+
+// unlockEnv is cloud.UnlockEnv: the environment first (a variable set
+// after the start), then what TakeUnlockEnv took.
+func unlockEnv(name string) string {
+	if v, ok := os.LookupEnv(name); ok {
+		return v
+	}
+	passMu.Lock()
+	defer passMu.Unlock()
+	return unlock[name]
+}
+
 // SelfEnv is the environment for komando processes started by komando
 // that need the vault: a command the menu runs. A background process that
 // runs for long gets the passphrase on stdin instead (PassOnStdin): its
@@ -87,7 +129,61 @@ func SelfEnv() []string {
 	if p := Passphrase(); p != "" {
 		env = append(env, "KOMANDO_VAULT_PASS="+p)
 	}
+	passMu.Lock()
+	defer passMu.Unlock()
+	for _, n := range UnlockVars {
+		if v, ok := unlock[n]; ok {
+			env = append(env, n+"="+v)
+		}
+	}
 	return env
+}
+
+// handoffMark starts what Handoff gives when there is more than the
+// passphrase to hand over.
+const handoffMark = "komando-unlock 1\n"
+
+// Handoff is what a background komando process needs to open the secret
+// stores: the passphrase alone, or with the UnlockVars TakeUnlockEnv took,
+// handoffMark and one "NAME base64" line each. ReadPassStdin reads either.
+func Handoff() string {
+	p := Passphrase()
+	passMu.Lock()
+	defer passMu.Unlock()
+	if len(unlock) == 0 {
+		return p
+	}
+	var b strings.Builder
+	b.WriteString(handoffMark + "KOMANDO_VAULT_PASS " + base64.StdEncoding.EncodeToString([]byte(p)) + "\n")
+	for _, n := range UnlockVars {
+		if v, ok := unlock[n]; ok {
+			b.WriteString(n + " " + base64.StdEncoding.EncodeToString([]byte(v)) + "\n")
+		}
+	}
+	return b.String()
+}
+
+// takeHandoff uses what Handoff gave (passMu is held).
+func takeHandoff(s string) error {
+	rest, ok := strings.CutPrefix(s, handoffMark)
+	if !ok {
+		pass = s
+		return nil
+	}
+	for _, line := range strings.Split(strings.TrimSuffix(rest, "\n"), "\n") {
+		name, enc, _ := strings.Cut(line, " ")
+		v, err := base64.StdEncoding.DecodeString(enc)
+		if err != nil {
+			return fmt.Errorf("reading the vault passphrase from stdin: %w", err)
+		}
+		switch {
+		case name == "KOMANDO_VAULT_PASS":
+			pass = string(v)
+		case slices.Contains(UnlockVars, name):
+			unlock[name] = string(v)
+		}
+	}
+	return nil
 }
 
 // PassStdinFlag tells a komando process started with PassOnStdin to read
@@ -100,8 +196,8 @@ const PassStdinFlag = "--vault-pass-stdin"
 // to it on stdin, with PassStdinFlag added to its arguments. It comes last:
 // after what c.Stdin already holds (vpn serve's own lines), up to the end.
 func PassOnStdin(c *exec.Cmd) {
-	c.Env = os.Environ() // Passphrase took KOMANDO_VAULT_PASS out of it
-	if p := Passphrase(); p != "" {
+	c.Env = os.Environ() // TakeUnlockEnv took KOMANDO_VAULT_PASS and the UnlockVars out of it
+	if p := Handoff(); p != "" {
 		var in io.Reader = strings.NewReader(p)
 		if c.Stdin != nil {
 			in = io.MultiReader(c.Stdin, in)
@@ -120,8 +216,7 @@ func ReadPassStdin(r io.Reader) error {
 	}
 	passMu.Lock()
 	defer passMu.Unlock()
-	pass = string(b)
-	return nil
+	return takeHandoff(string(b))
 }
 
 func load() (*file, error) {

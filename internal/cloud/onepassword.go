@@ -22,7 +22,7 @@ var ErrNoConnect = errors.New("1Password Connect is not set up (OP_CONNECT_HOST 
 // or id, fields by label or id (and section when given).
 func OnePassword(ctx context.Context, ref string) (string, error) {
 	host := strings.TrimRight(os.Getenv("OP_CONNECT_HOST"), "/")
-	token := os.Getenv("OP_CONNECT_TOKEN")
+	token := UnlockEnv("OP_CONNECT_TOKEN")
 	if host == "" || token == "" {
 		return "", ErrNoConnect
 	}

@@ -22,7 +22,7 @@ import (
 // VAULT_TOKEN or ~/.vault-token, VAULT_NAMESPACE, VAULT_CACERT.
 func VaultKV(ctx context.Context, path, field string) (string, error) {
 	addr := strings.TrimRight(firstOf(os.Getenv("VAULT_ADDR"), os.Getenv("BAO_ADDR"), "https://127.0.0.1:8200"), "/")
-	token := firstOf(os.Getenv("VAULT_TOKEN"), os.Getenv("BAO_TOKEN"), tokenFile(".vault-token"), tokenFile(".bao-token"))
+	token := firstOf(UnlockEnv("VAULT_TOKEN"), UnlockEnv("BAO_TOKEN"), tokenFile(".vault-token"), tokenFile(".bao-token"))
 	if token == "" {
 		return "", errors.New("vault: no token (set VAULT_TOKEN, or log in once so ~/.vault-token exists)")
 	}

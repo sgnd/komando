@@ -72,6 +72,13 @@ schema` shows such a flag with `"default": "0"` (not given) and
 Variables for password managers and cloud logins are listed in
 [Servers](servers.md).
 
+komando takes `KOMANDO_VAULT_PASS` and the password managers' unlock
+variables (`KOMANDO_KDBX_PASSWORD`, `KOMANDO_KDBX_KEYFILE`,
+`KOMANDO_BW_PASSWORD`, `KOMANDO_BW_CLIENT_SECRET`, `OP_CONNECT_TOKEN`,
+`VAULT_TOKEN`, `BAO_TOKEN`) out of its environment when it starts: the
+programs it runs do not inherit them, and its background tunnels, VPN
+sessions and logins get them on their input instead.
+
 ## Where komando keeps its data
 
 Everything is in `~/.komando/` (change it with `KOMANDO_HOME`). Files are
