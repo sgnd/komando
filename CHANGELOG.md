@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `secret set NAME --from-env VAR` refuses an empty (or blank) variable
+  with `USAGE`, as an empty pipe is refused, instead of storing an empty
+  password.
 - `secret set` and `secret check` never ask an AI agent for a value at a
   hidden prompt, also when the agent runs komando under a terminal: it
   gets `NEEDS_PERSON` at once instead of a prompt that waits forever.

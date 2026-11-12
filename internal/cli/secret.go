@@ -83,6 +83,11 @@ func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 		if !ok {
 			return "", out.Errf(out.ExitUsage, "USAGE", "export "+fromEnv+" first, or pipe the value on stdin", "env %s not set", fromEnv)
 		}
+		// the same rule as a pipe and the prompt: an empty value is a
+		// mistake (a variable exported in another shell), never a password
+		if strings.TrimSpace(v) == "" {
+			return "", out.Errf(out.ExitUsage, "USAGE", "export "+fromEnv+" with the value first, or pipe the value on stdin", "env %s is empty", fromEnv)
+		}
 		return v, nil
 	}
 	b, err := readStdinIfPiped()
