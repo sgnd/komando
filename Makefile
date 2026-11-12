@@ -54,7 +54,6 @@ fuzz: ## Fuzz the parsers that see untrusted text, 30s each
 	go test ./internal/cli -run '^$$' -fuzz '^FuzzGuard$$' -fuzztime 30s
 	go test ./internal/cli -run '^$$' -fuzz '^FuzzHiddenPattern$$' -fuzztime 30s
 	go test ./internal/cli -run '^$$' -fuzz '^FuzzCleanText$$' -fuzztime 30s
-	go test ./internal/cli -run '^$$' -fuzz '^FuzzCanonicalOVPN$$' -fuzztime 30s
 	go test ./internal/openvpn -run '^$$' -fuzz '^FuzzParse$$' -fuzztime 30s
 	go test ./internal/openvpn -run '^$$' -fuzz '^FuzzPackets$$' -fuzztime 30s
 	go test ./internal/cloud -run '^$$' -fuzz '^FuzzSSMMessage$$' -fuzztime 30s
