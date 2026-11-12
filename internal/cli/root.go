@@ -540,6 +540,7 @@ func addCommands(root *cobra.Command) {
 		&cobra.Group{ID: "servers", Title: "Servers:"},
 		&cobra.Group{ID: "data", Title: "Data:"},
 		&cobra.Group{ID: "platform", Title: "Platform:"},
+		&cobra.Group{ID: "inventory", Title: "Inventory:"},
 		&cobra.Group{ID: "access", Title: "Access:"},
 		&cobra.Group{ID: "overview", Title: "Overview:"},
 		&cobra.Group{ID: "setup", Title: "Setup:"},
@@ -556,8 +557,8 @@ func addCommands(root *cobra.Command) {
 	add("platform", clusterCmd(), registryCmd())
 	add("access", vpnCmd(), loginCmd(), logoutCmd(), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd(), forwardCmd())
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
-	add("setup", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd(), configCmd(), policyCmd(), guideCmd(),
-		promptCmd(), schemaCmd(root), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
+	add("inventory", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd())
+	add("setup", configCmd(), policyCmd(), guideCmd(), promptCmd(), schemaCmd(root), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
 	addNounAliases(root)
 }
 
@@ -594,11 +595,14 @@ const rootLong = `komando is one safe command line for
 ` + tagline + `,
 for people and AI agents alike.
 
-First steps:
-  komando                                  what komando does, by group
-  komando host add web1 ubuntu@203.0.113.10
-  komando test web1                        check that web1 answers
-  komando guide install                    let your AI agent use komando safely
+Start:
+  komando host add NAME USER@ADDRESS   add a server
+  komando conn add NAME URL            add a database, cache, queue, storage,
+                                       cluster or registry
+  komando import ssh-config            bring in the servers you already have
+  komando list                         see everything komando knows about
+  komando test TARGET                  check that it answers and lets you in
+  komando guide install                let your AI agent use komando safely
 
 Targets: a server or service name, a pattern (web-*), @group, tag:NAME,
 label:key=value, kind:KIND (host, db, cache, storage, postgres, ...),
@@ -640,13 +644,14 @@ func personHelp() string {
 		b.WriteString("Nothing added yet: komando host add  or  komando import ssh-config\n\n")
 	}
 	for _, g := range [][2]string{
-		{"START", "host add · import ssh-config · list · test <target> · guide install"},
+		{"START", "host add · conn add · import ssh-config · list · test TARGET · guide install"},
 		{"SERVERS", "exec  logs  facts  fs  svc  job  docker  pkg  cron  user  reboot  shell"},
 		{"DATA", "db  cache  queue  storage"},
 		{"PLATFORM", "cluster  registry"},
+		{"INVENTORY", "host  conn  group  import  export  rename"},
 		{"ACCESS", "vpn  login  secret  key  tunnel"},
-		{"OVERVIEW", "status  audit  list  doctor"},
-		{"SETUP", "host  conn  group  config  guide  completion"},
+		{"OVERVIEW", "status  audit  list  test  doctor"},
+		{"SETUP", "config  policy  guide  schema  completion"},
 	} {
 		fmt.Fprintf(&b, "%-12s %s\n", g[0], g[1])
 	}

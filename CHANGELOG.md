@@ -115,6 +115,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `komando --help` starts with Start (`host add`, `conn add`, `import
+  ssh-config`, `list`, `test TARGET`, `guide install`), and a new
+  Inventory group holds `host`, `conn`, `group`, `import`, `export` and
+  `rename`, which Setup no longer crowds. `komando` alone at a terminal
+  shows the same groups.
 - Usage lines give each argument word one meaning (`komando schema`'s
   `usage` values change; every command takes the same arguments as
   before). SSH keys are `key deploy NAME TARGET` and `key revoke NAME
