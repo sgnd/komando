@@ -36,7 +36,7 @@ import (
 func tunnelCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "tunnel",
-		Aliases: []string{"forward", "pf"},
+		Aliases: []string{"pf"},
 		Short:   "Background port forwarding: local (-L), remote (-R), SOCKS5 (-D)",
 		Long: `Specs:
   -L [bind:]LPORT:RHOST:RPORT   local port -> RHOST:RPORT as seen from the server

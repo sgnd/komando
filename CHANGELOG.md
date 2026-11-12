@@ -72,6 +72,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- The top-level `komando forward` (another name for `tunnel`, easy to
+  mix up with `cluster forward`) is retired: `forward start/list/stop`
+  still work in this release and are noted in `meta.deprecated`; use
+  `komando tunnel` (or `pf`). It is hidden from help.
 - `db user show CONN USER` shows what a database user may do (was
   `db grants`, one letter from `db grant`). `db grants` still works in
   this release, is noted in `meta.deprecated`, and is hidden from help;

@@ -198,3 +198,25 @@ func TestDbUserShowReplacesGrants(t *testing.T) {
 		t.Errorf("schema db.grants: %v", p)
 	}
 }
+
+// The top-level `forward` (another name for tunnel, which read like
+// `cluster forward`) is retired: it still works for one release and is
+// noted in meta.deprecated; `pf` stays a silent synonym (C-V17).
+func TestForwardRetired(t *testing.T) {
+	invHome(t)
+	code, text := runMain(t, "forward", "list")
+	if code != 0 || !strings.Contains(text, `"command":"tunnel.list"`) ||
+		!strings.Contains(text, `"deprecated":{"used":"komando forward list","now":"komando tunnel list"}`) {
+		t.Errorf("forward list: exit %d %s", code, text)
+	}
+	if code, text := runMain(t, "pf", "list"); code != 0 || strings.Contains(text, "deprecated") {
+		t.Errorf("pf list: exit %d %s", code, text)
+	}
+	if findCmd(t, newRoot(), "forward").IsAvailableCommand() {
+		t.Error("forward must be hidden")
+	}
+	d := mustRun(t, "schema", "forward", "start")
+	if p := d["commands"].([]any)[0].(map[string]any)["path"]; p != "komando tunnel start" {
+		t.Errorf("schema forward start: %v", p)
+	}
+}

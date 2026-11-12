@@ -558,7 +558,7 @@ func addCommands(root *cobra.Command) {
 		svcCmd(), jobCmd(), dockerCmd(), pkgCmd(), cronCmd(), userCmd(), rebootCmd(), shellCmd(), netCmd(), certCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
-	add("access", vpnCmd(), loginCmd(), logoutCmd(), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())
+	add("access", vpnCmd(), loginCmd(), logoutCmd(), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd(), forwardCmd())
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
 	add("setup", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd(), configCmd(), policyCmd(), guideCmd(),
 		promptCmd(), schemaCmd(root), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())

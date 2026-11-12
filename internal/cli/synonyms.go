@@ -119,3 +119,17 @@ func recipeShowCmd() *cobra.Command {
 	c.Annotations[synonymNote] = "recipe list"
 	return c
 }
+
+// forwardCmd is the old top-level `forward`, which was another name for
+// `tunnel` and read like `cluster forward`. It is retired: each use is
+// noted (meta.deprecated, and stderr at a terminal) and runs the tunnel
+// command with its ID (C-V17).
+func forwardCmd() *cobra.Command {
+	c := withID(&cobra.Command{Use: "forward"}, "tunnel")
+	markOldName(c, "tunnel")
+	for _, sub := range []*cobra.Command{tunnelStartCmd(), tunnelListCmd(), tunnelStopCmd()} {
+		now := "tunnel " + sub.Name()
+		c.AddCommand(oldName(withID(sub, "tunnel."+sub.Name()), now))
+	}
+	return c
+}
