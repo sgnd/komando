@@ -104,6 +104,9 @@ type execOpts struct {
 	failFast  bool
 	display   string // what output and the audit log show instead of a long generated script
 	recipe    string // recipe run: the recipe's name, in the result and the audit log
+	// jobScript: exec --script's flags for job start (--script FILE ...),
+	// so a timeout can name the job that runs the same script
+	jobScript string
 	// follow: a log follow (logs --follow). Reaching --timeout is how it
 	// ends, not a failure.
 	follow bool
@@ -305,31 +308,56 @@ func runScript(ctx context.Context, name, target string, so scriptOpts, o execOp
 		interpreter = shebangInterpreter(string(body))
 	}
 	command := scriptCommand(interpreter, argsList)
+	if so.file != "-" { // stdin is gone by then: no line to copy
+		js := []string{"--script", so.file}
+		if so.interpreter != "" {
+			js = append(js, "--interpreter", so.interpreter)
+		}
+		o.jobScript = shellLine(append(js, scriptArgsShown(argsList)...))
+	}
 	if err := guardBody(string(body)); err != nil {
 		return err
 	}
 	mutating := !readOnly
 	if readOnly {
-		// only a shell script can be checked: the interpreter must
-		// be a plain shell (python, or tee /etc/passwd, is not),
-		// and its arguments ($1 ...) are not seen by the check
-		if len(argsList) > 0 {
-			if err := readOnlyStop("--arg values fill in $1 ... when the script runs; put them in the script instead"); err != nil {
-				return err
-			}
-		} else if !stdinShell(command) {
-			if err := readOnlyStop("the interpreter " + interpreter + " is not a shell; only shell scripts can be --read-only"); err != nil {
-				return err
-			}
-		}
-		if err := checkReadOnlyEnv(string(body), o.env); err != nil {
+		if mutating, err = scriptReadOnly(string(body), interpreter, argsList, o.env); err != nil {
 			return err
 		}
-		// a protected target still needs --yes unless komando knows
-		// every command in the script only reads (allowlist)
-		mutating = readOnlyMutates(string(body), o.env)
 	}
 	return runFleet(ctx, name, target, command, body, o, mutating)
+}
+
+// scriptReadOnly is --read-only for a script (exec --script, job start
+// --script): a script that changes something is refused, and mutating says
+// whether a protected target still needs --yes.
+func scriptReadOnly(body, interpreter string, args, env []string) (mutating bool, err error) {
+	// only a shell script can be checked: the interpreter must be a plain
+	// shell (python, or tee /etc/passwd, is not), and its arguments ($1
+	// ...) are not seen by the check
+	if len(args) > 0 {
+		if err := readOnlyStop("--arg values fill in $1 ... when the script runs; put them in the script instead"); err != nil {
+			return true, err
+		}
+	} else if !stdinShell(scriptCommand(interpreter, nil)) {
+		if err := readOnlyStop("the interpreter " + interpreter + " is not a shell; only shell scripts can be --read-only"); err != nil {
+			return true, err
+		}
+	}
+	if err := checkReadOnlyEnv(body, env); err != nil {
+		return true, err
+	}
+	// a protected target still needs --yes unless komando knows every
+	// command in the script only reads (allowlist)
+	return readOnlyMutates(body, env), nil
+}
+
+// scriptArgsShown are --arg values as they show in a job's command.
+func scriptArgsShown(args []string) []string {
+	var shown []string
+	for _, a := range args {
+		shown = append(shown, "--arg", a)
+	}
+	return shown
 }
 
 // scriptCommand is how an interpreter reads a script from stdin, with
@@ -671,11 +699,12 @@ func (l *lineBuffer) flush() string {
 }
 
 // jobStartLine is the job start command that runs what exec ran on host,
-// with the same --sudo, --dir and --env. job start takes no input, pty or
-// --sudo-user, so a run with one of those gets "", and so does any command
-// but exec: module commands build their own scripts.
+// with the same --sudo, --dir and --env, and --script for a script. job
+// start takes no other input, pty or --sudo-user, so a run with one of
+// those gets "", and so does any command but exec: module commands build
+// their own scripts.
 func jobStartLine(name, host, command string, stdin []byte, o execOpts) string {
-	if name != "exec" || stdin != nil || o.pty || o.sudoUser != "" || o.display != "" {
+	if name != "exec" || stdin != nil && o.jobScript == "" || o.pty || o.sudoUser != "" || o.display != "" {
 		return ""
 	}
 	parts := []string{"komando", "job", "start", host}
@@ -687,6 +716,9 @@ func jobStartLine(name, host, command string, stdin []byte, o execOpts) string {
 	}
 	for _, e := range o.env {
 		parts = append(parts, "--env", e)
+	}
+	if o.jobScript != "" {
+		return shellLine(parts) + " " + o.jobScript
 	}
 	return shellLine(parts) + " -- " + sshx.Q(command)
 }

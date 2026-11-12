@@ -7,6 +7,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `job start --script FILE` (with `--arg` and `--interpreter`) runs a
+  script from this computer as a background job, as `exec --script` does
+  in the foreground. A long `exec --script` that times out names it.
+
 ### Fixed
 
 - `fs chmod` works on servers with BSD `chmod` (FreeBSD, macOS): the

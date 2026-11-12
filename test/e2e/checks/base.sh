@@ -129,6 +129,16 @@ SJ=$($K job start ops --sudo -- 'whoami; cat; echo end' | jget 'd["data"]["jobs"
 check "job with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
 check "job with sudo password runs as root" "root end" "$($K job logs "$SJ" | jget '" ".join(d["data"]["content"].split())')"
 check "job sudo password file is deleted" False "$($K fs stat ops ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
+# a long script from this computer as a job: exec --script's twin
+SJ=$($K job start ops --sudo --script "$TMP/who.sh" | jget 'd["data"]["jobs"][0]["id"]')
+check "job start --script with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
+check "job start --script runs the script as root" root "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
+check "job start --script leaves no copy on the server" False "$($K fs stat ops ".komando/jobs/$SJ/script" | jget 'd["data"]["exists"]')"
+printf '#!/usr/bin/env bash\necho "got:$1:$2"\n' > "$TMP/args.sh"
+SJ=$($K job start direct --script "$TMP/args.sh" --arg 'a b' --arg c | jget 'd["data"]["jobs"][0]["id"]')
+$K job wait "$SJ" --interval 1s >/dev/null
+check "job start --script --arg" "got:a b:c" "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
+check "job list shows the script, not its text" True "$($K job list | jget 'any(j["command"].startswith("--script") for j in d["data"]["jobs"])')"
 # sudo never asks on a NOPASSWD host, so the password must not reach the command
 $K host edit direct --sudo-ref secret:agent-pass >/dev/null
 check "unasked sudo password not leaked" False "$($K exec direct --script "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"

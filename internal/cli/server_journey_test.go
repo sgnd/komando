@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -94,4 +95,33 @@ func TestFsPermissionHintIsTheLineWithSudo(t *testing.T) {
 	if got := sudoRetryHint(sub, []string{"web1", "/etc/app.conf"}); strings.Contains(got, "retry with --sudo") {
 		t.Errorf("already --sudo: %s", got)
 	}
+}
+
+// exec --script that times out names job start --script, the job that
+// runs the same script; job start takes a script like exec does.
+func TestJobStartScript(t *testing.T) {
+	o := execOpts{sudo: true, jobScript: "--script ./deploy.sh --arg v1"}
+	if got, want := jobStartLine("exec", "web1", "sh -s -- v1", []byte("body"), o), "komando job start web1 --sudo --script ./deploy.sh --arg v1"; got != want {
+		t.Errorf("got  %s\nwant %s", got, want)
+	}
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	dir := t.TempDir()
+	script := dir + "/deploy.sh"
+	if err := os.WriteFile(script, []byte("#!/bin/bash\necho deploying\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, "USAGE", "job", "start", "web1", "--script", script, "--", "uptime")
+	wantCode(t, "USAGE", "job", "start", "web1", "--arg", "v1", "--", "uptime")
+	d := mustRun(t, "job", "start", "web1", "--script", script, "--arg", "v 1", "--dry-run")
+	if d["command"] != "--script "+script+" --arg 'v 1'" || d["script_bytes"] != float64(27) {
+		t.Errorf("dry run: %v", d)
+	}
+	// the script is read by the policy like exec --script reads it
+	bad := dir + "/bad.sh"
+	if err := os.WriteFile(bad, []byte("rm -rf /\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, "POLICY_BLOCKED", "job", "start", "web1", "--script", bad)
+	wantCode(t, "READ_ONLY_VIOLATION", "job", "start", "web1", "--script", script, "--read-only", "--arg", "x")
 }

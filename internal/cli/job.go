@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -49,19 +50,73 @@ func jobStartCmd() *cobra.Command {
 	var sudo, readOnly bool
 	var envs []string
 	var dir, cmdStr string
+	var so scriptOpts
 	c := &cobra.Command{
 		Use:   "start TARGET [--] COMMAND...",
 		Short: "Start a background job on each server TARGET picks; returns the job IDs",
+		Long: `Starts COMMAND in the background on each server TARGET picks and returns
+the job IDs at once; the job keeps running when the connection drops.
+
+--script FILE runs a script from this computer as the job, like
+` + "`exec --script`" + `: it goes to the interpreter (from its #! line, else sh;
+--interpreter to choose) and its copy on the server is removed as soon as
+the job has opened it. --arg values become $1, $2 ... .`,
 		Example: `  komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
-  komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'`,
+  komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
+  komando job start @web --script ./deploy.sh --arg v1.2.3 --sudo`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command, err := commandWords(cmdStr, args[1:], "job start "+args[0])
-			if err != nil {
-				return err
-			}
-			if strings.TrimSpace(command) == "" {
-				return out.Usage("no command given: komando job start TARGET -- COMMAND")
+			var command, shown string
+			var body []byte
+			mutating := !readOnly
+			if so.file != "" {
+				if cmdStr != "" || len(args) > 1 {
+					return out.Usage("give a command or --script FILE, not both")
+				}
+				var err error
+				if body, err = readFileOrStdin(so.file); err != nil {
+					return localFileErr("FILE_NOT_FOUND", err, "")
+				}
+				if err := hiddenInInput(so.file, body); err != nil {
+					return err
+				}
+				if err := guardBody(string(body)); err != nil {
+					return err
+				}
+				interpreter := cmp.Or(so.interpreter, shebangInterpreter(string(body)))
+				if win, err := targetWindows(args[0]); err != nil || win {
+					if err == nil {
+						err = out.Usage("job start --script runs on Linux and other Unix servers; on Windows use `komando exec TARGET --script FILE`")
+					}
+					return err
+				}
+				if readOnly {
+					if mutating, err = scriptReadOnly(string(body), interpreter, so.args, envs); err != nil {
+						return err
+					}
+				}
+				// the job reads the script from its file ($2), which it removes
+				// once it has it open: nothing is left on the server
+				command = `{ rm -f "$2"; ` + scriptCommand(interpreter, so.args) + `; } < "$2"`
+				shown = shellLine(append([]string{"--script", so.file}, scriptArgsShown(so.args)...))
+			} else {
+				if so.interpreter != "" || len(so.args) > 0 {
+					return out.Usage("--interpreter and --arg go with --script FILE")
+				}
+				var err error
+				if command, err = commandWords(cmdStr, args[1:], "job start "+args[0]); err != nil {
+					return err
+				}
+				if strings.TrimSpace(command) == "" {
+					return out.Usage("no command given: komando job start TARGET -- COMMAND (or --script FILE)")
+				}
+				if readOnly {
+					if err := checkReadOnlyEnv(command, envs); err != nil {
+						return err
+					}
+					mutating = readOnlyMutates(command, envs)
+				}
+				shown = command
 			}
 			st, err := loadState()
 			if err != nil {
@@ -71,12 +126,7 @@ func jobStartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if readOnly {
-				if err := checkReadOnlyEnv(command, envs); err != nil {
-					return err
-				}
-			}
-			if err := guard(st, hosts, command, !readOnly || readOnlyMutates(command, envs)); err != nil {
+			if err := guard(st, hosts, command, mutating); err != nil {
 				return err
 			}
 			env, err := parseEnvTo(envs, hosts)
@@ -84,7 +134,11 @@ func jobStartCmd() *cobra.Command {
 				return err
 			}
 			if g.dryRun {
-				out.P.Print("job.start", map[string]any{"hosts": hostNames(hosts), "command": command}, nil)
+				plan := map[string]any{"hosts": hostNames(hosts), "command": shown}
+				if body != nil {
+					plan["script_bytes"] = len(body)
+				}
+				out.P.Print("job.start", plan, nil)
 				return nil
 			}
 			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
@@ -105,6 +159,8 @@ func jobStartCmd() *cobra.Command {
 				}
 				var pw []byte // the sudo password, sent as input, never on a command line
 				pwFile := ""
+				// the job's shell gets the env file as $1 and the script as $2
+				shArgs := ` sh "$d/env" "$d/script"`
 				switch {
 				case sudo && c.Host.SudoRef != "":
 					p, err := vault.Resolve(c.Host.SudoRef)
@@ -115,22 +171,27 @@ func jobStartCmd() *cobra.Command {
 					// The password waits in a private file. The job opens it as
 					// sudo's input and deletes it at once; the command itself
 					// gets no input, so it can never read the password.
-					pwFile = `(umask 077; cat > "$d/pw") && `
-					inner = `{ rm -f "$d/pw"; sudo -S -p '' sh -c ` + sshx.Q("exec </dev/null; "+inner) + ` sh "$d/env"; } < "$d/pw"`
+					pwFile = sshx.SaveInput(len(pw), `"$d/pw"`) + ` && `
+					inner = `{ rm -f "$d/pw"; sudo -S -p '' sh -c ` + sshx.Q("exec </dev/null; "+inner) + shArgs + `; } < "$d/pw"`
 				case sudo:
-					inner = "sudo -n sh -c " + sshx.Q(inner) + ` sh "$d/env"`
+					inner = "sudo -n sh -c " + sshx.Q(inner) + shArgs
 				default:
-					inner = "sh -c " + sshx.Q(inner) + ` sh "$d/env"`
+					inner = "sh -c " + sshx.Q(inner) + shArgs
 				}
 				wrapper := "( " + inner + " ); echo $? > \"$d/exit\""
 				envFile := ""
 				if exports != "" {
 					envFile = sshx.SaveInput(len(exports), `"$d/env"`) + ` && `
 				}
-				script := `d="` + jobDir(id) + `"; mkdir -p "$d" && ` + envFile + pwFile + `printf '%s\n' ` + sshx.Q(command) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
+				scriptFile := ""
+				if body != nil {
+					scriptFile = `(umask 077; cat > "$d/script") && `
+				}
+				script := `d="` + jobDir(id) + `"; mkdir -p "$d" && ` + envFile + pwFile + scriptFile + `printf '%s\n' ` + sshx.Q(shown) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
 					`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & ` +
 					`else nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
-				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: append([]byte(exports), pw...), Timeout: 30 * time.Second, MaxOutput: 64 << 10})
+				input := append(append([]byte(exports), pw...), body...)
+				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: input, Timeout: 30 * time.Second, MaxOutput: 64 << 10})
 				if err != nil {
 					return nil, err
 				}
@@ -139,7 +200,7 @@ func jobStartCmd() *cobra.Command {
 				if code != 0 || perr != nil {
 					return nil, out.Errf(out.ExitRemote, "JOB_START_FAILED", "check that /bin/sh and nohup work there: `komando test TARGET`", "could not start job: %s", o)
 				}
-				j := &store.Job{ID: id, Host: c.Host.Name, Command: command, PID: pid, RemoteDir: jobDir(id), StartedAt: time.Now().UTC()}
+				j := &store.Job{ID: id, Host: c.Host.Name, Command: shown, PID: pid, RemoteDir: jobDir(id), StartedAt: time.Now().UTC()}
 				if err := store.UpdateRuntime(func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
 					return nil, err
 				}
@@ -162,11 +223,13 @@ func jobStartCmd() *cobra.Command {
 				data.Summary.OK++
 			}
 			data.Summary.Total = len(res)
-			audit(st, "job.start", hostNames(hosts), command, data.Summary.Failed == 0, nil)
+			audit(st, "job.start", hostNames(hosts), shown, data.Summary.Failed == 0, nil)
 			return finishFleet("job.start", data.withNext(), runSummary{fleetSummary: data.Summary}, worst, fails)
 		},
 	}
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
+	c.Flags().StringVar(&so.file, "script", "", "run this script from this computer as the job ('-' = komando's stdin)")
+	so.bind(c)
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run with sudo (uses the server's --sudo-ref password if set)")
 	c.Flags().StringArrayVarP(&envs, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
 	c.Flags().StringVarP(&dir, "dir", "C", "", "working directory on the server")

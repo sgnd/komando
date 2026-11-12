@@ -182,6 +182,7 @@ once with a job ID per server.
 ```bash
 komando job start web1 -- 'tar czf /backup/www.tgz /var/www'
 komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
+komando job start @web --script ./migrate.sh --arg v2   # a script from this computer
 komando job status JOB_ID               # running, exited or lost; exit code; last lines
 komando job logs JOB_ID                 # output so far
 komando job wait JOB_ID --timeout 30m   # wait until it ends
@@ -201,6 +202,11 @@ Good to know:
   connects again and keeps waiting.
 - `job wait` with several IDs waits for all of them and gives one result per
   job (`data.jobs`) and a summary; the exit code is the worst one.
+- `job start --script FILE` runs a script from this computer as the job,
+  with `--arg` and `--interpreter` as in `exec --script`. Its copy waits in
+  the job's private folder and is removed the moment the job opens it.
+- When `exec` times out or loses its connection, its hint is the
+  `komando job start ...` line that runs the same thing as a job.
 - `job start --sudo` uses the server's `--sudo-ref` password when it has
   one. The password is sent as input (never on a command line), waits in a
   private file only the job's user can read, and the job deletes it the
