@@ -76,6 +76,7 @@ func promptAdd(st *store.State, cmd *cobra.Command) error {
 			return promptNo()
 		}
 		if v == "y" {
+			promptConfirmed = "Run it?"
 			break
 		}
 		_, _ = menuRunOne(self, formDry(cmds))

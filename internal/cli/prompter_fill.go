@@ -38,6 +38,7 @@ func (f fillDone) Error() string { return "exit " + strconv.Itoa(f.code) }
 // promptFill is args with what was missing asked and added, or args as
 // they are. Its error is a cancel at a question (or fillDone).
 func promptFill(args []string) ([]string, error) {
+	promptConfirmed = ""
 	if !promptable(outputFlag()) {
 		return args, nil
 	}
@@ -338,6 +339,7 @@ func (f *fill) confirm(filled []string) error {
 		if !ok {
 			return promptNo()
 		}
+		promptConfirmed = "typed " + targets[0] + ": " + gone
 		return nil
 	}
 	for {
@@ -347,6 +349,7 @@ func (f *fill) confirm(filled []string) error {
 		}
 		switch v {
 		case "y":
+			promptConfirmed = "Run it?"
 			return nil
 		case "n":
 			return promptNo()
@@ -374,3 +377,7 @@ func promptStopped(err error) error {
 	}
 	return (&out.Error{Code: "CANCELLED", Message: "interrupted", Hint: "nothing was run", Exit: out.ExitError}).Cancel("Stopped. Nothing was run.")
 }
+
+// promptConfirmed is what the person said yes to before the command ran
+// (Run it?, the name typed); the audit records it as confirm: tty.
+var promptConfirmed string

@@ -39,6 +39,7 @@ func TestPTYChild(t *testing.T) {
 	case "agent": // TestMain took the agent variables away
 		os.Setenv("KOMANDO_AGENT", "1")
 		resetApproval()
+		interactive = func() bool { return false } // as the real one says for an agent
 	}
 	os.Args = append([]string{"komando"}, strings.Split(args, "\x1f")...)
 	code := Execute()

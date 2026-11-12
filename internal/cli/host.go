@@ -597,7 +597,7 @@ func guardProxyCommand(cmd string) error {
 	if cmd == "" {
 		return nil
 	}
-	if hits := policy.Check(cmd, nil); len(hits) > 0 && !dangerOK() {
+	if hits := policy.Check(cmd, nil); len(hits) > 0 && !dangerOK() && !policyAsk("--proxy-command `"+cmd+"` matches "+hits[0].Reason) {
 		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a proxy command only carries the connection, e.g. `aws ssm start-session ...`; if this one is intended, --allow-dangerous lets it through",
 			"--proxy-command matches destructive rules: %s", hits[0].Reason))
 	}

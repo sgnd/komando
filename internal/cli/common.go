@@ -501,7 +501,21 @@ func sftpHost(c *store.Conn) *store.Host {
 // are, so they still need --yes and --allow-dangerous (docs/design/ux.md,
 // section 6).
 var interactive = func() bool {
-	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())) && !isAgent()
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())) && !isAgent() && !ciRun()
+}
+
+// ciRun: CI is set (and not false or 0). A CI job is never a person, even
+// on a terminal, so nothing is asked there and no answer counts as a yes.
+func ciRun() bool {
+	ci := os.Getenv("CI")
+	return ci != "" && ci != "false" && ci != "0"
+}
+
+// ttyYes notes a yes a person typed at the terminal for this command: the
+// audit records it as confirm: tty, with what was asked.
+func ttyYes(what string) {
+	c := cur()
+	c.ttyYes = append(c.ttyYes, what)
 }
 
 // ask prints question on stderr and reads one line from the terminal.
@@ -527,7 +541,18 @@ func confirmYes(question string) bool {
 	a := strings.ToLower(ask(question + " [y/N] "))
 	ok := a == "y" || a == "yes"
 	cur().sess.SaidNo(!ok)
+	if ok {
+		ttyYes(question)
+	}
 	return ok
+}
+
+// policyAsk asks a person at the terminal whether a command the safety
+// policy blocks runs anyway, this once: a yes counts as --allow-dangerous
+// for this check of this command only. Never under --dry-run, for an AI
+// agent, a script or CI.
+func policyAsk(rule string) bool {
+	return confirmYes("Blocked by policy: " + rule + ". Run it anyway, this once?")
 }
 
 // askedAbout: the targets of the last yes/no question, so a "no" can say
@@ -568,11 +593,12 @@ func confirmDangerous(names []string, reason string) bool {
 	case len(names) > 1:
 		want, what = fmt.Sprint(len(names)), fmt.Sprintf("%d (the number of targets)", len(names))
 	}
-	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
+	fmt.Fprintf(os.Stderr, "Blocked by policy: %s. To run it anyway, this once:\n", reason)
 	ok := ask("Type "+what+" to continue: ") == want
 	cur().sess.SaidNo(!ok)
 	if ok {
 		cur().sess.ConfirmDanger(key)
+		ttyYes("typed " + want + ": " + reason)
 	}
 	return ok
 }
@@ -648,6 +674,10 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 			rec["actor_claimed"] = true
 		}
 		rec["os_user"] = osUser()
+	}
+	if c := cur(); len(c.ttyYes) > 0 || promptConfirmed != "" {
+		rec["confirm"] = "tty" // a person said yes at the terminal
+		rec["confirmed"] = append(slices.Clone(c.ttyYes), slices.DeleteFunc([]string{promptConfirmed}, func(s string) bool { return s == "" })...)
 	}
 	for k, v := range extra {
 		rec[k] = v

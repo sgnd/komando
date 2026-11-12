@@ -127,3 +127,13 @@ func TestAskRunAndTypeName(t *testing.T) {
 		t.Error("a wrong name is a yes")
 	}
 }
+
+// A CI job is never a person, even on a terminal.
+func TestCIRunIsNoPerson(t *testing.T) {
+	for v, want := range map[string]bool{"": false, "false": false, "0": false, "true": true, "1": true} {
+		t.Setenv("CI", v)
+		if ciRun() != want {
+			t.Errorf("CI=%q: %v", v, !want)
+		}
+	}
+}

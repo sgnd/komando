@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
@@ -20,7 +21,7 @@ func fillTest(t *testing.T) {
 	mustRun(t, "conn", "add", "cache1", "redis://127.0.0.1:6379")
 	saved := promptable
 	promptable = func(string) bool { return true }
-	t.Cleanup(func() { promptable = saved })
+	t.Cleanup(func() { promptable, promptConfirmed = saved, "" })
 }
 
 // What is missing is asked by its real name, added to the line, and the
@@ -136,5 +137,39 @@ func TestPromptFillAtATerminal(t *testing.T) {
 	a := startPTYEnv(t, []string{"KOMANDO_PTY_AS=agent"}, "host", "show")
 	if code := a.exit(); code != 2 || strings.Contains(a.shown(), "NAME: ") {
 		t.Errorf("an agent: exit %d:\n%s", code, a.shown())
+	}
+}
+
+// A command the safety policy blocks asks a person at a terminal whether
+// it runs anyway, this once: yes runs it (and the audit says a person said
+// yes at the terminal), no runs nothing; an AI agent is not asked and gets
+// POLICY_BLOCKED as before.
+func TestPolicyAskAtATerminal(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts processes")
+	}
+	add := []string{"host", "add", "web1", "root@10.0.0.5", "--proxy-command", "rm -rf /"}
+	invHome(t)
+	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, add...)
+	p.answer("Run it anyway, this once? [y/N] ", "n\r")
+	if code := p.exit(); code != out.ExitPolicy {
+		t.Errorf("no: exit %d\n%s", code, p.shown())
+	}
+	if _, err := invRun(t, "host", "show", "web1"); err == nil {
+		t.Error("no added it")
+	}
+	a := startPTYEnv(t, []string{"KOMANDO_PTY_AS=agent"}, add...)
+	if code := a.exit(); code != out.ExitPolicy || strings.Contains(a.shown(), "[y/N]") || !strings.Contains(a.shown(), "POLICY_BLOCKED") {
+		t.Errorf("agent: exit %d\n%s", code, a.shown())
+	}
+	p = startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, add...)
+	p.answer("Run it anyway, this once? [y/N] ", "y\r")
+	if code := p.exit(); code != 0 {
+		t.Errorf("yes: exit %d\n%s", code, p.shown())
+	}
+	mustRun(t, "host", "show", "web1")
+	d := mustRun(t, "audit", "--limit", "5")
+	if b, _ := json.Marshal(d); !strings.Contains(string(b), `"confirm":"tty"`) {
+		t.Errorf("the audit does not say a person said yes: %s", b)
 	}
 }

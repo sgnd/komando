@@ -40,6 +40,13 @@ its highlights; the sections below them give the details. Versions follow
   pasted with the address is never drawn. When the test after an add
   fails, komando says the three commands to change, test again or remove
   it, instead of a menu.
+- At a terminal, a `--proxy-command` or a cluster's login program that the
+  dangerous-command filter blocks now asks `Blocked by policy: ... Run it
+  anyway, this once? [y/N]` (No by default) instead of failing; the other
+  blocked commands already asked you to type the name, which now starts
+  with `Blocked by policy:`. A yes you give at the terminal is recorded in
+  `komando audit` as `confirm: tty`. Nothing is asked, and no answer
+  counts, when CI is set. AI agents get exit 6 as before.
 
 ### Fixed
 
