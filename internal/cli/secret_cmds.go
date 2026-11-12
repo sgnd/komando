@@ -99,7 +99,7 @@ func secretGetCmd() *cobra.Command {
 	get := &cobra.Command{
 		Use:     "show NAME",
 		Aliases: []string{"get"},
-		Short: "Check a secret exists; --reveal prints its value",
+		Short:   "Check a secret exists; --reveal prints its value",
 		Long: `Says whether the secret exists and what uses it, without its value. A person
 at a terminal can add --reveal to print it; AI agents never get the value
 (they reference it as secret:NAME instead). A warning says when the value

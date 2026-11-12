@@ -28,7 +28,7 @@ func keyMvCmd() *cobra.Command {
 	return withID(&cobra.Command{
 		Use:     "rename OLD NEW",
 		Aliases: []string{"mv"}, // a permanent synonym; the ID stays key.mv
-		Short: "Rename a key, and every server that uses it",
+		Short:   "Rename a key, and every server that uses it",
 		Long: `Gives a key in komando's key list a new name; the servers that use it follow. A
 key komando made (key gen) lives in the sealed store, so no file moves; a key
 added from elsewhere (key add) stays where it is. Public keys already installed on servers keep their comment: they
@@ -71,7 +71,7 @@ func groupMvCmd() *cobra.Command {
 	return withID(&cobra.Command{
 		Use:     "rename OLD NEW",
 		Aliases: []string{"mv"}, // a permanent synonym; the ID stays group.mv
-		Short: "Rename a group on every server, conn and VPN in it",
+		Short:   "Rename a group on every server, conn and VPN in it",
 		Long: `Gives a group a new name on every member. OLD matches in any case, like
 @OLD. When NEW is a group already, nothing changes (GROUP_EXISTS): to merge
 two groups, add the members with ` + "`komando group add NEW @OLD`" + ` and then run
