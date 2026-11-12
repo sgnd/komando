@@ -1,6 +1,9 @@
 package cli
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // flagRenames are the C-F renames: on each command the new flag is
 // visible, and each old spelling is hidden and shares its value; retired
@@ -39,5 +42,26 @@ func TestStandardFlagRenames(t *testing.T) {
 		if retired := old.Annotations[flagRetired] != nil; retired == r.synonym {
 			t.Errorf("%v: --%s retired=%v, want %v", r.path, r.old, retired, !r.synonym)
 		}
+	}
+}
+
+// docker logs has no journal priority and svc logs no --timestamps
+// choice: the flags are hidden there, still accepted for one release and
+// noted in meta.deprecated (C-F13).
+func TestLogsIdleFlagsHidden(t *testing.T) {
+	root := newRoot()
+	for path, flag := range map[string]string{"docker logs": "priority", "svc logs": "timestamps"} {
+		c := findCmd(t, root, strings.Fields(path)...)
+		if f := c.Flags().Lookup(flag); f == nil || !f.Hidden {
+			t.Errorf("%s --%s must be hidden", path, flag)
+		}
+	}
+	if f := findCmd(t, root, "logs").Flags().Lookup("priority"); f == nil || f.Hidden {
+		t.Error("logs --priority stays visible")
+	}
+	invHome(t)
+	code, text := runMain(t, "docker", "logs", "nope", "api", "--priority", "err")
+	if code == 0 || !strings.Contains(text, `"deprecated":{"used":"--priority"`) {
+		t.Errorf("docker logs --priority: exit %d %s", code, text)
 	}
 }

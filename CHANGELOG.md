@@ -78,6 +78,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `docker logs` no longer shows `--priority` (a container log has none)
+  and `svc logs` no longer shows `--timestamps` (the journal always has
+  times). Both are still accepted in this release, do nothing as before,
+  and are noted in `meta.deprecated`.
 - `queue peek --idle 10s` is how long a Kafka peek waits with no new
   message (was `--wait`, which elsewhere means "wait for the result").
   `--wait` still works in this release and is noted in `meta.deprecated`.
