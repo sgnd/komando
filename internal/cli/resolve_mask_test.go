@@ -13,6 +13,7 @@ import (
 // like a value from its own vault.
 func TestResolvedValueHiddenInOutput(t *testing.T) {
 	noAgent(t)
+	t.Cleanup(out.P.Reset) // the next test's command starts without it
 	const v = "pw-from-the-environment-4821"
 	t.Setenv("O10_DB_PASSWORD", v)
 	got, err := vault.Resolve("env:O10_DB_PASSWORD")

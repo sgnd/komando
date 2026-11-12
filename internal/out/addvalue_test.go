@@ -38,4 +38,9 @@ func TestAddValueHidesIt(t *testing.T) {
 	if !s.Found() {
 		t.Fatal("the scanner does not see an added value")
 	}
+	// the next command (one process runs many in tests) starts without it
+	p.Reset()
+	if got := p.Redact(v + " vault-value-1234"); got != v+" [secret:db]" {
+		t.Fatalf("after Reset: %q", got)
+	}
 }
