@@ -181,6 +181,15 @@ type Meta struct {
 	// Warnings are things that went wrong beside the result (an audit
 	// record that could not be written); they are on stderr too.
 	Warnings []string `json:"warnings,omitempty"`
+	// Deprecated: the command used a retired flag or argument shape that
+	// still works for now; Now is how to write it today.
+	Deprecated *Deprecated `json:"deprecated,omitempty"`
+}
+
+// Deprecated names a retired spelling and the one that replaces it.
+type Deprecated struct {
+	Used string `json:"used"`
+	Now  string `json:"now"`
 }
 
 // HostKey is a server's host key, as komando pinned it.
@@ -210,6 +219,8 @@ type Printer struct {
 	pinned  []HostKey
 	warns   []string
 	mu      sync.Mutex // pinned, warns: connections run side by side
+
+	deprecated *Deprecated
 
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
@@ -305,10 +316,20 @@ type Texter interface{ Text() string }
 
 func (p *Printer) meta() Meta {
 	p.mu.Lock()
-	pinned, warns := slices.Clone(p.pinned), slices.Clone(p.warns)
+	pinned, warns, dep := slices.Clone(p.pinned), slices.Clone(p.warns), p.deprecated
 	p.mu.Unlock()
 	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked,
-		HostKeysPinned: pinned, Warnings: warns}
+		HostKeysPinned: pinned, Warnings: warns, Deprecated: dep}
+}
+
+// UsedRetired records, for meta.deprecated, the first retired spelling the
+// command used and what replaces it.
+func (p *Printer) UsedRetired(used, now string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.deprecated == nil {
+		p.deprecated = &Deprecated{Used: used, Now: now}
+	}
 }
 
 // HostKeyPinned records a host key trusted on first use, for
@@ -331,7 +352,7 @@ func (p *Printer) WouldBlock(e *Error) {
 func (p *Printer) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.blocked, p.skipped, p.pinned, p.warns = nil, nil, nil, nil
+	p.blocked, p.skipped, p.pinned, p.warns, p.deprecated = nil, nil, nil, nil, nil
 }
 
 // Warn records something that went wrong beside the result: it goes to

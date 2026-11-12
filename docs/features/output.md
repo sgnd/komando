@@ -51,7 +51,7 @@ as data.
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
 | `error.hint` | always says what to try next. Most codes give their own hint; when one gives none, komando puts in a general hint for the exit code (for example, exit 7 suggests `--timeout` or `komando job start`) |
 | `null` | komando could not find out (for example `facts` without the rights to read something). It never stands in for `0` or `false` |
-| `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run; `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails); `host_keys_pinned` when the command trusted a server's SSH host key for the first time (`host`, `address`, `key_type`, `fingerprint`), for the person to compare with the server's own |
+| `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run; `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails); `host_keys_pinned` when the command trusted a server's SSH host key for the first time (`host`, `address`, `key_type`, `fingerprint`), for the person to compare with the server's own; `deprecated` (`used`, `now`) when the command used an old flag or argument shape that still works |
 
 ## Exit codes
 
@@ -204,7 +204,7 @@ when = true
 
 It only reads komando's state file (no network, nothing written, never an
 error, no JSON), so it is safe to run on every prompt. `komando prompt` is
-its old name and goes away in the next release. It is a quick hint: a VPN
+its old name and keeps working. It is a quick hint: a VPN
 that crashed a moment ago can still show until the next komando command.
 `komando status` is the full check.
 

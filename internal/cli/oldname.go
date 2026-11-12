@@ -6,15 +6,37 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
-// oldNameNote marks a command as an old name kept for one release; the
-// audit-log check still runs for it, as for the new name.
+// Old spellings come in two kinds (docs/design/ux.md, section 10):
+//
+//   - synonyms (ls, mv, get, plural nouns, server, database): cobra
+//     Aliases on the command itself. They are permanent and print nothing;
+//   - retired names (an old command name such as `script`, an old flag, an
+//     old argument shape): they keep working, and each use goes through
+//     retiredName, the only place that notes one.
+
+// oldNameNote marks a command as an old name; the audit-log check still
+// runs for it, as for the new name.
 const oldNameNote = "komando.old-name"
 
-// oldName hides c, an old name that keeps working for one release, and
-// makes it say the new name on stderr each time it runs (docs/design/ux.md,
-// section 10). c must already call the same code as `komando now`.
+// retiredName notes that the command used a retired spelling: additive
+// meta.deprecated {used, now} in JSON, and one line on stderr only when
+// stderr is a terminal, so `2>&1 | jq` and agents reading stderr see no
+// new text.
+func retiredName(used, now string) {
+	out.P.UsedRetired(used, now)
+	if term.IsTerminal(int(os.Stderr.Fd())) {
+		fmt.Fprintf(os.Stderr, "komando: `%s` is an old spelling that still works; use `%s` now\n", used, now)
+	}
+}
+
+// oldName hides c, an old name that keeps working, and notes the new name
+// (retiredName) each time it runs. c must already call the same code as
+// `komando now`.
 func oldName(c *cobra.Command, now string) *cobra.Command {
 	markOldName(c, now)
 	run := c.RunE
@@ -43,10 +65,10 @@ func markOldName(c *cobra.Command, now string) {
 	c.Annotations[oldNameNote] = now
 }
 
-// sayOldName prints the one-line note of an old name on stderr.
+// sayOldName notes the old name cmd was typed by (retiredName).
 func sayOldName(cmd *cobra.Command) {
 	if now := cmd.Annotations[oldNameNote]; now != "" {
-		fmt.Fprintf(os.Stderr, "komando: use `komando %s` now; `%s` goes away in the next release\n", now, cmd.CommandPath())
+		retiredName(cmd.CommandPath(), "komando "+now)
 	}
 }
 

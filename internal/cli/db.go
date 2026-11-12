@@ -204,8 +204,8 @@ picks another database than the URL's.`},
 	return c
 }
 
-// pickTable sets f.table from -o csv/tsv or the old --csv/--tsv (which
-// say "use -o csv now" on stderr, for one release). Without --limit an
+// pickTable sets f.table from -o csv/tsv or the retired --csv/--tsv
+// (retiredName). Without --limit an
 // export has every row.
 func (f *dbFlags) pickTable(cmd *cobra.Command, csvFlag, tsvFlag bool) error {
 	f.table = g.table
@@ -222,7 +222,7 @@ func (f *dbFlags) pickTable(cmd *cobra.Command, csvFlag, tsvFlag bool) error {
 		if cmd.Flags().Changed("output") && f.table != old {
 			return out.Usage("--%s and -o %s ask for two formats: use -o %s alone", old, g.output, old)
 		}
-		fmt.Fprintf(os.Stderr, "komando: use -o %s now; --%s goes away in the next release\n", old, old)
+		retiredName("--"+old, "-o "+old)
 		f.table = old
 		out.P.Format = "text" // errors to stderr, so stdout has only rows
 	}

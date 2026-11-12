@@ -116,8 +116,8 @@ func stderrOf(t *testing.T, fn func()) string {
 	return string(b)
 }
 
-// exec --script runs a local script; script is its old name for one
-// release and says so on stderr.
+// exec --script runs a local script; script is its old name: it keeps
+// working and says so in meta.deprecated (and on stderr at a terminal).
 func TestExecScript(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
@@ -146,9 +146,13 @@ func TestExecScript(t *testing.T) {
 	note = stderrOf(t, func() {
 		old = mustRun(t, "--dry-run", "script", "web1", f, "--arg", "v1")
 	})
-	if !strings.Contains(note, "use `komando exec TARGET --script FILE` now") {
-		t.Errorf("script note: %q", note)
+	// not a terminal: no stderr line, the note is in meta.deprecated
+	dep, _ := old["_meta"].(map[string]any)["deprecated"].(map[string]any)
+	if note != "" || dep["used"] != "komando script" || dep["now"] != "komando exec TARGET --script FILE" {
+		t.Errorf("script note: %q, meta.deprecated %v", note, dep)
 	}
+	delete(old, "_meta")
+	delete(plan, "_meta")
 	want := "bash -s -- 'v1'"
 	for _, d := range []map[string]any{plan, old} {
 		if s := strings.Join(strings.Fields(strings.ReplaceAll(stringOf(d), "\\", "")), " "); !strings.Contains(s, want) {

@@ -20,6 +20,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- An old name or flag that komando still accepts (`komando script`,
+  `db query --csv`) no longer prints "goes away in the next release":
+  it keeps working. It now says so on stderr only at a terminal, and JSON
+  output names it in a new `meta.deprecated` field (`used`, `now`), so
+  `2>&1 | jq` and AI agents see no new text. A short alias such as `x`
+  for `exec` prints nothing at all.
 - Every command now carries a stable ID (its dotted path, such as
   `fs.ls`), and the envelopes, the audit log, personal-data hiding, the
   ssh-gate tables and the other checks keyed by command use it. A command
