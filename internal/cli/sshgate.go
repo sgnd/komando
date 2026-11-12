@@ -385,7 +385,9 @@ func gateRule(c *cobra.Command, name string, readOnly bool) (string, *out.Error)
 			return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "use `komando "+now+"`",
 				"komando %s is an old name", strings.ReplaceAll(name, ".", " "))
 		}
-		if p.Hidden {
+		// a synonym (cluster info) carries the ID of the command it names and
+		// gets that command's answer below; other hidden commands are plumbing
+		if p.Hidden && p.Annotations[synonymNote] == "" {
 			return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run it on the komando computer itself",
 				"komando %s is komando's own plumbing, not for a key", strings.ReplaceAll(name, ".", " "))
 		}

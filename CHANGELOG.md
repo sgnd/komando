@@ -624,6 +624,7 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   is `komando test all` and `komando doctor`.
 
 ### Fixed
+- An ssh-gate key gets the same answer for `cluster info`, `group show`, `tunnel show` and `recipe show` as for the command each names (`cluster status`, `group list`, `tunnel list`, `recipe list`); they were refused as komando's own plumbing.
 - The approval hint a script or a person gets (`check with --dry-run, then run it again with --allow-dangerous: ...`) repeats the command line only when it holds no value that may be a secret: words after `--`, free text such as SQL, a value the mask hides, or the value of a flag such as `--content` or `--password`. Those get the same sentence without the line, so a password typed for a server command no longer lands in `error.hint` or a CI log.
 - When komando fills in `cron rm`, `pkg rm` or `db kill` for a person, the name to type counts only what goes: written as an alias (`cron remove`), a plural (`crons rm`) or after `-o text`, the command's own words were counted too ("Type 3" for one task).
 - The hidden synonyms `cluster info`, `group show`, `tunnel show` and `recipe show` get every check of the command they name: an AI agent with `KOMANDO_HOME` set to another folder needs a person's yes (`SAFETY_SETTING`), and a command that writes the audit log stops when it cannot (`AUDIT_UNAVAILABLE`). They used to skip both, like komando's own background commands.
