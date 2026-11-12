@@ -728,6 +728,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A Tailscale or Headscale VPN keeps its node state (the machine and node
+  private keys) sealed in store.db, not in a plain `tailscaled.state` file
+  under `~/.komando/vpn/`. A file left by an earlier komando is moved in
+  and removed on the next `vpn up`. `vpn rm` now also forgets that state
+  and folder, so a VPN added again under the same name never joins as the
+  old node.
 - An AI agent's `download`, `cp`, `storage download` and `sync` never put
   the real text on this computer's disk: a text file is masked in memory
   before it is written. Before, the unmasked bytes sat in the temporary

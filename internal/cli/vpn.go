@@ -369,6 +369,7 @@ func vpnRmCmd() *cobra.Command {
 				return nil
 			}
 			var unused []string
+			var gone []*store.Vpn
 			err := store.Update(func(s *store.State) error {
 				if err := check(s); err != nil {
 					return err
@@ -377,6 +378,7 @@ func vpnRmCmd() *cobra.Command {
 				for _, name := range args {
 					if v := s.Vpns[name]; v != nil {
 						refs = append(refs, v.KeyRef, v.PSKRef, v.ConfigRef)
+						gone = append(gone, v)
 					}
 					if sess := s.Sessions[name]; sess != nil {
 						if err := netx.StopSession(sess); err != nil {
@@ -392,10 +394,23 @@ func vpnRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// a Tailscale node's keys go with it: a VPN added later under
+			// the same name must not join as the old node
+			var warnings []string
+			for _, v := range gone {
+				if v.Kind == "tailscale" {
+					if err := netx.ForgetTailscale(v); err != nil {
+						warnings = append(warnings, fmt.Sprintf("the Tailscale node state of %s could not be removed: %v", v.Name, err))
+					}
+				}
+			}
 			audit(nil, "vpn.rm", args, "", true, nil)
 			res := map[string]any{"removed": names()} // one VPN stays a string, so scripts that read it keep working
 			if len(unused) > 0 {
 				res["secrets_unused"] = unused
+			}
+			if len(warnings) > 0 {
+				res["warnings"] = warnings
 			}
 			out.P.Print("vpn.rm", textAs{res, rmResult{Removed: args, SecretsUnused: unused}}, nil)
 			return nil
