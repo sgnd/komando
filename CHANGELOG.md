@@ -20,6 +20,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- The test that records what AI agents and scripts get now also records
+  every safety stop komando can show without a server (50 command lines:
+  dangerous commands, protected servers and conns, safety settings,
+  write flags, a large group and person-only commands), so a later change
+  cannot quietly drop one.
 - At a terminal, `group rm` now ends with the way back:
   `Next: komando group add GROUP TARGET...`. Deleting a group of more than
   3 members still needs `--yes` from an AI agent or a script.
