@@ -32,44 +32,7 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 --allow-dangerous. The same rules apply to ` + "`docker raw`" + `, ` + "`docker compose`" + ` and ` + "`cluster run`" + ` on a Swarm manager.`,
 	}
 	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "run docker with sudo")
-	var all bool
-	var psLimit, statsLimit, imagesLimit int
-	ps := &cobra.Command{
-		Use:   "ps TARGET",
-		Short: "Running containers (--all for stopped ones too)",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, a []string) error {
-			line := "docker ps"
-			if all {
-				line += " -a"
-			}
-			return probe(cmd.Context(), "docker.ps", a[0], line+" --format '{{json .}}'", sudo, dockerTableN(psLimit,
-				[]string{"name", "image", "status", "ports", "created"}, []string{"Names", "Image", "Status", "Ports", "RunningFor"}, "Names"))
-		},
-	}
-	ps.Flags().BoolVarP(&all, "all", "a", false, "stopped containers too")
-	limitFlag(ps, &psLimit, 0, "containers per server")
-	stats := &cobra.Command{
-		Use:   "stats TARGET",
-		Short: "CPU, memory, network and disk use of running containers",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, a []string) error {
-			return probe(cmd.Context(), "docker.stats", a[0], "docker stats --no-stream --format '{{json .}}'", sudo, dockerTableN(statsLimit,
-				[]string{"name", "cpu", "memory", "mem%", "net i/o", "block i/o", "pids"}, []string{"Name", "CPUPerc", "MemUsage", "MemPerc", "NetIO", "BlockIO", "PIDs"}, "Name"))
-		},
-	}
-	limitFlag(stats, &statsLimit, 0, "containers per server")
-	images := &cobra.Command{
-		Use:   "images TARGET",
-		Short: "Images on the server",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, a []string) error {
-			return probe(cmd.Context(), "docker.images", a[0], "docker images --format '{{json .}}'", sudo, dockerTableN(imagesLimit,
-				[]string{"repository", "tag", "id", "created", "size"}, []string{"Repository", "Tag", "ID", "CreatedSince", "Size"}, "Repository", "Tag"))
-		},
-	}
-	limitFlag(images, &imagesLimit, 0, "images per server")
-	c.AddCommand(ps, stats, images)
+	c.AddCommand(dockerListCmds(&sudo)...)
 	for _, a := range []string{"start", "stop", "restart", "rm", "pull"} {
 		action := a
 		c.AddCommand(&cobra.Command{
@@ -660,4 +623,47 @@ server only commands komando knows read skip --yes.`,
 	}
 	execC.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
 	return execC
+}
+
+// dockerListCmds are `docker ps`, `docker stats` and `docker images`;
+// sudo is the group's --sudo.
+func dockerListCmds(sudo *bool) []*cobra.Command {
+	var all bool
+	var psLimit, statsLimit, imagesLimit int
+	ps := &cobra.Command{
+		Use:   "ps TARGET",
+		Short: "Running containers (--all for stopped ones too)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, a []string) error {
+			line := "docker ps"
+			if all {
+				line += " -a"
+			}
+			return probe(cmd.Context(), "docker.ps", a[0], line+" --format '{{json .}}'", *sudo, dockerTableN(psLimit,
+				[]string{"name", "image", "status", "ports", "created"}, []string{"Names", "Image", "Status", "Ports", "RunningFor"}, "Names"))
+		},
+	}
+	ps.Flags().BoolVarP(&all, "all", "a", false, "stopped containers too")
+	limitFlag(ps, &psLimit, 0, "containers per server")
+	stats := &cobra.Command{
+		Use:   "stats TARGET",
+		Short: "CPU, memory, network and disk use of running containers",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, a []string) error {
+			return probe(cmd.Context(), "docker.stats", a[0], "docker stats --no-stream --format '{{json .}}'", *sudo, dockerTableN(statsLimit,
+				[]string{"name", "cpu", "memory", "mem%", "net i/o", "block i/o", "pids"}, []string{"Name", "CPUPerc", "MemUsage", "MemPerc", "NetIO", "BlockIO", "PIDs"}, "Name"))
+		},
+	}
+	limitFlag(stats, &statsLimit, 0, "containers per server")
+	images := &cobra.Command{
+		Use:   "images TARGET",
+		Short: "Images on the server",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, a []string) error {
+			return probe(cmd.Context(), "docker.images", a[0], "docker images --format '{{json .}}'", *sudo, dockerTableN(imagesLimit,
+				[]string{"repository", "tag", "id", "created", "size"}, []string{"Repository", "Tag", "ID", "CreatedSince", "Size"}, "Repository", "Tag"))
+		},
+	}
+	limitFlag(images, &imagesLimit, 0, "images per server")
+	return []*cobra.Command{ps, stats, images}
 }

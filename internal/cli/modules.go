@@ -659,42 +659,7 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 		return `new=$(printf '%s\n' "$cur" | awk -v t=` + sshx.Q("# komando:"+id) + ` '{ n = length(t); if (length($0) >= n && substr($0, length($0) - n + 1) == t) next; print }')
 `
 	}
-	var cronLimit int
-	list := &cobra.Command{
-		Use:     "list TARGET",
-		Aliases: []string{"ls"},
-		Short:   "Show crontab entries",
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOps(cmd.Context(), opsSpec{name: "cron.list", target: args[0], command: readCron() + `printf '%s\n' "$cur"`, display: "cron list", sudo: useSudo(), limit: cronLimit,
-				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
-					if rr.ExitCode != 0 {
-						return nil, out.Errf(out.ExitRemote, "CRONTAB_UNREADABLE", "check the user name; reading another user's crontab needs sudo", "cannot read the crontab (exit %d)", rr.ExitCode)
-					}
-					rows := []map[string]any{}
-					for _, l := range strings.Split(rr.Stdout, "\n") {
-						t := strings.TrimSpace(l)
-						if t == "" || strings.HasPrefix(t, "#") {
-							continue
-						}
-						rows = append(rows, parseCronLine(t))
-					}
-					return rows, nil
-				},
-				text: func(data any) string {
-					rows := [][]string{}
-					for _, r := range data.([]map[string]any) {
-						cmdText := cell(r["command"])
-						if r["schedule"] == nil {
-							cmdText = cell(r["line"])
-						}
-						rows = append(rows, []string{cell(r["schedule"]), cmdText, cell(r["id"])})
-					}
-					return textTable([]string{"schedule", "command", "id"}, rows)
-				}})
-		},
-	}
-	limitFlag(list, &cronLimit, 0, "entries per server")
+	list := cronListCmd(readCron, useSudo)
 	var schedule string
 	set := &cobra.Command{
 		Use:   "set TARGET ID COMMAND",

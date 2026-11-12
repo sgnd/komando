@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
@@ -144,13 +145,18 @@ the pods that exist when it starts. --since takes a duration back from now
 	}
 	nsFlags(c, &ns, nil, &limitOpt{&limit, 200, "the most lines per pod (the last ones)"})
 	flagAlias(c, "tail", "limit") // kubectl's word: a permanent synonym
-	c.Flags().StringVarP(&container, "container", "c", "", "container in the pod")
-	c.Flags().StringVar(&since, "since", "", "only newer than this: 10m, 2h, or a time like 2026-01-02T10:00:00Z")
-	c.Flags().BoolVar(&previous, "previous", false, "the previous run of a restarted container")
-	c.Flags().BoolVar(&timestamps, "timestamps", false, "start each line with its time")
-	c.Flags().BoolVarP(&follow, "follow", "f", false, "keep reading new lines (Ctrl-C or --timeout stops)")
-	c.Flags().StringVarP(&selector, "selector", "l", "", "read every pod with these labels, e.g. app=api")
+	clusterLogFlags(c.Flags(), &container, &since, &selector, &previous, &timestamps, &follow)
 	return c
+}
+
+// clusterLogFlags are cluster logs' own flags.
+func clusterLogFlags(f *pflag.FlagSet, container, since, selector *string, previous, timestamps, follow *bool) {
+	f.StringVarP(container, "container", "c", "", "container in the pod")
+	f.StringVar(since, "since", "", "only newer than this: 10m, 2h, or a time like 2026-01-02T10:00:00Z")
+	f.BoolVar(previous, "previous", false, "the previous run of a restarted container")
+	f.BoolVar(timestamps, "timestamps", false, "start each line with its time")
+	f.BoolVarP(follow, "follow", "f", false, "keep reading new lines (Ctrl-C or --timeout stops)")
+	f.StringVarP(selector, "selector", "l", "", "read every pod with these labels, e.g. app=api")
 }
 
 // sinceParam turns --since into the API's sinceSeconds or sinceTime.
