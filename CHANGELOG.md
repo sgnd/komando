@@ -9,6 +9,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `cache run` on Redis: more commands that change a cluster or Sentinel
+  setup (`CLUSTER MEET`, `ADDSLOTS`, `FLUSHSLOTS`, `REPLICATE`, `SENTINEL
+  SET`, `FAILOVER`, `REMOVE`, `CONFIG SET` ...) and that delete keys
+  another way (`FT.DROPINDEX ... DD`, `FT.DROP`, `SET`/`GETEX` with an
+  `EXAT`/`PXAT` already past) now need `--allow-dangerous` as well as
+  `--write`. Read-only `CLUSTER REPLICAS`, `CLUSTER LINKS`, `SENTINEL
+  MASTERS`, `SENTINEL GET-MASTER-ADDR-BY-NAME` and `SENTINEL CONFIG GET`
+  no longer need `--write`.
 - `cache run` on memcached: `stats reset` (clears the counters) and
   `stats detail on|off` (switches per-prefix counting on the server) now
   need `--write`; they were taken as reads. `stats detail dump` still reads.

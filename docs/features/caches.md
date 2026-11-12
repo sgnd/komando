@@ -125,6 +125,14 @@ Commands that delete, wipe, block, run scripts or reconfigure the server
   client until someone sends `SCRIPT KILL` (`FUNCTION KILL` for `FCALL_RO`).
 - Module code counts too: Redis Stack functions (`TFCALL`, `TFCALLASYNC`)
   and RedisGears (`RG.PYEXECUTE`, `RG.TRIGGER`).
+- Cluster and Sentinel administration counts too: `CLUSTER MEET`,
+  `ADDSLOTS`, `FLUSHSLOTS`, `REPLICATE` (the node drops its own data),
+  `SENTINEL SET`, `FAILOVER`, `REMOVE`, `CONFIG SET` and the like.
+  `CLUSTER NODES`, `CLUSTER REPLICAS`, `SENTINEL MASTERS`,
+  `SENTINEL GET-MASTER-ADDR-BY-NAME` and `SENTINEL CONFIG GET` only read.
+- So do commands that delete keys another way: `FT.DROPINDEX ... DD`,
+  `FT.DROP` without `KEEPDOCS`, and `SET` or `GETEX` with an `EXAT` or
+  `PXAT` time already past.
 - `FUNCTION LOAD REPLACE` and `TFUNCTION LOAD REPLACE` count too: they swap
   the code behind functions the application already calls. A plain
   `FUNCTION LOAD` only needs `--write`.
