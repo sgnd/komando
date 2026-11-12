@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `secret passphrase --dry-run` previews for an AI agent or a script too
+  (what would change, how many secrets, whether the current key opens
+  them) with `meta.would_be_blocked: NEEDS_PERSON`, as `secret keychain`
+  and `seal` do, instead of stopping: a dry run is never blocked.
 - `secret rm A B` removes every name in one change of the vault, or none:
   a failure part way no longer leaves some removed without an audit entry,
   and a reference another komando adds meanwhile is seen before the

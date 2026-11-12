@@ -26,11 +26,19 @@ func TestSecretPassphraseNeedsPerson(t *testing.T) {
 			resetApproval()
 			t.Cleanup(resetApproval)
 		}
-		for _, args := range [][]string{{"secret", "passphrase"}, {"secret", "passphrase", "--off", "--yes"}, {"secret", "passphrase", "--dry-run"}} {
+		for _, args := range [][]string{{"secret", "passphrase"}, {"secret", "passphrase", "--off", "--yes"}} {
 			e := wantCode(t, "NEEDS_PERSON", args...)
 			if e.Exit != out.ExitPolicy || strings.Contains(e.Hint, "add the flag") {
 				t.Errorf("agent %v %v: %+v", agent, args, e)
 			}
+		}
+		// a dry run is never blocked: it previews and names what the real run needs
+		d := mustRun(t, "secret", "passphrase", "--dry-run")
+		if d["dry_run"] != true || d["to"] != "passphrase" || d["secrets"] != float64(1) {
+			t.Errorf("agent %v dry run: %v", agent, d)
+		}
+		if wb, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any); wb["code"] != "NEEDS_PERSON" {
+			t.Errorf("agent %v dry run would_be_blocked: %v", agent, d["_meta"])
 		}
 	}
 	if now, _ := os.ReadFile(store.Path(store.StoreFile)); !bytes.Equal(raw, now) {

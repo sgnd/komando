@@ -139,7 +139,8 @@ background tunnel or VPN session komando runs: they still hold the old key.
 key into the OS keychain.
 
 Only a person at a terminal can run it: an AI agent that chose the passphrase,
-or put the key back in store.key, could open the vault on its own.`,
+or put the key back in store.key, could open the vault on its own. Anyone can
+preview it with --dry-run.`,
 		Example: "  komando secret passphrase               # asks for the new passphrase twice, hidden\n  komando secret passphrase --dry-run\n  komando secret passphrase --off --yes   # back to a random key in store.key",
 		Args:    cobra.NoArgs,
 		RunE:    func(cmd *cobra.Command, _ []string) error { return runSecretPassphrase(off) },
@@ -164,9 +165,13 @@ func passphraseNextSteps(to string) []string {
 
 func runSecretPassphrase(off bool) error {
 	if isAgent() || !interactive() {
-		return out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+		// a dry run is never blocked: it says what would change, and that
+		// the real run needs the user (policyStop records it)
+		if err := policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
 			"ask the user to run `komando secret passphrase` in their own terminal",
-			"only a person at a terminal can change the vault's key: an AI agent that chose the passphrase, or put the key in store.key, could open the vault on its own")
+			"only a person at a terminal can change the vault's key: an AI agent that chose the passphrase, or put the key in store.key, could open the vault on its own")); err != nil {
+			return err
+		}
 	}
 	res, err := passphrasePlan(off)
 	if err != nil {
