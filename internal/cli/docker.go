@@ -82,8 +82,8 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 	}
 	logs := logsAlias("logs TARGET CONTAINER", "docker.logs", "container")
 	logs.Long = `The last lines of a container's log (-n, default 200), or new lines as they
-come with -f. --since and --until take a duration back from now (10m, 2h,
--1h) or a time (2026-01-02T10:00:00). --sudo runs docker with sudo.`
+come with -f. --since and --until take a time back from now (10m, 2h, 7d)
+or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 	inspect := &cobra.Command{
 		Use:   "inspect TARGET NAME",
 		Short: "Show a container, image or other object in full (docker inspect)",

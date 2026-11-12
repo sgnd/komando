@@ -5,6 +5,41 @@ package cli
 // (docs/design/ux.md, section 10). A command that sets its own Example
 // keeps it. TestConventions fails when a command has neither.
 var examples = map[string]string{
+	// the groups: the usual journey, in order
+	"komando svc": "  komando svc list web1 --failed                    # what is broken?\n" +
+		"  komando svc status web1 nginx\n" +
+		"  komando logs web1 --unit nginx --since 30m        # why?\n" +
+		"  komando svc restart web1 nginx --wait 10s --dry-run\n" +
+		"  komando svc restart web1 nginx --wait 10s",
+	"komando pkg": "  komando pkg upgradable @web --refresh\n" +
+		"  komando pkg security @web --apply --dry-run\n" +
+		"  komando pkg upgrade web1 --dry-run\n" +
+		"  komando pkg install web1 htop jq\n" +
+		"  komando pkg rm web1 telnet",
+	"komando user": "  komando user list web1\n" +
+		"  komando user add web1 alice --key alice --admin\n" +
+		"  komando user lock web1 alice                      # keep the account, stop logins\n" +
+		"  komando user rm web1 alice --remove-home --dry-run",
+	"komando docker": "  komando docker ps web1 --all\n" +
+		"  komando docker logs web1 api --since 10m\n" +
+		"  komando docker restart web1 api\n" +
+		"  komando docker compose web1 --dir /srv/shop -- up -d\n" +
+		"  komando docker prune web1 --dry-run               # what would be freed",
+	"komando cron": "  komando cron list web1\n" +
+		"  komando cron set web1 nightly-backup '/usr/local/bin/backup.sh' --schedule '0 2 * * *'\n" +
+		"  komando cron rm web1 nightly-backup",
+	"komando net": "  komando net ports web1 --sudo                     # what listens, and which program\n" +
+		"  komando net check @web db.internal:5432           # can the servers reach it?\n" +
+		"  komando net dns web1 db.internal\n" +
+		"  komando net http web1 http://localhost:8080/health --expect 200",
+	"komando cert": "  komando cert check web1                           # certificates on the server\n" +
+		"  komando cert check https://shop.example.com --warn 14d",
+	"komando recipe": "  komando recipe list\n" +
+		"  komando recipe run health @web\n" +
+		"  komando recipe add app-logs 'tail -n 100 /srv/{{app}}/log/app.log' --read-only\n" +
+		"  komando recipe run app-logs web1 --var app=shop\n" +
+		"  komando recipe rm app-logs",
+
 	"komando audit verify": "  komando audit verify",
 	"komando config show":  "  komando config show",
 	"komando conn kinds":   "  komando conn kinds",
@@ -12,7 +47,7 @@ var examples = map[string]string{
 	"komando conn show":    "  komando conn show app-db",
 	"komando conn test":    "  komando conn test app-db\n  komando conn test kind:postgres",
 	"komando cron list":    "  komando cron list web1",
-	"komando cron rm":      "  komando cron rm web1 backup-nightly",
+	"komando cron rm":      "  komando cron rm web1 nightly-backup",
 
 	"komando docker images":  "  komando docker images web1",
 	"komando docker inspect": "  komando docker inspect web1 api",
@@ -77,7 +112,7 @@ var examples = map[string]string{
 
 	"komando user list":   "  komando user list web1",
 	"komando user lock":   "  komando user lock web1 alice",
-	"komando user rm":     "  komando user rm web1 alice --allow-dangerous",
+	"komando user rm":     "  komando user rm web1 alice --dry-run\n  komando user rm web1 alice --remove-home --allow-dangerous",
 	"komando user unlock": "  komando user unlock web1 alice",
 
 	"komando version": "  komando version",

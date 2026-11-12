@@ -40,3 +40,29 @@ func TestExamplesParse(t *testing.T) {
 	}
 	walk(root)
 }
+
+// `komando svc` alone (and the other server groups) shows the usual
+// journey as examples, and the times in them are written as komando takes
+// them everywhere (30m, not -30m).
+func TestOpsGroupsShowAJourney(t *testing.T) {
+	root := newRoot()
+	for _, g := range []string{"svc", "pkg", "user", "docker", "cron", "net", "cert", "recipe"} {
+		c, _, err := root.Find([]string{g})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := strings.Count(c.Example, "komando "+g+" "); n < 2 {
+			t.Errorf("komando %s: %d examples of its own commands", g, n)
+		}
+	}
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		if strings.Contains(c.Example, "--since -") || strings.Contains(c.Example, "--until -") {
+			t.Errorf("%s: example with a - in front of the time: %q", c.CommandPath(), c.Example)
+		}
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(root)
+}

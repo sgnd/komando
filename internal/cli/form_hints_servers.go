@@ -22,14 +22,14 @@ var (
 		help: "Not sure? Say no. Yes is only for commands that read, like df -h or cat."}
 	srvDir = formFlag{name: "dir", ask: "In which folder on the server should it run?",
 		help: "Leave empty for the login user's home folder.", example: "/srv/app"}
-	// journalctl takes -1h (or today), docker logs 1h; logs and docker logs
-	// drop a leading -, so -1h works for both.
-	srvSince = formFlag{name: "since", ask: "From how long ago?", example: "-1h",
-		help: "-30m or -2h means that long ago; the journal (a service or the whole system) also takes today or 2026-01-02 10:00. Leave empty for the latest lines."}
-	srvUntil = formFlag{name: "until", ask: "Up to when?", example: "-10m",
-		help: "Like -10m (ten minutes ago), or a time like 2026-01-02 11:00. Leave empty for up to now."}
-	srvJournalSince = formFlag{name: "since", ask: "From how long ago?", example: "-1h",
-		help: "Like -30m, -2h, today, yesterday or 2026-01-02 10:00. Leave empty for the latest lines."}
+	// a time back from now is 1h for every source (komando writes -1h for
+	// journalctl itself)
+	srvSince = formFlag{name: "since", ask: "From how long ago?", example: "1h",
+		help: "30m or 2h means that long ago; the journal (a service or the whole system) also takes today or 2026-01-02 10:00. Leave empty for the latest lines."}
+	srvUntil = formFlag{name: "until", ask: "Up to when?", example: "10m",
+		help: "Like 10m (ten minutes ago), or a time like 2026-01-02 11:00. Leave empty for up to now."}
+	srvJournalSince = formFlag{name: "since", ask: "From how long ago?", example: "1h",
+		help: "Like 30m, 2h, today, yesterday or 2026-01-02 10:00. Leave empty for the latest lines."}
 	srvDockerSince = formFlag{name: "since", ask: "From how long ago?", example: "1h",
 		help: "Like 30m or 2h (that long ago), or a time like 2026-01-02T10:00:00. Leave empty for the latest lines."}
 	srvGrep = formFlag{name: "grep", ask: "Only lines that contain a word?",

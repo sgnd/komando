@@ -8,7 +8,7 @@ terminal output. [All docs](README.md)
 ```bash
 komando svc status @web nginx                                 # is nginx running?
 komando svc restart @web nginx --wait 10s                     # restart, and check it came back
-komando logs web1 --unit nginx --since -30m --grep 'error|crit'
+komando logs web1 --unit nginx --since 30m --grep 'error|crit'
 komando docker ps web1                                        # running containers
 komando pkg upgradable all --refresh                          # pending updates
 komando user list web1                                        # who can log in
@@ -61,7 +61,7 @@ komando svc daemon-reload web1                # names any unit that still needs 
 or a Docker container (`--container`).
 
 ```bash
-komando logs web1 --unit nginx --since -30m --grep 'error|crit'
+komando logs web1 --unit nginx --since 30m --grep 'error|crit'
 komando logs web1 --unit nginx --follow                 # keep watching; Ctrl-C to stop
 komando logs web1 --unit nginx -p err --since today     # errors and worse
 komando logs @web --file /var/log/nginx/error.log -n 50 --sudo
@@ -75,7 +75,7 @@ komando logs web1 --container api --since 10m --timestamps
 | `--container NAME` | Read this Docker container's log. |
 | `-n`, `--limit N` | The last N lines (default 200). |
 | `--grep REGEX` | Only lines that match (extended regex, any case). |
-| `--since` / `--until` | A time range: a time back from now (`30m`, `2h`, `7d`; a `-` in front is fine), `today`, `yesterday`, or a date (`'2026-01-02 10:00'`). Containers take no `today` or `yesterday`. |
+| `--since` / `--until` | A time range: a time back from now (`30m`, `2h`, `7d`), `today`, `yesterday`, or a date (`'2026-01-02 10:00'`). Containers take no `today` or `yesterday`. |
 | `-p`, `--priority` | Journal priority and worse: `emerg` ... `debug`, or 0-7. |
 | `-f`, `--follow` | Keep printing new lines until Ctrl-C. |
 | `-s`, `--sudo` | Read the whole journal or a protected file. |

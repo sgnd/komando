@@ -24,6 +24,10 @@ its highlights; the sections below them give the details. Versions follow
   with the `host edit --sudo-ref` or `--user` command to run next, and
   `TOOL_MISSING` when the server has no sudo (add `--no-sudo` as root),
   instead of `COMMAND_FAILED` / `SVC_FAILED` with "read stderr".
+- `komando svc`, `pkg`, `user`, `docker`, `cron`, `net`, `cert` and
+  `recipe` alone now show the usual journey as examples. Examples, form
+  hints and docs write times as `30m` (not `-30m`), as komando takes them
+  everywhere; `user rm` shows a `--dry-run` first.
 
 ## [0.12.0] - 2026-11-11
 

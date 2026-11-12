@@ -106,7 +106,7 @@ it once per shell.
 |------------------------------|---------|
 | Quick health                 | `komando recipe run health <t>` |
 | Any read-only shell command  | `komando exec <t> --read-only -- '<cmd>'` |
-| Logs                         | `komando logs <t> --unit nginx --since -30m --grep 'error'` |
+| Logs                         | `komando logs <t> --unit nginx --since 30m --grep 'error'` |
 | Service state (structured)   | `komando svc status <t> nginx` |
 | File content                 | `komando fs cat <t> /etc/nginx/nginx.conf --line-numbers` |
 | Ports / connectivity         | `komando net ports <t>` · `komando net check <t> db:5432` |

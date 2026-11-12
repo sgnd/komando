@@ -238,7 +238,7 @@ func logsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "logs TARGET",
 		Short: "Read logs from journald, a file or a container",
-		Example: `  komando logs web1 --unit nginx --since -30m --grep 'error|crit'
+		Example: `  komando logs web1 --unit nginx --since 30m --grep 'error|crit'
   komando logs @web --file /var/log/nginx/error.log -n 50 --sudo
   komando logs app1 --container api --since 10m`,
 		Args: cobra.ExactArgs(1),
