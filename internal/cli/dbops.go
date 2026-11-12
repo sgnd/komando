@@ -76,7 +76,7 @@ func dbActivityCmd() *cobra.Command {
 			})
 		},
 	}
-	c.Flags().BoolVar(&all, "all", false, "include idle sessions")
+	c.Flags().BoolVarP(&all, "all", "a", false, "include idle sessions")
 	return c
 }
 

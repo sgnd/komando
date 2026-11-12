@@ -97,7 +97,7 @@ part. Piped (as an agent reads it), it prints the whole playbook as JSON.`,
 			return nil
 		},
 	}
-	c.Flags().BoolVar(&all, "all", false, "print the whole playbook")
+	c.Flags().BoolVarP(&all, "all", "a", false, "print the whole playbook")
 	c.AddCommand(guideInstallCmd(), guideUninstallCmd(), guideGuardCmd())
 	return c
 }

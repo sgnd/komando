@@ -64,13 +64,13 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 		shortAlias(fl, "tag", "t", "add-tag")
 		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove these tags")
 		kvVar(fl, &f.labels, "label", "", "set label KEY=VALUE (an empty value removes it)")
-		kvVar(fl, &f.env, "env", "", "set KEY=VALUE, exported before every command (an empty value removes it)")
+		kvVar(fl, &f.env, "env", "e", "set KEY=VALUE, exported before every command (an empty value removes it; repeatable)")
 		fl.StringSliceVar(&f.unset, "unset", nil, "clear these settings: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,os,transport (transport: back to SSH from WinRM)")
 	} else {
 		fl.StringSliceVarP(&f.groups, "group", "g", nil, "put it in these groups (comma-separated)")
 		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, e.g. prod (comma-separated)")
 		kvVar(fl, &f.labels, "label", "", "label KEY=VALUE (repeatable)")
-		kvVar(fl, &f.env, "env", "", "env KEY=VALUE exported before every command (repeatable)")
+		kvVar(fl, &f.env, "env", "e", "env KEY=VALUE exported before every command (repeatable)")
 	}
 }
 

@@ -219,7 +219,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 				text:  usersText})
 		},
 	}
-	list.Flags().BoolVar(&all, "all", false, "include system accounts")
+	list.Flags().BoolVarP(&all, "all", "a", false, "include system accounts")
 	var pubKey, keyName, shell string
 	var admin bool
 	add := &cobra.Command{

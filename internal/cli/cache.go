@@ -258,7 +258,7 @@ commandstats, keyspace, ...) or --all shows the raw INFO fields.`,
 				})
 		},
 	}
-	c.Flags().BoolVar(&all, "all", false, "every field of the default INFO sections")
+	c.Flags().BoolVarP(&all, "all", "a", false, "every field of the default INFO sections")
 	return c
 }
 

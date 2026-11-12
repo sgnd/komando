@@ -422,7 +422,7 @@ func helmValuesCmd() *cobra.Command {
 	}
 	nsFlags(c, &ns, nil, nil)
 	c.Flags().IntVar(&revision, "revision", 0, "this revision instead of the newest")
-	c.Flags().BoolVar(&all, "all", false, "the chart's default values too, as Helm merged them")
+	c.Flags().BoolVarP(&all, "all", "a", false, "the chart's default values too, as Helm merged them")
 	return c
 }
 

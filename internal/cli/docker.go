@@ -129,7 +129,7 @@ or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 		},
 	}
 	compose.Flags().StringVarP(&file, "file", "f", "", "the compose file on the server")
-	compose.Flags().StringVar(&dir, "dir", "", "the project folder on the server")
+	compose.Flags().StringVarP(&dir, "dir", "C", "", "the project folder on the server")
 	raw := &cobra.Command{
 		Use:   "raw TARGET -- DOCKER_ARGS...",
 		Short: "Run any docker subcommand (the same safety rules apply)",

@@ -83,7 +83,7 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 			})
 		},
 	}
-	c.Flags().StringVar(&file, "file", "", "YAML file ('-' for stdin)")
+	c.Flags().StringVarP(&file, "file", "f", "", "YAML file ('-' for stdin)")
 	c.Flags().StringVar(&stack, "stack", "", "Swarm: the stack name")
 	nsFlags(c, &ns, nil, nil)
 	return c

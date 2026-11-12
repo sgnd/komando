@@ -135,7 +135,7 @@ func (o *logOpts) bind(c *cobra.Command) {
 	f := c.Flags()
 	f.StringVarP(&o.unit, "unit", "u", "", "systemd unit (journalctl)")
 	f.StringVar(&o.file, "file", "", "read this log file on the server (full path)")
-	f.StringVar(&o.container, "container", "", "read this Docker container's log (its name or ID)")
+	f.StringVarP(&o.container, "container", "c", "", "read this Docker container's log (its name or ID)")
 	f.StringVar(&o.since, "since", "", "start time: back from now (30m, 2h, 7d), today, yesterday or '2026-01-02 10:00'")
 	f.StringVar(&o.until, "until", "", "end time, in the same forms as --since")
 	f.StringVar(&o.grep, "grep", "", "only lines matching this extended regex (case-insensitive)")

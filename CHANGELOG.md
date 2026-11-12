@@ -9,6 +9,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- More short flags, each with the meaning it has everywhere else:
+  `cluster apply -f FILE`; `-c` for `--container` on `logs` and
+  `cluster deploy`; `-a` for `--all` on `cache info`,
+  `cluster helm values`, `db activity`, `user list` and `guide`;
+  `docker compose -C DIR`; `host add/edit -e KEY=VALUE`. A command that
+  changes things gets no `-a` (`fs replace`, `tunnel stop`, `vpn down`,
+  `logout` keep `--all` only).
 - `komando schema` names where a flag's real default comes from:
   `--timeout`, `--connect-timeout`, `--parallel`, `--host-key-policy` and
   `--max-output` carry `default_from` (`setting:default_timeout` and so
