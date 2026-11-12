@@ -87,6 +87,10 @@ komando conn add files azblob://mystorageacct@uploads/2026 --password-ref secret
 - An emulator or another cloud takes `?endpoint=URL`, for example
   `azblob://devstoreaccount1@media?endpoint=http://127.0.0.1:10000/devstoreaccount1`
   for Azurite.
+- gcloud's own login goes only to Google (`https://…googleapis.com`), never
+  to an emulator or another endpoint. A service account key needs an
+  `https://` endpoint: over `http://` its token would travel unencrypted,
+  so komando refuses it (`INSECURE_PROTOCOL`).
 
 ## Add a file server (WebDAV, FTPS, SFTP, FTP)
 

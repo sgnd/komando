@@ -14,6 +14,11 @@ its highlights; the sections below them give the details. Versions follow
   (exit 3) and the hint `komando pkg install TARGET shadow`, like
   `user lock` and `unlock`, instead of a generic remote failure (exit 5).
   The JSON result keeps its shape.
+- Google Cloud Storage: gcloud's own login is sent only to Google's
+  HTTPS endpoints (`*.googleapis.com`). A `gs://` conn with an emulator or
+  other `?endpoint=` used to send the person's gcloud token there too, in
+  clear over `http://`. A service account key with an `http://` endpoint
+  is refused with `INSECURE_PROTOCOL`.
 
 ## [0.12.0] - 2026-11-11
 
