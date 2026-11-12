@@ -623,7 +623,7 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 	if stdin == nil {
 		stdin = strings.NewReader("")
 	}
-	tool, argv, ca, err := toolWithCA(c, h, tool, argv) // the conn's ?ca= certificate, in a file for the tool (dumpca.go)
+	tool, argv, ca, err := toolWithCA(c, h, tool, argv) // the conn's ?ca= certificate, in a file for the tool (db_dump_ca.go)
 	if err != nil {
 		return err
 	}

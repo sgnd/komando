@@ -11,7 +11,7 @@ func internal/cli/cluster_status.go summarize 115
 func internal/cli/cluster_deploy.go clusterRollbackCmd 109
 func internal/cli/cluster_exec.go clusterForwardCmd 103
 func internal/cli/cluster_logs.go clusterLogsCmd 125
-func internal/cli/dbdump.go runDump 135
+func internal/cli/db_dump.go runDump 135
 func internal/cli/exec.go runFleet 179
 func internal/cli/facts.go parseFactsAt 106
 func internal/cli/facts_text.go writeFactsHost 126
