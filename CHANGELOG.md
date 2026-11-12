@@ -37,6 +37,10 @@ its highlights; the sections below them give the details. Versions follow
 - `komando import aws` names the right fix per profile: `komando login aws
   --profile NAME` only for an SSO profile, the credentials file for a
   profile without keys or SSO (it said "the login has expired" for both).
+- New page [Cloud logins](docs/features/cloud.md): `komando login aws`, the
+  `aws_profile` option, `komando import aws`, the AWS error codes and what
+  works for Google Cloud and Azure until their login comes. The agent
+  guide lists `AWS_LOGIN_REQUIRED`.
 
 ## [0.12.0] - 2026-11-11
 
