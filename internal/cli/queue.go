@@ -266,8 +266,8 @@ Values that are not UTF-8 text are shown as base64.`,
 			o := queuex.PeekOptions{Topic: args[1], Limit: limit, Oldest: oldest, Partition: int32(partition), Wait: wait}
 			return withQueue(cmd.Context(), "queue.peek", args[0], driver.Verdict{}, map[string]any{"topic": args[1], "limit": limit},
 				func(st *store.State, c *store.Conn, q queuex.Queue) (any, error) {
-					if cmd.Flags().Changed("wait") && c.Kind != "kafka" {
-						return nil, queuex.NotSupported("--wait", c.Kind, "only a Kafka peek waits for messages to arrive; drop --wait")
+					if flagChanged(cmd, "idle") && c.Kind != "kafka" {
+						return nil, queuex.NotSupported("--idle", c.Kind, "only a Kafka peek waits for messages to arrive; drop --idle")
 					}
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
@@ -283,7 +283,8 @@ Values that are not UTF-8 text are shown as base64.`,
 	c.Flags().IntVarP(&limit, "limit", "n", 10, "how many messages")
 	c.Flags().BoolVar(&oldest, "oldest", false, "the first messages still kept, not the newest")
 	optIntVar(c.Flags(), &partition, "partition", "Kafka: only this partition, numbered from 0 (default: every partition)")
-	durVar(c.Flags(), &wait, "wait", 5*time.Second, "Kafka: stop when no message came for this long")
+	durVar(c.Flags(), &wait, "idle", 5*time.Second, "Kafka: stop when no message came for this long")
+	retiredFlag(c, "wait", "idle")
 	return c
 }
 

@@ -197,7 +197,7 @@ func (p queuePeek) Text() string {
 		fmt.Fprintf(&b, "(the %s %s; the topic holds more: raise -n, or use --oldest or --partition)\n", p.From, countOf(p.Count, "message"))
 	}
 	if p.Partial {
-		b.WriteString("(stopped waiting: some messages may be missing; raise --wait)\n")
+		b.WriteString("(stopped waiting: some messages may be missing; raise --idle)\n")
 	}
 	return b.String()
 }

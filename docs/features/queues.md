@@ -102,8 +102,8 @@ komando queue peek events orders --oldest -n 5   # the first ones still kept
 `peek` reads straight from the partitions. It never joins a consumer
 group and never commits an offset, so no application's position moves
 and no message is removed. It stops once it has the messages that were
-there when it started; if nothing comes for `--wait` (5 seconds), it stops
-and says some may be missing. `--wait` is for Kafka only; the other kinds
+there when it started; if nothing comes for `--idle` (5 seconds), it stops
+and says some may be missing. `--idle` is for Kafka only (`--wait` still works in this release); the other kinds
 refuse it (`NOT_SUPPORTED`).
 
 - Values that are UTF-8 text are shown as they are; others come as base64
@@ -230,7 +230,7 @@ komando queue rm jobs emails --allow-dangerous
     (`NOT_SUPPORTED`, or the management API's error).
   - A stream queue cannot be peeked this way (`NOT_SUPPORTED`).
   - peek always reads from the front (`"from": "front"`), which is
-    already the oldest; `--partition` and `--wait` are for Kafka.
+    already the oldest; `--partition` and `--idle` are for Kafka.
 - `send` puts the message straight into the queue (through the default
   exchange), as a persistent message, and waits until the server confirms
   it. `--header KEY=VALUE` sets its headers; there is no `--key` or

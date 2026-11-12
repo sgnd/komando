@@ -78,6 +78,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `queue peek --idle 10s` is how long a Kafka peek waits with no new
+  message (was `--wait`, which elsewhere means "wait for the result").
+  `--wait` still works in this release and is noted in `meta.deprecated`.
 - `cluster rollback` takes the revision as `--revision N` (kubectl's
   `--to-revision` works too, for good). `--to` still works in this
   release and is noted in `meta.deprecated`.
