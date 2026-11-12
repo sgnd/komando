@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"path"
 	"regexp"
 	"sort"
@@ -68,11 +69,11 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 	for _, a := range []string{"start", "stop", "restart", "rm", "pull"} {
 		action := a
 		c.AddCommand(&cobra.Command{
-			Use:   action + " TARGET NAME...",
+			Use:   action + " TARGET " + map[bool]string{true: "IMAGE...", false: "CONTAINER..."}[action == "pull"],
 			Short: dockerActionShorts[action],
 			Args:  cobra.MinimumNArgs(2),
 			RunE: func(cmd *cobra.Command, args []string) error {
-				if _, err := guardDocker(append([]string{action}, args[1:]...)); err != nil {
+				if _, err := guardDocker(args[0], append([]string{action}, args[1:]...)); err != nil {
 					return err
 				}
 				return runDocker(cmd.Context(), "docker."+action, args[0], "docker "+action+" "+quoteAll(args[1:]), sudo, true)
@@ -81,8 +82,8 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 	}
 	logs := logsAlias("logs TARGET CONTAINER", "docker.logs", "container")
 	logs.Long = `The last lines of a container's log (-n, default 200), or new lines as they
-come with -f. --since and --until take a duration back from now (10m, 2h,
--1h) or a time (2026-01-02T10:00:00). --sudo runs docker with sudo.`
+come with -f. --since and --until take a time back from now (10m, 2h, 7d)
+or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 	inspect := &cobra.Command{
 		Use:   "inspect TARGET NAME",
 		Short: "Show a container, image or other object in full (docker inspect)",
@@ -104,23 +105,7 @@ come with -f. --since and --until take a duration back from now (10m, 2h,
 			})
 		},
 	}
-	var readOnly bool
-	execC := &cobra.Command{
-		Use:   "exec TARGET CONTAINER -- COMMAND [ARG...]",
-		Short: "Run a command in a container (its words are passed as given, no shell)",
-		Long: `Runs COMMAND in the container with its arguments exactly as written (like
-` + "`docker exec`" + `): no shell is added, so the image needs no sh. For pipes or
-&& write the shell yourself: -- sh -c 'a | b'. The destructive-command
-policy checks the command; --read-only declares that it only looks: a
-command that clearly changes something is refused, and on a protected
-server only commands komando knows read skip --yes.`,
-		Example: "  komando docker exec app1 api -- php artisan migrate:status\n  komando docker exec app1 api --read-only -- sh -c 'ls /data | wc -l'",
-		Args:    cobra.MinimumNArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return dockerExec(cmd.Context(), args, sudo, readOnly)
-		},
-	}
-	execC.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
+	execC := dockerExecCmd(&sudo)
 	var file, dir string
 	compose := &cobra.Command{
 		Use:     "compose TARGET -- ARGS...",
@@ -128,7 +113,7 @@ server only commands komando knows read skip --yes.`,
 		Example: "  komando docker compose app1 --dir /srv/shop -- up -d --pull always",
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			mutating, err := guardDocker(append([]string{"compose"}, args[1:]...))
+			mutating, err := guardDocker(args[0], append([]string{"compose"}, args[1:]...))
 			if err != nil {
 				return err
 			}
@@ -150,7 +135,7 @@ server only commands komando knows read skip --yes.`,
 		Short: "Run any docker subcommand (the same safety rules apply)",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			mutating, err := guardDocker(args[1:])
+			mutating, err := guardDocker(args[0], args[1:])
 			if err != nil {
 				return err
 			}
@@ -159,6 +144,18 @@ server only commands komando knows read skip --yes.`,
 	}
 	c.AddCommand(logs, inspect, execC, compose, raw, dockerPruneCmd(&sudo))
 	return c
+}
+
+// containerNameRe is a container's name or ID as docker makes them. A
+// CONTAINER that starts with - would reach docker as an option of its own
+// (docker exec --privileged ...), past the checks of the command.
+var containerNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`)
+
+func checkContainerName(name string) error {
+	if !containerNameRe.MatchString(name) {
+		return out.Usage("invalid container %q: give its name or ID as `komando docker ps TARGET --all` lists it", name)
+	}
+	return nil
 }
 
 // dockerExecLine runs argv in a container as given: each word quoted for
@@ -189,12 +186,12 @@ var dockerNotFound = regexp.MustCompile(`(?i)no such (container|service|object|i
 // into a typed error (dockerErr). `docker exec` does not use it: there the
 // exit code is the container command's.
 func runDocker(ctx context.Context, name, target, command string, sudo, mutating bool) error {
-	return runFleet(ctx, name, target, command, nil, execOpts{sudo: sudo, exitMap: func(rr *sshx.RunResult) *out.Error {
+	return runFleet(ctx, name, target, command, nil, execOpts{sudo: sudo, exitMap: orSudo(soleHost(target), func(rr *sshx.RunResult) *out.Error {
 		if rr.ExitCode == 0 {
 			return nil
 		}
 		return dockerErr(rr.Stderr, rr.ExitCode)
-	}}, mutating)
+	})}, mutating)
 }
 
 // dockerActionShorts are the help lines of docker start, stop, restart,
@@ -294,8 +291,11 @@ func parseJSONLines(_ *store.Host, s string) any {
 // guardDocker rates a docker command line (docker raw, compose, the
 // start/stop/rm verbs) with the same rules as `cluster run` on a Swarm
 // manager: reads stay reads, changes need --yes on protected servers, and
-// deletes and anything that runs arbitrary code need --allow-dangerous.
-func guardDocker(args []string) (mutating bool, err error) {
+// deletes and anything that runs arbitrary code need --allow-dangerous. A
+// person at a terminal confirms a delete by typing the server's name (the
+// number of servers for several), the same answer the server guard
+// takes, so a prune is confirmed once and never with a bare "yes".
+func guardDocker(target string, args []string) (mutating bool, err error) {
 	if len(args) == 0 {
 		return true, nil
 	}
@@ -316,8 +316,12 @@ func guardDocker(args []string) (mutating bool, err error) {
 		if v, _ := dockerVerbArgs(args); len(v) > 0 && strings.EqualFold(v[0], "exec") {
 			reason += " (runs anything in the container; `komando docker exec` checks the command itself)"
 		}
-		if err := guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"docker"}, Reasons: []string{reason}}); err != nil {
-			return true, err
+		v := driver.Verdict{Risk: risk, RuleIDs: []string{"docker"}, Reasons: []string{reason}}
+		hosts, _ := resolveTargets(st, target) // an unknown target fails later, with its own error
+		if !dangerOK(fmt.Sprintf("[docker] %s", reason), targetsWhy(st, hosts)) && !confirmDangerous(hostNames(hosts), reason) {
+			return true, policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
+				"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
+				"the operation matches destructive rules [docker]: %s", reason).Say(dangerSay(v.Reasons), dangerHint))
 		}
 	}
 	return risk > driver.RiskRead, nil
@@ -619,4 +623,29 @@ func hostPathEscapes(p string, readOnly bool) bool {
 		"/root", "/etc/shadow", "/etc/gshadow", "/etc/ssh", "/etc/kubernetes", "/var/lib/kubelet", "/var/lib/etcd",
 		"/etc/rancher", "/var/lib/rancher") ||
 		!readOnly && under("/etc", "/boot", "/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/opt", "/var/spool")
+}
+
+// dockerExecCmd is `docker exec TARGET CONTAINER -- COMMAND`.
+func dockerExecCmd(sudo *bool) *cobra.Command {
+	var readOnly bool
+	execC := &cobra.Command{
+		Use:   "exec TARGET CONTAINER -- COMMAND [ARG...]",
+		Short: "Run a command in a container (its words are passed as given, no shell)",
+		Long: `Runs COMMAND in the container with its arguments exactly as written (like
+` + "`docker exec`" + `): no shell is added, so the image needs no sh. For pipes or
+&& write the shell yourself: -- sh -c 'a | b'. The destructive-command
+policy checks the command; --read-only declares that it only looks: a
+command that clearly changes something is refused, and on a protected
+server only commands komando knows read skip --yes.`,
+		Example: "  komando docker exec app1 api -- php artisan migrate:status\n  komando docker exec app1 api --read-only -- sh -c 'ls /data | wc -l'",
+		Args:    cobra.MinimumNArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkContainerName(args[1]); err != nil {
+				return err
+			}
+			return dockerExec(cmd.Context(), args, *sudo, readOnly)
+		},
+	}
+	execC.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
+	return execC
 }

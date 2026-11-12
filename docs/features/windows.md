@@ -215,15 +215,15 @@ komando svc enable win1 MyApp --now           # start automatically, and start n
 
 The name is the service name (`W3SVC`) or its display name. `--failed`
 lists services that should start automatically but stopped with an error.
-`svc reload` has no Windows form.
+`svc reload`, `svc daemon-reload` and `svc logs` have no Windows form.
 
 ## What works on Windows
 
 | Works | Not yet (stops with `NOT_SUPPORTED`) |
 |-------|--------------------------------------|
-| `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `reboot` |
+| `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `cert check`, `recipe run`, `reboot` |
 | `fs ls`, `stat`, `cat`, `write` | `fs replace`, `fs rm`, `mkdir`, `mv`, `chmod`, `sync` |
-| `upload`, `download`, `cp` (single files) | `job`, `cp -r`, `svc reload` |
+| `upload`, `download`, `cp` (single files) | `job`, `cp -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
 | `svc status`, `list`, `start`, `stop`, `restart`, `enable`, `disable` | `--sudo`, `--pty`, `--mode`, `--owner` |
 | `host trust`, `login`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host trust` over WinRM |
 

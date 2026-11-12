@@ -409,7 +409,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			}
 		}
 	} else {
-		results = fanout(ctx, st, hosts, run)
+		results = followEnded(ctx, follow, fanout(ctx, st, hosts, run))
 	}
 
 	data := execData{Recipe: o.recipe, Command: shown, Results: make([]execHostResult, 0, len(results)), streamed: o.stream && out.P.Format == "text"}

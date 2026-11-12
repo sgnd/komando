@@ -185,7 +185,7 @@ var retiredRecipes = map[string]string{
 	"dns":              "komando net dns TARGET NAME",
 	"http-check":       "komando net http TARGET URL",
 	"failed-units":     "komando svc list TARGET --failed",
-	"journal-errors":   "komando logs TARGET -p err --since -1h --sudo",
+	"journal-errors":   "komando logs TARGET -p err --since 1h --sudo",
 	"updates":          "komando pkg upgradable TARGET",
 	"security-updates": "komando pkg security TARGET",
 	"docker-overview":  "komando docker ps TARGET --all",
@@ -242,6 +242,9 @@ func recipeListCmd() *cobra.Command {
 		Short:   "List built-in and saved recipes (filter with --category)",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := checkRecipeCategory(category); err != nil {
+				return err
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -397,10 +400,29 @@ func recipeRunCmd() *cobra.Command {
 			// that clearly writes, or that komando cannot confirm only
 			// reads, runs as a change, so a protected server asks for --yes
 			mutating := !r.ReadOnly || readOnlyMutates(command, nil)
-			return runFleet(cmd.Context(), "recipe.run", args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo, recipe: r.Name}, mutating)
+			return runFleet(cmd.Context(), "recipe.run", args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo, recipe: r.Name, exitMap: orSudo(soleHost(args[1]), nil)}, mutating)
 		},
 	}
 	c.Flags().StringArrayVar(&vars, "var", nil, "fill in a blank: NAME=VALUE (repeatable)")
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo even if the recipe asks for it")
 	return c
+}
+
+// checkRecipeCategory refuses a --category no recipe has, so a typo is not
+// an empty list.
+func checkRecipeCategory(c string) error {
+	if c == "" || c == "saved" {
+		return nil
+	}
+	cats := []string{}
+	for _, r := range recipes {
+		if r.Category == c {
+			return nil
+		}
+		if !slices.Contains(cats, r.Category) {
+			cats = append(cats, r.Category)
+		}
+	}
+	sort.Strings(cats)
+	return out.Usage("no category %q: use %s, or saved for your own", c, strings.Join(cats, ", "))
 }

@@ -238,7 +238,7 @@ func logsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "logs TARGET",
 		Short: "Read logs from journald, a file or a container",
-		Example: `  komando logs web1 --unit nginx --since -30m --grep 'error|crit'
+		Example: `  komando logs web1 --unit nginx --since 30m --grep 'error|crit'
   komando logs @web --file /var/log/nginx/error.log -n 50 --sudo
   komando logs app1 --container api --since 10m`,
 		Args: cobra.ExactArgs(1),
@@ -422,11 +422,13 @@ func pkgCmd() *cobra.Command {
 			Use:   use,
 			Short: short,
 			Args: func(cmd *cobra.Command, args []string) error {
-				if needPkgs && len(args) < 2 {
-					return out.Usage("give TARGET and at least one package")
+				// the usual missing-arguments error, which names the Use line
+				n := 1
+				if needPkgs {
+					n = 2
 				}
-				if len(args) < 1 {
-					return out.Usage("give TARGET")
+				if err := cobra.MinimumNArgs(n)(cmd, args); err != nil {
+					return usageErr(cmd, err)
 				}
 				if action == "update" && len(args) > 1 {
 					return out.Errf(out.ExitUsage, "USAGE", "to upgrade packages: komando pkg upgrade "+args[0]+" "+strings.Join(args[1:], " "),
@@ -463,7 +465,7 @@ func pkgCmd() *cobra.Command {
 					return runPkg(cmd.Context(), action, args[0], args[1:], useSudo, refresh)
 				}
 				command := "ACTION=" + action + " PKGS=" + sshx.Q(pkgs) + "; " + pkgShell
-				o := execOpts{sudo: useSudo, display: strings.TrimSpace("pkg " + action + " " + pkgs)}
+				o := execOpts{sudo: useSudo, display: strings.TrimSpace("pkg " + action + " " + pkgs), exitMap: orSudo(soleHost(args[0]), nil)}
 				return runFleet(cmd.Context(), "pkg."+action, args[0], command, nil, o, mutating)
 			},
 		}
@@ -707,7 +709,7 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 			// cron reads an unescaped % as a newline: date +%F would break
 			line := schedule + " " + escapeCronPercent(args[2]) + " # komando:" + args[1]
 			command := readCron() + without(args[1]) + `{ [ -n "$new" ] && printf '%s\n' "$new"; printf '%s\n' ` + sshx.Q(line) + "; } | " + ct() + " - && echo " + sshx.Q(line)
-			return runFleet(cmd.Context(), "cron.set", args[0], command, nil, execOpts{sudo: useSudo(), display: "cron set " + args[1] + ": " + line}, true)
+			return runFleet(cmd.Context(), "cron.set", args[0], command, nil, execOpts{sudo: useSudo(), display: "cron set " + args[1] + ": " + line, exitMap: orSudo(soleHost(args[0]), nil)}, true)
 		},
 	}
 	set.Flags().StringVar(&schedule, "schedule", "", "cron schedule: 5 fields like '*/5 * * * *', or @hourly, @daily, @weekly, @monthly, @yearly, @reboot")
@@ -821,12 +823,4 @@ func parseCronLine(t string) map[string]any {
 		r["command"] = rest
 	}
 	return r
-}
-
-// followLogs streams a log command until Ctrl-C (or --timeout, if given).
-func followLogs(ctx context.Context, target, command string, sudo bool) error {
-	if g.timeout == 0 {
-		g.timeout = 24 * time.Hour // the person stops it with Ctrl-C
-	}
-	return runFleet(ctx, "logs", target, command, nil, execOpts{sudo: sudo, stream: true, follow: true}, false)
 }

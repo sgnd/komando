@@ -274,8 +274,10 @@ func (o *logOpts) check() error {
 	if o.follow && o.until != "" {
 		return out.Usage("--until cannot be used with --follow")
 	}
-	if o.timestamps && o.container == "" {
-		return out.Usage("--timestamps works with container logs only (--container); journal lines always show their time")
+	if o.container != "" {
+		if err := checkContainerName(o.container); err != nil {
+			return err
+		}
 	}
 	if o.file != "" && !strings.HasPrefix(o.file, "/") {
 		return out.Usage("--file takes the full path of the log on the server, starting with / (got %q)", o.file)
@@ -458,4 +460,12 @@ func (o *logOpts) result(rr *sshx.RunResult) (any, *out.Error) {
 		}
 	}
 	return rr.Stdout, nil
+}
+
+// followLogs streams a log command until Ctrl-C (or --timeout, if given).
+func followLogs(ctx context.Context, target, command string, sudo bool) error {
+	if g.timeout == 0 {
+		g.timeout = 24 * time.Hour // the person stops it with Ctrl-C
+	}
+	return runFleet(ctx, "logs", target, command, nil, execOpts{sudo: sudo, stream: true, follow: true}, false)
 }

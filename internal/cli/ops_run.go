@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -250,11 +251,21 @@ func opsDryRun(spec opsSpec, hosts []*store.Host, shown string, guardErr error) 
 }
 
 // opsParser is the parser of spec's result on host h.
+// A sudo that refused before the command ran is said first: there is
+// nothing to parse then.
 func opsParser(spec opsSpec, h *store.Host) func(h *store.Host, r *sshx.RunResult) (any, *out.Error) {
 	if h.Windows() && spec.winParse != nil {
 		return spec.winParse
 	}
-	return spec.parse
+	if !spec.sudo || h.Windows() || spec.parse == nil {
+		return spec.parse
+	}
+	return func(h *store.Host, rr *sshx.RunResult) (any, *out.Error) {
+		if e := sudoProblem(h.Name, rr); e != nil {
+			return nil, e
+		}
+		return spec.parse(h, rr)
+	}
 }
 
 // opsWarnings lets a parser attach warnings (shown on stderr in text mode)
@@ -320,4 +331,83 @@ const noSystemd = "[ -d /run/systemd/system ] || { echo '#komando:no-systemd'; e
 func errNoSystemd() *out.Error {
 	return out.Errf(out.ExitNotFound, "NO_SYSTEMD", "this server runs without systemd (a container?); read logs with `komando logs TARGET --file PATH` or `komando docker logs`",
 		"systemd is not running on this server")
+}
+
+// sudoProblem reads why `sudo -n` refused before the command ran: sudo
+// wants a password komando does not have, the login user may not use it,
+// or the server has no sudo (a minimal image where you log in as root).
+// host names the server in the hint; "" leaves NAME (a group).
+func sudoProblem(host string, rr *sshx.RunResult) *out.Error {
+	if rr == nil || rr.ExitCode == 0 {
+		return nil
+	}
+	name := host
+	if name == "" {
+		name = "NAME"
+	}
+	e := strings.ToLower(rr.Stderr)
+	switch {
+	case strings.Contains(e, "sudo: a password is required"), strings.Contains(e, "sudo: a terminal is required"),
+		strings.Contains(e, "no tty present and no askpass"):
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED",
+			"a person stores the sudo password with `komando secret set "+name+"-sudo`, then runs `komando host edit "+name+" --sudo-ref secret:"+name+"-sudo`; when you log in as root, add --no-sudo",
+			"sudo asks for a password komando does not have")
+	case strings.Contains(e, "is not in the sudoers file"), strings.Contains(e, "is not allowed to run sudo"),
+		strings.Contains(e, "may not run sudo"):
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED",
+			"log in as a user who may use sudo (`komando host edit "+name+" --user OTHER`), or add the login user to the sudo (Debian) or wheel (RHEL) group",
+			"the login user may not use sudo")
+	case rr.ExitCode == 127 && (strings.Contains(e, "sudo: not found") || strings.Contains(e, "sudo: command not found")):
+		return out.Errf(out.ExitNotFound, "TOOL_MISSING",
+			"when you log in as root, add --no-sudo; otherwise install sudo on the server",
+			"sudo is not installed on this server")
+	}
+	return nil
+}
+
+// orSudo is an exitMap that names a sudo problem first, then tries next.
+func orSudo(host string, next func(*sshx.RunResult) *out.Error) func(*sshx.RunResult) *out.Error {
+	return func(rr *sshx.RunResult) *out.Error {
+		if e := sudoProblem(host, rr); e != nil {
+			return e
+		}
+		if next == nil {
+			return nil
+		}
+		return next(rr)
+	}
+}
+
+// soleHost is target when it names one server, "" otherwise (a group, a
+// list or a pattern), for hints that name the server.
+func soleHost(target string) string {
+	st, err := loadState()
+	if err != nil {
+		return ""
+	}
+	if hosts, err := resolveTargets(st, target); err == nil && len(hosts) == 1 {
+		return hosts[0].Name
+	}
+	return ""
+}
+
+// followEnded: Ctrl-C is how a person ends logs --follow, like --timeout,
+// so a follow cancelled that way is no error: what came so far is the
+// result, exit 0.
+func followEnded(ctx context.Context, follow bool, res []outcome) []outcome {
+	if !follow || !errors.Is(ctx.Err(), context.Canceled) {
+		return res
+	}
+	for i, r := range res {
+		if r.Err == nil {
+			continue
+		}
+		rr, _ := r.Value.(*sshx.RunResult)
+		if rr == nil {
+			rr = &sshx.RunResult{}
+		}
+		rr.ExitCode, rr.TimedOut = 0, false
+		res[i].Value, res[i].Err = rr, nil
+	}
+	return res
 }

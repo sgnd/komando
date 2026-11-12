@@ -8,11 +8,51 @@ terminal output. [All docs](README.md)
 ```bash
 komando svc status @web nginx                                 # is nginx running?
 komando svc restart @web nginx --wait 10s                     # restart, and check it came back
-komando logs web1 --unit nginx --since -30m --grep 'error|crit'
+komando logs web1 --unit nginx --since 30m --grep 'error|crit'
 komando docker ps web1                                        # running containers
 komando pkg upgradable all --refresh                          # pending updates
 komando user list web1                                        # who can log in
 ```
+
+## Common tasks from start to end
+
+Every step is a command; a person and an AI agent type the same ones. A
+person who leaves out an argument at a terminal is asked for it (the
+server from a list); an agent gets a usage error with an example.
+
+```bash
+# a service misbehaves
+komando svc list web1 --failed                       # what is broken?
+komando logs web1 --unit nginx --since 30m --grep error
+komando fs replace web1 /etc/nginx/nginx.conf --old A --new B --backup --dry-run
+komando svc restart web1 nginx --wait 10s --dry-run
+komando svc restart web1 nginx --wait 10s            # fails unless it is active within 10s
+
+# a patch round
+komando pkg security @web --refresh                  # what is pending, and each server's state
+komando pkg security @web --apply --dry-run
+komando pkg security @web --apply                    # one server at a time
+komando reboot web1 --dry-run                        # when reboot_required says so
+
+# a person joins, then leaves
+komando user add web1 alice --key alice --admin
+komando user lock web1 alice                         # stops logins, keeps the files
+komando user rm web1 alice --remove-home --dry-run
+
+# a nightly job
+komando cron set db1 nightly-backup '/usr/local/bin/backup.sh' --schedule '0 2 * * *'
+komando cron list db1
+komando cron rm db1 nightly-backup
+
+# a full disk on a Docker server
+komando recipe run disk web1
+komando docker prune web1 --older-than 30d --dry-run # what would go, and how much
+```
+
+Changes on a protected server ask a person (`[y/N]` at a terminal, the
+approval window for an agent's `--yes`); deletes such as `user rm`,
+`docker prune` and `reboot` ask the person to type the server's name, or
+need `--allow-dangerous`.
 
 ## Services (systemd)
 
@@ -31,7 +71,14 @@ komando svc logs web1 nginx                   # same as komando logs web1 --unit
 ```
 
 `start`, `stop`, `restart`, `reload`, `enable` and `disable` use sudo and
-report the state afterwards. Add `--no-sudo` when you log in as root. They
+report the state afterwards. Add `--no-sudo` when you log in as root. When
+sudo wants a password komando does not have, or the login user may not use
+sudo, the command stops with `PERMISSION_DENIED` and a hint that names the
+fix (`komando host edit web1 --sudo-ref secret:web1-sudo`, see
+[Sudo passwords](servers.md#sudo-passwords-and-the-vault)); a server with no
+sudo at all gives `TOOL_MISSING` (add `--no-sudo` as root). The same holds
+for `pkg`, `user`, `cron --sudo`, `docker --sudo` and recipes that use
+sudo. They
 work on system services only: komando does not manage a user's own units
 (`systemctl --user`); use `komando exec` for those.
 
@@ -54,7 +101,7 @@ komando svc daemon-reload web1                # names any unit that still needs 
 or a Docker container (`--container`).
 
 ```bash
-komando logs web1 --unit nginx --since -30m --grep 'error|crit'
+komando logs web1 --unit nginx --since 30m --grep 'error|crit'
 komando logs web1 --unit nginx --follow                 # keep watching; Ctrl-C to stop
 komando logs web1 --unit nginx -p err --since today     # errors and worse
 komando logs @web --file /var/log/nginx/error.log -n 50 --sudo
@@ -68,7 +115,7 @@ komando logs web1 --container api --since 10m --timestamps
 | `--container NAME` | Read this Docker container's log. |
 | `-n`, `--limit N` | The last N lines (default 200). |
 | `--grep REGEX` | Only lines that match (extended regex, any case). |
-| `--since` / `--until` | A time range: a time back from now (`30m`, `2h`, `7d`; a `-` in front is fine), `today`, `yesterday`, or a date (`'2026-01-02 10:00'`). Containers take no `today` or `yesterday`. |
+| `--since` / `--until` | A time range: a time back from now (`30m`, `2h`, `7d`), `today`, `yesterday`, or a date (`'2026-01-02 10:00'`). Containers take no `today` or `yesterday`. |
 | `-p`, `--priority` | Journal priority and worse: `emerg` ... `debug`, or 0-7. |
 | `-f`, `--follow` | Keep printing new lines until Ctrl-C. |
 | `-s`, `--sudo` | Read the whole journal or a protected file. |
@@ -264,13 +311,13 @@ komando user rm web1 leaver --remove-home --allow-dangerous
   The same goes for `user add --shell` with a shell nobody can log in with
   (`/usr/sbin/nologin`, `/bin/false`) for those two accounts.
 - On Alpine, `user add`, `lock`, `unlock` and `rm` need the `shadow`
-  package (`useradd`, `usermod`, `userdel`). Without it, `lock` and
-  `unlock` stop with `TOOL_MISSING`; `add` and `rm` fail on that server
-  (exit code 127) with a message that names the package.
+  package (`useradd`, `usermod`, `userdel`). Without it they stop with
+  `TOOL_MISSING` (exit 3) and the hint `komando pkg install TARGET shadow`.
 - `user list` reads the lock state through sudo (`--no-sudo` leaves it
   out). `admin_group` means "in the sudo, wheel or admin group"; rules in
   `sudoers.d` are not read.
-- `user rm` needs `--allow-dangerous`.
+- `user rm` needs `--allow-dangerous`; a person at a terminal types the
+  server's name instead. Try `--dry-run` first.
 
 ## Scheduled jobs (cron)
 

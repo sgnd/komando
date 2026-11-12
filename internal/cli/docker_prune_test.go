@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 // recorded from docker 27 (API 1.47), trimmed
@@ -137,4 +141,51 @@ func TestDockerPruneCommand(t *testing.T) {
 	}
 	wantCode(t, "USAGE", append(pre, "docker", "prune", "dev", "--volumes", "--older-than", "7d")...)
 	wantCode(t, "USAGE", append(pre, "docker", "prune", "dev", "--older-than", "-3d")...)
+}
+
+// A person confirms a docker delete by typing the server's name, as for
+// any other destructive command, and only once: the server guard that
+// runs next takes the same answer (a prune --all used to ask "Type yes"
+// and then the name again).
+func TestDockerDeleteConfirmsWithTheServerName(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if err := store.Update(func(st *store.State) error {
+		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	savedInteractive, savedStdin, savedErr := interactive, os.Stdin, os.Stderr
+	t.Cleanup(func() { interactive, os.Stdin, os.Stderr = savedInteractive, savedStdin, savedErr; resetApproval() })
+	interactive = func() bool { return true }
+	answer := func(typed string, args ...string) (string, error) {
+		resetApproval()
+		in, w, _ := os.Pipe()
+		_, _ = w.WriteString(typed + "\n")
+		_ = w.Close()
+		er, ew, _ := os.Pipe()
+		os.Stdin, os.Stderr = in, ew
+		_, err := guardDocker("web1", args)
+		var asked string
+		if err == nil {
+			// the server guard of the same command: no second question
+			st, _ := store.Load()
+			hosts, _ := resolveTargets(st, "web1")
+			err = guard(st, hosts, "docker "+strings.Join(args, " "), true)
+		}
+		_ = ew.Close()
+		b, _ := io.ReadAll(er)
+		asked = string(b)
+		os.Stdin, os.Stderr = savedStdin, savedErr
+		return asked, err
+	}
+	asked, err := answer("web1", "system", "prune", "-f", "-a")
+	if err != nil || strings.Count(asked, "Type the name web1") != 1 || strings.Contains(asked, "Type yes") {
+		t.Errorf("prune --all with the name: err %v, asked %q", err, asked)
+	}
+	asked, err = answer("yes", "rm", "old-api")
+	if e := toErr(err); e == nil || e.Code != "POLICY_BLOCKED" || !strings.Contains(asked, "Type the name web1") {
+		t.Errorf("docker rm answered yes: err %v, asked %q", err, asked)
+	}
 }

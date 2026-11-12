@@ -209,7 +209,15 @@ var dnsTypes = map[string]bool{"A": true, "AAAA": true, "CNAME": true, "MX": tru
 
 // dnsCommand resolves name; with a record type it needs dig, except for A
 // and AAAA, which getent answers too.
+// dnsNameRe is a name (or an address, for PTR) to look up. Nothing else
+// gets to dig or getent: a name starting with - would be an option there
+// (dig -f FILE reads a file on the server).
+var dnsNameRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,252}$`)
+
 func dnsCommand(name, typ string) (string, error) {
+	if !dnsNameRe.MatchString(name) {
+		return "", out.Usage("invalid name %q: give a host name like db.internal or an IP address", name)
+	}
 	q := sshx.Q(name)
 	if typ == "" {
 		return "getent ahosts " + q + " | awk '{print $1}' | sort -u", nil

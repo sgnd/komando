@@ -247,6 +247,15 @@ its highlights; the sections below them give the details. Versions follow
   `vpn_idle` (30m) passes: a `shell`, `logs --follow` or `tunnel` through
   a WireGuard, OpenVPN, IPsec or SSL VPN session was cut after 30 minutes
   because only new logins counted as use.
+- Security: `docker exec` and `logs --container` refuse a CONTAINER that
+  is not a container name or ID. One starting with `-` reached docker as an
+  option, so `docker exec web1 -- --privileged -u root api sh` ran a
+  privileged exec (a way out of the container) without
+  `--allow-dangerous`.
+- Security: `net dns` refuses a name that is not a host name or an
+  address. A name starting with `-` reached `dig` as an option, so
+  `net dns web1 --type MX -- -f/etc/passwd` read a file on the server
+  through a read-only command.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like
@@ -401,6 +410,42 @@ its highlights; the sections below them give the details. Versions follow
   komando logs in with the cloud login each time instead of failing once
   the token runs out; a credential helper name that is a path is not run,
   and a helper gets 30 s.
+- `docker rm`, `docker prune` and other docker deletes at a terminal now
+  ask the person to type the server's name, like every other destructive
+  command, instead of accepting a bare `yes`; `docker prune --all` asks
+  once instead of twice.
+- `svc`, `pkg`, `user`, `cron`, `docker` and `recipe run` now say why
+  when sudo refuses before the command runs: `PERMISSION_DENIED` (sudo
+  wants a password komando does not have, or the user may not use sudo)
+  with the `host edit --sudo-ref` or `--user` command to run next, and
+  `TOOL_MISSING` when the server has no sudo (add `--no-sudo` as root),
+  instead of `COMMAND_FAILED` / `SVC_FAILED` with "read stderr".
+- `komando svc`, `pkg`, `user`, `docker`, `cron`, `net`, `cert` and
+  `recipe` alone now show the usual journey as examples. Examples, form
+  hints and docs write times as `30m` (not `-30m`), as komando takes them
+  everywhere; `user rm` shows a `--dry-run` first.
+- `pkg rm` reports itself as `pkg.rm` in JSON, the audit log, dry runs and
+  the Windows refusal (it said `pkg.remove` / `pkg remove`), and `pkg`
+  commands given no package give the usual `missing arguments; usage: ...`
+  error.
+- `reboot --dry-run` puts `would_be_blocked` in `data` too, like every
+  other dry run; `user add` and `user rm` show `user rm bob --remove-home`
+  in dry runs and the audit log instead of the shell script; `recipe list
+  --category` with an unknown category is a usage error that lists them,
+  not an empty list.
+- `docker start`, `stop`, `restart` and `rm` name their argument
+  `CONTAINER...` and `docker pull` `IMAGE...` (was `NAME...`) in help and
+  usage errors.
+- `user lock`, `unlock` and `rm` check USERNAME like `user add` does, so a
+  name starting with `-` is a usage error instead of an option of
+  `usermod` or `userdel`.
+- Ctrl-C ends `logs --follow` (and `svc logs`, `docker logs -f`) cleanly
+  with exit 0 and the lines so far, as `--timeout` does, instead of an
+  `interrupted` error with exit 1.
+- `pkg upgradable` reads the package index as root when sudo needs no
+  password, like `facts` and `pkg security`, so all three agree. On dnf and
+  yum the login user's own cache could list other updates (48 against 4
+  on Rocky 9).
 
 ## [0.12.0] - 2026-11-11
 

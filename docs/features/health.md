@@ -128,7 +128,7 @@ release, `recipe run` with the old name says which command to use:
 | `dns` | `komando net dns TARGET NAME` |
 | `http-check` | `komando net http TARGET URL` |
 | `failed-units` | `komando svc list TARGET --failed` |
-| `journal-errors` | `komando logs TARGET -p err --since -1h --sudo` |
+| `journal-errors` | `komando logs TARGET -p err --since 1h --sudo` |
 | `updates` | `komando pkg upgradable TARGET` |
 | `security-updates` | `komando pkg security TARGET` |
 | `docker-overview` | `komando docker ps TARGET --all` |

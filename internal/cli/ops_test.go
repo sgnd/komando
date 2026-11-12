@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"net"
 	"strings"
 	"testing"
@@ -243,6 +244,17 @@ func TestParseNetCheck(t *testing.T) {
 func TestNetDNS(t *testing.T) {
 	if _, err := dnsCommand("x", "BOGUS"); err == nil {
 		t.Fatal("unknown type must be refused")
+	}
+	// a name is never an option of dig or getent (dig -f FILE reads a file)
+	for _, bad := range []string{"-f/etc/passwd", "-f", "a b", "x;id", "", "$(id)"} {
+		if _, err := dnsCommand(bad, "MX"); err == nil {
+			t.Errorf("%q must be refused", bad)
+		}
+	}
+	for _, good := range []string{"db.internal", "_sip._tcp.example.com", "10.0.0.5", "2001:db8::1", "localhost"} {
+		if _, err := dnsCommand(good, "PTR"); err != nil {
+			t.Errorf("%q: %v", good, err)
+		}
 	}
 	c, _ := dnsCommand("example.com", "mx")
 	if !strings.Contains(c, "dig +short -t MX 'example.com'") || !strings.Contains(c, "no-dig") {
@@ -525,5 +537,195 @@ func TestRetiredRecipesNameTheirCommand(t *testing.T) {
 	}
 	if e := recipeNotFound("t-nope"); !strings.Contains(e.Hint, "recipe list") {
 		t.Errorf("unknown recipe: %+v", e)
+	}
+}
+
+// When sudo refuses before the command runs, the error says why and what
+// to run next, instead of a bare "exit code 1".
+func TestSudoProblem(t *testing.T) {
+	cases := []struct {
+		stderr string
+		exit   int
+		code   string
+		hint   string
+	}{
+		{"sudo: a password is required\n", 1, "PERMISSION_DENIED", "`komando host edit web1 --sudo-ref secret:web1-sudo`"},
+		{"sudo: a terminal is required to read the password; either use the -S option", 1, "PERMISSION_DENIED", "`komando secret set web1-sudo`"},
+		{"deploy is not in the sudoers file.  This incident will be reported.", 1, "PERMISSION_DENIED", "`komando host edit web1 --user OTHER`"},
+		{"Sorry, user deploy may not run sudo on web1.", 1, "PERMISSION_DENIED", "wheel"},
+		{"sh: 1: sudo: not found", 127, "TOOL_MISSING", "--no-sudo"},
+		{"bash: sudo: command not found", 127, "TOOL_MISSING", "--no-sudo"},
+		{"E: Unable to locate package nope", 100, "", ""},
+		{"sudo: a password is required", 0, "", ""}, // it ran: not a sudo problem
+	}
+	for _, c := range cases {
+		e := sudoProblem("web1", &sshx.RunResult{Stderr: c.stderr, ExitCode: c.exit})
+		switch {
+		case c.code == "" && e != nil:
+			t.Errorf("%q: %v", c.stderr, e)
+		case c.code != "" && (e == nil || e.Code != c.code || !strings.Contains(e.Hint, c.hint)):
+			t.Errorf("%q: %+v", c.stderr, e)
+		}
+	}
+	if e := sudoProblem("", &sshx.RunResult{Stderr: "sudo: a password is required", ExitCode: 1}); !strings.Contains(e.Hint, "--sudo-ref secret:NAME-sudo") {
+		t.Errorf("a group names NAME: %q", e.Hint)
+	}
+}
+
+// pkg rm is pkg.rm everywhere (envelope, audit, Windows refusal), not the
+// package managers' "remove", and a missing package is the usual usage
+// error that names the Use line.
+func TestPkgRmIsPkgRm(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if err := store.Update(func(st *store.State) error {
+		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
+		st.Hosts["win1"] = &store.Host{Name: "win1", Address: "10.255.255.4", User: "admin", OS: "windows"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { g.dryRun, store.DryRun = false, false }()
+	o := captureOutput(t, func() error { return runRoot(t, "-o", "json", "--dry-run", "pkg", "rm", "web1", "telnet") })
+	if !strings.Contains(o, `"command":"pkg.rm"`) || !strings.Contains(o, `"remote_command":"pkg rm telnet"`) {
+		t.Errorf("dry run: %s", o)
+	}
+	g.dryRun = false
+	if e := toErr(runRoot(t, "-o", "json", "pkg", "rm", "win1", "telnet")); e == nil || !strings.Contains(e.Message, "pkg rm does not work on Windows") {
+		t.Errorf("windows: %v", e)
+	}
+	if e := toErr(runRoot(t, "-o", "json", "pkg", "install", "web1")); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "usage: komando pkg install TARGET PACKAGE...") {
+		t.Errorf("missing package: %v", e)
+	}
+}
+
+// reboot --dry-run says it would be blocked in data, like every other
+// dry run; user add/rm show the command, not the shell script; a recipe
+// category typo is a usage error, not an empty list.
+func TestOpsDryRunShapes(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if err := store.Update(func(st *store.State) error {
+		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { g.dryRun, store.DryRun = false, false }()
+	for args, want := range map[string]string{
+		"reboot web1":                               `"data":{"order":"one server at a time","would_be_blocked":{"code":"POLICY_BLOCKED"`,
+		"user rm web1 bob --remove-home":            `"remote_command":"user rm bob --remove-home"`,
+		"user add web1 bob --admin --shell /bin/sh": `"remote_command":"user add bob --shell /bin/sh --admin"`,
+	} {
+		o := captureOutput(t, func() error {
+			return runRoot(t, append([]string{"-o", "json", "--dry-run"}, strings.Fields(args)...)...)
+		})
+		g.dryRun = false
+		if !strings.Contains(o, want) {
+			t.Errorf("%s: want %s in %s", args, want, o)
+		}
+	}
+	if e := toErr(runRoot(t, "-o", "json", "recipe", "list", "--category", "secrity")); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "security") {
+		t.Errorf("unknown category: %v", e)
+	}
+}
+
+// The Use lines name what each argument is, so help, usage errors and the
+// prompter's pickers can tell a container from an image.
+func TestDockerUseNamesTheArgument(t *testing.T) {
+	root := newRoot()
+	for path, word := range map[string]string{"start": "CONTAINER...", "stop": "CONTAINER...", "restart": "CONTAINER...",
+		"rm": "CONTAINER...", "pull": "IMAGE...", "logs": "CONTAINER", "exec": "CONTAINER"} {
+		c, _, err := root.Find([]string{"docker", path})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f := strings.Fields(c.Use); len(f) < 3 || f[2] != word {
+			t.Errorf("docker %s: Use %q, want %s second", path, c.Use, word)
+		}
+	}
+}
+
+// A CONTAINER that starts with - would be an option of docker itself:
+// docker exec --privileged gets the server's devices and capabilities,
+// past the check of the command.
+func TestDockerContainerIsNeverAnOption(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if err := store.Update(func(st *store.State) error {
+		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { g.dryRun, store.DryRun = false, false }()
+	for _, args := range [][]string{
+		{"--dry-run", "docker", "exec", "web1", "--", "--privileged", "-u", "root", "api", "sh"},
+		{"--dry-run", "docker", "exec", "web1", "--", "-e", "X=1", "api", "id"},
+		{"--dry-run", "logs", "web1", "--container=--details"},
+		{"--dry-run", "docker", "logs", "web1", "--", "--since=1h"},
+	} {
+		if e := toErr(runRoot(t, append([]string{"-o", "json"}, args...)...)); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "invalid container") {
+			t.Errorf("%v: %v", args, e)
+		}
+		g.dryRun = false
+	}
+	o := captureOutput(t, func() error {
+		return runRoot(t, "-o", "json", "--dry-run", "docker", "exec", "web1", "shop_api.1", "--", "id")
+	})
+	if !strings.Contains(o, `docker exec -i 'shop_api.1' 'id'`) {
+		t.Errorf("a real name: %s", o)
+	}
+}
+
+// USERNAME is checked for every user command, not only add.
+func TestUserNamesAreChecked(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if err := store.Update(func(st *store.State) error {
+		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { g.dryRun, store.DryRun = false, false }()
+	for _, verb := range []string{"add", "lock", "unlock", "rm"} {
+		if e := toErr(runRoot(t, "-o", "json", "--dry-run", "user", verb, "web1", "--", "-r")); e == nil || e.Code != "USAGE" {
+			t.Errorf("user %s -r: %v", verb, e)
+		}
+		g.dryRun = false
+	}
+}
+
+// Ctrl-C ends logs --follow: the lines so far are the result, exit 0,
+// not CANCELLED (it is how a person stops a follow, like --timeout).
+func TestFollowEndsCleanlyOnCtrlC(t *testing.T) {
+	store.DryRun = false // an earlier --dry-run test leaves it on
+	s := startFakeServer(t)
+	lines := make([]string, 60)
+	for i := range lines {
+		lines[i] = "line\n"
+	}
+	s.reply(lines...)
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(400*time.Millisecond, cancel)
+	defer cancel()
+	err := runFleet(ctx, "logs", "dev", "tail -n 200 -F -- '/var/log/x'", nil, execOpts{stream: true, follow: true}, false)
+	if err != nil {
+		t.Fatalf("Ctrl-C on a follow: %v", err)
+	}
+}
+
+// pkg upgradable reads the system's package index (as root when sudo needs
+// no password), like facts and pkg security: dnf keeps a cache per user,
+// and the login user's own listed 48 updates where root's listed 4.
+func TestPkgUpgradableReadsAsRootWhenItCan(t *testing.T) {
+	store.DryRun = false
+	s := startFakeServer(t)
+	s.reply("")
+	_ = runRoot(t, "-o", "json", "pkg", "upgradable", "dev")
+	ex := s.take()
+	if len(ex) == 0 || !strings.Contains(ex[0].cmd, `sudo -n true 2>/dev/null; then exec sudo -n sh -c `) {
+		t.Fatalf("upgradable: %v", ex)
 	}
 }
