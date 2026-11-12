@@ -258,3 +258,26 @@ func TestCacheLimitMustBePositive(t *testing.T) {
 		}
 	}
 }
+
+// In a Redis Cluster, FLUSHALL, SCAN and the other whole-key-space commands
+// reach one master only; cache run refuses them before any approval or
+// connection (the conn has no server).
+func TestCacheRunClusterWide(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	defer func() { g.dryRun, store.DryRun = false, false }()
+	if _, err := runCache(t, "-o", "json", "conn", "add", "cl", "redis://127.0.0.1:1?cluster=1"); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"--write", "--", "FLUSHALL"}, {"--", "scan", "0"}, {"--", "RANDOMKEY"}} {
+		_, err := runCache(t, append([]string{"-o", "json", "cache", "run", "cl"}, args...)...)
+		var e *out.Error
+		if !errors.As(err, &e) || e.Code != "NOT_SUPPORTED" {
+			t.Errorf("%q: %v", args, err)
+		}
+	}
+	var e *out.Error
+	if _, err := runCache(t, "-o", "json", "cache", "run", "cl", "--", "DBSIZE"); !errors.As(err, &e) || e.Code != "CACHE_CONNECT" {
+		t.Errorf("DBSIZE is summed over the masters, so it is sent: %v", err)
+	}
+}

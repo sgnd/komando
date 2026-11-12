@@ -77,6 +77,18 @@ func (r redisStore) Exists(ctx context.Context, key string) (bool, error) {
 	return n > 0, cmdErr0(err)
 }
 func (r redisStore) Del(ctx context.Context, keys ...string) (int64, error) {
+	if _, ok := r.c.(*redis.ClusterClient); ok {
+		// a Cluster refuses one DEL over keys in different slots (CROSSSLOT)
+		var n int64
+		for _, k := range keys {
+			d, err := r.c.Del(ctx, k).Result()
+			if err != nil {
+				return n, cmdErr(err)
+			}
+			n += d
+		}
+		return n, nil
+	}
 	n, err := r.c.Del(ctx, keys...).Result()
 	return n, cmdErr0(err)
 }

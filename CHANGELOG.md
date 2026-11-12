@@ -9,6 +9,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Redis Cluster: `cache rm` with keys in different hash slots failed with
+  `CROSSSLOT`; it now deletes them one by one. `cache run -- DBSIZE`
+  counted one master only; it now adds up every master. `SCAN`,
+  `RANDOMKEY`, `KEYS`, `FLUSHALL`, `FLUSHDB` and `SWAPDB`, which would reach
+  one master only, stop with `NOT_SUPPORTED` before any approval is asked,
+  and a `CROSSSLOT` error says what to do.
 - `komando cache` (the bare group) shows examples of the usual journey;
   its questions for a person name commands (`komando cache add`,
   `--dry-run`) instead of menu rows. The caches page shows `cache add`, what

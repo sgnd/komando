@@ -568,8 +568,16 @@ func Info(ctx context.Context, c redis.UniversalClient, section string) (map[str
 	return res, nil
 }
 
+// clusterWide are keyless commands that act on the whole key space. In a
+// Cluster one of them reaches a single master, so its answer (or its
+// effect) would cover only that master's part of the keys.
+var clusterWide = set("DBSIZE FLUSHALL FLUSHDB SCAN RANDOMKEY KEYS SWAPDB")
+
 // Run sends a raw command and converts the reply to JSON-safe values.
 func Run(ctx context.Context, c redis.UniversalClient, args []string) (any, error) {
+	if cc, ok := c.(*redis.ClusterClient); ok && len(args) > 0 && clusterWide[strings.ToUpper(args[0])] {
+		return clusterRun(ctx, cc, args)
+	}
 	a := make([]any, len(args))
 	for i, s := range args {
 		a[i] = s
@@ -757,6 +765,9 @@ func cmdErr(err error) error {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "redis did not answer in time")
 	}
 	msg := err.Error()
+	if strings.HasPrefix(msg, "CROSSSLOT") {
+		return out.Errf(out.ExitRemote, "CACHE_ERROR", "in a Redis Cluster the keys of one command must share a hash slot: send one command per key, or name related keys with the same {tag} (user:{42}:a, user:{42}:b)", "%s", msg)
+	}
 	if strings.HasPrefix(msg, "NOPERM") || strings.HasPrefix(msg, "NOAUTH") {
 		return out.Errf(out.ExitConnect, "CACHE_AUTH", "check the user in the URL and the password reference", "%s", msg)
 	}

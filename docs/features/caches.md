@@ -60,7 +60,14 @@ komando conn add queue 'redis://default@sentinel1:26379/0?sentinel=mymaster&sent
 - In a Cluster, `cache keys` scans every master and `cache info` adds up
   memory, clients and keys over them, with the cluster's state
   (`cluster_state`, `masters`). A command for one key goes to the node that
-  holds it. A Cluster has only database 0.
+  holds it, and `cache rm` deletes keys of different slots one by one. A
+  Cluster has only database 0.
+- In a Cluster, `cache run -- DBSIZE` adds up every master. `SCAN`,
+  `RANDOMKEY`, `KEYS`, `FLUSHALL`, `FLUSHDB` and `SWAPDB` would reach one
+  master only, so they stop with `NOT_SUPPORTED` (use `cache keys`; to
+  flush, add each master as its own conn). A command over several keys of
+  different slots (`MGET a b`) fails with `CROSSSLOT`: use one command per
+  key, or a common `{tag}` in the key names.
 - Sentinels listen on 26379 when the URL names no port. More Sentinels go
   in `sentinels=HOST[:PORT],...`. The password is for Redis; when the
   Sentinels want it too, add `&sentinel_auth=same`.

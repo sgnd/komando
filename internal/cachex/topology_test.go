@@ -137,6 +137,17 @@ func TestRedisClusterLive(t *testing.T) {
 	if n, err := s.Del(ctx, "t-komando:1"); err != nil || n != 1 {
 		t.Errorf("del: %d %v", n, err)
 	}
+	// keys without a slot: DBSIZE must count every master, not one at random
+	if n, err := s.Run(ctx, []string{"DBSIZE"}); err != nil || fmt.Sprint(n) != fmt.Sprint(Summarize(info).Keys["db0"]-1) {
+		t.Errorf("DBSIZE over the cluster: %v %v, want %d", n, err, Summarize(info).Keys["db0"]-1)
+	}
+	if _, err := s.Run(ctx, []string{"SCAN", "0"}); err == nil || !strings.Contains(err.Error(), "one master") {
+		t.Errorf("SCAN in a cluster must be refused: %v", err)
+	}
+	// cache rm with keys in different slots (no CROSSSLOT)
+	if n, err := s.Del(ctx, keys[2:]...); err != nil || n != int64(len(keys)-2) {
+		t.Errorf("del over several slots: %d %v", n, err)
+	}
 }
 
 func TestRedisSentinelLive(t *testing.T) {

@@ -128,6 +128,20 @@ func cacheKind(expr string) string {
 	return connKind(c)
 }
 
+// cacheIsCluster: the cache conn expr names is a Redis Cluster (?cluster=1).
+func cacheIsCluster(expr string) bool {
+	st, err := loadState()
+	if err != nil {
+		return false
+	}
+	c, err := singleConn(st, expr, "cache")
+	if err != nil {
+		return false
+	}
+	t, err := driver.Parse(c.URL)
+	return err == nil && t.Cluster
+}
+
 func cacheGetCmd() *cobra.Command {
 	var limit int64
 	c := &cobra.Command{
@@ -480,6 +494,11 @@ func cacheRunCmd() *cobra.Command {
 			} else {
 				if err := cachex.OneReply(command); err != nil {
 					return err
+				}
+				if cacheIsCluster(args[0]) {
+					if err := cachex.ClusterWideProblem(command); err != nil {
+						return err
+					}
 				}
 			}
 			v := cachex.ClassifyFor(kind, command)
