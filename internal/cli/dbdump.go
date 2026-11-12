@@ -212,7 +212,8 @@ the approval.
 
 PostgreSQL restores run in one transaction: on any error nothing changes.
 MySQL runs the statements in order and stops at the first error.`,
-		Example: `  komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous
+		Example: `  komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run   # checks the file, changes nothing
+  komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous
   komando db restore staging-db --from prod.dump --on db1 --allow-dangerous`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

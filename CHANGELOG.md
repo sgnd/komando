@@ -39,6 +39,9 @@ its highlights; the sections below them give the details. Versions follow
   TABLE`), not a `CONN` placeholder, so the hint is the exact next
   command.
 
+- `db restore` and `db user rm` typed without their arguments now hint a
+  runnable `--dry-run` example (the hint said only "see --help").
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights
