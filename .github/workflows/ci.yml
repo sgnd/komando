@@ -27,18 +27,43 @@ jobs:
       - run: make lint
       - run: make cover # unit tests + coverage floors
       - run: make build
-      # the release also builds for macOS: vet and build that code here too
-      - run: GOOS=darwin go vet ./... && GOOS=darwin GOARCH=arm64 go build -o /dev/null ./cmd/komando
-      # ... and for Windows
-      - run: GOOS=windows go vet ./... && GOOS=windows GOARCH=arm64 go build -o /dev/null ./cmd/komando
 
-  # Windows: komando builds there natively and runs; the platform code
-  # (file locks, the console, the Credential Manager) is tested on Windows.
+  # Every system and processor komando is released for: go vet (which
+  # type-checks the tests too), the tests compiled, and a build. Pure Go
+  # (CGO_ENABLED=0), so one Linux runner checks them all.
+  cross:
+    name: Build and vet (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [darwin, linux, windows]
+        goarch: [amd64, arm64]
+    env:
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go build -o /dev/null ./cmd/komando
+      - run: for p in $(go list ./...); do go test -c -o /dev/null "$p" || exit 1; done
+
+  # Windows: komando builds there natively and runs, and every unit test
+  # runs; a test that needs Unix (a POSIX shell, file modes) says so when it
+  # skips. The console tests use a Windows pseudo console (ConPTY).
   windows:
     name: Windows
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
+      # the tests compare files byte for byte: keep the LF line ends Git
+      # stores (a Windows runner checks text out with CRLF by default)
+      - run: git config --global core.autocrlf false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -46,7 +71,11 @@ jobs:
       - run: go vet ./...
       - run: go build -o komando.exe ./cmd/komando
       - run: ./komando.exe --version
-      - run: go test ./internal/flock/
+      # KOMANDO_KEYCHAIN=off: test vaults keep their key in a file, as on
+      # the Linux runner, not in the runner's Credential Manager
+      - run: go test -timeout 30m ./...
+        env:
+          KOMANDO_KEYCHAIN: "off"
 
   # Known vulnerabilities in the code and its modules (govulncheck).
   security:
