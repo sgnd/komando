@@ -447,6 +447,11 @@ func MemcacheWords(args []string) ([]string, error) {
 
 // ClassifyMemcache rates a memcached command line.
 func ClassifyMemcache(args []string) driver.Verdict {
+	if strings.ContainsFunc(strings.Join(args, ""), func(r rune) bool { return r < ' ' || r == 0x7f }) {
+		// a newline would start a second command after the one rated here
+		return driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"memcached-line"}, Reasons: []string{mcLineReason}}
+	}
+	args = strings.Fields(strings.Join(args, " ")) // the words memcached reads
 	if len(args) == 0 {
 		return driver.Verdict{Risk: driver.RiskRead}
 	}
@@ -488,11 +493,14 @@ func mcErr(err error) error {
 	return out.Errf(out.ExitRemote, "CACHE_ERROR", "check the command and its arguments (memcached's protocol.txt)", "%s", err)
 }
 
+const mcLineReason = "holds a newline or another control character, which would start a second command (cache run refuses it)"
+
 // MemcacheRules are the rules ClassifyMemcache can report.
 func MemcacheRules() []driver.Rule {
 	r := []driver.Rule{
 		{ID: "memcached-flush", Reason: "deletes every key (flush_all)"},
 		{ID: "memcached-server", Reason: "changes or stops the server"},
+		{ID: "memcached-line", Reason: mcLineReason},
 	}
 	sort.Slice(r, func(i, j int) bool { return r[i].ID < r[j].ID })
 	return r

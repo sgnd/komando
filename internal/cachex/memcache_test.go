@@ -21,6 +21,17 @@ func TestClassifyMemcache(t *testing.T) {
 			t.Errorf("%q = %v, want %v", line, got, want)
 		}
 	}
+	for _, args := range [][]string{{"get", "a\r\nflush_all"}, {"get", "a\nb"}} {
+		if v := ClassifyMemcache(args); v.Risk != driver.RiskDestructive || v.RuleIDs[0] != "memcached-line" {
+			t.Errorf("%q = %+v", args, v)
+		}
+	}
+	if v := ClassifyMemcache([]string{"mg", "a T30"}); v.Risk != driver.RiskWrite {
+		t.Errorf("mg with the flag in one argument = %v", v.Risk)
+	}
+	if v := ClassifyMemcache([]string{" flush_all", "x"}); v.Risk != driver.RiskDestructive {
+		t.Errorf("leading space = %v", v.Risk)
+	}
 	if validKey("has space") == nil || validKey(strings.Repeat("k", 251)) == nil || validKey("ok:1") != nil {
 		t.Error("key checks")
 	}

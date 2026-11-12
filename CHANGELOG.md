@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `policy check --for memcached` rates the words memcached reads, like
+  `cache run`: a line with a newline or other control character is
+  dangerous (new rule `memcached-line`), and `mg "key T30"` is a write.
 - `cache keys --limit 0` listed no keys yet said more matched, and
   `cache get --limit 0` (or a negative limit) quietly showed 100 items;
   both now stop with `USAGE` before connecting.
