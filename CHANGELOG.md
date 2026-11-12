@@ -25,6 +25,9 @@ its highlights; the sections below them give the details. Versions follow
 - `host rm` of a server others go through (`--via`) names every server
   and conn that uses it, each with its `edit ... --unset via` command,
   instead of one per try.
+- `key rm` names every server that still uses the key (with one
+  `host edit A B --key OTHER` line) and its text output says "removed key
+  NAME" instead of printing raw fields. JSON is unchanged.
 
 ## [0.12.0] - 2026-11-11
 

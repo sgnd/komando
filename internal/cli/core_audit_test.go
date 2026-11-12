@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // An import with --overwrite skips a protected conn, as it skips a
@@ -72,4 +76,38 @@ func TestHostRmInUseNamesEveryUser(t *testing.T) {
 			t.Errorf("hint %q lacks %q", e.Hint, want)
 		}
 	}
+}
+
+// key rm names every server that still uses the key, and its text says
+// what happened in words, not as raw fields.
+func TestKeyRmInUseAndText(t *testing.T) {
+	invHome(t)
+	mustRun(t, "key", "gen", "k1")
+	mustRun(t, "host", "add", "a", "u@10.0.0.1", "--key", "k1")
+	mustRun(t, "host", "add", "b", "u@10.0.0.2", "--key", "k1")
+	e := wantCode(t, "KEY_IN_USE", "key", "rm", "k1")
+	if !strings.Contains(e.Message, "a and b") || !strings.Contains(e.Hint, "host edit a b --key OTHER") {
+		t.Errorf("want both servers named: %s / %s", e.Message, e.Hint)
+	}
+	mustRun(t, "host", "edit", "a", "b", "--unset", "key")
+	txt := coreText(t, "key", "rm", "k1", "--delete-file")
+	if !strings.Contains(txt, "removed key k1") || strings.Contains(txt, "file_deleted") {
+		t.Errorf("text: %q", txt)
+	}
+}
+
+// coreText runs komando with -o text and returns what it printed.
+func coreText(t *testing.T, args ...string) string {
+	t.Helper()
+	g.dryRun, g.yes, store.DryRun = false, false, false
+	root := newRoot()
+	root.SetArgs(append([]string{"-o", "text"}, args...))
+	var buf bytes.Buffer
+	saved := out.P.W
+	out.P.W = &buf
+	defer func() { out.P.W = saved }()
+	if err := root.Execute(); err != nil {
+		t.Fatalf("%v: %v", args, err)
+	}
+	return buf.String()
 }
