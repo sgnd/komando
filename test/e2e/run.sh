@@ -34,7 +34,7 @@ ROOT="$(cd "$E2E/../.." && pwd)"
 # parts for the area at hand (in_area in lib.sh).
 AREAS='
 core          | bastion target direct bao moto                    | +hosts +maria_conn base protect agents audit general inv proxy_path rename resilience run sshgate
-data          | bastion target direct pg maria redis memcached s3 sftp ftps bao vaultwarden | +hosts +data conns vpn coverage data dbusers dryrun dump parity zz_agent zz_person
+data          | bastion target direct pg maria redis memcached s3 sftp ftps bao vaultwarden | +hosts +data conns vpn coverage data files dbusers dryrun dump parity zz_agent zz_person
 k8s           | bastion k3s                                       | +hosts k8s clu dryrun parity zz_agent
 k8s-old       | bastion k3s-old                                   | +hosts k8s_old
 swarm         | direct swarm                                      | +hosts +swarm swarm clu coverage dryrun parity zz_agent
