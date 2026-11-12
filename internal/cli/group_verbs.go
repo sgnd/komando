@@ -31,7 +31,7 @@ func inventoryVerbHint(group *cobra.Command, verb string) string {
 	case "test":
 		return "check that a conn answers with `komando test NAME`"
 	case "mv", "rename":
-		return "rename a conn with `komando conn mv OLD NEW`"
+		return "rename a conn with `komando conn rename OLD NEW`"
 	}
 	return ""
 }

@@ -215,7 +215,7 @@ func renameCmd() *cobra.Command {
 with OLD: OLD is replaced with NEW. When OLD ends in -, the name OLD without
 it is renamed too (--prefix shop- acme-shop- turns group shop into acme-shop).
 
-Every reference follows, as with ` + "`host mv`" + ` and ` + "`secret mv`" + `: --via paths,
+Every reference follows, as with ` + "`host rename`" + ` and ` + "`secret rename`" + `: --via paths,
 password, sudo, key, preshared key and passphrase references, secret:NAME
 options in conn URLs, the key a server uses, group membership, jobs and
 tunnels. A key komando made (key gen) moves its files in ~/.komando/keys.
@@ -239,8 +239,8 @@ Renaming protected servers and conns needs --yes once, for all of them
 (an AI agent's --yes opens one window for a person). See what would change
 with --dry-run first. --kind renames only some kinds; references still
 follow.
-To rename one entry, use host mv, conn mv, vpn mv, secret mv, key mv or
-group mv.`,
+To rename one entry, use host rename, conn rename, vpn rename, secret rename, key rename or
+group rename.`,
 		Example: `  komando rename --prefix shop- acme-shop- --dry-run   # the old -> new list and every reference
   komando rename --prefix shop- acme-shop- --yes       # some of them are protected
   komando rename --prefix old-registry registry --kind conn,secret
@@ -249,7 +249,7 @@ group mv.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			old, new := args[0], args[1]
 			if !prefix {
-				return out.Errf(out.ExitUsage, "USAGE", "add --prefix: komando rename --prefix "+old+" "+new+" --dry-run; to rename one entry use host mv, conn mv, vpn mv, secret mv, key mv or group mv",
+				return out.Errf(out.ExitUsage, "USAGE", "add --prefix: komando rename --prefix "+old+" "+new+" --dry-run; to rename one entry use host rename, conn rename, vpn rename, secret rename, key rename or group rename",
 					"rename needs --prefix")
 			}
 			if old == "" {

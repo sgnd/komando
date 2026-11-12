@@ -138,19 +138,19 @@ works on one server only (two servers never share one).
 
 ## Rename a server
 
-`host mv` gives a server a new name and keeps everything else:
+`host rename` gives a server a new name and keeps everything else:
 
 ```bash
-komando host mv web1 web-01
-komando host mv db1 prod-db1 --dry-run   # what would change
+komando host rename web1 web-01
+komando host rename db1 prod-db1 --dry-run   # what would change
 ```
 
 The address, login, references, protected mark, groups, tags and labels
 stay. Servers, conns and tunnels that go through it (`--via`), and its jobs
 and tunnels, follow the new name in the same step. Pinned host keys belong
 to the address, so `host trust` is not needed again. Renaming a protected
-server needs `--yes`. `conn mv` and `vpn mv` do the same for conns and VPNs,
-`key mv` for a key, and `group mv` for a group.
+server needs `--yes`. `conn rename` and `vpn rename` do the same for conns and VPNs,
+`key rename` for a key, and `group rename` for a group.
 
 ### Rename a whole project at once
 
@@ -203,10 +203,10 @@ komando rename --prefix shop- acme-shop- --notes --labels --dry-run   # notes an
   (`team-` to `team-ops-`), names that have the new prefix already are left
   alone, so a second run changes nothing.
 
-`key mv OLD NEW` renames one key: the servers that use it follow, and a key
+`key rename OLD NEW` renames one key: the servers that use it follow, and a key
 komando made moves its files. Public keys already installed on servers keep
 their comment; they still work, since the key itself does not change.
-`group mv OLD NEW` renames a group on every member (it needs `--yes` when a
+`group rename OLD NEW` renames a group on every member (it needs `--yes` when a
 protected server or conn is in it). To merge two groups, use `group add NEW
 @OLD` and then `group rm OLD`.
 
@@ -359,7 +359,7 @@ komando secret list                          # names, when they changed, what us
 komando secret get web1-pass                 # does it exist, and who uses it (no value)
 komando secret set db-pass --from-env DB_PASS
 pbpaste | komando secret set vpn-pass        # from the clipboard (macOS; xclip -o on Linux)
-komando secret mv vpn-password office-vpn    # rename it, and everything that uses it
+komando secret rename vpn-password office-vpn    # rename it, and everything that uses it
 komando secret cp db-pass db-pass-old        # a copy under a second name
 komando secret check vpn-pass                # is the stored value the one I think? (no value shown)
 komando secret rm old-pass                   # refused while something uses it
@@ -376,7 +376,7 @@ komando secret rm old-pass                   # refused while something uses it
   them, but komando warns when the value starts or ends with a space or tab:
   a space copied together with a password is a common reason a login fails.
   `secret get NAME` shows the same warning later.
-- `secret mv OLD NEW` renames the secret inside the vault and
+- `secret rename OLD NEW` renames the secret inside the vault and
   points every server, conn, key and VPN that used `secret:OLD` at
   `secret:NEW` in the same step, conn URL options such as
   `?ca=secret:OLD` included. Nobody types the value again, and an AI
@@ -392,7 +392,7 @@ komando secret rm old-pass                   # refused while something uses it
   to guess the secret.
 
 Replacing a secret that a protected server or conn uses needs `--yes` (also
-with `secret mv` or `secret cp --overwrite`). Only a person at a terminal can
+with `secret rename` or `secret cp --overwrite`). Only a person at a terminal can
 see a value, with `secret get --reveal`; AI agents never get it.
 
 ### Where saved passwords are kept

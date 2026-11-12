@@ -192,7 +192,7 @@ const secretLong = `Save a password once, then point to it as secret:NAME instea
 
 komando never prints a saved value. A person at a terminal can see one with
 ` + "`secret get --reveal`" + `, and ` + "`secret check`" + ` compares a value with the saved one
-without showing either. ` + "`secret mv`" + ` and ` + "`secret cp`" + ` rename and copy.
+without showing either. ` + "`secret rename`" + ` and ` + "`secret cp`" + ` rename and copy.
 
 How it is stored: each secret sealed with AES-256-GCM in ~/.komando/store.db.
 The random key is in the OS keychain (or in store.key where there is none,
@@ -228,14 +228,14 @@ it is never printed, so an AI agent can do this too. Nothing that uses OLD
 changes.`
 	example := "  komando secret cp db-pass db-pass-old\n  komando secret cp web-pass shared-pass --overwrite"
 	if move {
-		verb, command = "mv", "secret.mv"
+		verb, command = "rename", "secret.mv" // `secret mv` stays a synonym
 		short = "Rename a secret and every reference to it (value never shown)"
 		long = `Renames OLD to NEW inside the vault, and points every server, conn, key and
 VPN that used secret:OLD at secret:NEW in the same step, so nothing stops
 working and nobody types the value again. The value is never printed, so an
 AI agent can do this too. Scripts or notes of your own that name secret:OLD
 are not changed.`
-		example = "  komando secret mv vpn-password office-vpn-pass --dry-run\n  komando secret mv vpn-password office-vpn-pass"
+		example = "  komando secret rename vpn-password office-vpn-pass --dry-run\n  komando secret rename vpn-password office-vpn-pass"
 	}
 	c := &cobra.Command{
 		Use:     verb + " OLD NEW",
@@ -312,6 +312,10 @@ are not changed.`
 		},
 	}
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace NEW when it exists (what uses NEW then gets the value of OLD)")
+	if move {
+		c.Aliases = []string{"mv"} // a permanent synonym; the ID stays secret.mv
+		withID(c, "secret.mv")
+	}
 	return c
 }
 
@@ -578,7 +582,7 @@ func secretInUse(name string, users []string) error {
 		"key":  "komando key edit " + who + " --passphrase-ref ...",
 		"vpn":  "komando vpn edit " + who + " ...",
 	}[kind]
-	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, e.g. `"+hint+"`, or rename it with `komando secret mv`",
+	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, e.g. `"+hint+"`, or rename it with `komando secret rename`",
 		"secret %s is used by %s", name, strings.Join(users, ", "))
 }
 

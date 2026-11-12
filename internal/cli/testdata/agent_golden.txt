@@ -1138,46 +1138,46 @@ exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando conn edit NAME
-### komando -o json conn mv (agent json)
+### komando -o json conn rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn mv OLD NEW","hint":"for example: komando conn mv shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text conn mv (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando conn mv OLD NEW
-### komando -o json conn mv (script json)
-exit 2
---- stdout
-{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn mv OLD NEW","hint":"for example: komando conn mv shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text conn mv (script text)
+### komando -o text conn rename (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando conn mv OLD NEW
-### komando -o json conn mv x1 (agent json)
+Error: missing arguments; usage: komando conn rename OLD NEW
+### komando -o json conn rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn mv OLD NEW","hint":"for example: komando conn mv shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text conn mv x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando conn mv OLD NEW
-### komando -o json conn mv x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn mv OLD NEW","hint":"for example: komando conn mv shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text conn mv x1 (script text)
+### komando -o text conn rename (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando conn mv OLD NEW
+Error: missing arguments; usage: komando conn rename OLD NEW
+### komando -o json conn rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text conn rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando conn rename OLD NEW
+### komando -o json conn rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text conn rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando conn rename OLD NEW
 ### komando -o json conn rm (agent json)
 exit 2
 --- stdout
@@ -2898,46 +2898,46 @@ exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando group add GROUP TARGET...
-### komando -o json group mv (agent json)
+### komando -o json group rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group mv OLD NEW","hint":"for example: komando group mv web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text group mv (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando group mv OLD NEW
-### komando -o json group mv (script json)
-exit 2
---- stdout
-{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group mv OLD NEW","hint":"for example: komando group mv web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text group mv (script text)
+### komando -o text group rename (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group mv OLD NEW
-### komando -o json group mv x1 (agent json)
+Error: missing arguments; usage: komando group rename OLD NEW
+### komando -o json group rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group mv OLD NEW","hint":"for example: komando group mv web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text group mv x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando group mv OLD NEW
-### komando -o json group mv x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group mv OLD NEW","hint":"for example: komando group mv web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text group mv x1 (script text)
+### komando -o text group rename (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando group mv OLD NEW
+Error: missing arguments; usage: komando group rename OLD NEW
+### komando -o json group rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text group rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando group rename OLD NEW
+### komando -o json group rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text group rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando group rename OLD NEW
 ### komando -o json group rm (agent json)
 exit 2
 --- stdout
@@ -2998,46 +2998,46 @@ exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando host edit NAME|TARGET...
-### komando -o json host mv (agent json)
+### komando -o json host rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host mv OLD NEW","hint":"for example: komando host mv web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host mv (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando host mv OLD NEW
-### komando -o json host mv (script json)
-exit 2
---- stdout
-{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host mv OLD NEW","hint":"for example: komando host mv web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text host mv (script text)
+### komando -o text host rename (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host mv OLD NEW
-### komando -o json host mv x1 (agent json)
+Error: missing arguments; usage: komando host rename OLD NEW
+### komando -o json host rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host mv OLD NEW","hint":"for example: komando host mv web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host mv x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando host mv OLD NEW
-### komando -o json host mv x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host mv OLD NEW","hint":"for example: komando host mv web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text host mv x1 (script text)
+### komando -o text host rename (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host mv OLD NEW
+Error: missing arguments; usage: komando host rename OLD NEW
+### komando -o json host rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando host rename OLD NEW
+### komando -o json host rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando host rename OLD NEW
 ### komando -o json host rm (agent json)
 exit 2
 --- stdout
@@ -3398,46 +3398,46 @@ exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando key gen NAME
-### komando -o json key mv (agent json)
+### komando -o json key rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key mv OLD NEW","hint":"for example: komando key mv deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text key mv (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key mv OLD NEW
-### komando -o json key mv (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key mv OLD NEW","hint":"for example: komando key mv deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key mv (script text)
+### komando -o text key rename (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key mv OLD NEW
-### komando -o json key mv x1 (agent json)
+Error: missing arguments; usage: komando key rename OLD NEW
+### komando -o json key rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key mv OLD NEW","hint":"for example: komando key mv deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text key mv x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key mv OLD NEW
-### komando -o json key mv x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key mv OLD NEW","hint":"for example: komando key mv deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key mv x1 (script text)
+### komando -o text key rename (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando key mv OLD NEW
+Error: missing arguments; usage: komando key rename OLD NEW
+### komando -o json key rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text key rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando key rename OLD NEW
+### komando -o json key rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text key rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando key rename OLD NEW
 ### komando -o json key revoke (agent json)
 exit 2
 --- stdout
@@ -4718,46 +4718,46 @@ exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando secret get NAME
-### komando -o json secret mv (agent json)
+### komando -o json secret rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret mv OLD NEW","hint":"for example: komando secret mv vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text secret mv (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret mv OLD NEW
-### komando -o json secret mv (script json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret mv OLD NEW","hint":"for example: komando secret mv vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret mv (script text)
+### komando -o text secret rename (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando secret mv OLD NEW
-### komando -o json secret mv x1 (agent json)
+Error: missing arguments; usage: komando secret rename OLD NEW
+### komando -o json secret rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret mv OLD NEW","hint":"for example: komando secret mv vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text secret mv x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret mv OLD NEW
-### komando -o json secret mv x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret mv OLD NEW","hint":"for example: komando secret mv vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret mv x1 (script text)
+### komando -o text secret rename (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando secret mv OLD NEW
+Error: missing arguments; usage: komando secret rename OLD NEW
+### komando -o json secret rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text secret rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando secret rename OLD NEW
+### komando -o json secret rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text secret rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando secret rename OLD NEW
 ### komando -o json secret rm (agent json)
 exit 2
 --- stdout
@@ -5758,46 +5758,46 @@ exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando vpn edit NAME
-### komando -o json vpn mv (agent json)
+### komando -o json vpn rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn mv OLD NEW","hint":"for example: komando vpn mv office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn mv (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando vpn mv OLD NEW
-### komando -o json vpn mv (script json)
-exit 2
---- stdout
-{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn mv OLD NEW","hint":"for example: komando vpn mv office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text vpn mv (script text)
+### komando -o text vpn rename (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn mv OLD NEW
-### komando -o json vpn mv x1 (agent json)
+Error: missing arguments; usage: komando vpn rename OLD NEW
+### komando -o json vpn rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn mv OLD NEW","hint":"for example: komando vpn mv office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn mv x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando vpn mv OLD NEW
-### komando -o json vpn mv x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn mv OLD NEW","hint":"for example: komando vpn mv office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text vpn mv x1 (script text)
+### komando -o text vpn rename (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn mv OLD NEW
+Error: missing arguments; usage: komando vpn rename OLD NEW
+### komando -o json vpn rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando vpn rename OLD NEW
+### komando -o json vpn rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando vpn rename OLD NEW
 ### komando -o json vpn rm (agent json)
 exit 2
 --- stdout

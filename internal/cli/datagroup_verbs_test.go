@@ -20,7 +20,7 @@ func TestDataGroupInventoryVerbsPointToSharedCommands(t *testing.T) {
 		{[]string{"cache", "show", "c1"}, "komando conn show NAME"},
 		{[]string{"queue", "edit", "q1"}, "komando conn edit NAME"},
 		{[]string{"storage", "test", "s1"}, "komando test NAME"},
-		{[]string{"cluster", "mv", "a", "b"}, "komando conn mv OLD NEW"},
+		{[]string{"cluster", "mv", "a", "b"}, "komando conn rename OLD NEW"},
 		{[]string{"registry", "test", "r1"}, "komando test NAME"},
 	} {
 		e := wantCode(t, "USAGE", c.args...)

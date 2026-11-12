@@ -72,13 +72,13 @@ into `pbcopy`).
 ## Rename, copy and remove
 
 ```bash
-komando secret mv vpn-password office-vpn-pass --dry-run   # what would change
-komando secret mv vpn-password office-vpn-pass             # every server, conn, key and VPN follows
+komando secret rename vpn-password office-vpn-pass --dry-run   # what would change
+komando secret rename vpn-password office-vpn-pass             # every server, conn, key and VPN follows
 komando secret cp db-pass db-pass-old                      # a copy; nothing else changes
 komando secret rm old-pass other-old-pass                  # all of them, or none
 ```
 
-- `secret mv` points every server, conn, key and VPN that used `secret:OLD`
+- `secret rename` points every server, conn, key and VPN that used `secret:OLD`
   at `secret:NEW` in the same step (conn URL options such as
   `?ca=secret:OLD` too). Scripts and files of your own are not changed.
 - When NEW exists, add `--overwrite`; what uses NEW then gets the value of OLD.
@@ -118,7 +118,7 @@ An agent never sees a value: output shows `[secret:NAME]` or `[hidden]`.
 | store a token a program made | `echo "$TOKEN" \| komando secret set NAME` or `--from-env VAR` | |
 | preview a change | the same command with `--dry-run` | `meta.would_be_blocked` names what the real run needs |
 | use a secret | `secret:NAME` in a flag | `SECRET_DESTINATION`: a person allows where it goes |
-| rename, copy, remove | `secret mv`, `secret cp`, `secret rm` | |
+| rename, copy, remove | `secret rename`, `secret cp`, `secret rm` | |
 | read or compare a value | asks the user (`secret get --reveal`, `secret check`) | `REVEAL_NEEDS_HUMAN`, `NEEDS_PERSON` |
 
 The agent never asks for a password in the chat: the hint names the

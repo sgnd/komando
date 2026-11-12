@@ -283,8 +283,9 @@ its name (NAME-key, NAME-config, ...) move to the new name when only this VPN
 uses them, so the old name is free again. Disconnect it first
 (` + "`komando vpn down NAME`" + `) if it is up.`,
 	}[kind]
-	return &cobra.Command{
-		Use:     "mv OLD NEW",
+	return withID(&cobra.Command{
+		Use:     "rename OLD NEW",
+		Aliases: []string{"mv"}, // a permanent synonym; the ID stays kind.mv
 		Short:   "Rename a " + formKindWord(kind) + " and every reference to it",
 		Long:    long,
 		Example: example,
@@ -308,21 +309,21 @@ uses them, so the old name is free again. Disconnect it first
 			out.P.Print(kind+".mv", res, nil)
 			return nil
 		},
-	}
+	}, kind+".mv")
 }
 
 func hostMvCmd() *cobra.Command {
-	return mvCmd("host", `  komando host mv web1 web-01
-  komando host mv db1 prod-db1 --dry-run   # what would change
-  komando host mv db1 prod-db1 --yes       # db1 is protected`, renameHost)
+	return mvCmd("host", `  komando host rename web1 web-01
+  komando host rename db1 prod-db1 --dry-run   # what would change
+  komando host rename db1 prod-db1 --yes       # db1 is protected`, renameHost)
 }
 
 func connMvCmd() *cobra.Command {
-	return mvCmd("conn", `  komando conn mv shop shop-prod
-  komando conn mv prod-db main-db --yes    # prod-db is protected`, renameConn)
+	return mvCmd("conn", `  komando conn rename shop shop-prod
+  komando conn rename prod-db main-db --yes    # prod-db is protected`, renameConn)
 }
 
 func vpnMvCmd() *cobra.Command {
-	return mvCmd("vpn", `  komando vpn mv office office-jkt
-  komando vpn mv office office-jkt --dry-run`, renameVpn)
+	return mvCmd("vpn", `  komando vpn rename office office-jkt
+  komando vpn rename office office-jkt --dry-run`, renameVpn)
 }

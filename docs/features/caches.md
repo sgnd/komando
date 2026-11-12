@@ -170,7 +170,7 @@ komando test cache                            # can komando reach it and log in?
 komando conn show cache                       # its URL, way in and password reference
 komando conn edit cache --via web2            # reach it another way
 komando conn edit cache --protected           # every change then needs a person's yes
-komando conn mv cache sessions-cache           # rename it
+komando conn rename cache sessions-cache           # rename it
 komando conn rm cache                         # remove it from the list (the cache is untouched)
 ```
 

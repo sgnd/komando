@@ -163,7 +163,7 @@ komando registry add lan 'registry://me@registry.lan?tls=skip-verify' --password
 | `?tls=false` | plain HTTP, nothing encrypted (a `registry:2` on a private network) |
 
 The CA secret counts as used by the conn: `secret list` shows it, `secret rm`
-refuses it, `secret mv` changes the URL too, and `export` lists it under
+refuses it, `secret rename` changes the URL too, and `export` lists it under
 `secrets_needed`.
 
 If the CA is somewhere else (mkcert on another computer)

@@ -71,7 +71,7 @@ komando vpn add office proxy --address proxy.corp.example:3128
   (WireGuard) or `NAME-config` (OpenVPN). If a secret of that name exists
   already, `vpn add` stops with `SECRET_EXISTS` and saves nothing, so it
   never replaces a secret that a server or a file uses. Pick another VPN
-  name, or move the secret away first (`komando secret mv`, or `komando
+  name, or move the secret away first (`komando secret rename`, or `komando
   secret rm` if an earlier VPN of that name left it). `--overwrite` may
   reuse the secrets of the VPN it replaces, when nothing else uses them,
   and a secret that nothing uses and that holds the same key already (the
@@ -151,7 +151,7 @@ komando vpn test office                       # does it connect? (same as komand
 komando vpn show office                       # its settings and what uses it
 komando vpn edit office --check 10.0.0.6:22   # change a setting (see the list below)
 komando vpn status                            # which are up, since when, what uses them
-komando vpn mv office office-jkt              # rename; every --via path follows
+komando vpn rename office office-jkt              # rename; every --via path follows
 komando vpn rm office                         # remove (several names allowed)
 ```
 
@@ -170,7 +170,7 @@ komando vpn rm office                         # remove (several names allowed)
   (`SAFETY_SETTING`): another CA lets another server get the VPN's login.
 - To give a WireGuard or OpenVPN VPN a new config file, add it again with
   `--overwrite`.
-- `vpn mv` refuses a VPN that is up: run `komando vpn down NAME` first.
+- `vpn rename` refuses a VPN that is up: run `komando vpn down NAME` first.
   The vault secrets `vpn add` made under its name (`OLD-key`, `OLD-psk`,
   `OLD-config`, `OLD-pass`) move to the new name when only this VPN uses
   them, so a new VPN can take the old name.

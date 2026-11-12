@@ -29,7 +29,7 @@ komando db query app-db --write --dry-run "update users set plan = 'pro' where i
 komando db dump app-db --to backups/                 # backups/app-db-<date>.sql.gz
 komando db restore app-db --from backups/app-db-2026-11-12.sql.gz --dry-run
 komando conn edit app-db --protected                 # changes then need a person's yes
-komando conn mv app-db shop-db                       # rename; every reference follows
+komando conn rename app-db shop-db                       # rename; every reference follows
 komando conn rm shop-db                              # komando forgets it; the database stays
 ```
 

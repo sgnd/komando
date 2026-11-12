@@ -203,7 +203,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SECRET_DESTINATION` | 6 | an AI agent asked to send …; that needs a person's yes | re-run with --yes after the user agrees |
 | `SECRET_EXISTS` | 8 | secret … is used by … already; --ask-password and --ask-psk do not replace it | use it with --… …, or store this one under another name: `komando secret set NAME`, then --… secret:NAME |
 | `SECRET_IN_ARGS` | 2 | refusing a secret value on the command line: it would be saved in shell history | run `komando secret set …` and type it (hidden), use --from-env VAR, or pipe it on stdin |
-| `SECRET_IN_USE` | 8 | secret … is used by … | point them at another secret first, e.g. `…`, or rename it with `komando secret mv` |
+| `SECRET_IN_USE` | 8 | secret … is used by … | point them at another secret first, e.g. `…`, or rename it with `komando secret rename` |
 | `SECRET_MISMATCH` | 1 | the value is not the one stored in … | if the stored one is wrong, store the right one with `komando secret set …` |
 | `SECRET_NOT_FOUND` | 3 | registry CA …: … | store the CA certificate with `komando secret set NAME < ca.crt` |
 | `SECRET_UNRESOLVED` | 3 | registry CA …: … | store the CA certificate with `komando secret set NAME < ca.crt` |

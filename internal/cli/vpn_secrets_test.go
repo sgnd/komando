@@ -77,7 +77,7 @@ func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 		}
 		e := wantCode(t, "SECRET_EXISTS", args...)
 		if !strings.Contains(e.Message, `"prod-key"`) || !strings.Contains(e.Message, "host web") || !strings.Contains(e.Hint, "pick another VPN name") ||
-			!strings.Contains(e.Hint, "komando secret mv prod-key") {
+			!strings.Contains(e.Hint, "komando secret rename prod-key") {
 			t.Errorf("dry run %v: %s (hint: %s)", dry, e.Message, e.Hint)
 		}
 	}

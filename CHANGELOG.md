@@ -55,6 +55,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- **Renaming an item is `rename`**: `host rename`, `conn rename`,
+  `vpn rename`, `key rename`, `secret rename` and `group rename OLD NEW`.
+  `mv` keeps working there for good and prints nothing extra; the
+  envelope's `command` stays `host.mv` and so on. `fs mv` is unchanged.
 - `cache get --limit` is listed as `int` in `komando schema` (was
   `int64`); the values it takes are the same.
 - `storage rm --prefix` names its safety cap `--max-remove` (default
