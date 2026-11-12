@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A VPN session no longer drops a connection that is still open when
+  `vpn_idle` (30m) passes: a `shell`, `logs --follow` or `tunnel` through
+  a WireGuard, OpenVPN, IPsec or SSL VPN session was cut after 30 minutes
+  because only new logins counted as use.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

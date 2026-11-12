@@ -54,12 +54,12 @@ func vpnServeCmd() *cobra.Command {
 			}
 			fmt.Printf("READY %s\n", ln.Addr())
 			idle, _ := time.ParseDuration(st.Settings.VpnIdle)
-			var last atomic.Int64
-			last.Store(time.Now().Unix())
+			var use sessionUse
+			use.touch()
 			if idle > 0 {
 				go func() {
 					for range time.Tick(time.Minute) {
-						if time.Since(time.Unix(last.Load(), 0)) > idle {
+						if use.idleFor(time.Now()) > idle {
 							ln.Close()
 							return
 						}
@@ -81,11 +81,13 @@ func vpnServeCmd() *cobra.Command {
 			}
 			cm := &connMgr{ctx: ctx, st: st, vpnDial: d}
 			logger := log.New(os.Stdout, "", log.LstdFlags)
-			// only a client that logged in keeps the session from going idle
-			used := func() { last.Store(time.Now().Unix()) }
+			// only a client that logged in keeps the session from going
+			// idle, for as long as its connection stays open
 			acceptLoop(ln, logger, func(c net.Conn) {
 				defer c.Close()
-				socks5Auth(c, cm, logger, socksUser, socksPass, used)
+				loggedIn, done := use.conn()
+				defer done()
+				socks5Auth(c, cm, logger, socksUser, socksPass, loggedIn)
 			})
 			_ = store.UpdateRuntime(func(s *store.State) error {
 				if x := s.Sessions[v.Name]; x != nil && x.PID == os.Getpid() { // not a newer session's entry
@@ -137,4 +139,43 @@ func acceptLoop(ln net.Listener, logger *log.Logger, serve func(net.Conn)) {
 		}
 		go serve(c)
 	}
+}
+
+// sessionUse is how a session's server tells it is idle: no client that
+// logged in has a connection open, and none has for the vpn_idle setting.
+// A long connection (a shell, logs --follow, a tunnel) is use for as long
+// as it stays open; counting only new logins cut it at vpn_idle.
+type sessionUse struct {
+	last   atomic.Int64 // unix seconds of the last login or close
+	active atomic.Int64 // logged-in connections open now
+}
+
+func (u *sessionUse) touch() { u.last.Store(time.Now().Unix()) }
+
+// idleFor is how long the session has been unused at now: 0 while a
+// logged-in connection is open.
+func (u *sessionUse) idleFor(now time.Time) time.Duration {
+	if u.active.Load() > 0 {
+		return 0
+	}
+	return now.Sub(time.Unix(u.last.Load(), 0))
+}
+
+// conn is one client connection's part: loggedIn when it has logged in,
+// done when it closes (always called; it counts only a logged-in one).
+func (u *sessionUse) conn() (loggedIn, done func()) {
+	var in atomic.Bool
+	loggedIn = func() {
+		if in.CompareAndSwap(false, true) {
+			u.active.Add(1)
+			u.touch()
+		}
+	}
+	done = func() {
+		if in.Load() {
+			u.active.Add(-1)
+			u.touch()
+		}
+	}
+	return loggedIn, done
 }
