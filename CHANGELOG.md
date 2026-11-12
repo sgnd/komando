@@ -107,6 +107,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Commands in hints use the words of the command they name, and komando
+  fills them in: drivers say `komando test CONN` (was `komando conn
+  test NAME`), and `komando login SERVER`, `komando shell SERVER`,
+  `komando fs stat SERVER ~/.ssh` and `komando net check TARGET
+  ADDRESS:443` replace HOST. The target the command was given now fills
+  SERVER (a server) and NAME (in a command of its own noun, such as
+  `komando conn edit NAME`) as well as TARGET and CONN.
 - Every safety stop a flag lifts is built by one helper, so its hint
   reads the same wherever it comes from, results per server included
   (`check with --dry-run, ask the user; once they agree, run it again

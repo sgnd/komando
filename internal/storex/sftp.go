@@ -234,5 +234,5 @@ func sftpErr(err error) error {
 	case errors.Is(err, os.ErrPermission):
 		return out.Errf(out.ExitConnect, "STORAGE_AUTH", "the account may not write or read here; check the folder in the conn URL", "permission denied")
 	}
-	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%v", err)
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test CONN` to check the conn", "%v", err)
 }

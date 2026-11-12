@@ -745,7 +745,7 @@ func toolFailed(tool, where string, code int, stderr string, c *store.Conn, dt d
 // through the server.
 func unreachableHint(tool, where string, c *store.Conn) string {
 	if where == "local" {
-		return "check the conn with `komando conn test " + c.Name + "`"
+		return "check the conn with `komando test " + c.Name + "`"
 	}
 	addr, local := "the conn URL's address", "URL-WITH-127.0.0.1"
 	if u, err := url.Parse(c.URL); err == nil && u.Host != "" {

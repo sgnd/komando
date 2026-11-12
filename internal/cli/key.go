@@ -572,7 +572,7 @@ this key.`,
 					return nil, err
 				}
 				if code != 0 {
-					return nil, out.Errf(out.ExitRemote, "DEPLOY_FAILED", "check that ~/.ssh is writable there: `komando fs stat HOST ~/.ssh`", "%s", o)
+					return nil, out.Errf(out.ExitRemote, "DEPLOY_FAILED", "check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh`", "%s", o)
 				}
 				return o, nil
 			})

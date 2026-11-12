@@ -93,9 +93,9 @@ func smbErr(err error) error {
 	var ne net.Error
 	if errors.As(err, &te) || errors.As(err, &ne) || strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "no such host") {
 		return out.Errf(out.ExitConnect, "STORAGE_CONNECT",
-			"run `komando conn test NAME` to check reachability; port 445 is often blocked across the internet, so reach the server --via an SSH host or a VPN", "%v", err)
+			"run `komando test CONN` to check reachability; port 445 is often blocked across the internet, so reach the server --via an SSH host or a VPN", "%v", err)
 	}
-	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%v", err)
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test CONN` to check the conn", "%v", err)
 }
 
 // smbStatusErr explains an NTSTATUS answer to a file operation.
@@ -112,5 +112,5 @@ func smbStatusErr(re *smb2.ResponseError) error {
 	case ntNotEmpty:
 		return out.Usage("the folder is not empty")
 	}
-	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%v", re)
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test CONN` to check the conn", "%v", re)
 }

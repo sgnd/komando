@@ -27,7 +27,7 @@ type runningVpn struct {
 	UsedBy   []string  `json:"used_by,omitempty"`
 }
 
-// runningLogin is a server login kept by `komando login HOST`.
+// runningLogin is a server login kept by `komando login SERVER`.
 type runningLogin struct {
 	Host  string    `json:"host"`
 	Since time.Time `json:"since"`
@@ -48,7 +48,7 @@ func statusCmd() *cobra.Command {
 		Short: "What komando left running: VPNs, logins, tunnels, jobs",
 		Long: `Lists what still runs after the command that started it ended: VPN
 sessions (from vpn up, or started by a command), server logins kept by
-` + "`komando login HOST`" + `, tunnels, and the jobs
+` + "`komando login SERVER`" + `, tunnels, and the jobs
 started on servers. Nothing is contacted, so it is quick and works offline.
 A job is listed until ` + "`komando job rm`" + `; whether it still runs is known on
 its server: ` + "`komando job list --refresh`" + ` asks.

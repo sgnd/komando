@@ -11,7 +11,7 @@ This page is made from the code (`komando schema` lists the same under
 | `AMBIGUOUS_MATCH` | 8 | --old matches … times in … | add surrounding context to --old so it is unique, or pass --all |
 | `AUDIT_TAMPERED` | 1 | the audit log chain is broken at line … | keep a copy of the file and find out who changed it; komando keeps adding records after it |
 | `AUDIT_UNAVAILABLE` | 1 | the store, which keeps the audit log, cannot be written: … | fix the file or folder permissions (`komando doctor` checks them); nothing was run |
-| `AUTH_FAILED` | 4 | … asks … (two-factor login); only a person can answer it, and none is at a terminal here | run `komando login HOST` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it |
+| `AUTH_FAILED` | 4 | … asks … (two-factor login); only a person can answer it, and none is at a terminal here | run `komando login SERVER` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it |
 | `AWS_FAILED` | 4 | AWS profile …: … | check the profile in ~/.aws/config |
 | `AWS_LOGIN_REQUIRED` | 4 | AWS profile …: … | a person runs `komando login aws --profile …` once, then run it again |
 | `AWS_PROFILE_NOT_FOUND` | 3 | there is no AWS profile … | add the profile to ~/.aws/config (or fix --option aws_profile) |
@@ -60,7 +60,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DECLINED` | 6 | not run: the person said no; nothing was changed | run it again to be asked again |
 | `DELETE_FAILED` | 1 | cannot delete …: … | check the file's permissions |
 | `DELIVERY_LIMIT_NEAR` | 8 | subscription … moves a message to its dead-letter topic after … deliveries, and peek would count as one | do not peek this subscription: every delivery counts, and a message delivered too often goes to the dead-letter topic. Peek a subscription of the dead-letter topic instead, or raise maxDeliveryAttempts |
-| `DEPLOY_FAILED` | 5 | key deploy could not add the key to the server's authorized_keys (the server's words follow) | check that ~/.ssh is writable there: `komando fs stat HOST ~/.ssh` |
+| `DEPLOY_FAILED` | 5 | key deploy could not add the key to the server's authorized_keys (the server's words follow) | check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh` |
 | `DIG_MISSING` | 3 | … records need dig, which is not installed on this server | install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), e.g. `komando pkg install TARGET dnsutils`; A and AAAA work without it |
 | `DNS_ERROR` | 4 | the server's name does not resolve on this computer | the name does not resolve here: check it with `komando host show …` and fix it with `komando host edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN |
 | `DOCKER_ERROR` | 5 | docker on the server answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
@@ -68,7 +68,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DOCKER_PERMISSION` | 5 | the login user may not use docker on the server (add --sudo, or the docker group) | add --sudo, or add the login user to the docker group |
 | `DOCTOR_FAILED` | 1 | some checks failed | fix the checks marked ✗ (ok: false) |
 | `DRY_RUN_UNSUPPORTED` | 2 | this change cannot be previewed; run it without --dry-run to make it | run it again without --dry-run to make the change |
-| `DUMP_FAILED` | 5 | the backup stopped before the end; no partial file is left | check the conn with `komando conn test …`; with --run-on HOST, pg_dump or mysqldump on that server runs instead |
+| `DUMP_FAILED` | 5 | the backup stopped before the end; no partial file is left | check the conn with `komando test …`; with --run-on HOST, pg_dump or mysqldump on that server runs instead |
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object (the message names it) | run pg_dump on a server that has it and can reach the database (--run-on HOST), or dump the other tables with --table |
 | `ERROR` | 1 | an error with no more specific code (read the message) | read the message; `komando doctor` checks this computer's setup |
 | `FAILED` | 5 | kubectl exited … | read stderr for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems |
@@ -142,7 +142,7 @@ This page is made from the code (`komando schema` lists the same under
 | `NO_PASSPHRASE` | 2 | the vault has no passphrase to take away | the vault keeps its key in store.key or the OS keychain already; the hint says which |
 | `NO_PUBLIC_KEY` | 2 | komando does not have the public key of … | place ….pub next to the key, then `komando key rm …` and add it again |
 | `NO_RECORDS` | 3 | … has no … records (or does not exist) from this server | check the name and type, and the server's DNS (/etc/resolv.conf) |
-| `NO_RESPONSE` | 4 | no HTTP answer from … | check the URL, and that the server can reach it: `komando net check … HOST:443` |
+| `NO_RESPONSE` | 4 | no HTTP answer from … | check the URL, and that the server can reach it: `komando net check … ADDRESS:443` |
 | `NO_SYSTEMD` | 3 | systemd is not running on this server | this server runs without systemd (a container?); read logs with `komando logs TARGET --file PATH` or `komando docker logs` |
 | `NO_TUNNEL_NEEDED` | 2 | … has no --via, so it is reachable without a tunnel | connect to … directly |
 | `NXDOMAIN` | 3 | … does not resolve from this server | check the name, and the server's DNS (/etc/resolv.conf) |
@@ -168,7 +168,7 @@ This page is made from the code (`komando schema` lists the same under
 | `PROXY_FAILED` | 4 | proxy command for …: … | check the program in --proxy-command is installed |
 | `PROXY_NOT_FIRST` | 2 | … has a proxy command but is reached through another hop | a proxy command can only start a path; put that host first in --via |
 | `QUEUE_AUTH` | 4 | the brokers refused the login: … | check the user in the URL, the sasl= option and the password reference (`komando conn show NAME`) |
-| `QUEUE_CONNECT` | 4 | cannot connect to …: … | run `komando conn test NAME` to check reachability, or reach the server --via an SSH server that can |
+| `QUEUE_CONNECT` | 4 | cannot connect to …: … | run `komando test CONN` to check reachability, or reach the server --via an SSH server that can |
 | `QUEUE_DENIED` | 5 | the server refused the vhost …: … | check the vhost in the URL's path (%2F is the default vhost "/") and that the user has permissions on it |
 | `QUEUE_ERROR` | 5 | …: could not give back the messages peek pulled: …; nothing is lost | Pub/Sub gives the messages out again once the subscription's ack deadline has passed |
 | `QUEUE_EXISTS` | 8 | queue … already exists | pick another name, or see it with `komando queue describe CONN …` |
@@ -197,7 +197,7 @@ This page is made from the code (`komando schema` lists the same under
 | `REVEAL_NEEDS_HUMAN` | 6 | --reveal only works for a person at a terminal | ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead |
 | `REVEAL_NEEDS_PERSON` | 6 | --reveal needs the user's yes | values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen |
 | `REVISION_NOT_FOUND` | 3 | no earlier revision to go back to | see the revisions with `komando cluster history CONN deployment/NAME` |
-| `REVOKE_FAILED` | 5 | the key could not be removed from a server's authorized_keys | run it again; to look at the file: `komando fs cat HOST ~/.ssh/authorized_keys` |
+| `REVOKE_FAILED` | 5 | the key could not be removed from a server's authorized_keys | run it again; to look at the file: `komando fs cat SERVER ~/.ssh/authorized_keys` |
 | `ROLLOUT_FAILED` | 5 | pods stuck for … | see why with `komando cluster describe TARGET …`; `komando cluster rollback` goes back |
 | `ROLLOUT_TIMEOUT` | 7 | not rolled out after … (replicas …)… | see the tasks with `komando cluster describe … service/…` |
 | `RULE_NOT_FOUND` | 3 | no custom deny rule named … | see the custom rules and their ids with `komando policy list` |
@@ -230,7 +230,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SSM_FAILED` | 4 | AWS Session Manager could not open a session to the instance | check the instance ID, its SSM agent and your AWS login (`komando login aws`) |
 | `STATE_CORRUPT` | 1 | corrupt state file …: … | the file is empty or broken, most likely cut short by a crash or power loss; ask the user to restore it from a backup (Time Machine or similar) before sealing |
 | `STORAGE_AUTH` | 4 | an azblob conn needs the storage account's key or a SAS token | store the account key or a SAS token with `komando secret set NAME` and pass --password-ref secret:NAME |
-| `STORAGE_CONNECT` | 4 | komando could not reach the bucket or file server | run `komando conn test NAME` to check reachability |
+| `STORAGE_CONNECT` | 4 | komando could not reach the bucket or file server | run `komando test CONN` to check reachability |
 | `STORAGE_ERROR` | 5 | the file is in use | another program has the file open; close it there and run it again |
 | `STORAGE_TLS` | 4 | the storage server's TLS certificate does not verify: … | if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL |
 | `STORE_BUSY` | 8 | komando's store stayed busy for …, so the server's host key could not be checked: … | another komando process is writing komando's store; a long `komando seal` or a stuck komando: wait for it to finish, then run it again |
@@ -287,7 +287,7 @@ This page is made from the code (`komando schema` lists the same under
 | `VPN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `VPN_IN_USE` | 8 | VPN … is on the --via path of … | change their --via first |
 | `VPN_LOGIN_REQUIRED` | 4 | VPN … is not connected and needs a person to log in | ask a person to run `komando vpn up …` (it needs their login); then run it again |
-| `VPN_NOT_FOR_OPENSSH` | 2 | VPN … (…) runs inside komando; OpenSSH cannot use it | use `komando shell HOST` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via |
+| `VPN_NOT_FOR_OPENSSH` | 2 | VPN … (…) runs inside komando; OpenSSH cannot use it | use `komando shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via |
 | `VPN_NOT_FOUND` | 3 | no VPN named … | see them with `komando vpn list` |
 | `VPN_OS_MODE_REMOVED` | 2 | VPN … uses OpenVPN OS mode (--os-mode), which komando no longer has | add it again with komando's own client: `komando vpn add … openvpn --config FILE.ovpn --check HOST:PORT --overwrite` (plus --user and --password-ref if it logs in) |
 | `VPN_STOP_FAILED` | 1 | could not disconnect …: … | run `komando vpn down …` again; if it still fails, end process … yourself |

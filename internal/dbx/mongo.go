@@ -84,7 +84,7 @@ func mongoConnectErr(t driver.Target, err error) error {
 	case strings.Contains(msg, "x509") || strings.Contains(msg, "certificate"):
 		return out.Errf(out.ExitConnect, "DB_CONNECT", "the server's certificate could not be checked: give the CA that signed it with ?ca=secret:NAME", "cannot connect to %s: %v", t.Where(), err)
 	}
-	return out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando conn test NAME`; through a bastion, add --via HOST", "cannot connect to %s: %v", t.Where(), err)
+	return out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando test CONN`; through a bastion, add --via HOST", "cannot connect to %s: %v", t.Where(), err)
 }
 
 func mongoErr(err error) error {
@@ -99,7 +99,7 @@ func mongoErr(err error) error {
 	case errors.Is(err, context.DeadlineExceeded):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "MongoDB did not answer in time")
 	}
-	return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando conn test NAME`", "%v", err)
+	return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando test CONN`", "%v", err)
 }
 
 // ParseMongoCommand reads a command document written as JSON (MongoDB

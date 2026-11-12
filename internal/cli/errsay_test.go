@@ -146,6 +146,18 @@ func TestFillHint(t *testing.T) {
 	if e.Hint != "`komando exec web1 -- true`; `komando db query CONN \"select 1\"`" {
 		t.Errorf("server: got %q", e.Hint)
 	}
+	// S-8.7: SERVER only with a server, NAME only in a command of the
+	// target's own noun, CONN in `komando test CONN`
+	e = out.Errf(out.ExitConnect, "X", "`komando fs stat SERVER ~/.ssh`; `komando host edit NAME --key K`; `komando conn edit NAME --via HOST`", "x")
+	fillHint(e, "web1")
+	if e.Hint != "`komando fs stat web1 ~/.ssh`; `komando host edit web1 --key K`; `komando conn edit NAME --via HOST`" {
+		t.Errorf("server: got %q", e.Hint)
+	}
+	e = out.Errf(out.ExitConnect, "X", "`komando test CONN`; `komando fs stat SERVER ~/.ssh`; `komando conn edit NAME --via HOST`", "x")
+	fillHint(e, "pg")
+	if e.Hint != "`komando test pg`; `komando fs stat SERVER ~/.ssh`; `komando conn edit pg --via HOST`" {
+		t.Errorf("conn: got %q", e.Hint)
+	}
 	e = out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando conn test NAME`", "x")
 	fillHint(e, "nosuch") // not a name komando knows: only the spelling changes
 	if e.Hint != "run `komando test NAME`" {

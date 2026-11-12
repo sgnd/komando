@@ -247,18 +247,20 @@ func addHint(family, code string) string {
 
 // fillHint puts the target into the commands a hint names with a
 // placeholder: drivers and helpers that do not know the conn's name write
-// `komando conn test NAME` or `komando cluster events TARGET`, and the
-// next step should be one to copy. target is the command's first argument.
-// TARGET is filled only with a server or conn, CONN only with a conn, and
-// `komando test NAME` with any of those or a VPN, so `vpn up corp` never
-// turns into `komando exec corp`. `komando conn test` becomes
-// `komando test`, the one spelling.
+// `komando test CONN` or `komando cluster events TARGET`, and the next
+// step should be one to copy (S-8.7). target is the command's first
+// argument. TARGET is filled with a server or conn, SERVER only with a
+// server, CONN only with a conn, and NAME only in a command of the
+// target's own noun (`komando conn edit NAME` with a conn), so `vpn up
+// corp` never turns into `komando exec corp`. `komando test NAME` takes
+// any of them or a VPN. `komando conn test` becomes `komando test`, the
+// one spelling.
 func fillHint(e *out.Error, target string) {
 	if e.Hint == "" || !strings.Contains(e.Hint, "`komando ") {
 		return
 	}
 	e.Hint = strings.ReplaceAll(e.Hint, "`komando conn test ", "`komando test ")
-	if target == "" || !placeholder.MatchString(e.Hint) && !strings.Contains(e.Hint, "`komando test NAME") {
+	if target == "" || !placeholder.MatchString(e.Hint) {
 		return // nothing to fill: no need to read the inventory
 	}
 	st, err := loadState()
@@ -270,20 +272,28 @@ func fillHint(e *out.Error, target string) {
 		return
 	}
 	e.Hint = hintCmd.ReplaceAllStringFunc(e.Hint, func(c string) string {
-		c = placeholder.ReplaceAllStringFunc(c, func(p string) string {
+		words := strings.Fields(strings.Trim(c, "`"))
+		noun := ""
+		if len(words) > 1 {
+			noun = words[1]
+		}
+		return placeholder.ReplaceAllStringFunc(c, func(p string) string {
 			word := strings.TrimSpace(p)
-			if word == "CONN" && kind != "conn" || word == "TARGET" && kind == "vpn" {
+			switch {
+			case word == "CONN" && kind != "conn",
+				word == "SERVER" && kind != "host",
+				word == "TARGET" && kind == "vpn",
+				word == "NAME" && noun != kind && noun != "test":
 				return p
 			}
 			return p[:len(p)-len(word)] + name
 		})
-		return strings.Replace(c, "`komando test NAME", "`komando test "+name, 1)
 	})
 }
 
 var (
 	hintCmd     = regexp.MustCompile("`komando [^`]*`")
-	placeholder = regexp.MustCompile(`(\s)(?:TARGET|CONN)\b`)
+	placeholder = regexp.MustCompile(`(\s)(?:TARGET|SERVER|CONN|NAME)\b`)
 )
 
 // article is "a" or "an" for word, by its first letter.

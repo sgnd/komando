@@ -339,7 +339,7 @@ func vetImportConns(st *store.State, plan *importPlan, overwrite bool, skip func
 			renameImported(st, plan, c)
 		}
 		for _, w := range tls.Warnings {
-			w = strings.ReplaceAll(w, "conn test "+name+"`", "conn test "+c.Name+"`")
+			w = strings.ReplaceAll(w, "`komando test "+name+"`", "`komando test "+c.Name+"`")
 			plan.ConnNotes[c] = append(plan.ConnNotes[c], c.Name+": "+w)
 		}
 		if r := skip("conn", c.Name); r != "" {

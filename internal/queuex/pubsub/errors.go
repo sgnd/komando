@@ -49,7 +49,7 @@ func connectErr(t driver.Target, err error) error {
 	case strings.Contains(msg, "not Pub/Sub JSON") || strings.Contains(msg, "server gave HTTP response to HTTPS client"):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check ?endpoint=: it must be a Pub/Sub server (http:// for the emulator)", "cannot connect to %s: %s", t.Address, msg)
 	}
-	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando conn test NAME` to check reachability, or reach Pub/Sub --via a server that can",
+	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando test CONN` to check reachability, or reach Pub/Sub --via a server that can",
 		"cannot connect to %s: %s", t.Address, msg)
 }
 
@@ -76,7 +76,7 @@ func opErr(err error, what string, missing func(string) error) error {
 	}
 	var api *apiError
 	if !errors.As(err, &api) {
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the connection to Pub/Sub failed; run `komando conn test NAME`", "%s: %v", what, err)
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the connection to Pub/Sub failed; run `komando test CONN`", "%s: %v", what, err)
 	}
 	switch {
 	case api.HTTP == 404 && missing != nil:

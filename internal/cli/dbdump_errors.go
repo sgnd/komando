@@ -67,7 +67,7 @@ func toolHint(stderr, conn string) string {
 	case strings.Contains(stderr, "Access denied"), strings.Contains(stderr, "password authentication failed"):
 		return "check the user in the conn URL and its --password-ref (`komando conn show " + conn + "`)"
 	}
-	return "read the message; `komando conn test " + conn + "` checks reachability"
+	return "read the message; `komando test " + conn + "` checks reachability"
 }
 
 func lastLines(s string, n int) string {
@@ -101,7 +101,7 @@ func dumpErr(err error, c *store.Conn) error {
 			"run pg_dump on a server that has it and can reach the database (--run-on HOST), or dump the other tables with --table",
 			"%v", err)
 	}
-	return out.Errf(out.ExitRemote, "DUMP_FAILED", "check the conn with `komando conn test "+c.Name+"`; with --run-on HOST, pg_dump or mysqldump on that server runs instead", "%v", err)
+	return out.Errf(out.ExitRemote, "DUMP_FAILED", "check the conn with `komando test "+c.Name+"`; with --run-on HOST, pg_dump or mysqldump on that server runs instead", "%v", err)
 }
 
 // sqliteRestoreHint: a SQLite backup is a copy of the database file.

@@ -110,7 +110,7 @@ func secureConnURL(c *store.Conn, res *connResult) error {
 	if u := verifiedTLSURL(c.URL, t.Kind.Name); u != "" {
 		c.URL = u
 		res.Warnings = append(res.Warnings, "the URL did not say how to use TLS, so komando added "+added+
-			": TLS that checks the server's certificate. If the server has no TLS or a certificate from its own CA, `komando conn test "+c.Name+"` says what to do")
+			": TLS that checks the server's certificate. If the server has no TLS or a certificate from its own CA, `komando test "+c.Name+"` says what to do")
 	}
 	return nil
 }

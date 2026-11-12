@@ -37,7 +37,7 @@ func connectErr(t driver.Target, err error) error {
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check that this port speaks the NATS client protocol (4222 by default; not the monitoring port 8222 or a websocket port)",
 			"cannot connect to %s: %s", t.Address, msg)
 	}
-	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando conn test NAME` to check reachability, or reach the server --via an SSH server that can",
+	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando test CONN` to check reachability, or reach the server --via an SSH server that can",
 		"cannot connect to %s: %s", t.Address, msg)
 }
 
@@ -74,7 +74,7 @@ func (n *Nats) opErr(err error, what string) error {
 	case errors.As(err, &api):
 		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read the server's words above; `komando queue describe CONN STREAM` shows the stream's settings", "%s: %s", what, api.Description)
 	}
-	return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the connection to the server failed; run `komando conn test NAME`", "%s: %v", what, err)
+	return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the connection to the server failed; run `komando test CONN`", "%s: %v", what, err)
 }
 
 func noAnswer(err error) bool {

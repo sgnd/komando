@@ -61,9 +61,9 @@ func webErr(what string, resp *http.Response, err error) error {
 		}
 		var ne net.Error
 		if errors.As(err, &ne) || strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "no such host") {
-			return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando conn test NAME` to check reachability", "%v", err)
+			return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando test CONN` to check reachability", "%v", err)
 		}
-		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%v", err)
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test CONN` to check the conn", "%v", err)
 	}
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	msg := strings.TrimSpace(string(body))
@@ -77,7 +77,7 @@ func webErr(what string, resp *http.Response, err error) error {
 		return out.Errf(out.ExitConnect, "STORAGE_AUTH", "check the conn's user, key or token reference; it may lack permission for this action",
 			"%s: %s %s", what, resp.Status, msg)
 	}
-	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%s: %s %s", what, resp.Status, msg)
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test CONN` to check the conn", "%s: %s %s", what, resp.Status, msg)
 }
 
 // do sends req and returns the answer when its status is one of ok;

@@ -151,7 +151,7 @@ func (c *bqConnector) connectErr(err error) error {
 func bigqueryErr(err error) error {
 	var e *bqError
 	if !errors.As(err, &e) {
-		return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando conn test NAME` to check the project and the login", "%v", err)
+		return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando test CONN` to check the project and the login", "%v", err)
 	}
 	low := strings.ToLower(e.Msg)
 	switch {

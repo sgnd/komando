@@ -788,7 +788,7 @@ func connectErr(t driver.Target, err error) error {
 		return out.Errf(out.ExitConnect, "CACHE_CONNECT", "the server does not speak TLS on this port: check the port, or reach it --via an SSH server with the plain scheme (redis://, memcached://)",
 			"cannot connect to %s: %s", t.Address, msg)
 	}
-	return out.Errf(out.ExitConnect, "CACHE_CONNECT", "run `komando conn test NAME` to check reachability", "cannot connect to %s: %s", t.Address, msg)
+	return out.Errf(out.ExitConnect, "CACHE_CONNECT", "run `komando test CONN` to check reachability", "cannot connect to %s: %s", t.Address, msg)
 }
 
 func isTimeout(err error) bool {

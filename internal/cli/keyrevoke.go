@@ -92,7 +92,7 @@ yourself out. --dry-run counts the lines it would remove.`,
 					return nil, err
 				}
 				if r.ExitCode != 0 {
-					return nil, out.Errf(out.ExitRemote, "REVOKE_FAILED", "run it again; to look at the file: `komando fs cat HOST ~/.ssh/authorized_keys`", "%s", strings.TrimSpace(r.Stderr))
+					return nil, out.Errf(out.ExitRemote, "REVOKE_FAILED", "run it again; to look at the file: `komando fs cat SERVER ~/.ssh/authorized_keys`", "%s", strings.TrimSpace(r.Stderr))
 				}
 				n, _ := strconv.Atoi(strings.TrimSpace(r.Stdout))
 				return n, nil
@@ -146,5 +146,5 @@ func guardRevokeSelf(st *store.State, hosts []*store.Host, key string) error {
 	}
 	askTypes([]string{key}, "keys")
 	return guardConns(st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
-		Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit HOST --key OTHER`)"}})
+		Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit NAME --key OTHER`)"}})
 }

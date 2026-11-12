@@ -30,7 +30,7 @@ func loginCmd() *cobra.Command {
 agent reuse that login. The safety rules, approvals and history of each
 command stay the same.
 
-` + "`komando logout HOST`" + ` ends it sooner, and ` + "`komando status`" + ` lists the kept logins.
+` + "`komando logout SERVER`" + ` ends it sooner, and ` + "`komando status`" + ` lists the kept logins.
 A login to a jump host covers every server behind it. The 8 hours come from
 the login_for setting.
 

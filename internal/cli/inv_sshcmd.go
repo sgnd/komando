@@ -161,7 +161,7 @@ func vpnProxy(st *store.State, v *store.Vpn) (string, error) {
 	}
 	if socks == "" {
 		return "", out.Errf(out.ExitUsage, "VPN_NOT_FOR_OPENSSH",
-			"use `komando shell HOST` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via",
+			"use `komando shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via",
 			"VPN %s (%s) runs inside komando; OpenSSH cannot use it", v.Name, v.Kind)
 	}
 	return "nc -X 5 -x " + socks + " %h %p", nil

@@ -594,7 +594,7 @@ func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
 	switch e.kind {
 	case askCode:
 		oe := out.Errf(out.ExitConnect, "AUTH_FAILED",
-			"run `komando login HOST` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it",
+			"run `komando login SERVER` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it",
 			"%s asks %s (two-factor login); only a person can answer it, and none is at a terminal here", name, strconv.Quote(e.question))
 		oe.Hint = strings.Replace(oe.Hint, "HOST", name, 1) // a command to run as it is
 		return oe

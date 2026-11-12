@@ -34,9 +34,9 @@ import (
 // process keeps that login for the login_for setting (8h). Later commands
 // reach the server through it, an AI agent's too, without a person; every
 // other check (rules, approvals, audit) still runs in those commands.
-// `komando logout HOST` ends it sooner. See sshx/held.go.
+// `komando logout SERVER` ends it sooner. See sshx/held.go.
 
-// loginHost runs `komando login HOST`.
+// loginHost runs `komando login SERVER`.
 func loginHost(ctx context.Context, name string) error {
 	st, err := loadState()
 	if err != nil {
@@ -242,7 +242,7 @@ func safeFileName(name string) string {
 	}, name)
 }
 
-// loginHolderCmd is the background process of `komando login HOST`: it
+// loginHolderCmd is the background process of `komando login SERVER`: it
 // logs in (its questions go to the person through `login` on its output)
 // and then serves the login on a Unix socket until the login_for time, a
 // `komando logout`, or the server closing the connection.
@@ -426,7 +426,7 @@ func logoutCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "logout [HOST...]",
 		Short: "End server logins kept by `komando login` (--all for every one)",
-		Long: `Ends what ` + "`komando login HOST`" + ` keeps: the connection closes, and later
+		Long: `Ends what ` + "`komando login SERVER`" + ` keeps: the connection closes, and later
 commands to that server log in again (a two-factor server asks a person).
 ` + "`komando status`" + ` lists the logins that are kept.`,
 		Example: `  komando logout web1
