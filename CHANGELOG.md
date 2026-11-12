@@ -728,6 +728,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A plain runtime.json beside the sealed store is no longer trusted: it
+  is read as empty (only `komando seal` reads one, from a folder of
+  before). Before, a program that wrote one could point a server's held
+  login at its own socket and see every command, password and file sent
+  to that server.
 - **Over 150 bugs found by a hands-on review of every command.** The main
   ones:
   - **Dry runs:** a previewed edit says "would change", not "changed";
