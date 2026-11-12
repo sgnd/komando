@@ -56,8 +56,8 @@ func dbUserChangeCmd(action string) *cobra.Command {
 	var ref, host string
 	var noLogin bool
 	parts := map[string][3]string{
-		"add":    {"add CONN NAME --password-ref REF", "Create a user with a password from a secret reference", "  komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},
-		"passwd": {"passwd CONN NAME --password-ref REF", "Set a user's password from a secret reference (rotation)", "  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},
+		"add":    {"add CONN NAME", "Create a user with a password from a secret reference", "  komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},
+		"passwd": {"passwd CONN NAME", "Set a user's password from a secret reference (rotation)", "  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},
 		"rm":     {"rm CONN NAME", "Remove a user (needs --allow-dangerous)", "  komando db user rm prod-db old_app --allow-dangerous"},
 	}[action]
 	c := &cobra.Command{
@@ -167,7 +167,7 @@ func dbGrantCmd(revoke bool) *cobra.Command {
 		verb = "revoke"
 	}
 	c := &cobra.Command{
-		Use:   verb + " CONN USER (--privileges P,... --on OBJECT | --role ROLE)",
+		Use:   verb + " CONN USER",
 		Short: map[bool]string{false: "Give a user privileges on a database, schema or table (or a role)", true: "Take privileges (or a role) away from a user"}[revoke],
 		Long: `OBJECT for PostgreSQL: database:NAME, schema:NAME, table:[SCHEMA.]TABLE or
 all-tables:SCHEMA; --role ROLE ` + map[bool]string{false: "makes the user a member of ROLE", true: "takes the user out of ROLE"}[revoke] + `. For MySQL:
@@ -184,11 +184,12 @@ IAM). --dry-run shows the statement.`,
 			if privs != "" {
 				gr.Privs = strings.Split(privs, ",")
 			}
+			ex := "for example: komando db " + verb + " " + argQ(args[0]) + " " + argQ(args[1]) + " --privileges SELECT --on all-tables:public, or --role readers (see `komando db " + verb + " --help` for OBJECT on each database)"
 			if (role == "") == (privs == "") {
-				return out.Usage("give --privileges with --on, or --role")
+				return out.Usage("give --privileges with --on, or --role").WithHint(ex)
 			}
 			if privs != "" && on == "" {
-				return out.Usage("--privileges needs --on OBJECT")
+				return out.Usage("--privileges needs --on OBJECT").WithHint(ex)
 			}
 			v := driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"db-grant"}, Reasons: []string{"db " + verb + " for " + args[1]}}
 			return changeDB(cmd.Context(), "db."+verb, args[0], v, map[string]any{"user": args[1]},

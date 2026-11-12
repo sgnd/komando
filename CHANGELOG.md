@@ -15,6 +15,13 @@ its highlights; the sections below them give the details. Versions follow
   `user lock` and `unlock`, instead of a generic remote failure (exit 5).
   The JSON result keeps its shape.
 
+- `db dump` and `db restore` name their argument `CONN` (it was
+  `DATABASE`), and no `db` usage line carries flags any more (`restore`,
+  `user add`/`passwd`, `grant`/`revoke`), so shell completion and pickers
+  offer your databases there. `db restore` without `--from` and `db grant`
+  or `revoke` without `--privileges`/`--role` now give a runnable example
+  in the hint.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights

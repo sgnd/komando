@@ -117,10 +117,10 @@ func dbDumpCmd() *cobra.Command {
 	var to, on string
 	var o dumpOpts
 	c := &cobra.Command{
-		Use:   "dump DATABASE [--to FILE]",
+		Use:   "dump CONN",
 		Short: "Save a copy of a database to a file on this computer",
 		Long: `Saves a copy of the database to a file on this computer. Without --to the
-file is DATABASE-<date>.sql.gz (SQLite: DATABASE-<date>.db) in this
+file is CONN-<date>.sql.gz (SQLite: CONN-<date>.db) in this
 folder. A file ending in .gz is compressed. Afterwards komando prints the
 command that loads it back.
 
@@ -142,15 +142,18 @@ holds your data: it is created readable only by you.`,
   komando db dump local --to backup.db`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if to == "" {
-				to = defaultDumpFile(args[0], o.format, time.Now())
-				if st, err := loadState(); err == nil {
-					if c, err := singleConn(st, args[0], "db"); err == nil {
-						if t, err := driver.Parse(c.URL); err == nil && t.Kind.File {
-							to = strings.TrimSuffix(to, ".sql.gz") + ".db"
-						}
+			conn := args[0]
+			if st, err := loadState(); err == nil {
+				if c, err := singleConn(st, args[0], "db"); err == nil {
+					conn = c.Name // the file and the note name the conn, not a selector
+					if t, err := driver.Parse(c.URL); err == nil && t.Kind.File && to == "" {
+						to = defaultDumpFile(conn, o.format, time.Now())
+						to = strings.TrimSuffix(to, ".sql.gz") + ".db"
 					}
 				}
+			}
+			if to == "" {
+				to = defaultDumpFile(conn, o.format, time.Now())
 			}
 			if o.format != "plain" && o.format != "custom" {
 				return out.Usage("--format is plain (SQL) or custom (PostgreSQL archive)")
@@ -162,12 +165,12 @@ holds your data: it is created readable only by you.`,
 				return err
 			}
 			if !g.dryRun {
-				textNote("To load it back: %s", restoreNote(args[0], to))
+				textNote("To load it back: %s", restoreNote(conn, to))
 			}
 			return nil
 		},
 	}
-	c.Flags().StringVar(&to, "to", "", "file to create on this computer (default: DATABASE-<date>.sql.gz; SQLite: DATABASE-<date>.db)")
+	c.Flags().StringVar(&to, "to", "", "file to create on this computer (default: CONN-<date>.sql.gz; SQLite: CONN-<date>.db)")
 	c.Flags().StringVar(&o.format, "format", "plain", "plain (SQL) or custom (PostgreSQL archive for pg_restore)")
 	c.Flags().BoolVar(&o.schemaOnly, "schema-only", false, "tables, indexes and functions, no rows")
 	c.Flags().StringArrayVar(&o.tables, "table", nil, "only this table (repeatable; SCHEMA.TABLE on PostgreSQL)")
@@ -178,7 +181,7 @@ holds your data: it is created readable only by you.`,
 func dbRestoreCmd() *cobra.Command {
 	var from, on string
 	c := &cobra.Command{
-		Use:   "restore DATABASE --from FILE",
+		Use:   "restore CONN",
 		Short: "Load a backup into a database (needs --allow-dangerous)",
 		Long: `Runs the SQL in FILE (from ` + "`db dump`" + `, pg_dump, mysqldump or any plain SQL
 file; .gz is read compressed). komando runs the SQL itself, through the
@@ -189,7 +192,7 @@ server; the archive is streamed to it over SSH.
 
 In a terminal komando first offers to save a copy of the database as it is
 now (db dump), so you can go back. Scripts and AI agents get no question: run
-` + "`komando db dump DATABASE`" + ` yourself first.
+` + "`komando db dump CONN`" + ` yourself first.
 
 A restore can overwrite existing data, so it needs --allow-dangerous, plus
 --yes on a protected database. The whole file is checked first: client commands
@@ -205,7 +208,8 @@ MySQL runs the statements in order and stops at the first error.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if from == "" {
-				return out.Usage("give the backup to load with --from FILE")
+				return out.Usage("give the backup to load with --from FILE").
+					WithHint("for example: komando db restore " + argQ(args[0]) + " --from backup.sql.gz --dry-run (`komando db dump` makes the file)")
 			}
 			return runRestore(cmd.Context(), args[0], from, on)
 		},
