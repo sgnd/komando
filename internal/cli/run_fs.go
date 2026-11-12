@@ -208,6 +208,14 @@ func isASymlink(p string) error {
 	return out.Errf(out.ExitConflict, "IS_A_SYMLINK", "drop --no-follow to write the file it points to", "%s is a symbolic link (--no-follow)", p)
 }
 
+// notRootsLink: a write as root met a link another user made, or one into
+// a folder root does not own (sudoFollowScript).
+func notRootsLink(p string) error {
+	return out.Errf(out.ExitConflict, "IS_A_SYMLINK",
+		"look at where it leads (`komando fs stat TARGET PATH`), then write that file by its own path, or write without --sudo",
+		"%s is a link made by another user than root, or one that leads into a folder root does not own: as root, komando does not follow it", p)
+}
+
 // fs rm, mkdir, mv and chmod.
 
 // Exit codes the fs shell scripts use to say what went wrong.

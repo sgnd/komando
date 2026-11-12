@@ -139,9 +139,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 		case r.ExitCode == 95 && o.noFollow:
 			return nil, isASymlink(p)
 		case r.ExitCode == 95:
-			return nil, out.Errf(out.ExitConflict, "IS_A_SYMLINK",
-				"look at where it leads (`komando fs stat TARGET PATH`), then write that file by its own path, or write without --sudo",
-				"%s is a link made by another user than root, or one that leads into a folder root does not own: as root, komando does not follow it", p)
+			return nil, notRootsLink(p)
 		case r.ExitCode == 94 && o.backup:
 			return nil, backupFailed(p, r.Stderr)
 		case r.ExitCode == 96:
