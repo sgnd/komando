@@ -53,7 +53,13 @@ func (r *Rabbit) Peek(ctx context.Context, o queuex.PeekOptions) (*queuex.PeekRe
 				return nil
 			}
 			last = d.DeliveryTag
-			res.Messages = append(res.Messages, delivery(d, o.MaxBytes, quorum))
+			m := delivery(d, o.MaxBytes, quorum)
+			res.Messages = append(res.Messages, m)
+			if limit > 0 && limit-m.Deliveries < keepDeliveries {
+				// giving this one back counts as a delivery: take no more,
+				// so no other message near its limit is put at risk too
+				return nil
+			}
 		}
 		return nil
 	})

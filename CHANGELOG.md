@@ -80,6 +80,20 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `queue purge` and `queue rm` name what they would delete: the person's
+  "Dangerous:" prompt, the approval window and the agent's `POLICY_BLOCKED`
+  message now say `deletes every message in orders-retry`, not only "a
+  topic, queue or stream" on the conn.
+- `queue ls` shows at most `--limit` (`-n`, default 1000) topics, queues or
+  streams, the first by name, and marks a longer list `"truncated": true`
+  with a hint to narrow it. On SQS and Kafka it no longer reads every
+  queue's counts first, so a big account answers within the time limit.
+- `queue peek --wait` on RabbitMQ, NATS, SQS or Pub/Sub is refused
+  (`NOT_SUPPORTED`) instead of being ignored: only a Kafka peek waits.
+- `queue peek` on a RabbitMQ quorum queue takes no more messages once one
+  is near its delivery limit, so a single peek no longer counts down the
+  deliveries of every message behind it.
+- `komando queue --help` shows examples of the usual journey.
 - `komando status` and the restart list after `secret passwd` no longer
   count a tunnel whose process id now belongs to another program (after a
   crash or a restart) as running.

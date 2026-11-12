@@ -139,7 +139,7 @@ func livePeek(ctx context.Context, t *testing.T, q queuex.Queue, name string) {
 	if err != nil || p.Count != 3 || p.Messages[0].Sequence != 2 || p.Messages[2].Sequence != 5 {
 		t.Fatalf("peek oldest: %+v %v", p, err)
 	}
-	if ts, err := q.Topics(ctx, "KOMANDO_*", false); err != nil || len(ts) != 1 || ts[0].Messages != 4 {
+	if ts, err := q.Topics(ctx, "KOMANDO_*", false, 0); err != nil || len(ts) != 1 || ts[0].Messages != 4 {
 		t.Errorf("peek removed messages, or ls is wrong: %+v %v", ts, err)
 	}
 	if _, err := q.Peek(ctx, queuex.PeekOptions{Topic: name, Limit: 1, Partition: 0}); code(err) != "NOT_SUPPORTED" {

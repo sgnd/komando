@@ -62,7 +62,7 @@ func TestLive(t *testing.T) {
 	if d, _ := q.Describe(ctx, dlq); len(d.DeadLetterSources) != 1 {
 		t.Errorf("dead-letter sources: %+v", d.SqsQueueDetail)
 	}
-	ts, err := q.Topics(ctx, "komando-live*", false)
+	ts, err := q.Topics(ctx, "komando-live*", false, 0)
 	if err != nil || len(ts) != 2 || ts[0].Name != main || ts[0].Messages != 3 {
 		t.Errorf("ls: %+v %v", ts, err)
 	}

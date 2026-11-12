@@ -63,13 +63,22 @@ func orDash(s string) string {
 }
 
 type queueTopics struct {
-	Conn   string         `json:"conn"`
-	Topics []queuex.Topic `json:"topics"` // rabbitmq: queues; nats: streams
-	Count  int            `json:"count"`
-	kind   string
+	Conn      string         `json:"conn"`
+	Topics    []queuex.Topic `json:"topics"` // rabbitmq: queues; nats: streams
+	Count     int            `json:"count"`
+	Truncated bool           `json:"truncated,omitempty"` // there are more than --limit
+	kind      string
 }
 
 func (l queueTopics) Text() string {
+	s := l.table()
+	if l.Truncated {
+		s += fmt.Sprintf("\nonly the first %d by name: narrow it with a pattern (komando queue ls %s 'orders-*') or raise --limit\n", l.Count, l.Conn)
+	}
+	return s
+}
+
+func (l queueTopics) table() string {
 	switch {
 	case len(l.Topics) == 0 && (l.kind == "rabbitmq" || l.kind == "sqs"):
 		return "no queues\n"

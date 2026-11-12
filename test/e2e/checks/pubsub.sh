@@ -18,6 +18,8 @@ q $K queue send gcp e2e-orders --value '{"id": 2}' --key k1
 check "pubsub peek of a topic points to its subscriptions" SUBSCRIPTION_NOT_FOUND "$($K queue peek gcp e2e-orders | jget 'd["error"]["code"]')"
 check "pubsub peek pulls and gives back" "2 True" "$($K queue peek gcp e2e-billing | jget '"%d %s" % (d["data"]["count"], d["data"]["requeued"])')"
 check "pubsub peek again sees the same messages" 2 "$($K queue peek gcp e2e-billing | jget 'd["data"]["count"]')"
+check "pubsub peek --wait is for Kafka" NOT_SUPPORTED "$($K queue peek gcp e2e-billing --wait 2s | jget 'd["error"]["code"]')"
+check "pubsub ls -n 1 is cut and says so" "1 True" "$($K queue create gcp e2e-zz >/dev/null; $K queue ls gcp 'e2e-*' -n 1 | jget '"%d %s" % (d["data"]["count"], d["data"].get("truncated"))')"
 check "pubsub describe lists the subscription" e2e-billing "$($K queue describe gcp e2e-orders | jget 'd["data"]["subscription_info"][0]["subscription"]')"
 check "pubsub groups lists subscriptions" pull "$($K queue groups gcp | jget '[g for g in d["data"]["groups"] if g["name"] == "e2e-billing"][0]["delivery"]')"
 check "pubsub lag is not supported" NOT_SUPPORTED "$($K queue lag gcp e2e-billing | jget 'd["error"]["code"]')"
@@ -25,5 +27,7 @@ check "pubsub purge needs --allow-dangerous" POLICY_BLOCKED "$($K queue purge gc
 check "pubsub rm needs --allow-dangerous" POLICY_BLOCKED "$($K queue rm gcp e2e-orders | jget 'd["error"]["code"]')"
 check "pubsub purge empties the subscription" 0 "$($K queue purge gcp e2e-billing --allow-dangerous >/dev/null; $K queue peek gcp e2e-billing | jget 'd["data"]["count"]')"
 q $K queue rm gcp subscriptions/e2e-billing e2e-orders --allow-dangerous
+O=$(ptyrun 'gcp\n' env NO_COLOR=1 TERM=dumb "$K" -o text queue rm gcp e2e-zz | tr -d '\r')
+check "pubsub person: rm names the topic and removes it" "1 TOPIC_NOT_FOUND" "$(grep -c 'deletes e2e-zz and every message in it' <<<"$O") $($K queue describe gcp e2e-zz | jget 'd["error"]["code"]')"
 q $K conn rm gcp
 set -e

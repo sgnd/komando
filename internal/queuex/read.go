@@ -168,7 +168,7 @@ func (k *Kafka) Info(ctx context.Context) (*Info, error) {
 }
 
 // Topics lists topics whose name matches pattern (shell style: orders-*).
-func (k *Kafka) Topics(ctx context.Context, pattern string, internal bool) ([]Topic, error) {
+func (k *Kafka) Topics(ctx context.Context, pattern string, internal bool, limit int) ([]Topic, error) {
 	tds, err := k.adm.ListTopicsWithInternal(ctx)
 	if err != nil {
 		return nil, opErr(err, "topics")
@@ -180,6 +180,7 @@ func (k *Kafka) Topics(ctx context.Context, pattern string, internal bool) ([]To
 		}
 	}
 	sort.Strings(names)
+	names = First(names, limit) // message counts only for those shown
 	res := []Topic{}
 	if len(names) == 0 {
 		return res, nil
@@ -198,6 +199,14 @@ func (k *Kafka) Topics(ctx context.Context, pattern string, internal bool) ([]To
 		res = append(res, t)
 	}
 	return res, nil
+}
+
+// First keeps the first limit names (limit 0: all of them).
+func First[T any](items []T, limit int) []T {
+	if limit > 0 && len(items) > limit {
+		return items[:limit]
+	}
+	return items
 }
 
 // Match says whether name matches a shell-style pattern ("" and "*" match

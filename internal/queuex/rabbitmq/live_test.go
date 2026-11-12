@@ -71,7 +71,7 @@ func TestRabbitLive(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer q2.Close()
-	if _, err := q2.Topics(ctx, "", false); code(err) != "NOT_SUPPORTED" {
+	if _, err := q2.Topics(ctx, "", false, 0); code(err) != "NOT_SUPPORTED" {
 		t.Errorf("ls without management: %v", err)
 	}
 	if inf, err := q2.Info(ctx); err != nil || inf.Version == "" || inf.Management {
@@ -123,7 +123,7 @@ func liveQueue(ctx context.Context, t *testing.T, q queuex.Queue, typ string) {
 	if err != nil || d.Messages != 3 || d.Ready != 3 || d.Type != typ || d.Arguments["x-max-length"] == nil {
 		t.Fatalf("describe: %+v %+v %v", d, d.RabbitQueueDetail, err)
 	}
-	ts, err := q.Topics(ctx, "komando-live-"+typ[:1]+"*", false)
+	ts, err := q.Topics(ctx, "komando-live-"+typ[:1]+"*", false, 0)
 	if err != nil || len(ts) != 1 || ts[0].Messages != 3 || ts[0].Type != typ {
 		t.Fatalf("ls: %+v %v", ts, err)
 	}
@@ -239,4 +239,51 @@ func code(err error) string {
 		return e.Code
 	}
 	return fmt.Sprint(err)
+}
+
+// TestRabbitLivePeekStopsEarly: once a message peek took is near the
+// queue's delivery limit, peek takes no further messages, so it puts only
+// that one closer to its limit, not every message behind it.
+func TestRabbitLivePeekStopsEarly(t *testing.T) {
+	raw := os.Getenv("KOMANDO_E2E_RABBITMQ")
+	if raw == "" {
+		t.Skip("set KOMANDO_E2E_RABBITMQ")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	tg, _ := driver.Parse(raw)
+	q, err := Open(ctx, tg, os.Getenv("KOMANDO_E2E_RABBITMQ_PASSWORD"), nil, 10*time.Second, "komando-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer q.Close()
+	name := "komando-live-early"
+	q.Delete(ctx, []string{name}, false)
+	defer q.Delete(ctx, []string{name}, false)
+	if _, err := q.Create(ctx, queuex.TopicSpec{Topic: name, Type: "quorum", Partitions: -1, Replicas: -1, Config: map[string]string{"x-delivery-limit": "5"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	for i := range 3 {
+		q.Send(ctx, queuex.Message{Topic: name, Value: fmt.Appendf(nil, "m%d", i), Partition: -1}, false)
+	}
+	// limit 5, keep 3: peeks 1 and 2 take all three; peek 3 stops after
+	// the first, which then has 2 deliveries left
+	for i := 1; i <= 2; i++ {
+		if p, err := q.Peek(ctx, queuex.PeekOptions{Topic: name, Limit: 3, Partition: -1}); err != nil || p.Count != 3 {
+			t.Fatalf("peek %d: %+v %v", i, p, err)
+		}
+	}
+	p, err := q.Peek(ctx, queuex.PeekOptions{Topic: name, Limit: 3, Partition: -1})
+	if code(err) != "DELIVERY_LIMIT_NEAR" || p == nil || p.Count != 1 {
+		t.Fatalf("peek 3 took more than the message near its limit: %+v %v", p, err)
+	}
+	// the management API's counts lag a few seconds behind the broker
+	var d *queuex.TopicDetail
+	for range 20 {
+		if d, err = q.Describe(ctx, name); err == nil && d.Messages == 3 {
+			return
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	t.Errorf("a message was lost: %+v %v", d, err)
 }

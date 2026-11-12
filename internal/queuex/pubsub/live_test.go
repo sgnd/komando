@@ -68,7 +68,7 @@ func TestLive(t *testing.T) {
 	if d, err := q.Describe(ctx, sub); err != nil || d.Resource != "subscription" || d.Labels["team"] != "billing" {
 		t.Errorf("describe subscription: %+v %v", d, err)
 	}
-	if ts, err := q.Topics(ctx, "komando-live*", false); err != nil || len(ts) != 2 || ts[0].SubscriptionCount != 1 {
+	if ts, err := q.Topics(ctx, "komando-live*", false, 0); err != nil || len(ts) != 2 || ts[0].SubscriptionCount != 1 {
 		t.Errorf("ls: %+v %v", ts, err)
 	}
 	if gs, err := q.Groups(ctx); err != nil || len(gs) == 0 {

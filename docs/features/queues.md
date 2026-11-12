@@ -76,11 +76,15 @@ komando queue info events                     # brokers (id, address, rack), con
 komando queue ls events                       # every topic, with partitions, replicas, messages
 komando queue ls events 'orders-*'            # topics matching a pattern
 komando queue ls events --internal            # also __consumer_offsets and friends
+komando queue ls events -n 50                 # only the first 50 by name
 komando queue describe events orders          # partitions, offsets, settings, the groups reading it
 komando queue groups events                   # consumer groups: state, members, topics, lag
 komando queue lag events billing              # one group, per topic and partition
 ```
 
+- `ls` shows at most 1000 topics (or queues, or streams), the first by
+  name; `-n` changes that. A longer list says so (`"truncated": true`, and
+  a line in the text) so you can narrow it with a pattern.
 - The message count is the end offset minus the start offset of each
   partition. On a compacted topic (`cleanup.policy=compact`) fewer messages
   may be left.
@@ -99,7 +103,8 @@ komando queue peek events orders --oldest -n 5   # the first ones still kept
 group and never commits an offset, so no application's position moves
 and no message is removed. It stops once it has the messages that were
 there when it started; if nothing comes for `--wait` (5 seconds), it stops
-and says some may be missing.
+and says some may be missing. `--wait` is for Kafka only; the other kinds
+refuse it (`NOT_SUPPORTED`).
 
 - Values that are UTF-8 text are shown as they are; others come as base64
   (`"encoding": "base64"`). A value longer than `max_output` is cut
@@ -141,6 +146,18 @@ komando queue rm events old-orders --allow-dangerous      # delete the topic and
 - `purge` and `rm` cannot be undone, so they need `--allow-dangerous`
   (rules `queue-purge` and `queue-delete` in `komando policy list`). Their
   `--dry-run` lists what would go.
+- A person at a terminal can leave `--allow-dangerous` out: komando says
+  what would be deleted and asks for the conn's name instead.
+
+  ```
+  $ komando queue purge events orders-retry
+  Dangerous: deletes every message in orders-retry (it stays).
+  Type the name events to continue: events
+  ```
+
+  Anything else stops it and changes nothing. An AI agent gets
+  `POLICY_BLOCKED` (exit 6) with the same reason, and adds
+  `--allow-dangerous` only after the person agrees.
 
 ## RabbitMQ
 
@@ -204,14 +221,16 @@ komando queue rm jobs emails --allow-dangerous
     RabbitMQ 4.0, or the queue's own `x-delivery-limit` or policy) it drops
     a message or sends it to its dead-letter queue. So peek shows the count
     (`deliveries`) and stops with `DELIVERY_LIMIT_NEAR` once a message
-    has fewer than 3 deliveries left: do not peek that queue again. Only
+    has fewer than 3 deliveries left: do not peek that queue again. It
+    takes no message after that one, so the messages behind it are not
+    counted down too. Only
     the management API tells a queue's type and its own limit, so peek
     needs `?management=` in the conn's URL: without it (or when the
     management API fails) peek stops before it takes a message
     (`NOT_SUPPORTED`, or the management API's error).
   - A stream queue cannot be peeked this way (`NOT_SUPPORTED`).
-  - peek always reads from the front (`"from": "front"`); `--oldest`,
-    `--partition` and `--wait` are for Kafka.
+  - peek always reads from the front (`"from": "front"`), which is
+    already the oldest; `--partition` and `--wait` are for Kafka.
 - `send` puts the message straight into the queue (through the default
   exchange), as a persistent message, and waits until the server confirms
   it. `--header KEY=VALUE` sets its headers; there is no `--key` or

@@ -86,11 +86,11 @@ func TestManagement(t *testing.T) {
 	if err != nil || inf.Engine != "rabbitmq" || inf.Version != "4.1.4" || inf.Cluster != "rabbit@prod" || inf.Totals.Queues != 2 || len(inf.Nodes) != 2 || inf.Nodes[0].Name != "rabbit@a" {
 		t.Fatalf("info: %+v %v", inf, err)
 	}
-	ts, err := r.Topics(ctx, "", false)
+	ts, err := r.Topics(ctx, "", false, 0)
 	if err != nil || len(ts) != 2 || ts[0].Name != "emails" || ts[1].Type != "quorum" || ts[1].Unacked != 1 {
 		t.Fatalf("ls: %+v %v", ts, err)
 	}
-	if ts, _ := r.Topics(ctx, "ord*", false); len(ts) != 1 {
+	if ts, _ := r.Topics(ctx, "ord*", false, 0); len(ts) != 1 {
 		t.Errorf("ls pattern: %+v", ts)
 	}
 	d, err := r.Describe(ctx, "orders")
@@ -124,7 +124,7 @@ func TestManagement(t *testing.T) {
 		}
 	}
 	r.t.Database = "nowhere"
-	if _, err := r.Topics(ctx, "", false); code(err) != "QUEUE_ERROR" || !strings.Contains(err.Error(), "/api/queues/nowhere") {
+	if _, err := r.Topics(ctx, "", false, 0); code(err) != "QUEUE_ERROR" || !strings.Contains(err.Error(), "/api/queues/nowhere") {
 		t.Errorf("a missing vhost: %v", err)
 	}
 	if _, err := fake(t, r.t.Management, "wrong").Info(ctx); code(err) != "QUEUE_AUTH" {
@@ -143,7 +143,7 @@ func TestWithoutManagement(t *testing.T) {
 	if err != nil || inf.Product != "RabbitMQ" || inf.Management || inf.Platform != "Erlang/OTP 27" || inf.Totals != nil {
 		t.Errorf("info: %+v %v", inf.RabbitInfo, err)
 	}
-	if _, err := r.Topics(ctx, "", false); code(err) != "NOT_SUPPORTED" || !strings.Contains(toErr(err).Hint, "management=15672") {
+	if _, err := r.Topics(ctx, "", false, 0); code(err) != "NOT_SUPPORTED" || !strings.Contains(toErr(err).Hint, "management=15672") {
 		t.Errorf("ls: %v", err)
 	}
 	// AMQP cannot tell a queue's type or its own x-delivery-limit, so
@@ -164,7 +164,7 @@ func TestNotSupported(t *testing.T) {
 	for what, err := range map[string]error{
 		"groups":      second(r.Groups(ctx)),
 		"lag":         second(r.Lag(ctx, "g")),
-		"ls internal": second(r.Topics(ctx, "", true)),
+		"ls internal": second(r.Topics(ctx, "", true, 0)),
 		"peek part":   second(r.Peek(ctx, queuex.PeekOptions{Topic: "q", Limit: 1, Partition: 0})),
 		"send key":    second(r.Send(ctx, queuex.Message{Topic: "q", Key: []byte("k"), Partition: -1}, true)),
 		"send part":   second(r.Send(ctx, queuex.Message{Topic: "q", Partition: 1}, true)),

@@ -67,14 +67,14 @@ func TestNatsRead(t *testing.T) {
 	if err != nil || inf.Engine != "nats" || inf.Version != "2.12.1" || !inf.JetStream || inf.Account.Streams != 2 || inf.ServerName != "fake-1" || inf.ClusterName != "lab" {
 		t.Fatalf("info: %+v %v", inf, err)
 	}
-	ts, err := n.Topics(ctx(t), "", false)
+	ts, err := n.Topics(ctx(t), "", false, 0)
 	if err != nil || len(ts) != 2 || ts[0].Name != "KV_config" || ts[1].Messages != 5 || ts[1].Retention != "workqueue" || ts[0].Storage != "memory" || ts[1].ConsumerCount != 1 {
 		t.Fatalf("ls: %+v %v", ts, err)
 	}
-	if ts, _ := n.Topics(ctx(t), "ORD*", false); len(ts) != 1 {
+	if ts, _ := n.Topics(ctx(t), "ORD*", false, 0); len(ts) != 1 {
 		t.Errorf("ls ORD*: %+v", ts)
 	}
-	if _, err := n.Topics(ctx(t), "", true); code(err) != "NOT_SUPPORTED" {
+	if _, err := n.Topics(ctx(t), "", true, 0); code(err) != "NOT_SUPPORTED" {
 		t.Errorf("ls --internal: %v", err)
 	}
 	d, err := n.Describe(ctx(t), "ORDERS")
@@ -265,7 +265,7 @@ func TestNatsNoJetStream(t *testing.T) {
 	if inf, err := n.Info(ctx(t)); err != nil || inf.JetStream || inf.Account != nil {
 		t.Errorf("info without JetStream: %+v %v", inf, err)
 	}
-	if _, err := n.Topics(ctx(t), "", false); code(err) != "NOT_SUPPORTED" {
+	if _, err := n.Topics(ctx(t), "", false, 0); code(err) != "NOT_SUPPORTED" {
 		t.Errorf("ls without JetStream: %v", err)
 	}
 }

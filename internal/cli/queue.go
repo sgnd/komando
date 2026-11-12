@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -39,6 +40,11 @@ delete messages, so they also need --allow-dangerous. Try any change with
 --dry-run first. In RabbitMQ words a topic is a queue; in NATS words it is
 a stream. Pub/Sub keeps messages in subscriptions: peek and purge take a
 subscription, and groups lists them.`,
+		Example: `  komando queue add events kafka://10.0.0.8:9092 --via web1
+  komando queue ls events
+  komando queue peek events orders -n 5
+  komando queue send events orders --value '{"id": 42}' --dry-run
+  komando queue lag events billing`,
 	}
 	c.AddCommand(connAddCmdFor("queue"), queueInfoCmd(), queueLsCmd(), queueDescribeCmd(), queuePeekCmd(), queueGroupsCmd(), queueLagCmd(),
 		queueSendCmd(), queueCreateCmd(), queueRmCmd(), queuePurgeCmd())
@@ -52,11 +58,26 @@ var queueRules = []driver.Rule{
 	{ID: "queue-purge", Reason: "deletes every message in a topic, queue or stream (it stays)"},
 }
 
-func queueRisk(id string) driver.Verdict {
+// queueRisk is the verdict of a queue change. For rm and purge the reason
+// names the topics, so the person's prompt, the approval window and the
+// agent's POLICY_BLOCKED message all say what would be deleted, not only
+// on which conn.
+func queueRisk(id string, topics ...string) driver.Verdict {
 	for _, r := range queueRules {
-		if r.ID == id {
-			return driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{r.ID}, Reasons: []string{r.Reason}}
+		if r.ID != id {
+			continue
 		}
+		reason := r.Reason
+		switch {
+		case len(topics) == 0:
+		case id == "queue-purge":
+			reason = "deletes every message in " + topics[0] + " (it stays)"
+		case len(topics) == 1:
+			reason = "deletes " + topics[0] + " and every message in it"
+		default:
+			reason = "deletes " + strings.Join(topics, ", ") + " and every message in them"
+		}
+		return driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{r.ID}, Reasons: []string{reason}}
 	}
 	return driver.Verdict{Risk: driver.RiskWrite}
 }
@@ -138,15 +159,20 @@ func queueInfoCmd() *cobra.Command {
 
 func queueLsCmd() *cobra.Command {
 	var internal bool
+	var limit int
 	c := &cobra.Command{
 		Use:     "ls CONN [PATTERN]",
 		Aliases: []string{"list"},
 		Short:   "List topics (or queues, or streams) with their message counts",
 		Example: `  komando queue ls events
   komando queue ls events 'orders-*'
-  komando queue ls events --internal`,
+  komando queue ls events --internal
+  komando queue ls events -n 50`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 1 {
+				return out.Usage("--limit must be 1 or more")
+			}
 			pattern := ""
 			if len(args) == 2 {
 				pattern = args[1]
@@ -155,15 +181,19 @@ func queueLsCmd() *cobra.Command {
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					ts, err := q.Topics(ctx, pattern, internal)
+					// one more than asked tells whether the list was cut
+					ts, err := q.Topics(ctx, pattern, internal, limit+1)
 					if err != nil {
 						return nil, err
 					}
-					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts), kind: c.Kind}, nil
+					cut := len(ts) > limit
+					ts = queuex.First(ts, limit)
+					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts), Truncated: cut, kind: c.Kind}, nil
 				})
 		},
 	}
 	c.Flags().BoolVar(&internal, "internal", false, "Kafka: also list its own topics (__consumer_offsets, ...)")
+	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most topics (or queues, or streams) to show, the first by name")
 	return c
 }
 
@@ -233,6 +263,9 @@ Values that are not UTF-8 text are shown as base64.`,
 			o := queuex.PeekOptions{Topic: args[1], Limit: limit, Oldest: oldest, Partition: int32(partition), Wait: wait}
 			return withQueue(cmd.Context(), "queue.peek", args[0], driver.Verdict{}, map[string]any{"topic": args[1], "limit": limit},
 				func(st *store.State, c *store.Conn, q queuex.Queue) (any, error) {
+					if cmd.Flags().Changed("wait") && c.Kind != "kafka" {
+						return nil, queuex.NotSupported("--wait", c.Kind, "only a Kafka peek waits for messages to arrive; drop --wait")
+					}
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
 					o.MaxBytes = maxOutput(st)
