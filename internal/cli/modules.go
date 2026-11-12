@@ -441,7 +441,7 @@ func pkgCmd() *cobra.Command {
 		mk("install", "Install packages and report what changed (installed ones stay)", true, true, true),
 		pkgRm,
 		mk("update", "Refresh the package index", false, true, true),
-		mk("upgrade", "Upgrade all or the given packages (--dry-run lists them)", false, true, true),
+		pkgUpgradeSecurity(mk("upgrade", "Upgrade all or the given packages (--dry-run lists them)", false, true, true), &noSudo),
 		upgradable,
 		installed,
 		pkgSecurityCmd(&noSudo),

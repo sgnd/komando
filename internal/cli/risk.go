@@ -118,6 +118,7 @@ var riskRows = []riskRow{
 	{id: "db.query", tier: tierDangerous, dynamic: "the SQL deletes data (DROP, DELETE without WHERE, ...)"},
 	{id: "db.explain", tier: tierDangerous, dynamic: "with --analyze, the SQL deletes data"},
 	{id: "pkg.security", when: givesFlag("apply"), tier: tierDangerous, dynamic: "an update would remove a package the server needs"},
+	{id: "pkg.upgrade", when: givesFlag("security"), tier: tierDangerous, dynamic: "an update would remove a package the server needs"},
 	{id: "key.revoke", tier: tierDangerous, dynamic: "it is the key komando logs in with"},
 	{id: "host.edit", tier: tierDangerous, dynamic: "--proxy-command matches a destructive rule"},
 	{id: "host.add", tier: tierDangerous, dynamic: "--proxy-command matches a destructive rule"},

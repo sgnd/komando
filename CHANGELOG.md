@@ -79,6 +79,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- **Security updates are installed with `komando pkg upgrade TARGET
+  --security`** (with `--keep-going` and `--refresh`): the same rollout
+  as before, one server at a time with a check before and after, the
+  same stops, and `pkg.security` in the envelope and the audit log.
+  `pkg security` now only looks; `pkg security --apply` still works for at
+  least two releases (the agent skill cites it), is hidden from help and
+  is noted in `meta.deprecated`.
 - `vpn add/edit --proxy-address` is the address of a SOCKS or HTTP proxy
   VPN (was `--address`, which on `host add` is the server's address), and
   `policy check --conn-kind KIND` rates a statement for a conn kind (was

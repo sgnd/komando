@@ -14,7 +14,7 @@ import (
 	"github.com/sgnd/komando/internal/sshx"
 )
 
-// `pkg security` lists, and with --apply installs, only the security
+// `pkg security` lists, and `pkg upgrade --security` installs, only the security
 // updates of apt and dnf/yum servers, one server at a time, with a look at
 // the server before and after (running containers, failed units, pending
 // updates, reboot and service restarts). What a patch round by hand needs:
@@ -311,7 +311,7 @@ func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecR
 		r.State = &before
 		r.RebootRequired = before.RebootRequired
 		if len(ess) > 0 {
-			r.Warnings = append(r.Warnings, "these updates would remove "+strings.Join(ess, ", ")+"; --apply stops unless --allow-dangerous")
+			r.Warnings = append(r.Warnings, "these updates would remove "+strings.Join(ess, ", ")+"; `pkg upgrade --security` stops unless --allow-dangerous")
 		}
 		r.OK = true
 		return r
@@ -451,23 +451,15 @@ func (d pkgSecData) Text() string {
 // command timeout allows on a slow mirror.
 const pkgSecTimeout = 30 * time.Minute
 
-func pkgSecurityCmd(noSudo *bool) *cobra.Command {
-	var apply, refresh, keepGoing bool
-	c := &cobra.Command{
-		Use:   "security TARGET",
-		Short: "Pending security updates; --apply installs them server by server",
-		Long: `Without --apply this only looks: the pending security updates of each
-server (apt: packages from the -security pocket; dnf/yum: updates with a
-security notice), and the server's state: running containers, failed
-units, pending updates, whether a reboot is required, and services that
-run old code.
-
---apply installs only those updates, one server at a time. On apt servers
-komando uses unattended-upgrade when it is installed (it picks security
-origins only and follows the server's own settings), otherwise apt-get
---only-upgrade of the listed packages, keeping changed config files. On
-dnf/yum it runs "upgrade --security". needrestart is kept from restarting
-services during the run; the result lists the services that need it.
+// pkgSecRollout is how `pkg upgrade --security` (and the retired
+// `pkg security --apply`) installs the updates.
+const pkgSecRollout = `--security installs only the security updates, one server at a time. On
+apt servers komando uses unattended-upgrade when it is installed (it picks
+security origins only and follows the server's own settings), otherwise
+apt-get --only-upgrade of the listed packages, keeping changed config
+files. On dnf/yum it runs "upgrade --security". needrestart is kept from
+restarting services during the run; the result lists the services that
+need it.
 
 After each server komando compares the state with the one before. When
 fewer containers run or a unit has failed, it stops and leaves the other
@@ -475,21 +467,69 @@ servers as they are (--keep-going patches them anyway). It never reboots:
 reboot_required says when a server needs one, use ` + "`komando reboot`" + `.
 
 The upgrade runs detached on the server, so a dropped connection does not
-break it. --apply waits up to 30 minutes per server (--timeout changes it).
+break it. It waits up to 30 minutes per server (--timeout changes it).
 Other package managers (apk, zypper, pacman) are listed in meta.skipped:
-use ` + "`komando pkg upgrade`" + ` there.`,
-		Example: "  komando pkg security @swarm --refresh\n  komando pkg security @swarm --apply --dry-run\n  komando pkg security @swarm --apply",
+use ` + "`komando pkg upgrade`" + ` without --security there.`
+
+func pkgSecurityCmd(noSudo *bool) *cobra.Command {
+	var apply, refresh, keepGoing bool
+	c := &cobra.Command{
+		Use:   "security TARGET",
+		Short: "Pending security updates and the state of each server",
+		Long: `This only looks: the pending security updates of each server (apt:
+packages from the -security pocket; dnf/yum: updates with a security
+notice), and the server's state: running containers, failed units,
+pending updates, whether a reboot is required, and services that run old
+code.
+
+To install them: ` + "`komando pkg upgrade TARGET --security`" + `, one server at a
+time with a check before and after each. --apply here is the old way to
+say that; it still works in this release.`,
+		Example: "  komando pkg security @swarm --refresh\n  komando pkg upgrade @swarm --security --dry-run\n  komando pkg upgrade @swarm --security",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if keepGoing && !apply {
-				return out.Usage("--keep-going goes with --apply")
+				return out.Usage("--keep-going goes with `komando pkg upgrade TARGET --security`")
+			}
+			if apply {
+				retiredName("komando pkg security --apply", "komando pkg upgrade TARGET --security")
 			}
 			return pkgSecurity(cmd.Context(), args[0], apply, refresh, keepGoing, !*noSudo)
 		},
 	}
-	c.Flags().BoolVar(&apply, "apply", false, "install the security updates (one server at a time)")
+	c.Flags().BoolVar(&apply, "apply", false, "old way to install them: use `komando pkg upgrade TARGET --security`")
 	c.Flags().BoolVar(&refresh, "refresh", false, "refresh the package index first (like apt-get update)")
 	c.Flags().BoolVar(&keepGoing, "keep-going", false, "with --apply: go on to the next server after a failure or an unexpected change")
+	_ = c.Flags().MarkHidden("apply")
+	_ = c.Flags().MarkHidden("keep-going")
+	return c
+}
+
+// pkgUpgradeSecurity gives `pkg upgrade` (made by pkgCmd) --security: it
+// installs only the security updates through the same rollout as
+// `pkg security --apply` did, and keeps that command's ID, pkg.security,
+// in the envelope and the audit log (C-V18).
+func pkgUpgradeSecurity(c *cobra.Command, noSudo *bool) *cobra.Command {
+	var security, refresh, keepGoing bool
+	plain := c.RunE
+	c.Long = "Without --security: upgrades every package, or the given ones (--dry-run\nlists what would change).\n\n" + pkgSecRollout
+	c.Example = "  komando pkg upgrade web1 --dry-run   # see what would change first\n  komando pkg upgrade web1 openssl\n  komando pkg upgrade @web --security --dry-run\n  komando pkg upgrade @web --security"
+	c.RunE = func(cmd *cobra.Command, args []string) error {
+		if !security {
+			if refresh || keepGoing {
+				return out.Usage("--refresh and --keep-going go with --security")
+			}
+			return plain(cmd, args)
+		}
+		if len(args) > 1 {
+			return out.Usage("--security installs every pending security update; it takes no package names (see them with `komando pkg security %s`)", args[0])
+		}
+		withID(cmd, "pkg.security") // the same command as pkg security --apply was
+		return pkgSecurity(cmd.Context(), args[0], true, refresh, keepGoing, !*noSudo)
+	}
+	c.Flags().BoolVar(&security, "security", false, "install only the security updates, one server at a time")
+	c.Flags().BoolVar(&refresh, "refresh", false, "with --security: refresh the package index first")
+	c.Flags().BoolVar(&keepGoing, "keep-going", false, "with --security: go on to the next server after a failure or an unexpected change")
 	return c
 }
 

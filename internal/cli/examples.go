@@ -12,7 +12,7 @@ var examples = map[string]string{
 		"  komando svc restart web1 nginx --wait 10s --dry-run\n" +
 		"  komando svc restart web1 nginx --wait 10s",
 	"komando pkg": "  komando pkg upgradable @web --refresh\n" +
-		"  komando pkg security @web --apply --dry-run\n" +
+		"  komando pkg upgrade @web --security --dry-run\n" +
 		"  komando pkg upgrade web1 --dry-run\n" +
 		"  komando pkg install web1 htop jq\n" +
 		"  komando pkg rm web1 telnet",
@@ -93,7 +93,6 @@ var examples = map[string]string{
 	"komando pkg rm":         "  komando pkg rm web1 telnet",
 	"komando pkg update":     "  komando pkg update @web",
 	"komando pkg upgradable": "  komando pkg upgradable @web\n  komando pkg upgradable web1 --refresh",
-	"komando pkg upgrade":    "  komando pkg upgrade web1 --dry-run   # see what would change first\n  komando pkg upgrade web1 openssl",
 
 	"komando policy list": "  komando policy list",
 	"komando recipe list": "  komando recipe list\n  komando recipe list --category security",

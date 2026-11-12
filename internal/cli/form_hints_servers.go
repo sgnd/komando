@@ -131,14 +131,14 @@ var srvPkgHints = map[string]formHint{
 	"pkg rm":        {args: []formArg{srvServers, srvPkgs}},
 	"pkg security": {args: []formArg{srvServers}, flags: []formFlag{
 		{name: "refresh", ask: "Refresh the package list first?",
-			help: "Yes asks the package sources what is new, so the list is current."},
-		{name: "apply", ask: "Install the security updates now?",
-			help: "No only lists them. Yes installs them, one server at a time."}}},
+			help: "Yes asks the package sources what is new, so the list is current."}}},
 	"pkg update": {args: []formArg{srvServers}},
 	"pkg upgradable": {args: []formArg{srvServers, srvPkgsAll}, flags: []formFlag{
 		{name: "refresh", ask: "Refresh the package list first?",
 			help: "Yes asks the package sources what is new, so the list is current."}}},
-	"pkg upgrade": {args: []formArg{srvServers, srvPkgsAll}},
+	"pkg upgrade": {args: []formArg{srvServers, srvPkgsAll}, flags: []formFlag{
+		{name: "security", ask: "Only the security updates, one server at a time?",
+			help: "Yes installs only security fixes and stops when a server comes out of it different. Leave the packages empty then."}}},
 }
 
 var srvUserCronHints = map[string]formHint{
@@ -253,7 +253,7 @@ func init() {
 		"svc daemon-reload": {next: []string{"svc restart {} UNIT --wait 10s"}},
 		"logs":              {next: []string{"logs {} --unit UNIT --follow", "svc status {} UNIT"}},
 		"pkg upgradable":    {next: []string{"pkg upgrade {} --dry-run", "pkg security {}"}},
-		"pkg security":      {next: []string{"pkg security {} --apply --dry-run", "reboot {} --dry-run"}},
+		"pkg security":      {next: []string{"pkg upgrade {} --security --dry-run", "reboot {} --dry-run"}},
 		"pkg upgrade":       {next: []string{"facts {}", "reboot {} --dry-run"}},
 		"pkg update":        {next: []string{"pkg upgradable {}"}},
 		"pkg install":       {next: []string{"pkg installed {} PACKAGE"}},

@@ -30,8 +30,8 @@ komando svc restart web1 nginx --wait 10s            # fails unless it is active
 
 # a patch round
 komando pkg security @web --refresh                  # what is pending, and each server's state
-komando pkg security @web --apply --dry-run
-komando pkg security @web --apply                    # one server at a time
+komando pkg upgrade @web --security --dry-run
+komando pkg upgrade @web --security                  # one server at a time
 komando reboot web1 --dry-run                        # when reboot_required says so
 
 # a person joins, then leaves
@@ -198,7 +198,7 @@ komando pkg upgradable all --refresh            # refresh the package index firs
 komando pkg upgrade web1 --dry-run              # what would be upgraded
 komando pkg upgrade web1                        # everything, or name the packages
 komando pkg update web1                         # only refresh the package index
-komando pkg security @web --apply               # only security updates, one server at a time
+komando pkg upgrade @web --security             # only security updates, one server at a time
 ```
 
 - `install` and `rm` report what changed (`changed: false` when there was
@@ -217,17 +217,17 @@ komando pkg security @web --apply               # only security updates, one ser
 
 ### Security updates
 
-`pkg security` handles a patch round: only security updates, one server at
+`pkg security` and `pkg upgrade --security` handle a patch round: only security updates, one server at
 a time, with a look at each server before and after.
 
 ```bash
 komando pkg security @swarm --refresh            # what is pending, and each server's state
-komando pkg security @swarm --apply --dry-run    # the plan, and any stop it would hit
-komando pkg security @swarm --apply              # patch, one server at a time
-komando pkg security @swarm --apply --keep-going # do not stop at a server that changed
+komando pkg upgrade @swarm --security --dry-run  # the plan, and any stop it would hit
+komando pkg upgrade @swarm --security            # patch, one server at a time
+komando pkg upgrade @swarm --security --keep-going # do not stop at a server that changed
 ```
 
-- Without `--apply` it only looks. It lists the security updates (apt:
+- `pkg security` only looks. It lists the security updates (apt:
   packages from the `-security` pocket; dnf and yum: updates with a
   security notice) and the server's state: running containers, failed
   units, pending updates, whether a reboot is required, and services that
@@ -237,7 +237,7 @@ komando pkg security @swarm --apply --keep-going # do not stop at a server that 
   end of life the list can be empty while the server is not safe: the
   repositories publish no new fixes for it. komando then says so in
   `warnings`.
-- `--apply` installs only those updates. On apt servers komando uses
+- `pkg upgrade --security` installs only those updates. On apt servers komando uses
   `unattended-upgrade` when it is installed (it picks security origins and
   follows the server's own settings), otherwise `apt-get install
   --only-upgrade` of the listed packages; changed config files are kept.
@@ -255,7 +255,7 @@ komando pkg security @swarm --apply --keep-going # do not stop at a server that 
 - komando never reboots. `reboot_required` says when a server needs one;
   use `komando reboot` ([Reboot](#reboot)).
 - The upgrade runs detached on the server, so a dropped connection does not
-  break it halfway. `--apply` waits up to 30 minutes per server; `--timeout`
+  break it halfway. `--security` waits up to 30 minutes per server; `--timeout`
   changes that. After a `TIMEOUT` the upgrade goes on: run `pkg security`
   again later to see what is left.
 - It is a change like `pkg upgrade`: protected servers need `--yes`. An
