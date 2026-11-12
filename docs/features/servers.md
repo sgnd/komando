@@ -491,6 +491,7 @@ komando conn add rds postgres://app@mydb.xyz.rds.amazonaws.com/app --via web1   
 ```
 
 A `--proxy-command` tool must be installed and logged in on this computer.
+On Windows the command runs in cmd.exe, so write it for cmd.exe.
 
 For `--ssm`, komando speaks AWS Session Manager itself when the aws CLI or
 its session-manager-plugin is not installed. It uses your usual AWS login

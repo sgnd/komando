@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -284,13 +285,17 @@ func TestProxyKeepsTheErrorCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bridge := `exec "$KOMANDO_TEST_BIN" -test.run='^TestHelperProxy$'`
+	// the lines are written for the shell that runs them: sh, or cmd.exe
+	bridge, chatty, fails := `exec "$KOMANDO_TEST_BIN" -test.run='^TestHelperProxy$'`, `echo 'Starting session with SessionId: abc-123' >&2; `, `echo 'TargetNotConnected' >&2; exit 1`
+	if runtime.GOOS == "windows" {
+		bridge, chatty, fails = `"%KOMANDO_TEST_BIN%" "-test.run=^TestHelperProxy$"`, `echo Starting session with SessionId: abc-123 1>&2 & `, `echo TargetNotConnected 1>&2 & exit 1`
+	}
 	cases := []struct {
 		name, proxy, code, inMessage string
 	}{
 		{"silent proxy", bridge, "HOSTKEY_MISMATCH", ""},
-		{"chatty proxy", `echo 'Starting session with SessionId: abc-123' >&2; ` + bridge, "HOSTKEY_MISMATCH", "the proxy command said: Starting session"},
-		{"proxy that fails", `echo 'TargetNotConnected' >&2; exit 1`, "PROXY_FAILED", "the proxy command said: TargetNotConnected"},
+		{"chatty proxy", chatty + bridge, "HOSTKEY_MISMATCH", "the proxy command said: Starting session"},
+		{"proxy that fails", fails, "PROXY_FAILED", "the proxy command said: TargetNotConnected"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
