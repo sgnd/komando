@@ -14,6 +14,34 @@ its highlights; the sections below them give the details. Versions follow
   (exit 3) and the hint `komando pkg install TARGET shadow`, like
   `user lock` and `unlock`, instead of a generic remote failure (exit 5).
   The JSON result keeps its shape.
+- registry: Docker Hub's pull limit (HTTP 429) is now `REGISTRY_RATE_LIMIT`
+  (exit 5) with when to retry (Retry-After) and the hint to log in, instead
+  of a bare `REGISTRY_ERROR`.
+- registry: on Docker Hub, `nginx` means `library/nginx`, as with
+  `docker pull`; `registry ls dockerhub` without a repository says Docker
+  Hub and GHCR have no list of repositories (`REGISTRY_UNSUPPORTED`)
+  instead of a misleading `REGISTRY_AUTH`.
+- registry: repository, tag and digest names are checked against the OCI
+  grammar before they go into a URL or a token scope (`../`, `?` or a
+  second `:` gave requests to other endpoints); upper case gets the
+  lower-case name to use. `USAGE`, exit 2.
+- registry prune: one manifest read per image instead of per tag (Docker
+  Hub counts each read as a pull), and the help no longer says a
+  multi-platform index always stays: it has its first image's build date
+  and can go.
+- registry ls, rm, prune and inspect read better at a terminal: a cut list
+  says to raise `-n`, an empty one says what fills it, `rm` names every
+  tag that goes with the image and warns when `latest` is one, `prune`
+  lists what goes and why the rest stays, and build dates are in local
+  time. JSON is unchanged.
+- registry rm: when the tags cannot be listed, `tags` is `[]` (was `null`)
+  with a `tags_note` saying other tags may point at the image.
+- import docker: a registry that only has a `credHelpers` entry (Amazon
+  ECR with `ecr-login`) is imported; Amazon ECR, Google (gcloud) and Azure
+  identity-token logins are added without docker's hours-long token, so
+  komando logs in with the cloud login each time instead of failing once
+  the token runs out; a credential helper name that is a path is not run,
+  and a helper gets 30 s.
 
 ## [0.12.0] - 2026-11-11
 
