@@ -118,8 +118,8 @@ type pkgChange struct {
 func pkgChangeResult(action string, pkgs []string, rr *sshx.RunResult) (any, *out.Error) {
 	sec := sections(rr.Stdout)
 	if ess, ok := sec["essential"]; ok {
-		return pkgChange{Packages: []pkgRow{}}, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "nothing was removed; if this is truly intended, confirm with the user and re-run with --allow-dangerous",
-			"removing %s would also remove %s, which can lock you out of the server or break it", strings.Join(pkgs, " "), strings.Join(strings.Fields(ess), ", "))
+		return pkgChange{Packages: []pkgRow{}}, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "if this is truly intended, confirm with the user and re-run with --allow-dangerous",
+			"removing %s would also remove %s, which can lock you out of the server or break it; nothing was removed", strings.Join(pkgs, " "), strings.Join(strings.Fields(ess), ", "))
 	}
 	before, after := pkgVersions(sec["before"]), pkgVersions(sec["after"])
 	res := pkgChange{Packages: []pkgRow{}}

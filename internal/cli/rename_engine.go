@@ -98,15 +98,15 @@ func renameTx(plan func(s *store.State) (renameSet, renameOpts, error)) (renameR
 		}
 		if sec := set["secret"]; len(sec) > 0 {
 			if err := vault.RenameMany(sec); err != nil {
-				return out.Errf(out.ExitError, "RENAME_FAILED", "nothing was renamed; check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
-					"the vault cannot rename the secrets: %v", err)
+				return out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
+					"the vault cannot rename the secrets: %v; nothing was renamed", err)
 			}
 			secrets = sec
 		}
 		for _, m := range moves {
 			if err := os.Rename(m.From, m.To); err != nil {
-				return out.Errf(out.ExitError, "RENAME_FAILED", "nothing was renamed; check the permissions of "+filepath.Dir(m.From),
-					"cannot move %s: %v", m.From, errText(err))
+				return out.Errf(out.ExitError, "RENAME_FAILED", "check the permissions of "+filepath.Dir(m.From),
+					"cannot move %s: %v; nothing was renamed", m.From, errText(err))
 			}
 			moved++
 		}
@@ -486,20 +486,20 @@ func checkRenameSet(s *store.State, set renameSet) error {
 		}
 	}
 	if len(c.clashes) > 0 {
-		return out.Errf(out.ExitConflict, "NAME_TAKEN", "nothing was renamed; pick other names, or rename or remove what is in the way first",
-			"the rename clashes: %s", strings.Join(c.clashes, "; "))
+		return out.Errf(out.ExitConflict, "NAME_TAKEN", "pick other names, or rename or remove what is in the way first",
+			"the rename clashes: %s; nothing was renamed", strings.Join(c.clashes, "; "))
 	}
 	for _, from := range mapKeys(set["vpn"]) {
 		if _, up := s.Sessions[from]; up {
-			return out.Errf(out.ExitConflict, "VPN_IN_USE", "nothing was renamed; disconnect it first with `komando vpn down "+from+"`, then rename",
-				"VPN %s is connected", from)
+			return out.Errf(out.ExitConflict, "VPN_IN_USE", "disconnect it first with `komando vpn down "+from+"`, then rename",
+				"VPN %s is connected; nothing was renamed", from)
 		}
 		if s.Vpns[from].Kind != "tailscale" {
 			continue
 		}
 		if _, err := os.Stat(netx.TailscaleDir(&store.Vpn{Name: set["vpn"][from]})); err == nil {
-			return out.Errf(out.ExitConflict, "NAME_TAKEN", "nothing was renamed; move that folder away first",
-				"the login state folder of a VPN named %s is in the way", set["vpn"][from])
+			return out.Errf(out.ExitConflict, "NAME_TAKEN", "move that folder away first",
+				"the login state folder of a VPN named %s is in the way; nothing was renamed", set["vpn"][from])
 		}
 	}
 	return nil

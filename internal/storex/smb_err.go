@@ -102,7 +102,7 @@ func smbErr(err error) error {
 func smbStatusErr(re *smb2.ResponseError) error {
 	switch re.Code {
 	case ntSharingViolation:
-		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "another program has the file open; close it there and try again", "the file is in use")
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "another program has the file open; close it there and run it again", "the file is in use")
 	case ntIsADirectory:
 		return out.Usage("that name is a folder; give a file")
 	case ntDiskFull:

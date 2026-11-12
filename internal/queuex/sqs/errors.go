@@ -87,13 +87,13 @@ func opErr(err error, what string) error {
 	case deniedCodes[c]:
 		return deniedErr(what + ": " + err.Error())
 	case strings.Contains(c, "QueueDeletedRecently"):
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS needs 60 seconds after a queue is deleted before a queue of the same name can be made; try again then",
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS needs 60 seconds after a queue is deleted before a queue of the same name can be made; run it again then",
 			"%s: %v", what, err)
 	case strings.Contains(c, "PurgeQueueInProgress"):
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS lets a queue be purged once every 60 seconds, and the last purge may still be deleting; try again then",
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS lets a queue be purged once every 60 seconds, and the last purge may still be deleting; run it again then",
 			"%s: %v", what, err)
 	case strings.Contains(c, "Throttl") || c == "RequestThrottled" || c == "TooManyRequests":
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS is asking komando to slow down; try again in a moment", "%s: %v", what, err)
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS is asking komando to slow down; run it again in a moment", "%s: %v", what, err)
 	case strings.HasPrefix(c, "InvalidAttribute") || c == "InvalidParameterValue" || c == "InvalidParameterCombination" || c == "UnsupportedOperation":
 		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS refused a setting: check --config (SQS attribute names such as VisibilityTimeout=60), and that FIFO-only settings go to a queue whose name ends in .fifo",
 			"%s: %v", what, err)

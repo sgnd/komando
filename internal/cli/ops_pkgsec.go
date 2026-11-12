@@ -319,8 +319,8 @@ func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecR
 	r.Before = &before
 	r.RebootRequired = before.RebootRequired
 	if e, ok := sec["essential"]; ok {
-		return fail(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "nothing was changed; if this is truly intended, confirm with the user and re-run with --allow-dangerous",
-			"the security updates would remove %s, which can lock you out of the server or break it", strings.Join(strings.Fields(e), ", ")))
+		return fail(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "if this is truly intended, confirm with the user and re-run with --allow-dangerous",
+			"the security updates would remove %s, which can lock you out of the server or break it; nothing was changed", strings.Join(strings.Fields(e), ", ")))
 	}
 	if _, ok := sec["nothing"]; ok {
 		r.After = &before

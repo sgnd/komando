@@ -114,7 +114,7 @@ func TestSecretKeychainNoTool(t *testing.T) {
 	key := keyfileHome(t)
 	atTerminal(t)
 	e := wantCode(t, "KEYCHAIN_FAILED", "secret", "keychain")
-	if e.Exit != out.ExitRemote || e.Hint != "the store still uses store.key, nothing was lost: a person unlocks the keychain (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring" {
+	if e.Exit != out.ExitRemote || !strings.HasSuffix(e.Message, "; the store still uses store.key, nothing was lost") || e.Hint != "a person unlocks the keychain (an AI agent asks the user), then run it again; on Linux it needs secret-tool and a keyring" {
 		t.Errorf("error: %+v", e)
 	}
 	keyStays(t, key)

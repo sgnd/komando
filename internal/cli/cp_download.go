@@ -85,7 +85,7 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 		}
 		if rel != "" && !filepath.IsLocal(filepath.FromSlash(rel)) {
 			// names come from the server: never let one point outside dst
-			return st, out.Errf(out.ExitRemote, "UNSAFE_PATH", "nothing outside the folder was written; check the server for odd file names", "server sent the path %q, which leads outside %s", w.Path(), dst)
+			return st, out.Errf(out.ExitRemote, "UNSAFE_PATH", "check the server for odd file names", "server sent the path %q, which leads outside %s; nothing outside the folder was written", w.Path(), dst)
 		}
 		lp := filepath.Join(dst, filepath.FromSlash(rel))
 		if w.Stat().IsDir() {

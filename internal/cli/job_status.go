@@ -33,7 +33,7 @@ func fetchStatus(ctx context.Context, c *sshx.Client, j *store.Job, tail int) (*
 	}
 	o, whole := strings.CutSuffix(strings.TrimRight(o, "\n"), statusEnd)
 	if !whole {
-		return nil, out.Errf(out.ExitConnect, "CONNECTION_LOST", "try again; the job keeps running on the server", "the connection to %s broke while reading the job's status", j.Host)
+		return nil, out.Errf(out.ExitConnect, "CONNECTION_LOST", "run it again; the job keeps running on the server", "the connection to %s broke while reading the job's status", j.Host)
 	}
 	head, tailOut, _ := strings.Cut(o, "---TAIL---\n")
 	lines := strings.Split(strings.TrimSpace(head), "\n")

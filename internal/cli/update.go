@@ -128,9 +128,11 @@ func updateErr(err error) error {
 	switch e.Code {
 	case "TIMEOUT":
 		e.Message = "the update took longer than " + strings.TrimSuffix(updateTimeout().String(), "0s")
-		e.Hint = "nothing was changed; give it more time: komando update --timeout 30m"
+		e.Message += "; nothing was changed"
+		e.Hint = "give it more time: `komando update --timeout 30m`"
 	case "CANCELLED":
-		e.Hint = "nothing was changed"
+		e.Message += "; nothing was changed"
+		e.Hint = "run it again: `komando update`"
 	}
 	return e
 }
@@ -325,8 +327,8 @@ func checkWritable(exe, want string) *out.Error {
 		why = pe.Err // "read-only file system", not the temporary name
 	}
 	if !errors.Is(err, fs.ErrPermission) || os.Geteuid() == 0 {
-		return out.Errf(out.ExitConflict, "NOT_WRITABLE", "nothing was changed; make "+dir+" writable, or install komando in another folder with the install line (KOMANDO_INSTALL_DIR=DIR)",
-			"cannot replace %s: %s: %v", exe, dir, why)
+		return out.Errf(out.ExitConflict, "NOT_WRITABLE", "make "+dir+" writable, or install komando in another folder with the install line (KOMANDO_INSTALL_DIR=DIR)",
+			"cannot replace %s: %s: %v; nothing was changed", exe, dir, why)
 	}
 	line := "sudo " + shellQuote(exe) + " update" // sudo's PATH may find another komando, or none
 	if want != "" {

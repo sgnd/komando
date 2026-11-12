@@ -262,7 +262,7 @@ func keychainGetCtx(ctx context.Context) ([]byte, error) {
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("the vault key is not in the keychain (%s); unlock the keychain and try again", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
+		return nil, fmt.Errorf("the vault key is not in the keychain (%s); unlock the keychain and run it again", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
 	}
 	key, err := hex.DecodeString(strings.TrimSpace(string(b)))
 	if err != nil || len(key) != 32 {
@@ -308,7 +308,7 @@ func keychainHas(ctx context.Context) (bool, error) {
 		c = keychainCmdCtx(ctx, args...)
 	default:
 		if err := defaultCollectionUnlocked(ctx); err != nil {
-			return false, fmt.Errorf("cannot tell whether the keychain holds a vault key for this komando folder (%v); unlock the keychain (your keyring or KeePassXC) and try again", err)
+			return false, fmt.Errorf("cannot tell whether the keychain holds a vault key for this komando folder (%v); unlock the keychain (your keyring or KeePassXC) and run it again", err)
 		}
 		c = keychainCmdCtx(ctx, "search", "--all", "service", keychainService(), "account", keychainAccount)
 	}
@@ -329,7 +329,7 @@ func keychainHas(ctx context.Context) (bool, error) {
 	case err == nil:
 		err = errors.New("unexpected output")
 	}
-	return false, fmt.Errorf("cannot tell whether the keychain holds a vault key for this komando folder (%s); unlock the keychain and try again", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
+	return false, fmt.Errorf("cannot tell whether the keychain holds a vault key for this komando folder (%s); unlock the keychain and run it again", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
 }
 
 // secretsDefault is the Secret Service's default collection, where
@@ -479,7 +479,7 @@ func keychainAdopt(key []byte) error {
 	if has {
 		back, err := keychainGet()
 		if errors.Is(err, errNoKeychainKey) { // listed, but lookup finds nothing: locked
-			return errors.New("the keychain holds a vault key for this komando folder but keeps it locked; unlock the keychain and try again")
+			return errors.New("the keychain holds a vault key for this komando folder but keeps it locked; unlock the keychain and run it again")
 		}
 		if err != nil {
 			return err

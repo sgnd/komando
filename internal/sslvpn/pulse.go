@@ -456,7 +456,7 @@ func (s *pulseSession) answer(avps []pulseAVP) ([]byte, error) {
 		case avpRegionList:
 			regions = append(regions, string(a.data))
 		case avpSessions:
-			return nil, &LoginError{Msg: "the VPN allows no more sessions for this user; end one in the Pulse portal, then try again"}
+			return nil, &LoginError{Msg: "the VPN allows no more sessions for this user; end one in the Pulse portal, then run it again"}
 		case avpBanner:
 			return s.banner(string(a.data))
 		case avpPassLabel, avpPass2Label:

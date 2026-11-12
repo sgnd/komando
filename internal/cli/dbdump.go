@@ -309,7 +309,7 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 				return out.Errf(out.ExitRemote, "DB_ERROR", "check that the database file is not locked by another program", "%v", err)
 			}
 			if _, err := db.ExecContext(ctx, "VACUUM INTO ?", tmp); err != nil {
-				return out.Errf(out.ExitRemote, "DB_ERROR", "the database may be locked or corrupt; try again or check the file", "backup failed: %v", err)
+				return out.Errf(out.ExitRemote, "DB_ERROR", "the database may be locked or corrupt; run it again or check the file", "backup failed: %v", err)
 			}
 			return nil
 		})
@@ -482,11 +482,14 @@ func runRestore(ctx context.Context, connExpr, from, on string) error {
 		defer closeDB()
 		return withBackup(from, func(r io.Reader) error {
 			if err := dbx.Restore(ctx, db, t.Kind.Name, r); err != nil {
-				hint := "nothing was changed (PostgreSQL restores in one transaction); fix the file and try again"
+				// what the database holds now depends on the engine (S-8.4):
+				// PostgreSQL restores in one transaction, MySQL cannot
+				state := "nothing was changed (PostgreSQL restores in one transaction)"
 				if t.Kind.Name == "mysql" {
-					hint = "the restore stopped at that line: the statements before it were applied (MySQL cannot roll back tables); fix the file and restore it again"
+					state = "the statements before that line were applied (MySQL cannot roll back tables)"
 				}
-				return out.Errf(out.ExitRemote, "RESTORE_FAILED", hint, "%v", err)
+				return out.Errf(out.ExitRemote, "RESTORE_FAILED", "fix the file, then restore it again: `komando db restore "+c.Name+" --from "+from+"`",
+					"%v; %s", err, state)
 			}
 			return nil
 		})

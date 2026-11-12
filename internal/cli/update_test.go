@@ -402,7 +402,7 @@ func TestUpdateTimeout(t *testing.T) {
 	f := &fakeReleases{newest: "v0.7.0", tags: []string{"v0.7.0"}, slow: 5 * time.Second}
 	exe, _ := updateLab(t, "v0.6.0", f)
 	e := updateFails(t, "--timeout", "100ms")
-	if e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout || e.Message != "the update took longer than 100ms" || !strings.Contains(e.Hint, "nothing was changed") {
+	if e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout || e.Message != "the update took longer than 100ms; nothing was changed" || !strings.Contains(e.Hint, "komando update --timeout") {
 		t.Errorf("got %v (exit %d, hint %q)", e, e.Exit, e.Hint)
 	}
 	if fileText(t, exe) != "old komando" {

@@ -25,7 +25,7 @@ func storeErr(err error) error {
 		return out.Errf(out.ExitError, "STORE_NEWER", "update komando: a newer komando made or changed this store",
 			"%s was made by a newer komando", Path(StoreFile))
 	case errors.Is(err, sealdb.ErrKeyChanged):
-		return out.Errf(out.ExitError, "STORE_KEY_CHANGED", "run the command again: another komando changed the store's key while this one ran",
+		return out.Errf(out.ExitError, "STORE_KEY_CHANGED", "run it again: another komando changed the store's key while this one ran",
 			"%s: %v", Path(StoreFile), err)
 	case errors.Is(err, sealdb.ErrTampered), errors.Is(err, sealdb.ErrWrongKey), errors.Is(err, sealrow.ErrOpen):
 		return out.Errf(out.ExitError, "STATE_CORRUPT",

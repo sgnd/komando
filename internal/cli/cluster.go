@@ -191,7 +191,7 @@ func kubeErr(err error) error {
 			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster list TARGET pods` (or deployments, services ...)"
 			thing = "k8s_object"
 		case e.Code == 409:
-			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run the command again"
+			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run it again"
 		case e.Code == 400 && strings.Contains(e.Message, "is not valid for pod"):
 			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster describe TARGET pod NAME`"
 			thing = "k8s_container"
@@ -217,7 +217,7 @@ func kubeErr(err error) error {
 			}
 			return out.Errf(out.ExitNotFound, "TOOL_MISSING", hint, "%s", pe.Error())
 		}
-		return out.Errf(out.ExitConnect, "LOGIN_FAILED", "run the program in a terminal to see why it cannot log in (it may need a person to sign in first), then try again",
+		return out.Errf(out.ExitConnect, "LOGIN_FAILED", "run the program in a terminal to see why it cannot log in (it may need a person to sign in first), then run it again",
 			"%s", cleanText(pe.Error()))
 	}
 	if errors.Is(err, context.DeadlineExceeded) {

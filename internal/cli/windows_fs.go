@@ -298,7 +298,7 @@ func winWrite(ctx context.Context, c *sshx.Client, p string, src io.Reader, o wi
 		return m, e
 	}
 	if code != 0 || m["sha256"] == "" {
-		return m, out.Errf(out.ExitRemote, "WRITE_FAILED", "the file was not changed; read the message", "cannot write %s: %s", p, dash(strings.TrimSpace(stderr)))
+		return m, out.Errf(out.ExitRemote, "WRITE_FAILED", "read the message", "cannot write %s: %s; the file was not changed", p, dash(strings.TrimSpace(stderr)))
 	}
 	return m, nil
 }

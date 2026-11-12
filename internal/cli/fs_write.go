@@ -37,8 +37,8 @@ func (o writeOpts) validateCmd(tmp string) string {
 }
 
 func validateFailed(stderr string) error {
-	return out.Errf(out.ExitConflict, "VALIDATION_FAILED", "the file was not changed; fix the content and try again",
-		"--validate rejected the new file: %s", strings.TrimSpace(stderr))
+	return out.Errf(out.ExitConflict, "VALIDATION_FAILED", "fix the content and run it again",
+		"--validate rejected the new file: %s; the file was not changed", strings.TrimSpace(stderr))
 }
 
 // writeRemote writes data atomically (temp file + rename) and returns info.
@@ -281,8 +281,8 @@ func sudoBackupScript(qtmp string, now time.Time) string {
 }
 
 func backupFailed(p, stderr string) error {
-	return out.Errf(out.ExitRemote, "BACKUP_FAILED", "the file was not changed; check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup",
-		"could not make a backup of %s: %s", p, strings.TrimSpace(stderr))
+	return out.Errf(out.ExitRemote, "BACKUP_FAILED", "check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup",
+		"could not make a backup of %s: %s; the file was not changed", p, strings.TrimSpace(stderr))
 }
 
 // chmodOpen sets the mode of a file komando has open, through its handle,
@@ -299,8 +299,8 @@ func chmodOpen(f *sftp.File, p string, mode os.FileMode) (os.FileMode, error) {
 	if fi, serr := f.Stat(); serr == nil && fi.Mode().Perm()&^mode.Perm() == 0 {
 		return fi.Mode().Perm(), nil
 	}
-	return 0, out.Errf(out.ExitRemote, "CHMOD_FAILED", "the file was not changed. This SFTP server does not allow setting file modes, and its new files are more open than asked for; if the server has a shell and sudo, retry with --sudo",
-		"cannot set mode %04o on %s: %v", mode.Perm(), p, err)
+	return 0, out.Errf(out.ExitRemote, "CHMOD_FAILED", "this SFTP server does not allow setting file modes, and its new files are more open than asked for; if the server has a shell and sudo, retry with --sudo",
+		"cannot set mode %04o on %s: %v; the file was not changed", mode.Perm(), p, err)
 }
 
 // backupRemote copies the file p to a new backup next to it (backupName)

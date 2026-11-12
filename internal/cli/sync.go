@@ -144,7 +144,7 @@ func (l localSide) open(_ context.Context, rel string) (io.ReadCloser, error) {
 
 func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFile) error {
 	if !filepath.IsLocal(filepath.FromSlash(rel)) {
-		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "nothing outside the folder was written; check the source for odd file names", "the source sent the path %q, which leads outside %s", rel, l.root)
+		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "check the source for odd file names", "the source sent the path %q, which leads outside %s; nothing outside the folder was written", rel, l.root)
 	}
 	dst := filepath.Join(l.root, filepath.FromSlash(rel))
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
@@ -230,7 +230,7 @@ func (s sftpSide) open(_ context.Context, rel string) (io.ReadCloser, error) {
 
 func (s sftpSide) write(ctx context.Context, rel string, r io.Reader, f syncFile) error {
 	if strings.Contains("/"+rel+"/", "/../") {
-		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "nothing outside the folder was written; rename the file so it has no .. in its path", "path %q leads outside %s", rel, s.root)
+		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "rename the file so it has no .. in its path", "path %q leads outside %s; nothing outside the folder was written", rel, s.root)
 	}
 	dst := path.Join(s.root, rel)
 	if err := s.sc.MkdirAll(path.Dir(dst)); err != nil {

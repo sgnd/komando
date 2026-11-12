@@ -77,7 +77,7 @@ var StartSession func(ctx context.Context, name string) error
 
 // LoginRequired is the error for a VPN that needs a human to log in.
 func LoginRequired(v *store.Vpn) error {
-	return out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a person to run `komando vpn up "+v.Name+"` (it needs their login); then try again",
+	return out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a person to run `komando vpn up "+v.Name+"` (it needs their login); then run it again",
 		"VPN %s is not connected and needs a person to log in", v.Name)
 }
 
@@ -375,9 +375,9 @@ func Down(v *store.Vpn, err error) error {
 func DownHint(v *store.Vpn) string {
 	switch {
 	case v.Kind == "system":
-		return "connect the VPN " + v.Name + " on this computer first, then try again"
+		return "connect the VPN " + v.Name + " on this computer first, then run it again"
 	case v.Kind == "socks":
-		return "start the SOCKS proxy at " + v.Address + ", e.g. `komando tunnel start HOST -D " + v.Address + "`, then try again"
+		return "start the SOCKS proxy at " + v.Address + ", e.g. `komando tunnel start HOST -D " + v.Address + "`, then run it again"
 	case v.Kind == "proxy":
 		return "check that the proxy at " + v.Address + " answers and lets this port through (many company proxies allow only 443), and its login (`komando vpn show " + v.Name + "`)"
 	case v.Kind == "wireguard":

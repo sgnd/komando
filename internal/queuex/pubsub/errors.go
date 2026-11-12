@@ -86,7 +86,7 @@ func opErr(err error, what string, missing func(string) error) error {
 	case api.HTTP == 403:
 		return deniedErr(what + ": " + err.Error())
 	case api.HTTP == 429 || api.Status == "RESOURCE_EXHAUSTED":
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "Pub/Sub is asking komando to slow down (or a quota is used up); try again in a moment", "%s: %v", what, err)
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "Pub/Sub is asking komando to slow down (or a quota is used up); run it again in a moment", "%s: %v", what, err)
 	case api.HTTP == 400:
 		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "Pub/Sub refused the request: check --config (Pub/Sub's setting names, such as ackDeadlineSeconds=60 or messageRetentionDuration=7d) and the message's --header names",
 			"%s: %v", what, err)

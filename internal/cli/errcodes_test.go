@@ -719,7 +719,7 @@ var meanings = map[string]string{
 	"REGISTRY_RATE_LIMIT":  "the registry turned the request down: too many requests (Docker Hub's pull limit)",
 	"REGISTRY_UNREACHABLE": "the registry did not answer (address, TLS or --via path)",
 	"REMOTE_ERROR":         "an error from outside komando with no more specific code (its words follow)",
-	"RESTORE_FAILED":       "the restore stopped; what was loaded before the error stays (unless it ran in one transaction)",
+	"RESTORE_FAILED":       "the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it",
 	"REVISION_NOT_FOUND":   "the deployment has no revision with that number (cluster history lists them)",
 	"REVOKE_FAILED":        "the key could not be removed from a server's authorized_keys",
 	"SECRET_MISMATCH":      "secret check: the value typed is not the stored one",

@@ -407,8 +407,8 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 		if r.Err != nil {
 			s.Error = toErr(r.Err)
 		} else if len(s.Errors) > 0 {
-			s.Error = out.Errf(out.ExitRemote, "PARTIAL_TRANSFER", "the other files were copied; fix the listed ones (permissions?) and run again",
-				"%s could not be copied", countOf(len(s.Errors), "file"))
+			s.Error = out.Errf(out.ExitRemote, "PARTIAL_TRANSFER", "fix the listed ones (permissions?) and run it again",
+				"%s could not be copied; the other files were copied", countOf(len(s.Errors), "file"))
 		}
 		if s.Error != nil {
 			worst = worse(worst, s.Error.Exit)

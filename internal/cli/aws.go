@@ -52,7 +52,7 @@ func awsErr(profile string, err error) error {
 			return out.Errf(out.ExitConnect, "AWS_FAILED", awsKeysHint(profile, sso.Role), "AWS profile %s gave no keys: %v", profile, err)
 		}
 		// a person logs in, like VPN MFA: agents ask for it
-		return out.Errf(out.ExitConnect, "AWS_LOGIN_REQUIRED", "a person runs `komando login aws --profile "+profile+"` once, then try again",
+		return out.Errf(out.ExitConnect, "AWS_LOGIN_REQUIRED", "a person runs `komando login aws --profile "+profile+"` once, then run it again",
 			"AWS profile %s: %v", profile, err)
 	}
 	return out.Errf(out.ExitConnect, "AWS_FAILED", "check the profile in ~/.aws/config", "AWS profile %s: %v", profile, err)

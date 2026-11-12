@@ -347,8 +347,8 @@ func (b *ftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, _
 		}
 		if rerr := b.c.Rename(tmp, p); rerr != nil {
 			return out.Errf(out.ExitRemote, "UPLOAD_NOT_RENAMED",
-				"the old file was removed; the new content is on the server as "+tmp+": rename it by hand",
-				"could not rename the upload into place: %v", rerr)
+				"the new content is on the server as "+tmp+": rename it by hand",
+				"could not rename the upload into place: %v; the old file was removed", rerr)
 		}
 	}
 	return nil

@@ -203,7 +203,7 @@ func runSecretPassphrase(off bool) error {
 	audit(nil, "secret.passphrase", nil, "", err == nil, map[string]any{"from": res.From, "to": res.To, "secrets": kc.Secrets})
 	switch {
 	case errors.Is(err, vault.ErrWrongKey): // changed by another komando meanwhile
-		return out.Errf(out.ExitConflict, "VAULT_CHANGED", "nothing was changed; run it again", "%v", err)
+		return out.Errf(out.ExitConflict, "VAULT_CHANGED", "run it again", "%v; nothing was changed", err)
 	case err != nil:
 		return err
 	}
@@ -258,7 +258,7 @@ func currentPassphrase(from string) (string, error) {
 		return "", nil
 	}
 	if from != "passphrase" || (vault.Passphrase() != "" && !errors.Is(err, vault.ErrWrongKey)) {
-		return "", out.Errf(out.ExitError, "VAULT_LOCKED", "nothing was changed; fix that, then run it again", "%v", err)
+		return "", out.Errf(out.ExitError, "VAULT_LOCKED", "fix that, then run it again", "%v; nothing was changed", err)
 	}
 	if vault.Passphrase() == "" {
 		fmt.Fprintln(os.Stderr, "KOMANDO_VAULT_PASS is not set.")
@@ -271,8 +271,8 @@ func currentPassphrase(from string) (string, error) {
 	}
 	if err := vault.Opens(old); err != nil {
 		if errors.Is(err, vault.ErrWrongKey) {
-			return "", out.Errf(out.ExitUsage, "WRONG_PASSPHRASE", "nothing was changed; run it again and type the passphrase the vault has now",
-				"that passphrase does not open the vault")
+			return "", out.Errf(out.ExitUsage, "WRONG_PASSPHRASE", "run it again and type the passphrase the vault has now",
+				"that passphrase does not open the vault; nothing was changed")
 		}
 		return "", err
 	}
@@ -287,14 +287,14 @@ func askNewPassphrase() (string, error) {
 		return "", err
 	}
 	if why := newPassphraseProblem(p1); why != "" {
-		return "", out.Errf(out.ExitUsage, "WEAK_PASSPHRASE", "nothing was changed; run it again with another passphrase", "%s", why)
+		return "", out.Errf(out.ExitUsage, "WEAK_PASSPHRASE", "run it again with another passphrase", "%s; nothing was changed", why)
 	}
 	p2, err := readHidden("Type it again (hidden): ")
 	if err != nil {
 		return "", err
 	}
 	if p1 != p2 {
-		return "", out.Errf(out.ExitUsage, "PASSPHRASE_MISMATCH", "nothing was changed; run it again", "the two passphrases you typed differ")
+		return "", out.Errf(out.ExitUsage, "PASSPHRASE_MISMATCH", "run it again", "the two passphrases you typed differ; nothing was changed")
 	}
 	return p1, nil
 }

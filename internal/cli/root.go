@@ -169,10 +169,10 @@ func cancelled(c *call, oe *out.Error) {
 	if !c.sess.PersonSaidNo() || oe.Exit != out.ExitPolicy {
 		return
 	}
-	oe.Message = "cancelled: " + oe.Message
-	oe.Hint = "nothing was changed"
+	oe.Message = "cancelled: " + oe.Message + "; nothing was changed"
+	oe.Hint = "run it again to be asked again"
 	if c.wroteBefore() {
-		oe.Hint = "what this command saved before the question stays"
+		oe.Message = strings.TrimSuffix(oe.Message, "; nothing was changed") + "; what this command saved before the question stays"
 		return
 	}
 	oe.Cancel(cancelledText()) // text mode: the person's own choice, not an error

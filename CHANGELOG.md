@@ -107,6 +107,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Error hints say only the next step. What happened ("nothing was
+  changed", "nothing was renamed", "the file was not changed") moved to
+  the end of `error.message`, and every retry reads "run it again"
+  (was "try again", "re-run", "run the command again"). `RESTORE_FAILED`
+  says what the database holds per engine (PostgreSQL: nothing changed;
+  MySQL: the statements before the line stay) and its hint is the
+  `komando db restore` line to run again. A person's no (`DECLINED`) and
+  Ctrl-C (`CANCELLED`) hints say to run it again. Codes and exits are
+  unchanged.
 - A name komando does not find is worded one way in `error.message`:
   `no server named "web9"`, `no topic named "orders"`, `no cache key
   named "x"` (was `host "web9" not found`, `topic orders does not

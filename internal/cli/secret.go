@@ -553,7 +553,7 @@ unlock it, and an AI agent or a script cannot answer that.`,
 				err := vault.KeyToFile()
 				audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "file"})
 				if err != nil {
-					return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "a person unlocks the keychain on this computer (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring", "%v", err)
+					return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "a person unlocks the keychain on this computer (an AI agent asks the user), then run it again; on Linux it needs secret-tool and a keyring", "%v", err)
 				}
 				out.P.Print("secret.keychain", map[string]any{"key": "store.key"}, nil)
 				return nil
@@ -561,10 +561,10 @@ unlock it, and an AI agent or a script cannot answer that.`,
 			tool, err := vault.KeyToKeychain()
 			audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "keychain"})
 			if errors.Is(err, vault.ErrKeychainTaken) {
-				return out.Errf(out.ExitConflict, "KEYCHAIN_TAKEN", "the store still uses store.key, nothing was lost: put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then try again", "%v", err)
+				return out.Errf(out.ExitConflict, "KEYCHAIN_TAKEN", "put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then run it again", "%v; the store still uses store.key, nothing was lost", err)
 			}
 			if err != nil {
-				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "the store still uses store.key, nothing was lost: a person unlocks the keychain (an AI agent asks the user), then try again; on Linux it needs secret-tool and a keyring", "%v", err)
+				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "a person unlocks the keychain (an AI agent asks the user), then run it again; on Linux it needs secret-tool and a keyring", "%v; the store still uses store.key, nothing was lost", err)
 			}
 			out.P.Print("secret.keychain", map[string]any{"key": "keychain", "keychain": tool, "vault_key_file": "removed"}, nil)
 			return nil

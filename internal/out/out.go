@@ -122,13 +122,13 @@ func DefaultHint(exit int) string {
 	case ExitConnect:
 		return "check that it answers and accepts the login: `komando test TARGET`"
 	case ExitRemote:
-		return "read the message: it carries the server's own words about what failed; fix that, then run the command again"
+		return "read the message: it carries the server's own words about what failed; fix that, then run it again"
 	case ExitPolicy:
 		return "stop and tell the user what you want to do and why; `komando guide` explains the safety stops"
 	case ExitTimeout:
 		return "give it more time with --timeout (for example --timeout 30m), or run long work as a job: `komando job start TARGET -- COMMAND`"
 	case ExitConflict:
-		return "the state is not what the command expected: look at it again, then run the command again"
+		return "the state is not what the command expected: look at it again, then run it again"
 	}
 	return "read the message; `komando doctor` checks this computer's setup"
 }

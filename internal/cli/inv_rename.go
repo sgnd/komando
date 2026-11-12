@@ -201,8 +201,8 @@ func renameVpn(s *store.State, from, to string) (mvResult, error) {
 	}
 	if len(secrets) > 0 && !g.dryRun {
 		if err := vault.RenameMany(secrets); err != nil {
-			return res, out.Errf(out.ExitError, "RENAME_FAILED", "nothing was renamed; check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
-				"the vault cannot rename the VPN's secrets: %v", err)
+			return res, out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
+				"the vault cannot rename the VPN's secrets: %v; nothing was renamed", err)
 		}
 		back := map[string]string{}
 		for old, now := range secrets {
@@ -220,7 +220,7 @@ func renameVpn(s *store.State, from, to string) (mvResult, error) {
 						res.undo()
 						res.undo = nil
 					}
-					return res, out.Errf(out.ExitError, "RENAME_FAILED", "nothing was renamed; check the folder's permissions", "cannot move %s: %v", oldDir, err)
+					return res, out.Errf(out.ExitError, "RENAME_FAILED", "check the folder's permissions", "cannot move %s: %v; nothing was renamed", oldDir, err)
 				}
 			}
 		}

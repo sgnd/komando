@@ -315,7 +315,7 @@ func recipeAddCmd() *cobra.Command {
 					return out.Errf(out.ExitConflict, "RECIPE_EXISTS", "pass --overwrite to replace it", "recipe %q exists", s.Name)
 				}
 				if makesReadOnly(st) && !approved {
-					return out.Errf(out.ExitConflict, "RECIPE_CHANGED", "run the command again",
+					return out.Errf(out.ExitConflict, "RECIPE_CHANGED", "run it again",
 						"recipe %q changed while komando was starting", s.Name)
 				}
 				st.Snippets[s.Name] = s

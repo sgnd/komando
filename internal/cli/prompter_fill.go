@@ -391,7 +391,7 @@ func (f *fill) confirm(filled []string) error {
 // exit 6, like a no at any safety question (S-8.9). Ctrl-C there is
 // promptStopped (CANCELLED, exit 1).
 func promptNo() error {
-	return (&out.Error{Code: "DECLINED", Message: "not run: the person said no", Hint: "nothing was changed", Exit: out.ExitPolicy}).NoFlag().Cancel("Cancelled. Nothing was changed.")
+	return (&out.Error{Code: "DECLINED", Message: "not run: the person said no; nothing was changed", Hint: "run it again to be asked again", Exit: out.ExitPolicy}).NoFlag().Cancel("Cancelled. Nothing was changed.")
 }
 
 // promptStopped is a stop at a question: Ctrl-C, no answer, too many wrong
@@ -402,7 +402,7 @@ func promptStopped(err error) error {
 	if errors.As(err, &oe) || errors.As(err, &done) {
 		return err
 	}
-	return (&out.Error{Code: "CANCELLED", Message: "interrupted", Hint: "nothing was run", Exit: out.ExitError}).Cancel("Stopped.")
+	return (&out.Error{Code: "CANCELLED", Message: "interrupted; nothing was run", Hint: "run it again", Exit: out.ExitError}).Cancel("Stopped.")
 }
 
 // promptConfirmed is what the person said yes to before the command ran
