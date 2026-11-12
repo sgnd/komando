@@ -544,7 +544,19 @@ func newRoot() *cobra.Command {
 	pf.IntVar(&g.maxOutput, "max-output", 0, "bytes kept per stream per server (default: setting, 256KiB)")
 
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
-	// the groups of `komando` alone (personHelp), so --help reads the same
+	addCommands(root)
+	addHelpTopics(root) // and cobra's help command
+	root.InitDefaultCompletionCmd()
+	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
+	applyConventions(root)
+	useShortGlobals(root)
+	addCompletion(root)
+	return root
+}
+
+// addCommands adds komando's commands to root under the groups of
+// `komando` alone (personHelp), so --help reads the same.
+func addCommands(root *cobra.Command) {
 	root.AddGroup(
 		&cobra.Group{ID: "servers", Title: "Servers:"},
 		&cobra.Group{ID: "data", Title: "Data:"},
@@ -567,13 +579,6 @@ func newRoot() *cobra.Command {
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
 	add("setup", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd(), configCmd(), policyCmd(), guideCmd(),
 		promptCmd(), schemaCmd(root), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
-	addHelpTopics(root) // and cobra's help command
-	root.InitDefaultCompletionCmd()
-	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
-	applyConventions(root)
-	useShortGlobals(root)
-	addCompletion(root)
-	return root
 }
 
 // labelBuiltinCmds files cobra's own help and completion commands under
