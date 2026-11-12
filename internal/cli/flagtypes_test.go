@@ -187,3 +187,46 @@ func TestStandardDefaultFrom(t *testing.T) {
 		t.Errorf("schema --timeout: %s", s[strings.Index(s, `"global_flags"`):][:600])
 	}
 }
+
+// S-5.1: KEY=VALUE flags are repeatable, never split on commas, and a
+// second KEY= after a comma is a usage error, never one value.
+func TestStandardKeyValue(t *testing.T) {
+	n := 0
+	walkLeaves(newRoot(), func(path string, f *pflag.Flag) {
+		switch {
+		case f.Name == "label" || f.Name == "option" || f.Name == "env" && strings.HasPrefix(path, "komando host "):
+			n++
+			if _, ok := f.Value.(*kvArray); !ok || f.Value.Type() != "stringArray" {
+				t.Errorf("%s --%s: type %s, want the KEY=VALUE type", path, f.Name, f.Value.Type())
+			}
+		}
+	})
+	if n != 20 {
+		t.Errorf("%d KEY=VALUE flags, want 20 (--env x2, --label x10, --option x8)", n)
+	}
+	var got []string
+	v := &kvArray{p: &got, name: "option"}
+	for _, s := range []string{"a=x,y", "b=", "dsn=host:5432,other"} {
+		if err := v.Set(s); err != nil {
+			t.Errorf("%s: %v", s, err)
+		}
+	}
+	if strings.Join(got, "|") != "a=x,y|b=|dsn=host:5432,other" {
+		t.Errorf("kept %q", got)
+	}
+	invHome(t)
+	e := mainErr(t, "conn", "add", "pg", "postgres://u@10.0.0.9/app", "--option", "sslmode=require,secret_pw=hunter2")
+	if e.Code != "USAGE" || e.Exit != out.ExitUsage || !strings.Contains(e.Message, "repeat --option for each KEY=VALUE") ||
+		e.Message != "--option: sslmode=...,secret_pw=... holds 2 KEY=VALUE pairs; repeat --option for each KEY=VALUE" ||
+		e.Hint != "for example: --option sslmode=... --option secret_pw=..." {
+		t.Errorf("two pairs in one: %+v", e)
+	}
+	if strings.Contains(e.Message+e.Hint, "hunter2") || strings.Contains(e.Message+e.Hint, "require") {
+		t.Errorf("the values are shown: %+v", e)
+	}
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--env", "A=1", "--env", "B=x,y", "--label", "team=ops", "--label", "env=prod")
+	h := mustRun(t, "host", "show", "web1")
+	if s := jsonStr(h); !strings.Contains(s, `"B":"x,y"`) || !strings.Contains(s, `"team":"ops"`) || !strings.Contains(s, `"env":"prod"`) {
+		t.Errorf("host show: %s", s)
+	}
+}

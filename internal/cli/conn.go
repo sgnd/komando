@@ -77,14 +77,14 @@ func (f *connFlags) bind(c *cobra.Command, edit bool) {
 		shortAlias(fl, "group", "g", "add-group")
 		shortAlias(fl, "tag", "t", "add-tag")
 		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove these tags")
-		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (an empty value removes it)")
-		fl.StringSliceVar(&f.options, "option", nil, "set an option of this kind, KEY=VALUE (an empty value removes it)")
+		kvVar(fl, &f.labels, "label", "", "set label KEY=VALUE (an empty value removes it)")
+		kvVar(fl, &f.options, "option", "", "set an option of this kind, KEY=VALUE (an empty value removes it)")
 		fl.StringSliceVar(&f.unset, "unset", nil, "clear these settings: via,password-ref,notes,protected")
 	} else {
 		fl.StringSliceVarP(&f.groups, "group", "g", nil, "put it in these groups (comma-separated)")
 		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, e.g. prod (comma-separated)")
-		fl.StringSliceVar(&f.labels, "label", nil, "label KEY=VALUE (repeatable)")
-		fl.StringSliceVar(&f.options, "option", nil, "an option of this kind, KEY=VALUE (repeatable)")
+		kvVar(fl, &f.labels, "label", "", "label KEY=VALUE (repeatable)")
+		kvVar(fl, &f.options, "option", "", "an option of this kind, KEY=VALUE (repeatable)")
 	}
 }
 

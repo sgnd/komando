@@ -136,6 +136,9 @@ var goldenExtra = [][]string{
 	{"cluster", "shell", "x1", "x2", "sh"},
 	{"cluster", "run", "x1", "get", "pods"},
 	{"cache", "run", "x1", "GET", "k"},
+	// C-F02: two KEY=VALUE pairs in one value (USAGE, exit 2)
+	{"conn", "add", "x1", "postgres://u@10.0.0.9/app", "--option", "a=on,b=x"},
+	{"host", "add", "x1", "u@10.0.0.1", "--env", "A=1,B=2"},
 }
 
 // goldenNoise is what differs between runs and machines, not between

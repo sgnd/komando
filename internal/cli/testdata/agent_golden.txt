@@ -6098,6 +6098,46 @@ exit 2
 --- stdout
 --- stderr
 Error: komando cache run takes the words for the cache after --; nothing was run
+### komando -o json conn add x1 postgres://u@10.0.0.9/app --option a=on,b=x (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"conn.add","error":{"code":"USAGE","message":"--option: a=...,b=... holds 2 KEY=VALUE pairs; repeat --option for each KEY=VALUE","hint":"for example: --option a=... --option b=..."},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text conn add x1 postgres://u@10.0.0.9/app --option a=on,b=x (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: --option: a=...,b=... holds 2 KEY=VALUE pairs; repeat --option for each KEY=VALUE
+### komando -o json conn add x1 postgres://u@10.0.0.9/app --option a=on,b=x (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"conn.add","error":{"code":"USAGE","message":"--option: a=...,b=... holds 2 KEY=VALUE pairs; repeat --option for each KEY=VALUE","hint":"for example: --option a=... --option b=..."},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text conn add x1 postgres://u@10.0.0.9/app --option a=on,b=x (script text)
+exit 2
+--- stdout
+--- stderr
+Error: --option: a=...,b=... holds 2 KEY=VALUE pairs; repeat --option for each KEY=VALUE
+### komando -o json host add x1 u@10.0.0.1 --env A=1,B=2 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.add","error":{"code":"USAGE","message":"--env: A=...,B=... holds 2 KEY=VALUE pairs; repeat --env for each KEY=VALUE","hint":"for example: --env A=... --env B=..."},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host add x1 u@10.0.0.1 --env A=1,B=2 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: --env: A=...,B=... holds 2 KEY=VALUE pairs; repeat --env for each KEY=VALUE
+### komando -o json host add x1 u@10.0.0.1 --env A=1,B=2 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.add","error":{"code":"USAGE","message":"--env: A=...,B=... holds 2 KEY=VALUE pairs; repeat --env for each KEY=VALUE","hint":"for example: --env A=... --env B=..."},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host add x1 u@10.0.0.1 --env A=1,B=2 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: --env: A=...,B=... holds 2 KEY=VALUE pairs; repeat --env for each KEY=VALUE
 ### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6
 --- stdout

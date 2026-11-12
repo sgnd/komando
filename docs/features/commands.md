@@ -168,6 +168,11 @@ Every size flag (`--max-bytes`, `--max-output`) takes bytes (`1048576`)
 or a size with a unit: `256KiB`, `10MB`, `1GB`. KB and KiB both mean
 1024 bytes, MB and MiB both 1024 KiB.
 
+A KEY=VALUE flag (`--env`, `--label`, `--option`) takes one pair each
+time; repeat it for more: `--label team=ops --label env=prod`. A value
+keeps its commas (`--option hosts=a,b`), and a second `KEY=` after a
+comma is refused, so `--option a=on,b=x` is never read as one value.
+
 ## Run a local script
 
 `komando exec TARGET --script FILE` sends a script file from this computer

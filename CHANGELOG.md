@@ -25,6 +25,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- **`--env` (host add/edit), `--label` and `--option` take one KEY=VALUE
+  each time and no longer split on commas.** Repeat the flag for more:
+  `--label team=ops --label env=prod`. A value keeps its commas, and
+  `--option a=on,b=x` (two pairs in one) is now a usage error (exit 2)
+  that shows the repeated form, never one option. `komando schema` lists
+  these flags as `stringArray`.
 - `queue peek/send --partition` and `queue create --partitions/--replicas`
   no longer show `-1` as their default: their help says "default: the
   broker's", and `komando schema` lists no default for them. Leaving them

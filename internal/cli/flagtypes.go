@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +17,9 @@ import (
 // S-5.2, S-5.3 and S-5.7): one duration type, one byte-size type and one
 // optional number. A value that is wrong is refused while the flags are read,
 // with one message per type wherever the flag is.
+
+// flagHint joins a message and its hint in a flag value's error.
+func flagHint(msg, hint string) error { return errors.New(msg + flagHintSep + hint) }
 
 // flagHintSep parts a flag value's error into its message and its hint:
 // pflag puts the error in its own words ("invalid argument ... flag:
@@ -222,4 +227,71 @@ func (v *optInt) check(s string) error { return (&optInt{p: new(int)}).Set(s) }
 func optIntVar(fs *pflag.FlagSet, p *int, name, usage string) {
 	*p = -1
 	fs.Var(&optInt{p}, name, usage)
+}
+
+// kvArray is a KEY=VALUE flag (--env, --label, --option): repeatable, and
+// never split on commas, so a value keeps its commas. A value whose text
+// after a comma starts like KEY= was meant as two flags: that is refused,
+// never read as one value (S-5.1).
+type kvArray struct {
+	p    *[]string
+	name string
+	set  bool
+}
+
+func (v *kvArray) String() string { return "[" + strings.Join(*v.p, ",") + "]" }
+
+func (v *kvArray) Type() string { return "stringArray" }
+
+func (v *kvArray) Set(s string) error {
+	if err := v.check(s); err != nil {
+		return err
+	}
+	if !v.set {
+		*v.p = nil // the first one given replaces the default
+		v.set = true
+	}
+	*v.p = append(*v.p, s)
+	return nil
+}
+
+func (v *kvArray) check(s string) error {
+	parts := strings.Split(s, ",")
+	keys := []string{}
+	for i, p := range parts {
+		if i == 0 || kvStart.MatchString(p) {
+			k, _, _ := strings.Cut(p, "=")
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) < 2 {
+		return nil
+	}
+	// the values are left out of the words: a value may be a password
+	var ex []string
+	for _, k := range keys {
+		ex = append(ex, "--"+v.name+" "+shellQuote(k+"=..."))
+	}
+	return flagHint(fmt.Sprintf("%s=... holds %d KEY=VALUE pairs; repeat --%s for each KEY=VALUE", strings.Join(keys, "=...,"), len(keys), v.name),
+		"for example: "+strings.Join(ex, " "))
+}
+
+// kvStart is the start of a KEY=VALUE pair: a name, then =.
+var kvStart = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.-]*=`)
+
+func (v *kvArray) Append(s string) error { return v.Set(s) }
+func (v *kvArray) Replace(s []string) error {
+	*v.p = nil
+	for _, one := range s {
+		if err := v.Set(one); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (v *kvArray) GetSlice() []string { return *v.p }
+
+// kvVar adds a KEY=VALUE flag.
+func kvVar(fs *pflag.FlagSet, p *[]string, name, short, usage string) {
+	fs.VarP(&kvArray{p: p, name: name}, name, short, usage)
 }
