@@ -20,6 +20,7 @@ import (
 
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -225,15 +226,29 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		}
 		pidFile := filepath.Join(dir, v.Name+".pid")
 		_ = os.Remove(pidFile)
+		// the password and the tunnel's traffic go to these programs: an
+		// agent gets ones in folders only root can change, or a person's yes
+		var refs []string
+		if !interactive && v.KeyRef != "" {
+			refs = []string{v.KeyRef}
+		}
+		ocBin, err := localTool("openconnect", refs)
+		if err != nil {
+			return nil, err
+		}
+		proxyBin, err := localTool("ocproxy", refs)
+		if err != nil {
+			return nil, err
+		}
 		args := []string{"--protocol=" + k.Protocol, "--background", "--pid-file=" + pidFile,
-			"--script-tun", "--script", fmt.Sprintf("ocproxy -D %d", port)}
+			"--script-tun", "--script", fmt.Sprintf("%s -D %d", sshx.Q(proxyBin), port)}
 		if v.User != "" {
 			args = append(args, "--user="+v.User)
 		}
 		if !interactive {
 			args = append(args, "--non-inter", "--passwd-on-stdin")
 		}
-		oc := exec.CommandContext(ctx, "openconnect", append(args, "--", v.Portal)...)
+		oc := exec.CommandContext(ctx, ocBin, append(args, "--", v.Portal)...)
 		if interactive {
 			oc.Stdin, oc.Stdout, oc.Stderr = os.Stdin, os.Stderr, os.Stderr // the login and MFA prompts
 		} else {

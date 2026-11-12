@@ -728,6 +728,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `vpn up` for an AI agent hands the VPN password to openconnect only when
+  openconnect and ocproxy sit in folders only root can change, or a
+  person says yes (SECRET_DESTINATION). Before, an agent could put its
+  own `openconnect` first in PATH and read the password it gets.
 - `user add --key` writes the key as that user, not as root. Before, a
   user who linked `~/.ssh/authorized_keys` to a system file (such as
   /etc/shadow) got a line appended to it and its ownership, and so root.
